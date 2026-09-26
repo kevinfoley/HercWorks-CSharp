@@ -116,8 +116,8 @@ public static class TerrainZoneLoader {
 	/// (<see cref="HeightGrid.DiagonalSelectorAt"/>) are deliberately <i>not</i> written here: every
 	/// assignment in this function masks the flag byte with <c>&amp; 2</c>, preserving bit 1 and
 	/// clearing bit 0, and the cells arrive freshly zeroed. The writer is the per-cell normal builder
-	/// that runs after loading (<c>FUN_0046bed8</c>, driven over the whole grid by
-	/// <c>FUN_0046c1dc</c>), which derives each cell's diagonal from its own corner heights —
+	/// that runs after loading (<c>Terrain_BuildCellSurface</c> (<c>0046bed8</c>), driven over the whole grid by
+	/// <c>Terrain_BuildSurface</c> (<c>0046c1dc</c>)), which derives each cell's diagonal from its own corner heights —
 	/// see <see cref="HeightGrid"/>, which does the same in its constructor.</para>
 	/// </summary>
 	private static HeightGrid PopulateFromBitmap(DynamixBitmap image, int cellShift, int heightScale,

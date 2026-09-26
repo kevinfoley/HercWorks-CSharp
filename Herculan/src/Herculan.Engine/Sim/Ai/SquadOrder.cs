@@ -101,7 +101,7 @@ public enum SquadOrderReply {
 /// </summary>
 public static class SquadOrders {
 	/// <summary>
-	/// <c>FUN_00431610</c> — the [F7] command display's XMIT: one named squadmate, addressed by comm
+	/// <c>Squad_SendOrderToSlot</c> (<c>00431610</c>) — the [F7] command display's XMIT: one named squadmate, addressed by comm
 	/// box. A slot that is empty, that holds the player's own machine, or whose pilot is dead takes
 	/// nothing.
 	/// </summary>
@@ -124,7 +124,7 @@ public static class SquadOrders {
 	}
 
 	/// <summary>
-	/// <c>FUN_004231a4</c>, reached through <c>FUN_0043166c</c> — the MFD FLASH COMM page: the whole
+	/// <c>Squad_BroadcastOrder</c> (<c>004231a4</c>), reached through <c>Squad_BroadcastOrderFromCockpit</c> (<c>0043166c</c>) — the MFD FLASH COMM page: the whole
 	/// of the player's group, best-suited machine first.
 	///
 	/// <para>Each pass scores every member that has not yet been told with

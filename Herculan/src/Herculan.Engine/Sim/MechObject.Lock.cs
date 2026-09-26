@@ -14,7 +14,7 @@ namespace Herculan.Engine.Sim;
 /// the machine's current target</i>. It is cleared and rebuilt every tick, for every machine, by
 /// the block ported here — the player's included, which is why a player's missiles lock in retail
 /// and why <c>Rocket_Fire</c>'s gate on it is a real gate rather than something to skip. The genuine
-/// ammunition count is a separate local array built by <c>FUN_0040fbdc</c>
+/// ammunition count is a separate local array built by <c>WeaponMounts_RoundsByMissileType</c> (<c>0040fbdc</c>)
 /// (<see cref="WeaponMounts.RoundsByMissileType"/>), which this block uses only to decide which
 /// timers to run.</para>
 ///
@@ -181,7 +181,7 @@ public sealed partial class MechObject {
 	/// The target block of <c>Mech_PerTickSystemsUpdate</c>, run once per machine per tick.
 	///
 	/// <para><b>It runs after the sensor model, not before</b> — <c>Sim_MainTick</c> calls
-	/// <c>FUN_004123ac</c> and then walks the mech list calling this, and the order matters because
+	/// <c>Sim_DetectionTick</c> (<c>004123ac</c>) and then walks the mech list calling this, and the order matters because
 	/// the gate below reads the line-of-sight cache that pass maintains. <see cref="SimWorld.Tick"/>
 	/// keeps the same order.</para>
 	///

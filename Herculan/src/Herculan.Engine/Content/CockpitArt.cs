@@ -315,10 +315,10 @@ public sealed class CockpitArt {
 	///
 	/// <para>Bank-to-widget mapping, from the loader functions the bank-name string literals xref to
 	/// in DBSIM: <c>HUD</c> is the gunsight/reticle set (<c>Gau_RovingGunsightWidget</c>, 0043c7d8),
-	/// <c>HUDHTICK</c> the heading tick tape (FUN_0043b57c), <c>MFD</c> the multi-function display
-	/// screen (FUN_00445218, which also owns <c>MFD_DMG</c>, its sensor-dropout wipe, and <c>RADAR</c>),
-	/// <c>THROTTLE</c> the slider knob (FUN_00447b84), <c>PWEAPONS</c> the weapon row plates and console
-	/// buttons and <c>WPN_DMG</c> the weapon rows' underlay and dropout wipe (both FUN_0044080c).</para>
+	/// <c>HUDHTICK</c> the heading tick tape (HudHeadingTape_Ctor, 0043b57c), <c>MFD</c> the multi-function display
+	/// screen (MfdDisplay_Ctor (00445218), which also owns <c>MFD_DMG</c>, its sensor-dropout wipe, and <c>RADAR</c>),
+	/// <c>THROTTLE</c> the slider knob (ThrottleGauge_Ctor, 00447b84), <c>PWEAPONS</c> the weapon row plates and console
+	/// buttons and <c>WPN_DMG</c> the weapon rows' underlay and dropout wipe (both WeaponGauge_Ctor (0044080c)).</para>
 	/// </summary>
 	public HudSpriteSheet? Sprites { get; }
 
@@ -389,7 +389,7 @@ public sealed class CockpitArt {
 
 	/// <summary>
 	/// A weapon row's charge bar, which does <b>not</b> take its colours from <c>COLORS.DAT</c> the
-	/// way <see cref="GaugeColors"/> does: <c>FUN_00442950</c> overwrites the bar's three colour
+	/// way <see cref="GaugeColors"/> does: <c>WeaponChargeBar_Ctor</c> (<c>00442950</c>) overwrites the bar's three colour
 	/// fields with the raw palette indices 32, 34 and 46 immediately after constructing it. So a
 	/// capacitor bar is pinned to fixed palette slots, where the Master Energy Pool's meter follows
 	/// whatever <c>COLORS.DAT</c> ids 6/5/19 resolve to (<see cref="HudColorTable.GaugeFillEvenId"/>).

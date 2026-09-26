@@ -6,8 +6,8 @@ namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// Which of a machine's three condition arrays a repair-bay selection addresses. These are
-/// <c>HercStatus_Get</c>'s own three modes (<c>FUN_00411d06</c>), and the repair screen's
-/// <c>(column, row)</c> pair resolves into one of them through <c>FUN_00433410</c> — so the same
+/// <c>HercStatus_Get</c>'s own three modes (<c>00411d06</c>), and the repair screen's
+/// <c>(column, row)</c> pair resolves into one of them through <c>Repair_HotspotCategory</c> (<c>00433410</c>) — so the same
 /// number is the accessor mode, the cost table to price against, and the list the row belongs to.
 /// </summary>
 public enum ShellRepairCategory {
@@ -34,7 +34,7 @@ public enum ShellRepairCategory {
 ///
 /// <para><b>Two different targets, two different functions.</b> <see cref="HercCost"/> is
 /// <c>Repair_HercCost</c> and prices a rebuild to a target the caller names — 100 everywhere the
-/// screen uses it. <see cref="SelectedItemCost"/> is <c>FUN_00413871</c>, which the detail panel
+/// screen uses it. <see cref="SelectedItemCost"/> is <c>Repair_LevelStepCost</c> (<c>00413871</c>), which the detail panel
 /// quotes for the selected component, and it lifts that component to the floor of the <i>next band
 /// up</i> rather than to 100. They are not two spellings of one figure and the screen shows both at
 /// once.</para>
@@ -129,7 +129,7 @@ public sealed class ShellRepairCosts {
 	}
 
 	/// <summary>
-	/// <c>FUN_00450a84</c> — the Q10 fixed-point multiply the whole cost model is built on. Both of
+	/// <c>FixedMulQ10</c> (<c>00450a84</c>) — the Q10 fixed-point multiply the whole cost model is built on. Both of
 	/// <c>damage.dat</c>'s scale factors are fractions of 1024, not percentages, and a figure that
 	/// looks 2% out is usually this.
 	/// </summary>
@@ -178,7 +178,7 @@ public sealed class ShellRepairCosts {
 		target <= condition ? 0 : (RepairTarget[LevelForCondition(target)] - condition) * unitValue / 100;
 
 	/// <summary>
-	/// <c>FUN_00413871</c> in its <c>param_3 != 0</c> form — the per-item figure the repair screen's
+	/// <c>Repair_LevelStepCost</c> (<c>00413871</c>) in its <c>param_3 != 0</c> form — the per-item figure the repair screen's
 	/// detail panel quotes for whatever is selected.
 	///
 	/// <para><b>It repairs one band, not to full.</b> The target is the floor of the level above the
@@ -232,7 +232,7 @@ public sealed class ShellRepairCosts {
 	}
 
 	/// <summary>
-	/// The detail panel's own cost — <c>FUN_00411454</c>, which picks the unit value for the selection
+	/// The detail panel's own cost — <c>Repair_SelectionCost</c> (<c>00411454</c>), which picks the unit value for the selection
 	/// and then takes <see cref="SelectedItemCost"/> of it. A hardpoint prices against the fitted
 	/// weapon's id rather than against the slot number.
 	/// </summary>

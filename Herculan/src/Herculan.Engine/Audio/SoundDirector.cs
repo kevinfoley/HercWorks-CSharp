@@ -447,7 +447,7 @@ public sealed class SoundDirector : IDisposable {
 
 	/// <summary>
 	/// <c>Sound_SetPitch</c> (<c>00463010</c>) — the playback rate as the original's 16.16 ratio.
-	/// <c>FUN_004328cc</c> uses it to drop the engine loop to <see cref="SoundId.EngineLoopPitch"/>.
+	/// <c>Cockpit_PowerUpSound</c> (<c>004328cc</c>) uses it to drop the engine loop to <see cref="SoundId.EngineLoopPitch"/>.
 	/// </summary>
 	public void SetPitch(int id, int ratioQ16) {
 		if (id < 0 || id >= _pitch.Length) {

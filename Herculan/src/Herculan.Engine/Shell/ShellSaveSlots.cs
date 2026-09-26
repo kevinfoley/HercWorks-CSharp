@@ -10,7 +10,7 @@ namespace Herculan.Engine.Shell;
 /// skipping to the fields it wants (<c>stats.cpp</c>, <c>00430378</c>).
 ///
 /// <para><b>The record is a pilot record plus three fields.</b> Its first 59 bytes are laid out
-/// exactly as <see cref="PilotEntry"/>, because the writer (<c>FUN_0043084c</c>) copies them field for
+/// exactly as <see cref="PilotEntry"/>, because the writer (<c>Stats_StageCurrentGame</c>, <c>0043084c</c>) copies them field for
 /// field out of the player's own record; the salvage pool, the sector and the mission counter follow
 /// at <c>+0x3b</c>, <c>+0x3f</c> and <c>+0x41</c>. That is why the panel can show a pilot's name, skill
 /// and rank beside a career position without reading anything else.</para>

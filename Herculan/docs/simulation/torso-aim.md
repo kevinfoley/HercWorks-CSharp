@@ -114,12 +114,12 @@ ATT flies the turret at the selected target on its own. Its latch is the weapon 
 The block's three cases, in its own order of tests:
 
 1. **Either turret axis non-zero** — the pilot has the turret. Tracking is skipped for the tick and the centring latch is cleared.
-2. **ATT latched, a target selected, and that target's `+0x99` clear** — `FUN_0041b728` takes the target's aim point and hands it to `Cockpit_TargetAnglesFromCameraBone`, which runs both axis ticks itself. Note the liveness test is `+0x99` **alone**: unlike every AI test, a crippled (`+0xa4`) target is still tracked.
+2. **ATT latched, a target selected, and that target's `+0x99` clear** — `Player_ResolveTargetAimPoint` (`0041b728`) takes the target's aim point and hands it to `Cockpit_TargetAnglesFromCameraBone`, which runs both axis ticks itself. Note the liveness test is `+0x99` **alone**: unlike every AI test, a crippled (`+0xa4`) target is still tracked.
 3. **Otherwise** the centring mode or the plain axis ticks, as before.
 
 **Both centring commands turn ATT off.** `Sim_DispatchCommand`'s scancode `0x0e` ([Backspace]) and `0x2b` (`\`) each write `manager+0x14 = 0` alongside their own latch, so a pilot who asks for the turret back keeps it.
 
-**[T] turning ATT off also centres the turret.** Scancode `0x14` toggles the TRACK widget (`FUN_00441f7c`, which is also the console button's whole click action) and then, *only if that turned it off*, runs the same three writes the [Backspace] case does. Clicking TRACK off with the mouse therefore leaves the turret where the tracker had it; pressing [T] brings it home. The asymmetry is the dispatch case's, not the button's.
+**[T] turning ATT off also centres the turret.** Scancode `0x14` toggles the TRACK widget (`ConsoleButtons_ToggleAutoTrack` (`00441f7c`), which is also the console button's whole click action) and then, *only if that turned it off*, runs the same three writes the [Backspace] case does. Clicking TRACK off with the mouse therefore leaves the turret where the tracker had it; pressing [T] brings it home. The asymmetry is the dispatch case's, not the button's.
 
 Toggling it either way announces the new state on the computer's channel — `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED`, both withdrawn before the new one is posted, the same shape as the radar toggle's pair ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#posters)).
 

@@ -13,7 +13,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para>Only the options the preferences panel puts on screen are named here; the remaining bytes
 /// are read and carried, not interpreted. The panel's own reader is
-/// <c>FUN_004571f4</c>, which maps a byte to one of the <c>PRF_ALRT.STR</c> captions —
+/// <c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>), which maps a byte to one of the <c>PRF_ALRT.STR</c> captions —
 /// see <see cref="PreferencesPanel"/>.</para>
 /// </summary>
 public sealed class SimulatorPreferences {

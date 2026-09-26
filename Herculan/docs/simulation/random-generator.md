@@ -12,7 +12,7 @@ An additive lagged Fibonacci generator over a 56-entry table of `short`s with tw
 
 Callers pass the state block's address and mask the result: `& 0xfff` for the terrain material roll and for the explosion's per-component roll. The simulation's shared block is `0x4d261d`; sounds, messages and the cockpit's own effects draw on a [second generator](#the-presentation-generator) instead.
 
-## Seeding — `FUN_00492d7c`
+## Seeding — `Math_RandomSeed` (`00492d7c`)
 
 **The generator has no entropy input of any kind.** The state lives in BSS and is seeded only here, which sets the two cursors to the literals `0x37` and `0x18` and `memmove`s 112 bytes from the static table at `004a6958`. The two functions it calls either side — `00492e3c` and `00492e41` — are both `push ebp; pop ebp; ret`. There is no `srand`, and the image imports no clock function that reaches it.
 
@@ -20,7 +20,7 @@ So **DBSIM replays identically on every run**, up to the one wall-clock path int
 
 ## The presentation generator
 
-`0x4d268f` is the block directly after the simulation's — `0x4d261d + 0x72`, one 56-entry table and its two cursors — and a generator in its own right. The static initialiser `FUN_0045cad8` seeds the two back to back through `FUN_00492d7c` (`0045cbc8`–`0045cbd8`), so both start in the same state and diverge only through their own draws. Every consumer is presentation — sounds, messages, portraits, smoke, cockpit shakes and the sensor dropout — so none of them moves a simulation roll, and a consumer that never runs costs the simulation nothing either.
+`0x4d268f` is the block directly after the simulation's — `0x4d261d + 0x72`, one 56-entry table and its two cursors — and a generator in its own right. The static initialiser `Main_StaticInit` (`0045cad8`) seeds the two back to back through `Math_RandomSeed` (`00492d7c`, called at `0045cbc8`–`0045cbd8`), so both start in the same state and diverge only through their own draws. Every consumer is presentation — sounds, messages, portraits, smoke, cockpit shakes and the sensor dropout — so none of them moves a simulation roll, and a consumer that never runs costs the simulation nothing either.
 
 Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding one:
 
@@ -32,7 +32,7 @@ Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding
 | `0042f9c7` | `TexPoly` vtable slot 8 (`0042f970`) | `next`, one random angle per ring ([Open](#open)) |
 | `0043404e`, `004340cc` | `Cockpit_StartHitShake`, `Cockpit_HitShakeTick` | `(next & 0xffff) % 10`, the palette flash interval |
 | `004340ea` | `Cockpit_HitShakeTick` | `(next & 0xffff) % 5`, the shake step |
-| `00435cb5` | `FUN_00435c48`, the squad port's post | `(next & 0xffff) % variants`, drawn only for two or more |
+| `00435cb5` | `PilotMessagePort_Post` (`00435c48`), the squad port's post | `(next & 0xffff) % variants`, drawn only for two or more |
 | `00436a67` | `MessagePort_PickVariant` | the same |
 | `00438d7f` | `PanelGauge_RollDuration` (`00438d6c`) | `(next & 0xffff) % (hi - lo) + lo`, not drawn when `hi == lo` — the [sensor dropout](../formats/cockpit-hud-widgets.md#sensor-dropout)'s spell lengths |
 | `0044b138` | `HddGauge_PaintPilotFrame` | `next % 3`, discarded — [`../formats/heads-down-display.md`](../formats/heads-down-display.md#the-three-paints) |

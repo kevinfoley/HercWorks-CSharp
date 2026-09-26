@@ -117,7 +117,7 @@ public sealed class CockpitInput {
 	/// on it, and null the moment the pointer leaves. Distinct from <see cref="Pressed"/>, which stays
 	/// armed either way.
 	///
-	/// <para>This is <c>FUN_00452954</c> (<c>00452954</c>), which the symbol table long called
+	/// <para>This is <c>Widget_TrackPressedWidget</c> (<c>00452954</c>), which the symbol table long called
 	/// <c>Widget_OnMouseHover</c> — a misreading. The function early-outs unless
 	/// <c>DAT_0049dbdc</c>, the globally remembered pressed-widget index, is valid, and that global is
 	/// set only by <c>Widget_OnMouseDown</c> and cleared to -1 by <c>Widget_OnMouseUp</c>. It therefore
@@ -216,9 +216,9 @@ public sealed class CockpitInput {
 			var hit = hitTest(e.X, e.Y);
 
 			// A held button's widget depresses and pops back up as the pointer moves on and off it,
-			// which is all FUN_00452954 does. Nothing happens here when no button is held: there is no
+			// which is all Widget_TrackPressedWidget (00452954) does. Nothing happens here when no button is held: there is no
 			// hover state to track, and nothing happens during a capture either — the mouse pump takes
-			// the drag branch instead of calling FUN_00452954 at all, so a captured widget stays down
+			// the drag branch instead of calling Widget_TrackPressedWidget at all, so a captured widget stays down
 			// however far the pointer wanders.
 			if (!_capturing && _pressed is { } armed) {
 				Depressed = hit is { } over && over.Id == armed && over.Surface == _pressedSurface

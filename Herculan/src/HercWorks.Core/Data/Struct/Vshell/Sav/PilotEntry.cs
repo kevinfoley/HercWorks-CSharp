@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.Struct.Vshell.Sav;
 /// <summary>
 /// Bound to PlayerSave — a chunk of save data dealing just with squadmate state, and player state.
 /// Variable-length, 31 bytes plus the name. On-disk layout, with the record's in-memory offsets
-/// (VSHELL's reader is <c>FUN_0040fefc</c>, its mirror writer <c>FUN_0040fd5f</c>):
+/// (VSHELL's reader is <c>FUN_0040fefc</c>, its mirror writer <c>Pilot_Write</c> (<c>0040fd5f</c>)):
 ///   +0x00 - UINT16 - roster id, 0-11: squad index x 4 plus a per-squad shuffle
 ///   +0x02 - UINT16 - name index into esnames.bin, 0-35
 ///           UINT16 - name length, strlen+1

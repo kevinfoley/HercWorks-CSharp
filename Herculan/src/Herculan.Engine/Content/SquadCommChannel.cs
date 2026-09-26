@@ -224,8 +224,8 @@ public sealed class SquadCommChannel {
 
 	/// <summary>
 	/// The name in slot <paramref name="slot"/>, or empty when it is not seated — the box's own
-	/// <c>+0x137</c>, which <c>FUN_0044b900</c> hands out and which the message composer
-	/// (<c>FUN_00435d0c</c>) puts in front of the line the squadmate speaks. <see cref="NoSpeaker"/>
+	/// <c>+0x137</c>, which <c>HddGauge_Name</c> (<c>0044b900</c>) hands out and which the message composer
+	/// (<c>PilotMessagePort_ComposeLine</c>, <c>00435d0c</c>) puts in front of the line the squadmate speaks. <see cref="NoSpeaker"/>
 	/// answers <c>HQ</c>, the composer's fallback for a record naming no object.
 	/// </summary>
 	public string Name(int slot) =>

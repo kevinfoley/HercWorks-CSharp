@@ -4,7 +4,7 @@ Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{Explosion
 
 What happens where a shot lands. An effect is a `dts\EXPLOS.DTS` root standing still at the point of impact, playing its flipbook of billboards ([`../formats/dts-billboards.md`](../formats/dts-billboards.md)) through exactly once — unlike a fire, which loops the same kind of flipbook until it burns out ([`destruction-effects.md`](destruction-effects.md#fire)). Like a tracer or a travelling round it lives in the effect pool (`DAT_004a96a2`) that `Sim_MainTick` walks ahead of the machine list, so nothing can shoot it and nothing collides with it.
 
-## Resources — `FUN_00407b54`
+## Resources — `Explosion_LoadResources` (`00407b54`)
 
 Loaded once at startup:
 
@@ -27,7 +27,7 @@ Retail is 964 bytes: 20 shapes, 22 types, nothing left over. `shapeCount` matche
 
 ### Type row (0x28 bytes)
 
-Reached as `table + typeId * 0x28` (`FUN_00407b20`).
+Reached as `table + typeId * 0x28` (`Explosion_GetTypeRecord`, `00407b20`).
 
 | Offset | Field | Meaning |
 |---|---|---|
@@ -40,11 +40,11 @@ Reached as `table + typeId * 0x28` (`FUN_00407b20`).
 | `+0x24` | `SoundId` | played as `id + 10`; negative is silent |
 | `+0x26` | `ObjectClass` | 0 registers the effect under class tag 2, else 8 |
 
-## Construction — `FUN_00407f1c`
+## Construction — `Explosion_Construct` (`00407f1c`)
 
 `(effect, typeId, worldPoint, ownerObject, playSound)`. Resolves the shape through the two tables, resets the shape instance's frame counter for the type's sequence to 0, loads the countdown from `FrameInterval`, and optionally builds the light and the trail object. `playSound` gates the `SoundId` call, not the effect. What the light is and what it does to a shape is [`../formats/effect-lights.md`](../formats/effect-lights.md).
 
-## Tick — `FUN_0040813c`
+## Tick — `Explosion_TickUpdate` (`0040813c`)
 
 ```
 if (CountdownTimerTick(effect+0x4a) != 0) return alive;   // counter is the short at +0x4b
@@ -67,7 +67,7 @@ Every `PROJ.DAT` record carries three four-entry `ImpactFX` arrays. The shot rec
 |---|---|---|---|
 | 0 | `ImpactFXShield` | a shot the struck facing's shields **fully** absorbed | `Mech_DirectFireHitTest`, base `+0` |
 | 1 | `ImpactFXGround` | a shot ending on **terrain**; also an armour hit that left the struck component in the health band it was already in | `Sim_RaycastObjectList` tail, base `+8`; `Mech_ApplyDirectFireDamage` with `group == 1` |
-| 2 | `ImpactFXArmor` | an armour hit that dropped the component's health band; also the only array the non-mech hit test (`FUN_00405038`) uses | `Mech_ApplyDirectFireDamage` with `group == 2`, base `+0x10` |
+| 2 | `ImpactFXArmor` | an armour hit that dropped the component's health band; also the only array the non-mech hit test (`Base_DirectFireHitTest`, `00405038`) uses | `Mech_ApplyDirectFireDamage` with `group == 2`, base `+0x10` |
 
 **All 27 retail records carry byte-identical `ImpactFXGround` and `ImpactFXArmor` arrays**, so groups 1 and 2 are indistinguishable on real data.
 

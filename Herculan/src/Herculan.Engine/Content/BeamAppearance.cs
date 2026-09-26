@@ -16,7 +16,7 @@ namespace Herculan.Engine.Content;
 /// (<see cref="BeamData"/>), read straight into the table at <c>DAT_004a9888</c> and indexed by the
 /// firing <c>PROJ.DAT</c> record's <b>subtype id</b> — not by weapon id.</item>
 /// <item><c>dba\BEAMTEX.DBA</c>, whose frames become the descriptor table at <c>DAT_004a988c</c>
-/// (<c>FUN_00469f38</c>, twenty bytes each: a UV rect and a texture handle) that the draw indexes
+/// (<c>BitmapArray_PackToAtlas</c> (<c>00469f38</c>), twenty bytes each: a UV rect and a texture handle) that the draw indexes
 /// with the record's third field.</item>
 /// </list>
 ///
@@ -39,7 +39,7 @@ namespace Herculan.Engine.Content;
 /// PBW/BPBW 10, PBW2 1 and the LAS family 88 are all parsed and all ignored; ELF's 104 and ELF2's 99
 /// decide what those two look like. See <see cref="Color"/> and docs/simulation/beam-visuals.md.</para>
 ///
-/// <para><b>There is no alpha.</b> <c>Bullet_FireBurst</c>'s draw passes <c>FUN_00468310</c>'s last
+/// <para><b>There is no alpha.</b> <c>Bullet_FireBurst</c>'s draw passes <c>Raster_DrawPolygon</c> (<c>00468310</c>)'s last
 /// parameter as 0, which selects the span routine's opaque half; the non-zero form is a colour-key
 /// skip of palette index 0, not blending, and the profile contains no index 0 anyway. A beam is an
 /// opaque ribbon over whatever it crosses.</para>

@@ -40,7 +40,7 @@ public sealed class Projectile {
 	private short _animationTimer;
 
 	/// <summary>
-	/// <c>FUN_0040b43c</c> — the shared spawn both dispatches reach, and everything that happens
+	/// <c>Bullet_Fire</c> (<c>0040b43c</c>) — the shared spawn both dispatches reach, and everything that happens
 	/// between the allocation and the object's first tick.
 	/// </summary>
 	/// <param name="projectile">The firing <c>PROJ.DAT</c> record.</param>
@@ -126,7 +126,7 @@ public sealed class Projectile {
 	/// the original keeps no separate one.
 	///
 	/// <para>Reading it settles the rotation if the angles have moved since the last tick, which is
-	/// what the original's draw does too (<c>FUN_00401fe4</c> runs the same dirty-flag rebuild before
+	/// what the original's draw does too (<c>SimObject_InstallModelTransform</c> (<c>00401fe4</c>) runs the same dirty-flag rebuild before
 	/// it installs the model transform). Without it a shot would be drawn unrotated for the frames
 	/// between the tick that spawned it and the tick that first moves it.</para>
 	/// </summary>
@@ -309,7 +309,7 @@ public sealed class Projectile {
 	public int AnimationFrame { get; private set; }
 
 	/// <summary>
-	/// <c>FUN_0040aff0</c> — the plasma cannon's guidance, which is a steer of the shot's own euler
+	/// <c>Bullet_HomingSteer</c> (<c>0040aff0</c>) — the plasma cannon's guidance, which is a steer of the shot's own euler
 	/// angles rather than of a velocity: the bearing to the target is taken in the shot's frame and
 	/// the two aiming angles are moved toward it by at most <see cref="HomingTurnRate"/> per 125 ms,
 	/// then the frame is marked stale so the next step flies the new way.
@@ -335,11 +335,11 @@ public sealed class Projectile {
 		_frameStale = true;
 	}
 
-	/// <summary>The cap <c>FUN_0040aff0</c> puts on how fast a homing shot may turn — <c>0x280</c> per 125 ms.</summary>
+	/// <summary>The cap <c>Bullet_HomingSteer</c> (<c>0040aff0</c>) puts on how fast a homing shot may turn — <c>0x280</c> per 125 ms.</summary>
 	public const short HomingTurnRate = 0x280;
 
 	/// <summary>
-	/// <c>+0x5b</c>, what a homing shot is chasing. Only <c>FUN_0040b5a0</c> ever sets it, and only
+	/// <c>+0x5b</c>, what a homing shot is chasing. Only <c>Bullet_FirePowered</c> (<c>0040b5a0</c>) ever sets it, and only
 	/// for <see cref="PlasmaSubtype"/>, from the firing machine's own selected target.
 	/// </summary>
 	public SimObject? Target { get; internal set; }

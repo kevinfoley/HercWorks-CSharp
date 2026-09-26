@@ -8,7 +8,7 @@ namespace HercWorks.Core.Data.File.Gau;
 ///
 /// Like <see cref="HReticle"/> this is a bare (X,Y) point rather than a corner rect —
 /// <see cref="WidgetBase.Size"/> is unused. The repeater's extent is not in the file: its paint
-/// (<c>FUN_0043f2b0</c>) squares off <c>0x2e</c> units from this point on both axes.
+/// (<c>HudScanner_Paint</c>, <c>0043f2b0</c>) squares off <c>0x2e</c> units from this point on both axes.
 ///
 /// Position varies per herc — APOCA <c>40,27</c>, SAMSON <c>51,5</c>, OGRE <c>67,80</c>, RAZOR
 /// <c>15,20</c> — in the file's own 320-wide space.

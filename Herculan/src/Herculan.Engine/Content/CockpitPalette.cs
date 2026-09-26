@@ -120,7 +120,7 @@ public static class CockpitPalette {
 
 	/// <summary>
 	/// Installs the shield meter's six-entry ring ramp over slots 66-71, reproducing
-	/// <c>ShieldsGauge</c>'s per-frame palette write (<c>FUN_004438f0</c>, called from its paint at
+	/// <c>ShieldsGauge</c>'s per-frame palette write (<c>ShieldsGauge_UpdateRingPalette</c> (<c>004438f0</c>), called from its paint at
 	/// <c>00443730</c>/<c>00443748</c>).
 	///
 	/// <para><b>The shield meter is not drawn — it is lit.</b> The nested concentric rings live in the

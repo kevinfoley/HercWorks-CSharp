@@ -68,7 +68,7 @@ public sealed class SquadMessages {
 	/// A training instruction: the first entry carrying <paramref name="id"/> and, after it, as many
 	/// more entries <b>in file order</b> as the id has — <c>PilotMessagePort_WrapText</c>
 	/// (<c>00436318</c>) takes the count from the id's table slot and steps with
-	/// <c>FUN_004539cc</c>, which returns the string after the one it is given in the loaded file,
+	/// <c>StrTable_NextString</c> (<c>004539cc</c>), which returns the string after the one it is given in the loaded file,
 	/// whatever that string's id. Retail files keep an id's entries together, so the two readings
 	/// agree. Empty when the file has no such id.
 	/// </summary>

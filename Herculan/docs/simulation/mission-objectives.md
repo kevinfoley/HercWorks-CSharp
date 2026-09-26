@@ -41,7 +41,7 @@ The original writes the eleven cases out twice, once for a group subject and onc
 
 **Code 5 has no case in either switch**, and neither does a subject kind above 3. The original leaves its working register untouched, so such a record silently answers whatever the record before it answered. No retail mission reaches either: across the 127 objective records in the 62 `.MSN` files the codes used are 1 (67), 2 (27), 0 (19), 3 (5), 6 (5), 4 (3) and 7 (1), and the subject is a group 92 times, a mech 22 and a structure 13 — never a flyer. 91 records are mandatory and 36 are failure conditions. **Codes 8, 9 and 10 are unused as well**, so the two negations and one of the two data-link readings are exercised by nothing that ships.
 
-**A group's write-off threshold is not the same for both sides** (`FUN_00413920`): a human group is written off at condition tier 3, a Cybrid one only at 4. So "wipe out this Cybrid group" means every machine, and "this convoy did not make it" is answered a tier earlier. The tiers are [`ai-goals.md`](ai-goals.md)'s.
+**A group's write-off threshold is not the same for both sides** (`Group_IsWrittenOff`, `00413920`): a human group is written off at condition tier 3, a Cybrid one only at 4. So "wipe out this Cybrid group" means every machine, and "this convoy did not make it" is answered a tier earlier. The tiers are [`ai-goals.md`](ai-goals.md)'s.
 
 ### Clear of threats — `Mission_IsClearOfThreats` (`004137b4`)
 
@@ -62,7 +62,7 @@ else if (!quiet && outside box)            7
 else                                       EvaluateObjectives()
 ```
 
-The box is block 1's own extent, accumulated as the coordinates are read (`FUN_0041373c`); the Heads-Down Display's map is framed by the same one ([`../formats/heads-down-display.md`](../formats/heads-down-display.md)).
+The box is block 1's own extent, accumulated as the coordinates are read (`Mission_AccumulateBounds`, `0041373c`); the Heads-Down Display's map is framed by the same one ([`../formats/heads-down-display.md`](../formats/heads-down-display.md)).
 
 **`quiet` is the third argument, and it means "just answer the question".** Set, the function skips the 500 ms hold, both box arms and the `SYSTEM.STR` post, and only computes. The poll clears it; the player's own [Q] clears nothing else and sets it — so **a [Q] can never answer 7 or 8**, and a player standing outside the mission box is told how the objectives stand as though they were inside it.
 
@@ -158,7 +158,7 @@ A line holding a single space is not empty and does not stop the count, which is
 
 ## The pause panel — `004561c0`
 
-The status alert's small sibling, and the same behaviour: the same base, the same modal loop, the same `GNL_ALRT.STR` read the same three ways, and **a vtable whose six entries are byte-for-byte the other's**. `FUN_00455908` is the intermediate constructor both go through, which chains `AlertPanel_CtorBase` and installs that vtable; `PausePanel_Ctor` then overwrites the vtable pointer with its own duplicate.
+The status alert's small sibling, and the same behaviour: the same base, the same modal loop, the same `GNL_ALRT.STR` read the same three ways, and **a vtable whose six entries are byte-for-byte the other's**. `StatusAlertPanel_CtorMinimal` (`00455908`) is the intermediate constructor both go through, which chains `AlertPanel_CtorBase` and installs that vtable; `PausePanel_Ctor` then overwrites the vtable pointer with its own duplicate.
 
 What differs is size and arrangement. Two statuses reach it, both as constants from `Sim_DispatchCommand`:
 
@@ -206,7 +206,7 @@ The constructor writes the whole block into `.bss` once, as `value << VideoMode_
 
 | Global | Device | Is |
 |---|---|---|
-| `004d1f84`/`86` | 630 x 278 | the panel's declared size, which is what `FUN_00454f34` centres on the 640x480 screen: origin (5, 101) |
+| `004d1f84`/`86` | 630 x 278 | the panel's declared size, which is what `AlertPanel_CenterRect` (`00454f34`) centres on the 640x480 screen: origin (5, 101) |
 | `004d1f8a`/`8c` | y 0, height 16 | the title bar the title is centred in |
 | `004d1f90`..`96` | 254, 186, 120 x 20 | the button. Its plate art is 2px larger both ways and is blitted at the rect's origin, so it overhangs |
 | `004d1fa0`, `004d1f9c`/`a4` | y 34, pitch and height 20 | the seven objective lines |
@@ -217,23 +217,23 @@ The constructor writes the whole block into `.bss` once, as `value << VideoMode_
 
 **The objective lines are not centred on the panel.** Their rect takes x from `panel+0x04` and `panel+0x0c` — the *absolute* screen pair — where every other rect the constructor builds uses the panel-local one at `+0x1c`/`+0x24`. The labels are centre-aligned, so the text lands `(screenWidth - 630) / 2` pixels right of the panel's centre line while the title and the button sit on it: five pixels at 640x480, and visible against the title in any retail capture.
 
-### Paint — `FUN_00457b58`
+### Paint — `ObjectivesPanel_Paint` (`00457b58`)
 
 Plate at the panel origin, then the title, then the lines, then each widget's own paint. The line loop **skips an empty string rather than leaving its row blank**, and counts only the lines it filled: an eighth non-empty entry is dropped, because the constructor builds seven labels. Block 13 has ten slots, but row #4's sub-array A fills one to four of them across the 62 `.MSN` files ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#row-4-field-decode--the-missions-text-package-dat_00470668-144-bytesrecord)), so nothing authored reaches the cap.
 
-Every label is centre-aligned and placed by `Label_SetRect`/`Label_SetText` ([`../formats/mfd.md`](../formats/mfd.md#label-placement)). The title draws in `title`, the lines in `cpylw`. The button's caption label is constructed in `cpylw` too and never drawn in it: a button's paint (`FUN_00454ff8`) overwrites the label's font from its own four-entry table every time, so the caption is `active` at rest and `pushed` while held — which is why RETURN reads grey against yellow objective text.
+Every label is centre-aligned and placed by `Label_SetRect`/`Label_SetText` ([`../formats/mfd.md`](../formats/mfd.md#label-placement)). The title draws in `title`, the lines in `cpylw`. The button's caption label is constructed in `cpylw` too and never drawn in it: a button's paint (`PanelButton_Paint`, `00454ff8`) overwrites the label's font from its own four-entry table every time, so the caption is `active` at rest and `pushed` while held — which is why RETURN reads grey against yellow objective text.
 
-### The loop — `FUN_00457ae4`
+### The loop — `ObjectivesPanel_RunModal` (`00457ae4`)
 
-Poll input, hand the event to the panel's key handler, repaint the widgets, present; repeat until the close flag is set. **It never calls the sim tick**, and entering (`FUN_00454630`) pauses both message ports and saves the framebuffer — so the cockpit behind the panel is frozen, not merely undrawn. Input the loop polls is still dispatched to the cockpit's own widget tree and to the player's machine by `Input_BuildPlayerDevice`, so piloting keys are not swallowed; with the tick stopped they just have nothing to act on.
+Poll input, hand the event to the panel's key handler, repaint the widgets, present; repeat until the close flag is set. **It never calls the sim tick**, and entering (`AlertPanel_Enter`, `00454630`) pauses both message ports and saves the framebuffer — so the cockpit behind the panel is frozen, not merely undrawn. Input the loop polls is still dispatched to the cockpit's own widget tree and to the player's machine by `Input_BuildPlayerDevice`, so piloting keys are not swallowed; with the tick stopped they just have nothing to act on.
 
-What closes it, from `FUN_00454e10`:
+What closes it, from `AlertPanel_HandleEvent` (`00454e10`):
 
 | | |
 |---|---|
 | [Return], or joystick button 1 | presses the focused widget, which the loop set to widget 0 before its first pass |
 | [Esc] | presses the panel's cancel widget, `+0x2fb`, which the constructor also sets to widget 0 |
-| a click on RETURN | `FUN_00455080` forwards to the panel's `+0x0c` slot (`FUN_00457c30`), which sets the flag when the clicked child is child 0 |
+| a click on RETURN | `PanelButton_OnClick` (`00455080`) forwards to the panel's `+0x0c` slot (`ObjectivesPanel_OnChildClick`, `00457c30`), which sets the flag when the clicked child is child 0 |
 | [Tab] / [Shift+Tab], or joystick button 2 | walk the focus. With one widget they land back on it |
 
 ## The player think's objective arms

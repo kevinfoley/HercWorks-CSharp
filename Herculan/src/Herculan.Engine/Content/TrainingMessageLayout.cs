@@ -17,7 +17,7 @@ namespace Herculan.Engine.Content;
 public readonly record struct TrainingMessageLayout(int Top) {
 	/// <summary>
 	/// The font — <c>ColorSchemePanels[10]</c>, <c>WHITE</c>, which the port's constructor
-	/// (<c>FUN_00436244</c>) stores at <c>+0x4df</c> from <c>0049b0d4</c>.
+	/// (<c>TrainingMessagePort_Ctor</c>, <c>00436244</c>) stores at <c>+0x4df</c> from <c>0049b0d4</c>.
 	/// </summary>
 	public const string Font = "WHITE";
 

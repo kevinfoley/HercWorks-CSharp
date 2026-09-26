@@ -12,15 +12,15 @@ namespace Herculan.Engine.Render;
 /// (<c>0040bc14</c>), the tracer class's own paint method.
 ///
 /// <para><b>What the original does.</b> It brings the tracer's two stored points into view space,
-/// clips the pair against the near plane (<c>FUN_0040bb4c</c>), projects both to screen, and then
+/// clips the pair against the near plane (<c>Beam_ClipSegmentToNearPlane</c>, <c>0040bb4c</c>), projects both to screen, and then
 /// builds a four-vertex poly by stepping each screen point along the 2D perpendicular of the segment
 /// by that end's own projected half-width — <c>(halfWidth &lt;&lt; shift) / viewZ</c>, floored at two
 /// pixels, which floors the <i>half</i>-width and so keeps a beam four pixels across at worst. The
 /// quad's UVs put the profile frame's u across the beam's <i>length</i> and its v across the width,
 /// and nothing writes a z, so it is drawn flat over what is already there.</para>
 ///
-/// <para><b>The fill is a plain texture copy.</b> The poly goes to <c>FUN_00468310</c> as mode
-/// <c>0</c> with its last argument zero, which selects <c>FUN_0046ab10</c>'s opaque half: fetch
+/// <para><b>The fill is a plain texture copy.</b> The poly goes to <c>Raster_DrawPolygon</c> (<c>00468310</c>) as mode
+/// <c>0</c> with its last argument zero, which selects <c>Raster_SpanTextured</c> (<c>0046ab10</c>)'s opaque half: fetch
 /// <c>atlasPage[v][u]</c>, store that palette byte, step the fixed-point u/v, repeat. No shade level,
 /// no colour lookup, no transparency test, no blending of any kind — so the fragment shader here is
 /// the same single texture fetch, and the profile is uploaded fully opaque. See
@@ -237,7 +237,7 @@ public sealed class BeamRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040bb4c</c>, the tracer's own near-plane clip, which the original runs on the pair of
+	/// <c>Beam_ClipSegmentToNearPlane</c> (<c>0040bb4c</c>), the tracer's own near-plane clip, which the original runs on the pair of
 	/// view-space points before it projects either. It matters more here than anywhere else in the
 	/// renderer: a beam starts at a hardpoint that is often <i>behind</i> the eye node, and an endpoint
 	/// behind the plane projects with a negative w — which puts the muzzle end of the quad on the

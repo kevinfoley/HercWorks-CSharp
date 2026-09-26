@@ -155,7 +155,7 @@ public class CockpitInputTests {
 	}
 
 	/// <summary>
-	/// <c>FUN_00452954</c>'s whole behaviour: a held widget draws depressed, pops back up when the
+	/// <c>Widget_TrackPressedWidget</c> (<c>00452954</c>)'s whole behaviour: a held widget draws depressed, pops back up when the
 	/// pointer slides off it, and depresses again when it comes back — all while the press stays armed.
 	/// </summary>
 	[Fact]

@@ -34,7 +34,7 @@ public sealed class ShapeInstance {
 
 	/// <summary>
 	/// Adds a thread playing <paramref name="sequence"/> from its first frame, stopped —
-	/// <c>FUN_00402374</c>, which builds the thread, cuts it to the sequence, sets its rate to zero
+	/// <c>ShapeInst_AddThread</c> (<c>00402374</c>), which builds the thread, cuts it to the sequence, sets its rate to zero
 	/// and registers it on the shape instance (<c>FUN_00478930</c>). A caller that wants the thread
 	/// running sets <see cref="AnimationThread.Rate"/> itself, as the locomotion tick does.
 	/// </summary>

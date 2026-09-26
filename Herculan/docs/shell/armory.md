@@ -4,7 +4,7 @@ What the shell does with the numbers in [`../formats/herc-catalogs.md`](../forma
 
 ## One currency, two units
 
-There is a single resource — **salvage** — and it lives in one pool at `00482af4`, seeded at career start ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--fun_0040e2ed)) and spent on everything below.
+There is a single resource — **salvage** — and it lives in one pool at `00482af4`, seeded at career start ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed)) and spent on everything below.
 
 **The pool is in kilograms and every screen prints tons.** The crew screen divides by 1000 before formatting against `estext.bin` `0x2f` (`Tons`), and the two catalog price fields are stored in tons and multiplied by 1000 when charged:
 
@@ -63,7 +63,7 @@ Two six-entry `int16` tables in the image drive the whole thing:
 
 ### What one repair level costs
 
-`FUN_00413871(unitValue, condition, mode)` prices a **single step up the ladder**, and it is what the repair screen quotes for whatever the player has selected — reached through `FUN_00411454(herc, category, index)`, which picks the unit value for the selection and, for a hardpoint, keys the weapon table by the fitted weapon's id rather than by the slot number.
+`Repair_LevelStepCost(unitValue, condition, mode)` (`00413871`) prices a **single step up the ladder**, and it is what the repair screen quotes for whatever the player has selected — reached through `Repair_SelectionCost(herc, category, index)` (`00411454`), which picks the unit value for the selection and, for a hardpoint, keys the weapon table by the fitted weapon's id rather than by the slot number.
 
 With `mode` set — the only form the shell uses — the target is the floor of the level *above* the one the component is in, and only a component already at level 0 is priced all the way to 100:
 
@@ -88,9 +88,9 @@ The debrief charges repairs through `FUN_0040e804`, which runs `Repair_Auto` ove
 
 `Herc_ScrapValue` (`00413b50`) values a machine by summing `condition * unitValue / 100` over the six external groups and the nine internals, plus the value of each mount too damaged to return to stock. Condition is the multiplier, so a healthy machine is worth more than a wrecked one — this is a yield, not a repair bill (`estext.bin` `0x43` `Salvage Available:`, `0xcc` `This herc will yield`).
 
-`Herc_StripMounts` (`00411795`) decides what survives: a mount at **80 condition or better goes back into armory stock** through `FUN_00411efd`, and anything below is destroyed. `Herc_ScrapValue`'s mount loop counts exactly the complement — the ones under 80 — so a returned weapon is credited as inventory rather than as salvage.
+`Herc_StripMounts` (`00411795`) decides what survives: a mount at **80 condition or better goes back into armory stock** through `Armory_AddUnit` (`00411efd`), and anything below is destroyed. `Herc_ScrapValue`'s mount loop counts exactly the complement — the ones under 80 — so a returned weapon is credited as inventory rather than as salvage.
 
-At debrief `FUN_00410c7c` applies the same judgement to the machine itself: below 30 average condition it is scrapped out of the hangar for its value and the hangar count drops; at 30 or above only the overall-condition slot is reset to 100.
+At debrief `Herc_SettleAfterMission` (`00410c7c`) applies the same judgement to the machine itself: below 30 average condition it is scrapped out of the hangar for its value and the hangar count drops; at 30 or above only the overall-condition slot is reset to 100.
 
 **The under-construction branch of `Herc_ScrapValue` pays nothing or everything.** For a machine whose `+0x4a` is below 100 the value is `((100 - +0x4a) / 100) * price * 1000`, and that integer division yields 0 for every progress figure from 1 to 99 — only an untouched 0% chassis returns anything, and it returns the full price. The intended form is almost certainly `(100 - +0x4a) * price * 1000 / 100`.
 

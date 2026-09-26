@@ -3,20 +3,20 @@
 How a stick reaches the simulation: the device layer that reads the hardware, the twelve bytes of `data\prefs.cfg` that say what each control does, and the per-frame build that turns one into the other. The two panels that *edit* those twelve bytes are [`../simulation/preferences.md`](../simulation/preferences.md)'s; this document owns everything below them. Mouse routing and keyboard command codes are [`cockpit-input.md`](cockpit-input.md)'s.
 
 ```
-joyGetDevCapsA / joyGetPosEx     FUN_00477568 / FUN_00477614
+joyGetDevCapsA / joyGetPosEx     Joystick_Enumerate (00477568) / Joystick_Poll (00477614)
   -> raw X, Y, Z, R + POV + buttons, two devices merged
-  -> FUN_00477750                normalise each axis to +/-0x80
-  -> FUN_0045c314                deadzone and the squared response curve, to +/-0x100
-  -> FUN_0045ba8c                the device block at DAT_004d247a
-  -> Input_BuildPlayerDevice     apply the bindings; write the four game axes and eight buttons
-  -> Sim_PollPlayerInput         the control laws, and the button action switch
+  -> Joystick_NormaliseAxes (00477750)       normalise each axis to +/-0x80
+  -> Joystick_ReadWithResponse (0045c314)    deadzone and the squared response curve, to +/-0x100
+  -> FUN_0045ba8c                            the device block at DAT_004d247a
+  -> Input_BuildPlayerDevice                 apply the bindings; write the four game axes and eight buttons
+  -> Sim_PollPlayerInput                     the control laws, and the button action switch
 ```
 
 **The bindings name no hardware.** Four bytes say which *pair of game axes* each control feeds and eight say which *action* each button fires. Nothing in the file identifies a device, an axis number or a HID usage — which is why the file survives a change of input backend intact, and why the engine's port needs a side-car of its own for the step retail never had to take.
 
 ## Reading the hardware
 
-`FUN_00477568` enumerates with `joyGetDevCapsA` over joystick ids **0 and 1 only**, filling a `JOYCAPS` per device at `DAT_006bb3fc` (stride `0x194`) and stamping each one's `MMRESULT` at `DAT_006bb724`. `FUN_00477614` then polls both with `joyGetPosEx` into `JOYINFOEX` blocks at `DAT_006bb394` (stride 52), `dwFlags` fixed at `0xccf`:
+`Joystick_Enumerate` (`00477568`) enumerates with `joyGetDevCapsA` over joystick ids **0 and 1 only**, filling a `JOYCAPS` per device at `DAT_006bb3fc` (stride `0x194`) and stamping each one's `MMRESULT` at `DAT_006bb724`. `Joystick_Poll` (`00477614`) then polls both with `joyGetPosEx` into `JOYINFOEX` blocks at `DAT_006bb394` (stride 52), `dwFlags` fixed at `0xccf`:
 
 | Bit | Flag | |
 |---|---|---|
@@ -44,9 +44,9 @@ There is no calibration of the game's own: `JOYCAPS`' `wXmin`/`wXmax` are never 
 
 Two steps, and reading only the first of them is the trap that costs a factor of two.
 
-`FUN_00477750` maps a raw reading onto a signed byte: `(raw << 8) / 0xffff - 0x80`, so an axis arrives spanning `-0x80..+0x7f`. The width comes from the device object's resolution field (`+0x16`), which `FUN_004774d0` sets to 7.
+`Joystick_NormaliseAxes` (`00477750`) maps a raw reading onto a signed byte: `(raw << 8) / 0xffff - 0x80`, so an axis arrives spanning `-0x80..+0x7f`. The width comes from the device object's resolution field (`+0x16`), which `FUN_004774d0` sets to 7.
 
-`FUN_0045c314` then applies the deadzone and a **response curve** selected by the object's `+0x28`. The joystick is constructed as `FUN_0045c27c(obj, 3, 0x201, 0xf, 1)` by `FUN_00459dd4` — that last argument is `+0x28`, so a joystick is always **mode 1, the squared curve**:
+`Joystick_ReadWithResponse` (`0045c314`) then applies the deadzone and a **response curve** selected by the object's `+0x28`. The joystick is constructed as `JoystickDevice_Ctor(obj, 3, 0x201, 0xf, 1)` (`0045c27c`) by `Joystick_InitAndSeedBindings` (`00459dd4`) — that last argument is `+0x28`, so a joystick is always **mode 1, the squared curve**:
 
 ```
 span = (1 << 7) - 0x19                  = 103        // deadzone 0x19 subtracted, not rescaled away
@@ -70,7 +70,7 @@ Eight bytes rebuilt on every call, and the whole of what any caller is told abou
 | `+5` | has a rudder | `wCaps & JOYCAPS_HASR`, or the same |
 | `+6` | has a hat | `wCaps & JOYCAPS_HASPOV` |
 
-Field `+0` never being 0 is why the presence test is `FUN_0045c508(3)` — a lookup into the device table at `DAT_004d24ec` — rather than a field of this block. The CONTROLS panel's use of the block is [`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block); the throttle row also reaches `+4` through `Input_SetThrottleLeverMode`.
+Field `+0` never being 0 is why the presence test is `Input_GetDevice(3)` (`0045c508`) — a lookup into the device table at `DAT_004d24ec` — rather than a field of this block. The CONTROLS panel's use of the block is [`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block); the throttle row also reaches `+4` through `Input_SetThrottleLeverMode`.
 
 ## Sources and destinations — `Input_BuildSourceTable` (`0045a5c0`)
 
@@ -125,7 +125,7 @@ Each of the eight destination bytes takes its device button OR'd with whatever k
 
 That scan reads `SimOptions[0x11 + i]` — a **literal** `0x11` at `0045b22b`, the walking block's first button row, where the dispatch one step later correctly uses `ControlsOptionBase + 4`. In a RAZOR the trigger is therefore found through the walker's bindings.
 
-**Everything else is press-once.** `Sim_PollPlayerInput` (`00460764`) walks the eight bytes and switches on `SimOptions[ControlsOptionBase + 4 + i]`; acting on one calls `FUN_0045b718`, which latches it, and the next `Input_BuildPlayerDevice` masks that button to zero until the player lets go. Holding a button repeats nothing.
+**Everything else is press-once.** `Sim_PollPlayerInput` (`00460764`) walks the eight bytes and switches on `SimOptions[ControlsOptionBase + 4 + i]`; acting on one calls `Input_LatchButton` (`0045b718`), which latches it, and the next `Input_BuildPlayerDevice` masks that button to zero until the player lets go. Holding a button repeats nothing.
 
 The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 
@@ -161,7 +161,7 @@ The case picks between F7 and [Esc] on `CockpitViewManager_Published` (`00429820
 
 ## `data\keyjoy.cfg`
 
-The only part of the input configuration outside `prefs.cfg`. `FUN_0045b78c` reads it once with four `GetPrivateProfileStringA` calls against section `[Keyjoy]`, each a case-insensitive compare against the word `Reverse` — anything else, the shipped `Default` included, leaves the flag clear. Nothing writes it; retail ships it with its own explanatory comments for the player to edit.
+The only part of the input configuration outside `prefs.cfg`. `Keyjoy_LoadConfig` (`0045b78c`) reads it once with four `GetPrivateProfileStringA` calls against section `[Keyjoy]`, each a case-insensitive compare against the word `Reverse` — anything else, the shipped `Default` included, leaves the flag clear. Nothing writes it; retail ships it with its own explanatory comments for the player to edit.
 
 | Key | Global | Inverts |
 |---|---|---|
@@ -220,10 +220,10 @@ The mode travels as the *magnitude* of `ThrottleLever` (`MechControls.ThrottleLe
 
 | Reading | Why it is wrong |
 |---|---|
-| The deadzone is a linear rescale, so a joystick axis spans `±0x80` | That is response mode 0/2's arm, and `FUN_0045c314` skips it for mode 1. `FUN_00459dd4` builds the joystick with mode 1, the squared curve, whose full deflection is `103²/41 = 258`. At `±0x80` a stick would turn at the keyboard's rate rather than twice it, and a throttle lever could neither idle nor open fully, `Mech_ApplyThrottleInput`'s absolute read being `\|axis − 0x100\| × 2` |
+| The deadzone is a linear rescale, so a joystick axis spans `±0x80` | That is response mode 0/2's arm, and `Joystick_ReadWithResponse` (`0045c314`) skips it for mode 1. `Joystick_InitAndSeedBindings` (`00459dd4`) builds the joystick with mode 1, the squared curve, whose full deflection is `103²/41 = 258`. At `±0x80` a stick would turn at the keyboard's rate rather than twice it, and a throttle lever could neither idle nor open fully, `Mech_ApplyThrottleInput`'s absolute read being `\|axis − 0x100\| × 2` |
 | A binding byte names an axis or a button on the device | It names a *destination* — which pair of game axes, or which action code. The device's own layout is fixed in the reading code and stored nowhere |
 | The four axis rows each have their own meaning for 0, 1 and 2 | The numbers are the same three destinations on all four rows; only the words differ, because a one-axis control reaches half of a pair and the stick reaches both |
 | The hat's VIEWS setting is dead because nothing reads `DAT_004d2368`-`236b` by name | `CockpitView_PollViewDevice` reads them off the device-struct pointer `Sim_PollPlayerInput` hands it, at `+0x1e`..`+0x21`, which produces no direct address reference |
 | A second joystick is a second controller | It is a donor. Its X and Y stand in for a throttle and rudder the first stick lacks, and its buttons are OR'd into the first's mask |
 | A `winmm` backend would identify the throttle, `dwZpos` being semantic where an ordered array is not | It is not: for a device whose `JOYCAPS.wCaps` reports only X, Y, Z and R — `0x33` on a T.Flight — GLFW enumerates those same four in that same order, so winmm's `Z` *is* GLFW's axis 2 and the mapping is identical. A platform-specific dependency for no behavioural difference |
-| `Input_QueryCapabilities`' `+0` says whether a stick is present | It is 1 or 2 and never 0. Presence is `FUN_0045c508(3)`, a lookup in the device table |
+| `Input_QueryCapabilities`' `+0` says whether a stick is present | It is 1 or 2 and never 0. Presence is `Input_GetDevice(3)` (`0045c508`), a lookup in the device table |

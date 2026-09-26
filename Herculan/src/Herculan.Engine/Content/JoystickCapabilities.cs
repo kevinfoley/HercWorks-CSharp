@@ -1,11 +1,11 @@
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// What the input layer reports a stick can do — the eight-byte block <c>FUN_004777f8</c>
+/// What the input layer reports a stick can do — the eight-byte block <c>Input_QueryCapabilities</c> (<c>004777f8</c>)
 /// (<c>DAT_006bb72c</c>) rebuilds on every call, and the whole of what the CONTROLS panel greys its
 /// rows against.
 ///
-/// <para>The panel reaches it in two steps. <c>FUN_0045c508(3)</c> is asked first, and when it comes
+/// <para>The panel reaches it in two steps. <c>Input_GetDevice(3)</c> (<c>0045c508</c>) is asked first, and when it comes
 /// back null or with its low bit clear the panel takes <b>no</b> capability block at all and
 /// disables all twelve rows at once — which is what a modern USB stick the retail code cannot
 /// enumerate produces, and what the reference capture shows. Only past that gate does it read the

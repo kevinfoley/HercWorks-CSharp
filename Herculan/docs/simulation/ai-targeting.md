@@ -4,7 +4,7 @@ How an AI machine acquires, shares, keeps and abandons a target.
 
 [`ai-dispatch.md`](ai-dispatch.md) owns the 22 behaviour states, the descriptor layout, the `mech+0x4d` behaviour block and the three vtable dispatchers; state indices, descriptor addresses and descriptor flag bits are cited from there. [`target-selection.md`](target-selection.md) owns `mech+0x1a4` itself, the sensor model that decides what is *known*, and the player's own selection, which is made in the cockpit and never by this code.
 
-`Ai_SelectTarget` is not mech-only: structures call it too — `FUN_00404100` with mask `0x30` and `FUN_004045c8` with mask `0x10` inside a `0x3000` cone — so it is the sim's one target-acquisition routine.
+`Ai_SelectTarget` is not mech-only: structures call it too — `Base_ArmedThinkTick` (`00404100`) with mask `0x30` and `FUN_004045c8` with mask `0x10` inside a `0x3000` cone — so it is the sim's one target-acquisition routine.
 
 ## The writers of `+0x1a4`
 
@@ -42,7 +42,7 @@ All of them maintain the target's `+0x1a2` holder count and raise `mech+0x9d` th
 | `0x02` | Suppress the "it is shooting at me" weight | `Mech_BehaviourRamThink` (`6`) |
 | `0x04` | Suppress the crowding divisor | `Mech_BehaviourRamThink`, `Mech_AiOnTakingFire` (`0x24`) |
 | `0x10` | Reject candidates of this machine's own class, through `Ai_IsTargetable` | the two structure call sites |
-| `0x20` | Ignore bearing: score on range alone | `Mech_AiOnTakingFire`, `FUN_00404100` |
+| `0x20` | Ignore bearing: score on range alone | `Mech_AiOnTakingFire`, `Base_ArmedThinkTick` (`00404100`) |
 
 **The tier** is a coarse bar applied before scoring: `2 * designated + alive`, where *designated* means `Group_IsOrderTarget` (`00423918`) and a group order verb of 0, and *alive* is the usual `+0xa5`/`+0xa4`/`+0x99` triple. The bar starts at 1 and drops to 0 when the group order verb is 3 (patrolling). With `mask & 1` clear every candidate counts as designated, so the bar only bites for the callers that set the bit. A candidate whose `+0xa4` is set is skipped outright **unless it is the designated target and this machine is Cybrid** — human-side machines leave a crippled target alone, Cybrids finish it.
 
@@ -77,7 +77,7 @@ All four of those tests read the **candidate's** `+0x1a4` off the shared base, s
 
 **`Mech_CompareCombatRating` (`0041cabc`, mech vtable `+0x4c`)** returns the index those three weight tables share: **0** this machine's rating is the higher, **1** the two are within 400, **2** the candidate's is higher. It returns 0 for every non-HERC *candidate*, so a machine scores a structure or a flyer against column 0.
 
-The slot is dispatched on the **asker**, though, and only the HERC class fills it with that function: the structure and flyer tables both install `FUN_00411ac0`, a bare `return 1`. So a base turret and a Cybrid aircraft score every candidate against **column 1** — the middle of each table — however the ratings actually compare.
+The slot is dispatched on the **asker**, though, and only the HERC class fills it with that function: the structure and flyer tables both install `SimObject_CompareCombatRatingStub` (`00411ac0`), a bare `return 1`. So a base turret and a Cybrid aircraft score every candidate against **column 1** — the middle of each table — however the ratings actually compare.
 
 Both ratings are jittered before the comparison, and the jitter is `rand & 1000` where `rand % 1000` was plainly meant: `AND AX,0x3e8` at `0041cadd` and `0041caf8`. Masking against `0x3e8` can only produce the 32 values that are subsets of its bits, so the jitter spans 0–1000 but lands on very few of them.
 
@@ -99,7 +99,7 @@ The weapon term reads the mount's own `+0x1c`, which `WeaponMount_CtorBase` (`00
 
 ## Passing a contact on
 
-`Mech_AiOnTakingFire` routes the attacker through `Detection_ShareContact` (`00412704`, via the thin `00411aec`), the same function the sensor sweep uses — see [`target-selection.md`](target-selection.md#the-sensor-model--fun_004123ac). **Being shot is a way of being spotted**: the whole side within 100000 of the attacker learns where it is, whether or not anyone had line of sight.
+`Mech_AiOnTakingFire` routes the attacker through `Detection_ShareContact` (`00412704`, via the thin `00411aec`), the same function the sensor sweep uses — see [`target-selection.md`](target-selection.md#the-sensor-model--sim_detectiontick-004123ac). **Being shot is a way of being spotted**: the whole side within 100000 of the attacker learns where it is, whether or not anyone had line of sight.
 
 ## Taking fire — `Mech_AiOnTakingFire` (`0041f7b8`, mech vtable `+0x50`)
 

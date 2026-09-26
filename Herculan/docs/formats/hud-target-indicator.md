@@ -8,7 +8,7 @@ Engine implementation: `Herculan.Engine.Content.{TargetBox, TargetIndicator}`, `
 
 | Step | Symbol | What it does |
 |---|---|---|
-| 1 | `Player_PerFrameCockpitUpdate` (`0041b130`) | Computes the target's world aim point via `FUN_0041b728` and parks it at `CockpitView+0x26c`..`+0x27e` (`FUN_00434a24`) |
+| 1 | `Player_PerFrameCockpitUpdate` (`0041b130`) | Computes the target's world aim point via `Player_ResolveTargetAimPoint` (`0041b728`) and parks it at `CockpitView+0x26c`..`+0x27e` (`CockpitView_SetTargetBlock`, `00434a24`) |
 | 2 | `Gunsight_UpdateAndPaint` (`0043d6dc`, gunsight vtable `+8`) | Reads that block back into the gunsight's own state block at `+0xb1` |
 | 3 | `Gunsight_SetValues` (`0043d98c`) | Copies the state block into children 4 and 5 (`+0xe7`, `+0xeb`) |
 
@@ -26,7 +26,7 @@ The 38-byte state block, offsets from the gunsight's `+0xb1` and from a child's 
 | 36 | **Indicator armed.** Set to 1 by all three selection entry points and never cleared; the box's paint refuses to draw until it is set |
 | 37 | `mech+0x9b`, missile lock |
 
-`FUN_0041b728` has two branches. With a Targeting Pod fitted (`mech+0x30b`) and the target inside 30000 units — 180 m, the manual's "close range" — it hands off to `TargetingPod_ResolveAimPoint` (`0040e4dc`) for a component aim point and a component id; otherwise it takes the target's vtable `+0x24` aim node and writes 0 to the component id. The pod side is [`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod)'s.
+`Player_ResolveTargetAimPoint` has two branches. With a Targeting Pod fitted (`mech+0x30b`) and the target inside 30000 units — 180 m, the manual's "close range" — it hands off to `TargetingPod_ResolveAimPoint` (`0040e4dc`) for a component aim point and a component id; otherwise it takes the target's vtable `+0x24` aim node and writes 0 to the component id. The pod side is [`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod)'s.
 
 ## Child 4 — the reticle
 
@@ -42,7 +42,7 @@ The 38-byte state block, offsets from the gunsight's `+0xb1` and from a child's 
 
 ## Child 5 — the box and the arrow
 
-`FUN_0043b928` ctor, painted by `FUN_0043b950`. Two independent tests on the same projected point; either, both or neither piece is drawn.
+`Gunsight_TargetIndicator_Ctor` (`0043b928`) ctor, painted by `Gunsight_TargetIndicatorPaint` (`0043b950`). Two independent tests on the same projected point; either, both or neither piece is drawn.
 
 The aim point is transformed to view space (`FUN_0048c470`), projected (`Raster_PerspectiveDivide`, `Raster_ProjectToScreen`) and compared against the reticle point. A depth inside the view's near plane (`view+0x1e`) marks it **behind**: no box, and the arrow's direction comes from re-projecting the synthetic view-space point `(±10000, 1024, 0)` whose sign is the real point's own view-space x — 5000 device pixels to one side of the reticle on its own row, so the arrow points level left or right.
 
@@ -52,7 +52,7 @@ Drawn when the target is in front **and** further than `5 << CoordShift` from th
 
 ```
 halfHeight = (shapeRadius >> 1) * focal / distance     -- focal = 1 << view+0x1a; distance is
-                                                          eye to aim point, FUN_004927c4
+                                                          eye to aim point, Math_GroundDistanceBetweenPoints (004927c4)
 top    = screenY - halfHeight
 bottom = screenY + halfHeight
 height = clamp(bottom - top, 25, 75)                   -- both edges moved, integer halving
@@ -86,7 +86,7 @@ Drawn when the projected point is not inside the `.GAU`'s gunsight area (offset 
 | OGRE | `84,0 – 235,150` | TOMAHAWK | `81,0 – 239,151` |
 | OUTLAW | `86,0 – 233,143` | | |
 
-The apex sits where the ray from the reticle to the target crosses that rect's border: solve for y on the vertical border the target is on, and if that lands outside the rect solve for x on the horizontal one instead. The base is `10 << YCoordShift` back down the ray, `(6 << YCoordShift) / 2` to either side. (The original builds that triangle about the origin and rotates it by the crossing's bearing less a quarter turn — `FUN_0047d220` then `FUN_0047ea24` — which comes to the same thing. Both literals use the *vertical* shift on both axes, with no effect in any retail video mode.)
+The apex sits where the ray from the reticle to the target crosses that rect's border: solve for y on the vertical border the target is on, and if that lands outside the rect solve for x on the horizontal one instead. The base is `10 << YCoordShift` back down the ray, `(6 << YCoordShift) / 2` to either side. (The original builds that triangle about the origin and rotates it by the crossing's bearing less a quarter turn — `Math_Atan2Bam` (`0047d220`) then `Math_BuildRotation2D` (`0047ea24`) — which comes to the same thing. Both literals use the *vertical* shift on both axes, with no effect in any retail video mode.)
 
 It is a flat-filled polygon, the only piece of the indicator that is not a sprite: `COLORS.DAT` id 12 (palette 14, green), or id 9 (palette 10, red) with lock.
 
@@ -94,20 +94,20 @@ It is a flat-filled polygon, the only piece of the indicator that is not a sprit
 
 **The box is the one HUD element the canopy covers**, and that is a property of the render context it is drawn through rather than of draw order.
 
-A render context (`0x239` bytes) carries a clip block at `ctx+4`, which `FUN_00480c38` installs as `PTR_DAT_004a362c`. Its mode sits at `ctx+0x208`: 0 none, 1 a single rect at `ctx+0x210`, 2 the region list the block itself holds. Two contexts matter:
+A render context (`0x239` bytes) carries a clip block at `ctx+4`, which `Raster_InstallRenderContext` (`00480c38`) installs as `PTR_DAT_004a362c`. Its mode sits at `ctx+0x208`: 0 none, 1 a single rect at `ctx+0x210`, 2 the region list the block itself holds. Two contexts matter:
 
 | Context | Built by | Clip |
 |---|---|---|
 | `CockpitViewInstance+4` | `Gau_BuildCockpitWidgets` (`00431bf8`) | Mode 1, rect = the whole cockpit canvas |
 | The one under it | `CockpitView_ApplyViewState` (`00429e60`) loads the current view's `0x204`-byte block into it | Mode 2, regions = the herc's `.HD`/`.ED` canopy cutout (see [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)) |
 
-`FUN_004311e0` pushes the current context and installs the canvas one; `FUN_00431210` pops. Every widget paint runs inside such a pair, which is why the console instruments — outside the canopy cutout — can draw at all.
+`Cockpit_PushCanvasContext` (`004311e0`) pushes the current context and installs the canvas one; `Cockpit_PopRenderContext` (`00431210`) pops. Every widget paint runs inside such a pair, which is why the console instruments — outside the canopy cutout — can draw at all.
 
 The mode reaches the pixels through the transparent-sprite blitter. `Bitmap_BlitTransparent` (`00488cec`) rejects against the context's rect, then sets a per-call flag from `clipMode == 2` and sends every pixel run it emits to the region-clipped span writer (`DAT_004a5820` / `DAT_004a5828`) rather than the plain one (`DAT_004a581c` / `DAT_004a5824`). So a sprite drawn in mode 2 is cut to the regions scanline by scanline — following an A-pillar's slope, not a rectangle. An opaque bitmap is only ever rect-clipped: `Bitmap_BlitClipDispatch` (`004886cc`) hands modes 1 and 2 the same rect.
 
 `ActiveScanlineClipSpans` is a different mechanism for the same regions, flattened per scanline; its only readers are the polygon rasterizers.
 
-**Child 5's paint is the only widget that opts in.** It calls `FUN_00431210` before the box's blits and `FUN_004311e0` after, so the box alone is drawn in the canopy-clipped context. The reticle, the heading tape, the rotation indicator, the readouts and the arrow all stay in the canvas context and are never cut. Confirmed against `Reference/Targeting 2.png`, where the box's right half is cut along the right A-pillar while the arrow beside it is whole.
+**Child 5's paint is the only widget that opts in.** It calls `Cockpit_PopRenderContext` before the box's blits and `Cockpit_PushCanvasContext` after, so the box alone is drawn in the canopy-clipped context. The reticle, the heading tape, the rotation indicator, the readouts and the arrow all stay in the canvas context and are never cut. Confirmed against `Reference/Targeting 2.png`, where the box's right half is cut along the right A-pillar while the arrow beside it is whole.
 
 The engine reproduces this by draw order instead: the box is emitted as its own batch before the canopy quad, whose alpha comes from the same `CockpitClipRegions` data.
 

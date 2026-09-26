@@ -11,7 +11,7 @@ namespace Herculan.Engine.Input;
 /// device can drive a retail <c>prefs.cfg</c> without changing a byte of it.
 ///
 /// <para><b>This is Herculan's invention, not vanilla behaviour.</b> Retail has no equivalent and no
-/// need of one: <c>FUN_00477614</c> reads <c>joyGetPosEx</c>'s X, Y, Z and R in that fixed order,
+/// need of one: <c>Joystick_Poll</c> (<c>00477614</c>) reads <c>joyGetPosEx</c>'s X, Y, Z and R in that fixed order,
 /// falls back to a second stick's X and Y for the throttle and rudder when <c>JOYCAPS</c> reports no
 /// <c>HASZ</c>/<c>HASR</c>, and never asks which physical control any of them is. That works because
 /// a 1996 gameport stick had exactly those controls in exactly that order. A modern HOTAS does not:
@@ -100,7 +100,7 @@ public sealed class JoystickDeviceMap {
 
 	/// <summary>
 	/// Whether a hat diagonal resolves to its two components. <b>Off by default, which is retail:</b>
-	/// <c>FUN_00477614</c> tests <c>dwPOV</c> against the four cardinals exactly and reports nothing
+	/// <c>Joystick_Poll</c> (<c>00477614</c>) tests <c>dwPOV</c> against the four cardinals exactly and reports nothing
 	/// for anything between them, so a diagonal does nothing at all in the original.
 	/// </summary>
 	public bool HatDiagonals { get; init; }

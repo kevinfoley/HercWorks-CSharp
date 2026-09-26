@@ -386,7 +386,7 @@ public sealed class SceneModelLibrary {
 
 	/// <summary>
 	/// The shape a travelling shot is drawn as — a root of <c>dts\BULLETS.DTS</c>, textured from
-	/// <c>dba\BULLETS.DBA</c>. Both come from the bullet module's own init (<c>FUN_0040ade0</c>),
+	/// <c>dba\BULLETS.DBA</c>. Both come from the bullet module's own init (<c>Bullet_LoadResources</c>, <c>0040ade0</c>),
 	/// which loads the shape file into <c>DAT_004a9784</c> and binds that one bank to every shape in
 	/// it; <paramref name="modelId"/> is the <c>BULLETS.DAT</c> record's first field, which
 	/// <c>Bullet_Construct</c> uses as the index into that array.
@@ -407,7 +407,7 @@ public sealed class SceneModelLibrary {
 	public SceneModel? Bullet(int modelId) =>
 		Build(BulletLibraryName, modelId, BulletBankName, transparentBank: true);
 
-	/// <summary>The shape file <c>FUN_0040ade0</c> opens, by the literal name <c>bullets</c>.</summary>
+	/// <summary>The shape file <c>Bullet_LoadResources</c> (<c>0040ade0</c>) opens, by the literal name <c>bullets</c>.</summary>
 	public const string BulletLibraryName = "BULLETS.DTS";
 
 	/// <summary>And the bank it binds to every shape in it, opened by the same literal.</summary>
@@ -457,13 +457,13 @@ public sealed class SceneModelLibrary {
 	/// root of <c>dts\MECHWPNS.DTS</c>, textured from <c>dba\WPNTEX.DBA</c>.
 	///
 	/// <para><b>The muzzle flash is the weapon's own model.</b> DBSIM spawns no separate effect for
-	/// it: the base mount constructor (<c>FUN_0040df30</c>) gives every visibly-mounted hardpoint a
-	/// private copy of this shape through <c>FUN_0040fab0</c>, and firing steps that copy's
+	/// it: the base mount constructor (<c>WeaponMount_CtorBase</c>, <c>0040df30</c>) gives every visibly-mounted hardpoint a
+	/// private copy of this shape through <c>WeaponMount_ShapeForMountingCode</c> (<c>0040fab0</c>), and firing steps that copy's
 	/// <see cref="TSCellAnimPart"/>s one cell a tick. Cell zero is the gun at rest and the rest are
 	/// the flash, as real geometry rather than billboards — see
 	/// <see cref="Sim.WeaponMount.FlashCell"/>.</para>
 	///
-	/// <para>The bank binding is <c>FUN_0040fab0</c>'s own <c>shape+0x26 = &amp;DAT_004a9b6c</c>,
+	/// <para>The bank binding is <c>WeaponMount_ShapeForMountingCode</c>'s own <c>shape+0x26 = &amp;DAT_004a9b6c</c>,
 	/// which is the atlas <c>Weapons_LoadResourceTables</c> packed <c>wpntex</c> into and hands to
 	/// every shape in <c>mechwpn2</c> as well.</para>
 	///
@@ -499,7 +499,7 @@ public sealed class SceneModelLibrary {
 	public int MechWeaponCellCount(int shapeIndex) =>
 		Root(MechWeaponLibraryName, shapeIndex) is { } root ? DtsMeshBuilder.CellFrameCount(root) : 0;
 
-	/// <summary>The shape file <c>FUN_0040f998</c> opens, by the literal name <c>mechwpns</c>.</summary>
+	/// <summary>The shape file <c>WeaponModels_LoadShapeChunks</c> (<c>0040f998</c>) opens, by the literal name <c>mechwpns</c>.</summary>
 	public const string MechWeaponLibraryName = "MECHWPNS.DTS";
 
 	/// <summary>And the bank <c>Weapons_LoadResourceTables</c> binds to every shape in it, by the literal <c>wpntex</c>.</summary>
@@ -560,7 +560,7 @@ public sealed class SceneModelLibrary {
 	/// <summary>
 	/// One root of <c>dts\EXPLOS.DTS</c> — an impact effect's shape, a flipbook of billboards out of
 	/// whichever <c>dba\EXPLO&lt;n&gt;.DBA</c> its <c>EXPLOS.DAT</c> row names. Both the shape file
-	/// and the fifteen banks come from the effect subsystem's own init (<c>FUN_00407b54</c>), which
+	/// and the fifteen banks come from the effect subsystem's own init (<c>Explosion_LoadResources</c>, <c>00407b54</c>), which
 	/// writes each bank straight into its shape's bound-bank pointer; this is that binding, expressed
 	/// as which atlas the model carries.
 	/// </summary>

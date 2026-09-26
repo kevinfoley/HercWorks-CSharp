@@ -138,7 +138,7 @@ public sealed partial class MissionGroup {
 		index >= 0 && index < Route.Count ? Route[index] : null;
 
 	/// <summary>
-	/// <c>FUN_00423170</c> — whether the waypoint after the cursor is the duplicate a closed route
+	/// <c>Route_NextWaypointClosesRoute</c> (<c>00423170</c>) — whether the waypoint after the cursor is the duplicate a closed route
 	/// ends with: the one <see cref="AdvanceRouteCursor"/> would immediately wrap off. Only the
 	/// player's think asks, and it is what stops a patrol circuit announcing a waypoint the player has
 	/// already been told about, at the point it started from.

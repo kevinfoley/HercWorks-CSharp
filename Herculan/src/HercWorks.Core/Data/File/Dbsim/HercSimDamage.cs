@@ -115,7 +115,7 @@ public class HercSimDamage {
 
 		/// <summary>
 		/// Was <c>Unk_val</c> — resolved via DBSIM.EXE disassembly of this record's
-		/// consumers (<c>FUN_0040da38</c>/<c>FUN_0040d434</c>, see
+		/// consumers (<c>Component_ApplyDamageAndCascade</c> (<c>0040da38</c>)/<c>Component_DestroyAndCascade</c> (<c>0040d434</c>), see
 		/// docs/simulation/component-damage.md). A bitfield: bit 0 = this piece has dependents
 		/// to cascade-destroy (checked before walking the dependency list); bit 1 = selects an
 		/// alternate destruction-effect callback mode (0 vs 2, passed to the same effect

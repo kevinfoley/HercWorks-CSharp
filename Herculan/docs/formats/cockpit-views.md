@@ -146,7 +146,7 @@ View 1's zero-size rect is why the heads-down view shows no 3D. **RAZOR is the s
 
 ### The projection centre is not the middle of the view
 
-Fields 4-5 are where the view axis lands on screen, and `FUN_0048c5c4` is the projection's last step: `screenX = x + centreX`, `screenY = centreY - y`. Anything running straight away from the eye — a beam leaves its muzzle parallel to the view axis — vanishes at that point, and it is where the gunsight reticle is drawn. **It is not the centre of the viewport rect, and not the centre of the view window.** APOCA's is 95 rows down a 240-row view, 45 above the window's middle.
+Fields 4-5 are where the view axis lands on screen, and `Raster_ProjectToScreen` (`0048c5c4`) is the projection's last step: `screenX = x + centreX`, `screenY = centreY - y`. Anything running straight away from the eye — a beam leaves its muzzle parallel to the view axis — vanishes at that point, and it is where the gunsight reticle is drawn. **It is not the centre of the viewport rect, and not the centre of the view window.** APOCA's is 95 rows down a 240-row view, 45 above the window's middle.
 
 The value reaches the projection in two steps:
 
@@ -161,7 +161,7 @@ For the glances the canvas origin does not cancel. View 2, origin `+320`, gets i
 
 Herculan draws all three panels at once, so it renders them as that one image: `Render.CockpitScreenLayout.World` is a single viewport spanning the three panels, cut to the window, and the host draws it with one camera whose principal point is the forward view's centre.
 
-`FUN_0048c1d8` also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the back buffer's width (`DAT_004d30c4`, a copy of `VideoMode_BackBufferWidth`; see [Video modes](#video-modes)) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
+`Raster_InstallViewProjection` (`0048c1d8`) also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the back buffer's width (`DAT_004d30c4`, a copy of `VideoMode_BackBufferWidth`; see [Video modes](#video-modes)) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
 
 Engine: `Content.CockpitViewGeometry.ProjectionCenter`, applied via `Render.Camera.PrincipalPoint` as an off-centre frustum.
 
@@ -263,7 +263,7 @@ DBSIM draws everything into a system-memory back buffer and copies a viewport-si
 | `CockpitView_SetShakeBand` (`0042d2f8`) | Rests the band on the view's canvas origin (`DAT_004cfa24`/`28`) and, in views 2 and 3, zeroes the resting x and the saved resting y (`004cfae4`, `004cfae0`) |
 | `AlertPanel_Present` (`00454ab0`), `AlertPanel_Leave` (`004548ac`) | Do not present |
 | `PanelButton_Paint`, `ControlsPanel_RefreshRow`, `PreferencesPanel_Run` | Wrap their painting in `g_RasterRoutines` slots 31 and 30 (`004a5840`/`004a583c`), the pair `Cursor_SyncPosition` calls around a pointer move |
-| `AlertPanel_Leave`, `FUN_00454b70`, `FUN_00454c10`, `FUN_00433c54`, `FUN_00433d90`, `FUN_00433e3c`, `FUN_00433ee8`, `FUN_00433f7c` | Call `Cursor_SyncPosition` or `FUN_00486d64` in place of driver 3's `FUN_0048982e` or `FUN_00489822` |
+| `AlertPanel_Leave`, `FUN_00454b70`, `FUN_00454c10`, `FUN_00433c54`, `FUN_00433d90`, `Repair_ColorRow` (`00433e3c`), `FUN_00433ee8`, `FUN_00433f7c` | Call `Cursor_SyncPosition` or `FUN_00486d64` in place of driver 3's `FUN_0048982e` or `FUN_00489822` |
 
 The block-base scan finds the rest of the readers: over the eighteen holders, `es2_fieldscan.py` reports three reads of `+0xaa`, all in `Sim_InitMissionSession`, and `Main_StaticInit`'s store.
 

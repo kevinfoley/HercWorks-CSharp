@@ -360,7 +360,7 @@ public abstract class SimObject {
 	/// <c>obj+0x9f</c> — this object has reached what the mission set it. Written in exactly one
 	/// place, <see cref="MechObject.PlayerThink"/>, and only ever onto the player's own machine: the
 	/// order target has come into range, or the machine has closed on its goal position. Read back by
-	/// the AI's group-report cluster (<c>FUN_00412ef4</c>).
+	/// the AI's group-report cluster (<c>Group_AnyMemberObjectiveSighted</c>, <c>00412ef4</c>).
 	/// </summary>
 	public bool MissionGoalReached { get; internal set; }
 

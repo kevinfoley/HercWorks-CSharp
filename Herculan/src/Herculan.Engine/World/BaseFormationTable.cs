@@ -77,16 +77,16 @@ public sealed record BaseFormationLayout(int MaterialIndex, int Dimension,
 /// <para>Read from the base-group-attach chain: <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>)
 /// carries the group's formation id (script.dat block-11's <c>SmallDiscrete</c> field, raw msn
 /// offset <c>0x30</c> — see <c>docs/formats/msn-mission-file.md</c>'s row #16 decode) into
-/// <c>FUN_00405c3c</c>, which stores it at the attached object's group-relative member index
+/// <c>Base_AttachToGroup</c> (<c>00405c3c</c>), which stores it at the attached object's group-relative member index
 /// (<c>+0x49</c>, the object's position within the group's <c>DiscriminatedRefs</c> array — <b>not</b>
 /// a compacted live-member count) and then unconditionally calls the object's own vtable
-/// <c>+0x78</c>. For every base subtype's vtable that slot is <c>FUN_00405c04</c>, which — when the
+/// <c>+0x78</c>. For every base subtype's vtable that slot is <c>Base_ApplyFormationOffset</c> (<c>00405c04</c>), which — when the
 /// member index is nonzero, i.e. every member but the group's first-claimed ("leader") slot — looks
-/// up this table's <c>(formationId, memberIndex-1)</c> entry via <c>FUN_00405b9c</c> and rotates it
+/// up this table's <c>(formationId, memberIndex-1)</c> entry via <c>BaseFormation_GetSlotOffset</c> (<c>00405b9c</c>) and rotates it
 /// into world space by the leader's heading (<c>Formation_RotateAndAddOffset</c>, <c>00411d64</c>)
 /// before adding it to the group's position — mirrors <c>Mech_ApplyFormationOffset</c>
 /// (<c>00417898</c>): same vtable slot, same "member index 0 gets no offset" rule. Load site:
-/// <c>FUN_00405fac</c> streams the table from a file literally named <c>"bforms"</c>. Byte-exact: the
+/// <c>Base_LoadResources</c> (<c>00405fac</c>) streams the table from a file literally named <c>"bforms"</c>. Byte-exact: the
 /// retail file is 3,186 content bytes, formation count 17 (matches block-11 formation id's 0-16
 /// range), formation 0's seven offsets a symmetric wedge — one point ahead, three mirrored pairs
 /// behind.</para>

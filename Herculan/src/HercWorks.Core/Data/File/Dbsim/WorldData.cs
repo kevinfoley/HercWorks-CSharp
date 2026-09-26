@@ -15,7 +15,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// rampColumns x int32              -- ramp table A
 /// int16                            -- loose field between the tables
 /// rampColumns x int32              -- ramp table B
-/// 4 bytes, 4 bytes                 -- two more entries expanded the same way (FUN_00430d08)
+/// 4 bytes, 4 bytes                 -- two more entries expanded the same way (Palette_InterpolateIndexRanges, 00430d08)
 /// int16, int16, int32, int32
 /// 5 x null-terminated string
 /// </code>
@@ -77,7 +77,7 @@ public class WorldData {
 
 	/// <summary>
 	/// Two further 4-byte entries the original expands through the same helper as the ramp tables
-	/// (<c>FUN_00430d08</c>). Kept raw: what the expansion means is not established.
+	/// (<c>Palette_InterpolateIndexRanges</c>, <c>00430d08</c>). Kept raw: what the expansion means is not established.
 	/// </summary>
 	public byte[] RampExtraA { get; set; } = new byte[4];
 

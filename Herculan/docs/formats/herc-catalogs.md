@@ -51,7 +51,7 @@ Slot 4 is a chassis **under construction**, not a damaged one: 0% built with thr
 
 ### The HERC catalog record
 
-`FUN_00410e79` (`herc.cpp`) reads the `gam\*.dat` form. It is the same 122-byte in-memory record the save serializes, but the file supplies only four of its fields:
+`HercRecord_ReadCatalogForm` (`00410e79`, `herc.cpp`) reads the `gam\*.dat` form. It is the same 122-byte in-memory record the save serializes, but the file supplies only four of its fields:
 
 ```
 int16   +0x00   chassis type, 0-8
@@ -69,19 +69,19 @@ For the full 122-byte record and the status block's three condition arrays see [
 
 ### The weapon unit record
 
-One mounted or stocked weapon. Ten bytes in memory, five `int16`, constructed by `FUN_004119d8` as `{ -1, -1, 100, 100, 5 }`:
+One mounted or stocked weapon. Ten bytes in memory, five `int16`, constructed by `WeaponUnit_Ctor` (`004119d8`) as `{ -1, -1, 100, 100, 5 }`:
 
 | Offset | Field |
 |---|---|
 | `+0x00` | weapon catalog id |
-| `+0x02` | armory class index, derived by `FUN_004119b4` and never stored in any file |
+| `+0x02` | armory class index, derived by `Weapon_ClassIndexForId` (`004119b4`) and never stored in any file |
 | `+0x04` | 100, from the constructor |
 | `+0x06` | condition |
 | `+0x08` | ammo type |
 
-Two file forms share it. The `gam\*.dat` form is six bytes — `+0x00`, `+0x06`, `+0x08` (`FUN_00411a36`) — and the save form is all ten (`FUN_00411aa6` / `FUN_00411aff`).
+Two file forms share it. The `gam\*.dat` form is six bytes — `+0x00`, `+0x06`, `+0x08` (`WeaponUnit_ReadCatalogForm`, `00411a36`) — and the save form is all ten (`WeaponUnit_ReadSaveForm` (`00411aa6`) / `WeaponUnit_WriteSaveForm` (`00411aff`)).
 
-`FUN_004119b4` searches the thirty-entry table at `0046f868` for the id and returns its position. That table holds ids `0`–`18` and `22`–`32`: **every id except the three Bull weapons**, which therefore resolve to `-1`. It is an independent statement of the same exclusion `arm_weap.dat` makes below.
+`Weapon_ClassIndexForId` searches the thirty-entry table at `0046f868` for the id and returns its position. That table holds ids `0`–`18` and `22`–`32`: **every id except the three Bull weapons**, which therefore resolve to `-1`. It is an independent statement of the same exclusion `arm_weap.dat` makes below.
 
 Ammo type `0`–`3` are the guidance kinds `ARM`, `ARH`, `SARH`, `EO` (`estext.bin` `0xa1`–`0xa4`); `5` means the hardpoint carries nothing guided. Retail data holds `5` everywhere except the missile racks, and `Armory_DeliverQueue` (`00412428`) writes `1` for ids 13–16 and `5` for everything else. The `5` that [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) observes in every non-launcher slot originates here.
 
@@ -179,7 +179,7 @@ int16       count -- 33
 count x int16   per-weapon scrap value
 ```
 
-The loader (`hercdisp.cpp`, the function opening `s_gam_damage_dat_0046fdb4`) expands it against `herc_inf.dat`'s prices through `FUN_00450a84`, a Q10 fixed-point multiply — `(a * b) >> 10`:
+The loader (`hercdisp.cpp`, the function opening `s_gam_damage_dat_0046fdb4`) expands it against `herc_inf.dat`'s prices through `FixedMulQ10` (`00450a84`), a Q10 fixed-point multiply — `(a * b) >> 10`:
 
 ```
 for each chassis type t, price = herc_inf[t].+0x08 * 1000:
@@ -218,7 +218,7 @@ The four trailing panels are the guidance kinds `ARM`, `ARH`, `SARH`, `EO`, ids 
 
 ### `gam\rpr_*.dat` — repair-bay layout
 
-Nine files, loaded together by `FUN_00413d1c` (`hercdisp.cpp`) into a per-chassis structure of 33 counts followed by 33 record pointers, `0xc6` bytes per chassis.
+Nine files, loaded together by `LoadRepairLayouts` (`00413d1c`, `hercdisp.cpp`) into a per-chassis structure of 33 counts followed by 33 record pointers, `0xc6` bytes per chassis.
 
 ```
 int16   count
@@ -235,7 +235,7 @@ layout record, 14 bytes on disk into a 26-byte struct:
   int16   +0x16   blit flags: 0, or 2 to mirror left to right
 ```
 
-`FUN_004140a9` is what names those fields: it walks the counted list placing one grid part per record at `(+0x02, +0x06)` from frame `+0x12` of `dba\rpr_<chassis>.dba` with `+0x16` as its blit flags, and looks a fitted weapon's record up in the per-weapon groups by id and by `slot + 6`. **The trailing single record is the internals diagram** — one part from `dba\<chassis>_int.dba`, over the same rect, shown while the internals list is the one being worked in ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-damage-diagram)).
+`Repair_BuildDiagrams` (`004140a9`) is what names those fields: it walks the counted list placing one grid part per record at `(+0x02, +0x06)` from frame `+0x12` of `dba\rpr_<chassis>.dba` with `+0x16` as its blit flags, and looks a fitted weapon's record up in the per-weapon groups by id and by `slot + 6`. **The trailing single record is the internals diagram** — one part from `dba\<chassis>_int.dba`, over the same rect, shown while the internals list is the one being worked in ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-damage-diagram)).
 
 Retail's component counts are 4, 6 or 12 — the Razor's twelve against the walkers' four or six, which is the flyer's own component set.
 
@@ -285,7 +285,7 @@ The four `int32` are an inclusive rect and not a position and a size: the 16 byt
 |---|---|
 | An `*_hots.dat` area is a position and a size — `{x, y, w, h}` | Four `int32` beginning with what reads as a top-left corner invites it, and the retail values stay inside the canvas read either way, so a parse alone will not settle it. They are two inclusive corners: the bytes are handed straight to `Panel_Ctor`, and the left/right hardpoint pairs are only mirror images when read that way |
 | `herc_inf.dat` `+0x06` gives a chassis's hardpoint count | It is what the Herc Construction screen *prints*, and for the Raptor II it prints 4 where the machine the player receives has 5. `Herc_CapacityForType` reads the in-code table at `0046f73a`, and that is the figure `+0x4c` and every hardpoint loop use. The other eight chassis agree, so a reader checking one file will not notice |
-| The 26 bytes at HERC status block `+0x00` are opaque | They are 13 `int16` component conditions, initialized to 100 alongside the other two arrays by `FUN_00411b88` and averaged with them by `FUN_00411bd4`, whose divisor is `13 + 9 + hardpoints`. See [`save-games.md`](save-games.md#the-66-byte-status-block) |
+| The 26 bytes at HERC status block `+0x00` are opaque | They are 13 `int16` component conditions, initialized to 100 alongside the other two arrays by `HercStatus_InitAll` (`00411b88`) and averaged with them by `HercStatus_OverallCondition` (`00411bd4`), whose divisor is `13 + 9 + hardpoints`. See [`save-games.md`](save-games.md#the-66-byte-status-block) |
 | `hercs.dat`'s fifth entry is a wrecked Razor | Its `+0x4a` of 0 is build progress, not condition. The status block a `gam\*.dat` chassis carries is never read from the file and stays at the constructor's uniform 100 |
 | The `+0x4a`/`+0x78` pair is repair state | `Herc_Order` sets them when a chassis is *bought*, from `herc_inf.dat` `+0x0c`, and `Herc_BuildTick` drives them one mission at a time until delivery. Repair works on the status block instead |
 | `+0x4a` is a health or condition ratio | It is the build percentage. The data will not separate the two readings: `+0x4a` is 100 in all nine `ini_*.dat` and in `trn_herc.dat`, which is equally consistent with an undamaged machine. Only `hercs.dat`'s part-built Razor reads anything else, and it reads 0 while that machine is at full condition — so a condition reading has it dead on arrival |

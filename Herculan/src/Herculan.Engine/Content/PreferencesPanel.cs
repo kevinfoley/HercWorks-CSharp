@@ -13,7 +13,7 @@ namespace Herculan.Engine.Content;
 /// <para><b>The captions are all in one file.</b> <c>str\PRF_ALRT.STR</c> carries five groups, and
 /// the constructor loads them into five fields with the counts 1, 11, 2, 3 and 5 — the title, the
 /// eleven button captions, and three sets of value words the readouts pick from. Which set an option
-/// draws from, and how its byte indexes that set, is <c>FUN_004571f4</c>'s nine-case switch; that
+/// draws from, and how its byte indexes that set, is <c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>)'s nine-case switch; that
 /// mapping is <see cref="Options"/>.</para>
 ///
 /// <para><b>Modal, and the simulation does not tick behind it</b> — <c>PreferencesPanel_Raise</c>
@@ -80,7 +80,7 @@ public sealed class PreferencesPanel {
 	/// <summary>
 	/// One option row: which <c>prefs.cfg</c> byte it shows, which string group it names it from, the
 	/// table that turns the one into the other, how many values it cycles through, and how it answers
-	/// a click. In panel order — <c>FUN_004571f4</c>'s cases 0 to 8 for the first three fields and
+	/// a click. In panel order — <c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>)'s cases 0 to 8 for the first three fields and
 	/// <c>PreferencesPanel_Run</c>'s for the last two, which are also the first nine widget indices.
 	/// </summary>
 	public static readonly (int Option, int Group, int[] Map, int Modulus, RowCycle Cycle)[] Options = {
@@ -129,7 +129,7 @@ public sealed class PreferencesPanel {
 	public bool SoundAvailable { get; }
 
 	/// <summary>
-	/// Whether the voice archive is on disk — <c>DAT_0049e9cd</c>, which <c>FUN_00459d6c</c> sets by
+	/// Whether the voice archive is on disk — <c>DAT_0049e9cd</c>, which <c>Voice_ArchiveExists</c> (<c>00459d6c</c>) sets by
 	/// building the localised <c>simvoice</c> name and simply trying to <c>fopen</c> it. Without it
 	/// the two message rows are forced to 0 at startup and neither can be clicked off it, so the
 	/// player cannot ask for voice the install does not have.
@@ -202,7 +202,7 @@ public sealed class PreferencesPanel {
 	}
 
 	/// <summary>
-	/// Re-reads all nine readouts from the option array — <c>FUN_004571f4</c> for every case at once,
+	/// Re-reads all nine readouts from the option array — <c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>) for every case at once,
 	/// which is what the panel's own paint does.
 	/// </summary>
 	private void RefreshValues() {

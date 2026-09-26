@@ -29,7 +29,7 @@ Constructed as `(obj, subtypeId, startPoint, endPoint, owner)`; vtable `BeamTrac
 
 A straight beam stores exactly two points: the muzzle and the hit.
 
-**Lifetime is one tick.** The timer arms at `0x38` = 56, in the same Q8-of-125 ms unit as every other simulation timer, so 27 ms. Vtable `+0x14` (`FUN_0040c2a0`) is one `Math_CountdownTimerTick` and nothing else, and `Sim_MainTick` frees the object the tick it returns zero. Since 56 is less than one `SimTickDelta` (81 at the 40 ms frame cap), a tracer never survives a second tick however fast the machine runs — which is what makes a held trigger read as separate flashes rather than a continuous beam.
+**Lifetime is one tick.** The timer arms at `0x38` = 56, in the same Q8-of-125 ms unit as every other simulation timer, so 27 ms. Vtable `+0x14` (`BeamTracer_LifeTick`, `0040c2a0`) is one `Math_CountdownTimerTick` and nothing else, and `Sim_MainTick` frees the object the tick it returns zero. Since 56 is less than one `SimTickDelta` (81 at the 40 ms frame cap), a tracer never survives a second tick however fast the machine runs — which is what makes a held trigger read as separate flashes rather than a continuous beam.
 
 `Sim_MainTick` walks this pool **before** the machine list, so a tracer spawned during a machine's update is not counted down until the tick after.
 
@@ -59,7 +59,7 @@ Retail (10 records, frame 0 throughout):
 | 7 | ELF2 | 45 | 99 |
 | 8-9 | unused | 35, 40 | 88 |
 
-**`dba\BEAMTEX.DBA`** → `DAT_004a988c` via `FUN_00469f38`, which packs each frame into a 256x256 atlas page and writes a 20-byte descriptor `{x0, y0, x1, y1, pageIndex}` — hence the draw's `(short)entry[4]`. The `+0x12` short flags a frame containing palette index 0.
+**`dba\BEAMTEX.DBA`** → `DAT_004a988c` via `BitmapArray_PackToAtlas` (`00469f38`), which packs each frame into a 256x256 atlas page and writes a 20-byte descriptor `{x0, y0, x1, y1, pageIndex}` — hence the draw's `(short)entry[4]`. The `+0x12` short flags a frame containing palette index 0.
 
 Retail ships **one** frame, 128x25, every row a single repeated index: 11 at both edges, then the ramp 84..95 in to the middle and back out. Nothing varies along the beam's length, so the frame is a pure cross-section. In a `WORLD<n>.DPL` that ramp is the fire ramp — dark orange (184, 92, 20) climbing to near-white (252, 248, 228).
 
@@ -67,32 +67,32 @@ Retail ships **one** frame, 128x25, every row a single repeated index: 11 at bot
 
 Per quad:
 
-1. Both points to view space (`FUN_0048c470`), then the pair clipped against the near plane (`FUN_0040bb4c`); a pair wholly behind it is dropped.
-2. Both projected to screen (`Raster_PerspectiveDivide`, `FUN_0048c5c4`).
-3. Half-width in pixels at each end: `FUN_0048c4c0(width, viewZ)` = `(width << shift) / z`, then `if (< 2) = 2`. This floors the **half**-width, so a beam is never narrower than four pixels.
+1. Both points to view space (`FUN_0048c470`), then the pair clipped against the near plane (`Beam_ClipSegmentToNearPlane`, `0040bb4c`); a pair wholly behind it is dropped.
+2. Both projected to screen (`Raster_PerspectiveDivide`, `Raster_ProjectToScreen` (`0048c5c4`)).
+3. Half-width in pixels at each end: `Raster_PerspectiveScale(width, viewZ)` (`0048c4c0`) = `(width << shift) / z`, then `if (< 2) = 2`. This floors the **half**-width, so a beam is never narrower than four pixels.
 4. Four vertices: each screen point stepped ±(half-width) along the segment's 2D perpendicular, normalised in Q11.
 5. UVs from the frame descriptor: u runs along the beam's **length**, v across its width.
-6. `FUN_00468310(4, verts, 0, page, NULL, 0)`.
+6. `Raster_DrawPolygon(4, verts, 0, page, NULL, 0)` (`00468310`).
 
 No z is written — the vertex struct's `+8` is left untouched.
 
 ### The fill is a plain texture copy
 
-`FUN_00468310`'s third argument selects the span routine, and its last selects transparency:
+`Raster_DrawPolygon` (`00468310`)'s third argument selects the span routine, and its last selects transparency:
 
 | mode | span routine | interpolants |
 |---|---|---|
-| 0 | `FUN_0046ab10` | u, v |
+| 0 | `Raster_SpanTextured` (`0046ab10`) | u, v |
 | 1 | `FUN_0046ac48` | u, v + a shade level from `param_5` |
 | 2 | `FUN_0046adad` | u, v + a third at vertex `+0x14` |
 
-A beam uses **mode 0 with the transparency argument zero**, which is `FUN_0046ab10`'s opaque half: fetch `atlasPage[v][u]`, store that palette byte to the framebuffer, step the fixed-point u/v, repeat. The non-zero form is a colour-key skip of index 0 — not blending. **There is no alpha, no shade level and no colour lookup anywhere in this path.**
+A beam uses **mode 0 with the transparency argument zero**, which is `Raster_SpanTextured`'s opaque half: fetch `atlasPage[v][u]`, store that palette byte to the framebuffer, step the fixed-point u/v, repeat. The non-zero form is a colour-key skip of index 0 — not blending. **There is no alpha, no shade level and no colour lookup anywhere in this path.**
 
 ### `BEAM.DAT`'s colour index is the fill brush, and only the jagged path uses it
 
 Before either branch runs, the draw installs `{0, colourIndex}` at the graphics context's `+0x22c`. That field is **the rasterizer's fill brush**: `Raster_InstallRenderContext` (`00480c38`) sets the clip block to `ctx + 4`, so `ctx+0x22c` is the `clipBlock+0x228` that `Raster_DrawPolygonDispatch` reads and dispatches on. A brush is `{mode, colour}`; mode 0 with a colour whose top byte is zero is a flat fill of that palette index.
 
-The straight path installs it and then never uses it — it submits through `FUN_00468310`, whose mode-0 span routine has no colour lookup. The [jagged path](#elf-and-elf2--the-jagged-branch) goes through the polygon dispatch and does.
+The straight path installs it and then never uses it — it submits through `Raster_DrawPolygon` (`00468310`), whose mode-0 span routine has no colour lookup. The [jagged path](#elf-and-elf2--the-jagged-branch) goes through the polygon dispatch and does.
 
 So every retail straight beam draws the identical orange-to-white ribbon and is told apart only by its width, while ELF and ELF2 are the flat colour their record names. Corroborated by retail screenshots: laser and particle-beam shots are orange-white regardless of weapon, while `ELF` is yellow, matching its index 104.
 

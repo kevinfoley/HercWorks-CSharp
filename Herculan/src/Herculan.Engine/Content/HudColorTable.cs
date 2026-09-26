@@ -35,7 +35,7 @@ public sealed class HudColorTable {
 
 	/// <summary>
 	/// Logical ids an LED gauge bar draws with, all from <c>EnergyPoolGauge_Ctor</c>
-	/// (<c>FUN_00444d5c</c>) and confirmed against the bar's own fill routine (<c>FUN_00439758</c>).
+	/// (<c>EnergyPoolGauge_Ctor</c>, <c>00444d5c</c>) and confirmed against the bar's own fill routine (<c>LedBarGraph_FillPinstripe</c>, <c>00439758</c>).
 	///
 	/// <para>The filled span is not a solid colour: the routine walks the bar's x range twice, once
 	/// over even columns and once over odd, drawing a full-height line each step with a different
@@ -51,7 +51,7 @@ public sealed class HudColorTable {
 
 	/// <summary>
 	/// The unfilled remainder past the fill point: black. Written to the bar's field <c>0x24</c>,
-	/// which the paint method (<c>FUN_004395e8</c>) installs as the draw colour for that span.
+	/// which the paint method (<c>LedBarGraph_PaintToValue</c>, <c>004395e8</c>) installs as the draw colour for that span.
 	/// </summary>
 	public const int GaugeRemainderId = 19;
 
@@ -64,21 +64,21 @@ public sealed class HudColorTable {
 
 	/// <summary>
 	/// What the Heads-Down Display floods a screen or a label background with — palette 16, black.
-	/// Both its pages use it: the command display's paint (<c>FUN_0044c894</c>) reads it as id 19 and
-	/// the damage detail's (<c>FUN_00450c54</c>) as id 3, and this table sends both to the same index.
+	/// Both its pages use it: the command display's paint (<c>HddCommandScreen_Repaint</c>, <c>0044c894</c>) reads it as id 19 and
+	/// the damage detail's (<c>HddDamageScreen_Update</c>, <c>00450c54</c>) as id 3, and this table sends both to the same index.
 	/// </summary>
 	public const int HeadsDownBackgroundId = 19;
 
 	/// <summary>
 	/// The small block beside that display's title — palette 13, yellow. Its paint
-	/// (<c>FUN_00449a50</c>) fills the rect with colour id 13 or, while the <c>+0x51f</c> flag the
+	/// (<c>HddDisplay_Repaint</c>, <c>00449a50</c>) fills the rect with colour id 13 or, while the <c>+0x51f</c> flag the
 	/// constructor initialises to 1 is up, with this one.
 	/// </summary>
 	public const int HeadsDownIndicatorId = 15;
 
 	/// <summary>
 	/// The plate the damage screen's subject caption sits on — palette 98, the same blue an LED bar's
-	/// even columns use. <c>FUN_0044ba2c</c> installs it as that label's background while the subject
+	/// even columns use. <c>HddDamageScreen_SetSubjectCaption</c> (<c>0044ba2c</c>) installs it as that label's background while the subject
 	/// is the player; a squadmate gets the pilot's own colour and a target gets id 15 instead.
 	/// </summary>
 	public const int HeadsDownSubjectPlateId = 6;

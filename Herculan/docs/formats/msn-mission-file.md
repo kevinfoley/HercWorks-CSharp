@@ -4,14 +4,14 @@
 
 ## Call chain — confirmed
 
-- `FUN_0044d5bd` builds the path `msn\<name>.msn` (string `"msn\\%s.msn"` at `0047a2a6`, `%s` = a name substituted from `DAT_0048dc18+0x45`, with `^` sanitized to `_`), then calls `FUN_0041c73d(path)`.
-- `FUN_0041c73d` (asserts trace to `msn_gen.cpp`) calls `FUN_00417b67(param_1)` **first, with the `.msn` path** — this is the raw-file parser. `FUN_0041ac54` then exports a subset of the loaded data as `data\script.dat` for downstream consumers (DBSIM and VSHELL's `ShellMap` UI).
-- Separately, `ShellMap::ctor` (`FUN_00423f43`, vtable `&PTR_FUN_004721b0`) opens `data\mission.str` and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `FUN_004243d7` (source `shellmap.cpp`) — a UI-facing consumer of the same data exported from `.msn` parsing. See [`script-dat.md`](script-dat.md) for the relationship.
-- The save-slot handoff copies the three loose working files in and out of a numbered slot, and the two directions are separate functions (source `career.cpp`): `FUN_00412a71` saves, `data\` to `sav\`, and `FUN_00412bbf` loads, `sav\` to `data\`. The pairs are `data\script.dat`/`sav\script%d.dat`, `data\mission.str`/`sav\missn%d.str` and `data\player.mec`/`sav\player%d.mec`, matching the dev note in `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt`. See [`save-games.md`](save-games.md).
+- `Msn_BuildPath` (`0044d5bd`) builds the path `msn\<name>.msn` (string `"msn\\%s.msn"` at `0047a2a6`, `%s` = a name substituted from `DAT_0048dc18+0x45`, with `^` sanitized to `_`), then calls `MsnGen_LoadMission(path)` (`0041c73d`).
+- `MsnGen_LoadMission` (asserts trace to `msn_gen.cpp`) calls `MsnGen_ParseMsnFile(param_1)` (`00417b67`) **first, with the `.msn` path** — this is the raw-file parser. `WriteScriptDatFile` (`0041ac54`) then exports a subset of the loaded data as `data\script.dat` for downstream consumers (DBSIM and VSHELL's `ShellMap` UI).
+- Separately, `ShellMap_Constructor` (`00423f43`, vtable `&PTR_FUN_004721b0`) opens `data\mission.str` and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `ShellMap_LoadScriptDat` (`004243d7`, source `shellmap.cpp`) — a UI-facing consumer of the same data exported from `.msn` parsing. See [`script-dat.md`](script-dat.md) for the relationship.
+- The save-slot handoff copies the three loose working files in and out of a numbered slot, and the two directions are separate functions (source `career.cpp`): `Career_SaveSlot` (`00412a71`) saves, `data\` to `sav\`, and `Career_LoadSlot` (`00412bbf`) loads, `sav\` to `data\`. The pairs are `data\script.dat`/`sav\script%d.dat`, `data\mission.str`/`sav\missn%d.str` and `data\player.mec`/`sav\player%d.mec`, matching the dev note in `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt`. See [`save-games.md`](save-games.md).
 
-## `FUN_00417b67` — the raw `.MSN` parser
+## `MsnGen_ParseMsnFile` (`00417b67`) — the raw `.MSN` parser
 
-Opens the stream (`FUN_00402ad9`), then **asserts a revision field equals `5`** (2-byte value, right after open — mirrors the same revision-check pattern already known from `Volume::loadVolume`). One scratch pass follows (a `DAT_00470648`-counted loop reading fixed 0x52/82-byte chunks into a *reused* buffer, applying effects via `FUN_00416379` rather than storing an array — looks like a one-shot campaign-override/patch application, not a persistent entity list), then a long sequence of `[uint16 count] → array of fixed-size records` reads. Every record array goes through a shared condition-filter helper (`FUN_00417610`, or a couple of specialized siblings) that **compacts the array in place**, dropping records whose condition fails — i.e. this function is doing campaign- state-aware filtering *while* loading, not a flat/passive parse.
+Opens the stream (`FUN_00402ad9`), then **asserts a revision field equals `5`** (2-byte value, right after open — mirrors the same revision-check pattern already known from `Volume::loadVolume`). One scratch pass follows (a `DAT_00470648`-counted loop reading fixed 0x52/82-byte chunks into a *reused* buffer, applying effects via `FUN_00416379` rather than storing an array — looks like a one-shot campaign-override/patch application, not a persistent entity list), then a long sequence of `[uint16 count] → array of fixed-size records` reads. Every record array goes through a shared condition-filter helper (`Msn_ConditionFilterGate` (`00417610`), or a couple of specialized siblings) that **compacts the array in place**, dropping records whose condition fails — i.e. this function is doing campaign- state-aware filtering *while* loading, not a flat/passive parse.
 
 ### The condition/trigger system (this resolves a long-standing "unknown" from the Java doc comment)
 
@@ -26,7 +26,7 @@ The first record type's type-0 branch is a `switch` on the value `0x119`–`0x11
 | 0x11d | `>`  (operands swapped) |
 | 0x11e | `>=` (operands swapped) |
 
-Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16` persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `FUN_00417610` again) ([Open](#open)).
+Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16` persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `Msn_ConditionFilterGate` (`00417610`) again) ([Open](#open)).
 
 | offset | field | notes |
 |---|---|---|
@@ -79,7 +79,7 @@ Two corrections versus the first disassembly-only pass (caught by building a str
 
 ### Relationship to `data\script.dat`
 
-`data\script.dat` is a GUID-filtered, field-subset re-export of these same `.msn` row arrays, written by `FUN_0041ac54` right after `.msn` parsing finishes. It is read independently by both DBSIM (the real gameplay simulator) and VSHELL's own `ShellMap` map-editor UI. For full verified block-by-block mapping and field-level detail on what each reader keeps vs. discards from each row, see [`script-dat.md`](script-dat.md) — treat that doc as authoritative.
+`data\script.dat` is a GUID-filtered, field-subset re-export of these same `.msn` row arrays, written by `WriteScriptDatFile` (`0041ac54`) right after `.msn` parsing finishes. It is read independently by both DBSIM (the real gameplay simulator) and VSHELL's own `ShellMap` map-editor UI. For full verified block-by-block mapping and field-level detail on what each reader keeps vs. discards from each row, see [`script-dat.md`](script-dat.md) — treat that doc as authoritative.
 
 ## Row #6 field decode — "MapPoint22" (`DAT_0047064e`, 22 bytes/record)
 
@@ -371,7 +371,7 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 
 ## Open
 
-- **Open:** what record types 1-3's evaluator functions (`FUN_004659ec`, `FUN_00417610`) test beyond `FUN_004159d0`'s `-99`-sentinel-or-range-check; candidates are dialogue/event flags and numeric range checks, distinct from type 0's pure flag comparisons.
+- **Open:** what record types 1-3's evaluator functions (`FUN_004659ec`, `Msn_ConditionFilterGate` (`00417610`)) test beyond `FUN_004159d0`'s `-99`-sentinel-or-range-check; candidates are dialogue/event flags and numeric range checks, distinct from type 0's pure flag comparisons.
 - **Open:** whether `DAT_00470664` is `HercLUT`, loaded once at VSHELL startup rather than per-mission; only its use as a size bound is confirmed here.
 - **Unported:** row #2's one-shot campaign-override/patch application (82 bytes/record, scratch-applied via `FUN_00416379`, never stored as a persistent array).
 - **Open:** whether row #5 (`DAT_0047066a`, skip-only, `count * 0x40` bytes) is read anywhere else, such as directly by DBSIM, rather than only skipped by this VSHELL load path.

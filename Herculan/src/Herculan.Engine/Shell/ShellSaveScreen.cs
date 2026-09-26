@@ -40,8 +40,8 @@ public enum ShellSaveExitTarget {
 
 /// <summary>
 /// Tab 1, <c>SAVED GAMES</c> — the slot list, the five buttons and the summary of whichever slot is
-/// selected. Built by <c>FUN_004385b0</c>, entered by <c>FUN_00439b0c</c>, its selection moved by
-/// <c>FUN_0043795f</c> and its summary panel refilled by <c>FUN_0043712c</c>.
+/// selected. Built by <c>SaveScreen_BuildScreen</c> (<c>004385b0</c>), entered by <c>SaveScreen_Enter</c> (<c>00439b0c</c>), its selection moved by
+/// <c>SaveScreen_SelectSlot</c> (<c>0043795f</c>) and its summary panel refilled by <c>SaveScreen_RefreshDetail</c> (<c>0043712c</c>).
 ///
 /// <para><b>Every rect here is a literal in the executable</b>, written as four immediates onto the
 /// builder's own stack, and they are kept parent-relative exactly as the builder writes them — the
@@ -82,7 +82,7 @@ public sealed class ShellSaveScreen {
 	/// A sixth panel the builder constructs over the summary panel's top two thirds,
 	/// <c>{0x74, 0xcc, 0x15b, 0x136}</c>, with no children of its own — an empty box where the summary
 	/// would be. It is not painted here, and that is the original's arrangement rather than a guess:
-	/// the entry routine calls <c>FUN_0041f2e6</c> on the summary panel and <c>FUN_0041f469</c> on this
+	/// the entry routine calls <c>Widget_ShowRecursive</c> (<c>0041f2e6</c>) on the summary panel and <c>Widget_HideRecursive</c> (<c>0041f469</c>) on this
 	/// one, which are the show and the hide respectively (docs/shell/screen-layout.md, "Showing and
 	/// hiding a widget"), so the summary is what tab 1 puts in front.
 	/// </summary>
@@ -149,7 +149,7 @@ public sealed class ShellSaveScreen {
 	}
 
 	/// <summary>
-	/// Moves the selection, as <c>FUN_0043795f</c> does. A click on the row already selected is a
+	/// Moves the selection, as <c>SaveScreen_SelectSlot</c> (<c>0043795f</c>) does. A click on the row already selected is a
 	/// no-op, the same early return the tab handlers make, and a row past what the directory lists
 	/// still takes the selection — the original tests only the bound of ten.
 	/// </summary>
@@ -248,7 +248,7 @@ public sealed class ShellSaveScreen {
 	}
 
 	/// <summary>
-	/// The summary panel's labels and values — <c>FUN_0043712c</c>. Every value field clears its own
+	/// The summary panel's labels and values — <c>SaveScreen_RefreshDetail</c> (<c>0043712c</c>). Every value field clears its own
 	/// rect before drawing, so a refresh overwrites the last slot's figures rather than layering over
 	/// them; the labels do not, and draw straight onto the panel.
 	///

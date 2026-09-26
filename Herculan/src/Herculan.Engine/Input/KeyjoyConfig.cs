@@ -6,7 +6,7 @@ namespace Herculan.Engine.Input;
 /// <c>data\keyjoy.cfg</c> — the four axis-sense switches, and the <b>only</b> part of the retail
 /// input configuration that does not live in <c>prefs.cfg</c>.
 ///
-/// <para><c>FUN_0045b78c</c> reads it once during input init with four
+/// <para><c>Keyjoy_LoadConfig</c> (<c>0045b78c</c>) reads it once during input init with four
 /// <c>GetPrivateProfileStringA</c> calls, all against section <c>[Keyjoy]</c>, and each is a plain
 /// case-insensitive compare against the word <c>Reverse</c> — anything else, the shipped
 /// <c>Default</c> included, leaves the flag clear. There is no writer: retail ships the file with

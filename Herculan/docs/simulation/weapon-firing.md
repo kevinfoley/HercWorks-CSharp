@@ -115,7 +115,7 @@ template[0x40..0x44]                       // the weapon's own muzzle triple
 + WeaponMountTemplate_SideMuzzleOffset     // 0040f904, below
 ```
 
-**Only the last two are `WeaponMount_MuzzleOffset` (`0040f540`).** The template's own triple is added here, by the prologue, and nowhere else. The distinction matters because the pair without it is *where the weapon sits* — it is the offset the base constructor bakes into the mount's copy of the weapon model (`FUN_0040dd4c`), and the triple is the length of the barrel from there. Retail triples run 630 (`ATC20`) to 2725 units of forward Y, 3.8 m to 16 m, so standing the model at the muzzle instead puts it a barrel clear of the chassis. The multi-barrel branch of `WeaponMount_FireDispatch_GunBeam` shows the split plainly: it loads `template[0x40..0x44]` into a local, calls `WeaponMount_MuzzleOffset`, and adds the two.
+**Only the last two are `WeaponMount_MuzzleOffset` (`0040f540`).** The template's own triple is added here, by the prologue, and nowhere else. The distinction matters because the pair without it is *where the weapon sits* — it is the offset the base constructor bakes into the mount's copy of the weapon model (`Shape_TranslatePointLists`, `0040dd4c`), and the triple is the length of the barrel from there. Retail triples run 630 (`ATC20`) to 2725 units of forward Y, 3.8 m to 16 m, so standing the model at the muzzle instead puts it a barrel clear of the chassis. The multi-barrel branch of `WeaponMount_FireDispatch_GunBeam` shows the split plainly: it loads `template[0x40..0x44]` into a local, calls `WeaponMount_MuzzleOffset`, and adds the two.
 
 `WeaponMountTemplate_SideMuzzleOffset` is what makes a mirrored hardpoint pair fire from mirrored points off one template. The template carries a lateral figure at `0x46` and a vertical one at `0x4a`; the hardpoint's mounting code (`.GL +6`) picks one and its sign, and **only one axis is ever nonzero**:
 
@@ -127,7 +127,7 @@ template[0x40..0x44]                       // the weapon's own muzzle triple
 | 3 | right side | `(+0x46, 0, 0)` |
 | 4 | invisible | `(0, 0, 0)` |
 
-The prologue then arms the refire timer as `Q10Multiply(mount+0x63, template[0x4c])`. `mount+0x63` is `0x400` from the base constructor (`FUN_0040df30`) and nothing traced changes it, so the delay is the template's own figure. `WeaponMount_RefireTick` (`0040ef94`) counts it down by `SimTickDelta` — about 15 ticks for the 1200 most weapons carry. **`ELF` and `ELF2` carry zero**, and their mount class does not test the timer either: what limits those two is the capacitor, not a cooldown — see [`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
+The prologue then arms the refire timer as `Q10Multiply(mount+0x63, template[0x4c])`. `mount+0x63` is `0x400` from the base constructor (`WeaponMount_CtorBase`, `0040df30`) and nothing traced changes it, so the delay is the template's own figure. `WeaponMount_RefireTick` (`0040ef94`) counts it down by `SimTickDelta` — about 15 ticks for the 1200 most weapons carry. **`ELF` and `ELF2` carry zero**, and their mount class does not test the timer either: what limits those two is the capacitor, not a cooldown — see [`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
 
 Its last two writes set the mount's `+0x33` and `+0x3b` flag blocks, which is what makes an ELF's sustained fire possible; the same doc has them.
 
@@ -135,7 +135,7 @@ Its last two writes set the mount's `+0x33` and `+0x3b` flag blocks, which is wh
 
 Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50`, clamped to 0..1200. `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) is the bulk counterpart, putting every capacitor back to the idle 820.
 
-**This is the only thing in the retail build that raises a capacitor past 820.** `WeaponMount_DemandFullCharge` (`0040f4f0`) does the same in one step and is the obvious candidate, but its only caller `FUN_00410d50` has no reference of any kind anywhere in the image — neither a `CALL rel32` nor a stored address — so neither is ever reached.
+**This is the only thing in the retail build that raises a capacitor past 820.** `WeaponMount_DemandFullCharge` (`0040f4f0`) does the same in one step and is the obvious candidate, but its only caller `WeaponMounts_DemandFullChargeOnArmed_Dead` (`00410d50`) has no reference of any kind anywhere in the image — neither a `CALL rel32` nor a stored address — so neither is ever reached.
 
 For a fixed-cost weapon this changes nothing but the cockpit bar. For a charge-up weapon the target *is* the shot strength: retail `PBEAM` at 960 does 937 damage every 48 ticks, and five presses of `[-]` make it 546 every 28.
 

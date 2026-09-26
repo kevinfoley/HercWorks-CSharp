@@ -7,7 +7,7 @@ namespace Herculan.Engine.Shell;
 /// <c>Pilot:</c>/<c>Skill:</c>/<c>Condition:</c> readout for the selected bay, and the eight-row
 /// <c>Squad Inventory</c> list that selects it. Built once by <c>Squad_BuildRosterList</c>
 /// (<c>0043c999</c>), shown by <c>Squad_ShowPanel</c> (<c>0043cfe7</c>), its readout filled by
-/// <c>FUN_0043d38a</c> and its rows by <c>FUN_0043da47</c> and <c>FUN_0043dad7</c>. The rects are
+/// <c>Squad_RefreshReadout</c> (<c>0043d38a</c>) and its rows by <c>Squad_RefreshRowNames</c> (<c>0043da47</c>) and <c>Squad_RefreshRowCrew</c> (<c>0043dad7</c>). The rects are
 /// literals in the canvas. See docs/shell/screen-layout.md, "The squad panel".
 ///
 /// <para>Only the repair tab's use of it is ported, which is what <see cref="CanSelect"/> encodes.</para>
@@ -52,7 +52,7 @@ public static class ShellSquadPanel {
 	private const byte RowTextColor = 0x27;
 	private const byte SelectedRowBorder = 0x29;
 
-	/// <summary>The colour an unfinished machine's <c>N% Complete</c> is printed in, a literal in <c>FUN_0043d38a</c>.</summary>
+	/// <summary>The colour an unfinished machine's <c>N% Complete</c> is printed in, a literal in <c>Squad_RefreshReadout</c> (<c>0043d38a</c>).</summary>
 	private const byte BuildingColor = 0x20;
 
 	private const int TitleText = 0x64;
@@ -86,7 +86,7 @@ public static class ShellSquadPanel {
 	}
 
 	/// <summary>
-	/// <c>FUN_0043d64d</c>'s repair-tab arm: a row answers only when its bay holds a finished machine.
+	/// <c>Squad_SelectBay</c> (<c>0043d64d</c>)'s repair-tab arm: a row answers only when its bay holds a finished machine.
 	/// Clicking an empty bay or one still being built does nothing at all.
 	/// </summary>
 	public static bool CanSelect(ShellHangar hangar, int bay) => hangar.Bay(bay) is { IsBuilt: true };
@@ -108,7 +108,7 @@ public static class ShellSquadPanel {
 	}
 
 	/// <summary>
-	/// <c>FUN_0043d38a</c>. The pilot is the bay's assigned pilot or <c>Unassigned</c>; the skill is
+	/// <c>Squad_RefreshReadout</c> (<c>0043d38a</c>). The pilot is the bay's assigned pilot or <c>Unassigned</c>; the skill is
 	/// theirs or blank. The condition is the band word for the machine's overall condition in the
 	/// band's colour, or <c>N% Complete</c> while it is still being built.
 	/// </summary>
@@ -147,8 +147,8 @@ public static class ShellSquadPanel {
 
 	/// <summary>
 	/// One roster row. The machine's name is in its overall condition's band colour, whether or not it
-	/// is finished (<c>FUN_0043da47</c>); the last column is the pilot, or <c>N% Complete</c> for a
-	/// machine still being built (<c>FUN_0043dad7</c>). The selected row's border is lit.
+	/// is finished (<c>Squad_RefreshRowNames</c>, <c>0043da47</c>); the last column is the pilot, or <c>N% Complete</c> for a
+	/// machine still being built (<c>Squad_RefreshRowCrew</c>, <c>0043dad7</c>). The selected row's border is lit.
 	/// </summary>
 	private static void PaintRow(ShellSurface surface, HudFont? font, ShellText? text, ShellHangar hangar,
 			int bay, bool selected) {

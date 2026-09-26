@@ -177,8 +177,8 @@ public readonly record struct CockpitHudState(
 	/// its own <c>SetMode(obj, 3)</c> call.
 	///
 	/// <para>The Heads-Down Display boots to its command display and structural damage for the same
-	/// reason: <c>FUN_00448cc8</c> ends with <c>FUN_0044a5e4(obj, 0)</c> and <c>FUN_0045079c</c> with
-	/// <c>FUN_00450b60(obj, 0)</c>.</para>
+	/// reason: <c>HddDisplay_Ctor</c> (<c>00448cc8</c>) ends with <c>HddDisplay_SetPage(obj, 0)</c> (<c>0044a5e4</c>) and <c>HddDamageScreen_Ctor</c> (<c>0045079c</c>) with
+	/// <c>HddDamageScreen_SetView(obj, 0)</c> (<c>00450b60</c>).</para>
 	/// </summary>
 	public static CockpitHudState Default { get; } = new(
 		Weapons: Array.Empty<WeaponRowState>(),
@@ -212,7 +212,7 @@ public readonly record struct CockpitHudState(
 }
 
 /// <summary>
-/// One line on the pilot and squad channel, already composed the way <c>FUN_00435d0c</c> composes it
+/// One line on the pilot and squad channel, already composed the way <c>PilotMessagePort_ComposeLine</c> (<c>00435d0c</c>) composes it
 /// — the speaker's name, <see cref="PilotMessageBoxLayout.NameSeparator"/>, then their message.
 /// </summary>
 /// <param name="Text">The composed line.</param>

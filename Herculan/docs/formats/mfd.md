@@ -203,11 +203,11 @@ There is no vertical alignment flag: every label is vertically centred in its re
 
 `MfdDisplay_Update` (`00446328`) and `MfdDisplay_SetMode` both park the screen's subject in the display's shared state block at `+0xb9`, refreshed every 30 coarse ticks: for mode 0 the entry `+0x308[+0x318]` the SELECT button cycles, for mode 4 `CockpitView+0x210`, the current selection. Both screens read the same field, so **the two modes differ only in their subject**. The screen latches it at `+0x3e` and holds a dead one for 300 ticks before dropping to the empty state.
 
-Everything the paint (`FUN_0043a5a0`) chooses is a property of that subject, not of the mode:
+Everything the paint (`MfdStatusScreen_Paint`, `0043a5a0`) chooses is a property of that subject, not of the mode:
 
 | Test | Effect |
 |---|---|
-| Subject is the viewing object (`CockpitView+0x203`) or one of the three squadmates (`FUN_00433134`) | Label 0 is `ID:` and label 1 the pilot's name — `YOU` for the machine being flown; otherwise `TARGET:` and the type name |
+| Subject is the viewing object (`CockpitView+0x203`) or one of the three squadmates (`Squad_IndexOf`, `00433134`) | Label 0 is `ID:` and label 1 the pilot's name — `YOU` for the machine being flown; otherwise `TARGET:` and the type name |
 | Group record's side byte (`obj+0x45` → `+0x12`) | Label 1's font: `ColorSchemePanels[1]` `CPGREEN` for a friendly, `[2]` `CPRED` for a Cybrid. **This is the paint-time override**; the constructor's own `RED` for that label is never used |
 | Same byte | A friendly gets the integrity readout in label 4; a hostile gets group 20 entry 2 `DIST:  ` with the range appended (`Math_DistanceBetweenPoints` (`00492780`) between the two origins) |
 | Target class `obj+0x1a8` | Which branch below draws the viewport, and how the condition is worked out |
@@ -222,7 +222,7 @@ With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorS
 | 2 flyer | `flyers` bank frame 0, centred in the viewport by its own frame size | `Damage_ToConditionState(damage)`: intact ≥ 90% `OK`, ≥ 74% `SHIELDS DN`, ≥ 51% `INT DAMAGE`, ≥ 1% `CRITICAL`, else `DESTROYED` |
 | 1, 3 structure | `bases` or `vehicles` bank, frame = the type record's `+0x28`, centred the same way | as above |
 
-Damage is the object's vtable `+0x40` as a Q8 fraction — `FUN_0040db2c` over every component and dependent for a machine, the component sum for a structure.
+Damage is the object's vtable `+0x40` as a Q8 fraction — `Component_ReadOverallDamage` (`0040db2c`) over every component and dependent for a machine, the component sum for a structure.
 
 `BASES.DAT +0x28` is both the silhouette frame and the type-name index: into group 23's 31 structure names when `+0x32` is 0, and group 24's four vehicle names when it is not. Confirmed by construction — every structure type states 0-30 and every vehicle type 0-3.
 

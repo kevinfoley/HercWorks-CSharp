@@ -30,11 +30,11 @@ namespace Herculan.Engine.Sim;
 /// are missing because they are not needed, not because they were dropped here.</para>
 ///
 /// <para><b>Not ported:</b> the "enemy detected" callout each new contact plays (mech vtable
-/// <c>+0x48</c>, <c>FUN_00412800</c>, which is sound plus a once-per-contact latch).</para>
+/// <c>+0x48</c>, <c>Mech_AiEnemySighted</c> (<c>00412800</c>), which is sound plus a once-per-contact latch).</para>
 /// </summary>
 public static class Detection {
 	/// <summary>
-	/// Sight height for an object whose shape record is missing — <c>FUN_00412608</c>'s literal 500,
+	/// Sight height for an object whose shape record is missing — <c>Detection_LineOfSight</c> (<c>00412608</c>)'s literal 500,
 	/// and the default for <see cref="SimObject.SightHeight"/>.
 	/// </summary>
 	public const int DefaultSightHeight = 500;
@@ -42,7 +42,7 @@ public static class Detection {
 	/// <summary>
 	/// How far a <i>radar-visible</i> object can be selected from — <c>DAT_004d1cfc</c>, which is
 	/// the last entry of the scanner's own three-range table (<c>MfdDisplay_Ctor</c> writes
-	/// 50000/100000/200000). <c>FUN_00433174</c> reads that third entry directly rather than the
+	/// 50000/100000/200000). <c>TargetSelect_CanTarget</c> (<c>00433174</c>) reads that third entry directly rather than the
 	/// player's current setting, so the radar-visible branch always uses the longest range.
 	/// </summary>
 	public const int RadarTargetingRange = 200000;
@@ -83,7 +83,7 @@ public static class Detection {
 
 	/// <summary>
 	/// Half-width of the sensor arc, about <see cref="SimObject.Heading"/> plus
-	/// <see cref="SimObject.AimTwist"/> — <c>FUN_00411acc</c> (mech vtable <c>+0x44</c>), whose test
+	/// <see cref="SimObject.AimTwist"/> — <c>SimObject_BearingInSensorArc</c> (<c>00411acc</c>, mech vtable <c>+0x44</c>), whose test
 	/// is <c>(bearing - heading + 0x3800) &lt; 0x7000</c> unsigned. About 78.75° each side.
 	/// </summary>
 	public const int SensorArcHalfWidth = 0x3800;
@@ -121,7 +121,7 @@ public static class Detection {
 			&& simObject.TargetClass != TargetClass.None;
 
 	/// <summary>
-	/// <c>FUN_004123ac</c> — the whole sensor model for one simulation step, in the original's own
+	/// <c>Sim_DetectionTick</c> (<c>004123ac</c>) — the whole sensor model for one simulation step, in the original's own
 	/// three passes.
 	///
 	/// <list type="number">
@@ -177,7 +177,7 @@ public static class Detection {
 	}
 
 	/// <summary>
-	/// <c>FUN_004128f8</c> — one human-side object's look around, over every Cybrid in the world.
+	/// <c>Detection_Sweep</c> (<c>004128f8</c>) — one human-side object's look around, over every Cybrid in the world.
 	/// Two independent things happen per candidate and the second is not conditional on the first.
 	///
 	/// <list type="number">
@@ -258,7 +258,7 @@ public static class Detection {
 	}
 
 	/// <summary>
-	/// <c>FUN_00412704</c> — a new contact passed to everyone on the spotter's side within
+	/// <c>Detection_ShareContact</c> (<c>00412704</c>) — a new contact passed to everyone on the spotter's side within
 	/// <see cref="ContactShareRange"/>, the spotter included. Nothing is shared to the other side, and
 	/// a spotter and a contact on the same side is not a contact at all.
 	/// </summary>
@@ -281,7 +281,7 @@ public static class Detection {
 	}
 
 	/// <summary>
-	/// <c>FUN_0041251c</c> — one object forgets what it can no longer justify knowing. Its radar
+	/// <c>Detection_DecayContacts</c> (<c>0041251c</c>) — one object forgets what it can no longer justify knowing. Its radar
 	/// visibility is dropped outright at the top (the sweep re-establishes it the same tick if it is
 	/// still being painted), and every enemy contact it holds is dropped unless it is both inside
 	/// <see cref="ContactHoldRange"/> and still in line of sight.
@@ -314,7 +314,7 @@ public static class Detection {
 	}
 
 	/// <summary>
-	/// <c>FUN_00412608</c> — is there clear ground between these two, cached per pair.
+	/// <c>Detection_LineOfSight</c> (<c>00412608</c>) — is there clear ground between these two, cached per pair.
 	///
 	/// <para>The ray runs between the two objects' shape centres
 	/// (<see cref="SimObject.SightHeight"/>) and a terrain hit anywhere along it means no sight. The
@@ -343,7 +343,7 @@ public static class Detection {
 	}
 
 	/// <summary>
-	/// <c>FUN_00411acc</c>, the mech's vtable <c>+0x44</c> — whether a bearing falls inside an
+	/// <c>SimObject_BearingInSensorArc</c> (<c>00411acc</c>), the mech's vtable <c>+0x44</c> — whether a bearing falls inside an
 	/// object's sensor arc. The caller has already folded in the aim twist, so this is purely a
 	/// comparison against <see cref="SimObject.Heading"/>.
 	/// </summary>
@@ -357,7 +357,7 @@ public static class Detection {
 	/// </summary>
 	/// <remarks>
 	/// The original's argument order is the destination first; this takes them the way round the name
-	/// reads. The degenerate guard is <c>FUN_00492800</c>'s own, which nudges the <b>x</b> delta so a
+	/// reads. The degenerate guard is <c>Math_Atan2Guarded</c> (<c>00492800</c>)'s own, which nudges the <b>x</b> delta so a
 	/// pair standing on the same spot reads as a bearing of zero — the same guard
 	/// <see cref="World.MissionLoader"/> applies to a route with no length.
 	/// </remarks>

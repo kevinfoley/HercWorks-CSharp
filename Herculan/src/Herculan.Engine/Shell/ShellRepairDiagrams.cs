@@ -62,7 +62,7 @@ public sealed class ShellRepairDiagrams {
 
 	/// <summary>
 	/// The nine indices the internals picture paints its components in, one per internal in list order —
-	/// the table at <c>0046fe80</c>, which <c>FUN_0041469a</c> writes as slot 0's remap sources.
+	/// the table at <c>0046fe80</c>, which <c>Repair_ColorDiagram</c> (<c>0041469a</c>) writes as slot 0's remap sources.
 	/// </summary>
 	private static readonly byte[] InternalInks = { 0x1d, 0x1c, 0x18, 0x19, 0x17, 0x1e, 0x16, 0x1f, 0x1b };
 
@@ -157,7 +157,7 @@ public sealed class ShellRepairDiagrams {
 		float y = canvasY - PictureRect.Y0;
 
 		for (int mount = 0; mount < machine.MountCapacity; mount++) {
-			// FUN_00414418 — the part's own rect, one pixel past its frame on both axes as it is written.
+			// Repair_WeaponPartRect (00414418) — the part's own rect, one pixel past its frame on both axes as it is written.
 			if (WeaponRecord(machine, mount) is { } record && Frame(_weaponBank, record.FrameId) is { } frame
 				&& x >= record.OriginX && y >= record.OriginY
 				&& x <= record.OriginX + frame.Cols && y <= record.OriginY + frame.Rows) {
@@ -176,7 +176,7 @@ public sealed class ShellRepairDiagrams {
 	}
 
 	/// <summary>
-	/// The exploded external picture, as <c>Repair_BuildDiagrams</c> fills it and <c>FUN_0041469a</c>
+	/// The exploded external picture, as <c>Repair_BuildDiagrams</c> fills it and <c>Repair_ColorDiagram</c> (<c>0041469a</c>)
 	/// colours it: one part per <c>rpr_*.dat</c> body record in the slot its id names, remapping index
 	/// <c>0xe</c> to its group's band colour, and one per fitted mount in slot <c>6 + mount</c> from the
 	/// shared weapons bank, remapping <c>0xf</c> to that mount's band colour.
@@ -189,7 +189,7 @@ public sealed class ShellRepairDiagrams {
 		}
 
 		foreach (var (id, record) in layout.BodyImages ?? new()) {
-			// Ids 16 and up are a second part for the same group — the Razor's. FUN_0041469a folds them
+			// Ids 16 and up are a second part for the same group — the Razor's. Repair_ColorDiagram (0041469a) folds them
 			// back onto 0-5 to read the condition, and still colours the slot the id names.
 			int group = id > 0xf ? id - 0x10 : id;
 			int condition = machine.Condition(ShellRepairCategory.ExternalGroup, group);
@@ -241,7 +241,7 @@ public sealed class ShellRepairDiagrams {
 	}
 
 	/// <summary>
-	/// <c>FUN_00413ccc</c> — the weapon part for one mount: the record in the fitted weapon's group
+	/// <c>RepairLayout_FindWeaponPart</c> (<c>00413ccc</c>) — the weapon part for one mount: the record in the fitted weapon's group
 	/// whose id is <c>slot + 6</c>. An empty mount, or a weapon the chassis has no art for in that
 	/// socket, has none.
 	/// </summary>

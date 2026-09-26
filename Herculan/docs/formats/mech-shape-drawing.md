@@ -14,7 +14,7 @@ Everything below sits *above* [`dts-node-posing.md`](dts-node-posing.md), which 
 
 ## The LOD root is chosen per frame, per object
 
-A machine's `.DTS` roots are **complete alternate models**, not parts of one: `SAMSON.DTS` carries 7, descending 228 → 227 → 226 → 206 → 131 → 41 → 18 polys. `MechType_InitOne` loads them into a detail struct at `typeRec+0xde` — root array at `+0`, thresholds at `+4`, root count at `+0xc` — and `Mech_Constructor` (`00415bb0`) hands that struct to the object through `FUN_004033a4`, which stores it at `obj+0x41`. **Only the machine does.** `SimObjectBase_ConstructAnimated` and `SimObjectBase_ConstructStatic` both null that field, so a flyer, a structure and everything else draw the one root they were built with.
+A machine's `.DTS` roots are **complete alternate models**, not parts of one: `SAMSON.DTS` carries 7, descending 228 → 227 → 226 → 206 → 131 → 41 → 18 polys. `MechType_InitOne` loads them into a detail struct at `typeRec+0xde` — root array at `+0`, thresholds at `+4`, root count at `+0xc` — and `Mech_Constructor` (`00415bb0`) hands that struct to the object through `SimObjectBase_ConstructWithDetailTable` (`004033a4`), which stores it at `obj+0x41`. **Only the machine does.** `SimObjectBase_ConstructAnimated` and `SimObjectBase_ConstructStatic` both null that field, so a flyer, a structure and everything else draw the one root they were built with.
 
 `Shape_DrawAtDetailLevel` then picks one every frame:
 
@@ -59,7 +59,7 @@ Across the 21 machine shapes, the leading four to six roots keep root 0's number
 
 One per-node world transform array exists per object, and **every root is drawn through it**:
 
-- `FUN_0047872c`, the shape-instance constructor, sizes the dirty-flag, local and world arrays from `shape->animList->nodeCount` at `shapeInst+0xc` and allocates them once. The shape it reads is the one the instance is built with, root 0. Nothing reallocates them.
+- `ShapeInst_Construct` (`0047872c`), the shape-instance constructor, sizes the dirty-flag, local and world arrays from `shape->animList->nodeCount` at `shapeInst+0xc` and allocates them once. The shape it reads is the one the instance is built with, root 0. Nothing reallocates them.
 - `ShapeInst_BuildWorldTransforms` (`00478b58`) has exactly two callers — that constructor, and `ShapeInstance_StepAnimation` (`00478c2c`), which `SimObject_ApplyRootMotion` runs once per sim tick. `Shape_DrawAtDetailLevel` restores root 0 into the instance at the end of every draw, so **both callers run with root 0 installed** and the relation list walked is always root 0's.
 - `ShapeInst_BindNodeTransformArray` (`00475fd8`) binds that one array to the render global; its two callers are the generic shape-render entry and exit. Nothing rebinds per root.
 - `AnimThread_EvalNodeLocals` (`004799a4`) indexes the locals by the part ids of the sequence the **thread's own** anim list names — `thread+0` — not the drawn root's.
@@ -72,7 +72,7 @@ So a root whose numbering is compacted has its geometry composed against whateve
 | 4 | 9 (a knee in root 0) | `(-2.76, -1.68, 4.08)` m | 6 m low, 2.8 m off-axis |
 | 5, 6 | 4 (the torso mount) | `(0.00, 0.00, 0.00)` m | on the ground |
 
-**Observed retail behaviour does not show a displaced upper body at the lowest HERC DETAIL setting.** Everything above is read from the binary and the shipped shapes ([Open](#open)). Ruled out so far: the shape loader truncating the root list (`FUN_00474bcc` loads all of them, into a 100-slot buffer); the bias coming from anywhere but the HERC DETAIL byte (`0045fbaf` and `00461dc9` both push `DAT_004d1fc5` straight into `ShapeDetail_ApplyHercDetailSetting`); and `Mech_Draw` bypassing the selection (`004174c8` calls `Shape_DrawAtDetailLevel` after its splice loop).
+**Observed retail behaviour does not show a displaced upper body at the lowest HERC DETAIL setting.** Everything above is read from the binary and the shipped shapes ([Open](#open)). Ruled out so far: the shape loader truncating the root list (`Shape_LoadAllRoots` (`00474bcc`) loads all of them, into a 100-slot buffer); the bias coming from anywhere but the HERC DETAIL byte (`0045fbaf` and `00461dc9` both push `DAT_004d1fc5` straight into `ShapeDetail_ApplyHercDetailSetting`); and `Mech_Draw` bypassing the selection (`004174c8` calls `Shape_DrawAtDetailLevel` after its splice loop).
 
 ### The three tunables
 

@@ -270,7 +270,7 @@ static class ShellHost {
 			}
 		}
 
-		// RESTORE, FUN_00437d03: load the selected slot, then leave exactly as EXIT does on the tab-strip
+		// RESTORE, SaveScreen_OnRestore (00437d03): load the selected slot, then leave exactly as EXIT does on the tab-strip
 		// path, whichever way the screen was entered. The original also writes the loaded game straight
 		// back out as the slot-10 autosave and clears the campaign map's intro flag (DAT_004778aa); this
 		// engine has no save writer and no campaign map yet, so neither has a counterpart here.
@@ -318,8 +318,8 @@ static class ShellHost {
 		}
 
 		// The repair screen's own clicks: a row or a hotspot moves the selection and the detail panel
-		// follows, which is the whole of what the original's FUN_00433eb9 does before its own refill; a
-		// roster row moves the bay, FUN_0043d64d's repair-tab arm.
+		// follows, which is the whole of what the original's Repair_SelectHotspot (00433eb9) does before its own refill; a
+		// roster row moves the bay, Squad_SelectBay (0043d64d)'s repair-tab arm.
 		void ClickRepair(float canvasX, float canvasY) {
 			if (ShellSquadPanel.RowAt(canvasX, canvasY) is { } bay) {
 				if (repairScreen.SelectBay(bay)) {
@@ -373,7 +373,7 @@ static class ShellHost {
 			renderer.SetContent(contentSurface);
 		}
 
-		// The tab's own palette, as FUN_0043b162 picks it. The original writes an index into the palette
+		// The tab's own palette, as Shell_SelectTabPalette (0043b162) picks it. The original writes an index into the palette
 		// widget and shows it; here the whole of the art is decoded through one palette at load, so a
 		// change means loading it again and rebuilding the renderer's textures. That is a few
 		// milliseconds on a click, and it happens only when the index actually moves.

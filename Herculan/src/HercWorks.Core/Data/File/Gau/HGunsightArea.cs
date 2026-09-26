@@ -6,7 +6,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// only one three of its children share: the clickable gunsight surface (child 0), the target-box
 /// child (child 5) and its never-painted sibling (child 6).
 ///
-/// What makes it load-bearing is child 5's paint (`FUN_0043b950`): when the selected target does
+/// What makes it load-bearing is child 5's paint (`Gunsight_TargetIndicatorPaint (0043b950)`): when the selected target does
 /// **not** project inside this rect, the box is replaced by an arrow pointing at it, and the arrow
 /// is placed where the line from the reticle to the target crosses this rect's border. So the rect
 /// is what keeps the off-screen arrow clear of the canopy — every retail file sets it well inside

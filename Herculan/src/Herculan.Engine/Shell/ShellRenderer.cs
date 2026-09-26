@@ -144,7 +144,7 @@ public sealed class ShellRenderer : IDisposable {
 		if (button.Caption is { Length: > 0 } caption && sheet.Font(button.FontName) is { } font) {
 			// Horizontally centred, with the font's ink band centred vertically rather than its full
 			// cell — the descender rows would otherwise sit the text high. VSHELL centres vertically too
-			// but does it by baseline against the font's own height, which needs FUN_00453fa8 and the
+			// but does it by baseline against the font's own height, which needs Font_CellHeight (00453fa8) and the
 			// Text widget's +0xb1 identified; this is the same intent through DBSIM's ink-height rule
 			// (see HudFont.Place), and is Herculan's arithmetic rather than the original's.
 			int textX = button.Rect.X0 + (button.Rect.Width - font.Measure(caption)) / 2;

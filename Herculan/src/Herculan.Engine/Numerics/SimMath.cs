@@ -23,7 +23,7 @@ public static class SimMath {
 	/// The global simulation timestep — DBSIM's <c>SimTickDelta</c> (<c>DAT_004d3be8</c>), read by
 	/// <see cref="IntegrateRateOverTick"/> and <see cref="CountdownTimerTick"/>. In DBSIM this is
 	/// refreshed once per frame from a hardware timer by the per-frame sim tick
-	/// (<c>FUN_0045f464</c>); here the sim loop owns it the same way (see <c>Sim/SimWorld</c>).
+	/// (<c>Sim_MainTick</c>, <c>0045f464</c>); here the sim loop owns it the same way (see <c>Sim/SimWorld</c>).
 	///
 	/// Everything scaled by it is a "per this tick" quantity, not "per second" — which is what
 	/// makes DBSIM a discrete fixed/semi-fixed timestep sim rather than a continuous-time

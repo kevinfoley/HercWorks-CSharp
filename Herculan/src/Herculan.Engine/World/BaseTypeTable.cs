@@ -115,7 +115,7 @@ public readonly record struct BaseComponentType(
 /// </param>
 /// <param name="HitRadius">
 /// <c>+0x2a</c> — the coarse collision radius, in world units, that the type's vtable <c>+0x5c</c>
-/// hands out (<c>FUN_004035a4</c>). <b>This is the type's own stated figure, not a measurement of
+/// hands out (<c>Base_GetBodyRadius</c>, <c>004035a4</c>). <b>This is the type's own stated figure, not a measurement of
 /// the model</b>, which is what the engine substituted before; retail values run 1000 to 9600, and
 /// four types state zero.
 /// </param>

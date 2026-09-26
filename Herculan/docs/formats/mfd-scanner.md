@@ -56,7 +56,7 @@ scale       = range / 25 >> XCoordShift          -- world units per device pixel
 pixelOffset = worldOffset / scale                -- integer divide, so blips snap
 ```
 
-A contact at the display range therefore lands 25 GAU units from the centre, inside the dish art's own 27-unit radius. Ranges are `MfdScannerRanges` (`004d1cf4`) = 50000 / 100000 / 200000 world units = 300 / 600 / 1200 m; `MfdDisplay_Ctor` writes all three as literals and boots at index 2. RANGE (`FUN_00446fc8`) steps the index and wraps at 3, so the first press goes from 1200 m to 300 m.
+A contact at the display range therefore lands 25 GAU units from the centre, inside the dish art's own 27-unit radius. Ranges are `MfdScannerRanges` (`004d1cf4`) = 50000 / 100000 / 200000 world units = 300 / 600 / 1200 m; `MfdDisplay_Ctor` writes all three as literals and boots at index 2. RANGE (`MfdDisplay_CycleScannerRange`, `00446fc8`) steps the index and wraps at 3, so the first press goes from 1200 m to 300 m.
 
 `MfdRadarScreen_Update` walks the live object list and, for each object:
 
@@ -77,7 +77,7 @@ The survivor is rotated into the machine's own frame by `Math_BuildRotation2D(-h
 
 The hostile branch does not simply skip. On every other coarse tick (`Time_GetCoarseTicks() & 0x20`) it looks for a stored position at `obj+0x1aa`, gated on `obj+0xa7 == 0`, and plots that instead — a blinking last-known-position marker.
 
-**It can never run.** `Mech_Constructor`, `Flyer_Constructor` and the base-object prologue `Base_Construct` inlines five times all set `obj+0xa7 = 1` immediately before `ObjectList_Add`, and nothing in the image clears it. Nothing writes `obj+0x1aa` either. The same idiom appears in `FUN_00420ad4` and `FUN_0044e92c` and is equally dead there.
+**It can never run.** `Mech_Constructor`, `Flyer_Constructor` and the base-object prologue `Base_Construct` inlines five times all set `obj+0xa7 = 1` immediately before `ObjectList_Add`, and nothing in the image clears it. Nothing writes `obj+0x1aa` either. The same idiom appears in `Mech_ReceiveSquadOrder` (`00420ad4`) and `FUN_0044e92c` and is equally dead there.
 
 ## Paint order
 
@@ -122,7 +122,7 @@ Both values go through `Hud_WorldUnitsToMetres` and then `_itoa` into a four-byt
 
 | Button | Action |
 |---|---|
-| 8 RANGE | `FUN_00446fc8` — step the zoom index, wrapping at 3 |
+| 8 RANGE | `MfdDisplay_CycleScannerRange` (`00446fc8`) — step the zoom index, wrapping at 3 |
 | 9 TARGET | shares its case with SELECT: `TargetSelect_Cycle` unless the mode is 0, so it does what [Enter] does |
 | 11 PASS | `mech+0x96 = 0`, then light itself and clear ACTIVE |
 | 12 ACTIVE | `mech+0x96 = 1`, and the reverse |
@@ -137,7 +137,7 @@ The `radar` bank's ten frames play at the dish's position once, when the cockpit
 
 ## The floating repeater
 
-`FUN_0043f2b0`, reached from `Gunsight_Paint` (`0043d5c8`) and `Gunsight_UpdateAndPaint` (`0043d6dc`) through the one-line `FUN_0043e0ec`. It belongs to the **gunsight complex**, not the MFD — see [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md) — and is the last thing that complex draws, after every child.
+`HudScanner_Paint` (`0043f2b0`), reached from `Gunsight_Paint` (`0043d5c8`) and `Gunsight_UpdateAndPaint` (`0043d6dc`) through the one-line `Gunsight_PaintHudScanner` (`0043e0ec`). It belongs to the **gunsight complex**, not the MFD — see [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md) — and is the last thing that complex draws, after every child.
 
 It reaches the scanner screen object through `CockpitView+0x1ed`'s `+0xd9`, calls that screen's update slot to rebuild the contact list, and **returns immediately when that screen is the display's current one**. So the repeater and the F4 screen are never on screen together: the repeater is what the player sees on F1, F2, F3, F5 and F6.
 

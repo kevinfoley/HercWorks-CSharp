@@ -87,7 +87,7 @@ public readonly record struct MeshCell(CellGate Gate, MeshVertex[] Vertices, int
 /// <para>The outline is not decoration. <c>TSSolidPoly_Render</c> (<c>00474db4</c>) resolves
 /// <i>two</i> colours for every flat solid face — <c>surface.FrontColor</c> and
 /// <c>surface.FrontLineColor</c>, both through the theater ramp at the same fixed shade — and hands
-/// both to the polygon fill <c>FUN_0048d518</c>, which fills in the first and then, whenever the two
+/// both to the polygon fill <c>PolyFill_FillThenOutline</c> (<c>0048d518</c>), which fills in the first and then, whenever the two
 /// resolve differently, re-draws the same polygon's edge loop in the second. That second pass is
 /// this range. See <see cref="DtsMeshBuilder"/>'s <c>ResolveSolidColors</c>.</para>
 /// </summary>
@@ -403,12 +403,12 @@ public static class DtsMeshBuilder {
 	/// ships them.
 	///
 	/// <para><b>The mechanism.</b> <c>MechType_InitOne</c> (<c>004201a8</c>) builds, per LOD root, a
-	/// list of part slots — one per hardpoint — through <c>FUN_0040fc50</c>, which emits each
+	/// list of part slots — one per hardpoint — through <c>GunLayout_CollectHardpointBones</c> (<c>0040fc50</c>), which emits each
 	/// <c>.GL</c> record's <see cref="GunLayout.HardpointEntry.BoneId"/> when its mounting code is
 	/// under <see cref="Sim.WeaponMount.InvisibleMounting"/> and <c>-1</c> otherwise, and
-	/// <c>FUN_0040304c</c>, which resolves each id to the address of the shape's part slot holding
-	/// the part with that id. The mech's own draw (<c>FUN_004174c8</c>, mech vtable <c>+0</c>) then
-	/// runs <c>FUN_004030d0</c> before rendering anything, replacing each slot's contents with either
+	/// <c>MechType_BindHardpointSlots</c> (<c>0040304c</c>), which resolves each id to the address of the shape's part slot holding
+	/// the part with that id. The mech's own draw (<c>Mech_Draw</c> (<c>004174c8</c>), mech vtable <c>+0</c>) then
+	/// runs <c>Mech_SpliceHardpointShapes</c> (<c>004030d0</c>) before rendering anything, replacing each slot's contents with either
 	/// the fitted mount's weapon shape or a blank record from <c>typeRec+0xec</c>, inheriting the
 	/// placeholder's node transform and id. Empty or fitted, the shipped geometry is always
 	/// overwritten.</para>

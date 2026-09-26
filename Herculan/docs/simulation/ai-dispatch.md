@@ -238,7 +238,7 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | `+0x4c` | `Mech_CompareCombatRating` (`0041cabc`) | This machine's combat rating against a candidate's — [`ai-targeting.md`](ai-targeting.md#relative-combat-rating) |
 | `+0x50` | `Mech_AiOnTakingFire` (`0041f7b8`) | "This object just took fire" — [`ai-targeting.md`](ai-targeting.md#taking-fire--mech_aiontakingfire-0041f7b8-mech-vtable-0x50). Holds one of the 30 `Behaviour_SetState` call sites |
 | `+0x64` | `Mech_AiOnLineOfFireBlocked` (`0041dd2c`) | "My shot hit something that is not what I aimed at" — the trigger for `skirting`, [`ai-combat-states.md`](ai-combat-states.md#how-it-is-reached) |
-| `+0x68` | `FUN_0042200c` | "Something ran into me" — [`mech-locomotion.md`](mech-locomotion.md) |
+| `+0x68` | `SimObject_SetRunInto` (`0042200c`) | "Something ran into me" — [`mech-locomotion.md`](mech-locomotion.md) |
 
 ## Rejected readings
 

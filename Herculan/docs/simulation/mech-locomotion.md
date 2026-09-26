@@ -108,7 +108,7 @@ desired   = clamp(desired, maxRev, maxFwd)
 RateLimitedMoveToward(speed, desired, SpeedAccelDecel)
 ```
 
-`DAT_0049a06e` is **not** a gear selector. `FUN_00459d20` sets it to 1 only when the input configuration reports a throttle control *and* the preferences page has that control assigned to THROTTLE rather than TURRET, and to 0 otherwise; the key command and the cockpit slider that "toggle" it only ever flip between +1 and −1, gated on that same pair. It selects the **joystick throttle-lever mode**: 0 = none, ±1 = lever present, sign inverting its sense.
+`DAT_0049a06e` is **not** a gear selector. `Input_SetThrottleLeverMode` (`00459d20`) sets it to 1 only when the input configuration reports a throttle control *and* the preferences page has that control assigned to THROTTLE rather than TURRET, and to 0 otherwise; the key command and the cockpit slider that "toggle" it only ever flip between +1 and −1, gated on that same pair. It selects the **joystick throttle-lever mode**: 0 = none, ±1 = lever present, sign inverting its sense.
 
 It matters because it is what gates the throttle clamp. At 0 — keyboard and plain stick — the range is the full ±0x400, so holding the axis against its stop runs the setting from full forward through a one-tick pause at zero and on into full reverse. That one-tick pause is the sign-crossing guard, and it is the manual's "Centered is stopped". Non-zero also switches the handler's first block on, which reads the axis as an absolute lever position (`|axis − 0x100| × 2`, deadbanded below 100) instead of as a rate.
 
@@ -161,7 +161,7 @@ The mode is not cancelled by steering or by the turret axes — only by its own 
 
 ## Timing
 
-Tick rate, the `SimTickDelta`/`DAT_004d3be8` formula (`FUN_004677bc`), and its Q8/125ms scale are documented in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit) — not repeated here.
+Tick rate, the `SimTickDelta`/`DAT_004d3be8` formula (`Time_BeginSimTick`, `004677bc`), and its Q8/125ms scale are documented in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit) — not repeated here.
 
 Locomotion accel constants (`SpeedAccelDecel`, `DecelTurning`) are raw per-tick steps with no `Math_IntegrateRateOverTick`, so **the control law is frame-rate dependent**. The animation advance and the torso rates *are* dt-scaled.
 
@@ -173,14 +173,14 @@ Locomotion accel constants (`SpeedAccelDecel`, `DecelTurning`) are raw per-tick 
 
 ```c
 setRootTransform(shape, IDENTITY);   // FUN_00478a70
-advanceAnimation(shape, dt);         // FUN_00478c2c, dt = Q8(SimTickDelta, 100)
+advanceAnimation(shape, dt);         // ShapeInstance_StepAnimation (00478c2c), dt = Q8(SimTickDelta, 100)
 delta = shape->nodeWorldTransforms[0];
-pos   = objRotationMatrix × delta.translation + pos;   // FUN_00480330
+pos   = objRotationMatrix × delta.translation + pos;   // Transform_ApplyToPoint (00480330)
 euler += eulerOf(delta.rotation);                      // FUN_0047f894
 setRootTransform(shape, IDENTITY);
 ```
 
-Per-frame ground movement is loaded on every frame advance by `FUN_00478de8`:
+Per-frame ground movement is loaded on every frame advance by `AnimThread_LoadFrameGroundMovement` (`00478de8`):
 
 ```c
 seq = animList->Sequences[seqId];
@@ -213,7 +213,7 @@ Seeding the root to identity then reading back yields `scale(G, frac_after) ∘ 
 ```
 animTicksPerSec = 3.125 × animRate
         because  dt        = Q8(SimTickDelta, 100) = 0.8 × elapsedMs
-                 advance   = dt × animRate / 256           (FUN_00479614)
+                 advance   = dt × animRate / 256           (AnimThread_Advance, 00479614)
                  per sec   = 1000 × 0.8 × animRate / 256
 
 worldSpeed = 3.125 × speed × (ΣG_cycle / Σticks_cycle)     world units/sec
@@ -293,7 +293,7 @@ The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — s
 
 ## Cockpit eye and bob
 
-No dedicated bob code, and none is needed. `typeRec+0x0c` (`CameraBoneId`) is a shape **part** id. `FUN_0041ef14` resolves it through the shape's find-by-id, takes that part's `TSBasePart.Transform` as a transform id, and indexes the shape instance's per-node transform array at `shapeInst+0x16` (`0x20` bytes per entry) — the same array `FUN_00402628` memcpy's `count << 5` bytes of when saving state for a blocked step. The eye rides a node the walk cycle animates, so the bob falls out of correct root motion.
+No dedicated bob code, and none is needed. `typeRec+0x0c` (`CameraBoneId`) is a shape **part** id. `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) resolves it through the shape's find-by-id, takes that part's `TSBasePart.Transform` as a transform id, and indexes the shape instance's per-node transform array at `shapeInst+0x16` (`0x20` bytes per entry) — the same array `SimObject_PushTransform` (`00402628`) memcpy's `count << 5` bytes of when saving state for a blocked step. The eye rides a node the walk cycle animates, so the bob falls out of correct root motion.
 
 Resolution is uniform across the fleet. Every ground HERC lands on the same chain shape, and the parent links come from the `ANAnimList` relation pairs — the same table `DtsMeshBuilder` already walked to place geometry:
 
@@ -339,7 +339,7 @@ Three arrays on the shape instance: `+0x12` per-node **local** transforms (strid
 
 `ShapeInstance_StepAnimation`'s **only** caller is `SimObject_ApplyRootMotion` (`0040250c`), which `Mech_IntegrateMotion` runs once per sim tick. So poses are re-blended once per tick.
 
-There is no separate render rate for them to be per-frame at: `FUN_004677bc` spin-waits the whole loop to 40 ms, so **tick and frame are the same thing in DBSIM** (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)). A vanilla frame always shows a pose evaluated that same iteration, at 25 Hz.
+There is no separate render rate for them to be per-frame at: `Time_BeginSimTick` (`004677bc`) spin-waits the whole loop to 40 ms, so **tick and frame are the same thing in DBSIM** (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)). A vanilla frame always shows a pose evaluated that same iteration, at 25 Hz.
 
 > Port note: the engine runs a fixed 25 Hz tick (`SimWorld.TicksPerSecond`, `TickDelta` pinned to the > vanilla 81) with rendering decoupled, so it produces the same 25 distinct poses a second the > original does, however fast it renders; consecutive rendered frames may repeat a pose, which > vanilla never does only because it never renders faster than it ticks. Sampling `NodeTransform` at > render time with a sub-tick fraction would exceed the original's smoothness rather than match it, > and is deliberately not done.
 
@@ -348,7 +348,7 @@ There is no separate render rate for them to be per-frame at: `FUN_004677bc` spi
 `Mech_CollisionTest` (`00418f74`) answers "is the position I just integrated into refused", and is run after every move. Three things refuse it, in order:
 
 1. **An object in the way.** The gap is asymmetric: **this** machine contributes its own vtable `+0x5c` and the **other** object its `+0x7c`, and an object whose `+0x7c` is zero is skipped before any distance is taken — see [`hit-detection.md`](hit-detection.md#the-three-radius-slots) for which classes those are. An object still waiting on its mission action is skipped as well.
-2. **A structure's collision volume.** `Structure_GatherWalkCandidates` (`00404ae4`) walks the structure list at `DAT_004a9624` and hands `FUN_00427c68` everything step 1 does not already cover: every static type, plus every animated type that has fallen to a wreck. It skips a structure that is *gone* — destroyed, no hulk, one component. `Structure_WalkCollisionTest` (`00427c68`) then tests the point against each one's `.DGS` height field (see [`hit-detection.md`](hit-detection.md#the-collision-volume--the-dgs-records-height-field)). Step 1 and step 2 are exact complements, so no structure is walked through and none is tested twice.
+2. **A structure's collision volume.** `Structure_GatherWalkCandidates` (`00404ae4`) walks the structure list at `DAT_004a9624` and hands `Structure_WalkCollisionTest` (`00427c68`) everything step 1 does not already cover: every static type, plus every animated type that has fallen to a wreck. It skips a structure that is *gone* — destroyed, no hulk, one component. `Structure_WalkCollisionTest` then tests the point against each one's `.DGS` height field (see [`hit-detection.md`](hit-detection.md#the-collision-volume--the-dgs-records-height-field)). Step 1 and step 2 are exact complements, so no structure is walked through and none is tested twice.
 3. **Ground too steep**, `|normal.z| < 0x5aa` against normals scaled to the height grid's own one — about 45°. Off the grid counts as steep, which is what keeps a machine inside the zone. For the player only, a *downhill* refusal turns into a slide instead: the slope's X/Y accumulate at Q10 10 per tick, and the landing is [below](#the-landing).
 
 ### The landing

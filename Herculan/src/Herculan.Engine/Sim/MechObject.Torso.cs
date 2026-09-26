@@ -99,7 +99,7 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_0041e8d4</c> — the [Backspace] "Center Turret" command, run every tick until the pilot
+	/// <c>Mech_CenterTorsoTick</c> (<c>0041e8d4</c>) — the [Backspace] "Center Turret" command, run every tick until the pilot
 	/// takes the torso back. It drives both axes from the angles themselves, so the torso runs home
 	/// fast and eases off as it arrives, and enables the snap so it stops exactly on centre.
 	///

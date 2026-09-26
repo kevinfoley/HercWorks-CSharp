@@ -178,7 +178,7 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud-widgets.md`](cockpit-hud
 
 ## Command display — page 0
 
-`HddCommandScreen_Ctor` (`0044c264`), repainted by `HddCommandScreen_Repaint` (`0044c894`) and updated by `FUN_0044c960`, its vtable's slot 1. Translation unit fields are quoted off the screen object, not the display.
+`HddCommandScreen_Ctor` (`0044c264`), repainted by `HddCommandScreen_Repaint` (`0044c894`) and updated by `HddCommandScreen_Update` (`0044c960`), its vtable's slot 1. Translation unit fields are quoted off the screen object, not the display.
 
 | Symbol | Address | Role |
 |---|---|---|
@@ -219,9 +219,9 @@ and `scale` is world units per pixel in 8.8 fixed point. `HddMap_ToViewport` (`0
 | Quantity | Value | Source |
 |---|---|---|
 | Full zoom-out scale | `min((maxX-minX)/2 / halfWidth, (maxY-minY)/2 / halfHeight) << 8` | ctor |
-| Closest scale | 60000, i.e. 234 units/pixel | `FUN_0044cf9c`'s floor |
+| Closest scale | 60000, i.e. 234 units/pixel | `HddMap_ZoomIn` (`0044cf9c`)'s floor |
 | Zoom step | `max((full - 60000) / 25, 5000)` | ctor |
-| Pan step | `(((scale - 60000) >> 8) * 45000 / (full - 60000) << 8) + 5000` | `FUN_0044eea0` |
+| Pan step | `(((scale - 60000) >> 8) * 45000 / (full - 60000) << 8) + 5000` | `HddMap_RecomputePanStep` (`0044eea0`) |
 
 `min`, not `max`, on the fit: the tighter axis fills the viewport and the other crops. The centre is the player's own position plus the pan offset, re-clamped every repaint so the viewport's edge never leaves the grown box.
 
@@ -269,7 +269,7 @@ Route markers take icons `0x4e`+ and start at the route's **second** point: the 
 | 1/3 structure, `+0x28` in the listed set | 3 | 5 | 14 | no | yes |
 | 1/3 structure, otherwise | 2 | 4 | 18 | no | yes |
 
-The listed silhouettes are 1, 2, 6, 7, 10, 11, 15, 19, 20, 21, 22, 23, 24, 26 and 28. Sizes are the argument to `FUN_0044f634`, which becomes the gadget's extent and, halved, the offset the icon is drawn back by so it lands on the object.
+The listed silhouettes are 1, 2, 6, 7, 10, 11, 15, 19, 20, 21, 22, 23, 24, 26 and 28. Sizes are the argument to `HddMarker_SetSize` (`0044f634`), which becomes the gadget's extent and, halved, the offset the icon is drawn back by so it lands on the object.
 
 **Rotation.** `HddMarker_Paint` (`0044f194`) buckets the object's heading into eight octants — a heading within `0x1000` of zero is octant 0, and every other counts down from 7 in `0x2000` steps — then adds `DAT_0049d67c[octant]` to the group's base frame and nudges the blit by `DAT_004d1d54[octant]` and `DAT_004d1d5c[octant]` device pixels:
 
@@ -328,9 +328,9 @@ Neither acts on the click itself. `HDDListGadget_OnClick` (`0044f6ac`) is left-b
 
 All eight match the manual's key bindings. `HddCommandScreen_RefreshOrders` (`0044ddec`) fonts an available order `ColorSchemePanels[1]` `CPGREEN` with the hotkey character in `[2]` `CPRED`, an unavailable one wholly in `[0]` `CPBLUE`, and the selected one in `[3]` `CPYLW` with no hotkey alternate at all.
 
-**Availability is one bit.** The screen keeps eight bytes at `+0x131`, and the only two functions that write them set all eight: `FUN_0044edd8` to 1 when a pilot is selected and `FUN_0044edfc` to 0 when none is. So the list is either wholly live or wholly blue.
+**Availability is one bit.** The screen keeps eight bytes at `+0x131`, and the only two functions that write them set all eight: `HddCommandScreen_EnableOrders` (`0044edd8`) to 1 when a pilot is selected and `HddCommandScreen_DisableOrders` (`0044edfc`) to 0 when none is. So the list is either wholly live or wholly blue.
 
-**The message row** is `STRINGS0.STR` group 32 — `SELECT PILOT`, `SELECT COMMAND`, `DESIGNATE LOCATION`, `DESIGNATE TARGET` — chosen by `FUN_0044dc44` from the same two facts: whether a pilot is selected, and which of the two picks the armed order wants.
+**The message row** is `STRINGS0.STR` group 32 — `SELECT PILOT`, `SELECT COMMAND`, `DESIGNATE LOCATION`, `DESIGNATE TARGET` — chosen by `HddCommandScreen_SetMessageRow` (`0044dc44`) from the same two facts: whether a pilot is selected, and which of the two picks the armed order wants.
 
 **The rest of the keyboard**, from the same scancode dispatch:
 
@@ -343,7 +343,7 @@ All eight match the manual's key bindings. `HddCommandScreen_RefreshOrders` (`00
 | Backspace | `0x0e` | Presses CANCEL |
 | Keypad 5 | `0x4c` | Zeroes both pan offsets |
 
-The magnifiers and the four arrows are widget presses rather than keys: `FUN_0044a178`'s cases 2-7 route them to the four pan functions and the two zoom functions on page 0 and to the damage screen's own subject and category steps on page 1. XMIT plays `Sound_Play(0x1a)` when the transmission resolves to a recipient and `0x1b` when it does not.
+The magnifiers and the four arrows are widget presses rather than keys: `HddDisplay_HandleWidgetPress` (`0044a178`)'s cases 2-7 route them to the four pan functions and the two zoom functions on page 0 and to the damage screen's own subject and category steps on page 1. XMIT plays `Sound_Play(0x1a)` when the transmission resolves to a recipient and `0x1b` when it does not.
 
 ## Damage detail — page 1
 

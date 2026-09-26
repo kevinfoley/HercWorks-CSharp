@@ -21,10 +21,10 @@ public enum ShellRepairButton {
 
 /// <summary>
 /// Tab 3, <c>REPAIR</c> — the two damage lists, the three readout panels and the machine's own
-/// condition. Its widgets are built by <c>FUN_00432037</c>, the screen is entered by
-/// <c>FUN_004332ec</c> and torn down by <c>FUN_004333eb</c>, its rows are filled by
-/// <c>FUN_004339b2</c>, its component names set by <c>FUN_00433cdf</c>, its selection moved by
-/// <c>FUN_00433eb9</c> and its detail panels refilled by <c>FUN_00433445</c>.
+/// condition. Its widgets are built by <c>Repair_BuildScreen</c> (<c>00432037</c>), the screen is entered by
+/// <c>Repair_Enter</c> (<c>004332ec</c>) and torn down by <c>Repair_Leave</c> (<c>004333eb</c>), its rows are filled by
+/// <c>Repair_FillRow</c> (<c>004339b2</c>), its component names set by <c>Repair_SetComponentNames</c> (<c>00433cdf</c>), its selection moved by
+/// <c>Repair_SelectHotspot</c> (<c>00433eb9</c>) and its detail panels refilled by <c>Repair_RefreshDetail</c> (<c>00433445</c>).
 ///
 /// <para><b>Every rect here is a literal in the executable</b>, four immediates on the builder's own
 /// stack, and they are kept parent-relative exactly as it writes them — the content panel in the
@@ -33,8 +33,8 @@ public enum ShellRepairButton {
 ///
 /// <para><b>A selection is a <c>(column, row)</c> pair and it resolves into a category.</b> Column 0's
 /// sixteen rows are the six external component groups and then ten hardpoints; column 1's nine are
-/// the internals. <c>FUN_00433410</c> turns the pair into one of <see cref="ShellRepairCategory"/>'s
-/// three and <c>FUN_00433431</c> into an index within it, and those three are the status block's own
+/// the internals. <c>Repair_HotspotCategory</c> (<c>00433410</c>) turns the pair into one of <see cref="ShellRepairCategory"/>'s
+/// three and <c>Repair_HotspotIndex</c> (<c>00433431</c>) into an index within it, and those three are the status block's own
 /// accessor modes — so one number says which list a row is in, which array holds its condition and
 /// which table prices it.</para>
 ///
@@ -105,7 +105,7 @@ public sealed class ShellRepairScreen {
 		_costs = costs;
 		_diagrams = diagrams;
 
-		// FUN_004332ec: entering the screen on a bay that holds nothing, or holds something still under
+		// Repair_Enter (004332ec): entering the screen on a bay that holds nothing, or holds something still under
 		// construction, moves the selection to the first bay that holds a finished machine.
 		SelectedBay = _hangar.Bay(bay) is { IsBuilt: true } ? bay : _hangar.FirstBuiltBay();
 	}
@@ -143,14 +143,14 @@ public sealed class ShellRepairScreen {
 	public bool ManualRepair { get; set; } = true;
 
 	/// <summary>
-	/// <c>FUN_00433410</c> — which of the three condition arrays a <c>(column, row)</c> pair addresses.
+	/// <c>Repair_HotspotCategory</c> (<c>00433410</c>) — which of the three condition arrays a <c>(column, row)</c> pair addresses.
 	/// </summary>
 	public static ShellRepairCategory CategoryOf(int column, int row) =>
 		column != 0 ? ShellRepairCategory.Internal
 			: row >= ExternalRowCount ? ShellRepairCategory.Hardpoint : ShellRepairCategory.ExternalGroup;
 
 	/// <summary>
-	/// <c>FUN_00433431</c> — the row's index within its own category. Only the hardpoint rows are
+	/// <c>Repair_HotspotIndex</c> (<c>00433431</c>) — the row's index within its own category. Only the hardpoint rows are
 	/// offset, by the six group rows above them.
 	/// </summary>
 	public static int IndexOf(ShellRepairCategory category, int row) =>
@@ -163,7 +163,7 @@ public sealed class ShellRepairScreen {
 	public int SelectedIndex => IndexOf(SelectedCategory, _row);
 
 	/// <summary>
-	/// <c>FUN_00433eb9</c> — moves the selection, and reports whether it moved. A click on the row
+	/// <c>Repair_SelectHotspot</c> (<c>00433eb9</c>) — moves the selection, and reports whether it moved. A click on the row
 	/// already selected is a no-op, and so is a hardpoint row that is past the machine's mount capacity
 	/// or holds no weapon: <b>an unfitted hardpoint cannot be selected on this screen at all</b>, and
 	/// the refusal is silent — nothing repaints and the detail panel keeps the last selection.
@@ -188,7 +188,7 @@ public sealed class ShellRepairScreen {
 	}
 
 	/// <summary>
-	/// Moves to another hangar bay, as <c>FUN_0043d64d</c> does for the repair tab, and reports whether
+	/// Moves to another hangar bay, as <c>Squad_SelectBay</c> (<c>0043d64d</c>) does for the repair tab, and reports whether
 	/// it moved. A bay that is empty or still being built refuses, silently.
 	/// </summary>
 	public bool SelectBay(int bay) {
@@ -243,7 +243,7 @@ public sealed class ShellRepairScreen {
 
 	/// <summary>
 	/// Whether a button answers a click, which is the same test that greys its caption — the trio
-	/// <c>FUN_00433445</c> writes at each one: the border colour, the caption colour and the enable
+	/// <c>Repair_RefreshDetail</c> (<c>00433445</c>) writes at each one: the border colour, the caption colour and the enable
 	/// flag together.
 	///
 	/// <para>SCRAP also needs the machine's chassis to be available — <c>(&amp;DAT_00483b62)[type * 8]</c>,
@@ -351,7 +351,7 @@ public sealed class ShellRepairScreen {
 	}
 
 	/// <summary>
-	/// One list row — <c>FUN_004339b2</c> filling the panel <c>FUN_0040a310</c> built. The row is a
+	/// One list row — <c>Repair_FillRow</c> (<c>004339b2</c>) filling the panel <c>ListRow_AddColumns</c> (<c>0040a310</c>) built. The row is a
 	/// plain panel whose border colour is the selection highlight, carrying a name at its left, an
 	/// optional mount number, and the condition right-aligned in the colour of its damage band.
 	/// </summary>
@@ -415,7 +415,7 @@ public sealed class ShellRepairScreen {
 		PaintLabel(surface, font, text?.Text(ConditionText), FullWidth(panel, ItemConditionLabelRect));
 
 		// The condition word is drawn in the readout grey like every other box, not in its damage band's
-		// colour. FUN_00433445 does look the band colour up and write it to the widget's +0xb5 — and then
+		// colour. Repair_RefreshDetail (00433445) does look the band colour up and write it to the widget's +0xb5 — and then
 		// calls Text_SetString with 0x17, which overwrites +0xb5 before the paint. The write is dead; see
 		// docs/shell/screen-layout.md, "The repair screen".
 		PaintReadout(surface, font, Inside(panel, ItemConditionReadoutRect),
@@ -465,7 +465,7 @@ public sealed class ShellRepairScreen {
 	}
 
 	/// <summary>
-	/// Which <c>estext.bin</c> word names one component. <c>FUN_00433cdf</c> holds two fifteen-entry
+	/// Which <c>estext.bin</c> word names one component. <c>Repair_SetComponentNames</c> (<c>00433cdf</c>) holds two fifteen-entry
 	/// tables — six group names then nine internal names — and picks the second whenever the machine is
 	/// chassis type 8, the Razor, whose parts are nacelles and wings rather than torsos and legs.
 	/// </summary>
@@ -476,7 +476,7 @@ public sealed class ShellRepairScreen {
 	}
 
 	/// <summary>
-	/// <c>FUN_0043da0f</c> — the colour a condition is printed in, one per damage band. The bands are
+	/// <c>Repair_DamageLevelColor</c> (<c>0043da0f</c>) — the colour a condition is printed in, one per damage band. The bands are
 	/// the repair ladder's own, so the colour and the word beside it always agree.
 	/// </summary>
 	public static byte BandColor(int condition) =>
@@ -521,7 +521,7 @@ public sealed class ShellRepairScreen {
 	/// <summary>Where the ten hardpoint rows start, below a gap that separates them from the six groups.</summary>
 	private const int FirstHardpointRowY = 0x72;
 
-	/// <summary>The four text columns <c>FUN_0040a310</c> divides a row into. The second is zero-wide and unused.</summary>
+	/// <summary>The four text columns <c>ListRow_AddColumns</c> (<c>0040a310</c>) divides a row into. The second is zero-wide and unused.</summary>
 	private const int NameColumnLeft = 2;
 	private const int NameColumnRight = 0x94;
 	private const int MountColumnLeft = 0x94;

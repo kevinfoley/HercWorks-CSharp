@@ -33,7 +33,7 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 | `int32` count + count x `int32` | 16 entries in every retail file, ascending in even steps |
 | `int32` count + count x `int32` | 16 again, identical to the first array |
 | `int16` rows, `int16` cols | sizes the pair of ramp tables that follow |
-| cols x `int32`, `int16`, cols x `int32` | expanded by `FUN_00430d08` into `_DAT_004cfd7c` |
+| cols x `int32`, `int16`, cols x `int32` | expanded by `Palette_InterpolateIndexRanges` (`00430d08`) into `_DAT_004cfd7c` |
 | 4 bytes, 4 bytes | a second, 1-wide ramp through the same expander |
 | `int16`, `int16`, `int32`, `int32` | |
 | 5 NUL-terminated strings | `world24`, `clouds2`, `impact<N>`, **terrain bank**, `tex` |
@@ -117,7 +117,7 @@ The engine reaches the same place differently. Its terrain mesh is built once at
 
 ## Who writes `cell[+0xf]`
 
-The byte holds two fields: the low two bits are the diagonal-split selector, bits `[2:7]` the material index this document's texture lookup uses. Four functions write it, and **the render path is not among them** — every reference there is a read, `>> 2` for the material and `& 3` for the selector, the latter tested in four places in `FUN_0046ff74`, all against `== 0`.
+The byte holds two fields: the low two bits are the diagonal-split selector, bits `[2:7]` the material index this document's texture lookup uses. Four functions write it, and **the render path is not among them** — every reference there is a read, `>> 2` for the material and `& 3` for the selector, the latter tested in four places in `Terrain_EdgeFaceBlocks` (`0046ff74`), all against `== 0`.
 
 | Writer | Writes | When |
 |---|---|---|

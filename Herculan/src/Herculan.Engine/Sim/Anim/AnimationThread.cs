@@ -4,7 +4,7 @@ namespace Herculan.Engine.Sim.Anim;
 
 /// <summary>
 /// One playing animation on a shape — DBSIM's 0x52-byte animation thread (constructed by
-/// <c>FUN_00478d3c</c>, stepped by <c>FUN_00479614</c>). A mech keeps one, at <c>mech+0x22c</c>.
+/// <c>FUN_00478d3c</c>, stepped by <c>AnimThread_Advance</c> (<c>00479614</c>)). A mech keeps one, at <c>mech+0x22c</c>.
 ///
 /// <para>Beyond the obvious sequence/frame cursor, a thread carries two things locomotion depends
 /// on. The first is the <b>root-motion accumulator</b>: while a ground-movement sequence plays, the
@@ -112,7 +112,7 @@ public sealed class AnimationThread {
 
 	/// <summary>
 	/// Playback rate as a Q8 multiplier on the timestep — negative plays backwards.
-	/// <c>FUN_004795cc</c>: flipping the sign re-runs the transition search, since a transition that
+	/// <c>AnimThread_SetPlaybackRate</c> (<c>004795cc</c>): flipping the sign re-runs the transition search, since a transition that
 	/// leads to the target playing forwards is not the one that leads there playing backwards.
 	/// </summary>
 	public short Rate {
@@ -152,7 +152,7 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// <c>FUN_00479570</c> — asks playback to reach <paramref name="sequence"/>, via whatever
+	/// <c>AnimThread_SetTarget</c> (<c>00479570</c>) — asks playback to reach <paramref name="sequence"/>, via whatever
 	/// transition leads there. <paramref name="frame"/> of -1 means any frame of it will do; bit 0
 	/// of <paramref name="flags"/> makes playback stop dead on arrival instead of continuing.
 	/// </summary>
@@ -185,8 +185,8 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// The whole thread state, for the save/restore a blocked move needs — <c>FUN_00402628</c> and
-	/// <c>FUN_004027fc</c> copy the thread's whole 0x52 bytes so a rejected step can be replayed
+	/// The whole thread state, for the save/restore a blocked move needs — <c>SimObject_PushTransform</c> (<c>00402628</c>) and
+	/// <c>SimObject_PopTransform</c> (<c>004027fc</c>) copy the thread's whole 0x52 bytes so a rejected step can be replayed
 	/// without the animation having advanced twice. <see cref="FrameAccumulatorFraction"/> is this
 	/// engine's own field and has no counterpart in them; it rides along so that the cursor
 	/// round-trips whole.
@@ -239,7 +239,7 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// <c>FUN_00479614</c> — advances playback by <paramref name="delta"/> (Q8 animation ticks,
+	/// <c>AnimThread_Advance</c> (<c>00479614</c>) — advances playback by <paramref name="delta"/> (Q8 animation ticks,
 	/// scaled by <see cref="Rate"/>), crossing as many frames as that covers and committing each
 	/// crossed frame's root motion as it goes.
 	/// </summary>
@@ -290,7 +290,7 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// <c>FUN_00478fa8</c> — the root transform as it stands part way through the current frame:
+	/// <c>AnimThread_ReadRootTransform</c> (<c>00478fa8</c>) — the root transform as it stands part way through the current frame:
 	/// the stored transform with the elapsed fraction of this frame's ground motion applied.
 	/// </summary>
 	public Transform3 ReadRoot() {
@@ -302,7 +302,7 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// <c>FUN_00479088</c> — the inverse of <see cref="ReadRoot"/>: stores whatever transform would
+	/// <c>AnimThread_WriteRootTransform</c> (<c>00479088</c>) — the inverse of <see cref="ReadRoot"/>: stores whatever transform would
 	/// make <see cref="ReadRoot"/> return <paramref name="value"/> right now. Seeding identity here
 	/// and reading back after <see cref="Advance"/> gives the step's own displacement and nothing
 	/// else.
@@ -387,7 +387,7 @@ public sealed class AnimationThread {
 
 	/// <summary>
 	/// One node's local transform part way between the frame playing and the frame playback is headed
-	/// for — <c>FUN_004799a4</c>'s inner loop.
+	/// for — <c>AnimThread_EvalNodeLocals</c> (<c>004799a4</c>)'s inner loop.
 	///
 	/// <para>Where the two frames name the same pool entry the entry stands as it is, which is the
 	/// original's own short-circuit and not merely an optimisation: identical indices are identical
@@ -406,7 +406,7 @@ public sealed class AnimationThread {
 
 	/// <summary>
 	/// How far through the current frame playback stands, in Q10 (0x400 == a whole frame) with the
-	/// divide rounded — <c>FUN_004799a4</c>'s <c>(elapsed * 0x400 + duration / 2) / duration</c>.
+	/// divide rounded — <c>AnimThread_EvalNodeLocals</c> (<c>004799a4</c>)'s <c>(elapsed * 0x400 + duration / 2) / duration</c>.
 	///
 	/// <para>This is the same elapsed fraction <see cref="ScaledGroundTransform"/> ramps ground motion
 	/// by. That both the pose and the ground movement ride the one fraction is the whole reason the
@@ -456,7 +456,7 @@ public sealed class AnimationThread {
 	/// is what lets a caller tell "this thread poses this node" from "it does not".
 	/// </summary>
 	private static int AnimatedIndexOf(AnimSequence sequence, int frame, int transformId) {
-		// Part id 0 is skipped, as FUN_004799a4 skips it: column 0 of every sequence carries the
+		// Part id 0 is skipped, as AnimThread_EvalNodeLocals (004799a4) skips it: column 0 of every sequence carries the
 		// sequence's *root motion*, not a pose, and the original never writes it into the node array
 		// — that node keeps its default. Without this a caller asking for node 0 gets the ramped
 		// ground displacement back as though it were a pose, which is the same displacement the
@@ -505,14 +505,14 @@ public sealed class AnimationThread {
 		return transform;
 	}
 
-	/// <summary><c>FUN_00478e60</c> — folds a whole frame's ground motion into the stored transform.</summary>
+	/// <summary><c>AnimThread_CommitGroundMovement</c> (<c>00478e60</c>) — folds a whole frame's ground motion into the stored transform.</summary>
 	private void CommitFrameForward() {
 		if (_hasGroundMotion) {
 			_root = Transform3.Concat(GroundTransform(), _root);
 		}
 	}
 
-	/// <summary><c>FUN_00478ee8</c> — the same, undone, for backward playback.</summary>
+	/// <summary><c>AnimThread_UncommitGroundMovement</c> (<c>00478ee8</c>) — the same, undone, for backward playback.</summary>
 	private void CommitFrameBackward() {
 		if (!_hasGroundMotion) {
 			return;
@@ -528,7 +528,7 @@ public sealed class AnimationThread {
 		_root = Transform3.Concat(transform, _root);
 	}
 
-	/// <summary><c>FUN_00478de8</c> — loads a frame's root-part transform as this frame's ground motion.</summary>
+	/// <summary><c>AnimThread_LoadFrameGroundMovement</c> (<c>00478de8</c>) — loads a frame's root-part transform as this frame's ground motion.</summary>
 	private void LoadGroundTransform(int sequence, int frame) {
 		var current = _animation.Sequences[sequence];
 		if (!current.GroundMovement) {

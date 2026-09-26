@@ -156,7 +156,7 @@ public sealed class SystemMessages {
 
 	/// <summary>
 	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> — posted by the cockpit's power-up sequence
-	/// (<c>FUN_00432924</c>) once the start-up run finishes with no damaged component found.
+	/// (<c>Cockpit_PowerUpTick</c>, <c>00432924</c>) once the start-up run finishes with no damaged component found.
 	/// </summary>
 	public const int PowerUpNominal = 0x21;
 
@@ -262,7 +262,7 @@ public sealed class SystemMessages {
 	/// <summary>
 	/// <c>TRANSFERRING DATA</c> — the one message the port treats specially. It is the only entry
 	/// whose timings differ from the rest of the file (10 s and 20 s against 3 s and 6 s), and
-	/// <c>FUN_00436abc</c> switches on its id to make it blink; <c>FUN_00436cec</c> then centres it in
+	/// <c>MessagePort_Show</c> (<c>00436abc</c>) switches on its id to make it blink; <c>MessageTicker_Paint</c> (<c>00436cec</c>) then centres it in
 	/// the box instead of scrolling it. See <see cref="MessagePort"/>.
 	/// </summary>
 	public const int TransferringData = 0x36;

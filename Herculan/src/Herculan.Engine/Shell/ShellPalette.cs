@@ -24,9 +24,9 @@ public enum ShellMissionView {
 /// (<c>0040ca6c</c>, vtable <c>PTR_FUN_0046ef04</c>) held in <c>DAT_0048d444</c>, whose <c>+0x45</c>
 /// is a palette index. Its event handler (<c>0040cab7</c>) installs that index's palette when it is
 /// shown, so the shell changes palette by hiding the widget, writing <c>+0x45</c> and showing it again
-/// — which is the whole of <c>FUN_00439da0(index)</c> (<c>00439da0</c>).</para>
+/// — which is the whole of <c>Shell_SetPaletteScope(index)</c> (<c>00439da0</c>).</para>
 ///
-/// <para><see cref="Names"/> is the table at <c>0046dcdc</c> that <c>FUN_004075b2(index)</c> indexes,
+/// <para><see cref="Names"/> is the table at <c>0046dcdc</c> that <c>Shell_InstallPalette(index)</c> (<c>004075b2</c>) indexes,
 /// read out of the executable's data segment: twenty <c>dpl\*.dpl</c> paths, in this order. The
 /// entries past the first three are what tie the campaign's five stages to their art — five briefing
 /// palettes, five debrief palettes and five theater palettes, all indexed by the stage number, which
@@ -43,7 +43,7 @@ public static class ShellPalette {
 	/// <summary>
 	/// The pointer table at <c>0046dcdc</c>, as resource names — <c>dpl\</c> and <c>.dpl</c> stripped,
 	/// since <see cref="ShellArt"/> composes both back on. Index into it exactly as
-	/// <c>FUN_004075b2</c> does.
+	/// <c>Shell_InstallPalette</c> (<c>004075b2</c>) does.
 	/// </summary>
 	public static readonly string[] Names = {
 		"INTR_PT1", "PALETTE", "ARMING", "CAM_ER", "CAM_MOON",
@@ -86,7 +86,7 @@ public static class ShellPalette {
 
 	/// <summary>
 	/// The palette a tab is drawn through, or null where the original installs none. That case is real
-	/// rather than defensive: <c>FUN_0043b162</c>'s mission arm is three bare <c>if</c>s against
+	/// rather than defensive: <c>Shell_SelectTabPalette</c> (<c>0043b162</c>)'s mission arm is three bare <c>if</c>s against
 	/// <c>DAT_0048106c</c> with no <c>else</c>, so a fourth value leaves whatever palette was up.
 	///
 	/// <para><paramref name="stage"/> is the campaign stage, counting from 1 (see the class remarks).
@@ -110,7 +110,7 @@ public static class ShellPalette {
 	};
 
 	/// <summary>
-	/// The theater palette for a campaign stage — <c>FUN_004075b2(stage + 0xe)</c> in
+	/// The theater palette for a campaign stage — <c>Shell_InstallPalette(stage + 0xe)</c> (<c>004075b2</c>) in
 	/// <c>maybe_Mission_UpdateLocationTab</c>. Stage 5 never reaches it in the original, which branches
 	/// to the lunar cutscene before the call, so <c>LUNA</c> is in the table and unused by this path.
 	/// </summary>

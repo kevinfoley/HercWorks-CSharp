@@ -45,7 +45,7 @@ public sealed partial class HeightGrid {
 
 	/// <summary>
 	/// <c>Terrain_RayWalk</c>'s mode 1 — the movement-collision body
-	/// (<c>FUN_0046fe84</c> / <c>FUN_0046ff74</c> / <c>FUN_0046fe40</c>). The same walk, with the
+	/// (<c>Terrain_FaceBlocksAt</c> (<c>0046fe84</c>) / <c>Terrain_EdgeFaceBlocks</c> (<c>0046ff74</c>) / <c>Terrain_FaceBlocksMovement</c> (<c>0046fe40</c>)). The same walk, with the
 	/// "is this point under the ground" test replaced by "is the face this step crosses too steep to
 	/// walk", so it answers what blocks a machine rather than what a bullet would hit.
 	/// </summary>
@@ -353,7 +353,7 @@ public sealed partial class HeightGrid {
 		truncate ? unchecked(value * slope) >> 16 : SimMath.Q16Multiply(value, slope);
 
 	/// <summary>
-	/// <c>FUN_0047035c</c> — the per-step crossing test. Takes the point at which the segment leaves
+	/// <c>Terrain_EdgeCrossingTest</c> (<c>0047035c</c>) — the per-step crossing test. Takes the point at which the segment leaves
 	/// a cell and the edge it leaves through, and answers whether the terrain along that edge is at
 	/// or above it.
 	///
@@ -411,7 +411,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>FUN_0047068c</c> — where exactly the segment meets the ground inside one cell, solved
+	/// <c>Terrain_CellSurfaceIntersect</c> (<c>0047068c</c>) — where exactly the segment meets the ground inside one cell, solved
 	/// against the cell's own two triangle planes rather than by interpolating along the walk.
 	///
 	/// <para>Each plane is one of the face normals <see cref="BuildSurface"/> already built, put
@@ -498,7 +498,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>FUN_0047e504</c> — where a segment crosses a plane, or false if it does not reach it. The
+	/// <c>Math_PlaneSegmentIntersect</c> (<c>0047e504</c>) — where a segment crosses a plane, or false if it does not reach it. The
 	/// parameter along the segment is kept as an exact numerator/denominator pair and applied to
 	/// each component through a 64-bit multiply and divide, so nothing is lost to an intermediate.
 	/// </summary>
@@ -544,7 +544,7 @@ public sealed partial class HeightGrid {
 	private int CornerIndex(int cellX, int cellY) => Corner(cellX + (cellY << WidthShift));
 
 	/// <summary>
-	/// <c>FUN_0046fe40</c> — whether one triangle blocks movement, on the <b>steepness of its
+	/// <c>Terrain_FaceBlocksMovement</c> (<c>0046fe40</c>) — whether one triangle blocks movement, on the <b>steepness of its
 	/// normal alone</b>: an upward component under <see cref="FaceBlockingNormalZ"/> is a wall and
 	/// stops the segment, anything shallower does not.
 	///
@@ -571,7 +571,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>FUN_0046fe84</c> — the same test applied at a world point: find its cell, pick which of the
+	/// <c>Terrain_FaceBlocksAt</c> (<c>0046fe84</c>) — the same test applied at a world point: find its cell, pick which of the
 	/// cell's two triangles the point falls in by the same diagonal split the height query uses, and
 	/// ask <see cref="FaceBlocks"/>. A point off the grid blocks, as the original's null cell does.
 	/// </summary>
@@ -607,7 +607,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>FUN_0046ff74</c> — the test for a step that leaves one cell across a named edge. It asks
+	/// <c>Terrain_EdgeFaceBlocks</c> (<c>0046ff74</c>) — the test for a step that leaves one cell across a named edge. It asks
 	/// the triangle on this side of the edge first and the neighbouring cell's triangle second, so a
 	/// segment is stopped by whichever face it meets. Which of a cell's two triangles borders which
 	/// edge depends on the diagonal, which is why the north and south arms consult it and the east

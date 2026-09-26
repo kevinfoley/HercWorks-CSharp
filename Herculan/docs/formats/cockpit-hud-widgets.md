@@ -42,9 +42,9 @@ GAU coordinates are authored in the 320-wide space; the engine's `CockpitArt.Gau
 
 Verified: the heads-down display resolves ids 19, 9, 15, 12 → palette 16, 10, 13, 14 — black, red, yellow, green, matching the retail HDD readouts.
 
-**Not every colour number is an id.** The indirection exists for numbers that arrive in a *data file*; a colour a *constructor states as an immediate* is already a palette index and goes nowhere near this table. The weapon panel's raw 32/34/46 (`FUN_00442950`) are the clearest case, and the scanner screen uses both conventions at once: its contact colours are read out of the table at paint time while its screen background is the literal `0x11` its constructor writes — palette 17, matching the dish art's own corner pixels. Reading such an immediate as an id lands on a believable but wrong colour (`0x11` as an id is palette 24, a mid grey).
+**Not every colour number is an id.** The indirection exists for numbers that arrive in a *data file*; a colour a *constructor states as an immediate* is already a palette index and goes nowhere near this table. The weapon panel's raw 32/34/46 (`WeaponChargeBar_Ctor`, `00442950`) are the clearest case, and the scanner screen uses both conventions at once: its contact colours are read out of the table at paint time while its screen background is the literal `0x11` its constructor writes — palette 17, matching the dish art's own corner pixels. Reading such an immediate as an id lands on a believable but wrong colour (`0x11` as an id is palette 24, a mid grey).
 
-Consumers: `PaperDollGraphic.ViewRegion` at record offset `0x14`; `FUN_0045079c` (4-entry id array at `DAT_0049d9ec`); `HudColorTable_Get` (`00434280`).
+Consumers: `PaperDollGraphic.ViewRegion` at record offset `0x14`; `HddDamageScreen_Ctor` (`0045079c`, 4-entry id array at `DAT_0049d9ec`); `HudColorTable_Get` (`00434280`).
 
 ## LED gauges
 
@@ -63,7 +63,7 @@ Both class variants fill along **x**: `LedBarGraph_CtorBase` takes start/end fro
 
 `EnergyPoolGauge_Ctor` (`00444d5c`) constructs one over the `.GAU` widget rect at 564 with range `0x400`, writing colour ids 6 and 5 into `0x2c`/`0x30` and id 19 into `0x24`. Those resolve to palette indices 98/97/16 = `(0,116,204)`, `(0,40,160)`, `(0,0,0)` — the blue pinstripe bar retail draws directly under the TRACK button, i.e. the **Master Energy Pool meter**. It is fed `(pool << 10) / 10000` by `Player_PerFrameCockpitUpdate` — see [../simulation/reactor-energy-pool.md](../simulation/reactor-energy-pool.md). Its only caller is `Gau_EnergyMeterWidget`, and the binary's own class-name table pairs `EnergyPoolGauge` with `LEDBarGraphV` (file offset 280429) and `ShieldsGauge` with `ShieldsSelectGadget` (279148) — the LED bar is the energy meter, and `ShieldsGauge` is a different class entirely.
 
-A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`FUN_00442950`, range `0x400`) — but with raw palette indices `0x20`/`0x22` and remainder `0x2e`, not `COLORS.DAT` ids. See [Weapon hardpoint rows](#weapon-hardpoint-rows).
+A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`WeaponChargeBar_Ctor` (`00442950`), range `0x400`) — but with raw palette indices `0x20`/`0x22` and remainder `0x2e`, not `COLORS.DAT` ids. See [Weapon hardpoint rows](#weapon-hardpoint-rows).
 
 ## Throttle gauge
 
@@ -121,7 +121,7 @@ The slider is the **only draggable widget in a retail cockpit** — see cockpit-
 
 ## `ShieldsGauge`
 
-`ShieldsGauge_Ctor` (`004434fc`), called only by `Gau_ShieldDisplayWidget` (`00432454`) with `.GAU` offset 616. It loads no sprite bank and **draws no geometry**: it builds a `0x40`-byte child per facing (`ShieldsGauge_FacingCtor`, `00444aec`) whose paint slot (`FUN_00444b5c`) only tests visibility, plus two text labels.
+`ShieldsGauge_Ctor` (`004434fc`), called only by `Gau_ShieldDisplayWidget` (`00432454`) with `.GAU` offset 616. It loads no sprite bank and **draws no geometry**: it builds a `0x40`-byte child per facing (`ShieldsGauge_FacingCtor`, `00444aec`) whose paint slot (`ShieldFacing_Paint`, `00444b5c`) only tests visibility, plus two text labels.
 
 **The meter is lit, not drawn.** The nested concentric rings are painted into the herc's own canopy art in palette indices 66-71 — verified on `OUTLAW.HB0`, where those six indices appear only inside the meter bezel, three per facing, the innermost ring using the fewest pixels. The gauge's paint (`00443730`/`00443748`) does two things per frame: rewrite those six palette slots (`ShieldsGauge_UpdateRingPalette`) and refill the two readouts (`ShieldsGauge_UpdateReadouts`).
 
@@ -167,11 +167,11 @@ Three gauge classes, one per mount class, all built on `WeaponGauge_Ctor` (`0044
 
 | Class | Factory → ctor | Value field |
 |---|---|---|
-| energy | `FUN_00432074` → `FUN_00440a68` | `LEDBarGraph` (`FUN_00442950`) |
-| ammunition | `FUN_00432124` → `FUN_00440f78` | round count, `itoa` (`FUN_004411b4`) |
+| energy | `FUN_00432074` → `EnergyWeaponGauge_Ctor` (`00440a68`) | `LEDBarGraph` (`WeaponChargeBar_Ctor`, `00442950`) |
+| ammunition | `FUN_00432124` → `AmmoWeaponGauge_Ctor` (`00440f78`) | round count, `itoa` (`AmmoWeaponGauge_Paint`, `004411b4`) |
 | pod | `CockpitView_CreatePodGauge` → one of three `PodGauge` classes | none — the name label widens over both fields — except the Turbo Pod's |
 
-All three `strncpy` 12 bytes of the mount's name (`FUN_0040e18c`) into the gauge at `+0xb1`. The pod class instead seeds an 11-char buffer with a space, appends the name, then appends `STRINGS0.STR` group 3 (`" POD"`) into the room left — `" SHIELD POD"`. A destroyed mount's row prints group 2 (`"OFFLINE"`) in place of the name.
+All three `strncpy` 12 bytes of the mount's name (`WeaponMount_GetDisplayName`, `0040e18c`) into the gauge at `+0xb1`. The pod class instead seeds an 11-char buffer with a space, appends the name, then appends `STRINGS0.STR` group 3 (`" POD"`) into the room left — `" SHIELD POD"`. A destroyed mount's row prints group 2 (`"OFFLINE"`) in place of the name.
 
 **The Turbo Pod's row is the exception.** `TurboPodGauge_Ctor` (`00441a34`) overwrites that buffer with a plain 11-char `strncpy` of the name — so the row reads `TURBO`, not `" TURBO POD"` — rebuilds the name label at `x0+6 .. x0+34`, `y0+1 .. y0+5` and gives the freed right-hand end an `LedBarGraph` over `pod+0x7d`, its charge. The bar's range is 2500 where `TurboPod_ChargeTick` caps the charge at 2000, so a fully charged Turbo Pod shows four fifths of a bar. Which pod gets which gauge class, and why only two of the five have a button at all, is in [`../simulation/equipment-pods.md`](../simulation/equipment-pods.md#only-two-pods-have-a-button).
 
@@ -181,13 +181,13 @@ Sub-rects, all relative to the `.GAU` hardpoint rect and mirrored from its right
 |---|---|---|
 | hardpoint state box | `x0+6 .. x0+9`, `y0 .. y0+7` | `ChainedWeaponSelectGadget_Ctor` (`00442488`) |
 | weapon-name label | `x0+11 .. x0+35`, `y0 .. y0+5` | `ChainedWeaponSelectGadget_Ctor` |
-| value field | `x0+36 .. x0+53`, `y0 .. y0+5` | `FUN_00440a68` / `FUN_00440f78` |
+| value field | `x0+36 .. x0+53`, `y0 .. y0+5` | `EnergyWeaponGauge_Ctor` / `AmmoWeaponGauge_Ctor` |
 | pod name label | `x0+11 .. x0+53`, `y0 .. y0+5` | `PodGauge_Ctor` (`00441524`) |
 | Turbo Pod name label | `x0+6 .. x0+34`, `y0+1 .. y0+5` | `TurboPodGauge_Ctor` (`00441a34`) |
 
 The two pod labels are the only sub-rects that are ever painted rather than merely written in: a pod row with its button on floods its label with `COLORS.DAT` id 12 and prints the name over it in the `dark` font ([`../simulation/equipment-pods.md`](../simulation/equipment-pods.md#only-two-pods-have-a-button)). Both edges are inclusive, so the Turbo Pod's plate is 57x9 device pixels against a plain pod's 85x11. The label's *text* does not follow its rect — every row on the panel prints its name at the same `x0+11`, the Turbo Pod's included, which is why that plate has green to the left of the `T`.
 
-`FUN_00442950` then drops the bar's own top edge one GAU unit below the value field's, and builds it over `0x400` with colour **palette indices** `0x20`/`0x22` and remainder `0x2e` written straight into the bar object — not `COLORS.DAT` ids, which is why a capacitor bar is blue where the energy meter is grey.
+`WeaponChargeBar_Ctor` then drops the bar's own top edge one GAU unit below the value field's, and builds it over `0x400` with colour **palette indices** `0x20`/`0x22` and remainder `0x2e` written straight into the bar object — not `COLORS.DAT` ids, which is why a capacitor bar is blue where the energy meter is grey.
 
 `WeaponSelectGadget_Paint` (`004426c0`) draws:
 
@@ -284,15 +284,15 @@ Engine: `Herculan.Engine.Content.CockpitPowerUp`, and `HeadingTapeSweep` for the
 
 ### Weapon rows wink on
 
-`cockpit+0x70` is ten widget slots indexed by `.GAU` weapon row. `FUN_00432018`, the registration every weapon-row gauge factory ends in, stores the gauge at its row; the number-key handler in `CockpitWidgets_HandleCommand` indexes the same array to arm a row. The delays are `DAT_0049b05a`, ten shorts reading 20, 40, … 200, so the rows arm top to bottom 320 ms apart and the last at 3.2 s.
+`cockpit+0x70` is ten widget slots indexed by `.GAU` weapon row. `CockpitView_RegisterWeaponGauge` (`00432018`), the registration every weapon-row gauge factory ends in, stores the gauge at its row; the number-key handler in `CockpitWidgets_HandleCommand` indexes the same array to arm a row. The delays are `DAT_0049b05a`, ten shorts reading 20, 40, … 200, so the rows arm top to bottom 320 ms apart and the last at 3.2 s.
 
-Every weapon and pod gauge's paint (`FUN_00440c68`, `FUN_004411b4`, `PodGauge_Paint`, `FUN_00441c14`) and every child's (`WeaponSelectGadget_Paint`, `FUN_00442394`, both through the owner at child `+0x24`) opens on the owning gauge's armed byte. **A row that is not armed draws nothing**, so the console art shows where it will be.
+Every weapon and pod gauge's paint (`FUN_00440c68`, `AmmoWeaponGauge_Paint` (`004411b4`), `PodGauge_Paint`, `FUN_00441c14`) and every child's (`WeaponSelectGadget_Paint`, `WeaponSelectGadget_PaintUnderlay` (`00442394`), both through the owner at child `+0x24`) opens on the owning gauge's armed byte. **A row that is not armed draws nothing**, so the console art shows where it will be.
 
-Once armed, an energy row's charge bar fills rather than appearing full. `FUN_00440e84` shows `min(elapsed * 0x19, value)` against the ticks since the row was armed, then the live value outright from `elapsed >= 0x33`. That reaches `0x400`, the bar's whole range, before the ramp ends. The Turbo Pod's bar runs the same ramp in `FUN_00441d88`, but its value is the pod's raw charge on a 2500-unit bar, so it climbs to 1250 and then jumps to the tank's real level. An ammunition row (`FUN_00441268`) marks itself done on its first update and has nothing to ramp.
+Once armed, an energy row's charge bar fills rather than appearing full. `EnergyWeaponGauge_PowerUpFill` (`00440e84`) shows `min(elapsed * 0x19, value)` against the ticks since the row was armed, then the live value outright from `elapsed >= 0x33`. That reaches `0x400`, the bar's whole range, before the ramp ends. The Turbo Pod's bar runs the same ramp in `TurboPodGauge_PowerUpFill` (`00441d88`), but its value is the pod's raw charge on a 2500-unit bar, so it climbs to 1250 and then jumps to the tank's real level. An ammunition row (`AmmoWeaponGauge_Update`, `00441268`) marks itself done on its first update and has nothing to ramp.
 
 ### Shield rings fill
 
-Until the meter is done, `ShieldsGauge_SetStateBlock` (`00443858`) copies each frame's live facings to `+0xcc`/`+0xd0` and zeroes the displayed pair at `+0xb5`/`+0xb9`, so before it is armed [the ring ramp](#ring-ramp--shieldsgauge_updateringpalette-004438f0) paints all six rings dark. Once armed, `ShieldsGauge_Update` calls `FUN_004437a4` each frame until done:
+Until the meter is done, `ShieldsGauge_SetStateBlock` (`00443858`) copies each frame's live facings to `+0xcc`/`+0xd0` and zeroes the displayed pair at `+0xb5`/`+0xb9`, so before it is armed [the ring ramp](#ring-ramp--shieldsgauge_updateringpalette-004438f0) paints all six rings dark. Once armed, `ShieldsGauge_Update` calls `ShieldsGauge_PowerUpFill` (`004437a4`) each frame until done:
 
 ```
 shown = min(ticks since armed, live)      -- per facing, on the rings' 0..0x800 scale

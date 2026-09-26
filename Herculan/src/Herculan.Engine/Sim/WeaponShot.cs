@@ -265,7 +265,7 @@ public sealed class WeaponShot {
 
 		/// <summary>
 		/// <c>ImpactFXArmor</c>. The same armour branch when the struck component's health band did
-		/// drop, and the only array the non-mech classes' hit test (<c>FUN_00405038</c>) ever uses.
+		/// drop, and the only array the non-mech classes' hit test (<c>Base_DirectFireHitTest</c>, <c>00405038</c>) ever uses.
 		///
 		/// <para>The distinction from <see cref="Ground"/> is a change in the struck component's
 		/// health band, which <see cref="MechObject"/> now measures either side of the damage write,

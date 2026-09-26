@@ -6,7 +6,7 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// <summary>
 /// Transforms byte[] data to and from <c>ES2\DATA\player.mec</c> — see <see cref="MecFile"/> for the
 /// format and the RE it came from: two leading shorts, that many variable-length entries, then the
-/// armory flag table VSHELL closes every export with (<c>FUN_00412253</c>).
+/// armory flag table VSHELL closes every export with (<c>PlayerMec_WriteUnlockTable</c>, <c>00412253</c>).
 ///
 /// <para>The flag table is optional on the way in and preserved on the way out, so a retail file
 /// round-trips byte for byte while a file written before the table was decoded — which DBSIM

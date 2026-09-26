@@ -336,7 +336,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	}
 
 	/// <summary>
-	/// <c>FUN_004328cc</c> — the cockpit's power-up, played when the player takes a machine. Plays
+	/// <c>Cockpit_PowerUpSound</c> (<c>004328cc</c>) — the cockpit's power-up, played when the player takes a machine. Plays
 	/// the start-up sequence, and for a flyer also starts the engine hum and drops it to the pitch
 	/// the original sets.
 	///
@@ -431,7 +431,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	}
 
 	/// <summary>
-	/// <c>FUN_00432924</c>'s tail — the cockpit's power-up sequence announcing itself once
+	/// <c>Cockpit_PowerUpTick</c> (<c>00432924</c>)'s tail — the cockpit's power-up sequence announcing itself once
 	/// <see cref="PowerUpAnnounceDelay"/> has passed since the sequence began.
 	///
 	/// <para><b>Always the nominal line.</b> The original chooses between it and

@@ -25,7 +25,7 @@ public enum MfdSilhouetteKind {
 /// <c>MfdDisplay_Update</c> (<c>00446328</c>) parks in the shared subject field — the player's own
 /// machine for mode 0, <c>CockpitView+0x210</c> (the selection) for mode 4.
 ///
-/// <para>Everything here is read by the screen's paint (<c>FUN_0043a5a0</c>). The choices that look
+/// <para>Everything here is read by the screen's paint (<c>MfdStatusScreen_Paint</c>, <c>0043a5a0</c>). The choices that look
 /// like mode differences are really subject differences: <c>ID:</c> versus <c>TARGET:</c> is "is this
 /// the machine I am flying (or one of my squad)", and the integrity readout versus the range readout
 /// is "is this one of ours", both decided from the subject alone.</para>
@@ -99,7 +99,7 @@ public readonly record struct MfdStatusSubject(
 		PaperDollName: null);
 
 	/// <summary>
-	/// Reads one subject the way the status screen's paint (<c>FUN_0043a5a0</c>) reads it. The whole
+	/// Reads one subject the way the status screen's paint (<c>MfdStatusScreen_Paint</c>, <c>0043a5a0</c>) reads it. The whole
 	/// switch is on the object's target class — <c>obj+0x1a8</c>, the field each constructor writes —
 	/// so a HERC gets its paper doll and a component scan, a flyer and a structure get a flat
 	/// silhouette and a condition worked out from overall damage alone, and anything else is

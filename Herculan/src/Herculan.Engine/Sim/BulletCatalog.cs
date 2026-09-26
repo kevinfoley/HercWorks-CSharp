@@ -8,7 +8,7 @@ namespace Herculan.Engine.Sim;
 /// <c>dat\BULLETS.DAT</c>, the travelling projectile's own table — the counterpart of
 /// <see cref="Content.BeamAppearance"/>'s <c>BEAM.DAT</c> for everything that is not a beam.
 ///
-/// <para><c>FUN_0040ade0</c> — the bullet module's init, named by the <c>BULLET.CPP</c> string at
+/// <para><c>Bullet_LoadResources</c> (<c>0040ade0</c>) — the bullet module's init, named by the <c>BULLET.CPP</c> string at
 /// <c>00498601</c> — loads three resources once at startup and this is the first: a count followed
 /// by that many fourteen-byte records, into the table at <c>DAT_004a977c</c>. The other two are
 /// <c>dts\BULLETS.DTS</c> (the shapes the records' first field indexes, into <c>DAT_004a9784</c>)
@@ -17,7 +17,7 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para><b>Indexed by the firing <c>PROJ.DAT</c> record's subtype id</b>, not by weapon id, exactly
 /// as <c>BEAM.DAT</c> is: <c>Bullet_Construct</c> stores that id at the object's <c>+0x41</c> and
-/// <c>FUN_0040adc0</c> is nothing but <c>table + id * 14</c>.</para>
+/// <c>Bullet_GetTypeRecord</c> (<c>0040adc0</c>) is nothing but <c>table + id * 14</c>.</para>
 ///
 /// <para>Retail ships twelve records, of which only seven subtype ids are reachable — ids 3, 4, 5, 10
 /// and 11 are carried by no <c>Bullet</c> record. (They do exist on <c>Beam</c> records, which read
@@ -25,7 +25,7 @@ namespace Herculan.Engine.Sim;
 /// docs/simulation/projectiles.md.</para>
 /// </summary>
 public sealed class BulletCatalog {
-	/// <summary>The resource folder and name <c>FUN_0040ade0</c> opens, by the literal name <c>bullets</c>.</summary>
+	/// <summary>The resource folder and name <c>Bullet_LoadResources</c> (<c>0040ade0</c>) opens, by the literal name <c>bullets</c>.</summary>
 	public const string ResourceFolder = "dat";
 
 	/// <inheritdoc cref="ResourceFolder" />

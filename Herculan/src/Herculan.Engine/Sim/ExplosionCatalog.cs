@@ -7,7 +7,7 @@ namespace Herculan.Engine.Sim;
 /// <c>dat\EXPLOS.DAT</c> — every impact effect the simulation can put on screen, and which shape
 /// each one is. The counterpart of <see cref="BulletCatalog"/> for what happens where a shot lands.
 ///
-/// <para><c>FUN_00407b54</c>, the <c>EXPLO.CPP</c> subsystem's loader, opens three things once at
+/// <para><c>Explosion_LoadResources</c> (<c>00407b54</c>), the <c>EXPLO.CPP</c> subsystem's loader, opens three things once at
 /// startup: fifteen <c>dba\EXPLO&lt;n&gt;.DBA</c> banks, <c>dts\EXPLOS.DTS</c>, and this table. Every
 /// root of that shape file is a flipbook of billboards (see
 /// <see cref="Render.DtsSpriteBuilder"/>), and the table's first half says which bank each root is
@@ -18,7 +18,7 @@ namespace Herculan.Engine.Sim;
 /// <see cref="ImpactEffect"/>.</para>
 /// </summary>
 public sealed class ExplosionCatalog {
-	/// <summary>The resource folder and name <c>FUN_00407b54</c> opens, by the literal <c>explos</c>.</summary>
+	/// <summary>The resource folder and name <c>Explosion_LoadResources</c> (<c>00407b54</c>) opens, by the literal <c>explos</c>.</summary>
 	public const string ResourceFolder = "dat";
 
 	/// <inheritdoc cref="ResourceFolder" />
@@ -66,7 +66,7 @@ public sealed class ExplosionCatalog {
 
 	/// <summary>
 	/// Tells the catalog how long each shape's flipbook is, which is what decides how long an effect
-	/// lives: <c>FUN_0040813c</c> steps the frame counter modulo the shape's own frame count and ends
+	/// lives: <c>Explosion_TickUpdate</c> (<c>0040813c</c>) steps the frame counter modulo the shape's own frame count and ends
 	/// the effect on the tick it wraps back to zero.
 	///
 	/// <para>It has to be supplied rather than read here because the count is a property of

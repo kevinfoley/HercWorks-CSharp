@@ -102,7 +102,7 @@ public sealed class CockpitViewGeometry {
 	/// Where this view's perspective is centred — <b>not</b> the middle of its viewport rect, which is
 	/// the whole point of the field existing. In device pixels from the view window's top-left.
 	///
-	/// <para><c>FUN_0048c5c4</c> is the projection's last step: <c>screenX = x + centreX</c>,
+	/// <para><c>Raster_ProjectToScreen</c> (<c>0048c5c4</c>) is the projection's last step: <c>screenX = x + centreX</c>,
 	/// <c>screenY = centreY - y</c>. So this point is where the view axis lands — the vanishing point
 	/// of anything running straight away from the eye, and the point the gunsight reticle is drawn
 	/// over. For APOCA that is (160, 95) authored, 95 rows down a 240-row view rather than the 93 its

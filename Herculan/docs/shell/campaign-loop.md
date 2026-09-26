@@ -5,8 +5,8 @@ How VSHELL starts a campaign, hands a mission to DBSIM, and folds the result bac
 The shell and the simulator are separate processes that never run at the same time. They communicate through loose files in `data\` plus one number: the shell is *relaunched* when the mission ends, and `FUN_00401525` (`vshell.cpp`) responds to a `-X3` or `-X4` command-line switch by loading slot 10 and running the debrief immediately:
 
 ```
-FUN_0040e4f2(10, 0);   // load the campaign autosave
-FUN_0040eae7();        // consume results.dat
+Game_LoadSlot(10, 0);            // 0040e4f2: load the campaign autosave
+Game_ProcessMissionResults();    // 0040eae7: consume results.dat
 ```
 
 The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `FUN_0040107c`, stores `-X<n>` through `FUN_0040876a` into `0046e210`; `FUN_00401525` copies that into `0048227e` right after the parse, having zeroed it before through `FUN_004073bc(0)`.
@@ -15,11 +15,11 @@ The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes a
 
 | File | Written by | Read by | Carries |
 |---|---|---|---|
-| `data\mission.var` | shell, `FUN_0040e9cb` | DBSIM | the 2000-byte campaign flag array |
-| `data\player.mec` | shell, `FUN_0040f0d4` | DBSIM | the player's HERC, wingmen and their fits |
+| `data\mission.var` | shell, `MissionVar_Write` (`0040e9cb`) | DBSIM | the 2000-byte campaign flag array |
+| `data\player.mec` | shell, `Game_ExportMissionHandoff` (`0040f0d4`) | DBSIM | the player's HERC, wingmen and their fits |
 | `data\script.dat` | shell, `WriteScriptDatFile` | DBSIM | the mission itself |
-| `data\mission.var` | DBSIM, `FUN_0042412c` | shell, `FUN_0040ea59` | the same flags, mutated by the mission |
-| `data\results.dat` | DBSIM | shell, `FUN_0040eae7` | outcome, salvage, damage and per-pilot counters |
+| `data\mission.var` | DBSIM, `FUN_0042412c` | shell, `MissionVar_Read` (`0040ea59`) | the same flags, mutated by the mission |
+| `data\results.dat` | DBSIM | shell, `Game_ProcessMissionResults` (`0040eae7`) | outcome, salvage, damage and per-pilot counters |
 
 `mission.var` appears twice deliberately: it is a round trip. The shell writes the flag array out before launch and reads the same file back at debrief.
 
@@ -35,7 +35,7 @@ Slot 0 is overwritten at debrief with the mission's outcome code (`_maybe_Campai
 
 It is also what unlocks weapons: the mission-load path grants a pending unlock when its flag slot holds the expected value, setting the weapon's `weapons.dat` `+0x16` byte and clearing the slot ([`../formats/weapons-dat.md`](../formats/weapons-dat.md)).
 
-## Starting a campaign — `FUN_0040e2ed`
+## Starting a campaign — `Game_NewCareer` (`0040e2ed`)
 
 Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training; the training entry points pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, loads `gam\hercs.dat`, initializes the career position, and seeds the salvage pool:
 
@@ -47,9 +47,9 @@ Retail `GAME_T.SAV` holds exactly 107,000 salvage — an untouched training star
 
 The two catalog loads also stock the player: `gam\weapons.dat`'s trailing block gives the armory 39 weapon units ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#file-level-format)) and `gam\hercs.dat` puts four Outlaws and one part-built Razor in the hangar ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamhercsdat--the-starting-hangar)).
 
-### The pilot roster is generated, not authored — `FUN_0040fa31`
+### The pilot roster is generated, not authored — `Squad_GenerateRoster` (`0040fa31`)
 
-Three squads of twelve. For each squad the routine draws two independent shuffles (`FUN_0040f95c`, a Fisher-Yates over 4 and over 3), and pilot `[row][col]` takes:
+Three squads of twelve. For each squad the routine draws two independent shuffles (`Util_Shuffle` (`0040f95c`), a Fisher-Yates over 4 and over 3), and pilot `[row][col]` takes:
 
 ```
 rosterId = shuffle4[col] + squad*4          // 0-11, stored at pilot +0x00
@@ -70,7 +70,7 @@ per stage:
   int16 x missionCount -- name indices into missions.bin
 ```
 
-`FUN_00412864` resolves each index through `missions.bin` as it loads, so the file stores indices rather than names. In memory a stage is 8 bytes: the campaign index, the count, and a pointer to the resolved strings. Retail's six stages:
+`CareerDat_ReadStage` (`00412864`) resolves each index through `missions.bin` as it loads, so the file stores indices rather than names. In memory a stage is 8 bytes: the campaign index, the count, and a pointer to the resolved strings. Retail's six stages:
 
 | Stage | Campaign index | Missions | Contents |
 |---|---|---|---|
@@ -87,9 +87,9 @@ The names in `missions.bin` carry their directory — `MSN\C1_01.MSN` — so the
 
 The player's position is the pair `(0046fb18, 0046fb1a)` — stage, then mission within stage — which is the first thing in the save's career block. Retail `GAME_T.SAV` sits at `(0, 4)`, part-way through training.
 
-## Launching a mission — `FUN_0040f0d4`
+## Launching a mission — `Game_ExportMissionHandoff` (`0040f0d4`)
 
-1. `FUN_0040e9cb` writes the flag array to `data\mission.var`.
+1. `MissionVar_Write` (`0040e9cb`) writes the flag array to `data\mission.var`.
 2. `_remove` deletes the previous output file.
 3. Opens the export and writes `int16 0` and the squad count (`00482a7a`), then one entry per machine via `FUN_004106b7`: the player's first, then every squad member whose on-strength byte (`+0x24`) is set, each preceded by two fields taken from its pilot.
 
@@ -114,7 +114,7 @@ The `5` filler that [`../simulation/weapon-mounts.md`](../simulation/weapon-moun
 
 ### The trailing weapon table
 
-After the last entry the export writes one more block, `FUN_00412253`:
+After the last entry the export writes one more block, `PlayerMec_WriteUnlockTable` (`00412253`):
 
 ```
 int16   33 (0x21), written as a literal
@@ -125,20 +125,20 @@ int16   33 (0x21), written as a literal
 
 The byte is the weapon's unlock flag, the same one every save slot stores for all 33 catalog ids ([`../formats/weapons-dat.md`](../formats/weapons-dat.md)).
 
-**Nothing traced reads this table back.** VSHELL reopens `data\player.mec` in exactly one place — `FUN_00424db0`, the map screen — and reads only the leading two `int16`, the player entry index and the squad size, before closing it and moving on to `data\mforms.dat` for formation layout. It never reaches the entries, let alone the table. On the simulator side, `MecFile`'s note records DBSIM's reader stopping at the last entry. The save file, not the export, is where the flags are authoritative: the export is regenerated from it at every launch, so the copy here is duplicated state.
+**Nothing traced reads this table back.** VSHELL reopens `data\player.mec` in exactly one place — `ShellMap_ReadSquadHeader` (`00424db0`), the map screen — and reads only the leading two `int16`, the player entry index and the squad size, before closing it and moving on to `data\mforms.dat` for formation layout. It never reaches the entries, let alone the table. On the simulator side, `MecFile`'s note records DBSIM's reader stopping at the last entry. The save file, not the export, is where the flags are authoritative: the export is regenerated from it at every launch, so the copy here is duplicated state.
 
 Both path strings are referenced as bare addresses (`0046f511`, `0046f521`), so the decompile does not show their text; read out of the binary they are two separate copies of the same literal, `data\player.mec`. The function removes that file and immediately recreates it.
 
 The whole layout is verified byte-exact against every retail `player.mec` — the loose `DATA` copy and all nine `sav\player%d.mec` — 143 to 467 bytes, 1 to 4 entries each, every one consuming to the last byte with the 33-flag table present.
 
-## The debrief — `FUN_0040eae7`
+## The debrief — `Game_ProcessMissionResults` (`0040eae7`)
 
 The longest function in `game.cpp` and the whole of the post-mission accounting.
 
 1. Read `data\mission.var` back into the flag array.
 2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, an `int32` added to the salvage pool, then `int16 count` and that many `{ int16, int16 }` salvage pairs, each applied by `FUN_0041229d` in campaign mode only.
 3. Copy the outcome into flag slot 0.
-4. For the player, then for each on-strength squad member in order: read the HERC's 66-byte status block over its `+0x08` span (`FUN_00411720`, which also destroys any mount whose condition arrived at 0), set the pilot's condition from that machine's overall condition (`FUN_00411d06(block, 1, 9)`), read the pilot's three mission counters and accumulate them (`FUN_0041000e`), and settle the machine (`FUN_00410c7c`) — a HERC below 30 condition is scrapped out of the hangar for its salvage value, anything above is reset to 100.
+4. For the player, then for each on-strength squad member in order: read the HERC's 66-byte status block over its `+0x08` span (`Herc_ReadStatusBlock` (`00411720`), which also destroys any mount whose condition arrived at 0), set the pilot's condition from that machine's overall condition (`HercStatus_Get(block, 1, 9)` (`00411d06`)), read the pilot's three mission counters and accumulate them (`Pilot_AccumulateMissionStats`, `0041000e`), and settle the machine (`Herc_SettleAfterMission`, `00410c7c`) — a HERC below 30 condition is scrapped out of the hangar for its salvage value, anything above is reset to 100.
 5. Deduct repairs — `FUN_0040e804`, charged per surviving pilot.
 6. Advance the campaign, then set the next screen from the result.
 
@@ -160,9 +160,9 @@ DBSIM writes this file, so there is no writer in VSHELL to mirror it against, bu
 
 ### Pilot progression
 
-After the results stream is closed the debrief calls `FUN_004103ba(00482a78)`, the squad-wide progression pass. It runs `FUN_00410066` on the player when the player's HERC condition is non-zero, then on every on-strength squad member whose condition is non-zero; a squad member at zero condition is replaced by a fresh pilot from `FUN_0040fb4f` and the squad count drops.
+After the results stream is closed the debrief calls `Squad_ProgressAll(00482a78)` (`004103ba`), the squad-wide progression pass. It runs `Pilot_Progress` (`00410066`) on the player when the player's HERC condition is non-zero, then on every on-strength squad member whose condition is non-zero; a squad member at zero condition is replaced by a fresh pilot from `FUN_0040fb4f` and the squad count drops.
 
-`FUN_00410066(pilot, isPlayer)` advances two independent ladders, both capped at 3 and both keyed on the pilot's counters ([`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)):
+`Pilot_Progress(pilot, isPlayer)` advances two independent ladders, both capped at 3 and both keyed on the pilot's counters ([`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)):
 
 ```
 divisors = (pilot +0x27 == 0) ? { kills: 20, missions: 10 }
@@ -178,7 +178,7 @@ Two consequences worth holding onto:
 - **The player's skill never changes.** The player is the one call site passing `isPlayer = 1`, and the `jnz` at `0041009f` jumps clear of the skill block on that argument — so the level chosen on the registration screen stands for the whole career, while the player's rank still advances on missions flown. That level is also **the simulator's difficulty setting**, handed over in every `script.dat` the campaign writes — see [`../simulation/difficulty.md`](../simulation/difficulty.md).
 - **Skill counts machines only.** The test sums Herc and Flyer kills and ignores Base kills entirely.
 
-The counters have already been accumulated and `+0x39` already incremented by the `FUN_0041000e` loop above, so a pilot's first debrief tests `missionsFlown == 1`. The kill test has no such offset: a squad pilot whose Herc and Flyer totals are still `0` satisfies `0 % divisor == 0` and takes a skill step on every mission survived until the cap.
+The counters have already been accumulated and `+0x39` already incremented by the `Pilot_AccumulateMissionStats` (`0041000e`) loop above, so a pilot's first debrief tests `missionsFlown == 1`. The kill test has no such offset: a squad pilot whose Herc and Flyer totals are still `0` satisfies `0 % divisor == 0` and takes a skill step on every mission survived until the cap.
 
 That last point is confirmed in the instruction stream — the sum is never tested, only the remainder:
 
@@ -197,7 +197,7 @@ Seven jumps in the function resolve to four targets — `00410088`, `00410090`, 
 
 ### Where the debrief goes next
 
-`FUN_00412dc7` advances `(stage, mission)` and returns the branch, which lands in `0048260e`:
+`Career_Advance` (`00412dc7`) advances `(stage, mission)` and returns the branch, which lands in `0048260e`:
 
 | Condition | State | Effect |
 |---|---|---|
@@ -206,11 +206,11 @@ Seven jumps in the function resolve to four targets — `00410088`, `00410090`, 
 | advance returned 1 — succeeded past the last stage | 1 | autosave to slot 10, then play AVIs `0x53` and `0x54` |
 | otherwise | 2 | continue to the next mission's briefing |
 
-**The position advances whether or not the mission was won.** `FUN_00412dc7` increments the mission index before it inspects the outcome; the outcome only chooses the branch. Rolling past a stage's mission count resets the mission index to 0 and increments the stage.
+**The position advances whether or not the mission was won.** `Career_Advance` increments the mission index before it inspects the outcome; the outcome only chooses the branch. Rolling past a stage's mission count resets the mission index to 0 and increments the stage.
 
 Two scripted events are hard-coded into the advance, keyed on the position *after* it increments: stage 1 mission 3 calls `FUN_0040e6c8(4)`, and stage 1 mission 6 calls `FUN_0040e7cd(8)` — both squad-roster operations.
 
-Every path that leaves a campaign in a resumable state autosaves through `FUN_0040e37b(10, NULL)`, which is why `GAME_R.SAV` mirrors the newest ordinary save.
+Every path that leaves a campaign in a resumable state autosaves through `Game_SaveSlot(10, NULL)` (`0040e37b`), which is why `GAME_R.SAV` mirrors the newest ordinary save.
 
 ## Rejected readings
 

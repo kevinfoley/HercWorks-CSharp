@@ -5,7 +5,7 @@ namespace HercWorks.Core.Data.Struct;
 ///
 /// Independently cross-confirmed against DBSIM.EXE disassembly (see
 /// docs/simulation/weapon-damage-types.md): these are the exact 4 literal values DBSIM's own
-/// PROJ.DAT lookup function (<c>FUN_0040ffc8</c>) is ever called with — a closed set, found from
+/// PROJ.DAT lookup function (<c>Proj_LookupRecord</c>, <c>0040ffc8</c>) is ever called with — a closed set, found from
 /// scratch via disassembly with no reference to this enum, matching it value-for-value. Each value
 /// corresponds to a genuinely different construction path, not just a data variant: `0` (Missile)
 /// and `3` (Grenade) each build via their own distinct projectile-family C++ class (own vtable, own

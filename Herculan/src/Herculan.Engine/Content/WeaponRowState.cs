@@ -9,8 +9,8 @@ namespace Herculan.Engine.Content;
 /// in the fit. A slot no mount claims draws its plate and number and nothing else.
 ///
 /// <para>The three classes differ only past the name: an energy mount's row
-/// (<c>FUN_00440a68</c>) carries an LED charge bar, an ammunition mount's (<c>FUN_00440f78</c>)
-/// carries a round count, and a pod's (<c>FUN_00441524</c>) carries neither and instead widens its
+/// (<c>EnergyWeaponGauge_Ctor</c>, <c>00440a68</c>) carries an LED charge bar, an ammunition mount's (<c>AmmoWeaponGauge_Ctor</c>, <c>00440f78</c>)
+/// carries a round count, and a pod's (<c>PodGauge_Ctor</c>, <c>00441524</c>) carries neither and instead widens its
 /// name label across the whole row.</para>
 /// </summary>
 /// <param name="Name">
@@ -43,7 +43,7 @@ namespace Herculan.Engine.Content;
 /// </param>
 /// <param name="PodButton">
 /// Whether this pod row's on/off button is on — <c>gauge+0xc2</c>, which only the ECM and Turbo rows
-/// ever have moved. It is what <c>FUN_0044171c</c>, the pod row's paint, re-dresses the name on: off
+/// ever have moved. It is what <c>PodGauge_Paint</c> (<c>0044171c</c>), the pod row's paint, re-dresses the name on: off
 /// draws it in the <c>gray</c> font the constructor seeded over the plate's own background, and on
 /// draws it in <c>dark</c> over a green plate flooded across the whole name label. Always false on a
 /// row that is not a pod, and on a destroyed one.
@@ -81,12 +81,12 @@ public readonly record struct WeaponRowState(
 	public const int NameLength = 12;
 
 	/// <summary>
-	/// A pod row's name buffer is one shorter, because <c>FUN_00441524</c> seeds it with a leading
+	/// A pod row's name buffer is one shorter, because <c>PodGauge_Ctor</c> (<c>00441524</c>) seeds it with a leading
 	/// space and then appends with <c>strncat(dest, text, 11 - strlen(dest))</c>.
 	/// </summary>
 	public const int PodNameLength = 11;
 
-	/// <summary>The space <c>FUN_00441524</c> seeds a pod row's name with, before the weapon's own name.</summary>
+	/// <summary>The space <c>PodGauge_Ctor</c> (<c>00441524</c>) seeds a pod row's name with, before the weapon's own name.</summary>
 	public const string PodNamePrefix = " ";
 
 	/// <summary>

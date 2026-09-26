@@ -172,7 +172,7 @@ public class MechLocomotionTests {
 	/// <summary>
 	/// Holding the throttle axis against its stop runs a machine from full forward, through a
 	/// one-tick pause at rest, and on into full reverse — there is no gear to select. The clamp that
-	/// would stop it is gated on a joystick throttle lever being configured (<c>FUN_00459d20</c>), and
+	/// would stop it is gated on a joystick throttle lever being configured (<c>Input_SetThrottleLeverMode</c>, <c>00459d20</c>), and
 	/// the keyboard has none.
 	/// </summary>
 	[Fact]

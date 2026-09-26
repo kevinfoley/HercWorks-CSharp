@@ -8,14 +8,14 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// A structure — a base building, a turret, a bunker. In DBSIM this is the class built by
-/// <c>FUN_00405314</c> from a <c>script.dat</c> block-9 record and attached to its group by
+/// <c>Base_Construct</c> (<c>00405314</c>) from a <c>script.dat</c> block-9 record and attached to its group by
 /// <c>Base_AttachToGroup</c> (<c>00405c3c</c>); its type comes from <c>dat\BASES.DAT</c> (see
 /// <see cref="BaseType"/>), which is also what names its model, its texture bank and its
 /// destructible parts.
 ///
 /// <para>Structures are the bulk of a mission's object count and none of its motion: they sit where
 /// the mission puts them. The one thing the original does that this does not is flatten the terrain
-/// underneath a structure as it places it (<c>FUN_00470dc8</c>, called with the object's radius just
+/// underneath a structure as it places it (<c>Terrain_MarkStructureFootprint</c> (<c>00470dc8</c>), called with the object's radius just
 /// before the height query) — that writes to the loaded heightmap, so it belongs with terrain
 /// deformation rather than here, and leaving it out means a structure on a slope stands on the
 /// interpolated surface instead of a levelled pad.</para>
@@ -53,7 +53,7 @@ public sealed partial class BaseObject : SimObject {
 	/// </param>
 	/// <param name="collision">The type's <c>BASECOL.DAT</c> sphere model — see <see cref="CollisionModel"/>.</param>
 	/// <param name="shapeRadius">
-	/// The shape's own bounding radius — the original's vtable <c>+0x10</c> (<c>FUN_0046b80c</c>),
+	/// The shape's own bounding radius — the original's vtable <c>+0x10</c> (<c>SimObject_GetShapeRadius</c>, <c>0046b80c</c>),
 	/// which is simply <c>shape+8</c>. Both hit paths open with a coarse reject against it.
 	///
 	/// <para>Distinct from <see cref="HitRadius"/>, which is the <i>type</i>'s stated figure and is
@@ -135,7 +135,7 @@ public sealed partial class BaseObject : SimObject {
 		index >= 0 && index < _damage.Length ? _damage[index] : 0;
 
 	/// <summary>
-	/// <c>FUN_004052b4</c>, the type's vtable <c>+0x40</c> — how far gone the structure is, as a Q8
+	/// <c>Base_DamageFraction</c> (<c>004052b4</c>), the type's vtable <c>+0x40</c> — how far gone the structure is, as a Q8
 	/// fraction: the sum of every component's damage over the sum of every component's maximum. A
 	/// full 256 is what <see cref="ApplyDamage"/> tests for to decide the structure has fallen.
 	///
@@ -291,8 +291,8 @@ public sealed partial class BaseObject : SimObject {
 	public Transform3 WorldTransform => WorldFrame;
 
 	/// <summary>
-	/// <c>Base_DirectFireHitTest</c> (<c>FUN_00405038</c>) — the vtable <c>+0x20</c> every structure
-	/// class shares (all five of the type-switched vtables <c>FUN_00405314</c> installs point at it),
+	/// <c>Base_DirectFireHitTest</c> (<c>00405038</c>) — the vtable <c>+0x20</c> every structure
+	/// class shares (all five of the type-switched vtables <c>Base_Construct</c> (<c>00405314</c>) installs point at it),
 	/// and, as everywhere else along this path, the hit test and the damage application in one call.
 	///
 	/// <para><b>There are two completely different pieces of hit geometry</b>, and which one runs is
@@ -386,7 +386,7 @@ public sealed partial class BaseObject : SimObject {
 		world.Debris?.Database(DebrisDatabase.StructureName);
 
 	/// <summary>
-	/// The volume half of <c>FUN_00427da8</c>, narrowed to the single object this is called on.
+	/// The volume half of <c>Sim_RaycastShapeVolume</c> (<c>00427da8</c>), narrowed to the single object this is called on.
 	///
 	/// <para>Two rejects before any grid work: <see cref="WithinReach"/>, then the structure's centre
 	/// brought into the shot's frame and tested against a box — <b>X and Y only</b>, with Z left out
@@ -429,7 +429,7 @@ public sealed partial class BaseObject : SimObject {
 	}
 
 	/// <summary>
-	/// <c>Base_ApplyDamage</c> (<c>FUN_00404d70</c>), the vtable <c>+0x74</c> — writes one
+	/// <c>Base_ApplyDamage</c> (<c>00404d70</c>), the vtable <c>+0x74</c> — writes one
 	/// component's health and, if that finished it, checks whether the structure has fallen.
 	///
 	/// <para><b>A component can die early, at random.</b> Past half its maximum, the original rolls

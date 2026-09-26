@@ -228,7 +228,7 @@ public class ShellLayoutTests {
 		Assert.Equal(ShellPalette.Arming, ShellPalette.IndexOf("arming"));
 	}
 
-	/// <summary>Which palette each tab is drawn through, as <c>FUN_0043b162</c> picks it.</summary>
+	/// <summary>Which palette each tab is drawn through, as <c>Shell_SelectTabPalette</c> (<c>0043b162</c>) picks it.</summary>
 	[Theory]
 	[InlineData(ShellScreen.MainMenuTab, ShellPalette.ServiceBay)]
 	[InlineData(ShellScreen.SaveTab, ShellPalette.ServiceBay)]

@@ -100,7 +100,7 @@ public readonly record struct HddPilotSlot(bool Occupied, string Name, int Condi
 /// </param>
 /// <param name="Message">
 /// The row above the order list — the prompt the screen writes when it wants something picked
-/// (<c>FUN_0044dc44</c>), or null for a blank row.
+/// (<c>HddCommandScreen_SetMessageRow</c>, <c>0044dc44</c>), or null for a blank row.
 /// </param>
 /// <param name="Blink">
 /// The display's own half-second blink, <c>DAT_0049d6ad</c>, toggled every 30 coarse ticks. The
@@ -138,8 +138,8 @@ public readonly record struct HddCommandState(
 	public IReadOnlyList<HddPilotSlot> PilotBoxes => Pilots ?? Array.Empty<HddPilotSlot>();
 
 	/// <summary>
-	/// Whether the orders can be taken at all. <c>FUN_0044edd8</c> sets all eight availability bytes
-	/// the moment a pilot is selected and <c>FUN_0044edfc</c> clears all eight when none is, so the
+	/// Whether the orders can be taken at all. <c>HddCommandScreen_EnableOrders</c> (<c>0044edd8</c>) sets all eight availability bytes
+	/// the moment a pilot is selected and <c>HddCommandScreen_DisableOrders</c> (<c>0044edfc</c>) clears all eight when none is, so the
 	/// eight-byte array the original keeps is exactly this one bit.
 	/// </summary>
 	public bool OrdersAvailable => SelectedPilot >= 0;

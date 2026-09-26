@@ -1,7 +1,7 @@
 namespace Herculan.Engine.Numerics;
 
 /// <summary>
-/// Port of DBSIM's pseudo-random generator (<c>FUN_00492dd4</c>, state block at <c>0x4d261d</c>) —
+/// Port of DBSIM's pseudo-random generator (<c>Math_RandomNext</c> (<c>00492dd4</c>), state block at <c>0x4d261d</c>) —
 /// an additive lagged Fibonacci generator over a 56-entry table of <see cref="short"/>s with two
 /// rotating cursors:
 /// <code>
@@ -23,7 +23,7 @@ public sealed class SimRandom {
 	private const int TableLength = 0x38;
 
 	/// <summary>
-	/// DBSIM's own starting table, the 112 bytes at <c>004a6958</c> that <c>FUN_00492d7c</c>
+	/// DBSIM's own starting table, the 112 bytes at <c>004a6958</c> that <c>Math_RandomSeed</c> (<c>00492d7c</c>)
 	/// <c>memmove</c>s into the state block. Static initialised data, not built at runtime: the
 	/// generator has no clock or entropy input anywhere, which is what makes the original's
 	/// simulation replay identically on every run.
@@ -53,7 +53,7 @@ public sealed class SimRandom {
 	private int _cursorJ;
 
 	/// <summary>
-	/// DBSIM's generator as it stands the moment <c>FUN_00492d7c</c> has seeded it — the same table
+	/// DBSIM's generator as it stands the moment <c>Math_RandomSeed</c> (<c>00492d7c</c>) has seeded it — the same table
 	/// and the same two cursors, so this and the original step in lockstep from here.
 	/// </summary>
 	public SimRandom() {
@@ -104,7 +104,7 @@ public sealed class SimRandom {
 	public int NextMasked(int mask) => Next() & mask;
 
 	/// <summary>
-	/// <c>FUN_00492e18</c> — a draw in <c>[0, bound)</c>, as <c>(Next() &amp; 0x7fff) % bound</c>. The
+	/// <c>Math_RandomBelow</c> (<c>00492e18</c>) — a draw in <c>[0, bound)</c>, as <c>(Next() &amp; 0x7fff) % bound</c>. The
 	/// mask before the modulo is the original's own: it drops the sign bit rather than taking an
 	/// absolute value, so the distribution is the low fifteen bits' and not the full sixteen.
 	///

@@ -87,7 +87,7 @@ public class ProjectileData {
 
 		/// <summary>
 		/// Was <c>Unk2_val</c> — resolved via DBSIM.EXE disassembly
-		/// (<c>FUN_004188c8</c>, see docs/simulation/weapon-damage-types.md). A Q8 fraction of
+		/// (<c>Mech_ApplyDirectFireDamage</c> (<c>004188c8</c>), see docs/simulation/weapon-damage-types.md). A Q8 fraction of
 		/// this hit's (already shield-absorbed) armor/structure damage that gets diverted into a
 		/// secondary small-radius explosion — reusing the same blast-sweep formula explosive
 		/// weapons use — instead of going straight to the struck component's health. Zero (the

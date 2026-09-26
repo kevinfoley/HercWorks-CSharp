@@ -13,7 +13,7 @@ namespace Herculan.Engine.Tests;
 /// <summary>
 /// The repair screen's geometry, its selection rules and the cost model behind its readouts.
 ///
-/// <para>The rects in <see cref="ShellRepairScreen"/> are parent-relative, as <c>FUN_00432037</c>
+/// <para>The rects in <see cref="ShellRepairScreen"/> are parent-relative, as <c>Repair_BuildScreen</c> (<c>00432037</c>)
 /// writes them, so what is pinned here is the composition — the absolutes below were added up by hand
 /// from the widget tree, and a wrong parent or a dropped offset moves them. That is the error a parse
 /// landing on EOF cannot catch.</para>
@@ -102,8 +102,8 @@ public class ShellRepairScreenTests {
 	}
 
 	/// <summary>
-	/// A <c>(column, row)</c> pair is a category and an index within it — <c>FUN_00433410</c> and
-	/// <c>FUN_00433431</c>. The three categories are the status block's own accessor modes, which is
+	/// A <c>(column, row)</c> pair is a category and an index within it — <c>Repair_HotspotCategory</c> (<c>00433410</c>) and
+	/// <c>Repair_HotspotIndex</c> (<c>00433431</c>). The three categories are the status block's own accessor modes, which is
 	/// why one number does for the list, the condition array and the price table alike.
 	/// </summary>
 	[Fact]
@@ -272,7 +272,7 @@ public class ShellRepairScreenTests {
 	}
 
 	/// <summary>
-	/// <b>The per-item figure repairs one band, not to full.</b> <c>FUN_00413871</c> targets the floor
+	/// <b>The per-item figure repairs one band, not to full.</b> <c>Repair_LevelStepCost</c> (<c>00413871</c>) targets the floor
 	/// of the level above the one the component sits in — a component at 50 is level 3 and is priced up
 	/// to 60 — where <c>Repair_HercCost</c> prices the whole machine to 100. The screen shows both at
 	/// once and they are not two spellings of one figure.

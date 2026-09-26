@@ -10,7 +10,7 @@ namespace Herculan.Engine.Shell;
 /// each to the 122-byte HERC record in the loaded save (docs/formats/save-games.md).
 ///
 /// <para><b>The 66-byte status block is three arrays and one accessor.</b> <c>HercStatus_Get</c>
-/// (<c>FUN_00411d06</c>) takes a mode and an index and every screen in the shell reads a machine's
+/// (<c>HercStatus_Get</c>, <c>00411d06</c>) takes a mode and an index and every screen in the shell reads a machine's
 /// damage through it, so <see cref="Condition"/> is the whole of what the repair bay needs.
 /// <see cref="ShellRepairCategory.ExternalGroup"/> is the one that is not a plain array read: the 13
 /// external entries are facets and a group is their mean, taken through the six-group table at
@@ -32,7 +32,7 @@ public sealed class ShellBayMachine {
 	};
 
 	/// <summary>
-	/// The four internals <c>FUN_00411681</c> tests for a machine to count as deployable: both leg
+	/// The four internals <c>Herc_IsFlightworthy</c> (<c>00411681</c>) tests for a machine to count as deployable: both leg
 	/// servos, the engine and life support. See <see cref="IsFlightworthy"/>.
 	/// </summary>
 	private static readonly int[] FlightworthyInternals = { 0, 1, 5, 8 };
@@ -76,7 +76,7 @@ public sealed class ShellBayMachine {
 	public bool IsBuilt => BuildPercent == Complete;
 
 	/// <summary>
-	/// <c>FUN_00411681</c> — whether the machine can be flown: both leg servos, the engine and life
+	/// <c>Herc_IsFlightworthy</c> (<c>00411681</c>) — whether the machine can be flown: both leg servos, the engine and life
 	/// support all above 50. A machine that fails this is still in its bay but does not count towards
 	/// the fleet the scrap gate measures.
 	/// </summary>
@@ -218,7 +218,7 @@ public sealed class ShellHangar {
 	public ShellBayMachine? Bay(int slot) => slot >= 0 && slot < BayCount ? _bays[slot] : null;
 
 	/// <summary>
-	/// <c>FUN_00410220(00482a78, slot)</c> — the pilot assigned to a bay, or null. It searches exactly
+	/// <c>Squad_PilotForBay(00482a78, slot)</c> (<c>00410220</c>) — the pilot assigned to a bay, or null. It searches exactly
 	/// four records: the player's own, then the three squad members the player structure points at
 	/// (<c>+0x3f</c>). Each of those pointers is set on load to record <c>DAT_00483b48[k]</c> of squad
 	/// <c>k</c>, so a pilot in the squad block who is not one of the three is never found here.
@@ -244,7 +244,7 @@ public sealed class ShellHangar {
 	public bool IsChassisAvailable(int chassisType) => _availableChassis.Contains(chassisType);
 
 	/// <summary>
-	/// <c>FUN_00410c2a</c> — the first bay holding a fully built machine, or <c>-1</c> when there is
+	/// <c>Herc_FirstBuiltBay</c> (<c>00410c2a</c>) — the first bay holding a fully built machine, or <c>-1</c> when there is
 	/// none. It is what the repair screen falls back to when the selected bay holds nothing it can
 	/// work on.
 	/// </summary>
@@ -259,7 +259,7 @@ public sealed class ShellHangar {
 	}
 
 	/// <summary>
-	/// <c>FUN_00410add</c> — whether exactly one bay holds a machine that is built and deployable.
+	/// <c>Herc_HasSingleDeployable</c> (<c>00410add</c>) — whether exactly one bay holds a machine that is built and deployable.
 	/// The repair screen's SCRAP button is dead while this holds, which is what stops a player
 	/// scrapping the last thing they can fly.
 	/// </summary>
@@ -297,7 +297,7 @@ public sealed class ShellHangar {
 			}
 		}
 
-		// FUN_004101b8 points the player structure's three squad pointers at record
+		// Player_Read (004101b8) points the player structure's three squad pointers at record
 		// DAT_00483b48[k] of squad k; those three shorts open the eight the save model keeps between
 		// the squad block and the player's record.
 		hangar.AddPilot(save.PlayerPilot);

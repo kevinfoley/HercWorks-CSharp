@@ -8,7 +8,7 @@ The table row that starts one is `EXPLOS.DAT`'s `LightMode`, in [`../simulation/
 
 ## The manager — `DAT_004a968c`
 
-One singleton, 0x404 bytes, built by `FUN_004076e4` at startup. Twenty slots of stride `0x23` from `+0x6c`, a `Cpp_VectorNew` array:
+One singleton, 0x404 bytes, built by `LightManager_InitSubsystem` (`004076e4`) at startup. Twenty slots of stride `0x23` from `+0x6c`, a `Cpp_VectorNew` array:
 
 | Offset in slot | Field |
 |---|---|
@@ -21,11 +21,11 @@ One singleton, 0x404 bytes, built by `FUN_004076e4` at startup. Twenty slots of 
 | `+0x1b` | intensity again, as int32; **the field every consumer reads** |
 | `+0x1f` | the renderer light object currently standing in for this slot, or 0 |
 
-Manager fields: `+0x00`..`+0x08` the camera position (`FUN_0040707c`, written once a frame from `maybe_Sim_RenderFrame`), `+0x0c` a literal 10000, `+0x10`/`+0x14` the `A`/`B` above, `+0x18` the count of live slots and `+0x1c` their pointer array, `+0x328` an embedded light object, `+0x35c` and `+0x3b0` the free lists the two synthesised light types are recycled through.
+Manager fields: `+0x00`..`+0x08` the camera position (`LightManager_SetCameraPosition` (`0040707c`), written once a frame from `maybe_Sim_RenderFrame`), `+0x0c` a literal 10000, `+0x10`/`+0x14` the `A`/`B` above, `+0x18` the count of live slots and `+0x1c` their pointer array, `+0x328` an embedded light object, `+0x35c` and `+0x3b0` the free lists the two synthesised light types are recycled through.
 
 ### `A` and `B` are 0 and 62
 
-`FUN_00406e44`, the constructor, calls `FUN_00406ee4(mgr, 2000, 3000)`; `FUN_004076e4` then immediately calls it again with `(10, 2000)`. The setter stores both **shifted right by 5**, so the values that survive into every calculation below are
+`LightManager_Construct` (`00406e44`), the constructor, calls `LightManager_SetFalloffConstants(mgr, 2000, 3000)` (`00406ee4`); `LightManager_InitSubsystem` (`004076e4`) then immediately calls it again with `(10, 2000)`. The setter stores both **shifted right by 5**, so the values that survive into every calculation below are
 
 ```
 A = 10   >> 5 = 0
@@ -34,7 +34,7 @@ B = 2000 >> 5 = 62
 
 `A` is zero, and it is zero in the two places it is used — the denominator offset of both falloffs. The startup call is what counts; the constructor's pair never reaches a frame.
 
-`FUN_0040735c` recomputes the cull radius whenever position or intensity changes:
+`LightManager_RecomputeCullRadius` (`0040735c`) recomputes the cull radius whenever position or intensity changes:
 
 ```
 slot.cullRadius = (slot.intensity * B * 0x20) / 10 + A * 0x20     // = intensity * 198.4
@@ -46,23 +46,23 @@ At full intensity that is 50,592 world units, about 300 m.
 
 `Explosion_Construct` (`00407f1c`) branches on the type row's `LightMode` at `+0x06` and tests it **only against zero**. Values 1 and 2 both take the same branch and nothing anywhere else reads the field, so the two are indistinguishable at runtime; the split is authoring intent that the code never honoured. Twelve of the twenty-two retail rows are nonzero.
 
-Nonzero allocates a 0x12-byte handle from the pool at `DAT_004a9682` and runs `FUN_00407604`, which is the whole of the attachment:
+Nonzero allocates a 0x12-byte handle from the pool at `DAT_004a9682` and runs `EffectLight_Construct` (`00407604`), which is the whole of the attachment:
 
 ```
-slotIndex   = LightManager_ClaimSlot(mgr, worldPoint)            // FUN_00406f38
+slotIndex   = LightManager_ClaimSlot(mgr, worldPoint)                // 00406f38
 handle+0x0c = slotIndex
-LightManager_SetIntensity(mgr, slotIndex, FrameIntensity[0])     // FUN_00407048
+LightManager_SetSlotIntensity(mgr, slotIndex, FrameIntensity[0])     // 00407048
 ```
 
-`FUN_00406f38` seeds the slot's intensity to `0xff` and copies `A`/`B` in; the `FUN_00407048` call right behind it overwrites the intensity with the row's first ramp entry and, critically, is the **only** writer of `+0x1b`. `Explosion_TickUpdate` then calls `FUN_004076a0(handle, ...)` — the same setter through the handle — with `FrameIntensity[frame] & 0xff` as each frame is stepped, and `FUN_0040765c` releases the slot when the effect dies.
+`LightManager_ClaimSlot` (`00406f38`) seeds the slot's intensity to `0xff` and copies `A`/`B` in; the `LightManager_SetSlotIntensity` (`00407048`) call right behind it overwrites the intensity with the row's first ramp entry and, critically, is the **only** writer of `+0x1b`. `Explosion_TickUpdate` then calls `EffectLight_SetIntensity(handle, ...)` (`004076a0`) — the same setter through the handle — with `FrameIntensity[frame] & 0xff` as each frame is stepped, and `EffectLight_Destruct` (`0040765c`) releases the slot when the effect dies.
 
 The intensity is read from the ramp at the **new** frame index, and the tick reaches that line only when the stepped frame is nonzero, so `FrameIntensity[0]` is used exactly once, by the constructor.
 
 ### The allocator overruns when all twenty slots are busy
 
-`FUN_00406f38` scans for a free slot and, finding none, falls out of its loop with the destination pointer still holding **the caller's `worldPoint` argument** and the returned index at `0x14`. It then writes the full slot record through that pointer, scribbling over the effect's own position vector, and appends it to the live array. `FUN_00407048` compounds it: index `0x14` resolves to `mgr + 0x6c + 20 * 0x23` = `mgr + 0x328`, the manager's embedded light object. Twenty-one simultaneous light-bearing effects is reachable in a heavy exchange. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+`LightManager_ClaimSlot` (`00406f38`) scans for a free slot and, finding none, falls out of its loop with the destination pointer still holding **the caller's `worldPoint` argument** and the returned index at `0x14`. It then writes the full slot record through that pointer, scribbling over the effect's own position vector, and appends it to the live array. `LightManager_SetSlotIntensity` (`00407048`) compounds it: index `0x14` resolves to `mgr + 0x6c + 20 * 0x23` = `mgr + 0x328`, the manager's embedded light object. Twenty-one simultaneous light-bearing effects is reachable in a heavy exchange. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
-## Per-object selection — `FUN_00407098`
+## Per-object selection — `LightManager_SelectLightsForObject` (`00407098`)
 
 Called from `ObjList_DrawEntryRender` (`0042876c`), **once per depth-sorted render entry, just before that object is drawn**, with the entry's cached position and its bounding radius — the entry's `+0x10` short, filled by `ObjList_DrawCellObjects` from `SimObject_GetShapeRadius` (vtable `+0x10`).
 
@@ -79,7 +79,7 @@ else                         -> POINT
 
 `8000` in the sim's binary-angle unit is 43.9 degrees, so the test is `radius / dist < 0.964`: the object subtends less than that from the light, i.e. the light is more than about one bounding radius away. **Far is directional, near is point** — the light is only made a real point light once it is close enough that the object's own extent matters, which is the standard approximation and not the inversion the argument order invites. `Math_Atan2Guarded` takes `(x, y)`, and reading it as `(y, x)` mirrors the test about the 45-degree line and swaps the two branches.
 
-Both branches recycle through the manager's free lists (`FUN_00407500`, `Light_GetOrCreateDirectional`, `Light_GetOrCreatePoint`) and reuse the slot's existing light object untouched whenever its type already matches, so consecutive objects mutate one light rather than allocating.
+Both branches recycle through the manager's free lists (`LightManager_RecycleLight` (`00407500`), `Light_GetOrCreateDirectional`, `Light_GetOrCreatePoint`) and reuse the slot's existing light object untouched whenever its type already matches, so consecutive objects mutate one light rather than allocating.
 
 **Directional.** Intensity is attenuated by distance at selection time, and the direction is rebuilt to point from the light at the object:
 
@@ -99,7 +99,7 @@ light+0x3c = intensity * 1984    // unread by the shade path
 position   = slotPos
 ```
 
-The synthesised light is registered into the ordinary ten-slot active list (`DAT_006c6130`) beside the mission sun, so `Light_Register`'s cap means a busy frame silently drops the ninth and later lights. `maybe_Raster_SetModelTransform` re-transforms every registered light into model space (`light+0x22` position, `light+0x2e` direction) for each node composed, gated on `DAT_006cbc88` — which `FUN_0048dbfc`, the per-mission light reset, sets unconditionally, so it is always on in a mission.
+The synthesised light is registered into the ordinary ten-slot active list (`DAT_006c6130`) beside the mission sun, so `Light_Register`'s cap means a busy frame silently drops the ninth and later lights. `maybe_Raster_SetModelTransform` re-transforms every registered light into model space (`light+0x22` position, `light+0x2e` direction) for each node composed, gated on `DAT_006cbc88` — which `Light_ResetSystem` (`0048dbfc`), the per-mission light reset, sets unconditionally, so it is always on in a mission.
 
 ## What a light contributes
 
@@ -128,7 +128,7 @@ So a full-intensity frame adds 255 to a face turned squarely at it within about 
 The intensities are real and large, and the effect is still hard to see. Four structural reasons, none of them a brightness of zero:
 
 - **Terrain cannot respond.** `Terrain_BuildCellSurfaceAndShade` bakes a cell triangle's shade byte once at zone load ([`terrain-lighting.md`](terrain-lighting.md)). The ground — the largest surface near any impact — never flashes, whatever is registered when it draws.
-- **Only depth-sorted entries are lit at all.** `FUN_00407098` runs from `ObjList_DrawEntryRender`. `ObjList_DrawCellObjects` draws class-tag-9 objects immediately and fullbright, bypassing the light pass entirely.
+- **Only depth-sorted entries are lit at all.** `LightManager_SelectLightsForObject` (`00407098`) runs from `ObjList_DrawEntryRender`. `ObjList_DrawCellObjects` draws class-tag-9 objects immediately and fullbright, bypassing the light pass entirely.
 - **About two thirds of a second.** Every retail row holds a frame for one tick and the ramps run ten frames.
 - **The sun has already saturated most of what is visible.** The shape curve is `128 + 256 * facing`, so every face within 60 degrees of the sun is pinned at 255 before an effect light adds anything. Only surfaces turned away from the sun have headroom, and the billboard flipbook is drawn over the part of the object nearest the light.
 
@@ -136,15 +136,15 @@ The intensities are real and large, and the effect is still hard to see. Four st
 
 | Reading | Why it is wrong |
 |---|---|
-| `LightMode` 1 and 2 select directional versus point | Nothing reads the field but `Explosion_Construct`, which tests it against zero. The type is chosen per drawn object by `FUN_00407098`'s angular test, and both values reach the same code. |
-| `A` and `B` are 2000 and 3000 | Those are `FUN_00406e44`'s constructor defaults, overwritten by `FUN_004076e4` before any frame runs. Both calls also shift right by 5, which the raw literals do not show. |
+| `LightMode` 1 and 2 select directional versus point | Nothing reads the field but `Explosion_Construct`, which tests it against zero. The type is chosen per drawn object by `LightManager_SelectLightsForObject` (`00407098`)'s angular test, and both values reach the same code. |
+| `A` and `B` are 2000 and 3000 | Those are `LightManager_Construct` (`00406e44`)'s constructor defaults, overwritten by `LightManager_InitSubsystem` (`004076e4`) before any frame runs. Both calls also shift right by 5, which the raw literals do not show. |
 | `Math_Atan2Guarded(d, radius)` makes near lights directional | The helper takes `(x, y)`, so this is `atan(radius / dist)` — the object's angular size. Small angle means far, and far is the directional branch. |
-| `Light_ComputeShadeForFace` reads the light's world position | It reads `+0x22`/`+0x2e`, the model-space copies `maybe_Raster_SetModelTransform` rebuilds per node. `+0x04`/`+0x10` are the world-space fields `FUN_00407098` writes. |
+| `Light_ComputeShadeForFace` reads the light's world position | It reads `+0x22`/`+0x2e`, the model-space copies `maybe_Raster_SetModelTransform` rebuilds per node. `+0x04`/`+0x10` are the world-space fields `LightManager_SelectLightsForObject` writes. |
 | The mission sun is the only entry in the active light list | It is the only *persistent* one, and the only one a mission starts with. Types 1 and 2 are both created dynamically here, into the same ten-slot list. Type 0, ambient, is genuinely never created anywhere in the binary. |
 
 ## Engine port
 
-`EffectLightField` is the twenty-slot manager on `SimWorld.EffectLights`; `ImpactEffect` claims a slot when its row's `LightMode` is nonzero, drives the intensity from the row's ramp on each frame step, and releases it when the flipbook wraps. `EffectLight.CullRadius` carries `FUN_0040735c`. `EffectLightSelection` is `FUN_00407098`, run from `SceneRenderer`'s draw loop over each `SceneItem` whose `LightSubject` names the object it belongs to, and what it picks is uploaded to `Scene.glsl` as a nine-entry uniform array beside the sun. It stays in world units throughout — the distance is the sim's own `ApproxDistanceTo` and the branch test its own arctangent — and only the vectors that leave convert to render space.
+`EffectLightField` is the twenty-slot manager on `SimWorld.EffectLights`; `ImpactEffect` claims a slot when its row's `LightMode` is nonzero, drives the intensity from the row's ramp on each frame step, and releases it when the flipbook wraps. `EffectLight.CullRadius` carries `LightManager_RecomputeCullRadius` (`0040735c`). `EffectLightSelection` is `LightManager_SelectLightsForObject` (`00407098`), run from `SceneRenderer`'s draw loop over each `SceneItem` whose `LightSubject` names the object it belongs to, and what it picks is uploaded to `Scene.glsl` as a nine-entry uniform array beside the sun. It stays in world units throughout — the distance is the sim's own `ApproxDistanceTo` and the branch test its own arctangent — and only the vectors that leave convert to render space.
 
 The shade sum in the vertex shader is `Light_ComputeShadeForFace`'s: each light's term is added and the total is clamped at 255 once, per corner, so the sun's own term is floored at 0 but not capped and a `TSGouraudPoly` still interpolates clamped corner bytes.
 

@@ -2,7 +2,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
 /// FILE — /SIMVOL0/DAT/EXPLOS.DAT (and its low-memory twin EXPLOS2.DAT), the impact/explosion
-/// effect tables DBSIM's <c>EXPLO.CPP</c> subsystem loads at startup (<c>FUN_00407b54</c>).
+/// effect tables DBSIM's <c>EXPLO.CPP</c> subsystem loads at startup (<c>Explosion_LoadResources</c>, <c>00407b54</c>).
 ///
 /// <para>Two tables back to back, both length-prefixed:</para>
 /// <code>
@@ -50,8 +50,8 @@ public class ExplosionShapeEntry {
 /// <summary>
 /// One 40-byte row of <see cref="ExplosionData.Types"/> — everything an impact effect is.
 ///
-/// <para>Field roles are from <c>FUN_00407f1c</c> (the constructor) and <c>FUN_0040813c</c> (the
-/// per-tick update), both of which reach the row through <c>FUN_00407b20</c>,
+/// <para>Field roles are from <c>Explosion_Construct</c> (<c>00407f1c</c>, the constructor) and <c>Explosion_TickUpdate</c> (<c>0040813c</c>, the
+/// per-tick update), both of which reach the row through <c>Explosion_GetTypeRecord</c> (<c>00407b20</c>),
 /// <c>table + typeId * 0x28</c>.</para>
 /// </summary>
 public class ExplosionTypeEntry {

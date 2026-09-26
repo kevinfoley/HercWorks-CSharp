@@ -241,7 +241,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// The Heads-Down Display's live content, built the way <c>FUN_00448cc8</c> and its two page
+	/// The Heads-Down Display's live content, built the way <c>HddDisplay_Ctor</c> (<c>00448cc8</c>) and its two page
 	/// constructors build it — see <see cref="HddLayout"/> for where every rect and frame index comes
 	/// from, and docs/formats/cockpit-views.md for the pan that reaches this view.
 	///
@@ -294,7 +294,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		// The same blit trimmed to a rect, for the one thing on this display that does not fit the box
 		// it goes in: a comm box's picture. The original does it with a clip rect installed round the
-		// blit (FUN_0044b83c), which is why a portrait taller than its box is cut off at the bezel
+		// blit (CommBox_PushVideoClip, 0044b83c), which is why a portrait taller than its box is cut off at the bezel
 		// instead of hanging over it. Trimming the quad and its UVs by the same fraction keeps the
 		// whole display one batch, exactly as the message ticker's per-glyph trim does.
 		void BlitClipped(string bank, int frame, float left, float top, HddLayout.Rect clip) {
@@ -500,13 +500,13 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// The command display (<c>FUN_0044c264</c>): the tactical map on the left and, down the right,
+	/// The command display (<c>HddCommandScreen_Ctor</c>, <c>0044c264</c>): the tactical map on the left and, down the right,
 	/// nine rows — a message row and the eight orders you transmit to the selected squadmate.
 	///
 	/// <para>Orders come from <c>STRINGS0.STR</c> group 0 entries 10-17, and each entry's single
 	/// attribute byte is the index of its hotkey character within its own text, which is why DEFEND
 	/// POSITION highlights its F and SCAN FOR HOSTILES its C — the manual's own key bindings, stored
-	/// beside the strings rather than in the code. The row refresh (<c>FUN_0044ddec</c>) draws an
+	/// beside the strings rather than in the code. The row refresh (<c>HddCommandScreen_RefreshOrders</c>, <c>0044ddec</c>) draws an
 	/// available order in <c>CPGREEN</c> with the hotkey in <c>CPRED</c>, an unavailable one wholly in
 	/// <c>CPBLUE</c>, and the selected one in <c>CPYLW</c> over the 116x18 plate from the display's own
 	/// sprite bank. Availability is one bit for the whole list: selecting a pilot sets all eight bytes
@@ -580,7 +580,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// The damage detail (<c>FUN_0045079c</c>): the herc's paper doll on the left of the screen and,
+	/// The damage detail (<c>HddDamageScreen_Ctor</c>, <c>0045079c</c>): the herc's paper doll on the left of the screen and,
 	/// down the right, thirteen component rows — a name and a percentage each.
 	///
 	/// <para>A row is a <c>.PDG</c> region rather than a table entry: the update walks the view's region
@@ -680,7 +680,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			}
 
 			// Both labels take the reading's own colour, so a row goes yellow, orange, red and grey
-			// together — the re-font FUN_00450c54 does off Damage_PickRegionTint's state.
+			// together — the re-font HddDamageScreen_Update (00450c54) does off Damage_PickRegionTint's state.
 			string font = PaperDollDamage.RowFont(PaperDollDamage.State(reading ?? 0));
 			string value = MfdLayout.IntegrityPercent(reading ?? 0).ToString();
 
@@ -699,7 +699,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// centres horizontally, and how far its text is indented from the anchoring edge.
 	/// </summary>
 	/// <summary>
-	/// The command display's map, in the order <c>FUN_0044e30c</c> draws it: the terrain raster, the
+	/// The command display's map, in the order <c>HddCommandScreen_DrawMap</c> (<c>0044e30c</c>) draws it: the terrain raster, the
 	/// 1200-metre grid, the mission border, then every marker.
 	///
 	/// <para>The whole thing is clipped by a GL scissor set to the map viewport. That is the direct
@@ -826,7 +826,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// One map marker — <c>FUN_0044f194</c>. An icon is blitted with its own rotation nudge, offset
+	/// One map marker — <c>HddMarker_Paint</c> (<c>0044f194</c>). An icon is blitted with its own rotation nudge, offset
 	/// back by half the marker's size so it lands on the object. A <see cref="HddMapMarker.Ranged"/>
 	/// one first works out its apparent size from its distance to the map centre and draws a filled
 	/// box of that size instead whenever the icon would be the bigger of the two.
@@ -1179,7 +1179,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		// The reticle is a point, not a rect — the only widget in the file that is — so its sprite
 		// centers on it rather than hanging off a top-left corner. Which of the bank's three frames it
-		// wears is the gunsight's on-target state: child 4's paint (FUN_0043b7e0) draws frame 0 with
+		// wears is the gunsight's on-target state: child 4's paint (Gunsight_ReticlePaint, 0043b7e0) draws frame 0 with
 		// nothing selected or the selection off the sight, frame 2 once the target projects within
 		// TargetBox.OnTargetTolerance of this very point, and frame 1 when it also has missile lock.
 		if (gunsight && gau.Reticle is { } reticle) {
@@ -1342,7 +1342,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	///
 	/// <para>The text is clipped horizontally, per glyph, against the box's inset edges — the
 	/// original narrows its live clip rect between drawing the frame and drawing the line
-	/// (<c>FUN_00436cec</c>), which is what makes the marquee slide under the frame instead of past it.
+	/// (<c>MessageTicker_Paint</c>, <c>00436cec</c>), which is what makes the marquee slide under the frame instead of past it.
 	/// Clipping the geometry rather than setting a GL scissor keeps the whole panel one batch, and a
 	/// horizontal trim is all that is needed: the glyph row is centred in a box taller than it.</para>
 	/// </summary>
@@ -1395,7 +1395,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// A one-device-pixel frame round a rect, drawn as four filled edges — the fill brush's style 4,
-	/// which <c>FUN_004865f8</c> implements as four line draws round the rect it is handed.
+	/// which <c>Raster_FillRect</c> (<c>004865f8</c>) implements as four line draws round the rect it is handed.
 	/// </summary>
 	private void AddRectOutline(float x0, float y0, float x1, float y1, float scale, Vector3 color) {
 		float thickness = Math.Max(scale, 1f);
@@ -1406,7 +1406,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// The front window's floating scanner repeater (<c>FUN_0043f2b0</c>) — see
+	/// The front window's floating scanner repeater (<c>HudScanner_Paint</c>, <c>0043f2b0</c>) — see
 	/// <see cref="Content.HudScanner"/> for what it is and why it is here rather than with the MFD.
 	/// It draws only while the MFD is showing something other than its own screen.
 	/// </summary>
@@ -1513,7 +1513,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// Which of the <c>HUD</c> bank's three reticle frames the crosshair wears, from child 4's paint
-	/// (<c>FUN_0043b7e0</c>): frame 0 unless the selected target projects within
+	/// (<c>Gunsight_ReticlePaint</c>, <c>0043b7e0</c>): frame 0 unless the selected target projects within
 	/// <see cref="TargetBox.OnTargetTolerance"/> of the reticle point on both axes, then frame 2, or
 	/// frame 1 when the armed missile mount also has lock. This is the cockpit's "on target"
 	/// indication — the box is suppressed over exactly the same span, so the two never overlap.
@@ -1532,7 +1532,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// Where the selected target sits on the canopy, and where the indicator is measured from — the
-	/// two points both halves of child 5's paint (<c>FUN_0043b950</c>) work off. Null when nothing is
+	/// two points both halves of child 5's paint (<c>Gunsight_TargetIndicatorPaint</c>, <c>0043b950</c>) work off. Null when nothing is
 	/// selected or the herc's <c>.GAU</c> has no reticle point.
 	/// </summary>
 	private static (TargetIndicator Target, Vector2 Origin, Vector2 Point)? TargetPoint(
@@ -1564,17 +1564,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <para>Every widget the cockpit paints goes through a render context whose clip block decides
 	/// what it may touch. <c>Gau_BuildCockpitWidgets</c> (<c>00431bf8</c>) builds one covering the
 	/// whole cockpit canvas in the plain single-rect clip mode and stores it at
-	/// <c>CockpitViewInstance+4</c>; <c>FUN_004311e0</c> installs it and <c>FUN_00431210</c> restores
+	/// <c>CockpitViewInstance+4</c>; <c>Cockpit_PushCanvasContext</c> (<c>004311e0</c>) installs it and <c>Cockpit_PopRenderContext</c> (<c>00431210</c>) restores
 	/// whatever was there before. The context underneath is the one
 	/// <c>CockpitView_ApplyViewState</c> (<c>00429e60</c>) loaded the current view's own
 	/// <c>0x204</c>-byte clip block into — the herc's <c>.HD</c>/<c>.ED</c> canopy cutout — putting it
 	/// in clip <b>mode 2</b>, the region-list mode. The transparent-sprite blitter
-	/// (<c>FUN_00488cec</c>) tests for exactly that mode and sends every pixel run it emits through
+	/// (<c>Bitmap_BlitTransparent</c>, <c>00488cec</c>) tests for exactly that mode and sends every pixel run it emits through
 	/// the clipped span writer instead of the plain one, so a sprite drawn in that context is cut to
 	/// the canopy opening scanline by scanline — following the A-pillars, not a rectangle.</para>
 	///
 	/// <para><b>Child 5 is the only widget that opts into it</b>: its paint calls
-	/// <c>FUN_00431210</c> before the box and <c>FUN_004311e0</c> after, dropping out of the canvas
+	/// <c>Cockpit_PopRenderContext</c> before the box and <c>Cockpit_PushCanvasContext</c> after, dropping out of the canvas
 	/// context for those blits alone. The reticle, the heading tape, the rotation indicator, the
 	/// readouts and the off-screen arrow all stay in the canvas context and are never cut. Reproduced
 	/// here by draw order: this batch goes down before the canopy quad, whose art is opaque everywhere
@@ -1738,7 +1738,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// One row per fitted hardpoint, built the way <c>WeaponGauge_Ctor</c> (<c>0044080c</c>) and its
-	/// select-gadget child (<c>FUN_00442488</c>, painted by <c>FUN_004426c0</c>) build it:
+	/// select-gadget child (<c>ChainedWeaponSelectGadget_Ctor</c> (<c>00442488</c>), painted by <c>WeaponSelectGadget_Paint</c> (<c>004426c0</c>)) build it:
 	///
 	/// <list type="bullet">
 	/// <item>the row plate from <c>PWEAPONS</c> — frame 0 selected, frame 1 not — blitted
@@ -1753,12 +1753,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <item>and, on a pod row whose button is on, that label rect flooded green first — see
 	/// <see cref="PodPlateColorId"/>.</item>
 	/// <item>the value field past the name, at <c>+0x24..+0x35</c> GAU — a round count for an
-	/// ammunition mount (<c>FUN_004411b4</c> prints <c>itoa(rounds)</c> there) and an LED charge bar
-	/// for an energy one (<c>FUN_00442b38</c> paints one across the same span). A pod has neither: its
+	/// ammunition mount (<c>AmmoWeaponGauge_Paint</c> (<c>004411b4</c>) prints <c>itoa(rounds)</c> there) and an LED charge bar
+	/// for an energy one (<c>WeaponChargeBar_Paint</c> (<c>00442b38</c>) paints one across the same span). A pod has neither: its
 	/// own constructor widens the name label across both fields instead.</item>
 	/// </list>
 	///
-	/// <para>Under all of it, <c>WPN_DMG</c> frame 0 fills the plate's hole — <c>FUN_00442394</c>'s
+	/// <para>Under all of it, <c>WPN_DMG</c> frame 0 fills the plate's hole — <c>WeaponSelectGadget_PaintUnderlay</c> (<c>00442394</c>)'s
 	/// underlay, a flat plate in the row's own background colour. The bank's other nine frames are the
 	/// row's sensor-dropout wipe: while <see cref="WeaponRowState.DropoutHidden"/> every paint but the
 	/// plate's bezel holds back, and the wipe's frame stands in the hole instead.</para>
@@ -1784,7 +1784,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			// GRAY for the rest. A pod row's name is the exception — see nameFont.
 			string font = row.Selected ? "WHITE" : "GRAY";
 
-			// A pod row's own paint (FUN_0044171c) re-dresses the name label, and only the name label:
+			// A pod row's own paint (PodGauge_Paint, 0044171c) re-dresses the name label, and only the name label:
 			// it reaches the widget at gauge+0xca and never touches the slot number, which
 			// WeaponSelectGadget_Paint draws in the row font above. The label's font comes from the
 			// button rather than from the selection, which a pod never has — gray while the button is
@@ -1869,8 +1869,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// Where a weapon row's value field starts and ends, in <c>.GAU</c> units from the row's own
-	/// left edge — the ammunition gauge's <c>+0x24..+0x35</c> label rect (<c>FUN_00440f78</c>), which
-	/// is also the span the energy gauge hands its LED bar (<c>FUN_00442950</c>).
+	/// left edge — the ammunition gauge's <c>+0x24..+0x35</c> label rect (<c>AmmoWeaponGauge_Ctor</c>, <c>00440f78</c>), which
+	/// is also the span the energy gauge hands its LED bar (<c>WeaponChargeBar_Ctor</c>, <c>00442950</c>).
 	/// </summary>
 	private const int ValueFieldLeft = 0x24;
 
@@ -1916,7 +1916,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// The charge bar's top and bottom edges, in <c>.GAU</c> units below the row's own top. The
 	/// energy gauge builds the bar's rect as the value field at <c>y0..y0+5</c>
-	/// (<c>FUN_00440a68</c>), and <c>FUN_00442950</c> then drops the top edge by one more unit — so
+	/// (<c>EnergyWeaponGauge_Ctor</c>, <c>00440a68</c>), and <c>WeaponChargeBar_Ctor</c> (<c>00442950</c>) then drops the top edge by one more unit — so
 	/// the bar is a touch shorter than the row and sits clear of the plate's upper bezel.
 	/// </summary>
 	private const int ChargeBarTop = 1;
@@ -1947,7 +1947,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// The shield meter's two numeric readouts, centred in the <c>.GAU</c> label rects at 664 and 680.
 	/// <c>ShieldsGauge_Ctor</c> (<c>004434fc</c>) builds them with the <c>WHITE</c> font, and
-	/// <c>FUN_00444a68</c> fills them with <c>balance * 200 &gt;&gt; 10</c> and its complement — so an
+	/// <c>ShieldsGauge_UpdateReadouts</c> (<c>00444a68</c>) fills them with <c>balance * 200 &gt;&gt; 10</c> and its complement — so an
 	/// even fore/aft split reads 100 and 100 out of a 200-point pool.
 	///
 	/// <para>The meter bodies themselves are not drawn here. They are painted into the canopy art in
@@ -1986,7 +1986,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// </list>
 	///
 	/// <para>A lit button captions in <c>DARK</c> and an unlit one in <c>WHITE</c>, which is
-	/// <c>FUN_004474e4</c>'s own choice: it picks <c>ColorSchemePanels[12]</c> when the button's
+	/// <c>MfdButton_Repaint</c> (<c>004474e4</c>)'s own choice: it picks <c>ColorSchemePanels[12]</c> when the button's
 	/// <c>+0x40</c> lit flag is set and <c>[10]</c> when it is clear.</para>
 	///
 	/// <para><b>Four of the six screens draw their own content.</b> STATUS and TARGET STATUS share one
@@ -2622,7 +2622,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// The SCANNER screen (<c>FUN_0043eecc</c>), in the original's own paint order: the dish rect is
+	/// The SCANNER screen (<c>MfdRadarScreen_Paint</c>, <c>0043eecc</c>), in the original's own paint order: the dish rect is
 	/// flooded, the turret wedge goes down, the dish art covers it everywhere but its transparent
 	/// interior, then the passive-range ring, the 12-o'clock reference line, the player marker, the
 	/// contacts, the target bracket and finally the four corner readouts.
@@ -2769,7 +2769,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// The three console buttons: a <c>PWEAPONS</c> plate with a caption centred on it.
 	///
-	/// <para>The plate is not canopy art — <c>FUN_00442c88</c> (ConsoleButton_Paint) blits it per
+	/// <para>The plate is not canopy art — <c>ConsoleButton_Paint</c> (<c>00442c88</c>) blits it per
 	/// frame from <c>PWEAPONS</c> frames 2 and 3, indexed <c>bank[2 + state]</c>, at the widget's
 	/// own rect. Frame 2 is the unlit plate (solid palette index 34, the blue the retail screenshot
 	/// shows at RGB (77,77,182)) and frame 3 the lit one (index 14, green). Both are 50x16 against

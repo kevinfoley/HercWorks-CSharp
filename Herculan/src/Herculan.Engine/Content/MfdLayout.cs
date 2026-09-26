@@ -3,7 +3,7 @@
 namespace Herculan.Engine.Content;
 
 /// <summary>Which screen the multi-function display is showing. The order is DBSIM's own mode
-/// numbering, which is also the F-key order: <c>MfdDisplay_SetMode</c> (<c>FUN_00446e38</c>) takes
+/// numbering, which is also the F-key order: <c>MfdDisplay_SetMode</c> (<c>00446e38</c>) takes
 /// this value directly, and button <c>i</c> of the F-key column dispatches
 /// <c>SetMode(i)</c>.</summary>
 public enum MfdMode {
@@ -39,7 +39,7 @@ public enum MfdMode {
 /// <c>.rdata</c> (<c>0049cacc</c> x0, <c>0049cae6</c> y0, <c>0049cb00</c> x1, <c>0049cb1a</c> y1) and
 /// its label rects from immediates. That is why the MFD looks the same in every cockpit while its
 /// position moves: the <c>.GAU</c> supplies the position and nothing else. The <c>.GAU</c> does carry
-/// 13 rect-shaped slots at 744-951, which <c>FUN_00447650</c> even coordinate-shifts, but they are
+/// 13 rect-shaped slots at 744-951, which <c>MfdGau_ApplyCoordShift</c> (<c>00447650</c>) even coordinate-shifts, but they are
 /// zero in all nine retail files and the constructor never reads them.</para>
 ///
 /// <para><b>The 18-unit inset.</b> The constructor immediately does
@@ -72,7 +72,7 @@ public static class MfdLayout {
 	/// <para>Frames 0-2 are three pieces of screen chrome: frame 0 is split into two boxes by a
 	/// central divider, frame 1 is one box spanning the whole content area, and frame 2 is a single
 	/// small box in the top-left corner with the rest left open. The MFD's repaint
-	/// (<c>FUN_00446138</c>) picks between them with a bare switch on the current mode, reaching the
+	/// (<c>MfdDisplay_Repaint</c>, <c>00446138</c>) picks between them with a bare switch on the current mode, reaching the
 	/// bank's frame-pointer array at <c>+4</c> and <c>+8</c> — elements 1 and 2. <b>Frame 0 is never
 	/// used as a background</b>; the display leaves it to the screens that draw their own dividers.</para>
 	///
@@ -111,8 +111,8 @@ public static class MfdLayout {
 
 	/// <summary>
 	/// <c>STRINGS0.STR</c> group holding the 13 button captions — the sixth registration in
-	/// <c>FUN_00437598</c>, landing in <c>DAT_004d13e0</c>. Entries 0-5 are the six screen
-	/// <i>titles</i> and 6-12 the aux button captions: <c>FUN_00447358</c> composes "F1".."F6" from
+	/// <c>SimStrings_LoadAll</c> (<c>00437598</c>), landing in <c>DAT_004d13e0</c>. Entries 0-5 are the six screen
+	/// <i>titles</i> and 6-12 the aux button captions: <c>MfdButton_SetCaption</c> (<c>00447358</c>) composes "F1".."F6" from
 	/// its own <c>"Fx"</c> literal for the mode buttons and only reaches this table for index >= 6.
 	/// </summary>
 	public const int CaptionGroup = 5;
@@ -158,7 +158,7 @@ public static class MfdLayout {
 	/// <summary>
 	/// Fonts the paint re-installs on the subject-name label from the subject's own side, overriding
 	/// the <c>RED</c> the constructor gives it: <c>ColorSchemePanels[1]</c> <c>CPGREEN</c> for one of
-	/// ours and <c>[2]</c> <c>CPRED</c> for a Cybrid. It is <c>FUN_0043a5a0</c>'s own
+	/// ours and <c>[2]</c> <c>CPRED</c> for a Cybrid. It is <c>MfdStatusScreen_Paint</c> (<c>0043a5a0</c>)'s own
 	/// <c>DAT_0049b0b0</c>/<c>DAT_0049b0b4</c> pair, read from the group record's side byte.
 	/// </summary>
 	public const string FriendlyNameFont = "CPGREEN";
@@ -271,9 +271,9 @@ public static class MfdLayout {
 	/// chosen — rather than a momentary one that lights only while it is held down.
 	///
 	/// <para><b>They are two different C++ classes.</b> <c>MfdDisplay_Ctor</c> switches on the button
-	/// index and constructs indices 0-5 and 11-12 through <c>FUN_0044741c</c>, whose repaint
+	/// index and constructs indices 0-5 and 11-12 through <c>MFDStateGadget_Ctor</c> (<c>0044741c</c>), whose repaint
 	/// (<c>MfdButton_Repaint</c>) picks its frame with the object's own selection flag <c>+0x40</c>,
-	/// and indices 7-10 through <c>FUN_004472e4</c>, whose repaint (<c>MfdButton_SetCaption</c>) picks
+	/// and indices 7-10 through <c>MFDSelectGadget_Ctor</c> (<c>004472e4</c>), whose repaint (<c>MfdButton_SetCaption</c>) picks
 	/// its frame with the shared widget state byte <c>+0x1b</c> — the byte a press sets. So the F-key
 	/// column and the two scanner toggles never show a pressed state at all, while SELECT, RANGE,
 	/// TARGET and XMIT light only while held.</para>
@@ -308,7 +308,7 @@ public static class MfdLayout {
 
 	/// <summary>
 	/// The secondary caption rect at <c>(+0x16, +0x2e)</c>-<c>(+0x4a, +0x34)</c>, in <c>DARK</c>
-	/// (<c>ColorSchemePanels[12]</c>). <c>FUN_00446328</c> fills it from the incoming-message object
+	/// (<c>ColorSchemePanels[12]</c>). <c>MfdDisplay_Update</c> (<c>00446328</c>) fills it from the incoming-message object
 	/// that also drives FLASH COMM's talking-head frames, so it is blank outside a transmission.
 	/// </summary>
 	public static readonly (int X0, int Y0, int X1, int Y1) MessageRect = (22, 46, 74, 52);
@@ -401,7 +401,7 @@ public static class MfdLayout {
 	/// <summary>
 	/// The status screen's range readout, which replaces the integrity one for a hostile subject: the
 	/// <c>DIST:</c> caption from <see cref="IdentLabelGroup"/> with the range in world units appended,
-	/// exactly as <c>FUN_0043a5a0</c> builds it (<c>strcpy</c> the caption, <c>itoa</c> onto the end).
+	/// exactly as <c>MfdStatusScreen_Paint</c> (<c>0043a5a0</c>) builds it (<c>strcpy</c> the caption, <c>itoa</c> onto the end).
 	/// The caption's own trailing spaces are what separate the two.
 	/// </summary>
 	public static string DistanceReadout(SimStringTable? strings, int distance) =>
@@ -526,7 +526,7 @@ public static class MfdLayout {
 	/// <summary>
 	/// The title for <paramref name="mode"/> — "STATUS", "FLASH COMM", "NAV MAP", "SCANNER",
 	/// "TARGET", "MISSILE CAM" — or null when the string table is absent. Modes index
-	/// <see cref="CaptionGroup"/> directly, which is what <c>FUN_00446328</c> does.
+	/// <see cref="CaptionGroup"/> directly, which is what <c>MfdDisplay_Update</c> (<c>00446328</c>) does.
 	/// </summary>
 	public static string? Title(SimStringTable? strings, MfdMode mode) =>
 		strings?.Text(CaptionGroup, (int)mode);

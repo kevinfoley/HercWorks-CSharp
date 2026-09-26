@@ -20,7 +20,7 @@ Confirmed `typeId` values (all read as **big-endian** 4-byte magic, matching the
 | `0x0B002800` | `.DCI` — cursor image | decoded below |
 | `0x05002800` | `.DFN`/`.HFN` — bitmap font | decoded below |
 
-`.DFN`/`.HFN`/`.DCI` are dispatched by a generic class-registry loader in `DBSIM.EXE` (FUN_0047a5a8 → FUN_0047a394). Specific loaders: `FUN_00430f58` (fonts), `FUN_00430fb0` (cursors).
+`.DFN`/`.HFN`/`.DCI` are dispatched by a generic class-registry loader in `DBSIM.EXE` (`ClassItem_ReadTypeTag` (`0047a5a8`) → `ClassItem_FindHandler` (`0047a394`)). Specific loaders: `Panel_LoadWrapper` (`00430f58`, fonts), `Cursor_LoadWrapper` (`00430fb0`, cursors).
 
 ## `.DCI` — cursor image
 
@@ -63,7 +63,7 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 
 ## `.DFN` / `.HFN` — bitmap font
 
-DBSIM's only HUD text mechanism, and VSHELL's. Not a widget-layout resource: the seven consumer functions in `DBSIM.EXE` pass the loaded object as an opaque handle to the generic label constructors (`FUN_004387ac`/`FUN_00438884`/`FUN_00438920`) alongside a display string.
+DBSIM's only HUD text mechanism, and VSHELL's. Not a widget-layout resource: the seven consumer functions in `DBSIM.EXE` pass the loaded object as an opaque handle to the generic label constructors (`Label_Ctor` (`004387ac`)/`Label_SetRect` (`00438884`)/`Label_SetText` (`00438920`)) alongside a display string.
 
 Two sets: `simvol0/dfn/*.DFN` and `simvol0/hfn/*.HFN` (26 and 25 files — the 18 `ColorSchemePanels` fonts plus spares), and `SHELL0/DFN/*.DFN` (`FONT`, `FONT2`, `MAP`, `BLACK`). Same format throughout. `.HFN` is the 640-wide video mode's set and `.DFN` the 320-wide one's, selected by `VideoMode_PanelMode == 3`; they are separate art, not a 2x scale of each other (cell heights 13 and 10, glyph counts 217 and 223).
 
@@ -113,9 +113,9 @@ Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared
 
 ### `inkHeight` and label placement
 
-`inkHeight` (`0x1a`) is the height a label centres by, and the only vertical metric the label code reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) and the glyph blitter (`FUN_00482428`) read this field and no other, so the inked band is centred in the rect and the remaining `cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2: 11 of 13 (`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels high.
+`inkHeight` (`0x1a`) is the height a label centres by, and the only vertical metric the label code reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) and the glyph blitter (`HudFont_DrawGlyph`, `00482428`) read this field and no other, so the inked band is centred in the rect and the remaining `cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2: 11 of 13 (`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels high.
 
-`bitsPerPixel` (`0x16`) is read by the same blitter, alongside `cellHeight` from `0x0e` (via `FUN_00482410`) and the glyph width from the per-glyph width byte (via `FUN_0048238c`).
+`bitsPerPixel` (`0x16`) is read by the same blitter, alongside `cellHeight` from `0x0e` (via `HudFont_CellHeight` (`00482410`)) and the glyph width from the per-glyph width byte (via `HudFont_GlyphWidth` (`0048238c`)).
 
 Full placement formula, including the horizontal rule: [`mfd.md`](mfd.md), "Label placement".
 
@@ -127,7 +127,7 @@ The first two are **raw palette indices** and the third a logical id: a construc
 
 ### Consumers
 
-`HddGauge_LoadPilotFrames` (`0044a7c0`), `HddCommandScreen_RefreshOrders` (`0044ddec`), `HddDamageScreen_Update` (`00450c54`), `FUN_00451e94`, `FUN_0043a5a0`, `FUN_0043fe1c`, `FUN_0044c960`. VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back — that load is vestigial.
+`HddGauge_LoadPilotFrames` (`0044a7c0`), `HddCommandScreen_RefreshOrders` (`0044ddec`), `HddDamageScreen_Update` (`00450c54`), `FUN_00451e94`, `MfdStatusScreen_Paint` (`0043a5a0`), `FUN_0043fe1c`, `HddCommandScreen_Update` (`0044c960`). VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back — that load is vestigial.
 
 ## Ruled out: `.BND` and `.SNC`
 

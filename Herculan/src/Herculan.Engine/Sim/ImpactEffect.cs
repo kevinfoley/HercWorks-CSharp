@@ -4,11 +4,11 @@ using Herculan.Engine.Numerics;
 namespace Herculan.Engine.Sim;
 
 /// <summary>
-/// What happens where a shot lands — DBSIM's explosion class, built by <c>FUN_00407f1c</c> and
-/// advanced by <c>FUN_0040813c</c>, allocated from the pool at <c>DAT_004a96a2</c>.
+/// What happens where a shot lands — DBSIM's explosion class, built by <c>Explosion_Construct</c> (<c>00407f1c</c>) and
+/// advanced by <c>Explosion_TickUpdate</c> (<c>0040813c</c>), allocated from the pool at <c>DAT_004a96a2</c>.
 ///
 /// <para>An effect is a <c>dts\EXPLOS.DTS</c> root standing still at the point of impact, playing
-/// its flipbook of billboards through exactly once. <c>FUN_0040813c</c> is the whole of its life:
+/// its flipbook of billboards through exactly once. <c>Explosion_TickUpdate</c> is the whole of its life:
 /// count the type's <see cref="ExplosionTypeEntry.FrameInterval"/> down, step the shape's
 /// cell-animation frame when it expires, and end the effect on the step that wraps the frame back to
 /// zero. Nothing moves it and nothing else can stop it.</para>
@@ -54,7 +54,7 @@ public sealed class ImpactEffect {
 		Frame = 0;
 		_timer = record.FrameInterval;
 
-		// FUN_00407604: the row's LightMode is tested against zero and nothing else, and the slot
+		// EffectLight_Construct (00407604): the row's LightMode is tested against zero and nothing else, and the slot
 		// opens on FrameIntensity[0] — the one ramp entry the tick never reaches, because it reads
 		// the ramp at the frame it has just stepped to and stops the effect when that wraps to 0.
 		_lights = record.LightMode != 0 ? lights : null;
@@ -84,7 +84,7 @@ public sealed class ImpactEffect {
 	public int Frame { get; private set; }
 
 	/// <summary>
-	/// <c>FUN_0040813c</c>, vtable <c>+0x14</c>. Returns whether the effect is finished and should be
+	/// <c>Explosion_TickUpdate</c> (<c>0040813c</c>), vtable <c>+0x14</c>. Returns whether the effect is finished and should be
 	/// freed — which happens the moment the flipbook wraps, so the animation plays exactly once.
 	///
 	/// <para>A shape with no frames at all ends on its first timer expiry, matching the original's
@@ -107,7 +107,7 @@ public sealed class ImpactEffect {
 			return true;
 		}
 
-		// FUN_004076a0, driven from the ramp at the frame just stepped to. Reached only for a
+		// EffectLight_SetIntensity (004076a0), driven from the ramp at the frame just stepped to. Reached only for a
 		// nonzero frame, which is why FrameIntensity[0] is the constructor's business alone.
 		_lights?.SetIntensity(LightHandle, FrameIntensity(Frame));
 
@@ -124,7 +124,7 @@ public sealed class ImpactEffect {
 	private int FrameIntensity(int frame) =>
 		frame >= 0 && frame < _record.FrameIntensity.Length ? _record.FrameIntensity[frame] & 0xff : 0;
 
-	/// <summary><c>FUN_0040765c</c> — hands the slot back when the effect is over.</summary>
+	/// <summary><c>EffectLight_Destruct</c> (<c>0040765c</c>) — hands the slot back when the effect is over.</summary>
 	private void ReleaseLight() {
 		_lights?.Release(LightHandle);
 		LightHandle = -1;

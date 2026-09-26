@@ -10,7 +10,7 @@ namespace HercWorks.Core.Data.File.Dgs;
 ///
 /// <para>Read by <c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) as five <c>int16</c> scalars, a
 /// fixed 1024-byte block and then <see cref="Rows"/> rows of <see cref="Columns"/> bytes; queried by
-/// <c>FUN_00427238</c> (the height under a point) and <c>FUN_004273c8</c> (the ray march).</para>
+/// <c>ShapeVolume_HeightAround</c> (<c>00427238</c>, the height under a point) and <c>ShapeVolume_Raycast</c> (<c>004273c8</c>, the ray march).</para>
 /// </summary>
 /// <param name="Columns">Cells across, the grid's X extent (<c>+0x2a</c>).</param>
 /// <param name="Rows">Cells down, the grid's Y extent (<c>+0x2c</c>).</param>
@@ -57,8 +57,8 @@ public readonly record struct BaseShapeCollision(
 /// <param name="BoundingRadius">
 /// The shape's coarse bounding radius, in world units — the third of the three <c>int16</c> fields
 /// at the head of every <c>ClassItem</c> record (<c>shape+8</c>). Two unrelated consumers identify
-/// it: the LOD selector (<c>FUN_004033e4</c>) divides it by viewing distance to estimate the
-/// shape's size on screen, and the structure hit test (<c>FUN_00427da8</c>) adds it to the ray
+/// it: the LOD selector (<c>Shape_DrawAtDetailLevel</c>, <c>004033e4</c>) divides it by viewing distance to estimate the
+/// shape's size on screen, and the structure hit test (<c>Sim_RaycastShapeVolume</c>, <c>00427da8</c>) adds it to the ray
 /// length before rejecting a candidate.
 /// </param>
 /// <param name="Geometry">

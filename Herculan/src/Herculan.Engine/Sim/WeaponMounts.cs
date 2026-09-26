@@ -4,7 +4,7 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// A machine's weapon-mount manager, <c>mech+0x202</c> — the object
-/// <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>) builds and <c>FUN_004104ec</c> extends
+/// <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>) builds and <c>WeaponMounts_CtorLocal</c> (<c>004104ec</c>) extends
 /// for a locally-piloted machine. It owns the mounts, which one is armed, the three fire groups, and
 /// the mounts' claim on the Master Energy Pool.
 ///
@@ -14,7 +14,7 @@ namespace Herculan.Engine.Sim;
 /// simply never has its selection read.</para>
 /// </summary>
 public sealed class WeaponMounts {
-	/// <summary>How many fire groups the chain button cycles through — <c>FUN_004104ec</c> allocates exactly three.</summary>
+	/// <summary>How many fire groups the chain button cycles through — <c>WeaponMounts_CtorLocal</c> (<c>004104ec</c>) allocates exactly three.</summary>
 	public const int GroupCount = 3;
 
 	/// <summary><see cref="Selected"/> when the machine has nothing armed — the constructor's <c>0xff</c>.</summary>
@@ -46,7 +46,7 @@ public sealed class WeaponMounts {
 	public IEnumerable<WeaponMount> Mounts => _slots.Where(m => m != null)!;
 
 	/// <summary>
-	/// The armed mount's index, or <see cref="NoSelection"/>. <c>FUN_004104ec</c> starts it at the
+	/// The armed mount's index, or <see cref="NoSelection"/>. <c>WeaponMounts_CtorLocal</c> (<c>004104ec</c>) starts it at the
 	/// first mount that is not a pod, so a machine powers up with its first real weapon selected —
 	/// which is a hardpoint-order first, not a cockpit-row first.
 	/// </summary>
@@ -117,7 +117,7 @@ public sealed class WeaponMounts {
 	public bool AnyLocked => _missileLock.Any(locked => locked);
 
 	/// <summary>
-	/// <c>FUN_0040fbdc</c> — rounds carried, totalled per missile subtype across every fitted mount.
+	/// <c>WeaponMounts_RoundsByMissileType</c> (<c>0040fbdc</c>) — rounds carried, totalled per missile subtype across every fitted mount.
 	/// A mount that is not a launcher reports <see cref="WeaponMount.NotAMissile"/> and is skipped, so
 	/// an entry is non-zero only where the machine actually has that class of missile <i>and has
 	/// rounds left for it</i>. That is what decides which lock timers run at all.
@@ -177,7 +177,7 @@ public sealed class WeaponMounts {
 
 	/// <summary>
 	/// Whether the currently armed mount could be linked at all — what the LINK button and <c>[L]</c>
-	/// need before they do anything. <c>FUN_00410f14</c>'s own two conditions: the armed mount has a
+	/// need before they do anything. <c>WeaponMounts_ToggleLink</c> (<c>00410f14</c>)'s own two conditions: the armed mount has a
 	/// partner hardpoint, and that hardpoint carries the same weapon. The manual states the same rule
 	/// from the other side: "any two identical weapons mounted symmetrically on the HERC".
 	/// </summary>
@@ -195,7 +195,7 @@ public sealed class WeaponMounts {
 	public WeaponMount? BySlot(int gaugeSlot) => Mounts.FirstOrDefault(m => m.GaugeSlot == gaugeSlot);
 
 	/// <summary>
-	/// <c>FUN_00410670</c> — the mount a damage component names, or null when that component is not a
+	/// <c>WeaponMounts_MountForHardpointSlot</c> (<c>00410670</c>) — the mount a damage component names, or null when that component is not a
 	/// mount or the fit left its hardpoint empty.
 	///
 	/// <para>The match is on <see cref="WeaponMount.LoadoutSlot"/>, not on a position in this array:
@@ -214,7 +214,7 @@ public sealed class WeaponMounts {
 	public const int FirstMountComponent = 19;
 
 	/// <summary>
-	/// <c>MechLoadout_ConstructWeaponMounts</c> followed by <c>FUN_004104ec</c>: walk the chassis'
+	/// <c>MechLoadout_ConstructWeaponMounts</c> followed by <c>WeaponMounts_CtorLocal</c> (<c>004104ec</c>): walk the chassis'
 	/// hardpoint list in file order, resolve each record's fit slot into a weapon id and a mount, and
 	/// then work out the fire groups and the initial selection.
 	///
@@ -276,7 +276,7 @@ public sealed class WeaponMounts {
 	/// dispatches it: <b>by the row's gauge class</b>, not by a switch on what the mount is.
 	///
 	/// <list type="bullet">
-	/// <item>An energy or ammunition row (<c>FUN_00440ef0</c> / <c>FUN_004414b4</c>) branches on the
+	/// <item>An energy or ammunition row (<c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>) / <c>AmmoWeaponGauge_OnChildClick</c> (<c>004414b4</c>)) branches on the
 	/// mouse-button bit its <c>GetValue</c> slot handed it: the left button arms the mount, the right
 	/// button toggles its membership of the current fire chain.</item>
 	/// <item>An ECM or Turbo row (<c>TogglePodGauge_OnClick</c>, <c>004419fc</c>) flips its button
@@ -314,8 +314,8 @@ public sealed class WeaponMounts {
 	/// <summary>
 	/// Arm the mount that owns cockpit weapon row <paramref name="gaugeSlot"/> — what a left click on
 	/// that row and the matching number key both do. The original reaches this by two different
-	/// routes that meet in <c>FUN_004106ac</c>: a click goes through the row gadget
-	/// (<c>FUN_00440ef0</c>/<c>FUN_004414b4</c> → <c>FUN_00432a50</c>), and a number key indexes the
+	/// routes that meet in <c>WeaponMounts_SelectByGauge</c> (<c>004106ac</c>): a click goes through the row gadget
+	/// (<c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>)/<c>AmmoWeaponGauge_OnChildClick</c> (<c>004414b4</c>) → <c>CockpitView_ArmWeaponByGauge</c> (<c>00432a50</c>)), and a number key indexes the
 	/// cockpit's own ten-gauge array at <c>CockpitViewInstance+0x70</c> and presses that gauge's
 	/// select gadget.
 	/// </summary>
@@ -324,7 +324,7 @@ public sealed class WeaponMounts {
 		BySlot(gaugeSlot) is { } mount && Select(mount.MountIndex);
 
 	/// <summary>
-	/// <c>FUN_004106ac</c>: arm one mount. Refused for a mount that is not
+	/// <c>WeaponMounts_SelectByGauge</c> (<c>004106ac</c>): arm one mount. Refused for a mount that is not
 	/// <see cref="WeaponMount.Selectable"/> — a pod, or a weapon out of ammunition — which is why
 	/// clicking a pod's row does nothing. A successful arm sets <see cref="SingleFire"/>.
 	/// </summary>
@@ -339,7 +339,7 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// <c>FUN_00410708</c>: the one place <see cref="Selected"/> is written.
+	/// <c>WeaponMounts_SetSelection</c> (<c>00410708</c>): the one place <see cref="Selected"/> is written.
 	///
 	/// <para>It normalises a linked pair to its first half — arming the right-hand weapon of a linked
 	/// pair arms the left-hand one instead (the partner offset is negative on the second half). That
@@ -358,7 +358,7 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// <c>FUN_0041074c</c>: step the armed mount one place through the current fire chain —
+	/// <c>WeaponMounts_StepSelection</c> (<c>0041074c</c>): step the armed mount one place through the current fire chain —
 	/// <c>[W]</c> forward, <c>[Alt]+[W]</c> back. Wraps, and skips anything that is not selectable,
 	/// not in the current chain, or the second half of a linked pair (a pair is armed by its first
 	/// half only). Stepping clears <see cref="SingleFire"/>: the chain has the selection again.
@@ -397,7 +397,7 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// <c>FUN_004110ac</c> with <c>FUN_00410cd0</c>: add or remove the mount on cockpit weapon row
+	/// <c>WeaponMounts_ToggleChainMember</c> (<c>004110ac</c>) with <c>WeaponMounts_XorChainBit</c> (<c>00410cd0</c>): add or remove the mount on cockpit weapon row
 	/// <paramref name="gaugeSlot"/> from the <i>current</i> fire chain — a right click on the row, or
 	/// <c>[Alt]</c> and its number key. It toggles membership rather than setting it, and it does not
 	/// arm anything.
@@ -425,7 +425,7 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// <c>FUN_00410f14</c>: toggle link fire on the armed mount and its partner — the LINK button and
+	/// <c>WeaponMounts_ToggleLink</c> (<c>00410f14</c>): toggle link fire on the armed mount and its partner — the LINK button and
 	/// <c>[L]</c>. Both halves flip together and only when <see cref="CanLink"/> holds, so a weapon
 	/// with no symmetric twin, or one whose opposite hardpoint carries something else, simply cannot
 	/// be linked.
@@ -449,7 +449,7 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// <c>FUN_00410ae4</c>: switch the chain the console's chain button names. Switching to a chain
+	/// <c>WeaponMounts_SetChain</c> (<c>00410ae4</c>): switch the chain the console's chain button names. Switching to a chain
 	/// the armed weapon is not in steps the selection to one that is.
 	/// </summary>
 	public void SetGroup(int group) {
@@ -555,7 +555,7 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// <c>FUN_00410dbc</c> — the manager's fire entry, and the whole of what pulling the trigger does.
+	/// <c>WeaponMounts_FireTrigger</c> (<c>00410dbc</c>) — the manager's fire entry, and the whole of what pulling the trigger does.
 	///
 	/// <para>Its order is worth keeping: <b>both halves of a linked pair are tested before either
 	/// fires</b>, so a pair whose second half is still charging does not fire its first half alone.
@@ -631,7 +631,7 @@ public sealed class WeaponMounts {
 
 	/// <summary>
 	/// The mounts' claim on the Master Energy Pool — vtable slot 0 of the manager,
-	/// <c>FUN_004107e4</c>, called from <c>Mech_PerTickSystemsUpdate</c> between the reactor's
+	/// <c>WeaponMounts_ArbitrateEnergy</c> (<c>004107e4</c>), called from <c>Mech_PerTickSystemsUpdate</c> between the reactor's
 	/// contribution and the shields'.
 	///
 	/// <para>Mounts are served one at a time, and the order is not the mount order:</para>

@@ -2,9 +2,9 @@ namespace HercWorks.Core.Data.File.Gau;
 
 /// <summary>
 /// The cockpit message port's box — content offset 1684, the last sixteen bytes of the file, read as
-/// an (X1,Y1,X2,Y2) rect by the <c>.GAU</c> loader's caller (<c>FUN_00431bf8</c>) rather than by the
+/// an (X1,Y1,X2,Y2) rect by the <c>.GAU</c> loader's caller (<c>Gau_BuildCockpitWidgets</c>, <c>00431bf8</c>) rather than by the
 /// loader itself, coordinate-shifted into device pixels and handed to the port's constructor
-/// (<c>FUN_004369a4</c>).
+/// (<c>MessagePort_Ctor</c>, <c>004369a4</c>).
 ///
 /// This is the scrolling one-line ticker the cockpit computer writes to. The rect immediately before
 /// it, at 1668, is the second port of the same class — the pilot and squad channel at

@@ -27,19 +27,19 @@ Its own ints:
 
 The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend** — see [below](#the-att-legend).
 
-`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws two things that are not children at all: the **floating scanner repeater** (`FUN_0043e0ec` into `FUN_0043f2b0`) and `FUN_0043dd70`, which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46, -0x12)` device ([Open](#open)).
+`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws two things that are not children at all: the **floating scanner repeater** (`Gunsight_PaintHudScanner` (`0043e0ec`) into `HudScanner_Paint` (`0043f2b0`)) and `FUN_0043dd70`, which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46, -0x12)` device ([Open](#open)).
 
-All nine children derive from `FUN_0043b344`, a bare rect holder. Children 4, 5 and 6 additionally receive the 38-byte state block described in [`hud-target-indicator.md`](hud-target-indicator.md), at `+0x14`.
+All nine children derive from `GunsightChild_CtorBase` (`0043b344`), a bare rect holder. Children 4, 5 and 6 additionally receive the 38-byte state block described in [`hud-target-indicator.md`](hud-target-indicator.md), at `+0x14`.
 
 | # | Ctor | What it is |
 |---|---|---|
-| 0 | `FUN_0043c120` | The clickable gunsight surface. Registers a child gadget with the cockpit's click list — the "gunsight click" entry into `TargetSelect_SetObject`. Its paint (`FUN_0043c1dc`) only tracks the cursor against its rect |
+| 0 | `Gunsight_ClickSurface_Ctor` (`0043c120`) | The clickable gunsight surface. Registers a child gadget with the cockpit's click list — the "gunsight click" entry into `TargetSelect_SetObject`. Its paint (`Gunsight_ClickSurface_Paint`, `0043c1dc`) only tracks the cursor against its rect |
 | 1 | `HudHeadingTape_Ctor` (`0043b57c`) | Heading tick tape, bank `hudhtick`, limits ±`0xe38` |
 | 2 | `HudRotationIndicator_Ctor` (`0043b438`) | The rotation indicator, limits ±`0x38e3` |
 | 3 | `HudSlideBar_CtorHidden` (`0043b54c`) | The pitch axis's slide bar — **paint slot is a no-op** (`0043b574`), so it is never drawn |
-| 4 | `FUN_0043b344`, vtable `0049c124` inline | The reticle |
-| 5 | `FUN_0043b928` (vtable `0049c1c4`) | The target box and its off-screen arrow |
-| 6 | `FUN_0043c240` | Constructed and fed the state block, but its **paint slot is `ret`** (`FUN_0043c260`) |
+| 4 | `GunsightChild_CtorBase`, vtable `0049c124` inline | The reticle |
+| 5 | `Gunsight_TargetIndicator_Ctor` (`0043b928`, vtable `0049c1c4`) | The target box and its off-screen arrow |
+| 6 | `Gunsight_UnusedChild_Ctor` (`0043c240`) | Constructed and fed the state block, but its **paint slot is `ret`** (`Gunsight_UnusedChild_Paint`, `0043c260`) |
 | 7, 8 | `HudWaypointIndicator_Ctor` (`0043c268`) | The two waypoint indicators, below. 7 takes the `+0x45` flag that makes it the nav marker's |
 
 Children 4 and 5: [`hud-target-indicator.md`](hud-target-indicator.md).

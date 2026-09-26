@@ -54,7 +54,7 @@ public readonly record struct PilotMessageBoxLayout(int Top, int Bottom) {
 	/// <summary>And its frame in that case — id 9, red.</summary>
 	public const int NoSpeakerBorderColorId = MessageTickerLayout.BorderColorId;
 
-	/// <summary>Separator between the speaker's name and their line, from <c>FUN_00435d0c</c>.</summary>
+	/// <summary>Separator between the speaker's name and their line, from <c>PilotMessagePort_ComposeLine</c> (<c>00435d0c</c>).</summary>
 	public const string NameSeparator = ": ";
 
 	/// <summary>

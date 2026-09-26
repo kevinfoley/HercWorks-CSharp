@@ -54,7 +54,7 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 | `0x34` | the AI's **shot-value penalty**, subtracted from the damage credit when it picks a hardpoint. 500-600 launcher, 150 beam, 10-30 autocannon, 5 ELF, 0 pod | `Ai_ChooseWeapon` — [`../simulation/ai-weapons.md`](../simulation/ai-weapons.md) |
 | `0x36` | energy fire threshold, low | `WeaponMount_EnergyCanFire` |
 | `0x38` | energy fire threshold, high, **and the per-shot cost** — for an ammunition mount, rounds per shot | `WeaponMount_EnergyCanFire`, both fire dispatchers |
-| `0x3a` | magazine size | `FUN_0040e140` |
+| `0x3a` | magazine size | `WeaponMount_CtorAmmunition` (`0040e140`) |
 | `0x3c` | barrel count; `3` fires three shots spread along the muzzle offset's own X | `WeaponMount_FireDispatch_GunBeam` |
 | `0x3e` | `ProjDatIndex` | `MechLoadout_ConstructWeaponMounts` |
 | `0x40`–`0x44` | muzzle offset, three int16, in the firing bone's space | `WeaponMount_PrepareShot` |
@@ -62,11 +62,11 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 | `0x4a` | vertical muzzle offset, for a top- or bottom-mounted one | `WeaponMountTemplate_SideMuzzleOffset` |
 | `0x4c` | refire delay, in sim timer units | `WeaponMount_PrepareShot` |
 | `0x50` | **damage-detail icon**, the `WEAPONS` bank frame before the `.PDG` hardpoint's offset; -1 draws none. 0 the ELFs, 1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile, 6-11 LAEW, ENERGY, ECM, TARG, SHIELD, TURBO, 12 MINE, 13 PLAS and MAGN | `PaperDoll_BuildWeaponIcons` — [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#weapon-icons) |
-| `0x22`–`0x28` | **weapon model**, four `MECHWPNS.DTS` shape indices, one per `.GL +6` mounting code | `FUN_0040fab0` |
+| `0x22`–`0x28` | **weapon model**, four `MECHWPNS.DTS` shape indices, one per `.GL +6` mounting code | `WeaponMount_ShapeForMountingCode` (`0040fab0`) |
 
 `0x22`–`0x28` are read as `template[0x22 + code * 2]`, where `code` is the hardpoint's mounting byte: the same gun modelled for the four ways it can hang off a chassis, so `ATC20` reads four different shapes and a shoulder launcher reads one shape four times. Mounting code 4 is the invisible hardpoint and has no entry — nothing is drawn for it. **The shape's cell animation is the muzzle flash**; see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#the-muzzle-flash).
 
-`0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`. It is also the value `FUN_004110ac` requires to be positive before it will put a hardpoint into a fire chain, and every pod carries zero, so that gate holds on it too. Retail values run 75000 (ATC20) down to 15000 (ELF2) — 450 m to 90 m at the simulation's own scale, which does *not* match the manual's 20 m figure for the ELF.
+`0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`. It is also the value `WeaponMounts_ToggleChainMember` (`004110ac`) requires to be positive before it will put a hardpoint into a fire chain, and every pod carries zero, so that gate holds on it too. Retail values run 75000 (ATC20) down to 15000 (ELF2) — 450 m to 90 m at the simulation's own scale, which does *not* match the manual's 20 m figure for the ELF.
 
 `0x36`/`0x38` decide when an energy mount will fire: `max(0x36, mount+0x7b)` when `0x36 < 0x38`, otherwise `0x38`. `0x38` is also what a shot costs, so the two shapes real data takes — equal pair (LAS100 80/80) versus small low against a 10000 high (PBEAM 300/10000) — are a fixed-cost weapon and a charge-up one.
 
@@ -82,7 +82,7 @@ See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) for the m
 
 ## `+0x52` and `+0x56` — runtime-only, written by the loader
 
-Neither is file data. `Weapons_LoadResourceTables` writes the record's own table index into `+0x56` — which is what identifies the sim table and the shell catalog as sharing one 0-32 weapon id — and a pointer from a 33-entry string array at `00498eb0` into `+0x52`. That pointer is the name a weapon gauge prints, and it is **not** the shell catalog's name for the same id. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c).
+Neither is file data. `Weapons_LoadResourceTables` writes the record's own table index into `+0x56` — which is what identifies the sim table and the shell catalog as sharing one 0-32 weapon id — and a pointer from a 33-entry string array at `00498eb0` into `+0x52`. That pointer is the name a weapon gauge prints, and it is **not** the shell catalog's name for the same id. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--weaponmount_getdisplayname-0040e18c).
 
 ## `ProjDatIndex` — tail-relative offset 0x1c, absolute offset 0x3e
 

@@ -59,7 +59,7 @@ public sealed class ControlsPanel {
 	/// <summary>
 	/// The action codes each of the eight button rows may be bound to — <c>DAT_0049e619</c> for a
 	/// walker, <c>DAT_0049e681</c> for the RAZOR, eight rows of thirteen bytes each, read by
-	/// <c>FUN_00457cdc(row, slot)</c>.
+	/// <c>ControlsPanel_ActionAt(row, slot)</c> (<c>00457cdc</c>).
 	///
 	/// <para><b>Code 0 terminates a row rather than meaning OFF.</b> The constructor counts a row's
 	/// length by walking until it reads a zero, so although <c>OFF</c> is action name 0 it is never
@@ -95,13 +95,13 @@ public sealed class ControlsPanel {
 	};
 
 	/// <summary>
-	/// What RECOMMEND writes over all twelve options — <c>FUN_0045a258</c>, which returns a
+	/// What RECOMMEND writes over all twelve options — <c>Input_RecommendedBindings</c> (<c>0045a258</c>), which returns a
 	/// twelve-byte block it fills in place: the four axis modes, then one action code per button.
 	/// The walker's set.
 	///
 	/// <para>That function also carries an arm that zeroes the block instead, taken when the first
 	/// word of the capability block is 0. Nothing here reproduces it: the word is written
-	/// unconditionally as 1 or 2 by <c>FUN_004777f8</c>, the only thing that fills that block, so the
+	/// unconditionally as 1 or 2 by <c>Input_QueryCapabilities</c> (<c>004777f8</c>), the only thing that fills that block, so the
 	/// arm cannot be reached through its own input. With no stick the panel greys its twelve rows but
 	/// leaves RECOMMEND live, so pressing it still writes this set — the readouts just stay blank,
 	/// the refresh being gated on the same missing capabilities.</para>
@@ -155,7 +155,7 @@ public sealed class ControlsPanel {
 	///
 	/// <para>Settable because the original re-reads it every time the panel goes up rather than
 	/// holding what it was built with: <c>ControlsPanel_Run</c> (<c>00458650</c>) asks
-	/// <c>FUN_0045c508(3)</c> and then <c>Input_QueryCapabilities</c> at the top of its own loop, and
+	/// <c>Input_GetDevice(3)</c> (<c>0045c508</c>) and then <c>Input_QueryCapabilities</c> at the top of its own loop, and
 	/// that function rebuilds its eight bytes from scratch on every call. So a stick plugged in
 	/// mid-session lights the rows up.</para>
 	///
@@ -183,7 +183,7 @@ public sealed class ControlsPanel {
 
 	/// <summary>
 	/// The twelve value readouts, in row order. A row the capabilities have greyed reads empty: the
-	/// refresh (<c>FUN_00458d20</c>) gates every one of its twelve cases on that row's capability and
+	/// refresh (<c>ControlsPanel_RefreshRow</c>, <c>00458d20</c>) gates every one of its twelve cases on that row's capability and
 	/// sets no text at all when it fails, rather than setting a placeholder.
 	/// </summary>
 	public IReadOnlyList<string> Values => _values;
@@ -240,7 +240,7 @@ public sealed class ControlsPanel {
 
 	/// <summary>
 	/// The twelve OPTIONS rows as they read now: the selected button row's action names, blank past
-	/// the end of its list, and blank throughout when no row is selected — <c>FUN_004593f8</c>, whose
+	/// the end of its list, and blank throughout when no row is selected — <c>ControlsPanel_FillOptionList</c> (<c>004593f8</c>), whose
 	/// two out-of-range cases both point at an empty string.
 	/// </summary>
 	public IReadOnlyList<string> OptionRows() {
@@ -293,7 +293,7 @@ public sealed class ControlsPanel {
 	}
 
 	/// <summary>
-	/// Re-reads all twelve readouts from the option array — <c>FUN_00458d20</c> for every case at
+	/// Re-reads all twelve readouts from the option array — <c>ControlsPanel_RefreshRow</c> (<c>00458d20</c>) for every case at
 	/// once, which is what the panel's own paint does.
 	/// </summary>
 	private void RefreshValues() {
@@ -312,7 +312,7 @@ public sealed class ControlsPanel {
 	}
 
 	/// <summary>
-	/// Steps an axis row's mode — <c>FUN_00458650</c>'s cases 1 to 4, which are the plain
+	/// Steps an axis row's mode — <c>ControlsPanel_Run</c> (<c>00458650</c>)'s cases 1 to 4, which are the plain
 	/// <see cref="SimulatorPreferences.Step"/> over the row's three words, forward on a left click and
 	/// back on a right one. Unlike a button row, an axis row also drops the OPTIONS list back to
 	/// showing nothing.
@@ -324,7 +324,7 @@ public sealed class ControlsPanel {
 	}
 
 	/// <summary>
-	/// Steps a button row to the next action in <i>its own</i> list — <c>FUN_00459320</c> forward and
+	/// Steps a button row to the next action in <i>its own</i> list — <c>ControlsPanel_StepButton</c> (<c>00459320</c>) forward and
 	/// <c>0045938c</c> back.
 	///
 	/// <para>The stored byte is an action code but the cycling is over the row's list by <b>slot
@@ -352,7 +352,7 @@ public sealed class ControlsPanel {
 	}
 
 	/// <summary>
-	/// Writes the recommended set over all twelve options — <c>FUN_00458650</c>'s case 13, which
+	/// Writes the recommended set over all twelve options — <c>ControlsPanel_Run</c> (<c>00458650</c>)'s case 13, which
 	/// pushes each of <see cref="HercRecommended"/>'s bytes through <c>Prefs_SetOption</c> in turn.
 	///
 	/// <para>The eight button bytes take a detour: the original does not store the recommended code
@@ -457,8 +457,8 @@ public sealed class ControlsPanel {
 		Capabilities.Present ? Math.Min(Capabilities.ButtonCount, JoystickCapabilities.MaxButtons) : 0;
 
 	/// <summary>
-	/// A mouse release, in the same space — <c>FUN_00458ebc</c>, which decides between selecting and
-	/// acting, and <c>FUN_00458650</c>'s switch, which does the acting.
+	/// A mouse release, in the same space — <c>ControlsPanel_OnClick</c> (<c>00458ebc</c>), which decides between selecting and
+	/// acting, and <c>ControlsPanel_Run</c> (<c>00458650</c>)'s switch, which does the acting.
 	///
 	/// <para><b>A button row takes two clicks to change.</b> The click handler selects the row only
 	/// when it is not already the selected one; when it is, it queues the row's action instead, which

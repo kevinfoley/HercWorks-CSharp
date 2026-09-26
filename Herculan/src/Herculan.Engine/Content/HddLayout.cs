@@ -5,7 +5,7 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// Which of the Heads-Down Display's two screens is showing. The order is DBSIM's own page numbering,
-/// which is also the key order: <c>FUN_0044a5e4</c> takes this value directly, and buttons 0 and 1 of
+/// which is also the key order: <c>HddDisplay_SetPage</c> (<c>0044a5e4</c>) takes this value directly, and buttons 0 and 1 of
 /// the display's own two-button column are captioned "F7" and "F8" from a shared <c>"Fx"</c> literal
 /// whose second character is <c>'7' + index</c>.
 /// </summary>
@@ -19,7 +19,7 @@ public enum HddPage {
 }
 
 /// <summary>
-/// Which category of components <see cref="HddPage.DamageDetail"/> is listing. <c>FUN_00450b60</c>
+/// Which category of components <see cref="HddPage.DamageDetail"/> is listing. <c>HddDamageScreen_SetView</c> (<c>00450b60</c>)
 /// takes this value and sets the row count from it; the manual binds [S], [I] and [W] to it and puts
 /// the same three under the up/down arrow buttons.
 /// </summary>
@@ -35,9 +35,9 @@ public enum HddDamageView {
 }
 
 /// <summary>
-/// The Heads-Down Display's geometry, decoded from <c>FUN_00448cc8</c> (the <c>HDDisplay</c>
+/// The Heads-Down Display's geometry, decoded from <c>HddDisplay_Ctor</c> (<c>00448cc8</c>, the <c>HDDisplay</c>
 /// constructor at <c>.GAU</c> offset 1212) and the two page constructors it builds —
-/// <c>FUN_0044c264</c> for the command display and <c>FUN_0045079c</c> for the damage detail. See
+/// <c>HddCommandScreen_Ctor</c> (<c>0044c264</c>) for the command display and <c>HddDamageScreen_Ctor</c> (<c>0045079c</c>) for the damage detail. See
 /// docs/formats/cockpit-views.md for the pan that reaches this view and
 /// <see cref="MfdLayout"/> for the closest precedent.
 /// </summary>
@@ -52,7 +52,7 @@ public enum HddDamageView {
 /// above it.</para>
 ///
 /// <para><b>Coordinates are device pixels relative to the <c>.HB1</c> art's own top-left.</b> The
-/// file's values are authored in the 320-wide space, and <c>FUN_0044bed0</c> shifts every one of them
+/// file's values are authored in the 320-wide space, and <c>HddGau_ApplyCoordShift</c> (<c>0044bed0</c>) shifts every one of them
 /// by <c>VideoMode_X/YCoordShift</c> before the constructor adds the block's origin — which it first
 /// biases by <c>+0x28</c> on the y axis (<c>param_1[1] = param_1[1] + 0x28</c>, the function's first
 /// statement). Every retail file authors that origin as <c>(0, 197)</c>, so the bias makes it
@@ -77,7 +77,7 @@ public enum HddDamageView {
 /// the actions behind them are <see cref="HddCommandScreen"/>.</para>
 /// </remarks>
 public sealed class HddLayout {
-	/// <summary>Sprite bank the display's buttons are drawn from — <c>FUN_00448cc8</c>'s second load.</summary>
+	/// <summary>Sprite bank the display's buttons are drawn from — <c>HddDisplay_Ctor</c> (<c>00448cc8</c>)'s second load.</summary>
 	public const string Bank = "HDD";
 
 	/// <summary>
@@ -87,7 +87,7 @@ public sealed class HddLayout {
 	public const int GauBlockOffset = 1212;
 
 	/// <summary>
-	/// Added to the block origin's y before anything else, by <c>FUN_0044bed0</c>. See the remarks on
+	/// Added to the block origin's y before anything else, by <c>HddGau_ApplyCoordShift</c> (<c>0044bed0</c>). See the remarks on
 	/// this class for why 197 + 40 landing on the <c>.VUE</c>'s own 237 is the confirmation.
 	/// </summary>
 	public const int OriginYBias = 0x28;
@@ -98,7 +98,7 @@ public sealed class HddLayout {
 	/// <summary>Squad comm boxes, and therefore squadmates the display can address.</summary>
 	public const int PilotSlotCount = 3;
 
-	/// <summary>Orders the command display lists — <c>FUN_0044c264</c>'s loop bound.</summary>
+	/// <summary>Orders the command display lists — <c>HddCommandScreen_Ctor</c> (<c>0044c264</c>)'s loop bound.</summary>
 	public const int OrderCount = 8;
 
 	/// <summary>
@@ -119,7 +119,7 @@ public sealed class HddLayout {
 	public const int DamageRowCount = 13;
 
 	/// <summary>
-	/// <c>STRINGS0.STR</c> group 0 index of the first command-display order. <c>FUN_0044ddec</c>
+	/// <c>STRINGS0.STR</c> group 0 index of the first command-display order. <c>HddCommandScreen_RefreshOrders</c> (<c>0044ddec</c>)
 	/// refreshes row <c>i</c> from <c>DAT_004d132c[i + 10]</c> — the group's first six entries are the
 	/// MFD's FLASH COMM page, and 10-17 are these eight. Each entry's single attribute byte is the
 	/// index of its hotkey character within its own text, which is what draws the D of DISENGAGE, the
@@ -136,7 +136,7 @@ public sealed class HddLayout {
 	/// <summary>Group holding "XMIT", "CANCEL", "EXIT" — the two transmit buttons' captions.</summary>
 	public const int ButtonCaptionGroup = 9;
 
-	/// <summary>Group holding "MAP" and "DAMAGE" — <c>FUN_0044a6dc</c>'s page-0 title.</summary>
+	/// <summary>Group holding "MAP" and "DAMAGE" — <c>HddDisplay_SetTitle</c> (<c>0044a6dc</c>)'s page-0 title.</summary>
 	public const int PageTitleGroup = 11;
 
 	/// <summary>
@@ -172,7 +172,7 @@ public sealed class HddLayout {
 	/// <summary>The alternate the hotkey character is drawn in — <c>ColorSchemePanels[2]</c>.</summary>
 	public const string OrderHotkeyFont = "CPRED";
 
-	/// <summary>Damage rows use the same green as the orders; <c>FUN_0045079c</c> builds every one of
+	/// <summary>Damage rows use the same green as the orders; <c>HddDamageScreen_Ctor</c> (<c>0045079c</c>) builds every one of
 	/// its 26 labels with <c>ColorSchemePanels[1]</c>.</summary>
 	public const string DamageRowFont = "CPGREEN";
 
@@ -243,7 +243,7 @@ public sealed class HddLayout {
 	public const int OrderHighlightUnavailableFrame = 4;
 
 	/// <summary>
-	/// The damage screen's subject caption font — <c>ColorSchemePanels[3]</c>. <c>FUN_0044ba2c</c>
+	/// The damage screen's subject caption font — <c>ColorSchemePanels[3]</c>. <c>HddDamageScreen_SetSubjectCaption</c> (<c>0044ba2c</c>)
 	/// picks it, along with the palette-98 plate under it, for the one case the engine can reach:
 	/// the subject being the player. A squadmate switches the label to <c>CPRED</c> on that pilot's own
 	/// colour and a target to <c>CPRED</c> on yellow.
@@ -337,7 +337,7 @@ public sealed class HddLayout {
 	/// <summary>
 	/// The screen area both pages draw into — the constructor's <c>+0xc1</c> rect, and the first
 	/// argument it passes to each page constructor. Its paint floods this whole rect black before
-	/// drawing anything (<c>FUN_0044c894</c> with colour id 19, <c>FUN_00450c54</c> with id 3; both
+	/// drawing anything (<c>HddCommandScreen_Repaint</c> (<c>0044c894</c>) with colour id 19, <c>HddDamageScreen_Update</c> (<c>00450c54</c>) with id 3; both
 	/// resolve to palette 16).
 	/// </summary>
 	public Rect Screen { get; }
@@ -380,7 +380,7 @@ public sealed class HddLayout {
 	/// — rather than momentary, lighting only while held.
 	///
 	/// <para>Unlike the MFD, which splits this across two classes, the Heads-Down Display's paint
-	/// (<c>FUN_0044bb38</c>) switches on the widget index inside one: cases 0-1, the two page buttons,
+	/// (<c>HddButton_Paint</c>, <c>0044bb38</c>) switches on the widget index inside one: cases 0-1, the two page buttons,
 	/// take their frame from the object's selection flag <c>+0x40</c> and re-font their caption from
 	/// it; cases 2-7, the arrows and the two magnifiers, take their frame from the shared press byte
 	/// <c>+0x1b</c>. Cases 13-14, XMIT and CANCEL, are momentary too and additionally re-font from
@@ -391,8 +391,8 @@ public sealed class HddLayout {
 
 	/// <summary>
 	/// Whether <paramref name="page"/> shows <paramref name="widget"/>, from the 2x15 byte table at
-	/// <c>0049d24c</c> that <c>FUN_0044a5e4</c> walks as <c>table[page][widget]</c>, setting a hidden
-	/// widget's state to 2 — the value its paint (<c>FUN_0044bb38</c>) refuses to draw at.
+	/// <c>0049d24c</c> that <c>HddDisplay_SetPage</c> (<c>0044a5e4</c>) walks as <c>table[page][widget]</c>, setting a hidden
+	/// widget's state to 2 — the value its paint (<c>HddButton_Paint</c>, <c>0044bb38</c>) refuses to draw at.
 	///
 	/// <para>Both rows hide the three comm boxes, which is not a contradiction: those widgets paint
 	/// only the selection highlight, and <c>HddGauge_LoadPilotFrames</c> clears the state back to 0
@@ -437,7 +437,7 @@ public sealed class HddLayout {
 
 	/// <summary>
 	/// The map's own viewport inside <see cref="Screen"/>: inset 8 device pixels on x and 4 on y, and
-	/// stopping 8 short of <see cref="OrderColumn"/>'s left edge. <c>FUN_0044c264</c>'s own
+	/// stopping 8 short of <see cref="OrderColumn"/>'s left edge. <c>HddCommandScreen_Ctor</c> (<c>0044c264</c>)'s own
 	/// <c>4 &lt;&lt; XCoordShift</c> and <c>2 &lt;&lt; YCoordShift</c> literals, with the right edge
 	/// taken from the order column rather than from the screen.
 	/// </summary>
@@ -572,7 +572,7 @@ public sealed class HddLayout {
 
 	/// <summary>
 	/// The title for <paramref name="page"/> — "MAP", or the damage view's own " STRUCT DAMAGE" /
-	/// " INTERN DAMAGE" / " WEAPON DAMAGE". <c>FUN_0044a6dc</c> picks between the two groups on the
+	/// " INTERN DAMAGE" / " WEAPON DAMAGE". <c>HddDisplay_SetTitle</c> (<c>0044a6dc</c>) picks between the two groups on the
 	/// page and indexes the second by the damage screen's current category, not by page.
 	/// </summary>
 	public static string? Title(SimStringTable? strings, HddPage page, HddDamageView view) =>

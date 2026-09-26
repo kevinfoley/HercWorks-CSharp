@@ -13,7 +13,7 @@ Its whole body is a switch on the target's `TargetClass` (`obj+0x1a8`, [`target-
 | Class | Aim point |
 |---|---|
 | 0, a machine | `Ai_AimAndFireAtMech`, below — the only branch that can pick a component |
-| 1, a structure | The base's **first surviving component**: vtable `+0x54` (`FUN_00406868`) with a null second argument returns the first index whose damage word is non-zero, and vtable `+0x58` places it |
+| 1, a structure | The base's **first surviving component**: vtable `+0x54` (`Base_FirstLiveComponent`, `00406868`) with a null second argument returns the first index whose damage word is non-zero, and vtable `+0x58` places it |
 | anything else | The object's own aim offset — vtable `+0x30`, the type record's `+0x68`/`+0x6a` — added to its position |
 
 The last two go straight to `Ai_FireAtPoint`. Only the first has a turret gate.

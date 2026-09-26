@@ -112,7 +112,7 @@ public sealed partial class FlyerObject {
 
 	/// <inheritdoc />
 	/// <remarks>
-	/// <c>FUN_00421584</c>, the flyer's vtable <c>+0x38</c> — <c>Q10(1000, flyer+0x233)</c>, and
+	/// <c>Flyer_GetSpeed</c> (<c>00421584</c>), the flyer's vtable <c>+0x38</c> — <c>Q10(1000, flyer+0x233)</c>, and
 	/// <c>flyer+0x233</c> is the type record's <c>SpeedForward</c>, written once at construction and
 	/// never again. So an aircraft's travel speed is a chassis constant rather than anything it is
 	/// actually doing, which is what the lead calculation and every shot's inherited speed read.
@@ -135,7 +135,7 @@ public sealed partial class FlyerObject {
 	/// tick that drives them is the same function — so the order is reassess, dwell countdown, move,
 	/// think, and the move is <see cref="Tick"/>'s, run from the object pass that precedes this one.
 	///
-	/// <para>The reassess is <c>FUN_00422d00</c> for every one of the seven states; there is no
+	/// <para>The reassess is <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>) for every one of the seven states; there is no
 	/// combat form. An aircraft picks its target inside its think and never changes state to do it.
 	/// </para>
 	/// </summary>
@@ -168,7 +168,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422d00</c> — the flyer's one reassess: map the group's current order verb onto a
+	/// <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>) — the flyer's one reassess: map the group's current order verb onto a
 	/// state. Four of the seven verbs land somewhere.
 	///
 	/// <list type="bullet">
@@ -209,7 +209,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422bdc</c> — <c>scouting</c>'s think, which is the movement step and nothing else.
+	/// <c>Flyer_BehaviourScoutThink</c> (<c>00422bdc</c>) — <c>scouting</c>'s think, which is the movement step and nothing else.
 	/// An aircraft travelling to somewhere does not look for anything on the way.
 	/// </summary>
 	private bool ScoutThink(SimWorld world) {
@@ -218,7 +218,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422b34</c> — <c>patrolling</c>'s think. The movement step, and then, for the leader
+	/// <c>Flyer_BehaviourPatrolThink</c> (<c>00422b34</c>) — <c>patrolling</c>'s think. The movement step, and then, for the leader
 	/// only and only once the sweep timer expires, a target sweep that takes <b>anything</b> it can
 	/// see. <see cref="Ai.TargetFilter.RejectOwnClass"/> is the whole of the filter, so a flight on
 	/// patrol will not chase other aircraft but will take any machine or structure.
@@ -241,7 +241,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422a80</c> — <c>search and destroy</c>'s think. The same shape as
+	/// <c>Flyer_BehaviourSearchDestroyThink</c> (<c>00422a80</c>) — <c>search and destroy</c>'s think. The same shape as
 	/// <see cref="PatrolThink"/> with two differences: the sweep also carries
 	/// <see cref="Ai.TargetFilter.MissionTargetOnly"/>, and whatever it finds is then checked against
 	/// <see cref="MissionGroup.IsOrderTarget"/> before it is taken. A flight under this order engages
@@ -269,7 +269,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422ca8</c> — <c>attacking</c>'s think. It answers <b>finished</b> as soon as the
+	/// <c>Flyer_BehaviourAttackThink</c> (<c>00422ca8</c>) — <c>attacking</c>'s think. It answers <b>finished</b> as soon as the
 	/// target is crippled or destroyed, which zeroes the dwell and sends the aircraft back through
 	/// the reassess onto whatever its group's order still says. Otherwise the leader flies the attack
 	/// run and everyone else holds station on it.
@@ -297,7 +297,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422bf0</c> — puts the whole flight onto the leader's target. Called from a sweep that
+	/// <c>Flyer_EngageWithFlight</c> (<c>00422bf0</c>) — puts the whole flight onto the leader's target. Called from a sweep that
 	/// has just found something: the leader enters <c>attacking</c> and then hands every surviving
 	/// wingman the same target and the same state, so a flight commits as one.
 	///
@@ -323,7 +323,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422a50</c> — the movement step the three non-combat thinks all open with: the flight
+	/// <c>Flyer_FollowStep</c> (<c>00422a50</c>) — the movement step the three non-combat thinks all open with: the flight
 	/// leader flies the group's route, everybody else holds station on the leader.
 	///
 	/// <para>The original also zeroes <c>flyer+0x96</c> here, the radar mode — an aircraft's radar is
@@ -340,7 +340,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_004224c4</c> — the flight leader's route step. It looks one waypoint past the cursor,
+	/// <c>Flyer_LeadRouteStep</c> (<c>004224c4</c>) — the flight leader's route step. It looks one waypoint past the cursor,
 	/// advances when it is within <see cref="WaypointArrivalRange"/>, and flies at the one it
 	/// settled on while holding <see cref="CruiseAltitude"/>.
 	///
@@ -377,7 +377,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422598</c> — a wingman's station-keeping. Its station is a point
+	/// <c>Flyer_FormationStep</c> (<c>00422598</c>) — a wingman's station-keeping. Its station is a point
 	/// <see cref="StationLead"/> ahead of the leader along the leader's own heading, plus this
 	/// aircraft's <c>FFORMS.DAT</c> offset rotated by that same heading — so the flight tracks a spot
 	/// the leader is flying into rather than the leader itself.
@@ -388,7 +388,7 @@ public sealed partial class FlyerObject {
 	/// reversed, so it eases back onto the station from in front instead of hauling round through a
 	/// half turn.</para>
 	///
-	/// <para>Not reproduced: <c>FUN_00422260</c>, which works a throttle setting out of the station
+	/// <para>Not reproduced: <c>Flyer_FormationThrottle</c> (<c>00422260</c>), which works a throttle setting out of the station
 	/// error and the leader's speed and writes it to <c>flyer+0x21c</c>. That field has no reader
 	/// anywhere in the image, and the control law leaves the flight model's throttle element zero at
 	/// every site, so nothing a Cybrid flyer decides can change its airspeed. See
@@ -417,7 +417,7 @@ public sealed partial class FlyerObject {
 
 	/// <summary>
 	/// Where this wingman should be — <c>Math_OffsetPointByBearing</c> onto the leader's position
-	/// followed by the flyer's own vtable <c>+0x78</c> (<c>FUN_00421e98</c>), which is
+	/// followed by the flyer's own vtable <c>+0x78</c> (<c>Flyer_ApplyFormationOffset</c>, <c>00421e98</c>), which is
 	/// <c>Formation_RotateAndAddOffset</c> (<c>00411d64</c>) with an <c>FFORMS.DAT</c> slot. The
 	/// rotation is by the <b>leader's</b> heading, not this aircraft's — the original looks the
 	/// leader up out of the group rather than using the object it was handed — and the offset's Z
@@ -440,7 +440,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_004226a0</c> — the attack run, and the only place a Cybrid flyer shoots. It is a
+	/// <c>Flyer_AttackRun</c> (<c>004226a0</c>) — the attack run, and the only place a Cybrid flyer shoots. It is a
 	/// two-phase circuit rather than a pursuit: an aircraft <b>extends away</b> from its target until
 	/// it has <see cref="AttackTurnInRange"/> of room, turns back in, makes one pass, and breaks off
 	/// again the moment the pass is over. A flight therefore keeps coming round rather than trying to

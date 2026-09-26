@@ -8,8 +8,8 @@ namespace Herculan.Engine.Content;
 /// is not.
 ///
 /// <para>Reverse-engineered from <c>Gau_RovingGunsightWidget</c> (<c>0043c7d8</c>), which builds it
-/// as one of the gunsight complex's children, its class constructor <c>FUN_0043b438</c>, the shared
-/// slide-bar base <c>FUN_0043b378</c> and the paint at <c>FUN_0043b4a4</c>.</para>
+/// as one of the gunsight complex's children, its class constructor <c>HudRotationIndicator_Ctor</c> (<c>0043b438</c>), the shared
+/// slide-bar base <c>HudSlideBar_CtorBase</c> (<c>0043b378</c>) and the paint at <c>HudRotationIndicator_Paint</c> (<c>0043b4a4</c>).</para>
 ///
 /// <para><b>Where it comes from.</b> Not a <c>.GAU</c> rect of its own. The complex reads the rect
 /// at offset 1104 — <see cref="HTorsoTwist"/>, which is really the heading tape's box — and derives

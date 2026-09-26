@@ -161,7 +161,7 @@ The click handler (`004573a8`) records the widget index and, for the nine option
 
 **With no sound device the first four rows are greyed** — the loop puts widgets 0-3 into state 2 before it starts, on `SfxManager` being null. `Widget_HitTestChildren` skips a state-2 widget, so they are not merely inert but invisible to the hit test.
 
-CONTROLS builds the controls panel and runs it inline; DONE calls `FUN_004574cc` and closes.
+CONTROLS builds the controls panel and runs it inline; DONE calls `PreferencesPanel_Save` (`004574cc`) and closes.
 
 ## The controls panel — `ctl_alrt` (`00457d1c`)
 
@@ -197,7 +197,7 @@ The OPTIONS list sits at x 226-354: its caption at y 138 height 10, then twelve 
 
 What the panel greys its rows against is `Input_QueryCapabilities`' eight bytes, whose fields the input layer owns — [`../formats/joystick-input.md`](../formats/joystick-input.md#the-capability-block--input_querycapabilities-004777f8).
 
-The panel reaches it in two steps. `FUN_0045c508(3)` is asked first, and when it answers null or with its low bit clear the panel takes **no block at all** and greys all twelve rows at once — which is what a stick the retail code cannot enumerate produces. Only past that gate does it read the fields and grey rows one at a time: `+2` bounds the button rows, `+4`, `+5` and `+6` gate THROTTLE, RUDDER and HAT. The JOYSTICK row has no field of its own: once a stick is present it is always live.
+The panel reaches it in two steps. `Input_GetDevice(3)` (`0045c508`) is asked first, and when it answers null or with its low bit clear the panel takes **no block at all** and greys all twelve rows at once — which is what a stick the retail code cannot enumerate produces. Only past that gate does it read the fields and grey rows one at a time: `+2` bounds the button rows, `+4`, `+5` and `+6` gate THROTTLE, RUDDER and HAT. The JOYSTICK row has no field of its own: once a stick is present it is always live.
 
 `ControlsPanel_RefreshRow` (`00458d20`) gates every one of its twelve cases on the same capability and **sets no text at all** when it fails, so a greyed row reads blank rather than showing a stale binding.
 

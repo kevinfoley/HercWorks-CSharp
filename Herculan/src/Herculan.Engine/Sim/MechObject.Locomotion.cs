@@ -529,7 +529,7 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00417a04</c> — spreads one impact over the whole machine. Every live component draws
+	/// <c>Mech_SpreadImpactDamage</c> (<c>00417a04</c>) — spreads one impact over the whole machine. Every live component draws
 	/// its own <paramref name="odds"/> roll out of 256, and one that is caught takes
 	/// <c>Q8(roll + max/2, totalArmor)</c>, so the share scales with what that component had to lose
 	/// rather than being flat. The damage goes in through
@@ -570,7 +570,7 @@ public sealed partial class MechObject {
 	private const short LegWriteOff = 32000;
 
 	/// <summary>
-	/// <c>FUN_004178e8</c> — applies a machine's <b>starting condition</b> as the mission file states
+	/// <c>Mech_ApplyStartingCondition</c> (<c>004178e8</c>) — applies a machine's <b>starting condition</b> as the mission file states
 	/// it, called once from the spawn path before the machine has ever been shot at. The argument is
 	/// a percentage: 100 is pristine and the bands widen downwards.
 	///

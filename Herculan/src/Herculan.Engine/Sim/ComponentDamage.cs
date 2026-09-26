@@ -34,7 +34,7 @@ namespace Herculan.Engine.Sim;
 /// </summary>
 public sealed class ComponentDamage {
 	/// <summary>
-	/// The sentinel a destroyed entry holds. <c>FUN_0040d3ec</c> writes it instead of the maximum, so
+	/// The sentinel a destroyed entry holds. <c>Component_AddDamage</c> (<c>0040d3ec</c>) writes it instead of the maximum, so
 	/// "destroyed" is a distinct state from "damaged to exactly its maximum", and every read
 	/// substitutes the maximum back in.
 	/// </summary>
@@ -47,7 +47,7 @@ public sealed class ComponentDamage {
 	public const int MechDependentCount = 22;
 
 	/// <summary>
-	/// A flyer's counts, both literal <c>1</c> in <c>FUN_004215f4</c>. A flyer is one component with
+	/// A flyer's counts, both literal <c>1</c> in <c>Flyer_Constructor</c> (<c>004215f4</c>). A flyer is one component with
 	/// one dependent under it, which is exactly what <c>SKIMMER.DMG</c> ships.
 	/// </summary>
 	public const int FlyerComponentCount = 1;
@@ -55,7 +55,7 @@ public sealed class ComponentDamage {
 	/// <inheritdoc cref="FlyerComponentCount"/>
 	public const int FlyerDependentCount = 1;
 
-	/// <summary>The damage-finished-it flag <c>FUN_0040cf44</c> pours in on destruction — its own literal.</summary>
+	/// <summary>The damage-finished-it flag <c>Component_SpillIntoDependents</c> (<c>0040cf44</c>) pours in on destruction — its own literal.</summary>
 	private const short FinishOffDependents = 32000;
 
 	private readonly HercSimDamage _model;
@@ -147,7 +147,7 @@ public sealed class ComponentDamage {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040dc58</c> — everything a component has to lose: its own armour plus the maximum of
+	/// <c>Component_TotalArmor</c> (<c>0040dc58</c>) — everything a component has to lose: its own armour plus the maximum of
 	/// every internal mapped onto it. It is <see cref="DamagePercent"/>'s denominator, exposed
 	/// because the impact roll scales its damage by it — see
 	/// <see cref="MechObject.SpreadImpactDamage"/>, which is what makes a heavy component take a
@@ -170,8 +170,8 @@ public sealed class ComponentDamage {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040db2c</c> - the whole machine's damage as one Q8 fraction, 0 pristine and 256
-	/// destroyed. It is the object's vtable <c>+0x40</c> for a HERC (<c>FUN_00415504</c>), and it is
+	/// <c>Component_ReadOverallDamage</c> (<c>0040db2c</c>) - the whole machine's damage as one Q8 fraction, 0 pristine and 256
+	/// destroyed. It is the object's vtable <c>+0x40</c> for a HERC (<c>Mech_GetOverallDamage</c>, <c>00415504</c>), and it is
 	/// what the MFD status screen's structural-integrity readout prints.
 	///
 	/// <para>Every main component and every dependent slot is weighed once, each against its own
@@ -293,8 +293,8 @@ public sealed class ComponentDamage {
 	public const int CombinedReadoutCount = 10;
 
 	/// <summary>
-	/// <c>FUN_0040d9f8</c> — whether a main component is destroyed <b>and</b> every dependent under it
-	/// is too (<c>FUN_0040cf10</c>). It is the stricter of the two "is this gone" questions, and the
+	/// <c>Component_IsFullyDestroyed</c> (<c>0040d9f8</c>) — whether a main component is destroyed <b>and</b> every dependent under it
+	/// is too (<c>Component_AllDependentsDestroyed</c>, <c>0040cf10</c>). It is the stricter of the two "is this gone" questions, and the
 	/// one the mech's death test asks of its two cockpit sections.
 	/// </summary>
 	public bool FullyDestroyed(int index) {
@@ -548,7 +548,7 @@ public sealed class ComponentDamage {
 	public const short DefaultDebrisGroup = 2;
 
 	/// <summary>
-	/// <c>FUN_0040cf44</c> — pours a component's overflow damage into its dependents, one at a time.
+	/// <c>Component_SpillIntoDependents</c> (<c>0040cf44</c>) — pours a component's overflow damage into its dependents, one at a time.
 	///
 	/// <para>The pick is <b>weighted and random</b>: each live dependent contributes the record's own
 	/// per-dependent figure (<see cref="HercSimDamage.InternalsTarget.CritChance"/>, 20 on most mech
@@ -605,7 +605,7 @@ public sealed class ComponentDamage {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040d3ec</c> — adds damage to one entry, capping it at the maximum.
+	/// <c>Component_AddDamage</c> (<c>0040d3ec</c>) — adds damage to one entry, capping it at the maximum.
 	///
 	/// <para>Two things it does that a plain accumulate would not. An entry already holding
 	/// <see cref="Destroyed"/> absorbs nothing at all, so a lost part cannot be shot again. And an

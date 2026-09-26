@@ -4,7 +4,7 @@ namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// How a run of text sits in its rect — the value a <c>Text</c> widget carries at <c>+0x45</c> and
-/// hands the string blitter through the draw context's <c>+0x231</c>. <c>FUN_0045409c</c> tests it for
+/// hands the string blitter through the draw context's <c>+0x231</c>. <c>Font_DrawString</c> (<c>0045409c</c>) tests it for
 /// 1 and then for 2 and otherwise leaves the pen where it is, so the three cases are exactly these and
 /// left is the default rather than a flag of its own.
 /// </summary>
@@ -53,7 +53,7 @@ public static class ShellChrome {
 	public const byte FontInkColor = 0x29;
 
 	/// <summary>
-	/// <c>FUN_0040a726</c> — the base fill and border under <see cref="PaintFramedPanel"/> and
+	/// <c>Panel_FillAndBorder</c> (<c>0040a726</c>) — the base fill and border under <see cref="PaintFramedPanel"/> and
 	/// <see cref="PaintTitledPanel"/>, and the whole of <c>Panel_Paint</c> on its own.
 	///
 	/// <para>The border is a chamfer, not a rectangle: each of the four edges stops one pixel short at
@@ -172,7 +172,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>Text_Paint</c> (<c>FUN_0040b439</c>) — one label or readout.
+	/// <c>Text_Paint</c> (<c>0040b439</c>) — one label or readout.
 	///
 	/// <para><paramref name="backingColor"/> is the widget's <c>+0xc1</c>/<c>+0xc5</c> pair: a value
 	/// field clears its own rect first so a refresh overwrites cleanly, and a static label does not, so
@@ -194,7 +194,7 @@ public static class ShellChrome {
 
 		if (font != null && !string.IsNullOrEmpty(text)) {
 			// baseline = H - (H + 1 - cellHeight) / 2 - 2, and the glyph's top row is inkHeight above it
-			// (FUN_00453fb4 subtracts the font's +0x16, which is the .DFN header's inkHeight field).
+			// (Font_DrawGlyph (00453fb4) subtracts the font's +0x16, which is the .DFN header's inkHeight field).
 			int baseline = h - (h + 1 - font.CellHeight) / 2 - 2;
 			DrawString(surface, font, text, rect.X0, rect.Y0 + baseline, align, w);
 		}
@@ -204,7 +204,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040c14f</c> — the editable text field the save screen's ten slot rows are, painted whole:
+	/// <c>EditField_Paint</c> (<c>0040c14f</c>) — the editable text field the save screen's ten slot rows are, painted whole:
 	/// its rect cleared, its string drawn left-aligned one pixel in, an optional caret block, and the
 	/// ink remapped to <paramref name="color"/>.
 	///
@@ -295,7 +295,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>FUN_0045409c</c> — a run of glyphs, aligned in a field of <paramref name="fieldWidth"/> and
+	/// <c>Font_DrawString</c> (<c>0045409c</c>) — a run of glyphs, aligned in a field of <paramref name="fieldWidth"/> and
 	/// then advanced glyph by glyph. <paramref name="baselineY"/> is the ink baseline; each glyph's top
 	/// row lands <see cref="HudFont.InkHeight"/> above it.
 	/// </summary>

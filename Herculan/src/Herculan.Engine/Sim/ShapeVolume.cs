@@ -34,7 +34,7 @@ public sealed class ShapeVolume {
 	public int MaxHeight => _grid.MaxHeight;
 
 	/// <summary>
-	/// <c>FUN_004273c8</c> — walks the ray from <paramref name="start"/> to <paramref name="end"/>,
+	/// <c>ShapeVolume_Raycast</c> (<c>004273c8</c>) — walks the ray from <paramref name="start"/> to <paramref name="end"/>,
 	/// both in this shape's own space, and reports the first step that lands inside the volume.
 	///
 	/// <para>The step length is one cell plus the shot's clearance, so a wider round takes longer
@@ -99,7 +99,7 @@ public sealed class ShapeVolume {
 	}
 
 	/// <summary>
-	/// <c>FUN_00427238</c> — the tallest column within <paramref name="radius"/> of a point, or the column the point is in when the radius is
+	/// <c>ShapeVolume_HeightAround</c> (<c>00427238</c>) — the tallest column within <paramref name="radius"/> of a point, or the column the point is in when the radius is
 	/// smaller than half a cell. Both forms return zero for a point off the grid, which is what makes
 	/// the volume end at its own edges.
 	///

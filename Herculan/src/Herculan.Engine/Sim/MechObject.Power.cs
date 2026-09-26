@@ -350,7 +350,7 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// The weapon mounts' claim on the pool — vtable slot 0 of the mount-manager object at
-	/// <c>mech+0x202</c>, which is <c>FUN_004107e4</c> for every machine. See
+	/// <c>mech+0x202</c>, which is <c>WeaponMounts_ArbitrateEnergy</c> (<c>004107e4</c>) for every machine. See
 	/// <see cref="WeaponMounts.ChargeTick"/> for the arbitration itself.
 	///
 	/// <para>The armed mount is served first, and only a locally-piloted machine has one: the local

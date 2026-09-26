@@ -87,7 +87,7 @@ public readonly struct ThrottleTrack {
 	public int Travel => Bottom - Top - KnobHeight;
 
 	/// <summary>
-	/// The slider's Q16 pixels-per-unit scale, <c>FUN_00452694</c>'s <c>+0x20</c>. Zero when the
+	/// The slider's Q16 pixels-per-unit scale, <c>SliderWidget_RecomputeScaleV</c> (<c>00452694</c>)'s <c>+0x20</c>. Zero when the
 	/// track is too short to hold the knob, which no retail <c>.GAU</c> is.
 	/// </summary>
 	public int Scale => Travel > 0 ? Travel * 65536 / (Full * 2) : 0;
@@ -114,7 +114,7 @@ public readonly struct ThrottleTrack {
 	}
 
 	/// <summary>
-	/// Where the knob's top edge sits for a throttle setting — <c>FUN_00452644</c>, which places the
+	/// Where the knob's top edge sits for a throttle setting — <c>SliderWidget_SetValueV</c> (<c>00452644</c>), which places the
 	/// knob's <i>bottom</i> and lets the paint derive the top from it.
 	/// </summary>
 	public int KnobTopFor(int throttle) => KnobBottomFor(throttle) - KnobHeight;
@@ -127,7 +127,7 @@ public readonly struct ThrottleTrack {
 
 	/// <summary>
 	/// The throttle setting a pointer at <paramref name="deviceY"/> asks for: the drag handler
-	/// (<c>FUN_004525d8</c>) clamps the pointer into the track and puts the knob's bottom edge there,
+	/// (<c>SliderWidget_DragToPointV</c>, <c>004525d8</c>) clamps the pointer into the track and puts the knob's bottom edge there,
 	/// and the getter reads the setting back off the knob's top.
 	///
 	/// <para>The pointer lands on the knob's <i>bottom</i>, not its centre, which is the original's

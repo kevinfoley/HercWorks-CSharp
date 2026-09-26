@@ -66,7 +66,7 @@ public sealed class SceneItem {
 
 	/// <summary>
 	/// The object this item's geometry belongs to, which is what the effect-light pass measures
-	/// from — <c>FUN_00407098</c> takes the drawn entry's own position and bounding radius, and both
+	/// from — <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>) takes the drawn entry's own position and bounding radius, and both
 	/// come off the object rather than off the mesh. A machine drawn as one item per posed node names
 	/// the machine on every one of them, because the original selects once for the whole shape.
 	///
@@ -176,7 +176,7 @@ public sealed class SceneRenderer : IDisposable {
 	/// <summary>
 	/// The impact effects' dynamic lights — <see cref="SimWorld.EffectLights"/>. Each drawn item
 	/// whose <see cref="SceneItem.LightSubject"/> is set gets its own selection out of these, which
-	/// is what <c>FUN_00407098</c> does per render entry. Null lights the scene by the sun alone,
+	/// is what <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>) does per render entry. Null lights the scene by the sun alone,
 	/// which is what a tool with no simulation running gets.
 	/// </summary>
 	public EffectLightField? EffectLights { get; set; }
@@ -421,7 +421,7 @@ public sealed class SceneRenderer : IDisposable {
 
 			_shader.SetMatrix("uModel", item.Transform);
 
-			// FUN_00407098, run per drawn object just as ObjList_DrawEntryRender runs it — see
+			// LightManager_SelectLightsForObject (00407098), run per drawn object just as ObjList_DrawEntryRender runs it — see
 			// EffectLightSelection.
 			int lightCount = 0;
 			if (anyEffectLights && item.LightSubject is { } subject) {
@@ -463,7 +463,7 @@ public sealed class SceneRenderer : IDisposable {
 
 	/// <summary>
 	/// Whether <see cref="EffectLights"/> holds a slot bright enough to light anything — the test
-	/// <c>FUN_00407098</c> makes per slot, hoisted out of the draw loop.
+	/// <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>) makes per slot, hoisted out of the draw loop.
 	/// </summary>
 	private bool HasLiveEffectLight() {
 		if (EffectLights is not { } field) {

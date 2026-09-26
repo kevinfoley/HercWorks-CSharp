@@ -14,7 +14,7 @@ namespace Herculan.Engine.Input;
 /// owns the step above it.</para>
 ///
 /// <para>Held state (the axes and the trigger) is recomputed every tick; the eight buttons are
-/// <b>press-once</b>. <c>FUN_0045b718</c> latches a button the moment its action fires and
+/// <b>press-once</b>. <c>Input_LatchButton</c> (<c>0045b718</c>) latches a button the moment its action fires and
 /// <c>Input_BuildPlayerDevice</c> masks it to zero on every following tick until the player lets go,
 /// so holding a button repeats nothing. This class keeps that latch, which is why it is an instance rather than
 /// a static.</para>
@@ -49,7 +49,7 @@ public sealed class JoystickBindings {
 	/// <c>ThrottleLeverMode</c> (<c>0049a06e</c>).
 	///
 	/// <para><see cref="JoystickAction.ChangeDirection"/> flips it, and so does committing the cockpit
-	/// slider (<c>FUN_00448378</c>). Both only ever move it between <c>+1</c> and <c>-1</c>: whether
+	/// slider (<c>ThrottleSlider_OnValue</c>, <c>00448378</c>). Both only ever move it between <c>+1</c> and <c>-1</c>: whether
 	/// there is a lever at all is <see cref="ThrottleLeverMode"/>'s question, not this one.</para>
 	/// </summary>
 	public bool ThrottleLeverInverted { get; set; }
@@ -62,7 +62,7 @@ public sealed class JoystickBindings {
 	public bool BipolarThrottle { get; set; }
 
 	/// <summary>
-	/// <c>Input_SetThrottleLeverMode</c> (<c>FUN_00459d20</c>): 0 when no physical lever is driving the
+	/// <c>Input_SetThrottleLeverMode</c> (<c>00459d20</c>): 0 when no physical lever is driving the
 	/// throttle, otherwise non-zero for one, the sign being <see cref="ThrottleLeverInverted"/>.
 	///
 	/// <para>The magnitude is the mode: <see cref="Sim.MechControls.ThrottleLeverUnipolar"/>, or

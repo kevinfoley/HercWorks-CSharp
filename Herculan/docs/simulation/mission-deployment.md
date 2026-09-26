@@ -25,7 +25,7 @@ Both per-frame evaluators run from `Sim_MainTick` (`0045f464`), back to back and
 
 ```
 per group: group+0x14 ? Group_DeploymentCheck : Group_OrderTick
-FUN_00426b48      // every action timer
+ActionTimers_Tick (00426b48)       // every action timer
 Actions_EvaluateTriggers(PlayerMech)
 ```
 
@@ -187,7 +187,7 @@ At the top it stops `0x21`, plays `0x29` (`explo2.wav`) and shakes the view for 
 
 ## The mission counters — `DAT_004a9ef4`
 
-1,000 shorts: `FUN_0042412c` writes 2,000 bytes of the block to `mission_var` as a mission ends, so these are the **campaign's** variables and their reader is outside the simulation. Two things write them during a mission: `Action_Activate`, and a group's own completion hook `FUN_00423f30` (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c) ([Open](#open)).
+1,000 shorts: `FUN_0042412c` writes 2,000 bytes of the block to `mission_var` as a mission ends, so these are the **campaign's** variables and their reader is outside the simulation. Two things write them during a mission: `Action_Activate`, and a group's own completion hook `Group_ReportIfAllOutOfAction` (`00423f30`, ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c) ([Open](#open)).
 
 The reader is VSHELL's `MissionVar_Read` (`0040ea59`), which loads the file straight back into the same array — `00482af8` there, the store the `.msn` condition opcodes test and every save slot carries. VSHELL also writes `mission_var` from that array before launching a mission (`MissionVar_Write`, `0040e9cb`) ([Open](#open)). See [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
 
@@ -229,10 +229,10 @@ The [lift start](#the-lift-start) is left out on purpose: the art it draws is no
 
 ## Open
 
-- **Open:** what sets block `+0x54`, the lift start's gate. No absolute reference to `004d2594` exists, the block's static initialiser `FUN_0045cad8` does not store it, and of the `+0x54` writes `es2_fieldscan.py` finds, none is through a register holding the block.
+- **Open:** what sets block `+0x54`, the lift start's gate. No absolute reference to `004d2594` exists, the block's static initialiser `Main_StaticInit` (`0045cad8`) does not store it, and of the `+0x54` writes `es2_fieldscan.py` finds, none is through a register holding the block.
 - **Open:** what reads `0049aef4`, the byte the lift start clears for its duration (1 in the image). `es2_xref.py` finds only the lift's two stores.
 - **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
 - **Unported:** the mission counters' reader, which is the campaign layer.
-- **Unported:** the group completion hook `FUN_00423f30` that writes the mission counters (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c).
+- **Unported:** the group completion hook `Group_ReportIfAllOutOfAction` (`00423f30`) that writes the mission counters (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c).
 - **Open:** confirm whether anything writes `obj+0xa2`, the gate on the engaged action ([above](#an-objects-own-two-actions--0x1b2-and-0x1b6)); a text search finds no writer.
 - **Open:** whether DBSIM reads `mission_var` at mission start as well as writing it at mission end ([above](#the-mission-counters--dat_004a9ef4)).

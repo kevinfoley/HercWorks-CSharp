@@ -22,7 +22,7 @@ public sealed record ShellImage(byte[] Pixels, int Width, int Height);
 /// and its fonts are the text at canvas scale rather than a half-scale set to double.</para>
 ///
 /// <para><b>The palette comes from the table, by index.</b> VSHELL selects one with
-/// <c>FUN_004075b2(index)</c> into the pointer table at <c>0046dcdc</c>, and that table is decoded —
+/// <c>Shell_InstallPalette(index)</c> (<c>004075b2</c>) into the pointer table at <c>0046dcdc</c>, and that table is decoded —
 /// see <see cref="ShellPalette"/>, which also carries which screen picks which. Index 1,
 /// <c>dpl\palette.dpl</c>, is what the shell installs on entry (<c>esglobal.cpp</c>,
 /// <c>004073bc</c>) and what the service bay re-installs whenever it is shown (<c>0043b23d</c>),

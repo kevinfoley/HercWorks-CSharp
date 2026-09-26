@@ -21,7 +21,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	/// moves a Cybrid flyer's throttle.</b> The control law fills a five-element command array and
 	/// leaves the throttle element zero at every site, so the flight model's rate branch never steps
 	/// the setting; the one field the AI does write a throttle-shaped figure into
-	/// (<c>flyer+0x21c</c>, which <c>FUN_00422260</c> works out from the leader's speed and the
+	/// (<c>flyer+0x21c</c>, which <c>Flyer_FormationThrottle</c> (<c>00422260</c>) works out from the leader's speed and the
 	/// station error) has no reader anywhere in the image. So a SKIMMER cruises at the airspeed
 	/// 0x200 asks for — 875 of its 500-1000 range — biased only by its own pitch attitude.
 	/// </summary>
@@ -53,7 +53,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	private const int LookAheadPitchGain = 0x14;
 
 	/// <summary>
-	/// Q16 gain from pitch attitude error to the elevator command, in <c>FUN_00422098</c>.
+	/// Q16 gain from pitch attitude error to the elevator command, in <c>Flyer_PitchCommand</c> (<c>00422098</c>).
 	/// </summary>
 	private const int PitchGain = 1500;
 
@@ -61,13 +61,13 @@ public sealed partial class FlyerObject : IFlightBody {
 	private const int PitchRateDamping = 8000;
 
 	/// <summary>
-	/// The horizontal run <c>FUN_00422108</c> measures a height error against when it turns "get to
+	/// The horizontal run <c>Flyer_PitchToAltitude</c> (<c>00422108</c>) measures a height error against when it turns "get to
 	/// this altitude" into "hold this pitch". It is a constant, not the real distance to anything, so
 	/// the demanded climb angle depends on the height error alone.
 	/// </summary>
 	private const int PitchAltitudeRun = 10000;
 
-	/// <summary>Q16 gain from bank error to the aileron command, in <c>FUN_0042215c</c>.</summary>
+	/// <summary>Q16 gain from bank error to the aileron command, in <c>Flyer_CommandRoll</c> (<c>0042215c</c>).</summary>
 	private const int RollGain = 2500;
 
 	/// <summary>Q16 gain from roll rate to the aileron's damping term. Negative: it opposes.</summary>
@@ -136,7 +136,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	/// <remarks>
 	/// Always true. The four components the flight model asks about are a RAZOR's wings and
 	/// nacelles, which a <c>Flyer</c> does not have — its health record is one component and one
-	/// dependent. The original says so literally: <c>FUN_004221a8</c> hands the model a
+	/// dependent. The original says so literally: <c>Flyer_ApplyFlightCommand</c> (<c>004221a8</c>) hands the model a
 	/// stack-allocated four-element array it has just zeroed.
 	/// </remarks>
 	bool IFlightBody.AirframeIntact(int component) => true;
@@ -170,7 +170,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	private bool _rotationValid;
 
 	/// <summary>
-	/// <c>FUN_004218c4</c> — the flyer's per-tick move, the function its behaviour descriptors carry
+	/// <c>Flyer_MovementTick</c> (<c>004218c4</c>) — the flyer's per-tick move, the function its behaviour descriptors carry
 	/// in the <c>+0x24</c> slot where a walking machine carries <c>Mech_MovementTick</c>. It
 	/// adds the velocity the control law settled on, runs four terrain probes over the
 	/// airframe, refuses to let the aircraft sink into the ground, and pitches the flyby loop.
@@ -309,7 +309,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422098</c> — the elevator command that holds a pitch attitude. The error is scaled,
+	/// <c>Flyer_PitchCommand</c> (<c>00422098</c>) — the elevator command that holds a pitch attitude. The error is scaled,
 	/// <b>resolved through the current bank</b> so a rolled aircraft asks its elevator for less, and
 	/// damped by the pitch rate already under way.
 	/// </summary>
@@ -320,7 +320,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// <c>FUN_00422108</c> — the elevator command that flies the aircraft to a world altitude. The
+	/// <c>Flyer_PitchToAltitude</c> (<c>00422108</c>) — the elevator command that flies the aircraft to a world altitude. The
 	/// height error is turned into a pitch demand against a fixed <see cref="PitchAltitudeRun"/>
 	/// horizontal run, so the demanded angle is a function of the error alone.
 	///
@@ -335,7 +335,7 @@ public sealed partial class FlyerObject : IFlightBody {
 
 	/// <summary>
 	/// The five-element command array the flyer's control law fills and hands to the flight model —
-	/// the original's own <c>int[5]</c> on <c>FUN_004222fc</c>'s stack. The throttle element is never
+	/// the original's own <c>int[5]</c> on <c>Flyer_SteerAndFly</c> (<c>004222fc</c>)'s stack. The throttle element is never
 	/// written; see <see cref="InitialThrottle"/>.
 	/// </summary>
 	private struct FlightCommand {
@@ -346,7 +346,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// <c>FUN_0042215c</c> — roll toward a bank angle and fly. The aileron is the bank error scaled
+	/// <c>Flyer_CommandRoll</c> (<c>0042215c</c>) — roll toward a bank angle and fly. The aileron is the bank error scaled
 	/// and damped by the roll rate, and this is the arm the controller takes whenever it is holding
 	/// or limiting a bank rather than commanding one outright.
 	/// </summary>
@@ -357,7 +357,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// <c>FUN_004221a8</c> — the hand-off into the flight model. The two stick axes are
+	/// <c>Flyer_ApplyFlightCommand</c> (<c>004221a8</c>) — the hand-off into the flight model. The two stick axes are
 	/// <b>squared</b>, sign preserved, before they are clamped to the ±0x100 the model reads: small
 	/// commands are softened quadratically and only a large one reaches full deflection, which is
 	/// what keeps an AI aircraft from sawing its controls back and forth.
@@ -392,7 +392,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// <c>FUN_004222fc</c> — the flyer's whole steering channel, and the one function every think
+	/// <c>Flyer_SteerAndFly</c> (<c>004222fc</c>) — the flyer's whole steering channel, and the one function every think
 	/// ends in. It turns a heading error into a bank, decides whether the aircraft may hold that
 	/// bank, and runs the flight model.
 	///

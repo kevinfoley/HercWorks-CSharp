@@ -22,8 +22,8 @@ public readonly record struct MfdContact(int X, int Y, int ColorId);
 
 /// <summary>
 /// Everything the SCANNER screen draws that comes from the simulation rather than from the layout —
-/// what <c>FUN_0043ebe0</c>, the screen's update slot, leaves in the screen object for
-/// <c>FUN_0043eecc</c>, its paint, to read.
+/// what <c>MfdRadarScreen_Update</c> (<c>0043ebe0</c>), the screen's update slot, leaves in the screen object for
+/// <c>MfdRadarScreen_Paint</c> (<c>0043eecc</c>), its paint, to read.
 /// </summary>
 /// <param name="Contacts">
 /// The plotted contacts, screen object <c>+0x68</c>, a 100-entry vector of
@@ -80,7 +80,7 @@ public readonly record struct MfdScannerState(
 
 /// <summary>
 /// The MFD's SCANNER screen (F4, mode 3) — <c>MfdRadarScreen_Ctor</c> (<c>0043e70c</c>), its update
-/// slot <c>FUN_0043ebe0</c> and its paint <c>FUN_0043eecc</c>. The rest of the display — the F-key
+/// slot <c>MfdRadarScreen_Update</c> (<c>0043ebe0</c>) and its paint <c>MfdRadarScreen_Paint</c> (<c>0043eecc</c>). The rest of the display — the F-key
 /// column, the four aux buttons, the background chrome and the title — is <see cref="MfdLayout"/>.
 ///
 /// <para><b>What the screen is.</b> A plan view centred on the machine being flown, rotated so its
@@ -171,7 +171,7 @@ public static class MfdScanner {
 	public const int DefaultRangeIndex = 2;
 
 	/// <summary>
-	/// RANGE (button 8) steps the zoom index and wraps — <c>FUN_00446fc8</c>: <c>+1</c>, and back to 0
+	/// RANGE (button 8) steps the zoom index and wraps — <c>MfdDisplay_CycleScannerRange</c> (<c>00446fc8</c>): <c>+1</c>, and back to 0
 	/// at 3. It steps <i>outwards</i> from the default, so the first press goes from 1200 m to 300 m.
 	/// </summary>
 	public static int NextRangeIndex(int index) => index + 1 == Ranges.Length ? 0 : index + 1;
@@ -289,7 +289,7 @@ public static class MfdScanner {
 		metres.ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(ReadoutWidth, '0');
 
 	/// <summary>
-	/// Rebuilds the contact list — <c>FUN_0043ebe0</c>, which the display runs and then paints every
+	/// Rebuilds the contact list — <c>MfdRadarScreen_Update</c> (<c>0043ebe0</c>), which the display runs and then paints every
 	/// frame while the scanner is up (mode 3's dirty flag is never cleared, unlike the status
 	/// screens', which refresh on a 30-tick timer).
 	///

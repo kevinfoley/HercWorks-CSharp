@@ -111,7 +111,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 
 	/// <summary>
 	/// One pilot record. <b>The player's is the same shape as a squadmate's</b> — VSHELL reads both
-	/// with <c>FUN_0040fefc</c> and writes both with <c>FUN_0040fd5f</c>, roster id included. What
+	/// with <c>FUN_0040fefc</c> and writes both with <c>Pilot_Write</c> (<c>0040fd5f</c>), roster id included. What
 	/// makes the player's segment look different is that two shorts of its own precede the record;
 	/// those belong to the surrounding block and are read with <c>UnkRange_prePlayer</c>.
 	///

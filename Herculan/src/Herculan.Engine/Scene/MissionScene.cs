@@ -274,11 +274,11 @@ public sealed class MissionScene {
 		var terrain = TerrainZoneLoader.Load(content, mission.Header.ZoneIndex, materials, random,
 			detailLevel: detail);
 
-		// The travelling-projectile table, loaded once at startup as FUN_0040ade0 loads it, and given
+		// The travelling-projectile table, loaded once at startup as Bullet_LoadResources (0040ade0) loads it, and given
 		// to the world because a shot in flight is simulation state before it is anything visual.
 		var bullets = BulletCatalog.Load(content.Read(BulletCatalog.ResourceFolder, BulletCatalog.TableResource));
 
-		// The impact-effect table, loaded once at startup as FUN_00407b54 loads it. Its shapes are
+		// The impact-effect table, loaded once at startup as Explosion_LoadResources (00407b54) loads it. Its shapes are
 		// built below, and the frame counts they yield go back into the catalog — an effect's life is
 		// one pass of its own flipbook, so the simulation cannot time it without them.
 		var explosions = ExplosionCatalog.Load(
@@ -871,7 +871,7 @@ public sealed class MissionScene {
 		}
 
 		// The original's hover-height substitution, applied at spawn because that is where it
-		// happens in FUN_00421ee8 — see FlyerObject.DefaultHoverHeight.
+		// happens in Flyer_AttachToGroup (00421ee8) — see FlyerObject.DefaultHoverHeight.
 		if (simObject is FlyerObject && placement.Position.Z == 0) {
 			simObject.Position = new Vec3i(
 				placement.Position.X, placement.Position.Y, FlyerObject.DefaultHoverHeight);

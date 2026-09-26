@@ -8,7 +8,7 @@ Its reader is named `Mech_MissileAmmoCount` (mech vtable `+0x6c`, `004155ac`) an
 
 `Mech_PerTickSystemsUpdate` (`0041aa5c`) clears all five at the top of its target block and sets the ones whose countdown has expired, for **every** mech each tick, the player's included. That is why a player's missiles lock in retail, and why `Rocket_Fire`'s gate on it is a real gate.
 
-The genuine ammunition count is a separate local array built by `FUN_0040fbdc`, which walks the mounts calling each one's vtable `+0x60` (`WeaponMount_GetAmmoType`, `0040e644`) and accumulates its out-parameter (`mount+0x7b`, rounds remaining) into `rounds[subtype]`. A subtype with no rounds gets no lock timer.
+The genuine ammunition count is a separate local array built by `WeaponMounts_RoundsByMissileType` (`0040fbdc`), which walks the mounts calling each one's vtable `+0x60` (`WeaponMount_GetAmmoType`, `0040e644`) and accumulates its out-parameter (`mount+0x7b`, rounds remaining) into `rounds[subtype]`. A subtype with no rounds gets no lock timer.
 
 ## The mechanism
 

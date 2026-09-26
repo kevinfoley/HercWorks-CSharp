@@ -8,10 +8,10 @@ Covers how a `.DTS` poly gets a colour: which `.DBA` is bound to a model, how a 
 
 Placement, sizing and rotation are in [`dts-billboards.md`](dts-billboards.md). The lookup is a plain frame index into whichever DBA is currently active:
 
-1. `TSShapeInstance` carries its bound DBA pointer at `+0x26` (`TSShapeInstance_GetBoundBitmapArray`, `FUN_0046296d`).
+1. `TSShapeInstance` carries its bound DBA pointer at `+0x26` (`TSShapeInstance_GetBoundBitmapArray`, `0046296d`).
 2. `g_ActiveBitmapArray` (`DAT_005d8010`) is a process-wide "currently active DBA" global, with two accessors: `TSBase_GetActiveBitmapArray` / `TSBase_SetActiveBitmapArray`.
-3. `TSShapeInstance_Render` / `TSShapeInstance_RenderFromRef` (`FUN_00462730` / `FUN_00462894`) save the global, swap in the instance's `+0x26`, call `TSShapeInstance_RenderPolys` (`FUN_0042203a`, which dispatches each poly's vtable `+0x1c`), then restore.
-4. `TSBitmapPart_Render` (`FUN_00421db2`) reads `poly+0x10` (`TSBitmapPart.BmpTag`) as a frame index, bounds-checks it against `g_ActiveBitmapArray`'s count, and looks up `*(int*)(*g_ActiveBitmapArray+8) + frameIndex*4`. `OfsX`/`OfsY` (`poly+0x12`/`+0x13`, single bytes) place the result.
+3. `TSShapeInstance_Render` / `TSShapeInstance_RenderFromRef` (`00462730` / `00462894`) save the global, swap in the instance's `+0x26`, call `TSShapeInstance_RenderPolys` (`0042203a`, which dispatches each poly's vtable `+0x1c`), then restore.
+4. `TSBitmapPart_Render` (`00421db2`) reads `poly+0x10` (`TSBitmapPart.BmpTag`) as a frame index, bounds-checks it against `g_ActiveBitmapArray`'s count, and looks up `*(int*)(*g_ActiveBitmapArray+8) + frameIndex*4`. `OfsX`/`OfsY` (`poly+0x12`/`+0x13`, single bytes) place the result.
 
 Resolution is `activeDba.Frames[BmpTag]`, with no UV interpolation.
 
@@ -32,7 +32,7 @@ Related symbols: `TSGroup_RenderPolys` / `TSGroup_RenderPolysFromRef` (`0042349d
 
 `DAT_00471890` (`g_UseFlatPolyFallback`) selects the mode:
 
-- `== 0` — the textured path, and the only branch that reaches a rasterizer. Builds a per-vertex 3D position array from the group's points and a 4-entry UV-corner array, then calls `TSTexture4Poly_RasterizeA` / `RasterizeB` (`FUN_004202dd` / `FUN_00420900`).
+- `== 0` — the textured path, and the only branch that reaches a rasterizer. Builds a per-vertex 3D position array from the group's points and a 4-entry UV-corner array, then calls `TSTexture4Poly_RasterizeA` / `RasterizeB` (`004202dd` / `00420900`).
 - `!= 0` — a flat 2D polygon fill. Projects and edge-clips the vertices (`FUN_0045e694` / `FUN_0045ee2c`), fills via `FUN_0045f364` → `FUN_0045f8e7` / `FUN_0045f8d2`. **No texture sampling.** It still resolves a DBA frame index through the same pointer-table lookup `TSBitmapPart_Render` uses, but only for a bounds-check assert.
 
 The front/back value indexes a **20-byte-stride per-frame descriptor table** reached via `g_ActiveBitmapArray[1]` — one extra pointer dereference from `*g_ActiveBitmapArray`. The first 16 bytes are four `int32` fields `F0..F3`; a 5th field at byte 16 is passed to the rasterizer as a texture-data handle. UV corners, in vertex order:
@@ -61,8 +61,8 @@ Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this ty
 `TSTexture4Poly` is a mesh poly: it lives in a `TSGroup` and references real 3D vertices via `VertexList`/`VertexCount`, structurally unlike `TSBitmapPart`'s 2D quad. It has its own vtable.
 
 - `g_TSObjectTypeRegistry` (`0047f258`, VSHELL) — 18 entries, 12-byte stride, each `{tag:uint32, constructorFnPtr, nameStringPtr}`. `tag` matches `TSObjectHeader`'s on-disk `[subtype:u16][supertype:u16]` bytes (e.g. `0x0014000f` = `TSTexture4Poly`).
-- `TSTexture4Poly_Construct` (`FUN_0045ffe0`) installs its vtable several times during construction (Watcom multi-base-class pattern), finishing with `g_TSTexture4PolyVtable` (`0047ee0c`).
-- Slot `+0x1c` of that vtable is `TSTexture4Poly_Render` (`FUN_00422af5`), which:
+- `TSTexture4Poly_Construct` (`0045ffe0`) installs its vtable several times during construction (Watcom multi-base-class pattern), finishing with `g_TSTexture4PolyVtable` (`0047ee0c`).
+- Slot `+0x1c` of that vtable is `TSTexture4Poly_Render` (`00422af5`), which:
 - reads `poly+0xc` (`ColorIndexId`) as an index into the per-surface runtime record array (`DAT_005d88a2`, 4-byte stride);
 - runs `maybe_TSPoly_FrontBackVisibilityTest` (`FUN_0045e480`) on `poly+4`/`poly+6` — confirming `TSPoly.Normal`/`Center` are auxiliary point indices used to pick the front or back colour pair;
 - resolves the descriptor at `DAT_005d8010[1] + idx*0x14`;
@@ -155,10 +155,10 @@ pick front pair (surface[0]=Front, surface[1]=FrontLine) or back pair ([2]/[3]) 
 skip if both have 0x14 in the top byte
 row  = Raster_ShadeRampRow(0x80)        // the fixed unlit row; no light term is ever computed
 fill = row[Front];  line = row[FrontLine]
-FUN_0048d518 -> fill the polygon, then when line != fill re-draw it in `line`
+PolyFill_FillThenOutline (0048d518) -> fill the polygon, then when line != fill re-draw it in `line`
 ```
 
-The second pass is the rasterizer's **mode 4**, which `FUN_00483dac`'s `iVar11 == 4` branch walks as a line loop over the poly's own vertex list, closing back to the first vertex — an outline, not a second fill. The `line != fill` test is on the **ramped** bytes, so two surface values that resolve to the same ramp output draw no outline.
+The second pass is the rasterizer's **mode 4**, which `Raster_DrawPolygonDispatch` (`00483dac`)'s `iVar11 == 4` branch walks as a line loop over the poly's own vertex list, closing back to the first vertex — an outline, not a second fill. The `line != fill` test is on the **ramped** bytes, so two surface values that resolve to the same ramp output draw no outline.
 
 **A two-vertex `TSSolidPoly` is a line, not a degenerate face.** `MECHWPNS.DTS` carries 92 of them and `SAMSON.DTS` none; a Particle Beam Weapon's four struts between housing and barrel are the visible case (`Reference/PBW_Comparison.png`). The fill pass has no area, so the outline is the whole of what they draw, in the surface's line colour — palette 198, `#5C5C5C`, on every one of them. Ten more carry a single vertex, which the original paints as one pixel.
 
@@ -237,7 +237,7 @@ Corroboration that the surface value is a ramp number and not a frame index: acr
 
 Both walk the active light list. The mission sun is the only entry a mission starts with, and an impact effect can add more ([`effect-lights.md`](effect-lights.md)); for the sun alone both reduce to a function of `facing = -cos` between the surface normal and the direction the light travels (positive = lit). Normals carry length `0x800` and the sun's direction `0x1000`, so the raw dot is `0x800000 * cos`.
 
-| | `FUN_0048c060` (terrain) | `Light_ComputeShadeForFace` `0048bedc` (shapes) |
+| | `Light_ComputeShadeForNormal` (`0048c060`, terrain) | `Light_ComputeShadeForFace` `0048bedc` (shapes) |
 |---|---|---|
 | gate | `t = dot` | `t = (dot - 0x400000) >> 1` |
 | accumulate | `if (t < 0) shade -= (intensity * t) >> 22` | same |
@@ -246,7 +246,7 @@ Both walk the active light list. The mission sun is the only entry a mission sta
 | reaches 0 at | 90 degrees off the light | 120 degrees off |
 | saturates at | facing 0.5 | facing 0.496 |
 
-`FUN_0048c060` is what `Terrain_BuildSurface` bakes a cell with; see [`terrain-lighting.md`](terrain-lighting.md). Every poly renderer of a *shape* calls `Light_ComputeShadeForFace`. For a shape the falloff is half as steep, so a curved surface spends its gradient over twice the angular range, and a shadowed side is a mid tone that keeps falling rather than a floor of black.
+`Light_ComputeShadeForNormal` is what `Terrain_BuildSurface` bakes a cell with; see [`terrain-lighting.md`](terrain-lighting.md). Every poly renderer of a *shape* calls `Light_ComputeShadeForFace`. For a shape the falloff is half as steep, so a curved surface spends its gradient over twice the angular range, and a shadowed side is a mid tone that keeps falling rather than a floor of black.
 
 Intensity scales both terms together (`shade = I * (0.5 + facing)` for the shape curve), so it does not move the zero crossing.
 
@@ -276,7 +276,7 @@ Per **poly**, not per pixel. Takes the poly's own stored normal and centre point
 
 ### `TSBSPPart` child selection
 
-**A `TSBSPPart`'s `Parts` array is a pool its BSP tree indexes into, not a list that is drawn in order.** `FUN_00476a1c` walks the tree at `part+0x18` (14-byte nodes: an `int16` normal triple, an `int32` coefficient, then a front and a back `int16`), starting at node 0:
+**A `TSBSPPart`'s `Parts` array is a pool its BSP tree indexes into, not a list that is drawn in order.** `TSBSPPart_RenderNode` (`00476a1c`) walks the tree at `part+0x18` (14-byte nodes: an `int16` normal triple, an `int32` coefficient, then a front and a back `int16`), starting at node 0:
 
 ```
 d = dot(node.normal, viewOrigin) - node.coeff          // node+0x1c names a transform id;
@@ -290,7 +290,7 @@ for each of near, far:
 
 So a child no node reaches is never drawn, and the tree is what orders back-to-front. Every child of every retail weapon and machine shape checked is reachable, so walking `Parts` in file order happens to agree on retail data — but it is not the rule, and it would diverge on a shape that carried an unreferenced part.
 
-`part+0x1c` is a parallel `int16` per **node**, not per child: the transform whose world matrix the splitting plane is brought into. `FUN_00417530` stamps a single transform id across all of them when a weapon model is attached to a machine.
+`part+0x1c` is a parallel `int16` per **node**, not per child: the transform whose world matrix the splitting plane is brought into. `Shape_StampTransformId` (`00417530`) stamps a single transform id across all of them when a weapon model is attached to a machine.
 
 ## `TSDetailPart` level selection and STRUCTURE DETAIL
 
@@ -366,7 +366,7 @@ Readings a fresh pass could land on. Each is disproven; do not reintroduce.
 
 | Reading | Why it is wrong |
 |---|---|
-| `FUN_00474e9c` is `TSSolidPoly_Render` | It is `TSTexture4Poly_Render`; the type registry settles it. Assigned by resemblance to VSHELL's renderer |
+| `00474e9c` is `TSSolidPoly_Render` | It is `TSTexture4Poly_Render`; the type registry settles it. Assigned by resemblance to VSHELL's renderer |
 | A flat poly's `FrontColor` is a `.DBA` frame index sampled as a dither swatch | Only `TSTexture4Poly`'s is a frame index |
 | A flat/shaded surface renders as the frame's **average colour** | The value is a palette index (`TSSolidPoly`) or a ramp number (`TSShadedPoly`/`TSGouraudPoly`). Averaging `BASETEX` frames 0/8/12 gives browns and greens where ramps 0/8/12 are greys and blue-greys |
 | `DefaultShapeColors`, a 13-entry guess table | Mostly clamps to cyan. Still the WinForms viewer's live colour path (`HercWorks.UI.DtsGeometryBuilder`), which has none of the shading work below — a superseded stand-in, not a reading anything new should adopt |

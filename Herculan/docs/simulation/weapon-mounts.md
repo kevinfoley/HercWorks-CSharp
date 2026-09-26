@@ -6,7 +6,7 @@ Covers how a fit becomes mounts, what those mounts hold, and how the player arms
 
 ## The join — `MechLoadout_ConstructWeaponMounts` (`0040fff8`)
 
-**The chassis drives the join, not the fit.** `Mech_ConfigureLoadout` (`004175dc`) passes the mech type's hardpoint list (`FUN_00420634` → the `gl\<HERC>.GL` record array) plus the mission's two parallel per-slot arrays. The factory walks the hardpoint records **in file order**, and each record's byte at `+0x17` indexes the fit arrays:
+**The chassis drives the join, not the fit.** `Mech_ConfigureLoadout` (`004175dc`) passes the mech type's hardpoint list (`Mech_GetGunLayout` (`00420634`) → the `gl\<HERC>.GL` record array) plus the mission's two parallel per-slot arrays. The factory walks the hardpoint records **in file order**, and each record's byte at `+0x17` indexes the fit arrays:
 
 ```
 weaponId     = weaponRefs[record[0x17]]      // negative clamps to 0
@@ -17,7 +17,7 @@ Consequences: the fit array's slot positions are load-bearing (compacting it fit
 
 ### `gl\<HERC>.GL` — the hardpoint list
 
-`FUN_0040fee8` (asserts in `GUNLIST.CPP`) reads `short count` then `count` 26-byte records. Modelled by `HercWorks.Core.Data.File.Dbsim.GunLayout`. The fields the loadout path reads:
+`GunLayout_LoadForMechType` (`0040fee8`, asserts in `GUNLIST.CPP`) reads `short count` then `count` 26-byte records. Modelled by `HercWorks.Core.Data.File.Dbsim.GunLayout`. The fields the loadout path reads:
 
 | Offset | Field | Role |
 |---|---|---|
@@ -46,8 +46,8 @@ The factory's switch on the weapon id picks one of four live classes. Nothing el
 
 | Class | Ctor | Weapon ids | Carries | Gauge |
 |---|---|---|---|---|
-| Ammunition | `WeaponMount_CtorAmmunition` | 1–5, 13–16, 21, 26 | rounds | numeric (`FUN_00432124` → `FUN_00440f78`) |
-| Energy | `WeaponMount_CtorEnergy` | 7–12, 17, 19, 20, 23–25, 28 | a capacitor | LED bar (`FUN_00432074` → `FUN_00440a68`) |
+| Ammunition | `WeaponMount_CtorAmmunition` | 1–5, 13–16, 21, 26 | rounds | numeric (`FUN_00432124` → `AmmoWeaponGauge_Ctor` (`00440f78`)) |
+| Energy | `WeaponMount_CtorEnergy` | 7–12, 17, 19, 20, 23–25, 28 | a capacitor | LED bar (`FUN_00432074` → `EnergyWeaponGauge_Ctor` (`00440a68`)) |
 | ELF | `WeaponMount_CtorEnergy`, then vtable `ElfMountVtable` | 6, 22 | a capacitor | LED bar, as Energy |
 | Pod | `EcmPod_Ctor`/`TargetingPod_Ctor`/`ShieldPod_Ctor`/`TurboPod_Ctor`/`EnergyPod_Ctor` | 18, 29–32 | nothing, bar the Turbo Pod's charge | name only (`CockpitView_CreatePodGauge` → one of three `PodGauge` classes) |
 
@@ -73,15 +73,15 @@ Shared mount fields mean different things per class:
 
 ### Ammunition
 
-`FUN_0040e140` reads the magazine size from the template's field at `+0x3a` and powers the mount up holding a full one: `+0x7b = size`, `+0x7d = size << 8`. The gauge prints `+0x7d >> 8`.
+`WeaponMount_CtorAmmunition` (`0040e140`) reads the magazine size from the template's field at `+0x3a` and powers the mount up holding a full one: `+0x7b = size`, `+0x7d = size << 8`. The gauge prints `+0x7d >> 8`.
 
 Retail magazines: ATC20 2000, ATC35 1500, ATC50 1000, ATC75 750, ATC100 500, MSL6/8/10/24 6/8/10/24, MISSL 36, PLAS 20, LAEW 0.
 
 ### Energy
 
-`FUN_0040e074` writes `Q10Multiply(820, 1200) = 960` into **both** `+0x7b` and `+0x7d` and `20` into `+0x7f` — literals, identical for every energy weapon. A HERC powers up with its capacitors full.
+`WeaponMount_CtorEnergy` (`0040e074`) writes `Q10Multiply(820, 1200) = 960` into **both** `+0x7b` and `+0x7d` and `20` into `+0x7f` — literals, identical for every energy weapon. A HERC powers up with its capacitors full.
 
-`+0x7b` is a *request*, not a capacity: the mount's **power level**, a control the manual never mentions. `FUN_0040f4d8` drops it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with, ±80 a press over 0..1200 — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
+`+0x7b` is a *request*, not a capacity: the mount's **power level**, a control the manual never mentions. `WeaponMount_WakeCapacitor` (`0040f4d8`) drops it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with, ±80 a press over 0..1200 — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
 
 > `WeaponMount_DemandFullCharge` (`0040f4f0`) sets 1200 in one step and looks like the natural > mechanism, but its only caller has no reference of any kind in the image; neither is reachable in > the retail build.
 
@@ -108,7 +108,7 @@ Readiness (`WeaponMount_EnergyCanFire`) is `!destroyed && refireTimer == 0 && ch
 
 Both ELFs read `+0x36` = 400 against a charge target of 960, so a fresh trigger pull needs the full capacitor. The second clause is the sustain: `+0x33` means the mount fired on the previous tick, and while it is set the bar drops to one shot's 70, so the weapon empties itself over successive ticks and can only start again once it has climbed all the way back. There is no refire-timer term — which is consistent with both ELFs carrying a `+0x4c` of zero.
 
-`+0x33` and `+0x3b` are two 8-byte blocks. `WeaponMount_PrepareShot` sets both on firing; `WeaponMount_RefireTick` **ands** `+0x33` with `+0x3b` (`FUN_0040f881`) and then clears `+0x3b`. So `+0x33` survives only while the mount fires on every tick.
+`+0x33` and `+0x3b` are two 8-byte blocks. `WeaponMount_PrepareShot` sets both on firing; `WeaponMount_RefireTick` **ands** `+0x33` with `+0x3b` (`WeaponMount_AndFlagBlocks`, `0040f881`) and then clears `+0x3b`. So `+0x33` survives only while the mount fires on every tick.
 
 **`ElfMount_FireDispatch`** subtracts `template+0x38` unconditionally rather than capping it at the charge — the last partial shot takes the capacitor slightly negative, which is what ends the burst — and passes `Bullet_FireBurst` a **fixed 1200** as the shot power instead of the charge spent. Every shot of a burst therefore lands at full strength however far the capacitor has drained, which is what makes the ELF the damage outlier the manual describes from small `PROJ.DAT` figures.
 
@@ -124,10 +124,10 @@ The spin-up only runs while the mount is **ready**: `WeaponMounts_FireTrigger` t
 
 Every hardpoint whose mounting code is visible (`.GL +6 < 4`) gets its own copy of the weapon model when the mount is built:
 
-1. `FUN_0040df30` calls `FUN_0040fab0`, which instantiates `MECHWPNS.DTS`'s shape `template[0x22 + code * 2]` from the raw chunk `FUN_0040f998` cached, and binds it the `wpntex` atlas at `shape+0x26`.
-2. `FUN_00402fc0` stores the shape at `mount+0x10` and allocates `mount+0x14` as a **private copy** of its per-sequence frame array, `shape+0x24` entries long.
-3. `FUN_0040dd4c` translates the shape's own point lists by `WeaponMount_MuzzleOffset` — the mount point, not the muzzle. That private copy is why every mount can carry the same weapon and still sit and flash independently.
-4. `Mech_ConfigureLoadout` reads the hardpoint's bone from `FUN_0040e61c` (the `.GL` record's `+0`, the same bone the shot leaves from) and `FUN_00417530` stamps that transform id onto every part of the shape, so it rides the machine's own skeleton.
+1. `WeaponMount_CtorBase` (`0040df30`) calls `WeaponMount_ShapeForMountingCode` (`0040fab0`), which instantiates `MECHWPNS.DTS`'s shape `template[0x22 + code * 2]` from the raw chunk `WeaponModels_LoadShapeChunks` (`0040f998`) cached, and binds it the `wpntex` atlas at `shape+0x26`.
+2. `ShapeInstance_CtorCellFrames` (`00402fc0`) stores the shape at `mount+0x10` and allocates `mount+0x14` as a **private copy** of its per-sequence frame array, `shape+0x24` entries long.
+3. `Shape_TranslatePointLists` (`0040dd4c`) translates the shape's own point lists by `WeaponMount_MuzzleOffset` — the mount point, not the muzzle. That private copy is why every mount can carry the same weapon and still sit and flash independently.
+4. `Mech_ConfigureLoadout` reads the hardpoint's bone from `WeaponMount_HardpointBoneId` (`0040e61c`, the `.GL` record's `+0`, the same bone the shot leaves from) and `Shape_StampTransformId` (`00417530`) stamps that transform id onto every part of the shape, so it rides the machine's own skeleton.
 
 The animation is `WeaponMount_RefireTick`'s tail, and it is the whole of it:
 
@@ -173,7 +173,7 @@ A visibly-mounted hardpoint then throws its own gun as a debris object — the s
 
 A band change on a mount component rolls once to take that mount out, inside `Mech_ApplyDirectFireDamage`. It is decoded in [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction), which owns the damage side; `WeaponMounts_MountForHardpointSlot` (`00410670`) is the component-to-mount lookup it uses, matching on `.GL +0x17` rather than on a position in the mount array.
 
-## Names — `FUN_0040e18c`
+## Names — `WeaponMount_GetDisplayName` (`0040e18c`)
 
 **The simulator does not use the shell catalog's names.** `Weapons_LoadResourceTables` (`0040fc8c`) walks a 33-entry string-pointer array at `00498eb0` as it reads the template table and stores one pointer into each record's `+0x52`; that is what a gauge prints. The two spellings are tabulated per id in [`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-weapon-id-space--three-spellings-per-weapon) alongside each weapon's full name; the array itself is ported as `WeaponCatalog.MountNames`.
 
@@ -181,11 +181,11 @@ The name is chosen off the **resolved projectile**, not the weapon id: when the 
 
 > The subtype index is unbounded in the original. `MISSL` (id 21) points straight at the `BMSL` > record, subtype 4, and reads one past the four-entry table. The engine falls back to the id's own > name rather than reproducing a read off the end of a table. `BMSL` is Bull armament and no > player HERC can mount it.
 
-A pod row is the one place the name is decorated. `FUN_00441524` seeds its 11-char buffer with a literal space, appends the mount name, then appends `STRINGS0.STR` group 3 (`" POD"`) into whatever room is left — `" SHIELD POD"` exactly fills it. The Heads-Down Display's weapon list (`FUN_00450c54`) takes the undecorated name, so the same pod reads `SHIELD` there.
+A pod row is the one place the name is decorated. `PodGauge_Ctor` (`00441524`) seeds its 11-char buffer with a literal space, appends the mount name, then appends `STRINGS0.STR` group 3 (`" POD"`) into whatever room is left — `" SHIELD POD"` exactly fills it. The Heads-Down Display's weapon list (`HddDamageScreen_Update`, `00450c54`) takes the undecorated name, so the same pod reads `SHIELD` there.
 
 ## The manager — `mech+0x202`
 
-`MechLoadout_ConstructWeaponMounts` builds the base object (the mount array and its count); `FUN_004104ec` extends it for a locally-simulated machine with the selection and the fire groups. A remote machine gets the base class and never has either read.
+`MechLoadout_ConstructWeaponMounts` builds the base object (the mount array and its count); `WeaponMounts_CtorLocal` (`004104ec`) extends it for a locally-simulated machine with the selection and the fire groups. A remote machine gets the base class and never has either read.
 
 | Offset | Field |
 |---|---|
@@ -230,39 +230,39 @@ The third gate is **missile lock**, not ammunition: the mount's `vtable+0x60` su
 
 | Action | Key | Mouse | Reaches |
 |---|---|---|---|
-| Arm a row | `[1]`–`[0]` | left-click the row | `FUN_004106ac` |
-| Add/remove a row from the current chain | `[Alt]`+`[1]`–`[0]` | right-click the row | `FUN_004110ac` |
-| Step the armed weapon | `[W]` / `[Alt]`+`[W]` | — | `FUN_0041074c` |
-| Link the armed weapon | `[L]` | the LINK button | `FUN_00410f14` |
-| Next fire chain | `` [`] `` | the chain button | `FUN_00410ae4` |
+| Arm a row | `[1]`–`[0]` | left-click the row | `WeaponMounts_SelectByGauge` (`004106ac`) |
+| Add/remove a row from the current chain | `[Alt]`+`[1]`–`[0]` | right-click the row | `WeaponMounts_ToggleChainMember` (`004110ac`) |
+| Step the armed weapon | `[W]` / `[Alt]`+`[W]` | — | `WeaponMounts_StepSelection` (`0041074c`) |
+| Link the armed weapon | `[L]` | the LINK button | `WeaponMounts_ToggleLink` (`00410f14`) |
+| Next fire chain | `` [`] `` | the chain button | ``WeaponMounts_SetChain` (`00410ae4`)` |
 
 The two routes converge rather than duplicating: `CockpitWidgets_HandleCommand` answers a number key by indexing the cockpit's own ten-gauge array at `CockpitViewInstance+0x70`, calling `WeaponMounts_SelectByGauge` on that gauge and then pressing its select gadget — the same gadget the mouse hits, with the left-button bit. So the key runs the arm twice over, which is harmless, and anything the gadget does beyond arming it gets as well.
 
-The mouse's own split is not a modifier but the **button**: a row gadget's click handler (`FUN_00440ef0` for an energy row, `FUN_004414b4` for an ammunition one) branches on bit 1 of the value it is handed, and that value is the mouse-button word `0049db6c` — bit 0 left, bit 1 right. **A pod's row is the exception**: its handler takes no value at all, so both buttons toggle the pod and neither chains it ([`equipment-pods.md`](equipment-pods.md#only-two-pods-have-a-button)).
+The mouse's own split is not a modifier but the **button**: a row gadget's click handler (`EnergyWeaponGauge_OnChildClick` (`00440ef0`) for an energy row, `AmmoWeaponGauge_OnChildClick` (`004414b4`) for an ammunition one) branches on bit 1 of the value it is handed, and that value is the mouse-button word `0049db6c` — bit 0 left, bit 1 right. **A pod's row is the exception**: its handler takes no value at all, so both buttons toggle the pod and neither chains it ([`equipment-pods.md`](equipment-pods.md#only-two-pods-have-a-button)).
 
-> Command codes are **PC set-1 scancodes**, with `0x200` added for `[Alt]`. `0x26` is `L` and > `0x29` is `` ` ``, which is how `FUN_004421a0` binds them to the console panel's LINK and chain > children; `0x11`/`0x211` are `W`/`Alt+W`; `0x02`–`0x0b` and `0x202`–`0x20b` are the two number-key > banks. `FUN_0045fdac` is the dispatcher every code passes through.
+> Command codes are **PC set-1 scancodes**, with `0x200` added for `[Alt]`. `0x26` is `L` and > `0x29` is `` ` ``, which is how ``ConsoleButtons_HandleCommand` (`004421a0`)` binds them to the console panel's LINK and chain > children; `0x11`/`0x211` are `W`/`Alt+W`; `0x02`–`0x0b` and `0x202`–`0x20b` are the two number-key > banks. ``Sim_DispatchCommand` (`0045fdac`)` is the dispatcher every code passes through.
 
-### Arming — `FUN_004106ac` and `FUN_00410708`
+### Arming — `WeaponMounts_SelectByGauge` (`004106ac`) and `WeaponMounts_SetSelection` (`00410708`)
 
-`FUN_004106ac` finds the mount whose own gauge pointer (`+0x77`) matches, requires `+0x4c`, calls `FUN_00410708` and sets the single-fire flag. **A pod fails this twice over**: its `+0x4c` is cleared by `FUN_0040e234`, and its gauge-match slot (`FUN_0040df00`) returns 0 unconditionally.
+`WeaponMounts_SelectByGauge` finds the mount whose own gauge pointer (`+0x77`) matches, requires `+0x4c`, calls `WeaponMounts_SetSelection` and sets the single-fire flag. **A pod fails this twice over**: its `+0x4c` is cleared by `Pod_CtorBase` (`0040e234`), and its gauge-match slot (`WeaponMount_MatchGaugeNever`, `0040df00`) returns 0 unconditionally.
 
-`FUN_00410708` is the only writer of `+0x1d`, and it normalises a linked pair onto its first half — arming the right-hand weapon of a linked pair arms the left-hand one instead, since the second half's partner offset is negative. That is what keeps a pair's two rows agreeing.
+`WeaponMounts_SetSelection` is the only writer of `+0x1d`, and it normalises a linked pair onto its first half — arming the right-hand weapon of a linked pair arms the left-hand one instead, since the second half's partner offset is negative. That is what keeps a pair's two rows agreeing.
 
-**Single fire (`+0x18`).** Set by arming a weapon by hand, cleared by `[W]`/`[Alt]`+`[W]` and by firing. While it is set, the per-frame pass leaves the selection alone however unready the weapon is; while it is clear, `WeaponMounts_AdvanceToReady` (`00410a3c`) hands the selection to the next mount in the chain that is [ready](#readiness--weaponmounts_mountisready-00410970). That is the whole of the manual's "select a weapon to single-fire … once you fire, the current firing chain will resume". The gate is not in the advance itself but in `WeaponMounts_ChainReady` (`00410a04`), the wrapper it asks: with `+0x18` set that returns ready without testing anything, so the chain cannot step. The flag is cleared at the key handler, not inside `FUN_0041074c`, so the chain switch and the per-frame advance both step the selection without clearing it.
+**Single fire (`+0x18`).** Set by arming a weapon by hand, cleared by `[W]`/`[Alt]`+`[W]` and by firing. While it is set, the per-frame pass leaves the selection alone however unready the weapon is; while it is clear, `WeaponMounts_AdvanceToReady` (`00410a3c`) hands the selection to the next mount in the chain that is [ready](#readiness--weaponmounts_mountisready-00410970). That is the whole of the manual's "select a weapon to single-fire … once you fire, the current firing chain will resume". The gate is not in the advance itself but in `WeaponMounts_ChainReady` (`00410a04`), the wrapper it asks: with `+0x18` set that returns ready without testing anything, so the chain cannot step. The flag is cleared at the key handler, not inside `WeaponMounts_StepSelection` (`0041074c`), so the chain switch and the per-frame advance both step the selection without clearing it.
 
-`FUN_0041074c` steps to the next mount that is selectable, in the current chain, and either unlinked or the *first* half of a linked pair.
+`WeaponMounts_StepSelection` steps to the next mount that is selectable, in the current chain, and either unlinked or the *first* half of a linked pair.
 
-### Chaining — `FUN_004110ac`
+### Chaining — `WeaponMounts_ToggleChainMember` (`004110ac`)
 
 Finds the mount by its `.GL` fire-chain byte rather than by gauge pointer, requires the template's int32 at `0x30` to be positive, and **XORs** its bit in the current chain's array. It does not arm anything. `0x30` is the weapon's **range**, so this gate amounts to "is a weapon at all" — every real firing weapon carries a large positive value and every pod carries zero.
 
-### Linking — `FUN_00410f14`
+### Linking — `WeaponMounts_ToggleLink` (`00410f14`)
 
 Two conditions, both from the chassis: the armed mount's `.GL` record names a partner (`+0x16` non-zero), and that partner carries the **same weapon id**. Both halves' `+0x4b` flip together. The manual states the same rule from the other side — "any two identical weapons mounted symmetrically on the HERC (on opposite hard points)".
 
 Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's row when its *partner* is the armed one, so both rows of a pair draw armed together. [Readiness](#readiness--weaponmounts_mountisready-00410970) is joined too, so a pair is ready only when both halves are. A destroyed or empty half unlinks the pair and hands the selection to the survivor.
 
-> One LINK press runs the toggle **three** times in the original: the button's own click handler > (`FUN_0044202c`), the manager's next per-frame pass reading the button's latch byte, and that > pass writing the byte back so the widget sees it change and calls the handler again. Three flips > of one bit is one flip. Herculan reproduces the net effect, not the round trip.
+> One LINK press runs the toggle **three** times in the original: the button's own click handler > (`ConsoleButtons_SetLinkLatch`, `0044202c`), the manager's next per-frame pass reading the button's latch byte, and that > pass writing the byte back so the widget sees it change and calls the handler again. Three flips > of one bit is one flip. Herculan reproduces the net effect, not the round trip.
 
 ### Console buttons
 

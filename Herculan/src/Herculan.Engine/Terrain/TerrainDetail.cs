@@ -18,7 +18,7 @@ public static class TerrainDetail {
 	/// <summary>
 	/// The table at <c>DAT_004a0bcc</c>, in cells — the draw radius each of the option's three
 	/// settings selects. Its neighbour at <c>DAT_0049e2da</c> maps the same three onto the option
-	/// panel's labels (<c>FUN_004571f4</c> case 4), which is the second source for there being
+	/// panel's labels (<c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>) case 4), which is the second source for there being
 	/// exactly three.
 	/// </summary>
 	public static readonly int[] RadiusInCells = { 6, 10, 14 };

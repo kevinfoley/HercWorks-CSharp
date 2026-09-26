@@ -7,7 +7,7 @@ namespace Herculan.Engine.Input;
 /// One frame of a joystick, in the abstract shape the binding layer consumes — four axes, a
 /// four-way hat and eight buttons.
 ///
-/// <para>This is the retail device block <c>FUN_0045c314</c> builds at <c>DAT_004d24b0</c> and
+/// <para>This is the retail device block <c>Joystick_ReadWithResponse</c> (<c>0045c314</c>) builds at <c>DAT_004d24b0</c> and
 /// <c>FUN_0045ba8c</c> copies to <c>DAT_004d2487</c> (the device struct's <c>+0x0d</c> onwards): the
 /// four normalised axes at <c>+0x0d</c>/<c>+0x11</c>/<c>+0x15</c>/<c>+0x19</c>, the eight button
 /// bytes at <c>+0x1d</c>..<c>+0x24</c> and the four hat bytes at <c>+0x25</c>..<c>+0x28</c>.
@@ -15,7 +15,7 @@ namespace Herculan.Engine.Input;
 /// <c>prefs.cfg</c> unchanged — see <see cref="JoystickDeviceMap"/> for the layer that decides which
 /// physical control fills which field here.</para>
 ///
-/// <para><b>The retail axis roles are fixed.</b> <c>FUN_00477614</c> reads <c>joyGetPosEx</c>'s X and
+/// <para><b>The retail axis roles are fixed.</b> <c>Joystick_Poll</c> (<c>00477614</c>) reads <c>joyGetPosEx</c>'s X and
 /// Y for the stick, Z for the throttle and R for the rudder, falling back to a <i>second</i> stick's
 /// X and Y when the first reports no <c>JOYCAPS_HASZ</c>/<c>HASR</c>. U and V are not even requested
 /// in its <c>dwFlags</c> (<c>0xccf</c>), so a fourth and fifth analogue control has nowhere to go in
@@ -36,7 +36,7 @@ public readonly record struct JoystickReading(
 
 	/// <summary>
 	/// The width of the device layer's own reading, before the response curve:
-	/// <c>FUN_00477750</c> normalises a raw <c>joyGetPosEx</c> value as
+	/// <c>Joystick_NormaliseAxes</c> (<c>00477750</c>) normalises a raw <c>joyGetPosEx</c> value as
 	/// <c>(raw &lt;&lt; 8) / 0xffff - 0x80</c>, so an axis arrives spanning <c>-0x80..+0x7f</c>. The
 	/// device object's resolution field (<c>+0x16</c>, set to 7 by <c>FUN_004774d0</c>) is what fixes
 	/// that width.
@@ -62,9 +62,9 @@ public readonly record struct JoystickReading(
 		index >= 0 && index < JoystickCapabilities.MaxButtons && (Buttons & (1 << index)) != 0;
 
 	/// <summary>
-	/// The response curve every joystick axis goes through — <c>FUN_0045c314</c>'s arm for response
+	/// The response curve every joystick axis goes through — <c>Joystick_ReadWithResponse</c> (<c>0045c314</c>)'s arm for response
 	/// mode 1, which is the mode the joystick device is built with:
-	/// <c>FUN_00459dd4</c> constructs it as <c>FUN_0045c27c(obj, 3, 0x201, 0xf, 1)</c>, and that last
+	/// <c>Joystick_InitAndSeedBindings</c> (<c>00459dd4</c>) constructs it as <c>JoystickDevice_Ctor(obj, 3, 0x201, 0xf, 1)</c> (<c>0045c27c</c>), and that last
 	/// argument is the field at <c>+0x28</c> the curve is selected on. (Modes 0 and 2 exist and are
 	/// linear; nothing constructs a joystick with either.)
 	///
@@ -120,7 +120,7 @@ public readonly record struct JoystickReading(
 
 /// <summary>
 /// The hat's four directions, as the original keeps them: four separate bytes at the device struct's
-/// <c>+0x25</c>..<c>+0x28</c>, filled by <c>FUN_00477614</c> from <c>dwPOV</c>.
+/// <c>+0x25</c>..<c>+0x28</c>, filled by <c>Joystick_Poll</c> (<c>00477614</c>) from <c>dwPOV</c>.
 ///
 /// <para><b>Only the four cardinals exist.</b> That function tests <c>dwPOV</c> against exactly
 /// <c>0</c>, <c>9000</c>, <c>18000</c> and <c>27000</c> and drops anything else, so a hat held on a

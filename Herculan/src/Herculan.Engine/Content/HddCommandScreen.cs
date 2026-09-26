@@ -7,15 +7,15 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// The command display's own state and the actions its buttons and keys perform —
-/// <c>HddCommandScreen</c> (<c>FUN_0044c264</c>) minus the drawing, which is
+/// <c>HddCommandScreen</c> (<c>HddCommandScreen_Ctor</c>, <c>0044c264</c>) minus the drawing, which is
 /// <see cref="Overlay2DRenderer"/>'s.
 /// </summary>
 /// <remarks>
 /// <para>The screen is a small state machine and the manual describes it as one: pick a pilot, pick
 /// an order, pick a target on the map if the order wants one, then XMIT or CANCEL. Every transition
-/// below is one of the original's — <c>FUN_0044da70</c> selects a pilot, <c>FUN_0044d9cc</c> an
-/// order, <c>FUN_0044d6b8</c> resolves a map click into a unit or a gridpoint, and
-/// <c>FUN_0044dbe8</c> tears the whole thing back down.</para>
+/// below is one of the original's — <c>HddCommandScreen_SelectPilot</c> (<c>0044da70</c>) selects a pilot, <c>HddCommandScreen_SelectOrder</c> (<c>0044d9cc</c>) an
+/// order, <c>HddCommandScreen_PickTarget</c> (<c>0044d6b8</c>) resolves a map click into a unit or a gridpoint, and
+/// <c>HddCommandScreen_CancelTransmission</c> (<c>0044dbe8</c>) tears the whole thing back down.</para>
 ///
 /// <para><b>What a transmitted order does.</b> It reaches the addressed squadmate's AI through
 /// <see cref="SquadOrders.SendToSlot"/>, which is where the eight orders turn into standing squad
@@ -28,7 +28,7 @@ public sealed class HddCommandScreen {
 	/// <summary>
 	/// <c>STRINGS0.STR</c> group holding the four message-row prompts: <c>SELECT PILOT</c>,
 	/// <c>SELECT COMMAND</c>, <c>DESIGNATE LOCATION</c>, <c>DESIGNATE TARGET</c>. The screen picks
-	/// between them with <c>FUN_0044dc44</c>'s own three-way test.
+	/// between them with <c>HddCommandScreen_SetMessageRow</c> (<c>0044dc44</c>)'s own three-way test.
 	/// </summary>
 	public const int PromptGroup = 32;
 
@@ -45,7 +45,7 @@ public sealed class HddCommandScreen {
 	public const int DesignateTargetPrompt = 3;
 
 	/// <summary>
-	/// Coarse ticks between blink toggles — <c>FUN_0044c960</c>'s <c>+ 0x1e</c> against
+	/// Coarse ticks between blink toggles — <c>HddCommandScreen_Update</c> (<c>0044c960</c>)'s <c>+ 0x1e</c> against
 	/// <c>Time_GetCoarseTicks</c>, whose unit is 16 ms.
 	/// </summary>
 	public const int BlinkTicks = 30;
@@ -136,7 +136,7 @@ public sealed class HddCommandScreen {
 	}
 
 	/// <summary>
-	/// Selects a comm box, or -1 for none — <c>FUN_0044da70</c>. Selecting a different pilot drops
+	/// Selects a comm box, or -1 for none — <c>HddCommandScreen_SelectPilot</c> (<c>0044da70</c>). Selecting a different pilot drops
 	/// whatever order was armed for the previous one, which is what that function's first branch does
 	/// before it moves the selection.
 	/// </summary>
@@ -153,7 +153,7 @@ public sealed class HddCommandScreen {
 	}
 
 	/// <summary>
-	/// Arms an order, or clears it — <c>FUN_0044d9cc</c>. The four that want something picked on the
+	/// Arms an order, or clears it — <c>HddCommandScreen_SelectOrder</c> (<c>0044d9cc</c>). The four that want something picked on the
 	/// map put the screen into its designate state; the other four are ready to transmit at once.
 	/// </summary>
 	public void SelectOrder(HddOrder? order) {
@@ -168,7 +168,7 @@ public sealed class HddCommandScreen {
 
 	/// <summary>
 	/// Steps the armed order one place along the list, wrapping — the <c>,&lt;</c> and <c>.&gt;</c>
-	/// keys (<c>FUN_0044ee60</c> and <c>FUN_0044ee20</c>). Does nothing with no order armed, which is
+	/// keys (<c>HddCommandScreen_PreviousOrder</c> (<c>0044ee60</c>) and <c>HddCommandScreen_NextOrder</c> (<c>0044ee20</c>)). Does nothing with no order armed, which is
 	/// both functions' own guard.
 	/// </summary>
 	public void StepOrder(int delta) {
@@ -183,8 +183,8 @@ public sealed class HddCommandScreen {
 	/// <summary>
 	/// Resolves a click in the map viewport, at <paramref name="artX"/>/<paramref name="artY"/> device
 	/// pixels inside it. With an order armed that wants a target this is the pick
-	/// (<c>FUN_0044d6b8</c>); otherwise it is a pilot selection, since clicking a squadmate's marker
-	/// is one of the three ways the manual gives for choosing who to talk to (<c>FUN_0044d804</c>).
+	/// (<c>HddCommandScreen_PickTarget</c>, <c>0044d6b8</c>); otherwise it is a pilot selection, since clicking a squadmate's marker
+	/// is one of the three ways the manual gives for choosing who to talk to (<c>HddCommandScreen_PickPilot</c>, <c>0044d804</c>).
 	/// </summary>
 	/// <param name="objects">Everything live, for the unit hit test.</param>
 	/// <returns>Whether the click resolved to anything.</returns>
@@ -246,7 +246,7 @@ public sealed class HddCommandScreen {
 	}
 
 	/// <summary>
-	/// Drops the whole transmission — CANCEL and [Backspace], which is <c>FUN_0044dbe8</c>: the order,
+	/// Drops the whole transmission — CANCEL and [Backspace], which is <c>HddCommandScreen_CancelTransmission</c> (<c>0044dbe8</c>): the order,
 	/// the pick and the pilot selection all go together.
 	/// </summary>
 	public void Cancel() {
@@ -297,7 +297,7 @@ public sealed class HddCommandScreen {
 	}
 
 	/// <summary>
-	/// Which of the four prompts the message row shows — <c>FUN_0044dc44</c>'s own derivation, which
+	/// Which of the four prompts the message row shows — <c>HddCommandScreen_SetMessageRow</c> (<c>0044dc44</c>)'s own derivation, which
 	/// asks only whether a pilot is selected and, if an order is armed, which of the two picks it
 	/// wants.
 	/// </summary>
@@ -326,7 +326,7 @@ public sealed class HddCommandScreen {
 
 	/// <summary>
 	/// The nearest live object within the marker's own click radius of a world point —
-	/// <c>FUN_0044d860</c>, which converts the click to world units and tests each object against a
+	/// <c>HddCommandScreen_HitTestMarker</c> (<c>0044d860</c>), which converts the click to world units and tests each object against a
 	/// radius scaled from <c>5 &lt;&lt; XCoordShift</c> device pixels.
 	/// </summary>
 	private SimObject? HitTest(int worldX, int worldY, IEnumerable<SimObject> objects) {

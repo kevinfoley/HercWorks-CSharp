@@ -61,7 +61,7 @@ public sealed class SquadMessagePort {
 
 	/// <summary>
 	/// Whether this is the training mission's port class (vtable <c>0049baa8</c>) rather than the
-	/// ordinary one (<c>0049bad4</c>). Its post (<c>FUN_004362e4</c>) takes an id's first entry
+	/// ordinary one (<c>0049bad4</c>). Its post (<c>TrainingMessagePort_Post</c>, <c>004362e4</c>) takes an id's first entry
 	/// without rolling and whatever the subject, and its paint joins that entry with the ones after
 	/// it into one word-wrapped block — see <see cref="Queued.Sentences"/> and
 	/// <see cref="TrainingMessageLayout"/>.
@@ -152,7 +152,7 @@ public sealed class SquadMessagePort {
 		_now = coarseTicks;
 
 		// The port's own update sets the ready latch only for a line that needs no comm box: any due
-		// line on the training port (FUN_004365d0), and on the ordinary one only a line whose attribute
+		// line on the training port (TrainingMessagePort_Update, 004365d0), and on the ordinary one only a line whose attribute
 		// byte 7 is set (PilotMessagePort_Update, 004361cc). A squadmate's line waits for its box —
 		// see MarkReady.
 		if (_activated && _current is { } due && (Training || due.ShowsWithoutCommBox)) {

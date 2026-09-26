@@ -16,10 +16,10 @@ namespace Herculan.Engine.Numerics;
 /// </code>
 /// <para>which is what lets <see cref="Kind"/> 1 — rotation about Z alone, by far the commonest
 /// case — touch just the first four entries and skip the rest. Recovered from
-/// <c>FUN_0047f914</c>'s index pattern and confirmed against <c>BuildEulerRotationMatrixQ14</c>'s
+/// <c>Transform_Concat</c> (<c>0047f914</c>)'s index pattern and confirmed against <c>BuildEulerRotationMatrixQ14</c>'s
 /// Z-only fast path.</para>
 ///
-/// <para>Vectors are <b>row vectors</b>: <c>p' = p * M + t</c> (<c>FUN_00480330</c>), so
+/// <para>Vectors are <b>row vectors</b>: <c>p' = p * M + t</c> (<c>Transform_ApplyToPoint</c>, <c>00480330</c>), so
 /// <see cref="Concat"/>'s result applies its first argument before its second.</para>
 /// </summary>
 public struct Transform3 {
@@ -129,7 +129,7 @@ public struct Transform3 {
 	}
 
 	/// <summary>
-	/// <c>FUN_0047f914</c> — composes two transforms. <paramref name="first"/> applies before
+	/// <c>Transform_Concat</c> (<c>0047f914</c>) — composes two transforms. <paramref name="first"/> applies before
 	/// <paramref name="second"/> (row-vector convention).
 	/// </summary>
 	public static Transform3 Concat(in Transform3 first, in Transform3 second) {
@@ -203,7 +203,7 @@ public struct Transform3 {
 		return result;
 	}
 
-	/// <summary><c>FUN_00480330</c> — <c>p * M + t</c>, in this transform's space.</summary>
+	/// <summary><c>Transform_ApplyToPoint</c> (<c>00480330</c>) — <c>p * M + t</c>, in this transform's space.</summary>
 	public readonly Vec3i TransformPoint(int x, int y, int z) {
 		if (Kind < KindZOnly) {
 			return new Vec3i(X + x, Y + y, Z + z);

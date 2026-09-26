@@ -37,7 +37,7 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
 | `h00 + h11 - (h01 + h10) < 1` | 2 | along the `(0,0)`–`(1,1)` diagonal |
 | otherwise | 0 | along the `(0,1)`–`(1,0)` anti-diagonal |
 
-Normals are built in *raw height units*, not world units: the horizontal components are plain corner differences and the vertical one is `cellSize / HeightScale`, which is a true cross product divided through by `HeightScale`. All six components are doubled before `FUN_0046c138` rescales them to 0x800, which changes nothing. The last row and column are skipped — no east/north neighbour to difference against — so they keep a flat `(0, 0, 0x800)` normal and selector 0.
+Normals are built in *raw height units*, not world units: the horizontal components are plain corner differences and the vertical one is `cellSize / HeightScale`, which is a true cross product divided through by `HeightScale`. All six components are doubled before `Math_NormalizeVec3ShortToLength` (`0046c138`) rescales them to 0x800, which changes nothing. The last row and column are skipped — no east/north neighbour to difference against — so they keep a flat `(0, 0, 0x800)` normal and selector 0.
 
 ## Loading pipeline
 
@@ -71,13 +71,13 @@ Once the whole roster is down, `Terrain_FlattenStructureFootprints` (`00471190`)
 
 The scratch byte's three bits all belong to this pass — bit 0 marked, bit 1 counted, bit 2 written. `Terrain_SetCellScratch` (`00470cd0`) and `Terrain_GetCellScratch` (`00470cf4`) are its accessors; `HeightGrid_SetCellScratchByte` (`00470c68`) is the loader's, addressing the same array by cell pointer instead of coordinates.
 
-**The bits are wiped before anything else reads the array.** `HeightGrid_ClearCellScratch` (`0046e840`) `memset`s the whole thing to 0 as the first act of `maybe_Scene_SubmitFrameObjects` (`0042841c`), which runs every frame — so the pass's marks never survive into the frame that follows mission spawn. From then on the same byte is a per-cell pending-object count: `FUN_00470cac` increments it as an object registers against a cell, and `Terrain_DrawCellObjects` (`0046e4a0`) reads it, dispatches that many, and clears that cell back to 0. Nothing bridges the two uses, and without the per-frame `memset` the first frame would read a flattened base's marks as object counts.
+**The bits are wiped before anything else reads the array.** `HeightGrid_ClearCellScratch` (`0046e840`) `memset`s the whole thing to 0 as the first act of `maybe_Scene_SubmitFrameObjects` (`0042841c`), which runs every frame — so the pass's marks never survive into the frame that follows mission spawn. From then on the same byte is a per-cell pending-object count: `Terrain_IncrementCellObjectCount` (`00470cac`) increments it as an object registers against a cell, and `Terrain_DrawCellObjects` (`0046e4a0`) reads it, dispatches that many, and clears that cell back to 0. Nothing bridges the two uses, and without the per-frame `memset` the first frame would read a flattened base's marks as object counts.
 
 Two divergences in the port, both deliberate. The original bounds-checks nothing when marking beyond refusing to step to a negative index, so a structure near a zone edge writes past the array; the port clamps to the grid, since an out-of-bounds write is not behaviour worth reproducing. And the original walks both axes to `1 << WidthShift` in `00471190` and `00470edc`; the port uses the grid's own height, which cannot differ on retail data since every zone is square.
 
 ## Ray-versus-terrain — `Terrain_RayWalk` (`0046e87c`)
 
-The terrain module's largest function (5129 bytes). Takes two world points and reports where the segment between them first passes into the ground. Its last argument selects one of two bodies over a shared walk: **mode 0** is the thin-ray query (weapon fire, via `Sim_RaycastTerrain`); **mode 1** sweeps a volume instead, through `FUN_0046fe84`/`FUN_0046ff74`/`FUN_0046fcac`, and is the movement collision path. Only mode 0 is described here.
+The terrain module's largest function (5129 bytes). Takes two world points and reports where the segment between them first passes into the ground. Its last argument selects one of two bodies over a shared walk: **mode 0** is the thin-ray query (weapon fire, via `Sim_RaycastTerrain`); **mode 1** sweeps a volume instead, through `Terrain_FaceBlocksAt` (`0046fe84`)/`Terrain_EdgeFaceBlocks` (`0046ff74`)/`FUN_0046fcac`, and is the movement collision path. Only mode 0 is described here.
 
 Setup: halve the segment delta until every component fits ±32000 (mode 1 packs it into three shorts), take four Q16 slopes — `dy/dx`, `dz/dx`, `dx/dy`, `dz/dy`, each falling back to 1.0 on a zero denominator — and classify the ground-plane delta into an **octant** 0–7, which encodes the major axis and both step signs in one value. Ties make X the major axis.
 
@@ -107,8 +107,8 @@ Returns no-hit for a segment starting outside the grid or walking off its edge. 
 
 ## Consumers outside the terrain system
 
-- **Rocket ground-impact detonation** (`FUN_00409d2c`) checks altitude against `Terrain_HeightQuery` every tick and detonates the instant a projectile dips below ground — see [`../simulation/damage-system.md`](../simulation/damage-system.md#a-mech--mech_applyexplosivedamage-004187d0).
-- **A flyer's airframe contact probes** (`Razor_MovementTick`, assumed `flyersys.cpp` ([Open](#open))). Six points on the airframe are each transformed into world space and tested against `Terrain_HeightQuery`, and all but one also raycast via `FUN_00426528` (see [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shared-raycast--sim_raycastobjectlist-00426528)). A contact damages the component that touched and kicks the airframe away from it. This is the flyer's whole collision model, not an assist — see [`../simulation/razor-flight.md`](../simulation/razor-flight.md#contact-probes).
+- **Rocket ground-impact detonation** (`Meteor_Tick`, `00409d2c`) checks altitude against `Terrain_HeightQuery` every tick and detonates the instant a projectile dips below ground — see [`../simulation/damage-system.md`](../simulation/damage-system.md#a-mech--mech_applyexplosivedamage-004187d0).
+- **A flyer's airframe contact probes** (`Razor_MovementTick`, assumed `flyersys.cpp` ([Open](#open))). Six points on the airframe are each transformed into world space and tested against `Terrain_HeightQuery`, and all but one also raycast via `Sim_RaycastObjectList` (`00426528`, see [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shared-raycast--sim_raycastobjectlist-00426528)). A contact damages the component that touched and kicks the airframe away from it. This is the flyer's whole collision model, not an assist — see [`../simulation/razor-flight.md`](../simulation/razor-flight.md#contact-probes).
 
 ## Open
 

@@ -3,9 +3,9 @@ using HercWorks.Core.Data.File.Gau;
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// The front window's floating scanner repeater — <c>FUN_0043f2b0</c>, reached from
+/// The front window's floating scanner repeater — <c>HudScanner_Paint</c> (<c>0043f2b0</c>), reached from
 /// <c>Gunsight_Paint</c> (<c>0043d5c8</c>) and <c>Gunsight_UpdateAndPaint</c> (<c>0043d6dc</c>)
-/// through the one-line <c>FUN_0043e0ec</c>. It is the last thing the gunsight complex draws.
+/// through the one-line <c>Gunsight_PaintHudScanner</c> (<c>0043e0ec</c>). It is the last thing the gunsight complex draws.
 ///
 /// <para>It plots the <b>same contact list</b> as the MFD's F4 screen — it calls that screen's own
 /// update slot to rebuild it, reaching the screen object through

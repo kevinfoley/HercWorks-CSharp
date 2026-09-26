@@ -31,7 +31,7 @@ public sealed partial class MechObject {
 				return;
 
 			// A structure is shot at its first surviving component: the original's vtable +0x54
-			// (FUN_00406868) returns the first index whose damage word is non-zero when it is handed a
+			// (Base_FirstLiveComponent, 00406868) returns the first index whose damage word is non-zero when it is handed a
 			// null second argument, which is what Ai_AimAndFire passes.
 			case BaseObject structure when structure.TargetClass == TargetClass.Structure:
 				FireAtPoint(world, structure.ComponentPosition(FirstLiveComponent(structure)), aspect,
@@ -237,7 +237,7 @@ public sealed partial class MechObject {
 		Detection.HeadingToward(Position, target.Position) - (short)target.Heading + target.AimTwist);
 
 	/// <summary>
-	/// <c>FUN_00406868</c> with a null second argument: the first component of a structure that is
+	/// <c>Base_FirstLiveComponent</c> (<c>00406868</c>) with a null second argument: the first component of a structure that is
 	/// still standing, or −1 when none is.
 	/// </summary>
 	private static int FirstLiveComponent(BaseObject structure) {

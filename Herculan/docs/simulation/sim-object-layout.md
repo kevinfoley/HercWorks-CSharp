@@ -33,7 +33,7 @@ Once a function's parameter is typed with `SimObject *` or `MechObject *`, the d
 ```
 root (004a0b98)                     ── SimObjectBase_Constructor (00402188)
 ├── projectile base (004987a0)      ── rocket, bullet, beam tracer, one dead class
-└── shape layer (004973ac/004973cc) ── FUN_0040332c / FUN_00403368 / FUN_004033a4
+└── shape layer (004973ac/004973cc) ── SimObjectBase_ConstructAnimated / _ConstructStatic / _ConstructWithDetailTable (0040332c / 00403368 / 004033a4)
     └── SimObject (0049a54c)
         ├── MechObject  (0049a282)  ── Mech_Constructor  (00415bb0)
         ├── FlyerObject (0049a5e0)  ── Flyer_Constructor (004215f4)

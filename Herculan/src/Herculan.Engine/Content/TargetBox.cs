@@ -5,9 +5,9 @@ namespace Herculan.Engine.Content;
 /// and the arrow that replaces it when the selection is off to one side.
 ///
 /// <para>Reverse-engineered from child 5 of the roving-gunsight complex — constructed by
-/// <c>Gau_RovingGunsightWidget</c> (<c>0043c7d8</c>) through <c>FUN_0043b928</c> and painted by
-/// <c>FUN_0043b950</c>. The complex feeds it a 38-byte state block once a frame
-/// (<c>Gunsight_SetValues</c>, <c>0043d98c</c>) that <c>FUN_0043d6dc</c> has just filled from
+/// <c>Gau_RovingGunsightWidget</c> (<c>0043c7d8</c>) through <c>Gunsight_TargetIndicator_Ctor</c> (<c>0043b928</c>) and painted by
+/// <c>Gunsight_TargetIndicatorPaint</c> (<c>0043b950</c>). The complex feeds it a 38-byte state block once a frame
+/// (<c>Gunsight_SetValues</c>, <c>0043d98c</c>) that <c>Gunsight_UpdateAndPaint</c> (<c>0043d6dc</c>) has just filled from
 /// <c>CockpitView+0x26c</c>..<c>+0x27e</c> — the selected object, its world aim point, and the
 /// component the Targeting Pod has picked out of it.</para>
 ///
@@ -18,7 +18,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para><b>Two states, never both.</b> Inside <see cref="OnTargetTolerance"/> of the reticle the box
 /// is not drawn at all: the crosshair sprite itself changes frame instead (child 4,
-/// <c>FUN_0043b7e0</c>), which is what "on target" looks like. Outside it, the box is drawn. The
+/// <c>Gunsight_ReticlePaint</c> (<c>0043b7e0</c>)), which is what "on target" looks like. Outside it, the box is drawn. The
 /// arrow is a separate test on the same frame — it appears whenever the target does not project
 /// inside <see cref="HercWorks.Core.Data.File.Gau.HGunsightArea"/>, which every retail file places
 /// well inside the canopy's window opening so the arrow never lands on the cockpit frame.</para>

@@ -7,22 +7,22 @@ public enum FlyerThinkSlot {
 	/// <summary>No think at all: <c>deciding</c>, <c>sleeping</c> and <c>dead</c>.</summary>
 	None,
 
-	/// <summary><c>FUN_00422ca8</c> — the <c>attacking</c> think.</summary>
+	/// <summary><c>Flyer_BehaviourAttackThink</c> (<c>00422ca8</c>) — the <c>attacking</c> think.</summary>
 	Attack,
 
-	/// <summary><c>FUN_00422b34</c> — <c>patrolling</c>: fly the route, and take any target.</summary>
+	/// <summary><c>Flyer_BehaviourPatrolThink</c> (<c>00422b34</c>) — <c>patrolling</c>: fly the route, and take any target.</summary>
 	Patrol,
 
-	/// <summary><c>FUN_00422a80</c> — <c>search and destroy</c>: fly the route, take only the order's target.</summary>
+	/// <summary><c>Flyer_BehaviourSearchDestroyThink</c> (<c>00422a80</c>) — <c>search and destroy</c>: fly the route, take only the order's target.</summary>
 	SearchDestroy,
 
-	/// <summary><c>FUN_00422bdc</c> — <c>scouting</c>: fly the route and nothing else.</summary>
+	/// <summary><c>Flyer_BehaviourScoutThink</c> (<c>00422bdc</c>) — <c>scouting</c>: fly the route and nothing else.</summary>
 	Scout
 }
 
 /// <summary>
 /// One of the <b>seven</b> behaviour state descriptors the <c>Flyer</c> class has of its own — the
-/// <c>0x3c</c>-byte records at <c>00499cf8</c> that <c>FUN_00414c65</c> fills at startup, which is
+/// <c>0x3c</c>-byte records at <c>00499cf8</c> that <c>Flyer_BuildStateTable</c> (<c>00414c65</c>) fills at startup, which is
 /// the flyer's counterpart of <c>Behaviour_BuildStateTable</c>'s 22-entry mech table
 /// (<see cref="BehaviourState"/>). The two tables share nothing but their shape: a flyer's states
 /// have their own names, their own dwell times and their own thinks, and the stride is two bytes
@@ -30,13 +30,13 @@ public enum FlyerThinkSlot {
 /// appears on the player's [F7] comm page.
 ///
 /// <para>The dispatch is identical, though, and deliberately so: the flyer's vtable slots
-/// <c>+0x14</c>/<c>+0x18</c>/<c>+0x1c</c> (<c>FUN_004217fc</c>, <c>FUN_0042184c</c>,
-/// <c>FUN_00421888</c>) are the same three descriptor dispatchers a machine has, so
+/// <c>+0x14</c>/<c>+0x18</c>/<c>+0x1c</c> (<c>Flyer_DispatchMove</c> (<c>004217fc</c>), <c>Flyer_DispatchThink</c> (<c>0042184c</c>),
+/// <c>Flyer_DispatchReassess</c> (<c>00421888</c>)) are the same three descriptor dispatchers a machine has, so
 /// <c>Mech_AiTick</c> (<c>00411cec</c>) drives an aircraft exactly as it drives a HERC. See
 /// docs/simulation/ai-dispatch.md for the model and docs/simulation/ai-flyers.md for this
 /// table.</para>
 ///
-/// <para><b>Every state's reassess slot is the same function</b> — <c>FUN_00422d00</c>, which maps
+/// <para><b>Every state's reassess slot is the same function</b> — <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>), which maps
 /// the group's current order verb onto a state. There is no combat reassess: an aircraft picks its
 /// target inside its think and leaves the state alone.</para>
 /// </summary>
@@ -63,14 +63,14 @@ public sealed class FlyerBehaviourState {
 	/// </summary>
 	public int Dwell { get; }
 
-	/// <summary>Descriptor <c>+0x08</c> as the 16-bit mask <c>FUN_00414c65</c> writes.</summary>
+	/// <summary>Descriptor <c>+0x08</c> as the 16-bit mask <c>Flyer_BuildStateTable</c> (<c>00414c65</c>) writes.</summary>
 	public int Flags { get; }
 
 	/// <inheritdoc cref="FlyerThinkSlot"/>
 	public FlyerThinkSlot Think { get; }
 
 	/// <summary>
-	/// Whether the descriptor's <c>+0x24</c> move slot holds <c>FUN_004218c4</c>, the flyer's move.
+	/// Whether the descriptor's <c>+0x24</c> move slot holds <c>Flyer_MovementTick</c> (<c>004218c4</c>), the flyer's move.
 	/// Four of the seven do; <c>deciding</c>, <c>sleeping</c> and <c>dead</c> hold a null triple, so
 	/// an aircraft in any of them stops dead in the air rather than gliding.
 	/// </summary>
@@ -88,7 +88,7 @@ public sealed class FlyerBehaviourState {
 	/// <inheritdoc />
 	public override string ToString() => Name;
 
-	// The table, in index order. Names, dwell times and flag masks are the immediates FUN_00414c65
+	// The table, in index order. Names, dwell times and flag masks are the immediates Flyer_BuildStateTable (00414c65)
 	// writes; the think and move columns are which functions each state's source block at 00499e9c
 	// names.
 	public static readonly FlyerBehaviourState Deciding =

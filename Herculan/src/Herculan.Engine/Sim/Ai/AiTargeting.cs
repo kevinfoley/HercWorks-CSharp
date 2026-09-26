@@ -200,7 +200,7 @@ public static class AiTargeting {
 			}
 
 			// Vtable +0x4c. Only the HERC class computes a rating; the structure and flyer tables both
-			// install FUN_00411ac0, a `return 1`, so a tower or an aircraft scores every candidate
+			// install SimObject_CompareCombatRatingStub (00411ac0), a `return 1`, so a tower or an aircraft scores every candidate
 			// through the middle column of the four weight tables rather than the first.
 			int rating = self is MechObject asker
 				? asker.CompareCombatRating(world, candidate)

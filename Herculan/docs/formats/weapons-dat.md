@@ -9,7 +9,7 @@ Reverse-engineered from `VSHELL.EXE` disassembly and verified against real retai
 One 0-32 id addresses the same weapon in this catalog, in `simvol0/dat/WEAPONS.DAT` and in `player.mec`, but **three different name strings describe it** and no two agree throughout:
 
 - the **catalog code** — a 4-6 character string stored in this file, one per record, and what the `player.mec` editor shows;
-- the **simulator code** — DBSIM's own 33-entry string array at `00498eb0`, what a cockpit weapon gauge prints. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c) for why the simulator ignores the catalog's spelling and when a gauge prints neither;
+- the **simulator code** — DBSIM's own 33-entry string array at `00498eb0`, what a cockpit weapon gauge prints. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--weaponmount_getdisplayname-0040e18c) for why the simulator ignores the catalog's spelling and when a gauge prints neither;
 - the **full name** — `WEAPONS.BIN`, the only player-facing prose form.
 
 | id | Catalog | Simulator | Full name (`WEAPONS.BIN`) | |
@@ -97,7 +97,7 @@ Read by VSHELL: `WeaponsBin_LookupName` (`00408240`) indexes it as `offsets[id] 
 |---|---|---|---|
 | `weapons.bin` | `maybe_WeaponsBinFileHandle` | 33 | the weapon names above, by catalog id |
 | `estext.bin` | `0046dcc0` | 342 | the shell's UI text — `[2]` `MAIN MENU`, `[0x21]` `EMPTY`, `[0x3d]` `REPAIR` |
-| `esnames.bin` | local to `FUN_0040fa31` | 36 | the pilot-name pool: `DUGGAN`, `BRUTUS`, `BUTCHER`, `RIGGS` … `HOYLE` |
+| `esnames.bin` | local to `Squad_GenerateRoster` (`0040fa31`) | 36 | the pilot-name pool: `DUGGAN`, `BRUTUS`, `BUTCHER`, `RIGGS` … `HOYLE` |
 | `missions.bin` | `0046fb34` | 61 | mission paths, `MSN\TRAIN1.MSN` … `MSN\C5_10.MSN`, indexed by `gam\career.dat` |
 | `wpn_info.bin` | — | 130 | the armory's stat panel, **5 strings per armory slot** |
 | `wpn_desc.bin` | — | 130 | the armory's prose panel, same indexing |
@@ -123,7 +123,7 @@ Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsD
 0x10–0x13  pointer to this weapon's WEAPONS.BIN full name, filled at load from
            WeaponsBin_LookupName(handle, id) — runtime only
 0x14–0x15  uint16 price in tons, scaled ×1000 at load to give the cost in kg. Used in
-           cost calculations (`FUN_00412428`, `FUN_0041266a`) as (price/1000) × field_0x17 / 10
+           cost calculations (Armory_DeliverQueue (00412428), FUN_0041266a) as (price/1000) × field_0x17 / 10
 0x16       byte — the player's unlock flag for this weapon (see below)
 0x17–0x18  short — how many units of this weapon the player owns. Not a catalog value: it counts
            the runtime list at 0x19, and FUN_0041266a multiplies it by the price to value the stock
@@ -133,7 +133,7 @@ Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsD
 
 **The whole record is accounted for**, and none of it holds a numeric weapon stat: 16 bytes of code, a name pointer, a price, a flag, an owned count and a list head is 29 exactly. Damage, heat, rate of fire and range live on the simulator side ([`weapons-dat-sim.md`](weapons-dat-sim.md)); the only range figure the shell has is the prose in `wpn_info.bin`.
 
-`0x16`, `0x17` and the `0x19` list are the armory's per-weapon inventory, and the save file is where they persist: [`save-games.md`](save-games.md) documents the block that writes all 33 of them, and the armory itself is `armory.cpp` (`FUN_00411efd` appends a purchased unit to the list).
+`0x16`, `0x17` and the `0x19` list are the armory's per-weapon inventory, and the save file is where they persist: [`save-games.md`](save-games.md) documents the block that writes all 33 of them, and the armory itself is `armory.cpp` (`Armory_AddUnit` (`00411efd`) appends a purchased unit to the list).
 
 ### `0x16` is the weapon-unlock flag
 
@@ -167,7 +167,7 @@ Because the code is length-prefixed and the trailer is fixed, walking name-then-
 
 The rank goes into a *separate* parallel array (`DAT_00483fa2[id]`), not into the 29-byte struct.
 
-The trailing block is the **armory's starting stock**: `LoadWeaponsDat` allocates one ten-byte weapon unit per entry, reads three of its fields, and appends it to that catalog record's `0x19` list through `FUN_00411efd` — so the player opens a career owning these 39 units. Retail's are four `ATC50`, three `ECM` and two each of sixteen other ids, all at condition 100. The unit record is shared with the HERC mounts and the save's armory stock; see [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record).
+The trailing block is the **armory's starting stock**: `LoadWeaponsDat` allocates one ten-byte weapon unit per entry, reads three of its fields, and appends it to that catalog record's `0x19` list through `Armory_AddUnit` (`00411efd`) — so the player opens a career owning these 39 units. Retail's are four `ATC50`, three `ECM` and two each of sixteen other ids, all at condition 100. The unit record is shared with the HERC mounts and the save's armory stock; see [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record).
 
 ## Rejected readings
 

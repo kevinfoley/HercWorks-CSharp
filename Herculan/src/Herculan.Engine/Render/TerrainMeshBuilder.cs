@@ -28,7 +28,7 @@ namespace Herculan.Engine.Render;
 /// (<see cref="PaletteRampTable"/>). Without a ramp or a palette for the theater there is no table
 /// to look anything up in, and the mesh draws its texture unshaded.</para>
 ///
-/// <para>Note this is the <b>terrain</b> shade curve, <c>FUN_0048c060</c> — not the one a shape's
+/// <para>Note this is the <b>terrain</b> shade curve, <c>Light_ComputeShadeForNormal</c> (<c>0048c060</c>) — not the one a shape's
 /// polys use. See <see cref="MissionSun"/> for why they differ.</para>
 /// </summary>
 public static class TerrainMeshBuilder {

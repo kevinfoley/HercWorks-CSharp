@@ -37,7 +37,7 @@ public class FlyerSimData {
 
 	/// <summary>
 	/// Payload offset 0x0e — the <b>bank angle limit</b>, as a binary angle. Read only by the flyer
-	/// AI's roll controller (<c>FUN_004222fc</c>), which clamps the commanded bank to it (with a
+	/// AI's roll controller (<c>Flyer_SteerAndFly</c>, <c>004222fc</c>), which clamps the commanded bank to it (with a
 	/// 1500-unit hysteresis band) rather than letting the aircraft roll past. 14000 in the one known
 	/// sample, which is about 77 degrees.
 	/// </summary>

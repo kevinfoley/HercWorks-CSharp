@@ -10,7 +10,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 ///
 /// <para><b>RE summary</b> (DBSIM.EXE, see docs/formats/dgs-hd0-notes.md for the full derivation).
 /// <c>BaseType_LoadShape</c> (<c>00405ebc</c>) resolves a shape by index through
-/// <c>FUN_00474cd8</c>, which reopens <c>dgs\bases</c> and calls the generic polymorphic resource
+/// <c>BaseType_ResolveShape</c> (<c>00474cd8</c>), which reopens <c>dgs\bases</c> and calls the generic polymorphic resource
 /// loader <c>ClassItem_LoadResource</c> (<c>0047a038</c>) once per record until it reaches the
 /// requested index — i.e. the file is a flat, sequential list of tagged records, not a
 /// random-access table. Each record's 8-byte header is <c>[classId:int32][payloadSize:int32]</c>
@@ -20,7 +20,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// scheme.</para>
 ///
 /// <para><b>Record layout</b>, traced through the class's Watcom C++ base-constructor chain
-/// (<c>FUN_0042762c</c> → <c>FUN_00490d5c</c> → <c>FUN_0048fd94</c> → <c>FUN_0048f894</c>) and
+/// (<c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) → <c>ClassItemTree_ReadFromStream</c> (<c>00490d5c</c>) → <c>ClassItemTree_ReadChildren</c> (<c>0048fd94</c>) → <c>ClassItemTree_ReadBaseHeader</c> (<c>0048f894</c>)) and
 /// verified byte-exact against the retail file (see below):</para>
 /// <list type="bullet">
 /// <item>3 <c>int16</c> id/name fields, then 6 raw bytes (base class header, unmodelled beyond
@@ -32,7 +32,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// new reader. This is the key finding that makes the format usable: no new mesh format, just a
 /// new envelope around the existing one.</item>
 /// <item>an <c>int16</c> count and a per-entry 32-byte record (a per-vertex table, likely
-/// BSP-plane-classification data judging by its consumers — <c>FUN_00476a1c</c>'s BSP walk reads a
+/// BSP-plane-classification data judging by its consumers — <c>TSBSPPart_RenderNode</c> (<c>00476a1c</c>)'s BSP walk reads a
 /// point from an array at this same stride) — read but not modelled, the engine has no use for it.</item>
 /// <item>an <c>int16</c> count and that many <c>int16</c> values (a parallel index/remap array) —
 /// read but not modelled.</item>

@@ -55,8 +55,8 @@ public readonly record struct HddMapBounds(int MinX, int MinY, int MaxX, int Max
 }
 
 /// <summary>
-/// One icon on the map, as <c>FUN_0044e080</c> leaves it in a marker gadget for
-/// <c>FUN_0044f194</c> to paint.
+/// One icon on the map, as <c>HddCommandScreen_AddObjectMarker</c> (<c>0044e080</c>) leaves it in a marker gadget for
+/// <c>HddMarker_Paint</c> (<c>0044f194</c>) to paint.
 /// </summary>
 /// <param name="WorldX">Where it sits, world units.</param>
 /// <param name="WorldY">Same.</param>
@@ -70,7 +70,7 @@ public readonly record struct HddMapBounds(int MinX, int MinY, int MaxX, int Max
 /// </param>
 /// <param name="NudgeY">The same on y, <c>DAT_004d1d5c</c>.</param>
 /// <param name="Size">
-/// The marker's own square size in device pixels — <c>FUN_0044f634</c>'s argument, which becomes
+/// The marker's own square size in device pixels — <c>HddMarker_SetSize</c> (<c>0044f634</c>)'s argument, which becomes
 /// both the gadget's extent and (halved) the offset its icon is drawn back by, so the icon lands
 /// centred on the object rather than hanging off it.
 /// </param>
@@ -85,7 +85,7 @@ public readonly record struct HddMapBounds(int MinX, int MinY, int MaxX, int Max
 /// </param>
 /// <param name="PilotSlot">
 /// Which squad comm box this marker belongs to, or -1. Clicking a squadmate's marker selects that
-/// pilot, which is <c>FUN_0044d804</c>'s whole body.
+/// pilot, which is <c>HddCommandScreen_PickPilot</c> (<c>0044d804</c>)'s whole body.
 /// </param>
 public readonly record struct HddMapMarker(int WorldX, int WorldY, int Frame,
 	int NudgeX, int NudgeY, int Size, bool Ranged, int ColorId, int PilotSlot = -1);
@@ -111,7 +111,7 @@ public sealed class HddMapView {
 	public const int ScaleShift = 8;
 
 	/// <summary>
-	/// How far in the map will go: <c>FUN_0044cf9c</c> takes a step only while the result is still
+	/// How far in the map will go: <c>HddMap_ZoomIn</c> (<c>0044cf9c</c>) takes a step only while the result is still
 	/// at least this, so the closest view is 60000 &gt;&gt; 8 = 234 world units per pixel.
 	/// </summary>
 	public const int MinScale = 60000;
@@ -125,12 +125,12 @@ public sealed class HddMapView {
 	public const int MinZoomStep = 5000;
 
 	/// <summary>
-	/// Pan step at full zoom-in — the constant term of <c>FUN_0044eea0</c>, which scales the step
+	/// Pan step at full zoom-in — the constant term of <c>HddMap_RecomputePanStep</c> (<c>0044eea0</c>), which scales the step
 	/// from this at the closest view up to this plus <see cref="PanStepSpan"/> at the widest.
 	/// </summary>
 	public const int PanStepBase = 5000;
 
-	/// <summary>How much the pan step grows across the zoom range — <c>FUN_0044eea0</c>'s 45000.</summary>
+	/// <summary>How much the pan step grows across the zoom range — <c>HddMap_RecomputePanStep</c> (<c>0044eea0</c>)'s 45000.</summary>
 	public const int PanStepSpan = 45000;
 
 	private readonly int _halfWidth;
@@ -188,7 +188,7 @@ public sealed class HddMapView {
 	public int HalfWorldHeight => _halfHeight * Scale >> ScaleShift;
 
 	/// <summary>
-	/// World units one arrow press scrolls by — <c>FUN_0044eea0</c>, recomputed on every zoom. Its
+	/// World units one arrow press scrolls by — <c>HddMap_RecomputePanStep</c> (<c>0044eea0</c>), recomputed on every zoom. Its
 	/// own integer arithmetic, shifts included, because it is that arithmetic that makes the step a
 	/// round number of pixels rather than a round number of world units.
 	/// </summary>
@@ -216,14 +216,14 @@ public sealed class HddMapView {
 		CentreY = Math.Clamp(CentreY, grown.MinY + HalfWorldHeight, grown.MaxY - HalfWorldHeight);
 	}
 
-	/// <summary>Widens the view one step, up to the whole mission box — <c>FUN_0044cf68</c>.</summary>
+	/// <summary>Widens the view one step, up to the whole mission box — <c>HddMap_ZoomOut</c> (<c>0044cf68</c>).</summary>
 	public void ZoomOut() {
 		if (Scale + ZoomStep <= FullScale) {
 			Scale += ZoomStep;
 		}
 	}
 
-	/// <summary>Closes in one step, down to <see cref="MinScale"/> — <c>FUN_0044cf9c</c>.</summary>
+	/// <summary>Closes in one step, down to <see cref="MinScale"/> — <c>HddMap_ZoomIn</c> (<c>0044cf9c</c>).</summary>
 	public void ZoomIn() {
 		if (Scale - ZoomStep >= MinScale) {
 			Scale -= ZoomStep;
@@ -232,8 +232,8 @@ public sealed class HddMapView {
 
 	/// <summary>
 	/// Scrolls by one <see cref="PanStep"/>, or by whatever room is left before the view's own edge
-	/// reaches the grown box — the four functions <c>FUN_0044cfd0</c>, <c>FUN_0044d034</c>,
-	/// <c>FUN_0044d098</c> and <c>FUN_0044d0fc</c>, which differ only in sign and axis.
+	/// reaches the grown box — the four functions <c>HddMap_PanLeft</c> (<c>0044cfd0</c>), <c>HddMap_PanRight</c> (<c>0044d034</c>),
+	/// <c>HddMap_PanUp</c> (<c>0044d098</c>) and <c>HddMap_PanDown</c> (<c>0044d0fc</c>), which differ only in sign and axis.
 	/// </summary>
 	/// <param name="dx">-1 for left, +1 for right, 0 for neither.</param>
 	/// <param name="dy">+1 for up (world +y), -1 for down.</param>
@@ -272,7 +272,7 @@ public sealed class HddMapView {
 		_halfHeight - (worldY - (long)CentreY) * (1 << ScaleShift) / (float)Scale;
 
 	/// <summary>World x of a device-pixel offset from the viewport's left edge — the inverse, which
-	/// is what turns a click into a gridpoint (<c>FUN_0044d860</c>'s first three lines).</summary>
+	/// is what turns a click into a gridpoint (<c>HddCommandScreen_HitTestMarker</c> (<c>0044d860</c>)'s first three lines).</summary>
 	public int ToWorldX(float screenX) =>
 		CentreX + (int)((screenX - _halfWidth) * Scale) / (1 << ScaleShift);
 
@@ -373,7 +373,7 @@ public static class HddMap {
 	/// </summary>
 	public const int GridSpan = 3_200_000;
 
-	/// <summary>The divisor — <c>FUN_0044e30c</c>'s <c>&gt;&gt; 4</c>.</summary>
+	/// <summary>The divisor — <c>HddCommandScreen_DrawMap</c> (<c>0044e30c</c>)'s <c>&gt;&gt; 4</c>.</summary>
 	public const int GridDivisions = 16;
 
 	/// <summary>Grid pitch in world units.</summary>
@@ -409,7 +409,7 @@ public static class HddMap {
 
 	/// <summary>
 	/// <c>BASES.DAT</c> silhouettes (<c>+0x28</c>) that take the small structure icon rather than the
-	/// large one — the case list of <c>FUN_0044e080</c>'s switch, stated as data because that is what
+	/// large one — the case list of <c>HddCommandScreen_AddObjectMarker</c> (<c>0044e080</c>)'s switch, stated as data because that is what
 	/// it is: a set of type ids with nothing in common the code names.
 	/// </summary>
 	public static readonly int[] SmallStructureSilhouettes =
@@ -459,7 +459,7 @@ public static class HddMap {
 	}
 
 	/// <summary>
-	/// One object's marker, or null when it has none — <c>FUN_0044e080</c>. The three global object
+	/// One object's marker, or null when it has none — <c>HddCommandScreen_AddObjectMarker</c> (<c>0044e080</c>). The three global object
 	/// lists are walked in turn and every live object gets one, so the only things without a marker
 	/// are classes the switch does not recognise.
 	/// </summary>

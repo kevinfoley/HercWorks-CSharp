@@ -17,7 +17,7 @@ The file half of the subject — how block 10 and block 11 are written and read 
 | `+0x04` | ptr | block 10 `0x0c` → block 1 | A point. **No reader exists** |
 | `+0x08` | ptr | block 10 `0x0e` → block 3 | **The route** — a waypoint group. Read once, by `DBSim_BuildGroupRecord`, and only from slot 0 |
 | `+0x0c` | short | block 10 `0x10` | **What kind of thing the order names**: `-1` nothing, 0 a group, 1 a mech, 2 a flyer, 3 a base |
-| `+0x0e` | ptr | block 10 `0x12` | **The subject**, resolved against `+0x0c` by `FUN_00425348` — a group record for kind 0, an object for 1-3 |
+| `+0x0e` | ptr | block 10 `0x12` | **The subject**, resolved against `+0x0c` by `Mission_ResolveRefByKind` (`00425348`) — a group record for kind 0, an object for 1-3 |
 | `+0x12` | ptr | block 10 `0x14` → block 5 | **A mission action.** When it fires, the group moves on |
 
 **`+0x02` and `+0x04` are confirmed dead fields, not merely unexamined ones.** An order is only ever reached as `group.orders[group.orderIndex]`, and the whole image holds 29 such fetches; every one of them goes on to read `+0x00`, `+0x0c`, `+0x0e` or `+0x12` and none reads either of these two. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3, so both are authored and both are ignored.
@@ -44,11 +44,11 @@ A mission group's own record is `0x7a` bytes, built by `DBSim_BuildGroupRecord` 
 
 ### The route cursor is loaded once
 
-`DBSim_BuildGroupRecord` sets `+0x06` from **order slot 0's** `+0x08` and zeroes `+0x04`, and nothing else in the image writes either field except `FUN_0042313c`, which only steps the index. So a group has **one route for the whole mission**, whatever its later orders name — see the rejected reading below.
+`DBSim_BuildGroupRecord` sets `+0x06` from **order slot 0's** `+0x08` and zeroes `+0x04`, and nothing else in the image writes either field except `Route_AdvanceCursor` (`0042313c`), which only steps the index. So a group has **one route for the whole mission**, whatever its later orders name — see the rejected reading below.
 
-`FUN_00423b0c(cursor, index)` reads a waypoint out of it: null when there is no route or the index is past the end, otherwise the block-1 point at that index. Everything that consumes a route goes through it, which is why "is there a waypoint after the current one" is spelled the same way everywhere.
+`Route_WaypointAt(cursor, index)` (`00423b0c`) reads a waypoint out of it: null when there is no route or the index is past the end, otherwise the block-1 point at that index. Everything that consumes a route goes through it, which is why "is there a waypoint after the current one" is spelled the same way everywhere.
 
-`FUN_0042313c(cursor)` advances the index, and **wraps it to zero when the route closes on itself**: with more than one waypoint, an index that has just landed on the last one whose point is the same object as the first restarts at zero. A closed route is a patrol that never ends; an open one runs out, and running out is what finishes a movement order.
+`Route_AdvanceCursor(cursor)` advances the index, and **wraps it to zero when the route closes on itself**: with more than one waypoint, an index that has just landed on the last one whose point is the same object as the first restarts at zero. A closed route is a patrol that never ends; an open one runs out, and running out is what finishes a movement order.
 
 ## The tick — `Group_OrderTick` (`00423a74`)
 
@@ -116,7 +116,7 @@ Only four of the record's fields are ever read, and only through the current ind
 
 | Field | Read by |
 |---|---|
-| `+0x00` verb | `Mech_AiSelectBehaviour`, `Mech_AiCombatReassess`, `Ai_SelectTarget`, the `patrolling` think, `FUN_00420ad4`, `FUN_00422a80` — all with the same "or `0x0b` if the slot is null" idiom |
+| `+0x00` verb | `Mech_AiSelectBehaviour`, `Mech_AiCombatReassess`, `Ai_SelectTarget`, the `patrolling` think, `Mech_ReceiveSquadOrder` (`00420ad4`), `Flyer_BehaviourSearchDestroyThink` (`00422a80`) — all with the same "or `0x0b` if the slot is null" idiom |
 | `+0x0c` / `+0x0e` subject | `Group_OrderTargetObject` (`004238a0`), `Group_IsOrderTarget` (`00423918`), `Group_OrderTargetPosition` (`004238d4`) — see [`ai-targeting.md`](ai-targeting.md) for what each decides |
 | `+0x12` action | `Group_OrderTick` alone |
 

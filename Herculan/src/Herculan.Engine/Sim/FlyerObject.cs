@@ -8,8 +8,8 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// A flyer or ground vehicle — the <c>SKIMMER</c>/<c>HOVTANK</c>/<c>DROPSHIP</c> class listed in
-/// <c>nam\FLYERS.NAM</c>. In DBSIM this is the class constructed by <c>FUN_004215f4</c> from a
-/// <c>script.dat</c> block-8 record and attached to its group by <c>FUN_00421ee8</c>.
+/// <c>nam\FLYERS.NAM</c>. In DBSIM this is the class constructed by <c>Flyer_Constructor</c> (<c>004215f4</c>) from a
+/// <c>script.dat</c> block-8 record and attached to its group by <c>Flyer_AttachToGroup</c> (<c>00421ee8</c>).
 ///
 /// <para>The one behavioural detail carried over from that attach function is the hover height: a
 /// flyer does <b>not</b> get the terrain query mechs and structures get — it takes its Z straight
@@ -28,7 +28,7 @@ namespace Herculan.Engine.Sim;
 public sealed partial class FlyerObject : SimObject {
 	/// <summary>
 	/// Altitude the original substitutes when a flyer's spawn coordinate carries no Z, in world
-	/// units. Straight from <c>FUN_00421ee8</c>'s trailing <c>if (z == 0) z = 5000;</c>.
+	/// units. Straight from <c>Flyer_AttachToGroup</c> (<c>00421ee8</c>)'s trailing <c>if (z == 0) z = 5000;</c>.
 	/// </summary>
 	public const int DefaultHoverHeight = 5000;
 
@@ -121,7 +121,7 @@ public sealed partial class FlyerObject : SimObject {
 	/// <inheritdoc />
 	/// <remarks>
 	/// An aircraft can answer the third byte of the triple: <see cref="Disarmed"/> is what
-	/// <c>FUN_00422d00</c> latches when the group's order is <c>sleep</c> or <c>travel</c>.
+	/// <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>) latches when the group's order is <c>sleep</c> or <c>travel</c>.
 	/// </remarks>
 	public override bool OutOfAction => Neutralised || Disarmed;
 
@@ -251,7 +251,7 @@ public sealed partial class FlyerObject : SimObject {
 	private bool ComponentAlive(int index) => _damage?.IsActive(index) ?? false;
 
 	/// <summary>
-	/// <c>FUN_00421bb4</c>, the flyer's vtable <c>+0x74</c> — a thin wrapper over
+	/// <c>Flyer_ComponentDamageWrite</c> (<c>00421bb4</c>), the flyer's vtable <c>+0x74</c> — a thin wrapper over
 	/// <see cref="ComponentDamage.ApplyDamage"/> that turns the loss of component 0 into the loss of
 	/// the aircraft.
 	///

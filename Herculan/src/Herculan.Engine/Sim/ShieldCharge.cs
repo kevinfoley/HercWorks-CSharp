@@ -12,8 +12,8 @@ namespace Herculan.Engine.Sim;
 /// added.</para>
 ///
 /// <para>Both absorb paths are ported, and they are separate code in the original as they are here
-/// — direct fire (<c>FUN_00413cc4</c>) as <see cref="AbsorbDirectFire"/> and the explosion one
-/// (<c>FUN_00413c68</c>) as <see cref="AbsorbExplosion"/>. Otherwise this type carries the charge,
+/// — direct fire (<c>Mech_ShieldAbsorb_DirectFire</c>, <c>00413cc4</c>) as <see cref="AbsorbDirectFire"/> and the explosion one
+/// (<c>Mech_ShieldAbsorb_Explosive</c>, <c>00413c68</c>) as <see cref="AbsorbExplosion"/>. Otherwise this type carries the charge,
 /// the recharge and the balance, which is what the energy pool tick touches.</para>
 ///
 /// <para>The <c>+0x222</c> field layout, the fleet-wide 3500 capacity and where it is read from, the
@@ -114,14 +114,14 @@ public sealed class ShieldCharge {
 	public int RearReadout => 200 - FrontReadout;
 
 	/// <summary>
-	/// Sets the array's total capacity — <c>FUN_00413ab8</c>, the setter
+	/// Sets the array's total capacity — <c>Shield_SetMax</c> (<c>00413ab8</c>), the setter
 	/// <see cref="MechObject.ShieldCapacity"/>'s result is pushed through at loadout time. Charge
 	/// already held is left alone; <see cref="RefillToBalance"/> is what follows it in the original.
 	/// </summary>
 	public void SetMax(short capacity) => Max = capacity;
 
 	/// <summary>
-	/// <c>FUN_00413ac8</c> — fills the array to <see cref="Max"/> and splits it at the current
+	/// <c>Shield_RefillToBalance</c> (<c>00413ac8</c>) — fills the array to <see cref="Max"/> and splits it at the current
 	/// balance. <c>Mech_ConfigureLoadout</c> calls it right after <see cref="SetMax"/>, so a machine
 	/// spawns with full shields at whatever capacity its pods bought it.
 	/// </summary>

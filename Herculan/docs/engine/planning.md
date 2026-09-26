@@ -36,7 +36,7 @@ All behavior matches the original game exactly by default. The only exceptions a
 
 ### Simulation object architecture
 
-**Traditional OOP / virtual dispatch, matching the original — not ECS.** DBSIM.EXE's simulation objects are built on a shared base-object constructor helper (`FUN_00402188`) called by every `SimObject`-derived class right after its vtable pointer is set. See `project_es2_exe_recon` memory and `docs/simulation/dbsim-physics-notes.md`.
+**Traditional OOP / virtual dispatch, matching the original — not ECS.** DBSIM.EXE's simulation objects are built on a shared base-object constructor helper (`SimObjectBase_Constructor`, `00402188`) called by every `SimObject`-derived class right after its vtable pointer is set. See `project_es2_exe_recon` memory and `docs/simulation/dbsim-physics-notes.md`.
 
 Plan: a `SimObject` abstract base class in the engine with virtual overrides mirroring the discovered vtable shape (Mech, Rocket, Bullet, Flyer, ...), rather than a component/system model.
 
@@ -92,7 +92,7 @@ Three call sites in two unrelated gadgets share it — the HUD waypoint indicato
 
 At 166.667 u/m, HERC models measure 10.2m (OUTLAW) to 15.5m (OGRE), ~1.5x the manual's quoted stature (6.1m/10.4m) — bounding box (includes raised arms/antennae) vs. quoted height; weight-class ordering matches the manual exactly.
 
-**Independent order-of-magnitude check:** HUD speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`) = `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 → 100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). Tick rate was later resolved directly (25 Hz, `FUN_004677bc` — see `docs/simulation/dbsim-physics-notes.md`), confirmed independently by `mech-locomotion.md`'s root-motion speed verification.
+**Independent order-of-magnitude check:** HUD speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`) = `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 → 100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). Tick rate was later resolved directly (25 Hz, `Time_BeginSimTick` (`004677bc`) — see `docs/simulation/dbsim-physics-notes.md`), confirmed independently by `mech-locomotion.md`'s root-motion speed verification.
 
 Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout` (`0043dc78`), `Mech_GetDisplaySpeedKph`, `Math_Q10Multiply`, `Math_Q16Multiply`, `Math_Q16Divide`, `Math_FastMagnitude2D`, `Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`, `Vec2_Magnitude`, `Vec2_DistanceBetween`.
 

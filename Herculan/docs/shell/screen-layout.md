@@ -278,7 +278,7 @@ The three `FramedPanel`s keep the constructor's `+0x55` of `0x25`, so their bodi
 
 The Razor spends each of `0x5d`-`0x63` exactly once: the two torsos become nacelles, the chassis a fuselage, the legs wings, and the leg servos wing servos. Its cockpit and its last seven internals are the walker's. The condition arrays behind them are unchanged — a Razor's thirteen external facets group the same six ways.
 
-It is driven by the bay selection rather than by screen entry: `FUN_0043d64d` calls it when the selected bay changes, and `Repair_Enter` reaches it only when the bay it opens on holds nothing it can work on. The builder's own construction-time indices are the walker set, `0x4e + row` and `0x54 + row`.
+It is driven by the bay selection rather than by screen entry: `Squad_SelectBay` (`0043d64d`) calls it when the selected bay changes, and `Repair_Enter` reaches it only when the bay it opens on holds nothing it can work on. The builder's own construction-time indices are the walker set, `0x4e + row` and `0x54 + row`.
 
 ### The damage diagram
 
@@ -286,14 +286,14 @@ Both pictures are `Grid` widgets (`Grid_Ctor`, 0040b7e0): a filled panel with a 
 
 `Repair_BuildDiagrams` (004140a9) fills both pictures for all eight bays:
 
-- **`0048d4bc[bay]`, the exploded external picture.** These are the squad panel's eight pictures, built by `Squad_BuildRosterList` at `{5, 0x2b, 0xeb, 0x130}` and moved here to `{0x10, 0x2f}`, `0xd0` by `0x100`, with their grid lines on. Each `gam\rpr_*.dat` body record becomes the part in the slot its id names, from frame `+0x12` of `dba\rpr_<chassis>.dba` with the record's flags, remapping index `0xe`. Each fitted mount then adds the record `FUN_00413ccc` finds in the weapon's group with id `slot + 6`, from `dba\rpr_wpns.dba`, remapping `0xf`; a weapon with no record for that socket draws nothing.
+- **`0048d4bc[bay]`, the exploded external picture.** These are the squad panel's eight pictures, built by `Squad_BuildRosterList` at `{5, 0x2b, 0xeb, 0x130}` and moved here to `{0x10, 0x2f}`, `0xd0` by `0x100`, with their grid lines on. Each `gam\rpr_*.dat` body record becomes the part in the slot its id names, from frame `+0x12` of `dba\rpr_<chassis>.dba` with the record's flags, remapping index `0xe`. Each fitted mount then adds the record `RepairLayout_FindWeaponPart` (`00413ccc`) finds in the weapon's group with id `slot + 6`, from `dba\rpr_wpns.dba`, remapping `0xf`; a weapon with no record for that socket draws nothing.
 - **`0048d118[bay]`, the internals picture.** One part in slot 0 from the chassis's single internals record, drawing its frame of `dba\<chassis>_int.dba` with flags 0. The Razor gets a second part in slot 1: frame 1 of the same bank at `(0x1d, 0xe)`. The decompiler shows that handle as a global of its own, `0046fe0c`; it is entry 8 of the bank cache at `0046fdec`, the one the Razor's first part was just loaded into.
 
 The blit flags are 0 or 2 in every retail record, and 2 is the mirror: each left/right pair is one frame placed twice.
 
 **The two sides disagree.** On every chassis with torsos, group 1 (`Left Torso`) sits on the viewer's left and group 4 (`Left Leg`) on the viewer's right, with 2 and 5 opposite them; the Razor's nacelles and wings split the same way. The `rpr_hots.dat` areas follow the layout records, so the colours and the clicks are consistent with the picture and with each other, and only the pairing of sides is wrong. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
-`FUN_0041469a` colours whichever picture the selection's column has up, and `Repair_RefreshDetail` calls it on every refresh:
+`Repair_ColorDiagram` (`0041469a`) colours whichever picture the selection's column has up, and `Repair_RefreshDetail` calls it on every refresh:
 
 | Picture | Slot | Remap | Target |
 |---|---|---|---|
@@ -305,7 +305,7 @@ Ids past 15 are the Razor's: its twelve body records are two parts per group, 0-
 
 **Which of the two is up follows the selection.** `Repair_SwapDiagram` shows the internals diagram when the selection moves into the internals list and the exploded picture when it moves back, so the picture always matches the list being worked in. With no bay selected the squad panel shows its empty picture, `DAT_0048d4dc`, instead: the same widget at the builder's rect with its grid lines off.
 
-`Hotspots_BuildOverlay` (0043c1a0) lays the clickable areas over each bay's exploded picture: the chassis's six `gam\rpr_hots.dat` areas as handlers 0-5, and for each fitted mount a panel over the weapon part's own rect (`FUN_00414418`) as handler `6 + slot`. Every one is a `Panel` with `+0x51` cleared, so none of them draws. They are children of the external picture, so while the internals picture is up there is nothing on the diagram to click.
+`Hotspots_BuildOverlay` (0043c1a0) lays the clickable areas over each bay's exploded picture: the chassis's six `gam\rpr_hots.dat` areas as handlers 0-5, and for each fitted mount a panel over the weapon part's own rect (`Repair_WeaponPartRect`, `00414418`) as handler `6 + slot`. Every one is a `Panel` with `+0x51` cleared, so none of them draws. They are children of the external picture, so while the internals picture is up there is nothing on the diagram to click.
 
 ## The squad panel
 
@@ -324,9 +324,9 @@ Ids past 15 are the Razor's: its twelve body records are two parts per group, 0-
 | roster | `TitledPanel` | `{6, 0x154, 0xec, 0x1da}` | `0x64` `Squad Inventory`, header 19 tall, `+0x65 = 0` |
 | 8 rows | `Panel` | `{9, i*0xe + 0x16, 0xe2, i*0xe + 0x23}` in the roster | border `0x10`, `0x29` on the selected bay |
 
-The rows are 14 tall on a 14-pixel pitch, so unlike the repair lists they do not overlap. Each is a [four-column row](#a-row-is-four-text-columns) cut at `0x21`, `0x70` and `0x7b`: `"%d."` of the bay number centred, the machine's name left, `-` centred, and the crew column left. `FUN_0043da47` writes the name, `estext.bin` `0x6e + type`, in the band colour of the machine's overall condition (`HercStatus_OverallCondition`, 00411bd4), finished or not. `FUN_0043dad7` writes the crew column in `0x27`: the assigned pilot's name, or `"%d%s"` of the build percentage and `0x6c` `% Complete` for a machine still being built.
+The rows are 14 tall on a 14-pixel pitch, so unlike the repair lists they do not overlap. Each is a [four-column row](#a-row-is-four-text-columns) cut at `0x21`, `0x70` and `0x7b`: `"%d."` of the bay number centred, the machine's name left, `-` centred, and the crew column left. `Squad_RefreshRowNames` (`0043da47`) writes the name, `estext.bin` `0x6e + type`, in the band colour of the machine's overall condition (`HercStatus_OverallCondition`, 00411bd4), finished or not. `Squad_RefreshRowCrew` (`0043dad7`) writes the crew column in `0x27`: the assigned pilot's name, or `"%d%s"` of the build percentage and `0x6c` `% Complete` for a machine still being built.
 
-`FUN_0043d38a(bay)` fills the readout:
+`Squad_RefreshReadout(bay)` (`0043d38a`) fills the readout:
 
 | Field | Bay with a pilot | Machine, no pilot | Empty bay |
 |---|---|---|---|
@@ -334,9 +334,9 @@ The rows are 14 tall on a 14-pixel pitch, so unlike the repair lists they do not
 | skill | `0x35 + skill` | blank | blank |
 | condition | the band word `0x68 + level` of the overall condition, in the band colour; while the machine is being built, `"%d%s"` of the build percentage and `% Complete` in `0x20` | the same | blank |
 
-A bay's pilot is `FUN_00410220(00482a78, bay)`, which looks at exactly four records: the player's own, embedded at `+0x04`, and the three squad members the player structure points at from `+0x3f`. `FUN_004101b8` sets those pointers on load to record `DAT_00483b48[k]` of squad `k`, so a pilot elsewhere in the squad block is never shown against a bay.
+A bay's pilot is `Squad_PilotForBay(00482a78, bay)` (`00410220`), which looks at exactly four records: the player's own, embedded at `+0x04`, and the three squad members the player structure points at from `+0x3f`. `Player_Read` (`004101b8`) sets those pointers on load to record `DAT_00483b48[k]` of squad `k`, so a pilot elsewhere in the squad block is never shown against a bay.
 
-**A roster click is `FUN_0043d64d(bay)`**, through eight thunks from `0043dde7`. It returns at once for the bay already selected, and each tab takes the click its own way. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels.
+**A roster click is `Squad_SelectBay(bay)` (`0043d64d`)**, through eight thunks from `0043dde7`. It returns at once for the bay already selected, and each tab takes the click its own way. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels.
 
 ### What the buttons are gated on
 
@@ -468,14 +468,14 @@ Not drawn: the other six tabs' content, the mouse cursor (`dba\cursor.dba`), and
 | The tab screens are drawn through `dpl\bay.dpl` | `SHELL0.VOL` carries one, and the bay screen's own name makes it the obvious candidate for the palette the bay installs. The table at `0046dcdc` does not contain it: index 1 is `dpl\palette.dpl`. Nothing traced so far selects `bay.dpl` at all |
 | Exactly one tab is latched at all times | Seven of the nine handlers latch their own plate and it is easy to assume the other two do too. `MAIN MENU` and `SAVE` clear all nine, write none back and [hide the strip](#tabs-0-and-1-hide-the-strip) |
 | `0043b23d` shows the frame, as its Ghidra name `ServiceBay_Show` says | It calls `Widget_HideRecursive` (0041f469) on the frame's root and panel, and the pair that undoes it — `0043b162(8)` and `0043b0c8` — calls `Widget_ShowRecursive` on the same two. The name was given under the swapped reading of those two functions ([above](#showing-and-hiding-a-widget)) |
-| `FUN_0041f2e6` shows a widget and `FUN_0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
+| `0041f2e6` shows a widget and `0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
 | The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
 
 ## Open
 
 - **Open:** what keeps the backdrop off the tab screens in retail. Every path that shows the strip also shows the backdrop-textured root (`0043b162(8)` before `0043b0c8`), and the WEAPONS and REPAIR captures are black wherever their widgets leave the canvas bare.
 - **Open:** which of two overlapping hotspots answers a click. A weapon part's rect overlaps a body area on several chassis; the engine gives the click to the weapon, the later child, and the base class's hit dispatch has not been read.
-- **Unported:** the squad panel on the other three tabs that share it — its pictures on WEAPONS and BUILD and its roster on CREW, each of which takes a roster click its own way in `FUN_0043d64d`.
+- **Unported:** the squad panel on the other three tabs that share it — its pictures on WEAPONS and BUILD and its roster on CREW, each of which takes a roster click its own way in `Squad_SelectBay` (`0043d64d`).
 - **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.
 - **Open:** the edit field's keyboard handling — how the event `004377d2` posts and `00469cbc` route keystrokes to the row, how the permitted-character set at `+0x9f` filters them (the full string is unread past `"…qrstu"`), backspace, whether the `" 3. "` prefix can be deleted, and whether a key commits or abandons the rename.
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.

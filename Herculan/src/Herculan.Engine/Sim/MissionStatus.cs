@@ -4,7 +4,7 @@ namespace Herculan.Engine.Sim;
 /// How the mission stands, as <c>Mission_Status</c> (<c>004135e8</c>) answers it once a poll. The
 /// numbers are the original's own and are load-bearing twice over: they index the table at
 /// <c>0049935c</c> that says which of them are worth interrupting the player for, and they select
-/// the alert panel <c>FUN_00455934</c> builds.
+/// the alert panel <c>StatusAlertPanel_Ctor</c> (<c>00455934</c>) builds.
 ///
 /// <para><b>Nothing here is decided by the objectives alone.</b> Every conclusive value is gated on
 /// the player being clear of hostiles as well — see <see cref="MissionObjectives.IsClearOfThreats"/>

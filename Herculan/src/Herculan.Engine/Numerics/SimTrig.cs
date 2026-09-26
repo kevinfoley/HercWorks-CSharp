@@ -3,7 +3,7 @@
 /// <summary>
 /// DBSIM's own trigonometry tables, ported. These are the ones the rotation-matrix and
 /// euler-extraction code uses (<c>BuildEulerRotationMatrixQ14</c> <c>0047eaac</c>,
-/// <c>FUN_0047d220</c>, <c>FUN_0047d940</c>) and they are deliberately <i>coarser</i> than
+/// <c>Math_Atan2Bam</c> (<c>0047d220</c>), <c>FUN_0047d940</c>) and they are deliberately <i>coarser</i> than
 /// <see cref="BinaryAngle"/>: the cosine table has one entry per 16 BAM, so a matrix built from an
 /// angle quantizes it to 1/4096 of a turn. Reproducing that quantization is the point — it is what
 /// the original's animation and object transforms actually see.
@@ -98,7 +98,7 @@ public static class SimTrig {
 	public static short Sin(short angle) => Cos(unchecked((short)(angle - BinaryAngle.QuarterTurn)));
 
 	/// <summary>
-	/// <c>FUN_0047d220</c> — <c>atan2(y, x)</c> as a BAM angle. Octant-folded: the table covers
+	/// <c>Math_Atan2Bam</c> (<c>0047d220</c>) — <c>atan2(y, x)</c> as a BAM angle. Octant-folded: the table covers
 	/// 0..45° and the sign and magnitude comparisons place the result in the right octant.
 	/// </summary>
 	public static int Atan2(int y, int x) {
@@ -166,7 +166,7 @@ public static class SimTrig {
 		int dy = from.Y - to.Y;
 		int dz = from.Z - to.Z;
 
-		// Both components go through FUN_00492800, whose first argument is the x of the atan2 and its
+		// Both components go through Math_Atan2Guarded (00492800), whose first argument is the x of the atan2 and its
 		// second the y — so the yaw is atan2(dy, dx) and the pitch is atan2(dz, groundDistance), an
 		// elevation above the horizon. Passing these the other way round is not a sign error that
 		// mostly works: it mirrors the bearing about the 45-degree line, and it turns a level target
@@ -177,7 +177,7 @@ public static class SimTrig {
 	}
 
 	/// <summary>
-	/// <c>FUN_00492800</c>: <see cref="Atan2"/> with the degenerate pair nudged onto the axis rather
+	/// <c>Math_Atan2Guarded</c> (<c>00492800</c>): <see cref="Atan2"/> with the degenerate pair nudged onto the axis rather
 	/// than left at the origin, so a shot sitting exactly on its target still has a bearing.
 	///
 	/// <para>The nudge lands on <paramref name="x"/>, which is the original's own choice — it takes

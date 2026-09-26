@@ -22,7 +22,7 @@ namespace Herculan.Engine.Content;
 /// docs/formats/terrain-lighting.md's "The ramp rows are not a 0..1 fade".
 /// <see cref="Render.PaletteRampTable"/> is that table, expanded through the palette at load.</para>
 ///
-/// <para>The consumer is <c>FUN_00468054</c>, which is the whole of the address arithmetic:</para>
+/// <para>The consumer is <c>Raster_ShadeRampRow</c> (<c>00468054</c>), which is the whole of the address arithmetic:</para>
 /// <code>
 /// row = ((shade * (shadeLevels - 1) + depthBias) &amp; ~0xFF) + rampBase
 /// </code>
@@ -54,7 +54,7 @@ public sealed class ShadeRamp {
 
 	/// <summary>
 	/// The shade a flat, unlit face is drawn at — <c>TSSolidPoly_Render</c> (<c>00474db4</c>) passes
-	/// <c>FUN_00468054</c> a literal <c>0x80</c> and never computes a light term at all. With the
+	/// <c>Raster_ShadeRampRow</c> (<c>00468054</c>) a literal <c>0x80</c> and never computes a light term at all. With the
 	/// retail 32 levels that lands on row 15, a little under half brightness.
 	/// </summary>
 	public const int UnlitShade = 0x80;
@@ -97,7 +97,7 @@ public sealed class ShadeRamp {
 	}
 
 	/// <summary>
-	/// Which row <c>FUN_00468054</c> selects for a given shade byte: <c>(shade * (levels - 1)) / 256</c>,
+	/// Which row <c>Raster_ShadeRampRow</c> (<c>00468054</c>) selects for a given shade byte: <c>(shade * (levels - 1)) / 256</c>,
 	/// clamped to the table. The truncation is the original's own <c>&amp; ~0xFF</c>.
 	/// </summary>
 	public int RowFor(int shade) =>

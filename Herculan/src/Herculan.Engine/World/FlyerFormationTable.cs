@@ -8,17 +8,17 @@ namespace Herculan.Engine.World;
 /// <c>dat\FFORMS.DAT</c> — per-formation station offsets for a <c>script.dat</c> block-8 flyer
 /// group, the flyer twin of <see cref="MechFormationTable"/> and <see cref="BaseFormationTable"/>.
 ///
-/// <para>Load site: <c>FUN_00422d8f</c> (<c>flyersys.cpp</c>'s subsystem loader) opens
+/// <para>Load site: <c>Flyer_LoadResources</c> (<c>00422d8f</c>, <c>flyersys.cpp</c>'s subsystem loader) opens
 /// <c>dat\fforms</c> — the string at <c>0049a68c</c>, through the same folder-prefix helper every
 /// other <c>dat\</c> table uses — reads a 2-byte record count into <c>DAT_004a9e7c</c>, allocates
 /// that many <b>0x12-byte</b> elements into <c>DAT_004a9e80</c> and reads <c>count * 0x12</c> bytes
-/// over them. <c>FUN_00423044</c> is the accessor:
+/// over them. <c>FlyerFormation_GetSlotOffset</c> (<c>00423044</c>) is the accessor:
 /// <c>base + formationId * 0x12 + slot * 6 - 6</c>, so a record is <b>three</b> slots of three
 /// <c>int16</c> and the slot index is <b>one-based</b> — the group's first member is the leader and
 /// takes no offset at all.</para>
 ///
 /// <para><b>The offset is three-dimensional</b>, where a mech's and a structure's are two.
-/// <c>FUN_00421e98</c> (the flyer's vtable <c>+0x78</c>) reads all three components and hands them
+/// <c>Flyer_ApplyFormationOffset</c> (<c>00421e98</c>, the flyer's vtable <c>+0x78</c>) reads all three components and hands them
 /// to the same <c>Formation_RotateAndAddOffset</c> (<c>00411d64</c>) the ground classes use, so a
 /// wingman sits behind <i>and above</i> its leader. The retail file's five formations are trailing
 /// echelons: 2500, 5000 and 7500 units aft, stepped 400 units up per slot.</para>

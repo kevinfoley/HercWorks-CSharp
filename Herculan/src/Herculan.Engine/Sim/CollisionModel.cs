@@ -26,7 +26,7 @@ public static class CollisionModel {
 	/// <summary>What a hit test found: how far along the ray, and which component owns the geometry.</summary>
 	/// <param name="Distance">
 	/// Distance along the ray to the entry point, <b>plus one</b> — the original's own
-	/// <c>FUN_0040c524</c> returns <c>distance + 1</c> so that a hit at zero range is still
+	/// <c>Collision_ClusterSphereTest</c> (<c>0040c524</c>) returns <c>distance + 1</c> so that a hit at zero range is still
 	/// distinguishable from a miss, and the caller adds another one on top.
 	/// </param>
 	/// <param name="ComponentIndex">Which of the type's components was struck.</param>
@@ -83,7 +83,7 @@ public static class CollisionModel {
 					continue;
 				}
 
-				// FUN_0040c8c8: the cluster's own bound first, and the spheres only if it passes.
+				// Collision_ClusterTest (0040c8c8): the cluster's own bound first, and the spheres only if it passes.
 				if (!BoundStruck(cluster.Bound, frame, distance, clearance)) {
 					continue;
 				}
@@ -106,7 +106,7 @@ public static class CollisionModel {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040c4c4</c> — the cluster bound's coarse test, which is the same
+	/// <c>Collision_ClusterBoundTest</c> (<c>0040c4c4</c>) — the cluster bound's coarse test, which is the same
 	/// ray-versus-vertical-cylinder shape every hit test in the simulation uses: the centre has to
 	/// be in front of the muzzle and inside the ray's length, and its distance off the ray axis
 	/// under the bound's radius. The length comparison is unsigned, which is what rejects anything
@@ -120,7 +120,7 @@ public static class CollisionModel {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040c428</c> — one sphere against the ray, clipping <paramref name="distance"/> to the
+	/// <c>Collision_RaySphereTest</c> (<c>0040c428</c>) — one sphere against the ray, clipping <paramref name="distance"/> to the
 	/// entry point on a hit.
 	///
 	/// <para>The entry point is the original's linearisation, <c>alongAxis - (radius - offAxis)</c>,

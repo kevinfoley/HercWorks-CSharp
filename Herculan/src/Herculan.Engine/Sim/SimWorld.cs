@@ -8,7 +8,7 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// The running simulation: one loaded zone's terrain plus the live object list, advanced on a fixed
-/// timestep. This mirrors DBSIM's per-frame sim tick (<c>FUN_0045f464</c>), which refreshes the
+/// timestep. This mirrors DBSIM's per-frame sim tick (<c>Sim_MainTick</c>, <c>0045f464</c>), which refreshes the
 /// global timestep from a timer and then walks each global object list calling every live object's
 /// per-tick update.
 ///
@@ -329,7 +329,7 @@ public sealed class SimWorld {
 	/// are the campaign's variables and their reader is the layer that is not ported.
 	///
 	/// <para>Two other things write them: an action firing (<see cref="MissionActionState.Fire"/>)
-	/// and a group's own completion hook (<c>FUN_00423f30</c>), which is not ported.</para>
+	/// and a group's own completion hook (<c>Group_ReportIfAllOutOfAction</c>, <c>00423f30</c>), which is not ported.</para>
 	/// </summary>
 	public IReadOnlyList<short> MissionCounters => _missionCounters;
 
@@ -413,7 +413,7 @@ public sealed class SimWorld {
 	public long CoarseTicks => (long)(ElapsedMilliseconds / 16);
 
 	/// <summary>
-	/// Simulation rate — <b>the original's own</b>. DBSIM's frame loop (<c>FUN_004677bc</c>) spins on
+	/// Simulation rate — <b>the original's own</b>. DBSIM's frame loop (<c>Time_BeginSimTick</c>, <c>004677bc</c>) spins on
 	/// <c>GetTickCount</c> until 40 ms have passed, so the sim runs at a 25 Hz cap and its timestep is
 	/// however long the frame actually took.
 	///
@@ -493,7 +493,7 @@ public sealed class SimWorld {
 	public EffectLightField EffectLights { get; } = new();
 
 	/// <summary>
-	/// <c>FUN_00407f1c</c> — puts one impact effect at <paramref name="position"/>. Called from the
+	/// <c>Explosion_Construct</c> (<c>00407f1c</c>) — puts one impact effect at <paramref name="position"/>. Called from the
 	/// two places the original calls it from along this path: from inside an object's hit test, where
 	/// the effect belongs to the object struck (and is spawned whether or not the sweep goes on to
 	/// find something nearer), and from the tail of <see cref="Raycast"/> itself for a shot that ends
@@ -864,7 +864,7 @@ public sealed class SimWorld {
 	}
 
 	/// <summary>
-	/// Adds an object to the simulation — <c>ObjectList_Add</c> (<c>FUN_00411dd4</c>), which appends
+	/// Adds an object to the simulation — <c>ObjectList_Add</c> (<c>00411dd4</c>), which appends
 	/// to the world's one live-object list and stamps the object with the slot it landed in.
 	///
 	/// <para>The slot matters: it is how every per-object table in the simulation is addressed, so
@@ -1144,7 +1144,7 @@ public sealed class SimWorld {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040b43c</c> — spawns one travelling shot. The powered form <c>FUN_0040b5a0</c> is the
+	/// <c>Bullet_Fire</c> (<c>0040b43c</c>) — spawns one travelling shot. The powered form <c>Bullet_FirePowered</c> (<c>0040b5a0</c>) is the
 	/// same call with two fields written afterwards, so it is this one method: an energy gun passes
 	/// the capacitor charge it spent, an ammunition mount passes zero.
 	///
@@ -1402,7 +1402,7 @@ public sealed class SimWorld {
 			}
 		}
 
-		// The mission's timers, then its triggers. Sim_MainTick runs FUN_00426b48 and
+		// The mission's timers, then its triggers. Sim_MainTick runs ActionTimers_Tick (00426b48) and
 		// Actions_EvaluateTriggers back to back and -- the part that is easy to get backwards --
 		// *after* the group pass, not before it. So an action that fires this tick is not seen by the
 		// group waiting on it until the next one, and a group arrives a tick after its trigger.

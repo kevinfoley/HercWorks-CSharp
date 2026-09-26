@@ -546,7 +546,7 @@ simulatorPreferences.SaveEnabled = writePreferences && tapePlayer == null;
 // SimMath.PerTickStepsScaled.
 SimMath.PerTickStepsScaled = tapePlayer == null;
 // The two gates the original's own panel reads. SfxManager being null greys its first four rows, and
-// DAT_0049e9cd -- which FUN_00459d6c sets by trying to fopen the localised simvoice archive -- is
+// DAT_0049e9cd -- which Voice_ArchiveExists (00459d6c) sets by trying to fopen the localised simvoice archive -- is
 // what lets the two message rows be stepped at all.
 bool soundAvailable = audio.Director != null;
 bool voiceAvailable = content.MountedArchives.Any(
@@ -2042,7 +2042,7 @@ window.Update += deltaSeconds => {
 			axes.Steer,
 			axes.Throttle,
 			// Set when the stick has a lever and it is bound to THROTTLE rather than to the turret —
-			// Input_SetThrottleLeverMode's own pair of conditions (FUN_00459d20). It is what closes the
+			// Input_SetThrottleLeverMode's own pair of conditions (00459d20). It is what closes the
 			// throttle clamp to one side of zero, so a lever pilot cannot walk backwards through the
 			// detent the way a keyboard one does.
 			ThrottleLever: joystickBindings.ThrottleLeverMode(StickCapabilities(), simulatorPreferences),
@@ -2145,7 +2145,7 @@ window.Update += deltaSeconds => {
 
 	// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
 	// either one opens the display — so each both pans down and selects its own screen, which is
-	// what the display's own two page buttons dispatch (FUN_0044a5e4 with the button's index).
+	// what the display's own two page buttons dispatch (HddDisplay_SetPage (0044a5e4) with the button's index).
 	if (cockpitHeadsDownTexture != null && controls != null) {
 		if (controls.IsKeyPressed(Key.F7)) {
 			hudState = hudState with { Hdd = HddPage.CommandDisplay };
@@ -2202,7 +2202,7 @@ window.Update += deltaSeconds => {
 		}
 
 		// [1]-[3] pick the pilot, left to right, which is what the number under each comm box says. The
-		// display's key dispatch (FUN_00449fcc) presses the comm box's own widget for these, and the two
+		// display's key dispatch (HddDisplay_KeyDispatch, 00449fcc) presses the comm box's own widget for these, and the two
 		// magnifiers' and the four arrows' for theirs, so all nine go through the button's press — which
 		// is what holds them back while the sensor dropout has the display dark.
 		for (int slot = 0; slot < HddPilotKeys.Length; slot++) {
@@ -2341,7 +2341,7 @@ window.Update += deltaSeconds => {
 
 		cockpitInput.Drain(deltaSeconds, (_, _) => null);
 
-		// And nothing behind it stays depressed: entering a panel calls FUN_00452b94, which swaps the
+		// And nothing behind it stays depressed: entering a panel calls Widget_ClearPressed (00452b94), which swaps the
 		// panel's own clickable list in and clears Widget_PressedIndex to -1, dropping whatever the
 		// cockpit had held when the panel was raised.
 		hudState = hudState with { PressedWidget = null };
@@ -2650,7 +2650,7 @@ window.Update += deltaSeconds => {
 			missionClock.Advance(deltaSeconds);
 		}
 
-		// FUN_004349ac runs from the cockpit's own paint, one frame apart, and is what arms the marker
+		// NavMarker_Tick (004349ac) runs from the cockpit's own paint, one frame apart, and is what arms the marker
 		// on leaving it and clears it — announcing WAYPOINT REACHED — on coming back.
 		navMarker.Tick(pilotMech.Position, audio.Messages);
 
@@ -2745,7 +2745,7 @@ window.Update += deltaSeconds => {
 			Transmission = squadComm.Transmission,
 
 			// And the line that goes with it, over the canopy. Composed here rather than in the port
-			// because the name in front of it is the comm box's, not the message's — FUN_00435d0c
+			// because the name in front of it is the comm box's, not the message's — PilotMessagePort_ComposeLine (00435d0c)
 			// asks the box for it through Squad_IndexOf.
 			PilotMessage = ComposePilotMessage(squadComm),
 
@@ -2768,9 +2768,9 @@ window.Update += deltaSeconds => {
 	}
 };
 
-// The pilot and squad channel's line, composed the way FUN_00435d0c composes it: the speaker's name,
+// The pilot and squad channel's line, composed the way PilotMessagePort_ComposeLine (00435d0c) composes it: the speaker's name,
 // ": ", then the message, capped at the composer's own strncat length. The name comes from the comm
-// box rather than from the queued record — FUN_00435d0c resolves the record's speaker to a slot with
+// box rather than from the queued record — PilotMessagePort_ComposeLine resolves the record's speaker to a slot with
 // Squad_IndexOf and asks the display for that box's name.
 //
 // Nothing is drawn while the channel is on VoiceOnly: the paint's first test is PilotMessageMode != 1.
@@ -2805,7 +2805,7 @@ TrainingMessageBox? ComposeTrainingMessage(SquadCommChannel channel) {
 
 // Where the selection lands on the canopy, for the front-window target box and arrow — the original's
 // own projection rather than the GL one: view-space offsets scaled by the focal length about the
-// herc's .VUE projection centre, which is what FUN_0043b950 does with Raster_ProjectToScreen. It
+// herc's .VUE projection centre, which is what Gunsight_TargetIndicatorPaint (0043b950) does with Raster_ProjectToScreen. It
 // agrees with the GL projection because the camera's field of view is derived from the same focal
 // length and CockpitPrincipalPoint installs the same centre, including the step kick.
 TargetIndicator? ResolveTargetIndicator(MechObject pilot,
@@ -3062,7 +3062,7 @@ bool ReadStatusAlertKeys() {
 
 // [F11] puts the objectives panel up, and [Return] or [Esc] takes it down — the three keys the
 // original answers, scancode 0x57 through CockpitWidgets_HandleCommand (00432bc8) on the way in and
-// 0x1c/0x01 through the panel's own handler (FUN_00454e10) on the way out. Nothing in that handler
+// 0x1c/0x01 through the panel's own handler (AlertPanel_HandleEvent, 00454e10) on the way out. Nothing in that handler
 // answers 0x57, so [F11] does not close the panel it opened; that is retail behaviour, not an
 // oversight here.
 //
@@ -3564,7 +3564,7 @@ void ApplyCockpitClick(CockpitClick click) {
 			break;
 
 		// Clicking an order arms it, which is the same thing its hotkey does — HddCommandScreen_HandleListClick walks the
-		// eight label rects and calls the same FUN_0044d9cc the key dispatch does. Clicking the one
+		// eight label rects and calls the same HddCommandScreen_SelectOrder (0044d9cc) the key dispatch does. Clicking the one
 		// already armed presses XMIT for you, which is that function's own shortcut.
 		case CockpitWidgetKind.HddOrderRow when hddCommand != null:
 			var picked = click.Id.AsHddOrder!.Value;
@@ -3709,7 +3709,7 @@ void ApplyHddClick(HddLayout.Widget widget) {
 
 	pendingHddPress = null;
 	switch (widget) {
-		// The two page buttons dispatch FUN_0044a5e4 with their own index, and either one opens the
+		// The two page buttons dispatch HddDisplay_SetPage (0044a5e4) with their own index, and either one opens the
 		// display — the same pairing F7 and F8 have.
 		case HddLayout.Widget.PageButton0:
 			hudState = hudState with { Hdd = HddPage.CommandDisplay };
@@ -3733,7 +3733,7 @@ void ApplyHddClick(HddLayout.Widget widget) {
 			break;
 
 		// On the command display all four arrows scroll the map instead, and the two magnifiers zoom
-		// it — FUN_0044a178's cases 2-7, which is one switch over the widget index for both pages.
+		// it — HddDisplay_HandleWidgetPress (0044a178)'s cases 2-7, which is one switch over the widget index for both pages.
 		case HddLayout.Widget.ArrowUp when hddCommand != null:
 			hddCommand.View.Pan(0, 1);
 			break;
@@ -4137,10 +4137,10 @@ bool ExternalViewActive() => (externalView || developerKeys.Viewed != null) && p
 // the same call the corresponding mouse action does — the original routes them together too, through
 // the cockpit's ten-gauge array (CockpitViewInstance+0x70) and the console button panel.
 //
-//   [1]..[0]        arm that row                       -> FUN_004110ac's sibling, FUN_004106ac
-//   [Alt]+[1]..[0]  add/remove that row from the chain -> FUN_004110ac
-//   [W] / [Alt]+[W] step the armed weapon forward/back -> FUN_0041074c
-//   [L]             toggle link fire on the armed pair -> FUN_00410f14
+//   [1]..[0]        arm that row                       -> WeaponMounts_ToggleChainMember (004110ac)'s sibling, WeaponMounts_SelectByGauge (004106ac)
+//   [Alt]+[1]..[0]  add/remove that row from the chain -> WeaponMounts_ToggleChainMember
+//   [W] / [Alt]+[W] step the armed weapon forward/back -> WeaponMounts_StepSelection (0041074c)
+//   [L]             toggle link fire on the armed pair -> WeaponMounts_ToggleLink (00410f14)
 //   [-] / [=]       lower/raise the armed weapon's power -> the armed mount's vtable +0x38
 //
 // Says what the stick can do, once — and not before it will answer.
@@ -4530,7 +4530,7 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 			audio.Director?.Play(SoundId.ButtonClick);
 			break;
 
-		// The original picks between entering the heads-down display and leaving it on FUN_00429820's
+		// The original picks between entering the heads-down display and leaving it on CockpitViewManager_Published (00429820)'s
 		// return, a global object pointer whose relation to the current view is not decoded — the two
 		// branches send F7 and [Esc], which together are plainly a toggle, so that is what this is.
 		case JoystickAction.HddView:

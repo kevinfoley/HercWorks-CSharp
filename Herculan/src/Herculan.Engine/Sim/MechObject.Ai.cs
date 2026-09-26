@@ -635,7 +635,7 @@ public partial class MechObject {
 	/// <summary>
 	/// Mech vtable <c>+0x40</c> (<c>Mech_GetOverallDamage</c>, <c>00415504</c>) — the machine's
 	/// overall damage figure, which is where <see cref="FleeCheck"/> starts from. The slot is one
-	/// instruction: <c>FUN_0040db2c(mech + 0x206)</c>, the whole-machine aggregate rather than any
+	/// instruction: <c>Component_ReadOverallDamage(mech + 0x206)</c> (<c>0040db2c</c>), the whole-machine aggregate rather than any
 	/// one component's.
 	/// </summary>
 	public override int OverallDamage => Damage?.OverallDamage ?? 0;

@@ -131,7 +131,7 @@ public class Weapons {
 		/// hardpoint whose mounting code (<c>.GL +6</c>,
 		/// <see cref="Dbsim.GunLayout.HardpointEntry.AngleDirOption"/>) is
 		/// <paramref name="mountingCode"/> — four shorts at tail-relative <c>0x00</c>-<c>0x06</c>,
-		/// one per code, read by <c>FUN_0040fab0</c> as <c>template[0x22 + code * 2]</c>.
+		/// one per code, read by <c>WeaponMount_ShapeForMountingCode</c> (<c>0040fab0</c>) as <c>template[0x22 + code * 2]</c>.
 		///
 		/// <para>The four are the same gun modelled for the four ways it can hang off a chassis, so
 		/// an autocannon reads four different shapes and a shoulder-mounted launcher reads the same

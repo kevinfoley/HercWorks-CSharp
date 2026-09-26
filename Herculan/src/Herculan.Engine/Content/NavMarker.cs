@@ -8,8 +8,8 @@ namespace Herculan.Engine.Content;
 /// only one the player puts there.
 ///
 /// <para>Three fields of the cockpit view: the position at <c>view+0x25e</c>, a "set" flag at
-/// <c>+0x26a</c> and an "armed" flag at <c>+0x26b</c>. <c>FUN_00434974</c> drops one, copying the
-/// player machine's current position wholesale, and <c>FUN_004349ac</c> — called from the cockpit's
+/// <c>+0x26a</c> and an "armed" flag at <c>+0x26b</c>. <c>NavMarker_DropAtPlayer</c> (<c>00434974</c>) drops one, copying the
+/// player machine's current position wholesale, and <c>NavMarker_Tick</c> (<c>004349ac</c>) — called from the cockpit's
 /// own paint, once a frame — is the whole of its lifecycle. The marker cannot be cleared by walking
 /// away and back in one step: leaving <see cref="ClearRange"/> is what arms it, and only an armed
 /// marker clears on return.</para>
@@ -37,7 +37,7 @@ public sealed class NavMarker {
 	public bool Armed { get; private set; }
 
 	/// <summary>
-	/// <c>FUN_00434974</c> — drop a marker on the player machine's own position. A marker already down
+	/// <c>NavMarker_DropAtPlayer</c> (<c>00434974</c>) — drop a marker on the player machine's own position. A marker already down
 	/// is replaced, and the new one starts unarmed however far the old one had been left behind.
 	/// </summary>
 	public void Drop(Vec3i playerPosition) {
@@ -47,7 +47,7 @@ public sealed class NavMarker {
 	}
 
 	/// <summary>
-	/// <c>FUN_004349ac</c> — one frame of the marker. Arms on leaving, clears and announces on
+	/// <c>NavMarker_Tick</c> (<c>004349ac</c>) — one frame of the marker. Arms on leaving, clears and announces on
 	/// returning; the message is <see cref="SystemMessages.WaypointReached"/>, the same line a route
 	/// waypoint posts.
 	/// </summary>

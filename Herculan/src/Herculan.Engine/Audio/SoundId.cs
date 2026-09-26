@@ -103,7 +103,7 @@ public static class SoundId {
 	public const int BurningObject = 0x33;
 
 	/// <summary>
-	/// The pitch <c>FUN_004328cc</c> hands the engine loop immediately after starting it, as a 16.16
+	/// The pitch <c>Cockpit_PowerUpSound</c> (<c>004328cc</c>) hands the engine loop immediately after starting it, as a 16.16
 	/// ratio: <c>42000 / 65536</c>, about 0.64. The sample is pitched down to a hum.
 	/// </summary>
 	public const int EngineLoopPitch = 42000;

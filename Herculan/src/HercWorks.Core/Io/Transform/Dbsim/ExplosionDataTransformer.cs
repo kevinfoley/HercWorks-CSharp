@@ -9,7 +9,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// with nothing left over.
 /// </summary>
 public class ExplosionDataTransformer : ByteTransformer<ExplosionData> {
-	/// <summary>Bytes one <see cref="ExplosionTypeEntry"/> occupies — <c>FUN_00407b20</c>'s stride.</summary>
+	/// <summary>Bytes one <see cref="ExplosionTypeEntry"/> occupies — <c>Explosion_GetTypeRecord</c> (<c>00407b20</c>)'s stride.</summary>
 	private const int TypeEntryLength = 0x28;
 
 	public override ExplosionData? Parse(byte[]? inputArray) {

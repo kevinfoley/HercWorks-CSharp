@@ -15,7 +15,7 @@ namespace HercWorks.Core.Data.File.Sav;
 /// it — DBSIM overwrites that record's member list with these entries.</para>
 ///
 /// <para>The 35 bytes past the last entry in the retail 263-byte sample are not slack: VSHELL's
-/// <c>FUN_00412253</c> closes the export with <c>int16 33</c> and then 33 bytes, one per weapon
+/// <c>PlayerMec_WriteUnlockTable</c> (<c>00412253</c>) closes the export with <c>int16 33</c> and then 33 bytes, one per weapon
 /// catalog id, carrying that weapon's <c>weapons.dat</c> <c>+0x16</c> unlock flag. They are
 /// <see cref="WeaponFlags"/>. See <c>docs/shell/campaign-loop.md</c>.</para>
 ///
@@ -94,7 +94,7 @@ public class MecEntry {
 	/// <para>Resolved from <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>),
 	/// which takes this array's entry for a hardpoint through
 	/// <c>Proj_LookupRecord(Missile, key)</c> whenever the weapon's template carries the launcher
-	/// sentinel, and from <c>FUN_0040e18c</c>, which then prints that record's own subtype as the
+	/// sentinel, and from <c>WeaponMount_GetDisplayName</c> (<c>0040e18c</c>), which then prints that record's own subtype as the
 	/// mount's name. That is why the retail player's <c>MSL10</c> hardpoint reads <c>ARH</c> in the
 	/// cockpit rather than <c>MSL10</c>. Non-launcher slots carry a filler 5, which the factory
 	/// rewrites to 0 before looking it up.</para>

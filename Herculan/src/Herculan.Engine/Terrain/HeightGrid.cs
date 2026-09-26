@@ -19,14 +19,14 @@ namespace Herculan.Engine.Terrain;
 /// height query below is still a literal translation.</para>
 /// </summary>
 public sealed partial class HeightGrid {
-	/// <summary>Length every surface normal is scaled to — <c>FUN_0046c2ec</c>'s own constant.</summary>
+	/// <summary>Length every surface normal is scaled to — <c>Terrain_BuildCellSurfaceAndShade</c> (<c>0046c2ec</c>)'s own constant.</summary>
 	public const int NormalOne = 0x800;
 
 	private readonly byte[] _rawHeights;
 	private readonly byte[] _cellFlags;
 
 	// Per-cell diagonal selector and the two face normals it splits the cell into, built once at
-	// construction exactly as FUN_0046c1dc builds them at zone load. Six shorts per cell: the
+	// construction exactly as Terrain_BuildSurface (0046c1dc) builds them at zone load. Six shorts per cell: the
 	// north-west triangle's normal, then the south-east one's.
 	private readonly byte[] _diagonals;
 	private readonly short[] _normals;
@@ -75,7 +75,7 @@ public sealed partial class HeightGrid {
 	/// <see cref="TerrainDetail"/>, which owns the table and the derivation.
 	/// <c>Terrain_HeightQuery</c> never reads it — it is the <b>view radius in cells</b>, and the
 	/// consumer this engine has ported is <c>Terrain_DrawCellQuad</c>, which per cell does
-	/// <c>FUN_00467fdc(grid[0x10c] &lt;&lt; grid[0x108])</c> to install the visibility range the
+	/// <c>Raster_SetVisibilityRange(grid[0x10c] &lt;&lt; grid[0x108])</c> (<c>00467fdc</c>) to install the visibility range the
 	/// distance fog is measured against (see <see cref="VisibilityRange"/>). The field's writer and
 	/// its other readers — draw-region and view-distance setup — are in
 	/// docs/formats/terrain-texturing.md's "<c>grid+0x10c</c> — the LOD / draw-radius field".
@@ -131,10 +131,10 @@ public sealed partial class HeightGrid {
 	/// The cell's diagonal-split selector — bits [0:1] of the original's <c>+0xf</c> byte, which
 	/// <see cref="HeightAtWorld"/> uses to decide which way the quad's diagonal runs.
 	///
-	/// <para>Neither loader path writes it. The writer is <c>FUN_0046bed8</c>, the per-cell
+	/// <para>Neither loader path writes it. The writer is <c>Terrain_BuildCellSurface</c> (<c>0046bed8</c>), the per-cell
 	/// <b>normal builder</b>: computing a cell's two face normals requires choosing its diagonal, so
 	/// it derives the selector from the four corner heights and stores it alongside.
-	/// <c>FUN_0046c1dc</c> runs that over the whole grid at zone load, and again after footprint
+	/// <c>Terrain_BuildSurface</c> (<c>0046c1dc</c>) runs that over the whole grid at zone load, and again after footprint
 	/// flattening moves the corners it reads, so every interior cell's selector is decided by its
 	/// own corners and only the last row and column keep the loader's zero. See
 	/// <see cref="BuildSurface"/> and <see cref="FlattenStructureFootprints"/>.</para>
@@ -170,7 +170,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>FUN_0046bed8</c> + <c>FUN_0046c138</c>, run over the grid as <c>FUN_0046c1dc</c> does at
+	/// <c>Terrain_BuildCellSurface</c> (<c>0046bed8</c>) + <c>Math_NormalizeVec3ShortToLength</c> (<c>0046c138</c>), run over the grid as <c>Terrain_BuildSurface</c> (<c>0046c1dc</c>) does at
 	/// zone load: for every cell, choose the diagonal its four corner heights imply and build the
 	/// two face normals, each scaled to length <see cref="NormalOne"/>.
 	///
@@ -240,7 +240,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>FUN_0046c138</c> — rescales a vector to length <see cref="NormalOne"/>, measured with the
+	/// <c>Math_NormalizeVec3ShortToLength</c> (<c>0046c138</c>) — rescales a vector to length <see cref="NormalOne"/>, measured with the
 	/// sim's sqrt-free magnitude approximation, halving it first if it is close enough to overflowing
 	/// a signed short that the Q16 scale would.
 	/// </summary>

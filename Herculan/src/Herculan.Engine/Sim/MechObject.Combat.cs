@@ -7,7 +7,7 @@ using Herculan.Engine.Settings;
 namespace Herculan.Engine.Sim;
 
 /// <summary>
-/// Taking fire and giving it: the trigger path (<c>FUN_00415608</c> → <c>FUN_00410dbc</c>), the
+/// Taking fire and giving it: the trigger path (<c>Mech_PlayerFireTick</c> (<c>00415608</c>) → <c>WeaponMounts_FireTrigger</c> (<c>00410dbc</c>)), the
 /// mech's own direct-fire hit test (<c>Mech_DirectFireHitTest</c>, <c>00418ba8</c>) and the two
 /// functions below it that turn a struck component into damage
 /// (<c>Mech_ApplyDirectFireDamage</c> <c>004188c8</c>, <c>Mech_ComponentDamageWrite</c>
@@ -97,11 +97,11 @@ public sealed partial class MechObject {
 	private const bool FixDamageLevelCriticalPost = false;
 
 	/// <summary>
-	/// <c>FUN_00415608</c>, the player's own fire path, called once a frame from
+	/// <c>Mech_PlayerFireTick</c> (<c>00415608</c>), the player's own fire path, called once a frame from
 	/// <c>Sim_PollPlayerInput</c> with the input device struct.
 	///
 	/// <para><b>The trigger is a held state, not a keypress.</b> The mount's own vtable <c>+0x30</c>
-	/// (<c>FUN_0040f8ad</c>) does nothing but read the device struct's byte at <c>+0x0d</c> — the
+	/// (<c>WeaponMount_TriggerHeld</c>, <c>0040f8ad</c>) does nothing but read the device struct's byte at <c>+0x0d</c> — the
 	/// fire button — so holding it fires again the moment the refire timer runs out and the capacitor
 	/// is back over the threshold. Nothing edge-detects it anywhere along the path.</para>
 	///
@@ -110,7 +110,7 @@ public sealed partial class MechObject {
 	/// is unported. Here that falls out of <see cref="Controls"/>, which is
 	/// <see cref="MechControls.Neutral"/> for everything the player is not flying.</para>
 	///
-	/// <para>The rest of <c>FUN_00415608</c> is the player's <b>line of fire</b>: on a shot it stamps
+	/// <para>The rest of <c>Mech_PlayerFireTick</c> is the player's <b>line of fire</b>: on a shot it stamps
 	/// up to 40 points along the turret bearing at <see cref="FiringLineSpacing"/> spacing, cut to the
 	/// range of the selected target. Nothing draws them — their only reader is
 	/// <see cref="ObstacleAvoidance"/>, which steers the player's own squadmates out of the way. See
@@ -340,7 +340,7 @@ public sealed partial class MechObject {
 	public bool LegLost(int leg) => leg >= 0 && leg < _legsLost.Length && _legsLost[leg];
 
 	/// <summary>
-	/// <c>FUN_00415710</c>, the mech's vtable <c>+0x60</c> — told to the machine that just put
+	/// <c>Mech_CreditNeutralisedTarget</c> (<c>00415710</c>), the mech's vtable <c>+0x60</c> — told to the machine that just put
 	/// <paramref name="victim"/> out of the fight, from both of
 	/// <see cref="ComponentDamageWrite"/>'s branches. The base class' slot
 	/// (<c>FUN_00411b2c</c>) is an empty stub, so only a HERC credits anything.

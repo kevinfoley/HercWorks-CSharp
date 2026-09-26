@@ -1,7 +1,7 @@
 ﻿namespace Herculan.Engine.Content;
 
 /// <summary>
-/// The in-mission objectives panel — <c>obj_alrt</c> (<c>FUN_0045751c</c>), what [F11] puts up over
+/// The in-mission objectives panel — <c>obj_alrt</c> (<c>ObjectivesPanel_Ctor</c>, <c>0045751c</c>), what [F11] puts up over
 /// the cockpit. It lists <c>script.dat</c> block 13, which is the mission's objective text as the
 /// player is shown it; see docs/simulation/mission-objectives.md.
 ///
@@ -11,7 +11,7 @@
 /// <c>.HFN</c> fonts the rest of the cockpit draws from.</para>
 ///
 /// <para><b>It is modal, and the simulation does not tick behind it.</b> The original runs its own
-/// event loop (<c>FUN_00457ae4</c>) that polls input, repaints the widgets it owns and presents —
+/// event loop (<c>ObjectivesPanel_RunModal</c>, <c>00457ae4</c>) that polls input, repaints the widgets it owns and presents —
 /// and never calls the sim tick. Entering also pauses both message ports
 /// (<c>MessagePort_Pause</c>) and saves the framebuffer, so the frozen cockpit and whatever the
 /// computer was saying are still there when the panel comes down.</para>
@@ -52,7 +52,7 @@ public sealed class ObjectivesPanel {
 
 	/// <summary>
 	/// Whether the button is currently held down — it paints its second plate and captions itself in
-	/// <c>PUSHED</c> rather than <c>ACTIVE</c> while it is (<c>FUN_00454ff8</c>).
+	/// <c>PUSHED</c> rather than <c>ACTIVE</c> while it is (<c>PanelButton_Paint</c>, <c>00454ff8</c>).
 	/// </summary>
 	public bool ButtonPressed { get; private set; }
 
@@ -114,7 +114,7 @@ public sealed class ObjectivesPanel {
 	}
 
 	/// <summary>
-	/// A key the panel's own handler (<c>FUN_00454e10</c>) answers. [Return] presses the focused
+	/// A key the panel's own handler (<c>AlertPanel_HandleEvent</c>, <c>00454e10</c>) answers. [Return] presses the focused
 	/// widget and [Esc] presses the panel's cancel widget; the panel sets both to its one button, so
 	/// either closes it. [Tab] and [Shift+Tab] walk the focus, which with one widget is a no-op, and
 	/// are not modelled.

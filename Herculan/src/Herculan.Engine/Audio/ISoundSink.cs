@@ -64,7 +64,7 @@ public interface ISoundSink {
 	void CommandSay(int messageId);
 
 	/// <summary>
-	/// Withdraws a posted message that has not been said yet — <c>FUN_00435ac8</c>, which the radar
+	/// Withdraws a posted message that has not been said yet — <c>MessagePort_Withdraw</c> (<c>00435ac8</c>), which the radar
 	/// toggle uses on both of its own lines before posting the one it wants.
 	/// </summary>
 	void Unsay(int messageId);

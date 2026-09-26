@@ -5,7 +5,7 @@ using Herculan.Engine.Sim;
 namespace Herculan.Engine.Render;
 
 /// <summary>
-/// One <see cref="EffectLight"/> as it applies to one drawn object — what <c>FUN_00407098</c>
+/// One <see cref="EffectLight"/> as it applies to one drawn object — what <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>)
 /// synthesises into the active light list just before that object is drawn.
 /// </summary>
 /// <param name="Directional">
@@ -26,7 +26,7 @@ namespace Herculan.Engine.Render;
 public readonly record struct SelectedEffectLight(bool Directional, Vector3 Vector, float Intensity);
 
 /// <summary>
-/// <c>FUN_00407098</c> — picks which of <see cref="EffectLightField"/>'s slots light one drawn
+/// <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>) — picks which of <see cref="EffectLightField"/>'s slots light one drawn
 /// object, and what each one looks like from where that object stands.
 ///
 /// <para>The original runs this from <c>ObjList_DrawEntryRender</c> (<c>0042876c</c>), once per

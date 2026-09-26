@@ -32,21 +32,21 @@ namespace Herculan.Engine.Sim;
 public sealed class WeaponMount {
 	/// <summary>
 	/// What an energy mount's capacitor holds at spawn, and the charge level it asks for while idle
-	/// — <c>FUN_0040e074</c>'s <c>Q10Multiply(820, 1200)</c>, a literal pair that does not vary by
+	/// — <c>WeaponMount_CtorEnergy</c> (<c>0040e074</c>)'s <c>Q10Multiply(820, 1200)</c>, a literal pair that does not vary by
 	/// weapon. Both <c>+0x7b</c> (the target) and <c>+0x7d</c> (the level) start here, so an energy
 	/// weapon powers up already charged.
 	/// </summary>
 	public static readonly short EnergyCapacitorFull = (short)SimMath.Q10Multiply(0x334, EnergyChargeScale);
 
 	/// <summary>
-	/// The denominator the charge bar is drawn against — <c>FUN_0040f288</c> pushes
+	/// The denominator the charge bar is drawn against — <c>WeaponMount_PushEnergyGaugeState</c> (<c>0040f288</c>) pushes
 	/// <c>(charge &lt;&lt; 10) / 1200</c> to a widget whose LED bar has a range of 1024. It is not
 	/// the capacitor's own capacity, which is why a fully charged weapon reads four-fifths of a bar
 	/// rather than a full one: 960 out of 1200.
 	///
 	/// <para>What fills the last fifth is the <b>power-level keys</b> — see
 	/// <see cref="AdjustPower"/>. <c>WeaponMount_DemandFullCharge</c> (<c>0040f4f0</c>) does the same
-	/// thing in one step and was the obvious candidate, but its only caller (<c>FUN_00410d50</c>,
+	/// thing in one step and was the obvious candidate, but its only caller (<c>WeaponMounts_DemandFullChargeOnArmed_Dead</c> (<c>00410d50</c>),
 	/// "raise the armed mount to full and clear everyone else's mid-charge flag") has no reference of
 	/// any kind anywhere in the image — neither a call nor a stored address — so nothing in the
 	/// retail build ever reaches it.</para>
@@ -57,7 +57,7 @@ public sealed class WeaponMount {
 	public const short EnergyChargeRate = 0x14;
 
 	/// <summary>
-	/// The charge level an idle energy mount asks for — <c>FUN_0040f4d8</c>'s literal <c>0x334</c>,
+	/// The charge level an idle energy mount asks for — <c>WeaponMount_WakeCapacitor</c> (<c>0040f4d8</c>)'s literal <c>0x334</c>,
 	/// the same 820 <see cref="EnergyCapacitorFull"/> is derived from. A mount with a shot demanded
 	/// of it raises its target to <see cref="EnergyChargeScale"/> instead.
 	/// </summary>
@@ -65,12 +65,12 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// What a mount whose turn has passed bleeds back into the pool each tick, once some other mount
-	/// has declared itself mid-charge — <c>FUN_0040f00c</c>'s floor of -5 on a negative deficit.
+	/// has declared itself mid-charge — <c>WeaponMount_ChargeCapacitor</c> (<c>0040f00c</c>)'s floor of -5 on a negative deficit.
 	/// </summary>
 	public const short EnergyBleedBack = 5;
 
 	/// <summary>
-	/// Catalog id 25, <c>PLAS</c> — the one weapon <c>FUN_0040f00c</c> singles out by id. Its
+	/// Catalog id 25, <c>PLAS</c> — the one weapon <c>WeaponMount_ChargeCapacitor</c> (<c>0040f00c</c>) singles out by id. Its
 	/// capacitor deficit counts double and only half of what it draws is stored, so it costs twice
 	/// the pool for the same charge.
 	/// </summary>
@@ -81,13 +81,13 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// The step one press of the power-level keys moves an energy mount's charge target —
-	/// <c>FUN_0040f48c</c>'s literal <c>0x50</c>, clamped to 0..<see cref="EnergyChargeScale"/>.
+	/// <c>WeaponMount_AdjustPowerLevel</c> (<c>0040f48c</c>)'s literal <c>0x50</c>, clamped to 0..<see cref="EnergyChargeScale"/>.
 	/// </summary>
 	public const short EnergyPowerStep = 0x50;
 
 	/// <summary>
 	/// The fixed-point scale on <see cref="RefireDelay"/> at full health — <c>+0x63</c>, which the
-	/// base mount constructor (<c>FUN_0040df30</c>) writes into every mount. A Q10 unit, so an
+	/// base mount constructor (<c>WeaponMount_CtorBase</c>, <c>0040df30</c>) writes into every mount. A Q10 unit, so an
 	/// undamaged mount arms the template's own figure exactly.
 	/// </summary>
 	public const short RefireScaleFull = 0x400;
@@ -132,7 +132,7 @@ public sealed class WeaponMount {
 
 		switch (Kind) {
 			case WeaponMountKind.Ammunition:
-				// FUN_0040e140: the magazine size comes off the template and the mount powers up
+				// WeaponMount_CtorAmmunition (0040e140): the magazine size comes off the template and the mount powers up
 				// holding a full one. The level is kept in 256ths of a round; the gauge prints
 				// level >> 8.
 				ChargeTarget = MagazineSize;
@@ -161,12 +161,12 @@ public sealed class WeaponMount {
 			ComponentLock = new TargetingPodLock();
 		}
 
-		// FUN_0040df30 sets +0x4c on every mount it builds; the pod base constructor
-		// (FUN_0040e234) immediately clears it again, which is one of the two independent reasons a
+		// WeaponMount_CtorBase (0040df30) sets +0x4c on every mount it builds; the pod base constructor
+		// (Pod_CtorBase, 0040e234) immediately clears it again, which is one of the two independent reasons a
 		// pod can never be armed.
 		Selectable = Kind != WeaponMountKind.Pod;
 
-		// FUN_0040df30's own first act: an invisibly-mounted hardpoint loads no shape, and every
+		// WeaponMount_CtorBase (0040df30)'s own first act: an invisibly-mounted hardpoint loads no shape, and every
 		// other one loads the weapon model its template names for the mounting code it sits at.
 		ModelShapeIndex = _hardpoint.AngleDirOption < InvisibleMounting && _template != null
 			? _template.ModelShapeIndex(_hardpoint.AngleDirOption)
@@ -182,7 +182,7 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// Which shape of <c>dts\MECHWPNS.DTS</c> this mount is drawn as, or -1 for an invisible
-	/// mounting — <c>FUN_0040fab0</c>, which the base constructor calls only when the hardpoint's
+	/// mounting — <c>WeaponMount_ShapeForMountingCode</c> (<c>0040fab0</c>), which the base constructor calls only when the hardpoint's
 	/// mounting code is under <see cref="InvisibleMounting"/>. The mount owns a private copy of that
 	/// shape in the original (<c>mount+0x10</c>), because it translates the geometry to the muzzle
 	/// point and steps its flipbook independently of every other mount carrying the same weapon.
@@ -273,7 +273,7 @@ public sealed class WeaponMount {
 	public ProjectileData.Projectile? Projectile { get; }
 
 	/// <summary>
-	/// The magazine size — the template's field at <c>+0x3a</c>, which <c>FUN_0040e140</c> reads as
+	/// The magazine size — the template's field at <c>+0x3a</c>, which <c>WeaponMount_CtorAmmunition</c> (<c>0040e140</c>) reads as
 	/// both the round count a mount starts with and the count it is capped at. Zero for anything that
 	/// is not an ammunition mount.
 	/// </summary>
@@ -419,7 +419,7 @@ public sealed class WeaponMount {
 	/// <c>WeaponMount_Destroy</c> (<c>0040f57c</c>) — the mount side of losing a hardpoint, reached
 	/// from the destruction roll a band change on one of the machine's mount components makes (see
 	/// <c>MechObject</c>'s <c>ApplyDirectFireDamage</c>) and from the mount's own condition
-	/// notification (<c>FUN_0040ee0c</c>) when that reports a fully-damaged component.
+	/// notification (<c>WeaponMount_ConditionChangedBase</c>, <c>0040ee0c</c>) when that reports a fully-damaged component.
 	///
 	/// <para>Two writes, and they are the whole of the state change: the weapon model at
 	/// <c>mount+0x10</c> is dropped, so the gun stops being drawn on the chassis, and the destroyed
@@ -495,8 +495,8 @@ public sealed class WeaponMount {
 	public const short DebrisBurstEffect = 0x14;
 
 	/// <summary>
-	/// The mount's vtable slot <c>0x68</c>, the condition notification — <c>FUN_0040ee0c</c> for the
-	/// base class and <c>FUN_0040ee90</c> for the two that carry a weapon.
+	/// The mount's vtable slot <c>0x68</c>, the condition notification — <c>WeaponMount_ConditionChangedBase</c> (<c>0040ee0c</c>) for the
+	/// base class and <c>WeaponMount_ConditionChanged</c> (<c>0040ee90</c>) for the two that carry a weapon.
 	/// <c>Mech_ComponentDamageWrite</c> reads every mount's component before its write and again
 	/// after, and hands both readings to every mount on the machine, so this runs on all of them for
 	/// any hit anywhere and is a no-op wherever the two agree.
@@ -589,7 +589,7 @@ public sealed class WeaponMount {
 	///
 	/// <para><b>It shortens the refire delay.</b> The scale multiplies the template's figure, so a
 	/// gun on a half-wrecked mount arms half the delay and fires roughly twice as fast. That reads
-	/// backwards for damage and it is what the original does — <c>FUN_0040ee90</c> subtracts from
+	/// backwards for damage and it is what the original does — <c>WeaponMount_ConditionChanged</c> (<c>0040ee90</c>) subtracts from
 	/// <c>0x400</c> and <c>WeaponMount_PrepareShot</c> multiplies by the result.</para>
 	/// </summary>
 	public const int RefireScalePerDamageStep = 0x66;
@@ -620,7 +620,7 @@ public sealed class WeaponMount {
 	/// <b>The weapon's range, in world units</b> — the template's int32 at <c>0x30</c>, which
 	/// <c>WeaponMount_FireDispatch_GunBeam</c> hands straight to <c>Bullet_FireBurst</c> as the ray's
 	/// length. That call is what settles the field: it was previously known only as the value
-	/// <c>FUN_004110ac</c> requires to be positive before it will put a hardpoint into a fire chain,
+	/// <c>WeaponMounts_ToggleChainMember</c> (<c>004110ac</c>) requires to be positive before it will put a hardpoint into a fire chain,
 	/// and was left undecoded because the manual's own 20 m figure for the ELF did not fit it.
 	///
 	/// <para>It does not fit that figure now either — ELF reads 20000 units, which is 120 m at the
@@ -682,14 +682,14 @@ public sealed class WeaponMount {
 	///
 	/// <para>The original keeps two byte blocks, <c>+0x33</c> and <c>+0x3b</c>. Firing sets both
 	/// (<c>WeaponMount_PrepareShot</c>); each tick <c>WeaponMount_RefireTick</c> <b>ands</b>
-	/// <c>+0x33</c> with <c>+0x3b</c> and then clears <c>+0x3b</c> (<c>FUN_0040f881</c>). So the flag
+	/// <c>+0x33</c> with <c>+0x3b</c> and then clears <c>+0x3b</c> (<c>WeaponMount_AndFlagBlocks</c>, <c>0040f881</c>). So the flag
 	/// survives exactly as long as the mount fires on every tick and drops on the first tick after one
 	/// it sat out — a "still firing", not a "has ever fired".</para>
 	/// </summary>
 	public bool FiringSustained => _firedSinceShuffle;
 
 	/// <summary>
-	/// Vtable slot <c>0x3c</c>, <c>FUN_0040f4d8</c>: put an energy mount's charge target back to its
+	/// Vtable slot <c>0x3c</c>, <c>WeaponMount_WakeCapacitor</c> (<c>0040f4d8</c>): put an energy mount's charge target back to its
 	/// idle level. Only the energy class implements it — the other two have a no-op in that slot.
 	/// </summary>
 	internal void WakeCapacitor() {
@@ -698,12 +698,12 @@ public sealed class WeaponMount {
 		}
 	}
 
-	/// <summary>Rounds remaining, as the ammunition gauge prints them — <c>FUN_0040f330</c>'s <c>+0x7d &gt;&gt; 8</c>.</summary>
+	/// <summary>Rounds remaining, as the ammunition gauge prints them — <c>WeaponMount_PushAmmoGaugeState</c> (<c>0040f330</c>)'s <c>+0x7d &gt;&gt; 8</c>.</summary>
 	public int Rounds => Charge >> 8;
 
 	/// <summary>
 	/// The charge bar's value, over the 0-1024 range its LED bar was built with —
-	/// <c>FUN_0040f288</c>'s <c>(charge &lt;&lt; 10) / 1200</c>.
+	/// <c>WeaponMount_PushEnergyGaugeState</c> (<c>0040f288</c>)'s <c>(charge &lt;&lt; 10) / 1200</c>.
 	/// </summary>
 	public int ChargeMeterValue => (Charge << 10) / EnergyChargeScale;
 
@@ -722,7 +722,7 @@ public sealed class WeaponMount {
 	/// Whether the mount could fire right now — the per-class test at vtable slot <c>0x2c</c>.
 	///
 	/// <list type="bullet">
-	/// <item><b>Ammunition</b> (<c>FUN_0040ed6c</c>): not destroyed, out of its refire delay, and
+	/// <item><b>Ammunition</b> (<c>WeaponMount_AmmoCanFire</c>, <c>0040ed6c</c>): not destroyed, out of its refire delay, and
 	/// holding at least one round.</item>
 	/// <item><b>Energy</b> (<c>WeaponMount_EnergyCanFire</c>): not destroyed, out of its refire delay,
 	/// and charged to at least the threshold below.</item>
@@ -740,7 +740,7 @@ public sealed class WeaponMount {
 	};
 
 	/// <summary>
-	/// <c>FUN_0040eda0</c>, the ELF class's vtable <c>+0x2c</c> — <b>why an ELF cannot be re-triggered
+	/// <c>ElfMount_CanFire</c> (<c>0040eda0</c>), the ELF class's vtable <c>+0x2c</c> — <b>why an ELF cannot be re-triggered
 	/// until its capacitor is back to full</b>.
 	///
 	/// <para>It uses the same two template fields as the energy test but drops the branch between
@@ -791,7 +791,7 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// This mount's turn at the Master Energy Pool — vtable slot <c>0x34</c>. An ammunition mount's
-	/// override (<c>FUN_0040ef94</c>) hands the budget straight back; an energy mount runs
+	/// override (<c>WeaponMount_RefireTick</c>, <c>0040ef94</c>) hands the budget straight back; an energy mount runs
 	/// <c>WeaponMount_ChargeCapacitor</c> (<c>0040f00c</c>):
 	///
 	/// <list type="number">
@@ -830,7 +830,7 @@ public sealed class WeaponMount {
 		if (IsEnergyClass || Kind == WeaponMountKind.Ammunition) {
 			SimMath.CountdownTimerTick(ref _refireTimer);
 
-			// FUN_0040f881: +0x33 &= +0x3b, then +0x3b is cleared. See FiringSustained — the ELF
+			// WeaponMount_AndFlagBlocks (0040f881): +0x33 &= +0x3b, then +0x3b is cleared. See FiringSustained — the ELF
 			// readiness test is the one thing that reads the result.
 			_firedSinceShuffle &= _firedThisTick;
 			_firedThisTick = false;
@@ -902,7 +902,7 @@ public sealed class WeaponMount {
 	/// with the hardpoint's mount point in the translation.
 	///
 	/// <para>The original gets there the other way round — the base constructor translates the
-	/// freshly-loaded shape's own point lists by that offset (<c>FUN_0040dd4c</c>) and then draws
+	/// freshly-loaded shape's own point lists by that offset (<c>Shape_TranslatePointLists</c>, <c>0040dd4c</c>) and then draws
 	/// the shape at the bone, which is why every mount owns a private copy of the shape rather than
 	/// sharing one. Offsetting the frame instead puts the same geometry in the same place off one
 	/// shared model.</para>
@@ -1082,11 +1082,11 @@ public sealed class WeaponMount {
 		}
 	}
 
-	/// <summary>How fast the printed round count chases the real one — <c>FUN_0040f330</c>'s literal 250 per 125 ms.</summary>
+	/// <summary>How fast the printed round count chases the real one — <c>WeaponMount_PushAmmoGaugeState</c> (<c>0040f330</c>)'s literal 250 per 125 ms.</summary>
 	public const short AmmoGaugeDecayRate = 0xfa;
 
 	/// <summary>
-	/// Vtable slot <c>0x38</c>, <c>FUN_0040f48c</c> — the power-level control, which the manual does not
+	/// Vtable slot <c>0x38</c>, <c>WeaponMount_AdjustPowerLevel</c> (<c>0040f48c</c>) — the power-level control, which the manual does not
 	/// mention, on
 	/// <c>[-]</c>/<c>[=]</c> and the numeric keypad's <c>[-]</c>/<c>[+]</c>. Moves this mount's charge
 	/// target by <see cref="EnergyPowerStep"/>, clamped to zero and <see cref="EnergyChargeScale"/>.
@@ -1111,7 +1111,7 @@ public sealed class WeaponMount {
 	/// Vtable slot <c>0x28</c>, the fire dispatch — <c>WeaponMount_FireDispatch_GunBeam</c>
 	/// (<c>0040ea58</c>) for the energy class and <c>WeaponMount_FireDispatch_Missile</c>
 	/// (<c>0040e964</c>) for the ammunition one. Both open with the same prologue
-	/// (<c>FUN_0040e788</c>), which works out where the muzzle is and arms the refire delay, and then
+	/// (<c>WeaponMount_PrepareShot</c>, <c>0040e788</c>), which works out where the muzzle is and arms the refire delay, and then
 	/// branch on the resolved <c>PROJ.DAT</c> record's own type.
 	///
 	/// <para><b>All three branches are live.</b> A <see cref="ProjectileType.Beam"/> record resolves
@@ -1153,7 +1153,7 @@ public sealed class WeaponMount {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040ec64</c>, the ELF class's vtable <c>+0x28</c>. Where the energy class branches three
+	/// <c>ElfMount_FireDispatch</c> (<c>0040ec64</c>), the ELF class's vtable <c>+0x28</c>. Where the energy class branches three
 	/// ways on the record's type, this has one branch and it is the beam: an ELF is always a beam.
 	///
 	/// <para>Two things differ from the energy class's beam branch, both deliberate in the original.
@@ -1341,7 +1341,7 @@ public sealed class WeaponMount {
 		_template?.Tail is { Length: >= 0x14 } tail ? BitConverter.ToInt16(tail, 0x12) : (short)0;
 
 	/// <summary>
-	/// <c>FUN_0040e5f8</c> — whether a target at <paramref name="range"/> is inside this weapon's
+	/// <c>WeaponMount_RangeAllows</c> (<c>0040e5f8</c>) — whether a target at <paramref name="range"/> is inside this weapon's
 	/// engagement window, <see cref="MinimumRange"/> exclusive to <see cref="Range"/> exclusive. Both
 	/// the AI's weapon choice and its ELF latch ask it.
 	/// </summary>
@@ -1413,7 +1413,7 @@ public sealed class WeaponMount {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040e788</c>, the shared fire prologue — where the shot comes from, which way it points,
+	/// <c>WeaponMount_PrepareShot</c> (<c>0040e788</c>), the shared fire prologue — where the shot comes from, which way it points,
 	/// and the refire delay it costs.
 	///
 	/// <para>The frame is the firing hardpoint's own model bone, posed as it stands this tick and
@@ -1449,7 +1449,7 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// Where the muzzle sits in its bone's space — the template's own triple at <c>0x40</c>, the
-	/// hardpoint's at <c>+0x10</c>, and <c>FUN_0040f904</c>'s side offset on top.
+	/// hardpoint's at <c>+0x10</c>, and <c>WeaponMountTemplate_SideMuzzleOffset</c> (<c>0040f904</c>)'s side offset on top.
 	///
 	/// <para>That last one is what makes a mirrored pair of hardpoints fire from mirrored points off
 	/// one template. The template carries a lateral figure at <c>0x46</c> and a vertical one at
@@ -1487,7 +1487,7 @@ public sealed class WeaponMount {
 	/// is ever nonzero.</para>
 	///
 	/// <para>This is the offset the base mount constructor bakes into its private copy of the weapon
-	/// model (<c>FUN_0040dd4c</c>), which is why <see cref="ModelFrame"/> reads it rather than
+	/// model (<c>Shape_TranslatePointLists</c>, <c>0040dd4c</c>), which is why <see cref="ModelFrame"/> reads it rather than
 	/// <see cref="MuzzleOffset"/>: putting the model at the muzzle stands it a barrel's length
 	/// clear of the chassis.</para>
 	/// </summary>

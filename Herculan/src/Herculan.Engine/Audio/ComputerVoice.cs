@@ -69,7 +69,7 @@ public sealed class ComputerVoice {
 	/// <summary>
 	/// Reads message <paramref name="messageId"/> aloud — the flat <c>SYSTEM.STR</c> id its call sites
 	/// pass, resolved here to the <c>CVM</c> clip its attribute byte names. The tail of
-	/// <c>FUN_00436abc</c>, which is a bare "build the filename and play it": there is no queue and
+	/// <c>MessagePort_Show</c> (<c>00436abc</c>), which is a bare "build the filename and play it": there is no queue and
 	/// nothing is checked, because the port has already decided this line is the one to say.
 	///
 	/// <para>A line still running is cut off. The original opens each clip into its own channel slot

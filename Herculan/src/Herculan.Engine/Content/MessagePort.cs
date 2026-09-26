@@ -66,31 +66,31 @@ public readonly record struct MessageTicker(string? Text, long ScrollTicks, bool
 /// </summary>
 public sealed class MessagePort {
 	/// <summary>
-	/// Messages the queue holds — the vector <c>FUN_00434e50</c> builds, ten records of <c>0x31</c>
+	/// Messages the queue holds — the vector <c>MessagePort_QueueInit</c> (<c>00434e50</c>) builds, ten records of <c>0x31</c>
 	/// bytes. Posting into a full queue drops the last, which is the lowest-priority one.
 	/// </summary>
 	public const int Capacity = 10;
 
 	/// <summary>
-	/// Coarse ticks one unit of an attribute timing is worth: <c>FUN_00434e8c</c> multiplies each of
+	/// Coarse ticks one unit of an attribute timing is worth: <c>MessagePort_Enqueue</c> (<c>00434e8c</c>) multiplies each of
 	/// the four by <c>0x3c</c>. At <c>Time_GetCoarseTicks</c>' 16 ms that is 0.96 s, so the authored
 	/// numbers read as seconds.
 	/// </summary>
 	public const int TicksPerTimingUnit = 0x3c;
 
 	/// <summary>
-	/// How long the same message id is swallowed for after being shown — <c>FUN_00436abc</c>'s
+	/// How long the same message id is swallowed for after being shown — <c>MessagePort_Show</c> (<c>00436abc</c>)'s
 	/// <c>300</c>, about 4.8 s. A swallowed repeat refreshes the window rather than leaving it, so a
 	/// stream of them stays silent for as long as it keeps coming.
 	/// </summary>
 	public const int RepeatSuppressionTicks = 300;
 
-	/// <summary>Characters of a line that reach the screen — <c>FUN_00436a0c</c>'s <c>strncpy(.., 0x50)</c>.</summary>
+	/// <summary>Characters of a line that reach the screen — <c>MessagePort_SetText</c> (<c>00436a0c</c>)'s <c>strncpy(.., 0x50)</c>.</summary>
 	public const int TextLimit = 0x50;
 
 	/// <summary>
 	/// Units the text travels left per <see cref="TicksPerTimingUnit"/> ticks, in the <c>.GAU</c>'s own
-	/// 320-wide space — <c>FUN_00436f70</c>'s <c>0x23 &lt;&lt; XCoordShift</c>, so about 73 device pixels a
+	/// 320-wide space — <c>MessageTicker_ScrollText</c> (<c>00436f70</c>)'s <c>0x23 &lt;&lt; XCoordShift</c>, so about 73 device pixels a
 	/// second in the 640-wide cockpit this engine draws.
 	/// </summary>
 	public const int ScrollUnitsPerInterval = 0x23;
@@ -145,14 +145,14 @@ public sealed class MessagePort {
 
 	/// <summary>
 	/// Raised when a message goes up and the channel's voice half is live, with the flat
-	/// <c>SYSTEM.STR</c> id. <c>FUN_00436abc</c>'s tail, which builds the <c>CVM</c> filename from the
+	/// <c>SYSTEM.STR</c> id. <c>MessagePort_Show</c> (<c>00436abc</c>)'s tail, which builds the <c>CVM</c> filename from the
 	/// message's own clip number and plays it at volume 100.
 	/// </summary>
 	public event Action<int>? Speak;
 
 	/// <summary>
 	/// Raised with a sound catalog id when a message goes up and the display half is live — the
-	/// switch at the end of <c>FUN_00436abc</c>. See <see cref="AlertToneFor"/>.
+	/// switch at the end of <c>MessagePort_Show</c> (<c>00436abc</c>). See <see cref="AlertToneFor"/>.
 	/// </summary>
 	public event Action<int>? AlertTone;
 
@@ -200,7 +200,7 @@ public sealed class MessagePort {
 	}
 
 	/// <summary>
-	/// Withdraws a posted message — <c>FUN_00435ac8</c>. <c>Mech_ToggleRadarMode</c> withdraws both
+	/// Withdraws a posted message — <c>MessagePort_Withdraw</c> (<c>00435ac8</c>). <c>Mech_ToggleRadarMode</c> withdraws both
 	/// radar lines before posting the one the mode just became, so flipping twice quickly announces
 	/// where it ended up rather than reading out the sequence.
 	///
@@ -229,13 +229,13 @@ public sealed class MessagePort {
 	}
 
 	/// <summary>
-	/// Runs the port for one frame at <paramref name="coarseTicks"/> — <c>FUN_00435610</c>, plus the
+	/// Runs the port for one frame at <paramref name="coarseTicks"/> — <c>MessagePort_Tick</c> (<c>00435610</c>), plus the
 	/// latch its paint entry points set on the way in. Call once a frame, before anything reads
 	/// <see cref="Ticker"/>.
 	///
 	/// <para>The clock is <c>Time_GetCoarseTicks</c>' wall time, not simulation time, so a caller that
 	/// pauses should stop advancing it rather than keep counting — which is exactly what the
-	/// original's own pause pair (<c>FUN_00435b58</c> / <c>FUN_00435b80</c>) achieves by shifting every
+	/// original's own pause pair (<c>MessagePort_Pause</c> (<c>00435b58</c>) / <c>MessagePort_Resume</c> (<c>00435b80</c>)) achieves by shifting every
 	/// deadline forward by the paused duration.</para>
 	/// </summary>
 	public void Update(long coarseTicks) {
@@ -269,7 +269,7 @@ public sealed class MessagePort {
 					_ready = false;
 
 					// The original also runs up to two registered begin callbacks here (+0x4b9, filled
-					// by FUN_004355a8). Only the pilot channel registers any — the comm box's, which
+					// by MessagePort_AddBeginCallback (004355a8)). Only the pilot channel registers any — the comm box's, which
 					// start that speaker's clip and portrait — so on the computer's port there is
 					// nothing to fire, and no hook is invented for one.
 				}
@@ -311,7 +311,7 @@ public sealed class MessagePort {
 	}
 
 	/// <summary>
-	/// The catalog id a message announces itself with — the jump table <c>FUN_00436abc</c> ends on.
+	/// The catalog id a message announces itself with — the jump table <c>MessagePort_Show</c> (<c>00436abc</c>) ends on.
 	/// Only two ids get anything but the console tone, and both are damage: the general internal-damage
 	/// line and the imminent-structural-failure one get <c>strcfail</c>, and the five that report a
 	/// destroyed system or a failing shield get the warning whoop.
@@ -326,7 +326,7 @@ public sealed class MessagePort {
 	};
 
 	/// <summary>
-	/// <c>FUN_00436abc</c> — puts the current message up, or swallows it as a repeat. Returns false
+	/// <c>MessagePort_Show</c> (<c>00436abc</c>) — puts the current message up, or swallows it as a repeat. Returns false
 	/// when it was swallowed, which leaves the cancel latch set so the next tick drops it.
 	/// </summary>
 	private bool Show() {
@@ -366,7 +366,7 @@ public sealed class MessagePort {
 		return true;
 	}
 
-	/// <summary><c>FUN_00436fd0</c> — takes the line down and erases its box.</summary>
+	/// <summary><c>MessagePort_Erase</c> (<c>00436fd0</c>) — takes the line down and erases its box.</summary>
 	private void Hide() {
 		_shown = false;
 		_suppressed = false;
@@ -384,7 +384,7 @@ public sealed class MessagePort {
 		_ready = false;
 	}
 
-	/// <summary>One queued message — the <c>0x31</c>-byte record <c>FUN_00434e8c</c> fills.</summary>
+	/// <summary>One queued message — the <c>0x31</c>-byte record <c>MessagePort_Enqueue</c> (<c>00434e8c</c>) fills.</summary>
 	private sealed class Entry {
 		public int Id;
 		public object? Subject;

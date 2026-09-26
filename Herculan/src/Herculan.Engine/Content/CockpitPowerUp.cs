@@ -27,7 +27,7 @@ public sealed class CockpitPowerUp {
 	/// </summary>
 	public const int RowArmStep = 20;
 
-	/// <summary>How far a charge bar's ramp climbs per coarse tick — the <c>0x19</c> of <c>FUN_00440e84</c> and <c>FUN_00441d88</c>.</summary>
+	/// <summary>How far a charge bar's ramp climbs per coarse tick — the <c>0x19</c> of <c>EnergyWeaponGauge_PowerUpFill</c> (<c>00440e84</c>) and <c>TurboPodGauge_PowerUpFill</c> (<c>00441d88</c>).</summary>
 	public const int ChargeRampPerTick = 0x19;
 
 	/// <summary>How many coarse ticks after arming a charge bar stops ramping and reads its live value.</summary>
@@ -126,8 +126,8 @@ public sealed class CockpitPowerUp {
 
 	/// <summary>
 	/// The most a row's charge bar can show this tick, in the bar's own units, or
-	/// <see cref="int.MaxValue"/> once the ramp is over. <c>FUN_00440e84</c> (energy) and
-	/// <c>FUN_00441d88</c> (Turbo Pod) both clamp the live value to <c>elapsed * 0x19</c> until
+	/// <see cref="int.MaxValue"/> once the ramp is over. <c>EnergyWeaponGauge_PowerUpFill</c> (<c>00440e84</c>, energy) and
+	/// <c>TurboPodGauge_PowerUpFill</c> (<c>00441d88</c>, Turbo Pod) both clamp the live value to <c>elapsed * 0x19</c> until
 	/// <see cref="ChargeRampTicks"/> have passed since the row was armed, then hand it over whole — which
 	/// for the Turbo Pod, whose bar runs to 2500, is a visible jump from 1250 to a full tank.
 	/// </summary>
@@ -143,7 +143,7 @@ public sealed class CockpitPowerUp {
 	/// <summary>
 	/// What the shield meter shows for a pair of live facing charges, on the rings' 0..<c>0x800</c>
 	/// scale. Before the meter is armed <c>ShieldsGauge_SetStateBlock</c> (<c>00443858</c>) zeroes both,
-	/// so the rings are dark; once armed, <c>FUN_004437a4</c> shows each facing as the lesser of its live
+	/// so the rings are dark; once armed, <c>ShieldsGauge_PowerUpFill</c> (<c>004437a4</c>) shows each facing as the lesser of its live
 	/// value and the coarse ticks since arming, and latches done the first tick both have caught up. An
 	/// even split's <c>0x200</c> is therefore about eight seconds of fill. Call it once a frame — it
 	/// latches as it goes.
@@ -219,7 +219,7 @@ public sealed class CockpitPowerUp {
 			return 0;
 		}
 
-		// FUN_00471d7c advances past every frame whose hold has run out, so the frame showing is the
+		// SpriteSequence_Step (00471d7c) advances past every frame whose hold has run out, so the frame showing is the
 		// first whose end is still at or after now.
 		long elapsed = coarseTicks - start;
 		int frame = elapsed <= MfdFrameTicks ? 0 : (int)Math.Min((elapsed - 1) / MfdFrameTicks, MfdFrameCount - 1);

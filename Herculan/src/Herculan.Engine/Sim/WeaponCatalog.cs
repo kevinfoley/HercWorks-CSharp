@@ -136,7 +136,7 @@ public sealed class WeaponCatalog {
 		_projectiles.Data?.FirstOrDefault(r => r.Type == category && r.MissileId == subtypeId);
 
 	/// <summary>
-	/// The name a mount's gauge prints — <c>FUN_0040e18c</c>.
+	/// The name a mount's gauge prints — <c>WeaponMount_GetDisplayName</c> (<c>0040e18c</c>).
 	///
 	/// <para>Two cases, and the discriminator is the resolved projectile rather than the weapon id: a
 	/// mount whose record is a <see cref="ProjectileType.Missile"/> prints that record's guidance
@@ -166,7 +166,7 @@ public sealed class WeaponCatalog {
 	/// the weapon-gauge classes the cockpit gives them.
 	/// </summary>
 	public static WeaponMountKind Kind(int weaponId) => weaponId switch {
-		// FUN_0040e140 — rounds. The autocannons, the four missile launchers, MISSL and LAEW.
+		// WeaponMount_CtorAmmunition (0040e140) — rounds. The autocannons, the four missile launchers, MISSL and LAEW.
 		1 or 2 or 3 or 4 or 5 or 13 or 14 or 15 or 16 or 21 or 26 => WeaponMountKind.Ammunition,
 
 		// The two ELFs. The factory runs WeaponMount_CtorEnergy and then overwrites the vtable
@@ -174,7 +174,7 @@ public sealed class WeaponCatalog {
 		// dispatch, their readiness test and their pool turn. See WeaponMountKind.Elf.
 		6 or 22 => WeaponMountKind.Elf,
 
-		// FUN_0040e074 — a capacitor charged off the pool. The lasers, EMP, plasma and the beams.
+		// WeaponMount_CtorEnergy (0040e074) — a capacitor charged off the pool. The lasers, EMP, plasma and the beams.
 		7 or 8 or 9 or 10 or 11 or 12 or 17 or 19 or 20 or 23 or 24 or 25 or 28
 			=> WeaponMountKind.Energy,
 

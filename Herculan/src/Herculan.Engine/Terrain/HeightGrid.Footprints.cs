@@ -6,7 +6,7 @@ namespace Herculan.Engine.Terrain;
 /// which as a corner sample is an apex at the cell's corner rather than a mound at its centre;
 /// DBSIM levels the marked cells to their own average at spawn time instead. The derivation, the
 /// data evidence and the call chain are in docs/formats/terrain-heightmap.md, "Structure footprints
-/// — the flattening pass"; this file is the port of <c>FUN_00470dc8</c> and <c>FUN_00471190</c> and
+/// — the flattening pass"; this file is the port of <c>Terrain_MarkStructureFootprint</c> (<c>00470dc8</c>) and <c>Terrain_FlattenStructureFootprints</c> (<c>00471190</c>) and
 /// the two recursions they drive.
 /// </summary>
 public sealed partial class HeightGrid {
@@ -30,7 +30,7 @@ public sealed partial class HeightGrid {
 	private int _footprintCount;
 
 	/// <summary>
-	/// <c>Terrain_MarkStructureFootprint</c> (<c>FUN_00470dc8</c>) — registers one structure's
+	/// <c>Terrain_MarkStructureFootprint</c> (<c>00470dc8</c>) — registers one structure's
 	/// footprint. <paramref name="radius"/> is <see cref="Sim.SimObject.ShapeRadius"/>.
 	///
 	/// <para>Clamped to the grid, where the original bounds-checks nothing beyond refusing to step to
@@ -71,7 +71,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>Terrain_FlattenStructureFootprints</c> (<c>FUN_00471190</c>) — flattens every marked
+	/// <c>Terrain_FlattenStructureFootprints</c> (<c>00471190</c>) — flattens every marked
 	/// footprint and rebuilds the surface. Run once, after the whole roster is placed; the structures
 	/// standing on it must then be re-settled, which is what <c>DBSim_SpawnMissionObjects</c> does
 	/// with its own base list the moment this returns.
@@ -102,7 +102,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>Terrain_AccumulateFootprint</c> (<c>FUN_00470edc</c>) — the eight-way flood fill that
+	/// <c>Terrain_AccumulateFootprint</c> (<c>00470edc</c>) — the eight-way flood fill that
 	/// measures one footprint: sums the raw heights of every connected marked cell and counts them.
 	/// </summary>
 	private void AccumulateFootprint(int cellX, int cellY) {
@@ -131,7 +131,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>Terrain_WriteFootprintHeight</c> (<c>FUN_0047101c</c>) — writes the footprint's average
+	/// <c>Terrain_WriteFootprintHeight</c> (<c>0047101c</c>) — writes the footprint's average
 	/// height back over the same region. <paramref name="force"/> is what gains the region one sample
 	/// to the east and north, and so turns it into a flat <i>quad</i> rather than a flat set of corner
 	/// samples.
@@ -166,7 +166,7 @@ public sealed partial class HeightGrid {
 	}
 
 	/// <summary>
-	/// <c>Terrain_SetCellScratch</c> (<c>FUN_00470cd0</c>), clamped to the grid — see
+	/// <c>Terrain_SetCellScratch</c> (<c>00470cd0</c>), clamped to the grid — see
 	/// <see cref="MarkStructureFootprint"/>.
 	/// </summary>
 	private void SetScratch(int cellX, int cellY, byte value) {

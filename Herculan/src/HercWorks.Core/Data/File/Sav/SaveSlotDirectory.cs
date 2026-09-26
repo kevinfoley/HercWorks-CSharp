@@ -21,7 +21,7 @@ public class SaveSlotEntry {
 
 /// <summary>
 /// FILE - [root]/SAV/GAMEFILE.STR — the slot directory, and not itself a save: twelve filenames and
-/// twelve display labels, read by <c>FUN_0040ddc8</c> and written by <c>FUN_0040df4b</c>.
+/// twelve display labels, read by <c>GameFileStr_Read</c> (<c>0040ddc8</c>) and written by <c>GameFileStr_Write</c> (<c>0040df4b</c>).
 ///
 /// <para>Slots 0-9 are the player-named saves, slot 10 the campaign autosave and slot 11 the training
 /// autosave; the last two are one slot from the caller's side, chosen between by the campaign/training

@@ -19,7 +19,7 @@ namespace Herculan.Engine.Render;
 /// vector <c>0x1000</c>, so the raw dot is <c>0x800000 * cos</c>.</para>
 ///
 /// <list type="bullet">
-/// <item><b><c>FUN_0048c060</c></b> — what <c>Terrain_BuildSurface</c> bakes a terrain cell with.
+/// <item><b><c>Light_ComputeShadeForNormal</c> (<c>0048c060</c>)</b> — what <c>Terrain_BuildSurface</c> bakes a terrain cell with.
 /// <see cref="ShadeFor"/>.
 /// <code>
 /// t = dot;
@@ -84,7 +84,7 @@ public static class MissionSun {
 	}
 
 	/// <summary>
-	/// The shade byte <c>FUN_0048c060</c> returns for a surface with this normal, 0-255 — the
+	/// The shade byte <c>Light_ComputeShadeForNormal</c> (<c>0048c060</c>) returns for a surface with this normal, 0-255 — the
 	/// <b>terrain</b> curve. See <see cref="ShadeForFace"/> for shape geometry, which is a different
 	/// one.
 	/// </summary>

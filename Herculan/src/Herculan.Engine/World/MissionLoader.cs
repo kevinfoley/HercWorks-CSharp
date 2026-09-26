@@ -32,7 +32,7 @@ namespace Herculan.Engine.World;
 /// set, and the group's is the fallback. In retail data the roster refs are always unset, so in
 /// practice every object stands at its group's point.</item>
 /// <item><b>Groups with no point of their own</b> fall back to their route: the group's row-15 links
-/// resolve to a waypoint group, and <c>FUN_00423b0c</c> takes a waypoint from it. Patrol lances are
+/// resolve to a waypoint group, and <c>Route_WaypointAt</c> (<c>00423b0c</c>) takes a waypoint from it. Patrol lances are
 /// placed this way — the retail mission's three mech lances all are.</item>
 /// <item><b>The player's lance</b> is not in <c>script.dat</c>'s roster at all. Block 11's
 /// <b>record 0</b> exists only to hold its spawn point: <c>DBSim_LoadScriptDat</c> skips it during
@@ -43,7 +43,7 @@ namespace Herculan.Engine.World;
 /// <para><b>Formation offsets: mechs and bases implemented, flyers still a known gap.</b> Every
 /// member of a group is placed on the group's own point by the rule above; the original then
 /// spreads non-leader members off that point via a per-kind vtable <c>+0x78</c> call
-/// (<c>Mech_ApplyFormationOffset</c> (<c>00417898</c>) for mechs, <c>FUN_00405c04</c> for bases —
+/// (<c>Mech_ApplyFormationOffset</c> (<c>00417898</c>) for mechs, <c>Base_ApplyFormationOffset</c> (<c>00405c04</c>) for bases —
 /// same slot, same "member index 0 takes no offset" rule). Both tables are implemented:
 /// <see cref="MechFormationTable"/> (<c>dat\MFORMS.DAT</c>) and <see cref="BaseFormationTable"/>
 /// (<c>dat\BFORMS.DAT</c>) — see each class's doc comment for its load-site RE and byte-exact
@@ -490,7 +490,7 @@ public static class MissionLoader {
 	/// <summary>
 	/// Which way a group faces when its own record names no heading: along the first leg of its
 	/// route. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) takes the route's first two
-	/// waypoints and calls <c>FUN_00492828</c> with the second one first, which is
+	/// waypoints and calls <c>Math_HeadingToward</c> (<c>00492828</c>) with the second one first, which is
 	/// <c>atan2(dy, dx) - 0x4000</c> — the same quarter turn every bearing in the simulation carries,
 	/// since a machine's forward axis is model Y rather than model X.
 	///
@@ -508,7 +508,7 @@ public static class MissionLoader {
 		int dx = route[1].X - route[0].X;
 		int dy = route[1].Y - route[0].Y;
 
-		// FUN_00492800's degenerate guard, which nudges x — not y — so a zero-length first leg reads
+		// Math_Atan2Guarded (00492800)'s degenerate guard, which nudges x — not y — so a zero-length first leg reads
 		// as a bearing of zero rather than a quarter turn off it.
 		if (dx == 0 && dy == 0) {
 			dx = 1;
@@ -685,7 +685,7 @@ public static class MissionLoader {
 	}
 
 	/// <summary>
-	/// A flyer's spawn point when its own record names no coordinate — <c>FUN_00421ee8</c>'s
+	/// A flyer's spawn point when its own record names no coordinate — <c>Flyer_AttachToGroup</c> (<c>00421ee8</c>)'s
 	/// unset-position branch, which takes the group's point and runs it through the flyer's own
 	/// <c>+0x78</c> formation slot. The Z rides along, which is what staggers a flight vertically;
 	/// the ground classes' offsets have none.

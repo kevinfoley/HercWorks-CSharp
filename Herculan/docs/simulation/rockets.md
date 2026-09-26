@@ -65,10 +65,10 @@ Also here: the proximity beep once the round is within 40000 units of the camera
 
 A steer of the euler angles, not of a velocity, as the plasma round's is — but with a real lead and three gates the plasma round has none of.
 
-- **Lead.** A round holding a node handle (`+0x5a >= 0`) steers at that node's world position (target vtable `+0x58`); otherwise at the target's extrapolated position (vtable `+0x24`, then either the raw origin or `FUN_00480330` through the target's own rebuilt frame). `Math_EulerToward` (`00492884`) turns that into a bearing triple; the two aiming components are moved toward it through `Math_RateLimitedMoveToward` at **`0x500` per 125 ms**, twice the plasma round's cap.
-- **The emission gate.** Subtype 2 (`ARM`, anti-radiation) steers only while the target has `+0x96` (the scanner the pilot toggles, `FUN_0041b468`) or `+0xa1` (its jammer) set.
+- **Lead.** A round holding a node handle (`+0x5a >= 0`) steers at that node's world position (target vtable `+0x58`); otherwise at the target's extrapolated position (vtable `+0x24`, then either the raw origin or `Transform_ApplyToPoint` (`00480330`) through the target's own rebuilt frame). `Math_EulerToward` (`00492884`) turns that into a bearing triple; the two aiming components are moved toward it through `Math_RateLimitedMoveToward` at **`0x500` per 125 ms**, twice the plasma round's cap.
+- **The emission gate.** Subtype 2 (`ARM`, anti-radiation) steers only while the target has `+0x96` (the scanner the pilot toggles, `Mech_ToggleRadarMode` (`0041b468`)) or `+0xa1` (its jammer) set.
 - **The spoofing wobble.** For every subtype but 2, when the *launching* machine's `+0x9c` is set, an aim error inside `±0xc00` is pushed **away** by `0xc00`, so the round weaves instead of converging. `Mech_PerTickSystemsUpdate` (`0041aa5c`) rolls that flag each tick the machine's selected target is jamming (`target+0xa1`), at roughly `20 * 0x29 / 0x1000` — or a quarter of that when a mount's `+0x7f` is below 0x33. **This is the mechanical form of the manual's ECM.**
-- Subtype 3 instead sets the owner's `+0xb5`, which suppresses the AI's weapon selection for a tick while its own guided missile is in the air (`FUN_0041f5a0`).
+- Subtype 3 instead sets the owner's `+0xb5`, which suppresses the AI's weapon selection for a tick while its own guided missile is in the air (`Ai_FireAtPoint`, `0041f5a0`).
 
 ## `Rocket_PlayerSteer` (`0040a488`) — the player flying the missile
 

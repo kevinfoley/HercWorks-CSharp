@@ -44,7 +44,7 @@ public sealed class ShellSurface {
 
 	/// <summary>
 	/// What every primitive is clipped to. It starts as the whole surface and each widget's paint
-	/// narrows it to that widget for the duration — <c>FUN_0041f585</c>, the first call in all five
+	/// narrows it to that widget for the duration — <c>Widget_BeginPaint</c> (<c>0041f585</c>), the first call in all five
 	/// paints, which binds the drawing context to the widget being painted.
 	///
 	/// <para><b>The paints depend on this rather than measuring.</b> The title bar's diagonal hatch is
@@ -89,7 +89,7 @@ public sealed class ShellSurface {
 	public byte At(int x, int y) =>
 		x >= 0 && y >= 0 && x < Width && y < Height ? _indices[y * Width + x] : Transparent;
 
-	/// <summary>One pixel — <c>FUN_0045999c</c>, which is what every dither and hatch is built from.</summary>
+	/// <summary>One pixel — <c>Gfx_PlotPixel</c> (<c>0045999c</c>), which is what every dither and hatch is built from.</summary>
 	public void Plot(int x, int y, byte index) {
 		if (ClipRect.Contains(x, y)) {
 			_indices[y * Width + x] = index;
@@ -97,7 +97,7 @@ public sealed class ShellSurface {
 	}
 
 	/// <summary>
-	/// A solid rectangle, corners inclusive — <c>FUN_00457364</c>. The corners are normalized first,
+	/// A solid rectangle, corners inclusive — <c>Gfx_FillRect</c> (<c>00457364</c>). The corners are normalized first,
 	/// as the callers do for themselves before every call: each one sorts its two x and its two y so a
 	/// widget too small for its own inset still fills something rather than nothing.
 	/// </summary>
@@ -116,7 +116,7 @@ public sealed class ShellSurface {
 	}
 
 	/// <summary>
-	/// A one-pixel line between two inclusive endpoints — <c>FUN_004552e4</c>. The shell asks for
+	/// A one-pixel line between two inclusive endpoints — <c>Gfx_DrawLine</c> (<c>004552e4</c>). The shell asks for
 	/// horizontal, vertical and 45-degree runs only; Bresenham covers all three without a special case.
 	/// </summary>
 	public void Line(int x0, int y0, int x1, int y1, byte index) {

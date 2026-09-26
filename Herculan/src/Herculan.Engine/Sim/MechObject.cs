@@ -164,7 +164,7 @@ public sealed partial class MechObject : SimObject {
 
 	/// <inheritdoc />
 	/// <remarks>
-	/// <c>FUN_00417b98</c>, the mech vtable <c>+0x24</c>: it pushes the <b>type record's <c>+0x0c</c></b>
+	/// <c>Mech_GetAimNodeTransform</c> (<c>00417b98</c>), the mech vtable <c>+0x24</c>: it pushes the <b>type record's <c>+0x0c</c></b>
 	/// as a shape part id — <c>.DAT</c> file offset 10, <see cref="MechTypeRecord.CameraBoneId"/>, the
 	/// same node the cockpit eye rides — resolves it to that node's transform, and the callers put its
 	/// translation through the machine's own rotation. So a HERC is aimed at from its cockpit, which
@@ -198,7 +198,7 @@ public sealed partial class MechObject : SimObject {
 	public override bool OutOfAction => Neutralised || Disarmed;
 
 	/// <inheritdoc />
-	/// <remarks>Mech vtable <c>+0x3c</c> (<c>FUN_00415488</c>), which returns <c>mech+0x298</c>.</remarks>
+	/// <remarks>Mech vtable <c>+0x3c</c> (<c>Mech_GetTorsoTwistAngle</c>, <c>00415488</c>), which returns <c>mech+0x298</c>.</remarks>
 	public override short AimTwist => TorsoTwistAngle;
 
 	/// <summary>
@@ -214,7 +214,7 @@ public sealed partial class MechObject : SimObject {
 	public bool Scanner { get; private set; }
 
 	/// <summary>
-	/// <c>FUN_0041b468</c> — the manual's [R], and the F4 scanner screen's PASS/ACTIVE button pair,
+	/// <c>Mech_ToggleRadarMode</c> (<c>0041b468</c>) — the manual's [R], and the F4 scanner screen's PASS/ACTIVE button pair,
 	/// which both reach the same place. <b>Only the machine the player is flying toggles</b>: the
 	/// original gates the flip on <c>mech+0xa3</c> and then repaints the console lights for whatever
 	/// the mode now is, so calling it on an AI machine only refreshes the display.
@@ -377,7 +377,7 @@ public sealed partial class MechObject : SimObject {
 	///
 	/// <para>There is no cockpit-bob code anywhere in DBSIM, and none is needed: the eye rides a
 	/// model node, the walk cycle animates that node's parent, and the bob falls out.
-	/// <c>FUN_0041ef14</c> reads the same node the same way to work out where a target sits relative
+	/// <c>Cockpit_TargetAnglesFromCameraBone</c> (<c>0041ef14</c>) reads the same node the same way to work out where a target sits relative
 	/// to the pilot.</para>
 	///
 	/// <para>Falls back to the machine's own origin when its model names no such node, which is any

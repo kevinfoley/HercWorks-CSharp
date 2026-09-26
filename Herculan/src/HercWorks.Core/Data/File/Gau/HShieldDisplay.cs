@@ -18,7 +18,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// in palette indices 66-71; the widget lights them by rewriting those palette slots, so it draws no
 /// geometry of its own (see <c>Herculan.Engine.Content.CockpitPalette.InstallShieldRamp</c>).</item>
 /// <item><see cref="FrontLabel"/> (664) and <see cref="RearLabel"/> (680) — the rects the two
-/// numeric readouts centre in. Retail shows "100" and "100": <c>FUN_00444a68</c> renders the
+/// numeric readouts centre in. Retail shows "100" and "100": <c>ShieldsGauge_UpdateReadouts</c> (<c>00444a68</c>) renders the
 /// front/rear balance as <c>value * 200 &gt;&gt; 10</c> and its complement, so an even split reads
 /// 100/100 out of a 200-point pool.</item>
 /// </list>

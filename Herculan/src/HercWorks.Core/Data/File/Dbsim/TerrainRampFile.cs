@@ -12,7 +12,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// <para>A row is 256 palette bytes — "this colour, at this brightness, at this distance" — so the
 /// file is one colour ramp per palette index, sampled 32 ways for light and 12 ways for distance.
 /// Hue is preserved throughout, which is what makes it a ramp rather than a remap. The consumer is
-/// <c>FUN_00468054</c>, whose whole body is the address arithmetic
+/// <c>Raster_ShadeRampRow</c> (<c>00468054</c>), whose whole body is the address arithmetic
 /// <c>row = ((shade * (shadeLevels - 1) + depthBias) &amp; ~0xFF) + rampBase</c>, with
 /// <c>depthBias</c> a whole number of 8192-byte depth slices set from the drawn object's range.
 /// That is the original's distance fog. See docs/formats/distance-fog-and-sky.md.</para>

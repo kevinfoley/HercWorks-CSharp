@@ -128,7 +128,7 @@ public sealed class BeamTracer {
 	}
 
 	/// <summary>
-	/// <c>FUN_0040c2a0</c>, vtable <c>+0x14</c> — one <c>Math_CountdownTimerTick</c> and nothing else.
+	/// <c>BeamTracer_LifeTick</c> (<c>0040c2a0</c>), vtable <c>+0x14</c> — one <c>Math_CountdownTimerTick</c> and nothing else.
 	/// </summary>
 	/// <returns>Whether the tracer has expired and should be freed.</returns>
 	internal bool Tick() {

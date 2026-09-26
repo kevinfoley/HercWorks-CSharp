@@ -10,10 +10,10 @@ namespace Herculan.Engine.Sim;
 /// for the player's machine nothing in the simulation ever writes it. It is written once a frame by
 /// <c>Player_PerFrameCockpitUpdate</c> (<c>0041b130</c>), which copies it out of the cockpit widget
 /// tree's <c>+0x210</c>. The selection itself is made in the cockpit
-/// (<c>FUN_004332dc</c>/<c>FUN_004333c8</c>/<c>FUN_0043349c</c>, all taking that widget tree as
+/// (<c>TargetSelect_SetObject</c> (<c>004332dc</c>)/<c>TargetSelect_Nearest</c> (<c>004333c8</c>)/<c>TargetSelect_Cycle</c> (<c>0043349c</c>), all taking that widget tree as
 /// their subject), and the machine is told afterwards. That is why this class is a peer of
 /// <see cref="MechObject"/> rather than a property of it, and it is also why an AI machine's target
-/// gets there by a different route entirely (<c>FUN_0041c0f4</c>, which is not ported).</para>
+/// gets there by a different route entirely (<c>Mech_AiEngageOrderedTarget</c> (<c>0041c0f4</c>), which is not ported).</para>
 ///
 /// <para><b>The three commands</b> are the manual's, confirmed against
 /// <c>CockpitWidgets_HandleCommand</c> and <c>Sim_DispatchCommand</c> by scancode:</para>
@@ -24,7 +24,7 @@ namespace Herculan.Engine.Sim;
 /// <item><c>'</c> (<c>0x28</c>) — <see cref="SelectNearest"/>, the manual's "Nearest Target". Ignores
 /// where the machine is pointing entirely, and considers only HERCs and flyers.</item>
 /// <item><c>;</c> (<c>0x27</c>) — <see cref="Clear"/>. Undocumented; it is
-/// <c>FUN_004332dc(view, 0)</c>.</item>
+/// <c>TargetSelect_SetObject(view, 0)</c>.</item>
 /// </list>
 ///
 /// <para>The MFD scanner's TARGET button and a click on the gunsight reach <see cref="Select"/>, the
@@ -37,18 +37,18 @@ namespace Herculan.Engine.Sim;
 public sealed class TargetSelection {
 	/// <summary>
 	/// How deep the shortlist goes, and how many candidates each priority bucket keeps — both are 4
-	/// in <c>FUN_0043349c</c>, which allocates four buckets of four.
+	/// in <c>TargetSelect_Cycle</c> (<c>0043349c</c>), which allocates four buckets of four.
 	/// </summary>
 	public const int ShortlistDepth = 4;
 
 	/// <summary>
 	/// Half-width of the cone <see cref="InForwardCone"/> accepts, about the machine's heading plus
-	/// its turret twist — <c>FUN_00433250</c>'s own <c>±8999</c>, a little under 50°.
+	/// its turret twist — <c>TargetSelect_InForwardCone</c> (<c>00433250</c>)'s own <c>±8999</c>, a little under 50°.
 	/// </summary>
 	public const int ForwardConeHalfWidth = 8999;
 
 	/// <summary>
-	/// Width of one priority bucket, in binary angle units — <c>FUN_0043349c</c>'s <c>err &gt;&gt;
+	/// Width of one priority bucket, in binary angle units — <c>TargetSelect_Cycle</c> (<c>0043349c</c>)'s <c>err &gt;&gt;
 	/// 10</c>. Four buckets of about 5.6° each, with everything past the fourth folded into it.
 	/// </summary>
 	public const int BucketWidth = 1 << 10;
@@ -101,7 +101,7 @@ public sealed class TargetSelection {
 	public IReadOnlyList<SimObject?> Shortlist => _shortlist;
 
 	/// <summary>
-	/// <c>FUN_00433174</c> — may this object be selected at all.
+	/// <c>TargetSelect_CanTarget</c> (<c>00433174</c>) — may this object be selected at all.
 	///
 	/// <list type="number">
 	/// <item>It has to be alive and mobile — see <see cref="SimObject.Neutralised"/>, which folds in
@@ -128,7 +128,7 @@ public sealed class TargetSelection {
 	}
 
 	/// <summary>
-	/// <c>FUN_00433250</c> — is the object roughly in front of the turret. The bearing is taken
+	/// <c>TargetSelect_InForwardCone</c> (<c>00433250</c>) — is the object roughly in front of the turret. The bearing is taken
 	/// relative to the machine's heading and then <b>offset by the turret twist</b>, which is the
 	/// original's own sign and is transcribed rather than corrected: <c>Mech_PerTickSystemsUpdate</c>
 	/// and the sensor sweep both fold the twist in the same direction.
@@ -139,7 +139,7 @@ public sealed class TargetSelection {
 	}
 
 	/// <summary>
-	/// <c>FUN_004333c8</c> — the nearest selectable HERC or flyer, whichever way the machine happens
+	/// <c>TargetSelect_Nearest</c> (<c>004333c8</c>) — the nearest selectable HERC or flyer, whichever way the machine happens
 	/// to be pointing. <b>No cone test</b>, so this reaches something behind you, and
 	/// <b>structures are excluded</b> by target class, so it will not lock a building when a machine
 	/// is further away.
@@ -177,7 +177,7 @@ public sealed class TargetSelection {
 	}
 
 	/// <summary>
-	/// <c>FUN_0043349c</c> — the [Enter] key, and the one that does the real work.
+	/// <c>TargetSelect_Cycle</c> (<c>0043349c</c>) — the [Enter] key, and the one that does the real work.
 	///
 	/// <para>Everything selectable and inside <see cref="InForwardCone"/> is filed into one of four
 	/// buckets by <i>how far off the crosshair it is</i> — <see cref="BucketWidth"/> of bearing error
@@ -193,7 +193,7 @@ public sealed class TargetSelection {
 	///
 	/// <para><b>One correction that is not applied because the original does not apply it.</b> The
 	/// bucket is computed from the raw bearing error less the target's own angular half-width, which
-	/// <c>FUN_0043349c</c> works out from its range and shape radius and then passes through
+	/// <c>TargetSelect_Cycle</c> works out from its range and shape radius and then passes through
 	/// <c>Math_Q10Multiply</c> with a <b>literal zero</b> as the other operand (<c>PUSH 0x0</c> at
 	/// <c>004335d0</c>). The correction is therefore always zero and a large target near the edge of
 	/// a band is not promoted. Reproduced by omission.</para>
@@ -252,7 +252,7 @@ public sealed class TargetSelection {
 	}
 
 	/// <summary>
-	/// <c>FUN_004332dc</c> — select one named object, the entry point the MFD scanner's TARGET button
+	/// <c>TargetSelect_SetObject</c> (<c>004332dc</c>) — select one named object, the entry point the MFD scanner's TARGET button
 	/// and a click on the gunsight both use. Passing null clears the selection, which is what the
 	/// <c>;</c> key does.
 	///
@@ -298,7 +298,7 @@ public sealed class TargetSelection {
 		return target == Selected;
 	}
 
-	/// <summary>Clears the selection — <c>FUN_004332dc(view, 0)</c>, the <c>;</c> key.</summary>
+	/// <summary>Clears the selection — <c>TargetSelect_SetObject(view, 0)</c> (<c>004332dc</c>), the <c>;</c> key.</summary>
 	public void Clear() => Select(null);
 
 	/// <summary>

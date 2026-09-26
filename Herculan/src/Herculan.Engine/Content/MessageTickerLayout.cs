@@ -24,7 +24,7 @@ namespace Herculan.Engine.Content;
 public readonly record struct MessageTickerLayout(int Left, int Top, int Right, int Bottom) {
 	/// <summary>
 	/// Device pixels the text is clipped in from each side, leaving the box's border and a margin
-	/// clear — <c>FUN_00436cec</c> narrows the live clip rect by <c>3 &lt;&lt; XCoordShift</c> on both
+	/// clear — <c>MessageTicker_Paint</c> (<c>00436cec</c>) narrows the live clip rect by <c>3 &lt;&lt; XCoordShift</c> on both
 	/// edges after it has drawn the fill and before it draws the glyphs, so the line slides under the
 	/// frame rather than over it.
 	/// </summary>
@@ -32,14 +32,14 @@ public readonly record struct MessageTickerLayout(int Left, int Top, int Right, 
 
 	/// <summary>
 	/// Colour the box is flooded with before the text goes in — <c>COLORS.DAT</c> id 19, black. The
-	/// erase (<c>FUN_00436fd0</c>) fills the same rect with the same colour and nothing else, which is
+	/// erase (<c>MessagePort_Erase</c>, <c>00436fd0</c>) fills the same rect with the same colour and nothing else, which is
 	/// what identifies it as the background rather than as part of the frame.
 	/// </summary>
 	public const int BackgroundColorId = 19;
 
 	/// <summary>
 	/// And the one-pixel frame around it — id 9, red. The paint installs a second brush of style 4
-	/// over the same rect, and style 4 is four line draws round its edges (<c>FUN_004865f8</c>).
+	/// over the same rect, and style 4 is four line draws round its edges (<c>Raster_FillRect</c>, <c>004865f8</c>).
 	/// </summary>
 	public const int BorderColorId = 9;
 
@@ -86,7 +86,7 @@ public readonly record struct MessageTickerLayout(int Left, int Top, int Right, 
 
 	/// <summary>
 	/// Device-pixel x of the line's first glyph — the scrolling marquee's own position,
-	/// <c>FUN_00436f70</c>'s <c>right - 0x23 &lt;&lt; XCoordShift * elapsed / 0x3c</c>. It starts at the
+	/// <c>MessageTicker_ScrollText</c> (<c>00436f70</c>)'s <c>right - 0x23 &lt;&lt; XCoordShift * elapsed / 0x3c</c>. It starts at the
 	/// box's right edge and travels left at about 73 device pixels a second, and there is no wrap: a line
 	/// that outlives its own width simply leaves.
 	///
@@ -98,7 +98,7 @@ public readonly record struct MessageTickerLayout(int Left, int Top, int Right, 
 		: Right - (int)(ScrollPixelsPerInterval * ticker.ScrollTicks / MessagePort.TicksPerTimingUnit);
 
 	/// <summary>
-	/// Device-pixel top of the glyph row. <c>FUN_00436cec</c> anchors at
+	/// Device-pixel top of the glyph row. <c>MessageTicker_Paint</c> (<c>00436cec</c>) anchors at
 	/// <c>((height - cellHeight) &gt;&gt; 1) + inkHeight + 1</c> and the glyph blitter subtracts
 	/// <c>inkHeight</c> back off, so what survives is the cell centred in the box and nudged one pixel
 	/// down — not <see cref="HudFont.Place"/>'s rule, which centres <see cref="HudFont.InkHeight"/>

@@ -74,7 +74,7 @@ namespace Herculan.Engine.Sim;
 /// is the joystick trigger and whatever key is bound alongside it.
 ///
 /// <para><b>Held, not pressed.</b> It reaches the weapon manager as a mount vtable call
-/// (<c>+0x30</c>, <c>FUN_0040f8ad</c>) that does nothing but return that byte, and the whole trigger
+/// (<c>+0x30</c>, <c>WeaponMount_TriggerHeld</c> (<c>0040f8ad</c>)) that does nothing but return that byte, and the whole trigger
 /// path is re-run every frame — so a held trigger fires again as soon as the refire delay expires
 /// and the capacitor is back over its threshold. Nothing along the path looks at edges, which is why
 /// there is no scancode case for [Space] anywhere in the command dispatcher.</para>
@@ -101,7 +101,7 @@ public readonly record struct MechControls(short Turn, short Throttle, int Throt
 	/// <summary>
 	/// What a held direction key is worth — <b>half</b> a stick's full deflection, not all of it.
 	///
-	/// <para>DBSIM's own constant. <c>FUN_0045a4b0</c> builds the keyboard's two axis pairs by
+	/// <para>DBSIM's own constant. <c>Input_BuildKeyboardAxes</c> (<c>0045a4b0</c>) builds the keyboard's two axis pairs by
 	/// accumulating <c>direction * 0x80</c> per held key, where the direction pair is the ±1
 	/// components the key binding carries, so a cardinal key reaches <c>0x80</c> on its axis and
 	/// nothing reaches <c>0x100</c>. The joystick hat is a third value again (<c>0xc0</c>); only an

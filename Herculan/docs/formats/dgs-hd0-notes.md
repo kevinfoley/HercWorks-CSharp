@@ -6,12 +6,12 @@ The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat
 
 `BASES.DGS`/`BHULKS.DGS`: a flat sequential list of `ClassItem`-tagged records — **not** the same container as `.DTS`, despite `BASES_AN.DTS` and `BASES.DGS` both starting with a 4-byte value that resembles `recordSize<<16|version`.
 
-**Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/ `.DCI` (see `project_es2_exe_recon` memory), different registered class. `BaseType_LoadShape` (`00405ebc`) → `FUN_00474cd8` walks this list sequentially by index (not random-access) to resolve `dat\BASES.DAT`'s `ShapeIndex`.
+**Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/ `.DCI` (see `project_es2_exe_recon` memory), different registered class. `BaseType_LoadShape` (`00405ebc`) → `BaseType_ResolveShape` (`00474cd8`) walks this list sequentially by index (not random-access) to resolve `dat\BASES.DAT`'s `ShapeIndex`.
 
-**Record layout** (traced via the class's Watcom base-constructor chain — `FUN_0042762c` → `FUN_00490d5c` → `FUN_0048fd94` → `FUN_0048f894`):
+**Record layout** (traced via the class's Watcom base-constructor chain — `BaseShape_ReadFromStream` (`0042762c`) → `ClassItemTree_ReadFromStream` (`00490d5c`) → `ClassItemTree_ReadChildren` (`0048fd94`) → `ClassItemTree_ReadBaseHeader` (`0048f894`)):
 1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius** — see [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
 2. `int16` child count, then that many nested `ClassItem` records
-3. `int16` count + that many 32-byte records, consumed by `FUN_00476a1c` ([Open](#open))
+3. `int16` count + that many 32-byte records, consumed by `TSBSPPart_RenderNode` (`00476a1c`, [Open](#open))
 4. `int16` count + that many `int16` values ([Open](#open))
 5. the shape's **collision volume**: 5×`int16` scalars, a 1024-byte height table, then one row of height codes per grid row. Full layout and queries in [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
 
@@ -33,5 +33,5 @@ Implementation: `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`, `HercWo
 
 ## Open
 
-- **Open:** the record's step-3 32-byte records. Their consumer, `FUN_00476a1c`, suggests something BSP-plane-adjacent.
+- **Open:** the record's step-3 32-byte records. Their consumer, `TSBSPPart_RenderNode` (`00476a1c`), suggests something BSP-plane-adjacent.
 - **Open:** the record's step-4 `int16` values.

@@ -9,7 +9,7 @@ Two mechanisms that share one palette: everything fades toward the colour the sk
 `Terrain_DrawCellQuad` installs it per cell:
 
 ```
-FUN_00467fdc(grid[+0x10c] << grid[+0x108])      // -> DAT_004a08c4
+Raster_SetVisibilityRange(grid[+0x10c] << grid[+0x108])      // 00467fdc -> DAT_004a08c4
 ```
 
 `grid+0x10c` is the **view radius in cells** and `grid+0x108` the cell shift. [`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field) is the canonical account of the field, its writer and the rest of its consumers; the radius comes from the player's terrain-detail setting, so every range below is per setting, not per zone.
@@ -55,24 +55,24 @@ The original's view space is **(across, depth, up)**: `Raster_PerspectiveDivide`
 | Caller | Argument |
 |---|---|
 | `Terrain_DrawCellQuad` (`0046d344`) | the cell's own distance |
-| `FUN_0042876c` | the drawn object's own distance, from its render entry `+0x12` |
+| `ObjList_DrawEntryRender` (`0042876c`) | the drawn object's own distance, from its render entry `+0x12` |
 | `maybe_TSShapeInstance_PrepareRenderContext` (`0042fa18`) | `0` |
 
 The third does **not** reset anything drawn through `TSSolidPoly_Render`. It belongs to DBSIM's other, parallel render implementation (the `0042xxxx` family); the poly renderers the DTS type registry points at are the `00474xxx`/`00475xxx` family, whose group-level setup is `TSGroup_RenderPolys` (`004758c8`) / `FUN_00475af8` — neither of which touches the bias.
 
 ### A projectile is faded like anything else
 
-`FUN_0042876c` is the render entry's vtable slot 0 (`FUN_00428e10` stamps `PTR_FUN_0049ac38`), and it sets the fade on the line before it calls the object's own slot 0. A bullet reaches it:
+`ObjList_DrawEntryRender` (`0042876c`) is the render entry's vtable slot 0 (`ObjList_DrawEntryConstruct` (`00428e10`) stamps `PTR_FUN_0049ac38`), and it sets the fade on the line before it calls the object's own slot 0. A bullet reaches it:
 
-1. `maybe_Scene_SubmitFrameObjects` (`0042841c`) walks the bullet pool `DAT_004a9746` → `FUN_004282d8` → `FUN_004282f8`, which buckets the round into `ObjList::drawTable` by terrain cell.
-2. The per-cell hook `FUN_00428c60` branches on the object's type tag at `+4`. `Bullet_Construct` writes **3**, so it takes the deferred branch and gets a 0x36-byte render entry carrying its distance at `+0x12`. (Tag 9 is the immediate branch, drawn on the spot with no fade.)
+1. `maybe_Scene_SubmitFrameObjects` (`0042841c`) walks the bullet pool `DAT_004a9746` → `FUN_004282d8` → `ObjList_AddToDrawTable` (`004282f8`), which buckets the round into `ObjList::drawTable` by terrain cell.
+2. The per-cell hook `ObjList_DrawCellObjects` (`00428c60`) branches on the object's type tag at `+4`. `Bullet_Construct` writes **3**, so it takes the deferred branch and gets a 0x36-byte render entry carrying its distance at `+0x12`. (Tag 9 is the immediate branch, drawn on the spot with no fade.)
 3. `FUN_00429620` → `FUN_004295f0` walks those entries in sorted order and calls each entry's slot 0.
 
 So **a flat solid face is not pinned to ramp row 15 at distance**; it fades from its own range like anything else drawn.
 
 ## The sky — palette entries 208-223
 
-Sixteen horizontal bands, entry 208 at the zenith and 223 at the horizon, with flat 208 above the gradient. Measured, not RE'd: the draw routine registers itself into a frame-callback table (`FUN_00401d94`'s table at `004a80d0`) that lives in uninitialised memory, so static analysis cannot reach it.
+Sixteen horizontal bands, entry 208 at the zenith and 223 at the horizon, with flat 208 above the gradient. Measured, not RE'd: the draw routine registers itself into a frame-callback table (`Subsystem_RunPhase` (`00401d94`)'s table at `004a80d0`) that lives in uninitialised memory, so static analysis cannot reach it.
 
 - `Reference/Apocalypse_Cockpit.png` is lossless and shows the zone `DATA\script.dat` points at (zone 888, theater 1, `WORLD2`). Every band is an exact match for a consecutive `WORLD2.DPL` entry — `#D4D0D4`, `#D4D0D8`, `#D8D0D8`, … — changing every 6 rows at y = 107, 113, 119, 125 … in a 480-row view, with flat 208 above.
 - `Reference/Simulator5_Preferences.jpg` shows a `WORLD0` zone, orange `#985C20` at the top to olive `#747060` at the horizon. Its ground is flat rather than a ridge, so the run is visible there all the way to entry 223, which is what fixes the end of the range.

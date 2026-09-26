@@ -15,7 +15,7 @@ public readonly record struct AnimTransform(
 	short RotationX, short RotationY, short RotationZ, short X, short Y, short Z) {
 
 	/// <summary>
-	/// <c>FUN_00492600</c> — one keyframe transform blended toward another, <paramref name="q10"/>
+	/// <c>Anim_BlendKeyframeTransforms</c> (<c>00492600</c>) — one keyframe transform blended toward another, <paramref name="q10"/>
 	/// of the way (0x400 == all the way).
 	///
 	/// <para>Rotation is blended along the shortest arc, the same wrap

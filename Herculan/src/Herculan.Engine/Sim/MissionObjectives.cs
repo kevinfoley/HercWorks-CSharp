@@ -299,7 +299,7 @@ public sealed class MissionObjectives {
 	}
 
 	/// <summary>
-	/// <c>FUN_00413920</c> — the condition tier at which a group counts as written off, which is
+	/// <c>Group_IsWrittenOff</c> (<c>00413920</c>) — the condition tier at which a group counts as written off, which is
 	/// <b>not the same for both sides</b>: a human group is written off at tier 3 and a Cybrid one
 	/// only at 4, destroyed outright. So "wipe out this Cybrid group" means every machine, and "this
 	/// convoy did not make it" is answered a tier earlier.
@@ -308,7 +308,7 @@ public sealed class MissionObjectives {
 		group.Side == MissionSide.Cybrid ? MissionGroup.ConditionDestroyed : 3;
 
 	/// <summary>
-	/// <c>FUN_00413950</c> — a group is clear when it is not written off <i>and</i> every member
+	/// <c>Group_AllMembersClearOfThreats</c> (<c>00413950</c>) — a group is clear when it is not written off <i>and</i> every member
 	/// still alive is itself clear. A single member with something on it answers no for the whole
 	/// group.
 	/// </summary>
@@ -384,7 +384,7 @@ public sealed class MissionObjectives {
 		return true;
 	}
 
-	/// <summary><c>FUN_00412d90</c> — any member of the group has been engaged.</summary>
+	/// <summary><c>Group_AnyMemberEngaged</c> (<c>00412d90</c>) — any member of the group has been engaged.</summary>
 	private static bool AnyMemberEngaged(MissionGroup? group) {
 		if (group == null) {
 			return false;
@@ -425,7 +425,7 @@ public sealed class MissionObjectives {
 	};
 
 	/// <summary>
-	/// <c>FUN_0041373c</c> — whether a position is outside the mission's bounding box, grown by
+	/// <c>Mission_AccumulateBounds</c> (<c>0041373c</c>) — whether a position is outside the mission's bounding box, grown by
 	/// <paramref name="margin"/> on every side. The box is block 1's own extent, accumulated as the
 	/// coordinates are read; the Heads-Down Display's map is framed by the same one.
 	/// </summary>

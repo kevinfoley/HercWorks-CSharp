@@ -75,6 +75,7 @@ static class HostArguments {
 		  --movie <name>              one cutscene, by path or AVI folder name
 		  --play <tape>               replay an input tape, by path or TAPES folder stem
 		  --demo                      a demo tape from TAPES\demolist.str, as VIEW DEMO plays it
+		  --record <tape>             record this mission's input to <tape>.tap
 
 		Front end (each implies --shell)
 		  --shell-tab <0-7>  --shell-bay <0-7>  --shell-training

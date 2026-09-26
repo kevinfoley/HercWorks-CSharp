@@ -67,8 +67,12 @@ public sealed class ShellArt {
 	/// <summary>The two-frame bank the strip's leftmost square button draws instead.</summary>
 	public const string MenuButtonBank = "ONLINE";
 
-	/// <summary>Banks loaded for the shell frame. Screen-specific banks are loaded by their screens.</summary>
-	public static readonly string[] BankNames = { ButtonBank, MenuButtonBank, "CURSOR" };
+	/// <summary>
+	/// Banks loaded for the shell frame. Screen-specific banks are loaded by their screens. The archive's
+	/// <c>CURSOR</c> bank is not among them: the shell's pointer is the Windows arrow — see
+	/// docs/shell/screen-layout.md#the-pointer.
+	/// </summary>
+	public static readonly string[] BankNames = { ButtonBank, MenuButtonBank };
 
 	/// <summary>
 	/// The three fonts the shell's global init loads and keeps for the whole session — <c>FONT2</c>

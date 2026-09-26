@@ -180,6 +180,16 @@ While `Avi_Playing` is set, the window procedure (`MainWndProc`, 00404a2c) drops
 
 `FUN_00444e28`, the click handler of [the mission screen's Telecomm picture](#the-mission-screen), reads `Avi_Playing` and would enqueue the briefing or debrief movie by the mission tab's view, but its first instruction after the prologue jumps to its epilogue.
 
+### The pointer
+
+**The shell's pointer is the Windows arrow.** VSHELL draws none of its own. `FUN_004062cb` registers the main window's class with `LoadCursorA(NULL, IDC_ARROW)`, and `MainWndProc` passes `WM_SETCURSOR` to `DefWindowProcA`, so every move over the window puts the class's arrow up.
+
+The widget layer carries a cursor too, and it adds nothing to that. The startup (`FUN_00401525`) wraps what `GetCursor()` returns — the arrow — in two cursor objects, `DAT_004810e8` and `DAT_004810ec` (`ShellCursor_Ctor`, `0041f644`: vtable `00471844`, the handle at `+4`). It gives the first to the display root's `+0x35` and installs it, and `Hotspots_BuildOverlay` (`0043c1a0`) gives the second to every arming hotspot. `Pointer_Enter` installs the `+0x35` of the first widget up the parent chain that has one through the display's slot 3, `Display_SetCursor` (`0041fab3`, vtable `004717ec`), which calls `SetCursor` with it unless it is the one already installed. What reaches `SetCursor` there is the object's address rather than the handle at its `+4`.
+
+**The hourglass is the only other pointer.** `Shell_SetBusyCursor(busy)` (`0040877f`) puts up `IDC_WAIT` for 1 and `IDC_ARROW` for 0, then `ShowCursor(1)`. `MainMenu_OnContinue` wraps its whole load in it, and `Movie_PlayQueue` raises it before each movie's setup; `Avi_Play` drops it as playback starts, and the queue drops it again when the ring is empty. Those are its only callers. It shows only while the shell is not pumping messages, since the next move puts the class's arrow back.
+
+**`dba\cursor.dba` is not the shell's.** `SHELL0.VOL` carries it, and `VSHELL.EXE` does not name it. Every other shell bank is named by a literal of the form `dba\mnu_bttn.dba`, and the only names built at runtime are the theaters' (`shellmap.cpp`'s `dba\` + name + `.dba`) and the per-chassis banks' (`hgrid.cpp`'s name + `.dba`). A case-blind byte search of the whole executable for `curs` finds the Win32 imports, a debug format string and the Dynamix library's `GLCursor` type name — in the type-name table at `0047bda4`, beside `GLBitmap` and `GLFont` — and no resource name.
+
 ## How a widget paints
 
 **A widget carries its rect twice.** `Widget_SetRect` (`0041eb5c`) stores the constructor's rect verbatim into `+0x25`/`+0x29`/`+0x2d`/`+0x31` — left, top, right, bottom, **parent-relative** — and `FUN_0041ef45` derives the absolute rect into `+0x15`/`+0x19`/`+0x1d`/`+0x21`. `FUN_0041ec33` shows the relation directly: it adds the parent's `+0x15` to a child's `+0x25` to get the child's `+0x1d`. Only `Widget_MoveRect` (0041ebef) moves a widget afterwards, and it rewrites the relative pair and rederives the absolute one.
@@ -248,7 +258,7 @@ What the handlers call, as read:
 |---|---|
 | `INSTANT ACTION` | `FUN_0040e69e(0)`, `FUN_0044befb`, `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
 | `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a` |
-| `CONTINUE GAME` | between `FUN_0040877f(1)` and `FUN_0040877f(0)`: `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, `FUN_0044cecf(DAT_0048260e)` otherwise |
+| `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, `FUN_0044cecf(DAT_0048260e)` otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
 | `ONLINE MANUAL` | `004317ea`: `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
 | `PRACTICE MISSIONS` | `MainMenu_Hide`, `0044bc92`, `FUN_0040e69e(0)` |
@@ -976,7 +986,9 @@ The whole content surface is painted afresh on every change, where the original 
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the mission tab's campaign-map and debrief views, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+The host leaves the OS pointer up, which is [retail's arrow](#the-pointer); the hourglass comes with the two features that raise it, `CONTINUE GAME` and the movies.
+
+Not drawn: the mission tab's campaign-map and debrief views, the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -995,11 +1007,12 @@ Not drawn: the mission tab's campaign-map and debrief views, the mouse cursor (`
 | `00445758` is the mission tab's builder | It is the largest function after `wmissini.cpp`'s assert-string anchor, so the file attribution points at the mission tab. Every widget it builds is one that `Build_Enter` (`0044690d`), tab 4's entry, shows and the teardown's build arm hides, and its captions are the `Herc Construction` run `0xba`-`0xc5`. `known_symbols.json` names it `Build_BuildScreen`; the mission tab's builder is `Mission_BuildScreen` (`00442534`) |
 | `00442534` builds the crew screen's detail panel | It sits between the crew screen's thunks and `wmissini.cpp`'s first assert string, inside the address range that reads as `wcrewi.cpp`'s, and it is that module's size. Every widget it builds is one `Mission_Show` (`004441e3`) shows and `Mission_Leave` (`00444a05`), the teardown's mission arm, hides, and its captions are the mission run `0xaf`-`0xb8`. It is [the mission screen's](#the-mission-screen) builder, `Mission_BuildScreen` |
 | The palette scope draws nothing — it exists only to fire the palette install | It carries no bitmap, no caption and no chrome, and its handler's event 2 is the install. Its event 4 is a paint, `PaletteScope_Paint` (`0040cb40`), which fills its rect with `0x10`; that fill is why retail's tab screens are black ([The palette](#the-palette)) |
+| The shell draws its mouse pointer from `dba\cursor.dba` | The bank sits in `SHELL0.VOL` with the shell's own art, and the Dynamix library has a `GLCursor` type to draw one with. `VSHELL.EXE` never names the bank; the pointer is the Windows arrow, with the hourglass while a save or a movie loads ([The pointer](#the-pointer)) |
 | The save stores the campaign stage from zero and the shell counts it from one | Every per-stage table is reached one past the first entry a zero-based stage would need — `0x76 + stage` for the sector name lands on `Razor` at stage 0, and the briefing palettes start at `stage + 4` — which reads as a zero-based value shifted at runtime. The campaign's stages are 1-5 in `gam\career.dat` itself, stage 0 being training, and the tables are indexed by the number the save holds: retail draws the briefing of a save at stage 3 through `br_w3` ([The palette](#the-palette)) |
 
 ## Open
 
-- **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays).
+- **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays) and the [hourglass](#the-pointer) while one loads.
 - **Unported:** the pressed nudge of a content button's caption. `Button`'s paint (`00409b79`) moves the caption down while `+0x45` is lit and the button is enabled, as the strip's does; the engine's content buttons draw theirs in one place.
 - **Open:** what the build screen's `SCRAP` gate, `ScrapDialog_Show` and `Hangar_ScrapSelected` do with no bay selected, where each reads the third squad-member pointer at `00482abf` as [the bay's machine](#scrapping-and-building-are-gated-on-the-bay). A roster click selects one of the eight bays, but the crew tab can leave `-1` selected for the build tab to open on. The repair tab reaches `-1` when no bay holds a finished machine, and there `Repair_RefreshDetail`'s gates and all three of [its handlers](#repairing-and-cancelling) read the same pointer, `CANCEL` copying a stale status block through it.
 - **Open:** whether the scrap dialog keeps clicks off the screen beneath it. Its window covers the display and is built after every tab screen, so it would be hit first; but `Window_Ctor` leaves it visible and nothing hides it before the dialog is first shown, so an unhidden full-display window would block the shell from startup, and something in the hit test not yet read must account for it.
@@ -1013,6 +1026,6 @@ Not drawn: the mission tab's campaign-map and debrief views, the mouse cursor (`
 - **Open:** whether the launch refusal keeps clicks off the screen beneath it, the same question as the scrap dialog's.
 - **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
 - **Unported:** every main-menu button's action but `SAVE/RESTORE`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
-- **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0040877f` and `FUN_0044cecf`, which the main menu's handlers call, each do.
-- **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.
+- **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0044cecf`, which `CONTINUE GAME` calls, does.
+- **Unported:** each button's click sound.
 - **Unported:** setting the campaign/training mode everywhere but `SAVE/RESTORE` — `FUN_0040e69e`, which four other main-menu handlers call; otherwise the gate is driven by a command-line flag.

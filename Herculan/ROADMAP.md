@@ -36,7 +36,6 @@ The engine cannot be faithful here until the original is understood.
 - **Writing a save.** The slot list, its selection, the summary panel, EXIT and RESTORE work — RESTORE loads the slot into the repair screen. Renaming a slot — the rows are editable text fields with their own character set — and SAVE do nothing, and RESTORE skips the autosave the original writes straight after loading, so no save is ever written. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#the-save-screen)
 - **Only `SAVE/RESTORE` sets the campaign mode.** The tab gate is ported and correct, but of the five main-menu buttons that write the flag behind it (`DAT_0048260c`) only `SAVE/RESTORE` is ported, so training mode is reached only through `--shell-training`. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
 - **Movies.** The shell's movies — queued at startup, from the campaign map and after a mission, and played through MCI by `avi.cpp` — are not played, nor is the input gate around them. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#input-while-a-movie-plays)
-- **The mouse cursor.** `dba\cursor.dba` is not drawn — the host shows the OS pointer.
 - **Sound.** `SHLSOUND.VOL` is not mounted and no widget makes a noise. The shell's own click is `0042ee89`, fired at the end of every tab switch.
 
 ## Debugging features

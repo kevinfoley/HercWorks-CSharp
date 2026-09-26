@@ -18664,6 +18664,33 @@
       "name": "Shell_SetExitCode",
       "description": "Stores the shell's exit code in 0046e210; 2 launches the simulator, 5 a demo.",
       "source": "docs/command-line.md#exit-codes"
+    },
+    {
+      "address": "0040877f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_SetBusyCursor",
+      "description": "SetCursor(LoadCursorA(NULL, busy ? IDC_WAIT : IDC_ARROW)), then ShowCursor(1). Called by MainMenu_OnContinue around its load, Movie_PlayQueue and Avi_Play.",
+      "source": "docs/shell/screen-layout.md#the-pointer"
+    },
+    {
+      "address": "0041f644",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellCursor_Ctor",
+      "description": "Cursor object: vtable 00471844, the HCURSOR at +4. Built twice at startup around GetCursor() into DAT_004810e8 and DAT_004810ec.",
+      "source": "docs/shell/screen-layout.md#the-pointer"
+    },
+    {
+      "address": "0041fab3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_SetCursor",
+      "description": "Slot 3 of the shell display's vtable 004717ec: SetCursor(arg) unless it equals the one cached at display +0x11. Pointer_Enter passes a widget's +0x35, a cursor object's address rather than its handle.",
+      "source": "docs/shell/screen-layout.md#the-pointer"
     }
   ]
 }

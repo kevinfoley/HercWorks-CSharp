@@ -153,6 +153,21 @@ public sealed class ShellSaveScreen {
 	}
 
 	/// <summary>
+	/// What the pointer hits: a row, which is an edit field and acts on the left press, or a live
+	/// button. A disabled button swallows a click, which is the same as hitting nothing here.
+	/// </summary>
+	public ShellHit? HitAt(float canvasX, float canvasY) {
+		if (RowAt(canvasX, canvasY) is { } slot) {
+			return new ShellHit(new ShellWidget(ShellWidgetKind.SaveRow, slot), ShellHandler.EditField);
+		}
+
+		return ButtonAt(canvasX, canvasY) is { } button
+			? ShellHit.Button(new ShellWidget(ShellWidgetKind.SaveButton, (int)button), ButtonRect(button),
+				canvasX, canvasY)
+			: null;
+	}
+
+	/// <summary>
 	/// Moves the selection, as <c>SaveScreen_SelectSlot</c> (<c>0043795f</c>) does. A click on the row already selected is a
 	/// no-op, the same early return the tab handlers make, and a row past what the directory lists
 	/// still takes the selection — the original tests only the bound of ten.

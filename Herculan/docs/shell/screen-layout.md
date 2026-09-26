@@ -123,13 +123,15 @@ Both consult the widget's parent, which `Widget_Parent` (0041f283) finds by walk
 
 Input reaches widgets through an event queue, not directly. A mouse change becomes an event of type `0x20` with a sub-code at `+0x24`, which `Mouse_OnButtonState` (00408b03) assigns: 0 a move, 2 and 1 the left button going down and up, 4 and 3 the right. `EventQueue_Pump` (00469ba4) drains the queue.
 
-**A move picks the target and a button event goes to it.** On a move the pump hit-tests from the display's root with `Widget_HitTestTree` (00469d1c). A widget is hit only when it is not hidden (`+0x11` bit 2, [above](#showing-and-hiding-a-widget)) and the point lies inside its absolute rect, edges included. Its children are then tried in list order, and the first that is hit answers in its place, recursively; a widget none of whose children is hit is the answer itself. When the answer changes, the old widget is sent a leave event (`0x10`) and the new one an enter (8). A button event carries no position test of its own: it goes to whatever the last move left under the pointer.
+**A move picks the target and a button event goes to it.** On a move the pump hit-tests from the display's root with `Widget_HitTestTree` (00469d1c). A widget is hit only when it is not hidden (`+0x11` bit 2, [above](#showing-and-hiding-a-widget)) and the point lies inside its absolute rect, edges included. Its children are then tried in list order, and the first that is hit answers in its place, recursively; a widget none of whose children is hit is the answer itself. When the answer changes, `Pointer_Leave` (00469d74) sends the old widget a leave event (`0x10`) and `Pointer_Enter` (00469e1c) sends the new one an enter (8). A button event carries no position test of its own: it goes to whatever the last move left under the pointer, and so does any other event posted without a target, a keystroke included.
+
+**The pointer can be locked.** While `+0x1f` of the pointer state at `DAT_005ddbd0` is set, the pump skips the hit test, so a move changes nothing and every event goes to the current target. Only edit fields set it — `EditField_HandleEvent` on a press ([below](#the-widget-that-takes-a-click-decides-what-it-does)), `SaveScreen_BeginRename` (004377d2) and `0043bc0a` — and `Pointer_Unlock` (00469cdc) clears it and hit-tests again.
 
 **Siblings are tried newest first.** `Widget_AttachChild` (0041f134), which `Widget_SetRect` calls from every constructor, pushes a child onto the *head* of its parent's list. The only other list operation, `Widget_Detach` (0041f17a), is called by two teardowns that delete what they unlink, so no list is ever reordered. Where two siblings overlap, the one built later answers, and a child can be hit only where it lies inside its parent.
 
 **The event then climbs to the first widget that takes mouse events.** `Event_Deliver` (00469f34) walks from the hit through `Widget_Parent` to the first widget whose event mask at `+0x39` has the event type's bit, and calls that widget's vtable slot 0 with the point made relative to the hit. `Widget_SetRect` starts the mask at `0x1f` and `Control_Ctor` adds `0x60`, which carries the mouse bit. `Text_Ctor` is built on `Window_Ctor` rather than `Control_Ctor` and clears `0x18`, leaving `0x07`. **A `Text` therefore never takes a click**: a click on a caption, a label or a value reaches its parent. `Panel` and everything built on it, `Button` among them, goes through `Control_Ctor`, and `EditField_Ctor` adds `0x360` itself, so all of those take clicks.
 
-**The widget that takes a click keeps it.** `Control_HandleEvent` (004097da) — slot 0 of `Panel`, `FramedPanel`, `TitledPanel` and `Grid` — and `HatchedDivider`'s copy of it, `HatchedDivider_HandleEvent` (0040c3b5), act on a mouse event only while the enable flag `+0x49` is set. A press, either button, lights `+0x45` and repaints; a release with `+0x45` lit calls `Widget_DispatchCallback` (0041f5d4), which runs the handler at `+0x3d` — the constructor's handler argument — or discards the event when there is none; the leave event clears `+0x45`. Nothing on either path hands the event to the parent, so a widget with no handler, or a disabled one, swallows a click on it. So a click fires on the release, and only when the button went down on the same widget and the pointer never left it. `Control_HandleEvent` also ignores mouse events while `DAT_00470d70` or `DAT_00470e70` is set, a test `HatchedDivider_HandleEvent` does not make ([Open](#open)).
+**The innermost widget is part of the target.** The leave event climbs the same way, so when the pointer moves from one of a row's text columns to the next, the leave sent to the first reaches the row, and puts out a press on it exactly as leaving the row would.
 
 What that decides on the screens ported here:
 
@@ -137,9 +139,44 @@ What that decides on the screens ported here:
 |---|---|
 | a [repair hotspot](#the-damage-diagram) over another | the six body areas are built first and the weapons after, each in index order, so a weapon over a body area, a higher mount over a lower one, a higher area over a lower one |
 | rows 13 tall on a 12-pixel pitch — the save list, both repair lists | the lower row owns the shared border line |
-| a [crew row](#the-rows)'s texts | the row; its portrait is a panel of its own carrying the row's handler |
+| a [crew row](#the-rows)'s texts | the row; its portrait is an image panel of its own carrying the row's handler |
 | a row's four [text columns](#a-row-is-four-text-columns), a button's caption | the row, the button |
 | the repair screen's five [readouts](#the-repair-screen) | the readout, which is disabled and swallows it |
+
+### The widget that takes a click decides what it does
+
+Slot 0 of a class's vtable is its event handler, and the shell's classes run five different ones. Firing is `Widget_DispatchCallback` (0041f5d4), which runs the handler at `+0x3d` — the constructor's handler argument — or discards the event when there is none. No handler hands an event on to the parent, so a widget with no handler, or a disabled one, swallows a click on it.
+
+| Handler | Classes | Fires on | Needs the press on it | A leave cancels | Tests |
+|---|---|---|---|---|---|
+| `Control_HandleEvent` (004097da) | `Panel`, `FramedPanel`, `TitledPanel`, `Grid`; `Button` through `Button_HandleEvent` (00409b0f), which adds the press sound | either button's release | yes | yes | `+0x49`, `Avi_Playing`, `MovieQueue_Running` |
+| `HatchedDivider_HandleEvent` (0040c3b5) | `HatchedDivider` | either button's release | yes | yes | `+0x49` |
+| `ButtonIcon_HandleEvent` (00409df2) | `ButtonIcon`, the tab strip | the left press; the right release | the right button only | no | `+0x49`, `Avi_Playing`, `MovieQueue_Running` |
+| `ImagePanel_HandleEvent` (0040b6da) | image panel | the left release | no | — | none |
+| `EditField_HandleEvent` (0040beaf) | edit field | the left press | — | — | none |
+
+**`Control_HandleEvent` pairs a press with its release.** A press, either button, lights `+0x45` and repaints; a release with `+0x45` lit fires, then clears it and repaints; the leave event clears it. So the click fires on the release, and only when the button went down on the same widget and the pointer never left it. `HatchedDivider_HandleEvent` is the same function without the two movie flags ([below](#input-while-a-movie-plays)).
+
+**The strip fires on the left press.** `ButtonIcon_HandleEvent` lights `+0x45`, plays the press sound, repaints and fires, all on the press, while its auto-repeat flag `+0x61` is clear, as the constructor leaves it. The left release zeroes `+0x45` without repainting, which is why a tab stays drawn lit after the click that latched it: what is on screen is the paint the tab handler's own write of 1 triggered. The right button falls through to `Control_HandleEvent`: it lights on the press and fires on the release, and then zeroes `+0x45` and repaints after the handler has run. So a tab picked with the right button has latched itself and is then repainted unlit, and right-clicking the tab already up unlights it; recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md). The leave clears `+0x45` only while `+0x5d` is 0, and `ButtonIcon_Ctor` sets it to 1, so a tab the pointer is dragged off stays lit, and a later right release on it fires it with no press.
+
+**An image panel fires on any left release that reaches it**, wherever the button went down.
+
+**An edit field fires on the left press, and takes the pointer.** With its focus flag `+0xa7` clear, the press sets it, installs a WinTimer alarm for itself (`WinTimer_InstallAlarm`, 0046a0b0, with 500 and 500), [locks the pointer](#which-widget-a-click-reaches) and fires. Every later event then goes to the field, and the next press, landing there with `+0xa7` set, clears the focus, removes the alarm, releases the lock, hit-tests again and posts the press over, so it lands on whatever is under the pointer — the field itself included, which then fires again. The field ignores the right button, and while the lock holds a right click anywhere reaches the field and is dropped.
+
+### Input while a movie plays
+
+`avi.cpp` plays the shell's movies through MCI. `Movie_Enqueue` (0041e29c) adds one to a ten-entry ring at `00485668` when movies are on (`DAT_00482275`) — an id, a rect, a palette index and a callback — and `Movie_PlayQueue` (0041e368) plays the ring out, each entry through `Avi_Play` (0041e01c) with its palette installed and the MISSION tab lit, running the entry's callback after it. The shell's main loop (`FUN_00401525`) calls `Movie_PlayQueue` once a pass, and the startup (`FUN_004012b0`), `Game_ProcessMissionResults` and `FUN_004315ec` also call it straight after enqueuing. The campaign map's `maybe_Mission_Show` and `maybe_Mission_UpdateLocationTab` enqueue and leave the playing to the main loop.
+
+Two flags gate input around them, and the two players are their only writers:
+
+| Flag | Set | Cleared |
+|---|---|---|
+| `Avi_Playing` (`00470d70`) | by `Avi_Play` as playback starts, with the main window capturing the mouse | as playback ends |
+| `MovieQueue_Running` (`00470e70`) | by `Movie_PlayQueue` when it finds the ring holding a movie | when a later call finds the ring empty, and while the insert-CD panel waits for its button |
+
+While `Avi_Playing` is set, the window procedure (`MainWndProc`, 00404a2c) drops both button-ups and the options hotkeys, and a button-down sets `Avi_StopRequested` (`00470d60`), which ends playback, and is dropped too: **a click skips the movie and does nothing else**, as Esc and Space do. Moves are still posted. `Control_HandleEvent` and `ButtonIcon_HandleEvent` also ignore every mouse event while either flag is set, which covers the whole run of the queue and not only the movies in it; the other three handlers do not test them.
+
+`FUN_00444e28` reads `Avi_Playing`, and would enqueue the briefing or debrief movie by the mission tab's sub-mode, but its first instruction after the prologue jumps to its epilogue.
 
 ## How a widget paints
 
@@ -206,7 +243,7 @@ Three buttons are gated, each written as the trio [the repair panel uses](#the-c
 | Handler | What it does |
 |---|---|
 | `SAVE`, `00437bd3` | edit state to 1; greys `SAVE`, `RESTORE` and `EXIT`; calls `004377d2` |
-| `004377d2` | returns at once if the edit state is 0. Otherwise posts an event at the selected row and hands the row to `00469cbc` ([Open](#open)); sets its caret flags `+0xbf` and `+0xb3`; rewrites it as `"%2d. %s"` of the slot number and the empty string at `0047526a`, so it reads ` 3. ` with the name gone; lights `CANCEL` and `ACCEPT`; edit state to 2; repaints the list |
+| `004377d2` | returns at once if the edit state is 0. Otherwise posts an event at the selected row, moves the pointer onto the row (`Pointer_SetTarget`, 00469cbc) and [locks it there](#which-widget-a-click-reaches), so keystrokes reach the row; sets its caret flags `+0xbf` and `+0xb3`; rewrites it as `"%2d. %s"` of the slot number and the empty string at `0047526a`, so it reads ` 3. ` with the name gone; lights `CANCEL` and `ACCEPT`; edit state to 2; repaints the list |
 | `ACCEPT`, `00437ffa` | `Game_SaveSlot(selected, text)`, where the text is the row's own string buffer at `+0x45` (`00437ba9`), so what was typed becomes the slot's label; `Stats_StageCurrentGame(selected)`; refreshes the detail panel; greys `CANCEL` and `ACCEPT`, lights `SAVE`, `RESTORE` and `EXIT`; edit state to 0 |
 | `CANCEL`, `00437e1a` | puts the row's `GAMEFILE.STR` label back; greys `CANCEL` and `ACCEPT`, lights `SAVE`, `RESTORE` and `EXIT`; edit state to 0; `SaveScreen_SelectSlot(10)` |
 
@@ -541,6 +578,8 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 `Herculan.Engine.Shell` draws the shell frame: the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, and gated by `ShellCampaignMode`. The canvas is placed by `ShellScreenLayout`, which scales the fixed 640x480 by window height and centres it, so every rect above is used exactly as the original states it. `ShellPalette` carries the twenty-entry table and the per-tab switch, which every tab click follows. `--shell-palette <name>` pins one entry, `--shell-training` runs the gated half of the strip refresh, `--shell-tab <n>` opens on a tab rather than on the main menu, and `--shell-bay <n>` picks the hangar bay the repair tab opens on.
 
+**Clicks follow each class's own rules.** `ShellPointer` keeps what the pump and the handlers keep — the pointer's target down to the innermost widget, the pointer lock, the lit flag and an edit field's focus — and delivers each move, press and release as [Which widget a click reaches](#which-widget-a-click-reaches) says: the strip fires on the left press and the right release, the content panels, rows and buttons on either release of a press that never left them, the crew portraits on any left release, and the save rows on the left press, taking the pointer. `ShellButton` keeps the lit flag apart from the face last painted, which the strip's left release needs. The host polls the mouse once an update, so a press and its release inside one update are lost.
+
 **The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. Tab 1 hides the strip, and `EXIT` and `RESTORE` leave as above through `ShellScreen.ReturnToFrame`, which is the `0043b162(8)`/`0043b0c8` pair; `RESTORE` parses the slot and rebuilds the hangar and the repair screen from it. The rename, and with it `SAVE`, `CANCEL` and `ACCEPT`, has no port, and neither has `RESTORE`'s autosave ([Open](#open)); `CANCEL` and `ACCEPT` stay grey because nothing starts a rename.
 
 The main menu tab keeps the strip up here, where its handler hides it as tab 1's does: nothing is ported behind that tab, so hiding the strip would leave nothing on screen to click. That is this engine's choice, not the original's.
@@ -559,7 +598,7 @@ The whole content surface is painted afresh on every change, where the original 
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -574,16 +613,17 @@ Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), an
 | `0043b23d` shows the frame, as its Ghidra name `ServiceBay_Show` says | It calls `Widget_HideRecursive` (0041f469) on the frame's root and panel, and the pair that undoes it — `0043b162(8)` and `0043b0c8` — calls `Widget_ShowRecursive` on the same two. The name was given under the swapped reading of those two functions ([above](#showing-and-hiding-a-widget)) |
 | `0041f2e6` shows a widget and `0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
 | The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
+| Every widget fires on the button's release, and only after a press on it | That is `Control_HandleEvent`'s rule, and it is the base class's handler, run by the panels, the grids and every content button, so it reads as the shell's. The tab strip, the image panels and the edit fields each put a handler of their own in vtable slot 0: the strip fires on the left press, an image panel on any left release, an edit field on the left press ([The widget that takes a click decides what it does](#the-widget-that-takes-a-click-decides-what-it-does)) |
 | The palette scope draws nothing — it exists only to fire the palette install | It carries no bitmap, no caption and no chrome, and its handler's event 2 is the install. Its event 4 is a paint, `PaletteScope_Paint` (`0040cb40`), which fills its rect with `0x10`; that fill is why retail's tab screens are black ([The palette](#the-palette)) |
 
 ## Open
 
-- **Unported:** [a click's timing](#which-widget-a-click-reaches). The original acts on either button's release, and only on the widget the button went down on, if the pointer never left it. The engine takes the left button only; its tab strip fires when the release is on the pressed button even after leaving it and coming back, and the content screens act on a release wherever it lands.
-- **Open:** what `DAT_00470d70` and `DAT_00470e70` are. `Control_HandleEvent` (004097da) ignores mouse events while either is set, and the window procedure drops button messages while `DAT_00470d70` is.
+- **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays).
+- **Unported:** the pressed nudge of a content button's caption. `Button`'s paint (`00409b79`) moves the caption down while `+0x45` is lit and the button is enabled, as the strip's does; the engine's content buttons draw theirs in one place.
 - **Unported:** the squad panel on WEAPONS and BUILD, which goes with those two screens, and their arms of `Squad_SelectBay` (`0043d64d`).
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked; the engine draws nothing for a missing frame.
 - **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.
-- **Open:** the edit field's keyboard handling — how the event `004377d2` posts and `00469cbc` route keystrokes to the row, how the permitted-character set at `+0x9f` filters them (the full string is unread past `"…qrstu"`), backspace, whether the `" 3. "` prefix can be deleted, and whether a key commits or abandons the rename.
+- **Open:** the edit field's keyboard handling past its dispatch. Keystrokes reach the row as the pointer's target ([Saving is a rename](#saving-is-a-rename)). `EditField_HandleEvent` passes a key (event `0x40`) to `FUN_0040bdd2` while `+0xbf` is set, acts on a command (`0x100`) only while `+0xbf` and `+0xa7` are both set — backspace (1) and the left arrow (4) both call `FUN_0040be56`, and Enter (`0x0a`) releases the lock and the focus — and hands every key and command on to the row's handler. Unread: which event `004377d2` posts at the row, how the permitted-character set at `+0x9f` filters (the full string is unread past `"…qrstu"`), whether the `" 3. "` prefix can be deleted, and what the row's handler does with a key — whether one commits or abandons the rename.
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
 - **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.

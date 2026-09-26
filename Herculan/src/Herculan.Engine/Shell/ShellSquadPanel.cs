@@ -92,6 +92,13 @@ public static class ShellSquadPanel {
 		return null;
 	}
 
+	/// <summary>What the pointer hits on the roster: a row, and which of its four text columns.</summary>
+	public static ShellHit? HitAt(float canvasX, float canvasY) =>
+		RowAt(canvasX, canvasY) is { } bay
+			? ShellHit.ListRow(new ShellWidget(ShellWidgetKind.SquadRow, bay), RowRect(bay), NameLeft, DashLeft,
+				PilotLeft, canvasX, canvasY)
+			: null;
+
 	/// <summary>
 	/// <c>Squad_SelectBay</c> (<c>0043d64d</c>)'s repair-tab arm: a row answers only when its bay holds a finished machine.
 	/// Clicking an empty bay or one still being built does nothing at all.

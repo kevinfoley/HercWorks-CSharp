@@ -100,7 +100,7 @@ public sealed class ShellRenderer : IDisposable {
 		if (screen.StripVisible && _art.Sprites is { } sheet && _sprites != null) {
 			_vertices.Clear();
 			foreach (var button in screen.Buttons) {
-				AddButton(layout, sheet, button, pressed: screen.PressedId == button.Id);
+				AddButton(layout, sheet, button);
 			}
 
 			if (_vertices.Count > 0) {
@@ -134,9 +134,8 @@ public sealed class ShellRenderer : IDisposable {
 	}
 
 	/// <summary>One button: its current face, then its caption centred on that face's rect.</summary>
-	private void AddButton(ShellScreenLayout layout, HudSpriteSheet sheet, ShellButton button, bool pressed) {
-		bool lit = pressed || button.Selected;
-		var sprite = button.Sprite(pressed);
+	private void AddButton(ShellScreenLayout layout, HudSpriteSheet sheet, ShellButton button) {
+		var sprite = button.Sprite();
 		if (sheet.Sprite(sprite.Bank, sprite.Frame) is { Width: > 0, Height: > 0 } plate) {
 			AddSprite(layout, plate, button.Rect.X0, button.Rect.Y0);
 		}
@@ -151,9 +150,10 @@ public sealed class ShellRenderer : IDisposable {
 			int textY = button.Rect.Y0 + (button.Rect.Height - font.InkHeight) / 2;
 
 			// The pressed nudge, which is the original's own and is exact: the paint offsets the caption
-			// one pixel above its centred row when the button is idle and one below when it is lit, so a
-			// lit button's text sits two pixels lower than an idle one's.
-			AddText(layout, sheet, font, button.FontName, caption, textX, textY + (lit ? 1 : -1));
+			// one pixel above its centred row when the button is idle and one below when it is lit and
+			// enabled, so a lit button's text sits two pixels lower than an idle one's.
+			AddText(layout, sheet, font, button.FontName, caption, textX,
+				textY + (button.CaptionNudged ? 1 : -1));
 		}
 	}
 

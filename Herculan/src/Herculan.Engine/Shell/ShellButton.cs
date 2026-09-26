@@ -21,19 +21,20 @@ public readonly record struct ShellSprite(string Bank, int Frame);
 /// stretched to the rect — the same rule the cockpit's widgets follow, for the same reason: the rect
 /// is the hit and layout box, the sprite is the art.</para>
 ///
-/// <para><see cref="Selected"/> is the tab strip's latch — a tab handler writes <c>1</c> to the
-/// widget's own lit flag at <c>+0x45</c> and repaints before building its screen, which is what
-/// leaves the active tab drawn lit while the pointer is elsewhere. It is separate from the transient
-/// press <see cref="ShellScreen"/> tracks, because a press ends on mouse-up and the latch does
-/// not.</para>
+/// <para><b>The face is whatever the last repaint saw.</b> <see cref="Lit"/> is the widget's own lit
+/// flag at <c>+0x45</c>, which a press, a tab handler's latch and a release all write, and
+/// <see cref="ShowsLit"/> is what the paint read from it the last time it ran. They differ because
+/// <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>) zeroes the flag on a left release without
+/// repainting, which is what leaves the active tab drawn lit after the click that latched it
+/// (docs/shell/screen-layout.md#which-widget-a-click-reaches).</para>
 /// </summary>
 public sealed class ShellButton {
 	public ShellButton(int id, ShellRect rect, ShellSprite unlit, ShellSprite lit,
 			string? caption = null, string fontName = ShellArt.ButtonFont) {
 		Id = id;
 		Rect = rect;
-		Unlit = unlit;
-		Lit = lit;
+		UnlitFace = unlit;
+		LitFace = lit;
 		Caption = caption;
 		FontName = fontName;
 	}
@@ -45,10 +46,10 @@ public sealed class ShellButton {
 	public ShellRect Rect { get; }
 
 	/// <summary>Sprite drawn at rest.</summary>
-	public ShellSprite Unlit { get; }
+	public ShellSprite UnlitFace { get; }
 
-	/// <summary>Sprite drawn while pressed or latched.</summary>
-	public ShellSprite Lit { get; }
+	/// <summary>Sprite drawn while lit — pressed, or latched as the tab that is up.</summary>
+	public ShellSprite LitFace { get; }
 
 	/// <summary>The button's text, or null for an icon button that carries none.</summary>
 	public string? Caption { get; set; }
@@ -63,9 +64,21 @@ public sealed class ShellButton {
 	/// </summary>
 	public bool Enabled { get; set; } = true;
 
-	/// <summary>Whether the button is latched down — the tab strip's "this is the screen you are on".</summary>
-	public bool Selected { get; set; }
+	/// <summary>The lit flag, <c>+0x45</c>.</summary>
+	public bool Lit { get; set; }
 
-	/// <summary>Which face to draw, given whether the pointer is holding this button down.</summary>
-	public ShellSprite Sprite(bool pressed) => pressed || Selected ? Lit : Unlit;
+	/// <summary>Whether the face on screen is the lit one — <see cref="Lit"/> as of the last <see cref="Repaint"/>.</summary>
+	public bool ShowsLit { get; private set; }
+
+	/// <summary>The class's paint, <c>0040a05d</c>: picks the face from the lit flag as it now stands.</summary>
+	public void Repaint() => ShowsLit = Lit;
+
+	/// <summary>Which face is on screen.</summary>
+	public ShellSprite Sprite() => ShowsLit ? LitFace : UnlitFace;
+
+	/// <summary>
+	/// Whether the caption takes the pressed nudge: the same paint moves it down only while the button is
+	/// both lit and enabled.
+	/// </summary>
+	public bool CaptionNudged => ShowsLit && Enabled;
 }

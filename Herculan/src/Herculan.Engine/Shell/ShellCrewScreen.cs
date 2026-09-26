@@ -305,6 +305,36 @@ public sealed class ShellCrewScreen {
 	public static bool IsClearAt(float canvasX, float canvasY) =>
 		Inside(PanelRect, ClearRect).Contains(canvasX, canvasY);
 
+	/// <summary>
+	/// What the pointer hits on the panel: a squad portrait, <c>CLEAR</c>, a row's portrait, or a row and
+	/// which of its six texts. The portraits are image panels, which act on a left release alone; a
+	/// row's portrait carries the row's handler and is still a widget of its own.
+	/// </summary>
+	public static ShellHit? HitAt(float canvasX, float canvasY) {
+		if (PortraitAt(canvasX, canvasY) is { } member) {
+			return new ShellHit(new ShellWidget(ShellWidgetKind.CrewSquadPortrait, member), ShellHandler.ImagePanel);
+		}
+
+		if (IsClearAt(canvasX, canvasY)) {
+			return ShellHit.Button(new ShellWidget(ShellWidgetKind.CrewClear, 0), Inside(PanelRect, ClearRect),
+				canvasX, canvasY);
+		}
+
+		if (RowAt(canvasX, canvasY) is not { } row) {
+			return null;
+		}
+
+		var rect = RowRect(row);
+		if (Inside(rect, RowPortraitRect).Contains(canvasX, canvasY)) {
+			return new ShellHit(new ShellWidget(ShellWidgetKind.CrewRowPortrait, row), ShellHandler.ImagePanel);
+		}
+
+		// Crew_BuildScreen (00440eb8) builds each row's three labels and then its three values, so a label
+		// sharing an edge row with the one below it gives way to it.
+		return new ShellHit(new ShellWidget(ShellWidgetKind.CrewRow, row), ShellHandler.Control,
+			ShellHit.LeafAt(rect, [.. LabelRects, .. ValueRects], canvasX, canvasY));
+	}
+
 	/// <summary>One row's rect, in the canvas.</summary>
 	public static ShellRect RowRect(int row) =>
 		new(PanelRect.X0 + RowLeft, PanelRect.Y0 + row * RowPitch + FirstRowTop,

@@ -16,10 +16,11 @@ namespace Herculan.Engine.Host;
 /// timestep. In the retail game they are two executables for the same reason
 /// (docs/shell/campaign-loop.md).</para>
 ///
-/// <para>The pointer is polled once per update rather than queued from the device's own events, which
-/// is the opposite of what the cockpit does. The cockpit's queue is reproducing DBSIM's own deferred
-/// mouse handling (docs/formats/cockpit-input.md); nothing has been read yet that says VSHELL does
-/// the same, so this stays the simple thing until it is.</para>
+/// <para>The pointer is polled once per update, and each change in its position or in either button
+/// becomes one of the events VSHELL's queue carries, which <see cref="ShellPointer"/> delivers as
+/// <c>EventQueue_Pump</c> (<c>00469ba4</c>) does. Polling rather than queueing the device's own
+/// events means two changes inside one update arrive together, move first; a press and release both
+/// inside one update are lost.</para>
 /// </summary>
 static class ShellHost {
 	/// <summary>
@@ -130,6 +131,7 @@ static class ShellHost {
 			: "No built machine in any hangar bay — the repair screen draws empty rows.");
 
 		var screen = ShellScreen.CreateFrame(art.Text, startTab, mode);
+		var pointer = new ShellPointer(screen);
 		EnterTab(screen.SelectedTab);
 
 		Console.WriteLine(art.Text != null
@@ -154,7 +156,8 @@ static class ShellHost {
 		ShellRenderer? renderer = null;
 		GL? gl = null;
 		IMouse? mouse = null;
-		bool pointerHeld = false;
+		bool leftHeld = false;
+		bool rightHeld = false;
 		int framesRendered = 0;
 
 		window.Load += (loadedGl, input) => {
@@ -179,23 +182,9 @@ static class ShellHost {
 			var layout = ShellScreenLayout.Create(framebuffer.X, framebuffer.Y);
 			var (canvasX, canvasY) = layout.WindowToCanvas(windowX, windowY);
 
-			bool held = mouse.IsButtonPressed(MouseButton.Left);
-			if (held && !pointerHeld) {
-				screen.PointerDown(canvasX, canvasY);
-			} else if (!held && pointerHeld) {
-				// The strip gets first refusal: it is drawn over the content and its buttons are the only
-				// ones ShellScreen tracks. A release the strip does not claim falls through to whatever
-				// tab is up.
-				if (screen.PointerUp(canvasX, canvasY) is { } activated) {
-					Activate(activated);
-				} else {
-					ClickContent(canvasX, canvasY);
-				}
-			} else {
-				screen.PointerMoved(canvasX, canvasY);
-			}
-
-			pointerHeld = held;
+			pointer.Move(HitAt(canvasX, canvasY));
+			ButtonEdge(mouse.IsButtonPressed(MouseButton.Left), ref leftHeld, ShellMouseButton.Left);
+			ButtonEdge(mouse.IsButtonPressed(MouseButton.Right), ref rightHeld, ShellMouseButton.Right);
 		};
 
 		window.Render += (_, frameGl) => {
@@ -260,47 +249,91 @@ static class ShellHost {
 			}
 		}
 
-		// A click the strip did not take, handed to the tab that is up.
-		void ClickContent(float canvasX, float canvasY) {
-			if (screen.SelectedTab == ShellScreen.RepairTab) {
-				ClickRepair(canvasX, canvasY);
+		// The widget under a canvas point. The strip is drawn over the content and hit first; below it,
+		// whichever tab is up.
+		ShellHit? HitAt(float canvasX, float canvasY) {
+			if (screen.HitAt(canvasX, canvasY) is { } strip) {
+				return strip;
+			}
+
+			return screen.SelectedTab switch {
+				ShellScreen.SaveTab => saveScreen.HitAt(canvasX, canvasY),
+				ShellScreen.RepairTab => ShellSquadPanel.HitAt(canvasX, canvasY)
+					?? repairScreen.HitAt(canvasX, canvasY),
+				ShellScreen.CrewTab when crewScreen != null => ShellSquadPanel.HitAt(canvasX, canvasY)
+					?? ShellCrewScreen.HitAt(canvasX, canvasY),
+				_ => null,
+			};
+		}
+
+		// A button changing state since the last update, delivered as the press or release it is.
+		void ButtonEdge(bool held, ref bool wasHeld, ShellMouseButton button) {
+			if (held == wasHeld) {
 				return;
 			}
 
-			if (screen.SelectedTab == ShellScreen.CrewTab) {
-				ClickCrew(canvasX, canvasY);
+			wasHeld = held;
+			if (held) {
+				pointer.Press(button, Fire);
+			} else {
+				pointer.Release(button, Fire);
+			}
+		}
+
+		// Runs a widget's click handler — Widget_DispatchCallback (0041f5d4) calling what the builder
+		// passed the widget.
+		void Fire(ShellWidget widget) {
+			switch (widget.Kind) {
+				case ShellWidgetKind.StripButton:
+					Activate(widget.Index);
+					break;
+				case ShellWidgetKind.SaveRow:
+					SelectSaveSlot(widget.Index);
+					break;
+				case ShellWidgetKind.SaveButton:
+					ClickSaveButton((ShellSaveButton)widget.Index);
+					break;
+				case ShellWidgetKind.RepairRow or ShellWidgetKind.RepairHotspot:
+					SelectRepair(widget.Index, widget.Sub);
+					break;
+				case ShellWidgetKind.RepairButton:
+					Console.WriteLine($"{(ShellRepairButton)widget.Index} — the button is live and its action "
+						+ "is not ported yet.");
+					break;
+				case ShellWidgetKind.SquadRow:
+					ClickRoster(widget.Index);
+					break;
+				default:
+					ClickCrew(widget);
+					break;
+			}
+		}
+
+		// A save row's handler, SaveScreen_SelectSlot (0043795f). Clicking the row already selected is a
+		// no-op, the same early return the original's selection move opens with.
+		void SelectSaveSlot(int slot) {
+			if (slot == saveScreen.SelectedSlot) {
 				return;
 			}
 
-			if (screen.SelectedTab != ShellScreen.SaveTab) {
-				return;
-			}
+			saveScreen.SelectSlot(slot);
+			RepaintContent();
+			Console.WriteLine($"Slot {slot + 1}: "
+				+ (saveScreen.Slots.ElementAtOrDefault(slot) is { InUse: true, Summary: { } summary }
+					? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}, "
+					  + $"{summary.SalvageKilograms} kg salvage"
+					: "empty."));
+		}
 
-			if (saveScreen.RowAt(canvasX, canvasY) is { } slot) {
-				// Clicking the row already selected is a no-op, the same early return the original's
-				// selection move opens with.
-				if (slot == saveScreen.SelectedSlot) {
-					return;
-				}
-
-				saveScreen.SelectSlot(slot);
-				RepaintContent();
-				Console.WriteLine($"Slot {slot + 1}: "
-					+ (saveScreen.Slots.ElementAtOrDefault(slot) is { InUse: true, Summary: { } summary }
-						? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}, "
-						  + $"{summary.SalvageKilograms} kg salvage"
-						: "empty."));
-				return;
-			}
-
-			switch (saveScreen.ButtonAt(canvasX, canvasY)) {
+		void ClickSaveButton(ShellSaveButton button) {
+			switch (button) {
 				case ShellSaveButton.Restore:
 					RestoreSelectedSlot();
 					break;
 				case ShellSaveButton.Exit:
 					LeaveSaveScreen();
 					break;
-				case { } button:
+				default:
 					Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
 					break;
 			}
@@ -356,58 +389,57 @@ static class ShellHost {
 			RepaintContent();
 		}
 
-		// The repair screen's own clicks: a row or a hotspot moves the selection and the detail panel
-		// follows, which is the whole of what the original's Repair_SelectHotspot (00433eb9) does before its own refill; a
-		// roster row moves the bay, Squad_SelectBay (0043d64d)'s repair-tab arm.
-		void ClickRepair(float canvasX, float canvasY) {
-			if (ShellSquadPanel.RowAt(canvasX, canvasY) is { } bay) {
-				if (repairScreen.SelectBay(bay)) {
+		// A repair row or hotspot's handler, Repair_SelectHotspot (00433eb9): the selection moves and the
+		// detail panel follows. A hardpoint row past the machine's capacity, or one holding no weapon,
+		// refuses the selection outright — nothing moves and nothing repaints.
+		void SelectRepair(int column, int row) {
+			if (!repairScreen.Select(column, row)) {
+				return;
+			}
+
+			RepaintContent();
+			var category = ShellRepairScreen.CategoryOf(column, row);
+			Console.WriteLine($"{category} {ShellRepairScreen.IndexOf(category, row)}: "
+				+ $"condition {repairScreen.SelectionCondition}, "
+				+ $"{repairScreen.SelectionCost} kg to repair one level.");
+		}
+
+		// A Squad Inventory row's handler, Squad_SelectBay (0043d64d), whose arm is the tab that is up.
+		void ClickRoster(int bay) {
+			if (screen.SelectedTab == ShellScreen.CrewTab) {
+				if (crewScreen?.ClickRoster(bay) == true) {
 					RepaintContent();
-					Console.WriteLine($"Bay {bay}: chassis type {repairScreen.Machine?.ChassisType}.");
+					LogCrew();
 				}
 
 				return;
 			}
 
-			if (repairScreen.RowAt(canvasX, canvasY) is { } cell) {
-				// A hardpoint row past the machine's capacity, or one holding no weapon, refuses the
-				// selection outright — nothing moves and nothing repaints.
-				if (!repairScreen.Select(cell.Column, cell.Row)) {
-					return;
-				}
-
+			if (repairScreen.SelectBay(bay)) {
 				RepaintContent();
-				var category = ShellRepairScreen.CategoryOf(cell.Column, cell.Row);
-				Console.WriteLine($"{category} {ShellRepairScreen.IndexOf(category, cell.Row)}: "
-					+ $"condition {repairScreen.SelectionCondition}, "
-					+ $"{repairScreen.SelectionCost} kg to repair one level.");
-				return;
-			}
-
-			if (repairScreen.ButtonAt(canvasX, canvasY) is { } repairButton) {
-				Console.WriteLine($"{repairButton} — the button is live and its action is not ported yet.");
+				Console.WriteLine($"Bay {bay}: chassis type {repairScreen.Machine?.ChassisType}.");
 			}
 		}
 
-		// The crew screen's own clicks. A row, or the portrait inside it, selects the row; a squad portrait,
-		// a Squad Inventory row and CLEAR assign against the selected row. Every one of them repaints.
-		void ClickCrew(float canvasX, float canvasY) {
+		// The crew panel's handlers. A row, or the portrait inside it, selects the row; a squad portrait
+		// and CLEAR assign against the selected row. Every one of them repaints.
+		void ClickCrew(ShellWidget widget) {
 			if (crewScreen == null) {
 				return;
 			}
 
-			if (ShellSquadPanel.RowAt(canvasX, canvasY) is { } bay) {
-				if (!crewScreen.ClickRoster(bay)) {
+			switch (widget.Kind) {
+				case ShellWidgetKind.CrewRow or ShellWidgetKind.CrewRowPortrait:
+					crewScreen.SelectRow(widget.Index);
+					break;
+				case ShellWidgetKind.CrewSquadPortrait:
+					crewScreen.ClickPortrait(widget.Index);
+					break;
+				case ShellWidgetKind.CrewClear:
+					crewScreen.Clear();
+					break;
+				default:
 					return;
-				}
-			} else if (ShellCrewScreen.PortraitAt(canvasX, canvasY) is { } member) {
-				crewScreen.ClickPortrait(member);
-			} else if (ShellCrewScreen.IsClearAt(canvasX, canvasY)) {
-				crewScreen.Clear();
-			} else if (ShellCrewScreen.RowAt(canvasX, canvasY) is { } row) {
-				crewScreen.SelectRow(row);
-			} else {
-				return;
 			}
 
 			RepaintContent();

@@ -132,40 +132,68 @@ public class ShellLayoutTests {
 		screen.SelectTab(4);
 
 		Assert.Equal(4, screen.SelectedTab);
-		Assert.Equal(1, screen.Buttons.Count(button => button.Selected));
-		Assert.True(screen.Button(4)!.Selected);
+		Assert.Equal(1, screen.Buttons.Count(button => button.ShowsLit));
+		Assert.True(screen.Button(4)!.ShowsLit);
 
 		// The menu button is not a tab and is never latched by one.
-		Assert.False(screen.Button(ShellScreen.MenuButtonId)!.Selected);
+		Assert.False(screen.Button(ShellScreen.MenuButtonId)!.ShowsLit);
 	}
 
-	/// <summary>A press activates on release over the same button, and cancels when dragged off it.</summary>
+	/// <summary>
+	/// A tab fires on the left press, and the release that follows puts its lit flag out without
+	/// repainting, so the face stays lit.
+	/// </summary>
 	[Fact]
-	public void PressActivatesOnReleaseOverTheSameButton() {
+	public void TabFiresOnTheLeftPress() {
 		var screen = ShellScreen.CreateFrame(null);
+		var pointer = new ShellPointer(screen);
 		var tab = ShellLayout.Tab(3);
+		var fired = new List<int>();
 
-		screen.PointerDown(tab.X0 + 1, tab.Y0 + 1);
-		Assert.Equal(3, screen.PressedId);
-		Assert.Equal(3, screen.PointerUp(tab.X0 + 1, tab.Y0 + 1));
-		Assert.Null(screen.PressedId);
+		pointer.Move(screen.HitAt(tab.X0 + 1, tab.Y0 + 1));
+		pointer.Press(ShellMouseButton.Left, widget => fired.Add(widget.Index));
+		Assert.Equal([3], fired);
 
-		screen.PointerDown(tab.X0 + 1, tab.Y0 + 1);
-		Assert.Null(screen.PointerUp(320, ShellLayout.CanvasHeight - 1));
-		Assert.Null(screen.PressedId);
+		pointer.Move(screen.HitAt(320, ShellLayout.CanvasHeight - 1));
+		pointer.Release(ShellMouseButton.Left, widget => fired.Add(widget.Index));
+		Assert.Equal([3], fired);
+		Assert.True(screen.Button(3)!.ShowsLit);
+	}
+
+	/// <summary>
+	/// The right button fires a tab on its release, even after leaving it and coming back, and a tab
+	/// latched that way is left drawn unlit.
+	/// </summary>
+	[Fact]
+	public void TabFiresOnTheRightRelease() {
+		var screen = ShellScreen.CreateFrame(null);
+		var pointer = new ShellPointer(screen);
+		var tab = ShellLayout.Tab(4);
+		void Fire(ShellWidget widget) => screen.SelectTab(widget.Index);
+
+		pointer.Move(screen.HitAt(tab.X0 + 1, tab.Y0 + 1));
+		pointer.Press(ShellMouseButton.Right, Fire);
+		Assert.Equal(0, screen.SelectedTab);
+
+		pointer.Move(screen.HitAt(320, ShellLayout.CanvasHeight - 1));
+		pointer.Move(screen.HitAt(tab.X0 + 1, tab.Y0 + 1));
+		pointer.Release(ShellMouseButton.Right, Fire);
+		Assert.Equal(4, screen.SelectedTab);
+		Assert.False(screen.Button(4)!.ShowsLit);
 	}
 
 	/// <summary>A disabled button neither answers a hit test nor takes a press.</summary>
 	[Fact]
 	public void DisabledButtonTakesNoClicks() {
 		var screen = ShellScreen.CreateFrame(null);
+		var pointer = new ShellPointer(screen);
 		var tab = ShellLayout.Tab(2);
 		screen.Button(2)!.Enabled = false;
 
 		Assert.Null(screen.ButtonAt(tab.X0 + 1, tab.Y0 + 1));
 
-		screen.PointerDown(tab.X0 + 1, tab.Y0 + 1);
-		Assert.Null(screen.PointerUp(tab.X0 + 1, tab.Y0 + 1));
+		pointer.Move(screen.HitAt(tab.X0 + 1, tab.Y0 + 1));
+		pointer.Press(ShellMouseButton.Left, _ => Assert.Fail("A disabled tab fired."));
 	}
 
 	/// <summary>
@@ -183,8 +211,8 @@ public class ShellLayoutTests {
 		screen.SelectTab(tab);
 
 		Assert.Equal(tab, screen.SelectedTab);
-		Assert.Equal(latches ? 1 : 0, screen.Buttons.Count(button => button.Selected));
-		Assert.Equal(latches, screen.Button(tab)!.Selected);
+		Assert.Equal(latches ? 1 : 0, screen.Buttons.Count(button => button.ShowsLit));
+		Assert.Equal(latches, screen.Button(tab)!.ShowsLit);
 	}
 
 	/// <summary>

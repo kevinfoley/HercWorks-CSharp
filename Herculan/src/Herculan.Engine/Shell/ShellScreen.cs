@@ -14,8 +14,8 @@ public enum ShellCampaignMode {
 }
 
 /// <summary>
-/// One shell screen: the widgets on it, which one the pointer is over, and which one it is holding
-/// down.
+/// One shell screen: the strip's widgets and which tab is up. What the pointer does to them is
+/// <see cref="ShellPointer"/>'s.
 ///
 /// <para>What is built here is the <b>frame</b> — the backdrop-textured root, the square button at the
 /// far left of the strip, and the eight tabs. Every tab screen in VSHELL builds its own copy of that
@@ -36,7 +36,7 @@ public enum ShellCampaignMode {
 /// <para><b>Tabs 0 and 1 never latch.</b> Every handler starts by clearing the lit flag on all nine
 /// strip buttons (<c>00439dcb</c>); the six from WEAPONS on then write their own back to 1, and the
 /// main menu's and the save screen's do not — <see cref="SelectedTab"/> is <c>DAT_0047581c</c>, which
-/// screen is up, and the latch is a separate thing that only six of the eight ever take. Those two
+/// screen is up, and the latch is the lit flag, which only six of the eight ever take. Those two
 /// hide the strip outright instead, and <see cref="StripVisible"/> carries that; see
 /// <see cref="SelectTab"/>.</para>
 /// </summary>
@@ -48,8 +48,6 @@ public sealed class ShellScreen {
 	private const string MenuButtonCaption = "?";
 
 	private readonly List<ShellButton> _buttons = new();
-	private int? _hoverId;
-	private int? _pressedId;
 
 	private ShellScreen() { }
 
@@ -70,12 +68,6 @@ public sealed class ShellScreen {
 	/// strip button is parented to (<c>DAT_0048d448</c>).
 	/// </summary>
 	public bool StripVisible { get; private set; } = true;
-
-	/// <summary>The button under the pointer, or null when it is over none.</summary>
-	public int? HoverId => _hoverId;
-
-	/// <summary>The button the pointer is holding down, or null.</summary>
-	public int? PressedId => _pressedId;
 
 	/// <summary>
 	/// Builds the shell frame: the tab strip, captioned from <paramref name="text"/>, with
@@ -111,12 +103,10 @@ public sealed class ShellScreen {
 	/// MISSION and the square button are never gated. The rest of the refresh — showing the strip and
 	/// parking <c>DAT_0047581c</c> — is <see cref="ReturnToFrame"/>'s.
 	///
-	/// <para><b>The flag is <c>+0x49</c>.</b> Two things say it is the enable flag: which tabs it
-	/// selects here — the three the training campaign has no salvage economy for — and the repair
-	/// panel, which writes it alongside two greying colour fields on a test of whether the player can
-	/// afford the button. What actually stops a cleared widget responding is in the base class's click
-	/// dispatch and has not been traced; the button's own paint reads the flag only to decide whether
-	/// the caption takes the pressed nudge.</para>
+	/// <para><b>The flag is <c>+0x49</c>, the enable flag.</b> A cleared tab is still hit by the
+	/// pointer, and its handler, <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>), then ignores the
+	/// click, so it swallows it; nothing else sits under the strip, so leaving it out of
+	/// <see cref="ButtonAt"/> comes to the same thing.</para>
 	/// </summary>
 	public void ApplyTabGate(ShellCampaignMode mode) {
 		bool economy = mode == ShellCampaignMode.Campaign;
@@ -160,9 +150,10 @@ public sealed class ShellScreen {
 	private const int LitFrame = 2;
 
 	/// <summary>
-	/// Makes one tab the screen that is up, and latches it if it is one of the six that latch. Every
-	/// other plate is released either way, which is the clear all nine handlers start with. Out-of-range
-	/// indices are ignored.
+	/// Makes one tab the screen that is up, and latches it if it is one of the six that latch: the
+	/// handler's <c>00439dcb</c> clears the lit flag on all nine strip buttons and repaints them, and a
+	/// latching tab's handler then writes its own back to 1 and repaints it. Out-of-range indices are
+	/// ignored.
 	///
 	/// <para><b>The save tab hides the strip.</b> Its handler calls <c>0043b23d</c>, which hides the
 	/// strip's parent panel, so the save screen stands alone and its own EXIT and RESTORE are the only
@@ -178,9 +169,13 @@ public sealed class ShellScreen {
 		SelectedTab = index;
 		StripVisible = index != SaveTab;
 		foreach (var button in _buttons) {
-			if (button.Id < ShellLayout.TabCount) {
-				button.Selected = button.Id == index && index >= FirstLatchingTab;
-			}
+			button.Lit = false;
+			button.Repaint();
+		}
+
+		if (index >= FirstLatchingTab && Button(index) is { } tab) {
+			tab.Lit = true;
+			tab.Repaint();
 		}
 	}
 
@@ -188,18 +183,13 @@ public sealed class ShellScreen {
 	/// Puts the bare frame back up with no tab current — the pair the save screen's EXIT and RESTORE
 	/// both end with: <c>0043b162(8)</c>, which shows the frame's root, then the strip refresh
 	/// <c>0043b0c8</c>, which shows the strip's panel, regates it and parks <c>DAT_0047581c</c> at
-	/// <c>0xffff</c>. Nothing is latched, because the tab handler that brought the screen up cleared
-	/// all nine and latched none.
+	/// <c>0xffff</c>. Neither writes a lit flag, and nothing is lit: the save tab's handler cleared all
+	/// nine and latched none.
 	/// </summary>
 	public void ReturnToFrame(ShellCampaignMode mode) {
 		StripVisible = true;
 		ApplyTabGate(mode);
 		SelectedTab = NoTab;
-		foreach (var button in _buttons) {
-			if (button.Id < ShellLayout.TabCount) {
-				button.Selected = false;
-			}
-		}
 	}
 
 	/// <summary>The button at a canvas point, or null. Disabled buttons, and a hidden strip, do not answer.</summary>
@@ -228,30 +218,12 @@ public sealed class ShellScreen {
 		return null;
 	}
 
-	/// <summary>Tracks the pointer. Canvas pixels; pass anything off-canvas and nothing is hovered.</summary>
-	public void PointerMoved(float canvasX, float canvasY) => _hoverId = ButtonAt(canvasX, canvasY)?.Id;
-
-	/// <summary>Arms the button under the pointer, if there is one.</summary>
-	public void PointerDown(float canvasX, float canvasY) {
-		PointerMoved(canvasX, canvasY);
-		_pressedId = _hoverId;
-	}
-
 	/// <summary>
-	/// Releases the pointer, and reports the button that was activated — the armed one, and only if
-	/// the pointer is still on it. Null otherwise, including for a press dragged off its button, which
-	/// is the cancel every pointer UI gives for free.
+	/// What the pointer hits on the strip, or null. Each button's caption is a <c>Text</c> child
+	/// covering the whole button, so the hit never changes within one.
 	/// </summary>
-	public int? PointerUp(float canvasX, float canvasY) {
-		PointerMoved(canvasX, canvasY);
-		int? activated = _pressedId is { } pressed && _hoverId == pressed ? pressed : null;
-		_pressedId = null;
-		return activated;
-	}
-
-	/// <summary>Drops any hover and press state — for when the pointer leaves the window.</summary>
-	public void PointerLeft() {
-		_hoverId = null;
-		_pressedId = null;
-	}
+	public ShellHit? HitAt(float canvasX, float canvasY) =>
+		ButtonAt(canvasX, canvasY) is { } button
+			? new ShellHit(new ShellWidget(ShellWidgetKind.StripButton, button.Id), ShellHandler.ButtonIcon)
+			: null;
 }

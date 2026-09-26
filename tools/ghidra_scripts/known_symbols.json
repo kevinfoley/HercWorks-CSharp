@@ -12691,7 +12691,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SaveScreen_BeginRename",
-      "description": "Returns at once when the rename state is 0. Otherwise posts an event at the selected row and hands it to FUN_00469cbc, sets the row's caret flags +0xbf and +0xb3, rewrites the row as '%2d. ' with the name blanked, lights CANCEL and ACCEPT, and sets the rename state to 2.",
+      "description": "Returns at once when the rename state is 0. Otherwise posts an event at the selected row, moves the pointer onto it (Pointer_SetTarget, 00469cbc) and locks it there (+0x1f of DAT_005ddbd0), sets the row's caret flags +0xbf and +0xb3, rewrites the row as '%2d. ' with the name blanked, lights CANCEL and ACCEPT, and sets the rename state to 2.",
       "source": "docs/shell/screen-layout.md#saving-is-a-rename"
     },
     {
@@ -17044,6 +17044,150 @@
       "name": "Eh_InitExceptBlock",
       "description": "Borland C++ exception-frame prologue: links the caller's frame record into the FS:[0] SEH chain. Called first by most VSHELL functions with a destructor-bearing local, the click thunks included; not part of any dispatch.",
       "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00409df2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ButtonIcon_HandleEvent",
+      "description": "ButtonIcon's event handler (vtable 0046e924 slot 0), the tab strip's class. A left press (sub-code 2) on an enabled widget with neither DAT_00470d70 nor DAT_00470e70 set lights +0x45, plays the press sound (0042eecf) when sound is on, repaints, and -- while the auto-repeat flag +0x61 is clear, as the constructor leaves it -- runs Widget_DispatchCallback at once. A left release (1) zeroes +0x45 without repainting. Right-button events fall through to Control_HandleEvent, so the right button fires on its release. The leave event clears +0x45 only while +0x5d is 0, and ButtonIcon_Ctor sets it to 1. Event 0x200 is the auto-repeat alarm tick, which re-runs the callback while +0x61 is set and the button is lit.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0040beaf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EditField_HandleEvent",
+      "description": "The edit field's event handler (vtable 0046edc8 slot 0). Acts on the left press only (sub-code 2), with no +0x49 or DAT_00470d70/DAT_00470e70 test. With the focus flag +0xa7 clear it installs a 500/500 WinTimer alarm, sets the pointer lock (DAT_005ddbd0 +0x1f), sets +0xa7, repaints and runs Widget_DispatchCallback. With +0xa7 set it clears it, removes the alarm, releases the lock (Pointer_Unlock), sends a leave, re-hit-tests with Pointer_Enter(0) and re-posts the press (Event_Post) with its target cleared, so the press lands on whatever is under the pointer. Event 0x40 (a key) and 0x100 (a command: 1 backspace, 4 left, 0x0a enter) edit the string; 0x10 removes the alarm.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0040b6da",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ImagePanel_HandleEvent",
+      "description": "The image panel's event handler (vtable 0046ec94 slot 0). Repaints on event 4 and runs Widget_DispatchCallback on any left release (0x20 sub-code 1) delivered to it -- no press on it needed, no +0x49 test, no DAT_00470d70/DAT_00470e70 test, and the right button ignored.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469cdc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pointer_Unlock",
+      "description": "Clears the pointer lock, +0x1f of the pointer state at DAT_005ddbd0, and hit-tests again at the last position, sending a leave and an enter if the target changed. While the lock is set EventQueue_Pump skips the hit test and every mouse event goes to the current target; EditField_HandleEvent, SaveScreen_BeginRename (004377d2) and 0043bc0a set it.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469cbc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pointer_SetTarget",
+      "description": "Pointer_Leave, then Pointer_Enter with the given widget: moves the pointer's target without a hit test.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0046a0b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinTimer_InstallAlarm",
+      "description": "Adds an alarm for a widget to the WinTimer's twenty-entry table at DAT_005ddbd4 (asserts 'WinTimer::installAlarm > too many' in code\\wintimer.cpp). The edit field installs one at 500, 500 when it takes focus.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0046a138",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinTimer_RemoveAlarms",
+      "description": "Removes every WinTimer alarm installed for a widget.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0041e01c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Avi_Play",
+      "description": "Plays one AVI through MCI ('open %s alias mov style child', 'play mov window notify'; src\\avi.cpp). Sets the palette, SetCapture on the main window and DAT_00470d70 = 1, then loops until DAT_00470d60 is set -- a mouse button down in the window procedure, or Esc or Space (scan codes 1 and 0x39) -- then ReleaseCapture and DAT_00470d70 = 0. Returns 1, or 0 when the open fails. Its one caller is Movie_PlayQueue.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "0041e29c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Movie_Enqueue",
+      "description": "Adds a movie to the ten-entry ring at 00485668 at write index DAT_00470e6c, when movies are on (DAT_00482275) and the id is not already queued: the id, a rect, a palette index (0xffff for none), a flag that ends the run on the campaign map's location tab, and a callback run after it. Movie_PlayQueue plays the ring.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "0041e368",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Movie_PlayQueue",
+      "description": "Plays every queued movie from read index DAT_00470e6e, each through Avi_Play with its palette and rect, lighting the MISSION tab around it while the frame is up, then runs the entry's callback and frees it. Sets DAT_00470e70 = 1 for the whole run and clears it only when it finds the ring empty -- the shell's main loop (FUN_00401525) calls it with 1 once a pass -- or while it waits on the insert-CD panel (DAT_0048d108). Also called directly after enqueuing by the startup (FUN_004012b0), Game_ProcessMissionResults and FUN_004315ec.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "00470d70",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Avi_Playing",
+      "description": "1 while Avi_Play has a movie on screen, 0 otherwise; Avi_Play is its only writer. Control_HandleEvent and ButtonIcon_HandleEvent ignore mouse events while it is set, and the window procedure drops button messages (after a press has ended the movie) and the options hotkeys.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "00470e70",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MovieQueue_Running",
+      "description": "1 from the start of a Movie_PlayQueue run until the next call finds the ring empty; Movie_PlayQueue is its only writer. Control_HandleEvent and ButtonIcon_HandleEvent ignore mouse events while it is set.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "00470d60",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Avi_StopRequested",
+      "description": "Avi_Play's loop condition: cleared before playback, and the movie ends when a mouse button down in the window procedure, or Esc or Space, sets it.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "00485668",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MovieQueue_Entries",
+      "description": "Ten 0x1c-byte movie entries: int16 id at +0 (0xffff for a free entry), a four-int rect at +2, int16 palette index at +0x12 (0xffff for none), the location-tab flag at +0x14 and a callback at +0x18. Written by Movie_Enqueue, played and freed by Movie_PlayQueue.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "00470e6c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MovieQueue_WriteIndex",
+      "description": "Movie_Enqueue's slot in MovieQueue_Entries, modulo 10.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "00470e6e",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MovieQueue_ReadIndex",
+      "description": "Movie_PlayQueue's slot in MovieQueue_Entries, modulo 10.",
+      "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
     }
   ]
 }

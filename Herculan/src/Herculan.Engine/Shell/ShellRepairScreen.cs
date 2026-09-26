@@ -229,6 +229,27 @@ public sealed class ShellRepairScreen {
 		return null;
 	}
 
+	/// <summary>
+	/// What the pointer hits: a hotspot, a list row and which of its text columns, or a live button. A
+	/// hotspot and the list row with the same <c>(column, row)</c> share a handler and are still two
+	/// widgets. A gated button swallows a click, which is the same as hitting nothing here.
+	/// </summary>
+	public ShellHit? HitAt(float canvasX, float canvasY) {
+		if (_column == 0 && _diagrams?.HotspotAt(Machine, canvasX, canvasY) is { } hotspot) {
+			return new ShellHit(new ShellWidget(ShellWidgetKind.RepairHotspot, 0, hotspot), ShellHandler.Control);
+		}
+
+		if (RowAt(canvasX, canvasY) is { } cell) {
+			return ShellHit.ListRow(new ShellWidget(ShellWidgetKind.RepairRow, cell.Column, cell.Row),
+				RowRect(cell.Column, cell.Row), NameColumnRight, MountColumnLeft, MountColumnRight, canvasX, canvasY);
+		}
+
+		return ButtonAt(canvasX, canvasY) is { } button
+			? ShellHit.Button(new ShellWidget(ShellWidgetKind.RepairButton, (int)button), ButtonRect(button),
+				canvasX, canvasY)
+			: null;
+	}
+
 	/// <summary>The button at a canvas point, or null. A gated button does not answer.</summary>
 	public ShellRepairButton? ButtonAt(float canvasX, float canvasY) {
 		foreach (var button in Enum.GetValues<ShellRepairButton>()) {

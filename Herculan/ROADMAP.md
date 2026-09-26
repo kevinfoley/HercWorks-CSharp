@@ -37,6 +37,7 @@ The engine cannot be faithful here until the original is understood.
 - **The squad panel on WEAPONS and BUILD.** `wsquadi.cpp`'s bay picture, pilot readout and roster are drawn on the repair and crew tabs; the WEAPONS and BUILD screens they would sit beside are not ported, nor those tabs' roster clicks. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#the-squad-panel)
 - **The arming hotspots.** Fully reverse-engineered — the file format, which hardpoint each area selects, and the selection rule — and not hit-tested, since the arming screen has no picture to lay them over. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#the-arming-and-repair-hotspots), [`docs/formats/herc-catalogs.md`](docs/formats/herc-catalogs.md)
 - **Nothing sets the campaign mode.** The tab gate is ported and correct, but the flag behind it (`DAT_0048260c`) is not set by anything the shell host runs, so the gate is driven by `--shell-training`. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
+- **Movies.** The shell's movies — queued at startup, from the campaign map and after a mission, and played through MCI by `avi.cpp` — are not played, nor is the input gate around them. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#input-while-a-movie-plays)
 - **The mouse cursor.** `dba\cursor.dba` is not drawn — the host shows the OS pointer.
 - **Sound.** `SHLSOUND.VOL` is not mounted and no widget makes a noise. The shell's own click is `0042ee89`, fired at the end of every tab switch.
 

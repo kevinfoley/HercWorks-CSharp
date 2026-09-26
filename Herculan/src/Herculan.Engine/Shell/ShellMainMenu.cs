@@ -120,7 +120,7 @@ public sealed class ShellMainMenu {
 		foreach (var button in Enum.GetValues<ShellMainMenuButton>()) {
 			bool enabled = IsEnabled(button);
 			var rect = ButtonRect(button);
-			ShellChrome.PaintPanel(surface, rect, enabled ? ButtonBorder : DisabledColor, fill: true);
+			ShellChrome.PaintButton(surface, rect, enabled ? ButtonBorder : DisabledColor);
 			ShellChrome.PaintText(surface, rect, font, text?.Text(CaptionText(button)),
 				ShellTextAlign.Center, enabled ? ShellChrome.FontInkColor : DisabledColor);
 		}

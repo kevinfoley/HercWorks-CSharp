@@ -84,6 +84,25 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
+	/// <c>Button_Paint</c> (<c>00409b79</c>) without its caption — the box of every <c>Button</c>, the
+	/// disabled readouts among them: <see cref="PaintPanel"/> with the interior filled, then a second
+	/// border one pixel inside the first in the same colour. Its top and bottom run from 2 to <c>W - 2</c>
+	/// and its sides from 2 to <c>H - 2</c>, so it meets the outer border's inset corner pixels.
+	/// </summary>
+	public static void PaintButton(ShellSurface surface, ShellRect rect, byte borderColor) {
+		int w = rect.Width - 1;
+		int h = rect.Height - 1;
+		var clip = surface.PushClip(rect);
+
+		PaintPanel(surface, rect, borderColor, fill: true);
+		Line(surface, rect, 2, 1, w - 2, 1, borderColor);
+		Line(surface, rect, w - 1, 2, w - 1, h - 2, borderColor);
+		Line(surface, rect, w - 2, h - 1, 2, h - 1, borderColor);
+		Line(surface, rect, 1, h - 2, 1, 2, borderColor);
+		surface.PopClip(clip);
+	}
+
+	/// <summary>
 	/// <c>FramedPanel_Paint</c> — a plain bordered box: the interior cleared, the chamfered border, then
 	/// a 50% checkerboard over the interior in <paramref name="faceColor"/>.
 	///

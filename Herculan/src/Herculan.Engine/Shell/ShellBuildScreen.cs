@@ -378,7 +378,7 @@ public sealed class ShellBuildScreen {
 
 		bool enabled = IsEnabled(button);
 		var rect = ButtonRect(button);
-		ShellChrome.PaintPanel(surface, rect, enabled ? ButtonBorder : DisabledColor, fill: true);
+		ShellChrome.PaintButton(surface, rect, enabled ? ButtonBorder : DisabledColor);
 		ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font,
 			text?.Text(captionText), ShellTextAlign.Center, enabled ? ShellChrome.FontInkColor : DisabledColor);
 	}

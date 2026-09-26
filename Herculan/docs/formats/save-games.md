@@ -187,7 +187,7 @@ Because the span is copied verbatim into `player.mec`, a machine's status bytes 
 | 60 | `0048403e` | 30x `int16` line indices |
 | 2 | `004840b8` | — |
 
-The three index arrays are briefing and debrief prose, assembled into single strings by `Career_BuildBriefingText` (`00412f97`) by concatenating the `mission.str` lines each array names. A fourth 30-entry array at `0048407c` holds the *next* mission's text and is deliberately absent from the save — `FUN_004133d2` rebuilds it whenever the campaign advances.
+The three index arrays are the mission tab's objectives (`00483fea`), briefing (`00484000`) and intelligence report (`0048403e`), assembled into single strings by `Career_BuildBriefingText` (`00412f97`) by concatenating the `mission.str` lines each array names ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-summary-text-box)). The save in `savGAME_6.SAV` names lines 3-4, 5 and 6 of its `missn6.str`: the two objective lines, the briefing paragraph and the intelligence paragraph. A fourth 30-entry array at `0048407c` is the debrief's and is absent from the save: `Career_Advance` (`00412dc7`) fills it through `Career_SetDebriefLines` (`00413386`) from the mission just flown, before it moves the position on, and `Career_BuildDebriefText` (`004133d2`) assembles it.
 
 ## The slot handoff
 

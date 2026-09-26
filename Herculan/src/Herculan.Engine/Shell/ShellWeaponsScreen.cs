@@ -416,13 +416,13 @@ public sealed class ShellWeaponsScreen {
 	}
 
 	/// <summary>
-	/// One button: a filled panel in <paramref name="border"/> and its caption, the <c>Text</c> child
+	/// One button: its double-bordered box in <paramref name="border"/> and its caption, the <c>Text</c> child
 	/// <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>, centred in <c>0x29</c>.
 	/// </summary>
 	private static void PaintButton(ShellSurface surface, HudFont? font, ShellWeaponsButton button, string? caption,
 			byte border) {
 		var rect = ButtonRect(button);
-		ShellChrome.PaintPanel(surface, rect, border, fill: true);
+		ShellChrome.PaintButton(surface, rect, border);
 		ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font, caption,
 			ShellTextAlign.Center, ShellChrome.FontInkColor);
 	}

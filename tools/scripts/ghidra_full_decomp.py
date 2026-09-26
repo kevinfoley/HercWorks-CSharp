@@ -123,6 +123,7 @@ def main() -> int:
         for binary in args.binary or BINARIES:
             ok = run_dump(binary) and ok
     report_names("DBSIM")
+    report_names("VSHELL")
     return 0 if ok else 1
 
 

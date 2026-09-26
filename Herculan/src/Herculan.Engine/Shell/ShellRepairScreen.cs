@@ -469,7 +469,7 @@ public sealed class ShellRepairScreen {
 	/// caption colour than a live one. It is a box with a figure in it, not a control.
 	/// </summary>
 	private static void PaintReadout(ShellSurface surface, HudFont? font, ShellRect rect, string? value) {
-		ShellChrome.PaintPanel(surface, rect, ReadoutBorder, fill: true);
+		ShellChrome.PaintButton(surface, rect, ReadoutBorder);
 		ShellChrome.PaintText(surface, rect, font, value, ShellTextAlign.Center, ReadoutTextColor,
 			ShellChrome.InteriorColor);
 	}
@@ -479,7 +479,7 @@ public sealed class ShellRepairScreen {
 			ShellRepairButton button) {
 		bool enabled = IsEnabled(button);
 		var rect = ButtonRect(button);
-		ShellChrome.PaintPanel(surface, rect, enabled ? ButtonBorder : DisabledColor, fill: true);
+		ShellChrome.PaintButton(surface, rect, enabled ? ButtonBorder : DisabledColor);
 		ShellChrome.PaintText(surface, rect, font, caption, ShellTextAlign.Center,
 			enabled ? ShellChrome.FontInkColor : DisabledColor);
 	}

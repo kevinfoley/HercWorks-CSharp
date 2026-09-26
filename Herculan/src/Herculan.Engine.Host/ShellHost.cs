@@ -89,13 +89,19 @@ static class ShellHost {
 		// restored. Until the save screen's RESTORE replaces it, this opens the first slot the directory
 		// marks in use — enough to put a real machine's damage on the screen, and stated rather than
 		// hidden.
-		var loadedGame = slots.FirstOrDefault(s => s.InUse) is { } inUse
-			? ShellSaveSlots.LoadSave(installRoot, inUse.FileName) : null;
+		int loadedSlot = slots.ToList().FindIndex(s => s.InUse);
+		var loadedGame = loadedSlot >= 0 ? ShellSaveSlots.LoadSave(installRoot, slots[loadedSlot].FileName) : null;
 		var hangar = ShellHangar.From(loadedGame);
 		if (loadedGame != null) {
 			campaignStage = loadedGame.CampaignStage + 1;
 			missionInStage = loadedGame.MissionInStage;
 		}
+
+		// The mission tab's briefing, objectives and intelligence report, assembled from the loaded slot's
+		// career block and its own missn%d.str, and the screen that shows them, built once and kept.
+		var missionTexts = ShellMissionTexts.Load(installRoot, loadedSlot, loadedGame);
+		var missionScreen = new ShellMissionScreen(ShellMissionArt.Load(content));
+		var missionViewUp = ShellMissionView.Map;
 
 		// The art was loaded before the game, so a start on the mission tab took stage 1's palette.
 		if (!string.Equals(PaletteFor(startTab), art.PaletteName, StringComparison.OrdinalIgnoreCase)
@@ -165,7 +171,7 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("MAIN MENU, SAVE, WEAPONS, REPAIR, BUILD, ARMORY and CREW are the tabs with a screen behind them. On the "
+		Console.WriteLine("Every tab has a screen behind it but MISSION's map view. On the "
 			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu. Click a save "
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
 			+ "select it and the panels beside it follow. On BUILD, click a chassis to see its blueprint and "
@@ -173,8 +179,9 @@ static class ShellHost {
 			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. On ARMORY, "
 			+ "click a row to see the weapon and its figures. On CREW, click "
 			+ "a row to select it, then a squad portrait to put that pilot in the row, a Squad Inventory row "
-			+ "to give the row's pilot that bay, or CLEAR to empty the row. The square button and MISSION latch and "
-			+ "show the frame. The save screen hides "
+			+ "to give the row's pilot that bay, or CLEAR to empty the row. MISSION shows the briefing once a "
+			+ "stage is under way: its three text buttons switch the summary and the arrows beside it page "
+			+ "through it; its map view is not ported. The square button latches and shows the frame. The save screen hides "
 			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
 			+ "repair screen. Close the window to quit.");
 		Console.WriteLine(paletteName != null
@@ -202,6 +209,10 @@ static class ShellHost {
 				return;
 			}
 
+			// The mission tab's arrows draw a lit face while pressed, so a change in what the pointer has lit
+			// repaints that tab; the other screens draw no pressed state.
+			var litBefore = pointer.Lit;
+
 			// The pointer reports window-client pixels while the canvas is placed in framebuffer pixels,
 			// which differ on a scaled display — the same correction the mission host makes.
 			var client = window.ClientSize;
@@ -215,6 +226,9 @@ static class ShellHost {
 			pointer.Move(HitAt(canvasX, canvasY));
 			ButtonEdge(mouse.IsButtonPressed(MouseButton.Left), ref leftHeld, ShellMouseButton.Left);
 			ButtonEdge(mouse.IsButtonPressed(MouseButton.Right), ref rightHeld, ShellMouseButton.Right);
+			if (pointer.Lit != litBefore && screen.SelectedTab == ShellScreen.MissionTab) {
+				RepaintContent();
+			}
 		};
 
 		window.Render += (_, frameGl) => {
@@ -270,7 +284,7 @@ static class ShellHost {
 		}
 
 		// What a tab's entry does beyond showing it. The mission tab's map view sets the campaign map's
-		// once-per-load flag (maybe_Mission_Show, 004441e3), so the next visit opens the briefing.
+		// once-per-load flag (Mission_Show, 004441e3), so the next visit opens the briefing.
 		void EnterTab(int id) {
 			if (id == ShellScreen.CrewTab) {
 				EnterCrew();
@@ -280,8 +294,8 @@ static class ShellHost {
 				EnterBuild();
 			} else if (id == ShellScreen.ArmoryTab) {
 				EnterArmory();
-			} else if (id == ShellScreen.MissionTab && MissionView() == ShellMissionView.Map) {
-				missionMapShown = true;
+			} else if (id == ShellScreen.MissionTab) {
+				EnterMission();
 			}
 		}
 
@@ -304,6 +318,7 @@ static class ShellHost {
 				ShellScreen.CrewTab when crewScreen != null => ShellSquadPanel.HitAt(canvasX, canvasY)
 					?? ShellCrewScreen.HitAt(canvasX, canvasY),
 				ShellScreen.ArmoryTab when armoryScreen != null => armoryScreen.HitAt(canvasX, canvasY),
+				ShellScreen.MissionTab when missionViewUp == ShellMissionView.Briefing => missionScreen.HitAt(canvasX, canvasY),
 				_ => null,
 			};
 		}
@@ -367,6 +382,12 @@ static class ShellHost {
 				case ShellWidgetKind.ArmoryButton:
 					Console.WriteLine($"{(ShellArmoryButton)widget.Index} — the button is live and its action "
 						+ "is not ported yet.");
+					break;
+				case ShellWidgetKind.MissionButton:
+					ClickMissionButton((ShellMissionButton)widget.Index);
+					break;
+				case ShellWidgetKind.MissionArrow:
+					ClickMissionArrow((ShellMissionArrow)widget.Index);
 					break;
 				default:
 					ClickCrew(widget);
@@ -432,6 +453,7 @@ static class ShellHost {
 			}
 
 			hangar = ShellHangar.From(restored);
+			missionTexts = ShellMissionTexts.Load(installRoot, slot, restored);
 			campaignStage = restored.CampaignStage + 1;
 			missionInStage = restored.MissionInStage;
 			missionMapShown = false;
@@ -691,6 +713,51 @@ static class ShellHost {
 				+ $"{hangar.QueuedCount(weapon)} queued, {armoryCatalog.PriceKilograms(weapon)} kg).");
 		}
 
+		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks. Only the
+		// briefing view has a screen here; the map view shows the frame.
+		void EnterMission() {
+			missionViewUp = MissionView();
+			if (missionViewUp == ShellMissionView.Map) {
+				missionMapShown = true;
+				Console.WriteLine("Mission: the campaign map view, which is not ported — the tab shows the frame.");
+				return;
+			}
+
+			missionScreen.EnterBriefing(missionTexts, art.Sprites?.Font(ShellArt.ScreenFont));
+			LogMission();
+		}
+
+		// A text button shows its text; Rock & Roll's launch (00445509) is not ported.
+		void ClickMissionButton(ShellMissionButton button) {
+			if (button == ShellMissionButton.RockAndRoll) {
+				Console.WriteLine("Rock & Roll — launching the mission is not ported yet.");
+				return;
+			}
+
+			missionScreen.ShowText(button);
+			RepaintContent();
+			LogMission();
+		}
+
+		// The page arrows page the text that is up; the map's six move a map this engine does not draw.
+		void ClickMissionArrow(ShellMissionArrow arrow) {
+			if (arrow is not (ShellMissionArrow.PageUp or ShellMissionArrow.PageDown)) {
+				Console.WriteLine($"{arrow} — the mission map is not ported yet.");
+				return;
+			}
+
+			if (missionScreen.Page(arrow == ShellMissionArrow.PageDown)) {
+				RepaintContent();
+				LogMission();
+			}
+		}
+
+		void LogMission() {
+			var box = missionScreen.Box(missionScreen.ShownText);
+			Console.WriteLine($"Mission: {missionScreen.ShownText}, {box.Lines.Count} lines, "
+				+ $"page {box.Page + 1} of {box.PageCount}.");
+		}
+
 		// Tab 6's entry. The bay it starts from is the one the previous tab left selected, DAT_00482ae5,
 		// which here only the repair screen tracks; the entry then moves it.
 		void EnterCrew() {
@@ -745,6 +812,9 @@ static class ShellHost {
 					break;
 				case ShellScreen.ArmoryTab when armoryScreen != null:
 					armoryScreen.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				case ShellScreen.MissionTab when missionViewUp == ShellMissionView.Briefing:
+					missionScreen.Paint(contentSurface, art.Text, art.Sprites, pointer.Lit);
 					break;
 				default:
 					if (!filled) {
@@ -803,7 +873,7 @@ static class ShellHost {
 	/// <summary>The tabs this engine has a screen behind.</summary>
 	private static bool HasScreen(int tab) =>
 		tab is ShellScreen.MainMenuTab or ShellScreen.SaveTab or ShellScreen.WeaponsTab or ShellScreen.RepairTab or ShellScreen.BuildTab
-			or ShellScreen.ArmoryTab or ShellScreen.CrewTab;
+			or ShellScreen.ArmoryTab or ShellScreen.CrewTab or ShellScreen.MissionTab;
 
 	/// <summary><c>prefs.cfg</c> option 45, VSHELL's <c>Weapons Building:</c> — 1 builds weapons by hand (docs/simulation/preferences.md).</summary>
 	private const int WeaponsBuildingOption = 45;

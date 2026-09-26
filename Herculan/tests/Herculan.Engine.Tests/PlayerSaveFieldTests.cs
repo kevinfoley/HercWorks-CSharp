@@ -26,10 +26,10 @@ public class PlayerSaveFieldTests {
 		Assert.Equal(new short[] { 2, 5 }, save.Unk4_stateFlags[..2]);
 		Assert.Equal((short)3, save.UnkRange_prePlayer[6]);
 		Assert.Equal((short)2, save.UnkRange_prePlayer[7]);
-		Assert.Equal((3, 40), (save.CareerTextA.Count, save.CareerTextA.Lines[0]));
-		Assert.Equal((1, 50), (save.CareerTextB.Count, save.CareerTextB.Lines[0]));
-		Assert.Equal((2, 60), (save.CareerTextC.Count, save.CareerTextC.Lines[0]));
-		Assert.Equal((10, 30, 30), (save.CareerTextA.Lines.Length, save.CareerTextB.Lines.Length, save.CareerTextC.Lines.Length));
+		Assert.Equal((3, 40), (save.CareerObjectives.Count, save.CareerObjectives.Lines[0]));
+		Assert.Equal((1, 50), (save.CareerBriefing.Count, save.CareerBriefing.Lines[0]));
+		Assert.Equal((2, 60), (save.CareerIntelligence.Count, save.CareerIntelligence.Lines[0]));
+		Assert.Equal((10, 30, 30), (save.CareerObjectives.Lines.Length, save.CareerBriefing.Lines.Length, save.CareerIntelligence.Lines.Length));
 	}
 
 	[Fact]

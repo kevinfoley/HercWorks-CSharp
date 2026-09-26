@@ -253,7 +253,7 @@ public sealed class ShellSaveScreen {
 	}
 
 	/// <summary>
-	/// One button: a filled, chamfer-bordered box with its caption centred on it. Both the border and
+	/// One button: a filled box with a doubled chamfered border and its caption centred on it. Both the border and
 	/// the caption grey together on the enable test, which is the trio the original writes at every
 	/// gated button — the border colour, the caption colour and the enable flag itself.
 	/// </summary>
@@ -261,7 +261,7 @@ public sealed class ShellSaveScreen {
 			ShellSaveButton button) {
 		bool enabled = IsEnabled(button);
 		var rect = ButtonRect(button);
-		ShellChrome.PaintPanel(surface, rect, enabled ? ButtonBorder : DisabledColor, fill: true);
+		ShellChrome.PaintButton(surface, rect, enabled ? ButtonBorder : DisabledColor);
 		ShellChrome.PaintText(surface, rect, font, text?.Text(CaptionText(button)),
 			ShellTextAlign.Center, enabled ? ShellChrome.FontInkColor : DisabledColor);
 	}

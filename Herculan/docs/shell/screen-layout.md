@@ -55,15 +55,13 @@ Every tab has its own handler, and the eight are the same function with three or
 | 4 `BUILD` | `0043a3d2` | `0044690d` | yes |
 | 5 `ARMORY` | `0043a4d2` | `004494f7` | |
 | 6 `CREW` | `0043a5ca` | `00441a01` | yes |
-| 7 `MISSION` | `0043a6ca` → `0043a857` | `004441e3` | |
+| 7 `MISSION` | `0043a6ca` → `0043a857` | `004441e3` ([below](#the-mission-screen)) | |
 
 ### Tabs 0 and 1 hide the strip
 
 Tabs 0 and 1 take a different route to their palette: instead of `0043b162` they call `00439da0(1)` directly and then `0043b23d`, which **hides** the frame's root (`0048d440`) and the full-screen panel (`0048d448`) and installs palette 1 itself. Every strip button is that panel's child, so the strip goes with it: the main menu and the save screen each stand alone over their own backdrop-textured root, and are left only through their own buttons. The save screen's way back is [its EXIT and RESTORE](#leaving-the-save-screen), which undo exactly this.
 
 Returning to the main menu **autosaves**: `Game_SaveSlot(10, NULL)` is the first thing tab 0's handler does after the teardown, and slot 10 is the campaign-or-training current-game slot ([`../formats/save-games.md`](../formats/save-games.md)).
-
-The mission tab is the one that carries a sub-mode. `0043a857(mode)` stores it in `DAT_0048106c` — 0 the campaign map, 1 the briefing, 4 the debrief — and picks between the first two on whether the mission-within-stage counter `DAT_0046fb1a` is zero. The debrief value is written by the campaign layer at the end of a mission rather than by the tab.
 
 ## The tab gate
 
@@ -153,6 +151,7 @@ Slot 0 of a class's vtable is its event handler, and the shell's classes run fiv
 | `Control_HandleEvent` (004097da) | `Panel`, `FramedPanel`, `TitledPanel`, `Grid`; `Button` through `Button_HandleEvent` (00409b0f), which adds the press sound | either button's release | yes | yes | `+0x49`, `Avi_Playing`, `MovieQueue_Running` |
 | `HatchedDivider_HandleEvent` (0040c3b5) | `HatchedDivider` | either button's release | yes | yes | `+0x49` |
 | `ButtonIcon_HandleEvent` (00409df2) | `ButtonIcon`, the tab strip | the left press; the right release | the right button only | no | `+0x49`, `Avi_Playing`, `MovieQueue_Running` |
+| the same, with `+0x61` set and `+0x5d` clear | the mission screen's arrows | the left release, and every 500 ms while held; the right release | the right button only | yes | the same |
 | `ImagePanel_HandleEvent` (0040b6da) | image panel | the left release | no | — | none |
 | `EditField_HandleEvent` (0040beaf) | edit field | the left press | — | — | none |
 
@@ -160,13 +159,15 @@ Slot 0 of a class's vtable is its event handler, and the shell's classes run fiv
 
 **The strip fires on the left press.** `ButtonIcon_HandleEvent` lights `+0x45`, plays the press sound, repaints and fires, all on the press, while its auto-repeat flag `+0x61` is clear, as the constructor leaves it. The left release zeroes `+0x45` without repainting, which is why a tab stays drawn lit after the click that latched it: what is on screen is the paint the tab handler's own write of 1 triggered. The right button falls through to `Control_HandleEvent`: it lights on the press and fires on the release, and then zeroes `+0x45` and repaints after the handler has run. So a tab picked with the right button has latched itself and is then repainted unlit, and right-clicking the tab already up unlights it; recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md). The leave clears `+0x45` only while `+0x5d` is 0, and `ButtonIcon_Ctor` sets it to 1, so a tab the pointer is dragged off stays lit, and a later right release on it fires it with no press.
 
+**An auto-repeating `ButtonIcon` fires on the left release instead.** With `+0x61` set the left press lights the button, plays the press sound and repaints without firing, and the left release puts it out, repaints and fires, wherever the press was. Event types 1 and 2 install and remove a WinTimer alarm for the widget at 500 and 500, and each tick of it (event `0x200`) while the button is lit, enabled and not hidden adds one to `+0x65` and fires again. A builder that also clears `+0x5d` lets the leave put the button out. The right button is `Control_HandleEvent`'s, as on the strip.
+
 **An image panel fires on any left release that reaches it**, wherever the button went down.
 
 **An edit field fires on the left press, and takes the pointer.** With its focus flag `+0xa7` clear, the press sets it, installs a WinTimer alarm for itself (`WinTimer_InstallAlarm`, 0046a0b0, with 500 and 500), [locks the pointer](#which-widget-a-click-reaches) and fires. Every later event then goes to the field, and the next press, landing there with `+0xa7` set, clears the focus, removes the alarm, releases the lock, hit-tests again and posts the press over, so it lands on whatever is under the pointer — the field itself included, which then fires again. The field ignores the right button, and while the lock holds a right click anywhere reaches the field and is dropped.
 
 ### Input while a movie plays
 
-`avi.cpp` plays the shell's movies through MCI. `Movie_Enqueue` (0041e29c) adds one to a ten-entry ring at `00485668` when movies are on (`DAT_00482275`) — an id, a rect, a palette index and a callback — and `Movie_PlayQueue` (0041e368) plays the ring out, each entry through `Avi_Play` (0041e01c) with its palette installed and the MISSION tab lit, running the entry's callback after it. The shell's main loop (`FUN_00401525`) calls `Movie_PlayQueue` once a pass, and the startup (`FUN_004012b0`), `Game_ProcessMissionResults` and `FUN_004315ec` also call it straight after enqueuing. The campaign map's `maybe_Mission_Show` and `maybe_Mission_UpdateLocationTab` enqueue and leave the playing to the main loop.
+`avi.cpp` plays the shell's movies through MCI. `Movie_Enqueue` (0041e29c) adds one to a ten-entry ring at `00485668` when movies are on (`DAT_00482275`) — an id, a rect, a palette index and a callback — and `Movie_PlayQueue` (0041e368) plays the ring out, each entry through `Avi_Play` (0041e01c) with its palette installed and the MISSION tab lit, running the entry's callback after it. The shell's main loop (`FUN_00401525`) calls `Movie_PlayQueue` once a pass, and the startup (`FUN_004012b0`), `Game_ProcessMissionResults` and `FUN_004315ec` also call it straight after enqueuing. The campaign map's `Mission_Show` and `maybe_Mission_UpdateLocationTab` enqueue and leave the playing to the main loop.
 
 Two flags gate input around them, and the two players are their only writers:
 
@@ -177,7 +178,7 @@ Two flags gate input around them, and the two players are their only writers:
 
 While `Avi_Playing` is set, the window procedure (`MainWndProc`, 00404a2c) drops both button-ups and the options hotkeys, and a button-down sets `Avi_StopRequested` (`00470d60`), which ends playback, and is dropped too: **a click skips the movie and does nothing else**, as Esc and Space do. Moves are still posted. `Control_HandleEvent` and `ButtonIcon_HandleEvent` also ignore every mouse event while either flag is set, which covers the whole run of the queue and not only the movies in it; the other three handlers do not test them.
 
-`FUN_00444e28` reads `Avi_Playing`, and would enqueue the briefing or debrief movie by the mission tab's sub-mode, but its first instruction after the prologue jumps to its epilogue.
+`FUN_00444e28`, the click handler of [the mission screen's Telecomm picture](#the-mission-screen), reads `Avi_Playing` and would enqueue the briefing or debrief movie by the mission tab's view, but its first instruction after the prologue jumps to its epilogue.
 
 ## How a widget paints
 
@@ -192,6 +193,7 @@ The paints in the table below are the visual vocabulary of the screens ported so
 | Class | Paint | What it adds |
 |---|---|---|
 | `Panel` | `0040a959` | nothing — the fill and the chamfered border alone |
+| `Button` | `00409b79` | a second border one pixel inside the first, in the same colour, then the caption, which `Button_Ctor` builds without a backing — a readout's opaque caption is its builder's write, and it clears over the inner border |
 | `FramedPanel` | `0040a9a6` | a 50% checkerboard over the interior in `+0x55` |
 | `TitledPanel` | `0040ac27` | the header strip, its hatch and title plate, a divider, and a dithered *or* filled body |
 | `Text` | `0040b439` | one string, aligned, with an optional backing fill |
@@ -309,7 +311,7 @@ DAT_004778aa = 0
 0043b162(8); 0043b0c8()          // EXIT's tab-strip path, whatever DAT_0048d344 holds
 ```
 
-`Game_LoadSlot` sets `DAT_0048260a`, so `SAVE` is live from then on, and does not touch the campaign mode flag, so the slot-10 write lands in `GAME_R.SAV` or `GAME_T.SAV` by whichever mode the shell is already in ([`../formats/save-games.md`](../formats/save-games.md)). `DAT_004778aa` is the campaign map's once-per-load flag: `maybe_Mission_Show` (004441e3) runs two `FUN_0041e29c` calls in its map arm only while it is clear and then sets it, and `TabHandler_Mission` (0043a6ca) opens the map rather than the briefing only while it is clear and the mission-within-stage counter is zero.
+`Game_LoadSlot` sets `DAT_0048260a`, so `SAVE` is live from then on, and does not touch the campaign mode flag, so the slot-10 write lands in `GAME_R.SAV` or `GAME_T.SAV` by whichever mode the shell is already in ([`../formats/save-games.md`](../formats/save-games.md)). `DAT_004778aa` is the campaign map's once-per-load flag: `Mission_Show` (004441e3) runs two `FUN_0041e29c` calls in its map arm only while it is clear and then sets it, and `TabHandler_Mission` (0043a6ca) opens the map rather than the briefing only while it is clear and the mission-within-stage counter is zero.
 
 ### The detail panel
 
@@ -710,6 +712,85 @@ A pool exactly covering the queue plus the price refuses the unit, as the build 
 
 `Armory_RefreshReadout` (`00449cab`) writes all four figures centred in `0x29`: the salvage box `"%ld %s"` of `CareerSalvage - Armory_QueuedTotal()` and `0xc8` `kg`, the allocated box `"%d %s"` of `Armory_QueuedTotal()` and `kg`, and the two workspace counts, the queue's free slots and five less them. It then rewrites the lit row's count held in `0x29`. The two boxes are built as [the repair screen's readouts](#the-repair-screen) are — disabled, border `0x13` — but their captions are drawn in `0x29` rather than `0x17`.
 
+## The mission screen
+
+Tab 7, `MISSION`. Built once by `Mission_BuildScreen` (`00442534`), put up by `Mission_Show(view)` (`004441e3`) and taken down by `Mission_Leave` (`00444a05`), the teardown dispatcher's mission arm. One set of widgets serves the tab's three views, which the show routine moves, retitles and shows or hides. Rects are parent-relative; the four panels, the location picture and the button bar are parented to the shell's top-level window.
+
+The view is `DAT_0048106c`: 0 the campaign map, 1 the briefing, 4 the debrief. `0043a857(view)` stores it, and the tab handler picks between the first two on whether the mission-within-stage counter `DAT_0046fb1a` is zero. The debrief value is written by the campaign layer at the end of a mission rather than by the tab.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| Telecomm | `TitledPanel` | `{7, 0x2b, 0x113, 0x12b}` | `0xb0` `Telecomm`, header 19 tall, `+0x65 = 0` |
+| Telecomm picture | image panel | `{10, 0x14, 0xf9, 0x100}` in Telecomm | `dba\terradef.dba` frame 0, no border; handler `FUN_00444e28` |
+| location picture | image panel | the top-level window's own rect | `+0x51 = 0`; the theater bitmap `maybe_Mission_UpdateLocationTab` (`0044409f`) loads |
+| map panel | `TitledPanel` | `{0x117, 0x2b, 0x278, 0x12b}`, top `0x2a` when full-screen | titled by the view, header 19 tall, face `0x25`, plate `0x26`-`0x13b` |
+| 6 map buttons | `ButtonIcon` | `{0x137, y, 0x155, y + 0x1e}` in the map panel, `y` = `0x18`, `0x3e`, `0x64`, `0x8a`, `0xb5`, `0xdb` | `dba\miss_arw.dba`, unlit/lit frames `1`/`0`, `3`/`2`, `10`/`8`, `11`/`9`, `7`/`6`, `5`/`4`; `+0x5d = 0`, `+0x61 = 1` |
+| map grid | `Grid` | `{0xb, 0x18, 0x131, 0xf9}` in the map panel | border `0x22`, grid lines off |
+| map scope | palette scope | the same rect in the map panel | `DAT_0048d818` |
+| summary | `TitledPanel` | `{7, 0x133, 0x278, 0x1a7}` | `0xaf` `Mission Summary`, header 19 tall, `+0x65 = 0` |
+| 5 text boxes | text box | `{10, 0x15, 0x265, 0xa8}` for the first, `{10, 0x15, 0x23f, 0x73}` for the others, in the summary | [below](#the-summary-text-box) |
+| 20 report texts | `Text` | in the map panel | `0x145`-`0x152`, the debrief's labels, and their figures |
+| 2 page buttons | `ButtonIcon` | `{0x247, 0x18, 0x265, 0x36}`, `{0x247, 0x51, 0x265, 0x6f}` in the summary | `miss_arw` frames `1`/`0` and `3`/`2`; `+0x5d = 0`, `+0x61 = 1` |
+| button bar | `Panel` | `{7, 0x1b1, 0x278, 0x1d9}` | border `0x22`, `+0x49 = 0` |
+| 4 buttons | `Button` | `{0xe, 0x10, 0x96, 0x23}`, `{0x9d, …, 0x125, …}`, `{0x12d, …, 0x1b5, …}`, `{0x1ea, …, 0x263, …}` in the bar | `0xb4` `Mission Briefing`, `0xb6` `Mission Objectives`, `0xb7` `Intelligence Report`, `0xb8` `Rock & Roll >`; border `0x22` |
+
+The map panel's top is `0x2b` while `DAT_00481e68`, the shell's full-screen flag, is clear, and `0x2a` while it is set; `Reference/Managment_Mission_Briefing.png` shows it level with Telecomm, so that capture was taken windowed. The builder writes the map panel's face and plate over `TitledPanel_Ctor`'s `0x24` and zeros and leaves its hatch on; Telecomm and the summary keep the constructor's face and clear `+0x65`. All three keep the filled body, so nothing of the backdrop shows.
+
+`TitledPanel_Ctor` clears `+0x49` and the builder clears the button bar's, so a click on a panel, the bar or anything they hold with no handler of its own is swallowed. The Telecomm picture has a handler, and it returns at once ([above](#input-while-a-movie-plays)).
+
+### The three views
+
+`Mission_Show(view)` first runs `Mission_LoadPictures` (`00443f33`), which loads `terradef.dba` into the Telecomm picture and, for the map view only, `dba\th_earth.dba` below stage 5 or `dba\th_moon.dba` from it as the map grid's part 0. It then puts the summary at `{7, 0x133, 0x278, 0x1a7}` and does what the view needs:
+
+| | Map, 0 | Briefing, 1 | Debrief, 4 |
+|---|---|---|---|
+| map panel title | `"%s %s"` of the sector, `0x76 + stage`, and `0x7c` `Sector` | `0xb3` `Mission Map` | `0xb9` `Mission Report` |
+| summary | moved down to `{7, 0x133, 0x278, 0x1dc}`; text box 0 | text boxes 1-3 filled, box 1 up | text box 4 |
+| map grid | shown | | |
+| map buttons, button bar, four buttons | hidden | shown | hidden |
+| page buttons | hidden | shown | shown |
+| report texts | hidden by `Mission_HideReportTexts` (`00444914`) | the same | untouched |
+| `DAT_004778a8` | 1 | 2 | |
+| movie | the two map movies, once per load (`DAT_004778aa`) | `Career_BriefingMovie` (`004135da`), once per load (`DAT_004778ab`) | `Career_DebriefMovie` (`004135e1`), once (`DAT_004778ac`) |
+
+All three show Telecomm, the Telecomm picture, the map panel and the summary. The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`. The briefing and debrief movies are enqueued with the rect `{0x15, 0x56, 0xef, 0xb3}`, over the Telecomm picture.
+
+**`Rock & Roll >`** (`Mission_OnRockAndRoll`, `00445509`) opens the dialog `FUN_0044d27c(code)` and goes no further when the player has no bay (`00482a9e` is `-1`, code 2), when the player's machine is not deployable (`FUN_00410a9d`, code 0), when `FUN_00410b11` refuses it (code 1) or when `FUN_0040f6c6` does (code 3). Otherwise it writes the mission handoff (`Game_ExportMissionHandoff`, [`campaign-loop.md`](campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4)), calls `FUN_0040876a(2)` and sets `DAT_0046c074`, as `INSTANT ACTION` does ([Open](#open)).
+
+**The map buttons** each call a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its slot 0: once while `+0x65`, the count of auto-repeat ticks so far, is below 3, twice below 6, three times below 9 and four times from there ([Open](#open)).
+
+### The summary text box
+
+`esreport.cpp`'s paginated text: a `0x36`-byte object, not a widget, that lays a string out as one `Text` child of its parent per line and shows a page of them at a time. `TextBox_Ctor` (`0040cc0c`) stores the parent, the rect and the font. `TextBox_SetText` (`0040cc81`) clears it — which also puts it on page 0 and marks it not shown — copies the string, wraps it with `TextBox_Wrap` (`0040d0d6`), and builds the line texts, all hidden: line `i` at row `i % perPage`, `{left, top + row * cell, right, top + row * cell + cell}` in the box's parent, left-aligned in `0x28`, opaque over `0x10`.
+
+| Offset | Meaning |
+|---|---|
+| `+0x18` | shown |
+| `+0x1e` | the page up |
+| `+0x20` | the page count |
+| `+0x22` | lines per page, the rect's height over the font's cell height |
+| `+0x24` | the line count |
+
+**The wrap breaks at spaces, measured.** `TextBox_Wrap` walks the string in place. A newline ends the line. Any other character below a space becomes a space, and is not tested as one on that pass. At each space the line so far is measured with `Font_MeasureString`, and when it is wider than the box the line is cut at the last break, which becomes the next line's start. The break then stays where it was rather than moving to this space; the next space that fits moves it. After the last character the final line is measured once more and cut the same way if it overflows. A line at least as wide as the box after a cut asserts.
+
+**The page count is off by one at both ends.** `TextBox_SetText` computes it as `lines / perPage + (lines + 1 != perPage)`. A text exactly filling its pages gets a further, empty page, and a text one line short of a full page gets none, so neither page button moves it. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+`TextBox_ShowPage` (`0040cee2`) shows the lines of the page up while the box is shown and hides every other. `TextBox_PageUp` (`0040d237`) and `TextBox_PageDown` (`0040d258`) move a page while the box is shown and one is there to move to, and show it.
+
+The five boxes and what fills them:
+
+| Box | Global | Text |
+|---|---|---|
+| 0 | `0048d81c` | the map view's, `FUN_0040f775(stage - 1)`, out of `eng\campaign.str` |
+| 1 | `0048d820` | the briefing, `Career_BriefingText` (`004135c8`) |
+| 2 | `0048d828` | the objectives, `Career_ObjectivesText` (`004135c2`) |
+| 3 | `0048d82c` | the intelligence report, `Career_IntelligenceText` (`004135ce`) |
+| 4 | `0048d824` | the debrief, `Career_DebriefText` (`004135d4`) |
+
+The four career texts are the lines of the loaded game's `data\mission.str` that the career block's arrays name ([`../formats/save-games.md`](../formats/save-games.md#career-block--152-bytes)).
+
+`DAT_004780a4` is the box that is up. `Mission_ShowTextBox(n)` (`00444cb3`) marks the box in it not shown and box `n` shown, runs `TextBox_ShowPage` on both, and stores `n`; it leaves the page alone, so a box comes back on the page it was left on until the next entry refills it. `Mission_LightViewButton(n)` (`00444c49`) puts the first three buttons' borders back to `0x22` and writes `0x20` on `Mission Briefing` for 1 and 4, `Mission Objectives` for 2 and `Intelligence Report` for 3. `Mission Briefing` (`Mission_OnBriefing`, `004453c1`) runs both with the view, so in the debrief it brings back the debrief; `Mission Objectives` (`00445437`) and `Intelligence Report` (`004454a0`) run both with 2 and 3. The page buttons, `Mission_OnPageUp` (`004455e9`) and `Mission_OnPageDown` (`0044569a`), page the box that is up.
+
 ## The arming and repair hotspots
 
 Both screens lay clickable rects over a picture of the selected machine. The geometry comes from `gam\arm_hots.dat` and `gam\rpr_hots.dat` ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamarm_hotsdat-and-gamrpr_hotsdat--the-clickable-regions)), which carry position and nothing else: **an area's index within its chassis group is its identity**, because the builder passes `handlerTable[areaIndex]` as the panel's click handler. Each handler is a one-line thunk that calls a common function with its own index baked in.
@@ -816,6 +897,10 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 **The armory screen is drawn and selects**, from the same save, `gam\weapons.dat`, `weapons.bin`, `wpn_info.bin` and the weapons screen's pictures. `ShellArmoryScreen` places every widget above, gates the rows on the save's unlock flags, prints the queued counts and the four figures from the queue the save carries, gates `Clear` on `data\prefs.cfg` option 45, and opens on the first row. A row click with either button moves the selection. Queueing and unqueueing on the lit row, `Clear` and `Scrap` do nothing ([Open](#open)).
 
+**The mission screen's briefing view is drawn and reads**, from the loaded slot's career block and its own `sav\missn%d.str` — `Career_LoadSlot` copies that file to `data\mission.str`, so it is the same text. `ShellMissionTexts` assembles the three career texts, `ShellTextBox` is the text box with its wrap and its page count, and `ShellMissionScreen` places every widget of the view, puts up the briefing, and lets the three text buttons switch the summary and the page buttons page it, the arrows drawing their lit face while pressed. The Mission Map panel's body stays black, because the map object that draws there has no port, and its six buttons fire nothing; the auto-repeat, the Telecomm movie and `Rock & Roll >` have none either. The map and debrief views show the bare frame ([Open](#open)).
+
+Every content `Button` is drawn by `ShellChrome.PaintButton`, the inner border included.
+
 Until `RESTORE` loads one, the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
 
 **The widget paints run in palette indices, not in quads.** `ShellSurface` is an 8-bit indexed canvas with the primitives the paints are built from, `ShellChrome` and `ShellGrid` port the paints onto it, and the result is resolved through the palette and uploaded as one texture per repaint. That is the original's own model and two of its details depend on it: the ink remap that gives a widget its text colour cannot be done on resolved colours, and index 0 staying untouched is what lets a dithered panel body show the backdrop through it. Clipping each paint to its own widget is likewise load-bearing rather than defensive — the title bar's hatch is drawn 700 pixels wide for a 357-pixel panel.
@@ -826,7 +911,7 @@ The whole content surface is painted afresh on every change, where the original 
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the mission tab's content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the mission tab's map and debrief views, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -842,7 +927,8 @@ Not drawn: the mission tab's content, the mouse cursor (`dba\cursor.dba`), the s
 | `0041f2e6` shows a widget and `0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
 | The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
 | Every widget fires on the button's release, and only after a press on it | That is `Control_HandleEvent`'s rule, and it is the base class's handler, run by the panels, the grids and every content button, so it reads as the shell's. The tab strip, the image panels and the edit fields each put a handler of their own in vtable slot 0: the strip fires on the left press, an image panel on any left release, an edit field on the left press ([The widget that takes a click decides what it does](#the-widget-that-takes-a-click-decides-what-it-does)) |
-| `00445758` is the mission tab's builder, as its old Ghidra name `Mission_BuildScreen` has it | It is the largest function after `wmissini.cpp`'s assert-string anchor, so the file attribution points at the mission tab. Every widget it builds is one that `Build_Enter` (`0044690d`), tab 4's entry, shows and the teardown's build arm hides, and its captions are the `Herc Construction` run `0xba`-`0xc5`. `known_symbols.json` names it `Build_BuildScreen` |
+| `00445758` is the mission tab's builder | It is the largest function after `wmissini.cpp`'s assert-string anchor, so the file attribution points at the mission tab. Every widget it builds is one that `Build_Enter` (`0044690d`), tab 4's entry, shows and the teardown's build arm hides, and its captions are the `Herc Construction` run `0xba`-`0xc5`. `known_symbols.json` names it `Build_BuildScreen`; the mission tab's builder is `Mission_BuildScreen` (`00442534`) |
+| `00442534` builds the crew screen's detail panel | It sits between the crew screen's thunks and `wmissini.cpp`'s first assert string, inside the address range that reads as `wcrewi.cpp`'s, and it is that module's size. Every widget it builds is one `Mission_Show` (`004441e3`) shows and `Mission_Leave` (`00444a05`), the teardown's mission arm, hides, and its captions are the mission run `0xaf`-`0xb8`. It is [the mission screen's](#the-mission-screen) builder, `Mission_BuildScreen` |
 | The palette scope draws nothing — it exists only to fire the palette install | It carries no bitmap, no caption and no chrome, and its handler's event 2 is the install. Its event 4 is a paint, `PaletteScope_Paint` (`0040cb40`), which fills its rect with `0x10`; that fill is why retail's tab screens are black ([The palette](#the-palette)) |
 
 ## Open
@@ -862,7 +948,11 @@ Not drawn: the mission tab's content, the mouse cursor (`dba\cursor.dba`), the s
 - **Unported:** changing the armory build queue — [queueing and unqueueing on the lit row](#selecting-and-queueing) and `Clear`; the repair, build and armory screens all read the queue the save carries.
 - **Unported:** the armory's `Scrap` dialog (`FUN_00447b97`), its accept (`00447db7`) and its cancel (`00447d59`).
 - **Open:** what the armory's `Scrap` does to the stock. The accept calls `FUN_0040e7b2` with the weapon and then `FUN_00412413`, and refreshes the rows and the readout; neither callee is read, nor `maybe_Armory_ItemCostCalc` (`0041266a`), whose figure the dialog quotes in tons.
-- **Unported:** the mission tab's content.
+- **Unported:** the mission tab's map view and debrief view.
+- **Unported:** the shell's map object (`DAT_0046f26c`), which draws the map inside the briefing's Mission Map panel, and the six map buttons' methods on it (`+4`-`+0x18`); `ShellMap_Constructor` (`00423f43`) is its constructor ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md)).
+- **Unported:** the auto-repeat of the mission screen's arrows, and `Rock & Roll >`'s launch and refusal dialogs.
+- **Open:** what `FUN_00410b11` and `FUN_0040f6c6` test before `Rock & Roll >` launches, and the four refusal dialogs' text (`FUN_0044d27c`).
+- **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
 - **Unported:** every main-menu button's action but `SAVE/RESTORE`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
 - **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0040876a`, `FUN_0040877f`, `DAT_0046c074` and `FUN_0044cecf`, which the main menu's handlers call, each do.
 - **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.

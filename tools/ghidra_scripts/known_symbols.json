@@ -1947,18 +1947,261 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Crew_BuildDetailPanel",
-      "description": "wcrewi.cpp: largest function in the TU (6655 bytes), builds the crew detail/roster panel widget-by-widget with hardcoded rect literals identical in shape to Crew_BuildScreen. Same address range as the wcrewi.cpp TU (00440eb8-00443f33).",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "name": "Mission_BuildScreen",
+      "description": "The mission tab's builder (wmissini.cpp): Telecomm, the map panel and its six miss_arw.dba buttons, the map grid, the Mission Summary panel with its five text boxes and two page buttons, the twenty report texts, and the button bar with Mission Briefing / Mission Objectives / Intelligence Report / Rock & Roll >. Every widget it builds is one Mission_Show (004441e3) shows and Mission_Leave (00444a05) hides; it sits inside the address range that reads as wcrewi.cpp's.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
     },
     {
       "address": "00443f33",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Mission_UpdateTerrainLabel",
-      "description": "wmissini.cpp (mission tab) __FILE__ assert-string anchor function, but small (270 bytes) -- looks up a terrain-description string resource by id and a earth/moon label variant, writes into an existing widget field, not a full screen builder. The mission tab's entry is maybe_Mission_Show (004441e3); the large FUN_00445758 that follows in the image is the build screen's builder (Build_BuildScreen), not this tab's.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "confidence": "high",
+      "name": "Mission_LoadPictures",
+      "description": "wmissini.cpp's first assert string. Loads dba\\terradef.dba into the Telecomm picture (DAT_0048d7e4) and, for the map view (arg 0), dba\\th_earth.dba below stage 5 or dba\\th_moon.dba as the map grid's part 0.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00444914",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_HideReportTexts",
+      "description": "Hides the mission screen's twenty report texts (DAT_0048d838-DAT_0048d884); Mission_Show calls it in the map and briefing views.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00444a05",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_Leave",
+      "description": "The teardown dispatcher's mission arm (00439ea7 case 7): frees the pictures, hides the report texts, clears the four career text boxes and hides the screen's panels.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00444c49",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_LightViewButton",
+      "description": "Puts the first three mission buttons' borders back to 0x22 and writes 0x20 on Mission Briefing for 1 and 4, Mission Objectives for 2, Intelligence Report for 3.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00444cb3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_ShowTextBox",
+      "description": "Marks the text box in DAT_004780a4 not shown and box n shown (+0x18), runs TextBox_ShowPage on both and stores n. Boxes: 0 map, 1 briefing, 2 objectives, 3 intelligence, 4 debrief.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004453c1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnBriefing",
+      "description": "Mission Briefing's handler: Mission_LightViewButton and Mission_ShowTextBox with the view (DAT_0048106c).",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00445437",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnObjectives",
+      "description": "Mission Objectives' handler: Mission_LightViewButton(2), Mission_ShowTextBox(2).",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004454a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnIntelligence",
+      "description": "Intelligence Report's handler: Mission_LightViewButton(3), Mission_ShowTextBox(3).",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00445509",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnRockAndRoll",
+      "description": "Rock & Roll >'s handler: refuses through the dialog FUN_0044d27c with codes 2, 0, 1, 3, otherwise Game_ExportMissionHandoff, FUN_0040876a(2) and DAT_0046c074 = 1.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004455e9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnPageUp",
+      "description": "The summary's up button: TextBox_PageUp on the box in DAT_004780a4.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0044569a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnPageDown",
+      "description": "The summary's down button: TextBox_PageDown on the box in DAT_004780a4.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040cc0c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_Ctor",
+      "description": "esreport.cpp's paginated text box (0x36 bytes, not a widget): stores the parent, the rect and the font and zeroes the rest.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040cc81",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_SetText",
+      "description": "Clears the box, copies the string, lays it out (TextBox_Layout, TextBox_Wrap), computes the page count as lines / perPage + (lines + 1 != perPage), and builds one hidden opaque Text child per line, left-aligned in 0x28.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040ce2b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_Clear",
+      "description": "Frees the text box's string, rows, line pointers and line texts and zeroes its counters, the shown flag and the page.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040cee2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_ShowPage",
+      "description": "Shows the line texts of the current page (+0x1e) while the box is shown (+0x18) and hides every other.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040cf37",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_Layout",
+      "description": "Estimates the line count, sets lines per page to the rect height over the cell height, and cuts one row rect per line of a page.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040d0d6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_Wrap",
+      "description": "Splits the text box's string in place into lines: at newlines, and at the last break when the line measured at a space is wider than the box.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040d237",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_PageUp",
+      "description": "Back one page while the box is shown and not on page 0.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040d258",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TextBox_PageDown",
+      "description": "On one page while the box is shown and not on the last.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004135c2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_ObjectivesText",
+      "description": "Returns DAT_0046fb20, the objectives Career_BuildBriefingText assembles from the 10-entry array at 00483fea.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004135c8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_BriefingText",
+      "description": "Returns DAT_0046fb1c, the briefing Career_BuildBriefingText assembles from the 30-entry array at 00484000.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004135ce",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_IntelligenceText",
+      "description": "Returns DAT_0046fb24, the intelligence report Career_BuildBriefingText assembles from the 30-entry array at 0048403e.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004135d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_DebriefText",
+      "description": "Returns DAT_0046fb28, the debrief Career_BuildDebriefText assembles from the array at 0048407c.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004135da",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_BriefingMovie",
+      "description": "Returns DAT_004840b8, the movie id Mission_Show enqueues in the briefing view.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004135e1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_DebriefMovie",
+      "description": "Returns DAT_004840ba, the movie id Mission_Show enqueues in the debrief view.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00413386",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_SetDebriefLines",
+      "description": "Copies thirty mission.str line indices into 0048407c and a movie id into 004840ba from its stack; reached from Career_Advance through msn_gen.cpp's FUN_0041d2c3 for the mission just flown.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "004133d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_BuildDebriefText",
+      "description": "Loads data\\mission.str and concatenates the lines 0048407c names into DAT_0046fb28; Career_Advance calls it.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "00409b79",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Button_Paint",
+      "description": "Button's paint: Panel_FillAndBorder with the fill, a second border one pixel inside in +0x4d, then the caption, one pixel lower while lit and enabled.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
     },
     {
       "address": "0044409f",
@@ -12517,10 +12760,10 @@
       "address": "004441e3",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Mission_Show",
-      "description": "Built by Mission_ShowView, in wmissini.cpp. Identified from its dispatch position only.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "Mission_Show",
+      "description": "Puts the mission tab up in a view: 0 campaign map, 1 briefing, 4 debrief. Retitles the map panel, moves the summary, fills and shows the text boxes, shows or hides the map buttons, bar and page buttons, and enqueues the view's movie once per load.",
+      "source": "docs/shell/screen-layout.md#the-mission-screen"
     },
     {
       "address": "0043cfe7",

@@ -163,10 +163,10 @@ public partial class CampaignResourcesForm : Form {
 		_careerTextBox.Text = string.Join(Environment.NewLine,
 			$"Squad members (record index per squad): {save.SquadMemberIndex(0)}, {save.SquadMemberIndex(1)}, {save.SquadMemberIndex(2)}",
 			"",
-			"Briefing/debrief mission.str line indices (count: lines):",
-			FormatCareerText(save.CareerTextA),
-			FormatCareerText(save.CareerTextB),
-			FormatCareerText(save.CareerTextC));
+			"mission.str line indices (count: lines):",
+			"Objectives: " + FormatCareerText(save.CareerObjectives),
+			"Briefing: " + FormatCareerText(save.CareerBriefing),
+			"Intelligence report: " + FormatCareerText(save.CareerIntelligence));
 
 		_flagRows.Clear();
 		bool hasFlags = save.HasCampaignState;

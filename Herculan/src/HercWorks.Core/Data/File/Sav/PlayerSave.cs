@@ -63,13 +63,13 @@ public class PlayerSave {
 
 	/// <summary>
 	/// The career block's three counted arrays of <c>data\mission.str</c> line indices (10, 30 and 30
-	/// slots, <c>-1</c> empty) that <c>Career_BuildBriefingText</c> assembles into briefing and debrief
-	/// prose. Returned as <c>(count, lines)</c>; read-only views, since the lines only mean anything
-	/// against the slot's own <c>missn%d.str</c>.
+	/// slots, <c>-1</c> empty) that <c>Career_BuildBriefingText</c> assembles into the mission tab's
+	/// objectives, briefing and intelligence report. Returned as <c>(count, lines)</c>; read-only views,
+	/// since the lines only mean anything against the slot's own <c>missn%d.str</c>.
 	/// </summary>
-	public (short Count, short[] Lines) CareerTextA => CareerArray(2, 10);
-	public (short Count, short[] Lines) CareerTextB => CareerArray(13, 30);
-	public (short Count, short[] Lines) CareerTextC => CareerArray(44, 30);
+	public (short Count, short[] Lines) CareerObjectives => CareerArray(2, 10);
+	public (short Count, short[] Lines) CareerBriefing => CareerArray(13, 30);
+	public (short Count, short[] Lines) CareerIntelligence => CareerArray(44, 30);
 
 	private (short, short[]) CareerArray(int countIndex, int length) =>
 		(Unk4_stateFlags[countIndex], Unk4_stateFlags.Skip(countIndex + 1).Take(length).ToArray());

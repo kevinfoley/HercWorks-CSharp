@@ -217,7 +217,7 @@ A mission timer: an action that arms it, a delay, and the actions fired when the
 | `0x52–0x8c` | sub-array C → `.ENG` ids (30 slots) | 0–3 real slots; mode 1 |
 | `0x8e` | ref→row #3 variant | 87% real; dominant field; fetches payload value |
 
-Sub-array A's values reach 243 across the corpus, so none of the three indexes the 5-slot shared LUT at `DAT_00470664`: they are ids into the mission's own [`.ENG` table](#the-eng-string-table). Which of B and C is the briefing and which the debrief is [Open](#open).
+Sub-array A's values reach 243 across the corpus, so none of the three indexes the 5-slot shared LUT at `DAT_00470664`: they are ids into the mission's own [`.ENG` table](#the-eng-string-table). What B and C carry is [Open](#open).
 
 
 ## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
@@ -376,5 +376,5 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 - **Unported:** row #2's one-shot campaign-override/patch application (82 bytes/record, scratch-applied via `FUN_00416379`, never stored as a persistent array).
 - **Open:** whether row #5 (`DAT_0047066a`, skip-only, `count * 0x40` bytes) is read anywhere else, such as directly by DBSIM, rather than only skipped by this VSHELL load path.
 - **Unported:** the template-inheritance mechanism itself — a record's parent-index field copying an already-loaded record's fields, with per-field overrides layered on top. `MissionFileTransformer` round-trips the raw bytes but does not resolve the copy.
-- **Open:** which of row #4's sub-array B and sub-array C is the mission briefing and which is the debrief.
+- **Open:** what row #4's sub-arrays B and C carry. The record's 10-30-30 layout is the save's career block's, whose arrays are the objectives, the briefing and the intelligence report ([`save-games.md`](save-games.md#career-block--152-bytes)), but the `msn_gen.cpp` code that fills the career block from a mission has not been read.
 - **Open:** what row #13's `0x36` field is; nearly always `0`, not confirmed dead.

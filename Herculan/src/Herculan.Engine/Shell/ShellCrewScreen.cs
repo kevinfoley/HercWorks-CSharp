@@ -418,7 +418,7 @@ public sealed class ShellCrewScreen {
 	/// </summary>
 	private static void PaintClearButton(ShellSurface surface, HudFont? font, ShellText? text) {
 		var rect = Inside(PanelRect, ClearRect);
-		ShellChrome.PaintPanel(surface, rect, ButtonBorder, fill: true);
+		ShellChrome.PaintButton(surface, rect, ButtonBorder);
 		ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font,
 			text?.Text(ClearText), ShellTextAlign.Center, ShellChrome.FontInkColor);
 	}

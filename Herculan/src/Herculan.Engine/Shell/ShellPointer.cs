@@ -31,6 +31,14 @@ public enum ShellHandler {
 	ButtonIcon,
 
 	/// <summary>
+	/// <c>ButtonIcon_HandleEvent</c> on a button its builder gave the auto-repeat flag <c>+0x61</c> and a
+	/// clear <c>+0x5d</c> — the mission tab's arrows. The left press lights it without firing, and the
+	/// left release fires wherever the press was; the right goes through <c>Control_HandleEvent</c>; a
+	/// leave puts it out.
+	/// </summary>
+	RepeatButtonIcon,
+
+	/// <summary>
 	/// <c>ImagePanel_HandleEvent</c> (<c>0040b6da</c>), the crew portraits. Fires on any left release
 	/// that reaches it, wherever the press was, and ignores the right button.
 	/// </summary>
@@ -63,6 +71,8 @@ public enum ShellWidgetKind {
 	WeaponsButton,
 	ArmoryRow,
 	ArmoryButton,
+	MissionButton,
+	MissionArrow,
 }
 
 /// <summary>One widget. <see cref="Sub"/> is a second index where one kind needs two, as the repair lists' <c>(column, row)</c> do.</summary>
@@ -178,7 +188,7 @@ public sealed class ShellPointer {
 		}
 
 		switch (target.Handler) {
-			case ShellHandler.Control:
+			case ShellHandler.Control or ShellHandler.RepeatButtonIcon:
 				_lit = target.Widget;
 				break;
 
@@ -209,6 +219,11 @@ public sealed class ShellPointer {
 				_lit = null;
 				break;
 
+			case ShellHandler.RepeatButtonIcon when button == ShellMouseButton.Left || _lit == target.Widget:
+				_lit = null;
+				fire(target.Widget);
+				break;
+
 			// The left release puts the flag out without repainting, so a tab that has just latched
 			// stays drawn lit. The right release fires first and then puts it out and repaints — after
 			// the handler has latched the tab, so a tab picked with the right button ends up unlit.
@@ -230,11 +245,12 @@ public sealed class ShellPointer {
 	}
 
 	/// <summary>
-	/// The leave the target is sent. Only <see cref="ShellHandler.Control"/> acts on it; the strip's
-	/// class tests <c>+0x5d</c>, which <c>ButtonIcon_Ctor</c> sets, before putting itself out.
+	/// The leave the target is sent. <see cref="ShellHandler.Control"/> acts on it, and so does a
+	/// <c>ButtonIcon</c> whose <c>+0x5d</c> its builder cleared; the strip keeps the 1
+	/// <c>ButtonIcon_Ctor</c> sets and stays lit.
 	/// </summary>
 	private void Leave() {
-		if (Target is { Handler: ShellHandler.Control } target && _lit == target.Widget) {
+		if (Target is { Handler: ShellHandler.Control or ShellHandler.RepeatButtonIcon } target && _lit == target.Widget) {
 			_lit = null;
 		}
 	}

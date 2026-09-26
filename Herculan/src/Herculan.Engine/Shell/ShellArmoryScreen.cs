@@ -377,9 +377,9 @@ public sealed class ShellArmoryScreen {
 
 		string? kg = text?.Text(KilogramsText);
 		PaintButton(surface, font, Inside(panel, SalvageBoxRect), $"{AvailableKilograms} {kg}", ReadoutBorder,
-			ShellChrome.FontInkColor);
+			ShellChrome.FontInkColor, opaque: true);
 		PaintButton(surface, font, Inside(panel, AllocatedBoxRect), $"{AllocatedKilograms} {kg}", ReadoutBorder,
-			ShellChrome.FontInkColor);
+			ShellChrome.FontInkColor, opaque: true);
 	}
 
 	/// <summary><c>Clear</c> and <c>Scrap</c> in their own framed panel, <c>Clear</c> greyed <c>0x26</c> while weapons are built automatically.</summary>
@@ -395,14 +395,15 @@ public sealed class ShellArmoryScreen {
 	}
 
 	/// <summary>
-	/// One button: a filled panel in <paramref name="border"/> and its caption, the <c>Text</c> child
-	/// <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>, centred.
+	/// One button: its double-bordered box in <paramref name="border"/> and its caption, the <c>Text</c> child
+	/// <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>, centred. <paramref name="opaque"/> is the caption's
+	/// <c>+0xc1</c>, which the builder sets on the two readout boxes only.
 	/// </summary>
 	private static void PaintButton(ShellSurface surface, HudFont? font, ShellRect rect, string? caption, byte border,
-			byte captionColor) {
-		ShellChrome.PaintPanel(surface, rect, border, fill: true);
+			byte captionColor, bool opaque = false) {
+		ShellChrome.PaintButton(surface, rect, border);
 		ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font, caption,
-			ShellTextAlign.Center, captionColor, ShellChrome.InteriorColor);
+			ShellTextAlign.Center, captionColor, opaque ? ShellChrome.InteriorColor : null);
 	}
 
 	private static void Column(ShellSurface surface, HudFont? font, ShellRect row, int left, int right,

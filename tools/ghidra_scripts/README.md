@@ -111,4 +111,4 @@ These three mutate the program. Ghidra routinely places a function entry past th
 | `ES2DumpSignatures` | `known_symbols.json` `out` | Read-only companion to `ES2ApplySymbolNames`: pulls committed prototypes back out for every tracked address, tagged `verified` / `analysis` / `default`, so mass-committed guesses can be told from human decisions. |
 | `ES2SignatureSourceCensus` | — | Positive control for the above: histograms `SourceType` program-wide. Zero human-sourced signatures anywhere means the detection itself is suspect; DLL thunks should report `IMPORTED`. |
 | `ES2CommitAllParams` | `[passes]` | Commits decompiler-inferred prototypes program-wide as `ANALYSIS`. Improves cross-function decompilation; also fills the database with plausible signatures nobody checked. |
-| `ES2EnableParamID` | — | Turns on Decompiler Parameter ID with `__watcall` evaluation, for this Borland-built pair. |
+| `ES2EnableParamID` | — | Turns on Decompiler Parameter ID, with the default prototype evaluation, and fails if the option did not take. Changes nothing until the next auto-analysis, which then commits inferred prototypes program-wide as `ANALYSIS`. |

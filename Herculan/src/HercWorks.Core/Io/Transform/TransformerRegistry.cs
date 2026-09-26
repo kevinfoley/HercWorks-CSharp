@@ -8,7 +8,9 @@ namespace HercWorks.Core.Io.Transform;
 /// content for a selected file without needing to know every file-naming convention themselves.
 ///
 /// Deliberately conservative: only covers file types this project actually has a real, working
-/// transformer for (see HercWorks.Core.Io.Transform.{Bnd,Common,Dbsim,Shell}). Plenty of other file
+/// transformer for (see HercWorks.Core.Io.Transform.{Bnd,Common,Dbsim,Shell}). Files that only
+/// ever live loose in the install — data\script.dat, data\player.mec, sav\GAMEFILE.STR, the .TAP
+/// tapes — have readers too, but never appear inside a VOL, so they are not registered here. Plenty of other file
 /// types exist in the game data with a parsed C# data-model class but no ported
 /// ThreeSpaceByteTransformer (e.g. MapInfo, MapLOCS, Theater, Mech.BND/MechSys.BND/MechView.BND/
 /// AppInput.BND, WorldData) — those
@@ -68,6 +70,11 @@ public static class TransformerRegistry {
 		new("Terrain Ramp Data", e => ExtIs(e, FileType.Rmp), () => new Dbsim.TerrainRampFileTransformer()),
 		new("Viewport Data", e => ExtIs(e, FileType.Vue), () => new Dbsim.VueTransformer()),
 		new("World/Environment Data", e => ExtIs(e, FileType.Wld), () => new Dbsim.WorldDataTransformer()),
+		new("Explosion Types", e => NameIs(e, "EXPLOS.DAT"), () => new Dbsim.ExplosionDataTransformer()),
+		// Structure shape libraries. Matched by name: the .DGS container is documented for these two
+		// files only (docs/formats/dgs-hd0-notes.md).
+		new("Structure Shape Library", e => NameIs(e, "BASES.DGS") || NameIs(e, "BHULKS.DGS"),
+			() => new Dbsim.BasesDgsTransformer()),
 
 		// --- common ---
 		new("Dynamix Bitmap Array", e => ExtIs(e, FileType.Dba), () => new Common.DynamixBitmapArrayTransformer()),
@@ -76,6 +83,11 @@ public static class TransformerRegistry {
 		new("Mission File", e => ExtIs(e, FileType.Msn), () => new Common.MissionFileTransformer()),
 		new("Player Save", e => ExtIs(e, FileType.Sav), () => new Common.PlayerSaveTransform()),
 		new("String Table", e => ExtIs(e, FileType.Str), () => new Common.StringFileTransformer()),
+		// LANG0.VOL's six .BIN files — weapons, estext, esnames, missions, wpn_info, wpn_desc — share
+		// one container (docs/formats/weapons-dat.md, "The .BIN string tables").
+		new("Indexed String Table", e => ExtIs(e, FileType.Bin), () => new Common.BinStringFileTransformer()),
+		// A mission's text, beside its .MSN in ZONES.VOL (docs/formats/msn-mission-file.md).
+		new("Mission Text", e => ExtIs(e, FileType.Eng), () => new Common.MissionStringFileTransformer()),
 		new("Sound", e => ExtIs(e, FileType.Wav), () => new Common.WavInfoTransformer()),
 
 		// .HBA and .HB0/.HB1/.HB2 are byte-identical to the .DBA container format

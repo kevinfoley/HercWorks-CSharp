@@ -149,6 +149,11 @@ public partial class MissionScriptForm : Form {
 		_theaterInput.Value = Clamp(ReadHeaderShort(script, 0), _theaterInput);
 		_zoneInput.Value = Clamp(ReadHeaderShort(script, 2), _zoneInput);
 		_variantInput.Value = Clamp(ReadHeaderShort(script, 18), _variantInput);
+		_objectiveTypeInput.Value = Clamp(ReadHeaderShort(script, 6), _objectiveTypeInput);
+		_trainingInput.Value = Clamp(ReadHeaderShort(script, 8), _trainingInput);
+		_unlimitedCheck.Checked = ReadHeaderShort(script, 10) == 1;
+		_invulnerableCheck.Checked = ReadHeaderShort(script, 12) == 1;
+		_difficultyInput.Value = Clamp(ReadHeaderShort(script, 14), _difficultyInput);
 		_headerRawText.Text = string.Join(" ", script.HeaderBytes.Select(b => b.ToString("X2")));
 		UpdateWorldLabel();
 
@@ -386,14 +391,19 @@ public partial class MissionScriptForm : Form {
 	}
 
 	/// <summary>
-	/// Writes the three world-selection fields back into the raw 20 bytes, leaving every other short
-	/// exactly as loaded. The others are decoded (objective type, training mission number, the two
-	/// cheat flags and difficulty — see docs/formats/script-dat.md) but not yet editable here.
+	/// Writes the edited header fields back into the raw 20 bytes — see docs/formats/script-dat.md's
+	/// header table. +4 (DBSIM stores 0 over it before anything reads it) and +16 (never read) are
+	/// left exactly as loaded.
 	/// </summary>
 	private void ApplyHeader(ScriptDat script) {
 		WriteHeaderShort(script, 0, (short)_theaterInput.Value);
 		WriteHeaderShort(script, 2, (short)_zoneInput.Value);
 		WriteHeaderShort(script, 18, (short)_variantInput.Value);
+		WriteHeaderShort(script, 6, (short)_objectiveTypeInput.Value);
+		WriteHeaderShort(script, 8, (short)_trainingInput.Value);
+		WriteHeaderShort(script, 10, (short)(_unlimitedCheck.Checked ? 1 : 0));
+		WriteHeaderShort(script, 12, (short)(_invulnerableCheck.Checked ? 1 : 0));
+		WriteHeaderShort(script, 14, (short)_difficultyInput.Value);
 		_headerRawText.Text = string.Join(" ", script.HeaderBytes.Select(b => b.ToString("X2")));
 	}
 
@@ -426,19 +436,51 @@ public partial class MissionScriptForm : Form {
 			CheckRefs(warnings, $"Action timer {i} sequence refs", timer.SequenceRefs, script.Actions.Length, "actions");
 		}
 
+		for (int i = 0; i < script.Actions.Length; i++) {
+			if (TargetCount(script, script.Actions[i].Type) is { } targets) {
+				CheckRef(warnings, $"Action {i} target ref", script.Actions[i].Target, targets, "targets");
+			}
+		}
+
 		for (int i = 0; i < script.SpawnRecords.Length; i++) {
-			CheckRef(warnings, $"Herc {i} point ref", script.SpawnRecords[i].PositionRef, script.Coordinates.Length, "points");
-			CheckRef(warnings, $"Herc {i} heading ref", script.SpawnRecords[i].HeadingRef, script.Headings.Length, "headings");
+			var mech = script.SpawnRecords[i];
+			CheckRef(warnings, $"Herc {i} point ref", mech.PositionRef, script.Coordinates.Length, "points");
+			CheckRef(warnings, $"Herc {i} heading ref", mech.HeadingRef, script.Headings.Length, "headings");
+			CheckRef(warnings, $"Herc {i} engaged action", mech.EngagementActionRef, script.Actions.Length, "actions");
+			CheckRef(warnings, $"Herc {i} defeated action", mech.DefeatActionRef, script.Actions.Length, "actions");
 		}
 
 		for (int i = 0; i < script.Entities102.Length; i++) {
-			CheckRef(warnings, $"Flyer {i} point ref", script.Entities102[i].PositionRef, script.Coordinates.Length, "points");
-			CheckRef(warnings, $"Flyer {i} heading ref", script.Entities102[i].HeadingRef, script.Headings.Length, "headings");
+			var flyer = script.Entities102[i];
+			CheckRef(warnings, $"Flyer {i} point ref", flyer.PositionRef, script.Coordinates.Length, "points");
+			CheckRef(warnings, $"Flyer {i} heading ref", flyer.HeadingRef, script.Headings.Length, "headings");
+			CheckRef(warnings, $"Flyer {i} engaged action", flyer.EngagementActionRef, script.Actions.Length, "actions");
+			CheckRef(warnings, $"Flyer {i} defeated action", flyer.DefeatActionRef, script.Actions.Length, "actions");
 		}
 
 		for (int i = 0; i < script.MiscEntities.Length; i++) {
-			CheckRef(warnings, $"Base {i} point ref", script.MiscEntities[i].PositionRef, script.Coordinates.Length, "points");
-			CheckRef(warnings, $"Base {i} heading ref", script.MiscEntities[i].HeadingRef, script.Headings.Length, "headings");
+			var structure = script.MiscEntities[i];
+			CheckRef(warnings, $"Base {i} point ref", structure.PositionRef, script.Coordinates.Length, "points");
+			CheckRef(warnings, $"Base {i} heading ref", structure.HeadingRef, script.Headings.Length, "headings");
+			CheckRef(warnings, $"Base {i} engaged action", structure.EngagementActionRef, script.Actions.Length, "actions");
+			CheckRef(warnings, $"Base {i} defeated action", structure.DefeatActionRef, script.Actions.Length, "actions");
+		}
+
+		for (int i = 0; i < script.LinkedRefs22.Length; i++) {
+			var order = script.LinkedRefs22[i];
+			CheckRef(warnings, $"Order {i} route ref", order.RefRow8, script.WaypointGroups.Length, "routes");
+			CheckRef(warnings, $"Order {i} action ref", order.RefRow10, script.Actions.Length, "actions");
+			if (order.DiscriminatorType >= 0) {
+				CheckRef(warnings, $"Order {i} subject ref", order.DiscriminatedRef,
+					SubjectCount(script, order.DiscriminatorType), "subjects");
+			}
+		}
+
+		for (int i = 0; i < script.LinkedRefs58.Length; i++) {
+			var objective = script.LinkedRefs58[i];
+			CheckRef(warnings, $"Objective {i} route ref", objective.RefRow8, script.WaypointGroups.Length, "routes");
+			CheckRef(warnings, $"Objective {i} subject ref", objective.DiscriminatedRef,
+				SubjectCount(script, objective.Discriminator), "subjects");
 		}
 
 		for (int i = 0; i < script.Entities164.Length; i++) {
@@ -472,6 +514,31 @@ public partial class MissionScriptForm : Form {
 
 		return warnings;
 	}
+
+	/// <summary>
+	/// How many records a subject ref of this kind can index — 0 group, 1 herc, 2 flyer, 3 base, the
+	/// numbering orders and objectives share. -1 for a kind with no block, which CheckRef reports.
+	/// </summary>
+	private static int SubjectCount(ScriptDat script, short kind) => kind switch {
+		0 => script.Entities164.Length,
+		1 => script.SpawnRecords.Length,
+		2 => script.Entities102.Length,
+		3 => script.MiscEntities.Length,
+		_ => 0
+	};
+
+	/// <summary>
+	/// What an action's target indexes: types 0/1/3/4 name a herc, flyer, base or group (row #10's
+	/// discriminator, docs/formats/msn-mission-file.md). Null for any other type, whose target is not
+	/// documented, so it goes unchecked.
+	/// </summary>
+	private static int? TargetCount(ScriptDat script, short type) => type switch {
+		0 => script.SpawnRecords.Length,
+		1 => script.Entities102.Length,
+		3 => script.MiscEntities.Length,
+		4 => script.Entities164.Length,
+		_ => null
+	};
 
 	private static void CheckRefs(List<string> warnings, string label, short[] refs, int count, string target) {
 		foreach (short value in refs) {

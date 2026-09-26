@@ -158,6 +158,21 @@ internal sealed class ScriptMechRow : ScriptRow {
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
 
+	/// <summary>The standing PASSIVE/ACTIVE the machine walks its route on (<c>mech+0x97</c>).</summary>
+	public short AiRadarActive { get => Source.AiRadarActive; set => Source.AiRadarActive = value; }
+
+	/// <summary>The speed the AI walks at (<c>mech+0x252</c>); 0 means its own default.</summary>
+	public short AiCruiseSpeed { get => Source.AiCruiseSpeed; set => Source.AiCruiseSpeed = value; }
+
+	/// <summary>Per cent: under 80 the machine spawns pre-damaged, under 20 as a wreck.</summary>
+	public short StartingCondition { get => Source.StartingCondition; set => Source.StartingCondition = value; }
+
+	/// <summary>Block-5 action fired when the machine is engaged.</summary>
+	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }
+
+	/// <summary>Block-5 action fired when the machine is defeated — how retail chains its waves.</summary>
+	public short DefeatActionRef { get => Source.DefeatActionRef; set => Source.DefeatActionRef = value; }
+
 	/// <summary>
 	/// The fit as words, for the roster grid — the slots themselves are edited one at a time in the
 	/// loadout panel (see <see cref="ScriptWeaponSlotRow"/>), since a raw id list is unreadable and
@@ -202,6 +217,8 @@ internal sealed class ScriptFlyerRow : ScriptRow {
 	public short FlyerType { get => Source.BinaryField; set => Source.BinaryField = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
+	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }
+	public short DefeatActionRef { get => Source.DefeatActionRef; set => Source.DefeatActionRef = value; }
 }
 
 /// <summary>Block 9 — one base/structure roster slot.</summary>
@@ -211,6 +228,8 @@ internal sealed class ScriptBaseRow : ScriptRow {
 	public short BaseType { get => Source.TypeLikeScalar; set => Source.TypeLikeScalar = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
+	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }
+	public short DefeatActionRef { get => Source.DefeatActionRef; set => Source.DefeatActionRef = value; }
 }
 
 /// <summary>

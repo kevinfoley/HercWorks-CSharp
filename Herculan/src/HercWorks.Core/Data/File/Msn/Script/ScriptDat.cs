@@ -197,14 +197,14 @@ public class ScriptSpawnRecordExport {
 	/// radar setting. <c>DBSim_SpawnMissionObjects</c> copies it to <c>mech+0x97</c>, which is the
 	/// PASSIVE/ACTIVE an AI machine walks its route on. 0/1 in every retail record.
 	/// </summary>
-	public short AiRadarActive => ReadHead(0);
+	public short AiRadarActive { get => ReadHead(0); set => ScriptActionRefs.Write(HeadBytes, 0, value); }
 
 	/// <summary>
 	/// Source offset 0x0a — the speed the machine's AI walks at, copied to <c>mech+0x252</c>. Zero,
 	/// which is 91% of retail records, means the AI's own default. See
 	/// <c>docs/simulation/ai-navigation.md</c>.
 	/// </summary>
-	public short AiCruiseSpeed => ReadHead(2);
+	public short AiCruiseSpeed { get => ReadHead(2); set => ScriptActionRefs.Write(HeadBytes, 2, value); }
 
 	private short ReadHead(int offset) =>
 		HeadBytes.Length >= offset + 2 ? BitConverter.ToInt16(HeadBytes, offset) : (short)0;
@@ -283,7 +283,10 @@ public class ScriptSpawnRecordExport {
 	/// <c>Detection_Sweep</c> (<c>004128f8</c>) fires it once a hostile that already has contact on
 	/// this machine closes to 50,000 units. <c>-1</c> for a record that names none.
 	/// </summary>
-	public short EngagementActionRef => ReadTail(EngagementActionOffset);
+	public short EngagementActionRef {
+		get => ReadTail(EngagementActionOffset);
+		set => ScriptActionRefs.Write(TailBytes, EngagementActionOffset, value);
+	}
 
 	/// <summary>
 	/// Exported offset <c>0x82</c> — the mission action this machine fires when it is
@@ -295,7 +298,10 @@ public class ScriptSpawnRecordExport {
 	/// <c>script.dat</c> has five of its ten mech records naming one, which is what brings each wave
 	/// in as the last is beaten — see docs/simulation/mission-deployment.md.</para>
 	/// </summary>
-	public short DefeatActionRef => ReadTail(DefeatActionOffset);
+	public short DefeatActionRef {
+		get => ReadTail(DefeatActionOffset);
+		set => ScriptActionRefs.Write(TailBytes, DefeatActionOffset, value);
+	}
 
 	/// <summary>
 	/// Exported offset <c>0x84</c> — the machine's <b>starting condition, as a percentage</b>. 100 is
@@ -312,7 +318,10 @@ public class ScriptSpawnRecordExport {
 	/// one at 50 — a sample too small and too self-selected to say anything about the mission set.
 	/// Answering that means reading the <c>.MSN</c> files themselves.</para>
 	/// </summary>
-	public short StartingCondition => ReadTail(StartingConditionOffset);
+	public short StartingCondition {
+		get => ReadTail(StartingConditionOffset);
+		set => ScriptActionRefs.Write(TailBytes, StartingConditionOffset, value);
+	}
 
 	private short ReadTail(int offset) =>
 		TailBytes.Length >= offset + 2 ? BitConverter.ToInt16(TailBytes, offset) : (short)-1;
@@ -359,14 +368,20 @@ public class ScriptEntity102Export {
 
 	/// <inheritdoc cref="ScriptSpawnRecordExport.EngagementActionRef" />
 	/// <remarks>Exported offset <c>0x56</c>; the flyer's own <c>+0x1b2</c>.</remarks>
-	public short EngagementActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
+	public short EngagementActionRef {
+		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
+		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallEngagement, value);
+	}
 
 	/// <inheritdoc cref="ScriptSpawnRecordExport.DefeatActionRef" />
 	/// <remarks>
 	/// Exported offset <c>0x58</c>; the flyer's own <c>+0x1b6</c>, fired by
 	/// <c>Flyer_ComponentDamageWrite</c> (<c>00421bb4</c>).
 	/// </remarks>
-	public short DefeatActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
+	public short DefeatActionRef {
+		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
+		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallDestruction, value);
+	}
 }
 
 /// <summary>
@@ -385,6 +400,18 @@ internal static class ScriptActionRefs {
 	/// <summary>Reads one, answering <c>-1</c> for a tail too short to hold it.</summary>
 	public static short Read(byte[] tail, int offset) =>
 		tail.Length >= offset + 2 ? BitConverter.ToInt16(tail, offset) : (short)-1;
+
+	/// <summary>
+	/// Writes a short into a record's raw span — how the named views over <c>HeadBytes</c>/
+	/// <c>TailBytes</c> are edited without giving up the byte-exact round trip.
+	/// </summary>
+	public static void Write(byte[] bytes, int offset, short value) {
+		if (bytes.Length < offset + 2) {
+			throw new InvalidOperationException("This record's raw span is too short to hold that field.");
+		}
+
+		BitConverter.GetBytes(value).CopyTo(bytes, offset);
+	}
 }
 
 /// <summary>
@@ -412,14 +439,20 @@ public class ScriptMiscEntityExport {
 
 	/// <inheritdoc cref="ScriptSpawnRecordExport.EngagementActionRef" />
 	/// <remarks>Exported offset <c>0x2e</c>; the structure's own <c>+0x1b2</c>.</remarks>
-	public short EngagementActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
+	public short EngagementActionRef {
+		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
+		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallEngagement, value);
+	}
 
 	/// <inheritdoc cref="ScriptSpawnRecordExport.DefeatActionRef" />
 	/// <remarks>
 	/// Exported offset <c>0x30</c>; the structure's own <c>+0x1b6</c>, fired by
 	/// <c>Base_ApplyDamage</c> (<c>00404d70</c>) when the last component goes.
 	/// </remarks>
-	public short DefeatActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
+	public short DefeatActionRef {
+		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
+		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallDestruction, value);
+	}
 }
 
 /// <summary>

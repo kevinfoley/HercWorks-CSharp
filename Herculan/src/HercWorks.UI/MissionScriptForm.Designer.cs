@@ -39,6 +39,14 @@ partial class MissionScriptForm {
 		_worldValueLabel = new Label();
 		_headerRawLabel = new Label();
 		_headerRawText = new TextBox();
+		_objectiveTypeLabel = new Label();
+		_objectiveTypeInput = new NumericUpDown();
+		_trainingLabel = new Label();
+		_trainingInput = new NumericUpDown();
+		_difficultyLabel = new Label();
+		_difficultyInput = new NumericUpDown();
+		_unlimitedCheck = new CheckBox();
+		_invulnerableCheck = new CheckBox();
 		_headerNoteLabel = new Label();
 
 		_pointsTab = new TabPage();
@@ -93,6 +101,11 @@ partial class MissionScriptForm {
 		_mechTypeColumn = new DataGridViewComboBoxColumn();
 		_mechPositionColumn = new DataGridViewTextBoxColumn();
 		_mechHeadingColumn = new DataGridViewTextBoxColumn();
+		_mechRadarColumn = new DataGridViewTextBoxColumn();
+		_mechSpeedColumn = new DataGridViewTextBoxColumn();
+		_mechConditionColumn = new DataGridViewTextBoxColumn();
+		_mechEngagedColumn = new DataGridViewTextBoxColumn();
+		_mechDefeatedColumn = new DataGridViewTextBoxColumn();
 		_mechFitColumn = new DataGridViewTextBoxColumn();
 		_loadoutGroupBox = new GroupBox();
 		_loadoutGrid = new DataGridView();
@@ -107,6 +120,8 @@ partial class MissionScriptForm {
 		_flyTypeColumn = new DataGridViewTextBoxColumn();
 		_flyPositionColumn = new DataGridViewTextBoxColumn();
 		_flyHeadingColumn = new DataGridViewTextBoxColumn();
+		_flyEngagedColumn = new DataGridViewTextBoxColumn();
+		_flyDefeatedColumn = new DataGridViewTextBoxColumn();
 
 		_basesTab = new TabPage();
 		_basesGrid = new DataGridView();
@@ -114,6 +129,8 @@ partial class MissionScriptForm {
 		_baseTypeColumn = new DataGridViewTextBoxColumn();
 		_basePositionColumn = new DataGridViewTextBoxColumn();
 		_baseHeadingColumn = new DataGridViewTextBoxColumn();
+		_baseEngagedColumn = new DataGridViewTextBoxColumn();
+		_baseDefeatedColumn = new DataGridViewTextBoxColumn();
 
 		_routeLinksTab = new TabPage();
 		_routeLinksGrid = new DataGridView();
@@ -170,6 +187,9 @@ partial class MissionScriptForm {
 		((System.ComponentModel.ISupportInitialize)_theaterInput).BeginInit();
 		((System.ComponentModel.ISupportInitialize)_zoneInput).BeginInit();
 		((System.ComponentModel.ISupportInitialize)_variantInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_objectiveTypeInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_trainingInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_difficultyInput).BeginInit();
 		_pointsTab.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_pointsGrid).BeginInit();
 		_headingsTab.SuspendLayout();
@@ -292,6 +312,14 @@ partial class MissionScriptForm {
 		_headerGroupBox.Controls.Add(_headerRawLabel);
 		_headerGroupBox.Controls.Add(_headerRawText);
 		_headerGroupBox.Controls.Add(_headerNoteLabel);
+		_headerGroupBox.Controls.Add(_objectiveTypeLabel);
+		_headerGroupBox.Controls.Add(_objectiveTypeInput);
+		_headerGroupBox.Controls.Add(_trainingLabel);
+		_headerGroupBox.Controls.Add(_trainingInput);
+		_headerGroupBox.Controls.Add(_difficultyLabel);
+		_headerGroupBox.Controls.Add(_difficultyInput);
+		_headerGroupBox.Controls.Add(_unlimitedCheck);
+		_headerGroupBox.Controls.Add(_invulnerableCheck);
 		_headerGroupBox.Location = new Point(12, 12);
 		_headerGroupBox.Name = "_headerGroupBox";
 		_headerGroupBox.Size = new Size(680, 260);
@@ -369,13 +397,74 @@ partial class MissionScriptForm {
 		//
 		// _headerRawText
 		//
-		// Read-only: the remaining header shorts are constant across every real file and nothing is
-		// known about them, so they are shown for reference and round-tripped untouched.
+		// Read-only: the whole 20 bytes as they will be written, including the two shorts no field
+		// edits (+4, which DBSIM overwrites before reading, and +16, which it never reads).
 		_headerRawText.Location = new Point(160, 168);
 		_headerRawText.Name = "_headerRawText";
 		_headerRawText.ReadOnly = true;
 		_headerRawText.Size = new Size(490, 23);
 		_headerRawText.TabIndex = 3;
+		//
+		// _objectiveTypeLabel
+		//
+		_objectiveTypeLabel.AutoSize = true;
+		_objectiveTypeLabel.Location = new Point(380, 34);
+		_objectiveTypeLabel.Name = "_objectiveTypeLabel";
+		_objectiveTypeLabel.Text = "Objective type:";
+		//
+		// _objectiveTypeInput
+		//
+		_objectiveTypeInput.Location = new Point(570, 32);
+		_objectiveTypeInput.Maximum = short.MaxValue;
+		_objectiveTypeInput.Name = "_objectiveTypeInput";
+		_objectiveTypeInput.Size = new Size(80, 23);
+		_objectiveTypeInput.TabIndex = 4;
+		//
+		// _trainingLabel
+		//
+		_trainingLabel.AutoSize = true;
+		_trainingLabel.Location = new Point(380, 68);
+		_trainingLabel.Name = "_trainingLabel";
+		_trainingLabel.Text = "Training mission (0 = none):";
+		//
+		// _trainingInput
+		//
+		_trainingInput.Location = new Point(570, 66);
+		_trainingInput.Maximum = short.MaxValue;
+		_trainingInput.Name = "_trainingInput";
+		_trainingInput.Size = new Size(80, 23);
+		_trainingInput.TabIndex = 5;
+		//
+		// _difficultyLabel
+		//
+		_difficultyLabel.AutoSize = true;
+		_difficultyLabel.Location = new Point(380, 102);
+		_difficultyLabel.Name = "_difficultyLabel";
+		_difficultyLabel.Text = "Difficulty (0 Rookie - 3 Elite):";
+		//
+		// _difficultyInput
+		//
+		_difficultyInput.Location = new Point(570, 100);
+		_difficultyInput.Maximum = 3;
+		_difficultyInput.Name = "_difficultyInput";
+		_difficultyInput.Size = new Size(80, 23);
+		_difficultyInput.TabIndex = 6;
+		//
+		// _unlimitedCheck
+		//
+		_unlimitedCheck.AutoSize = true;
+		_unlimitedCheck.Location = new Point(380, 134);
+		_unlimitedCheck.Name = "_unlimitedCheck";
+		_unlimitedCheck.Text = "Unlimited ammo and energy";
+		_unlimitedCheck.TabIndex = 7;
+		//
+		// _invulnerableCheck
+		//
+		_invulnerableCheck.AutoSize = true;
+		_invulnerableCheck.Location = new Point(540, 134);
+		_invulnerableCheck.Name = "_invulnerableCheck";
+		_invulnerableCheck.Text = "Player invulnerable";
+		_invulnerableCheck.TabIndex = 8;
 		//
 		// _headerNoteLabel
 		//
@@ -384,7 +473,7 @@ partial class MissionScriptForm {
 		_headerNoteLabel.Name = "_headerNoteLabel";
 		_headerNoteLabel.Text =
 			"Records are edited in place — refs between blocks are indexes, so rows cannot be added or removed\r\n" +
-			"except on the Unlocks tab, whose block nothing references.";
+			"except on the Objective Lines tab, whose block nothing references.";
 		//
 		// _pointsTab
 		//
@@ -778,7 +867,7 @@ partial class MissionScriptForm {
 		_mechsGrid.AllowUserToDeleteRows = false;
 		_mechsGrid.AutoGenerateColumns = false;
 		_mechsGrid.Columns.AddRange(new DataGridViewColumn[] {
-			_mechIndexColumn, _mechTypeColumn, _mechPositionColumn, _mechHeadingColumn, _mechFitColumn
+			_mechIndexColumn, _mechTypeColumn, _mechPositionColumn, _mechHeadingColumn, _mechRadarColumn, _mechSpeedColumn, _mechConditionColumn, _mechEngagedColumn, _mechDefeatedColumn, _mechFitColumn
 		});
 		_mechsGrid.Dock = DockStyle.Fill;
 		_mechsGrid.Location = new Point(0, 0);
@@ -823,6 +912,41 @@ partial class MissionScriptForm {
 		_mechHeadingColumn.HeaderText = "Heading ref";
 		_mechHeadingColumn.Name = "_mechHeadingColumn";
 		_mechHeadingColumn.Width = 90;
+		// 
+		// _mechRadarColumn
+		// 
+		_mechRadarColumn.DataPropertyName = "AiRadarActive";
+		_mechRadarColumn.HeaderText = "AI radar active (0/1)";
+		_mechRadarColumn.Name = "_mechRadarColumn";
+		_mechRadarColumn.Width = 90;
+		// 
+		// _mechSpeedColumn
+		// 
+		_mechSpeedColumn.DataPropertyName = "AiCruiseSpeed";
+		_mechSpeedColumn.HeaderText = "AI cruise speed (0 = default)";
+		_mechSpeedColumn.Name = "_mechSpeedColumn";
+		_mechSpeedColumn.Width = 100;
+		// 
+		// _mechConditionColumn
+		// 
+		_mechConditionColumn.DataPropertyName = "StartingCondition";
+		_mechConditionColumn.HeaderText = "Starting condition %";
+		_mechConditionColumn.Name = "_mechConditionColumn";
+		_mechConditionColumn.Width = 90;
+		// 
+		// _mechEngagedColumn
+		// 
+		_mechEngagedColumn.DataPropertyName = "EngagementActionRef";
+		_mechEngagedColumn.HeaderText = "Engaged action ref";
+		_mechEngagedColumn.Name = "_mechEngagedColumn";
+		_mechEngagedColumn.Width = 90;
+		// 
+		// _mechDefeatedColumn
+		// 
+		_mechDefeatedColumn.DataPropertyName = "DefeatActionRef";
+		_mechDefeatedColumn.HeaderText = "Defeated action ref";
+		_mechDefeatedColumn.Name = "_mechDefeatedColumn";
+		_mechDefeatedColumn.Width = 90;
 		//
 		// _mechFitColumn
 		//
@@ -926,7 +1050,7 @@ partial class MissionScriptForm {
 		_flyersGrid.AllowUserToDeleteRows = false;
 		_flyersGrid.AutoGenerateColumns = false;
 		_flyersGrid.Columns.AddRange(new DataGridViewColumn[] {
-			_flyIndexColumn, _flyTypeColumn, _flyPositionColumn, _flyHeadingColumn
+			_flyIndexColumn, _flyTypeColumn, _flyPositionColumn, _flyHeadingColumn, _flyEngagedColumn, _flyDefeatedColumn
 		});
 		_flyersGrid.Dock = DockStyle.Fill;
 		_flyersGrid.Location = new Point(3, 3);
@@ -964,6 +1088,20 @@ partial class MissionScriptForm {
 		_flyHeadingColumn.HeaderText = "Heading ref";
 		_flyHeadingColumn.Name = "_flyHeadingColumn";
 		_flyHeadingColumn.Width = 90;
+		// 
+		// _flyEngagedColumn
+		// 
+		_flyEngagedColumn.DataPropertyName = "EngagementActionRef";
+		_flyEngagedColumn.HeaderText = "Engaged action ref";
+		_flyEngagedColumn.Name = "_flyEngagedColumn";
+		_flyEngagedColumn.Width = 90;
+		// 
+		// _flyDefeatedColumn
+		// 
+		_flyDefeatedColumn.DataPropertyName = "DefeatActionRef";
+		_flyDefeatedColumn.HeaderText = "Defeated action ref";
+		_flyDefeatedColumn.Name = "_flyDefeatedColumn";
+		_flyDefeatedColumn.Width = 90;
 		//
 		// _basesTab
 		//
@@ -982,7 +1120,7 @@ partial class MissionScriptForm {
 		_basesGrid.AllowUserToDeleteRows = false;
 		_basesGrid.AutoGenerateColumns = false;
 		_basesGrid.Columns.AddRange(new DataGridViewColumn[] {
-			_baseIndexColumn, _baseTypeColumn, _basePositionColumn, _baseHeadingColumn
+			_baseIndexColumn, _baseTypeColumn, _basePositionColumn, _baseHeadingColumn, _baseEngagedColumn, _baseDefeatedColumn
 		});
 		_basesGrid.Dock = DockStyle.Fill;
 		_basesGrid.Location = new Point(3, 3);
@@ -1020,6 +1158,20 @@ partial class MissionScriptForm {
 		_baseHeadingColumn.HeaderText = "Heading ref";
 		_baseHeadingColumn.Name = "_baseHeadingColumn";
 		_baseHeadingColumn.Width = 90;
+		// 
+		// _baseEngagedColumn
+		// 
+		_baseEngagedColumn.DataPropertyName = "EngagementActionRef";
+		_baseEngagedColumn.HeaderText = "Engaged action ref";
+		_baseEngagedColumn.Name = "_baseEngagedColumn";
+		_baseEngagedColumn.Width = 90;
+		// 
+		// _baseDefeatedColumn
+		// 
+		_baseDefeatedColumn.DataPropertyName = "DefeatActionRef";
+		_baseDefeatedColumn.HeaderText = "Defeated action ref";
+		_baseDefeatedColumn.Name = "_baseDefeatedColumn";
+		_baseDefeatedColumn.Width = 90;
 		//
 		// _routeLinksTab
 		//
@@ -1408,6 +1560,9 @@ partial class MissionScriptForm {
 		((System.ComponentModel.ISupportInitialize)_theaterInput).EndInit();
 		((System.ComponentModel.ISupportInitialize)_zoneInput).EndInit();
 		((System.ComponentModel.ISupportInitialize)_variantInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_objectiveTypeInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_trainingInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_difficultyInput).EndInit();
 		_pointsTab.ResumeLayout(false);
 		((System.ComponentModel.ISupportInitialize)_pointsGrid).EndInit();
 		_headingsTab.ResumeLayout(false);
@@ -1469,6 +1624,14 @@ partial class MissionScriptForm {
 	private Label _worldValueLabel;
 	private Label _headerRawLabel;
 	private TextBox _headerRawText;
+	private Label _objectiveTypeLabel;
+	private NumericUpDown _objectiveTypeInput;
+	private Label _trainingLabel;
+	private NumericUpDown _trainingInput;
+	private Label _difficultyLabel;
+	private NumericUpDown _difficultyInput;
+	private CheckBox _unlimitedCheck;
+	private CheckBox _invulnerableCheck;
 	private Label _headerNoteLabel;
 
 	private TabPage _pointsTab;
@@ -1523,6 +1686,11 @@ partial class MissionScriptForm {
 	private DataGridViewComboBoxColumn _mechTypeColumn;
 	private DataGridViewTextBoxColumn _mechPositionColumn;
 	private DataGridViewTextBoxColumn _mechHeadingColumn;
+	private DataGridViewTextBoxColumn _mechRadarColumn;
+	private DataGridViewTextBoxColumn _mechSpeedColumn;
+	private DataGridViewTextBoxColumn _mechConditionColumn;
+	private DataGridViewTextBoxColumn _mechEngagedColumn;
+	private DataGridViewTextBoxColumn _mechDefeatedColumn;
 	private DataGridViewTextBoxColumn _mechFitColumn;
 	private GroupBox _loadoutGroupBox;
 	private DataGridView _loadoutGrid;
@@ -1537,6 +1705,8 @@ partial class MissionScriptForm {
 	private DataGridViewTextBoxColumn _flyTypeColumn;
 	private DataGridViewTextBoxColumn _flyPositionColumn;
 	private DataGridViewTextBoxColumn _flyHeadingColumn;
+	private DataGridViewTextBoxColumn _flyEngagedColumn;
+	private DataGridViewTextBoxColumn _flyDefeatedColumn;
 
 	private TabPage _basesTab;
 	private DataGridView _basesGrid;
@@ -1544,6 +1714,8 @@ partial class MissionScriptForm {
 	private DataGridViewTextBoxColumn _baseTypeColumn;
 	private DataGridViewTextBoxColumn _basePositionColumn;
 	private DataGridViewTextBoxColumn _baseHeadingColumn;
+	private DataGridViewTextBoxColumn _baseEngagedColumn;
+	private DataGridViewTextBoxColumn _baseDefeatedColumn;
 
 	private TabPage _routeLinksTab;
 	private DataGridView _routeLinksGrid;

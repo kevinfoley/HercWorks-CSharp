@@ -31,6 +31,11 @@ static class ShellHost {
 	/// </summary>
 	private const int ScreenshotFrame = 5;
 
+	/// <summary>
+	/// Slot 10, the current-game autosave, whose in-use byte (<c>00482a19</c>) gates CONTINUE GAME.
+	/// </summary>
+	private const int CurrentGameSlot = 10;
+
 	public static int Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
 			int startBay = 0) {
@@ -72,6 +77,7 @@ static class ShellHost {
 		// archive entries, so they are read from the install root and not through GameContent.
 		var slots = ShellSaveSlots.Load(installRoot, art.Text);
 		var saveScreen = new ShellSaveScreen(slots);
+		var mainMenu = new ShellMainMenu(slots.ElementAtOrDefault(CurrentGameSlot)?.InUse == true);
 		var contentSurface = new ShellSurface();
 		Console.WriteLine(slots.Count > 0
 			? $"Save slots: {slots.Count(s => s.InUse)} of {slots.Count} in use — "
@@ -150,7 +156,8 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("SAVE, WEAPONS, REPAIR, BUILD and CREW are the tabs with a screen behind them. Click a save "
+		Console.WriteLine("MAIN MENU, SAVE, WEAPONS, REPAIR, BUILD and CREW are the tabs with a screen behind them. On the "
+			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu. Click a save "
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
 			+ "select it and the panels beside it follow. On BUILD, click a chassis to see its blueprint and "
 			+ "figures, or a Squad Inventory row to pick the bay SCRAP and BUILD are gated on. On WEAPONS, click an "
@@ -274,6 +281,7 @@ static class ShellHost {
 			}
 
 			return screen.SelectedTab switch {
+				ShellScreen.MainMenuTab => mainMenu.HitAt(canvasX, canvasY),
 				ShellScreen.SaveTab => saveScreen.HitAt(canvasX, canvasY),
 				ShellScreen.RepairTab => ShellSquadPanel.HitAt(canvasX, canvasY)
 					?? repairScreen.HitAt(canvasX, canvasY),
@@ -308,6 +316,9 @@ static class ShellHost {
 				case ShellWidgetKind.StripButton:
 					Activate(widget.Index);
 					break;
+				case ShellWidgetKind.MainMenuButton:
+					ClickMainMenuButton((ShellMainMenuButton)widget.Index);
+					break;
 				case ShellWidgetKind.SaveRow:
 					SelectSaveSlot(widget.Index);
 					break;
@@ -341,6 +352,21 @@ static class ShellHost {
 					ClickCrew(widget);
 					break;
 			}
+		}
+
+		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
+		// save screen's EXIT back here, and enter it. The other nine buttons' actions are not ported.
+		void ClickMainMenuButton(ShellMainMenuButton button) {
+			if (button != ShellMainMenuButton.SaveRestore) {
+				Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
+				return;
+			}
+
+			mode = ShellCampaignMode.Campaign;
+			saveScreen.ExitTarget = ShellSaveExitTarget.MainMenu;
+			screen.SelectTab(ShellScreen.SaveTab);
+			Console.WriteLine("Save/Restore — the save screen, with EXIT back to the main menu.");
+			RepaintContent();
 		}
 
 		// A save row's handler, SaveScreen_SelectSlot (0043795f). Clicking the row already selected is a
@@ -631,6 +657,9 @@ static class ShellHost {
 			}
 
 			switch (screen.SelectedTab) {
+				case ShellScreen.MainMenuTab:
+					mainMenu.Paint(contentSurface, art.Text, art.Sprites);
+					break;
 				case ShellScreen.RepairTab:
 					repairScreen.Paint(contentSurface, art.Text, art.Sprites);
 					break;
@@ -702,6 +731,6 @@ static class ShellHost {
 
 	/// <summary>The tabs this engine has a screen behind.</summary>
 	private static bool HasScreen(int tab) =>
-		tab is ShellScreen.SaveTab or ShellScreen.WeaponsTab or ShellScreen.RepairTab or ShellScreen.BuildTab
+		tab is ShellScreen.MainMenuTab or ShellScreen.SaveTab or ShellScreen.WeaponsTab or ShellScreen.RepairTab or ShellScreen.BuildTab
 			or ShellScreen.CrewTab;
 }

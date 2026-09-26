@@ -12247,10 +12247,55 @@
       "address": "004310a0",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_MainMenu_Show",
-      "description": "Built by tab 0's handler. Identified from its dispatch position only; nothing inside it has been read.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "MainMenu_Show",
+      "description": "Tab 0's entry: shows the main menu's root (DAT_0048d0c8) and panel (DAT_0048d0cc), then writes the greying trio at CONTINUE GAME (DAT_0048d0d4) from 00482a19, slot 10's in-use byte.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043094c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_BuildScreen",
+      "description": "wmain.cpp. Builds the main menu once at shell startup: the six-frame bay2a_80..84 startup widget (DAT_0048d0c0), the backdrop root (DAT_0048d0c8), the MAIN MENU TitledPanel {0x90,0xad,0x1e2,0x138} (DAT_0048d0cc) and its ten buttons in two columns.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043114b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_Hide",
+      "description": "Hides the main menu's root and panel. Called first by every main-menu button that leaves the menu.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "00431498",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnSaveRestore",
+      "description": "SAVE/RESTORE's handler: MainMenu_Hide, campaign mode 1 (FUN_0040e69e), SaveScreen_ExitTarget = 0, SaveScreen_Enter.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "004313e4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnContinue",
+      "description": "CONTINUE GAME's handler: Game_LoadSlot(10, 1), selected save slot 10, then the bare frame when DAT_0048260e is 2, otherwise FUN_0044cecf(DAT_0048260e).",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "00482a19",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MainMenu_CurrentGameInUse",
+      "description": "Not a global of its own: the in-use byte (+0x5d) of slot 10's entry in the 0x5e-byte slot table at 00482610. MainMenu_Show gates CONTINUE GAME on it.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
     },
     {
       "address": "00439b0c",

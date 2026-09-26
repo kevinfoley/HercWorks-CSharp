@@ -158,8 +158,9 @@ public sealed class ShellScreen {
 	/// <para><b>The save tab hides the strip.</b> Its handler calls <c>0043b23d</c>, which hides the
 	/// strip's parent panel, so the save screen stands alone and its own EXIT and RESTORE are the only
 	/// way off it; both end in <see cref="ReturnToFrame"/>. The main menu's handler hides it the same
-	/// way, and here it does not: that tab has no content ported, so hiding the strip would leave
-	/// nothing on screen to click. That is this engine's choice, not the original's.</para>
+	/// way, and here it does not: of the menu's buttons only SAVE/RESTORE acts, so hiding the strip would
+	/// leave RESTORE of a written slot as the only way to the other tabs. That is this engine's choice,
+	/// not the original's.</para>
 	/// </summary>
 	public void SelectTab(int index) {
 		if (index < 0 || index >= ShellLayout.TabCount) {

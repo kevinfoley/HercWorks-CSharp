@@ -46,6 +46,7 @@ public enum ShellHandler {
 /// <summary>What a widget is, for telling one from another — the kind and which one of that kind.</summary>
 public enum ShellWidgetKind {
 	StripButton,
+	MainMenuButton,
 	SaveRow,
 	SaveButton,
 	RepairRow,

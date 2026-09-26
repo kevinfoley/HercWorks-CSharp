@@ -214,6 +214,49 @@ The `y` is an **ink baseline**: `Font_DrawGlyph` (00453fb4) places each glyph's 
 
 `Text`'s `+0xc1` is an opaque-background flag and `+0xc5` the colour it clears to: a value field clears its own rect so a refresh overwrites cleanly, and a static label does not.
 
+## The main menu
+
+Tab 0, `MAIN MENU`. Built once at shell startup by `MainMenu_BuildScreen` (`0043094c`, `wmain.cpp`), put up by `MainMenu_Show` (`004310a0`) and hidden by `MainMenu_Hide` (`0043114b`), which every button that leaves the menu calls first. Rects are parent-relative.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| root | image panel | its parent's own rect | the shared backdrop; `+0x51 = 0`, so no chrome |
+| content panel | `TitledPanel` | `{0x90, 0xad, 0x1e2, 0x138}` | `2` `MAIN MENU`, header 19 tall, plate `0x6e`-`0xe4`, border `0x15`, face `0x25`, dithered body in `0x10` |
+| 10 buttons | `Button` | below | border `0x22` |
+
+The panel is the save screen's with a different rect, title plate and border — `0x15` where the save screen's is `0x27` — so its body is the same checkerboard over the bay.
+
+Every button is `{x, y, x + 0x99, y + 0xf}` on a `0x16`-pixel pitch from row `0x1c`, in two columns at `x = 0xb` and `0xad`:
+
+| Row | Left column | Handler | Right column | Handler |
+|---|---|---|---|---|
+| `0x1c` | `3` `INSTANT ACTION` | `004312a6` | `7` `PRACTICE MISSIONS` | `004318ab` |
+| `0x32` | `4` `START NEW GAME` | `00431379` | `0xa` `PREFERENCES` | `0043150c` |
+| `0x48` | `5` `CONTINUE GAME` | `MainMenu_OnContinue` (`004313e4`) | `0xb` `VIEW DEMO` | `0043156f` |
+| `0x5e` | `6` `SAVE/RESTORE` | `MainMenu_OnSaveRestore` (`00431498`) | `0xd` `CREDITS` | `004315ec` |
+| `0x74` | `0xf` `ONLINE MANUAL` | `0043178c` | `0xe` `QUIT` | `00431727` |
+
+The builder constructs them in the order `3`, `4`, `5`, `6`, `0xe`, `0xf`, `7`, `0xa`, `0xb`, `0xd`. Three captions in the `estext.bin` run are not reached by it: `8` `CONTROLS`, `9` `VEHICLE PREVIEW` and `0xc` `SERVICE BAY`.
+
+**`CONTINUE GAME` is gated on slot 10 being in use.** `MainMenu_Show` shows the root and the panel and then writes the [greying trio](#the-condition-readout) at `CONTINUE GAME` from the byte at `00482a19`. That is not a global of its own: the slot table at `00482610` has a `0x5e`-byte stride and keeps each slot's in-use byte at `+0x5d` — the byte the save screen's `RESTORE` is gated on — and `00482610 + 10 * 0x5e + 0x5d` is `00482a19`. So the button is live only once a current game has been written to slot 10. No other button is gated.
+
+What the handlers call, as read:
+
+| Button | Calls |
+|---|---|
+| `INSTANT ACTION` | `FUN_0040e69e(0)`, `FUN_0044befb`, `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `FUN_0040876a(2)`, `DAT_0046c074 = 1` |
+| `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a` |
+| `CONTINUE GAME` | between `FUN_0040877f(1)` and `FUN_0040877f(0)`: `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, `FUN_0044cecf(DAT_0048260e)` otherwise |
+| `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
+| `ONLINE MANUAL` | `004317ea`: `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
+| `PRACTICE MISSIONS` | `MainMenu_Hide`, `0044bc92`, `FUN_0040e69e(0)` |
+| `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` |
+| `VIEW DEMO` | `FUN_0040876a(5)`, `DAT_0046c074 = 1` |
+| `CREDITS` | shows a bare window (`DAT_0048d0c4`) and plays movie `0x54` through `Movie_Enqueue` and `Movie_PlayQueue`, then hides it |
+| `QUIT` | `DAT_0046c074 = 1`, `FUN_0040723d` |
+
+**The menu first comes up at the end of a six-frame sequence.** The builder also puts a widget over the whole window (`DAT_0048d0c0`, built by `FUN_0040c85c` with handler `004311b8`) and hands it `dbm\bay2a_80` to `bay2a_84`, the last twice. Once that widget's `+0x6d` reaches 5 the handler hides it and calls `MainMenu_Show`, once only (`DAT_00473604`) ([Open](#open)).
+
 ## The save screen
 
 Tab 1, `SAVED GAMES`. Built by `SaveScreen_BuildScreen` (004385b0), entered by `SaveScreen_Enter` (00439b0c), its selection moved by `SaveScreen_SelectSlot` (0043795f) and its detail panel refilled by `SaveScreen_RefreshDetail` (0043712c). Every rect is four immediates on the builder's stack, and they are **parent-relative**: the panel sits in the canvas, the list and the button column in the panel, and two buttons in the list.
@@ -254,7 +297,7 @@ Edit state 2 is what `SaveScreen_SelectSlot` refuses, so the selection cannot mo
 
 With [the strip hidden](#tabs-0-and-1-hide-the-strip), `EXIT` and `RESTORE` are the only ways off the screen. Both open with `maybe_SaveScreen_Teardown` (00439d66), which parks the selection on slot 10 — past every row, so the screen next comes up with nothing selected and `SAVE` and `RESTORE` both dead — and hides the screen's root, content panel and both detail panels.
 
-`SaveScreen_OnExit` (00437d94), `EXIT`'s handler, then goes where `DAT_0048d344` says. 0 rebuilds the main menu; `00431498` writes it, after setting the campaign mode flag to 1 — the handler of a button `0043094c` builds with `estext.bin` caption 6. 8 is `0043b162(8)` then `0043b0c8` — show the frame's root, show and regate the strip, park the current tab at `0xffff` — which leaves the bare frame up with no tab current and nothing lit; tab 1's handler writes it.
+`SaveScreen_OnExit` (00437d94), `EXIT`'s handler, then goes where `DAT_0048d344` says. 0 rebuilds the main menu; the main menu's `SAVE/RESTORE` writes it ([above](#the-main-menu)). 8 is `0043b162(8)` then `0043b0c8` — show the frame's root, show and regate the strip, park the current tab at `0xffff` — which leaves the bare frame up with no tab current and nothing lit; tab 1's handler writes it.
 
 `RESTORE`'s handler (`00437d03`) is:
 
@@ -705,7 +748,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 **The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. Tab 1 hides the strip, and `EXIT` and `RESTORE` leave as above through `ShellScreen.ReturnToFrame`, which is the `0043b162(8)`/`0043b0c8` pair; `RESTORE` parses the slot and rebuilds the hangar and the repair screen from it. The rename, and with it `SAVE`, `CANCEL` and `ACCEPT`, has no port, and neither has `RESTORE`'s autosave ([Open](#open)); `CANCEL` and `ACCEPT` stay grey because nothing starts a rename.
 
-The main menu tab keeps the strip up here, where its handler hides it as tab 1's does: nothing is ported behind that tab, so hiding the strip would leave nothing on screen to click. That is this engine's choice, not the original's.
+**The main menu is drawn**: `ShellMainMenu` places the panel and the ten buttons above and greys `CONTINUE GAME` on slot 10's in-use flag from `GAMEFILE.STR`. `SAVE/RESTORE` acts — campaign mode, then the save screen with `EXIT` coming back to the menu — and the other nine do nothing ([Open](#open)). The tab keeps the strip up here, where its handler hides it as tab 1's does: with only `SAVE/RESTORE` acting, hiding it would leave `RESTORE` of a written slot as the only way to the other tabs. That is this engine's choice, not the original's.
 
 **The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. `ShellRepairDiagrams` loads the nine layouts, `rpr_hots.dat` and their banks and paints whichever picture the selection's column has up, and `ShellSquadPanel` draws the readout and the roster. Clicking a row, a hotspot on the external picture or a roster row moves the selection or the bay and the panels follow, including the refusal of an unfitted hardpoint and of an unbuilt bay. The four buttons' actions, the manual/auto mode switch and the build queue have no port ([Open](#open)), so the salvage figure is the pool with nothing deducted.
 
@@ -725,7 +768,7 @@ The whole content surface is painted afresh on every change, where the original 
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other three tabs' content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the other two tabs' content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -759,6 +802,8 @@ Not drawn: the other three tabs' content, the mouse cursor (`dba\cursor.dba`), t
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
 - **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.
 - **Unported:** the armory build queue; the repair screen's salvage figure is the raw pool with nothing deducted as a result.
-- **Unported:** the other three tabs' content (`MAIN MENU`, `ARMORY`, `MISSION`).
+- **Unported:** the other two tabs' content (`ARMORY`, `MISSION`).
+- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
+- **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0040876a`, `FUN_0040877f`, `DAT_0046c074` and `FUN_0044cecf`, which the main menu's handlers call, each do.
 - **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.
-- **Unported:** setting the campaign/training mode — `FUN_0040e69e`, which `00431498` calls with 1; the gate is driven only by a command-line flag.
+- **Unported:** setting the campaign/training mode everywhere but `SAVE/RESTORE` — `FUN_0040e69e`, which four other main-menu handlers call; otherwise the gate is driven by a command-line flag.

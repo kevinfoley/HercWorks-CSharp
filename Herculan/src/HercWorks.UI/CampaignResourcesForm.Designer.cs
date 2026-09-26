@@ -27,6 +27,23 @@ partial class CampaignResourcesForm {
 		_closeMenuItem = new ToolStripMenuItem();
 		_tabs = new TabControl();
 		_resourcesTab = new TabPage();
+		_careerGroupBox = new GroupBox();
+		_stageLabel = new Label();
+		_stageInput = new NumericUpDown();
+		_missionLabel = new Label();
+		_missionInput = new NumericUpDown();
+		_squadPositionsLabel = new Label();
+		_squadPositionsInput = new NumericUpDown();
+		_onStrengthLabel = new Label();
+		_onStrengthInput = new NumericUpDown();
+		_gameStateLabel = new Label();
+		_gameStateInput = new NumericUpDown();
+		_careerTextBox = new TextBox();
+		_flagsTab = new TabPage();
+		_flagsGrid = new DataGridView();
+		_flagIndexColumn = new DataGridViewTextBoxColumn();
+		_flagHexColumn = new DataGridViewTextBoxColumn();
+		_flagValueColumn = new DataGridViewTextBoxColumn();
 		_resourcesGroupBox = new GroupBox();
 		_salvageLabel = new Label();
 		_salvageInput = new NumericUpDown();
@@ -85,6 +102,12 @@ partial class CampaignResourcesForm {
 		_resourcesTab.SuspendLayout();
 		_resourcesGroupBox.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_salvageInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_stageInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_missionInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_squadPositionsInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_onStrengthInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_gameStateInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_flagsGrid).BeginInit();
 		_hercUnlocksTab.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_hercUnlocksGrid).BeginInit();
 		_squadmatesTab.SuspendLayout();
@@ -141,6 +164,7 @@ partial class CampaignResourcesForm {
 		_tabs.Controls.Add(_squadmatesTab);
 		_tabs.Controls.Add(_inventoryTab);
 		_tabs.Controls.Add(_hercBayTab);
+		_tabs.Controls.Add(_flagsTab);
 		_tabs.Dock = DockStyle.Fill;
 		_tabs.Location = new Point(0, 24);
 		_tabs.Name = "_tabs";
@@ -151,6 +175,7 @@ partial class CampaignResourcesForm {
 		// _resourcesTab
 		//
 		_resourcesTab.Controls.Add(_resourcesGroupBox);
+		_resourcesTab.Controls.Add(_careerGroupBox);
 		_resourcesTab.Location = new Point(4, 24);
 		_resourcesTab.Name = "_resourcesTab";
 		_resourcesTab.Padding = new Padding(3);
@@ -543,6 +568,163 @@ partial class CampaignResourcesForm {
 		_hercBayTab.Text = "Herc Bay";
 		_hercBayTab.UseVisualStyleBackColor = true;
 		//
+		// _careerGroupBox
+		//
+		_careerGroupBox.Controls.Add(_stageLabel);
+		_careerGroupBox.Controls.Add(_stageInput);
+		_careerGroupBox.Controls.Add(_missionLabel);
+		_careerGroupBox.Controls.Add(_missionInput);
+		_careerGroupBox.Controls.Add(_squadPositionsLabel);
+		_careerGroupBox.Controls.Add(_squadPositionsInput);
+		_careerGroupBox.Controls.Add(_onStrengthLabel);
+		_careerGroupBox.Controls.Add(_onStrengthInput);
+		_careerGroupBox.Controls.Add(_gameStateLabel);
+		_careerGroupBox.Controls.Add(_gameStateInput);
+		_careerGroupBox.Controls.Add(_careerTextBox);
+		_careerGroupBox.Location = new Point(490, 12);
+		_careerGroupBox.Name = "_careerGroupBox";
+		_careerGroupBox.Size = new Size(460, 480);
+		_careerGroupBox.TabIndex = 1;
+		_careerGroupBox.TabStop = false;
+		_careerGroupBox.Text = "Career";
+		//
+		// _stageLabel
+		//
+		_stageLabel.AutoSize = true;
+		_stageLabel.Location = new Point(16, 32);
+		_stageLabel.Name = "_stageLabel";
+		_stageLabel.Text = "Campaign stage (from 0):";
+		//
+		// _stageInput
+		//
+		_stageInput.Location = new Point(200, 30);
+		_stageInput.Maximum = short.MaxValue;
+		_stageInput.Minimum = short.MinValue;
+		_stageInput.Name = "_stageInput";
+		_stageInput.Size = new Size(100, 23);
+		_stageInput.TabIndex = 0;
+		//
+		// _missionLabel
+		//
+		_missionLabel.AutoSize = true;
+		_missionLabel.Location = new Point(16, 66);
+		_missionLabel.Name = "_missionLabel";
+		_missionLabel.Text = "Mission within stage:";
+		//
+		// _missionInput
+		//
+		_missionInput.Location = new Point(200, 64);
+		_missionInput.Maximum = short.MaxValue;
+		_missionInput.Minimum = short.MinValue;
+		_missionInput.Name = "_missionInput";
+		_missionInput.Size = new Size(100, 23);
+		_missionInput.TabIndex = 1;
+		//
+		// _squadPositionsLabel
+		//
+		_squadPositionsLabel.AutoSize = true;
+		_squadPositionsLabel.Location = new Point(16, 100);
+		_squadPositionsLabel.Name = "_squadPositionsLabel";
+		_squadPositionsLabel.Text = "Squad positions in play:";
+		//
+		// _squadPositionsInput
+		//
+		_squadPositionsInput.Location = new Point(200, 98);
+		_squadPositionsInput.Maximum = short.MaxValue;
+		_squadPositionsInput.Minimum = short.MinValue;
+		_squadPositionsInput.Name = "_squadPositionsInput";
+		_squadPositionsInput.Size = new Size(100, 23);
+		_squadPositionsInput.TabIndex = 2;
+		//
+		// _onStrengthLabel
+		//
+		_onStrengthLabel.AutoSize = true;
+		_onStrengthLabel.Location = new Point(16, 134);
+		_onStrengthLabel.Name = "_onStrengthLabel";
+		_onStrengthLabel.Text = "Machines on strength:";
+		//
+		// _onStrengthInput
+		//
+		_onStrengthInput.Location = new Point(200, 132);
+		_onStrengthInput.Maximum = short.MaxValue;
+		_onStrengthInput.Minimum = short.MinValue;
+		_onStrengthInput.Name = "_onStrengthInput";
+		_onStrengthInput.Size = new Size(100, 23);
+		_onStrengthInput.TabIndex = 3;
+		//
+		// _gameStateLabel
+		//
+		_gameStateLabel.AutoSize = true;
+		_gameStateLabel.Location = new Point(16, 168);
+		_gameStateLabel.Name = "_gameStateLabel";
+		_gameStateLabel.Text = "Game state (0048260e):";
+		//
+		// _gameStateInput
+		//
+		_gameStateInput.Location = new Point(200, 166);
+		_gameStateInput.Maximum = short.MaxValue;
+		_gameStateInput.Minimum = short.MinValue;
+		_gameStateInput.Name = "_gameStateInput";
+		_gameStateInput.Size = new Size(100, 23);
+		_gameStateInput.TabIndex = 4;
+		//
+		// _careerTextBox
+		//
+		// Read-only: the briefing and debrief line indices only mean anything against the slot's own
+		// sav\missn%d.str, which this editor does not load.
+		_careerTextBox.Location = new Point(16, 204);
+		_careerTextBox.Multiline = true;
+		_careerTextBox.Name = "_careerTextBox";
+		_careerTextBox.ReadOnly = true;
+		_careerTextBox.ScrollBars = ScrollBars.Vertical;
+		_careerTextBox.Size = new Size(428, 260);
+		_careerTextBox.TabIndex = 5;
+		//
+		// _flagsTab
+		//
+		_flagsTab.Controls.Add(_flagsGrid);
+		_flagsTab.Location = new Point(4, 24);
+		_flagsTab.Name = "_flagsTab";
+		_flagsTab.Padding = new Padding(3);
+		_flagsTab.Size = new Size(972, 526);
+		_flagsTab.TabIndex = 5;
+		_flagsTab.Text = "Campaign Flags";
+		_flagsTab.UseVisualStyleBackColor = true;
+		//
+		// _flagsGrid
+		//
+		_flagsGrid.AllowUserToAddRows = false;
+		_flagsGrid.AllowUserToDeleteRows = false;
+		_flagsGrid.AutoGenerateColumns = false;
+		_flagsGrid.Columns.AddRange(new DataGridViewColumn[] { _flagIndexColumn, _flagHexColumn, _flagValueColumn });
+		_flagsGrid.Dock = DockStyle.Fill;
+		_flagsGrid.Name = "_flagsGrid";
+		_flagsGrid.RowHeadersVisible = false;
+		_flagsGrid.TabIndex = 0;
+		//
+		// _flagIndexColumn
+		//
+		_flagIndexColumn.DataPropertyName = "Index";
+		_flagIndexColumn.HeaderText = "Slot";
+		_flagIndexColumn.Name = "_flagIndexColumn";
+		_flagIndexColumn.ReadOnly = true;
+		_flagIndexColumn.Width = 80;
+		//
+		// _flagHexColumn
+		//
+		_flagHexColumn.DataPropertyName = "Hex";
+		_flagHexColumn.HeaderText = "Slot (hex)";
+		_flagHexColumn.Name = "_flagHexColumn";
+		_flagHexColumn.ReadOnly = true;
+		_flagHexColumn.Width = 80;
+		//
+		// _flagValueColumn
+		//
+		_flagValueColumn.DataPropertyName = "Value";
+		_flagValueColumn.HeaderText = "Value";
+		_flagValueColumn.Name = "_flagValueColumn";
+		_flagValueColumn.Width = 100;
+		//
 		// _hercBayGrid
 		//
 		_hercBayGrid.AllowUserToAddRows = false;
@@ -642,6 +824,12 @@ partial class CampaignResourcesForm {
 		_resourcesGroupBox.ResumeLayout(false);
 		_resourcesGroupBox.PerformLayout();
 		((System.ComponentModel.ISupportInitialize)_salvageInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_stageInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_missionInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_squadPositionsInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_onStrengthInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_gameStateInput).EndInit();
+		((System.ComponentModel.ISupportInitialize)_flagsGrid).EndInit();
 		_hercUnlocksTab.ResumeLayout(false);
 		((System.ComponentModel.ISupportInitialize)_hercUnlocksGrid).EndInit();
 		_squadmatesTab.ResumeLayout(false);
@@ -667,6 +855,23 @@ partial class CampaignResourcesForm {
 	private TabControl _tabs;
 	private TabPage _resourcesTab;
 	private GroupBox _resourcesGroupBox;
+	private GroupBox _careerGroupBox;
+	private Label _stageLabel;
+	private NumericUpDown _stageInput;
+	private Label _missionLabel;
+	private NumericUpDown _missionInput;
+	private Label _squadPositionsLabel;
+	private NumericUpDown _squadPositionsInput;
+	private Label _onStrengthLabel;
+	private NumericUpDown _onStrengthInput;
+	private Label _gameStateLabel;
+	private NumericUpDown _gameStateInput;
+	private TextBox _careerTextBox;
+	private TabPage _flagsTab;
+	private DataGridView _flagsGrid;
+	private DataGridViewTextBoxColumn _flagIndexColumn;
+	private DataGridViewTextBoxColumn _flagHexColumn;
+	private DataGridViewTextBoxColumn _flagValueColumn;
 	private Label _salvageLabel;
 	private NumericUpDown _salvageInput;
 	private Label _workshopSlot1Label;

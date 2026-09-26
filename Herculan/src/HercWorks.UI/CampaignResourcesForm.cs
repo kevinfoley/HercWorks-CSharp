@@ -23,6 +23,7 @@ public partial class CampaignResourcesForm : Form {
 	private readonly BindingList<SquadmateRow> _squadmateRows = new();
 	private readonly BindingList<InventoryRow> _inventoryRows = new();
 	private readonly BindingList<HercBayRow> _hercBayRows = new();
+	private readonly BindingList<CampaignFlagRow> _flagRows = new();
 
 	private PlayerSave? _loadedSave;
 	private string? _loadedPath;
@@ -47,6 +48,7 @@ public partial class CampaignResourcesForm : Form {
 		_squadmatesGrid.DataSource = _squadmateRows;
 		_inventoryGrid.DataSource = _inventoryRows;
 		_hercBayGrid.DataSource = _hercBayRows;
+		_flagsGrid.DataSource = _flagRows;
 	}
 
 	private ComboBox[] WorkshopCombos => new[] {
@@ -133,6 +135,8 @@ public partial class CampaignResourcesForm : Form {
 				});
 			}
 
+			LoadCareer(save);
+
 			_loadedPath = dialog.FileName;
 			_originalCompressionType = prefix.HadPrefix ? prefix.CompressionType : null;
 			_originalMagicPrefix = prefix.MagicPrefix;
@@ -143,6 +147,53 @@ public partial class CampaignResourcesForm : Form {
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
+	/// <summary>
+	/// The career block's named fields, the two squad counts, the game state and the flag array. A
+	/// save whose tail is too short for the flags (none in retail) leaves those disabled.
+	/// </summary>
+	private void LoadCareer(PlayerSave save) {
+		_stageInput.Value = save.CampaignStage;
+		_missionInput.Value = save.MissionInStage;
+		_squadPositionsInput.Value = save.SquadPositionsInPlay;
+		_onStrengthInput.Value = save.MachinesOnStrength;
+
+		_careerTextBox.Text = string.Join(Environment.NewLine,
+			$"Squad members (record index per squad): {save.SquadMemberIndex(0)}, {save.SquadMemberIndex(1)}, {save.SquadMemberIndex(2)}",
+			"",
+			"Briefing/debrief mission.str line indices (count: lines):",
+			FormatCareerText(save.CareerTextA),
+			FormatCareerText(save.CareerTextB),
+			FormatCareerText(save.CareerTextC));
+
+		_flagRows.Clear();
+		bool hasFlags = save.HasCampaignState;
+		_gameStateInput.Enabled = hasFlags;
+		_flagsGrid.Enabled = hasFlags;
+		if (hasFlags) {
+			_gameStateInput.Value = save.GameState;
+			for (int i = 0; i < PlayerSave.CampaignFlagCount; i++) {
+				_flagRows.Add(new CampaignFlagRow { Index = i, Value = save.GetCampaignFlag(i) });
+			}
+		}
+	}
+
+	private static string FormatCareerText((short Count, short[] Lines) text) =>
+		$"{text.Count}: {string.Join(", ", text.Lines)}";
+
+	private void ApplyCareer(PlayerSave save) {
+		save.CampaignStage = (short)_stageInput.Value;
+		save.MissionInStage = (short)_missionInput.Value;
+		save.SquadPositionsInPlay = (short)_squadPositionsInput.Value;
+		save.MachinesOnStrength = (short)_onStrengthInput.Value;
+
+		if (save.HasCampaignState) {
+			save.GameState = (short)_gameStateInput.Value;
+			foreach (var row in _flagRows) {
+				save.SetCampaignFlag(row.Index, row.Value);
+			}
 		}
 	}
 
@@ -217,6 +268,8 @@ public partial class CampaignResourcesForm : Form {
 
 		try {
 			_loadedSave.SalvageTotal = (int)_salvageInput.Value;
+			_flagsGrid.EndEdit();
+			ApplyCareer(_loadedSave);
 
 			var combos = WorkshopCombos;
 			for (int i = 0; i < combos.Length; i++) {

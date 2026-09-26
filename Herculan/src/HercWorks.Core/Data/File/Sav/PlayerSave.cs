@@ -50,4 +50,63 @@ public class PlayerSave {
 	/// 2-byte game state, a 20-byte block, and any stale tail the non-truncating writer left behind.
 	/// </summary>
 	public byte[]? UnknownSaveValues { get; set; }
+
+	// ---- Named views over the raw arrays above -------------------------------------------------
+	// The arrays stay the storage, so the round trip is unchanged; these name the fields
+	// docs/formats/save-games.md decodes.
+
+	/// <summary>Career block short 0 — the campaign stage, counted from zero in the save.</summary>
+	public short CampaignStage { get => Unk4_stateFlags[0]; set => Unk4_stateFlags[0] = value; }
+
+	/// <summary>Career block short 1 — the mission within the stage.</summary>
+	public short MissionInStage { get => Unk4_stateFlags[1]; set => Unk4_stateFlags[1] = value; }
+
+	/// <summary>
+	/// The career block's three counted arrays of <c>data\mission.str</c> line indices (10, 30 and 30
+	/// slots, <c>-1</c> empty) that <c>Career_BuildBriefingText</c> assembles into briefing and debrief
+	/// prose. Returned as <c>(count, lines)</c>; read-only views, since the lines only mean anything
+	/// against the slot's own <c>missn%d.str</c>.
+	/// </summary>
+	public (short Count, short[] Lines) CareerTextA => CareerArray(2, 10);
+	public (short Count, short[] Lines) CareerTextB => CareerArray(13, 30);
+	public (short Count, short[] Lines) CareerTextC => CareerArray(44, 30);
+
+	private (short, short[]) CareerArray(int countIndex, int length) =>
+		(Unk4_stateFlags[countIndex], Unk4_stateFlags.Skip(countIndex + 1).Take(length).ToArray());
+
+	/// <summary>
+	/// The three shorts at <c>00483b48</c>: for each squad, the index of its current member among
+	/// that squad's twelve pilot records.
+	/// </summary>
+	public short SquadMemberIndex(int squad) => UnkRange_prePlayer[squad];
+
+	/// <summary>Squad positions in play, the player's as position 0 (<c>00482a78</c>).</summary>
+	public short SquadPositionsInPlay { get => UnkRange_prePlayer[6]; set => UnkRange_prePlayer[6] = value; }
+
+	/// <summary>Machines on strength (<c>00482a7a</c>) — the <c>player.mec</c> export's entry count.</summary>
+	public short MachinesOnStrength { get => UnkRange_prePlayer[7]; set => UnkRange_prePlayer[7] = value; }
+
+	/// <summary>The campaign flag array (<c>00482af8</c>): 1000 shorts, the <c>.msn</c> condition store.</summary>
+	public const int CampaignFlagCount = 1000;
+
+	/// <summary>
+	/// Whether the tail is long enough to hold the flag array and the game state — true for every
+	/// parsed retail save.
+	/// </summary>
+	public bool HasCampaignState => UnknownSaveValues is { Length: >= CampaignFlagCount * 2 + 2 };
+
+	public short GetCampaignFlag(int index) => BitConverter.ToInt16(RequireTail(), index * 2);
+
+	public void SetCampaignFlag(int index, short value) =>
+		BitConverter.GetBytes(value).CopyTo(RequireTail(), index * 2);
+
+	/// <summary>The two bytes after the flag array — the game state (<c>0048260e</c>).</summary>
+	public short GameState {
+		get => BitConverter.ToInt16(RequireTail(), CampaignFlagCount * 2);
+		set => BitConverter.GetBytes(value).CopyTo(RequireTail(), CampaignFlagCount * 2);
+	}
+
+	private byte[] RequireTail() => HasCampaignState
+		? UnknownSaveValues!
+		: throw new InvalidOperationException("This save's tail is too short to hold the campaign flags.");
 }

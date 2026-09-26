@@ -1,0 +1,54 @@
+using HercWorks.Core.Data.File.Sav;
+using Xunit;
+
+namespace Herculan.Engine.Tests;
+
+/// <summary>
+/// <see cref="PlayerSave"/>'s named fields are views over the raw arrays the transformer fills, so
+/// these pin which short or byte each reaches against <c>docs/formats/save-games.md</c>.
+/// </summary>
+public class PlayerSaveFieldTests {
+	[Fact]
+	public void CareerAndSquadFieldsNameTheirShorts() {
+		var save = new PlayerSave();
+		save.Unk4_stateFlags[2] = 3;
+		save.Unk4_stateFlags[3] = 40;
+		save.Unk4_stateFlags[13] = 1;
+		save.Unk4_stateFlags[14] = 50;
+		save.Unk4_stateFlags[44] = 2;
+		save.Unk4_stateFlags[45] = 60;
+
+		save.CampaignStage = 2;
+		save.MissionInStage = 5;
+		save.SquadPositionsInPlay = 3;
+		save.MachinesOnStrength = 2;
+
+		Assert.Equal(new short[] { 2, 5 }, save.Unk4_stateFlags[..2]);
+		Assert.Equal((short)3, save.UnkRange_prePlayer[6]);
+		Assert.Equal((short)2, save.UnkRange_prePlayer[7]);
+		Assert.Equal((3, 40), (save.CareerTextA.Count, save.CareerTextA.Lines[0]));
+		Assert.Equal((1, 50), (save.CareerTextB.Count, save.CareerTextB.Lines[0]));
+		Assert.Equal((2, 60), (save.CareerTextC.Count, save.CareerTextC.Lines[0]));
+		Assert.Equal((10, 30, 30), (save.CareerTextA.Lines.Length, save.CareerTextB.Lines.Length, save.CareerTextC.Lines.Length));
+	}
+
+	[Fact]
+	public void FlagsAndGameStateLiveInTheTail() {
+		var save = new PlayerSave { UnknownSaveValues = new byte[2000 + 2 + 20] };
+
+		save.SetCampaignFlag(0x3f, 1);
+		save.GameState = 7;
+
+		Assert.Equal(1, BitConverter.ToInt16(save.UnknownSaveValues, 0x3f * 2));
+		Assert.Equal(7, BitConverter.ToInt16(save.UnknownSaveValues, 2000));
+		Assert.Equal((short)1, save.GetCampaignFlag(0x3f));
+	}
+
+	[Fact]
+	public void AShortTailHasNoCampaignState() {
+		var save = new PlayerSave { UnknownSaveValues = new byte[100] };
+
+		Assert.False(save.HasCampaignState);
+		Assert.Throws<InvalidOperationException>(() => save.GameState);
+	}
+}

@@ -1714,7 +1714,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ImagePanel_Ctor",
-      "description": "Constructor of the image panel class (0x61 bytes, vtable 0046ec94): Panel_Ctor base, the bitmap at +0x5d, the blit offset +0x55/+0x59 cleared, +0x51 cleared so it draws nothing until a builder sets it, and hidden. Its paint is ImagePanel_Paint (0040b772). The crew screen's portraits and the shell frame's backdrop root are this class.",
+      "description": "Constructor of the image panel class (0x61 bytes, vtable 0046ec94): Panel_Ctor base, the bitmap at +0x5d, the blit offset +0x55/+0x59 cleared, +0x51 cleared so its paint draws no border (the bitmap is blitted regardless), and hidden. Its paint is ImagePanel_Paint (0040b772). The crew screen's portraits and the shell frame's backdrop root are this class.",
       "source": "docs/shell/screen-layout.md#the-crew-screen"
     },
     {
@@ -1876,7 +1876,7 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_Grid_InitSingleRow",
-      "description": "Same zero-init pattern as Grid_InitRow but operating on a single standalone row-shaped struct rather than one slot of a Grid_Ctor's 30-row array -- used inline in Mission_BuildScreen's do/while list-building loop. Plausibly a single detached row/line-item struct reusing the same 10-column layout convention, not confirmed against a distinct constructor.",
+      "description": "Same zero-init pattern as Grid_InitRow but operating on a single standalone row-shaped struct rather than one slot of a Grid_Ctor's 30-row array -- used by the part-filling routines, Repair_BuildDiagrams and Build_FillBlueprints (0041579d) among them, to stage a part for ESGrid_SetPart. Plausibly a single detached row/line-item struct reusing the same 10-column layout convention, not confirmed against a distinct constructor.",
       "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
     },
     {
@@ -1930,8 +1930,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Arming_BuildScreen",
-      "description": "warmingi.cpp: builds the weapon-fitting screen, reading gam\\arm_weap.dat against dba\\arm_weap.dba. Its 26 weapon panels are the authoritative set of buyable weapon ids; the four trailing panels are the ARM/ARH/SARH/EO guidance kinds.",
-      "source": "docs/formats/herc-catalogs.md"
+      "description": "warmingi.cpp: builds the weapon-fitting screen, reading gam\\arm_weap.dat against dba\\arm_weap.dba. Its 26 weapon panels are the authoritative set of buyable weapon ids; the four trailing panels are the guidance kinds SARH 0, ARH 1, ARM 2, EO 3. Also opens wpn_desc.bin, three lines per weapon id.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
     },
     {
       "address": "00440eb8",
@@ -1957,7 +1957,7 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_Mission_UpdateTerrainLabel",
-      "description": "wmissini.cpp (mission tab) __FILE__ assert-string anchor function, but small (270 bytes) -- looks up a terrain-description string resource by id and a earth/moon label variant, writes into an existing widget field, not a full screen builder. The real screen builder in this TU is the much larger FUN_00445758 (Mission_BuildScreen).",
+      "description": "wmissini.cpp (mission tab) __FILE__ assert-string anchor function, but small (270 bytes) -- looks up a terrain-description string resource by id and a earth/moon label variant, writes into an existing widget field, not a full screen builder. The mission tab's entry is maybe_Mission_Show (004441e3); the large FUN_00445758 that follows in the image is the build screen's builder (Build_BuildScreen), not this tab's.",
       "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
     },
     {
@@ -1974,9 +1974,9 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Mission_BuildScreen",
-      "description": "wmissini.cpp: largest function in the TU (4317 bytes), the actual mission-tab screen builder -- same hardcoded-rect-literal widget-construction pattern as the other five screens, plus a do/while loop building a repeated list row with a fixed Y stride. No file I/O.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "name": "Build_BuildScreen",
+      "description": "The BUILD tab's builder: the Herc Construction titled panel (estext 0xba), nine blueprint Grids, the nine-row chassis list (0x6e + i), the stats box and its four figures, and the lower panel with Salvage Available and the Scrap Herc / Build Herc boxes. Every widget it builds is the one Build_Enter (0044690d) shows and Build_Leave (0044694e) hides. Sits after wmissini.cpp's assert anchor in the image, which is why it was once taken for the mission builder.",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
     },
     {
       "address": "00447e34",
@@ -12265,10 +12265,10 @@
       "address": "0043f548",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Arming_Show",
-      "description": "Built by tab 2's handler, and sits directly after Arming_BuildScreen in warmingi.cpp. Identified from its dispatch position only.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "Arming_Enter",
+      "description": "Tab 2's entry, called by TabHandler_Weapons before it stores 2 in CurrentTabIndex: shows the content panel, the inventory and the picture box; when SelectedBaySlot is -1, empty or unfinished calls Squad_SelectBay(Herc_FirstBuiltBay) (which therefore takes the previous tab's arm); clears ArmingSelectedHardpoint and runs Arming_SelectRow(0).",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
     },
     {
       "address": "004332ec",
@@ -12391,10 +12391,64 @@
       "address": "0044690d",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Build_Show",
-      "description": "Built by tab 4's handler. Identified from its dispatch position only.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "Build_Enter",
+      "description": "Tab 4's entry: Build_GateRows, Herc_BuildScreenRefresh, Build_GateButtons, Build_FillBlueprints, shows the content panel, the lower panel and blueprint 0, then Build_SelectChassis(0).",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
+    },
+    {
+      "address": "0044694e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_Leave",
+      "description": "The teardown dispatcher's tab-4 arm: frees the blueprint banks, hides the content panel, the lower panel and the selected chassis's blueprint.",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
+    },
+    {
+      "address": "00446835",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_GateRows",
+      "description": "Per chassis row: disabled with all four columns 0x10 when (&DAT_00483b62)[type*8] is clear, else all four columns 0x27 and enabled. Rewrites the selected row's name colour too.",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
+    },
+    {
+      "address": "004469d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_GateButtons",
+      "description": "Gates SCRAP and BUILD on the selected bay: empty -> SCRAP dead, BUILD live when CareerSalvage - Armory_QueuedTotal() > price*1000; occupied -> BUILD dead, SCRAP dead when Herc_HasSingleDeployable or the bay's chassis is unavailable.",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
+    },
+    {
+      "address": "00446c3b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_SelectChassis",
+      "description": "Moves DAT_004786e4 (-1 in the image): old row's name 0x27 and border 0x10 and its blueprint hidden, new row's name and border 0x29 and its blueprint shown, then Build_GateButtons and Herc_BuildScreenRefresh. Returns at once for the chassis already selected.",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
+    },
+    {
+      "address": "00446e71",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_RefreshSalvage",
+      "description": "Writes the lower panel's Salvage Available figure: (CareerSalvage - Armory_QueuedTotal()) / 1000 as %ld %s with estext 0xc6 TONS.",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
+    },
+    {
+      "address": "0041579d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_FillBlueprints",
+      "description": "Fills the build screen's nine blueprint Grids from the rpr_*.dat body records (DAT_00484d28/DAT_00484d14) and the dba rpr_<chassis> banks, remap pair 0xe -> 0xe, no weapons.",
+      "source": "docs/shell/screen-layout.md#the-build-screen"
     },
     {
       "address": "004494f7",
@@ -17188,6 +17242,186 @@
       "name": "MovieQueue_ReadIndex",
       "description": "Movie_PlayQueue's slot in MovieQueue_Entries, modulo 10.",
       "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
+    },
+    {
+      "address": "0043f5d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_Leave",
+      "description": "The teardown dispatcher's tab-2 arm: hides the content panel, the inventory and the picture box.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043f5f7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_ShowGuidanceButtons",
+      "description": "Shows the ARM/ARH/SARH/EO buttons and the rack-name button, once, on Arming_GuidanceButtonsUp.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043f644",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_HideGuidanceButtons",
+      "description": "Puts the four guidance buttons' borders back to 0x22 and hides all five buttons, when Arming_GuidanceButtonsUp is set.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043f6f7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_RowOfWeapon",
+      "description": "The inventory row (0-26) listing a weapon id in Arming_RowWeapons, or -1.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043f71c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_SelectRow",
+      "description": "An inventory row's handler (27 thunks from 00440300, each setting Arming_FitArmed). No-op for the lit row unless a guidance picture is up or a hardpoint is selected. With a hardpoint, refuses a weapon with none in stock unless fitted (testing the mount's +0x08 guidance kind first) and fits through Arming_FitSelected. Refreshes the rows, relights old and new rows, swaps the picture, fills three wpn_desc.bin lines from id*3, and puts the guidance buttons up for ids 0xd-0x10 or takes them down.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043fbc6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_RefreshRows",
+      "description": "Rewrites all 27 inventory rows: the owned count (weapons.dat +0x17) as %d, two spaces for None; a locked weapon (+0x16 clear) disabled in 0x10; an unlocked one 0x27 and live while Arming_RowLive holds, else 0x25 and disabled.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043fd69",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_ShowGuidance",
+      "description": "Arming_ShowGuidance(kind, show): relights the guidance buttons (0x22 old, 0x20 new); with show set swaps the lit row's picture for the kind's and prints wpn_desc.bin 99+kind*3; stores the kind and writes it to the selected mount through Arming_SetMountGuidance. Kinds: SARH 0, ARH 1, ARM 2, EO 3.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "004149fb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_RowLive",
+      "description": "Whether an inventory row is live: always with no hardpoint selected; with one, only when the chassis's armory layout has a part for the weapon at slot+2 and the weapon is unlocked.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043dc44",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_FitSelected",
+      "description": "With a hardpoint selected: calls FUN_004114ec(herc, hardpoint, weapon) while Arming_FitArmed is set, then Arming_MarkHardpoint and repaints the bay picture.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043dcb6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_SetMountGuidance",
+      "description": "Writes a guidance kind into the selected hardpoint's mount record at +0x08, when a hardpoint is selected and the mount is fitted.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043dd09",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_NextHardpoint",
+      "description": "The > stepper: Arming_SelectHardpoint((hardpoint + 1) % mount capacity).",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043dd49",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_PreviousHardpoint",
+      "description": "The < stepper: Arming_SelectHardpoint(hardpoint - 1), wrapping from 0 or none to the last mount.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "004155db",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_MarkHardpoint",
+      "description": "Redraws a socket's weapon part (slot hardpoint+2) on the bay picture from the fitted weapon, and puts the socket's outline in part slot 12 from a second per-chassis bank, remapping 0xba to 99.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "004769b0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Arming_RowWeapons",
+      "description": "The 27 weapon ids the WEAPONS screen's inventory rows list: arm_weap.dat's 26 in file order, then None (0).",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "00476d5a",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Arming_LitRow",
+      "description": "The WEAPONS screen's lit inventory row, -1 in the image.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "00476d5c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Arming_ShownGuidance",
+      "description": "The guidance kind whose picture Arming_ShowGuidance last put up, -1 in the image; reset only by a row whose weapon takes no guidance.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "00476d60",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Arming_LitGuidance",
+      "description": "The guidance kind whose button Arming_ShowGuidance last lit, 0 in the image.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "004769e6",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Arming_GuidanceButtonsUp",
+      "description": "Whether the five guidance buttons are shown.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "00476d58",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Arming_FitArmed",
+      "description": "Set by each inventory row's thunk for the length of its Arming_SelectRow call; Arming_FitSelected fits only while it is set.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0048d728",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Arming_DescriptionBin",
+      "description": "The wpn_desc.bin handle Arming_BuildScreen opens.",
+      "source": "docs/shell/screen-layout.md#the-weapons-screen"
     }
   ]
 }

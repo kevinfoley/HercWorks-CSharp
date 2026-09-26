@@ -100,11 +100,11 @@ Read by VSHELL: `WeaponsBin_LookupName` (`00408240`) indexes it as `offsets[id] 
 | `esnames.bin` | local to `Squad_GenerateRoster` (`0040fa31`) | 36 | the pilot-name pool: `DUGGAN`, `BRUTUS`, `BUTCHER`, `RIGGS` … `HOYLE` |
 | `missions.bin` | `0046fb34` | 61 | mission paths, `MSN\TRAIN1.MSN` … `MSN\C5_10.MSN`, indexed by `gam\career.dat` |
 | `wpn_info.bin` | — | 130 | the armory's stat panel, **5 strings per armory slot** |
-| `wpn_desc.bin` | — | 130 | the armory's prose panel, same indexing |
+| `wpn_desc.bin` | `0048d728` | 111 | the weapons screen's description, **3 strings per weapon id**, then 3 per guidance kind |
 
 All six walk byte-exact against the retail files: `8 + count*2 + poolSize` equals the file length in every case.
 
-`wpn_info.bin` and `wpn_desc.bin` are indexed by **`gam\arm_weap.dat`'s panel order, not by catalog id** — 26 slots of five strings each. Slot 0's five are `Type: Autocannon 20 mm`, `Range: 450 m Salvage Required: 5,000 kg`, an empty line, and two description lines. Their `Salvage Required` figures agree with this file's `0x14` price times 1000 for all 26 slots, which is what confirms both the indexing and the unit. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat).
+`wpn_info.bin` is indexed by **`gam\arm_weap.dat`'s panel order, not by catalog id** — 26 slots of five strings each. Slot 0's five are `Type: Autocannon 20 mm`, `Range: 450 m Salvage Required: 5,000 kg`, an empty line, and two description lines. Their `Salvage Required` figures agree with this file's `0x14` price times 1000 for all 26 slots, which is what confirms both the indexing and the unit. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat).
 
 **Which folder is `prefs.cfg`'s.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or `ger\` chosen by option 43, which the shell's global init copies out of the option array ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A retail file holds 0.
 

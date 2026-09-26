@@ -213,16 +213,22 @@ public static class ShellChrome {
 	/// <c>ImagePanel_Paint</c> (<c>0040b772</c>), the paint of the panel class <c>ImagePanel_Ctor</c> (<c>0040b698</c>)
 	/// builds — one bitmap at an offset within the widget (<c>+0x55</c>, <c>+0x59</c>), then the border
 	/// over it with no fill, so an image that reaches the edge loses its outermost pixels to the border.
-	/// Nothing is drawn at all while <c>+0x51</c> is clear, which the constructor leaves it.
 	/// </summary>
+	/// <param name="border">
+	/// The widget's <c>+0x51</c>, which the constructor clears. It gates <c>Panel_FillAndBorder</c> only:
+	/// the bitmap is blitted either way, so a panel left at the default is a bare picture.
+	/// </param>
 	public static void PaintImagePanel(ShellSurface surface, ShellRect rect, DynamixBitmap? image,
-			int offsetX, int offsetY, byte borderColor) {
+			int offsetX, int offsetY, byte borderColor, bool border = true) {
 		var clip = surface.PushClip(rect);
 		if (image != null) {
 			surface.Blit(image, rect.X0 + offsetX, rect.Y0 + offsetY);
 		}
 
-		PaintPanel(surface, rect, borderColor, fill: false);
+		if (border) {
+			PaintPanel(surface, rect, borderColor, fill: false);
+		}
+
 		surface.PopClip(clip);
 	}
 

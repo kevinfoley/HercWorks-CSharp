@@ -243,6 +243,17 @@ public sealed class ShellHangar {
 	/// <summary>The salvage pool in kilograms, as the save carries it.</summary>
 	public int SalvageKilograms { get; private set; }
 
+	private readonly Dictionary<int, (bool Unlocked, int Owned)> _stock = new();
+
+	/// <summary>
+	/// A weapon's unlock flag, <c>weapons.dat</c> record <c>+0x16</c> at <c>(&amp;DAT_00483bfa)[id * 0x1d]</c> — save
+	/// block 1's leading byte for that id (docs/formats/weapons-dat.md).
+	/// </summary>
+	public bool IsWeaponUnlocked(int weaponId) => _stock.TryGetValue(weaponId, out var entry) && entry.Unlocked;
+
+	/// <summary>How many units of a weapon the armory holds, record <c>+0x17</c> at <c>DAT_00483bfb</c>.</summary>
+	public int WeaponsOwned(int weaponId) => _stock.TryGetValue(weaponId, out var entry) ? entry.Owned : 0;
+
 	/// <summary>The player's own pilot record, embedded in the player structure at <c>+0x04</c>.</summary>
 	public ShellBayPilot? Player { get; private set; }
 
@@ -413,6 +424,11 @@ public sealed class ShellHangar {
 		}
 
 		hangar.SalvageKilograms = save.SalvageTotal;
+		foreach (var item in save.Inventory?.Items ?? Array.Empty<Inventory.InventoryItem>()) {
+			if (item?.Id is { } id) {
+				hangar._stock[id.Id] = (item.UnlockFlag != 0, item.Quantity);
+			}
+		}
 		foreach (var (slot, entry) in save.HercBay) {
 			if (slot >= 0 && slot < BayCount && entry != null) {
 				hangar._bays[slot] = ShellBayMachine.From(entry);

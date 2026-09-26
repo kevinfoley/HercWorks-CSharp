@@ -22,7 +22,7 @@ public static class ShellGrid {
 	public const int RemapPairs = 10;
 
 	/// <summary>The border and grid-line colour, <c>Grid_Ctor</c>'s <c>0x22</c> at <c>+0x4d</c> and <c>+0x6e6</c>.</summary>
-	private const byte GridColor = 0x22;
+	public const byte GridColor = 0x22;
 
 	/// <summary>The grid pitch, a literal in <c>Grid_Paint</c>.</summary>
 	private const int GridPitch = 0x10;
@@ -37,20 +37,23 @@ public static class ShellGrid {
 	/// at paint time, and by rect rather than by mask, so a recoloured part also recolours the matching
 	/// pixels of any earlier part it overlaps.
 	/// </summary>
-	public static void Paint(ShellSurface surface, ShellRect rect, bool gridLines, ShellGridPart?[] parts) {
+	/// <param name="borderColor">The widget's <c>+0x4d</c>, which a builder may overwrite.</param>
+	/// <param name="lineColor">And its <c>+0x6e6</c>.</param>
+	public static void Paint(ShellSurface surface, ShellRect rect, bool gridLines, ShellGridPart?[] parts,
+			byte borderColor = GridColor, byte lineColor = GridColor) {
 		int w = rect.Width - 1;
 		int h = rect.Height - 1;
 		var clip = surface.PushClip(rect);
 
-		ShellChrome.PaintPanel(surface, rect, GridColor, fill: true);
+		ShellChrome.PaintPanel(surface, rect, borderColor, fill: true);
 
 		if (gridLines) {
 			for (int y = GridPitch; y < h; y += GridPitch) {
-				surface.Line(rect.X0, rect.Y0 + y, rect.X0 + w, rect.Y0 + y, GridColor);
+				surface.Line(rect.X0, rect.Y0 + y, rect.X0 + w, rect.Y0 + y, lineColor);
 			}
 
 			for (int x = GridPitch; x < w; x += GridPitch) {
-				surface.Line(rect.X0 + x, rect.Y0, rect.X0 + x, rect.Y0 + h, GridColor);
+				surface.Line(rect.X0 + x, rect.Y0, rect.X0 + x, rect.Y0 + h, lineColor);
 			}
 		}
 

@@ -142,6 +142,7 @@ What that decides on the screens ported here:
 | a [crew row](#the-rows)'s texts | the row; its portrait is an image panel of its own carrying the row's handler |
 | a row's four [text columns](#a-row-is-four-text-columns), a button's caption | the row, the button |
 | the repair screen's five [readouts](#the-repair-screen) | the readout, which is disabled and swallows it |
+| the weapons screen's [picture box](#the-weapons-screen) and a picture in it | the box, which is disabled and swallows it; a picture's image panel has no handler and swallows it too |
 
 ### The widget that takes a click decides what it does
 
@@ -285,6 +286,73 @@ The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` 
 
 **The sector run is a fourth witness that the stage counts from one at runtime.** `0x76` is `Razor`, a chassis name; the five sector words `Alpha`, `Delta`, `Omicron`, `Bravo`, `Luna` start at `0x77`. Stage 1 lands on the first of them, and the save stores the stage from zero ([`campaign-loop.md`](campaign-loop.md)).
 
+## The weapons screen
+
+Tab 2, `WEAPONS`, the arming screen. Built once by `Arming_BuildScreen` (`0043e52c`, `warmingi.cpp`), entered by `Arming_Enter` (`0043f548`) and hidden by `Arming_Leave` (`0043f5d2`), the teardown dispatcher's arming arm. Rects are parent-relative. The left of the canvas is [the squad panel](#the-squad-panel), filled with the three-quarter [bay picture](#the-bay-picture).
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| content panel | `TitledPanel` | `{0xf1, 0x2b, 0x278, 0x1d9}` | `0x9f` `Weapons`, header 19 tall, plate `0x66`-`0x116`, face `0x25`, filled body |
+| inventory | `TitledPanel` | `{6, 0xc5, 0x183, 400}` | `0xa0` `Weapons Inventory`, header 19 tall, `+0x65 = 0` |
+| picture box | `HatchedDivider` | `{6, 0x1a, 0x183, 0xc0}` | border `0x15`, `+0x55 = 0x76`, `+0x59 = 0x25`, `+0x49 = 0` |
+| 26 weapon pictures | image panel | each `gam\arm_weap.dat` record's corner in the box, sized to its frame | that frame of `dba\arm_weap.dba` |
+| 4 guidance pictures | image panel | the same, from the file's second list | |
+| blank picture | `Panel` | `{0x14, 0x1a, 0x14a, 0x5f}` in the box | `+0x51 = 0` |
+| `ARM`, `ARH`, `SARH`, `EO` | `Button` | `{0x152, 5, 0x179, 0x16}`, then `0x17` lower three times, in the box | `0xa1`-`0xa4`, border `0x22`, hidden |
+| rack button | `Button` | `{0x101, 0x61, 0x179, 0x72}` in the box | built blank, border `0x22`, hidden |
+| 3 description lines | `Text` | `{1, 0x7a, W, 0x88}`, `{1, 0x88, W, 0x94}`, `{1, 0x94, W, 0xa0}` in the box | centred, `0x29`, opaque in `0x25` |
+| 13 rows | `Panel` | `{9, i*0xd + 0x14, 0xaf, i*0xd + 0x20}` in the inventory | border `0x10` |
+| 14 rows | `Panel` | `{0xbf, i*0xd + 0x14, 0x165, i*0xd + 0x20}` in the inventory | border `0x10` |
+| label | `Text` | `{0xe, 0x195, 0x76, 0x1a1}` | `0xa5` `Hard Points`, right, `0x29` |
+| `<` | `Button` | `{0x7d, 0x194, 0x8b, 0x1a3}` | border `0x22` |
+| `>` | `Button` | `{0x91, 0x194, 0x9f, 0x1a3}` | border `0x22` |
+
+`W` is the box's own width, `+0x2d - +0x25`. The `ARM` to `EO` buttons step down by `0x17`, so the four are 18 tall with five rows between them.
+
+**The picture box is black over a grey band.** Its line fill starts on row `0x76` in `0x25`, which makes everything below that row a solid band and leaves the interior above it at the paint's own `0x10` ([below](#the-crew-screen) for the class). The pictures sit in the black, the description lines in the band. The box's enable flag is cleared, so a click anywhere on it that no button takes is swallowed.
+
+**A picture is a bare bitmap.** Each is placed at its `arm_weap.dat` record's corner and sized `{x, y, x + width, y + height}` to its frame, and the builder writes `+0x51 = 0` on it, which `ImagePanel_Ctor` has already done: that stops [the image panel's paint](#the-crew-screen) drawing a border, and the bitmap is blitted regardless. The weapon pictures are indexed by row through `Arming_RowOfWeapon` (`0043f6f7`) into `0048d5a0`, the guidance pictures by kind into `0048d608`. `None` has no record and shows the blank picture, a `Panel` whose cleared `+0x51` leaves it drawing nothing.
+
+### The inventory rows
+
+The rows list the 27 weapon ids of the table at `004769b0` — `arm_weap.dat`'s 26 in the file's own order, then `None` (0) — thirteen down the left and fourteen down the right, 13 tall on a 13-pixel pitch. Each is a [four-column row](#a-row-is-four-text-columns) cut at `0x8b`, `0x8c` and `0x8d`: the name, `estext.bin` `0x7e + id`, left from `2`; two one-pixel columns holding a space; and the count right-aligned from `0x8d` to one inside the row.
+
+`Arming_RefreshRows` (`0043fbc6`) regates all 27 on every row selection. The count is `"%d"` of the weapon's owned count, `weapons.dat` record `+0x17`, or two spaces for `None` ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#weaponsdat-catalog-record-29-bytes)). A weapon whose unlock flag `+0x16` is clear has its row disabled and its four columns set to `0x10`, the background, so the list shows a gap and keeps the builder's `"0"` where the count would be. An unlocked weapon's row takes `0x27` and is live while `Arming_RowLive` (`004149fb`) holds: always with no hardpoint selected, and with one only when the chassis's armory layout has a part for that weapon at `slot + 2`, the socket [the bay picture](#the-bay-picture) draws it in. A row that fails is disabled in `0x25`.
+
+### Selecting a row
+
+`Arming_SelectRow(row)` (`0043f71c`) is each row's handler, through 27 thunks from `00440300`, each of which sets `DAT_00476d58` for the length of the call. It does nothing for the row already lit (`DAT_00476d5a`) unless a guidance picture has been put up since (`DAT_00476d5c` not `-1`) or a hardpoint is selected. Otherwise it:
+
+1. With a hardpoint selected, refuses a weapon [it will not fit](#fitting-a-weapon), and `Arming_FitSelected` (`0043dc44`) fits the one it accepts.
+2. Runs `Arming_RefreshRows`, then puts the old row back to `0x27` or `0x25` by `Arming_RowLive` with its border `0x10`, and hides its picture and any guidance picture that is up.
+3. Lights the new row: border and all four columns `0x29`, enabled whatever its unlock flag says. Shows its picture, or the blank one for `None`, and fills the three description lines from `wpn_desc.bin` entries `id * 3` to `id * 3 + 2`.
+4. For ids `0xd` to `0x10` — the three missile racks and the Razor's launcher — captions the rack button with the weapon's name and shows the five buttons (`Arming_ShowGuidanceButtons`, `0043f5f7`, once, on `DAT_004769e6`); with a hardpoint selected it then runs `Arming_ShowGuidance` with that mount's kind and its second argument clear, which lights the kind's button and leaves the pictures alone. Any other id runs `Arming_HideGuidanceButtons` (`0043f644`), which puts the four guidance borders back to `0x22` and hides all five, and sets `DAT_00476d5c` to `-1`.
+5. Stores the row in `DAT_00476d5a`.
+
+A missile rack's row therefore leaves `DAT_00476d5c` where it was, with its picture hidden, so clicking the rack's row again runs the selection through.
+
+### Guidance kinds
+
+The four buttons call `Arming_ShowGuidance(kind, 1)` (`0043fd69`) with `ARM` 2, `ARH` 1, `SARH` 0 and `EO` 3 — the ids a fitted mount's record carries at `+0x08`, where the arming code reads 5 for an empty mount. It relights the borders, `0x22` on the kind in `DAT_00476d60` and `0x20` on the new one; with its second argument set it hides the lit row's picture, shows the kind's, fills the description lines from `wpn_desc.bin` `99 + kind * 3`, and stores the kind in `DAT_00476d5c`. It always stores the kind in `DAT_00476d60`, and `Arming_SetMountGuidance` (`0043dcb6`) writes it into the selected hardpoint's mount at `+0x08` when there is a hardpoint and a mount there.
+
+The rack button's handler (`0044012a`) runs `Arming_SelectRow` on the lit row, which a guidance picture being up lets through: it puts the rack's own picture and description back.
+
+`wpn_desc.bin` is three lines per weapon id: the 33 ids fill entries 0 to 98, and the four kinds 99 to 110 in id order.
+
+### Entering the weapons screen
+
+`Arming_Enter` shows the content panel, the inventory and the picture box. When the selected bay is `-1`, empty or holds a machine still being built, it calls `Squad_SelectBay` (`0043d64d`) with `Herc_FirstBuiltBay` (`00410c2a`). It then clears the hardpoint (`ArmingSelectedHardpoint`, `0xffff`) and runs `Arming_SelectRow(0)`. **So the screen opens on the first row, `AutoCannon 20mm`, with no hardpoint selected**, and a row click from there shows the weapon and fits nothing.
+
+The tab handler stores 2 in `DAT_0047581c` only after the entry ([above](#what-a-tab-click-does)), so that `Squad_SelectBay` takes the arm of the tab being left. Every arm takes a finished machine, except that the crew arm refuses the Razor while the crew screen's selected row is not the player's, which leaves the screen with no bay. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+**This tab's arm of `Squad_SelectBay`** refuses an empty bay and an unfinished machine and accepts `-1`. It clears the hardpoint, clears part slot 12 of the old bay's picture — the slot `Arming_MarkHardpoint` (`004155db`) puts the selected socket's outline in — runs `Arming_SelectRow(0)`, and then swaps the bay pictures, relights the two roster rows, stores `DAT_00482ae5` and refreshes the readout.
+
+### Fitting a weapon
+
+A hardpoint is selected by `Arming_SelectHardpoint` ([below](#the-arming-and-repair-hotspots)), which the ten arming hotspots and the two steppers reach: `<` (`00440244`) calls `Arming_PreviousHardpoint` (`0043dd49`), which wraps from 0 to the last mount, and `>` (`004402a2`) calls `Arming_NextHardpoint` (`0043dd09`), which steps modulo the mount capacity `+0x4c`. It selects the row of the mount's fitted weapon and runs `Arming_MarkHardpoint`, which redraws the socket's weapon part and puts an outline in part slot 12 from a second per-chassis bank, remapping `0xba` to `99`.
+
+With a hardpoint selected, `Arming_SelectRow` refuses a weapon the armory holds none of unless the mount already carries it; `None` is never refused. The test reads the mount's guidance kind at `+0x08` where the weapon id at `+0x00` belongs before it reads the fitted id, so a mount whose kind number equals the weapon's id skips the refusal. `Arming_FitSelected` then calls `FUN_004114ec(herc, hardpoint, weapon)` only while `DAT_00476d58` is set, which is only inside a row's own thunk — the entry and the hardpoint steppers select a row without fitting it — and in every case redraws the socket ([Open](#open)).
+
 ## The repair screen
 
 Tab 3, `REPAIR`. Its widgets are built once by `Repair_BuildScreen` (00432037), the screen is brought up by `Repair_Enter` and taken down by `Repair_Leave`, its rows are filled by `Repair_FillRow` (004339b2), its component names set by `Repair_SetComponentNames` (00433cdf), its selection moved by `Repair_SelectHotspot` (00433eb9) and its three readout panels refilled by `Repair_RefreshDetail` (00433445). Every rect is four immediates on the builder's stack and they are parent-relative, as everywhere else.
@@ -398,7 +466,7 @@ The rows are 14 tall on a 14-pixel pitch, so unlike the repair lists they do not
 
 A bay's pilot is `Squad_PilotForBay(00482a78, bay)` (`00410220`), which looks at exactly four records: the player's own, embedded at `+0x04`, and the three squad members the player structure points at from `+0x3f`. `Player_Read` (`004101b8`) sets those pointers on load to record `DAT_00483b48[k]` of squad `k`, so a pilot elsewhere in the squad block is never shown against a bay.
 
-**A roster click is `Squad_SelectBay(bay)` (`0043d64d`)**, through eight thunks from `0043dde7`, each of which sets `DAT_004765be` for the length of the call. It returns at once for the bay already selected, and each tab takes the click its own way, picked by `DAT_0047581c`. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels. The crew tab's arm is [below](#entering-the-crew-screen).
+**A roster click is `Squad_SelectBay(bay)` (`0043d64d`)**, through eight thunks from `0043dde7`, each of which sets `DAT_004765be` for the length of the call. It returns at once for the bay already selected, and each tab takes the click its own way, picked by `DAT_0047581c`. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels. The weapons tab's arm is [above](#entering-the-weapons-screen), the build tab's [below](#scrapping-and-building-are-gated-on-the-bay), and the crew tab's [after it](#entering-the-crew-screen).
 
 ### The bay picture
 
@@ -446,7 +514,7 @@ Tab 6, `CREW`. Built once by `Crew_BuildScreen` (00440eb8, `wcrewi.cpp`), which 
 
 A pilot's portrait is the `c_pilots` frame its roster id (`+0x00`) names; the bank has twelve, one per roster id. The three squad portraits are the three pilots the player structure points at from `+0x3f` — the squad members of [the squad panel](#the-squad-panel).
 
-**The image panel** is the class `ImagePanel_Ctor` (0040b698) builds. Its paint, `ImagePanel_Paint` (`0040b772`), blits the bitmap at `+0x5d` at the offset `(+0x55, +0x59)` and then draws the border over it with no fill, so a 56x52 portrait at `(0, 0)` in a row's 57x53 panel loses its top row and left column to the border. The constructor clears `+0x51`, which stops the paint drawing anything; the builder sets it on all seven.
+**The image panel** is the class `ImagePanel_Ctor` (0040b698) builds. Its paint, `ImagePanel_Paint` (`0040b772`), blits the bitmap at `+0x5d` at the offset `(+0x55, +0x59)` and then draws the border over it with no fill, so a 56x52 portrait at `(0, 0)` in a row's 57x53 panel loses its top row and left column to the border. The constructor clears `+0x51`, which stops the paint drawing the border and leaves the bitmap; the builder sets it on all seven.
 
 **`HatchedDivider_Paint` (0040c513)** fills and borders the panel, draws horizontal lines in `+0x59` from row `+0x55` down to the bottom border, redraws row `+0x55` and the border in `+0x4d`, and with `+0x5d` set draws a second border one pixel inside the first. The constructor sets `+0x55` to the widget's height, which draws no lines at all; the crew builder writes 0, which makes the lines a solid body.
 
@@ -487,6 +555,61 @@ Three clicks change the crew, all against the selected row.
 **`CLEAR`** (handler `00442352`) calls `Crew_ClearRow` (`00441f94`), which on a squad row holding a pilot calls `Squad_SetMemberBay(k, -1)`, frees the position, nulls the row pointer, and then calls `Squad_SelectBay` with the member's bay — `-1` by then — with `DAT_004765be` set. The row is empty by that point, so the assignment inside finds no pilot, and what remains is the picture going to the empty bay. On the player's row, or an empty one, it does nothing.
 
 Both the unassign and the recompute write the on-strength byte through `Squad_SetOnStrength` (`00410327`), which moves `00482a7a`, the count of machines on strength ([`../formats/save-games.md`](../formats/save-games.md#savgame_sav--block-order)), by one whenever the byte changes.
+
+## The build screen
+
+Tab 4, `BUILD`, the `Herc Construction` panel. Built once by `Build_BuildScreen` (`00445758`), entered by `Build_Enter` (`0044690d`) and hidden by `Build_Leave` (`0044694e`), the teardown dispatcher's build arm. Rects are parent-relative. The left of the canvas is [the squad panel](#the-squad-panel), filled with the three-quarter [bay picture](#the-bay-picture).
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| content panel | `TitledPanel` | `{0xf1, 0x2b, 0x27c, 0x162}` | `0xba` `Herc Construction`, header 19 tall, plate `0x7f`-`0x10a`, face `0x25`, dithered body in `0x25` |
+| 9 blueprints | `Grid` | `{0xb2, 0x2d, 0x180, 0x12d}` | one per chassis type, border `0x27`, grid lines `0x18` ([below](#the-blueprints)) |
+| chassis list | `FramedPanel` | `{0x16, 0x4b, 0x9a, 0xd1}` | face `0x10` |
+| 9 rows | `Panel` | `{10, i*0xe + 4, 0x6e, i*0xe + 0x11}` in the list | `0x6e + i`, the chassis name, border `0x10` |
+| stats box | `FramedPanel` | `{0x60, 0xe3, 0xab, 0x11f}` | face `0x10` |
+| 2 headings | `Text` | `{0x16, 0x28, 0x9a, 0x34}`, `{0x16, 0x34, 0x9a, 0x40}` | `0xbc` `Select Herc`, `0xbd` `Type To Build`, centred, `0x1a` |
+| 4 labels | `Text` | `{8, 0xe9, 0x5e, 0xf5}`, then 12 lower three times | `0xbb` `Mass`, `0xbe` `Speed`, `0xbf` `Hardpoints`, `0xc0` `Salvage Reqd`, left, `0x1a` |
+| 4 figures | `Text` | `{5, 6, 0x45, 0x12}` in the stats box, then 12 lower three times | left, `0x17`, opaque |
+| lower panel | `FramedPanel` | `{0xf1, 0x166, 0x27c, 0x1d9}` | face `0x10` |
+| salvage label | `Text` | `{0x7d, 9, 0x10e, 0x15}` in the lower panel | `0xc1` `Salvage Available`, centred, `0x1a` |
+| salvage box | `FramedPanel` | `{0x91, 0x1a, 0xfa, 0x2c}` in the lower panel | face `0x10`; its figure a `Text` at `{1, 3, 0x68, 0xf}`, centred, `0x17`, opaque |
+| scrap box | `FramedPanel` | `{0x37, 0x38, 0xc1, 100}` in the lower panel | face `0x25`; `0xc2` `Scrap Herc` at `{8, 6, 0x82, 0x12}`, centred, `0x1a` |
+| `SCRAP` | `Button` | `{0xf, 0x17, 0x78, 0x26}` in the scrap box | `0xc4`, border `0x22`, built disabled |
+| build box | `FramedPanel` | `{0xcc, 0x38, 0x156, 100}` in the lower panel | face `0x25`; `0xc3` `Build Herc`, placed as the scrap box's title |
+| `BUILD` | `Button` | `{0xf, 0x17, 0x78, 0x26}` in the build box | `0xc5`, border `0x22`, built disabled |
+
+The builder writes `+0x4d = 0x27` over the constructor's border on every panel and blueprint. The content panel's `+0x59 = 0` and `+0x5d = 0x25` make its body a checkerboard over [the scope's black](#the-palette), which is why the labels sit on a dithered ground while the boxes holding figures are flat. The lower panel is parented to the shell's top-level window rather than to the content panel, so the two are siblings and `Build_Enter` shows each.
+
+**The rows are 14 tall on a 14-pixel pitch.** Each is a [four-column row](#a-row-is-four-text-columns) cut at `0x62`, `0x62` and `0x62`: the name centred from `2` to `0x62`, then three empty columns, two of them zero-wide. Nine rows means every chassis type has one, the Razor included.
+
+The four figures are `herc_inf.dat`'s first four stats for the selected chassis, as `Herc_BuildScreenRefresh` (`00446cfa`) formats them ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md)). The salvage figure is `Build_RefreshSalvage` (`00446e71`)'s `"%ld %s"` of `(CareerSalvage - Armory_QueuedTotal()) / 1000` and `0xc6` `TONS` — the same net pool [the repair screen](#the-condition-readout) quotes in kilograms.
+
+### Choosing a chassis
+
+`Build_SelectChassis(chassis)` (`00446c3b`) is each row's handler, through nine thunks from `00446fbf`. It returns at once for the chassis already selected, `DAT_004786e4`; otherwise it sets the old row's name to `0x27` and its border to `0x10` and hides its blueprint, sets the new row's name and border to `0x29` and shows its blueprint, stores the chassis, and runs `Build_GateButtons` and `Herc_BuildScreenRefresh`. `DAT_004786e4` is `-1` in the image and this is its only writer.
+
+`Build_GateRows` (`00446835`) gates the rows on the chassis availability flag, `(&DAT_00483b62)[type * 8]` ([What the buttons are gated on](#what-the-buttons-are-gated-on)): a chassis without it has its row disabled and all four columns set to `0x10`, the background, so the list shows a gap where it is and a click on the gap does nothing. Every other row is enabled with all four columns at `0x27` — the selected row's name included.
+
+`Build_Enter` runs `Build_GateRows`, `Herc_BuildScreenRefresh`, `Build_GateButtons` and `Build_FillBlueprints`, shows the content panel, the lower panel and chassis 0's blueprint, and calls `Build_SelectChassis(0)`. **So the screen always opens on chassis 0**, available or not. Coming back to the tab with chassis 0 still selected, the select returns at once, and the row keeps its lit border under the name `Build_GateRows` has just set back to `0x27`.
+
+### Scrapping and building are gated on the bay
+
+`Build_GateButtons` (`004469d4`) writes the [greying trio](#the-condition-readout) at both buttons from the bay the squad panel has selected, `DAT_00482ae5`:
+
+| Bay | `SCRAP` | `BUILD` |
+|---|---|---|
+| empty | dead | live when the net pool is **more** than the selected chassis's price times 1000, compared unsigned |
+| occupied | the repair screen's `SCRAP` test: not the only deployable machine, and its chassis available | dead |
+
+A machine is built into an empty bay, and only an occupied one can be scrapped. A pool exactly equal to the price leaves `BUILD` dead. With no bay selected the function reads the dword before the eight-pointer array at `00482ac3` as the bay's machine.
+
+**This tab's arm of `Squad_SelectBay` takes any bay.** Unlike the repair and crew arms it refuses nothing, an empty bay and an unfinished machine included: it swaps the bay pictures, relights the two roster rows, stores `DAT_00482ae5`, refreshes the readout, and runs `Build_GateButtons`.
+
+`SCRAP`'s handler (`00446ee0`) opens a confirmation dialog, built by `00447328` with `estext.bin` `0xc9` as its title and `0xca`/`0xcb` as its two buttons. `BUILD`'s (`00446f3e`) calls `0040e91c` with the selected chassis and then refreshes the roster names and crew, the readout, the salvage figure and the gate ([Open](#open)).
+
+### The blueprints
+
+`Build_FillBlueprints` (`0041579d`) fills the nine grids from the same records and banks as the repair screen's [exploded external picture](#the-damage-diagram): each `gam\rpr_*.dat` body record, from `dba\rpr_<chassis>.dba`, in the slot its id names with the record's flags. No weapon is drawn. Every part's remap pair is `0xe` to `0xe`, which `Grid_Paint` applies because the target is not `0x10` and which changes nothing, so the parts show in their own ink. `Build_Leave` frees the nine banks (`00415928`) and `Build_Enter` loads them again.
 
 ## The arming and repair hotspots
 
@@ -588,6 +711,10 @@ The main menu tab keeps the strip up here, where its handler hides it as tab 1's
 
 **The crew screen is drawn and assigns**, from the same save. `ShellCrewScreen` places every widget above, fills the four rows and the three squad portraits from the pilot records `ShellHangar` carries, colours the rows by `00482a78`, and runs the entry's selection, so it opens on the bay retail opens on. A row click, a squad portrait, a roster click and `CLEAR` do what [Assigning pilots](#assigning-pilots) says, on the hangar the other tabs read, on-strength bytes and count included. `ShellBayPictures` loads the nine `arm_*.dat` layouts and their banks and draws the bay picture, and `ShellSquadPanel` draws it with the readout and the roster as the one left-hand column the four tabs share. The bay the entry starts from is the repair screen's, the only selection this engine carries between tabs.
 
+**The weapons screen is drawn and shows**, from the same save's armory stock, `gam\arm_weap.dat`, `dba\arm_weap.dba` and `wpn_desc.bin`. `ShellWeaponsScreen` places every widget above, lists the 27 rows with their counts and unlock gaps, shows the lit row's picture and description, puts the guidance buttons up for a missile rack and shows a kind's picture from them, and opens on the first row. The roster click takes the arming arm's bay rule. No hardpoint is ever selected, so a row click fits nothing, which is what retail does with none selected; the steppers do nothing ([Open](#open)). Its bay starts from the repair screen's, as the crew and build screens' do.
+
+**The build screen is drawn and selects**, from the same save and `gam\herc_inf.dat`. `ShellBuildScreen` places every widget above, gates the rows on the save's availability flags, prints the selected chassis's figures and the net salvage, and gates `SCRAP` and `BUILD` on the bay; `ShellRepairDiagrams` draws the blueprint from the repair screen's layouts. A row click moves the chassis and a roster click moves the bay, as [The build screen](#the-build-screen) says. Neither button acts ([Open](#open)). Its bay starts from the repair screen's, as the crew screen's does, and with no bay selected it takes the bay as empty where the original reads past the array — this engine's choice.
+
 Until `RESTORE` loads one, the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
 
 **The widget paints run in palette indices, not in quads.** `ShellSurface` is an 8-bit indexed canvas with the primitives the paints are built from, `ShellChrome` and `ShellGrid` port the paints onto it, and the result is resolved through the palette and uploaded as one texture per repaint. That is the original's own model and two of its details depend on it: the ink remap that gives a widget its text colour cannot be done on resolved colours, and index 0 staying untouched is what lets a dithered panel body show the backdrop through it. Clipping each paint to its own widget is likewise load-bearing rather than defensive — the title bar's hatch is drawn 700 pixels wide for a 357-pixel panel.
@@ -598,7 +725,7 @@ The whole content surface is painted afresh on every change, where the original 
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the other three tabs' content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -614,13 +741,17 @@ Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), th
 | `0041f2e6` shows a widget and `0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
 | The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
 | Every widget fires on the button's release, and only after a press on it | That is `Control_HandleEvent`'s rule, and it is the base class's handler, run by the panels, the grids and every content button, so it reads as the shell's. The tab strip, the image panels and the edit fields each put a handler of their own in vtable slot 0: the strip fires on the left press, an image panel on any left release, an edit field on the left press ([The widget that takes a click decides what it does](#the-widget-that-takes-a-click-decides-what-it-does)) |
+| `00445758` is the mission tab's builder, as its old Ghidra name `Mission_BuildScreen` has it | It is the largest function after `wmissini.cpp`'s assert-string anchor, so the file attribution points at the mission tab. Every widget it builds is one that `Build_Enter` (`0044690d`), tab 4's entry, shows and the teardown's build arm hides, and its captions are the `Herc Construction` run `0xba`-`0xc5`. `known_symbols.json` names it `Build_BuildScreen` |
 | The palette scope draws nothing — it exists only to fire the palette install | It carries no bitmap, no caption and no chrome, and its handler's event 2 is the install. Its event 4 is a paint, `PaletteScope_Paint` (`0040cb40`), which fills its rect with `0x10`; that fill is why retail's tab screens are black ([The palette](#the-palette)) |
 
 ## Open
 
 - **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays).
 - **Unported:** the pressed nudge of a content button's caption. `Button`'s paint (`00409b79`) moves the caption down while `+0x45` is lit and the button is enabled, as the strip's does; the engine's content buttons draw theirs in one place.
-- **Unported:** the squad panel on WEAPONS and BUILD, which goes with those two screens, and their arms of `Squad_SelectBay` (`0043d64d`).
+- **Unported:** selecting a hardpoint on the weapons screen — `Arming_SelectHardpoint` (`0043dbb2`), the two steppers, the arming hotspots and `Arming_MarkHardpoint`'s outline — and so fitting a weapon and writing a mount's guidance kind.
+- **Open:** what `FUN_004114ec` does when `Arming_FitSelected` fits a weapon — what it takes from the armory's stock and returns to it, and whether it refuses a weapon the stock holds none of, which [the row's own test](#fitting-a-weapon) lets through for a mount whose guidance kind equals the weapon's id.
+- **Unported:** the build screen's `SCRAP` confirmation dialog (`00447328`) and `BUILD`'s order through `0040e91c`.
+- **Open:** what `0040e91c` writes when `BUILD` is clicked — which bay the new machine goes into, and how the order reaches the build queue ([`armory.md`](armory.md)).
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked; the engine draws nothing for a missing frame.
 - **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.
 - **Open:** the edit field's keyboard handling past its dispatch. Keystrokes reach the row as the pointer's target ([Saving is a rename](#saving-is-a-rename)). `EditField_HandleEvent` passes a key (event `0x40`) to `FUN_0040bdd2` while `+0xbf` is set, acts on a command (`0x100`) only while `+0xbf` and `+0xa7` are both set — backspace (1) and the left arrow (4) both call `FUN_0040be56`, and Enter (`0x0a`) releases the lock and the focus — and hands every key and command on to the row's handler. Unread: which event `004377d2` posts at the row, how the permitted-character set at `+0x9f` filters (the full string is unread past `"…qrstu"`), whether the `" 3. "` prefix can be deleted, and what the row's handler does with a key — whether one commits or abandons the rename.
@@ -628,6 +759,6 @@ Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), th
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
 - **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.
 - **Unported:** the armory build queue; the repair screen's salvage figure is the raw pool with nothing deducted as a result.
-- **Unported:** the other five tabs' content (`MAIN MENU`, `WEAPONS`, `BUILD`, `ARMORY`, `MISSION`).
+- **Unported:** the other three tabs' content (`MAIN MENU`, `ARMORY`, `MISSION`).
 - **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.
 - **Unported:** setting the campaign/training mode — `FUN_0040e69e`, which `00431498` calls with 1; the gate is driven only by a command-line flag.

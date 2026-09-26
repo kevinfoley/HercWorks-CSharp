@@ -212,7 +212,7 @@ The loader derives each panel's rect as `{ x, y, x + frameWidth, y + frameHeight
 
 **Twenty-six weapons have a panel.** The seven ids with none are `NONE` (0), the three Bull weapons (19–21), and `LAEW` (26), `MINE` (27) and `MFAC` (28). This settles player availability outright, where the `.MSN` roster scan cannot: see [`weapons-dat.md`](weapons-dat.md#the-rank-byte-and-what-retail-actually-fits) and [`../cut-content.md`](../cut-content.md).
 
-The four trailing panels are the guidance kinds `ARM`, `ARH`, `SARH`, `EO`, ids `0`–`3`.
+The four trailing panels are the guidance kinds by their own ids: `SARH` 0, `ARH` 1, `ARM` 2 and `EO` 3, the order `wpn_desc.bin` describes them in and the values a mount carries ([`../shell/screen-layout.md`](../shell/screen-layout.md#guidance-kinds)).
 
 `WPN_INFO.BIN` is indexed by this file's panel order rather than by weapon id, five strings per panel — see [`weapons-dat.md`](weapons-dat.md#the-bin-string-tables).
 

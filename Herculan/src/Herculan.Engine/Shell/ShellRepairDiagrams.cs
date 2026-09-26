@@ -125,6 +125,26 @@ public sealed class ShellRepairDiagrams {
 	}
 
 	/// <summary>
+	/// The build screen's blueprint of one chassis, <c>Build_FillBlueprints</c> (<c>0041579d</c>): the
+	/// same <c>rpr_*.dat</c> body records and <c>rpr_</c> banks as the exploded external picture, each in
+	/// the slot its id names with the record's flags, and no weapons. Every part's remap pair is
+	/// <c>0xe</c> to <c>0xe</c>, which <c>Grid_Paint</c> applies and which changes nothing, so the parts
+	/// show in their own ink.
+	/// </summary>
+	public void PaintBlueprint(ShellSurface surface, ShellRect rect, int chassisType, byte borderColor,
+			byte lineColor) {
+		var parts = new ShellGridPart?[ShellGrid.PartSlots];
+		if (chassisType >= 0 && chassisType < _layouts.Length && _layouts[chassisType] is { } layout) {
+			foreach (var (id, record) in layout.BodyImages ?? new()) {
+				SetPart(parts, id, Frame(_bodyBanks[chassisType], record.FrameId), record.OriginX, record.OriginY,
+					record.Flags?.Val ?? 0, BodyInk, BodyInk);
+			}
+		}
+
+		ShellGrid.Paint(surface, rect, gridLines: true, parts, borderColor, lineColor);
+	}
+
+	/// <summary>
 	/// The picture-column row a canvas point selects, or null — the panels
 	/// <c>Hotspots_BuildOverlay</c> (<c>0043c1a0</c>) lays over the external picture. Rows 0-5 are the
 	/// six <c>rpr_hots.dat</c> areas for the chassis, row <c>6 + slot</c> the rect of the weapon part

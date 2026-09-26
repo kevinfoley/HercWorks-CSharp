@@ -109,6 +109,16 @@ static class ShellHost {
 		var crewPortraits = ShellCrewPortraits.Load(content);
 		ShellCrewScreen? crewScreen = null;
 		Console.WriteLine($"Bay picture layouts loaded for {bayPictures.LayoutCount} chassis.");
+
+		// The build screen's chassis figures and prices, and the same body layouts the repair diagram
+		// draws, which its blueprints reuse. Built on first entry and kept, as the crew screen is.
+		var chassisCatalog = ShellBuildScreen.LoadCatalog(content);
+		ShellBuildScreen? buildScreen = null;
+
+		// The weapons screen's pictures and prose, and the screen itself, built on first entry and kept.
+		var weaponsArt = ShellWeaponsArt.Load(content);
+		ShellWeaponsScreen? weaponsScreen = null;
+		Console.WriteLine($"Weapon pictures loaded for {weaponsArt.WeaponCount} weapons.");
 		Console.WriteLine(repairCosts == null
 			? $"No gam\\{ShellRepairCosts.ValuesResourceName} or gam\\{ShellRepairCosts.ChassisResourceName}"
 			  + " — the repair screen draws its labels and no cost figures."
@@ -140,11 +150,14 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("SAVE, REPAIR and CREW are the tabs with a screen behind them. Click a save slot "
-			+ "row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to select "
-			+ "it and the panels beside it follow. On CREW, click a row to select it, then a squad portrait "
-			+ "to put that pilot in the row, a Squad Inventory row to give the row's pilot that bay, or "
-			+ "CLEAR to empty the row. The other five tabs latch and show the frame. The save screen hides "
+		Console.WriteLine("SAVE, WEAPONS, REPAIR, BUILD and CREW are the tabs with a screen behind them. Click a save "
+			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
+			+ "select it and the panels beside it follow. On BUILD, click a chassis to see its blueprint and "
+			+ "figures, or a Squad Inventory row to pick the bay SCRAP and BUILD are gated on. On WEAPONS, click an "
+			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. On CREW, click "
+			+ "a row to select it, then a squad portrait to put that pilot in the row, a Squad Inventory row "
+			+ "to give the row's pilot that bay, or CLEAR to empty the row. The other three tabs latch and "
+			+ "show the frame. The save screen hides "
 			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
 			+ "repair screen. Close the window to quit.");
 		Console.WriteLine(paletteName != null
@@ -244,6 +257,10 @@ static class ShellHost {
 		void EnterTab(int id) {
 			if (id == ShellScreen.CrewTab) {
 				EnterCrew();
+			} else if (id == ShellScreen.WeaponsTab) {
+				EnterWeapons();
+			} else if (id == ShellScreen.BuildTab) {
+				EnterBuild();
 			} else if (id == ShellScreen.MissionTab && MissionView() == ShellMissionView.Map) {
 				missionMapShown = true;
 			}
@@ -260,6 +277,10 @@ static class ShellHost {
 				ShellScreen.SaveTab => saveScreen.HitAt(canvasX, canvasY),
 				ShellScreen.RepairTab => ShellSquadPanel.HitAt(canvasX, canvasY)
 					?? repairScreen.HitAt(canvasX, canvasY),
+				ShellScreen.BuildTab when buildScreen != null => ShellSquadPanel.HitAt(canvasX, canvasY)
+					?? buildScreen.HitAt(canvasX, canvasY),
+				ShellScreen.WeaponsTab when weaponsScreen != null => ShellSquadPanel.HitAt(canvasX, canvasY)
+					?? weaponsScreen.HitAt(canvasX, canvasY),
 				ShellScreen.CrewTab when crewScreen != null => ShellSquadPanel.HitAt(canvasX, canvasY)
 					?? ShellCrewScreen.HitAt(canvasX, canvasY),
 				_ => null,
@@ -302,6 +323,19 @@ static class ShellHost {
 					break;
 				case ShellWidgetKind.SquadRow:
 					ClickRoster(widget.Index);
+					break;
+				case ShellWidgetKind.BuildChassisRow:
+					SelectChassis(widget.Index);
+					break;
+				case ShellWidgetKind.BuildButton:
+					Console.WriteLine($"{(ShellBuildButton)widget.Index} — the button is live and its action "
+						+ "is not ported yet.");
+					break;
+				case ShellWidgetKind.WeaponsRow:
+					SelectWeaponsRow(widget.Index);
+					break;
+				case ShellWidgetKind.WeaponsButton:
+					ClickWeaponsButton((ShellWeaponsButton)widget.Index);
 					break;
 				default:
 					ClickCrew(widget);
@@ -415,6 +449,24 @@ static class ShellHost {
 				return;
 			}
 
+			if (screen.SelectedTab == ShellScreen.BuildTab) {
+				if (buildScreen?.ClickRoster(bay) == true) {
+					RepaintContent();
+					LogBuild();
+				}
+
+				return;
+			}
+
+			if (screen.SelectedTab == ShellScreen.WeaponsTab) {
+				if (weaponsScreen?.ClickRoster(bay) == true) {
+					RepaintContent();
+					LogWeapons();
+				}
+
+				return;
+			}
+
 			if (repairScreen.SelectBay(bay)) {
 				RepaintContent();
 				Console.WriteLine($"Bay {bay}: chassis type {repairScreen.Machine?.ChassisType}.");
@@ -457,6 +509,94 @@ static class ShellHost {
 				+ string.Join("; ", rows) + $". {hangar.MachinesOnStrength} on strength.");
 		}
 
+		// A chassis row's handler, Build_SelectChassis (00446c3b); the chassis already selected is a no-op.
+		void SelectChassis(int chassis) {
+			if (buildScreen?.SelectChassis(chassis) == true) {
+				RepaintContent();
+				LogBuild();
+			}
+		}
+
+		void LogBuild() {
+			if (buildScreen == null) {
+				return;
+			}
+
+			Console.WriteLine($"Build: chassis {buildScreen.SelectedChassis}"
+				+ (buildScreen.SelectedEntry is { } entry ? $" ({entry.SalvageReq} tons)" : string.Empty)
+				+ $", bay {buildScreen.SelectedBay}, {buildScreen.AvailableKilograms} kg available; "
+				+ $"SCRAP {(buildScreen.IsEnabled(ShellBuildButton.Scrap) ? "live" : "dead")}, "
+				+ $"BUILD {(buildScreen.IsEnabled(ShellBuildButton.Build) ? "live" : "dead")}.");
+		}
+
+		// Tab 4's entry, from the bay the repair screen has selected, as the crew tab's is.
+		void EnterBuild() {
+			if (buildScreen == null) {
+				buildScreen = new ShellBuildScreen(hangar, repairScreen.SelectedBay, chassisCatalog, repairDiagrams,
+					bayPictures);
+			} else {
+				buildScreen.Enter(hangar, repairScreen.SelectedBay);
+			}
+
+			LogBuild();
+		}
+
+		// Tab 2's entry, from the bay the repair screen has selected, as the build and crew tabs' are.
+		void EnterWeapons() {
+			if (weaponsScreen == null) {
+				weaponsScreen = new ShellWeaponsScreen(hangar, repairScreen.SelectedBay, weaponsArt, bayPictures);
+			} else {
+				weaponsScreen.Enter(hangar, repairScreen.SelectedBay);
+			}
+
+			LogWeapons();
+		}
+
+		// An inventory row's handler, Arming_SelectRow (0043f71c).
+		void SelectWeaponsRow(int row) {
+			if (weaponsScreen?.SelectRow(row) == true) {
+				RepaintContent();
+				LogWeapons();
+			}
+		}
+
+		// The four guidance buttons show their kind, the rack's own button selects its row again, and the
+		// hardpoint steppers are not ported.
+		void ClickWeaponsButton(ShellWeaponsButton button) {
+			if (weaponsScreen == null) {
+				return;
+			}
+
+			switch (button) {
+				case ShellWeaponsButton.Arm or ShellWeaponsButton.Arh or ShellWeaponsButton.Sarh or ShellWeaponsButton.Eo:
+					weaponsScreen.ShowGuidance((int)button);
+					break;
+				case ShellWeaponsButton.Weapon:
+					if (!weaponsScreen.SelectRow(weaponsScreen.SelectedRow)) {
+						return;
+					}
+
+					break;
+				default:
+					Console.WriteLine($"{button} — hardpoint selection is not ported yet.");
+					return;
+			}
+
+			RepaintContent();
+			LogWeapons();
+		}
+
+		void LogWeapons() {
+			if (weaponsScreen == null) {
+				return;
+			}
+
+			int weapon = weaponsScreen.SelectedWeapon;
+			Console.WriteLine($"Weapons: bay {weaponsScreen.SelectedBay}, row {weaponsScreen.SelectedRow} "
+				+ $"({art.Text?.Text(0x7e + weapon) ?? $"weapon {weapon}"}, {hangar.WeaponsOwned(weapon)} held)"
+				+ (weaponsScreen.ShowingGuidance ? $", showing guidance kind {weaponsScreen.ShownGuidance}." : "."));
+		}
+
 		// Tab 6's entry. The bay it starts from is the one the previous tab left selected, DAT_00482ae5,
 		// which here only the repair screen tracks; the entry then moves it.
 		void EnterCrew() {
@@ -496,6 +636,12 @@ static class ShellHost {
 					break;
 				case ShellScreen.SaveTab:
 					saveScreen.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				case ShellScreen.BuildTab when buildScreen != null:
+					buildScreen.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				case ShellScreen.WeaponsTab when weaponsScreen != null:
+					weaponsScreen.Paint(contentSurface, art.Text, art.Sprites);
 					break;
 				case ShellScreen.CrewTab when crewScreen != null:
 					crewScreen.Paint(contentSurface, art.Text, art.Sprites);
@@ -556,5 +702,6 @@ static class ShellHost {
 
 	/// <summary>The tabs this engine has a screen behind.</summary>
 	private static bool HasScreen(int tab) =>
-		tab is ShellScreen.SaveTab or ShellScreen.RepairTab or ShellScreen.CrewTab;
+		tab is ShellScreen.SaveTab or ShellScreen.WeaponsTab or ShellScreen.RepairTab or ShellScreen.BuildTab
+			or ShellScreen.CrewTab;
 }

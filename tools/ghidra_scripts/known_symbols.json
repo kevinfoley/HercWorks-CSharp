@@ -1712,10 +1712,10 @@
       "address": "0040b698",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Widget_InitRect",
-      "description": "Thin widget-init wrapper: calls base-init FUN_0040a6f4(widget, parent, rectPtr, ...)/Panel_Ctor to copy a caller-supplied {x,y,w,h} rect into the widget struct, then sets its own vtable pointer (0x61-byte struct) and clears a couple of state fields. Sibling wrappers over the same Panel_Ctor/Window_Ctor base are now individually disambiguated by their own vtable+paint-function pairs -- see Text_Ctor/Button_Ctor/ButtonIcon_Ctor/TitledPanel_Ctor/FramedPanel_Ctor/Grid_Ctor/HatchedDivider_Ctor/Panel_Ctor below. This one's own paint function (FUN_0040b772) wasn't independently decompiled/confirmed, so it stays medium/generic.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "confidence": "high",
+      "name": "ImagePanel_Ctor",
+      "description": "Constructor of the image panel class (0x61 bytes, vtable 0046ec94): Panel_Ctor base, the bitmap at +0x5d, the blit offset +0x55/+0x59 cleared, +0x51 cleared so it draws nothing until a builder sets it, and hidden. Its paint is ImagePanel_Paint (0040b772). The crew screen's portraits and the shell frame's backdrop root are this class.",
+      "source": "docs/shell/screen-layout.md#the-crew-screen"
     },
     {
       "address": "00409970",
@@ -12409,10 +12409,10 @@
       "address": "00441a01",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Crew_Show",
-      "description": "Built by tab 6's handler. Identified from its dispatch position only.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "Crew_Enter",
+      "description": "Tab 6's screen entry, run after the handler has stored 6 in DAT_0047581c: Crew_ColourRows, Crew_MatchRowPilots, the three squad portraits, Crew_SelectRow 0-3 then 0, Crew_FillRows, then Squad_SelectBay for every occupied bay -- which leaves the last bay holding a finished machine selected.",
+      "source": "docs/shell/screen-layout.md#entering-the-crew-screen"
     },
     {
       "address": "004441e3",
@@ -16664,7 +16664,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_BuildTabPictures",
-      "description": "Per-tab picture builder the squad panel's show runs: tab 3 builds the repair diagrams and their hotspot overlay, tabs 2, 4 and 6 FUN_00414e5b, tab 2 the arming hotspots as well.",
+      "description": "Per-tab picture builder the squad panel's show runs: tab 3 builds the repair diagrams and their hotspot overlay, tabs 2, 4 and 6 Squad_BuildBayPictures (00414e5b), tab 2 the arming hotspots as well.",
       "source": "docs/shell/screen-layout.md#the-squad-panel"
     },
     {
@@ -16691,7 +16691,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_SelectBay",
-      "description": "A squad roster click: returns for the bay already selected, then takes the bay each tab's own way. The repair tab refuses an empty or unbuilt bay, swaps the pictures, relights the rows, stores DAT_00482ae5 and resets the repair selection to (0, 0).",
+      "description": "A squad roster click: returns for the bay already selected, then takes the bay each tab's own way, by DAT_0047581c. The repair tab refuses an empty or unbuilt bay, swaps the pictures, relights the rows, stores DAT_00482ae5 and resets the repair selection to (0, 0). The crew tab accepts -1 or a finished machine, refusing the Razor unless CrewSelectedRow is 0, and first assigns the bay while Squad_RosterClickFlag is set.",
       "source": "docs/shell/screen-layout.md#the-squad-panel"
     },
     {
@@ -16711,6 +16711,150 @@
       "name": "Squad_RefreshRowCrew",
       "description": "Writes each roster row's last column in 0x27: the assigned pilot's name, or N% Complete for a machine still being built.",
       "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "0040b772",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ImagePanel_Paint",
+      "description": "Image panel paint: blits +0x5d at (+0x55, +0x59) through FUN_00453158, then Panel_FillAndBorder(widget, 0) -- border over the bitmap, no fill. Vtable 0046ec94 slot +4, read from the raw image.",
+      "source": "docs/shell/screen-layout.md#the-crew-screen"
+    },
+    {
+      "address": "0040cb40",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PaletteScope_Paint",
+      "description": "The palette scope's event-4 paint: fills its whole rect, {0, 0x1e, 0x27f, 0x1df}, with 0x10. Shell_SetPaletteScope's show posts it, so every tab from WEAPONS to MISSION blacks out the canvas below the strip; nothing repaints the backdrop root afterwards.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "00414e5b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_BuildBayPictures",
+      "description": "Fills the squad panel's eight bay pictures and the empty picture (DAT_0048d4dc) for WEAPONS, BUILD and CREW: moves each to {5, 0x2b} at 0xe7 x 0x105, grid lines off, then the arm_*.dat top and bottom records from dba\\<stem>_bod.dba (mt_3qtr.dba at 0% built, body frames 2/3 or 4/5 while building) and each fitted weapon's group record (id slot + 2) from <stem>_wep.dba.",
+      "source": "docs/shell/screen-layout.md#the-bay-picture"
+    },
+    {
+      "address": "004102d6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_MemberAtPosition",
+      "description": "(player, position) -> index 0-2 of the first of the three squad pointers at player+0x3f whose pilot record +0x27 equals position, or -1.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00410366",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_UpdateOnStrength",
+      "description": "(player, position): sets the on-strength byte of the squad member at that position when the position is below the player structure's leading short (00482a78) and the member has a bay, clears it otherwise (via FUN_00410327). Matches every retail save's on-strength bytes.",
+      "source": "docs/formats/save-games.md#savgame_sav--block-order"
+    },
+    {
+      "address": "00441afa",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Crew_Leave",
+      "description": "Hides the crew content panel (DAT_0048d72c). Read as the crew tab's teardown from its body only; the teardown dispatcher's call to it was not checked.",
+      "source": "docs/shell/screen-layout.md#the-crew-screen"
+    },
+    {
+      "address": "00441857",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Crew_ColourRows",
+      "description": "Colours each crew row by whether it is below 00482a78: body +0x59 0x25/0x10, labels 0x19/0x1a, value backing 0x25/0x10. The value colours it writes (0x16/0x17) are overwritten by Crew_FillRows' Text_SetString.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00441b08",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Crew_MatchRowPilots",
+      "description": "Fills the row pilot pointers at 004776e0 for rows 1-3 with the squad member at that position (Squad_MemberAtPosition), or null.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00441b85",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Crew_SelectRow",
+      "description": "(row): relights the old and new rows' borders and portraits (0x21/0x29), calls Squad_SelectBay with the row pilot's bay (the player's for row 0, -1 for an empty row), then stores the row in CrewSelectedRow -- so the Razor test inside sees the row being left.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00441c4f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Crew_FillRows",
+      "description": "Fills the four crew rows' portraits and Name/Skill/Herc values: the player from 00482a80, PlayerPilotSkill and bay 00482a9e, each squad row from its pilot record, 0x7e None for a pilot with no machine, estext entry 0 for an empty row.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00441eb8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Crew_AssignSquadMember",
+      "description": "(k): on any row but the player's, moves squad member k into the selected row's position (+0x27), clearing whoever held it, then assigns the selected bay and refills. Read in outline only.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00441f94",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Crew_ClearRow",
+      "description": "CLEAR's action: empties the selected row's position and refills. Read in outline only.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00442055",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Crew_AssignSelectedBay",
+      "description": "Gives SelectedBaySlot to the selected row's pilot (the player through FUN_0040e6c8, a squad member through its +0x22), unassigning whoever had it. Called from Squad_SelectBay's crew arm while Squad_RosterClickFlag is set. Read in outline only.",
+      "source": "docs/shell/screen-layout.md#entering-the-crew-screen"
+    },
+    {
+      "address": "004776dc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "CrewSelectedRow",
+      "description": "The crew screen's selected row, 0-3 (int16). The same 4-byte stride continues at 004776e0 as the row pilot pointers for rows 1-3.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "004765be",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Squad_RosterClickFlag",
+      "description": "Set by the eight roster-row thunks around their Squad_SelectBay call; while set, the crew arm also assigns the bay to the selected row's pilot.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "00482a78",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SquadPositionsInPlay",
+      "description": "The player structure's leading int16: squad positions in play, the player's counted as 0. Bounds the auto-repair (0040e862) and player.mec export (0040f1e4) loops; Squad_UpdateOnStrength puts a member on strength only below it; the crew screen lights the rows below it.",
+      "source": "docs/formats/save-games.md#savgame_sav--block-order"
     }
   ]
 }

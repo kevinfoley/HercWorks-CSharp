@@ -144,6 +144,15 @@ public sealed class ShellArt {
 			ShellText.Load(content));
 	}
 
+	/// <summary>
+	/// Every frame of one <c>dba\</c> bank as indexed bitmaps, for the widgets that paint into a
+	/// <see cref="ShellSurface"/> rather than through the atlas. Null when the bank is missing.
+	/// </summary>
+	public static DynamixBitmap[]? ReadBankFrames(GameContent content, string name) =>
+		content.Read(BankFolder, name + ".DBA") is { } bytes
+			&& new DynamixBitmapArrayTransformer().Parse(bytes) is DynamixBitmapArray { Images: { } images }
+			? images : null;
+
 	private static DynamixPalette? ReadPalette(GameContent content, string name) =>
 		content.Read("dpl", name + ".DPL") is { } bytes
 			? new DynamixPaletteTransformer().Parse(bytes) as DynamixPalette

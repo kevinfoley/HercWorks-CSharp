@@ -110,6 +110,24 @@ public static class ShellPalette {
 	};
 
 	/// <summary>
+	/// Whether switching to <paramref name="tab"/> leaves the canvas below the strip filled with the
+	/// shell's background colour. Tabs 2-7 install their palette through the scope (<c>FUN_0043b162</c>
+	/// cases 2-7 all call <c>FUN_00439da0</c>), and showing the scope posts its paint,
+	/// <c>FUN_0040cb40</c>, which fills its whole rect with <c>0x10</c> before the hide installs the
+	/// palette. Nothing repaints the backdrop-textured root afterwards, so a tab screen is drawn over
+	/// that fill, and wherever its widgets leave the canvas bare, retail shows black. The main menu and
+	/// the save screen go through the scope too, but then put up their own backdrop-textured root over
+	/// it.
+	/// </summary>
+	public static bool FillsScope(int tab) => tab >= 2 && tab <= 7;
+
+	/// <summary><c>FUN_0040cb40</c>: the scope's rect filled with <see cref="ShellChrome.InteriorColor"/>.</summary>
+	public static void PaintScope(ShellSurface surface) {
+		var scope = ShellLayout.PaletteScope;
+		surface.Fill(scope.X0, scope.Y0, scope.X1, scope.Y1, ShellChrome.InteriorColor);
+	}
+
+	/// <summary>
 	/// The theater palette for a campaign stage — <c>FUN_004075b2(stage + 0xe)</c> in
 	/// <c>maybe_Mission_UpdateLocationTab</c>. Stage 5 never reaches it in the original, which branches
 	/// to the lunar cutscene before the call, so <c>LUNA</c> is in the table and unused by this path.

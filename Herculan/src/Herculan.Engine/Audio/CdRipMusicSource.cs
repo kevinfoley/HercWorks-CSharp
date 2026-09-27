@@ -21,8 +21,11 @@ namespace Herculan.Engine.Audio;
 /// </summary>
 public sealed class CdRipMusicSource : MusicSourceBase {
 	/// <summary>
-	/// Sectors per <c>IOCTL_CDROM_RAW_READ</c>, the measured ceiling — see docs/formats/audio.md's
-	/// "CD music".
+	/// Sectors per <c>IOCTL_CDROM_RAW_READ</c>, the measured ceiling: 52 fails with
+	/// <c>ERROR_INVALID_PARAMETER</c>. A read never runs past the track's own end, because one that
+	/// crosses the lead-out fails whole. The track is read on a worker thread, and playback starts on
+	/// the first block, a few tens of milliseconds in: the read runs at about 7.8x realtime from a
+	/// cold drive and 20x once it has spun up. A cached track reads in about 25 ms.
 	/// </summary>
 	public const int MaxSectorsPerRead = 26;
 

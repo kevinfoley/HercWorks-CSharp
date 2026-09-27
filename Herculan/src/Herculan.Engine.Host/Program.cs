@@ -4765,6 +4765,9 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 		// return, a global object pointer whose relation to the current view is not decoded — the two
 		// branches send F7 and [Esc], which together are plainly a toggle, so that is what this is.
 		case JoystickAction.HddView:
+			// A toggle, which is what the action's two branches were plainly meant to be. The original
+			// tests the view manager's pointer rather than the view, so it can only ever leave the HDD
+			// (docs/formats/joystick-input.md, "HDD VIEW can only leave").
 			RequestHeadsDown(headsDown: !cockpitPan.HeadsDownRequested);
 			break;
 

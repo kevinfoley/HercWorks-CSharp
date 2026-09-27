@@ -1,6 +1,6 @@
 # DBSIM.EXE launcher rounds (`PROJ.DAT` type `Missile`)
 
-Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{Rocket, RocketCatalog}` and `SimWorld.FireRocket`.
+Addresses are DBSIM virtual addresses.
 
 The third and last fire branch. A `Beam` record resolves inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a travelling shot ([`projectiles.md`](projectiles.md)); a `Missile` record becomes one of these. Every missile launcher — `MSL6`, `MSL8`, `MSL10`, `FLYMSL`, `BMSL` — fires one.
 
@@ -22,7 +22,7 @@ Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` w
 | `+0x0a` | *`Unk3Uint16`* | which of the shape's sequences that interval steps |
 | `+0x0c` | `SfxFireIdMissiles` | sound id, played as `id + 10` |
 
-The italicised property names are `ProjMissileDatEntry`'s, which are `BULLETS.DAT`'s; the shared parser is bug-compatible with neither file's meaning and the engine reads through named accessors.
+The italicised property names are `ProjMissileDatEntry`'s, which are `BULLETS.DAT`'s, and the shared parser reads neither file's meaning into them.
 
 Retail (5 records, one per `Missile` subtype id):
 
@@ -55,7 +55,7 @@ Vtable `+0x14` of `RocketVtable` (`00498448`); draw is `Bullet_Draw`, shared wit
 4. **Guidance** — `Rocket_PlayerSteer` when the owner is locally simulated *and* the subtype is 3, `Rocket_HomingSteer` otherwise.
 5. `step = IntegrateRateOverTick(speed)` along the frame's Y axis, then a `Sim_RaycastObjectList` over that step alone with `record[+0x06]` as the shot record's slack — the same sweep-the-segment arrangement a bullet uses. Struck anything and the round ends.
 
-**Damage is never power-scaled**: a rocket comes off a rack, not a capacitor, so the `PROJ.DAT` figures apply at face value. The shot record's `+0x12` carries the subtype id where a bullet hardcodes 5; that field gates an unrelated target-side alert and nothing in the engine reads it.
+**Damage is never power-scaled**: a rocket comes off a rack, not a capacitor, so the `PROJ.DAT` figures apply at face value. The shot record's `+0x12` carries the subtype id where a bullet hardcodes 5; that field gates an unrelated target-side alert.
 
 Also here: the proximity beep once the round is within 40000 units of the camera's machine, and the pair of globals (`DAT_0049c394`/`DAT_0049c398`) that tell the cockpit its missile view is over ([Open](#open)).
 
@@ -88,19 +88,9 @@ Both roots declare one sequence of two frames (`TSShape.SequenceList == [2]`, th
 
 **There is no `ROCKETS.DBA` and no bank is bound.** Unlike `Bullet_LoadResources`, the rocket loader never writes the shapes' bound-bank pointer, and the shapes hold no `TSBitmapPart` to want one: a rocket is entirely ramp-coloured `TSSolidPoly`/`TSShadedPoly` geometry.
 
-## Engine port
-
-`Sim.Rocket`, `Sim.RocketCatalog`, `SimWorld.{FireRocket, RocketsInFlight}`, `SceneModelLibrary.Rocket`, `MissionScene.RocketModels`. Deviations:
-
-- **Homing works.** The target comes from `TargetSelection`, gated on the subtype's lock flag as the original gates it. The emission gate on subtype 2 is ported. A round steers at the target's shape centre rather than a named part, and the ECM wobble is not reproduced ([Open](#open)).
-- **The player's branch is not reproduced.** The original's no-input state is destructive (it drops the target and rewrites the subtype mid-flight), so a player-flown round flies straight instead of sitting in a state the original only passes through ([Open](#open)).
-- **The flame is built as one mesh per cell.** `DtsMeshBuilder.BuildRoot` takes a cell index and `SceneModelLibrary.Rocket` returns the cells in order; the host picks by the round's own frame counter. That is the engine's equivalent of `TSCellAnimPart_Render` choosing one child — see [`../formats/dts-billboards.md`](../formats/dts-billboards.md).
-- **Sound is ported.** `SimWorld.FireRocket` plays the record's `+0x0c` at the muzzle as `id + 10`, and `Rocket.InboundWarningTick` reproduces the missile-inbound warning: every tick the round measures itself against the camera and the first time it comes inside `0x9c40` world units it plays catalog id `0x32` and latches (`round+0x6`). The warning does not care whose round it is or where it is going, so the player's own launch warns them as it leaves. → [`../formats/audio.md`](../formats/audio.md)
-
 ## Open
 
-- **Unported:** the proximity beep once an inbound round is within 40000 units of the camera's machine.
 - **Unported:** the pair of globals (`DAT_0049c394`/`DAT_0049c398`) that tell the cockpit its missile view is over.
-- **Unported:** the node handle (`+0x5a`) a homing round steers at; the engine steers at the target's shape centre instead of a named part.
+- **Unported:** the node handle (`+0x5a`) a homing round steers at.
 - **Unported:** the ECM wobble on a homing round's steer.
-- **Unported:** the player-flown missile view. The engine has no missile view to feed `Rocket_PlayerSteer`, so a player-flown round flies straight instead of sitting in the state the original only passes through.
+- **Unported:** the player-flown missile view that feeds `Rocket_PlayerSteer`.

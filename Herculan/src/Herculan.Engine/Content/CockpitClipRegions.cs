@@ -33,6 +33,13 @@ public readonly record struct ClipSpan(int Start, int Length);
 /// differ by exactly one pixel at the right edge and nothing else; the inclusive reading is taken
 /// because the loader's own coordinate doubling for the 320-wide art (<c>x1 = (x1 &lt;&lt; shift) +
 /// (1 &lt;&lt; shift) - 1</c>) is inclusive-end arithmetic.</para>
+///
+/// <para>With all three panels shown at once, each carries its own view's rect: the forward panel
+/// view 0, the unmirrored side panel view 2 and the mirrored side panel view 3, whose rect is
+/// reflected about the view width as its art is. All three render one camera into one viewport
+/// (<see cref="Render.CockpitScreenLayout.World"/>) and the rects are the scissors that divide it.
+/// Pairing the mirrored panel with view 2's rect would clip a band off its outer edge that retail
+/// does not (docs/formats/cockpit-views.md, ".VUE — per-view geometry").</para>
 /// </summary>
 public sealed class CockpitClipRegions {
 	/// <summary>Resource folder stem for the 640-wide clip files, per <see cref="HudSpriteSheet.ResourceFolder"/>'s reasoning.</summary>

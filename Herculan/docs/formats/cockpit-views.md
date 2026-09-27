@@ -4,8 +4,6 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addres
 
 Verified against retail data in `ES2/VOL/simvol0/{hb0,hb1,hb2,hba,hd0-3,ed0-3,vue,gau,dpl,dat}/`.
 
-Engine implementation: `Herculan.Engine.Content.CockpitViewGeometry`, `Content.CockpitClipRegions`, `Render.CockpitPan`, `Render.Camera`.
-
 Canopy art itself and the cockpit palette: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). The console and HUD widgets a view's canvas carries: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). The front-window gunsight complex: [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md). How a mouse click on a screen-edge widget reaches its handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## Object model
@@ -111,10 +109,6 @@ Step is 10 canvas rows; `maybe_CockpitLayoutMode == 2` doubles it and forces tra
 
 **Both views' canopies are resident in the canvas throughout.** `Sim_InitMissionSession` (`004614fc`) calls `CockpitView_SetView(mgr, 1)` and then `CockpitView_SetView(mgr, 0)` during bring-up, so the pan is a pure scroll and never a redraw. That order also settles the six-row overlap where the two blits meet — `.HB1` lands at canvas row 474 and `.HB0` runs to 479, so **`.HB0` wins**.
 
-Herculan: `Herculan.Engine.Render.CockpitPan`, `Content.CockpitViewGeometry`, `Render.Overlay2DRenderer.DrawHeadsDown`. The pan is pinned to a fixed 0.4 s (mode 0's 24 steps at 60 Hz), expressed as a duration so both asset sets pan at one speed, and interpolated continuously rather than in 10-row jumps.
-
-The glances are `Render.CockpitGlance`, on the same terms: mode 0's 320 columns at `0x14` a step is 16 steps, pinned at 60 Hz per panel of travel. The engine shows all three panels at once, so its glance stops where the side panel meets the window's edge rather than one panel over; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
-
 ## `.VUE` — per-view geometry
 
 After the 9-byte VOL prefix: `int32 viewCount`, then `viewCount x` 8 `int32`s. All coordinates are authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`.
@@ -129,7 +123,7 @@ C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the
 
 The rect is the **outer bound** on where the 3D scene may reach, and the `.HD<n>` scanline spans below are the canopy-shaped hole inside it: two mechanisms over one view, both applied. `Content.CockpitViewGeometry.WorldViewport` reads it, and the host draws each panel's whole 3D pass — sky, world, beams, sprites — under a GL scissor set from it, before the canopy quad goes over the top with the spans already punched into its alpha. The two agree on retail data (`APOCA.HD0` resolves to rows 0-371 against a rect of `0,0 - 640,372`), so the scissor changes nothing that is visible on a herc whose canopy is opaque outside its rect — which is what makes the spans sufficient on their own and the rect easy to miss.
 
-Each of the three panels the engine shows at once carries its own view's rect: the forward panel view 0, the unmirrored side panel view 2, and the mirrored side panel view 3, whose rect is reflected about the view width exactly as its art is. All three passes render one camera into one viewport spanning the panels, and the rects are the scissors that divide it. The two glances share a canopy bitmap but not a rect — view 3's runs the full width where view 2's stops short of it, on every retail herc — so pairing the mirrored panel with view 2's rect would clip a band off its outer edge that retail does not.
+The two glances share a canopy bitmap but not a rect: view 3's runs the full width where view 2's stops short of it, on every retail herc.
 
 Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs.
 
@@ -158,8 +152,6 @@ Every retail rect starts at `(0,0)`, so the centre in a view's own window is `-(
 ### The side glances are one image plane
 
 For the glances the canvas origin does not cancel. View 2, origin `+320`, gets its centre at x = `160 - 320 = -160` authored — 160 columns left of its own window, which is exactly where the forward view's centre sits when the forward window is placed immediately left of it on the canvas. View 3, origin `-320`, gets `160 + 320 = 480`, the same point seen from the other side. With the same focal length and no change of orientation (the yaw turn in `CockpitView_ProcessViewCommand` does not run; see [Rejected readings](#rejected-readings)), the forward view and both glances are three windows onto **one** perspective image 960 columns wide authored: the glances are the forward view's image plane continued sideways, not cameras turned to face sideways. That is why the retail side views stretch towards their outer edges the way a very wide lens does.
-
-Herculan draws all three panels at once, so it renders them as that one image: `Render.CockpitScreenLayout.World` is a single viewport spanning the three panels, cut to the window, and the host draws it with one camera whose principal point is the forward view's centre.
 
 `Raster_InstallViewProjection` (`0048c1d8`) also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the back buffer's width (`DAT_004d30c4`, a copy of `VideoMode_BackBufferWidth`; see [Video modes](#video-modes)) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
 

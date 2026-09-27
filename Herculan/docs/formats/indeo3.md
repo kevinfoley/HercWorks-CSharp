@@ -4,7 +4,7 @@ Intel's `IV32`, the compression behind 80 of the 93 files in `ES2/AVI/` — both
 
 `Codecs/Indeo3/Indeo3Decoder.cs` in `HercWorks.Video` is the decoder. Every frame of all 80 files decodes without a malformed-stream rejection.
 
-Addresses are virtual addresses in `IR32_32.DLL`, the Intel codec the game's installer drops in `ES2/INDEO/`. Its image base is `10000000`. Nothing in this engine loads that DLL; it is read as evidence only.
+Addresses are virtual addresses in `IR32_32.DLL`, the Intel codec the game's installer drops in `ES2/INDEO/`. Its image base is `10000000`.
 
 ## Frame layout
 
@@ -124,10 +124,6 @@ Escapes, where "null" means the prediction is copied unchanged:
 
 `FE` after line 2, or `FF` after line 1, is malformed. A skipped block in a mode 10 intra cell is filled from the row above like a null one.
 
-## Output
-
-The decoded buffer is converted to RGBA with chroma sampled nearest-neighbour, using ITU-R BT.601 at studio range. The matrix is this engine's choice, not one read from `IR32_32.DLL` ([Open](#open)).
-
 ## Codebooks
 
 A cell's pixel data is a stream of one-byte VQ codes, and a codebook is what turns one of those bytes into the pixel deltas it stands for. Decode a cell against the wrong codebook and it comes out as noise.
@@ -222,6 +218,6 @@ The cell layer — the tree, the modes, the escapes and the two-buffer scheme �
 
 ## Open
 
-- **Open:** the YUV-to-RGB conversion. The decoder uses BT.601 at studio range; the matrix and range `IR32_32.DLL` converts with have not been read out of it.
+- **Open:** the matrix and range `IR32_32.DLL` converts YUV to RGB with.
 - **Open:** the null cell's second code. 0 and 1 are both decoded as a copy. What the retail codec does differently for 1 has not been read, and no frame in the corpus uses it: all 80,237 null cells across the 80 files carry 0.
 - **Unported:** 8-bit pixels and half-pel motion vectors (frame flag bits 1, 4 and 5). No frame in the corpus sets them, and the decoder rejects a frame that does.

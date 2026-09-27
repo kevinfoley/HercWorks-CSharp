@@ -46,12 +46,6 @@ A point the player drops under their own feet and is steered back to. Three fiel
 
 **It is dropped by `[Alt+D]`** — command `0x220`, set-1 scancode `0x20` with the `0x200` the cockpit adds for `[Alt]` ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes)). `CockpitWidgets_HandleCommand` claims that code in its own switch, so it never falls through to the FlashComm panel, which is where the manual's `[Alt]`+hotkey documents `D` (DISENGAGE) going. The manual does not mention the marker at all.
 
-## Engine port
-
-`MechObject.PlayerThink.cs` is the think, dispatched as `ThinkSlot.Player` from `MechObject.AiTick`; `MissionGroup.NextWaypointClosesRoute` is the refusal test; `Content.NavMarker` is the marker, held by the host beside the mission clock because it is cockpit-view state rather than the machine's. `Content.WaypointMark` resolves either subject to the bearing, range and number the HUD draws.
-
-The three objective arms live beside the waypoint one in `MechObject.PlayerThink.cs`; see [`mission-objectives.md`](mission-objectives.md#engine-port).
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

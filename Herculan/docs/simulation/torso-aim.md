@@ -91,7 +91,7 @@ AnimThread_SeekToPosition(thread, sequenceId, (unsigned)angle >> 2)
 
 The threads themselves never play: `Mech_Constructor` gives every thread a rate of zero and only the locomotion tick ever raises one, so `AnimThread_Advance` returns immediately for these two.
 
-The intra-frame offset lands on a whole animation tick, because the scale-down truncates. A twist sequence is 8 frames of 100 ticks, so a full turn has 799 drawable positions and **the turret steps about 0.45° at a time**; the pitch sequences are the same size over a much smaller travel, which leaves ~67 positions across OUTLAW's 30° of pitch. Below roughly 10°/s the steps are far enough apart in time to read as a stutter rather than as motion — at 0.55°/s, one step per second. Only an analogue stick can hold a rate that low: a held key is worth `0x80` on the axis, which is 22°/s. HERCULAN keeps the bits the truncation drops — see [below](#sub-tick-seek-interpolation--not-retail).
+The intra-frame offset lands on a whole animation tick, because the scale-down truncates. A twist sequence is 8 frames of 100 ticks, so a full turn has 799 drawable positions and **the turret steps about 0.45° at a time**; the pitch sequences are the same size over a much smaller travel, which leaves ~67 positions across OUTLAW's 30° of pitch. Below roughly 10°/s the steps are far enough apart in time to read as a stutter rather than as motion — at 0.55°/s, one step per second. OUTLAW's 76.9° of twist travel, centre to limit, draws 170 distinct poses. Only an analogue stick can hold a rate that low: a held key is worth `0x80` on the axis, which is 22°/s.
 
 ### Three threads per machine
 
@@ -103,7 +103,7 @@ It decides nothing on 17 of the 18 retail HERCs — locomotion covers parts 1,2,
 
 ### The angle is not the drawn direction
 
-The two drift apart by up to ~7%, because the sequences' keyframes are not evenly spaced. OUTLAW's twist sequence (node 4, rotation about Z only) steps `0, −7280, −15470, −23660, −31850, −40238, −48428, −56618` — summing to exactly −65536, one full turn, but in uneven strides. At the 14000 limit the eye ends up 13004 round.
+The two drift apart by up to ~7%, because the sequences' keyframes are not evenly spaced. OUTLAW's twist sequence (node 4, rotation about Z only) steps `0, −7280, −15470, −23660, −31850, −40238, −48428, −56618` — summing to exactly −65536, one full turn, but in uneven strides. At the 14000 limit the eye ends up 13004 round. The pitch keyframes are near-uniform, so pitch barely drifts: OUTLAW's eye pitches 3443 at its 3500 limit up and −2133 at −2000 down.
 
 Nothing is inconsistent as a result: `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) reads the camera node's own composed transform, so the HUD, the aim and the view all agree with the drawn pose. The angle field is control state, not a direction.
 
@@ -143,36 +143,7 @@ Scancode `0x2b` (`\`, "Center Body") sets the opposite flag `g_CenterBodyMode` (
 
 `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) composes the camera node's world transform with the machine's and brings a target into that frame to place it on the HUD. It is also **the "point the turret at that" primitive**: it drives both ticks below from the residual angle and hands that residual back — see [`ai-weapons.md`](ai-weapons.md#the-fire-decision--ai_fireatpoint-0041f5a0). **That frame's orientation is what "the direction the pilot is looking" means in DBSIM** — the camera node hangs below both turret nodes (see [`mech-locomotion.md`](mech-locomotion.md#cockpit-eye-and-bob)'s chain table), so twist and pitch turn the view with nothing having to add them to it.
 
-## HERCULAN Engine implementation
-
-| File | Contents |
-|---|---|
-| `Sim/Anim/ShapeInstance.cs` | The shape's threads and the node poses they produce together |
-| `Sim/Anim/AnimationThread.cs` | `SeekToPosition`, `TryGetLocal` |
-| `Sim/MechObject.Torso.cs` | Both ticks, the centring command |
-| `Sim/MechObject.cs` | The three threads, `EyeTransform` |
-| `Sim/MechControls.cs` | `TorsoTwist`, `TorsoPitch`, `CenterTorso`, `CenterBody` |
-| `Sim/MechObject.cs` | `TorsoTick`, the three-case turret block, and `LatchCenterTorso` |
-| `Sim/WeaponMounts.cs` | `AutoTrack`, the `manager+0x14` latch |
-| `Content/RotationIndicator.cs`, `Render/Overlay2DRenderer.cs` | The HUD rotation indicator — see [`cockpit-gunsight-hud.md`](../formats/cockpit-gunsight-hud.md#front-window-hud--the-gunsight-complex) |
-
-`MechObject.EyeTransform` is the pilot's whole frame, orientation included; `EyePosition` is its translation. The host takes the cockpit camera's yaw and pitch from it rather than from the machine's heading.
-
-**Verified:** the eye's yaw tracks the twist angle across the travel and its pitch tracks the pitch angle (OUTLAW, 3443 drawn against a 3500 limit up, −2133 against −2000 down — the pitch keyframes are near-uniform where the twist ones are not). The rate ramps to maximum in about five ticks, holds, and snaps to zero the tick the stick is released. Centring returns 14000 to 0 and stops there.
-
-**The walk cycle does not rotate the eye at all** — measured at zero yaw, pitch and roll swing over a full stride on OUTLAW, OGRE, MONGOOSE and HEADHUNT, so taking the camera's orientation from the eye node changes nothing about a machine with its turret centred. One real difference it does introduce: MONGOOSE's camera node has a −570 (−3.1°) rest pitch that a heading-only camera discarded.
-
-Host keys follow the manual's keyboard turret set — `J`/`K` twist, `I`/`M` pitch, `Backspace` centres, `T` toggles ATT. `--turret <twist> <pitch>` holds the axes for a `--screenshot` run and `--track` powers up with ATT latched, which needs `--target` beside it to have anything to hold.
-
-The idle timer is run down in the turret block rather than in the cockpit update, which is the only consumer of its result; the arming stays on the target change, where the original puts it.
-
-### Sub-tick seek interpolation — not retail
-
-`AnimationThread.SeekToPosition` keeps the remainder the original's Q14 scale-down discards, and `FrameFraction` spends it, so a seeked pose is no longer quantised to a whole animation tick. Against OUTLAW: 1747 drawn twist poses across the 76.9° travel where retail has 170, and the drawn view moves every tick from half stick up rather than from three quarters.
-
-`TweakSettingDefinitions.SmootherTurretMovement` is the switch, and clearing it restores the original's arithmetic exactly. It defaults **on** — the deliberate exception to this engine's retail-by-default rule. Playback is untouched: only a seek produces a remainder, and the locomotion thread is never seeked.
-
-What is left is the cosine table rather than the animation. `SimTrig.Cos` quantises a rotation to its 16-BAM step, so the drawn view moves in 0.101° increments and a twist under about 2°/s still steps. Q10 is enough to carry the fraction past that point: one Q10 unit is 8 binary angle across a torso sweep's 45° keyframe interval.
+The walk cycle does not rotate that frame: on OUTLAW, OGRE, MONGOOSE and HEADHUNT the eye's yaw, pitch and roll stay at zero across a full stride with the turret centred. MONGOOSE's camera node carries a −570 (−3.1°) rest pitch of its own, so its view looks slightly down even then.
 
 ## Open
 

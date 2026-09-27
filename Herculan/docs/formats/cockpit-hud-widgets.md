@@ -4,8 +4,6 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addres
 
 Verified against retail data in `ES2/VOL/simvol0/{hba,gau,dat}/`.
 
-Engine implementation: `Herculan.Engine.Content.{HudSpriteSheet, HudFont, HudColorTable, CockpitHudState, WeaponRowState}`, `Herculan.Engine.Render.Overlay2DRenderer`.
-
 The view manager and canvas these widgets are drawn onto: [`cockpit-views.md`](cockpit-views.md). Canopy art and the palette a flash swaps: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). The front-window gunsight complex (a separate widget tree): [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md). How a mouse click on any of these widgets reaches its own click handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## HUD sprite art — `.HBA`/`.DBA`
@@ -34,7 +32,7 @@ Frame-to-state mapping: `PWEAPONS` 0/1 are the selected/unselected row plate, 2/
 
 `Gau_Load` (`00431778`, `PANEL.CPP:0x1d6`) reads a `0x6a4`-byte struct and constructs six sub-widget vectors. The file's first two `int32`s are an origin offset added to every widget rect. `Gau_BuildCockpitWidgets` (`00431bf8`) then builds seven top-level widgets from fixed offsets and shifts every rect by `VideoMode_X/YCoordShift`. The order it builds them in is also the cockpit's click precedence — [`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence) has the full sequence.
 
-GAU coordinates are authored in the 320-wide space; the engine's `CockpitArt.GauToPixelScale = 2` maps them onto 640-wide art. See [`cockpit-views.md`](cockpit-views.md#cockpit-canvas) for the y-range question.
+GAU coordinates are authored in the 320-wide space, half the 640-wide art's. See [`cockpit-views.md`](cockpit-views.md#cockpit-canvas) for the y-range question.
 
 ## `dat\COLORS.DAT` — logical colour ids
 
@@ -278,9 +276,9 @@ On taking a walking machine the cockpit comes up piece by piece rather than read
 | Roving gunsight, `cockpit+0x1f5` | `!= 0` | the compass winds up — [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md#power-up-wind-up) |
 | MFD, `cockpit+0x1ed` | `!= 0` | [the scanner dish grows](#scanner-dish-grows) |
 
-**A flyer skips all of it.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* marks done every widget in the table, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start. The same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up).
+**A flyer skips all of it.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* marks done every widget in the table, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start. The same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up). <!-- doc-lint: ok -->
 
-Engine: `Herculan.Engine.Content.CockpitPowerUp`, and `HeadingTapeSweep` for the compass. Retail runs every one of these animations on the coarse clock from a stamped tick, so a widget that is off screen while its update is skipped shows on its return exactly what it would have shown.
+Retail runs every one of these animations on the coarse clock from a stamped tick, so a widget that is off screen while its update is skipped shows on its return exactly what it would have shown.
 
 ### Weapon rows wink on
 
@@ -398,8 +396,6 @@ Each display runs the toggle from its own update, so a display whose update does
 | MFD | Once its power-up has armed it, outside view 4, with its screen on screen; not while the dish is still growing on the scanner |
 | Weapon row | Once its power-up has armed it, with its rect on screen or a view transition running |
 | Heads-Down Display | Outside view 4 |
-
-Engine: `Herculan.Engine.Content.SensorDropout`, `CockpitDropouts` and `SpriteSequence`.
 
 ## Per-frame ordering
 

@@ -1,6 +1,6 @@
 # Mission actions, deployment and drop pods (DBSIM.EXE)
 
-Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim`: `MissionActionState`, `MissionActionTimerState`, `MissionTriggers`, `MissionGroup.DeploymentCheck`, `Deployment` and `MeteorObject`.
+Addresses are DBSIM virtual addresses.
 
 A **mission action** is a `script.dat` block-5 record: a one-shot latch with consequences hanging off it. Something activates it, and everything waiting on it acts. It is the only scripting the simulation has — mission progression, reinforcement waves and the drop pods are all this one mechanism.
 

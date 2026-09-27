@@ -165,14 +165,6 @@ The timer is `GetTickCount() >> 4` (`FUN_00465a1c`), a tick of 16 ms. The state 
 
 The map object keeps its state, so the next time the briefing is shown the loop makes one pass: state `0x13`, one paint, done.
 
-## Engine coverage
-
-`ShellMap` (`Herculan.Engine.Shell`) is the map object, built by `ShellHost` the first time the briefing comes up after a slot is loaded, from the slot's `script%d.dat`, `missn%d.str` and `player%d.mec` — the files `Career_LoadSlot` copies into `data\` — with `data\mforms.dat`, and `ZONES.VOL`, which the shell now mounts. It builds the relief with `ZoneRelief`, draws every pass above, answers the six buttons and runs the intro, advanced once an update on the map's own 16 ms clock.
-
-`ShellSurface` carries the drawing it needs: `FillConvex` for the polygon filler, `StretchBlit` for the relief, `ScaledBlit` for a shrunken icon and `FillEllipse` for the pen, the last three sampling or rasterizing nearest where the original's exact rules are unread ([Open](#open)).
-
-While the intro runs `ShellHost` delivers nothing to the widgets, and takes a button going down or Esc or Space only as the skip — this engine's choice ([Open](#open)). The buttons fire once a click, the auto-repeat not being ported ([`screen-layout.md`](screen-layout.md#open)).
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

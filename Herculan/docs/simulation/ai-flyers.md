@@ -4,8 +4,6 @@ The Cybrid aircraft. `Flyer` is a class of its own, not a HERC: it has its own b
 
 Retail ships one flyer chassis with data: `SKIMMER` ("Landskimmer"). `nam\FLYERS.NAM` also lists `HOVTANK` and `DROPSHIP`, and neither has a `.DAT`, `.COL`, `.DMG` or `.FM`, so neither can fly or be shot.
 
-Ported as `Sim.FlyerObject` (`.Ai.cs`, `.Flight.cs`), `Sim.Ai.FlyerBehaviourState` and `World.FlyerFormationTable`.
-
 ## The seven states
 
 `FlyerBehaviourStateTable` (`00499cf8`) holds seven `0x3c`-byte descriptors, built at startup by `Flyer_BuildStateTable` (`00414c65`) from `FlyerBehaviourSlotBlocks` (`00499e9c`) and `FlyerBehaviourStateNames` (`00499f98`). The descriptor layout is the mech one minus its trailing `+0x3c` string index — an aircraft never appears on the [F7] comm page — which is what makes the stride `0x3c` where the mech table's is `0x3e`.
@@ -39,7 +37,7 @@ The reassess maps the group's current order verb onto a state. The verb set is [
 | 4 `sleep` | `sleeping` | latches `flyer+0xa5` |
 | 5 `travel` | `scouting` | latches `flyer+0xa5` |
 
-**Verbs 1, 2 and 6 install nothing, and neither does an empty slot.** The switch has no default and the descriptor it is about to install lives in `ECX`, which nothing on that path writes — the same shape of defect `Mech_AiSelectBehaviour` has for an empty order slot, where the register is provably zero and the dereference is a null one ([Open](#open) covers whether the same holds here). See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all); the engine leaves the aircraft in the state it has.
+**Verbs 1, 2 and 6 install nothing, and neither does an empty slot.** The switch has no default and the descriptor it is about to install lives in `ECX`, which nothing on that path writes — the same shape of defect `Mech_AiSelectBehaviour` has for an empty order slot, where the register is provably zero and the dereference is a null one ([Open](#open) covers whether the same holds here). See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all).
 
 `flyer+0xa5` is the third byte of the out-of-the-fight triple ([`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5)), and nothing clears it. A flight ordered to travel or to sleep stops counting as something the other side has to contest, which is the point.
 
@@ -106,7 +104,7 @@ The pitch channel is `Flyer_PitchToAltitude` (`00422108`) into `Flyer_PitchComma
 
 The command array's throttle element is **never written** — `Flyer_SteerAndFly` zeroes it at every site — so the flight model's rate branch never steps the setting and it stays at `Flyer_Constructor`'s `0x200`, half. A `SKIMMER` therefore cruises at the airspeed half throttle asks for, 875 of its 500–1000 range, biased only by its own pitch attitude.
 
-`Flyer_FormationThrottle` (`00422260`) does work a throttle figure out of the station error and the leader's speed, clamped to `[0x8c, 0x100]`, and writes it to `flyer+0x21c` — **a field with no reader anywhere in the image**, so the engine does not compute or store it.
+`Flyer_FormationThrottle` (`00422260`) does work a throttle figure out of the station error and the leader's speed, clamped to `[0x8c, 0x100]`, and writes it to `flyer+0x21c` — **a field with no reader anywhere in the image**.
 
 ## The move — `Flyer_MovementTick` (`004218c4`)
 
@@ -152,7 +150,7 @@ An aircraft is drawn by **cell** rather than by node — it loses components lik
 | `Flyer_FormationThrottle`'s output controls the flight | `flyer+0x21c` has no reader, and the model's throttle input is zero at every call site |
 | A flyer's own radar is what paints it | It zeroes `flyer+0x96` every non-combat tick. A flight is painted by the other side's scanner or not at all |
 
-`flyer+0x1f4` gates firing (`|x| < 10`) and `flyer+0x1f8` scales the leader term in the bank command. Both are read exactly once each and written nowhere in the image, so both are identically zero: the gate always passes and the term contributes nothing. The engine models neither, which matches.
+`flyer+0x1f4` gates firing (`|x| < 10`) and `flyer+0x1f8` scales the leader term in the bank command. Both are read exactly once each and written nowhere in the image, so both are identically zero: the gate always passes and the term contributes nothing.
 
 ## Open
 

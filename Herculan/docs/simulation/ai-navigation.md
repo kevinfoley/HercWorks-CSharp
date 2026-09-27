@@ -224,16 +224,6 @@ return steep ? 1 : 2
 
 Block 7's `+0x00` and `+0x02` are `.MSN` row #12's `+0x08` and `+0x0a`; see [`msn-mission-file.md`](../formats/msn-mission-file.md) and [`script-dat.md`](../formats/script-dat.md).
 
-## Engine port
-
-`MechObject.Navigation.cs` holds the four primitives, the avoidance and the five thinks; `MissionGroup` owns the route cursor and its wrap. The think slot is dispatched from `MechObject.AiTick`, which until this slice ran the reassess alone.
-
-What differs from the original, and why:
-
-- **The shape probe stops at the bounding radius.** The original casts a swept volume against each candidate's shape; the engine has no such cast, so the probe takes the coarse reject that cast opens with — the candidate's bounding radius against the segment's closest approach. It reports a structure from slightly further out than its shape would, which errs toward steering earlier. It cannot be left out: a static structure's collision radius is zero, and so is a wrecked animated one, so the proximity sweep never sees either and a machine walks into one and stands there for the rest of the mission.
-- **The machine sweep's range is the ground one.** The original's is 3D. The two agree on level ground and the sweep reads a machine on a rise as further off than the engine does, so the engine steers around it marginally earlier.
-- **The mode-1 hit point is the walk's own point for the step**, not the refinement `FUN_0046fcac` solves against the blocking face. Both callers only measure a range from it, and the two differ by less than a cell.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

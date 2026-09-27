@@ -13,6 +13,9 @@ namespace Herculan.Engine.Terrain;
 /// around the viewer, and <c>Terrain_DrawCellQuad</c> installs the same distance as the visibility
 /// range the fog is measured against (<see cref="HeightGrid.VisibilityRange"/>). So the setting moves
 /// the far edge of the world and the fog together, as one.</para>
+///
+/// <para>The original re-reads the setting every frame; this reads it once at zone load, which is
+/// equivalent while nothing changes it mid-mission.</para>
 /// </summary>
 public static class TerrainDetail {
 	/// <summary>

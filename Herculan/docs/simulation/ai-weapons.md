@@ -196,18 +196,6 @@ if (mount+0x5f == 0 || mount+0x5b == 0) {
 | Gun convergence has no traced consumer | `WeaponMount_PrepareShot` reads `mount+0x24`/`+0x28` and composes them into the firing bone's frame |
 | `travelling` and `following` only point the turret at their look-at object | Both call `Ai_AimAndFire`, the same tail the combat states use. The look-at is not a *selected* target, but it is shot at |
 
-## Engine port
-
-`MechObject.Weapons.cs` holds `AimAndFire`, `FireAtPoint` and `ChooseWeapon`; `MechObject.Torso.cs` gains `TrackWorldPoint`, the port of `Cockpit_TargetAnglesFromCameraBone`, and the convergence pass; `WeaponMount` gains the convergence pair and `RangeAllows`.
-
-What differs from the original, and why:
-
-- **`mech+0x96` is `MechObject.Scanner` throughout.** The navigation slice ported it a second time as `WeaponsFree`; the two were the same byte and are now one property.
-- **`mech+0xa5` is `MechObject.Disarmed`, and the AI's liveness tests read it through `SimObject.OutOfAction`** rather than through `Neutralised`. The detection sweep, the player's target selection and a group's condition tier read the latter and never consult `+0xa5`. A guard order's rival test (`Group_IsWipedOut`) is the one place outside the AI that does — see [`ai-goals.md`](ai-goals.md).
-- **The one-sided aim scatter is reproduced**, since it is what the retail enemy's aim actually does, and `SimWorld.Difficulty` indexes the table as the original does — see [`difficulty.md`](difficulty.md).
-- **The mission action a machine fires on running dry is `SimObject.DefeatAction`**, the same one its death fires — see [`mission-deployment.md`](mission-deployment.md).
-- **The gun convergence runs for the player too**, which is the original's arrangement: the range it converges on is the distance to the selected target, and centring the turret squares the guns up.
-
 ## Open
 
 - **Open:** the aspect angle is computed and never used — `Ai_BuildCombatGeometry` (`0041e758`) and both travel thinks build `bearingFromTargetToMe − target.heading + target.turretTwist` and hand it down two calls, and its only consumer is the shield-facing test, which is broken (see [Rejected readings](#rejected-readings)); nothing else reads it, and the sign on the twist term is also wrong for the reading the expression otherwise invites, with no live consumer to check it against.

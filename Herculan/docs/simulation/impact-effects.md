@@ -1,6 +1,6 @@
 # Impact effects (`dat\EXPLOS.DAT`, DBSIM.EXE `EXPLO.CPP`)
 
-Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{ExplosionCatalog, ImpactEffect}`, `HercWorks.Core`'s `ExplosionData`.
+Addresses are DBSIM virtual addresses.
 
 What happens where a shot lands. An effect is a `dts\EXPLOS.DTS` root standing still at the point of impact, playing its flipbook of billboards ([`../formats/dts-billboards.md`](../formats/dts-billboards.md)) through exactly once — unlike a fire, which loops the same kind of flipbook until it burns out ([`destruction-effects.md`](destruction-effects.md#fire)). Like a tracer or a travelling round it lives in the effect pool (`DAT_004a96a2`) that `Sim_MainTick` walks ahead of the machine list, so nothing can shoot it and nothing collides with it.
 
@@ -83,12 +83,3 @@ Explosion_Construct(alloc(pool), impactFx[4 + (rand & 3)], point, owner: 0, play
 So a shot that ends in the dirt puts one down and a shot that ends on a machine does not, even though the ground clipped the ray first in both cases. **The ground pseudo-object `Sim_RaycastTerrain` installs at `DAT_004aab58` has nothing to do with it** — its fields are written and never read. Unlike every object-hit spawn this one passes no owner and suppresses the sound.
 
 The object-hit sites spawn from inside the hit test itself, at `transform(0, hitDistance, 0)` off the shot's frame, and do so whether or not the sweep goes on to find something nearer.
-
-## Engine port
-
-`SimWorld.{Explosions, Effects, SpawnImpactEffect, PickImpactEffect}`, `MissionScene.ExplosionModels`. Deviations:
-
-- **No trail object**; no retail row asks for one. The light a nonzero `LightMode` attaches is built, simulation and renderer both — see [`../formats/effect-lights.md`](../formats/effect-lights.md), which carries its own port notes. The row's `SoundId` is played — see [`../formats/audio.md`](../formats/audio.md).
-- **Group 2 is selected, but indistinguishably.** The split from group 1 is a change in a component's health band, which `MechObject.ApplyDirectFireDamage` measures either side of the write, so both branches are reachable. It costs nothing on retail data, per the note above: the two arrays hold the same rows.
-- **`ProximityRadius` is unread** — nothing queries it.
-- The shape frame counts are supplied to `ExplosionCatalog` by `MissionScene` after it builds the shapes, since they are a property of `EXPLOS.DTS` rather than of the table.

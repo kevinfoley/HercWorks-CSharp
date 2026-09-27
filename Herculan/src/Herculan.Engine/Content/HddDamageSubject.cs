@@ -19,7 +19,8 @@ namespace Herculan.Engine.Content;
 /// <param name="Hardpoints">
 /// That machine's hardpoints by <c>.GL</c> slot — see <see cref="DamageHardpoint.Build"/>. Its weapons
 /// view prints row <c>n</c> from entry <c>n</c>, and every view draws entry <c>n</c>'s icon where the
-/// doll's <c>.PDG</c> hardpoint <c>n</c> places it.
+/// doll's <c>.PDG</c> hardpoint <c>n</c> places it. A null entry, an empty hardpoint, leaves its row
+/// blank rather than showing a name left by a previous update.
 /// </param>
 /// <param name="NoData">
 /// What the screen prints in place of a doll while there is no subject — <see cref="NoSubjectGroup"/>'s

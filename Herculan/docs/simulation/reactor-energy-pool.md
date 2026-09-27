@@ -1,7 +1,5 @@
 # DBSIM.EXE reactor and Master Energy Pool
 
-Ported in `Herculan.Engine.Sim.MechObject.Power.cs`, `ShieldCharge.cs`, `MechPods.cs`.
-
 The reactor and the pool are separate things: the reactor is a **rate** (`mech+0x256`), the pool is a **capacitor** (`mech+0x292`). Consumers draw on the pool, never on the reactor.
 
 ## The per-tick cycle — `Mech_PerTickSystemsUpdate` (`0041aa5c`)
@@ -86,4 +84,4 @@ Refilling a damaged shield array takes ~30 s, matching 3500 ÷ 5 per tick = 700 
 
 ## Open
 
-- **Open:** find the HUD animation that fades the shield rings black→green at mission start. The engine shows them full from the first frame; see [KNOWN_ISSUES.md](../../KNOWN_ISSUES.md).
+- **Open:** find the HUD animation that fades the shield rings black→green at mission start.

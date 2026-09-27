@@ -71,17 +71,6 @@ Flat ground's saturated shade of 255 selects row 30 (`255 * 31 / 256`), i.e. **1
 
 `DAT_004aab30` selects the span routine's shading mode. Mode 2 is Gouraud, taking a shade per vertex out of the shades array; mode 1 takes `shades[0]` alone as one flat row for the whole polygon. `Terrain_DrawCellQuad` only ever fills `shades[0]`, leaving the other three entries of the array untouched — so retail terrain is flat-shaded per triangle, mode 1, and mode 2 is not something the terrain path is set up to use.
 
-## Engine implementation
-
-- **`Render/MissionSun`** — the sun's direction and `ShadeFor(normal)`, the saturating 512*cos above.
-- **`Render/TerrainMeshBuilder`** — bakes one shade per triangle into `MeshVertex.Shade` and marks terrain `Unlit`, so the renderer applies no light term of its own over it.
-- **`Render/PaletteRampTable`** — the theater's `.RMP` expanded through its `.DPL` as a 256-palette-index x 32-row texture. The shade byte picks the row, the texel's palette index picks the column, which is the original's own `rampRow(shade)[index]` per texel. Requires the atlas to carry palette indices (`TextureAtlas.IndexPixels`) rather than expanded colour. Shapes use the same path — see [`dts-texture-binding.md`](dts-texture-binding.md).
-
-Known divergences:
-
-- Triangle normals come from the cross product of the triangle actually drawn, where `Terrain_BuildCellSurface` differences neighbouring cell heights. Same surface, different derivation.
-- Distance fog stays continuous per-pixel in the engine rather than the original's twelve quantised ramp slices.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

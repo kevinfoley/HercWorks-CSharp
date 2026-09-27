@@ -1,6 +1,6 @@
 # `TSBitmapPart` billboards and `TSCellAnimPart` flipbooks (DBSIM.EXE)
 
-Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Render.{DtsSpriteBuilder, SpriteRenderer}`.
+Addresses are DBSIM virtual addresses.
 
 The one `TSObject` render slot that puts pixels on screen with no polygon involved. It is what `BULLETS.DTS` roots 2 and 3 (the three EMP cannons' rounds) and all twenty `EXPLOS.DTS` roots (every impact effect, see [`../simulation/impact-effects.md`](../simulation/impact-effects.md)) are made of.
 
@@ -25,8 +25,6 @@ child->vtable[+0x1c]();
 **One child per frame, not a container.** `cellFrames` is the drawing shape instance's own per-sequence `ushort` array, published to the global `DAT_006b7bf0` by whatever installs the instance for drawing. Walking every child the way a `TSPartList` is walked stacks the whole animation on top of itself.
 
 **Children need not be bitmaps.** `BULLETS.DTS` root 8 (plasma) is a two-cell animation over real `TSGroup` geometry, and both `ROCKETS.DTS` roots animate their exhaust flame the same way — that file holds no `TSBitmapPart` at all (see [`../simulation/rockets.md`](../simulation/rockets.md)). `AnimSequence` (`part+0x12`) picks which entry of `cellFrames` the part reads; a projectile's own tick names the same sequence in its type record and mods the counter by `TSShape.SequenceList[seq]`, the shape's per-sequence frame count at `shape+0x20`.
-
-A geometry flipbook needs one built mesh per cell, which is what `DtsMeshBuilder.BuildRoot`'s `cellFrame` argument and `SceneModelLibrary.Rocket`'s list of `SceneModel`s are for. `DtsSpriteBuilder` reports no frames for such a shape: it has no sprites, only cells.
 
 ## `TSBitmapPart_Render` (`004762e8`)
 
@@ -75,16 +73,7 @@ Neither routine reads the brush's second field.
 
 All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — shape 6 is `(23, 22)` against a 48x47 frame, shape 9 `(52, 53)` against 112x107 — which is what fixes the mechanism as "anchor lands on this pixel" rather than "quad starts here".
 
-`BULLETS.DTS` roots 2 and 3 are the exception and are authored oddly: all five parts read `(45, 45)` against 40x30 frames, so the EMP puff draws up and to the left of the round rather than centred on it. Retail behaves the same way; the port reproduces it.
-
-## Engine port
-
-`DtsSpriteBuilder` extracts one `SpriteQuad[]` per flipbook frame; `SpriteRenderer` draws them. Deviations:
-
-- **The quad is built in view space, not screen space.** Its four corners are placed in the plane parallel to the image plane at the sprite's depth, from a right/down basis derived from the projected model up axis, and handed to the projection alone. Perspective then reproduces the `1 / depth` scaling exactly rather than by interpolation. The squash and the anchor are the original's formulas verbatim; only the rotation's own perspective skew differs, which the original does not model either.
-- **Alpha test in place of the [span skip](#brush-mode-5-skips-palette-index-0).** Sprite banks decode palette index 0 to alpha 0 (`SceneModelLibrary.LoadAtlas`'s `transparentIndex0`) and the fragment shader discards it. The structure banks are decoded the same way for their cutout frames; mech skins are not — see [`dts-texture-binding.md`](dts-texture-binding.md).
-- **Depth test on, depth write off**, as [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md) has it and for the same reason.
-- **One draw call per sprite.** A frame holds a handful.
+`BULLETS.DTS` roots 2 and 3 are the exception and are authored oddly: all five parts read `(45, 45)` against 40x30 frames, so the EMP puff draws up and to the left of the round rather than centred on it. That is the retail data's own behaviour.
 
 ## Open
 

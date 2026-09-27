@@ -301,20 +301,6 @@ The six helpers it owns:
 
 **`mech+0xa6` therefore has no live reader.** `Mech_CreditNeutralisedTarget` latches it on a machine's first cross-side kill ([`component-damage.md`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and only `Group_AnyMemberScoredAKill` ever asks. The same goes for `+0x9f` and `+0xa0` *in their group form* — the objective conditions read the player's own copies directly rather than through these helpers.
 
-## Engine port
-
-`World.MissionObjective` is the record and `Sim.MissionObjectiveState` its runtime half; `Sim.MissionObjectives` is all four of the original's functions — `Poll`, `Evaluate`, `EvaluateObjectives` and `QueryForPlayer`, the last being the [Q] wrapper — and `Sim.MissionStatus` names the values. `MissionScene` resolves each subject the way it resolves an order's; `SimWorld.MissionBounds` is the box and `SimWorld` polls at the end of its tick. `MechObject.PlayerThink` holds the three arms, `SimObject.MissionGoalReached` and `SimObject.DataLinkComplete` are `+0x9f` and `+0xa0`, and `MissionGroup.OrderCompletedForRoute` is condition 0.
-
-Both panels are ported. `Content.ObjectivesPanel` and `Content.StatusAlertPanel` hold their text, their state and the ways they close; `Content.ObjectivesPanelLayout` and `Content.StatusAlertPanelLayout` hold the two geometry tables above, over a shared `Content.AlertPanelLayout` that owns the 640x480 screen, the rect type, the button bank, the three shared fonts and the window transform. `Render.Overlay2DRenderer.DrawAlertPanel` paints either. The plates, the button bank and the four fonts are packed into the cockpit's own sprite atlas (`Content.CockpitArt`), so a panel costs one bind; SIMALERT.VOL is mounted with the rest (`Content.GameContent.SimulatorArchives`). The host owns the keys, the pointer and the stopped tick.
-
-Divergences:
-
-- **`DAT_004a9d7c`, the MISSION TARGET DETECTED latch, has no reset** — two references, both in the player think, in `.bss`. The port holds it per machine, so it resets with the mission rather than with the process.
-- **Each panel is built once per mission**, where the original constructs and destroys one per press. Nothing in either changes during a mission except the status alert's status.
-- **The panels are placed against the window, not a 640x480 screen**: each is scaled by the same art-pixels-to-window factor the cockpit is and centred horizontally, which is how the three-panel composite is anchored. Their internal geometry, the objectives panel's off-centre lines included, is the tables above unchanged.
-- **The variant is chosen by the status, not by the call site.** The original picks a constructor and its statuses happen to fall out disjoint; the port reads the split off the status instead. Every reachable call site in the original agrees with it.
-- **Every answer that leaves the simulator closes the window.** The original has two endings here — `[Ctrl+Q]`'s QUIT sets a global flag the whole program watches, and a mission-ending answer returns up through `Sim_MainTick` to the shell, which writes `results.dat` and advances the campaign. With no shell ported, both exit.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

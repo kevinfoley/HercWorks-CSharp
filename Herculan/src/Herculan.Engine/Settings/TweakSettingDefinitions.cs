@@ -70,6 +70,7 @@ public static class TweakSettingDefinitions {
 	/// input. Retail rounds the turret rotation values, causing noticeable stutter
 	/// when aiming at slow speeds. Irrelevant if controlling the turret with a
 	/// keyboard.
+	/// <para>Defaults on, an exception to the retail-by-default rule. See <see cref="Sim.Anim.AnimationThread.SeekToPosition"/>.</para>
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> SmootherTurretMovement = new("tweak.smoother_turret_movement", TweakCategory.Functional, true);
 

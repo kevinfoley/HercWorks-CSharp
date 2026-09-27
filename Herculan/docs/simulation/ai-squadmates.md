@@ -132,16 +132,6 @@ None of them is a squad order; all three are per-machine flags this handler is t
 
 **`0x1e` is `AFFIRMATIVE!`, not a refusal.** Several of the arms that post it are refusals — a machine already carrying the order, or already formed up — so the squadmate answers yes to an order it is declining to act on. That is the right line and the wrong arm to name it after. The generic no, `0x1f`, is posted by nothing in the simulator.
 
-## Engine port
-
-`Sim.Ai.SquadOrder.cs` holds the verb enum, the record and both dispatchers; `MechObject.Squad.cs` holds the standing-order fields, the handler, `Ai_ClearSquadEngageOrder` and `Mech_SquadOrderLineIndex`. `BehaviourState` carries descriptor `+0x3c` as `ObjectiveLine` and bit 4 as `BrokenOff`.
-
-**What runs.** Both dispatchers deliver a real order: all eight verbs install, survive their own reassess, and drive the machine. The [F7] command display's XMIT sends to one slot and the MFD's FLASH COMM page broadcasts to the group ([`mfd.md`](../formats/mfd.md#mfdflashcomm--mode-1)), and a squadmate's reply is spoken and drawn on the pilot channel ([`cockpit-messages.md`](../formats/cockpit-messages.md#the-pilot-and-squad-channel)). `Herculan.Engine.Host` takes `--hdd-xmit` and `--flash-comm-xmit`, which press XMIT on the order each screen armed and report each squadmate's standing order before and after the run — a `--screenshot` run sees no keystroke and no map click, so they are the only way to reach this from the command line.
-
-What differs from the original:
-
-- **`Squad_BroadcastOrder`'s score is zero for the twelve verbs its switch does not cover.** The original's is a stack local assigned only inside that switch, so an uncovered verb leaves every member carrying the previous one's score. Both tie the group and walk it in range order; zero does it without reading uninitialised memory.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

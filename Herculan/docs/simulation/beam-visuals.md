@@ -133,17 +133,6 @@ Retail reference: `Reference/Simulator3.jpg` shows an ELF as a thin bright yello
 
 Ported — [`impact-effects.md`](impact-effects.md) carries the array ordering.
 
-## Engine port
-
-`Sim.BeamTracer`, `Content.BeamAppearance`, `Render.BeamRenderer`. Deliberate deviations:
-
-- **One quad per shot, not one per 5000 units.** The split exists because the original's rasterizer interpolates a poly's screen-space width linearly between its two ends. World-space geometry gets the exact perspective from the projection, so the split buys nothing.
-- **The quad faces the viewer in three dimensions** — the perpendicular is `cross(axis, toCamera)` in a vertex shader — rather than being expanded in 2D after projection. The half-width floor is kept literally, measured in the framebuffer.
-- **Depth test on, depth write off.** The original writes no z at all; a beam already stops at whatever it hit, so testing costs nothing visible and keeps a shot fired past a ridge from painting over it.
-- **The chain's quads are built in the simulation, not the renderer.** `BEAM.DAT`'s half-width is baked into the geometry at fire time and the jitter is rolled off the sim generator, exactly as `BeamTracer_Ctor` does it, so `SimWorld` carries the appearance table.
-- **The muzzle stub is drawn once, not once per quad.** The fill is opaque and the geometry identical, so the repeats are not observable.
-- **The node count is clamped to the 30 quads the index table holds.** The original's count is a signed byte it never bounds, so a long enough chain would read past the table; no retail weapon gets near it, and the clamp is a guard rather than a behaviour difference.
-
 ## Rejected readings
 
 Readings a fresh pass could land on. Each is disproven; do not reintroduce.

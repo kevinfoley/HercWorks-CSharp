@@ -29,6 +29,10 @@ public enum MfdSilhouetteKind {
 /// like mode differences are really subject differences: <c>ID:</c> versus <c>TARGET:</c> is "is this
 /// the machine I am flying (or one of my squad)", and the integrity readout versus the range readout
 /// is "is this one of ours", both decided from the subject alone.</para>
+///
+/// <para>This engine has no pilot roster, so only the machine being flown reads <c>ID:</c>/<c>YOU</c>;
+/// a squadmate reads <c>TARGET:</c> and its type name. A flyer's name comes from <c>FLYERS.DAT</c>
+/// <c>NameBytes</c>, the same <c>+0x12</c> the paint reads, and a HERC's from its type name.</para>
 /// </summary>
 /// <param name="Present">Whether there is a subject at all. False draws the no-target screen.</param>
 /// <param name="Identified">

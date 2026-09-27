@@ -256,11 +256,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// else.</item>
 	/// </list>
 	///
-	/// <para><b>What is not drawn.</b> The pilots' video and the static that replaces it when their
-	/// comms are out, and real per-component damage on the damage screen, whose rows each read the
-	/// undamaged 100 their value column is sized around. The command display is drawn by
-	/// <see cref="AddHddCommandDisplay"/> and <see cref="DrawHddMap"/>. Coverage and what it stands
-	/// in for: "Engine coverage" in docs/formats/heads-down-display.md.</para>
+	/// <para>The command display is drawn by <see cref="AddHddCommandDisplay"/> and
+	/// <see cref="DrawHddMap"/>.</para>
 	///
 	/// <para>The page's content goes down before the widgets rather than after, which is the reverse
 	/// of the display's own paint loop. That loop can afford the other order because a page only

@@ -205,26 +205,6 @@ The preferences row of that name is `prefs.cfg` byte 11, `Sound_DetailSetting` (
 
 A theater-4 test sits beside these in both debris and fire and is a different thing — see [Debris](#the-piece--debris_tickupdate-00408bd8) and [Fire](#fire).
 
-## HERCULAN Engine
-
-| Mechanism | Where |
-|---|---|
-| The file, round-tripped | `HercWorks.Core.Data.File.Dat.Sim.DebrisHerc` + `DebrisHercTransformer` |
-| The index space and the databases | `Sim.DebrisCatalog`, `Sim.DebrisDatabase`, `Sim.DebrisGroup` |
-| A thrown piece | `Sim.DebrisObject`; `SimWorld.SpawnDebris` is the group throw, `SpawnDebrisPiece` the mount's |
-| Burning objects | `Sim.FireEffect`; `SimWorld.SpawnFire` and `ReleaseFires` |
-| The structure sequence | `Sim.StructureDeathSequence` and `Sim.BaseObject.DeathSequenceTick` |
-| Drawing | `Program.RefreshDebrisItems` (meshes), `RefreshSpriteBatches` (fires), `RefreshWreckItems` (the hulk swap) |
-| The sub-shape step, both scales | `Sim.ShapeCellFrames` is the port of `shapeInstance+8`; `ComponentDamage.CellFrames` and `BaseObject.CellFrames` are the per-object arrays. `DtsMeshBuilder` builds every cell into its own gated piece (`BuildSegments` for a machine, `BuildCells` for a structure or a flyer) and `Program`'s per-frame gate pass draws the one each sequence stands on |
-
-Every spawn site in the table above is ported. Both pools are capped at the original's sizes and both drop a spawn when full, as the original's allocator does.
-
-The carrier velocity at `004a96e4` is `Flyer_ComponentDamageWrite`'s alone: it points the global at the aircraft's own world velocity for the length of that call, so the wreckage a shot-down flyer sheds keeps flying. `Sim.SimWorld.DebrisCarrierVelocity` is the port.
-
-EFFECTS DETAIL is `SimWorld.EffectsDetail`, which the host copies out of `prefs.cfg` every frame: `BaseObject.SmokesAtStage` is the smoke test and `DebrisObject` gates the burst. The theater is `SimWorld.Theater`, set from the `script.dat` header at load; `SimWorld.OnMoon` is the theater-4 test both `DebrisObject.Tick` and `SimWorld.SpawnFire` make.
-
-**The arcs are large at this world scale.** A `DEF_DEB` group-2 throw peaks around 48 m and lands about 137 m out over 5 seconds. That follows from constants none of which are this engine's — the 33-88° pitch window, `420 << 10 / mass`, gravity `-0x20`, and the un-integrated position add confirmed in the disassembly above.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

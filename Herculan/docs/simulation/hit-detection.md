@@ -147,7 +147,7 @@ if (component[+4] != -1) { state[+5] = stageCount[component[+4]]; state[+3] = 30
 
 `Base_DamageFraction` (`004052b4`, vtable `+0x40`) is a **ratio of sums**, not a count of destroyed components: `(Σ damage << 8) / Σ maxDamage`. A type with one 30000-point core and six 2000–8000-point parts is effectively destroyed by killing the core alone, which is how both seven-component retail types are authored.
 
-Spawn-time health comes from the block-9 record's `param_1[0x19]`: `<0` or `100` = undamaged, `0` = spawned destroyed (and the component steps to its collapsed cell), anything else scales `(100 - pct) * maxDamage / 100`. **Not read by the engine** — structures always spawn intact.
+Spawn-time health comes from the block-9 record's `param_1[0x19]`: `<0` or `100` = undamaged, `0` = spawned destroyed (and the component steps to its collapsed cell), anything else scales `(100 - pct) * maxDamage / 100`. 
 
 ## `dat\BASES.DAT` runtime record
 
@@ -217,10 +217,6 @@ A flyer's health record is **one component with one dependent** — `Flyer_Const
 
 Retail ships a `.COL` and a `.DMG` for `SKIMMER` only, so `HOVTANK` and `DROPSHIP` cannot be shot at all — in the original as much as here.
 
-## Ported
-
-`Herculan.Engine.Sim.BaseObject` (both paths, damage), `Sim.FlyerObject`, `Sim.MechObject.Combat`, `Sim.ComponentDamage` (the mech/flyer health record), `Sim.ShapeVolume` (the grid queries), `Sim.CollisionModel` (the sphere test, with the node resolver), `World.CollisionModelReader` (VOL lookup plus the load-time bound; the format itself is parsed by `HercColliderTransformer.ReadNodes`), `World.BaseCollisionTable`, `World.BaseTypeTable` (the combat fields, including the component position), all three radius slots (`SimObject.ShapeRadius`/`HitRadius`/`CollisionRadius`), the plasma damage stash (`WeaponShot.StashDamage`, read back in `BaseObject.DirectFireHitTest`), and — on the tool side — the corrected volume read in `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer` and the corrected, now round-trippable `HercColliderTransformer`.
-
 ## Measured: hit geometry versus the drawn mesh
 
 Prompted by projectiles appearing to sink into buildings. Across every static structure type, the `.DGS` grid's world footprint is **larger** than the mesh it is drawn with, by 200–900 units a side, because it rounds out to whole 512-unit cells — so the volume never runs small horizontally and a shot should if anything stop slightly early. `Sim_RaycastShapeVolume`, `ShapeVolume_Raycast`, `ShapeVolume_HeightAround`, `Collision_RaySphereTest` and `Collision_ClusterBoundTest` all re-check as faithful ports, including the 712-unit march step (`(1 << 9) + clearance`) that retail shares. The remaining suspect is render layering, not hit geometry.
@@ -229,8 +225,8 @@ The same pass found a real data quirk: several types' collision **ceiling** sits
 
 ## Open
 
-- **Unported:** node-placed clusters on structures are tested in the object frame rather than the node's — the engine has no posed node transforms for structures. Only the eight animated types carry any.
-- **Unported:** the kill credit (`attacker+0x60`). The mission action a destroyed structure fires is ported (`SimObject.DefeatAction`, [`mission-deployment.md`](mission-deployment.md)), as is the death sequence itself with its debris, its fire, its hulk swap and its per-part cell step — [`destruction-effects.md`](destruction-effects.md).
+- **Unported:** testing a structure's node-placed clusters in the node's frame. Only the eight animated types carry any.
+- **Unported:** the kill credit (`attacker+0x60`).
 - **Unported:** spawn-time component health from the mission record.
 - **Unported:** terrain flattening under a placed structure (`Terrain_MarkStructureFootprint`, `00470dc8`).
 - **Unported:** the second exclusion `Sim_RaycastObjectList` tests at the shot record's `+0x14`. The beam path never writes that field — it is stack garbage there, so the comparison excludes nothing.

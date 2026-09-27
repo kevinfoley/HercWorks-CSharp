@@ -1,6 +1,6 @@
 # DBSIM.EXE travelling projectiles (`PROJ.DAT` type `Bullet`)
 
-Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{Projectile, BulletCatalog}` and `SimWorld.FireBullet`.
+Addresses are DBSIM virtual addresses.
 
 The other half of the fire dispatch. A `Beam` record carries `Speed == 0` and is over inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a real object that crosses the ground over several ticks. Every autocannon, every EMP cannon and the plasma cannon fire one. Launcher rounds are a third family with their own table and their own tick — see [`rockets.md`](rockets.md).
 
@@ -66,24 +66,13 @@ Homing is a steer of the **euler angles**, not of a velocity: the bearing to the
 
 `Math_EulerToward` and `Math_HeadingToward` both reach atan2 through `Math_Atan2Guarded` (`00492800`), which takes **`(x, y)`** and nudges the *x* when both are zero. So `euler[2]` is `atan2(dy, dx)` less a quarter turn and `euler[0]` is `atan2(dz, groundDistance)` — an **elevation above the horizon**. Reading the order backwards mirrors the bearing about 45° and turns a level target into a quarter turn of pitch; it is worth stating because it did exactly that to this port.
 
-## Engine port
-
-`Sim.Projectile`, `Sim.BulletCatalog`, `SimWorld.{FireBullet, Projectiles, Impacts}`. Deviations:
-
-- **The difficulty scale is applied in `Detonate` rather than before the raycast**, which is the same arithmetic in a place that suits the port: the original scales its own copy of the blast figure up front, and this recomputes that figure at the blast instead. Everything else on the plasma path — the stash and empty (`WeaponShot.StashDamage`), the unexcluded 4000-unit sweep, the 2000-unit proximity fuze — is ported, and all three of the blast slot's implementations are in place, so plasma hurts machines, buildings and aircraft alike. See [`damage-system.md`](damage-system.md#explosive-damage--the-0x70-slot).
-- **Homing works**, on the target `TargetSelection` puts at `mech+0x1a4`. It steers at the target's shape centre (`SimObject.AimPoint`), not its origin, as the original does.
-- **The animation frame counter climbs rather than wrapping.** The original mods it by the shape's own frame count for the sequence; the renderer takes the same modulo anyway (`TSCellAnimPart_Render` does), so the frame drawn is identical and the simulation stays clear of needing to know what the shape looks like.
-- **The fire sound is ported.** `SimWorld.FireBullet` plays the record's `+0x08` at the muzzle as `id + 10`, through `SimWorld.PlayTableSound`. → [`../formats/audio.md`](../formats/audio.md)
-
-The three EMP rounds — `BULLETS.DTS` roots 2 and 3, a `TSCellAnimPart` of five `TSBitmapPart`s — are drawn through the billboard path, see [`../formats/dts-billboards.md`](../formats/dts-billboards.md). The record's `+0x06` animation interval is what steps their flipbook; it is zero for every other round.
-
 ## How a round is drawn
 
 `Bullet_Draw` (`0040a120`) is the class's vtable slot 0: it zeroes `DAT_004a5b1c` for the duration (which is what makes a projectile's textured polys fullbright, see [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), installs the object's frame as the model transform, renders the shape instance at `+0x34`, and restores.
 
 Reaching it, a round is bucketed by terrain cell into `ObjList::drawTable` and then drawn from a depth-sorted render entry that carries its distance — so its **depth fade is set from its own range** like any other object's, not pinned to a fixed ramp row. The full path and the evidence are in [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
 
-The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not call ([Open](#open)). Every other round's shape is `TSSolidPoly` and fades normally. The engine fogs all of them per pixel regardless, which is how it renders the fade throughout.
+The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not call ([Open](#open)). Every other round's shape is `TSSolidPoly` and fades normally.
 
 ## Open
 

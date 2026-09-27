@@ -38,16 +38,10 @@ The weight scales to a quarter when `mech+0x30b` is present and its `+0x7f` is u
 
 `mech+0x9b` is set from the armed mount's own class: a launcher lights its own subtype's flag, a mount that is not a launcher (class 5) lights if *any* subtype has lock. `Mech_LockTonePlay` (`0041b0bc`) turns it into the cockpit's lock audio: `Sound_Play(0x15)` once per phase of a `0x40`-coarse-tick blink while set, `0x14` when clear but the target changed this tick, `0x16` once on loss. Two latches carry it — `0049a1d1` remembers that a lock was held so its loss is announced once, `0049a1d0` that this phase's beep has sounded.
 
-The loss branch **returns before** the target-changed test, so switching target while locked plays the loss tone and not the acquisition blip. Ported as `MechObject.LockToneTick`.
+The loss branch **returns before** the target-changed test, so switching target while locked plays the loss tone and not the acquisition blip.
 
 **Where it is called from is part of the behaviour.** The call — and the lamp calculation above it — sit inside the target block's `mech+0xa3` arm, which is inside `if (mech+0x69 != 0)`. So the lamp is only ever computed for the locally-piloted machine (an AI machine's stays clear all mission), and neither lamp nor tone runs at all with nothing selected. That second nesting matters because `mech+0x9d` is *only* cleared with a target present: run the tone unconditionally and a selection dropped to null latches the flag and re-triggers the acquisition blip every tick. → [`../formats/audio.md`](../formats/audio.md)
 
 ## Verification
 
 `SAV/script1.dat`, APOCA with two ARH (subtype 1) launchers: target at 20000 units locks after 63 ticks against a predicted `20000 >> 2 / 81` = 61.7; at 57205 units, 178 ticks against 176.6.
-
-## Engine port
-
-Runs from `SimWorld.Tick` after `Detection.Tick`, matching `Sim_MainTick`'s order — the gate reads the line-of-sight cache that pass maintains. The reactor and shield half of `Mech_PerTickSystemsUpdate` stays in `MechObject.PowerTick`, where its inputs are last tick's.
-
-The five timers are one array indexed by subtype where the original has four separate fields; slot 3 is unused, as the original has no field for it.

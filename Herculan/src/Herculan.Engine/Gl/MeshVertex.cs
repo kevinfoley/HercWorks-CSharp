@@ -100,8 +100,7 @@ public struct MeshVertex {
 	///
 	/// <para>Interpolating <c>(u·w, v·w)</c> and <c>w</c> and dividing per fragment is what makes a
 	/// textured quad's two triangles share one projective map instead of each getting its own affine
-	/// one. See <see cref="Render.DtsMeshBuilder"/>'s <c>QuadUvWeights</c> for the weights and
-	/// docs/formats/dts-texture-binding.md's "Quad mapping on triangle hardware" for why.</para>
+	/// one. See <see cref="Render.DtsMeshBuilder"/>'s <c>QuadUvWeights</c> for the weights and why.</para>
 	/// </summary>
 	public float UvWeight;
 

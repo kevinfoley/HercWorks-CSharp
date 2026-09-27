@@ -1,6 +1,6 @@
 # DBSIM.EXE weapon firing: the trigger, the shot, beams
 
-Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{WeaponMount, WeaponMounts, WeaponShot, MechObject}` and `SimWorld.{Raycast, RaycastTerrain}`.
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual addresses.
 
 Covers how a trigger pull becomes a shot and what a beam does. The mounts it fires are in [`weapon-mounts.md`](weapon-mounts.md); what a hit does to the target is in [`damage-system.md`](damage-system.md); the template fields read here are in [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 

@@ -1,6 +1,6 @@
 # Distance fog and sky (DBSIM.EXE)
 
-Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Content.{ShadeRamp, SkyGradient}`, `Scene.Atmosphere` and `Render.SceneRenderer`.
+Addresses are DBSIM virtual addresses.
 
 Two mechanisms that share one palette: everything fades toward the colour the sky already is just above the horizon.
 
@@ -89,20 +89,10 @@ A theater's fog colour — the commonest output of `world<N>.rmp`'s last depth s
 
 Two independent derivations — the ramp's far slice, and a palette run measured off screenshots — landing on adjacent entries. Distant terrain therefore fogs to very nearly the colour of the sky immediately above it, which is why retail's horizon reads as continuous rather than as a seam.
 
-## Engine port
-
-`Scene.Atmosphere` reads all of it off the loaded zone and theater and applies it to `Render.SceneRenderer` and to `Camera.FarPlane`. The fade is a ramp slice, as above: `PaletteRampTable` and `SurfaceRampTable` carry every slice and `Scene.glsl` picks one per fragment with `ShadeRamp.DepthSliceFor`'s formula, truncation included, so a fogged pixel is the byte the original would have written. Deviations:
-
-- **The per-cell rule is spent as its mean, not as its staircase.** Over a cell's four corners the minimum of `i*a + j*b` is `min(0,a) + min(0,b)` and the centre is `(a+b)/2`, so centre-to-nearest corner is exactly `(|a| + |b|)/2` — with `a` and `b` the depth a cell step along each grid axis covers. `SceneRenderer.FogCellSize` works that out per frame from the camera's forward direction and subtracts it from the terrain's own depth. Same fog on the same ground, without a per-vertex attribute carrying the four corners; what is missing is the flat step across each cell.
-- **A `TSGouraudPoly` fades by an RGB blend** toward `ShadeRamp.FogColor` over the same interval, because the engine's Gouraud chain resolves through the palette with no `.RMP` row for a slice to bias (see [`dts-texture-binding.md`](dts-texture-binding.md)). The same fallback covers a theater whose ramp did not load.
-- **The far plane is the range itself, not its diagonal.** The original's draw region is a world-axis-aligned square, so along its diagonals it reaches 41% further than a uniform far plane does. Invisible, because everything in the gap is already saturated in the fog colour — which is the colour the sky's bottom band paints where the terrain stops.
-- **The sky is banded in screen space**, `SkyGradient.BandHeightFor` scaling the measured 6 rows at 480 to the viewport. The horizon is projected per frame from the camera's flattened forward direction rather than assumed to be mid-view, because pitch moves it and so does the cockpit's off-centre `Camera.PrincipalPoint`.
-- `SceneRenderer.SkyColor` is the flat fallback and the clear colour. `ShadeRamp.FogColor` is what distant surfaces fade into; the two are separate, as they are in the original.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
 | Fog is a blend toward the fog colour, so the ramp slices can be replaced by a linear fade of the same mean strength | The slices fog each palette index at its own rate and keep distinct colours apart almost to the last one. A uniform blend fades a whole surface evenly and washes distant terrain into featureless pastel. Only a surface with no `.RMP` row of its own — a `TSGouraudPoly` — legitimately blends |
 | Fog is measured against distance from the eye | It is measured against view-space **depth**, component 1 of `Raster_PerspectiveDivide`'s input. Radial distance is larger everywhere off the view axis, by 18% at the corner of the view |
-| The engine draws past the visibility range, so the far clip is a separate free parameter | `Terrain_BuildDrawRegionQuad` (`0046d220`) makes the draw region that same radius: the world ends exactly where the fade saturates |
+| The game draws past the visibility range, so the far clip is a separate free parameter | `Terrain_BuildDrawRegionQuad` (`0046d220`) makes the draw region that same radius: the world ends exactly where the fade saturates |

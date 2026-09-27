@@ -4,8 +4,6 @@ The two-page console below the dashboard, reached by panning down from the forwa
 
 Surrounding cockpit and the pan itself: [`cockpit-views.md`](cockpit-views.md). Canopy art: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). Caption text: [`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 
-Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView, HddDamageSubject}`, `Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`. The command display's own types are listed in its section below.
-
 How a click on one of the widgets below reaches its own click handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## Object model
@@ -198,8 +196,6 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud-widgets.md`](cockpit-hud
 | `HddCommandScreen_SelectOrder` | `0044d9cc` | Arms an order, or clears it. |
 | `HddCommandScreen_SelectPilot` | `0044da70` | Moves the comm-box selection. |
 | `HddCommandScreen_HitTestMarker` | `0044d860` | Screen point to object. |
-
-Engine implementation: `Herculan.Engine.Content.{HddMap, HddMapView, HddMapBounds, HddMapMarker, HddCommandScreen, HddCommandState}`, `Herculan.Engine.Render.{HddMapRaster, Overlay2DRenderer.DrawHddMap}`.
 
 ### The map's frame of reference
 
@@ -495,6 +491,10 @@ The two video paints refresh the name label and **nothing else**, so the plate s
 
 An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floods the box rect inset one device pixel with id 19 instead.
 
+The `OBJECTIVE:` line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
+
+The transmit path, and what the squadmate does with an order, is [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)'s.
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -505,24 +505,6 @@ An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floo
 ## `hddclip`
 
 Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by `VideoMode_X/YCoordShift` at load, not an `hdg\` counterpart. Regions are then offset by the screen rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` files in [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions).
-
-## Engine coverage
-
-Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page titles, the screen flood, the structural and internal paper dolls with their region tints, the weapons view's blue doll, every category's weapon icons with their recolour, and 13 component rows — structural and internal in `.PDG` region order named from the string table, weapons in `.GL` slot order from the subject's own mounts — each with its live percentage and its state's font. The left and right arrows, buttons and keys, step the subject through the player, each seated squadmate and the target as [above](#subject), with the caption, the no-subject line and the title indicator; the up and down arrows step the category. An empty hardpoint's weapons row stays blank rather than printing a name left by a previous update. The icon recolours are walked against the icons composited over the doll's indexed art, which is what the original's raster holds at that point.
-
-Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target designation are all wired to both the widgets and the keys.
-
-The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, which the host hands `SquadCommChannel.SetDestroyed` each frame; the comms-out latch is the channel's own, set where the loop sets it. The death scream flickers and latches as above. Each portrait paint makes its discarded draw on `SimWorld.PresentationRandom`, the generator the scream's roll and the message variants share.
-
-The sixth label stays empty, as in retail, unless the **Show squadmate number** tweak is on (`TweakSettingDefinitions.ShowSquadmateNumber`, off by default). With it on, each occupied box's idle paint fills that label with the slot number, 1-3, which is the key that selects that pilot. The number is this engine's choice of text, not something read from the binary. The renderer reads the setting every frame, so toggling it in the Tweaks panel shows or hides the numbers at once.
-
-`CockpitWidgets` splits the order column's single click region into its eight rows so the shared hit test does the walk the original does by hand, and reports the map region only on the command display rather than leaving it live on the damage page.
-
-XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
-
-`HddMapRaster` builds the bitmap at the original's size and applies the band rule at each pixel centre rather than through a polygon rasterizer. It decodes index 0 transparent, which is how the mode-5 blit treats it.
-
-`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-subject [0-4]`, `--hdd-pilot [0-2]`, `--hdd-order [0-7]` and `--hdd-xmit` — which presses XMIT on the armed order, taking the map centre or the nearest eligible unit as its pick, and reports the squad's standing orders before and after the run — since a `--screenshot` run never sees a keystroke — and the order list only leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and `[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four arrow keys, which work the display instead of steering while either page is down; the keypad keeps steering throughout.
 
 ## Open
 

@@ -94,7 +94,7 @@ This section is the canonical account of `+0x10c`; [`terrain-heightmap.md`](terr
 
 One function **writes** the field; four read it:
 
-- `Terrain_SetupVisibleRegion` (`0046ca98`) sets `grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3]` — the terrain-detail setting's own table, below — then `>>= (cellShift - 14)` when `cellShift > 14`. The `>>` only ever fires on the two shift-15 zones; nothing compensates in the other direction, so a zone with small cells is simply seen less far across. The original re-reads the setting every frame; `Herculan.Engine.Terrain.TerrainDetail` reads it once at zone load, which is equivalent while nothing changes it mid-mission.
+- `Terrain_SetupVisibleRegion` (`0046ca98`) sets `grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3]` — the terrain-detail setting's own table, below — then `>>= (cellShift - 14)` when `cellShift > 14`. The `>>` only ever fires on the two shift-15 zones; nothing compensates in the other direction, so a zone with small cells is simply seen less far across. The original re-reads the setting every frame.
 - `Terrain_BuildDrawRegionQuad` (`0046d220`) builds the draw region as a square of radius `grid[+0x10c] << cellShift` world units around the viewer, clamped to the grid extent. So the LOD field is literally **a terrain draw radius in cells**.
 - `maybe_Terrain_SetDistanceBands` (`00428bc0`) turns that same distance into five scaled values via a 5-entry table at `DAT_0049abb0` ([Open](#open)). **Not** the distance fog, which is 12-slice and computed per drawn thing.
 - `Terrain_DrawCellQuad` (`0046d344`) installs `grid[+0x10c] << grid[+0x108]` per cell as the visibility range the distance fade is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md), which tabulates the resulting range per cell shift.
@@ -112,8 +112,6 @@ Ported in `TerrainDetail`, which reads the setting through `SimulatorPreferences
 ### The terrain-texture switch
 
 **Option 8**, the panel's TERRAIN TEXTURE row, reaches the draw path as `TerrainTexturingEnabled` (`004aab2c`), which `Terrain_DrawCellQuad` tests per triangle: 1 picks the textured span writers and 0 the flat ones. Two things write it — the option's own handler (`00459d4c`) and `Terrain_LoadZone`, from the same byte — so the setting lands on the next zone whether or not the handler ever runs. `FUN_0043fe1c` saves it, forces it to 0 and restores it around the heads-down map's terrain pass, which is why that view's terrain is never textured however the setting reads.
-
-The engine reaches the same place differently. Its terrain mesh is built once at zone load and every vertex carries the height/slope ramp colour beside its atlas UV, so the switch is the texture binding on the terrain's own draw item and nothing else: bound, each cell takes its material's frame; unbound, the shader falls back to the vertex colour. The option is re-read every frame, so the ground changes under the preferences panel as the row is stepped, which is what the original's per-triangle test gives the player too.
 
 ## Who writes `cell[+0xf]`
 
@@ -160,22 +158,6 @@ Terrain_DrawCellQuad (0046d344)            ← per cell
  └─ 0046865c / 00468078                    ← the two triangles
 ```
 
-## Engine implementation
-
-Data-driven, theater-indexed via mission. Core components:
-
-- **`World/TheaterDescriptor`** — parses `wld\WORLD<n>.WLD` and exposes terrain bank, theater palette, impact palette names.
-- **`World/ScriptDatHeader`** — reads the three header fields above.
-- **`Render/TerrainTextureBank`** — loads and packs named `.DBA` via theater `.DPL`; implements `Terrain_ResolveCellTexture`'s rect selection (material index → frame; tiling or whole-frame UV).
-- **`Render/TerrainMeshBuilder`** — per-corner UVs from rect; **`Gl/MeshVertex.Textured`** flag allows cells that fail texture lookup to keep height/slope ramp colour.
-- **`Terrain/HeightGrid.FormationPads`** — `PaintFormationPad`, the base-pad pass, driven from `MissionScene.Load` over `Mission.BasePads`.
-
-Known constraints: the shelf-packed atlas uses 4 MB/theater. Pads are exact — they are placed from the file, not rolled.
-
-### Detail-texture scatter RNG
-
-Roughly 30% of 2x2 cell blocks roll frame 1 instead of frame 0 (the `TerrainZone_PopulateFromBitmap` roll, capped at material 1 — see above); which blocks get it differs from retail. The engine seeds its generator from DBSIM's own seed table and cursors, and the zone pass draws from the same instance the rest of the session uses, matching retail's single shared RNG. Base pads (frames 2–12) are unaffected — those are placed from `BFORMS.DAT`, not rolled. ([Open](#open))
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -188,4 +170,4 @@ Roughly 30% of 2x2 cell blocks roll frame 1 instead of frame 0 (the `TerrainZone
 
 - **Open:** `maybe_Terrain_SetDistanceBands`'s (`00428bc0`) five-entry output table has no identified consumer; the values read as LOD thresholds or similar.
 - **Open:** what `maybe_Terrain_ComputeViewDistance`'s (`00470910`) two outputs mean.
-- **Open:** whether DBSIM has already drawn from the shared RNG instance before terrain populates on a given zone load, which would offset the draw sequence and land the [detail-texture scatter](#detail-texture-scatter-rng) on different cells even with a matching seed and algorithm; a retail screenshot comparison would settle it.
+- **Open:** whether DBSIM has already drawn from the shared RNG instance before terrain populates on a given zone load, which would offset the draw sequence and land the frame-1 roll ([Retail numbers](#retail-numbers)) on different cells even with a matching seed and algorithm; a retail screenshot comparison would settle it.

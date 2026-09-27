@@ -53,7 +53,9 @@ public sealed class SkyGradient {
 	/// <summary>
 	/// How tall one band is, in pixels, for a view of <paramref name="viewportHeight"/> rows — the
 	/// measured six rows at 480, scaled so the gradient keeps the same share of the view at any
-	/// window size.
+	/// window size. The horizon it is banded from is projected per frame from the camera's flattened
+	/// forward direction rather than assumed to be mid-view, because pitch moves it and so does the
+	/// cockpit's off-centre principal point.
 	/// </summary>
 	public static float BandHeightFor(int viewportHeight) =>
 		MathF.Max(viewportHeight / ReferenceViewHeight * BandRowsAt480, 1f);

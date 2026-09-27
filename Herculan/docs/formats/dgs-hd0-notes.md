@@ -29,8 +29,6 @@ The HERC roster is the same rule: every root 0 sits at y=0 except COLOSSUS, whic
 
 So a placed structure is drawn at terrain height with no vertical correction of any kind. Raising an object by its mesh's lowest point is a no-op on every shape but 28, which it drags down onto the ground — visible against retail in `Reference/Building_comparison.png`.
 
-Implementation: `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`, `HercWorks.Core.Data.File.Dgs.BaseShapeLibrary`. Wired into `Herculan.Engine.Scene.SceneModelLibrary.Base()`.
-
 ## Open
 
 - **Open:** the record's step-3 32-byte records. Their consumer, `TSBSPPart_RenderNode` (`00476a1c`), suggests something BSP-plane-adjacent.

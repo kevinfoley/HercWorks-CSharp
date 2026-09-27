@@ -195,21 +195,7 @@ heading += Q8(200, steer)                               // the steer *is* the he
 
 A speed of zero means "none stated" and takes `0xaa`, the same default `Ai_DriveToPoint` uses.
 
-## Engine port
-
-`SimObject` carries the shape instance, its animation data and the euler triple, as the original's common base carries `obj+0x34` and `obj+0x0c`; the threads themselves stay on the class that names them, so `MechObject` keeps its three and `BaseObject` an indexed pair. `SceneModelLibrary.BaseAnimation` flattens one root of `BASES_AN.DTS` — per root, because the file's eight roots are eight unrelated structures with eight separate animation lists.
-
-Ported: the construction tail, the plain tick including `BaseObject.StepAnimation`, the turret seek and aim, the armed tick with its lead, its firing window and its two projectile forms, and the ground vehicle's whole move half — `BaseObject.GroundVehicle.cs`, which is the class gate, the two steering arms, the control law, the terrain conform and the collision sweep. A gun tower acquires, traverses onto a machine inside 40000 and hits it; a ground convoy follows its group's route, leans into the slope under it and backs off whatever it runs into.
-
-`Target` is on `SimObject`, as `+0x1a4` is on the original's shared base, with the holder-count bookkeeping in that one setter and an `OnTargetChanged` hook for what a HERC and an aircraft each add. `BaseObject.AimPoint` is the `+0x2c` offset. Neither the `+0x9d` changed flag nor a behaviour state exists on a structure, because nothing in the original reads either.
-
-The triple turret (`004045c8`, [Type `0x22`](#the-triple-turret--004045c8)) is the one structure class this doc covers that the engine lacks ([Open](#open)).
-
-Three things to know about what *is* ported:
-
-- **The turret is drawn moving, from the same node poses the simulation aims with.** `SimObject_InstallModelTransform` (`00401fe4`) and `TSGroup_BindNodeTransform` (`00476014`) are the original's pair, and they are the same for every class: the structure classes install `Shape_DrawAtDetailLevel` (`004033e4`) in their vtable's `+0` unchanged, which hands the whole shape to the shape instance's own render, and that composes each group's node transform in front of the object's. The engine's counterpart is `MissionScene.PosedTransformOf`, over the `MeshSegment`s `SceneModelLibrary.Base` now builds for an `AnimatedLibrary` type. A segment carries a `CellGate` of its own, so the per-node and per-cell splits are one split and the damage states come with it.
-- **`StepAnimation` applies the root delta's translation and heading only**, dropping the pitch and roll a HERC adds. That costs nothing while the delta stays identity, which on retail data it always does.
-- **The retail mission handoff exercises none of the move half.** Its one ground vehicle (type `0x38`) rides in a group whose first member is a plain building, so the class gate keeps it parked — and it stands overlapping an armed tower, which would block every step it tried to take even if the gate let it move. The path was checked by standing that vehicle clear and giving it a route of its own ([Open](#open) covers the follower arm).
+**The retail mission handoff exercises none of the move half.** Its one ground vehicle (type `0x38`) rides in a group whose first member is a plain building, so the class gate keeps it parked — and it stands overlapping an armed tower, which would block every step it tried to take even if the gate let it move.
 
 ## Open
 

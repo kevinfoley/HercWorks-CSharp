@@ -287,7 +287,7 @@ return 1
 
 It is `Mech_MovementTick` with the undo removed. The walking move restores the step and backs away from a block ([`mech-locomotion.md`](mech-locomotion.md)); this detonates instead — a blast the machine excludes *itself* from, and then a flat 32000 on every component it still has, through the same endpoint a shot reaches. There is no roll, no falloff and no survival; the blast is only what it does to everyone else on the way out. Damage and radius are [`damage-system.md`](damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20)'s third call site.
 
-**What sets it off is any block at all** — a rock, a building, a wingman — not contact with the target, and not this tick's contact either. `mech+0xb1` is the "something ran into me" latch, and this is its one reader in the image. It is written by `SimObject_SetRunInto` (`0042200c`), vtable `+0x68` in all eight `SimObject`-shaped tables with no class overriding it, on whatever object blocked a move and whatever class that object is. Two sweeps call it, and the engine has both: `Mech_CollisionTest`, and `GroundVehicle_CollisionTest` inside the ground vehicle tick ([`structure-behaviour.md`](structure-behaviour.md#the-ground vehicle-tick--0046a5d0)). **Nothing ever lowers the byte.** A machine bumped once at any earlier point in the mission blows up on its first tick in the state, before it has gone anywhere.
+**What sets it off is any block at all** — a rock, a building, a wingman — not contact with the target, and not this tick's contact either. `mech+0xb1` is the "something ran into me" latch, and this is its one reader in the image. It is written by `SimObject_SetRunInto` (`0042200c`), vtable `+0x68` in all eight `SimObject`-shaped tables with no class overriding it, on whatever object blocked a move and whatever class that object is. Two sweeps call it: `Mech_CollisionTest`, and `GroundVehicle_CollisionTest` inside the ground vehicle tick ([`structure-behaviour.md`](structure-behaviour.md#the-ground vehicle-tick--0046a5d0)). **Nothing ever lowers the byte.** A machine bumped once at any earlier point in the mission blows up on its first tick in the state, before it has gone anywhere.
 
 That "nothing lowers it" is a negative claim, so here is what it rests on, by three methods that fail differently:
 
@@ -400,24 +400,6 @@ Fields outside the block:
 | `Ai_CombatMoveStep`'s range tests read the bearing the state just steered to | The magnitude at `geom+0x04` is recomputed *after* both tests, so they see the bearing to the target and the steer sees the state's own point |
 | `fleeing` keeps the machine it is running from as its target | It moves the pointer into the block scratch and releases the selection on its first tick. Nothing holds a target while it flees, which is why the machine is not counted among that target's holders |
 | `attacking` walks a circle like `flanking` does | It builds one aim point per tick off the target's beam and steers at it; there is no timer and no alternation. The circling step is `flanking`'s and `attacking base`'s alone |
-
-## Engine port
-
-`MechObject.CombatStates.cs` holds nine of the ten thinks, the geometry block, the move step and the circling step, and `MechObject.Ramming.cs` the tenth with its move slot; `BehaviourState` gains a `ThinkSlot` for each; `SimWorld.Raycast` gains the blocked-line-of-fire notification.
-
-`ramming`'s move slot is branched on in `MechObject.Tick` rather than dispatched through a field on the descriptor, since it is the roster's only exception. `mech+0xb1` is `SimObject.RunInto`.
-
-What differs from the original, and why:
-
-- **The block scratch is named fields, not a union.** Two states never run at once, so the aliasing carries no behaviour — except `fleeing`'s clock, which the approach flag really does rewrite in the original and which is reproduced by rounding the reload the same way.
-- **`flanking`'s gate is `MechTypeRecord.FlankingGate`**, which returns the chassis' forward speed rather than the record word at `+0xc8`, because forward speed is what `MechType_InitOne` copies over that word at load. Reading the file field instead makes the state unreachable, which is the trap the retail data sets.
-- **`attacking flyer` has nothing to fly against.** `FlyerObject` answers `TargetClass.Flyer` and the acquisition can pick one, but no retail mission places an AI flyer to fight — see [`razor-flight.md`](razor-flight.md).
-- **The skirt stash is a `Vec3i` and the state to return to is a `BehaviourState`**, rather than a raw descriptor pointer in the scratch.
-- **`Math_OffsetPointByBearing`'s distance is an `int`.** `skirting` passes a range that does not fit the `short` the earlier port used.
-- **The Turbo Pod engage `fleeing` makes is left out.** The pod's speed bonus is not modelled at all — see [`mech-locomotion.md`](mech-locomotion.md) — so there is nothing for the call to reach.
-- **Every state change goes through one helper that clears the scratch**, because the original's zeroing of the block is what makes a freshly installed state start from nothing, and named C# fields do not get that for free.
-
-Observed running mission 1: a machine on an `attacking base` order cycles `attacking base` → `skirting` → `attacking base` as its shots stop on the compound's other buildings, and can orbit the ring for a minute at a time when the building it is on has others all the way round it. That is the mechanism working as written rather than a divergence: `skirting` bounds itself only by the clear line-of-sight reading, and its dwell flag stops the countdown that would otherwise let the reassess pick something else, so nothing short of the group's next order or the machine's death cuts the cycle.
 
 ## Open
 

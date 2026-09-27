@@ -39,6 +39,14 @@ public readonly record struct SelectedEffectLight(bool Directional, Vector3 Vect
 /// <see cref="Vec3i.ApproxDistanceTo"/> and the branch test is the sim's own arctangent — the
 /// conversion to render space happens only on the vectors that leave. The derivation is
 /// docs/formats/effect-lights.md, "Per-object selection".</para>
+///
+/// <para>Where the shading departs from the original. A point light is measured to the corner the
+/// shader is lighting rather than to the poly's stored centre point, as the sun's own term is; the
+/// difference is bounded by the poly's size. The arithmetic is float from the selection outward,
+/// where the original truncates twice inside the point term (<c>dot / (|disp| + 1)</c> and the divide
+/// by the range sum). The manager's camera position (<c>mgr+0x00</c>) is not modelled; its only
+/// consumer has no callers. Terrain stays unlit: its shade is baked at zone load, as the original
+/// bakes it, and the shader skips the accumulate for a vertex carrying a baked shade byte.</para>
 /// </summary>
 public static class EffectLightSelection {
 	/// <summary>

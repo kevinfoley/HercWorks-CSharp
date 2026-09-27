@@ -109,139 +109,82 @@ public sealed class SystemMessages {
 	/// <summary>Attribute byte 6 — how long after posting it is dropped unshown. 20 throughout.</summary>
 	public const int MaxDelayAttribute = 6;
 
-	/// <summary>
-	/// <c>WAYPOINT REACHED</c> — posted by the player's own think (<c>Mech_BehaviourPlayerThink</c>,
-	/// <c>0041c194</c>) as it steps the player group's route cursor, and again by the nav marker
-	/// (<see cref="NavMarker"/>) when the player comes back to one. Nothing an AI machine does posts
-	/// it: an AI arrival is silent.
-	/// </summary>
+	/// <summary><c>WAYPOINT REACHED</c>. Posted by <see cref="Sim.MechObject.PlayerThink"/> and <see cref="NavMarker.Tick"/>.</summary>
 	public const int WaypointReached = 0x1d;
 
-	/// <summary>
-	/// <c>MISSION FAILED</c> — posted by the objective layer when a failure condition comes true and
-	/// the player is clear of contact. See <see cref="Sim.MissionObjectives"/>.
-	/// </summary>
+	/// <summary><c>MISSION FAILED</c>. Posted by <see cref="Sim.MissionObjectives.MessageFor"/>.</summary>
 	public const int MissionFailed = 0x16;
 
-	/// <summary><c>MISSION SUCCESSFUL</c> — the other end of the same test.</summary>
+	/// <summary><c>MISSION SUCCESSFUL</c>. Posted by <see cref="Sim.MissionObjectives.MessageFor"/>.</summary>
 	public const int MissionSuccessful = 0x17;
 
-	/// <summary>
-	/// <c>MISSION TARGET DETECTED</c> — the player's think, once per mission, the first time the
-	/// player selects the target their group's order names. Only on objective type 0.
-	/// </summary>
+	/// <summary><c>MISSION TARGET DETECTED</c>. Posted by <see cref="Sim.MechObject.TargetDetectedArm"/>.</summary>
 	public const int MissionTargetDetected = 0x19;
 
-	/// <summary>
-	/// <c>APPROACHING MISSION ZONE BOUNDARY</c> — the player has left the mission's own bounding box,
-	/// which is block 1's extent and nothing to do with the terrain grid's edge.
-	/// </summary>
+	/// <summary><c>APPROACHING MISSION ZONE BOUNDARY</c>. Posted by <see cref="Sim.MissionObjectives.MessageFor"/>.</summary>
 	public const int ApproachingZoneBoundary = 0x1e;
 
-	/// <summary>
-	/// <c>RULES OF ENGAGEMENT VIOLATED. MISSION ABORTED.</c> — the same box, overshot by
-	/// <see cref="Sim.MissionObjectives.RulesOfEngagementMargin"/>.
-	/// </summary>
+	/// <summary><c>RULES OF ENGAGEMENT VIOLATED. MISSION ABORTED.</c> Posted by <see cref="Sim.MissionObjectives.MessageFor"/>.</summary>
 	public const int RulesOfEngagementViolated = 0x20;
 
 	/// <summary>
-	/// <c>ENGAGING DATA LINK</c> — the first of the four consecutive ids the data-link sequence walks
-	/// (<c>0x34</c> to <c>0x37</c>), which is why the sequence adds its step number to this rather
-	/// than naming each one.
+	/// <c>ENGAGING DATA LINK</c>. Posted by <see cref="Sim.MechObject.DataLinkArm"/>. The first of
+	/// four consecutive ids (<c>0x34</c> to <c>0x37</c>); the poster adds its step number to this one.
 	/// </summary>
 	public const int EngagingDataLink = 0x34;
 
-	/// <summary><c>DATA TRANSFER ABORTED</c> — posted on breaking the link part-way.</summary>
+	/// <summary><c>DATA TRANSFER ABORTED</c>. Posted by <see cref="Sim.MechObject.DataLinkArm"/>.</summary>
 	public const int DataTransferAborted = 0x38;
 
-	/// <summary>
-	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> — posted by the cockpit's power-up sequence
-	/// (<c>Cockpit_PowerUpTick</c>, <c>00432924</c>) once the start-up run finishes with no damaged component found.
-	/// </summary>
+	/// <summary><c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> Posted by <see cref="Audio.GameAudio.AnnouncePowerUp"/>.</summary>
 	public const int PowerUpNominal = 0x21;
 
-	/// <summary>
-	/// <c>POWERUP INITIATED. INTERNAL DAMAGE DETECTED.</c> — the same post when the sequence's walk
-	/// over the ten gauges finds one under its threshold.
-	/// </summary>
+	/// <summary><c>POWERUP INITIATED. INTERNAL DAMAGE DETECTED.</c> Posted by nothing yet; see <see cref="Audio.GameAudio.AnnouncePowerUp"/>.</summary>
 	public const int PowerUpDamaged = 0x22;
 
-	/// <summary>
-	/// <c>AUTO TRACKING ENGAGED</c> — posted by <c>ConsoleButtons_ToggleAutoTrack</c>
-	/// (<c>00441f7c</c>), which withdraws both of the pair first exactly as the radar toggle does.
-	/// </summary>
+	/// <summary><c>AUTO TRACKING ENGAGED</c>. Posted by <see cref="Sim.MechObject.ToggleAutoTrack"/>.</summary>
 	public const int AutoTrackingEngaged = 0x26;
 
-	/// <summary><c>AUTO TRACKING DISABLED</c> — its other half.</summary>
+	/// <summary><c>AUTO TRACKING DISABLED</c>. Posted by <see cref="Sim.MechObject.ToggleAutoTrack"/>.</summary>
 	public const int AutoTrackingDisabled = 0x27;
 
-	/// <summary>
-	/// <c>JAMMING ENGAGED</c> — posted by <c>EcmPod_Tick</c> (<c>0040f184</c>) when the ECM pod row's
-	/// button comes on. The pod tick runs on the player's own machine only, so this is never said
-	/// about anybody else's jammer.
-	/// </summary>
+	/// <summary><c>JAMMING ENGAGED</c>. Posted by <see cref="Sim.MechObject.PodTick"/>.</summary>
 	public const int JammingEngaged = 0x2a;
 
-	/// <summary><c>JAMMING DISABLED</c> — the other arm of the same post.</summary>
+	/// <summary><c>JAMMING DISABLED</c>. Posted by <see cref="Sim.MechObject.PodTick"/>.</summary>
 	public const int JammingDisabled = 0x2b;
 
-	/// <summary><c>ACTIVE RADAR MODE</c> — posted by <c>Mech_ToggleRadarMode</c> (<c>0041b468</c>).</summary>
+	/// <summary><c>ACTIVE RADAR MODE</c>. Posted by <see cref="Sim.MechObject.ToggleScanner"/>.</summary>
 	public const int ActiveRadarMode = 0x2c;
 
-	/// <summary><c>PASSIVE RADAR MODE</c> — the other arm of the same post.</summary>
+	/// <summary><c>PASSIVE RADAR MODE</c>. Posted by <see cref="Sim.MechObject.ToggleScanner"/>.</summary>
 	public const int PassiveRadarMode = 0x2d;
 
-	/// <summary>
-	/// <c>INTERNAL DAMAGE: SHIELD GENERATOR</c> — the damage endpoint, the first hit that puts any
-	/// damage at all on the shield-generator dependent: its reading was zero before the write and is
-	/// not after. See <see cref="Sim.MechObject"/>.
-	/// </summary>
+	/// <summary><c>INTERNAL DAMAGE: SHIELD GENERATOR</c>. Posted by <see cref="Sim.MechObject.ComponentDamageWrite"/>.</summary>
 	public const int InternalDamageShieldGenerator = 0x03;
 
-	/// <summary>
-	/// <c>INTERNAL DAMAGE: ENGINE</c> — the same endpoint, on the reactor dependent crossing either
-	/// of its two grading thresholds. The original holds a latch per threshold and both post this
-	/// one line; because the grade is only read while both latches are clear, a machine announces its
-	/// reactor once and then never again however far it degrades.
-	/// </summary>
+	/// <summary><c>INTERNAL DAMAGE: ENGINE</c>. Posted by <see cref="Sim.MechObject.ComponentDamageWrite"/>.</summary>
 	public const int InternalDamageEngine = 0x04;
 
-	/// <summary>
-	/// <c>INTERNAL DAMAGE: LEG SERVOS</c> — the leg grade, on the softer of its two bands: neither
-	/// side crippled, one side past its alert threshold, and the leg-damaged latch still clear.
-	/// </summary>
+	/// <summary><c>INTERNAL DAMAGE: LEG SERVOS</c>. Posted by <see cref="Sim.MechObject.GradeLegs"/>.</summary>
 	public const int InternalDamageLegServos = 0x08;
 
-	/// <summary><c>SHIELD GENERATOR DESTROYED</c> — that dependent's reading reaching full.</summary>
+	/// <summary><c>SHIELD GENERATOR DESTROYED</c>. Posted by <see cref="Sim.MechObject.ComponentDamageWrite"/>.</summary>
 	public const int ShieldGeneratorDestroyed = 0x0c;
 
-	/// <summary>
-	/// <c>WEAPON DESTROYED</c> — a hardpoint's own component reaching full damage. Posted <b>once per
-	/// damage write</b> rather than once per mount: the original raises a flag inside the walk over
-	/// the mounts and posts after it, so a cascade that takes several hardpoints at once says this
-	/// once.
-	/// </summary>
+	/// <summary><c>WEAPON DESTROYED</c>. Posted by <see cref="Sim.MechObject.ComponentDamageWrite"/>.</summary>
 	public const int WeaponDestroyed = 0x10;
 
 	/// <summary>
-	/// <c>DAMAGE LEVEL CRITICAL</c> — the cockpit's own reading crossing
-	/// <see cref="Sim.MechObject.CockpitShakeDamageLimit"/>. <b>Retail never posts it</b> due to
-	/// a typo in the code.
-	/// 
-	/// See docs/formats/cockpit-messages.md and KNOWN_ISSUES.md.
+	/// <c>DAMAGE LEVEL CRITICAL</c>. Posted by <see cref="Sim.MechObject.ApplyDirectFireDamage"/>, under a tweak.
+	/// Unreachable in retail; see KNOWN_ISSUES.md.
 	/// </summary>
 	public const int DamageLevelCritical = 0x12;
 
-	/// <summary>
-	/// <c>STRUCTURAL FAILURE IMMINENT</c> — the harder leg band: a side at or past the crippled
-	/// threshold, with the machine still standing.
-	/// </summary>
+	/// <summary><c>STRUCTURAL FAILURE IMMINENT</c>. Posted by <see cref="Sim.MechObject.GradeLegs"/>.</summary>
 	public const int StructuralFailureImminent = 0x13;
 
-	/// <summary>
-	/// <c>SHIELDS CRITICAL</c> — the hit test, the first shot to land with under
-	/// <see cref="Sim.MechObject.ShieldsDownAlertCharge"/> of charge left across both facings.
-	/// </summary>
+	/// <summary><c>SHIELDS CRITICAL</c>. Posted by <see cref="Sim.MechObject.DirectFireHitTest"/>.</summary>
 	public const int ShieldsCritical = 0x15;
 
 	/// <summary><c>ENEMY TARGET DESTROYED</c>. Posted by <see cref="Sim.SimObject.AnnounceNeutralised"/>.</summary>
@@ -251,10 +194,8 @@ public sealed class SystemMessages {
 	public const int EnemyTargetDisabled = 0x2f;
 
 	/// <summary>
-	/// <c>TRANSFERRING DATA</c> — the one message the port treats specially. It is the only entry
-	/// whose timings differ from the rest of the file (10 s and 20 s against 3 s and 6 s), and
-	/// <c>MessagePort_Show</c> (<c>00436abc</c>) switches on its id to make it blink; <c>MessageTicker_Paint</c> (<c>00436cec</c>) then centres it in
-	/// the box instead of scrolling it. See <see cref="MessagePort"/>.
+	/// <c>TRANSFERRING DATA</c>. Posted by <see cref="Sim.MechObject.DataLinkArm"/>. The one
+	/// id the port treats specially: see <see cref="MessagePort"/>.
 	/// </summary>
 	public const int TransferringData = 0x36;
 }

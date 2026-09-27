@@ -21,10 +21,10 @@ Without one of these, the host flies the mission.
 
 | Flag | Effect |
 |---|---|
-| `--shell` | Runs the front end instead of a mission. The other `--shell-*` flags imply it. See [`shell/screen-layout.md`](../shell/screen-layout.md#engine-coverage). |
+| `--shell` | Runs the front end instead of a mission. The other `--shell-*` flags imply it. See [`shell/screen-layout.md`](../shell/screen-layout.md). |
 | `--movie <name>` | Plays one cutscene: a path, or a name looked up in the install's `AVI` folder, with or without the extension. See [`formats/avi-video.md`](../formats/avi-video.md#looking-at-one). |
-| `--play <tape>` | Replays an input tape: a path, or a stem looked up in the install's `TAPES` folder. Hands the controls to the player when the tape runs out. Retail's `-p<name>`. See [`formats/tap-input-tape.md`](../formats/tap-input-tape.md#engine-port). |
-| `--record <tape>` | Records the mission's input to `<tape>.tap`, which `--play` replays. Cannot be combined with `--play` or `--demo`. Retail's `-r<name>`. See [`formats/tap-input-tape.md`](../formats/tap-input-tape.md#recording). |
+| `--play <tape>` | Replays an input tape: a path, or a stem looked up in the install's `TAPES` folder. Hands the controls to the player when the tape runs out. Retail's `-p<name>`. See [`input-tapes.md`](input-tapes.md). |
+| `--record <tape>` | Records the mission's input to `<tape>.tap`, which `--play` replays. Cannot be combined with `--play` or `--demo`. Retail's `-r<name>`. See [`input-tapes.md`](input-tapes.md#recording). |
 | `--demo` | Plays a tape picked from `TAPES\demolist.str`, as VIEW DEMO does, and ends the mission when the tape runs out or a key is pressed. With `--play`, plays that tape in demo mode instead. Retail's `-D`. |
 
 ## Front end
@@ -39,7 +39,7 @@ All of these imply `--shell`.
 | `--shell-practice` | Opens on the practice missions screen, as the main menu's PRACTICE MISSIONS does. |
 | `--shell-palette <name>` | Pins `dpl\<name>.DPL` as the palette for the whole run, in place of each tab's own. |
 
-See [`shell/screen-layout.md`](../shell/screen-layout.md#engine-coverage).
+See [`shell/screen-layout.md`](../shell/screen-layout.md).
 
 ## Sound and music
 
@@ -50,7 +50,7 @@ See [`shell/screen-layout.md`](../shell/screen-layout.md#engine-coverage).
 | `--cd-drive <drive>` | The drive holding the music CD. |
 | `--music-dir <dir>` | A folder of `Track02.wav` … `Track07.wav` to play in place of the disc. |
 
-See [`formats/audio.md`](../formats/audio.md#cd-music).
+See [`formats/audio.md`](../formats/audio.md#cd-audio).
 
 ## Settings and input devices
 
@@ -61,7 +61,7 @@ See [`formats/audio.md`](../formats/audio.md#cd-music).
 | `--joystick-probe` | Prints each axis and button of the attached stick as it moves. |
 | `--write-joystick-map` | Writes the joystick map in force to `data\herculan-joystick.cfg`. |
 
-See [`formats/joystick-input.md`](../formats/joystick-input.md#engine-port).
+See [`joystick-config.md`](joystick-config.md).
 
 ## Developer
 

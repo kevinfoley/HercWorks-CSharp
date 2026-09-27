@@ -1240,8 +1240,10 @@ static class ShellHost {
 		}
 
 		// Rasterizes the current tab's content and hands it to the renderer. Called on a state change
-		// rather than per frame: it resolves a whole canvas of palette indices and uploads a texture,
-		// which is the same "repaint only what moved" the original's widget paints are driven by.
+		// rather than per frame: it resolves a whole canvas of palette indices and uploads a texture.
+		// The whole surface is painted each time, where the original repaints only the widgets that
+		// moved. Rows overlap by a pixel and whichever paints second owns the shared border row, so
+		// each screen paints its selected row last, as Repair_SelectHotspot's incoming repaint lands.
 		void RepaintContent() {
 			if (renderer == null) {
 				return;

@@ -8,7 +8,7 @@ DBSIM's sound is three stacked layers:
 | `SFX` | A general resource/voice manager: named samples, handles, a memory budget, priority eviction |
 | `Sound_*` | The game's own layer: a 57-entry catalog keyed by integer id, 3D placement, and a separate five-slot speech channel |
 
-All three layers are ported except the `.hmp` MIDI path; see [Engine coverage](#engine-coverage) and [Open](#open). The message channels themselves — the computer's ticker and the pilot/squad comm boxes that ride on this layer's speech slots — are [`cockpit-messages.md`](cockpit-messages.md)'s.
+The message channels themselves — the computer's ticker and the pilot/squad comm boxes that ride on this layer's speech slots — are [`cockpit-messages.md`](cockpit-messages.md)'s.
 
 ## Backend
 
@@ -351,7 +351,7 @@ if (mech+0x1f2 -> +0x50 != 0):
     Sound_SetPitch(0x2d, 42000)          -- 42000/65536, about 0.64
 ```
 
-The engine hum is not started at its recorded rate: it is dropped to roughly two thirds of it immediately, which is what turns the sample into a hum rather than a whine. It loops for the rest of the mission — attribute byte 0 is 0 — and follows its machine through `Sound_UpdatePosition`.
+The engine hum is not started at its recorded rate: it is dropped to roughly two thirds of it immediately, which is what turns the sample into a hum rather than a whine. It loops for the rest of the mission — attribute byte 0 is 0 — and follows its machine through `Sound_UpdatePosition`. <!-- doc-lint: ok -->
 
 **The hum belongs to the flyer, not to a HERC.** The gate is type record `+0x50`, which is file offset 78, `InputFlagFlyer`, set on the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). A walking HERC powers up with `start3` and nothing else; its running noise is its footsteps.
 
@@ -419,49 +419,10 @@ The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the las
 | `herceng1` is the HERC engine hum | The name says so and the sample is one, but the only thing that starts it gates on type record `+0x50` — `InputFlagFlyer`, the RAZOR. A walking HERC never plays it. |
 | One voice per catalog id means one copy of that sound at a time | The voice record is bookkeeping, not a hardware channel. `Sfx_Play` starts a fresh `sosDIGIStartSample` every call without testing the `0x100` playing flag, so the copies overlap — see [A repeated play layers; it does not restart](#a-repeated-play-layers-it-does-not-restart). |
 
-## Engine coverage
-
-`Herculan.Engine.Audio` covers the catalog and the effects path: `SoundCatalog` parses `SOUNDS.STR` with the attribute layout above, `SoundBank` picks the `HMI`/`HMX` folder and decodes the samples out of `SIMSOUND.VOL`, and `SoundDirector` is the `Sound_*` layer — one voice per catalog id, the variation roll, the category split, `Sound_Place`'s rolloff and pan, both mute pairs, suspend/resume, and the MUSIC and SOUNDS rows' handlers (`ApplyMusicOption`, `ApplySoundsOption`). `OpenAlBackend` stands in for HMI SOS; `NullAudioBackend` runs the same rules silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation reaches through `SimWorld.Sounds`, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`, `ROCKETS.DAT` and `EXPLOS.DAT` ids.
-
-The five-slot speech channel is ported too: `SquadVoice` opens the `P*_*.WAV` clips and `ComputerVoice` opens `CVM` clips out of `SIMVOICE.VOL`, both keeping every clip they open rather than running the original's five-slot LRU. `GameAudio.SpeechEnabled` is `Sound_SpeechEnabled`, the gate in front of both. Which messages reach either voice, and the `.SNC` portrait that plays alongside a squad line, are [`cockpit-messages.md`](cockpit-messages.md) and [`heads-down-display.md`](heads-down-display.md#snc--portrait-lip-sync-scripts)'s.
-
-Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken announcement, the lock/acquire/loss tones, the power-up with its announcement and its flyer hum, and the missile-inbound warning.
-
-**Copies overlap, as they do in retail, but the channel ceiling is this engine's own.** `OpenAlBackend` keeps one buffer per sample and claims a source from a pool of `ChannelCount` (64) per play, so an id sounding twice occupies two sources; `SoundDirector` keeps the id's volume, pan and pitch and the newest handle, exactly as the original's voice record does. What is not reproduced is the ceiling: retail's is whatever its SOS driver was initialised with, and the `sosDIGIInitDriver` argument block at `006b5614` is filled field by field with nothing to name the words ([Open](#open)). 64 is chosen against what the game asks for and against OpenAL Soft's own limit of 256 sources. A play that finds every channel busy is dropped, which is how `sosDIGIStartSample` fails too.
-
-`SoundDirector.ConsumeRequest` is a faithful port of `Sound_ConsumeRequest` and, like the original, has no caller. It is kept because the attribute it reads is parsed and documented, not because anything uses it.
-
-**The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at startup instead of honouring the preload attribute and caching the rest on demand, so none of [Memory budget and eviction](#memory-budget-and-eviction) exists here — no cap, no refcount, no victim scoring. The whole `hmi` bank is about 1.5 MB of 8-bit PCM against the original's own 2,000,000-byte cap, so there is nothing for the eviction machinery to do; it would only start to matter for a bank the retail game does not ship.
-
-### CD music
-
-`SoundDirector` holds the three globals above the device — `CdTrack`, `CdEnabled`, `SavedMusicPosition` — and every branch that tests them: `MuteMusic`/`UnmuteMusic`, the CD arms of `SuspendAll`/`ResumeAll`, and `ApplyMusicOption`, which is the MUSIC row's own handler. `StartMissionMusic` is the mission arm, with `GameAudio.StartMissionMusic` applying the training gate above it. All of that is retail's. The device underneath, `ICdAudio`, is where the engine diverges.
-
-**The transport is the engine's own.** Rather than asking the drive to play, `StreamedCdAudio` reads the track's audio digitally and plays it through OpenAL on a streamed voice of its own (`IAudioBackend.OpenStream`), outside the effect pool. It loops by wrapping its read from the track's last frame to its first, so the seam is gapless, and it is what makes music loop at all on current Windows ([above](#cd-audio)). Its positions are TMSF words at CD-frame resolution, the same shape as MCI's, so the director's saved position means the same thing under either transport. The PCM comes from an `IMusicSource`, and `CdAudio.Open` takes the first of these that works:
-
-1. **`--music-dir`**: a directory of `Track02.wav` … `Track07.wav` (44.1 kHz 16-bit stereo), through `WaveFileMusicSource`. For a machine with no drive.
-2. **The disc**, through `CdRipMusicSource`: `IOCTL_CDROM_READ_TOC`, then `IOCTL_CDROM_RAW_READ` in CD-DA mode against `\\.\F:`, which opens unelevated. The track is read on a worker thread, 26 sectors per call (52 fails with `ERROR_INVALID_PARAMETER`), and never past the track's own end: a read that crosses the lead-out fails whole. Playback starts on the first block, a few tens of milliseconds in, because the read runs at 7.8× realtime from a cold drive and about 20× once it has spun up. A read that fails after retries goes in as silence, sector by sector.
-3. **MCI**, through `MciCdAudio`, for a drive that refuses raw reads or a machine with no digital output device.
-4. **The rip cache** of the one disc this machine has ripped before, with the disc absent.
-
-Every track `CdRipMusicSource` reads whole and undamaged is written to `%LOCALAPPDATA%\Herculan\cd-audio\<disc id>\TrackNN.wav`, where the id is a hash of the table of contents, and is read from there instead of the disc from then on. A cached read takes about 25 ms.
-
-`MciCdAudio` is the `Music_*` layer command for command, with two divergences:
-
-- **The loop is polled, not notified.** Retail asks for `MCI_NOTIFY` and restarts the track from `sfxWndProc`; that wants a Win32 window procedure, and this engine's window is Silk.NET's. `MciCdAudio.Update` asks the device every 200 ms instead, so the seam can be that much later than retail's.
-- **The play head, not the device mode, is what says a track ended.** Given the frozen position [above](#cd-audio), the obvious mode poll never fires; the position is compared against the track's own length, with the mode kept only for a device that genuinely stops.
-
-**A drive can be named** under either transport, through `--cd-drive`. Retail opens MCI's default device and nothing else. Without the switch, `CdRipMusicSource` takes the first CD drive holding audio tracks and `MciCdAudio` opens the device type alone, as retail does. Neither checks which disc it is: any audio CD plays, as it does in retail.
-
-`NullCdAudio` is what a machine with none of the four gets, and everything above the device runs unchanged against it.
-
-The `Sound_SetMusicEnabled(1)` that [overrides the MUSIC preference](#the-mission-session-overrides-the-music-preference) is not reproduced: the engine reads the row, starts the mission's music through it, and leaves it alone.
-
 ## Open
 
 - **Unported:** the `.hmp` MIDI path. No `.hmp` ships, so nothing is lost in play.
-- **Unported:** `ES.EXE`'s track rotation. The engine plays track 2 for every mission unless `--music` gives it a select value.
-- **Unported:** reading `SOUND.CFG`. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a key holder with no reader.
+- **Unported:** `ES.EXE`'s track rotation.
+- **Unported:** reading `SOUND.CFG`.
 - **Open:** which word of the `sosDIGIInitDriver` argument block at `006b5614` is retail's channel count.
 - **Open:** whether any `Sfx_Open` caller in DBSIM passes open type 2, the streamed voice behind flag `0x1000`. A text search finds none, which does not settle it.
-- **Open:** mid-session audio recovery, an engine need retail never had. If the endpoint drops (unplugged headphones, a changed default device), the engine stays silent for good. OpenAL Soft exposes `ALC_EXT_disconnect`/`ALC_CONNECTED`; detecting it is cheap, but reconnecting means recreating the 64-source pool in `OpenChannels` and re-uploading every buffer `CreateSample` handed out, since sample ids are indices into `_buffers` that `SoundDirector` and `ComputerVoice` both hold. Those ids would need to stay stable across a re-open, or both holders would need re-registering.

@@ -1203,9 +1203,20 @@ public static class DtsMeshBuilder {
 	/// degenerate to solve (its diagonals do not cross inside it, or one of them has no length).
 	///
 	/// <para>With the quad's diagonals crossing at fraction <c>s</c> along <c>p0→p2</c> and <c>t</c>
-	/// along <c>p1→p3</c>, the corners take <c>1/(1-s), 1/(1-t), 1/s, 1/t</c>. Why that is the right
-	/// mapping, and what it fixes, is docs/formats/dts-texture-binding.md's "Quad mapping on triangle
-	/// hardware".</para>
+	/// along <c>p1→p3</c>, the corners take <c>1/(1-s), 1/(1-t), 1/s, 1/t</c>.</para>
+	///
+	/// <para>Why: the original hands its rasterizer the whole quad with the frame rect's corners on
+	/// the poly's corners (docs/formats/dts-texture-binding.md, "Render path and UV generation"), so
+	/// one map covers the face. A GPU splits the quad, and two triangles with plain UVs each get
+	/// their own affine map; the two agree only on a parallelogram, and everywhere else the texture
+	/// kinks along the shared diagonal — plainly on base type 37's trapezoidal pyramid faces. The map
+	/// taking a quad's corners to a rect's corners is projective, and interpolating
+	/// <c>(u·w, v·w)</c> against <c>w</c> and dividing per fragment produces exactly that. A
+	/// parallelogram gives <c>s = t = ½</c> and equal weights, the affine map this replaces, so a quad
+	/// that was already right is untouched; a degenerate or non-convex quad stays affine rather than
+	/// being guessed at. Whether retail's own rasterizer is exactly projective or interpolates
+	/// linearly across spans is open; the two differ only inside a strongly foreshortened quad, and
+	/// both are free of the kink.</para>
 	///
 	/// <para>The crossing is solved as a least-squares one rather than a planar intersection because
 	/// a DTS quad is not guaranteed to be planar.</para>

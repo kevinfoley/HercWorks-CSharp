@@ -12,7 +12,7 @@ joyGetDevCapsA / joyGetPosEx     Joystick_Enumerate (00477568) / Joystick_Poll (
   -> Sim_PollPlayerInput                     the control laws, and the button action switch
 ```
 
-**The bindings name no hardware.** Four bytes say which *pair of game axes* each control feeds and eight say which *action* each button fires. Nothing in the file identifies a device, an axis number or a HID usage — which is why the file survives a change of input backend intact, and why the engine's port needs a side-car of its own for the step retail never had to take.
+**The bindings name no hardware.** Four bytes say which *pair of game axes* each control feeds and eight say which *action* each button fires. Nothing in the file identifies a device, an axis number or a HID usage — which is why the file survives a change of input backend intact. HERCULAN's side file for that step is [`../engine/joystick-config.md`](../engine/joystick-config.md). <!-- doc-lint: ok -->
 
 ## Reading the hardware
 
@@ -153,7 +153,7 @@ Code 0 is `OFF`, which a row displays when its byte is zero and which the switch
 
 #### `HDD VIEW` can only leave
 
-The case picks between F7 and [Esc] on `CockpitViewManager_Published` (`00429820`), and it tests **the pointer, not a field of it** — so it asks whether the cockpit view manager exists, not which view is up. `CockpitViewManager_LoadViews` publishes that pointer while the cockpit is being built and nothing ever clears it, so by the time `Sim_PollPlayerInput` runs it is always non-null and the button always sends [Esc]. A button bound to `HDD VIEW` can therefore leave the heads-down display and never enter it; see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md). The two branches read as the toggle the action's name promises, which is what the engine implements.
+The case picks between F7 and [Esc] on `CockpitViewManager_Published` (`00429820`), and it tests **the pointer, not a field of it** — so it asks whether the cockpit view manager exists, not which view is up. `CockpitViewManager_LoadViews` publishes that pointer while the cockpit is being built and nothing ever clears it, so by the time `Sim_PollPlayerInput` runs it is always non-null and the button always sends [Esc]. A button bound to `HDD VIEW` can therefore leave the heads-down display and never enter it; see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md). The two branches read as the toggle the action's name promises.
 
 #### One action per tick
 
@@ -169,52 +169,6 @@ The only part of the input configuration outside `prefs.cfg`. `Keyjoy_LoadConfig
 | `Backturn` | `0049eabc` | the steering axis while the throttle axis is positive — while backing up. Applied last, to the combined axes |
 | `Missile` | `0049eac0` | the pitch axis inside the missile camera (`DAT_004d25aa`) |
 | `Rudder` | `0049eac4` | the joystick's rudder axis, and only when the device reports one |
-
-## Engine port
-
-### Axis order is not axis meaning
-
-The host's `JoystickSource` reads the stick through Silk.NET, and **its axes are positional**: GLFW hands over an ordered array of floats with no HID usages attached. Nothing in that distinguishes a throttle from a twist grip; the order is whatever the driver enumerated, and on a HOTAS those two commonly come out swapped against the 1996 convention the twelve bytes assume.
-
-**No API fixes this.** HID has no "throttle" usage — a vendor labels a throttle `Z`, `Rz` or `Slider` as it pleases — so `joyGetPosEx`'s named fields, DirectInput's object names and Raw Input's usage pages all just relay that choice. The original does not notice because a 1996 gameport stick had X, Y, Z and R and nothing else. Which physical control is which is a question only the player can answer, which is what `data\herculan-joystick.cfg` and `--joystick-probe` are for, and what a real axis assignment step would be for if this ever grows one.
-
-Resting position does not identify a lever either: a throttle parked mid-travel reads 0.00, the same as a self-centring twist.
-
-**Check the mode switch on the base of a HOTAS before reading anything into its numbering.** A Thrustmaster T.Flight's PC position numbers buttons and axes the way the retail format expects — the trigger is button 1 and the throttle is the throttle — and its PS3 position renumbers both, which looks exactly like the engine inferring the wrong convention. `Herculan/examples/herculan-joystick.cfg` is a worked map for that stick in PC mode.
-
-**Two GLFW behaviours shape the rest.** It publishes a fixed sixteen joystick slots and leaves the unused ones reporting `IsConnected` false, so a device must be chosen by connectedness rather than by index; and a connected device reports **zero** axes, buttons and hats until the first `Update`, the counts arriving a frame after `CreateInput`. So the device map is derived lazily from whatever the device reports now and re-derived when that changes — deriving it at load time maps nothing at all, which leaves every CONTROLS row greyed but the JOYSTICK one, that being the row with no capability byte of its own. `ControlsPanel.Capabilities` refreshes its readouts when it is set, for the same reason: a panel opened before the shape arrived would keep the blanks it was built with.
-
-`Input.JoystickReading` is the abstract device block and the normalisation; `Input.JoystickBindings` is the binding resolution, the press-once latch and the axis combine; `Input.JoystickAction` and `Input.JoystickAxisAssignment` are the two code sets; `Input.PilotAxes` is the four game axes. `Input.KeyjoyConfig` is the side file. The host's `JoystickSource` is the Silk.NET half — enumeration and polling, in place of `joyGetPosEx` — and `Program.cs` dispatches the action codes into the same handlers a key or a click reaches, as the original's switch does.
-
-**A modal takes the stick.** `Sim_PollPlayerInput` is reached only from `Sim_MainTick`, and each of the four alert panels runs a loop of its own that never calls it — so while a panel is up the action switch does not run, no axis reaches the control laws, and the twelve bytes can be rebound with the stick without any of it touching the machine. The engine suspends the whole pilot-input path, keyboard included, for as long as any panel stays up, and refreshes every edge latch while it does, so nothing fires as the panel closes.
-
-`--joystick-probe` prints each axis and button as it moves and `--write-joystick-map` writes the map in force out to the install, which together are how a stick is configured. Both are off by default, the map file being the player's to own. A rebinding made on the CONTROLS panel reaches the install's own `prefs.cfg` as that panel closes, which is retail's own timing — `--no-write-prefs` is the way out of it.
-
-### `data\herculan-joystick.cfg` — this engine's invention
-
-`Input.JoystickDeviceMap`, and the one layer of configuration the original has no equivalent of. Retail reads X, Y, Z and R in that fixed order and never asks which physical control any of them is, which works because a 1996 gameport stick had exactly those controls in exactly that order. A modern HOTAS does not: its twist is as likely to be axis 2 as its throttle, and it can carry six axes and thirty buttons.
-
-So the split is that `prefs.cfg` keeps owning what each control **does**, byte for byte as retail wrote it, and this owns which piece of hardware each control **is**. Retail never reads it. It is an INI in `keyjoy.cfg`'s shape, and when it is absent the device's own reported counts supply retail's order as the default.
-
-**What the retail format still cannot express**, and so neither can this: a fifth axis, a ninth button, a second hat, or a hat diagonal. Those are limits of the twelve bytes, and keeping the file readable by the retail simulator means keeping them.
-
-A *fifth axis* is the one of those the map does reach, because an axis number is the map's own and not the format's: `Rudder = 4` reads the device's fifth axis into the rudder slot, which is how a HOTAS whose paddles and twist grip are separate controls gets the paddles rather than the twist. What cannot be expressed is a fifth axis *as well as* the other four — there are four slots, and naming a sixth control means giving one of them up.
-
-#### `BipolarThrottle` — the centre-zero lever
-
-**This engine's invention.** Retail's lever is end-to-end: `Mech_ApplyThrottleInput` reads it as `|axis - 0x100| x 2`, so idle sits at one stop, full at the other, and the whole travel is spent on one direction. Which direction is `ThrottleLeverMode`'s sign, a global that `CHANGE DIRECTION` and the cockpit slider flip; the axis has no say in it, and the rate path's clamp closes to the same side of zero so nothing else can cross it either. That is the right shape for a 1996 gameport throttle, which had no centre detent to make anything else meaningful.
-
-With the setting on, the lever is read `-axis x 4` instead: the middle of the travel is idle, forward of it is forward and aft of it is reverse, each half covering the whole range. The negation is the axis' own sense rather than a choice — **negative is forward on this axis throughout**, which is why the rate path steps by `Q8(rate, -axis)` and why retail's arm measures full throttle at `-0x100`. The deadband and the mode's sign are unchanged, so `CHANGE DIRECTION` still reverses the lever bodily — of no use in this mode, but it costs nothing to leave working. The clamp keeps both limits, as it does with no lever at all.
-
-The mode travels as the *magnitude* of `ThrottleLever` (`MechControls.ThrottleLeverUnipolar` and `ThrottleLeverBipolar`), leaving its sign to mean what it always did. The flyer needs none of this: `FlightPhysics.Step`'s analogue arm is already signed across the whole range.
-
-### Divergences
-
-- **The trigger is found in the current block**, not always the walking one. See KNOWN_ISSUES.
-- **`OUTSIDE VIEW` and `CHASE VIEW` do nothing**: the engine has no external view chain to step, and approximating `DAT_004d2572`'s four states would be invention rather than a port.
-- **`HDD VIEW` toggles**, where the original's test of the view-manager pointer leaves it able only to leave ([above](#hdd-view-can-only-leave)). The engine sends the branch the current view calls for, which is what the two branches were plainly meant to be.
-- **A hat diagonal can be made to resolve** into its two cardinals, which retail never does. Off by default.
-- **A throttle lever can be read centre-zero**, reaching reverse without `CHANGE DIRECTION`. Off by default; see `BipolarThrottle` above.
 
 ## Rejected readings
 

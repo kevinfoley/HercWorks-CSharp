@@ -146,6 +146,10 @@ public sealed class SoundDirector : IDisposable {
 	/// <see cref="MusicEnabled"/> is up. The original guards the whole arm on the mission being a
 	/// <b>non-training</b> one - see <see cref="World.ScriptDatHeader.TrainingMissionNumber"/> - so a
 	/// training mission runs in silence.
+	///
+	/// <para>The original's unconditional <c>Sound_SetMusicEnabled(1)</c> at the end of the session
+	/// setup, which turns music back on behind a MUSIC-off preference, is not reproduced: the row's
+	/// setting stands (docs/formats/audio.md, "The mission session overrides the MUSIC preference").</para>
 	/// </summary>
 	/// <param name="select">The <c>-R</c> value; see <see cref="MissionTrack"/>.</param>
 	public void StartMissionMusic(int select = 0) {

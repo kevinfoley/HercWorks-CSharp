@@ -18,6 +18,13 @@ namespace Herculan.Engine.Audio;
 /// is heard twice — the original's arrangement, where <c>Sfx_Play</c> starts a fresh
 /// <c>sosDIGIStartSample</c> on every call. See docs/formats/audio.md, "A repeated play layers; it
 /// does not restart".</para>
+///
+/// <para>A dropped endpoint (unplugged headphones, a changed default device) leaves it silent for
+/// good. OpenAL Soft exposes <c>ALC_EXT_disconnect</c>/<c>ALC_CONNECTED</c>, so detecting that is
+/// cheap, but reconnecting means recreating the source pool in <c>OpenChannels</c> and re-uploading
+/// every buffer <c>CreateSample</c> handed out. Sample ids are indices into <c>_buffers</c> that
+/// <see cref="SoundDirector"/> and <see cref="ComputerVoice"/> both hold, so they would have to stay
+/// stable across a re-open.</para>
 /// </summary>
 public sealed unsafe class OpenAlBackend : IAudioBackend {
 	/// <summary>

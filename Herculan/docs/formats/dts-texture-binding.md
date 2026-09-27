@@ -44,7 +44,9 @@ V2 = (F2, F3)
 V3 = (F0, F3)
 ```
 
-from the decompiled assignment sequence `_DAT_0048a190`..`_DAT_0048a1ac` = `F0,F1,F2,F1,F2,F3,F0,F3`. Matches the corner order `DtsGeometryBuilder` uses. Assumes each DBA frame is independently cropped rather than a shared atlas with nonzero offsets, consistent with `HercWorks.Core`'s `DynamixBitmap` parsing.
+from the decompiled assignment sequence `_DAT_0048a190`..`_DAT_0048a1ac` = `F0,F1,F2,F1,F2,F3,F0,F3`. The corners are the frame's own, so each DBA frame is independently cropped rather than a sub-rect of a shared atlas ([Open](#open)).
+
+A `TSPoly` carries no per-vertex UVs: the frame rect's four corners map to the poly's four corners, and `TSTexture4Poly_Render` hands the rasterizer the whole quad, so one map covers the face.
 
 ### Three-vertex texture polys
 
@@ -54,7 +56,7 @@ There is no vertex-count branch in the UV setup of either binary's render method
 
 DBSIM's back-face case swaps positions 1 and 3 and corners 1 and 3 to reverse the winding, which on a triangle touches slot 3 and so cannot apply as written ([Open](#open)).
 
-Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this type takes. Six each on `APOCA`, `APOC_DEB` and `TOMA_DEB`; three each on `HYPERION` and `HYPE_DEB`; two each on `CERBERUS`, `COLOSSUS`, `COLO_DEB`, `OUTLAW`, `OUTL_DEB`, `SAMSON`, `SAMS_DEB` and `TOMAHAWK`. Every one resolves to an in-range frame of its mech's bank. A count outside `[3, 4]` would run past the exe's own four-corner array; the engine falls back to the placeholder colour there rather than guessing, and no retail shape has one.
+Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this type takes. Six each on `APOCA`, `APOC_DEB` and `TOMA_DEB`; three each on `HYPERION` and `HYPE_DEB`; two each on `CERBERUS`, `COLOSSUS`, `COLO_DEB`, `OUTLAW`, `OUTL_DEB`, `SAMSON`, `SAMS_DEB` and `TOMAHAWK`. Every one resolves to an in-range frame of its mech's bank. A count outside `[3, 4]` would run past the exe's own four-corner array, and no retail shape has one.
 
 ### Type identification
 
@@ -98,36 +100,21 @@ Byte-verified against every `simvol0/dat/*.DAT` (226 bytes each: 9-byte VOL pref
 
 Every flyer chassis shares **one** bank, and it is group 3's `ENEMY`. `maybe_FlyerType_LoadResources` (`00422ed0`) writes the literal slot address `0x004a9e0e` into the shape's `+0x26`, which is `g_MechTextureGroupSlots` plus `3 * 8` — there is no per-chassis choice, which fits a roster that is entirely Cybrid. See [`../simulation/ai-flyers.md`](../simulation/ai-flyers.md#drawing).
 
-Consumed by `Model3DViewerForm.TryLoadDefaultTextureBank()` (best-effort, with "Load Texture Bank" as a manual override) and by `Scene.SceneModelLibrary`.
-
-## Engine texturing
-
-`HercSimDat.ModelSkinId` → bank name → `.DBA` → `Surfaces[ColorIndexId / 4].FrontColor` → frame → corner order above. `Render.TextureAtlas` decodes and packs a bank, `Gl.GpuTexture` uploads it, `DtsMeshBuilder` emits UVs, `Scene.SceneModelLibrary` selects the bank and caches one atlas per bank per mission.
-
-Two deliberate departures from the original:
-
-- **Frames are packed into one atlas.** The original ships none — a `.DBA` is independently-sized frames, and a software rasterizer pays nothing to switch between them. A GPU pays per bind. Packing is a pure relocation, so the corner order is unaffected. The largest retail bank is 53 frames into 256x512.
-- **Nearest-neighbour sampling, no mipmaps.** The original point-samples; filtering would look softer than the game did. Filtering belongs in the opt-in bucket per planning.md's "vanilla by default" principle.
-
-### Quad mapping on triangle hardware
-
-A `TSPoly` carries no per-vertex UVs: the frame rect's four corners map to the poly's four corners (corner order above) and `TSTexture4Poly_Render` hands the rasterizer the whole quad. A GPU has to split it, and two triangles with plain UVs each get their own **affine** mapping — the two agree only when the quad is a parallelogram. Everywhere else the texture kinks along the shared diagonal, plainly on base type 37's trapezoidal pyramid faces (`Reference/Building_comparison.png`).
-
-`DtsMeshBuilder.QuadUvWeights` restores the single map both triangles share. The map taking a quad's corners to a rect's corners is projective, and a projective map is what interpolating `(u·w, v·w)` against `w` and dividing per fragment produces. The weights come off the diagonals: with the diagonals crossing at fraction `s` along `p0→p2` and `t` along `p1→p3`, the corners take `1/(1-s), 1/(1-t), 1/s, 1/t`. The crossing is solved least-squares in 3D, since a DTS quad is not guaranteed planar. A parallelogram gives `s = t = ½` and equal weights, i.e. the affine mapping this replaces, so quads that were already right are untouched; a degenerate or non-convex quad (crossing outside the diagonals) stays affine rather than being guessed at.
-
-Carried as `MeshVertex.UvWeight` (0 = the UV is a plain coordinate, which is what terrain and every non-quad poly carry). Whether retail's own rasterizer is exactly projective or interpolates linearly across screen spans is [Open](#open); the two differ only in the interior of a strongly foreshortened quad, and both are free of the diagonal kink.
-
 ### Fleet audit
 
 Every `dts\*.DTS` with a matching `dat\*.DAT`, 22 mechs:
 
 - **21 of 22 have no out-of-range texture polys** — every `Surfaces[ColorIndexId/4].FrontColor` lands inside the selected bank's frame count. Across ~2000 polys, a wrong stride or a wrong bank mapping would produce out-of-range indices.
-- **TOMAHAWK has 4 anomalous polys**, all identical: `ColorIndexId = 0` into a 1-entry `Surfaces` array with `FrontColor == BackColor == 3084` (`0xC0C`) against a 36-frame bank. Reads as a degenerate group in the source art. They fall back to the placeholder colour.
-- **Three-vertex texture polys are textured**, on the same corner order as quads — see "Three-vertex texture polys" above for the counts and the mechanism.
+- **TOMAHAWK has 4 anomalous polys**, all identical: `ColorIndexId = 0` into a 1-entry `Surfaces` array with `FrontColor == BackColor == 3084` (`0xC0C`) against a 36-frame bank. Reads as a degenerate group in the source art.
+- **Three-vertex texture polys resolve too**, on the same corner order as quads — see [Three-vertex texture polys](#three-vertex-texture-polys).
 
 ### Coincident twins
 
-Real DTS meshes stack a textured poly exactly on top of a flat-shaded twin — 186 such pairs in SAMSON's first root. `DtsMeshBuilder.DropCoincidentTwins` keeps one per group, ranked: an in-range texture poly beats a flat poly, which beats an out-of-range texture poly. The three-way rank (rather than a boolean) keeps the no-bank path drawing the flat twin. Textured triangle counts with the rank in place: SAMSON 142, DIABLO 198, APOCA 232, with total triangle counts unchanged.
+Real DTS meshes stack a textured poly exactly on top of a flat-shaded twin — 186 such pairs in SAMSON's first root.
+
+### Cutout frames
+
+`BASETEX` frames 11, 36, 38, 39, 52, 53, 60, 61 and 63-65 are 20-73% palette index 0 each: the lattice girders on a structure's support towers, which show sky through the frame. Mech skins carry a handful of stray index-0 texels that are paint, not cutouts (9 of 44376 in `LIGHT`, 7 of 68464 in `MEDIUM`).
 
 ## Poly types and their colour mechanisms (DBSIM.EXE)
 
@@ -329,37 +316,6 @@ Across the retail shape files `TSDetailPart`s sit in the structure libraries (`B
 
 Levels are not always the same shape at different densities. `BASES.DGS` shape 10 (structure type 14, the tall chimney) is a 4-sided box with its corners on the world axes at level 0, and an octagon with its *vertices* on the axes at level 1 — a 45-degree difference in cross-section.
 
-## Implementation status
-
-`Herculan.Engine` unless noted. The WinForms model viewer (`HercWorks.UI.DtsGeometryBuilder`, `ShapeShading`) resolves all four poly types the same way, with the sun at a fixed heading, and also draws the back surface pair and skips a 5120-flagged pair; it has no billboards, no BSP walk and no fog.
-
-| Mechanism | Status |
-|---|---|
-| `TSTexture4Poly` UV mapping | Exact for the 3- and 4-vertex polys retail ships. A quad is mapped projectively so both triangles share one map ("Quad mapping on triangle hardware"); a triangle needs no such correction and takes corners 0-2 ("Three-vertex texture polys"). Falls back to a placeholder colour with no bank |
-| `TSSolidPoly` fill + outline | Exact; outline is a second primitive range in the same buffer (`MeshBuild.TriangleVertexCount`) |
-| Two-vertex line polys | Drawn, as one edge in that same range (`OutlineEdge.Standalone`). Where the surface names no distinct line colour the engine falls back to the fill rather than drawing nothing — a line poly has no fill beneath it for a matching outline to disappear into, so the `line != fill` suppression above cannot be what the original does here. What it does instead is [Open](#open); the fallback is this engine's reading, and it decides 12 of the 92 |
-| One-vertex polys | Not drawn ([Open](#open)) |
-| `TSShadedPoly` / `TSGouraudPoly` colour | Exact, via `SurfaceRampTable` |
-| Per-face / per-vertex shade | Exact, in the vertex shader: `MissionSun.ShadeForFace` for the sun, summed with whatever effect lights reach the object ([`effect-lights.md`](effect-lights.md)) and clamped once, as `Light_ComputeShadeForFace` sums them |
-| Lit textured texel | Exact, via `TextureAtlas.IndexPixels` + `PaletteRampTable` |
-| Terrain shade | Exact, `MissionSun.ShadeFor` baked per triangle into `MeshVertex.Shade` |
-| `TSBitmapPart` | Implemented as a view-space billboard quad — see [`dts-billboards.md`](dts-billboards.md) |
-| Cutout texture frames | Structure banks decoded index-0-transparent; shader discards |
-| `TSDetailPart` | Selected per object per frame by `Render.PartDetail`, under each draw slot's bias. Structures, their wrecks and flyers are built by cell (`DtsMeshBuilder.BuildCells`); weapons, launcher rounds and debris are built one flipbook cell at a time with every level of that cell (`BuildDetailLevels`), and pick their level as their per-frame items are made. A gun knocked off its mount carries its bias as `DebrisObject.HercDetailBias` and resolves it from the setting at draw time, where the original copies the number in at the throw |
-| `TSBSPPart` | Children drawn in file order ([Open](#open)). Agrees with the original on retail data, where every child is reachable |
-| Front/back visibility test | Normal flip only. `FrontColor` is used unconditionally and a face flagged 5120 is drawn ([Open](#open)). `SceneItem` disables culling outright and the shader shades two-sided |
-| Per-poly stored normals | Exact; `DtsMeshBuilder.ResolveFaceNormal` reads `TSPoly.Normal` as a point index. All triangles fanned from one poly share it. The winding survives only as a fallback for an unresolvable normal index, negated to match |
-| Distance fog | Exact for everything that reads a `.RMP` row — the depth slice is part of the row. A `TSGouraudPoly` has no such row and blends instead; see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
-
-How the shading paths map onto engine types:
-
-- **`SurfaceRampTable`** — 256 shade columns, in blocks of 256 ramp rows: one block of the `TSShadedPoly` chain (ramp entry through `.RMP` row `0x80`) per depth slice, then one block of the `TSGouraudPoly` one (raw ramp entry), which has no `.RMP` step to fog. A vertex's `MeshVertex.ShadeRamp` is the surface's ramp number biased by `SurfaceRampTable.GouraudRowOffset` for a Gouraud poly, so it names the chain; the shader turns chain and slice into the row.
-- **`PaletteRampTable`** — 256 palette-index columns by 32 `.RMP` rows per depth slice, expanded through the palette, with the fullbright row past them all. This is `rampRow(shade)[texelPaletteIndex]`, the original's per-texel operation for a lit textured surface. Requires the atlas to be bound from `TextureAtlas.IndexPixels` (palette index in red) rather than `Pixels`. Anything that blits a frame unlit — HUD sprite sheets, the billboard renderer — keeps using `Pixels`.
-- **Shade byte** — computed per vertex in the vertex shader and interpolated, which is what makes a `TSGouraudPoly` Gouraud. The shade clamps at 0, so clamping per corner before interpolating (the original) and clamping after are not the same picture. `MeshVertex.FaceNormal` carries the poly's stored normal alongside the possibly-smoothed `Normal`, so the front/back flip is one decision per poly and both vectors share the point list's convention.
-- **Fallbacks, reached only by a theater with no ramp table or no palette** (no retail theater): `DtsMeshBuilder.FallbackColor`, a flat stand-in, for a shaded surface; an unshaded texel for a textured one.
-
-Cutout frame inventory: `BASETEX` frames 11, 36, 38, 39, 52, 53, 60, 61, 63-65 are 20-73% palette index 0 each. Mech skins are excluded — they carry a handful of stray index-0 texels that are paint, not cutouts (9 of 44376 in `LIGHT`, 7 of 68464 in `MEDIUM`).
-
 ## Rejected readings
 
 Readings a fresh pass could land on. Each is disproven; do not reintroduce.
@@ -396,15 +352,14 @@ Tracked in `KNOWN_ISSUES.md`.
 
 ## Open
 
-- **Unported:** the back surface pair (`BackColor`/`BackLineColor`). The engine uses `FrontColor` unconditionally.
-- **Unported:** the 5120 "do not draw this face" skip, so a face the original culls is drawn.
-- **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `0047689c` has no reference `es2_xref.py` finds, which does not settle it; the engine measures at the image's 1024.
+- **Unported:** the back surface pair (`BackColor`/`BackLineColor`).
+- **Unported:** the 5120 "do not draw this face" skip.
+- **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `0047689c` has no reference `es2_xref.py` finds, which does not settle it. The image holds 1024.
 - **Unported:** the `TSBSPPart` tree walk, with its ordering and reachability rule.
-- **Unported:** one-vertex polys, which the original paints as one pixel. The engine has no point primitive.
+- **Unported:** one-vertex polys, which the original paints as one pixel.
 - **Open:** what the original draws for a two-vertex line poly whose surface names no distinct line colour.
 - **Open:** why retail grades the type-15 octagon's back facet; see [Type-15 band widths](#type-15-band-widths).
 - **Open:** what DBSIM draws for a back-facing three-vertex texture poly, where the back-face corner swap touches the unused slot 3.
 - **Open:** trace the function that populates `g_ActiveBitmapArray[1]`'s 20-byte-stride descriptor table, to confirm `F0/F1` (frame UV top-left) are always `(0,0)` or can be nonzero (atlas sub-rects).
 - **Open:** `TSTexture4Poly_RasterizeA`/`RasterizeB`'s internal fixed-point interpolation math and 4th interpolant semantics — including whether retail's texture mapping is exactly projective.
-- **Open:** confirm `.DBA`'s on-disk frame layout is fully covered by `HercWorks.Core`'s `DynamixBitmap` parsing.
-- **Open:** where the runtime frame descriptor's **transparency flag** comes from. `TSTexture4Poly_Render` passes `*(int16*)(frameDescriptor + 0x12)` as `Raster_DrawPolygon`'s last argument, which selects the span routine's transparent half (`DAT_004a09ac`). Nothing in the `.DBM`/`.DBA` headers carries it — every retail frame's two spare header fields are zero — so it is derived or set at load, by the function that builds the descriptor table. The engine decodes whole structure banks index-0-transparent instead, which is equivalent on retail data because a frame with no index 0 draws the same either way; see `SceneModelLibrary.LoadAtlas`.
+- **Open:** where the runtime frame descriptor's **transparency flag** comes from. `TSTexture4Poly_Render` passes `*(int16*)(frameDescriptor + 0x12)` as `Raster_DrawPolygon`'s last argument, which selects the span routine's transparent half (`DAT_004a09ac`). Nothing in the `.DBM`/`.DBA` headers carries it — every retail frame's two spare header fields are zero — so it is derived or set at load, by the function that builds the descriptor table. A bank-wide index-0 transparency is equivalent on retail data, because a frame with no index 0 draws the same either way.

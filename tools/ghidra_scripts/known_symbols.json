@@ -267,6 +267,123 @@
       "source": "docs/formats/save-games.md"
     },
     {
+      "address": "0040e115",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_SetSlotInUse",
+      "description": "Game_SaveSlot's first step: copies the label over slot param_1's GAMEFILE.STR label when the slot is below 10, sets the slot's in-use byte (00482610 table, +0x5d) for any slot, and rewrites GAMEFILE.STR through GameFileStr_Write.",
+      "source": "docs/formats/save-games.md#writing-a-slot"
+    },
+    {
+      "address": "0040bc87",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EditField_IsPermitted",
+      "description": "Whether a character is in the edit field's permitted-character set at +0x9f; any character when the set is null.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "0040bdd2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EditField_TypeChar",
+      "description": "Appends a character to the edit field's +0x45 string when EditField_IsPermitted, the new length stays below 0x5a, and glyph width + cached width +0xaf + 6 is less than the field's width; updates +0xab and +0xaf and repaints.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "0040be56",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EditField_Erase",
+      "description": "Takes the last character off the edit field's string while its length +0xab is above the floor at +0xb7; the save screen's rows set the floor to 4, keeping the \"%2d. \" prefix.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "00408f95",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Keyboard_PostEvents",
+      "description": "Drains the keyboard object's command buffer into command events (0x100, code from 0046e471 at the key code) and its key ring into character events (0x40, from 0046e571 or with Shift 0046e5c5, upper-cased; Ctrl+Q posts its own event). Every event goes out with no target.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "00411e64",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_WriteStock",
+      "description": "Armory_Write's per-weapon writer: the record's +0x16 unlock byte, the +0x17 count and that many units from the +0x19 list, head first, so each save and load reverses a weapon's units.",
+      "source": "docs/formats/save-games.md#armory-stock-record"
+    },
+    {
+      "address": "00410658",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hangar_Write",
+      "description": "Save block 6: the hangar's occupied count (+0x20 of the eight-pointer array at 00482ac3), then each occupied bay in order as its index and Herc_Write.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0046d384",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Key_VkTable",
+      "description": "MainWndProc's 0x54 dword table of virtual-key codes: a key's position in it is its set-1 scancode, the key code VSHELL's keyboard works in. Punctuation VKs are absent, so those keys send nothing.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "0046e450",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Key_CommandFilter",
+      "description": "The key codes that are commands rather than characters: Esc, Backspace, Tab, Enter, the editing cluster and the arrows, and their releases (| 0x80).",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "0046e471",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Key_CommandTable",
+      "description": "Command code by key code; 0xff sends none. Backspace 1, left arrow 4, Enter 0x0a on the press.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "0046e571",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Key_CharTable",
+      "description": "Character by scancode, unshifted; letters are upper case.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "0046e5c5",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Key_CharTableShifted",
+      "description": "Character by scancode with Shift down; differs from Key_CharTable only on the digit row and the punctuation.",
+      "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "004757cd",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SaveScreen_RowCharSet",
+      "description": "The save screen rows' permitted-character set: ^, the digits, both alphabets and the space.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
       "address": "0040e4f2",
       "binary": "VSHELL",
       "type": "function",

@@ -98,7 +98,11 @@ static class ShellHost {
 		// says is in use for that slot's summary. Both are loose files beside the VOL folder rather than
 		// archive entries, so they are read from the install root and not through GameContent.
 		var slots = ShellSaveSlots.Load(installRoot, art.Text);
-		var saveScreen = new ShellSaveScreen(slots);
+
+		// DAT_0048260a, whether there is a game in progress to save. The startup clears it and a load sets
+		// it; Game_SaveSlot writes nothing while it is clear, and SAVE is gated on it.
+		bool gameInProgress = false;
+		var saveScreen = new ShellSaveScreen(slots, canSave: gameInProgress);
 		var mainMenu = new ShellMainMenu(slots.ElementAtOrDefault(CurrentGameSlot)?.InUse == true);
 		var contentSurface = new ShellSurface();
 		Console.WriteLine(slots.Count > 0
@@ -110,9 +114,10 @@ static class ShellHost {
 		// The repair screen works over a loaded game, which the original only has once one is started or
 		// restored. Until the save screen's RESTORE replaces it, this opens the first slot the directory
 		// marks in use — enough to put a real machine's damage on the screen, and stated rather than
-		// hidden.
+		// hidden. It is not a game in progress, so nothing saves it.
 		int loadedSlot = slots.ToList().FindIndex(s => s.InUse);
 		var loadedGame = loadedSlot >= 0 ? ShellSaveSlots.LoadSave(installRoot, slots[loadedSlot].FileName) : null;
+		var workingFiles = ShellWorkingFiles.ForSlot(installRoot, loadedSlot);
 		var hangar = ShellHangar.From(loadedGame);
 		if (loadedGame != null) {
 			campaignStage = loadedGame.CampaignStage;
@@ -257,7 +262,9 @@ static class ShellHost {
 			+ "Rock & Roll launches the mission once every machine going is fit and armed. The square button latches and "
 			+ "shows the frame. The save screen hides "
 			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
-			+ "repair screen. QUIT on the main menu, or closing the window, quits.");
+			+ "repair screen. Once a slot is restored, SAVE on a selected row lets you type its name and ACCEPT "
+			+ "writes the game there; the game is also autosaved to GAME_R.SAV on a restore, on the MAIN MENU tab "
+			+ "and on leaving the shell. QUIT on the main menu, or closing the window, quits.");
 		Console.WriteLine(paletteName != null
 			? $"Palette pinned to {art.PaletteName} on every tab."
 			: "Each tab installs its own palette, as the original's do.");
@@ -271,6 +278,11 @@ static class ShellHost {
 		bool leftHeld = false;
 		bool rightHeld = false;
 		bool skipKeyHeld = false;
+
+		// The edit field that had the focus last update, and when its blink alarm last fired: the alarm is
+		// installed as a field takes the focus.
+		ShellWidget? caretField = null;
+		long caretClock = 0;
 
 		// Set by QUIT, whose blank is the last thing the window shows.
 		bool blanked = false;
@@ -294,8 +306,14 @@ static class ShellHost {
 			}
 
 			if (keyboard != null) {
-				keyboard.KeyDown += (_, key, _) => DisplayHotkey(key, released: false);
-				keyboard.KeyUp += (_, key, _) => DisplayHotkey(key, released: true);
+				keyboard.KeyDown += (_, key, _) => {
+					DisplayHotkey(key, released: false);
+					WidgetKey(key, released: false);
+				};
+				keyboard.KeyUp += (_, key, _) => {
+					DisplayHotkey(key, released: true);
+					WidgetKey(key, released: true);
+				};
 			}
 
 			if (startPractice) {
@@ -373,6 +391,8 @@ static class ShellHost {
 			if (pointer.Lit != litBefore && screen.SelectedTab == ShellScreen.MissionTab) {
 				RepaintContent();
 			}
+
+			BlinkCaret();
 		};
 
 		window.Render += (_, frameGl) => {
@@ -409,6 +429,9 @@ static class ShellHost {
 		};
 
 		window.Run();
+
+		// The main loop's exit, whichever way it was left: QUIT, a launch or the window closing.
+		AutoSave();
 		return (0, launch);
 
 		void Activate(int id) {
@@ -424,8 +447,11 @@ static class ShellHost {
 				return;
 			}
 
-			// Tab 1's handler writes where EXIT goes before it enters the screen.
-			if (id == ShellScreen.SaveTab) {
+			// Tab 0's handler autosaves before it builds the menu; tab 1's writes where EXIT goes before it
+			// enters the screen.
+			if (id == ShellScreen.MainMenuTab) {
+				AutoSave();
+			} else if (id == ShellScreen.SaveTab) {
 				saveScreen.ExitTarget = ShellSaveExitTarget.TabStrip;
 			}
 
@@ -488,6 +514,8 @@ static class ShellHost {
 				EnterArmory();
 			} else if (id == ShellScreen.MissionTab) {
 				EnterMission();
+			} else if (id == ShellScreen.SaveTab) {
+				saveScreen.Enter();
 			}
 		}
 
@@ -648,14 +676,14 @@ static class ShellHost {
 			SetMode(ShellCampaignMode.Campaign);
 			saveScreen.ExitTarget = ShellSaveExitTarget.MainMenu;
 			screen.SelectTab(ShellScreen.SaveTab);
+			saveScreen.Enter();
 			Console.WriteLine("Save/Restore — the save screen, with EXIT back to the main menu.");
 			RepaintContent();
 		}
 
 		// QUIT, 00431727: blank the screen (Shell_BlankScreen, 0040723d) and end the main loop, with no prompt
 		// and no exit code of its own, so the shell returns the 0 its startup left and the launcher stops
-		// (docs/shell/screen-layout.md#quit). The loop's common exit also autosaves the current game to slot
-		// 10, which this engine cannot do: it has no save writer.
+		// (docs/shell/screen-layout.md#quit). The loop's common exit autosaves after window.Run returns.
 		void Quit() {
 			blanked = true;
 			Console.WriteLine("Quit.");
@@ -860,13 +888,13 @@ static class ShellHost {
 		}
 
 		// A save row's handler, SaveScreen_SelectSlot (0043795f). Clicking the row already selected is a
-		// no-op, the same early return the original's selection move opens with.
+		// no-op, the same early return the original's selection move opens with, and so is any row while
+		// a rename is live.
 		void SelectSaveSlot(int slot) {
-			if (slot == saveScreen.SelectedSlot) {
+			if (!saveScreen.SelectSlot(slot)) {
 				return;
 			}
 
-			saveScreen.SelectSlot(slot);
 			RepaintContent();
 			Console.WriteLine($"Slot {slot + 1}: "
 				+ (saveScreen.Slots.ElementAtOrDefault(slot) is { InUse: true, Summary: { } summary }
@@ -877,22 +905,82 @@ static class ShellHost {
 
 		void ClickSaveButton(ShellSaveButton button) {
 			switch (button) {
+				case ShellSaveButton.Save:
+					BeginRename();
+					break;
+				case ShellSaveButton.Accept:
+					AcceptRename();
+					break;
+				case ShellSaveButton.Cancel:
+					saveScreen.CancelRename();
+					Console.WriteLine("Cancel — the rename is abandoned.");
+					RepaintContent();
+					break;
 				case ShellSaveButton.Restore:
 					RestoreSelectedSlot();
 					break;
 				case ShellSaveButton.Exit:
 					LeaveSaveScreen();
 					break;
-				default:
-					Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
-					break;
 			}
 		}
 
-		// RESTORE, SaveScreen_OnRestore (00437d03): load the selected slot, then leave exactly as EXIT does on the tab-strip
-		// path, whichever way the screen was entered. The original also writes the loaded game straight
-		// back out as the slot-10 autosave, which this engine cannot: it has no save writer. It clears the
-		// campaign map's once-per-load flag (DAT_004778aa), which missionMapShown is.
+		// SAVE, SaveScreen_OnSave (00437bd3): the rename starts, and the pointer is taken onto the row so
+		// that keystrokes reach it.
+		void BeginRename() {
+			int slot = saveScreen.SelectedSlot;
+			saveScreen.BeginRename();
+			pointer.Grab(new ShellHit(new ShellWidget(ShellWidgetKind.SaveRow, slot), ShellHandler.EditField), Fire);
+			Console.WriteLine($"Save — type a name for slot {slot + 1}, then ACCEPT to save or CANCEL.");
+			RepaintContent();
+		}
+
+		// ACCEPT, SaveScreen_OnAccept (00437ffa): Game_SaveSlot under the row's string, then
+		// Stats_StageCurrentGame for the slot's summary.
+		void AcceptRename() {
+			int slot = saveScreen.SelectedSlot;
+			string label = saveScreen.RowText(slot);
+			if (SaveGame(slot, label) is { } entry && loadedGame != null) {
+				saveScreen.SetSlot(slot, entry with { Summary = ShellSaveSummary.From(loadedGame) });
+			}
+
+			saveScreen.EndRename();
+			RepaintContent();
+		}
+
+		// Game_SaveSlot (0040e37b): the live game, as the screens have left it, written as a slot. Nothing
+		// without a game in progress. Returns the slot's new directory entry, which the screen now shows.
+		ShellSaveSlot? SaveGame(int slot, string? label) {
+			if (!gameInProgress || loadedGame == null) {
+				return null;
+			}
+
+			hangar.Store(loadedGame);
+			bool training = mode == ShellCampaignMode.Training;
+			var entry = ShellSaveSlots.SaveGame(installRoot, saveScreen.Slots, slot, label, training, loadedGame,
+				workingFiles, out string? failure);
+			int written = slot == CurrentGameSlot && training ? CurrentGameSlot + 1 : slot;
+			if (entry == null) {
+				Console.WriteLine($"Could not save slot {written}: {failure}");
+				return null;
+			}
+
+			saveScreen.SetSlot(written, entry);
+			if (written == CurrentGameSlot) {
+				mainMenu.CanContinue = true;
+			}
+
+			Console.WriteLine($"Saved {entry.FileName} as \"{entry.Label.Trim()}\" in {ShellSaveSlots.Directory(installRoot)}.");
+			return entry;
+		}
+
+		// Game_SaveSlot(10, NULL), the current-game autosave.
+		void AutoSave() => SaveGame(CurrentGameSlot, null);
+
+		// RESTORE, SaveScreen_OnRestore (00437d03): load the selected slot and write it straight back out as
+		// the slot-10 autosave, then leave exactly as EXIT does on the tab-strip path, whichever way the
+		// screen was entered. It clears the campaign map's once-per-load flag (DAT_004778aa), which
+		// missionMapShown is.
 		void RestoreSelectedSlot() {
 			int slot = saveScreen.SelectedSlot;
 			if (saveScreen.Slots.ElementAtOrDefault(slot) is not { InUse: true } entry
@@ -904,6 +992,8 @@ static class ShellHost {
 			hangar = ShellHangar.From(restored);
 			loadedSlot = slot;
 			loadedGame = restored;
+			workingFiles = ShellWorkingFiles.ForSlot(installRoot, slot);
+			gameInProgress = true;
 			missionMap = null;
 			missionTexts = ShellMissionTexts.Load(installRoot, slot, restored);
 			campaignStage = restored.CampaignStage;
@@ -922,8 +1012,66 @@ static class ShellHost {
 					? $" Repair opens on bay {repairScreen.SelectedBay}."
 					: " No built machine in any hangar bay."));
 
+			AutoSave();
 			saveScreen.Leave();
 			ReturnToFrame();
+		}
+
+		// A keystroke, delivered as VSHELL's queue delivers one: to the pointer's target, which on the save
+		// screen may be one of its rows (EditField_HandleEvent, 0040beaf). The row takes a character or a
+		// command, Enter releases the pointer, and whatever the key, the row's handler then runs, which
+		// selects it. Nothing else ported here takes a key. A fade drops keys as it drops clicks.
+		void WidgetKey(Key key, bool released) {
+			if (keyboard == null || sound?.Fading == true || screen.SelectedTab != ShellScreen.SaveTab
+					|| pointer.Target?.Widget is not { Kind: ShellWidgetKind.SaveRow } row
+					|| ShellKeyboard.Index(key) is not { } index) {
+				return;
+			}
+
+			bool shift = keyboard.IsKeyPressed(Key.ShiftLeft) || keyboard.IsKeyPressed(Key.ShiftRight);
+			bool ctrl = keyboard.IsKeyPressed(Key.ControlLeft) || keyboard.IsKeyPressed(Key.ControlRight);
+			bool alt = keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
+			if (ShellKeyboard.Event(index, released, shift, ctrl, alt) is not { } shellKey) {
+				return;
+			}
+
+			bool focused = pointer.Focused == row;
+			bool changed = saveScreen.Key(row.Index, shellKey, focused, art.Sprites?.Font(ShellArt.ScreenFont));
+			if (shellKey.Command == ShellKey.Enter && focused && saveScreen.CaretEnabled(row.Index)) {
+				pointer.ReleaseFocus();
+				changed = true;
+			}
+
+			if (changed) {
+				RepaintContent();
+			}
+
+			Fire(row);
+		}
+
+		// The focused edit field's blink alarm (WinTimer_InstallAlarm, 500 and 500), installed as the field
+		// takes the focus. A change of focus repaints too, as the field's paint on the press does.
+		void BlinkCaret() {
+			var focused = pointer.Focused;
+			long now = Environment.TickCount64;
+			if (focused != caretField) {
+				caretField = focused;
+				caretClock = now;
+				if (screen.SelectedTab == ShellScreen.SaveTab) {
+					RepaintContent();
+				}
+
+				return;
+			}
+
+			if (focused is not { Kind: ShellWidgetKind.SaveRow } row || screen.SelectedTab != ShellScreen.SaveTab
+					|| now - caretClock < ShellSaveScreen.CaretBlinkMilliseconds) {
+				return;
+			}
+
+			caretClock += ShellSaveScreen.CaretBlinkMilliseconds;
+			saveScreen.CaretTick(row.Index);
+			RepaintContent();
 		}
 
 		// EXIT, SaveScreen_OnExit (00437d94): the teardown, then wherever the handler that entered the
@@ -1374,6 +1522,8 @@ static class ShellHost {
 				return;
 			}
 
+			// The export rewrote the working player.mec, which the loop exit's autosave copies out.
+			workingFiles = workingFiles with { Player = Path.Combine(HandoffDirectory, MissionLoader.PlayerFileName) };
 			launch = new ShellLaunch(scriptPath, Path.Combine(installRoot, MissionLoader.DataFolderName));
 			Console.WriteLine($"Rock & Roll — handoff written to {HandoffDirectory}; launching the mission.");
 			window.Close();
@@ -1434,7 +1584,8 @@ static class ShellHost {
 					repairScreen.Paint(contentSurface, art.Text, art.Sprites);
 					break;
 				case ShellScreen.SaveTab:
-					saveScreen.Paint(contentSurface, art.Text, art.Sprites);
+					saveScreen.Paint(contentSurface, art.Text, art.Sprites,
+						pointer.Focused is { Kind: ShellWidgetKind.SaveRow } focused ? focused.Index : null);
 					break;
 				case ShellScreen.BuildTab when buildScreen != null:
 					buildScreen.Paint(contentSurface, art.Text, art.Sprites);

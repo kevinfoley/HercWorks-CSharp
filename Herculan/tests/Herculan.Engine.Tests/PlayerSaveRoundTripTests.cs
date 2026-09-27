@@ -137,7 +137,7 @@ public class PlayerSaveRoundTripTests {
 	/// career block, 36 squadmates, the player, one hangar bay, the chassis unlocks, the salvage
 	/// total, and a short tail standing in for the campaign flag array.
 	/// </summary>
-	private static byte[] BuildSave() {
+	internal static byte[] BuildSave() {
 		var b = new List<byte>();
 
 		// Block 1 — inventory, one record per catalog id. Id 3 owns two units, the rest none.
@@ -233,8 +233,8 @@ public class PlayerSaveRoundTripTests {
 		for (int i = 0; i < 10; i++) {
 			Short(b, 90);                                // per-hardpoint
 		}
-		Short(b, 100);                                   // build percent
-		Short(b, 0);                                     // build steps remaining
+		Short(b, 60);                                    // build percent
+		Short(b, 2);                                     // build steps remaining
 		Short(b, 3);                                     // hardpoint capacity
 		Short(b, 1);                                     // hardpoints occupied
 		Short(b, 0);                                     // socket id

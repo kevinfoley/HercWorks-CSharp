@@ -39,7 +39,7 @@ public sealed record ShellMissionTexts(string Briefing, string Objectives, strin
 
 	/// <summary>The texts of <paramref name="save"/>, loaded from slot <paramref name="slot"/>, or <see cref="Empty"/>.</summary>
 	public static ShellMissionTexts Load(string installRoot, int slot, PlayerSave? save) {
-		string path = Path.Combine(ShellSaveSlots.Directory(installRoot), $"missn{slot}.str");
+		string path = Path.Combine(ShellSaveSlots.Directory(installRoot), ShellSaveSlots.TextFile(slot));
 		if (save == null || !File.Exists(path) || SimStringTable.Parse(File.ReadAllBytes(path)) is not { GroupCount: > 0 } table) {
 			return Empty;
 		}

@@ -237,7 +237,7 @@ public sealed class ShellBuildScreen {
 	/// </summary>
 	public void Build() {
 		if (SelectedEntry is { } entry) {
-			_hangar.Order(SelectedBay, SelectedChassis, entry.SalvageReq);
+			_hangar.Order(SelectedBay, SelectedChassis, entry.SalvageReq, entry.BuildMissionCount);
 		}
 	}
 

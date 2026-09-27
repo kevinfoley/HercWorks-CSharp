@@ -195,6 +195,31 @@ public sealed class ShellPointer {
 	/// <summary>The content widget a press has lit and a release would fire, or null.</summary>
 	public ShellWidget? Lit => _lit;
 
+	/// <summary>The edit field whose focus flag <c>+0xa7</c> is set, or null.</summary>
+	public ShellWidget? Focused => _focused;
+
+	/// <summary>
+	/// What <c>SaveScreen_BeginRename</c> (<c>004377d2</c>) does to the pointer: the target moved onto
+	/// <paramref name="field"/> without a hit test (<c>Pointer_SetTarget</c>, <c>00469cbc</c>), the lock
+	/// set, and a left press posted at it, which gives the field the focus and runs its handler.
+	/// </summary>
+	public void Grab(ShellHit field, Action<ShellWidget> fire) {
+		Leave();
+		Target = field;
+		Locked = true;
+		Press(ShellMouseButton.Left, fire);
+	}
+
+	/// <summary>
+	/// Enter in a focused edit field: the focus cleared and the lock released (<c>Pointer_Unlock</c>,
+	/// <c>00469cdc</c>), which hit-tests again where the pointer is.
+	/// </summary>
+	public void ReleaseFocus() {
+		_focused = null;
+		Locked = false;
+		Move(_underPointer);
+	}
+
 	/// <summary>
 	/// A move to wherever <paramref name="hit"/> is. When the hit differs from the target, the target is
 	/// sent a leave and the new hit becomes the target, as <c>EventQueue_Pump</c> (<c>00469ba4</c>)

@@ -59,6 +59,11 @@ public enum ShellSaveExitTarget {
 /// <para><b>Ten rows, twelve slots.</b> Every loop on this screen bounds at ten: slots 10 and 11 are
 /// the campaign and training autosaves, which are one slot from the caller's side and are reached by
 /// the resume path rather than by a row.</para>
+///
+/// <para><b>Each row is an edit field</b>, and keeps what the original's does: its string, its caret
+/// enable <c>+0xbf</c> and its blink phase <c>+0xb3</c>. Its focus <c>+0xa7</c> is the pointer's
+/// (<see cref="ShellPointer.Focused"/>). SAVE starts a rename and ACCEPT writes the save; the host runs
+/// <c>Game_SaveSlot</c>. See docs/shell/screen-layout.md#saving-is-a-rename.</para>
 /// </summary>
 public sealed class ShellSaveScreen {
 	/// <summary>How many slots the list shows.</summary>
@@ -91,13 +96,168 @@ public sealed class ShellSaveScreen {
 	private readonly List<ShellSaveSlot> _slots = new();
 	private int _selected;
 
+	/// <summary>Each row's string, its <c>+0x45</c>.</summary>
+	private readonly string[] _rowText = new string[RowCount];
+
+	/// <summary>
+	/// Each row's <c>+0xbf</c>, which lets it take a character and a command. The builder clears it and
+	/// only a rename sets it, on that slot's row; nothing clears it again.
+	/// </summary>
+	private readonly bool[] _caretEnabled = new bool[RowCount];
+
+	/// <summary>Each row's <c>+0xb3</c>, the caret's blink phase.</summary>
+	private readonly bool[] _caretOn = new bool[RowCount];
+
 	public ShellSaveScreen(IReadOnlyList<ShellSaveSlot>? slots = null, bool canSave = true) {
 		if (slots != null) {
 			_slots.AddRange(slots);
 		}
 
 		CanSave = canSave;
+		Enter();
 	}
+
+	/// <summary>
+	/// Whether a rename is live — <c>DAT_00474f40</c> at 2. SAVE's handler holds it at 1 only while it
+	/// runs, and nothing reads it there, so the two states are all there is to keep.
+	/// </summary>
+	public bool Renaming { get; private set; }
+
+	/// <summary>A row's string: the slot's label, or what a rename has typed over it.</summary>
+	public string RowText(int row) => _rowText[row];
+
+	/// <summary>Whether a row takes characters and commands, its <c>+0xbf</c>.</summary>
+	public bool CaretEnabled(int row) => row >= 0 && row < RowCount && _caretEnabled[row];
+
+	/// <summary>Whether a row's caret blink phase, its <c>+0xb3</c>, is on.</summary>
+	public bool CaretOn(int row) => row >= 0 && row < RowCount && _caretOn[row];
+
+	/// <summary>
+	/// <c>SaveScreen_Enter</c> (<c>00439b0c</c>)'s rows: every row's string back to its slot's label. The
+	/// gates it writes are <see cref="IsEnabled"/>'s.
+	/// </summary>
+	public void Enter() {
+		for (int row = 0; row < RowCount; row++) {
+			_rowText[row] = SlotAt(row)?.Label ?? string.Empty;
+		}
+	}
+
+	/// <summary>A slot's directory entry and summary, as a save has just rewritten them.</summary>
+	public void SetSlot(int slot, ShellSaveSlot entry) {
+		if (slot >= 0 && slot < _slots.Count) {
+			_slots[slot] = entry;
+		}
+	}
+
+	/// <summary>
+	/// SAVE (<c>SaveScreen_OnSave</c>, <c>00437bd3</c>) and the rename it starts
+	/// (<c>SaveScreen_BeginRename</c>, <c>004377d2</c>): the selected row's caret flags set and its string
+	/// rewritten as <c>"%2d. "</c>, the slot number with the name gone. Taking the pointer onto the row is
+	/// the host's, through <see cref="ShellPointer.Grab"/>.
+	/// </summary>
+	public void BeginRename() {
+		_caretEnabled[_selected] = true;
+		_caretOn[_selected] = true;
+		_rowText[_selected] = $"{_selected + 1,2}. ";
+		Renaming = true;
+	}
+
+	/// <summary>
+	/// ACCEPT (<c>SaveScreen_OnAccept</c>, <c>00437ffa</c>) once the host has saved under
+	/// <see cref="RowText"/> and restaged the slot's summary: the rename is over and the selection stays
+	/// on the slot just written.
+	/// </summary>
+	public void EndRename() => Renaming = false;
+
+	/// <summary>
+	/// CANCEL (<c>SaveScreen_OnCancel</c>, <c>00437e1a</c>): the row's label back, the rename over, and the
+	/// selection moved to slot 10, which deselects the row.
+	/// </summary>
+	public void CancelRename() {
+		if (_selected < RowCount) {
+			_rowText[_selected] = SlotAt(_selected)?.Label ?? string.Empty;
+		}
+
+		Renaming = false;
+		SelectSlot(RowCount);
+	}
+
+	/// <summary>
+	/// A keystroke reaching a row, as <c>EditField_HandleEvent</c> (<c>0040beaf</c>) takes it: a
+	/// character is added while the row's <c>+0xbf</c> is set (<c>FUN_0040bdd2</c>), and Backspace or the
+	/// left arrow takes the last one off while <c>+0xbf</c> and the focus are both set
+	/// (<c>FUN_0040be56</c>). Enter's release of the pointer is the host's. Returns whether the string
+	/// changed. The handler then runs the row's click handler whatever the key was, which the host does.
+	/// </summary>
+	public bool Key(int row, ShellKey key, bool focused, HudFont? font) {
+		if (!CaretEnabled(row)) {
+			return false;
+		}
+
+		if (key.Character is { } c) {
+			return Type(row, c, font);
+		}
+
+		return focused && key.Command is ShellKey.Backspace or ShellKey.Left && Erase(row);
+	}
+
+	/// <summary>
+	/// <c>FUN_0040bdd2</c>: a character the row's set permits goes on the end, while the string stays
+	/// under 89 characters and the glyph, the string and six pixels more fit inside the row.
+	/// </summary>
+	private bool Type(int row, char c, HudFont? font) {
+		string text = _rowText[row];
+		if (!PermittedCharacters.Contains(c) || text.Length + 1 >= MaxLength) {
+			return false;
+		}
+
+		var rect = RowRect(row);
+		if ((font?.Width(c) ?? 0) + (font?.Measure(text) ?? 0) + CaretWidth >= rect.X1 - rect.X0) {
+			return false;
+		}
+
+		_rowText[row] = text + c;
+		return true;
+	}
+
+	/// <summary><c>FUN_0040be56</c>: the last character off, never into the first <see cref="KeptPrefix"/>.</summary>
+	private bool Erase(int row) {
+		string text = _rowText[row];
+		if (text.Length <= KeptPrefix) {
+			return false;
+		}
+
+		_rowText[row] = text[..^1];
+		return true;
+	}
+
+	/// <summary>
+	/// One tick of a focused row's blink alarm, every 500 ms (event <c>0x200</c>): the phase flips while
+	/// <c>+0xbf</c> is set and is put out otherwise.
+	/// </summary>
+	public void CaretTick(int row) {
+		if (row >= 0 && row < RowCount) {
+			_caretOn[row] = _caretEnabled[row] && !_caretOn[row];
+		}
+	}
+
+	/// <summary>The blink alarm's period, <c>WinTimer_InstallAlarm</c>'s 500 and 500.</summary>
+	public const int CaretBlinkMilliseconds = 500;
+
+	/// <summary>
+	/// The rows' permitted-character set, <c>004757cd</c>, which the builder writes over the class's
+	/// upper-case alphabet. Every letter reaches the row upper-cased, so the lower-case run never matches.
+	/// </summary>
+	private const string PermittedCharacters = "^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+
+	/// <summary>The string's limit, <c>0x5a</c>: a character goes on only while the new length stays below it.</summary>
+	private const int MaxLength = 0x5a;
+
+	/// <summary>The caret block's width, which the fit test leaves room for.</summary>
+	private const int CaretWidth = 6;
+
+	/// <summary>The builder's <c>+0xb7 = 4</c>, which erasing never goes below: the <c>"%2d. "</c> prefix stays.</summary>
+	private const int KeptPrefix = 4;
 
 	/// <summary>
 	/// Which slot the list has selected. The original parks it at 10 — the autosave, past every row —
@@ -168,31 +328,36 @@ public sealed class ShellSaveScreen {
 	}
 
 	/// <summary>
-	/// Moves the selection, as <c>SaveScreen_SelectSlot</c> (<c>0043795f</c>) does. A click on the row already selected is a
-	/// no-op, the same early return the tab handlers make, and a row past what the directory lists
-	/// still takes the selection — the original tests only the bound of ten.
+	/// Moves the selection, as <c>SaveScreen_SelectSlot</c> (<c>0043795f</c>) does, and returns whether it
+	/// moved. A click on the row already selected is a no-op, the same early return the tab handlers
+	/// make; so is every move while a rename is live, which keeps the selection on the row being typed
+	/// into. A row past what the directory lists still takes the selection — the original tests only the
+	/// bound of ten.
 	/// </summary>
-	public void SelectSlot(int slot) {
-		if (slot == _selected) {
-			return;
+	public bool SelectSlot(int slot) {
+		if (slot == _selected || Renaming) {
+			return false;
 		}
 
 		_selected = slot;
+		return true;
 	}
 
 	/// <summary>
 	/// Whether a button answers a click, which is the same test that greys its caption.
 	///
-	/// <para>SAVE needs a real row selected and a game to save; RESTORE needs a real row that holds
-	/// one. EXIT is never gated. CANCEL and ACCEPT belong to the slot rename — the rows carry a
-	/// permitted-character set and are genuinely editable in retail — and stay dead until that is
-	/// ported, which is what the original's entry routine leaves them as.</para>
+	/// <para>While a rename is live, CANCEL and ACCEPT are the only live buttons. Otherwise SAVE needs a
+	/// real row selected and a game to save, RESTORE needs a real row that holds one, and EXIT is live.
+	/// The original writes each gate at the handler that changes it rather than testing it here, and
+	/// ACCEPT lights SAVE and RESTORE without their tests — which they pass then anyway, the slot having
+	/// just been saved.</para>
 	/// </summary>
 	public bool IsEnabled(ShellSaveButton button) => button switch {
+		ShellSaveButton.Cancel or ShellSaveButton.Accept => Renaming,
+		_ when Renaming => false,
 		ShellSaveButton.Save => _selected < RowCount && CanSave,
 		ShellSaveButton.Restore => _selected < RowCount && SlotAt(_selected)?.InUse == true,
-		ShellSaveButton.Exit => true,
-		_ => false,
+		_ => true,
 	};
 
 	/// <summary>One slot row's rect, in the canvas.</summary>
@@ -225,9 +390,10 @@ public sealed class ShellSaveScreen {
 	/// <summary>
 	/// Draws the whole screen into <paramref name="surface"/>. The caller clears it first; what this
 	/// leaves untouched is what the shell's backdrop shows through, which the content panel's dithered
-	/// body relies on.
+	/// body relies on. <paramref name="focusedRow"/> is the row that has the pointer's focus, whose caret
+	/// shows while its blink phase is on.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, int? focusedRow = null) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
 		ShellChrome.PaintTitledPanel(surface, PanelRect, PanelBorder, PanelFace, PanelBodyDither,
@@ -241,8 +407,8 @@ public sealed class ShellSaveScreen {
 			fill: true);
 
 		for (int slot = 0; slot < RowCount; slot++) {
-			ShellChrome.PaintEditField(surface, RowRect(slot), font, SlotAt(slot)?.Label,
-				slot == _selected ? SelectedRowColor : RowColor);
+			ShellChrome.PaintEditField(surface, RowRect(slot), font, _rowText[slot],
+				slot == _selected ? SelectedRowColor : RowColor, caret: slot == focusedRow && _caretOn[slot]);
 		}
 
 		foreach (var button in Enum.GetValues<ShellSaveButton>()) {

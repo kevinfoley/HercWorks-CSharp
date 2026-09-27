@@ -287,14 +287,10 @@ public static class ShellChrome {
 	/// <c>EditField_Paint</c> (<c>0040c14f</c>) — the editable text field the save screen's ten slot rows are, painted whole:
 	/// its rect cleared, its string drawn left-aligned one pixel in, an optional caret block, and the
 	/// ink remapped to <paramref name="color"/>.
-	///
-	/// <para>The rows carry a permitted-character set at <c>+0x9f</c> and so are genuinely editable in
-	/// retail — renaming a slot is typing into one. Nothing here types yet.</para>
 	/// </summary>
 	/// <param name="caret">
-	/// The widget's <c>+0xa7</c> and <c>+0xb3</c> together: whether the field has the keyboard and
-	/// whether it shows a caret at all. The save screen clears <c>+0xb3</c> on every row, so its rows
-	/// never show one.
+	/// The widget's <c>+0xa7</c> and <c>+0xb3</c> together: whether the field has the focus and whether
+	/// the caret's blink phase is on.
 	/// </param>
 	public static void PaintEditField(ShellSurface surface, ShellRect rect, HudFont? font, string? text,
 			byte color, bool caret = false) {
@@ -304,14 +300,18 @@ public static class ShellChrome {
 
 		Fill(surface, rect, 0, 0, w, h, InteriorColor);
 
-		if (font != null && !string.IsNullOrEmpty(text)) {
+		if (font != null) {
 			// The edit field's own centring: half the font's cell height plus half the rect's, which is
 			// not the same expression Text_Paint uses.
 			int baseline = font.CellHeight / 2 + (h + 1) / 2;
-			DrawString(surface, font, text, rect.X0 + 1, rect.Y0 + baseline, ShellTextAlign.Left, w + 1);
+			if (!string.IsNullOrEmpty(text)) {
+				DrawString(surface, font, text, rect.X0 + 1, rect.Y0 + baseline, ShellTextAlign.Left, w + 1);
+			}
 
+			// The caret sits at the string's cached width, +0xaf, measured from the field's own left edge
+			// rather than from where the string starts.
 			if (caret) {
-				int pen = font.Measure(text);
+				int pen = font.Measure(text ?? string.Empty);
 				Fill(surface, rect, pen, baseline - 2, pen + 6, baseline, CaretColor);
 			}
 		}

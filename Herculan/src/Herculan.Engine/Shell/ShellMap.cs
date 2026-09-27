@@ -134,17 +134,17 @@ public sealed class ShellMap {
 	/// </summary>
 	public static ShellMap? Load(string installRoot, int slot, GameContent content) {
 		string saves = ShellSaveSlots.Directory(installRoot);
-		string scriptPath = Path.Combine(saves, $"script{slot}.dat");
+		string scriptPath = Path.Combine(saves, ShellSaveSlots.ScriptFile(slot));
 		if (!File.Exists(scriptPath) || new ScriptDatTransformer().Parse(File.ReadAllBytes(scriptPath)) is not { } script) {
 			return null;
 		}
 
-		string textPath = Path.Combine(saves, $"missn{slot}.str");
+		string textPath = Path.Combine(saves, ShellSaveSlots.TextFile(slot));
 		int textCount = File.Exists(textPath) && SimStringTable.Parse(File.ReadAllBytes(textPath)) is { GroupCount: > 0 } text
 			? text.Group(0).Count : 0;
 
 		// ShellMap_ReadSquadHeader reads data\player.mec's second short, the squad size.
-		string mecPath = Path.Combine(saves, $"player{slot}.mec");
+		string mecPath = Path.Combine(saves, ShellSaveSlots.PlayerFile(slot));
 		byte[] mec = File.Exists(mecPath) ? File.ReadAllBytes(mecPath) : Array.Empty<byte>();
 		int squadCount = mec.Length >= 4 ? BitConverter.ToInt16(mec, 2) : 0;
 

@@ -4,7 +4,7 @@ using Xunit;
 namespace Herculan.Engine.Tests;
 
 /// <summary>
-/// The save screen's geometry, gating and chrome.
+/// The save screen's geometry, gating, chrome and slot rename.
 ///
 /// <para>These are the checks that a rect read correctly out of the decompilation has also been
 /// <i>placed</i> correctly — the error a parse landing on EOF cannot catch. The rects in
@@ -137,9 +137,143 @@ public class ShellSaveScreenTests {
 		var exit = screen.ButtonRect(ShellSaveButton.Exit);
 		Assert.Equal(ShellSaveButton.Exit, screen.ButtonAt(exit.X0, exit.Y0));
 
-		// CANCEL belongs to the slot rename and is dead, so its rect answers nothing.
+		// CANCEL belongs to the slot rename and is dead outside one, so its rect answers nothing.
 		var cancel = screen.ButtonRect(ShellSaveButton.Cancel);
 		Assert.Null(screen.ButtonAt(cancel.X0 + 1, cancel.Y0 + 1));
+	}
+
+	/// <summary>
+	/// SAVE starts a rename on the selected row: its string becomes the <c>"%2d. "</c> prefix, CANCEL
+	/// and ACCEPT are the only live buttons, and the selection cannot move off the row.
+	/// </summary>
+	[Fact]
+	public void StartsARenameOnTheSelectedRow() {
+		var screen = RenameScreen();
+		Assert.Equal(" 1. KEVIN", screen.RowText(0));
+		Assert.False(screen.CaretEnabled(0));
+
+		screen.BeginRename();
+
+		Assert.True(screen.Renaming);
+		Assert.Equal(" 1. ", screen.RowText(0));
+		Assert.True(screen.CaretEnabled(0));
+		Assert.False(screen.CaretEnabled(1));
+		foreach (var button in Enum.GetValues<ShellSaveButton>()) {
+			Assert.Equal(button is ShellSaveButton.Cancel or ShellSaveButton.Accept, screen.IsEnabled(button));
+		}
+
+		Assert.False(screen.SelectSlot(1));
+		Assert.Equal(0, screen.SelectedSlot);
+	}
+
+	/// <summary>
+	/// A row takes characters from its permitted set only while its caret is enabled, and Backspace or
+	/// the left arrow erases only with the focus as well, never into the prefix.
+	/// </summary>
+	[Fact]
+	public void TypesAndErasesInsideTheRenamedRow() {
+		var screen = RenameScreen();
+
+		// Before the rename the row takes nothing.
+		Assert.False(screen.Key(0, new ShellKey('A', null), focused: true, font: null));
+
+		screen.BeginRename();
+		Assert.True(screen.Key(0, new ShellKey('A', null), true, null));
+		Assert.True(screen.Key(0, new ShellKey('7', null), true, null));
+		Assert.True(screen.Key(0, new ShellKey(' ', null), true, null));
+		Assert.False(screen.Key(0, new ShellKey('!', null), true, null));
+		Assert.Equal(" 1. A7 ", screen.RowText(0));
+
+		// Another row's caret was never enabled.
+		Assert.False(screen.Key(1, new ShellKey('B', null), true, null));
+
+		// Erasing needs the focus.
+		Assert.False(screen.Key(0, new ShellKey(null, ShellKey.Backspace), focused: false, null));
+		Assert.True(screen.Key(0, new ShellKey(null, ShellKey.Backspace), true, null));
+		Assert.True(screen.Key(0, new ShellKey(null, ShellKey.Left), true, null));
+		Assert.True(screen.Key(0, new ShellKey(null, ShellKey.Backspace), true, null));
+		Assert.Equal(" 1. ", screen.RowText(0));
+		Assert.False(screen.Key(0, new ShellKey(null, ShellKey.Backspace), true, null));
+		Assert.Equal(" 1. ", screen.RowText(0));
+
+		// Any other command changes nothing.
+		Assert.False(screen.Key(0, new ShellKey(null, ShellKey.Enter), true, null));
+	}
+
+	/// <summary>A character goes on only while the new length stays below <c>0x5a</c>, so a row holds 89 at most.</summary>
+	[Fact]
+	public void StopsTypingAtTheStringLimit() {
+		var screen = RenameScreen();
+		screen.BeginRename();
+
+		while (screen.Key(0, new ShellKey('W', null), true, null)) {
+		}
+
+		Assert.Equal(0x5a - 1, screen.RowText(0).Length);
+	}
+
+	/// <summary>
+	/// CANCEL puts the label back, ends the rename and parks the selection on slot 10; ACCEPT ends the
+	/// rename with the selection left on the row it wrote.
+	/// </summary>
+	[Fact]
+	public void EndsARenameEitherWay() {
+		var screen = RenameScreen();
+		screen.BeginRename();
+		screen.Key(0, new ShellKey('Z', null), true, null);
+
+		screen.CancelRename();
+
+		Assert.False(screen.Renaming);
+		Assert.Equal(" 1. KEVIN", screen.RowText(0));
+		Assert.Equal(ShellSaveScreen.RowCount, screen.SelectedSlot);
+		Assert.False(screen.IsEnabled(ShellSaveButton.Cancel));
+
+		screen.SelectSlot(1);
+		screen.BeginRename();
+		screen.Key(1, new ShellKey('Q', null), true, null);
+		screen.SetSlot(1, new ShellSaveSlot("GAME_1.SAV", " 2. Q", true, null));
+		screen.EndRename();
+
+		Assert.False(screen.Renaming);
+		Assert.Equal(1, screen.SelectedSlot);
+		Assert.Equal(" 2. Q", screen.RowText(1));
+		Assert.True(screen.IsEnabled(ShellSaveButton.Save));
+		Assert.True(screen.IsEnabled(ShellSaveButton.Restore));
+		Assert.False(screen.IsEnabled(ShellSaveButton.Accept));
+
+		// Entering the screen again reads every row back from its slot.
+		screen.Enter();
+		Assert.Equal(" 2. Q", screen.RowText(1));
+		Assert.Equal(" 3. EMPTY", screen.RowText(2));
+	}
+
+	/// <summary>The caret's blink phase flips on each tick while the row's caret is enabled, and is out otherwise.</summary>
+	[Fact]
+	public void BlinksTheCaretOnlyInTheRenamedRow() {
+		var screen = RenameScreen();
+		screen.CaretTick(0);
+		Assert.False(screen.CaretOn(0));
+
+		screen.BeginRename();
+		Assert.True(screen.CaretOn(0));
+		screen.CaretTick(0);
+		Assert.False(screen.CaretOn(0));
+		screen.CaretTick(0);
+		Assert.True(screen.CaretOn(0));
+
+		screen.CaretTick(1);
+		Assert.False(screen.CaretOn(1));
+	}
+
+	private static ShellSaveScreen RenameScreen() {
+		var screen = new ShellSaveScreen(new[] {
+			new ShellSaveSlot("GAME_0.SAV", " 1. KEVIN", true, null),
+			new ShellSaveSlot("GAME_1.SAV", " 2. EMPTY", false, null),
+			new ShellSaveSlot("GAME_2.SAV", " 3. EMPTY", false, null),
+		});
+		screen.SelectSlot(0);
+		return screen;
 	}
 
 	/// <summary>

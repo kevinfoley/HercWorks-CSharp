@@ -28,7 +28,16 @@ Slot 10 and 11 are one slot from the caller's side. `Game_SaveSlot` (`0040e37b`)
 
 **An empty slot's label is completed at load time.** After reading a label the reader tests `label[4]`, and when it is NUL appends string `0x21` from `estext.bin`. A stored `" 8. "` becomes `" 8. EMPTY"` in a localized build. Once such a slot is written back the completed label is in the file, which is why every retail label already reads `EMPTY`.
 
-The in-memory slot table is a 94-byte (`0x5e`) stride at `00482610`: filename at `+0x00` (13 bytes), label at `+0x0d` (80 bytes), in-use byte at `+0x5d`. `FUN_0040e150` builds the path to open by prefixing the filename with the string at `0046f434`.
+The in-memory slot table is a 94-byte (`0x5e`) stride at `00482610`: filename at `+0x00` (13 bytes), label at `+0x0d` (80 bytes), in-use byte at `+0x5d`. `FUN_0040e150` builds the path to open by prefixing the filename with the string at `0046f434`, `sav\`.
+
+## Writing a slot
+
+`Game_SaveSlot(slot, label)` (`0040e37b`) writes nothing while `DAT_0048260a` is clear. That is the game-in-progress flag: the shell's startup clears it (`FUN_0040e17e`), and `Game_LoadSlot` and `Game_NewCareer` set it. Otherwise, once slot 10 has become 11 in training:
+
+1. `FUN_0040e115` copies `label` over the slot's label when the slot is below 10, sets the slot's in-use byte whatever the slot, and writes `GAMEFILE.STR` out whole (`GameFileStr_Write`, `0040df4b`). Slots 10 and 11 keep `RESUME` and `TRAINING`.
+2. `sav\` and the slot's filename are opened and the [blocks](#savgame_sav--block-order) written in order, `Career_SaveSlot` copying [the slot handoff](#the-slot-handoff) out as it writes block 3.
+
+The save screen's `ACCEPT` is the one caller that passes a label: the row's own string, its `"%2d. "` prefix included ([`../shell/screen-layout.md`](../shell/screen-layout.md#saving-is-a-rename)). Every autosave passes slot 10 and `NULL`.
 
 ## The slot summary — `stats.cpp`'s scan
 
@@ -86,7 +95,7 @@ int16   number of owned units (weapons.dat record +0x17)
         that many 10-byte weapon unit records
 ```
 
-The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. `FUN_00411dbb` reads one weapon's entry and pushes each unit onto the list's head as it reads it, so the file's last unit is the head — the one the weapons screen fits next. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to and [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record) for the unit record, which is the same five `int16` a HERC's mounts serialize.
+The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. `FUN_00411dbb` reads one weapon's entry and pushes each unit onto the list's head as it reads it, so the file's last unit is the head — the one the weapons screen fits next. `FUN_00411e64`, `Armory_Write`'s per-weapon writer, walks the list from the head, so the head is the first unit written: **every save and load reverses a weapon's units**, and the unit fitted next alternates between the two ends of the stock from one load to the next. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to and [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record) for the unit record, which is the same five `int16` a HERC's mounts serialize.
 
 ### Pilot record — 59 bytes (`0x3b`) in memory
 

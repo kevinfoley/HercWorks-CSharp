@@ -74,7 +74,7 @@ One mounted or stocked weapon. Ten bytes in memory, five `int16`, constructed by
 | Offset | Field |
 |---|---|
 | `+0x00` | weapon catalog id |
-| `+0x02` | armory class index, derived by `Weapon_ClassIndexForId` (`004119b4`) and never stored in any file |
+| `+0x02` | armory class index, derived by `Weapon_ClassIndexForId` (`004119b4`) whenever a unit is constructed. The catalog form leaves it out; the save form writes it and reads it back as written |
 | `+0x04` | the hardpoint condition the unit is fitted at: `Herc_FitMount` (`004114ec`) writes it into the machine's status block ([`../shell/screen-layout.md`](../shell/screen-layout.md#fitting-a-weapon)). 100 from the constructor, and the catalog form leaves it there |
 | `+0x06` | condition |
 | `+0x08` | ammo type — the guidance kind |

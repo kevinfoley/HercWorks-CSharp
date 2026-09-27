@@ -1,5 +1,6 @@
 using HercWorks.Core.Data.File.Dat.Shell;
 using HercWorks.Core.Data.File.Sav;
+using HercWorks.Core.Data.Struct;
 using HercWorks.Core.Data.Struct.Herc;
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
 using HercWorks.Core.Data.Struct.Vshell.Sav;
@@ -12,8 +13,10 @@ namespace Herculan.Engine.Shell;
 /// between a mount and the stock, so what it carries goes with it.
 /// </summary>
 public sealed class ShellWeaponUnit {
-	public ShellWeaponUnit(int weaponId, int fitCondition = 100, int condition = 100, int guidance = NoGuidance) {
+	public ShellWeaponUnit(int weaponId, int fitCondition = 100, int condition = 100, int guidance = NoGuidance,
+			int? classIndex = null) {
 		WeaponId = weaponId;
+		ClassIndex = classIndex ?? ClassIndexForId(weaponId);
 		FitCondition = fitCondition;
 		Condition = condition;
 		Guidance = guidance;
@@ -25,6 +28,22 @@ public sealed class ShellWeaponUnit {
 	/// <summary><c>+0x00</c>, the weapon catalog id.</summary>
 	public int WeaponId { get; }
 
+	/// <summary>
+	/// <c>+0x02</c>, the armory class index: derived from the id whenever a unit is made, and read back
+	/// from the save as it was written.
+	/// </summary>
+	public int ClassIndex { get; }
+
+	/// <summary>
+	/// <c>Weapon_ClassIndexForId</c> (<c>004119b4</c>) — the id's position in the thirty-entry table at
+	/// <c>0046f868</c>, which holds ids 0-18 and 22-32, so the three Bull weapons are <c>-1</c>.
+	/// </summary>
+	private static int ClassIndexForId(int weaponId) => weaponId switch {
+		>= 0 and <= 18 => weaponId,
+		>= 22 and <= 32 => weaponId - 3,
+		_ => -1,
+	};
+
 	/// <summary><c>+0x04</c> — what <c>Herc_FitMount</c> (<c>004114ec</c>) writes into the hardpoint's status entry when the unit is fitted.</summary>
 	public int FitCondition { get; }
 
@@ -35,7 +54,16 @@ public sealed class ShellWeaponUnit {
 	public int Guidance { get; internal set; }
 
 	internal static ShellWeaponUnit From(ShellWeaponEntry entry) =>
-		new(entry.Id?.Id ?? 0, entry.HealthArmor, entry.HealthInteral, entry.MissileType?.Id ?? NoGuidance);
+		new(entry.Id?.Id ?? 0, entry.HealthArmor, entry.HealthInteral, entry.MissileType?.Id ?? NoGuidance, entry.NameId);
+
+	/// <summary><c>WeaponUnit_WriteSaveForm</c> (<c>00411aff</c>)'s five shorts, as the save model holds them.</summary>
+	internal ShellWeaponEntry ToEntry() => new() {
+		Id = WeaponLUT.GetById(WeaponId),
+		NameId = (short)ClassIndex,
+		HealthArmor = (short)FitCondition,
+		HealthInteral = (short)Condition,
+		MissileType = MissileType.GetById(Guidance),
+	};
 }
 
 /// <summary>
@@ -84,11 +112,12 @@ public sealed class ShellBayMachine {
 	private readonly short[] _hardpoint;
 	private readonly ShellWeaponUnit?[] _mounts;
 
-	private ShellBayMachine(int chassisType, int mountCapacity, int buildPercent, short[] external,
+	private ShellBayMachine(int chassisType, int mountCapacity, int buildPercent, int buildMissionsLeft, short[] external,
 			short[] internals, short overall, short[] hardpoint, ShellWeaponUnit?[] mounts) {
 		ChassisType = chassisType;
 		MountCapacity = mountCapacity;
 		BuildPercent = buildPercent;
+		BuildMissionsLeft = buildMissionsLeft;
 		_external = external;
 		_internal = internals;
 		_overall = overall;
@@ -114,6 +143,12 @@ public sealed class ShellBayMachine {
 
 	/// <summary>Build progress at <c>+0x4a</c>. Construction state, not damage.</summary>
 	public int BuildPercent { get; }
+
+	/// <summary>
+	/// <c>+0x78</c>, the missions of construction left: <c>herc_inf.dat</c>'s build time when the chassis
+	/// is ordered, and what <c>Herc_BuildTick</c> (<c>00411086</c>) counts down at each debrief.
+	/// </summary>
+	public int BuildMissionsLeft { get; }
 
 	/// <summary>Whether the machine has been delivered — <c>FUN_00410a64</c>'s test.</summary>
 	public bool IsBuilt => BuildPercent == Complete;
@@ -280,24 +315,26 @@ public sealed class ShellBayMachine {
 	/// <summary>
 	/// A machine just bought — <c>Herc_Order</c> (<c>00411019</c>) over the record <c>HercRecord_Ctor</c>
 	/// (<c>00410d7a</c>) leaves: every condition 100, no weapon in any mount, the chassis type, the
-	/// capacity <c>Herc_CapacityForType</c> (<c>00410d54</c>) reads, and 0% built.
+	/// capacity <c>Herc_CapacityForType</c> (<c>00410d54</c>) reads, 0% built, and
+	/// <paramref name="buildMissions"/>, the chassis's <c>herc_inf.dat</c> build time, left to go.
 	/// </summary>
-	public static ShellBayMachine Ordered(int chassisType) {
+	public static ShellBayMachine Ordered(int chassisType, int buildMissions) {
 		static short[] Full(int length) => Enumerable.Repeat((short)Complete, length).ToArray();
 
 		int capacity = HercLUT.GetById((short)chassisType)?.HardpointMax ?? -1;
-		return new ShellBayMachine(chassisType, capacity, 0, Full(HercExternals.Values().Count),
+		return new ShellBayMachine(chassisType, capacity, 0, buildMissions, Full(HercExternals.Values().Count),
 			Full(DamageRepairCost.InternalCount), Complete, Full(MountSlots), new ShellWeaponUnit?[MountSlots]);
 	}
 
 	/// <summary>
 	/// A machine of <paramref name="chassisType"/> with nothing fitted — <c>HercRecord_Ctor</c>
-	/// (<c>00410d7a</c>) then <c>Herc_SetType</c> (<c>00410fde</c>): built, every condition 100, and the
-	/// capacity <c>Herc_CapacityForType</c> (<c>00410d54</c>) reads. <see cref="Fit"/> arms it.
+	/// (<c>00410d7a</c>) then <c>Herc_SetType</c> (<c>00410fde</c>): built with no missions left, every
+	/// condition 100, and the capacity <c>Herc_CapacityForType</c> (<c>00410d54</c>) reads.
+	/// <see cref="Fit"/> arms it.
 	/// </summary>
 	public static ShellBayMachine Delivered(int chassisType) {
-		var machine = Ordered(chassisType);
-		return new ShellBayMachine(chassisType, machine.MountCapacity, Complete, machine._external, machine._internal,
+		var machine = Ordered(chassisType, 0);
+		return new ShellBayMachine(chassisType, machine.MountCapacity, Complete, 0, machine._external, machine._internal,
 			machine._overall, machine._hardpoint, machine._mounts);
 	}
 
@@ -317,9 +354,9 @@ public sealed class ShellBayMachine {
 	/// fitted condition and the hardpoint's left at 100.
 	/// </summary>
 	public static ShellBayMachine FromCatalog(ShellHercData record) {
-		var machine = Ordered(record.HercId);
-		var built = new ShellBayMachine(record.HercId, machine.MountCapacity, record.BuildPercent, machine._external,
-			machine._internal, machine._overall, machine._hardpoint, machine._mounts);
+		var machine = Ordered(record.HercId, 0);
+		var built = new ShellBayMachine(record.HercId, machine.MountCapacity, record.BuildPercent, record.BuildStepNum,
+			machine._external, machine._internal, machine._overall, machine._hardpoint, machine._mounts);
 		foreach (var (slot, entry) in record.Hardpoints ?? new Dictionary<short, UiWeaponEntry>()) {
 			built.SetMount(slot, new ShellWeaponUnit(entry.ItemId, condition: entry.HealthPercent,
 				guidance: entry.MissileType?.Id ?? ShellWeaponUnit.NoGuidance));
@@ -355,8 +392,45 @@ public sealed class ShellBayMachine {
 
 		short overall = entry.HealthInternals != null
 			&& entry.HealthInternals.TryGetValue(HercInternals.Pilot, out var overallPart) ? overallPart.Health : (short)Complete;
-		return new ShellBayMachine(entry.Id?.Id ?? 0, entry.HardpointMax, entry.BuildPercent,
+		return new ShellBayMachine(entry.Id?.Id ?? 0, entry.HardpointMax, entry.BuildPercent, entry.BuildStepNum,
 			external, internals, overall, hardpoint, mounts);
+	}
+
+	/// <summary>
+	/// The record as <c>Herc_Write</c> (<c>0041123e</c>) serializes it: the type twice, the status block,
+	/// the build state, the capacity, and each fitted mount below the capacity in slot order.
+	/// </summary>
+	internal HercBayEntry ToEntry() {
+		var entry = new HercBayEntry {
+			Id = HercLUT.GetById((short)ChassisType),
+			NameId = (short)ChassisType,
+			HealthExternals = HercExternals.Values().ToDictionary(facet => facet,
+				facet => new ShellHercPart(facet.Id, facet.Label, _external[facet.Id])),
+			HealthInternals = new Dictionary<HercInternals, ShellHercPart>(),
+			BuildPercent = (short)BuildPercent,
+			BuildStepNum = (short)BuildMissionsLeft,
+			HardpointMax = (short)MountCapacity,
+		};
+
+		for (int i = 0; i < _internal.Length; i++) {
+			var component = HercInternals.GetById((short)i)!;
+			entry.HealthInternals[component] = new ShellHercPart(component.Id, component.Label, _internal[i]);
+		}
+
+		entry.HealthInternals[HercInternals.Pilot] = new ShellHercPart(HercInternals.Pilot.Id, HercInternals.Pilot.Label, _overall);
+		for (int slot = 0; slot < entry.HealthHardpoints.Length; slot++) {
+			short condition = slot < _hardpoint.Length ? _hardpoint[slot] : (short)Complete;
+			entry.HealthHardpoints[slot] = new ShellHercPart((short)slot, "hardpoint_" + slot, condition);
+		}
+
+		for (int slot = 0; slot < MountCapacity; slot++) {
+			if (Mount(slot) is { } unit) {
+				entry.Weapons[(short)slot] = unit.ToEntry();
+			}
+		}
+
+		entry.ActiveSockets = (short)entry.Weapons.Count;
+		return entry;
 	}
 }
 
@@ -439,8 +513,11 @@ public sealed class ShellHangar {
 	/// unit fitted next is the one that went in last.
 	/// </summary>
 	private sealed class WeaponStock {
-		public bool Unlocked;
+		/// <summary>The unlock byte as the save holds it; any value but 0 is unlocked.</summary>
+		public byte UnlockFlag;
 		public readonly List<ShellWeaponUnit> Units = new();
+
+		public bool Unlocked => UnlockFlag != 0;
 	}
 
 	private readonly Dictionary<int, WeaponStock> _stock = new();
@@ -593,15 +670,16 @@ public sealed class ShellHangar {
 
 	/// <summary>
 	/// BUILD's order, <c>Hangar_BuySelected</c> (<c>0040e91c</c>): <c>HercList_OrderIntoSelected</c> (<c>00410982</c>) puts a new record in <paramref name="bay"/> — the
-	/// selected one, whatever it holds — and <see cref="ShellBayMachine.Ordered"/> fills it, and the price,
-	/// <paramref name="priceTons"/> times 1000, comes off the pool. Returns the price.
+	/// selected one, whatever it holds — and <see cref="ShellBayMachine.Ordered"/> fills it with
+	/// <paramref name="buildMissions"/> to go, and the price, <paramref name="priceTons"/> times 1000, comes
+	/// off the pool. Returns the price.
 	/// </summary>
-	public int Order(int bay, int chassisType, int priceTons) {
+	public int Order(int bay, int chassisType, int priceTons, int buildMissions) {
 		if (bay < 0 || bay >= BayCount) {
 			return 0;
 		}
 
-		_bays[bay] = ShellBayMachine.Ordered(chassisType);
+		_bays[bay] = ShellBayMachine.Ordered(chassisType, buildMissions);
 		int price = priceTons * ShellRepairCosts.KilogramsPerTon;
 		SalvageKilograms -= price;
 		return price;
@@ -821,7 +899,7 @@ public sealed class ShellHangar {
 		var hangar = new ShellHangar { Player = player, MachinesOnStrength = 1 };
 		hangar._squad.AddRange(squad);
 		foreach (int weapon in unlockedWeapons) {
-			hangar.Stock(weapon).Unlocked = true;
+			hangar.Stock(weapon).UnlockFlag = 1;
 		}
 
 		return hangar;
@@ -864,7 +942,7 @@ public sealed class ShellHangar {
 				// The save's stock reader, FUN_00411dbb, pushes each unit onto the head as it reads it, so the
 				// file's last unit is the head.
 				var stock = hangar.Stock(id.Id);
-				stock.Unlocked = item.UnlockFlag != 0;
+				stock.UnlockFlag = (byte)item.UnlockFlag;
 				foreach (var entry in item.Data ?? Array.Empty<ShellWeaponEntry>()) {
 					if (entry != null) {
 						stock.Units.Add(ShellWeaponUnit.From(entry));
@@ -898,13 +976,71 @@ public sealed class ShellHangar {
 		hangar.Player = Pilot(save.PlayerPilot);
 		for (int squad = 0; squad < SquadCount; squad++) {
 			int member = save.UnkRange_prePlayer[squad];
+			int record = squad * PilotsPerSquad + member;
 			if (member >= 0 && member < PilotsPerSquad
-				&& Pilot(save.Squadmates?.ElementAtOrDefault(squad * PilotsPerSquad + member)) is { } pilot) {
+				&& Pilot(save.Squadmates?.ElementAtOrDefault(record)) is { } pilot) {
 				hangar._squad.Add(pilot);
+				hangar._squadRecords.Add(record);
 			}
 		}
 
 		return hangar;
+	}
+
+	/// <summary>Which of the save's 36 squad records each of <see cref="SquadMembers"/> was read from.</summary>
+	private readonly List<int> _squadRecords = new();
+
+	/// <summary>
+	/// Writes what the screens change back into <paramref name="save"/>, the game it was read from, so
+	/// that <c>Game_SaveSlot</c> (<c>0040e37b</c>) can write the whole of it: the armory stock and build
+	/// queue, the bays, the salvage pool, the player's bay, the three squad members' bay, position and
+	/// on-strength byte, and the player block's two counts. Everything else the save carries — the
+	/// career block, the other 33 squad records, the chassis flags and the flag array — no screen here
+	/// changes, and is left as it was read.
+	///
+	/// <para>A weapon's stock is written from the head of its list, as <c>Armory_Write</c>
+	/// (<c>004121cf</c>) walks it, and read back by pushing each unit onto the head, so each save and load
+	/// reverses the order (docs/formats/save-games.md#armory-stock-record).</para>
+	/// </summary>
+	public void Store(PlayerSave save) {
+		var items = new Inventory.InventoryItem[ShellMissionLaunch.WeaponCatalogCount];
+		for (int id = 0; id < items.Length; id++) {
+			var units = _stock.TryGetValue(id, out var stock) ? stock.Units : new List<ShellWeaponUnit>();
+			items[id] = new Inventory.InventoryItem {
+				Id = WeaponLUT.GetById(id),
+				UnlockFlag = stock?.UnlockFlag ?? (short)0,
+				Quantity = (short)units.Count,
+				Data = Enumerable.Reverse(units).Select(unit => unit.ToEntry()).ToArray(),
+			};
+		}
+
+		save.Inventory = new Inventory { Items = items };
+		save.WorkshopSpace = (short)QueueFreeSlots;
+		for (int slot = 0; slot < QueueSlots && slot < save.WorkshopSlots.Length; slot++) {
+			save.WorkshopSlots[slot] = WeaponLUT.GetById(_queue[slot]) ?? WeaponLUT.None;
+		}
+
+		save.HercBay = new Dictionary<short, HercBayEntry>();
+		for (int bay = 0; bay < BayCount; bay++) {
+			if (_bays[bay] is { } machine) {
+				save.HercBay[(short)bay] = machine.ToEntry();
+			}
+		}
+
+		save.SalvageTotal = SalvageKilograms;
+		save.SquadPositionsInPlay = (short)SquadPositions;
+		save.MachinesOnStrength = (short)MachinesOnStrength;
+		if (Player != null && save.PlayerPilot != null) {
+			save.PlayerPilot.BayId = (short)Player.Bay;
+		}
+
+		for (int member = 0; member < _squadRecords.Count; member++) {
+			if (save.Squadmates?.ElementAtOrDefault(_squadRecords[member]) is { } record) {
+				record.BayId = (short)_squad[member].Bay;
+				record.CrewRowNum = (short)_squad[member].SquadPosition;
+				record.Active = (byte)(_squad[member].OnStrength ? 1 : 0);
+			}
+		}
 	}
 
 	private static ShellBayPilot? Pilot(PilotEntry? pilot) =>

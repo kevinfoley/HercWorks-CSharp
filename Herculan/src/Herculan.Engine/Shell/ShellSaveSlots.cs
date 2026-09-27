@@ -64,6 +64,25 @@ public sealed record ShellSaveSummary(
 public sealed record ShellSaveSlot(string FileName, string Label, bool InUse, ShellSaveSummary? Summary);
 
 /// <summary>
+/// Where the game's three working files are — <c>data\script.dat</c>, <c>data\mission.str</c> and
+/// <c>data\player.mec</c> in the original, which <c>Career_LoadSlot</c> fills from a slot's
+/// <c>sav\script%d.dat</c>, <c>sav\missn%d.str</c> and <c>sav\player%d.mec</c>, <c>Rock &amp; Roll</c>'s
+/// export rewrites <c>player.mec</c> in, and <c>Career_SaveSlot</c> copies out to the slot being saved.
+///
+/// <para>This engine leaves the install's <c>data\</c> alone. Until a mission is handed over the files
+/// are byte for byte the loaded slot's own, so those are read where they are; the handoff then names
+/// its own <c>player.mec</c>. Null when there is none.</para>
+/// </summary>
+public sealed record ShellWorkingFiles(string? Script, string? Text, string? Player) {
+	/// <summary>The files a slot's load puts in <c>data\</c>, read in place.</summary>
+	public static ShellWorkingFiles ForSlot(string installRoot, int slot) {
+		string folder = ShellSaveSlots.Directory(installRoot);
+		return new ShellWorkingFiles(Path.Combine(folder, ShellSaveSlots.ScriptFile(slot)),
+			Path.Combine(folder, ShellSaveSlots.TextFile(slot)), Path.Combine(folder, ShellSaveSlots.PlayerFile(slot)));
+	}
+}
+
+/// <summary>
 /// The twelve save slots, as the save screen sees them: the directory file, each slot's summary, and
 /// the completion the directory's reader applies to a slot nobody has written yet.
 ///
@@ -123,6 +142,104 @@ public static class ShellSaveSlots {
 	/// </summary>
 	public static string Complete(string label, string? emptyWord) =>
 		label.Length > LabelPrefixLength ? label : label + (emptyWord ?? string.Empty);
+
+	/// <summary>
+	/// <c>Game_SaveSlot(slot, label)</c> (<c>0040e37b</c>): writes <paramref name="game"/> as slot
+	/// <paramref name="slot"/> and returns the slot's new directory entry, or null when nothing was
+	/// written. Slot 10 is slot 11 in training. A player slot (0-9) takes <paramref name="label"/> as its
+	/// label; every slot is marked in use, and the whole directory is written back
+	/// (<c>FUN_0040e115</c>). The save follows, and <c>Career_SaveSlot</c> (<c>00412a71</c>) copies the
+	/// three working files beside it. See docs/formats/save-games.md.
+	///
+	/// <para>The working files are <c>data\</c>'s, which this engine does not keep: see
+	/// <see cref="ShellWorkingFiles"/>. A missing one is skipped, where the original's copy asserts.</para>
+	///
+	/// <para>The summary is not restaged here: only <c>ACCEPT</c> does that, through
+	/// <c>Stats_StageCurrentGame</c>.</para>
+	/// </summary>
+	public static ShellSaveSlot? SaveGame(string installRoot, IReadOnlyList<ShellSaveSlot> slots, int slot, string? label,
+			bool training, PlayerSave game, ShellWorkingFiles working, out string? failure) {
+		if (slot == SaveSlotDirectory.ResumeSlot && training) {
+			slot = SaveSlotDirectory.TrainingSlot;
+		}
+
+		if (slot < 0 || slot >= slots.Count) {
+			failure = $"no slot {slot} in {DirectoryFileName}";
+			return null;
+		}
+
+		var entry = slots[slot] with {
+			Label = slot < SaveSlotDirectory.PlayerSlotCount && label != null ? label : slots[slot].Label,
+			InUse = true,
+		};
+
+		// The tail is the flag array, the game state and the 20-byte block, 2022 bytes; anything past that
+		// is a stale tail the reader carried in from the file, which the original's memory never holds.
+		if (game.UnknownSaveValues is { Length: > SaveTailLength } tail) {
+			game.UnknownSaveValues = tail[..SaveTailLength];
+		}
+
+		string folder = Directory(installRoot);
+		try {
+			System.IO.Directory.CreateDirectory(folder);
+			var directory = new SaveSlotDirectory {
+				Slots = slots.Select((s, i) => new SaveSlotEntry {
+					FileName = s.FileName,
+					Label = i == slot ? entry.Label : s.Label,
+					InUse = i == slot || s.InUse,
+				}).ToList(),
+			};
+
+			WriteDirectory(Path.Combine(folder, DirectoryFileName), new SaveSlotDirectoryTransform().Write(directory)!);
+			WriteInPlace(Path.Combine(folder, entry.FileName), new PlayerSaveTransform().Write(game)!);
+			foreach (var (from, to) in new[] {
+					(working.Script, ScriptFile(slot)), (working.Text, TextFile(slot)), (working.Player, PlayerFile(slot)) }) {
+				string target = Path.Combine(folder, to);
+				if (from != null && File.Exists(from) && !string.Equals(Path.GetFullPath(from), Path.GetFullPath(target),
+						StringComparison.OrdinalIgnoreCase)) {
+					File.Copy(from, target, overwrite: true);
+				}
+			}
+		} catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
+			failure = e.Message;
+			return null;
+		}
+
+		failure = null;
+		return entry;
+	}
+
+	/// <summary>The three working files <c>Career_SaveSlot</c> and <c>Career_LoadSlot</c> copy, for one slot.</summary>
+	public static string ScriptFile(int slot) => $"script{slot}.dat";
+
+	public static string TextFile(int slot) => $"missn{slot}.str";
+
+	public static string PlayerFile(int slot) => $"player{slot}.mec";
+
+	/// <summary>The save's last three blocks: 2000 bytes of flags, 2 of game state and 20 more.</summary>
+	private const int SaveTailLength = PlayerSave.CampaignFlagCount * 2 + 2 + 20;
+
+	/// <summary>
+	/// Writes over whatever is at <paramref name="path"/> without truncating it, as
+	/// <c>FileWStream_Open</c> (<c>0044e46c</c>) opens every save: a shorter payload leaves the old tail
+	/// in place (docs/formats/save-games.md#streams-never-truncate).
+	/// </summary>
+	private static void WriteInPlace(string path, byte[] bytes) {
+		using var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write);
+		stream.Write(bytes);
+	}
+
+	/// <summary>
+	/// <c>GameFileStr_Write</c> (<c>0040df4b</c>): the directory written in place, then its leading length
+	/// patched to the physical file's length less four — the stale tail included.
+	/// </summary>
+	private static void WriteDirectory(string path, byte[] bytes) {
+		using var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write);
+		stream.Write(bytes);
+		int length = (int)stream.Length - 4;
+		stream.Position = 0;
+		stream.Write(BitConverter.GetBytes(length));
+	}
 
 	/// <summary>
 	/// Parses one slot's save in full, or returns null when it is missing or will not read. The save

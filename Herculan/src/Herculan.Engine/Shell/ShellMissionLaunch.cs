@@ -161,7 +161,7 @@ public static class ShellMissionLaunch {
 	/// </summary>
 	public static string? WriteHandoff(string directory, string installRoot, int slot, PlayerSave save, ShellHangar hangar) {
 		string saves = ShellSaveSlots.Directory(installRoot);
-		string script = Path.Combine(saves, $"script{slot}.dat");
+		string script = Path.Combine(saves, ShellSaveSlots.ScriptFile(slot));
 		if (!File.Exists(script)) {
 			return null;
 		}
@@ -170,7 +170,7 @@ public static class ShellMissionLaunch {
 		string scriptPath = Path.Combine(directory, MissionLoader.ScriptFileName);
 		File.Copy(script, scriptPath, overwrite: true);
 
-		string text = Path.Combine(saves, $"missn{slot}.str");
+		string text = Path.Combine(saves, ShellSaveSlots.TextFile(slot));
 		string textPath = Path.Combine(directory, MissionLoader.TextFileName);
 		if (File.Exists(text)) {
 			File.Copy(text, textPath, overwrite: true);

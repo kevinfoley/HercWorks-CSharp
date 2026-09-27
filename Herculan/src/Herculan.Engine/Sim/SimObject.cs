@@ -398,16 +398,10 @@ public abstract class SimObject {
 	internal void ActivateDefeatAction(SimWorld world) => DefeatAction?.Activate(world);
 
 	/// <summary>
-	/// The guard all three damage endpoints share before they announce that something the player was
-	/// shooting at has gone down — a HERC's, a flyer's and a structure's, posting
-	/// <c>ENEMY TARGET DESTROYED</c> or <c>ENEMY TARGET DISABLED</c>.
+	/// If the given victim is the player's current target and the player fired the finishing
+	/// shot, play <c>ENEMY TARGET DESTROYED</c> or <c>ENEMY TARGET DISABLED</c> as applicable.
 	///
-	/// <para><b>It does not test sides</b>, and that is the original's own guard rather than an
-	/// omission here: it asks only that the killing shot came from the machine the player is flying
-	/// and that <paramref name="victim"/> is what that machine had selected. So destroying a friendly
-	/// you had boxed announces it as an enemy, and the two recorded <c>FRIENDLY</c> lines
-	/// (<c>0x30</c> and <c>0x31</c>) can never be reached. Diverging here would be a silent behaviour
-	/// change; see KNOWN_ISSUES.md.</para>
+	/// <para><b>It does not test sides</b>, because friendly units cannot be targeted.</para>
 	/// </summary>
 	private protected static void AnnounceNeutralised(SimWorld world, SimObject? attacker,
 			SimObject victim, int messageId) {

@@ -21,6 +21,7 @@ Additionally, the game data includes an unused particle-beam weapon for the Cybr
 ## Sound effects
 
 - Computer voiceover lines "Primary objective completed", "Secondary objective completed", "Mission objectives completed"
+- Computer voiceover lines "Friendly target disabled" and "friendly target destroyed". The "enemy target disabled/destroyed" lines only play when the player fired the killing shot on a currently targeted unit; friendly units cannot be targeted, so there's no logic for playing their equivalent sound effects.
 
 ## Miscellaneous features
 

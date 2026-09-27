@@ -45,12 +45,6 @@ public static class TweakSettingDefinitions {
 	public static readonly TweakSettingDefinition<bool> PreserveSoundPosition = new("tweak.preserve_sound_position", TweakCategory.Cosmetic, false);
 
 	/// <summary>
-	/// When a friendly unit is destroyed by the player while targeted by the player,
-	/// play "Friendly Target Destroyed". Retail plays "Enemy Target Destroyed".
-	/// </summary>
-	public static readonly TweakSettingDefinition<bool> FriendlyTargetDestroyedMessage = new("tweak.friendly_target_destroyed_message", TweakCategory.Cosmetic, false);
-	
-	/// <summary>
 	/// When the player takes critical damage, play "Damage Level Critical". Does not
 	/// work in retail due to a typo in the code.
 	/// </summary>
@@ -72,6 +66,6 @@ public static class TweakSettingDefinitions {
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
-		PreserveSoundPosition, FriendlyTargetDestroyedMessage, CriticalDamageMessage, SmootherTurretMovement,
+		PreserveSoundPosition, CriticalDamageMessage, SmootherTurretMovement,
 	};
 }

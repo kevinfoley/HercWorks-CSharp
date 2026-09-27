@@ -16,25 +16,30 @@ public enum ShellMouseButton {
 /// </summary>
 public enum ShellHandler {
 	/// <summary>
-	/// <c>Control_HandleEvent</c> (<c>004097da</c>) — panels, framed and titled panels, grids, and
-	/// <c>Button</c> through <c>Button_HandleEvent</c> — and <c>HatchedDivider_HandleEvent</c>
-	/// (<c>0040c3b5</c>), the crew rows' copy of it. Either button: a press lights the widget, a
-	/// release while it is lit fires, and a leave puts it out.
+	/// <c>Control_HandleEvent</c> (<c>004097da</c>) — panels, framed and titled panels and grids — and
+	/// <c>HatchedDivider_HandleEvent</c> (<c>0040c3b5</c>), the crew rows' copy of it. Either button: a
+	/// press lights the widget, a release while it is lit fires, and a leave puts it out.
 	/// </summary>
 	Control,
 
 	/// <summary>
-	/// <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>), the tab strip's class. The left button fires on
-	/// the press; the right goes through <c>Control_HandleEvent</c> and fires on its release. A leave
-	/// never puts it out.
+	/// <c>Button_HandleEvent</c> (<c>00409b0f</c>), every content button: <see cref="Control"/>'s rules,
+	/// and the press sound on either button going down.
+	/// </summary>
+	Button,
+
+	/// <summary>
+	/// <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>), the tab strip's class. The left button makes the
+	/// press sound and fires on the press; the right goes through <c>Control_HandleEvent</c>, silently,
+	/// and fires on its release. A leave never puts it out.
 	/// </summary>
 	ButtonIcon,
 
 	/// <summary>
 	/// <c>ButtonIcon_HandleEvent</c> on a button its builder gave the auto-repeat flag <c>+0x61</c> and a
-	/// clear <c>+0x5d</c> — the mission tab's arrows. The left press lights it without firing, and the
-	/// left release fires wherever the press was; the right goes through <c>Control_HandleEvent</c>; a
-	/// leave puts it out.
+	/// clear <c>+0x5d</c> — the mission tab's arrows. The left press lights it and makes the press sound
+	/// without firing, and the left release fires wherever the press was; the right goes through
+	/// <c>Control_HandleEvent</c>; a leave puts it out.
 	/// </summary>
 	RepeatButtonIcon,
 
@@ -116,7 +121,7 @@ public readonly record struct ShellHit(ShellWidget Widget, ShellHandler Handler,
 	/// of it the caption does not cover.
 	/// </summary>
 	public static ShellHit Button(ShellWidget widget, ShellRect rect, float canvasX, float canvasY) =>
-		new(widget, ShellHandler.Control,
+		new(widget, ShellHandler.Button,
 			LeafAt(rect, [new ShellRect(1, 0, rect.Width - 1, rect.Height - 1)], canvasX, canvasY));
 
 	/// <summary>
@@ -154,11 +159,20 @@ public readonly record struct ShellHit(ShellWidget Widget, ShellHandler Handler,
 /// </summary>
 public sealed class ShellPointer {
 	private readonly ShellScreen _strip;
+	private readonly Action? _pressSound;
 	private ShellHit? _underPointer;
 	private ShellWidget? _lit;
 	private ShellWidget? _focused;
 
-	public ShellPointer(ShellScreen strip) => _strip = strip;
+	/// <param name="strip">The strip whose buttons keep their own lit flags.</param>
+	/// <param name="pressSound">
+	/// The press sound, <c>ShellSound_PlayPress</c> (<c>0042eecf</c>), for the classes that make it;
+	/// null for none.
+	/// </param>
+	public ShellPointer(ShellScreen strip, Action? pressSound = null) {
+		_strip = strip;
+		_pressSound = pressSound;
+	}
 
 	/// <summary>The widget mouse events go to, or null.</summary>
 	public ShellHit? Target { get; private set; }
@@ -193,12 +207,29 @@ public sealed class ShellPointer {
 		}
 
 		switch (target.Handler) {
-			case ShellHandler.Control or ShellHandler.RepeatButtonIcon:
+			case ShellHandler.Control:
+				_lit = target.Widget;
+				break;
+
+			case ShellHandler.Button:
+				_pressSound?.Invoke();
+				_lit = target.Widget;
+				break;
+
+			case ShellHandler.RepeatButtonIcon:
+				if (button == ShellMouseButton.Left) {
+					_pressSound?.Invoke();
+				}
+
 				_lit = target.Widget;
 				break;
 
 			case ShellHandler.ButtonIcon when _strip.Button(target.Widget.Index) is { Enabled: true } strip:
 				strip.Lit = true;
+				if (button == ShellMouseButton.Left) {
+					_pressSound?.Invoke();
+				}
+
 				strip.Repaint();
 				if (button == ShellMouseButton.Left) {
 					fire(target.Widget);
@@ -219,7 +250,7 @@ public sealed class ShellPointer {
 		}
 
 		switch (target.Handler) {
-			case ShellHandler.Control when _lit == target.Widget:
+			case ShellHandler.Control or ShellHandler.Button when _lit == target.Widget:
 				fire(target.Widget);
 				_lit = null;
 				break;
@@ -255,7 +286,8 @@ public sealed class ShellPointer {
 	/// <c>ButtonIcon_Ctor</c> sets and stays lit.
 	/// </summary>
 	private void Leave() {
-		if (Target is { Handler: ShellHandler.Control or ShellHandler.RepeatButtonIcon } target && _lit == target.Widget) {
+		if (Target is { Handler: ShellHandler.Control or ShellHandler.Button or ShellHandler.RepeatButtonIcon } target
+				&& _lit == target.Widget) {
 			_lit = null;
 		}
 	}

@@ -43,7 +43,7 @@ Every tab has its own handler, and the eight are the same function with three or
 4. `0043b162(tab)` — install the tab's palette.
 5. `0043cfe7(tab)` — build the shared squad roster panel, on tabs 2, 3, 4 and 6 only. Neither ARMORY nor MISSION has one.
 6. The screen's own builder.
-7. `DAT_0047581c = tab`, then `0042ee89` — the click sound. Tab 6's handler stores its index before its builder instead, so the crew screen's entry already runs as tab 6 ([below](#entering-the-crew-screen)).
+7. `DAT_0047581c = tab`, then `ShellSound_PlayTabClick` (`0042ee89`) — [the tab click](#sound). Tab 6's handler stores its index before its builder instead, so the crew screen's entry already runs as tab 6 ([below](#entering-the-crew-screen)).
 
 | Tab | Handler | Builds | Roster |
 |---|---|---|---|
@@ -999,6 +999,63 @@ The condition itself goes through two functions over two in-image tables. `Repai
 
 `dfn\font.dfn` is in the archive and the init does not ask for it.
 
+## Sound
+
+The shell has a sound manager of its own: a copy of the simulator's [`SFX` manager](../formats/audio.md#the-sfx-manager) at `ShellSound_Manager` (`004731f0`), four samples out of `SHLSOUND.VOL`, and the wrappers below. The archive holds one folder, `hmi\`, and five files, all 8-bit mono PCM:
+
+| File | Rate | Length | Is |
+|---|---|---|---|
+| `gm_69.wav` | 22050 | 0.07 s | the press sound |
+| `bptlt2.wav` | 22050 | 0.22 s | the tab click |
+| `lswitch2.wav` | 22050 | 3.9 s | the switch the startup sequence opens with |
+| `shell1.wav` | 11025 | 91 s | a music track |
+| `shell2.wav` | 11025 | 93 s | the other music track |
+
+**The tracks alternate from one run to the next.** `ShellSound_Init` (`0042ec7c`), which the startup (`FUN_00401525`) runs once its windows are built, loads the music as `shell1.wav` while `prefs.cfg` option 5 is non-zero and `shell2.wav` while it is 0, then flips option 5, commits and writes all 54 options back ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A music track that will not load puts up `Cannot load sound.` and the shell carries on. The music is set to loop forever at `ShellSound_MusicVolume` (`004731fc`), which is 0 in the image. Under `-s`, which clears `Shell_SoundEnabled` (`00482272`), the setup creates no manager and returns, so option 5 stays where it was and every wrapper does nothing.
+
+| Wrapper | Does | Only while |
+|---|---|---|
+| `ShellSound_PlayPress` (`0042eecf`) | `gm_69.wav` at volume 100 | there is a manager, SOUNDS (option 1, `004824b9`) is on and `ShellSound_Running` (`00473200`) is set |
+| `ShellSound_PlayTabClick` (`0042ee89`) | `bptlt2.wav` at volume 100 | the same |
+| `ShellSound_PlaySwitch` (`0042ef15`) | `lswitch2.wav` at volume 100 | the same |
+| `ShellSound_Start` (`0042ef5b`) | sets `ShellSound_Running`, plays the press sound at volume 0, and starts the music from its top at the music volume | `ShellSound_Running` is clear |
+| `ShellSound_Stop` (`0042f030`) | sets the music to play once, stops every sound, gives up the driver's focus and clears `ShellSound_Running` | `ShellSound_Running` is set |
+| `ShellSound_Shutdown` (`0042f14a`) | `ShellSound_Stop`, then destroys the manager | |
+| `ShellSound_FadeIn` (`0042f21c`) | raises the music volume one step at a time until it is past 99 | MUSIC (option 0) is on |
+| `ShellSound_FadeOut` (`0042f178`) | lowers it one step at a time until it is below 2 | MUSIC is on |
+
+A fade takes a step whenever more than 10 ms of `GetTickCount` have passed since the last, which at that clock's 15.6 ms granularity is about a second and a half from silence to full. It is a loop that pumps window messages and returns only when it is done, so the shell does nothing else meanwhile. The volume reaches the driver as `volume * master * 0x7fff / 10000`, with the master at `00473160` on the 100 it holds in the image — linear in the volume.
+
+**MUSIC gates the fades, not the music.** The two fades are the only writers of the music volume, and both return at once with MUSIC off; `ShellSound_Start` does not test it. So with MUSIC off from startup the music runs at volume 0 all the while. The PREFERENCES screen's MUSIC checkbox (`FUN_00436841`, case 0) flips the option and fades in when turning it on, and fades out before flipping it when turning it off; the screen's exit (`FUN_00436b90`) runs the fade the setting calls for, turning MUSIC on for the length of a fade out so the fade's own gate lets it run. A fade out stops at 1, so music turned off plays on at 1 of 100.
+
+### What plays each sound
+
+**The press sound goes with the class of the widget pressed** ([The widget that takes a click decides what it does](#the-widget-that-takes-a-click-decides-what-it-does)):
+
+| Handler | Plays it on | Tests |
+|---|---|---|
+| `Button_HandleEvent` (`00409b0f`), every content button | either button going down, before `Control_HandleEvent` | `+0x49`, `Shell_SoundEnabled`, and the event's `+0x25` being 0 |
+| `ButtonIcon_HandleEvent` (`00409df2`), the strip and the mission screen's arrows | the left button going down | `+0x49`, `Shell_SoundEnabled`, `Avi_Playing`, `MovieQueue_Running` |
+| `0040a139`, the `ButtonIcon` subclass `0040a100` builds (vtable `0046e9a0`) — the PREFERENCES screen's eleven checkboxes and radio buttons, `PreferencesScreen_Build`'s only use of it | the left button going down | `+0x49`, `Shell_SoundEnabled` |
+
+Every other class is silent: rows, panels, grids, image panels, edit fields. A content button therefore sounds on the press and fires on the release, and sounds for a press that the pointer then drags off it. A mouse event's `+0x25` is 0 on every event the mouse itself queues: `MouseEvent_Ctor` (`00468cfc`) clears it and the queue's drain (`FUN_00408c4e`) does not write it ([Open](#open)).
+
+**A tab switch makes both sounds.** `ShellSound_PlayTabClick` is the last call of all eight tab handlers ([What a tab click does](#what-a-tab-click-does)), so a tab picked with the left button makes the press sound as it goes down and the click once its screen is up, and one picked with the right button, which goes through `Control_HandleEvent`, makes only the click. The square button makes the press sound and no click.
+
+**The switch sound opens the startup sequence**: `004311b8`, the handler of the widget that plays it, calls `ShellSound_PlaySwitch` on its first run, once (`DAT_00473608`).
+
+**The music starts after the startup movies.** `FUN_004012b0` builds every screen and then calls `ShellSound_Start`. `Movie_PlayQueue`, finding a movie in the ring, fades out and stops before the first, and when the ring is done — or at an entry whose `0048567c` field is set, which also leaves the mission tab — calls `ShellSound_Start` and `ShellSound_FadeIn` ([Input while a movie plays](#input-while-a-movie-plays)). On a plain startup the music therefore comes up after the two intro movies. With movies off (`DAT_00482275`) the queue does nothing and the music stays at the startup's volume 0. The startup's other arms, for `DAT_0048227e` 3, 4 and 6, skip the intro movies and call `ShellSound_FadeIn` themselves.
+
+Elsewhere:
+
+| Where | Does |
+|---|---|
+| `MainWndProc` (`00404a2c`), `WM_SETFOCUS` | `ShellSound_Start`, unless `Avi_Playing` — so the music comes back from its top |
+| `MainWndProc`, `WM_KILLFOCUS` | `ShellSound_Stop` |
+| `maybe_Mission_UpdateLocationTab` (`0044409f`), stage 5 | `ShellSound_FadeOut` and `ShellSound_Stop` after enqueuing the stage's movie |
+| `ONLINE MANUAL` (`004317ea`) | `ShellSound_Stop` before opening the help file |
+| the usage and version exit (`FUN_004092dc`) and the insert-CD failure in `Movie_PlayQueue` | `ShellSound_Shutdown` |
+
 **There is one backdrop for the whole shell.** `0046dcd4` is written exactly once, by this init, and all eight screen builders pass that same handle as their root's image. So a screen that installs `arming.dpl` is drawing `bay2a_84` through a palette that is not its own. On the tab screens only the strip row ever shows it, and the backdrop's top 30 rows are black: everything below the strip is covered by [the palette scope's fill](#the-palette).
 
 ## The palette
@@ -1070,7 +1127,9 @@ The engine reloads the whole of `ShellArt` to change palette, where the original
 
 The host leaves the OS pointer up, which is [retail's arrow](#the-pointer); the hourglass comes with the two features that raise it, `CONTINUE GAME` and the movies.
 
-Not drawn: the mission tab's campaign-map and debrief views, the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). `SAVE/RESTORE` sets campaign mode and `PRACTICE MISSIONS` training mode; `--shell-training` starts in training mode ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+**The shell makes its sounds.** The host mounts `SHLSOUND.VOL`, and `ShellSound` does what `ShellSound_Init` does — the press sound, the tab click and the music track option 5 picks, then option 5 flipped and the options written back — and then starts the music and fades it in. That fade in stands in for the one retail runs after the startup movies ([Open](#open)), so the music comes up at once with MUSIC on and stays at volume 0 with it off. `ShellPointer` makes the press sound for the class of the widget pressed, the strip and the mission screen's arrows on the left press and every content button on either press, and each tab switch ends with the tab click, both gated on SOUNDS; the window losing the focus stops every sound and getting it back restarts the music. Each update takes at most one fade step, under retail's rule and on the same clock, and while a fade runs the window keeps drawing and no widget takes an event, as retail's loop holds them. Retail queues the clicks made meanwhile and delivers them once the fade is done; the host polls the mouse, so it takes the buttons' state without delivering it, and a press or release made during a fade is lost. The press sound retail plays at volume 0 as the sounds start is inaudible and not reproduced. `--no-sound` is `-s`: no sound at all, and option 5 left alone. `--no-write-prefs` leaves `prefs.cfg` unwritten here as it does on `Begin Mission`. The switch sound goes with the startup sequence, and the PREFERENCES screen's two sound rows with that screen ([Open](#open)).
+
+Not drawn: the mission tab's campaign-map and debrief views, and the pressed nudge of a content button's caption ([Open](#open)). `SAVE/RESTORE` sets campaign mode and `PRACTICE MISSIONS` training mode; `--shell-training` starts in training mode ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -1094,8 +1153,9 @@ Not drawn: the mission tab's campaign-map and debrief views, the sounds each but
 
 ## Open
 
-- **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays) and the [hourglass](#the-pointer) while one loads.
+- **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays), the [hourglass](#the-pointer) while one loads, and the music's [fade out and stop before them](#what-plays-each-sound).
 - **Unported:** the pressed nudge of a content button's caption. `Button`'s paint (`00409b79`) moves the caption down while `+0x45` is lit and the button is enabled, as the strip's does; the engine's content buttons draw theirs in one place.
+- **Open:** what writes a mouse event's `+0x25`, which silences `Button_HandleEvent`'s [press sound](#what-plays-each-sound) when set.
 - **Open:** what the build screen's `SCRAP` gate, `ScrapDialog_Show` and `Hangar_ScrapSelected` do with no bay selected, where each reads the third squad-member pointer at `00482abf` as [the bay's machine](#scrapping-and-building-are-gated-on-the-bay). A roster click selects one of the eight bays, but the crew tab can leave `-1` selected for the build tab to open on. The repair tab reaches `-1` when no bay holds a finished machine, and there `Repair_RefreshDetail`'s gates and all three of [its handlers](#repairing-and-cancelling) read the same pointer, `CANCEL` copying a stale status block through it.
 - **Open:** whether the scrap dialog keeps clicks off the screen beneath it. Its window covers the display and is built after every tab screen, so it would be hit first; but `Window_Ctor` leaves it visible and nothing hides it before the dialog is first shown, so an unhidden full-display window would block the shell from startup, and something in the hit test not yet read must account for it.
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked; the engine draws nothing for a missing frame.
@@ -1107,8 +1167,7 @@ Not drawn: the mission tab's campaign-map and debrief views, the sounds each but
 - **Unported:** the auto-repeat of the mission screen's arrows.
 - **Open:** whether the launch refusal keeps clicks off the screen beneath it, the same question as the scrap dialog's.
 - **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
-- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s and `PRACTICE MISSIONS`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up. `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
+- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s and `PRACTICE MISSIONS`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up, with [its switch sound](#what-plays-each-sound). `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
 - **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.
 - **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0044cecf`, which `CONTINUE GAME` calls, does.
-- **Unported:** each button's click sound.
 - **Unported:** the campaign/training mode writes of `INSTANT ACTION`, `START NEW GAME` and `CONTINUE GAME` — `FUN_0040e69e`, which `SAVE/RESTORE` and `PRACTICE MISSIONS` reach here too.

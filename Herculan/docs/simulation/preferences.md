@@ -64,7 +64,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both |
 | 3 | COMPUTER MESSAGE | as option 2 |
 | 4 | **VSHELL's** `Game Resolution` | 0 `High Res (640x480)`, 1 `Low Res (320x240)` — and the byte `VideoMode_Configure` reads, [below](#the-video-mode-and-full-screen-bytes) |
-| 5 | **VSHELL's** shell music track | non-zero `hmi\shell1.wav`, zero `hmi\shell2.wav` |
+| 5 | **VSHELL's** shell music track | non-zero `hmi\shell1.wav`, zero `hmi\shell2.wav`; the shell flips it at every startup, so the two alternate ([`../shell/screen-layout.md`](../shell/screen-layout.md#sound)) |
 | 6 | `Display Mode` | 0 `Window`, 1 `Full Screen`. Both programs read it and the simulator writes it back |
 | 7 | TERRAIN DISTANCE | 0-2, the draw radius ([`../formats/terrain-texturing.md`](../formats/terrain-texturing.md#the-terrain-detail-setting)) |
 | 8 | TERRAIN TEXTURE | off / on |

@@ -398,7 +398,8 @@ if (installRoot == null) {
 // the simulator's settings are still the install's.
 ShellLaunch? shellLaunch = null;
 if (runShell) {
-	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay, shellPractice);
+	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay, shellPractice,
+		silentAudio, writePreferences);
 	if (launched == null) {
 		return shellExit;
 	}

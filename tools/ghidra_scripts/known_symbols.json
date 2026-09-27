@@ -12491,10 +12491,10 @@
       "address": "0042ee89",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Shell_PlayClickSound",
-      "description": "Called at the tail of every successful tab switch, after CurrentTabIndex is written. Plays the sound object at 0048cdd4 through the device at 004731f0 when sound is enabled. Read from its call position and its guards, not from the catalog.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "ShellSound_PlayTabClick",
+      "description": "The tab click, hmi\\bptlt2.wav at volume 100, gated as ShellSound_PlayPress. The last call of each of the eight tab handlers.",
+      "source": "docs/shell/screen-layout.md#sound"
     },
     {
       "address": "0046c08c",
@@ -19258,6 +19258,159 @@
       "name": "PlayerMec_WriteEntry",
       "description": "One player.mec entry past its pilot fields: type, capacity, weapon ids (0 empty), ammunition types (5 empty), a 0, the 66-byte status block.",
       "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0042ec7c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_Init",
+      "description": "Creates the shell's sound manager at 004731f0 unless -s cleared 00482272: loads hmi\\gm_69.wav (press), hmi\\bptlt2.wav (tab click), hmi\\lswitch2.wav (startup switch) and hmi\\shell1.wav or shell2.wav by option 5, flips option 5 and saves prefs.cfg, sets the music looping forever at the music volume.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0042eecf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_PlayPress",
+      "description": "The press sound, hmi\\gm_69.wav at volume 100, while the manager exists, SOUNDS (option 1) is on and the sounds are running. Button_HandleEvent, ButtonIcon_HandleEvent and 0040a139 call it on a press.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0042ef15",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_PlaySwitch",
+      "description": "hmi\\lswitch2.wav at volume 100, gated as the press sound. Called once, by the startup sequence widget's handler 004311b8 on its first tick.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0042ef5b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_Start",
+      "description": "Unless the sounds are running: raises 00473200, sets the music looping forever, plays the press sound at volume 0 and starts the music at the music volume. Startup, the movie queue's end, and WM_SETFOCUS.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0042f030",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_Stop",
+      "description": "While the sounds are running: sets the music to play once, stops every sound, gives up the driver focus and drops 00473200. Before the movie queue, WM_KILLFOCUS, ONLINE MANUAL and the stage-5 location movie.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0042f14a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_Shutdown",
+      "description": "ShellSound_Stop, then destroys the sound manager and clears 004731f0. The usage/version exit and the insert-CD failure.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0042f178",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_FadeOut",
+      "description": "While MUSIC (option 0) is on, steps the music volume down one each time more than 10 ms of GetTickCount have passed, pumping messages, until it is below 2.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0042f21c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_FadeIn",
+      "description": "While MUSIC (option 0) is on, steps the music volume up one each time more than 10 ms of GetTickCount have passed, pumping messages, until it is past 99.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "004731f0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSound_Manager",
+      "description": "The shell's SFX manager (0x4c bytes), or null under -s.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "004731fc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSound_MusicVolume",
+      "description": "The music's volume, 0-100; 0 in the image and written only by the two fades.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "00473200",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSound_Running",
+      "description": "1 between ShellSound_Start and ShellSound_Stop; the click sounds play only while it is set.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "00482272",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_SoundEnabled",
+      "description": "Cleared by -s (and by -v and -?); gates the sound manager's creation and Button_HandleEvent's press sound.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "004824b9",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_Sounds",
+      "description": "prefs.cfg option 1, SOUNDS: gates the shell's click sounds.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0048cdcc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSound_PressSample",
+      "description": "Sample handle of hmi\\gm_69.wav.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0048cdd0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSound_MusicSample",
+      "description": "Sample handle of the shell music track.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0048cdd4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSound_TabClickSample",
+      "description": "Sample handle of hmi\\bptlt2.wav.",
+      "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "0048cdd8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSound_SwitchSample",
+      "description": "Sample handle of hmi\\lswitch2.wav.",
+      "source": "docs/shell/screen-layout.md#sound"
     }
   ]
 }

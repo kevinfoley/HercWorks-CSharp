@@ -1,3 +1,4 @@
+using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Shell;
 using Herculan.Engine.World;
@@ -57,8 +58,9 @@ static class ShellHost {
 	/// </summary>
 	public static (int ExitCode, ShellLaunch? Launch) Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
-			int startBay = 0, bool startPractice = false) {
-		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot), ShellArt.Archives);
+			int startBay = 0, bool startPractice = false, bool silentAudio = false, bool writePreferences = true) {
+		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot),
+			[.. ShellArt.Archives, ShellSound.ArchiveName]);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
 		// The mission tab's palette depends on the campaign stage, the career's own 1-5, and on which of its
@@ -150,6 +152,7 @@ static class ShellHost {
 		// with no prefs.cfg they start where the memset leaves them, at 0. The screen stands in for the
 		// main menu while it is up, and is built on first use and kept.
 		var shellOptions = preferences ?? SimulatorPreferences.Defaults();
+		shellOptions.SaveEnabled = writePreferences;
 		ShellPracticeScreen? practiceScreen = null;
 		bool practiceUp = false;
 
@@ -211,8 +214,14 @@ static class ShellHost {
 			  + $"{repairScreen.AvailableKilograms} kg available."
 			: "No built machine in any hangar bay — the repair screen draws empty rows.");
 
+		// The shell's sound, created with the window since it needs the device. With --no-sound there is
+		// none at all, as with the original's -s, which skips the sound manager's setup and so leaves
+		// option 5 alone too.
+		IAudioBackend? audio = null;
+		ShellSound? sound = null;
+
 		var screen = ShellScreen.CreateFrame(art.Text, startTab, mode);
-		var pointer = new ShellPointer(screen);
+		var pointer = new ShellPointer(screen, () => sound?.PlayPress());
 		EnterTab(screen.SelectedTab);
 
 		Console.WriteLine(art.Text != null
@@ -265,6 +274,7 @@ static class ShellHost {
 			renderer = new ShellRenderer(loadedGl, art);
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
 			keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
+			StartSound();
 			if (startPractice) {
 				OpenPractice();
 			}
@@ -272,8 +282,29 @@ static class ShellHost {
 			RepaintContent();
 		};
 
+		// WM_SETFOCUS starts the sounds again and WM_KILLFOCUS stops them (MainWndProc, 00404a2c).
+		window.View.FocusChanged += focused => {
+			if (focused) {
+				sound?.Start();
+			} else {
+				sound?.Stop();
+			}
+		};
+
 		window.Update += _ => {
+			sound?.Update();
 			if (mouse == null) {
+				return;
+			}
+
+			// A fade holds the shell until it is done: it pumps window messages but not the widget layer
+			// (docs/shell/screen-layout.md#sound). Retail queues the clicks made meanwhile and delivers them
+			// after; this host polls, so the buttons' state is taken without delivering it, and an edge
+			// made during the fade is spent.
+			if (sound?.Fading == true) {
+				leftHeld = mouse.IsButtonPressed(MouseButton.Left);
+				rightHeld = mouse.IsButtonPressed(MouseButton.Right);
+				skipKeyHeld = keyboard != null && (keyboard.IsKeyPressed(Key.Escape) || keyboard.IsKeyPressed(Key.Space));
 				return;
 			}
 
@@ -340,6 +371,10 @@ static class ShellHost {
 		window.Closing += () => {
 			renderer?.Dispose();
 			renderer = null;
+			sound?.Stop();
+			sound = null;
+			audio?.Dispose();
+			audio = null;
 		};
 
 		window.Run();
@@ -371,6 +406,36 @@ static class ShellHost {
 			SwitchPalette(id);
 			EnterTab(id);
 			RepaintContent();
+
+			// The handler's last act, after the screen is up (ShellSound_PlayTabClick, 0042ee89).
+			sound?.PlayTabClick();
+		}
+
+		// The sound manager's setup (ShellSound_Init, 0042ec7c): the samples, the music track option 5 picks, and then
+		// option 5 flipped, committed and all 54 options saved, so the next run plays the other track. The
+		// startup then starts the music (FUN_004012b0's ShellSound_Start); the fade in stands in for the one
+		// the original runs once the startup movies, which are not ported, have played.
+		void StartSound() {
+			if (silentAudio) {
+				return;
+			}
+
+			audio = OpenAlBackend.TryCreate(out string? failure) as IAudioBackend ?? new NullAudioBackend();
+			if (failure != null) {
+				Console.WriteLine($"Audio unavailable ({failure}) — the shell runs silent.");
+			}
+
+			sound = ShellSound.Load(content, audio, shellOptions);
+			Console.WriteLine(sound.HasMusic
+				? $"Shell music hmi\\{sound.MusicName}; option 5 flipped for the next run."
+				: $"No hmi\\{sound.MusicName} in {ShellSound.ArchiveName} — the shell has no music.");
+			shellOptions.Set(ShellSound.MusicTrackOption, (byte)(shellOptions[ShellSound.MusicTrackOption] ^ 1),
+				apply: false);
+			shellOptions.Commit();
+			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+
+			sound.Start();
+			sound.FadeIn();
 		}
 
 		// What a tab's entry does beyond showing it. The mission tab's map view sets the campaign map's

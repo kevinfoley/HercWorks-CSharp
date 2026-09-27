@@ -45,7 +45,7 @@ See [`shell/screen-layout.md`](../shell/screen-layout.md#engine-coverage).
 
 | Flag | Effect |
 |---|---|
-| `--no-sound`, `--silent` | Opens no audio device. Everything that drives sound still runs; nothing is heard. Retail's `-s`. |
+| `--no-sound`, `--silent` | Opens no audio device. Everything that drives sound still runs; nothing is heard. Retail's `-s`. In the shell, as with `-s`, there is no sound manager at all, so the music track is not flipped. |
 | `--music <n>` | The CD track select: the mission plays track *n* % 5 + 2. Retail's `-R<n>`. Without it, track 2. |
 | `--cd-drive <drive>` | The drive holding the music CD. |
 | `--music-dir <dir>` | A folder of `Track02.wav` … `Track07.wav` to play in place of the disc. |
@@ -56,7 +56,7 @@ See [`formats/audio.md`](../formats/audio.md#cd-music).
 
 | Flag | Effect |
 |---|---|
-| `--no-write-prefs` | Leaves `data\prefs.cfg` unwritten when the preferences and controls panels close. See [`simulation/preferences.md`](../simulation/preferences.md#engine-port). |
+| `--no-write-prefs` | Leaves `data\prefs.cfg` unwritten: when the preferences and controls panels close, and in the shell at startup and on `Begin Mission`. See [`simulation/preferences.md`](../simulation/preferences.md#engine-port) and [`shell/screen-layout.md`](../shell/screen-layout.md#sound). |
 | `--joystick [0-8]` | Pretends a stick with throttle, rudder and hat is attached, so the CONTROLS panel's joystick rows are live without hardware. The number sets how many of the eight button rows are live; without it, all eight. A real stick, when one is attached, takes precedence. |
 | `--joystick-probe` | Prints each axis and button of the attached stick as it moves. |
 | `--write-joystick-map` | Writes the joystick map in force to `data\herculan-joystick.cfg`. |

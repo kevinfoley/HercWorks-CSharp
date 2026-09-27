@@ -321,6 +321,21 @@ public sealed class AnimationThread {
 	/// them a rate of zero — and the twist and pitch sequences are one full sweep of their node, so
 	/// setting a position in the sequence <i>is</i> setting an angle. See
 	/// <see cref="MechObject.TorsoTwistTick"/>.</para>
+	///
+	/// <para>Not retail, behind <see cref="TweakSettingDefinitions.SmootherTurretMovement"/>: the
+	/// sub-tick remainder the original's Q14 scale-down truncates away is kept, and
+	/// <see cref="FrameFraction"/> spends it, so a seeked pose is no longer quantised to a whole
+	/// animation tick (docs/simulation/torso-aim.md, "Angle to pose"). On OUTLAW that is
+	/// 1747 drawn twist poses from centre to limit where retail has 170, and the drawn view moves
+	/// every tick from half stick up rather than from three quarters. Clearing the tweak restores the
+	/// original's arithmetic exactly. Playback is untouched: only a seek produces a remainder, and the
+	/// locomotion thread is never seeked.</para>
+	///
+	/// <para>What stepping is left comes from the cosine table, not the animation.
+	/// <see cref="SimTrig.Cos"/> quantises a rotation to its 16-BAM step, so the drawn view still moves
+	/// in 0.101° increments and a twist under about 2°/s still steps. The Q10 <see cref="FrameFraction"/>
+	/// is fine enough to carry the fraction past that point: one Q10 unit is 8 binary angle across a
+	/// torso sweep's 45° keyframe interval.</para>
 	/// </summary>
 	public void SeekToPosition(int sequence, short position) {
 		var target = _animation.Sequences[sequence];
@@ -336,9 +351,7 @@ public sealed class AnimationThread {
 		// throws away can be kept.
 		int scaled = position * (short)(total - 1);
 		int remaining = scaled >> SeekFractionBits;
-		// If the tweak is enabled, we keep the sub-tick remainder of the position it is
-		// handed, rather than truncating to a whole animation tick as the original does.
-		// See docs/simulation/torso-aim.md, "Sub-tick seek interpolation — not retail".
+		// The tweak keeps the sub-tick remainder rather than truncating to a whole animation tick.
 		int fraction = TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.SmootherTurretMovement) ? scaled & ((1 << SeekFractionBits) - 1) : 0;
 
 		int frame = 0;

@@ -50,8 +50,20 @@ The docs state what is true now. How the project got there belongs in `git log`.
    ("plausibly", "unconfirmed") — a hypothesis is an Open item. `KNOWN_ISSUES.md`, `ROADMAP.md` and
    `README.md` keep their own structure.
 
+9. **Retail docs describe retail.** `formats/`, `simulation/`, `shell/` and the top-level docs say
+   what the original does, not what HERCULAN does. The engine's types, file layout, tweaks and
+   departures from retail go in doc comments on the C# that implements them, citing the doc
+   section, so an engine change never has to hunt for prose to update (rule 5 decides which is
+   which). A retail doc may link to an engine doc, but it does not name C# types. The engine docs are
+   `docs/engine/`, `host-flags.md`, `key-bindings.md`, `cut-content.md`, `KNOWN_ISSUES.md`,
+   `ROADMAP.md` and `README.md`.
+
 `tools/scripts/doc_lint.py` enforces 1, 4, 6 and 8, and runs automatically after any edit under
-`Herculan/docs/`. `/doc-lint` runs it over the whole set. It cannot catch 2, 3, 5 or 7.
+`Herculan/docs/`. `/doc-lint` runs it over the whole set. It cannot catch 2, 3, 5 or 7. It catches 9
+only by explicit markers ("HERCULAN", "this engine", `Herculan.*` namespaces, "Engine port"
+headings), not a bare C# type name. Many retail docs still carry engine sections from before the
+rule, so a full run shows those as a per-file count (`--engine` lists each one), and the edit hook
+flags only the lines an edit wrote.
 
 `tools/scripts/doc_links.py` resolves every cross-reference — that the file exists and that a
 `#fragment` still names a heading. **A heading owns its anchor**, so retitling one breaks inbound

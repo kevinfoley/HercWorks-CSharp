@@ -12,6 +12,7 @@ Usage:
     python tools/scripts/doc_lint.py PATH [PATH ...]  # lint specific files/dirs
     python tools/scripts/doc_lint.py --staged         # lint staged files only
     python tools/scripts/doc_lint.py --code           # also lint C# doc comments
+    python tools/scripts/doc_lint.py --engine         # list each engine mention in a retail doc
 
 Exit status is 1 when anything is flagged, so it works as a pre-commit hook.
 
@@ -182,6 +183,46 @@ OUTSIDE_OPEN_RULES: list[tuple[str, re.Pattern[str], str]] = [
     ),
 ]
 
+# Retail docs describe retail. What HERCULAN does — its types, its tweaks, where it departs from the
+# original — lives in the C# that implements it, which cites the doc section, so an engine change
+# never has to go looking for prose to update. Only these docs are about the engine itself.
+ENGINE_DOC_BASENAMES = {
+    "host-flags.md", "KNOWN_ISSUES.md", "ROADMAP.md", "README.md", "cut-content.md", "key-bindings.md",
+}
+ENGINE_DOC_DIRS = [os.path.join("Herculan", "docs", "engine")]
+
+ENGINE_RULES: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "engine-heading",
+        re.compile(
+            r"^\s{0,3}#{1,6}\s+(?:.*\bHERCULAN\b|Engine\s+(?:port|implementation|coverage|deviations?"
+            r"|notes?|texturing)\b|Port\s+notes\b|Implementation(?:\s+status)?\s*$)",
+            re.IGNORECASE,
+        ),
+        "A section about this engine's implementation in a retail doc. Move what it says into doc "
+        "comments on the C# it describes, citing this doc's section, and delete it here.",
+    ),
+    (
+        "engine-mention",
+        re.compile(
+            r"\b(?:HERCULAN|Herculan(?:\.\w+)+|this\s+engine|the\s+engine\b|ported\s+as"
+            r"|Tweaks?\s+menu|TweakSetting\w*|Port\s+notes?:)",
+            re.IGNORECASE,
+        ),
+        "A retail doc describing this engine. That goes stale whenever the engine changes: say it in "
+        "a doc comment on the C# instead, citing this section, and keep the doc to retail.",
+    ),
+]
+ENGINE_RULE_IDS = {rule_id for rule_id, _, _ in ENGINE_RULES}
+
+
+def is_engine_doc(path: str) -> bool:
+    if os.path.basename(path) in ENGINE_DOC_BASENAMES:
+        return True
+    rel = os.path.relpath(path, REPO_ROOT)
+    return any(rel == d or rel.startswith(d + os.sep) for d in ENGINE_DOC_DIRS)
+
+
 CODE_COMMENT = re.compile(r"^\s*(?:///|//|\*)")
 
 
@@ -227,6 +268,7 @@ def lint_file(path: str, include_code: bool) -> list[tuple[int, str, str, str, s
         return []
 
     check_status = not is_cs and os.path.basename(path) not in STATUS_EXEMPT_BASENAMES
+    check_engine = not is_cs and not is_engine_doc(path)
     hits = []
     in_fence = False
     in_open = False
@@ -262,12 +304,18 @@ def lint_file(path: str, include_code: bool) -> list[tuple[int, str, str, str, s
                              "'**Open:**', so a grep across the docs lists every task."))
         if in_fence or SUPPRESS.search(line) or ALLOWED.match(line):
             continue
+        # A link target is another doc's anchor, not this doc's wording.
+        text = LINK_TARGET.sub("]()", line)
+        if check_engine:
+            # A heading is judged by engine-heading alone, so each section is flagged once.
+            for rule_id, pattern, why in ENGINE_RULES[:1] if HEADING.match(line) else ENGINE_RULES[1:]:
+                m = pattern.search(text)
+                if m:
+                    hits.append((n, rule_id, "warn", m.group(0).strip(), why))
         if check_status:
             # A heading is judged by status-heading alone, so '## Open questions' is flagged once.
             outside = [] if in_open or HEADING.match(line) else OUTSIDE_OPEN_RULES
             rules = STATUS_RULES + outside
-            # A link target is another doc's anchor, not this doc's wording.
-            text = LINK_TARGET.sub("]()", line)
             for rule_id, pattern, why in rules:
                 m = pattern.search(text)
                 if m:
@@ -311,6 +359,16 @@ def hook_mode() -> int:
         return 0
 
     hits = lint_file(path, include_code=False)
+    # Engine mentions predate the rule across much of the set. Report only the ones this edit wrote,
+    # so an edit is never made to carry a whole file's cleanup, but nothing new gets added.
+    written = [tool_input.get("new_string"), tool_input.get("content")]
+    written += [e.get("new_string") for e in tool_input.get("edits") or [] if isinstance(e, dict)]
+    touched = {ln.strip() for chunk in written if isinstance(chunk, str) for ln in chunk.split("\n")}
+    touched.discard("")
+    with open(path, encoding="utf-8") as fh:
+        file_lines = fh.read().replace("\r\n", "\n").split("\n")
+    hits = [h for h in hits
+            if h[1] not in ENGINE_RULE_IDS or file_lines[h[0] - 1].strip() in touched]
     if not hits:
         return 0
 
@@ -333,6 +391,8 @@ def hook_mode() -> int:
         "one? Correct the earlier text rather than appending to the end.",
         "Open work (the status-*, hedge and open-* rules) goes in the final '## Open' section as "
         "bullets starting '**Unported:**' or '**Open:**'; the body states only what is known.",
+        "Engine mentions (engine-*) do not belong in a retail doc: describe this engine's behaviour "
+        "in a doc comment on the C# that implements it, citing the doc section.",
     ]
 
     json.dump({
@@ -353,6 +413,8 @@ def main() -> int:
     ap.add_argument("paths", nargs="*", help="files or directories (default: Herculan/docs)")
     ap.add_argument("--staged", action="store_true", help="lint staged files only")
     ap.add_argument("--code", action="store_true", help="also lint C# doc comments")
+    ap.add_argument("--engine", action="store_true",
+                    help="list engine mentions in retail docs one by one, not as a per-file count")
     ap.add_argument("--quiet", action="store_true", help="print only the summary")
     args = ap.parse_args()
 
@@ -372,8 +434,14 @@ def main() -> int:
     total = 0
     errors = 0
     dirty = 0
+    engine_counts: list[tuple[str, int]] = []
     for path in files:
         hits = lint_file(path, args.code)
+        if not args.engine:
+            engine = [h for h in hits if h[1] in ENGINE_RULE_IDS]
+            if engine:
+                engine_counts.append((os.path.relpath(path, REPO_ROOT).replace("\\", "/"), len(engine)))
+                hits = [h for h in hits if h[1] not in ENGINE_RULE_IDS]
         if not hits:
             continue
         dirty += 1
@@ -388,13 +456,20 @@ def main() -> int:
                 print(f"  {rel}:{n}  [{severity}: {rule_id}]  \"{text}\"")
                 print(f"      {why}")
 
+    if engine_counts and not args.quiet:
+        print(f"\nEngine mentions in retail docs ({sum(c for _, c in engine_counts)} across "
+              f"{len(engine_counts)} file(s); --engine lists them):")
+        for rel, count in sorted(engine_counts, key=lambda rc: -rc[1]):
+            print(f"  {count:4}  {rel}")
+
     if total:
         print(f"\n{total} finding(s) across {dirty} file(s); {errors} error(s).")
         print("Reference docs state what is true now. Put the change history in the commit message.")
         print("A genuinely load-bearing caution belongs in a 'Rejected readings' table, phrased")
         print("forward-looking. To keep a specific line, append: <!-- doc-lint: ok -->")
     else:
-        print(f"doc-lint: clean ({len(files)} file(s) checked).")
+        rest = "; engine mentions listed above" if engine_counts else ""
+        print(f"doc-lint: clean ({len(files)} file(s) checked{rest}).")
     return 1 if errors else 0
 
 

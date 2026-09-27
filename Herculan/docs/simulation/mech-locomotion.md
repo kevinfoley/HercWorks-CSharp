@@ -333,7 +333,7 @@ Three arrays on the shape instance: `+0x12` per-node **local** transforms (strid
 
 `ShapeInst_ExpandRootTransform` (`00478b10`) confirms the local record's layout as `[eulerX, eulerY, eulerZ, x, y, z]` shorts, and thread field offsets are confirmed here too: `+4` sequence, `+6` frame, `+8` nextSequence, `+10` nextFrame, `+0x1c` frameAccumulator, `+0x1e` frameDuration.
 
-> Port note: `AnimTransform.Blend` ports the blend; `ShapeInstance.NodeTransform` / > `InterpolatedLocal` / `FrameFraction` port the evaluation. The port composes lazily per requested > node instead of building the whole array, so `ShapeInst_BuildWorldTransforms`'s dirty-flag > machinery has no counterpart and needs none. `FrameFraction` carries a second, finer path for a > pose parked by a *seek* rather than reached by playback (see > [`torso-aim.md`](torso-aim.md#sub-tick-seek-interpolation--not-retail)); advanced playback, which > is all locomotion does, takes the formula above unchanged. > `ShapeInst_BuildWorldTransforms`'s output array is what geometry is drawn through — see > [`dts-node-posing.md`](../formats/dts-node-posing.md).
+> Port note: `AnimTransform.Blend` ports the blend; `ShapeInstance.NodeTransform` / > `InterpolatedLocal` / `FrameFraction` port the evaluation. The port composes lazily per requested > node instead of building the whole array, so `ShapeInst_BuildWorldTransforms`'s dirty-flag > machinery has no counterpart and needs none. > `ShapeInst_BuildWorldTransforms`'s output array is what geometry is drawn through — see > [`dts-node-posing.md`](../formats/dts-node-posing.md).
 
 ### Evaluation cadence — per tick, not per rendered frame
 

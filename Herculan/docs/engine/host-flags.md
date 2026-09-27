@@ -104,7 +104,7 @@ Several of them hold the capture past the 30 frames until what they stage is on 
 |---|---|
 | `--throttle <n>` | Starts with the throttle at *n*, clamped to ±1024 (full travel). See [`formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#throttle-gauge). |
 | `--heading <n>` | Turns the lower body to binary angle *n* (`0x4000` is a quarter turn) in place of the heading along the first leg of its route. |
-| `--turret <twist> <pitch>` | Holds both turret axes for the whole run, each clamped to ±256. See [`simulation/torso-aim.md`](../simulation/torso-aim.md#herculan-engine-implementation). |
+| `--turret <twist> <pitch>` | Holds both turret axes for the whole run, each clamped to ±256. See [`simulation/torso-aim.md`](../simulation/torso-aim.md). |
 | `--track` | Starts with Automatic Turret Tracking latched. It has nothing to hold without `--target`. |
 | `--target` | Switches the scanner on and selects the nearest target after five ticks. See [`simulation/target-selection.md`](../simulation/target-selection.md#engine-port). |
 | `--weapon <1-10>` | Arms that weapon panel row, numbered as the row prints it. See [`formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#weapon-hardpoint-rows). |

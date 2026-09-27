@@ -68,6 +68,7 @@ int shellTab = ShellScreen.MainMenuTab;
 int shellBay = 0;
 bool shellPractice = false;
 bool shellWindowed = false;
+bool shellMovies = true;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -268,6 +269,11 @@ for (int i = 0; i < args.Length; i++) {
 		// retail's -d reads as the same switch, and its store is overwritten before anything reads it.
 		shellWindowed = true;
 		runShell = true;
+	} else if (args[i] == "--shell-no-movies") {
+		// Turn the shell's movies off — retail's -a, which clears DAT_00482275 so the movie queue takes
+		// nothing and plays nothing. See ShellMovieQueue.
+		shellMovies = false;
+		runShell = true;
 	} else if (args[i] == "--cd-drive") {
 		// Which drive the music CD is in. Retail asks MCI for the device type alone and takes whichever
 		// CD drive it answers with -- nothing in either executable reads a drive letter from anywhere --
@@ -406,7 +412,7 @@ if (installRoot == null) {
 ShellLaunch? shellLaunch = null;
 if (runShell) {
 	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay, shellPractice,
-		silentAudio, writePreferences, shellWindowed);
+		silentAudio, writePreferences, shellWindowed, shellMovies);
 	if (launched != null) {
 		shellLaunch = launched;
 	} else if (shellExit == ShellHost.DemoExitCode) {

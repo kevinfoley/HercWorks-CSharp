@@ -170,11 +170,43 @@ Slot 0 of a class's vtable is its event handler, and the shell's classes run fiv
 
 **An edit field fires on the left press, and takes the pointer.** With its focus flag `+0xa7` clear, the press sets it, installs a WinTimer alarm for itself (`WinTimer_InstallAlarm`, 0046a0b0, with 500 and 500), [locks the pointer](#which-widget-a-click-reaches) and fires. Every later event then goes to the field, and the next press, landing there with `+0xa7` set, clears the focus, removes the alarm, releases the lock, hit-tests again and posts the press over, so it lands on whatever is under the pointer — the field itself included, which then fires again. The field ignores the right button, and while the lock holds a right click anywhere reaches the field and is dropped.
 
+### The shell's movies
+
+`avi.cpp` plays the shell's movies through MCI's `avivideo` device. `Movie_Enqueue` (0041e29c) adds one to a ten-entry ring at `00485668` when movies are on (`DAT_00482275`, which `-a` clears) and no entry in the ring already carries its id: the id, a rect, a palette index (`0xffff` for none), a flag that brings the location picture up after it, and a callback, which every caller passes as null. Nothing stops a write landing on an entry not yet played. `Movie_PlayQueue` (0041e368) plays the ring out. The shell's main loop (`FUN_00401525`) calls it once a pass, after the widgets have had their events and before `ShellMap_RunIntro`; the startup (`FUN_004012b0`), `Game_ProcessMissionResults` and `MainMenu_OnCredits` (`004315ec`) also call it straight after enqueuing, while `Mission_Show` and `maybe_Mission_UpdateLocationTab` enqueue and leave the playing to the main loop.
+
+**The id indexes the table at `00470e74`** of 86 `avi\` paths, unchecked: `pt1`-`pt6`, `rc1`-`rc5`, `as1`-`as7`, `es1`-`es4`, `rs1`-`rs4`, `sc1`-`sc5`, `rd1`-`rd4`, `sp1`, `gd1`-`gd4`, `ex1`-`ex4`, `rf1`-`rf4`, `co1`-`co4`, `fl1`-`fl4`, `sk1`-`sk4`, `sv1`-`sv4` and `hc1`-`hc4` for ids 0 to `0x43`, then `intr_pt1`, `intr_pt2`, `c1`-`c5`, `alph_th`, `delt_th`, `omic_th`, `brav_th`, `luna`, `transm3`, `end1a`, `death`, `victory`, `credits` and `dropship` for `0x44` to `0x55`. `FUN_0040d429` puts the directory `data\drive.cfg` names in front. `ALPHA`, `BRAVO`, `DELTA`, `OMICRON`, `ESTAB2`, `ES2CREDC` and `ES2DROP3` sit in `AVI\` and are not in the table.
+
+| Caller | Movie | Rect | Palette |
+|---|---|---|---|
+| the startup | `0x44`, `0x45`, the intro | full | none |
+| `Mission_Show`, map view, once per load (`DAT_004778aa`) | `stage + 0x45`, `c1`-`c5` | Telecomm | 3, or 4 once `stage - 1 > 3` |
+| | `stage + 0x4a`, the theater's thumbnail, `luna` at stage 5 | map panel | none; the location flag set |
+| `Mission_Show`, briefing, once per load (`DAT_004778ab`) | `Career_BriefingMovie` | Telecomm | `stage + 4` |
+| `Mission_Show`, debrief, once (`DAT_004778ac`) | `Career_DebriefMovie` | Telecomm | `stage + 9` |
+| `maybe_Mission_UpdateLocationTab`, stage 5 | `0x55`, the lunar drop | full | none |
+| `Game_ProcessMissionResults`, the campaign won | `0x53` and `0x54`, the ending and the credits | full | none |
+| `MainMenu_OnCredits` | `0x54` | full | none |
+
+The rects are left, top, width and height, which `FUN_0041dfd6` hands to `MoveWindow` for the movie's window: full is `{0x20, 0x3c, 0x240, 0x168}`, 576x360 centred on the canvas; Telecomm is `{0x15, 0x56, 0xef, 0xb3}`, over the Telecomm picture; the map panel is `{0x122, 0x43, 0x127, 0xe2}`. The briefing's id is the career block's last short ([`../formats/save-games.md`](../formats/save-games.md#career-block--152-bytes)), which `FUN_00412ece` writes with the three text arrays when a mission is loaded. The debrief's, `004840ba`, is written only by `Career_SetDebriefLines` for the mission just flown, and the save does not carry it. `Game_LoadSlot` and `Game_NewCareer` clear both once-per-load flags.
+
+**`Avi_Play` (0041e01c) plays one movie.** It opens the file as a child of the main window (`open %s alias mov style child parent %d`), moves the movie's window to the rect, sets its palette (`setvideo mov palette handle to %d`), drops [the hourglass](#the-pointer), captures the mouse, sets `Avi_Playing` and plays with `notify`. It then polls the keyboard until `Avi_StopRequested` is set — by Esc or Space (scan codes 1 and `0x39`), by a mouse button going down in the window procedure, or by the `MM_MCINOTIFY` with `MCI_NOTIFY_SUCCESSFUL` that the movie's end posts — and closes the movie, releases the mouse and clears `Avi_Playing`. The device is opened for each movie by `FUN_0041def7` and closed after it. When `Movie_PlayQueue` was called with 1, the open first builds the palette handle with `FUN_0041de68` from entries 10 to 245 of the palette installed then; the startup's call passes 0, so the intro plays with the handle still 0, and the main loop's passes 1.
+
+**`Movie_PlayQueue` plays the entries in turn**, fading the music out and stopping it before the first ([What plays each sound](#what-plays-each-sound)). For each entry:
+
+1. An intro part (`0x44`, `0x45`) sets `DAT_00470fe4`. The entry's palette is installed unless it is `0xffff`, the entry is an intro part or it is the credits.
+2. Unless the entry is the lunar drop, while the frame's panel (`ShellPanelWidget`) is up every tab is unlit but MISSION, which is lit, and the mission screen's panels are shown again.
+3. The hourglass goes up and the movie plays. An intro part is skipped once a mouse button, Esc or Space has gone down during an intro movie, which sets `DAT_00470fe0`; nothing clears it. When the open fails, an intro part puts up `Please insert ESII CD and restart` and ends the shell, and any other movie puts up the insert-CD panel (`DAT_0048d108`), clears `MovieQueue_Running` until its button is pressed, and tries again.
+4. Full screen, the screen is blanked after an intro part or the credits.
+5. After the lunar drop, with the frame's panel up, palette 1 goes in through the scope and the frame's root is repainted. After the credits palette 1 is installed.
+6. With the location flag set, `Mission_Leave` takes the mission tab down, MISSION is unlit, `DAT_0047581c` is parked at `0xffff`, the music is started and faded in, and `maybe_Mission_UpdateLocationTab` (`0044409f`) runs. Below stage 5 it puts the location picture up — frame 0 of `dba\alph2`, `delt1`, `omic1` or `brav1`, indexed by `stage - 1` (`MissionLocationDbaTable`, `00477fcc`), 640x480 over the whole window — through the theater palette `stage + 0xe`. At stage 5 it queues the lunar drop in its place, installs palette 2 through the scope, and fades the music out and stops it.
+7. With the location picture up, the shell waits two seconds without pumping messages (`FUN_00401d53(2)`), takes the picture down, repaints the frame's root and installs palette 1.
+8. The entry's callback runs and the entry is freed.
+
+Once the ring is empty the music is started and faded in, unless step 6 started it and no lunar drop has played since.
+
 ### Input while a movie plays
 
-`avi.cpp` plays the shell's movies through MCI. `Movie_Enqueue` (0041e29c) adds one to a ten-entry ring at `00485668` when movies are on (`DAT_00482275`) — an id, a rect, a palette index and a callback — and `Movie_PlayQueue` (0041e368) plays the ring out, each entry through `Avi_Play` (0041e01c) with its palette installed and the MISSION tab lit, running the entry's callback after it. The shell's main loop (`FUN_00401525`) calls `Movie_PlayQueue` once a pass, and the startup (`FUN_004012b0`), `Game_ProcessMissionResults` and `FUN_004315ec` also call it straight after enqueuing. The campaign map's `Mission_Show` and `maybe_Mission_UpdateLocationTab` enqueue and leave the playing to the main loop.
-
-Two flags gate input around them, and the two players are their only writers:
+Two flags gate input around the movies, and the two players are their only writers:
 
 | Flag | Set | Cleared |
 |---|---|---|
@@ -1028,9 +1060,9 @@ All three show Telecomm, the Telecomm picture, the map panel and the summary. In
 - **The map scope** is built by `Window_Ctor` alone, so it is born hidden with bit 4 clear and never comes back; the builder's store is the one reference to `DAT_0048d818` in the disassembly. Its `0x10` fill never covers the map grid.
 - **The report texts** return with the panel until `Mission_HideReportTexts` first runs. The map and briefing views run it before the panel is shown, and `Mission_Leave` runs it on the way out, so the debrief shows them only when it is the screen's first view since the shell started.
 
-The map view's flag `DAT_004778aa` is set whether movies are on or off; with them off `Movie_Enqueue` adds nothing and the view stays up. With them on, the second map movie's entry carries a flag that makes `Movie_PlayQueue` take the tab down after it (`Mission_Leave`, the tab unlit, `DAT_0047581c = 0xffff`) and call `maybe_Mission_UpdateLocationTab` (`0044409f`), which puts the location picture up over the whole window through the theater palette, or at stage 5 enqueues the lunar movie instead.
+The map view's flag `DAT_004778aa` is set whether movies are on or off; with them off `Movie_Enqueue` adds nothing and the view stays up. With them on, the second map movie carries the location flag, so the tab comes down after it and the location picture goes up, or the lunar drop plays at stage 5 ([The shell's movies](#the-shells-movies)).
 
-The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`. The briefing and debrief movies are enqueued with the rect `{0x15, 0x56, 0xef, 0xb3}`, over the Telecomm picture.
+The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`.
 
 **The map buttons** each call a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its paint: once while `+0x65`, the count of auto-repeat ticks so far, is below 3, twice below 6, three times below 9 and four times from there. The map, its camera and what each method does are in [`mission-map.md`](mission-map.md).
 
@@ -1189,7 +1221,7 @@ Every other class is silent: rows, panels, grids, image panels, edit fields. A c
 
 **The switch sound opens the startup sequence**: `004311b8`, the handler of the widget that plays it, calls `ShellSound_PlaySwitch` on its first run, once (`DAT_00473608`).
 
-**The music starts after the startup movies.** `FUN_004012b0` builds every screen and then calls `ShellSound_Start`. `Movie_PlayQueue`, finding a movie in the ring, fades out and stops before the first, and when the ring is done — or at an entry whose `0048567c` field is set, which also leaves the mission tab — calls `ShellSound_Start` and `ShellSound_FadeIn` ([Input while a movie plays](#input-while-a-movie-plays)). On a plain startup the music therefore comes up after the two intro movies. With movies off (`DAT_00482275`) the queue does nothing and the music stays at the startup's volume 0. The startup's other arms, for `DAT_0048227e` 3, 4 and 6, skip the intro movies and call `ShellSound_FadeIn` themselves.
+**The music starts after the startup movies.** `FUN_004012b0` builds every screen and then calls `ShellSound_Start`, and [the movie queue](#the-shells-movies) fades the music out and stops it before its movies and starts it and fades it in after them. On a plain startup the music therefore comes up after the two intro movies. With movies off (`DAT_00482275`) the queue does nothing and the music stays at the startup's volume 0. The startup's other arms, for `DAT_0048227e` 3, 4 and 6, skip the intro movies and call `ShellSound_FadeIn` themselves.
 
 Elsewhere:
 
@@ -1252,7 +1284,10 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 ## Open
 
-- **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays), the [hourglass](#the-pointer) while one loads, and the music's [fade out and stop before them](#what-plays-each-sound).
+- **Unported:** what [the movie queue](#the-shells-movies) does for a movie that will not open: the intro's `Please insert ESII CD and restart` and the insert-CD panel.
+- **Open:** whether the `avivideo` device scales a movie to fill the window `Avi_Play` moves it to. The rects say it does: the full rect is 576x360, twice the 288x180 intro, and the map panel's is exactly the thumbnails' 295x226.
+- **Open:** what the palette handle `Avi_Play` sets does to a movie's colours.
+- **Open:** what the briefing's map panel shows while the briefing movie plays, before `ShellMap_RunIntro` has run.
 - **Unported:** the pressed nudge of a content button's caption. `Button`'s paint (`00409b79`) moves the caption down while `+0x45` is lit and the button is enabled, as the strip's does.
 - **Open:** what the build screen's `SCRAP` gate, `ScrapDialog_Show` and `Hangar_ScrapSelected` do with no bay selected, where each reads the third squad-member pointer at `00482abf` as [the bay's machine](#scrapping-and-building-are-gated-on-the-bay). A roster click selects one of the eight bays, but the crew tab can leave `-1` selected for the build tab to open on. The repair tab reaches `-1` when no bay holds a finished machine, and there `Repair_RefreshDetail`'s gates and all three of [its handlers](#repairing-and-cancelling) read the same pointer, `CANCEL` copying a stale status block through it.
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked.
@@ -1263,7 +1298,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** which of the mission screen's report texts shows which figure. `FUN_0040f34c`, which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes ten of them.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
-- **Unported:** three of [the main menu](#the-main-menu)'s buttons: `START NEW GAME`, whose `ACCEPT` starts a campaign career on stage 1's first mission; `CREDITS`, which is movie `0x54`; and `ONLINE MANUAL`'s `WinHelpA` call.
+- **Unported:** two of [the main menu](#the-main-menu)'s buttons: `START NEW GAME`, whose `ACCEPT` starts a campaign career on stage 1's first mission, and `ONLINE MANUAL`'s `WinHelpA` call.
 - **Open:** the registration screen `START NEW GAME` opens — which function builds its widgets, and their layout.
 - **Unported:** the startup's `Performance Note` box ([The main menu](#the-main-menu)).
 - **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.

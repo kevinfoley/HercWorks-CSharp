@@ -2326,8 +2326,8 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_Mission_UpdateLocationTab",
-      "description": "wmissini.cpp: small (271 bytes) helper that either loads a fixed-rect bitmap (hardcoded 0x55,0x20,0x3c,0x240,0x168 params) or looks up one of 4 region-label strings by index and updates an existing widget field. Not the main screen builder.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "description": "At stage 5 enqueues movie 0x55 (the lunar drop), installs palette 2 through the scope and fades the music out and stops it; below it, loads frame 0 of MissionLocationDbaTable[stage - 1] into the location picture (DAT_0048d7e0), shows it and installs the theater palette stage + 0xe. Movie_PlayQueue calls it after an entry with the location flag.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
     },
     {
       "address": "00445758",
@@ -19780,6 +19780,132 @@
       "name": "InstantAction_Active",
       "description": "Set by INSTANT ACTION's handler; MsnGen_BuildPlayerHerc gives the player the mission's own machine while it is set.",
       "source": "docs/shell/screen-layout.md#selecting-a-mission"
+    },
+    {
+      "address": "0041dfd6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Avi_MoveWindow",
+      "description": "Moves the MCI movie window to a {left, top, width, height} rect through MoveWindow; Avi_Play's only use of it.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "0041def7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Avi_OpenDevice",
+      "description": "Opens MCI's avivideo device for one movie; with its argument 1 first builds the movie palette (Avi_BuildPalette). Movie_PlayQueue passes its own argument through.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "0041de68",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Avi_BuildPalette",
+      "description": "CreatePalette of 236 entries from entries 10-245 of the palette installed, into Avi_PaletteHandle, which Avi_Play hands the movie with 'setvideo mov palette handle to %d'.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "0041df58",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Avi_CloseMovie",
+      "description": "'close mov', with a message box on an MCI error. Called by Avi_Play as playback ends.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "0041df97",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Avi_CloseDevice",
+      "description": "'close avivideo', with a message box on an MCI error. Called by Movie_PlayQueue after each movie.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "0041e26b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MovieQueue_Contains",
+      "description": "Whether any of the ten MovieQueue_Entries carries the id; Movie_Enqueue adds nothing when it does.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00470e74",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Movie_FileTable",
+      "description": "86 char* avi\\ paths indexed by movie id, unchecked: pt1-hc4 for 0-0x43, then intr_pt1, intr_pt2, c1-c5, alph_th, delt_th, omic_th, brav_th, luna, transm3, end1a, death, victory, credits, dropship for 0x44-0x55.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00470fe0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MovieQueue_IntroSkipped",
+      "description": "Set by a mouse button down (MainWndProc) or Esc/Space (Avi_Play) while MovieQueue_PlayingIntro is set; Movie_PlayQueue then skips any further intro part. Nothing clears it.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00470fe4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MovieQueue_PlayingIntro",
+      "description": "Set by Movie_PlayQueue for the entry being played when it is 0x44 or 0x45 (the intro), cleared for any other.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00485664",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Avi_PaletteHandle",
+      "description": "The HPALETTE Avi_Play hands each movie; 0 until Avi_BuildPalette runs, which Movie_PlayQueue's startup call (argument 0) skips.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00412ece",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_SetBriefing",
+      "description": "Copies a loaded mission's 10 objective, 30 briefing and 30 intelligence mission.str line indices into the career block, counting the non-(-1) ones, and its briefing movie id into 004840b8, all from a by-value argument.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "0040d429",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_UnderDriveCfg",
+      "description": "Returns 004822d5 -- the first string in data\\drive.cfg plus a backslash, which FUN_0040d327 reads -- followed by the argument with any leading drive letter and colon dropped, in a static buffer at 00482448. Movie_PlayQueue builds each movie's path with it.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00401d53",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_BusyWaitSeconds",
+      "description": "Spins on GetTickCount for the argument in seconds, pumping nothing. Movie_PlayQueue holds the location picture up with it for 2.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "004441ae",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_HideLocationPicture",
+      "description": "Hides the mission tab's location picture (DAT_0048d7e0) and frees its bank.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
     }
   ]
 }

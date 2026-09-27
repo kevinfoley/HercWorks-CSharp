@@ -269,8 +269,8 @@ public sealed class ShellMissionArt {
 /// <para><b>The debrief view is not ported</b>: the campaign layer reaches it only on processing a
 /// finished mission, which this engine does not do. In the briefing, the map inside the panel is the
 /// shell's map object, <see cref="ShellMap"/>, drawn over this screen and moved by its six buttons;
-/// <c>Rock &amp; Roll &gt;</c> is <see cref="ShellMissionLaunch"/>'s. No view's movies are played, so the
-/// campaign map stays up as the original's does with movies off.</para>
+/// <c>Rock &amp; Roll &gt;</c> is <see cref="ShellMissionLaunch"/>'s. Each view's movies are the host's
+/// to queue, into <see cref="ShellMovieQueue"/>.</para>
 /// </summary>
 public sealed class ShellMissionScreen {
 	/// <summary>The four panels, in the canvas, each parented to the top-level window.</summary>

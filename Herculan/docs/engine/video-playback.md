@@ -18,6 +18,8 @@ Frames are decoded in sequence and never skipped, even when several fall due at 
 
 `MoviePlayer` adds the engine side: a `GpuTexture` updated in place when the frame's revision changes, and the soundtrack started once through `IAudioBackend` as a single sample. Video is the clock and audio free-runs; nothing re-syncs them mid-playback, which is also what the original did.
 
+The front end plays its movies through the same `MoviePlayer` (`Herculan.Engine.Shell.ShellMovieRun`). There a codec with no decoder yet plays through `PlaceholderDecoder`, a checkerboard, so the movie keeps its length and its soundtrack.
+
 ## Looking at one
 
 `--movie` plays a single cutscene instead of running a mission or the front end:

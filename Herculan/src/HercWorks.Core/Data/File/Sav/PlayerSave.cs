@@ -74,6 +74,12 @@ public class PlayerSave {
 	public (short Count, short[] Lines) CareerBriefing => CareerArray(13, 30);
 	public (short Count, short[] Lines) CareerIntelligence => CareerArray(44, 30);
 
+	/// <summary>
+	/// Career block short 75 — the briefing movie's id (<c>004840b8</c>), an index into VSHELL's
+	/// movie table that the mission tab's briefing plays.
+	/// </summary>
+	public short BriefingMovie { get => Unk4_stateFlags[75]; set => Unk4_stateFlags[75] = value; }
+
 	private (short, short[]) CareerArray(int countIndex, int length) =>
 		(Unk4_stateFlags[countIndex], Unk4_stateFlags.Skip(countIndex + 1).Take(length).ToArray());
 

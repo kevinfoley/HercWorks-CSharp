@@ -165,6 +165,15 @@ public sealed class ShellArt {
 	public ShellImage? LoadBitmap(GameContent content, string name) =>
 		LoadImage(content, BitmapFolder, name + ".DBM", Palette);
 
+	/// <summary>
+	/// One frame of a <c>dba\</c> bank decoded through this art's palette, or null when the bank or the
+	/// frame is missing — the mission screen's location picture.
+	/// </summary>
+	public ShellImage? LoadBankFrame(GameContent content, string name, int frame) =>
+		ReadBankFrames(content, name) is { } frames && frame >= 0 && frame < frames.Length
+			? Decode(frames[frame], Palette)
+			: null;
+
 	private static DynamixPalette? ReadPalette(GameContent content, string name) =>
 		content.Read("dpl", name + ".DPL") is { } bytes
 			? new DynamixPaletteTransformer().Parse(bytes) as DynamixPalette
@@ -176,9 +185,13 @@ public sealed class ShellArt {
 	/// for a transparent index to reveal.
 	/// </summary>
 	private static ShellImage? LoadImage(GameContent content, string folder, string name, DynamixPalette palette) {
-		if (content.Read(folder, name) is not { } bytes
-			|| new DynamixBitmapTransformer().Parse(bytes) is not DynamixBitmap image
-			|| image.Cols <= 0 || image.Rows <= 0) {
+		return content.Read(folder, name) is { } bytes && new DynamixBitmapTransformer().Parse(bytes) is DynamixBitmap image
+			? Decode(image, palette)
+			: null;
+	}
+
+	private static ShellImage? Decode(DynamixBitmap image, DynamixPalette palette) {
+		if (image.Cols <= 0 || image.Rows <= 0) {
 			return null;
 		}
 

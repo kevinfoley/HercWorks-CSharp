@@ -195,6 +195,31 @@ public sealed class ShellScreen {
 		SelectedTab = NoTab;
 	}
 
+	/// <summary>
+	/// The strip's lit flags alone moved to one tab: every button unlit and <paramref name="index"/>
+	/// lit, with no change to which tab is current — what <c>Movie_PlayQueue</c> (<c>0041e368</c>) does
+	/// to MISSION before each movie while the frame is up.
+	/// </summary>
+	public void LightOnly(int index) {
+		foreach (var button in _buttons) {
+			button.Lit = button.Id == index;
+			button.Repaint();
+		}
+	}
+
+	/// <summary>
+	/// The current tab's button unlit and no tab current (<c>DAT_0047581c = 0xffff</c>), the strip left
+	/// up — what <c>Movie_PlayQueue</c> does after <c>Mission_Leave</c> ahead of the location picture.
+	/// </summary>
+	public void LeaveTab() {
+		if (Button(SelectedTab) is { } tab) {
+			tab.Lit = false;
+			tab.Repaint();
+		}
+
+		SelectedTab = NoTab;
+	}
+
 	/// <summary>The button at a canvas point, or null. Disabled buttons, and a hidden strip, do not answer.</summary>
 	public ShellButton? ButtonAt(float canvasX, float canvasY) {
 		if (!StripVisible) {

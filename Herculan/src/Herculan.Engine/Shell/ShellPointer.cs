@@ -165,7 +165,7 @@ public readonly record struct ShellHit(ShellWidget Widget, ShellHandler Handler,
 ///
 /// <para><c>Control_HandleEvent</c> and <c>ButtonIcon_HandleEvent</c> also ignore mouse events while a
 /// movie is playing or the movie queue is running (<c>Avi_Playing</c>, <c>MovieQueue_Running</c>).
-/// This engine plays no movies, so there is nothing here for that test to read.</para>
+/// That test is the host's: it delivers nothing here while <see cref="ShellMovieRun"/> is active.</para>
 /// </summary>
 public sealed class ShellPointer {
 	private readonly ShellScreen _strip;

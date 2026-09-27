@@ -63,7 +63,7 @@ static class ShellHost {
 	public static (int ExitCode, ShellLaunch? Launch) Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
 			int startBay = 0, bool startPractice = false, bool silentAudio = false, bool writePreferences = true,
-			bool startWindowed = false) {
+			bool startWindowed = false, bool moviesEnabled = true) {
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot),
 			[.. ShellArt.Archives, ShellSound.ArchiveName]);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
@@ -155,6 +155,19 @@ static class ShellHost {
 		var startupFrames = startup == null
 			? Array.Empty<ShellImage?>()
 			: ShellStartupSequence.FrameNames.Select(name => art.LoadBitmap(content, name)).ToArray();
+
+		// The movie queue, played out by the run built with the window. The briefing movie plays once per
+		// load (DAT_004778ab), and CREDITS blanks the screen round its movie.
+		var movieQueue = new ShellMovieQueue(moviesEnabled);
+		ShellMovieRun? movies = null;
+		bool briefingMovieQueued = false;
+		bool creditsUp = false;
+
+		// The location picture a map movie leaves up for two seconds, and the scope's black fill below the
+		// strip that the lunar movie plays over.
+		ShellImage? locationPicture = null;
+		Herculan.Engine.Gl.GpuTexture? locationTexture = null;
+		bool scopeFilled = false;
 
 		// The END OF GAME alert CONTINUE GAME puts up over the menu when the game it loaded is over, and
 		// INSTANT ACTION's DAT_0047363c, which nothing clears.
@@ -260,10 +273,11 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training mode: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("Every tab has a screen behind it. The main menu comes up after its startup sequence. On it, "
+		Console.WriteLine("Every tab has a screen behind it. The main menu comes up after the intro movies and its startup "
+			+ "sequence; a click, Esc or Space skips a movie. On it, "
 			+ "INSTANT ACTION flies the next of the three demo missions, CONTINUE GAME loads the current game and "
-			+ "puts the tab strip up (or says why that game is over), VIEW DEMO plays a demo tape, and START NEW GAME, "
-			+ "CREDITS and ONLINE MANUAL do nothing yet. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
+			+ "puts the tab strip up (or says why that game is over), VIEW DEMO plays a demo tape, CREDITS plays the "
+			+ "credits, and START NEW GAME and ONLINE MANUAL do nothing yet. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
 			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
 			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. PREFERENCES shows the "
 			+ "preferences screen: click a checkbox to set it, Accept to keep and save the settings or Cancel to put "
@@ -320,6 +334,7 @@ static class ShellHost {
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
 			keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 			StartSound();
+			movies = new ShellMovieRun(movieQueue, MovieHooks(), sound, audio);
 
 			// The startup (FUN_00406507) goes full screen when option 6 is set, before the shell's screens
 			// are built. --shell-windowed keeps the window, which retail's -d does not.
@@ -342,23 +357,44 @@ static class ShellHost {
 				OpenPractice();
 			}
 
+			// The startup's two intro movies (FUN_004012b0), played before the startup sequence.
+			if (startup != null) {
+				movieQueue.Enqueue(ShellMovieQueue.IntroPart1, ShellMovieQueue.FullRect);
+				movieQueue.Enqueue(ShellMovieQueue.IntroPart2, ShellMovieQueue.FullRect);
+				movies.Start();
+			}
+
 			RepaintContent();
 		};
 
-		// WM_SETFOCUS starts the sounds again and WM_KILLFOCUS stops them (MainWndProc, 00404a2c).
+		// WM_SETFOCUS starts the sounds again, unless a movie is playing, and WM_KILLFOCUS stops them
+		// (MainWndProc, 00404a2c). The stop reaches a movie's soundtrack too, the two sharing one backend
+		// here where retail's MCI sound is not the sound manager's.
 		window.View.FocusChanged += focused => {
 			if (focused) {
-				sound?.Start();
+				if (movies?.Playing != true) {
+					sound?.Start();
+				}
 			} else {
 				sound?.Stop();
 			}
 		};
 
-		window.Update += _ => {
+		window.Update += delta => {
 			sound?.Update();
 
-			// The startup sequence goes up once the fade in has run, as the original's does after its movies.
-			// It is the only widget up and takes no mouse events, so a click meanwhile reaches nothing.
+			// The movie queue holds the shell while it plays out, as Movie_PlayQueue's loop does.
+			if (movies is { Active: true }) {
+				UpdateMovies(delta);
+				return;
+			}
+
+			if (creditsUp && sound?.Fading != true) {
+				EndCredits();
+			}
+
+			// The startup sequence goes up once the intro movies and the fade in after them have run. It is
+			// the only widget up and takes no mouse events, so a click meanwhile reaches nothing.
 			if (startup is { Done: false } && sound?.Fading != true) {
 				AdvanceStartup();
 				if (mouse != null) {
@@ -428,6 +464,10 @@ static class ShellHost {
 			}
 
 			BlinkCaret();
+
+			// The main loop's Movie_PlayQueue(1), once a pass after the widgets have had their events: what
+			// the campaign map and the briefing queued starts here.
+			movies?.Start();
 		};
 
 		window.Render += (_, frameGl) => {
@@ -437,17 +477,24 @@ static class ShellHost {
 			frameGl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			// QUIT's blank fills the whole client area with palette index 0, strip and all. The startup blanks
-			// the same way just before it shows the sequence; with its movies not played, the screen stays
-			// blank from the window's opening until then.
-			if (blanked || startup is { Done: false, IsUp: false }) {
+			// the same way just before it shows the sequence, and nothing is drawn before then but the intro
+			// movies; CREDITS blanks round its movie.
+			var framebuffer = window.FramebufferSize;
+			var layout = ShellScreenLayout.Create(framebuffer.X, framebuffer.Y);
+			if (blanked || creditsUp || startup is { Done: false, IsUp: false }) {
 				var blank = art.Palette.Colors.TryGetValue(0, out var entry) ? entry.GetColor() : default;
 				frameGl.ClearColor(blank.R / 255f, blank.G / 255f, blank.B / 255f, 1f);
 				frameGl.Clear(ClearBufferMask.ColorBufferBit);
+				DrawMovie(layout);
 				return;
 			}
 
-			var framebuffer = window.FramebufferSize;
-			renderer?.Draw(ShellScreenLayout.Create(framebuffer.X, framebuffer.Y), screen);
+			renderer?.Draw(layout, screen);
+			if (locationTexture != null && locationPicture != null) {
+				renderer?.DrawTexture(layout, locationTexture, 0, 0, locationPicture.Width, locationPicture.Height);
+			}
+
+			DrawMovie(layout);
 
 			framesRendered++;
 			if (screenshotPath != null && framesRendered == ScreenshotFrame) {
@@ -457,6 +504,10 @@ static class ShellHost {
 		};
 
 		window.Closing += () => {
+			// The movie and the location picture hold GL textures, released while the context is current.
+			movies?.Dispose();
+			locationTexture?.Dispose();
+			locationTexture = null;
 			renderer?.Dispose();
 			renderer = null;
 			sound?.Stop();
@@ -528,8 +579,9 @@ static class ShellHost {
 
 		// The sound manager's setup (ShellSound_Init, 0042ec7c): the samples, the music track option 5 picks, and then
 		// option 5 flipped, committed and all 54 options saved, so the next run plays the other track. The
-		// startup then starts the music (FUN_004012b0's ShellSound_Start); the fade in stands in for the one
-		// the original runs once the startup movies, which are not ported, have played.
+		// startup then starts the music at volume 0 (FUN_004012b0's ShellSound_Start), and the movie queue
+		// fades it in after the intro — or, with movies off, leaves it there. A run staged on another screen
+		// has no intro, and fades it in here.
 		void StartSound() {
 			if (silentAudio) {
 				return;
@@ -550,7 +602,9 @@ static class ShellHost {
 			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
 
 			sound.Start();
-			sound.FadeIn();
+			if (startup == null) {
+				sound.FadeIn();
+			}
 		}
 
 		// What a tab's entry does beyond showing it. The mission tab's map view sets the campaign map's
@@ -715,10 +769,13 @@ static class ShellHost {
 			}
 		}
 
-		// A main-menu button's handler. START NEW GAME, CREDITS and ONLINE MANUAL are not ported: the first
-		// needs the campaign half of the mission load, the second the shell's movies, and the third WinHelp.
+		// A main-menu button's handler. START NEW GAME and ONLINE MANUAL are not ported: the first needs the
+		// campaign half of the mission load, the second WinHelp.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
 			switch (button) {
+				case ShellMainMenuButton.Credits:
+					Credits();
+					break;
 				case ShellMainMenuButton.Quit:
 					Quit();
 					break;
@@ -796,6 +853,103 @@ static class ShellHost {
 			exitCode = DemoExitCode;
 			Console.WriteLine("View Demo.");
 			window.Close();
+		}
+
+		// CREDITS, MainMenu_OnCredits (004315ec): a bare window shown and the screen blanked, the credits queued
+		// and played straight away, then the screen blanked again, the window hidden and the menu repainted
+		// under it (EndCredits).
+		void Credits() {
+			creditsUp = true;
+			movieQueue.Enqueue(ShellMovieQueue.Credits, ShellMovieQueue.FullRect);
+			movies?.Start();
+			Console.WriteLine(movies?.Active == true ? "Credits." : "Credits — movies are off, so nothing plays.");
+		}
+
+		void EndCredits() {
+			creditsUp = false;
+			RepaintContent();
+		}
+
+		// One update while the queue plays out. A mouse button or Esc or Space going down ends the movie on
+		// screen and reaches nothing else: MainWndProc drops the button's messages while one plays, and
+		// Control_HandleEvent and ButtonIcon_HandleEvent every mouse event while the queue runs. The buttons'
+		// state is still taken, so a press made meanwhile is spent rather than delivered afterwards.
+		void UpdateMovies(double delta) {
+			bool left = mouse?.IsButtonPressed(MouseButton.Left) == true;
+			bool right = mouse?.IsButtonPressed(MouseButton.Right) == true;
+			bool key = keyboard != null && (keyboard.IsKeyPressed(Key.Escape) || keyboard.IsKeyPressed(Key.Space));
+			bool stop = (left && !leftHeld) || (right && !rightHeld) || (key && !skipKeyHeld);
+			leftHeld = left;
+			rightHeld = right;
+			skipKeyHeld = key;
+
+			if (gl != null) {
+				movies!.Update(gl, TimeSpan.FromSeconds(delta), stop);
+			}
+		}
+
+		void DrawMovie(ShellScreenLayout layout) {
+			if (movies?.Movie is { Texture: { } texture } && renderer != null) {
+				var rect = movies.Rect;
+				renderer.DrawTexture(layout, texture, rect.X, rect.Y, rect.Width, rect.Height);
+			}
+		}
+
+		// What playing the queue does to the rest of the shell.
+		ShellMovieHooks MovieHooks() => new() {
+			ReadMovie = name => {
+				string path = Path.Combine(installRoot, MovieHost.MovieFolderName, name);
+				return File.Exists(path) ? File.ReadAllBytes(path) : null;
+			},
+			InstallPalette = index => {
+				InstallPalette(index);
+				RepaintContent();
+			},
+			SetPaletteScope = index => {
+				scopeFilled = true;
+				InstallPalette(index);
+				RepaintContent();
+			},
+			RepaintRoot = () => {
+				scopeFilled = false;
+				RepaintContent();
+			},
+			FrameUp = () => screen.StripVisible,
+			LightMissionTab = () => {
+				screen.LightOnly(ShellScreen.MissionTab);
+				RepaintContent();
+			},
+			LeaveMissionTab = () => {
+				screen.LeaveTab();
+				Console.WriteLine("The mission tab is left, no tab up.");
+				RepaintContent();
+			},
+			CampaignStage = () => campaignStage,
+			ShowLocationPicture = (palette, bank) => {
+				InstallPalette(palette);
+				locationPicture = bank == null ? null : art.LoadBankFrame(content, bank, 0);
+				locationTexture?.Dispose();
+				locationTexture = locationPicture == null || gl == null ? null
+					: new Herculan.Engine.Gl.GpuTexture(gl, locationPicture.Pixels, locationPicture.Width, locationPicture.Height);
+				Console.WriteLine(locationPicture != null
+					? $"The location picture, dba\\{bank}, for two seconds."
+					: $"No location picture for stage {campaignStage}.");
+			},
+			HideLocationPicture = () => {
+				locationTexture?.Dispose();
+				locationTexture = null;
+				locationPicture = null;
+				InstallPalette(ShellPalette.ServiceBay);
+				RepaintContent();
+			},
+			Report = (name, what) => Console.WriteLine($"Movie avi\\{name} {what}."),
+		};
+
+		// Shell_InstallPalette (004075b2) by index, unless --shell-palette pins one.
+		void InstallPalette(int index) {
+			if (paletteName == null && ShellPalette.Name(index) is { } name) {
+				LoadPalette(name);
+			}
 		}
 
 		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
@@ -889,13 +1043,13 @@ static class ShellHost {
 			Console.WriteLine(window.FullScreen ? "Full screen." : "Windowed.");
 		}
 
-		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing, which this engine has no
-		// movie for, and the startup sequence being over. Alt+Enter toggles full screen on the Enter key's release;
+		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing and the startup sequence
+		// being over. Alt+Enter toggles full screen on the Enter key's release;
 		// Alt+Tab, Alt+Esc and Ctrl+Esc leave it on either edge (FUN_0040722e). Each then writes option 6
 		// from the window and, with the preferences screen up, relights its display group; otherwise it
 		// commits the options without their handlers and writes all 54.
 		void DisplayHotkey(Key key, bool released) {
-			if (keyboard == null || startup is { Done: false }) {
+			if (keyboard == null || startup is { Done: false } || movies?.Playing == true) {
 				return;
 			}
 
@@ -1127,7 +1281,7 @@ static class ShellHost {
 
 		// Game_LoadSlot (0040e4f2): a slot in use read in whole — the hangar, the career and its mission, and
 		// the game in progress that saving needs. The mission map is rebuilt, here on the briefing's next
-		// visit. Returns false for a slot not in use, which the original refuses, or one that cannot be read.
+		// visit, and the briefing's movie plays again (DAT_004778ab cleared). Returns false for a slot not in use, which the original refuses, or one that cannot be read.
 		bool LoadSlot(int slot) {
 			if (saveScreen.Slots.ElementAtOrDefault(slot) is not { InUse: true } entry
 					|| ShellSaveSlots.LoadSave(installRoot, entry.FileName) is not { } restored) {
@@ -1140,6 +1294,7 @@ static class ShellHost {
 			workingFiles = ShellWorkingFiles.ForSlot(installRoot, slot);
 			gameInProgress = true;
 			missionMap = null;
+			briefingMovieQueued = false;
 			missionTexts = ShellMissionTexts.Load(installRoot, slot, restored);
 			campaignStage = restored.CampaignStage;
 			missionInStage = restored.MissionInStage;
@@ -1161,9 +1316,10 @@ static class ShellHost {
 		// A keystroke, delivered as VSHELL's queue delivers one: to the pointer's target, which on the save
 		// screen may be one of its rows (EditField_HandleEvent, 0040beaf). The row takes a character or a
 		// command, Enter releases the pointer, and whatever the key, the row's handler then runs, which
-		// selects it. Nothing else ported here takes a key. A fade drops keys as it drops clicks.
+		// selects it. Nothing else ported here takes a key. A fade or the movie queue drops keys as it drops
+		// clicks.
 		void WidgetKey(Key key, bool released) {
-			if (keyboard == null || sound?.Fading == true || screen.SelectedTab != ShellScreen.SaveTab
+			if (keyboard == null || sound?.Fading == true || movies?.Active == true || screen.SelectedTab != ShellScreen.SaveTab
 					|| pointer.Target?.Widget is not { Kind: ShellWidgetKind.SaveRow } row
 					|| ShellKeyboard.Index(key) is not { } index) {
 				return;
@@ -1580,11 +1736,16 @@ static class ShellHost {
 				+ $"{hangar.QueueFreeSlots} slots free, {armoryScreen.AllocatedKilograms} kg allocated.");
 		}
 
-		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks. The map view sets
-		// the once-per-load flag whether or not its movies play.
+		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks. The map view queues the
+		// stage's two movies and sets the once-per-load flag whether or not they play; the briefing queues
+		// the career's briefing movie once per load. The main loop's pass plays them.
 		void EnterMission() {
 			missionViewUp = MissionView();
 			if (missionViewUp == ShellMissionView.Map) {
+				int mapPalette = campaignStage - 1 > 3 ? ShellPalette.CampaignMapMoon : ShellPalette.CampaignMapEarth;
+				movieQueue.Enqueue(ShellMovieQueue.StageMovieBase + campaignStage, ShellMovieQueue.TelecommRect, mapPalette);
+				movieQueue.Enqueue(ShellMovieQueue.StageThumbnailBase + campaignStage, ShellMovieQueue.MapPanelRect,
+					showsLocation: true);
 				missionMapShown = true;
 				string? campaignText = ShellCampaignText.Load(content, campaignStage);
 				missionScreen.EnterMap(campaignStage, campaignText, art.Text, art.Sprites?.Font(ShellArt.ScreenFont));
@@ -1596,9 +1757,16 @@ static class ShellHost {
 
 			missionScreen.EnterBriefing(missionTexts, art.Sprites?.Font(ShellArt.ScreenFont));
 			missionMap ??= loadedSlot >= 0 ? ShellMap.Load(installRoot, loadedSlot, content) : null;
+			if (!briefingMovieQueued && loadedGame != null) {
+				movieQueue.Enqueue(loadedGame.BriefingMovie, ShellMovieQueue.TelecommRect,
+					ShellPalette.FirstBriefing - 1 + campaignStage);
+				briefingMovieQueued = true;
+			}
 
-			// The intro's first pass puts the camera on the full view before anything is painted.
-			if (missionMap is { IntroRunning: true } intro) {
+			// The intro's first pass puts the camera on the full view before anything is painted. The main
+			// loop runs it after the pass's movies (ShellMap_RunIntro after Movie_PlayQueue), so behind a
+			// briefing movie it waits for the movie.
+			if (missionMap is { IntroRunning: true } intro && !BriefingMoviePending()) {
 				intro.Advance(MapClock());
 			}
 			Console.WriteLine(missionMap == null
@@ -1608,6 +1776,9 @@ static class ShellHost {
 				  + (missionMap.IntroRunning ? "; its intro runs now — click, Esc or Space to skip it." : "."));
 			LogMission();
 		}
+
+		// Whether a movie is queued or playing out, which on the briefing is its movie.
+		bool BriefingMoviePending() => movies?.Active == true || movieQueue.Next != null;
 
 		// The map, while its intro is still running on the briefing that is up.
 		ShellMap? MapIntroUp() =>
@@ -1711,8 +1882,9 @@ static class ShellHost {
 			contentSurface.Clear();
 
 			// Tabs 2-7 switch palette through the scope, whose paint blacks out everything below the
-			// strip; the tab's screen, if one is ported, draws over that.
-			bool filled = ShellPalette.FillsScope(screen.SelectedTab);
+			// strip; the tab's screen, if one is ported, draws over that. The lunar movie plays over the
+			// same fill.
+			bool filled = ShellPalette.FillsScope(screen.SelectedTab) || scopeFilled;
 			if (filled) {
 				ShellPalette.PaintScope(contentSurface);
 			}
@@ -1748,7 +1920,10 @@ static class ShellHost {
 					break;
 				case ShellScreen.MissionTab:
 					missionScreen.Paint(contentSurface, art.Text, art.Sprites, pointer.Lit);
-					if (missionViewUp == ShellMissionView.Briefing) {
+
+					// PLACEHOLDER: the map panel is left bare while the briefing movie is queued or playing,
+					// its intro not yet begun; what the original's panel shows then is not known.
+					if (missionViewUp == ShellMissionView.Briefing && !BriefingMoviePending()) {
 						missionMap?.Paint(contentSurface, mapArt, MapClock());
 					}
 
@@ -1789,8 +1964,9 @@ static class ShellHost {
 		// is decoded through one palette at load, so a change means loading it again and rebuilding the
 		// renderer's textures. That is a few milliseconds on a click, and it happens only when the
 		// palette actually changes.
-		void SwitchPalette(int tab) {
-			string name = PaletteFor(tab);
+		void SwitchPalette(int tab) => LoadPalette(PaletteFor(tab));
+
+		void LoadPalette(string name) {
 			if (gl == null || string.Equals(name, art.PaletteName, StringComparison.OrdinalIgnoreCase)) {
 				return;
 			}

@@ -60,16 +60,26 @@ public sealed class MoviePlayback {
 	public bool HasFailed { get; private set; }
 
 	/// <summary>
-	/// Opens a movie for playback, or returns null when the file will not parse or its codec is not
-	/// one this assembly implements.
+	/// Whether the frames are <see cref="PlaceholderDecoder"/>'s rather than the movie's own.
 	/// </summary>
-	public static MoviePlayback? Open(byte[] bytes, VideoLimits? limits = null) {
+	public bool IsPlaceholder => _codec is PlaceholderDecoder;
+
+	/// <summary>
+	/// Opens a movie for playback, or returns null when the file will not parse or its codec is not
+	/// one this assembly implements. With <paramref name="placeholderForUnimplemented"/>, a codec
+	/// <see cref="CodecRegistry.IsUnimplemented"/> names plays through <see cref="PlaceholderDecoder"/>
+	/// instead of failing.
+	/// </summary>
+	public static MoviePlayback? Open(byte[] bytes, VideoLimits? limits = null, bool placeholderForUnimplemented = false) {
 		AviFile? file = AviFile.Open(bytes, limits);
 		if (file?.VideoFormat is null) {
 			return null;
 		}
 
-		IVideoCodec? codec = CodecRegistry.Create(file.VideoFormat, file.Limits);
+		IVideoCodec? codec = CodecRegistry.Create(file.VideoFormat, file.Limits)
+			?? (placeholderForUnimplemented && CodecRegistry.IsUnimplemented(file.VideoFormat.Compression)
+				? new PlaceholderDecoder()
+				: null);
 		if (codec is null) {
 			return null;
 		}

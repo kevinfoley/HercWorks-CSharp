@@ -38,6 +38,7 @@ All of these imply `--shell`.
 | `--shell-training` | Runs the front end in training mode, the practice missions' and `INSTANT ACTION`'s, which gates REPAIR, BUILD and ARMORY off. |
 | `--shell-practice` | Opens on the practice missions screen, as the main menu's PRACTICE MISSIONS does, without the startup sequence. |
 | `--shell-windowed` | Keeps the front end windowed at startup, where `data\prefs.cfg` option 6 would put it in full screen. This engine's own flag; retail's `-d` has no effect ([`shell/screen-layout.md`](../shell/screen-layout.md#full-screen-asks-first)). |
+| `--shell-no-movies` | Turns the front end's movies off: nothing is queued and nothing plays, and the music stays at the startup's silence until a fade raises it. Retail's `-a` ([`shell/screen-layout.md`](../shell/screen-layout.md#the-shells-movies)). |
 | `--shell-palette <name>` | Pins `dpl\<name>.DPL` as the palette for the whole run, in place of each tab's own. |
 
 See [`shell/screen-layout.md`](../shell/screen-layout.md).

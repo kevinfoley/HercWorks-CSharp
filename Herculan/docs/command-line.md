@@ -65,7 +65,7 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `FUN_00461ee
 | `-X<n>` | `Shell_SetExitCode(n)` → `0046e210` | Copied into `0048227e` right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
 | `-r` | `0048227e` = 3 | Overwritten by the `-X` copy; no effect ([`shell/campaign-loop.md`](shell/campaign-loop.md#rejected-readings)) |
 | `-@` | `00482284` = 1 | The mission picker below |
-| `-a` | `00482275` = 0 | Turns off the ten-slot queue at `00485668` that `FUN_0041e29c` fills and `FUN_0041e368` plays out ([Open](#open)) |
+| `-a` | `00482275` = 0 | Turns the shell's movies off: [the movie queue](shell/screen-layout.md#the-shells-movies) takes nothing and plays nothing |
 | `-l` | `00482280` = 0 | Read only by the unreferenced function at `0042f2e8`; no effect |
 | `-v`, `-?` | `00482272` = 0 | `printf` the version or the usage text, turn sound off, and call `FUN_004092dc` |
 
@@ -148,7 +148,6 @@ Both steps start at 2000, entry 3 of both tables: the mech module's static initi
 ## Open
 
 - **Open:** what the simulator's `-T<n>`, `-V<n>`, `-W<n>`, `-a` and `-c` feed. The searches above find no reader, and a null result does not prove there is none; code Ghidra has not disassembled is covered only by the address sweeps, not by the displacement search.
-- **Open:** what VSHELL's `-a` queue at `00485668` holds. Its records carry codes including `0x44`, `0x45`, `0x54` and `0x55` and a palette index, and playing them out raises the `MISSION` tab.
 - **Open:** VSHELL's language slot 3 from `-e…`. Its readers test for 0, 1 and 2.
 - **Open:** what `+0x99` on the player's machine records, which separates exit code 4 from 3, and what VSHELL does with `-X6` beyond the path at `FUN_00401525`.
 - **Open:** what `-C` does with the four names that have no cockpit files (`ROADRUNNER`, `PATRIOT`, `PANTHER`, `TEST3`), and what `-E` does when `SIMVOICS.VOL` is missing.

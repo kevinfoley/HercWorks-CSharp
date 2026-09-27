@@ -63,10 +63,13 @@ public sealed class MoviePlayer : IDisposable {
 	/// <c>ES2/AVI/</c> today but nothing here should care whether they came from a directory or an
 	/// archive.</para>
 	/// </summary>
-	public static MoviePlayer? Open(byte[] bytes) {
-		MoviePlayback? playback = MoviePlayback.Open(bytes);
+	public static MoviePlayer? Open(byte[] bytes, bool placeholderForUnimplemented = false) {
+		MoviePlayback? playback = MoviePlayback.Open(bytes, placeholderForUnimplemented: placeholderForUnimplemented);
 		return playback is null ? null : new MoviePlayer(playback);
 	}
+
+	/// <summary>Whether the frames are a placeholder standing in for a codec not yet decoded.</summary>
+	public bool IsPlaceholder => _playback.IsPlaceholder;
 
 	/// <summary>
 	/// Starts the soundtrack, if the movie has one and the backend is available.

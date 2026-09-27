@@ -131,6 +131,28 @@ public sealed class ShellRenderer : IDisposable {
 	}
 
 	/// <summary>
+	/// Draws <paramref name="texture"/> stretched over a canvas rect, on top of whatever
+	/// <see cref="Draw"/> put there — a movie in its window, or a picture over the whole canvas. Its top
+	/// row is its first, as a <c>VideoFrame</c>'s and a <see cref="ShellImage"/>'s are.
+	/// </summary>
+	public void DrawTexture(ShellScreenLayout layout, GpuTexture texture, int x, int y, int width, int height) {
+		if (layout.Scale <= 0f) {
+			return;
+		}
+
+		_gl.Viewport(0, 0, (uint)Math.Max(layout.WindowWidth, 1), (uint)Math.Max(layout.WindowHeight, 1));
+		_gl.Disable(EnableCap.DepthTest);
+		_shader.Use();
+		_shader.SetVector2("uViewportSize", new Vector2(layout.WindowWidth, layout.WindowHeight));
+
+		_vertices.Clear();
+		AddQuad(layout, x, y, x + width, y + height, new AtlasRect(0f, 0f, 1f, 1f));
+		_shader.SetSamplerTexture("uTexture", texture.Handle, 0);
+		_mesh.SubmitAndDraw(CollectionsMarshal.AsSpan(_vertices));
+		_gl.Enable(EnableCap.DepthTest);
+	}
+
+	/// <summary>
 	/// The backdrop, tiled across the canvas. Retail's is exactly canvas-sized and so comes out of this
 	/// loop as the single quad it should be; the tiling is here because the root widget's texture is a
 	/// parameter of the screen rather than a fixed asset, and a smaller one has to cover the canvas

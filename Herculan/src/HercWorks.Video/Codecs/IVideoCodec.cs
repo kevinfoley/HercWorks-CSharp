@@ -48,6 +48,17 @@ public static class CodecRegistry {
 	/// <summary>Cinepak, as <c>cvid</c>.</summary>
 	public static uint Cinepak { get; } = RiffReader.FourCc('c', 'v', 'i', 'd');
 
+	/// <summary>Indeo Video 4.1, as <c>IV41</c>.</summary>
+	public static uint Indeo4 { get; } = RiffReader.FourCc('I', 'V', '4', '1');
+
+	/// <summary>
+	/// Whether <paramref name="compression"/> is one the retail corpus uses and this assembly has no
+	/// decoder for yet — the ones <see cref="PlaceholderDecoder"/> stands in for.
+	/// </summary>
+	public static bool IsUnimplemented(uint compression) =>
+		compression == MicrosoftVideo1 || compression == MicrosoftVideo1Upper || compression == MicrosoftVideo1Cram
+		|| compression == Cinepak || compression == Indeo4;
+
 	/// <summary>
 	/// Creates a decoder for <paramref name="format"/>, or returns null when its compression is one
 	/// this assembly does not implement.
@@ -70,9 +81,9 @@ public static class CodecRegistry {
 			return Indeo3Decoder.Create(format, limits);
 		}
 
-		// MS Video 1 and Cinepak are not implemented. Returning null means a player reports the
-		// stream as unsupported rather than showing a frame this assembly guessed at; see
-		// docs/engine/handoff-avi-codecs.md.
+		// MS Video 1, Cinepak and Indeo 4 are not implemented. Returning null means a player reports
+		// the stream as unsupported rather than showing a frame this assembly guessed at, unless it
+		// asks for PlaceholderDecoder; see docs/engine/handoff-avi-codecs.md.
 		return null;
 	}
 }

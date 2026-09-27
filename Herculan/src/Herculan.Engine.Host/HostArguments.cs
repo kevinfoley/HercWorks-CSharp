@@ -79,7 +79,7 @@ static class HostArguments {
 
 		Front end (each implies --shell)
 		  --shell-tab <0-7>  --shell-bay <0-7>  --shell-training  --shell-practice
-		  --shell-windowed
+		  --shell-windowed  --shell-no-movies
 		  --shell-palette <name>
 
 		Sound and music

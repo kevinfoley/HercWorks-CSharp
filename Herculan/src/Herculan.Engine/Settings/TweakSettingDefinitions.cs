@@ -36,13 +36,13 @@ public static class TweakSettingDefinitions {
 	/// A hit on the right nacelle of the Razor will draw the impact effect at the
 	/// correct side instead of at the left nacelle.
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> FixNacelleImpactEffectPosition = new("tweak.fix_nacelle_impact_position", TweakCategory.Cosmetic, false);
+	public static readonly TweakSettingDefinition<bool> FixNacelleImpactEffectPosition = new("tweak.fix_nacelle_impact_position", TweakCategory.Cosmetic, false, true);
 
 	/// <summary>
 	/// Fix new sound effects overwriting the volume and position of previous sound
 	/// effects of the same type.
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> PreserveSoundPosition = new("tweak.preserve_sound_position", TweakCategory.Cosmetic, false);
+	public static readonly TweakSettingDefinition<bool> PreserveSoundPosition = new("tweak.preserve_sound_position", TweakCategory.Cosmetic, false, true);
 
 	/// <summary>
 	/// When the player takes critical damage, play "Damage Level Critical". Does not
@@ -66,7 +66,7 @@ public static class TweakSettingDefinitions {
 	/// when aiming at slow speeds. Irrelevant if controlling the turret with a
 	/// keyboard.
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> SmootherTurretMovement = new("tweak.smoother_turret_movement", TweakCategory.Functional, false);
+	public static readonly TweakSettingDefinition<bool> SmootherTurretMovement = new("tweak.smoother_turret_movement", TweakCategory.Functional, true);
 
 	#endregion
 

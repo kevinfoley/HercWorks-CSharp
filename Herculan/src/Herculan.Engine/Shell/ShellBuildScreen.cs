@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
 using HercWorks.Core.Io.Transform.Shell;
 using Herculan.Engine.Content;
+using Herculan.Engine.Settings;
 
 namespace Herculan.Engine.Shell;
 
@@ -347,10 +348,26 @@ public sealed class ShellBuildScreen {
 		var box = Inside(PanelRect, StatsRect);
 		var entry = SelectedEntry;
 		string? tons = text?.Text(TonsText);
+
+		short speed = -1;
+		short hardpointTotal = -1;
+		if (entry != null) {
+			speed = entry.Speed;
+			hardpointTotal = entry.HardpointTotal;
+			if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowCorrectStats)) {
+				if (entry.HercId == HercInfEntry.OutlawHercId) {
+					speed = 100;
+				}
+				if (entry.HercId == HercInfEntry.RaptorII) {
+					hardpointTotal = 5;
+				}
+			}
+		}
+
 		string?[] values = entry == null ? new string?[StatValueRects.Length] : new[] {
 			$"{entry.Weight} {tons}",
-			$"{entry.Speed} {text?.Text(KphText)}",
-			$"{entry.HardpointTotal}",
+			$"{speed} {text?.Text(KphText)}",
+			$"{hardpointTotal}",
 			$"{entry.SalvageReq} {tons}",
 		};
 

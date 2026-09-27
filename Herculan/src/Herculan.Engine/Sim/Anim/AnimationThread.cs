@@ -1,4 +1,5 @@
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
 
 namespace Herculan.Engine.Sim.Anim;
 
@@ -29,18 +30,6 @@ public sealed class AnimationThread {
 	/// which is the whole of what the original's own Q14 scaling discards, so nothing is lost twice.
 	/// </summary>
 	private const int SeekFractionBits = 14;
-
-	/// <summary>
-	/// Whether <see cref="SeekToPosition"/> keeps the sub-tick remainder of the position it is
-	/// handed, rather than truncating to a whole animation tick as the original does.
-	///
-	/// <para><b>Not the original's behaviour</b>, and on by default, which is deliberate and against
-	/// this engine's usual rule; clearing it restores the original's arithmetic exactly. Nothing does
-	/// yet — it is the hook for the Tweaks menu. What the truncation costs the turret, and
-	/// what is left once this is on, are in docs/simulation/torso-aim.md, "Sub-tick seek
-	/// interpolation".</para>
-	/// </summary>
-	public static bool InterpolateSeekPosition { get; set; } = true;
 
 	private readonly ShapeAnimation _animation;
 
@@ -332,9 +321,6 @@ public sealed class AnimationThread {
 	/// them a rate of zero — and the twist and pitch sequences are one full sweep of their node, so
 	/// setting a position in the sequence <i>is</i> setting an angle. See
 	/// <see cref="MechObject.TorsoTwistTick"/>.</para>
-	///
-	/// <para>The sub-tick remainder of the scaled position is kept unless
-	/// <see cref="InterpolateSeekPosition"/> is cleared; <see cref="FrameFraction"/> spends it.</para>
 	/// </summary>
 	public void SeekToPosition(int sequence, short position) {
 		var target = _animation.Sequences[sequence];
@@ -350,7 +336,10 @@ public sealed class AnimationThread {
 		// throws away can be kept.
 		int scaled = position * (short)(total - 1);
 		int remaining = scaled >> SeekFractionBits;
-		int fraction = InterpolateSeekPosition ? scaled & ((1 << SeekFractionBits) - 1) : 0;
+		// If the tweak is enabled, we keep the sub-tick remainder of the position it is
+		// handed, rather than truncating to a whole animation tick as the original does.
+		// See docs/simulation/torso-aim.md, "Sub-tick seek interpolation — not retail".
+		int fraction = TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.SmootherTurretMovement) ? scaled & ((1 << SeekFractionBits) - 1) : 0;
 
 		int frame = 0;
 		while (frame < target.FrameCount - 1 && remaining >= target.FrameDurations[frame]) {
@@ -412,10 +401,6 @@ public sealed class AnimationThread {
 	/// by. That both the pose and the ground movement ride the one fraction is the whole reason the
 	/// original looks smooth at any speed: a slow walk stretches the keyframes out in time, and the
 	/// pose keeps moving between them rather than stepping.</para>
-	///
-	/// <para>A seeked pose spends <see cref="_frameAccumulatorFraction"/> here as well, which is the
-	/// whole of <see cref="InterpolateSeekPosition"/>. Q10 carries it with room to spare — the margin
-	/// against <see cref="Numerics.SimTrig.Cos"/>'s own step is in the doc named there.</para>
 	/// </summary>
 	private int FrameFraction() {
 		if (_frameDuration == 0) {

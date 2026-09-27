@@ -5,6 +5,10 @@ namespace HercWorks.Core.Data.Struct.Vshell.Hercs;
 /// easier. Ported from org.hercworks.core.data.struct.vshell.hercs.HercInfEntry.
 /// </summary>
 public class HercInfEntry {
+
+	public const short OutlawHercId = 0;
+	public const short RaptorII = 1;
+
 	public short HercId { get; set; }
 
 	/// <summary>Mass in tons. Printed by the Herc Construction screen as "%d TONS".</summary>

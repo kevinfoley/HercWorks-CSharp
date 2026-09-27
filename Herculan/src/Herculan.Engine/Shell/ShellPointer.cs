@@ -44,6 +44,14 @@ public enum ShellHandler {
 	RepeatButtonIcon,
 
 	/// <summary>
+	/// <c>FUN_0040a139</c>, the handler of the <c>ButtonIcon</c> subclass <c>FUN_0040a100</c> builds — the
+	/// preferences screen's checkboxes. The left press makes the press sound, lights the widget and fires;
+	/// the left release does nothing; the right goes through <c>Control_HandleEvent</c>, silently, and
+	/// fires on its release. A leave never puts it out.
+	/// </summary>
+	CheckBox,
+
+	/// <summary>
 	/// <c>ImagePanel_HandleEvent</c> (<c>0040b6da</c>), the crew portraits. Fires on any left release
 	/// that reaches it, wherever the press was, and ignores the right button.
 	/// </summary>
@@ -62,6 +70,7 @@ public enum ShellWidgetKind {
 	MainMenuButton,
 	PracticeRow,
 	PracticeButton,
+	PreferencesWidget,
 	SaveRow,
 	SaveButton,
 	RepairRow,
@@ -224,6 +233,15 @@ public sealed class ShellPointer {
 				_lit = target.Widget;
 				break;
 
+			case ShellHandler.CheckBox:
+				_lit = target.Widget;
+				if (button == ShellMouseButton.Left) {
+					_pressSound?.Invoke();
+					fire(target.Widget);
+				}
+
+				break;
+
 			case ShellHandler.ButtonIcon when _strip.Button(target.Widget.Index) is { Enabled: true } strip:
 				strip.Lit = true;
 				if (button == ShellMouseButton.Left) {
@@ -251,6 +269,11 @@ public sealed class ShellPointer {
 
 		switch (target.Handler) {
 			case ShellHandler.Control or ShellHandler.Button when _lit == target.Widget:
+				fire(target.Widget);
+				_lit = null;
+				break;
+
+			case ShellHandler.CheckBox when button == ShellMouseButton.Right && _lit == target.Widget:
 				fire(target.Widget);
 				_lit = null;
 				break;

@@ -67,6 +67,7 @@ var shellMode = ShellCampaignMode.Campaign;
 int shellTab = ShellScreen.MainMenuTab;
 int shellBay = 0;
 bool shellPractice = false;
+bool shellWindowed = false;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -262,6 +263,11 @@ for (int i = 0; i < args.Length; i++) {
 		shellPractice = true;
 		shellTab = ShellScreen.MainMenuTab;
 		runShell = true;
+	} else if (args[i] == "--shell-windowed") {
+		// Keep the front end windowed at startup whatever prefs.cfg option 6 says. This engine's own flag:
+		// retail's -d reads as the same switch, and its store is overwritten before anything reads it.
+		shellWindowed = true;
+		runShell = true;
 	} else if (args[i] == "--cd-drive") {
 		// Which drive the music CD is in. Retail asks MCI for the device type alone and takes whichever
 		// CD drive it answers with -- nothing in either executable reads a drive letter from anywhere --
@@ -399,7 +405,7 @@ if (installRoot == null) {
 ShellLaunch? shellLaunch = null;
 if (runShell) {
 	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay, shellPractice,
-		silentAudio, writePreferences);
+		silentAudio, writePreferences, shellWindowed);
 	if (launched == null) {
 		return shellExit;
 	}

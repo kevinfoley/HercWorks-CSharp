@@ -88,7 +88,7 @@ Options 48-53 have no reference in either image and are zero in a retail file. N
 
 **The file is shared with VSHELL**, which keeps the same 54-byte array, the same load-time shadow and the same handler table, and reads and writes the same path. Options 37-47 are its side of that sharing, and the simulator reads only 4 and 6 of them. See [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte).
 
-**VSHELL's own PREFERENCES screen** (`PreferencesScreen_Build`, `00434f08`, `estext.bin` `0x103`) is where six of these are edited — options 0 and 1 as checkboxes, then 44, 45, 4 and 6 as radio groups. Each row's setter writes the option through `ShellOptions_SetOption` and relights its group, so the shell edits the same two sound bytes the simulator's own panel does.
+**VSHELL's own PREFERENCES screen** edits six of these — options 0 and 1 by a checkbox each, and 44, 45, 4 and 6 by groups of checkboxes that act as radio buttons — so the shell edits the same two sound bytes the simulator's own panel does ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-preferences-screen)).
 
 ### The video-mode and full-screen bytes
 

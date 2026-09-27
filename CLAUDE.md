@@ -61,9 +61,9 @@ The docs state what is true now. How the project got there belongs in `git log`.
 `tools/scripts/doc_lint.py` enforces 1, 4, 6 and 8, and runs automatically after any edit under
 `Herculan/docs/`. `/doc-lint` runs it over the whole set. It cannot catch 2, 3, 5 or 7. It catches 9
 only by explicit markers ("HERCULAN", "this engine", `Herculan.*` namespaces, "Engine port"
-headings), not a bare C# type name. Many retail docs still carry engine sections from before the
-rule, so a full run shows those as a per-file count (`--engine` lists each one), and the edit hook
-flags only the lines an edit wrote.
+headings), not a bare C# type name. A full run shows its findings as a per-file count (`--engine`
+lists each one), and the edit hook flags only the lines an edit wrote. "The engine" also matches a
+HERC's own engine component; mark such a line `<!-- doc-lint: ok -->`.
 
 `tools/scripts/doc_links.py` resolves every cross-reference — that the file exists and that a
 `#fragment` still names a heading. **A heading owns its anchor**, so retitling one breaks inbound

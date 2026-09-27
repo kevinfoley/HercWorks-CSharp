@@ -18,8 +18,6 @@ The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `
 | `004669dc` / `00466a1c` | `Math_IntegrateVec3IntOverTick` / `...ShortOverTick` | `Math_IntegrateRateOverTick` over a vec3 |
 | `00466984` | `Math_MeanVec3Short` | Component-wise mean of two vec3s, into the static at `004d3bdc` |
 
-Ported as `MechObject.Flight.cs` and `FlightModelRecord.cs`.
-
 ### How the flyer paths are reached
 
 `Mech_Constructor` (`00415bb0`) picks one of three **behaviour class** instances by (is this the local player `mech+0xa3`, does the type record set the flyer flag):
@@ -221,7 +219,7 @@ The wreckage a fatal contact sheds is ported — group 3 at the contact point, a
 
 `Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, AirSpeedMax]` onto `[0, typeRec+0xc2]` through `Math_MapRange` (`0047de3c`), because a flyer's record does not describe the walker top speed the other branch needs. Both land on the same readout scale, so the gauge reads the same way for either chassis. A RAZOR at full throttle reads 83 km/h.
 
-## Engine note
+## The engine hum
 
 `Razor_MovementTick` closes by pitching the looping engine hum (catalog id `0x2d`, `herceng1.wav`) at `FastMagnitude3D(bodyVelocity) * 16 + 28000` in 16.16, clamped to 16 bits, and re-placing it at the machine. It runs for the player's machine alone and is silenced on death. The hum is started by `Cockpit_PowerUpSound` and is the flyer's, not the walker's, despite the sample's name — see [`../formats/audio.md`](../formats/audio.md).
 

@@ -15,9 +15,9 @@ spin until GetTickCount() >= last + 40             // 25 Hz frame cap
 SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2)
 ```
 
-Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not per-second or per-tick-count. Everything scaled by it is a "per this tick" quantity — DBSIM runs a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40 ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored) — the constant the engine's `SimWorld.TickDelta` is pinned to, running a fixed 25 Hz tick decoupled from rendering rather than reproducing the spin-wait.
+Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not per-second or per-tick-count. Everything scaled by it is a "per this tick" quantity — DBSIM runs a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40 ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored).
 
-Not every per-tick quantity is scaled by this timestep: locomotion's `SpeedAccelDecel`/ `DecelTurning` accel-step fields are raw per-tick steps with no `Math_IntegrateRateOverTick` (`00467820`) integration, making the original's control law frame-rate dependent — see [`mech-locomotion.md`](mech-locomotion.md#timing) for the consequence and the engine's `SimMath.ScalePerTickStep` port deviation.
+Not every per-tick quantity is scaled by this timestep: locomotion's `SpeedAccelDecel`/ `DecelTurning` accel-step fields are raw per-tick steps with no `Math_IntegrateRateOverTick` (`00467820`) integration, making the original's control law frame-rate dependent — see [`mech-locomotion.md`](mech-locomotion.md#timing) for the consequence.
 
 **`Math_Q8Multiply(a, b)` (`0047df94`) — Q8 fixed-point multiply.** `(int64)a * b`, right-shifted 32 bits via `SHRD EAX,EDX,0x8` (i.e. `>> 8`, scale factor 256). Two adjacent sibling functions share the same `IMUL`+`SHRD` shape at different shift amounts (`0xa` = Q10, `0xe` = Q14 with a 16-bit signed operand) — Q8 is used for position/rate math below; Q14's range fits a normalized `-1.0..1.0` value like a sin/cos table output, though no caller confirms that.
 
@@ -51,7 +51,7 @@ Rocket and projectile math lives in [`rockets.md`](rockets.md). Note `Rocket_Pla
 
 **`fire.cpp` ruled out as a projectile-math source.** Only one function (`FireEffect_LoadResources`, `0046b0a4`) carries a `fire.cpp` assert string, and it is the burning-object effect's loader — [`destruction-effects.md`](destruction-effects.md#fire). Projectile spawn and hit-resolution logic lives in `rocket.cpp`/`bullet.cpp` and [`damage-system.md`](damage-system.md), not `fire.cpp`.
 
-## Port notes
+## Traps
 
 1. **DBSIM ticks at a fixed 25 Hz** (`SimTickDelta`/`DAT_004d3be8` = 81 in Q8/125ms units at that rate) and essentially all motion math is `rate × tick` in Q8, not continuous float integration; a naive float-based reimplementation will drift from the original unless the same quantization/clamping is preserved. Note the exception described above: locomotion's accel/decel steps are unscaled and frame-rate dependent in the original.
 2. **Every range and radius comparison in the simulation uses the fast-magnitude approximation**, collision bounds included — reproducing hit detection faithfully means reproducing its bias, not substituting a real `sqrt`.

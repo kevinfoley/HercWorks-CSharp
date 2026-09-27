@@ -170,7 +170,7 @@ Three mech vtable slots (vtable at `0049a282`), each reading a different descrip
 
 Each calls `(*slot.func)(mech + slot.thisDelta)`. Because these are pointer-to-member calls made through the dispatchers rather than vtable entries, Ghidra reports zero xrefs on every think and move function in the table above — which is why the AI reads as unreachable code until the tables are followed by hand.
 
-*Reassess* is this engine's name for the `+0x30` slot, taken from what its two implementations do; the game's own name for it is not in the binary.
+*Reassess* is this project's name for the `+0x30` slot, taken from what its two implementations do; the game's own name for it is not in the binary.
 
 ## Choosing a state — `Mech_AiSelectBehaviour` (`0041eb34`)
 

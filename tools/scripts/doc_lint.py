@@ -359,8 +359,8 @@ def hook_mode() -> int:
         return 0
 
     hits = lint_file(path, include_code=False)
-    # Engine mentions predate the rule across much of the set. Report only the ones this edit wrote,
-    # so an edit is never made to carry a whole file's cleanup, but nothing new gets added.
+    # Report only the engine mentions this edit wrote, so an edit is never made to carry a whole
+    # file's cleanup, but nothing new gets added.
     written = [tool_input.get("new_string"), tool_input.get("content")]
     written += [e.get("new_string") for e in tool_input.get("edits") or [] if isinstance(e, dict)]
     touched = {ln.strip() for chunk in written if isinstance(chunk, str) for ln in chunk.split("\n")}

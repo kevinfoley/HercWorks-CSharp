@@ -231,22 +231,10 @@ The traps, not a summary — everything else here is stated once above and does 
 3. **Rates are per tick, not per second.** The 5-unit shield recharge cap is per tick; at 25 Hz and the fleet-wide 3500 capacity a full rebuild is 700 ticks, or 28 s.
 4. **`+0x70` is not "the splash weapon path".** Two of its four callers are not weapons at all — a drop pod landing and two machines colliding — and one of the weapon callers is a direct call on the struck object rather than a sweep.
 
-## Ported
-
-`Herculan.Engine.Sim.MechObject.Combat` (the hit test and `Mech_ApplyDirectFireDamage`), `Sim.ShieldCharge`, `Sim.MechObject.Power` (capacity and reactor rate), and `MechTypeRecord.HitRadius`/`HitCenterHeight`/`LegCount`/`Mass`. The parts of `Mech_ComponentDamageWrite` that change behaviour and the whole `+0x206` component-damage header are [`component-damage.md`](component-damage.md)'s port; weapon-mount destruction is [`weapon-damage-types.md`](weapon-damage-types.md)'s.
-
-The explosive pathway is ported entire. `SimWorld.ExplosiveBlastSweep` is the sweep; `SimObject.ExplosiveDamage` is the `+0x70` slot, overridden by `MechObject`, `BaseObject` and `FlyerObject` for the three implementations. The `+0x58` accessors are `MechObject.ComponentPosition` (over an anchor table `BuildComponentAnchors` fills from the `.COL`, which is where the original's loadout step puts it) and `BaseObject.ComponentPosition`. `ShieldCharge.AbsorbExplosion` is the explosion path's shield step, and `SplashFactor`'s share is diverted rather than dropped. The collision call site is `MechObject.CollisionDamage`.
-
-Of the sweep's three call sites the plasma round and the drop pod's landing (`Sim.MeteorObject`, [`mission-deployment.md`](mission-deployment.md)) are both reachable; the ram belongs to a behaviour state that does not exist yet ([Open](#open)). The sweep returns whether it caught anything, which only the pod reads — a pod that lands on something delivers nothing.
-
-`MechObject.ShieldsDownAlert` is a pure one-shot: it lacks the `+0xb0` clear the original's per-tick systems update runs above 1500 charge, so in this engine `SHIELDS CRITICAL` announces once per mission and the MFD's `SHIELDS DN` never goes out again ([`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md)).
-
-Both by-products of the collision path are live in the original: the "something ran into me" latch at `obj+0xb1`, ported, is what a ramming machine detonates on, and `mech+0x2b0` is the nearby-structure record [above](#the-collision-paths-structure-record).
-
 ## Open
 
 - **Open:** confirm `Sim_RaycastObjectList` (`00426528`)'s and `Razor_MovementTick`'s exact source translation unit with a direct assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported (shared object-list usage; a function that touches nothing but flyer state) but not proven the way `rocket.cpp`/`collide.cpp` were.
-- **Unported:** the collision path's structure record, `mech+0x2b0` ([above](#the-collision-paths-structure-record)) — the engine's scene pass does not have the render bucket this feeds.
+- **Unported:** the collision path's structure record, `mech+0x2b0` ([above](#the-collision-paths-structure-record)).
 - **Unported:** the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`.
 - **Unported:** the ram behaviour state that would exercise `Damage_ExplosiveBlastSweep`'s third call site.
 - **Open:** whether the 8-level health bucketing (`Mech_ApplyDirectFireDamage`'s `>>5` of the Q8 percentage) matches the manual's 5-color status system (Green/Yellow/Orange/Red/Gray).

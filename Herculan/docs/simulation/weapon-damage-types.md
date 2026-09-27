@@ -70,7 +70,7 @@ Mapping onto the weapon taxonomy — flagged as a reasoned hypothesis from mecha
 
 **Plasma cannon — confirmed.** The one `Type 2` outlier (`DamageShield==DamageArmor==3000`, `SplashFactor=1000`) is `MissileId 9`. The `Bullet` class's vtable (`BulletVtable` (`00498628`)) per-tick slot (`+0x14`) is `Bullet_TickUpdate` (`0040b124`), whose `type == 9` branch (checked via `*(char*)(this+0x41) == '\t'`) calls the explosion formula directly instead of the ordinary single-target hit path — `this+0x41` is exactly where every projectile constructor (`Missile_Construct`/`Bullet_Construct`/`Grenade_Construct`) stores its own `MissileId` argument, so this is checking `MissileId==9` on a live `Bullet` instance. `(Type=2, MissileId=9)` is mechanically a `Bullet` (real flight time, unlike true `Beam`s) that explodes with splash on impact (unlike every other `Bullet`), matching the manual's Plasma description exactly.
 
-A weapon's `(Type, MissileId)` pair is set upstream, in the mount template table ([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md)) via each template's `ProjDatIndex` — the engine looks records up by key, never by array position. `MissileId` also indexes `BULLETS.DAT`/`ROCKETS.DAT` for model data.
+A weapon's `(Type, MissileId)` pair is set upstream, in the mount template table ([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md)) via each template's `ProjDatIndex`. `MissileId` also indexes `BULLETS.DAT`/`ROCKETS.DAT` for model data.
 
 ### Beam-weapon dispatch
 

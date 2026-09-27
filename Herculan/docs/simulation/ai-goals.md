@@ -128,16 +128,6 @@ Only four of the record's fields are ever read, and only through the current ind
 
 Nothing reaches it in retail. Across all twelve shipped `script.dat` handoffs every mech group and every flyer group carries an order in slot 0; the groups that carry none are all structures, and a structure has no behaviour block for `Mech_AiTick` to find.
 
-## Engine port
-
-`Sim.MissionGroup` holds the order array, the current index, the completion flags and the route cursor, and `World.MissionOrder` is the resolved record `MissionLoader` builds from block 10. `MissionScene` resolves each order's subject once every object exists, since an order may name a group that has not been built yet when its own group is.
-
-What differs from the original, and why:
-
-- **A null order slot leaves the machine's state unchanged** rather than installing a null descriptor. The original's behaviour there is a crash, not a decision.
-- **Only `patrolling` and `travelling` can finish a movement order.** The route cursor is advanced by `Ai_FollowRoute` alone, and `following` never calls it — see [`ai-navigation.md`](ai-navigation.md), which is the original's own behaviour rather than a gap here.
-- **The action path is live**: `MissionGroup.BindOrderAction` resolves each slot's `+0x12` and the group advances when it fires — see [`mission-deployment.md`](mission-deployment.md).
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

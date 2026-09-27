@@ -245,33 +245,6 @@ The eight button bytes take a detour: the code searches the row's list for the r
 
 That function also carries an arm that zeroes the block, taken when the capability block's `+0` is 0. `Input_QueryCapabilities` writes 1 or 2 into that field unconditionally and is the only thing that fills the block, so the arm cannot be reached through its own input. With no stick the panel greys its twelve rows but leaves RECOMMEND live, so pressing it still writes this set; the readouts stay blank because the refresh is gated on the same missing capabilities.
 
-## Engine port
-
-`Content.SimulatorPreferences` is the file, the three write primitives, the handler table (`RegisterHandler`, run by `Set` with apply as every original caller passes it), the load-time walk (`ApplyAll`, under `Initialising`) and `Commit`. `Content.PreferencesPanel` and `Content.ControlsPanel` hold each panel's text, its state and its click rules, the controls panel's `PressButtonRow` being the joystick's way in; `Content.PreferencesPanelLayout` and `Content.ControlsPanelLayout` hold the geometry tables above, over the same `Content.AlertPanelLayout` the other two panels use, which gained an uncentred placement for the preferences strip and the `INACTIVE` caption font for a greyed row. `Content.JoystickCapabilities` is the capability block. `Render.Overlay2DRenderer.DrawPreferencesPanel` and `DrawControlsPanel` paint them through the shared `DrawAlertPanel`, which carries a per-button bank, frame and font and a per-label alignment for these two. Both plates are packed into the cockpit's sprite atlas with the rest. `Terrain.TerrainDetail` reads its setting through `SimulatorPreferences` rather than parsing the file itself. What reads the twelve binding bytes at run time is `Input.JoystickBindings` — [`../engine/joystick-config.md`](../engine/joystick-config.md).
-
-Where each row lands:
-
-| Row | Consumer |
-|---|---|
-| MUSIC, SOUNDS | Their handlers, `SoundDirector.ApplyMusicOption` and `ApplySoundsOption` |
-| PILOT MESSAGE | Its handler, `GameAudio.SpeechEnabled`; the display half is the squad port's `Mode`, which the host copies from the byte every frame |
-| COMPUTER MESSAGE | The computer's port's `Mode`, copied the same way |
-| TERRAIN DISTANCE | `Terrain.TerrainDetail` |
-| TERRAIN TEXTURE | The terrain item's texture binding, re-read every frame in place of the handler |
-| HERC DETAIL | The bias in `Render.ShapeDetail`'s root selection, re-read every frame — [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md#the-lod-root-is-chosen-per-frame-per-object) |
-| STRUCTURE DETAIL | The bias in `Render.PartDetail`'s level selection, re-read every frame |
-| EFFECTS DETAIL | `SimWorld.EffectsDetail` and `SoundDirector.DetailSetting`, both copied every frame |
-| The twelve bindings | `Input.JoystickBindings`, every tick, in place of the throttle row's handler |
-
-Divergences:
-
-- **Two handlers are not registered.** TERRAIN TEXTURE's and the throttle row's bytes are read where they are used, every frame or tick, which puts the same value in effect without a push.
-- **The load-time shadow is kept, the outgoing one is not.** `Commit` compares against the first; the second (`004d2028`) serves a revert, and neither panel reverts.
-- **`--no-write-prefs` can turn saving off**, which the original has no equivalent of. Saving itself is the original's: each panel merges its own options into a fresh read of the file as it closes, and a file the engine did not read is never written.
-- **A joystick button's press reaches the panel from the host**, not from an event handler, because this engine has no widget-tree event to carry it: `ControlsPanel.PressButtonRow` is the select-or- step half and the host's `ReadControlsPanelJoystick` owns the latch. Retail keeps one latch for the panel and the simulation both, in the device block; here the panel has its own, primed from whatever is held while the panel is down so that a button pressed for something else does not also step a row as the panel comes up.
-- **The panels are placed against the window**, as the other two are.
-- **The RAZOR half is selected by the player's chassis id**, resolved through `HercLUT`, where the original reads the global the mission load wrote.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

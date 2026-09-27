@@ -1,7 +1,5 @@
 # DBSIM.EXE equipment pods
 
-Ported in `Herculan.Engine.Sim.MechPods`, with the row button and the two ticks in `MechObject.PodTick`, the Turbo Pod's charge in `WeaponMount.TurboChargeTick` and its speed term in `MechObject.TurboSpeedBonus`.
-
 The five non-firing pods a HERC can carry — ECM, TARG, SHLD, TURB, ENRG. This doc owns the pod as an **object**: how the five classes are built, what each one overrides, how their cockpit rows behave, when they tick, and the damage curve they share. What each pod's contribution then *does* belongs to the system it feeds, and stays there:
 
 | Pod | Effect owned by |

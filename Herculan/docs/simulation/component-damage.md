@@ -170,23 +170,14 @@ The sink raises `obj+0x38` alongside dropping z to -100000, and **that byte has 
 
 **This is a null result and nothing more.** The byte carries a meaningful value, so the absence of a reader rests entirely on the scan being exhaustive, which it cannot be shown to be. Treat it as a reason the port leaves the byte out, not as a proven property of the original.
 
-## Port notes
+## Traps
 
-The traps, not a summary — everything else here is stated once above and does not need repeating.
+The traps, not a summary — everything else here is stated once above.
 
 1. **Component health is a dependency graph, not a flat HP list.** A component's reading aggregates its dependents, and destroying one cascades into them.
 
-## Ported
+2. `Mech_CreditNeutralisedTarget` is `void __cdecl(SimObject *attacker, SimObject *victim, short victimAlreadyImmobilised)` — plain `__cdecl` on three stack arguments, whatever the decompiler's `__thiscall` rendering of the vtable slot says. All four call sites push three and clean 12 bytes.
 
-The parts of `Mech_ComponentDamageWrite` that change behaviour — the shield-capacity recompute, leg grading, the death gate, the reactor flags, and the warnings all four of those post — are `Herculan.Engine.Sim.MechObject.Combat`'s; the whole `+0x206` header — the three arrays, the aggregate read, the spill and the cascade — is `Sim.ComponentDamage`.
-
-The destruction path's own effects — the debris, the fire and the explosion a lost component throws — are `Sim.ComponentDamage.DestructionEffects`; see [`destruction-effects.md`](destruction-effects.md).
-
-Both out-of-the-fight branches are ported entire, including the behaviour-state installs, the sampled-before-the-finish-off ordering the defeat action depends on, and the vtable `+0x60` kill credit (`MechObject.CreditNeutralised`) with both of its radio callouts — the scorer's `0x02` and the victim's `0x25`/`0x04`, the latter being the original's only forced post ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#what-each-id-says)).
-
-`Mech_CreditNeutralisedTarget` is `void __cdecl(SimObject *attacker, SimObject *victim, short victimAlreadyImmobilised)` — plain `__cdecl` on three stack arguments, whatever the decompiler's `__thiscall` rendering of the vtable slot says. All four call sites push three and clean 12 bytes. `Mech_SpreadImpactDamage` is `MechObject.SpreadImpactDamage` and `Component_TotalArmor` is `ComponentDamage.TotalArmor`; `Mech_ApplyStartingCondition` is `MechObject.ApplyStartingCondition`, called from `Scene.MissionScene` where the original calls it.
-
-The computer's warnings are posted from the sites above through `SimWorld.Sounds.Say`, with the five latches already carried as `MechObject.LegsDamaged`, `LegsCrippled`, `Reactor` and `ShieldsDownAlert`; `SimObject.AnnounceNeutralised` is the `0x2e`/`0x2f` predicate, called from all three endpoints. The ids are `Content.SystemMessages`'.
 ## Open
 
 - **Open:** the exact sub-piece breakdown per component.

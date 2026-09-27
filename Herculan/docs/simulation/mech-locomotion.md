@@ -165,8 +165,6 @@ Tick rate, the `SimTickDelta`/`DAT_004d3be8` formula (`Time_BeginSimTick`, `0046
 
 Locomotion accel constants (`SpeedAccelDecel`, `DecelTurning`) are raw per-tick steps with no `Math_IntegrateRateOverTick`, so **the control law is frame-rate dependent**. The animation advance and the torso rates *are* dt-scaled.
 
-> Port note: Herculan does not reproduce this. Both constants go through > `SimMath.ScalePerTickStep` (`step x TickDelta / 81`), exact at the original's own 40 ms tick. > Below the vanilla tick length, a step that rounds to zero is pinned to 1 — re-check these > constants if the engine's tick rate is ever raised above 25 Hz.
-
 ## Root motion
 
 `SimObject_ApplyRootMotion` (`0040250c`), called once per tick from `Mech_IntegrateMotion`:
@@ -333,15 +331,11 @@ Three arrays on the shape instance: `+0x12` per-node **local** transforms (strid
 
 `ShapeInst_ExpandRootTransform` (`00478b10`) confirms the local record's layout as `[eulerX, eulerY, eulerZ, x, y, z]` shorts, and thread field offsets are confirmed here too: `+4` sequence, `+6` frame, `+8` nextSequence, `+10` nextFrame, `+0x1c` frameAccumulator, `+0x1e` frameDuration.
 
-> Port note: `AnimTransform.Blend` ports the blend; `ShapeInstance.NodeTransform` / > `InterpolatedLocal` / `FrameFraction` port the evaluation. The port composes lazily per requested > node instead of building the whole array, so `ShapeInst_BuildWorldTransforms`'s dirty-flag > machinery has no counterpart and needs none. > `ShapeInst_BuildWorldTransforms`'s output array is what geometry is drawn through — see > [`dts-node-posing.md`](../formats/dts-node-posing.md).
-
 ### Evaluation cadence — per tick, not per rendered frame
 
 `ShapeInstance_StepAnimation`'s **only** caller is `SimObject_ApplyRootMotion` (`0040250c`), which `Mech_IntegrateMotion` runs once per sim tick. So poses are re-blended once per tick.
 
 There is no separate render rate for them to be per-frame at: `Time_BeginSimTick` (`004677bc`) spin-waits the whole loop to 40 ms, so **tick and frame are the same thing in DBSIM** (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)). A vanilla frame always shows a pose evaluated that same iteration, at 25 Hz.
-
-> Port note: the engine runs a fixed 25 Hz tick (`SimWorld.TicksPerSecond`, `TickDelta` pinned to the > vanilla 81) with rendering decoupled, so it produces the same 25 distinct poses a second the > original does, however fast it renders; consecutive rendered frames may repeat a pose, which > vanilla never does only because it never renders faster than it ticks. Sampling `NodeTransform` at > render time with a sub-tick fraction would exceed the original's smoothness rather than match it, > and is deliberately not done.
 
 ## Collision
 

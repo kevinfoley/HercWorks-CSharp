@@ -228,20 +228,6 @@ Fields settled elsewhere link out rather than being restated.
 | `+0x2aa` | short | Fear: written by the flee check, 300/600/1000, and read as the AI's weapon-score floor — [`ai-weapons.md`](ai-weapons.md) |
 | `+0x30b` | ptr | Targeting Pod — [`target-selection.md`](target-selection.md#component-targeting--the-targeting-pod) |
 
-## Engine port
-
-`Sim.Ai.AiTargeting` holds the shared routines, `Sim.Ai.BehaviourState` the 22 descriptors and the `mech+0x4d` block, `MechObject.Ai.cs` the machine's own half, and `Sim.MissionGroup` the record the AI is driven from. `MissionScene` builds one group per block-11 index, attaching objects in placement order so the group's first member is its leader, and `SimWorld` runs the groups' AI pass alongside the object updates and ahead of the sensor sweep.
-
-**What runs.** The behaviour block and its dwell clock, `Mech_AiTick`'s reassess dispatch, the combat reassess entire — radar, keep-or-acquire, the leader sweep, the flee check, the state install and the aim pick — `Mech_AiOnTakingFire` from the raycast's `+0x50` site, both friendly-fire sites, and `Ai_SelectTarget` with all four weight tables and the combat rating behind them ([Open](#open) covers the structure acquisition gap).
-
-**What that adds up to in a mission.** An AI machine is constructed in `deciding` and its group's current order resolves that into the state the order asks for — [`ai-goals.md`](ai-goals.md), or, for a player squadmate under a standing order, [`ai-squadmates.md`](ai-squadmates.md).
-
-Deviations, all of them things the original reads that this engine has no value for:
-
-- **The aim band's targeting-computer override is not applied.** It turns on a pod field (`+0x7f`) whose meaning is untested, the same doubt the ECM roll records, so the roll alone picks the band.
-
-Two things are reproduced rather than corrected: the `rand & 1000` jitter in the rating comparison, and the aim pick reading its own component damage.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -253,5 +239,5 @@ Two things are reproduced rather than corrected: the `rand & 1000` jitter in the
 ## Open
 
 - **Open:** `mech+0xa8`'s meaning — read alongside `+0xa9` in the `flanking` gate's exception.
-- **Open:** whether `mech+0x30b`'s Targeting Pod field `+0x7f` really tracks cached damage — the reading is unconfirmed, which is why the engine does not apply the aim band's targeting-computer override.
+- **Open:** whether `mech+0x30b`'s Targeting Pod field `+0x7f` really tracks cached damage, which is what the aim band's targeting-computer override turns on.
 - **Unported:** a structure's two acquisition call sites — `BaseObject` has no AI.

@@ -78,7 +78,7 @@ Below that line all three constructors write an *identical* block — `+0x1a8 = 
 
 ## The two per-object tables are 112 rows each
 
-`obj+0xc2` is the contact table and `obj+0x132` the line-of-sight cache, both flat byte arrays indexed by the *other* object's `listIndex` (`obj+0x4b`, assigned by `ObjectList_Add`). Neither has a length written down anywhere; both are `0x70` = 112 bytes, from the gap between them, corroborated by the identical `0x70` gap from `+0x132` to the next member at `+0x1a2`. **112 is therefore the simulation's object cap**, and it is why the engine's `SimObject.EnsureTableSize` is a deliberate divergence rather than a port.
+`obj+0xc2` is the contact table and `obj+0x132` the line-of-sight cache, both flat byte arrays indexed by the *other* object's `listIndex` (`obj+0x4b`, assigned by `ObjectList_Add`). Neither has a length written down anywhere; both are `0x70` = 112 bytes, from the gap between them, corroborated by the identical `0x70` gap from `+0x132` to the next member at `+0x1a2`. **112 is therefore the simulation's object cap.**
 
 ## Countdowns keep their counter one byte past the record
 

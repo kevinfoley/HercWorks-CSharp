@@ -57,7 +57,7 @@ See [`formats/audio.md`](../formats/audio.md#cd-audio).
 
 | Flag | Effect |
 |---|---|
-| `--no-write-prefs` | Leaves `data\prefs.cfg` unwritten: when the preferences and controls panels close, and in the shell at startup and on `Begin Mission`. See [`simulation/preferences.md`](../simulation/preferences.md#engine-port) and [`shell/screen-layout.md`](../shell/screen-layout.md#sound). |
+| `--no-write-prefs` | Leaves `data\prefs.cfg` unwritten: when the preferences and controls panels close, and in the shell at startup and on `Begin Mission`. See [`simulation/preferences.md`](../simulation/preferences.md) and [`shell/screen-layout.md`](../shell/screen-layout.md#sound). |
 | `--joystick [0-8]` | Pretends a stick with throttle, rudder and hat is attached, so the CONTROLS panel's joystick rows are live without hardware. The number sets how many of the eight button rows are live; without it, all eight. A real stick, when one is attached, takes precedence. |
 | `--joystick-probe` | Prints each axis and button of the attached stick as it moves. |
 | `--write-joystick-map` | Writes the joystick map in force to `data\herculan-joystick.cfg`. |
@@ -93,9 +93,9 @@ Several of them hold the capture past the 30 frames until what they stage is on 
 | `--hdd-damage <0-2>` | The damage screen's category: 0 structural (`[S]`), 1 internal (`[I]`), 2 weapons (`[W]`). |
 | `--hdd-subject <0-4>` | The damage screen's subject, as the left and right arrows step it: 0 the player, 1-3 a squad slot, 4 the target. An empty squad slot starts on the player. |
 | `--external` | Starts in the external chase view (`[V]`). See [`key-bindings.md`](../key-bindings.md#herculan-engine). |
-| `--objectives` | Opens the `[F11]` objectives panel. See [`simulation/mission-objectives.md`](../simulation/mission-objectives.md#engine-port). |
+| `--objectives` | Opens the `[F11]` objectives panel. See [`simulation/mission-objectives.md`](../simulation/mission-objectives.md). |
 | `--quit [0-19]` | Raises the `[Q]` mission-status alert. Without a number it shows the status the mission evaluates to; a number forces that `GNL_ALRT.STR` row, 0 and 1 being the pause panel's. |
-| `--preferences` | Opens the `[F12]` preferences panel. See [`simulation/preferences.md`](../simulation/preferences.md#engine-port). |
+| `--preferences` | Opens the `[F12]` preferences panel. See [`simulation/preferences.md`](../simulation/preferences.md). |
 | `--controls` | Opens the preferences panel with the CONTROLS panel over it. |
 | `--hit-shake` | Lands one hit on the cockpit, for the damage shake and its palette flash. See [`formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#the-damage-shake). |
 
@@ -124,4 +124,4 @@ Several of them hold the capture past the 30 frames until what they stage is on 
 | `--flash-comm-xmit` | Presses XMIT on that row once the mission is up. |
 | `--wait-transmission` | Holds a `--screenshot` capture until a squadmate's portrait is up. Useful only with `--flash-comm-xmit`. |
 
-The squadmate side of both is in [`simulation/ai-squadmates.md`](../simulation/ai-squadmates.md#engine-port) and [`formats/heads-down-display.md`](../formats/heads-down-display.md).
+The squadmate side of both is in [`simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) and [`formats/heads-down-display.md`](../formats/heads-down-display.md).

@@ -47,14 +47,12 @@ Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding
 
 `SimWorld.PresentationRandom` is the second generator, a separate default-constructed `SimRandom`. `SimWorld.SpawnImpactEffect` makes `Explosion_Construct`'s discarded draw on it, and the host hands it to the sound director, the squad comm channel (its message variants, the scream's roll and the portrait paint's discarded draw) the cockpit hit shake and the sensor dropout.
 
-The `SimRandom(int)` constructor is this engine's own device, for a test that wants a pinned stream independent of the retail table.
-
 A roll's result depends on how many draws preceded it, so matching a specific retail roll means matching tick order, not just the seed; any particular roll is statistically faithful rather than replay-faithful today ([Open](#open)).
 
 ## Open
 
 - **Open:** match call order (tick order), not just the seed, so a specific retail roll replays exactly rather than only statistically — see [`../../ROADMAP.md`](../../ROADMAP.md).
-- **Open:** what constructs `SMOKE`. `Sim_MainTick` ticks a list of them through `Smoke_Tick` (`004092dc`), each releasing a `SMOKE_BALL` every 200 ticks while its count lasts, but `es2_xref.py` finds no branch or pointer reaching `Smoke_Construct` or landing anywhere from `00409200` to `00409240`. The engine has no `SMOKE`.
+- **Open:** what constructs `SMOKE`. `Sim_MainTick` ticks a list of them through `Smoke_Tick` (`004092dc`), each releasing a `SMOKE_BALL` every 200 ticks while its count lasts, but `es2_xref.py` finds no branch or pointer reaching `Smoke_Construct` or landing anywhere from `00409200` to `00409240`.
 - **Open:** whether `TexPoly` is ever built. Its constructor (`0042f700`, in bytes Ghidra left undisassembled) has no reference `es2_xref.py` finds, the class name appears only in its own RTTI record — not in the persistence name table beside `TSTexture4Poly` — and no retail `.DTS` names it.
 - **Unported:** the death flash's draws, with the feature.
-- **Open:** whether DBSIM draws from the generator before a zone populates. The terrain scatter is the visible case: if it does, the scatter lands on different cells than this engine's — see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+- **Open:** whether DBSIM draws from the generator before a zone populates. The terrain scatter is the visible case:, because the draws before it move where the scatter lands.

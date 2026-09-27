@@ -4,8 +4,6 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addres
 
 Verified against retail data in `ES2/VOL/simvol0/{hb0,hb1,hb2,hba,dpl}/`.
 
-Engine implementation: `Herculan.Engine.Content.CockpitArt`, `Content.CockpitPalette`, `Render.CockpitHitShake`.
-
 The view manager that loads this art per view, and the `.HD`/`.ED` viewport cutout it is blitted under: [`cockpit-views.md`](cockpit-views.md). The console and HUD widgets painted over it: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md).
 
 ## Canopy art — `.HB0`/`.HB1`/`.HB2` and `.DB0`/`.DB1`/`.DB2`
@@ -113,7 +111,7 @@ if (nextToggleTick == 0) {
 }
 ```
 
-**A second trigger inside the window stops the shake rather than compounding it.** The restart restores the palette and clears the view band, and then finds `nextToggleTick` still non-zero — the tick function is the only thing that clears it, on expiry — so the arm block is skipped and neither is put back. `endTick` is extended all the same. So a hit 0.3 s into a shake buys another 0.96 s of `CockpitView_StepShake` calls against a disarmed band, which move nothing: the view goes still for the rest of the window while the palette carries on flipping. This engine reproduces it; see KNOWN_ISSUES.md.
+**A second trigger inside the window stops the shake rather than compounding it.** The restart restores the palette and clears the view band, and then finds `nextToggleTick` still non-zero — the tick function is the only thing that clears it, on expiry — so the arm block is skipped and neither is put back. `endTick` is extended all the same. So a hit 0.3 s into a shake buys another 0.96 s of `CockpitView_StepShake` calls against a disarmed band, which move nothing: the view goes still for the rest of the window while the palette carries on flipping. See [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
 `Cockpit_HitShakeTick` (`0043408c`) runs it: while `endTick` is in the future it calls `CockpitView_StepShake(rand() % 5)` every frame and flips the palette each time `nextToggleTick` expires, rearming that at `now + rand() % 10`. On expiry it restores both. Mode 4 clears `endTick` outright, so leaving the cockpit ends a shake in progress.
 
@@ -146,9 +144,7 @@ The class is small overall — 2.8% of the triangle vertices across the 55 retai
 
 The HUD follows it too, in three parts, because its colour is resolved from the palette in three different ways: `CockpitArt` resolves `COLORS.DAT`'s ids and the raw palette slots into tables at load, so it holds **two** sets and `CockpitArt.FlashActive` picks between them; the sprite sheet's plates and glyphs are re-expanded from `TextureAtlas.IndexPixels` through the flash palette; and the heads-down map's relief raster is rasterized a second time, since it resolves its colours up front rather than per draw. Twenty of `COLORS.DAT`'s twenty-seven entries move under a retail impact palette, and they move a long way — HUD green `(64,212,40)` becomes orange `(208,92,0)`, white `(228,228,228)` becomes `(252,0,0)` — so a HUD that kept its colours would be the one part of the screen visibly refusing to flash.
 
-The shield meter's rings are the deliberate exception. Their six colours are immediates in the exe (`0049c9cb`/`0049c9ce`) that `ShieldsGauge` writes into whichever palette is active on every frame, so they read the same through a flash in the original; the engine paints those same literals into both of the canopy's buffers.
-
-`Herculan.Engine.Host` takes `--hit-shake`, which stages one hit and holds a `--screenshot` capture until the flash is up: a shake lasts under a second and the palette alternates inside it on its own 0-9 tick timer, so a fixed frame count is as likely to photograph the theater's palette as the impact one.
+The shield meter's rings are the deliberate exception. Their six colours are immediates in the exe (`0049c9cb`/`0049c9ce`) that `ShieldsGauge` writes into whichever palette is active on every frame, so they read the same through a flash.
 
 ## Rejected readings
 
@@ -160,4 +156,4 @@ The shield meter's rings are the deliberate exception. Their six colours are imm
 
 ## Open
 
-- **Open:** what reaches the death flash, `Sim_DeathFlash`. `es2_xref.py` finds no branch, stored pointer or vtable slot holding it; nothing in the engine plays it either.
+- **Open:** what reaches the death flash, `Sim_DeathFlash`. `es2_xref.py` finds no branch, stored pointer or vtable slot holding it.

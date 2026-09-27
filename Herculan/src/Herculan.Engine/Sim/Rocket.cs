@@ -202,11 +202,10 @@ public sealed class Rocket {
 	/// otherwise, and the whole climb is capped at the <c>PROJ.DAT</c> record's <c>Speed</c>. Kept
 	/// literally: it is what the burn curve is.</para>
 	///
-	/// <para><b>Two things the original does here are left out</b>, both belonging to systems that do
-	/// not exist. The proximity warning — the beep a rocket plays once it comes within 40000 units of
-	/// the camera's own machine — is sound, which is unported throughout. And the pair of globals that
-	/// track the missile the player is flying (<c>DAT_0049c394</c> and <c>DAT_0049c398</c>) exist to
-	/// tell the cockpit that its missile view is over; there is no missile view.</para>
+	/// <para><b>One thing the original does here is left out.</b> The pair of globals that track the
+	/// missile the player is flying (<c>DAT_0049c394</c> and <c>DAT_0049c398</c>) exist to tell the
+	/// cockpit that its missile view is over; there is no missile view. The proximity warning is
+	/// <see cref="InboundWarningTick"/>.</para>
 	/// </summary>
 	/// <returns>Whether the round is finished and should be freed.</returns>
 	internal bool Tick(SimWorld world) {

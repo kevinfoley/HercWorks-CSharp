@@ -1,6 +1,6 @@
 # DBSIM.EXE weapon mounts: loadout, naming, magazines, capacitors, selection
 
-Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{WeaponCatalog, WeaponMount, WeaponMounts}` and `Herculan.Engine.Content.WeaponRowState`.
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual addresses.
 
 Covers how a fit becomes mounts, what those mounts hold, and how the player arms them. What happens when the trigger is pulled is in [`weapon-firing.md`](weapon-firing.md); the pool arbitration they feed is in [`reactor-energy-pool.md`](reactor-energy-pool.md); the widgets they drive are in [`../formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#weapon-hardpoint-rows); the template table itself is in [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 
@@ -175,11 +175,11 @@ A band change on a mount component rolls once to take that mount out, inside `Me
 
 ## Names — `WeaponMount_GetDisplayName` (`0040e18c`)
 
-**The simulator does not use the shell catalog's names.** `Weapons_LoadResourceTables` (`0040fc8c`) walks a 33-entry string-pointer array at `00498eb0` as it reads the template table and stores one pointer into each record's `+0x52`; that is what a gauge prints. The two spellings are tabulated per id in [`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-weapon-id-space--three-spellings-per-weapon) alongside each weapon's full name; the array itself is ported as `WeaponCatalog.MountNames`.
+**The simulator does not use the shell catalog's names.** `Weapons_LoadResourceTables` (`0040fc8c`) walks a 33-entry string-pointer array at `00498eb0` as it reads the template table and stores one pointer into each record's `+0x52`; that is what a gauge prints. The two spellings are tabulated per id in [`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-weapon-id-space--three-spellings-per-weapon) alongside each weapon's full name.
 
 The name is chosen off the **resolved projectile**, not the weapon id: when the mount's `PROJ.DAT` record is a `Missile`, the gauge prints that record's own subtype from a four-entry table at `004989c8` — `SARH`, `ARH`, `ARM`, `EO` — so a launcher is named by what is loaded in it. This is why the retail player's `MSL10` hardpoint reads `ARH`. Ids 13–16's own names are bare round counts (`"6"`, `"8"`, `"10"`, `"24"`) precisely because a launcher never prints them.
 
-> The subtype index is unbounded in the original. `MISSL` (id 21) points straight at the `BMSL` > record, subtype 4, and reads one past the four-entry table. The engine falls back to the id's own > name rather than reproducing a read off the end of a table. `BMSL` is Bull armament and no > player HERC can mount it.
+> The subtype index is unbounded in the original. `MISSL` (id 21) points straight at the `BMSL` > record, subtype 4, and reads one past the four-entry table. `BMSL` is Bull armament and no > player HERC can mount it.
 
 A pod row is the one place the name is decorated. `PodGauge_Ctor` (`00441524`) seeds its 11-char buffer with a literal space, appends the mount name, then appends `STRINGS0.STR` group 3 (`" POD"`) into whatever room is left — `" SHIELD POD"` exactly fills it. The Heads-Down Display's weapon list (`HddDamageScreen_Update`, `00450c54`) takes the undecorated name, so the same pod reads `SHIELD` there.
 
@@ -262,7 +262,7 @@ Two conditions, both from the chassis: the armed mount's `.GL` record names a pa
 
 Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's row when its *partner* is the armed one, so both rows of a pair draw armed together. [Readiness](#readiness--weaponmounts_mountisready-00410970) is joined too, so a pair is ready only when both halves are. A destroyed or empty half unlinks the pair and hands the selection to the survivor.
 
-> One LINK press runs the toggle **three** times in the original: the button's own click handler > (`ConsoleButtons_SetLinkLatch`, `0044202c`), the manager's next per-frame pass reading the button's latch byte, and that > pass writing the byte back so the widget sees it change and calls the handler again. Three flips > of one bit is one flip. Herculan reproduces the net effect, not the round trip.
+> One LINK press runs the toggle **three** times in the original: the button's own click handler > (`ConsoleButtons_SetLinkLatch`, `0044202c`), the manager's next per-frame pass reading the button's latch byte, and that > pass writing the byte back so the widget sees it change and calls the handler again. Three flips > of one bit is one flip.
 
 ### Console buttons
 
@@ -276,7 +276,7 @@ Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's
 
 ## Open
 
-- **Unported:** the missile-lock gate on readiness. The engine's `CanFireNow` carries the mount test, the range gate and the link recursion, but not the third one: a launcher whose subtype holds no lock should read red and be skipped, and does not.
+- **Unported:** the missile-lock gate on readiness: a launcher whose subtype holds no lock reads red and is skipped.
 - **Unported:** auto-fire — see [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported; auto-fire is not.
 - **Unported:** the spectator camera as the readiness range's measurement origin (`DAT_0049ef5c`/`DAT_004d2708`) — see [`target-selection.md`](target-selection.md).
 - **Open:** template fields other than those named here — see [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).

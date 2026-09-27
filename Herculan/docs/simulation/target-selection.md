@@ -21,7 +21,7 @@ Every writer of `+0x1a4` also maintains `target+0x1a2`, a count of how many obje
 
 Everything selectable and inside the ±8999 cone is filed into one of four buckets by bearing error (`|err| >> 10`, clamped to 3), sorted by range within its bucket, keeping four. Flattening the buckets in order gives the shortlist: **nearest the crosshair wins, range only breaks ties inside a band**. A repeat press whose rebuilt head is unchanged steps to the shortlist entry after the current selection.
 
-The angular-size correction the function computes from the target's range and shape radius is multiplied by a literal `PUSH 0x0` (`004335d0`) and is therefore always zero; the engine omits the same dead term.
+The angular-size correction the function computes from the target's range and shape radius is multiplied by a literal `PUSH 0x0` (`004335d0`) and is therefore always zero.
 
 ### Can this be targeted — `TargetSelect_CanTarget` (`00433174`)
 
@@ -74,7 +74,7 @@ A terrain ray between the two objects' aim nodes (`+0x1c` of the vtable `+0x24` 
 
 `mech+0x96` is PASSIVE/ACTIVE, toggled by `Mech_ToggleRadarMode` (`0041b468`) — the manual's [R] and the F4 scanner's PASS/ACTIVE buttons, gated on `obj+0xa3` so only the player's machine flips. **A HERC powers up passive**: nothing writes the field at construction and that toggle is its only caller. `Base_Construct` latches it on for structure types 5, 6, `0x1d`, `0x1e` — the radar masts.
 
-This matters for what the player can target. Passive, targeting depends on visual contacts and reaches about 350 m; active, it reaches as far as terrain gives line of sight — measured at 831 m against the stock mission's nearest hostile. A distant enemy is usually targetable because *its own* radar is on: `Mech_AiCombatReassess` switches an AI machine to ACTIVE the moment it enters a fight and a squadmate of the player's back to PASSIVE (see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18)), ported as `MechObject.CombatReassess`.
+This matters for what the player can target. Passive, targeting depends on visual contacts and reaches about 350 m; active, it reaches as far as terrain gives line of sight — measured at 831 m against the stock mission's nearest hostile. A distant enemy is usually targetable because *its own* radar is on: `Mech_AiCombatReassess` switches an AI machine to ACTIVE the moment it enters a fight and a squadmate of the player's back to PASSIVE (see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18)).
 
 Radar mode is also what an **AI machine's ECM pod** follows, so a Cybrid that lights its radar up on entering a fight starts jamming at the same moment — see [`equipment-pods.md`](equipment-pods.md).
 
@@ -158,20 +158,6 @@ Every reader of the pod is a threshold on the cached reading at `+0x7f`, and the
 Because `Mech_ComponentDamageWrite` then hands **every** mount its component's reading on every write anywhere on the machine, the cache tracks the live figure from there on. The two are still not interchangeable — the cache is only as current as the last write, and a thing that changed a component reading without going through that write would part them — but no such path exists in the simulation.
 
 `TargetingPod_ResolveAimPoint`'s fourth parameter is dead. `Player_ResolveTargetAimPoint` passes the target's occupancy-array pointer `mech+0x20e`, and `[EBP+0x14]` is untouched in the whole body — while the two out-parameters either side of it, `[EBP+0x18]` and `[EBP+0x1c]`, are read. The pod reaches the same array through the target's own slots instead.
-
-## Engine port
-
-`SimObject` carries `ListIndex`, `Side`, `TargetClass`, `Neutralised`, `RadarVisible`, `ScannerActive`, `JammerActive`, `AimOffset`/`AimPoint`/`SightHeight`, `TargetedBy` and the two per-object tables. `MissionScene.Targeting` holds the selection; the host drives it from [Enter]/[']/[;] and pushes it to the machine once a frame.
-
-The pod is `Sim.TargetingPodLock`, hung off `WeaponMount.ComponentLock` for the one mount whose catalog id is 29 and null on every other — the engine has a single mount class where the original has a subclass per kind, and the four fields belong to the mount that has them. `MechObject` supplies the callers: the reset from its `OnTargetChanged`, `CycleTargetComponent` for `[Tab]`, and `ResolveTargetAimPoint` for `Player_ResolveTargetAimPoint`, whose result the host resolves **once a frame** and hands to both consumers — asking twice would run the decay countdown twice. The target's two slots are `SimObject.NextTargetableComponent` / `ComponentPresent`, overridden on `MechObject`; `Base_NextTargetableComponent` has no engine counterpart, since it sits unreachable behind the `TargetClass` fence in retail too.
-
-All three entry points also set the gunsight's "indicator armed" byte (`TargetSelection.IndicatorArmed`, state-block offset 36) on a successful press, which the target box's paint requires — see [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md). Nothing ever clears it.
-
-Deviations:
-
-- **The observer camera is excluded** from the sensor model by target class. DBSIM's live-object list only ever holds the three combat classes; `SimWorld`'s also holds the camera, which would otherwise spot for the player's side.
-- `TargetSelection.DropIfInvalid` is [the cockpit update's drop](#losing-the-selection--fun_004327ac), plus a removed-object test of the engine's own that applies in every view — DBSIM's object list has no removed-but-listed state.
-- `obj+0x9e` and the engagement action it fires at 50000 units are `SimObject.Engaged` and `SimObject.EngagementAction` — [`mission-deployment.md`](mission-deployment.md).
 
 ## Rejected readings
 

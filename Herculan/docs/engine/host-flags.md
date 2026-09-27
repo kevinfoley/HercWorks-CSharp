@@ -88,8 +88,8 @@ Several of them hold the capture past the 30 frames until what they stage is on 
 
 | Flag | Effect |
 |---|---|
-| `--mfd <0-5>` | The MFD screen at power-up, in `[F1]`–`[F6]` order. See [`formats/mfd.md`](../formats/mfd.md#engine-coverage). |
-| `--hdd [0\|1]` | Starts panned down to the Heads-Down Display: 0 the command display (`[F7]`, the default), 1 the damage detail (`[F8]`). See [`formats/heads-down-display.md`](../formats/heads-down-display.md#engine-coverage). |
+| `--mfd <0-5>` | The MFD screen at power-up, in `[F1]`–`[F6]` order. See [`formats/mfd.md`](../formats/mfd.md). |
+| `--hdd [0\|1]` | Starts panned down to the Heads-Down Display: 0 the command display (`[F7]`, the default), 1 the damage detail (`[F8]`). See [`formats/heads-down-display.md`](../formats/heads-down-display.md). |
 | `--hdd-damage <0-2>` | The damage screen's category: 0 structural (`[S]`), 1 internal (`[I]`), 2 weapons (`[W]`). |
 | `--hdd-subject <0-4>` | The damage screen's subject, as the left and right arrows step it: 0 the player, 1-3 a squad slot, 4 the target. An empty squad slot starts on the player. |
 | `--external` | Starts in the external chase view (`[V]`). See [`key-bindings.md`](../key-bindings.md#herculan-engine). |
@@ -107,7 +107,7 @@ Several of them hold the capture past the 30 frames until what they stage is on 
 | `--heading <n>` | Turns the lower body to binary angle *n* (`0x4000` is a quarter turn) in place of the heading along the first leg of its route. |
 | `--turret <twist> <pitch>` | Holds both turret axes for the whole run, each clamped to ±256. See [`simulation/torso-aim.md`](../simulation/torso-aim.md). |
 | `--track` | Starts with Automatic Turret Tracking latched. It has nothing to hold without `--target`. |
-| `--target` | Switches the scanner on and selects the nearest target after five ticks. See [`simulation/target-selection.md`](../simulation/target-selection.md#engine-port). |
+| `--target` | Switches the scanner on and selects the nearest target after five ticks. See [`simulation/target-selection.md`](../simulation/target-selection.md). |
 | `--weapon <1-10>` | Arms that weapon panel row, numbered as the row prints it. See [`formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#weapon-hardpoint-rows). |
 | `--link` | Links the row `--weapon` arms. |
 | `--fire` | Holds the trigger down for the whole run. |
@@ -120,8 +120,8 @@ Several of them hold the capture past the 30 frames until what they stage is on 
 | `--hdd-pilot <0-2>` | The command display's selected comm box. The order list is greyed out until a pilot is selected. |
 | `--hdd-order <0-7>` | The armed order, 0 Disengage, 1 Attack Enemy, 2 Defend Position, 3 Patrol Gridpoint, 4 Goto Gridpoint, 5 Join On Me, 6 Scan For Hostiles, 7 EMCON. |
 | `--hdd-xmit` | Presses XMIT on the armed order, taking the map centre where the order needs a pick, and prints the squad's standing orders before and after the run. |
-| `--flash-comm <0-5>` | The FLASH COMM row the cursor starts on. See [`formats/mfd.md`](../formats/mfd.md#engine-coverage). |
+| `--flash-comm <0-5>` | The FLASH COMM row the cursor starts on. See [`formats/mfd.md`](../formats/mfd.md). |
 | `--flash-comm-xmit` | Presses XMIT on that row once the mission is up. |
 | `--wait-transmission` | Holds a `--screenshot` capture until a squadmate's portrait is up. Useful only with `--flash-comm-xmit`. |
 
-The squadmate side of both is in [`simulation/ai-squadmates.md`](../simulation/ai-squadmates.md#engine-port) and [`formats/heads-down-display.md`](../formats/heads-down-display.md#engine-coverage).
+The squadmate side of both is in [`simulation/ai-squadmates.md`](../simulation/ai-squadmates.md#engine-port) and [`formats/heads-down-display.md`](../formats/heads-down-display.md).

@@ -165,7 +165,11 @@ public static class CockpitPalette {
 	public static int ShieldFacingCharge(int facingCharge, int baseCapacity) =>
 		baseCapacity <= 0 ? 0 : ((int)facingCharge << 10) / baseCapacity;
 
-	/// <summary>Base and bright ring colours, RGB6 — the exe's own immediates at <c>0049c9cb</c>/<c>0049c9ce</c>.</summary>
+	/// <summary>
+	/// Base and bright ring colours, RGB6 — the exe's own immediates at <c>0049c9cb</c>/<c>0049c9ce</c>.
+	/// <c>ShieldsGauge</c> writes them into whichever palette is active every frame, so the rings read the
+	/// same through a hit flash; here they are painted into both of the canopy's palette buffers.
+	/// </summary>
 	private static readonly (int R, int G, int B) ShieldRingBase = (25, 59, 23);
 	private static readonly (int R, int G, int B) ShieldRingBright = (59, 59, 23);
 

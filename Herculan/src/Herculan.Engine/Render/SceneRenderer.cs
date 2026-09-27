@@ -291,9 +291,13 @@ public sealed class SceneRenderer : IDisposable {
 
 	/// <summary>
 	/// The zone's cell size in render units, which is the grain the terrain's fog is measured at.
-	/// Retail fogs a whole cell from its nearest corner; the renderer subtracts the mean
-	/// centre-to-corner depth instead, derived per frame from the camera's forward direction. The
-	/// derivation and what it costs are in docs/formats/distance-fog-and-sky.md, "Engine port".
+	/// Retail fogs a whole cell from its nearest corner (docs/formats/distance-fog-and-sky.md); the
+	/// renderer spends that rule as its mean instead. Over a cell's four corners the minimum of
+	/// <c>i*a + j*b</c> is <c>min(0,a) + min(0,b)</c> and the centre is <c>(a+b)/2</c>, so centre to
+	/// nearest corner is exactly <c>(|a| + |b|)/2</c>, with <c>a</c> and <c>b</c> the depth one cell
+	/// step along each grid axis covers. That is worked out per frame from the camera's forward
+	/// direction and subtracted from the terrain's own depth: the same fog on the same ground without
+	/// a per-vertex attribute carrying the four corners, missing only the flat step across each cell.
 	///
 	/// <para>Zero leaves the terrain fogged per pixel. Set from <see cref="Scene.Atmosphere"/>.</para>
 	/// </summary>

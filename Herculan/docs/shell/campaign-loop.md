@@ -37,7 +37,7 @@ It is also what unlocks weapons: the mission-load path grants a pending unlock w
 
 ## Starting a campaign — `Game_NewCareer` (`0040e2ed`)
 
-Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training; the training entry points pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, builds the player (`Player_Create`, `00410107`: bay 0, squad position 0, on strength, and the three squad-member pointers — [`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)), loads `gam\hercs.dat`, initializes the career position, and seeds the salvage pool:
+Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training, the mode the practice missions and `INSTANT ACTION` run in; both of those pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, builds the player (`Player_Create`, `00410107`: bay 0, squad position 0, on strength, and the three squad-member pointers — [`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)), loads `gam\hercs.dat`, initializes the career position, and seeds the salvage pool:
 
 ```
 DAT_00482af4 = rand(0..10) * 1000 + 100000;
@@ -74,18 +74,18 @@ per stage:
 
 | Stage | Campaign index | Missions | Contents |
 |---|---|---|---|
-| 0 | 5 | 11 | `TRAIN1`–`TRAIN8`, `DEMO`, `DEMO_01`, `DEMO_02` |
+| 0 | 5 | 11 | `TRAIN1`–`TRAIN8`, `DEMO`, `DEMO_01`, `DEMO_02` — the practice missions, then the demos |
 | 1 | 0 | 10 | `C1_01`–`C1_10` |
 | 2 | 1 | 10 | `C2_01`–`C2_10` |
 | 3 | 2 | 10 | `C3_01`–`C3_10` |
 | 4 | 3 | 10 | `C4_01`–`C4_10` |
 | 5 | 4 | 10 | `C5_01`–`C5_10` |
 
-Stage 0 is training and stages 1–5 are the five campaign chapters, which is why `FUN_00412a2f` seeds a new career at stage 1 and a new training run at stage 0. It also explains the two bounds in the advance below: `stage > 4` means "already in the final chapter", and the campaign is complete once the stage index reaches the stage count of 6.
+Stages 1–5 are the five campaign chapters. Stage 0 holds the eight practice missions in the order the practice screen lists them, then the three `INSTANT ACTION` plays in turn. `FUN_00412a2f` seeds a new career at stage 1 mission 0, and a training-mode one at stage 0 on the mission the practice screen selected, `DAT_00479bb8` ([`screen-layout.md`](screen-layout.md#which-mission-a-row-is)). The chapter numbering also explains the two bounds in the advance below: `stage > 4` means "already in the final chapter", and the campaign is complete once the stage index reaches the stage count of 6.
 
 The names in `missions.bin` carry their directory — `MSN\C1_01.MSN` — so they are paths ready to open, not bare mission names.
 
-The player's position is the pair `(0046fb18, 0046fb1a)` — stage, then mission within stage — which is the first thing in the save's career block. Retail `GAME_T.SAV` sits at `(0, 4)`, part-way through training.
+The player's position is the pair `(0046fb18, 0046fb1a)` — stage, then mission within stage — which is the first thing in the save's career block. Retail `GAME_T.SAV` sits at `(0, 4)`, on `Strike Training Mission`.
 
 ## Launching a mission — `Game_ExportMissionHandoff` (`0040f0d4`)
 

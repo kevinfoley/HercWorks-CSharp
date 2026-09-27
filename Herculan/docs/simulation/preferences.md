@@ -74,12 +74,12 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 12 | the joystick-configured flag | gates `Joystick_InitAndSeedBindings`' one-time seeding |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
-| 37-41 | **VSHELL's**, not the simulator's: the single-mission setup screen's five rows, difficulty among them | [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte) |
+| 37-41 | **VSHELL's**, not the simulator's: the practice missions screen's five parameters, difficulty among them | [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte) |
 | 42 | **VSHELL's** campaign-or-training flag | seeds `CampaignModeFlag`, so the mode survives a restart |
 | 43 | **VSHELL's** language | the `LANG0.VOL` folder every `.BIN` is opened under: 0 `eng\`, 1 `fre\`, 2 `ger\` ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-bin-string-tables)) |
 | 44 | **VSHELL's** `Repair Options:` | 0 `AutoRepair All Hercs`, 1 `Manually Repair My Herc`, 2 `Manually Repair All Hercs` |
 | 45 | **VSHELL's** `Weapons Building:` | 0 `AutoBuild Weapons`, 1 `Manually Build Weapons` |
-| 46 | **VSHELL's** single-mission extra machine | a three-way cycle past the eight chassis the screen shows as buttons; writes its choice into option 40 |
+| 46 | **VSHELL's** `INSTANT ACTION` demo | which of the three demo missions the next `INSTANT ACTION` plays, stepped modulo 3 after each; its chassis goes into option 40 ([`../shell/screen-layout.md`](../shell/screen-layout.md#which-mission-a-row-is)) |
 | 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup. A retail `prefs.cfg` ships 1 |
 
 `ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession` (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and `Main_StaticInit` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a binding made in a walker does not disturb the RAZOR's.

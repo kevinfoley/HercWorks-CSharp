@@ -68,7 +68,7 @@ Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`
 - Once any mount reports itself mid-charge, every mount after it targets zero instead and **bleeds its capacitor back into the pool** at 5/tick. One energy weapon charges at a time.
 - Ammunition mounts consume nothing — their slot-`0x34` override returns the budget untouched.
 - PLAS (id 25) is half-efficiency: its deficit counts double and only half of what it draws is stored.
-- The **unlimited energy and ammunition** setting refunds the whole pass's consumption, player only (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`): the mounts are served and charged as they otherwise would be, and the budget handed back to the pool is the one the pass was called with. Both globals are `script.dat` header fields and the single-mission screen is what sets them — see [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
+- The **unlimited energy and ammunition** setting refunds the whole pass's consumption, player only (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`): the mounts are served and charged as they otherwise would be, and the budget handed back to the pool is the one the pass was called with. Both globals are `script.dat` header fields and the practice missions screen is what sets them — see [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
 
 An idle machine draws nothing: every energy mount powers up with `+0x7d` already at `+0x7b`, so the deficit is zero until a shot is demanded.
 

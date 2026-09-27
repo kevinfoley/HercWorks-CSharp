@@ -30,7 +30,7 @@ Widget fields the builders and the tab handlers write directly:
 | Offset | Meaning |
 |---|---|
 | `+0x45` | the lit flag. The widget's own mouse handler toggles it 0/1, and the paint picks the button's face from it. A tab handler writes 1 and repaints before building its screen, which is what latches the active tab lit; `0043b0c8` clears it across all nine. On the palette scope, a different class, the same offset is a palette index instead |
-| `+0x49` | 1 from the constructor, and the enable flag. The tab gate clears it on the three tabs the training campaign has no economy for, and the repair panel writes it alongside two greying colour fields on a test of whether the player can afford the button ([below](#the-condition-readout)) — moving with the greying, on an affordability test, is what makes it the enable flag rather than a style bit. The button's own paint reads it for one thing, whether the caption takes the pressed nudge; the base class's event handler ignores mouse events while it is clear, so a cleared widget swallows a click on it ([below](#which-widget-a-click-reaches)) |
+| `+0x49` | 1 from the constructor, and the enable flag. The tab gate clears it on the three tabs training mode has no economy for, and the repair panel writes it alongside two greying colour fields on a test of whether the player can afford the button ([below](#the-condition-readout)) — moving with the greying, on an affordability test, is what makes it the enable flag rather than a style bit. The button's own paint reads it for one thing, whether the caption takes the pressed nudge; the base class's event handler ignores mouse events while it is clear, so a cleared widget swallows a click on it ([below](#which-widget-a-click-reaches)) |
 | `+0x51` | 1 from `Panel_Ctor`, and the gate on drawing any chrome at all: `Panel_FillAndBorder` (0040a726) returns immediately when it is clear. Written 0 on both the root and the full-screen panel, which is how each shows its bitmap with no fill and no border. Not the button field of the same offset — different class, different layout past the base |
 
 ## What a tab click does
@@ -65,7 +65,7 @@ Returning to the main menu **autosaves**: `Game_SaveSlot(10, NULL)` is the first
 
 ## The tab gate
 
-`0043b0c8` is the strip refresh, and it writes `+0x49` on five tabs from `DAT_0048260c`, the campaign/training mode flag:
+`0043b0c8` is the strip refresh, and it writes `+0x49` on five tabs from `DAT_0048260c`, the campaign/training mode flag — training being the mode the [practice missions](#the-practice-missions-screen) and `INSTANT ACTION` run in:
 
 | Tab | Campaign | Training |
 |---|---|---|
@@ -75,7 +75,7 @@ Returning to the main menu **autosaves**: `Game_SaveSlot(10, NULL)` is the first
 | 5 `ARMORY` | on | off |
 | 6 `CREW` | on | on |
 
-The three it gates are exactly the three that spend salvage, and the training campaign has no salvage economy ([`armory.md`](armory.md)). It writes those five and no others, so `MAIN MENU`, `SAVE`, `MISSION` and the square button are live in both. It also shows the strip's panel and parks `DAT_0047581c` at `0xffff`, so whatever tab is clicked next cannot be mistaken for the one already up.
+The three it gates are exactly the three that spend salvage, and training mode has no salvage economy ([`armory.md`](armory.md)). It writes those five and no others, so `MAIN MENU`, `SAVE`, `MISSION` and the square button are live in both. It also shows the strip's panel and parks `DAT_0047581c` at `0xffff`, so whatever tab is clicked next cannot be mistaken for the one already up.
 
 `ServiceBay_BuildScreen` clears `+0x49` on tab 5 as it constructs it, which the refresh then overwrites either way.
 
@@ -256,18 +256,80 @@ What the handlers call, as read:
 
 | Button | Calls |
 |---|---|
-| `INSTANT ACTION` | `FUN_0040e69e(0)`, `FUN_0044befb`, `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
+| `INSTANT ACTION` | `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
 | `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a` |
 | `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, `FUN_0044cecf(DAT_0048260e)` otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
 | `ONLINE MANUAL` | `004317ea`: `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
-| `PRACTICE MISSIONS` | `MainMenu_Hide`, `0044bc92`, `FUN_0040e69e(0)` |
+| `PRACTICE MISSIONS` | `MainMenu_Hide`, `PracticeScreen_Show` (`0044bc92`), `FUN_0040e69e(0)` — [the practice screen](#the-practice-missions-screen) |
 | `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` |
 | `VIEW DEMO` | `Shell_SetExitCode(5)`, `DAT_0046c074 = 1` |
 | `CREDITS` | shows a bare window (`DAT_0048d0c4`) and plays movie `0x54` through `Movie_Enqueue` and `Movie_PlayQueue`, then hides it |
 | `QUIT` | `DAT_0046c074 = 1`, `FUN_0040723d` |
 
 **The menu first comes up at the end of a six-frame sequence.** The builder also puts a widget over the whole window (`DAT_0048d0c0`, built by `FUN_0040c85c` with handler `004311b8`) and hands it `dbm\bay2a_80` to `bay2a_84`, the last twice. Once that widget's `+0x6d` reaches 5 the handler hides it and calls `MainMenu_Show`, once only (`DAT_00473604`) ([Open](#open)).
+
+## The practice missions screen
+
+What `PRACTICE MISSIONS` opens: the eight practice missions beside five mission parameters. Built once at startup by `PracticeScreen_Build` (`0044ac80`), put up by `PracticeScreen_Show` (`0044bc92`) and hidden by `PracticeScreen_Hide` (`0044bcb3`). Like the main menu it stands alone over a backdrop-textured root of its own, with the strip hidden, and is left through its own `Main Menu`. Rects are parent-relative.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| root | image panel | its parent's own rect | the shared backdrop |
+| content panel | `TitledPanel` | `{0x4d, 0xa2, 0x232, 0x170}` | `0xf0` `PRACTICE MISSIONS`, header 19 tall, plate `0xaa`-`0x13a`, border `0x15`, face `0x25`, dithered body in `0x10` |
+| mission list | `FramedPanel` | `{6, 0x1a, 0xcf, 0xad}` | border `0x15`, face `0x10` |
+| list title | `Text` | `{0x28, 4, 0xa2, 0x10}` in the list | `0xf1` `Practice Missions:`, centred, `0x1a`, opaque |
+| 8 rows | `Panel` | `{0xe, i*0xc + 0x15, 200, i*0xc + 0x21}` in the list | `0xf2 + i`, border `0x10` |
+| parameter box | `FramedPanel` | `{0xd4, 0x1a, 0x1df, 0xad}` | border `0x15`, face `0xf` |
+| box title | `Text` | `{0x49, 6, 0xcf, 0x12}` in the box | `0xfa` `Mission Parameters`, centred, `0x1a` |
+| 5 labels | `Button` | `{6, 0x1d, 0x90, 0x2c}`, then `0x16` lower four times, in the box | `0xfb`-`0xff`, `Damage` to `Herc Type`, border `0x22` |
+| 5 colons | `Text` | `{0x93, y, 0x99, y + 0xf}` beside each label | `:`, centred, `0x28` |
+| 5 readouts | `Button` | `{0x9d, 0x1c, 0x104, 0x2d}`, then `0x16` lower four times, in the box | border `0x13`, disabled, caption opaque in `0x17` |
+| `Main Menu` | `Button` | `{0x56, 0xb5, 0xb8, 0xc4}` | `0x100`, border `0x22` |
+| `Begin Mission` | `Button` | `{0x12e, 0xb5, 400, 0xc4}` | `0x102`, border `0x22` |
+
+The list's face of `0x10` flattens its checkerboard; the parameter box keeps a visible one in `0xf`. The readouts are built as [the repair screen's](#the-repair-screen) are: boxes with a word in them that swallow a click.
+
+**The rows are 13 tall on a 12-pixel pitch**, so the lower row owns the shared line. Each is a [four-column row](#a-row-is-four-text-columns) cut at `0xb8` three times: the name left-aligned from `2`, then three empty columns. A row's name is `0x27` resting and `0x29` lit, and its border `0x10` either way, so only the name shows the selection.
+
+### The parameters
+
+Each label steps one `prefs.cfg` option and rewrites its readout from the option's `estext.bin` run; the options, their moduli and what they become are in [`../simulation/difficulty.md`](../simulation/difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte). The event's sub-code decides the direction: the left release steps forward through `ShellOptions_StepOption`, the right back through `ShellOptions_StepOptionBack`.
+
+| Label | Handler | Option |
+|---|---|---|
+| `Damage` | `0044bf29` | `0x26` |
+| `Ammo` | `0044bfe6` | `0x25` |
+| `Mission Difficulty` | `0044c0a3` | `0x27` |
+| `Time of Day` | `0044c160` | `0x29` |
+| `Herc Type` | `0044c21d` | `0x28` |
+
+A step changes the array in memory only. `Begin Mission` (`0044c396`) is what saves it: `ShellOptions_Commit(1)`, `ShellOptions_SaveAll`, then `Game_NewCareer("TRAINEE", option 0x27)` — the mode is already training, set by `PRACTICE MISSIONS` ([Open](#open)). `Main Menu` (`0044c2da`) is `PracticeScreen_Hide` then `MainMenu_Show`, and leaves the mode where it is.
+
+### Selecting a mission
+
+`PracticeScreen_SelectRow(row)` (`0044bd7c`) is each row's handler, through eight thunks from `0044c413`. It returns at once for the row already lit, `DAT_00479bb8`, which is `-1` in the image. Otherwise it puts the old row's name back to `0x27` and lights the new one's `0x29`; writes [the greying trio](#the-condition-readout) at `Herc Type`, greyed for rows 0-3 and lit from row 4; writes the row's chassis into option `0x28` (`ShellOptions_SetOption`); rewrites the `Herc Type` readout; and stores the row. The chassis is the low byte of the row's `int16` in the table at `00479bba`:
+
+| Row | Mission | Chassis |
+|---|---|---|
+| 0 | `Basic Training 1` | 0 `Outlaw` |
+| 1 | `Basic Training 2` | 0 `Outlaw` |
+| 2 | `Basic Training 3` | 1 `Raptor II` |
+| 3 | `Flyer Training` | 8 `Razor` |
+| 4 | `Strike Training Mission` | 4 `Colossus` |
+| 5 | `Escort Training Mission` | 2 `Tomahawk` |
+| 6 | `Recon Training Mission` | 7 `Maverick` |
+| 7 | `Scramble Training Mission` | 3 `Samson` |
+
+So a row click resets `Herc Type` to that mission's machine, whatever it was stepped to. `PracticeScreen_Show` calls `PracticeScreen_SelectRow(0)`, so **the screen always comes up on `Basic Training 1`**.
+
+**`Herc Type` is greyed where the choice is not read.** `FUN_0041c58d`, which builds the player's machine when the shell loads a mission, gives the player the mission's own machine while `DAT_00479bb8` is below 4 or `DAT_0047363c` is set, and a machine of option `0x28`'s chassis otherwise.
+
+### Which mission a row is
+
+The row is the mission index. `FUN_00412a2f`, which puts a new career on its first mission, sets a training-mode career's position to stage 0, mission `DAT_00479bb8`, and stage 0 of `gam\career.dat` is `TRAIN1`-`TRAIN8` then `DEMO`, `DEMO_01` and `DEMO_02` ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — the eight rows in order, then three more.
+
+**`INSTANT ACTION` plays the three past the list.** `InstantAction_SelectDemo` (`0044befb`) calls `PracticeScreen_SelectRow(8 + option 0x2e)`: row 8, 9 or 10, which lights no row and writes the table's next three chassis, 5 `Apocalypse`, 7 `Maverick` and 3 `Samson`, into option `0x28`. It then steps option `0x2e` modulo 3 and saves the array, so successive `INSTANT ACTION`s play `DEMO`, `DEMO_01` and `DEMO_02` in turn, each in its own machine.
 
 ## The save screen
 
@@ -339,7 +401,7 @@ DAT_004778aa = 0
 
 The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` are drawn in that order from `0x2c`, `0x2e`, `0x2d`.
 
-**The sector run starts at stage 1.** `0x76` is `Razor`, a chassis name; the five sector words `Alpha`, `Delta`, `Omicron`, `Bravo`, `Luna` start at `0x77`. Stage 0 is the training campaign and the campaign's chapters are stages 1-5 ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)), so the first chapter lands on the first sector word.
+**The sector run starts at stage 1.** `0x76` is `Razor`, a chassis name; the five sector words `Alpha`, `Delta`, `Omicron`, `Bravo`, `Luna` start at `0x77`. Stage 0 holds the practice missions and the demos, and the campaign's chapters are stages 1-5 ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)), so the first chapter lands on the first sector word.
 
 ## The weapons screen
 
@@ -946,7 +1008,7 @@ The condition itself goes through two functions over two in-image tables. `Repai
 
 `0043b162(tab)` is the switch that picks one. Tab 3 takes 1, tabs 2 and 4-6 take 2, and tab 7 takes `stage + 4` for the briefing, `stage + 9` for the debrief and 3 or 4 for the map — `4` once `stage - 1 > 3`. Case 8 is not a tab: it shows the frame's root, and is what `0043b0c8`'s callers pair with the refresh.
 
-**The stage is the career's own, 1-5 for the campaign** — stage 0 is training ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — and the save holds the same number. Three tables are built for it: the briefing and debrief runs are five long and reached by `stage + 4` and `stage + 9`, the map's Earth-to-Moon switch fires at the same stage the theater run's `luna` sits at, and `maybe_Mission_UpdateLocationTab` carries four `dba\` location names — `alph2`, `delt1`, `omic1`, `brav1` — and branches away to a cutscene entirely when `stage - 1 == 4`. The arithmetic is unguarded in all three places, so the training campaign's briefing, at stage 0, is drawn through `cam_moon`. `Reference/Managment_Mission_Briefing.png`, taken on a save at stage 3, is drawn through `br_w3` ([`mission-map.md`](mission-map.md#the-camera)).
+**The stage is the career's own, 1-5 for the campaign** — stage 0 holds the practice missions ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — and the save holds the same number. Three tables are built for it: the briefing and debrief runs are five long and reached by `stage + 4` and `stage + 9`, the map's Earth-to-Moon switch fires at the same stage the theater run's `luna` sits at, and `maybe_Mission_UpdateLocationTab` carries four `dba\` location names — `alph2`, `delt1`, `omic1`, `brav1` — and branches away to a cutscene entirely when `stage - 1 == 4`. The arithmetic is unguarded in all three places, so a practice mission's briefing, at stage 0, is drawn through `cam_moon`. `Reference/Managment_Mission_Briefing.png`, taken on a save at stage 3, is drawn through `br_w3` ([`mission-map.md`](mission-map.md#the-camera)).
 
 That last function also installs the theater palette directly, as `Shell_InstallPalette(stage + 0xe)`. Because stage 5 branches away before the call, `luna` is in the table and unreached by this path.
 
@@ -958,7 +1020,9 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 **The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. Tab 1 hides the strip, and `EXIT` and `RESTORE` leave as above through `ShellScreen.ReturnToFrame`, which is the `0043b162(8)`/`0043b0c8` pair; `RESTORE` parses the slot and rebuilds the hangar and the repair screen from it. The rename, and with it `SAVE`, `CANCEL` and `ACCEPT`, has no port, and neither has `RESTORE`'s autosave ([Open](#open)); `CANCEL` and `ACCEPT` stay grey because nothing starts a rename.
 
-**The main menu is drawn**: `ShellMainMenu` places the panel and the ten buttons above and greys `CONTINUE GAME` on slot 10's in-use flag from `GAMEFILE.STR`. `SAVE/RESTORE` acts — campaign mode, then the save screen with `EXIT` coming back to the menu — and the other nine do nothing ([Open](#open)). The tab keeps the strip up here, where its handler hides it as tab 1's does: with only `SAVE/RESTORE` acting, hiding it would leave `RESTORE` of a written slot as the only way to the other tabs. That is this engine's choice, not the original's.
+**The main menu is drawn**: `ShellMainMenu` places the panel and the ten buttons above and greys `CONTINUE GAME` on slot 10's in-use flag from `GAMEFILE.STR`. `SAVE/RESTORE` acts — campaign mode, then the save screen with `EXIT` coming back to the menu — and so does `PRACTICE MISSIONS`; the other eight do nothing ([Open](#open)). The tab keeps the strip up here, where its handler hides it as tab 1's does: with only two buttons acting, hiding it would leave `RESTORE` of a written slot as the only way to the other tabs. That is this engine's choice, not the original's, and because of it a mode change regates the strip at once, where the original's strip stays hidden until its next refresh.
+
+**The practice screen is drawn and steps**: `ShellPracticeScreen` places every widget of [The practice missions screen](#the-practice-missions-screen), over the main menu's tab with the strip hidden, and `PRACTICE MISSIONS` puts it up in training mode. A row click moves the selection, greys or lights `Herc Type` and resets it to the row's chassis, and the five labels step their options in the host's copy of `data\prefs.cfg`, the left button forward and the right back; `Main Menu` goes back. `Begin Mission` does nothing and nothing is written to `prefs.cfg` ([Open](#open)). `--shell-practice` opens on the screen.
 
 **The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. `ShellRepairDiagrams` loads the nine layouts, `rpr_hots.dat` and their banks and paints whichever picture the selection's column has up, and `ShellSquadPanel` draws the readout and the roster. Clicking a row, a hotspot on the external picture or a roster row moves the selection or the bay and the panels follow, including the refusal of an unfitted hardpoint and of an unbuilt bay, and every entry runs `Repair_Enter`'s bay rule. `SCRAP` puts up the scrap dialog, and `REPAIR`, `REPAIR ALL` and `CANCEL` do what [Repairing and cancelling](#repairing-and-cancelling) says, on the machines and the pool the other tabs read; the snapshot is taken on every entry and bay change. The mode readout is read from `data\prefs.cfg` option 44 once, at startup, since nothing in this engine changes it. With no bay selected, `CANCEL` restores the pool alone and `REPAIR` and `REPAIR ALL` are dead, where the original reads through `00482abf` — this engine's choice. The salvage figure is the pool net of the build queue, as the build screen's is.
 
@@ -988,7 +1052,7 @@ The engine reloads the whole of `ShellArt` to change palette, where the original
 
 The host leaves the OS pointer up, which is [retail's arrow](#the-pointer); the hourglass comes with the two features that raise it, `CONTINUE GAME` and the movies.
 
-Not drawn: the mission tab's campaign-map and debrief views, the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the mission tab's campaign-map and debrief views, the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). `SAVE/RESTORE` sets campaign mode and `PRACTICE MISSIONS` training mode; `--shell-training` starts in training mode ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -1008,7 +1072,7 @@ Not drawn: the mission tab's campaign-map and debrief views, the sounds each but
 | `00442534` builds the crew screen's detail panel | It sits between the crew screen's thunks and `wmissini.cpp`'s first assert string, inside the address range that reads as `wcrewi.cpp`'s, and it is that module's size. Every widget it builds is one `Mission_Show` (`004441e3`) shows and `Mission_Leave` (`00444a05`), the teardown's mission arm, hides, and its captions are the mission run `0xaf`-`0xb8`. It is [the mission screen's](#the-mission-screen) builder, `Mission_BuildScreen` |
 | The palette scope draws nothing — it exists only to fire the palette install | It carries no bitmap, no caption and no chrome, and its handler's event 2 is the install. Its event 4 is a paint, `PaletteScope_Paint` (`0040cb40`), which fills its rect with `0x10`; that fill is why retail's tab screens are black ([The palette](#the-palette)) |
 | The shell draws its mouse pointer from `dba\cursor.dba` | The bank sits in `SHELL0.VOL` with the shell's own art, and the Dynamix library has a `GLCursor` type to draw one with. `VSHELL.EXE` never names the bank; the pointer is the Windows arrow, with the hourglass while a save or a movie loads ([The pointer](#the-pointer)) |
-| The save stores the campaign stage from zero and the shell counts it from one | Every per-stage table is reached one past the first entry a zero-based stage would need — `0x76 + stage` for the sector name lands on `Razor` at stage 0, and the briefing palettes start at `stage + 4` — which reads as a zero-based value shifted at runtime. The campaign's stages are 1-5 in `gam\career.dat` itself, stage 0 being training, and the tables are indexed by the number the save holds: retail draws the briefing of a save at stage 3 through `br_w3` ([The palette](#the-palette)) |
+| The save stores the campaign stage from zero and the shell counts it from one | Every per-stage table is reached one past the first entry a zero-based stage would need — `0x76 + stage` for the sector name lands on `Razor` at stage 0, and the briefing palettes start at `stage + 4` — which reads as a zero-based value shifted at runtime. The campaign's stages are 1-5 in `gam\career.dat` itself, stage 0 holding the practice missions, and the tables are indexed by the number the save holds: retail draws the briefing of a save at stage 3 through `br_w3` ([The palette](#the-palette)) |
 
 ## Open
 
@@ -1025,7 +1089,10 @@ Not drawn: the mission tab's campaign-map and debrief views, the sounds each but
 - **Unported:** the auto-repeat of the mission screen's arrows.
 - **Open:** whether the launch refusal keeps clicks off the screen beneath it, the same question as the scrap dialog's.
 - **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
-- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
+- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s and `PRACTICE MISSIONS`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
+- **Unported:** the practice screen's `Begin Mission`, and with it the save of the five options to `prefs.cfg`.
+- **Open:** how `Begin Mission` reaches the simulator. Its handler ends at `Game_NewCareer`, with none of the handoff, exit code and loop exit `INSTANT ACTION` follows the same call with ([The parameters](#the-parameters)); what happens after it returns is unread.
+- **Open:** what sets `DAT_0047363c`, which makes `FUN_0041c58d` give the player the mission's own machine on every practice row ([Selecting a mission](#selecting-a-mission)).
 - **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0044cecf`, which `CONTINUE GAME` calls, does.
 - **Unported:** each button's click sound.
-- **Unported:** setting the campaign/training mode everywhere but `SAVE/RESTORE` — `FUN_0040e69e`, which four other main-menu handlers call; otherwise the gate is driven by a command-line flag.
+- **Unported:** the campaign/training mode writes of `INSTANT ACTION`, `START NEW GAME` and `CONTINUE GAME` — `FUN_0040e69e`, which `SAVE/RESTORE` and `PRACTICE MISSIONS` reach here too.

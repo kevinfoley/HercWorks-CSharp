@@ -247,7 +247,7 @@ The placement decode is verified end to end by building all 10 as scenes in the 
 | 10 | **unlimited ammunition and energy** (`DAT_004a9edc`) when 1 |
 | 12 | **player invulnerable** (`DAT_004a9ede`) when 1 |
 | 14 | **mission difficulty**, 0-3 (`DAT_004a9ee0`) — see [`../simulation/difficulty.md`](../simulation/difficulty.md). All ten files in the retail install carry 2 |
-| 18 | theater variant, 0 or 1 — low bit of world number, and the single-mission screen's `Day` / `Night` row |
+| 18 | theater variant, 0 or 1 — low bit of world number, and the practice missions screen's `Day` / `Night` row |
 | 16 | zero across the corpus and unread by `DBSim_LoadScriptDat` |
 
 The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZone` / `maybe_World_LoadTheater`. See [`terrain-texturing.md`](terrain-texturing.md) for theater details.
@@ -262,7 +262,7 @@ The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZ
 
 ### The training fields
 
-Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) rather than parsed out of the `.msn`, which zeroes all ten header globals before it starts. In a campaign the two cheat fields are forced to 0 and the difficulty is the player pilot's skill; outside one all three come from the single-mission setup screen, which keeps them in `data\prefs.cfg`. The whole chain is in [`../simulation/difficulty.md`](../simulation/difficulty.md).
+Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) rather than parsed out of the `.msn`, which zeroes all ten header globals before it starts. In a campaign the two cheat fields are forced to 0 and the difficulty is the player pilot's skill; outside one all three come from the practice missions screen, which keeps them in `data\prefs.cfg`. The whole chain is in [`../simulation/difficulty.md`](../simulation/difficulty.md).
 
 ## Reading script.dat
 

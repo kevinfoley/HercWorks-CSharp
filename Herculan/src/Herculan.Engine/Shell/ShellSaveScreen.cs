@@ -397,7 +397,7 @@ public sealed class ShellSaveScreen {
 	///
 	/// <para>The sector run is reached as <c>sector + 0x76</c> and <c>0x76</c> is <c>Razor</c>, a
 	/// chassis name — the run of five sector names starts at <c>0x77</c>. That is not an off-by-one:
-	/// stage 0 is training and the campaign's stages are 1-5, so stage 1 lands on the first name.</para>
+	/// stage 0 holds the practice missions and the campaign's stages are 1-5, so stage 1 lands on the first name.</para>
 	/// </summary>
 	private const int FirstSkillWord = 0x35;
 	private const int FirstRankWord = 0x39;

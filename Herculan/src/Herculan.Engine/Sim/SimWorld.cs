@@ -113,7 +113,7 @@ public sealed class SimWorld {
 	/// <summary>
 	/// <c>DAT_004a9ee0</c> — the mission difficulty, <c>0</c>-<c>3</c>, out of
 	/// <see cref="World.ScriptDatHeader.Difficulty"/>. It is the player pilot's own skill in a
-	/// campaign and the single-mission screen's setting outside one, so the shell picks it once and
+	/// campaign and the practice missions screen's setting outside one, so the shell picks it once and
 	/// the simulator only reads it.
 	///
 	/// <para>Three things index it: <see cref="DamageScaleFor"/>, which every direct-fire shot and

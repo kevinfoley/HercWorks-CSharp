@@ -30,7 +30,7 @@ public enum ShellMissionView {
 /// read out of the executable's data segment: twenty <c>dpl\*.dpl</c> paths, in this order. The
 /// entries past the first three are what tie the campaign's five stages to their art — five briefing
 /// palettes, five debrief palettes and five theater palettes, all indexed by the stage number. The
-/// campaign's stages are 1-5 — stage 0 is training — so stage 1 lands on each run's first entry.</para>
+/// campaign's stages are 1-5 — stage 0 holds the practice missions — so stage 1 lands on each run's first entry.</para>
 ///
 /// <para><b>Stage 5 is the Moon.</b> The three per-stage runs end on <c>luna</c>, the campaign map
 /// switches from <c>cam_er</c> to <c>cam_moon</c> at exactly the same stage, and the mission tab's

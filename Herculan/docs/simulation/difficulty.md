@@ -1,6 +1,6 @@
 # Mission difficulty
 
-One number, `0`-`3`, chosen in VSHELL and carried to DBSIM in `data\script.dat`'s header. It is the **player's own pilot skill** in a campaign and a separate single-mission setting outside one; the simulator knows it only as `DAT_004a9ee0` and reads it in four places.
+One number, `0`-`3`, chosen in VSHELL and carried to DBSIM in `data\script.dat`'s header. It is the **player's own pilot skill** in a campaign and a separate practice-mission setting outside one; the simulator knows it only as `DAT_004a9ee0` and reads it in four places.
 
 The four levels are named by `estext.bin` `0x35`-`0x38` — `ROOKIE`, `REGULAR`, `VETERAN`, `ELITE` — wherever they are shown, which is the same run the pilot roster prints a squadmate's skill from.
 
@@ -11,7 +11,7 @@ The four levels are named by `estext.bin` `0x35`-`0x38` — `ROOKIE`, `REGULAR`,
 | Mode | Difficulty ← | Invulnerable ← | Unlimited ← |
 |---|---|---|---|
 | 1, campaign | `DAT_00482aa1` — the player pilot record's skill | forced 0 | forced 0 |
-| 0, training / single mission | `prefs.cfg` option `0x27` | `prefs.cfg` option `0x26` | `prefs.cfg` option `0x25` |
+| 0, training — the practice missions and `INSTANT ACTION` | `prefs.cfg` option `0x27` | `prefs.cfg` option `0x26` | `prefs.cfg` option `0x25` |
 
 `MsnGen_ParseMsnFile` (`00417b67`) zeroes all ten header globals as it starts, so **no `.msn` file carries a difficulty**; the mission never has an opinion about it.
 
@@ -27,7 +27,7 @@ A squadmate's skill is a separate, rising number and reaches the simulator not a
 
 VSHELL carries **the same 54-byte option array DBSIM does** — `DAT_004824b8`, its load-time shadow at `004824ee` and its handler table at `00482524`, loaded from and written back to `data\prefs.cfg` by `ShellOptions_Load` (`0040d6a3`) and `ShellOptions_SaveAll` (`0040d752`), with the same step/step-back/commit trio (`ShellOptions_StepOption`, `ShellOptions_StepOptionBack`, `ShellOptions_Commit`). An option's index is its byte offset, exactly as in [`preferences.md`](preferences.md#dataprefscfg--the-option-array).
 
-The single-mission setup screen owns five of them, each row stepping its option with its own modulus and printing an `estext.bin` run:
+The [practice missions screen](../shell/screen-layout.md#the-practice-missions-screen) owns five of them, each row stepping its option with its own modulus and printing an `estext.bin` run:
 
 | Option | Modulus | Strings | Becomes |
 |---|---|---|---|
@@ -109,7 +109,7 @@ Three deliberate differences:
 
 The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObject.SlideLandingDamage` where a slide ends, which also raises the cockpit shake the original raises beside the damage — see [`mech-locomotion.md`](mech-locomotion.md#the-landing).
 
-**Nothing in the engine writes any of the three fields.** They arrive only from a `script.dat` on disk: the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`), and the shell's single-mission setup screen — the one place retail sets them — has no port ([Open](#open)). An editor toggle or a host flag would make them reachable.
+**Nothing in the engine writes any of the three fields.** They arrive only from a `script.dat` on disk: the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`), and the shell's practice missions screen — the one place retail sets them — steps the options, but its `Begin Mission`, which starts the mission they are written into, has no port ([Open](#open)). An editor toggle or a host flag would make them reachable.
 
 ## Rejected readings
 
@@ -123,4 +123,4 @@ The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObj
 
 ## Open
 
-- **Unported:** the shell's single-mission setup screen — the one place retail sets the difficulty, invulnerability and unlimited-ammo header fields outside a campaign. An editor toggle or a host flag would let the engine set them without it.
+- **Unported:** the practice missions screen's `Begin Mission` — the path by which retail sets the difficulty, invulnerability and unlimited-ammo header fields outside a campaign. An editor toggle or a host flag would let the engine set them without it.

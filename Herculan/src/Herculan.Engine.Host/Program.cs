@@ -65,6 +65,7 @@ string? shellPalette = null;
 var shellMode = ShellCampaignMode.Campaign;
 int shellTab = ShellScreen.MainMenuTab;
 int shellBay = 0;
+bool shellPractice = false;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -249,10 +250,16 @@ for (int i = 0; i < args.Length; i++) {
 		}
 		runShell = true;
 	} else if (args[i] == "--shell-training") {
-		// Run the front end as the training campaign rather than the real one — DAT_0048260c, the flag
-		// that gates REPAIR, BUILD and ARMORY off. Nothing loads a save yet, so this is how that half of
-		// the strip refresh is reachable at all.
+		// Run the front end in training mode rather than the campaign — DAT_0048260c, the flag that gates
+		// REPAIR, BUILD and ARMORY off. PRACTICE MISSIONS sets it too, but only from the main menu, where
+		// the strip hides nothing; this is how the gated strip is reachable on the other tabs.
 		shellMode = ShellCampaignMode.Training;
+		runShell = true;
+	} else if (args[i] == "--shell-practice") {
+		// Come up on the practice screen, as the main menu's PRACTICE MISSIONS puts it up, so --screenshot
+		// can land on it.
+		shellPractice = true;
+		shellTab = ShellScreen.MainMenuTab;
 		runShell = true;
 	} else if (args[i] == "--cd-drive") {
 		// Which drive the music CD is in. Retail asks MCI for the device type alone and takes whichever
@@ -384,7 +391,7 @@ if (installRoot == null) {
 // the simulator's settings are still the install's.
 ShellLaunch? shellLaunch = null;
 if (runShell) {
-	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay);
+	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay, shellPractice);
 	if (launched == null) {
 		return shellExit;
 	}

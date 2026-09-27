@@ -66,13 +66,13 @@ public readonly struct ScriptDatHeader {
 
 	/// <summary>
 	/// Selects between a theater's two descriptors: it is <b>time of day</b>, written by the shell's
-	/// single-mission setup screen from a <c>Day</c> / <c>Night</c> row. Every retail file carries 0.
+	/// practice missions screen from a <c>Day</c> / <c>Night</c> row. Every retail file carries 0.
 	/// </summary>
 	public int TheaterVariant { get; }
 
 	/// <summary>
 	/// Offset 14 — <c>DAT_004a9ee0</c>, the <b>mission difficulty</b>, <c>0</c>-<c>3</c>. The shell
-	/// writes the player pilot's own skill here in a campaign and the single-mission screen's setting
+	/// writes the player pilot's own skill here in a campaign and the practice missions screen's setting
 	/// outside one, which is why every retail file carries 2 (<c>VETERAN</c>). Four things in the
 	/// original index a four-entry table with it, of which three are ported — see
 	/// <see cref="Sim.SimWorld.Difficulty"/> and docs/simulation/difficulty.md.
@@ -84,7 +84,7 @@ public readonly struct ScriptDatHeader {
 
 	/// <summary>
 	/// Offset 10 — <c>DAT_004a9edc</c>, <b>unlimited ammunition and energy</b> when the file says
-	/// exactly 1. The shell's single-mission screen sets it; a campaign forces it to 0. What it does
+	/// exactly 1. The shell's practice missions screen sets it; a campaign forces it to 0. What it does
 	/// is two things, both for the player's machine alone and both in
 	/// <see cref="Sim.WeaponMounts"/>: a shot spends no ammunition, and the mounts hand the Master
 	/// Energy Pool back everything they drew this tick. See docs/simulation/difficulty.md.

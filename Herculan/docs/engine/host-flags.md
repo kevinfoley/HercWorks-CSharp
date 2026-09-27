@@ -35,7 +35,8 @@ All of these imply `--shell`.
 |---|---|
 | `--shell-tab <0-7>` | The tab the front end opens on, in place of the main menu. |
 | `--shell-bay <0-7>` | The hangar bay the repair tab works on. |
-| `--shell-training` | Runs the front end as the training campaign, which gates REPAIR, BUILD and ARMORY off. |
+| `--shell-training` | Runs the front end in training mode, the practice missions' and `INSTANT ACTION`'s, which gates REPAIR, BUILD and ARMORY off. |
+| `--shell-practice` | Opens on the practice missions screen, as the main menu's PRACTICE MISSIONS does. |
 | `--shell-palette <name>` | Pins `dpl\<name>.DPL` as the palette for the whole run, in place of each tab's own. |
 
 See [`shell/screen-layout.md`](../shell/screen-layout.md#engine-coverage).

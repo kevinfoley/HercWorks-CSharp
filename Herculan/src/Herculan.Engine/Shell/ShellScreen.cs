@@ -6,7 +6,10 @@ namespace Herculan.Engine.Shell;
 /// the eight tabs; see <see cref="ShellScreen.ApplyTabGate"/>.
 /// </summary>
 public enum ShellCampaignMode {
-	/// <summary>The training campaign, which has no salvage economy and so no repair, build or armory.</summary>
+	/// <summary>
+	/// Training mode — the practice missions and <c>INSTANT ACTION</c> — which has no salvage economy and
+	/// so no repair, build or armory.
+	/// </summary>
 	Training = 0,
 
 	/// <summary>The real campaign, where every tab is live.</summary>
@@ -28,7 +31,7 @@ public enum ShellCampaignMode {
 /// hardcodes what the tabs are called or has to be corrected when the string table is read properly.
 /// A tab with no caption available draws its plate and no text.</para>
 ///
-/// <para><b>Three tabs are gated in the training campaign.</b> The builder clears <c>+0x49</c> on tab
+/// <para><b>Three tabs are gated in training mode.</b> The builder clears <c>+0x49</c> on tab
 /// 5 as it constructs it, and the strip's refresh (<c>0043b0c8</c>) rewrites that flag on tabs 2 to 6
 /// from <c>DAT_0048260c</c> — REPAIR, BUILD and ARMORY off in training, everything on in the
 /// campaign. See <see cref="ApplyTabGate"/>.</para>
@@ -179,6 +182,13 @@ public sealed class ShellScreen {
 			tab.Repaint();
 		}
 	}
+
+	/// <summary>
+	/// Hides the strip without changing the tab — the state the main menu's handler leaves it in, and
+	/// the one the practice screen stands in, since it is reached from the menu and left only through
+	/// its own <c>Main Menu</c> button. <see cref="SelectTab"/> puts it back.
+	/// </summary>
+	public void HideStrip() => StripVisible = false;
 
 	/// <summary>
 	/// Puts the bare frame back up with no tab current — the pair the save screen's EXIT and RESTORE

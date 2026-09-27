@@ -57,7 +57,7 @@ static class ShellHost {
 	/// </summary>
 	public static (int ExitCode, ShellLaunch? Launch) Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
-			int startBay = 0) {
+			int startBay = 0, bool startPractice = false) {
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot), ShellArt.Archives);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
@@ -146,6 +146,13 @@ static class ShellHost {
 		int repairMode = preferences?[RepairOption] ?? ShellRepairScreen.AutoRepairMode;
 		ShellArmoryScreen? armoryScreen = null;
 
+		// The practice screen's five parameters are options 37-41 of the same array, stepped in memory;
+		// with no prefs.cfg they start where the memset leaves them, at 0. The screen stands in for the
+		// main menu while it is up, and is built on first use and kept.
+		var shellOptions = preferences ?? SimulatorPreferences.Defaults();
+		ShellPracticeScreen? practiceScreen = null;
+		bool practiceUp = false;
+
 		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
 			QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
 			RepairMode = repairMode,
@@ -207,10 +214,12 @@ static class ShellHost {
 			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Id < ShellLayout.TabCount && b.Caption != null).Select(b => b.Caption))}"
 			: "No estext.bin — the tabs draw their plates and no captions.");
 		Console.WriteLine(mode == ShellCampaignMode.Training
-			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
+			? "Training mode: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
 		Console.WriteLine("Every tab has a screen behind it but MISSION's map view. On the "
-			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu. Click a save "
+			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
+			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
+			+ "button steps back), and Main Menu to go back; Begin Mission is not ported. Click a save "
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
 			+ "select it and the panels beside it follow; REPAIR lifts the selected part one level, REPAIR ALL "
 			+ "rebuilds the machine, and CANCEL undoes both since the bay was selected. On BUILD, click a chassis to see its blueprint and "
@@ -251,6 +260,10 @@ static class ShellHost {
 			renderer = new ShellRenderer(loadedGl, art);
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
 			keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
+			if (startPractice) {
+				OpenPractice();
+			}
+
 			RepaintContent();
 		};
 
@@ -396,6 +409,7 @@ static class ShellHost {
 			}
 
 			return screen.SelectedTab switch {
+				ShellScreen.MainMenuTab when practiceUp => practiceScreen!.HitAt(canvasX, canvasY),
 				ShellScreen.MainMenuTab => mainMenu.HitAt(canvasX, canvasY),
 				ShellScreen.SaveTab => saveScreen.HitAt(canvasX, canvasY),
 				ShellScreen.RepairTab => ShellSquadPanel.HitAt(canvasX, canvasY)
@@ -436,6 +450,12 @@ static class ShellHost {
 					break;
 				case ShellWidgetKind.MainMenuButton:
 					ClickMainMenuButton((ShellMainMenuButton)widget.Index);
+					break;
+				case ShellWidgetKind.PracticeRow:
+					SelectPracticeRow(widget.Index);
+					break;
+				case ShellWidgetKind.PracticeButton:
+					ClickPracticeButton((ShellPracticeButton)widget.Index);
 					break;
 				case ShellWidgetKind.SaveRow:
 					SelectSaveSlot(widget.Index);
@@ -496,18 +516,92 @@ static class ShellHost {
 		}
 
 		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
-		// save screen's EXIT back here, and enter it. The other nine buttons' actions are not ported.
+		// save screen's EXIT back here, and enter it. PRACTICE MISSIONS is OpenPractice. The other eight
+		// buttons' actions are not ported.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
+			if (button == ShellMainMenuButton.PracticeMissions) {
+				OpenPractice();
+				return;
+			}
+
 			if (button != ShellMainMenuButton.SaveRestore) {
 				Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
 				return;
 			}
 
-			mode = ShellCampaignMode.Campaign;
+			SetMode(ShellCampaignMode.Campaign);
 			saveScreen.ExitTarget = ShellSaveExitTarget.MainMenu;
 			screen.SelectTab(ShellScreen.SaveTab);
 			Console.WriteLine("Save/Restore — the save screen, with EXIT back to the main menu.");
 			RepaintContent();
+		}
+
+		// FUN_0040e69e, the mode write four main-menu handlers make. The strip refresh (0043b0c8) is what
+		// regates the tabs in the original, and the strip is hidden until then; here the main menu keeps
+		// the strip up, so the gate follows the mode at once rather than showing the old one.
+		void SetMode(ShellCampaignMode newMode) {
+			mode = newMode;
+			screen.ApplyTabGate(mode);
+		}
+
+		// PRACTICE MISSIONS, 004318ab: MainMenu_Hide, PracticeScreen_Show (0044bc92), then the mode to 0.
+		// The strip goes too, as the menu's own handler has already hidden it in the original.
+		void OpenPractice() {
+			practiceScreen ??= new ShellPracticeScreen(shellOptions);
+			practiceScreen.Show();
+			practiceUp = true;
+			SetMode(ShellCampaignMode.Training);
+			screen.HideStrip();
+			Console.WriteLine("Practice missions — training mode.");
+			LogPractice();
+			RepaintContent();
+		}
+
+		// A practice row's handler, one of the eight thunks from 0044c413: PracticeScreen_SelectRow
+		// (0044bd7c), a no-op on the row already lit.
+		void SelectPracticeRow(int row) {
+			if (practiceScreen?.SelectRow(row) == true) {
+				RepaintContent();
+				LogPractice();
+			}
+		}
+
+		// The five parameter labels step their option, forward on the left release and back on the right
+		// (0044bf29-0044c21d). Main Menu (0044c2da) hides the screen and shows the menu. Begin Mission
+		// (0044c396) saves the options and starts a training career on the lit row; it is not ported.
+		void ClickPracticeButton(ShellPracticeButton button) {
+			if (practiceScreen == null) {
+				return;
+			}
+
+			switch (button) {
+				case ShellPracticeButton.MainMenu:
+					practiceUp = false;
+					screen.SelectTab(ShellScreen.MainMenuTab);
+					Console.WriteLine("Main menu.");
+					break;
+				case ShellPracticeButton.BeginMission:
+					Console.WriteLine("Begin Mission — the button is live and its action is not ported yet.");
+					return;
+				default:
+					practiceScreen.Step(button, eventButton == ShellMouseButton.Left);
+					LogPractice();
+					break;
+			}
+
+			RepaintContent();
+		}
+
+		void LogPractice() {
+			if (practiceScreen == null) {
+				return;
+			}
+
+			var values = Enumerable.Range(0, (int)ShellPracticeButton.HercType + 1).Select(i =>
+				art.Text?.Text(practiceScreen.ValueText((ShellPracticeButton)i)) ?? $"{practiceScreen.ValueText((ShellPracticeButton)i)}");
+			Console.WriteLine($"Practice: row {practiceScreen.SelectedRow} "
+				+ $"({art.Text?.Text(0xf2 + practiceScreen.SelectedRow) ?? "?"}) — {string.Join(", ", values)}"
+				+ (practiceScreen.IsEnabled(ShellPracticeButton.HercType) ? "." : "; Herc Type is the mission's own."));
 		}
 
 		// A save row's handler, SaveScreen_SelectSlot (0043795f). Clicking the row already selected is a
@@ -1066,6 +1160,9 @@ static class ShellHost {
 			}
 
 			switch (screen.SelectedTab) {
+				case ShellScreen.MainMenuTab when practiceUp:
+					practiceScreen!.Paint(contentSurface, art.Text, art.Sprites);
+					break;
 				case ShellScreen.MainMenuTab:
 					mainMenu.Paint(contentSurface, art.Text, art.Sprites);
 					break;

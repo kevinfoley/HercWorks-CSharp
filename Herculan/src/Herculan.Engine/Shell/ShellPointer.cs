@@ -55,6 +55,8 @@ public enum ShellHandler {
 public enum ShellWidgetKind {
 	StripButton,
 	MainMenuButton,
+	PracticeRow,
+	PracticeButton,
 	SaveRow,
 	SaveButton,
 	RepairRow,

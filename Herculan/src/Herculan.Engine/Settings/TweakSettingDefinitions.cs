@@ -57,6 +57,11 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> ShowSquadmateNumber = new("tweak.show_squadmate_number", TweakCategory.Cosmetic, false);
 
+	/// <summary>
+	/// Cockpit computer voiceover is controlled by the COMPUTER MESSAGE preference
+	/// instead of the PILOT MESSAGE preference.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FixComputerMessagePreference = new("tweak.fix_computer_message_pref", TweakCategory.Cosmetic, false, true);
 	#endregion
 
 	#region FUNCTIONAL

@@ -63,7 +63,7 @@ public class LocalizationTable {
 				int spaceIndex = line.IndexOf(' ');
 				if (spaceIndex > 0) {
 					string key = line[..spaceIndex];
-					string value = line[(spaceIndex + 1)..];
+					string value = line[(spaceIndex + 1)..].Trim();
 					if (loaded.ContainsKey(key)) {
 						Console.Error.WriteLine($"Warning: key {key} appears multiple times in localization file {path}. " +
 							"Only the last entry will be kept.");

@@ -4,18 +4,27 @@
 
 ## Call chain — confirmed
 
-- `Msn_BuildPath` (`0044d5bd`) builds the path `msn\<name>.msn` (string `"msn\\%s.msn"` at `0047a2a6`, `%s` = a name substituted from `DAT_0048dc18+0x45`, with `^` sanitized to `_`), then calls `MsnGen_LoadMission(path)` (`0041c73d`).
-- `MsnGen_LoadMission` (asserts trace to `msn_gen.cpp`) calls `MsnGen_ParseMsnFile(param_1)` (`00417b67`) **first, with the `.msn` path** — this is the raw-file parser. `WriteScriptDatFile` (`0041ac54`) then exports a subset of the loaded data as `data\script.dat` for downstream consumers (DBSIM and the briefing's map, VSHELL's `ShellMap`).
+- `Career_LoadCurrentMission` (`0044d4cc`) calls `MsnGen_LoadMission(path)` (`0041c73d`) with the career position's name from [`gam\career.dat`](../shell/campaign-loop.md#the-campaign-table--gamcareerdat), a path such as `MSN\TRAIN1.MSN`. It is reached through a developer's mission-name dialog whose `Use Default` button it is: a career start shows the dialog with that name and posts a press and a release to the button, unless a command-line switch (the case at `0040114c`, which sets `00482284`) leaves it up to be typed into. Its other button, `Msn_BuildPath` (`0044d5bd`), loads `msn\<typed name>.msn` (string `"msn\\%s.msn"` at `0047a2a6`, with `^` sanitized to `_`) the same way.
+- `MsnGen_LoadMission` (asserts trace to `msn_gen.cpp`) seeds the campaign flags ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-campaign-flag-array-is-the-msn-condition-store)), calls `MsnGen_ParseMsnFile(param_1)` (`00417b67`) with the `.msn` path, fills the header's training fields ([`script-dat.md`](script-dat.md#the-training-fields)), and has `WriteScriptDatFile` (`0041ac54`) export a subset of the loaded data as `data\script.dat` for DBSIM and the briefing's map, VSHELL's `ShellMap`. A training load then builds the squad from the mission ([`../shell/screen-layout.md`](../shell/screen-layout.md#starting-a-practice-mission)).
 - Separately, `ShellMap_Constructor` (`00423f43`, vtable `&PTR_FUN_004721b0`) opens `data\mission.str` and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `ShellMap_LoadScriptDat` (`004243d7`, source `shellmap.cpp`) — the briefing's map ([`../shell/mission-map.md`](../shell/mission-map.md)), a second consumer of the same data exported from `.msn` parsing. See [`script-dat.md`](script-dat.md) for the relationship.
 - The save-slot handoff copies the three loose working files in and out of a numbered slot, and the two directions are separate functions (source `career.cpp`): `Career_SaveSlot` (`00412a71`) saves, `data\` to `sav\`, and `Career_LoadSlot` (`00412bbf`) loads, `sav\` to `data\`. The pairs are `data\script.dat`/`sav\script%d.dat`, `data\mission.str`/`sav\missn%d.str` and `data\player.mec`/`sav\player%d.mec`, matching the dev note in `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt`. See [`save-games.md`](save-games.md).
 
 ## `MsnGen_ParseMsnFile` (`00417b67`) — the raw `.MSN` parser
 
-Opens the stream (`FUN_00402ad9`), then **asserts a revision field equals `5`** (2-byte value, right after open — mirrors the same revision-check pattern already known from `Volume::loadVolume`). One scratch pass follows (a `DAT_00470648`-counted loop reading fixed 0x52/82-byte chunks into a *reused* buffer, applying effects via `FUN_00416379` rather than storing an array — looks like a one-shot campaign-override/patch application, not a persistent entity list), then a long sequence of `[uint16 count] → array of fixed-size records` reads. Every record array goes through a shared condition-filter helper (`Msn_ConditionFilterGate` (`00417610`), or a couple of specialized siblings) that **compacts the array in place**, dropping records whose condition fails — i.e. this function is doing campaign- state-aware filtering *while* loading, not a flat/passive parse.
+Opens the stream (`FUN_00402ad9`), then **asserts a revision field equals `5`**. It reads row 1, the conditions; row 2, the header patches; the mission's [`.ENG` text](#the-eng-string-table) (`Msn_LoadEngText` (`0041768c`)); then rows 3 to 17 in order, each `[uint16 count] → array of fixed-size records`, with row 5 skipped. The parser does campaign-state-aware filtering *while* loading: every record goes through a condition test and survivors are **compacted in place**, and each ref into another row is renumbered to the index `script.dat` gives its target — the count of records before it whose GUID is not `-1`. A ref into a row not loaded yet waits: an order's group subject and an action's target are resolved in two passes after row 16.
 
-### The condition/trigger system (this resolves a long-standing "unknown" from the Java doc comment)
+### The conditions — row 1
 
-The first record type's type-0 branch is a `switch` on the value `0x119`–`0x11e`:
+Every record in the file but row 2's carries a condition ref, `0x02` (row 4's and row 17's is at `0x00`). `Msn_ConditionFilterGate` (`00417610`) passes a record whose condition is `-1` or names a surviving row-1 record; any other record is dropped. Row 1 is filtered by its own records as it is read, each against the survivors before it, and a row-1 record survives by its type:
+
+| type | fields | survives when |
+|---|---|---|
+| 0 | `0x06` flag index, `0x08` operator, `0x0a` operand | its own condition passes and the comparison holds; `0x08` becomes the result |
+| 1 | `0x06` bound | its own condition passes; `0x08` becomes a draw below the bound |
+| 2 | `0x02` its parent, `0x06`-`0x08` a range | the parent is a type-1 record whose draw falls in the range (unsigned), or a type-3 record, which always passes (`Msn_ConditionParentValue` (`004159d0`) answers `-99`) |
+| 3 | `0x06` a variant key, `0x0a` a bound | its own condition passes |
+
+Type 0's operator is a `switch` on `0x119`–`0x11e`, comparing `DAT_00482af8[0x06]` — the campaign flag store: 1,000 `int16` persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same array is `DAT_004a9ef4` ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)) — against the operand. Any other code fails.
 
 | code | operator |
 |------|----------|
@@ -26,52 +35,72 @@ The first record type's type-0 branch is a `switch` on the value `0x119`–`0x11
 | 0x11d | `>`  (operands swapped) |
 | 0x11e | `>=` (operands swapped) |
 
-Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16` persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `Msn_ConditionFilterGate` (`00417610`) again) ([Open](#open)).
-
 | offset | field | notes |
 |---|---|---|
-| `0x00` | ordinal/index | authoring-tool bookkeeping; never read at runtime |
-| `0x02` | condition input | 43% populated; highest real-usage rate in file |
-| `0x04` | type discriminator | 4 types: `0`/`2`/`3`/`1` (47%/39%/12%/1.5%) |
-| `0x06` | flag-index / range-lower | values in increments of 50; suggests block-organized flags |
-| `0x08` | operator code / result | type `0`: `0x119`-`0x11e` opcodes; type `2`: +49 offset pairs |
-| `0x0A` | comparison operand | mostly `0` (71%) |
-| `0x0C` | ? | **dead** — always `0` |
+| `0x00` | GUID | what a condition ref names |
+| `0x02` | condition | 43% populated; a type-2 record's parent |
+| `0x04` | type | 4 types: `0`/`2`/`3`/`1` (47%/39%/12%/1.5%) |
+| `0x06` | flag index / bound / range low / variant key | by type, above |
+| `0x08` | operator / draw / range high | by type, above |
+| `0x0A` | operand / type 3's bound | mostly `0` (71%) |
+| `0x0C` | type 3's latest draw | `0` in every file; written at load |
 
-**Row #1:** shared flag/condition store; entries can gate on each other; organized in 50-element flag banks.
+The draws are VSHELL's generator's, described in [`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-shells-generator).
 
-### The template-inheritance pattern
+### Variants
 
-Most record types carry a "parent index" field: `-1` means "read this record's fields fresh from the stream," any other value means "`memcpy` the already-loaded record at that index instead," sometimes with additional per-field overrides layered on top. This is a real, load-time prototype/inheritance mechanism — missions can define an entity as "like entity N, but with these fields changed" ([Open](#open)).
+Rows 6, 7, 8, 12, 13, 14 and 15 carry a variant key at `0x04`. A record whose key is `-1` resolves its own refs. Any other key names a type-3 row-1 record by its `0x06`: `Msn_PickVariant` (`00415fc3`) draws below that record's `0x0a`, stores the draw at its `0x0c`, and takes the type-2 child whose range holds it; the record then copies its payload from the first record of its own row, loaded before it, whose condition is that child's GUID (`Msn_VariantSourceRow6` (`00416120`) for row 6, and a sibling per row). It draws again for every record that asks, so two records sharing a key can land on different variants.
+
+The records a variant copies from are ordinary records whose GUID is usually `-1`, so they are never exported themselves: a mission authors each alternative once, conditioned on its type-2 child, and every record that wants a random pick among them names the key. What each row copies:
+
+| row | copied from the variant |
+|---|---|
+| 6 | the coordinates |
+| 7 | the heading |
+| 8 | the waypoint list |
+| 12 | everything from `0x08` to `0x8f` but `0x4a`, refs already resolved |
+| 13 | everything from `0x08` to `0x65` but `0x36` |
+| 14 | everything from `0x08` to `0x3d` but `0x0e` |
+| 15 | `0x08`-`0x15` |
+
+Row 6 also has a sum flag, `0x08`: when set, the point is the sum of the two earlier points whose GUIDs are the low words of its own X and Y.
+
+### Repeated GUIDs
+
+A record whose GUID an earlier survivor already has does not add a record. Rows 3, 6, 7, 8 and 9 **replace** the earlier record with it; rows 10 to 16 **overlay** it, copying each field that is not its unset value onto the earlier record (`Msn_MergeRow10` (`00416521`) for row 10 and a sibling per row). The unset value is `-1` for refs and most payload, `0` for the 20-word blocks at `0x06`/`0x08` and for row 10's message and row 11's delay, `100` for the trailing condition fields, `5` for row 12's ammunition types and `2` for its `0x88`. Records whose GUID is `-1` are never merged, and never written to `script.dat`.
+
+### The header patch — row 2
+
+82 bytes read into one reused buffer and never kept: a condition, ten header words and thirty flag indices. The ten header words (`DAT_00485446` upward) are reset once row 1 is read — the first to 1, the rest to 0 — and each row-2 record whose condition passes writes every header word that is not its unset value, 1 for the first and 0 for the rest, and every flag index that is not `-1` into the clear list at `DAT_0048545a`. Then every flag the clear list names is zeroed (`Msn_ClearPatchedFlags` (`00417659`)). The clear list is never reset, and starts at zero, so a load clears flag 0 thirty times over until a patch names something else. The header words are [`script-dat.md`](script-dat.md#header-format)'s, and every retail mission sets its zone this way.
 
 ### Record-array table — **empirically confirmed byte-exact against 61/62 real `.MSN` files**
 
-Two corrections versus the first disassembly-only pass (caught by building a strict byte-walker and testing it against every real file — see "Verification note" below):
+Two shapes need care:
 
-- A **skip-only row** (`DAT_0047066a`) sits between the 144-byte array (#4) and the 22-byte array (now #6) — it reads a count, then seeks forward `count * 0x40` (64) bytes **without storing anything**. Easy to miss reading the decompiled code linearly since it looks like ordinary array setup at a glance.
-- The nested-array row (#8) is **not** `count * 18` bytes as the in-memory struct size implied. Per record it's 10 fixed bytes (5 shorts, the 5th being a nested-entry count), followed by that many nested entries — but **each nested entry only consumes 2 bytes on disk**, not the 6 bytes its in-memory slot is allocated as. The other 4 bytes of each in-memory slot are zero-initialized locally, never read from the file. Missing this caused total desync a few hundred bytes in.
+- A **skip-only row** (`DAT_0047066a`) sits between the 144-byte array (#4) and the 22-byte array (#6): this load reads a count, then seeks forward `count * 0x40` (64) bytes **without storing anything**.
+- The nested-array row (#8) is **not** `count * 18` bytes, the in-memory stride. Per record it is 10 fixed bytes (5 shorts, the 5th being a nested-entry count), followed by that many nested entries of **2 bytes each on disk** — the in-memory slot is 6 bytes, and its other 4 are zeroed, never read from the file.
 
 | # | count global | on-disk shape | storage global | cross-refs into | best current guess |
 |---|---|---|---|---|---|
-| 1 | `DAT_0047064c` | 14 (`0xe`) bytes/record | `DAT_00470604` | `DAT_00482af8` (flags), self (via `0x02`) | **decoded — see "The condition/trigger system" below, now with byte offsets.** `UnkHeaderEntry` — the campaign trigger/flag-comparison record; real usage is heavy (43% use a real condition, unlike almost every other row) |
-| 2 | `DAT_00470648` | 82 (`0x52`) bytes/record | *(scratch, not stored)* | — | one-shot campaign override/patch application ([Open](#open)) |
-| 3 | `DAT_00470666` | 8 bytes/record | `DAT_0047063c` | referenced by #4, #16, #17 | **decoded — see "Row #3 field decode" below.** A small campaign-variant value lookup: GUID + condition + payload, where the same GUID can carry several condition-gated payload variants |
+| 1 | `DAT_0047064c` | 14 (`0xe`) bytes/record | `DAT_00470604` | `DAT_00482af8` (flags), self (via `0x02`) | **decoded — see [The conditions](#the-conditions--row-1).** The campaign flag comparisons, random draws and their ranges every other row's condition ref names |
+| 2 | `DAT_00470648` | 82 (`0x52`) bytes/record | *(scratch, not stored)* | — | **decoded — see [The header patch](#the-header-patch--row-2)** |
+| 3 | `DAT_00470666` | 8 bytes/record | `DAT_0047063c` | referenced by #4 | **decoded — see "Row #3 field decode" below.** A small campaign-variant value lookup: GUID + condition + payload, where the same GUID can carry several condition-gated payload variants and the last to survive wins |
 | 4 | `DAT_00470668` | 144 (`0x90`) bytes/record | `DAT_00470640` | 3 sub-arrays (10, 30, 30 shorts) of `.ENG` string ids; 1 ref into #3 | **decoded — see "Row #4 field decode" below.** No GUID/identity field at all (offset `0x00` is the condition ref instead) — refutes the existing C# `UnitInfo` hypothesis outright, not just its sub-array split; nothing else in the file references this row |
-| 5 | `DAT_0047066a` | **skip-only**, `count * 0x40` bytes, nothing stored | — | — | skipped at this load path; the game itself never stores it here ([Open](#open)) |
-| 6 | `DAT_0047064e` | 22 (`0x16`) bytes/record | `DAT_0047060c` | self (inherit/compose) | **decoded — see "Row #6 field decode" below. A 3D world-position/waypoint record** (`MapPoint22`): GUID + 3 dead fields + an int32 X/Y/Z triple. This is the record every row #9 link/reward ref, and several other rows' refs, ultimately resolve to |
+| 5 | `DAT_0047066a` | **skip-only**, `count * 0x40` bytes, nothing stored | — | — | skipped by this load. `maybe_Msn_LoadTextRows` (`0041ca4e`), a second loader that reads rows 1 to 5 only, keeps it: a condition, thirty text refs and a row-3 ref, row 4's shape with one text array where row 4 has three ([Open](#open)) |
+| 6 | `DAT_0047064e` | 22 (`0x16`) bytes/record | `DAT_0047060c` | self (variant, sum) | **decoded — see "Row #6 field decode" below. A 3D world-position/waypoint record** (`MapPoint22`): GUID + 3 dead fields + an int32 X/Y/Z triple. This is the record every row #9 link/reward ref, and several other rows' refs, ultimately resolve to |
 | 7 | `DAT_00470650` | 10 bytes/record | `DAT_00470610` | self | **decoded — see "Row #7 field decode" below.** A minimal record: GUID + 3 fully-dead fields + one small discrete payload (`0`/`1`/`10`) — the simplest record type in the file, unreferenced by anything else |
 | 8 | `DAT_00470656` | **variable**: 10 fixed bytes/record + (nested-count × 2) bytes | `DAT_0047061c` | #6 (nested entries) | **decoded — see "Row #8 field decode" below.** A named, orderable list of row #6 world positions (`WaypointGroup`) — a patrol route/waypoint chain, with real evidence of both spatial coherence and closed-loop (patrol circuit) structure |
 | 9 | `DAT_0047065e` | 12 (`0xc`) bytes/record | `DAT_0047062c` | #6, self | **decoded — see "Row #9 field decode" below.** A typed dual-purpose record: a GUID-pair "link" (two refs into row #6) when its type flag is 0, or a single row-#6 ref plus a round-number literal (likely a salvage/reward value) when the flag is 1 |
-| 10 | `DAT_00470660` | 82 (`0x52`) bytes/record | `DAT_00470630` | #9 (8 shorts), LUT `DAT_00470664` (5 shorts) | referenced later by a **4-way type-discriminated remap** (codes 7/8/9/10 → #12/#13/#14/#16) — the mission **action**, `script.dat` block 5. The objective record is row #17 |
+| 10 | `DAT_00470660` | 82 (`0x52`) bytes/record | `DAT_00470630` | #9 (8 shorts), `.ENG` text (5 shorts at `0x44`), and a target resolved after row 16 by the action's type (7/8/9/10 → #12/#13/#14/#16) | the mission **action**, `script.dat` block 5. The objective record is row #17 |
 | 11 | `DAT_00470662` | 30 (`0x1e`) bytes/record | `DAT_00470634` | #10 (once) + #10 again (10 shorts) | **decoded — see "Row #11 field decode" below.** A mission timer: an action that arms it, a delay, and the actions fired on expiry. DBSIM reads all ten sequence slots, but not all of them are always used |
-| 12 | `DAT_00470652` | 144 (`0x90`) bytes/record | `DAT_00470614` | #6, #7, #10 (×2) — sparse in retail (≤2.4% used) but all live at runtime; real payload is a 10-slot weapon fit | **decoded — see "Row #12 field decode" below.** The mission's **mech roster**: one record per HERC it can field, with type, weapon fit and optional placement. A second, distinct 144-byte type from #4; heaviest template-inheritance usage of any decoded row (48%) |
-| 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** `UnkEntity102Bytes` — real structure is a 20-flag boolean array + a mostly-inert second 20-slot span + a constant trailing field (always `100`), not the flat `Flags[49]` the old hypothesis assumed; the macro pass's "inherit only" note missed all four real cross-refs |
+| 12 | `DAT_00470652` | 144 (`0x90`) bytes/record | `DAT_00470614` | #6, #7, #10 (×2) — sparse in retail (≤2.4% used) but all live at runtime; real payload is a 10-slot weapon fit | **decoded — see "Row #12 field decode" below.** The mission's **mech roster**: one record per HERC it can field, with type, weapon fit and optional placement. A second, distinct 144-byte type from #4; heaviest variant usage of any decoded row (48%) |
+| 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** `UnkEntity102Bytes` — real structure is a 20-flag boolean array + a mostly-inert second 20-slot span + a constant trailing field (always `100`), not the flat `Flags[49]` the old hypothesis assumed |
 | 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** `MiscEntityInfo` — 4 real cross-refs, not the 3 the macro pass found (it missed #7); a type-like field at `0x08` correlates ~99% with the trailing constant field being `100` vs `0` |
 | 15 | `DAT_00470658` | 22 (`0x16`) bytes/record | `DAT_00470620` | #6 (rare), #8 (dominant — 94% populated), #10 (rare), plus a **4-way** discriminated ref (0/1/2/3 → #16/#12/#13/#14, resolved in two passes since #16 loads after #15) | **decoded — see "Row #15 field decode" below.** A "typed link" record whose primary payload is a near-always-populated ref into row #8 — confirms it's structurally distinct from #6 (which is a flat position record), not just size-coincidentally 22 bytes |
 | 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and a cleanly discriminated trailing payload (`0x78`: 0/1/2 → 0/2/4 populated fields) |
 | 17 | `DAT_0047064a` | 58 (`0x3a`) bytes/record | `DAT_00470608` | #6 (declared, **never used in retail data**), #8, a `.ENG` id (dominant), a 4-way discriminated ref (0/1/2/3 → #16/#12/#13/#14) | **the mission objective — see "Row #17 field decode" below.** Structurally unusual — no leading GUID field at all (this record is never referenced by anything else in the file); the 42-byte tail is a nested pair-count array, the same idiom as row #8's nested waypoint list |
 
-`DAT_00470664` itself is never the subject of a count+array read in this function — it's used throughout as a lookup-table size bound, consistent with a shared table loaded once at VSHELL startup rather than per-mission ([Open](#open)).
+`DAT_00470664` is the count of `.ENG` records the load kept, read by `Msn_LoadEngText` (`0041768c`) between rows 2 and 3; rows 4, 10 and 17 renumber their text refs into that list, which is `data\mission.str` ([The `.ENG` string table](#the-eng-string-table)).
 
 ### Verification note
 
@@ -89,7 +118,7 @@ Central spatial-reference table: `{GUID, X, Y, Z}` points (2,661 real instances 
 |---|---|---|
 | `0x00` | GUID | identity key |
 | `0x02` | condition ref | **dead** — always `-1` |
-| `0x04` | template/inherit index | **dead** — always `-1` |
+| `0x04` | variant key | **dead** — always `-1` |
 | `0x06` | ? | **dead** — always `-1` |
 | `0x08` | sum flag | **dead** — always `0` |
 | `0x0A` | X (int32) | range 77,591–3,825,420 |
@@ -105,7 +134,7 @@ Ordered waypoint list, heavily referenced by row #15 (470 real instances across 
 |---|---|---|
 | `0x00` | GUID | identity; 47/470 are `-1` (conditional records) |
 | `0x02` | condition ref | 10% real usage; correlates exactly with GUID `-1` |
-| `0x04` | parent/inherit | 2% real; aliases existing groups; only nested list is copied |
+| `0x04` | variant key | 2% real; a variant copies the waypoint list |
 | `0x06` | ? | **dead** — always `-1` |
 | `0x08` | nested count | 0–9 entries; mean 3.2 |
 | nested | ref→row #6 | 2 bytes/entry; resolved to row #6 GUIDs |
@@ -121,7 +150,7 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 |---|---|---|
 | `0x00` | GUID | identity key |
 | `0x02` | condition ref | 5/637 real (0.8%); **compound pair** with `0x06` |
-| `0x04` | parent/template | **dead** — always `-1` |
+| `0x04` | variant key | **dead** — always `-1` |
 | `0x06` | condition operand | correlates 100% with real `0x02`; values {1, -99} |
 | `0x08` | **the verb** | range 0–6, the whole span DBSIM switches on: search/destroy, ram, guard, patrol, sleep, travel, follow |
 | `0x0A` | small int | range 0–3; resolved into the order record and never read |
@@ -160,10 +189,10 @@ The mission action — `script.dat` block 5, laid out in [`../simulation/mission
 | `0x0A–0x11` | ref[0..3]→row #9 | only 4 real slots; authored as row #9 GUIDs; 100% match rate |
 | `0x12–0x19` | ref[4..7]→row #9 | **dead** — always `-1` |
 | `0x1A–0x43` | (42 bytes) | **dead** — constant padding (`0000` + twenty `-1`s) |
-| `0x44–0x45` | ref→herc/unit LUT | 1% real |
-| `0x46–0x4D` | ref[1..4]→LUT | **dead** — always `-1` |
+| `0x44–0x45` | text ref | 1% real; renumbered into `mission.str` like every other text ref |
+| `0x46–0x4D` | text refs [1..4] | **dead** — always `-1` |
 | `0x4E` | message | the mission message the action posts, **plus one**; 0 for none. `script.dat` block 5 `0x4E` carries it through and DBSIM subtracts the one at load ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-four-ways-an-action-activates)). 66 real instances: 65 in the four `TRAIN*.MSN` and one in `C1_02.MSN` |
-| `0x50` | polymorphic target | type chosen by `0x06` (0/1/3/4 → rows #12/#13/#14/#16); 1% real |
+| `0x50` | target | 1% real. The load resolves it only for types 7-10, into rows #12/#13/#14/#16; any other type keeps it as authored |
 
 
 ## Row #3 field decode — "VariantValue8" (`DAT_00470666`, 8 bytes/record)
@@ -186,7 +215,7 @@ Heading record (degrees → BAM conversion). 105 real instances; simplest record
 |---|---|---|
 | `0x00` | GUID | identity key |
 | `0x02` | condition ref | **dead** — always `-1` |
-| `0x04` | parent/inherit | **dead** — always `-1` |
+| `0x04` | variant key | **dead** — always `-1` |
 | `0x06` | ? | **dead** — always `-1` |
 | `0x08` | payload | 0/1/10 (62%/34%/4%); multiplied by 182 → degrees to BAM |
 
@@ -217,18 +246,18 @@ A mission timer: an action that arms it, a delay, and the actions fired when the
 | `0x52–0x8c` | sub-array C → `.ENG` ids (30 slots) | 0–3 real slots; mode 1 |
 | `0x8e` | ref→row #3 variant | 87% real; dominant field; fetches payload value |
 
-Sub-array A's values reach 243 across the corpus, so none of the three indexes the 5-slot shared LUT at `DAT_00470664`: they are ids into the mission's own [`.ENG` table](#the-eng-string-table). What B and C carry is [Open](#open).
+Sub-array A's values reach 243 across the corpus, and every one is an id into the mission's own [`.ENG` table](#the-eng-string-table), renumbered at load into `mission.str` lines. What B and C carry is [Open](#open).
 
 
 ## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
 
-Item flags + condition/inheritance (24%/30% real usage — highest combined rates in file). 124 instances.
+Item flags + condition/variant (24%/30% real usage — highest combined rates in file). 124 instances.
 
 | offset | field | notes |
 |---|---|---|
 | `0x00` | GUID | 76% real; identity key |
 | `0x02` | condition ref | 24% real (tier: rows #1/#3/#13) |
-| `0x04` | parent/inherit | 30% real; copies blocks A/B if set |
+| `0x04` | variant key | 30% real |
 | `0x06` | ? | **dead** — always `-1` |
 | `0x08–0x30` | flags block A (20 shorts) | 100% populated; boolean: 96.5% `0`, 3.5% `1` |
 | `0x30` | ref→row #6 | always `-1` in retail, but **not dead** — DBSIM reads it as this flyer's spawn-position override (see `script-dat.md`) |
@@ -249,7 +278,7 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 |---|---|---|
 | `0x00` | GUID | 99% real |
 | `0x02` | condition ref | 30% real (tier: rows #1/#3/#13) |
-| `0x04` | parent/inherit | 0.4% real; nearly dead |
+| `0x04` | variant key | 0.4% real |
 | `0x06` | ? | **dead** — always `-1` |
 | `0x08` | **base type** | 71% real; range 0–56 (43 values) — an index into `dat\BASES.DAT`'s 65-entry structure table, which names the model and its texture bank |
 | `0x0A` | ref→row #6 | 6.4% sparse — this structure's spawn-position override |
@@ -293,13 +322,13 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 
 ## Row #12 field decode — "EntityTemplate144" (`DAT_00470652`, 144 bytes/record)
 
-Entity template/spawn; highest inheritance usage (48%). Three-way identity split: GUID-based template (48%), fresh GUID (11%), or conditional-only (41%). 1,683 instances.
+The HERC roster; highest variant usage (48%). Three-way identity split: a GUID and a variant key (48%), a GUID alone (11%), or a conditional variant with no GUID (41%). 1,683 instances.
 
 | offset | field | notes |
 |---|---|---|
 | `0x00` | GUID | 59% real (or `-1` for condition-only) |
 | `0x02` | condition ref | 43% real (tier: rows #1/#3/#13/#14) |
-| `0x04` | parent/inherit | 48% real (highest in file); copies 4 blocks if set |
+| `0x04` | variant key | 48% real (highest in file) |
 | `0x06` | condition operand | 3.9% real; compound pair with `0x02` |
 | `0x08` | **AI radar setting** | 100% real; 0/1. DBSIM copies it to `mech+0x97`, which is the standing PASSIVE/ACTIVE the machine walks its route on — see [`../simulation/ai-weapons.md`](../simulation/ai-weapons.md) |
 | `0x0A` | **AI cruise speed** | 100% real; `0` in 91% of records, which means "use the `0xaa` default". Copied to `mech+0x252`, the speed `Ai_DriveToPoint` walks at |
@@ -317,7 +346,7 @@ Entity template/spawn; highest inheritance usage (48%). Three-way identity split
 | `0x8C` | ref→row #10 slot 2 | 2.4% dead |
 | `0x8E` | health modifier | 100% real; `100` (98.5%) or `50` (1.5%) |
 
-**Model:** Template/spawn with high inheritance/condition usage. The payload is the 10-slot **weapon fit** at `0x32`, plus the per-mech spawn-position and heading overrides at `0x46`/`0x48` — sparsely populated but live, and the pair of AI settings at `0x08`/`0x0A` ([`ai-navigation.md`](../simulation/ai-navigation.md)). Three identity patterns: reusable template (GUID+inherit), fresh template (GUID only), or conditional spawn (no GUID).
+**Model:** A roster record with high variant/condition usage. The payload is the 10-slot **weapon fit** at `0x32`, plus the per-mech spawn-position and heading overrides at `0x46`/`0x48` — sparsely populated but live, and the pair of AI settings at `0x08`/`0x0A` ([`ai-navigation.md`](../simulation/ai-navigation.md)). Three identity patterns: a HERC whose fields come from a random variant (GUID and key), a HERC authored whole (GUID only), or a variant itself (no GUID, a condition naming its row-1 child).
 
 ## Row #17 field decode — the objective record (`DAT_0047064a`, 58 bytes/record)
 
@@ -354,12 +383,16 @@ count x {
 
 **Verified byte-exact**: all 62 files consume to their declared content length with zero slack, 1,111 records, ids 42-253.
 
-A line ending `" \n"` is authored to break there; the reader that copies these into a mission strips one trailing newline. VSHELL exports the subset a mission uses into `data\mission.str` as an ordinary [`.STR`](str-strings.md), renumbered from zero, and rewrites row #4's and row #17's ids to match — which is why `script.dat`'s refs are small where these are not.
+A line ending `" \n"` is authored to break there; the reader that copies these into a mission strips one trailing newline.
+
+`Msn_LoadEngText` (`0041768c`) loads it between rows 2 and 3, from the mission's path with everything from its first `.` replaced by the language's extension — `.eng`, or `.fre`/`.ger` by the value in `0048227a`, which a command-line switch sets. A record whose condition fails is skipped, and one whose id is already loaded replaces that entry's text. `MissionStr_Write` (`004179f0`) writes every record that stays into `data\mission.str` as an ordinary [`.STR`](str-strings.md) of one group — the length of the rest, the count, then each line's length with its NUL, the line, and an attribute count of 0 — and rows #4, #10 and #17 have their ids renumbered to match, which is why `script.dat`'s refs are small where these are not.
 
 
 ## How to apply
 
 - **The record table is byte-exact against 61 of 62 retail `.MSN` files**, and is implemented: `HercWorks.Core.Io.Transform.Common.MissionFileTransformer` walks the rows in this order, including skip-only row #5 and nested row #8's 2-bytes-per-entry width. Each row has a model under `HercWorks.Core.Data.File.Msn/`.
+
+- **The load is `HercWorks.Core.Io.Transform.Common.MissionGenerator`**: the conditions, the header patch, the `.ENG` text, variants, repeated GUIDs, the renumbering and both writers, working on the raw words as the original does rather than on `MissionFileTransformer`'s models. It loads all 62 retail missions, and at the generator state [`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-shells-generator) describes it reproduces two retail training handoffs of TRAIN5, each a `script11.dat` and `missn11.str` that retail wrote to save slot 11, byte for byte through their content ([`../shell/screen-layout.md`](../shell/screen-layout.md#starting-a-practice-mission)).
 
 - **Recurring pattern: most declared array/discriminator capacity goes unused in retail.** C# models should expose the actually-used shape, not full nominal capacity, while still round-tripping raw bytes.
 
@@ -369,12 +402,15 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 
 - **Note:** `DEMO2.MSN` undershoots by 42 bytes at row #17; treat as a known outlier rather than a table error.
 
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| `0x04` is a parent index: the record copies an earlier record of its row, as the Core models' `InheritIndex` names it | It is a variant key into row 1. The copy's source is found by the condition field of the candidates, never by index or GUID, and which candidate it is depends on a draw — see [Variants](#variants) |
+| Row 1's `0x00` is authoring bookkeeping, never read (the Core model's `Ordinal`) | It is the GUID every condition ref in the file names; `Msn_ConditionFilterGate` searches for it |
+
 ## Open
 
-- **Open:** what record types 1-3's evaluator functions (`FUN_004659ec`, `Msn_ConditionFilterGate` (`00417610`)) test beyond `FUN_004159d0`'s `-99`-sentinel-or-range-check; candidates are dialogue/event flags and numeric range checks, distinct from type 0's pure flag comparisons.
-- **Open:** whether `DAT_00470664` is `HercLUT`, loaded once at VSHELL startup rather than per-mission; only its use as a size bound is confirmed here.
-- **Unported:** row #2's one-shot campaign-override/patch application (82 bytes/record, scratch-applied via `FUN_00416379`, never stored as a persistent array).
-- **Open:** whether row #5 (`DAT_0047066a`, skip-only, `count * 0x40` bytes) is read anywhere else, such as directly by DBSIM, rather than only skipped by this VSHELL load path.
-- **Unported:** the template-inheritance mechanism itself — a record's parent-index field copying an already-loaded record's fields, with per-field overrides layered on top. `MissionFileTransformer` round-trips the raw bytes but does not resolve the copy.
+- **Open:** what `maybe_Msn_LoadTextRows` (`0041ca4e`) is for — the loader, called from `FUN_0041d2c3`, that reads rows 1 to 5 of a mission, keeps row #5 rather than skipping it, and writes `data\mission.str` from the `.ENG` it loads.
 - **Open:** what row #4's sub-arrays B and C carry. The record's 10-30-30 layout is the save's career block's, whose arrays are the objectives, the briefing and the intelligence report ([`save-games.md`](save-games.md#career-block--152-bytes)), but the `msn_gen.cpp` code that fills the career block from a mission has not been read.
 - **Open:** what row #13's `0x36` field is; nearly always `0`, not confirmed dead.

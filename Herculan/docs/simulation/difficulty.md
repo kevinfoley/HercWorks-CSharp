@@ -37,7 +37,7 @@ The [practice missions screen](../shell/screen-layout.md#the-practice-missions-s
 | `0x28` | 9 | `0x6e` `Outlaw` … `Razor` | the chassis the player flies; not a header field |
 | `0x29` | 2 | `0x12c` `Day` / `Night` | header `+0x12`, the theater variant — which is what that bit selects |
 
-The screen's launch handler (`FUN_0044c396`) saves the array before starting the mission, so these persist between runs. The difficulty byte is passed to `Game_NewCareer` as well as to the header, so the `TRAINEE` pilot the training career creates carries it as their skill too.
+The screen's launch handler, `PracticeScreen_OnBeginMission` (`0044c396`), saves the array before starting the mission, so these persist between runs. The difficulty byte is passed to `Game_NewCareer` as well as to the header, so the `TRAINEE` pilot the training career creates carries it as their skill too.
 
 **DBSIM never reads options `0x25`-`0x29`.** They are VSHELL's half of a shared file; what reaches the simulator is the header, not the option.
 
@@ -109,18 +109,14 @@ Three deliberate differences:
 
 The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObject.SlideLandingDamage` where a slide ends, which also raises the cockpit shake the original raises beside the damage — see [`mech-locomotion.md`](mech-locomotion.md#the-landing).
 
-**Nothing in the engine writes any of the three fields.** They arrive only from a `script.dat` on disk: the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`), and the shell's practice missions screen — the one place retail sets them — steps the options, but its `Begin Mission`, which starts the mission they are written into, has no port ([Open](#open)). An editor toggle or a host flag would make them reachable.
+**The shell's practice missions screen writes all three**, as retail's does: its `Begin Mission` loads the mission through `ShellTrainingLaunch`, which puts the three options in the header ([`../shell/screen-layout.md`](../shell/screen-layout.md#starting-a-practice-mission)). Any other mission brings them in its `script.dat`; the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`).
 
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
 | Difficulty runs 0-4 | Three of the four tables have a zero or an unrelated value in what would be slot 4, which reads as a fifth level. `0049a73c` and `0049a744` are 8 bytes apart and admit no fifth entry, both screens that set the number step it modulo 4, and the skill ladder the campaign feeds it from caps at 3 |
-| Difficulty is a property of the mission | `MsnGen_ParseMsnFile` zeroes the header global before parsing and only `MsnGen_LoadMission` fills it. A `.msn` file cannot carry one |
+| Difficulty is a property of the mission | A mission's [header patch](../formats/msn-mission-file.md#the-header-patch--row-2) does write the field, and most retail missions patch in 2 or 3. `MsnGen_LoadMission` overwrites it in both modes before the file is written — with the player's skill in a campaign and the practice screen's option outside one — so what a mission authors never reaches the simulator |
 | The difficulty scale applies to plasma blast damage only | That is one of `Damage_ScaleByDifficulty`'s three call sites. The other two are in `Sim_RaycastObjectList`, on the two damage figures of every direct-fire shot |
 | `DAT_004a9ee0 == 0` makes the player invulnerable | It is one arm of `Sim_DamageToPlayerDisabled`, and the arm the loader's zeroing of `DAT_004a9ed6` makes unreachable. Invulnerability is its own header field |
 | `prefs.cfg` options `0x25`/`0x26` are the two cheats DBSIM reads | They are VSHELL's half of a file the two programs share. The simulator reads neither: it tests the `script.dat` header fields against `== 1`. The option bytes are the shell's record of what the player asked for, not the switch |
-
-## Open
-
-- **Unported:** the practice missions screen's `Begin Mission` — the path by which retail sets the difficulty, invulnerability and unlimited-ammo header fields outside a campaign. An editor toggle or a host flag would let the engine set them without it.

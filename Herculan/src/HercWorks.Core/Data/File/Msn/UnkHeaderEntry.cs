@@ -3,40 +3,37 @@ using System.Text;
 namespace HercWorks.Core.Data.File.Msn;
 
 /// <summary>
-/// Row #1 (14 bytes/record) — the mission's shared campaign flag/condition-trigger store, every
-/// other row's condition field ultimately points into this array by index. Unlike every other
-/// row in the file, offset 0x00 is never read as a dedup/lookup key by VSHELL's own load loop
-/// (row #1 records are never GUID-deduplicated), so it's modeled here as a plain ordinal rather
-/// than inheriting the GUID/dedup convention <see cref="MapObject"/> gives every other row.
-///
-/// Type discriminator (0x04) selects how the record is evaluated: 0 = plain comparison (operator
-/// code 0x119-0x11e at 0x08, operand at 0x0A), 2 = range-bucket check ([lower,upper] pair at
-/// 0x06/0x08, consistently 49 apart in real data), 1 = a third evaluator function, 3 =
-/// condition-only. See docs/formats/msn-mission-file.md, "The condition/trigger system".
+/// Row #1 (14 bytes/record) — the mission's conditions. Every other row's condition field names one
+/// of these by its GUID at 0x00, and a record whose condition names no surviving row-1 record is
+/// dropped at load. The type at 0x04 decides how a row-1 record itself survives — 0 a flag
+/// comparison, 1 a random draw, 2 a range over its parent's draw, 3 a variant key's parent — and
+/// type 3 is what the other rows' 0x04 variant keys name. The load is
+/// <see cref="Io.Transform.Common.MissionGenerator"/>; the rules are
+/// docs/formats/msn-mission-file.md#the-conditions--row-1.
 /// </summary>
 public class UnkHeaderEntry {
-	/// <summary>0x00 — authoring-tool bookkeeping index; never consumed by VSHELL's own load loop.</summary>
+	/// <summary>0x00 — the GUID the other rows' condition refs name.</summary>
 	public short Ordinal { get; set; }
 
-	/// <summary>0x02 — fed to the type-specific evaluator for every type (0/1/2/3).</summary>
+	/// <summary>0x02 — this record's own condition; for type 2, its parent.</summary>
 	public short ConditionInput { get; set; }
 
-	/// <summary>0x04 — 0 = comparison, 1 = alternate evaluator, 2 = range-bucket check, 3 = condition-only.</summary>
+	/// <summary>0x04 — 0 a flag comparison, 1 a draw, 2 a range over the parent's draw, 3 a variant key's parent.</summary>
 	public short TypeDiscriminator { get; set; }
 
-	/// <summary>0x06 — flag-index (type 0), range-lower (type 2), or evaluator param (type 1).</summary>
+	/// <summary>0x06 — the flag index (type 0), the draw's bound (type 1), the range's low end (type 2) or the variant key (type 3).</summary>
 	public short FlagIndexOrRangeLower { get; set; }
 
 	/// <summary>
-	/// 0x08 — for type 0, holds the 0x119-0x11e operator code on input, overwritten in place with
-	/// the boolean result. For type 2, the range's upper bound (consistently lower+49).
+	/// 0x08 — for type 0 the 0x119-0x11e operator code, overwritten at load with the result; for type
+	/// 1 the draw, written at load; for type 2 the range's high end.
 	/// </summary>
 	public short OperatorOrRangeUpperOrResult { get; set; }
 
-	/// <summary>0x0A — comparison operand (type 0 only); mostly 0.</summary>
+	/// <summary>0x0A — the comparison operand (type 0), or the bound a variant is drawn below (type 3).</summary>
 	public short ComparisonOperand { get; set; }
 
-	/// <summary>0x0C — always 0 in all real data; fully dead.</summary>
+	/// <summary>0x0C — 0 in every file; the load stores a type-3 record's latest variant draw here.</summary>
 	public short AlwaysZero { get; set; }
 
 	public UnkHeaderEntry() { }

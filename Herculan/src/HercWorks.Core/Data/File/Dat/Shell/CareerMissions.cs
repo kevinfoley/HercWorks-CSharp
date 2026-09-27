@@ -10,4 +10,11 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 /// </summary>
 public class CareerMissions {
 	public Dictionary<MissionSector, int[]>? Sectors { get; set; }
+
+	/// <summary>
+	/// The stages in file order, each its campaign index and its <c>missions.bin</c> name indices.
+	/// The stage number is the list position — what VSHELL's career position <c>(0046fb18, 0046fb1a)</c>
+	/// indexes — which <see cref="Sectors"/> does not keep. See docs/shell/campaign-loop.md.
+	/// </summary>
+	public List<(short CampaignIndex, int[] Missions)> Stages { get; set; } = new();
 }

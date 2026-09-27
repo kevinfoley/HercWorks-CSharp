@@ -20,7 +20,8 @@ public class CareerDataTransformer : ByteTransformer<CareerMissions> {
 		var sectors = new Dictionary<MissionSector, int[]>();
 
 		for (int s = 0; s < totalSectors; s++) {
-			var sec = MissionSector.GetById(IndexShortLE());
+			short campaignIndex = IndexShortLE();
+			var sec = MissionSector.GetById(campaignIndex);
 			var missions = new int[IndexShortLE()];
 
 			for (int i = 0; i < missions.Length; i++) {
@@ -28,6 +29,7 @@ public class CareerDataTransformer : ByteTransformer<CareerMissions> {
 			}
 
 			sectors[sec!] = missions;
+			data.Stages.Add((campaignIndex, missions));
 		}
 		data.Sectors = sectors;
 

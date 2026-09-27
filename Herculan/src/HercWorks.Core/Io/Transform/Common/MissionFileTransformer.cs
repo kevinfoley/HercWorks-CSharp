@@ -29,7 +29,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		data.Revision = IndexShortLE();
 
 		data.TriggerEntries = ReadArray(ParseRow1);
-		data.OverridePatches = ReadArray(ParseRow2);
+		data.SettingsPatches = ReadArray(ParseRow2);
 		data.Variants = ReadArray(ParseRow3);
 		data.RewardPackages = ReadArray(ParseRow4);
 
@@ -67,9 +67,9 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		IndexShortLE(), IndexShortLE(), IndexShortLE(), IndexShortLE(),
 		IndexShortLE(), IndexShortLE(), IndexShortLE());
 
-	// ---- Row #2: CampaignOverridePatch82 (82 bytes, scratch) --------------------------------
+	// ---- Row #2: MissionSettingsPatch (82 bytes, applied at load and not kept) ---------------
 
-	private CampaignOverridePatch82 ParseRow2() => new() { Data = IndexShortLEArray(41) };
+	private MissionSettingsPatch ParseRow2() => new() { Data = IndexShortLEArray(41) };
 
 	// ---- Row #3: VariantValue8 (8 bytes) ----------------------------------------------------
 
@@ -331,7 +331,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(outStream, WriteShortLE(data.Revision));
 
 		WriteArray(outStream, data.TriggerEntries!, WriteRow1);
-		WriteArray(outStream, data.OverridePatches!, WriteRow2);
+		WriteArray(outStream, data.SettingsPatches!, WriteRow2);
 		WriteArray(outStream, data.Variants!, WriteRow3);
 		WriteArray(outStream, data.RewardPackages!, WriteRow4);
 
@@ -372,7 +372,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLE(e.AlwaysZero));
 	}
 
-	private void WriteRow2(MemoryStream o, CampaignOverridePatch82 e) {
+	private void WriteRow2(MemoryStream o, MissionSettingsPatch e) {
 		Emit(o, WriteShortLESegment(e.Data));
 	}
 

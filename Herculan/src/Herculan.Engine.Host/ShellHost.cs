@@ -153,6 +153,11 @@ static class ShellHost {
 		ShellPracticeScreen? practiceScreen = null;
 		bool practiceUp = false;
 
+		// VSHELL's one generator, seeded once at startup, and the row-2 flag clear list, which the
+		// original keeps from one mission load to the next.
+		var shellRandom = ShellTrainingLaunch.StartupRandom();
+		var clearList = new short[HercWorks.Core.Io.Transform.Common.MissionGenerator.ClearListLength];
+
 		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
 			QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
 			RepairMode = repairMode,
@@ -219,7 +224,7 @@ static class ShellHost {
 		Console.WriteLine("Every tab has a screen behind it but MISSION's map view. On the "
 			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
 			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
-			+ "button steps back), and Main Menu to go back; Begin Mission is not ported. Click a save "
+			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. Click a save "
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
 			+ "select it and the panels beside it follow; REPAIR lifts the selected part one level, REPAIR ALL "
 			+ "rebuilds the machine, and CANCEL undoes both since the bay was selected. On BUILD, click a chassis to see its blueprint and "
@@ -568,7 +573,7 @@ static class ShellHost {
 
 		// The five parameter labels step their option, forward on the left release and back on the right
 		// (0044bf29-0044c21d). Main Menu (0044c2da) hides the screen and shows the menu. Begin Mission
-		// (0044c396) saves the options and starts a training career on the lit row; it is not ported.
+		// (0044c396) is BeginPractice.
 		void ClickPracticeButton(ShellPracticeButton button) {
 			if (practiceScreen == null) {
 				return;
@@ -581,7 +586,7 @@ static class ShellHost {
 					Console.WriteLine("Main menu.");
 					break;
 				case ShellPracticeButton.BeginMission:
-					Console.WriteLine("Begin Mission — the button is live and its action is not ported yet.");
+					BeginPractice();
 					return;
 				default:
 					practiceScreen.Step(button, eventButton == ShellMouseButton.Left);
@@ -590,6 +595,33 @@ static class ShellHost {
 			}
 
 			RepaintContent();
+		}
+
+		// Begin Mission (0044c396): the options committed and saved to prefs.cfg, a training career started
+		// on the lit row, its mission loaded and the handoff written, and the shell closed on exit code 2.
+		// The original gets from the career to the load through the developer's mission-name dialog, which
+		// clicks its own Use Default at once; this goes straight there.
+		void BeginPractice() {
+			shellOptions.Commit();
+			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+
+			var handoff = ShellTrainingLaunch.Write(HandoffDirectory, content, shellOptions, practiceScreen!.SelectedRow,
+				shellRandom, clearList, out string? failure);
+			if (handoff == null) {
+				Console.WriteLine($"Begin Mission: {failure}");
+				return;
+			}
+
+			var squad = Enumerable.Range(0, ShellHangar.BayCount)
+				.Select(bay => handoff.Hangar.Bay(bay) is { } machine
+					? $"bay {bay} chassis {machine.ChassisType}" + (handoff.Hangar.PilotFor(bay) is { } pilot ? $" ({pilot.Name})" : string.Empty)
+					: null)
+				.OfType<string>();
+			Console.WriteLine($"Begin Mission — {handoff.MissionPath}, {handoff.SquadPositions} squad position(s): "
+				+ $"{string.Join(", ", squad)}; {handoff.Hangar.MachinesOnStrength} machine(s) going. "
+				+ $"Handoff written to {HandoffDirectory}; launching the mission.");
+			launch = new ShellLaunch(handoff.ScriptPath, Path.Combine(installRoot, MissionLoader.DataFolderName));
+			window.Close();
 		}
 
 		void LogPractice() {

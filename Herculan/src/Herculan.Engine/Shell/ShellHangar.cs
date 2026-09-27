@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.File.Dat.Shell;
 using HercWorks.Core.Data.File.Sav;
 using HercWorks.Core.Data.Struct.Herc;
+using HercWorks.Core.Data.Struct.Vshell.Hercs;
 using HercWorks.Core.Data.Struct.Vshell.Sav;
 
 namespace Herculan.Engine.Shell;
@@ -287,6 +288,44 @@ public sealed class ShellBayMachine {
 		int capacity = HercLUT.GetById((short)chassisType)?.HardpointMax ?? -1;
 		return new ShellBayMachine(chassisType, capacity, 0, Full(HercExternals.Values().Count),
 			Full(DamageRepairCost.InternalCount), Complete, Full(MountSlots), new ShellWeaponUnit?[MountSlots]);
+	}
+
+	/// <summary>
+	/// A machine of <paramref name="chassisType"/> with nothing fitted — <c>HercRecord_Ctor</c>
+	/// (<c>00410d7a</c>) then <c>Herc_SetType</c> (<c>00410fde</c>): built, every condition 100, and the
+	/// capacity <c>Herc_CapacityForType</c> (<c>00410d54</c>) reads. <see cref="Fit"/> arms it.
+	/// </summary>
+	public static ShellBayMachine Delivered(int chassisType) {
+		var machine = Ordered(chassisType);
+		return new ShellBayMachine(chassisType, machine.MountCapacity, Complete, machine._external, machine._internal,
+			machine._overall, machine._hardpoint, machine._mounts);
+	}
+
+	/// <summary>
+	/// <c>Herc_FitNewUnit</c> (<c>004115c6</c>) — a new unit of <paramref name="weaponId"/> in <paramref name="slot"/> carrying
+	/// <paramref name="guidance"/>, taken from no stock, and the hardpoint at 100. How a mission's own
+	/// machine is armed.
+	/// </summary>
+	internal void Fit(int slot, int weaponId, int guidance) {
+		SetMount(slot, new ShellWeaponUnit(weaponId, guidance: guidance));
+		SetCondition(ShellRepairCategory.Hardpoint, slot, Complete);
+	}
+
+	/// <summary>
+	/// <c>HercRecord_ReadCatalogForm</c> (<c>00410e79</c>) over a <c>gam\*.dat</c> record: the type, the
+	/// build percentage and each listed mount, the unit's condition and guidance from the file and its
+	/// fitted condition and the hardpoint's left at 100.
+	/// </summary>
+	public static ShellBayMachine FromCatalog(ShellHercData record) {
+		var machine = Ordered(record.HercId);
+		var built = new ShellBayMachine(record.HercId, machine.MountCapacity, record.BuildPercent, machine._external,
+			machine._internal, machine._overall, machine._hardpoint, machine._mounts);
+		foreach (var (slot, entry) in record.Hardpoints ?? new Dictionary<short, UiWeaponEntry>()) {
+			built.SetMount(slot, new ShellWeaponUnit(entry.ItemId, condition: entry.HealthPercent,
+				guidance: entry.MissileType?.Id ?? ShellWeaponUnit.NoGuidance));
+		}
+
+		return built;
 	}
 
 	/// <summary>Builds the view over one parsed bay record.</summary>
@@ -769,6 +808,44 @@ public sealed class ShellHangar {
 		}
 
 		return count == 1;
+	}
+
+	/// <summary>
+	/// A new career's hangar before any machine is in it: <c>Player_Create</c> (<c>00410107</c>) has put
+	/// the player in bay 0, at position 0 and on strength, one machine on strength and no positions in
+	/// play; the three squad members are unassigned; and the unlock flags are <c>gam\weapons.dat</c>'s.
+	/// The bays stay empty — a training career's <c>LoadHercsDat</c> reads nothing.
+	/// </summary>
+	public static ShellHangar NewCareer(ShellBayPilot player, IEnumerable<ShellBayPilot> squad,
+			IEnumerable<int> unlockedWeapons) {
+		var hangar = new ShellHangar { Player = player, MachinesOnStrength = 1 };
+		hangar._squad.AddRange(squad);
+		foreach (int weapon in unlockedWeapons) {
+			hangar.Stock(weapon).Unlocked = true;
+		}
+
+		return hangar;
+	}
+
+	/// <summary>
+	/// <c>HercList_Deliver</c> (<c>00410b68</c>) — a machine into an empty bay. The original asserts the bay is empty; this
+	/// replaces whatever is there.
+	/// </summary>
+	public void Deliver(int bay, ShellBayMachine machine) {
+		if (bay >= 0 && bay < BayCount) {
+			_bays[bay] = machine;
+		}
+	}
+
+	/// <summary>
+	/// <c>Squad_SetPositionsInPlay</c> (<c>004102ff</c>) — how many squad positions are in play, then <see cref="UpdateOnStrength"/> for
+	/// positions 1 to 3.
+	/// </summary>
+	public void SetPositionsInPlay(int positions) {
+		SquadPositions = positions;
+		for (int position = 1; position < 4; position++) {
+			UpdateOnStrength(position);
+		}
 	}
 
 	/// <summary>

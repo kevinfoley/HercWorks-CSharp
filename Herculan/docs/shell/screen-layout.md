@@ -256,7 +256,7 @@ What the handlers call, as read:
 
 | Button | Calls |
 |---|---|
-| `INSTANT ACTION` | `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
+| `INSTANT ACTION` | `DAT_0047363c = 1`, `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
 | `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a` |
 | `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, `FUN_0044cecf(DAT_0048260e)` otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
@@ -304,7 +304,7 @@ Each label steps one `prefs.cfg` option and rewrites its readout from the option
 | `Time of Day` | `0044c160` | `0x29` |
 | `Herc Type` | `0044c21d` | `0x28` |
 
-A step changes the array in memory only. `Begin Mission` (`0044c396`) is what saves it: `ShellOptions_Commit(1)`, `ShellOptions_SaveAll`, then `Game_NewCareer("TRAINEE", option 0x27)` — the mode is already training, set by `PRACTICE MISSIONS` ([Open](#open)). `Main Menu` (`0044c2da`) is `PracticeScreen_Hide` then `MainMenu_Show`, and leaves the mode where it is.
+A step changes the array in memory only. `Begin Mission` (`0044c396`) is what saves it, and then flies the lit row — [Starting a practice mission](#starting-a-practice-mission). `Main Menu` (`0044c2da`) is `PracticeScreen_Hide` then `MainMenu_Show`, and leaves the mode where it is.
 
 ### Selecting a mission
 
@@ -323,13 +323,29 @@ A step changes the array in memory only. `Begin Mission` (`0044c396`) is what sa
 
 So a row click resets `Herc Type` to that mission's machine, whatever it was stepped to. `PracticeScreen_Show` calls `PracticeScreen_SelectRow(0)`, so **the screen always comes up on `Basic Training 1`**.
 
-**`Herc Type` is greyed where the choice is not read.** `FUN_0041c58d`, which builds the player's machine when the shell loads a mission, gives the player the mission's own machine while `DAT_00479bb8` is below 4 or `DAT_0047363c` is set, and a machine of option `0x28`'s chassis otherwise.
+**`Herc Type` is greyed where the choice is not read.** `MsnGen_BuildPlayerHerc` (`0041c58d`), which builds the player's machine when the shell loads a mission, gives the player the mission's own machine while `DAT_00479bb8` is below 4 or `DAT_0047363c` is set, and a machine of option `0x28`'s chassis otherwise. `INSTANT ACTION`'s handler sets `DAT_0047363c` to 1, and `es2_xref.py` finds no reference to it but that store and this read.
 
 ### Which mission a row is
 
 The row is the mission index. `FUN_00412a2f`, which puts a new career on its first mission, sets a training-mode career's position to stage 0, mission `DAT_00479bb8`, and stage 0 of `gam\career.dat` is `TRAIN1`-`TRAIN8` then `DEMO`, `DEMO_01` and `DEMO_02` ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — the eight rows in order, then three more.
 
 **`INSTANT ACTION` plays the three past the list.** `InstantAction_SelectDemo` (`0044befb`) calls `PracticeScreen_SelectRow(8 + option 0x2e)`: row 8, 9 or 10, which lights no row and writes the table's next three chassis, 5 `Apocalypse`, 7 `Maverick` and 3 `Samson`, into option `0x28`. It then steps option `0x2e` modulo 3 and saves the array, so successive `INSTANT ACTION`s play `DEMO`, `DEMO_01` and `DEMO_02` in turn, each in its own machine.
+
+### Starting a practice mission
+
+`Begin Mission` commits the options (`ShellOptions_Commit(1)`), writes all 54 to `data\prefs.cfg` (`ShellOptions_SaveAll`) and calls `Game_NewCareer("TRAINEE", option 0x27)`: the roster, the player with the difficulty as their skill, no machines — a training career's `LoadHercsDat` reads nothing — and the career position, stage 0 at the lit row ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed)). The position's last step, `Career_StartMissionLoad` (`00412ce1`), shows a developer's mission-name dialog holding that mission's name and posts a press and a release to its `Use Default` button. The event loop delivers them once the handler has returned, and `MissionNameDialog_OnUseDefault` (`0044d55a`) hides the dialog and calls `Career_LoadCurrentMission` (`0044d4cc`) ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#call-chain--confirmed)).
+
+`Career_LoadCurrentMission` loads the mission (`MsnGen_LoadMission`, `0041c73d`) and, outside a campaign, goes straight on to `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)` and the loop exit, the three `INSTANT ACTION` ends with. Between the write of `script.dat` and that export, the training half of `MsnGen_LoadMission` builds the squad from the mission's group 0, the one [`script.dat`](../formats/script-dat.md#placement--the-actual-rule) places the player's squad at:
+
+1. `Squad_SetPositionsInPlay` (`004102ff`) sets the positions in play: 1, plus each member group 0 sets in an unbroken run from its second slot.
+2. `MsnGen_BuildPlayerHerc` puts the player's machine in bay 0 ([Selecting a mission](#selecting-a-mission)). The mission's own machine is group 0's first member; a chosen chassis comes with its stock fit, `gam\ini_*.dat` ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamini_dat--the-stock-fit-per-chassis)).
+3. Squad member `i`, from 0, takes a machine built from group 0's slot `i + 1` in bay `i + 1`; `Squad_SetMemberBay` gives them the bay and runs `Squad_UpdateOnStrength`; and `Squad_SetMemberPosition` gives them position `i + 1`.
+
+A machine built from a mission record is `Herc_SetType` on its chassis, then `Herc_FitNewUnit` (`004115c6`) with the weapon and ammunition type of each slot below the capacity whose weapon is not 0, so a `-1` there is fitted as a weapon of id `-1`.
+
+**The last wingman never flies.** Step 3 passes `Squad_UpdateOnStrength` the member's index where a position belongs, and runs it before the member has a position. So it lands on whoever holds position `i`: nobody for member 0, and member `i - 1` after that, who goes on strength one step late. The last member to be given a bay is never updated, and `Game_ExportMissionHandoff` writes only members on strength. A squad of one wingman flies without them. Retail's training handoffs show it: each `player11.mec` below is a TRAIN5 whose group 0 gives two wingmen, and carries the player and the first.
+
+The draws the path makes are VSHELL's generator's ([`campaign-loop.md`](campaign-loop.md#the-shells-generator)), in this order: the roster, the player's name index, the salvage, flags 4-6, then the mission load's. Two TRAIN5 launches retail wrote to save slot 11 — `script11.dat`, `missn11.str` and `player11.mec` — are each reproduced byte for byte through their content by this path, with `Herc Type` on `Colossus` and `Mission Difficulty` on 2: one on `Day` with the generator seeded 82, and one on `Night` seeded 19. The engine tests check the second against the SHA-256 of each retail file's content.
 
 ## The save screen
 
@@ -1022,7 +1038,9 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 **The main menu is drawn**: `ShellMainMenu` places the panel and the ten buttons above and greys `CONTINUE GAME` on slot 10's in-use flag from `GAMEFILE.STR`. `SAVE/RESTORE` acts — campaign mode, then the save screen with `EXIT` coming back to the menu — and so does `PRACTICE MISSIONS`; the other eight do nothing ([Open](#open)). The tab keeps the strip up here, where its handler hides it as tab 1's does: with only two buttons acting, hiding it would leave `RESTORE` of a written slot as the only way to the other tabs. That is this engine's choice, not the original's, and because of it a mode change regates the strip at once, where the original's strip stays hidden until its next refresh.
 
-**The practice screen is drawn and steps**: `ShellPracticeScreen` places every widget of [The practice missions screen](#the-practice-missions-screen), over the main menu's tab with the strip hidden, and `PRACTICE MISSIONS` puts it up in training mode. A row click moves the selection, greys or lights `Herc Type` and resets it to the row's chassis, and the five labels step their options in the host's copy of `data\prefs.cfg`, the left button forward and the right back; `Main Menu` goes back. `Begin Mission` does nothing and nothing is written to `prefs.cfg` ([Open](#open)). `--shell-practice` opens on the screen.
+**The practice screen is drawn and steps**: `ShellPracticeScreen` places every widget of [The practice missions screen](#the-practice-missions-screen), over the main menu's tab with the strip hidden, and `PRACTICE MISSIONS` puts it up in training mode. A row click moves the selection, greys or lights `Herc Type` and resets it to the row's chassis, and the five labels step their options in the host's copy of `data\prefs.cfg`, the left button forward and the right back; `Main Menu` goes back. `--shell-practice` opens on the screen.
+
+**`Begin Mission` flies the lit row.** The host commits the options and writes all 54 back to `data\prefs.cfg` when the install has one — a read-modify-write that keeps a longer file's tail, where the original writes 54 bytes and creates a missing file — and `ShellTrainingLaunch` runs [Starting a practice mission](#starting-a-practice-mission): the career, `HercWorks.Core`'s `MissionGenerator` for the load, the squad, and the handoff, which `ShellMissionLaunch` exports as `Rock & Roll >`'s is, into the same scratch folder. The shell closes and the host runs the mission. The draws come from one generator kept for the shell's run and seeded as VSHELL seeds its own, and the row-2 clear list is kept across loads as the original keeps it. It goes from the career to the load directly, without the mission-name dialog, which is this engine's choice. `INSTANT ACTION`, which takes the same path, has no port ([Open](#open)).
 
 **The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. `ShellRepairDiagrams` loads the nine layouts, `rpr_hots.dat` and their banks and paints whichever picture the selection's column has up, and `ShellSquadPanel` draws the readout and the roster. Clicking a row, a hotspot on the external picture or a roster row moves the selection or the bay and the panels follow, including the refusal of an unfitted hardpoint and of an unbuilt bay, and every entry runs `Repair_Enter`'s bay rule. `SCRAP` puts up the scrap dialog, and `REPAIR`, `REPAIR ALL` and `CANCEL` do what [Repairing and cancelling](#repairing-and-cancelling) says, on the machines and the pool the other tabs read; the snapshot is taken on every entry and bay change. The mode readout is read from `data\prefs.cfg` option 44 once, at startup, since nothing in this engine changes it. With no bay selected, `CANCEL` restores the pool alone and `REPAIR` and `REPAIR ALL` are dead, where the original reads through `00482abf` — this engine's choice. The salvage figure is the pool net of the build queue, as the build screen's is.
 
@@ -1089,10 +1107,8 @@ Not drawn: the mission tab's campaign-map and debrief views, the sounds each but
 - **Unported:** the auto-repeat of the mission screen's arrows.
 - **Open:** whether the launch refusal keeps clicks off the screen beneath it, the same question as the scrap dialog's.
 - **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
-- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s and `PRACTICE MISSIONS`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
-- **Unported:** the practice screen's `Begin Mission`, and with it the save of the five options to `prefs.cfg`.
-- **Open:** how `Begin Mission` reaches the simulator. Its handler ends at `Game_NewCareer`, with none of the handoff, exit code and loop exit `INSTANT ACTION` follows the same call with ([The parameters](#the-parameters)); what happens after it returns is unread.
-- **Open:** what sets `DAT_0047363c`, which makes `FUN_0041c58d` give the player the mission's own machine on every practice row ([Selecting a mission](#selecting-a-mission)).
+- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s and `PRACTICE MISSIONS`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up. `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
+- **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.
 - **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0044cecf`, which `CONTINUE GAME` calls, does.
 - **Unported:** each button's click sound.
 - **Unported:** the campaign/training mode writes of `INSTANT ACTION`, `START NEW GAME` and `CONTINUE GAME` — `FUN_0040e69e`, which `SAVE/RESTORE` and `PRACTICE MISSIONS` reach here too.

@@ -31,13 +31,15 @@ The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes a
 - it is persisted in every save slot, immediately after the salvage pool ([`../formats/save-games.md`](../formats/save-games.md));
 - it is the entire content of `data\mission.var`, in both directions.
 
+Before a mission is loaded, `MsnGen_SeedCampaignFlags` (`0040e94e`) writes the first seven: a training load clears the array first, a campaign load writes flags 1 and 2 as the career position's stage and mission, and both write flag 3 from `00482606` ([Open](#open)) and flags 4, 5 and 6 a draw below 12 each. The mission's conditions then compare against them, and its header patch clears the flags it names ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#the-header-patch--row-2)).
+
 Slot 0 is overwritten at debrief with the mission's outcome code (`_maybe_CampaignFlagArray = DAT_00482ae9`). On the simulator side the same array is `DAT_004a9ef4`, which an activating action bumps or clears and `FUN_0042412c` dumps to `mission_var` at mission end — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
 
 It is also what unlocks weapons: the mission-load path grants a pending unlock when its flag slot holds the expected value, setting the weapon's `weapons.dat` `+0x16` byte and clearing the slot ([`../formats/weapons-dat.md`](../formats/weapons-dat.md)).
 
 ## Starting a campaign — `Game_NewCareer` (`0040e2ed`)
 
-Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training, the mode the practice missions and `INSTANT ACTION` run in; both of those pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, builds the player (`Player_Create`, `00410107`: bay 0, squad position 0, on strength, and the three squad-member pointers — [`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)), loads `gam\hercs.dat`, initializes the career position, and seeds the salvage pool:
+Takes the pilot name and the skill (`DAT_0048260c`'s mode decides the rest: 1 campaign, 0 training, the mode the practice missions and `INSTANT ACTION` run in; both of those pass the literal `TRAINEE` and the practice screen's difficulty). It loads `gam\weapons.dat`, generates the pilot roster, builds the player (`Player_Create`, `00410107`: roster id 0, a name index drawn below 11, the skill, bay 0, squad position 0, on strength, one machine on strength, and the three squad-member pointers, each squad's record 0 through `Squad_TakeMember` (`0040fb4f`) — [`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)), loads `gam\hercs.dat` in a campaign and nothing in training, initializes the career position — whose last step starts the mission's load ([`screen-layout.md`](screen-layout.md#starting-a-practice-mission)) — and seeds the salvage pool:
 
 ```
 DAT_00482af4 = rand(0..10) * 1000 + 100000;
@@ -56,7 +58,11 @@ rosterId = shuffle4[col] + squad*4          // 0-11, stored at pilot +0x00
 nameIndex = shuffle3[row] + rosterId*3      // 0-35, stored at pilot +0x02
 ```
 
-The name string itself is copied out of `esnames.bin` at that index. That file holds exactly 36 names — `DUGGAN`, `BRUTUS`, `BUTCHER`, `RIGGS` … `HOYLE` — so the index space is used exactly once over, and every pilot's name is unique within a run. Skill tier comes from `FUN_0040f9dc`, a weighted draw against the table at `0046f5ec`.
+The name string itself is copied out of `esnames.bin` at that index. That file holds exactly 36 names — `DUGGAN`, `BRUTUS`, `BUTCHER`, `RIGGS` … `HOYLE` — so the index space is used exactly once over, and every pilot's name is unique within a run. Skill tier comes from `Pilot_DrawSkill` (`0040f9dc`), a draw below 100 against the thresholds at `0046f5ec` — 70, 85, 95, 100 — so a pilot draws skill 0 seven times in ten. The draws run squad by squad: the shuffle of four, the shuffle of three, then twelve skill draws, row by row.
+
+### The shell's generator
+
+Every draw the shell makes goes through one generator at `0x482325`: `ShellRandom_Below` (`004659ec`) is `(ShellRandom_Next() & 0x7fff) % n`, and `ShellRandom_Next` (`004659a8`) is DBSIM's own additive lagged Fibonacci step ([`../simulation/random-generator.md`](../simulation/random-generator.md)). It is seeded once, at startup (`004075a1`): `ShellRandom_Seed` (`0046597c`) copies the same 112-byte table DBSIM starts from, byte for byte, out of `0047f7b4`, sets the same two cursors, and steps it `GetTickCount() & 0x7f` times. So a session starts at one of 128 states, and everything after follows from the order of the draws.
 
 ## The campaign table — `gam\career.dat`
 
@@ -217,3 +223,7 @@ Every path that leaves a campaign in a resumable state autosaves through `Game_S
 | Reading | Why it is wrong |
 |---|---|
 | `-r` relaunches the shell into the debrief. | The usage text says so (`"-r -R Returning from sim"`), and the parser's `-r` case does store 3 in `0048227e`. `FUN_00401525` overwrites `0048227e` with the `-X` value at `004015af`, the instruction after the parse returns, so `-r` has no effect: only `-X3` and `-X4` reach the debrief. |
+
+## Open
+
+- **Open:** what writes `00482606`, which `MsnGen_SeedCampaignFlags` copies into flag 3 before every mission load. Its one reference found, by a disassembly search and `es2_xref.py`, is that read; the startup memset from `MissionScreenView` clears it, so a load with nothing else writing it sees 0.

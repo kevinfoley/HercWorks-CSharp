@@ -233,7 +233,7 @@ public class ScriptSpawnRecordExport {
 	public byte[] TailBytes { get; set; } = new byte[68];
 
 	/// <summary>
-	/// Source offset 0x72 — the second of the two parallel per-slot arrays
+	/// Source offset 0x74 — the second of the two parallel per-slot arrays
 	/// <c>Mech_ConfigureLoadout</c> takes, alongside <see cref="WeaponRefs"/>. It is the ammunition
 	/// type each missile launcher is loaded with, the value a launcher's mount resolves through
 	/// <c>Proj_LookupRecord(Missile, key)</c> and then prints as its name; non-launcher slots carry a
@@ -241,7 +241,8 @@ public class ScriptSpawnRecordExport {
 	///
 	/// <para>Located by the two stack locals <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) hands
 	/// the loadout call, which sit exactly 64 bytes apart in a frame holding one record — placing the
-	/// second array 64 bytes past <see cref="WeaponRefs"/>' own 0x32. Confirmed against the retail
+	/// second array 64 bytes past <see cref="WeaponRefs"/> in the exported record, source 0x74 since the
+	/// writer drops 0x4a between them; VSHELL's squad build reads it there too. Confirmed against the retail
 	/// mission: every slot whose <see cref="WeaponRefs"/> entry is a launcher (<c>MSL10</c>, id 15)
 	/// reads 1 here and every other slot reads 5.</para>
 	///
@@ -335,7 +336,7 @@ public class ScriptSpawnRecordExport {
 	/// <summary>And <see cref="StartingCondition"/> (0x84 less 0x42).</summary>
 	private const int StartingConditionOffset = 66;
 
-	/// <summary>Where <see cref="WeaponSecondary"/> starts inside <see cref="TailBytes"/> (source 0x72 less 0x4a).</summary>
+	/// <summary>Where <see cref="WeaponSecondary"/> starts inside <see cref="TailBytes"/> (source 0x74 less 0x4c).</summary>
 	private const int SecondaryOffset = 40;
 
 	/// <summary>Slots in both loadout arrays.</summary>
@@ -416,8 +417,9 @@ internal static class ScriptActionRefs {
 
 /// <summary>
 /// Block 9 entry — 52 bytes, row #14 (<see cref="MiscEntityInfo"/>) minus GUID/ConditionRef/
-/// InheritIndex/Unk06. <see cref="TailBytes"/> = source offsets 0x0E-0x3D (SmallDiscrete,
-/// SparseBlock, RefRow10Slot1/2, TrailingField).
+/// InheritIndex/Unk06 and minus <c>SmallDiscrete</c> at 0x0E (not exported). <see cref="TailBytes"/> =
+/// source offsets 0x10-0x3D (SparseBlock, its even words then its odd words, then RefRow10Slot1/2
+/// and TrailingField).
 ///
 /// <para>DBSIM's world-spawn pass (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) builds one base/structure per live slot
 /// from this record.</para>

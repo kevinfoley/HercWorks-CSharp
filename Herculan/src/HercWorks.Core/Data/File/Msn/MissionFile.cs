@@ -25,8 +25,8 @@ public class MissionFile {
 	/// <summary>Row #1 — the shared campaign flag/condition-trigger store.</summary>
 	public UnkHeaderEntry[]? TriggerEntries { get; set; }
 
-	/// <summary>Row #2 — one-shot campaign-override/patch scratch records; not persisted by VSHELL, kept only for round-trip fidelity.</summary>
-	public CampaignOverridePatch82[]? OverridePatches { get; set; }
+	/// <summary>Row #2 — the mission's settings: its zone, theater and the rest of the <c>script.dat</c> header, and campaign flags to reset. See <see cref="MissionSettingsPatch"/>.</summary>
+	public MissionSettingsPatch[]? SettingsPatches { get; set; }
 
 	/// <summary>Row #3 — condition-gated campaign-variant value lookup.</summary>
 	public VariantValue8[]? Variants { get; set; }

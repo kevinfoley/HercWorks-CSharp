@@ -2,8 +2,6 @@
 
 The front window's target box, its off-screen arrow, and the reticle's on-target frames. Children 4 and 5 of the gunsight complex — see [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md) for the complex itself and [`../simulation/target-selection.md`](../simulation/target-selection.md) for what makes a selection.
 
-Engine implementation: `Herculan.Engine.Content.{TargetBox, TargetIndicator}`, `Herculan.Engine.Render.Overlay2DRenderer.{AddTargetBoxLayer, AddTargetIndicator, ReticleFrame}`.
-
 ## Where the selection reaches the HUD
 
 | Step | Symbol | What it does |
@@ -108,10 +106,3 @@ The mode reaches the pixels through the transparent-sprite blitter. `Bitmap_Blit
 `ActiveScanlineClipSpans` is a different mechanism for the same regions, flattened per scanline; its only readers are the polygon rasterizers.
 
 **Child 5's paint is the only widget that opts in.** It calls `Cockpit_PopRenderContext` before the box's blits and `Cockpit_PushCanvasContext` after, so the box alone is drawn in the canopy-clipped context. The reticle, the heading tape, the rotation indicator, the readouts and the arrow all stay in the canvas context and are never cut. Confirmed against `Reference/Targeting 2.png`, where the box's right half is cut along the right A-pillar while the arrow beside it is whole.
-
-The engine reproduces this by draw order instead: the box is emitted as its own batch before the canopy quad, whose alpha comes from the same `CockpitClipRegions` data.
-
-## Engine deviations
-
-- The projection is the original's (`centre ± v * focal / depth` about the `.VUE` projection centre, including the step kick) rather than the GL one. They agree because the camera's field of view is derived from the same focal length.
-- The paint's guard that discards a projection whose view-space z exceeds the approximate 3D magnitude has no counterpart here; it is unreachable in exact arithmetic.

@@ -1,6 +1,6 @@
 # Effect light sources (DBSIM.EXE)
 
-Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{EffectLightField, EffectLight}` and `Herculan.Engine.Render.EffectLightSelection` — see [Engine port](#engine-port).
+Addresses are DBSIM virtual addresses.
 
 An impact effect can carry a dynamic light. It is not a light in the renderer's own list: it is a slot in a separate *effect light manager*, and that manager synthesises a throwaway renderer light per drawn object, per frame, from whichever slots are close enough to matter. The manager is the only producer of dynamic lights in the binary — nothing else, not a muzzle flash and not a beam, claims a slot.
 
@@ -141,21 +141,3 @@ The intensities are real and large, and the effect is still hard to see. Four st
 | `Math_Atan2Guarded(d, radius)` makes near lights directional | The helper takes `(x, y)`, so this is `atan(radius / dist)` — the object's angular size. Small angle means far, and far is the directional branch. |
 | `Light_ComputeShadeForFace` reads the light's world position | It reads `+0x22`/`+0x2e`, the model-space copies `maybe_Raster_SetModelTransform` rebuilds per node. `+0x04`/`+0x10` are the world-space fields `LightManager_SelectLightsForObject` writes. |
 | The mission sun is the only entry in the active light list | It is the only *persistent* one, and the only one a mission starts with. Types 1 and 2 are both created dynamically here, into the same ten-slot list. Type 0, ambient, is genuinely never created anywhere in the binary. |
-
-## Engine port
-
-`EffectLightField` is the twenty-slot manager on `SimWorld.EffectLights`; `ImpactEffect` claims a slot when its row's `LightMode` is nonzero, drives the intensity from the row's ramp on each frame step, and releases it when the flipbook wraps. `EffectLight.CullRadius` carries `LightManager_RecomputeCullRadius` (`0040735c`). `EffectLightSelection` is `LightManager_SelectLightsForObject` (`00407098`), run from `SceneRenderer`'s draw loop over each `SceneItem` whose `LightSubject` names the object it belongs to, and what it picks is uploaded to `Scene.glsl` as a nine-entry uniform array beside the sun. It stays in world units throughout — the distance is the sim's own `ApproxDistanceTo` and the branch test its own arctangent — and only the vectors that leave convert to render space.
-
-The shade sum in the vertex shader is `Light_ComputeShadeForFace`'s: each light's term is added and the total is clamped at 255 once, per corner, so the sun's own term is floored at 0 but not capped and a `TSGouraudPoly` still interpolates clamped corner bytes.
-
-Deviations:
-
-- **The allocator refuses instead of overrunning.** A claim with all twenty slots busy returns -1 and the effect plays without a light. The original's overrun is in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
-- **A ramp read past the row's twelve entries yields 0.** The original runs off the end of the row into `ProximityRadius`. No retail shape has a flipbook long enough to reach it.
-- **A point light is measured to the corner, not to the face centre.** The original hands `Light_ComputeShadeForFace` a poly's stored centre point; the shader has the corner it is already lighting. The sun's own term is per corner for the same reason, and the difference is bounded by the poly's own size.
-- **The arithmetic is float from the selection outward.** The original truncates twice inside the point term — `dot / (|disp| + 1)` and the divide by the range sum — where the shader does not.
-- The manager's camera position (`mgr+0x00`) is not modelled — its only consumer has no callers.
-
-Terrain is unlit by construction and must stay that way: `TerrainMeshBuilder` bakes `MissionSun.ShadeFor` into its vertices, which is what the original does, and the shader skips the whole accumulate for a vertex carrying a baked shade byte. A `SceneItem` with no `LightSubject` — the terrain, and a projectile, which is drawn fullbright — is lit by the sun alone.
-
-`Herculan.Engine.Host` takes `--impact`, which holds a `--screenshot` capture until a slot is lit: a light lasts about two thirds of a second, so a fixed frame count is as likely to photograph the gap between two effects as one of them.

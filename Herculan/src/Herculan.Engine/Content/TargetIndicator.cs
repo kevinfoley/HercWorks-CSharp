@@ -9,7 +9,9 @@ namespace Herculan.Engine.Content;
 /// widget's own update rather than its paint: it depends on the view, and the view is the host's.
 /// It is the original's own projection, not the GL one — <c>screen = centre ± (v * focal / depth)</c>
 /// against the herc's <c>.VUE</c> projection centre — which lands in the same place because the
-/// camera's field of view is derived from that same focal length.</para>
+/// camera's field of view is derived from that same focal length. The original's paint also
+/// discards a projection whose view-space z exceeds the approximate 3D magnitude; that guard has no
+/// counterpart here, being unreachable in exact arithmetic.</para>
 /// </summary>
 /// <param name="ScreenX">
 /// Where the target's aim point projects, in cockpit device pixels from the canopy art's top-left —

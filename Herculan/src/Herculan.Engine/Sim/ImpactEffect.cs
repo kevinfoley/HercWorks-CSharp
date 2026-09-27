@@ -21,7 +21,9 @@ namespace Herculan.Engine.Sim;
 /// <para>A row with a nonzero <see cref="ExplosionTypeEntry.LightMode"/> also claims a dynamic
 /// light for as long as the flipbook runs — <see cref="EffectLightField"/>, whose slot this drives
 /// from the row's per-frame intensity ramp. <c>LightMode</c> 1 and 2 reach the same code; the
-/// original tests the field only against zero.</para>
+/// original tests the field only against zero. A ramp read past the row's twelve entries yields 0,
+/// where the original runs off the end of the row into <c>ProximityRadius</c>; no retail shape has a
+/// flipbook long enough to reach it.</para>
 ///
 /// <para><b>One thing the original's constructor also does is not here</b>: the second attached
 /// effect at <see cref="ExplosionTypeEntry.TrailEffect"/>, which no retail row asks for. The

@@ -4,8 +4,6 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addres
 
 Verified against retail data in `ES2/VOL/simvol0/{hba,gau,dat}/`.
 
-Engine implementation: `Herculan.Engine.Content.{HeadingTape, HeadingTapeSweep}`, `Herculan.Engine.Render.Overlay2DRenderer`.
-
 Everything drawn over the live 3D view, rather than on the console, belongs to one widget: `Gau_RovingGunsightWidget` (`0043c7d8`), built from `.GAU` offset **1088**. The console and console-mounted gauges are a separate widget tree: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). The view manager and per-view geometry: [`cockpit-views.md`](cockpit-views.md). How a mouse click on the gunsight surface reaches its handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## Front-window HUD — the gunsight complex

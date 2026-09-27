@@ -100,6 +100,10 @@ public readonly record struct MfdScannerState(
 ///
 /// <para><b>Coordinates.</b> As in <see cref="MfdLayout"/>, GAU (320-wide) units relative to the
 /// inset screen origin; multiply by <see cref="CockpitArt.GauToPixelScale"/> for device pixels.</para>
+///
+/// <para>The contact list is rebuilt every frame while F4 is up, rather than by whichever of the two
+/// scanners is up, which is the same result by a shorter route. The ghost-contact branch is
+/// transcribed as the skip it is.</para>
 /// </summary>
 public static class MfdScanner {
 	/// <summary>The bank every frame here comes from — the display's own.</summary>

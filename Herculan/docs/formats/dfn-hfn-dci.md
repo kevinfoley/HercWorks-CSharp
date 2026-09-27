@@ -109,8 +109,6 @@ Index 0 is transparent and **every retail file uses exactly one other value as i
 
 `ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#hud-fonts) for the load order and which widget takes which entry.
 
-Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared HUD atlas by `HudSpriteSheet`.
-
 ### `inkHeight` and label placement
 
 `inkHeight` (`0x1a`) is the height a label centres by, and the only vertical metric the label code reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) and the glyph blitter (`HudFont_DrawGlyph`, `00482428`) read this field and no other, so the inked band is centred in the rect and the remaining `cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2: 11 of 13 (`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels high.

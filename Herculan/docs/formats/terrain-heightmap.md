@@ -2,8 +2,6 @@
 
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Covers the heightmap/geometry side of terrain: struct layout, zone loading, height interpolation, the structure-footprint flattening pass, and the ray walk. See [`terrain-texturing.md`](terrain-texturing.md) for how cells get their texture, which is a separate pipeline over the same grid.
 
-Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.RayWalk.cs`, `HeightGrid.Footprints.cs`).
-
 ## The `HeightGrid` struct
 
 0x129 (297) bytes, allocated by `HeightGrid_Constructor` (`0046bdf8`), installed as `ActiveHeightGrid` (`004a0bf8`) by `Terrain_LoadZone` (`0042789c`).

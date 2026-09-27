@@ -127,9 +127,9 @@ if (damageRecord[+3] >= 0)                                  // signed byte: the 
 
 `shapeInstance+8` is the per-sequence cell-frame array `TSCellAnimPart_Render` indexes by `AnimSequence` — see [`dts-billboards.md`](dts-billboards.md). So losing a component is drawn by stepping its parts to their blank cell, and the `.DMG` record's `+3` byte is the component-to-sequence map. The same byte gates the fire that component lights — see [`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#who-catches-fire) — and the damage arithmetic behind it is in [`../simulation/component-damage.md`](../simulation/component-damage.md).
 
-**The blank cell is blank because a `TSPoly` has no colour.** The surface index (`ColorIndexId`) lives on `TSSolidPoly`, and all three flat renderers the engine ships — `TSSolidPoly_Render` (`00474db4`), `TSShadedPoly_Render` (`0047542c`) and `TSTexture4Poly_Render` (`00474e9c`) — resolve their fill through it. A plain `TSPoly` carries no such field on disk, so there is nothing for a renderer to fill it with, and stepping to the third cell is what removes the part. This is read off the chunk layout and the set of renderers that exist, not off a disassembled `TSPoly` vtable slot.
+**The blank cell is blank because a `TSPoly` has no colour.** The surface index (`ColorIndexId`) lives on `TSSolidPoly`, and all three flat renderers the exe ships — `TSSolidPoly_Render` (`00474db4`), `TSShadedPoly_Render` (`0047542c`) and `TSTexture4Poly_Render` (`00474e9c`) — resolve their fill through it. A plain `TSPoly` carries no such field on disk, so there is nothing for a renderer to fill it with, and stepping to the third cell is what removes the part. This is read off the chunk layout and the set of renderers that exist, not off a disassembled `TSPoly` vtable slot.
 
-The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every drawn root of the mech, flyer and structure libraries; the engine emits geometry for none of them.
+The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every drawn root of the mech, flyer and structure libraries.
 
 **No shape nests one `TSCellAnimPart` inside another** — across every `.DTS` a mission loads and both `.DGS` libraries, the deepest nesting is one. A piece of geometry therefore stands on at most one cell of one sequence, and whether it is drawn is a single test rather than a chain of them.
 
@@ -141,15 +141,6 @@ The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every dr
 | A mech `.DTS` carries one `ANAnimList`, on its root shape | One **per root**, and they differ in every dimension — APOCA's root 0 declares 8 sequences over 372 keyframes and 12 nodes, its root 4 declares 1 over 17 and 9 |
 | A nonzero detail bias is harmless because the walk can still reach root 0 | The walk only ever advances, and it starts at the bias. `g_ShapeDetailBias` is the floor on how fine a machine is ever drawn, which is what makes the lowest HERC DETAIL setting a visible change at point-blank range and not only at distance |
 
-## HERCULAN Engine
-
-| Mechanism | Status |
-|---|---|
-| Hardpoint attachment slots | **Skipped**, not spliced — `DtsMeshBuilder.AttachmentPartIds` derives the id set from the `.GL` and `SceneModelLibrary.Mech` leaves those parts out of the mesh. The fitted case is drawn separately from `MECHWPNS.DTS` (`SceneModelLibrary.MechWeapon`), which is the same picture by a different route |
-| LOD root selection | **Ported, over a shortened chain.** `Render.ShapeDetail` is the rule and the three tables; `SceneModelLibrary.MechDetailRoots` builds the roots and the host selects one per machine per frame (`SelectDetailRoots`). The focal length is the window's rather than retail's fixed 512, so the thresholds stay a count of pixels on the screen being drawn. HERC DETAIL supplies the bias |
-| Compacted roots | **Not drawn.** The chain stops at the last root that keeps root 0's numbering (`ShapeAnimation.SharesNodeNumbering`), so the crudest one to three roots of each chassis are never selected. Drawing them reproduced the displacement in the table above — APOCA's upper body at a knee. Whether this truncation is a divergence to lift or a retail behaviour to match ([Open](#open)) |
-| Component sub-shape cells | **Drawn.** `DtsMeshBuilder.BuildSegments` builds every cell of every sequence into its own segment under a `CellGate`, and the renderer draws the one `Sim.ComponentDamage.CellFrames` names — the same array, per object, that `shapeInstance+8` is |
-
 ## Open
 
-- **Open:** what reconciles the compacted-root pose displacement (see [The pose array is root 0's](#the-pose-array-is-root-0s)) with observed retail behaviour, which shows no displaced upper body at the lowest HERC DETAIL setting. Deciding it settles whether the engine's truncation at the last root sharing root 0's numbering is a divergence to lift or a retail behaviour to match.
+- **Open:** what reconciles the compacted-root pose displacement (see [The pose array is root 0's](#the-pose-array-is-root-0s)) with observed retail behaviour, which shows no displaced upper body at the lowest HERC DETAIL setting.

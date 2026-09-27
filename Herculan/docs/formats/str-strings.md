@@ -2,8 +2,6 @@
 
 `simvol0\str\*.STR`. DBSIM keeps its UI text out of its code; every caption, readout label and alert line comes from one of these.
 
-Engine implementation: `Herculan.Engine.Content.SimStringTable`.
-
 ## Load
 
 `SimStrings_LoadAll` (`00437598`) opens one file and issues a run of registration calls, each naming a destination pointer array in `.bss` and a count. Groups are consumed in strict file order, so a group's index is its position in that sequence. `STRINGS0.STR` registers 41 groups, the sixth (13 entries, `DAT_004d13e0`) being the MFD's captions.

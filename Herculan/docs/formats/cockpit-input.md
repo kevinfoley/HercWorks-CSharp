@@ -4,8 +4,6 @@ How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's ow
 
 Widget geometry, frames and paint logic are covered by [`cockpit-views.md`](cockpit-views.md), [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md), [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md), [`mfd.md`](mfd.md) and [`heads-down-display.md`](heads-down-display.md) — this document is only the input path: how a mouse event becomes a call into a specific widget's own handler.
 
-Implemented in `Herculan.Engine` across three types: `CockpitScreenLayout` (window pixel to art pixel, the step the original does not need), `CockpitWidgets` (the flat clickable list and the rectangular hit test, §5-6) and `CockpitInput` (the queue and the press/release/hold state machine, §3-4 and §7). `Herculan.Engine.Host`'s `Program.cs` queues the events and routes completed clicks. Sections 1-2 and 9 have no counterpart by design: the host's windowing replaces them. Of §10's three screen-edge strips only the vertical one exists, as `CockpitWidgets.VisibleHeadsDownViewEdge` ([Open](#open)). `CockpitInput`'s own summary says what diverges and why.
-
 ## Overview
 
 ```
@@ -112,8 +110,6 @@ MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mf
 | 1, the left-hand button | `Video_ToggleFullscreen` (`004666c4`), then repaints the shield gauge |
 
 `Video_ToggleFullscreen` is a real mode switch, not a window maximize: from windowed it sets `004d25e2`, takes the window topmost at the game resolution, `ClipCursor`s the pointer into it and centres it; from fullscreen it restores the window rect saved on the way in. `Help_Show` calls it first when that flag is set, so raising the manual drops the game out of fullscreen.
-
-Neither overlaps a widget the engine has ([Open](#open)).
 
 Widget state byte (`+0x1b`):
 
@@ -369,8 +365,6 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 **Each strip serves exactly two views**, and the handler does nothing from any other. Those pairs are the manual's rule in both directions: with the canvas mapping above, the edge you click is always the one facing the view you are asking for, going out and coming back.
 
 `ScrollTrigger` carries no `PanelGadget`, so `+0x20` is a plain owner pointer rather than a second vtable and a strip makes no console click.
-
-Herculan: the bottom strip is `CockpitWidgets.VisibleHeadsDownViewEdge`; the side strips are `Render.CockpitScreenLayout.SideViewEdgeAt`, on the window's edges rather than the forward view's (see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md)).
 
 ## Symbol reference
 

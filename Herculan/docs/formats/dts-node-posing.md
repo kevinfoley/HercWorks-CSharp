@@ -49,23 +49,3 @@ An animation list holds two kinds of sequence, and the difference is the **chunk
 The clamp is what makes a one-shot observable: `frame == nextFrame` is true only on a played-out non-cyclic sequence, and that equality is the sole end-of-sequence test in the simulation. See [`mech-locomotion.md`](../simulation/mech-locomotion.md#going-down).
 
 **Every retail chassis carries exactly one one-shot**, and its own `AnimId_Death` names it: index 7 on the 18 bipeds, 2 on the PITBULL, 1 on the SPIDER. The RAZOR's list holds a single sequence and its `AnimId_Death` of 7 is out of range, which never bites because a flyer has no locomotion thread.
-
-## HERCULAN Engine implementation
-
-`DtsMeshBuilder.BuildSegments` produces one `MeshSegment` per transform id — the same triangles `BuildRoot` produces, minus the baked rest-pose offset, so each segment's vertices are in its node's own space. Coincident-twin removal runs shape-wide first, in the shared rest-pose space; a textured poly and its flat-shaded twin always share a group, so the survivor is the same either way.
-
-`WorldScale.ToRenderMatrix` turns a `Transform3` into the equivalent render matrix. The rotation is **conjugated** through the axis map (`RenderToSim * M * SimToRender`), not copied: `ToRender` is a change of basis, so a rotation about the simulation's Z is a rotation about render Y. The metre scale cancels out of the conjugation and only reaches the translation.
-
-`MissionScene.PosedTransformOf(mech, transformId)` is the port of `00476030`'s composition — `ToRenderMatrix(thread.NodeTransform(id)) * ToRenderMatrix(mech.WorldTransform)` — and the host draws one `SceneItem` per segment with it.
-
-One deliberate deviation from the rigid path (`MissionScene.TransformOf`), and it is the simulation being let through rather than approximated: the machine's own transform is `MechObject.WorldTransform`, so lean over sloping ground applies. The rigid path has only a heading rotation.
-
-Neither path lifts a shape by its bounding box. A shape's origin is already its ground contact point — see [`dgs-hd0-notes.md`](dgs-hd0-notes.md), "Shape origin".
-
-A machine whose shape carries no `ANAnimList` has no thread to pose with and keeps the flat mesh.
-
-### Verification
-
-- `ToRender(t.TransformPoint(p))` vs. `Transform(ToRender(p), ToRenderMatrix(t))` over 500 random transforms and points: worst disagreement 4.8 mm, from Q14 quantisation.
-- All 18 HERCs, segments posed at the thread's opening state vs. the flat mesh: every posed vertex lands on a flat vertex within 1 mm, zero mismatches, equal vertex counts. The segmented and baked paths are the same model at rest.
-- OUTLAW at steady full throttle: leg nodes 5-10 swing metres per stride, torso node 11 swings 0.30 m vertically — consistent with the 0.24-0.42 m eye rise measured independently.

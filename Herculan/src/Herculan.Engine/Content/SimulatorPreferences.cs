@@ -69,7 +69,14 @@ public sealed class SimulatorPreferences {
 	/// <summary>TERRAIN DISTANCE, <c>DAT_004d1fc3</c> — the draw radius, see <see cref="Terrain.TerrainDetail"/>.</summary>
 	public const int TerrainDistanceOption = 7;
 
-	/// <summary>TERRAIN TEXTURE, <c>DAT_004d1fc4</c>.</summary>
+	/// <summary>
+	/// TERRAIN TEXTURE, <c>DAT_004d1fc4</c>. The original tests it per triangle to pick textured or
+	/// flat span writers (docs/formats/terrain-texturing.md, "The terrain-texture switch"). Here the
+	/// terrain mesh carries both the atlas UV and the height/slope ramp colour, so the switch is the
+	/// texture binding on the terrain's draw item: bound, each cell takes its material's frame;
+	/// unbound, the shader falls back to the vertex colour. It is re-read every frame, so the ground
+	/// changes under the preferences panel as the row is stepped, as the original's does.
+	/// </summary>
 	public const int TerrainTextureOption = 8;
 
 	/// <summary>HERC DETAIL, <c>DAT_004d1fc5</c>.</summary>

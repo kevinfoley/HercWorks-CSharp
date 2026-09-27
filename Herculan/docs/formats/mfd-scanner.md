@@ -2,8 +2,6 @@
 
 Mode 3, the F4 screen. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. The display that hosts it — F-key column, aux buttons, chrome, titles — is [`mfd.md`](mfd.md).
 
-Engine implementation: `Herculan.Engine.Content.{MfdScanner, MfdScannerState, MfdContact}`, `Herculan.Engine.Render.Overlay2DRenderer.AddMfdScanner`.
-
 | Symbol | Address | Role |
 |---|---|---|
 | `MfdRadarScreen_Ctor` | `0043e70c` | Builds the plot geometry, the contact vector and four labels. |
@@ -141,8 +139,6 @@ The `radar` bank's ten frames play at the dish's position once, when the cockpit
 
 It reaches the scanner screen object through `CockpitView+0x1ed`'s `+0xd9`, calls that screen's update slot to rebuild the contact list, and **returns immediately when that screen is the display's current one**. So the repeater and the F4 screen are never on screen together: the repeater is what the player sees on F1, F2, F3, F5 and F6.
 
-Engine implementation: `Herculan.Engine.Content.HudScanner`, `Herculan.Engine.Render.Overlay2DRenderer.AddHudScanner`.
-
 ### Geometry
 
 Top-left is **`.GAU` offset 1196/1200** (`GAUFile.HudScanner`), two more ints of the gunsight block that `Gau_RovingGunsightWidget` reads into the widget at `+0x10b`/`+0x10f`. Position is per herc:
@@ -168,12 +164,3 @@ Nothing it shares with the screen beyond two sprites — no dish, no wedge sprit
 5. `MFD` frame 16, the target bracket, over the selected contact.
 
 Verified against `Reference/Targeting.png`: SAMSON's `51,5` puts the circle at device `102,10 - 194,102`, which is where that capture's is.
-
-## Engine port
-
-`MfdScanner.Build` produces the contact list once a frame while F4 is up; the renderer does the divides and the blits. Deviations:
-
-- **The observer camera is excluded by target class.** DBSIM's live-object list holds only the three combat classes; `SimWorld`'s also holds the camera, which the original's classless plot would otherwise draw.
-- The ghost-contact branch is transcribed as the skip it actually is.
-- Circles, lines and blips are stamped a pixel at a time by the midpoint and Bresenham algorithms rather than through a general rasterizer; same aliasing, no new drawing primitive.
-- The contact list is rebuilt every frame rather than by whichever of the two scanners is up, which is the same result by a shorter route.

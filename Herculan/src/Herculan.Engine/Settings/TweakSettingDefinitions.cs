@@ -50,6 +50,13 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> CriticalDamageMessage = new("tweak.critical_damage_message", TweakCategory.Cosmetic, false);
 
+	/// <summary>
+	/// On the Heads-Down Display, number each occupied squad comm box with the key that selects that
+	/// squadmate. Retail builds a label for it in every box but never gives it any text, so it never
+	/// appears.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> ShowSquadmateNumber = new("tweak.show_squadmate_number", TweakCategory.Cosmetic, false);
+
 	#endregion
 
 	#region FUNCTIONAL
@@ -66,6 +73,6 @@ public static class TweakSettingDefinitions {
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
-		PreserveSoundPosition, CriticalDamageMessage, SmootherTurretMovement,
+		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, SmootherTurretMovement,
 	};
 }

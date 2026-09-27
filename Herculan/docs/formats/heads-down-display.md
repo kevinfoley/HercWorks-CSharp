@@ -420,9 +420,13 @@ The machine's own pilot index — `MecEntry.PilotNameIndex`, the leading field o
 | `+0x135` | full width, `y0+48` | `[2]` | group 28 condition |
 | `+0x139` | full width, `y0+64` | `[0]` | group 33 `OBJECTIVE:` |
 | `+0x13d` | full width, `y0+80` | `[2]` | group 40 current order |
-| `+0x141` | `x0 .. x0+20`, bottom 20 | `[2]` | slot number, background id 15 |
+| `+0x141` | `x0 .. x0+20`, bottom 20 | `[2]` | none, background id 15 — [never shown](#the-unfilled-sixth-label) |
 
 Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entries 0, 1, 2 = palette 14, 15, 31 — is the manual's "squad members are shown on the map in the same color that highlights their name on the comm screen", and it is the same id the pilot channel's own box fills with ([`cockpit-messages.md`](cockpit-messages.md#its-box)).
+
+#### The unfilled sixth label
+
+The `+0x141` label is built and never given text, so retail never draws it. The loader sets its rect, its font and its background and does nothing more with it; `HddGauge_PaintIdle` sets text on the other five, and the two video paints on the name alone. A label appears only when `Label_SetText` paints it, so the box's bottom-left corner stays the flood colour. What it was meant to hold is [Open](#open).
 
 `ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries — `{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to `gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The first 24 entries are the talking-head frames and share one offset per pilot — `PILOT2`, whose last frame differs, is the only exception; entries 24-26 cover three wider frames after them, which nothing in the shipped code path draws. The bank's 28th frame, `0x1b`, is the [death scream](#the-death-scream)'s; no `.OFS` entry places it, so its pair is two bytes of the zero-allocated display object (`Mem_AllocZeroed(0x78a)`) that no writer is found for, and it draws at (0, 0).
 
@@ -510,6 +514,8 @@ Everything the command display draws is drawn. Zoom, pan, recentring, pilot sele
 
 The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, which the host hands `SquadCommChannel.SetDestroyed` each frame; the comms-out latch is the channel's own, set where the loop sets it. The death scream flickers and latches as above. Each portrait paint makes its discarded draw on `SimWorld.PresentationRandom`, the generator the scream's roll and the message variants share.
 
+The sixth label stays empty, as in retail, unless the **Show squadmate number** tweak is on (`TweakSettingDefinitions.ShowSquadmateNumber`, off by default). With it on, each occupied box's idle paint fills that label with the slot number, 1-3, which is the key that selects that pilot. The number is this engine's choice of text, not something read from the binary. The renderer reads the setting every frame, so toggling it in the Tweaks panel shows or hides the numbers at once.
+
 `CockpitWidgets` splits the order column's single click region into its eight rows so the shared hit test does the walk the original does by hand, and reports the map region only on the command display rather than leaving it live on the damage page.
 
 XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
@@ -524,5 +530,6 @@ XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/
 - **Open:** how retail's 640-wide mode finds `static`. `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes; `pilot<n>` names its folder outright, but `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
 - **Open:** what the `DAT_0049d1f6` lookup table is for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so the table branch is never taken.
 - **Open:** `.GAU` block indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
+- **Open:** what the comm box's [sixth label](#the-unfilled-sixth-label) was for. `es2_fieldscan.py` finds `+0x141` only in `HddGauge_LoadPilotFrames`, which builds it; its corner position, red font and yellow background would suit the slot number the manual's `[1]`-`[3]` keys select, but nothing in the image says so.
 - **Open:** the comm-box highlight mode's 0 branch, which fills the box rect rather than the marker. Retail data never selects it.
 - **Open:** what consumes `ICONS.HBA` frames 0-1 and the ninth frame of every rotation group. The display addresses none of them — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.

@@ -453,14 +453,18 @@ public sealed class Overlay2DRenderer : IDisposable {
 				PilotLine(box, 80, HddLayout.PilotNameFont,
 					strings?.Text(HddLayout.PilotOrderGroup, pilot.OrderIndex));
 
-				// The slot number, bottom-left of the box on colour id 15 — what the manual tells the
-				// player to press to select this pilot.
-				var slotBox = new HddLayout.Rect(box.X0, box.Y1 - 20, box.X0 + 20, box.Y1);
-				if (hud.HeadsDownColors?.Indicator is { } slotFill) {
-					Fill(slotBox, slotFill);
-				}
+				// The box's sixth label, bottom-left on colour id 15, which HddGauge_LoadPilotFrames (0044a7c0)
+				// builds and nothing ever fills, so retail never shows it. Under the tweak it carries the
+				// slot number — the key that selects this pilot. Read every frame, so toggling the tweak
+				// shows or hides it at once.
+				if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowSquadmateNumber)) {
+					var slotBox = new HddLayout.Rect(box.X0, box.Y1 - 20, box.X0 + 20, box.Y1);
+					if (hud.HeadsDownColors?.Indicator is { } slotFill) {
+						Fill(slotBox, slotFill);
+					}
 
-				DrawLabel(HddLayout.PilotNameFont, string.Empty, (i + 1).ToString(), -1, slotBox, centered: true);
+					DrawLabel(HddLayout.PilotNameFont, string.Empty, (i + 1).ToString(), -1, slotBox, centered: true);
+				}
 			}
 
 			// The marker beside the selected box, which is what the herc's own highlight mode 1 fills

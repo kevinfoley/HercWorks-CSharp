@@ -24,6 +24,9 @@ public sealed class ShellSound {
 	/// <summary>The volume the fade in stops at, and the one a click is played at.</summary>
 	private const int FullVolume = 100;
 
+	/// <summary>The fade out stops once the volume is below this.</summary>
+	private const int MinimumFadeVolume = 2;
+
 	/// <summary>
 	/// <c>GetTickCount</c> milliseconds that must pass between two steps of a fade — strictly more than
 	/// this.
@@ -40,6 +43,7 @@ public sealed class ShellSound {
 	// ShellSound_MusicVolume (004731fc), the music's volume: 0 in the image, and moved only by the fades.
 	private int _musicVolume;
 	private bool _fadingIn;
+	private bool _fadingOut;
 	private long _lastFadeStep;
 
 	private ShellSound(IAudioBackend backend, SimulatorPreferences options, int press, int tabClick, int music) {
@@ -69,7 +73,7 @@ public sealed class ShellSound {
 	/// Whether a fade is under way — the span the original spends inside its fade loop, where no widget
 	/// takes an event.
 	/// </summary>
-	public bool Fading => _fadingIn;
+	public bool Fading => _fadingIn || _fadingOut;
 
 	/// <summary>
 	/// The sound manager's setup, <c>ShellSound_Init</c> (<c>0042ec7c</c>): <c>hmi\gm_69.wav</c> the
@@ -137,21 +141,39 @@ public sealed class ShellSound {
 		}
 
 		_fadingIn = true;
+		_fadingOut = false;
 		_lastFadeStep = Environment.TickCount64;
 	}
 
 	/// <summary>
-	/// One pass of the fade's loop: a step up whenever more than 10 ms of <c>GetTickCount</c> have
-	/// passed since the last, until the volume is past 99. <see cref="Environment.TickCount64"/> is that
-	/// same clock, at its same granularity.
+	/// <c>ShellSound_FadeOut</c> (<c>0042f178</c>): while MUSIC is on, lowers the music's volume one step
+	/// at a time until it is below 2, so it stops at 1. MUSIC is tested once, as the fade starts, so a
+	/// caller that turns it off straight after still gets the whole fade — which is what the original's
+	/// callers do once its blocking loop has returned.
 	/// </summary>
-	public void Update() {
-		if (!_fadingIn) {
+	public void FadeOut() {
+		if (_options[SimulatorPreferences.MusicOption] == 0) {
 			return;
 		}
 
-		if (_musicVolume > FullVolume - 1) {
+		_fadingOut = true;
+		_fadingIn = false;
+		_lastFadeStep = Environment.TickCount64;
+	}
+
+	/// <summary>
+	/// One pass of the fade's loop: a step whenever more than 10 ms of <c>GetTickCount</c> have passed
+	/// since the last — up until the volume is past 99, or down until it is below 2.
+	/// <see cref="Environment.TickCount64"/> is that same clock, at its same granularity.
+	/// </summary>
+	public void Update() {
+		if (!Fading) {
+			return;
+		}
+
+		if (_fadingIn ? _musicVolume > FullVolume - 1 : _musicVolume < MinimumFadeVolume) {
 			_fadingIn = false;
+			_fadingOut = false;
 			return;
 		}
 
@@ -161,7 +183,7 @@ public sealed class ShellSound {
 		}
 
 		_lastFadeStep = now;
-		_musicVolume++;
+		_musicVolume += _fadingIn ? 1 : -1;
 		if (_musicPlay >= 0) {
 			_backend.SetGain(_musicPlay, Gain(_musicVolume));
 		}

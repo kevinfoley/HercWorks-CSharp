@@ -152,6 +152,7 @@ Slot 0 of a class's vtable is its event handler, and the shell's classes run fiv
 | `HatchedDivider_HandleEvent` (0040c3b5) | `HatchedDivider` | either button's release | yes | yes | `+0x49` |
 | `ButtonIcon_HandleEvent` (00409df2) | `ButtonIcon`, the tab strip | the left press; the right release | the right button only | no | `+0x49`, `Avi_Playing`, `MovieQueue_Running` |
 | the same, with `+0x61` set and `+0x5d` clear | the mission screen's arrows | the left release, and every 500 ms while held; the right release | the right button only | yes | the same |
+| `0040a139` | the [checkbox](#the-preferences-screen) | the left press; the right release | the right button only | no | `+0x49`; the right button also the two movie flags |
 | `ImagePanel_HandleEvent` (0040b6da) | image panel | the left release | no | — | none |
 | `EditField_HandleEvent` (0040beaf) | edit field | the left press | — | — | none |
 
@@ -160,6 +161,8 @@ Slot 0 of a class's vtable is its event handler, and the shell's classes run fiv
 **The strip fires on the left press.** `ButtonIcon_HandleEvent` lights `+0x45`, plays the press sound, repaints and fires, all on the press, while its auto-repeat flag `+0x61` is clear, as the constructor leaves it. The left release zeroes `+0x45` without repainting, which is why a tab stays drawn lit after the click that latched it: what is on screen is the paint the tab handler's own write of 1 triggered. The right button falls through to `Control_HandleEvent`: it lights on the press and fires on the release, and then zeroes `+0x45` and repaints after the handler has run. So a tab picked with the right button has latched itself and is then repainted unlit, and right-clicking the tab already up unlights it; recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md). The leave clears `+0x45` only while `+0x5d` is 0, and `ButtonIcon_Ctor` sets it to 1, so a tab the pointer is dragged off stays lit, and a later right release on it fires it with no press.
 
 **An auto-repeating `ButtonIcon` fires on the left release instead.** With `+0x61` set the left press lights the button, plays the press sound and repaints without firing, and the left release puts it out, repaints and fires, wherever the press was. Event types 1 and 2 install and remove a WinTimer alarm for the widget at 500 and 500, and each tick of it (event `0x200`) while the button is lit, enabled and not hidden adds one to `+0x65` and fires again. A builder that also clears `+0x5d` lets the leave put the button out. The right button is `Control_HandleEvent`'s, as on the strip.
+
+**A checkbox fires on the left press, as the strip does**, lighting `+0x45`, playing the press sound and repainting first, but it tests neither movie flag on that button, and its left release does nothing at all. A leave leaves it lit, `+0x5d` being the constructor's 1. The right button is `Control_HandleEvent`'s.
 
 **An image panel fires on any left release that reaches it**, wherever the button went down.
 
@@ -262,7 +265,7 @@ What the handlers call, as read:
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
 | `ONLINE MANUAL` | `004317ea`: `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
 | `PRACTICE MISSIONS` | `MainMenu_Hide`, `PracticeScreen_Show` (`0044bc92`), `FUN_0040e69e(0)` — [the practice screen](#the-practice-missions-screen) |
-| `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` |
+| `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` — [the preferences screen](#the-preferences-screen) |
 | `VIEW DEMO` | `Shell_SetExitCode(5)`, `DAT_0046c074 = 1` |
 | `CREDITS` | shows a bare window (`DAT_0048d0c4`) and plays movie `0x54` through `Movie_Enqueue` and `Movie_PlayQueue`, then hides it |
 | `QUIT` | `DAT_0046c074 = 1`, `FUN_0040723d` |
@@ -346,6 +349,79 @@ A machine built from a mission record is `Herc_SetType` on its chassis, then `He
 **The last wingman never flies.** Step 3 passes `Squad_UpdateOnStrength` the member's index where a position belongs, and runs it before the member has a position. So it lands on whoever holds position `i`: nobody for member 0, and member `i - 1` after that, who goes on strength one step late. The last member to be given a bay is never updated, and `Game_ExportMissionHandoff` writes only members on strength. A squad of one wingman flies without them. Retail's training handoffs show it: each `player11.mec` below is a TRAIN5 whose group 0 gives two wingmen, and carries the player and the first.
 
 The draws the path makes are VSHELL's generator's ([`campaign-loop.md`](campaign-loop.md#the-shells-generator)), in this order: the roster, the player's name index, the salvage, flags 4-6, then the mission load's. Two TRAIN5 launches retail wrote to save slot 11 — `script11.dat`, `missn11.str` and `player11.mec` — are each this path's output, with `Herc Type` on `Colossus` and `Mission Difficulty` on 2: one on `Day` with the generator seeded 82, and one on `Night` seeded 19.
+
+## The preferences screen
+
+What `PREFERENCES` opens: six `prefs.cfg` options ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)) as eleven checkboxes in five boxes. Built once at startup by `PreferencesScreen_Build` (`00434f08`), which also loads `dba\chk_box.dba`; put up by `PreferencesScreen_Enter` (`004366b5`) and hidden by `FUN_00436717`. Like the main menu it stands alone over a backdrop-textured root of its own, with the strip hidden, and is left through its own `Cancel` and `Accept`. Rects are parent-relative.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| root | image panel | its parent's own rect | the shared backdrop |
+| content panel | `TitledPanel` | `{0x72, 0x98, 0x21c, 0x183}` | `0x103` `PREFERENCES`, header 19 tall, plate `0x8c`-`0x11b`, border `0x27`, face `0x25`, dithered body in `0x10` |
+| 5 boxes | `FramedPanel` | below | border `0x15`, face `0xf` |
+| 5 headings | `Text` | below, in each box | `0x29`; `Audio/Speech Options:` centred, the other four left |
+| 11 labels | `Text` | below, in each box | left, `0x27` |
+| 11 checkboxes | checkbox | below, in each box | `chk_box.dba` frames 1 and 0, the empty caption at `00474cb1` |
+| `Cancel` | `Button` | `{0xda, 0xce, 0x139, 0xdd}` | `0x10b`, border `0x22` |
+| `Accept` | `Button` | `{0x13e, 0xce, 0x19e, 0xdd}` | `0x10c`, border `0x22` |
+
+| Box | Rect | Heading | Label | Label rect | Checkbox rect | Handler | Sets |
+|---|---|---|---|---|---|---|---|
+| audio | `{0xc, 0x1a, 0xd0, 0x60}` | `0x106` `Audio/Speech Options:` at `{0x15, 6, 0xad, 0x12}` | `0x116` `Music` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `00436cc1` | option 0 |
+| | | | `0x117` `Sound Effects` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00436d22` | option 1 |
+| repair | `{0xda, 0x1a, 0x19e, 0x76}` | `0x107` `Repair Options:` at `{0x36, 6, 0xa0, 0x12}` | `0x113` `AutoRepair All Hercs` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `00436d83` | option 44 to 0 |
+| | | | `0x114` `Manually Repair My Herc` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00436de4` | option 44 to 1 |
+| | | | `0x115` `Manually Repair All Hercs` | `{5, 0x48, 0xaa, 0x56}` | `{0xaf, 0x48, 0xc1, 0x58}` | `00436e45` | option 44 to 2 |
+| weapons | `{0xda, 0x7e, 0x19e, 0xc4}` | `0x108` `Weapons Building:` at `{0x2c, 6, 0xaa, 0x12}` | `0x111` `AutoBuild Weapons` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `00436ea6` | option 45 to 0 |
+| | | | `0x112` `Manually Build Weapons` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00437006` | option 45 to 1 |
+| resolution | `{0xc, 0x68, 0xd1, 0xae}` | `0x120` `Game Resolution` at `{0x2c, 6, 0xaa, 0x12}` | `0x121` `High Res (640x480)` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `004370c8` | option 4 to 0 |
+| | | | `0x122` `Low Res (320x240)` | `{5, 0x32, 0xaa, 0x3e}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00437067` | option 4 to 1 |
+| display | `{0xc, 0xb6, 0xd1, 0xe4}` | `0x123` `Display Mode` at `{0x35, 6, 0xad, 0x12}` | `0x124` `Window` | `{10, 0x1c, 0x37, 0x2a}` | `{0x39, 0x1a, 0x4b, 0x2a}` | `00436f07` | option 6 to 0 |
+| | | | `0x125` `Full Screen` | `{0x5a, 0x1c, 0xa5, 0x2a}` | `{0xa9, 0x1a, 0xbb, 0x2a}` | `00436f78` | the alert, [below](#full-screen-asks-first) |
+
+The display box lays its two out side by side, each label left of its checkbox; the other four boxes stack theirs, labels at the left and checkboxes in one column at `0xaf`. No widget overlaps another, and the panel and the boxes have no handler, so a click anywhere but a checkbox or a button is swallowed.
+
+**The checkbox is a class of its own.** `FUN_0040a100` is `ButtonIcon_Ctor` with vtable `0046e9a0` and `+0x69`, the tick, cleared. Its paint, `FUN_0040a26d`, is the strip's paint choosing between the two faces on `+0x69` where the strip's chooses on the lit flag `+0x45`; `+0x45` still moves the caption, which here is the empty string. The builder passes `chk_box` frame 1, the empty box, as the unticked face and frame 0, a cross, as the ticked one. Both frames are 24 wide and 17 tall, and the rect is 19 wide: the five columns the paint's clip drops are index 0. Its handler is `0040a139` ([The widget that takes a click decides what it does](#the-widget-that-takes-a-click-decides-what-it-does)). **Every one of the eleven is this class** — the radio groups are groups only because their setters relight them.
+
+### What a checkbox sets
+
+`PreferencesScreen_Enter` seeds the ticks: `Music` and `Sound Effects` take options 0 and 1 as they stand (`FUN_00436790`), and the four groups go through their setters with their own option's value — which writes it back unchanged — before the root and the panel are shown.
+
+A group's setter — `FUN_00436a9c` for repair, `FUN_00436b50` for weapons, `FUN_00436abc` for resolution, `FUN_00436b70` for display — stores its value in a word of its own (`00474cc4`, `00474cc8`, `00474cc6` and `00474cca`, [Open](#open)), writes the option through `ShellOptions_SetOption` with apply set, and relights the group: `+0x69` to 1 on the checkbox of the option's value and 0 on the others. A value no checkbox in the group names relights nothing.
+
+The two sound checkboxes run `FUN_00436841` with 0 and 1 and then reseed both ticks. Case 1 toggles SOUNDS. Case 0 toggles MUSIC and runs a fade: turning it on, the toggle and then `ShellSound_FadeIn`; turning it off, `ShellSound_FadeOut` and then the toggle, so the fade's own MUSIC gate lets it run ([Sound](#sound)). The function also has cases 2 and 3, which cycle option 2, the simulator's PILOT MESSAGE ([Open](#open)).
+
+`Game Resolution` is the simulator's video mode ([`../simulation/preferences.md`](../simulation/preferences.md#the-video-mode-and-full-screen-bytes)); the shell has one mode and does not read it.
+
+### Full screen asks first
+
+`Window` (`00436f07`) toggles the shell's window out of full screen through `FUN_00407085` when `DAT_00481e68`, the full-screen flag, is set, and then sets option 6 to 0. `Full Screen` (`00436f78`) sets nothing: while the shell is windowed it shows a window the size of the display holding an alert, and otherwise does nothing. The alert's `ACCEPT` (`FUN_00436fe8`) hides the window, toggles the shell into full screen and sets option 6 to 1. So `Full Screen` is ticked only after that `ACCEPT`.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| window | `Window` | the top-level window's absolute rect | hidden once its children are built |
+| alert | `ESAlert` | `{0x68, 199, 0x226, 0x117}` | `0x126` `Alert!`, border `0x27`, header 20 tall, face `0x25`, plate `0xbe`-`0xfa`, filled body |
+| line | `Text` | `{5, 0x1c, W - 4, 0x2a}` | `0x127` `If you experience difficulties, hit alt-enter and view the read-me.`, left, `0x27` |
+| `ACCEPT` | `Button` | `{0xa8, 0x38, 0x107, 0x47}` | `0x10`, border `0x22` |
+
+`W` is the alert's own width.
+
+**Full screen is an exclusive display mode.** `FUN_00407085` toggles it. Going in, it sets `DAT_00481e68`, creates a DirectDraw object and takes it exclusive and full screen (`FUN_00406eb5`, cooperative level `0x17`), sets a 640x480 8-bit display mode and creates the primary surface (`FUN_00406eeb`, with the canvas size from the shell's bitmap header `DAT_00481864`), and places the window topmost with its frame pushed off the screen, so its client area is the screen. It then marks the palette's entries, gives the primary surface a palette, confines the pointer to the screen (`ClipCursor`) and centres it. If DirectDraw or the mode fails the shell quits. Coming out, it clears the flag, releases every DirectDraw object (`FUN_00407011`), which gives the desktop its mode back, and centres the window, no longer topmost.
+
+**The startup enters it from option 6.** `FUN_00406507`, the startup under `WinMain`, reads `prefs.cfg` (`FUN_0040d68c`), copies option 6 into `DAT_0046d740`, builds the window over the desktop and topmost while that is set, and then calls `FUN_00407085`. It also looks for a `-d` or `/d` argument and clears `DAT_0046d740` for one, but that store (`0040656c`) comes before the copy from option 6 (`00406583`), which overwrites it with nothing reading it between, so `-d` has no effect. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+**Four keys switch it**, in `MainWndProc` (`00404a2c`), each only while no movie plays and `DAT_0046c098` is set, which the startup does once the screens are built and the startup sequence's widget clears while it runs. Alt+Enter toggles full screen on the Enter key's release; Alt+Tab, Alt+Esc and Ctrl+Esc leave it (`FUN_0040722e`) on the key going down or up. Each then writes option 6 from the flag, and with the preferences screen's panel up relights its display group and repaints it; otherwise it runs `ShellOptions_Commit(0)` and `ShellOptions_SaveAll`. A modifier other than the one named stops the key matching. The shell also leaves full screen around its own message boxes and goes back after.
+
+### Leaving the preferences screen
+
+Both buttons end in `FUN_00436717` and `MainMenu_Show`, and differ in what they do with the options first:
+
+| Button | Does first |
+|---|---|
+| `Cancel`, `00436b90` | `FUN_0040d7fe(0)`: every option that differs from the shadow is put back, running no handler. Then `FUN_00407085` when option 6 and the full-screen flag disagree, and the fade [Sound](#sound) describes |
+| `Accept`, `00436c51` | `ShellOptions_Commit(0)`, which rebaselines the shadow and runs no handler, then `ShellOptions_SaveAll` |
+
+The shadow is the array as of the last commit, so `Cancel` puts back every option changed since, the practice screen's parameters among them, which that screen steps without committing ([The parameters](#the-parameters)).
 
 ## The save screen
 
@@ -1026,7 +1102,7 @@ The shell has a sound manager of its own: a copy of the simulator's [`SFX` manag
 
 A fade takes a step whenever more than 10 ms of `GetTickCount` have passed since the last, which at that clock's 15.6 ms granularity is about a second and a half from silence to full. It is a loop that pumps window messages and returns only when it is done, so the shell does nothing else meanwhile. The volume reaches the driver as `volume * master * 0x7fff / 10000`, with the master at `00473160` on the 100 it holds in the image — linear in the volume.
 
-**MUSIC gates the fades, not the music.** The two fades are the only writers of the music volume, and both return at once with MUSIC off; `ShellSound_Start` does not test it. So with MUSIC off from startup the music runs at volume 0 all the while. The PREFERENCES screen's MUSIC checkbox (`FUN_00436841`, case 0) flips the option and fades in when turning it on, and fades out before flipping it when turning it off; the screen's exit (`FUN_00436b90`) runs the fade the setting calls for, turning MUSIC on for the length of a fade out so the fade's own gate lets it run. A fade out stops at 1, so music turned off plays on at 1 of 100.
+**MUSIC gates the fades, not the music.** The two fades are the only writers of the music volume, and both return at once with MUSIC off; `ShellSound_Start` does not test it. So with MUSIC off from startup the music runs at volume 0 all the while. [The preferences screen](#what-a-checkbox-sets)'s `Music` checkbox fades in after turning MUSIC on and fades out before turning it off. Its `Cancel` (`00436b90`) runs the fade the reverted setting calls for, turning MUSIC on for the length of a fade out so the fade's own gate lets it run; its `Accept` runs none. A fade out stops at 1, so music turned off plays on at 1 of 100.
 
 ### What plays each sound
 
@@ -1036,7 +1112,7 @@ A fade takes a step whenever more than 10 ms of `GetTickCount` have passed since
 |---|---|---|
 | `Button_HandleEvent` (`00409b0f`), every content button | either button going down, before `Control_HandleEvent` | `+0x49`, `Shell_SoundEnabled`, and the event's `+0x25` being 0 |
 | `ButtonIcon_HandleEvent` (`00409df2`), the strip and the mission screen's arrows | the left button going down | `+0x49`, `Shell_SoundEnabled`, `Avi_Playing`, `MovieQueue_Running` |
-| `0040a139`, the `ButtonIcon` subclass `0040a100` builds (vtable `0046e9a0`) — the PREFERENCES screen's eleven checkboxes and radio buttons, `PreferencesScreen_Build`'s only use of it | the left button going down | `+0x49`, `Shell_SoundEnabled` |
+| `0040a139`, the [checkbox](#the-preferences-screen) class `0040a100` builds (vtable `0046e9a0`) — the preferences screen's eleven, `PreferencesScreen_Build`'s only use of it | the left button going down | `+0x49`, `Shell_SoundEnabled` |
 
 Every other class is silent: rows, panels, grids, image panels, edit fields. A content button therefore sounds on the press and fires on the release, and sounds for a press that the pointer then drags off it. A mouse event's `+0x25` is 0 on every event the mouse itself queues: `MouseEvent_Ctor` (`00468cfc`) clears it and the queue's drain (`FUN_00408c4e`) does not write it ([Open](#open)).
 
@@ -1121,7 +1197,9 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Unported:** the auto-repeat of the mission screen's arrows.
 - **Open:** whether the launch refusal keeps clicks off the screen beneath it, the same question as the scrap dialog's.
 - **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
-- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s and `PRACTICE MISSIONS`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up, with [its switch sound](#what-plays-each-sound). `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
+- **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
+- **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
+- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s, `PRACTICE MISSIONS`' and `PREFERENCES`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up, with [its switch sound](#what-plays-each-sound). `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
 - **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.
 - **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0044cecf`, which `CONTINUE GAME` calls, does.
 - **Unported:** the campaign/training mode writes of `INSTANT ACTION`, `START NEW GAME` and `CONTINUE GAME` — `FUN_0040e69e`, which `SAVE/RESTORE` and `PRACTICE MISSIONS` reach here too.

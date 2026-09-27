@@ -58,7 +58,8 @@ static class ShellHost {
 	/// </summary>
 	public static (int ExitCode, ShellLaunch? Launch) Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
-			int startBay = 0, bool startPractice = false, bool silentAudio = false, bool writePreferences = true) {
+			int startBay = 0, bool startPractice = false, bool silentAudio = false, bool writePreferences = true,
+			bool startWindowed = false) {
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot),
 			[.. ShellArt.Archives, ShellSound.ArchiveName]);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
@@ -142,10 +143,9 @@ static class ShellHost {
 		// built by hand (prefs.cfg option 45), which gates CLEAR. The prices are also what the repair and
 		// build screens deduct the save's build queue at. The screen is built on first entry and kept.
 		var armoryCatalog = ShellArmoryCatalog.Load(content);
-		// Option 44 is the repair mode the repair screen's readout names.
+		// Option 44 is the repair mode the repair screen's readout names. Both are read where the original
+		// reads them, on the tab's entry and the armory's clicks, since the preferences screen changes them.
 		var preferences = SimulatorPreferences.Load(Path.Combine(installRoot, "DATA"));
-		bool manualWeaponBuild = preferences?[WeaponsBuildingOption] != 0;
-		int repairMode = preferences?[RepairOption] ?? ShellRepairScreen.AutoRepairMode;
 		ShellArmoryScreen? armoryScreen = null;
 
 		// The practice screen's five parameters are options 37-41 of the same array, stepped in memory;
@@ -156,6 +156,11 @@ static class ShellHost {
 		ShellPracticeScreen? practiceScreen = null;
 		bool practiceUp = false;
 
+		// The preferences screen shows six options of the same array. It stands in for the main menu while
+		// it is up, as the practice screen does, and is built on first use and kept.
+		ShellPreferencesScreen? preferencesScreen = null;
+		bool preferencesUp = false;
+
 		// VSHELL's one generator, seeded once at startup, and the row-2 flag clear list, which the
 		// original keeps from one mission load to the next.
 		var shellRandom = ShellTrainingLaunch.StartupRandom();
@@ -163,7 +168,7 @@ static class ShellHost {
 
 		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
 			QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
-			RepairMode = repairMode,
+			RepairMode = shellOptions[RepairOption],
 		};
 		Console.WriteLine($"Damage diagram layouts loaded for {repairDiagrams.LayoutCount} chassis.");
 
@@ -233,7 +238,9 @@ static class ShellHost {
 		Console.WriteLine("Every tab has a screen behind it but MISSION's map view. On the "
 			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
 			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
-			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. Click a save "
+			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. PREFERENCES shows the "
+			+ "preferences screen: click a checkbox to set it, Accept to keep and save the settings or Cancel to put "
+			+ "them back, either returning to the menu. Click a save "
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
 			+ "select it and the panels beside it follow; REPAIR lifts the selected part one level, REPAIR ALL "
 			+ "rebuilds the machine, and CANCEL undoes both since the bay was selected. On BUILD, click a chassis to see its blueprint and "
@@ -275,6 +282,18 @@ static class ShellHost {
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
 			keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 			StartSound();
+
+			// The startup (FUN_00406507) goes full screen when option 6 is set, before the shell's screens
+			// are built. --shell-windowed keeps the window, which retail's -d does not.
+			if (shellOptions[DisplayModeOption] != 0 && !startWindowed) {
+				ToggleFullScreen();
+			}
+
+			if (keyboard != null) {
+				keyboard.KeyDown += (_, key, _) => DisplayHotkey(key, released: false);
+				keyboard.KeyUp += (_, key, _) => DisplayHotkey(key, released: true);
+			}
+
 			if (startPractice) {
 				OpenPractice();
 			}
@@ -445,6 +464,7 @@ static class ShellHost {
 			repairScreen.QueuedKilograms = armoryCatalog.QueuedTotal(hangar);
 
 			if (id == ShellScreen.RepairTab) {
+				repairScreen.RepairMode = shellOptions[RepairOption];
 				repairScreen.Enter();
 			} else if (id == ShellScreen.CrewTab) {
 				EnterCrew();
@@ -480,6 +500,7 @@ static class ShellHost {
 
 			return screen.SelectedTab switch {
 				ShellScreen.MainMenuTab when practiceUp => practiceScreen!.HitAt(canvasX, canvasY),
+				ShellScreen.MainMenuTab when preferencesUp => preferencesScreen!.HitAt(canvasX, canvasY),
 				ShellScreen.MainMenuTab => mainMenu.HitAt(canvasX, canvasY),
 				ShellScreen.SaveTab => saveScreen.HitAt(canvasX, canvasY),
 				ShellScreen.RepairTab => ShellSquadPanel.HitAt(canvasX, canvasY)
@@ -526,6 +547,9 @@ static class ShellHost {
 					break;
 				case ShellWidgetKind.PracticeButton:
 					ClickPracticeButton((ShellPracticeButton)widget.Index);
+					break;
+				case ShellWidgetKind.PreferencesWidget:
+					ClickPreferences((ShellPreferencesWidget)widget.Index);
 					break;
 				case ShellWidgetKind.SaveRow:
 					SelectSaveSlot(widget.Index);
@@ -586,11 +610,16 @@ static class ShellHost {
 		}
 
 		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
-		// save screen's EXIT back here, and enter it. PRACTICE MISSIONS is OpenPractice. The other eight
-		// buttons' actions are not ported.
+		// save screen's EXIT back here, and enter it. PRACTICE MISSIONS is OpenPractice and PREFERENCES
+		// OpenPreferences. The other seven buttons' actions are not ported.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
 			if (button == ShellMainMenuButton.PracticeMissions) {
 				OpenPractice();
+				return;
+			}
+
+			if (button == ShellMainMenuButton.Preferences) {
+				OpenPreferences();
 				return;
 			}
 
@@ -625,6 +654,108 @@ static class ShellHost {
 			Console.WriteLine("Practice missions — training mode.");
 			LogPractice();
 			RepaintContent();
+		}
+
+		// PREFERENCES, 0043150c: MainMenu_Hide, then PreferencesScreen_Enter (004366b5), which seeds the
+		// checkboxes from the options and shows the screen. The strip goes with the menu, as for the practice
+		// screen.
+		void OpenPreferences() {
+			preferencesScreen ??= new ShellPreferencesScreen(shellOptions,
+				ShellArt.ReadBankFrames(content, ShellPreferencesScreen.CheckBoxBank),
+				isFullScreen: () => window.FullScreen, toggleFullScreen: ToggleFullScreen);
+			preferencesUp = true;
+			screen.HideStrip();
+			Console.WriteLine("Preferences.");
+			LogPreferences();
+			RepaintContent();
+		}
+
+		// A widget's handler. Cancel (00436b90) and Accept (00436c51) end in FUN_00436717 and
+		// MainMenu_Show, which take the screen down and put the menu back.
+		void ClickPreferences(ShellPreferencesWidget widget) {
+			if (preferencesScreen == null) {
+				return;
+			}
+
+			if (preferencesScreen.Click(widget, sound)) {
+				preferencesUp = false;
+				screen.SelectTab(ShellScreen.MainMenuTab);
+				Console.WriteLine($"{widget} — main menu.");
+			}
+
+			LogPreferences();
+			RepaintContent();
+		}
+
+		bool ManualWeaponBuild() => shellOptions[WeaponsBuildingOption] != 0;
+
+		// FUN_00407085. Retail sets an exclusive 640x480 8-bit display mode with the window's frame pushed
+		// off the screen, confines the pointer to the screen and centres it; going back releases DirectDraw,
+		// which restores the desktop's mode, and centres the window. Here full screen covers the monitor at
+		// its current mode (EngineWindow.ToggleFullScreen), with the canvas scaled into it as it is in a
+		// window — a divergence the user chose, so that no display mode changes. The pointer is confined and
+		// centred as retail's is.
+		void ToggleFullScreen() {
+			window.ToggleFullScreen();
+			if (mouse?.Cursor is { } cursor) {
+				cursor.IsConfined = window.FullScreen;
+			}
+
+			if (window.FullScreen && mouse != null) {
+				var client = window.ClientSize;
+				mouse.Position = new System.Numerics.Vector2(client.X / 2, client.Y / 2);
+			}
+
+			Console.WriteLine(window.FullScreen ? "Full screen." : "Windowed.");
+		}
+
+		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing and the startup sequence being
+		// over, neither of which this engine has. Alt+Enter toggles full screen on the Enter key's release;
+		// Alt+Tab, Alt+Esc and Ctrl+Esc leave it on either edge (FUN_0040722e). Each then writes option 6
+		// from the window and, with the preferences screen up, relights its display group; otherwise it
+		// commits the options without their handlers and writes all 54.
+		void DisplayHotkey(Key key, bool released) {
+			if (keyboard == null) {
+				return;
+			}
+
+			bool shift = keyboard.IsKeyPressed(Key.ShiftLeft) || keyboard.IsKeyPressed(Key.ShiftRight);
+			bool alt = keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
+			bool ctrl = keyboard.IsKeyPressed(Key.ControlLeft) || keyboard.IsKeyPressed(Key.ControlRight);
+			bool altOnly = alt && !shift && !ctrl;
+
+			if (altOnly && key is Key.Enter or Key.KeypadEnter) {
+				if (!released) {
+					return;
+				}
+
+				ToggleFullScreen();
+			} else if ((altOnly && key is Key.Tab or Key.Escape) || (ctrl && !alt && !shift && key == Key.Escape)) {
+				if (window.FullScreen) {
+					ToggleFullScreen();
+				}
+			} else {
+				return;
+			}
+
+			shellOptions.Set(DisplayModeOption, (byte)(window.FullScreen ? 1 : 0));
+			if (preferencesUp) {
+				RepaintContent();
+			} else {
+				shellOptions.Commit(apply: false);
+				shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+			}
+		}
+
+		void LogPreferences() {
+			if (preferencesScreen == null) {
+				return;
+			}
+
+			var ticked = Enum.GetValues<ShellPreferencesWidget>()
+				.Where(w => ShellPreferencesScreen.IsCheckBox(w) && preferencesScreen.IsChecked(w));
+			Console.WriteLine($"Preferences: {string.Join(", ", ticked)}"
+				+ (preferencesScreen.AlertOpen ? "; the Alert! dialog is up." : "."));
 		}
 
 		// A practice row's handler, one of the eight thunks from 0044c413: PracticeScreen_SelectRow
@@ -753,7 +884,7 @@ static class ShellHost {
 			missionMapShown = false;
 			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
 				QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
-				RepairMode = repairMode,
+				RepairMode = shellOptions[RepairOption],
 			};
 			saveScreen.CanSave = true;
 			Console.WriteLine($"Restored slot {slot + 1} ({entry.FileName}): "
@@ -972,7 +1103,7 @@ static class ShellHost {
 			if (button == ShellScrapDialogButton.Accept && armoryScreen != null) {
 				int weapon = weaponScrapDialog.Subject;
 				hangar.ScrapStock(weapon, armoryCatalog.ScrapValueTons(hangar, weapon));
-				armoryCatalog.RefreshQueue(hangar, manualWeaponBuild);
+				armoryCatalog.RefreshQueue(hangar, ManualWeaponBuild());
 				armoryScreen.RefreshAfterScrap();
 				Console.WriteLine($"Scrapped weapon {weapon}'s stock; {hangar.SalvageKilograms} kg in the pool.");
 				LogArmory();
@@ -1068,12 +1199,12 @@ static class ShellHost {
 		// Tab 5's entry, Armory_Enter (004494f7). The armory has no squad panel and no bay.
 		void EnterArmory() {
 			if (armoryScreen == null) {
-				armoryScreen = new ShellArmoryScreen(hangar, manualWeaponBuild, armoryCatalog, weaponsArt);
+				armoryScreen = new ShellArmoryScreen(hangar, ManualWeaponBuild(), armoryCatalog, weaponsArt);
 			} else {
-				armoryScreen.Enter(hangar, manualWeaponBuild);
+				armoryScreen.Enter(hangar, ManualWeaponBuild());
 			}
 
-			Console.WriteLine($"Armory: weapons built {(manualWeaponBuild ? "by hand" : "automatically")}, "
+			Console.WriteLine($"Armory: weapons built {(ManualWeaponBuild() ? "by hand" : "automatically")}, "
 				+ $"{hangar.QueueFreeSlots} of {ShellHangar.QueueSlots} queue slots free, "
 				+ $"{armoryScreen.AllocatedKilograms} kg allocated, {armoryScreen.AvailableKilograms} kg available.");
 			LogArmory();
@@ -1262,6 +1393,9 @@ static class ShellHost {
 				case ShellScreen.MainMenuTab when practiceUp:
 					practiceScreen!.Paint(contentSurface, art.Text, art.Sprites);
 					break;
+				case ShellScreen.MainMenuTab when preferencesUp:
+					preferencesScreen!.Paint(contentSurface, art.Text, art.Sprites);
+					break;
 				case ShellScreen.MainMenuTab:
 					mainMenu.Paint(contentSurface, art.Text, art.Sprites);
 					break;
@@ -1357,4 +1491,7 @@ static class ShellHost {
 
 	/// <summary><c>prefs.cfg</c> option 44, VSHELL's <c>Repair Options:</c> (docs/simulation/preferences.md).</summary>
 	private const int RepairOption = 44;
+
+	/// <summary><c>prefs.cfg</c> option 6, <c>Display Mode</c>: 0 a window, 1 full screen.</summary>
+	private const int DisplayModeOption = 6;
 }

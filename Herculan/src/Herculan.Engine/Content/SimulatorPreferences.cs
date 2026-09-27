@@ -215,15 +215,40 @@ public sealed class SimulatorPreferences {
 	/// caller, the controls panel's close, passes it: every option that differs from the load-time
 	/// shadow has its handler run again, and the shadow takes the current value. So a setting the
 	/// preferences panel changed is applied a second time when the controls panel closes after it.
+	///
+	/// <para>VSHELL's <c>ShellOptions_Commit</c> (<c>0040d7b6</c>) is the same walk, and its preferences
+	/// screen's <c>Accept</c> passes <paramref name="apply"/> clear: the shadow is rebaselined and no
+	/// handler runs.</para>
 	/// </summary>
-	public void Commit() {
+	public void Commit(bool apply = true) {
 		for (int i = 0; i < Length && i < _options.Length; i++) {
 			if (_baseline[i] == _options[i]) {
 				continue;
 			}
 
-			_handlers[i]?.Invoke(_options[i]);
+			if (apply) {
+				_handlers[i]?.Invoke(_options[i]);
+			}
+
 			_baseline[i] = _options[i];
+		}
+	}
+
+	/// <summary>
+	/// VSHELL's <c>FUN_0040d7fe</c>, the reverse of <see cref="Commit"/>: every option that differs from
+	/// the shadow takes the shadow's value back, and with <paramref name="apply"/> set its handler runs.
+	/// The preferences screen's <c>Cancel</c> passes it clear.
+	/// </summary>
+	public void Revert(bool apply) {
+		for (int i = 0; i < Length && i < _options.Length; i++) {
+			if (_baseline[i] == _options[i]) {
+				continue;
+			}
+
+			_options[i] = _baseline[i];
+			if (apply) {
+				_handlers[i]?.Invoke(_options[i]);
+			}
 		}
 	}
 

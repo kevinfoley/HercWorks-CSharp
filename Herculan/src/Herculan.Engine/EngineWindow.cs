@@ -1,3 +1,4 @@
+using Silk.NET.GLFW;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
@@ -72,6 +73,73 @@ public sealed class EngineWindow : IDisposable {
 	public string Title {
 		get => _window.Title;
 		set => _window.Title = value;
+	}
+
+	/// <summary>Whether <see cref="ToggleFullScreen"/> has the window covering its monitor.</summary>
+	public bool FullScreen { get; private set; }
+
+	private Vector2D<int> _windowedSize;
+
+	/// <summary>
+	/// Takes the window to full screen or back. Full screen is <c>glfwSetWindowMonitor</c> on the monitor
+	/// under the window's centre at that monitor's current video mode — GLFW's own windowed full screen,
+	/// which changes no display mode: the window covers the monitor at its own resolution and Windows
+	/// treats it as full screen, taskbar included. GLFW minimises a full-screen window that loses the
+	/// focus. Back is the size the window had before, centred on the same monitor. Called directly rather
+	/// than through Silk's <see cref="WindowState.Fullscreen"/>, which makes the same call but always on
+	/// the primary monitor. Does nothing on a backend other than GLFW.
+	/// </summary>
+	public unsafe void ToggleFullScreen() {
+		if (_window.Native?.Glfw is not { } native) {
+			return;
+		}
+
+		var glfw = Glfw.GetApi();
+		var handle = (WindowHandle*)native;
+
+		if (!FullScreen) {
+			var monitor = MonitorUnderWindow(glfw, handle);
+			if (monitor == null) {
+				return;
+			}
+
+			var mode = glfw.GetVideoMode(monitor);
+			_windowedSize = _window.Size;
+			_fullScreenMonitor = (nint)monitor;
+			glfw.SetWindowMonitor(handle, monitor, 0, 0, mode->Width, mode->Height, mode->RefreshRate);
+			FullScreen = true;
+			return;
+		}
+
+		var from = (Silk.NET.GLFW.Monitor*)_fullScreenMonitor;
+		glfw.GetMonitorPos(from, out int monitorX, out int monitorY);
+		var desktop = glfw.GetVideoMode(from);
+		glfw.SetWindowMonitor(handle, null,
+			monitorX + (desktop->Width - _windowedSize.X) / 2, monitorY + (desktop->Height - _windowedSize.Y) / 2,
+			_windowedSize.X, _windowedSize.Y, Glfw.DontCare);
+		FullScreen = false;
+	}
+
+	private nint _fullScreenMonitor;
+
+	/// <summary>The monitor whose area holds the window's centre, or the primary one when none does.</summary>
+	private static unsafe Silk.NET.GLFW.Monitor* MonitorUnderWindow(Glfw glfw, WindowHandle* handle) {
+		glfw.GetWindowPos(handle, out int x, out int y);
+		glfw.GetWindowSize(handle, out int width, out int height);
+		int centreX = x + width / 2;
+		int centreY = y + height / 2;
+
+		var monitors = glfw.GetMonitors(out int count);
+		for (int i = 0; i < count; i++) {
+			glfw.GetMonitorPos(monitors[i], out int monitorX, out int monitorY);
+			var mode = glfw.GetVideoMode(monitors[i]);
+			if (centreX >= monitorX && centreX < monitorX + mode->Width
+					&& centreY >= monitorY && centreY < monitorY + mode->Height) {
+				return monitors[i];
+			}
+		}
+
+		return glfw.GetPrimaryMonitor();
 	}
 
 	public void Run() => _window.Run();

@@ -502,7 +502,7 @@ public sealed partial class BaseObject : SimObject {
 			// SimObject.DefeatAction and SimObject.AnnounceNeutralised.
 			if (world != null) {
 				ActivateDefeatAction(world);
-				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
+				AnnounceNeutralised(world, attacker, this, NeutralisedMessageType.Destroyed);
 			}
 		}
 

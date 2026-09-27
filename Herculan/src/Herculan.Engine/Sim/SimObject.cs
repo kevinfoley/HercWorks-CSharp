@@ -1,4 +1,6 @@
-﻿using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Content;
+using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
 
@@ -73,8 +75,6 @@ public abstract class SimObject {
 	/// Whose side this object is on. In the original it is not on the object at all — it is
 	/// <c>group[+0x12]</c>, reached through the object's own group pointer at <c>obj+0x45</c>, and
 	/// every "friend or foe" test in the simulation is a byte comparison of two objects' copies.
-	/// Groups are not modelled here, so the placement's own side is copied onto the object at spawn;
-	/// nothing in the original ever changes it mid-mission.
 	/// </summary>
 	public MissionSide Side { get; set; } = MissionSide.Human;
 
@@ -398,22 +398,37 @@ public abstract class SimObject {
 	internal void ActivateDefeatAction(SimWorld world) => DefeatAction?.Activate(world);
 
 	/// <summary>
-	/// The guard all three damage endpoints share before they announce that something the player was
-	/// shooting at has gone down — a HERC's, a flyer's and a structure's, posting
-	/// <c>ENEMY TARGET DESTROYED</c> or <c>ENEMY TARGET DISABLED</c>.
+	/// Used to specify which computer voiceover message should play when a target is neutralised.
+	/// </summary>
+	private protected enum NeutralisedMessageType {
+		Disabled, Destroyed
+	}
+
+	/// <summary>
+	/// Check if the given victim is the player's current target and was just killed by the player;
+	/// if so, play the appropriate computer message.
 	///
-	/// <para><b>It does not test sides</b>, and that is the original's own guard rather than an
-	/// omission here: it asks only that the killing shot came from the machine the player is flying
-	/// and that <paramref name="victim"/> is what that machine had selected. So destroying a friendly
-	/// you had boxed announces it as an enemy, and the two recorded <c>FRIENDLY</c> lines
-	/// (<c>0x30</c> and <c>0x31</c>) can never be reached. Diverging here would be a silent behaviour
-	/// change; see KNOWN_ISSUES.md.</para>
+	/// <para>Retail always plays "ENEMY TARGET DISABLED" or "ENEMY TARGET DESTROYED". HERCULAN has an
+	/// optional tweak which will play the lines "FRIENDLY TARGET DISABLED/DESTROYED" instead (those
+	/// lines are unused in retail).</para>
 	/// </summary>
 	private protected static void AnnounceNeutralised(SimWorld world, SimObject? attacker,
-			SimObject victim, int messageId) {
+			SimObject victim, NeutralisedMessageType messageType) {
 		if (attacker is MechObject killer && killer.LocallyPiloted
 				&& ReferenceEquals(killer.Target, victim)) {
-			world.Sounds?.Say(messageId);
+
+			int? messageId = null;
+			if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.FriendlyTargetNeutralisedMessage)) {
+				if (victim.Side == killer.Side) {
+					messageId = (messageType == NeutralisedMessageType.Disabled ? SystemMessages.FriendlyTargetDisabled
+						: SystemMessages.FriendlyTargetDestroyed);
+				}
+			}
+			if (!messageId.HasValue) {
+				messageId = (messageType == NeutralisedMessageType.Disabled ? SystemMessages.EnemyTargetDisabled
+						: SystemMessages.EnemyTargetDestroyed);
+			}
+			world.Sounds?.Say(messageId.Value);
 		}
 	}
 

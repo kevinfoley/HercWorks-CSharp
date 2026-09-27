@@ -247,17 +247,33 @@ public sealed class SystemMessages {
 	/// <summary>
 	/// <c>ENEMY TARGET DESTROYED</c> — posted from all three damage endpoints (a HERC's, a flyer's
 	/// and a structure's) on the same guard: the player's own machine landed the killing shot and the
-	/// thing that died is what the player had selected. <b>It does not test sides</b>, so a friendly
-	/// you had boxed is announced as an enemy and <c>FRIENDLY TARGET DESTROYED</c> (<c>0x30</c>) is
-	/// unreachable. Retail behaviour, reproduced deliberately — see KNOWN_ISSUES.md.
+	/// thing that died is what the player had selected. <b>In retail, it does not test sides</b>, so
+	/// it plays even for friendly targets. See also <see cref="FriendlyTargetDestroyed"/>.
 	/// </summary>
 	public const int EnemyTargetDestroyed = 0x2e;
 
 	/// <summary>
-	/// <c>ENEMY TARGET DISABLED</c> — the same guard on a HERC going immobilised rather than dying,
-	/// and <c>FRIENDLY TARGET DISABLED</c> (<c>0x31</c>) is unreachable for the same reason.
+	/// <c>ENEMY TARGET DISABLED</c> — the same guard on a HERC going immobilised rather than dying.
+	/// In retail, this again plays for friendly targets as well. See also
+	/// <see cref="FriendlyTargetDisabled"/>.
 	/// </summary>
 	public const int EnemyTargetDisabled = 0x2f;
+
+	/// <summary>
+	/// <c>FRIENDLY TARGET DESTROYED</c>
+	/// </summary>
+	/// <remarks>
+	/// Unused by retail, used by a HERCULAN tweak. See <see cref="EnemyTargetDestroyed"/>.
+	/// </remarks>
+	public const int FriendlyTargetDestroyed = 0x30;
+
+	/// <summary>
+	/// <c>FRIENDLY TARGET DISABLED</c>
+	/// </summary>
+	/// <remarks>
+	/// Unused by retail, used by a HERCULAN tweak. See <see cref="EnemyTargetDisabled"/>.
+	/// </remarks>
+	public const int FriendlyTargetDisabled = 0x31;
 
 	/// <summary>
 	/// <c>TRANSFERRING DATA</c> — the one message the port treats specially. It is the only entry

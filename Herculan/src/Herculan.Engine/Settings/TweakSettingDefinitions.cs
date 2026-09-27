@@ -18,13 +18,13 @@ public static class TweakSettingDefinitions {
 	/// </list>
 	///
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> ShowCorrectStats = new("tweak.show_correct_stats", TweakCategory.Cosmetic, false);
+	public static readonly TweakSettingDefinition<bool> ShowCorrectStats = new("tweak.show_correct_stats", TweakCategory.Cosmetic, true);
 
 	/// <summary>
 	/// Show accurate movement speed on HUD. Retail shows an inaccurate reading when the
 	/// player's HERC is in walking stride.
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> ShowAccurateSpeed = new("tweak.show_accurate_speed", TweakCategory.Cosmetic, false);
+	public static readonly TweakSettingDefinition<bool> ShowAccurateSpeed = new("tweak.show_accurate_speed", TweakCategory.Cosmetic, true);
 
 	/// <summary>
 	/// On the MFD, show target distance in meters on the MFD F5 TARGET screen. Retail
@@ -36,25 +36,31 @@ public static class TweakSettingDefinitions {
 	/// A hit on the right nacelle of the Razor will draw the impact effect at the
 	/// correct side instead of at the left nacelle.
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> FixNacelleImpactEffectPosition = new("tweak.fix_nacelle_impact_position", TweakCategory.Cosmetic, false);
+	public static readonly TweakSettingDefinition<bool> FixNacelleImpactEffectPosition = new("tweak.fix_nacelle_impact_position", TweakCategory.Cosmetic, true);
 
 	/// <summary>
 	/// Fix new sound effects overwriting the volume and position of previous sound
 	/// effects of the same type.
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> PreserveSoundPosition = new("tweak.preserve_sound_position", TweakCategory.Cosmetic, false);
+	public static readonly TweakSettingDefinition<bool> PreserveSoundPosition = new("tweak.preserve_sound_position", TweakCategory.Cosmetic, true);
 
 	/// <summary>
 	/// When a friendly unit is destroyed by the player while targeted by the player,
 	/// play "Friendly Target Destroyed". Retail plays "Enemy Target Destroyed".
 	/// </summary>
-	public static readonly TweakSettingDefinition<bool> FriendlyTargetDestroyedMessage = new("tweak.friendly_target_destroyed_message", TweakCategory.Cosmetic, false);
+	public static readonly TweakSettingDefinition<bool> FriendlyTargetNeutralisedMessage = new("tweak.friendly_target_neutralised_message", TweakCategory.Cosmetic, false);
 	
 	/// <summary>
 	/// When the player takes critical damage, play "Damage Level Critical". Does not
 	/// work in retail due to a typo in the code.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> CriticalDamageMessage = new("tweak.critical_damage_message", TweakCategory.Cosmetic, false);
+
+	/// <summary>
+	/// Cockpit computer voiceover is controlled by the COMPUTER MESSAGE preference
+	/// instead of the PILOT MESSAGE preference.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FixComputerMessagePreference = new("tweak.fix_computer_message_pref", TweakCategory.Cosmetic, true);
 
 	#endregion
 
@@ -72,6 +78,6 @@ public static class TweakSettingDefinitions {
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
-		PreserveSoundPosition, FriendlyTargetDestroyedMessage, CriticalDamageMessage, SmootherTurretMovement,
+		PreserveSoundPosition, FriendlyTargetNeutralisedMessage, CriticalDamageMessage, FixComputerMessagePreference, SmootherTurretMovement,
 	};
 }

@@ -1052,7 +1052,7 @@ public sealed partial class MechObject {
 
 			// Before the finish-off, so the announcement is made against the machine as the killing
 			// shot left it rather than against the wreck the recursion below makes of it.
-			AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
+			AnnounceNeutralised(world, attacker, this, NeutralisedMessageType.Destroyed);
 
 			// Sampled BEFORE the finish-off, because the finish-off is what makes it stale: the
 			// recursion below runs the whole of this function again, GradeLegs included, on a
@@ -1163,7 +1163,7 @@ public sealed partial class MechObject {
 			if (!Destroyed) {
 				(attacker as MechObject)?.CreditNeutralised(world, this, wasImmobilised: false);
 				ActivateDefeatAction(world);
-				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDisabled);
+				AnnounceNeutralised(world, attacker, this, NeutralisedMessageType.Disabled);
 				SetBehaviourState(BehaviourState.Disabled);
 			}
 

@@ -242,6 +242,8 @@ Both ports' `Mode` is copied out of `prefs.cfg` every frame, so a preferences cl
 
 **Every poster above is ported but one.** The damage set, the mission-status four, the player think's two, the data link's five, the auto-track pair, the radar pair and the power-up pair all post where the original posts them; `0x2a`/`0x2b` jamming is the exception ([Open](#open)). `0x12` is unreachable in retail. The rest of the file's sixty-three lines have no poster in the original.
 
+Two optional tweaks go beyond retail, both off by default. One posts `0x12` from the upward crossing that the retail test appears meant to catch (`MechObject.ApplyDirectFireDamage`). The other adds a side test to the `0x2e`/`0x2f` guard: when the victim is on the killer's side it posts `0x30` `FRIENDLY TARGET DESTROYED` or `0x31` `FRIENDLY TARGET DISABLED` instead (`SimObject.AnnounceNeutralised`).
+
 ## Open
 
 - **Unported:** the display's two further gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c` byte.

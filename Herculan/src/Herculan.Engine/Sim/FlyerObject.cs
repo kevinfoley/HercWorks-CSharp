@@ -304,7 +304,7 @@ public sealed partial class FlyerObject : SimObject {
 
 		if (!wasDestroyed && world != null) {
 			ActivateDefeatAction(world);
-			AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
+			AnnounceNeutralised(world, attacker, this, NeutralisedMessageType.Destroyed);
 		}
 	}
 

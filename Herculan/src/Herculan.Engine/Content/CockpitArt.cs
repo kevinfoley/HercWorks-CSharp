@@ -165,7 +165,7 @@ public sealed class CockpitArt {
 	/// </summary>
 	private sealed record PaletteColors(
 		(Vector3, Vector3, Vector3)? Gauge,
-		(Vector3, Vector3, Vector3)? HeadsDown,
+		(Vector3, Vector3)? HeadsDown,
 		(Vector3, Vector3)? TargetArrow,
 		(Vector3, Vector3) WeaponBar,
 		Vector3?[]? Logical,
@@ -261,7 +261,7 @@ public sealed class CockpitArt {
 	/// <c>COLORS.DAT</c> is missing, in which case the display draws its sprites and text and floods
 	/// nothing — better than flooding a colour of the engine's own choosing over the art.
 	/// </summary>
-	public (Vector3 Background, Vector3 Indicator, Vector3 SubjectPlate)? HeadsDownColors => Live.HeadsDown;
+	public (Vector3 Background, Vector3 Indicator)? HeadsDownColors => Live.HeadsDown;
 
 	/// <summary>
 	/// The two colours the front-window HUD's off-screen target arrow is filled with, unlocked then
@@ -549,16 +549,15 @@ public sealed class CockpitArt {
 		return (ToVector(even), ToVector(odd), ToVector(remainder));
 	}
 
-	/// <summary>All three Heads-Down Display fill colours or none, for the reason in
+	/// <summary>Both Heads-Down Display fill colours or neither, for the reason in
 	/// <see cref="ResolveGaugeColors"/>.</summary>
-	private static (Vector3, Vector3, Vector3)? ResolveHeadsDownColors(HudColorTable? colors, DynamixPalette palette) {
+	private static (Vector3, Vector3)? ResolveHeadsDownColors(HudColorTable? colors, DynamixPalette palette) {
 		if (colors?.Resolve(HudColorTable.HeadsDownBackgroundId, palette) is not { } background
-			|| colors.Resolve(HudColorTable.HeadsDownIndicatorId, palette) is not { } indicator
-			|| colors.Resolve(HudColorTable.HeadsDownSubjectPlateId, palette) is not { } plate) {
+			|| colors.Resolve(HudColorTable.HeadsDownIndicatorId, palette) is not { } indicator) {
 			return null;
 		}
 
-		return (ToVector(background), ToVector(indicator), ToVector(plate));
+		return (ToVector(background), ToVector(indicator));
 	}
 
 	/// <summary>Both arrow colours or neither, for the reason in <see cref="ResolveGaugeColors"/>.</summary>

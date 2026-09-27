@@ -243,19 +243,16 @@ public sealed class HddLayout {
 	public const int OrderHighlightUnavailableFrame = 4;
 
 	/// <summary>
-	/// The damage screen's subject caption font — <c>ColorSchemePanels[3]</c>. <c>HddDamageScreen_SetSubjectCaption</c> (<c>0044ba2c</c>)
-	/// picks it, along with the palette-98 plate under it, for the one case the engine can reach:
-	/// the subject being the player. A squadmate switches the label to <c>CPRED</c> on that pilot's own
-	/// colour and a target to <c>CPRED</c> on yellow.
+	/// The damage screen's subject caption font while the subject is the player —
+	/// <c>ColorSchemePanels[3]</c>. See <see cref="HddDamageSubject.CaptionFont"/>.
 	/// </summary>
 	public const string SubjectFont = "CPYLW";
 
 	/// <summary>
-	/// Group holding the single string "YOU". The display keeps a five-entry name array — the player,
-	/// the three squadmates, then "TARGET" — and the damage screen captions itself with whichever one
-	/// its subject selector points at; index 0, the player, is where it starts.
+	/// The font the damage screen prints <see cref="HddDamageSubject.NoData"/> in — <c>ColorSchemePanels[2]</c>,
+	/// on <see cref="HddDamageSubject.TargetPlateColorId"/>.
 	/// </summary>
-	public const int SubjectNameGroup = MfdLayout.SelfNameGroup;
+	public const string NoSubjectFont = PilotNameFont;
 
 	/// <summary>A widget's index within the constructor's own fifteen, named by what it does.</summary>
 	public enum Widget {
@@ -265,10 +262,10 @@ public sealed class HddLayout {
 		/// <summary>Selects <see cref="HddPage.DamageDetail"/>; captioned "F8".</summary>
 		PageButton1 = 1,
 
-		/// <summary>Scrolls the map up, or steps the damage view to the previous category.</summary>
+		/// <summary>Scrolls the map up, or steps the damage view to the next category.</summary>
 		ArrowUp = 2,
 
-		/// <summary>Scrolls the map down, or steps the damage view to the next category.</summary>
+		/// <summary>Scrolls the map down, or steps the damage view to the previous category.</summary>
 		ArrowDown = 3,
 
 		/// <summary>Scrolls the map left, or selects the previous herc to inspect.</summary>
@@ -488,6 +485,20 @@ public sealed class HddLayout {
 	/// <see cref="Screen"/>'s left edge and 4 up from its bottom.
 	/// </summary>
 	public Rect DamageFooter => new(Screen.X0 + 56, Screen.Y1 - 18, Screen.X0 + 136, Screen.Y1 - 4);
+
+	/// <summary>
+	/// Where the damage screen prints <see cref="HddDamageSubject.NoData"/>: 160x20 device pixels from
+	/// <see cref="Screen"/>'s centre, pulled 40 pixels left. <c>HddDamageScreen_Ctor</c> (<c>0045079c</c>)
+	/// takes the 40 off unshifted and the width shifted, so the box, and the text centred in it, sits
+	/// right of the screen's centre.
+	/// </summary>
+	public Rect DamageNoSubject {
+		get {
+			int x0 = Screen.X0 + ((Screen.X1 - Screen.X0) >> 1) - 40;
+			int y0 = Screen.Y0 + ((Screen.Y1 - Screen.Y0) >> 1);
+			return new Rect(x0, y0, x0 + 160, y0 + 20);
+		}
+	}
 
 	/// <summary>
 	/// The caption rect for XMIT or CANCEL: the button's top-left plus the plate's own 54x20 size,

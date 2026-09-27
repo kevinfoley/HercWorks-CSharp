@@ -13,12 +13,6 @@
 /// One entry per <c>.GAU</c> weapon row, in row order — see <see cref="WeaponRowState"/>. A row no
 /// mount claims draws its plate and number with no name rather than an invented one.
 /// </param>
-/// <param name="Hardpoints">
-/// The same machine's hardpoints as the Heads-Down Display's damage detail sees them, indexed by
-/// <c>.GL</c> slot byte rather than in row order — see <see cref="DamageHardpoint.Build"/>. Its weapons
-/// view prints row <c>n</c> from entry <c>n</c>, and every view draws entry <c>n</c>'s icon where
-/// the doll's <c>.PDG</c> hardpoint <c>n</c> places it.
-/// </param>
 /// <param name="ShieldFront">
 /// Front shield readout, 0-200. This is the shield <i>balance</i>, not the charge — the original
 /// prints `balance * 200 >> 10` here and its complement below, so the pair always sums to 200 even
@@ -61,6 +55,10 @@
 /// <param name="HddDamage">
 /// Which component category <see cref="HddPage.DamageDetail"/> is listing. The manual binds [S], [I]
 /// and [W] to it; the display's own up/down arrow buttons step through the same three.
+/// </param>
+/// <param name="HddSubject">
+/// Whose herc that screen is inspecting — the player, a squadmate or the target, stepped by the
+/// display's left/right arrows. See <see cref="HddDamageSubject"/>.
 /// </param>
 /// <param name="PressedWidget">
 /// The widget currently held down under the pointer, drawn in its lit frame for as long as it is —
@@ -138,7 +136,6 @@
 /// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
-	IReadOnlyList<DamageHardpoint?> Hardpoints,
 	int ShieldFront,
 	int ShieldRear,
 	int EnergyFraction,
@@ -152,6 +149,7 @@ public readonly record struct CockpitHudState(
 	MfdMode Mfd,
 	HddPage Hdd,
 	HddDamageView HddDamage,
+	HddDamageSubject HddSubject,
 	CockpitWidgetId? PressedWidget = null,
 	TargetIndicator? Target = null,
 	MfdStatusSubject StatusSubject = default,
@@ -182,7 +180,6 @@ public readonly record struct CockpitHudState(
 	/// </summary>
 	public static CockpitHudState Default { get; } = new(
 		Weapons: Array.Empty<WeaponRowState>(),
-		Hardpoints: Array.Empty<DamageHardpoint?>(),
 		ShieldFront: 100,
 		ShieldRear: 100,
 		EnergyFraction: 1024,
@@ -196,6 +193,7 @@ public readonly record struct CockpitHudState(
 		Mfd: MfdMode.Scanner,
 		Hdd: HddPage.CommandDisplay,
 		HddDamage: HddDamageView.Structural,
+		HddSubject: HddDamageSubject.Default,
 		PressedWidget: null,
 		Target: null,
 		StatusSubject: MfdStatusSubject.None,

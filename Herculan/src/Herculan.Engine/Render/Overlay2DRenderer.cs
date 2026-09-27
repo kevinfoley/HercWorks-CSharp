@@ -483,7 +483,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 			}
 		}
 
-		if (hud.HeadsDownColors?.Indicator is { } indicator) {
+		// Yellow while the damage screen is inspecting the player, and id 13 once it steps to anyone else
+		// — on either page, since the flag belongs to the display.
+		if ((state.HddSubject.IndicatorLit
+				? hud.HeadsDownColors?.Indicator
+				: hud.LogicalColor(HudColorTable.HeadsDownIndicatorUnlitId)) is { } indicator) {
 			Fill(layout.Indicator, indicator);
 		}
 
@@ -580,8 +584,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// The damage detail (<c>HddDamageScreen_Ctor</c>, <c>0045079c</c>): the herc's paper doll on the left of the screen and,
-	/// down the right, thirteen component rows — a name and a percentage each.
+	/// The damage detail (<c>HddDamageScreen_Ctor</c>, <c>0045079c</c>): the subject's paper doll on the left of the screen and,
+	/// down the right, thirteen component rows — a name and a percentage each. The subject is the player,
+	/// a squadmate or the target, whichever <see cref="HddDamageSubject"/> the arrows have stepped to.
 	///
 	/// <para>A row is a <c>.PDG</c> region rather than a table entry: the update walks the view's region
 	/// vector in file order and uses each region's id to index both the name group and the readout
@@ -596,7 +601,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// so a view with more regions than <see cref="HddLayout.DamageRowCount"/> labels its first thirteen
 	/// and the doll still tints the rest — docs/formats/heads-down-display.md#damage-detail--page-1.</para>
 	///
-	/// <para>The paper doll is the herc's own <c>.PDG</c> view for the category — front for structural,
+	/// <para>The paper doll is the subject chassis's own <c>.PDG</c> view for the category — front for structural,
 	/// rear for internal — blitted at the screen rect's top-left plus that view's own origin, which is
 	/// the paint's own arithmetic rather than a centring rule. Every category draws the weapon icons
 	/// over it, placed by the <c>.PDG</c>'s hardpoint list — see <see cref="AddHddWeaponIcons"/>.</para>
@@ -612,31 +617,46 @@ public sealed class Overlay2DRenderer : IDisposable {
 			HddLabelWriter drawLabel, Action<float, float, float, float, Vector3> fillRect) {
 		const float S = CockpitArt.GauToPixelScale;
 
-		// Whose herc is being inspected, on its own plate at the screen's bottom-left. The engine only
-		// ever inspects the player, which is entry 0 of the display's own five-name array — the three
-		// squadmates and "TARGET" behind it need squad and targeting state.
-		if (strings?.Text(HddLayout.SubjectNameGroup, 0) is { Length: > 0 } subject) {
-			if (hud.HeadsDownColors?.SubjectPlate is { } plate) {
+		// Whose herc is being inspected, on its own plate at the screen's bottom-left.
+		var subject = state.HddSubject;
+		if (subject.Caption is { Length: > 0 } caption) {
+			if (hud.LogicalColor(subject.CaptionColorId) is { } plate) {
 				fill(layout.DamageFooter, plate);
 			}
 
-			drawLabel(HddLayout.SubjectFont, string.Empty, subject, -1, layout.DamageFooter, true, 0f);
+			drawLabel(subject.CaptionFont, string.Empty, caption, -1, layout.DamageFooter, true, 0f);
 		}
 
-		var inspected = state.StatusSubject;
+		// The target slot with no HERC selected: the caption and one line saying why, and nothing else.
+		if (!subject.Subject.Present) {
+			if (subject.NoData is { Length: > 0 } noData) {
+				if (hud.LogicalColor(HddDamageSubject.TargetPlateColorId) is { } noDataFill) {
+					fill(layout.DamageNoSubject, noDataFill);
+				}
+
+				drawLabel(HddLayout.NoSubjectFont, string.Empty, noData, -1, layout.DamageNoSubject, true, 0f);
+			}
+
+			return;
+		}
+
+		// The subject's own chassis: its .PDG places the doll and its bank holds the art.
+		var inspected = subject.Subject;
 		var readings = inspected.Readings;
+		var hardpoints = subject.Hardpoints;
 		PaperDollGraphic.ViewRegion[]? regions = null;
 		int? iconEntries = null;
 
 		int dollView = HddLayout.PaperDollView(view);
-		if (hud.PaperDoll is { Entries: { } views } paperDoll && dollView < views.Length && views[dollView] is { } doll) {
+		if (inspected.PaperDollName is { } bank && hud.PaperDollFor(bank) is { Entries: { } views } paperDoll
+			&& dollView < views.Length && views[dollView] is { } doll) {
 			float dollLeft = layout.Screen.X0 + doll.Origin.X * S;
 			float dollTop = layout.Screen.Y0 + doll.Origin.Y * S;
-			blit(hud.HercName, dollView, dollLeft, dollTop);
+			blit(bank, dollView, dollLeft, dollTop);
 			regions = view == HddDamageView.Weapons ? null : doll.Regions;
 			iconEntries = paperDoll.Hardpoints?.Length;
 
-			AddHddWeaponIcons(hud, sprites, view, doll, dollView, paperDoll.Hardpoints, state.Hardpoints,
+			AddHddWeaponIcons(hud, sprites, view, bank, doll, dollView, paperDoll.Hardpoints, hardpoints,
 				readings, dollLeft, dollTop, blit, fillRect);
 
 			// One tint per row, in the row's own order — the structural view's first two rows share a
@@ -646,7 +666,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			// icon wherever the doll's art holds the limb's colour.
 			if (regions != null && readings != null) {
 				for (int i = 0; i < regions.Length; i++) {
-					AddPaperDollTint(hud, sprites, hud.HercName, dollView, regions[i],
+					AddPaperDollTint(hud, sprites, bank, dollView, regions[i],
 						PaperDollDamage.TintReading(view, regions, i, inspected.FlyerVariant, readings),
 						dollLeft, dollTop, fillRect);
 				}
@@ -658,7 +678,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// mount array and the .PDG's icon list reach.
 		var names = HddLayout.ComponentNames(strings, view, inspected.FlyerVariant);
 		int rowCount = view == HddDamageView.Weapons
-			? Math.Min(state.Hardpoints.Count, iconEntries ?? state.Hardpoints.Count)
+			? Math.Min(hardpoints.Count, iconEntries ?? hardpoints.Count)
 			: regions?.Length ?? 0;
 
 		float valueWidth = sprites.Font(HddLayout.DamageRowFont)?.Measure(HddLayout.DamageValueReservation) ?? 0f;
@@ -667,7 +687,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			string? text;
 			int? reading;
 			if (view == HddDamageView.Weapons) {
-				text = state.Hardpoints[i]?.Name;
+				text = hardpoints[i]?.Name;
 				reading = readings != null ? PaperDollDamage.WeaponRowReading(i, readings) : null;
 			} else {
 				int id = regions![i].Index;
@@ -2362,7 +2382,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// </list>
 	/// </summary>
 	private static void AddHddWeaponIcons(CockpitArt hud, HudSpriteSheet sprites, HddDamageView view,
-			PaperDollGraphic.ViewEntry doll, int dollView, PaperDollGraphic.HardpointEntry[]? entries,
+			string dollBank, PaperDollGraphic.ViewEntry doll, int dollView, PaperDollGraphic.HardpointEntry[]? entries,
 			IReadOnlyList<DamageHardpoint?> hardpoints, IReadOnlyList<short>? readings, float dollLeft,
 			float dollTop, Action<string, int, float, float> blit,
 			Action<float, float, float, float, Vector3> fillRect) {
@@ -2375,7 +2395,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			return;
 		}
 
-		var dollArt = sprites.Indexed(hud.HercName, dollView);
+		var dollArt = sprites.Indexed(dollBank, dollView);
 
 		if (view == HddDamageView.Weapons && dollArt is { } art) {
 			int ArtAt(int x, int y) =>

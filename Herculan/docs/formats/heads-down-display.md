@@ -4,7 +4,7 @@ The two-page console below the dashboard, reached by panning down from the forwa
 
 Surrounding cockpit and the pan itself: [`cockpit-views.md`](cockpit-views.md). Canopy art: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). Caption text: [`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 
-Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView}`, `Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`. The command display's own types are listed in its section below.
+Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView, HddDamageSubject}`, `Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`. The command display's own types are listed in its section below.
 
 How a click on one of the widgets below reaches its own click handler: [`cockpit-input.md`](cockpit-input.md).
 
@@ -38,10 +38,13 @@ Translation unit `PHDD.CPP`, from the error literals at `0049d52d`/`0049d55a`.
 | `+0x12d` | 3 comm gauges, `0x14e` bytes each |
 | `+0x517` | Selected pilot slot, -1 for none; `+0x52b` the previous |
 | `+0x51b` | Title label |
-| `+0x51f` | Indicator-colour flag; constructor sets 1 |
+| `+0x51f` | Title indicator flag — see [Subject](#subject) |
+| `+0x524` | The damage detail's subject machine |
 | `+0x529` | Comm-box highlight mode, from block offset `0x5e` |
-| `+0x548` | 5 name pointers: player, 3 squadmates, `TARGET` |
-| `+0x55c` | Subject selector into the above |
+| `+0x534` | 5 subject machines: player, 3 squadmates, target |
+| `+0x548` | 5 subject names: `YOU`, 3 pilot names, `TARGET` |
+| `+0x55c` | Subject selector into both, a `short` |
+| `+0x55e` | No-subject text, a group 19 entry |
 | `+0x562` | `hddclip` clip-region block |
 
 ## Pages
@@ -171,7 +174,8 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud-widgets.md`](cockpit-hud
 | Screen flood, label backgrounds | 19, and 3 on the damage screen | 16, black |
 | Title indicator, normal / flagged | 13 / 15 | 102 / 13, yellow |
 | Comm-box marker, deselected / selected | 13 / 15 | 102 / 13 |
-| Damage subject caption plate | 6 | 98, blue |
+| Damage subject caption plate: player / squadmate / target | 6 / `COLORS.DAT[slot]` / 15 | 98 / 14, 15, 31 / 13 |
+| Damage no-subject label background | 15 | 13 |
 | Order message row background | 14 | 103 |
 | Comm-box name background | `COLORS.DAT[slot]` | 14 / 15 / 31 |
 | `HddDamageColorIds` (`0049d9ec`) — resolved, never read; see Rejected readings | 19, 9, 15, 12 | 16, 10, 13, 14 |
@@ -381,9 +385,21 @@ That is the manual's green-through-red plus grey for inoperative. The constructo
 
 The structural and internal views then recolour each icon's rect from id 12 to id 6 (palette 98, blue) in mode 1, which is retail's blue weapons around a green doll. The recolour reads the raster, so the doll's own green inside an icon's rect goes blue with it. The weapons view blits `.PDG` view 0 and recolours the whole of it blue — the view's rect from id 12 to id 6 in mode 3, then every region not drawn in id 12 — then blits the icons, leaves them green, and tints icon `n` from row `n`'s reading in mode 0.
 
-**The weapons view's rows follow the icons.** The update rebuilds `+0x90` as the mount array's length, `.GL` records empty ones included, and caps the window at the icon count. Row `n`'s reading is combined entry `32 + n` and its name the mount at icon `n`'s `+0x20`, so row `n` is `.GL` slot `n` throughout. The pass stores no name for an empty hardpoint, so its row prints only what an earlier subject left in that slot of the shared name array (`DAT_004d1d94`) — nothing, while the subject is always the player.
+**The weapons view's rows follow the icons.** The update rebuilds `+0x90` as the mount array's length, `.GL` records empty ones included, and caps the window at the icon count. Row `n`'s reading is combined entry `32 + n` and its name the mount at icon `n`'s `+0x20`, so row `n` is `.GL` slot `n` throughout. The pass stores no name for an empty hardpoint, so its row prints whatever pointer a previous update left at that index of the shared name array (`DAT_004d1d94`): nothing until some subject has had a weapon in that slot, and after that a buffer each update refills in mount order, so another weapon's name — see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
-**Subject caption**: `HddDamageScreen_SetSubjectCaption` (`0044ba2c`) fills an 81x15 device box 56 pixels in from the screen's left edge and 4 up from its bottom, from the display's five-name array at `+0x548` indexed by `+0x55c`. The player draws `ColorSchemePanels[3]` on colour id 6; a squadmate `[2]` on that pilot's own `COLORS.DAT` entry; the target `[2]` on id 15. With no subject the screen also writes group 19 (`NO TARGET SELECTED` / `NO INFO AVAILABLE`) to a centred label.
+### Subject
+
+The page inspects one of five machines, the display's `+0x534` array under the selector at `+0x55c`: the player, the three squadmates, then the target. `HddDisplay_Ctor` fills slot 0 with the cockpit's own machine (`CockpitView+0x203`) and its name with group 17's `YOU`, zeroes slots 1-3 and names slot 4 with group 18's `TARGET`; `HddGauge_LoadPilotFrames` puts each seated squadmate's machine (`DAT_004d044c[slot]`) and comm-box name into slots 1-3. Slot 4 is `+0x544`, which `HddDisplay_Update` (`00449bd0`) rewrites every frame from the selection (`CockpitView+0x210`), zeroed unless it is a HERC (class 0); when that changes while the selector is on 4, the subject `+0x524` follows it. The same update sets `+0x55e` to group 19's `NO TARGET SELECTED` with nothing selected and `NO INFO AVAILABLE` for a selection that is not a HERC.
+
+**Stepping.** Page 1's left arrow (widget 4) runs `HddDisplay_PrevSubject` (`0044b9e0`) and the right (widget 5) `HddDisplay_NextSubject` (`0044b988`); both keys reach the same widgets through `HddDisplay_KeyDispatch`. Each moves the selector one place, wraps, and recurses past an empty slot — except that neither tests slot 0 or slot 4 on arrival, so the target slot is always a stop, empty or not. The test is on the pointer, not on the machine's destroyed flag (`+0x99`), so a destroyed squadmate is still a stop. The press then stores the new slot's machine at `+0x524`.
+
+**What is read off it.** `HddDamageScreen_Update` copies `+0x524` to the screen's `+0xec` each frame and re-runs `HddDamageScreen_SetView` when it changes, so the weapons row count is the new subject's. Everything the page draws is then the subject's: `Mech_ReadDamageReadouts` for the rows and tints, its type record (`mech+0x1f2`) for the doll, the `.PDG` at the record's `+0xda`, and for the name group, the flyer flag at its `+0x50`; its icon list (`mech+0x1fe`) and its mount array (`mech+0x202`). A squadmate in another chassis is drawn in that chassis's doll.
+
+**Caption.** `HddDamageScreen_SetSubjectCaption` (`0044ba2c`) fills an 81x15 device box 56 pixels in from the screen's left edge and 4 up from its bottom with `+0x548[+0x55c]`. The player draws `ColorSchemePanels[3]` on colour id 6; a squadmate `[2]` on that pilot's own `COLORS.DAT` entry; the target `[2]` on id 15.
+
+**No subject.** With `+0x524` null — the target slot while nothing, or no HERC, is selected — the update floods the screen, sets the caption and writes `+0x55e` into a label the constructor builds in `[2]` on id 15, and draws nothing else. That label's box is 160x20 device pixels whose left edge is the screen's centre less 40: the constructor takes the 40 off unshifted and shifts the width, so the box and the text centred in it sit right of centre.
+
+**Title indicator.** After a step, `HddDisplay_HandleWidgetPress` sets the display's `+0x51f` from the new subject's locally-piloted flag (`mech+0xa3`) and refills the title indicator — id 15 while it is set, id 13 while it is clear. Only the player's machine carries the flag, so the indicator is yellow while the player is the subject, on either page. The constructor starts it set, with the selector on the player.
 
 ## Squad comm boxes
 
@@ -488,7 +504,7 @@ Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip
 
 ## Engine coverage
 
-Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page titles, the screen flood, the structural and internal paper dolls with their region tints, the weapons view's blue doll, every category's weapon icons with their recolour, and 13 component rows — structural and internal in `.PDG` region order named from the string table, weapons in `.GL` slot order from the player's own mounts — each with its live percentage and its state's font. The icon recolours are walked against the icons composited over the doll's indexed art, which is what the original's raster holds at that point.
+Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page titles, the screen flood, the structural and internal paper dolls with their region tints, the weapons view's blue doll, every category's weapon icons with their recolour, and 13 component rows — structural and internal in `.PDG` region order named from the string table, weapons in `.GL` slot order from the subject's own mounts — each with its live percentage and its state's font. The left and right arrows, buttons and keys, step the subject through the player, each seated squadmate and the target as [above](#subject), with the caption, the no-subject line and the title indicator; the up and down arrows step the category. An empty hardpoint's weapons row stays blank rather than printing a name left by a previous update. The icon recolours are walked against the icons composited over the doll's indexed art, which is what the original's raster holds at that point.
 
 Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target designation are all wired to both the widgets and the keys.
 
@@ -500,7 +516,7 @@ XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/
 
 `HddMapRaster` builds the bitmap at the original's size and applies the band rule at each pixel centre rather than through a polygon rasterizer. It decodes index 0 transparent, which is how the mode-5 blit treats it.
 
-`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-pilot [0-2]`, `--hdd-order [0-7]` and `--hdd-xmit` — which presses XMIT on the armed order, taking the map centre or the nearest eligible unit as its pick, and reports the squad's standing orders before and after the run — since a `--screenshot` run never sees a keystroke — and the order list only leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and `[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four arrow keys, which scroll the map instead of steering while the command display is down; the keypad keeps steering throughout.
+`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-subject [0-4]`, `--hdd-pilot [0-2]`, `--hdd-order [0-7]` and `--hdd-xmit` — which presses XMIT on the armed order, taking the map centre or the nearest eligible unit as its pick, and reports the squad's standing orders before and after the run — since a `--screenshot` run never sees a keystroke — and the order list only leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and `[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four arrow keys, which work the display instead of steering while either page is down; the keypad keeps steering throughout.
 
 ## Open
 

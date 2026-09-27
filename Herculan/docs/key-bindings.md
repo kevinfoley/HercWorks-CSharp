@@ -75,7 +75,15 @@ On the Heads-Down Display's command display:
 | Keypad `5` | Put the map back on your HERC. |
 | `X`, `Backspace` | Transmit, cancel. |
 
-On the damage detail: `S`, `I` and `W` show structural, internal and weapon systems.
+On the damage detail:
+
+| Key | What it does |
+|---|---|
+| `S`, `I`, `W` | Show structural, internal and weapon systems. |
+| `Up`, `Down` | Step through those three. |
+| `Left`, `Right` | Step through the HERCs: yours, each squadmate's, then your target's. |
+
+While either screen is down the arrows are the display's and do not steer; the keypad still does.
 
 ## Panels and the game
 

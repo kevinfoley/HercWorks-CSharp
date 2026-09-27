@@ -5042,6 +5042,24 @@
       "source": "docs/formats/heads-down-display.md"
     },
     {
+      "address": "0044b988",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_NextSubject",
+      "description": "Steps the damage detail's subject selector (display+0x55c, a short) forward: 5 wraps to 0, and a slot whose machine pointer in the +0x534 array is null is skipped by recursing, except slot 4 (the target), which is a stop empty or not. Returns the new slot's machine. Reached from HddDisplay_HandleWidgetPress's arrow-right (5) case on page 1, which stores the result at +0x524.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044b9e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_PrevSubject",
+      "description": "Steps the damage detail's subject selector (display+0x55c) back: below 0 wraps to 4 (the target) without testing it; otherwise a slot whose machine pointer in the +0x534 array is null is skipped by recursing. Returns the new slot's machine. Reached from HddDisplay_HandleWidgetPress's arrow-left (4) case on page 1, which stores the result at +0x524.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
       "address": "00450c18",
       "binary": "DBSIM",
       "type": "function",

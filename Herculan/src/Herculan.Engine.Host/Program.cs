@@ -53,6 +53,7 @@ string? cdDrive = null;
 string? musicDirectory = null;
 int musicTrackSelect = 0;
 int initialHddPilot = -1;
+int initialHddSubject = HddDamageSubject.PlayerSlot;
 HddOrder? initialHddOrder = null;
 bool initialHddTransmit = false;
 
@@ -295,6 +296,12 @@ for (int i = 0; i < args.Length; i++) {
 		// live; this is the same reason --mfd and --hdd exist.
 		if (HostArguments.TryReadInt(args, ref i, 0, 2, argumentErrors, out int damageIndex)) {
 			initialHddDamageView = (HddDamageView)damageIndex;
+		}
+	} else if (args[i] == "--hdd-subject") {
+		// Whose herc the damage screen powers up inspecting, by selector slot. The arrows step it live;
+		// this exists for the same reason --hdd-damage does.
+		if (HostArguments.TryReadInt(args, ref i, 0, HddDamageSubject.SlotCount - 1, argumentErrors, out int subjectSlot)) {
+			initialHddSubject = subjectSlot;
 		}
 	} else if (args[i] == "--hdd-pilot") {
 		// Which comm box the command display powers up with selected, and which order it powers up
@@ -946,6 +953,15 @@ bool hddTransmitKeyDown = false;
 bool hddCancelKeyDown = false;
 Key[] HddArrowKeys = { Key.Up, Key.Down, Key.Left, Key.Right };
 bool[] hddArrowKeysDown = new bool[HddArrowKeys.Length];
+bool[] hddDamageArrowKeysDown = new bool[HddArrowKeys.Length];
+
+// Whose herc the damage detail is inspecting — the display's subject selector, which starts on the
+// player and which the left and right arrows step. See HddDamageSubject. A --hdd-subject naming an
+// empty squad slot, which no step can land on, starts on the player instead.
+int hddSubjectSlot = initialHddSubject is > HddDamageSubject.PlayerSlot and < HddDamageSubject.TargetSlot
+	&& squadSeats[initialHddSubject - 1] == null
+	? HddDamageSubject.PlayerSlot
+	: initialHddSubject;
 
 // A Heads-Down Display button pressed while the sensor dropout has the display dark. The original's
 // press handler (HddDisplay_HandleWidgetPress, 0044a178) returns before it acts and before it clears
@@ -962,13 +978,11 @@ if (initialMfdMode is { } startMfdMode) {
 	hudState = hudState with { Mfd = startMfdMode };
 }
 
-// The weapon panel. Both lists come off the piloted machine's own mounts, which are already built:
-// the rows in cockpit-row order, and the Heads-Down Display's list by .GL slot byte. See
-// WeaponRowState and DamageHardpoint.
+// The weapon panel, off the piloted machine's own mounts, which are already built, in cockpit-row
+// order. See WeaponRowState.
 if (cockpitArt?.Gau is { } weaponGau && scene.PlayerMech is { } armedMech) {
 	hudState = hudState with {
 		Weapons = WeaponRowState.Build(armedMech.Weapons, weaponGau.WeaponListTotal, cockpitArt.Strings),
-		Hardpoints = DamageHardpoint.Build(armedMech.Weapons),
 	};
 
 	if (initialWeaponRow is { } startRow) {
@@ -1998,18 +2012,18 @@ window.Update += deltaSeconds => {
 
 		cycleComponentKeyDown = cycleComponentKey;
 
-		bool mapHasArrows = HddCommandHasKeyboard();
+		bool commandHasKeys = HddCommandHasKeyboard();
 
 		// A replay's axes are the tape's, which already hold whatever the keyboard contributed when it
 		// was recorded, and they change only when a frame is taken.
 		if (TapePlaying()) {
 			if (tapeFrame != null && !tapeFrameUnderPanel) {
 				pilotMech.Controls = TapeControls(tapeFrame,
-					centerTorso: !mapHasArrows && controls.IsKeyPressed(Key.Backspace),
+					centerTorso: !commandHasKeys && controls.IsKeyPressed(Key.Backspace),
 					centerBody: joystickCenterBody || controls.IsKeyPressed(Key.BackSlash));
 			}
 		} else {
-			PilotFromLiveInput(pilotMech, controls, mapHasArrows, stickReading);
+			PilotFromLiveInput(pilotMech, controls, HddHasArrows(), commandHasKeys, stickReading);
 		}
 	} else {
 		if (!TapePlaying()) {
@@ -2055,28 +2069,30 @@ window.Update += deltaSeconds => {
 	// A held key is worth MechControls.KeyboardAxis, half a stick's travel — DBSIM's own keyboard
 	// scale, and the difference between turning at the machine's rate and at twice it.
 	//
-	// While the command display is down the four arrows scroll its map instead of steering, which
-	// is what the manual binds them to there. The keypad keeps steering throughout, so the machine
-	// is never left without a stick; the same split leaves [Backspace] cancelling a transmission
-	// rather than re-centring the turret. This is the one place the two keyboards are separated
-	// rather than allowed to overlap, because scrolling the map and turning the machine with the
-	// same press is the one overlap that would fight the player.
+	// While the Heads-Down Display is down the four arrows are its own instead of steering, which is
+	// what the manual binds them to there: they scroll the command display's map and, on the damage
+	// detail, step the herc and the category being inspected. The keypad keeps steering throughout,
+	// so the machine is never left without a stick; the command display also keeps [Backspace]
+	// cancelling a transmission rather than re-centring the turret. This is the one place the two
+	// keyboards are separated rather than allowed to overlap, because working the display and
+	// turning the machine with the same press is the one overlap that would fight the player.
 	//
 	// The stick is combined with all of that rather than replacing it: the original registers the
 	// keyboard's two axis pairs in the same source table as the joystick's four axes and takes
 	// whichever has moved, so a pilot can steer with one hand and nudge with the other. What the
 	// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
-	void PilotFromLiveInput(MechObject mech, IKeyState keys, bool mapHasArrows, JoystickReading stickReading) {
+	void PilotFromLiveInput(MechObject mech, IKeyState keys, bool hddHasArrows, bool commandHasKeys,
+			JoystickReading stickReading) {
 		// Under the developer flag an arrow held with Ctrl or Alt is a move or turn key, and this engine
 		// takes it off the steering and throttle axes. Retail keeps it on them — see KNOWN_ISSUES.md.
 		bool arrowsAreCommands = developerKeys.Enabled && (CtrlHeld(keys) || AltHeld(keys));
 		var keyboardAxes = new PilotAxes(
 			(short)((arrowsAreCommands ? 0
-				: mapHasArrows
+				: hddHasArrows
 				? Axis(keys, Key.Keypad6, Key.Keypad4)
 				: Axis(keys, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4)) * MechControls.KeyboardAxis),
 			(short)((arrowsAreCommands ? 0
-				: mapHasArrows
+				: hddHasArrows
 				? Axis(keys, Key.Keypad2, Key.Keypad8)
 				: Axis(keys, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8)) * MechControls.KeyboardAxis),
 			TurretAxis(Axis(keys, Key.K, Key.J), heldTwist),
@@ -2095,7 +2111,7 @@ window.Update += deltaSeconds => {
 			ThrottleLever: joystickBindings.ThrottleLeverMode(StickCapabilities(), simulatorPreferences),
 			TorsoTwist: axes.TorsoTwist,
 			TorsoPitch: axes.TorsoPitch,
-			CenterTorso: !mapHasArrows && keys.IsKeyPressed(Key.Backspace),
+			CenterTorso: !commandHasKeys && keys.IsKeyPressed(Key.Backspace),
 			CenterBody: joystickCenterBody || keys.IsKeyPressed(Key.BackSlash),
 			// [Space] is held, not pressed — see MechControls.Fire. Holding it keeps the armed weapon
 			// firing as fast as its refire delay and its capacitor allow. So is the joystick trigger,
@@ -2320,6 +2336,23 @@ window.Update += deltaSeconds => {
 	if (controls != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
 		&& !CtrlHeld(controls) && !AltHeld(controls) && ReadHddDamageView(controls) is { } damageView) {
 		hudState = hudState with { HddDamage = damageView };
+	}
+
+	// The four arrows press the display's own four arrow buttons, as HddDisplay_KeyDispatch (00449fcc)
+	// does on either page: here, up and down step the category and left and right the herc. Once per
+	// press, since each is one step.
+	if (controls != null && HddHasArrows() && hudState.Hdd == HddPage.DamageDetail) {
+		bool modified = CtrlHeld(controls) || AltHeld(controls);
+		for (int i = 0; i < HddArrowKeys.Length; i++) {
+			bool down = controls.IsKeyPressed(HddArrowKeys[i]);
+			if (down && !hddDamageArrowKeysDown[i] && !modified) {
+				ApplyHddClick(HddLayout.Widget.ArrowUp + i);
+			}
+
+			hddDamageArrowKeysDown[i] = down;
+		}
+	} else {
+		Array.Clear(hddDamageArrowKeysDown);
 	}
 
 	// Clicks are drained before the pan advances and before the sim ticks, so a click and the tick
@@ -2778,6 +2811,11 @@ window.Update += deltaSeconds => {
 			// looking at. Only the id the pod's own present flag vouches for reaches it.
 			TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings)
 				with { HighlightComponent = targetAim.ComponentTargeted ? targetAim.Component : -1 },
+
+			// The damage detail's subject, re-read every frame: on the target slot it follows the
+			// selection, as HddDisplay_Update (00449bd0) re-points it whenever the selection changes.
+			HddSubject = HddDamageSubject.For(hddSubjectSlot, pilotMech, squadSeats, squadComm.Name,
+				scene.Targeting?.Selected, cockpitArt.Strings),
 
 			// Rebuilt every frame, whichever of the two scanners is up. The MFD screen's own update
 			// slot runs while F4 is showing (mode 3's dirty flag is the one MfdDisplay_Update never
@@ -3736,6 +3774,11 @@ void ApplyMfdAuxClick(int index) {
 bool HddCommandHasKeyboard() =>
 	hddCommand != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay;
 
+// Whether the display is down and holding the four arrows: the command display's map scroll, or the
+// damage detail's category and herc steps.
+bool HddHasArrows() =>
+	cockpitPan.AtHeadsDown && (HddCommandHasKeyboard() || hudState.Hdd == HddPage.DamageDetail);
+
 // The same split for FLASH COMM's own letters. In the original both of the page's key dispatches are
 // mode-gated the same way — FUN_004469c0 returns immediately unless the MFD is on mode 1 — and none
 // of the seven letters means anything else anywhere in the cockpit. Here they collide with this
@@ -3792,14 +3835,24 @@ void ApplyHddClick(HddLayout.Widget widget) {
 			break;
 
 		// On the damage screen the up and down arrows step the component category, which is the same
-		// three [S]/[I]/[W] select. They wrap, so the pair walks the list either way without dead ends.
+		// three [S]/[I]/[W] select — up is HddDamageScreen_NextView (00450bcc), down _PrevView (00450bf0).
+		// They wrap, so the pair walks the list either way without dead ends.
 		case HddLayout.Widget.ArrowUp or HddLayout.Widget.ArrowDown
 			when hudState.Hdd == HddPage.DamageDetail:
 			const int views = 3;
-			int step = widget == HddLayout.Widget.ArrowUp ? views - 1 : 1;
+			int step = widget == HddLayout.Widget.ArrowUp ? 1 : views - 1;
 			hudState = hudState with {
 				HddDamage = (HddDamageView)(((int)hudState.HddDamage + step) % views),
 			};
+			break;
+
+		// And left and right step the herc being inspected: the player, each seated squadmate, then the
+		// target, wrapping — HddDisplay_PrevSubject (0044b9e0) and _NextSubject (0044b988).
+		case HddLayout.Widget.ArrowLeft or HddLayout.Widget.ArrowRight
+			when hudState.Hdd == HddPage.DamageDetail:
+			hddSubjectSlot = HddDamageSubject.Step(hddSubjectSlot,
+				widget == HddLayout.Widget.ArrowRight ? 1 : -1,
+				slot => squadSeats[slot] != null);
 			break;
 
 		// On the command display all four arrows scroll the map instead, and the two magnifiers zoom

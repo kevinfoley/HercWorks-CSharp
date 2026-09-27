@@ -71,15 +71,17 @@ public sealed class HudColorTable {
 
 	/// <summary>
 	/// The small block beside that display's title — palette 13, yellow. Its paint
-	/// (<c>HddDisplay_Repaint</c>, <c>00449a50</c>) fills the rect with colour id 13 or, while the <c>+0x51f</c> flag the
-	/// constructor initialises to 1 is up, with this one.
+	/// (<c>HddDisplay_Repaint</c>, <c>00449a50</c>) fills the rect with this while the <c>+0x51f</c> flag is up, which is
+	/// while the damage detail's subject is the player — <see cref="HddDamageSubject.IndicatorLit"/>.
 	/// </summary>
 	public const int HeadsDownIndicatorId = 15;
 
+	/// <summary>The same block with the flag down — palette 102.</summary>
+	public const int HeadsDownIndicatorUnlitId = 13;
+
 	/// <summary>
-	/// The plate the damage screen's subject caption sits on — palette 98, the same blue an LED bar's
-	/// even columns use. <c>HddDamageScreen_SetSubjectCaption</c> (<c>0044ba2c</c>) installs it as that label's background while the subject
-	/// is the player; a squadmate gets the pilot's own colour and a target gets id 15 instead.
+	/// The plate the damage screen's subject caption sits on while the subject is the player — palette
+	/// 98, the same blue an LED bar's even columns use. See <see cref="HddDamageSubject.CaptionColorId"/>.
 	/// </summary>
 	public const int HeadsDownSubjectPlateId = 6;
 

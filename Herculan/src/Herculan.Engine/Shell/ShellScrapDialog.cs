@@ -80,7 +80,7 @@ public sealed class ShellScrapDialog {
 	public static ShellRect ButtonRect(ShellScrapDialogButton button) =>
 		Inside(PanelRect, button == ShellScrapDialogButton.Cancel ? CancelRect : AcceptRect);
 
-	/// <summary>A button under a canvas point, or null — a click anywhere else is swallowed.</summary>
+	/// <summary>A button under a canvas point, or null — a click anywhere else is swallowed, as retail's full-display window swallows it (docs/shell/screen-layout.md, "The scrap dialog").</summary>
 	public ShellHit? HitAt(float canvasX, float canvasY) {
 		foreach (var button in Enum.GetValues<ShellScrapDialogButton>()) {
 			if (ButtonRect(button).Contains(canvasX, canvasY)) {

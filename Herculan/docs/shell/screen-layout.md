@@ -113,7 +113,7 @@ Three things say so independently:
 - **The repair tab's entry and teardown are a matched pair.** `Repair_Enter` (004332ec), which tab 3's handler calls to bring the screen up, calls `Widget_ShowRecursive` on its content panel and both list panels; `Repair_Leave` (004333eb), which the teardown dispatcher `00439ea7` calls on the way out, calls `Widget_HideRecursive` on the same three. Under the dump's names an entry routine would hide its own screen and a teardown would show it.
 - **The repair screen's two pictures swap with the selection.** `Repair_SwapDiagram(oldColumn, newColumn)` (0043393d) calls `Widget_ShowRecursive` on the internals diagram when the selection moves into the internals list and on the exploded external picture when it moves back ([below](#the-damage-diagram)) — the right way round only if that function is the show.
 
-`TitledPanel_Ctor` ends by hiding the panel it just built, so a screen's widgets are constructed dark and its entry routine is what puts them up. The edit-field constructor `EditField_Ctor` (0040bbf4) does the opposite and leaves its widget visible.
+**Every widget is born hidden.** `Widget_SetRect`, which every constructor goes through, ends by setting bit 2. A sweep of the disassembly for stores to `+0x11` finds, besides that one, the show, the hide, the child-list operations (bit 1 only) and the display root's constructor. The constructors then differ. `Control_Ctor` (and with it every `Panel`, `Button`, `ButtonIcon` and `Grid`), `Text_Ctor` and `EditField_Ctor` (0040bbf4) end with `Widget_ShowRecursive`; `TitledPanel_Ctor` and `ImagePanel_Ctor` end with `Widget_HideRecursive`; a widget built by `Window_Ctor` alone — the palette scopes, the top-level window, the dialogs' full-display windows — calls neither and stays hidden until something shows it by name. So a screen's panels are constructed dark and its entry routine is what puts them up.
 
 Both consult the widget's parent, which `Widget_Parent` (0041f283) finds by walking the `+9` chain while a node's bit 1 is clear: `+9` holds the previous sibling, and only on the first child in a list, which has bit 1 set, the parent. The show refuses to run at all while that parent is itself hidden, and the hide sets bit 4 when it is — so bit 2 is the widget's own state and bit 4 records that an ancestor is hiding it as well, which is what lets a subtree come back up in the state it went down in.
 
@@ -873,6 +873,8 @@ Both `SCRAP` buttons — the build screen's (`Build_OnScrap`, `00446ee0`) and th
 
 `ScrapDialog_Show` writes `"%d %s"` of `Herc_ScrapValueTons` (`0041140f`) — `Herc_ScrapValue` over 1000 ([`armory.md`](armory.md#scrapping)) — and `0xcd` `tons of salvage.` into the figure, then calls `Alert_Show` (`0040b239`), which shows the panel's parent, the window, and then the panel. `ScrapDialog_Hide` (`00447795`) is `Alert_Hide` (`0040b258`), the same two in the other order.
 
+**While the dialog is up, nothing beneath it takes a click.** The window is built by `Window_Ctor` alone, so it is hidden from construction until `Alert_Show` shows it ([Showing and hiding a widget](#showing-and-hiding-a-widget)). It is a child of the display root, as the top-level window every tab screen hangs from is, and built after it, so [the hit test](#which-widget-a-click-reaches) tries it first, and it covers the display. A click outside the panel lands on the window, whose event mask has no mouse bit, and climbs to the display root, never reaching the screen beneath; one on the panel outside its two buttons is swallowed by the disabled panel.
+
 **`CANCEL` (`ScrapDialog_OnCancel`, `00447c38`) only takes the dialog down**: its body is `ScrapDialog_Hide` and the handler's epilogue. The builder passes it as a bare address, so auto-analysis made no function of it; `ES2DefineFunctionAt` does.
 
 **`ACCEPT` (`ScrapDialog_OnAccept`, `00447c96`) scraps.** It takes the dialog down and runs `Hangar_ScrapSelected` (`0040e757`) on the selected bay ([`armory.md`](armory.md#scrapping)). `Squad_RefreshAfterScrap` (`0043d17c`) then puts the empty-bay picture in the bay's slot (`Squad_SetEmptyBayPicture`, `00415506`), refreshes the readout and the roster's names and crew column, and the salvage figure of whichever tab is up. The build tab then regates its buttons; the repair tab calls `Squad_SelectBay(Herc_FirstBuiltBay())` and `Repair_RefreshDetail`, so it moves to the first bay holding a finished machine. Last it repaints the repair screen's external list and condition readout and the squad panel's condition text. **On the build tab the scrapped bay stays selected**, empty now, so `SCRAP` is dead and `BUILD` gated on the pool.
@@ -939,7 +941,7 @@ A pool exactly covering the queue plus the price refuses the unit, as the build 
 
 Tab 7, `MISSION`. Built once by `Mission_BuildScreen` (`00442534`), put up by `Mission_Show(view)` (`004441e3`) and taken down by `Mission_Leave` (`00444a05`), the teardown dispatcher's mission arm. One set of widgets serves the tab's three views, which the show routine moves, retitles and shows or hides. Rects are parent-relative; the four panels, the location picture and the button bar are parented to the shell's top-level window.
 
-The view is `DAT_0048106c`: 0 the campaign map, 1 the briefing, 4 the debrief. `0043a857(view)` stores it, and the tab handler picks between the first two on whether the mission-within-stage counter `DAT_0046fb1a` is zero. The debrief value is written by the campaign layer at the end of a mission rather than by the tab.
+The view is `DAT_0048106c`: 0 the campaign map, 1 the briefing, 4 the debrief. `Mission_ShowView(view)` (`0043a857`) stores it. The tab handler asks for the map while both the map's once-per-load flag `DAT_004778aa` and the mission-within-stage counter `DAT_0046fb1a` are zero, and for the briefing otherwise; the map view sets the flag on its first show, so it comes up once per load of a stage's first mission, and the next click on the tab opens the briefing. `RESTORE` and a new career clear the flag. The debrief is never the tab's choice: [the campaign layer](campaign-loop.md#where-the-debrief-goes-next) writes 4 while processing a finished mission, and the load of the next mission that follows puts the tab up in it.
 
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
@@ -949,7 +951,7 @@ The view is `DAT_0048106c`: 0 the campaign map, 1 the briefing, 4 the debrief. `
 | map panel | `TitledPanel` | `{0x117, 0x2b, 0x278, 0x12b}`, top `0x2a` when full-screen | titled by the view, header 19 tall, face `0x25`, plate `0x26`-`0x13b` |
 | 6 map buttons | `ButtonIcon` | `{0x137, y, 0x155, y + 0x1e}` in the map panel, `y` = `0x18`, `0x3e`, `0x64`, `0x8a`, `0xb5`, `0xdb` | `dba\miss_arw.dba`, unlit/lit frames `1`/`0`, `3`/`2`, `10`/`8`, `11`/`9`, `7`/`6`, `5`/`4`; `+0x5d = 0`, `+0x61 = 1` |
 | map grid | `Grid` | `{0xb, 0x18, 0x131, 0xf9}` in the map panel | border `0x22`, grid lines off |
-| map scope | palette scope | the same rect in the map panel | `DAT_0048d818` |
+| map scope | palette scope | the same rect in the map panel | `DAT_0048d818`, never shown ([below](#the-three-views)) |
 | summary | `TitledPanel` | `{7, 0x133, 0x278, 0x1a7}` | `0xaf` `Mission Summary`, header 19 tall, `+0x65 = 0` |
 | 5 text boxes | text box | `{10, 0x15, 0x265, 0xa8}` for the first, `{10, 0x15, 0x23f, 0x73}` for the others, in the summary | [below](#the-summary-text-box) |
 | 20 report texts | `Text` | in the map panel | `0x145`-`0x152`, the debrief's labels, and their figures |
@@ -972,11 +974,21 @@ The map panel's top is `0x2b` while `DAT_00481e68`, the shell's full-screen flag
 | map grid | shown | | |
 | map buttons, button bar, four buttons | hidden | shown | hidden |
 | page buttons | hidden | shown | shown |
-| report texts | hidden by `Mission_HideReportTexts` (`00444914`) | the same | untouched |
+| report texts | hidden by `Mission_HideReportTexts` (`00444914`) | the same | untouched: up with the map panel only on the screen's first view since the shell started |
 | `DAT_004778a8` | 1 | 2 | |
 | movie | the two map movies, once per load (`DAT_004778aa`) | `Career_BriefingMovie` (`004135da`), once per load (`DAT_004778ab`) | `Career_DebriefMovie` (`004135e1`), once (`DAT_004778ac`) |
 
-All three show Telecomm, the Telecomm picture, the map panel and the summary. The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`. The briefing and debrief movies are enqueued with the rect `{0x15, 0x56, 0xef, 0xb3}`, over the Telecomm picture.
+All three show Telecomm, the Telecomm picture, the map panel and the summary. In the map view nothing on the screen acts on a click: the Telecomm picture's handler returns at once and nothing else in the view has a handler, so it is left only through the strip. The map grid shows its part 0 at its origin, unremapped, over its filled body, and the stage's text is box 0's first page, with no page buttons to move it.
+
+**What comes back with the map panel is decided at construction.** The builder hides the map panel straight after building it, so every child is built under a hidden parent, and a constructor's own show then sets bits 2 and 4: the child returns whenever the panel is shown ([Showing and hiding a widget](#showing-and-hiding-a-widget)). A later hide by name clears bit 4 again, so the child returns only when shown by name:
+
+- **The map grid** is hidden by name as soon as it is built, and `Mission_Show` shows it by name in the map view alone. It never covers the briefing's map.
+- **The map scope** is built by `Window_Ctor` alone, so it is born hidden with bit 4 clear and never comes back; the builder's store is the one reference to `DAT_0048d818` in the disassembly. Its `0x10` fill never covers the map grid.
+- **The report texts** return with the panel until `Mission_HideReportTexts` first runs. The map and briefing views run it before the panel is shown, and `Mission_Leave` runs it on the way out, so the debrief shows them only when it is the screen's first view since the shell started.
+
+The map view's flag `DAT_004778aa` is set whether movies are on or off; with them off `Movie_Enqueue` adds nothing and the view stays up. With them on, the second map movie's entry carries a flag that makes `Movie_PlayQueue` take the tab down after it (`Mission_Leave`, the tab unlit, `DAT_0047581c = 0xffff`) and call `maybe_Mission_UpdateLocationTab` (`0044409f`), which puts the location picture up over the whole window through the theater palette, or at stage 5 enqueues the lunar movie instead.
+
+The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`. The briefing and debrief movies are enqueued with the rect `{0x15, 0x56, 0xef, 0xb3}`, over the Telecomm picture.
 
 **The map buttons** each call a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its paint: once while `+0x65`, the count of auto-repeat ticks so far, is below 3, twice below 6, three times below 9 and four times from there. The map, its camera and what each method does are in [`mission-map.md`](mission-map.md).
 
@@ -993,7 +1005,7 @@ All three show Telecomm, the Telecomm picture, the map panel and the summary. Th
 
 With all four passed it writes the mission handoff (`Game_ExportMissionHandoff`, [`campaign-loop.md`](campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4)), sets the exit code to 2 (`Shell_SetExitCode`, `0040876a`, which stores `0046e210`) and sets `DAT_0046c074`, which ends the shell's main loop; the launcher answers 2 by running the simulator ([`../command-line.md`](../command-line.md#exit-codes)). `INSTANT ACTION` ends the same way.
 
-**The refusal** is an `ESAlert` built once by `LaunchRefusal_Build` (`0044cfdc`) in a window the size of the display, so its rect is a canvas rect. `LaunchRefusal_Show(code)` (`0044d27c`) writes the code's two lines, `estext.bin` `0x13c + 2 * code` and the next, and shows it; `OKAY`'s handler, `LaunchRefusal_OnOkay` (`0044d404`), hides it.
+**The refusal** is an `ESAlert` built once by `LaunchRefusal_Build` (`0044cfdc`) in a window the size of the display, so its rect is a canvas rect. `LaunchRefusal_Show(code)` (`0044d27c`) writes the code's two lines, `estext.bin` `0x13c + 2 * code` and the next, and shows it; `OKAY`'s handler, `LaunchRefusal_OnOkay` (`0044d404`), hides it. Its window is built the way [the scrap dialog's](#the-scrap-dialog) is, so while it is up only `OKAY` takes a click.
 
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
@@ -1023,13 +1035,13 @@ The five boxes and what fills them:
 
 | Box | Global | Text |
 |---|---|---|
-| 0 | `0048d81c` | the map view's, `FUN_0040f775(stage - 1)`, out of `eng\campaign.str` |
+| 0 | `0048d81c` | the map view's, `Campaign_LoadStageText(stage - 1)` (`0040f775`): string `stage - 1` of the first group of `eng\campaign.str`, in the [`.STR` layout](../formats/str-strings.md) |
 | 1 | `0048d820` | the briefing, `Career_BriefingText` (`004135c8`) |
 | 2 | `0048d828` | the objectives, `Career_ObjectivesText` (`004135c2`) |
 | 3 | `0048d82c` | the intelligence report, `Career_IntelligenceText` (`004135ce`) |
 | 4 | `0048d824` | the debrief, `Career_DebriefText` (`004135d4`) |
 
-The four career texts are the lines of the loaded game's `data\mission.str` that the career block's arrays name ([`../formats/save-games.md`](../formats/save-games.md#career-block--152-bytes)).
+The four career texts are the lines of `data\mission.str` that the career block's arrays name ([`../formats/save-games.md`](../formats/save-games.md#career-block--152-bytes)). The briefing, objectives and intelligence report are assembled from the loaded mission's file when it loads (`Career_BuildBriefingText`, `00412f97`); the debrief by `Career_BuildDebriefText` (`004133d2`) at the end of `Career_Advance`, which first rewrites the file and the debrief array from the mission just flown's `.msn` (`FUN_0041d2c3`), before the next mission's load writes the file again. `Career_Advance` is the one caller of `Career_BuildDebriefText` that `es2_xref.py` finds, where it finds three of `Career_BuildBriefingText`'s, `Career_LoadSlot` among them: a restored save rebuilds the briefing texts and not the debrief.
 
 `DAT_004780a4` is the box that is up. `Mission_ShowTextBox(n)` (`00444cb3`) marks the box in it not shown and box `n` shown, runs `TextBox_ShowPage` on both, and stores `n`; it leaves the page alone, so a box comes back on the page it was left on until the next entry refills it. `Mission_LightViewButton(n)` (`00444c49`) puts the first three buttons' borders back to `0x22` and writes `0x20` on `Mission Briefing` for 1 and 4, `Mission Objectives` for 2 and `Intelligence Report` for 3. `Mission Briefing` (`Mission_OnBriefing`, `004453c1`) runs both with the view, so in the debrief it brings back the debrief; `Mission Objectives` (`00445437`) and `Intelligence Report` (`004454a0`) run both with 2 and 3. The page buttons, `Mission_OnPageUp` (`004455e9`) and `Mission_OnPageDown` (`0044569a`), page the box that is up.
 
@@ -1202,16 +1214,14 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Unported:** the pressed nudge of a content button's caption. `Button`'s paint (`00409b79`) moves the caption down while `+0x45` is lit and the button is enabled, as the strip's does.
 - **Open:** what writes a mouse event's `+0x25`, which silences `Button_HandleEvent`'s [press sound](#what-plays-each-sound) when set.
 - **Open:** what the build screen's `SCRAP` gate, `ScrapDialog_Show` and `Hangar_ScrapSelected` do with no bay selected, where each reads the third squad-member pointer at `00482abf` as [the bay's machine](#scrapping-and-building-are-gated-on-the-bay). A roster click selects one of the eight bays, but the crew tab can leave `-1` selected for the build tab to open on. The repair tab reaches `-1` when no bay holds a finished machine, and there `Repair_RefreshDetail`'s gates and all three of [its handlers](#repairing-and-cancelling) read the same pointer, `CANCEL` copying a stale status block through it.
-- **Open:** whether the scrap dialog keeps clicks off the screen beneath it. Its window covers the display and is built after every tab screen, so it would be hit first; but `Window_Ctor` leaves it visible and nothing hides it before the dialog is first shown, so an unhidden full-display window would block the shell from startup, and something in the hit test not yet read must account for it.
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked.
 - **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — `RESTORE`'s slot-10 autosave and career-file copies, and the slot-10 autosave at [the main loop's exit](#quit). The shell has no save writer and no keyboard input into an edit field.
 - **Open:** the edit field's keyboard handling past its dispatch. Keystrokes reach the row as the pointer's target ([Saving is a rename](#saving-is-a-rename)). `EditField_HandleEvent` passes a key (event `0x40`) to `FUN_0040bdd2` while `+0xbf` is set, acts on a command (`0x100`) only while `+0xbf` and `+0xa7` are both set — backspace (1) and the left arrow (4) both call `FUN_0040be56`, and Enter (`0x0a`) releases the lock and the focus — and hands every key and command on to the row's handler. Unread: which event `004377d2` posts at the row, how the permitted-character set at `+0x9f` filters (the full string is unread past `"…qrstu"`), whether the `" 3. "` prefix can be deleted, and what the row's handler does with a key — whether one commits or abandons the rename.
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
-- **Unported:** the mission tab's campaign-map view and debrief view.
+- **Unported:** the mission tab's debrief view, which only [the processing of a finished mission](campaign-loop.md#where-the-debrief-goes-next) reaches.
 - **Unported:** the auto-repeat of the mission screen's arrows.
-- **Open:** whether the launch refusal keeps clicks off the screen beneath it, the same question as the scrap dialog's.
-- **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
+- **Open:** which of the mission screen's report texts shows which figure. `FUN_0040f34c`, which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes ten of them.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
 - **Unported:** every main-menu button's action but `SAVE/RESTORE`'s, `PRACTICE MISSIONS`', `PREFERENCES`' and `QUIT`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up, with [its switch sound](#what-plays-each-sound). `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.

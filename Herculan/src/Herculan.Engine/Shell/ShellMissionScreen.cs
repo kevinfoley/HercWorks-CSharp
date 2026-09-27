@@ -203,39 +203,74 @@ public sealed class ShellTextBox {
 	private const byte LineColor = 0x28;
 }
 
-/// <summary>The mission tab's two banks: the arrow faces and the <c>TERRA DEFENSE</c> plate.</summary>
+/// <summary>
+/// The career's text for the campaign map view: <c>Campaign_LoadStageText</c> (<c>0040f775</c>) reads
+/// <c>eng\campaign.str</c> and keeps string <c>stage - 1</c> of its first group. See
+/// docs/shell/screen-layout.md, "The summary text box".
+/// </summary>
+public static class ShellCampaignText {
+	/// <summary>The path's two halves as the literal at <c>0046f5be</c> names them, <c>LANG0.VOL</c>'s <c>ENG</c> folder.</summary>
+	private const string Folder = "ENG";
+	private const string ResourceName = "CAMPAIGN.STR";
+
+	/// <summary>
+	/// Stage <paramref name="stage"/>'s text, or null when the file is missing or has no string for the
+	/// stage. The original leaves its result pointer null in that case and hands it to
+	/// <c>TextBox_SetText</c>; what that does with it is not read, and here the box stays empty.
+	/// </summary>
+	public static string? Load(GameContent content, int stage) =>
+		content.Read(Folder, ResourceName) is { } bytes && SimStringTable.Parse(bytes) is { } table
+			? table.Text(0, stage - 1) : null;
+}
+
+/// <summary>The mission tab's banks: the arrow faces, the <c>TERRA DEFENSE</c> plate and the campaign map's two pictures.</summary>
 public sealed class ShellMissionArt {
 	private readonly DynamixBitmap[]? _arrows;
 
-	private ShellMissionArt(DynamixBitmap[]? arrows, DynamixBitmap? plate) {
+	private ShellMissionArt(DynamixBitmap[]? arrows, DynamixBitmap? plate, DynamixBitmap? earth, DynamixBitmap? moon) {
 		_arrows = arrows;
 		Plate = plate;
+		Earth = earth;
+		Moon = moon;
 	}
 
 	/// <summary><c>dba\terradef.dba</c> frame 0, which <c>Mission_LoadPictures</c> (<c>00443f33</c>) puts in the Telecomm picture.</summary>
 	public DynamixBitmap? Plate { get; }
 
+	/// <summary><c>dba\th_earth.dba</c> frame 0, the map grid's part 0 in the campaign map view below stage 5.</summary>
+	public DynamixBitmap? Earth { get; }
+
+	/// <summary><c>dba\th_moon.dba</c> frame 0, the same from stage 5.</summary>
+	public DynamixBitmap? Moon { get; }
+
 	/// <summary><c>dba\miss_arw.dba</c> frame <paramref name="index"/>, or null.</summary>
 	public DynamixBitmap? Arrow(int index) => _arrows is { } frames && index >= 0 && index < frames.Length ? frames[index] : null;
 
 	public static ShellMissionArt Load(GameContent content) =>
-		new(ShellArt.ReadBankFrames(content, "MISS_ARW"),
-			ShellArt.ReadBankFrames(content, "TERRADEF") is { Length: > 0 } plate ? plate[0] : null);
+		new(ShellArt.ReadBankFrames(content, "MISS_ARW"), FirstFrame(content, "TERRADEF"), FirstFrame(content, "TH_EARTH"),
+			FirstFrame(content, "TH_MOON"));
+
+	private static DynamixBitmap? FirstFrame(GameContent content, string bank) =>
+		ShellArt.ReadBankFrames(content, bank) is { Length: > 0 } frames ? frames[0] : null;
 }
 
 /// <summary>
-/// Tab 7, <c>MISSION</c>, in its briefing view: the <c>Telecomm</c> picture, the <c>Mission Map</c> with
-/// its six map buttons, the <c>Mission Summary</c> text with its two page buttons, and the button bar.
-/// Built once by <c>Mission_BuildScreen</c> (<c>00442534</c>), put up in the view the tab asks for by
-/// <c>Mission_Show</c> (<c>004441e3</c>) and taken down by <c>Mission_Leave</c> (<c>00444a05</c>).
-/// See docs/shell/screen-layout.md, "The mission screen".
+/// Tab 7, <c>MISSION</c>, in its campaign map and briefing views: the <c>Telecomm</c> picture, the map
+/// panel, and the summary text. The briefing adds the six map buttons, the summary's two page buttons
+/// and the button bar; the campaign map shows none of them, and puts the stage's picture in the map
+/// panel and the stage's text in a taller summary. Built once by <c>Mission_BuildScreen</c>
+/// (<c>00442534</c>), put up in the view the tab asks for by <c>Mission_Show</c> (<c>004441e3</c>) and
+/// taken down by <c>Mission_Leave</c> (<c>00444a05</c>). See docs/shell/screen-layout.md, "The mission
+/// screen".
 ///
 /// <para><b>Every rect here is a literal in the executable</b>, kept parent-relative as the builder
 /// writes them: the four panels in the canvas, everything else in the panel holding it.</para>
 ///
-/// <para><b>Only the briefing view is ported.</b> The map inside the <c>Mission Map</c> panel is the
+/// <para><b>The debrief view is not ported</b>: the campaign layer reaches it only on processing a
+/// finished mission, which this engine does not do. In the briefing, the map inside the panel is the
 /// shell's map object, <see cref="ShellMap"/>, drawn over this screen and moved by its six buttons;
-/// <c>Rock &amp; Roll &gt;</c> is <see cref="ShellMissionLaunch"/>'s; the Telecomm movie is not played.</para>
+/// <c>Rock &amp; Roll &gt;</c> is <see cref="ShellMissionLaunch"/>'s. No view's movies are played, so the
+/// campaign map stays up as the original's does with movies off.</para>
 /// </summary>
 public sealed class ShellMissionScreen {
 	/// <summary>The four panels, in the canvas, each parented to the top-level window.</summary>
@@ -275,10 +310,34 @@ public sealed class ShellMissionScreen {
 	/// <summary>The briefing, objectives and intelligence text boxes, all at one rect in the summary panel.</summary>
 	private static readonly ShellRect TextRect = new(10, 0x15, 0x23f, 0x73);
 
+	/// <summary>
+	/// The summary in the campaign map view, which <c>Mission_Show</c> moves it to: down over the row the
+	/// button bar holds in the briefing.
+	/// </summary>
+	public static readonly ShellRect MapSummaryRect = new(7, 0x133, 0x278, 0x1dc);
+
+	/// <summary>Text box 0, the campaign map's, in the summary: wider and taller than the other four.</summary>
+	private static readonly ShellRect MapTextRect = new(10, 0x15, 0x265, 0xa8);
+
+	/// <summary>The map grid, in the map panel. The builder turns its grid lines off.</summary>
+	private static readonly ShellRect GridRect = new(0xb, 0x18, 0x131, 0xf9);
+
 	private readonly ShellMissionArt? _art;
 	private readonly ShellTextBox[] _boxes = { new(TextRect), new(TextRect), new(TextRect) };
+	private readonly ShellTextBox _mapBox = new(MapTextRect);
+	private string? _mapTitle;
+	private DynamixBitmap? _mapPicture;
 
 	public ShellMissionScreen(ShellMissionArt? art = null) => _art = art;
+
+	/// <summary>
+	/// <c>DAT_0048106c</c>, the view up. <see cref="ShellMissionView.Debriefing"/> never is: nothing here
+	/// reaches it.
+	/// </summary>
+	public ShellMissionView View { get; private set; } = ShellMissionView.Briefing;
+
+	/// <summary>The campaign map view's text box, box 0.</summary>
+	public ShellTextBox MapBox => _mapBox;
 
 	/// <summary>
 	/// <c>DAT_004780a4</c>, which text is up: the briefing's, the objectives' or the intelligence
@@ -294,10 +353,28 @@ public sealed class ShellMissionScreen {
 	/// lights <c>Mission Briefing</c> and shows the briefing.
 	/// </summary>
 	public void EnterBriefing(ShellMissionTexts texts, HudFont? font) {
+		View = ShellMissionView.Briefing;
+		_mapBox.Visible = false;
 		Box(ShellMissionButton.Briefing).SetText(texts.Briefing, font);
 		Box(ShellMissionButton.Objectives).SetText(texts.Objectives, font);
 		Box(ShellMissionButton.Intelligence).SetText(texts.Intelligence, font);
 		ShowText(ShellMissionButton.Briefing);
+	}
+
+	/// <summary>
+	/// <c>Mission_Show(0)</c>: <c>Mission_LoadPictures</c> puts <c>th_earth</c> in the map grid below
+	/// stage 5 and <c>th_moon</c> from it, as part 0 at the grid's origin with no remap; the stage's text
+	/// fills box 0 and goes up; and the map panel is titled <c>"%s %s"</c> of the sector's name,
+	/// <c>estext.bin</c> <c>0x76 + stage</c>, and <c>0x7c</c> <c>Sector</c>.
+	/// </summary>
+	public void EnterMap(int stage, string? campaignText, ShellText? text, HudFont? font) {
+		View = ShellMissionView.Map;
+		_mapPicture = stage < LunarStage ? _art?.Earth : _art?.Moon;
+		_mapTitle = text?.Text(FirstSectorText + stage) is { } sector && text.Text(SectorText) is { } word
+			? $"{sector} {word}" : null;
+		_mapBox.SetText(campaignText, font);
+		Box(ShownText).Visible = false;
+		_mapBox.Visible = true;
 	}
 
 	/// <summary>
@@ -338,6 +415,11 @@ public sealed class ShellMissionScreen {
 	/// swallowed, which here is the same as hitting nothing.
 	/// </summary>
 	public ShellHit? HitAt(float canvasX, float canvasY) {
+		// The campaign map hides every button and arrow, so there is nothing to hit.
+		if (View == ShellMissionView.Map) {
+			return null;
+		}
+
 		foreach (var button in Enum.GetValues<ShellMissionButton>()) {
 			var rect = ButtonRect(button);
 			if (rect.Contains(canvasX, canvasY)) {
@@ -354,7 +436,7 @@ public sealed class ShellMissionScreen {
 		return null;
 	}
 
-	/// <summary>Draws the briefing view into <paramref name="surface"/>, with <paramref name="lit"/> drawn pressed. The caller clears it first.</summary>
+	/// <summary>Draws the view that is up into <paramref name="surface"/>, with <paramref name="lit"/> drawn pressed. The caller clears it first.</summary>
 	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, ShellWidget? lit = null) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
@@ -362,9 +444,19 @@ public sealed class ShellMissionScreen {
 		PaintPanel(surface, TelecommRect, font, text?.Text(TelecommText), PanelFace, headerChrome: false, 0, 0);
 		ShellChrome.PaintImagePanel(surface, Inside(TelecommRect, PlateRect), _art?.Plate, 0, 0, Border, border: false);
 
-		// The map panel, titled Mission Map in this view, with the hatch and a plate the builder writes.
-		PaintPanel(surface, MapRect, font, text?.Text(MapTitleText), MapFace, headerChrome: true, MapPlateFirst,
-			MapPlateLast);
+		// The map panel, titled by the view, with the hatch and a plate the builder writes.
+		bool map = View == ShellMissionView.Map;
+		PaintPanel(surface, MapRect, font, map ? _mapTitle : text?.Text(MapTitleText), MapFace, headerChrome: true,
+			MapPlateFirst, MapPlateLast);
+
+		// The campaign map: the grid with the stage's picture, and the taller summary with the stage's text.
+		if (map) {
+			ShellGrid.Paint(surface, Inside(MapRect, GridRect), gridLines: false,
+				_mapPicture is { } picture ? new ShellGridPart?[] { new(picture, 0, 0, 0, Array.Empty<(byte, byte)>()) } : Array.Empty<ShellGridPart?>());
+			PaintPanel(surface, MapSummaryRect, font, text?.Text(SummaryText), PanelFace, headerChrome: false, 0, 0);
+			_mapBox.Paint(surface, MapSummaryRect, font);
+			return;
+		}
 
 		PaintPanel(surface, SummaryRect, font, text?.Text(SummaryText), PanelFace, headerChrome: false, 0, 0);
 		Box(ShownText).Paint(surface, SummaryRect, font);
@@ -425,4 +517,14 @@ public sealed class ShellMissionScreen {
 	private const int TelecommText = 0xb0;
 	private const int MapTitleText = 0xb3;
 	private const int FirstButtonText = 0xb4;
+
+	/// <summary>
+	/// The sector names run from <c>0x77</c>, reached by <c>0x76 + stage</c> for stages 1-5, and the word
+	/// the campaign map's title puts after one.
+	/// </summary>
+	private const int FirstSectorText = 0x76;
+	private const int SectorText = 0x7c;
+
+	/// <summary>The stage from which <c>Mission_LoadPictures</c> loads <c>th_moon</c> rather than <c>th_earth</c>.</summary>
+	private const int LunarStage = 5;
 }

@@ -18693,6 +18693,15 @@
       "source": "docs/shell/screen-layout.md#quit"
     },
     {
+      "address": "0040f775",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Campaign_LoadStageText",
+      "description": "game.cpp. Reads eng\\campaign.str in the .STR layout and returns a new copy of string N (its argument, stage - 1) of the first group, freeing the previous one (DAT_0046f3e8); null when there is no such string. Mission_Show's map view fills text box 0 with it.",
+      "source": "docs/shell/screen-layout.md#the-summary-text-box"
+    },
+    {
       "address": "0040877f",
       "binary": "VSHELL",
       "type": "function",

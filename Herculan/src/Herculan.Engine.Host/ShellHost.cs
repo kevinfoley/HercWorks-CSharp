@@ -235,7 +235,7 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training mode: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("Every tab has a screen behind it but MISSION's map view. On the "
+		Console.WriteLine("Every tab has a screen behind it. On the "
 			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
 			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
 			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. PREFERENCES shows the "
@@ -251,10 +251,11 @@ static class ShellHost {
 			+ "again to queue one, right-click it to take one off, or CLEAR to take them all off; SCRAP sells the lit "
 			+ "weapon's whole stock. On CREW, click "
 			+ "a row to select it, then a squad portrait to put that pilot in the row, a Squad Inventory row "
-			+ "to give the row's pilot that bay, or CLEAR to empty the row. MISSION shows the briefing once a "
-			+ "stage is under way: its three text buttons switch the summary and the arrows beside it page "
-			+ "through it, the six buttons beside the map move it, and Rock & Roll launches the mission once every "
-				+ "machine going is fit and armed; its campaign-map view is not ported. The square button latches and shows the frame. The save screen hides "
+			+ "to give the row's pilot that bay, or CLEAR to empty the row. MISSION shows the campaign map on the "
+			+ "first visit of a stage's first mission and the briefing otherwise: the briefing's three text buttons "
+			+ "switch the summary and the arrows beside it page through it, the six buttons beside the map move it, and "
+			+ "Rock & Roll launches the mission once every machine going is fit and armed. The square button latches and "
+			+ "shows the frame. The save screen hides "
 			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
 			+ "repair screen. QUIT on the main menu, or closing the window, quits.");
 		Console.WriteLine(paletteName != null
@@ -271,10 +272,10 @@ static class ShellHost {
 		bool rightHeld = false;
 		bool skipKeyHeld = false;
 
-		// Which button the event being delivered is, for the handlers that tell them apart: an armory
 		// Set by QUIT, whose blank is the last thing the window shows.
 		bool blanked = false;
 
+		// Which button the event being delivered is, for the handlers that tell them apart: an armory
 		// row's thunk calls one function on the left release and another on the right.
 		var eventButton = ShellMouseButton.Left;
 		int framesRendered = 0;
@@ -380,7 +381,6 @@ static class ShellHost {
 			frameGl.ClearColor(0f, 0f, 0f, 1f);
 			frameGl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			var framebuffer = window.FramebufferSize;
 			// QUIT's blank fills the whole client area with palette index 0, strip and all.
 			if (blanked) {
 				var blank = art.Palette.Colors.TryGetValue(0, out var entry) ? entry.GetColor() : default;
@@ -389,6 +389,7 @@ static class ShellHost {
 				return;
 			}
 
+			var framebuffer = window.FramebufferSize;
 			renderer?.Draw(ShellScreenLayout.Create(framebuffer.X, framebuffer.Y), screen);
 
 			framesRendered++;
@@ -523,7 +524,7 @@ static class ShellHost {
 				ShellScreen.CrewTab when crewScreen != null => ShellSquadPanel.HitAt(canvasX, canvasY)
 					?? ShellCrewScreen.HitAt(canvasX, canvasY),
 				ShellScreen.ArmoryTab when armoryScreen != null => armoryScreen.HitAt(canvasX, canvasY),
-				ShellScreen.MissionTab when missionViewUp == ShellMissionView.Briefing => missionScreen.HitAt(canvasX, canvasY),
+				ShellScreen.MissionTab => missionScreen.HitAt(canvasX, canvasY),
 				_ => null,
 			};
 		}
@@ -624,12 +625,12 @@ static class ShellHost {
 		// save screen's EXIT back here, and enter it. PRACTICE MISSIONS is OpenPractice, PREFERENCES
 		// OpenPreferences and QUIT Quit. The other six buttons' actions are not ported.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
-			if (button == ShellMainMenuButton.PracticeMissions) {
 			if (button == ShellMainMenuButton.Quit) {
 				Quit();
 				return;
 			}
 
+			if (button == ShellMainMenuButton.PracticeMissions) {
 				OpenPractice();
 				return;
 			}
@@ -651,7 +652,6 @@ static class ShellHost {
 			RepaintContent();
 		}
 
-		// FUN_0040e69e, the mode write four main-menu handlers make. The strip refresh (0043b0c8) is what
 		// QUIT, 00431727: blank the screen (Shell_BlankScreen, 0040723d) and end the main loop, with no prompt
 		// and no exit code of its own, so the shell returns the 0 its startup left and the launcher stops
 		// (docs/shell/screen-layout.md#quit). The loop's common exit also autosaves the current game to slot
@@ -662,6 +662,7 @@ static class ShellHost {
 			window.Close();
 		}
 
+		// FUN_0040e69e, the mode write four main-menu handlers make. The strip refresh (0043b0c8) is what
 		// regates the tabs in the original, and the strip is hidden until then; here the main menu keeps
 		// the strip up, so the gate follows the mode at once rather than showing the old one.
 		void SetMode(ShellCampaignMode newMode) {
@@ -890,8 +891,8 @@ static class ShellHost {
 
 		// RESTORE, SaveScreen_OnRestore (00437d03): load the selected slot, then leave exactly as EXIT does on the tab-strip
 		// path, whichever way the screen was entered. The original also writes the loaded game straight
-		// back out as the slot-10 autosave and clears the campaign map's intro flag (DAT_004778aa); this
-		// engine has no save writer and no campaign map yet, so neither has a counterpart here.
+		// back out as the slot-10 autosave, which this engine cannot: it has no save writer. It clears the
+		// campaign map's once-per-load flag (DAT_004778aa), which missionMapShown is.
 		void RestoreSelectedSlot() {
 			int slot = saveScreen.SelectedSlot;
 			if (saveScreen.Slots.ElementAtOrDefault(slot) is not { InUse: true } entry
@@ -1290,13 +1291,17 @@ static class ShellHost {
 				+ $"{hangar.QueueFreeSlots} slots free, {armoryScreen.AllocatedKilograms} kg allocated.");
 		}
 
-		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks. Only the
-		// briefing view has a screen here; the map view shows the frame.
+		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks. The map view sets
+		// the once-per-load flag whether or not its movies play.
 		void EnterMission() {
 			missionViewUp = MissionView();
 			if (missionViewUp == ShellMissionView.Map) {
 				missionMapShown = true;
-				Console.WriteLine("Mission: the campaign map view, which is not ported — the tab shows the frame.");
+				string? campaignText = ShellCampaignText.Load(content, campaignStage);
+				missionScreen.EnterMap(campaignStage, campaignText, art.Text, art.Sprites?.Font(ShellArt.ScreenFont));
+				Console.WriteLine($"Mission: the campaign map, stage {campaignStage}"
+					+ (campaignText == null ? $"; eng\\campaign.str has no text for it." : $", {missionScreen.MapBox.Lines.Count} lines of its text.")
+					+ " The next visit opens the briefing.");
 				return;
 			}
 
@@ -1443,9 +1448,12 @@ static class ShellHost {
 				case ShellScreen.ArmoryTab when armoryScreen != null:
 					armoryScreen.Paint(contentSurface, art.Text, art.Sprites);
 					break;
-				case ShellScreen.MissionTab when missionViewUp == ShellMissionView.Briefing:
+				case ShellScreen.MissionTab:
 					missionScreen.Paint(contentSurface, art.Text, art.Sprites, pointer.Lit);
-					missionMap?.Paint(contentSurface, mapArt, MapClock());
+					if (missionViewUp == ShellMissionView.Briefing) {
+						missionMap?.Paint(contentSurface, mapArt, MapClock());
+					}
+
 					break;
 				default:
 					if (!filled) {

@@ -210,7 +210,7 @@ Seven jumps in the function resolve to four targets — `00410088`, `00410090`, 
 | player's HERC condition reached 0 | 3 | campaign over |
 | advance returned 0 — mission failed at a stage boundary, or past stage 4 | 0 | back to the shell |
 | advance returned 1 — succeeded past the last stage | 1 | autosave to slot 10, then play AVIs `0x53` and `0x54` |
-| otherwise | 2 | continue to the next mission's briefing |
+| otherwise | 2 | the debrief: the mission tab's view set to 4, then the next mission's load, which puts the tab up in that view ([`screen-layout.md`](screen-layout.md#the-three-views)) |
 
 **The position advances whether or not the mission was won.** `Career_Advance` increments the mission index before it inspects the outcome; the outcome only chooses the branch. Rolling past a stage's mission count resets the mission index to 0 and increments the stage.
 

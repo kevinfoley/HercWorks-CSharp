@@ -14,6 +14,9 @@ namespace Herculan.Engine.Content;
 /// away and back in one step: leaving <see cref="ClearRange"/> is what arms it, and only an armed
 /// marker clears on return.</para>
 ///
+/// <para>The host holds it beside the mission clock rather than on the machine, because it is
+/// cockpit-view state, not the machine's.</para>
+///
 /// <para>It is dropped by <c>[Alt+D]</c>. Derivation, and what it is for, in
 /// docs/simulation/player-waypoints.md.</para>
 /// </summary>

@@ -149,6 +149,10 @@ public sealed class SimWorld {
 	/// <c>ROOKIE</c> the player hits for 3.42x and the enemy for 0.29x, at <c>ELITE</c> for 1.37x and
 	/// 0.98x. Side is the <i>firing</i> side, and it is the group's — so a squadmate's shots scale
 	/// like the player's.</para>
+	///
+	/// <para>Callers pass <see cref="SimObject.Side"/> where the original reads
+	/// <c>owner-&gt;group-&gt;side</c>. The side is copied onto the object at spawn and nothing changes
+	/// it mid-mission, so it is the same byte without the unguarded dereference.</para>
 	/// </summary>
 	public int DamageScaleFor(World.MissionSide side) =>
 		(side == World.MissionSide.Human ? DamageScaleHuman : DamageScaleCybrid)[Difficulty];

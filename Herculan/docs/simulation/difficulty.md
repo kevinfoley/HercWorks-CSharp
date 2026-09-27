@@ -93,24 +93,6 @@ Each reaches exactly one mechanism, and both are the player's machine alone:
 
 `Ai_FireAtPoint` (`0041f5a0`) pushes a literal 0 into that dispatch slot, so no AI machine can reach either half of the free shot. `WeaponMounts_FireTrigger` builds the flag from the globals without testing the owner, because `Mech_PlayerFireTick` (`00415608`) is its only caller; the arbitration, which every machine runs, tests `owner+0xa3` itself.
 
-## Engine port
-
-`ScriptDatHeader` decodes all three fields and `MissionScene` hands them to `SimWorld.Difficulty`, `SimWorld.PlayerInvulnerable` and `SimWorld.UnlimitedAmmunition`.
-
-The difficulty is indexed by three things: `SimWorld.DamageScaleFor` holds both damage tables, `WeaponShot.ApplyDifficultyScale` applies it to a shot's two figures at the top of `SimWorld.Raycast`, `Projectile.Detonate` applies it to the plasma blast, and `MechObject.AiAimScatter` is read where the AI aims.
-
-The two cheats sit where the original puts them: `MechObject.ComponentDamageWrite` returns at its head for an invulnerable locally piloted machine, `WeaponMount.Fire` takes the free-shot flag and `WeaponMount.FireAmmunition` is the only branch that reads it, and `WeaponMounts.ChargeTick` returns its incoming budget unspent.
-
-Three deliberate differences:
-
-- **The header value is clamped to 0-3 on the way in.** The original indexes four-entry tables with whatever the file says and reads past them; a hand-edited `script.dat` is held to the four levels instead.
-- **The damage scale reads the side off `SimObject.Side`** where the original reaches it through the group pointer. The side is copied onto the object at spawn and nothing changes it mid-mission, so the two are the same byte, and reading it off the object removes an unguarded dereference. The aim scatter still reads `Group.Side`, which is the same value by a longer path.
-- **`WeaponMounts.FireTick` tests the owner** where `WeaponMounts_FireTrigger` relies on its caller being the player's poll. The engine runs the trigger path for every machine, so the test restores what that caller guarantees.
-
-The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObject.SlideLandingDamage` where a slide ends, which also raises the cockpit shake the original raises beside the damage — see [`mech-locomotion.md`](mech-locomotion.md#the-landing).
-
-**The shell's practice missions screen writes all three**, as retail's does: its `Begin Mission` loads the mission through `ShellTrainingLaunch`, which puts the three options in the header ([`../shell/screen-layout.md`](../shell/screen-layout.md#starting-a-practice-mission)). Any other mission brings them in its `script.dat`; the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`).
-
 ## Rejected readings
 
 | Reading | Why it is wrong |

@@ -256,7 +256,7 @@ static class ShellHost {
 			+ "through it, the six buttons beside the map move it, and Rock & Roll launches the mission once every "
 				+ "machine going is fit and armed; its campaign-map view is not ported. The square button latches and shows the frame. The save screen hides "
 			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
-			+ "repair screen. Close the window to quit.");
+			+ "repair screen. QUIT on the main menu, or closing the window, quits.");
 		Console.WriteLine(paletteName != null
 			? $"Palette pinned to {art.PaletteName} on every tab."
 			: "Each tab installs its own palette, as the original's do.");
@@ -272,6 +272,9 @@ static class ShellHost {
 		bool skipKeyHeld = false;
 
 		// Which button the event being delivered is, for the handlers that tell them apart: an armory
+		// Set by QUIT, whose blank is the last thing the window shows.
+		bool blanked = false;
+
 		// row's thunk calls one function on the left release and another on the right.
 		var eventButton = ShellMouseButton.Left;
 		int framesRendered = 0;
@@ -378,6 +381,14 @@ static class ShellHost {
 			frameGl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			var framebuffer = window.FramebufferSize;
+			// QUIT's blank fills the whole client area with palette index 0, strip and all.
+			if (blanked) {
+				var blank = art.Palette.Colors.TryGetValue(0, out var entry) ? entry.GetColor() : default;
+				frameGl.ClearColor(blank.R / 255f, blank.G / 255f, blank.B / 255f, 1f);
+				frameGl.Clear(ClearBufferMask.ColorBufferBit);
+				return;
+			}
+
 			renderer?.Draw(ShellScreenLayout.Create(framebuffer.X, framebuffer.Y), screen);
 
 			framesRendered++;
@@ -610,10 +621,15 @@ static class ShellHost {
 		}
 
 		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
-		// save screen's EXIT back here, and enter it. PRACTICE MISSIONS is OpenPractice and PREFERENCES
-		// OpenPreferences. The other seven buttons' actions are not ported.
+		// save screen's EXIT back here, and enter it. PRACTICE MISSIONS is OpenPractice, PREFERENCES
+		// OpenPreferences and QUIT Quit. The other six buttons' actions are not ported.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
 			if (button == ShellMainMenuButton.PracticeMissions) {
+			if (button == ShellMainMenuButton.Quit) {
+				Quit();
+				return;
+			}
+
 				OpenPractice();
 				return;
 			}
@@ -636,6 +652,16 @@ static class ShellHost {
 		}
 
 		// FUN_0040e69e, the mode write four main-menu handlers make. The strip refresh (0043b0c8) is what
+		// QUIT, 00431727: blank the screen (Shell_BlankScreen, 0040723d) and end the main loop, with no prompt
+		// and no exit code of its own, so the shell returns the 0 its startup left and the launcher stops
+		// (docs/shell/screen-layout.md#quit). The loop's common exit also autosaves the current game to slot
+		// 10, which this engine cannot do: it has no save writer.
+		void Quit() {
+			blanked = true;
+			Console.WriteLine("Quit.");
+			window.Close();
+		}
+
 		// regates the tabs in the original, and the strip is hidden until then; here the main menu keeps
 		// the strip up, so the gate follows the mode at once rather than showing the old one.
 		void SetMode(ShellCampaignMode newMode) {

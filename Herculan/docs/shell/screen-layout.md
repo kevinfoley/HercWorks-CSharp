@@ -268,9 +268,24 @@ What the handlers call, as read:
 | `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` — [the preferences screen](#the-preferences-screen) |
 | `VIEW DEMO` | `Shell_SetExitCode(5)`, `DAT_0046c074 = 1` |
 | `CREDITS` | shows a bare window (`DAT_0048d0c4`) and plays movie `0x54` through `Movie_Enqueue` and `Movie_PlayQueue`, then hides it |
-| `QUIT` | `DAT_0046c074 = 1`, `FUN_0040723d` |
+| `QUIT` | `DAT_0046c074 = 1`, `Shell_BlankScreen` (`0040723d`) — [below](#quit) |
 
 **The menu first comes up at the end of a six-frame sequence.** The builder also puts a widget over the whole window (`DAT_0048d0c0`, built by `FUN_0040c85c` with handler `004311b8`) and hands it `dbm\bay2a_80` to `bay2a_84`, the last twice. Once that widget's `+0x6d` reaches 5 the handler hides it and calls `MainMenu_Show`, once only (`DAT_00473604`) ([Open](#open)).
+
+### QUIT
+
+**`QUIT` asks nothing and sets no exit code.** Its handler sets `DAT_0046c074`, the flag that ends the shell's main loop in `FUN_00401525`, and blanks the screen through `Shell_BlankScreen` (`0040723d`). Windowed, that zeroes the shell's bitmap and stretches a 10x10 corner of it over the window's client rect; full screen, it locks the primary surface and zeroes every row. Either way the whole window is palette index 0, strip included. `INSTANT ACTION` and `VIEW DEMO` blank the same way, but only full screen.
+
+The loop's exit is the same for every way out, `QUIT`, the launches and `WM_CLOSE` alike — `MainWndProc` (`00404a2c`) sets the same flag on `WM_CLOSE` once the loop is running (`DAT_0046c098`):
+
+```
+Game_SaveSlot(10, NULL)   // 0040e37b: the current-game autosave; nothing without a game in progress, slot 11 in training
+...                       // the screens torn down, ShellMap_ReleaseResources
+FUN_004092dc()            // FUN_0040dce1, ShellSound_Shutdown
+PostQuitMessage(0)
+```
+
+The startup (`FUN_00406507`) pumps messages until the `WM_QUIT` arrives, releases DirectDraw (`FUN_00407011`) and returns `0046e210` as the shell's exit code. `FUN_00401525` zeroed that store right after copying the `-X` code out of it, and `QUIT` leaves it alone, so the shell exits with 0 and `ES.EXE` ends ([`../command-line.md`](../command-line.md#exit-codes)).
 
 ## The practice missions screen
 
@@ -1130,7 +1145,7 @@ Elsewhere:
 | `MainWndProc`, `WM_KILLFOCUS` | `ShellSound_Stop` |
 | `maybe_Mission_UpdateLocationTab` (`0044409f`), stage 5 | `ShellSound_FadeOut` and `ShellSound_Stop` after enqueuing the stage's movie |
 | `ONLINE MANUAL` (`004317ea`) | `ShellSound_Stop` before opening the help file |
-| the usage and version exit (`FUN_004092dc`) and the insert-CD failure in `Movie_PlayQueue` | `ShellSound_Shutdown` |
+| `FUN_004092dc`, which the [main loop's exit](#quit) and the usage and version exit call, and the insert-CD failure in `Movie_PlayQueue` | `ShellSound_Shutdown` |
 
 **There is one backdrop for the whole shell.** `0046dcd4` is written exactly once, by this init, and all eight screen builders pass that same handle as their root's image. So a screen that installs `arming.dpl` is drawing `bay2a_84` through a palette that is not its own. On the tab screens only the strip row ever shows it, and the backdrop's top 30 rows are black: everything below the strip is covered by [the palette scope's fill](#the-palette).
 
@@ -1189,7 +1204,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** what the build screen's `SCRAP` gate, `ScrapDialog_Show` and `Hangar_ScrapSelected` do with no bay selected, where each reads the third squad-member pointer at `00482abf` as [the bay's machine](#scrapping-and-building-are-gated-on-the-bay). A roster click selects one of the eight bays, but the crew tab can leave `-1` selected for the build tab to open on. The repair tab reaches `-1` when no bay holds a finished machine, and there `Repair_RefreshDetail`'s gates and all three of [its handlers](#repairing-and-cancelling) read the same pointer, `CANCEL` copying a stale status block through it.
 - **Open:** whether the scrap dialog keeps clicks off the screen beneath it. Its window covers the display and is built after every tab screen, so it would be hit first; but `Window_Ctor` leaves it visible and nothing hides it before the dialog is first shown, so an unhidden full-display window would block the shell from startup, and something in the hit test not yet read must account for it.
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked.
-- **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.
+- **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — `RESTORE`'s slot-10 autosave and career-file copies, and the slot-10 autosave at [the main loop's exit](#quit). The shell has no save writer and no keyboard input into an edit field.
 - **Open:** the edit field's keyboard handling past its dispatch. Keystrokes reach the row as the pointer's target ([Saving is a rename](#saving-is-a-rename)). `EditField_HandleEvent` passes a key (event `0x40`) to `FUN_0040bdd2` while `+0xbf` is set, acts on a command (`0x100`) only while `+0xbf` and `+0xa7` are both set — backspace (1) and the left arrow (4) both call `FUN_0040be56`, and Enter (`0x0a`) releases the lock and the focus — and hands every key and command on to the row's handler. Unread: which event `004377d2` posts at the row, how the permitted-character set at `+0x9f` filters (the full string is unread past `"…qrstu"`), whether the `" 3. "` prefix can be deleted, and what the row's handler does with a key — whether one commits or abandons the rename.
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
@@ -1199,7 +1214,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
-- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s, `PRACTICE MISSIONS`' and `PREFERENCES`' ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up, with [its switch sound](#what-plays-each-sound). `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
+- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s, `PRACTICE MISSIONS`', `PREFERENCES`' and `QUIT`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up, with [its switch sound](#what-plays-each-sound). `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
 - **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.
 - **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0044cecf`, which `CONTINUE GAME` calls, does.
 - **Unported:** the campaign/training mode writes of `INSTANT ACTION`, `START NEW GAME` and `CONTINUE GAME` — `FUN_0040e69e`, which `SAVE/RESTORE` and `PRACTICE MISSIONS` reach here too.

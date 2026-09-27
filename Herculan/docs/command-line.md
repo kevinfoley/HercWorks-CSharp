@@ -41,7 +41,7 @@ The state word at `00402070` (ES.EXE) starts at 1 and is replaced by each child'
 
 | Code | Set by | Meaning to `ES.EXE` |
 |---|---|---|
-| 0 | the shell quitting; DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does | quit |
+| 0 | the shell quitting ([`QUIT`](shell/screen-layout.md#quit) or closing its window); DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does | quit |
 | 2 | VSHELL `Shell_SetExitCode(2)` (`0040876a`) — the mission launch paths, including `Msn_BuildPath` (`0044d5bd`, VSHELL) | fly a mission |
 | 3 | DBSIM at mission end | shell, into the debrief |
 | 4 | DBSIM in place of 3 when the player's machine has `+0x99` set and `MissionModeFlag` (`004a9ed6`) is up | shell, into the debrief |

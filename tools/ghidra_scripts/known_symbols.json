@@ -18684,6 +18684,15 @@
       "source": "docs/command-line.md#exit-codes"
     },
     {
+      "address": "0040723d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_BlankScreen",
+      "description": "Fills the window with palette index 0: windowed, zeroes the shell bitmap and StretchBlts 10x10 of it over the client rect; full screen (DAT_00481e68), locks the primary surface and zeroes every row. QUIT's handler calls it.",
+      "source": "docs/shell/screen-layout.md#quit"
+    },
+    {
       "address": "0040877f",
       "binary": "VSHELL",
       "type": "function",

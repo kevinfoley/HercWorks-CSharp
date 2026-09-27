@@ -4,7 +4,7 @@ using Herculan.Engine.Content;
 namespace Herculan.Engine.Shell;
 
 /// <summary>
-/// VSHELL's sound: the shell music and the two click sounds, out of <c>SHLSOUND.VOL</c>, with the
+/// VSHELL's sound: the shell music, the two click sounds and the startup switch, out of <c>SHLSOUND.VOL</c>, with the
 /// gates, the fade and the focus stop the original puts round them
 /// (docs/shell/screen-layout.md#sound).
 ///
@@ -37,6 +37,7 @@ public sealed class ShellSound {
 	private readonly SimulatorPreferences _options;
 	private readonly int _press;
 	private readonly int _tabClick;
+	private readonly int _switch;
 	private readonly int _music;
 	private int _musicPlay = -1;
 
@@ -46,11 +47,13 @@ public sealed class ShellSound {
 	private bool _fadingOut;
 	private long _lastFadeStep;
 
-	private ShellSound(IAudioBackend backend, SimulatorPreferences options, int press, int tabClick, int music) {
+	private ShellSound(IAudioBackend backend, SimulatorPreferences options, int press, int tabClick, int @switch,
+			int music) {
 		_backend = backend;
 		_options = options;
 		_press = press;
 		_tabClick = tabClick;
+		_switch = @switch;
 		_music = music;
 	}
 
@@ -77,7 +80,8 @@ public sealed class ShellSound {
 
 	/// <summary>
 	/// The sound manager's setup, <c>ShellSound_Init</c> (<c>0042ec7c</c>): <c>hmi\gm_69.wav</c> the
-	/// press sound, <c>hmi\bptlt2.wav</c> the tab click, and <c>hmi\shell1.wav</c> while option 5 is non-zero or
+	/// press sound, <c>hmi\bptlt2.wav</c> the tab click, <c>hmi\lswitch2.wav</c> the startup switch, and
+	/// <c>hmi\shell1.wav</c> while option 5 is non-zero or
 	/// <c>hmi\shell2.wav</c> while it is 0 for the music, looping forever at volume 0. A missing sample
 	/// plays nothing. Flipping option 5 afterwards is the caller's, as it is the setup's in the original.
 	/// </summary>
@@ -87,7 +91,8 @@ public sealed class ShellSound {
 		ArgumentNullException.ThrowIfNull(options);
 
 		string musicName = options[MusicTrackOption] != 0 ? "shell1.wav" : "shell2.wav";
-		return new ShellSound(backend, options, Sample("gm_69.wav"), Sample("bptlt2.wav"), Sample(musicName)) {
+		return new ShellSound(backend, options, Sample("gm_69.wav"), Sample("bptlt2.wav"),
+			Sample("lswitch2.wav"), Sample(musicName)) {
 			MusicName = musicName,
 		};
 
@@ -200,6 +205,12 @@ public sealed class ShellSound {
 	/// as <see cref="PlayPress"/> is.
 	/// </summary>
 	public void PlayTabClick() => Play(_tabClick);
+
+	/// <summary>
+	/// <c>ShellSound_PlaySwitch</c> (<c>0042ef15</c>), the switch the startup sequence opens with, gated as
+	/// <see cref="PlayPress"/> is.
+	/// </summary>
+	public void PlaySwitch() => Play(_switch);
 
 	private void Play(int sample) {
 		if (Active && _options[SimulatorPreferences.SoundsOption] != 0) {

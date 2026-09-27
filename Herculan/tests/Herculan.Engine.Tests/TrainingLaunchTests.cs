@@ -51,8 +51,8 @@ public class TrainingLaunchTests {
 		}
 
 		string directory = Path.Combine(Path.GetTempPath(), "herculan-tests", nameof(ReproducesTheRetailTrainingHandoff));
-		var handoff = ShellTrainingLaunch.Write(directory, content, options, StrikeTrainingRow, random,
-			new short[MissionGenerator.ClearListLength], out string? failure);
+		var handoff = ShellTrainingLaunch.Write(directory, content, options, StrikeTrainingRow, instantAction: false,
+			random, new short[MissionGenerator.ClearListLength], out string? failure);
 
 		Assert.True(handoff != null, failure);
 		Assert.Equal(@"MSN\TRAIN5.MSN", handoff.MissionPath);

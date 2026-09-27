@@ -401,16 +401,24 @@ if (installRoot == null) {
 // zone, no simulation, no fixed timestep. See ShellHost.
 // Rock & Roll closes the shell and hands back a mission, which then runs here as a positional one would:
 // the retail launcher's own answer to the shell's exit code 2. Its handoff sits in a scratch folder, so
-// the simulator's settings are still the install's.
+// the simulator's settings are still the install's. VIEW DEMO's exit code 5 is answered as the launcher
+// answers it, with -D: a demo tape.
 ShellLaunch? shellLaunch = null;
 if (runShell) {
 	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay, shellPractice,
 		silentAudio, writePreferences, shellWindowed);
-	if (launched == null) {
+	if (launched != null) {
+		shellLaunch = launched;
+	} else if (shellExit == ShellHost.DemoExitCode) {
+		if (recordTape != null) {
+			Console.Error.WriteLine("--record cannot be combined with VIEW DEMO's tape.");
+			return 1;
+		}
+
+		demoTape = true;
+	} else {
 		return shellExit;
 	}
-
-	shellLaunch = launched;
 }
 
 // --movie shares even less: no archives, no zone, no shell art — one file and a quad. See MovieHost.

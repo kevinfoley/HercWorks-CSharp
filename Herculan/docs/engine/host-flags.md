@@ -33,10 +33,10 @@ All of these imply `--shell`.
 
 | Flag | Effect |
 |---|---|
-| `--shell-tab <0-7>` | The tab the front end opens on, in place of the main menu. |
+| `--shell-tab <0-7>` | The tab the front end opens on, in place of the main menu and the startup sequence before it. |
 | `--shell-bay <0-7>` | The hangar bay the repair tab works on. |
 | `--shell-training` | Runs the front end in training mode, the practice missions' and `INSTANT ACTION`'s, which gates REPAIR, BUILD and ARMORY off. |
-| `--shell-practice` | Opens on the practice missions screen, as the main menu's PRACTICE MISSIONS does. |
+| `--shell-practice` | Opens on the practice missions screen, as the main menu's PRACTICE MISSIONS does, without the startup sequence. |
 | `--shell-windowed` | Keeps the front end windowed at startup, where `data\prefs.cfg` option 6 would put it in full screen. This engine's own flag; retail's `-d` has no effect ([`shell/screen-layout.md`](../shell/screen-layout.md#full-screen-asks-first)). |
 | `--shell-palette <name>` | Pins `dpl\<name>.DPL` as the palette for the whole run, in place of each tab's own. |
 
@@ -57,7 +57,7 @@ See [`formats/audio.md`](../formats/audio.md#cd-audio).
 
 | Flag | Effect |
 |---|---|
-| `--no-write-prefs` | Leaves `data\prefs.cfg` unwritten: when the preferences and controls panels close, and in the shell at startup and on `Begin Mission`. See [`simulation/preferences.md`](../simulation/preferences.md) and [`shell/screen-layout.md`](../shell/screen-layout.md#sound). |
+| `--no-write-prefs` | Leaves `data\prefs.cfg` unwritten: when the preferences and controls panels close, and in the shell at startup, on a change of campaign or training mode, and on `Begin Mission` and `INSTANT ACTION`. See [`simulation/preferences.md`](../simulation/preferences.md) and [`shell/screen-layout.md`](../shell/screen-layout.md#sound). |
 | `--joystick [0-8]` | Pretends a stick with throttle, rudder and hat is attached, so the CONTROLS panel's joystick rows are live without hardware. The number sets how many of the eight button rows are live; without it, all eight. A real stick, when one is attached, takes precedence. |
 | `--joystick-probe` | Prints each axis and button of the attached stick as it moves. |
 | `--write-joystick-map` | Writes the joystick map in force to `data\herculan-joystick.cfg`. |
@@ -72,7 +72,7 @@ See [`joystick-config.md`](joystick-config.md).
 
 ## Screenshots and staged state
 
-`--screenshot <file>` renders 30 frames, captures the window to `<file>` and exits. It works for a mission, `--shell` and `--movie`, and hides the menu bar. A screenshot run sees no keyboard or mouse input, so the flags below put the cockpit into the state to be photographed at power-up; they work in an interactive run too.
+`--screenshot <file>` renders 30 frames, captures the window to `<file>` and exits. It works for a mission, `--shell` and `--movie`, and hides the menu bar. A `--shell` capture opens on the main menu without its startup sequence. A screenshot run sees no keyboard or mouse input, so the flags below put the cockpit into the state to be photographed at power-up; they work in an interactive run too.
 
 Several of them hold the capture past the 30 frames until what they stage is on screen:
 

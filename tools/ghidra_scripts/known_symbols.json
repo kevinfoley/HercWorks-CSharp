@@ -19546,6 +19546,240 @@
       "name": "ShellSound_SwitchSample",
       "description": "Sample handle of hmi\\lswitch2.wav.",
       "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "004311b8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StartupAnim_OnTick",
+      "description": "Handler of the startup sequence widget (DAT_0048d0c0), run on every alarm tick: plays ShellSound_PlaySwitch on its first run (DAT_00473608) and, once the widget's +0x6d reaches 5, hides it and calls MainMenu_Show, once only (DAT_00473604); with DAT_0046c088 set also puts up the Performance Note message box.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0040c85c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimWidget_Ctor",
+      "description": "esanim2.cpp. Window subclass (vtable 0046eec4) holding up to ten frame bitmaps at +0x45, the frame count at +0x71 and the current frame at +0x6d; adds 0x200 (timer) to the event mask.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0040c8b3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimWidget_HandleEvent",
+      "description": "esanim2.cpp. Event 1 (show): 500/500 ms alarm, DAT_0046c098 = 0. Event 2 (hide): alarm removed, frames freed, DAT_0046c098 = 1. Event 4: paints the current frame. Event 0x200 while not hidden: +0x6d advanced modulo the frame count, painted, then Widget_DispatchCallback.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0040ca06",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimWidget_AddFrame",
+      "description": "esanim2.cpp. Appends one bitmap to the widget's frame array and counts it.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0040ca1b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimWidget_Paint",
+      "description": "esanim2.cpp. Widget_BeginPaint, then draws frame +0x6d through the bitmap's vtable slot 0x1c.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "004312a6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnInstantAction",
+      "description": "INSTANT ACTION's handler: DAT_0047363c = 1, FUN_0040e69e(0), InstantAction_SelectDemo, blank (full screen) or palette scope show/hide, Game_NewCareer(\"TRAINEE\", option 0x27), Game_ExportMissionHandoff, Shell_SetExitCode(2), DAT_0046c074 = 1.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "00431379",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnStartNewGame",
+      "description": "START NEW GAME's handler: MainMenu_Hide, FUN_0040e69e(1), Registration_Show.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043150c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnPreferences",
+      "description": "PREFERENCES' handler: MainMenu_Hide, PreferencesScreen_Enter.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043156f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnViewDemo",
+      "description": "VIEW DEMO's handler: Shell_BlankScreen when full screen, Shell_SetExitCode(5), DAT_0046c074 = 1.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "004315ec",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnCredits",
+      "description": "CREDITS' handler: shows the bare window DAT_0048d0c4, plays movie 0x54 through Movie_Enqueue and Movie_PlayQueue, hides it.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "00431727",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnQuit",
+      "description": "QUIT's handler: DAT_0046c074 = 1, Shell_BlankScreen.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043178c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnOnlineManual",
+      "description": "ONLINE MANUAL's handler: OnlineManual_Open.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "004317ea",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "OnlineManual_Open",
+      "description": "Leaves full screen, option 6 = 0, commit, save all, ShellSound_Stop, then Shell_OpenHelp on <language>\\es2guide.hlp by the language letter E/F/G.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "004318ab",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MainMenu_OnPracticeMissions",
+      "description": "PRACTICE MISSIONS' handler: MainMenu_Hide, PracticeScreen_Show, FUN_0040e69e(0).",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "004073a2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_OpenHelp",
+      "description": "WinHelpA(main window, path, HELP_CONTENTS, 0).",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0040e69e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_SetCampaignMode",
+      "description": "(mode): CampaignModeFlag = mode, prefs option 0x2a = mode without its handler, then that option alone saved (FUN_0040d9d8(0x2a)).",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043bc0a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_Show",
+      "description": "START NEW GAME's screen: shows DAT_0048d494, DAT_0048d498 and DAT_0048d49c, posts a press to the name field DAT_0048d4a8 and locks the pointer on it.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043bf1b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_OnAccept",
+      "description": "Registration ACCEPT: Game_NewCareer(typed name, RegistrationSkillChoice), Stats_StageCurrentGame(10), then relights DAT_0048d3ac.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0043bd15",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_StepSkill",
+      "description": "Steps RegistrationSkillChoice modulo 4 and rewrites its readout from estext.bin 0x35 + skill.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0044cc2c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EndOfGame_Build",
+      "description": "Builds CONTINUE GAME's END OF GAME ESAlert {0xcf,0xcb,0x1b4,0x12a} (DAT_0048dbd8), its two text lines and OKAY.",
+      "source": "docs/shell/screen-layout.md#end-of-game"
+    },
+    {
+      "address": "0044cecf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EndOfGame_Show",
+      "description": "(state): first line from the game state (0 0x130, 1 0x131, 3 0x12f; any other left as it was), then Alert_Show.",
+      "source": "docs/shell/screen-layout.md#end-of-game"
+    },
+    {
+      "address": "0044cf6e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EndOfGame_Hide",
+      "description": "Alert_Hide on the END OF GAME alert.",
+      "source": "docs/shell/screen-layout.md#end-of-game"
+    },
+    {
+      "address": "0044cf7b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EndOfGame_OnOkay",
+      "description": "OKAY's handler: EndOfGame_Hide.",
+      "source": "docs/shell/screen-layout.md#end-of-game"
+    },
+    {
+      "address": "0048d0c0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "StartupAnimWidget",
+      "description": "The startup sequence widget MainMenu_BuildScreen builds over the whole window, frames dbm\\bay2a_80 to bay2a_84, the last twice.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0046c098",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_CloseAllowed",
+      "description": "Set before the main loop and by the startup widget's hide, cleared by its show. WM_CLOSE and the display hotkeys are ignored while it is clear.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0047363c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "InstantAction_Active",
+      "description": "Set by INSTANT ACTION's handler; MsnGen_BuildPlayerHerc gives the player the mission's own machine while it is set.",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission"
     }
   ]
 }

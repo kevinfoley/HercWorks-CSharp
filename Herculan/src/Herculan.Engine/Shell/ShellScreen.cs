@@ -158,12 +158,11 @@ public sealed class ShellScreen {
 	/// latching tab's handler then writes its own back to 1 and repaints it. Out-of-range indices are
 	/// ignored.
 	///
-	/// <para><b>The save tab hides the strip.</b> Its handler calls <c>0043b23d</c>, which hides the
-	/// strip's parent panel, so the save screen stands alone and its own EXIT and RESTORE are the only
-	/// way off it; both end in <see cref="ReturnToFrame"/>. The main menu's handler hides it the same
-	/// way, and here it does not: of the menu's buttons only SAVE/RESTORE acts, so hiding the strip would
-	/// leave RESTORE of a written slot as the only way to the other tabs. That is this engine's choice,
-	/// not the original's.</para>
+	/// <para><b>The main menu and the save tab hide the strip.</b> Their handlers call <c>0043b23d</c>,
+	/// which hides the strip's parent panel, so each screen stands alone and is left only through its
+	/// own buttons; the ones that reach the other tabs end in <see cref="ReturnToFrame"/>. The shell also
+	/// starts with the strip hidden, since <c>ServiceBay_BuildScreen</c> hides its panel as it builds it,
+	/// so a frame built on the main menu has none.</para>
 	/// </summary>
 	public void SelectTab(int index) {
 		if (index < 0 || index >= ShellLayout.TabCount) {
@@ -171,7 +170,7 @@ public sealed class ShellScreen {
 		}
 
 		SelectedTab = index;
-		StripVisible = index != SaveTab;
+		StripVisible = index >= FirstLatchingTab;
 		foreach (var button in _buttons) {
 			button.Lit = false;
 			button.Repaint();
@@ -182,13 +181,6 @@ public sealed class ShellScreen {
 			tab.Repaint();
 		}
 	}
-
-	/// <summary>
-	/// Hides the strip without changing the tab — the state the main menu's handler leaves it in, and
-	/// the one the practice screen stands in, since it is reached from the menu and left only through
-	/// its own <c>Main Menu</c> button. <see cref="SelectTab"/> puts it back.
-	/// </summary>
-	public void HideStrip() => StripVisible = false;
 
 	/// <summary>
 	/// Puts the bare frame back up with no tab current — the pair the save screen's EXIT and RESTORE

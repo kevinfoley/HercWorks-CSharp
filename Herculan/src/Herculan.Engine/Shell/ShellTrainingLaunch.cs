@@ -7,13 +7,14 @@ using Herculan.Engine.World;
 namespace Herculan.Engine.Shell;
 
 /// <summary>
-/// What the practice screen's <c>Begin Mission</c> hands the simulator: the <c>script.dat</c> written
+/// What the practice screen's <c>Begin Mission</c>, or <c>INSTANT ACTION</c>, hands the simulator: the <c>script.dat</c> written
 /// beside the rest of the handoff, the mission it came from, and the career it was built for.
 /// </summary>
 public sealed record ShellTrainingHandoff(string ScriptPath, string MissionPath, ShellHangar Hangar, int SquadPositions);
 
 /// <summary>
-/// <c>Begin Mission</c>'s path from the button to the simulator, in training mode: a new career
+/// <c>Begin Mission</c>'s path from the button to the simulator, in training mode, which
+/// <c>INSTANT ACTION</c> takes too on a row past the list: a new career
 /// (<c>Game_NewCareer</c>, <c>0040e2ed</c>) on stage 0 at the lit row, that mission loaded
 /// (<c>MsnGen_LoadMission</c>, <c>0041c73d</c>) with the squad built from its own group 0, and the
 /// handoff exported (<c>Game_ExportMissionHandoff</c>, <c>0040f0d4</c>). The sequence is
@@ -67,9 +68,10 @@ public static class ShellTrainingLaunch {
 	/// Builds and writes the handoff into <paramref name="directory"/>, or returns null with the reason
 	/// when the install lacks a file the original would open. <paramref name="clearList"/> is the row-2
 	/// clear list the shell keeps across loads (<see cref="MissionGenerator.Load"/>).
+	/// <paramref name="instantAction"/> is <c>DAT_0047363c</c>, which <c>INSTANT ACTION</c> sets.
 	/// </summary>
 	public static ShellTrainingHandoff? Write(string directory, GameContent content, SimulatorPreferences options,
-			int row, SimRandom random, short[] clearList, out string? failure) {
+			int row, bool instantAction, SimRandom random, short[] clearList, out string? failure) {
 		int Roll(short bound) => random.NextBelow(bound);
 
 		if (MissionPath(content, row) is not { } missionPath) {
@@ -118,7 +120,7 @@ public static class ShellTrainingLaunch {
 
 		// FUN_0041c58d: the first four rows, and INSTANT ACTION, fly group 0's first member; the rest fly
 		// a stock fit of the chassis the Herc Type option holds.
-		var player = row < FirstChosenChassisRow
+		var player = row < FirstChosenChassisRow || instantAction
 			? Machine(mission.Herc(mission.SquadMember(0)))
 			: StockFit(content, options[ShellPracticeScreen.HercTypeOption]);
 		if (player != null) {

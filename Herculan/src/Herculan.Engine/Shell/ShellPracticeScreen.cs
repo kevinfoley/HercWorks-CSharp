@@ -108,13 +108,25 @@ public sealed class ShellPracticeScreen {
 
 	/// <summary>
 	/// The chassis each row writes into <see cref="HercTypeOption"/> when it is selected — the low byte of
-	/// each of the eight <c>int16</c>s at <c>00479bba</c>, which <c>0044bd7c</c> reads as a byte at
-	/// <c>row * 2</c>.
+	/// each <c>int16</c> at <c>00479bba</c>, which <c>0044bd7c</c> reads as a byte at <c>row * 2</c>. The
+	/// eight practice rows, then the three <c>INSTANT ACTION</c> plays past them.
 	/// </summary>
-	private static readonly byte[] RowChassis = { 0, 0, 1, 8, 4, 2, 7, 3 };
+	private static readonly byte[] RowChassis = { 0, 0, 1, 8, 4, 2, 7, 3, 5, 7, 3 };
+
+	/// <summary>
+	/// How many rows <see cref="SelectRow"/> takes: the eight on the list and <c>INSTANT ACTION</c>'s three,
+	/// stage 0 of <c>gam\career.dat</c> in order.
+	/// </summary>
+	public const int SelectableRowCount = 11;
 
 	/// <summary>The first row whose Herc Type is the player's choice; rows above it grey the label out.</summary>
 	private const int FirstChassisChoiceRow = 4;
+
+	/// <summary>
+	/// Herc Type's enable flag, which <see cref="SelectRow"/> writes for a listed row and leaves alone for
+	/// the three past the list.
+	/// </summary>
+	private bool _hercTypeEnabled;
 
 	private readonly SimulatorPreferences _options;
 
@@ -140,10 +152,17 @@ public sealed class ShellPracticeScreen {
 	/// the new one is lit <c>0x29</c>, <c>Herc Type</c> is greyed for rows 0-3 and lit from 4, and the
 	/// row's chassis is written into option 40 — whatever Herc Type was stepped to before. Returns
 	/// whether the selection moved.
+	///
+	/// <para>A row past the list, which only <c>INSTANT ACTION</c> selects, puts the old row out, lights
+	/// none and leaves Herc Type's greying as it was; its chassis still goes into option 40.</para>
 	/// </summary>
 	public bool SelectRow(int row) {
-		if (row == SelectedRow || row < 0 || row >= RowCount) {
+		if (row == SelectedRow || row < 0 || row >= SelectableRowCount) {
 			return false;
+		}
+
+		if (row < RowCount) {
+			_hercTypeEnabled = row >= FirstChassisChoiceRow;
 		}
 
 		SelectedRow = row;
@@ -176,7 +195,7 @@ public sealed class ShellPracticeScreen {
 	/// <c>0044bd7c</c> writes on it for rows 0-3, whose missions bring their own machine.
 	/// </summary>
 	public bool IsEnabled(ShellPracticeButton button) =>
-		button != ShellPracticeButton.HercType || SelectedRow >= FirstChassisChoiceRow;
+		button != ShellPracticeButton.HercType || _hercTypeEnabled;
 
 	/// <summary>One practice row's rect, in the canvas.</summary>
 	public static ShellRect RowRect(int row) {
@@ -265,7 +284,7 @@ public sealed class ShellPracticeScreen {
 			}
 		}
 
-		if (SelectedRow >= 0) {
+		if (SelectedRow is >= 0 and < RowCount) {
 			PaintRow(surface, font, text, SelectedRow);
 		}
 	}

@@ -158,6 +158,13 @@ public sealed class ShellArt {
 			&& new DynamixBitmapArrayTransformer().Parse(bytes) is DynamixBitmapArray { Images: { } images }
 			? images : null;
 
+	/// <summary>
+	/// One <c>dbm\</c> bitmap decoded through this art's palette, as the backdrop is, or null when it is
+	/// missing — the startup sequence's frames (<see cref="ShellStartupSequence.FrameNames"/>).
+	/// </summary>
+	public ShellImage? LoadBitmap(GameContent content, string name) =>
+		LoadImage(content, BitmapFolder, name + ".DBM", Palette);
+
 	private static DynamixPalette? ReadPalette(GameContent content, string name) =>
 		content.Read("dpl", name + ".DPL") is { } bytes
 			? new DynamixPaletteTransformer().Parse(bytes) as DynamixPalette

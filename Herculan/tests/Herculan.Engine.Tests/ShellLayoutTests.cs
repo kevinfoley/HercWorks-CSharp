@@ -112,7 +112,7 @@ public class ShellLayoutTests {
 	/// <summary>The frame's buttons answer for their own rects and for nothing between them.</summary>
 	[Fact]
 	public void HitTestPicksTheButtonUnderThePoint() {
-		var screen = ShellScreen.CreateFrame(null);
+		var screen = ShellScreen.CreateFrame(null, ShellScreen.WeaponsTab);
 
 		Assert.Equal(ShellScreen.MenuButtonId, ButtonIdAt(screen, 10, 10));
 		Assert.Equal(0, ButtonIdAt(screen, ShellLayout.Tab(0).X0, ShellLayout.TabTop));
@@ -145,7 +145,7 @@ public class ShellLayoutTests {
 	/// </summary>
 	[Fact]
 	public void TabFiresOnTheLeftPress() {
-		var screen = ShellScreen.CreateFrame(null);
+		var screen = ShellScreen.CreateFrame(null, ShellScreen.WeaponsTab);
 		var pointer = new ShellPointer(screen);
 		var tab = ShellLayout.Tab(3);
 		var fired = new List<int>();
@@ -166,14 +166,14 @@ public class ShellLayoutTests {
 	/// </summary>
 	[Fact]
 	public void TabFiresOnTheRightRelease() {
-		var screen = ShellScreen.CreateFrame(null);
+		var screen = ShellScreen.CreateFrame(null, ShellScreen.WeaponsTab);
 		var pointer = new ShellPointer(screen);
 		var tab = ShellLayout.Tab(4);
 		void Fire(ShellWidget widget) => screen.SelectTab(widget.Index);
 
 		pointer.Move(screen.HitAt(tab.X0 + 1, tab.Y0 + 1));
 		pointer.Press(ShellMouseButton.Right, Fire);
-		Assert.Equal(0, screen.SelectedTab);
+		Assert.Equal(ShellScreen.WeaponsTab, screen.SelectedTab);
 
 		pointer.Move(screen.HitAt(320, ShellLayout.CanvasHeight - 1));
 		pointer.Move(screen.HitAt(tab.X0 + 1, tab.Y0 + 1));

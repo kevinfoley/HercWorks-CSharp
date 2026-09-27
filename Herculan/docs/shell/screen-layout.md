@@ -61,6 +61,8 @@ Every tab has its own handler, and the eight are the same function with three or
 
 Tabs 0 and 1 take a different route to their palette: instead of `0043b162` they call `00439da0(1)` directly and then `0043b23d`, which **hides** the frame's root (`0048d440`) and the full-screen panel (`0048d448`) and installs palette 1 itself. Every strip button is that panel's child, so the strip goes with it: the main menu and the save screen each stand alone over their own backdrop-textured root, and are left only through their own buttons. The save screen's way back is [its EXIT and RESTORE](#leaving-the-save-screen), which undo exactly this.
 
+**The shell starts with the strip hidden too.** `ServiceBay_BuildScreen` hides the full-screen panel as it builds it, and the frame's root is an image panel, which is [born hidden](#showing-and-hiding-a-widget), so nothing of the frame shows until something runs `0043b162(8)` and the strip refresh: RESTORE, EXIT back to the strip, `CONTINUE GAME` or a campaign mission's load.
+
 Returning to the main menu **autosaves**: `Game_SaveSlot(10, NULL)` is the first thing tab 0's handler does after the teardown, and slot 10 is the campaign-or-training current-game slot ([`../formats/save-games.md`](../formats/save-games.md)).
 
 ## The tab gate
@@ -259,18 +261,35 @@ What the handlers call, as read:
 
 | Button | Calls |
 |---|---|
-| `INSTANT ACTION` | `DAT_0047363c = 1`, `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
-| `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a` |
-| `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, `FUN_0044cecf(DAT_0048260e)` otherwise |
+| `INSTANT ACTION` | `DAT_0047363c = 1`, `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), the screen blanked full screen or the palette scope shown and hidden in a window, `Game_NewCareer("TRAINEE", option 0x27)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
+| `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a`, which shows the registration screen's three widgets (`DAT_0048d494`, `DAT_0048d498`, `DAT_0048d49c`), posts a press to its name field and locks the pointer on it. Its `ACCEPT` (`0043bf1b`) calls `Game_NewCareer` with the typed name and the skill `0043bd15` steps modulo 4, then `Stats_StageCurrentGame(10)` |
+| `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, [the END OF GAME alert](#end-of-game) otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
-| `ONLINE MANUAL` | `004317ea`: `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
+| `ONLINE MANUAL` | `004317ea`: out of full screen, option 6 set to 0, committed and all 54 saved, `ShellSound_Stop`, then `WinHelpA(window, path, HELP_CONTENTS, 0)` (`FUN_004073a2`) on `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
 | `PRACTICE MISSIONS` | `MainMenu_Hide`, `PracticeScreen_Show` (`0044bc92`), `FUN_0040e69e(0)` — [the practice screen](#the-practice-missions-screen) |
 | `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` — [the preferences screen](#the-preferences-screen) |
-| `VIEW DEMO` | `Shell_SetExitCode(5)`, `DAT_0046c074 = 1` |
+| `VIEW DEMO` | the screen blanked full screen, `Shell_SetExitCode(5)`, `DAT_0046c074 = 1` |
 | `CREDITS` | shows a bare window (`DAT_0048d0c4`) and plays movie `0x54` through `Movie_Enqueue` and `Movie_PlayQueue`, then hides it |
 | `QUIT` | `DAT_0046c074 = 1`, `Shell_BlankScreen` (`0040723d`) — [below](#quit) |
 
-**The menu first comes up at the end of a six-frame sequence.** The builder also puts a widget over the whole window (`DAT_0048d0c0`, built by `FUN_0040c85c` with handler `004311b8`) and hands it `dbm\bay2a_80` to `bay2a_84`, the last twice. Once that widget's `+0x6d` reaches 5 the handler hides it and calls `MainMenu_Show`, once only (`DAT_00473604`) ([Open](#open)).
+**`FUN_0040e69e(mode)` is the mode write.** It stores the campaign/training flag `DAT_0048260c`, sets `prefs.cfg` option 42 to it without running its handler, and saves that option alone, so the mode survives a restart ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). The strip is hidden while the menu is up, and the tab gate follows the new mode at the next strip refresh.
+
+**The menu first comes up at the end of a six-frame sequence.** The builder also puts a widget over the whole window (`DAT_0048d0c0`, class `FUN_0040c85c` from `esanim2.cpp`, vtable `0046eec4`) and adds `dbm\bay2a_80` to `bay2a_84` to it, the last twice (`FUN_0040ca06`). The startup shows it once its movies are done, after blanking the screen and installing palette 1, and nothing shows the menu before it. The class's event handler, `FUN_0040c8b3`, answers the show (event 1) by installing a 500 ms alarm and clearing `DAT_0046c098`, the flag [`WM_CLOSE`](#quit) and the display keys wait on, and paints the current frame on event 4. Each tick (event `0x200`) while the widget is not hidden advances `+0x6d`, wrapping at the frame count, paints that frame and runs the builder's handler, `004311b8`. That handler plays [the switch sound](#what-plays-each-sound) on its first run (`DAT_00473608`) and, once `+0x6d` reaches 5, hides the widget — whose hide (event 2) removes the alarm, frees the frames and sets `DAT_0046c098` — and calls `MainMenu_Show`, once only (`DAT_00473604`). So frame 0 goes up with the show, the switch sounds with frame 1 half a second later, and the menu comes up at 2.5 s over the same `bay2a_84` the last two frames show. The widget takes no mouse events, and no button is up until the menu is.
+
+When `DAT_0046c088` is set, the handler also puts up a `Performance Note` message box as the menu comes up, dropping out of full screen for it: *the game will default to 320x200 mode*. The startup sets that flag when, with option 47 clear, `Sierra.ini`'s `VideoSpeed` reads below 1000, then sets option 47 and saves, so the box can appear on one run only; a retail `prefs.cfg` ships option 47 set.
+
+### END OF GAME
+
+`CONTINUE GAME` goes on to the frame only for game state 2, the one [the debrief](campaign-loop.md#where-the-debrief-goes-next) leaves, which `Game_LoadSlot` reads into `DAT_0048260e`. For any other it calls `FUN_0044cecf(state)`, which writes the reason into the alert `FUN_0044cc2c` builds at startup and shows it over the menu, which stays up under it. The alert is the [launch refusal](#rock--roll)'s sibling, with a different rect and plate:
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| alert | `ESAlert`, in a window the size of the display | `{0xcf, 0xcb, 0x1b4, 0x12a}` | `0x12e` `END OF GAME`, border `0x15`, face `0x25`, plate `0x31`-`0xb3` |
+| first line | `Text` | `{0xc, 0x1e, 0xd6, 0x2b}` | by state: 0 `0x130` `The war is lost.`, 1 `0x131` `The cybrids were defeated.`, 3 `0x12f` `You have been killed.`; any other state leaves the line as it was, which the builder leaves on the empty entry 0 |
+| second line | `Text` | `{0xc, 0x2c, 0xd6, 0x39}` | `0x132` `Restore or start a new game.` |
+| `OKAY` | `Button` | `{0x41, 0x45, 0xa5, 0x54}` | `0x133`, border `0x22`; `FUN_0044cf7b` hides the alert |
+
+Both lines are centred in `0x29`. The game `CONTINUE GAME` loaded stays loaded either way. Unlike [RESTORE](#leaving-the-save-screen) it writes no autosave and leaves the campaign map's once-per-load flag (`DAT_004778aa`) as it was.
 
 ### QUIT
 
@@ -347,7 +366,7 @@ So a row click resets `Herc Type` to that mission's machine, whatever it was ste
 
 The row is the mission index. `FUN_00412a2f`, which puts a new career on its first mission, sets a training-mode career's position to stage 0, mission `DAT_00479bb8`, and stage 0 of `gam\career.dat` is `TRAIN1`-`TRAIN8` then `DEMO`, `DEMO_01` and `DEMO_02` ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — the eight rows in order, then three more.
 
-**`INSTANT ACTION` plays the three past the list.** `InstantAction_SelectDemo` (`0044befb`) calls `PracticeScreen_SelectRow(8 + option 0x2e)`: row 8, 9 or 10, which lights no row and writes the table's next three chassis, 5 `Apocalypse`, 7 `Maverick` and 3 `Samson`, into option `0x28`. It then steps option `0x2e` modulo 3 and saves the array, so successive `INSTANT ACTION`s play `DEMO`, `DEMO_01` and `DEMO_02` in turn, each in its own machine.
+**`INSTANT ACTION` plays the three past the list.** `InstantAction_SelectDemo` (`0044befb`) calls `PracticeScreen_SelectRow(8 + option 0x2e)`: row 8, 9 or 10, which puts the lit row out, lights none, leaves `Herc Type`'s greying as it was, and writes the table's next three chassis, 5 `Apocalypse`, 7 `Maverick` and 3 `Samson`, into option `0x28`. It then steps option `0x2e` modulo 3 and saves the array, so successive `INSTANT ACTION`s play `DEMO`, `DEMO_01` and `DEMO_02` in turn, each in its own machine.
 
 ### Starting a practice mission
 
@@ -1164,7 +1183,7 @@ A fade takes a step whenever more than 10 ms of `GetTickCount` have passed since
 | `ButtonIcon_HandleEvent` (`00409df2`), the strip and the mission screen's arrows | the left button going down | `+0x49`, `Shell_SoundEnabled`, `Avi_Playing`, `MovieQueue_Running` |
 | `0040a139`, the [checkbox](#the-preferences-screen) class `0040a100` builds (vtable `0046e9a0`) — the preferences screen's eleven, `PreferencesScreen_Build`'s only use of it | the left button going down | `+0x49`, `Shell_SoundEnabled` |
 
-Every other class is silent: rows, panels, grids, image panels, edit fields. A content button therefore sounds on the press and fires on the release, and sounds for a press that the pointer then drags off it. A mouse event's `+0x25` is 0 on every event the mouse itself queues: `MouseEvent_Ctor` (`00468cfc`) clears it and the queue's drain (`FUN_00408c4e`) does not write it ([Open](#open)).
+Every other class is silent: rows, panels, grids, image panels, edit fields. A content button therefore sounds on the press and fires on the release, and sounds for a press that the pointer then drags off it. A mouse event's `+0x25` is 0 on every event the mouse itself queues: `MouseEvent_Ctor` (`00468cfc`) clears it and the queue's drain (`FUN_00408c4e`) does not write it. `Career_StartMissionLoad` sets it to 1 on the press and release it posts to the mission-name dialog's `Use Default` ([Starting a practice mission](#starting-a-practice-mission)), so that click makes no sound.
 
 **A tab switch makes both sounds.** `ShellSound_PlayTabClick` is the last call of all eight tab handlers ([What a tab click does](#what-a-tab-click-does)), so a tab picked with the left button makes the press sound as it goes down and the click once its screen is up, and one picked with the right button, which goes through `Control_HandleEvent`, makes only the click. The square button makes the press sound and no click.
 
@@ -1235,7 +1254,6 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 - **Unported:** the shell's movies — `Movie_Enqueue`, `Movie_PlayQueue` and `Avi_Play` — and with them the [input gate while one plays](#input-while-a-movie-plays), the [hourglass](#the-pointer) while one loads, and the music's [fade out and stop before them](#what-plays-each-sound).
 - **Unported:** the pressed nudge of a content button's caption. `Button`'s paint (`00409b79`) moves the caption down while `+0x45` is lit and the button is enabled, as the strip's does.
-- **Open:** what writes a mouse event's `+0x25`, which silences `Button_HandleEvent`'s [press sound](#what-plays-each-sound) when set.
 - **Open:** what the build screen's `SCRAP` gate, `ScrapDialog_Show` and `Hangar_ScrapSelected` do with no bay selected, where each reads the third squad-member pointer at `00482abf` as [the bay's machine](#scrapping-and-building-are-gated-on-the-bay). A roster click selects one of the eight bays, but the crew tab can leave `-1` selected for the build tab to open on. The repair tab reaches `-1` when no bay holds a finished machine, and there `Repair_RefreshDetail`'s gates and all three of [its handlers](#repairing-and-cancelling) read the same pointer, `CANCEL` copying a stale status block through it.
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked.
 - **Unported:** the slot-11 autosave of a training career at [the main loop's exit](#quit). `Begin Mission` on the [practice screen](#starting-a-practice-mission) leaves the loop with `Game_NewCareer`'s game in progress, so retail writes it to `GAME_T.SAV`.
@@ -1245,7 +1263,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** which of the mission screen's report texts shows which figure. `FUN_0040f34c`, which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes ten of them.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
-- **Unported:** every main-menu button's action but `SAVE/RESTORE`'s, `PRACTICE MISSIONS`', `PREFERENCES`' and `QUIT`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up, with [its switch sound](#what-plays-each-sound). `INSTANT ACTION` is [Starting a practice mission](#starting-a-practice-mission)'s path with its own row and `DAT_0047363c` set.
+- **Unported:** three of [the main menu](#the-main-menu)'s buttons: `START NEW GAME`, whose `ACCEPT` starts a campaign career on stage 1's first mission; `CREDITS`, which is movie `0x54`; and `ONLINE MANUAL`'s `WinHelpA` call.
+- **Open:** the registration screen `START NEW GAME` opens — which function builds its widgets, and their layout.
+- **Unported:** the startup's `Performance Note` box ([The main menu](#the-main-menu)).
 - **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.
-- **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0044cecf`, which `CONTINUE GAME` calls, does.
-- **Unported:** the campaign/training mode writes of `INSTANT ACTION`, `START NEW GAME` and `CONTINUE GAME` — `FUN_0040e69e`, which `SAVE/RESTORE` and `PRACTICE MISSIONS` reach here too.

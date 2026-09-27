@@ -33,6 +33,8 @@ public sealed class ShellRenderer : IDisposable {
 	private GpuTexture? _content;
 	private int _contentWidth;
 	private int _contentHeight;
+	private GpuTexture? _backdropOverride;
+	private ShellImage? _backdropOverrideImage;
 
 	public ShellRenderer(GL gl, ShellArt art) {
 		_gl = gl;
@@ -67,6 +69,21 @@ public sealed class ShellRenderer : IDisposable {
 	}
 
 	/// <summary>
+	/// Draws <paramref name="image"/> in the backdrop's place, or the backdrop again for null — what the
+	/// startup sequence's full-window widget shows while nothing else is up
+	/// (<see cref="ShellStartupSequence"/>).
+	/// </summary>
+	public void SetBackdropOverride(ShellImage? image) {
+		if (ReferenceEquals(image, _backdropOverrideImage)) {
+			return;
+		}
+
+		_backdropOverride?.Dispose();
+		_backdropOverride = image == null ? null : new GpuTexture(_gl, image.Pixels, image.Width, image.Height);
+		_backdropOverrideImage = image;
+	}
+
+	/// <summary>
 	/// Draws <paramref name="screen"/> into the whole window. The caller clears first: the shell fills
 	/// the canvas but not the letterbox either side of it, and what shows there is the host's call.
 	/// </summary>
@@ -85,7 +102,7 @@ public sealed class ShellRenderer : IDisposable {
 
 		_vertices.Clear();
 		AddBackdrop(layout);
-		_shader.SetSamplerTexture("uTexture", _backdrop.Handle, 0);
+		_shader.SetSamplerTexture("uTexture", (_backdropOverride ?? _backdrop).Handle, 0);
 		_mesh.SubmitAndDraw(CollectionsMarshal.AsSpan(_vertices));
 
 		// The tab's content, over the backdrop and under the strip. It is one quad at canvas scale
@@ -120,7 +137,7 @@ public sealed class ShellRenderer : IDisposable {
 	/// somehow.
 	/// </summary>
 	private void AddBackdrop(ShellScreenLayout layout) {
-		var image = _art.Backdrop;
+		var image = _backdropOverrideImage ?? _art.Backdrop;
 		for (int y = 0; y < ShellLayout.CanvasHeight; y += image.Height) {
 			for (int x = 0; x < ShellLayout.CanvasWidth; x += image.Width) {
 				// The last tile on each axis is cut short rather than overhanging, so the canvas edge is
@@ -199,6 +216,7 @@ public sealed class ShellRenderer : IDisposable {
 		_mesh.Dispose();
 		_shader.Dispose();
 		_backdrop.Dispose();
+		_backdropOverride?.Dispose();
 		_sprites?.Dispose();
 		_content?.Dispose();
 	}

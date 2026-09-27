@@ -52,9 +52,13 @@ static class ShellHost {
 	private static string HandoffDirectory => Path.Combine(Path.GetTempPath(), "herculan-launch");
 
 	/// <summary>
-	/// Runs the front end until its window closes. Returns the exit code and, when <c>Rock &amp; Roll &gt;</c>
-	/// closed it, the mission to run — <c>FUN_0040876a(2)</c>, the code the retail launcher answers by
-	/// starting the simulator.
+	/// Runs the front end until its window closes. Returns the exit code and, when <c>Rock &amp; Roll &gt;</c>,
+	/// <c>Begin Mission</c> or <c>INSTANT ACTION</c> closed it, the mission to run — <c>FUN_0040876a(2)</c>,
+	/// the code the retail launcher answers by starting the simulator. <c>VIEW DEMO</c> closes it with
+	/// <see cref="DemoExitCode"/> and no mission.
+	///
+	/// <para>Retail ignores <c>WM_CLOSE</c> while the startup sequence runs (<c>DAT_0046c098</c> clear); this
+	/// window closes.</para>
 	/// </summary>
 	public static (int ExitCode, ShellLaunch? Launch) Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
@@ -141,6 +145,22 @@ static class ShellHost {
 				&& ShellArt.Load(content, PaletteFor(startTab)) is { } staged) {
 			art = staged;
 		}
+
+		// The startup sequence that first brings the main menu up, drawn through palette 1 as the startup
+		// installs it before showing the sequence. A run staged on another screen, or for a screenshot,
+		// starts without it — the staging flags are this engine's own.
+		var startup = startTab == ShellScreen.MainMenuTab && !startPractice && screenshotPath == null
+			? new ShellStartupSequence()
+			: null;
+		var startupFrames = startup == null
+			? Array.Empty<ShellImage?>()
+			: ShellStartupSequence.FrameNames.Select(name => art.LoadBitmap(content, name)).ToArray();
+
+		// The END OF GAME alert CONTINUE GAME puts up over the menu when the game it loaded is over, and
+		// INSTANT ACTION's DAT_0047363c, which nothing clears.
+		var endOfGame = new ShellEndOfGameDialog();
+		bool instantActionSet = false;
+		int exitCode = 0;
 
 		var repairCosts = ShellRepairCosts.Load(content);
 		var repairDiagrams = ShellRepairDiagrams.Load(content);
@@ -240,8 +260,10 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training mode: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("Every tab has a screen behind it. On the "
-			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
+		Console.WriteLine("Every tab has a screen behind it. The main menu comes up after its startup sequence. On it, "
+			+ "INSTANT ACTION flies the next of the three demo missions, CONTINUE GAME loads the current game and "
+			+ "puts the tab strip up (or says why that game is over), VIEW DEMO plays a demo tape, and START NEW GAME, "
+			+ "CREDITS and ONLINE MANUAL do nothing yet. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
 			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
 			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. PREFERENCES shows the "
 			+ "preferences screen: click a checkbox to set it, Accept to keep and save the settings or Cancel to put "
@@ -260,8 +282,8 @@ static class ShellHost {
 			+ "first visit of a stage's first mission and the briefing otherwise: the briefing's three text buttons "
 			+ "switch the summary and the arrows beside it page through it, the six buttons beside the map move it, and "
 			+ "Rock & Roll launches the mission once every machine going is fit and armed. The square button latches and "
-			+ "shows the frame. The save screen hides "
-			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
+			+ "shows the frame. The main menu and the save screen hide "
+			+ "the strip, as the original's do: leave the save screen with EXIT, or RESTORE a slot to load it into the "
 			+ "repair screen. Once a slot is restored, SAVE on a selected row lets you type its name and ACCEPT "
 			+ "writes the game there; the game is also autosaved to GAME_R.SAV on a restore, on the MAIN MENU tab "
 			+ "and on leaving the shell. QUIT on the main menu, or closing the window, quits.");
@@ -334,6 +356,19 @@ static class ShellHost {
 
 		window.Update += _ => {
 			sound?.Update();
+
+			// The startup sequence goes up once the fade in has run, as the original's does after its movies.
+			// It is the only widget up and takes no mouse events, so a click meanwhile reaches nothing.
+			if (startup is { Done: false } && sound?.Fading != true) {
+				AdvanceStartup();
+				if (mouse != null) {
+					leftHeld = mouse.IsButtonPressed(MouseButton.Left);
+					rightHeld = mouse.IsButtonPressed(MouseButton.Right);
+				}
+
+				return;
+			}
+
 			if (mouse == null) {
 				return;
 			}
@@ -401,8 +436,10 @@ static class ShellHost {
 			frameGl.ClearColor(0f, 0f, 0f, 1f);
 			frameGl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			// QUIT's blank fills the whole client area with palette index 0, strip and all.
-			if (blanked) {
+			// QUIT's blank fills the whole client area with palette index 0, strip and all. The startup blanks
+			// the same way just before it shows the sequence; with its movies not played, the screen stays
+			// blank from the window's opening until then.
+			if (blanked || startup is { Done: false, IsUp: false }) {
 				var blank = art.Palette.Colors.TryGetValue(0, out var entry) ? entry.GetColor() : default;
 				frameGl.ClearColor(blank.R / 255f, blank.G / 255f, blank.B / 255f, 1f);
 				frameGl.Clear(ClearBufferMask.ColorBufferBit);
@@ -432,7 +469,28 @@ static class ShellHost {
 
 		// The main loop's exit, whichever way it was left: QUIT, a launch or the window closing.
 		AutoSave();
-		return (0, launch);
+		return (exitCode, launch);
+
+		// One update of the startup sequence: shown on the first, then its alarm's ticks, the last of which
+		// hides it and puts the menu up.
+		void AdvanceStartup() {
+			if (startup == null) {
+				return;
+			}
+
+			long now = Environment.TickCount64;
+			if (!startup.IsUp) {
+				startup.Show(now);
+			} else if (!startup.Advance(now, () => sound?.PlaySwitch())) {
+				return;
+			}
+
+			renderer?.SetBackdropOverride(startup.Done ? null : startupFrames[startup.Frame]);
+			if (startup.Done) {
+				Console.WriteLine("Main menu.");
+				RepaintContent();
+			}
+		}
 
 		void Activate(int id) {
 			if (id == ShellScreen.MenuButtonId) {
@@ -532,6 +590,10 @@ static class ShellHost {
 
 			if (launchRefusal.IsOpen) {
 				return launchRefusal.HitAt(canvasX, canvasY);
+			}
+
+			if (endOfGame.IsOpen) {
+				return endOfGame.HitAt(canvasX, canvasY);
 			}
 
 			if (screen.HitAt(canvasX, canvasY) is { } strip) {
@@ -643,36 +705,102 @@ static class ShellHost {
 					launchRefusal.Close();
 					RepaintContent();
 					break;
+				case ShellWidgetKind.EndOfGameOkay:
+					endOfGame.Close();
+					RepaintContent();
+					break;
 				default:
 					ClickCrew(widget);
 					break;
 			}
 		}
 
-		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
-		// save screen's EXIT back here, and enter it. PRACTICE MISSIONS is OpenPractice, PREFERENCES
-		// OpenPreferences and QUIT Quit. The other six buttons' actions are not ported.
+		// A main-menu button's handler. START NEW GAME, CREDITS and ONLINE MANUAL are not ported: the first
+		// needs the campaign half of the mission load, the second the shell's movies, and the third WinHelp.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
-			if (button == ShellMainMenuButton.Quit) {
-				Quit();
+			switch (button) {
+				case ShellMainMenuButton.Quit:
+					Quit();
+					break;
+				case ShellMainMenuButton.PracticeMissions:
+					OpenPractice();
+					break;
+				case ShellMainMenuButton.Preferences:
+					OpenPreferences();
+					break;
+				case ShellMainMenuButton.SaveRestore:
+					OpenSaveRestore();
+					break;
+				case ShellMainMenuButton.InstantAction:
+					InstantAction();
+					break;
+				case ShellMainMenuButton.ContinueGame:
+					ContinueGame();
+					break;
+				case ShellMainMenuButton.ViewDemo:
+					ViewDemo();
+					break;
+				default:
+					Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
+					break;
+			}
+		}
+
+		// INSTANT ACTION, 004312a6: DAT_0047363c set, training mode, then InstantAction_SelectDemo (0044befb) —
+		// row 8 + option 46 selected, option 46 stepped modulo 3, the options committed and all saved — and
+		// Begin Mission's path from the new career on. The original blanks the screen first, full screen,
+		// or shows and hides the palette scope in a window, whose black fill the window closing straight
+		// after never shows.
+		void InstantAction() {
+			instantActionSet = true;
+			SetMode(ShellCampaignMode.Training);
+			practiceScreen ??= new ShellPracticeScreen(shellOptions);
+			practiceScreen.SelectRow(ShellPracticeScreen.RowCount + shellOptions[InstantActionOption]);
+			shellOptions.Step(InstantActionOption, InstantActionMissionCount);
+			shellOptions.Commit();
+			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+
+			if (LaunchTraining(practiceScreen.SelectedRow, "Instant Action")) {
+				blanked = window.FullScreen;
+			}
+		}
+
+		// CONTINUE GAME, MainMenu_OnContinue (004313e4): campaign mode, slot 10 loaded and selected on the save
+		// screen, then the bare frame when the game goes on (state 2) and the END OF GAME alert over the menu
+		// otherwise (FUN_0044cecf). Unlike RESTORE it neither autosaves nor clears the campaign map's
+		// once-per-load flag. The original wraps the load in the hourglass, which a load inside one update,
+		// with no message pumped, would never show.
+		void ContinueGame() {
+			SetMode(ShellCampaignMode.Campaign);
+			if (!LoadSlot(CurrentGameSlot) || loadedGame == null) {
+				Console.WriteLine("The current game could not be read — nothing continued.");
 				return;
 			}
 
-			if (button == ShellMainMenuButton.PracticeMissions) {
-				OpenPractice();
+			saveScreen.SelectSlot(CurrentGameSlot);
+			if (loadedGame.GameState == ContinuingGameState) {
+				ReturnToFrame();
 				return;
 			}
 
-			if (button == ShellMainMenuButton.Preferences) {
-				OpenPreferences();
-				return;
-			}
+			endOfGame.Open(loadedGame.GameState);
+			Console.WriteLine($"End of game (state {loadedGame.GameState}): "
+				+ $"{art.Text?.Text(endOfGame.FirstLineText) ?? string.Empty} OKAY takes the alert down.");
+			RepaintContent();
+		}
 
-			if (button != ShellMainMenuButton.SaveRestore) {
-				Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
-				return;
-			}
+		// VIEW DEMO, 0043156f: the screen blanked, full screen only, then exit code 5 and the loop's end. The
+		// launcher answers 5 by starting the simulator with -D, which the caller does here.
+		void ViewDemo() {
+			blanked = window.FullScreen;
+			exitCode = DemoExitCode;
+			Console.WriteLine("View Demo.");
+			window.Close();
+		}
 
+		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
+		// save screen's EXIT back here, and enter it.
+		void OpenSaveRestore() {
 			SetMode(ShellCampaignMode.Campaign);
 			saveScreen.ExitTarget = ShellSaveExitTarget.MainMenu;
 			screen.SelectTab(ShellScreen.SaveTab);
@@ -690,36 +818,33 @@ static class ShellHost {
 			window.Close();
 		}
 
-		// FUN_0040e69e, the mode write four main-menu handlers make. The strip refresh (0043b0c8) is what
-		// regates the tabs in the original, and the strip is hidden until then; here the main menu keeps
-		// the strip up, so the gate follows the mode at once rather than showing the old one.
+		// FUN_0040e69e, the mode write the main menu's handlers make: the mode, and prefs.cfg option 42 set to
+		// it without its handler and written alone. The tabs are regated by the strip refresh the frame comes
+		// back up through (ReturnToFrame), the strip being hidden until then.
 		void SetMode(ShellCampaignMode newMode) {
 			mode = newMode;
-			screen.ApplyTabGate(mode);
+			shellOptions.Set(CampaignModeOption, (byte)newMode, apply: false);
+			shellOptions.Save([CampaignModeOption]);
 		}
 
 		// PRACTICE MISSIONS, 004318ab: MainMenu_Hide, PracticeScreen_Show (0044bc92), then the mode to 0.
-		// The strip goes too, as the menu's own handler has already hidden it in the original.
 		void OpenPractice() {
 			practiceScreen ??= new ShellPracticeScreen(shellOptions);
 			practiceScreen.Show();
 			practiceUp = true;
 			SetMode(ShellCampaignMode.Training);
-			screen.HideStrip();
 			Console.WriteLine("Practice missions — training mode.");
 			LogPractice();
 			RepaintContent();
 		}
 
 		// PREFERENCES, 0043150c: MainMenu_Hide, then PreferencesScreen_Enter (004366b5), which seeds the
-		// checkboxes from the options and shows the screen. The strip goes with the menu, as for the practice
-		// screen.
+		// checkboxes from the options and shows the screen.
 		void OpenPreferences() {
 			preferencesScreen ??= new ShellPreferencesScreen(shellOptions,
 				ShellArt.ReadBankFrames(content, ShellPreferencesScreen.CheckBoxBank),
 				isFullScreen: () => window.FullScreen, toggleFullScreen: ToggleFullScreen);
 			preferencesUp = true;
-			screen.HideStrip();
 			Console.WriteLine("Preferences.");
 			LogPreferences();
 			RepaintContent();
@@ -764,13 +889,13 @@ static class ShellHost {
 			Console.WriteLine(window.FullScreen ? "Full screen." : "Windowed.");
 		}
 
-		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing and the startup sequence being
-		// over, neither of which this engine has. Alt+Enter toggles full screen on the Enter key's release;
+		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing, which this engine has no
+		// movie for, and the startup sequence being over. Alt+Enter toggles full screen on the Enter key's release;
 		// Alt+Tab, Alt+Esc and Ctrl+Esc leave it on either edge (FUN_0040722e). Each then writes option 6
 		// from the window and, with the preferences screen up, relights its display group; otherwise it
 		// commits the options without their handlers and writes all 54.
 		void DisplayHotkey(Key key, bool released) {
-			if (keyboard == null) {
+			if (keyboard == null || startup is { Done: false }) {
 				return;
 			}
 
@@ -848,19 +973,24 @@ static class ShellHost {
 			RepaintContent();
 		}
 
-		// Begin Mission (0044c396): the options committed and saved to prefs.cfg, a training career started
-		// on the lit row, its mission loaded and the handoff written, and the shell closed on exit code 2.
-		// The original gets from the career to the load through the developer's mission-name dialog, which
-		// clicks its own Use Default at once; this goes straight there.
+		// Begin Mission (0044c396): the options committed and saved to prefs.cfg, then LaunchTraining on the
+		// lit row.
 		void BeginPractice() {
 			shellOptions.Commit();
 			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+			LaunchTraining(practiceScreen!.SelectedRow, "Begin Mission");
+		}
 
-			var handoff = ShellTrainingLaunch.Write(HandoffDirectory, content, shellOptions, practiceScreen!.SelectedRow,
+		// Game_NewCareer("TRAINEE", option 0x27) in training mode on stage 0's mission at row: the career
+		// started, its mission loaded and the handoff written, and the shell closed on exit code 2. The
+		// original gets from the career to the load through the developer's mission-name dialog, which
+		// clicks its own Use Default at once; this goes straight there. Returns whether it launched.
+		bool LaunchTraining(int row, string label) {
+			var handoff = ShellTrainingLaunch.Write(HandoffDirectory, content, shellOptions, row, instantActionSet,
 				shellRandom, clearList, out string? failure);
 			if (handoff == null) {
-				Console.WriteLine($"Begin Mission: {failure}");
-				return;
+				Console.WriteLine($"{label}: {failure}");
+				return false;
 			}
 
 			var squad = Enumerable.Range(0, ShellHangar.BayCount)
@@ -868,11 +998,12 @@ static class ShellHost {
 					? $"bay {bay} chassis {machine.ChassisType}" + (handoff.Hangar.PilotFor(bay) is { } pilot ? $" ({pilot.Name})" : string.Empty)
 					: null)
 				.OfType<string>();
-			Console.WriteLine($"Begin Mission — {handoff.MissionPath}, {handoff.SquadPositions} squad position(s): "
+			Console.WriteLine($"{label} — {handoff.MissionPath}, {handoff.SquadPositions} squad position(s): "
 				+ $"{string.Join(", ", squad)}; {handoff.Hangar.MachinesOnStrength} machine(s) going. "
 				+ $"Handoff written to {HandoffDirectory}; launching the mission.");
 			launch = new ShellLaunch(handoff.ScriptPath, Path.Combine(installRoot, MissionLoader.DataFolderName));
 			window.Close();
+			return true;
 		}
 
 		void LogPractice() {
@@ -983,10 +1114,24 @@ static class ShellHost {
 		// missionMapShown is.
 		void RestoreSelectedSlot() {
 			int slot = saveScreen.SelectedSlot;
-			if (saveScreen.Slots.ElementAtOrDefault(slot) is not { InUse: true } entry
-					|| ShellSaveSlots.LoadSave(installRoot, entry.FileName) is not { } restored) {
+			if (!LoadSlot(slot)) {
 				Console.WriteLine($"Slot {slot + 1} could not be read — nothing restored.");
 				return;
+			}
+
+			missionMapShown = false;
+			AutoSave();
+			saveScreen.Leave();
+			ReturnToFrame();
+		}
+
+		// Game_LoadSlot (0040e4f2): a slot in use read in whole — the hangar, the career and its mission, and
+		// the game in progress that saving needs. The mission map is rebuilt, here on the briefing's next
+		// visit. Returns false for a slot not in use, which the original refuses, or one that cannot be read.
+		bool LoadSlot(int slot) {
+			if (saveScreen.Slots.ElementAtOrDefault(slot) is not { InUse: true } entry
+					|| ShellSaveSlots.LoadSave(installRoot, entry.FileName) is not { } restored) {
+				return false;
 			}
 
 			hangar = ShellHangar.From(restored);
@@ -998,23 +1143,19 @@ static class ShellHost {
 			missionTexts = ShellMissionTexts.Load(installRoot, slot, restored);
 			campaignStage = restored.CampaignStage;
 			missionInStage = restored.MissionInStage;
-			missionMapShown = false;
 			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
 				QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
 				RepairMode = shellOptions[RepairOption],
 			};
 			saveScreen.CanSave = true;
-			Console.WriteLine($"Restored slot {slot + 1} ({entry.FileName}): "
+			Console.WriteLine($"Loaded {entry.FileName}: "
 				+ (ShellSaveSummary.From(restored) is { } summary
 					? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}."
 					: "no pilot record.")
 				+ (repairScreen.SelectedBay >= 0
 					? $" Repair opens on bay {repairScreen.SelectedBay}."
 					: " No built machine in any hangar bay."));
-
-			AutoSave();
-			saveScreen.Leave();
-			ReturnToFrame();
+			return true;
 		}
 
 		// A keystroke, delivered as VSHELL's queue delivers one: to the pointer's target, which on the save
@@ -1561,6 +1702,12 @@ static class ShellHost {
 				return;
 			}
 
+			// Until the startup sequence has put it up, the menu is hidden and the sequence is all there is.
+			if (startup is { Done: false }) {
+				renderer.SetContent(null);
+				return;
+			}
+
 			contentSurface.Clear();
 
 			// Tabs 2-7 switch palette through the scope, whose paint blacks out everything below the
@@ -1618,6 +1765,7 @@ static class ShellHost {
 			scrapDialog.Paint(contentSurface, art.Text, art.Sprites);
 			weaponScrapDialog.Paint(contentSurface, art.Text, art.Sprites);
 			launchRefusal.Paint(contentSurface, art.Text, art.Sprites);
+			endOfGame.Paint(contentSurface, art.Text, art.Sprites);
 			renderer.SetContent(contentSurface);
 		}
 
@@ -1679,4 +1827,26 @@ static class ShellHost {
 
 	/// <summary><c>prefs.cfg</c> option 6, <c>Display Mode</c>: 0 a window, 1 full screen.</summary>
 	private const int DisplayModeOption = 6;
+
+	/// <summary><c>prefs.cfg</c> option 42, the campaign-or-training flag <c>FUN_0040e69e</c> writes.</summary>
+	private const int CampaignModeOption = 42;
+
+	/// <summary>
+	/// <c>prefs.cfg</c> option 46, which of the three demo missions the next <c>INSTANT ACTION</c> plays,
+	/// stepped modulo <see cref="InstantActionMissionCount"/> after each.
+	/// </summary>
+	private const int InstantActionOption = 46;
+	private const int InstantActionMissionCount = 3;
+
+	/// <summary>
+	/// The game state (<c>0048260e</c>) a game goes on from — the debrief's; the others are why it ended
+	/// (docs/shell/campaign-loop.md#where-the-debrief-goes-next).
+	/// </summary>
+	private const int ContinuingGameState = 2;
+
+	/// <summary>
+	/// <c>VIEW DEMO</c>'s exit code, <c>Shell_SetExitCode(5)</c>, which the launcher answers by starting the
+	/// simulator with <c>-D</c>; the caller answers it with a demo tape.
+	/// </summary>
+	public const int DemoExitCode = 5;
 }

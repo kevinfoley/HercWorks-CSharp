@@ -28,7 +28,7 @@ Slot 10 and 11 are one slot from the caller's side. `Game_SaveSlot` (`0040e37b`)
 
 **An empty slot's label is completed at load time.** After reading a label the reader tests `label[4]`, and when it is NUL appends string `0x21` from `estext.bin`. A stored `" 8. "` becomes `" 8. EMPTY"` in a localized build. Once such a slot is written back the completed label is in the file, which is why every retail label already reads `EMPTY`.
 
-The in-memory slot table is a 94-byte (`0x5e`) stride at `00482610`: filename at `+0x00` (13 bytes), label at `+0x0d` (80 bytes), in-use byte at `+0x5d`. `FUN_0040e150` builds the path to open by prefixing the filename with the string at `0046f434`, `sav\`.
+The in-memory slot table is a 94-byte (`0x5e`) stride at `00482610`: filename at `+0x00` (13 bytes), label at `+0x0d` (80 bytes), in-use byte at `+0x5d`. `SaveSlot_BuildPath` (`0040e150`) builds the path to open by prefixing the filename with the string at `0046f434`, `sav\`.
 
 ## Writing a slot
 
@@ -49,7 +49,7 @@ It reaches those fields by seeking rather than reading — `Stream_Tell` (`0044e
 
 ## Streams never truncate
 
-`FileWStream_Open` (`0044e46c`), the write-stream open behind every file in this doc, calls `_open(path, 0x8102, 0x180)` — `O_BINARY | O_CREAT | O_RDWR`, with **no `O_TRUNC`**. Writing a shorter payload over a longer file leaves the old tail in place.
+`FileRWStream_Open` (`0044e46c`), the read/write-stream open behind every file in this doc, calls `_open(path, 0x8102, 0x180)` — `O_BINARY | O_CREAT | O_RDWR`, with **no `O_TRUNC`**. Writing a shorter payload over a longer file leaves the old tail in place.
 
 This is observable in retail data. `GAME_4.SAV` carries 164 bytes past its last field and `GAME_T.SAV` 36; `GAMEFILE.STR` is 345 bytes of which the reader consumes 338, so 7 are the remains of a longer label block. Consequences for any reader:
 
@@ -207,6 +207,6 @@ Both career-block functions also copy the three loose working files that the she
 | `Career_SaveSlot` (`00412a71`) | save — `data\` to `sav\` | `data\script.dat` to `sav\script%d.dat`, `data\mission.str` to `sav\missn%d.str`, `data\player.mec` to `sav\player%d.mec` |
 | `Career_LoadSlot` (`00412bbf`) | load — `sav\` to `data\` | the same three, reversed |
 
-`FUN_0040d4d5` (`fileutil.cpp`) is the copy itself. On load, `Career_LoadSlot` additionally calls `Career_BuildBriefingText` (`00412f97`) to rebuild the assembled briefing text from the restored `data\mission.str`, so the three text arrays in the career block are indices that only mean anything alongside the slot's own `missn%d.str`.
+`FileUtil_CopyFile` (`0040d4d5`, `fileutil.cpp`) is the copy itself. On load, `Career_LoadSlot` additionally calls `Career_BuildBriefingText` (`00412f97`) to rebuild the assembled briefing text from the restored `data\mission.str`, so the three text arrays in the career block are indices that only mean anything alongside the slot's own `missn%d.str`.
 
 For what those files carry see [`script-dat.md`](script-dat.md) and [`msn-mission-file.md`](msn-mission-file.md); for how a mission's results re-enter the save see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).

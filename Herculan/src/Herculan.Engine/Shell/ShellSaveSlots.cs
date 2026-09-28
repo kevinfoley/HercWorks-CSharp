@@ -227,7 +227,7 @@ public static class ShellSaveSlots {
 
 	/// <summary>
 	/// Writes over whatever is at <paramref name="path"/> without truncating it, as
-	/// <c>FileWStream_Open</c> (<c>0044e46c</c>) opens every save: a shorter payload leaves the old tail
+	/// <c>FileRWStream_Open</c> (<c>0044e46c</c>) opens every save: a shorter payload leaves the old tail
 	/// in place (docs/formats/save-games.md#streams-never-truncate).
 	/// </summary>
 	private static void WriteInPlace(string path, byte[] bytes) {

@@ -29,7 +29,7 @@ The first entry's data begins at the byte immediately after the entry list, with
 ## The per-entry prefix — fixed 9 bytes
 
 ```
-+0   byte    storage flag           0x02 in all 3,004 entries
++0   byte    compression type       0x02 (stored) in all 3,004 entries
 +1   int32   content size, LE       the content alone
 +5   uint16  MS-DOS packed date     source file's timestamp
 +7   uint16  MS-DOS packed time
@@ -43,9 +43,9 @@ Entry stride is therefore `size + 10`, and the last entry's trailer is the archi
 
 **`+5` is an MS-DOS timestamp, not a magic number.** Read as `[date:uint16][time:uint16]`, all 3,004 values decode to a valid calendar date and clock time, clustering in 1994 (1,145), 1995 (1,143) and 1996 (715). Read the other way round — time first — 2,515 of 2,578 are invalid, dating files to 2041 and later. Files built in the same batch share near-identical stamps: `ROCKET.BND`, `PSTATUS.BND`, `APPINPUT.BND` and `PMISSILE.BND` are all stamped 1996-01-27 15:23:2x.
 
-**The trailer repeats the last content byte** — in all 2,578 entries checked, with no exception, including the 1,617 whose last byte is nonzero. It sits outside the declared size, so nothing reads it; the natural reading is an off-by-one in the retail packer's copy loop. `VolFileWriter`, `VolFileCompiler` and `VolEntryPrefixCodec.Wrap` all reproduce it rather than inventing a value.
+**The trailer repeats the last content byte** — in all 2,578 entries checked, with no exception, including the 1,617 whose last byte is nonzero. It sits outside the declared size. VSHELL's `VolRStream_Read` (`004033f9`) reaches it: a read that runs past the content copies `size - position + 1` bytes, the rest of the content and then the trailer, and reports end of data. `VolFileWriter`, `VolFileCompiler` and `VolEntryPrefixCodec.Wrap` all reproduce it rather than inventing a value.
 
-**Nothing here is a compression header.** The storage flag is 0x02 everywhere, and the RIFF check above proves the content is stored verbatim.
+**`+0` is a compression type, and every retail entry is stored.** VSHELL's `VolRStream_Open` (`00402d25`) reads type 2 straight from the archive, 7 through an `RLERStream` filter and 9 through an `LZHRStream` (an LZHUF-style decoder: 4,036-byte window, adaptive Huffman over 314 symbols), and asserts `Unknown compression type in volume file.` on any other value. All 3,004 entries are type 2, and the RIFF check above confirms the content is stored verbatim.
 
 ## Loose files on disk carry no prefix
 
@@ -63,4 +63,4 @@ That extraction is uniform. Comparing all 1,672 entries of those three archives 
 |---|---|
 | The 4 bytes at `+5` are an opaque magic number | They are a packed MS-DOS date and time. `TransformerRegistry` matches Herc sim data on the literal value, which works only for unmodified retail archives. |
 | The trailer is padding or alignment | The gap is exactly one byte for every entry regardless of size, and its value is the content's last byte, not zero. |
-| The storage flag means "compressed" | Content is stored verbatim — 723 WAVs match their own RIFF length. |
+| Entries are compressed, because `+0` is a compression type | Type 2 is stored: the content is verbatim, and 723 WAVs match their own RIFF length. |

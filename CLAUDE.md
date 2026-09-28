@@ -78,6 +78,10 @@ status. Drain them into topic docs and delete what you moved.
 - Addresses are virtual addresses in the named binary, bare hex (`0046e87c`). Name the binary when it
   is not DBSIM.
 - Cite the original symbol alongside the port: `Mech_LocomotionTick (00416a04)`.
+- After naming or porting a function, name the `FUN_` callees you actually read to understand it
+  (`tools/scripts/es2_unnamed_callees.py --caller <Name>` lists them). Don't read further down to do
+  it: a callee you can describe from its own body gets a name for what it does; one you can't gets no
+  entry and stays in the backlog.
 - Say plainly when something is this engine's invention rather than read from the binary, so it is
   not later mistaken for vanilla behaviour.
 - **Never write "nothing calls this", "nothing reads this" or "dead code" from a failed grep.** A

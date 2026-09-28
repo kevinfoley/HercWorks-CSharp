@@ -1127,7 +1127,7 @@ static class ShellHost {
 
 		bool ManualWeaponBuild() => shellOptions[WeaponsBuildingOption] != 0;
 
-		// FUN_00407085. Retail sets an exclusive 640x480 8-bit display mode with the window's frame pushed
+		// Display_ToggleFullScreen (00407085). Retail sets an exclusive 640x480 8-bit display mode with the window's frame pushed
 		// off the screen, confines the pointer to the screen and centres it; going back releases DirectDraw,
 		// which restores the desktop's mode, and centres the window. Here full screen covers the monitor at
 		// its current mode (EngineWindow.ToggleFullScreen), with the canvas scaled into it as it is in a
@@ -1149,7 +1149,7 @@ static class ShellHost {
 
 		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing and the startup sequence
 		// being over. Alt+Enter toggles full screen on the Enter key's release;
-		// Alt+Tab, Alt+Esc and Ctrl+Esc leave it on either edge (FUN_0040722e). Each then writes option 6
+		// Alt+Tab, Alt+Esc and Ctrl+Esc leave it on either edge (Display_LeaveFullScreen, 0040722e). Each then writes option 6
 		// from the window and, with the preferences screen up, relights its display group; otherwise it
 		// commits the options without their handlers and writes all 54.
 		void DisplayHotkey(Key key, bool released) {

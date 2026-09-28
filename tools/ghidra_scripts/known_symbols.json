@@ -60,6 +60,1877 @@
   ],
   "entries": [
     {
+      "address": "00477480",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_DeleteArray",
+      "description": "The global array operator delete, the DBSIM copy of VSHELL's Mem_DeleteArray: body identical to Mem_Delete (a tagged block in the pool at 006bb37c goes back through Memory_Free, anything else is _free'd and its size at p[-1] subtracted from the heap byte count at 006bb390). Rtl_VectorDelete frees through it.",
+      "source": "DBSIM decompile and disassembly at 00477480"
+    },
+    {
+      "address": "004964a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_VectorDelete",
+      "description": "Borland RTL _vector_delete_ (named by its own error string 'Illegal mode in _vector_delete_' at 004a79fc), the DBSIM copy of VSHELL's Rtl_VectorDelete: (array, elemSize, count, mode, dtor). Takes the count from array[-1] when mode & 0x10, runs dtor(elem, 2) on each element from last to first under the mode & 7 calling convention, then frees the block with Mem_DeleteArray when mode & 8 and returns 0; otherwise returns the block start.",
+      "source": "DBSIM decompile and disassembly at 004964a8"
+    },
+    {
+      "address": "0048d60c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SaveState",
+      "description": "Saves the renderer's current model state into a slot: g_ModelToView (0x20 bytes), the model transform pointer 006c607c, the view transform pointer 006c6078, g_EyeInModelSpace, and, when 006cbc88 is set, a 0x16-byte model-space copy per registered light from +0x34. Its light loop steps the save slot but reads the light from the fixed address [006c6130] every pass, so only the first registered light's model-space copy is saved or restored. ShapeNode_ComposeToViewTransform saves each freshly composed node with it; ShapeInst_BindNodeTransformArray saves the object's base state.",
+      "source": "DBSIM decompile and disassembly at 0048d60c"
+    },
+    {
+      "address": "0048d6e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_RestoreState",
+      "description": "Reinstates a Raster_SaveState slot: the model and view transform pointers, g_ModelToView, a recomputed g_ViewToModel (Transform_InvertRigid), g_EyeInModelSpace and the lights' model-space copies (0048dad5). Its light loop steps the save slot but reads the light from the fixed address [006c6130] every pass, so only the first registered light's model-space copy is saved or restored. ShapeNode_ComposeToViewTransform uses it for a node already composed and to return to the object's base state.",
+      "source": "DBSIM decompile and disassembly at 0048d6e0"
+    },
+    {
+      "address": "0048da4b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_Concat_Thunk",
+      "description": "One-line forwarder to Transform_Concat with the same arguments.",
+      "source": "DBSIM decompile and disassembly at 0048da4b"
+    },
+    {
+      "address": "0048d8d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_ApplyToPoint_Thunk",
+      "description": "One-line forwarder to Transform_ApplyToPoint with the same arguments.",
+      "source": "DBSIM decompile and disassembly at 0048d8d8"
+    },
+    {
+      "address": "0048da06",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_InvertRigid",
+      "description": "Inverts a rigid transform in place: transposes the rotation (0048db37), negates the translation (004950ca) and rotates it through the transposed rotation (Transform_RotatePoint). Same code as VSHELL's Transform_InvertRigid.",
+      "source": "DBSIM decompile and disassembly at 0048da06"
+    },
+    {
+      "address": "0048da64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_Set",
+      "description": "(p, x, y, z): stores three int32 components (x and y through 0048d89b) and returns p.",
+      "source": "DBSIM decompile and disassembly at 0048da64"
+    },
+    {
+      "address": "006c6038",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ModelToView",
+      "description": "The current model-to-view transform (0x20 bytes), built by Raster_SetModelTransform and reinstated by Raster_RestoreState.",
+      "source": "DBSIM decompile at 0048c338, 0048d60c and 0048d6e0"
+    },
+    {
+      "address": "006c6058",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ViewToModel",
+      "description": "The inverse of g_ModelToView.",
+      "source": "DBSIM decompile at 0048c338, 0048d60c and 0048d6e0"
+    },
+    {
+      "address": "006c60a0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_EyeInModelSpace",
+      "description": "The viewpoint in the current model's space (int32 x, y, z at 006c60a0-a8): the origin through g_ViewToModel. Its length is the node's distance from the camera, which the 3Space detail-level pick measures.",
+      "source": "DBSIM decompile at 0048c338, 0048d60c and 0048d6e0"
+    },
+    {
+      "address": "006c607c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ModelTransformPtr",
+      "description": "Pointer to the installed model transform (the identity at 006c6080 when null is installed).",
+      "source": "DBSIM decompile at 0048c338, 0048d60c and 0048d6e0"
+    },
+    {
+      "address": "004801f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_RotatePoint",
+      "description": "(point, transform, out): Transform_ApplyToPoint without the translation -- the rotation alone on an int32 point, Q14 with +0x2000 rounding and 64-bit intermediates, with the rank-byte fast paths. The rigid-inverse idiom rotates the negated translation through a transposed copy with it.",
+      "source": "DBSIM decompile and disassembly at 004801f8"
+    },
+    {
+      "address": "0047de0d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_TransposeRotation",
+      "description": "Transposes a transform's rotation in place (swaps +2/+4, +8/+0xc, +0xa/+0xe), which inverts a pure rotation; the rank byte is left alone.",
+      "source": "DBSIM decompile and disassembly at 0047de0d"
+    },
+    {
+      "address": "0047fe80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_RotateVector2D",
+      "description": "(vec2, transform, out): rotates an int16 2D vector by the transform's XY block alone (terms +0..+6), Q14 with +0x2000 rounding, into int16 out.",
+      "source": "DBSIM decompile and disassembly at 0047fe80"
+    },
+    {
+      "address": "00471b0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pool_Next",
+      "description": "(pool, node): the in-use node after node (link at node-8), or the first in-use node (+0xe) when node is null; returns it as node + 8, or 0 at the end. For a node address below 0x100000 it sprintfs a diagnostic ('array ptr ...') into a local buffer it never uses.",
+      "source": "DBSIM decompile and disassembly at 00471b0c"
+    },
+    {
+      "address": "00471b64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pool_Prev",
+      "description": "(pool, node): the in-use node before node (link at node-4), returned as node + 8 or 0; with a null node, walks Pool_Next to the last in-use node.",
+      "source": "DBSIM decompile and disassembly at 00471b64"
+    },
+    {
+      "address": "0049534f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_ReturnArg",
+      "description": "Returns its argument unchanged. The DBSIM copy of VSHELL's Rtl_ReturnArg.",
+      "source": "DBSIM decompile and disassembly at 0049534f"
+    },
+    {
+      "address": "004952b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Point3I_Ctor",
+      "description": "Rtl_ReturnArg(p), then returns p: the same shape as VSHELL's maybe_Point3I_Ctor, called on int32[3] locals before they are filled (Light_ComputeShadeForFace, Light_TransformToModelSpace, Math_DistanceBetweenPoints). The name is inferred from those call sites.",
+      "source": "DBSIM decompile and disassembly at 004952b8"
+    },
+    {
+      "address": "00492971",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_Magnitude",
+      "description": "Returns Math_FastMagnitude3D of an int32 point's three components (through Math_FastMagnitude3D_Thunk; the decompile drops the return value).",
+      "source": "DBSIM decompile and disassembly at 00492971"
+    },
+    {
+      "address": "004929a3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_FastMagnitude3D_Thunk",
+      "description": "One-line forwarder to Math_FastMagnitude3D(x, y, z).",
+      "source": "DBSIM decompile and disassembly at 004929a3"
+    },
+    {
+      "address": "0047a17c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arena_AllocDup",
+      "description": "Second emitted copy of Arena_Alloc (0047a1bc), same code: (size, arena) bump-allocates from {base, limit, cursor}, falling back to Mem_NewArray with no arena or no room. The 3Space shape readers call this copy (BaseShape_ReadFromStream, ClassItemTree_ReadFromStream, ClassItemTree_ReadChildren, ShapeInstance_CtorCellFrames), as VSHELL's shape constructors call its Arena_Alloc (00403dc4).",
+      "source": "DBSIM decompile and disassembly at 0047a17c"
+    },
+    {
+      "address": "0045ede4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_PrefixBaseDir",
+      "description": "Returns 004d28e0, a static buffer holding the directory string at 004d2840 followed by the given path with any drive letter ('X:') removed. The DBSIM copy of VSHELL's Path_PrefixBaseDir; DBSim_LoadScriptDat, DBSim_SpawnMissionObjects, DemoTape_PickRandom and Keyjoy_LoadConfig build paths with it.",
+      "source": "DBSIM decompile and disassembly at 0045ede4"
+    },
+    {
+      "address": "00492a84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_WithExtension",
+      "description": "(path, extension): copies path into the static buffer 006cbc90, cuts it at the first '.' (Str_ReplaceFirst), then appends '.' and the extension.",
+      "source": "DBSIM decompile and disassembly at 00492a84"
+    },
+    {
+      "address": "00492a5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Str_ReplaceFirst",
+      "description": "(s, find, replace): replaces the first occurrence of the character find in s with replace (strchr) and returns s.",
+      "source": "DBSIM decompile and disassembly at 00492a5c"
+    },
+    {
+      "address": "0047ac34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Ctor",
+      "description": "FileRStream(path) constructor (vtable 004a1750, RTTI name 'FileRStream', 0xb bytes): Stream_BaseCtor, handle -1, the byte at +0xa cleared, then 0047ad5c(path). The DBSIM copy of VSHELL's FileRStream_Ctor.",
+      "source": "DBSIM decompile and disassembly at 0047ac34"
+    },
+    {
+      "address": "0047ac6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Dtor",
+      "description": "FileRStream destructor: restores vtable 004a1750, closes (0047ad1c), Stream_BaseDtor, frees with Mem_Delete when flag & 1.",
+      "source": "DBSIM decompile and disassembly at 0047ac6c"
+    },
+    {
+      "address": "0047ae8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Read",
+      "description": "FileRStream read (vtable slot +0x18): does nothing and returns 0 when the status is already nonzero; _reads from the handle at +8, sets status 2 on a short read and goes to FileRStream_SetIoError on an error. The DBSIM copy of VSHELL's FileRStream_Read.",
+      "source": "DBSIM decompile and disassembly at 0047ae8c"
+    },
+    {
+      "address": "0047ae54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_SetIoError",
+      "description": "Sets the stream status at +4 to 1 when the dword at 004966ea is nonzero, else 3, and returns 0. That dword is the _errno import thunk's code bytes, as in VolRStream_SetIoError, so it always stores 1.",
+      "source": "DBSIM decompile and disassembly at 0047ae54"
+    },
+    {
+      "address": "00496248",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Eh_InitExceptBlock",
+      "description": "Borland C++ exception-frame prologue, the DBSIM copy of VSHELL's Eh_InitExceptBlock (0046b234): builds the frame's registration record (handler 0049672c, the frame descriptor passed in EAX, the live-destructor count from [006cbf74]) and links it into the FS:[0] SEH chain. Functions that construct objects with destructors call it first, which is why it has 258 call sites.",
+      "source": "DBSIM decompile and disassembly at 00496248"
+    },
+    {
+      "address": "00496342",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_GetPolymorphicDtorCount",
+      "description": "Borland RTL helper, the DBSIM copy of VSHELL's Rtl_GetPolymorphicDtorCount: (object, vptrOffset) returns the destructor count in the dynamic type's typeinfo (+0x20), found through vptr[-4] and the typeinfo pointer at vptr-0xc; 0 for a null object. Every polymorphic delete adds it to [006cbf74] before calling the virtual destructor with flag 3.",
+      "source": "DBSIM decompile and disassembly at 00496342"
+    },
+    {
+      "address": "0047743c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_Delete",
+      "description": "The global operator delete, the DBSIM copy of VSHELL's Mem_Delete: a pointer for which Memory_IsAllocatedBlock holds on the pool at 006bb37c goes back to it through Memory_Free; anything else is _free'd and its size at p[-1] subtracted from the heap byte count at 006bb390. Pairs with Mem_New.",
+      "source": "DBSIM decompile and disassembly at 0047743c"
+    },
+    {
+      "address": "00476d20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_IsAllocatedBlock",
+      "description": "Returns 1 when ptr (header at ptr-8) lies inside the pool's [base, base+size) and its header holds 'KLBA' (0x41424c4b). The DBSIM copy of VSHELL's Memory_IsAllocatedBlock.",
+      "source": "DBSIM decompile and disassembly at 00476d20"
+    },
+    {
+      "address": "00476e00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_Alloc",
+      "description": "First-fit allocation from a src\\mymem.cpp pool (pool, size, trackLow): the same algorithm and 'KLBA'/'KLBF' block tags as VSHELL's Memory_Alloc, with the asserts compiled out. Mem_New and Mem_NewArray use it on the pool at 006bb37c.",
+      "source": "DBSIM decompile and disassembly at 00476e00"
+    },
+    {
+      "address": "00476f00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_Free",
+      "description": "Returns a block to a src\\mymem.cpp pool, tagging it 'KLBF' and coalescing it with its free neighbours: VSHELL's Memory_Free without the asserts. Mem_Delete calls it.",
+      "source": "DBSIM decompile and disassembly at 00476f00"
+    },
+    {
+      "address": "00479b6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Report",
+      "description": "The DBSIM copy of VSHELL's Assert_Report: (logger, severity, condition, file, line, message). Severities 4-6 run the hooks (Assert_RunHooks), emit (Assert_Emit), call Assert_Emit again with severity 1 (which has no case and prints nothing), call 00464fc8 and 00464fcc, PostQuitMessage(0) and _exit(1); lower severities only emit.",
+      "source": "DBSIM decompile and disassembly at 00479b6c"
+    },
+    {
+      "address": "00479e18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Emit",
+      "description": "Formats and outputs one assert by severity (the DBSIM copy of VSHELL's Assert_Emit): 2 prints the message, 3 counts (006c58b0) and shows the formatted line in a MessageBoxA titled 'Error', 4 prints it and shows the box, 5 prefixes 'Internal Error: Please call Sierra...' and shows the box, 6 prints the break notice. 3-5 call 004668b0 first.",
+      "source": "DBSIM decompile and disassembly at 00479e18"
+    },
+    {
+      "address": "00479b48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_RunHooks",
+      "description": "Calls each hook on the list at 006c575c with the severity. The DBSIM copy of VSHELL's Assert_RunHooks.",
+      "source": "DBSIM decompile and disassembly at 00479b48"
+    },
+    {
+      "address": "0047a77c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_BaseCtor",
+      "description": "StreamIO constructor (vtable 004a1700): installs the vtable and clears the status word at +4. The DBSIM copy of VSHELL's Stream_BaseCtor.",
+      "source": "DBSIM decompile and disassembly at 0047a77c"
+    },
+    {
+      "address": "0047a798",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_BaseDtor",
+      "description": "StreamIO destructor: restores vtable 004a1700, calls its close slot (+0x10), frees with Mem_Delete when flag & 1. The DBSIM copy of VSHELL's Stream_BaseDtor.",
+      "source": "DBSIM decompile and disassembly at 0047a798"
+    },
+    {
+      "address": "00472e08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_CtorFromPath",
+      "description": "VolRStream(path) constructor (vtable 004a0e28, RTTI name 'VolRStream', 0x2f bytes): Stream_BaseCtor, clears the entry fields and filter pointers, handle -1, then VolRStream_Open(path). The DBSIM copy of VSHELL's VolRStream_CtorFromPath, without the volume-group assert; layout as described there.",
+      "source": "DBSIM decompile and disassembly at 00472e08"
+    },
+    {
+      "address": "00472e58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Dtor",
+      "description": "VolRStream destructor: deletes the RLERStream at +0x27 and the LZHRStream at +0x2b through their virtual destructors, VolRStream_Close, Stream_BaseDtor, frees when flag & 1. The DBSIM copy of VSHELL's VolRStream_Dtor.",
+      "source": "DBSIM decompile and disassembly at 00472e58"
+    },
+    {
+      "address": "00472f70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Close",
+      "description": "_close on the handle at +8 when the stream owns it (+0x26), releases the filters at +0x27 (0047b4c0) and +0x2b (0047b8c0), zeroes +0xa, +0xe and +0x16, handle -1, status 5. Returns 0 with status 3 if _close fails. The DBSIM copy of VSHELL's VolRStream_Close.",
+      "source": "DBSIM decompile and disassembly at 00472f70"
+    },
+    {
+      "address": "004734ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Read",
+      "description": "VolRStream::read, the DBSIM copy of VSHELL's VolRStream_Read, including its end clamp: a read that runs past the entry size copies size - position + 1 bytes from the volume stream at +0xa, the rest of the entry plus the one-byte trailer after it, and sets status 2.",
+      "source": "DBSIM decompile and disassembly at 004734ac"
+    },
+    {
+      "address": "00473474",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetIoError",
+      "description": "Sets the stream status at +4 to 1 when the dword at 004966ea is nonzero, else 3, and returns 0. That dword is the cw3220 _errno import thunk's own code bytes (FF 25 10 C3), not errno, so it always stores 1, as in VSHELL's VolRStream_SetIoError.",
+      "source": "DBSIM decompile and disassembly at 00473474"
+    },
+    {
+      "address": "00471a24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pool_Alloc",
+      "description": "Pops a node off a free-list pool and returns node + 8, or 0 when the pool is empty; the node is not zeroed. Pool header: int16 free count +0, int16 in-use count +2, int16 element size +4, free-list head +0xa, in-use list head +0xe; a node links next at +0 and prev at +4. The node moves to the head of the in-use list. Pool_Free is its inverse and Pool_Init builds the pool.",
+      "source": "docs/simulation/sim-object-layout.md; DBSIM decompile at 00471a24"
+    },
+    {
+      "address": "004719cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pool_Init",
+      "description": "(pool, count, elementSize): allocates count * (elementSize + 8) bytes with Mem_NewArray, zeroes them and links them into the pool's free list (00471944). Returns the pool.",
+      "source": "docs/simulation/sim-object-layout.md; DBSIM decompile at 004719cc"
+    },
+    {
+      "address": "0045f732",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_GetGlobal",
+      "description": "(index): returns the pointer at 0048e160 + index*4. Index 9 (0048e184) is the current drawing context (Gfx_GetCurrentContext); index 7 is GL_GetGlobal7.",
+      "source": "VSHELL decompile and disassembly at 0045f732"
+    },
+    {
+      "address": "0045f741",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_GetGlobal7",
+      "description": "GL_GetGlobal(7), the object at 0048e17c. GLViewport_Ctor copies its default viewport from that object's +0x40; GLBitmap_Draw and Font_DrawGlyph pass it to their blits.",
+      "source": "VSHELL decompile and disassembly at 0045f741"
+    },
+    {
+      "address": "00452710",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLViewport_Ctor",
+      "description": "GLViewport constructor (vtable 0047bc28, RTTI name 'GLViewport', 0x239 bytes, over GLBase 0047e986): initialises its sub-objects at +0x210 (0045fb27) and +0x220, then copies the viewport held at GL_GetGlobal7()+0x40 (0x81 dwords of state from +4, then the fields at +0x208..+0x22c), and clears +0x230, +0x231 and +0x235. MapCamera_Ctor's drawing context at +4 is one.",
+      "source": "VSHELL decompile and disassembly at 00452710"
+    },
+    {
+      "address": "00453008",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_Ctor",
+      "description": "GLBitmap constructor (vtable 0047be58, RTTI name 'GLBitmap', 0x1a bytes, over GLPrimitive 0047be84 and GLBase 0047e986): clears the data size +0xa, the data pointer +0xe, +0x14 and +0x16. The compression type is the word at +0x12 (0 raw, 1 RLE, 3 LZH).",
+      "source": "VSHELL decompile and disassembly at 00453008"
+    },
+    {
+      "address": "00453158",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_Draw",
+      "description": "(bitmap, position, flags): hands the bitmap at +4 to the blit (0045421f, which calls 00458ba4) with GL_GetGlobal7. A compressed bitmap (+0x12 nonzero) is first unpacked by GLBitmap_Decompress into the buffer at 0048e18c, which stands in for the data pointer (+0xe) and size (+0xa) for the call; the buffer is then freed unless 0048e188 is set. Grid_Paint, ImagePanel_Paint, ShellMap_PaintIcon and ShellMap_PaintNavMarkers draw through it.",
+      "source": "VSHELL decompile and disassembly at 00453158"
+    },
+    {
+      "address": "004533c0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_Decompress",
+      "description": "Unpacks a compressed GLBitmap: the data at +0xe starts with the unpacked size, followed by [+0xa] - 4 packed bytes. Allocates the unpacked size into 0048e18c with Mem_NewArray, wraps the packed bytes in a MemRWStream, reads it through an RLERStream (compression 1) or LZHRStream (compression 3) into the buffer, and returns the size. Any other compression type, or 0048e188 set, returns 0 without unpacking.",
+      "source": "VSHELL decompile and disassembly at 004533c0"
+    },
+    {
+      "address": "00454ef0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmapArray_Dtor",
+      "description": "GLBitmapArray destructor (vtable 0047c0a8, RTTI name 'GLBitmapArray', 0xc bytes): deletes each bitmap in the array at +8 (count +4) through its virtual destructor, frees the array with Mem_DeleteArray and the object when flag & 1.",
+      "source": "VSHELL decompile and disassembly at 00454ef0"
+    },
+    {
+      "address": "0045d860",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBase_Dtor",
+      "description": "GLBase destructor (vtable 0047e986, RTTI name 'GLBase', 4 bytes): restores the vtable and frees the object when flag & 1.",
+      "source": "VSHELL decompile and disassembly at 0045d860"
+    },
+    {
+      "address": "0044ed78",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MemRWStream_Ctor",
+      "description": "MemRWStream constructor (vtable 0047a6e4, RTTI name 'MemRWStream', 0x14 bytes, over StreamIO): (stream, size, buffer) streams over memory: +8 start, +0xc end (start + size), +0x10 cursor. GLBitmap_Decompress reads packed bitmap data through one.",
+      "source": "VSHELL decompile and disassembly at 0044ed78"
+    },
+    {
+      "address": "0044ef48",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_CtorOnSource",
+      "description": "RLERStream constructor attached to a source stream: StreamIO base, vtable 0047a70c, RLERStream_Init, RLERStream_Open(source).",
+      "source": "VSHELL decompile and disassembly at 0044ef48"
+    },
+    {
+      "address": "0044f278",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_CtorOnSource",
+      "description": "LZHRStream constructor attached to a source stream: StreamIO base, vtable 0047a764, LZHRStream_Init, LZHRStream_Open(source).",
+      "source": "VSHELL decompile and disassembly at 0044f278"
+    },
+    {
+      "address": "0045469a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_Read",
+      "description": "(stream, count, buffer): calls the stream's read slot (vtable +0x18).",
+      "source": "VSHELL decompile and disassembly at 0045469a"
+    },
+    {
+      "address": "0044e94c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Read",
+      "description": "FileRStream vtable slot +0x18: (stream, count, buffer). Does nothing and returns 0 when the status is already nonzero; _reads from the handle at +8, sets status 2 on a short read and goes to FileRStream_SetIoError on an error. Returns nonzero on success.",
+      "source": "VSHELL decompile and disassembly at 0044e94c"
+    },
+    {
+      "address": "0044e914",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_SetIoError",
+      "description": "Sets the stream status at +4 and returns 0. Its errno test reads the _errno import thunk's code bytes (0046b6f6) like VolRStream_SetIoError, so it always stores 1.",
+      "source": "VSHELL decompile and disassembly at 0044e914"
+    },
+    {
+      "address": "0044e8c4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_GetSize",
+      "description": "Returns a file stream's length: saves the position (vtable +4), _lseek to the end, restores the position (vtable +8). 0 unless the status is 0 or 2.",
+      "source": "VSHELL decompile and disassembly at 0044e8c4"
+    },
+    {
+      "address": "0040d4d5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileUtil_CopyFile",
+      "description": "(source, destination), assert file src\\fileutil.cpp: opens a FileRStream and a FileWStream (asserting both opened), reads the whole source into a Mem_NewArray buffer of FileRStream_GetSize bytes (asserting the allocation) and writes it out, then closes and destroys both. Career_SaveSlot and Career_LoadSlot copy the slot files with it.",
+      "source": "VSHELL decompile and disassembly at 0040d4d5"
+    },
+    {
+      "address": "0041ef45",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_ResolveRect",
+      "description": "(widget, parent): derives the absolute rect (+0x15..+0x21) from the parent-relative one (+0x25..+0x31) by adding the parent's absolute left/top (the widget's own parent when none is passed; the relative rect as is at the root), then recurses over the children (first child +0xd, next sibling +5). Widget_SetRect and Widget_MoveRect call it.",
+      "source": "VSHELL decompile and disassembly at 0041ef45"
+    },
+    {
+      "address": "00451500",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_BuildRotation2D",
+      "description": "(angle, out): builds a 2x2 Q14 rotation for a binary angle into short[4] {cos, sin, -sin, cos}, looking up the table at 0047b3e4 with the angle >> 4 rounded. The VSHELL copy of DBSIM's Math_BuildRotation2D.",
+      "source": "VSHELL decompile and disassembly at 00451500"
+    },
+    {
+      "address": "00407085",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_ToggleFullScreen",
+      "description": "Flips the shell between windowed and full screen (flag 00481e68, which Display_PresentRect branches on). Entering: an exclusive DirectDraw object (00406eb5), a display mode of the back buffer's size at 8 bits and the primary surface (00406eeb), a topmost window with its frame pushed off the screen, the first and last ten palette entries flagged 5 and a palette (IDirectDraw slot +0x14) set on the primary surface (slot +0x7c), the cursor clipped to the screen and centred; on failure 004062b0 and PostQuitMessage. Leaving: clears those palette flags, releases the DirectDraw objects (00407011) and re-centres the window at its framed size. Behaviour and callers: docs/shell/screen-layout.md.",
+      "source": "VSHELL decompile and disassembly at 00407085"
+    },
+    {
+      "address": "0040722e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_LeaveFullScreen",
+      "description": "Display_ToggleFullScreen when full screen (00481e68 set), otherwise nothing. Callers: Movie_PlayQueue, OnlineManual_Open, StartupAnim_OnTick, ShellSound_Init.",
+      "source": "VSHELL decompile and disassembly at 0040722e"
+    },
+    {
+      "address": "00452808",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_SetCurrentContext",
+      "description": "Makes a drawing context current: stores it at 0048e184 and binds its clip block at +4 (00452993, 00459908).",
+      "source": "VSHELL decompile and disassembly at 00452808"
+    },
+    {
+      "address": "00462954",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_GetCurrentContext",
+      "description": "Returns the current drawing context at 0048e184 (set by Gfx_SetCurrentContext). Font_DrawGlyph, Font_DrawString and the shape renderers draw through it.",
+      "source": "VSHELL decompile and disassembly at 00462954"
+    },
+    {
+      "address": "0041f29f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_GetRoot",
+      "description": "Follows a widget's parent link (+9) to the top and returns that widget in EAX (the decompile drops the return).",
+      "source": "VSHELL decompile and disassembly at 0041f29f"
+    },
+    {
+      "address": "00468338",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_ForWidget",
+      "description": "Returns the display whose root widget (+5) is the given widget's root (Widget_GetRoot), searching the display table at 005ddbd8 (count 0047f8a8); 0 when none matches.",
+      "source": "VSHELL decompile and disassembly at 00468338"
+    },
+    {
+      "address": "00421a93",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_BindNodeTransform",
+      "description": "One-line forwarder: ShapeNode_ComposeToViewTransform(group, out, (short)*(group + 4)), +4 being the part's transform id. The VSHELL copy of DBSIM's TSGroup_BindNodeTransform.",
+      "source": "VSHELL decompile and disassembly at 00421a93"
+    },
+    {
+      "address": "00421aac",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeNode_ComposeToViewTransform",
+      "description": "(part, out, transformId), assert file src\\ts_part.cpp. A negative id returns to the base state: when a node is current it restores slot 0 (0045f528 on 004869d8), records that node's id in out+0x20 and clears the current id 0048a14c; with none current it sets out+0x20 to -1. The id that is already current sets out+0x20 to -1 and nothing else. Otherwise it pushes: saves the previous id in out+0x20, sets 0048a14c = id + 1 (asserting it stays under 0x32), and the first time an id is seen since the flags at 0048a118 were cleared composes the node's world transform (id * 0x20 into the array at [004869d0]) with the object-to-view transform [004869f8] into out (Transform_Concat), installs it with Raster_SetModelTransform and saves the resulting state in the 0x110-byte slot 004869d8 + id*0x110 (0045f458); a repeat restores that slot. The VSHELL copy of DBSIM's ShapeNode_ComposeToViewTransform.",
+      "source": "VSHELL decompile and disassembly at 00421aac"
+    },
+    {
+      "address": "00421bcd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSRender_NoOp",
+      "description": "Empty function (a bare RET). The four shape and poly renderers that call it get no effect from the call.",
+      "source": "VSHELL decompile and disassembly at 00421bcd"
+    },
+    {
+      "address": "0042c923",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Play",
+      "description": "SFX::play (assert file .\\inc\\sfx_fix.h): (sfx, handle). Asserts on an invalid (-1) or stale handle, and on a sample whose file index is invalid or stale. Sample slots are 0x28 bytes at sfx+0x38 (the handle's low 16 bits index them; +4 the file index, +8 flags), sound files 0x21c bytes at sfx+0x34 (+4 the file name, +0x20c loaded). Loads the file when needed (0042c56b), starts it (0042d96f), counts it as a looped (+0x40) or one-shot (+0x3c) voice by flag bit 0, sets the playing bit 0x100 and returns 1; returns 0 when loading or starting fails.",
+      "source": "VSHELL decompile and disassembly at 0042c923"
+    },
+    {
+      "address": "0042d36f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetLooping",
+      "description": "SFX::setLooping (assert file .\\inc\\sfx_fix.h): (sfx, handle, loops). Validates the handle like Sfx_Play, clears flag 0x80 for a count of 1 and sets it otherwise, stores the count at slot +0x18 and applies it now (0042dc6e) when the slot is playing.",
+      "source": "VSHELL decompile and disassembly at 0042d36f"
+    },
+    {
+      "address": "00403dc4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arena_Alloc",
+      "description": "(size, arena): carves size bytes from an arena (+0 base, +4 capacity, +8 bytes used) and advances it; with no arena, or when the arena lacks room, falls back to Mem_NewArray. The 3Space part constructors (TSSolidPoly_Construct, TSTexture4Poly_Construct) and VshellPanel_ConstructAndRead allocate through it.",
+      "source": "VSHELL decompile and disassembly at 00403dc4"
+    },
+    {
+      "address": "00468044",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_ReturnArg",
+      "description": "Returns its argument unchanged. Font_DrawGlyph, Font_DrawString and Gfx_FillEllipse call it.",
+      "source": "VSHELL decompile and disassembly at 00468044"
+    },
+    {
+      "address": "0046804c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Point3I_Ctor",
+      "description": "Rtl_ReturnArg(p), then returns p. Called on uninitialised int32[3] locals before they are filled (Light_TransformToModelSpace, Gfx_FillEllipse), so it reads as Point3I's empty constructor; the name is inferred from those call sites.",
+      "source": "VSHELL decompile and disassembly at 0046804c"
+    },
+    {
+      "address": "0044ed69",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ClearStatus",
+      "description": "Sets a stream's status word at +4 to 0 (ok).",
+      "source": "VSHELL decompile and disassembly at 0044ed69"
+    },
+    {
+      "address": "0040d3e5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_PrefixBaseDir",
+      "description": "Returns 004823f8, a static buffer holding the directory string at 00482285 followed by the given path with any drive letter ('X:') removed. Game_ExportMissionHandoff, ShellOptions_Load and ShellOptions_SaveAll build their file paths with it.",
+      "source": "VSHELL decompile and disassembly at 0040d3e5"
+    },
+    {
+      "address": "0040e150",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveSlot_BuildPath",
+      "description": "(slot): writes 'sav\\' followed by the slot's file name (SaveSlotTable, 0x5e bytes per slot) into the static buffer 004832dc. Used by Game_LoadSlot, Game_SaveSlot and Stats_ScanSlots.",
+      "source": "VSHELL decompile and disassembly at 0040e150"
+    },
+    {
+      "address": "00427ecd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_Load",
+      "description": "(table, path), assert file src\\strings.cpp: opens path with VolRStream_CtorFromPath, asserts it opened, reads it with StringTable_LoadFromStream, destroys the stream and returns that result. String-table reader: +0 content buffer, +4 cursor, +8 content length, +0xc int16 strings in the current group, +0xe int16 index within it. Layout of the file in docs/formats/str-strings.md.",
+      "source": "VSHELL decompile and disassembly at 00427ecd"
+    },
+    {
+      "address": "00427f53",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_LoadFromStream",
+      "description": "(table, stream): reads the int32 content length into +8, allocates that many bytes (Mem_NewArray, asserting in src\\strings.cpp on failure) at +0, reads the content into it and sets the cursor +4 to the start. Returns 1.",
+      "source": "VSHELL decompile and disassembly at 00427f53"
+    },
+    {
+      "address": "00427fb9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_Free",
+      "description": "Frees a string table's buffer (Mem_DeleteArray) and zeroes the buffer, cursor, length and group counters.",
+      "source": "VSHELL decompile and disassembly at 00427fb9"
+    },
+    {
+      "address": "00427fff",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_ReadNext",
+      "description": "(table, &text, &attributes): reads the next string. At the start of a group it takes the int16 count first. Stores a pointer to the text (after its int16 length) and, when attributes is non-null, to the attribute bytes after the count byte, then advances past both. At the end of a group it resets the group counters and returns 0; also 0 past the end of the content.",
+      "source": "VSHELL decompile and disassembly at 00427fff"
+    },
+    {
+      "address": "0042808e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_LoadGroup",
+      "description": "(table, texts, capacity, attributes): reads the next group's count, asserts in src\\strings.cpp when capacity is positive but smaller than it, and fills texts[i] (and attributes[i] when that array is given) with StringTable_ReadNext, asserting on a short group. Resets the group counter and returns the count. The VSHELL counterpart of DBSIM's StringTable_LoadGroup.",
+      "source": "VSHELL decompile and disassembly at 0042808e"
+    },
+    {
+      "address": "00427fe6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_PeekGroupCount",
+      "description": "Returns the byte at the cursor, the low byte of the next group's int16 count, sign-extended; 0 when nothing is loaded.",
+      "source": "VSHELL decompile and disassembly at 00427fe6"
+    },
+    {
+      "address": "0045250c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_ApplyToPoint",
+      "description": "(point, transform, out): transforms an int32 point, Q14 with +0x2000 rounding and 64-bit intermediates, then adds the translation; the rank byte picks translation-only, Z-rotation or full 3x3 arithmetic. Same routine as DBSIM's Transform_ApplyToPoint. A transform is 0x20 bytes: nine int16 Q14 rotation terms (+0 the XY 2x2 block x->x, x->y, y->x, y->y; +8 x->z, y->z; +0xc z->x, z->y; +0x10 z->z), a rank byte at +0x12 (0 translation only, 1 Z rotation only, 2 full 3x3) and int32 translation x, y, z at +0x14/+0x18/+0x1c.",
+      "source": "VSHELL decompile and disassembly at 0045250c"
+    },
+    {
+      "address": "0045230c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_RotatePoint",
+      "description": "(point, transform, out): Transform_ApplyToPoint without the translation, i.e. the rotation alone, with the same rank-byte fast paths.",
+      "source": "VSHELL decompile and disassembly at 0045230c"
+    },
+    {
+      "address": "00451a28",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_Concat",
+      "description": "(a, b, out): composes two transforms so that out applies a then b: rotation out = a.rot then b.rot (Q14, rank-byte fast paths), translation out = b.rot(a.t) + b.t. Same routine as DBSIM's Transform_Concat.",
+      "source": "VSHELL decompile and disassembly at 00451a28"
+    },
+    {
+      "address": "00450929",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_TransposeRotation",
+      "description": "Transposes a transform's rotation in place (swaps +2/+4, +8/+0xc, +0xa/+0xe), which inverts a pure rotation.",
+      "source": "VSHELL decompile and disassembly at 00450929"
+    },
+    {
+      "address": "004656f4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_InvertRigid",
+      "description": "Inverts a rigid transform in place: Transform_TransposeRotation, then the translation becomes the transposed rotation applied to -t.",
+      "source": "VSHELL decompile and disassembly at 004656f4"
+    },
+    {
+      "address": "0045f787",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_ApplyToPoint_Thunk",
+      "description": "One-line forwarder to Transform_ApplyToPoint with the same arguments.",
+      "source": "VSHELL decompile and disassembly at 0045f787"
+    },
+    {
+      "address": "00465739",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_Concat_Thunk",
+      "description": "One-line forwarder to Transform_Concat with the same arguments.",
+      "source": "VSHELL decompile and disassembly at 00465739"
+    },
+    {
+      "address": "00465769",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_TransposeRotation_Thunk",
+      "description": "One-line forwarder to Transform_TransposeRotation.",
+      "source": "VSHELL decompile and disassembly at 00465769"
+    },
+    {
+      "address": "0045f896",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_Set",
+      "description": "(p, x, y, z): stores three int32 components and returns p.",
+      "source": "VSHELL decompile and disassembly at 0045f896"
+    },
+    {
+      "address": "0045f74a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_Set",
+      "description": "(p, x, y): stores two int32 components.",
+      "source": "VSHELL decompile and disassembly at 0045f74a"
+    },
+    {
+      "address": "00467e53",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_Negate",
+      "description": "Negates an int32 point in place (z, then x and y through Point2I_Negate) and returns it.",
+      "source": "VSHELL decompile and disassembly at 00467e53"
+    },
+    {
+      "address": "00467e7e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_Negate",
+      "description": "Negates the two int32 components of a point in place.",
+      "source": "VSHELL decompile and disassembly at 00467e7e"
+    },
+    {
+      "address": "0045e198",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SetModelTransform",
+      "description": "Installs a transform as the renderer's current model transform (null means the identity at 005d7fa8); the pointer goes to 005d7fa4. Builds model-to-view = Transform_Concat(model, [005d7fa0]) at 005d7f60, its inverse (Transform_InvertRigid) at 005d7f80, and the eye position in model space (the origin through that inverse) at 005d7fc8. When the byte at 005ddbb0 is set, also moves each light in the list at 005d8058 (count 005d8054) into model space with Light_TransformToModelSpace, using the inverse of the model transform. The VSHELL copy of DBSIM's Raster_SetModelTransform (0048c338), same code.",
+      "source": "VSHELL decompile and disassembly at 0045e198"
+    },
+    {
+      "address": "0045e2d0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ModelToView",
+      "description": "(point, out): Transform_ApplyToPoint by the current model-to-view transform at 005d7f60 (built by Raster_SetModelTransform). The first step of MapCamera_Project.",
+      "source": "VSHELL decompile and disassembly at 0045e2d0"
+    },
+    {
+      "address": "0045e350",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_Project",
+      "description": "(view, out): perspective divide of a view-space point with y as depth: out = ((x << s) / y, (z << s) / y), s the focal shift at 005d7fd4. With a shift of 0 it divides by the fixed value at 005d7fdc instead of y, a parallel projection. Returns out.",
+      "source": "VSHELL decompile and disassembly at 0045e350"
+    },
+    {
+      "address": "0045e424",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ToScreen",
+      "description": "(projected, out): out.x = x + [005d7fe0], out.y = [005d7fe4] - y: offsets a projected point to the viewport centre with y flipped to screen-down.",
+      "source": "VSHELL decompile and disassembly at 0045e424"
+    },
+    {
+      "address": "0045da5c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_TransformToModelSpace",
+      "description": "(light, transform): transforms the light's position (+4, int32) by the transform and rotates its direction (+0x10) into the model-space copies at +0x22 and +0x2e. Raster_SetModelTransform calls it per light. The VSHELL copy of DBSIM's Light_TransformToModelSpace.",
+      "source": "VSHELL decompile and disassembly at 0045da5c"
+    },
+    {
+      "address": "00405d9c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_PumpMessages",
+      "description": "Drains the Windows message queue with PeekMessageA(PM_REMOVE), translating and dispatching each message; bumps the counter at 0046d748 and prints it to the DarkMono monitor ('counter: %d', Mono_Printf at 40,2) per message. Returns 1 as soon as it sees WM_QUIT (0x12), 0 once the queue is empty.",
+      "source": "VSHELL decompile and disassembly at 00405d9c"
+    },
+    {
+      "address": "00401cf4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_RunFrames",
+      "description": "Runs up to 24 shell frames, stopping early when the quit flag 0046c074 is set or Shell_PumpMessages sees WM_QUIT. Each frame, when 0046c094 is set: Dispatcher_RunQueue on 004810f4 with all masks, Shell_PumpEvents, Shell_CommitPalette and DirtyList_Flush on the screen object at [004810f0]. Called from Game_ProcessMissionResults and the main menu's Credits, Instant Action and View Demo handlers, among others.",
+      "source": "VSHELL decompile and disassembly at 00401cf4"
+    },
+    {
+      "address": "0046814c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_PumpEvents",
+      "description": "Timer_Tick on the timer list at [005ddbd4], then EventQueue_Pump on [005ddbd0].",
+      "source": "VSHELL decompile and disassembly at 0046814c"
+    },
+    {
+      "address": "0046a1c8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Timer_Tick",
+      "description": "Advances a timer list by the GetTickCount delta since the last tick (stored at +0x145). Timers are 16-byte records from +1 (count at +0x141): target, remaining ms, period ms, id. An expired timer posts a WinTimerEvent (target at +0x20, id at +0x24) with Event_Post and reloads from its period; a timer with period 0 is then removed (Timer_Remove).",
+      "source": "VSHELL decompile and disassembly at 0046a1c8"
+    },
+    {
+      "address": "0046a16c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Timer_Remove",
+      "description": "(timers, index): removes a timer by moving the last record into its slot and decrementing the count at +0x141.",
+      "source": "VSHELL decompile and disassembly at 0046a16c"
+    },
+    {
+      "address": "004696d8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinTimerEvent_Ctor",
+      "description": "WinTimerEvent constructor (vtable 0047fd44, RTTI name 'WinTimerEvent', 0x28 bytes): WinEvent_Ctor, then event type 0x200 at +0xc. Posted by Timer_Tick.",
+      "source": "VSHELL decompile and disassembly at 004696d8"
+    },
+    {
+      "address": "00468a70",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinEvent_Ctor",
+      "description": "WinEvent constructor (vtable 0047fe20, RTTI name 'WinEvent', 0x24 bytes; base 0041d704): word 8 at +4, clears +0x18 (display, filled by Event_Post), +0x1c and +0x20 (target). MouseEvent_Ctor and WinTimerEvent_Ctor build on it.",
+      "source": "VSHELL decompile and disassembly at 00468a70"
+    },
+    {
+      "address": "00468320",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_GetRoot",
+      "description": "Returns the display's root widget, the pointer at [0047f8a4]+5. Callers parent top-level windows on it (Window_Ctor), read its rect (+0x15..+0x21) and set its cursor (+0x35) and handler (+0x3d).",
+      "source": "VSHELL decompile and disassembly at 00468320"
+    },
+    {
+      "address": "0041da9b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Dispatcher_RunQueue",
+      "description": "(dispatcher, typeMask, subMask): calls slot +4 of every idle handler on the list at +0x1c whose masks (+0xc, +0xe) match; then pops each queued item (PtrArray at +0, asserting 'PtrArray::operator[]: Index out of range'), passes it through the filter functions at +0x18 (count +0xe), delivers it to every listener on the list at +0x20 whose masks match the item's type words (+4, +6), and deletes it.",
+      "source": "VSHELL decompile and disassembly at 0041da9b"
+    },
+    {
+      "address": "0041f7f5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DirtyList_Flush",
+      "description": "Presents every dirty rectangle queued on a screen object (16-byte rects from +0x19, count at +0x659) with DirtyList_PresentOne and zeroes the count.",
+      "source": "VSHELL decompile and disassembly at 0041f7f5"
+    },
+    {
+      "address": "0041f7d8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DirtyList_PresentOne",
+      "description": "Display_PresentRect(rect, rect) and decrements the dirty count at +0x659.",
+      "source": "VSHELL decompile and disassembly at 0041f7d8"
+    },
+    {
+      "address": "0040664a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_PresentRect",
+      "description": "(destPoint, srcRect): copies a rectangle of the 8-bit back buffer to the screen. Without DirectDraw (00481e68 clear): BitBlt from the memory DC 00481878 with the palette 00481870 selected, inside BeginPaint/EndPaint. With DirectDraw: restores a lost primary surface (00481e5c), locks it and copies rows from the back buffer 0048186c (dimensions at [00481864]), clamped to 640x480.",
+      "source": "VSHELL decompile and disassembly at 0040664a"
+    },
+    {
+      "address": "00405cd8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_PresentStoredRect",
+      "description": "Display_PresentRect with the stored destination point 0048185c and source rect 0048183c. Mission_OnMapUp/Down/Left/Right call it.",
+      "source": "VSHELL decompile and disassembly at 00405cd8"
+    },
+    {
+      "address": "00405c8c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_SetDrawOrigin",
+      "description": "(unused, point): points the back-buffer surface's draw pointer ([00481834]+0xa, mirrored at [0046d73c]) at (x, y) using the pitch at +2, and stores the point as the present destination 0048185c/00481860.",
+      "source": "VSHELL decompile and disassembly at 00405c8c"
+    },
+    {
+      "address": "00405ceb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_PresentRegion",
+      "description": "(rect): presents rect offset by the stored source origin 0048183c and destination 0048185c (and, when [0048e184]+0x20c is set, by that object's scroll offset) through Display_PresentRect.",
+      "source": "VSHELL decompile and disassembly at 00405ceb"
+    },
+    {
+      "address": "0042d138",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetVolume",
+      "description": "SFX::setVolume (assert file .\\inc\\sfx_fix.h): (sfx, handle, volume). Asserts 'Can not setVolume an invalid handle' for handle -1 and 'Sample handle is old and no longer valid' when the handle does not match the one stored in its slot (the low 16 bits index 0x28-byte slots at sfx+0x38). Stores the volume at slot +0x14 and applies it now (0042dbba) when the slot is playing (+9 bit 0).",
+      "source": "VSHELL decompile and disassembly at 0042d138"
+    },
+    {
+      "address": "00404781",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Keyboard_PopKey",
+      "description": "(keyboard): pops the next 16-bit key code off the keyboard ring (256 words at 004813bc, read index 004815c0, write index 004815bc) and returns it, 0 when the ring is empty; clears bit 1 (keys pending) of the keyboard object's flags when it empties the ring. Keyboard_PostEvents drains the ring with it; ShellMap_RunIntro and Avi_Play read keys with it directly.",
+      "source": "VSHELL decompile and disassembly at 00404781"
+    },
+    {
+      "address": "004052e1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Keyboard_FlushKeys",
+      "description": "(keyboard): empties the keyboard ring (read index = write index) and clears bit 1 (keys pending) of the keyboard object's flags. ShellMap_RunIntro calls it before its loop.",
+      "source": "VSHELL decompile and disassembly at 004052e1"
+    },
+    {
+      "address": "0046c074",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_QuitFlag",
+      "description": "Nonzero ends the shell's main loop in 00401525. The main menu's QUIT, VIEW DEMO and INSTANT ACTION set it, and so does launching a mission; Shell_RunFrames stops early on it.",
+      "source": "docs/shell/screen-layout.md#quit; VSHELL decompile at 00401cf4"
+    },
+    {
+      "address": "005d7f60",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ModelToView",
+      "description": "The current model-to-view transform (0x20 bytes), built by Raster_SetModelTransform and applied by Raster_ModelToView.",
+      "source": "VSHELL decompile at 0045e198"
+    },
+    {
+      "address": "005d7f80",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ViewToModel",
+      "description": "The inverse of g_ModelToView, built by Raster_SetModelTransform.",
+      "source": "VSHELL decompile at 0045e198"
+    },
+    {
+      "address": "005d7fc8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_EyeInModelSpace",
+      "description": "The viewpoint in current model space: the origin through g_ViewToModel, set by Raster_SetModelTransform.",
+      "source": "VSHELL decompile at 0045e198"
+    },
+    {
+      "address": "00402998",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Ctor",
+      "description": "VolRStream::VolRStream() from src\\volrstrm.cpp (vtable 0046d014, RTTI name 'VolRStream', 0x2f bytes). Asserts 'A volume group must be defined before a volume stream can be used.' when g_VolumeGroup is null, clears the entry fields and the filter pointers, handle -1, status 5 (no file). VolRStream layout: +8 int16 file handle (-1 when reading from a volume), +0xa the volume's own stream, +0xe the stream reads go through (the volume stream for a stored entry, else the filter), +0x12 entry data offset in the volume, +0x16 position within the entry, +0x1a expected position of the volume stream, +0x1e compression type, +0x22 entry size, +0x26 byte: the stream owns the handle, +0x27 RLERStream*, +0x2b LZHRStream*.",
+      "source": "VSHELL decompile and disassembly at 00402998"
+    },
+    {
+      "address": "00402a0e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_CtorFromHandle",
+      "description": "VolRStream::VolRStream(handle) from src\\volrstrm.cpp: as VolRStream_Ctor, but adopts an open file handle without owning it (+0x26 = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to VolRStream_SetIoError. The 'errno == EBADF' tests before its asserts read the dword at 0046b6f6, which is the cw3220 _errno import thunk's own code bytes (FF 25 3C E3), not errno, so in this image they are never true.",
+      "source": "VSHELL decompile and disassembly at 00402a0e"
+    },
+    {
+      "address": "00402ad9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_CtorFromPath",
+      "description": "VolRStream::VolRStream(path) from src\\volrstrm.cpp: as VolRStream_Ctor, then VolRStream_Open(path). The usual way the shell opens a data file, loose or inside a volume.",
+      "source": "VSHELL decompile and disassembly at 00402ad9"
+    },
+    {
+      "address": "00402c34",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetFile",
+      "description": "VolRStream::setFile(handle) (assert 'VolRStream::setFile: Bad file Handle.'): VolRStream_Close, adopt the handle without owning it, probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else VolRStream_SetIoError. The 'errno == EBADF' tests before its asserts read the dword at 0046b6f6, which is the cw3220 _errno import thunk's own code bytes (FF 25 3C E3), not errno, so in this image they are never true.",
+      "source": "VSHELL decompile and disassembly at 00402c34"
+    },
+    {
+      "address": "00402d25",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Open",
+      "description": "VolRStream::open(path) from src\\volrstrm.cpp. Closes, then tries _open(path, O_BINARY|O_RDONLY) first, so a loose file on disk overrides a volume entry of the same name. Otherwise looks the path up with VolumeGroup_FindEntry (g_VolumeGroup) and switches on the entry's compression type (the first byte of its 9-byte prefix): 2 reads the volume stream directly, 7 attaches the RLERStream at +0x27, 9 the LZHRStream at +0x2b (each created on first use, asserting 'Insufficient memory to allocate filter stream.'), anything else asserts 'Unknown compression type in volume file.'. Returns 1 with status 0 and +0x26 set, or 0 with status 1 when neither source has the file.",
+      "source": "VSHELL decompile and disassembly at 00402d25"
+    },
+    {
+      "address": "00403148",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_GetPosition",
+      "description": "VolRStream vtable slot +4: _lseek(h, 0, SEEK_CUR) for a file handle, else the position within the volume entry (+0x16), or 0 when no entry is open.",
+      "source": "VSHELL decompile and disassembly at 00403148"
+    },
+    {
+      "address": "0040317f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetPosition",
+      "description": "VolRStream vtable slot +8 (assert 'VolRStream::setPosition: Unknown compression type in volume file.'): (stream, pos). Clears an end-of-data status first. A file handle seeks with _lseek(h, pos, SEEK_SET), failure to VolRStream_SetIoError. A volume entry records pos at +0x16 and seeks the volume stream to data offset + pos; for type 7/9 it closes the filter, seeks the volume stream to the entry's data start, reopens the filter on it and seeks the filter to pos. A pos at or past the entry size sets status 2 and stores the size itself (not data offset + size) as the volume position.",
+      "source": "VSHELL decompile and disassembly at 0040317f"
+    },
+    {
+      "address": "00403308",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_GetCapabilities",
+      "description": "VolRStream vtable slot +0xc (assert 'VolRStream:getCapabilities: Unknown capability.'): answers capability queries 0-4. Query 0 is the compression type for a volume entry (2 for a plain file); 2 and 3 answer 1; 4 answers 1 only for a compressed volume entry; 1 answers 0.",
+      "source": "VSHELL decompile and disassembly at 00403308"
+    },
+    {
+      "address": "00403396",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "low",
+      "description": "VolRStream vtable slot +0x10: returns 1 and does nothing else. RLERStream_Close and LZHRStream_Close call the same slot on their own vtables before detaching, which suggests a flush; the meaning is not confirmed.",
+      "source": "VSHELL decompile and disassembly at 00403396"
+    },
+    {
+      "address": "004033c0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Write",
+      "description": "VolRStream vtable slot +0x14: asserts 'VolRStream::write: Cannot write to read only stream.', sets status 4 and returns 0.",
+      "source": "VSHELL decompile and disassembly at 004033c0"
+    },
+    {
+      "address": "004033f9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Read",
+      "description": "VolRStream::read, vtable slot +0x18: (stream, count, buffer); returns nonzero on success, 0 with status set otherwise, and nothing when status is already nonzero. A file handle _reads; a short read sets status 2, an error goes to VolRStream_SetIoError. A volume entry first re-seeks (VolRStream_SetPosition) when the volume stream has moved from +0x1a, then reads through +0xe. When position + count passes the entry size it instead reads size - position + 1 bytes from the volume stream at +0xa, which is the rest of the entry plus the one-byte trailer after it, and sets status 2. The 'errno == EBADF' tests before its asserts read the dword at 0046b6f6, which is the cw3220 _errno import thunk's own code bytes (FF 25 3C E3), not errno, so in this image they are never true.",
+      "source": "VSHELL decompile and disassembly at 004033f9"
+    },
+    {
+      "address": "0040339d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetIoError",
+      "description": "Sets the stream status at +4 to 1 when the dword at 0046b6f6 is nonzero, else 3, and returns 0. That dword is the _errno import thunk's code bytes (0xE33C25FF), so it always stores 1. Stream status codes at +4 seen in these classes: 0 ok, 1 I/O error, 2 end of data, 3 close failed, 4 write to a read-only stream, 5 no file, 6 filter stream not attached.",
+      "source": "VSHELL decompile and disassembly at 0040339d"
+    },
+    {
+      "address": "0040279f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Volume_FindEntry",
+      "description": "Looks a path up in one loaded volume: (volume, path, entryInfo). Splits the path into directory and file name, matches the directory against the volume's directory list (+0x1d count, +0x24 names) and then the name and directory index against its 18-byte entries (+0x1e count, +0x2c table), case-insensitively. On a hit it seeks the volume's stream (+4) to the entry, reads the 9-byte prefix and fills entryInfo: [0] the volume stream, [2] and [4] the data offset (entry offset + 9), [5] the prefix's first byte (compression type), [6] the prefix's size dword. Returns 1 on a hit, 0 otherwise.",
+      "source": "VSHELL decompile and disassembly at 0040279f"
+    },
+    {
+      "address": "00403b5d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolumeGroup_FindEntry",
+      "description": "Tries Volume_FindEntry on each volume in a VolumeGroup (volume pointers from +0, count byte at +0x78) in order and returns 1 at the first hit. VolRStream_Open calls it on g_VolumeGroup.",
+      "source": "VSHELL decompile and disassembly at 00403b5d"
+    },
+    {
+      "address": "0044ef18",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Ctor",
+      "description": "RLERStream constructor (vtable 0047a70c, RTTI name 'RLERStream', 0x92 bytes): Stream_BaseCtor, RLERStream_Init, status 6 (not attached). VolRStream_Open builds one for compression type 7.",
+      "source": "VSHELL decompile and disassembly at 0044ef18"
+    },
+    {
+      "address": "0044ef7c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Init",
+      "description": "Clears an RLERStream's source pointer at +8, its state bytes +0xc..+0xe and the dword at +0x8e.",
+      "source": "VSHELL decompile and disassembly at 0044ef7c"
+    },
+    {
+      "address": "0044ef9c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Open",
+      "description": "(rle, source): RLERStream_Close, attach the source stream at +8 at its current position, reset the decoder state, and copy the source's status (Stream_GetStatus) as its own.",
+      "source": "VSHELL decompile and disassembly at 0044ef9c"
+    },
+    {
+      "address": "0044efd4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Close",
+      "description": "When a source is attached: calls the stream's own vtable slot +0x10, clears the source at +8 and sets status 6. VolRStream_Close, VolRStream_SetPosition and VolRStream_Dtor release the +0x27 filter with it.",
+      "source": "VSHELL decompile and disassembly at 0044efd4"
+    },
+    {
+      "address": "0044f248",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Ctor",
+      "description": "LZHRStream constructor (vtable 0047a764, RTTI name 'LZHRStream', 0x28 bytes): Stream_BaseCtor, LZHRStream_Init, status 6 (not attached). VolRStream_Open builds one for compression type 9. The decoder is LZHUF-shaped: a 4036-byte (4096 - 60) window initialised to spaces and an adaptive Huffman coder, LZHuffman.",
+      "source": "VSHELL decompile and disassembly at 0044f248"
+    },
+    {
+      "address": "0044f2ac",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Init",
+      "description": "Allocates an LZHRStream's LZHuffman coder (0x16 bytes, LZHuffman_Ctor) at +0xc and a 0x103b-byte window buffer (Mem_NewArray) at +0x10; source pointer +8 cleared.",
+      "source": "VSHELL decompile and disassembly at 0044f2ac"
+    },
+    {
+      "address": "0044f318",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Dtor",
+      "description": "LZHRStream destructor: LZHRStream_Close, destroys the LZHuffman at +0xc (LZHuffman_Dtor, flag 3), frees the window at +0x10 (Mem_DeleteArray), Stream_BaseDtor, frees itself when flag & 1.",
+      "source": "VSHELL decompile and disassembly at 0044f318"
+    },
+    {
+      "address": "0044f374",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Open",
+      "description": "(lzh, source): LZHRStream_Close, attach the source at +8, start the Huffman coder on it (LZHuffman_Start), fill the first 0xfc4 bytes of the window with spaces, set the window position to 0xfc4 and clear the run state (+0x18, +0x1c, +0x24), and copy the source's status (Stream_GetStatus).",
+      "source": "VSHELL decompile and disassembly at 0044f374"
+    },
+    {
+      "address": "0044f3cc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Close",
+      "description": "When a source is attached: calls the stream's own vtable slot +0x10, clears the source at +8 and sets status 6. VolRStream_Close, VolRStream_SetPosition and VolRStream_Dtor release the +0x2b filter with it.",
+      "source": "VSHELL decompile and disassembly at 0044f3cc"
+    },
+    {
+      "address": "0044f65c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Ctor",
+      "description": "LZHuffman constructor (Borland type string 'LZHuffman' in the image): allocates the adaptive Huffman tables with Mem_NewArray: +4 frequencies (0x4e8 bytes = 628 words), +8 parent links (0x75a = 941 words), +0xc child links (0x4e6 = 627 words), the LZHUF sizes for 314 symbols and a 627-node tree.",
+      "source": "VSHELL decompile and disassembly at 0044f65c"
+    },
+    {
+      "address": "0044f69c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Dtor",
+      "description": "LZHuffman destructor: frees the three tables at +4, +8, +0xc with Mem_DeleteArray, then the object with Mem_Delete when flag & 1.",
+      "source": "VSHELL decompile and disassembly at 0044f69c"
+    },
+    {
+      "address": "0044f6dc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Start",
+      "description": "(coder, source): stores the source stream at +0, clears the bit-buffer state (+0x10..+0x15) and builds the initial adaptive Huffman tree: 314 leaves (0x13a) of frequency 1 and 627 nodes (0x273), root frequency sentinel 0xffff. LZHUF's StartHuff.",
+      "source": "VSHELL decompile and disassembly at 0044f6dc"
+    },
+    {
+      "address": "004503d0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_GetStatus",
+      "description": "Returns a stream's status word at +4. Stream status codes at +4 seen in these classes: 0 ok, 1 I/O error, 2 end of data, 3 close failed, 4 write to a read-only stream, 5 no file, 6 filter stream not attached.",
+      "source": "VSHELL decompile and disassembly at 004503d0"
+    },
+    {
+      "address": "0046c9ac",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_VolumeGroup",
+      "description": "Pointer to the shell's VolumeGroup (volume pointers from +0, count byte at +0x78). VolRStream's constructors assert it is set; VolRStream_Open searches it with VolumeGroup_FindEntry.",
+      "source": "VSHELL decompile at 00402998 and 00402d25"
+    },
+    {
+      "address": "0040815a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_NewArray",
+      "description": "The global array operator new (the name is the C++ convention; the image has no string for it). Mem_New's body with 8 added to the size: g_ShellPool via Memory_Alloc when the size fits, else Mem_HeapAlloc; zeroed. Returns the block start, so the 8 extra bytes are unused slack. Rtl_VectorNew allocates through it, and callers pass count * element size (e.g. the three byte buffers in 0044f65c, the tables in MsnGen_ParseMsnFile).",
+      "source": "VSHELL decompile and disassembly at 0040815a"
+    },
+    {
+      "address": "004081f1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_DeleteArray",
+      "description": "The global array operator delete (the name is the C++ convention). Body identical to Mem_Delete: a 'KLBA' block inside the pool at 0048239c goes to Memory_Free, anything else is _free'd and its size at p[-1] subtracted from the heap byte count at 004823b0. Rtl_VectorDelete frees through it; destructor 0044f69c frees its member buffers with it and the object itself with Mem_Delete. Some Mem_NewArray blocks are released with Mem_Delete instead (0042be3c's failure path), which is harmless as the two bodies match.",
+      "source": "VSHELL decompile and disassembly at 004081f1"
+    },
+    {
+      "address": "004077c5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_Init",
+      "description": "Initialises a src\\mymem.cpp pool over a caller-supplied buffer: (pool, size, buffer). Stores base and size, makes the whole buffer one free block of size & ~7 tagged 'KLBF', and sets the free and lowest-free byte counts to that size. The pool object (e.g. 0048239c): +0 base, +4 byte size, +8 free-list head, +0xc free bytes, +0x10 lowest free bytes seen. Every block starts with an 8-byte header: an allocated block holds 'KLBA' (0x41424c4b) at +0 and its size including the header at +4, the caller's data at +8; a free block holds the next free block at +0, its size at +4 and 'KLBF' (0x46424c4b) at +8. Called once at startup (00401576) for the shell pool 0048239c, with a buffer of [0046c090] bytes from Mem_NewArray.",
+      "source": "VSHELL decompile and disassembly at 004077c5"
+    },
+    {
+      "address": "004078e7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_Alloc",
+      "description": "Memory::alloc from src\\mymem.cpp: (pool, size, trackLow). First fit over the free list for (size + 15) & ~7 bytes; an exact fit unlinks the block, a larger one is split when at least 0x10 bytes would remain. Tags the block 'KLBA', zeroes the data, subtracts from the free byte count and, when trackLow is nonzero, lowers the lowest-free mark at +0x10. Returns header + 8, or 0 after asserting 'Memory::alloc: Allocation failed'. Asserts 'Free list corrupted' when a list entry fails Memory_IsBlockHeader. The pool object (e.g. 0048239c): +0 base, +4 byte size, +8 free-list head, +0xc free bytes, +0x10 lowest free bytes seen. Every block starts with an 8-byte header: an allocated block holds 'KLBA' (0x41424c4b) at +0 and its size including the header at +4, the caller's data at +8; a free block holds the next free block at +0, its size at +4 and 'KLBF' (0x46424c4b) at +8.",
+      "source": "VSHELL decompile and disassembly at 004078e7"
+    },
+    {
+      "address": "00407a63",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_Free",
+      "description": "Memory::free from src\\mymem.cpp: (pool, ptr). Asserts 'Memory::free: Bad pointer' unless Memory_IsAllocatedBlock, and 'Block overrun' unless Memory_CheckOverrun. Adds the block size back to the free count, tags it 'KLBF', inserts it into the address-ordered free list (asserting 'Free list corrupted' on a bad entry) and coalesces it with the free blocks on either side. A null ptr is ignored.",
+      "source": "VSHELL decompile and disassembly at 00407a63"
+    },
+    {
+      "address": "00407be9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_Realloc",
+      "description": "Memory::realloc from src\\mymem.cpp: (pool, ptr, newSize). newSize 0 frees and returns 0. Asserts 'Memory::realloc:: Bad pointer' / 'Block overrun' like Memory_Free. Shrinks in place (giving the tail to a following free block, or splitting it off as its own block when over 0x10 bytes), grows in place into a following free block when it has room, and otherwise allocates, copies and frees. Updates the lowest-free mark. Returns the (possibly moved) pointer.",
+      "source": "VSHELL decompile and disassembly at 00407be9"
+    },
+    {
+      "address": "00407803",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_IsAllocatedBlock",
+      "description": "Returns 1 when ptr (a data pointer, header at ptr-8) lies inside the pool's [base, base+size) and its header holds 'KLBA'. Memory_Free, Memory_Realloc, Mem_Delete and Mem_DeleteArray use it to tell pool blocks from heap blocks.",
+      "source": "VSHELL decompile and disassembly at 00407803"
+    },
+    {
+      "address": "00407831",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_IsBlockHeader",
+      "description": "Returns 1 when a header address lies in [base, base+size-0x10] and is tagged either as a free block ('KLBF' at +8) or an allocated one ('KLBA' at +0). The free-list walks in Memory_Alloc and Memory_Free assert on it.",
+      "source": "VSHELL decompile and disassembly at 00407831"
+    },
+    {
+      "address": "00407870",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_CheckOverrun",
+      "description": "The 'Block overrun' check behind Memory_Free and Memory_Realloc. Fails when Memory_IsAllocatedBlock fails; passes when the block ends exactly at base + [pool+4]*8; otherwise returns Memory_IsBlockHeader of the block's own header (ptr-8), not of the header that follows it. [pool+4] is a byte count (Memory_Init), so the *8 end test only matches a block ending far past the pool, and for any block that passed Memory_IsAllocatedBlock the fallback re-tests a header already known good: as coded, the check does not inspect the bytes after the block.",
+      "source": "VSHELL decompile and disassembly at 00407870"
+    },
+    {
+      "address": "004078b7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_LargestFreeBlock",
+      "description": "Returns the size of the largest block on the pool's free list minus 0x6c, clamped to 0. Mem_New and Mem_NewArray send a request to the pool only when it is below the pool's free byte count (004823a8, pool +0xc) and no larger than this.",
+      "source": "VSHELL decompile and disassembly at 004078b7"
+    },
+    {
+      "address": "00407fe6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_PrevLinkedHeader",
+      "description": "Memory::prevLinkedHeader from src\\mymem.cpp: (pool, freeBlock). Returns the free-list entry that links to freeBlock, 0 when freeBlock is the list head. Asserts 'Block is not free' when freeBlock is tagged 'KLBA', and 'Free list corrupted' when no entry links to it. Memory_Realloc uses it to relink a free block it moved.",
+      "source": "VSHELL decompile and disassembly at 00407fe6"
+    },
+    {
+      "address": "00408089",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_BlockIterBegin",
+      "description": "Starts a walk over every block in a pool, free or allocated: (iter, pool) sets iter[0] = pool and iter[1] = the pool base (the first header). Memory_BlockIterNext advances it.",
+      "source": "VSHELL decompile and disassembly at 00408089"
+    },
+    {
+      "address": "0040809d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_BlockIterNext",
+      "description": "Advances a Memory_BlockIterBegin walk by the current header's size (+4) and returns the next header, or 0 (and clears the iterator) once past base + size.",
+      "source": "VSHELL decompile and disassembly at 0040809d"
+    },
+    {
+      "address": "004080d7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Memory_OperatorNew",
+      "description": "Memory_Alloc(pool, size, 1) with its arguments taken as (size, pool). The name assumes the argument order is that of a class placement operator new(size_t, Memory*); the image has no string for it.",
+      "source": "VSHELL decompile and disassembly at 004080d7"
+    },
+    {
+      "address": "00407ea3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_DrawUsageMap",
+      "description": "Draws the shell pool 0048239c as a cols x rows grid of characters on the DarkMono debug monitor: (unused, x, y, cols, rows). Walks the pool with Memory_BlockIterBegin/Next, giving each cell an equal share of the pool's bytes, and prints one CP437 character per cell with Mono_Printf('%c'): 07 for no allocated bytes, B1 under 50%, B2 under 100%, DB fully allocated.",
+      "source": "VSHELL decompile and disassembly at 00407ea3"
+    },
+    {
+      "address": "0046b558",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_VectorNew",
+      "description": "Borland RTL _vector_new_ (named by its own error string 'Illegal mode in _vector_new_' at 00480f70): (mem, elemSize, count, mode, ctor). Allocates count*elemSize bytes with Mem_NewArray when mem is null, plus 4 when mode & 0x10, in which case the count is stored in that first dword. Runs ctor on each element in turn with the calling convention mode & 7 selects (1 and 5 push this, 2 pushes it callee-cleaned, 3 passes it in EAX). Returns the first element (past the count), or 0 when the allocation fails.",
+      "source": "VSHELL disassembly at 0046b558; string at 00480f70"
+    },
+    {
+      "address": "0046b494",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_VectorDelete",
+      "description": "Borland RTL _vector_delete_ (named by its own error string 'Illegal mode in _vector_delete_' at 00480f50): (array, elemSize, count, mode, dtor). Takes the count from array[-1] when mode & 0x10, runs dtor(elem, 2) on each element from last to first under the mode & 7 calling convention, then frees the block with Mem_DeleteArray when mode & 8 and returns 0; otherwise returns the block start.",
+      "source": "VSHELL decompile at 0046b494; string at 00480f50"
+    },
+    {
+      "address": "0046a3e0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DarkMono_Ctor",
+      "description": "Constructs a DarkMono debug-monitor object: opens the device \\\\.\\DARKMONO.VXD with CreateFileA and stores the handle at +0 (INVALID_HANDLE_VALUE when the VxD is absent, which DarkMono_IsOpen checks). The shell's one instance is the global at 005ddc20, built by Mono_StaticInit.",
+      "source": "VSHELL decompile and disassembly at 0046a3e0"
+    },
+    {
+      "address": "0046a410",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DarkMono_Dtor",
+      "description": "DarkMono destructor: closes the device handle when open, frees the object when flag & 1.",
+      "source": "VSHELL decompile and disassembly at 0046a410"
+    },
+    {
+      "address": "0046a5c4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DarkMono_IsOpen",
+      "description": "Returns whether the DarkMono object's handle at +0 is not INVALID_HANDLE_VALUE. Every DarkMono output call does nothing when it is false, so on a machine without DARKMONO.VXD all debug-monitor output is dropped.",
+      "source": "VSHELL decompile and disassembly at 0046a5c4"
+    },
+    {
+      "address": "0046a629",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DarkMono_PutChar",
+      "description": "(mono, a, b, ch): sends DeviceIoControl code 6 with a 6-byte packet {a, b, ch} of 16-bit words. Mono_PutChar passes (y, x) as (a, b).",
+      "source": "VSHELL decompile and disassembly at 0046a629"
+    },
+    {
+      "address": "0046a673",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DarkMono_PutString",
+      "description": "(mono, a, b, text): sends DeviceIoControl code 7 with a 0x58-byte packet {a, b, length, text}: 16-bit words, then the text truncated to 80 characters. Mono_Print and Mono_Printf pass (y, x) as (a, b).",
+      "source": "VSHELL decompile and disassembly at 0046a673"
+    },
+    {
+      "address": "0046a5fc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_DarkMono_Fill",
+      "description": "(mono, ch): sends DeviceIoControl code 5 with the single byte ch. Its only caller, maybe_Mono_Clear, passes a space (0x20); the name assumes code 5 fills the screen with that character.",
+      "source": "VSHELL decompile and disassembly at 0046a5fc"
+    },
+    {
+      "address": "0046a4f4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mono_Printf",
+      "description": "printf to the DarkMono debug monitor: (x, y, fmt, ...). vsprintf into a 256-byte buffer, then DarkMono_PutString on the global monitor 005ddc20 with (y, x). The shell's debug-trace output; with no DARKMONO.VXD installed it does nothing.",
+      "source": "VSHELL decompile and disassembly at 0046a4f4"
+    },
+    {
+      "address": "0046a4d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mono_Print",
+      "description": "(x, y, text): DarkMono_PutString on the global monitor 005ddc20 with (y, x).",
+      "source": "VSHELL decompile and disassembly at 0046a4d4"
+    },
+    {
+      "address": "0046a4b4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mono_PutChar",
+      "description": "(x, y, ch): DarkMono_PutChar on the global monitor 005ddc20 with (y, x).",
+      "source": "VSHELL decompile and disassembly at 0046a4b4"
+    },
+    {
+      "address": "0046a4a4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Mono_Clear",
+      "description": "maybe_DarkMono_Fill on the global monitor 005ddc20 with a space (0x20). Called at shell startup (00401588), from 0041e18d and from TabHandler_Mission.",
+      "source": "VSHELL decompile and disassembly at 0046a4a4"
+    },
+    {
+      "address": "0046a584",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mono_StaticInit",
+      "description": "Static initialiser (its address is stored at 0048103c in the DATA section): runs DarkMono_Ctor on the global monitor object 005ddc20.",
+      "source": "VSHELL decompile and disassembly at 0046a584"
+    },
+    {
+      "address": "005ddc20",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_Mono",
+      "description": "The shell's DarkMono debug-monitor object: +0 device handle for DARKMONO.VXD, +4 a flag set/cleared by 0046a5e0/0046a5ef. Built by Mono_StaticInit; Mono_Printf and its siblings write to it.",
+      "source": "VSHELL decompile at 0046a3e0 and 0046a4f4"
+    },
+    {
+      "address": "0048239c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ShellPool",
+      "description": "The src\\mymem.cpp pool behind Mem_New / Mem_NewArray, a 0x14-byte Memory object: The pool object (e.g. 0048239c): +0 base, +4 byte size, +8 free-list head, +0xc free bytes, +0x10 lowest free bytes seen. Every block starts with an 8-byte header: an allocated block holds 'KLBA' (0x41424c4b) at +0 and its size including the header at +4, the caller's data at +8; a free block holds the next free block at +0, its size at +4 and 'KLBF' (0x46424c4b) at +8. Initialised by Memory_Init at 00401576.",
+      "source": "VSHELL disassembly at 00401576 and 00408107"
+    },
+    {
+      "address": "004080ec",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_HeapAlloc",
+      "description": "Mem_New's path for a block the pool will not take: _calloc(1, size), then adds the heap block's size word at p[-4] to the heap byte count at 004823b0, which Mem_Delete subtracts from. Returns the _calloc pointer in EAX (the decompile drops the return).",
+      "source": "VSHELL disassembly at 004080ec"
+    },
+    {
+      "address": "0046b32e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_GetPolymorphicDtorCount",
+      "description": "Borland RTL helper (the RTL's __GetPolymorphicDTC; no name string for it in the image). Given an object and the offset of its vptr, returns the destructor count stored in the dynamic type's typeinfo: vptr, back by the offset-to-top at vptr[-4], then the typeinfo pointer at -0xc, field +0x20. Returns 0 for a null object. Every polymorphic delete runs '*DAT_005ddec0 += Rtl_GetPolymorphicDtorCount(p, 0); p->vdtor(3)' to keep the exception handler's live-destructor count right.",
+      "source": "VSHELL decompile and disassembly; calling pattern in every polymorphic delete, e.g. VolRStream_Dtor"
+    },
+    {
+      "address": "0041ed99",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_RepaintRecursive",
+      "description": "Posts a repaint event (type 4 at event+0xc, target widget at +0x20; a 0x24-byte event from the global operator new at 00408107) to a widget, then recurses over its children (first child +0xd, next sibling +5). A hidden widget (+0x11 bit 2) and its whole subtree are skipped. The shell's usual 'redraw this panel' call.",
+      "source": "docs/shell/screen-layout.md#showing-and-hiding-a-widget (the +0x11 hidden bit and child links); Control_HandleEvent's type-4 repaint"
+    },
+    {
+      "address": "00402b58",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Dtor",
+      "description": "VolRStream destructor (vtable 0046d014). Deletes the RLERStream at +0x27 and the LZHRStream at +0x2b through their virtual destructors, closes via VolRStream_Close, runs Stream_BaseDtor, frees when flag&1.",
+      "source": "VSHELL decompile; src\\volrstrm.cpp assert strings in the class's constructors"
+    },
+    {
+      "address": "004081b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_Delete",
+      "description": "The global operator delete. A pointer for which Memory_IsAllocatedBlock holds (inside g_ShellPool, header tag 'KLBA') goes back to the pool through Memory_Free; anything else is _free'd and its size at p[-1] subtracted from the heap byte count at 004823b0. Mem_DeleteArray has the identical body. Pairs with Mem_New.",
+      "source": "VSHELL decompile; src\\mymem.cpp assert strings in the pool routines"
+    },
+    {
+      "address": "00402cb2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Close",
+      "description": "VolRStream::close. _close on the handle at +8 when the stream owns it (+0x26), releases the filters at +0x27 (RLERStream_Close) and +0x2b (LZHRStream_Close), zeroes the position fields +0xa, +0xe and +0x16, sets the handle to -1 and the status at +4 to 5. Returns 0 with status 3 if _close fails.",
+      "source": "VSHELL decompile; class identified by VolRStream_Dtor's vtable"
+    },
+    {
+      "address": "0044e238",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_BaseCtor",
+      "description": "Constructor of the stream base class StreamIO (vtable 0047a644; RTTI name 'StreamIO', 8 bytes), shared by FileRStream, FileWStream, FileRWStream, VolRStream, MemRWStream, RLERStream and LZHRStream: installs the vtable and clears the status word at +4.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e254",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_BaseDtor",
+      "description": "StreamIO destructor, paired with Stream_BaseCtor: restores vtable 0047a644, calls its close slot, frees when flag&1.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e2cc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Ctor",
+      "description": "FileRWStream constructor (vtable 0047a66c); does not open -- callers open with FileRWStream_Open.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e380",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Dtor",
+      "description": "FileRWStream destructor: closes via FileRWStream_Close, runs Stream_BaseDtor, frees when flag&1.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e42c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Close",
+      "description": "FileRWStream::close: _close on the handle at +8 when open, then marks it -1.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e6f4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Ctor",
+      "description": "FileRStream(path) constructor (vtable 0047a694): handle -1, then FileRStream_Open. Status at +4 is nonzero on failure; callers assert on it. Read slot is vtable+0x18. MissionVar_Read uses it.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e72c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Dtor",
+      "description": "FileRStream destructor: closes via FileRStream_Close, runs Stream_BaseDtor, frees when flag&1 (stack objects pass 2).",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e7dc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Close",
+      "description": "FileRStream::close: _close on the handle at +8 when open, then marks it -1.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e81c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Open",
+      "description": "FileRStream::open: _open(path, 0x8000) = O_BINARY|O_RDONLY; sets status 1 at +4 on failure.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044ea70",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Ctor",
+      "description": "FileWStream(path) constructor (vtable 0047a6bc): handle -1, then FileWStream_Open. Status at +4 is nonzero on failure; callers assert on it. Write slot is vtable+0x14. MissionVar_Write uses it.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044eaa8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Dtor",
+      "description": "FileWStream destructor: closes via FileWStream_Close, runs Stream_BaseDtor, frees when flag&1 (stack objects pass 2).",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044eb64",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Close",
+      "description": "FileWStream::close: _close on the handle at +8 when open, marks it -1, status 5.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044eba4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Open",
+      "description": "FileWStream::open: _open(path, 0x8301, 0x180) = O_BINARY|O_CREAT|O_TRUNC|O_WRONLY. Unlike FileRWStream_Open it truncates, so a file written through FileWStream keeps no stale tail.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044ded0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Report",
+      "description": "The entry behind every src\\*.cpp assert: (logger 0048dc24, severity, condition, __FILE__, __LINE__, message). Severities 4-6 run the hooks (Assert_RunHooks), emit, and _exit(1); lower severities only emit.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044e16c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Emit",
+      "description": "Formats and outputs one assert by severity: 2 prints the message, 3 counts and prints a formatted line, 4 prints and shows a MessageBoxA titled 'Error', 6 prints the break notice.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044deac",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_RunHooks",
+      "description": "Calls each hook on the list at 0048dc34 with the severity; Assert_Report runs it before a fatal exit.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
+      "address": "0044df44",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_AddHook",
+      "description": "Pushes a callback onto the hook list at 0048dc34; aborts with an assert_abort_notify message if the allocation fails.",
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+    },
+    {
       "address": "00411fc4",
       "binary": "VSHELL",
       "type": "function",
@@ -157,6 +2028,132 @@
       "name": "Armory_ScrapValueTons",
       "description": "What scrapping the armory's whole stock of a weapon yields, in tons: (weapons.dat +0x14 / 1000) * the +0x17 count held / 10, raised to 1 when that is below 1 and the count is not 0; 0 for an empty stock. The weapon scrap dialog quotes it.",
       "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "004126be",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_GrantCampaignWeapons",
+      "description": "Debrief-side weapon grants, campaign only, called by Game_ProcessMissionResults right after Herc_GrantUnlocks. Loop 1: for each still-locked weapon id with a flag slot in WeaponGrant_UnlockSlots, sets weapons.dat +0x16 when the flag equals WeaponGrant_UnlockValues[id], and zeroes the slot either way. Loop 2: for flag slots 0x15-0x31, adds flag[s] units of WeaponGrant_UnitIds[s-0x15] at condition 100 via Armory_AddNewUnit (0041229d), without clearing the slot; returns the number of units added.",
+      "source": "docs/formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be"
+    },
+    {
+      "address": "0041229d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_AddNewUnit",
+      "description": "(id, fitCondition) Allocates a ten-byte weapon unit, WeaponUnit_Init(unit, id, fitCondition, 100, 5), and appends it to the id's catalog record through Armory_AddUnit. The debrief's results.dat salvage pairs (campaign only) and Armory_GrantCampaignWeapons' unit grants (fitCondition 100) both come through it.",
+      "source": "docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+    },
+    {
+      "address": "0040f324",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_DeliverWeaponQueue",
+      "description": "In a campaign, CareerSalvage -= Armory_DeliverQueue(). The debrief's first campaign-only step.",
+      "source": "docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+    },
+    {
+      "address": "0040e804",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_AutoRepairSquad",
+      "description": "(budget) The debrief's repair billing by ShellOption_RepairMode: Repair_Auto on the player's machine in mode 0 only, and on each on-strength squad member's at positions 1 up to 00482a78 in any mode but 2, each against the same unsigned budget (the caller passes CareerSalvage / 00482a7a), each cost taken off CareerSalvage.",
+      "source": "docs/shell/armory.md#repair-levels"
+    },
+    {
+      "address": "00410a2b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercList_BuildTickAll",
+      "description": "(hangar) Herc_BuildTick on every occupied bay whose machine HercList_IsBuilt says is not built. The debrief's construction step.",
+      "source": "docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+    },
+    {
+      "address": "00410a64",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercList_IsBuilt",
+      "description": "(hangar, bay) Whether the bay holds a machine whose +0x4a build percentage is 100; false for an empty bay.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00410b40",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercList_ChassisAt",
+      "description": "(hangar, bay) The chassis type (+0x00) of the machine in the bay, or -1 for a negative bay or an empty one.",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "00410bbe",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercList_RemoveFirstOfType",
+      "description": "(hangar, chassisType) The first bay whose machine is that chassis: Herc_StripMounts, the record freed, the bay emptied and the count at +0x20 decremented, and the bay index returned. With no match it returns its last probe, HercList_ChassisAt(hangar, 7). No salvage is paid.",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "0040e7cd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hangar_WithdrawChassis",
+      "description": "(chassisType) HercList_RemoveFirstOfType, then the pilot Squad_PilotForBay finds for the returned index gets bay -1; the on-strength byte is left alone. Career_Advance's stage 1 mission 6 event, with 8, the Razor.",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "0040f34c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debrief_WriteReport",
+      "description": "(results header by value, salvageItems) Formats the mission tab's debrief report texts: the outcome's estext.bin string (0x146 + outcome), the salvage award in tons, the salvage item count, the player's Herc, Base and Flyer kills for the mission (+0x2d, +0x31, +0x2f) and the same three summed over the player and each on-strength squad member at positions 1 up to 00482a78, and the pilots-lost count Squad_ProgressAll returned. Writes widget text only.",
+      "source": "docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+    },
+    {
+      "address": "0041c28f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MsnGen_FreeRows",
+      "description": "Frees the mission loader's row arrays (conditions, .ENG strings and their texts, row 4, row 5, and the rest) and nulls each pointer. Msn_LoadDebrief calls it after handing row 5 on.",
+      "source": "docs/formats/msn-mission-file.md#row-5--the-debrief"
+    },
+    {
+      "address": "0046fa40",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponGrant_UnlockValues",
+      "description": "33 int16, one per weapon id: the campaign-flag value that unlocks the weapon. Read only where WeaponGrant_UnlockSlots is not -1.",
+      "source": "docs/formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be"
+    },
+    {
+      "address": "0046fa82",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponGrant_UnlockSlots",
+      "description": "33 int16, one per weapon id: the campaign-flag slot whose value unlocks the weapon, -1 for none. Eight are set: ATC75 0x34, ATC100 0x35, L400 0x32, L500 0x33, TARG 0x39, SHLD 0x38, TURB 0x3a, ENRG 0x3b.",
+      "source": "docs/formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be"
+    },
+    {
+      "address": "0046f8e0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponGrant_UnitIds",
+      "description": "22 int16 weapon ids, one per campaign-flag slot 0x15-0x2a, the weapon Armory_GrantCampaignWeapons adds flag[s] units of. Its loop runs to slot 0x31, reading seven more words past the table that are not weapon ids.",
+      "source": "docs/formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be"
     },
     {
       "address": "00412428",
@@ -577,8 +2574,8 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "FileWStream_Open",
-      "description": "The write-stream open behind every shell-written file: _open(path, 0x8102, 0x180) = O_BINARY|O_CREAT|O_RDWR with no O_TRUNC. Writing a shorter payload over a longer file leaves the old tail; two retail saves and GAMEFILE.STR carry one.",
+      "name": "FileRWStream_Open",
+      "description": "FileRWStream::open (the type-name string 'FileRWStream' at 0044e64e closes this class's code block). The open behind every save file: _open(path, 0x8102, 0x180) = O_BINARY|O_CREAT|O_RDWR with no O_TRUNC. Writing a shorter payload over a longer file leaves the old tail; two retail saves and GAMEFILE.STR carry one.",
       "source": "docs/formats/save-games.md"
     },
     {
@@ -1821,9 +3818,9 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Widget_AllocZeroed",
-      "description": "Generic widget allocator: bounds-checks param_1 (a struct byte-size, e.g. 0x61/0x55/0x47/0x69/0x75/0x6e8 for different widget classes) against a fixed pool, allocates via FUN_004078e7, zeroes with memset, returns the block. No file/resource access -- confirms widget construction throughout VSHELL's tab screens is purely in-memory, not resource-indexed.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "name": "Mem_New",
+      "description": "The global operator new, used for every heap object in the shell -- widgets, events, streams. A size below g_ShellPool's free byte count (004823a8, pool +0xc) and no larger than Memory_LargestFreeBlock is carved from that pool by Memory_Alloc; anything else goes to Mem_HeapAlloc (004080ec). Either way the block is returned zeroed. Mem_Delete is its pair; Mem_NewArray is the same routine with 8 bytes added to the size.",
+      "source": "VSHELL decompile; src\\mymem.cpp assert strings in the pool routines; callers include Widget_RepaintRecursive and FileWStream users"
     },
     {
       "address": "0040b698",
@@ -2299,7 +4296,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Career_SetDebriefLines",
-      "description": "Copies thirty mission.str line indices into 0048407c and a movie id into 004840ba from its stack; reached from Career_Advance through msn_gen.cpp's FUN_0041d2c3 for the mission just flown.",
+      "description": "Copies thirty mission.str line indices into 0048407c and a movie id into 004840ba from its stack; reached from Career_Advance through Msn_LoadDebrief (0041d2c3) for the mission just flown.",
       "source": "docs/shell/screen-layout.md#the-mission-screen"
     },
     {
@@ -2954,8 +4951,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Cpp_VectorNew",
-      "description": "The compiler's C++ 'vector new' runtime helper (carries the 'Illegal mode in vector new' error string): optionally allocates param_2*param_3 bytes (plus a 4-byte count prefix when mode bit 0x10 is set), then invokes the element constructor param_5 once per element at param_2 stride. Worth having named because it appears in the middle of data-structure loaders -- e.g. the HeightGrid cell array allocation in TerrainZone_PopulateFromBitmap -- where it can otherwise be mistaken for domain logic.",
+      "name": "Rtl_VectorNew",
+      "description": "Borland RTL _vector_new_ (named by its own error string 'Illegal mode in _vector_new_' at 004a7a1c), the DBSIM copy of VSHELL's Rtl_VectorNew: when passed no memory, allocates elemSize*count bytes with Mem_NewArray (plus a 4-byte count prefix when mode bit 0x10 is set), then runs the element constructor once per element at elemSize stride. Worth having named because it appears in the middle of data-structure loaders -- e.g. the HeightGrid cell array allocation in TerrainZone_PopulateFromBitmap -- where it can otherwise be mistaken for domain logic.",
       "source": "docs/engine/planning.md milestone-1 session 2026-08-11 (terrain loader port)"
     },
     {
@@ -3623,7 +5620,7 @@
       "type": "data",
       "confidence": "medium",
       "name": "maybe_g_BitmapAtlasCache",
-      "description": "CORRECTS this entry's own prior 'static compiled-in dither table' claim from earlier the same session -- that was WRONG. DBSIM.EXE's total file size is 724,512 bytes; this address sits in the DATA section's second (huge, 2,245,120-byte) chunk, which is almost certainly BSS-style zero-fill reserved space, not literal file content, ruling out a ~16MB static table outright. Traced the real populator: FUN_00469d10 (a rectangle-packing cache-insertion routine, recurses into an overflow bank via param_1[0x200]/[0x201] when a 256-wide row is full) and its wrapper FUN_00469f38 (allocates a 20-byte-stride descriptor per inserted image via Cpp_VectorNew, matching the SAME stride as TSTexture4Poly's already-solved g_ActiveBitmapArray[1] frame-descriptor table). FUN_00469f38 is called from 7 places across totally unrelated subsystems -- Base_LoadResources, maybe_Ground_LoadFlatShapes, Weapons_LoadResourceTables, Terrain_BindTextureBank, and two weapon-effect loaders (bullets.cpp/beam.cpp equivalents, FUN_0040ade0/FUN_0040b6e0) -- each packing a freshly-loaded DBA's frames into this SAME shared atlas via FUN_0045cdd8 (DBA loader). CONCLUSION: this is a generic runtime bitmap/texture atlas cache shared by the whole engine (mechs, weapons, terrain, ground shapes), not a purpose-built dither table. TSSolidPoly_Render's (colorField<<16 | pixelCoord) addressing therefore means 'sample pixel pixelCoord from cached bitmap slot colorField', not 'look up a fixed dither pattern' -- meaning the earlier assumption that colorField=FrontColor (a 0-255 palette index) is now suspect; it more plausibly indexes a specific SMALL-N cached bitmap slot (a dither/shading swatch loaded once per theater), which would also explain why the naive 16MB address range is never actually exercised. WHICH atlas slot TSSolidPoly_Render's shading swatch specifically occupies, and who inserts it, was NOT found this session -- none of the 7 known FUN_00469f38 callers is an obvious 'load lighting dither pattern' site. This is now the real open question, distinct from and more specific than 'extract the dither table's raw bytes'.",
+      "description": "CORRECTS this entry's own prior 'static compiled-in dither table' claim from earlier the same session -- that was WRONG. DBSIM.EXE's total file size is 724,512 bytes; this address sits in the DATA section's second (huge, 2,245,120-byte) chunk, which is almost certainly BSS-style zero-fill reserved space, not literal file content, ruling out a ~16MB static table outright. Traced the real populator: FUN_00469d10 (a rectangle-packing cache-insertion routine, recurses into an overflow bank via param_1[0x200]/[0x201] when a 256-wide row is full) and its wrapper FUN_00469f38 (allocates a 20-byte-stride descriptor per inserted image via Rtl_VectorNew, matching the SAME stride as TSTexture4Poly's already-solved g_ActiveBitmapArray[1] frame-descriptor table). FUN_00469f38 is called from 7 places across totally unrelated subsystems -- Base_LoadResources, maybe_Ground_LoadFlatShapes, Weapons_LoadResourceTables, Terrain_BindTextureBank, and two weapon-effect loaders (bullets.cpp/beam.cpp equivalents, FUN_0040ade0/FUN_0040b6e0) -- each packing a freshly-loaded DBA's frames into this SAME shared atlas via FUN_0045cdd8 (DBA loader). CONCLUSION: this is a generic runtime bitmap/texture atlas cache shared by the whole engine (mechs, weapons, terrain, ground shapes), not a purpose-built dither table. TSSolidPoly_Render's (colorField<<16 | pixelCoord) addressing therefore means 'sample pixel pixelCoord from cached bitmap slot colorField', not 'look up a fixed dither pattern' -- meaning the earlier assumption that colorField=FrontColor (a 0-255 palette index) is now suspect; it more plausibly indexes a specific SMALL-N cached bitmap slot (a dither/shading swatch loaded once per theater), which would also explain why the naive 16MB address range is never actually exercised. WHICH atlas slot TSSolidPoly_Render's shading swatch specifically occupies, and who inserts it, was NOT found this session -- none of the 7 known FUN_00469f38 callers is an obvious 'load lighting dither pattern' site. This is now the real open question, distinct from and more specific than 'extract the dither table's raw bytes'.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up (correction pass), docs/formats/dts-texture-binding.md"
     },
     {
@@ -3821,7 +5818,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_LoadResources",
-      "description": "mechsys.cpp's resource-load sequence for the mech subsystem -- the mech-side twin of Base_LoadResources (00405fac). Resets the mech-type-slot table (memset &DAT_004a9d8c, 0xff, 0x55), then streams dat\\mforms (string 'mforms' at 0049a46b, joined with the shared 'dat' folder-prefix helper FUN_00492ae0): reads a 2-byte record count into DAT_004a9dec, allocates that many 28-byte vector elements (Cpp_VectorNew(..., 0x1c, count, ...) -- 7 (x,y) int16 pairs/formation, matching Formation_GetSlotOffset's stride), stores the vector pointer into _DAT_004a9df0 (previously unwritten anywhere in disassembled code -- see that symbol's updated entry), then reads count*28 bytes straight from the file into the buffer. Afterwards loads the 7 mech texture groups (g_MechTextureGroupNames/g_MechTextureGroupSlots) via FUN_0045cdd8/FUN_00469f38, unrelated to formations. This function was never auto-disassembled by prior analysis passes (it sits directly after another function's RET with no call-graph edge Ghidra had found, so nothing walked into it) -- found by raw byte-scanning for the 'mforms' string's address as a PUSH-immediate operand, then manually disassembling/decompiling from there. Registered into DBSIM's subsystem-loader table via a thunk at 00420654 (FUN_00401d64(Mech_LoadResources, 2)), confirming it is live code the game runs, not dead weight.",
+      "description": "mechsys.cpp's resource-load sequence for the mech subsystem -- the mech-side twin of Base_LoadResources (00405fac). Resets the mech-type-slot table (memset &DAT_004a9d8c, 0xff, 0x55), then streams dat\\mforms (string 'mforms' at 0049a46b, joined with the shared 'dat' folder-prefix helper FUN_00492ae0): reads a 2-byte record count into DAT_004a9dec, allocates that many 28-byte vector elements (Rtl_VectorNew(..., 0x1c, count, ...) -- 7 (x,y) int16 pairs/formation, matching Formation_GetSlotOffset's stride), stores the vector pointer into _DAT_004a9df0 (previously unwritten anywhere in disassembled code -- see that symbol's updated entry), then reads count*28 bytes straight from the file into the buffer. Afterwards loads the 7 mech texture groups (g_MechTextureGroupNames/g_MechTextureGroupSlots) via FUN_0045cdd8/FUN_00469f38, unrelated to formations. This function was never auto-disassembled by prior analysis passes (it sits directly after another function's RET with no call-graph edge Ghidra had found, so nothing walked into it) -- found by raw byte-scanning for the 'mforms' string's address as a PUSH-immediate operand, then manually disassembling/decompiling from there. Registered into DBSIM's subsystem-loader table via a thunk at 00420654 (FUN_00401d64(Mech_LoadResources, 2)), confirming it is live code the game runs, not dead weight.",
       "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread, resolving the MFORMS.DAT load-site gap)"
     },
     {
@@ -3830,7 +5827,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_MechFormationTable",
-      "description": "The mech formation-offset table pointer Formation_GetSlotOffset (004205cc) reads. Previously documented as having no write site anywhere in DBSIM.EXE -- that was true only of the code Ghidra had disassembled; Mech_LoadResources (0041fdb0), found 2026-08-14, writes it (`_DAT_004a9df0 = extraout_EAX_00;` immediately after Cpp_VectorNew allocates count*28 bytes and before the file's formation data is read into that buffer). Sits in a tight cluster of mech-subsystem globals: DAT_004a9de4 (mech name table, LoadNameList's target) / DAT_004a9dec (formation count) / this pointer / DAT_004a9df4 (cached object-pool handle, maybe_MechTypeSlot_Allocate).",
+      "description": "The mech formation-offset table pointer Formation_GetSlotOffset (004205cc) reads. Previously documented as having no write site anywhere in DBSIM.EXE -- that was true only of the code Ghidra had disassembled; Mech_LoadResources (0041fdb0), found 2026-08-14, writes it (`_DAT_004a9df0 = extraout_EAX_00;` immediately after Rtl_VectorNew allocates count*28 bytes and before the file's formation data is read into that buffer). Sits in a tight cluster of mech-subsystem globals: DAT_004a9de4 (mech name table, LoadNameList's target) / DAT_004a9dec (formation count) / this pointer / DAT_004a9df4 (cached object-pool handle, maybe_MechTypeSlot_Allocate).",
       "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread)"
     },
     {
@@ -3839,7 +5836,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_RegisterLoader",
-      "description": "Thunk that registers Mech_LoadResources (0041fdb0) into DBSIM's subsystem-loader table via FUN_00401d64(Mech_LoadResources, 2), then separately allocates the 7-slot mech-texture-group vector (Cpp_VectorNew(&g_MechTextureGroupSlots, 8, 8, 1, ...)). Found by raw dword-scanning DBSIM.EXE for Mech_LoadResources' address used as a PUSH-immediate operand (68 B0 FD 41 00); like Mech_LoadResources itself, was never auto-disassembled by prior analysis (sits right after another function's RET, no call-graph edge into it).",
+      "description": "Thunk that registers Mech_LoadResources (0041fdb0) into DBSIM's subsystem-loader table via FUN_00401d64(Mech_LoadResources, 2), then separately allocates the 7-slot mech-texture-group vector (Rtl_VectorNew(&g_MechTextureGroupSlots, 8, 8, 1, ...)). Found by raw dword-scanning DBSIM.EXE for Mech_LoadResources' address used as a PUSH-immediate operand (68 B0 FD 41 00); like Mech_LoadResources itself, was never auto-disassembled by prior analysis (sits right after another function's RET, no call-graph edge into it).",
       "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread)"
     },
     {
@@ -5416,7 +7413,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitMouse_Init",
-      "description": "Called once at cockpit setup. Registers CockpitMouse_OnEvent with MouseListener_Register under event mask 0x1e (button down/up on both buttons -- bits 1-4; bit 0, plain movement, is deliberately excluded), allocates the double-buffered per-frame event queue (two Cpp_VectorNew'd 0xe-byte-record vectors, swapped by CockpitMouse_ProcessQueue), and sets the click-vs-drag timing gate DAT_004d1e70 = 0x1e (30 coarse ticks, ~480ms at the ~62.5Hz UI timebase -- the same literal 0x1e as the event mask above but an unrelated field, easy to conflate).",
+      "description": "Called once at cockpit setup. Registers CockpitMouse_OnEvent with MouseListener_Register under event mask 0x1e (button down/up on both buttons -- bits 1-4; bit 0, plain movement, is deliberately excluded), allocates the double-buffered per-frame event queue (two Rtl_VectorNew'd 0xe-byte-record vectors, swapped by CockpitMouse_ProcessQueue), and sets the click-vs-drag timing gate DAT_004d1e70 = 0x1e (30 coarse ticks, ~480ms at the ~62.5Hz UI timebase -- the same literal 0x1e as the event mask above but an unrelated field, easy to conflate).",
       "source": "docs/formats/cockpit-input.md 2026-08-20"
     },
     {
@@ -6255,7 +8252,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShapeNode_ComposeToViewTransform",
-      "description": "For a non-negative transform id: FUN_0047f914(g_ShapeNodeWorldTransforms + id * 0x20, maybe_g_ShapeObjectToViewTransform, out) then installs the result via maybe_Raster_SetModelTransform (0048c338). Guarded by the per-node cache flags at &DAT_006bb334, so several groups on one node compose once. A negative id skips the composition and leaves the standing transform. This is the whole of how an animated node moves geometry -- see docs/formats/dts-node-posing.md.",
+      "description": "For a non-negative transform id: FUN_0047f914(g_ShapeNodeWorldTransforms + id * 0x20, maybe_g_ShapeObjectToViewTransform, out) then installs the result via Raster_SetModelTransform (0048c338). Guarded by the per-node cache flags at &DAT_006bb334, so several groups on one node compose once. A negative id skips the composition and leaves the standing transform. This is the whole of how an animated node moves geometry -- see docs/formats/dts-node-posing.md.",
       "source": "docs/formats/dts-node-posing.md 2026-08-22"
     },
     {
@@ -6291,7 +8288,7 @@
       "type": "data",
       "confidence": "medium",
       "name": "maybe_g_ShapeObjectToViewTransform",
-      "description": "The transform a node's world transform is composed WITH in ShapeNode_ComposeToViewTransform, i.e. the object-to-view step. Sits at &DAT_006b7bf4 + 0x20, inside element 0 of the 0x110-stride render-context array allocated by FUN_00476b64 (Cpp_VectorNew(&DAT_006b7bf4, 0x110, 0x34, ...)). The role is inferred from that single read -- no writer was located, so the name is a maybe_.",
+      "description": "The transform a node's world transform is composed WITH in ShapeNode_ComposeToViewTransform, i.e. the object-to-view step. Sits at &DAT_006b7bf4 + 0x20, inside element 0 of the 0x110-stride render-context array allocated by FUN_00476b64 (Rtl_VectorNew(&DAT_006b7bf4, 0x110, 0x34, ...)). The role is inferred from that single read -- no writer was located, so the name is a maybe_.",
       "source": "docs/formats/dts-node-posing.md 2026-08-22"
     },
     {
@@ -6424,10 +8421,10 @@
       "address": "0048c338",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Raster_SetModelTransform",
-      "description": "Installs a 0x20-byte transform as the rasterizer's current model transform: stores the pointer in DAT_006c607c (defaulting to &DAT_006c6080 when null), composes it with DAT_006c6078 into the derived chain at &DAT_006c6038/&DAT_006c6058, and rebuilds the dependent state. Called by ShapeNode_ComposeToViewTransform and by every other site that changes what space geometry is submitted in. The derived globals were not individually decoded, hence medium.",
-      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+      "confidence": "high",
+      "name": "Raster_SetModelTransform",
+      "description": "Installs a transform as the renderer's current model transform (null means the identity at 006c6080); the pointer goes to g_ModelTransformPtr. Builds g_ModelToView = Transform_Concat(model, [006c6078]), its inverse g_ViewToModel (Transform_InvertRigid), and g_EyeInModelSpace (the origin through that inverse). When 006cbc88 is set it moves every registered light (list 006c6130, count 006c612c) into the model's space with Light_TransformToModelSpace, using the inverse of the model transform. Same code as VSHELL's Raster_SetModelTransform (0045e198).",
+      "source": "DBSIM decompile at 0048c338; docs/formats/dts-node-posing.md"
     },
     {
       "address": "00417d08",
@@ -9793,7 +11790,7 @@
       "type": "function",
       "confidence": "high",
       "name": "LightManager_Construct",
-      "description": "Effect light manager constructor: Cpp_VectorNew of 20 slots at +0x6c, stride 0x23, each flagged free with a null light pointer; embeds a light object at +0x328 and zeroes the two free-list counts at +0x35c and +0x3b0. Its own LightManager_SetFalloffConstants(mgr, 2000, 3000) call is dead -- LightManager_InitSubsystem overwrites it immediately.",
+      "description": "Effect light manager constructor: Rtl_VectorNew of 20 slots at +0x6c, stride 0x23, each flagged free with a null light pointer; embeds a light object at +0x328 and zeroes the two free-list counts at +0x35c and +0x3b0. Its own LightManager_SetFalloffConstants(mgr, 2000, 3000) call is dead -- LightManager_InitSubsystem overwrites it immediately.",
       "source": "docs/formats/effect-lights.md"
     },
     {
@@ -9937,7 +11934,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_TransformToModelSpace",
-      "description": "Transforms a light's world position (+0x04) and direction (+0x10) by the given transform into the model-space copies at +0x22 and +0x2e. Those copies, NOT the world fields, are what Light_ComputeShadeForFace and Light_ComputeShadeForNormal read. Driven per composed node by maybe_Raster_SetModelTransform, gated on DAT_006cbc88.",
+      "description": "Transforms a light's world position (+0x04) and direction (+0x10) by the given transform into the model-space copies at +0x22 and +0x2e. Those copies, NOT the world fields, are what Light_ComputeShadeForFace and Light_ComputeShadeForNormal read. Driven per composed node by Raster_SetModelTransform, gated on DAT_006cbc88.",
       "source": "docs/formats/effect-lights.md"
     },
     {
@@ -15808,8 +17805,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Mem_AllocZeroed",
-      "description": "Allocates and ZEROES. Takes the small-request path -- FUN_00476e00 out of the 0x6bb37c pool followed by memset(0, size) -- when the size fits both DAT_006bb388 and the pool's own answer, and otherwise falls through to Mem_AllocZeroedCalloc. Both paths hand back zeroed memory, which is what settles what an uninitialised object field holds at construction.",
+      "name": "Mem_New",
+      "description": "The global operator new, the DBSIM copy of VSHELL's Mem_New. A size below the pool's free byte count (006bb388, pool 006bb37c + 0xc) and no larger than the pool's largest free block less 0x6c (00476dd0) is carved from the pool by Memory_Alloc; anything else goes to Mem_HeapAlloc. Both paths hand back zeroed memory, which is what settles what an uninitialised object field holds at construction. Mem_Delete is its pair; Mem_NewArray is the same with 8 bytes added.",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -15817,8 +17814,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Mem_AllocZeroedTagged",
-      "description": "Mem_AllocZeroed with an 8-byte header added to the request. Same two paths, same zeroing. This is the fallback Arena_Alloc drops to when there is no arena or the arena is full.",
+      "name": "Mem_NewArray",
+      "description": "The global array operator new, the DBSIM copy of VSHELL's Mem_NewArray: Mem_New with 8 bytes added to the size. It returns the block start, so the 8 bytes are unused slack, not a header. Rtl_VectorNew allocates through it and callers pass count * element size; Mem_DeleteArray is its pair. Also the fallback Arena_Alloc drops to when there is no arena or the arena is full.",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -15826,8 +17823,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Mem_AllocZeroedCalloc",
-      "description": "calloc(1, size), adding the block's own recorded size to the DAT_006bb390 accounting total. The large-request path of Mem_AllocZeroed and Mem_AllocZeroedTagged, and what Arena_Push allocates an arena with.",
+      "name": "Mem_HeapAlloc",
+      "description": "calloc(1, size), adding the block's own recorded size to the heap byte count at 006bb390, which Mem_Delete subtracts from. The large-request path of Mem_New and Mem_NewArray, and what Arena_Push allocates an arena with. The DBSIM copy of VSHELL's Mem_HeapAlloc; returns the calloc pointer in EAX (the decompile drops it).",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -15836,7 +17833,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Arena_Alloc",
-      "description": "Bump-allocates from the {base, limit, cursor} arena it is handed: advances the cursor and returns base + old cursor, with NO zeroing of its own. A null or exhausted arena falls back to Mem_AllocZeroedTagged. Every weapon mount comes from here, out of the arena MechLoadout_ConstructWeaponMounts pushes -- and that arena is calloc'd, so a mount block is zero however it was served.",
+      "description": "Bump-allocates from the {base, limit, cursor} arena it is handed: advances the cursor and returns base + old cursor, with NO zeroing of its own. A null or exhausted arena falls back to Mem_NewArray. Every weapon mount comes from here, out of the arena MechLoadout_ConstructWeaponMounts pushes -- and that arena is calloc'd, so a mount block is zero however it was served.",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -15845,7 +17842,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Arena_Push",
-      "description": "Allocates a new arena block with Mem_AllocZeroedCalloc -- so the block is ZEROED -- and pushes it onto the DAT_006c59ec arena stack through FUN_0047a2f0. Paired with Arena_Pop. MechLoadout_ConstructWeaponMounts pushes 200000 bytes around its per-hardpoint loop.",
+      "description": "Allocates a new arena block with Mem_HeapAlloc -- so the block is ZEROED -- and pushes it onto the DAT_006c59ec arena stack through FUN_0047a2f0. Paired with Arena_Pop. MechLoadout_ConstructWeaponMounts pushes 200000 bytes around its per-hardpoint loop.",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -18725,7 +20722,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Herc_IsDeployable",
-      "description": "Bay pointer non-null, built to 100 (FUN_00410a64) and Herc_IsFlightworthy. Rock & Roll code 0.",
+      "description": "Bay pointer non-null, built to 100 (HercList_IsBuilt (00410a64)) and Herc_IsFlightworthy. Rock & Roll code 0.",
       "source": "docs/shell/screen-layout.md#rock--roll"
     },
     {
@@ -19218,10 +21215,19 @@
       "address": "0041ca4e",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Msn_LoadTextRows",
-      "description": "A second mission loader: reads rows 1 to 5 only, keeping row 5 that MsnGen_ParseMsnFile skips, and writes data\\mission.str. Called from FUN_0041d2c3; what for is open.",
-      "source": "docs/formats/msn-mission-file.md"
+      "confidence": "high",
+      "name": "Msn_LoadDebriefRows",
+      "description": "The debrief's reload of the mission just flown: row 1 against the flags (drawing ShellRandom for type-1 conditions, as the main load does), row 2 skipped so no flag is cleared, the .ENG text, row 3, row 4 skipped, and row 5 kept -- the debrief text records MsnGen_ParseMsnFile skips. Writes data\\mission.str. Called only from Msn_LoadDebrief.",
+      "source": "docs/formats/msn-mission-file.md#row-5--the-debrief"
+    },
+    {
+      "address": "0041d2c3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Msn_LoadDebrief",
+      "description": "(missionPath) Msn_LoadDebriefRows, then row 5's first slot handed by value to Career_SetDebriefLines -- its thirty mission.str lines and its row-3 value, the debrief movie -- and the load's arrays freed (MsnGen_FreeRows (0041c28f)). Called only from Career_Advance, for the mission at the career position before it advances.",
+      "source": "docs/formats/msn-mission-file.md#row-5--the-debrief"
     },
     {
       "address": "0041c23e",

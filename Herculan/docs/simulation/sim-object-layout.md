@@ -50,7 +50,7 @@ Only three slots differ across the five, which is the fastest way to see what se
 
 ## Sizes come from the pool, not from the highest known offset
 
-None of these classes is allocated with a literal `operator new` size. Each is drawn from a free-list pool: `Pool_Init` (`004719cc`) takes `(pool, count, elementSize)` and allocates `count * (elementSize + 8)`; the allocator `00471a24` pops a node and returns `node + 8`. **The pool's element size is the object's true length.**
+None of these classes is allocated with a literal `operator new` size. Each is drawn from a free-list pool: `Pool_Init` (`004719cc`) takes `(pool, count, elementSize)` and allocates `count * (elementSize + 8)`; the allocator `Pool_Alloc` (`00471a24`) pops a node and returns `node + 8`. **The pool's element size is the object's true length.**
 
 | Class | Length | Pool created at | Pool global |
 |---|---|---|---|

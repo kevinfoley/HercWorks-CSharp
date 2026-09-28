@@ -151,7 +151,7 @@ public sealed class ShellPreferencesScreen {
 
 	/// <summary>Builds the screen over the shell's option array and the <see cref="CheckBoxBank"/> frames.</summary>
 	/// <param name="isFullScreen"><c>DAT_00481e68</c>, the shell's full-screen flag.</param>
-	/// <param name="toggleFullScreen"><c>FUN_00407085</c>, which takes the shell into full screen or out of it.</param>
+	/// <param name="toggleFullScreen"><c>Display_ToggleFullScreen</c> (<c>00407085</c>), which takes the shell into full screen or out of it.</param>
 	public ShellPreferencesScreen(SimulatorPreferences options, DynamixBitmap[]? checkBoxFrames,
 			Func<bool> isFullScreen, Action toggleFullScreen) {
 		_options = options;

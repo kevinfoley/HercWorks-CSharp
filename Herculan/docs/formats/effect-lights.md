@@ -8,7 +8,7 @@ The table row that starts one is `EXPLOS.DAT`'s `LightMode`, in [`../simulation/
 
 ## The manager — `DAT_004a968c`
 
-One singleton, 0x404 bytes, built by `LightManager_InitSubsystem` (`004076e4`) at startup. Twenty slots of stride `0x23` from `+0x6c`, a `Cpp_VectorNew` array:
+One singleton, 0x404 bytes, built by `LightManager_InitSubsystem` (`004076e4`) at startup. Twenty slots of stride `0x23` from `+0x6c`, a `Rtl_VectorNew` array:
 
 | Offset in slot | Field |
 |---|---|
@@ -99,7 +99,7 @@ light+0x3c = intensity * 1984    // unread by the shade path
 position   = slotPos
 ```
 
-The synthesised light is registered into the ordinary ten-slot active list (`DAT_006c6130`) beside the mission sun, so `Light_Register`'s cap means a busy frame silently drops the ninth and later lights. `maybe_Raster_SetModelTransform` re-transforms every registered light into model space (`light+0x22` position, `light+0x2e` direction) for each node composed, gated on `DAT_006cbc88` — which `Light_ResetSystem` (`0048dbfc`), the per-mission light reset, sets unconditionally, so it is always on in a mission.
+The synthesised light is registered into the ordinary ten-slot active list (`DAT_006c6130`) beside the mission sun, so `Light_Register`'s cap means a busy frame silently drops the ninth and later lights. `Raster_SetModelTransform` (`0048c338`) re-transforms every registered light into model space (`light+0x22` position, `light+0x2e` direction) for each node it composes, gated on `DAT_006cbc88` — which `Light_ResetSystem` (`0048dbfc`), the per-mission light reset, sets unconditionally, so it is always on in a mission. A node composed a second time for the same object is not re-transformed: `Raster_RestoreState` (`0048d6e0`) brings back what `Raster_SaveState` (`0048d60c`) kept, and both step through the save slots while reading the light from the fixed address `[006c6130]`, so only the first registered light is kept and restored. The other lights keep the model-space copies of whichever node was composed last.
 
 ## What a light contributes
 
@@ -139,5 +139,9 @@ The intensities are real and large, and the effect is still hard to see. Four st
 | `LightMode` 1 and 2 select directional versus point | Nothing reads the field but `Explosion_Construct`, which tests it against zero. The type is chosen per drawn object by `LightManager_SelectLightsForObject` (`00407098`)'s angular test, and both values reach the same code. |
 | `A` and `B` are 2000 and 3000 | Those are `LightManager_Construct` (`00406e44`)'s constructor defaults, overwritten by `LightManager_InitSubsystem` (`004076e4`) before any frame runs. Both calls also shift right by 5, which the raw literals do not show. |
 | `Math_Atan2Guarded(d, radius)` makes near lights directional | The helper takes `(x, y)`, so this is `atan(radius / dist)` — the object's angular size. Small angle means far, and far is the directional branch. |
-| `Light_ComputeShadeForFace` reads the light's world position | It reads `+0x22`/`+0x2e`, the model-space copies `maybe_Raster_SetModelTransform` rebuilds per node. `+0x04`/`+0x10` are the world-space fields `LightManager_SelectLightsForObject` writes. |
+| `Light_ComputeShadeForFace` reads the light's world position | It reads `+0x22`/`+0x2e`, the model-space copies `Raster_SetModelTransform` rebuilds per node. `+0x04`/`+0x10` are the world-space fields `LightManager_SelectLightsForObject` writes. |
 | The mission sun is the only entry in the active light list | It is the only *persistent* one, and the only one a mission starts with. Types 1 and 2 are both created dynamically here, into the same ten-slot list. Type 0, ambient, is genuinely never created anywhere in the binary. |
+
+## Open
+
+- **Open:** whether the save and restore reading only the first light changes what a player sees: which objects compose a node twice, and whether the lights after the first are then shaded in the wrong node's frame.

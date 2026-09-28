@@ -155,7 +155,7 @@ So `+0x78` counts missions down to delivery and `+0x4a` is the `% Complete` figu
 
 ### Chassis unlocks — `Herc_GrantUnlocks` (`004118c5`)
 
-Walks the nine records and, for a chassis still locked, tests one campaign-flag slot against one expected value; on a match the flag is set, and either way the slot is cleared. This mirrors the weapon-unlock path in [`weapons-dat.md`](weapons-dat.md#0x16-is-the-weapon-unlock-flag) exactly.
+The campaign debrief runs it ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)). It walks the nine records and, for a chassis still locked, tests one campaign-flag slot against one expected value; on a match the flag is set, and either way the slot is cleared. The weapon unlock that runs straight after it has the same shape, with its slots and values in static tables rather than code ([`weapons-dat.md`](weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)).
 
 | Chassis | Flag slot | Expected value |
 |---|---|---|

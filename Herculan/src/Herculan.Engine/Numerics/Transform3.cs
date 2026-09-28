@@ -219,7 +219,7 @@ public struct Transform3 {
 		return new Vec3i(TransformX(x, y, z), TransformY(x, y, z), TransformZ(x, y, z));
 	}
 
-	/// <summary><c>FUN_004801f8</c> — the same product with the translation left out.</summary>
+	/// <summary><c>Transform_RotatePoint</c> (<c>004801f8</c>) — the same product with the translation left out.</summary>
 	public readonly Vec3i RotateVector(int x, int y, int z) {
 		if (Kind < KindZOnly) {
 			return new Vec3i(x, y, z);
@@ -239,7 +239,7 @@ public struct Transform3 {
 	}
 
 	/// <summary>
-	/// <c>FUN_0047fe80</c> — rotates a 2D vector by the XY block alone, dropping Z entirely. Used by
+	/// <c>Transform_RotateVector2D</c> (<c>0047fe80</c>) — rotates a 2D vector by the XY block alone, dropping Z entirely. Used by
 	/// the terrain-slope term, which only ever needs a ground-plane heading.
 	/// </summary>
 	public readonly (short X, short Y) RotateVector2D(short x, short y) => (
@@ -247,7 +247,7 @@ public struct Transform3 {
 		(short)((x * M[1] + y * M[3] + 0x2000) >> 14));
 
 	/// <summary>
-	/// <c>FUN_0047de0d</c> — transposes the rotation in place, which inverts it. It swaps only the
+	/// <c>Transform_TransposeRotation</c> (<c>0047de0d</c>) — transposes the rotation in place, which inverts it. It swaps only the
 	/// three off-diagonal pairs and leaves <see cref="Kind"/> alone, so a Z-only rotation stays one.
 	/// </summary>
 	public void TransposeRotation() {
@@ -258,8 +258,8 @@ public struct Transform3 {
 
 	/// <summary>
 	/// The inverse of a rigid transform — the two-step idiom the original inlines wherever it has to
-	/// bring a world point into an object's own space: transpose the rotation (<c>FUN_0047de0d</c>),
-	/// then rotate the negated translation through it (<c>FUN_004801f8</c>). Both the shared raycast
+	/// bring a world point into an object's own space: transpose the rotation (<c>Transform_TransposeRotation</c>),
+	/// then rotate the negated translation through it (<c>Transform_RotatePoint</c>). Both the shared raycast
 	/// (<c>Sim_RaycastObjectList</c>) and the direct-fire shield test
 	/// (<c>Mech_ShieldAbsorb_DirectFire</c>) build it exactly that way, in place, on a copy.
 	/// </summary>

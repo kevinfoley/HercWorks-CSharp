@@ -38,7 +38,7 @@ The armory screen prints all three views of it: `Armory_QueuedTotal` (`00412586`
 
 - **Enqueue** — `Armory_Enqueue` (`004125e7`) takes the first free slot from `Armory_FirstFreeSlot` (`004125bb`) and decrements the free count; with no slot free it does nothing.
 - **Dequeue** — `Armory_Dequeue` (`0041260d`) clears every slot holding that id and increments the free count per slot cleared.
-- **Delivery** — `Armory_DeliverQueue` (`00412428`) allocates a ten-byte weapon unit per queued id, initializes it as `{ id, 100, 100, ammo type }` — ammo type `1` for the missile racks (ids 13–16), `5` for everything else — appends it to that catalog record's owned-unit list via `Armory_AddUnit`, and returns the total price to charge.
+- **Delivery** — `Armory_DeliverQueue` (`00412428`) allocates a ten-byte weapon unit per queued id, initializes it as `{ id, 100, 100, ammo type }` — ammo type `1` for the missile racks (ids 13–16), `5` for everything else — appends it to that catalog record's owned-unit list via `Armory_AddUnit`, and returns the total price to charge. It leaves the queue as it was. With weapons built automatically the debrief's `Armory_RefreshQueue` then refills it from scratch; built by hand, it is only trimmed to the pool, so the same queue is delivered and charged again at every debrief until the player changes it.
 - **Trim** — `Armory_TrimQueueToBudget` (`004123ba`) clears queued slots from the front while the pool cannot cover the committed total, refunding workspace as it goes.
 - **Auto-fill** — `Armory_AutoFillQueue` (`00412341`) resets the queue and then walks the catalog in rank order through `WeaponsDat_IdAtRank` (`0041230c`), enqueueing every weapon that is unlocked, that the player owns **fewer than two of**, and that the running total still leaves affordable. The "keep two of each" rule is visible in `gam\weapons.dat`'s starting stock, which is two units of sixteen ids.
 
@@ -78,9 +78,9 @@ With `mode` set — the only form the shell uses — the target is the floor of 
 
 The targets are the second table read one index down — the caller indexes `0046fd82 + level*2`, which for level 1 and up lands in `0046fd84`'s band floors. So the detail panel's figure and the `REPAIR ALL` figure beside it are different quantities, not one scaled from the other: a component at 70 is quoted the 10 points that would take it to 80, while the rebuild beside it is quoted the 30 that would take it to 100.
 
-`Repair_Auto` (`00411328`) is the `Auto Repair` mode (`estext.bin` `0x42`): start at level 0, step down a level at a time while the cost exceeds the budget, stop once the machine's own average condition already sits at the level under consideration, then apply through `Repair_Apply` (`004113af`) — which writes the chosen target across all three arrays, leaving an empty hardpoint at 100. If no level is affordable nothing is repaired and nothing is charged.
+`Repair_Auto` (`00411328`) is the `Auto Repair` mode (`estext.bin` `0x42`): start at level 0, step down a level at a time while the cost exceeds the budget, stop once the machine's own average condition already sits at the level under consideration, then apply through `Repair_Apply` (`004113af`) — which writes the chosen target across all three arrays, leaving an empty hardpoint at 100. The cost must be strictly below the budget, compared unsigned; if no level's is, nothing is repaired and nothing is charged.
 
-The debrief charges repairs through `FUN_0040e804`, which runs `Repair_Auto` over the player's machine and each on-strength squad member's, deducting each result from the pool.
+The debrief charges repairs through `Game_AutoRepairSquad` (`0040e804`), which runs `Repair_Auto` by `prefs.cfg` option 44 ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)): over the player's machine in mode 0 only, and over each on-strength squad member's at positions 1 up to the positions in play in any mode but 2. Every machine gets the same budget — the pool divided by the machines on strength, taken once before the first repair — and each cost comes off the pool as it is made. A pool below zero divides to a negative budget, which the unsigned compare reads as vast, so every machine is repaired to 100.
 
 **A full rebuild costs about 72.5% of the chassis price**, uniformly across the fleet: the fifteen `damage.dat` percentages sum to 950 and the two Q10 scale steps (`950/1024` then `800/1024`) land there for every chassis, since both factors are chassis-independent and the only per-chassis input is the price itself.
 
@@ -122,14 +122,16 @@ Every instruction length chains from the function entry to `00413bac`, which is 
 
 ## What unlocks over the campaign
 
-Two parallel mechanisms, both keyed on the campaign flag array and both consuming the flag as they grant:
+Two parallel mechanisms, both run by the campaign debrief on the flags the mission left, and both consuming the flag as they grant ([`campaign-loop.md`](campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)):
 
 | | Weapons | Chassis |
 |---|---|---|
 | Flag | `weapons.dat` `+0x16` | `herc_inf.dat` `+0x0e` |
-| Granter | the mission-load path | `Herc_GrantUnlocks` (`004118c5`) |
+| Granter | `Armory_GrantCampaignWeapons` (`004126be`) | `Herc_GrantUnlocks` (`004118c5`) |
 | Persisted as | save block 1's leading byte per catalog id | save block 7 |
-| Ships locked | — | Raptor II, Ogre, Maverick, Razor |
+| Ships locked | fourteen, eight of them unlockable | Raptor II, Ogre, Maverick, Razor |
+
+The weapon granter also stocks the armory: a second set of flags adds whole weapon units, at condition 100, at every debrief they are set.
 
 See [`../formats/weapons-dat.md`](../formats/weapons-dat.md#0x16-is-the-weapon-unlock-flag) and [`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5) for each.
 

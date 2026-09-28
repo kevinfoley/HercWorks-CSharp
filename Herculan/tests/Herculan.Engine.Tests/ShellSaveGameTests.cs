@@ -94,7 +94,7 @@ public class ShellSaveGameTests : IDisposable {
 	}
 
 	/// <summary>
-	/// The save is written in place without truncating, as <c>FileWStream_Open</c> opens it, so a longer
+	/// The save is written in place without truncating, as <c>FileRWStream_Open</c> opens it, so a longer
 	/// file already there keeps its tail (docs/formats/save-games.md#streams-never-truncate).
 	/// </summary>
 	[Fact]

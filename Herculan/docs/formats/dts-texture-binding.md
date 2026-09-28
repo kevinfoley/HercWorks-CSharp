@@ -292,7 +292,7 @@ while (i < count - 1 && details[i] < t) i++
 render(parts[min(i - g_TSDetailPartBias, count - 1)])
 ```
 
-`radius` is the part's own `ClassItem` bounding radius (`part+8`). `viewOffset` is the part's **own node**, not the object's origin: `TSGroup_BindNodeTransform` runs first, and installing a transform (`FUN_0048d6e0`) copies its view-space translation into `DAT_006c60a0`-`a8`. `g_TSDetailPartSizeScaleQ10` (`004a1034`) is Q10 one, 1024, in the image ([Open](#open)). Thresholds are walked in file order and the part index is `i - bias`, so:
+`radius` is the part's own `ClassItem` bounding radius (`part+8`). `viewOffset` is the part's **own node**, not the object's origin: `TSGroup_BindNodeTransform` runs first, and installing the node's transform (`Raster_SetModelTransform` (`0048c338`), or `Raster_RestoreState` (`0048d6e0`) for a node already composed) leaves the camera's position in that node's space in `g_EyeInModelSpace` (`006c60a0`-`a8`), whose length is the node's distance from the camera. `g_TSDetailPartSizeScaleQ10` (`004a1034`) is Q10 one, 1024, in the image ([Open](#open)). Thresholds are walked in file order and the part index is `i - bias`, so:
 
 - `details[]` is ascending and index-aligned with `Parts[]`: **part 0 is the coarsest**, the last is the finest. Retail structure shapes end at 255 (`BASES.DGS` shape 5: `[5, 15, 35, 255]`).
 - A **larger** `g_TSDetailPartBias` shifts the whole scale toward the coarse end. At bias 0 a close object reaches `count - 1`.

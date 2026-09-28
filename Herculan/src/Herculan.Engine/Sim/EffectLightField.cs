@@ -16,7 +16,7 @@ namespace Herculan.Engine.Sim;
 /// </summary>
 public sealed class EffectLightField {
 	/// <summary>
-	/// Slots the manager has, the <c>Cpp_VectorNew</c> count at <c>mgr+0x6c</c>. A claim past the
+	/// Slots the manager has, the <c>Rtl_VectorNew</c> count at <c>mgr+0x6c</c>. A claim past the
 	/// last one fails here; the original overruns instead, which is a retail bug and not reproduced.
 	/// See KNOWN_ISSUES.md.
 	/// </summary>

@@ -229,7 +229,7 @@ The widget layer carries a cursor too, and it adds nothing to that. The startup 
 
 ## How a widget paints
 
-**A widget carries its rect twice.** `Widget_SetRect` (`0041eb5c`) stores the constructor's rect verbatim into `+0x25`/`+0x29`/`+0x2d`/`+0x31` — left, top, right, bottom, **parent-relative** — and `FUN_0041ef45` derives the absolute rect into `+0x15`/`+0x19`/`+0x1d`/`+0x21`. `FUN_0041ec33` shows the relation directly: it adds the parent's `+0x15` to a child's `+0x25` to get the child's `+0x1d`. Only `Widget_MoveRect` (0041ebef) moves a widget afterwards, and it rewrites the relative pair and rederives the absolute one.
+**A widget carries its rect twice.** `Widget_SetRect` (`0041eb5c`) stores the constructor's rect verbatim into `+0x25`/`+0x29`/`+0x2d`/`+0x31` — left, top, right, bottom, **parent-relative** — and `Widget_ResolveRect` (`0041ef45`) derives the absolute rect into `+0x15`/`+0x19`/`+0x1d`/`+0x21`. `FUN_0041ec33` shows the relation directly: it adds the parent's `+0x15` to a child's `+0x25` to get the child's `+0x1d`. Only `Widget_MoveRect` (0041ebef) moves a widget afterwards, and it rewrites the relative pair and rederives the absolute one.
 
 The paints in the table below are the visual vocabulary of the screens ported so far. All of them work in **widget-local coordinates**, where the extent they draw against is `+0x2d - +0x25`. Because that is a difference it is the same in either space — one less than the inclusive width — so a paint never reads an origin at all: `Widget_BeginPaint` (0041f585) opens every one of them and binds the drawing context to the widget's absolute rect and clips to it.
 
@@ -293,16 +293,16 @@ What the handlers call, as read:
 
 | Button | Calls |
 |---|---|
-| `INSTANT ACTION` | `DAT_0047363c = 1`, `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), the screen blanked full screen or the palette scope shown and hidden in a window, `Game_NewCareer("TRAINEE", option 0x27)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
+| `INSTANT ACTION` | `DAT_0047363c = 1`, `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), the screen blanked full screen or the palette scope shown and hidden in a window, `Game_NewCareer("TRAINEE", option 0x27)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `Shell_QuitFlag = 1` |
 | `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `Registration_Show` — [the registration screen](#the-registration-screen) |
 | `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, [the END OF GAME alert](#end-of-game) otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
 | `ONLINE MANUAL` | `004317ea`: out of full screen, option 6 set to 0, committed and all 54 saved, `ShellSound_Stop`, then `WinHelpA(window, path, HELP_CONTENTS, 0)` (`FUN_004073a2`) on `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
 | `PRACTICE MISSIONS` | `MainMenu_Hide`, `PracticeScreen_Show` (`0044bc92`), `FUN_0040e69e(0)` — [the practice screen](#the-practice-missions-screen) |
 | `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` — [the preferences screen](#the-preferences-screen) |
-| `VIEW DEMO` | the screen blanked full screen, `Shell_SetExitCode(5)`, `DAT_0046c074 = 1` |
+| `VIEW DEMO` | the screen blanked full screen, `Shell_SetExitCode(5)`, `Shell_QuitFlag = 1` |
 | `CREDITS` | shows a bare window (`DAT_0048d0c4`) and plays movie `0x54` through `Movie_Enqueue` and `Movie_PlayQueue`, then hides it |
-| `QUIT` | `DAT_0046c074 = 1`, `Shell_BlankScreen` (`0040723d`) — [below](#quit) |
+| `QUIT` | `Shell_QuitFlag = 1`, `Shell_BlankScreen` (`0040723d`) — [below](#quit) |
 
 **`FUN_0040e69e(mode)` is the mode write.** It stores the campaign/training flag `DAT_0048260c`, sets `prefs.cfg` option 42 to it without running its handler, and saves that option alone, so the mode survives a restart ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). The strip is hidden while the menu is up, and the tab gate follows the new mode at the next strip refresh.
 
@@ -325,7 +325,7 @@ Both lines are centred in `0x29`. The game `CONTINUE GAME` loaded stays loaded e
 
 ### QUIT
 
-**`QUIT` asks nothing and sets no exit code.** Its handler sets `DAT_0046c074`, the flag that ends the shell's main loop in `FUN_00401525`, and blanks the screen through `Shell_BlankScreen` (`0040723d`). Windowed, that zeroes the shell's bitmap and stretches a 10x10 corner of it over the window's client rect; full screen, it locks the primary surface and zeroes every row. Either way the whole window is palette index 0, strip included. `INSTANT ACTION` and `VIEW DEMO` blank the same way, but only full screen.
+**`QUIT` asks nothing and sets no exit code.** Its handler sets `Shell_QuitFlag` (`0046c074`), the flag that ends the shell's main loop in `FUN_00401525`, and blanks the screen through `Shell_BlankScreen` (`0040723d`). Windowed, that zeroes the shell's bitmap and stretches a 10x10 corner of it over the window's client rect; full screen, it locks the primary surface and zeroes every row. Either way the whole window is palette index 0, strip included. `INSTANT ACTION` and `VIEW DEMO` blank the same way, but only full screen.
 
 The loop's exit is the same for every way out, `QUIT`, the launches and `WM_CLOSE` alike — `MainWndProc` (`00404a2c`) sets the same flag on `WM_CLOSE` once the loop is running (`DAT_0046c098`):
 
@@ -506,7 +506,7 @@ The two sound checkboxes run `FUN_00436841` with 0 and 1 and then reseed both ti
 
 ### Full screen asks first
 
-`Window` (`00436f07`) toggles the shell's window out of full screen through `FUN_00407085` when `DAT_00481e68`, the full-screen flag, is set, and then sets option 6 to 0. `Full Screen` (`00436f78`) sets nothing: while the shell is windowed it shows a window the size of the display holding an alert, and otherwise does nothing. The alert's `ACCEPT` (`FUN_00436fe8`) hides the window, toggles the shell into full screen and sets option 6 to 1. So `Full Screen` is ticked only after that `ACCEPT`.
+`Window` (`00436f07`) toggles the shell's window out of full screen through `Display_ToggleFullScreen` (`00407085`) when `DAT_00481e68`, the full-screen flag, is set, and then sets option 6 to 0. `Full Screen` (`00436f78`) sets nothing: while the shell is windowed it shows a window the size of the display holding an alert, and otherwise does nothing. The alert's `ACCEPT` (`FUN_00436fe8`) hides the window, toggles the shell into full screen and sets option 6 to 1. So `Full Screen` is ticked only after that `ACCEPT`.
 
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
@@ -517,11 +517,11 @@ The two sound checkboxes run `FUN_00436841` with 0 and 1 and then reseed both ti
 
 `W` is the alert's own width.
 
-**Full screen is an exclusive display mode.** `FUN_00407085` toggles it. Going in, it sets `DAT_00481e68`, creates a DirectDraw object and takes it exclusive and full screen (`FUN_00406eb5`, cooperative level `0x17`), sets a 640x480 8-bit display mode and creates the primary surface (`FUN_00406eeb`, with the canvas size from the shell's bitmap header `DAT_00481864`), and places the window topmost with its frame pushed off the screen, so its client area is the screen. It then marks the palette's entries, gives the primary surface a palette, confines the pointer to the screen (`ClipCursor`) and centres it. If DirectDraw or the mode fails the shell quits. Coming out, it clears the flag, releases every DirectDraw object (`FUN_00407011`), which gives the desktop its mode back, and centres the window, no longer topmost.
+**Full screen is an exclusive display mode.** `Display_ToggleFullScreen` toggles it. Going in, it sets `DAT_00481e68`, creates a DirectDraw object and takes it exclusive and full screen (`FUN_00406eb5`, cooperative level `0x17`), sets a 640x480 8-bit display mode and creates the primary surface (`FUN_00406eeb`, with the canvas size from the shell's bitmap header `DAT_00481864`), and places the window topmost with its frame pushed off the screen, so its client area is the screen. It then marks the palette's entries, gives the primary surface a palette, confines the pointer to the screen (`ClipCursor`) and centres it. If DirectDraw or the mode fails the shell quits. Coming out, it clears the flag, releases every DirectDraw object (`FUN_00407011`), which gives the desktop its mode back, and centres the window, no longer topmost.
 
-**The startup enters it from option 6.** `FUN_00406507`, the startup under `WinMain`, reads `prefs.cfg` (`FUN_0040d68c`), copies option 6 into `DAT_0046d740`, builds the window over the desktop and topmost while that is set, and then calls `FUN_00407085`. It also looks for a `-d` or `/d` argument and clears `DAT_0046d740` for one, but that store (`0040656c`) comes before the copy from option 6 (`00406583`), which overwrites it with nothing reading it between, so `-d` has no effect. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+**The startup enters it from option 6.** `FUN_00406507`, the startup under `WinMain`, reads `prefs.cfg` (`FUN_0040d68c`), copies option 6 into `DAT_0046d740`, builds the window over the desktop and topmost while that is set, and then calls `Display_ToggleFullScreen`. It also looks for a `-d` or `/d` argument and clears `DAT_0046d740` for one, but that store (`0040656c`) comes before the copy from option 6 (`00406583`), which overwrites it with nothing reading it between, so `-d` has no effect. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
-**Four keys switch it**, in `MainWndProc` (`00404a2c`), each only while no movie plays and `DAT_0046c098` is set, which the startup does once the screens are built and the startup sequence's widget clears while it runs. Alt+Enter toggles full screen on the Enter key's release; Alt+Tab, Alt+Esc and Ctrl+Esc leave it (`FUN_0040722e`) on the key going down or up. Each then writes option 6 from the flag, and with the preferences screen's panel up relights its display group and repaints it; otherwise it runs `ShellOptions_Commit(0)` and `ShellOptions_SaveAll`. A modifier other than the one named stops the key matching. The shell also leaves full screen around its own message boxes and goes back after.
+**Four keys switch it**, in `MainWndProc` (`00404a2c`), each only while no movie plays and `DAT_0046c098` is set, which the startup does once the screens are built and the startup sequence's widget clears while it runs. Alt+Enter toggles full screen on the Enter key's release; Alt+Tab, Alt+Esc and Ctrl+Esc leave it (`Display_LeaveFullScreen` (`0040722e`)) on the key going down or up. Each then writes option 6 from the flag, and with the preferences screen's panel up relights its display group and repaints it; otherwise it runs `ShellOptions_Commit(0)` and `ShellOptions_SaveAll`. A modifier other than the one named stops the key matching. The shell also leaves full screen around its own message boxes and goes back after.
 
 ### Leaving the preferences screen
 
@@ -529,7 +529,7 @@ Both buttons end in `FUN_00436717` and `MainMenu_Show`, and differ in what they 
 
 | Button | Does first |
 |---|---|
-| `Cancel`, `00436b90` | `FUN_0040d7fe(0)`: every option that differs from the shadow is put back, running no handler. Then `FUN_00407085` when option 6 and the full-screen flag disagree, and the fade [Sound](#sound) describes |
+| `Cancel`, `00436b90` | `FUN_0040d7fe(0)`: every option that differs from the shadow is put back, running no handler. Then `Display_ToggleFullScreen` when option 6 and the full-screen flag disagree, and the fade [Sound](#sound) describes |
 | `Accept`, `00436c51` | `ShellOptions_Commit(0)`, which rebaselines the shadow and runs no handler, then `ShellOptions_SaveAll` |
 
 The shadow is the array as of the last commit, so `Cancel` puts back every option changed since, the practice screen's parameters among them, which that screen steps without committing ([The parameters](#the-parameters)).
@@ -799,7 +799,7 @@ Ids past 15 are the Razor's: its twelve body records are two parts per group, 0-
 
 **`CANCEL` (`Repair_OnCancel`, `00434d73`) undoes, and does not leave the screen.** `Repair_Snapshot` (`004338f6`) copies `CareerSalvage` into `DAT_0048d25c` and the selected machine's 66-byte status block into `DAT_0048d260`, taken from the machine by `HercList_CopySelectedStatus` (`00434eb7`). It runs at the end of `Repair_Enter` and of the repair arm of `Squad_SelectBay`, so the snapshot is the pool and the machine as they stood when the tab was entered or the bay last changed. `CANCEL` writes the pool back outright and copies the status block over the selected machine, then refills every row and the panels. Each `REPAIR` and `REPAIR ALL` on the bay since then is undone. With no bay selected the snapshot copies the pool alone, and `CANCEL` still copies the old block — over the machine read through `00482abf` ([Open](#open)).
 
-**The mode readout is the preferences' repair option**, `ShellOption_RepairMode` (`004824e4`, `prefs.cfg` option 44, [`../simulation/preferences.md`](../simulation/preferences.md)). `Repair_Enter` writes `0x42` `Auto Repair` for 0 and `0x41` `Manual Repair` for 1, and nothing for 2, so mode 2 keeps what the builder wrote, `Manual Repair`, or what an earlier entry did. None of the three buttons reads it; the debrief's repair pass, `FUN_0040e804`, branches on it ([`armory.md`](armory.md#what-one-repair-level-costs)).
+**The mode readout is the preferences' repair option**, `ShellOption_RepairMode` (`004824e4`, `prefs.cfg` option 44, [`../simulation/preferences.md`](../simulation/preferences.md)). `Repair_Enter` writes `0x42` `Auto Repair` for 0 and `0x41` `Manual Repair` for 1, and nothing for 2, so mode 2 keeps what the builder wrote, `Manual Repair`, or what an earlier entry did. None of the three buttons reads it; the debrief's repair pass, `Game_AutoRepairSquad` (`0040e804`), branches on it ([`armory.md`](armory.md#what-one-repair-level-costs)).
 
 ## The squad panel
 
@@ -1127,7 +1127,7 @@ The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — capt
 | 1 | it is armed — `Herc_IsArmed` (`00410b11`) through `Herc_HasWeapon` (`004116ec`): one of its ten mounts holds a weapon below `0x1d`, so the four pods do not arm a machine | `0x13e` `Your herc is unarmed. Select some`, `0x13f` `weapons or another herc.` |
 | 3 | every squad member on strength, in a position from 1 up to those in play, has an armed machine — `Squad_AllArmed` (`0040f6c6`) | `0x142` `One or more hercs of your squad is`, `0x143` `unarmed. Arm or reassign hercs.` |
 
-With all four passed it writes the mission handoff (`Game_ExportMissionHandoff`, [`campaign-loop.md`](campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4)), sets the exit code to 2 (`Shell_SetExitCode`, `0040876a`, which stores `0046e210`) and sets `DAT_0046c074`, which ends the shell's main loop; the launcher answers 2 by running the simulator ([`../command-line.md`](../command-line.md#exit-codes)). `INSTANT ACTION` ends the same way.
+With all four passed it writes the mission handoff (`Game_ExportMissionHandoff`, [`campaign-loop.md`](campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4)), sets the exit code to 2 (`Shell_SetExitCode`, `0040876a`, which stores `0046e210`) and sets `Shell_QuitFlag`, which ends the shell's main loop; the launcher answers 2 by running the simulator ([`../command-line.md`](../command-line.md#exit-codes)). `INSTANT ACTION` ends the same way.
 
 **The refusal** is an `ESAlert` built once by `LaunchRefusal_Build` (`0044cfdc`) in a window the size of the display, so its rect is a canvas rect. `LaunchRefusal_Show(code)` (`0044d27c`) writes the code's two lines, `estext.bin` `0x13c + 2 * code` and the next, and shows it; `OKAY`'s handler, `LaunchRefusal_OnOkay` (`0044d404`), hides it. Its window is built the way [the scrap dialog's](#the-scrap-dialog) is, so while it is up only `OKAY` takes a click.
 
@@ -1165,7 +1165,7 @@ The five boxes and what fills them:
 | 3 | `0048d82c` | the intelligence report, `Career_IntelligenceText` (`004135ce`) |
 | 4 | `0048d824` | the debrief, `Career_DebriefText` (`004135d4`) |
 
-The four career texts are the lines of `data\mission.str` that the career block's arrays name ([`../formats/save-games.md`](../formats/save-games.md#career-block--152-bytes)). The briefing, objectives and intelligence report are assembled from the loaded mission's file when it loads (`Career_BuildBriefingText`, `00412f97`); the debrief by `Career_BuildDebriefText` (`004133d2`) at the end of `Career_Advance`, which first rewrites the file and the debrief array from the mission just flown's `.msn` (`FUN_0041d2c3`), before the next mission's load writes the file again. `Career_Advance` is the one caller of `Career_BuildDebriefText` that `es2_xref.py` finds, where it finds three of `Career_BuildBriefingText`'s, `Career_LoadSlot` among them: a restored save rebuilds the briefing texts and not the debrief.
+The four career texts are the lines of `data\mission.str` that the career block's arrays name ([`../formats/save-games.md`](../formats/save-games.md#career-block--152-bytes)). The briefing, objectives and intelligence report are assembled from the loaded mission's file when it loads (`Career_BuildBriefingText`, `00412f97`); the debrief by `Career_BuildDebriefText` (`004133d2`) at the end of `Career_Advance`, which first rewrites the file and the debrief array from the mission just flown's `.msn` (`Msn_LoadDebrief` (`0041d2c3`), [`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#row-5--the-debrief)), before the next mission's load writes the file again. `Career_Advance` is the one caller of `Career_BuildDebriefText` that `es2_xref.py` finds, where it finds three of `Career_BuildBriefingText`'s, `Career_LoadSlot` among them: a restored save rebuilds the briefing texts and not the debrief.
 
 `DAT_004780a4` is the box that is up. `Mission_ShowTextBox(n)` (`00444cb3`) marks the box in it not shown and box `n` shown, runs `TextBox_ShowPage` on both, and stores `n`; it leaves the page alone, so a box comes back on the page it was left on until the next entry refills it. `Mission_LightViewButton(n)` (`00444c49`) puts the first three buttons' borders back to `0x22` and writes `0x20` on `Mission Briefing` for 1 and 4, `Mission Objectives` for 2 and `Intelligence Report` for 3. `Mission Briefing` (`Mission_OnBriefing`, `004453c1`) runs both with the view, so in the debrief it brings back the debrief; `Mission Objectives` (`00445437`) and `Intelligence Report` (`004454a0`) run both with 2 and 3. The page buttons, `Mission_OnPageUp` (`004455e9`) and `Mission_OnPageDown` (`0044569a`), page the box that is up.
 
@@ -1346,7 +1346,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** whether a command key with Shift, Ctrl or Alt down posts a command. `FUN_00408f95` indexes the table at `0046e471` with the whole key code, so it reads a byte of the data section past the table's 256. None of those bytes in the image is 1, 4 or `0x0a`, so none edits a row ([Typing into a row](#typing-into-a-row)), but any that is not `0xff` posts a command, and with it runs the row's handler.
 - **Unported:** the mission tab's debrief view, which only [the processing of a finished mission](campaign-loop.md#where-the-debrief-goes-next) reaches.
 - **Unported:** the auto-repeat of the mission screen's arrows.
-- **Open:** which of the mission screen's report texts shows which figure. `FUN_0040f34c`, which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes ten of them.
+- **Open:** which of the mission screen's report texts shows which figure. `Debrief_WriteReport` (`0040f34c`), which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes ten of them.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
 - **Unported:** [the main menu](#the-main-menu)'s `ONLINE MANUAL`, a `WinHelpA` call.

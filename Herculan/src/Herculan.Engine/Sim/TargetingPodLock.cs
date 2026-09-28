@@ -18,7 +18,7 @@ namespace Herculan.Engine.Sim;
 /// <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>) opens by pushing a 200000-byte arena
 /// that <c>Arena_Push</c> has just <c>calloc</c>'d and bump-allocates every mount out of it, and the
 /// fallback that bump allocator drops to when the arena is absent or full
-/// (<c>Mem_AllocZeroedTagged</c>) zeroes what it hands back anyway. So a
+/// (<c>Mem_NewArray</c>) zeroes what it hands back anyway. So a
 /// pristine pod starts with cursor 0, component 0, no cached damage and an expired decay timer, and
 /// <see cref="ComponentDamage"/> agrees with <see cref="MechPods.DamageOf"/>'s live reading until
 /// the first hit — after which <c>Mech_ComponentDamageWrite</c> hands every mount its component's

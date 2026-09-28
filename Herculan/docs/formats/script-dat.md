@@ -37,7 +37,7 @@
 
 Real files: `ES2\DATA\script.dat` (the live file) plus 9 distinct save-slot snapshots in `ES2\SAV\` (`script0.dat`–`script11.dat`; two pairs are byte-identical to each other and to the live file, so 9 genuinely distinct files there — 10 total). **Note:** these 10 are snapshots of the format, not 10 distinct retail missions.
 
-**Every file is exactly 13,520 bytes** despite wildly different real record counts per block (e.g. row #16's count ranges 7-40 across the corpus). The writer opens the file through `FileWStream_Open` (`0044e46c`), which has no `O_TRUNC`, so a mission shorter than one written before it leaves that one's tail behind, and a file only ever grows to the longest mission it has held. 13,520 bytes is the length `C1_06.MSN`'s script comes out at with no flag set, the longest of the 62 missions loaded that way. `data\mission.str` is written the same way and keeps a tail the same way.
+**Every file is exactly 13,520 bytes** despite wildly different real record counts per block (e.g. row #16's count ranges 7-40 across the corpus). The writer opens the file through `FileRWStream_Open` (`0044e46c`), which has no `O_TRUNC`, so a mission shorter than one written before it leaves that one's tail behind, and a file only ever grows to the longest mission it has held. 13,520 bytes is the length `C1_06.MSN`'s script comes out at with no flag set, the longest of the 62 missions loaded that way. `data\mission.str` is written the same way and keeps a tail the same way.
 
 All 10 parse cleanly, zero desync in the block sequence; only 1 lands exactly on EOF, the rest carry stale trailing bytes past block 13's declared end. **Read only through block 13's declared end; ignore trailing bytes.**
 

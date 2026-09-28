@@ -14,7 +14,7 @@ public readonly record struct MechFormationOffset(int X, int Y);
 /// <para>Load site: <c>Mech_LoadResources</c> (<c>0041fdb0</c>) opens <c>dat\mforms</c> (string
 /// <c>"mforms"</c> at <c>0049a46b</c>, joined via the shared folder-prefix helper
 /// <c>ResourcePath_BuildFolderName</c> (<c>00492ae0</c>)), reads a 2-byte record count into <c>DAT_004a9dec</c>, allocates that many
-/// 28-byte vector elements (<c>Cpp_VectorNew(..., 0x1c, count, ...)</c>), stores the vector pointer
+/// 28-byte vector elements (<c>Rtl_VectorNew(..., 0x1c, count, ...)</c>), stores the vector pointer
 /// into <c>_DAT_004a9df0</c> — the global <c>Formation_GetSlotOffset</c> (<c>004205cc</c>) reads —
 /// then reads <c>count * 28</c> bytes from the file into it. Registered into DBSIM's
 /// subsystem-loader table via a thunk at <c>00420654</c> (<c>RegisterSubsystemLoader(Mech_LoadResources, 2)</c>, <c>00401d64</c>).

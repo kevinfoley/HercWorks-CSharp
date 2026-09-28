@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Sav;
 using HercWorks.Core.Data.Struct.Vshell.Sav;
 using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Shell;
@@ -9,9 +10,11 @@ namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// What the practice screen's <c>Begin Mission</c>, or <c>INSTANT ACTION</c>, hands the simulator: the <c>script.dat</c> written
-/// beside the rest of the handoff, the mission it came from, and the career it was built for.
+/// beside the rest of the handoff, the mission it came from, and the career it was built for — the game, which the
+/// shell's exit autosaves as slot 11, and its hangar, which <see cref="ShellHangar.Store"/> writes back into it.
 /// </summary>
-public sealed record ShellTrainingHandoff(string ScriptPath, string MissionPath, ShellHangar Hangar, int SquadPositions);
+public sealed record ShellTrainingHandoff(string ScriptPath, string MissionPath, PlayerSave Game, ShellHangar Hangar,
+	int SquadPositions);
 
 /// <summary>
 /// <c>Begin Mission</c>'s path from the button to the simulator, in training mode, which
@@ -70,9 +73,10 @@ public static class ShellTrainingLaunch {
 	/// when the install lacks a file the original would open. <paramref name="clearList"/> is the row-2
 	/// clear list the shell keeps across loads (<see cref="MissionGenerator.Load"/>).
 	/// <paramref name="instantAction"/> is <c>DAT_0047363c</c>, which <c>INSTANT ACTION</c> sets.
+	/// <paramref name="held"/> is the game the shell's memory holds, as <see cref="ShellCampaignLaunch.NewCareer"/> takes it.
 	/// </summary>
 	public static ShellTrainingHandoff? Write(string directory, GameContent content, SimulatorPreferences options,
-			int row, bool instantAction, SimRandom random, short[] clearList, out string? failure) {
+			int row, bool instantAction, SimRandom random, short[] clearList, PlayerSave? held, out string? failure) {
 		int Roll(short bound) => random.NextBelow(bound);
 
 		if (MissionPath(content, 0, row) is not { } missionPath) {
@@ -85,7 +89,15 @@ public static class ShellTrainingLaunch {
 			return null;
 		}
 
-		var hangar = NewCareer(content, options[DifficultyOption], Roll);
+		if (ShellCampaignLaunch.NewCareer(content, TraineeName, options[DifficultyOption], ShellCampaignMode.Training, Roll,
+				held, out failure) is not { } game) {
+			return null;
+		}
+
+		// Career_SeedPosition (00412a2f) in training: stage 0, the practice row.
+		game.CampaignStage = 0;
+		game.MissionInStage = (short)row;
+		var hangar = ShellHangar.From(game);
 
 		// MsnGen_SeedCampaignFlags: a training load clears the flag array first.
 		var flags = new short[MissionGenerator.CampaignFlagCount];
@@ -131,13 +143,18 @@ public static class ShellTrainingLaunch {
 			hangar.SetSquadPosition(member, member + 1);
 		}
 
+		// The flag array as the load left it is the career's.
+		for (int i = 0; i < flags.Length; i++) {
+			game.SetCampaignFlag(i, flags[i]);
+		}
+
 		var flagBytes = new byte[flags.Length * 2];
 		Buffer.BlockCopy(flags, 0, flagBytes, 0, flagBytes.Length);
 		File.WriteAllBytes(Path.Combine(directory, ShellMissionLaunch.MissionVarFileName), flagBytes);
 		File.WriteAllBytes(Path.Combine(directory, MissionLoader.PlayerFileName), ShellMissionLaunch.ExportPlayerMec(hangar));
 
 		failure = null;
-		return new ShellTrainingHandoff(scriptPath, missionPath, hangar, positions);
+		return new ShellTrainingHandoff(scriptPath, missionPath, game, hangar, positions);
 	}
 
 	/// <summary>
@@ -190,33 +207,6 @@ public static class ShellTrainingLaunch {
 
 		int dot = name.IndexOf('.');
 		return (msn, content.Read(folder, (dot < 0 ? name : name[..dot]) + ".ENG"));
-	}
-
-	/// <summary>
-	/// <c>Game_NewCareer("TRAINEE", difficulty)</c> in training mode, up to the mission load: the
-	/// weapon catalog's unlock flags, the roster, the player, and the salvage draw, whose value a
-	/// training career never uses but whose draw moves the generator.
-	/// </summary>
-	private static ShellHangar NewCareer(GameContent content, int difficulty, Func<short, int> roll) {
-		var unlocked = new List<int>();
-		if (content.Read(ShellRepairCosts.CatalogFolder, "WEAPONS.DAT") is { } bytes
-			&& new WeaponsDatTransformer().Parse(bytes) is { } catalog) {
-			unlocked.AddRange(catalog.Data.Where(entry => entry.StartUnlock != 0).Select(entry => (int)entry.Id));
-		}
-
-		// Player_Create takes each squad's record 0 (Squad_TakeMember, 0040fb4f), unassigned.
-		var roster = GenerateRoster(ShellText.Load(content, "ESNAMES.BIN"), roll);
-		var squad = Enumerable.Range(0, SquadCount).Select(k => roster[k * PilotsPerSquad]).Select(record =>
-			new ShellBayPilot(record.Name ?? string.Empty, record.SquadmateId, -1, record.Skill?.Id ?? 0, -1, false,
-				record.NameIndex)).ToList();
-
-		// Player_Create (00410107): roster id 0, a name index drawn below 11 — an index into the
-		// simulator's PILOTS.STR, not esnames.bin — the difficulty as its skill, bay 0, position 0.
-		int nameIndex = roll(PlayerNameIndexCount);
-		var player = new ShellBayPilot(TraineeName, 0, 0, difficulty, 0, true, nameIndex);
-		roll(SalvageDrawCount);
-
-		return ShellHangar.NewCareer(player, squad, unlocked);
 	}
 
 	/// <summary>

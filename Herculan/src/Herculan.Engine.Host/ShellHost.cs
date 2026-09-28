@@ -314,7 +314,8 @@ static class ShellHost {
 			+ "the strip, as the original's do: leave the save screen with EXIT, or RESTORE a slot to load it into the "
 			+ "repair screen. Once a slot is restored, SAVE on a selected row lets you type its name and ACCEPT "
 			+ "writes the game there; the game is also autosaved to GAME_R.SAV on a restore, on the MAIN MENU tab "
-			+ "and on leaving the shell. QUIT on the main menu, or closing the window, quits.");
+			+ "and on leaving the shell, and a practice mission's or INSTANT ACTION's career to GAME_T.SAV as the shell "
+			+ "closes on it. QUIT on the main menu, or closing the window, quits.");
 		Console.WriteLine(paletteName != null
 			? $"Palette pinned to {art.PaletteName} on every tab."
 			: "Each tab installs its own palette, as the original's do.");
@@ -915,15 +916,9 @@ static class ShellHost {
 			registrationUp = false;
 			missionMapShown = false;
 
-			// Block 11 is whatever the last game loaded left in memory; nothing loaded, it is the startup's zeros.
-			const int heldOffset = HercWorks.Core.Data.File.Sav.PlayerSave.CampaignFlagCount * 2 + 2;
-			byte[]? held = gameInProgress && loadedGame?.UnknownSaveValues is { } tail
-				&& tail.Length >= heldOffset + ShellCampaignLaunch.HeldBlockLength
-				? tail[heldOffset..(heldOffset + ShellCampaignLaunch.HeldBlockLength)] : null;
-
 			int Roll(short bound) => shellRandom.NextBelow(bound);
-			if (ShellCampaignLaunch.NewCareer(content, registration.Name, registration.Skill, Roll, held, out string? failure)
-					is not { } game) {
+			if (ShellCampaignLaunch.NewCareer(content, registration.Name, registration.Skill, ShellCampaignMode.Campaign, Roll,
+					HeldGame(), out string? failure) is not { } game) {
 				Console.WriteLine($"Accept: {failure} No career started; main menu.");
 				RepaintContent();
 				return;
@@ -1247,14 +1242,18 @@ static class ShellHost {
 		// Game_NewCareer("TRAINEE", option 0x27) in training mode on stage 0's mission at row: the career
 		// started, its mission loaded and the handoff written, and the shell closed on exit code 2. The
 		// original gets from the career to the load through the developer's mission-name dialog, which
-		// clicks its own Use Default at once; this goes straight there. Returns whether it launched.
+		// clicks its own Use Default at once; this goes straight there. The career is the game in progress,
+		// which the loop exit's autosave writes as slot 11 with the handoff's three working files. Returns
+		// whether it launched.
 		bool LaunchTraining(int row, string label) {
 			var handoff = ShellTrainingLaunch.Write(HandoffDirectory, content, shellOptions, row, instantActionSet,
-				shellRandom, clearList, out string? failure);
+				shellRandom, clearList, HeldGame(), out string? failure);
 			if (handoff == null) {
 				Console.WriteLine($"{label}: {failure}");
 				return false;
 			}
+
+			AdoptGame(handoff.Game, handoff.Hangar, ShellWorkingFiles.In(HandoffDirectory));
 
 			var squad = Enumerable.Range(0, ShellHangar.BayCount)
 				.Select(bay => handoff.Hangar.Bay(bay) is { } machine
@@ -1370,6 +1369,10 @@ static class ShellHost {
 
 		// Game_SaveSlot(10, NULL), the current-game autosave.
 		void AutoSave() => SaveGame(CurrentGameSlot, null);
+
+		// The game the shell's memory holds, which a new career keeps parts of: the last one loaded or started,
+		// or none since the startup. The slot opened at startup for the repair screen is not one.
+		HercWorks.Core.Data.File.Sav.PlayerSave? HeldGame() => gameInProgress ? loadedGame : null;
 
 		// RESTORE, SaveScreen_OnRestore (00437d03): load the selected slot and write it straight back out as
 		// the slot-10 autosave, then leave exactly as EXIT does on the tab-strip path, whichever way the

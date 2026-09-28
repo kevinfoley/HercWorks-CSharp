@@ -34,27 +34,23 @@ public class TrainingLaunchTests {
 	private const string RetailText = "c590290ae60f88cde0757d1978a80bb26c3085430ea59dd9f779aed7c46f496b";
 	private const string RetailSquad = "cfe8aff207e51d271d36cffd1bceff9e55041bb7bb2f89608fec8afcb9a0080a";
 
+	/// <summary>
+	/// A later TRAIN5 launch's slot-11 autosave — <c>GAME_T.SAV</c> and the three working files written with it — with
+	/// the generator seeded 119 and <c>Time of Day</c> on Day, the other options as above. Held the same way, each
+	/// digest covering the file up to the length this path writes.
+	/// </summary>
+	private const int AutosaveSeed = 119;
+	private const byte Day = 0;
+	private const string AutosaveGame = "db60c77a9ab2180644949ba3a692c401620879b207f96508a7c174484dda8e29";
+	private const string AutosaveScript = "25c2626a05f921f46f2684ee0fa419514fc8a63bac70ae63bdd71d16d8231fa2";
+	private const string AutosaveSquad = "212905c1fe632271f133f3cb21486e7fd327357394219a1b8400ce8f8ee2946a";
+
 	[Fact]
 	public void ReproducesTheRetailTrainingHandoff() {
-		if (GameInstall.Locate(null) is not { } root) {
+		if (Launch(RetailSeed, Night, nameof(ReproducesTheRetailTrainingHandoff)) is not (var directory, var handoff)) {
 			return;
 		}
 
-		var content = GameContent.Mount(GameInstall.ArchiveDirectory(root), ShellArt.Archives);
-		var options = SimulatorPreferences.Defaults();
-		options.Set(DifficultyOption, Veteran);
-		options.Set(ShellPracticeScreen.HercTypeOption, Colossus);
-		options.Set(TimeOfDayOption, Night);
-		var random = new SimRandom();
-		for (int step = 0; step < RetailSeed; step++) {
-			random.Next();
-		}
-
-		string directory = Path.Combine(Path.GetTempPath(), "herculan-tests", nameof(ReproducesTheRetailTrainingHandoff));
-		var handoff = ShellTrainingLaunch.Write(directory, content, options, StrikeTrainingRow, instantAction: false,
-			random, new short[MissionGenerator.ClearListLength], out string? failure);
-
-		Assert.True(handoff != null, failure);
 		Assert.Equal(@"MSN\TRAIN5.MSN", handoff.MissionPath);
 
 		Assert.Equal(RetailScript, Digest(handoff.ScriptPath));
@@ -64,6 +60,52 @@ public class TrainingLaunchTests {
 		// Three positions, but the second wingman is never put on strength.
 		Assert.Equal(3, handoff.SquadPositions);
 		Assert.Equal(2, handoff.Hangar.MachinesOnStrength);
+	}
+
+	/// <summary>
+	/// The career the launch leaves in progress, as the shell's exit writes it to slot 11: the whole save, the
+	/// career it carries over from no earlier game included (docs/shell/screen-layout.md#starting-a-practice-mission).
+	/// </summary>
+	[Fact]
+	public void ReproducesTheRetailTrainingAutosave() {
+		if (Launch(AutosaveSeed, Day, nameof(ReproducesTheRetailTrainingAutosave)) is not (var directory, var handoff)) {
+			return;
+		}
+
+		handoff.Hangar.Store(handoff.Game);
+		byte[] save = new PlayerSaveTransform().Write(handoff.Game)!;
+
+		Assert.Equal(AutosaveGame, Convert.ToHexString(SHA256.HashData(save)).ToLowerInvariant());
+		Assert.Equal(AutosaveScript, Digest(handoff.ScriptPath));
+		Assert.Equal(RetailText, Digest(Path.Combine(directory, "mission.str")));
+		Assert.Equal(AutosaveSquad, Digest(Path.Combine(directory, "player.mec")));
+	}
+
+	/// <summary>
+	/// <c>Begin Mission</c> on the Strike Training Mission with the generator <paramref name="seed"/> steps past its
+	/// table, or null without an install.
+	/// </summary>
+	private static (string Directory, ShellTrainingHandoff Handoff)? Launch(int seed, byte timeOfDay, string test) {
+		if (GameInstall.Locate(null) is not { } root) {
+			return null;
+		}
+
+		var content = GameContent.Mount(GameInstall.ArchiveDirectory(root), ShellArt.Archives);
+		var options = SimulatorPreferences.Defaults();
+		options.Set(DifficultyOption, Veteran);
+		options.Set(ShellPracticeScreen.HercTypeOption, Colossus);
+		options.Set(TimeOfDayOption, timeOfDay);
+		var random = new SimRandom();
+		for (int step = 0; step < seed; step++) {
+			random.Next();
+		}
+
+		string directory = Path.Combine(Path.GetTempPath(), "herculan-tests", test);
+		var handoff = ShellTrainingLaunch.Write(directory, content, options, StrikeTrainingRow, instantAction: false,
+			random, new short[MissionGenerator.ClearListLength], held: null, out string? failure);
+
+		Assert.True(handoff != null, failure);
+		return (directory, handoff);
 	}
 
 	[Fact]

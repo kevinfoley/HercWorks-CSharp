@@ -51,7 +51,7 @@ static class MissionFileLaunch {
 			var options = SimulatorPreferences.Load(dataDirectory) ?? SimulatorPreferences.Defaults();
 			options.SaveEnabled = false;
 			var training = ShellTrainingLaunch.Write(HandoffDirectory, content, options, mission,
-				instantAction: mission >= ShellPracticeScreen.RowCount, random, clearList, out failure);
+				instantAction: mission >= ShellPracticeScreen.RowCount, random, clearList, held: null, out failure);
 			if (training != null) {
 				Console.WriteLine($"{training.MissionPath}: stage 0 row {mission}, loaded as a training mission — "
 					+ $"{training.SquadPositions} squad position(s), handoff written to {HandoffDirectory}.");

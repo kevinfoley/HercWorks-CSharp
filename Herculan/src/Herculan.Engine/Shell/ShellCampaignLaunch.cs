@@ -82,9 +82,11 @@ public static class ShellCampaignLaunch {
 	}
 
 	/// <summary>
-	/// <c>Registration_OnAccept</c> (<c>0043c0fb</c>)'s new career, up to the mission load: the game as
-	/// <c>LoadHercInfDat</c> (<c>0041181c</c>) and <c>Game_NewCareer</c> (<c>0040e2ed</c>) in campaign mode
-	/// leave VSHELL's memory, as a save holding it. See docs/shell/screen-layout.md#starting-a-campaign and
+	/// <c>Game_NewCareer</c> (<c>0040e2ed</c>) up to the mission load, as a save holding what it leaves in
+	/// VSHELL's memory. In a campaign it is <c>Registration_OnAccept</c> (<c>0043c0fb</c>)'s, after
+	/// <c>LoadHercInfDat</c> (<c>0041181c</c>); in training, <c>Begin Mission</c>'s and
+	/// <c>INSTANT ACTION</c>'s, which read no <c>gam\hercs.dat</c> and leave the career position for the
+	/// caller to set. See docs/shell/screen-layout.md#starting-a-campaign and
 	/// docs/shell/campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed.
 	///
 	/// <para>Each weapon's units are listed in the order <c>gam\weapons.dat</c> gives them, which
@@ -92,26 +94,34 @@ public static class ShellCampaignLaunch {
 	/// last unit listed at the head, as <c>Armory_AddUnit</c> left it. A save written from that hangar
 	/// lists them head first, as <c>Armory_Write</c> does.</para>
 	///
-	/// <para><paramref name="heldBlock"/> is block 11, the 20 bytes at <c>004832c8</c>, as the shell's memory
-	/// holds them: nothing in the new career writes them, so they are the last loaded game's, or the
-	/// startup's zeros.</para>
+	/// <para><paramref name="held"/> is the game the shell's memory holds, the last one loaded or started, or
+	/// null for the startup's. The new career writes none of block 11, the 20 bytes at <c>004832c8</c>, so
+	/// both modes keep that game's, or the startup's zeros. A training career also keeps its chassis flags,
+	/// which only the startup's and the campaign's <c>LoadHercInfDat</c> put back to the file's, and the
+	/// career block's text, which only a campaign load's <c>Career_SetBriefing</c> (<c>00412ece</c>) writes.</para>
 	/// </summary>
-	public static PlayerSave? NewCareer(GameContent content, string name, int skill, Func<short, int> roll,
-			byte[]? heldBlock, out string? failure) {
+	public static PlayerSave? NewCareer(GameContent content, string name, int skill, ShellCampaignMode mode,
+			Func<short, int> roll, PlayerSave? held, out string? failure) {
+		bool campaign = mode == ShellCampaignMode.Campaign;
 		if (content.Read(ShellRepairCosts.CatalogFolder, "WEAPONS.DAT") is not { } weaponsBytes
 				|| new WeaponsDatTransformer().Parse(weaponsBytes) is not { } weapons) {
 			failure = "gam\\weapons.dat is not in any mounted archive.";
 			return null;
 		}
 
-		if (content.Read(ShellRepairCosts.CatalogFolder, "HERCS.DAT") is not { } hercsBytes
-				|| new HercsStartTransformer().Parse(hercsBytes) is not { } hercs) {
+		// LoadHercsDat reads the file in a campaign only.
+		var hercs = campaign && content.Read(ShellRepairCosts.CatalogFolder, "HERCS.DAT") is { } hercsBytes
+			? new HercsStartTransformer().Parse(hercsBytes) : null;
+		if (campaign && hercs == null) {
 			failure = "gam\\hercs.dat is not in any mounted archive.";
 			return null;
 		}
 
-		if (content.Read(ShellRepairCosts.CatalogFolder, ShellRepairCosts.ChassisResourceName) is not { } chassisBytes
-				|| new HercInfoTransformer().Parse(chassisBytes)?.Data is not { } chassis) {
+		// The chassis flags come from the file after the campaign's LoadHercInfDat or the startup's.
+		var chassis = (campaign || held == null)
+			&& content.Read(ShellRepairCosts.CatalogFolder, ShellRepairCosts.ChassisResourceName) is { } chassisBytes
+			? new HercInfoTransformer().Parse(chassisBytes)?.Data : null;
+		if ((campaign || held == null) && chassis == null) {
 			failure = $"gam\\{ShellRepairCosts.ChassisResourceName} is not in any mounted archive.";
 			return null;
 		}
@@ -150,30 +160,38 @@ public static class ShellCampaignLaunch {
 		player.Active = 1;
 		game.PlayerPilot = player;
 
-		// LoadHercsDat (004104ed) in a campaign: gam\hercs.dat's machines in their bays.
-		foreach (var entry in hercs.Data ?? Array.Empty<Hercs.Entry>()) {
+		// LoadHercsDat (004104ed) empties the hangar, and in a campaign puts gam\hercs.dat's machines in their bays.
+		foreach (var entry in hercs?.Data ?? Array.Empty<Hercs.Entry>()) {
 			if (entry?.Herc is { } record && entry.BayId is >= 0 and < ShellHangar.BayCount) {
 				game.HercBay[entry.BayId] = ShellBayMachine.FromCatalog(record).ToEntry();
 			}
 		}
 
-		// LoadHercInfDat: each chassis's availability back to the file's.
+		// Each chassis's availability, the file's or the held game's.
 		for (short id = 0; id < HercLUT.Mongoose.Id; id++) {
-			game.UnlockedHercs[HercLUT.GetById(id)!] = chassis.FirstOrDefault(entry => entry?.HercId == id)?.FlagCampaignStart ?? 0;
+			var herc = HercLUT.GetById(id)!;
+			game.UnlockedHercs[herc] = chassis != null
+				? chassis.FirstOrDefault(entry => entry?.HercId == id)?.FlagCampaignStart ?? 0
+				: held!.UnlockedHercs.GetValueOrDefault(herc);
 		}
 
-		// Career_SeedPosition (00412a2f): stage 1, mission 0. The rest of the career block is the load's.
-		game.CampaignStage = 1;
-		game.MissionInStage = 0;
+		// Career_SeedPosition (00412a2f): stage 1, mission 0 in a campaign, whose load writes the rest of the
+		// career block; in training, stage 0 at the practice row, which the caller sets, and the rest as held.
+		if (campaign) {
+			game.CampaignStage = 1;
+			game.MissionInStage = 0;
+		} else if (held != null) {
+			held.Unk4_stateFlags.AsSpan(2).CopyTo(game.Unk4_stateFlags.AsSpan(2));
+		}
 
 		game.SalvageTotal = roll(ShellTrainingLaunch.SalvageDrawCount) * ShellRepairCosts.KilogramsPerTon + StartingSalvage;
 
 		// The flag array cleared (CampaignFlags_Clear), game state 2, and block 11 as memory holds it.
-		game.UnknownSaveValues = new byte[PlayerSave.CampaignFlagCount * 2 + 2 + HeldBlockLength];
+		const int heldOffset = PlayerSave.CampaignFlagCount * 2 + 2;
+		game.UnknownSaveValues = new byte[heldOffset + HeldBlockLength];
 		game.GameState = ContinuingGameState;
-		if (heldBlock != null) {
-			heldBlock.AsSpan(0, Math.Min(heldBlock.Length, HeldBlockLength))
-				.CopyTo(game.UnknownSaveValues.AsSpan(PlayerSave.CampaignFlagCount * 2 + 2));
+		if (held?.UnknownSaveValues is { Length: >= heldOffset + HeldBlockLength } tail) {
+			tail.AsSpan(heldOffset, HeldBlockLength).CopyTo(game.UnknownSaveValues.AsSpan(heldOffset));
 		}
 
 		failure = null;
@@ -245,7 +263,7 @@ public static class ShellCampaignLaunch {
 	private const short ContinuingGameState = 2;
 
 	/// <summary>Block 11's length.</summary>
-	public const int HeldBlockLength = 20;
+	private const int HeldBlockLength = 20;
 
 	/// <summary>
 	/// The first career position whose <c>missions.bin</c> name has <paramref name="name"/>'s file name — a

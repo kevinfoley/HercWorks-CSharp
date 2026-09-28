@@ -889,23 +889,6 @@ public sealed class ShellHangar {
 	}
 
 	/// <summary>
-	/// A new career's hangar before any machine is in it: <c>Player_Create</c> (<c>00410107</c>) has put
-	/// the player in bay 0, at position 0 and on strength, one machine on strength and no positions in
-	/// play; the three squad members are unassigned; and the unlock flags are <c>gam\weapons.dat</c>'s.
-	/// The bays stay empty — a training career's <c>LoadHercsDat</c> reads nothing.
-	/// </summary>
-	public static ShellHangar NewCareer(ShellBayPilot player, IEnumerable<ShellBayPilot> squad,
-			IEnumerable<int> unlockedWeapons) {
-		var hangar = new ShellHangar { Player = player, MachinesOnStrength = 1 };
-		hangar._squad.AddRange(squad);
-		foreach (int weapon in unlockedWeapons) {
-			hangar.Stock(weapon).UnlockFlag = 1;
-		}
-
-		return hangar;
-	}
-
-	/// <summary>
 	/// <c>HercList_Deliver</c> (<c>00410b68</c>) — a machine into an empty bay. The original asserts the bay is empty; this
 	/// replaces whatever is there.
 	/// </summary>

@@ -45,7 +45,9 @@ Takes the pilot name and the skill (`DAT_0048260c`'s mode decides the rest: 1 ca
 DAT_00482af4 = rand(0..10) * 1000 + 100000;
 ```
 
-Retail `GAME_T.SAV` holds exactly 107,000 salvage — an untouched training start. The pool is in kilograms and every screen divides by 1000 to print tons ([`armory.md`](armory.md#one-currency-two-units)).
+The pool is in kilograms and every screen divides by 1000 to print tons ([`armory.md`](armory.md#one-currency-two-units)).
+
+**A training career keeps three things from the game before it.** Nothing in `Game_NewCareer` writes the career block past the position, the chassis availability flags or block 11 ([`../formats/save-games.md`](../formats/save-games.md#savgame_sav--block-order)). A campaign's own steps overwrite the first two: `Registration_OnAccept` calls `LoadHercInfDat` first, and the mission load's `Career_SetBriefing` writes the career block's text ([Loading the career's mission](#loading-the-careers-mission)). A training career runs neither, so it carries the text, the briefing movie id and the chassis flags of whatever game the shell last loaded or started. With none since the startup, it carries the startup's zeros and `gam\herc_inf.dat`'s flags, which the startup (`FUN_0040e17e`) loads. Both modes carry block 11 the same way. Retail `GAME_T.SAV` is such a career: `herc_inf.dat`'s flags, zero text and a zero block 11.
 
 The two catalog loads also stock the player: `gam\weapons.dat`'s trailing block gives the armory 39 weapon units ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#file-level-format)) and `gam\hercs.dat` puts four Outlaws and one part-built Razor in the hangar ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamhercsdat--the-starting-hangar)).
 

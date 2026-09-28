@@ -84,7 +84,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.CameraYAxisAdj = IndexShortLE();
 		data.CameraXAxisAdj = IndexShortLE();
 
-		Skip(2); // blank bytes 0x102
+		data.CameraExtOrgOffsetY = IndexShortLE();
 
 		data.CameraExtOrgOffset = IndexShortLE();
 
@@ -221,9 +221,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Emit(outStream, WriteShortLE(data.CameraYAxisAdj));
 		Emit(outStream, WriteShortLE(data.CameraXAxisAdj));
 
-		// blank bytes 0x102
-		outStream.WriteByte(0x00);
-		outStream.WriteByte(0x00);
+		Emit(outStream, WriteShortLE(data.CameraExtOrgOffsetY));
 
 		Emit(outStream, WriteShortLE(data.CameraExtOrgOffset));
 

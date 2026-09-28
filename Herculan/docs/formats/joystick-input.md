@@ -141,7 +141,7 @@ The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 | 8 | `TARGET NEAREST` | `TargetSelect_Nearest`, ['] |
 | 9, 10 | `SHIELDS FRONT`, `SHIELDS REAR` | mech commands `0x1a` / `0x1b`, the bracket keys |
 | 11 | `HDD VIEW` | scancode `0x41` (F7) or `1` ([Esc]) to the widget tree — but see [below](#hdd-view-can-only-leave) |
-| 12, 15 | `OUTSIDE VIEW`, `CHASE VIEW` | step `DAT_004d2572` through the external views; 15 is gated on `DAT_004d25ff` |
+| 12, 15 | `OUTSIDE VIEW`, `CHASE VIEW` | step the chain of views `DAT_004d2572`, 12 as [V] does; 15 waits for the frame counter `DAT_004d25ff` to pass `0x31` — see [`../simulation/external-views.md`](../simulation/external-views.md#the-chain-of-views) |
 | 13 | `LINK WEAPON` | presses the console LINK button, scancode `0x26` |
 | 14 | `MFD DISPLAYS` | `FUN_00446e14` — step the MFD's mode, wrapping at six |
 | 16 | `WEAPON TOGGLE` | weapon command `0x202`, which is `ToggleChainMember(0)` — **row 1's chain membership, not a general toggle** |

@@ -3117,6 +3117,61 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
+	/// The external view's caption, <c>FUN_0045e1ec</c>: two runs of <see cref="ExternalViewLayout.CaptionFont"/>
+	/// on one row below the 3D view, placed on a 640x480 screen centred in the window the way the
+	/// modal panels are. The paint floods the row with colour 19 first, which is the black the rest of
+	/// the band is already, so nothing is drawn for it here.
+	/// </summary>
+	public void DrawExternalViewCaption(int windowWidth, int windowHeight, GpuTexture spriteTexture,
+			HudSpriteSheet sprites, string view, string control) {
+		ArgumentNullException.ThrowIfNull(spriteTexture);
+		ArgumentNullException.ThrowIfNull(sprites);
+
+		if (sprites.Font(ExternalViewLayout.CaptionFont) is not { } font) {
+			return;
+		}
+
+		var place = AlertPanelLayout.Placement.CreateAt(windowWidth, windowHeight, 0, 0);
+
+		_gl.Viewport(0, 0, (uint)Math.Max(windowWidth, 1), (uint)Math.Max(windowHeight, 1));
+		_gl.Disable(EnableCap.DepthTest);
+		_gl.Enable(EnableCap.Blend);
+		_gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+		_shader.Use();
+		_shader.SetVector2("uViewportSize", new Vector2(windowWidth, windowHeight));
+		_vertices.Clear();
+
+		int top = ExternalViewLayout.CaptionBaseline(font.CellHeight) - font.InkHeight;
+		Run(view, ExternalViewLayout.ViewCaptionX);
+		Run(control, ExternalViewLayout.ControlCaptionX);
+
+		if (_vertices.Count > 0) {
+			_shader.SetSamplerTexture("uTexture", spriteTexture.Handle, 0);
+			_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+		}
+
+		_gl.Disable(EnableCap.Blend);
+		_gl.Enable(EnableCap.DepthTest);
+
+		// HudFont_DrawString: glyph after glyph from the run's left edge, each advancing by its own width.
+		void Run(string text, float left) {
+			float pen = left;
+			foreach (char c in text) {
+				if (font.GlyphIndex(c) is { } glyph
+						&& sprites.Sprite(ExternalViewLayout.CaptionFont, glyph) is { Width: > 0, Height: > 0 } sprite) {
+					var (x0, y0) = place.ToWindow(pen, top);
+					var (x1, y1) = place.ToWindow(pen + sprite.Width * sprite.Scale, top + sprite.Height * sprite.Scale);
+					var r = sprite.Rect;
+					AddTexturedQuad(x0, y0, x1, y1, r.U0, r.V0, r.U1, r.V1);
+				}
+
+				pen += font.Width(c);
+			}
+		}
+	}
+
+	/// <summary>
 	/// The caption font for a panel button in widget state 0-3 — <c>PanelButton_Ctor</c>'s own
 	/// four-entry table at <c>+0x40</c>: ACTIVE at rest, PUSHED held, INACTIVE disabled, and ACTIVE
 	/// again for the fourth state. The controls panel is the only one this engine draws that reaches

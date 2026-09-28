@@ -123,6 +123,17 @@ public sealed class MechTypeRecord {
 	public short EyeOffsetZ => Data.CameraXAxisAdj;
 
 	/// <summary>
+	/// Record fields 102 and 104 (the exe's <c>typeRecord+0x68</c> and <c>+0x6a</c>) — the point the
+	/// outside view orbits, in the machine's own frame: the mech vtable's <c>+0x30</c> accessor
+	/// (<c>004155c4</c>) builds it as <c>(0, +0x68, +0x6a)</c> beside the eye offset. The fore/aft half
+	/// is 0 on every retail chassis and the height 1400-2600. See docs/simulation/external-views.md.
+	/// </summary>
+	public short OrbitCentreY => Data.CameraExtOrgOffsetY;
+
+	/// <inheritdoc cref="OrbitCentreY"/>
+	public short OrbitCentreZ => Data.CameraExtOrgOffset;
+
+	/// <summary>
 	/// Record field 22 (the exe's <c>typeRecord+0x18</c>) — how high above the machine's origin its
 	/// hit cylinder is centred, in world units. <c>Mech_ShieldAbsorb_DirectFire</c> builds the point
 	/// it measures every direct-fire shot against as <c>(0, 0, this)</c> in the machine's own frame,

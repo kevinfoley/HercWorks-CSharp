@@ -135,69 +135,7 @@ public sealed class JoystickBindings {
 			return JoystickPilotInput.None;
 		}
 
-		// The four axis sources, in destination order, and a second rank behind them. A control whose
-		// pair-mate is already spoken for lands in the second rank instead, and the combine below
-		// prefers the second when both have moved — the original's own arbitration, which is what lets
-		// a rudder assigned to DIRECTION override the stick's own steering while it is being pushed.
-		int?[] primary = new int?[4];
-		int?[] secondary = new int?[4];
-
-		var stickRow = Assignment(preferences, 0);
-
-		switch (stickRow) {
-			case JoystickAxisAssignment.Movement:
-				primary[0] = reading.StickX;
-				primary[1] = reading.StickY;
-				break;
-
-			case JoystickAxisAssignment.Turret:
-				// A RAZOR flips the stick's fore/aft sense when it drives the turret pair, which for a
-				// flyer is the rudder-and-throttle pair rather than a turret.
-				primary[2] = reading.StickX;
-				primary[3] = PilotingRazor ? -reading.StickY : reading.StickY;
-				break;
-		}
-
-		var throttleRow = JoystickAxisAssignment.Unassigned;
-		if (capabilities.HasThrottle) {
-			throttleRow = Assignment(preferences, 1);
-
-			// Unconditional in the original, ahead of the row test — a RAZOR reads the lever the other
-			// way up whatever it is assigned to.
-			int throttle = PilotingRazor ? -reading.Throttle : reading.Throttle;
-
-			switch (throttleRow) {
-				case JoystickAxisAssignment.Movement:
-					Assign(primary, secondary, 1, throttle);
-					break;
-
-				case JoystickAxisAssignment.Turret:
-					Assign(primary, secondary, 3, throttle);
-					break;
-			}
-		}
-
-		if (capabilities.HasRudder) {
-			int rudder = Keyjoy.ReverseRudder ? -reading.Rudder : reading.Rudder;
-
-			switch (Assignment(preferences, 2)) {
-				case JoystickAxisAssignment.Movement:
-					Assign(primary, secondary, 0, rudder);
-					break;
-
-				case JoystickAxisAssignment.Turret:
-					Assign(primary, secondary, 2, rudder);
-					break;
-			}
-		}
-
-		// Second rank first, then first rank, and zero where neither moved so the keyboard can still
-		// reach the axis — Combine finishes the chain.
-		var axes = new PilotAxes(
-			Pick(secondary[0], primary[0]),
-			Pick(secondary[1], primary[1]),
-			Pick(secondary[2], primary[2]),
-			Pick(secondary[3], primary[3]));
+		var axes = ResolveSources(reading, capabilities, preferences, out var stickRow, out var throttleRow);
 
 		// The hat, which is not an axis source but writes straight over the turret pair. Only one
 		// direction can apply: the original tests north, south, east then west and stops at the first,
@@ -232,6 +170,99 @@ public sealed class JoystickBindings {
 			SuppressKeyboardPitch: capabilities.HasThrottle
 				&& throttleRow != JoystickAxisAssignment.Unassigned,
 			ClaimedButton: claimed);
+	}
+
+	/// <summary>
+	/// The steering and throttle pair while the controls drive a camera rather than the machine —
+	/// <c>Input_BuildPlayerDevice</c>'s <c>InputDrivesCamera</c> arm, short of Backturn. The stick stops
+	/// feeding its bound axes: wherever it has moved, its X and Y replace the keyboard's first pair,
+	/// which stays on the steering and throttle axes rather than moving to the turret. A lever and a
+	/// rudder go on feeding their bindings, but only on a stick that has a lever; on one without, both
+	/// are zeroed. The camera reads the result's first two axes.
+	/// </summary>
+	public PilotAxes CombineForCamera(JoystickReading reading, JoystickCapabilities capabilities,
+			SimulatorPreferences preferences, PilotAxes keyboard) {
+		if (!capabilities.Present) {
+			return keyboard;
+		}
+
+		keyboard = keyboard with {
+			Steer = reading.StickX != 0 ? (short)reading.StickX : keyboard.Steer,
+			Throttle = reading.StickY != 0 ? (short)reading.StickY : keyboard.Throttle,
+		};
+
+		var axes = capabilities.HasThrottle
+			? ResolveSources(reading with { StickX = 0, StickY = 0 }, capabilities, preferences, out _, out _)
+			: PilotAxes.Centred;
+		return axes.Or(keyboard);
+	}
+
+	// The four axis sources, in destination order, and a second rank behind them. A control whose
+	// pair-mate is already spoken for lands in the second rank instead, and the combine below
+	// prefers the second when both have moved — the original's own arbitration, which is what lets
+	// a rudder assigned to DIRECTION override the stick's own steering while it is being pushed.
+	private PilotAxes ResolveSources(JoystickReading reading, JoystickCapabilities capabilities,
+			SimulatorPreferences preferences, out JoystickAxisAssignment stickRow,
+			out JoystickAxisAssignment throttleRow) {
+		int?[] primary = new int?[4];
+		int?[] secondary = new int?[4];
+
+		stickRow = Assignment(preferences, 0);
+
+		switch (stickRow) {
+			case JoystickAxisAssignment.Movement:
+				primary[0] = reading.StickX;
+				primary[1] = reading.StickY;
+				break;
+
+			case JoystickAxisAssignment.Turret:
+				// A RAZOR flips the stick's fore/aft sense when it drives the turret pair, which for a
+				// flyer is the rudder-and-throttle pair rather than a turret.
+				primary[2] = reading.StickX;
+				primary[3] = PilotingRazor ? -reading.StickY : reading.StickY;
+				break;
+		}
+
+		throttleRow = JoystickAxisAssignment.Unassigned;
+		if (capabilities.HasThrottle) {
+			throttleRow = Assignment(preferences, 1);
+
+			// Unconditional in the original, ahead of the row test — a RAZOR reads the lever the other
+			// way up whatever it is assigned to.
+			int throttle = PilotingRazor ? -reading.Throttle : reading.Throttle;
+
+			switch (throttleRow) {
+				case JoystickAxisAssignment.Movement:
+					Assign(primary, secondary, 1, throttle);
+					break;
+
+				case JoystickAxisAssignment.Turret:
+					Assign(primary, secondary, 3, throttle);
+					break;
+			}
+		}
+
+		if (capabilities.HasRudder) {
+			int rudder = Keyjoy.ReverseRudder ? -reading.Rudder : reading.Rudder;
+
+			switch (Assignment(preferences, 2)) {
+				case JoystickAxisAssignment.Movement:
+					Assign(primary, secondary, 0, rudder);
+					break;
+
+				case JoystickAxisAssignment.Turret:
+					Assign(primary, secondary, 2, rudder);
+					break;
+			}
+		}
+
+		// Second rank first, then first rank, and zero where neither moved so the keyboard can still
+		// reach the axis — Combine finishes the chain.
+		return new PilotAxes(
+			Pick(secondary[0], primary[0]),
+			Pick(secondary[1], primary[1]),
+			Pick(secondary[2], primary[2]),
+			Pick(secondary[3], primary[3]));
 	}
 
 	/// <summary>

@@ -273,6 +273,11 @@ public sealed partial class BaseObject : SimObject {
 	public override int SightHeight => Type.AimPointHeight;
 
 	/// <inheritdoc />
+	/// <remarks>The same <c>+0x30</c> accessor: its height goes into the second triple's Z.</remarks>
+	public override (Vec3i Eye, Vec3i OrbitCentre) ViewMounts =>
+		(Vec3i.Zero, new Vec3i(0, 0, Type.AimPointHeight));
+
+	/// <inheritdoc />
 	public override bool ScannerActive => ScannerTypes.Contains(Type.Index);
 
 	/// <inheritdoc />

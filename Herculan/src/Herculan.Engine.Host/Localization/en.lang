@@ -16,3 +16,5 @@ tweak.fix_computer_message_pref.display_name   Fix COMPUTER MESSAGE Preference
 tweak.fix_computer_message_pref.description    Cockpit computer voiceover is controlled by the COMPUTER MESSAGE preference instead of the PILOT MESSAGE preference.
 tweak.smoother_turret_movement.display_name    Smoother turret movement
 tweak.smoother_turret_movement.description     Smooth turret rotation when aiming with a joystick or other analog input. Retail rounds the rotation value, causing stutter at slow aiming speeds. Has no effect when aiming with the keyboard.
+tweak.mouse_external_view.display_name        Mouse-controlled outside view
+tweak.mouse_external_view.description         Swing the outside view [V] round your HERC by dragging with the left mouse button, while you keep control of the HERC and the cockpit keys keep working. Retail steers the camera with the joystick or arrow keys instead, and [Enter] switches them between the camera and the HERC.

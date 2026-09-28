@@ -74,11 +74,20 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> SmootherTurretMovement = new("tweak.smoother_turret_movement", TweakCategory.Functional, true);
 
+	/// <summary>
+	/// Drive the outside view with the mouse instead of the controls: drag with the left button to
+	/// swing the camera round the HERC, which stays under the player's control throughout, and the
+	/// cockpit's keys keep working. Retail hands the stick and arrow keys to the camera and makes
+	/// [Enter] swap them back. See <see cref="Render.ExternalCamera"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> MouseExternalView = new("tweak.mouse_external_view", TweakCategory.Functional, false);
+
 	#endregion
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, SmootherTurretMovement,
+		MouseExternalView,
 	};
 }

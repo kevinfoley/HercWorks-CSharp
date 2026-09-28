@@ -168,6 +168,22 @@ public abstract class SimObject {
 	public virtual Vec3i AimPoint => Position;
 
 	/// <summary>
+	/// vtable <c>+0x30</c> — the two points a view camera rides this object by, both in its own frame:
+	/// <c>Eye</c>, where a camera attached to it sits, and <c>OrbitCentre</c>, the point the outside
+	/// view circles. The shared base (<c>SimObject_GetAimPointZero</c>, <c>00411a74</c>) zeroes both,
+	/// which is what a flyer keeps; <see cref="MechObject"/> and <see cref="BaseObject"/> override it.
+	/// See docs/simulation/external-views.md.
+	/// </summary>
+	public virtual (Vec3i Eye, Vec3i OrbitCentre) ViewMounts => (Vec3i.Zero, Vec3i.Zero);
+
+	/// <summary>
+	/// vtable <c>+0x24</c> composed into the world — the node frame an attached view camera rides, or
+	/// null for a class whose accessor returns none (<c>SimObject_GetAimNodeTransform_None</c>,
+	/// <c>00411a9c</c>), which the camera then rides by <see cref="WorldFrame"/> instead.
+	/// </summary>
+	public virtual Transform3? ViewNodeFrame => null;
+
+	/// <summary>
 	/// Height above this object's origin that the detection sweep sights from and to — the
 	/// <c>+0x1c</c> of the same vtable <c>+0x24</c> record, which is that node transform's
 	/// <i>model-space</i> Z. <see cref="Detection.LineOfSight"/> raises both ends of its terrain ray

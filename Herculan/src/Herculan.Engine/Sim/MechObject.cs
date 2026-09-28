@@ -181,6 +181,15 @@ public sealed partial class MechObject : SimObject {
 	}
 
 	/// <inheritdoc />
+	/// <remarks>The mech vtable's <c>+0x30</c> (<c>004155c4</c>): <c>(0, +0x64, +0x66)</c> and
+	/// <c>(0, +0x68, +0x6a)</c> of the type record.</remarks>
+	public override (Vec3i Eye, Vec3i OrbitCentre) ViewMounts =>
+		(new Vec3i(0, Type.EyeOffsetY, Type.EyeOffsetZ), new Vec3i(0, Type.OrbitCentreY, Type.OrbitCentreZ));
+
+	/// <inheritdoc />
+	public override Transform3? ViewNodeFrame => CameraNodeTransform;
+
+	/// <inheritdoc />
 	/// <remarks>The same node's <i>model-space</i> Z, which is the <c>+0x1c</c> the sweep reads.</remarks>
 	public override int SightHeight =>
 		Shape is { } shape && Animation?.TransformIdOfPart(Type.CameraBoneId) is { } node && node >= 0

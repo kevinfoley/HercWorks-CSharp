@@ -126,8 +126,16 @@ public class HercSimDat {
 	public short CameraYAxisAdj { get; set; }
 	public short CameraXAxisAdj { get; set; }
 
-	// blank bytes 0x102
+	/// <summary>
+	/// Offset 102 — the fore/aft half of the external camera's orbit centre, which DBSIM reads as
+	/// <c>typeRecord+0x68</c> beside <see cref="CameraExtOrgOffset"/>. Zero in every retail chassis.
+	/// </summary>
+	public short CameraExtOrgOffsetY { get; set; }
 
+	/// <summary>
+	/// Offset 104 — the height of the external camera's orbit centre above the machine's origin,
+	/// <c>typeRecord+0x6a</c> in DBSIM.
+	/// </summary>
 	public short CameraExtOrgOffset { get; set; }
 
 	// blank bytes 0x106

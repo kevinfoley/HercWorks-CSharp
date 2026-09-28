@@ -13,7 +13,7 @@ This is a plan, not a record of something built. Nothing here is implemented.
   - `movers` → `MissionScene.TransformOf` → `SimObject.WorldFrame`
   - `posedParts` → `MissionScene.PosedTransformOf` → `WorldFrame` × `NodeTransform`
   - the pools: `RefreshWreckItems`, `RefreshProjectileItems`, `RefreshDebrisItems`, `RefreshDropPodItems`, `RefreshWeaponItems`, `RefreshSpriteBatches`
-  - the cockpit eye (`pilotMech.EyeTransform`), `ExternalCamera.Place`, and the fly camera
+  - the cockpit eye (`pilotMech.EyeTransform`), the view chain's `ViewCamera` (placed once a tick), `ExternalCamera.Place`, and the fly camera
 - Player input is written to `pilotMech.Controls` every frame in `window.Update` and read by the sim once per tick.
 - Some presentation already runs per frame and is not affected: cockpit pan, the view kick and the hit shake (`Render/`), and the gauges driven by coarse ticks.
 

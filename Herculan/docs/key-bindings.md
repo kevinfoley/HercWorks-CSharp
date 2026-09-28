@@ -49,8 +49,8 @@ The simulator's keyboard, by what each key does. Keys the manual does not list a
 | `F1` … `F6` | MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM. Also returns from the Heads-Down Display. |
 | `F7`, `F8` | Heads-Down Display: command display, damage detail. |
 | `F9`, `F10` | Look out of the left and right windows. |
-| `Esc` | Back to the forward view from a side window or the Heads-Down Display. |
-| `V` | External views. |
+| `Esc` | Back to the forward view from a side window or the Heads-Down Display, and to the cockpit from the outside view. |
+| `V` | The outside view, and back to the cockpit. |
 | `D` | Status of the other HERCs. |
 | `Alt+D` | Drop a nav marker where you stand. |
 
@@ -85,6 +85,18 @@ On the damage detail:
 
 While either screen is down the arrows are the display's and do not steer; the keypad still does.
 
+In the outside view:
+
+| Key | What it does |
+|---|---|
+| Arrows | Swing the camera round the HERC and over it. |
+| `Space` + `Up`, `Down` | Zoom in and out. |
+| `Enter` | Hand the controls to the HERC, which you then drive and fire from outside, and back to the camera. |
+| `N` | Look at the next HERC in your squad. The controls stay on the camera while it is not your own. |
+| `V`, `Esc` | Back to the cockpit. |
+
+A joystick does the same with its stick and trigger, and its CHASE VIEW button follows your HERC from behind instead ([`formats/joystick-input.md`](formats/joystick-input.md#the-buttons)). With the cockpit gone, so are the keys that work its displays: the weapon rows, `F1` to `F11`, `;`, `Tab`, `R` and the `Alt` order keys do nothing until you are back inside. `Tab` swaps the controls like `Enter`. The full behaviour is [`simulation/external-views.md`](simulation/external-views.md).
+
 ## Panels and the game
 
 | Key | What it does |
@@ -114,8 +126,8 @@ The `Ctrl+Alt+number` keys choose how far the move and turn keys go; each missio
 | `Alt+Left`, `Alt+Right` | Moves the HERC sideways. |
 | `Ctrl+Left`, `Ctrl+Right` | Turns the HERC on the spot. |
 | `Ctrl+Alt+1` … `Ctrl+Alt+9` | Sets the size of each move and turn, from smallest to largest. |
-| `Ctrl+N`, `Ctrl+P` | Moves the camera to the next or previous object in the mission. |
-| `Ctrl+F` | Switches camera mode like `V`, but the outside camera follows the object chosen with `Ctrl+N`/`Ctrl+P` instead of your HERC. |
+| `Ctrl+N`, `Ctrl+P` | Moves the camera to the next or previous object in the mission, going out to the outside view first if you are in the cockpit. |
+| `Ctrl+F` | Steps from the cockpit to the outside view, from there to a free camera, and from that back to the cockpit — of the object chosen with `Ctrl+N`/`Ctrl+P`, seen from its own eye. The free camera turns with the arrows and flies with `Space` + `Up`/`Down`. |
 | `Ctrl+T` | Takes your HERC off the controls: it stops firing and ignores the steering, throttle and turret keys, and those keys drive the camera instead. `Ctrl+N` and `Ctrl+P` do this too. Press again to take the controls back. |
 | `Ctrl+Alt+.`, `Ctrl+Alt+,` | Chooses which part of a machine `Ctrl+Alt+D` hits (30 to choose from). |
 | `Ctrl+Alt+D` | Damages the chosen part of whatever the camera is on — your own HERC until the camera has been moved. |
@@ -129,13 +141,10 @@ The engine takes the keys above and adds its own:
 |---|---|
 | `C` | Switch between piloting and a free camera: `W`, `A`, `S`, `D` move, `R`, `F` rise and fall, the arrows look, `Shift` goes faster. |
 | `Esc` | In the forward view, raise the menu bar with the debug and tweak panels; press again to back out. |
-| Left mouse drag | Swing the camera round the HERC in the external view. |
+| Left mouse drag | With the Mouse-controlled outside view tweak, swing the outside view round the HERC. |
 
-`V` is a single orbiting external view that `V` toggles, where retail steps through several. During a tape replay, `C`, `Esc`'s menu bar and `Ctrl+E` stay with the player's own keyboard and every other key comes from the tape; under `--demo` any key ends the demo.
+The tweak replaces the outside view's controls: the mouse swings the camera, the HERC stays under your control throughout, and the cockpit's keys keep working. `Esc` still returns to the cockpit.
 
-`--developer` turns on the [developer keys](#developer-keys), with three differences from retail:
+During a tape replay, `C`, `Esc`'s menu bar and `Ctrl+E` stay with the player's own keyboard and every other key comes from the tape; under `--demo` any key ends the demo.
 
-- The move and turn keys only move and turn. Under `Alt` or `Ctrl` the arrows neither steer nor move the throttle, so a sideways move looks like one rather than being hidden in a turn.
-
-- `Ctrl+N` and `Ctrl+P` put the camera in the orbiting external view round the chosen object, where retail views from the object itself; choosing your own HERC again returns to the cockpit.
-- `Ctrl+F` does nothing, and `Ctrl+T`, `Ctrl+N` and `Ctrl+P` take the controls off your HERC without handing them to the camera. Both wait on retail's external cameras; see [`ROADMAP.md`](../ROADMAP.md).
+`--developer` turns on the [developer keys](#developer-keys), with one difference from retail: the move and turn keys only move and turn. Under `Alt` or `Ctrl` the arrows neither steer nor move the throttle, so a sideways move looks like one rather than being hidden in a turn.

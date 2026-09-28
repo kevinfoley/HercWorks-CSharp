@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 using Silk.NET.Input;
@@ -9,7 +10,8 @@ namespace Herculan.Engine.Host;
 /// DBSIM's <c>-SPRUNKNOWN</c> developer keys, which <c>--developer</c> turns on here, and the
 /// <c>Alt+S</c> freeze that retail also allows while a tape plays. What each key does is
 /// docs/key-bindings.md's "Developer keys"; the retail cases behind them are docs/command-line.md's
-/// "<c>-SPRUNKNOWN</c>: the developer keys". This holds their state; the host applies it.
+/// "<c>-SPRUNKNOWN</c>: the developer keys". This holds their state; the host applies it. The four
+/// camera keys act on the <see cref="ExternalViewChain"/>, which holds what they change.
 ///
 /// <para>Retail keeps the freeze in the one word every modal panel also raises (<c>004d2576</c>),
 /// but the two freeze different amounts: a panel's own loop never reaches <c>Sim_MainTick</c>,
@@ -50,12 +52,6 @@ sealed class DeveloperKeys(bool enabled) {
 	/// <summary>How far from the player <c>Ctrl+Alt+N</c> looks, by <c>Math_DistanceBetweenPoints</c>.</summary>
 	private const int CybridHitRange = 99999;
 
-	/// <summary>
-	/// Below this height <c>Ctrl+N</c>/<c>Ctrl+P</c> step past an object — where a destroyed flyer is
-	/// sent (<see cref="FlyerObject"/>'s wreck drop).
-	/// </summary>
-	private const int OffWorldHeight = -99000;
-
 	/// <summary>Whether <c>--developer</c> is on — <c>DAT_0049ef60</c>.</summary>
 	public bool Enabled { get; } = enabled;
 
@@ -67,18 +63,6 @@ sealed class DeveloperKeys(bool enabled) {
 	/// <see cref="FinishStep"/> puts it back once the tick has run.
 	/// </summary>
 	public bool StepPending { get; private set; }
-
-	/// <summary>
-	/// <c>InputDrivesCamera</c> (<c>004d2574</c>) — the controls are off the machine: it neither fires
-	/// nor takes the steering, throttle or turret axes.
-	/// </summary>
-	public bool InputDrivesCamera { get; private set; }
-
-	/// <summary>
-	/// The object <c>Ctrl+N</c>/<c>Ctrl+P</c> moved the camera to — <c>DAT_004d2708</c> — or null for
-	/// the player's own machine, where it starts. <c>Ctrl+Alt+D</c> hits it and the move keys move it.
-	/// </summary>
-	public SimObject? Viewed { get; private set; }
 
 	private short _moveStep = StepSizes[InitialStep];
 	private short _turnStep = StepSizes[InitialStep];
@@ -102,8 +86,12 @@ sealed class DeveloperKeys(bool enabled) {
 	/// One frame of the keys. Every edge is read every frame, whatever the modifiers say, so a key
 	/// already held when <c>Ctrl</c> or <c>Alt</c> goes down does not fire on it.
 	/// </summary>
-	public void Read(IKeyState keys, SimWorld world, MechObject player, bool tapePlaying,
-			double deltaSeconds) {
+	/// <param name="views">
+	/// The chain of views, whose watched object — <c>DAT_004d2708</c>, the player's machine until the
+	/// camera moves — <c>Ctrl+Alt+D</c> hits and the move keys move.
+	/// </param>
+	public void Read(IKeyState keys, SimWorld world, MechObject player, ExternalViewChain views,
+			bool tapePlaying, double deltaSeconds) {
 		bool ctrl = keys.IsKeyPressed(Key.ControlLeft) || keys.IsKeyPressed(Key.ControlRight);
 		bool alt = keys.IsKeyPressed(Key.AltLeft) || keys.IsKeyPressed(Key.AltRight);
 
@@ -168,7 +156,7 @@ sealed class DeveloperKeys(bool enabled) {
 		// The move keys are the machine's own command handler's, and retail hands that handler's commands
 		// to the viewed object, so they move a viewed machine and nothing else — see
 		// docs/command-line.md's developer keys.
-		if ((Viewed ?? player) is MechObject subject) {
+		if (views.Watched is MechObject subject) {
 			if (altOnly && upKey) {
 				subject.Displace(0, _moveStep);
 			}
@@ -200,18 +188,17 @@ sealed class DeveloperKeys(bool enabled) {
 		}
 
 		if (ctrlOnly && (nextKey || previousKey)) {
-			CycleViewed(world, player, forward: nextKey);
+			views.DeveloperCycle(world.Objects, forward: nextKey);
+			Console.WriteLine($"Developer: viewing {views.Watched.GetType().Name} {views.Watched.ListIndex}.");
 		}
 
-		// Ctrl+F: the external-view cycle [V] runs, with DAT_004d25b8 set so the outside camera follows
-		// the viewed object. Retail's external cameras are not ported; see ExternalCamera.
 		if (ctrlOnly && followKey) {
-			Console.WriteLine("Developer: Ctrl+F needs retail's external cameras, which are not implemented.");
+			views.DeveloperFollow();
 		}
 
 		if (ctrlOnly && handOffKey) {
-			InputDrivesCamera = !InputDrivesCamera;
-			Console.WriteLine($"Developer: controls {(InputDrivesCamera ? "off" : "back on")} the machine.");
+			views.DeveloperHandOff();
+			Console.WriteLine($"Developer: controls {(views.InputDrivesCamera ? "off" : "back on")} the machine.");
 		}
 
 		if (ctrlAlt && componentUpKey && _component < LastComponent) {
@@ -225,7 +212,7 @@ sealed class DeveloperKeys(bool enabled) {
 		}
 
 		if (ctrlAlt && damageKey) {
-			var victim = Viewed ?? player;
+			var victim = views.Watched;
 			victim.ApplyComponentDamage(world, _component, ComponentHit, player);
 			Console.WriteLine($"Developer: {ComponentHit} damage to component {_component} of {victim.GetType().Name}.");
 		}
@@ -240,31 +227,6 @@ sealed class DeveloperKeys(bool enabled) {
 			Console.WriteLine(victim != null
 				? $"Developer: {CybridHit} damage to a {victim.GetType().Name}."
 				: "Developer: no Cybrid in range.");
-		}
-	}
-
-	// Ctrl+N and Ctrl+P: the next or previous object in the live list from the one being viewed, round
-	// the end of the list. Either hands the controls off, even when it lands back on the player's own
-	// machine — the dispatcher sets 004d2574 after FUN_0045df18 has restored it.
-	private void CycleViewed(SimWorld world, MechObject player, bool forward) {
-		var objects = world.Objects;
-		var current = Viewed ?? player;
-		int start = current.ListIndex;
-		if (objects.Count == 0 || start < 0) {
-			return;
-		}
-
-		int step = forward ? 1 : objects.Count - 1;
-		for (int i = (start + step) % objects.Count; i != start; i = (i + step) % objects.Count) {
-			var candidate = objects[i];
-			if (candidate.Removed || candidate.Position.Z < OffWorldHeight) {
-				continue;
-			}
-
-			Viewed = ReferenceEquals(candidate, player) ? null : candidate;
-			InputDrivesCamera = true;
-			Console.WriteLine($"Developer: viewing {candidate.GetType().Name} {i}; the controls are off the machine.");
-			return;
 		}
 	}
 

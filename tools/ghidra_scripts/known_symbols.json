@@ -16156,7 +16156,7 @@
       "type": "data",
       "confidence": "high",
       "name": "InputDrivesCamera",
-      "description": "Word, block 004d2540+0x34. Set: the controls steer a camera, not the machine -- every reader tests it together with the missile-camera flag 004d25aa. Input_BuildPlayerDevice re-points the axis sources (+0x22/+0x26 to +0x0e/+0x10), Sim_PollPlayerInput reads the camera axes and skips Mech_PlayerFireTick, Mech_ApplyThrottleInput ignores the lever, FUN_0045e1ec picks label 2 rather than 3 from the table at 004d1724. Writers, all developer keys: Ctrl+T (0x414) toggles it; Ctrl+N/P (0x431/0x419) sets it; FUN_0045df18 sets it to 1 when the viewed object is not 004d256a and restores it from 004d259c when it is. No retail demo tape issues any of those commands.",
+      "description": "Word, block 004d2540+0x34. Set: the controls steer a camera, not the machine -- every reader tests it together with the missile-camera flag 004d25aa. Input_BuildPlayerDevice re-points the axis sources (+0x22/+0x26 to +0x0e/+0x10), Sim_PollPlayerInput reads the camera axes and skips Mech_PlayerFireTick, Mech_ApplyThrottleInput ignores the lever, FUN_0045e1ec picks label 2 rather than 3 from the table at 004d1724. Writers: ViewChain_Apply (0045de14) on every change of view and, in the outside view on the player, from the preference 004d259c ([Enter]/[Tab] in view 4); ViewChain_ViewObject (0045df18), 1 for any object but the player and 004d259c for the player; the developer keys Ctrl+T (0x414), which toggles it, and Ctrl+N/P (0x431/0x419), which set it.",
       "source": "docs/command-line.md"
     },
     {
@@ -19969,6 +19969,258 @@
       "name": "Mission_HideLocationPicture",
       "description": "Hides the mission tab's location picture (DAT_0048d7e0) and frees its bank.",
       "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "004011a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_Update",
+      "description": "CAM's once-a-frame placement, called from the main loop (FUN_0045f144) with ViewObjectPtr between Sim_MainTick and the render. First records LocalPlayerMech's +0x26 position, +0x0c euler triple and Math_IntegrateRateOverTick(0x400) into the 50-entry chase ring at 004a7c80/004a7ed8/004a8004 (cursor 004a80cc), then places by CAM+0x36: 0 free camera, 1 orbit, 2 attached to the object's +0x24 node, 3 chase (8000 back along the ring).",
+      "source": "docs/simulation/external-views.md#the-camera-object--cam"
+    },
+    {
+      "address": "00401c74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_Steer",
+      "description": "FUN_00401c74(cam, steer, throttle, trigger), once a tick from Sim_PollPlayerInput with zeros unless InputDrivesCamera. Modes 0 and 1 only: heading rate +0x30 toward Q8(0x800, +/-steer) at step 0xc0; with the trigger the throttle axis drives +0x24 (zoom, or free-camera speed) toward Q8(0x400, axis) at 0x50, else pitch rate +0x2c toward Q8(0x800, throttle) at 0xc0.",
+      "source": "docs/simulation/external-views.md#steering-the-camera--fun_00401c74"
+    },
+    {
+      "address": "00401c20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_ApproachRate",
+      "description": "Math_RateLimitedMoveToward(rate, Q8(0x800, axis), 0xc0): Cam_Steer's heading and pitch rates.",
+      "source": "docs/simulation/external-views.md#steering-the-camera--fun_00401c74"
+    },
+    {
+      "address": "00401c4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_ApproachZoom",
+      "description": "Math_RateLimitedMoveToward(rate, Q8(0x400, axis), 0x50): Cam_Steer's zoom rate and free-camera speed.",
+      "source": "docs/simulation/external-views.md#steering-the-camera--fun_00401c74"
+    },
+    {
+      "address": "0040109c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_AttachOrbit",
+      "description": "Unless locked (+0x4a): orbit centre to +0x38, object to +0x32, zeroes distance +0x22, orbit pitch/heading +0x26/+0x2a and the pitch, heading and zoom rates, and sets mode 1. Roll +0x28 and its rate survive.",
+      "source": "docs/simulation/external-views.md#the-camera-object--cam"
+    },
+    {
+      "address": "0040111c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_AttachEye",
+      "description": "Unless locked (+0x4a): eye offset to +0x3e, object to +0x32, mode 2.",
+      "source": "docs/simulation/external-views.md#the-camera-object--cam"
+    },
+    {
+      "address": "00401148",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_SetMode",
+      "description": "Stores 0-3 into CAM+0x36 unless the camera is locked (+0x4a).",
+      "source": "docs/simulation/external-views.md#the-camera-object--cam"
+    },
+    {
+      "address": "00401078",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_IsAttachedTo",
+      "description": "True when the camera is in mode 2 (attached) on the given object.",
+      "source": "docs/simulation/external-views.md#the-camera-object--cam"
+    },
+    {
+      "address": "0045ed94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_AttachTo",
+      "description": "Asks the object's vtable +0x30 for its eye and orbit-centre points, then Cam_AttachEye and Cam_AttachOrbit on ViewObjectPtr -- so an attach always ends in mode 1, directly behind at the least distance.",
+      "source": "docs/simulation/external-views.md#the-camera-object--cam"
+    },
+    {
+      "address": "0045de14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewChain_Apply",
+      "description": "Once a tick from Sim_MainTick. While the view manager's step flag (+0x1c) is up, moves DAT_004d2572 to the pending view 004d259e and sets the camera up for it (views 1-4: free, cockpit, outside, chase); otherwise, in the outside view on the player, copies the preference 004d259c into InputDrivesCamera. Draws the caption while 004d25a4 counts.",
+      "source": "docs/simulation/external-views.md#moving-between-views--fun_0045de14"
+    },
+    {
+      "address": "0045df18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewChain_ViewObject",
+      "description": "Moves ViewObjectPtr onto the squad camera (004d270c) already viewing the object, or a free one seeded from the current camera and attached afresh, or the spare at 004d27d8. Stores the object in 004d2708 and sets InputDrivesCamera to 1, or to 004d259c for the player.",
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+    },
+    {
+      "address": "0045e1ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewChain_DrawCaption",
+      "description": "The external view's caption: 'VIEW: ' + YOU / the squad pilot's name at x 50 and 'CONTROL: ' + CAMERA / HERC at x 215, STRINGS0.STR groups 36 and 17, in the green 6x8 font, centred in the band below the view-4 3D rect.",
+      "source": "docs/simulation/external-views.md#what-the-external-view-shows"
+    },
+    {
+      "address": "0045fd2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewChain_ToggleCameraControl",
+      "description": "[Enter]/[Tab] in view 4: flips 004d259c, and redraws the caption when the camera is on the player.",
+      "source": "docs/simulation/external-views.md#moving-between-views--fun_0045de14"
+    },
+    {
+      "address": "004155c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetAimPoint",
+      "description": "The mech vtable +0x30: first triple (0, type+0x64, type+0x66), the pilot's eye; second (0, type+0x68, type+0x6a), the outside view's orbit centre.",
+      "source": "docs/simulation/external-views.md#the-camera-object--cam"
+    },
+    {
+      "address": "004d2572",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_View",
+      "description": "Word, block 004d2540+0x32: the view the game is in -- 1 free camera, 2 cockpit, 3 outside, 4 chase. Starts at 2.",
+      "source": "docs/simulation/external-views.md#the-chain-of-views"
+    },
+    {
+      "address": "004d259e",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_PendingView",
+      "description": "Word: the view ViewChain_Apply moves to on the view manager's next step. Starts at 2.",
+      "source": "docs/simulation/external-views.md#the-chain-of-views"
+    },
+    {
+      "address": "004d259c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_CameraControlPreferred",
+      "description": "Word, starts 1: whether the outside view on the player puts the controls on the camera. [Enter]/[Tab] in view 4 flip it.",
+      "source": "docs/simulation/external-views.md#moving-between-views--fun_0045de14"
+    },
+    {
+      "address": "004d25a0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_Chosen",
+      "description": "The object the outside view opens on: the player at mission start, then whatever [N] or [Ctrl+N]/[Ctrl+P] chose.",
+      "source": "docs/simulation/external-views.md#the-chain-of-views"
+    },
+    {
+      "address": "004d25b8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_FollowChosen",
+      "description": "Set by [Ctrl+F], cleared by [V] and both joystick view actions: the cockpit the chain returns to rides 004d25a0's eye.",
+      "source": "docs/simulation/external-views.md#the-chain-of-views"
+    },
+    {
+      "address": "004d25a4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_CaptionFrames",
+      "description": "Frames ViewChain_Apply draws the caption on: reloaded to 2.",
+      "source": "docs/simulation/external-views.md#what-the-external-view-shows"
+    },
+    {
+      "address": "004d25ff",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sim_FrameCount",
+      "description": "Dword: frames run, incremented by the main loop (FUN_0045f144) after each one. CHASE VIEW waits for it to pass 0x31.",
+      "source": "docs/simulation/external-views.md#the-chain-of-views"
+    },
+    {
+      "address": "004d2708",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_Viewed",
+      "description": "The object the view was last moved to (ViewChain_ViewObject). The developer keys' Ctrl+Alt+D hits it and their move keys move it.",
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+    },
+    {
+      "address": "004d270c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_SquadCameras",
+      "description": "One CAM pointer per member of the player's group, built by Sim_InitMissionSession.",
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+    },
+    {
+      "address": "004d27d8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewChain_SpareCamera",
+      "description": "The CAM used once every squad camera views something else.",
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+    },
+    {
+      "address": "004a7c80",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ChaseTrail_Positions",
+      "description": "50 x 12 bytes: the player's position each frame, for the chase view.",
+      "source": "docs/simulation/external-views.md#mode-3-the-chase"
+    },
+    {
+      "address": "004a7ed8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ChaseTrail_Rotations",
+      "description": "50 x 6 bytes: the player's euler triple each frame.",
+      "source": "docs/simulation/external-views.md#mode-3-the-chase"
+    },
+    {
+      "address": "004a8004",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ChaseTrail_Lengths",
+      "description": "50 ints: each frame's Math_IntegrateRateOverTick(0x400).",
+      "source": "docs/simulation/external-views.md#mode-3-the-chase"
+    },
+    {
+      "address": "004a80cc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ChaseTrail_Cursor",
+      "description": "The chase ring's next slot.",
+      "source": "docs/simulation/external-views.md#mode-3-the-chase"
     }
   ]
 }

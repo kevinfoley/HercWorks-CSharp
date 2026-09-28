@@ -299,9 +299,9 @@ for (int i = 0; i < args.Length; i++) {
 		// --screenshot run, an automated run, or anywhere the noise is not what is being looked at.
 		silentAudio = true;
 	} else if (args[i] == "--external") {
-		// Power up in the external chase view, for the same reason as --mfd and --throttle: the
-		// player's own machine is the one thing the cockpit view never shows, so a --screenshot run
-		// has no other way to see its own legs move.
+		// Power up in the outside view, for the same reason as --mfd and --throttle: the player's own
+		// machine is the one thing the cockpit view never shows, so a --screenshot run has no other way
+		// to see its own legs move. It is [V] pressed at launch, so it lands two ticks in.
 		startExternal = true;
 	} else if (args[i] == "--hdd-damage") {
 		// Which component category the damage screen powers up listing. [S], [I] and [W] switch it
@@ -739,16 +739,20 @@ bool glanceRightKeyDown = false;
 
 // The two view changes share CockpitView_QueueViewCommand's gate on the current view: the pan down
 // starts only from the forward view, and so does a glance. Every request for either goes through
-// these two so no input path can start one while the other is out. The way back is never gated —
-// neither can be out while the other is.
+// these two so no input path can start one while the other is out. The way back is gated only by the
+// external view — neither can be out while the other is — whose view 4 none of the commands accepts.
 void RequestHeadsDown(bool headsDown) {
+	if (ExternalViewActive()) {
+		return;
+	}
+
 	if (!headsDown || cockpitGlance.AtForward) {
 		cockpitPan.Request(headsDown);
 	}
 }
 
 void CommandGlance(GlanceSide side) {
-	if (cockpitPan.AtForward && !cockpitPan.HeadsDownRequested) {
+	if (!ExternalViewActive() && cockpitPan.AtForward && !cockpitPan.HeadsDownRequested) {
 		cockpitGlance.Command(side);
 	}
 }
@@ -761,8 +765,10 @@ var cockpitViewKick = new CockpitViewKick();
 // own cockpit pass — see CockpitHitShake.
 var cockpitHitShake = new CockpitHitShake(scene.World.PresentationRandom);
 
+// Straight to the pan rather than through RequestHeadsDown, whose external-view gate reads state not
+// yet set up here — at launch the glance is at rest and the external view is not up anyway.
 if (startOnHeadsDown) {
-	RequestHeadsDown(headsDown: true);
+	cockpitPan.Request(headsDown: true);
 	cockpitPan.Advance(CockpitPan.DurationSeconds);
 }
 
@@ -1075,21 +1081,31 @@ bool linkKeyDown = false;
 bool powerUpKeyDown = false;
 bool powerDownKeyDown = false;
 
-// [V], the external view: an orbit camera around the machine with the cockpit not drawn. Both the
-// geometry and this binding are placeholders — see ExternalCamera for what has not been RE'd. The
-// manual's own [V] cycles through several external cameras; this is one orbiting chase view and a
-// toggle.
-bool externalView = startExternal;
-bool externalViewKeyDown = false;
+// The chain of views [V] and the joystick's OUTSIDE VIEW and CHASE VIEW step through, and the camera
+// behind each — see ExternalViewChain. [Esc], [Enter], [Tab] and [N] reach it too, but only from the
+// external view, where the cockpit's own widgets are off.
+var viewChain = pilotMech != null ? new ExternalViewChain(pilotMech) : null;
+if (startExternal) {
+	viewChain?.ToggleOutside(fromKeyboard: true);
+}
 
-// The external view's orbit, held here rather than in ExternalCamera because it is state the host
-// owns across frames — the same reason cockpitViewKick and the throttle gauge live here. Yaw starts
-// directly behind the machine and pitch starts level with ExternalCamera's own original fixed
-// framing; both only move once the player drags.
+bool externalViewKeyDown = false;
+bool viewControlKeyDown = false;
+bool viewNextKeyDown = false;
+
+// The mouse outside view's orbit, for the tweak that swaps retail's for it (see ExternalCamera). Held
+// here because it is state the host owns across frames — the same reason cockpitViewKick and the
+// throttle gauge live here. Yaw starts directly behind the machine and pitch level with
+// ExternalCamera's own fixed framing; both only move once the player drags.
 float externalOrbitYaw = 0f;
 float externalOrbitPitch = ExternalCamera.DefaultOrbitPitchRadians;
 bool externalOrbitDragging = false;
 System.Numerics.Vector2 externalOrbitLastMouse = System.Numerics.Vector2.Zero;
+
+// The tick's camera axes and trigger, built with the machine's controls each frame and handed to the
+// chain on each tick — Sim_PollPlayerInput's arguments to FUN_00401c74.
+PilotAxes viewCameraAxes = PilotAxes.Centred;
+bool viewCameraTrigger = false;
 
 // Retail's pause is a modal panel, not a mode: [P] raises PAUSE over the frozen cockpit and
 // [Return], [Esc] or its CONTINUE button puts it away. It is the same panel class as the [Q] status
@@ -1859,26 +1875,41 @@ window.Update += deltaSeconds => {
 	}
 
 	// The developer keys, which reach the dispatcher only while no modal panel holds the input.
-	if (pilotMech != null && controls != null && !AnyModalPanelOpen() && !missionOver) {
-		developerKeys.Read(controls, scene.World, pilotMech, TapePlaying(), deltaSeconds);
+	if (pilotMech != null && viewChain != null && controls != null && !AnyModalPanelOpen() && !missionOver) {
+		developerKeys.Read(controls, scene.World, pilotMech, viewChain, TapePlaying(), deltaSeconds);
 	}
 
-	if (pilotMech != null && controls != null) {
-		// [V] swaps between sitting in the cockpit and watching the machine from behind it, on its own
-		// edge for the same reason. The cockpit is not drawn in the external view, and the machine —
-		// left out of the cockpit view because its geometry wraps the eye — is.
-		bool externalViewKey = controls.IsKeyPressed(Key.V);
+	if (viewChain != null && controls != null && !AnyModalPanelOpen() && !missionOver) {
+		// [V], scancode 0x2f: out to the outside view and back. The cockpit is not drawn in the
+		// external view, and the machine — left out of the cockpit view because its geometry wraps the
+		// eye — is.
+		bool externalViewKey = !CtrlHeld(controls) && controls.IsKeyPressed(Key.V);
 		if (externalViewKey && !externalViewKeyDown) {
-			externalView = !externalView;
+			viewChain.ToggleOutside(fromKeyboard: true);
 		}
 		externalViewKeyDown = externalViewKey;
+
+		// [Enter] and [Tab] swap the controls between the camera and the machine, and [N] moves the
+		// outside view on to the next squadmate. All three are cockpit keys the widgets claim first,
+		// so they reach these cases only while the widgets are off.
+		bool viewControlKey = controls.IsKeyPressed(Key.Enter) || controls.IsKeyPressed(Key.Tab);
+		if (viewControlKey && !viewControlKeyDown && CockpitWidgetsOff()) {
+			viewChain.ToggleCameraControl();
+		}
+		viewControlKeyDown = viewControlKey;
+
+		bool viewNextKey = !CtrlHeld(controls) && !AltHeld(controls) && controls.IsKeyPressed(Key.N);
+		if (viewNextKey && !viewNextKeyDown) {
+			viewChain.NextSquadmate(scene.World.Objects);
+		}
+		viewNextKeyDown = viewNextKey;
 	}
 
-	// The external view's orbit: hold the left mouse button and drag to swing the eye around the
+	// The mouse outside view's orbit: hold the left mouse button and drag to swing the eye around the
 	// machine, always aimed back at it. Gated the same way the cockpit's own clicks are — nothing to
-	// drag while the pointer is over the debug panel — and only while the external view is actually
-	// up, so a drag started before switching views doesn't carry over.
-	if (ExternalViewActive() && mouse != null
+	// drag while the pointer is over the debug panel — and only while that view is actually up, so a
+	// drag started before switching views doesn't carry over.
+	if (MouseOutsideView() && ExternalViewActive() && mouse != null
 			&& (imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
 		bool dragging = mouse.IsButtonPressed(MouseButton.Left);
 		var mousePosition = mouse.Position;
@@ -1909,6 +1940,7 @@ window.Update += deltaSeconds => {
 	bool pilotInput = piloting || TapePlaying();
 	if (pilotInput && pilotMech != null && controls != null && AnyModalPanelOpen()) {
 		pilotMech.Controls = MechControls.Neutral;
+		TakeCameraAxes(MechControls.Neutral);
 		joystickInput = JoystickPilotInput.None;
 		joystickCenterBody = false;
 		joystickBindings.Suspend(joystick?.Read() ?? JoystickReading.Neutral);
@@ -1994,7 +2026,7 @@ window.Update += deltaSeconds => {
 		// visual range, and in the original what makes a distant enemy targetable is usually that
 		// *enemy's* radar being on — which is AI behaviour the engine does not have yet.
 		bool radarKey = controls.IsKeyPressed(Key.R);
-		if (radarKey && !radarKeyDown) {
+		if (radarKey && !radarKeyDown && !CockpitWidgetsOff()) {
 			pilotMech.ToggleScanner(scene.World);
 		}
 		radarKeyDown = radarKey;
@@ -2013,19 +2045,22 @@ window.Update += deltaSeconds => {
 		autoTrackKeyDown = autoTrackKey;
 
 		// Target selection. It is the cockpit's, not the machine's, so it is driven from here and
-		// copied onto the machine below — see TargetSelection.
+		// copied onto the machine below — see TargetSelection. [Enter] and [;] are the widgets' cases
+		// and go dead with them in the external view, where [Enter] is the view's own; ['] is the
+		// dispatcher's and keeps working.
 		if (scene.Targeting is { } targeting) {
+			bool widgetsOff = CockpitWidgetsOff();
 			bool cycleTargetKey = controls.IsKeyPressed(Key.Enter);
 			bool nearestTargetKey = controls.IsKeyPressed(Key.Apostrophe);
 			bool clearTargetKey = controls.IsKeyPressed(Key.Semicolon);
 
-			if (cycleTargetKey && !cycleTargetKeyDown) {
+			if (cycleTargetKey && !cycleTargetKeyDown && !widgetsOff) {
 				targeting.Cycle();
 			}
 			if (nearestTargetKey && !nearestTargetKeyDown) {
 				targeting.SelectNearest();
 			}
-			if (clearTargetKey && !clearTargetKeyDown) {
+			if (clearTargetKey && !clearTargetKeyDown && !widgetsOff) {
 				targeting.Clear();
 			}
 
@@ -2038,7 +2073,7 @@ window.Update += deltaSeconds => {
 		// 0x0f to the pod only when the view is not the heads-down one; while the display is down the
 		// same case goes to its own command slot, which is the manual's Zoom Map In/Out.
 		bool cycleComponentKey = !cockpitPan.AtHeadsDown && controls.IsKeyPressed(Key.Tab);
-		if (cycleComponentKey && !cycleComponentKeyDown) {
+		if (cycleComponentKey && !cycleComponentKeyDown && !CockpitWidgetsOff()) {
 			pilotMech.CycleTargetComponent();
 		}
 
@@ -2053,6 +2088,7 @@ window.Update += deltaSeconds => {
 				pilotMech.Controls = TapeControls(tapeFrame,
 					centerTorso: !commandHasKeys && controls.IsKeyPressed(Key.Backspace),
 					centerBody: joystickCenterBody || controls.IsKeyPressed(Key.BackSlash));
+				TakeCameraAxes(pilotMech.Controls);
 			}
 		} else {
 			PilotFromLiveInput(pilotMech, controls, HddHasArrows(), commandHasKeys, stickReading);
@@ -2063,6 +2099,8 @@ window.Update += deltaSeconds => {
 			if (pilotMech != null) {
 				pilotMech.Controls = MechControls.Neutral;
 			}
+
+			TakeCameraAxes(MechControls.Neutral);
 		}
 
 		// Hands off the stick, but keep swallowing whatever is held on it: a button pressed to dismiss
@@ -2071,11 +2109,12 @@ window.Update += deltaSeconds => {
 		joystickBindings.Suspend(joystick?.Read() ?? JoystickReading.Neutral);
 	}
 
-	// [Ctrl+T]'s hand-off, over whichever of the two above built the controls: Sim_PollPlayerInput
-	// gives the machine none of the four axes and skips Mech_PlayerFireTick, and Mech_ApplyThrottleInput
-	// ignores a lever. What the axes drive instead — FUN_00401c74 on the view object — is not ported.
-	// The two centring commands are dispatcher cases and still reach the machine.
-	if (pilotInput && pilotMech != null && developerKeys.InputDrivesCamera) {
+	// The controls on the camera — the outside view's default, [Enter]'s swap and [Ctrl+T]'s hand-off —
+	// over whichever of the two above built them: Sim_PollPlayerInput gives the machine none of the
+	// four axes and skips Mech_PlayerFireTick, and Mech_ApplyThrottleInput ignores a lever. The axes
+	// went to viewCameraAxes instead. The two centring commands are dispatcher cases and still reach
+	// the machine.
+	if (pilotInput && pilotMech != null && ControlsDriveCamera()) {
 		pilotMech.Controls = MechControls.Neutral with {
 			CenterTorso = pilotMech.Controls.CenterTorso,
 			CenterBody = pilotMech.Controls.CenterBody,
@@ -2130,7 +2169,11 @@ window.Update += deltaSeconds => {
 			TurretAxis(Axis(keys, Key.K, Key.J), heldTwist),
 			TurretAxis(Axis(keys, Key.I, Key.M), heldPitch));
 
-		var recordedAxes = joystickBindings.CombineBeforeBackturn(joystickInput, keyboardAxes);
+		// While the controls drive the camera the stick is re-pointed first, and what the tape records
+		// is that — the device's own axes, which the camera reads.
+		var recordedAxes = ControlsDriveCamera()
+			? joystickBindings.CombineForCamera(stickReading, StickCapabilities(), simulatorPreferences, keyboardAxes)
+			: joystickBindings.CombineBeforeBackturn(joystickInput, keyboardAxes);
 		var axes = joystickBindings.ApplyBackturn(recordedAxes);
 
 		mech.Controls = new MechControls(
@@ -2149,6 +2192,7 @@ window.Update += deltaSeconds => {
 			// firing as fast as its refire delay and its capacitor allow. So is the joystick trigger,
 			// for the same reason and through the same byte.
 			Fire: heldFire || joystickInput.Fire || keys.IsKeyPressed(Key.Space));
+		TakeCameraAxes(mech.Controls);
 
 		// A tape records the axes ahead of Backturn, which playback applies again.
 		tapeRecorder?.SetHeld(recordedAxes, mech.Controls.Fire, stickReading.Buttons);
@@ -2159,7 +2203,7 @@ window.Update += deltaSeconds => {
 	// Selecting one also pans back up to the cockpit, which is the manual's own rule for leaving the
 	// Heads-Down Display ("select an MFD screen [F1]-[F6], press [Esc], or click the top of the
 	// screen") and matches view command 1, the "up" half of the pair at 0042a3f4.
-	if (controls != null && ReadMfdMode(controls) is { } requestedMfdMode) {
+	if (controls != null && !CockpitWidgetsOff() && ReadMfdMode(controls) is { } requestedMfdMode) {
 		hudState = hudState with { Mfd = requestedMfdMode };
 		RequestHeadsDown(headsDown: false);
 	}
@@ -2177,7 +2221,9 @@ window.Update += deltaSeconds => {
 	// FIRE it currently reads.
 	if (controls != null && scene.World is { } flashCommWorld) {
 		bool flashCommUp = FlashCommHasKeyboard();
-		bool alt = AltHeld(controls);
+
+		// The widgets are off in the external view, which is where these letters would go through them.
+		bool alt = AltHeld(controls) && !CockpitWidgetsOff();
 
 		// Every key here is a bare or an [Alt] code. With [Ctrl] down the code is another one — [Ctrl+F],
 		// and the developer keys' [Ctrl+Alt+D], [.] and [,] — so none of them lands here.
@@ -2244,7 +2290,7 @@ window.Update += deltaSeconds => {
 	// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
 	// either one opens the display — so each both pans down and selects its own screen, which is
 	// what the display's own two page buttons dispatch (HddDisplay_SetPage (0044a5e4) with the button's index).
-	if (cockpitHeadsDownTexture != null && controls != null) {
+	if (cockpitHeadsDownTexture != null && controls != null && !CockpitWidgetsOff()) {
 		if (controls.IsKeyPressed(Key.F7)) {
 			hudState = hudState with { Hdd = HddPage.CommandDisplay };
 			RequestHeadsDown(headsDown: true);
@@ -2584,6 +2630,7 @@ window.Update += deltaSeconds => {
 		if (developerKeys.StepPending && !frozen) {
 			// Alt+keypad +: this tick and no more. Sim_MainTick re-freezes at the top of the next one.
 			scene.World.Tick();
+			AdvanceViewChain();
 			debugPanel.SampleBeams(scene.World);
 			RecordTick();
 			developerKeys.FinishStep();
@@ -2691,12 +2738,16 @@ window.Update += deltaSeconds => {
 
 		ApplyDamageFlash(cockpitHitShake.FlashActive);
 
-		if (ExternalViewActive()) {
-			// Orbit chase view, ~10 m from the machine — or from whatever the developer keys are viewing,
-			// which is this engine's stand-in for retail's view from that object. Placeholder geometry —
-			// see ExternalCamera.
-			ExternalCamera.Place(camera, developerKeys.Viewed ?? pilotMech, terrain,
+		if (MouseOutsideView() && ExternalViewActive()) {
+			// The tweak's outside view: the mouse orbit round whatever the chain is viewing — see
+			// ExternalCamera.
+			ExternalCamera.Place(camera, viewChain!.Watched, terrain,
 				BinaryAngle.FromRadians(externalOrbitYaw), BinaryAngle.FromRadians(externalOrbitPitch));
+		} else if (viewChain is { } chain
+				&& (chain.Camera.Mode != ViewCameraMode.Attached || chain.Camera.Target != pilotMech)) {
+			// Every view but the player's own cockpit is the chain's camera, placed on the last tick —
+			// see ViewCamera. The cockpit stays below, where the eye is pinned and read every frame.
+			chain.Camera.ApplyTo(camera);
 		} else {
 			// The eye rides the model node the type record names, so the walk cycle's bob comes with it —
 			// see MechObject.EyePosition. Camera yaw runs opposite to a simulation heading; see
@@ -3012,11 +3063,14 @@ window.Render += (_, gl) => {
 		}
 	}
 
-	// The external view is drawn as one full-window 3D view with no canopy over it — there is no
-	// cockpit to see from outside the machine.
+	// The external view has no canopy over it — there is no cockpit to see from outside the machine.
+	// Retail's is a band short of the screen, with its caption underneath; the tweak's mouse view uses
+	// the whole window, as does the observer camera.
 	if (cockpitArt != null && cockpitFrontTexture != null && cockpitSideTexture != null
 			&& !ExternalViewActive()) {
 		DrawThreePanelCockpitView(gl, size.X, size.Y);
+	} else if (ExternalViewActive() && !MouseOutsideView()) {
+		DrawExternalView(gl, size.X, size.Y);
 	} else {
 		renderer.Render(camera, VisibleItems(), 0, 0, size.X, size.Y);
 		DrawBeams(camera, size.X, size.Y);
@@ -3168,9 +3222,9 @@ bool ReadStatusAlertKeys() {
 		return statusAlertPanel.HandleKey(enter, escape) || q || pause;
 	}
 
-	// Only from inside the machine, and not while another panel is up: in the original these
-	// commands reach the dispatcher through the cockpit, and one modal is already holding the input.
-	if (missionOver || cockpitArt == null || ExternalViewActive()
+	// Not while another panel is up, which is already holding the input. The external view keeps both:
+	// they are the dispatcher's own cases, not the widgets'.
+	if (missionOver || cockpitArt == null
 		|| objectivesPanel is { IsOpen: true } || preferencesPanel is { IsOpen: true }) {
 		return false;
 	}
@@ -3277,9 +3331,9 @@ bool ReadPreferencesKeys() {
 		return preferencesPanel.HandleKey(enter, escape) || open;
 	}
 
-	// Only from inside the machine, and not while another modal is up — the same gate the objectives
-	// panel takes, and for the same reason.
-	if (open && cockpitArt != null && !ExternalViewActive()
+	// Not while another modal is up. Unlike the objectives panel it opens from the external view as
+	// well: [F12] is the dispatcher's own case (0x58), not the widgets'.
+	if (open && cockpitArt != null
 		&& statusAlertPanel is not { IsOpen: true } && objectivesPanel is not { IsOpen: true }) {
 		preferencesPanel.Open();
 		return true;
@@ -3298,8 +3352,8 @@ bool ReadPreferencesKeys() {
 }
 
 // [Esc] backs out one layer at a time: closes whichever of debugPanel/tweaksMenu is open, else
-// hides an empty menu bar, else returns the cockpit from a side window or the Heads-Down Display,
-// else raises the menu bar. The menu bar is the only way to reach either panel,
+// hides an empty menu bar, else returns to the cockpit from the external view, a side window or the
+// Heads-Down Display, else raises the menu bar. The menu bar is the only way to reach either panel,
 // since every key from F1 to F12 is already taken by the game.
 void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
 	// During a replay the two halves of this key come apart: the tape's [Esc] is the game's and only
@@ -3307,7 +3361,9 @@ void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
 	bool tapePlaying = TapePlaying();
 	if (tapePlaying && keyboard != null) {
 		bool tapeDown = keyboard.IsKeyPressed(Key.Escape);
-		if (tapeDown && !tapeEscapeDown && !consumedByOtherPanel && cockpitArt != null
+		if (tapeDown && !tapeEscapeDown && !consumedByOtherPanel && ExternalViewActive()) {
+			viewChain?.Escape();
+		} else if (tapeDown && !tapeEscapeDown && !consumedByOtherPanel && cockpitArt != null
 				&& !ExternalViewActive() && (!cockpitGlance.AtForward || cockpitPan.HeadsDownRequested)) {
 			cockpitGlance.Return();
 			RequestHeadsDown(headsDown: false);
@@ -3338,6 +3394,10 @@ void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
 			}
 		} else if (menuBarVisible) {
 			menuBarVisible = false;
+		} else if (!tapePlaying && ExternalViewActive()) {
+			// With the cockpit's widgets off, scancode 1 falls through them to the dispatcher's own
+			// case, which is the way back from the external view — see ExternalViewChain.Escape.
+			viewChain?.Escape();
 		} else if (!tapePlaying && cockpitArt != null && !ExternalViewActive()
 				&& (!cockpitGlance.AtForward || cockpitPan.HeadsDownRequested)) {
 			// The manual's [Esc] is "the way back" from the side windows and the Heads-Down Display
@@ -3481,6 +3541,48 @@ void ApplyStatusAlertAnswer() {
 // the world scrolls out of frame exactly as the art does. The two views' art overlaps by six rows on
 // the canvas — HB1 starts at row 474 and HB0 runs to 479 — and the original resolves that by blitting
 // view 1 before view 0, so the draw order below does the same.
+// The cockpit view manager's view 4: the world in the rows ExternalViewLayout gives it, across the
+// window's width, and below it the band FUN_0042da08 floods black and the caption on it. The focal
+// length stays the cockpit's; the view is only shorter, so its field of view is the angle that length
+// subtends over its own rows.
+void DrawExternalView(GL gl, int width, int height) {
+	int viewHeight = Math.Max(1, (int)MathF.Round(
+		ExternalViewLayout.ViewRows * height / (float)ExternalViewLayout.ScreenRows));
+	int viewY = height - viewHeight;
+
+	var externalCamera = CloneCockpitCamera(camera);
+	externalCamera.FieldOfView = 2f * MathF.Atan(ExternalViewLayout.ViewRows / 2f / Camera.FocalLengthPixels);
+	externalCamera.PrincipalPoint = new Vector2(0.5f, ExternalViewLayout.CentreRow / (float)ExternalViewLayout.ViewRows);
+
+	gl.Enable(EnableCap.ScissorTest);
+	gl.Scissor(0, viewY, (uint)Math.Max(width, 1), (uint)viewHeight);
+	renderer!.Render(externalCamera, VisibleItems(), 0, viewY, width, viewHeight);
+	DrawBeams(externalCamera, width, viewHeight);
+	DrawSprites(externalCamera, width, viewHeight);
+	DrawSkeleton(externalCamera, width, viewHeight);
+
+	if (viewY > 0) {
+		gl.Scissor(0, 0, (uint)Math.Max(width, 1), (uint)viewY);
+		gl.ClearColor(0f, 0f, 0f, 1f);
+		gl.Clear(ClearBufferMask.ColorBufferBit);
+	}
+
+	gl.Disable(EnableCap.ScissorTest);
+
+	if (viewChain?.Caption is { } caption && cockpitArt?.Sprites is { } captionSprites
+			&& hudSpriteTexture != null && cockpitArt.Strings is { } strings) {
+		// VIEW: names the player YOU, a squadmate by the pilot in its comm box, and anything else not at
+		// all — Squad_IndexOf's -1 takes an empty name.
+		string viewed = caption.Viewed == pilotMech
+			? strings.Text(ExternalViewLayout.PlayerNameGroup, 0) ?? string.Empty
+			: Array.IndexOf(squadSeats, caption.Viewed) is var slot and >= 0 ? squadComm.Name(slot) : string.Empty;
+		overlay!.DrawExternalViewCaption(width, height, hudSpriteTexture, captionSprites,
+			(strings.Text(ExternalViewLayout.CaptionGroup, 0) ?? string.Empty) + viewed,
+			(strings.Text(ExternalViewLayout.CaptionGroup, 1) ?? string.Empty)
+				+ (strings.Text(ExternalViewLayout.CaptionGroup, caption.CameraControl ? 2 : 3) ?? string.Empty));
+	}
+}
+
 void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 	// One placement for the whole frame, shared with the input path so a widget's click region cannot
 	// drift from the art it was drawn over — see CockpitScreenLayout.
@@ -3803,13 +3905,17 @@ void ApplyMfdAuxClick(int index) {
 // Whether the command display is down and holding the letter keys. Both the split that leaves the
 // arrows scrolling its map and the one that leaves [T] as an order hotkey rather than the ATT toggle
 // read it; the original has no such clash, its own screens owning the keyboard outright while up.
+// Neither display holds anything from the external view, which leaves the pan where it was but takes
+// the cockpit's widgets, and the keys they would have taken, off.
 bool HddCommandHasKeyboard() =>
-	hddCommand != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay;
+	hddCommand != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay
+	&& !ExternalViewActive();
 
 // Whether the display is down and holding the four arrows: the command display's map scroll, or the
 // damage detail's category and herc steps.
 bool HddHasArrows() =>
-	cockpitPan.AtHeadsDown && (HddCommandHasKeyboard() || hudState.Hdd == HddPage.DamageDetail);
+	cockpitPan.AtHeadsDown && !ExternalViewActive()
+	&& (HddCommandHasKeyboard() || hudState.Hdd == HddPage.DamageDetail);
 
 // The same split for FLASH COMM's own letters. In the original both of the page's key dispatches are
 // mode-gated the same way — FUN_004469c0 returns immediately unless the MFD is on mode 1 — and none
@@ -3817,7 +3923,7 @@ bool HddHasArrows() =>
 // host's camera and view keys, so the page only takes them while it is the screen showing and the
 // Heads-Down Display is not down over it.
 bool FlashCommHasKeyboard() =>
-	hudState.Mfd == MfdMode.FlashComm && !cockpitPan.AtHeadsDown;
+	hudState.Mfd == MfdMode.FlashComm && !cockpitPan.AtHeadsDown && !ExternalViewActive();
 
 // The three console buttons, from ConsoleButtons_OnChildClick's own child switch. TRACK toggles ATT
 // and nothing else: the centring that [T] does on the way off belongs to Sim_DispatchCommand's
@@ -4286,7 +4392,34 @@ void RefreshSpriteBatches() {
 // Whether this frame is being drawn from the external camera — [V], or the developer keys viewing an
 // object other than the player's machine. Only meaningful while piloting — the free camera already
 // draws the whole scene with no cockpit over it.
-bool ExternalViewActive() => (externalView || developerKeys.Viewed != null) && piloting && pilotMech != null;
+// Whether the cockpit view manager is in its view 4 — any of the external views, with no cockpit drawn.
+bool ExternalViewActive() => viewChain is { ExternalViewUp: true } && piloting && pilotMech != null;
+
+// Whether the outside view is the tweak's mouse orbit rather than retail's — see ExternalCamera.
+bool MouseOutsideView() => viewChain is { Mode: ExternalViewMode.Outside }
+	&& TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.MouseExternalView);
+
+// Whether the cockpit's widgets are off, as CockpitView_ApplyViewState turns them off for view 4: the
+// keys CockpitWidgets_HandleCommand would have taken fall through to the dispatcher, or do nothing.
+// The tweak's outside view keeps them, being this engine's own.
+bool CockpitWidgetsOff() => ExternalViewActive() && !MouseOutsideView();
+
+// Whether the controls drive the camera rather than the machine. Never in the tweak's outside view,
+// where the mouse does.
+bool ControlsDriveCamera() => viewChain is { InputDrivesCamera: true } && !MouseOutsideView();
+
+// The camera's half of the input, from the controls just built for the machine: the steering and
+// throttle axes after Backturn, and the trigger.
+void TakeCameraAxes(MechControls built) {
+	viewCameraAxes = new PilotAxes(built.Turn, built.Throttle);
+	viewCameraTrigger = built.Fire;
+}
+
+// The chain's share of each tick, after the simulation's — see ExternalViewChain.Advance.
+void AdvanceViewChain() {
+	viewChain?.Advance(viewCameraAxes.Steer, viewCameraAxes.Throttle, viewCameraTrigger,
+		ControlsDriveCamera(), terrain);
+}
 
 // The weapon panel's keyboard set, on the manual's own bindings. Every one of these reaches exactly
 // the same call the corresponding mouse action does — the original routes them together too, through
@@ -4356,6 +4489,8 @@ bool TickLive(bool emit) {
 	} else {
 		scene.World.Tick();
 	}
+
+	AdvanceViewChain();
 
 	// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to look
 	// between ticks — see SimWorld.Beams.
@@ -4565,6 +4700,7 @@ void RunTapeTicks() {
 		if (!underPanel) {
 			if (pilotMech != null) {
 				pilotMech.Controls = TapeControls(next, centerTorso: false, centerBody: false);
+				TakeCameraAxes(pilotMech.Controls);
 			}
 
 			TickTape(next.TickDelta);
@@ -4582,6 +4718,8 @@ void TickTape(short tickDelta) {
 	} else {
 		scene.World.Tick(tickDelta, InputTapePlayer.SecondsOf(tickDelta) * 1000);
 	}
+
+	AdvanceViewChain();
 
 	debugPanel.SampleBeams(scene.World);
 	RaisePendingMissionAlert();
@@ -4789,14 +4927,16 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 		// The original picks between entering the heads-down display and leaving it on CockpitViewManager_Published (00429820)'s
 		// return, a global object pointer whose relation to the current view is not decoded — the two
 		// branches send F7 and [Esc], which together are plainly a toggle, so that is what this is.
-		case JoystickAction.HddView:
+		// Both send a scancode to CockpitWidgets_HandleCommand, which ignores everything while the
+		// widgets are off — so neither does anything from the external view.
+		case JoystickAction.HddView when !CockpitWidgetsOff():
 			// A toggle, which is what the action's two branches were plainly meant to be. The original
 			// tests the view manager's pointer rather than the view, so it can only ever leave the HDD
 			// (docs/formats/joystick-input.md, "HDD VIEW can only leave").
 			RequestHeadsDown(headsDown: !cockpitPan.HeadsDownRequested);
 			break;
 
-		case JoystickAction.CockpitView:
+		case JoystickAction.CockpitView when !CockpitWidgetsOff():
 			RequestHeadsDown(headsDown: false);
 			break;
 
@@ -4831,12 +4971,14 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 			mech.Weapons.CycleSelection(-1);
 			break;
 
-		// OUTSIDE VIEW and CHASE VIEW step a chain of external cameras this engine does not have.
-		// Nothing is wired rather than something approximate: the original's own two cases walk
-		// DAT_004d2572 through four states with a mission-time gate on one of them, and guessing at
-		// that would be inventing behaviour rather than porting it.
+		// OUTSIDE VIEW is [V]'s step without its lock test, and CHASE VIEW the chase view's — see
+		// ExternalViewChain.
 		case JoystickAction.OutsideView:
+			viewChain?.ToggleOutside(fromKeyboard: false);
+			break;
+
 		case JoystickAction.ChaseView:
+			viewChain?.ToggleChase();
 			break;
 	}
 }
@@ -4863,7 +5005,7 @@ void ApplyWeaponKeys(IKeyState keyboard, WeaponMounts? mounts) {
 			// row's own select gadget. That is why only the bare key can toggle a pod.
 			if (alt) {
 				mounts?.ToggleChain(slot);
-			} else {
+			} else if (!CockpitWidgetsOff()) {
 				mounts?.PressRow(slot);
 			}
 		}

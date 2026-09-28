@@ -5,16 +5,14 @@ using Herculan.Engine.Terrain;
 namespace Herculan.Engine.Render;
 
 /// <summary>
-/// The external ("chase") view — an orbit camera the player can drag around the machine they pilot,
-/// always facing back at it, with the cockpit not drawn.
+/// The outside view under <see cref="Settings.TweakSettingDefinitions.MouseExternalView"/> — an orbit
+/// camera the player drags round the object being viewed with the mouse, always facing back at it,
+/// drawn over the whole window.
 ///
-/// <para><b>Not reverse-engineered — placeholder geometry.</b> Every number below is
-/// this engine's own choice, picked to frame a HERC nicely; none of it is ported. DBSIM has its own
-/// external views (the manual's [V] cycles through several, and there are missile/target cameras
-/// besides), and their placement rules, transitions, whatever they do about terrain and whatever
-/// chrome they draw over the view are all unrecovered. When those are RE'd this type is where the
-/// real rule replaces the guess: the host only asks it to place a <see cref="Camera"/>, so nothing
-/// outside it depends on how the position is chosen.</para>
+/// <para><b>This engine's own camera, not retail's.</b> Every number below was picked to frame a
+/// HERC nicely. Retail's outside view is <see cref="ViewCamera"/>'s orbit, steered by the controls
+/// (docs/simulation/external-views.md); this one exists because a mouse drag is easier to use, and
+/// only the tweak reaches it.</para>
 ///
 /// <para><see cref="Place"/> is stateless — it takes the orbit angles rather than owning them — so
 /// the host is the one holding them between frames (alongside the drag that moves them), the same

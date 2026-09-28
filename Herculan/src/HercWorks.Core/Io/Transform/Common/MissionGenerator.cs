@@ -111,6 +111,65 @@ public sealed class MissionGenerator {
 		return generator;
 	}
 
+	/// <summary>
+	/// <c>Msn_LoadDebriefRows</c> (<c>0041ca4e</c>) and <c>Msn_LoadDebrief</c> (<c>0041d2c3</c>), the debrief's reload of the mission
+	/// just flown (docs/formats/msn-mission-file.md#row-5--the-debrief): row 1 against <paramref name="flags"/>,
+	/// drawing from <paramref name="roll"/> as <see cref="Load"/> does; row 2 skipped, so no flag is cleared;
+	/// the <c>.ENG</c> text; row 3; row 4 skipped; and row 5. Returns row 5's first slot — its thirty
+	/// <c>mission.str</c> lines and its row-3 value, the debrief movie — with the <c>mission.str</c> it writes,
+	/// or null for a mission with no row-5 record, where the original asserts.
+	/// </summary>
+	public static MissionDebriefText? LoadDebriefText(byte[] msn, byte[]? text, short[] flags, Func<short, int> roll) {
+		if (flags.Length < CampaignFlagCount) {
+			throw new ArgumentException($"The campaign flag array holds {CampaignFlagCount} entries.", nameof(flags));
+		}
+
+		var generator = new MissionGenerator(flags, roll);
+		var reader = new Cursor(msn);
+		if (reader.Short() != Revision) {
+			throw new InvalidDataException("Not a revision 5 mission file.");
+		}
+
+		generator.ReadConditions(reader);
+		reader.Skip(reader.Short() * 0x52);
+		generator.ReadText(text);
+		generator.ReadVariants(reader);
+		reader.Skip(reader.Short() * 0x90);
+
+		// Row 5, 64 bytes: a condition, thirty text refs and a row-3 ref, read into the slot the survivor
+		// count names, so while nothing has survived each record lands in slot 0.
+		short[]? slot0 = null;
+		bool survived = false;
+		int count = reader.Short();
+		for (int i = 0; i < count; i++) {
+			short[] record = reader.Words(32);
+			if (!survived) {
+				slot0 = record;
+			}
+
+			if (!generator.Gate(record[0], generator._conditions.Count)) {
+				continue;
+			}
+
+			for (int word = 1; word < 31; word++) {
+				if (record[word] != -1) {
+					record[word] = generator.TextLine(record[word]);
+				}
+			}
+
+			if (record[31] != -1) {
+				short variant = Find(generator._variants, record[31], generator._variants.Count, exported: true);
+				if (variant >= 0 && variant < generator._variants.Count) {
+					record[31] = generator._variants[variant][3];
+				}
+			}
+
+			survived = true;
+		}
+
+		return slot0 == null ? null : new MissionDebriefText(slot0[1..31], slot0[31], generator.WriteMissionText());
+	}
+
 	// ---- Row 1: the conditions ------------------------------------------------------------------
 
 	/// <summary>
@@ -1207,3 +1266,10 @@ public sealed class MissionGenerator {
 /// <c>0x30</c>, the ten weapons at <c>0x32</c> and the ten ammunition types at <c>0x74</c>.
 /// </summary>
 public sealed record MissionHerc(short Chassis, short[] Weapons, short[] AmmoTypes);
+
+/// <summary>
+/// What the debrief's reload of a flown mission gives the career: row 5's thirty <c>mission.str</c> lines
+/// (<c>-1</c> empty), which <c>Career_SetDebriefLines</c> (<c>00413386</c>) copies to <c>0048407c</c>; its movie id,
+/// to <c>004840ba</c>; and the <c>data\mission.str</c> the reload writes, which those lines index.
+/// </summary>
+public sealed record MissionDebriefText(short[] Lines, short Movie, byte[] MissionText);

@@ -129,7 +129,13 @@ public sealed class ShellBayMachine {
 	/// The status block's tenth internal entry, the machine's overall condition: the debrief sets it and
 	/// nothing in the shell's screens reads it, so it only travels, into the <c>player.mec</c> export.
 	/// </summary>
-	private readonly short _overall;
+	private short _overall;
+
+	/// <summary>
+	/// <c>HercStatus_Get(block, 1, 9)</c> — the overall-condition slot as it stands, which the debrief copies
+	/// into the pilot's condition. Not <see cref="OverallCondition"/>, the mean the shell computes.
+	/// </summary>
+	public int OverallSlot => _overall;
 
 	/// <summary>
 	/// The chassis type, 0-8. The record carries it twice and the two coincide — <c>+0x02</c> is
@@ -142,15 +148,66 @@ public sealed class ShellBayMachine {
 	public int MountCapacity { get; }
 
 	/// <summary>Build progress at <c>+0x4a</c>. Construction state, not damage.</summary>
-	public int BuildPercent { get; }
+	public int BuildPercent { get; private set; }
 
 	/// <summary>
 	/// <c>+0x78</c>, the missions of construction left: <c>herc_inf.dat</c>'s build time when the chassis
 	/// is ordered, and what <c>Herc_BuildTick</c> (<c>00411086</c>) counts down at each debrief.
 	/// </summary>
-	public int BuildMissionsLeft { get; }
+	public int BuildMissionsLeft { get; private set; }
 
-	/// <summary>Whether the machine has been delivered — <c>FUN_00410a64</c>'s test.</summary>
+	/// <summary>
+	/// <c>Herc_BuildTick</c> (<c>00411086</c>) — one mission of construction: <see cref="BuildMissionsLeft"/> down
+	/// by one and <see cref="BuildPercent"/> recomputed against the chassis's <c>herc_inf.dat</c> build time,
+	/// <paramref name="buildTime"/>, as <c>((buildTime - left) * 100) / buildTime</c>.
+	/// </summary>
+	public void BuildTick(int buildTime) {
+		BuildMissionsLeft--;
+		BuildPercent = (short)((buildTime - BuildMissionsLeft) * 100 / buildTime);
+	}
+
+	/// <summary>
+	/// <c>Herc_ReadStatusBlock</c> (<c>00411720</c>) — the 66 bytes <c>results.dat</c> carries for this machine
+	/// read straight over the status block: 13 external facets, the nine internals and the overall slot,
+	/// then ten hardpoints. Every mount whose hardpoint arrived at 0 is then destroyed, its hardpoint set
+	/// back to 100.
+	/// </summary>
+	public void ReadStatusBlock(byte[] block) {
+		int at = 0;
+		short Next() {
+			short value = at + 2 <= block.Length ? BitConverter.ToInt16(block, at) : (short)0;
+			at += 2;
+			return value;
+		}
+
+		for (int i = 0; i < _external.Length; i++) {
+			_external[i] = Next();
+		}
+
+		for (int i = 0; i < _internal.Length; i++) {
+			_internal[i] = Next();
+		}
+
+		_overall = Next();
+		for (int i = 0; i < _hardpoint.Length; i++) {
+			_hardpoint[i] = Next();
+		}
+
+		for (int slot = 0; slot < _mounts.Length; slot++) {
+			if (_mounts[slot] != null && Condition(ShellRepairCategory.Hardpoint, slot) == 0) {
+				_mounts[slot] = null;
+				SetCondition(ShellRepairCategory.Hardpoint, slot, Complete);
+			}
+		}
+	}
+
+	/// <summary>The status block's length in <c>results.dat</c> and in the record, <c>0x42</c>.</summary>
+	public const int StatusBlockLength = 0x42;
+
+	/// <summary><c>HercStatus_Set(block, 1, 9, value)</c> — the overall-condition slot.</summary>
+	internal void SetOverallSlot(int value) => _overall = (short)value;
+
+	/// <summary>Whether the machine has been delivered — <c>HercList_IsBuilt</c> (<c>00410a64</c>)'s test.</summary>
 	public bool IsBuilt => BuildPercent == Complete;
 
 	/// <summary>
@@ -469,7 +526,7 @@ public sealed class ShellBayPilot {
 	public int Bay { get; internal set; }
 
 	/// <summary>The skill ladder at <c>+0x25</c>, 0-3; the panel prints <c>estext.bin</c> <c>0x35 + skill</c>.</summary>
-	public int Skill { get; }
+	public int Skill { get; internal set; }
 
 	/// <summary><c>+0x27</c> — which of the crew screen's three wingman rows, 1-3, the pilot fills, or <c>-1</c>; the player's is 0.</summary>
 	public int SquadPosition { get; internal set; }
@@ -659,6 +716,255 @@ public sealed class ShellHangar {
 	public void ScrapStock(int weaponId, int valueTons) {
 		Stock(weaponId).Units.Clear();
 		SalvageKilograms += valueTons * ShellRepairCosts.KilogramsPerTon;
+	}
+
+	/// <summary>
+	/// <c>WeaponGrant_UnlockSlots</c> (<c>0046fa82</c>) — per weapon id, the campaign-flag slot whose value
+	/// unlocks it, <c>-1</c> for none.
+	/// </summary>
+	private static readonly short[] WeaponUnlockSlots = {
+		-1, -1, -1, -1, 0x34, 0x35, -1, -1, -1, -1, -1, 0x32, 0x33, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0x39, 0x38, 0x3a, 0x3b,
+	};
+
+	/// <summary><c>WeaponGrant_UnlockValues</c> (<c>0046fa40</c>) — per weapon id, the value that slot must hold.</summary>
+	private static readonly short[] WeaponUnlockValues = {
+		0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1,
+	};
+
+	/// <summary>The first campaign-flag slot the unit-grant pass reads.</summary>
+	private const int FirstUnitGrantFlag = 0x15;
+
+	/// <summary>
+	/// <c>WeaponGrant_UnitIds</c> (<c>0046f8e0</c>) — the weapon each flag from <see cref="FirstUnitGrantFlag"/> stocks.
+	/// Retail's table is the first 22 words; its loop runs to slot <c>0x31</c>, so the last seven are the
+	/// words that follow it in the image, read as ids just as the original reads them.
+	/// </summary>
+	private static readonly short[] WeaponUnitGrantIds = {
+		18, 3, 4, 5, 10, 11, 12, 15, 27, 26, 17, 7, 6, 24, 23, 22, 25, 28, 29, 30, 31, 32,
+		10169, 65, 8199, 0, -4, -1, 0,
+	};
+
+	/// <summary>
+	/// <c>Armory_GrantCampaignWeapons</c> (<c>004126be</c>), the campaign debrief's weapon grants over the flag
+	/// array the mission left (docs/formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be):
+	/// each still-locked weapon with a flag slot is unlocked when the slot holds its value, and the slot is
+	/// zeroed either way; then each flag from <c>0x15</c> to <c>0x31</c> adds that many units of its weapon to
+	/// stock at condition 100, leaving the flag set. Returns how many units were added.
+	///
+	/// <para>The debrief that calls this is not ported (ROADMAP), so nothing calls it yet.</para>
+	///
+	/// <para>An id past the catalog in the table's overrun appends, in retail, to a list outside the
+	/// weapon record array. This engine cannot reproduce that write, so it counts the unit and stocks
+	/// nothing; no retail save holds a nonzero flag there.</para>
+	/// </summary>
+	public int GrantCampaignWeapons(short[] flags) {
+		for (int id = 0; id < WeaponUnlockSlots.Length; id++) {
+			int slot = WeaponUnlockSlots[id];
+			if (slot != -1 && !IsWeaponUnlocked(id)) {
+				if (flags[slot] == WeaponUnlockValues[id]) {
+					Stock(id).UnlockFlag = 1;
+				}
+
+				flags[slot] = 0;
+			}
+		}
+
+		int granted = 0;
+		for (int k = 0; k < WeaponUnitGrantIds.Length; k++) {
+			int weaponId = WeaponUnitGrantIds[k];
+			for (int n = 0; n < flags[FirstUnitGrantFlag + k]; n++) {
+				granted++;
+				if (weaponId >= 0 && weaponId < ShellMissionLaunch.WeaponCatalogCount) {
+					// Armory_AddNewUnit(id, 100) (0041229d): WeaponUnit_Init(unit, id, 100, 100, 5), then Armory_AddUnit.
+					AddUnit(new ShellWeaponUnit(weaponId, fitCondition: 100, condition: 100, guidance: ShellWeaponUnit.NoGuidance));
+				}
+			}
+		}
+
+		return granted;
+	}
+
+	/// <summary>
+	/// A new unit into stock — <c>WeaponUnit_Init(unit, id, fitCondition, 100, guidance)</c> then
+	/// <c>Armory_AddUnit</c>. <c>Armory_AddNewUnit</c> (<c>0041229d</c>) makes the pair with guidance 5 for a
+	/// <c>results.dat</c> salvage pair or a campaign grant, and <c>Armory_DeliverQueue</c> makes it inline.
+	/// </summary>
+	internal void AddNewUnit(int weaponId, int fitCondition, int guidance) =>
+		AddUnit(new ShellWeaponUnit(weaponId, fitCondition: fitCondition, condition: 100, guidance: guidance));
+
+	/// <summary>The missile racks <c>Armory_DeliverQueue</c> delivers with guidance 1: ids <c>0xd</c> to <c>0x10</c>, Razor's included.</summary>
+	private const int FirstDeliveredRack = 0xd;
+	private const int LastDeliveredRack = 0x10;
+
+	/// <summary>
+	/// <c>Armory_DeliverQueue</c> (<c>00412428</c>) — one new unit at condition 100 per occupied queue slot,
+	/// guidance 1 for the four missile racks and none for anything else, and the queue's total price,
+	/// which the caller takes off the pool. The queue itself is left as it was, so a hand-built one
+	/// delivers again at the next debrief (docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7).
+	/// </summary>
+	public int DeliverQueue(Func<int, int> priceKilograms) {
+		int total = 0;
+		foreach (int weaponId in _queue) {
+			if (weaponId != 0) {
+				total += priceKilograms(weaponId);
+				AddNewUnit(weaponId, 100, weaponId is >= FirstDeliveredRack and <= LastDeliveredRack ? ArhGuidance : ShellWeaponUnit.NoGuidance);
+			}
+		}
+
+		return total;
+	}
+
+	/// <summary>The overall condition below which the debrief scraps a machine.</summary>
+	public const int SettleScrapCondition = 30;
+
+	/// <summary>
+	/// <c>Herc_SettleAfterMission</c> (<c>00410c7c</c>) — the machine in <paramref name="bay"/> below
+	/// <see cref="SettleScrapCondition"/> overall (<see cref="ShellBayMachine.OverallCondition"/>) is valued,
+	/// its mounts stripped into stock and the bay emptied, and the value returned with <c>Scrapped</c> set; at
+	/// or above, only its overall slot goes back to 100. Unlike <see cref="Scrap"/> the pilot keeps the bay.
+	/// An empty bay settles nothing: the original writes the overall slot through the empty bay's null record.
+	/// </summary>
+	public (int Salvage, bool Scrapped) SettleAfterMission(int bay, ShellRepairCosts? costs) {
+		if (Bay(bay) is not { } machine) {
+			return (0, false);
+		}
+
+		if (machine.OverallCondition < SettleScrapCondition) {
+			int value = costs?.ScrapValue(machine) ?? 0;
+			StripMounts(machine);
+			_bays[bay] = null;
+			return (value, true);
+		}
+
+		machine.SetOverallSlot(100);
+		return (0, false);
+	}
+
+	/// <summary>
+	/// <c>Repair_Auto</c> (<c>00411328</c>) — the repair level, from 0 down, that <paramref name="budget"/>
+	/// covers: while the cost of repairing to the level's target is above the budget, step down a level,
+	/// unless the machine's own overall condition is already at or above that level. A cost below the
+	/// budget is applied (<see cref="ShellBayMachine.ApplyRepair"/>) and returned; otherwise nothing is
+	/// repaired and 0 returned. Both comparisons are unsigned, as the original's are.
+	/// </summary>
+	public static uint AutoRepair(ShellBayMachine machine, uint budget, ShellRepairCosts costs) {
+		int level = 0;
+		uint cost = (uint)costs.HercCost(machine, ShellRepairCosts.RepairTarget[level]);
+		while (budget < cost) {
+			if (ShellRepairCosts.LevelForCondition(machine.OverallCondition) <= level) {
+				break;
+			}
+
+			level++;
+			cost = (uint)costs.HercCost(machine, ShellRepairCosts.RepairTarget[level]);
+		}
+
+		if (cost < budget) {
+			machine.ApplyRepair(ShellRepairCosts.RepairTarget[level]);
+			return cost;
+		}
+
+		return 0;
+	}
+
+	/// <summary>
+	/// <c>HercList_RemoveFirstOfType</c> (<c>00410bbe</c>) — the first bay holding a <paramref name="chassisType"/> machine has its mounts
+	/// stripped into stock and is emptied, for no salvage, and its index is returned. With none, it returns
+	/// what its last probe read, bay 7's chassis type, or <c>-1</c> for an empty bay 7 — which its caller,
+	/// <c>Hangar_WithdrawChassis</c> (<c>0040e7cd</c>), then uses as a bay.
+	/// </summary>
+	public int RemoveFirstOfType(int chassisType) {
+		int probe = -1;
+		for (int bay = 0; bay < BayCount; bay++) {
+			probe = _bays[bay]?.ChassisType ?? -1;
+			if (probe == chassisType) {
+				StripMounts(_bays[bay]!);
+				_bays[bay] = null;
+				return bay;
+			}
+		}
+
+		return probe;
+	}
+
+	/// <summary>
+	/// <c>Squad_TakeMember</c> (<c>0040fb4f</c>) as the debrief uses it to replace squad member
+	/// <paramref name="member"/>: the squad's next record by its cursor becomes the member, the cursor steps
+	/// modulo 12, and the record is reset by <c>Pilot_SetDefaults</c> (<c>0040fd17</c>) — no bay, off strength,
+	/// no position, condition 100 and every counter 0. The debrief then takes one off
+	/// <see cref="MachinesOnStrength"/>. The record written is <paramref name="save"/>'s, the game this hangar
+	/// was read from; the pilot it replaces keeps its own record as it was.
+	/// </summary>
+	internal void ReplaceSquadMember(int member, PlayerSave save) {
+		if (member < 0 || member >= _squad.Count || save.Squadmates == null) {
+			return;
+		}
+
+		int squad = _squadRecords[member] / PilotsPerSquad;
+		short next = save.UnkRange_prePlayer[SquadCount + squad];
+		save.UnkRange_prePlayer[squad] = next;
+		save.UnkRange_prePlayer[SquadCount + squad] = (short)((next + 1) % PilotsPerSquad);
+		int record = squad * PilotsPerSquad + next;
+		if (save.Squadmates.ElementAtOrDefault(record) is not { } pilot) {
+			return;
+		}
+
+		pilot.BayId = -1;
+		pilot.Active = 0;
+		pilot.CrewRowNum = -1;
+		pilot.ProbablyHealth = 100;
+		pilot.KillsHercs = pilot.KillsFlyers = pilot.KillsBuilding = 0;
+		pilot.TotalKillHerc = pilot.TotalKillFlyer = pilot.TotalKillBldng = 0;
+		pilot.MissionCount = 0;
+		_squad[member] = Pilot(pilot)!;
+		_squadRecords[member] = record;
+		MachinesOnStrength--;
+	}
+
+	/// <summary>Which of the save's 36 squad records squad member <paramref name="member"/> is.</summary>
+	internal int SquadRecordIndex(int member) => _squadRecords[member];
+
+	/// <summary>The number of <c>herc_inf.dat</c> records <c>Herc_GrantUnlocks</c> walks; record <c>i</c> is chassis type <c>i</c>.</summary>
+	private const int ChassisTypeCount = 9;
+
+	/// <summary>
+	/// <c>Herc_GrantUnlocks</c> (<c>004118c5</c>), the campaign debrief's chassis grant, run just before
+	/// <see cref="GrantCampaignWeapons"/> (docs/formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5):
+	/// each still-unavailable Raptor II, Ogre, Maverick or Razor becomes available when its flag slot holds
+	/// the expected value, and the slot is zeroed either way. The expected value is the original's
+	/// loop-carried local — 2, set to 1 in the Razor's branch — so the Razor, last in type order, is the
+	/// only chassis that tests 1.
+	///
+	/// <para>The debrief that calls this is not ported (ROADMAP), so nothing calls it yet.</para>
+	/// </summary>
+	public void GrantChassis(short[] flags) {
+		int expected = 2;
+		for (int type = 0; type < ChassisTypeCount; type++) {
+			if (IsChassisAvailable(type)) {
+				continue;
+			}
+
+			int slot = type switch {
+				1 => 0x3c,
+				6 => 0x3e,
+				7 => 0x3d,
+				8 => 0x3f,
+				_ => -1,
+			};
+			if (type == 8) {
+				expected = 1;
+			}
+
+			if (slot != -1) {
+				if (flags[slot] == expected) {
+					_availableChassis.Add(type);
+				}
+
+				flags[slot] = 0;
+			}
+		}
 	}
 
 	/// <summary>
@@ -976,10 +1282,10 @@ public sealed class ShellHangar {
 	/// <summary>
 	/// Writes what the screens change back into <paramref name="save"/>, the game it was read from, so
 	/// that <c>Game_SaveSlot</c> (<c>0040e37b</c>) can write the whole of it: the armory stock and build
-	/// queue, the bays, the salvage pool, the player's bay, the three squad members' bay, position and
-	/// on-strength byte, and the player block's two counts. Everything else the save carries — the
-	/// career block, the other 33 squad records, the chassis flags and the flag array — no screen here
-	/// changes, and is left as it was read.
+	/// queue, the bays, the salvage pool, the chassis flags <see cref="GrantChassis"/> sets, the player's
+	/// bay, the three squad members' bay, position and on-strength byte, and the player block's two
+	/// counts. Everything else the save carries — the career block, the other 33 squad records and the
+	/// flag array — nothing here changes, and is left as it was read.
 	///
 	/// <para>A weapon's stock is written from the head of its list, as <c>Armory_Write</c>
 	/// (<c>004121cf</c>) walks it, and read back by pushing each unit onto the head, so each save and load
@@ -1011,6 +1317,13 @@ public sealed class ShellHangar {
 		}
 
 		save.SalvageTotal = SalvageKilograms;
+		for (int type = 0; type < ChassisTypeCount; type++) {
+			if (HercLUT.GetById((short)type) is { } herc) {
+				short flag = save.UnlockedHercs.TryGetValue(herc, out var read) ? read : (short)0;
+				save.UnlockedHercs[herc] = !IsChassisAvailable(type) ? (short)0 : flag != 0 ? flag : (short)1;
+			}
+		}
+
 		save.SquadPositionsInPlay = (short)SquadPositions;
 		save.MachinesOnStrength = (short)MachinesOnStrength;
 		if (Player != null && save.PlayerPilot != null) {

@@ -11,7 +11,7 @@
 
 ## `MsnGen_ParseMsnFile` (`00417b67`) — the raw `.MSN` parser
 
-Opens the stream (`FUN_00402ad9`), then **asserts a revision field equals `5`**. It reads row 1, the conditions; row 2, the header patches; the mission's [`.ENG` text](#the-eng-string-table) (`Msn_LoadEngText` (`0041768c`)); then rows 3 to 17 in order, each `[uint16 count] → array of fixed-size records`, with row 5 skipped. The parser does campaign-state-aware filtering *while* loading: every record goes through a condition test and survivors are **compacted in place**, and each ref into another row is renumbered to the index `script.dat` gives its target — the count of records before it whose GUID is not `-1`. A ref into a row not loaded yet waits: an order's group subject and an action's target are resolved in two passes after row 16.
+Opens the stream (`VolRStream_CtorFromPath` (`00402ad9`)), then **asserts a revision field equals `5`**. It reads row 1, the conditions; row 2, the header patches; the mission's [`.ENG` text](#the-eng-string-table) (`Msn_LoadEngText` (`0041768c`)); then rows 3 to 17 in order, each `[uint16 count] → array of fixed-size records`, with row 5 skipped. The parser does campaign-state-aware filtering *while* loading: every record goes through a condition test and survivors are **compacted in place**, and each ref into another row is renumbered to the index `script.dat` gives its target — the count of records before it whose GUID is not `-1`. A ref into a row not loaded yet waits: an order's group subject and an action's target are resolved in two passes after row 16.
 
 ### The conditions — row 1
 
@@ -86,7 +86,7 @@ Two shapes need care:
 | 2 | `DAT_00470648` | 82 (`0x52`) bytes/record | *(scratch, not stored)* | — | **decoded — see [The header patch](#the-header-patch--row-2)** |
 | 3 | `DAT_00470666` | 8 bytes/record | `DAT_0047063c` | referenced by #4 | **decoded — see "Row #3 field decode" below.** A small campaign-variant value lookup: GUID + condition + payload, where the same GUID can carry several condition-gated payload variants and the last to survive wins |
 | 4 | `DAT_00470668` | 144 (`0x90`) bytes/record | `DAT_00470640` | 3 sub-arrays (10, 30, 30 shorts) of `.ENG` string ids; 1 ref into #3 | **decoded — see "Row #4 field decode" below.** The mission's objective, briefing and intelligence text and its briefing movie. No GUID/identity field at all (offset `0x00` is the condition ref instead); nothing else in the file references this row |
-| 5 | `DAT_0047066a` | **skip-only**, `count * 0x40` bytes, nothing stored | — | — | skipped by this load. `maybe_Msn_LoadTextRows` (`0041ca4e`), a second loader that reads rows 1 to 5 only, keeps it: a condition, thirty text refs and a row-3 ref, row 4's shape with one text array where row 4 has three ([Open](#open)) |
+| 5 | `DAT_0047066a` | **skip-only**, `count * 0x40` bytes, nothing stored | — | — | skipped by this load; the debrief's reload keeps it — see [Row #5](#row-5--the-debrief) |
 | 6 | `DAT_0047064e` | 22 (`0x16`) bytes/record | `DAT_0047060c` | self (variant, sum) | **decoded — see "Row #6 field decode" below. A 3D world-position/waypoint record** (`MapPoint22`): GUID + 3 dead fields + an int32 X/Y/Z triple. This is the record every row #9 link/reward ref, and several other rows' refs, ultimately resolve to |
 | 7 | `DAT_00470650` | 10 bytes/record | `DAT_00470610` | self | **decoded — see "Row #7 field decode" below.** A minimal record: GUID + 3 fully-dead fields + one small discrete payload (`0`/`1`/`10`) — the simplest record type in the file, unreferenced by anything else |
 | 8 | `DAT_00470656` | **variable**: 10 fixed bytes/record + (nested-count × 2) bytes | `DAT_0047061c` | #6 (nested entries) | **decoded — see "Row #8 field decode" below.** A named, orderable list of row #6 world positions (`WaypointGroup`) — a patrol route/waypoint chain, with real evidence of both spatial coherence and closed-loop (patrol circuit) structure |
@@ -247,6 +247,21 @@ A mission timer: an action that arms it, a delay, and the actions fired when the
 | `0x8e` | ref→row #3 | 87% real; replaced at load by that record's value, **the briefing movie id** |
 
 All three arrays are ids into the mission's own [`.ENG` table](#the-eng-string-table), renumbered at load into `mission.str` lines. A campaign load hands the first record to `Career_SetBriefing` (`00412ece`), which copies the arrays and the movie id into the save's career block, where the mission tab reads them ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#loading-the-careers-mission)).
+
+## Row #5 — the debrief
+
+64 bytes per record: a condition ref, thirty text refs into the `.ENG` table and a row-3 ref — row 4's shape with one text array where row 4 has three. The mission load skips the row; the campaign debrief reads it.
+
+`Career_Advance` (`00412dc7`) calls `Msn_LoadDebrief` (`0041d2c3`) for the mission at the career position, the one just flown, before it advances the position. That runs a second loader over the file, `Msn_LoadDebriefRows` (`0041ca4e`):
+
+- **row 1** against the flag array as the debrief holds it, with the same survival rules as the main load — including a draw from the shell's generator for each type-1 record that passes its gate;
+- **row 2** skipped, so the header is not patched and no flag is cleared;
+- the **`.ENG` text**, as the main load reads it, then written out as `data\mission.str`;
+- **row 3**, filtered and merged as the main load does;
+- **row 4** skipped;
+- **row 5**, each record gated on its condition, its thirty text refs renumbered into `mission.str` lines and its row-3 ref replaced by that record's value, as row 4's is.
+
+Records are read into the slot the survivor count names, so the first survivor holds slot 0; with none, slot 0 holds the last record read. `Msn_LoadDebrief` hands slot 0 by value to `Career_SetDebriefLines` (`00413386`), which copies the thirty lines to `0048407c` and the row-3 value, the debrief movie, to `004840ba`. `Career_BuildDebriefText` (`004133d2`) then assembles the mission tab's debrief from those lines ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-summary-text-box)). None of this reaches the save, whose career block ends before `0048407c` ([`save-games.md`](save-games.md#career-block--152-bytes)). What lasts is the draws: the next mission's load starts that many generator steps further on.
 
 
 ## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
@@ -411,5 +426,4 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 
 ## Open
 
-- **Open:** what `maybe_Msn_LoadTextRows` (`0041ca4e`) is for — the loader, called from `FUN_0041d2c3`, that reads rows 1 to 5 of a mission, keeps row #5 rather than skipping it, and writes `data\mission.str` from the `.ENG` it loads.
 - **Open:** what row #13's `0x36` field is; nearly always `0`, not confirmed dead.

@@ -35,7 +35,7 @@ Before a mission is loaded, `MsnGen_SeedCampaignFlags` (`0040e94e`) writes the f
 
 Slot 0 is overwritten at debrief with the mission's outcome code (`_maybe_CampaignFlagArray = DAT_00482ae9`). On the simulator side the same array is `DAT_004a9ef4`, which an activating action bumps or clears and `FUN_0042412c` dumps to `mission_var` at mission end — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
 
-It is also what unlocks weapons: the mission-load path grants a pending unlock when its flag slot holds the expected value, setting the weapon's `weapons.dat` `+0x16` byte and clearing the slot ([`../formats/weapons-dat.md`](../formats/weapons-dat.md)).
+It is also what the campaign's rewards are keyed on: the debrief tests the flags the mission left to unlock chassis and weapons and to stock weapon units ([below](#the-debrief--game_processmissionresults-0040eae7)).
 
 ## Starting a campaign — `Game_NewCareer` (`0040e2ed`)
 
@@ -158,11 +158,13 @@ The whole layout is verified byte-exact against every retail `player.mec` — th
 The longest function in `game.cpp` and the whole of the post-mission accounting.
 
 1. Read `data\mission.var` back into the flag array.
-2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, an `int32` added to the salvage pool, then `int16 count` and that many `{ int16, int16 }` salvage pairs, each applied by `FUN_0041229d` in campaign mode only.
+2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, an `int32` added to the salvage pool, then `int16 count` and that many `{ int16, int16 }` salvage pairs, each applied by `Armory_AddNewUnit` (`0041229d`) in campaign mode only.
 3. Copy the outcome into flag slot 0.
-4. For the player, then for each on-strength squad member in order: read the HERC's 66-byte status block over its `+0x08` span (`Herc_ReadStatusBlock` (`00411720`), which also destroys any mount whose condition arrived at 0), set the pilot's condition from that machine's overall condition (`HercStatus_Get(block, 1, 9)` (`00411d06`)), read the pilot's three mission counters and accumulate them (`Pilot_AccumulateMissionStats`, `0041000e`), and settle the machine (`Herc_SettleAfterMission`, `00410c7c`) — a HERC below 30 condition is scrapped out of the hangar for its salvage value, anything above is reset to 100.
-5. Deduct repairs — `FUN_0040e804`, charged per surviving pilot.
-6. Advance the campaign, then set the next screen from the result.
+4. For the player, then for each on-strength squad member at positions 1 up to the machines-on-strength count `00482a7a` — not the positions in play the export walks: when the pilot's bay holds a machine, read its 66-byte status block over its `+0x08` span (`Herc_ReadStatusBlock` (`00411720`), which also destroys any mount whose condition arrived at 0 and sets that hardpoint back to 100); set the pilot's condition from the machine's overall slot (`HercStatus_Get(block, 1, 9)` (`00411d06`)), or to 100 with no machine; read the pilot's three mission counters and accumulate them (`Pilot_AccumulateMissionStats`, `0041000e`); and settle the machine (`Herc_SettleAfterMission`, `00410c7c`). A machine whose mean condition (`HercStatus_OverallCondition`) is below 30 is scrapped as the shell's scrap is — valued, its mounts at 80 or better returned to stock, the bay emptied — with the value going into the pool and one added to the hangar's `+0x24` count; the pilot keeps the bay. Any other machine has its overall slot reset to 100. A pilot with no machine reads no status block, so the file's 66 bytes for that machine are read as its counters.
+5. Run the squad's progression ([below](#pilot-progression)). If the player's HERC condition reached 0 the campaign is over and the debrief stops here, in either mode; otherwise the rest runs in a campaign only.
+6. Deliver the weapon build queue and charge it (`Game_DeliverWeaponQueue` (`0040f324`), through `Armory_DeliverQueue`), then deduct repairs (`Game_AutoRepairSquad` (`0040e804`), [`armory.md`](armory.md#repair-levels)), then advance every unfinished chassis in the eight bays one mission (`HercList_BuildTickAll` (`00410a2b`), through `Herc_BuildTick`).
+7. Grant from the flags the mission left: chassis through `Herc_GrantUnlocks` ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5)), then weapon unlocks and weapon units through `Armory_GrantCampaignWeapons` ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)). Both clear the unlock slots they test, so a save written after the debrief holds them at 0.
+8. Reconcile the build queue with the pool (`Armory_RefreshQueue`, [`armory.md`](armory.md#scrapping)), write the report texts (`Debrief_WriteReport` (`0040f34c`), handed the salvage-pair count plus the units just granted), then advance the campaign and set the next screen from the result.
 
 Written out, the file is:
 
@@ -182,9 +184,9 @@ DBSIM writes this file, so there is no writer in VSHELL to mirror it against, bu
 
 ### Pilot progression
 
-After the results stream is closed the debrief calls `Squad_ProgressAll(00482a78)` (`004103ba`), the squad-wide progression pass. It runs `Pilot_Progress` (`00410066`) on the player when the player's HERC condition is non-zero, then on every on-strength squad member whose condition is non-zero; a squad member at zero condition is replaced by a fresh pilot from `FUN_0040fb4f` and the squad count drops.
+After the results stream is closed the debrief calls `Squad_ProgressAll(00482a78)` (`004103ba`), the squad-wide progression pass. It runs `Pilot_Progress` (`00410066`) on the player when the player's condition is non-zero, then walks positions 1 up to the positions in play: an on-strength squad member whose condition is non-zero is progressed, and one at zero is replaced. `Squad_TakeMember` (`0040fb4f`) makes the squad's next record by its cursor the member and resets it to the pilot defaults — no bay, off strength, no position, condition 100, every counter 0 — and the machines-on-strength count drops by one. The pass returns how many pilots were lost, the player counted when at zero, for the report.
 
-`Pilot_Progress(pilot, isPlayer)` advances two independent ladders, both capped at 3 and both keyed on the pilot's counters ([`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)):
+`Pilot_Progress(pilot, isPlayer)` does nothing for a pilot whose on-strength byte `+0x24` is clear. Otherwise it advances two independent ladders, both capped at 3 and both keyed on the pilot's counters ([`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)):
 
 ```
 divisors = (pilot +0x27 == 0) ? { kills: 20, missions: 10 }
@@ -219,18 +221,21 @@ Seven jumps in the function resolve to four targets — `00410088`, `00410090`, 
 
 ### Where the debrief goes next
 
-`Career_Advance` (`00412dc7`) advances `(stage, mission)` and returns the branch, which lands in `0048260e`:
+`Career_Advance` (`00412dc7`) first reloads the mission at the career position for its debrief text (`Msn_LoadDebrief` (`0041d2c3`), [`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#row-5--the-debrief)). That reload draws from the shell's generator for the mission's random conditions, as the mission's own load did, so the next load starts that many steps further on. It then advances `(stage, mission)` and returns the branch, which lands in `0048260e`:
 
 | Condition | State | Effect |
 |---|---|---|
 | player's HERC condition reached 0 | 3 | campaign over |
-| advance returned 0 — mission failed at a stage boundary, or past stage 4 | 0 | back to the shell |
+| advance returned 0 — the mission failed and the new position is a stage's first mission or past stage 4 | 0 | back to the shell |
 | advance returned 1 — succeeded past the last stage | 1 | autosave to slot 10, then play AVIs `0x53` and `0x54` |
 | otherwise | 2 | the debrief: the mission tab's view set to 4, then the next mission's load, which puts the tab up in that view ([`screen-layout.md`](screen-layout.md#the-three-views)) |
 
 **The position advances whether or not the mission was won.** `Career_Advance` increments the mission index before it inspects the outcome; the outcome only chooses the branch. Rolling past a stage's mission count resets the mission index to 0 and increments the stage.
 
-Two scripted events are hard-coded into the advance, keyed on the position *after* it increments: stage 1 mission 3 calls `Player_SetBay(4)` (`0040e6c8`), which moves the player into bay 4, and stage 1 mission 6 calls `FUN_0040e7cd(8)`, another squad-roster operation.
+Two scripted events are hard-coded into the advance, keyed on the position *after* it increments, and only on the branch that goes on to the next mission:
+
+- Stage 1 mission 3 calls `Player_SetBay(4)` (`0040e6c8`), which moves the player into bay 4.
+- Stage 1 mission 6 calls `Hangar_WithdrawChassis(8)` (`0040e7cd`), which takes the first Razor out of the hangar. `HercList_RemoveFirstOfType` (`00410bbe`) strips its mounts into stock as a scrap does, empties the bay for no salvage and returns its index, and the pilot in that bay loses it (bay `-1`); the pilot's on-strength byte is left alone. With no Razor in the hangar `HercList_RemoveFirstOfType` (`00410bbe`) returns what its last probe read, bay 7's chassis type or `-1`, and the pilot in the bay of that number loses it instead.
 
 Every path that leaves a campaign in a resumable state autosaves through `Game_SaveSlot(10, NULL)` (`0040e37b`), which is why `GAME_R.SAV` mirrors the newest ordinary save.
 

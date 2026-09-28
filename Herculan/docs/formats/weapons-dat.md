@@ -139,12 +139,63 @@ Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsD
 
 The catalog ships a starting value per weapon; from then on it is campaign state, and four VSHELL sites establish what it means:
 
-- **Campaign progress sets it.** In the mission-load path, for each pending unlock whose slot in the campaign flag array holds the expected value, a `0` byte is set to `1` and that flag slot is cleared — an unlock granted and consumed. This is the weapon-unlock mechanism the campaign condition system feeds; see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
+- **Campaign progress sets it**, at the debrief — [below](#campaign-grants--armory_grantcampaignweapons-004126be).
 - **The armory screen gates its rows on it.** Where it is `0` the weapon's row is disabled — `+0x49` cleared — and its four text columns, the `0x14` price among them, drawn in the background colour, so the list shows a gap. Where it is `1` the row is live and readable ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-armory-rows)).
 - **Purchasing skips a locked weapon**, whatever the player can afford.
 - One HERC-fit check refuses to accept the weapon while the flag is clear.
 
 All 33 flags are also exported to `data\player.mec`, which nothing traced reads back — see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
+
+Retail ships fourteen weapons locked: `ATC75`, `ATC100`, `L400`, `L500`, the three Bull weapons, `LAEW`, `MINE`, `MFAC` and the four pods. Eight of them can be unlocked; the Bull weapons, `LAEW`, `MINE` and `MFAC` have no flag slot and stay locked for the whole campaign.
+
+### Campaign grants — `Armory_GrantCampaignWeapons` (`004126be`)
+
+The debrief runs this in a campaign only, right after the chassis grant `Herc_GrantUnlocks` ([`herc-catalogs.md`](herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5)), on the flag array just read back from `data\mission.var` — so the flags it tests are the ones the mission itself left ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)). It makes two passes over that array, from three static tables.
+
+**Unlocks.** Two 33-entry `int16` tables, indexed by weapon id: a flag slot at `0046fa82` (`-1` for none) and the value that slot must hold at `0046fa40`.
+
+```
+for id in 0..32:
+    slot = unlockSlot[id]
+    if slot != -1 && weapons[id].+0x16 == 0:
+        if flags[slot] == unlockValue[id]: weapons[id].+0x16 = 1
+        flags[slot] = 0
+```
+
+| Weapon | Flag slot | Value |
+|---|---|---|
+| `ATC75` (4) | `0x34` | 2 |
+| `ATC100` (5) | `0x35` | 1 |
+| `L400` (11) | `0x32` | 1 |
+| `L500` (12) | `0x33` | 1 |
+| `SHLD` (30) | `0x38` | 1 |
+| `TARG` (29) | `0x39` | 1 |
+| `TURB` (31) | `0x3a` | 2 |
+| `ENRG` (32) | `0x3b` | 1 |
+
+The slot is cleared whether or not it matched, so a flag holding the wrong value at one debrief is spent. Once a weapon is unlocked its slot is no longer tested or cleared. The slots sit directly below the chassis grant's `0x3c`–`0x3f`.
+
+**Unit grants.** For each flag slot `s` from `0x15` to `0x31`, the debrief adds `flags[s]` new units of the weapon `0046f8e0[s - 0x15]` names to the armory stock, each through `Armory_AddNewUnit` (`0041229d`) — the helper the `results.dat` salvage pairs use — as `{ id, 100, 100, 5 }`: condition 100 and ammo type 5 whatever the weapon, missile racks included. It never clears these slots, so a flag the mission leaves set grants again at every later debrief until a mission or a header patch zeroes it. The function returns the number of units added, which the debrief adds to the salvage-pair count it hands the report (`Debrief_WriteReport` (`0040f34c`)).
+
+| Slot | Weapon | Slot | Weapon |
+|---|---|---|---|
+| `0x15` | `ECM` (18) | `0x20` | `EMPC` (7) |
+| `0x16` | `ATC50` (3) | `0x21` | `ELFW` (6) |
+| `0x17` | `ATC75` (4) | `0x22` | `PBW2` (24) |
+| `0x18` | `ATC100` (5) | `0x23` | `EMP2` (23) |
+| `0x19` | `L300` (10) | `0x24` | `ELF2` (22) |
+| `0x1a` | `L400` (11) | `0x25` | `PLAS` (25) |
+| `0x1b` | `L500` (12) | `0x26` | `MFAC` (28) |
+| `0x1c` | `MSL10` (15) | `0x27` | `TARG` (29) |
+| `0x1d` | `MINE` (27) | `0x28` | `SHLD` (30) |
+| `0x1e` | `LAEW` (26) | `0x29` | `TURB` (31) |
+| `0x1f` | `PBW` (17) | `0x2a` | `ENRG` (32) |
+
+A granted unit does not unlock its weapon: the stock and `+0x17` count grow, and the armory row stays disabled until the unlock pass sets `+0x16`.
+
+**The loop overruns the table.** It runs to slot `0x31`, seven entries past the 22 the table holds, and those seven words — `10169`, `65`, `8199`, `0`, `-4`, `-1`, `0` — are not weapon ids. A nonzero flag in `0x2b`, `0x2c`, `0x2d`, `0x2f` or `0x30` would append a unit to a list outside the record array; one in `0x2e` or `0x31` would stock `NONE`. No retail save holds any of the seven nonzero ([Open](#open)).
+
+The retail saves agree with both passes. Across `GAME_0`–`GAME_6` the only locked weapons to turn unlocked are table entries — `ATC75`, `ATC100`, `L400`, `L500` and `TARG` by `GAME_2`, `TURB` by `GAME_4`, `SHLD` by `GAME_5` — and every unlock slot from `0x32` to `0x3b` holds 0. The unit-grant slots persist: `0x16` and `0x1c` hold 1 in all seven saves, and the `ATC50` and `MSL10` stocks those slots feed grow from 4 to 79 and from 2 to 65 over them.
 
 ## File-level format
 
@@ -183,3 +234,7 @@ The trailing block is the **armory's starting stock**: `LoadWeaponsDat` allocate
 Both files are fully decoded and safe to write transformers for directly. `WEAPONS.BIN` is the smaller win — 579 bytes, a trivial indexed string table, and the same shape for all six `.BIN` files, so one reader serves them all.
 
 `WEAPONS.DAT` needs a transformer that keeps two things straight. The 29-byte in-memory record is **not** the on-disk record: only `0x00`–`0x16` come from the file, the code block is length-prefixed and variable, and the rank lives in a parallel array rather than in the struct. And the file does not end with the catalog — a round-trip that drops the 39-unit starting stock loses the player's opening inventory silently, since nothing about the file's length gives it away.
+
+## Open
+
+- **Open:** whether any retail mission can leave a nonzero value in campaign flags `0x2b`–`0x31`, the seven slots `Armory_GrantCampaignWeapons` reads past its unit table. The nine retail saves hold none; the `.msn` actions and header patches that write flags have not been scanned for them.

@@ -1,4 +1,11 @@
+using HercWorks.Core.Data.File.Dat.Shell;
+using HercWorks.Core.Data.File.Sav;
+using HercWorks.Core.Data.Struct;
+using HercWorks.Core.Data.Struct.Herc;
+using HercWorks.Core.Data.Struct.Vshell.Hercs;
+using HercWorks.Core.Data.Struct.Vshell.Sav;
 using HercWorks.Core.Io.Transform.Common;
+using HercWorks.Core.Io.Transform.Shell;
 using Herculan.Engine.Content;
 using Herculan.Engine.World;
 
@@ -73,6 +80,172 @@ public static class ShellCampaignLaunch {
 		failure = null;
 		return new ShellCampaignMission(scriptPath, missionPath, briefing, loaded.SquadPositions);
 	}
+
+	/// <summary>
+	/// <c>Registration_OnAccept</c> (<c>0043c0fb</c>)'s new career, up to the mission load: the game as
+	/// <c>LoadHercInfDat</c> (<c>0041181c</c>) and <c>Game_NewCareer</c> (<c>0040e2ed</c>) in campaign mode
+	/// leave VSHELL's memory, as a save holding it. See docs/shell/screen-layout.md#starting-a-campaign and
+	/// docs/shell/campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed.
+	///
+	/// <para>Each weapon's units are listed in the order <c>gam\weapons.dat</c> gives them, which
+	/// <see cref="ShellHangar.From"/> pushes back onto the head one by one, so the hangar it builds holds the
+	/// last unit listed at the head, as <c>Armory_AddUnit</c> left it. A save written from that hangar
+	/// lists them head first, as <c>Armory_Write</c> does.</para>
+	///
+	/// <para><paramref name="heldBlock"/> is block 11, the 20 bytes at <c>004832c8</c>, as the shell's memory
+	/// holds them: nothing in the new career writes them, so they are the last loaded game's, or the
+	/// startup's zeros.</para>
+	/// </summary>
+	public static PlayerSave? NewCareer(GameContent content, string name, int skill, Func<short, int> roll,
+			byte[]? heldBlock, out string? failure) {
+		if (content.Read(ShellRepairCosts.CatalogFolder, "WEAPONS.DAT") is not { } weaponsBytes
+				|| new WeaponsDatTransformer().Parse(weaponsBytes) is not { } weapons) {
+			failure = "gam\\weapons.dat is not in any mounted archive.";
+			return null;
+		}
+
+		if (content.Read(ShellRepairCosts.CatalogFolder, "HERCS.DAT") is not { } hercsBytes
+				|| new HercsStartTransformer().Parse(hercsBytes) is not { } hercs) {
+			failure = "gam\\hercs.dat is not in any mounted archive.";
+			return null;
+		}
+
+		if (content.Read(ShellRepairCosts.CatalogFolder, ShellRepairCosts.ChassisResourceName) is not { } chassisBytes
+				|| new HercInfoTransformer().Parse(chassisBytes)?.Data is not { } chassis) {
+			failure = $"gam\\{ShellRepairCosts.ChassisResourceName} is not in any mounted archive.";
+			return null;
+		}
+
+		var game = new PlayerSave();
+
+		// LoadWeaponsDat (00411fc4): each record's unlock byte, its stock cleared, then the trailing units
+		// added one by one; and Armory_ResetQueue, five free slots, all empty.
+		var units = (weapons.StartingWeapons ?? Array.Empty<UiWeaponEntry>())
+			.Where(unit => unit != null).ToLookup(unit => (int)unit.ItemId);
+		var items = new Inventory.InventoryItem[ShellMissionLaunch.WeaponCatalogCount];
+		for (int id = 0; id < items.Length; id++) {
+			var stock = units[id].Select(unit => new ShellWeaponUnit(unit.ItemId, condition: unit.HealthPercent,
+				guidance: unit.MissileType?.Id ?? ShellWeaponUnit.NoGuidance).ToEntry()).ToArray();
+			items[id] = new Inventory.InventoryItem {
+				Id = WeaponLUT.GetById(id),
+				UnlockFlag = weapons.Data.FirstOrDefault(entry => entry?.Id == id)?.StartUnlock ?? 0,
+				Quantity = (short)stock.Length,
+				Data = stock,
+			};
+		}
+
+		game.Inventory = new Inventory { Items = items };
+		game.WorkshopSpace = ShellHangar.QueueSlots;
+		Array.Fill(game.WorkshopSlots, WeaponLUT.None);
+
+		// Squad_GenerateRoster, then Player_Create (00410107): each squad's record 0 taken as its member
+		// (00483b48) and the member cursor (00483b4e) stepped to 1; the player's record at roster id 0 with
+		// a drawn name index, the typed name and the skill, rank 0, bay 0, position 0, on strength; no
+		// positions in play and one machine on strength.
+		game.Squadmates = ShellTrainingLaunch.GenerateRoster(ShellText.Load(content, "ESNAMES.BIN"), roll);
+		game.UnkRange_prePlayer = [0, 0, 0, 1, 1, 1, 0, 1];
+		var player = ShellTrainingLaunch.NewPilot(name, 0, roll(ShellTrainingLaunch.PlayerNameIndexCount), skill, 0);
+		player.BayId = 0;
+		player.CrewRowNum = 0;
+		player.Active = 1;
+		game.PlayerPilot = player;
+
+		// LoadHercsDat (004104ed) in a campaign: gam\hercs.dat's machines in their bays.
+		foreach (var entry in hercs.Data ?? Array.Empty<Hercs.Entry>()) {
+			if (entry?.Herc is { } record && entry.BayId is >= 0 and < ShellHangar.BayCount) {
+				game.HercBay[entry.BayId] = ShellBayMachine.FromCatalog(record).ToEntry();
+			}
+		}
+
+		// LoadHercInfDat: each chassis's availability back to the file's.
+		for (short id = 0; id < HercLUT.Mongoose.Id; id++) {
+			game.UnlockedHercs[HercLUT.GetById(id)!] = chassis.FirstOrDefault(entry => entry?.HercId == id)?.FlagCampaignStart ?? 0;
+		}
+
+		// Career_SeedPosition (00412a2f): stage 1, mission 0. The rest of the career block is the load's.
+		game.CampaignStage = 1;
+		game.MissionInStage = 0;
+
+		game.SalvageTotal = roll(ShellTrainingLaunch.SalvageDrawCount) * ShellRepairCosts.KilogramsPerTon + StartingSalvage;
+
+		// The flag array cleared (CampaignFlags_Clear), game state 2, and block 11 as memory holds it.
+		game.UnknownSaveValues = new byte[PlayerSave.CampaignFlagCount * 2 + 2 + HeldBlockLength];
+		game.GameState = ContinuingGameState;
+		if (heldBlock != null) {
+			heldBlock.AsSpan(0, Math.Min(heldBlock.Length, HeldBlockLength))
+				.CopyTo(game.UnknownSaveValues.AsSpan(PlayerSave.CampaignFlagCount * 2 + 2));
+		}
+
+		failure = null;
+		return game;
+	}
+
+	/// <summary>
+	/// <c>Career_LoadCurrentMission</c> (<c>0044d4cc</c>)'s campaign load for <paramref name="game"/>'s
+	/// position, which a new career's <c>Use Default</c> click runs: <see cref="Write"/> into
+	/// <paramref name="directory"/> against the career's flags and its player's skill, the flags the load
+	/// seeded and cleared written back, <c>Career_SetBriefing</c> (<c>00412ece</c>) into the career block,
+	/// the squad positions in play set in <paramref name="hangar"/>, and <c>Game_ExportMissionHandoff</c>
+	/// (<c>0040f0d4</c>)'s <c>mission.var</c> and <c>player.mec</c> beside the mission. Null, with the reason,
+	/// when the install lacks a file or the mission has no row 4 — where the original asserts. See
+	/// docs/shell/campaign-loop.md#loading-the-careers-mission.
+	/// </summary>
+	public static ShellCampaignMission? LoadCareerMission(string directory, GameContent content, PlayerSave game,
+			ShellHangar hangar, short[] clearList, Func<short, int> roll, out string? failure) {
+		var flags = new short[PlayerSave.CampaignFlagCount];
+		for (int i = 0; i < flags.Length; i++) {
+			flags[i] = game.GetCampaignFlag(i);
+		}
+
+		var loaded = Write(directory, content, game.CampaignStage, game.MissionInStage, game.PlayerPilot?.Skill?.Id ?? 0,
+			flags, clearList, roll, out failure);
+		if (loaded == null) {
+			return null;
+		}
+
+		if (loaded.Briefing is not { } briefing) {
+			failure = $"{loaded.MissionPath} has no row 4 for the career block.";
+			return null;
+		}
+
+		for (int i = 0; i < flags.Length; i++) {
+			game.SetCampaignFlag(i, flags[i]);
+		}
+
+		// Career_SetBriefing: each array copied whole, its count the entries that are not -1.
+		short[] career = game.Unk4_stateFlags;
+		void Copy(int countIndex, short[] lines) {
+			lines.CopyTo(career, countIndex + 1);
+			career[countIndex] = (short)lines.Count(line => line != -1);
+		}
+
+		Copy(ObjectivesCountIndex, briefing.Objectives);
+		Copy(BriefingCountIndex, briefing.Briefing);
+		Copy(IntelligenceCountIndex, briefing.Intelligence);
+		game.BriefingMovie = briefing.BriefingMovie;
+
+		hangar.SetPositionsInPlay(loaded.SquadPositions);
+
+		var flagBytes = new byte[flags.Length * 2];
+		Buffer.BlockCopy(flags, 0, flagBytes, 0, flagBytes.Length);
+		File.WriteAllBytes(Path.Combine(directory, ShellMissionLaunch.MissionVarFileName), flagBytes);
+		File.WriteAllBytes(Path.Combine(directory, MissionLoader.PlayerFileName), ShellMissionLaunch.ExportPlayerMec(hangar));
+		return loaded;
+	}
+
+	/// <summary>Where the career block keeps each text array's count, the array following it (docs/formats/save-games.md#career-block--152-bytes).</summary>
+	private const int ObjectivesCountIndex = 2;
+	private const int BriefingCountIndex = 13;
+	private const int IntelligenceCountIndex = 44;
+
+	/// <summary>The salvage pool's floor, the <c>100000</c> in <c>Game_NewCareer</c>'s draw.</summary>
+	private const int StartingSalvage = 100000;
+
+	/// <summary><c>Game_NewCareer</c>'s game state, <c>0048260e = 2</c> — the one a game goes on from.</summary>
+	private const short ContinuingGameState = 2;
+
+	/// <summary>Block 11's length.</summary>
+	public const int HeldBlockLength = 20;
 
 	/// <summary>
 	/// The first career position whose <c>missions.bin</c> name has <paramref name="name"/>'s file name — a

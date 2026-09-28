@@ -68,7 +68,7 @@ No header, no magic, no length field: the file is the concatenation below. Writt
 | 1 | varies | armory stock — 33 records, one per `weapons.dat` catalog id | `Armory_Write` (`004121cf`) / `FUN_0041215d` |
 | 2 | 22 | the armory build queue: free-slot count (`0046f8d4`), then 5x `{ int16 slot; int16 weapon id }` from `0046f8d6` | same |
 | 3 | 152 | career block (below) | `Career_SaveSlot` (`00412a71`) / `Career_LoadSlot` (`00412bbf`) |
-| 4 | varies | 3 squads x 12 pilot records, then 3x `int16` at `00483b48` and 3x `int16` at `00483b4e` | `FUN_0040fc16` / `FUN_0040fc77` |
+| 4 | varies | 3 squads x 12 pilot records, then 3x `int16` at `00483b48`, each squad's current member, and 3x `int16` at `00483b4e`, the member `Squad_TakeMember` (`0040fb4f`) takes next, modulo 12 | `FUN_0040fc16` / `FUN_0040fc77` |
 | 5 | varies | the player: `int16` squad positions in play (`00482a78`), `int16` machines on strength (`00482a7a`), then one pilot record — **the same shape as a squadmate's**, roster id included | `FUN_0041016d` / `Player_Read` (`004101b8`) |
 | 6 | varies | hangar: `int16` count, then that many `{ int16 slot; HERC record }` | `FUN_00410658` / `FUN_0041080a` |
 | 7 | 18 | the 9 chassis availability flags — `herc_inf.dat` record `+0x0e`, stride 16 from `00483b62` | `FUN_00411954` / `FUN_00411989` |
@@ -112,7 +112,7 @@ Serialized by `Pilot_Write` (`0040fd5f`), read by `FUN_0040fefc`, initialized by
 | `+0x24` | `byte` | on strength — gates repair billing, results accounting and the `player.mec` export |
 | `+0x25` | `int16` | skill `0-3` — `ROOKIE`, `REGULAR`, `VETERAN`, `ELITE` (`estext.bin` `0x35`-`0x38`), drawn against the weight table at `0046f5ec` |
 | `+0x27` | `int16` | squad position, 1-3 — the crew screen row the pilot fills ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-rows)); initialized `-1` by `Pilot_SetDefaults` (`0040fd17`). The player's is 0: `Player_Create` (`00410107`, from `Game_NewCareer`) writes it straight after `Pilot_Init`. A squad member's comes only from `Squad_SetMemberPosition`, whose four callers pass `-1`, `k + 1` or a crew row from 1 to 3, so no member holds 0. Selects the promotion divisors in `Pilot_Progress` (`00410066`) |
-| `+0x29` | `int16` | rank `0-3` — `Lieutenant`, `Captain`, `Major`, `Lt Colonel` (`estext.bin` `0x39`-`0x3c`), seeded from the skill via `0046f5f4` |
+| `+0x29` | `int16` | rank `0-3` — `Lieutenant`, `Captain`, `Major`, `Lt Colonel` (`estext.bin` `0x39`-`0x3c`), seeded from the skill through `0046f5f4`, `{0, 1, 2, 2}`, by `Squad_GenerateRoster`; `Player_Create` writes 0 |
 | `+0x2b` | `int16` | condition, initialized 100 and overwritten at debrief from the HERC's damage |
 | `+0x2d` | `int16` | Herc kills, this mission |
 | `+0x2f` | `int16` | Flyer kills, this mission |

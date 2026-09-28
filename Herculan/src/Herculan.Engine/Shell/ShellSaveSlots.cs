@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.File.Sav;
 using HercWorks.Core.Data.Struct.Vshell.Sav;
 using HercWorks.Core.Io.Transform.Common;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Shell;
 
@@ -80,6 +81,11 @@ public sealed record ShellWorkingFiles(string? Script, string? Text, string? Pla
 		return new ShellWorkingFiles(Path.Combine(folder, ShellSaveSlots.ScriptFile(slot)),
 			Path.Combine(folder, ShellSaveSlots.TextFile(slot)), Path.Combine(folder, ShellSaveSlots.PlayerFile(slot)));
 	}
+
+	/// <summary>The three files under their <c>data\</c> names in <paramref name="directory"/>, where a mission load writes them.</summary>
+	public static ShellWorkingFiles In(string directory) =>
+		new(Path.Combine(directory, MissionLoader.ScriptFileName), Path.Combine(directory, MissionLoader.TextFileName),
+			Path.Combine(directory, MissionLoader.PlayerFileName));
 }
 
 /// <summary>

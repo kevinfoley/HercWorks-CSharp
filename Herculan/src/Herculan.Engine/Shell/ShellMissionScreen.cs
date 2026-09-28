@@ -31,15 +31,15 @@ public enum ShellMissionArrow {
 /// The career's three mission texts as <c>Career_BuildBriefingText</c> (<c>00412f97</c>) assembles them:
 /// each the concatenation of the <c>mission.str</c> lines one of the career block's arrays names, in
 /// array order, skipping <c>-1</c>. The shell reads <c>data\mission.str</c>, which
-/// <c>Career_LoadSlot</c> copies from the slot's <c>sav\missn%d.str</c>; this engine reads the slot's
-/// own file where it lies, which is the same bytes.
+/// <c>Career_LoadSlot</c> copies from the slot's <c>sav\missn%d.str</c> and a mission load writes; this
+/// engine reads the working file where it lies (<see cref="ShellWorkingFiles"/>), which is the same bytes.
 /// </summary>
 public sealed record ShellMissionTexts(string Briefing, string Objectives, string Intelligence) {
 	public static readonly ShellMissionTexts Empty = new(string.Empty, string.Empty, string.Empty);
 
-	/// <summary>The texts of <paramref name="save"/>, loaded from slot <paramref name="slot"/>, or <see cref="Empty"/>.</summary>
-	public static ShellMissionTexts Load(string installRoot, int slot, PlayerSave? save) {
-		string path = Path.Combine(ShellSaveSlots.Directory(installRoot), ShellSaveSlots.TextFile(slot));
+	/// <summary>The texts of <paramref name="save"/>, assembled from its working <c>mission.str</c>, or <see cref="Empty"/>.</summary>
+	public static ShellMissionTexts Load(ShellWorkingFiles working, PlayerSave? save) {
+		string? path = working.Text;
 		if (save == null || !File.Exists(path) || SimStringTable.Parse(File.ReadAllBytes(path)) is not { GroupCount: > 0 } table) {
 			return Empty;
 		}

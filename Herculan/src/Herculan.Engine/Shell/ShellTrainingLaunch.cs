@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.Struct.Vshell.Sav;
 using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Shell;
 using Herculan.Engine.Content;
@@ -203,26 +204,32 @@ public static class ShellTrainingLaunch {
 			unlocked.AddRange(catalog.Data.Where(entry => entry.StartUnlock != 0).Select(entry => (int)entry.Id));
 		}
 
-		var squad = GenerateRoster(ShellText.Load(content, "ESNAMES.BIN"), roll);
+		// Player_Create takes each squad's record 0 (Squad_TakeMember, 0040fb4f), unassigned.
+		var roster = GenerateRoster(ShellText.Load(content, "ESNAMES.BIN"), roll);
+		var squad = Enumerable.Range(0, SquadCount).Select(k => roster[k * PilotsPerSquad]).Select(record =>
+			new ShellBayPilot(record.Name ?? string.Empty, record.SquadmateId, -1, record.Skill?.Id ?? 0, -1, false,
+				record.NameIndex)).ToList();
 
 		// Player_Create (00410107): roster id 0, a name index drawn below 11 — an index into the
 		// simulator's PILOTS.STR, not esnames.bin — the difficulty as its skill, bay 0, position 0.
-		int nameIndex = roll(11);
+		int nameIndex = roll(PlayerNameIndexCount);
 		var player = new ShellBayPilot(TraineeName, 0, 0, difficulty, 0, true, nameIndex);
-		roll(11);
+		roll(SalvageDrawCount);
 
 		return ShellHangar.NewCareer(player, squad, unlocked);
 	}
 
 	/// <summary>
 	/// <c>Squad_GenerateRoster</c> (<c>0040fa31</c>) — three squads of twelve, each from a shuffle of four
-	/// and a shuffle of three and one skill draw per pilot — returning the three squad members
-	/// <c>Squad_TakeMember</c> (<c>0040fb4f</c>) takes, each squad's first record, unassigned. The rest of the roster is drawn
-	/// only for the draws. See docs/shell/campaign-loop.md#the-pilot-roster-is-generated-not-authored--squad_generateroster-0040fa31.
+	/// and a shuffle of three and one skill draw per pilot, <c>Pilot_Init</c> (<c>0040fcd8</c>) writing each
+	/// record with its rank seeded from the skill and <c>Pilot_SetDefaults</c> (<c>0040fd17</c>)'s bay
+	/// <c>-1</c>, off strength, position <c>-1</c> and condition 100. The records come back in the save's
+	/// order, squad by squad and row by row. See
+	/// docs/shell/campaign-loop.md#the-pilot-roster-is-generated-not-authored--squad_generateroster-0040fa31.
 	/// </summary>
-	private static List<ShellBayPilot> GenerateRoster(ShellText? names, Func<short, int> roll) {
-		var members = new List<ShellBayPilot>();
-		for (int squad = 0; squad < 3; squad++) {
+	internal static PilotEntry[] GenerateRoster(ShellText? names, Func<short, int> roll) {
+		var records = new PilotEntry[SquadCount * PilotsPerSquad];
+		for (int squad = 0; squad < SquadCount; squad++) {
 			short[] columns = Shuffle(4, roll);
 			short[] rows = Shuffle(3, roll);
 			for (int row = 0; row < 3; row++) {
@@ -230,16 +237,45 @@ public static class ShellTrainingLaunch {
 					int rosterId = columns[column] + squad * 4;
 					int nameIndex = rows[row] + rosterId * 3;
 					int skill = SkillDraw(roll);
-					if (row == 0 && column == 0) {
-						members.Add(new ShellBayPilot(names?.Text(nameIndex) ?? string.Empty, rosterId, -1, skill, -1, false,
-							nameIndex));
-					}
+					records[squad * PilotsPerSquad + row * 4 + column] = NewPilot(names?.Text(nameIndex) ?? string.Empty,
+						rosterId, nameIndex, skill, RankForSkill[skill]);
 				}
 			}
 		}
 
-		return members;
+		return records;
 	}
+
+	/// <summary>
+	/// <c>Pilot_Init</c> (<c>0040fcd8</c>): the record's roster id, name index, name, skill and rank, then
+	/// <c>Pilot_SetDefaults</c> (<c>0040fd17</c>) — no bay, off strength, no squad position, condition 100
+	/// and every counter 0.
+	/// </summary>
+	internal static PilotEntry NewPilot(string name, int rosterId, int nameIndex, int skill, int rank) => new() {
+		SquadmateId = (short)rosterId,
+		NameIndex = (short)nameIndex,
+		Name = name,
+		BayId = -1,
+		Active = 0,
+		Skill = PilotSkill.GetById((short)skill),
+		CrewRowNum = -1,
+		Rank = PilotRank.GetById((short)rank),
+		ProbablyHealth = 100,
+	};
+
+	/// <summary>The squad block's shape: three squads of twelve pilot records.</summary>
+	internal const int SquadCount = 3;
+	internal const int PilotsPerSquad = 12;
+
+	/// <summary>
+	/// <c>Player_Create</c>'s name-index draw and <c>Game_NewCareer</c>'s salvage draw, both below 11 —
+	/// the pool is <c>draw * 1000 + 100000</c> kilograms.
+	/// </summary>
+	internal const short PlayerNameIndexCount = 11;
+	internal const short SalvageDrawCount = 11;
+
+	/// <summary>The rank a roster pilot starts at for each skill, <c>0046f5f4</c> through <c>FUN_0040fa21</c>.</summary>
+	private static readonly int[] RankForSkill = { 0, 1, 2, 2 };
 
 	/// <summary>
 	/// <c>Util_Shuffle</c> (<c>0040f95c</c>): each value in turn goes into the empty slot a draw counts to.

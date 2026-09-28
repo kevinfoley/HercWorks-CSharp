@@ -85,11 +85,9 @@ public sealed class ShellSaveScreen {
 
 	/// <summary>
 	/// A sixth panel the builder constructs over the summary panel's top two thirds,
-	/// <c>{0x74, 0xcc, 0x15b, 0x136}</c>, with no children of its own — an empty box where the summary
-	/// would be. It is not painted here, and that is the original's arrangement rather than a guess:
-	/// the entry routine calls <c>Widget_ShowRecursive</c> (<c>0041f2e6</c>) on the summary panel and <c>Widget_HideRecursive</c> (<c>0041f469</c>) on this
-	/// one, which are the show and the hide respectively (docs/shell/screen-layout.md, "Showing and
-	/// hiding a widget"), so the summary is what tab 1 puts in front.
+	/// <c>{0x74, 0xcc, 0x15b, 0x136}</c>, which <c>FUN_0043b260</c> fills with a second registration panel
+	/// (docs/shell/screen-layout.md#the-second-registration-panel). It is not painted here: the entry routine
+	/// shows the summary panel and hides this one, and what shows it is open.
 	/// </summary>
 	public static readonly ShellRect StubPanelRect = new(0x74, 0xcc, 0x15b, 0x136);
 

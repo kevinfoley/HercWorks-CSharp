@@ -294,7 +294,7 @@ What the handlers call, as read:
 | Button | Calls |
 |---|---|
 | `INSTANT ACTION` | `DAT_0047363c = 1`, `FUN_0040e69e(0)`, `InstantAction_SelectDemo` (`0044befb`, [below](#which-mission-a-row-is)), the screen blanked full screen or the palette scope shown and hidden in a window, `Game_NewCareer("TRAINEE", option 0x27)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
-| `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a`, which shows the registration screen's three widgets (`DAT_0048d494`, `DAT_0048d498`, `DAT_0048d49c`), posts a press to its name field and locks the pointer on it. Its `ACCEPT` (`0043bf1b`) calls `Game_NewCareer` with the typed name and the skill `0043bd15` steps modulo 4, then `Stats_StageCurrentGame(10)` |
+| `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `Registration_Show` — [the registration screen](#the-registration-screen) |
 | `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, [the END OF GAME alert](#end-of-game) otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
 | `ONLINE MANUAL` | `004317ea`: out of full screen, option 6 set to 0, committed and all 54 saved, `ShellSound_Stop`, then `WinHelpA(window, path, HELP_CONTENTS, 0)` (`FUN_004073a2`) on `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
@@ -337,6 +337,49 @@ PostQuitMessage(0)
 ```
 
 The startup (`FUN_00406507`) pumps messages until the `WM_QUIT` arrives, releases DirectDraw (`FUN_00407011`) and returns `0046e210` as the shell's exit code. `FUN_00401525` zeroed that store right after copying the `-X` code out of it, and `QUIT` leaves it alone, so the shell exits with 0 and `ES.EXE` ends ([`../command-line.md`](../command-line.md#exit-codes)).
+
+## The registration screen
+
+What `START NEW GAME` opens: a pilot name and a skill for a new campaign career. Built once at startup by `Registration_BuildScreen` (`0043b69e`), put up by `Registration_Show` (`0043bc0a`) and hidden by `Registration_Hide` (`0043bcb9`). Like the main menu it stands alone over a backdrop-textured root of its own, with the strip hidden, and is left through its own `CANCEL` and `ACCEPT`. Rects are parent-relative.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| root | image panel | the top-level window's own rect | the shared backdrop; `+0x51 = 0` |
+| content panel | `TitledPanel` | `{0xce, 0xc6, 0x1b2, 0x144}` | `0x30` `REGISTRATION`, header 19 tall, plate `0x3f`-`0xa6`, border `0x27`, face `0x25`, dithered body in `0x10` |
+| box | `FramedPanel` | `{3, 0x17, 0xe1, 0x5e}` | border `0x15`, face `0x25` |
+| prompt | `Text` | `{7, 6, 0xd7, 0xf}` in the box | `0x31` `ENTER NEW PILOT NAME`, centred, `0x29` |
+| name box | `Button` | `{7, 0x14, 0xd7, 0x26}` in the box | a single space (`00476167`), border `0x22`, disabled |
+| name field | edit field | `{1, 1, W - 1, H - 1}` in the name box | the name, in `0x29`; handler `Registration_OnNameEvent` (`0043bdee`) |
+| skill readout | `Button` | `{0x72, 0x2b, 0xd8, 0x3d}` in the box | `0x35 + skill`, border `0x13`, disabled, caption opaque in `0x17` |
+| `SKILL LEVEL` | `Button` | `{7, 0x2c, 0x69, 0x3b}` in the box | `0x32`, border `0x22`; `Registration_StepSkill` (`0043c01d`) |
+| `CANCEL` | `Button` | `{10, 0x66, 0x6c, 0x75}` | `0x33`, border `0x22`; `Registration_OnCancel` (`0043c098`) |
+| `ACCEPT` | `Button` | `{0x76, 0x66, 0xd8, 0x75}` | `0x34`, border `0x22`, caption `0x26`, disabled; `Registration_OnAccept` (`0043c0fb`) |
+
+`W` and `H` are the name box's own width and height, so the field lies one pixel inside it, over the inner of [a button's two borders](#how-a-widget-paints): the name box shows its outer border alone around the field's `0x10` fill.
+
+**The field takes keys from the start.** The builder writes its permitted-character set, `00476169` — the digits, both alphabets and the space — and leaves `EditField_Ctor`'s `+0xbf` and `+0xb3` set and `+0xb7` at 0, where [the save rows](#the-save-screen) clear the first two and raise the third. So it types as [a save row being renamed does](#typing-into-a-row), letters upper-cased, and erases down to empty. `Registration_Show` shows the three widgets and then does what `SAVE` does to a row: posts a left press at the field, moves the pointer onto it and locks it there, so the field has the focus and its caret blinks as the screen comes up. A press elsewhere ends that as it does on the save screen, and the field takes no key until it is clicked again.
+
+**Nothing clears the name or the skill.** The field starts empty, and neither the show nor either button writes it, so a second `START NEW GAME` comes back to the name typed last. The skill is `RegistrationSkillChoice` (`004761ac`), 0 in the image.
+
+**`ACCEPT` is live once the name has a character.** `Registration_OnNameEvent` runs on every event the field takes, and on a character or a command writes [the greying trio](#the-condition-readout) at `ACCEPT` from the field's first character: greyed while it is empty, lit once it is not. The builder greys the caption and clears the enable flag but leaves the border at `0x22`, so until the first key `ACCEPT` is a live border round a grey caption.
+
+`SKILL LEVEL` steps the skill modulo 4 on either button's release and rewrites the readout: `ROOKIE`, `REGULAR`, `VETERAN`, `ELITE`. `CANCEL` is `Registration_Hide` then `MainMenu_Show`, and leaves the mode at the campaign's.
+
+### Starting a campaign
+
+`ACCEPT` is:
+
+```
+LoadHercInfDat()                        // 0041181c: gam\herc_inf.dat again, the chassis flags back to the file's
+Registration_Hide()
+DAT_004778aa = 0                        // the campaign map's once-per-load flag
+Game_NewCareer(name, RegistrationSkillChoice)
+MissionScreenView = (CampaignMissionInStage != 0)
+```
+
+`Game_NewCareer` in a campaign builds the roster, the player and the starting hangar ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed)), and its position step, `Career_SeedPosition` (`00412a2f`), puts the career on stage 1 mission 0 and posts the mission-name dialog's `Use Default` click as [a practice mission's](#starting-a-practice-mission) does. The last line therefore writes 0, the map view, before the click is delivered. That click runs [the campaign branch](campaign-loop.md#loading-the-careers-mission) of `Career_LoadCurrentMission`, which ends by putting the frame up (`0043b162(8)` and the strip refresh) and calling `Mission_ShowView(0, 1)`: the mission tab comes up in [the map view](#the-three-views) on stage 1, and the left press the second argument posts at `MISSION` lights it and makes the press sound, its handler finding tab 7 already current.
+
+**`ACCEPT` writes no save.** The career's first write to slot 10 is the next autosave: the `MAIN MENU` tab's, or [the main loop's exit](#quit), which `Rock & Roll` reaches.
 
 ## The practice missions screen
 
@@ -505,6 +548,7 @@ Tab 1, `SAVED GAMES`. Built by `SaveScreen_BuildScreen` (004385b0), entered by `
 | `RESTORE` | `Button` | `{9, 0xfb, 0x6b, 0x10a}` | `0x1e` |
 | `EXIT` | `Button` | `{9, 0x111, 0x6b, 0x120}` | `0x1f` |
 | detail panel | `FramedPanel` | `{0x74, 0xcc, 0x15b, 0x150}` | 22 `Text` children |
+| registration panel | `FramedPanel` | `{0x74, 0xcc, 0x15b, 0x136}` | `DAT_0048d418`, a second registration panel, [below](#the-second-registration-panel) |
 
 The panel is centred on x=320 rather than on the canvas's own inclusive midpoint, so its left margin is 142 and its right 141. The builder overwrites three class defaults on it: `+0x59` to 0 for the dithered body, `+0x5d` to `0x10`, and `+0x55` on all three framed panels to `0x10` — which flattens their checkerboard, since it then dithers the interior colour over itself.
 
@@ -583,6 +627,10 @@ DAT_004778aa = 0
 The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` are drawn in that order from `0x2c`, `0x2e`, `0x2d`.
 
 **The sector run starts at stage 1.** `0x76` is `Razor`, a chassis name; the five sector words `Alpha`, `Delta`, `Omicron`, `Bravo`, `Luna` start at `0x77`. Stage 0 holds the practice missions and the demos, and the campaign's chapters are stages 1-5 ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)), so the first chapter lands on the first sector word.
+
+### The second registration panel
+
+`FUN_0043b260`, which the startup runs just before `Registration_BuildScreen`, fills `DAT_0048d418` with a copy of [the registration screen](#the-registration-screen)'s content in the detail panel's place: a `FramedPanel` at `{7, 6, 0xe1, 0x4b}` (`DAT_0048d470`) holding the prompt, a name box and its field, a skill readout (a `Text`, not a `Button`) and a `SKILL LEVEL` row (`SaveRegistration_StepSkill`, `0043bd15`), with `CANCEL` (`0043bd90`) and `ACCEPT` (`SaveRegistration_OnAccept`, `0043bf1b`) on `DAT_0048d418` itself. `ACCEPT` runs `Game_NewCareer` with the typed name and the shared `RegistrationSkillChoice`, then `Stats_StageCurrentGame(10)`, then `FUN_0043b679` — which hides both panels and shows the detail panel again — and lights `SAVE`. Its `ACCEPT` is never greyed, and it does not reload `gam\herc_inf.dat`. `SaveScreen_Enter` and the teardown both hide `DAT_0048d418`; what shows it is [Open](#open).
 
 ## The weapons screen
 
@@ -1282,6 +1330,8 @@ That last function also installs the theater palette directly, as `Shell_Install
 | The shell draws its mouse pointer from `dba\cursor.dba` | The bank sits in `SHELL0.VOL` with the shell's own art, and the Dynamix library has a `GLCursor` type to draw one with. `VSHELL.EXE` never names the bank; the pointer is the Windows arrow, with the hourglass while a save or a movie loads ([The pointer](#the-pointer)) |
 | The save stores the campaign stage from zero and the shell counts it from one | Every per-stage table is reached one past the first entry a zero-based stage would need — `0x76 + stage` for the sector name lands on `Razor` at stage 0, and the briefing palettes start at `stage + 4` — which reads as a zero-based value shifted at runtime. The campaign's stages are 1-5 in `gam\career.dat` itself, stage 0 holding the practice missions, and the tables are indexed by the number the save holds: retail draws the briefing of a save at stage 3 through `br_w3` ([The palette](#the-palette)) |
 
+| `START NEW GAME`'s `ACCEPT` is `0043bf1b` and its `SKILL LEVEL` `0043bd15` | Both handle a registration panel — one calls `Game_NewCareer` with a typed name, the other steps `RegistrationSkillChoice` — and they sit beside `Registration_Show`. They belong to `FUN_0043b260`'s [second panel](#the-second-registration-panel) in the save screen, whose widgets `Registration_Show` never touches; the screen it shows is `Registration_BuildScreen`'s, with `0043c01d` and `0043c0fb` ([The registration screen](#the-registration-screen)) |
+
 ## Open
 
 - **Unported:** what [the movie queue](#the-shells-movies) does for a movie that will not open: the intro's `Please insert ESII CD and restart` and the insert-CD panel.
@@ -1298,7 +1348,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** which of the mission screen's report texts shows which figure. `FUN_0040f34c`, which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes ten of them.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
-- **Unported:** two of [the main menu](#the-main-menu)'s buttons: `START NEW GAME`, whose `ACCEPT` starts a campaign career on stage 1's first mission, and `ONLINE MANUAL`'s `WinHelpA` call.
-- **Open:** the registration screen `START NEW GAME` opens — which function builds its widgets, and their layout.
+- **Unported:** [the main menu](#the-main-menu)'s `ONLINE MANUAL`, a `WinHelpA` call.
+- **Open:** what shows [the second registration panel](#the-second-registration-panel). A search of the disassembly for `DAT_0048d418` and `DAT_0048d470` as absolute operands finds their builders and three hides — `SaveScreen_Enter`, the teardown and `FUN_0043b679` — and no show; the dead rect `{9, 0xcf, 0x6b, 0xde}` that `SaveScreen_BuildScreen` writes just before `SAVE`'s may be where a button that showed it stood.
 - **Unported:** the startup's `Performance Note` box ([The main menu](#the-main-menu)).
 - **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.

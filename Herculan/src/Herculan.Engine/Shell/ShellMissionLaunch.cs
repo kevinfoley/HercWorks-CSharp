@@ -152,28 +152,26 @@ public static class ShellMissionLaunch {
 	}
 
 	/// <summary>
-	/// Writes the handoff the simulator loads into <paramref name="directory"/>: the loaded slot's own
-	/// <c>script%d.dat</c> and <c>missn%d.str</c>, which <c>Career_LoadSlot</c> copies into <c>data\</c>
-	/// when the slot is loaded; <c>mission.var</c>, the 2000-byte campaign flag array
+	/// Writes the handoff the simulator loads into <paramref name="directory"/>: the working
+	/// <c>script.dat</c> and <c>mission.str</c> (<see cref="ShellWorkingFiles"/>), which a slot's load or the
+	/// career's mission load put in <c>data\</c>; <c>mission.var</c>, the 2000-byte campaign flag array
 	/// <c>MissionVar_Write</c> (<c>0040e9cb</c>) writes; and <c>player.mec</c> from the hangar as the
-	/// screens have left it. Returns the path of the <c>script.dat</c> written, or null when the slot has
-	/// no mission file to copy.
+	/// screens have left it. Returns the path of the <c>script.dat</c> written, or null when there is no
+	/// mission file to copy.
 	/// </summary>
-	public static string? WriteHandoff(string directory, string installRoot, int slot, PlayerSave save, ShellHangar hangar) {
-		string saves = ShellSaveSlots.Directory(installRoot);
-		string script = Path.Combine(saves, ShellSaveSlots.ScriptFile(slot));
-		if (!File.Exists(script)) {
+	public static string? WriteHandoff(string directory, ShellWorkingFiles working, PlayerSave save, ShellHangar hangar) {
+		if (working.Script is not { } script || !File.Exists(script)) {
 			return null;
 		}
 
 		Directory.CreateDirectory(directory);
 		string scriptPath = Path.Combine(directory, MissionLoader.ScriptFileName);
-		File.Copy(script, scriptPath, overwrite: true);
+		CopyUnlessSame(script, scriptPath);
 
-		string text = Path.Combine(saves, ShellSaveSlots.TextFile(slot));
+		string? text = working.Text;
 		string textPath = Path.Combine(directory, MissionLoader.TextFileName);
 		if (File.Exists(text)) {
-			File.Copy(text, textPath, overwrite: true);
+			CopyUnlessSame(text, textPath);
 		} else if (File.Exists(textPath)) {
 			File.Delete(textPath);
 		}
@@ -189,6 +187,12 @@ public static class ShellMissionLaunch {
 
 		File.WriteAllBytes(Path.Combine(directory, MissionLoader.PlayerFileName), ExportPlayerMec(hangar));
 		return scriptPath;
+	}
+
+	private static void CopyUnlessSame(string from, string to) {
+		if (!string.Equals(Path.GetFullPath(from), Path.GetFullPath(to), StringComparison.OrdinalIgnoreCase)) {
+			File.Copy(from, to, overwrite: true);
+		}
 	}
 
 	/// <summary>The flag array's file, <c>data\mission.var</c>.</summary>

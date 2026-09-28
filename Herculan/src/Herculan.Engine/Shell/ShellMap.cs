@@ -127,24 +127,23 @@ public sealed class ShellMap {
 	public int PanStep { get; private set; } = PanStepFor(StartAltitude);
 
 	/// <summary>
-	/// Builds the map for the mission a loaded slot holds: its <c>script%d.dat</c>, <c>missn%d.str</c> and
-	/// <c>player%d.mec</c>, which <c>Career_LoadSlot</c> copies to the <c>data\</c> files the original reads;
-	/// <c>data\mforms.dat</c>; and the zone's <c>dat\zone%d.dat</c> and <c>dba\zone%d.dba</c>. Null when the
-	/// slot has no mission file.
+	/// Builds the map for the career's mission from the working <c>script.dat</c>, <c>mission.str</c> and
+	/// <c>player.mec</c> (<see cref="ShellWorkingFiles"/>), the <c>data\</c> files the original reads;
+	/// <c>data\mforms.dat</c>; and the zone's <c>dat\zone%d.dat</c> and <c>dba\zone%d.dba</c>. Null when
+	/// there is no mission file.
 	/// </summary>
-	public static ShellMap? Load(string installRoot, int slot, GameContent content) {
-		string saves = ShellSaveSlots.Directory(installRoot);
-		string scriptPath = Path.Combine(saves, ShellSaveSlots.ScriptFile(slot));
+	public static ShellMap? Load(string installRoot, ShellWorkingFiles working, GameContent content) {
+		string? scriptPath = working.Script;
 		if (!File.Exists(scriptPath) || new ScriptDatTransformer().Parse(File.ReadAllBytes(scriptPath)) is not { } script) {
 			return null;
 		}
 
-		string textPath = Path.Combine(saves, ShellSaveSlots.TextFile(slot));
+		string? textPath = working.Text;
 		int textCount = File.Exists(textPath) && SimStringTable.Parse(File.ReadAllBytes(textPath)) is { GroupCount: > 0 } text
 			? text.Group(0).Count : 0;
 
 		// ShellMap_ReadSquadHeader reads data\player.mec's second short, the squad size.
-		string mecPath = Path.Combine(saves, ShellSaveSlots.PlayerFile(slot));
+		string? mecPath = working.Player;
 		byte[] mec = File.Exists(mecPath) ? File.ReadAllBytes(mecPath) : Array.Empty<byte>();
 		int squadCount = mec.Length >= 4 ? BitConverter.ToInt16(mec, 2) : 0;
 

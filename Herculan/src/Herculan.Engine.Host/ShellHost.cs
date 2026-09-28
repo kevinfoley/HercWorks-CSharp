@@ -53,6 +53,13 @@ static class ShellHost {
 	private static string HandoffDirectory => Path.Combine(Path.GetTempPath(), "herculan-launch");
 
 	/// <summary>
+	/// Where a new career's mission load writes the three working files the original writes into the
+	/// install's <c>data</c> folder (<see cref="ShellWorkingFiles"/>). A scratch folder for the same reason
+	/// as <see cref="HandoffDirectory"/>, which is this engine's choice.
+	/// </summary>
+	private static string CareerDirectory => Path.Combine(Path.GetTempPath(), "herculan-career");
+
+	/// <summary>
 	/// Runs the front end until its window closes. Returns the exit code and, when <c>Rock &amp; Roll &gt;</c>,
 	/// <c>Begin Mission</c> or <c>INSTANT ACTION</c> closed it, the mission to run — <c>FUN_0040876a(2)</c>,
 	/// the code the retail launcher answers by starting the simulator. <c>VIEW DEMO</c> closes it with
@@ -131,7 +138,7 @@ static class ShellHost {
 
 		// The mission tab's briefing, objectives and intelligence report, assembled from the loaded slot's
 		// career block and its own missn%d.str, and the screen that shows them, built once and kept.
-		var missionTexts = ShellMissionTexts.Load(installRoot, loadedSlot, loadedGame);
+		var missionTexts = ShellMissionTexts.Load(workingFiles, loadedGame);
 		var missionScreen = new ShellMissionScreen(ShellMissionArt.Load(content));
 		var missionViewUp = ShellMissionView.Map;
 
@@ -199,6 +206,11 @@ static class ShellHost {
 		// it is up, as the practice screen does, and is built on first use and kept.
 		ShellPreferencesScreen? preferencesScreen = null;
 		bool preferencesUp = false;
+
+		// The registration screen START NEW GAME opens, built once at startup as the original's is, so the name
+		// and the skill it holds survive a CANCEL. It stands in for the main menu while it is up.
+		var registration = new ShellRegistrationScreen();
+		bool registrationUp = false;
 
 		// VSHELL's one generator, seeded once at startup, and the row-2 flag clear list, which the
 		// original keeps from one mission load to the next.
@@ -278,7 +290,8 @@ static class ShellHost {
 			+ "sequence; a click, Esc or Space skips a movie. On it, "
 			+ "INSTANT ACTION flies the next of the three demo missions, CONTINUE GAME loads the current game and "
 			+ "puts the tab strip up (or says why that game is over), VIEW DEMO plays a demo tape, CREDITS plays the "
-			+ "credits, and START NEW GAME and ONLINE MANUAL do nothing yet. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
+			+ "credits, START NEW GAME asks for a pilot name and a skill and ACCEPT starts a campaign on the mission tab's "
+			+ "map, and ONLINE MANUAL does nothing yet. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
 			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
 			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. PREFERENCES shows the "
 			+ "preferences screen: click a checkbox to set it, Accept to keep and save the settings or Cancel to put "
@@ -658,6 +671,7 @@ static class ShellHost {
 			return screen.SelectedTab switch {
 				ShellScreen.MainMenuTab when practiceUp => practiceScreen!.HitAt(canvasX, canvasY),
 				ShellScreen.MainMenuTab when preferencesUp => preferencesScreen!.HitAt(canvasX, canvasY),
+				ShellScreen.MainMenuTab when registrationUp => registration.HitAt(canvasX, canvasY),
 				ShellScreen.MainMenuTab => mainMenu.HitAt(canvasX, canvasY),
 				ShellScreen.SaveTab => saveScreen.HitAt(canvasX, canvasY),
 				ShellScreen.RepairTab => ShellSquadPanel.HitAt(canvasX, canvasY)
@@ -764,16 +778,26 @@ static class ShellHost {
 					endOfGame.Close();
 					RepaintContent();
 					break;
+				case ShellWidgetKind.RegistrationField:
+					// Registration_OnNameEvent (0043bdee) acts on keys alone, which WidgetKey delivers; a press
+					// only gives the field the focus.
+					RepaintContent();
+					break;
+				case ShellWidgetKind.RegistrationButton:
+					ClickRegistration((ShellRegistrationButton)widget.Index);
+					break;
 				default:
 					ClickCrew(widget);
 					break;
 			}
 		}
 
-		// A main-menu button's handler. START NEW GAME and ONLINE MANUAL are not ported: the first needs the
-		// campaign half of the mission load, the second WinHelp.
+		// A main-menu button's handler. ONLINE MANUAL is not ported: it needs WinHelp.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
 			switch (button) {
+				case ShellMainMenuButton.StartNewGame:
+					StartNewGame();
+					break;
 				case ShellMainMenuButton.Credits:
 					Credits();
 					break;
@@ -845,6 +869,90 @@ static class ShellHost {
 			Console.WriteLine($"End of game (state {loadedGame.GameState}): "
 				+ $"{art.Text?.Text(endOfGame.FirstLineText) ?? string.Empty} OKAY takes the alert down.");
 			RepaintContent();
+		}
+
+		// START NEW GAME, MainMenu_OnStartNewGame (00431379): MainMenu_Hide, the mode to 1 (FUN_0040e69e), then
+		// Registration_Show (0043bc0a) — the screen up and a left press posted at its name field with the pointer
+		// locked on it, as SAVE takes a save row, so keys reach the field at once.
+		void StartNewGame() {
+			SetMode(ShellCampaignMode.Campaign);
+			registrationUp = true;
+			pointer.Grab(ShellRegistrationScreen.FieldHit, Fire);
+			Console.WriteLine("Start New Game — type a pilot name, SKILL LEVEL to pick the skill, then ACCEPT, or CANCEL.");
+			RepaintContent();
+		}
+
+		// SKILL LEVEL (0043c01d) steps the skill; CANCEL (0043c098) is Registration_Hide then MainMenu_Show;
+		// ACCEPT (0043c0fb) starts the career.
+		void ClickRegistration(ShellRegistrationButton button) {
+			switch (button) {
+				case ShellRegistrationButton.SkillLevel:
+					registration.StepSkill();
+					Console.WriteLine($"Skill: {art.Text?.Text(0x35 + registration.Skill) ?? registration.Skill.ToString()}.");
+					break;
+				case ShellRegistrationButton.Cancel:
+					registrationUp = false;
+					Console.WriteLine("Cancel — main menu.");
+					break;
+				default:
+					StartCampaign();
+					return;
+			}
+
+			RepaintContent();
+		}
+
+		// ACCEPT, Registration_OnAccept (0043c0fb): gam\herc_inf.dat reloaded, the screen hidden, the campaign
+		// map's once-per-load flag (DAT_004778aa, missionMapShown) cleared, Game_NewCareer(name, skill) in
+		// campaign mode, and MissionScreenView from the position — the map, on stage 1 mission 0. The career's
+		// position step posts the developer's mission-name dialog's Use Default click, which the original
+		// delivers once the handler has returned and which runs Career_LoadCurrentMission; this goes straight
+		// there, as LaunchTraining does. Its campaign end rebuilds the map and the texts (here on the adopt),
+		// stages slot 10's summary, which no save row shows, puts the frame up with the strip regated, and
+		// calls Mission_ShowView(MissionScreenView, 1). Nothing is saved: slot 10 is first written by the next
+		// autosave.
+		void StartCampaign() {
+			registrationUp = false;
+			missionMapShown = false;
+
+			// Block 11 is whatever the last game loaded left in memory; nothing loaded, it is the startup's zeros.
+			const int heldOffset = HercWorks.Core.Data.File.Sav.PlayerSave.CampaignFlagCount * 2 + 2;
+			byte[]? held = gameInProgress && loadedGame?.UnknownSaveValues is { } tail
+				&& tail.Length >= heldOffset + ShellCampaignLaunch.HeldBlockLength
+				? tail[heldOffset..(heldOffset + ShellCampaignLaunch.HeldBlockLength)] : null;
+
+			int Roll(short bound) => shellRandom.NextBelow(bound);
+			if (ShellCampaignLaunch.NewCareer(content, registration.Name, registration.Skill, Roll, held, out string? failure)
+					is not { } game) {
+				Console.WriteLine($"Accept: {failure} No career started; main menu.");
+				RepaintContent();
+				return;
+			}
+
+			var careerHangar = ShellHangar.From(game);
+			if (ShellCampaignLaunch.LoadCareerMission(CareerDirectory, content, game, careerHangar, clearList, Roll, out failure)
+					is not { } mission) {
+				Console.WriteLine($"Accept: {failure} No career started; main menu.");
+				RepaintContent();
+				return;
+			}
+
+			AdoptGame(game, careerHangar, ShellWorkingFiles.In(CareerDirectory));
+			Console.WriteLine($"New campaign for {registration.Name}, skill {registration.Skill}: {mission.MissionPath}, "
+				+ $"{mission.SquadPositions} squad position(s), {game.SalvageTotal} kg salvage; working files in {CareerDirectory}.");
+			screen.ReturnToFrame(mode);
+			ShowMissionView();
+		}
+
+		// Mission_ShowView(MissionScreenView, 1) (0043a857): the mission tab put up in its view, with no tab
+		// click, and then the left press it posts at MISSION, which lights the tab and makes the press sound —
+		// its handler finds tab 7 already current and does nothing more.
+		void ShowMissionView() {
+			screen.SelectTab(ShellScreen.MissionTab);
+			SwitchPalette(ShellScreen.MissionTab);
+			EnterTab(ShellScreen.MissionTab);
+			RepaintContent();
+			sound?.PlayPress();
 		}
 
 		// VIEW DEMO, 0043156f: the screen blanked, full screen only, then exit code 5 and the loop's end. The
@@ -1289,21 +1397,7 @@ static class ShellHost {
 				return false;
 			}
 
-			hangar = ShellHangar.From(restored);
-			loadedSlot = slot;
-			loadedGame = restored;
-			workingFiles = ShellWorkingFiles.ForSlot(installRoot, slot);
-			gameInProgress = true;
-			missionMap = null;
-			briefingMovieQueued = false;
-			missionTexts = ShellMissionTexts.Load(installRoot, slot, restored);
-			campaignStage = restored.CampaignStage;
-			missionInStage = restored.MissionInStage;
-			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
-				QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
-				RepairMode = shellOptions[RepairOption],
-			};
-			saveScreen.CanSave = true;
+			AdoptGame(restored, ShellHangar.From(restored), ShellWorkingFiles.ForSlot(installRoot, slot));
 			Console.WriteLine($"Loaded {entry.FileName}: "
 				+ (ShellSaveSummary.From(restored) is { } summary
 					? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}."
@@ -1314,14 +1408,36 @@ static class ShellHost {
 			return true;
 		}
 
+		// The game in progress from here on, from a load or a new career — DAT_0048260a set, the briefing's movie
+		// to play again (DAT_004778ab cleared), and the mission map rebuilt on the briefing's next visit.
+		void AdoptGame(HercWorks.Core.Data.File.Sav.PlayerSave game, ShellHangar gameHangar, ShellWorkingFiles files) {
+			hangar = gameHangar;
+			loadedGame = game;
+			workingFiles = files;
+			gameInProgress = true;
+			missionMap = null;
+			briefingMovieQueued = false;
+			missionTexts = ShellMissionTexts.Load(files, game);
+			campaignStage = game.CampaignStage;
+			missionInStage = game.MissionInStage;
+			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
+				QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
+				RepairMode = shellOptions[RepairOption],
+			};
+			saveScreen.CanSave = true;
+		}
+
 		// A keystroke, delivered as VSHELL's queue delivers one: to the pointer's target, which on the save
 		// screen may be one of its rows (EditField_HandleEvent, 0040beaf). The row takes a character or a
 		// command, Enter releases the pointer, and whatever the key, the row's handler then runs, which
-		// selects it. Nothing else ported here takes a key. A fade or the movie queue drops keys as it drops
+		// selects it. The registration screen's name field takes keys the same way, its handler regating
+		// ACCEPT. Nothing else ported here takes a key. A fade or the movie queue drops keys as it drops
 		// clicks.
 		void WidgetKey(Key key, bool released) {
-			if (keyboard == null || sound?.Fading == true || movies?.Active == true || screen.SelectedTab != ShellScreen.SaveTab
-					|| pointer.Target?.Widget is not { Kind: ShellWidgetKind.SaveRow } row
+			if (keyboard == null || sound?.Fading == true || movies?.Active == true
+					|| pointer.Target?.Widget is not { } row
+					|| !(row.Kind == ShellWidgetKind.SaveRow && screen.SelectedTab == ShellScreen.SaveTab
+						|| row.Kind == ShellWidgetKind.RegistrationField && registrationUp)
 					|| ShellKeyboard.Index(key) is not { } index) {
 				return;
 			}
@@ -1334,8 +1450,10 @@ static class ShellHost {
 			}
 
 			bool focused = pointer.Focused == row;
-			bool changed = saveScreen.Key(row.Index, shellKey, focused, art.Sprites?.Font(ShellArt.ScreenFont));
-			if (shellKey.Command == ShellKey.Enter && focused && saveScreen.CaretEnabled(row.Index)) {
+			bool nameField = row.Kind == ShellWidgetKind.RegistrationField;
+			var font = art.Sprites?.Font(ShellArt.ScreenFont);
+			bool changed = nameField ? registration.Key(shellKey, focused, font) : saveScreen.Key(row.Index, shellKey, focused, font);
+			if (shellKey.Command == ShellKey.Enter && focused && (nameField || saveScreen.CaretEnabled(row.Index))) {
 				pointer.ReleaseFocus();
 				changed = true;
 			}
@@ -1355,20 +1473,26 @@ static class ShellHost {
 			if (focused != caretField) {
 				caretField = focused;
 				caretClock = now;
-				if (screen.SelectedTab == ShellScreen.SaveTab) {
+				if (screen.SelectedTab == ShellScreen.SaveTab || registrationUp) {
 					RepaintContent();
 				}
 
 				return;
 			}
 
-			if (focused is not { Kind: ShellWidgetKind.SaveRow } row || screen.SelectedTab != ShellScreen.SaveTab
-					|| now - caretClock < ShellSaveScreen.CaretBlinkMilliseconds) {
+			if (now - caretClock < ShellSaveScreen.CaretBlinkMilliseconds) {
+				return;
+			}
+
+			if (focused is { Kind: ShellWidgetKind.SaveRow } row && screen.SelectedTab == ShellScreen.SaveTab) {
+				saveScreen.CaretTick(row.Index);
+			} else if (focused is { Kind: ShellWidgetKind.RegistrationField } && registrationUp) {
+				registration.CaretTick();
+			} else {
 				return;
 			}
 
 			caretClock += ShellSaveScreen.CaretBlinkMilliseconds;
-			saveScreen.CaretTick(row.Index);
 			RepaintContent();
 		}
 
@@ -1757,7 +1881,7 @@ static class ShellHost {
 			}
 
 			missionScreen.EnterBriefing(missionTexts, art.Sprites?.Font(ShellArt.ScreenFont));
-			missionMap ??= loadedSlot >= 0 ? ShellMap.Load(installRoot, loadedSlot, content) : null;
+			missionMap ??= loadedGame != null ? ShellMap.Load(installRoot, workingFiles, content) : null;
 			if (!briefingMovieQueued && loadedGame != null) {
 				movieQueue.Enqueue(loadedGame.BriefingMovie, ShellMovieQueue.TelecommRect,
 					ShellPalette.FirstBriefing - 1 + campaignStage);
@@ -1771,7 +1895,7 @@ static class ShellHost {
 				intro.Advance(MapClock());
 			}
 			Console.WriteLine(missionMap == null
-				? $"Mission map: slot {loadedSlot} has no script{loadedSlot}.dat — the panel stays black."
+				? $"Mission map: no working script.dat ({workingFiles.Script}) — the panel stays black."
 				: $"Mission map: bounds {missionMap.MinX},{missionMap.MinY} - {missionMap.MaxX},{missionMap.MaxY}, "
 				  + $"altitude {missionMap.FullView.Z}"
 				  + (missionMap.IntroRunning ? "; its intro runs now — click, Esc or Space to skip it." : "."));
@@ -1829,9 +1953,9 @@ static class ShellHost {
 			}
 
 			string? scriptPath = loadedGame == null ? null
-				: ShellMissionLaunch.WriteHandoff(HandoffDirectory, installRoot, loadedSlot, loadedGame, hangar);
+				: ShellMissionLaunch.WriteHandoff(HandoffDirectory, workingFiles, loadedGame, hangar);
 			if (scriptPath == null) {
-				Console.WriteLine($"Rock & Roll: slot {loadedSlot} has no script{loadedSlot}.dat to launch.");
+				Console.WriteLine($"Rock & Roll: no working script.dat ({workingFiles.Script}) to launch.");
 				return;
 			}
 
@@ -1896,6 +2020,10 @@ static class ShellHost {
 					break;
 				case ShellScreen.MainMenuTab when preferencesUp:
 					preferencesScreen!.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				case ShellScreen.MainMenuTab when registrationUp:
+					registration.Paint(contentSurface, art.Text, art.Sprites,
+						focused: pointer.Focused is { Kind: ShellWidgetKind.RegistrationField });
 					break;
 				case ShellScreen.MainMenuTab:
 					mainMenu.Paint(contentSurface, art.Text, art.Sprites);

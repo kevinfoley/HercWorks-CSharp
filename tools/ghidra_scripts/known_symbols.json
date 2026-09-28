@@ -19697,26 +19697,89 @@
       "type": "function",
       "confidence": "high",
       "name": "Registration_Show",
-      "description": "START NEW GAME's screen: shows DAT_0048d494, DAT_0048d498 and DAT_0048d49c, posts a press to the name field DAT_0048d4a8 and locks the pointer on it.",
-      "source": "docs/shell/screen-layout.md#the-main-menu"
+      "description": "START NEW GAME's screen up: shows DAT_0048d494, DAT_0048d498 and DAT_0048d49c (Registration_BuildScreen's root, panel and box), posts a left press at the name field DAT_0048d4a8, sets the pointer's target to it (Pointer_SetTarget) and locks it.",
+      "source": "docs/shell/screen-layout.md#the-registration-screen"
+    },
+    {
+      "address": "0043b69e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_BuildScreen",
+      "description": "Builds the registration screen once at startup (FUN_004012b0 at 004012f7): the backdrop root DAT_0048d494, the TitledPanel DAT_0048d498 {0xce,0xc6,0x1b2,0x144} (REGISTRATION), the FramedPanel DAT_0048d49c, the prompt, the disabled name box DAT_0048d4a4 and its edit field DAT_0048d4a8 (set 00476169, handler 0043bdee), the skill readout DAT_0048d4ac, SKILL LEVEL (0043c01d), CANCEL (0043c098) and ACCEPT DAT_0048d4b8 (0043c0fb), built greyed. Verified: estext 0x30-0x34 captions, and the three widgets Registration_Show and Registration_Hide name.",
+      "source": "docs/shell/screen-layout.md#the-registration-screen"
+    },
+    {
+      "address": "0043bcb9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_Hide",
+      "description": "Hides the registration screen's root, panel and box (DAT_0048d494, DAT_0048d498, DAT_0048d49c). Called by CANCEL (0043c098) and ACCEPT (0043c0fb).",
+      "source": "docs/shell/screen-layout.md#the-registration-screen"
+    },
+    {
+      "address": "0043bdee",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_OnNameEvent",
+      "description": "The registration name field's handler (+0x3d, written by Registration_BuildScreen): on an event 0x40 (character) or 0x100 (command) writes the greying trio at ACCEPT (DAT_0048d4b8) from the field's first character -- 0x26/0x26/disabled while empty, 0x29/0x22/enabled otherwise.",
+      "source": "docs/shell/screen-layout.md#the-registration-screen"
+    },
+    {
+      "address": "0043c01d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_StepSkill",
+      "description": "SKILL LEVEL's handler on the registration screen: steps RegistrationSkillChoice modulo 4 and rewrites the readout DAT_0048d4ac from estext.bin 0x35 + skill (FUN_0043bfe1). Reads no button sub-code, so either button's release steps forward.",
+      "source": "docs/shell/screen-layout.md#the-registration-screen"
+    },
+    {
+      "address": "0043c098",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_OnCancel",
+      "description": "CANCEL's handler on the registration screen: Registration_Hide, then MainMenu_Show.",
+      "source": "docs/shell/screen-layout.md#the-registration-screen"
+    },
+    {
+      "address": "0043c0fb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_OnAccept",
+      "description": "ACCEPT's handler on the registration screen: LoadHercInfDat, Registration_Hide, DAT_004778aa = 0, Game_NewCareer(name field's string, RegistrationSkillChoice), then MissionScreenView = (CampaignMissionInStage != 0) -- 0, the map view, before the posted Use Default click loads the mission.",
+      "source": "docs/shell/screen-layout.md#starting-a-campaign"
+    },
+    {
+      "address": "0043b260",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveRegistration_BuildPanel",
+      "description": "Builds a second registration panel into the save screen's stub panel DAT_0048d418 at startup (FUN_004012b0 at 004012f2): FramedPanel DAT_0048d470, prompt, name box DAT_0048d47c and field DAT_0048d480, Text readout DAT_0048d484, SKILL LEVEL (0043bd15), CANCEL (0043bd90) and ACCEPT (0043bf1b). No show of DAT_0048d418 or DAT_0048d470 found by an absolute-operand search.",
+      "source": "docs/shell/screen-layout.md#the-second-registration-panel"
     },
     {
       "address": "0043bf1b",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Registration_OnAccept",
-      "description": "Registration ACCEPT: Game_NewCareer(typed name, RegistrationSkillChoice), Stats_StageCurrentGame(10), then relights DAT_0048d3ac.",
-      "source": "docs/shell/screen-layout.md#the-main-menu"
+      "name": "SaveRegistration_OnAccept",
+      "description": "ACCEPT on the save screen's second registration panel (FUN_0043b260): Game_NewCareer(DAT_0048d480's string, RegistrationSkillChoice), Stats_StageCurrentGame(10), FUN_0043b679 (hides DAT_0048d470 and DAT_0048d418, shows the detail panel DAT_0048d3b8), then lights SAVE (DAT_0048d3ac). Not the registration screen's; that is 0043c0fb.",
+      "source": "docs/shell/screen-layout.md#the-second-registration-panel"
     },
     {
       "address": "0043bd15",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Registration_StepSkill",
-      "description": "Steps RegistrationSkillChoice modulo 4 and rewrites its readout from estext.bin 0x35 + skill.",
-      "source": "docs/shell/screen-layout.md#the-main-menu"
+      "name": "SaveRegistration_StepSkill",
+      "description": "SKILL LEVEL on the save screen's second registration panel (FUN_0043b260): steps RegistrationSkillChoice modulo 4 and rewrites that panel's readout DAT_0048d484 from estext.bin 0x35 + skill (FUN_0043bce0). Not the registration screen's; that is 0043c01d.",
+      "source": "docs/shell/screen-layout.md#the-second-registration-panel"
     },
     {
       "address": "0044cc2c",

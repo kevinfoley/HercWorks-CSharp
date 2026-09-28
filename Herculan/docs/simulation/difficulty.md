@@ -17,7 +17,7 @@ The four levels are named by `estext.bin` `0x35`-`0x38` — `ROOKIE`, `REGULAR`,
 
 ### In a campaign it is the player's pilot skill
 
-`00482aa1` is the player structure's embedded pilot record (`00482a7c`) at `+0x25`, the skill field every pilot has — see [`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory). It is set once, on the registration screen: both registration panels give it a row (`FUN_0043bd15` and `FUN_0043c01d`) that steps a shared global `DAT_004761ac` modulo 4 and prints `estext.bin 0x35 + value`, and `Game_NewCareer` (`0040e2ed`) passes that global into `Pilot_Init` (`0040fcd8`), which writes it to the player pilot's `+0x25`.
+`00482aa1` is the player structure's embedded pilot record (`00482a7c`) at `+0x25`, the skill field every pilot has — see [`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory). It is set once, on [the registration screen](../shell/screen-layout.md#the-registration-screen): both registration panels give it a row (`Registration_StepSkill`, `0043c01d`, and the save screen's `SaveRegistration_StepSkill`, `0043bd15`) that steps a shared global `DAT_004761ac` modulo 4 and prints `estext.bin 0x35 + value`, and `Game_NewCareer` (`0040e2ed`) passes that global into `Pilot_Init` (`0040fcd8`), which writes it to the player pilot's `+0x25`.
 
 **The player's skill never moves afterwards**, because the debrief's promotion pass jumps clear of the skill ladder for the player ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#pilot-progression)). So one choice at registration fixes the difficulty of the whole career, and it rides in the save file like any other pilot field.
 

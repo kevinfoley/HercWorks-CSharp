@@ -58,7 +58,8 @@ public enum ShellHandler {
 	ImagePanel,
 
 	/// <summary>
-	/// <c>EditField_HandleEvent</c> (<c>0040beaf</c>), the save list's rows. Fires on the left press
+	/// <c>EditField_HandleEvent</c> (<c>0040beaf</c>), the save list's rows and the registration screen's
+	/// name field. Fires on the left press
 	/// and takes the pointer; the right button does nothing.
 	/// </summary>
 	EditField,
@@ -93,6 +94,8 @@ public enum ShellWidgetKind {
 	ScrapDialogButton,
 	LaunchRefusalOkay,
 	EndOfGameOkay,
+	RegistrationField,
+	RegistrationButton,
 }
 
 /// <summary>One widget. <see cref="Sub"/> is a second index where one kind needs two, as the repair lists' <c>(column, row)</c> do.</summary>

@@ -168,6 +168,15 @@ public sealed class AviFile {
 
 	private readonly Dictionary<int, AviStreamKind> _streamKinds = [];
 
+	/// <summary>
+	/// The streams <see cref="VideoFormat"/> and <see cref="AudioFormat"/> were read from, or -1.
+	/// Only their packets are kept: a file can carry a second stream of either kind, and its packets
+	/// are in another codec or another picture size.
+	/// </summary>
+	private int _videoStream = -1;
+
+	private int _audioStream = -1;
+
 	private void ReadStreamList(RiffChunk strl, int streamIndex) {
 		int end = strl.BodyAt + strl.BodyLength;
 		var kind = AviStreamKind.Other;
@@ -180,10 +189,12 @@ public sealed class AviFile {
 					: AviStreamKind.Other;
 				_streamKinds[streamIndex] = kind;
 			} else if (chunk.Id == RiffReader.FourCc('s', 't', 'r', 'f')) {
-				if (kind == AviStreamKind.Video) {
-					VideoFormat ??= ReadVideoFormat(chunk);
-				} else if (kind == AviStreamKind.Audio) {
-					AudioFormat ??= ReadAudioFormat(chunk);
+				if (kind == AviStreamKind.Video && VideoFormat is null) {
+					VideoFormat = ReadVideoFormat(chunk);
+					_videoStream = VideoFormat is null ? -1 : streamIndex;
+				} else if (kind == AviStreamKind.Audio && AudioFormat is null) {
+					AudioFormat = ReadAudioFormat(chunk);
+					_audioStream = AudioFormat is null ? -1 : streamIndex;
 				}
 			}
 		}
@@ -257,7 +268,8 @@ public sealed class AviFile {
 
 	/// <summary>
 	/// Walks the <c>movi</c> list, sorting packets into the video and audio lists by the stream
-	/// number in their chunk id.
+	/// number in their chunk id, and dropping those of any stream other than the two whose formats
+	/// were taken.
 	///
 	/// <para>Packets are grouped into <c>rec&#160;</c> lists in some files and loose in others, so
 	/// the walk descends through lists rather than assuming either layout.</para>
@@ -272,6 +284,10 @@ public sealed class AviFile {
 			}
 
 			if (!TryParsePacketId(chunk.Id, out int stream, out bool isVideo)) {
+				continue;
+			}
+
+			if (stream != _videoStream && stream != _audioStream) {
 				continue;
 			}
 

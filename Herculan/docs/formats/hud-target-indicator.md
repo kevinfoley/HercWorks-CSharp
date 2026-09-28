@@ -42,7 +42,7 @@ The 38-byte state block, offsets from the gunsight's `+0xb1` and from a child's 
 
 `Gunsight_TargetIndicator_Ctor` (`0043b928`) ctor, painted by `Gunsight_TargetIndicatorPaint` (`0043b950`). Two independent tests on the same projected point; either, both or neither piece is drawn.
 
-The aim point is transformed to view space (`FUN_0048c470`), projected (`Raster_PerspectiveDivide`, `Raster_ProjectToScreen`) and compared against the reticle point. A depth inside the view's near plane (`view+0x1e`) marks it **behind**: no box, and the arrow's direction comes from re-projecting the synthetic view-space point `(±10000, 1024, 0)` whose sign is the real point's own view-space x — 5000 device pixels to one side of the reticle on its own row, so the arrow points level left or right.
+The aim point is transformed to view space (`Raster_ModelToView`, `0048c470`), projected (`Raster_PerspectiveDivide`, `Raster_ProjectToScreen`) and compared against the reticle point. A depth inside the view's near plane (`view+0x1e`) marks it **behind**: no box, and the arrow's direction comes from re-projecting the synthetic view-space point `(±10000, 1024, 0)` whose sign is the real point's own view-space x — 5000 device pixels to one side of the reticle on its own row, so the arrow points level left or right.
 
 ### The box
 

@@ -116,7 +116,7 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// <c>FUN_004791a0</c> — cuts straight to a sequence and frame, abandoning any target. Used by
+	/// <c>AnimThread_SetSequence</c> (<c>004791a0</c>) — cuts straight to a sequence and frame, abandoning any target. Used by
 	/// the gait state machine when it wants a sequence to start immediately rather than be
 	/// transitioned into.
 	/// </summary>

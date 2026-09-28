@@ -60,6 +60,2427 @@
   ],
   "entries": [
     {
+      "address": "00486890",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rect_Intersect",
+      "description": "(a, b, out): intersects two rects {x0, y0, x1, y1} (inclusive) into out and returns out, or 0 when they do not overlap. Raster_FillRect and Region_CopyRectBetweenPages clip with it.",
+      "source": "DBSIM decompile and disassembly at 00486890"
+    },
+    {
+      "address": "004575d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rect_Intersect",
+      "description": "(a, b, out): intersects two rects {x0, y0, x1, y1} (inclusive) into out and returns out, or 0 when they do not overlap. The VSHELL copy of DBSIM's Rect_Intersect.",
+      "source": "VSHELL decompile and disassembly at 004575d4"
+    },
+    {
+      "address": "00479cc4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Format",
+      "description": "(buffer, severity, file, line, message): formats 'Assert::<severity name>: Line <line> in \"<file>\"' with the severity-name table at 004a160c, then appends ': <message>' when there is one. Assert_Emit builds its line with it.",
+      "source": "DBSIM decompile and disassembly at 00479cc4"
+    },
+    {
+      "address": "0044e018",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Format",
+      "description": "(buffer, severity, file, line, message): formats 'Assert::<severity name>: Line <line> in \"<file>\"' with the severity-name table at 0047a5ac, then appends ': <message>' when there is one. The VSHELL copy of DBSIM's Assert_Format.",
+      "source": "VSHELL decompile and disassembly at 0044e018"
+    },
+    {
+      "address": "00479d3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_LogPath",
+      "description": "Builds the assert log's path in 006c5860: the directory string at 006c5760 followed by the log name. Returns it. The DBSIM copy of VSHELL's Assert_LogPath.",
+      "source": "DBSIM decompile and disassembly at 00479d3c"
+    },
+    {
+      "address": "00479d80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_AppendToLog",
+      "description": "(text): opens Assert_LogPath() with _open(0x901, 0x180) = O_WRONLY|O_CREAT|O_APPEND, aborting on failure; while 004a1628 is set it first writes an 80-byte line of dashes and clears the flag; then writes the text and CR LF and closes. The DBSIM copy of VSHELL's Assert_AppendToLog.",
+      "source": "DBSIM decompile and disassembly at 00479d80"
+    },
+    {
+      "address": "00464fc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Stub",
+      "description": "Returns immediately. Assert_Report calls it.",
+      "source": "DBSIM decompile and disassembly at 00464fc8"
+    },
+    {
+      "address": "0047a434",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_TagTotalSize",
+      "description": "(tag): an item's total length from its 8-byte class type tag: the size dword at +4 as it is when the high nibble of byte 3 is set, else size + 8 (the tag itself) rounded up to an even length. WeaponModels_LoadShapeChunks steps through chunks with it.",
+      "source": "DBSIM decompile and disassembly at 0047a434"
+    },
+    {
+      "address": "004040cd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_TagTotalSize",
+      "description": "(tag): an item's total length from its 8-byte class type tag: the size dword at +4 as it is when the high nibble of byte 3 is set, else size + 8 (the tag itself) rounded up to an even length. The VSHELL copy of DBSIM's ClassItem_TagTotalSize.",
+      "source": "VSHELL decompile and disassembly at 004040cd"
+    },
+    {
+      "address": "0047a768",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_GetStatus_Thunk",
+      "description": "Forwarder to Stream_GetStatus. ClassItem_PeekTypeTag and ClassItem_Skip end with it.",
+      "source": "DBSIM decompile and disassembly at 0047a768"
+    },
+    {
+      "address": "0048d99b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Short_Thunk",
+      "description": "One-line forwarder to DotProductVec3Short with the same arguments.",
+      "source": "DBSIM decompile and disassembly at 0048d99b"
+    },
+    {
+      "address": "00435140",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_RemoveAt",
+      "description": "(port, index): when the queue is not empty (count +0x21c), clears the flag byte at +0x212 + the id held in slot index of the queue at +0x1ea, shifts the later slots down one and decrements the count. MessagePort_Tick calls it.",
+      "source": "DBSIM decompile and disassembly at 00435140"
+    },
+    {
+      "address": "0048922f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_NegateIf",
+      "description": "(flag, value): returns -value when flag is nonzero, else value. Bitmap_BlitTransparent calls it.",
+      "source": "DBSIM decompile and disassembly at 0048922f"
+    },
+    {
+      "address": "0045bee8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_DeviceSlot",
+      "description": "(index): returns the input device pointer at 004d24ec + index * 4. Input_GetDevice reads the table through it.",
+      "source": "DBSIM decompile and disassembly at 0045bee8"
+    },
+    {
+      "address": "0045f772",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_Add",
+      "description": "(a, b): adds b's two int32 components to a's in place. Poly_ClipRingToNearPlane adds the projection centre with it.",
+      "source": "VSHELL decompile and disassembly at 0045f772"
+    },
+    {
+      "address": "004062b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SfxTimer_Kill",
+      "description": "KillTimer on the shell's sound-service timer: the 15 ms timer (id 1, callback sfxWndProc) that 00405ea8 creates on window 00481e54 and whose id it keeps at 00481e4c; nothing when that id is 0. Display_ToggleFullScreen calls it.",
+      "source": "VSHELL decompile and disassembly at 004062b0"
+    },
+    {
+      "address": "0041d704",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EventBase_Ctor",
+      "description": "EventBase constructor (vtable 00470c18, RTTI name 'EventBase', 0xc bytes, over ClassItem): clears the word at +6. WinEvent_Ctor runs it first.",
+      "source": "VSHELL decompile and disassembly at 0041d704"
+    },
+    {
+      "address": "00427e80",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_Ctor",
+      "description": "Clears a string table: buffer +0, cursor +4, length +8 and the group counters +0xc and +0xe. ShellMap_Constructor builds its table with it.",
+      "source": "VSHELL decompile and disassembly at 00427e80"
+    },
+    {
+      "address": "004546b3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_Write",
+      "description": "(stream, count, buffer): calls the stream's write slot (vtable +0x14).",
+      "source": "VSHELL decompile and disassembly at 004546b3"
+    },
+    {
+      "address": "0045496a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteDword",
+      "description": "(stream, value): writes its 4-byte value argument through the stream's write slot (vtable +0x14).",
+      "source": "VSHELL decompile and disassembly at 0045496a"
+    },
+    {
+      "address": "00454981",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadDword",
+      "description": "(stream, dst): reads 4 bytes through the stream's read slot (vtable +0x18).",
+      "source": "VSHELL decompile and disassembly at 00454981"
+    },
+    {
+      "address": "00462d58",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteWords",
+      "description": "(stream, count, buffer): writes count * 2 bytes through the stream's write slot (vtable +0x14).",
+      "source": "VSHELL decompile and disassembly at 00462d58"
+    },
+    {
+      "address": "00462d73",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadWords",
+      "description": "(stream, count, dst): reads count * 2 bytes through the stream's read slot (vtable +0x18).",
+      "source": "VSHELL decompile and disassembly at 00462d73"
+    },
+    {
+      "address": "0045d9a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSContext_Ctor",
+      "description": "TSContext constructor (vtable 0047e9e1, RTTI name 'TSContext', 0x16 bytes): constructs the point at +4 (maybe_Point3I_Ctor) and the object at +0x10 (004656c1). The VSHELL copy of DBSIM's TSContext_Ctor.",
+      "source": "VSHELL decompile and disassembly at 0045d9a0"
+    },
+    {
+      "address": "00469218",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinKeyEvent_Ctor",
+      "description": "WinKeyEvent constructor (vtable 0047fd9c, RTTI name 'WinKeyEvent', 0x26 bytes, over WinEvent_Ctor): sets the event type at +0xc to 0x40. Keyboard_PostEvents posts the key ring's characters as these.",
+      "source": "VSHELL decompile and disassembly at 00469218"
+    },
+    {
+      "address": "00407011",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_ReleaseDirectDraw",
+      "description": "Releases the four DirectDraw interface pointers 00481e60, 00481e5c, 00481e64 and 00481e58 through their COM Release slot (vtable +8), zeroing each. Display_ToggleFullScreen calls it.",
+      "source": "VSHELL decompile and disassembly at 00407011"
+    },
+    {
+      "address": "0041048b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercsDat_Clear",
+      "description": "Empties the hercs.dat record table: clears +0x20 and +0x22, then for each of the eight record pointers at +0 frees the record (HercRecord_ClearMounts, Mem_Delete) and zeroes the slot, and clears +0x24. LoadHercsDat calls it before loading.",
+      "source": "VSHELL decompile and disassembly at 0041048b"
+    },
+    {
+      "address": "00420032",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MapCamera_PushContext",
+      "description": "(camera): saves the current drawing context (0048e184) at +8 and makes the camera's own context at +4 current (Gfx_SetCurrentContext); returns it. ShellMap_Paint brackets its drawing with this and MapCamera_PopContext.",
+      "source": "VSHELL decompile and disassembly at 00420032"
+    },
+    {
+      "address": "00420050",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MapCamera_PopContext",
+      "description": "(camera): makes the drawing context MapCamera_PushContext saved at +8 current again and returns it.",
+      "source": "VSHELL decompile and disassembly at 00420050"
+    },
+    {
+      "address": "0042f287",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellSound_Stop_Thunk",
+      "description": "One-line forwarder to ShellSound_Stop. OnlineManual_Open calls it.",
+      "source": "VSHELL decompile and disassembly at 0042f287"
+    },
+    {
+      "address": "00436790",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_SyncSoundChecks",
+      "description": "Sets the tick (+0x69) of the Music checkbox 0048d30c from option 0 (ShellOptions) and of the Sound Effects checkbox 0048d310 from option 1 (ShellOption_Sounds), repainting each through its vtable slot +4. PreferencesScreen_Enter calls it.",
+      "source": "VSHELL decompile and disassembly at 00436790"
+    },
+    {
+      "address": "00436adc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_SyncBuildModeRadios",
+      "description": "Lights one of the Weapons Building pair from ShellOption_WeaponsBuildMode: 0048d33c for 0 (AutoBuild), 0048d340 for 1 (Manually Build), clearing the other's tick (+0x69) and repainting both. Any other value changes nothing.",
+      "source": "VSHELL decompile and disassembly at 00436adc"
+    },
+    {
+      "address": "00436abc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_SetGameResolution",
+      "description": "(value): stores the value at 00474cc6, sets option 4 (ShellOption_GameResolution) with its handler, and refreshes the row's buttons (00436a28).",
+      "source": "VSHELL decompile and disassembly at 00436abc"
+    },
+    {
+      "address": "00436b70",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_SetDisplayMode",
+      "description": "(value): stores the value at 00474cca, sets option 6 (ShellOption_DisplayMode) with its handler, and refreshes the row's buttons (004367cd).",
+      "source": "VSHELL decompile and disassembly at 00436b70"
+    },
+    {
+      "address": "00436b50",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_SetWeaponsBuildMode",
+      "description": "(value): stores the value at 00474cc8, sets option 0x2d (ShellOption_WeaponsBuildMode) with its handler, and refreshes the row with PreferencesScreen_SyncBuildModeRadios.",
+      "source": "VSHELL decompile and disassembly at 00436b50"
+    },
+    {
+      "address": "00436a9c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_SetRepairMode",
+      "description": "(value): stores the value at 00474cc4, sets option 0x2c (ShellOption_RepairMode) with its handler, and refreshes the row's buttons (0043692e).",
+      "source": "VSHELL decompile and disassembly at 00436a9c"
+    },
+    {
+      "address": "00487f39",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_PixelCount",
+      "description": "Returns the number of pixels a region covers: Rect_PixelCount for type 0, 00487e3c for type 2 (span list), 0 otherwise. The message ports size their two save-under buffers with it. A region is {int type; ...}: type 0 carries a rect {x0, y0, x1, y1} at +4, type 2 a pointer to a span list ({int16 top row, int16 row count, {x0, x1} per row}) at +4.",
+      "source": "DBSIM decompile and disassembly at 00487f39"
+    },
+    {
+      "address": "00487d88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rect_PixelCount",
+      "description": "(rect{x0, y0, x1, y1}): (x1 - x0 + 1) * (y1 - y0 + 1) as an int64.",
+      "source": "DBSIM decompile and disassembly at 00487d88"
+    },
+    {
+      "address": "00487e3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpanRegion_PixelCount",
+      "description": "(spans): sums x1 - x0 + 1 over a span list's rows into EAX. Its bytes end at MOV EAX,EDX with no POP, LEAVE or RET, so execution runs on into 00487e5e.",
+      "source": "DBSIM decompile and disassembly at 00487e3c"
+    },
+    {
+      "address": "00487f06",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_Save",
+      "description": "(unused, unused, region, buffer): copies the screen pixels a region covers into buffer: 00487da0 for a type-0 rect, 00487e5e for a type-2 span list. The message ports, AlertPanel_Enter and CockpitView_SetShakeBand save screen areas with it. A region is {int type; ...}: type 0 carries a rect {x0, y0, x1, y1} at +4, type 2 a pointer to a span list ({int16 top row, int16 row count, {x0, x1} per row}) at +4.",
+      "source": "DBSIM decompile and disassembly at 00487f06"
+    },
+    {
+      "address": "00487da0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_SaveRect",
+      "description": "(region, buffer): wraps buffer in a stack bitmap header the size of the region's rect (translated by the drawing context's offset when +0x208 is set) and grabs the screen into it with Bitmap_GrabClipDispatch(header, rect, 0).",
+      "source": "DBSIM decompile and disassembly at 00487da0"
+    },
+    {
+      "address": "00488868",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_GrabClipDispatch",
+      "description": "(bitmap, point, flags): the reverse of Bitmap_BlitClipDispatch: zeroes the bitmap's data (+0xa, size +6), clears the low nibble of +5, sets the format byte +4 to 8 when it does not match the display depth 004a367a (8 or 4), offsets the point by the context's translation when +0x208 is 1, and reads the screen into it through the routine pointer 004a5830 -- unclipped for clip mode (+0x204) 0, clipped to the rect +0x20c for mode 1, and once per rect entry of the clip list for mode 2.",
+      "source": "DBSIM decompile and disassembly at 00488868"
+    },
+    {
+      "address": "00488037",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_Restore",
+      "description": "(region, point, buffer): puts saved pixels back: 00487f6c for a type-0 rect, 00487fb0 for a type-2 span list. The counterpart of Region_Save. A region is {int type; ...}: type 0 carries a rect {x0, y0, x1, y1} at +4, type 2 a pointer to a span list ({int16 top row, int16 row count, {x0, x1} per row}) at +4.",
+      "source": "DBSIM decompile and disassembly at 00488037"
+    },
+    {
+      "address": "00487f6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_RestoreRect",
+      "description": "(region, point, buffer): wraps buffer in a stack bitmap header the size of the region's rect (format 8, flags 0x10) and draws it at point with Bitmap_BlitClipDispatch.",
+      "source": "DBSIM decompile and disassembly at 00487f6c"
+    },
+    {
+      "address": "00487fb0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpanRegion_Restore",
+      "description": "(region, point, buffer): for each row of the region's span list, offset by point (and the drawing context's translation when +0x208 is set), hands the row's slice of buffer to the span routine 004a5820 as (src, y, x0, x1), advancing through buffer by each span's width.",
+      "source": "DBSIM decompile and disassembly at 00487fb0"
+    },
+    {
+      "address": "00487d54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_CopyBetweenPages",
+      "description": "(region, point): copies the area a region covers from the raster source page to the draw page: 00487ad0 for a type-0 rect, 00487c01 for a type-2 span list. 00437164 calls it with the raster source and draw pages swapped. A region is {int type; ...}: type 0 carries a rect {x0, y0, x1, y1} at +4, type 2 a pointer to a span list ({int16 top row, int16 row count, {x0, x1} per row}) at +4.",
+      "source": "DBSIM decompile and disassembly at 00487d54"
+    },
+    {
+      "address": "00487ad0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_CopyRectBetweenPages",
+      "description": "(region, point): offsets the region's rect by point (and the drawing context's translation), then copies it through g_RasterRoutines_CopyRect: unclipped for clip mode 0, clipped to the context rect (00486890) for mode 1, and per clip-list entry for mode 2 (rects through 00486890, span regions through 00486c09 and the routine 004a5810).",
+      "source": "DBSIM decompile and disassembly at 00487ad0"
+    },
+    {
+      "address": "004592f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_ShowOptionList",
+      "description": "(panel, list): refills the option list with ControlsPanel_FillOptionList when list differs from the one shown (+0x476), then stores it there.",
+      "source": "DBSIM decompile and disassembly at 004592f8"
+    },
+    {
+      "address": "00438df8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VideoMode_ShiftRect",
+      "description": "(rect{x0, y0, x1, y1}): shifts the x fields left by VideoMode_XCoordShift and the y fields by VideoMode_YCoordShift, scaling authored 320-wide coordinates to the current mode. HddGau_ApplyCoordShift and MfdGau_ApplyCoordShift use it.",
+      "source": "DBSIM decompile and disassembly at 00438df8"
+    },
+    {
+      "address": "00492f9f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_GetStatus",
+      "description": "Returns a stream's status word at +4. The DBSIM copy of VSHELL's Stream_GetStatus.",
+      "source": "DBSIM decompile and disassembly at 00492f9f"
+    },
+    {
+      "address": "00471ba4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pool_Nth",
+      "description": "(pool, n): walks the pool with Pool_Prev from 0 and returns, in EAX, the element reached after n + 1 steps (the n-th, counting from 0), or 0 when the walk ends first. DBSim_BuildGroupRecord and Mission_ResolveRefByKind resolve mission indices to mechs, vehicles and structures with it.",
+      "source": "DBSIM decompile and disassembly at 00471ba4"
+    },
+    {
+      "address": "0046e394",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FaceNormalAt",
+      "description": "(grid, point{x, y}): the normal of the terrain triangle under a point. Shifts the point right by the cell size shift (+0x108) to a cell, returning 0 outside the 1 << +0x100 by 1 << +0x104 grid. Otherwise takes the 16-byte cell record at +0xec and returns a pointer to one of its two int16 face normals, +1 or +7, by which side of the cell's diagonal the point lies on: the diagonal runs one way when the cell's +0xf & 3 is 2 and the other way otherwise. Cam_Update, Mech_ApplyTerrainSlopeToSpeed and Mech_CollisionTest call it.",
+      "source": "DBSIM decompile and disassembly at 0046e394"
+    },
+    {
+      "address": "0047d628",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_DistanceBetween",
+      "description": "(a, b): copies a, subtracts b (Vec3_Subtract) and returns Point3I_Magnitude of the difference. LightManager_SelectLightsForObject and LightManager_SelectLightsUnconditional measure light distances with it.",
+      "source": "DBSIM decompile and disassembly at 0047d628"
+    },
+    {
+      "address": "0042eb40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_NoOp",
+      "description": "Returns immediately. LiftStart_DarkenPalette and Sim_InitMissionSession call it.",
+      "source": "DBSIM decompile and disassembly at 0042eb40"
+    },
+    {
+      "address": "004280f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_RayHitDistance",
+      "description": "(&distance, from, to, step): Terrain_RayWalk on ActiveHeightGrid from from to to; when it reports a hit, stores Math_DistanceBetweenPoints(from, hitPoint) in distance. Returns whether it hit. Detection_LineOfSight and Ai_LineOfSightBlocked call it.",
+      "source": "DBSIM decompile and disassembly at 004280f4"
+    },
+    {
+      "address": "004281b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_DrawTableIndex",
+      "description": "(a, b): returns the index recorded for the pair in the draw table at 004cf574 (three int16 per entry: a, b, index; count 004cf8f8); a new pair is appended with the next index, asserting 'ObjList::drawTable full' in objlist.cpp once 0x96 entries exist. ObjList_AddToDrawTable and ObjList_DrawCellObjects call it.",
+      "source": "DBSIM decompile and disassembly at 004281b0"
+    },
+    {
+      "address": "00431518",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_EnableWidgets",
+      "description": "(view): clears the widgets-off byte at +0x20f. CockpitView_ApplyViewState and CockpitView_ProcessViewCommand call it.",
+      "source": "DBSIM decompile and disassembly at 00431518"
+    },
+    {
+      "address": "00435bf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DialogPort_Ctor",
+      "description": "DialogPort constructor (vtable 0049bad4, RTTI name 'DialogPort', 0x4df bytes -- the pilot and squad message port): runs 00435490, installs its vtable, and allocates two buffers of Region_PixelCount(+0x4a3) bytes at +0x4d3 and +0x4d7 for the box's save-unders. Gau_BuildCockpitWidgets and TrainingMessagePort_Ctor call it.",
+      "source": "DBSIM decompile and disassembly at 00435bf0"
+    },
+    {
+      "address": "0043907c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraph_Ctor",
+      "description": "BarGraph constructor (vtable 0049bd78, RTTI name 'BarGraph', 0x2c bytes): copies the rect {x0, y0, x1, y1} to +4..+0x10. LedBarGraph_CtorBase and LedBarGraph_CtorV run it first.",
+      "source": "DBSIM decompile and disassembly at 0043907c"
+    },
+    {
+      "address": "00448cac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDisplay_Ctor",
+      "description": "HDDisplay constructor (vtable 0049d668, RTTI name 'HDDisplay', 0x10 bytes): stores its two arguments at +4 and +8. HddCommandScreen_Ctor and HddDamageScreen_Ctor run it first.",
+      "source": "DBSIM decompile and disassembly at 00448cac"
+    },
+    {
+      "address": "0045fd60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_HandleWindowKey",
+      "description": "(code): 0x21c ([Alt+Enter]) runs Video_ToggleFullscreen unless a tape is playing back with 004d25b0 set; 0x430 ([Ctrl+B]) calls __break (INT3) when 004d25b0 is set. Returns 1 for either code, 0 otherwise. Input_BuildPlayerDevice and Sim_DispatchCommand call it.",
+      "source": "DBSIM decompile and disassembly at 0045fd60"
+    },
+    {
+      "address": "00465e78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_LoadFromFile",
+      "description": "(path): opens path with VolRStream_CtorFromPath, loads one class item from it with ClassItem_LoadResource, destroys the stream and returns the item. Palette_LoadAndActivate and Sim_InitMissionSession call it.",
+      "source": "DBSIM decompile and disassembly at 00465e78"
+    },
+    {
+      "address": "0047a2a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_Skip",
+      "description": "(stream): reads a class item's 8-byte type tag and seeks past its body, the size in the tag's second dword rounded up to an even length, then runs 0047a768 on the stream. Shape_LoadAllRoots and BaseType_ResolveShape skip items with it.",
+      "source": "DBSIM decompile and disassembly at 0047a2a8"
+    },
+    {
+      "address": "0048c848",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ProjectShapeVertices",
+      "description": "The .DTS renderers' sibling of Poly_ProjectIndexedVertices: projects the current face's vertices (count 006c6968, index list 006c6976 from 006c696a) into the screen-point list 006cbb86 and sets its count 006cbc86. With 006c60ac zero it transforms each untouched vertex by g_ModelToView (0048da87) and projects it with a constant divisor (x << 8 / 006c60b4 + 006c60b8, -z << 8 / 006c60b4 + 006c60bc), memoising it as 2 in the state bytes 006c697e, and returns 0; otherwise it returns Poly_ProjectShapeVerticesPerspective's result. The DBSIM copy of VSHELL's Poly_ProjectShapeVertices. TSShadedPoly_Render, TSSolidPoly_Render and TSTexture4Poly_Render call it.",
+      "source": "DBSIM decompile and disassembly at 0048c848"
+    },
+    {
+      "address": "00491194",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ProjectShapeVerticesPerspective",
+      "description": "Poly_ProjectShapeVertices' perspective path: projects each untouched vertex (Transform_ApplyToShortPoint by g_ModelToView) beyond the near plane as (x << 006c60ac) / depth + centre, marking it 2, or marks it 1; returns 1 when any vertex is marked 1. The DBSIM copy of VSHELL's Poly_ProjectShapeVerticesPerspective.",
+      "source": "DBSIM decompile and disassembly at 00491194"
+    },
+    {
+      "address": "00486af4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpanRegion_Intersect",
+      "description": "(a, b, out): intersects two span regions ({int16 top row, int16 row count, then an {x0, x1} int16 pair per row}) row by row into out; returns out, or 0 when no row overlaps. The DBSIM copy of VSHELL's SpanRegion_Intersect. Raster_DrawLine, Raster_DrawPolygonDispatch and Raster_FillRect clip against span regions with it.",
+      "source": "DBSIM decompile and disassembly at 00486af4"
+    },
+    {
+      "address": "0048d86e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Int_Thunk",
+      "description": "One-line forwarder to DotProductVec3Int with the same arguments.",
+      "source": "DBSIM decompile and disassembly at 0048d86e"
+    },
+    {
+      "address": "00490a58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShapeInstance_Ctor",
+      "description": "TSShapeInstance constructor (vtable 004a6305, RTTI name 'TSShapeInstance', 0xc bytes, over TSBase and ClassItem): (inst, shape). Stores the shape at +4 and, when the shape's word count at +0x24 is nonzero, a copy of the shape's word array at +0x1c (Arena_AllocDup from the arena 006c58b4) at +8, else 0. ShapeInst_Construct, Meteor_Construct and SimObjectBase_Constructor build theirs with it.",
+      "source": "DBSIM decompile and disassembly at 00490a58"
+    },
+    {
+      "address": "00454394",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Alert_Dtor",
+      "description": "Alert destructor (vtable 0049e05c, RTTI name 'Alert', 0x332 bytes): Mem_Delete on each pointer in the array at +0x291 (count +0x2cd), frees the array at +0x2c, deletes the object at +0x30 through its virtual destructor, frees +0x44, clears +0x2e6, runs 004834bc on +0x2e2 and 00453804 on +0x34, and frees the alert when flag & 1.",
+      "source": "DBSIM decompile and disassembly at 00454394"
+    },
+    {
+      "address": "00453078",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WidgetRoot_FlashPress",
+      "description": "(root, widget): appends {widget, Time_GetCoarseTicks() + 10} to the root's press-flash list at +0x356 (8-byte entries, count at +0x396). WidgetRoot_ServicePressFlashes shows the widget pressed until that time. Widget_PressChild, AlertPanel_PressWidget and ControlsPanel_HandleEvent queue the widget a key or click pressed.",
+      "source": "DBSIM decompile and disassembly at 00453078"
+    },
+    {
+      "address": "004530b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WidgetRoot_ServicePressFlashes",
+      "description": "(root): for each entry of the press-flash list at +0x356 (count +0x396): before its deadline, sets the widget's state +0x1b to 1 (pressed) and repaints it (its vtable at +0x17, slot +4) if it was not already; at or past it, sets the state to 0, repaints, and removes the entry. AlertPanel_Present runs it every pass.",
+      "source": "DBSIM decompile and disassembly at 004530b8"
+    },
+    {
+      "address": "00453160",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WidgetRoot_PressFlashCount",
+      "description": "Returns the number of entries in a widget root's press-flash list (+0x396). AlertPanel_Present holds the close flag back while it is nonzero.",
+      "source": "DBSIM decompile and disassembly at 00453160"
+    },
+    {
+      "address": "00476118",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Render_NoOp",
+      "description": "Returns immediately. TSBitmapPart_Render, TSCellAnimPart_Render and TSDetailPart_Render call it.",
+      "source": "DBSIM decompile and disassembly at 00476118"
+    },
+    {
+      "address": "004537e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_Ctor",
+      "description": "Clears a string table: buffer +0, cursor +4, length +8 and the group counters +0xc and +0xe. AlertPanel_CtorBase, HddDisplay_Ctor, ObjectivesPanel_Ctor and five unnamed functions construct their tables with it.",
+      "source": "DBSIM decompile and disassembly at 004537e0"
+    },
+    {
+      "address": "00464b74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Win_PumpMessages",
+      "description": "Drains the thread's message queue with PeekMessageA(PM_REMOVE), translating and dispatching each message. Returns 1 at WM_QUIT (0x12); otherwise, once the queue is empty, restores the cursor 004d37a4 (SetCursor, when set) and returns 0.",
+      "source": "DBSIM decompile and disassembly at 00464b74"
+    },
+    {
+      "address": "0045ef80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Voice_FilePath",
+      "description": "(name, extension): builds '<Voice_ArchiveName()>\\<name>.<extension>' in the static buffer 004d29be, the name and extension going through Path_WithExtension. The message ports and CommBox_BeginMessage find their speech files with it.",
+      "source": "DBSIM decompile and disassembly at 0045ef80"
+    },
+    {
+      "address": "0045ca88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VideoMode_BlitRotated",
+      "description": "(block, bitmap, point, a, b, c): does nothing for a null bitmap; otherwise Bitmap_BlitRotatedUnpacked(bitmap, point less block+0x9a/+0x9e, a, b, c). All callers pass the video-mode block 004d2540.",
+      "source": "DBSIM decompile and disassembly at 0045ca88"
+    },
+    {
+      "address": "0045c948",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VideoMode_BlitBitmapFlags",
+      "description": "(block, bitmap, point, flags): VideoMode_BlitBitmap with a flags argument passed through: Bitmap_BlitScaled at the bitmap's size doubled by the coordinate shifts in panel mode 3 without hi-res banks, else Bitmap_Blit(bitmap, point, flags).",
+      "source": "DBSIM decompile and disassembly at 0045c948"
+    },
+    {
+      "address": "0045c9f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VideoMode_BlitBitmapSized",
+      "description": "(block, bitmap, point, flags, size): Bitmap_BlitScaled at an explicit size, with the size shifted left by the coordinate shifts (+0x7e, +0x80) first in panel mode 3 without hi-res banks. The point is offset by block+0x9a/+0x9e as in VideoMode_BlitBitmap.",
+      "source": "DBSIM decompile and disassembly at 0045c9f4"
+    },
+    {
+      "address": "004451f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDisplay_Ctor",
+      "description": "MFDisplay constructor (vtable 0049cfbc, RTTI name 'MFDisplay', 0x10 bytes): stores its argument at +4 and clears +0xc. The five MFD screen constructors (MfdStatusScreen_Ctor, MfdRadarScreen_Ctor, MfdFlashCommScreen_Ctor, MfdMissileViewScreen_Ctor, MfdMapScreen_Ctor) start with it.",
+      "source": "DBSIM decompile and disassembly at 004451f0"
+    },
+    {
+      "address": "004791a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_SetSequence",
+      "description": "(thread, sequence, frame, offset): cuts a thread straight to a sequence and frame, abandoning any target. Stores the sequence at +4 and +8 and the frame at +6, the sequence's vtable +0x20 answer for the frame at +0xa, the intra-frame offset at +0x1c and the frame's duration from the sequence's 6-byte frame table (+0xc) at +0x1e, loads the frame's ground movement (AnimThread_LoadFrameGroundMovement), then clears the target (+0x16 and +0x18 = -1, +0x1a = 0), sets +0xc to -1 and +0x50 to 1. AnimThread_SeekToPosition, ShapeInst_AddThread and the locomotion ticks call it.",
+      "source": "DBSIM decompile and disassembly at 004791a0"
+    },
+    {
+      "address": "00474a24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_LoadFromFile",
+      "description": "(path, &classId): opens path with VolRStream_CtorFromPath, peeks its class type tag (ClassItem_PeekTypeTag) and, when the class id is 0x1e0003, 0x140008 or 0x28000f, loads it with ClassItem_LoadResource and stores the id. Returns the loaded object; for any other id it returns EBX unchanged, not 0.",
+      "source": "DBSIM decompile and disassembly at 00474a24"
+    },
+    {
+      "address": "00474ba4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_LoadDpl",
+      "description": "(name): Palette_LoadFromFile on <name>.dpl, returning the palette object in EAX (the decompile drops it). CockpitViewManager_LoadViews and World_LoadTheater call it (the results kept as CockpitPaletteSingleton and ImpactPaletteObject), and 0045dc34 loads three palettes in a row with it.",
+      "source": "DBSIM decompile and disassembly at 00474ba4"
+    },
+    {
+      "address": "0047a1fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_PeekTypeTag",
+      "description": "(stream, tag[2]): saves the stream position (vtable +4), reads the 8-byte class type tag into tag (-1, 0 beforehand), and when no handler is registered for it (ClassItem_FindHandler) and 004a16ac is set, copies it to 006c59a8 and reads the rest of the header into 006c59b0 (0047a3d8). Seeks back to the saved position unless the status is 2 (end of data), then runs 0047a768 on the stream.",
+      "source": "DBSIM decompile and disassembly at 0047a1fc"
+    },
+    {
+      "address": "0048bb34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSContext_Ctor",
+      "description": "TSContext constructor (vtable 004a5b51, RTTI name 'TSContext', 0x16 bytes): constructs the point at +4 (maybe_Point3I_Ctor) and the object at +0x10 (004921c7). TSCamera_Ctor and the light constructors run it first.",
+      "source": "DBSIM decompile and disassembly at 0048bb34"
+    },
+    {
+      "address": "0045e694",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ProjectShapeVertices",
+      "description": "Projects the current polygon's vertices (count 005d8890, index list at 005d889e + first 005d8892 * 2) into the screen-point list at 005ddaae and sets its count 005ddbae. With the perspective shift 005d7fd4 zero it transforms each not-yet-seen vertex by g_ModelToView (0045f8b9), projects it with a constant divisor (x << 8 / 005d7fdc + 005d7fe0, -z << 8 / 005d7fdc + 005d7fe4), caches the screen point at 005dbb6e and marks it 2 in the per-vertex state bytes at 005d88a6, and returns 0. Otherwise it returns 00462eb8's result, the perspective path, which divides by depth and marks a vertex nearer than 005d7fd8 as 1. TSSolidPoly_Render and TSTexture4Poly_Render call it; TSSolidPoly_Render runs Poly_ClipRingToNearPlane when it returns 1.",
+      "source": "VSHELL decompile and disassembly at 0045e694"
+    },
+    {
+      "address": "00462eb8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ProjectShapeVerticesPerspective",
+      "description": "Poly_ProjectShapeVertices' perspective path: for each vertex of the current polygon not yet seen, transforms it by g_ModelToView (004521dc); when its depth is beyond 005d7fd8 projects it as (x << 005d7fd4) / depth + 005d7fe0 and 005d7fe4 - (z << 005d7fd4) / depth into the screen list 005ddaae and the cache 005dbb6e and marks it 2, else marks it 1. A cached vertex (2) is copied. Returns 1 when any vertex is marked 1, else 0; 0 at once when the polygon is empty or the shift is 0.",
+      "source": "VSHELL decompile and disassembly at 00462eb8"
+    },
+    {
+      "address": "0045ec54",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipRingToNearPlane",
+      "description": "Rebuilds the screen-point list 005ddaae for a polygon with vertices nearer than 005d7fd8: walks its edges, copies the cached screen point of each vertex marked 2, and for an edge with one end marked 2 inserts the point where it crosses depth 005d7fd8 (interpolated x and negated z, passed through 0045f772 with 005d7fe0). Returns the new count 005ddbae.",
+      "source": "VSHELL decompile and disassembly at 0045ec54"
+    },
+    {
+      "address": "0045f364",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PolyFill_FillThenOutline",
+      "description": "(backFacing): fills the screen polygon 005ddaae (count 005ddbae) with GL_GetGlobal7 through 0045f8e7 for a front face or 0045f8d2 for a back face. When the line colour 005d7ffc differs from the fill colour 005d8004 and the mode 005d8000 is not 5, it sets the fill colour to the line colour and the mode to 4 and fills again. Does nothing for an empty list.",
+      "source": "VSHELL decompile and disassembly at 0045f364"
+    },
+    {
+      "address": "00455798",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_FillPolygon",
+      "description": "(count, points{x, y}[]): offsets the points by the current context's translation when its +0x208 is set (clearing it for the call and restoring it after). Fewer than three points draw a pixel, a line or a closed outline in the fill's colour. Otherwise it dispatches on the fill at +0x228: type 0 (a colour, optionally a ramp entry) and 6 fill through a span routine pointer, 1 goes to 00458438, 4 draws the outline, 5 and 7 go to the routine at 0047e5c4. The fill is scan-converted by Poly_ScanConvertToSpanRegion and clipped by the clip mode at +0x204: none, the rect +0x20c (Poly_ClipToRect), or each rect or span region of the clip list, the span regions through SpanRegion_Intersect. Gfx_BandedTriangle fills through it.",
+      "source": "VSHELL decompile and disassembly at 00455798"
+    },
+    {
+      "address": "0040a100",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ESRadioButton_Ctor",
+      "description": "ESRadioButton constructor (vtable 0046e9a0, RTTI name 'ESRadioButton', 0x6d bytes): ButtonIcon_Ctor with the same arguments, then its own vtable and +0x69 cleared. PreferencesScreen_Build makes its option buttons with it.",
+      "source": "VSHELL decompile and disassembly at 0040a100"
+    },
+    {
+      "address": "004083e2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Util_LoadDBM",
+      "description": "loadDBM (asserts in src\\utility.cpp): (name). Opens Path_GetDataPrefix() + name with VolRStream_CtorFromPath, asserting the open, loads one class item from it (VshellClassItem_LoadItem), asserting it loaded, closes the stream and returns the item. MainMenu_BuildScreen loads its art with it.",
+      "source": "VSHELL decompile and disassembly at 004083e2"
+    },
+    {
+      "address": "0040bbd2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Grid_InitAllRows",
+      "description": "(grid): Grid_InitRow for rows 0 to 0x1d. Squad_SetEmptyBayPicture calls it.",
+      "source": "VSHELL decompile and disassembly at 0040bbd2"
+    },
+    {
+      "address": "0040d87d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellOptions_ToggleOption",
+      "description": "(index, flag): ShellOptions_SetOption(index, ShellOptions[index] ^ 1, flag) and returns the new value.",
+      "source": "VSHELL decompile and disassembly at 0040d87d"
+    },
+    {
+      "address": "0042c19c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Open",
+      "description": "SFX::open (asserts 'SFX::open: Can not allocate a ...' in inc\\sfx_fix.h, with SetLastError(14)): (sfx, name, mode, a, b). Takes a free 0x28-byte handle slot from the table at +0x38 (count +0x14), numbering it (serial +0x20 << 16) | index, and fills its defaults (flags +8 = 0, +0xc = 5, +0x14 = 100, +0x18 = 1, +0x1c = 0x8000, +0x20 = 0x10000); its +4 takes the data entry's handle. Reuses a loaded 0x21c-byte data entry with the same name from the table at +0x34 (count +0x10), bumping its reference count at +0x204, or takes a free one and records the name, a and b. Mode 0 sets flag 1 at +8, and mode 2 sets 0x1000 there for a new data entry only. Returns the handle, or -1 when either table is full. ShellSound_Init calls it.",
+      "source": "VSHELL decompile and disassembly at 0042c19c"
+    },
+    {
+      "address": "00450a74",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FixedMulQ8",
+      "description": "Q8 fixed-point multiply, (int64)a*b >> 8.",
+      "source": "VSHELL decompile and disassembly at 00450a74"
+    },
+    {
+      "address": "00450588",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Str_Concat4",
+      "description": "(a, b, c, d, out): concatenates the non-null strings a to d into out, or into the static buffer 0048e057 when out is null, and returns it. Volume_FindEntry builds its names with it.",
+      "source": "VSHELL decompile and disassembly at 00450588"
+    },
+    {
+      "address": "00459908",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_SetClipBlock",
+      "description": "Stores its argument at 0047c3a8, the clip block the drawing primitives (Gfx_PlotPixel, Gfx_FillPolygon and the rest) read. Gfx_SetCurrentContext passes the context's +4.",
+      "source": "VSHELL decompile and disassembly at 00459908"
+    },
+    {
+      "address": "0044e090",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_LogPath",
+      "description": "Builds the assert log's path in 0048dc3c: the directory string at 0048dc38 followed by 'assert.log'. Returns it.",
+      "source": "VSHELL decompile and disassembly at 0044e090"
+    },
+    {
+      "address": "0044e0d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_AppendToLog",
+      "description": "(text): opens Assert_LogPath() with _open(0x901, 0x180) = O_WRONLY|O_CREAT|O_APPEND, aborting on failure; while 0047a5c8 is set it first writes an 80-byte line of dashes and clears the flag; then writes the text and CR LF and closes. Assert_Emit logs through it.",
+      "source": "VSHELL decompile and disassembly at 0044e0d4"
+    },
+    {
+      "address": "0046947c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinCommandEvent_Ctor",
+      "description": "WinCommandEvent constructor (vtable 0047fd70, RTTI name 'WinCommandEvent', 0x25 bytes, over WinEvent_Ctor): sets the event type at +0xc to 0x100, the command event Keyboard_PostEvents posts.",
+      "source": "VSHELL decompile and disassembly at 0046947c"
+    },
+    {
+      "address": "004816bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitScaled",
+      "description": "(bitmap, point, flags, size{w, h}): Bitmap_Blit's scaled twin. Hands the bitmap at +4 to GL_BlitScaled with GL_GetGlobal7; a packed bitmap (+0x12 nonzero) is first unpacked by Bitmap_UnpackToScratch into the buffer at 006c5ffc, which stands in for the data pointer (+0xe) and size (+0xa) for the call and is freed afterwards unless 006c5ff8 is set. VideoMode_BlitBitmap's scaled branch calls it.",
+      "source": "DBSIM decompile and disassembly at 004816bc"
+    },
+    {
+      "address": "00481b2f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_BlitScaled",
+      "description": "(context, bitmapData, point, flags, size): drops the context and calls Bitmap_BlitScaledClipDispatch(bitmapData, point, flags, size).",
+      "source": "DBSIM decompile and disassembly at 00481b2f"
+    },
+    {
+      "address": "0048899c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitScaledClipDispatch",
+      "description": "(bitmapData, point, flags, size{w, h}): offsets the point by the current context's translation when its +0x208 is 1, then calls the scaled blit routine pointer at 004a5838 as (bitmapData, w, h, &point, clip, flags) with clip 0 for clip mode (+0x204) 0 and the context's rect at +0x20c for modes 1 and 2 (mode 2 only when the region count at +0 is positive). Unlike Bitmap_BlitClipDispatch it has no transparent-bitmap branch.",
+      "source": "DBSIM decompile and disassembly at 0048899c"
+    },
+    {
+      "address": "004826af",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_Blit",
+      "description": "(context, bitmapData, point, flags): drops the context and calls Bitmap_BlitClipDispatch(bitmapData, point, flags). Bitmap_Blit reaches the blitter through it.",
+      "source": "DBSIM decompile and disassembly at 004826af"
+    },
+    {
+      "address": "0045421f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_Blit",
+      "description": "(context, bitmapData, point, flags): drops the context and calls 00458ba4(bitmapData, point, flags). GLBitmap_Draw and Font_DrawGlyph reach the blitter through it.",
+      "source": "VSHELL decompile and disassembly at 0045421f"
+    },
+    {
+      "address": "00481bae",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitUnflipped",
+      "description": "(bitmap, point): Bitmap_Blit(bitmap, point, 0).",
+      "source": "DBSIM decompile and disassembly at 00481bae"
+    },
+    {
+      "address": "0048d8c3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_Add",
+      "description": "(a, b): adds b's two int32 components to a's in place.",
+      "source": "DBSIM decompile and disassembly at 0048d8c3"
+    },
+    {
+      "address": "00492952",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec3_Subtract",
+      "description": "(a, b): subtracts b from a in place, z first and then x and y through Vec2_Subtract; returns a.",
+      "source": "DBSIM decompile and disassembly at 00492952"
+    },
+    {
+      "address": "00491080",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadWord",
+      "description": "(stream, dst): reads 2 bytes through the stream's read slot (vtable +0x18). Called by ClassItemTree_ReadChildren, ClassItemTree_ReadFromStream and TSGroup_ReadFromFile.",
+      "source": "DBSIM decompile and disassembly at 00491080"
+    },
+    {
+      "address": "00492324",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadWord2",
+      "description": "(stream, dst): reads 2 bytes through the stream's read slot (vtable +0x18); a second copy of Stream_ReadWord with an identical body.",
+      "source": "DBSIM decompile and disassembly at 00492324"
+    },
+    {
+      "address": "00491065",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadWords",
+      "description": "(stream, count, dst): reads count * 2 bytes through the stream's read slot (vtable +0x18).",
+      "source": "DBSIM decompile and disassembly at 00491065"
+    },
+    {
+      "address": "0048f2de",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadDwords",
+      "description": "(stream, count, dst): reads count * 4 bytes through the stream's read slot (vtable +0x18).",
+      "source": "DBSIM decompile and disassembly at 0048f2de"
+    },
+    {
+      "address": "004668b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Video_LeaveFullscreen",
+      "description": "Video_ToggleFullscreen when the full-screen flag 004d25e2 is set, otherwise nothing. Key_WndProcHook calls it for [Alt+Tab] (0x20f), [Ctrl+Esc] (0x401) and [Alt+Esc] (0x201) instead of passing those codes on.",
+      "source": "DBSIM decompile and disassembly at 004668b0"
+    },
+    {
+      "address": "004648b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Str_FormatStatic",
+      "description": "(format, ...): _vsprintf into the static buffer 004d2f74 and returns it.",
+      "source": "DBSIM decompile and disassembly at 004648b4"
+    },
+    {
+      "address": "004953d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_RotatePoint_Thunk",
+      "description": "One-line forwarder to Transform_RotatePoint with the same arguments.",
+      "source": "DBSIM decompile and disassembly at 004953d8"
+    },
+    {
+      "address": "00488cd1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Rotate2DPoint_Thunk",
+      "description": "One-line forwarder to Math_Rotate2DPoint with the same arguments.",
+      "source": "DBSIM decompile and disassembly at 00488cd1"
+    },
+    {
+      "address": "0048d8fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RotateVectorByMatrixQ14_Thunk",
+      "description": "One-line forwarder to RotateVectorByMatrixQ14 with the same arguments.",
+      "source": "DBSIM decompile and disassembly at 0048d8fc"
+    },
+    {
+      "address": "0047de78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Mul32To64",
+      "description": "(out int64, a, b): stores the 64-bit product a * b and returns out.",
+      "source": "DBSIM decompile and disassembly at 0047de78"
+    },
+    {
+      "address": "0047dd21",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_DivMod64",
+      "description": "(out{quotient, remainder}, int64 *n, d): stores n / d and n % d as two int32s and returns out.",
+      "source": "DBSIM decompile and disassembly at 0047dd21"
+    },
+    {
+      "address": "0047e995",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Mul32To64_Thunk",
+      "description": "Forwarder to Math_Mul32To64 that returns its out pointer.",
+      "source": "DBSIM decompile and disassembly at 0047e995"
+    },
+    {
+      "address": "0047e9b2",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_DivMod64_Thunk",
+      "description": "Forwarder to Math_DivMod64 that returns its out pointer.",
+      "source": "DBSIM decompile and disassembly at 0047e9b2"
+    },
+    {
+      "address": "0047d940",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_AsinBam",
+      "description": "Arcsine of a Q14 sine as a binary angle. Takes the magnitude (restoring the sign at the end), rounds it to a multiple of 4, and below 0xe00 * 4 (about 0.875) reads the coarse table at 004a1e54 at a further 8x step; above it reads the fine table at 004a05d4 (entry 0x1000, for 1.0, is 0x4000, a quarter turn).",
+      "source": "DBSIM decompile and disassembly at 0047d940"
+    },
+    {
+      "address": "0047f894",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_RotationToEuler",
+      "description": "(rotation short[9] Q14, out ushort[3]): out[0] = Math_AsinBam(m[5]). At a quarter turn either way (gimbal lock) out[1] = 0 and out[2] = Math_Atan2Bam(m[0], m[1]); otherwise out[1] = Math_Atan2Bam(m[8], -m[4]) and out[2] = Math_Atan2Bam(m[3], -m[2]). Returns out.",
+      "source": "DBSIM decompile and disassembly at 0047f894"
+    },
+    {
+      "address": "00476604",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSPartList_Ctor",
+      "description": "TSPartList constructor (vtable 004a10d4, RTTI name 'TSPartList', 0x16 bytes, over TSPartBase 004a6268, TSBase 004a6a2c and ClassItem 004a6a08): clears the word at +0x10 and the dword at +0x12.",
+      "source": "DBSIM decompile and disassembly at 00476604"
+    },
+    {
+      "address": "00490928",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShape_Ctor",
+      "description": "TSShape constructor (vtable 004a6331, RTTI name 'TSShape', 0x2a bytes, over TSPartList_Ctor): clears +0x18, +0x1c and +0x20. Constructed at 0042759e and 0049208b.",
+      "source": "DBSIM decompile and disassembly at 00490928"
+    },
+    {
+      "address": "00439834",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LEDBarGraphV_Ctor",
+      "description": "LEDBarGraphV constructor (vtable 0049bd18, RTTI name 'LEDBarGraphV', 0x3c bytes): (obj, rect, range) runs LedBarGraph_CtorV, which builds the BarGraphV (0049bd48) part, then installs its own vtable. 00444edc builds one with range 0x400.",
+      "source": "DBSIM decompile and disassembly at 00439834"
+    },
+    {
+      "address": "0048bc78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSCamera_Ctor",
+      "description": "TSCamera constructor (vtable 004a5b41, RTTI name 'TSCamera', 0x22 bytes): runs the TSContext constructor 0048bb34, then installs its own vtable.",
+      "source": "DBSIM decompile and disassembly at 0048bc78"
+    },
+    {
+      "address": "0045ef00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Language_StringFilePath",
+      "description": "(name, extension): builds 'st<letter>\\<name>.<extension>' in the static buffer 004d29a0, the letter being the language letter 004d25ba patched into the 'str' literal at 0049f27d (so 'str' for the default r). The name and extension go through Path_WithExtension. ColorSchemePanels_LoadAll, the alert panel constructors and the sound catalog build their .STR paths with it.",
+      "source": "DBSIM decompile and disassembly at 0045ef00"
+    },
+    {
+      "address": "00454aa4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_ResetPresentTimer",
+      "description": "Sets the alert panels' next present time 004d1ee8 to Time_GetCoarseTicks(), so the next AlertPanel_Present flips the frame at once.",
+      "source": "DBSIM decompile and disassembly at 00454aa4"
+    },
+    {
+      "address": "004d1ee8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "AlertPanel_NextPresentTicks",
+      "description": "Coarse tick count at which AlertPanel_Present next calls Display_Present on the scroll-window path; it then moves it on by 004d1ee4. AlertPanel_ResetPresentTimer sets it to now.",
+      "source": "DBSIM decompile and disassembly at 004d1ee8"
+    },
+    {
+      "address": "00450a61",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FixedMulQ16",
+      "description": "Q16 fixed-point multiply, (int64)a*b >> 16. TSTexture4Poly_RasterizeB calls it at 59 sites.",
+      "source": "VSHELL decompile and disassembly at 00450a61"
+    },
+    {
+      "address": "00450a3c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FixedDivQ16",
+      "description": "Q16 fixed-point divide, ((int64)a << 16) / b.",
+      "source": "VSHELL decompile and disassembly at 00450a3c"
+    },
+    {
+      "address": "004646c7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteWord",
+      "description": "(stream, value): writes the low 2 bytes of its value argument through the stream's write slot (vtable +0x14). VshellPanel_WriteToStream writes its int16 fields with it.",
+      "source": "VSHELL decompile and disassembly at 004646c7"
+    },
+    {
+      "address": "004646b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadWord",
+      "description": "(stream, dst): reads 2 bytes through the stream's read slot (vtable +0x18). VshellPanel_ReadFromStream reads its int16 fields with it.",
+      "source": "VSHELL decompile and disassembly at 004646b0"
+    },
+    {
+      "address": "00403d88",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arena_Alloc2",
+      "description": "A second copy of Arena_Alloc (00403dc4) with an identical body. (size, arena{base, capacity, used}): bump-allocates size bytes from the arena, returning base + used and advancing used; with no arena, or when the request would pass the capacity, falls back to Mem_NewArray(size). VshellPanel_ReadFromStream allocates its variable-length blocks with it.",
+      "source": "VSHELL decompile and disassembly at 00403d88"
+    },
+    {
+      "address": "0041f163",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_LastSibling",
+      "description": "(unused, widget): follows the next-sibling link at +5 (a parent's children run from its +0xd through +5) until it is null and returns the last widget of the chain, in EAX (the decompile drops it); 0 for a null widget. Widget_Detach and Widget_ShowRecursive call it.",
+      "source": "VSHELL decompile and disassembly at 0041f163"
+    },
+    {
+      "address": "004099b1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Control_Erase",
+      "description": "Control_HandleEvent's and HatchedDivider_HandleEvent's event 2, which hiding a widget posts: Widget_BeginPaint, then fills a rect of the widget's own size (+0x2d - +0x25 by +0x31 - +0x29, normalised when negative) at the paint origin with colour {0, 0x10} installed at the drawing context's +0x22c.",
+      "source": "VSHELL decompile and disassembly at 004099b1"
+    },
+    {
+      "address": "0040fefc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pilot_Read",
+      "description": "(pilot, stream): reads one pilot record, the mirror of Pilot_Write: int16 at +0 and +2, an int16 name length and that many name bytes into +4, int16 +0x22, byte +0x24, then eleven int16 from +0x25 to +0x39. Player_Read and Stats_ScanSlots read pilots with it. See docs/formats/save-games.md.",
+      "source": "VSHELL decompile and disassembly at 0040fefc"
+    },
+    {
+      "address": "00408324",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_GetDataPrefix",
+      "description": "Returns the path prefix the utility.cpp loaders (loadDBM, loadDBA, loadText) copy ahead of a file name: the empty string at 0046e238. TSBase_LoadDba and WeaponsBin_Open call it.",
+      "source": "VSHELL decompile and disassembly at 00408324"
+    },
+    {
+      "address": "0041ee1d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Window_SetPosition",
+      "description": "Window::setPosition (assert 'Window::setPosition > can't move...' in wsrc\\window.cpp when the widget has no parent): (widget, {x, y}). Clamps the position to be non-negative and to keep the widget inside its parent, moves the rect +0x25..+0x31 there keeping its size, then Widget_ResolveRect and Widget_RepaintRecursive. Repair_BuildDiagrams and Squad_BuildBayPictures place their pictures with it.",
+      "source": "VSHELL decompile and disassembly at 0041ee1d"
+    },
+    {
+      "address": "0041ec33",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Window_SetWidth",
+      "description": "(widget, width): sets the right edge +0x2d to left + width - 1 and the screen right +0x1d to match, when width is positive, the widget has a parent, the new width fits inside the parent, and no child's screen right edge (+0x1d) would fall outside. Moves the pointer off and back on (Pointer_Leave, Pointer_Enter) when it is over this widget and now past its edge.",
+      "source": "VSHELL decompile and disassembly at 0041ec33"
+    },
+    {
+      "address": "0041ece6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Window_SetHeight",
+      "description": "(widget, height): Window_SetWidth's vertical twin: sets the bottom edge +0x31 and the screen bottom +0x21 under the same conditions, with the children's screen bottoms (+0x21) checked.",
+      "source": "VSHELL decompile and disassembly at 0041ece6"
+    },
+    {
+      "address": "00453278",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_DrawScaled",
+      "description": "(bitmap, position, flags, size): GLBitmap_Draw's scaled twin, handing the bitmap at +4 to 004536eb with an extra size argument, with the same GLBitmap_Decompress path for a compressed bitmap. ShellMap_PaintIcon and TSBitmapPart_Render draw through it.",
+      "source": "VSHELL decompile and disassembly at 00453278"
+    },
+    {
+      "address": "0043bce0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveRegistration_ShowSkillText",
+      "description": "Sets the text widget 0048d484 to the ES text string RegistrationSkillChoice + 0x35 (WeaponsBin_LookupName on EsTextBinHandle), colour 2, 0x29, 1. SaveRegistration_BuildPanel and SaveRegistration_StepSkill call it.",
+      "source": "VSHELL decompile and disassembly at 0043bce0"
+    },
+    {
+      "address": "0043bfe1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Registration_ShowSkillText",
+      "description": "Sets the text widget at +0x55 of 0048d4ac to the ES text string RegistrationSkillChoice + 0x35, keeping its colour +0x45 and +0xb5. Registration_BuildScreen and Registration_StepSkill call it.",
+      "source": "VSHELL decompile and disassembly at 0043bfe1"
+    },
+    {
+      "address": "00457838",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpanRegion_Intersect",
+      "description": "(a, b, out): intersects two span regions ({int16 top row, int16 row count, then an {x0, x1} int16 pair per row}) row by row into out. Rows before the first overlap are dropped, a gap after it is written as the empty span {1, 0}; returns out with its row count trimmed after the last overlapping row, or 0 when the regions share no row or no span overlaps. Gfx_DrawLine and Gfx_FillRect clip against span regions with it.",
+      "source": "VSHELL decompile and disassembly at 00457838"
+    },
+    {
+      "address": "00421bed",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBounds_ScreenVisibility",
+      "description": "(bounds{+8 radius, +0xa/+0xc/+0xe centre int16}): Raster_ModelToView on the centre; 0 when the sphere lies wholly nearer than 005d7fd8. Otherwise projects the centre (Raster_Project, Raster_ToScreen), scales the radius to screen by a cached factor built from the view's width (Math_Atan2Bam, 004509c4, FixedMulQ10), and tests a box of that half-size plus 3 around the screen centre against the drawing context's rect +0x210..+0x21c: 0 when they do not overlap, 2 when the box is wholly inside when the clip mode +0x208 is 1, else 1. TSShapeInstance_Render and TSShapeInstance_RenderFromRef call it.",
+      "source": "VSHELL decompile and disassembly at 00421bed"
+    },
+    {
+      "address": "00431410",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_RectCornerVisible",
+      "description": "(rect{x0, y0, x1, y1}): 0 when the cockpit's widgets are off (CockpitViewInstance+0x20f). Otherwise 1 when either corner (x0, y0) or (x1, y1), less the video-mode block's 004d25da/004d25de, lies inside the window whose origin is the render context's (view+4) +0x210 + +0x220 across and +0x214 + +0x224 down and whose size is the 3D viewport 004d25c2 x 004d25c6, bounds inclusive; 0 when neither does. The widget paint and update routines test their rect with it before drawing.",
+      "source": "DBSIM decompile and disassembly at 00431410"
+    },
+    {
+      "address": "0045c8a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VideoMode_BlitBitmap",
+      "description": "(block, bitmap, point): draws a bitmap at point less block+0x9a/+0x9e (004d25da/004d25de). Does nothing for a null bitmap. With the panel mode (+0x7b) 3 and the hi-res-banks flag (+0xb0) clear it calls 004816bc with a size of the bitmap's column count (+6) and row count (+4) shifted left by the X and Y coordinate shifts (+0x7e, +0x80), stored at 004d275c/004d2760; otherwise Bitmap_Blit(bitmap, point, 0). All 39 call sites pass the video-mode block 004d2540.",
+      "source": "DBSIM decompile and disassembly at 0045c8a0"
+    },
+    {
+      "address": "00433158",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_GetSquadMessagePort",
+      "description": "Returns the pilot and squad message port at CockpitViewInstance+0x207, or 0 when there is no cockpit view.",
+      "source": "DBSIM decompile and disassembly at 00433158"
+    },
+    {
+      "address": "00453834",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_Load",
+      "description": "(table, path): opens path with VolRStream_CtorFromPath, reads it with StringTable_LoadFromStream, destroys the stream and returns that result. The DBSIM copy of VSHELL's StringTable_Load without its open assert.",
+      "source": "DBSIM decompile and disassembly at 00453834"
+    },
+    {
+      "address": "0045388c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_LoadFromStream",
+      "description": "(table, stream): reads the int32 content length into +8, allocates that many bytes (Mem_NewArray) at +0, reads the content into it and sets the cursor +4 to the start. Returns 1. The DBSIM copy of VSHELL's StringTable_LoadFromStream without its allocation assert.",
+      "source": "DBSIM decompile and disassembly at 0045388c"
+    },
+    {
+      "address": "004538d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_ReadNext",
+      "description": "(table, &text, &attributes): reads the next string of a string table, taking the group's int16 count first at the start of a group. The DBSIM copy of VSHELL's StringTable_ReadNext.",
+      "source": "DBSIM decompile and disassembly at 004538d4"
+    },
+    {
+      "address": "0048c470",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ModelToView",
+      "description": "(point, out): Transform_ApplyToPoint_Thunk by the current model-to-view transform g_ModelToView. The DBSIM copy of VSHELL's Raster_ModelToView.",
+      "source": "DBSIM decompile and disassembly at 0048c470"
+    },
+    {
+      "address": "00480b28",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLViewport_Ctor",
+      "description": "GLViewport constructor (vtable 004a2e28, RTTI name 'GLViewport', 0x239 bytes, over GLBase 004a3380): constructs the rect at +0x210 (RectI_Ctor) and +0x220, then copies the viewport held at GL_GetGlobal7()+0x40 (0x81 dwords from +4, then +0x208..+0x22c) and clears +0x230, +0x231 and +0x235. The DBSIM copy of VSHELL's GLViewport_Ctor.",
+      "source": "DBSIM decompile and disassembly at 00480b28"
+    },
+    {
+      "address": "0048d883",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_GetGlobal",
+      "description": "(index): returns the pointer at 006c5f38 + index*4. The DBSIM copy of VSHELL's GL_GetGlobal.",
+      "source": "DBSIM decompile and disassembly at 0048d883"
+    },
+    {
+      "address": "0048d892",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_GetGlobal7",
+      "description": "GL_GetGlobal(7). The DBSIM copy of VSHELL's GL_GetGlobal7.",
+      "source": "DBSIM decompile and disassembly at 0048d892"
+    },
+    {
+      "address": "00480db8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_GetPtr40",
+      "description": "Returns the dword at +0x40 of its argument. GLViewport_Ctor calls it on GL_GetGlobal7's object to find the viewport it copies. The DBSIM copy of VSHELL's GL_GetPtr40.",
+      "source": "DBSIM decompile and disassembly at 00480db8"
+    },
+    {
+      "address": "00452988",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_GetPtr40",
+      "description": "Returns the dword at +0x40 of its argument. GLViewport_Ctor calls it on GL_GetGlobal7's object to find the viewport it copies.",
+      "source": "VSHELL decompile and disassembly at 00452988"
+    },
+    {
+      "address": "0048dd23",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RectI_Ctor",
+      "description": "Constructs the two 8-byte corner points at +0 and +8 (Rtl_ReturnArg, a no-op) and returns the object. GLViewport_Ctor builds its rect at +0x210 with it. The DBSIM copy of VSHELL's RectI_Ctor.",
+      "source": "DBSIM decompile and disassembly at 0048dd23"
+    },
+    {
+      "address": "0045fb27",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RectI_Ctor",
+      "description": "Constructs the two 8-byte corner points at +0 and +8 (Rtl_ReturnArg, a no-op) and returns the object. GLViewport_Ctor builds its rect at +0x210 with it.",
+      "source": "VSHELL decompile and disassembly at 0045fb27"
+    },
+    {
+      "address": "00483390",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmapArray_Dtor",
+      "description": "GLBitmapArray destructor (vtable 004a3304, RTTI name 'GLBitmapArray', 0xc bytes): deletes each bitmap in the array at +8 (count +4) through its virtual destructor, frees the array with Mem_DeleteArray and the object when flag & 1. The DBSIM copy of VSHELL's GLBitmapArray_Dtor.",
+      "source": "DBSIM decompile and disassembly at 00483390"
+    },
+    {
+      "address": "00481460",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_Ctor",
+      "description": "GLBitmap constructor (vtable 004a3084, RTTI name 'GLBitmap', 0x1a bytes, over GLPrimitive 004a3058 and GLBase 004a3380): clears +0xa, +0xe, +0x14 and +0x16. The DBSIM copy of VSHELL's GLBitmap_Ctor.",
+      "source": "DBSIM decompile and disassembly at 00481460"
+    },
+    {
+      "address": "004837f1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBase_Dtor",
+      "description": "GLBase destructor (vtable 004a3380, RTTI name 'GLBase', 4 bytes): restores the vtable and frees the object when flag & 1. The DBSIM copy of VSHELL's GLBase_Dtor.",
+      "source": "DBSIM decompile and disassembly at 004837f1"
+    },
+    {
+      "address": "0048bd14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_Dtor",
+      "description": "TSBase destructor (vtable 004a6a2c, RTTI name 'TSBase', 4 bytes): restores the vtable and frees the object when flag & 1.",
+      "source": "DBSIM decompile and disassembly at 0048bd14"
+    },
+    {
+      "address": "0048bbb8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSContext_Dtor",
+      "description": "TSContext destructor (vtable 004a5b51, RTTI name 'TSContext', 0x16 bytes): restores the vtable and frees the object when flag & 1.",
+      "source": "DBSIM decompile and disassembly at 0048bbb8"
+    },
+    {
+      "address": "004894e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_PlotPixel",
+      "description": "Plots one pixel at an {x, y} pair through the current drawing context (004a362c), clipped to its rect or clip-region list. The DBSIM copy of VSHELL's Gfx_PlotPixel.",
+      "source": "DBSIM decompile and disassembly at 004894e0"
+    },
+    {
+      "address": "0048d89b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_Set",
+      "description": "(p, x, y): stores two int32 components. The DBSIM copy of VSHELL's Point2I_Set.",
+      "source": "DBSIM decompile and disassembly at 0048d89b"
+    },
+    {
+      "address": "00476dd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_LargestFreeBlock",
+      "description": "Returns the size of the largest block on the pool's free list minus 0x6c, clamped to 0. The DBSIM copy of VSHELL's Memory_LargestFreeBlock.",
+      "source": "DBSIM decompile and disassembly at 00476dd0"
+    },
+    {
+      "address": "004779b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Keyboard_FlushKeys",
+      "description": "(keyboard): empties KeyEventRing (read index 006bb938 = write index 006bb934) and clears bit 1 (keys pending) of the keyboard object's flags. The DBSIM copy of VSHELL's Keyboard_FlushKeys.",
+      "source": "DBSIM decompile and disassembly at 004779b0"
+    },
+    {
+      "address": "004779c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Keyboard_PopKey",
+      "description": "(keyboard): pops the next 16-bit code off KeyEventRing (read index 006bb938, write index 006bb934) and returns it, 0 when the ring is empty; clears bit 1 (keys pending) of the keyboard object's flags when it empties the ring. The DBSIM copy of VSHELL's Keyboard_PopKey.",
+      "source": "DBSIM decompile and disassembly at 004779c8"
+    },
+    {
+      "address": "00479bf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_AddHook",
+      "description": "Pushes a callback onto the assert hook list at 006c575c; aborts with an assert_abort_notify message if the allocation fails. The DBSIM copy of VSHELL's Assert_AddHook.",
+      "source": "DBSIM decompile and disassembly at 00479bf0"
+    },
+    {
+      "address": "0047df71",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Q16Multiply2",
+      "description": "Q16 fixed-point multiply, (int64)a*b >> 16: a second copy of Math_Q16Multiply with an identical body.",
+      "source": "DBSIM decompile and disassembly at 0047df71"
+    },
+    {
+      "address": "0047dfb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Q14Multiply",
+      "description": "(int a, int16 b): Q14 fixed-point multiply, (int64)a*b >> 14. The scale of the Q14 sine/cosine table at 004a25dc.",
+      "source": "DBSIM decompile and disassembly at 0047dfb4"
+    },
+    {
+      "address": "0047dee4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_CosBam",
+      "description": "Cosine of a 16-bit binary angle in Q14: rounds the angle to a 16-BAM step ((a >> 4) + bit 3), takes its magnitude, and reads the quarter-turn table at 004a25dc (indices 0-0x400, 16384 at 0, 11585 at 0x200, 0 at 0x400) directly below a quarter turn and negated as table[0x800 - i] above it.",
+      "source": "DBSIM decompile and disassembly at 0047dee4"
+    },
+    {
+      "address": "0047a844",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_CtorFromHandle",
+      "description": "FileRWStream(handle) constructor (vtable 004a1728, RTTI name 'FileRWStream', 0xb bytes): adopts the handle at +8 without owning it (+0xa = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to FileRWStream_SetIoError. The DBSIM copy of VSHELL's FileRWStream_CtorFromHandle.",
+      "source": "DBSIM decompile and disassembly at 0047a844"
+    },
+    {
+      "address": "0044e300",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_CtorFromHandle",
+      "description": "FileRWStream(handle) constructor (vtable 0047a66c): adopts the handle at +8 without owning it (+0xa = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to FileRWStream_SetIoError.",
+      "source": "VSHELL decompile and disassembly at 0044e300"
+    },
+    {
+      "address": "0047a88c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_CtorFromPath",
+      "description": "FileRWStream(path) constructor (vtable 004a1728): handle -1, +0xa cleared, then FileRWStream_Open(path). The DBSIM copy of VSHELL's FileRWStream_CtorFromPath.",
+      "source": "DBSIM decompile and disassembly at 0047a88c"
+    },
+    {
+      "address": "0044e348",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_CtorFromPath",
+      "description": "FileRWStream(path) constructor (vtable 0047a66c): handle -1, +0xa cleared, then FileRWStream_Open(path). GameFileStr_Write and Game_SaveSlot open save files with it.",
+      "source": "VSHELL decompile and disassembly at 0044e348"
+    },
+    {
+      "address": "0047a8c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Dtor",
+      "description": "FileRWStream destructor: restores vtable 004a1728, closes via FileRWStream_Close, runs Stream_BaseDtor, frees when flag & 1. The DBSIM copy of VSHELL's FileRWStream_Dtor.",
+      "source": "DBSIM decompile and disassembly at 0047a8c4"
+    },
+    {
+      "address": "0047a900",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_GetCapabilities",
+      "description": "FileRWStream vtable slot +0xc: capability queries 0-3 answer 1, anything else 0. The DBSIM copy of VSHELL's FileRWStream_GetCapabilities.",
+      "source": "DBSIM decompile and disassembly at 0047a900"
+    },
+    {
+      "address": "0044e3bc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_GetCapabilities",
+      "description": "FileRWStream vtable slot +0xc, the counterpart of VolRStream_GetCapabilities: capability queries 0-3 answer 1, anything else 0.",
+      "source": "VSHELL decompile and disassembly at 0044e3bc"
+    },
+    {
+      "address": "0047a92c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_SetFile",
+      "description": "(stream, handle): FileRWStream_Close, adopt the handle without owning it (+0xa = 0), probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else FileRWStream_SetIoError. The DBSIM copy of VSHELL's FileRWStream_SetFile.",
+      "source": "DBSIM decompile and disassembly at 0047a92c"
+    },
+    {
+      "address": "0044e3e8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_SetFile",
+      "description": "(stream, handle): FileRWStream_Close, adopt the handle without owning it (+0xa = 0), probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else FileRWStream_SetIoError. The FileRWStream counterpart of VolRStream_SetFile.",
+      "source": "VSHELL decompile and disassembly at 0044e3e8"
+    },
+    {
+      "address": "0047a970",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Close",
+      "description": "FileRWStream::close: _close on the handle at +8 when the stream owns it, then marks it -1. The DBSIM copy of VSHELL's FileRWStream_Close.",
+      "source": "DBSIM decompile and disassembly at 0047a970"
+    },
+    {
+      "address": "0047a9b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Open",
+      "description": "FileRWStream::open: _open(path, 0x8102, 0x180) = O_BINARY|O_CREAT|O_RDWR. The DBSIM copy of VSHELL's FileRWStream_Open.",
+      "source": "DBSIM decompile and disassembly at 0047a9b0"
+    },
+    {
+      "address": "0047a9fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Tell",
+      "description": "FileRWStream vtable slot +4: _lseek(h, 0, SEEK_CUR), returned in EAX (the decompile drops it). The DBSIM copy of VSHELL's FileRWStream_Tell.",
+      "source": "DBSIM decompile and disassembly at 0047a9fc"
+    },
+    {
+      "address": "0044e4b8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Tell",
+      "description": "FileRWStream vtable slot +4: _lseek(h, 0, SEEK_CUR), returned in EAX (the decompile drops it).",
+      "source": "VSHELL decompile and disassembly at 0044e4b8"
+    },
+    {
+      "address": "0047aa18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Seek",
+      "description": "FileRWStream vtable slot +8: (stream, pos). Clears an end-of-data status (2) first, returns 0 on any other nonzero status, then _lseek(h, pos, SEEK_SET); failure goes to FileRWStream_SetIoError, success returns 1. The DBSIM copy of VSHELL's FileRWStream_Seek.",
+      "source": "DBSIM decompile and disassembly at 0047aa18"
+    },
+    {
+      "address": "0044e4d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Seek",
+      "description": "FileRWStream vtable slot +8: (stream, pos). Clears an end-of-data status (2) first, returns 0 on any other nonzero status, then _lseek(h, pos, SEEK_SET); failure goes to FileRWStream_SetIoError, success returns 1.",
+      "source": "VSHELL decompile and disassembly at 0044e4d4"
+    },
+    {
+      "address": "0047aa5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_GetSize",
+      "description": "Returns a FileRWStream's length: saves the position (vtable +4), _lseek to the end, restores the position (vtable +8). 0 unless the status is 0 or 2. The DBSIM copy of VSHELL's FileRWStream_GetSize.",
+      "source": "DBSIM decompile and disassembly at 0047aa5c"
+    },
+    {
+      "address": "0044e518",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_GetSize",
+      "description": "Returns a FileRWStream's length: saves the position (vtable +4), _lseek to the end, restores the position (vtable +8). 0 unless the status is 0 or 2.",
+      "source": "VSHELL decompile and disassembly at 0044e518"
+    },
+    {
+      "address": "0047aaac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_SetIoError",
+      "description": "Sets the stream status at +4 to 1 when the dword at 004966ea is nonzero, else 3, and returns 0. That dword is the _errno import thunk's code bytes, as in VolRStream_SetIoError, so it always stores 1.",
+      "source": "DBSIM decompile and disassembly at 0047aaac"
+    },
+    {
+      "address": "0044e568",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_SetIoError",
+      "description": "Sets the stream status at +4 to 1 when the dword at 0046b6f6 is nonzero, else 3, and returns 0. That dword is the _errno import thunk's code bytes, as in VolRStream_SetIoError, so it always stores 1.",
+      "source": "VSHELL decompile and disassembly at 0044e568"
+    },
+    {
+      "address": "0047aad0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Write",
+      "description": "FileRWStream vtable slot +0x14: (stream, count, buffer). Returns 0 when the status is nonzero; _writes count bytes when count is nonzero, a failure going to FileRWStream_SetIoError; returns 1. The DBSIM copy of VSHELL's FileRWStream_Write.",
+      "source": "DBSIM decompile and disassembly at 0047aad0"
+    },
+    {
+      "address": "0044e58c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Write",
+      "description": "FileRWStream vtable slot +0x14: (stream, count, buffer). Returns 0 when the status is nonzero; _writes count bytes when count is nonzero, a failure going to FileRWStream_SetIoError; returns 1.",
+      "source": "VSHELL decompile and disassembly at 0044e58c"
+    },
+    {
+      "address": "0047ab10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Read",
+      "description": "FileRWStream vtable slot +0x18: (stream, count, buffer). Returns 0 when the status is nonzero; _reads count bytes when count is nonzero, a failure going to FileRWStream_SetIoError and a short read setting status 2 and returning 0; returns 1. The DBSIM copy of VSHELL's FileRWStream_Read.",
+      "source": "DBSIM decompile and disassembly at 0047ab10"
+    },
+    {
+      "address": "0044e5cc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Read",
+      "description": "FileRWStream vtable slot +0x18: (stream, count, buffer). Returns 0 when the status is nonzero; _reads count bytes when count is nonzero, a failure going to FileRWStream_SetIoError and a short read setting status 2 and returning 0; returns 1.",
+      "source": "VSHELL decompile and disassembly at 0044e5cc"
+    },
+    {
+      "address": "0044e678",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_CtorDefault",
+      "description": "FileRStream() constructor (vtable 0047a694): Stream_BaseCtor, handle -1, status 5 (no file), +0xa cleared.",
+      "source": "VSHELL decompile and disassembly at 0044e678"
+    },
+    {
+      "address": "0047abec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_CtorFromHandle",
+      "description": "FileRStream(handle) constructor (vtable 004a1750): adopts the handle at +8 without owning it (+0xa = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to FileRStream_SetIoError. The DBSIM copy of VSHELL's FileRStream_CtorFromHandle.",
+      "source": "DBSIM decompile and disassembly at 0047abec"
+    },
+    {
+      "address": "0044e6ac",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_CtorFromHandle",
+      "description": "FileRStream(handle) constructor (vtable 0047a694): adopts the handle at +8 without owning it (+0xa = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to FileRStream_SetIoError.",
+      "source": "VSHELL decompile and disassembly at 0044e6ac"
+    },
+    {
+      "address": "0047aca8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_GetCapabilities",
+      "description": "FileRStream vtable slot +0xc: capability query 0 answers 2 (the plain-file compression type, as VolRStream_GetCapabilities does for a file), 2 and 3 answer 1, anything else 0. The DBSIM copy of VSHELL's FileRStream_GetCapabilities.",
+      "source": "DBSIM decompile and disassembly at 0047aca8"
+    },
+    {
+      "address": "0044e768",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_GetCapabilities",
+      "description": "FileRStream vtable slot +0xc: capability query 0 answers 2 (the plain-file compression type, as VolRStream_GetCapabilities does for a file), 2 and 3 answer 1, anything else 0.",
+      "source": "VSHELL decompile and disassembly at 0044e768"
+    },
+    {
+      "address": "0047acd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_SetFile",
+      "description": "(stream, handle): FileRStream_Close, adopt the handle without owning it (+0xa = 0), probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else FileRStream_SetIoError. The DBSIM copy of VSHELL's FileRStream_SetFile.",
+      "source": "DBSIM decompile and disassembly at 0047acd8"
+    },
+    {
+      "address": "0044e798",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_SetFile",
+      "description": "(stream, handle): FileRStream_Close, adopt the handle without owning it (+0xa = 0), probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else FileRStream_SetIoError.",
+      "source": "VSHELL decompile and disassembly at 0044e798"
+    },
+    {
+      "address": "0047ad1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Close",
+      "description": "FileRStream::close: _close on the handle at +8 when the stream owns it, then marks it -1. The DBSIM copy of VSHELL's FileRStream_Close.",
+      "source": "DBSIM decompile and disassembly at 0047ad1c"
+    },
+    {
+      "address": "0047ad5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Open",
+      "description": "FileRStream::open: _open(path, 0x8000) = O_BINARY|O_RDONLY; status 1 at +4 on failure, else status 0 and +0xa (owns the handle) set. The DBSIM copy of VSHELL's FileRStream_Open.",
+      "source": "DBSIM decompile and disassembly at 0047ad5c"
+    },
+    {
+      "address": "0047ada4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Tell",
+      "description": "FileRStream vtable slot +4: _lseek(h, 0, SEEK_CUR), returned in EAX. The DBSIM copy of VSHELL's FileRStream_Tell.",
+      "source": "DBSIM decompile and disassembly at 0047ada4"
+    },
+    {
+      "address": "0047adc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Seek",
+      "description": "FileRStream vtable slot +8: seeks the file stream to an absolute offset. The DBSIM copy of VSHELL's FileRStream_Seek.",
+      "source": "DBSIM decompile and disassembly at 0047adc0"
+    },
+    {
+      "address": "0047ae04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_GetSize",
+      "description": "Returns a file stream's length: saves the position (vtable +4), _lseek to the end, restores the position (vtable +8). 0 unless the status is 0 or 2. The DBSIM copy of VSHELL's FileRStream_GetSize.",
+      "source": "DBSIM decompile and disassembly at 0047ae04"
+    },
+    {
+      "address": "0047ae78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Write",
+      "description": "FileRStream vtable slot +0x14: sets status 4 (write to a read-only stream) and returns 0. The DBSIM copy of VSHELL's FileRStream_Write.",
+      "source": "DBSIM decompile and disassembly at 0047ae78"
+    },
+    {
+      "address": "0044e938",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_Write",
+      "description": "FileRStream vtable slot +0x14: sets status 4 (write to a read-only stream) and returns 0.",
+      "source": "VSHELL decompile and disassembly at 0044e938"
+    },
+    {
+      "address": "0047aedc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_CtorDefault",
+      "description": "FileWStream() constructor (vtable 004a1778, RTTI name 'FileWStream', 0xc bytes): Stream_BaseCtor, handle -1, status 5 (no file), +0xa cleared.",
+      "source": "DBSIM decompile and disassembly at 0047aedc"
+    },
+    {
+      "address": "0047af10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_CtorFromHandle",
+      "description": "FileWStream(handle) constructor (vtable 004a1778): adopts the handle at +8 without owning it (+0xa = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to FileWStream_SetIoError. The DBSIM copy of VSHELL's FileWStream_CtorFromHandle.",
+      "source": "DBSIM decompile and disassembly at 0047af10"
+    },
+    {
+      "address": "0044ea28",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_CtorFromHandle",
+      "description": "FileWStream(handle) constructor (vtable 0047a6bc): adopts the handle at +8 without owning it (+0xa = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to FileWStream_SetIoError.",
+      "source": "VSHELL decompile and disassembly at 0044ea28"
+    },
+    {
+      "address": "0047af58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Ctor",
+      "description": "FileWStream(path) constructor (vtable 004a1778, RTTI name 'FileWStream'): handle -1, +0xa cleared, then FileWStream_Open(path). The DBSIM copy of VSHELL's FileWStream_Ctor.",
+      "source": "DBSIM decompile and disassembly at 0047af58"
+    },
+    {
+      "address": "0047af90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Dtor",
+      "description": "FileWStream destructor: restores vtable 004a1778, closes via FileWStream_Close, runs Stream_BaseDtor, frees when flag & 1. The DBSIM copy of VSHELL's FileWStream_Dtor.",
+      "source": "DBSIM decompile and disassembly at 0047af90"
+    },
+    {
+      "address": "0047afcc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_GetCapabilities",
+      "description": "FileWStream vtable slot +0xc: capability query 0 answers 3, 1 and 3 answer 1, anything else 0. The DBSIM copy of VSHELL's FileWStream_GetCapabilities.",
+      "source": "DBSIM decompile and disassembly at 0047afcc"
+    },
+    {
+      "address": "0044eae4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_GetCapabilities",
+      "description": "FileWStream vtable slot +0xc: capability query 0 answers 3, 1 and 3 answer 1, anything else 0.",
+      "source": "VSHELL decompile and disassembly at 0044eae4"
+    },
+    {
+      "address": "0047b008",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_SetFile",
+      "description": "(stream, handle): FileWStream_Close, adopt the handle without owning it (+0xa = 0), probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else FileWStream_SetIoError. The DBSIM copy of VSHELL's FileWStream_SetFile.",
+      "source": "DBSIM decompile and disassembly at 0047b008"
+    },
+    {
+      "address": "0044eb20",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_SetFile",
+      "description": "(stream, handle): FileWStream_Close, adopt the handle without owning it (+0xa = 0), probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else FileWStream_SetIoError.",
+      "source": "VSHELL decompile and disassembly at 0044eb20"
+    },
+    {
+      "address": "0047b04c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Close",
+      "description": "FileWStream::close: _close on the handle at +8 when the stream owns it, marks it -1, status 5. The DBSIM copy of VSHELL's FileWStream_Close.",
+      "source": "DBSIM decompile and disassembly at 0047b04c"
+    },
+    {
+      "address": "0047b08c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Open",
+      "description": "FileWStream::open: _open(path, 0x8301, 0x180) = O_BINARY|O_CREAT|O_TRUNC|O_WRONLY. The DBSIM copy of VSHELL's FileWStream_Open.",
+      "source": "DBSIM decompile and disassembly at 0047b08c"
+    },
+    {
+      "address": "0047b0d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Tell",
+      "description": "FileWStream vtable slot +4: _lseek(h, 0, SEEK_CUR), returned in EAX (the decompile drops it). The DBSIM copy of VSHELL's FileWStream_Tell.",
+      "source": "DBSIM decompile and disassembly at 0047b0d8"
+    },
+    {
+      "address": "0044ebf0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Tell",
+      "description": "FileWStream vtable slot +4: _lseek(h, 0, SEEK_CUR), returned in EAX (the decompile drops it).",
+      "source": "VSHELL decompile and disassembly at 0044ebf0"
+    },
+    {
+      "address": "0047b0f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Seek",
+      "description": "FileWStream vtable slot +8: (stream, pos). Clears an end-of-data status (2) first, returns 0 on any other nonzero status, then _lseek(h, pos, SEEK_SET); failure goes to FileWStream_SetIoError, success returns 1. The DBSIM copy of VSHELL's FileWStream_Seek.",
+      "source": "DBSIM decompile and disassembly at 0047b0f4"
+    },
+    {
+      "address": "0044ec0c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Seek",
+      "description": "FileWStream vtable slot +8: (stream, pos). Clears an end-of-data status (2) first, returns 0 on any other nonzero status, then _lseek(h, pos, SEEK_SET); failure goes to FileWStream_SetIoError, success returns 1.",
+      "source": "VSHELL decompile and disassembly at 0044ec0c"
+    },
+    {
+      "address": "0047b138",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_GetSize",
+      "description": "Returns a FileWStream's length: saves the position (vtable +4), _lseek to the end, restores the position (vtable +8). 0 unless the status is 0 or 2. The DBSIM copy of VSHELL's FileWStream_GetSize.",
+      "source": "DBSIM decompile and disassembly at 0047b138"
+    },
+    {
+      "address": "0044ec50",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_GetSize",
+      "description": "Returns a FileWStream's length: saves the position (vtable +4), _lseek to the end, restores the position (vtable +8). 0 unless the status is 0 or 2.",
+      "source": "VSHELL decompile and disassembly at 0044ec50"
+    },
+    {
+      "address": "0047b188",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_SetIoError",
+      "description": "Sets the stream status at +4 to 1 when the dword at 004966ea is nonzero, else 3, and returns 0. That dword is the _errno import thunk's code bytes, as in VolRStream_SetIoError, so it always stores 1.",
+      "source": "DBSIM decompile and disassembly at 0047b188"
+    },
+    {
+      "address": "0044eca0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_SetIoError",
+      "description": "Sets the stream status at +4 to 1 when the dword at 0046b6f6 is nonzero, else 3, and returns 0. That dword is the _errno import thunk's code bytes, as in VolRStream_SetIoError, so it always stores 1.",
+      "source": "VSHELL decompile and disassembly at 0044eca0"
+    },
+    {
+      "address": "0047b1ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Write",
+      "description": "FileWStream vtable slot +0x14: (stream, count, buffer). Returns 0 when the status is nonzero; _writes count bytes when count is nonzero, a failure going to FileWStream_SetIoError; returns 1. The DBSIM copy of VSHELL's FileWStream_Write.",
+      "source": "DBSIM decompile and disassembly at 0047b1ac"
+    },
+    {
+      "address": "0044ecc4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Write",
+      "description": "FileWStream vtable slot +0x14: (stream, count, buffer). Returns 0 when the status is nonzero; _writes count bytes when count is nonzero, a failure going to FileWStream_SetIoError; returns 1.",
+      "source": "VSHELL decompile and disassembly at 0044ecc4"
+    },
+    {
+      "address": "0047b1ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Read",
+      "description": "FileWStream vtable slot +0x18: sets status 4 and returns 0; the stream is write-only. The DBSIM copy of VSHELL's FileWStream_Read.",
+      "source": "DBSIM decompile and disassembly at 0047b1ec"
+    },
+    {
+      "address": "0044ed04",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Read",
+      "description": "FileWStream vtable slot +0x18: sets status 4 and returns 0; the stream is write-only.",
+      "source": "VSHELL decompile and disassembly at 0044ed04"
+    },
+    {
+      "address": "0047b251",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ClearStatus",
+      "description": "Sets a stream's status word at +4 to 0 (ok). The DBSIM copy of VSHELL's Stream_ClearStatus.",
+      "source": "DBSIM decompile and disassembly at 0047b251"
+    },
+    {
+      "address": "0047b260",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MemRWStream_Ctor",
+      "description": "MemRWStream constructor (vtable 004a17a0, RTTI name 'MemRWStream', 0x14 bytes): (stream, size, buffer) streams over memory: +8 start, +0xc end (start + size), +0x10 cursor. The DBSIM copy of VSHELL's MemRWStream_Ctor.",
+      "source": "DBSIM decompile and disassembly at 0047b260"
+    },
+    {
+      "address": "00482acb",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_Read",
+      "description": "(stream, count, buffer): calls the stream's read slot (vtable +0x18). The DBSIM copy of VSHELL's Stream_Read.",
+      "source": "DBSIM decompile and disassembly at 00482acb"
+    },
+    {
+      "address": "0047b400",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Ctor",
+      "description": "RLERStream constructor (vtable 004a17c8, RTTI name 'RLERStream', 0x92 bytes): Stream_BaseCtor, RLERStream_Init, status 6 (not attached). The DBSIM copy of VSHELL's RLERStream_Ctor.",
+      "source": "DBSIM decompile and disassembly at 0047b400"
+    },
+    {
+      "address": "0047b430",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_CtorOnSource",
+      "description": "RLERStream constructor attached to a source stream: StreamIO base, vtable 004a17c8, RLERStream_Init, RLERStream_Open(source). The DBSIM copy of VSHELL's RLERStream_CtorOnSource.",
+      "source": "DBSIM decompile and disassembly at 0047b430"
+    },
+    {
+      "address": "0047b468",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Init",
+      "description": "Clears an RLERStream's source pointer at +8, its state bytes +0xc..+0xe and the dword at +0x8e. The DBSIM copy of VSHELL's RLERStream_Init.",
+      "source": "DBSIM decompile and disassembly at 0047b468"
+    },
+    {
+      "address": "0047b488",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Open",
+      "description": "(rle, source): RLERStream_Close, attach the source stream at +8, reset the decoder state, and copy the source's status (Stream_GetStatus) as its own. The DBSIM copy of VSHELL's RLERStream_Open.",
+      "source": "DBSIM decompile and disassembly at 0047b488"
+    },
+    {
+      "address": "0047b4c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Close",
+      "description": "When a source is attached: calls the stream's own vtable slot +0x10, clears the source at +8 and sets status 6. VolRStream_Close releases the +0x27 filter with it. The DBSIM copy of VSHELL's RLERStream_Close.",
+      "source": "DBSIM decompile and disassembly at 0047b4c0"
+    },
+    {
+      "address": "0047b734",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Ctor",
+      "description": "LZHRStream constructor (vtable 004a1820, RTTI name 'LZHRStream', 0x28 bytes): Stream_BaseCtor, LZHRStream_Init, status 6 (not attached). The DBSIM copy of VSHELL's LZHRStream_Ctor.",
+      "source": "DBSIM decompile and disassembly at 0047b734"
+    },
+    {
+      "address": "0047b764",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_CtorOnSource",
+      "description": "LZHRStream constructor attached to a source stream: StreamIO base, vtable 004a1820, LZHRStream_Init, LZHRStream_Open(source). The DBSIM copy of VSHELL's LZHRStream_CtorOnSource.",
+      "source": "DBSIM decompile and disassembly at 0047b764"
+    },
+    {
+      "address": "0047b79c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Init",
+      "description": "Allocates an LZHRStream's LZHuffman coder (0x16 bytes, LZHuffman_Ctor) at +0xc and a 0x103b-byte window buffer at +0x10; source pointer +8 cleared. The DBSIM copy of VSHELL's LZHRStream_Init.",
+      "source": "DBSIM decompile and disassembly at 0047b79c"
+    },
+    {
+      "address": "0047b80c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Dtor",
+      "description": "LZHRStream destructor: LZHRStream_Close, destroys the LZHuffman at +0xc (LZHuffman_Dtor, flag 3), frees the window at +0x10, Stream_BaseDtor, frees itself when flag & 1. The DBSIM copy of VSHELL's LZHRStream_Dtor.",
+      "source": "DBSIM decompile and disassembly at 0047b80c"
+    },
+    {
+      "address": "0047b868",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Open",
+      "description": "(lzh, source): LZHRStream_Close, attach the source at +8, start the Huffman coder on it (LZHuffman_Start), fill the first 0xfc4 bytes of the window with spaces, set the window position to 0xfc4 and copy the source's status. The DBSIM copy of VSHELL's LZHRStream_Open.",
+      "source": "DBSIM decompile and disassembly at 0047b868"
+    },
+    {
+      "address": "0047b8c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHRStream_Close",
+      "description": "When a source is attached: calls the stream's own vtable slot +0x10, clears the source at +8 and sets status 6. VolRStream_Close releases the +0x2b filter with it. The DBSIM copy of VSHELL's LZHRStream_Close.",
+      "source": "DBSIM decompile and disassembly at 0047b8c0"
+    },
+    {
+      "address": "0047bb50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Ctor",
+      "description": "The DBSIM copy of VSHELL's LZHuffman_Ctor.",
+      "source": "DBSIM decompile and disassembly at 0047bb50"
+    },
+    {
+      "address": "0047bb90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Dtor",
+      "description": "The DBSIM copy of VSHELL's LZHuffman_Dtor.",
+      "source": "DBSIM decompile and disassembly at 0047bb90"
+    },
+    {
+      "address": "0047bbd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Start",
+      "description": "The DBSIM copy of VSHELL's LZHuffman_Start.",
+      "source": "DBSIM decompile and disassembly at 0047bbd0"
+    },
+    {
+      "address": "00472d60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Ctor",
+      "description": "VolRStream() constructor (vtable 004a0e28): Stream_BaseCtor, clears the filter pointers +0x27/+0x2b and position fields +0xa, +0xe, +0x16, handle -1, status 5. The DBSIM copy of VSHELL's VolRStream_Ctor without its g_VolumeGroup assert.",
+      "source": "DBSIM decompile and disassembly at 00472d60"
+    },
+    {
+      "address": "00472da8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_CtorFromHandle",
+      "description": "VolRStream(handle) constructor (vtable 004a0e28): as VolRStream_Ctor, but adopts an open handle without owning it (+0x26 = 0) and probes it with _lseek(h, 0, SEEK_CUR); failure goes to VolRStream_SetIoError. The DBSIM copy of VSHELL's VolRStream_CtorFromHandle.",
+      "source": "DBSIM decompile and disassembly at 00472da8"
+    },
+    {
+      "address": "00472f30",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetFile",
+      "description": "(stream, handle): VolRStream_Close, adopt the handle without owning it (+0x26 = 0), probe it with _lseek(h, 0, SEEK_CUR); status 0 on success, else VolRStream_SetIoError. The DBSIM copy of VSHELL's VolRStream_SetFile.",
+      "source": "DBSIM decompile and disassembly at 00472f30"
+    },
+    {
+      "address": "00472fdc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Open",
+      "description": "VolRStream::open(path), the DBSIM copy of VSHELL's VolRStream_Open with the asserts compiled out: tries _open(path, O_BINARY|O_RDONLY) first, then VolumeGroup_FindEntry on g_VolumeGroup (004a0d30), and switches on the entry's compression type: 2 reads the volume stream directly, 7 attaches the RLERStream at +0x27, 9 the LZHRStream at +0x2b (each created on first use). Any other type returns 1 with status 0 and no source at +0xe. Returns 0 with status 1 when neither source has the file.",
+      "source": "DBSIM decompile and disassembly at 00472fdc"
+    },
+    {
+      "address": "00473154",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetGroup",
+      "description": "(a, b, c, d): creates g_VolumeGroup (004a0d30, 0x79 bytes, 00467a98) on first use, otherwise passes the same arguments to 00467bd4 on the existing group. The DBSIM copy of VSHELL's VolRStream_SetGroup without its allocation assert.",
+      "source": "DBSIM decompile and disassembly at 00473154"
+    },
+    {
+      "address": "00402fe3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetGroup",
+      "description": "VolRStream::setGroup (assert 'VolRStream::setGroup: Insufficient memory...' in src\\volrstrm.cpp): (a, b, c, d). Creates g_VolumeGroup (0x79 bytes, 004035dc) on first use, otherwise passes the same arguments to 00403723 on the existing group.",
+      "source": "VSHELL decompile and disassembly at 00402fe3"
+    },
+    {
+      "address": "00473210",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_LoadVolume",
+      "description": "(path): passes path to 00467ee8 on g_VolumeGroup (004a0d30). The DBSIM copy of VSHELL's VolRStream_LoadVolume without its assert.",
+      "source": "DBSIM decompile and disassembly at 00473210"
+    },
+    {
+      "address": "004030ce",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_LoadVolume",
+      "description": "VolRStream::loadVolume (assert 'VolRStream::loadVolume: A volume group must be defined...' in src\\volrstrm.cpp when g_VolumeGroup is null): passes path to 00403acc on g_VolumeGroup.",
+      "source": "VSHELL decompile and disassembly at 004030ce"
+    },
+    {
+      "address": "00473228",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_GetSize",
+      "description": "Returns a VolRStream's length: _filelength of the handle for a plain file, the entry size at +0x22 for an open volume entry, else 0. The DBSIM copy of VSHELL's VolRStream_GetSize.",
+      "source": "DBSIM decompile and disassembly at 00473228"
+    },
+    {
+      "address": "00403117",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_GetSize",
+      "description": "Returns a VolRStream's length: _filelength of the handle for a plain file, the entry size at +0x22 for an open volume entry, else 0.",
+      "source": "VSHELL decompile and disassembly at 00403117"
+    },
+    {
+      "address": "0047325c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_GetPosition",
+      "description": "VolRStream vtable slot +4: _lseek(h, 0, SEEK_CUR) for a file handle, else the position within the volume entry (+0x16), or 0 when no entry is open. The DBSIM copy of VSHELL's VolRStream_GetPosition.",
+      "source": "DBSIM decompile and disassembly at 0047325c"
+    },
+    {
+      "address": "00473298",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_SetPosition",
+      "description": "VolRStream vtable slot +8: (stream, pos). The DBSIM copy of VSHELL's VolRStream_SetPosition without its assert.",
+      "source": "DBSIM decompile and disassembly at 00473298"
+    },
+    {
+      "address": "00473404",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_GetCapabilities",
+      "description": "VolRStream vtable slot +0xc: answers capability queries 0-4 as VSHELL's VolRStream_GetCapabilities does, without its assert.",
+      "source": "DBSIM decompile and disassembly at 00473404"
+    },
+    {
+      "address": "00473498",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolRStream_Write",
+      "description": "VolRStream vtable slot +0x14: sets status 4 and returns 0. The DBSIM copy of VSHELL's VolRStream_Write without its assert.",
+      "source": "DBSIM decompile and disassembly at 00473498"
+    },
+    {
+      "address": "00467f60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolumeGroup_FindEntry",
+      "description": "Tries Volume_FindEntry (0047ccec) on each volume in a VolumeGroup (volume pointers from +0, count byte at +0x78) in order and returns 1 at the first hit. The DBSIM copy of VSHELL's VolumeGroup_FindEntry.",
+      "source": "DBSIM decompile and disassembly at 00467f60"
+    },
+    {
+      "address": "004a0d30",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_VolumeGroup",
+      "description": "Pointer to the simulation's VolumeGroup. VolRStream_SetGroup creates it, VolRStream_Open searches it and VolRStream_LoadVolume adds to it. The DBSIM copy of VSHELL's g_VolumeGroup.",
+      "source": "DBSIM decompile and disassembly at 004a0d30"
+    },
+    {
       "address": "00477480",
       "binary": "DBSIM",
       "type": "function",
@@ -9235,7 +11656,7 @@
       "confidence": "high",
       "name": "PolyFill_Fill",
       "signature": "void __cdecl PolyFill_Fill(void)",
-      "description": "Fills the screen polygon left in the point-list globals by Poly_ProjectIndexedVertices / Poly_ClipRingToNearPlane, through FUN_004841af -> Raster_DrawPolygonDispatch, then runs PolyFill_FillThenOutline's same outline pass without its mode-5 guard. Winding-agnostic: FUN_004841af measures the signed area and hands the other winding to FUN_00484116. Takes no arguments -- everything is globals. Called by BeamTracer_Draw for each ELF chain quad, where the outline pass is inert because the beam installed its own brush.",
+      "description": "Fills the screen polygon left in the point-list globals by Poly_ProjectIndexedVertices / Poly_ClipRingToNearPlane, through Raster_DrawPolygonEitherWinding -> Raster_DrawPolygonDispatch, then runs PolyFill_FillThenOutline's same outline pass without its mode-5 guard. Winding-agnostic: Raster_DrawPolygonEitherWinding measures the signed area and hands the other winding to Raster_DrawPolygonReversed. Takes no arguments -- everything is globals. Called by BeamTracer_Draw for each ELF chain quad, where the outline pass is inert because the beam installed its own brush.",
       "source": "docs/simulation/beam-visuals.md"
     },
     {
@@ -9264,7 +11685,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygonDispatch",
-      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine DAT_004a57c4 and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; mode 6 calls slot 1 of g_RasterRoutines, mode 1 FUN_004879c0, and modes 5 and 7 Raster_FillBitmapPolygon through slot 33 (004a5848). FUN_00484116 is the opposite-winding sibling.",
+      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine DAT_004a57c4 and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; mode 6 calls slot 1 of g_RasterRoutines, mode 1 FUN_004879c0, and modes 5 and 7 Raster_FillBitmapPolygon through slot 33 (004a5848). Raster_DrawPolygonReversed reverses an anticlockwise outline before calling it.",
       "source": "docs/formats/dts-texture-binding.md, docs/simulation/beam-visuals.md"
     },
     {
@@ -15434,8 +17855,8 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Stream_Tell",
-      "description": "Returns a stream's current offset. Paired with Stream_Seek to skip a block; a decompile loses the return value and renders the pair as two unrelated calls, which makes a run of binary skips read like a stream loop.",
+      "name": "FileRStream_Tell",
+      "description": "FileRStream vtable slot +4: _lseek(h, 0, SEEK_CUR), the stream's current offset, returned in EAX. Paired with FileRStream_Seek to skip a block; a decompile loses the return value and renders the pair as two unrelated calls, which makes a run of binary skips read like a stream loop.",
       "source": "docs/formats/save-games.md#the-slot-summary--statscpps-scan"
     },
     {
@@ -15443,8 +17864,8 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Stream_Seek",
-      "description": "Seeks a stream to an absolute offset. Stats_ScanSlots walks a whole save file with Stream_Tell/Stream_Seek pairs rather than reading the blocks it does not need.",
+      "name": "FileRStream_Seek",
+      "description": "FileRStream vtable slot +8: seeks the file stream to an absolute offset. Stats_ScanSlots walks a whole save file with FileRStream_Tell/FileRStream_Seek pairs rather than reading the blocks it does not need.",
       "source": "docs/formats/save-games.md#the-slot-summary--statscpps-scan"
     },
     {
@@ -19898,6 +22319,275 @@
       "source": "docs/shell/screen-layout.md#the-armory-screen"
     },
     {
+      "address": "0048dab0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ArmoryRowHandlers",
+      "description": "The armory's 26 row handlers, Armory_OnRow00..Armory_OnRow25, filled by Armory_BuildScreen and passed to Panel_Ctor as row i's click handler.",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a0b6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow00",
+      "signature": "void __cdecl Armory_OnRow00(int *event)",
+      "description": "Armory row 0's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(0) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(0); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a12a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow01",
+      "signature": "void __cdecl Armory_OnRow01(int *event)",
+      "description": "Armory row 1's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(1) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(1); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a19e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow02",
+      "signature": "void __cdecl Armory_OnRow02(int *event)",
+      "description": "Armory row 2's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(2) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(2); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a212",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow03",
+      "signature": "void __cdecl Armory_OnRow03(int *event)",
+      "description": "Armory row 3's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(3) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(3); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a286",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow04",
+      "signature": "void __cdecl Armory_OnRow04(int *event)",
+      "description": "Armory row 4's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(4) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(4); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a2fa",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow05",
+      "signature": "void __cdecl Armory_OnRow05(int *event)",
+      "description": "Armory row 5's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(5) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(5); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a36e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow06",
+      "signature": "void __cdecl Armory_OnRow06(int *event)",
+      "description": "Armory row 6's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(6) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(6); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a3e2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow07",
+      "signature": "void __cdecl Armory_OnRow07(int *event)",
+      "description": "Armory row 7's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(7) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(7); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a456",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow08",
+      "signature": "void __cdecl Armory_OnRow08(int *event)",
+      "description": "Armory row 8's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(8) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(8); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a4ca",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow09",
+      "signature": "void __cdecl Armory_OnRow09(int *event)",
+      "description": "Armory row 9's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(9) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(9); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a53e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow10",
+      "signature": "void __cdecl Armory_OnRow10(int *event)",
+      "description": "Armory row 10's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(10) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(10); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a5b2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow11",
+      "signature": "void __cdecl Armory_OnRow11(int *event)",
+      "description": "Armory row 11's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(11) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(11); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a626",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow12",
+      "signature": "void __cdecl Armory_OnRow12(int *event)",
+      "description": "Armory row 12's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(12) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(12); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a69a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow13",
+      "signature": "void __cdecl Armory_OnRow13(int *event)",
+      "description": "Armory row 13's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(13) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(13); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a70e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow14",
+      "signature": "void __cdecl Armory_OnRow14(int *event)",
+      "description": "Armory row 14's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(14) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(14); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a782",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow15",
+      "signature": "void __cdecl Armory_OnRow15(int *event)",
+      "description": "Armory row 15's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(15) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(15); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a7f6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow16",
+      "signature": "void __cdecl Armory_OnRow16(int *event)",
+      "description": "Armory row 16's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(16) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(16); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a86a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow17",
+      "signature": "void __cdecl Armory_OnRow17(int *event)",
+      "description": "Armory row 17's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(17) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(17); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a8de",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow18",
+      "signature": "void __cdecl Armory_OnRow18(int *event)",
+      "description": "Armory row 18's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(18) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(18); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a952",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow19",
+      "signature": "void __cdecl Armory_OnRow19(int *event)",
+      "description": "Armory row 19's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(19) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(19); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044a9c6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow20",
+      "signature": "void __cdecl Armory_OnRow20(int *event)",
+      "description": "Armory row 20's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(20) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(20); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044aa3a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow21",
+      "signature": "void __cdecl Armory_OnRow21(int *event)",
+      "description": "Armory row 21's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(21) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(21); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044aaae",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow22",
+      "signature": "void __cdecl Armory_OnRow22(int *event)",
+      "description": "Armory row 22's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(22) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(22); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044ab22",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow23",
+      "signature": "void __cdecl Armory_OnRow23(int *event)",
+      "description": "Armory row 23's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(23) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(23); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044ab96",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow24",
+      "signature": "void __cdecl Armory_OnRow24(int *event)",
+      "description": "Armory row 24's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(24) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(24); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "0044ac0a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnRow25",
+      "signature": "void __cdecl Armory_OnRow25(int *event)",
+      "description": "Armory row 25's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(25) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(25); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
       "address": "00449cab",
       "binary": "VSHELL",
       "type": "function",
@@ -22227,6 +24917,204 @@
       "name": "ChaseTrail_Cursor",
       "description": "The chase ring's next slot.",
       "source": "docs/simulation/external-views.md#mode-3-the-chase"
+    },
+    {
+      "address": "00465e0a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvert",
+      "description": "(count, points, out): the int32 twin of Poly_ScanConvertToSpanRegion: scan-converts a convex, clockwise outline into {top, rows, then an int32 {x0, x1} pair per row} by the same rules (docs/polygon-fill.md#scan-conversion). Called only through Poly_ScanConvertEitherWinding and Poly_ScanConvertReversed.",
+      "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
+    },
+    {
+      "address": "00465d39",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvertEitherWinding",
+      "description": "(count, points, out): does nothing for count 0. For more than two points sums the shoelace cross products in 64 bits; a sum of zero or less (anticlockwise on screen, or degenerate) goes to Poly_ScanConvertReversed, otherwise, and for one or two points, straight to Poly_ScanConvert. Called by Poly_BuildSpanList.",
+      "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
+    },
+    {
+      "address": "00465db9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvertReversed",
+      "description": "(count, points, out): for more than two points copies the points in reverse order into a 100-int stack buffer (no bounds check) and scan-converts that with Poly_ScanConvert, so an anticlockwise polygon comes out clockwise; otherwise passes points through unchanged.",
+      "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
+    },
+    {
+      "address": "0043000d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_BuildSpanList",
+      "description": "(poly, spans, header): poly is {count, int32 {x, y} points*}. Translates the points in place so their minimum x and y are 0 (and does not translate them back), scan-converts them into spans with Poly_ScanConvertEitherWinding, adds the minimum x back to every span, and fills header = {top row, bottom row, row count, pointer to spans + 8 (the first {x0, x1} pair)} with rows in screen coordinates. CellWalk_Polygon and CellWalk_PolygonByColumn call it on each quadrant Poly_ClipToHalfPlane cuts.",
+      "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
+    },
+    {
+      "address": "00492fb5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvertEitherWinding",
+      "description": "The DBSIM copy of VSHELL's Poly_ScanConvertEitherWinding (00465d39), byte-identical; see that entry.",
+      "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
+    },
+    {
+      "address": "00493035",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvertReversed",
+      "description": "The DBSIM copy of VSHELL's Poly_ScanConvertReversed (00465db9), byte-identical; see that entry.",
+      "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
+    },
+    {
+      "address": "00493086",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvert",
+      "description": "The DBSIM copy of VSHELL's Poly_ScanConvert (00465e0a), the same code; the first 474 bytes are identical and later branch displacements differ by a few bytes of layout; see that entry.",
+      "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
+    },
+    {
+      "address": "00456000",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvertToSpanRegion",
+      "description": "(count, points, out): scan-converts a convex, clockwise outline of int32 {x, y} points into an int16 span region {top, rows, {x0, x1} per row} by Bresenham chains. Gfx_FillPolygon's span fills go through it. Span rules in the doc.",
+      "source": "docs/polygon-fill.md#scan-conversion"
+    },
+    {
+      "address": "00484614",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ScanConvertToSpanRegion",
+      "description": "The DBSIM copy of VSHELL's Poly_ScanConvertToSpanRegion (00456000), byte-identical but for its two absolute addresses (the stack-save slot and the vertical-edge store table at 004865e4).",
+      "source": "docs/polygon-fill.md#scan-conversion"
+    },
+    {
+      "address": "00455c18",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipToRect",
+      "description": "(count, points, out, rect{x0, y0, x1, y1}): Sutherland-Hodgman clip against an inclusive rect, x pass then y pass, crossings computed from the outside endpoint with truncating 64-bit division; returns the new count. Gfx_FillPolygon's clip modes 1 and 2 use it.",
+      "source": "docs/polygon-fill.md#clipping-to-a-rectangle"
+    },
+    {
+      "address": "0048422c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipToRect",
+      "description": "The DBSIM copy of VSHELL's Poly_ClipToRect (00455c18), byte-identical.",
+      "source": "docs/polygon-fill.md#clipping-to-a-rectangle"
+    },
+    {
+      "address": "00455b9b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_FillPolygonEitherWinding",
+      "description": "(count, points): sums the shoelace cross products in 64 bits; zero or less goes to Gfx_FillPolygonReversed, otherwise (and for one or two points) to Gfx_FillPolygon. Does nothing for count 0.",
+      "source": "docs/polygon-fill.md#filling-a-polygon"
+    },
+    {
+      "address": "004841af",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_DrawPolygonEitherWinding",
+      "description": "The DBSIM copy of VSHELL's Gfx_FillPolygonEitherWinding (00455b9b), byte-identical: hands a zero-or-negative shoelace sum to Raster_DrawPolygonReversed, anything else to Raster_DrawPolygonDispatch. PolyFill_Fill fills through it.",
+      "source": "docs/polygon-fill.md#filling-a-polygon"
+    },
+    {
+      "address": "00455b02",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_FillPolygonReversed",
+      "description": "(count, points): for more than two points copies them in reverse order (20-point stack buffer, no bounds check) and calls Gfx_FillPolygon; when the fill at context +0x228 is type 5 it also reverses the fill's per-vertex list at +8 for the call, then restores the pointer.",
+      "source": "docs/polygon-fill.md#filling-a-polygon"
+    },
+    {
+      "address": "00484116",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_DrawPolygonReversed",
+      "description": "The DBSIM copy of VSHELL's Gfx_FillPolygonReversed (00455b02), identical but for the rel32 call, which goes to Raster_DrawPolygonDispatch.",
+      "source": "docs/polygon-fill.md#filling-a-polygon"
+    },
+    {
+      "address": "004300c7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipToHalfPlane",
+      "description": "(keepHigh, alongX, value, in, out): one Sutherland-Hodgman pass keeping the part of polygon in ({count, points*}) with x (alongX) or y at >= value (keepHigh) or <= value, points on the line kept, into out (whose point pointer the caller sets); crossings computed from the previous point, truncating. Returns the count's low byte. The case bodies sit behind a jump table Ghidra left undisassembled.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0042f3b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "CellWalk_SetCallback",
+      "description": "(ctx, callback, value): stores the cell walk's callback at ctx+0x14 and its value at ctx+0x18.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0042f3c4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "CellWalk_Polygon",
+      "description": "(ctx, centre, polygon): cuts the polygon into four quadrants around the centre cell with Poly_ClipToHalfPlane, scan-converts each with Poly_BuildSpanList, and calls ctx's callback(ctx, row, xFrom, xTo) per row run, far to near when DAT_00471888 == 0 && DAT_00471884 != 0 (the image values) and near to far otherwise. hgrid.cpp's cell renderer 00429b4a calls it.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0042f9b8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "CellWalk_PolygonByColumn",
+      "description": "(ctx, centre, polygon): CellWalk_Polygon's far-to-near walk by column: turns the points a quarter turn about the centre (Point_RotateQuarterAbout), walks, turns each run's end cells back (Point_UnrotateQuarterAbout) and calls callback(ctx, column, yFrom, yTo), then turns the points back. Ghidra's decompile misreads its context as Rtl_VectorNew's return; it is the first argument, held in EDI.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0042fe5a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "CellWalk_Rect",
+      "description": "(ctx, centre, rect{x0, y0, x1, y1}): the far-to-near cell walk over a rectangle, no scan conversion, each half running its first quadrant's rows before its second's.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0042f968",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point_RotateQuarterAbout",
+      "description": "(&x, &y, centre): x' = cx + (y - cy), y' = cy - (x - cx), in place. CellWalk_PolygonByColumn turns its polygon with it.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0042f990",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point_UnrotateQuarterAbout",
+      "description": "(&x, &y, centre): the inverse of Point_RotateQuarterAbout, x = cx - (y' - cy), y = cy + (x' - cx), in place.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
     }
   ]
 }

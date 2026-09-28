@@ -10,7 +10,7 @@ public readonly record struct VolEntryPrefixResult(
     byte[] Content, bool HadPrefix, byte CompressionType, byte[]? MagicPrefix, bool HadTrailingByte);
 
 /// <summary>
-/// Handles the same 9-byte per-entry prefix (1-byte storage flag + 4-byte little-endian content
+/// Handles the same 9-byte per-entry prefix (1-byte compression type + 4-byte little-endian content
 /// size + 4-byte MS-DOS date/time) that <see cref="VolEntry"/> carries when parsed out of a packed
 /// .VOL, plus the single trailing byte that follows an entry's content in the archive — see
 /// docs/formats/vol-archive.md.
@@ -49,7 +49,7 @@ public static class VolEntryPrefixCodec {
 	}
 
 	/// <summary>
-	/// Rebuilds the archive byte layout around edited content: original storage flag and date/time
+	/// Rebuilds the archive byte layout around edited content: original compression type and date/time
 	/// preserved byte-for-byte, size field recalculated for the new content length, and the
 	/// trailing byte reproduced the way the retail packer writes it — as a repeat of the last
 	/// content byte.

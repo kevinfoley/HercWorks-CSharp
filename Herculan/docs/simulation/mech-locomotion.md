@@ -174,7 +174,7 @@ setRootTransform(shape, IDENTITY);   // FUN_00478a70
 advanceAnimation(shape, dt);         // ShapeInstance_StepAnimation (00478c2c), dt = Q8(SimTickDelta, 100)
 delta = shape->nodeWorldTransforms[0];
 pos   = objRotationMatrix × delta.translation + pos;   // Transform_ApplyToPoint (00480330)
-euler += eulerOf(delta.rotation);                      // FUN_0047f894
+euler += eulerOf(delta.rotation);                      // Transform_RotationToEuler (0047f894)
 setRootTransform(shape, IDENTITY);
 ```
 

@@ -118,7 +118,7 @@ floor    = height under the old position + Q10(500, |ground normal's XY|) + 0x22
 
 ### Mode 2: attached
 
-The eye `+0x3e` through the object's vtable `+0x24` node composed with its frame (`Transform_Concat`), and the view from that matrix through `FUN_0047f894` plus `+0x44`. An object whose `+0x24` returns none is ridden by its own frame and euler triple. This is the cockpit: for a machine the node is the camera bone and the eye the pilot's offset from it ([`mech-locomotion.md`](mech-locomotion.md)).
+The eye `+0x3e` through the object's vtable `+0x24` node composed with its frame (`Transform_Concat`), and the view from that matrix through `Transform_RotationToEuler` (`0047f894`) plus `+0x44`. An object whose `+0x24` returns none is ridden by its own frame and euler triple. This is the cockpit: for a machine the node is the camera bone and the eye the pilot's offset from it ([`mech-locomotion.md`](mech-locomotion.md)).
 
 ## Steering the camera — `FUN_00401c74`
 

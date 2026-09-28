@@ -143,7 +143,7 @@ public sealed partial class HeightGrid {
 
 	/// <summary>
 	/// The surface normal of the triangle under a world position, scaled to length
-	/// <see cref="NormalOne"/> — <c>FUN_0046e394</c>, which picks between the cell's two face
+	/// <see cref="NormalOne"/> — <c>Terrain_FaceNormalAt</c> (<c>0046e394</c>), which picks between the cell's two face
 	/// normals using the same diagonal split the height query uses. Null outside the grid, where the
 	/// original returns a null pointer and its callers skip their slope terms entirely.
 	/// </summary>

@@ -256,7 +256,7 @@ public sealed class ShellSurface {
 
 	/// <summary>
 	/// A filled convex polygon, vertices as alternating x and y — the solid path of the polygon filler,
-	/// <c>FUN_00455798</c>. Each row from the topmost vertex to the bottommost is filled between the
+	/// <c>Gfx_FillPolygon</c> (<c>00455798</c>). Each row from the topmost vertex to the bottommost is filled between the
 	/// leftmost and rightmost points of the outline on that row, both included.
 	/// </summary>
 	public void FillConvex(ReadOnlySpan<int> xy, byte index) {

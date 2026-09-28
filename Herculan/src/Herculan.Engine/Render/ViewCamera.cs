@@ -240,7 +240,7 @@ public sealed class ViewCamera {
 		var moved = frame.TransformPoint(0, ZoomRate, 0);
 
 		// The floor is taken under where the camera was, not where it is going, and rises with the
-		// slope there: FUN_0046e394's face normal, its ground-plane length through Q10 x 500.
+		// slope there: the face normal Terrain_FaceNormalAt (0046e394) returns, its ground-plane length through Q10 x 500.
 		if (terrain != null) {
 			short slope = terrain.SurfaceNormalAt(Position.X, Position.Y) is { } normal
 				? (short)SimMath.FastMagnitude2D(normal.X, normal.Y)

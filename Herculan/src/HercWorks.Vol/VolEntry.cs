@@ -10,7 +10,8 @@ namespace HercWorks.Vol;
 ///     UINT32 file's offset in the VOL (little-endian)
 ///
 ///   File prefix - 9 bytes, found at the offset above:
-///     UINT8  storage flag, 0x02 throughout the retail archives
+///     UINT8  compression type: 2 = stored, the only value in the retail archives
+///            (7 RLE and 9 LZH are decoded by the game but never used)
 ///     UINT32 content size in bytes (little-endian) - the content alone, no prefix, no trailer
 ///     UINT16 MS-DOS packed date, UINT16 MS-DOS packed time - the source file's timestamp
 ///

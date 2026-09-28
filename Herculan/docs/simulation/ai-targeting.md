@@ -190,7 +190,7 @@ Called from the think functions of `attacking`, `flanking`, `facing off` and `dr
 
 ## Radio callouts
 
-`Ai_PostSquadMessage` (`00420a98`) posts `{id, machine}` to the object `FUN_00433158` returns, through its vtable slot 0, and is suppressed for a destroyed machine unless forced. Three ids are raised from this slice:
+`Ai_PostSquadMessage` (`00420a98`) posts `{id, machine}` to the object `CockpitView_GetSquadMessagePort` (`00433158`) returns, through its vtable slot 0, and is suppressed for a destroyed machine unless forced. Three ids are raised from this slice:
 
 | Id | Raised by |
 |---|---|

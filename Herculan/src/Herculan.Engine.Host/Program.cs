@@ -2766,7 +2766,7 @@ window.Update += deltaSeconds => {
 			// turns the view without anything here having to add the angles in.
 			//
 			// All three angles are taken, roll included, which is what the cockpit branch of
-			// FUN_004011a0 does: it converts the pilot node's world matrix with FUN_0047f894 and
+			// FUN_004011a0 does: it converts the pilot node's world matrix with Transform_RotationToEuler (0047f894) and
 			// stores the whole triple in the view. A walking machine's node barely rotates, but one
 			// turning on the spot rolls it several degrees a step — the rock through a turn-in-place.
 			var look = eyeFrame.ToEuler();

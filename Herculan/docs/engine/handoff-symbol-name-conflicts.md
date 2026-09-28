@@ -32,14 +32,12 @@ The doc gives the address; the register has no entry there. Confirm and register
 | `Palette_ReadRange` | `00430440` | `cockpit-canopy-palette.md:83` |
 | `Palette_GetEntry` | `00430474` | `cockpit-canopy-palette.md:84` |
 | `SliderWidget_DragToPointH`, `_GetValueH`, `_SetValueH`, `_RecomputeScaleH` | `004524f8`, `00452544`, `0045255c`, `004525a8` | `cockpit-input.md:394` (the four `V` twins are registered) |
-| `Bitmap_BlitClipped` | `004816bc` | `cockpit-canopy-palette.md:36`, `cockpit-views.md:232` |
 | `Pool_Init` | `004719cc` | `sim-object-layout.md:53`, `ai-combat-states.md:304` |
 | `Group_NearestLiveMember` | `00423974` | `ai-targeting.md:201` |
 | `HddDisplay_ServiceCommBoxes` | `0044b5f8` | `Herculan.Engine/Content/SquadCommChannel.cs:5`, still spelled `FUN_0044b5f8` there |
 
 ## Doc names a function with no address
 
-- **`AnimThread_SetSequence`** — `torso-aim.md:90`. Called by `AnimThread_SeekToPosition` (`00479238`), so the address is one call site away.
 - **`Base_ExplosionSequenceTick`** — `Herculan.Engine/Sim/BaseObject.cs:382`. The register has no `Base_Explosion*` entry at all.
 
 ## Named for the wrong binary

@@ -27,7 +27,7 @@ public sealed class Camera {
 	/// <para>Not decorative. DBSIM's view carries a full euler triple (<c>view+0x10</c>,
 	/// <c>+0x12</c>, <c>+0x14</c>) and builds its view rotation from all three: the cockpit branch of
 	/// <c>FUN_004011a0</c> takes the pilot node's world matrix, converts it with
-	/// <c>FUN_0047f894</c>, and stores every angle it gets back. A HERC turning on the spot rolls
+	/// <c>Transform_RotationToEuler</c> (<c>0047f894</c>), and stores every angle it gets back. A HERC turning on the spot rolls
 	/// that node by several degrees each step, which is what rocks the cockpit through a
 	/// turn-in-place; dropping the angle turns the manoeuvre into a smooth yaw it is not.</para>
 	/// </summary>

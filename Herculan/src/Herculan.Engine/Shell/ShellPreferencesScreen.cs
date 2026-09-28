@@ -186,7 +186,7 @@ public sealed class ShellPreferencesScreen {
 				_options.Toggle(SoundsOption);
 				break;
 
-			// The group setters, FUN_00436a9c, FUN_00436b50 and FUN_00436abc, each through
+			// The group setters, PreferencesScreen_SetRepairMode (00436a9c), PreferencesScreen_SetWeaponsBuildMode (00436b50) and PreferencesScreen_SetGameResolution (00436abc), each through
 			// ShellOptions_SetOption with apply. Each also stores the value in a word of its own
 			// (00474cc4-00474cca) whose reader is not known, and which is not kept here.
 			case ShellPreferencesWidget.AutoRepairAll or ShellPreferencesWidget.ManualRepairMine
@@ -200,7 +200,7 @@ public sealed class ShellPreferencesScreen {
 				_options.Set(ResolutionOption, (byte)(widget - ShellPreferencesWidget.HighRes));
 				break;
 
-			// 00436f07: out of full screen if it is in it, then FUN_00436b70(0).
+			// 00436f07: out of full screen if it is in it, then PreferencesScreen_SetDisplayMode(0) (00436b70).
 			case ShellPreferencesWidget.Window:
 				if (_isFullScreen()) {
 					_toggleFullScreen();
@@ -217,7 +217,7 @@ public sealed class ShellPreferencesScreen {
 
 				break;
 
-			// FUN_00436fe8: the window hidden, into full screen, then FUN_00436b70(1).
+			// FUN_00436fe8: the window hidden, into full screen, then PreferencesScreen_SetDisplayMode(1) (00436b70).
 			case ShellPreferencesWidget.AlertAccept:
 				AlertOpen = false;
 				_toggleFullScreen();
@@ -254,9 +254,9 @@ public sealed class ShellPreferencesScreen {
 
 	/// <summary>
 	/// Whether a checkbox is ticked — its <c>+0x69</c>, which <c>PreferencesScreen_Enter</c> seeds from the
-	/// options. <c>Music</c> and <c>Sound Effects</c> take their byte as it is (<c>FUN_00436790</c>). A radio
+	/// options. <c>Music</c> and <c>Sound Effects</c> take their byte as it is (<c>PreferencesScreen_SyncSoundChecks</c>, <c>00436790</c>). A radio
 	/// group's relight ticks the one whose value the option holds and clears the others
-	/// (<c>FUN_0043692e</c>, <c>FUN_00436adc</c>, <c>FUN_00436a28</c>, <c>FUN_004367cd</c>); a value no
+	/// (<c>FUN_0043692e</c>, <c>PreferencesScreen_SyncBuildModeRadios</c> (<c>00436adc</c>), <c>FUN_00436a28</c>, <c>FUN_004367cd</c>); a value no
 	/// checkbox in the group names writes none, and on the first entry that leaves all of them at the
 	/// constructor's 0.
 	/// </summary>
@@ -367,7 +367,7 @@ public sealed class ShellPreferencesScreen {
 	}
 
 	/// <summary>
-	/// A checkbox — <c>FUN_0040a26d</c>, the paint of the <c>ButtonIcon</c> subclass <c>FUN_0040a100</c>
+	/// A checkbox — <c>FUN_0040a26d</c>, the paint of the <c>ButtonIcon</c> subclass <c>ESRadioButton_Ctor</c> (<c>0040a100</c>)
 	/// builds: the face its <c>+0x69</c> picks, blitted at the widget's corner and clipped to it. The
 	/// builder hands the constructor <c>chk_box</c> frame 1 as the <c>+0x51</c> face and frame 0 as the
 	/// <c>+0x55</c> one. The frames are 24 wide and the rect 19, and the five columns clipped off are

@@ -97,7 +97,7 @@ All three retail tapes end in a panel, each a run of one repeated delta:
 | `DEMO2` | 1587-1900 | 221 | `Q`, command `0x10` | `Enter` on 1899 |
 | `DEMO3` | 3349-3659 | 249 | `Q` | left clicks at (375, 310) and (376, 306) |
 
-Playback ends on a short read — any of the three header reads returning 0 — or when the player presses `[Ctrl]+[E]` (command `0x412`, tested on the live command word). Either way the file is closed, `004d255a` clears, live mouse input is restored and the live command word is zeroed; under `-D` the abort flag is raised as well. The live command word also still reaches `FUN_0045fd60`, so `Alt+Enter` and `-B`'s `Ctrl+B` work during playback ([`../command-line.md`](../command-line.md#dbsim)).
+Playback ends on a short read — any of the three header reads returning 0 — or when the player presses `[Ctrl]+[E]` (command `0x412`, tested on the live command word). Either way the file is closed, `004d255a` clears, live mouse input is restored and the live command word is zeroed; under `-D` the abort flag is raised as well. The live command word also still reaches `Sim_HandleWindowKey` (`0045fd60`), so `Alt+Enter` and `-B`'s `Ctrl+B` work during playback ([`../command-line.md`](../command-line.md#dbsim)).
 
 ### Timing
 

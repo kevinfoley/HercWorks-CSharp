@@ -48,7 +48,7 @@ public sealed class Projectile {
 	/// <param name="muzzle">Where the shot starts — the fire prologue's world muzzle point.</param>
 	/// <param name="aim">
 	/// Which way it points, as the euler triple the prologue extracts from the shot transform
-	/// (<c>FUN_0047f894</c>). The original passes angles rather than the matrix because this is where
+	/// (<c>Transform_RotationToEuler</c>, <c>0047f894</c>). The original passes angles rather than the matrix because this is where
 	/// the scatter is applied, and a scattered angle is cheaper than a scattered matrix.
 	/// </param>
 	/// <param name="ownerSpeed">The firing machine's own travel speed — see <see cref="Speed"/>.</param>

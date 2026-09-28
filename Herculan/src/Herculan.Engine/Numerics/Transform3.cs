@@ -275,7 +275,7 @@ public struct Transform3 {
 	}
 
 	/// <summary>
-	/// <c>FUN_0047f894</c> — recovers the XYZ euler triple from the rotation, with the usual
+	/// <c>Transform_RotationToEuler</c> (<c>0047f894</c>) — recovers the XYZ euler triple from the rotation, with the usual
 	/// gimbal-lock branch when the X angle reaches a quarter turn.
 	/// </summary>
 	public readonly (short X, short Y, short Z) ToEuler() {

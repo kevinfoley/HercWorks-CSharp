@@ -67,7 +67,7 @@ Retail ships **one** frame, 128x25, every row a single repeated index: 11 at bot
 
 Per quad:
 
-1. Both points to view space (`FUN_0048c470`), then the pair clipped against the near plane (`Beam_ClipSegmentToNearPlane`, `0040bb4c`); a pair wholly behind it is dropped.
+1. Both points to view space (`Raster_ModelToView`, `0048c470`), then the pair clipped against the near plane (`Beam_ClipSegmentToNearPlane`, `0040bb4c`); a pair wholly behind it is dropped.
 2. Both projected to screen (`Raster_PerspectiveDivide`, `Raster_ProjectToScreen` (`0048c5c4`)).
 3. Half-width in pixels at each end: `Raster_PerspectiveScale(width, viewZ)` (`0048c4c0`) = `(width << shift) / z`, then `if (< 2) = 2`. This floors the **half**-width, so a beam is never narrower than four pixels.
 4. Four vertices: each screen point stepped ±(half-width) along the segment's 2D perpendicular, normalised in Q11.
@@ -115,7 +115,7 @@ The three functions the paint loop calls are not beam code — they are the gene
 | `Poly_ClipRingToNearPlane` (`0048ce14`) | Only then: clips the vertex ring against the near plane, rebuilding the same screen-point list |
 | `PolyFill_Fill` (`0048d4b4`) | Fills the screen polygon. Sibling of `PolyFill_FillThenOutline` (`0048d518`) without its mode-5 guard |
 
-The fill is winding-agnostic — `FUN_004841af` measures the signed area and picks `FUN_00484116` for the other winding — so the ribbon draws from either side. The index list is the 120-entry table at `DAT_004a9796`, built by `Beam_LoadResourceTables` as `(i >> 1) + {1, 0, 1, 2}[i & 3]` over the **`int16`** table at `00498640`. Read four entries from `4k`, that is `points[2k+1]`, `points[2k]`, `points[2k+2]`, `points[2k+3]` — a wound quad spanning nodes `k` and `k+1`.
+The fill is winding-agnostic — `Raster_DrawPolygonEitherWinding` (`004841af`) measures the signed area and hands the other winding to `Raster_DrawPolygonReversed` (`00484116`), [`../polygon-fill.md`](../polygon-fill.md#filling-a-polygon) — so the ribbon draws from either side. The index list is the 120-entry table at `DAT_004a9796`, built by `Beam_LoadResourceTables` as `(i >> 1) + {1, 0, 1, 2}[i & 3]` over the **`int16`** table at `00498640`. Read four entries from `4k`, that is `points[2k+1]`, `points[2k]`, `points[2k+2]`, `points[2k+3]` — a wound quad spanning nodes `k` and `k+1`.
 
 120 entries is 30 quads. Retail never approaches it: the longer-ranged of the two is `ELF` at 20000 units (see [`weapons-dat-sim.md`](../formats/weapons-dat-sim.md)), which is 20.
 

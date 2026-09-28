@@ -31,7 +31,7 @@ The `maybe_CockpitLayoutMode == 1` branch increments byte 2 of the **shared glob
 | 2 | mirror horizontally |
 | 3 | both |
 
-Confirmed at the reticle corner-bracket draw (`0044401d`–`0044403a`), which blits one corner sprite four times with flags 0/2/1/3, offsetting x by the bitmap's width field (`+6`) for flag 2 and y by its height field (`+4`) for flag 1. `Bitmap_BlitClipped` (`004816bc`) is the same with an explicit clip rect, used only in `maybe_CockpitLayoutMode == 2`.
+Confirmed at the reticle corner-bracket draw (`0044401d`–`0044403a`), which blits one corner sprite four times with flags 0/2/1/3, offsetting x by the bitmap's width field (`+6`) for flag 2 and y by its height field (`+4`) for flag 1. `Bitmap_BlitScaled` (`004816bc`) is the same drawn at an explicit `{w, h}` destination size; `CockpitView_SetView` uses it only in `maybe_CockpitLayoutMode == 2`, and the video-mode blit helpers use it to double 320-wide art in the 640-wide modes.
 
 ## Palette
 

@@ -52,7 +52,7 @@ In-memory bitmap object:
 | `+6` | cols, `int16` |
 | `+0xa` | data length |
 | `+0xe` | data pointer |
-| `+0x12` | packing type: 0 raw, 1 or 3 packed |
+| `+0x12` | packing type: 0 raw, 1 RLE, 3 LZH |
 
 `Bitmap_BlitRotatedScaled` (`00488a8c`) takes a pointer to `+4` and builds its source quad from it as `(0,0), (p[1]-1, 0), (p[1]-1, p[0]-1), (0, p[0]-1)`; its flip argument mirrors that quad, bit 2 in x and bit 1 in y. Callers reach it through `Bitmap_BlitRotatedUnpacked` (`00481750`), which first unpacks a packed bitmap into a scratch buffer with `Bitmap_UnpackToScratch` (`00481804`) — one decoder class per packing type — and points `+0xa`/`+0xe` at the copy for the length of the blit.
 
@@ -77,6 +77,6 @@ All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — s
 
 ## Open
 
-- **Open:** the two bitmap packings. `Bitmap_UnpackToScratch` builds a decoder object per type — type 1 `FUN_0047b430` (vtable `004a17c8`), type 3 `FUN_0047b764` (vtable `004a1820`) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode.
+- **Open:** the byte formats of the two packings. `Bitmap_UnpackToScratch` builds a decoder per type — type 1 an `RLERStream` (`RLERStream_CtorOnSource`, `0047b430`), type 3 an `LZHRStream` (`LZHRStream_CtorOnSource`, `0047b764`), the filter streams behind `.VOL` compression types 7 and 9 ([vol-archive.md](vol-archive.md#the-per-entry-prefix--fixed-9-bytes)) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode.
 - **Open:** which files carry packed bitmaps.
 - **Open:** bitmap object `+8` (8 in the map raster) and `+9` (a flags byte in which the raster builder sets bit `0x10`).

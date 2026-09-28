@@ -10,7 +10,7 @@ See [`../formats/script-dat.md`](../formats/script-dat.md) for the record layout
 
 `Action_Activate` (`00423430`) is one-shot: it sets the action's runtime activation flag (in-memory `+0x0a`, zeroed at load), walks the ten (counter ref, operation) pairs at `+0x0c`/`+0x20` bumping (op 6) or clearing (op 5) the mission-counter array `DAT_004a9ef4`, and queues the message at `+0x34`. **The message queue is inside the counter loop**, so an action naming five counters posts its line five times and one naming none posts it not at all.
 
-The message goes to the **pilot and squad** port (`view+0x207`, through `FUN_00433158`), not the computer's ticker, as `{id, null}` — no subject. That port looks a speakerless id up in `str\COMMAND0.STR` — `COMMAND<n>.STR` in training mission `n` — not in `data\mission.str`; see [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#its-speakerless-set).
+The message goes to the **pilot and squad** port (`view+0x207`, through `CockpitView_GetSquadMessagePort`, `00433158`), not the computer's ticker, as `{id, null}` — no subject. That port looks a speakerless id up in `str\COMMAND0.STR` — `COMMAND<n>.STR` in training mission `n` — not in `data\mission.str`; see [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#its-speakerless-set).
 
 | activated by | site | condition |
 |---|---|---|
@@ -164,7 +164,7 @@ A mission start left over from Metaltech: Earthsiege, in some of whose missions 
 
 `Sim_InitMissionSession` (`004614fc`) gates it on the `0xc3`-byte global block's `+0x54` (`004d2594`) and tests the flag twice:
 
-- **`00461cc6`** — nonzero calls `LiftStart_DarkenPalette` (`0045d52c`). Zero instead sets `0049aef6` to 8, calls the empty `FUN_0042eb40`, flushes the palette and renders one frame; the lift branch makes the first two of those itself and skips the others.
+- **`00461cc6`** — nonzero calls `LiftStart_DarkenPalette` (`0045d52c`). Zero instead sets `0049aef6` to 8, calls the empty `Palette_NoOp` (`0042eb40`), flushes the palette and renders one frame; the lift branch makes the first two of those itself and skips the others.
 - **`00461e20`**, near the end of bring-up — nonzero calls `LiftStart_Rise` (`0045d840`).
 
 ### The darkening — `LiftStart_DarkenPalette` (`0045d52c`)

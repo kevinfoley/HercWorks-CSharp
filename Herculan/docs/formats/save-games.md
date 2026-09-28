@@ -45,7 +45,7 @@ The save screen shows a slot's pilot and career position without loading it. Ele
 
 **The scan walks every block of a save with explicit skip counts**, which makes it a second, independent statement of the whole [block order](#savgame_sav--block-order). For each slot the directory marks in use it skips 33 records of `{ byte; int16 count; count x 10 }` for the armory stock; skips 2 + 10 + 10 for the build queue; reads the stage and the mission off the head of the career block and skips its remaining 148 bytes; skips 36 pilot records of `4 + (int16 len + name) + 2 + 1 + 22`; skips 12 for the eight shorts between the squad and the player; skips the player block's two leading `int16` and reads the pilot record itself; walks the hangar's counted list at `0x48` fixed bytes plus 12 per occupied mount; skips 18 for the chassis flags; reads the salvage pool; and stops without touching blocks 9 to 11. Every count agrees with the table below.
 
-It reaches those fields by seeking rather than reading — `Stream_Tell` (`0044e864`) is tell and `Stream_Seek` (`0044e880`) is seek — so what reads as a stream loop in a decompile is a run of binary skips.
+It reaches those fields by seeking rather than reading — `FileRStream_Tell` (`0044e864`) is tell and `FileRStream_Seek` (`0044e880`) is seek — so what reads as a stream loop in a decompile is a run of binary skips.
 
 ## Streams never truncate
 
@@ -54,7 +54,7 @@ It reaches those fields by seeking rather than reading — `Stream_Tell` (`0044e
 This is observable in retail data. `GAME_4.SAV` carries 164 bytes past its last field and `GAME_T.SAV` 36; `GAMEFILE.STR` is 345 bytes of which the reader consumes 338, so 7 are the remains of a longer label block. Consequences for any reader:
 
 - **Parse by structure, never by file size.** Trailing bytes are not a parse failure.
-- `GAMEFILE.STR`'s leading length is `lseek(fd, 0, SEEK_END) - 4` taken *after* writing (`FUN_0044e518`), so it measures the physical file including stale tail, not the payload.
+- `GAMEFILE.STR`'s leading length is `lseek(fd, 0, SEEK_END) - 4` taken *after* writing (`FileRWStream_GetSize`, `0044e518`), so it measures the physical file including stale tail, not the payload.
 - Where the game needs a clean file it deletes first: `Game_ExportMissionHandoff` (`0040f0d4`) calls `_remove` on its output path before opening it for write.
 
 The exports and copies use a different stream class whose open is `_open(path, 0x8301, 0x180)` — `O_BINARY | O_CREAT | O_TRUNC | O_WRONLY` — so they do truncate. Stale tails are a property of the save files here, not of everything the shell writes.
@@ -99,7 +99,7 @@ The byte is the weapon's unlock flag and the owned units are a linked list at th
 
 ### Pilot record — 59 bytes (`0x3b`) in memory
 
-Serialized by `Pilot_Write` (`0040fd5f`), read by `FUN_0040fefc`, initialized by `Pilot_Init` (`0040fcd8`) and `FUN_0040fd17`. On disk it is 31 bytes plus the name: three `int16` lead — roster id, name index, then the name's length — and eleven follow the on-strength byte.
+Serialized by `Pilot_Write` (`0040fd5f`), read by `Pilot_Read` (`0040fefc`), initialized by `Pilot_Init` (`0040fcd8`) and `FUN_0040fd17`. On disk it is 31 bytes plus the name: three `int16` lead — roster id, name index, then the name's length — and eleven follow the on-strength byte.
 
 **One record shape serves both the squad block and the player block.** Block 5's two leading `int16` belong to the block, not to the record; a reader that treats the player's record as a shorter form of a squadmate's lands its name two bytes early and desynchronizes everything after it.
 

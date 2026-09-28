@@ -44,7 +44,7 @@ public enum ShellHandler {
 	RepeatButtonIcon,
 
 	/// <summary>
-	/// <c>FUN_0040a139</c>, the handler of the <c>ButtonIcon</c> subclass <c>FUN_0040a100</c> builds — the
+	/// <c>FUN_0040a139</c>, the handler of the <c>ButtonIcon</c> subclass <c>ESRadioButton_Ctor</c> (<c>0040a100</c>) builds — the
 	/// preferences screen's checkboxes. The left press makes the press sound, lights the widget and fires;
 	/// the left release does nothing; the right goes through <c>Control_HandleEvent</c>, silently, and
 	/// fires on its release. A leave never puts it out.

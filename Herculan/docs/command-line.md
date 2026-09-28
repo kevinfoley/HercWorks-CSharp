@@ -89,13 +89,13 @@ Two parsers. `FUN_0045e6b0` (DBSIM) runs first from `WinMain`, after `VideoMode_
 | `-SPRUNKNOWN` | `DAT_0049ef60` toggled | The developer keys below |
 | `-s` | `004d254c` toggled from 1 | `Sound_Init(0)`: no sound driver |
 | `-R<n>` | `Music_TrackSelect` | [`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one) |
-| `-E`, `-F`, `-G` | `004d25ba` = `s`, `f`, `g` | The language letter, `r` by default. `Voice_ArchiveName` (`0045ef68`) puts it last in `simvoice` unless it is `r`, and `FUN_0045ef00` puts it last in `str`, giving the `st<letter>\` string folder. `s` is Spanish: `SIMALERT.VOL` has an `STS\` folder, and no `SIMVOICS.VOL` ships |
+| `-E`, `-F`, `-G` | `004d25ba` = `s`, `f`, `g` | The language letter, `r` by default. `Voice_ArchiveName` (`0045ef68`) puts it last in `simvoice` unless it is `r`, and `Language_StringFilePath` (`0045ef00`) puts it last in `str`, giving the `st<letter>\` string folder. `s` is Spanish: `SIMALERT.VOL` has an `STS\` folder, and no `SIMVOICS.VOL` ships |
 | `-l` | `CockpitArt_LoadOnDemand` = 1 | [`formats/audio.md`](formats/audio.md#memory-budget-and-eviction), [`formats/terrain-texturing.md`](formats/terrain-texturing.md#base-formation-pads) |
 | `-C<name>` | `DAT_0049ac4c`, `DAT_0049ac50` | `_stricmp` against 13 names at `0049ac64`: `ROADRUNNER`, `OUTLAW`, `RAPTOR2`, `TOMAHAWK`, `PATRIOT`, `PANTHER`, `SAMSON`, `COLOSSUS`, `APOCA`, `RAZOR`, `MAVERICK`, `OGRE`, `TEST3`. A match replaces the herc index and name the cockpit view manager takes from the player's machine (`+0x27`, `+0x2d`), and the name the canopy-crack art is built from |
 | `-t<n>` | `0049d248` | `HddGauge_LoadPilotFrames` (`0044a7c0`) takes it as the pilot index of squad comm box 0 when it is non-negative; [`formats/heads-down-display.md`](formats/heads-down-display.md#squad-comm-boxes) |
 | `-r<name>`, `-p<name>`, `-D` | | [`formats/tap-input-tape.md`](formats/tap-input-tape.md#the-switches) |
 | `-d` | `004d2562` | Opens the checkpoint file `<tape stem>.dmp`; [`formats/tap-input-tape.md`](formats/tap-input-tape.md#the-checkpoint-file) |
-| `-B` | `004d25b0` = 1 | In `FUN_0045fd60`: `Ctrl+B` (`0x430`) calls `__break` (`004679d4`), an `INT3`; and `Alt+Enter` (`0x21c`) stops toggling full screen while a tape plays |
+| `-B` | `004d25b0` = 1 | In `Sim_HandleWindowKey` (`0045fd60`): `Ctrl+B` (`0x430`) calls `__break` (`004679d4`), an `INT3`; and `Alt+Enter` (`0x21c`) stops toggling full screen while a tape plays |
 | `-m` | `004d2701` = 1 | `Sim_InitMissionSession` sends control code 5 to `\\.\DARKMONO.VXD` (`FUN_004954b8`), a developer's monochrome-monitor driver that does not ship |
 | `-P` | block `+0x0d` = 1 | No effect. Its three readers — `0045f2ab` and `0045f37b` in `FUN_0045f144`, `00461f86` in `FUN_00461eec` — are each a `CMP` followed by an instruction that overwrites the flags or a `CALL`, with no branch between |
 | `-T<n>`, `-V<n>`, `-W<n>` | block `+0x5a`, `+0x56`, `+0x58` | `Main_StaticInit` sets all three to -1 |

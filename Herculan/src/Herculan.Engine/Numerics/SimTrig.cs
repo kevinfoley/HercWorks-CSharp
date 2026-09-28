@@ -3,7 +3,7 @@
 /// <summary>
 /// DBSIM's own trigonometry tables, ported. These are the ones the rotation-matrix and
 /// euler-extraction code uses (<c>BuildEulerRotationMatrixQ14</c> <c>0047eaac</c>,
-/// <c>Math_Atan2Bam</c> (<c>0047d220</c>), <c>FUN_0047d940</c>) and they are deliberately <i>coarser</i> than
+/// <c>Math_Atan2Bam</c> (<c>0047d220</c>), <c>Math_AsinBam</c> (<c>0047d940</c>)) and they are deliberately <i>coarser</i> than
 /// <see cref="BinaryAngle"/>: the cosine table has one entry per 16 BAM, so a matrix built from an
 /// angle quantizes it to 1/4096 of a turn. Reproducing that quantization is the point — it is what
 /// the original's animation and object transforms actually see.
@@ -131,7 +131,7 @@ public static class SimTrig {
 	}
 
 	/// <summary>
-	/// <c>FUN_0047d940</c> — arcsine of a Q14 value, as a BAM angle. Input is a rotation-matrix
+	/// <c>Math_AsinBam</c> (<c>0047d940</c>) — arcsine of a Q14 value, as a BAM angle. Input is a rotation-matrix
 	/// element, so it is already clamped to ±1.0 by construction.
 	/// </summary>
 	public static int Asin(short value) {

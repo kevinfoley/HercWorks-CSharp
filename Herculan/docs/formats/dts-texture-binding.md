@@ -33,7 +33,7 @@ Related symbols: `TSGroup_RenderPolys` / `TSGroup_RenderPolysFromRef` (`0042349d
 `DAT_00471890` (`g_UseFlatPolyFallback`) selects the mode:
 
 - `== 0` — the textured path, and the only branch that reaches a rasterizer. Builds a per-vertex 3D position array from the group's points and a 4-entry UV-corner array, then calls `TSTexture4Poly_RasterizeA` / `RasterizeB` (`004202dd` / `00420900`).
-- `!= 0` — a flat 2D polygon fill. Projects and edge-clips the vertices (`FUN_0045e694` / `FUN_0045ee2c`), fills via `FUN_0045f364` → `FUN_0045f8e7` / `FUN_0045f8d2`. **No texture sampling.** It still resolves a DBA frame index through the same pointer-table lookup `TSBitmapPart_Render` uses, but only for a bounds-check assert.
+- `!= 0` — a flat 2D polygon fill. Projects and edge-clips the vertices (`Poly_ProjectShapeVertices`, `0045e694`, and `FUN_0045ee2c`), fills via `PolyFill_FillThenOutline` (`0045f364`) → `FUN_0045f8e7` / `FUN_0045f8d2`. **No texture sampling.** It still resolves a DBA frame index through the same pointer-table lookup `TSBitmapPart_Render` uses, but only for a bounds-check assert.
 
 The front/back value indexes a **20-byte-stride per-frame descriptor table** reached via `g_ActiveBitmapArray[1]` — one extra pointer dereference from `*g_ActiveBitmapArray`. The first 16 bytes are four `int32` fields `F0..F3`; a 5th field at byte 16 is passed to the rasterizer as a texture-data handle. UV corners, in vertex order:
 

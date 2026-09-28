@@ -68,7 +68,7 @@ static class HostArguments {
 		Usage: Herculan.Engine.Host [<install>] [<mission>] [options]
 
 		  <install>   the Earthsiege 2 folder; default ES2_GAME_PATH, then an ES2 folder above the executable
-		  <mission>   a script.dat or SAV\script*.dat; default DATA\script.dat in the install
+		  <mission>   a script.dat, a SAV\script*.dat, or a mission's .MSN name (C1_03); default DATA\script.dat in the install
 
 		What runs (default: fly the mission)
 		  --shell                     the front end

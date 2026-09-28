@@ -93,6 +93,20 @@ The names in `missions.bin` carry their directory — `MSN\C1_01.MSN` — so the
 
 The player's position is the pair `(0046fb18, 0046fb1a)` — stage, then mission within stage — which is the first thing in the save's career block. Retail `GAME_T.SAV` sits at `(0, 4)`, on `Strike Training Mission`.
 
+## Loading the career's mission
+
+`Career_LoadCurrentMission` (`0044d4cc`) loads the mission at the career position: the stage's resolved name for that mission, passed to `MsnGen_LoadMission` (`0041c73d`). A training career takes the half [`screen-layout.md`](screen-layout.md#starting-a-practice-mission) describes. In a campaign:
+
+1. `MsnGen_SeedCampaignFlags` writes flags 1 and 2 as the stage and the mission ([above](#the-campaign-flag-array-is-the-msn-condition-store)), and the mission is parsed against the career's flags ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md)).
+2. The header takes the stage's campaign index as its theater, 0 in both cheat fields and the player pilot's skill as its difficulty ([`../formats/script-dat.md`](../formats/script-dat.md#the-training-fields)), and `WriteScriptDatFile` writes `data\script.dat`.
+3. `Career_SetBriefing` (`00412ece`) is handed row 4's first record by value. It copies the objective, briefing and intelligence arrays into the career block, counting the entries that are not `-1`, and the record's row-3 value into `004840b8`, the briefing movie ([`../formats/save-games.md`](../formats/save-games.md#career-block--152-bytes)).
+4. `Squad_SetPositionsInPlay` (`004102ff`) sets the positions in play from the mission's group 0. No machine is built: a campaign flies its own hangar.
+5. `Game_ExportMissionHandoff` writes `data\mission.var` and `data\player.mec` ([below](#launching-a-mission--game_exportmissionhandoff-0040f0d4)).
+
+`Career_LoadCurrentMission` then rebuilds the briefing's map (`ShellMap_Build`, [`mission-map.md`](mission-map.md)) and the career's assembled text (`Career_BuildBriefingText`), and stages the slot-10 summary (`Stats_StageCurrentGame(10)`). It then puts the mission tab back up in the view it holds, which after a debrief is 4, and posts a press to the tab's button (`Mission_ShowView(MissionScreenView, 1)`, [`screen-layout.md`](screen-layout.md#the-three-views)).
+
+Every campaign save in the retail install is this path's output. Each of `GAME_0`–`GAME_6` gives back its slot's `script%d.dat`, `missn%d.str`, career-block text and flag array byte for byte. That happens from its own flags with flag 0 holding 1, a won mission's outcome, which the load's header patch then clears. The generator is 21 to 94 steps past its seed table, within the 0 to 127 a freshly started shell's seeding leaves it at.
+
 ## Launching a mission — `Game_ExportMissionHandoff` (`0040f0d4`)
 
 1. `MissionVar_Write` (`0040e9cb`) writes the flag array to `data\mission.var`.

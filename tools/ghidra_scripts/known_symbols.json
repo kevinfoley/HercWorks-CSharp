@@ -18788,8 +18788,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Career_LoadCurrentMission",
-      "description": "Loads the career's current mission (MsnGen_LoadMission); in campaign mode builds the map and shows the briefing, in training exports the handoff and launches at once.",
-      "source": "docs/shell/screen-layout.md#rock--roll"
+      "description": "Loads the career's current mission (MsnGen_LoadMission); in campaign mode rebuilds the map and the briefing text and reshows the mission tab in the view it holds, in training exports the handoff and launches at once.",
+      "source": "docs/shell/campaign-loop.md#loading-the-careers-mission"
     },
     {
       "address": "0040876a",

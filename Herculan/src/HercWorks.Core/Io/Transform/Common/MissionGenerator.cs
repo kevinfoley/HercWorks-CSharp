@@ -950,6 +950,14 @@ public sealed class MissionGenerator {
 		}
 	}
 
+	/// <summary>
+	/// Row 4's slot 0, the 72 words <c>MsnGen_LoadMission</c> hands <c>Career_SetBriefing</c> (<c>00412ece</c>) by
+	/// value in a campaign: the condition, the ten objective, thirty briefing and thirty intelligence
+	/// <c>mission.str</c> lines, and the row-3 value, the briefing movie. The same slot block 13 is written
+	/// from, so it is the unfiltered last record read when none survived; null when the file had none.
+	/// </summary>
+	public short[]? TextPackage => (_texts.Count > 0 ? _texts[0] : _textSlot0)?.ToArray();
+
 	/// <summary>Group 0's member slot <paramref name="slot"/> — a HERC's <c>script.dat</c> index, or <c>-1</c>.</summary>
 	public short SquadMember(int slot) =>
 		_groups.Count > 0 && slot >= 0 && slot < 20 ? _groups[0][28 + slot] : (short)-1;
@@ -1061,7 +1069,7 @@ public sealed class MissionGenerator {
 			Interleaved(writer, objective, 9);
 		}
 
-		var package = _texts.Count > 0 ? _texts[0] : _textSlot0;
+		var package = TextPackage;
 		if (package == null) {
 			writer.Write((short)0);
 		} else {

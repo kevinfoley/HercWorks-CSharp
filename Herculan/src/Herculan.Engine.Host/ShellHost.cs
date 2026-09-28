@@ -25,7 +25,8 @@ namespace Herculan.Engine.Host;
 /// inside one update are lost.</para>
 /// </summary>
 /// <summary>
-/// A mission <c>Rock &amp; Roll &gt;</c> handed over: the <c>script.dat</c> the handoff was written beside,
+/// A mission handed over by the shell — <c>Rock &amp; Roll &gt;</c> or a training launch — or by
+/// <see cref="MissionFileLaunch"/>: the <c>script.dat</c> the handoff was written beside,
 /// and the folder the simulator's own settings are read from and written back to.
 /// </summary>
 sealed record ShellLaunch(string ScriptPath, string DataDirectory);

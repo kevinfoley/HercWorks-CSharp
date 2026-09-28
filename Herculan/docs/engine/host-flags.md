@@ -13,7 +13,9 @@ Herculan.Engine.Host [<install>] [<mission>] [flags]
 | Position | Meaning |
 |---|---|
 | 1 | The Earthsiege 2 install: the folder holding the archive directory. Without it the host reads the `ES2_GAME_PATH` environment variable, then looks for an `ES2` folder beside the executable or any folder above it. |
-| 2 | The mission to fly: a `script.dat` ([`formats/script-dat.md`](../formats/script-dat.md)), or any `SAV\script*.dat` save-slot snapshot. Defaults to `DATA\script.dat` in the install. `--play` and `--demo` replace it with the mission their tape carries. |
+| 2 | The mission to fly: a `script.dat` ([`formats/script-dat.md`](../formats/script-dat.md)), any `SAV\script*.dat` save-slot snapshot, or a mission named by its `.MSN` — `C1_03`, `C1_03.MSN` or `MSN\C1_03.MSN` — from those `gam\career.dat` lists. Defaults to `DATA\script.dat` in the install. `--play` and `--demo` replace it with the mission their tape carries. |
+
+A named mission is loaded as the shell loads that career position ([`shell/campaign-loop.md`](../shell/campaign-loop.md#loading-the-careers-mission)) and flown from a handoff written to a scratch folder, leaving the install's `DATA` alone except for the settings the simulator reads and writes there. A practice or demo mission takes the training load, with the practice options `DATA\prefs.cfg` holds, as `Begin Mission` or `INSTANT ACTION` on its row would. A campaign mission is loaded for a career with no history: every campaign flag 0 until the load seeds its own, and the player's lance and skill from `DATA\player.mec`, which it needs.
 
 ## What runs
 

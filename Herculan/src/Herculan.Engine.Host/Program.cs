@@ -471,6 +471,17 @@ if (playTape != null || demoTape) {
 	}
 }
 
+// A mission named by its .MSN is loaded as the shell would load it and flown from a scratch handoff, with
+// the install's DATA\ still holding the simulator's settings, as a shell launch's does. See MissionFileLaunch.
+if (tapeScriptPath == null && shellLaunch == null && positional.Count > 1 && MissionFileLaunch.Names(positional[1])) {
+	if (MissionFileLaunch.Write(installRoot, positional[1], out string? failure) is not { } generated) {
+		Console.Error.WriteLine($"Cannot load {positional[1]}: {failure}");
+		return 1;
+	}
+
+	shellLaunch = new ShellLaunch(generated, Path.Combine(installRoot, MissionLoader.DataFolderName));
+}
+
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing
 // else here needs configuring. Any of the save-slot snapshots in SAV\ works as an alternative.
 string scriptPath = tapeScriptPath
@@ -480,7 +491,7 @@ if (!File.Exists(scriptPath)) {
 	Console.Error.WriteLine(
 		$"No mission at {scriptPath}.\n" +
 		$"Pass one as the second argument — {MissionLoader.ScriptFileName} from the install's " +
-		$"{MissionLoader.DataFolderName} folder, or any of the SAV\\script*.dat snapshots.");
+		$"{MissionLoader.DataFolderName} folder, any of the SAV\\script*.dat snapshots, or a mission's .MSN name.");
 	return 1;
 }
 

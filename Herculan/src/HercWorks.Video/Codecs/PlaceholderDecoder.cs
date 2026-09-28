@@ -2,7 +2,7 @@ namespace HercWorks.Video.Codecs;
 
 /// <summary>
 /// PLACEHOLDER: stands in for a codec the corpus uses and this assembly does not decode yet —
-/// Cinepak and Indeo Video 4.1 (docs/formats/avi-video.md#open). Every packet
+/// Indeo Video 4.1 (docs/formats/avi-video.md#open). Every packet
 /// paints the same magenta-and-black checkerboard, which no retail movie shows, so a movie still
 /// runs its full length at its own rate, and its soundtrack still plays, without a frame of it being
 /// guessed at.

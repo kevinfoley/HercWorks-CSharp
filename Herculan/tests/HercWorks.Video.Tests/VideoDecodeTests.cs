@@ -268,8 +268,8 @@ public class VideoDecodeTests {
 	/// </summary>
 	[Fact]
 	public void RefusesToOpenAnUnsupportedCodec() {
-		// cvid: Cinepak.
-		byte[] bytes = new SyntheticAvi { Compression = 0x64697663, BitCount = 24 }
+		// IV41: Indeo Video 4.1.
+		byte[] bytes = new SyntheticAvi { Compression = 0x31345649, BitCount = 24 }
 			.AddVideo(1, 2, 3, 4)
 			.Build();
 

@@ -27,18 +27,20 @@ The device byte is `DAT_004d2357`, taken from whichever button the input configu
 4. Armed fires through `+0x28`, then the partner.
 5. Single-fire (`manager+0x18`) is cleared once the armed mount is no longer ready. That is the whole of the manual's "once you fire, the current firing chain will resume" — the chain advance in `WeaponMounts_AdvanceToReady` takes the selection back on the next frame.
 
-It also passes a "this shot is free" flag built from `DAT_004a9ed6`/`DAT_004a9edc` — the mission's unlimited-ammunition setting, [`difficulty.md`](difficulty.md#the-two-sibling-cheats) — which only the ammunition class reads, and raises an alert pair when the armed mount's `+0x60` reports ammunition type 3, which an energy mount never can.
+It also passes each fire dispatch the "this shot is free" flag of the unlimited-ammunition setting ([`difficulty.md`](difficulty.md#the-two-sibling-cheats)), which only the ammunition class reads ([below](#the-ammunition-dispatch)).
+
+After the armed mount fires, a `+0x60` subtype of 3 — the electro-optical missile, which the pilot flies — sets `DAT_004d25ac` and `DAT_004d25aa`. `WeaponMounts_ChainReady` (`00410a04`) tests the second, so the chain does not step while the missile is in flight; `WeaponMounts_PerFrameUpdate` tests both. An energy mount always reports 5 and never sets them.
 
 ## The fire dispatch — vtable `+0x28`
 
-Two implementations, one per live mount class, both opening with the same prologue:
+Two implementations serve the energy and ammunition classes, both opening with `WeaponMount_PrepareShot`. The ELF's own dispatch is in [`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
 
 | Class | Function | Branch |
 |---|---|---|
 | Energy / gun | `WeaponMount_FireDispatch_GunBeam` (`0040ea58`) | `Beam` → `Bullet_FireBurst`; else a travelling `Bullet` |
 | Ammunition | `WeaponMount_FireDispatch_Missile` (`0040e964`) | `Missile` → `Rocket_Fire` ([`rockets.md`](rockets.md)); else the same `Bullet` fallback |
 
-Both also set `mount+0x44` when the hardpoint is visible (`.GL +6 < 4`) — the muzzle flash. The ammunition class raises it on its `Bullet` branch only; a rocket comes off a rail and lights nothing.
+Both also raise `mount+0x44`, the muzzle flash, on a visible hardpoint; the conditions are in [the muzzle flash](weapon-mounts.md#the-muzzle-flash).
 
 ### The beam branch
 
@@ -49,32 +51,32 @@ shotTransform.translation = muzzleWorldPoint      // overwrite the gun frame's o
 Bullet_FireBurst(proj.MissileId, shotTransform, template[0x30], ownerMech, power)
 ```
 
-`template[0x38]` is the same field as the upper half of the readiness threshold pair, and the two shapes that pair takes are two kinds of weapon:
+`template[0x38]` is also the upper half of the readiness threshold pair, which [the energy mount's readiness test](weapon-mounts.md#energy) combines with the charge target. The two shapes the pair takes are two kinds of weapon:
 
-- **Fixed cost.** `0x36 == 0x38` (LAS100 80/80 … LAS500 120/120): threshold is that number, cost is that number, every shot identical.
-- **Charge-up.** `0x36 < 0x38` with `0x38` at 10000 (`PBEAM`, `EMP`, `PLAS`, 300/10000): threshold is `max(0x36, charge target)` and the cost is the whole capacitor, so the shot is worth as much as the pilot let it accumulate. The manual's *power level* is that charge target.
+- **Fixed cost.** `0x36 == 0x38` (`LAS100` 80/80 … `LAS500` 120/120): the mount fires at that charge and the cost is that number, so every shot is identical.
+- **Charge-up.** `0x36 < 0x38` with `0x38` at 10000 (`PBEAM` 300/10000; `EMP`, `PLAS` and `MAGN` 350/10000): the mount fires at the charge target and the cost is the whole capacitor, so the shot is worth as much as the pilot let it accumulate. The manual's *power level* is that charge target.
 
 ### The gun branches
 
 Everything that is not a `Beam` builds a travelling `Bullet` (see [`projectiles.md`](projectiles.md)), through one of two branches:
 
-- **Charge-up gun**, taken when the capacitor holds *less* than the cost. It fires shots worth the whole charge and then either arms a burst or empties the capacitor. **Every retail energy gun takes this branch always**, because they all read a 10000 cost against a capacitor scaled to 1200.
-- **Fixed-cost gun**, taken otherwise: subtract the cost, fire one unpowered shot. Unreachable in retail for the reason above.
+- **Charge-up gun**, taken when the capacitor holds *less* than the cost. It fires shots worth the whole charge (`Bullet_FirePowered` (`0040b5a0`), which stores the charge on the bullet) and then either arms a burst or empties the capacitor. **Every retail energy gun takes this branch always**, because they all read a 10000 cost against a capacitor scaled to 1200.
+- **Fixed-cost gun**, taken otherwise: subtract the cost, fire one unpowered shot through `Bullet_Fire` (`0040b43c`). Unreachable in retail for the reason above.
 
 Two multi-shot rules sit on the charge-up branch, and each identifies exactly one weapon:
 
 | Test | Weapon | Effect |
 |---|---|---|
-| `template[0x3c] == 3` | catalog id 19, the big EMP (the simulator also names it `EMP`) | fires **three** shots, from barrels at `-x`, `0` and `+x` of the template's own muzzle offset |
+| `template[0x3c] == 3` | catalog id 19, `BEMP`, the Bull's EMP (the simulator also names it `EMP`) | fires **three** shots, from barrels at `-x`, `0` and `+x` of the template's own muzzle offset |
 | `template[0x3e] == 0x13` | catalog id 23, `EMP2` | arms `mount+0x4d`, so the mount fires again a quarter of a refire delay later and *then* empties — two volleys per trigger pull |
 
 `0x3e` is `ProjDatIndex`, and `0x13` is `EMP2`'s own `PROJ.DAT` row, so that second test is a weapon check spelled as a data comparison. The follow-up shot is dispatched from the energy arbitration (`WeaponMounts_ArbitrateEnergy`, via `WeaponMount_AutoFireDue`), not from the trigger.
 
 ### The ammunition dispatch
 
-**It spends `+0x7b`, not `+0x7d`** — it subtracts `template[0x38]` from the round count (5 on every autocannon, against magazines of 500 to 2000) and clears `+0x4c` (selectable) at zero, dropping an empty weapon out of the selection cycle. It spends **before** it looks at the projectile type, so a launcher pays a round on the `Rocket_Fire` path too. The one thing that can skip the spend is the "this shot is free" flag above, which skips the clear of `+0x4c` with it, so a cheating player's launcher never drops out of the selection cycle. The energy and ELF dispatches take the same flag and hand it to `WeaponMount_PrepareShot`, which has two parameters: only this dispatch reads it.
+**It spends `+0x7b`, not `+0x7d`** — it subtracts `template[0x38]` from the round count (5 on every autocannon, against magazines of 500 to 2000) and clears `+0x4c` (selectable) at zero, dropping an empty weapon out of the selection cycle. It spends **before** it looks at the projectile type, so a launcher pays a round on the `Rocket_Fire` path too. The one thing that can skip the spend is the "this shot is free" flag above, which skips the clear of `+0x4c` with it, so a cheating player's launcher never drops out of the selection cycle. The energy and ELF dispatches take the same flag and pass it on to `WeaponMount_PrepareShot`, whose body never reads it; only this dispatch does.
 
-`+0x7d` is the *displayed* count, in 256ths, and lags: `WeaponMount_PushAmmoGaugeState` (`0040f330`) decays it toward `+0x7b * 256` at 250 per 125 ms, which is what makes the cockpit counter roll rather than jump.
+The gauge's rolling round counter, `+0x7d`, is in [the ammunition mount](weapon-mounts.md#ammunition).
 
 ## The shot record
 
@@ -99,13 +101,13 @@ The ray record:
 | `+0x08` | a literal 200, slack the range check adds before rejecting a candidate |
 | `+0x0a` | the world-to-muzzle transform, cached by the sweep for every hit test to work in |
 
-**Both damage figures are scaled Q10 by the shot's power**, against a capacitor scaled to 1200 — so a mount holding more than 1024 makes a shot worth slightly more than the record's face value. They are then scaled a second time, by the firing side's mission-difficulty factor, at the top of `Sim_RaycastObjectList` itself — see [`difficulty.md`](difficulty.md#the-damage-scale-reaches-all-direct-fire-not-just-plasma). `SplashFactor`'s own multiply, one step further down in `Mech_ApplyDirectFireDamage`, is Q10 as well (`Math_Q10Multiply`, `0047dfa4`).
+What the power scale does to the two figures is in [`weapon-damage-types.md`](weapon-damage-types.md#weapon-type-effectiveness); the difficulty scale, applied at the top of `Sim_RaycastObjectList` itself, is in [`difficulty.md`](difficulty.md#the-damage-scale-reaches-all-direct-fire-not-just-plasma).
 
 ## Where the shot comes from — `WeaponMount_PrepareShot` (`0040e788`)
 
 The frame is the **firing hardpoint's own model bone**, posed as it stands this tick and composed with the machine's world transform. A beam follows the torso because the gun bone does: nothing adds the twist or pitch angle, and nothing needs to.
 
-The prologue also composes a per-hardpoint aim rotation over the top: the **gun convergence**, which toes each hardpoint in on the range the turret is aiming at. `mount+0x5b` and `+0x5f` gate its two halves, and `WeaponMount_CtorBase` writes each of them zero when the `.GL` node id it comes from (`+2`/`+4`) is negative. Both read -1 on every retail chassis, so neither gate blocks it and the convergence applies throughout the retail fleet. See [`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c).
+The prologue also composes a per-hardpoint aim rotation over the top: the **gun convergence**, which toes each hardpoint in on the range the turret is aiming at. Its gates and retail values are in [`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c).
 
 The muzzle point is three offsets summed in bone space:
 
@@ -115,7 +117,7 @@ template[0x40..0x44]                       // the weapon's own muzzle triple
 + WeaponMountTemplate_SideMuzzleOffset     // 0040f904, below
 ```
 
-**Only the last two are `WeaponMount_MuzzleOffset` (`0040f540`).** The template's own triple is added here, by the prologue, and nowhere else. The distinction matters because the pair without it is *where the weapon sits* — it is the offset the base constructor bakes into the mount's copy of the weapon model (`Shape_TranslatePointLists`, `0040dd4c`), and the triple is the length of the barrel from there. Retail triples run 630 (`ATC20`) to 2725 units of forward Y, 3.8 m to 16 m, so standing the model at the muzzle instead puts it a barrel clear of the chassis. The multi-barrel branch of `WeaponMount_FireDispatch_GunBeam` shows the split plainly: it loads `template[0x40..0x44]` into a local, calls `WeaponMount_MuzzleOffset`, and adds the two.
+**Only the last two are `WeaponMount_MuzzleOffset` (`0040f540`).** The template's own triple is added here, by the prologue, and nowhere else. The distinction matters because the pair without it is *where the weapon sits* — it is the offset the base constructor bakes into the mount's copy of the weapon model (`Shape_TranslatePointLists`, `0040dd4c`), and the triple is the length of the barrel from there. Retail triples run 630 (`LAS100`) to 2725 (`MISSL`) units of forward Y, 3.8 m to 16 m, so standing the model at the muzzle instead puts it a barrel clear of the chassis. The multi-barrel branch of `WeaponMount_FireDispatch_GunBeam` shows the split plainly: it loads `template[0x40..0x44]` into a local, calls `WeaponMount_MuzzleOffset`, and adds the two.
 
 `WeaponMountTemplate_SideMuzzleOffset` is what makes a mirrored hardpoint pair fire from mirrored points off one template. The template carries a lateral figure at `0x46` and a vertical one at `0x4a`; the hardpoint's mounting code (`.GL +6`) picks one and its sign, and **only one axis is ever nonzero**:
 
@@ -127,24 +129,25 @@ template[0x40..0x44]                       // the weapon's own muzzle triple
 | 3 | right side | `(+0x46, 0, 0)` |
 | 4 | invisible | `(0, 0, 0)` |
 
-The prologue then arms the refire timer as `Q10Multiply(mount+0x63, template[0x4c])`. `mount+0x63` is `0x400` from the base constructor (`WeaponMount_CtorBase`, `0040df30`) and nothing traced changes it, so the delay is the template's own figure. `WeaponMount_RefireTick` (`0040ef94`) counts it down by `SimTickDelta` — about 15 ticks for the 1200 most weapons carry. **`ELF` and `ELF2` carry zero**, and their mount class does not test the timer either: what limits those two is the capacitor, not a cooldown — see [`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
+The prologue then arms the refire timer as `Q10Multiply(mount+0x63, template[0x4c])`. `mount+0x63` is `0x400` from the base constructor (`WeaponMount_CtorBase`, `0040df30`) and only a damaged `Bullet` gun lowers it ([a damaged gun fires faster](weapon-mounts.md#the-certain-path--the-condition-notification)), so the delay is otherwise the template's own figure. `WeaponMount_RefireTick` (`0040ef94`) counts it down by `SimTickDelta` — about 15 ticks for the 1200 most weapons carry. **`ELF` and `ELF2` carry zero**, and their mount class does not test the timer either: what limits those two is the capacitor, not a cooldown — see [`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
 
-Its last two writes set the mount's `+0x33` and `+0x3b` flag blocks, which is what makes an ELF's sustained fire possible; the same doc has them.
+Its last two writes set the mount's `+0x33` and `+0x3b` flag blocks, which is what makes an ELF's sustained fire possible; see [`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
 
 ## Power level — `WeaponMount_AdjustPowerLevel` (`0040f48c`)
 
-Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50`, clamped to 0..1200. `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) is the bulk counterpart, putting every capacitor back to the idle 820.
+Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50` (80), clamped to 0..1200. `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) is the bulk counterpart, putting every capacitor back to the idle 820.
 
-**This is the only thing in the retail build that raises a capacitor past 820.** `WeaponMount_DemandFullCharge` (`0040f4f0`) does the same in one step and is the obvious candidate, but its only caller `WeaponMounts_DemandFullChargeOnArmed_Dead` (`00410d50`) has no reference of any kind anywhere in the image — neither a `CALL rel32` nor a stored address — so neither is ever reached.
+**After power-up, this is the only thing in the retail build that raises a charge target past the idle 820.** `WeaponMount_DemandFullCharge` (`0040f4f0`) does the same in one step and is the obvious candidate, but its only caller `WeaponMounts_DemandFullChargeOnArmed_Dead` (`00410d50`) has no reference of any kind anywhere in the image — neither a `CALL rel32` nor a stored address — so neither is ever reached.
 
 For a fixed-cost weapon this changes nothing but the cockpit bar. For a charge-up weapon the target *is* the shot strength: retail `PBEAM` at 960 does 937 damage every 48 ticks, and five presses of `[-]` make it 546 every 28.
 
 ## Resolving the hit
 
-`Bullet_FireBurst` calls `Sim_RaycastObjectList` (`00426528`) **before** it spawns any tracer, so the hit is already resolved when the visual is built — see [`beam-visuals.md`](beam-visuals.md) for what it then builds. The sweep itself and the per-mech hit test are documented in [`damage-system.md`](damage-system.md#the-shared-raycast--sim_raycastobjectlist-00426528); it clips at terrain first, shortens the ray per hit rather than stopping at the first, and applies damage inside the hit test.
+`Bullet_FireBurst` calls `Sim_RaycastObjectList` (`00426528`) **before** it spawns any tracer, so the hit is already resolved when the visual is built — see [`beam-visuals.md`](beam-visuals.md) for the sound and tracer it then builds. The sweep itself is documented in [`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528) and the per-mech hit test in [`damage-system.md`](damage-system.md#direct-fire-damage-armor-then-part-deterministic-shield-gated); it clips at terrain first, shortens the ray per hit rather than stopping at the first, and applies damage inside the hit test.
 
-Two consequences belong to this caller specifically. The ray record's `+0x08` is passed along as a walk radius, but the thin-ray terrain mode never reads it. And a fully shield-absorbed shot still counts as a hit and still stops the ray — shields do not let fire through to whatever stands behind.
+The ray record's `+0x08` is passed along as a walk radius, but the thin-ray terrain mode never reads it.
 
-## Sound
+## Open
 
-`Bullet_FireBurst` opens with `Sound_PlayAt(0x0b, muzzlePoint)`, catalog id `0x0b` = `laser1.wav`. Ported; see [`../formats/audio.md`](../formats/audio.md).
+- **Unported:** the flags `WeaponMounts_FireTrigger` sets on firing an electro-optical missile (`DAT_004d25ac`, `DAT_004d25aa`): the player never flies the missile, so nothing sets them and the chain advance never pauses for one.
+- **Unported:** `WeaponMount_PrepareShot`'s spectator branch. While `DAT_0049ef5c` is set and the owner is `LocalPlayerMech`, it copies the hardpoint's bone record with the last translation component lowered by 1500 (`0x5dc`) and composes it with the watched object `DAT_004d2708` in place of the machine — see [`target-selection.md`](target-selection.md).

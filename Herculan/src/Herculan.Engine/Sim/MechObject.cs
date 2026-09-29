@@ -991,8 +991,8 @@ public sealed partial class MechObject : SimObject {
 	/// <para>Running into another machine hurts both of them — see
 	/// <see cref="CollisionDamage"/>. One part of the original's sweep is still missing: it also
 	/// records at <c>mech+0x2b0</c> the structure the machine is standing inside, which its scene
-	/// pass reads and this engine has no equivalent of. See docs/simulation/damage-system.md, "The
-	/// collision path's structure record".</para>
+	/// pass reads and this engine has no equivalent of. See docs/simulation/mech-locomotion.md, "The
+	/// structure a machine stands in".</para>
 	///
 	/// <para>The sweep's first test <i>is</i> here: an object whose mission group carries an action
 	/// is skipped outright, before any distance is measured. See

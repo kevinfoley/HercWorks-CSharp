@@ -6,18 +6,12 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// straight into the type record at <c>+0x1dc</c>, and the flight model
 /// (<c>FlightModel_Step</c>, <c>00466a54</c>) is the only thing that reads them.
 ///
-/// <para>The names here are the roles that function gives each field. The obvious reading of the
-/// block — that the run of fields either side of <see cref="MaxRollRate"/> are all roll parameters,
-/// which the field order invites — is wrong: only three concern roll at all, and the two that look
-/// most like roll constants are general. <see cref="AngularDamping"/> damps every axis, and
-/// <see cref="LateralDrag"/> is sideslip drag, applied to velocity rather than to rotation.</para>
+/// <para>The names here are the roles that function gives each field. The layout, the roles and the
+/// readings that mislead are in docs/formats/flight-model-fm.md.</para>
 ///
-/// <para><b>Bytes 12-17 are not padding.</b> Bytes 14-17 are a slot the file leaves zero and the
-/// <i>loader</i> fills in: <c>MechType_InitOne</c> writes
-/// <c>Q16Divide(CeilingAtMaxSpeed - CeilingAtMinSpeed, AirSpeedMax - AirSpeedMin)</c> there before
-/// anything flies, which is what makes the flight ceiling rise with airspeed. It is a derived
-/// figure rather than file content, so it is not a field of this type — see the engine's
-/// <c>FlightModelRecord</c>. Bytes 12-13 are zero in both retail files and nothing reads them.</para>
+/// <para>Bytes 14-17 are a slot the loader fills in with the ceiling slope. It is a derived figure
+/// rather than file content, so it is not a field of this type — see the engine's
+/// <c>FlightModelRecord</c>.</para>
 /// </summary>
 public class FlightModel {
 	/// <summary>Offset 0 — pitch rate cap, and the gain from full elevator deflection (Q8).</summary>

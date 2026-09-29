@@ -1,8 +1,8 @@
 # Razor flight — flight model, contact probes, and the flight ceiling
 
-The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `Flyer` class the SKIMMER and the ground vehicles use. It is built by `Mech_Constructor`, carries a mech's 29-component damage array and a mech's weapon mounts, and appears on the target list as `TargetClass.Herc`. What the flag (`typeRec+0x50`, `HercSimDat.InputFlagFlyer`, file offset 78) changes is which code paths it takes, and it changes nearly all of them.
+The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `Flyer` class the SKIMMER uses. It is built by `Mech_Constructor`, carries a mech's 29-component damage array and a mech's weapon mounts, and appears on the target list as target class 0, a HERC (`obj+0x1a8`). What the flag (`typeRec+0x50`, `InputFlagFlyer`, file offset 78) changes is which code paths it takes, and it changes nearly all of them.
 
-[`mech-locomotion.md`](mech-locomotion.md) covers the walker paths; nothing in it applies to a RAZOR.
+[`mech-locomotion.md`](mech-locomotion.md) covers the walker paths; nothing in it applies to a RAZOR. The flight model's parameters come from `fm\<NAME>.FM`, laid out in [`../formats/flight-model-fm.md`](../formats/flight-model-fm.md); the field names below are that document's.
 
 ## Call graph
 
@@ -30,45 +30,9 @@ The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `
 
 These are states 0, 1 and 2 of the 22-entry AI behaviour table, and the names are the game's own; the full roster and the dispatch mechanism are in [`ai-dispatch.md`](ai-dispatch.md). Each descriptor holds three pointer-to-member-function triples `{func, thisDelta, vtableIndex}` filled in at startup from a 0x24-stride source block. Block 1 (`0049991c`) is the walker set and its `+0x0c` slot is `Mech_MovementTick`; `FlyerBehaviourSlots` (`00499940`) is block 2 and its `+0x0c` slot is `Razor_MovementTick`. Because these are member pointers reached through the vtable dispatchers rather than vtable entries directly, Ghidra reports no xrefs on either move function.
 
-**Only the player's RAZOR flies.** An AI-controlled one takes the not-the-player branch and the walker move, which would walk it. No retail mission places one. The Cybrid aircraft are a different class entirely and fly under their own AI — see [`ai-flyers.md`](ai-flyers.md).
+**Only the player's RAZOR flies.** An AI-controlled one takes the not-the-player branch and the walker move, which would walk it ([Open](#open)). The Cybrid aircraft are a different class entirely and fly under their own AI — see [`ai-flyers.md`](ai-flyers.md).
 
 The input side is gated separately, in `Sim_PollPlayerInput` (`00460764`), on the flyer flag alone.
-
-## `fm\<NAME>.FM` — the flight model file
-
-54 bytes, read straight into the type record at `typeRec+0x1dc` by `MechType_InitOne` (`004201a8`), and only for a type whose record sets the flyer flag. Two files ship: `RAZOR.FM` and `SKIMMER.FM`. Parsed by `FlightModelTransformer`; the sim-side view with the derived field is `FlightModelRecord`.
-
-| Offset | Type | Field | RAZOR | SKIMMER | Role |
-| --- | --- | --- | --- | --- | --- |
-| 0 | i16 | `MaxPitchRate` | 400 | 600 | Pitch rate cap, and the Q8 gain from full elevator |
-| 2 | i16 | `MaxRollRate` | 1500 | 1400 | Roll rate cap, and the gain from full aileron |
-| 4 | i16 | `MaxYawRate` | 400 | 600 | Yaw rate cap, and the gain from full rudder |
-| 6 | i16 | `MaxPitchAccel` | 200 | 250 | Cap on the pitch command per tick |
-| 8 | i16 | `MaxRollAccel` | 400 | 300 | Cap on the roll command **and on the yaw command** |
-| 10 | i16 | `ThrustResponse` | 100 | 100 | How fast airspeed closes on the throttle's demand |
-| 12 | — | — | 0 | 0 | Unread |
-| 14 | i32 | *(derived)* | 0 | 0 | Zero on disk; the loader writes the ceiling slope here |
-| 18 | i16 | `AngularDamping` | 500 | 500 | Q10 of each axis' rate bled off per tick |
-| 22 | i16 | `PitchLevelShift` | 16 | 16 | Right shift, attitude → self-levelling pitch command |
-| 26 | i16 | `RollLevelShift` | 5 | 6 | The roll counterpart |
-| 30 | i16 | `BankTurnShift` | 4 | 4 | Right shift, bank angle → heading rate |
-| 34 | i32 | `CeilingAtMaxSpeed` | 60000 | 120000 | Flight ceiling at `AirSpeedMax` |
-| 38 | i32 | `CeilingAtMinSpeed` | 6000 | 6000 | Flight ceiling at `AirSpeedMin`, above ground level |
-| 42 | i32 | `AirSpeedMax` | 1500 | 1000 | Airspeed at full throttle |
-| 46 | i32 | `AirSpeedMin` | 250 | 500 | Airspeed at idle — a floor, not a stall speed |
-| 50 | i32 | `LateralDrag` | 300 | 400 | Q10 of the sideways and vertical velocity shed per tick |
-
-The three shift fields are *read* by the flight model as 32-bit loads at offsets 22/26/30, so each occupies four bytes; only the low half is ever non-zero, which is why the parser reads them as `i16` and skips the rest.
-
-### Bytes 12-17 are not padding
-
-Offsets 14-17 are a slot the file leaves zero and the *loader* fills in. `MechType_InitOne` finishes its flyer branch with
-
-```c
-typeRec[+0x1ea] = Q16Divide(CeilingAtMaxSpeed - CeilingAtMinSpeed, AirSpeedMax - AirSpeedMin);
-```
-
-which is `typeRec+0x1dc + 14`, i.e. the middle of the record it has just read. That is the ceiling's slope against airspeed, and it makes the whole field block a mixture of file content and derived state. `FlightModelRecord.CeilingPerSpeed` holds it engine-side so the parsed file stays untouched.
 
 ## Flight state — `mech+0x2b9`
 
@@ -106,13 +70,7 @@ The device layer hands the same four axes to both control paths. A flyer reads t
 
 Neither turret tick is on this path, so **a RAZOR's turret never moves** and its guns point where its nose points. The throttle has to move off stick Y because on an aircraft the primary stick axes are pitch and roll, and it lands on the axis a walker has no other use for.
 
-### The keyboard
-
-`Input_BuildKeyboardAxes` (`0045a4b0`) produces **two signed axis pairs, not four independent axes**: held keys 0-7 accumulate into the first pair, keys 8-13 into the second, each key adding its own `(dx, dy)` entry shifted left 7 — ±0x80, half a stick's travel, the constant `MechControls.KeyboardAxis` already carries.
-
-Those pairs are *sources*, not destinations. `Input_BuildSourceTable` (`0045a5c0`) registers them in a source-pointer table at `004d2394` alongside the four joystick axes and the buttons, and a binding selects which source each game axis reads — which is why `Sim_PollPlayerInput` reads some axes through a pointer-to-pointer.
-
-**No arrow-key-to-axis mapping can be recovered from the executable.** The per-key `(dx, dy)` table at `0049eb6d` is all zeroes in the image and is filled at runtime from a saved key configuration. Note that the retail game only includes a menu for adjusting joystick bindings, not keyboard bindings.
+The keyboard reaches these axes through the same source table as the stick — see [The keyboard](../formats/joystick-input.md#the-keyboard).
 
 ## Control law (`FlightModel_Step`)
 
@@ -122,7 +80,7 @@ Nothing in it moves the aircraft; it produces the world velocity `Razor_Movement
 
 An analogue throttle axis is read as a position, `axis << 3` clamped to ±0x400. Everything else is a rate: `IntegrateRateOverTick(Q8(100, axis))` accumulated into `+0x2d7` and clamped the same way. Unlike the walker's throttle lever there is no inverted sense and no clamp to one side of zero.
 
-`Razor_ApplyFlightInput` then copies `+0x2d7` onto `mech+0x290` and sets the `mech+0x93` dirty flag, but **only on a tick the throttle axis moved**. The reverse direction — gauge to flight model — is in `Player_PerFrameCockpitUpdate`, which with the dirty flag clear writes the gauge's value to `mech+0x2d7` as well as `mech+0x290`, gated on the flyer flag. That single line is the only path by which the cockpit slider reaches the flight model, and on a keyboard-only setup it may be the only working throttle control the player has.
+`Razor_ApplyFlightInput` then copies `+0x2d7` onto `mech+0x290` and sets the `mech+0x93` dirty flag, but **only on a tick the throttle axis moved**. The reverse direction — gauge to flight model — is in `Player_PerFrameCockpitUpdate`, which with the dirty flag clear writes the gauge's value to `mech+0x2d7` as well as `mech+0x290`, gated on the flyer flag. That single line is the only path by which the cockpit slider reaches the flight model.
 
 ### Airspeed
 
@@ -152,6 +110,20 @@ Only the two ground-plane components are scaled; the world-vertical one is subtr
 
 Each command is clamped to its acceleration limit, the damping is added *outside* that clamp, the sum is integrated, and the resulting rate is clamped to its rate limit. Yaw borrows the roll axis' acceleration limit; the file has only two.
 
+### Lost wings and nacelles
+
+`Razor_ApplyFlightInput` hands the model four flags, one per destroyed component: the wings (7 left, 8 right) and the nacelles (4 left, 5 right). A lost component takes the controls away:
+
+| Lost | Effect on the command |
+| --- | --- |
+| Either nacelle | The elevator is replaced by `-cos(roll) >> 6`, a fixed nose-down demand resolved through the bank |
+| Right nacelle | The aileron is pinned at full deflection, `+0x100` |
+| Left nacelle | The aileron is pinned at `-0x100`. Both nacelle tests come before the wing tests, so a nacelle overrides any wing |
+| Right wing | While the roll is under `0x1000` (22.5 degrees), the aileron gains `Q14(0x14, 0x1000 - roll)` |
+| Left wing | While the roll is over `-0x1000`, the aileron loses `Q14(0x14, roll + 0x1000)` |
+
+With a nacelle gone, pitch and roll are out of the pilot's hands. A lost wing leaves the pilot control: the bias fades to nothing at 22.5 degrees of bank, so the aircraft settles into a permanent lean that the pilot can hold off but has to keep holding off.
+
 ### Turning is banking
 
 ```
@@ -175,9 +147,7 @@ ceiling = CeilingAtMinSpeed + Q16(airspeed - AirSpeedMin, CeilingPerSpeed)
 
 **Altitude is bought with speed.** The RAZOR's ceiling runs from 6000 world units (36 m) at its 250 idle airspeed to 60000 (360 m) at its 1500 maximum. A pilot who wants height has to go and get it at full throttle; one who throttles back is pushed back down.
 
-Nothing clamps to it. Past the ceiling the model builds a push proportional to the overshoot and resolves it through the current bank — cosine onto pitch, the quarter-turn shift onto yaw — so the push is toward the *ground* however the aircraft is lying. It only ever lowers the pitch command, so it can refuse a climb but never force a dive.
-
-`CeilingAtMaxSpeed` is therefore not the flat "max altitude" its position in the file suggests: it is only reached at the top of the speed range.
+Nothing clamps to it. Past the ceiling the model builds a push proportional to the overshoot (Q10 gain 10) and resolves it through the current bank — cosine onto pitch, the quarter-turn shift onto yaw — so the push is toward the *ground* however the aircraft is lying. The yaw command is replaced by its share of the push outright; the pitch command is replaced only when the push is the lower of the two, so it overrides a climb or a shallower dive and never a steeper one.
 
 ## Contact probes
 
@@ -196,6 +166,8 @@ The components are the game's own, from `STRINGS0` group 14, the flyer damage-re
 
 Component 4 being the *left* nacelle settles the frame's handedness: its probe sits at negative X, so **-X is port and +X starboard**.
 
+**Both nacelle contacts are reported at the left nacelle's point.** The right nacelle's branch tests its own probe point but hands `Mech_ApplyDirectFireDamage` the address of the left one, so a right-nacelle strike draws its impact effect on the wrong side. See [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
 Damage scales with speed on a ground contact (`Q10(airspeed, 500)` for a wing, 1000 for the cockpit, 5000 for the fuselage) and is a flat figure on an object contact. The shield figure is always 8000. A contact kicks the rate *and* applies it to the attitude in the same tick, leaving the rate standing for the flight model to damp out afterwards.
 
 Destroying the cockpit or the fuselage latches `mech+0xa4` — the same byte a walker loses its legs to — and with it set the aircraft stops integrating position altogether. It is down where it fell.
@@ -213,11 +185,11 @@ Contacts go through `Mech_ApplyDirectFireDamage` with `AirframeContactShot` (`00
 
 Its impact effects come from `AirframeContactImpactFx` (`0049a158`), a `PROJ.DAT`-shaped 12-entry table held in the image rather than in a file: shield `{11,11,11,11}`, ground and armour both `{0,1,4,5}`.
 
-The wreckage a fatal contact sheds is ported — group 3 at the contact point, and only from the cockpit and fuselage probes, the two that can end the flight. See [`destruction-effects.md`](destruction-effects.md#spawn-sites).
+A fatal contact sheds wreckage — group 3 at the contact point, and only from the cockpit and fuselage probes, the two that can end the flight. See [`destruction-effects.md`](destruction-effects.md#spawn-sites).
 
 ## HUD speed
 
-`Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, AirSpeedMax]` onto `[0, typeRec+0xc2]` through `Math_MapRange` (`0047de3c`), because a flyer's record does not describe the walker top speed the other branch needs. Both land on the same readout scale, so the gauge reads the same way for either chassis. A RAZOR at full throttle reads 83 km/h.
+`Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, AirSpeedMax]` onto `[0, typeRec+0xc2]` (the loader computes that field for walkers only, so a RAZOR carries its type file's own value) through `Math_MapRange` (`0047de3c`), where the walker branch divides by the type's top speed. Both land on the same readout scale, so the gauge reads the same way for either chassis. A RAZOR at full throttle reads 83 km/h.
 
 ## The engine hum
 
@@ -228,12 +200,11 @@ The wreckage a fatal contact sheds is ported — group 3 at the contact point, a
 | Reading | Why it is wrong |
 | --- | --- |
 | `004198f4` is a flyer terrain-avoidance autopilot | It is the flyer's whole per-tick move, the counterpart of `Mech_MovementTick`. The terrain probes are its collision model, not an assist; the pull-up look-ahead is one of seven points |
-| The `.FM` fields either side of `MaxRollRate` are all roll parameters | The field order invites it, but only three concern roll. `AngularDamping` (18) damps every axis, and `LateralDrag` (50) is sideslip drag applied to velocity rather than rotation |
-| `CeilingAtMaxSpeed` (34) is a flat maximum altitude | Nothing clamps to it. It is the far end of a ramp the loader derives at offset 14, reached only at `AirSpeedMax` |
-| Bytes 12-17 of `.FM` are zero padding | They are zero *on disk*. The loader writes the ceiling slope into 14-17 |
+| `CeilingAtMaxSpeed` (34) is a flat maximum altitude | Nothing clamps to it. It is the far end of a ramp the loader derives at offset 14, reached only at `AirSpeedMax` — see [the flight ceiling](#the-flight-ceiling) |
 | The cockpit throttle slider does nothing on a RAZOR | It works. `Player_PerFrameCockpitUpdate` has a flyer-gated line writing the gauge value to `mech+0x2d7`. What is dead is the gauge's *speed* bar, which reads the walker scalar |
 | The RAZOR is an instance of the `Flyer` class | That class is the SKIMMER's. The RAZOR is a `Mech` with `typeRec+0x50` set |
 
 ## Open
 
-- **Unported:** `Razor_MovementTick`'s own call to `Mech_ConvergeGunsOnRange` (`0041a74c`). A flyer has no pitch tick to reach it from, so the convergence a walker gets there (see [`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c)) has to be driven from the movement tick instead, and is not.
+- **Open:** whether any retail mission places an AI-controlled RAZOR, which the constructor would give the walker move. None has been found.
+- **Unported:** `Razor_MovementTick`'s closing call to `Mech_ConvergeGunsOnRange` (`0041a74c`), passing the distance from the machine to its selected target (`mech+0x1a4`), or 0 with none. A flyer has no pitch tick to reach the convergence from, as a walker does ([`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c)), so the movement tick drives it.

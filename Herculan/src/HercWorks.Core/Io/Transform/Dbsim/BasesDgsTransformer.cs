@@ -24,7 +24,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// verified byte-exact against the retail file (see below):</para>
 /// <list type="bullet">
 /// <item>3 <c>int16</c> id/name fields, then 6 raw bytes (base class header, unmodelled beyond
-/// <see cref="BaseShape.Id"/>, the third field).</item>
+/// <see cref="BaseShape.BoundingRadius"/>, the third field).</item>
 /// <item>an <c>int16</c> child count, then that many recursively-loaded <c>ClassItem</c> objects.
 /// <b>Every retail record's one child is an ordinary TSObjectHeader-family chunk</b> (observed tag
 /// <c>0x0014000c</c> = <c>TSDetailPart</c>) — byte-identical to a plain <c>.DTS</c> file's own

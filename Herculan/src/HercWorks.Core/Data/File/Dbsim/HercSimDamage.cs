@@ -7,7 +7,8 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// tied to the unit by name from the corresponding .DAT file.
 ///
 /// Independently confirmed as DBSIM.EXE's own per-mech hit-zone/component table (see
-/// docs/simulation/component-damage.md): loaded at runtime via a filename built from the
+/// docs/formats/dmg-damage-file.md, and docs/simulation/component-damage.md for what the simulator
+/// does with it): loaded at runtime via a filename built from the
 /// mech's own name string plus an extension, matching this file's own `dmg\[herc].DMG` location;
 /// <see cref="HercPiece"/> is exactly DBSIM's 18-byte per-component record (`Armor`=max health at
 /// offset 0, `DebrisFlags`=offsets 2-3, `BoneId`=offset 4, `DestructionFlags`=offset 5,
@@ -110,20 +111,18 @@ public class HercSimDamage {
 
 	public class HercPiece {
 		public short Armor { get; set; }
+		/// <summary>
+		/// Record offsets <c>+0x02</c> (the debris group the piece throws) and <c>+0x03</c> (the
+		/// shape sequence it drives), each <c>-1</c> for none, read as one <c>short</c>. See
+		/// docs/formats/dmg-damage-file.md#the-piece-record.
+		/// </summary>
 		public short DebrisFlags { get; set; }
 		public byte BoneId { get; set; }
 
 		/// <summary>
-		/// Was <c>Unk_val</c> — resolved via DBSIM.EXE disassembly of this record's
-		/// consumers (<c>Component_ApplyDamageAndCascade</c> (<c>0040da38</c>)/<c>Component_DestroyAndCascade</c> (<c>0040d434</c>), see
-		/// docs/simulation/component-damage.md). A bitfield: bit 0 = this piece has dependents
-		/// to cascade-destroy (checked before walking the dependency list); bit 1 = selects an
-		/// alternate destruction-effect callback mode (0 vs 2, passed to the same effect
-		/// function); bit 2 = a one-shot "major destruction alert already played" latch (checked
-		/// against a global, set once and never read back to false in this record); bit 3 =
-		/// triggers a secondary effect callback that the alt-mode branch (bit 1) does not. Real
-		/// per-piece values not yet surveyed across multiple files — bit meanings are confirmed
-		/// by their code use, not by a labeled constant.
+		/// Was <c>Unk_val</c>. The bit meanings, from <c>Component_ApplyDamageAndCascade</c>
+		/// (<c>0040da38</c>) and <c>Component_DestroyAndCascade</c> (<c>0040d434</c>), and the
+		/// values the retail files carry are in docs/formats/dmg-damage-file.md#the-piece-record.
 		/// </summary>
 		public byte DestructionFlags { get; set; }
 

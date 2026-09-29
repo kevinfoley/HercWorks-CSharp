@@ -31,9 +31,19 @@ public class HercSimDat {
 	public short AnimId_StopReverse { get; set; } = 4;
 	public short UnitOffsetYAdjust { get; set; }
 
-	public short Unk22_Val750Razor0 { get; set; }
+	/// <summary>
+	/// Offset 22 (the exe's <c>typeRecord+0x18</c>) — how high above the machine's origin its
+	/// direct-fire hit cylinder is centred: 1000 heavy and medium, 750 light, 0 RAZOR. Was
+	/// <c>Unk22_Val750Razor0</c>. See Herculan.Engine.Sim.MechTypeRecord.HitCenterHeight.
+	/// </summary>
+	public short HitCenterHeight { get; set; }
 
-	public short AiAimTargOffset { get; set; }
+	/// <summary>
+	/// Offset 24 (the exe's <c>typeRecord+0x1a</c>) — the radius of that cylinder, and of the coarse
+	/// reject in front of it: 2500 heavy, 1500 medium, 1000 SPIDER. Was <c>AiAimTargOffset</c>, a
+	/// guess no consumer bears out. See Herculan.Engine.Sim.MechTypeRecord.HitRadius.
+	/// </summary>
+	public short HitRadius { get; set; }
 
 	/// <summary>
 	/// Offset 26 — the torso-twist sequence id. <c>Mech_Constructor</c> builds the mech's second
@@ -121,8 +131,13 @@ public class HercSimDat {
 	/// </summary>
 	public short SalvageScale { get; set; }
 
-	/// <summary>Usually 1.</summary>
-	public short Unk84_val { get; set; }
+	/// <summary>
+	/// Offset 84 (the exe's <c>typeRecord+0x56</c>) — whether a hit can knock this chassis' weapon
+	/// mounts out: 1 on every biped, 0 on the PITBULL. <c>Mech_ApplyDirectFireDamage</c> tests it
+	/// before it rolls. Was <c>Unk84_val</c>. See docs/simulation/weapon-damage-types.md, "Weapon
+	/// mount destruction".
+	/// </summary>
+	public short WeaponMountsDestructible { get; set; }
 
 	/// <summary>0x86 - 0x97.</summary>
 	public byte[]? NameBytes { get; set; }
@@ -152,7 +167,7 @@ public class HercSimDat {
 	/// Offset 110 (the exe's <c>typeRecord+0x70</c>) — the machine's <b>body radius</b>, in world
 	/// units: what the blast sweep measures its surface by, and what keeps two machines from walking
 	/// through each other. <b>Every retail HERC states 750</b> — 4.5 m — so machines stop 1500 units
-	/// apart whatever their size. Distinct from <see cref="AiAimTargOffset"/>, the deliberately
+	/// apart whatever their size. Distinct from <see cref="HitRadius"/>, the deliberately
 	/// generous shot radius. Was <c>Unk110_camExtVal2</c>, a guess from its neighbours.
 	/// </summary>
 	public short BodyRadius { get; set; }

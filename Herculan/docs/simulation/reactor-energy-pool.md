@@ -73,7 +73,7 @@ An idle machine draws nothing: every energy mount powers up with `+0x7d` already
 ## Cockpit readouts
 
 - **Energy meter.** `Player_PerFrameCockpitUpdate` (`0041b130`) computes `(pool << 10) / 10000` and pushes it to the LED bar at UI slot `+0x1e5`, whose range is `0x400`.
-- **Shield rings** show charge; **the shield numbers show balance.** See [damage-system.md](damage-system.md#the-shield-system).
+- **Shield rings** show charge; **the shield numbers show balance.** See [cockpit-hud-widgets.md](../formats/cockpit-hud-widgets.md#shieldsgauge).
 - **Weapon charge bars** are per-mount capacitors, not the pool, and are scaled against a fixed 1200 rather than the mount's own level — see [weapon-mounts.md](weapon-mounts.md).
 
 ## Verified against retail

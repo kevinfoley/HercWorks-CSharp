@@ -40,7 +40,7 @@ else {
 
 **Fog is a ramp lookup, not a blend.** Every fogged pixel is still `world<N>.rmp[row + bias][index]`, so the fade is whatever that table does. Its slices average out close to a linear fade toward the fog colour, but they are not one: each palette index fogs at its own rate, and distinct colours stay distinct almost to the last slice.
 
-`Raster_ShadeRampRow` is not the only reader of the bias. `Raster_DrawPolygon` (`00468310`, mode 1) and `Raster_SetupTexturedSpan` (`00468078`, mode 2) each compute `shade * (shadeLevels - 1) + bias` inline for their per-pixel and per-vertex fills, so the Gouraud and textured paths fog by exactly the same rule without either renderer calling `Raster_ShadeRampRow`.
+`Raster_ShadeRampRow` is not the only reader of the bias. `Raster_DrawPolygon` (`00468310`, mode 1) and `Raster_SetupTexturedSpan` (`00468078`, mode 2) each compute `shade * (shadeLevels - 1) + bias` inline for their per-pixel and per-vertex fills, so the Gouraud and textured paths fog by exactly the same rule without either renderer calling `Raster_ShadeRampRow`. Those inline readers sit behind the shade-mode test (mode 1 or 2), so a mode-0 fill — the plain texture copy a fullbright poly takes, see [`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand) — never spends it and does not fog.
 
 ### The distance measured
 

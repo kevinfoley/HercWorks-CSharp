@@ -4,7 +4,7 @@ How an AI machine acquires, shares, keeps and abandons a target.
 
 [`ai-dispatch.md`](ai-dispatch.md) owns the 22 behaviour states, the descriptor layout, the `mech+0x4d` behaviour block and the three vtable dispatchers; state indices, descriptor addresses and descriptor flag bits are cited from there. [`target-selection.md`](target-selection.md) owns `mech+0x1a4` itself, the sensor model that decides what is *known*, and the player's own selection, which is made in the cockpit and never by this code.
 
-`Ai_SelectTarget` is not mech-only: structures call it too — `Base_ArmedThinkTick` (`00404100`) with mask `0x30` and `FUN_004045c8` with mask `0x10` inside a `0x3000` cone — so it is the sim's one target-acquisition routine.
+`Ai_SelectTarget` is not mech-only: structures call it too — `Base_ArmedThinkTick` (`00404100`) with mask `0x30` and the triple turret's tick (`004045c8`, [`structure-behaviour.md`](structure-behaviour.md#the-triple-turret--004045c8)) with mask `0x10` inside a `0x3000` cone — so it is the sim's one target-acquisition routine.
 
 ## The writers of `+0x1a4`
 
@@ -24,7 +24,7 @@ All of them maintain the target's `+0x1a2` holder count and raise `mech+0x9d` th
 
 - the same side (`group+0x12`);
 - `+0x99` destroyed, `+0xb4` collapsed, or `+0xb7` invulnerable (`BASES.DAT +0x1e`, latched by `Base_Construct`);
-- not currently known — `Ai_KnowsObject` (`00411c58`): radar-visible (`+0x95`) within **999999**, or a contact this machine holds (`this+0xc2 + candidate[0x4b]`) at any range. **The AI's knowledge test is far looser than the player's**, which caps radar at 200000 and contacts at 30000/60000;
+- not currently known — `Ai_KnowsObject` (`00411c58`): radar-visible (`+0x95`) within **999999**, or a contact this machine holds (`this+0xc2 + candidate[0x4b]`) at any range. **The AI's knowledge test is far looser than the player's**, which caps radar at 200000 and contacts at 30000/60000 ([`target-selection.md`](target-selection.md#can-this-be-targeted--targetselect_cantarget-00433174));
 - with `mask & 0x10`, a candidate of this machine's own object class (`+0x1a8`);
 - a flyer (class 2) that is dead or dying;
 - the group's own order target, while this machine's group is led by the local player and the mission's objective type is 3 -- the data-link shield, see [`mission-objectives.md`](mission-objectives.md#the-player-thinks-objective-arms);
@@ -132,7 +132,7 @@ The reassess slot of states 3–7 and 18. `Mech_AiEnterCombat` (`0041d5ec`) is a
 
 Coming out of either with no target also ends in `Mech_AiSelectBehaviour`.
 
-**The leader drags the group in.** A machine that is its group's first member (`**(group+0xc)`) runs `Mech_AiEnterCombat` on every other live member whose state's flag bit 1 is clear. One member finding a fight commits the whole group to it.
+**The leader drags the group in.** A machine that is its group's first member (`**(group+0xc)`) runs `Mech_AiEnterCombat` on every other live member whose state's flag bit 1 is clear. One member finding a fight commits the whole group to it. Each dragged member then takes the keep-or-acquire branch above for itself, through its own `Ai_SelectTarget`, and never reads the leader's `mech+0x1a4`, so the crowding divisor spreads the group across targets rather than piling it onto the leader's.
 
 **Then the state.** `mech+0x2a2` is reset to −1, the flee check runs, and if it did not take the decision itself, the combat state follows from the target:
 
@@ -142,11 +142,11 @@ Coming out of either with no target also ends in `Mech_AiSelectBehaviour`.
 | Class 2 — flyer | `attacking flyer` (7) |
 | Class 0, rating index 0 — I outgun it | `facing off` (5) |
 | Class 0, rating index 1 — evenly matched | `attacking` (3) |
-| Class 0, rating index 2 — it outguns me | `flanking` (4), or `facing off` when the machine's `+0xa8` or `+0xa9` is set or its type's `typeRec+0xc8` is 0xb9 or under |
+| Class 0, rating index 2 — it outguns me | `flanking` (4), or `facing off` when either leg-damage latch (`+0xa8`, `+0xa9`) is set or its type's `typeRec+0xc8` is 0xb9 or under |
 
-**The `flanking` gate is forward speed.** `typeRec+0xc8` is not a record field: the file's own word at that offset is zero on all 21 chassis, but `MechType_InitOne` (`004202c1`) overwrites it at load with a copy of `typeRec+0x06`, the chassis' forward speed. Retail speeds run 140 to 325 against a bar of 0xb9 (185), so **13 of the 21 chassis records clear it and 8 do not** — an outgunned machine goes round what outguns it if it is fast enough to, and stands and takes it if it is not. One of the 13 is RAZOR, which no retail mission gives an AI to fight in, so twelve ground chassis flank in practice. `+0xa9` is the softer of the two leg states, which fits a manoeuvre a crippled machine should not attempt ([Open](#open) covers `+0xa8`).
+**The `flanking` gate is forward speed.** `typeRec+0xc8` is not a record field: the file's own word at that offset is zero on all 21 chassis, but `MechType_InitOne` (`004202c1`) overwrites it at load with a copy of `typeRec+0x06`, the chassis' forward speed. Retail speeds run 140 to 325 against a bar of 0xb9 (185), so **13 of the 21 chassis records clear it and 8 do not** — an outgunned machine goes round what outguns it if it is fast enough to, and stands and takes it if it is not. One of the 13 is RAZOR, which no retail mission gives an AI to fight in, so twelve ground chassis flank in practice. `+0xa8` and `+0xa9` are the two graded leg-damage latches — a side past `0x50` damage, and a side at `0x8d` or worse ([`component-damage.md`](component-damage.md#what-the-endpoint-announces)) — so a machine with any leg damage stands and takes it rather than going round.
 
-`Mech_AiSelectAimComponent` runs on the two class-0 branches that reach it.
+`Mech_AiSelectAimComponent` runs after each of the three class-0 branches, once the flee check has not taken the decision.
 
 ## The flee check — `Mech_AiFleeCheck` (`0041cb94`)
 
@@ -163,7 +163,7 @@ Otherwise it builds a **fear** value: `Mech_GetOverallDamage` (mech vtable `+0x4
 | 31–50 | 300 | 3 or more are, whose *average* rating beats its own |
 | ≤ 30 | — | never |
 
-`Ai_SumAttackerRatings` (`0041cb44`) is the sum of `+0x29e` over every machine holding this one. `+0x2aa` is written on all three live bands and read nowhere this slice reaches.
+`Ai_SumAttackerRatings` (`0041cb44`) is the sum of `+0x29e` over every machine holding this one. `+0x2aa` is written on all three live bands; its reader is the weapon chooser's score floor ([`ai-weapons.md`](ai-weapons.md)).
 
 ## Which component the shot is aimed at — `Mech_AiSelectAimComponent` (`0041ce08`)
 
@@ -190,7 +190,7 @@ Called from the think functions of `attacking`, `flanking`, `facing off` and `dr
 
 ## Radio callouts
 
-`Ai_PostSquadMessage` (`00420a98`) posts `{id, machine}` to the object `CockpitView_GetSquadMessagePort` (`00433158`) returns, through its vtable slot 0, and is suppressed for a destroyed machine unless forced. Three ids are raised from this slice:
+A squad message is posted with `Ai_PostSquadMessage` (`00420a98`), which [`cockpit-messages.md`](../formats/cockpit-messages.md#the-pilot-and-squad-channel) owns along with the id catalog. Three ids are raised from this slice:
 
 | Id | Raised by |
 |---|---|
@@ -201,8 +201,6 @@ Called from the think functions of `attacking`, `flanking`, `facing off` and `dr
 There is a **second friendly-fire site**, in `Sim_RaycastObjectList` itself rather than in `Mech_AiOnTakingFire`: when the player hits a machine on his own side but in a different group, `Group_NearestLiveMember` (`00423974`) finds that machine's nearest live groupmate within 100000 and, if it is inside 30000 of the machine that was hit, that groupmate complains instead of the victim.
 
 `Mech_AiEnemySighted` fires once per enemy for the whole player group: `DAT_004a9b84[obj+0x4b]` is a per-object latch, set the first time either the machine or the player holds a contact on that object, and the callout is further rate-limited by `DAT_004a9be9`, re-armed to 10000 counts — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units). The local player's own machine sets the latch without ever calling out.
-
-The channel these post to is the pilot-and-squad message port — see [`../formats/audio.md`](../formats/audio.md).
 
 ## Mech fields this slice owns
 
@@ -235,9 +233,3 @@ Fields settled elsewhere link out rather than being restated.
 | `Mech_AiOnTakingFire` is a damage function | It is called per raycast candidate from `Sim_RaycastObjectList` and takes a damage amount, which makes it look like one. It applies no damage: the amount only feeds the `+0x281` accumulator that decides whether a player's squadmate reacts at all |
 | `Ai_TargetStateTier` reads offsets `+0x0c`/`+0x0d` of the target's behaviour *block* | It dereferences `target+0x4d` first, so those are offsets into the **descriptor** the block points at — expanded flag bits 4 and 5, not block fields |
 | `Mech_AiSelectAimComponent` picks the target's weakest component | It walks the target's component *occupancy* array but reads `this+0x206` for the damage, which is its own |
-
-## Open
-
-- **Open:** `mech+0xa8`'s meaning — read alongside `+0xa9` in the `flanking` gate's exception.
-- **Open:** whether `mech+0x30b`'s Targeting Pod field `+0x7f` really tracks cached damage, which is what the aim band's targeting-computer override turns on.
-- **Unported:** a structure's two acquisition call sites — `BaseObject` has no AI.

@@ -41,7 +41,7 @@ public readonly record struct MissionTriggerArea(
 	/// <para>The box test is <b>strict on both sides and flat</b>: a position exactly on an edge is
 	/// outside, and Z is not looked at, so a box catches anything standing over its footprint however
 	/// high. The circle test is the ground-plane distance, which is the sim's sqrt-free magnitude and
-	/// so reads a few percent short, as every other range in the simulation does.</para>
+	/// so overshoots a true diagonal by up to about 12%, as the original's 2D ranges do.</para>
 	/// </summary>
 	public bool Contains(Vec3i point) {
 		if (Shape != MissionTriggerShape.Box) {

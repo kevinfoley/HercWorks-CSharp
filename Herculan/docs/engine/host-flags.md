@@ -96,7 +96,7 @@ Several of them hold the capture past the 30 frames until what they stage is on 
 | `--hdd-damage <0-2>` | The damage screen's category: 0 structural (`[S]`), 1 internal (`[I]`), 2 weapons (`[W]`). |
 | `--hdd-subject <0-4>` | The damage screen's subject, as the left and right arrows step it: 0 the player, 1-3 a squad slot, 4 the target. An empty squad slot starts on the player. |
 | `--external` | Starts in the outside view, as if `[V]` were pressed at launch. See [`key-bindings.md`](../key-bindings.md#displays-and-views). |
-| `--objectives` | Opens the `[F11]` objectives panel. See [`simulation/mission-objectives.md`](../simulation/mission-objectives.md). |
+| `--objectives` | Opens the `[F11]` objectives panel. See [`simulation/alert-panels.md`](../simulation/alert-panels.md#the-objectives-panel--obj_alrt-0045751c). |
 | `--quit [0-19]` | Raises the `[Q]` mission-status alert. Without a number it shows the status the mission evaluates to; a number forces that `GNL_ALRT.STR` row, 0 and 1 being the pause panel's. |
 | `--preferences` | Opens the `[F12]` preferences panel. See [`simulation/preferences.md`](../simulation/preferences.md). |
 | `--controls` | Opens the preferences panel with the CONTROLS panel over it. |

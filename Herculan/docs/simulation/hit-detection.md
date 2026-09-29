@@ -1,12 +1,34 @@
 # Hit detection
 
-How a shot decides what it struck, for all three shootable classes. Reverse-engineered from `DBSIM.EXE` (Ghidra project `ES2Recon`); addresses are DBSIM virtual addresses. Companion to [`damage-system.md`](damage-system.md) (what the hit then does to a mech) and [`impact-effects.md`](impact-effects.md) (what a hit spawns).
+How a shot decides what it struck, for all three shootable classes. Reverse-engineered from `DBSIM.EXE` (Ghidra project `ES2Recon`); addresses are DBSIM virtual addresses. Companion to [`damage-system.md`](damage-system.md) (what the hit then does to a mech), [`impact-effects.md`](impact-effects.md) (what a hit spawns) and [`../formats/collision-spheres.md`](../formats/collision-spheres.md) (the hit-sphere files).
 
-All three vtable `+0x20` implementations are ported: `Base_DirectFireHitTest` (`00405038`), `Mech_DirectFireHitTest` (`00418ba8`, in [`damage-system.md`](damage-system.md)) and `Flyer_DirectFireHitTest` (`00421c8c`). All three reach the same sphere test; only the model source and what surrounds it differ.
+Each class has a vtable `+0x20` hit test: `Base_DirectFireHitTest` (`00405038`), `Mech_DirectFireHitTest` (`00418ba8`, in [`damage-system.md`](damage-system.md)) and `Flyer_DirectFireHitTest` (`00421c8c`). All three reach the same sphere test; only the model source and what surrounds it differ.
 
 ## The sweep — `Sim_RaycastObjectList` (`00426528`)
 
-Full treatment in [`damage-system.md`](damage-system.md). One candidate filter is easy to miss and matters: **an object whose mission group still carries an action is skipped before any geometry is touched** (`*(int*)(obj[+0x45] + 0x14) != 0` — the group record's action slot, the same test [`mission-deployment.md`](mission-deployment.md) covers). Retail missions place undeployed groups by the ordinary rules, so several routinely sit stacked on a shared waypoint; the first stock mission parks seven objects in three overlapping pairs. Without the skip they are invisible and unticked but perfectly solid, and shots stop on nothing.
+A generic ray-vs-live-object-list query, not weapon-specific. Nine call sites in four functions: the launcher round's per-tick step (`Rocket_TickUpdate`, `0040a538`, once), the travelling bullet's (`Bullet_TickUpdate`, `0040b124`, twice — [`projectiles.md`](projectiles.md#flight--bullet_tickupdate-0040b124)), the beam dispatch (`Bullet_FireBurst`, `0040bf74`, once — [`beam-visuals.md`](beam-visuals.md#chain)) and a flyer's airframe contact probes (`Razor_MovementTick`, five, see [`razor-flight.md`](razor-flight.md#contact-probes)). One raycast primitive reused for weapon hit-scan **and** obstacle sensing. It shares the global live-object list (`DAT_004a9b7c`/`DAT_004a9b82`) with the confirmed-`objlist.cpp` functions at `004281b0`/`004282f8`, which makes `objlist.cpp` its likely source file ([Open](#open)); it is not `fire.cpp`.
+
+It walks the live-object list; for each candidate that passes the filter below, it calls that object's vtable method at `+0x20` — for a mech `Mech_DirectFireHitTest` (`00418ba8`, [`damage-system.md`](damage-system.md#direct-fire-damage-armor-then-part-deterministic-shield-gated)), for a structure `Base_DirectFireHitTest` and for a flyer `Flyer_DirectFireHitTest`, both below. **The hit test and the damage application are the same call** — there is no separate "apply damage" step visible from the caller's side. It also makes a second, unrelated vtable call per candidate (`+0x50`, `Mech_AiOnTakingFire` (`0041f7b8`)) — AI threat-tracking ("this object just took fire, update who it thinks is attacking it"), not damage; [`ai-targeting.md`](ai-targeting.md#taking-fire--mech_aiontakingfire-0041f7b8-mech-vtable-0x50) has the reaction.
+
+Four properties of the sweep:
+
+- **The candidate filter** is three tests, all before the vtable call: not the shot's owner (`shotData+0x0e`), not the object at `shotData+0x14`, and not an object whose mission group still carries an action (below). The middle one is a second exclusion, and the only caller that fills it is `Razor_MovementTick`, which puts the flyer itself there (`00419bef`) so its own airframe probes cannot strike it. The three weapon callers leave that slot alone: it is **uninitialised stack**, not an empty field, so the comparison runs against whatever the previous frame left and, for a weapon shot, excludes nothing. The team byte (`obj[+0x45][+0x12]`) is read only *after* a hit, for the AI notification and the two friendly-fire warnings ([`ai-targeting.md`](ai-targeting.md#radio-callouts)); it does not gate the hit itself.
+- Before the sweep it **caches the world-to-muzzle transform** in the ray record at `+0x0a` (copy, transpose, negate-and-rotate the translation), which is the frame every hit test works in.
+- It **shortens the ray to each hit** (`rayRecord+0x04`) rather than stopping at the first, so a candidate found later but nearer wins — every subsequent candidate is tested against the shortened length. It breaks early only for a hit inside 500 units. Because damage is applied inside the hit test, a candidate that is later superseded has still taken its damage.
+- It opens with a **ray-versus-terrain query**, `Sim_RaycastTerrain` (`00428048`) → `Terrain_RayWalk` (`0046e87c`) against `ActiveHeightGrid`. A ground hit clips the ray before any object is tested, so a beam cannot shoot through a hillside. The ray record's own 200 is passed down as a walk radius and has no effect on the result: `Terrain_RayWalk` forwards it to `Terrain_CellSurfaceIntersect` (`0047068c`) — its only destination — which never reads that parameter. See [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#ray-versus-terrain--terrain_raywalk-0046e87c). Returns `hitDistance + 1`, or 0 for a clean miss.
+
+The tail of the sweep carries two effects on the shooter's side. Reaching the shooter's own selected target engages it — [`mission-deployment.md`](mission-deployment.md#an-objects-own-two-actions--0x1b2-and-0x1b6). Anything else the ray stops on is tested for the **blocked-line-of-fire report**, made to the shooter's vtable `+0x64` (`Mech_AiOnLineOfFireBlocked`, `0041dd2c`):
+
+```
+if (something was struck && shooter has a target
+    && groundRange(shooter, hitPoint) < range(shooter, target)
+    && |bearing(hitPoint) - bearing(target)| < 0x2000)
+        shooter->vtable+0x64(hitObject)
+```
+
+So a shot that stops on terrain or on a third object, nearer than the intended target and within 45° of the same line, tells the shooter its line of fire is blocked; what a machine does about it is [`ai-combat-states.md`](ai-combat-states.md#how-it-is-reached). Hitting the shooter's own target is what the report excludes: the branch that recognises it passes null in place of the struck object, so a machine does not report its target as blocking the shot at it.
+
+**The group test is the filter that is easy to miss, and it matters: an object whose mission group still carries an action is skipped before any geometry is touched** (`*(int*)(obj[+0x45] + 0x14) != 0` — the group record's action slot, the same test [`mission-deployment.md`](mission-deployment.md) covers). Retail missions place undeployed groups by the ordinary rules, so several routinely sit stacked on a shared waypoint; the first stock mission parks seven objects in three overlapping pairs. Without the skip they are invisible and unticked but perfectly solid, and shots stop on nothing.
 
 ## `Base_DirectFireHitTest` — `00405038`
 
@@ -19,32 +41,21 @@ else                               -> sphere-model path, names the component
 if (hit) {
     if (!destroyed) vtable+0x74(componentIndex, shot.DamageArmor, shot.owner)
     spawn ImpactFXArmor effect at rayTransform.TransformPoint(0, hitDistance, 0)
-    if ((rand & 0xfff) < 0x401) spawn a second effect from a different pool   // 25%, unported
+    if ((rand & 0xfff) < 0x401) throw debris group 1 from the same point     // 25%
 }
 ```
 
-`typeRec[+0x38]` is non-null exactly when `BASES.DAT`'s `+0x30` is non-zero, so the branch is a per-type flag. Retail split: **25 of 65 types use the sphere model, 40 use the volume**. A *destroyed* type that leaves a wreck (`typeRec[+4] != -1`) switches to the volume whichever it used standing — the wreck is a different shape out of `BHULKS.DGS`.
+Group 1 is one of `DEF_DEB`'s shared groups; every debris spawn site is tabulated in [`destruction-effects.md`](destruction-effects.md#spawn-sites).
+
+`typeRec[+0x38]` is non-null exactly when `BASES.DAT`'s `+0x30` is non-zero ([`bases-dat.md`](../formats/bases-dat.md#the-type-record)), so the branch is a per-type flag. Retail split: **25 of 65 types use the sphere model, 40 use the volume**. A *destroyed* type that leaves a wreck (`typeRec[+4] != -1`) switches to the volume whichever it used standing — the wreck is a different shape out of `BHULKS.DGS`.
 
 Both paths open with the same coarse reject as every other hit test in the simulation: `shapeRadius + shot.clearance + rayLength < |muzzle - object|`, where `shapeRadius` is vtable `+0x10` (`SimObject_GetShapeRadius`, `0046b80c`), i.e. `shape+8`.
 
 **Damage recovery for plasma.** `Bullet_TickUpdate`'s subtype-9 branch stashes the round's two damage figures in globals (`Bullet_StashDirectFireDamage`, `0040501c` → `DAT_004a9676`/`DAT_004a9678`) and then **zeroes them in the shot record** before the raycast. This branch is the only reader: a *volume-path* hit whose shot carries zero on both counts puts the armour figure back. The sphere path does not, so a plasma round does direct-fire damage to a volume-path building and none to a sphere-model one — both then stand in its blast. See [`projectiles.md`](projectiles.md#the-plasma-branch).
 
-## The sphere model — `dat\BASECOL.DAT` and `col\<NAME>.COL`
+## The sphere model
 
-One format, two sources. Every field is `int16`:
-
-```
-nodeCount
-  per node: nodeIndex, clusterCount
-    per cluster: componentIndex, sphereCount, sphereCount * { x, y, z, radius }
-```
-
-- **Structures** read 65 of these back to back out of `dat\BASECOL.DAT`, in `BASES.DAT` type order, as one continuous stream partway through `Base_LoadResources` (`00405fac`). `componentIndex` indexes the type's `BASES.DAT` component array.
-- **Mechs and flyers** each read one whole file, `col\<NAME>.COL`, through `Collision_RegisterObject` (`0040cd88`) — the mech from `Mech_Constructor` (`00415bb0`, into `mech+0x1f6`), the flyer from its type loader (`FlyerType_LoadResources` (`00422ed0`), into `flyerTypeRec+0x32`). `componentIndex` indexes the `.DMG` file's 29-slot component array instead.
-
-Readers: `Collision_LoadRecordArray` (`0040ccf8`) → `Collision_ReadNode` (`0040cc50`) → `Collision_ReadCluster` (`0040cc14`) → `Collision_ReadSphereArray` (`0040c7c4`). The Ghidra project may still carry the older names `Collision_LoadSubSpheres` / `Collision_LoadSubSphereFlag` / `Collision_LoadSubMeshIndices` for the last three; the "flag" is the component index and the "8-byte index/sub-mesh records" are the spheres. The field order inside a cluster is not the struct order: `componentIndex` lands at the record's `+6` and is read first, `sphereCount` lands at `+0` and is read second, because the two live in different functions. `sphereCount` is tested as `value & 0x1fff` but allocated and read unmasked — the mask is only a zero-test, and no retail record sets the top bits.
-
-**Not on disk:** each cluster's bounding sphere, built at load by `Collision_ComputeBoundingSphere` (`0040c5d0`) as the AABB of the children each inflated by its own radius, centred on that box's midpoint, radius = `Math_FastMagnitude3D` of the half-extents. That approximation runs a few percent under a true Euclidean radius, so the bound is slightly tight; it is behaviour, not an artefact.
+Structures, HERCs and flyers each carry a model of hit spheres grouped into clusters, one cluster per component, read from `dat\BASECOL.DAT` or `col\<NAME>.COL`. The file layout, the readers and the per-cluster bounding sphere built at load are [`../formats/collision-spheres.md`](../formats/collision-spheres.md).
 
 ### The test — `Mech_SelectStruckComponent` (`0040c9d4`)
 
@@ -61,141 +72,34 @@ Per cluster (`Mech_ComponentGeometryTest_Candidate`, `0040c8fc`):
 
 The two transform helpers under it differ only in input width: `Transform_ApplyToShortPoint` (`004800c8`) takes a `short` point (structure/sphere centres), `Transform_ApplyToPoint` (`00480330`) an `int` one. Both branch on the transform's rank byte at `+0x12` — translation only, Z-rotation only, or full 3×3 — which is an optimisation, not a behavioural difference.
 
-### Verified against retail data
-
-`BASECOL.DAT` is 4,938 content bytes; the walk lands exactly on the end after 65 types. Every cluster's `componentIndex` is inside its type's component array. The geometry reads as deliberate hitboxes — a three-section bunker with a cluster per section, a gun tower with a cluster per barrel. One type (3) carries a full model that its `+0x30` flag leaves switched off.
-
-All **22 `.COL` files** likewise walk exactly to their own end and **round-trip byte-exact** through `HercColliderTransformer`. Every `componentIndex` is inside the 29-slot array (max 28); every node id resolves to a real shape part except RAZOR's single node 5, which takes the identity fallback above. Node counts run 1 (RAZOR, SKIMMER) to 13 (SPIDER); sphere radii 40–600 world units. `SKIMMER` is the only file with an object-frame cluster.
-
-ACHILLES' first cluster cross-checks against its `.DMG`: it places spheres for components 7, 9 and 11 on nodes 3 and 1, and 7→9→11 is exactly the `BoneId` chain that file states for the left leg. Component 7's two spheres are `(-20, 0, -100) r=200` and `(-20, 0, -400) r=180` — a thigh as two stacked balls.
-
-**This corrects `HercWorks.Core`'s `HercCollider`**, which described a 10-byte header followed by data it left unparsed. There is no header: those five shorts are the walk's first five fields, which is why that reading's own observations lined up as they did — "always 6" is ACHILLES' node count, "always 3 for hercs / FFFF for skimmer" the first node's index, the "collider type" that crashes above 1 the first node's cluster count reading past the end of the file, "hercs have 7" the first cluster's component index, and the last field its sphere count.
-
 ## The collision volume — the `.DGS` record's height field
 
-What reads as "5 `int16` scalars + a fixed 1024-byte block" followed by "sub-record count × sub-record size raw records" is really one structure: the shape's **collision volume**. Both walks consume the same byte count, so a reader can parse every retail record correctly while naming all of it wrongly — see [`../formats/dgs-hd0-notes.md`](../formats/dgs-hd0-notes.md) for the container.
-
-Read by `BaseShape_ReadFromStream` (`0042762c`):
-
-| Offset | Type | Meaning |
-|---|---|---|
-| `+0x2a` | `int16` | columns (grid X extent) |
-| `+0x2c` | `int16` | rows (grid Y extent) |
-| `+0x2e` | `int16` | origin column |
-| `+0x30` | `int16` | origin row |
-| `+0x32` | `int16` | log2 of the cell size in world units |
-| `+0x34` | 256 × `int32` | height table, indexed by a cell's byte code |
-| `+0x430` | — | the table's last entry, addressed directly as the grid's ceiling |
-| `+0x434` | rows × columns bytes | height codes, row-major with Y outermost |
+The shape's collision volume is the tail of its `.DGS` record: a grid of columns, rows and a cell size, a 256-entry height table and one byte code per cell, laid out in [`../formats/dgs-hd0-notes.md`](../formats/dgs-hd0-notes.md#the-collision-volume).
 
 **A building is a height field, not a mesh.** Nothing tests a shot against structure polygons; the ray is stepped in shape space and each step asks the grid how tall the column under it is.
 
 - `ShapeVolume_HeightAround` (`00427238`) — the height under a point. When `1 << (shift-1) < radius` it takes the tallest of every cell within `radius`; below that it samples the single cell. Off-grid returns 0, which is what makes the volume end at its own edges.
 - `ShapeVolume_Raycast` (`004273c8`) — the march. Rejects an empty grid, and a ray with *both* ends above the ceiling. A point is shifted by `origin << shift` (world units, not cells) before it is divided down, so the footprint straddles the model. Step length is `(1 << shift) + clearance`; the direction is rescaled to it by a Q16 divide whose result is **truncated to 16 bits** before it multiplies. Hits when the sampled height is non-zero and above the ray's current Z.
 - `Sim_RaycastShapeVolume` (`00427da8`) — the object test around it. After the coarse reject, brings the object's centre into muzzle space and tests a box on **X and Y only** (`|x| < reach`, `-reach < y < rayLength + reach`) — Z is not tested. Then transforms the ray into shape space and marches. Also called by `Sim_RaycastShapeList` (`00404bc0`), a bulk line-of-sight query over the structure list.
-- `Structure_WalkCollisionTest` (`00427c68`) — the **walking-collision** test, called from `Structure_GatherWalkCandidates`'s (`00404ae4`) gather (see [`mech-locomotion.md`](mech-locomotion.md#collision)). 2D distance against `shape+8`, then the point rotated into shape space and sampled at radius 0. It is the only query of the three that **does not apply the `origin << shift`** the march applies, so the footprint a machine walks into is displaced from the one a shot is tested against by the grid's origin — its centre, for all 45 records. Not cross-checked against retail play.
+- `Structure_WalkCollisionTest` (`00427c68`) — the **walking-collision** test, called from `Structure_GatherWalkCandidates`'s (`00404ae4`) gather (see [`mech-locomotion.md`](mech-locomotion.md#collision)). 2D distance against `shape+8`, then the point rotated into shape space and sampled at radius 0. It is the only query of the three that **does not apply the `origin << shift`** the march applies, so the footprint a machine walks into is displaced from the one a shot is tested against by the grid's origin — its centre, for all 45 records ([Open](#open)).
 
 ### Verified against retail data
 
-All 45 `BASES.DGS` records: cell shift is 9 (512 world units, ~3 m) in every one, the origin is the grid centre, and the height table is **ascending in all 45** — which is what makes `+0x430` the true ceiling rather than just the last entry. Footprints run 2560×4096 to 19456×19456 world units (15 m to 117 m), and ceilings 511 to 29537.
-
 Firing at all 65 types from 16 bearings × 15 muzzle heights (200 to 6000 world units) strikes every type on its correct path, at distances matching where the surface is. Short structures stop being hit above their own roof line: type 51's shape has a 899-unit ceiling and it is struck only from the two sample heights below that.
 
-### `shape+8` is the bounding radius, not an id
-
-The third of the three `int16` head fields every `ClassItem` record carries (`ClassItemTree_ReadBaseHeader`, `0048f894`). Two unrelated consumers identify it: the LOD selector (`Shape_DrawAtDetailLevel`, `004033e4`) divides it by viewing distance to estimate on-screen size, and vtable `+0x10` (`SimObject_GetShapeRadius`, `0046b80c`) hands it to every coarse hit reject. It tracks `BASES.DAT`'s own `+0x2a` radius within about a fifth across all 45 records (6334/5600, 10325/9600, 3577/3600). `BasesDgsTransformer` called it `Id`, which was a placeholder rather than a finding.
-
-### The three radius slots
+## The three radius slots
 
 An object has three unrelated radii, on three vtable slots, and no two of them are read by the same consumer. Confusing them is easy: `+0x5c` and `+0x7c` are the *same function body* on a mech, and `+0x10` matches neither on anything.
 
 | Slot | What reads it | Mech | Structure | Flyer |
 |---|---|---|---|---|
-| `+0x10` shape radius | every hit test's coarse reject; the LOD selector; the HUD target box | `shape+8` | `shape+8` | `shape+8` |
+| `+0x10` shape radius (`SimObject_GetShapeRadius`, `0046b80c`) | every hit test's coarse reject; the LOD selector (`Shape_DrawAtDetailLevel`, `004033e4`); the HUD target box | `shape+8` — the shape's bounding radius, [`../formats/dgs-hd0-notes.md`](../formats/dgs-hd0-notes.md#the-bounding-radius--shape8) | `shape+8` | `shape+8` |
 | `+0x5c` body radius | the blast sweep's surface-to-centre range; the *mover's* half of the collision gap | `typeRec+0x70`, **750 for every HERC** (`Mech_GetBodyRadius`, `00415518`) | `BASES.DAT +0x2a` (`Base_GetBodyRadius`, `004035a4`) | `FUN_00411aa4`, **0** |
 | `+0x7c` collision radius | the *other* object's half of the collision gap, and nothing else | the same `typeRec+0x70` (`Mech_GetCollisionRadius`, `0041552c`) | `BASES.DAT +0x2a`, but **only for an animated type** (`Base_GetCollisionRadius`, `004035b8`) | `FUN_00411aac`, **0** |
 
-**Zero on `+0x7c` means walk through me**, and `Mech_CollisionTest` skips the object outright. A flyer never blocks anything. A structure's zero is narrower than it looks: the slot tests the same `BASES.DAT +0x06` that picks the model library, so only an animated type still standing blocks by radius — every static type and every animated wreck is stopped by its **collision volume** in a second sweep instead. The two sets are exact complements. See [`mech-locomotion.md`](mech-locomotion.md#collision).
+**Zero on `+0x7c` means walk through me**, and `Mech_CollisionTest` skips the object outright. A flyer never blocks anything. A structure's zero is narrower than it looks: the slot tests `BASES.DAT +0x06`, the animation-thread count ([`bases-dat.md`](../formats/bases-dat.md#the-type-record)), which is non-zero on exactly the eight animated types, so only one of those still standing blocks by radius — every static type and every animated wreck is stopped by its **collision volume** in a second sweep instead. The two sets are exact complements. See [`mech-locomotion.md`](mech-locomotion.md#collision).
 
 A mech's `+0x5c` is a third of the `+0x1a` shot radius, and its model bound is larger than either; nothing in the simulation reads that bound.
-
-## Component damage — `Base_ApplyDamage` (`00404d70`)
-
-Vtable `+0x74`. Structures have a per-component health model, much simpler than the mech's:
-
-```
-if (typeRec[+0x1e] != 0) return                       // invulnerable
-if (componentIndex == -1) componentIndex = 0
-if (!alive[componentIndex]) return
-taken = damage[i] + incoming
-destroyed = component.maxDamage <= taken
-if (!destroyed && component.maxDamage / 2 < taken) {
-    tenth = Q16Divide(10, maxDamage)
-    for (a = Q16Multiply(damage[i], tenth); Q16Multiply(taken, tenth) > a; a++)
-        if ((rand & 0xfff) <= 0x199) { destroyed = true; break }    // ~10% per step
-}
-if (!destroyed) { damage[i] = taken; return }
-damage[i] = maxDamage; alive[i] = false; attacker recorded at state+7
-if (vtable+0x40 == 0x100) {                            // Base_DamageFraction (004052b4), the Q8 damage fraction
-    obj[+0x99] = 1; obj[+0x96] = 0; fire the object's mission action (obj+0x1b6)
-    attacker->vtable+0x60 credits the kill
-}
-if (component[+4] != -1) { state[+5] = stageCount[component[+4]]; state[+3] = 300 }   // start the collapse
-```
-
-**A component can die early, at random.** Past half its maximum, one ~10% roll fires per tenth of the component's health the shot moved it through, so a heavy hit on a half-wrecked section usually finishes it before its stated hit points run out, and the same hit twice does not do the same thing.
-
-`Base_DamageFraction` (`004052b4`, vtable `+0x40`) is a **ratio of sums**, not a count of destroyed components: `(Σ damage << 8) / Σ maxDamage`. A type with one 30000-point core and six 2000–8000-point parts is effectively destroyed by killing the core alone, which is how both seven-component retail types are authored.
-
-Spawn-time health comes from the block-9 record's `param_1[0x19]`: `<0` or `100` = undamaged, `0` = spawned destroyed (and the component steps to its collapsed cell), anything else scales `(100 - pct) * maxDamage / 100`. 
-
-## `dat\BASES.DAT` runtime record
-
-`Base_LoadResources` (`00405fac`) reads straight into a 60-byte struct offset by offset, so **the file's field order is the runtime record's field order**. The only divergence is the component array, inline on disk and a pointer at `+0x14`.
-
-It reaches the file through a plain-file-read helper with no container header, so the first bytes of `dat\BASES.DAT` are its own content: an `int16` record count. A copy pulled out of a VOL to disk instead keeps that container's nine-byte entry prefix, which is what makes a naive parse of one land a few bytes into the wrong field.
-
-| Offset | Type | Meaning |
-|---|---|---|
-| `+0x02` | `int16` | shape index into the selected library |
-| `+0x04` | `int16` | wreck type index, `-1` for none |
-| `+0x06` | `int16` | how many animation threads the constructor builds — [`structure-behaviour.md`](structure-behaviour.md#the-animation-threads). The eight types that state a non-zero count are exactly the eight drawn from `dts\BASES_AN.DTS` rather than `dgs\BASES.DGS`, but the library is picked per case in the switch and not from this field |
-| `+0x08` | `int16` | whole-structure fire shape, `-1` for none |
-| `+0x0a` | `int16`×3 | where that fire sits, in the structure's own frame |
-| `+0x10` | `int16` | whole-structure death sequence, used in place of the last part's own |
-| `+0x12` | `int16` | component count |
-| `+0x14` | array | components, 30 bytes each |
-| `+0x1e` | `int16` | non-zero = invulnerable (types 21, 22, 23) |
-| `+0x20` | `int16`×2 | playback rate for each of those threads — [`structure-behaviour.md`](structure-behaviour.md#the-animation-threads) |
-| `+0x24` | `int16` | idle cell-flipbook sequence, `-1` for none — [`structure-behaviour.md`](structure-behaviour.md#the-plain-tick--base_thinktick-00403ca8) |
-| `+0x26` | `int16` | that flipbook's frame interval, in the simulation's timer unit — [`structure-behaviour.md`](structure-behaviour.md#timer-units) |
-| `+0x28` | `int16` | MFD silhouette frame and type-name index |
-| `+0x2a` | `int16` | body radius, vtable `+0x5c` (`Base_GetBodyRadius`, `004035a4`), and `+0x7c` for an animated type; four types state 0 |
-| `+0x30` | `int16` | non-zero installs `BASECOL.DAT`'s model at runtime `+0x38` |
-| `+0x38` | ptr | runtime only: the installed `BASECOL.DAT` model. Null selects the volume hit path **and** makes the type immune to blasts |
-| `+0x2c` | `int16` | how far up the structure anything aiming at it aims, vtable `+0x30` (`0040351c`) — [`structure-behaviour.md`](structure-behaviour.md#what-a-structure-is-aimed-at) |
-| `+0x2e` | `int16` | what the type shoots: 0 unarmed, 1 gun, 2 launcher — [`structure-behaviour.md`](structure-behaviour.md#the-armed-tick--00404100). Non-zero also marks a type the AI treats as dangerous — [`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e) |
-| `+0x32` | `int16` | texture bank selector |
-
-Unread: `+0x00` and `+0x18` (6 bytes).
-
-Component record, 30 bytes:
-
-| Offset | Meaning |
-|---|---|
-| `+0` | max damage (retail 1000–30000) |
-| `+2` | the cell-animation sequence this component drives, stepped to its collapsed cell when the part falls; `-1` for none |
-| `+4` | which of the four death sequences this part runs, `-1` for none |
-| `+6` | fire shape this part burns at the end of that sequence, `-1` for none |
-| `+8` | debris group it throws as it collapses |
-| `+0x0a` | `int16`×3 — where that debris and that fire come from. Its X and Y repeat `+0x10`'s on most types and its Z does not: this is up on the part, where `+0x10` is at its base |
-| `+0x10` | `int16`×3 — the part's position in the structure's own frame, handed out by vtable `+0x58` (`Base_ComponentPosition`, `00406808`) and measured by the blast falloff. See [`damage-system.md`](damage-system.md#where-a-component-stands--the-0x58-slot) |
-| `+0x16` | `int16`×3 — half-extents of the box the death sequence scatters smoke inside |
-| `+0x1c` | `int16` — the part this one hangs off; destroying it takes every part naming it |
-
-The four sequence-driven fields and the collapse they run are in [`destruction-effects.md`](destruction-effects.md#a-structure-coming-down).
-
-Runtime object fields the hit path uses: `+0x0c` euler triple, `+0x12` transform (translation at `+0x26`, valid flag at `+0x32`), `+0x34` shape instance (`+4` = shape), `+0x99` destroyed, `+0x1f2` type record, `+0x201` per-component alive flags, `+0x205` per-component state (11 bytes: `+0` damage, `+3` stage timer, `+5` stages of the death sequence left, `+7` attacker).
 
 ## `Flyer_DirectFireHitTest` — `00421c8c`
 
@@ -209,25 +113,23 @@ if (hit) {
     vtable+0x74(hit.component, shot.DamageArmor, shot.owner)
     if (obj[+0x99]) fx = 10                       // already a wreck: a fixed effect id, not the shot's
     spawn fx at rayTransform.TransformPoint(0, hit.distance + 1, 0)
-    spawn a second effect from a different pool   // unconditional here, 25% for a structure
+    throw debris at the same point: group 1, or 3 if obj[+0x99] is now set   // every hit, where a structure rolls 25%
 }
 ```
 
-A flyer's health record is **one component with one dependent** — `Flyer_Constructor` (`004215f4`) allocates the arrays with literal counts of 1, which is exactly what `SKIMMER.DMG` ships. Its vtable `+0x74` (`Flyer_ComponentDamageWrite`, `00421bb4`) is a thin wrapper: destroy component 0 and the aircraft is lost (`obj+0x99`), it fires its mission action, credits the kill, and has `-100000` written into `obj+0x2e` — its world Z, not a rate — so the wreck drops out of the world. See [`ai-flyers.md`](ai-flyers.md#death).
+A flyer's health record is one component with one dependent ([`component-damage.md`](component-damage.md#the-component-damage-system)); what its vtable `+0x74` (`Flyer_ComponentDamageWrite`, `00421bb4`) does on losing it is [`ai-flyers.md`](ai-flyers.md#death). The debris groups are in [`destruction-effects.md`](destruction-effects.md#spawn-sites).
 
-Retail ships a `.COL` and a `.DMG` for `SKIMMER` only, so `HOVTANK` and `DROPSHIP` cannot be shot at all — in the original as much as here.
+Retail ships a `.COL` and a `.DMG` for `SKIMMER` only, so `HOVTANK` and `DROPSHIP` cannot be shot at all.
 
 ## Measured: hit geometry versus the drawn mesh
 
-Prompted by projectiles appearing to sink into buildings. Across every static structure type, the `.DGS` grid's world footprint is **larger** than the mesh it is drawn with, by 200–900 units a side, because it rounds out to whole 512-unit cells — so the volume never runs small horizontally and a shot should if anything stop slightly early. `Sim_RaycastShapeVolume`, `ShapeVolume_Raycast`, `ShapeVolume_HeightAround`, `Collision_RaySphereTest` and `Collision_ClusterBoundTest` all re-check as faithful ports, including the 712-unit march step (`(1 << 9) + clearance`) that retail shares. The remaining suspect is render layering, not hit geometry.
+Across every static structure type, the `.DGS` grid's world footprint is **larger** than the mesh it is drawn with, by 200–900 units a side, because it rounds out to whole 512-unit cells — so the volume never runs small horizontally and a shot stops slightly early if anything. The march step at the retail cell shift is 712 units (`(1 << 9) + clearance`).
 
-The same pass found a real data quirk: several types' collision **ceiling** sits well below their roof line — type 3 stops at 2225 against a 6756 mesh, type 22 at 9400 against 18300 — so shots at the upper part of those buildings pass clean through. That is the retail data's own authoring.
+Several types' collision **ceiling** sits well below their roof line — type 3 stops at 2225 against a 6756 mesh, type 22 at 9400 against 18300 — so shots at the upper part of those buildings pass clean through. That is the retail data's own authoring.
 
 ## Open
 
+- **Open:** confirm `Sim_RaycastObjectList` (`00426528`)'s source translation unit with a direct assert string. The `objlist.cpp` attribution rests on the shared object list, not on a string, unlike `rocket.cpp` and `collide.cpp`.
 - **Unported:** testing a structure's node-placed clusters in the node's frame. Only the eight animated types carry any.
-- **Unported:** the kill credit (`attacker+0x60`).
-- **Unported:** spawn-time component health from the mission record.
-- **Unported:** terrain flattening under a placed structure (`Terrain_MarkStructureFootprint`, `00470dc8`).
-- **Unported:** the second exclusion `Sim_RaycastObjectList` tests at the shot record's `+0x14`. The beam path never writes that field — it is stack garbage there, so the comparison excludes nothing.
+- **Open:** whether the walking footprint being displaced from the shot footprint by the grid's origin shows in retail play; the displacement is read from the two functions and measured on the 45 records, not observed.
 - **Unported:** `Sim_RaycastShapeList` (`00404bc0`), the bulk line-of-sight query over the structure list.

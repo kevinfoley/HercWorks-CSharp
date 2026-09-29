@@ -129,7 +129,7 @@ Finally the origin is clamped to `terrainHeight + 500`, and the flyby loop (soun
 
 ## Death
 
-`Flyer_ComponentDamageWrite` (`00421bb4`) loses the aircraft on component 0 — see [`hit-detection.md`](hit-detection.md#flyer_directfirehittest--00421c8c) for the health record. Past the flag it installs the `dead` descriptor, which has neither think nor move, and **writes -100000 into `flyer+0x2e`**, the object's world Z. The wreck drops straight out of the world; nothing moves it afterwards because the state it is now in has no move slot to clamp it back to the ground.
+`Flyer_ComponentDamageWrite` (`00421bb4`) loses the aircraft on component 0: the health record is one component with one dependent ([`component-damage.md`](component-damage.md#the-component-damage-system)), so destroying it sets `obj+0x99`, runs the aircraft's out-of-action report and defeat action ([`mission-deployment.md`](mission-deployment.md#the-out-of-action-report)) and credits the kill to the attacker through the attacker's vtable `+0x60`. Past the flag it installs the `dead` descriptor, which has neither think nor move, and **writes -100000 into `flyer+0x2e`**, the object's world Z. The wreck drops straight out of the world; nothing moves it afterwards because the state it is now in has no move slot to clamp it back to the ground.
 
 For the length of that call the debris carrier global `004a96e4` points at the aircraft's own world velocity, so wreckage the component cascade sheds keeps the speed it was doing — see [`destruction-effects.md`](destruction-effects.md). The hit test's own throw happens after the clear and gets nothing.
 

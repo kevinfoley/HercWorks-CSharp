@@ -105,6 +105,8 @@ At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`
 
 The port's second instance, at `view+0x207`. Same queue, same lifecycle, same four timings; a different catalog, a different box, and a squadmate's face on the comm portrait beside it.
 
+A squadmate's line is posted by `Ai_PostSquadMessage` (`00420a98`) as `{id, machine}` through vtable slot 0 of the port `CockpitView_GetSquadMessagePort` (`00433158`) returns. The machine is the record's `+0x02` subject, which picks the comm-box slot and so the set the id is looked up in. The post is suppressed for a destroyed machine unless forced. Which situation raises which id is the *raised by* column of [What each id says](#what-each-id-says).
+
 ### Its message sets
 
 `str\PILOT0.STR`, `PILOT1.STR`, `PILOT2.STR` and `PILOT4.STR`, one per voice bank, keyed the same way `SYSTEM.STR` is but with **seven** attribute bytes read rather than eight: the clip number is absent because the filename is built from the id and the variant instead (see [`audio.md`](audio.md#file-naming)). `SystemMessages_Index(port, 2, slot, bank)` scatters a bank into a per-slot table at `DAT_004d04e8 + slot * 0x183`, 43 ids of 9 bytes each, so each comm box carries its own speaker's set.
@@ -189,7 +191,7 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 | `0x21` | `PLEASE STAND BY...` | — |
 | `0x22` | `STANDING BY...` | — |
 | `0x23` | `DAMN!` | — |
-| `0x25` | `AAAAAAARRGHH!` | a squadmate destroyed — `Mech_CreditNeutralisedTarget`, [`../simulation/component-damage.md`](../simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60) |
+| `0x25` | `AAAAAAARRGHH!` | a squadmate destroyed — `Mech_CreditNeutralisedTarget`, [`../simulation/component-damage.md`](../simulation/component-damage.md#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710) |
 | `0x26` | `ROGER. RADAR ACTIVATED.` | `SCAN FOR HOSTILES` taken |
 | `0x27` | `I ALREADY SHUT IT DOWN.` | — |
 | `0x28` | `ROGER. SHUTTING DOWN.` | `EMCON` taken |

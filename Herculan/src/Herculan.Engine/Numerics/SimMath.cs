@@ -84,8 +84,8 @@ public static class SimMath {
 
 	/// <summary>
 	/// Q14 sibling of <see cref="Q8Multiply"/> — shift <c>0xe</c> with a 16-bit signed operand.
-	/// Its range fits a normalized -1.0..1.0 value such as a sine/cosine table output, though that
-	/// is not yet confirmed by a traced caller. See <see cref="BinaryAngle"/> for the engine's
+	/// <c>Math_Q14Multiply</c> (<c>0047dfb4</c>) is the scale of the original's sine/cosine table at
+	/// <c>004a25dc</c>, whose entries run -1.0..1.0. See <see cref="BinaryAngle"/> for the engine's
 	/// trig, which uses this scale.
 	/// </summary>
 	public static int Q14Multiply(int a, short b) => (int)(((long)a * b) >> 14);
@@ -93,8 +93,7 @@ public static class SimMath {
 	/// <summary>
 	/// <c>Math_IntegrateRateOverTick</c> (<c>00467820</c>) — "apply a per-unit-time rate as this
 	/// tick's delta": <c>Q8Multiply(TickDelta, rate)</c>, clamped to signed 16-bit range. Called on
-	/// velocity/acceleration-like fields to get a position delta, and on trig-adjacent values in
-	/// rocket homing.
+	/// velocity- and acceleration-like fields to get a position or speed delta.
 	/// </summary>
 	public static int IntegrateRateOverTick(short rate) {
 		int value = Q8Multiply(TickDelta, rate);
@@ -184,7 +183,7 @@ public static class SimMath {
 	/// <summary>
 	/// <c>Timer_CountDown</c> (<c>004679a4</c>) — the 32-bit sibling of
 	/// <see cref="CountdownTimerTick"/>, for the countdowns that hold values a <c>short</c> cannot:
-	/// the AI's behaviour dwell runs to 50000 ms and its friendly-fire cooldown to 40000. DBSIM is
+	/// the AI's behaviour dwell runs to 50000 counts and its friendly-fire cooldown to 40000. DBSIM is
 	/// handed a pointer one byte before the value and steps the int that follows it, which is the
 	/// same operation without the unaligned-pointer arithmetic.
 	/// </summary>
@@ -222,11 +221,13 @@ public static class SimMath {
 	/// <summary>
 	/// <c>Math_FastMagnitude3D</c> (<c>0047dd66</c>) — sqrt-free 3D magnitude approximation.
 	/// Sorts <c>|dx|,|dy|,|dz|</c> into largest/mid/smallest and returns
-	/// <c>L + M*0.34375 + S*0.25</c> (an alpha-max-plus-beta-min-style approximation, ~3.4% low).
+	/// <c>L + M*0.34375 + S*0.25</c> (an alpha-max-plus-beta-min-style approximation). Its error is
+	/// direction-dependent: about 8% low on the body diagonal, up to about 8.7% high elsewhere.
 	///
 	/// This is a general math-library utility in the original, not something purpose-built for one
-	/// subsystem — it backs both collision bounding-sphere radii and rocket proximity checks — so
-	/// reproducing hit detection faithfully means using this rather than substituting a real sqrt.
+	/// subsystem — collision bounding-sphere radii, sound placement and the rocket proximity beep all
+	/// use it — so reproducing hit detection faithfully means using this rather than substituting a
+	/// real sqrt.
 	/// The branch structure below is transcribed from the decompilation as-is rather than rewritten
 	/// as a clean three-way sort, to keep it checkable against the disassembly.
 	/// </summary>

@@ -125,7 +125,7 @@ The slider is the **only draggable widget in a retail cockpit** — see cockpit-
 
 ### Ring ramp — `ShieldsGauge_UpdateRingPalette` (`004438f0`)
 
-Per facing (charge at object `+0xb5` and `+0xb9`), three rings light in turn as charge rises:
+Per facing (charge at object `+0xb5` and `+0xb9`, each `(charge << 10) / baseMax` as `Shield_BalanceInputRead` writes it — [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shield-system)), three rings light in turn as charge rises. The divisor is the type's base capacity, not the current maximum, so a Shield Pod's extra charge carries a ring past `0x400` into the overcharged colours instead of being renormalised:
 
 ```
 ring 1: t = v
@@ -142,7 +142,7 @@ A facing runs 0..`0x800` with `0x400` the whole pool on one side, so an even 100
 
 ### Readouts — `ShieldsGauge_UpdateReadouts` (`00444a68`)
 
-`itoa(balance * 200 >> 10)` into the first label and its complement into the second, from the fore/aft balance at `+0xbd`. An even split reads 100 and 100 out of a 200-point pool, which is what retail shows. Font is `ColorSchemePanels[10]` (`WHITE`); background is `COLORS.DAT` id 19 (palette 16, black).
+`itoa(balance * 200 >> 10)` into the first label and its complement into the second, from the fore/aft balance at `+0xbd`. An even split reads 100 and 100 out of a 200-point pool, which is what retail shows. **The pair always sums to 200 whatever the charge**, and an empty array still reads 100/100, so it is not a charge percentage — the natural way to misread it. Font is `ColorSchemePanels[10]` (`WHITE`); background is `COLORS.DAT` id 19 (palette 16, black).
 
 ### `.GAU` block at 616
 

@@ -8,7 +8,7 @@ This is a plan, not a record of something built. Nothing here is implemented.
 
 ## Where rendering stands
 
-- The host runs a fixed-step accumulator (`Program.cs`, `window.Update`): `SimWorld.Tick` at `SimWorld.TicksPerSecond` = 25, with `SimMath.TickDelta` pinned to 81. Retail ticks and renders in the same 40 ms loop (`Time_BeginSimTick`, `004677bc`); see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#evaluation-cadence--per-tick-not-per-rendered-frame).
+- The host runs a fixed-step accumulator (`Program.cs`, `window.Update`): `SimWorld.Tick` at `SimWorld.TicksPerSecond` = 25, with `SimMath.TickDelta` pinned to 81. Retail ticks and renders in the same 40 ms loop (`Time_BeginSimTick`, `004677bc`); see [`../formats/dts-node-posing.md`](../formats/dts-node-posing.md#evaluation-cadence--per-tick-not-per-rendered-frame).
 - After the tick loop, render state is copied straight off the sim, so a frame shows the latest whole tick. Every path goes through a small number of places, and this plan depends on keeping it that way:
   - `movers` → `MissionScene.TransformOf` → `SimObject.WorldFrame`
   - `posedParts` → `MissionScene.PosedTransformOf` → `WorldFrame` × `NodeTransform`
@@ -80,7 +80,7 @@ Stage B replaces "blend previous → current" with "blend current → predicted 
 
 ## Docs to change when this lands
 
-- [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#evaluation-cadence--per-tick-not-per-rendered-frame): the port note says sub-tick pose sampling "is deliberately not done". Replace it with a pointer to the setting.
+- The `Program.cs` comment on the pose cadence, which says the original's per-tick pose evaluation is kept: point it at the setting.
 - `potential-modernization-features.md`: the higher-tickrate entry is superseded by this plan.
 
 ## Open

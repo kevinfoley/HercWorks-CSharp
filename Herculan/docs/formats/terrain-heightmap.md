@@ -105,8 +105,8 @@ Returns no-hit for a segment starting outside the grid or walking off its edge. 
 
 ## Consumers outside the terrain system
 
-- **Rocket ground-impact detonation** (`Meteor_Tick`, `00409d2c`) checks altitude against `Terrain_HeightQuery` every tick and detonates the instant a projectile dips below ground — see [`../simulation/damage-system.md`](../simulation/damage-system.md#a-mech--mech_applyexplosivedamage-004187d0).
-- **A flyer's airframe contact probes** (`Razor_MovementTick`, assumed `flyersys.cpp` ([Open](#open))). Six points on the airframe are each transformed into world space and tested against `Terrain_HeightQuery`, and all but one also raycast via `Sim_RaycastObjectList` (`00426528`, see [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shared-raycast--sim_raycastobjectlist-00426528)). A contact damages the component that touched and kicks the airframe away from it. This is the flyer's whole collision model, not an assist — see [`../simulation/razor-flight.md`](../simulation/razor-flight.md#contact-probes).
+- **Drop-pod landing** (`Meteor_Tick`, `00409d2c`) checks altitude against `Terrain_HeightQuery` every tick and detonates the instant the pod dips below ground — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md) and [`../simulation/damage-system.md`](../simulation/damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20).
+- **A flyer's airframe contact probes** (`Razor_MovementTick`, assumed `flyersys.cpp` ([Open](#open))). Six points on the airframe are each transformed into world space and tested against `Terrain_HeightQuery`, and all but one also raycast via `Sim_RaycastObjectList` (`00426528`, see [`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)). A contact damages the component that touched and kicks the airframe away from it. This is the flyer's whole collision model, not an assist — see [`../simulation/razor-flight.md`](../simulation/razor-flight.md#contact-probes).
 
 ## Open
 

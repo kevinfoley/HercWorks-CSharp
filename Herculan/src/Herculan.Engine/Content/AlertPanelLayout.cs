@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 /// <see cref="PausePanelLayout"/>'s size), <see cref="PreferencesPanelLayout"/> ([F12]) and
 /// <see cref="ControlsPanelLayout"/>. They share the fonts and the geometry below; the first two
 /// also share the button bank, where the last two carry their own. See
-/// docs/simulation/mission-objectives.md and docs/simulation/preferences.md.</para>
+/// docs/simulation/alert-panels.md and docs/simulation/preferences.md.</para>
 /// </summary>
 public static class AlertPanelLayout {
 	/// <summary>The screen a panel centres itself on — <c>AlertPanel_CenterRect</c>'s two globals.</summary>

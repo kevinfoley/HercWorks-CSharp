@@ -119,126 +119,19 @@ Either way the caller then compares the button the player pressed against `DAT_0
 | 5 | two, `CONTINUE` + `QUIT ANYWAY` | the second |
 | 17 | one button | that button, but its caller is not this panel's |
 
-### Its text
-
-`str\GNL_ALRT.STR`, three groups read in file order and indexed by the status: 20 titles, 40 button captions (two per status) and 80 body lines (four per status). Rows **0** (`PAUSE`) and **1** (`EXIT EARTHSIEGE?`) are not this panel's — they belong to the [pause panel](#the-pause-panel--004561c0), built from the same table at a different size.
-
-**Status 5's body is not from the table.** The constructor replaces it with `DAT_004d1f1c`, the four `char*` the first unsatisfied mandatory objective carries — the mission author's own `mission.str` lines. So the table's `YOUR MISSION IS NOT COMPLETE.` is what a status 5 would read with no objective outstanding, and what the player actually sees is whatever that mission's author wrote.
-
-Rows **11-16 and 19** are a canned set of the same idea, one line per objective condition (waypoints, detect, protect a base, protect a squad, data link, find and destroy, find and protect). **No writer reaches them.** The raw-opcode scan for calls to this constructor finds four sites and no more; two pass a constant, one patches 3 to 18, and the fourth passes `Mission_StatusForAlert`'s answer, which `Mission_Status` and `EvaluateObjectives` between them confine to {2,3,4,5,6,7,8,9,10}. Row 17 (`INSUFFICIENT MEMORY FOR MAXIMUM DETAIL`) has no writer either. The status-5 substitution is the mechanism that replaced them.
-
-### Geometry
-
-Same arrangement as the objectives panel: written to `.bss` once as `value << VideoMode_?CoordShift`, panel-local rects, centred by the declared size.
-
-| Global | Device | Is |
-|---|---|---|
-| — | 444 x 218 | the panel's declared size, centred on 640x480 at origin (98, 131). The plate is 444x**214** |
-| `004d1f22`/`24` | y 0, height 16 | the title bar |
-| `004d1f28` | 160 | the one button's x, when the status has one |
-| `004d1f2a`/`2c` | 82, 240 | the two buttons' x, when it has two |
-| `004d1f30`, `32`, `36` | y 160, 122 x 18 | every button's y and size. The `ALERT` plate is 124x22 and overhangs |
-| `004d1f3a`/`3e` | x 100, width 244 | the body block |
-| `004d1f3c`, `40`/`42` | y 60, height and pitch 20 | its four rows |
-| `004d1f20`, `26`, `38`, `2e`, `34` | 0, 0, 0, 186, 18 | label margins; the last two are written and never read |
-
-The title is `title` and the buttons `active`/`pushed`, as everywhere in this family. **The body is `green6x8`** (`DAT_004d1eb0`), which is where this panel's green comes from — the objectives panel's yellow is `cpylw`.
-
-### Paint — `00456068`
-
-Plate, title, body, then each button. The body count stops at the **first empty line** rather than skipping it, and then:
-
-**A one-line body is drawn on row 1, not row 0.** `lineCount == 1` offsets the whole run by one row so a short message sits nearer the middle of the plate than the top of the block. Two lines or more start on row 0.
-
-A line holding a single space is not empty and does not stop the count, which is how a mission's own third `mission.str` line — `" "` in the shipped training mission — reaches it and draws nothing.
+The panel's text, layout and paint are [`alert-panels.md`](alert-panels.md#the-status-alerts-text-and-layout)'s.
 
 ### Closing it
 
-`AlertPanel_HandleEvent` again, and the same modal loop with one addition: `DAT_004d25b6`, the abort flag the input poll sets, closes the panel from under it. Its `OnChildClick` (`00456160`) writes 2 for button 0 and 3 for button 1, and the loop returns that `& 1` — so the caller reads 0 for the left button and 1 for the right. [Return] presses the focused button and [Esc] the cancel widget, both of which the panel sets to button 0, so **neither key can ever be the answer that ends the mission**; only the pointer can reach button 1.
+The family's keys ([`alert-panels.md`](alert-panels.md#what-the-family-shares)) and the same modal loop, with one addition: `DAT_004d25b6`, the abort flag the input poll sets, closes the panel from under it. Its `OnChildClick` (`00456160`) writes 2 for button 0 and 3 for button 1, and the loop returns that `& 1` — so the caller reads 0 for the left button and 1 for the right. [Return] presses the focused button and [Esc] the cancel widget, both of which the panel sets to button 0, so **neither key can ever be the answer that ends the mission**; only the pointer can reach button 1.
 
-## The pause panel — `004561c0`
+## The objectives panel
 
-The status alert's small sibling, and the same behaviour: the same base, the same modal loop, the same `GNL_ALRT.STR` read the same three ways, and **a vtable whose six entries are byte-for-byte the other's**. `StatusAlertPanel_CtorMinimal` (`00455908`) is the intermediate constructor both go through, which chains `AlertPanel_CtorBase` and installs that vtable; `PausePanel_Ctor` then overwrites the vtable pointer with its own duplicate.
-
-What differs is size and arrangement. Two statuses reach it, both as constants from `Sim_DispatchCommand`:
-
-| Command | Key | Status | Panel |
-|---|---|---|---|
-| `0x19` | `P` | 0 | `PAUSE`, one button: `CONTINUE` |
-| `0x410` | `Ctrl+Q` | 1 | `EXIT EARTHSIEGE?`, two: `CONTINUE` and `QUIT` |
-
-The manual agrees with both — "Pause the mission at any time by pressing [P]; resume by clicking Continue or pressing [Enter]", and "You can exit the game at any time by pressing [Ctrl]+[Q]" — and it is what fixes `0x400` as the `[Ctrl]` bank ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes)).
-
-**Neither answer ends a mission**, so neither goes through `DAT_0049f5d8`. `[P]`'s one button returns 0 and the dispatcher passes that straight out, which is simply "carry on"; `[Ctrl+Q]`'s second button sets `DAT_004d2582`, the global quit flag — the same one `AlertPanel_Present` watches each pass to tear down any panel still up.
-
-### Geometry
-
-| Global | Device | Is |
-|---|---|---|
-| — | 178 x 68 | the declared size, centred on 640x480 at origin (231, 206). The plate is `GNL_ALRT.HBA` **frame 1**, 181x70 — *larger* than the declared size, where the other two panels' plates are smaller |
-| `004d1f4a`/`4c` | y 0, height 16 | the title bar |
-| `004d1f50`/`52` | (28, 24) | the one button, when the status has one |
-| `004d1f54`/`56`, `58`/`5a` | (28, 16), (28, 42) | the two buttons, when it has two. **They share an x and stack**, where the status alert's pair sits side by side |
-| `004d1f5c`/`5e` | 122 x 18 | every button's size. The `ALERT` plate is 124x22 and overhangs, as everywhere in this family |
-| `004d1f48`, `4e`, `60` | 0 | label margins |
-
-**The three button y-origins are scaled by the horizontal shift**, not the vertical one — the constructor's own slip, and the only place in the family where an axis is crossed. It costs nothing: both of DBSIM's coordinate shifts are equal in both video modes, so the numbers come out the same.
-
-### It has no body labels
-
-The constructor builds a title and its buttons and stops — it never creates the four body labels its shared paint writes to. That paint runs anyway, and would index an array the constructor never filled. **It is saved by its own data**: `GNL_ALRT.STR` group 2 is empty for statuses 0 and 1, so the paint's count loop stops on the first line and the write loop never runs.
-
-## The objectives panel — `obj_alrt` (`0045751c`)
-
-What [F11] puts up: a plate over the frozen cockpit listing block 13, with one button. `[F11]` is scancode `0x57`, which `CockpitWidgets_HandleCommand` answers by constructing the panel, running its modal loop and destroying it. **Nothing in that loop answers `0x57` again**, so a second [F11] does not take the panel back down.
-
-Its resources are SIMALERT.VOL's, alongside the [status alert](#the-status-alert--gnl_alrt-00455934)'s and the other two panels' (`prf_alrt` and `ctl_alrt`, both in [`preferences.md`](preferences.md)):
-
-| Resource | Holds |
-|---|---|
-| `hba\OBJ_ALRT.HBA` | one frame, 630x230 — the whole plate. Index 0 appears four times in it, the rounded corners |
-| `hba\ALERT.HBA` | frames 0 and 1, 124x22 — the button at rest and held. They differ only in the border's palette index |
-| `str\OBJ_ALRT.STR` | two groups of one: `OBJECTIVES` and `RETURN`. (`stf\` and `stg\` are the French and German twins) |
-
-### Geometry
-
-The constructor writes the whole block into `.bss` once, as `value << VideoMode_?CoordShift`, so every number below is an authored 320-wide coordinate doubled. Rects are panel-local — (0, 0) is where the plate is blitted.
-
-| Global | Device | Is |
-|---|---|---|
-| `004d1f84`/`86` | 630 x 278 | the panel's declared size, which is what `AlertPanel_CenterRect` (`00454f34`) centres on the 640x480 screen: origin (5, 101) |
-| `004d1f8a`/`8c` | y 0, height 16 | the title bar the title is centred in |
-| `004d1f90`..`96` | 254, 186, 120 x 20 | the button. Its plate art is 2px larger both ways and is blitted at the rect's origin, so it overhangs |
-| `004d1fa0`, `004d1f9c`/`a4` | y 34, pitch and height 20 | the seven objective lines |
-| `004d1f88`, `8e`, `98` | 0 | title and button label margins |
-| `004d1f9a`, `9e`, `a2` | 40, 40, 360 | written and never read |
-
-**The plate is 230 rows, not the declared 278.** The panel is centred by the declared height, so the art sits 24 rows above the middle of the screen and the bottom 48 rows of the panel's rect are empty.
-
-**The objective lines are not centred on the panel.** Their rect takes x from `panel+0x04` and `panel+0x0c` — the *absolute* screen pair — where every other rect the constructor builds uses the panel-local one at `+0x1c`/`+0x24`. The labels are centre-aligned, so the text lands `(screenWidth - 630) / 2` pixels right of the panel's centre line while the title and the button sit on it: five pixels at 640x480, and visible against the title in any retail capture.
-
-### Paint — `ObjectivesPanel_Paint` (`00457b58`)
-
-Plate at the panel origin, then the title, then the lines, then each widget's own paint. The line loop **skips an empty string rather than leaving its row blank**, and counts only the lines it filled: an eighth non-empty entry is dropped, because the constructor builds seven labels. Block 13 has ten slots, but row #4's sub-array A fills one to four of them across the 62 `.MSN` files ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#row-4-field-decode--the-missions-text-package-dat_00470668-144-bytesrecord)), so nothing authored reaches the cap.
-
-Every label is centre-aligned and placed by `Label_SetRect`/`Label_SetText` ([`../formats/mfd.md`](../formats/mfd.md#label-placement)). The title draws in `title`, the lines in `cpylw`. The button's caption label is constructed in `cpylw` too and never drawn in it: a button's paint (`PanelButton_Paint`, `00454ff8`) overwrites the label's font from its own four-entry table every time, so the caption is `active` at rest and `pushed` while held — which is why RETURN reads grey against yellow objective text.
-
-### The loop — `ObjectivesPanel_RunModal` (`00457ae4`)
-
-Poll input, hand the event to the panel's key handler, repaint the widgets, present; repeat until the close flag is set. **It never calls the sim tick**, and entering (`AlertPanel_Enter`, `00454630`) pauses both message ports and saves the framebuffer — so the cockpit behind the panel is frozen, not merely undrawn. Input the loop polls is still dispatched to the cockpit's own widget tree and to the player's machine by `Input_BuildPlayerDevice`, so piloting keys are not swallowed; with the tick stopped they just have nothing to act on.
-
-What closes it, from `AlertPanel_HandleEvent` (`00454e10`):
-
-| | |
-|---|---|
-| [Return], or joystick button 1 | presses the focused widget, which the loop set to widget 0 before its first pass |
-| [Esc] | presses the panel's cancel widget, `+0x2fb`, which the constructor also sets to widget 0 |
-| a click on RETURN | `PanelButton_OnClick` (`00455080`) forwards to the panel's `+0x0c` slot (`ObjectivesPanel_OnChildClick`, `00457c30`), which sets the flag when the clicked child is child 0 |
-| [Tab] / [Shift+Tab], or joystick button 2 | walk the focus. With one widget they land back on it |
+What [F11] puts up lists block 13's lines and tests nothing; block 12's conditions are never shown to it. The panel is [`alert-panels.md`](alert-panels.md#the-objectives-panel--obj_alrt-0045751c)'s.
 
 ## The player think's objective arms
 
-`Mech_BehaviourPlayerThink` (`0041c194`) carries the waypoint arm ([`player-waypoints.md`](player-waypoints.md#the-players-think--mech_behaviourplayerthink-0041c194)) and then exactly one objective arm, chosen by the mission's own selector — `script.dat`'s header at `+0x06`. **They are the only writers of `+0x9f` and `+0xa0` in the image**, and those two flags are what conditions 3, 4, 9 and 10 read back.
+`Mech_BehaviourPlayerThink` (`0041c194`) carries the waypoint arm ([`player-waypoints.md`](player-waypoints.md#the-players-think--mech_behaviourplayerthink-0041c194)) and then exactly one objective arm, chosen by the mission's own selector — `script.dat`'s header at `+0x06`. **They are the only writers of `+0x9f` and `+0xa0` in the image.** Conditions 3, 4, 9 and 10 read `+0xa0` back; the only reader of `+0x9f` is [the unreached group report](#the-group-report-and-why-nothing-shows-it), so selectors 0 and 5 have no effect on the mission beyond selector 0's message.
 
 | selector | arm |
 |---|---|
@@ -261,9 +154,7 @@ That is not what the player sees. The two are queued a tick apart but shown ten 
 
 ## The group report, and why nothing shows it
 
-_NOTE: Claude often incorrectly decides that code is unused, when in fact Claude just hasn't yet found the mechanism that calls the code. Treat this section with skepticism._
-
-Eight functions sit among the ones above, read the same order records and the same per-machine flags, and produce a small integer that is plainly a line index. **None of them is reachable.** `Group_StatusLineIndex` (`00412f90`) is the head of the set, and it has no caller: no relative call anywhere in the code section, and the little-endian dword `90 2f 41 00` occurs nowhere in `DBSIM.EXE`, so no vtable, table or callback holds it either. Everything it calls is called by it alone.
+Eight functions sit among the ones above, read the same order records and the same per-machine flags, and produce a small integer that is plainly a line index. `Group_StatusLineIndex` (`00412f90`) is the head of the set. `es2_xref.py` finds no relative branch, stored pointer or vtable slot holding it, so nothing reaches it ([Open](#open) covers what that sweep cannot see). Only one of the other seven is called from outside the set.
 
 ```
 Group_StatusLineIndex(group, verb):
@@ -284,7 +175,7 @@ Group_StatusLineIndex(group, verb):
 
 `routeExhausted` is the **group's own** route cursor at `+0x04`, not the subject's. So each verb answers in one of three bands — 0 for done cleanly, `tier+1`/`tier+2` for done, `tier+5`/`tier+6` for still running — with the group's damage tier sliding the answer inside its band. It is a per-group "how is this squad doing" line, one the mission never asks for.
 
-The six helpers it owns:
+The six helpers:
 
 | | Asks |
 |---|---|
@@ -295,15 +186,15 @@ The six helpers it owns:
 | `Group_OrderSubjectEngaged` (`00412d4c`) | the current order's subject — the group form for kind 0, the object's own `+0x9e` otherwise |
 | `Group_OrderSubjectArrivedAndClear` (`00413a08`) | the current order's subject is deployed and clear of threats |
 
-`Group_AnyMemberEngaged` is the exception: `Mission_EvaluateObjectives` calls it too, which is what makes condition 6 work. The other five are dead with their caller.
+`Group_AnyMemberEngaged` is the one called from outside: `Mission_EvaluateObjectives` calls it too, which is what makes condition 6 work. `Group_OrderSubjectEngaged` is the set's second head — it calls `Group_AnyMemberEngaged`, and nothing calls it. The other four helpers are called only by `Group_StatusLineIndex`.
 
-`Group_OrderSubjectRouteExhausted` (`004139a0`) sits in the middle of the set and is one step further out still — nothing calls it, the chooser included.
+`Group_OrderSubjectRouteExhausted` (`004139a0`) sits in the middle of the set and is a further head: `es2_xref.py` finds no reference to it of any kind, `Group_StatusLineIndex` included.
 
-**`mech+0xa6` therefore has no live reader.** `Mech_CreditNeutralisedTarget` latches it on a machine's first cross-side kill ([`component-damage.md`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and only `Group_AnyMemberScoredAKill` ever asks. The same goes for `+0x9f` and `+0xa0` *in their group form* — the objective conditions read the player's own copies directly rather than through these helpers.
+**`mech+0xa6` therefore has no live reader.** `Mech_CreditNeutralisedTarget` latches it on a machine's first cross-side kill ([`component-damage.md`](component-damage.md#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710)) and the only reader `es2_fieldscan.py` finds in the simulator's objects is `Group_AnyMemberScoredAKill`. The same goes for `+0x9f` (`Group_AnyMemberObjectiveSighted`) and for `+0xa0` *in its group form* — the objective conditions read the player's own `+0xa0` directly rather than through `Group_AnyMemberDataLinked`.
 
 ## What the mission leaves the shell — `Mission_WriteResults` (`0042412c`)
 
-Every way out of the simulator ends in `Sim_Shutdown` (`00461eec`), which `Sim_Run` (`0045f144`) calls when its loop ends: a mission-ending answer to the [status alert](#the-status-alert--gnl_alrt-00455934), [Ctrl+Q]'s `QUIT`, and the end of a demo. Closing the window is one of those: the main window's `WM_CLOSE` dispatches `0x410`, [Ctrl+Q], outside a demo, and raises `DemoAbort` (`004d25b6`) in one. A `WM_QUIT` that reaches the input poll raises `DemoAbort` as well (`0045a811`). It closes the tape files and calls `Mission_WriteResults(LocalPlayerMech)`, which writes `data\results.dat` and then the mission counters back over `data\mission.var` ([`mission-deployment.md`](mission-deployment.md#the-mission-counters--dat_004a9ef4)). The file's layout is [`campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)'s; what fills it:
+Every way out of the simulator ends in `Sim_Shutdown` (`00461eec`), which `Sim_Run` (`0045f144`) calls when its loop ends: a mission-ending answer to the [status alert](#the-status-alert--gnl_alrt-00455934), [Ctrl+Q]'s `QUIT` ([pause panel](alert-panels.md#the-pause-panel--004561c0)), and the end of a demo. Closing the window is one of those: the main window's `WM_CLOSE` dispatches `0x410`, [Ctrl+Q], outside a demo, and raises `DemoAbort` (`004d25b6`) in one. A `WM_QUIT` that reaches the input poll raises `DemoAbort` as well (`0045a811`). It closes the tape files and calls `Mission_WriteResults(LocalPlayerMech)`, which writes `data\results.dat` and then the mission counters back over `data\mission.var` ([`mission-deployment.md`](mission-deployment.md#the-mission-counters--dat_004a9ef4)). The file's layout is [`campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)'s; what fills it:
 
 | Field | From |
 |---|---|
@@ -316,7 +207,7 @@ Every way out of the simulator ends in `Sim_Shutdown` (`00461eec`), which `Sim_R
 
 **The kill tallies** are `mech+0x2a4`, one short per target class: `Mech_CreditNeutralisedTarget` adds one at `victim+0x1a8` on a machine's first cross-side neutralisation of each victim (`0041576d`). The block carries the first three, classes 0, 1 and 2 — the Herc, Base and Flyer kills the shell adds to the pilot's record. A ground vehicle, class 3, is tallied and never reported.
 
-The exit code follows, into `004d283c`: 6 after a demo, 0 when the quit flag `004d2582` is set, and otherwise 3, which sends the shell into its debrief ([`../command-line.md`](../command-line.md#exit-codes)). The code has a fourth answer, 4 for a destroyed player while `MissionModeFlag` (`004a9ed6`) is set, and the load zeroes that flag ([`difficulty.md`](difficulty.md)), so it is never returned.
+The exit code follows, into `004d283c`; the codes are [`../command-line.md`](../command-line.md#exit-codes)'s.
 
 ## Rejected readings
 
@@ -327,5 +218,8 @@ The exit code follows, into `004d283c`: 6 after a demo, 0 when the quit flag `00
 | Meeting every objective ends the mission | It yields status 9 only while `Mission_IsClearOfThreats` also holds for the player. With a live hostile aware and near, the status is 10 and nothing is announced |
 | `+0x00` is a priority, with higher meaning more important | The evaluator's only test is `== 1`. One is mandatory; every other value makes the record a failure condition, which is the opposite meaning rather than a weaker one |
 | The data link finishes instantly because its third delay clamps to zero | The delay is written before the line it precedes, so the link still needs its two waits of holding; the clamp only removes a wait after the last line is decided |
-| The status alert's body text is a `GNL_ALRT.STR` row chosen by the status | For every status but 5, yes. Status 5 — the one [Q] usually answers — has its body replaced with the outstanding objective's own `mission.str` lines, so the row in the table is not what a player ever reads there |
 | `DAT_0049f5d8` is a per-status button count | It is which button index ends the mission. Status 7's entry is 1 against a one-button panel, which is how its warning is made unanswerable rather than a count being wrong |
+
+## Open
+
+- **Open:** whether anything reaches the group report cluster (`Group_StatusLineIndex`, `Group_OrderSubjectEngaged`, `Group_OrderSubjectRouteExhausted`) through a static-initialiser registration. `es2_xref.py` finds no branch, pointer or vtable slot for any of the three, but a registered function can be absent from that sweep, and `RegisterSubsystemLoader` (`00401d64`) has many callers.

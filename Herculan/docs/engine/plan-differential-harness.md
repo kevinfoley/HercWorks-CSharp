@@ -16,7 +16,7 @@ Four properties of the retail binary, all verified:
 
 - **No ASLR.** `DYNAMICBASE` is clear in the PE header and relocations are not stripped, so the image loads at `0x00400000` every run. Every address in these docs is a literal runtime address; no rebasing layer is needed. (System-wide Mandatory ASLR in Exploit Protection would break this. It is off by default.)
 - **The simulation is deterministic.** The generator has no entropy input at all — see [`../simulation/random-generator.md`](../simulation/random-generator.md). Same mission plus same input gives the same run, every time.
-- **One wall-clock path, and it is patchable.** `Time_BeginSimTick` (`004677bc`) spins on `GetTickCount` until 40 ms have passed, then sets `SimTickDelta = clamp((elapsed << 8) / 125, 0x40, 0x1c2)` — 81 at exactly 40 ms, but 82 or 83 when the OS overshoots, which rescales every rate that tick. Forcing `SimTickDelta` to 81 after each call removes the last source of run-to-run variation.
+- **One wall-clock path, and it is patchable.** `Time_BeginSimTick` (`004677bc`) spins on `GetTickCount` until 40 ms have passed, then sets `SimTickDelta = clamp((elapsed << 8) / 125, 0x40, 0x1c2)` — 81 at exactly 40 ms, but 83 at 41 ms and 86 at 42 ms when the OS overshoots, which rescales every rate that tick. Forcing `SimTickDelta` to 81 after each call removes the last source of run-to-run variation.
 - **One clean hook point.** `Sim_MainTick` (`0045f464`) is `short __cdecl(void)` — no arguments, one entry per frame, walking every global object list. A five-byte detour at its prologue is the whole instrumentation surface.
 
 The engine side already matches on the two that matter: `SimWorld.TickDelta` is pinned to 81, and `SimRandom`'s default constructor is DBSIM's own seeded state.

@@ -9,11 +9,11 @@ The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat
 **Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/ `.DCI` (see `project_es2_exe_recon` memory), different registered class. `BaseType_LoadShape` (`00405ebc`) → `BaseType_ResolveShape` (`00474cd8`) walks this list sequentially by index (not random-access) to resolve `dat\BASES.DAT`'s `ShapeIndex`.
 
 **Record layout** (traced via the class's Watcom base-constructor chain — `BaseShape_ReadFromStream` (`0042762c`) → `ClassItemTree_ReadFromStream` (`00490d5c`) → `ClassItemTree_ReadChildren` (`0048fd94`) → `ClassItemTree_ReadBaseHeader` (`0048f894`)):
-1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius** — see [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
+1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius** — [below](#the-bounding-radius--shape8).
 2. `int16` child count, then that many nested `ClassItem` records
 3. `int16` count + that many 32-byte records, consumed by `TSBSPPart_RenderNode` (`00476a1c`, [Open](#open))
 4. `int16` count + that many `int16` values ([Open](#open))
-5. the shape's **collision volume**: 5×`int16` scalars, a 1024-byte height table, then one row of height codes per grid row. Full layout and queries in [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
+5. the shape's **collision volume**: 5×`int16` scalars, a 1024-byte height table, then one row of height codes per grid row. Layout [below](#the-collision-volume); the queries that walk it are [`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-collision-volume--the-dgs-records-height-field)'s.
 
 Every record's on-disk footprint (header+payload) pads to an even total.
 
@@ -28,6 +28,36 @@ Every record's on-disk footprint (header+payload) pads to an even total.
 The HERC roster is the same rule: every root 0 sits at y=0 except COLOSSUS, which dips 2.4 render units (400 world units) and is also the one HERC with a 400-unit ride height — the same correction (see [`dts-node-posing.md`](dts-node-posing.md)).
 
 So a placed structure is drawn at terrain height with no vertical correction of any kind. Raising an object by its mesh's lowest point is a no-op on every shape but 28, which it drags down onto the ground — visible against retail in `Reference/Building_comparison.png`.
+
+## The collision volume
+
+Step 5 of the record, read by `BaseShape_ReadFromStream` (`0042762c`):
+
+| Offset | Type | Meaning |
+|---|---|---|
+| `+0x2a` | `int16` | columns (grid X extent) |
+| `+0x2c` | `int16` | rows (grid Y extent) |
+| `+0x2e` | `int16` | origin column |
+| `+0x30` | `int16` | origin row |
+| `+0x32` | `int16` | log2 of the cell size in world units |
+| `+0x34` | 256 × `int32` | height table, indexed by a cell's byte code |
+| `+0x430` | — | the table's last entry, addressed directly as the grid's ceiling |
+| `+0x434` | rows × columns bytes | height codes, row-major with Y outermost |
+
+**Verified against retail data:** all 45 `BASES.DGS` records have a cell shift of 9 (512 world units, ~3 m), the origin at the grid centre, and a height table that is **ascending** — which is what makes `+0x430` the true ceiling rather than just the last entry. Footprints run 2560×4096 to 19456×19456 world units (15 m to 117 m), and ceilings 511 to 29537.
+
+How a shot and a walking machine sample the grid is [`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-collision-volume--the-dgs-records-height-field).
+
+## The bounding radius — `shape+8`
+
+The third of the three `int16` head fields every `ClassItem` record carries (`ClassItemTree_ReadBaseHeader`, `0048f894`). Two unrelated consumers identify it: the LOD selector (`Shape_DrawAtDetailLevel`, `004033e4`) divides it by viewing distance to estimate on-screen size, and vtable `+0x10` (`SimObject_GetShapeRadius`, `0046b80c`) hands it to every coarse hit reject ([`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-three-radius-slots)). It tracks `BASES.DAT`'s own `+0x2a` radius ([`bases-dat.md`](bases-dat.md#the-type-record)) within about a fifth across all 45 records (6334/5600, 10325/9600, 3577/3600).
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| The tail of the record is a sub-record size, a sub-record count, three scalars, an opaque block, then count × size raw bytes | It consumes exactly the same bytes, so a reader can parse every retail record correctly while naming all of it wrongly. It is the one structure in [the collision volume](#the-collision-volume): five scalars and a fixed 1024-byte table, then the height codes |
+| The third head field is a shape id | It is the bounding radius ([above](#the-bounding-radius--shape8)); its value tracks `BASES.DAT +0x2a`, not any index |
 
 ## Open
 

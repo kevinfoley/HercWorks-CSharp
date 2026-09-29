@@ -36,7 +36,7 @@ All behavior matches the original game exactly by default. The only exceptions a
 
 ### Simulation object architecture
 
-**Traditional OOP / virtual dispatch, matching the original — not ECS.** DBSIM.EXE's simulation objects are built on a shared base-object constructor helper (`SimObjectBase_Constructor`, `00402188`) called by every `SimObject`-derived class right after its vtable pointer is set. See `project_es2_exe_recon` memory and `docs/simulation/dbsim-physics-notes.md`.
+**Traditional OOP / virtual dispatch, matching the original — not ECS.** DBSIM.EXE's simulation objects are built on a shared base-object constructor helper (`SimObjectBase_Constructor`, `00402188`) called by every `SimObject`-derived class right after its vtable pointer is set. See [`sim-object-layout.md`](../simulation/sim-object-layout.md).
 
 Plan: a `SimObject` abstract base class in the engine with virtual overrides mirroring the discovered vtable shape (Mech, Rocket, Bullet, Flyer, ...), rather than a component/system model.
 
@@ -44,7 +44,7 @@ This decision is scoped to simulation objects specifically. Rendering/scene repr
 
 ### Physics
 
-**Custom, exact match to the original.** Not adopting an off-the-shelf .NET physics library (e.g. BepuPhysics) — the goal is to reproduce DBSIM's actual behavior, which has already been substantially reverse-engineered: See `docs/simulation/dbsim-physics-notes.md` for the full detail — this is the primary porting target for the physics/sim subsystem, not a reference to design against.
+**Custom, exact match to the original.** Not adopting an off-the-shelf .NET physics library (e.g. BepuPhysics) — the goal is to reproduce DBSIM's actual behavior, which has already been substantially reverse-engineered. The topic docs under [`docs/simulation/`](../simulation/) — locomotion, flight, hit detection, damage — are the porting target for the physics/sim subsystem, not a reference to design against; the shared fixed-point math and the tick timing they build on are in [`dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md).
 
 ### Math
 
@@ -88,11 +88,11 @@ Three call sites in two unrelated gadgets share it — the HUD waypoint indicato
 | rocket proximity warning | 40000 | 240 |
 | SAMSON model, bounding box height | 2364 | 14.2 |
 
-**DTS model units are world units.** Two fields of `dat\<mech>.DAT`, a file the sim reads in world units, carry values that are only meaningful as model-space measurements. COLOSSUS is the one retail mech whose model dips below model-space zero, to `-400`, and it is the one retail mech with a nonzero `UnitOffsetYAdjust`: exactly `400`. A correction expressed in the same numbers as the model's own coordinates is a 1:1 unit relationship. The second field is the one the `.DAT` calls `AiAimTargOffset`, which is really the machine's hit-cylinder radius (see `docs/simulation/damage-system.md`); it tracks chassis size across the fleet — 1500 for OUTLAW's 1700-unit model, 2500 for everything larger (2030–2575) — so it corroborates the scale, though as a size measure rather than a height. Nothing in the load path scales a model: `MechType_InitOne` hands DTS points straight to the shape instance.
+**DTS model units are world units.** Two fields of `dat\<mech>.DAT`, a file the sim reads in world units, carry values that are only meaningful as model-space measurements. COLOSSUS is the one retail mech whose model dips below model-space zero, to `-400`, and it is the one retail mech with a nonzero `UnitOffsetYAdjust`: exactly `400`. A correction expressed in the same numbers as the model's own coordinates is a 1:1 unit relationship. The second field is `HitRadius`, the machine's hit-cylinder radius (see [`mech-locomotion.md`](../simulation/mech-locomotion.md#mech-type-record)); it tracks chassis size across the fleet — 1500 for OUTLAW's 1700-unit model, 2500 for everything larger (2030–2575) — so it corroborates the scale, though as a size measure rather than a height. Nothing in the load path scales a model: `MechType_InitOne` hands DTS points straight to the shape instance.
 
 At 166.667 u/m, HERC models measure 10.2m (OUTLAW) to 15.5m (OGRE), ~1.5x the manual's quoted stature (6.1m/10.4m) — bounding box (includes raised arms/antennae) vs. quoted height; weight-class ordering matches the manual exactly.
 
-**Independent order-of-magnitude check:** HUD speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`) = `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 → 100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). Tick rate was later resolved directly (25 Hz, `Time_BeginSimTick` (`004677bc`) — see `docs/simulation/dbsim-physics-notes.md`), confirmed independently by `mech-locomotion.md`'s root-motion speed verification.
+**Independent order-of-magnitude check:** HUD speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`) = `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 → 100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). Tick rate was later resolved directly (25 Hz, `Time_BeginSimTick` (`004677bc`) — see [`dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md)), confirmed independently by `mech-locomotion.md`'s root-motion speed verification.
 
 Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout` (`0043dc78`), `Mech_GetDisplaySpeedKph`, `Math_Q10Multiply`, `Math_Q16Multiply`, `Math_Q16Divide`, `Math_FastMagnitude2D`, `Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`, `Vec2_Magnitude`, `Vec2_DistanceBetween`.
 

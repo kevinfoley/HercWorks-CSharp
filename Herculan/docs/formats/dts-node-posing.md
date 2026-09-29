@@ -2,7 +2,7 @@
 
 For a machine, two mechanisms rewrite the shape before any of this runs — the hardpoint splice and the per-frame LOD root pick. See [`mech-shape-drawing.md`](mech-shape-drawing.md).
 
-Every geometry group in a DTS shape is drawn through the transform of the node it names, taken from the shape instance's per-node world array. That array is what the animation pipeline in [`mech-locomotion.md`](../simulation/mech-locomotion.md#keyframe-interpolation) writes, so posing geometry is the same mechanism as posing the cockpit eye — just applied to every node instead of one.
+Every geometry group in a DTS shape is drawn through the transform of the node it names, taken from the shape instance's per-node world array. That array is what the animation pipeline in [Keyframe interpolation](#keyframe-interpolation) writes, so posing geometry is the same mechanism as posing the cockpit eye ([`mech-locomotion.md`](../simulation/mech-locomotion.md#cockpit-eye-and-bob)) — just applied to every node instead of one.
 
 ## The draw path
 
@@ -30,6 +30,35 @@ FUN_0048c338((undefined2 *)out);                                        // insta
 A negative transform id skips the composition and leaves the object-to-view transform standing.
 
 `TSBasePart.Transform` at offset `+4` is the same field `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) and the cockpit eye resolve `CameraBoneId` through — one field, one meaning, geometry and named nodes alike.
+
+## Keyframe interpolation
+
+DBSIM interpolates node poses between keyframes, by the same intra-frame fraction it ramps root motion with ([Root motion](../simulation/mech-locomotion.md#root-motion)). The pose pipeline is three calls, in `ShapeInstance_StepAnimation` (`00478c2c`):
+
+| Address | Symbol | Role |
+| --- | --- | --- |
+| `004789a0` | `AnimThread_StepAll` | advances every thread by the timestep |
+| `004799a4` | `AnimThread_EvalNodeLocals` | **the interpolator** — writes each node's local transform |
+| `00478b58` | `ShapeInst_BuildWorldTransforms` | composes locals up the relation list into `shapeInst+0x16` |
+
+Three arrays on the shape instance: `+0x12` per-node **local** transforms (stride `0xc`), `+0xe` per-node dirty flags, `+0x16` per-node **world** transforms (stride `0x20`, indexed by transform id — the array `Cockpit_TargetAnglesFromCameraBone` and the cockpit eye read).
+
+`AnimThread_EvalNodeLocals`, per animated column:
+
+- reads the transform-pool index at **(sequence, frame)** and at **(nextSequence, nextFrame)** — both cursors the thread already keeps;
+- identical indices → copy the 12-byte record straight, no blend;
+- otherwise → `Anim_BlendKeyframeTransforms` (`00492600`) at **`(frameAccumulator * 0x400 + frameDuration / 2) / frameDuration`**, a rounded Q10 fraction — the same `thread+0x1c / thread+0x1e` fraction root motion is ramped by. Pose and ground movement therefore ride one clock, which is what keeps the gait smooth at any speed: a slow gait stretches keyframes out in time and the pose keeps moving between them instead of stepping.
+- columns whose part id is 0 are **skipped entirely**, so transform 0 keeps its default and never takes an animated pose. Column 0 of every sequence carries that sequence's root motion, not a pose, which is what the skip exists to keep out of the node array. Across all 18 retail HERCs column 0 holds part id 0 in every sequence, transform 0's parent is -1, and no node's chain reaches it — so the skip only matters to a caller that walks *all* transform ids, as a whole-skeleton pose does.
+
+`Anim_BlendKeyframeTransforms` blends a 12-byte record (3 euler shorts, then 3 translation shorts): rotation along the **shortest arc** (bias by `0x10000`, subtract, fold back when over `0x7fff`), translation as a truncating lerp on the 16-bit difference, both `* q10 >> 10`. Fixed point throughout; no float.
+
+`ShapeInst_ExpandRootTransform` (`00478b10`) confirms the local record's layout as `[eulerX, eulerY, eulerZ, x, y, z]` shorts, and thread field offsets are confirmed here too: `+4` sequence, `+6` frame, `+8` nextSequence, `+10` nextFrame, `+0x1c` frameAccumulator, `+0x1e` frameDuration.
+
+### Evaluation cadence — per tick, not per rendered frame
+
+`ShapeInstance_StepAnimation`'s **only** caller is `SimObject_ApplyRootMotion` (`0040250c`), which `Mech_IntegrateMotion` runs once per sim tick. So poses are re-blended once per tick.
+
+There is no separate render rate for them to be per-frame at: `Time_BeginSimTick` (`004677bc`) spin-waits the whole loop to 40 ms, so **tick and frame are the same thing in DBSIM** (see [`dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md#fixed-point-math-toolkit)). A vanilla frame always shows a pose evaluated that same iteration, at 25 Hz.
 
 ## Fleet shape
 

@@ -78,6 +78,12 @@ The four game axes the control laws read are the device struct's `+0x0e`, `+0x10
 
 `Input_BuildSourceTable` fills a table of pointers at `DAT_004d2394` with the address of every value that can *feed* one of those — the two keyboard axis pairs `Input_BuildKeyboardAxes` (`0045a4b0`) writes, the four joystick axes, and the buttons — so that a binding is a choice of pointer rather than a hardcoded path. That indirection is the mechanism the whole scheme rests on: the control laws never learn which device moved an axis, and so never need a joystick case.
 
+### The keyboard
+
+`Input_BuildKeyboardAxes` (`0045a4b0`) produces **two signed axis pairs, not four independent axes**. It reads fourteen held-key flags from the key-state block at `004d2418`, which `Input_KeyjoyAxisKey` fills by the position of each key in its wanted-codes list ([`cockpit-input.md`](cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)): keys 0-7 (keypad 7, 8, 9, 4, 6, 1, 2, 3) accumulate into the first pair and keys 8-13 (`M`, `J`, `K`, `I`, keypad `-` and `+`) into the second. Each held key adds its own `(dx, dy)` entry from the table at `0049eb6d` shifted left 7, so a key is worth ±0x80, half a stick's travel. Keypad `-` and `+` reach the second pair only while flying the RAZOR; `Input_KeyjoyAxisKey` drops them otherwise. The pairs are the *sources* the table above registers, so a binding chooses which pair each game axis reads.
+
+The `(dx, dy)` table is all zeroes in the image, so the direction each key pushes cannot be read from the executable ([Open](#open)). No panel edits it: the CONTROLS panel binds the stick, throttle, rudder, hat and buttons only.
+
 ## Applying the bindings — `Input_BuildPlayerDevice` (`0045a7f4`)
 
 The per-frame input build, and where the twelve bytes are read. `ControlsOptionBase` (`DAT_004d25fb`) selects the walking block or the RAZOR's.
@@ -181,3 +187,7 @@ The only part of the input configuration outside `prefs.cfg`. `Keyjoy_LoadConfig
 | A second joystick is a second controller | It is a donor. Its X and Y stand in for a throttle and rudder the first stick lacks, and its buttons are OR'd into the first's mask |
 | A `winmm` backend would identify the throttle, `dwZpos` being semantic where an ordered array is not | It is not: for a device whose `JOYCAPS.wCaps` reports only X, Y, Z and R — `0x33` on a T.Flight — GLFW enumerates those same four in that same order, so winmm's `Z` *is* GLFW's axis 2 and the mapping is identical. A platform-specific dependency for no behavioural difference |
 | `Input_QueryCapabilities`' `+0` says whether a stick is present | It is 1 or 2 and never 0. Presence is `Input_GetDevice(3)` (`0045c508`), a lookup in the device table |
+
+## Open
+
+- **Open:** the keyboard's `(dx, dy)` table at `0049eb6d` (28 bytes, one pair per key of [The keyboard](#the-keyboard)). It is zero in the image and `Input_BuildKeyboardAxes` is the only code found referring to it by address, so the writer, and the direction each key pushes an axis, are not found. Retail's arrow keys steer, so something fills it.

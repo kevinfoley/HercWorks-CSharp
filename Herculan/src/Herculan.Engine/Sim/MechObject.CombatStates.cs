@@ -540,7 +540,7 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// <c>Ai_LineOfSightBlocked</c> (<c>0041dc24</c>)'s three answers. See
-	/// docs/simulation/ai-navigation.md.
+	/// docs/simulation/ai-combat-states.md.
 	/// </summary>
 	private enum LineOfSight {
 		/// <summary>Nothing in the way.</summary>

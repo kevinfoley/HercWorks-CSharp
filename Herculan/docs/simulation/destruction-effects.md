@@ -1,6 +1,6 @@
 # Destruction effects — wreckage, fire, and a structure coming down
 
-What a destroyed thing puts on screen: the shapes it throws (`debris.cpp`), the flames left burning on it (`fire.cpp`), and the multi-stage collapse a building runs before it becomes a wreck (`base.cpp`). All three are driven by the damage model but are separate from it — the arithmetic of losing a part is in [`component-damage.md`](component-damage.md) and [`hit-detection.md`](hit-detection.md).
+What a destroyed thing puts on screen: the shapes it throws (`debris.cpp`), the flames left burning on it (`fire.cpp`), and the multi-stage collapse a building runs before it becomes a wreck (`base.cpp`). All three are driven by the damage model but are separate from it — the arithmetic of losing a part is in [`component-damage.md`](component-damage.md) for a machine and [`structure-behaviour.md`](structure-behaviour.md#taking-damage--base_applydamage-00404d70) for a structure.
 
 Impact effects — the puff where a shot lands — are a fourth, different subsystem: [`impact-effects.md`](impact-effects.md). Everything here spawns them, and nothing here is one.
 
@@ -171,7 +171,7 @@ Two sites, and they light different shapes:
 
 ## A structure coming down
 
-A structure's part is not deleted when its health runs out. `Base_ApplyDamage` (`00404d70`) gives it a **stage countdown**, and `Base_DeathSequenceTick` (`00403914`) steps every falling part through it one stage at a time. That is why a building takes several seconds to collapse and its parts collapse in the order they were shot.
+A structure's part is not deleted when its health runs out. `Base_ApplyDamage` (`00404d70`, [structure-behaviour.md](structure-behaviour.md#taking-damage--base_applydamage-00404d70)) gives it a **stage countdown**, and `Base_DeathSequenceTick` (`00403914`) steps every falling part through it one stage at a time. That is why a building takes several seconds to collapse and its parts collapse in the order they were shot.
 
 The sequence is picked by the component record's `+4`, indexing five parallel four-entry tables in the executable's statics:
 
@@ -194,7 +194,7 @@ The sequence is picked by the component record's `+4`, indexing five parallel fo
 
 `dgs\BHULKS.DGS` is the wreck library, loaded by `Base_LoadResources` (`00405fac`) into `004a9608`, sized by `max(typeRec+0x04) + 1` over the whole type table, and bound to `BASETEX` whatever bank the standing building used. Retail ships 16 wrecks.
 
-The `BASES.DAT` record fields this section reads are tabulated in [`hit-detection.md`](hit-detection.md#datbasesdat-runtime-record).
+The `BASES.DAT` record fields this section reads are tabulated in [`../formats/bases-dat.md`](../formats/bases-dat.md#the-type-record).
 
 ## EFFECTS DETAIL
 

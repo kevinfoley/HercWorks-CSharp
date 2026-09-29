@@ -73,8 +73,9 @@ public static class CollisionModelReader {
 	/// <summary>
 	/// The bound itself: the AABB of the children each inflated by its own radius, its midpoint as
 	/// the centre, and the fast magnitude of the half-extents as the radius. That approximation is
-	/// part of the behaviour, not an implementation detail — it runs a few percent under a true
-	/// Euclidean radius, so the bound is very slightly tight.
+	/// part of the behaviour, not an implementation detail — it runs from about 8% under to about 9%
+	/// over a true Euclidean radius depending on the box's proportions, so the bound is not exactly
+	/// circumscribing.
 	///
 	/// <para>The original seeds the box at ±10000 and does not special-case an empty cluster, which
 	/// would leave it inverted; nothing in the retail data has one, and an empty bound here is

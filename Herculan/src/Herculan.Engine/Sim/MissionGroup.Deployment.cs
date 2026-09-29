@@ -42,7 +42,9 @@ public sealed partial class MissionGroup {
 	/// <item><b>On foot</b> (verbs 4 and 5) — the leader is put down at a picked point, facing away
 	/// from the bearing it was found on, the rest of the group is dressed around it by the same
 	/// formation offsets that spread it at spawn, and the gate is cleared at once. Verb 4 walks the
-	/// group on 90,000 units behind the player, verb 5 150,000 ahead.</item>
+	/// group on 90,000 units behind the player, verb 5 150,000 ahead. Implemented from the decompile
+	/// and unexercised: no retail <c>.MSN</c> authors verb 4 or 5. The arrival rules are in
+	/// docs/simulation/mission-deployment.md, "Arrival".</item>
 	/// <item><b>In place</b> (any other verb, which in retail data means verb 1) — the gate is
 	/// cleared and nothing moves, so the group goes live exactly where the mission placed it. This is
 	/// the one arrival for which the placed position is not a placeholder.</item>

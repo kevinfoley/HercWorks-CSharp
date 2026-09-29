@@ -171,7 +171,8 @@ public sealed partial class BaseObject : SimObject {
 	/// <inheritdoc />
 	/// <remarks>
 	/// <b>Only a standing <see cref="BaseShapeSource.AnimatedLibrary"/> type blocks by radius</b> —
-	/// the original's slot tests the same field that picks the model library. Every static type, and
+	/// the original's slot tests <c>BASES.DAT +0x06</c>, the animation-thread count, which is non-zero
+	/// on exactly those types. Every static type, and
 	/// an animated one that has fallen to a hulk, blocks by <see cref="BlocksWalker"/> instead. The
 	/// value is the type's <see cref="BaseType.HitRadius"/>, so a structure that blocks by radius
 	/// blocks at the radius it is shot at.

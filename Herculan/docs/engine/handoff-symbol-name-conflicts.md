@@ -32,7 +32,7 @@ The doc gives the address; the register has no entry there. Confirm and register
 | `Palette_ReadRange` | `00430440` | `cockpit-canopy-palette.md:83` |
 | `Palette_GetEntry` | `00430474` | `cockpit-canopy-palette.md:84` |
 | `SliderWidget_DragToPointH`, `_GetValueH`, `_SetValueH`, `_RecomputeScaleH` | `004524f8`, `00452544`, `0045255c`, `004525a8` | `cockpit-input.md:394` (the four `V` twins are registered) |
-| `Pool_Init` | `004719cc` | `sim-object-layout.md:53`, `ai-combat-states.md:304` |
+| `Pool_Init` | `004719cc` | `sim-object-layout.md:53` and `:67` |
 | `Group_NearestLiveMember` | `00423974` | `ai-targeting.md:201` |
 | `HddDisplay_ServiceCommBoxes` | `0044b5f8` | `Herculan.Engine/Content/SquadCommChannel.cs:5`, still spelled `FUN_0044b5f8` there |
 

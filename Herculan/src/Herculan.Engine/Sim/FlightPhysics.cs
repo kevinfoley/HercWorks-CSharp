@@ -79,7 +79,7 @@ public struct FlightBlock {
 	/// </summary>
 	public int BankTurnRate;
 
-	// Block +0x34 and +0x48 — last tick's transform, inverted. The model needs it twice: to bring the
+	// Block +0x24 and +0x38 (mech+0x2dd and mech+0x2f1) — last tick's transform, inverted. The model needs it twice: to bring the
 	// world-space drag back into the body frame, and to re-express world velocity in the new body
 	// frame after the airframe has rotated.
 	internal Transform3 PreviousInverse;

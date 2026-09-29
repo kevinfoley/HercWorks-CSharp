@@ -182,9 +182,8 @@ public sealed partial class FlyerObject : SimObject {
 	/// case the original substitutes a fixed effect id of its own instead of anything the shot
 	/// carries.</para>
 	///
-	/// <para>Two things the original does here that this does not, both effects: the secondary spawn
-	/// off its own pool that follows every hit, and the debris variant it switches that spawn to once
-	/// the aircraft is wrecked.</para>
+	/// <para>Wreckage follows every hit, and the hit that brings the aircraft down throws a different
+	/// group — see docs/simulation/hit-detection.md, "<c>Flyer_DirectFireHitTest</c>".</para>
 	/// </summary>
 	public override int DirectFireHitTest(SimWorld world, WeaponShot shot) {
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);

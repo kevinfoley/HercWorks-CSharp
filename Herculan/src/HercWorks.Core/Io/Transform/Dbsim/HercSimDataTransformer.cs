@@ -41,9 +41,9 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.AnimId_StopMove = IndexShortLE();
 		data.AnimId_StopReverse = IndexShortLE();
 		data.UnitOffsetYAdjust = IndexShortLE();
-		data.Unk22_Val750Razor0 = IndexShortLE();
+		data.HitCenterHeight = IndexShortLE();
 
-		data.AiAimTargOffset = IndexShortLE();
+		data.HitRadius = IndexShortLE();
 
 		data.AnimId_TorsoTwist = IndexShortLE();
 		data.TorsoTwistSpeed = IndexShortLE();
@@ -77,7 +77,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.Unk80_ValHudId = IndexShortLE();
 
 		data.SalvageScale = IndexShortLE();
-		data.Unk84_val = IndexShortLE();
+		data.WeaponMountsDestructible = IndexShortLE();
 
 		data.NameBytes = IndexSegment(12);
 
@@ -178,9 +178,9 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Emit(outStream, WriteShortLE(data.AnimId_StopReverse));
 		Emit(outStream, WriteShortLE(data.UnitOffsetYAdjust));
 
-		Emit(outStream, WriteShortLE(data.Unk22_Val750Razor0));
+		Emit(outStream, WriteShortLE(data.HitCenterHeight));
 
-		Emit(outStream, WriteShortLE(data.AiAimTargOffset));
+		Emit(outStream, WriteShortLE(data.HitRadius));
 
 		Emit(outStream, WriteShortLE(data.AnimId_TorsoTwist));
 		Emit(outStream, WriteShortLE(data.TorsoTwistSpeed));
@@ -213,7 +213,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		Emit(outStream, WriteShortLE(data.SalvageScale));
 
-		Emit(outStream, WriteShortLE(data.Unk84_val));
+		Emit(outStream, WriteShortLE(data.WeaponMountsDestructible));
 
 		// write name
 		outStream.Write(data.NameBytes!, 0, data.NameBytes!.Length);

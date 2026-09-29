@@ -279,7 +279,7 @@ Item flags + condition/variant (24%/30% real usage — highest combined rates in
 | `0x32` | ref→row #7 | same, for heading |
 | `0x34` | presence flag | 68% real; always `0` if present |
 | `0x36` | ? | nearly always `0` ([Open](#open)) |
-| `0x38–0x5E` | 10 (counter ref, operation) pairs | 99.9% `-1`; one retail record uses a slot. The flyer's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 8's `0x2e`/`0x42` |
+| `0x38–0x5E` | 10 (counter ref, operation) pairs | 99.9% `-1`; one retail record uses a slot. The flyer's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 8's `0x2e`/`0x42` |
 | `0x60` | ref→row #10 slot 1 | **dead** — always `-1` |
 | `0x62` | ref→row #10 slot 2 | **only live ref** — 21% real |
 | `0x64` | constant | always exactly `100` |
@@ -299,7 +299,7 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 | `0x0A` | ref→row #6 | 6.4% sparse — this structure's spawn-position override |
 | `0x0C` | ref→row #7 | 6.7% sparse — its heading |
 | `0x0E` | small discrete | 100% real; 0/1/2 (64%/33%/3%) |
-| `0x10–0x36` | 10 (counter ref, operation) pairs | 3.9% sparse — the structure's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
+| `0x10–0x36` | 10 (counter ref, operation) pairs | 3.9% sparse — the structure's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
 | `0x38` | ref→row #10 slot 1 | 0.4% rare |
 | `0x3A` | ref→row #10 slot 2 | 0.1% dead |
 | `0x3C` | health modifier | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real** |
@@ -327,7 +327,7 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0x74` | tri-state flag | 89% real; 0/1 or `-1` |
 | `0x76` | ref→row #10 | 31% real |
 | `0x78` | pair count | 100% real; 0/1/2 (97%/2.8%/0.5%) — how many of the pairs below are filled. Not exported to `script.dat` |
-| `0x7A–0xA0` | 10 (counter ref, operation) pairs | refs 20–650, operations {2, 23}; slots 2–9 always `-1`. The group's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 11's `0x72`/`0x86` |
+| `0x7A–0xA0` | 10 (counter ref, operation) pairs | refs 20–650, operations {2, 23}; slots 2–9 always `-1`. The group's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 11's `0x72`/`0x86` |
 | `0xA2` | trailing flag | 6% sparse; 0/1 |
 
 
@@ -349,7 +349,7 @@ The HERC roster; highest variant usage (48%). Three-way identity split: a GUID a
 | `0x46` | ref→row #6 | 0.1% populated in `.msn` data, but **not dead** — this is the spawn-position override DBSIM reads per mech (see `script-dat.md`); unset means "use the group's point" |
 | `0x48` | ref→row #7 | same, for heading |
 | `0x4A` | small discrete | 100% real; 0–4 (84% `0`) |
-| `0x4C–0x72` | 10 (counter ref, operation) pairs | sparse; slot 0 15.9% → slot 4 0.5%. The machine's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 7's `0x42`/`0x56` |
+| `0x4C–0x72` | 10 (counter ref, operation) pairs | sparse; slot 0 15.9% → slot 4 0.5%. The machine's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 7's `0x42`/`0x56` |
 | `0x74–0x84` | always-populated block | 100% real; 6 shorts; values 0–5, trending up |
 | `0x86` | constant | always `5` |
 | `0x88` | constant | always `2` |

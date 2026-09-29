@@ -156,7 +156,7 @@ Three things worth taking from the order:
 
 - **Reassess runs before move and think**, so a state change takes effect on the same tick it is decided.
 - **Move runs before think.** The machine is integrated on its old think's decisions, not the new ones. The think is where every steering decision is made — see [`ai-navigation.md`](ai-navigation.md).
-- **`mech+0xaf` would suppress think for exactly one tick**, clearing itself as it does. No writer that raises it has been found: a field scan of the whole image, resolving the `LEA`/`ADD` rebases and the spill-and-reload idiom, reports `Mech_AiTick`'s own clear at `00411d3d` as the only write to the byte, and the neighbours a wider store could straddle it from (`+0xae`, `+0xac`, `+0xad`) are byte fields with byte-wide accesses. A null result is not proof, but on the evidence the branch is never taken and every tick runs its think.
+- **`mech+0xaf` suppresses think for exactly one tick**, clearing itself as it does. A field scan of the whole image, resolving the `LEA`/`ADD` rebases and the spill-and-reload idiom, reports `Mech_AiTick`'s own clear at `00411d3d` as the only write to the byte, and the neighbours a wider store could straddle it from (`+0xae`, `+0xac`, `+0xad`) are byte fields with byte-wide accesses. So every tick found runs its think; see [Open](#open).
 
 ## How the per-tick work reaches a state
 
@@ -200,7 +200,7 @@ Three mutually exclusive paths, tested in this order.
 | 5 | `travelling`, or `bulldog travel` when the chassis' torso-twist limit (`typeRec+0x22`) is above `0x7d00`. Twenty chassis state 14000; the **Pitbull states 32767**, the sentinel for a turret with no stop, so it is the one machine that travels as a bulldog |
 | 6 | `following` |
 
-A null order entry substitutes verb `0x0b`, which matches no case — and falls through to `Behaviour_SetState` with whatever is in `EDX`, since the function is `__cdecl(mech)` and the descriptor it installs lives in that register. Reached through the reassess dispatcher, that `EDX` is **null**: `Behaviour_DispatchReassess` leaves the descriptor's `+0x38` there, and every reassess triple in the table is `{func, 0, 0}`. The eight direct callers leave their own values. See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all), which owns the order data along with [`msn-mission-file.md`](../formats/msn-mission-file.md).
+A null order entry substitutes verb `0x0b`, which matches no case and falls through to `Behaviour_SetState` with whatever descriptor the caller left in `EDX` — null when reached through the reassess dispatcher. [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all) owns that case and the order data, along with [`msn-mission-file.md`](../formats/msn-mission-file.md).
 
 Four of this function's paths — the player branch, squad verbs 1/2 and 6, and the order-verb fall-through — end the same way: if the machine holds a selected target (`mech+0x1a4`), it is released, the refcount at `target+0x1a2` decremented, and `mech+0x9d` set. The release block is skipped whole when the field is already null, so `mech+0x9d` is not set then. See [`target-selection.md`](target-selection.md).
 
@@ -208,7 +208,24 @@ The paths that install no state — squad verbs 3 and 5, and any verb above 6 �
 
 ### Transitions
 
-`Behaviour_SetState` (`00413e50`) has **30 call sites**, which are the state machine's edge list. Which function installs which state is [`ai-combat-states.md`](ai-combat-states.md#the-transition-graph).
+`Behaviour_SetState` (`00413e50`) has **30 call sites**, which are the state machine's whole edge list. The four in `Flyer_Constructor` (`004215f4`), `Flyer_ComponentDamageWrite` (`00421bb4`), `Flyer_EngageWithFlight` (`00422bf0`) and `Flyer_AiSelectBehaviour` (`00422d00`) install descriptors outside the mech table (`0x499cf8`, `0x499e60`, `0x499d34`) and belong to the flyer path ([`ai-flyers.md`](ai-flyers.md#the-seven-states)). The other 26:
+
+| Installed by | States |
+|---|---|
+| `Mech_Constructor` (`00415bb0`) | `deciding`, `player`, `player fly` |
+| `Mech_ComponentDamageWrite` (`00417de4`) | `disabled`, `dead`, `in limbo` |
+| `Mech_AiEngageOrderedTarget` (`0041c0f4`) | `attacking flyer`, `attacking base` |
+| `Mech_AiFleeCheck` (`0041cb94`) | `fleeing` ×2 |
+| `Mech_AiCombatReassess` (`0041cf18`) | `attacking`, `flanking` or `facing off`, by combat rating |
+| `Mech_BehaviourSearchDestroyThink`, `Mech_BehaviourPatrolThink` | `fleeing` |
+| `Mech_BehaviourGuardThink` (`0041e224`) | `fleeing`, `driving off en` |
+| `Mech_BehaviourSkirtThink` (`0041dd64`) | whatever it stashed |
+| `Ai_BeginSkirtIfBlocked` (`0041de9c`) | `skirting` |
+| `Mech_AiSelectBehaviour` (`0041eb34`) | `player`, `player fly`, `patrolling`, `guarding`, and the order-verb table |
+| `Mech_AiOnTakingFire` (`0041f7b8`) | `driving off en` |
+| `Mech_ReceiveSquadOrder` (`00420ad4`) | `patrolling` ×3, `guarding` |
+
+Six states have no installer of their own and can only be reached through the order-verb table: `search/destroy`, `travelling`, `following`, `sleeping`, `ramming` and `bulldog travel`, the last of them only for the one chassis whose torso-twist limit clears its gate — see [Choosing a state](#choosing-a-state--mech_aiselectbehaviour-0041eb34). The states entered from a think are [`ai-combat-states.md`](ai-combat-states.md)'s and [`ai-navigation.md`](ai-navigation.md)'s.
 
 ## Mech fields the AI owns
 
@@ -220,7 +237,7 @@ Fields first read or written by the dispatch layer. Fields whose meaning is sett
 | `+0x4d` | 0x45 B | The behaviour block, above |
 | `+0x9d` | byte | Set whenever the selected target is released |
 | `+0xa3` | byte | This is the locally-piloted machine |
-| `+0xaf` | byte | Suppress think for one tick. `Mech_AiTick`'s clear is the only write found in the image; nothing raises it |
+| `+0xaf` | byte | Suppress think for one tick. `Mech_AiTick`'s clear is the only write the field scan finds ([Open](#open)) |
 | `+0x23e` | short | Standing squad order verb — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0x248` | ptr | Squad order target object — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0x1a4` / `+0x1a2` | ptr / short | Selected target and its refcount — [`target-selection.md`](target-selection.md) |
@@ -238,7 +255,7 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | `+0x4c` | `Mech_CompareCombatRating` (`0041cabc`) | This machine's combat rating against a candidate's — [`ai-targeting.md`](ai-targeting.md#relative-combat-rating) |
 | `+0x50` | `Mech_AiOnTakingFire` (`0041f7b8`) | "This object just took fire" — [`ai-targeting.md`](ai-targeting.md#taking-fire--mech_aiontakingfire-0041f7b8-mech-vtable-0x50). Holds one of the 30 `Behaviour_SetState` call sites |
 | `+0x64` | `Mech_AiOnLineOfFireBlocked` (`0041dd2c`) | "My shot hit something that is not what I aimed at" — the trigger for `skirting`, [`ai-combat-states.md`](ai-combat-states.md#how-it-is-reached) |
-| `+0x68` | `SimObject_SetRunInto` (`0042200c`) | "Something ran into me" — [`mech-locomotion.md`](mech-locomotion.md) |
+| `+0x68` | `SimObject_SetRunInto` (`0042200c`) | "Something ran into me" — the latch `ramming` detonates on, [`ai-combat-states.md`](ai-combat-states.md#the-charge--mech_behaviourramtick-0041e488) |
 
 ## Rejected readings
 
@@ -254,3 +271,4 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 ## Open
 
 - **Open:** bits 6–15 of descriptor `+0x08` — no state sets one, so nothing can read one.
+- **Open:** what raises `mech+0xaf`. The field scan finds no writer but `Mech_AiTick`'s own clear, and a null result is not proof; a write through a base register neither alias pass follows would go unseen.

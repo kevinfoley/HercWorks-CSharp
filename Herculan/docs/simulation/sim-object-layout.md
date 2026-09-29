@@ -62,6 +62,12 @@ The pool globals are zero in the image and filled in at load, so the size is not
 
 **A flyer is not a shortened mech.** Two pools, two lengths, two constructors, and the flyer starts its own fields at `+0x1fa` where the mech starts at `+0x1f2`. They are siblings.
 
+## Only the short-lived classes are recycled
+
+`Pool_Init` (`004719cc`) `memset`s a pool once at startup and `Pool_Alloc` (`00471a24`) hands back a node without zeroing it, so a recycled slot carries its predecessor's bytes. The only route back into a pool is `Pool_Free` (`00471abc`), whose sole caller is `ObjectPool_FlushDeleteQueue`. The mech pair's flush — registered as subsystem phase 5 and so run once a frame — drains the queue at `DAT_004a9c02`, which **has one writer, the one-time setup in `DBSim_LoadScriptDat`, and one reader, the flush itself**. Nothing ever queues a machine onto it, so a machine's slot is never reissued and no field of one is inherited.
+
+The short-lived classes are recycled every frame — explosions, debris, fires, drop pods, and the child parts `Mech_ComponentDamageWrite` queues — and those do inherit a predecessor's stale fields.
+
 ## Where the base ends — `0x1f2`
 
 `SimObject` is never allocated on its own, so it has no pool of its own to read a size from. Its extent is bounded above by where the derived classes start writing fields nothing else has:

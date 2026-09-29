@@ -5135,7 +5135,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_FastMagnitude3D",
-      "description": "Sqrt-free 3D magnitude approximation: L + M*0.34375 + S*0.25 (sorted |dx|,|dy|,|dz|). Verified via raw disassembly (three CMP/XCHG sort pairs, SAR+ADD coefficient chains). Reused for collision bounding-sphere radius and rocket proximity-fuze range checks.",
+      "description": "Sqrt-free 3D magnitude approximation: L + M*0.34375 + S*0.25 (sorted |dx|,|dy|,|dz|). Verified via raw disassembly (three CMP/XCHG sort pairs, SAR+ADD coefficient chains). Direction-dependent error: about 8% low on the body diagonal, up to about 8.7% high elsewhere. Reused for collision bounding-sphere radius, sound placement, LOD size and the rocket's proximity beep (round to camera machine, not a fuze).",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -5145,7 +5145,7 @@
       "confidence": "high",
       "name": "Math_DistanceBetweenPoints",
       "signature": "int __cdecl Math_DistanceBetweenPoints(int *a, int *b)",
-      "description": "Distance between two int Vec3s: copies a to a stack temp, subtracts b, and returns FUN_00492971 -- the Vec3 form of Math_FastMagnitude3D -- so it carries that function's ~3.4% low bias. The MFD TARGET range readout and BeamTracer_Ctor's chain node count both go through it.",
+      "description": "Distance between two int Vec3s: copies a to a stack temp, subtracts b, and returns FUN_00492971 -- the Vec3 form of Math_FastMagnitude3D -- so it carries that function's direction-dependent error (about 8% low to 8.7% high). The MFD TARGET range readout and BeamTracer_Ctor's chain node count both go through it.",
       "source": "docs/simulation/beam-visuals.md, docs/formats/mfd.md"
     },
     {
@@ -5174,7 +5174,7 @@
       "confidence": "high",
       "name": "Collision_RegisterObject",
       "description": "collide.cpp. Top-level collision-model entry point: allocates the next slot in the fixed collision-object table, then calls Collision_LoadRecordArray.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/formats/collision-spheres.md"
     },
     {
       "address": "0040ccf8",
@@ -5183,7 +5183,7 @@
       "confidence": "high",
       "name": "Collision_LoadRecordArray",
       "description": "Reads one object's whole collision model: an int16 node count, then that many 10-byte nodes via Collision_ReadNode, each post-processed by Collision_ComputeBoundingSphere. Called per structure type against dat/BASECOL.DAT (from Base_LoadResources, 00405fac) and per mech/flyer type against col/<NAME>.COL (from Collision_RegisterObject). Format and retail verification in docs/simulation/hit-detection.md.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "source": "docs/formats/collision-spheres.md"
     },
     {
       "address": "0040c5d0",
@@ -5191,8 +5191,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Collision_ComputeBoundingSphere",
-      "description": "Builds one cluster's bounding sphere from its child spheres: AABB of the children each inflated by its own radius, center = AABB midpoint, radius = Math_FastMagnitude3D of the half-extents. That approximation runs a few percent under a true Euclidean radius, so the bound is slightly tight -- behaviour, not an artefact. Called at load, never per tick.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "description": "Builds one cluster's bounding sphere from its child spheres: AABB of the children each inflated by its own radius, center = AABB midpoint, radius = Math_FastMagnitude3D of the half-extents. That approximation runs from about 8% under to about 9% over a true Euclidean radius depending on the box's proportions, so the bound is not exactly circumscribing -- behaviour, not an artefact. Called at load, never per tick.",
+      "source": "docs/formats/collision-spheres.md"
     },
     {
       "address": "0040a818",
@@ -5201,7 +5201,7 @@
       "confidence": "high",
       "name": "Rocket_LoadTypeTable_Unguided",
       "description": "rocket.cpp. Loads the Type-0 rocket type table (14-byte/0xe stride, confirmed via IMUL-style indexing).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/rockets.md"
     },
     {
       "address": "0040a234",
@@ -5210,7 +5210,7 @@
       "confidence": "high",
       "name": "Rocket_GetTypeRecord",
       "description": "RocketType* getType() accessor: RocketTypeTable + instance.typeIndex(byte @ +0x41) * 0xe.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/rockets.md"
     },
     {
       "address": "0040a9c4",
@@ -5228,7 +5228,7 @@
       "confidence": "high",
       "name": "Missile_Construct",
       "description": "Constructs the Type-0/unguided rocket-family object. PROJ.DAT category 0 (5 entries, real Speed, armor>>shield, uniform SplashFactor=500).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/rockets.md"
     },
     {
       "address": "0040ac3c",
@@ -5246,7 +5246,7 @@
       "confidence": "high",
       "name": "Bullet_Construct",
       "description": "Constructs the Type-2 Bullet-class object (own vtable BulletVtable (00498628), own 14-byte type table). PROJ.DAT category 2; MissileId 9 is the confirmed Plasma cannon.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/weapon-damage-types.md"
     },
     {
       "address": "0040a538",
@@ -5291,7 +5291,7 @@
       "confidence": "high",
       "name": "Bullet_TickUpdate",
       "description": "bullet.cpp per-bullet-instance tick. Fixed age rate Math_IntegrateRateOverTick(0x200). type==9 branch (confirmed Plasma cannon, MissileId 9 on a Bullet instance) calls Damage_ExplosiveBlastSweep directly with a 4000-unit blast radius.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/projectiles.md"
     },
     {
       "address": "0040bf74",
@@ -5300,7 +5300,7 @@
       "confidence": "high",
       "name": "Bullet_FireBurst",
       "description": "Fire-burst/tracer spawner, called as Bullet_FireBurst(missileId, shotTransform, range, ownerMech, power). Builds the shot record -- ray {transform, range, 200} plus Q10Multiply(power, DamageArmor), Q10Multiply(power, DamageShield), SplashFactor, the ImpactFX table pointer and the owner -- and calls Sim_RaycastObjectList synchronously to resolve the hit before any tracer visual spawns. This is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object. Splits the tracer into 5000-unit segments (FUN_0040b804) over the resolved distance.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/beam-visuals.md"
     },
     {
       "address": "0040e964",
@@ -5309,7 +5309,7 @@
       "confidence": "high",
       "name": "WeaponMount_FireDispatch_Missile",
       "description": "Missile-capable-hardpoint fire dispatcher: checks the mount's cached PROJ.DAT Type field, Type==Missile(0) -> Rocket_Fire, else falls through to the shared Bullet fallback.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/rockets.md"
     },
     {
       "address": "0040ea58",
@@ -5327,7 +5327,7 @@
       "confidence": "high",
       "name": "Proj_LookupRecord",
       "description": "PROJ.DAT in-memory lookup by (category, subtypeId) -- linear search against ProjDat_RecordTable.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/weapon-damage-types.md"
     },
     {
       "address": "0040fc8c",
@@ -5354,7 +5354,7 @@
       "confidence": "high",
       "name": "ProjDat_RecordTable",
       "description": "PROJ.DAT's in-memory record table, 36 bytes/record, keyed by (category, subtypeId). Verified byte-exact against the real retail ES2/VOL/simvol0/dat/PROJ.DAT (27 records) -- independently converges with the pre-existing C# ProjectileData.cs field layout.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/weapon-damage-types.md"
     },
     {
       "address": "004a9754",
@@ -5390,7 +5390,7 @@
       "confidence": "high",
       "name": "Terrain_HeightQuery",
       "description": "Converts world (x,y) to a grid cell, fetches 4 corner texels from a 16-byte-per-cell heightmap, does proper barycentric/bilinear interpolation across a per-cell-selectable diagonal (2-bit flag per cell).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/formats/terrain-heightmap.md"
     },
     {
       "address": "004a0bf8",
@@ -5418,7 +5418,7 @@
       "confidence": "high",
       "name": "Sim_RaycastObjectList",
       "description": "Generic ray-vs-live-object-list query. Nine call sites in four functions: Rocket_TickUpdate (1), Bullet_TickUpdate (2), Bullet_FireBurst (1) and Razor_MovementTick (5, the airframe contact probes). Calls each candidate's vtable +0x20 (hit-test) and +0x50 (AI threat-tracking). The shot record's second exclusion at +0x14 is written only by Razor_MovementTick; all three weapon callers leave that stack slot uninitialised.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/hit-detection.md"
     },
     {
       "address": "0041f7b8",
@@ -5436,7 +5436,7 @@
       "confidence": "high",
       "name": "Mech_DirectFireHitTest",
       "description": "Mech vtable +0x20. Range check -> Mech_ShieldAbsorb_DirectFire -> Mech_SelectStruckComponent -> Mech_ApplyDirectFireDamage. The hit-test and damage application are the same call, one level deeper than Sim_RaycastObjectList's caller.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/hit-detection.md"
     },
     {
       "address": "00413cc4",
@@ -5454,7 +5454,7 @@
       "confidence": "high",
       "name": "Mech_SelectStruckComponent",
       "description": "Deterministic single-component selection via real hit geometry -- iterates up to 29 component slots, tracks best match, returns exactly the one struck (no randomness, unlike the explosive path).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/hit-detection.md"
     },
     {
       "address": "0040c8fc",
@@ -5463,7 +5463,7 @@
       "confidence": "high",
       "name": "Mech_ComponentGeometryTest_Candidate",
       "description": "Per-candidate coarse geometry test, called by Mech_SelectStruckComponent.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/hit-detection.md"
     },
     {
       "address": "004188c8",
@@ -5877,7 +5877,7 @@
       "confidence": "high",
       "name": "Mech_ComponentDamageWrite",
       "description": "Mech vtable +0x74. Shared damage-write/cascade endpoint for both damage pathways. Also latches the two reactor-damage flags off dependent-subpiece 5: mech+0xaa past 50% damage, mech+0xab at 75%+, each with an alert sound for the player; the check is gated on BOTH flags being clear, so once the first latches the second can only be reached by a single hit that crosses both thresholds at once. 8-level percentage bucketing with alert sounds, leg-pair status tracking (dependent-array slots {0,1} front legs, {10,11} rear legs on 4-legged types), mech-death trigger on enough destroyed limbs.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0040da38",
@@ -5886,7 +5886,7 @@
       "confidence": "high",
       "name": "Component_ApplyDamageAndCascade",
       "description": "Subtracts damage from a component's current value (via a helper); if the component crosses into 'destroyed', cascades via Component_DestroyAndCascade.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0040d434",
@@ -5895,7 +5895,7 @@
       "confidence": "high",
       "name": "Component_DestroyAndCascade",
       "description": "Destroys a component and walks the BoneId destruction-dependency group, destroying every sibling that shares it. Also the whole of what a lost part puts on screen: the .DMG record's +0x03 (the TSCellAnimPart sequence this component drives) gates a fire and is stepped to its blank cell, an explosion goes off at the component's own composed frame -- type 0x11 and a one-per-cascade-group latch at DAT_004a98b0 when DestructionFlags bit 2 is set, type 10 otherwise -- and the +0x02 debris group is thrown, falling back to group 2 when it states -1.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0040dbc0",
@@ -5904,7 +5904,7 @@
       "confidence": "high",
       "name": "Component_ReadDamagePercent",
       "description": "Reads a component's ACCUMULATED DAMAGE as Q8 (0-256), 0 = pristine and 256 = destroyed -- NOT health, despite the earlier name. Component_AllocHealthArrays zeroes the arrays at init and the write path (FUN_0040d3ec) ADDS damage to the entry, capping it at the record's max and storing -1 once destroyed; this read substitutes the max for a -1 entry, so a destroyed component reads as fully damaged. Aggregates the component's own value with all its dependent sub-components before computing (totalDamage<<8)/totalMax. Renamed 2026-08-23 -- inverts the sense of every caller, including the pod-bonus curves in FUN_00417d08/FUN_00417bec and the mech+0x317 locomotion term.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0040d2cc",
@@ -5913,7 +5913,7 @@
       "confidence": "high",
       "name": "Component_AllocDamageArrays",
       "description": "Allocates the header of pointers at mech+0x206: a 22-entry dependent-subpiece DAMAGE array, a 29-entry main-component DAMAGE array, and a 29-entry active-flag array (all zeroed except the flag array, filled 0x01). Zeroed means undamaged, not destroyed -- these accumulate damage rather than hold remaining health. Renamed 2026-08-23, see Component_ReadDamagePercent.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0040d354",
@@ -5922,7 +5922,7 @@
       "confidence": "high",
       "name": "Component_LinkMaxRefData",
       "description": "Wires up mech+0x212 (and neighboring fields) as a pointer into per-component maximum/reference data, sourced from the mech's own .DMG-derived pointer plus its Collision_RegisterObject registration record.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0040cff8",
@@ -5931,7 +5931,7 @@
       "confidence": "high",
       "name": "HercPiece_ReadRecord",
       "description": "Loads one 18-byte .DMG HercPiece record: max health, debris-flags index pair, BoneId (bone/destruction-group key), DestructionFlags bitfield, dependent sub-component list pointer+count.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/formats/dmg-damage-file.md"
     },
     {
       "address": "0040d09c",
@@ -5940,7 +5940,7 @@
       "confidence": "high",
       "name": "HercPiece_LoadTable",
       "description": "Loads the .DMG per-mech component table: a count-prefixed flat byte array followed by a count-prefixed array of 18-byte HercPiece records (via HercPiece_ReadRecord).",
-      "source": "docs/simulation/dbsim-physics-notes.md; memory project_es2_exe_recon 2026-08-08"
+      "source": "docs/formats/dmg-damage-file.md"
     },
     {
       "address": "0040d160",
@@ -5949,7 +5949,7 @@
       "confidence": "high",
       "name": "Damage_LoadMechDmgFile",
       "description": "damage.cpp dispatch/setup that opens dmg\\[herc].DMG (filename built from the mech's own name string) and drives HercPiece_LoadTable. Called from the mech constructor.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/formats/dmg-damage-file.md"
     },
     {
       "address": "00415bb0",
@@ -5976,7 +5976,7 @@
       "confidence": "high",
       "name": "Shield_Init",
       "description": "Initializes the 5-field shield struct (mech+0x222) from the mech-type base capacity (typeRecord+0xc0): max fields = baseValue, current fields = baseValue>>1 (default 50/50 split).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/damage-system.md"
     },
     {
       "address": "004154d0",
@@ -5985,7 +5985,7 @@
       "confidence": "high",
       "name": "Mech_GetShieldByHeading",
       "description": "Mech vtable +0x34. Given a heading angle, returns the front (+0x222) or rear (+0x224) shield value by which side is within +/-90 degrees.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/damage-system.md"
     },
     {
       "address": "0045f464",
@@ -5995,7 +5995,7 @@
       "name": "Sim_MainTick",
       "signature": "short __cdecl Sim_MainTick(void)",
       "description": "DBSIM's per-frame simulation tick. Updates SimTickDelta from a hardware/timer source, iterates every global object list, and calls Mech_PerTickSystemsUpdate once per live mech in GlobalMechList.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/mission-deployment.md"
     },
     {
       "address": "0041aa5c",
@@ -6005,7 +6005,7 @@
       "name": "Mech_PerTickSystemsUpdate",
       "signature": "void __cdecl Mech_PerTickSystemsUpdate(MechObject *mech)",
       "description": "Per-mech-per-tick reactor/energy bookkeeping (integrates reactor output rate into the energy pool at +0x292), then dispatches weapon-energy arbitration and shield-recharge via Shield_RechargeTick.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/target-selection.md"
     },
     {
       "address": "00413b38",
@@ -6015,7 +6015,7 @@
       "name": "Shield_RechargeTick",
       "signature": "short __cdecl Shield_RechargeTick(void *shieldState, short request)",
       "description": "Shield recharge primitive: clamps the request to at most 5 units/tick and to the remaining deficit, redistributes front/rear via balance using Math_RateLimitedMoveToward, returns the unclaimed portion.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/damage-system.md"
     },
     {
       "address": "0041b130",
@@ -6033,7 +6033,7 @@
       "confidence": "high",
       "name": "Shield_BalanceInputRead",
       "description": "Reads the shield-balance HUD gauge widget's click state; if a flag is set, calls Shield_BalanceAdjust. Also pushes front/rear display percentages back to the widget.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "00413af8",
@@ -6042,7 +6042,7 @@
       "confidence": "high",
       "name": "Shield_BalanceAdjust",
       "description": "Nudges the shield balance field (mech+0x226) by +/-0x66 (102), clamped to [0, 0x400] (0-1024). Default center 0x200 (512).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/damage-system.md"
     },
     {
       "address": "004175dc",
@@ -6051,7 +6051,7 @@
       "confidence": "high",
       "name": "Mech_ConfigureLoadout",
       "description": "Mech loadout (re)configuration, called on spawn/equip changes. Allocates the weapon-mount-manager object at mech+0x202 (malloc 0x14 or 0x35 bytes depending on the 'locally-simulated' flag).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/weapon-mounts.md"
     },
     {
       "address": "004d256a",
@@ -6060,7 +6060,7 @@
       "confidence": "high",
       "name": "LocalPlayerMech",
       "description": "Confirmed global pointer to 'this instance's own locally-piloted mech' -- set in the level-init function by scanning the mech list for the one with the locally-simulated flag set.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/weapon-firing.md"
     },
     {
       "address": "004a9bfe",
@@ -6069,7 +6069,7 @@
       "confidence": "high",
       "name": "GlobalMechList",
       "description": "Global list of live mechs, walked once per tick by Sim_MainTick (calling Mech_PerTickSystemsUpdate per live, non-removed, non-dead mech).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/sim-object-layout.md"
     },
     {
       "address": "004a9b7c",
@@ -6078,7 +6078,7 @@
       "confidence": "medium",
       "name": "maybe_GlobalLiveObjectList",
       "description": "Global live-object list walked by Sim_RaycastObjectList and Damage_ExplosiveBlastSweep. Shared with confirmed objlist.cpp functions, not proven by a direct assert-string tie to Sim_RaycastObjectList itself.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/hit-detection.md"
     },
     {
       "address": "0047a038",
@@ -10397,7 +10397,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Timer_CountDown",
-      "description": "Generic millisecond countdown step: subtracts SimTickDelta from the int at p+1, clamps at 0, returns it. Taking p+1 rather than p is why the AI behaviour block's dwell countdown sits at an unaligned +0x05 with a spare byte at +0x04. Mech_AiTick passes &block+0x04, so descriptor+0x04 is a dwell time in milliseconds.",
+      "description": "Generic countdown step in the simulation's timer unit (about 0.49 ms per count, not a millisecond): subtracts SimTickDelta from the int at p+1, clamps at 0, returns it. Taking p+1 rather than p is why the AI behaviour block's dwell countdown sits at an unaligned +0x05 with a spare byte at +0x04. Mech_AiTick passes &block+0x04, so descriptor+0x04 is a dwell time in timer units.",
       "source": "docs/simulation/ai-dispatch.md",
       "signature": "undefined4 __cdecl Timer_CountDown(int p)"
     },
@@ -11255,7 +11255,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_ChainReady",
-      "description": "WeaponMounts_AdvanceToReady's own wrapper around WeaponMounts_MountIsReady, and the only caller of it that is not the gauge push. Returns 1 without asking -- so the chain never steps -- while the single-fire flag manager+0x18 is set or the auto-step latch DAT_004d25aa is up; otherwise forwards to the full predicate with followLink clear.",
+      "description": "WeaponMounts_AdvanceToReady's own wrapper around WeaponMounts_MountIsReady, and the only caller of it that is not the gauge push. Returns 1 without asking -- so the chain never steps -- while the single-fire flag manager+0x18 is set or DAT_004d25aa, the flag set while an electro-optical missile is in flight, is up; otherwise forwards to the full predicate with followLink clear.",
       "signature": "short __cdecl WeaponMounts_ChainReady(void *manager, void *mount, short mountIndex)",
       "source": "docs/simulation/weapon-mounts.md"
     },
@@ -11482,7 +11482,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_GetEnergyAmmoType",
-      "description": "Energy mount vtable +0x60: writes 0 through its optional out pointer and returns a constant 5. The ammunition counterpart is WeaponMount_GetAmmoType. WeaponMounts_FireTrigger raises an alert pair (DAT_004d25ac/DAT_004d25aa) when this returns 3, which an energy mount never can.",
+      "description": "Energy mount vtable +0x60: writes 0 through its optional out pointer and returns a constant 5. The ammunition counterpart is WeaponMount_GetAmmoType. WeaponMounts_FireTrigger sets DAT_004d25ac and DAT_004d25aa, the electro-optical missile flags, when this returns 3, which an energy mount never can.",
       "source": "docs/simulation/weapon-firing.md 2026-08-24"
     },
     {
@@ -12049,7 +12049,7 @@
       "confidence": "high",
       "name": "Collision_ReadNode",
       "description": "Reads one node of a collision model: int16 node index (-1 = the object's own frame, otherwise an index resolved through the shape instance's node-transform array) and int16 cluster count, then that many 16-byte clusters via Collision_ReadCluster. Was named Collision_LoadSubSpheres, which described the shape one level off.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "source": "docs/formats/collision-spheres.md"
     },
     {
       "address": "0040cc14",
@@ -12058,7 +12058,7 @@
       "confidence": "high",
       "name": "Collision_ReadCluster",
       "description": "Reads a cluster's component index into the record's +6, then its sphere array via Collision_ReadSphereArray into +0/+2. The component index is what makes a destroyed section stop blocking shots. Was named Collision_LoadSubSphereFlag: the value it reads is the component index, not a flag, and the branch it guards is on the read succeeding rather than on the value.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "source": "docs/formats/collision-spheres.md"
     },
     {
       "address": "0040c7c4",
@@ -12067,7 +12067,7 @@
       "confidence": "high",
       "name": "Collision_ReadSphereArray",
       "description": "Reads a cluster's int16 sphere count into the record's +0 and, when count & 0x1fff is nonzero, that many 8-byte { int16 x, y, z, radius } spheres into +2. The mask is only a zero-test -- the allocation and the read both use the unmasked value, and no retail record sets the top bits. Was named Collision_LoadSubMeshIndices; the 8-byte records are spheres, not mesh indices.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "source": "docs/formats/collision-spheres.md"
     },
     {
       "address": "00422ed0",
@@ -12336,7 +12336,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Atan2Guarded",
-      "description": "atan2 as a BAM angle, with the degenerate pair nudged onto an axis. ARGUMENT ORDER IS (x, y), NOT (y, x): it forwards to FUN_004929bc(p1, p2) and sets p1 -- the X -- to 1 when both are zero. Both Math_HeadingToward and Math_EulerToward call it as (dx, dy). Getting this backwards mirrors a bearing about the 45-degree line and turns an elevation into a polar angle from +Z; it cost the engine port a real bug, so state the order rather than writing 'atan2(dx, dy)'.",
+      "description": "atan2 as a BAM angle, with the degenerate pair nudged onto an axis. ARGUMENT ORDER IS (x, y), NOT (y, x): it forwards to FUN_004929bc(p1, p2) and sets p1 -- the X -- to 1 when both are zero. Both Math_HeadingToward and Math_EulerToward call it as (dx, dy). Getting this backwards mirrors a bearing about the 45-degree line and turns an elevation into a polar angle from +Z.",
       "source": "docs/simulation/target-selection.md 2026-08-29"
     },
     {
@@ -14062,7 +14062,7 @@
       "confidence": "high",
       "name": "FireEffect_Dtor",
       "description": "Destroys one burning-object effect and decrements DAT_006b4fbc, stopping sound 0x33 when it reaches zero.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/destruction-effects.md"
     },
     {
       "address": "0046b528",
@@ -14071,7 +14071,7 @@
       "confidence": "high",
       "name": "FireEffect_ReleaseForOwner",
       "description": "Walks the effect pool and returns every entry whose owner pointer at +0x4a matches the argument to the free list -- an object's fires going out when it is destroyed.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/destruction-effects.md"
     },
     {
       "address": "0046b75c",
@@ -14080,7 +14080,7 @@
       "confidence": "high",
       "name": "FireEffect_RegisterSubsystem",
       "description": "Registers FireEffect_LoadResources as a phase-2 subsystem loader and LAB_0046b084 as phase 5, and nulls the effect pool pointer.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "source": "docs/simulation/destruction-effects.md"
     },
     {
       "address": "00402604",
@@ -14777,8 +14777,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_BuildKeyboardAxes",
-      "description": "Builds the keyboard's contribution to the input axes: TWO signed pairs, not four independent axes. Held keys 0-7 accumulate into the first pair at 004d2445/004d2449 and keys 8-13 into the second at 004d244d/004d2451, each adding its own (dx, dy) entry from the table at 0049eb6d shifted left 7, i.e. +/-0x80 per key. That table is all zeroes in the image -- it is filled at runtime from the saved key configuration, which is why no arrow-key-to-axis mapping can be read out of the executable. The pairs are sources, not destinations: FUN_0045a5c0 registers them alongside the joystick axes in the source-pointer table at 004d2394, and the binding config chooses which source each game axis reads.",
-      "source": "docs/simulation/razor-flight.md"
+      "description": "Builds the keyboard's contribution to the input axes: TWO signed pairs, not four independent axes. Held keys 0-7 accumulate into the first pair at 004d2445/004d2449 and keys 8-13 into the second at 004d244d/004d2451, each adding its own (dx, dy) entry from the table at 0049eb6d shifted left 7, i.e. +/-0x80 per key. That table is all zeroes in the image and no writer to it is known, so no key-to-axis mapping can be read out of the executable. The pairs are sources, not destinations: Input_BuildSourceTable registers them alongside the joystick axes in the source-pointer table at 004d2394, and the binding config chooses which source each game axis reads.",
+      "source": "docs/formats/joystick-input.md"
     },
     {
       "address": "0045a5c0",
@@ -14787,7 +14787,7 @@
       "confidence": "high",
       "name": "Input_BuildSourceTable",
       "description": "Input-system init. Populates the source-pointer table at 004d2394 with the address of every available input value -- the two keyboard axis pairs Input_BuildKeyboardAxes writes, the four joystick axes at DAT_004d2414+0x0d/0x11/0x15/0x19, and the buttons -- so that a key or axis binding is a choice of pointer rather than a hardcoded path. This indirection is why Sim_PollPlayerInput reads some axes through a pointer-to-pointer.",
-      "source": "docs/simulation/razor-flight.md"
+      "source": "docs/formats/joystick-input.md"
     },
     {
       "address": "00406808",
@@ -14885,7 +14885,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Damage_ScaleByDifficulty",
-      "description": "Scales a damage figure in place by a Q10 factor from one of two four-entry tables selected by the firing side -- 0049a73c {3500, 2800, 2100, 1400} for side 0, 0049a744 {300, 600, 800, 1000} for anything else -- indexed by the mission difficulty at DAT_004a9ee0. So difficulty moves the two sides' damage in opposite directions (3.42x down to 1.37x, versus 0.29x up to 0.98x). Its one caller is Bullet_TickUpdate's plasma branch, on the blast figure before the sweep.",
+      "description": "Scales a damage figure in place by a Q10 factor from one of two four-entry tables selected by the firing side -- 0049a73c {3500, 2800, 2100, 1400} for side 0, 0049a744 {300, 600, 800, 1000} for anything else -- indexed by the mission difficulty at DAT_004a9ee0. So difficulty moves the two sides' damage in opposite directions (3.42x down to 1.37x, versus 0.29x up to 0.98x).",
       "source": "docs/simulation/projectiles.md",
       "signature": "void __cdecl Damage_ScaleByDifficulty(short *damage, int side)"
     },
@@ -15559,7 +15559,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_BehaviourPatrolThink",
-      "description": "Behaviour state 8, patrolling. Ai_NavigationStep, drop the target, then a gate that returns for any machine that is neither the group leader nor under a standing squad order -- so only the leader ever acquires. Past it, on the 10 s block-scratch timer at mech+0x5a: a machine out of action takes fleeing, otherwise it acquires (mask 1) only when the group order verb is 3 or the squad verb is 2, and hands the result to Mech_AiEnterCombat.",
+      "description": "Behaviour state 8, patrolling. Ai_NavigationStep, drop the target, then a gate that returns for any machine that is neither the group leader nor under a standing squad order -- so only the leader ever acquires. Past it, on the 10000-count (about 4.9 s) block-scratch timer at mech+0x5a: a machine out of action takes fleeing, otherwise it acquires (mask 1) only when the group order verb is 3 or the squad verb is 2, and hands the result to Mech_AiEnterCombat.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {
@@ -15604,8 +15604,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_LineOfSightBlocked",
-      "description": "Line of sight from this machine to its selected target, both endpoints lifted to their aim-node origins or by 500 units when there is no node: 0 clear, 1 blocked by a shape (Sim_RaycastShapes), 2 blocked by terrain as well. The trigger for the skirting state.",
-      "source": "docs/simulation/ai-navigation.md"
+      "description": "Line of sight from this machine to its selected target, both endpoints lifted to their aim-node origins or by 500 units when there is no node: 0 clear; 1 blocked by something the machine cannot get past (a shape, via Sim_RaycastShapes, or ground too steep to walk); 2 blocked only by ground it could walk over. The trigger for the skirting state.",
+      "source": "docs/simulation/ai-combat-states.md"
     },
     {
       "address": "0041c3c8",
@@ -15640,7 +15640,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_GroundDistanceBetweenPoints",
-      "description": "Ground-plane distance between two int Vec3s: Vec2_Subtract then Vec2_Magnitude, returned in EAX, Z dropped entirely. EVERY navigation range in the AI is this, not the 3D Math_DistanceBetweenPoints -- a waypoint on a hilltop is as near as one at its foot.",
+      "description": "Ground-plane distance between two int Vec3s: Vec2_Subtract then Vec2_Magnitude, returned in EAX, Z dropped entirely. Every range an AI steering decision is made on is this; the 3D Math_DistanceBetweenPoints gates only obstacle avoidance's machine sweep and following's standoff -- a waypoint on a hilltop is as near as one at its foot.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {
@@ -18452,7 +18452,7 @@
       "name": "ObjectivesPanel_Paint",
       "signature": "void __cdecl ObjectivesPanel_Paint(int *panel)",
       "description": "obj_alrt's vtable slot 0. Blits the plate at the panel origin plus the global blit offset, sets the title label, then walks block 13's resolved pointers filling line labels - skipping an empty string rather than leaving its row blank, and stopping once seven are filled. Finally calls each clickable child's own paint.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00457ae4",
@@ -18462,7 +18462,7 @@
       "name": "ObjectivesPanel_RunModal",
       "signature": "byte __cdecl ObjectivesPanel_RunModal(int *panel)",
       "description": "obj_alrt's modal loop, vtable slot +8. Enters via AlertPanel_Enter, focuses widget 0, then polls input, hands the event to the panel's slot +0x10 handler, ticks each clickable child and presents, until the close flag at +0x2d1 is set. It never calls the sim tick, which is why the simulation is stopped while a panel is up. gnl_alrt has its own near-identical copy at StatusAlertPanel_RunModal.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00457c30",
@@ -18472,7 +18472,7 @@
       "name": "ObjectivesPanel_OnChildClick",
       "signature": "void __cdecl ObjectivesPanel_OnChildClick(int panel, int child)",
       "description": "obj_alrt's vtable slot +0xc. Sets the close flag when the clicked child is child 0, which is the panel's only widget - the RETURN button.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00457c6c",
@@ -18492,7 +18492,7 @@
       "name": "AlertPanel_CtorBase",
       "signature": "void * __cdecl AlertPanel_CtorBase(void *panel, char ownsBackingStore, int *rect)",
       "description": "The alert panels' shared base constructor. Stores the screen rect at +0x04..+0x10 and the same rect panel-local (origin 0,0) at +0x1c..+0x28, allocates the offscreen backing store the panel restores the screen from, builds the widget list at +0x285, and sets the cancel widget +0x2fb to -1.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454f34",
@@ -18502,7 +18502,7 @@
       "name": "AlertPanel_CenterRect",
       "signature": "void * __cdecl AlertPanel_CenterRect(int width, int height)",
       "description": "Centres a panel rect of the given size on the screen: ((screenW - w) >> 1, (screenH - h) >> 1) against DAT_004d1ef4/DAT_004d1ef8.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454ef8",
@@ -18512,7 +18512,7 @@
       "name": "AlertPanel_SetRect",
       "signature": "void * __cdecl AlertPanel_SetRect(int x, int y, int width, int height)",
       "description": "Writes a panel rect to the shared four-int scratch at DAT_004d1f0c and returns it, which is what a panel constructor hands its base.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454630",
@@ -18522,7 +18522,7 @@
       "name": "AlertPanel_Enter",
       "signature": "void __cdecl AlertPanel_Enter(void *panel)",
       "description": "Puts a modal alert panel up: pauses both message ports, saves the current input state block, consumes buttons 1-4 so one held at open does not act, clears Widget_PressedIndex and swaps in the panel's own clickable list, installs the panel's render context, loads the alert cursor, copies the screen under the panel into the backing store and calls the panel's own paint.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "004548ac",
@@ -18532,7 +18532,7 @@
       "name": "AlertPanel_Leave",
       "signature": "void __cdecl AlertPanel_Leave(int panel)",
       "description": "The inverse of AlertPanel_Enter: restores the saved screen, the previous render context and clickable list, puts the input state block back and resumes both message ports.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454e10",
@@ -18542,7 +18542,7 @@
       "name": "AlertPanel_HandleEvent",
       "signature": "undefined4 __cdecl AlertPanel_HandleEvent(int panel, ushort *input)",
       "description": "The alert panels' shared vtable slot +0x10. Joystick button 1 (+0xd) and [Return] (0x1c) press the focused widget; [Esc] (0x01) presses the cancel widget at +0x2fb; joystick button 2 (+0x17), [Tab] (0x0f) and keypad Insert (0x52) walk the focus forward and Shift+Tab (0x80f) back. Anything else returns 0.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454ab0",
@@ -18552,7 +18552,7 @@
       "name": "AlertPanel_Present",
       "signature": "void __cdecl AlertPanel_Present(int panel)",
       "description": "One pass of the modal loop's tail: services sound, repaints dirty widgets, holds the close flag back while a widget is still animating its release, and flips the frame on the repaint interval.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454c7c",
@@ -18562,7 +18562,7 @@
       "name": "AlertPanel_SetFocus",
       "signature": "void __cdecl AlertPanel_SetFocus(int panel, int index)",
       "description": "Moves the panel's focus to widget index, storing it at +0x2f7. Focus is the pointer: it warps the cursor to the widget's centre. Index -1 instead adopts whichever widget the cursor is already over.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454d7c",
@@ -18612,7 +18612,7 @@
       "name": "PanelButton_Ctor",
       "signature": "void * __cdecl PanelButton_Ctor(void *button, int *rect, void *owner, int index)",
       "description": "An alert panel's button widget. Stores the owner and the index it reports back to it, and takes its four caption fonts from the cockpit set: ACTIVE at rest (+0x40), PUSHED held (+0x44), INACTIVE disabled (+0x48), ACTIVE again (+0x4c). Its two plate frames are filled in by the panel that builds it.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00454ff8",
@@ -18622,7 +18622,7 @@
       "name": "PanelButton_Paint",
       "signature": "void __cdecl PanelButton_Paint(int button)",
       "description": "Blits the plate frame for the button's current state from +0x30, asks its owner (slot +0x14) for its caption, overwrites the caption label's font with the state's entry from +0x40 and sets the text. The font overwrite is why a button caption is never drawn in the font its label was constructed with.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00455080",
@@ -18632,7 +18632,7 @@
       "name": "PanelButton_OnClick",
       "signature": "void __cdecl PanelButton_OnClick(int button, undefined4 flags)",
       "description": "Forwards the click to the owner's slot +0xc with the button's own index, repaints, then sounds the shared widget click.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00455064",
@@ -18652,7 +18652,7 @@
       "name": "Label_Ctor",
       "signature": "void * __cdecl Label_Ctor(void *label, void *font, char panelRelative)",
       "description": "A 0x21-byte HUD text label: zeroes it, stores the font at +0x00 and the panel-relative flag at +0x18 that makes Label_SetText subtract the global blit offset. Paired with Label_SetRect and Label_SetText.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "0045395c",
@@ -18692,7 +18692,7 @@
       "name": "StatusAlertPanel_RunModal",
       "signature": "byte __cdecl StatusAlertPanel_RunModal(int *panel)",
       "description": "gnl_alrt's modal loop, vtable slot +8. Same shape as the objectives panel's but it also watches DAT_004d25b6, the input poll's abort flag, which closes the panel from under it. Returns the close flag & 1, so button 0 reads 0 and button 1 reads 1.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00456068",
@@ -18702,7 +18702,7 @@
       "name": "StatusAlertPanel_Paint",
       "signature": "void __cdecl StatusAlertPanel_Paint(int *panel)",
       "description": "gnl_alrt's vtable slot 0. Plate at the panel origin, title, then the body: counts the rows up to the first empty or null one (max 4) and draws them from row 0 -- except that a one-line body is drawn on row 1 instead, so a short message sits nearer the middle of the plate. Then each button's own paint.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "00456160",
@@ -18751,7 +18751,7 @@
       "name": "StatusAlertPanel_CtorMinimal",
       "signature": "void * __cdecl StatusAlertPanel_CtorMinimal(void *panel, int status, char ownsBackingStore, int *rect)",
       "description": "Chains AlertPanel_CtorBase and installs gnl_alrt's vtable, nothing else. Both the status alert and the pause panel start here and then build their own widgets; the pause panel goes on to overwrite the vtable pointer with its own duplicate of the same six entries.",
-      "source": "docs/simulation/mission-objectives.md"
+      "source": "docs/simulation/alert-panels.md"
     },
     {
       "address": "0045a47c",

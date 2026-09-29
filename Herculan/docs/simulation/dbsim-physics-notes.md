@@ -1,31 +1,40 @@
-# DBSIM.EXE simulation physics — fixed-point core and collision
+# DBSIM.EXE fixed-point math and simulation timing
 
-Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`, `-cspec windows` reimport + `ES2CommitAllParams.java` applied — see `project_es2_exe_recon` memory for setup). All addresses are DBSIM.EXE virtual addresses. Several numeric claims below (fast-magnitude coefficients, fixed-point shift amounts) were checked against raw disassembly, not just decompiler output.
+Reverse-engineered from `DBSIM.EXE` (Ghidra project `ES2Recon`); addresses are DBSIM virtual addresses. The fast-magnitude coefficients and the fixed-point shift amounts were checked against raw disassembly, not just decompiler output.
 
-Scope is the shared fixed-point primitives and the collision-bound build. Projectile flight is in [`projectiles.md`](projectiles.md) and [`rockets.md`](rockets.md); combat damage resolution is in [`damage-system.md`](damage-system.md) (shields, the direct-fire/explosive pathways), [`component-damage.md`](component-damage.md) (the `.DMG` health record and cascade) and [`weapon-damage-types.md`](weapon-damage-types.md) (weapon effectiveness); the terrain heightmap format and query is in [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md). The pseudo-random generator is a math-library utility of the same kind as the helpers below but is not a fixed-point primitive, and has its own page: [`random-generator.md`](random-generator.md).
+Scope is the shared math-library primitives and the simulation's timestep, which every other simulation doc builds on. What uses them lives with the subsystem: projectile flight in [`projectiles.md`](projectiles.md) and [`rockets.md`](rockets.md), hit geometry in [`hit-detection.md`](hit-detection.md), damage in [`damage-system.md`](damage-system.md) and [`component-damage.md`](component-damage.md), the terrain heightmap in [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md). The pseudo-random generator is a math-library utility of the same kind but not a fixed-point primitive, and has its own page: [`random-generator.md`](random-generator.md).
 
 ## Fixed-point math toolkit
 
-Shared helper functions used throughout the sim, not tied to any one subsystem — the primitives every other section below builds on.
+Shared helper functions used throughout the sim, not tied to any one subsystem.
 
-**`DAT_004d3be8` — the global simulation timestep (`SimTickDelta`)**, read by both helpers below and computed once per tick by `Time_BeginSimTick` (`004677bc`):
+**`DAT_004d3be8` — the global simulation timestep (`SimTickDelta`)**, read by `Math_IntegrateRateOverTick`, `Math_CountdownTimerTick` and `Timer_CountDown` below and computed once per tick by `Time_BeginSimTick` (`004677bc`):
 
 ```
 spin until GetTickCount() >= last + 40             // 25 Hz frame cap
 SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2)
 ```
 
-Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not per-second or per-tick-count. Everything scaled by it is a "per this tick" quantity — DBSIM runs a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40 ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored).
+Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not per-second or per-tick-count, and one countdown unit is 125/256 ms, so a reload of 10000 lasts about 4.9 s. Everything scaled by it is a "per this tick" quantity — DBSIM runs a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40 ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored); a tick measured at 41 ms gives 83.
 
 Not every per-tick quantity is scaled by this timestep: locomotion's `SpeedAccelDecel`/ `DecelTurning` accel-step fields are raw per-tick steps with no `Math_IntegrateRateOverTick` (`00467820`) integration, making the original's control law frame-rate dependent — see [`mech-locomotion.md`](mech-locomotion.md#timing) for the consequence.
 
-**`Math_Q8Multiply(a, b)` (`0047df94`) — Q8 fixed-point multiply.** `(int64)a * b`, right-shifted 32 bits via `SHRD EAX,EDX,0x8` (i.e. `>> 8`, scale factor 256). Two adjacent sibling functions share the same `IMUL`+`SHRD` shape at different shift amounts (`0xa` = Q10, `0xe` = Q14 with a 16-bit signed operand) — Q8 is used for position/rate math below; Q14's range fits a normalized `-1.0..1.0` value like a sin/cos table output, though no caller confirms that.
+**The multiply family.** Each is `(int64)a * b >> n` (an `IMUL` then `SHRD EAX,EDX,n`, taking the low word), and the scale is the fixed-point unit of the operands:
 
-**`Math_IntegrateRateOverTick(rate)` — "integrate this rate over one tick."** `Q8mul(DAT_004d3be8, rate)`, clamped to signed 16-bit range (`[-0x7fff, 0x7fff]`). The core "apply a per-unit-time rate as this tick's delta" primitive — called on velocity/acceleration-like type-table fields to get a position delta, and on trig-adjacent values (missile guidance, see `rockets.md`).
+| Function | Address | Shift | Used for |
+|---|---|---|---|
+| `Math_Q8Multiply` | `0047df94` | 8 | rates against the timestep (`SimTickDelta` is Q8); stick and rate products |
+| `Math_Q10Multiply` | `0047dfa4` | 10 | normalised scalars: throttle and speed, damage and shield fractions, capacitor charge |
+| `Math_Q14Multiply` | `0047dfb4` | 14 | the sine/cosine table at `004a25dc`, whose entries are Q14; the second operand is a signed 16-bit value |
+| `Math_Q16Multiply` | `0047df81` (twin at `0047df71`) | 16 | ratios built by `Math_Q16Divide` (`0047df5c`), such as the load-time speed rescale in `MechType_InitOne` |
 
-**`Math_CountdownTimerTick(timerRecord)` (`00467944`) — countdown timer tick.** The argument points at a 3-byte packed record, **not** at the counter: the counter is the `short` at `+1`. `rec[+1] -= DAT_004d3be8`, clamped to 0, returning the new value. Records appear in stride-3 runs; each owning object documents its own offset (`mech+0x258`, `mount+0x30` are the two not yet written up). Used for cooldowns (e.g. a projectile shape's animation-frame interval). The byte at `+0` is never read or written anywhere in DBSIM — unidentified, not established as padding.
+**`Math_IntegrateRateOverTick(rate)` (`00467820`) — "integrate this rate over one tick."** `Q8mul(DAT_004d3be8, rate)`, clamped to signed 16-bit range (`[-0x7fff, 0x7fff]`). The core "apply a per-unit-time rate as this tick's delta" primitive, called on velocity- and acceleration-like fields to get a position or speed delta: a round's step and age ([`projectiles.md`](projectiles.md), [`rockets.md`](rockets.md)), the reactor's recharge ([`reactor-energy-pool.md`](reactor-energy-pool.md)), the torso's accelerations ([`torso-aim.md`](torso-aim.md)), a flyer's motion ([`razor-flight.md`](razor-flight.md)).
 
-**`Math_RateLimitedMoveToward(current*, target, step)` (`004679d8`) — rate-limited "move toward."** If `current < target`, adds `step` (clamped so it doesn't overshoot `target`); symmetric for `current > target`. Returns the remaining error (0 once `current == target`). A generic per-tick turn/slew-rate limiter — used by missile guidance to cap heading-correction rate, and reused for other rate-capped values.
+**`Math_CountdownTimerTick(timerRecord)` (`00467944`) — countdown timer tick.** The argument points at a 3-byte packed record, **not** at the counter: the counter is the `short` at `+1`. `rec[+1] -= DAT_004d3be8`, clamped to 0, returning the new value. **`Timer_CountDown` (`004679a4`)** is the same step over a 5-byte record whose counter is an `int` at `+1`, for windows a `short` cannot hold. Where the records sit in an object, and why a cited offset is the counter rather than the record, is in [`sim-object-layout.md`](sim-object-layout.md#countdowns-keep-their-counter-one-byte-past-the-record). Used for cooldowns and frame intervals (a rocket's exhaust animation, a mount's refire, a lock timer). The byte at `+0` is never read or written anywhere in DBSIM ([Open](#open)).
+
+**`Math_RateLimitedMoveToward(current*, target, step)` (`004679d8`) — rate-limited "move toward."** If `current < target`, adds `step` (clamped so it doesn't overshoot `target`); symmetric for `current > target`. Returns the remaining error (0 once `current == target`). A generic per-tick slew-rate limiter with `int` twin `Math_RateLimitedMoveTowardInt` (`00467a24`, a flyer's airspeed): rocket and plasma-round steering, locomotion's speed and turn ramps, structure turrets, the shield recharge and the external camera's rates all go through it. The function does no timestep scaling itself; whether the step it is handed was scaled is up to the caller.
+
+**`Math_EulerToward(out, from, to)` (`00492884`) — the euler triple that aims at a point.** With `d = from - to`: `euler[2] = Math_Atan2Guarded(dx, dy) - 0x4000`, `euler[1] = 0`, `euler[0] = Math_Atan2Guarded(FastMagnitude2D(dx, dy), dz)`. The quarter-turn subtraction is because the simulation's forward axis is model Y. `Math_Atan2Guarded` (`00492800`) takes **`(x, y)`** and sets the *x* to 1 when both are zero, so `euler[2]` is the ground bearing `atan2(dy, dx)` and `euler[0]` is `atan2(dz, groundDistance)` — an **elevation above the horizon**, not a polar angle from +Z. Reading the argument order backwards mirrors the bearing about the 45° line and turns a level target into a quarter turn of pitch. Call sites pass the destination first. `Math_HeadingToward` is the same helper and order for the ground bearing alone. The pitch's ground distance is the sqrt-free `FastMagnitude2D`, so it carries an approximation error. Callers: the plasma round's and launcher rounds' steers ([`projectiles.md`](projectiles.md#the-plasma-branch), [`rockets.md`](rockets.md#guidance--rocket_homingsteer-0040a254)), the structure turret's aim ([`structure-behaviour.md`](structure-behaviour.md)), the AI's fire decision ([`ai-weapons.md`](ai-weapons.md)).
 
 **`Math_FastMagnitude3D(dx, dy, dz)` (`0047dd66`) — fast (sqrt-free) 3D magnitude approximation.** Takes `|dx|,|dy|,|dz|`, sorts into `L ≥ M ≥ S`, returns:
 
@@ -33,32 +42,17 @@ Not every per-tick quantity is scaled by this timestep: locomotion's `SpeedAccel
 L + M×0.34375 + S×0.25          (M×(1/4 + 1/16 + 1/32), S×(1/4))
 ```
 
-Classic alpha-max-plus-beta-min-style 3D distance approximation (avoids a real `sqrt`), and it reads **~3.4% low** — the bias every range and radius comparison in the simulation inherits. In the disassembly the sort is three `CMP`/`XCHG` pairs and the coefficients are `SAR`+`ADD` chains. Reused for two unrelated purposes, confirming it's a general math-library utility:
-- **Collision bounding-sphere radius** (`Collision_ComputeBoundingSphere` (`0040c5d0`), below).
-- **Missile target-proximity check** (`Rocket_TickUpdate`, `0040a538`) — `if (dist_approx < 40000) { ...proximity warning... }`.
+An alpha-max-plus-beta-min-style approximation that avoids a real `sqrt`. It is exact along an axis and its error depends on direction: up to about **8% low** on the body diagonal (three equal components) and up to about **8.7% high** where the two smaller components are roughly a third and a quarter of the largest, averaging about 4% high over all directions. Ranges and radii measured with it inherit that bias, so a real `sqrt` is not a substitute. In the disassembly the sort is three `CMP`/`XCHG` pairs and the coefficients are `SAR`+`ADD` chains. A general math-library utility, used for the collision bounding-sphere radius ([`../formats/collision-spheres.md`](../formats/collision-spheres.md)), sound placement ([`../formats/audio.md`](../formats/audio.md)), the LOD size estimate ([`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md)), the flyer's engine-hum pitch ([`razor-flight.md`](razor-flight.md)) and the rocket's proximity beep. Not every range uses it: a fire's sound placement takes an exact integer square root ([`destruction-effects.md`](destruction-effects.md#where-the-shared-sound-is-heard)).
 
-## Collision system (`collide.cpp`)
-
-Address cluster `0x0040c428`–`0x0040cd88`: the per-object hit-sphere model, its load-time setup and its ray test. **Fully decoded and ported for structures** — [`hit-detection.md`](hit-detection.md) carries the file format, the readers, the ray test and the retail verification. Three points that belong with the rest of the fixed-point math:
-
-- The model is a tree of `{x, y, z, radius}` `int16` spheres grouped into clusters, one cluster per destructible component of the object.
-- Each cluster's bound (`Collision_ComputeBoundingSphere`, `0040c5d0`) is the AABB of its children each inflated by its own radius, centred on that box's midpoint, radius = `Math_FastMagnitude3D(halfExtents)`, so the bound inherits that function's bias.
-- `Collision_RegisterObject` (`0040cd88`) loads one model by name into a fixed table (`_DAT_004a98a8`, 6 bytes/entry, counter `DAT_004987de`). Its two callers are `Mech_Constructor` (`00415bb0` → `mech+0x1f6`) and the flyer type loader (`FlyerType_LoadResources` (`00422ed0`) → `+0x32`), both from `col\<NAME>.COL`. Structures use the same reader against `dat\BASECOL.DAT` instead. The `.COL` files are decoded and ported — see [`hit-detection.md`](hit-detection.md).
-
-## Rocket physics
-
-Rocket and projectile math lives in [`rockets.md`](rockets.md). Note `Rocket_PlayerSteer` is the player flying an electro-optical missile, not a ballistic steering variant, and the per-tick step that looks like a seeker reacquire is the exhaust flame's animation counter.
-
-**`fire.cpp` ruled out as a projectile-math source.** Only one function (`FireEffect_LoadResources`, `0046b0a4`) carries a `fire.cpp` assert string, and it is the burning-object effect's loader — [`destruction-effects.md`](destruction-effects.md#fire). Projectile spawn and hit-resolution logic lives in `rocket.cpp`/`bullet.cpp` and [`damage-system.md`](damage-system.md), not `fire.cpp`.
-
-## Traps
-
-1. **DBSIM ticks at a fixed 25 Hz** (`SimTickDelta`/`DAT_004d3be8` = 81 in Q8/125ms units at that rate) and essentially all motion math is `rate × tick` in Q8, not continuous float integration; a naive float-based reimplementation will drift from the original unless the same quantization/clamping is preserved. Note the exception described above: locomotion's accel/decel steps are unscaled and frame-rate dependent in the original.
-2. **Every range and radius comparison in the simulation uses the fast-magnitude approximation**, collision bounds included — reproducing hit detection faithfully means reproducing its bias, not substituting a real `sqrt`.
-3. **Missile guidance leads its target and rate-limits its turn at `0x500`/tick, and weaves by `0xc00` while the target is jamming** — see [`rockets.md`](rockets.md).
+**`Math_FastMagnitude2D(dx, dy)` (`0047dd40`) — the 2D counterpart.** `max(|dx|,|dy|) + min(|dx|,|dy|)/2`, the octagonal estimate: exact on an axis and up to about 11.8% high on a diagonal. It measures ground-plane distances (the detection sweep's decay range, a locomotion slide, the scanner's range test) and is the distance both HUD range readouts display, so the original's own on-screen ranges carry the error.
 
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
-| `FireEffect_LoadResources` (`0046b0a4`) is the muzzle-flash loader — it builds filenames by appending an index to a base string, loads two effect variants, and wires each result into a per-shape pointer | Nothing in the fire path reaches it, and the muzzle flash is the weapon model's own flipbook — see [`weapon-mounts.md`](weapon-mounts.md#the-muzzle-flash). `FireEffect_LoadResources` loads the burning-object effect ([`destruction-effects.md`](destruction-effects.md#fire)) |
+| The distance test in `Rocket_TickUpdate` (`0040a538`), `Math_FastMagnitude3D(round - camera) < 40000`, is a proximity fuze or a target-proximity check | It measures the round's distance to the machine the camera is following (`ViewObjectPtr`), and only plays sound `0x32` once as the round comes within range. Nothing detonates on it; a round ends on its lifetime or on the raycast alone ([`rockets.md`](rockets.md#flight--rocket_tickupdate-0040a538)) |
+| A countdown's value is in milliseconds | The unit is one `SimTickDelta` count, 125/256 ms. A reload of 10000 lasts about 4.9 s |
+
+## Open
+
+- **Open:** the byte at `+0` of a `CountdownTimer` record. `Math_CountdownTimerTick` never touches it, and for the four global instances (`004a9be8`, `004a9bec`, `004a9ee6`, `004a9ee9`) nothing reads or writes it anywhere in DBSIM, only takes its address. That leaves its meaning open rather than establishing it as padding.

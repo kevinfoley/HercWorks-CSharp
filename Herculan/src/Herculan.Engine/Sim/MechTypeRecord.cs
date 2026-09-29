@@ -142,7 +142,7 @@ public sealed class MechTypeRecord {
 	/// <para>Retail states 1000 for every heavy and medium chassis, 750 for the three light ones and
 	/// 0 for the RAZOR — a class figure, not a per-model measurement.</para>
 	/// </summary>
-	public short HitCenterHeight => Data.Unk22_Val750Razor0;
+	public short HitCenterHeight => Data.HitCenterHeight;
 
 	/// <summary>
 	/// Record field 24 (the exe's <c>typeRecord+0x1a</c>) — the machine's hit radius, in world units,
@@ -152,10 +152,9 @@ public sealed class MechTypeRecord {
 	///
 	/// <para>It is deliberately generous — it only has to be wide enough that nothing which could hit
 	/// is rejected, because the <c>col\&lt;NAME&gt;.COL</c> sphere model behind it is what actually
-	/// decides. The field was named <c>AiAimTargOffset</c> on a guess; these two consumers identify
-	/// it.</para>
+	/// decides.</para>
 	/// </summary>
-	public short HitRadius => Data.AiAimTargOffset;
+	public short HitRadius => Data.HitRadius;
 
 	/// <summary>
 	/// Record field 110 (the exe's <c>typeRecord+0x70</c>) — the machine's body radius, and the one
@@ -204,7 +203,7 @@ public sealed class MechTypeRecord {
 	/// traced reading this field, so "mounts are destructible" is the whole of what it is known to
 	/// mean.</para>
 	/// </summary>
-	public bool WeaponMountsDestructible => Data.Unk84_val != 0;
+	public bool WeaponMountsDestructible => Data.WeaponMountsDestructible != 0;
 
 	/// <summary>
 	/// Record offset 82, the type record's <c>+0x54</c> — the Q10 scale a wreck of this chassis is
@@ -228,7 +227,7 @@ public sealed class MechTypeRecord {
 	/// <summary>Reads one of the record's NUL-padded fixed-width name fields.</summary>
 	private static string Name(byte[]? field) =>
 		field == null ? string.Empty
-			: System.Text.Encoding.ASCII.GetString(field).TrimEnd(' ', ' ');
+			: System.Text.Encoding.ASCII.GetString(field).TrimEnd('\0', ' ');
 
 	/// <summary>
 	/// The shape part each leg's node hangs on, and the leg's kind byte — record offsets 117 and 112

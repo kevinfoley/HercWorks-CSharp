@@ -1,6 +1,6 @@
 # Preferences and controls (DBSIM.EXE)
 
-The two panels [F12] reaches, and the file they edit. Both are members of the modal alert-panel family whose shared base, paint conventions and button widget are in [`mission-objectives.md`](mission-objectives.md#the-status-alert--gnl_alrt-00455934); this doc owns only what is particular to them.
+The two panels [F12] reaches, and the file they edit. Both are members of the modal alert-panel family whose shared base, paint conventions and button widget are in [`alert-panels.md`](alert-panels.md#what-the-family-shares); this doc owns only what is particular to them.
 
 `PreferencesPanel_Raise` (`0045cfd4`) is what commands `0x58` ([F12]) and `0x219` ([Alt+P]) reach ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes)). It raises `DAT_004d2576` to stop the simulation for as long as the panel is up, snapshots the view object's whole settings block beforehand and writes it back on the way out. The CONTROLS button then builds the second panel over the first, which stays on screen behind it.
 
@@ -8,7 +8,7 @@ The two panels [F12] reaches, and the file they edit. Both are members of the mo
 
 ## `data\prefs.cfg` — the option array
 
-**The file is the array.** `Prefs_LoadOptions` (`00459754`) memsets `SimOptions` (`004d1fbc`) to zero for `0x36` bytes and reads the file straight over it with no parse at all, so **an option's index is its byte offset** and a retail `prefs.cfg` is 54 bytes.
+**The file is the array.** `Prefs_LoadOptions` (`00459754`) memsets `SimOptions` (`004d1fbc`) to zero for `0x36` bytes and reads the file straight over it with no parse at all, so **an option's index is its byte offset** and a retail `prefs.cfg` is 54 bytes. It then walks all 54 options, calls the handler of each one that has one with the byte just loaded, and seeds both shadow arrays — the load-time one at `004d1ff2` and the outgoing one at `004d2028` — from the array.
 
 Three functions write it, all through `Prefs_SetOption` (`0045993c`), which saves the outgoing byte to the shadow array at `004d2028`, stores the new one, and — when told to apply — calls that option's handler from the parallel table at `004d2060`:
 
@@ -26,7 +26,7 @@ The caller supplies the modulus, which is why one pair drives a three-value row 
 |---|---|---|
 | 0 MUSIC | `Prefs_ApplyMusicOption` (`00459c98`) | `Sound_SetMusicEnabled`, then `Sound_UnmuteMusic` / `Sound_MuteMusic` |
 | 1 SOUNDS | `Prefs_ApplySoundsOption` (`00459c6c`) | `Sound_SetEffectsEnabled`, then `Sound_UnmuteEffects` / `Sound_MuteEffects` |
-| 2 PILOT MESSAGE | `Prefs_ApplyPilotMessageOption` (`00459cc4`) | `Sound_SpeechEnabled` (`0049f97e`) `= byte != 0`. That flag gates every recorded line — `Voice_Acquire` opens no clip and `Snc_Start` plays none while it is down — so TEXT ONLY here silences the computer's voice too, whatever COMPUTER MESSAGE says |
+| 2 PILOT MESSAGE | `Prefs_ApplyPilotMessageOption` (`00459cc4`) | `Sound_SpeechEnabled` (`0049f97e`) `= byte != 0`. That flag gates every recorded line — `Voice_Acquire` opens no clip and `Snc_Start` plays none while it is down — on both message channels ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)) |
 | 8 TERRAIN TEXTURE | `Prefs_ApplyTerrainTextureOption` (`00459d4c`) | `TerrainTexturingEnabled` (`004aab2c`) |
 | `0x0e` THROTTLE | `Input_SetThrottleLeverMode` | the herc controls block's THROTTLE row, and so an independent corroboration of where that block starts |
 
@@ -61,7 +61,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 |---|---|---|
 | 0 | MUSIC | off / on |
 | 1 | SOUNDS | off / on |
-| 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both |
+| 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both; what each gates is [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)'s |
 | 3 | COMPUTER MESSAGE | as option 2 |
 | 4 | **VSHELL's** `Game Resolution` | 0 `High Res (640x480)`, 1 `Low Res (320x240)` — and the byte `VideoMode_Configure` reads, [below](#the-video-mode-and-full-screen-bytes) |
 | 5 | **VSHELL's** shell music track | non-zero `hmi\shell1.wav`, zero `hmi\shell2.wav`; the shell flips it at every startup, so the two alternate ([`../shell/screen-layout.md`](../shell/screen-layout.md#sound)) |
@@ -80,21 +80,19 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 44 | **VSHELL's** `Repair Options:` | 0 `AutoRepair All Hercs`, 1 `Manually Repair My Herc`, 2 `Manually Repair All Hercs` |
 | 45 | **VSHELL's** `Weapons Building:` | 0 `AutoBuild Weapons`, 1 `Manually Build Weapons` |
 | 46 | **VSHELL's** `INSTANT ACTION` demo | which of the three demo missions the next `INSTANT ACTION` plays, stepped modulo 3 after each; its chassis goes into option 40 ([`../shell/screen-layout.md`](../shell/screen-layout.md#which-mission-a-row-is)) |
-| 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup. A retail `prefs.cfg` ships 1 |
+| 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-main-menu)) |
 
 `ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession` (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and `Main_StaticInit` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a binding made in a walker does not disturb the RAZOR's.
 
-Options 48-53 have no reference in either image and are zero in a retail file. Neither panel reads them.
+No instruction in either image addresses options 48-53 by name, and they are zero in a retail file; only the loops that walk the whole array touch them.
 
-**The file is shared with VSHELL**, which keeps the same 54-byte array, the same load-time shadow and the same handler table, and reads and writes the same path. Options 37-47 are its side of that sharing, and the simulator reads only 4 and 6 of them. See [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte).
-
-**VSHELL's own PREFERENCES screen** edits six of these — options 0 and 1 by a checkbox each, and 44, 45, 4 and 6 by groups of checkboxes that act as radio buttons — so the shell edits the same two sound bytes the simulator's own panel does ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-preferences-screen)).
+**The file is shared with VSHELL**, which keeps the same 54-byte array, the same load-time shadow and the same handler table, and reads and writes the same path. Options 4, 5 and 37-47 are its side of that sharing, and of those the simulator reads only 4 and 6, both straight from the file at startup and 6 again from the array at shutdown ([below](#the-video-mode-and-full-screen-bytes)). The shell's own screens that edit them are [`../shell/screen-layout.md`](../shell/screen-layout.md#the-preferences-screen) and [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte); options 0 and 1, the two sound bytes, are edited by both programs.
 
 ### The video-mode and full-screen bytes
 
 `VideoMode_Configure` (`0045e4f4`) does not go through the option array at all: on its first call it `fread`s **seven bytes of `data\prefs.cfg`** into a local buffer and takes byte 4 as its mode and byte 6 as the full-screen flag. So the two settings reach the simulator before `Prefs_LoadOptions` has a say, and the file's own layout is what makes that work.
 
-Byte 4 is reduced to two cases — **1 gives the 320x240 block and anything else the 640x480 block with hi-res banks**, which is the mode a retail file's 0 selects. The middle mode (`640x480`, low-res banks) is unreachable from the file and only `-v1` on the command line produces it ([`../formats/cockpit-views.md`](../formats/cockpit-views.md#video-modes)). `-v` also bypasses the once-only gate, because the gate is set on the first call and the command line is parsed after `WinMain`'s own `VideoMode_Configure(0)`.
+Byte 4 is reduced to two cases — **1 gives the 320x240 block and anything else the 640x480 block with hi-res banks**, which is the mode a retail file's 0 selects. What the modes are, why the file never reaches the middle one and how `-v` overrides it are [`../formats/cockpit-views.md`](../formats/cockpit-views.md#video-modes)'s.
 
 Byte 6 non-zero makes `FUN_00465054` size the window to the desktop and place it topmost, and `WinMain` then clears the flag and calls the toggle at `004666c4`, which takes DirectDraw exclusive and sets an 8-bit display mode. `-Z1` and `-Z0` override it. Because the player can toggle full-screen during the session, the byte is written back at shutdown when it no longer matches what was loaded.
 
@@ -118,7 +116,7 @@ Nine settings and two plain buttons, as a strip along the bottom of the screen w
 
 ### Geometry
 
-The constructor writes the block into `.bss` once as `value << VideoMode_?CoordShift`, so every number is an authored 320-wide coordinate doubled. Rects are panel-local.
+The [family's layout](alert-panels.md#what-the-family-shares) applies.
 
 | Global | Device | Is |
 |---|---|---|
@@ -226,7 +224,7 @@ The panel installs a handler of its own in vtable slot `+0x10` where the rest of
 
 **Then the eight states, first pressed one wins.** A press on the row that is already selected steps that row's action, exactly as a second click does; a press on any other row selects it and moves the highlight to widget `row + 4`. `Input_LatchButton` then holds the button, so one press is one step.
 
-**Then the keys**, which are the family's convention and not a departure from it: [Return] presses the widget at `+0x2f7`, or focuses widget 0 when that is unset; [Esc] presses the cancel widget at `+0x2fb`; [Tab] and scancode `0x52` focus the next widget and [Shift+Tab] the previous.
+**Then the keys**, which are the [family's](alert-panels.md#what-the-family-shares) convention and not a departure from it: [Return] presses the widget at `+0x2f7`, or focuses widget 0 when that is unset; [Esc] presses the cancel widget at `+0x2fb`; [Tab] and scancode `0x52` focus the next widget and [Shift+Tab] the previous.
 
 A button row steps by **slot index within its own list** (`panel+0x462`, wrapping at that row's length in `panel+0x46a`), not by action code: `ControlsPanel_StepButton` (`00459320`) forward and `ControlsPanel_StepButtonBack` (`0045938c`) back both advance the slot and then write out whatever code that slot holds. The slot is seeded at construction by searching the row's list for the stored code, and left at 0 when it is not there — so a row showing a code its own list does not offer starts stepping from the top rather than from what it shows.
 
@@ -250,9 +248,7 @@ That function also carries an arm that zeroes the block, taken when the capabili
 | Reading | Why it is wrong |
 |---|---|
 | `004d1fbc` is a four-byte array of message-channel modes | It is the base of the whole 54-byte option array. The two message modes are entries 2 and 3 of it |
-| The message-channel setting offers an OFF | Its string group holds three words and the byte indexes them directly: 0 is text only, 1 voice only, 2 both. The display half runs when the byte is not 1 and the voice half when it is not 0, which is three behaviours, not four |
 | Every stepping row can be stepped both ways | STRUCTURE DETAIL and EFFECTS DETAIL cannot. Their cases test the right-button flag and then call the **forward** step down both arms, where the other two stepping rows call the backward one |
 | RECOMMEND leaves every row on the recommended action | It writes the code held by the slot it *found*, and a code the row does not offer resolves to slot 0. Walking, `NEXT WEAPON` is recommended for BUTTON 6 and is not in that row's list, so retail's own RECOMMEND binds it to `LINK WEAPON` |
 | A binding the readout shows is a binding its option list can reach | Rows alternate between a `NEXT WEAPON` list and a `PREV WEAPON` one, and nothing rejects a write of the other. A retail install can sit on a binding its own list cannot step to |
 | `0049e9cd` is a dead constant because it is zero in the image | `Voice_ArchiveExists` writes it at startup from whether the localised `simvoice` archive opens |
-| Widget state 2 means a panel button is not drawn | `PanelButton_Paint` has no state test at all: it indexes the frame and font tables with the state, so a state-2 button draws its third frame in `INACTIVE`. The "refused by Paint" rule is the cockpit widget classes', not this family's |

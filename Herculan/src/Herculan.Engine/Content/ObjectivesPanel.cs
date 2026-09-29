@@ -3,7 +3,7 @@
 /// <summary>
 /// The in-mission objectives panel — <c>obj_alrt</c> (<c>ObjectivesPanel_Ctor</c>, <c>0045751c</c>), what [F11] puts up over
 /// the cockpit. It lists <c>script.dat</c> block 13, which is the mission's objective text as the
-/// player is shown it; see docs/simulation/mission-objectives.md.
+/// player is shown it; see docs/simulation/alert-panels.md.
 ///
 /// <para>This type is the panel's data and its state. Its geometry is in
 /// <see cref="ObjectivesPanelLayout"/> and its pixels are drawn by

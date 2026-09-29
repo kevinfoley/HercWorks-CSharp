@@ -45,7 +45,7 @@ Four things it fixes for everything downstream:
 - **The cruise speed is per machine**, out of the mission file: `mech+0x252`, set at spawn from block 7's `+0x02` and zero in 91% of retail records. Zero means `0xaa`, about two thirds of the `0x100` that saturates a chassis' maximum.
 - **Arrival is 10000 units** — 60 metres, and again on the ground plane.
 
-`Ai_DriveToPoint`'s Turbo Pod sprint fires only under a standing squad order, so nothing a machine does on mission orders sprints it to a waypoint however far it has to walk. It is not the pod's only user: `Mech_BehaviourFleeThink` (`0041d3a4`) engages it with no gate at all, which is the one place in the AI a pod fires on mission orders. Both call sites reach `mech+0x317` and there is no third; the pod's own speed bonus belongs to [`mech-locomotion.md`](mech-locomotion.md).
+`Ai_DriveToPoint`'s Turbo Pod sprint fires only under a standing squad order, so nothing a machine does on mission orders sprints it to a waypoint however far it has to walk. It is not the pod's only user: `Mech_BehaviourFleeThink` (`0041d2c4`) engages it with no gate at all, which is the one place in the AI a pod fires on mission orders. Both call sites reach `mech+0x317` and there is no third. How an AI machine's pod is engaged and charged is [`equipment-pods.md`](equipment-pods.md#what-the-two-ticks-do-with-the-button); what the sprint is worth is [`equipment-pods.md`](equipment-pods.md#what-the-turbo-pod-is-worth).
 
 ### Follow the route — `Ai_FollowRoute` (`0041fb60`)
 
@@ -156,7 +156,7 @@ Six of the 22 states are navigation rather than combat — 8, 9, 10, 11, 12 and 
 
 `Ai_NavigationStep`, then the target drops, and then a gate: **a machine that is not the group leader, has no standing squad order and has not been told to fire at will returns here and does nothing else.** It does not even hold a target — the drop is above the gate — so by default the leader is the group's only scout. The squad verb is sampled *before* the movement, which can clear it. `mech+0xb6` is `FIRE AT WILL` and is what buys a follower the right to scout; see [`ai-squadmates.md`](ai-squadmates.md).
 
-That is not the same as a follower never fighting. Two things reach one: `Mech_AiOnTakingFire`, and the combat reassess's leader sweep, which the leader's own think triggers the moment it finds something. **A member dragged in that way acquires its own target**, through its own `Ai_SelectTarget` on the same branch the leader took; it never reads the leader's `mech+0x1a4`. So a follower cannot *notice* a fight, only join one — and the acquisition score's crowding divisor then spreads the group across targets rather than onto the leader's. See [`ai-targeting.md`](ai-targeting.md).
+That is not the same as a follower never fighting. Two things reach one: `Mech_AiOnTakingFire`, and the combat reassess's leader sweep, which the leader's own think triggers the moment it finds something. So a follower cannot *notice* a fight, only join one, and it joins by acquiring its own target rather than taking the leader's. See [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18).
 
 Past the gate, on a 10000-count timer — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units) — in the behaviour block's scratch (`mech+0x5a`):
 
@@ -173,7 +173,7 @@ The same shape and the same gate less its squad-verb term — only leadership an
 
 That also means the cursor can be stepped several times in a tick, once by each member that is within 10000 of the waypoint the previous step just made current. A tightly-packed group crossing a dense stretch of route skips through it faster than one machine would.
 
-It then drops its target, and on the same timer acquires one into `mech+0x5f` — a *look-at*, not a target: it is never written to `mech+0x1a4`. It is nonetheless **shot at**: the state closes with `Ai_AimAndFire`, the same tail the combat states use, so a machine walking a route engages what it watches without ever selecting it. See [`ai-weapons.md`](ai-weapons.md). The radar (`mech+0x96`) goes ACTIVE whenever there is something to watch.
+It then drops its target, and on the same timer acquires one into `mech+0x5f` — a *look-at*, not a target: it is never written to `mech+0x1a4`. It is nonetheless **shot at**: the state closes with `Ai_AimAndFire`, the same tail the combat states use, so a machine walking a route engages what it watches without ever selecting it. See [`ai-weapons.md`](ai-weapons.md). On each acquisition the radar (`mech+0x96`) goes ACTIVE if there is something to watch or the mission's standing setting (`mech+0x97`) is on, and PASSIVE otherwise.
 
 ### `following` (10) — `Mech_BehaviourFollowThink` (`0041daac`)
 
@@ -193,20 +193,7 @@ The post is `Mech_AiGoalPosition` (`0041dbcc`). A player squadmate with no stand
 
 The half-turn in the steering term (`bearing - heading - 0x8000`) is what makes a guard face outward. The ring is the state's entire movement; there is no patrol of the perimeter.
 
-Its target handling is the exception among the five: it runs `Ai_SelectDefenceTarget` (`0041e0e0`) against the post rather than a plain acquisition, and installs `driving off en` (16) on what it finds, or `fleeing` (18) if it is itself out of action.
-
-## Line of sight — `Ai_LineOfSightBlocked` (`0041dc24`)
-
-Not navigation, but it is built out of the same two probe primitives, and it is what sends a machine into `skirting` (14). Both endpoints are lifted to their objects' aim-node origins, or by 500 units when there is no node, and then:
-
-```
-steep    = Terrain_RayWalk(from, to, mode 1)          // is a face in the way too steep to walk
-if (Sim_RaycastShapes(from, to) hit something that is not the target) return 1
-if (!Terrain_RayWalk(from, to, mode 0))               return 0      // the ground is clear
-return steep ? 1 : 2
-```
-
-**The two nonzero answers are not "shape" and "terrain".** `1` is anything the machine cannot get past — a shape, or ground whose slope `Terrain_FaceBlocksMovement` says it could not walk. `2` is ground it *could* walk: the thin ray grazes a rise the machine can simply crest. That is what makes the reading matter to the one consumer — see [`ai-combat-states.md`](ai-combat-states.md#skirting-14--mech_behaviourskirtthink-0041dd64), which owns the state.
+Its target handling is the exception among the five: it runs `Ai_SelectDefenceTarget` (`0041e0e0`, scored in [`ai-targeting.md`](ai-targeting.md#taking-fire--mech_aiontakingfire-0041f7b8-mech-vtable-0x50)) against the post rather than a plain acquisition, and installs `driving off en` (16) on what it finds, or `fleeing` (18) if it is itself out of action.
 
 ## Mech and mission fields this layer owns
 
@@ -215,14 +202,12 @@ return steep ? 1 : 2
 | `+0xae` | byte | Unstick direction: reverse out rather than push forward |
 | `+0x254` | short | Unstick side, `±5000` |
 | `+0x26d` | timer | The unstick window, 10000 counts or about 4.9 s; its counter is the int at `+0x26e` |
-| `+0x252` | short | AI cruise speed, from block 7 `+0x02`. Zero means `0xaa` |
+| `+0x252` | short | AI cruise speed, from block 7 `+0x02` ([`script-dat.md`](../formats/script-dat.md), [`msn-mission-file.md`](../formats/msn-mission-file.md)). Zero means `0xaa` |
 | `+0x5a` | timer | The navigation states' own decision clock, 10000 counts or about 4.9 s, in the behaviour block's scratch |
 | `+0x5f` | ptr | What `travelling` and `following` point the turret at. Not a selected target |
 | `+0x97` | byte | The mission file's standing radar setting for this machine, from block 7 `+0x00` — [`ai-weapons.md`](ai-weapons.md) |
 | `+0x96` | byte | Radar mode, written here from `+0x97`, or from `+0xb2` in the player's squad — [`ai-weapons.md`](ai-weapons.md) |
 | `+0xb6` | byte | `FIRE AT WILL` — lets a non-leader run the patrol, search-and-destroy and guard thinks. Written by [`ai-squadmates.md`](ai-squadmates.md) |
-
-Block 7's `+0x00` and `+0x02` are `.MSN` row #12's `+0x08` and `+0x0a`; see [`msn-mission-file.md`](../formats/msn-mission-file.md) and [`script-dat.md`](../formats/script-dat.md).
 
 ## Rejected readings
 

@@ -52,12 +52,12 @@ Walks the whole action array and, per action, picks whose position `Action_TestT
 
 #### The areas — block 4, resolved by `TriggerArea_Resolve` (`00423358`)
 
-A block-4 record resolves to 10 bytes: type flag at `+0`, a block-1 coordinate pointer at `+2`, and at `+6` either a second coordinate pointer (type 0) or **the record's literal × 10** (type != 0). `TriggerArea_ContainsPoint` (`004233a4`) tests a position against it:
+A block-4 record resolves to a 10-byte area ([`script-dat.md`](../formats/script-dat.md#the-13-block-structure), block 4). `TriggerArea_ContainsPoint` (`004233a4`) tests a position against it:
 
 - **type 0** — axis-aligned XY box strictly between the two coordinates. Z is ignored, so a box catches anything standing over its footprint however high.
 - **type != 0** — ground-plane distance from the coordinate is less than the stored radius.
 
-The resolved list stops at the **first negative ref**, not at the eighth slot: the load pass counts up to the first `-1` and allocates exactly that many, so a populated slot behind a gap is never tested.
+A populated slot behind the action's first negative ref is never tested ([`script-dat.md`](../formats/script-dat.md#block-5-in-memory--58-bytes-0x3a)).
 
 ### Action timers — `ActionTimer_Tick` (`004230a4`)
 
@@ -72,23 +72,25 @@ if (timer.primary == null || timer.primary.activated) {
 }
 ```
 
-The delay is the file's stored value `<< 11` in the simulation's timer unit, so its unit is exactly one second. A timer with no primary runs from mission start; one with a primary runs from the moment that action activates. The re-arm is through the same shift — about eight hours — and by then every action the timer names has activated, so the later expiry does nothing.
+The file's delay is in seconds ([`script-dat.md`](../formats/script-dat.md#block-6-in-memory--49-bytes-0x31) has the shift). A timer with no primary runs from mission start; one with a primary runs from the moment that action activates. The re-arm goes through the same shift — 30000 seconds, about eight hours — and by then every action the timer names has activated, so the later expiry does nothing.
 
 Chaining two of them staggers a sequence: `script6.dat` has action 1 arm a 92-second timer that activates action 2, which arms a 123-second timer that activates action 3.
 
 ### An object's own two actions — `+0x1b2` and `+0x1b6`
 
-Every mech, flyer and structure carries two action pointers, resolved by `DBSim_SpawnMissionObjects` from its roster record's own refs (block 7 `0x80`/`0x82`, block 8 `0x56`/`0x58`, block 9 `0x2e`/`0x30`).
+Every mech, flyer and structure carries two action pointers, resolved by `DBSim_SpawnMissionObjects` from its roster record's own refs ([`script-dat.md`](../formats/script-dat.md#the-two-pass-read--and-what-it-means-for-dbsim-keeps) has the offsets in blocks 7-9).
 
-**`+0x1b2` — engaged.** `Detection_Sweep` activates it when a hostile that already has contact on this object closes to 50000 units; both parties latch `+0x9e` and both activate their own. It is gated on `obj+0xa2` being clear — a text search finds no writer of that byte ([Open](#open)).
+**`+0x1b2` — engaged.** Two routes. `Detection_Sweep` activates it when a hostile that already has contact on this object closes to 50000 units; both parties latch `+0x9e` and both activate their own. And a shot that reaches the shooter's own selected target raises the *shooter's* `+0x9e` (`0042671f`) and activates the *struck* object's action, from the tail of `Sim_RaycastObjectList` ([`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)) — so shooting at what you have boxed engages it with nothing in detection range of it, the other way into mission-objective condition 6 ([`mission-objectives.md`](mission-objectives.md)).
 
-**`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat. The first three run the object's [out-of-action report](component-damage.md#the-out-of-action-report) just before it; no call from the fourth has been found:
+Both routes are gated on the struck object's `obj+0xa2` being clear. That byte is a per-tick latch: `Mech_PerTickSystemsUpdate` raises it (`0041abd8`) on whatever the machine's targeting-computer pod holds a lock on, and `Sim_DetectionTick` clears it on everything at the end of the pass ([`target-selection.md`](target-selection.md)). `Action_Activate` is itself one-shot, so the gate can only suppress a duplicate inside one tick.
+
+**`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat. The first three run the object's [out-of-action report](#the-out-of-action-report) just before it; no call from the fourth has been found ([Open](#open)):
 
 | site | when |
 |---|---|
 | `Mech_ComponentDamageWrite` (`00417de4`) | the machine dies (both of that function's death branches) |
 | `Flyer_ComponentDamageWrite` (`00421bb4`) | component 0 goes |
-| `Base_ApplyDamage` (`00404d70`) | the last component goes — [`hit-detection.md`](hit-detection.md) |
+| `Base_ApplyDamage` (`00404d70`) | the last component goes — [`structure-behaviour.md`](structure-behaviour.md#taking-damage--base_applydamage-00404d70) |
 | `Ai_ChooseWeapon` (`0041f358`) | the machine runs out of working weapons — [`ai-weapons.md`](ai-weapons.md) |
 
 **This is how a retail mission chains its reinforcement waves.** The shipped `script.dat` names one on five of its ten mech records; see the worked example below.
@@ -118,6 +120,8 @@ Runs every frame for every waiting group; does nothing until that group's action
 | 4 | on foot | 90,000 | `-0x7000 - (rand & 0x1fff)` — behind, ±22.5° |
 | 5 | on foot | 150,000 | `0x2000 - (rand & 0x3fff)` — ahead, ±45° |
 | other | in place | — | — |
+
+No retail `.MSN` authors verb 4 or 5: the verb runs 0-3 across the corpus ([`msn-mission-file.md`](../formats/msn-mission-file.md#row-10-field-decode--action82-dat_00470660-82-bytesrecord)). The two on-foot arrivals are read from the code alone.
 
 **On foot** places the group's leader at that point facing `bearing - 0x8000` (the bearing itself, not the player's heading plus it), runs each other member through its own vtable `+0x78` formation offset, and clears `group+0x14` immediately. Only the leader is turned.
 
@@ -152,7 +156,7 @@ vz     = -height / n
 `Meteor_Tick` (`00409d2c`), walked from `Sim_MainTick` over the pool *before* the group pass, has two phases:
 
 1. **Falling** (`+0x4b == 0`). Integrates position by the velocity at `+0x45`, pitches the shape to `atan2(vz, 2000)` so it faces its fall line, plays sound `0x2f` once below absolute height 50,000, and on ground contact (`Terrain_HeightQuery`) sets the landed flag, snaps to ground height, plays sound `0x30` and detonates `Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null)`. **If anything was in range it sets `+0x4c`** — the sweep answers on range alone, so a machine whose shields swallow the blast still trips the latch. It is the terrain query and not the flight-time count that ends the fall, so a pod aimed at ground well below the player keeps flying past its target.
-2. **Landed.** Advances `+0x4d` at rate `0x5dc` per tick and drives the shape's frame counter from `+0x4d >> 10` — the pod opening. When that reaches the shape's frame count: if the pod carries a group and **`+0x4c` is clear**, it copies its own landed position onto the group's **leader** and clears `group+0x14`, which is the moment the group becomes real. A pod that landed on something delivers nothing, and the group it carried stays out of the mission for the rest of the run. It then spawns a leftover effect from the theater's flat-shape pool at the site, releases its shape instance and returns 1, and `Sim_MainTick` frees it.
+2. **Landed.** Advances `+0x4d` at rate `0x5dc` per tick and drives the shape's frame counter from `+0x4d >> 10` — the pod opening. When that reaches the shape's frame count: if the pod carries a group and **`+0x4c` is clear**, it copies its own landed position onto the group's **leader** and clears `group+0x14`, which is the moment the group becomes real. A pod that landed on something delivers nothing, and the group it carried stays out of the mission for the rest of the run. Whenever the pod carries a group it then spawns a leftover effect from the theater's flat-shape pool at the site, releases its shape instance and returns 1, and `Sim_MainTick` frees it.
 
 `Meteor_Render` (`00409cd0`) draws the plain shape (root 0) while falling and the opening animation's own shape instance at `+0x41` (root 1) once landed.
 
@@ -187,16 +191,41 @@ At the top it stops `0x21`, plays `0x29` (`explo2.wav`) and shakes the view for 
 
 ## The mission counters — `DAT_004a9ef4`
 
-1,000 shorts, and the **campaign's** flag array for the length of a mission. It makes a round trip through `data\mission.var`:
+1,000 shorts, and the **campaign's** flag array for the length of a mission. It makes a round trip through `data\mission.var`: the shell writes the file from its own flag array before launch and reads it back at debrief ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-files-crossing-between-the-two-binaries)). The simulator's two ends of it:
 
-1. VSHELL writes the file from its flag array (`00482af8` there, the store the `.msn` condition opcodes test and every save slot carries) before launching the mission (`MissionVar_Write`, `0040e9cb`).
-2. `DBSim_LoadScriptDat` (`00424308`) reads 2,000 bytes of it into `DAT_004a9ef4`, before it opens `player.mec`, and then zeroes slot 20, slot 10 and slots 21 to 42. Every other slot carries the campaign's value into the mission. Slots 21 to 49 are the weapon units the debrief grants ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)), so the zeroing starts a mission with none owed but the last seven ([Open](#open)).
-3. `Mission_WriteResults` (`0042412c`) writes, as the mission ends, `results.dat` and then the same 2,000 bytes back to `mission.var` ([`mission-objectives.md`](mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
-4. VSHELL's `MissionVar_Read` (`0040ea59`) loads the file back into its flag array at debrief. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7).
+1. `DBSim_LoadScriptDat` (`00424308`) reads 2,000 bytes of it into `DAT_004a9ef4`, before it opens `player.mec`, and then zeroes slot 20, slot 10 and slots 21 to 42. Every other slot carries the campaign's value into the mission. Slots 21 to 49 are the weapon units the debrief grants ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)), so the zeroing starts a mission with none owed but the last seven ([Open](#open)).
+2. `Mission_WriteResults` (`0042412c`) writes, as the mission ends, `results.dat` and then the same 2,000 bytes back to `mission.var` ([`mission-objectives.md`](mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
 
-Four things write the counters during a mission: `Action_Activate`, an objective ([`mission-objectives.md`](mission-objectives.md)), an object or a whole group going out of the fight ([`component-damage.md`](component-damage.md#the-out-of-action-report)), and `Mech_CreditNeutralisedTarget` (`00415710`), which adds one to slot 10 when the player puts a machine of its own group out of the fight.
+Four things write the counters during a mission: `Action_Activate`, an objective ([`mission-objectives.md`](mission-objectives.md)), an object or a whole group going out of the fight ([below](#the-out-of-action-report)), and `Mech_CreditNeutralisedTarget` (`00415710`), which adds one to slot 10 when the player puts a machine of its own group out of the fight ([`component-damage.md`](component-damage.md#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710)).
 
 The simulator reads slot 20 itself: `Mission_WriteResults` adds 25,000 kg of salvage per unit of slot 20 to the award it writes to `results.dat`.
+
+### The out-of-action report
+
+`Mech_ReportOutOfAction` (`00411bc8`) writes the counters an object is set to write when it goes out of the fight. `es2_xref.py` finds four calls to it, each immediately before the object's defeat action ([`+0x1b6`](#an-objects-own-two-actions--0x1b2-and-0x1b6)): both of `Mech_ComponentDamageWrite`'s branches ([disabled and dead](component-damage.md#going-out-of-the-fight)), `Flyer_ComponentDamageWrite` when component 0 goes, and `Base_ApplyDamage` when a structure's last component goes. The fourth defeat-action site, a machine running out of working weapons, is not among them ([Open](#open)).
+
+It does two things:
+
+1. **The group's report.** `Group_ReportIfAllOutOfAction` (`00423f30`) walks the object's group, skipping the object itself, and returns at the first member that is neither destroyed (`+0x99`) nor immobilised (`+0xa4`). If none is left standing it runs the group's own ten slots at `group+0x1c`/`+0x30`. The reporting object is skipped rather than tested because the leg branch reports before it latches `+0xa4`. Nothing latches the group's writes; they run once because each member reports once and only the last one standing finds the rest down.
+2. **The object's own.** Ten slots at `obj+0x1ba` (counter refs) and `obj+0x1ce` (operations).
+
+Each slot with a non-negative ref writes that counter by its operation. These are neither the action layer's codes nor the objective layer's ([`mission-objectives.md`](mission-objectives.md#the-record)):
+
+| op | write |
+|---|---|
+| 1 | zero it |
+| 2 | add one |
+| `0x0d`-`0x10` | store op − `0x0c`, 1 to 4 |
+| anything else | nothing |
+
+The slots come from each object's `script.dat` record ([`../formats/script-dat.md`](../formats/script-dat.md#the-two-pass-read--and-what-it-means-for-dbsim-keeps)), copied in by `SimObject_SetOutOfActionCounters` (`00411b90`), and the group's from its block-11 record, record 0 included. `es2_xref.py` finds three calls to the copy, all in `DBSim_SpawnMissionObjects` and all on the roster side of its `index < rosterCount` test, so a machine of the player's squad does not get its slots from a record. Its slots start at zero instead: `DBSim_LoadScriptDat` builds the mech pool (`004a9bfe`) afresh for each mission with `Pool_Init` (`004719cc`, at `00425196`), which zeroes the pool's storage, and `Mech_Constructor` then sets refs 0-2 to −1 (`00415c3a`-`00415c51`). Every operation reads 0, so a squad machine's report writes nothing of its own ([Open](#open)).
+
+Across the 62 `.MSN` missions, 32 use the mech slots, 31 the structure slots, 22 the group slots and one the flyer slots. Two uses account for all but six of the 1,258 filled slots:
+
+- **Op `0x0d` on a machine**, 420 slots. 412 of them set a flag in 22-41, the weapon grants [`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be) reads at debrief: putting the HERC out of the fight earns one unit of that weapon. The weapon is one the machine carries in 400 of the 412; the other twelve name a weapon outside its fit, eight of them `L300` on a machine carrying weapon 8. The write is a store, so several machines setting one flag still grant one unit. The last eight slots set counter 20.
+- **Op 2 on a structure**, 756 slots: counter 20, the 25,000 kg salvage bonus above, in 64 of them, and in the other 692 a counter of the structure's own from 100 up, which goes back to the campaign's flag array with the others.
+
+The six others carry op 6 or `0x17`, which write nothing here.
 
 ## The shipped mission, end to end
 
@@ -210,18 +239,6 @@ A worked example, because it is the only place the four mechanisms are visible t
 | wave 3 | either of group 5's machines dies (`+0x1b6` → action 2) | groups 6 and 7, one ACHILLES each, **by drop pod** |
 
 Action 0's circle is centred at (1005988, 1058404) with radius 150,000 and its subject is type 3 — deployed **Cybrid** groups, not the player. The player spawns inside it at 64,132; group 2's ACHILLES spawns north at 252,252 and walks south, crossing in at tick 1222 (~49 s at 25 Hz). So the first wave arrives on its own if the player does nothing, and sooner if the player kills the machine. Actions 1 and 2 carry no area, so their only route is the kill.
-
-## What is ported
-
-`MissionLoader` resolves blocks 4, 5 and 6 and every action ref — a group's `0x70`, an order's `+0x12`, a timer's, and each roster record's own two. `MissionScene` builds the runtime states and binds them. `SimWorld` holds the action array, the timer array, the counters and the pod pool, and ticks them in `Sim_MainTick`'s order.
-
-An activating action posts its message through `ISoundSink.CommandSay`, once per counter slot as the original does.
-
-`MissionGroup.AwaitingDeployment` is `group+0x14` and `SimObject.AwaitingDeployment` is a *read* of it, so the two cannot disagree; all three gate effects are honoured.
-
-The two walk-on verbs are implemented but unexercised: no mission has been found that uses them.
-
-The [lift start](#the-lift-start) is left out on purpose: the art it draws is not in the shipped data.
 
 ## Rejected readings
 
@@ -240,4 +257,5 @@ The [lift start](#the-lift-start) is left out on purpose: the art it draws is no
 - **Open:** what reads `0049aef4`, the byte the lift start clears for its duration (1 in the image). `es2_xref.py` finds only the lift's two stores.
 - **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
 - **Open:** why the load's zeroing stops at slot 42, leaving the grants in 43 to 49 owed from before the mission.
-- **Open:** confirm whether anything writes `obj+0xa2`, the gate on the engaged action ([above](#an-objects-own-two-actions--0x1b2-and-0x1b6)); a text search finds no writer.
+- **Open:** whether anything writes a player-squad machine's operation slots (`+0x1ce`-`+0x1e1`) after construction. `es2_fieldscan.py` finds no writer but `SimObject_SetOutOfActionCounters`, and even that one only at `+0x1ce`: the scan misses writes through a stepping pointer, which is how that function fills the other nine.
+- **Open:** whether the weapons-out defeat in `Ai_ChooseWeapon` (`0041f358`) runs an out-of-action report. `es2_xref.py` finds no branch, stored pointer or vtable slot reaching `Mech_ReportOutOfAction` from there; that sweep would miss a call through a pointer built at run time.

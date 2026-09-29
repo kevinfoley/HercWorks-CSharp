@@ -38,7 +38,6 @@ DEFAULT_TARGETS = [os.path.join("Herculan", "docs")]
 # scratchpads, and the review reports are records of a point in time.
 EXEMPT_BASENAMES = {
     "DOCS_REVIEW.md",
-    "DOCS_REVIEW_REMAINING.md",
 }
 EXEMPT_PATTERNS = [
     re.compile(r"handoff[-_]", re.IGNORECASE),

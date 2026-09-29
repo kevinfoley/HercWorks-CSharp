@@ -6,7 +6,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 ///   Weapon entries (26 bytes each): BoneID, two unknowns (0xFF), weapon orientation (top/under/
 ///   left/right/invisible), firing-chain position, several unknown Int16s, mount point offset
 ///   X/Y/Z, unknown Int8, weapon ID, unknown Int16 (usually divisible by 1000).
-/// Ported from org.hercworks.core.data.file.dbsim.GunLayout.
+/// Ported from org.hercworks.core.data.file.dbsim.GunLayout. Field roles: docs/formats/gun-layout-gl.md.
 /// </summary>
 public class GunLayout {
 	public short TotalGuns { get; set; }

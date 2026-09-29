@@ -15,10 +15,10 @@ Like a tracer, a bullet lives in the effect pool (`DAT_004a9746`) that `Sim_Main
 | `+0x00` | `ModelId` | root of `BULLETS.DTS` |
 | `+0x02` | `Lifetime` | in 125 ms units; the shot is dropped when its age passes `Lifetime * 0x200` |
 | `+0x04` | `ClipRadius` | the shot record's `+0x08` slack, in place of a beam's literal 200 |
-| `+0x06` | *was `Unk2Flag`* | animation frame interval; 0 = static shape |
+| `+0x06` | *`Unk2Flag` in the shared parser* | animation frame interval; 0 = static shape |
 | `+0x08` | `SfxFireIdBullets` | sound id, played as `id + 10` |
-| `+0x0a` | *was `Unk3Uint16`* | **firing scatter**, in binary-angle units |
-| `+0x0c` | *was `SfxFireIdMissiles`* | nonzero arms a per-lifetime rate at `obj+0x61` ([Open](#open)) |
+| `+0x0a` | *`Unk3Uint16` in the shared parser* | **firing scatter**, in binary-angle units |
+| `+0x0c` | *`SfxFireIdMissiles` in the shared parser* | nonzero arms a per-lifetime rate at `obj+0x61` ([Open](#open)) |
 
 Retail (12 records; the five not listed are unreachable — no `Bullet` record carries their id):
 
@@ -32,7 +32,7 @@ Retail (12 records; the five not listed are unreachable — no `Bullet` record c
 | 8 | EMP2 | 2 | 30 | 100 | 256 | 0 |
 | 9 | PLAS, MAGN | 8 | 40 | 100 | 0 | 0 |
 
-Weapon names above are the simulator's own. Subtype 9 is reached by two weapon ids, 25 and 28, whose templates both carry `ProjDatIndex` 22; id 28 is `MAGN` in DBSIM's name table and `MFAC` in the shell catalog, so listing both spellings counts one weapon twice.
+Weapon names above are the simulator's own. Subtype 9 is reached by two weapon ids, `PLAS` (25) and `MAGN` (28, the shell catalog's `MFAC` — [`../formats/weapons-dat.md`](../formats/weapons-dat.md)), whose templates both carry `ProjDatIndex` 22.
 
 ## Spawning — `Bullet_Fire` (`0040b43c`)
 
@@ -47,7 +47,7 @@ Weapon names above are the simulator's own. Subtype 9 is reached by two weapon i
 
 1. Advance the shape's animation frame when the record's `+0x06` is nonzero.
 2. `age += IntegrateRateOverTick(0x200)`; expire at `Lifetime * 0x200` with no impact of any kind.
-3. Home, if a target was attached — `Bullet_HomingSteer` (`0040aff0`).
+3. Home, if a target was attached — `Bullet_HomingSteer` (`0040aff0`). Only the plasma round is ever given one.
 4. `step = IntegrateRateOverTick(obj+0x52)`, taken along the frame's Y axis.
 5. Build a shot record (same layout as a beam's, see [`weapon-firing.md`](weapon-firing.md#the-shot-record)) with **the frame as the ray and the step as its length**, and run `Sim_RaycastObjectList`. A bullet therefore sweeps the segment it is about to cross rather than testing a point, which is what stops a fast round tunnelling through a machine between ticks.
 6. Struck anything and the shot ends; struck nothing and it moves.
@@ -58,23 +58,18 @@ Weapon names above are the simulator's own. Subtype 9 is reached by two weapon i
 
 Subtype 9 is singled out by literal value. Before the raycast it stashes both damage figures in globals and then **empties the shot record** — armour, shield and `SplashFactor` alike — so the raycast reports contact and nothing more. Everything the round does it does through a `Damage_ExplosiveBlastSweep` at 4000 units, which **excludes nothing**: the object it touched stands in the blast like any other. A proximity fuze detonates it within 2000 units of the homing target once the bearing error exceeds a quarter turn.
 
-The blast figure is the record's **armour** damage, power-scaled — the two are equal on the one record this reaches. On the way in it is scaled by `Damage_ScaleByDifficulty` (`00426b04`), the same difficulty scale `Sim_RaycastObjectList` puts on every other shot's two damage figures. Emptying the shot record first is what keeps this round from being scaled twice; the scale itself and the four tables that drive it are in [`difficulty.md`](difficulty.md).
+The blast figure is the record's **armour** damage, power-scaled — the two are equal on the one record this reaches — and then difficulty-scaled by a direct `Damage_ScaleByDifficulty` (`00426b04`) call, because the emptied record gives the raycast's own scaling nothing to scale ([`difficulty.md`](difficulty.md#the-damage-scale-reaches-all-direct-fire-not-just-plasma)). The stash is written before that scale, so it holds the power-scaled figures without the difficulty scale.
 
 The one reader of the stash is a structure struck on its collision-volume path, which puts the armour figure back — see [`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038).
 
-Homing is a steer of the **euler angles**, not of a velocity: the bearing to the target (`Math_EulerToward`, `00492884`) drives euler 0 and 2 through `Math_RateLimitedMoveToward` at `0x280` per 125 ms. The target point is the vtable `+0x24` aim node, not the origin — see [`target-selection.md`](target-selection.md).
-
-`Math_EulerToward` and `Math_HeadingToward` both reach atan2 through `Math_Atan2Guarded` (`00492800`), which takes **`(x, y)`** and nudges the *x* when both are zero. So `euler[2]` is `atan2(dy, dx)` less a quarter turn and `euler[0]` is `atan2(dz, groundDistance)` — an **elevation above the horizon**. Reading the order backwards mirrors the bearing about 45° and turns a level target into a quarter turn of pitch; it is worth stating because it did exactly that to this port.
+Homing is a steer of the **euler angles**, not of a velocity: the bearing to the target (`Math_EulerToward`, [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)) drives euler 0 and 2 through `Math_RateLimitedMoveToward` at `0x280` per 125 ms, and the yaw error it leaves is what the proximity fuze tests. The target point is the vtable `+0x24` aim node, not the origin — see [`target-selection.md`](target-selection.md#aim-point--vtable-0x24).
 
 ## How a round is drawn
 
-`Bullet_Draw` (`0040a120`) is the class's vtable slot 0: it zeroes `DAT_004a5b1c` for the duration (which is what makes a projectile's textured polys fullbright, see [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), installs the object's frame as the model transform, renders the shape instance at `+0x34`, and restores.
+`Bullet_Draw` (`0040a120`) is the vtable slot 0 of both projectile classes: it zeroes `DAT_004a5b1c` for the duration, installs the object's frame as the model transform, renders the shape instance at `+0x34`, and restores. The zeroing is what makes a textured poly fullbright — [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand). A round is faded from its own range like any other depth-sorted object — [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md#a-projectile-is-faded-like-anything-else).
 
-Reaching it, a round is bucketed by terrain cell into `ObjList::drawTable` and then drawn from a depth-sorted render entry that carries its distance — so its **depth fade is set from its own range** like any other object's, not pinned to a fixed ramp row. The full path and the evidence are in [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
-
-The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not call ([Open](#open)). Every other round's shape is `TSSolidPoly` and fades normally.
+The one textured shape is the plasma round's (`BULLETS.DTS` root 8). Its fullbright fill is a plain texture copy that never computes a shade row, and the depth bias is spent only while a mode 1 or mode 2 fill computes one, so **the plasma round does not fade with distance**. Every other round's shape is `TSSolidPoly` and fades normally.
 
 ## Open
 
 - **Open:** identify what reads the per-lifetime rate `+0x0c` arms at `obj+0x61` in `BULLETS.DAT`.
-- **Open:** whether a plasma round fogs at all in retail, since its fill never calls `Raster_ShadeRampRow`.

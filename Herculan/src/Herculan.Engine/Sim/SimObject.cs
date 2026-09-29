@@ -253,7 +253,7 @@ public abstract class SimObject {
 	/// <para>Two sweeps raise it, and both are ported: a machine's own move
 	/// (<see cref="MechObject.CollisionTest"/>) and the ground vehicle tick's
 	/// (<c>GroundVehicleCollisionTest</c>). See docs/simulation/ai-combat-states.md,
-	/// "The ramming attack".</para>
+	/// "The charge".</para>
 	/// </summary>
 	public bool RunInto { get; internal set; }
 
@@ -368,7 +368,8 @@ public abstract class SimObject {
 	/// setters: <see cref="Detection.Sweep"/> raises it on both objects of a pair that have closed to
 	/// <see cref="Detection.EngagementRange"/>, and <see cref="SimWorld.Raycast"/> raises it on the
 	/// shooter alone. Read by <see cref="MissionObjective.ConditionEngaged"/> and its negation. Why
-	/// the two mark different parties is in docs/simulation/damage-system.md, "The shared raycast".
+	/// the two mark different parties is in docs/simulation/mission-deployment.md, "An object's own
+	/// two actions".
 	/// </summary>
 	public bool Engaged { get; internal set; }
 
@@ -402,7 +403,7 @@ public abstract class SimObject {
 	/// Activates <see cref="EngagementAction"/>, if there is one. The original also gates this on
 	/// <c>obj+0xa2</c>, a per-tick latch that cannot change the outcome because
 	/// <see cref="MissionActionState.Activate"/> is one-shot already — see
-	/// docs/simulation/damage-system.md, "The shared raycast".
+	/// docs/simulation/mission-deployment.md, "An object's own two actions".
 	/// </summary>
 	internal void ActivateEngagementAction(SimWorld world) => EngagementAction?.Activate(world);
 
@@ -417,7 +418,7 @@ public abstract class SimObject {
 	/// <c>obj+0x1ba</c>/<c>+0x1ce</c> — the mission-counter writes this object makes when it goes out
 	/// of the fight, from its own roster record. A machine of the player's squad has no roster record
 	/// and carries <see cref="OutOfActionReport.None"/>, which is what its zeroed slots amount to in the
-	/// original — see docs/simulation/component-damage.md#the-out-of-action-report.
+	/// original — see docs/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	public OutOfActionReport OutOfActionReport { get; set; } = OutOfActionReport.None;
 
@@ -426,7 +427,7 @@ public abstract class SimObject {
 	/// last of it still in the fight, then runs the object's own writes. Called immediately before
 	/// <see cref="ActivateDefeatAction"/> from the four damage endpoints the original calls it from;
 	/// the weapons-out defeat does not call it here, since no call from there has been found. See
-	/// docs/simulation/component-damage.md#the-out-of-action-report.
+	/// docs/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	internal void ReportOutOfAction(SimWorld world) {
 		Group?.ReportIfAllOthersOutOfAction(world, this);

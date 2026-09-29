@@ -995,8 +995,8 @@ public sealed class SimWorld {
 			}
 
 			// The engagement pair, and the two halves land on opposite objects: the shooter is marked
-			// engaged, the struck object's action fires. See docs/simulation/damage-system.md, "The
-			// shared raycast".
+			// engaged, the struck object's action fires. See docs/simulation/mission-deployment.md, "An
+			// object's own two actions".
 			if (shot.Owner is { } firer
 					&& ReferenceEquals(candidate, SimObject.SelectedTargetOf(firer))) {
 				firer.Engaged = true;
@@ -1142,8 +1142,8 @@ public sealed class SimWorld {
 	/// to the muzzle; a hit nearer than the ray's current length clips it there.
 	///
 	/// <para>The measured distance uses the sim's sqrt-free magnitude, as the original does, so it
-	/// reads a few percent short — the same bias every other range check in the simulation
-	/// carries.</para>
+	/// carries that approximation's direction-dependent error, as every other 3D range in the
+	/// simulation does.</para>
 	///
 	/// <para>The original also hands the sweep a pseudo-object standing in for the ground, so that
 	/// the AI notification path has something to name. Nothing here consumes that yet, so a terrain

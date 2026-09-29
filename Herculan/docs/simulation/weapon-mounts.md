@@ -15,28 +15,15 @@ secondaryKey = ammoTypes [record[0x17]]      // 5 is rewritten to 0
 
 Consequences: the fit array's slot positions are load-bearing (compacting it fits the wrong weapon to the wrong hardpoint), a slot no hardpoint addresses contributes nothing, and the same `player.mec` entry produces a different panel on two different HERCs. Weapon id 0 and id 27 (`MINE`, which has no case in the factory's switch) build no mount; the array keeps the hole.
 
-### `gl\<HERC>.GL` — the hardpoint list
+### The hardpoint list
 
-`GunLayout_LoadForMechType` (`0040fee8`, asserts in `GUNLIST.CPP`) reads `short count` then `count` 26-byte records. Modelled by `HercWorks.Core.Data.File.Dbsim.GunLayout`. The fields the loadout path reads:
-
-| Offset | Field | Role |
-|---|---|---|
-| `+0x07` | fire-chain number | **the cockpit weapon row this mount owns** — handed to the gauge factory as a `.GAU` weapon-slot index, so the panel prints it as `n+1` |
-| `+0x16` | link partner offset | signed; how far away in the mount array this hardpoint's LINK partner sits. Retail chassis pair mirrored left/right hardpoints with ±1 |
-| `+0x17` | fit slot | index into the mission's two loadout arrays |
-
-The rest of the record (bone id, orientation, mount-point offset) is the placement data `GunLayout` already models and this system does not touch.
+The record layout is in [`../formats/gun-layout-gl.md`](../formats/gun-layout-gl.md). The loadout path reads three fields: `+0x07`, the fire-chain number, is **the cockpit weapon row this mount owns**; `+0x16` is the link partner offset; `+0x17` is the fit slot. The rest of the record is placement data this system does not touch.
 
 Row order and mount order are different orderings of the same list. SAMSON.GL, against the retail `player.mec`, yields rows `EMP, ATC35, ATC35, ARH, EMP, ATC35, SHIELD POD, ATC35` from a fit array reading `ATC35, SHIELD, ATC35, ATC35, ATC35, EMP, EMP, MSL10`.
 
 ### The second loadout array is the ammunition type
 
-Both mission formats carry it beside the weapon ids, and it is what a missile launcher is loaded with — not a round count:
-
-| Source | Offset |
-|---|---|
-| `player.mec` entry | after the weapon-id array (`MecEntry.WeaponAmmoTypes`) |
-| `script.dat` block 7 record | source `0x72`, i.e. 64 bytes past the weapon-id array at `0x32` |
+Both mission formats carry it beside the weapon ids — `player.mec` ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4)) and `script.dat` block 7 ([`../formats/script-dat.md`](../formats/script-dat.md)) — and it is what a missile launcher is loaded with, not a round count.
 
 Retail data puts a filler `5` in every non-launcher slot. Verified against the retail mission: every slot whose weapon id is `MSL10` reads 1 here and every other slot reads 5.
 
@@ -53,7 +40,7 @@ The factory's switch on the weapon id picks one of four live classes. Nothing el
 
 The ELF case is the only one that is not just a constructor call: the factory runs the energy constructor and then **overwrites the object's vtable pointer** with `ElfMountVtable` (`004992c0`). The two classes therefore share every field and differ only in the five slots that table replaces — see [ELF and ELF2](#elf-and-elf2).
 
-Five pod classes hang off `Pod_CtorBase` (`0040e234`) and are laid out differently past `+0x77`. Only the ECM and Turbo pods override anything behavioural; the Shield, Targeting and Energy pods inherit the base's `Pod_TickBase` and its do-nothing pool turn, and only the first two have a button on their cockpit row — see [`equipment-pods.md`](equipment-pods.md). The table below is the two weapon-carrying classes only.
+Five pod classes hang off `Pod_CtorBase` (`0040e234`) and are laid out differently past `+0x77`. Only the ECM and Turbo pods override anything behavioural, and only they have a button on their cockpit row; the Shield, Targeting and Energy pods inherit the base's `Pod_TickBase` and its do-nothing pool turn — see [`equipment-pods.md`](equipment-pods.md#only-two-pods-have-a-button). The table below is the two weapon-carrying classes only.
 
 Shared mount fields mean different things per class:
 
@@ -73,17 +60,15 @@ Shared mount fields mean different things per class:
 
 ### Ammunition
 
-`WeaponMount_CtorAmmunition` (`0040e140`) reads the magazine size from the template's field at `+0x3a` and powers the mount up holding a full one: `+0x7b = size`, `+0x7d = size << 8`. The gauge prints `+0x7d >> 8`.
+`WeaponMount_CtorAmmunition` (`0040e140`) reads the magazine size from the template's field at `+0x3a` and powers the mount up holding a full one: `+0x7b = size`, `+0x7d = size << 8`. The gauge prints `+0x7d >> 8`, and `+0x7d` lags the real count: `WeaponMount_PushAmmoGaugeState` (`0040f330`) decays it toward `+0x7b * 256` at 250 per 125 ms, which is what makes the cockpit counter roll rather than jump. The fire dispatch spends `+0x7b` — see [`weapon-firing.md`](weapon-firing.md#the-ammunition-dispatch).
 
-Retail magazines: ATC20 2000, ATC35 1500, ATC50 1000, ATC75 750, ATC100 500, MSL6/8/10/24 6/8/10/24, MISSL 36, PLAS 20, LAEW 0.
+The retail magazine sizes are listed with the field in [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 
 ### Energy
 
 `WeaponMount_CtorEnergy` (`0040e074`) writes `Q10Multiply(820, 1200) = 960` into **both** `+0x7b` and `+0x7d` and `20` into `+0x7f` — literals, identical for every energy weapon. A HERC powers up with its capacitors full.
 
-`+0x7b` is a *request*, not a capacity: the mount's **power level**, a control the manual never mentions. `WeaponMount_WakeCapacitor` (`0040f4d8`) drops it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with, ±80 a press over 0..1200 — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
-
-> `WeaponMount_DemandFullCharge` (`0040f4f0`) sets 1200 in one step and looks like the natural > mechanism, but its only caller has no reference of any kind in the image; neither is reachable in > the retail build.
+`+0x7b` is a *request*, not a capacity: the mount's **power level**, a control the manual never mentions. `WeaponMount_WakeCapacitor` (`0040f4d8`) drops it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
 
 Readiness (`WeaponMount_EnergyCanFire`) is `!destroyed && refireTimer == 0 && charge >= threshold`, where the threshold comes from the template's `+0x36`/`+0x38` pair: `max(+0x36, +0x7b)` when `+0x36 < +0x38`, otherwise `+0x38` outright. Real templates carry both shapes — `EMP` reads (350, 10000), `LAS100` (80, 80). The ammunition equivalent (`WeaponMount_AmmoCanFire`) is `!destroyed && refireTimer == 0 && rounds != 0`.
 
@@ -120,7 +105,7 @@ The spin-up only runs while the mount is **ready**: `WeaponMounts_FireTrigger` t
 
 ## The muzzle flash
 
-**It is the weapon's own model playing its cell animation.** Nothing spawns an effect for it, and there is no muzzle-flash resource of any kind — `dts\FIRE.DTS` is the burning-object effect, not this (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#rocket-physics)).
+**It is the weapon's own model playing its cell animation.** Nothing spawns an effect for it, and there is no muzzle-flash resource of any kind — `dts\FIRE.DTS` is the burning-object effect, not this (see [`destruction-effects.md`](destruction-effects.md#fire)).
 
 Every hardpoint whose mounting code is visible (`.GL +6 < 4`) gets its own copy of the weapon model when the mount is built:
 
@@ -179,7 +164,7 @@ A band change on a mount component rolls once to take that mount out, inside `Me
 
 The name is chosen off the **resolved projectile**, not the weapon id: when the mount's `PROJ.DAT` record is a `Missile`, the gauge prints that record's own subtype from a four-entry table at `004989c8` — `SARH`, `ARH`, `ARM`, `EO` — so a launcher is named by what is loaded in it. This is why the retail player's `MSL10` hardpoint reads `ARH`. Ids 13–16's own names are bare round counts (`"6"`, `"8"`, `"10"`, `"24"`) precisely because a launcher never prints them.
 
-> The subtype index is unbounded in the original. `MISSL` (id 21) points straight at the `BMSL` > record, subtype 4, and reads one past the four-entry table. `BMSL` is Bull armament and no > player HERC can mount it.
+The subtype index is unbounded in the original. `MISSL` (id 21) points straight at the `BMSL` record, subtype 4, and reads one past the four-entry table. `BMSL` is Bull armament and no player HERC can mount it.
 
 A pod row is the one place the name is decorated. `PodGauge_Ctor` (`00441524`) seeds its 11-char buffer with a literal space, appends the mount name, then appends `STRINGS0.STR` group 3 (`" POD"`) into whatever room is left — `" SHIELD POD"` exactly fills it. The Heads-Down Display's weapon list (`HddDamageScreen_Update`, `00450c54`) takes the undecorated name, so the same pod reads `SHIELD` there.
 
@@ -218,7 +203,7 @@ mount->vtable+0x2c                                       // the class's own CanF
 
 `manager+0x31` is the distance to the **selected target**, written by `Player_PerFrameCockpitUpdate` (`0041b130`) through `WeaponMounts_PerFrameUpdate`'s argument, and `Math_DistanceBetweenPoints` measures it from the machine to `target+0x26` each frame. **Zero when nothing is selected**, and the gate is skipped outright on zero — which is what stops every row going red on a machine with no target rather than the window's exclusive lower bound failing them all. The store happens *before* the chain advance, so both readers see the same frame's range.
 
-> The measurement's origin is the machine's own position, except while `DAT_0049ef5c` is set and > this is the local player, when it is the watched object `DAT_004d2708` — the spectator camera > ([`target-selection.md`](target-selection.md), [Open](#open)).
+The measurement's origin is the machine's own position, except while `DAT_0049ef5c` is set and this is the local player, when it is the watched object `DAT_004d2708`, the spectator camera ([`target-selection.md`](target-selection.md), [Open](#open)).
 
 The third gate is **missile lock**, not ammunition: the mount's `vtable+0x60` subtype must have its flag up in `manager+0x0a`. Two subtypes are exempt — 5, which is "not a launcher", and 3, the electro-optical missile, which never latches a flag because the pilot flies it ([`missile-lock.md`](missile-lock.md)). Without that exemption an EO launcher's row could never go green.
 
@@ -234,13 +219,13 @@ The third gate is **missile lock**, not ammunition: the mount's `vtable+0x60` su
 | Add/remove a row from the current chain | `[Alt]`+`[1]`–`[0]` | right-click the row | `WeaponMounts_ToggleChainMember` (`004110ac`) |
 | Step the armed weapon | `[W]` / `[Alt]`+`[W]` | — | `WeaponMounts_StepSelection` (`0041074c`) |
 | Link the armed weapon | `[L]` | the LINK button | `WeaponMounts_ToggleLink` (`00410f14`) |
-| Next fire chain | `` [`] `` | the chain button | ``WeaponMounts_SetChain` (`00410ae4`)` |
+| Next fire chain | `` [`] `` | the chain button | `WeaponMounts_SetChain` (`00410ae4`) |
 
 The two routes converge rather than duplicating: `CockpitWidgets_HandleCommand` answers a number key by indexing the cockpit's own ten-gauge array at `CockpitViewInstance+0x70`, calling `WeaponMounts_SelectByGauge` on that gauge and then pressing its select gadget — the same gadget the mouse hits, with the left-button bit. So the key runs the arm twice over, which is harmless, and anything the gadget does beyond arming it gets as well.
 
 The mouse's own split is not a modifier but the **button**: a row gadget's click handler (`EnergyWeaponGauge_OnChildClick` (`00440ef0`) for an energy row, `AmmoWeaponGauge_OnChildClick` (`004414b4`) for an ammunition one) branches on bit 1 of the value it is handed, and that value is the mouse-button word `0049db6c` — bit 0 left, bit 1 right. **A pod's row is the exception**: its handler takes no value at all, so both buttons toggle the pod and neither chains it ([`equipment-pods.md`](equipment-pods.md#only-two-pods-have-a-button)).
 
-> Command codes are **PC set-1 scancodes**, with `0x200` added for `[Alt]`. `0x26` is `L` and > `0x29` is `` ` ``, which is how ``ConsoleButtons_HandleCommand` (`004421a0`)` binds them to the console panel's LINK and chain > children; `0x11`/`0x211` are `W`/`Alt+W`; `0x02`–`0x0b` and `0x202`–`0x20b` are the two number-key > banks. ``Sim_DispatchCommand` (`0045fdac`)` is the dispatcher every code passes through.
+The command codes are [scancodes](../formats/cockpit-input.md#keyboard-commands-are-scancodes): `0x26` is `L` and `0x29` is `` ` ``, which is how `ConsoleButtons_HandleCommand` (`004421a0`) binds them to the console panel's LINK and chain children; `0x11`/`0x211` are `W`/`Alt+W`; `0x02`–`0x0b` and `0x202`–`0x20b` are the two number-key banks. `Sim_DispatchCommand` (`0045fdac`) is the dispatcher every code passes through.
 
 ### Arming — `WeaponMounts_SelectByGauge` (`004106ac`) and `WeaponMounts_SetSelection` (`00410708`)
 
@@ -254,7 +239,7 @@ The mouse's own split is not a modifier but the **button**: a row gadget's click
 
 ### Chaining — `WeaponMounts_ToggleChainMember` (`004110ac`)
 
-Finds the mount by its `.GL` fire-chain byte rather than by gauge pointer, requires the template's int32 at `0x30` to be positive, and **XORs** its bit in the current chain's array. It does not arm anything. `0x30` is the weapon's **range**, so this gate amounts to "is a weapon at all" — every real firing weapon carries a large positive value and every pod carries zero.
+Finds the mount by its `.GL` fire-chain byte rather than by gauge pointer, requires the template's range (int32 at `0x30`, [`weapons-dat-sim.md`](../formats/weapons-dat-sim.md)) to be positive, and **XORs** its bit in the current chain's array. It does not arm anything. The gate amounts to "is a weapon at all": every pod carries a range of zero.
 
 ### Linking — `WeaponMounts_ToggleLink` (`00410f14`)
 
@@ -262,7 +247,7 @@ Two conditions, both from the chassis: the armed mount's `.GL` record names a pa
 
 Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's row when its *partner* is the armed one, so both rows of a pair draw armed together. [Readiness](#readiness--weaponmounts_mountisready-00410970) is joined too, so a pair is ready only when both halves are. A destroyed or empty half unlinks the pair and hands the selection to the survivor.
 
-> One LINK press runs the toggle **three** times in the original: the button's own click handler > (`ConsoleButtons_SetLinkLatch`, `0044202c`), the manager's next per-frame pass reading the button's latch byte, and that > pass writing the byte back so the widget sees it change and calls the handler again. Three flips > of one bit is one flip.
+One LINK press runs the toggle **three** times: the button's own click handler (`ConsoleButtons_SetLinkLatch`, `0044202c`), the manager's next per-frame pass reading the button's latch byte, and that pass writing the byte back so the widget sees it change and calls the handler again. Three flips of one bit is one flip.
 
 ### Console buttons
 
@@ -277,6 +262,5 @@ Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's
 ## Open
 
 - **Unported:** the missile-lock gate on readiness: a launcher whose subtype holds no lock reads red and is skipped.
-- **Unported:** auto-fire — see [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported; auto-fire is not.
 - **Unported:** the spectator camera as the readiness range's measurement origin (`DAT_0049ef5c`/`DAT_004d2708`) — see [`target-selection.md`](target-selection.md).
 - **Open:** template fields other than those named here — see [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).

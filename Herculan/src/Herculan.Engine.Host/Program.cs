@@ -546,8 +546,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	if (awaitingDeployment > 0) {
 		Console.WriteLine(
 			$"{awaitingDeployment} of them are waiting on a mission action and are not in the mission " +
-			"yet — undrawn, unsimulated and non-solid, standing on a placeholder point until they " +
-			"arrive. Arrival (drop pods and walk-ons) is not implemented; see MissionLoader.");
+			"yet — undrawn, unsimulated and non-solid until they arrive by drop pod or on foot.");
 	}
 
 	if (scene.UnmodelledCount > 0) {
@@ -2684,7 +2683,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// Each node of an animating machine is re-read here, alongside the whole-object transforms above.
 		// Reading more often than the simulation ticks costs nothing and gains nothing: the thread's
 		// intra-frame fraction only moves in Advance, so consecutive reads between ticks return the same
-		// pose. That is the original's cadence too — see mech-locomotion.md's "Evaluation cadence".
+		// pose. That is the original's cadence too — see docs/formats/dts-node-posing.md's "Evaluation cadence".
 		// Which root of each machine's shape is drawn, and which level of every detail part, settled before
 		// the two loops that follow so that a piece taken up this frame is posed and gated this frame
 		// rather than one frame stale.

@@ -73,7 +73,7 @@ Every table moves monotonically against the player, and `0049a060` and `0049a31c
 `Damage_ScaleByDifficulty` takes a damage figure by pointer and the **firing side**, read as `owner->group->side` (`owner+0x45`, `group+0x12`) at every call site. It has three:
 
 - `Sim_RaycastObjectList` (`00426528`) scales **both** of the shot record's damage figures — `+0x06` then `+0x04` ([`weapon-firing.md`](weapon-firing.md#the-shot-record)) — at the top of the sweep, whenever the record names an owner. Every beam and every bullet goes through it, and the record is rebuilt from the catalog each time, so nothing compounds.
-- `Bullet_TickUpdate` (`0040b124`) scales the plasma round's blast figure separately, on the stashed copy. The plasma branch empties the shot record before the raycast, so the raycast's own scaling finds zeros there and the round is scaled exactly once.
+- `Bullet_TickUpdate` (`0040b124`) scales the plasma round's blast figure separately, on a local copy of the figure. The plasma branch empties the shot record before the raycast, so the raycast's own scaling finds zeros there and the round is scaled exactly once.
 
 So a difficulty step changes what **every weapon in the game** does, on both sides, in opposite directions — not only the one round with a blast.
 

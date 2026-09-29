@@ -1,6 +1,6 @@
 # Structure behaviour
 
-What a `BASES.DAT` structure does per tick. Hit detection is [`hit-detection.md`](hit-detection.md) and coming apart is [`component-damage.md`](component-damage.md#going-out-of-the-fight). This doc owns the `+0x18` tick slot and the five classes that fill it.
+What a `BASES.DAT` ([`bases-dat.md`](../formats/bases-dat.md)) structure does per tick, and how it takes damage. Hit detection is [`hit-detection.md`](hit-detection.md) and the collapse a lost part runs is [`destruction-effects.md`](destruction-effects.md#a-structure-coming-down). This doc owns the `+0x18` tick slot and the five classes that fill it.
 
 ## Timer units
 
@@ -94,7 +94,18 @@ A structure that has already fallen hands the whole tick to `Base_ThinkTick`, so
 - Fire from `(±300, 400, 0)` in the turret node's frame, both barrels, on a 1500 ms refire countdown at `+0x211`. A type whose `+0x2e` is 2 fires `Rocket_Fire(0, …)` and everything else `Bullet_Fire(2, …)`.
 - Gated on the aim error being inside ±1000 in both axes, on the range being inside 40000, and on the firing window being open.
 
-`BASES.DAT +0x2e` is read here as a **value**, not the flag [`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e) reads it as: 0 unarmed, 1 gun, 2 launcher. Retail states 1 on six types and 2 on two.
+`BASES.DAT +0x2e` is the type's **armament class**, read here as a value — 0 unarmed, 1 gun, 2 launcher — where the AI reads it as a flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)). Retail states it on 8 of the 65 types:
+
+| Types | Name | `+0x2e` |
+|---|---|---|
+| `0x0b`, `0x23` | MISSILE TOWER | 2 |
+| 8, `0x20` | GUN TOWER | 1 |
+| `0x2f` | MOBILE MISSILE | 1 |
+| 3 | GENERATOR | 1 |
+| `0x0a`, `0x22` | TRANSPORT | 1 |
+| the other 57 | | 0 |
+
+The stated armament and the tick part company on three of the eight. The generator is Plain and type `0x0a` is never constructed, so neither reaches a tick that would fire what it states, and the triple turret has a tick of its own that does not read the field at all. Type `0x2f` does fire what it states, through the ground vehicle tick's branch into this one ([below](#the-ground-vehicle-tick--0046a5d0)). See [Open](#open).
 
 **The countdown at `+0x218` is a firing window, not a barrel selector.** Each expiry flips the flag at `+0x21b` and reloads the counter at `+0x219` from the pair at `004973e0`, both of whose entries are 10000 — **about five seconds**, not ten, see [Timer units](#timer-units) — so a tower fires for five seconds, holds for five, and repeats. Fire is gated on the flag being set.
 
@@ -197,7 +208,40 @@ A speed of zero means "none stated" and takes `0xaa`, the same default `Ai_Drive
 
 **The retail mission handoff exercises none of the move half.** Its one ground vehicle (type `0x38`) rides in a group whose first member is a plain building, so the class gate keeps it parked — and it stands overlapping an armed tower, which would block every step it tried to take even if the gate let it move.
 
+## Taking damage — `Base_ApplyDamage` (`00404d70`)
+
+Vtable `+0x74`, the endpoint a direct-fire hit ([`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038)) and a blast ([`damage-system.md`](damage-system.md)) both write into. Structures have a per-component health model, much simpler than a machine's ([`component-damage.md`](component-damage.md#the-component-damage-system)). The per-component state is the alive-flag array at `obj+0x201` and an 11-byte record per component at `obj+0x205`: `+0` damage, `+3` stage timer, `+5` stages of the death sequence left, `+7` attacker.
+
+```
+if (typeRec[+0x1e] != 0) return                       // invulnerable
+if (componentIndex == -1) componentIndex = 0
+if (!alive[componentIndex]) return
+taken = damage[i] + incoming
+destroyed = component.maxDamage <= taken
+if (!destroyed && component.maxDamage / 2 < taken) {
+    tenth = Q16Divide(10, maxDamage)
+    for (a = Q16Multiply(damage[i], tenth); Q16Multiply(taken, tenth) > a; a++)
+        if ((rand & 0xfff) <= 0x199) { destroyed = true; break }    // ~10% per step
+}
+if (!destroyed) { damage[i] = taken; return }
+damage[i] = maxDamage; alive[i] = false; attacker recorded at state+7
+if (vtable+0x40 == 0x100) {                            // Base_DamageFraction (004052b4), the Q8 damage fraction
+    obj[+0x99] = 1; obj[+0x96] = 0; fire the object's mission action (obj+0x1b6)
+    attacker->vtable+0x60 credits the kill
+}
+if (component[+4] != -1) { state[+5] = stageCount[component[+4]]; state[+3] = 300 }   // start the collapse
+```
+
+**A component can die early, at random.** Past half its maximum, one ~10% roll fires per tenth of the component's health the shot moved it through, so a heavy hit on a half-wrecked section usually finishes it before its stated hit points run out, and the same hit twice does not do the same thing.
+
+`Base_DamageFraction` (`004052b4`, vtable `+0x40`) is a **ratio of sums**, not a count of destroyed components: `(Σ damage << 8) / Σ maxDamage`. A type with one 30000-point core and six 2000–8000-point parts is effectively destroyed by killing the core alone, which is how both seven-component retail types are authored.
+
+Spawn-time health comes from the block-9 record's `param_1[0x19]`: `<0` or `100` = undamaged, `0` = spawned destroyed (and the component steps to its collapsed cell), anything else scales `(100 - pct) * maxDamage / 100`.
+
 ## Open
 
 - **Unported:** the triple turret (`004045c8`, [Type `0x22`](#the-triple-turret--004045c8)).
+- **Unported:** the kill credit a destroyed structure hands its attacker (vtable `+0x60`).
+- **Unported:** spawn-time component health from the mission record.
+- **Open:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when none of them reaches a tick that fires it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
 - **Open:** the ground vehicle follower arm has no mission exercising a second mobile vehicle to hold station on; confirm it once `MissionLoader` can load the campaign's `.MSN` files directly instead of only the `script.dat` handoff.

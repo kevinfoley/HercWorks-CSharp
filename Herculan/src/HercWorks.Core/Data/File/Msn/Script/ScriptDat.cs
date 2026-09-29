@@ -238,7 +238,7 @@ public class ScriptSpawnRecordExport {
 	/// slot. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) copies them to <c>mech+0x1ba</c>
 	/// through <c>SimObject_SetOutOfActionCounters</c> (<c>00411b90</c>), and they are written when
 	/// the machine goes out of the fight. See
-	/// docs/simulation/component-damage.md#the-out-of-action-report.
+	/// docs/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	public short[] CounterRefs => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterRefs);
 
@@ -558,7 +558,7 @@ public class ScriptEntity164Export {
 	/// Exported offset <c>0x72</c> — the group's ten mission-counter refs, <c>-1</c> for an unused
 	/// slot. <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) copies them to <c>group+0x1c</c>; they
 	/// are written when every member of the group is out of the fight. See
-	/// docs/simulation/component-damage.md#the-out-of-action-report.
+	/// docs/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	public short[] ArrayA { get; set; } = new short[10];
 

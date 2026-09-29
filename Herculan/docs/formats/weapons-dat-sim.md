@@ -12,7 +12,7 @@ Distinct from `SHELL0/GAM/WEAPONS.DAT` (the UI-facing weapon catalog, see `docs/
 
 ### `WeaponMountTemplate` record (variable length)
 
-Built entirely from **reused low-level record readers**: `HercPiece_ReadRecord` (see `docs/simulation/component-damage.md`, "The component damage system"), `Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/hit-detection.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
+Built entirely from **reused low-level record readers**: `HercPiece_ReadRecord` (see [`dmg-damage-file.md`](dmg-damage-file.md#the-piece-record)), `Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/formats/collision-spheres.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
 
 Read order (all fields little-endian):
 
@@ -68,13 +68,11 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 
 `0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`. It is also the value `WeaponMounts_ToggleChainMember` (`004110ac`) requires to be positive before it will put a hardpoint into a fire chain, and every pod carries zero, so that gate holds on it too. Retail values run 75000 (ATC20) down to 15000 (ELF2) — 450 m to 90 m at the simulation's own scale, which does *not* match the manual's 20 m figure for the ELF.
 
-`0x36`/`0x38` decide when an energy mount will fire: `max(0x36, mount+0x7b)` when `0x36 < 0x38`, otherwise `0x38`. `0x38` is also what a shot costs, so the two shapes real data takes — equal pair (LAS100 80/80) versus small low against a 10000 high (PBEAM 300/10000) — are a fixed-cost weapon and a charge-up one.
+`0x36`/`0x38` are the energy readiness threshold pair; how a mount combines them with its charge target is in [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#energy). `0x38` is also what a shot costs, so the two shapes real data takes — an equal pair (LAS100 80/80) and a small low against a 10000 high (PBEAM 300/10000) — are a fixed-cost weapon and a charge-up one, see [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#the-beam-branch). The ELFs are a third shape, (400, 70), that their own mount class reads differently: [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#elf-and-elf2).
 
-The ELFs are a third shape, (400, 70), and are the reason the pair cannot be read off the template alone: their own mount class tests it differently, always taking `max(0x36, mount+0x7b)`, so 400 against a 960 charge target means a full capacitor to start and 70 per shot to continue. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#elf-and-elf2).
+`0x3a` is both the round count an ammunition mount powers up with and its cap (ATC20 2000, ATC35 1500, ATC50 1000, ATC75 750, ATC100 500, MSL6/8/10/24 6/8/10/24, MISSL 36, PLAS 20, LAEW 0), and the ammunition dispatch spends `0x38` rounds per shot.
 
-`0x3a` is both the round count an ammunition mount powers up with and its cap (ATC20 2000 … ATC100 500, MSL6/8/10/24 6/8/10/24), and the ammunition dispatch spends `0x38` rounds per shot.
-
-`0x4c` is 1200 on most weapons — about 15 sim ticks — and **zero on `ELF` and `ELF2`**, whose own mount class does not consult the refire timer at all; what paces those two is their capacitor. The mount scales it by its own `+0x63`, a constant `0x400`.
+`0x4c` is 1200 on most weapons — about 15 sim ticks — and **zero on `ELF` and `ELF2`**, whose own mount class does not consult the refire timer at all; what paces those two is their capacitor. The mount scales it by its own `+0x63`, `0x400` unless a damaged gun has lowered it ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#the-certain-path--the-condition-notification)).
 
 `0x3c` is 1 everywhere except catalog id 19 (the big EMP), where it is 3. `0x3e == 0x13` is true for exactly one weapon too — id 23, `EMP2` — because the value is that weapon's own `PROJ.DAT` row; the gun dispatch reads it as a burst flag. The two conditions therefore pick out different weapons. See [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#the-gun-branches).
 

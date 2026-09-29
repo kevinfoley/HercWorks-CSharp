@@ -289,7 +289,7 @@ public sealed class WeaponShot {
 	/// that writes it: they sweep a ray out of the aircraft's own wingtip and have to ignore the
 	/// aircraft, while crediting the resulting damage to nobody at all. Every weapon path leaves it
 	/// null, which is the intent but not quite what the original does — see
-	/// docs/simulation/damage-system.md, "The shared raycast".</para>
+	/// docs/simulation/hit-detection.md, "The sweep".</para>
 	/// </summary>
 	public SimObject? Excluded { get; }
 

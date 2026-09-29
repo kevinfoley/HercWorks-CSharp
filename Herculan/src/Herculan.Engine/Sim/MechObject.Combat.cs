@@ -303,7 +303,8 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// <c>mech+0xa8</c> — the softer one: neither side is crippled, but one is past
 	/// <see cref="LegsDamagedAlert"/>. In the original it exists mainly to raise the pilot's alert
-	/// once; its one mechanical effect is the milder speed penalty. Latched, like its partner.
+	/// once, and to take the milder speed penalty. Latched, like its partner. The original's
+	/// <c>flanking</c> gate reads it too; the port's does not (KNOWN_ISSUES.md).
 	/// </summary>
 	public bool LegsDamaged { get; private set; }
 
@@ -1094,15 +1095,13 @@ public sealed partial class MechObject {
 
 		int generatorAfter = _damage.DependentPercent(ShieldGeneratorDependent);
 
-		// The two guards are independent, not two arms of one test, so the hit that takes an
-		// untouched generator out says both lines.
+		// The first-damage line is the else arm of the destroyed test, so the hit that takes an
+		// untouched generator out says only that it is destroyed.
 		if (LocallyPiloted) {
-			if (generatorBefore == 0 && generatorAfter != 0) {
-				world.Sounds?.Say(SystemMessages.InternalDamageShieldGenerator);
-			}
-
 			if (generatorBefore < FullyDamaged && generatorAfter == FullyDamaged) {
 				world.Sounds?.Say(SystemMessages.ShieldGeneratorDestroyed);
+			} else if (generatorBefore == 0 && generatorAfter != 0) {
+				world.Sounds?.Say(SystemMessages.InternalDamageShieldGenerator);
 			}
 		}
 

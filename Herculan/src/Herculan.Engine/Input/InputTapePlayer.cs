@@ -31,7 +31,7 @@ public sealed class InputTapePlayer {
 
 	/// <summary>The bundle's seven files, in bundle order, as <c>-r</c> names them in <c>data\</c>.</summary>
 	public static readonly IReadOnlyList<string> BundleFileNames = new[] {
-		MissionLoader.ScriptFileName, MissionLoader.PlayerFileName, "mission.var",
+		MissionLoader.ScriptFileName, MissionLoader.PlayerFileName, MissionLoader.CountersFileName,
 		SimulatorPreferences.FileName, "restore.dat", "object.str", KeyjoyConfig.FileName,
 	};
 

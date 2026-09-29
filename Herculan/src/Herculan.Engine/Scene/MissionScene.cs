@@ -312,6 +312,7 @@ public sealed class MissionScene {
 			PlayerInvulnerable = mission.Header.PlayerInvulnerable,
 			Theater = mission.Header.TheaterIndex
 		};
+		world.LoadMissionCounters(mission.Counters);
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 

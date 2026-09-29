@@ -3504,8 +3504,8 @@ void ApplyStatusAlertAnswer() {
 	// Both endings leave the simulator. EXIT EARTHSIEGE? is not a mission outcome at all -- its QUIT
 	// sets DAT_004d2582, the global quit flag that AlertPanel_Present also watches to tear down any
 	// panel still up -- while a mission-ending answer goes up through Sim_PollPlayerInput and
-	// Sim_MainTick and hands control to the shell, which writes (status == 9) into results.dat and
-	// advances the campaign.
+	// Sim_MainTick; FUN_0042412c writes (status == 9) into results.dat and the mission counters into
+	// mission.var, and the shell's debrief reads both and advances the campaign.
 	//
 	// PLACEHOLDER for that second path: there is no shell to return to yet, so a finished mission
 	// closes the window the same way quitting the game does. The latch stops the last few frames

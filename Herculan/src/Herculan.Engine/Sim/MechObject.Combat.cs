@@ -357,8 +357,8 @@ public sealed partial class MechObject {
 	/// one place in the original that forces a post past a destroyed machine's own silence — see
 	/// <see cref="PostSquadMessage"/>.</para>
 	///
-	/// <para>Left out: the player's own running kill count at <c>DAT_004a9f08</c>, which nothing in
-	/// the simulator reads back.</para>
+	/// <para>A squadmate the player itself stopped also adds one to mission counter 10
+	/// (<c>DAT_004a9f08</c>), again whether or not this was the blow that counted.</para>
 	/// </summary>
 	internal void CreditNeutralised(SimWorld world, MechObject victim, bool wasImmobilised) {
 		MechObject? player = world.PlayerMech;
@@ -381,6 +381,10 @@ public sealed partial class MechObject {
 				world,
 				victim.Destroyed ? SquadMessageDestroyed : SquadMessageWentDown,
 				force: true);
+
+			if (ReferenceEquals(player, this)) {
+				world.BumpMissionCounter(World.MissionLoader.SquadmatesDownedCounter, 1);
+			}
 		}
 	}
 

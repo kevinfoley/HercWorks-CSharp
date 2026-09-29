@@ -33,7 +33,7 @@ The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes a
 
 Before a mission is loaded, `MsnGen_SeedCampaignFlags` (`0040e94e`) writes the first seven: a training load clears the array first, a campaign load writes flags 1 and 2 as the career position's stage and mission, and both write flag 3 from `00482606` ([Open](#open)) and flags 4, 5 and 6 a draw below 12 each. The mission's conditions then compare against them, and its header patch clears the flags it names ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#the-header-patch--row-2)).
 
-Slot 0 is overwritten at debrief with the mission's outcome code (`_maybe_CampaignFlagArray = DAT_00482ae9`). On the simulator side the same array is `DAT_004a9ef4`, which an activating action bumps or clears and `FUN_0042412c` dumps to `mission_var` at mission end — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
+Slot 0 is overwritten at debrief with the mission's outcome code (`_maybe_CampaignFlagArray = DAT_00482ae9`). On the simulator side the same array is `DAT_004a9ef4`, which DBSIM reads from `mission.var` at mission load, less a few slots it resets, and writes back at mission end — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
 
 It is also what the campaign's rewards are keyed on: the debrief tests the flags the mission left to unlock chassis and weapons and to stock weapon units ([below](#the-debrief--game_processmissionresults-0040eae7)).
 

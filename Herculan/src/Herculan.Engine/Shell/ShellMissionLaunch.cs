@@ -196,7 +196,7 @@ public static class ShellMissionLaunch {
 	}
 
 	/// <summary>The flag array's file, <c>data\mission.var</c>.</summary>
-	public const string MissionVarFileName = "mission.var";
+	public const string MissionVarFileName = MissionLoader.CountersFileName;
 }
 
 /// <summary>

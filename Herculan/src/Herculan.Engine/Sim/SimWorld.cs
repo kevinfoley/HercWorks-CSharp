@@ -327,15 +327,28 @@ public sealed class SimWorld {
 	public MissionStatus PendingMissionAlert { get; set; } = MissionStatus.None;
 
 	/// <summary>
-	/// <c>DAT_004a9ef4</c> — the mission counter array a firing action bumps or clears. Nothing in
-	/// the ported simulation reads it back, but the original does not read it during a mission either:
-	/// <c>FUN_0042412c</c> writes the whole block to <c>mission_var</c> as the mission ends, so these
-	/// are the campaign's variables and their reader is the layer that is not ported.
+	/// <c>DAT_004a9ef4</c> — the mission counters, which are the campaign's flag array for the length
+	/// of a mission: they start from <c>mission.var</c> (<see cref="LoadMissionCounters"/>) and
+	/// <c>FUN_0042412c</c> writes them back to it as the mission ends. See
+	/// docs/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
 	///
-	/// <para>Two other things write them: an action firing (<see cref="MissionActionState.Fire"/>)
-	/// and a group's own completion hook (<c>Group_ReportIfAllOutOfAction</c>, <c>00423f30</c>), which is not ported.</para>
+	/// <para>Written by an action firing (<see cref="MissionActionState.Fire"/>), an objective
+	/// (<see cref="MissionObjectiveState"/>) and the player downing a squadmate
+	/// (<see cref="MechObject.CreditNeutralised"/>). A group's own completion hook
+	/// (<c>Group_ReportIfAllOutOfAction</c>, <c>00423f30</c>) writes them too, and is not ported.</para>
 	/// </summary>
 	public IReadOnlyList<short> MissionCounters => _missionCounters;
+
+	/// <summary>
+	/// Starts the counters from <see cref="World.Mission.Counters"/>. Done once, at load; a shorter
+	/// list leaves the rest at zero.
+	/// </summary>
+	public void LoadMissionCounters(IReadOnlyList<short> counters) {
+		Array.Clear(_missionCounters);
+		for (int i = 0; i < counters.Count && i < MissionCounterSlots; i++) {
+			_missionCounters[i] = counters[i];
+		}
+	}
 
 	/// <summary>Adds to one counter. Refs outside the array are dropped rather than throwing.</summary>
 	internal void BumpMissionCounter(int index, short amount) {
@@ -359,10 +372,7 @@ public sealed class SimWorld {
 	}
 
 	/// <summary>
-	/// How many counters the array holds — 1000, read off the campaign's own save:
-	/// <c>FUN_0042412c</c> writes 2,000 bytes from <c>DAT_004a9ef4</c> into <c>mission_var</c> when a
-	/// mission ends, so the block is 1,000 shorts wide. That file is what makes these persist between
-	/// missions, which is what they are for.
+	/// How many counters the array holds — 1000: <c>mission.var</c> is 2,000 bytes each way.
 	/// </summary>
 	public const int MissionCounterSlots = 1000;
 

@@ -77,6 +77,9 @@ public static class MissionLoader {
 	/// <summary>The mission's own text, written beside it as well.</summary>
 	public const string TextFileName = "mission.str";
 
+	/// <summary>The campaign flag array the mission counters start from, and are written back to.</summary>
+	public const string CountersFileName = "mission.var";
+
 	/// <summary>
 	/// The lance file that goes with a mission file. The live pair in <c>DATA\</c> is
 	/// <c>script.dat</c>/<c>player.mec</c>; the save-slot snapshots in <c>SAV\</c> keep the same
@@ -159,6 +162,7 @@ public static class MissionLoader {
 		AddRoster(script, claims, mechNames, flyerNames, mechFormations, flyerFormations, baseFormations,
 			placements);
 
+		var counters = LoadCounters(Path.Combine(Path.GetDirectoryName(scriptPath) ?? ".", CountersFileName));
 		var player = LoadPlayerLance(scriptPath, groups, mechFormations, mechNames, placements);
 		var basePads = ResolveBasePads(groups, claims[MissionUnitKind.Base], baseFormations, placements);
 
@@ -192,8 +196,53 @@ public static class MissionLoader {
 
 		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute,
 			groupOrders, actions, actionTimers, deploymentActions, groupKinds, groupSides,
-			objectives, Array.ConvertAll(script.ObjectiveTextRefs, line => (int)line), text);
+			objectives, Array.ConvertAll(script.ObjectiveTextRefs, line => (int)line), text, counters);
 	}
+
+	/// <summary>
+	/// The mission counters' starting values — <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) reads
+	/// 2,000 bytes of <c>data\mission.var</c> straight into <c>DAT_004a9ef4</c>, then zeroes slot 20,
+	/// slot 10 and slots 21 to 42, before it opens <c>player.mec</c>. See
+	/// docs/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
+	///
+	/// <para>Looked for beside the script, as <c>player.mec</c> is. A missing file loads as all zeros,
+	/// which is this engine's choice: the original asserts, so a mission launched without the shell
+	/// still loads here.</para>
+	/// </summary>
+	private static short[] LoadCounters(string countersPath) {
+		var counters = new short[Sim.SimWorld.MissionCounterSlots];
+
+		if (File.Exists(countersPath)) {
+			byte[] bytes = File.ReadAllBytes(countersPath);
+			Buffer.BlockCopy(bytes, 0, counters, 0, Math.Min(bytes.Length, counters.Length * 2));
+		}
+
+		counters[SalvageBonusCounter] = 0;
+		counters[SquadmatesDownedCounter] = 0;
+		for (int i = FirstClearedCounter; i <= LastClearedCounter; i++) {
+			counters[i] = 0;
+		}
+
+		return counters;
+	}
+
+	/// <summary>
+	/// Counter 20 (<c>DAT_004a9f1c</c>): <c>FUN_0042412c</c> adds 25,000 kg of salvage per unit of it
+	/// to <c>results.dat</c>'s award as the mission ends.
+	/// </summary>
+	public const int SalvageBonusCounter = 20;
+
+	/// <summary>
+	/// Counter 10 (<c>DAT_004a9f08</c>): how many of the player's own squad the player has put out of
+	/// the fight this mission — see <see cref="Sim.MechObject.CreditNeutralised"/>.
+	/// </summary>
+	public const int SquadmatesDownedCounter = 10;
+
+	/// <summary>The run of counters the load also zeroes, 21 to 42 inclusive.</summary>
+	private const int FirstClearedCounter = 21;
+
+	/// <inheritdoc cref="FirstClearedCounter"/>
+	private const int LastClearedCounter = 42;
 
 	/// <summary>
 	/// Block 12 — the mission's objectives, as <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)

@@ -153,7 +153,8 @@ public sealed class Mission {
 			IReadOnlyList<MissionSide> groupSides,
 			IReadOnlyList<MissionObjective>? objectives = null,
 			IReadOnlyList<int>? briefingLines = null,
-			IReadOnlyList<string>? text = null) {
+			IReadOnlyList<string>? text = null,
+			IReadOnlyList<short>? counters = null) {
 		SourcePath = sourcePath;
 		Header = header;
 		Placements = placements;
@@ -170,6 +171,7 @@ public sealed class Mission {
 		Objectives = objectives ?? Array.Empty<MissionObjective>();
 		BriefingLines = briefingLines ?? Array.Empty<int>();
 		Text = text ?? Array.Empty<string>();
+		Counters = counters ?? Array.Empty<short>();
 	}
 
 	/// <summary>Where the <c>script.dat</c> was read from.</summary>
@@ -260,6 +262,13 @@ public sealed class Mission {
 	/// mission it is launching, so it is per-mission and not a shared catalogue.
 	/// </summary>
 	public IReadOnlyList<string> Text { get; }
+
+	/// <summary>
+	/// What the mission counters start at: <c>mission.var</c> as the shell left it, with the slots the
+	/// load resets already zeroed. Empty for a mission built without a loader, which starts them all at
+	/// zero. See <see cref="Herculan.Engine.Sim.SimWorld.MissionCounters"/>.
+	/// </summary>
+	public IReadOnlyList<short> Counters { get; }
 
 	/// <summary>One line of <see cref="Text"/>, or the empty string for a ref outside it.</summary>
 	public string TextAt(int reference) =>

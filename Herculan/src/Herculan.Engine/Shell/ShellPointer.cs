@@ -94,6 +94,7 @@ public enum ShellWidgetKind {
 	ScrapDialogButton,
 	LaunchRefusalOkay,
 	EndOfGameOkay,
+	ReplayButton,
 	RegistrationField,
 	RegistrationButton,
 }

@@ -329,7 +329,7 @@ public sealed class SimWorld {
 	/// <summary>
 	/// <c>DAT_004a9ef4</c> — the mission counters, which are the campaign's flag array for the length
 	/// of a mission: they start from <c>mission.var</c> (<see cref="LoadMissionCounters"/>) and
-	/// <c>FUN_0042412c</c> writes them back to it as the mission ends. See
+	/// <c>Mission_WriteResults</c> (<c>0042412c</c>) writes them back to it as the mission ends (<see cref="MissionResults"/>). See
 	/// docs/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
 	///
 	/// <para>Written by an action firing (<see cref="MissionActionState.Fire"/>), an objective
@@ -377,6 +377,25 @@ public sealed class SimWorld {
 	public const int MissionCounterSlots = 1000;
 
 	private readonly short[] _missionCounters = new short[MissionCounterSlots];
+
+	/// <summary>
+	/// <c>DAT_004a9ef0</c>/<c>DAT_004a9eee</c> — the weapons the mission has recovered, each a catalog id and a
+	/// percentage condition, which <see cref="MissionResults"/> hands the shell as <c>results.dat</c>'s salvage
+	/// pairs. <c>DBSim_LoadScriptDat</c> empties it at load; <see cref="QueueSalvage"/> is its only writer.
+	/// </summary>
+	public IReadOnlyList<(short WeaponId, short Condition)> Salvage => _salvage;
+
+	/// <summary>
+	/// <c>Salvage_QueueWeapon</c> (<c>00426ac8</c>) — one weapon onto <see cref="Salvage"/>. Two callers: a
+	/// Cybrid mount the destruction roll knocks off (<c>MechObject.RollWeaponMountDestruction</c>), and
+	/// each surviving mount of an enemy wreck at the mission's end (<see cref="MechObject.SalvageValue"/>).
+	///
+	/// <para>The original's list is a 200-byte allocation, room for 50, and the append checks nothing; past 50
+	/// it writes on beyond the block. This list grows instead (docs/simulation/component-damage.md#open).</para>
+	/// </summary>
+	internal void QueueSalvage(short weaponId, short condition) => _salvage.Add((weaponId, condition));
+
+	private readonly List<(short WeaponId, short Condition)> _salvage = new();
 
 	/// <summary>
 	/// The drop pods in the air — <c>g_MeteorPool</c>. See <see cref="MeteorObject"/>; a mission

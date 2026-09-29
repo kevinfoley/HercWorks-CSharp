@@ -293,6 +293,49 @@ public sealed class ComponentDamage {
 	public const int CombinedReadoutCount = 10;
 
 	/// <summary>
+	/// <c>Mech_WeightedArmorRemaining</c> (<c>0041537c</c>) — what is left of the machine, as a weighted sum
+	/// that a wreck's salvage value is scaled from (<see cref="MechObject.SalvageValue"/>). The first 19 main
+	/// components each add <c>(armour - damage) * weight / armour</c> against <see cref="ComponentSalvageWeights"/>,
+	/// and the first 12 dependents the same against their own maxima and <see cref="DependentSalvageWeights"/>.
+	///
+	/// <para>A component counts only while it is active and its raw damage is 0 to 149 — so anything worn past
+	/// 150 points is worth nothing, however much armour it had — and a dependent only while its maximum is not
+	/// zero. The original divides by a main component's armour unguarded; a zero here is skipped.</para>
+	/// </summary>
+	public int WeightedArmorRemaining() {
+		int total = 0;
+
+		for (int i = 0; i < ComponentSalvageWeights.Length && i < _damage.Length; i++) {
+			int armor = Piece(i)?.Armor ?? 0;
+			if (_active[i] && _damage[i] >= 0 && _damage[i] < SalvageDamageLimit && armor != 0) {
+				total += (armor - _damage[i]) * ComponentSalvageWeights[i] / armor;
+			}
+		}
+
+		for (int slot = 0; slot < DependentSalvageWeights.Length && slot < _dependentDamage.Length; slot++) {
+			int maximum = DependentMaximum(slot);
+			if (maximum != 0 && _dependentDamage[slot] >= 0 && _dependentDamage[slot] < SalvageDamageLimit) {
+				total += (maximum - _dependentDamage[slot]) * DependentSalvageWeights[slot] / maximum;
+			}
+		}
+
+		return total;
+	}
+
+	/// <summary>The raw damage at which a component stops counting towards <see cref="WeightedArmorRemaining"/> — the literal <c>0x96</c>.</summary>
+	private const short SalvageDamageLimit = 0x96;
+
+	/// <summary>The weights of the first 19 main components, <c>00499fe0</c>.</summary>
+	private static readonly short[] ComponentSalvageWeights = {
+		3000, 3000, 1000, 1000, 2000, 2000, 1000, 2000, 2000, 1000, 1000, 500, 500, 2000, 2000, 1000, 1000, 500, 500,
+	};
+
+	/// <summary>The weights of the first 12 dependents, <c>0049a006</c>, straight after the components'.</summary>
+	private static readonly short[] DependentSalvageWeights = {
+		1500, 1500, 0, 0, 1000, 3000, 1000, 1000, 1000, 0, 1500, 1500,
+	};
+
+	/// <summary>
 	/// <c>Component_IsFullyDestroyed</c> (<c>0040d9f8</c>) — whether a main component is destroyed <b>and</b> every dependent under it
 	/// is too (<c>Component_AllDependentsDestroyed</c>, <c>0040cf10</c>). It is the stricter of the two "is this gone" questions, and the
 	/// one the mech's death test asks of its two cockpit sections.

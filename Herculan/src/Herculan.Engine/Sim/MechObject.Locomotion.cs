@@ -594,8 +594,7 @@ public sealed partial class MechObject {
 	/// percentage, not enough to say which bands the campaign exercises. See
 	/// <c>ScriptSpawnRecordExport.StartingCondition</c>.</para>
 	///
-	/// <para>Left out: a byte the original raises at <c>mech+0xb3</c> on the two worst grades. Its
-	/// role is not established and nothing ported reads it.</para>
+	/// <para>The two worst grades also raise <see cref="WorthNoSalvage"/>.</para>
 	/// </summary>
 	internal void ApplyStartingCondition(SimWorld world, short condition) {
 		if (_damage == null) {
@@ -614,8 +613,10 @@ public sealed partial class MechObject {
 
 				// Not damage toward the maximum -- the maximum itself, written straight in.
 				_damage.SetDependentDamage(ReactorDependent, _damage.DependentMax(ReactorDependent));
+				WorthNoSalvage = true;
 			} else {
 				spread = 150;
+				WorthNoSalvage = true;
 
 				ComponentDamageWrite(world, FrontLegComponents[world.Random.Next() & 1], LegWriteOff, null);
 				if (Type.LegCount > 2) {

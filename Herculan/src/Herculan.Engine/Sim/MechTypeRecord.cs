@@ -207,6 +207,12 @@ public sealed class MechTypeRecord {
 	public bool WeaponMountsDestructible => Data.Unk84_val != 0;
 
 	/// <summary>
+	/// Record offset 82, the type record's <c>+0x54</c> — the Q10 scale a wreck of this chassis is
+	/// worth on its weighted remaining armour. See <see cref="MechObject.SalvageValue"/>.
+	/// </summary>
+	public short SalvageScale => Data.SalvageScale;
+
+	/// <summary>
 	/// The base name of this chassis' own debris table, record offset 204 — a 12-byte NUL-padded
 	/// string, <c>achi_deb</c> for the ACHILLES. <c>MechType_InitOne</c> loads
 	/// <c>dat\&lt;name&gt;.DAT</c> and <c>dts\&lt;name&gt;.DTS</c> from it into the type record's own

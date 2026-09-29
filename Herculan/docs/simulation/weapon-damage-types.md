@@ -94,7 +94,7 @@ if (after != 0x100 && typeRec+0x56 != 0 && component > 0x12) {
     if ((rand & 0xfff) < odds * 0x29) {                  // 3/4096-per-41 vs 10, ~3% vs ~10%
         WeaponMount_Destroy(mountFor(component), mech, 1);
         mech+0x20e[component] = 0;                       // clear the active flag FIRST
-        if (side == 1) queueSalvage(template+0x56, condition);
+        if (side == 1) queueSalvage(template+0x56, (0x100 - Q10(500, after)) * 100 >> 8);
         Component_ApplyDamageAndCascade(component, 10000);
     }
 }
@@ -105,7 +105,7 @@ Four things a port has to keep:
 - **The chassis gates it.** `typeRec+0x56` is record offset 84 (the record sits at `MECH_TYPE_DATA[i]+2`), and the PITBULL alone states zero — its mounts are immune to the roll, though not to the certain path. See [`mech-locomotion.md`](mech-locomotion.md#mech-type-record).
 - **The odds depend on whose machine it is**: about 3% for the player's side, about 10% for the Cybrids.
 - **The order of the three writes.** Clearing the active flag before the flat 10000 is what stops the component cascading, so losing a gun does not take the shoulder it hangs off with it. `Component_ApplyDamageAndCascade` does **not** test the active flag — the flag gates `Mech_ComponentDamageWrite` at its entry and `Component_DestroyAndCascade`, and neither of those is reached here.
-- **The Cybrid branch queues salvage.** `maybe_Salvage_QueueDestroyedWeapon` (`00426ac8`) appends the destroyed weapon's catalog id (`template+0x56`) and its remaining condition to a global list.
+- **The Cybrid branch queues salvage.** `Salvage_QueueWeapon` (`00426ac8`) appends the destroyed weapon's catalog id (`template+0x56`) to the mission's salvage list, with a condition taken from just under half the component's reading, so a gun knocked off a half-wrecked mount comes home in better shape than the mount reads. The list is what the player recovers after the mission ([`component-damage.md`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)).
 
 The mount side of all this — what `WeaponMount_Destroy` writes, and the second, certain path through each mount's vtable `+0x68` — is in [`weapon-mounts.md`](weapon-mounts.md#losing-a-mount).
 

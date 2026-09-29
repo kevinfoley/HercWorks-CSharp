@@ -23,7 +23,7 @@ Without one of these, the host flies the mission.
 
 | Flag | Effect |
 |---|---|
-| `--shell` | Runs the front end instead of a mission. The other `--shell-*` flags imply it. See [`shell/screen-layout.md`](../shell/screen-layout.md). |
+| `--shell` | Runs the front end instead of a mission, and the missions it launches, coming back to it after each as `ES.EXE` does ([`command-line.md`](../command-line.md#the-loop)). The other `--shell-*` flags imply it, and stage its first turn only. See [`shell/screen-layout.md`](../shell/screen-layout.md). |
 | `--movie <name>` | Plays one cutscene: a path, or a name looked up in the install's `AVI` folder, with or without the extension. See [`video-playback.md`](video-playback.md#looking-at-one). |
 | `--play <tape>` | Replays an input tape: a path, or a stem looked up in the install's `TAPES` folder. Hands the controls to the player when the tape runs out. Retail's `-p<name>`. See [`input-tapes.md`](input-tapes.md). |
 | `--record <tape>` | Records the mission's input to `<tape>.tap`, which `--play` replays. Cannot be combined with `--play` or `--demo`. Retail's `-r<name>`. See [`input-tapes.md`](input-tapes.md#recording). |
@@ -37,7 +37,7 @@ All of these imply `--shell`.
 |---|---|
 | `--shell-tab <0-7>` | The tab the front end opens on, in place of the main menu and the startup sequence before it. |
 | `--shell-bay <0-7>` | The hangar bay the repair tab works on. |
-| `--shell-training` | Runs the front end in training mode, the practice missions' and `INSTANT ACTION`'s, which gates REPAIR, BUILD and ARMORY off. |
+| `--shell-training` | Runs the front end in training mode, the practice missions' and `INSTANT ACTION`'s, which gates REPAIR, BUILD and ARMORY off, whatever mode `data\prefs.cfg` holds. |
 | `--shell-practice` | Opens on the practice missions screen, as the main menu's PRACTICE MISSIONS does, without the startup sequence. |
 | `--shell-windowed` | Keeps the front end windowed at startup, where `data\prefs.cfg` option 6 would put it in full screen. This engine's own flag; retail's `-d` has no effect ([`shell/screen-layout.md`](../shell/screen-layout.md#full-screen-asks-first)). |
 | `--shell-no-movies` | Turns the front end's movies off: nothing is queued and nothing plays, and the music stays at the startup's silence until a fade raises it. Retail's `-a` ([`shell/screen-layout.md`](../shell/screen-layout.md#the-shells-movies)). |
@@ -50,7 +50,7 @@ See [`shell/screen-layout.md`](../shell/screen-layout.md).
 | Flag | Effect |
 |---|---|
 | `--no-sound`, `--silent` | Opens no audio device. Everything that drives sound still runs; nothing is heard. Retail's `-s`. In the shell, as with `-s`, there is no sound manager at all, so the music track is not flipped. |
-| `--music <n>` | The CD track select: the mission plays track *n* % 5 + 2. Retail's `-R<n>`. Without it, track 2. |
+| `--music <n>` | The CD track select: the mission plays track *n* % 5 + 2. Retail's `-R<n>`. Under `--shell` each mission launched counts on from it, as the launcher counts from 0; a lone mission without it plays track 2. |
 | `--cd-drive <drive>` | The drive holding the music CD. |
 | `--music-dir <dir>` | A folder of `Track02.wav` … `Track07.wav` to play in place of the disc. |
 

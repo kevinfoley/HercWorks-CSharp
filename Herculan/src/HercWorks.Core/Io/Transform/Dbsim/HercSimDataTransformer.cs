@@ -76,7 +76,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		data.Unk80_ValHudId = IndexShortLE();
 
-		data.Unk82_val = IndexShortLE();
+		data.SalvageScale = IndexShortLE();
 		data.Unk84_val = IndexShortLE();
 
 		data.NameBytes = IndexSegment(12);
@@ -211,7 +211,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		Emit(outStream, WriteShortLE(data.Unk80_ValHudId));
 
-		Emit(outStream, WriteShortLE(data.Unk82_val));
+		Emit(outStream, WriteShortLE(data.SalvageScale));
 
 		Emit(outStream, WriteShortLE(data.Unk84_val));
 

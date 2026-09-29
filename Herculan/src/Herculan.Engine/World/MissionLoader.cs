@@ -227,7 +227,7 @@ public static class MissionLoader {
 	}
 
 	/// <summary>
-	/// Counter 20 (<c>DAT_004a9f1c</c>): <c>FUN_0042412c</c> adds 25,000 kg of salvage per unit of it
+	/// Counter 20 (<c>DAT_004a9f1c</c>): <c>Mission_WriteResults</c> (<c>0042412c</c>) adds 25,000 kg of salvage per unit of it
 	/// to <c>results.dat</c>'s award as the mission ends.
 	/// </summary>
 	public const int SalvageBonusCounter = 20;

@@ -1,6 +1,7 @@
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Shell;
+using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
@@ -61,17 +62,26 @@ static class ShellHost {
 
 	/// <summary>
 	/// Runs the front end until its window closes. Returns the exit code and, when <c>Rock &amp; Roll &gt;</c>,
-	/// <c>Begin Mission</c> or <c>INSTANT ACTION</c> closed it, the mission to run — <c>FUN_0040876a(2)</c>,
-	/// the code the retail launcher answers by starting the simulator. <c>VIEW DEMO</c> closes it with
-	/// <see cref="DemoExitCode"/> and no mission.
+	/// <c>Begin Mission</c>, <c>INSTANT ACTION</c> or the debrief's <c>REPLAY MISSION?</c> closed it, the mission
+	/// to run — <c>FUN_0040876a(2)</c>, the code the retail launcher answers by starting the simulator.
+	/// <c>VIEW DEMO</c> closes it with <see cref="DemoExitCode"/> and no mission.
+	///
+	/// <para><paramref name="returnCode"/> is <c>-X</c>, the state the launcher starts the shell in
+	/// (<c>0048227e</c>): <see cref="StartupCode"/> on a first start, or the code the simulator returned —
+	/// <see cref="MissionResults.DebriefExitCode"/> into the debrief, <see cref="MissionResults.DemoExitCode"/>
+	/// after a demo (<c>Shell_BuildScreensAndStart</c>, <c>004012b0</c>). <paramref name="forcedMode"/> overrides
+	/// the campaign/training mode the startup seeds from <c>prefs.cfg</c> option 42 (<c>FUN_0040e17e</c>); the mode
+	/// the shell ends in is returned for the next turn, which is how it survives a return from the simulator when
+	/// <c>--no-write-prefs</c> keeps option 42 off the disk.</para>
 	///
 	/// <para>Retail ignores <c>WM_CLOSE</c> while the startup sequence runs (<c>DAT_0046c098</c> clear); this
 	/// window closes.</para>
 	/// </summary>
-	public static (int ExitCode, ShellLaunch? Launch) Run(string installRoot, string? paletteName, string? screenshotPath = null,
-			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
+	public static (int ExitCode, ShellLaunch? Launch, ShellCampaignMode? Mode) Run(string installRoot, string? paletteName, string? screenshotPath = null,
+			ShellCampaignMode? forcedMode = null, int startTab = ShellScreen.MainMenuTab,
 			int startBay = 0, bool startPractice = false, bool silentAudio = false, bool writePreferences = true,
-			bool startWindowed = false, bool moviesEnabled = true) {
+			bool startWindowed = false, bool moviesEnabled = true, int returnCode = StartupCode) {
+		bool fromMission = returnCode is MissionResults.DebriefExitCode or DebriefDestroyedCode;
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot),
 			[.. ShellArt.Archives, ShellSound.ArchiveName]);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
@@ -84,6 +94,14 @@ static class ShellHost {
 		int missionInStage = 0;
 		bool missionMapShown = false;
 
+		// MissionScreenView (DAT_0048106c) at 4, which only the debrief writes, and the tab handler's own map
+		// or briefing overwrites; with it, the debrief's text, its movie, and that movie's once-per-load flag
+		// (DAT_004778ac), which a load and a new career clear.
+		bool debriefUp = false;
+		string? debriefText = null;
+		short? debriefMovie = null;
+		bool debriefMovieQueued = false;
+
 		// Reassigned when a tab switches palette, since the art is decoded through one palette at load
 		// rather than re-mapped per frame — see SwitchPalette.
 		string startPalette = PaletteFor(startTab);
@@ -93,7 +111,7 @@ static class ShellHost {
 				$"It needs {string.Join(" and ", ShellArt.Archives)}, a "
 				+ $"dpl\\{startPalette}.DPL palette and "
 				+ $"dbm\\{ShellArt.BackdropName}.DBM.");
-			return (1, null);
+			return (1, null, forcedMode);
 		}
 
 		var art = loaded;
@@ -156,13 +174,13 @@ static class ShellHost {
 
 		// The startup sequence that first brings the main menu up, drawn through palette 1 as the startup
 		// installs it before showing the sequence. A run staged on another screen, or for a screenshot,
-		// starts without it — the staging flags are this engine's own.
-		var startup = startTab == ShellScreen.MainMenuTab && !startPractice && screenshotPath == null
-			? new ShellStartupSequence()
-			: null;
-		var startupFrames = startup == null
-			? Array.Empty<ShellImage?>()
-			: ShellStartupSequence.FrameNames.Select(name => art.LoadBitmap(content, name)).ToArray();
+		// starts without it — the staging flags are this engine's own. A return from a mission puts it up only
+		// where the debrief sends the player back to the menu (ReturnFromMission).
+		ShellStartupSequence? startup = null;
+		var startupFrames = Array.Empty<ShellImage?>();
+		if (!fromMission && startTab == ShellScreen.MainMenuTab && !startPractice && screenshotPath == null) {
+			BeginStartupSequence();
+		}
 
 		// The movie queue, played out by the run built with the window. The briefing movie plays once per
 		// load (DAT_004778ab), and CREDITS blanks the screen round its movie.
@@ -181,6 +199,9 @@ static class ShellHost {
 		// INSTANT ACTION's DAT_0047363c, which nothing clears.
 		var endOfGame = new ShellEndOfGameDialog();
 		bool instantActionSet = false;
+
+		// REPLAY MISSION?, which the debrief puts up when the campaign ends.
+		var replayDialog = new ShellReplayDialog();
 		int exitCode = 0;
 
 		var repairCosts = ShellRepairCosts.Load(content);
@@ -199,6 +220,11 @@ static class ShellHost {
 		// main menu while it is up, and is built on first use and kept.
 		var shellOptions = preferences ?? SimulatorPreferences.Defaults();
 		shellOptions.SaveEnabled = writePreferences;
+
+		// CampaignModeFlag (DAT_0048260c), which the startup (FUN_0040e17e) seeds from option 42 so the mode
+		// survives a restart, and a return from a mission with it: it is what picks GAME_R or GAME_T as slot 10.
+		var mode = forcedMode ?? (shellOptions[CampaignModeOption] == (byte)ShellCampaignMode.Campaign
+			? ShellCampaignMode.Campaign : ShellCampaignMode.Training);
 		ShellPracticeScreen? practiceScreen = null;
 		bool practiceUp = false;
 
@@ -372,8 +398,12 @@ static class ShellHost {
 				OpenPractice();
 			}
 
-			// The startup's two intro movies (FUN_004012b0), played before the startup sequence.
-			if (startup != null) {
+			// The startup's two intro movies (Shell_BuildScreensAndStart, 004012b0), played before the startup
+			// sequence — except after a demo, whose -X6 goes straight to the sequence, and after a mission,
+			// whose -X3 goes to the debrief.
+			if (fromMission) {
+				ReturnFromMission();
+			} else if (startup != null && returnCode != MissionResults.DemoExitCode) {
 				movieQueue.Enqueue(ShellMovieQueue.IntroPart1, ShellMovieQueue.FullRect);
 				movieQueue.Enqueue(ShellMovieQueue.IntroPart2, ShellMovieQueue.FullRect);
 				movies.Start();
@@ -535,7 +565,7 @@ static class ShellHost {
 
 		// The main loop's exit, whichever way it was left: QUIT, a launch or the window closing.
 		AutoSave();
-		return (exitCode, launch);
+		return (exitCode, launch, mode);
 
 		// One update of the startup sequence: shown on the first, then its alarm's ticks, the last of which
 		// hides it and puts the menu up.
@@ -579,6 +609,13 @@ static class ShellHost {
 				saveScreen.ExitTarget = ShellSaveExitTarget.TabStrip;
 			}
 
+			// The teardown's mission arm, Mission_Leave (00444a05), takes the report texts down for good; and the
+			// mission tab's own handler writes the map or the briefing over the debrief's view.
+			if (screen.SelectedTab == ShellScreen.MissionTab) {
+				missionScreen.Leave();
+			}
+
+			debriefUp = false;
 			screen.SelectTab(id);
 			Console.WriteLine($"Tab {id}"
 				+ (screen.Button(id)?.Caption is { } caption ? $" ({caption})" : string.Empty)
@@ -594,7 +631,7 @@ static class ShellHost {
 
 		// The sound manager's setup (ShellSound_Init, 0042ec7c): the samples, the music track option 5 picks, and then
 		// option 5 flipped, committed and all 54 options saved, so the next run plays the other track. The
-		// startup then starts the music at volume 0 (FUN_004012b0's ShellSound_Start), and the movie queue
+		// startup then starts the music at volume 0 (Shell_BuildScreensAndStart's ShellSound_Start), and the movie queue
 		// fades it in after the intro — or, with movies off, leaves it there. A run staged on another screen
 		// has no intro, and fades it in here.
 		void StartSound() {
@@ -617,9 +654,133 @@ static class ShellHost {
 			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
 
 			sound.Start();
-			if (startup == null) {
+			if (startup == null || returnCode != StartupCode) {
 				sound.FadeIn();
 			}
+		}
+
+		// The startup sequence up, with its frames, where it has not been: a first start, and wherever a return
+		// from the simulator goes back to the menu by way of it.
+		void BeginStartupSequence() {
+			startup = new ShellStartupSequence();
+			startupFrames = ShellStartupSequence.FrameNames.Select(name => art.LoadBitmap(content, name)).ToArray();
+		}
+
+		// Shell_BuildScreensAndStart's -X3 and -X4 arm (004012b0): Game_LoadSlot(10) and then
+		// Game_ProcessMissionResults (0040eae7) over the results.dat and mission.var the simulator left beside the
+		// handoff, then wherever the debrief goes next (docs/shell/campaign-loop.md#where-the-debrief-goes-next).
+		// A slot 10 not in use, or no results, cannot come from a mission this shell launched; it is reported,
+		// and the menu comes up.
+		void ReturnFromMission() {
+			string resultsPath = Path.Combine(HandoffDirectory, MissionResults.FileName);
+			string countersPath = Path.Combine(HandoffDirectory, MissionLoader.CountersFileName);
+			if (!LoadSlot(CurrentGameSlot) || loadedGame == null || !File.Exists(resultsPath) || !File.Exists(countersPath)) {
+				Console.WriteLine($"Back from the mission, but slot 10 or {resultsPath} could not be read — main menu.");
+				BeginStartupSequence();
+				return;
+			}
+
+			var result = ShellDebrief.Process(loadedGame, hangar, content, File.ReadAllBytes(countersPath),
+				File.ReadAllBytes(resultsPath), mode == ShellCampaignMode.Campaign, shellOptions[RepairOption], ManualWeaponBuild(),
+				bound => shellRandom.NextBelow(bound), out string? failure);
+			if (result == null) {
+				Console.WriteLine($"Debrief: {failure} Main menu.");
+				BeginStartupSequence();
+				return;
+			}
+
+			Console.WriteLine($"Debrief: {(result.Outcome != 0 ? "success" : "failure")}, {result.SalvageAwarded} kg salvage "
+				+ $"and {result.SalvageItems} weapon(s) recovered, {result.MachinesScrapped} machine(s) scrapped, "
+				+ $"{result.PilotsLost} pilot(s) lost; game state {result.State?.ToString() ?? "unchanged"}.");
+			if (result.Report is { } report) {
+				missionScreen.WriteReport(report, art.Text);
+			}
+
+			switch (result.State) {
+				case ShellDebrief.CampaignOverState or ShellDebrief.ShellState:
+					// ReplayDialog_Show(state) (0044ca57).
+					replayDialog.Open(result.State.Value);
+					Console.WriteLine("Replay mission? Yes flies it again from the autosave; No saves and goes to the main menu.");
+					break;
+				case ShellDebrief.CampaignWonState:
+					// Game_SaveSlot(10), the two ending movies, palette 1 and the startup sequence.
+					AutoSave();
+					movieQueue.Enqueue(ShellMovieQueue.Victory, ShellMovieQueue.FullRect);
+					movieQueue.Enqueue(ShellMovieQueue.Credits, ShellMovieQueue.FullRect);
+					movies?.Start();
+					InstallPalette(ShellPalette.ServiceBay);
+					BeginStartupSequence();
+					break;
+				case ShellDebrief.NextMissionState:
+					// MissionScreenView = 4, then Career_StartMissionLoad's Use Default: the next mission's load,
+					// whose campaign end puts the frame up and the mission tab in that view.
+					debriefUp = true;
+					debriefText = result.Debrief is { } text ? ShellMissionTexts.AssembleDebrief(text) : null;
+					debriefMovie = result.Debrief?.Movie;
+					LoadNextCareerMission();
+					break;
+				default:
+					// A training debrief leaves the state alone and shows the startup sequence.
+					BeginStartupSequence();
+					break;
+			}
+		}
+
+		// Career_LoadCurrentMission's campaign load after a debrief, as StartCampaign runs it for a new career.
+		void LoadNextCareerMission() {
+			if (loadedGame == null) {
+				return;
+			}
+
+			var game = loadedGame;
+			if (ShellCampaignLaunch.LoadCareerMission(CareerDirectory, content, game, hangar, clearList,
+					bound => shellRandom.NextBelow(bound), out string? failure) is not { } mission) {
+				Console.WriteLine($"Next mission: {failure} Main menu.");
+				debriefUp = false;
+				BeginStartupSequence();
+				return;
+			}
+
+			AdoptGame(game, hangar, ShellWorkingFiles.In(CareerDirectory));
+			Console.WriteLine($"Next mission: {mission.MissionPath}, {mission.SquadPositions} squad position(s); "
+				+ $"working files in {CareerDirectory}.");
+			screen.ReturnToFrame(mode);
+			ShowMissionView();
+		}
+
+		// A REPLAY MISSION? button. No (ReplayDialog_OnNo, 0044cbbd) saves slot 10, takes the dialog down and
+		// shows the main menu. Yes (ReplayDialog_OnYes, 0044cb44) takes it down, loads slot 10 again, and ends
+		// the shell on exit code 2 — so the simulator flies what the load's Career_LoadSlot copied in: the
+		// slot's script.dat, mission.str and player.mec, beside the mission.var the simulator itself last wrote,
+		// which no one rewrites.
+		void ClickReplay(ShellReplayButton button) {
+			replayDialog.Close();
+			if (button == ShellReplayButton.No) {
+				AutoSave();
+				Console.WriteLine("Replay: no — main menu.");
+				RepaintContent();
+				return;
+			}
+
+			if (!LoadSlot(CurrentGameSlot)) {
+				Console.WriteLine("Replay: slot 10 could not be read — main menu.");
+				RepaintContent();
+				return;
+			}
+
+			Directory.CreateDirectory(HandoffDirectory);
+			var handoff = ShellWorkingFiles.In(HandoffDirectory);
+			foreach (var (from, to) in new[] {
+					(workingFiles.Script, handoff.Script), (workingFiles.Text, handoff.Text), (workingFiles.Player, handoff.Player) }) {
+				if (from != null && to != null && File.Exists(from)) {
+					File.Copy(from, to, overwrite: true);
+				}
+			}
+
+			workingFiles = handoff;
+			launch = new ShellLaunch(handoff.Script!, Path.Combine(installRoot, MissionLoader.DataFolderName));
+			Console.WriteLine($"Replay: yes — slot 10's mission copied to {HandoffDirectory}; launching it.");
+			window.Close();
 		}
 
 		// What a tab's entry does beyond showing it. The mission tab's map view sets the campaign map's
@@ -663,6 +824,10 @@ static class ShellHost {
 
 			if (endOfGame.IsOpen) {
 				return endOfGame.HitAt(canvasX, canvasY);
+			}
+
+			if (replayDialog.IsOpen) {
+				return replayDialog.HitAt(canvasX, canvasY);
 			}
 
 			if (screen.HitAt(canvasX, canvasY) is { } strip) {
@@ -774,6 +939,9 @@ static class ShellHost {
 				case ShellWidgetKind.LaunchRefusalOkay:
 					launchRefusal.Close();
 					RepaintContent();
+					break;
+				case ShellWidgetKind.ReplayButton:
+					ClickReplay((ShellReplayButton)widget.Index);
 					break;
 				case ShellWidgetKind.EndOfGameOkay:
 					endOfGame.Close();
@@ -1392,9 +1560,15 @@ static class ShellHost {
 		}
 
 		// Game_LoadSlot (0040e4f2): a slot in use read in whole — the hangar, the career and its mission, and
-		// the game in progress that saving needs. The mission map is rebuilt, here on the briefing's next
-		// visit, and the briefing's movie plays again (DAT_004778ab cleared). Returns false for a slot not in use, which the original refuses, or one that cannot be read.
+		// the game in progress that saving needs. Slot 10 is slot 11 in training, as it is to Game_SaveSlot. The
+		// mission map is rebuilt, here on the briefing's next visit, and the briefing's and debrief's movies play
+		// again (DAT_004778ab and DAT_004778ac cleared). Returns false for a slot not in use, which the original
+		// refuses, or one that cannot be read.
 		bool LoadSlot(int slot) {
+			if (slot == CurrentGameSlot && mode == ShellCampaignMode.Training) {
+				slot = CurrentGameSlot + 1;
+			}
+
 			if (saveScreen.Slots.ElementAtOrDefault(slot) is not { InUse: true } entry
 					|| ShellSaveSlots.LoadSave(installRoot, entry.FileName) is not { } restored) {
 				return false;
@@ -1411,8 +1585,9 @@ static class ShellHost {
 			return true;
 		}
 
-		// The game in progress from here on, from a load or a new career — DAT_0048260a set, the briefing's movie
-		// to play again (DAT_004778ab cleared), and the mission map rebuilt on the briefing's next visit.
+		// The game in progress from here on, from a load or a new career — DAT_0048260a set, the briefing's and
+		// debrief's movies to play again (DAT_004778ab and DAT_004778ac cleared), and the mission map rebuilt on
+		// the briefing's next visit.
 		void AdoptGame(HercWorks.Core.Data.File.Sav.PlayerSave game, ShellHangar gameHangar, ShellWorkingFiles files) {
 			hangar = gameHangar;
 			loadedGame = game;
@@ -1420,6 +1595,7 @@ static class ShellHost {
 			gameInProgress = true;
 			missionMap = null;
 			briefingMovieQueued = false;
+			debriefMovieQueued = false;
 			missionTexts = ShellMissionTexts.Load(files, game);
 			campaignStage = game.CampaignStage;
 			missionInStage = game.MissionInStage;
@@ -1864,11 +2040,24 @@ static class ShellHost {
 				+ $"{hangar.QueueFreeSlots} slots free, {armoryScreen.AllocatedKilograms} kg allocated.");
 		}
 
-		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks. The map view queues the
-		// stage's two movies and sets the once-per-load flag whether or not they play; the briefing queues
-		// the career's briefing movie once per load. The main loop's pass plays them.
+		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks, or the debrief's. The map
+		// view queues the stage's two movies and sets the once-per-load flag whether or not they play; the
+		// briefing queues the career's briefing movie once per load, and the debrief its debrief movie, both
+		// into the Telecomm picture through the view's palette. The main loop's pass plays them.
 		void EnterMission() {
 			missionViewUp = MissionView();
+			if (missionViewUp == ShellMissionView.Debriefing) {
+				missionScreen.EnterDebrief(debriefText, art.Sprites?.Font(ShellArt.ScreenFont));
+				if (!debriefMovieQueued && debriefMovie is { } movie) {
+					movieQueue.Enqueue(movie, ShellMovieQueue.TelecommRect, ShellPalette.FirstDebriefing - 1 + campaignStage);
+					debriefMovieQueued = true;
+				}
+
+				Console.WriteLine($"Mission: the debrief, {missionScreen.DebriefBox.Lines.Count} lines"
+					+ (missionScreen.ReportTextsUp ? ", with the mission report." : "."));
+				return;
+			}
+
 			if (missionViewUp == ShellMissionView.Map) {
 				int mapPalette = campaignStage - 1 > 3 ? ShellPalette.CampaignMapMoon : ShellPalette.CampaignMapEarth;
 				movieQueue.Enqueue(ShellMovieQueue.StageMovieBase + campaignStage, ShellMovieQueue.TelecommRect, mapPalette);
@@ -2009,6 +2198,14 @@ static class ShellHost {
 
 			contentSurface.Clear();
 
+			// REPLAY MISSION? stands on a picture of the backdrop over the whole display, which is what the
+			// renderer draws beneath an empty content, so the dialog is all there is to paint.
+			if (replayDialog.IsOpen) {
+				replayDialog.Paint(contentSurface, art.Text, art.Sprites);
+				renderer.SetContent(contentSurface);
+				return;
+			}
+
 			// Tabs 2-7 switch palette through the scope, whose paint blacks out everything below the
 			// strip; the tab's screen, if one is ported, draws over that. The lunar movie plays over the
 			// same fill.
@@ -2090,7 +2287,8 @@ static class ShellHost {
 		}
 
 		ShellMissionView MissionView() =>
-			!missionMapShown && missionInStage == 0 ? ShellMissionView.Map : ShellMissionView.Briefing;
+			debriefUp ? ShellMissionView.Debriefing
+			: !missionMapShown && missionInStage == 0 ? ShellMissionView.Map : ShellMissionView.Briefing;
 
 		// The original writes an index into the palette widget and shows it; here the whole of the art
 		// is decoded through one palette at load, so a change means loading it again and rebuilding the
@@ -2157,4 +2355,17 @@ static class ShellHost {
 	/// simulator with <c>-D</c>; the caller answers it with a demo tape.
 	/// </summary>
 	public const int DemoExitCode = 5;
+
+	/// <summary>The state <c>ES.EXE</c>'s loop starts in, which runs the shell as a first start (docs/command-line.md#the-loop).</summary>
+	public const int StartupCode = 1;
+
+	/// <summary>
+	/// The simulator's code for a destroyed player in <c>MissionModeFlag</c>, which the shell takes into the
+	/// debrief as it does 3. The simulator never returns it (<see cref="MissionResults.ExitCode"/>).
+	/// </summary>
+	public const int DebriefDestroyedCode = 4;
+
+	/// <summary>Whether a simulator exit code brings the shell back up rather than ending the run: 3, 4 and 6.</summary>
+	public static bool ReturnsToShell(int code) =>
+		code is MissionResults.DebriefExitCode or DebriefDestroyedCode or MissionResults.DemoExitCode;
 }

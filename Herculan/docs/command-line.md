@@ -41,14 +41,14 @@ The state word at `00402070` (ES.EXE) starts at 1 and is replaced by each child'
 
 | Code | Set by | Meaning to `ES.EXE` |
 |---|---|---|
-| 0 | the shell quitting ([`QUIT`](shell/screen-layout.md#quit) or closing its window); DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does | quit |
-| 2 | VSHELL `Shell_SetExitCode(2)` (`0040876a`) — the mission launch paths, including `Msn_BuildPath` (`0044d5bd`, VSHELL) | fly a mission |
-| 3 | DBSIM at mission end | shell, into the debrief |
-| 4 | DBSIM in place of 3 when the player's machine has `+0x99` set and `MissionModeFlag` (`004a9ed6`) is up | shell, into the debrief |
+| 0 | the shell quitting ([`QUIT`](shell/screen-layout.md#quit) or closing its window); DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does — the panel closing the simulator's window raises too | quit |
+| 2 | VSHELL `Shell_SetExitCode(2)` (`0040876a`) — the mission launch paths, including `Msn_BuildPath` (`0044d5bd`, VSHELL) and the debrief's `REPLAY MISSION?` | fly a mission |
+| 3 | DBSIM when a mission ends other than by a quit or a demo | shell, into the debrief |
+| 4 | DBSIM in place of 3 when the player's machine is destroyed (`+0x99`) and `MissionModeFlag` (`004a9ed6`) is up — which the load zeroes, so never | shell, into the debrief |
 | 5 | VSHELL `FUN_0043156f` — the main menu's `VIEW DEMO` button | fly a demo tape |
 | 6 | DBSIM after a demo (`DemoMode`, `004d25b4`) | shell |
 
-DBSIM returns its code from `WinMain` out of `004d283c`, written in `FUN_00461eec` (DBSIM). The shell side of `-X3`/`-X4` is [`shell/campaign-loop.md`](shell/campaign-loop.md).
+DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdown` (`00461eec`, DBSIM) after the mission's results ([`simulation/mission-objectives.md`](simulation/mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)). The shell side of `-X3`/`-X4` and `-X6` is [`shell/campaign-loop.md`](shell/campaign-loop.md).
 
 ## VSHELL
 
@@ -97,7 +97,7 @@ Two parsers. `FUN_0045e6b0` (DBSIM) runs first from `WinMain`, after `VideoMode_
 | `-d` | `004d2562` | Opens the checkpoint file `<tape stem>.dmp`; [`formats/tap-input-tape.md`](formats/tap-input-tape.md#the-checkpoint-file) |
 | `-B` | `004d25b0` = 1 | In `Sim_HandleWindowKey` (`0045fd60`): `Ctrl+B` (`0x430`) calls `__break` (`004679d4`), an `INT3`; and `Alt+Enter` (`0x21c`) stops toggling full screen while a tape plays |
 | `-m` | `004d2701` = 1 | `Sim_InitMissionSession` sends control code 5 to `\\.\DARKMONO.VXD` (`FUN_004954b8`), a developer's monochrome-monitor driver that does not ship |
-| `-P` | block `+0x0d` = 1 | No effect. Its three readers — `0045f2ab` and `0045f37b` in `FUN_0045f144`, `00461f86` in `FUN_00461eec` — are each a `CMP` followed by an instruction that overwrites the flags or a `CALL`, with no branch between |
+| `-P` | block `+0x0d` = 1 | No effect. Its three readers — `0045f2ab` and `0045f37b` in `Sim_Run` (`0045f144`), `00461f86` in `Sim_Shutdown` (`00461eec`) — are each a `CMP` followed by an instruction that overwrites the flags or a `CALL`, with no branch between |
 | `-T<n>`, `-V<n>`, `-W<n>` | block `+0x5a`, `+0x56`, `+0x58` | `Main_StaticInit` sets all three to -1 |
 | `-a` | block `+0x7d` = 0 | `Main_StaticInit` sets it to 1 |
 | `-c` | block `+0x72` = 1 | |
@@ -149,7 +149,6 @@ Both steps start at 2000, entry 3 of both tables: the mech module's static initi
 
 - **Open:** what the simulator's `-T<n>`, `-V<n>`, `-W<n>`, `-a` and `-c` feed. The searches above find no reader, and a null result does not prove there is none; code Ghidra has not disassembled is covered only by the address sweeps, not by the displacement search.
 - **Open:** VSHELL's language slot 3 from `-e…`. Its readers test for 0, 1 and 2.
-- **Open:** what `+0x99` on the player's machine records, which separates exit code 4 from 3, and what VSHELL does with `-X6` beyond the path at `FUN_00401525`.
 - **Open:** what `-C` does with the four names that have no cockpit files (`ROADRUNNER`, `PATRIOT`, `PANTHER`, `TEST3`), and what `-E` does when `SIMVOICS.VOL` is missing.
 - **Open:** where `printf` output from VSHELL's `-v` and `-?` goes, and what `FUN_004092dc` does after it.
 - **Open:** what `FUN_00401c74` does with the view object and the axes `Ctrl+T` hands it.

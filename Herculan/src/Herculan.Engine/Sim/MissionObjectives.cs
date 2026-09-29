@@ -207,8 +207,11 @@ public sealed class MissionObjectives {
 	/// <para>The three outcomes are then each split by whether the player is
 	/// <see cref="IsClearOfThreats">clear</see>, and the not-clear side of all three is the same
 	/// value: the mission does not conclude while the player is still in a fight.</para>
+	///
+	/// <para>Besides <see cref="Evaluate"/>, <see cref="MissionResults.Write"/> calls it directly as the
+	/// mission ends, and <see cref="MissionStatus.Complete"/> is the only answer that wins.</para>
 	/// </summary>
-	private MissionStatus EvaluateObjectives(SimWorld world, MechObject player) {
+	internal MissionStatus EvaluateObjectives(SimWorld world, MechObject player) {
 		bool lost = false;
 		bool allMet = true;
 		bool satisfied = false;

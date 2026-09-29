@@ -2,14 +2,14 @@
 
 How VSHELL starts a campaign, hands a mission to DBSIM, and folds the result back into the save. **Every address in this doc is in `VSHELL.EXE`**; the shell's source module is named in the assertion strings for each function cited.
 
-The shell and the simulator are separate processes that never run at the same time. They communicate through loose files in `data\` plus one number: the shell is *relaunched* when the mission ends, and `FUN_00401525` (`vshell.cpp`) responds to a `-X3` or `-X4` command-line switch by loading slot 10 and running the debrief immediately:
+The shell and the simulator are separate processes that never run at the same time. They communicate through loose files in `data\` plus one number: the shell is *relaunched* when the mission ends, and `Shell_BuildScreensAndStart` (`004012b0`), which the startup `Shell_Main` (`00401525`) (`vshell.cpp`) runs once its windows are built, responds to a `-X3` or `-X4` command-line switch by loading slot 10 and running the debrief in place of the intro movies:
 
 ```
 Game_LoadSlot(10, 0);            // 0040e4f2: load the campaign autosave
 Game_ProcessMissionResults();    // 0040eae7: consume results.dat
 ```
 
-The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `FUN_0040107c`, stores `-X<n>` through `Shell_SetExitCode` (`0040876a`) into `0046e210`; `FUN_00401525` copies that into `0048227e` right after the parse, having zeroed it before through `FUN_004073bc(0)`.
+`-X6`, a return from a demo, skips the intro movies too and puts the startup sequence straight up. The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `FUN_0040107c`, stores `-X<n>` through `Shell_SetExitCode` (`0040876a`) into `0046e210`; `Shell_Main` (`00401525`) copies that into `0048227e` right after the parse, having zeroed it before through `FUN_004073bc(0)`.
 
 ## The files crossing between the two binaries
 
@@ -18,8 +18,8 @@ The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes a
 | `data\mission.var` | shell, `MissionVar_Write` (`0040e9cb`) | DBSIM | the 2000-byte campaign flag array |
 | `data\player.mec` | shell, `Game_ExportMissionHandoff` (`0040f0d4`) | DBSIM | the player's HERC, wingmen and their fits |
 | `data\script.dat` | shell, `WriteScriptDatFile` | DBSIM | the mission itself |
-| `data\mission.var` | DBSIM, `FUN_0042412c` | shell, `MissionVar_Read` (`0040ea59`) | the same flags, mutated by the mission |
-| `data\results.dat` | DBSIM | shell, `Game_ProcessMissionResults` (`0040eae7`) | outcome, salvage, damage and per-pilot counters |
+| `data\mission.var` | DBSIM, `Mission_WriteResults` (`0042412c`) | shell, `MissionVar_Read` (`0040ea59`) | the same flags, mutated by the mission |
+| `data\results.dat` | DBSIM, `Mission_WriteResults` | shell, `Game_ProcessMissionResults` (`0040eae7`) | outcome, salvage, damage and per-pilot counters |
 
 `mission.var` appears twice deliberately: it is a round trip. The shell writes the flag array out before launch and reads the same file back at debrief.
 
@@ -161,7 +161,7 @@ The longest function in `game.cpp` and the whole of the post-mission accounting.
 2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, an `int32` added to the salvage pool, then `int16 count` and that many `{ int16, int16 }` salvage pairs, each applied by `Armory_AddNewUnit` (`0041229d`) in campaign mode only.
 3. Copy the outcome into flag slot 0.
 4. For the player, then for each on-strength squad member at positions 1 up to the machines-on-strength count `00482a7a` — not the positions in play the export walks: when the pilot's bay holds a machine, read its 66-byte status block over its `+0x08` span (`Herc_ReadStatusBlock` (`00411720`), which also destroys any mount whose condition arrived at 0 and sets that hardpoint back to 100); set the pilot's condition from the machine's overall slot (`HercStatus_Get(block, 1, 9)` (`00411d06`)), or to 100 with no machine; read the pilot's three mission counters and accumulate them (`Pilot_AccumulateMissionStats`, `0041000e`); and settle the machine (`Herc_SettleAfterMission`, `00410c7c`). A machine whose mean condition (`HercStatus_OverallCondition`) is below 30 is scrapped as the shell's scrap is — valued, its mounts at 80 or better returned to stock, the bay emptied — with the value going into the pool and one added to the hangar's `+0x24` count; the pilot keeps the bay. Any other machine has its overall slot reset to 100. A pilot with no machine reads no status block, so the file's 66 bytes for that machine are read as its counters.
-5. Run the squad's progression ([below](#pilot-progression)). If the player's HERC condition reached 0 the campaign is over and the debrief stops here, in either mode; otherwise the rest runs in a campaign only.
+5. Run the squad's progression ([below](#pilot-progression)). If the player's HERC condition reached 0 the campaign is over and the debrief stops here, in either mode; otherwise the rest runs in a campaign only, and a training debrief ends by putting the startup sequence up, which brings the main menu.
 6. Deliver the weapon build queue and charge it (`Game_DeliverWeaponQueue` (`0040f324`), through `Armory_DeliverQueue`), then deduct repairs (`Game_AutoRepairSquad` (`0040e804`), [`armory.md`](armory.md#repair-levels)), then advance every unfinished chassis in the eight bays one mission (`HercList_BuildTickAll` (`00410a2b`), through `Herc_BuildTick`).
 7. Grant from the flags the mission left: chassis through `Herc_GrantUnlocks` ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5)), then weapon unlocks and weapon units through `Armory_GrantCampaignWeapons` ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)). Both clear the unlock slots they test, so a save written after the debrief holds them at 0.
 8. Reconcile the build queue with the pool (`Armory_RefreshQueue`, [`armory.md`](armory.md#scrapping)), write the report texts (`Debrief_WriteReport` (`0040f34c`), handed the salvage-pair count plus the units just granted), then advance the campaign and set the next screen from the result.
@@ -180,7 +180,7 @@ per machine, the player's first then each on-strength squad member in order:
   int16   counter B   -> pilot +0x2f
 ```
 
-DBSIM writes this file, so there is no writer in VSHELL to mirror it against, but the retail `data\results.dat` walks exactly: 152 bytes = the 8-byte header, no salvage, and two 72-byte machine blocks — matching the two entries in the `player.mec` beside it.
+DBSIM's `Mission_WriteResults` writes it, and what fills each field is [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)'s: the machine blocks are the player's group in the simulator's order, which is `player.mec`'s, player first. The retail `data\results.dat` walks exactly: 152 bytes = the 8-byte header, no salvage, and two 72-byte machine blocks — matching the two entries in the `player.mec` beside it.
 
 ### Pilot progression
 
@@ -225,10 +225,10 @@ Seven jumps in the function resolve to four targets — `00410088`, `00410090`, 
 
 | Condition | State | Effect |
 |---|---|---|
-| player's HERC condition reached 0 | 3 | campaign over |
-| advance returned 0 — the mission failed and the new position is a stage's first mission or past stage 4 | 0 | back to the shell |
-| advance returned 1 — succeeded past the last stage | 1 | autosave to slot 10, then play AVIs `0x53` and `0x54` |
-| otherwise | 2 | the debrief: the mission tab's view set to 4, then the next mission's load, which puts the tab up in that view ([`screen-layout.md`](screen-layout.md#the-three-views)) |
+| player's HERC condition reached 0 | 3 | campaign over: [`REPLAY MISSION?`](#replay-mission) |
+| advance returned 0 — the mission failed and the new position is a stage's first mission or past stage 4 | 0 | the war is lost: [`REPLAY MISSION?`](#replay-mission) |
+| advance returned 1 — succeeded past the last stage | 1 | autosave to slot 10, play AVIs `0x53` and `0x54`, then palette 1 and the startup sequence |
+| otherwise | 2 | the debrief: the mission tab's view set to 4, then the next mission's load, which puts the tab up in that view with [the mission report](screen-layout.md#the-mission-report) ([`screen-layout.md`](screen-layout.md#the-three-views)) |
 
 **The position advances whether or not the mission was won.** `Career_Advance` increments the mission index before it inspects the outcome; the outcome only chooses the branch. Rolling past a stage's mission count resets the mission index to 0 and increments the stage.
 
@@ -239,11 +239,18 @@ Two scripted events are hard-coded into the advance, keyed on the position *afte
 
 Every path that leaves a campaign in a resumable state autosaves through `Game_SaveSlot(10, NULL)` (`0040e37b`), which is why `GAME_R.SAV` mirrors the newest ordinary save.
 
+### Replay mission?
+
+States 0 and 3 put up `REPLAY MISSION?` (`ReplayDialog_Show(state)`, `0044ca57`), built once at startup by `ReplayDialog_Build` (`0044c71c`): the shell's backdrop over the whole display, and on it a titled panel with two lines and two buttons. State 0's lines are `The war is lost. Do you` / `want to replay the mission?` and state 3's `You were killed. Do you` / the same.
+
+- **Yes** (`ReplayDialog_OnYes`, `0044cb44`) hides the dialog, loads slot 10 again, sets exit code 2 and ends the shell. Slot 10 is the autosave the shell wrote on its way out to the mission, so the debrief's accounting is thrown away and the same mission flies again from `data\` as `Career_LoadSlot` leaves it: the slot's `script.dat`, `mission.str` and `player.mec` copied in, beside the `mission.var` the simulator wrote as the failed attempt ended. Neither the load nor the handler writes that file, so the replay starts from the counters the last attempt left, less the slots the simulator's load zeroes.
+- **No** (`ReplayDialog_OnNo`, `0044cbbd`) saves slot 10 — the game as the debrief left it, in state 0 or 3, which `CONTINUE GAME` then answers with `END OF GAME` — hides the dialog and shows the main menu.
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
-| `-r` relaunches the shell into the debrief. | The usage text says so (`"-r -R Returning from sim"`), and the parser's `-r` case does store 3 in `0048227e`. `FUN_00401525` overwrites `0048227e` with the `-X` value at `004015af`, the instruction after the parse returns, so `-r` has no effect: only `-X3` and `-X4` reach the debrief. |
+| `-r` relaunches the shell into the debrief. | The usage text says so (`"-r -R Returning from sim"`), and the parser's `-r` case does store 3 in `0048227e`. `Shell_Main` (`00401525`) overwrites `0048227e` with the `-X` value at `004015af`, the instruction after the parse returns, so `-r` has no effect: only `-X3` and `-X4` reach the debrief. |
 
 ## Open
 

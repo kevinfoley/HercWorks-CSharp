@@ -172,7 +172,7 @@ Slot 0 of a class's vtable is its event handler, and the shell's classes run fiv
 
 ### The shell's movies
 
-`avi.cpp` plays the shell's movies through MCI's `avivideo` device. `Movie_Enqueue` (0041e29c) adds one to a ten-entry ring at `00485668` when movies are on (`DAT_00482275`, which `-a` clears) and no entry in the ring already carries its id: the id, a rect, a palette index (`0xffff` for none), a flag that brings the location picture up after it, and a callback, which every caller passes as null. Nothing stops a write landing on an entry not yet played. `Movie_PlayQueue` (0041e368) plays the ring out. The shell's main loop (`FUN_00401525`) calls it once a pass, after the widgets have had their events and before `ShellMap_RunIntro`; the startup (`FUN_004012b0`), `Game_ProcessMissionResults` and `MainMenu_OnCredits` (`004315ec`) also call it straight after enqueuing, while `Mission_Show` and `maybe_Mission_UpdateLocationTab` enqueue and leave the playing to the main loop.
+`avi.cpp` plays the shell's movies through MCI's `avivideo` device. `Movie_Enqueue` (0041e29c) adds one to a ten-entry ring at `00485668` when movies are on (`DAT_00482275`, which `-a` clears) and no entry in the ring already carries its id: the id, a rect, a palette index (`0xffff` for none), a flag that brings the location picture up after it, and a callback, which every caller passes as null. Nothing stops a write landing on an entry not yet played. `Movie_PlayQueue` (0041e368) plays the ring out. The shell's main loop (`Shell_Main`, `00401525`) calls it once a pass, after the widgets have had their events and before `ShellMap_RunIntro`; the startup (`Shell_BuildScreensAndStart`, `004012b0`), `Game_ProcessMissionResults` and `MainMenu_OnCredits` (`004315ec`) also call it straight after enqueuing, while `Mission_Show` and `maybe_Mission_UpdateLocationTab` enqueue and leave the playing to the main loop.
 
 **The id indexes the table at `00470e74`** of 86 `avi\` paths, unchecked: `pt1`-`pt6`, `rc1`-`rc5`, `as1`-`as7`, `es1`-`es4`, `rs1`-`rs4`, `sc1`-`sc5`, `rd1`-`rd4`, `sp1`, `gd1`-`gd4`, `ex1`-`ex4`, `rf1`-`rf4`, `co1`-`co4`, `fl1`-`fl4`, `sk1`-`sk4`, `sv1`-`sv4` and `hc1`-`hc4` for ids 0 to `0x43`, then `intr_pt1`, `intr_pt2`, `c1`-`c5`, `alph_th`, `delt_th`, `omic_th`, `brav_th`, `luna`, `transm3`, `end1a`, `death`, `victory`, `credits` and `dropship` for `0x44` to `0x55`. `FUN_0040d429` puts the directory `data\drive.cfg` names in front. `ALPHA`, `BRAVO`, `DELTA`, `OMICRON`, `ESTAB2`, `ES2CREDC` and `ES2DROP3` sit in `AVI\` and are not in the table.
 
@@ -221,7 +221,7 @@ While `Avi_Playing` is set, the window procedure (`MainWndProc`, 00404a2c) drops
 
 **The shell's pointer is the Windows arrow.** VSHELL draws none of its own. `FUN_004062cb` registers the main window's class with `LoadCursorA(NULL, IDC_ARROW)`, and `MainWndProc` passes `WM_SETCURSOR` to `DefWindowProcA`, so every move over the window puts the class's arrow up.
 
-The widget layer carries a cursor too, and it adds nothing to that. The startup (`FUN_00401525`) wraps what `GetCursor()` returns — the arrow — in two cursor objects, `DAT_004810e8` and `DAT_004810ec` (`ShellCursor_Ctor`, `0041f644`: vtable `00471844`, the handle at `+4`). It gives the first to the display root's `+0x35` and installs it, and `Hotspots_BuildOverlay` (`0043c1a0`) gives the second to every arming hotspot. `Pointer_Enter` installs the `+0x35` of the first widget up the parent chain that has one through the display's slot 3, `Display_SetCursor` (`0041fab3`, vtable `004717ec`), which calls `SetCursor` with it unless it is the one already installed. What reaches `SetCursor` there is the object's address rather than the handle at its `+4`.
+The widget layer carries a cursor too, and it adds nothing to that. The startup (`Shell_Main`, `00401525`) wraps what `GetCursor()` returns — the arrow — in two cursor objects, `DAT_004810e8` and `DAT_004810ec` (`ShellCursor_Ctor`, `0041f644`: vtable `00471844`, the handle at `+4`). It gives the first to the display root's `+0x35` and installs it, and `Hotspots_BuildOverlay` (`0043c1a0`) gives the second to every arming hotspot. `Pointer_Enter` installs the `+0x35` of the first widget up the parent chain that has one through the display's slot 3, `Display_SetCursor` (`0041fab3`, vtable `004717ec`), which calls `SetCursor` with it unless it is the one already installed. What reaches `SetCursor` there is the object's address rather than the handle at its `+4`.
 
 **The hourglass is the only other pointer.** `Shell_SetBusyCursor(busy)` (`0040877f`) puts up `IDC_WAIT` for 1 and `IDC_ARROW` for 0, then `ShowCursor(1)`. `MainMenu_OnContinue` wraps its whole load in it, and `Movie_PlayQueue` raises it before each movie's setup; `Avi_Play` drops it as playback starts, and the queue drops it again when the ring is empty. Those are its only callers. It shows only while the shell is not pumping messages, since the next move puts the class's arrow back.
 
@@ -325,7 +325,7 @@ Both lines are centred in `0x29`. The game `CONTINUE GAME` loaded stays loaded e
 
 ### QUIT
 
-**`QUIT` asks nothing and sets no exit code.** Its handler sets `Shell_QuitFlag` (`0046c074`), the flag that ends the shell's main loop in `FUN_00401525`, and blanks the screen through `Shell_BlankScreen` (`0040723d`). Windowed, that zeroes the shell's bitmap and stretches a 10x10 corner of it over the window's client rect; full screen, it locks the primary surface and zeroes every row. Either way the whole window is palette index 0, strip included. `INSTANT ACTION` and `VIEW DEMO` blank the same way, but only full screen.
+**`QUIT` asks nothing and sets no exit code.** Its handler sets `Shell_QuitFlag` (`0046c074`), the flag that ends the shell's main loop in `Shell_Main` (`00401525`), and blanks the screen through `Shell_BlankScreen` (`0040723d`). Windowed, that zeroes the shell's bitmap and stretches a 10x10 corner of it over the window's client rect; full screen, it locks the primary surface and zeroes every row. Either way the whole window is palette index 0, strip included. `INSTANT ACTION` and `VIEW DEMO` blank the same way, but only full screen.
 
 The loop's exit is the same for every way out, `QUIT`, the launches and `WM_CLOSE` alike — `MainWndProc` (`00404a2c`) sets the same flag on `WM_CLOSE` once the loop is running (`DAT_0046c098`):
 
@@ -336,7 +336,7 @@ FUN_004092dc()            // FUN_0040dce1, ShellSound_Shutdown
 PostQuitMessage(0)
 ```
 
-The startup (`FUN_00406507`) pumps messages until the `WM_QUIT` arrives, releases DirectDraw (`Display_ReleaseDirectDraw`, `00407011`) and returns `0046e210` as the shell's exit code. `FUN_00401525` zeroed that store right after copying the `-X` code out of it, and `QUIT` leaves it alone, so the shell exits with 0 and `ES.EXE` ends ([`../command-line.md`](../command-line.md#exit-codes)).
+The startup (`FUN_00406507`) pumps messages until the `WM_QUIT` arrives, releases DirectDraw (`Display_ReleaseDirectDraw`, `00407011`) and returns `0046e210` as the shell's exit code. `Shell_Main` (`00401525`) zeroed that store right after copying the `-X` code out of it, and `QUIT` leaves it alone, so the shell exits with 0 and `ES.EXE` ends ([`../command-line.md`](../command-line.md#exit-codes)).
 
 ## The registration screen
 
@@ -1078,7 +1078,7 @@ The view is `DAT_0048106c`: 0 the campaign map, 1 the briefing, 4 the debrief. `
 | map scope | palette scope | the same rect in the map panel | `DAT_0048d818`, never shown ([below](#the-three-views)) |
 | summary | `TitledPanel` | `{7, 0x133, 0x278, 0x1a7}` | `0xaf` `Mission Summary`, header 19 tall, `+0x65 = 0` |
 | 5 text boxes | text box | `{10, 0x15, 0x265, 0xa8}` for the first, `{10, 0x15, 0x23f, 0x73}` for the others, in the summary | [below](#the-summary-text-box) |
-| 20 report texts | `Text` | in the map panel | `0x145`-`0x152`, the debrief's labels, and their figures |
+| 20 report texts | `Text` | in the map panel | [the mission report](#the-mission-report)'s labels and figures |
 | 2 page buttons | `ButtonIcon` | `{0x247, 0x18, 0x265, 0x36}`, `{0x247, 0x51, 0x265, 0x6f}` in the summary | `miss_arw` frames `1`/`0` and `3`/`2`; `+0x5d = 0`, `+0x61 = 1` |
 | button bar | `Panel` | `{7, 0x1b1, 0x278, 0x1d9}` | border `0x22`, `+0x49 = 0` |
 | 4 buttons | `Button` | `{0xe, 0x10, 0x96, 0x23}`, `{0x9d, …, 0x125, …}`, `{0x12d, …, 0x1b5, …}`, `{0x1ea, …, 0x263, …}` in the bar | `0xb4` `Mission Briefing`, `0xb6` `Mission Objectives`, `0xb7` `Intelligence Report`, `0xb8` `Rock & Roll >`; border `0x22` |
@@ -1112,9 +1112,27 @@ All three show Telecomm, the Telecomm picture, the map panel and the summary. In
 
 The map view's flag `DAT_004778aa` is set whether movies are on or off; with them off `Movie_Enqueue` adds nothing and the view stays up. With them on, the second map movie carries the location flag, so the tab comes down after it and the location picture goes up, or the lunar drop plays at stage 5 ([The shell's movies](#the-shells-movies)).
 
+The debrief fills box 4 through `Mission_DebriefText` (`00444bbb`) and takes its movie through `Mission_DebriefMovie` (`00445751`), thunks to the two career accessors.
+
 The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`.
 
 **The map buttons** each call a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its paint: once while `+0x65`, the count of auto-repeat ticks so far, is below 3, twice below 6, three times below 9 and four times from there. The map, its camera and what each method does are in [`mission-map.md`](mission-map.md).
+
+### The mission report
+
+`Debrief_WriteReport` (`0040f34c`), which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes the figures of the twenty report texts `Mission_BuildScreen` puts in the map panel. Every label is right-aligned in `0x1a`; every figure is written in `0x29` through `Text_SetString`, the first three left-aligned beside their labels and the rest right-aligned under the column heads.
+
+| Row | Label | Figure |
+|---|---|---|
+| 1 | `0x145` `Mission Outcome:` | `0x146 + outcome`: `Failure` or `Success` |
+| 2 | `0x148` `Salvage Recovered:` | `"%d %s"` of `results.dat`'s award over 1000 and `0x149` `Tons` |
+| 3 | `0x14a` `Weapons Recovered:` | `"%d"` of the salvage pairs plus the weapon units the campaign granted |
+| 4 | `0x14c` `Kills:` | the column heads `0x150` `Hercs:`, `0x151` `Bases:` and `0x152` `Flyers:` |
+| 5 | `0x14e` `You:` | the player's mission kills in each column, pilot `+0x2d`, `+0x31` and `+0x2f` |
+| 6 | `0x14f` `Squad:` | the same three summed over the player and each on-strength squad member at positions 1 up to the positions in play |
+| 7 | `0x14d` `Losses:` | the pilots `Squad_ProgressAll` counted lost |
+
+The salvage figure is the award alone: what the debrief's scrapping puts in the pool is not reported. The squad's sums are taken after `Squad_ProgressAll` has replaced its lost pilots, so a member lost on this mission counts the replacement's zeros. Only a campaign debrief the player survived writes the report, and only that one reaches the view.
 
 ### Rock & Roll
 
@@ -1238,7 +1256,7 @@ The shell has a sound manager of its own: a copy of the simulator's [`SFX` manag
 | `shell1.wav` | 11025 | 91 s | a music track |
 | `shell2.wav` | 11025 | 93 s | the other music track |
 
-**The tracks alternate from one run to the next.** `ShellSound_Init` (`0042ec7c`), which the startup (`FUN_00401525`) runs once its windows are built, loads the music as `shell1.wav` while `prefs.cfg` option 5 is non-zero and `shell2.wav` while it is 0, then flips option 5, commits and writes all 54 options back ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A music track that will not load puts up `Cannot load sound.` and the shell carries on. The music is set to loop forever at `ShellSound_MusicVolume` (`004731fc`), which is 0 in the image. Under `-s`, which clears `Shell_SoundEnabled` (`00482272`), the setup creates no manager and returns, so option 5 stays where it was and every wrapper does nothing.
+**The tracks alternate from one run to the next.** `ShellSound_Init` (`0042ec7c`), which the startup (`Shell_Main`, `00401525`) runs once its windows are built, loads the music as `shell1.wav` while `prefs.cfg` option 5 is non-zero and `shell2.wav` while it is 0, then flips option 5, commits and writes all 54 options back ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A music track that will not load puts up `Cannot load sound.` and the shell carries on. The music is set to loop forever at `ShellSound_MusicVolume` (`004731fc`), which is 0 in the image. Under `-s`, which clears `Shell_SoundEnabled` (`00482272`), the setup creates no manager and returns, so option 5 stays where it was and every wrapper does nothing.
 
 | Wrapper | Does | Only while |
 |---|---|---|
@@ -1271,7 +1289,7 @@ Every other class is silent: rows, panels, grids, image panels, edit fields. A c
 
 **The switch sound opens the startup sequence**: `004311b8`, the handler of the widget that plays it, calls `ShellSound_PlaySwitch` on its first run, once (`DAT_00473608`).
 
-**The music starts after the startup movies.** `FUN_004012b0` builds every screen and then calls `ShellSound_Start`, and [the movie queue](#the-shells-movies) fades the music out and stops it before its movies and starts it and fades it in after them. On a plain startup the music therefore comes up after the two intro movies. With movies off (`DAT_00482275`) the queue does nothing and the music stays at the startup's volume 0. The startup's other arms, for `DAT_0048227e` 3, 4 and 6, skip the intro movies and call `ShellSound_FadeIn` themselves.
+**The music starts after the startup movies.** `Shell_BuildScreensAndStart` builds every screen and then calls `ShellSound_Start`, and [the movie queue](#the-shells-movies) fades the music out and stops it before its movies and starts it and fades it in after them. On a plain startup the music therefore comes up after the two intro movies. With movies off (`DAT_00482275`) the queue does nothing and the music stays at the startup's volume 0. The startup's other arms, for `DAT_0048227e` 3, 4 and 6, skip the intro movies and call `ShellSound_FadeIn` themselves.
 
 Elsewhere:
 
@@ -1344,9 +1362,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** what the build screen's `SCRAP` gate, `ScrapDialog_Show` and `Hangar_ScrapSelected` do with no bay selected, where each reads the third squad-member pointer at `00482abf` as [the bay's machine](#scrapping-and-building-are-gated-on-the-bay). A roster click selects one of the eight bays, but the crew tab can leave `-1` selected for the build tab to open on. The repair tab reaches `-1` when no bay holds a finished machine, and there `Repair_RefreshDetail`'s gates and all three of [its handlers](#repairing-and-cancelling) read the same pointer, `CANCEL` copying a stale status block through it.
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked.
 - **Open:** whether a command key with Shift, Ctrl or Alt down posts a command. `FUN_00408f95` indexes the table at `0046e471` with the whole key code, so it reads a byte of the data section past the table's 256. None of those bytes in the image is 1, 4 or `0x0a`, so none edits a row ([Typing into a row](#typing-into-a-row)), but any that is not `0xff` posts a command, and with it runs the row's handler.
-- **Unported:** the mission tab's debrief view, which only [the processing of a finished mission](campaign-loop.md#where-the-debrief-goes-next) reaches.
 - **Unported:** the auto-repeat of the mission screen's arrows.
-- **Open:** which of the mission screen's report texts shows which figure. `Debrief_WriteReport` (`0040f34c`), which `Game_ProcessMissionResults` calls just before `Career_Advance`, writes ten of them.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
 - **Unported:** [the main menu](#the-main-menu)'s `ONLINE MANUAL`, a `WinHelpA` call.

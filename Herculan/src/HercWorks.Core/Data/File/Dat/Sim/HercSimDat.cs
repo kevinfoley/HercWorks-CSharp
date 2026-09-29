@@ -114,8 +114,12 @@ public class HercSimDat {
 	/// <summary>Possibly HUD id or even palette ID.</summary>
 	public short Unk80_ValHudId { get; set; }
 
-	/// <summary>Different per herc, usually 1024, 1500, or 800.</summary>
-	public short Unk82_val { get; set; }
+	/// <summary>
+	/// Offset 82 (the exe's <c>typeRecord+0x54</c>) — what the chassis' wreck is worth, a Q10 scale on its
+	/// weighted remaining armour: 1024, 1500 or 800 across retail. <c>Mech_SalvageValue</c> (<c>00418e60</c>)
+	/// is its one reader. See Herculan.Engine.Sim.MechObject.SalvageValue. Was <c>Unk82_val</c>.
+	/// </summary>
+	public short SalvageScale { get; set; }
 
 	/// <summary>Usually 1.</summary>
 	public short Unk84_val { get; set; }

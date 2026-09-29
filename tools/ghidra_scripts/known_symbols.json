@@ -4538,7 +4538,7 @@
       "confidence": "high",
       "name": "Debrief_WriteReport",
       "description": "(results header by value, salvageItems) Formats the mission tab's debrief report texts: the outcome's estext.bin string (0x146 + outcome), the salvage award in tons, the salvage item count, the player's Herc, Base and Flyer kills for the mission (+0x2d, +0x31, +0x2f) and the same three summed over the player and each on-strength squad member at positions 1 up to 00482a78, and the pilots-lost count Squad_ProgressAll returned. Writes widget text only.",
-      "source": "docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+      "source": "docs/shell/screen-layout.md#the-mission-report"
     },
     {
       "address": "0041c28f",
@@ -14191,10 +14191,10 @@
       "address": "00426ac8",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Salvage_QueueDestroyedWeapon",
-      "description": "Appends one int32 to the global list at DAT_004a9ef0, bumping the count at DAT_004a9eee. Its one traced caller is Mech_ApplyDirectFireDamage's weapon-mount destruction roll, on the Cybrid branch only, packing the destroyed weapon's catalog id (template+0x56) with its remaining condition. Post-mission salvage is the obvious purpose and is not proven -- the consumer was not traced.",
-      "source": "docs/simulation/component-damage.md"
+      "confidence": "high",
+      "name": "Salvage_QueueWeapon",
+      "description": "Appends one {int16 weapon id, int16 condition} to the salvage list at DAT_004a9ef0 (a 200-byte block, room for 50, unchecked), bumping the count at DAT_004a9eee. Two callers: Mech_ApplyDirectFireDamage's mount-destruction roll on a Cybrid machine, and Mech_SalvageValue for each surviving mount of an enemy wreck. Mission_WriteResults writes the list as results.dat's salvage pairs.",
+      "source": "docs/simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60"
     },
     {
       "address": "004076e4",
@@ -16586,7 +16586,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_CreditNeutralisedTarget",
-      "description": "Mech vtable +0x60, told to the machine that just put victim out of the fight. Plain __cdecl on three stack arguments -- every call site pushes three and cleans 12 bytes, so the decompiler's __thiscall rendering with a leading parameter is wrong. victimAlreadyImmobilised suppresses the kill half only: the per-chassis tally at mech+0x2a4, the +0xa6 latch and the scorer's 0x02 callout. The victim's own 0x25/0x04 cry goes out either way, and is the image's only Ai_PostSquadMessage call that forces a post past a destroyed machine.",
+      "description": "Mech vtable +0x60, told to the machine that just put victim out of the fight. Plain __cdecl on three stack arguments -- every call site pushes three and cleans 12 bytes, so the decompiler's __thiscall rendering with a leading parameter is wrong. victimAlreadyImmobilised suppresses the kill half only: the kill tally at mech+0x2a4, one short per victim target class (+0x1a8), the +0xa6 latch and the scorer's 0x02 callout. The victim's own 0x25/0x04 cry goes out either way, and is the image's only Ai_PostSquadMessage call that forces a post past a destroyed machine.",
       "source": "docs/simulation/component-damage.md",
       "signature": "void __cdecl Mech_CreditNeutralisedTarget(SimObject *attacker, SimObject *victim, short victimAlreadyImmobilised)"
     },
@@ -25115,6 +25115,150 @@
       "name": "Point_UnrotateQuarterAbout",
       "description": "(&x, &y, centre): the inverse of Point_RotateQuarterAbout, x = cx - (y' - cy), y = cy + (x' - cx), in place.",
       "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0042412c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_WriteResults",
+      "description": "(player) Writes data\\results.dat -- int16 (Mission_EvaluateObjectives(player) == 9), int32 Q10(2500, Mission_TotalSalvage) + counter 20 * 25000, int16 count and that many {int16 weapon, int16 condition} salvage pairs from DAT_004a9ef0, then Group_WriteStatusBlocks over the player's group -- and then the 2000 bytes of mission counters DAT_004a9ef4 back over data\\mission.var. Sim_Shutdown is its one caller.",
+      "source": "docs/simulation/mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c"
+    },
+    {
+      "address": "00423d68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_WriteStatusBlocks",
+      "description": "(group, stream) Per member in group order: Mech_ReadDamageReadouts into a 42-short buffer, then entries 1-13, 20-29 and 32-41 each written as ((0x100 - r) * 100) SAR 8, then the 6 bytes at mech+0x2a4 -- the member's Herc, Structure and Flyer kill tallies. 72 bytes a member; VSHELL reads the 66 over the machine's status block and the 6 as the pilot's mission counters.",
+      "source": "docs/simulation/mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c"
+    },
+    {
+      "address": "00461eec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_Shutdown",
+      "description": "The simulator's exit path, run by Sim_Run however the main loop ends: closes the tape files, Mission_WriteResults(LocalPlayerMech), then the exit code at 004d283c -- 6 under DemoMode, 0 with the quit flag 004d2582, else 4 when the player's +0x99 is set and MissionModeFlag (004a9ed6) is, else 3 -- then FUN_00426514 and FUN_00425344.",
+      "source": "docs/command-line.md#exit-codes"
+    },
+    {
+      "address": "0045f144",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_Run",
+      "description": "WinMain's body: reads data\\drive.cfg, parses the command line, refuses without -eggplant, then runs subsystem phases 0, 1, Sim_InitMissionSession and phase 3, and loops phase 4, Sim_MainTick, the camera, maybe_Sim_RenderFrame, Sim_EndFrame and phase 6 until DemoAbort, the quit flag 004d2582, a non-zero Sim_MainTick or WM_QUIT; then stops the music and sound, saves option 6 if the full-screen state changed, and calls Sim_Shutdown.",
+      "source": "docs/command-line.md#exit-codes"
+    },
+    {
+      "address": "004012b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_BuildScreensAndStart",
+      "description": "Builds every screen, starts the music, then by 0048227e: 3 or 4 (-X3/-X4) Game_LoadSlot(10), Game_ProcessMissionResults and a fade in; 6 (-X6, after a demo) a fade in, a blank, palette 1 and the startup sequence; anything else the two intro movies (0x44, 0x45), a blank, palette 1 and the startup sequence.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0040e17e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_InitGameState",
+      "description": "Startup: clears the game-in-progress flag, reads GAMEFILE.STR, loads herc_inf.dat and damage.dat, scans the slots' summaries, and seeds CampaignModeFlag from prefs option 42.",
+      "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0044c71c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ReplayDialog_Build",
+      "description": "Builds REPLAY MISSION?: a full-display ImagePanel of the shell backdrop (DAT_0048dbbc, no border), a TitledPanel {0xce,199,0x1b2,0x145} titled 0x134 (DAT_0048dbc0; face 0x25, dithered body in 0x10, plate 0x37-0xad), two centred lines (DAT_0048dbc4/dbc8) and Yes (0x139, ReplayDialog_OnYes) and No (0x13a, ReplayDialog_OnNo).",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "0044ca57",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ReplayDialog_Show",
+      "description": "(state) Writes the two lines -- 0 0x137/0x138 'The war is lost. Do you / want to replay the mission?', 3 0x135/0x136 'You were killed. ...' -- and shows the backdrop and the panel. Game_ProcessMissionResults calls it for game states 0 and 3.",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "0044cb29",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ReplayDialog_Hide",
+      "description": "Hides REPLAY MISSION?'s backdrop and panel.",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "0044cb44",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ReplayDialog_OnYes",
+      "description": "Yes: ReplayDialog_Hide, Game_LoadSlot(10), Shell_SetExitCode(2) and the quit flag, so the launcher flies data\\ as the load left it. Its entry sits in bytes Ghidra left undefined; Button_Ctor is passed it as a label.",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "0044cbbd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ReplayDialog_OnNo",
+      "description": "No: Game_SaveSlot(10), ReplayDialog_Hide, MainMenu_Show.",
+      "source": "docs/shell/campaign-loop.md#where-the-debrief-goes-next"
+    },
+    {
+      "address": "00444bbb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_DebriefText",
+      "description": "Thunk to Career_DebriefText, which Mission_Show(4) fills text box 4 from.",
+      "source": "docs/shell/screen-layout.md#the-three-views"
+    },
+    {
+      "address": "00445751",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_DebriefMovie",
+      "description": "Thunk to Career_DebriefMovie, which Mission_Show(4) enqueues once per load.",
+      "source": "docs/shell/screen-layout.md#the-three-views"
+    },
+    {
+      "address": "00401525",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_Main",
+      "description": "The shell's WinMain body: allocates the shell pool, parses the command line and copies -X into 0048227e, refuses without -eggplant, opens the CD volume, loads the catalogs and the career table, builds the display root and cursors, starts the sound, runs Shell_BuildScreensAndStart, then loops the dispatcher, events, palette commit, dirty-list flush, Movie_PlayQueue(1) and ShellMap_RunIntro until WM_QUIT or Shell_QuitFlag, and on the way out autosaves slot 10 (Game_SaveSlot(10, NULL)).",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0045f0b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_Suspend",
+      "description": "Sets DAT_004d25f6, which holds Sim_Run's loop in its sleep-and-pump branch, suspends every sound and pauses the cockpit's two message ports. The pair to Sim_Resume, on the window losing and regaining focus.",
+      "source": "docs/formats/cockpit-messages.md#the-port"
+    },
+    {
+      "address": "0045f0ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_Resume",
+      "description": "Clears DAT_004d25f6, resumes every sound and resumes the cockpit's two message ports. The main window's WM_SETFOCUS calls it.",
+      "source": "docs/formats/cockpit-messages.md#the-port"
     }
   ]
 }

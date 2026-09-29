@@ -348,8 +348,7 @@ public sealed partial class MechObject {
 	/// <para><paramref name="wasImmobilised"/> is the victim's reading from <i>before</i> this
 	/// change, and it is what stops a machine being counted twice: a HERC whose legs went first was
 	/// already credited then, so finishing it off scores nothing more. Only a first, cross-team
-	/// neutralisation adds to the tally — which the original keeps per chassis type, one counter a
-	/// type at <c>mech+0x2a4</c>.</para>
+	/// neutralisation adds to the tally — <see cref="KillsOf"/>, one counter per target class.</para>
 	///
 	/// <para>Two callouts go out from here, and only the first is under
 	/// <paramref name="wasImmobilised"/>: a squadmate that scored says so, and a squadmate that has
@@ -370,8 +369,10 @@ public sealed partial class MechObject {
 				PostSquadMessage(world, SquadMessageScoredAKill);
 			}
 
-			_killsByType.TryGetValue(victim.Name, out int kills);
-			_killsByType[victim.Name] = kills + 1;
+			if ((uint)victim.TargetClass < (uint)_killsByClass.Length) {
+				_killsByClass[(int)victim.TargetClass]++;
+			}
+
 			ScoredAKill = true;
 		}
 
@@ -389,15 +390,62 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>mech+0x2a4</c> — how many of each chassis type this machine has put out of the fight,
-	/// counted once per victim. The original sizes it by the mech-type table and indexes it by that
-	/// table's slot number; the engine has no such table, so this keys on the chassis' own
-	/// <see cref="Name"/> and holds only the types actually scored against.
+	/// <c>mech+0x2a4</c> — how many of <paramref name="targetClass"/> this machine has put out of the
+	/// fight this mission, counted once per victim: <c>INC word [mech + class*2 + 0x2a4]</c> at
+	/// <c>0041576d</c>, the class being the victim's <c>+0x1a8</c>. The first three are the Herc, Base and
+	/// Flyer kills the mission's results carry to the pilot (<see cref="MissionResults"/>).
+	///
+	/// <para>The original indexes the array unchecked. The four classes an object can hold are all it is
+	/// kept for here; how far the original's array runs past the three the results read is not
+	/// established.</para>
 	/// </summary>
-	public IReadOnlyDictionary<string, int> KillsByType => _killsByType;
+	public short KillsOf(TargetClass targetClass) =>
+		(uint)targetClass < (uint)_killsByClass.Length ? _killsByClass[(int)targetClass] : (short)0;
 
-	private readonly Dictionary<string, int> _killsByType =
-		new(StringComparer.OrdinalIgnoreCase);
+	private readonly short[] _killsByClass = new short[(int)TargetClass.GroundVehicle + 1];
+
+	/// <summary>
+	/// <c>mech+0xb3</c> — the mission placed this machine already broken, so its wreck is worth nothing.
+	/// <see cref="ApplyStartingCondition"/> raises it on its two worst grades, so a mission cannot be farmed
+	/// by authoring derelicts into it.
+	/// </summary>
+	public bool WorthNoSalvage { get; private set; }
+
+	/// <summary>
+	/// <c>Mech_SalvageValue</c> (<c>00418e60</c>) — what this machine's wreck is worth to the player's side, in
+	/// kilograms before the results' own scale (<see cref="MissionResults"/>). Zero when
+	/// <see cref="WorthNoSalvage"/> is set. Otherwise every mount, in hardpoint order, whose component reads
+	/// under half damaged goes onto the salvage list with its condition; and the chassis is worth
+	/// <see cref="MechTypeRecord.SalvageScale"/> of its <see cref="ComponentDamage.WeightedArmorRemaining"/>, the
+	/// scale halved when component 0 is at full damage. See
+	/// docs/simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60.
+	/// </summary>
+	internal int SalvageValue(SimWorld world) {
+		if (WorthNoSalvage || _damage == null) {
+			return 0;
+		}
+
+		foreach (var mount in Weapons.Slots) {
+			if (mount == null) {
+				continue;
+			}
+
+			int reading = _damage.DamagePercent(WeaponMounts.FirstMountComponent + mount.LoadoutSlot);
+			if ((short)reading < SalvageableMountReading) {
+				world.QueueSalvage((short)mount.WeaponId, SalvageCondition(reading));
+			}
+		}
+
+		int scale = Type.SalvageScale;
+		if ((short)_damage.DamagePercent(0) == FullyDamaged) {
+			scale >>= 1;
+		}
+
+		return SimMath.Q10Multiply(_damage.WeightedArmorRemaining(), scale);
+	}
+
+	/// <summary>The reading a mount's component must be under for the mount to be salvaged — the literal <c>0x80</c>.</summary>
+	private const short SalvageableMountReading = 0x80;
 
 	/// <summary><c>mech+0xa6</c> — raised by the first kill this machine scores. Latched.</summary>
 	public bool ScoredAKill { get; private set; }
@@ -903,9 +951,10 @@ public sealed partial class MechObject {
 	/// so losing a gun does not take the shoulder it hangs off with it. See
 	/// <see cref="ComponentDamage.Deactivate"/>.</para>
 	///
-	/// <para><b>Left out: salvage.</b> On a Cybrid the original also queues the destroyed weapon's
-	/// catalog id and its remaining condition onto a global list, which is what the player recovers
-	/// after the mission. There is no post-mission phase here to hand it to.</para>
+	/// <para><b>A Cybrid's lost gun is salvage.</b> On a machine of side 1 the mount goes onto the
+	/// mission's salvage list (<see cref="SimWorld.QueueSalvage"/>) between the flag write and the
+	/// finish-off, with its condition taken from <see cref="MountSalvageScale"/> of the reading: a gun
+	/// knocked off a half-wrecked mount comes home in better shape than the mount reads.</para>
 	/// </summary>
 	/// <param name="damagePercent">The component's reading <i>after</i> the write, 0 pristine and 256 gone.</param>
 	private void RollWeaponMountDestruction(SimWorld world, short componentIndex, int damagePercent) {
@@ -920,10 +969,29 @@ public sealed partial class MechObject {
 			return;
 		}
 
-		Weapons.ByComponent(componentIndex)?.Destroy(world, this, rolled: true, DebrisTable(world));
+		var mount = Weapons.ByComponent(componentIndex);
+		mount?.Destroy(world, this, rolled: true, DebrisTable(world));
 		_damage.Deactivate(componentIndex);
+		if (Side == MissionSide.Cybrid && mount != null) {
+			world.QueueSalvage((short)mount.WeaponId,
+				SalvageCondition(SimMath.Q10Multiply(MountSalvageScale, damagePercent)));
+		}
+
 		_damage.ApplyDamage(componentIndex, MountDestructionFinishOff, world, this, DebrisTable(world));
 	}
+
+	/// <summary>
+	/// The Q10 share of a mount's reading its salvage condition is taken from — the literal 500 at
+	/// <c>00418a9b</c>, just under a half.
+	/// </summary>
+	private const int MountSalvageScale = 500;
+
+	/// <summary>
+	/// A Q8 damage reading as the percentage condition the salvage list and the results' status blocks
+	/// carry: <c>(0x100 - reading) * 100</c> shifted right 8, arithmetically (<c>SAR</c> at <c>00418ace</c>
+	/// and <c>00423dbc</c>, where the decompiler shows an unsigned shift).
+	/// </summary>
+	internal static short SalvageCondition(int reading) => (short)((short)(0x100 - reading) * 100 >> 8);
 
 	/// <inheritdoc cref="RollWeaponMountDestruction"/>
 	private const int MountDestructionOddsHuman = 3;

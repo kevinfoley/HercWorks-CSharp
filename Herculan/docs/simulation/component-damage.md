@@ -154,12 +154,12 @@ The order matters: writing a leg off can fire the death gate, so the defeat acti
 
 ### What a wreck is worth — `Mech_SalvageValue` (`00418e60`)
 
-What the player's side takes home. `Mission_TotalSalvage` (`00423e88`) walks the object list at the end of the run and sums this function over every machine that is on the other side from the player's and is destroyed (`+0x99`) or immobilised (`+0xa4`); the total is scaled by `Q10(2500)` and added to the campaign's salvage pool ([`../formats/save-games.md`](../formats/save-games.md)) as the mission writes its results.
+What the player's side takes home. `Mission_TotalSalvage` (`00423e88`) walks the machine list at the end of the run and sums this function over every machine that is on the other side from the player's and is destroyed (`+0x99`) or immobilised (`+0xa4`); the total is scaled by `Q10(2500)` into the award the mission writes to its results ([`mission-objectives.md`](mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)), which the shell adds to the campaign's salvage pool.
 
 Per machine, in order:
 
 1. **`mech+0xb3` short-circuits it to zero.** A machine the mission placed already broken — the two worst starting-condition grades above — is worth nothing, so a mission cannot be farmed by authoring derelicts into it.
-2. **Each surviving hardpoint is queued.** For every mount whose component is under `0x80` damage, `maybe_Salvage_QueueDestroyedWeapon` (`00426ac8`) takes `{template+0x56, (0x100 - damage) * 100 / 256}` — the weapon's catalog id and its condition as a percentage. This is the same queue the mount-destruction path appends to; see [Weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction).
+2. **Each surviving hardpoint is queued.** For every mount whose component is under `0x80` damage, `Salvage_QueueWeapon` (`00426ac8`) takes `{template+0x56, (0x100 - damage) * 100 >> 8}` — the weapon's catalog id and its condition as a percentage. This is the same list the mount-destruction path appends to ([Weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction)), and the results carry it to the shell as salvage pairs. The list is a 200-byte allocation, room for 50, and the append checks nothing ([Open](#open)).
 3. **The chassis itself** is `Q10(Mech_WeightedArmorRemaining(mech), typeRec+0x54)`, and `typeRec+0x54` is **halved when component 0 is at full damage** — a chassis blown apart is worth half one merely stopped. `Mech_WeightedArmorRemaining` (`0041537c`) sums `(maxArmor - damage) * weight / maxArmor` over the live components, against the weight table at `00499fe0`; `maxArmor` is the component's own `.DMG` record and a component at or past 150 damage contributes nothing.
 
 So a machine pays for what survived, not for what was wrecked, and its guns pay separately by how intact each one is.
@@ -181,4 +181,5 @@ The traps, not a summary — everything else here is stated once above.
 ## Open
 
 - **Open:** the exact sub-piece breakdown per component.
-- **Unported:** the salvage pass — `Mech_SalvageValue`/`Mission_TotalSalvage` ([above](#what-a-wreck-is-worth--mech_salvagevalue-00418e60)), `mech+0xb3`, and `Mech_ReportOutOfAction`'s mission-variable writes.
+- **Unported:** `Mech_ReportOutOfAction`'s mission-variable writes.
+- **Open:** what a mission that salvages more than 50 weapons does to the memory past the list's block, and so what reaches the file. The append writes on beyond it, and `Mission_WriteResults` reads back as many as the count says.

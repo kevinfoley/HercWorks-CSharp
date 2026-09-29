@@ -74,7 +74,7 @@ The box is block 1's own extent, accumulated as the coordinates are read (`Missi
 | every required record holds | **9** mission successful | 10 |
 | neither | 5 | 4 |
 
-**The mission does not conclude while the player is still in a fight.** All three outcomes collapse to 10 there, and 4, 5 and 10 announce nothing. `FUN_0042412c` writes `(status == 9)` into `results.dat` as the mission ends, so 9 is the only success.
+**The mission does not conclude while the player is still in a fight.** All three outcomes collapse to 10 there, and 4, 5 and 10 announce nothing. As the mission ends, `Mission_WriteResults` asks `EvaluateObjectives` once more and records 9 alone as a success ([below](#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
 
 The first required record that is *not* satisfied is published at `DAT_004d1f1c` as the failure text the alert panel prints — four `char*`, three from the file and an empty fourth.
 
@@ -300,6 +300,23 @@ The six helpers it owns:
 `Group_OrderSubjectRouteExhausted` (`004139a0`) sits in the middle of the set and is one step further out still — nothing calls it, the chooser included.
 
 **`mech+0xa6` therefore has no live reader.** `Mech_CreditNeutralisedTarget` latches it on a machine's first cross-side kill ([`component-damage.md`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and only `Group_AnyMemberScoredAKill` ever asks. The same goes for `+0x9f` and `+0xa0` *in their group form* — the objective conditions read the player's own copies directly rather than through these helpers.
+
+## What the mission leaves the shell — `Mission_WriteResults` (`0042412c`)
+
+Every way out of the simulator ends in `Sim_Shutdown` (`00461eec`), which `Sim_Run` (`0045f144`) calls when its loop ends: a mission-ending answer to the [status alert](#the-status-alert--gnl_alrt-00455934), [Ctrl+Q]'s `QUIT`, and the end of a demo. Closing the window is one of those: the main window's `WM_CLOSE` dispatches `0x410`, [Ctrl+Q], outside a demo, and raises `DemoAbort` (`004d25b6`) in one. A `WM_QUIT` that reaches the input poll raises `DemoAbort` as well (`0045a811`). It closes the tape files and calls `Mission_WriteResults(LocalPlayerMech)`, which writes `data\results.dat` and then the mission counters back over `data\mission.var` ([`mission-deployment.md`](mission-deployment.md#the-mission-counters--dat_004a9ef4)). The file's layout is [`campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)'s; what fills it:
+
+| Field | From |
+|---|---|
+| outcome | `Mission_EvaluateObjectives(player) == 9`. The objectives are walked once more, so a record first met now applies its counters before they are written; the player's own condition and the mission box play no part |
+| salvage award | `Q10(2500, Mission_TotalSalvage)` plus 25,000 kg per unit of counter 20. `Mission_TotalSalvage` (`00423e88`) sums [`Mech_SalvageValue`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60) over every machine off the player's side that is destroyed or immobilised, walking the machine list from its end |
+| salvage pairs | the list `Salvage_QueueWeapon` (`00426ac8`) built: the enemy wrecks' surviving mounts, queued by that walk, after every Cybrid mount the [destruction roll](weapon-damage-types.md#weapon-mount-destruction) knocked off during the mission |
+| a block per machine | `Group_WriteStatusBlocks` (`00423d68`) over the player's group, in group order: 33 conditions, then the machine's kill tallies |
+
+**The 33 conditions** are the [damage readouts](../formats/mfd.md) the damage screens read, entries 1-13, 20-29 and 32-41 — the first thirteen components on their own armour, the first ten dependents, and the ten weapon mounts with their paired dependent — each turned from a Q8 damage reading into a percentage condition as `((0x100 - reading) * 100) >> 8`, an arithmetic shift where the decompiler shows an unsigned one. The shell reads the 66 bytes straight over the machine's status block ([`../formats/save-games.md`](../formats/save-games.md#the-66-byte-status-block)).
+
+**The kill tallies** are `mech+0x2a4`, one short per target class: `Mech_CreditNeutralisedTarget` adds one at `victim+0x1a8` on a machine's first cross-side neutralisation of each victim (`0041576d`). The block carries the first three, classes 0, 1 and 2 — the Herc, Base and Flyer kills the shell adds to the pilot's record. A ground vehicle, class 3, is tallied and never reported.
+
+The exit code follows, into `004d283c`: 6 after a demo, 0 when the quit flag `004d2582` is set, and otherwise 3, which sends the shell into its debrief ([`../command-line.md`](../command-line.md#exit-codes)). The code has a fourth answer, 4 for a destroyed player while `MissionModeFlag` (`004a9ed6`) is set, and the load zeroes that flag ([`difficulty.md`](difficulty.md)), so it is never returned.
 
 ## Rejected readings
 

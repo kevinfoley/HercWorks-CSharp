@@ -190,13 +190,13 @@ At the top it stops `0x21`, plays `0x29` (`explo2.wav`) and shakes the view for 
 1,000 shorts, and the **campaign's** flag array for the length of a mission. It makes a round trip through `data\mission.var`:
 
 1. VSHELL writes the file from its flag array (`00482af8` there, the store the `.msn` condition opcodes test and every save slot carries) before launching the mission (`MissionVar_Write`, `0040e9cb`).
-2. `DBSim_LoadScriptDat` (`00424308`) reads 2,000 bytes of it into `DAT_004a9ef4`, before it opens `player.mec`, and then zeroes slot 20, slot 10 and slots 21 to 42 ([Open](#open)). Every other slot carries the campaign's value into the mission.
-3. `FUN_0042412c` writes, as the mission ends, `results.dat` and then the same 2,000 bytes back to `mission.var`.
+2. `DBSim_LoadScriptDat` (`00424308`) reads 2,000 bytes of it into `DAT_004a9ef4`, before it opens `player.mec`, and then zeroes slot 20, slot 10 and slots 21 to 42. Every other slot carries the campaign's value into the mission. Slots 21 to 49 are the weapon units the debrief grants ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)), so the zeroing starts a mission with none owed but the last seven ([Open](#open)).
+3. `Mission_WriteResults` (`0042412c`) writes, as the mission ends, `results.dat` and then the same 2,000 bytes back to `mission.var` ([`mission-objectives.md`](mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
 4. VSHELL's `MissionVar_Read` (`0040ea59`) loads the file back into its flag array at debrief. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7).
 
 Four things write the counters during a mission: `Action_Activate`, an objective ([`mission-objectives.md`](mission-objectives.md)), a group's own completion hook `Group_ReportIfAllOutOfAction` (`00423f30`, ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c), and `Mech_CreditNeutralisedTarget` (`00415710`), which adds one to slot 10 when the player puts a machine of its own group out of the fight.
 
-The simulator reads slot 20 itself: `FUN_0042412c` adds 25,000 kg of salvage per unit of slot 20 to the award it writes to `results.dat`.
+The simulator reads slot 20 itself: `Mission_WriteResults` adds 25,000 kg of salvage per unit of slot 20 to the award it writes to `results.dat`.
 
 ## The shipped mission, end to end
 
@@ -239,7 +239,6 @@ The [lift start](#the-lift-start) is left out on purpose: the art it draws is no
 - **Open:** what sets block `+0x54`, the lift start's gate. No absolute reference to `004d2594` exists, the block's static initialiser `Main_StaticInit` (`0045cad8`) does not store it, and of the `+0x54` writes `es2_fieldscan.py` finds, none is through a register holding the block.
 - **Open:** what reads `0049aef4`, the byte the lift start clears for its duration (1 in the image). `es2_xref.py` finds only the lift's two stores.
 - **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
-- **Unported:** `FUN_0042412c`'s write of the counters back to `mission.var` as the mission ends, with the `results.dat` it writes first.
-- **Open:** what slots 21 to 42 hold, which the load zeroes. No absolute reference to them was found in either binary beyond that loop's base address; the objective counter refs in the shipped `.msn` files run from 20 ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md)).
+- **Open:** why the load's zeroing stops at slot 42, leaving the grants in 43 to 49 owed from before the mission.
 - **Unported:** the group completion hook `Group_ReportIfAllOutOfAction` (`00423f30`) that writes the mission counters (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c).
 - **Open:** confirm whether anything writes `obj+0xa2`, the gate on the engaged action ([above](#an-objects-own-two-actions--0x1b2-and-0x1b6)); a text search finds no writer.

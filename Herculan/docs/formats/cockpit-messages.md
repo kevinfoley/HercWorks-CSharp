@@ -64,7 +64,7 @@ The switch names twelve further ids explicitly — `0x17`, `0x19`, `0x1d`-`0x1f`
 
 `MessagePort_Withdraw` (`00435ac8`) is the withdraw. It sets the cancel latch on the current message only if that message is not yet due — a line already on screen is left to run out its display time — and otherwise removes a match from the queue. It matches on the id **and** the record's `+0x02` subject pointer, so the same message about two machines is two entries.
 
-`MessagePort_Pause` (`00435b58`) / `MessagePort_Resume` (`00435b80`) are the pause pair: the second shifts every deadline in the queue, the current message's two display deadlines and the scroll's publish time forward by however long the pause lasted. Two places call it, each on both ports: `AlertPanel_Enter` (`00454630`) and `AlertPanel_Leave` (`004548ac`) around every modal panel — the status alert, pause, objectives, preferences and controls panels — which leave the sound alone, and the lost-window pair `FUN_0045f0b8`/`FUN_0045f0ec`, which also calls `Sound_SuspendAll`/`Sound_ResumeAll`.
+`MessagePort_Pause` (`00435b58`) / `MessagePort_Resume` (`00435b80`) are the pause pair: the second shifts every deadline in the queue, the current message's two display deadlines and the scroll's publish time forward by however long the pause lasted. Two places call it, each on both ports: `AlertPanel_Enter` (`00454630`) and `AlertPanel_Leave` (`004548ac`) around every modal panel — the status alert, pause, objectives, preferences and controls panels — which leave the sound alone, and the lost-window pair `Sim_Suspend`/`Sim_Resume` (`0045f0b8`/`0045f0ec`), which also calls `Sound_SuspendAll`/`Sound_ResumeAll`.
 
 ### The ticker
 

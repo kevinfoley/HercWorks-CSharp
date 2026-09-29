@@ -20,18 +20,33 @@ namespace Herculan.Engine.Shell;
 /// <param name="PilotsLost"><c>Squad_ProgressAll</c>'s count, <c>00482aef</c>: the player if at 0 condition, and each squad member replaced.</param>
 /// <param name="MachinesScrapped">How many machines the debrief scrapped, the hangar's <c>+0x24</c> count's rise.</param>
 /// <param name="Debrief">The flown mission's debrief text, when <c>Career_Advance</c> reloaded it.</param>
+/// <param name="Report">The figures <c>Debrief_WriteReport</c> writes, when it ran: a campaign debrief the player survived.</param>
 public sealed record ShellDebriefResult(short? State, short Outcome, int SalvageAwarded, int SalvageItems, int PilotsLost,
-	int MachinesScrapped, MissionDebriefText? Debrief);
+	int MachinesScrapped, MissionDebriefText? Debrief, ShellDebriefReport? Report);
+
+/// <summary>
+/// <c>Debrief_WriteReport</c> (<c>0040f34c</c>)'s figures, which it writes into the mission tab's report texts
+/// (<see cref="ShellMissionScreen.WriteReport"/>).
+/// </summary>
+/// <param name="Outcome"><c>results.dat</c>'s outcome, 1 a success.</param>
+/// <param name="SalvageAwarded">The award in kilograms; the report prints it in tons.</param>
+/// <param name="WeaponsRecovered">The salvage pairs read plus the weapon units the campaign granted.</param>
+/// <param name="PlayerKills">The player's mission Herc, Base and Flyer kills, pilot <c>+0x2d</c>, <c>+0x31</c>, <c>+0x2f</c>.</param>
+/// <param name="SquadKills">
+/// The same three summed over the player and every on-strength squad member at positions 1 up to the
+/// positions in play — so a member replaced for being lost counts the new pilot's zeros.
+/// </param>
+/// <param name="PilotsLost"><c>Squad_ProgressAll</c>'s count.</param>
+public sealed record ShellDebriefReport(short Outcome, int SalvageAwarded, int WeaponsRecovered,
+	(int Hercs, int Bases, int Flyers) PlayerKills, (int Hercs, int Bases, int Flyers) SquadKills, int PilotsLost);
 
 /// <summary>
 /// <c>Game_ProcessMissionResults</c> (<c>0040eae7</c>), the shell's half of the debrief: what DBSIM's
 /// <c>mission.var</c> and <c>results.dat</c> do to the career (docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7).
 /// It leaves out what the original does to the screen — the report texts, which it returns as figures, the
-/// debrief view, the ending movies — and what follows it: the autosave to slot 10 when the campaign is won,
-/// and the next mission's load when it goes on, which are <see cref="ShellDebriefResult.State"/>'s to decide.
-///
-/// <para>Nothing calls this yet: the simulator does not write the two files and the host has no return
-/// trip to the shell (ROADMAP).</para>
+/// debrief view, the dialogs and the ending movies — and what follows it: the autosave to slot 10 when the
+/// campaign is won, and the next mission's load when it goes on, which are <see cref="ShellDebriefResult.State"/>'s
+/// to decide and the host's to do.
 /// </summary>
 public static class ShellDebrief {
 	/// <summary>The game states <c>Game_ProcessMissionResults</c> writes to <c>0048260e</c>.</summary>
@@ -98,6 +113,7 @@ public static class ShellDebrief {
 		short? state = null;
 		int granted = 0;
 		MissionDebriefText? debrief = null;
+		ShellDebriefReport? report = null;
 		if (game.PlayerPilot?.ProbablyHealth == 0) {
 			state = CampaignOverState;
 		} else if (campaign) {
@@ -115,6 +131,7 @@ public static class ShellDebrief {
 			hangar.GrantChassis(flags);
 			granted = hangar.GrantCampaignWeapons(flags);
 			catalog.RefreshQueue(hangar, manualBuild);
+			report = WriteReport(game, hangar, outcome, awarded, pairs + granted, pilotsLost);
 			(state, debrief) = Advance(game, hangar, content, flags, outcome, roll);
 		}
 
@@ -128,7 +145,27 @@ public static class ShellDebrief {
 
 		hangar.Store(game);
 		failure = null;
-		return new ShellDebriefResult(state, outcome, awarded, pairs + granted, pilotsLost, scrapped, debrief);
+		return new ShellDebriefResult(state, outcome, awarded, pairs + granted, pilotsLost, scrapped, debrief, report);
+	}
+
+	/// <summary>
+	/// <c>Debrief_WriteReport</c> (<c>0040f34c</c>)'s figures: the player's mission kills, and those summed with
+	/// each on-strength squad member's at positions 1 up to the positions in play.
+	/// </summary>
+	private static ShellDebriefReport WriteReport(PlayerSave game, ShellHangar hangar, short outcome, int awarded,
+			int weapons, int pilotsLost) {
+		var player = game.PlayerPilot;
+		var own = (Hercs: (int)(player?.KillsHercs ?? 0), Bases: (int)(player?.KillsBuilding ?? 0), Flyers: (int)(player?.KillsFlyers ?? 0));
+		var squad = own;
+		for (int position = 1; position < hangar.SquadPositions; position++) {
+			int member = hangar.SquadMemberIndexAt(position);
+			if (member != -1 && hangar.SquadMembers[member].OnStrength
+					&& game.Squadmates?.ElementAtOrDefault(hangar.SquadRecordIndex(member)) is { } record) {
+				squad = (squad.Hercs + record.KillsHercs, squad.Bases + record.KillsBuilding, squad.Flyers + record.KillsFlyers);
+			}
+		}
+
+		return new ShellDebriefReport(outcome, awarded, weapons, own, squad, pilotsLost);
 	}
 
 	/// <summary>

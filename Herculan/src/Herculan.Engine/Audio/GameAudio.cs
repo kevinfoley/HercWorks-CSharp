@@ -466,7 +466,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 
 	/// <summary>
 	/// Silences everything without tearing the device down — for a lost window, which is where the
-	/// original calls <c>Sound_SuspendAll</c> (<c>FUN_0045f0b8</c>, alongside both ports' pause). Speech is
+	/// original calls <c>Sound_SuspendAll</c> (<c>Sim_Suspend</c>, <c>0045f0b8</c>, alongside both ports' pause). Speech is
 	/// cut rather than remembered: <see cref="Resume"/> can only restart a clip from its beginning,
 	/// and half a sentence twice is worse than none. The message port's clock stops, so a line already
 	/// on screen keeps the rest of its display time for after the pause.

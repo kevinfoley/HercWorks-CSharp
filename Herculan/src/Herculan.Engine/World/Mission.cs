@@ -88,6 +88,11 @@ public enum MissionSide {
 /// and for a formation that names none. Resolved here because it is wanted twice: once to place the
 /// machine, and again every tick a follower holds formation on its leader.
 /// </param>
+/// <param name="OutOfActionReport">
+/// The roster record's ten mission-counter writes, made when the object goes out of the fight. See
+/// <see cref="Herculan.Engine.Sim.SimObject.OutOfActionReport"/>; null for the player's squad, which
+/// has no roster record.
+/// </param>
 /// <param name="FlyerFormationOffset">
 /// The flyer twin of <paramref name="FormationOffset"/>, out of <c>FFORMS.DAT</c> and carrying a Z
 /// as well — see <see cref="FlyerFormationTable"/>. A flyer wingman re-reads it every tick it holds
@@ -112,7 +117,8 @@ public sealed record MissionPlacement(
 	Vec3i? FlyerFormationOffset = null,
 	int EngagementActionRef = -1,
 	int DefeatActionRef = -1,
-	short StartingCondition = 100) {
+	short StartingCondition = 100,
+	OutOfActionReport? OutOfActionReport = null) {
 
 	/// <summary>
 	/// The condition a machine the mission says nothing about starts in — full health, and the
@@ -154,7 +160,8 @@ public sealed class Mission {
 			IReadOnlyList<MissionObjective>? objectives = null,
 			IReadOnlyList<int>? briefingLines = null,
 			IReadOnlyList<string>? text = null,
-			IReadOnlyList<short>? counters = null) {
+			IReadOnlyList<short>? counters = null,
+			IReadOnlyList<OutOfActionReport>? groupOutOfActionReports = null) {
 		SourcePath = sourcePath;
 		Header = header;
 		Placements = placements;
@@ -172,6 +179,7 @@ public sealed class Mission {
 		BriefingLines = briefingLines ?? Array.Empty<int>();
 		Text = text ?? Array.Empty<string>();
 		Counters = counters ?? Array.Empty<short>();
+		GroupOutOfActionReports = groupOutOfActionReports ?? Array.Empty<OutOfActionReport>();
 	}
 
 	/// <summary>Where the <c>script.dat</c> was read from.</summary>
@@ -241,6 +249,12 @@ public sealed class Mission {
 
 	/// <summary>And each group's side, on the same terms.</summary>
 	public IReadOnlyList<MissionSide> GroupSides { get; }
+
+	/// <summary>
+	/// Each group's mission-counter writes, made once all of it is out of the fight, by block-11
+	/// record index. See <see cref="Herculan.Engine.Sim.MissionGroup.OutOfActionReport"/>.
+	/// </summary>
+	public IReadOnlyList<OutOfActionReport> GroupOutOfActionReports { get; }
 
 	/// <summary>
 	/// Block 12 in file order — what the mission wants done, and what loses it. See

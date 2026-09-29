@@ -414,6 +414,26 @@ public abstract class SimObject {
 	internal void ActivateDefeatAction(SimWorld world) => DefeatAction?.Activate(world);
 
 	/// <summary>
+	/// <c>obj+0x1ba</c>/<c>+0x1ce</c> — the mission-counter writes this object makes when it goes out
+	/// of the fight, from its own roster record. A machine of the player's squad has no roster record
+	/// and carries <see cref="OutOfActionReport.None"/>, which is what its zeroed slots amount to in the
+	/// original — see docs/simulation/component-damage.md#the-out-of-action-report.
+	/// </summary>
+	public OutOfActionReport OutOfActionReport { get; set; } = OutOfActionReport.None;
+
+	/// <summary>
+	/// <c>Mech_ReportOutOfAction</c> (<c>00411bc8</c>) — asks the group whether this object was the
+	/// last of it still in the fight, then runs the object's own writes. Called immediately before
+	/// <see cref="ActivateDefeatAction"/> from the four damage endpoints the original calls it from;
+	/// the weapons-out defeat does not call it here, since no call from there has been found. See
+	/// docs/simulation/component-damage.md#the-out-of-action-report.
+	/// </summary>
+	internal void ReportOutOfAction(SimWorld world) {
+		Group?.ReportIfAllOthersOutOfAction(world, this);
+		world.ApplyOutOfActionReport(OutOfActionReport);
+	}
+
+	/// <summary>
 	/// If the given victim is the player's current target and the player fired the finishing
 	/// shot, play <c>ENEMY TARGET DESTROYED</c> or <c>ENEMY TARGET DISABLED</c> as applicable.
 	///

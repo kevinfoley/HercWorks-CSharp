@@ -97,7 +97,7 @@ Two shapes need care:
 | 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** `UnkEntity102Bytes` — real structure is a 20-flag boolean array + a mostly-inert second 20-slot span + a constant trailing field (always `100`), not the flat `Flags[49]` the old hypothesis assumed |
 | 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** `MiscEntityInfo` — 4 real cross-refs, not the 3 the macro pass found (it missed #7); a type-like field at `0x08` correlates ~99% with the trailing constant field being `100` vs `0` |
 | 15 | `DAT_00470658` | 22 (`0x16`) bytes/record | `DAT_00470620` | #6 (rare), #8 (dominant — 94% populated), #10 (rare), plus a **4-way** discriminated ref (0/1/2/3 → #16/#12/#13/#14, resolved in two passes since #16 loads after #15) | **decoded — see "Row #15 field decode" below.** A "typed link" record whose primary payload is a near-always-populated ref into row #8 — confirms it's structurally distinct from #6 (which is a flat position record), not just size-coincidentally 22 bytes |
-| 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and a cleanly discriminated trailing payload (`0x78`: 0/1/2 → 0/2/4 populated fields) |
+| 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and ten mission-counter (ref, operation) pairs with their count at `0x78` |
 | 17 | `DAT_0047064a` | 58 (`0x3a`) bytes/record | `DAT_00470608` | #6 (declared, **never used in retail data**), #8, a `.ENG` id (dominant), a 4-way discriminated ref (0/1/2/3 → #16/#12/#13/#14) | **the mission objective — see "Row #17 field decode" below.** Structurally unusual — no leading GUID field at all (this record is never referenced by anything else in the file); the 42-byte tail is a nested pair-count array, the same idiom as row #8's nested waypoint list |
 
 `DAT_00470664` is the count of `.ENG` records the load kept, read by `Msn_LoadEngText` (`0041768c`) between rows 2 and 3; rows 4, 10 and 17 renumber their text refs into that list, which is `data\mission.str` ([The `.ENG` string table](#the-eng-string-table)).
@@ -279,7 +279,7 @@ Item flags + condition/variant (24%/30% real usage — highest combined rates in
 | `0x32` | ref→row #7 | same, for heading |
 | `0x34` | presence flag | 68% real; always `0` if present |
 | `0x36` | ? | nearly always `0` ([Open](#open)) |
-| `0x38–0x60` | flags block B (20 shorts) | **dead** — 99.9% `-1` |
+| `0x38–0x5E` | 10 (counter ref, operation) pairs | 99.9% `-1`; one retail record uses a slot. The flyer's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 8's `0x2e`/`0x42` |
 | `0x60` | ref→row #10 slot 1 | **dead** — always `-1` |
 | `0x62` | ref→row #10 slot 2 | **only live ref** — 21% real |
 | `0x64` | constant | always exactly `100` |
@@ -299,7 +299,7 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 | `0x0A` | ref→row #6 | 6.4% sparse — this structure's spawn-position override |
 | `0x0C` | ref→row #7 | 6.7% sparse — its heading |
 | `0x0E` | small discrete | 100% real; 0/1/2 (64%/33%/3%) |
-| `0x10–0x38` | block (20 shorts) | 3.9% sparse |
+| `0x10–0x36` | 10 (counter ref, operation) pairs | 3.9% sparse — the structure's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
 | `0x38` | ref→row #10 slot 1 | 0.4% rare |
 | `0x3A` | ref→row #10 slot 2 | 0.1% dead |
 | `0x3C` | health modifier | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real** |
@@ -326,12 +326,8 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0x60–0x72` | 10-entry ref→row #15 | **the group's orders**, worked through in slot order — slot 0: 47% real → slot 3+: never used. Slot 0's is also where the group's route and its spawn-point fallback come from |
 | `0x74` | tri-state flag | 89% real; 0/1 or `-1` |
 | `0x76` | ref→row #10 | 31% real |
-| `0x78` | discriminator | 100% real; 0/1/2 (97%/2.8%/0.5%); selects trailing payload |
-| `0x7A` | payload 1 | if `0x78≥1`; range 20–650 |
-| `0x7C` | payload 2 | if `0x78≥1`; values {2, 23} only |
-| `0x7E` | payload 3 | if `0x78=2` only |
-| `0x80` | payload 4 | if `0x78=2` only; always `2` |
-| `0x82–0xA0` | dead zone (16 shorts) | **always `-1`** — padding |
+| `0x78` | pair count | 100% real; 0/1/2 (97%/2.8%/0.5%) — how many of the pairs below are filled. Not exported to `script.dat` |
+| `0x7A–0xA0` | 10 (counter ref, operation) pairs | refs 20–650, operations {2, 23}; slots 2–9 always `-1`. The group's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 11's `0x72`/`0x86` |
 | `0xA2` | trailing flag | 6% sparse; 0/1 |
 
 
@@ -353,7 +349,7 @@ The HERC roster; highest variant usage (48%). Three-way identity split: a GUID a
 | `0x46` | ref→row #6 | 0.1% populated in `.msn` data, but **not dead** — this is the spawn-position override DBSIM reads per mech (see `script-dat.md`); unset means "use the group's point" |
 | `0x48` | ref→row #7 | same, for heading |
 | `0x4A` | small discrete | 100% real; 0–4 (84% `0`) |
-| `0x4C–0x5A` | sparse paired array | 5 pairs; decay: 15.9% → 0.5%; pairs have (wide-range, narrow-tag) structure |
+| `0x4C–0x72` | 10 (counter ref, operation) pairs | sparse; slot 0 15.9% → slot 4 0.5%. The machine's [out-of-action report](../simulation/component-damage.md#the-out-of-action-report), exported as `script.dat` block 7's `0x42`/`0x56` |
 | `0x74–0x84` | always-populated block | 100% real; 6 shorts; values 0–5, trending up |
 | `0x86` | constant | always `5` |
 | `0x88` | constant | always `2` |

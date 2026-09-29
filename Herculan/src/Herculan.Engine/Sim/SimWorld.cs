@@ -332,10 +332,10 @@ public sealed class SimWorld {
 	/// <c>Mission_WriteResults</c> (<c>0042412c</c>) writes them back to it as the mission ends (<see cref="MissionResults"/>). See
 	/// docs/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
 	///
-	/// <para>Written by an action firing (<see cref="MissionActionState.Fire"/>), an objective
-	/// (<see cref="MissionObjectiveState"/>) and the player downing a squadmate
-	/// (<see cref="MechObject.CreditNeutralised"/>). A group's own completion hook
-	/// (<c>Group_ReportIfAllOutOfAction</c>, <c>00423f30</c>) writes them too, and is not ported.</para>
+	/// <para>Written by an action firing (<see cref="MissionActionState.Activate"/>), an objective
+	/// (<see cref="MissionObjectiveState"/>), the player downing a squadmate
+	/// (<see cref="MechObject.CreditNeutralised"/>), and an object or a whole group going out of the
+	/// fight (<see cref="ApplyOutOfActionReport"/>).</para>
 	/// </summary>
 	public IReadOnlyList<short> MissionCounters => _missionCounters;
 
@@ -372,6 +372,30 @@ public sealed class SimWorld {
 	}
 
 	/// <summary>
+	/// Runs one object's or group's out-of-action writes — the slot walk
+	/// <c>Mech_ReportOutOfAction</c> (<c>00411bc8</c>) and <c>Group_ReportIfAllOutOfAction</c>
+	/// (<c>00423f30</c>) both spell out inline. A slot with a negative ref is skipped, and an
+	/// operation outside the set writes nothing.
+	/// </summary>
+	internal void ApplyOutOfActionReport(World.OutOfActionReport report) {
+		for (int slot = 0; slot < World.OutOfActionReport.Slots && slot < report.CounterRefs.Count; slot++) {
+			short counter = report.CounterRefs[slot];
+			if (counter < 0 || slot >= report.CounterOps.Count) {
+				continue;
+			}
+
+			short op = report.CounterOps[slot];
+			if (op == World.OutOfActionReport.OpClear) {
+				ClearMissionCounter(counter);
+			} else if (op == World.OutOfActionReport.OpIncrement) {
+				BumpMissionCounter(counter, 1);
+			} else if (op >= World.OutOfActionReport.OpSetFirst && op <= World.OutOfActionReport.OpSetLast) {
+				SetMissionCounter(counter, (short)(op - World.OutOfActionReport.SetBias));
+			}
+		}
+	}
+
+	/// <summary>
 	/// How many counters the array holds — 1000: <c>mission.var</c> is 2,000 bytes each way.
 	/// </summary>
 	public const int MissionCounterSlots = 1000;
@@ -390,8 +414,9 @@ public sealed class SimWorld {
 	/// Cybrid mount the destruction roll knocks off (<c>MechObject.RollWeaponMountDestruction</c>), and
 	/// each surviving mount of an enemy wreck at the mission's end (<see cref="MechObject.SalvageValue"/>).
 	///
-	/// <para>The original's list is a 200-byte allocation, room for 50, and the append checks nothing; past 50
-	/// it writes on beyond the block. This list grows instead (docs/simulation/component-damage.md#open).</para>
+	/// <para>The original's list is a fixed block the append never checks, and a long enough list
+	/// writes past it (docs/simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60).
+	/// This list grows instead.</para>
 	/// </summary>
 	internal void QueueSalvage(short weaponId, short condition) => _salvage.Add((weaponId, condition));
 

@@ -82,7 +82,7 @@ Every mech, flyer and structure carries two action pointers, resolved by `DBSim_
 
 **`+0x1b2` — engaged.** `Detection_Sweep` activates it when a hostile that already has contact on this object closes to 50000 units; both parties latch `+0x9e` and both activate their own. It is gated on `obj+0xa2` being clear — a text search finds no writer of that byte ([Open](#open)).
 
-**`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat:
+**`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat. The first three run the object's [out-of-action report](component-damage.md#the-out-of-action-report) just before it; no call from the fourth has been found:
 
 | site | when |
 |---|---|
@@ -194,7 +194,7 @@ At the top it stops `0x21`, plays `0x29` (`explo2.wav`) and shakes the view for 
 3. `Mission_WriteResults` (`0042412c`) writes, as the mission ends, `results.dat` and then the same 2,000 bytes back to `mission.var` ([`mission-objectives.md`](mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
 4. VSHELL's `MissionVar_Read` (`0040ea59`) loads the file back into its flag array at debrief. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7).
 
-Four things write the counters during a mission: `Action_Activate`, an objective ([`mission-objectives.md`](mission-objectives.md)), a group's own completion hook `Group_ReportIfAllOutOfAction` (`00423f30`, ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c), and `Mech_CreditNeutralisedTarget` (`00415710`), which adds one to slot 10 when the player puts a machine of its own group out of the fight.
+Four things write the counters during a mission: `Action_Activate`, an objective ([`mission-objectives.md`](mission-objectives.md)), an object or a whole group going out of the fight ([`component-damage.md`](component-damage.md#the-out-of-action-report)), and `Mech_CreditNeutralisedTarget` (`00415710`), which adds one to slot 10 when the player puts a machine of its own group out of the fight.
 
 The simulator reads slot 20 itself: `Mission_WriteResults` adds 25,000 kg of salvage per unit of slot 20 to the award it writes to `results.dat`.
 
@@ -240,5 +240,4 @@ The [lift start](#the-lift-start) is left out on purpose: the art it draws is no
 - **Open:** what reads `0049aef4`, the byte the lift start clears for its duration (1 in the image). `es2_xref.py` finds only the lift's two stores.
 - **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
 - **Open:** why the load's zeroing stops at slot 42, leaving the grants in 43 to 49 owed from before the mission.
-- **Unported:** the group completion hook `Group_ReportIfAllOutOfAction` (`00423f30`) that writes the mission counters (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c).
 - **Open:** confirm whether anything writes `obj+0xa2`, the gate on the engaged action ([above](#an-objects-own-two-actions--0x1b2-and-0x1b6)); a text search finds no writer.

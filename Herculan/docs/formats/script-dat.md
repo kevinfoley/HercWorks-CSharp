@@ -62,17 +62,19 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x2a`-`0x3d` | weapon fit, 10 slots → `Mech_ConfigureLoadout` |
 | | | `0x3e` | ref → block 1 (position) |
 | | | `0x40` | ref → block 2 (heading) |
-| | | `0x42`-`0x69` | two more 10-slot arrays → `FUN_00411b90` |
+| | | `0x42` / `0x56` | ten mission-counter refs and their ten operations → `SimObject_SetOutOfActionCounters` (`00411b90`), `mech+0x1ba`/`+0x1ce` — written when the machine goes out of the fight, [`../simulation/component-damage.md`](../simulation/component-damage.md#the-out-of-action-report) |
 | | | `0x6a`-`0x7d` | ammunition type, 10 slots, paired with the weapon fit → `Mech_ConfigureLoadout`'s second array. Only the four launchers read it; every other slot carries the filler 5 |
 | | | `0x80` | ref → block 5 — the action this machine fires when it is **engaged** (`mech+0x1b2`) |
 | | | `0x82` | ref → block 5 — the action it fires when it is **defeated** (`mech+0x1b6`). Five of the shipped mission's ten mech records carry one, and that is what chains its reinforcement waves |
 | | | `0x84` | **starting condition, per cent.** 100 is pristine; under 80 the machine spawns pre-damaged and under 20 it is placed as a wreck — `Mech_ApplyStartingCondition` (`004178e8`), whose bands are in [`../simulation/component-damage.md`](../simulation/component-damage.md#starting-condition--mech_applystartingcondition-004178e8). The available `script.dat` files are **saves**, formatted from a handful of the 50-odd `.MSN` missions, so they cannot say how the campaign uses this: across those ten, 138 of 139 mech records read 100 and one reads 50 |
 | 8 (flyers) | 92B | `0x28` | ref → block 1 (position) |
 | | | `0x56` / `0x58` | refs → block 5, the flyer's own engaged/defeated actions |
+| | | `0x2e` / `0x42` | mission-counter refs and operations, as block 7's `0x42` / `0x56` |
 | | | `0x2a` | ref → block 2 (heading) |
 | | | `0x2c` | flyer type → index into `nam\FLYERS.NAM` |
 | 9 (bases) | 52B | `0x00` | base type → index into `dat\BASES.DAT`'s 65-entry table |
 | | | `0x2e` / `0x30` | refs → block 5, the structure's own engaged/defeated actions |
+| | | `0x06` / `0x1a` | mission-counter refs and operations, as block 7's `0x42` / `0x56` |
 | | | `0x02` | ref → block 1 (position) |
 | | | `0x04` | ref → block 2 (heading) |
 | 11 (groups) | 156B | `0x28` | discriminator: 0/1/2 → block 7/8/9 |
@@ -83,6 +85,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x5a`-`0x6d` | 10 refs → block 10, **the group's orders**; slot 0's also supplies the group's spawn route |
 | | | `0x6e` | side: 0 = human, 1 = Cybrid (group record `+0x12`) |
 | | | `0x70` | ref → block 5 (action). **Set = the group has not entered the mission yet** — see rule 8 |
+| | | `0x72` / `0x86` | the group's ten mission-counter refs and operations → `group+0x1c`/`+0x30`, written once every member is out of the fight. Read for record 0 as well |
 
 ## Placement — the actual rule
 

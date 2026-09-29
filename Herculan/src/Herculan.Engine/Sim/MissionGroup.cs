@@ -249,6 +249,32 @@ public sealed partial class MissionGroup {
 	}
 
 	/// <summary>
+	/// <c>group+0x1c</c>/<c>+0x30</c> — the mission-counter writes the group makes once all of it is out
+	/// of the fight, from its block-11 record. See <see cref="ReportIfAllOthersOutOfAction"/>.
+	/// </summary>
+	public OutOfActionReport OutOfActionReport { get; set; } = OutOfActionReport.None;
+
+	/// <summary>
+	/// <c>Group_ReportIfAllOutOfAction</c> (<c>00423f30</c>) — runs the group's writes if every member
+	/// but <paramref name="reporting"/> is destroyed or immobilised. The one reporting is skipped
+	/// rather than tested because its own flag is not set yet at every call site.
+	///
+	/// <para>Nothing latches it. It runs each time a member reports, and only the report of the last
+	/// member still standing finds all the others down, so a group writes once — a member reports only
+	/// on going out of the fight, and never twice.</para>
+	/// </summary>
+	internal void ReportIfAllOthersOutOfAction(SimWorld world, SimObject reporting) {
+		for (int i = 0; i < _members.Count; i++) {
+			var member = _members[i];
+			if (!ReferenceEquals(member, reporting) && !member.Neutralised) {
+				return;
+			}
+		}
+
+		world.ApplyOutOfActionReport(OutOfActionReport);
+	}
+
+	/// <summary>
 	/// Attaches an object to the group, in the order the mission places them — the first one attached
 	/// is the <see cref="Leader"/>.
 	/// </summary>

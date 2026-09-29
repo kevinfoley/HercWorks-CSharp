@@ -96,6 +96,7 @@ public class ScriptDat {
 	/// <see cref="ScriptEntity164Export.ArrayB"/> together are the on-disk interleaving of the
 	/// source record's Payload1-4 + DeadZone2 span (even-offset entries in A, odd-offset in B) —
 	/// re-derived here from the writer's exact read order, not the `.msn` in-memory field order.
+	/// They are the group's ten mission-counter refs and the ten operations that go with them.
 	/// <see cref="ScriptEntity164Export.TrailingDiscriminator"/> (0x78 in the source row) is not
 	/// exported at all.</para>
 	/// </summary>
@@ -233,6 +234,18 @@ public class ScriptSpawnRecordExport {
 	public byte[] TailBytes { get; set; } = new byte[68];
 
 	/// <summary>
+	/// Exported offset <c>0x42</c> — the machine's ten mission-counter refs, <c>-1</c> for an unused
+	/// slot. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) copies them to <c>mech+0x1ba</c>
+	/// through <c>SimObject_SetOutOfActionCounters</c> (<c>00411b90</c>), and they are written when
+	/// the machine goes out of the fight. See
+	/// docs/simulation/component-damage.md#the-out-of-action-report.
+	/// </summary>
+	public short[] CounterRefs => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterRefs);
+
+	/// <summary>Exported offset <c>0x56</c> — the operation for each of <see cref="CounterRefs"/>' counters.</summary>
+	public short[] CounterOps => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterOps);
+
+	/// <summary>
 	/// Source offset 0x74 — the second of the two parallel per-slot arrays
 	/// <c>Mech_ConfigureLoadout</c> takes, alongside <see cref="WeaponRefs"/>. It is the ammunition
 	/// type each missile launcher is loaded with, the value a launcher's mount resolves through
@@ -367,6 +380,14 @@ public class ScriptEntity102Export {
 
 	public byte[] TailBytes { get; set; } = new byte[46];
 
+	/// <inheritdoc cref="ScriptSpawnRecordExport.CounterRefs" />
+	/// <remarks>Exported offset <c>0x2e</c>.</remarks>
+	public short[] CounterRefs => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterRefs);
+
+	/// <inheritdoc cref="ScriptSpawnRecordExport.CounterOps" />
+	/// <remarks>Exported offset <c>0x42</c>.</remarks>
+	public short[] CounterOps => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterOps);
+
 	/// <inheritdoc cref="ScriptSpawnRecordExport.EngagementActionRef" />
 	/// <remarks>Exported offset <c>0x56</c>; the flyer's own <c>+0x1b2</c>.</remarks>
 	public short EngagementActionRef {
@@ -398,9 +419,38 @@ internal static class ScriptActionRefs {
 	/// <summary>And the destroyed-action ref's.</summary>
 	public const int SmallDestruction = 42;
 
+	/// <summary>
+	/// Where the ten mission-counter refs start in any of the three roster tails. Every tail begins
+	/// with them, and the ten operations follow at <see cref="CounterOps"/>.
+	/// </summary>
+	public const int CounterRefs = 0;
+
+	/// <inheritdoc cref="CounterRefs"/>
+	public const int CounterOps = 20;
+
+	/// <summary>Mission-counter slots per record.</summary>
+	private const int CounterSlots = 10;
+
 	/// <summary>Reads one, answering <c>-1</c> for a tail too short to hold it.</summary>
 	public static short Read(byte[] tail, int offset) =>
 		tail.Length >= offset + 2 ? BitConverter.ToInt16(tail, offset) : (short)-1;
+
+	/// <summary>
+	/// Reads ten shorts starting at <paramref name="offset"/>, answering an empty array for a tail too
+	/// short to hold them.
+	/// </summary>
+	public static short[] ReadSlots(byte[] tail, int offset) {
+		if (tail.Length < offset + CounterSlots * 2) {
+			return [];
+		}
+
+		var slots = new short[CounterSlots];
+		for (int i = 0; i < slots.Length; i++) {
+			slots[i] = BitConverter.ToInt16(tail, offset + i * 2);
+		}
+
+		return slots;
+	}
 
 	/// <summary>
 	/// Writes a short into a record's raw span — how the named views over <c>HeadBytes</c>/
@@ -438,6 +488,14 @@ public class ScriptMiscEntityExport {
 	public short HeadingRef { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[46];
+
+	/// <inheritdoc cref="ScriptSpawnRecordExport.CounterRefs" />
+	/// <remarks>Exported offset <c>0x06</c>.</remarks>
+	public short[] CounterRefs => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterRefs);
+
+	/// <inheritdoc cref="ScriptSpawnRecordExport.CounterOps" />
+	/// <remarks>Exported offset <c>0x1a</c>.</remarks>
+	public short[] CounterOps => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterOps);
 
 	/// <inheritdoc cref="ScriptSpawnRecordExport.EngagementActionRef" />
 	/// <remarks>Exported offset <c>0x2e</c>; the structure's own <c>+0x1b2</c>.</remarks>
@@ -495,7 +553,19 @@ public class ScriptEntity164Export {
 	public short[] Row15Refs { get; set; } = new short[10];
 	public short TriStateFlag { get; set; }
 	public short RefRow10 { get; set; }
+
+	/// <summary>
+	/// Exported offset <c>0x72</c> — the group's ten mission-counter refs, <c>-1</c> for an unused
+	/// slot. <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) copies them to <c>group+0x1c</c>; they
+	/// are written when every member of the group is out of the fight. See
+	/// docs/simulation/component-damage.md#the-out-of-action-report.
+	/// </summary>
 	public short[] ArrayA { get; set; } = new short[10];
+
+	/// <summary>
+	/// Exported offset <c>0x86</c> — the operation for each of <see cref="ArrayA"/>'s counters,
+	/// copied to <c>group+0x30</c>.
+	/// </summary>
 	public short[] ArrayB { get; set; } = new short[10];
 	public short TrailingFlag { get; set; }
 }

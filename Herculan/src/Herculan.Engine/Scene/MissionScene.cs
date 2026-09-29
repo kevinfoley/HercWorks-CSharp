@@ -398,6 +398,10 @@ public sealed class MissionScene {
 			if (!groups.TryGetValue(index, out var group)) {
 				group = new MissionGroup(index, KindOfGroup(mission, index), placed.Object.Side,
 					OrdersOf(mission, index), ActionAt(actions, DeploymentActionOf(mission, index)));
+				if (index >= 0 && index < mission.GroupOutOfActionReports.Count) {
+					group.OutOfActionReport = mission.GroupOutOfActionReports[index];
+				}
+
 				groups.Add(index, group);
 				world.AddGroup(group);
 			}
@@ -427,6 +431,7 @@ public sealed class MissionScene {
 			placed.Object.PilotIndex = placed.Placement.PilotIndex;
 			placed.Object.EngagementAction = ActionAt(actions, placed.Placement.EngagementActionRef);
 			placed.Object.DefeatAction = ActionAt(actions, placed.Placement.DefeatActionRef);
+			placed.Object.OutOfActionReport = placed.Placement.OutOfActionReport ?? OutOfActionReport.None;
 
 			// And the condition the mission says it starts in, which for anything under 80% means it
 			// spawns already damaged -- or, under 20%, already a wreck. DBSim_SpawnMissionObjects

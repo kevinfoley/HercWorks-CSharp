@@ -24,7 +24,7 @@ Every accessor (`Component_ReadDamagePercent`/`Component_ApplyDamageAndCascade`/
 
 `Component_LinkMaxRefData(this+0x206, mechThis, damageDataPtr, collisionRegistration)` (`0040d354`) — a second constructor call — wires up `this+0x212` (and neighboring fields) as a pointer into per-component **maximum/reference** data (sourced from the mech's own `damage.dat`-derived pointer plus its collision registration record from `Collision_RegisterObject` (`0040cd88`), tying this system to the collision bounding-sphere tree in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#collision-system-collidecpp)).
 
-**Read: `Component_ReadDamagePercent` (`0040dbc0`) — accumulated damage as Q8 (0–256), 0 = pristine, 256 = destroyed.** Note the sense: it returns damage, not health, so every caller's curve runs the opposite way to how a `…HealthPercent` name would suggest. Looks up the component's max-reference record (18 bytes, via `this+0x212`), starts with its own damage (main 29-entry array) and max values, then **aggregates in every dependent sub-component** listed in that record (walking a list, adding each dependent's damage from the 22-entry array and max from a parallel max-side array) before computing `(totalDamage << 8) / totalMax`. An entry holding `-1` (destroyed) substitutes its max, so it reads as fully damaged. A single displayed component's reading can be the aggregate of several finer sub-parts — e.g. a "leg" reading as leg proper plus whatever finer actuator/joint pieces are modeled underneath it ([Open](#open)).
+**Read: `Component_ReadDamagePercent` (`0040dbc0`) — accumulated damage as Q8 (0–256), 0 = pristine, 256 = destroyed.** Note the sense: it returns damage, not health, so every caller's curve runs the opposite way to how a `…HealthPercent` name would suggest. Looks up the component's max-reference record (18 bytes, via `this+0x212`), starts with its own damage (main 29-entry array) and max values, then **aggregates in every dependent sub-component** listed in that record (walking a list, adding each dependent's damage from the 22-entry array and max from a parallel max-side array) before computing `(totalDamage << 8) / totalMax`. An entry holding `-1` (destroyed) substitutes its max, so it reads as fully damaged. A leg piece therefore reads as its own armour plus its side's leg servos, and a cockpit as its own armour plus the systems behind it — [which internals each component holds](#which-internals-each-component-holds).
 
 **Write and cascade: `Component_ApplyDamageAndCascade` (`0040da38`)**, called from `Mech_ComponentDamageWrite` (`00417de4`, mech vtable `+0x74`) and `Flyer_ComponentDamageWrite` (`00421bb4`, the flyer's) — the shared endpoint both damage pathways call into.
 
@@ -83,6 +83,31 @@ The Java author's own doc comment on `HercSimDamage.cs` lists real component nam
 - **Indices 4–5 (`WEPN_BRACK/LEFT`/`RIGHT`)** — ordinary weapon-mount slots inside this same 29-entry array (see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mounts) for the separate runtime ammo/heat state).
 - **Dependent-array (22-entry) slots read by literal offset in `Mech_ComponentDamageWrite`**, not by a loop. 0 and 1 are the front leg servos, joined by 10 and 11 (the rear pair) when `typeRecord+0x4a` is 4; the pair(s) are averaged before being compared against `0x8d` (crippled) and `0x50` (the milder grade), and half of them destroyed immobilises the machine. 4 is the shield generator, which `Mech_ComputeShieldCapacity` reads — so shooting it shrinks the array the machine can hold, and that recompute happens **here as well as at spawn**. 5 is the reactor, latching the two output-damage flags. 8 and 9 are life support and the pilot: either destroyed, or either cockpit slot fully gone, and the machine dies.
 
+### Which internals each component holds
+
+Each piece's dependent list, read from the 22 shipped `.DMG` files. Twelve chassis — ACHILLES, APOCA, CERBERUS, COLOSSUS, DIABLO, HYPERION, MIRIMAC, MONGOOSE, OGRE, OUTLAW, RAPTOR2 and SCARAB — share one map:
+
+| component | internals, by dependent index |
+|---|---|
+| 0, front cockpit | sensor array (2), targeting computer (3), shield generator (4), stabilisers (7), life support (8), pilot (9) |
+| 1, rear cockpit | 2, 3, 4, 7, 8 — the front's list without the pilot |
+| 4, 5, weapon brackets | hydraulics (6) |
+| 6, torso | reactor (5), hydraulics (6) |
+| 7, 9, 11, left leg | left leg servos (0) |
+| 8, 10, 12, right leg | right leg servos (1) |
+| everything else | nothing |
+
+Every entry weighs 20 in the spill draw except the pilot's, which weighs 1 or 5. With five other internals at 20 behind the front cockpit, a pilot at 1 takes about one draw in a hundred and one at 5 about one in twenty-one. The pilot weighs 5 on APOCA, COLOSSUS, MAVERICK, OGRE, OUTLAW, RAPTOR2, RAZOR, SAMSON and TOMAHAWK, and 1 on the rest that carry it.
+
+The other chassis depart from it:
+
+- **HEADHUNT, MAVERICK, RAMSES, STINGRAY, TOMAHAWK** — the weapon brackets hold nothing, so hydraulics sit behind the torso alone.
+- **SAMSON** — the torso holds the reactor only, so hydraulics sit behind the brackets alone.
+- **PITBULL** — the front cockpit holds all eight systems, 2 to 9, with the reactor and hydraulics weighted 30; the rear cockpit, brackets and torso hold nothing. Its rear legs are components 13, 15, 17 (left, rear servos 10) and 14, 16, 18 (right, rear servos 11).
+- **SPIDER** — the same four leg chains as PITBULL, and a front cockpit holding the standard list without the pilot; nothing else. Every internal it has is 100 points.
+- **RAZOR** — the front cockpit holds the sensor array (50), targeting computer (10), life support (30) and pilot (5); the brackets hold the stabilisers (40); the torso holds the shield generator and reactor (40 each); only components 7 and 8 hold the leg servos (50). Its two servo maxima are 0.
+- **SKIMMER** — one component, holding its one internal.
+
 ### What the endpoint announces
 
 `Mech_ComponentDamageWrite` is also where the cockpit computer's damage warnings are posted, and **every one of them is gated on `obj+0xa3`** — the machine being the one the player is flying — so an AI machine losing a leg says nothing. The ids are `SYSTEM.STR`'s and the port they go to is [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)'s.
@@ -113,7 +138,7 @@ Two independent branches, and they are **not** two readings of one condition. Lo
 **Disabled** — the leg branch, non-flyers only. A leg whose servos read fully destroyed has its child object deleted, so `Mech_PlaceLegsOnGround` stops placing it; that runs whatever else is true of the machine. Then, if it is not already immobilised and half or more of its legs are gone:
 
 1. the attacker is told, through *its own* vtable `+0x60`, with "was already immobilised" clear;
-2. the machine's own defeat action fires;
+2. the machine's [out-of-action report](#the-out-of-action-report) runs, then its own defeat action fires;
 3. `disabled` (21) is installed;
 4. `mech+0xa4` immobilised is latched and the target released.
 
@@ -122,13 +147,40 @@ Two independent branches, and they are **not** two readings of one condition. Lo
 1. **the reading of `+0xa4` is sampled**, because the next step invalidates it;
 2. the recursive finish-off, a flat 30000 on component 0 with no attacker, which is why a kill leaves a machine comprehensively wrecked rather than merely stopped — and which re-enters the leg branch, harmlessly, since both branches are guarded on `+0x99` being clear;
 3. the attacker is told, carrying that sampled reading;
-4. **the defeat action fires only if the machine was not already immobilised**, so it goes off once per machine rather than once per way of stopping it;
+4. **the report and the defeat action run only if the machine was not already immobilised**, so they go off once per machine rather than once per way of stopping it;
 5. target released, scanner forced passive;
 6. the state: `in limbo` (19) when the chassis' `typeRecord+0x4c` is set, otherwise `dead` (20) for a non-flyer. **A flyer takes neither**, and keeps whatever state it was in.
 
 `typeRecord+0x4c` means *this chassis leaves no wreck*, and the SPIDER is the only one that sets it: that branch also sinks the object to z = -100000, raises `obj+0x38` ([below](#the-no-wreck-sinks-flag-byte--obj0x38)), and hands every child part in `mech+0x238` to `ObjectPool_QueueForDelete` (`00418634`), nulling each slot and zeroing the count at `mech+0x23c`. The machine itself is not queued — the branch takes it off the screen by sinking it, not by removing it from the object list.
 
 The three state indices and their think are [`ai-combat-states.md`](ai-combat-states.md)'s. What a machine does *after* the state is installed — the fall, and the collapse that ends it — is [`mech-locomotion.md`](mech-locomotion.md#going-down)'s.
+
+### The out-of-action report
+
+`Mech_ReportOutOfAction` (`00411bc8`) writes the [mission counters](mission-deployment.md#the-mission-counters--dat_004a9ef4) an object is set to write when it goes out of the fight. Despite the name, `es2_xref.py` finds four calls to it, each immediately before the object's defeat action: both of the branches above, `Flyer_ComponentDamageWrite` when component 0 goes, and `Base_ApplyDamage` when a structure's last component goes. The fourth defeat-action site, a machine running out of working weapons, is not among them ([Open](#open)).
+
+It does two things:
+
+1. **The group's report.** `Group_ReportIfAllOutOfAction` (`00423f30`) walks the object's group, skipping the object itself, and returns at the first member that is neither destroyed (`+0x99`) nor immobilised (`+0xa4`). If none is left standing it runs the group's own ten slots at `group+0x1c`/`+0x30`. The reporting object is skipped rather than tested because the leg branch reports before it latches `+0xa4`. Nothing latches the group's writes; they run once because each member reports once and only the last one standing finds the rest down.
+2. **The object's own.** Ten slots at `obj+0x1ba` (counter refs) and `obj+0x1ce` (operations).
+
+Each slot with a non-negative ref writes that counter by its operation:
+
+| op | write |
+|---|---|
+| 1 | zero it |
+| 2 | add one |
+| `0x0d`-`0x10` | store op − `0x0c`, 1 to 4 |
+| anything else | nothing |
+
+The slots come from each object's `script.dat` record ([`../formats/script-dat.md`](../formats/script-dat.md#the-two-pass-read--and-what-it-means-for-dbsim-keeps)), copied in by `SimObject_SetOutOfActionCounters` (`00411b90`), and the group's from its block-11 record, record 0 included. `es2_xref.py` finds three calls to the copy, all in `DBSim_SpawnMissionObjects` and all on the roster side of its `index < rosterCount` test, so a machine of the player's squad does not get its slots from a record. Its slots start at zero instead: `DBSim_LoadScriptDat` builds the mech pool (`004a9bfe`) afresh for each mission with `Pool_Init` (`004719cc`, at `00425196`), which zeroes the pool's storage, and `Mech_Constructor` then sets refs 0-2 to −1 (`00415c3a`-`00415c51`). Every operation reads 0, so a squad machine's report writes nothing of its own ([Open](#open)).
+
+Across the 62 `.MSN` missions, 32 use the mech slots, 31 the structure slots, 22 the group slots and one the flyer slots. Two uses account for all but six of the 1,258 filled slots:
+
+- **Op `0x0d` on a machine**, 420 slots. 412 of them set a flag in 22-41, the weapon grants [`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be) reads at debrief: putting the HERC out of the fight earns one unit of that weapon. The weapon is one the machine carries in 400 of the 412; the other twelve name a weapon outside its fit, eight of them `L300` on a machine carrying weapon 8. The write is a store, so several machines setting one flag still grant one unit. The last eight slots set counter 20.
+- **Op 2 on a structure**, 756 slots: counter 20, the 25,000 kg salvage bonus, in 64 of them, and in the other 692 a counter of the structure's own from 100 up, which goes back to the campaign's flag array with the others.
+
+The six others carry op 6 or `0x17`, which write nothing here.
 
 ### Spread impact damage — `Mech_SpreadImpactDamage` (`00417a04`)
 
@@ -159,7 +211,7 @@ What the player's side takes home. `Mission_TotalSalvage` (`00423e88`) walks the
 Per machine, in order:
 
 1. **`mech+0xb3` short-circuits it to zero.** A machine the mission placed already broken — the two worst starting-condition grades above — is worth nothing, so a mission cannot be farmed by authoring derelicts into it.
-2. **Each surviving hardpoint is queued.** For every mount whose component is under `0x80` damage, `Salvage_QueueWeapon` (`00426ac8`) takes `{template+0x56, (0x100 - damage) * 100 >> 8}` — the weapon's catalog id and its condition as a percentage. This is the same list the mount-destruction path appends to ([Weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction)), and the results carry it to the shell as salvage pairs. The list is a 200-byte allocation, room for 50, and the append checks nothing ([Open](#open)).
+2. **Each surviving hardpoint is queued.** For every mount whose component is under `0x80` damage, `Salvage_QueueWeapon` (`00426ac8`) takes `{template+0x56, (0x100 - damage) * 100 >> 8}` — the weapon's catalog id and its condition as a percentage. This is the same list the mount-destruction path appends to ([Weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction)), and the results carry it to the shell as salvage pairs. The list is `Mem_NewArray(200)` (`004773e4`, at `0042530d`), room for 50 four-byte pairs, and the append checks nothing. `Mem_NewArray` allocates 8 bytes more than it is asked for, so pairs 51 and 52 land in that slack; pair 53 is the first that can write past the block ([Open](#open)).
 3. **The chassis itself** is `Q10(Mech_WeightedArmorRemaining(mech), typeRec+0x54)`, and `typeRec+0x54` is **halved when component 0 is at full damage** — a chassis blown apart is worth half one merely stopped. `Mech_WeightedArmorRemaining` (`0041537c`) sums `(maxArmor - damage) * weight / maxArmor` over the live components, against the weight table at `00499fe0`; `maxArmor` is the component's own `.DMG` record and a component at or past 150 damage contributes nothing.
 
 So a machine pays for what survived, not for what was wrecked, and its guns pay separately by how intact each one is.
@@ -180,6 +232,6 @@ The traps, not a summary — everything else here is stated once above.
 
 ## Open
 
-- **Open:** the exact sub-piece breakdown per component.
-- **Unported:** `Mech_ReportOutOfAction`'s mission-variable writes.
-- **Open:** what a mission that salvages more than 50 weapons does to the memory past the list's block, and so what reaches the file. The append writes on beyond it, and `Mission_WriteResults` reads back as many as the count says.
+- **Open:** whether anything writes a player-squad machine's operation slots (`+0x1ce`-`+0x1e1`) after construction. `es2_fieldscan.py` finds no writer but `SimObject_SetOutOfActionCounters`, and even that one only at `+0x1ce`: the scan misses writes through a stepping pointer, which is how that function fills the other nine.
+- **Open:** whether the weapons-out defeat in `Ai_ChooseWeapon` (`0041f358`) runs an out-of-action report. `es2_xref.py` finds no branch, stored pointer or vtable slot reaching `Mech_ReportOutOfAction` from there; that sweep would miss a call through a pointer built at run time.
+- **Open:** what a mission that salvages more than 52 weapons overwrites, and so what reaches the file; `Mission_WriteResults` reads back as many pairs as the count says. Which memory follows the list depends on which path `Mem_NewArray` took at run time. From the mymem pool, the first pair past the block's end — pair 53, or later when `Memory_Alloc` handed over a whole free block rather than split one — lands on the next block's 8-byte header ([`../runtime-library.md`](../runtime-library.md)): an allocated block's `KLBA` tag and size, or a free block's next pointer and size. Nothing checks writes past a pool block's end. From `Mem_HeapAlloc`, the list borders the C heap instead. Whether a campaign mission reaches 53 is open too: a mount enters the list at most once, but the Cybrid machines draw their weapon fits from random variants at mission load, so no firm count comes from the `.MSN` files alone.

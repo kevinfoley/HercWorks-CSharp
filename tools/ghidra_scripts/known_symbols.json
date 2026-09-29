@@ -16596,8 +16596,19 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ReportOutOfAction",
-      "description": "Run from both of Mech_ComponentDamageWrite's out-of-the-fight branches, before the defeat action. Calls Group_ReportIfAllOutOfAction for the machine's own group, then walks the machine's 10 mission-variable slots (indices at mech+0x1ba, opcodes at mech+0x1ce) writing the global variable table DAT_004a9ef4: opcode 1 zeroes the variable, 2 increments it, 0xd-0x10 store opcode-0xc. Part of the mission-objective/status-report layer, not the AI.",
-      "source": "docs/simulation/component-damage.md"
+      "description": "es2_xref.py finds four calls, each immediately before the defeat action at a damage endpoint that puts an object out of the fight: both of Mech_ComponentDamageWrite's branches, Flyer_ComponentDamageWrite and Base_ApplyDamage (the name predates the other two). No call from Ai_ChooseWeapon's weapons-out defeat was found. Calls Group_ReportIfAllOutOfAction for the object's own group, then walks its 10 mission-counter slots (refs at obj+0x1ba, ops at obj+0x1ce) writing DAT_004a9ef4: op 1 zeroes the counter, 2 increments it, 0xd-0x10 store op-0xc, anything else writes nothing.",
+      "source": "docs/simulation/component-damage.md",
+      "signature": "void __cdecl Mech_ReportOutOfAction(SimObject *obj)"
+    },
+    {
+      "address": "00411b90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_SetOutOfActionCounters",
+      "description": "Copies ten counter refs to obj+0x1ba and ten ops to obj+0x1ce -- the slots Mech_ReportOutOfAction runs. es2_xref.py finds three calls, all in DBSim_SpawnMissionObjects: a roster mech (record 0x42/0x56), a flyer (0x2e/0x42) and a structure (0x06/0x1a). The mech call sits on the roster side of that function's index < rosterCount test, so the player's squad does not reach it there; Mech_Constructor sets refs 0-2 to -1.",
+      "source": "docs/simulation/component-damage.md",
+      "signature": "void __cdecl SimObject_SetOutOfActionCounters(SimObject *obj, short *counterRefs, short *counterOps)"
     },
     {
       "address": "00423f30",

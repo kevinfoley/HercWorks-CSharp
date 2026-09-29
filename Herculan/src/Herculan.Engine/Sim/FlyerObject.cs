@@ -303,6 +303,7 @@ public sealed partial class FlyerObject : SimObject {
 		StopFlybySound(world);
 
 		if (!wasDestroyed && world != null) {
+			ReportOutOfAction(world);
 			ActivateDefeatAction(world);
 			AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
 		}

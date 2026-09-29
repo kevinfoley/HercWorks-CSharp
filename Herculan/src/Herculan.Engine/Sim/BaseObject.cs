@@ -506,6 +506,7 @@ public sealed partial class BaseObject : SimObject {
 			// the announcement that what the player was shooting at has come down. See
 			// SimObject.DefeatAction and SimObject.AnnounceNeutralised.
 			if (world != null) {
+				ReportOutOfAction(world);
 				ActivateDefeatAction(world);
 				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
 			}

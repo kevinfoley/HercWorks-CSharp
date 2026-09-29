@@ -1145,8 +1145,10 @@ public sealed partial class MechObject {
 			// GradeLegs. This
 			// is why it is guarded on the reading from before the kill rather than on Destroyed: the
 			// action goes off once per machine, not once per way of stopping it. See
-			// SimObject.DefeatAction; this is what brings a retail mission's next wave in.
+			// SimObject.DefeatAction; this is what brings a retail mission's next wave in. The
+			// counter report shares the guard, so it too is made once.
 			if (!wasImmobilised) {
+				ReportOutOfAction(world);
 				ActivateDefeatAction(world);
 			}
 
@@ -1234,6 +1236,7 @@ public sealed partial class MechObject {
 			// action see the transition rather than the state after it.
 			if (!Destroyed) {
 				(attacker as MechObject)?.CreditNeutralised(world, this, wasImmobilised: false);
+				ReportOutOfAction(world);
 				ActivateDefeatAction(world);
 				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDisabled);
 				SetBehaviourState(BehaviourState.Disabled);

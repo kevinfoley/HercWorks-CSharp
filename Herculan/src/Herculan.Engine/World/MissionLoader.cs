@@ -188,15 +188,22 @@ public static class MissionLoader {
 		var deploymentActions = new int[groups.Length];
 		var groupKinds = new MissionUnitKind[groups.Length];
 		var groupSides = new MissionSide[groups.Length];
+		var groupReports = new OutOfActionReport[groups.Length];
 		for (int i = 0; i < groups.Length; i++) {
 			deploymentActions[i] = groups[i].DeploymentAction;
 			groupKinds[i] = groups[i].Kind;
 			groupSides[i] = groups[i].Side;
+
+			// Record 0 included: the spawn pass overwrites the player squad's member list and nothing
+			// else, so its counter slots are read like any other group's.
+			var record = script.Entities164[i];
+			groupReports[i] = new OutOfActionReport(record.ArrayA, record.ArrayB);
 		}
 
 		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute,
 			groupOrders, actions, actionTimers, deploymentActions, groupKinds, groupSides,
-			objectives, Array.ConvertAll(script.ObjectiveTextRefs, line => (int)line), text, counters);
+			objectives, Array.ConvertAll(script.ObjectiveTextRefs, line => (int)line), text, counters,
+			groupReports);
 	}
 
 	/// <summary>
@@ -640,7 +647,8 @@ public static class MissionLoader {
 				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
 				DefeatActionRef: ActionRef(script, record.DefeatActionRef),
-				StartingCondition: record.StartingCondition));
+				StartingCondition: record.StartingCondition,
+				OutOfActionReport: new OutOfActionReport(record.CounterRefs, record.CounterOps)));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
@@ -666,7 +674,8 @@ public static class MissionLoader {
 				Side: group.Side,
 				FlyerFormationOffset: offset,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
-				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
+				DefeatActionRef: ActionRef(script, record.DefeatActionRef),
+				OutOfActionReport: new OutOfActionReport(record.CounterRefs, record.CounterOps)));
 		}
 
 		var baseClaims = claims[MissionUnitKind.Base];
@@ -695,7 +704,8 @@ public static class MissionLoader {
 				Side: group.Side,
 				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
-				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
+				DefeatActionRef: ActionRef(script, record.DefeatActionRef),
+				OutOfActionReport: new OutOfActionReport(record.CounterRefs, record.CounterOps)));
 		}
 	}
 

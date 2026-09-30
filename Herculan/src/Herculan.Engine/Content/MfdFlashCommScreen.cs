@@ -20,7 +20,7 @@ namespace Herculan.Engine.Content;
 /// screen (<c>screen+0x32</c>, <see cref="Row"/>). The paint copies the first into the second every
 /// time FLASH COMM is repainted, which is what <see cref="Sync"/> is. They come apart for exactly one
 /// input: an <c>[Alt]</c> hotkey pressed while another MFD screen is up transmits from the screen's
-/// own row without the display's ever moving, because <c>FUN_00447130</c> refuses to write the shared
+/// own row without the display's ever moving, because <c>MfdFlashComm_SelectRow</c> (<c>00447130</c>) refuses to write the shared
 /// block outside mode 1.</para>
 ///
 /// <para><b>Availability is dead in retail.</b> Bit 0 of a row's state byte greys it out and takes it
@@ -74,7 +74,7 @@ public sealed class MfdFlashCommScreen {
 
 	/// <summary>
 	/// The row the display's shared state block holds — what the page draws its plate and its
-	/// <c>CPYLW</c> row on. <c>FUN_0044707c</c> is the only writer.
+	/// <c>CPYLW</c> row on. <c>MfdDisplay_SetSharedRow</c> (<c>0044707c</c>) is the only writer.
 	/// </summary>
 	public int SelectedRow { get; private set; }
 
@@ -110,7 +110,7 @@ public sealed class MfdFlashCommScreen {
 
 	/// <summary>
 	/// <c>FUN_0043f9b8</c> — moves the screen's own row. The display's row moves with it only when
-	/// FLASH COMM is up, which is <c>FUN_00447130</c>'s mode test.
+	/// FLASH COMM is up, which is <c>MfdFlashComm_SelectRow</c>'s mode test.
 	/// </summary>
 	public void Select(int row, bool flashCommIsUp) {
 		if (row < 0 || row >= RowCount) {

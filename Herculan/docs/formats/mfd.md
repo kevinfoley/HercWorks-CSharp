@@ -294,7 +294,7 @@ Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers ever
 | `0x33` `0x34` (`,` `.`) | `FUN_004469c0` | Previous / next available row, wrapping |
 | `0x20` (D) | `FUN_004469c0` | Press button 7 SELECT if visible |
 
-`FUN_00447130(display, widget, row)` writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `MfdFlashComm_HandleListClick` is the mouse path: it hit-tests the six label rects itself, inclusive on all four edges, and a click on the selected row presses XMIT and transmits while a click on any other selects it. There is no widget per row — the rows sit under the display's own `MFDListGadget`, which is the widget the shared hit test actually finds.
+`MfdFlashComm_SelectRow(display, widget, row)` (`00447130`) writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `MfdFlashComm_HandleListClick` is the mouse path: it hit-tests the six label rects itself, inclusive on all four edges, and a click on the selected row presses XMIT and transmits while a click on any other selects it. There is no widget per row — the rows sit under the display's own `MFDListGadget`, which is the widget the shared hit test actually finds.
 
 ### Transmissions
 

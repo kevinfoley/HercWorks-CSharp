@@ -2271,7 +2271,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				}
 
 				// The [Alt] arm writes the screen's own row first and only then tests the verb, so a key
-				// whose order is not the one showing still moves the cursor. FUN_00447130 is what refuses
+				// whose order is not the one showing still moves the cursor. MfdFlashComm_SelectRow (00447130) is what refuses
 				// to move the display's row from another screen.
 				flashComm.Select(row, flashCommIsUp: hudState.Mfd == MfdMode.FlashComm);
 				if (requiredVerb < 0 || flashComm.SelectedVerb == requiredVerb) {

@@ -1068,6 +1068,24 @@
       "source": "DBSIM decompile and disassembly at 00491065"
     },
     {
+      "address": "00491097",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteWord",
+      "description": "(stream, value): writes the low 2 bytes of its value argument (LEA of [EBP+0xc]) through the stream's write slot (vtable +0x14). Stream_ReadWord's counterpart, beside it; the write halves of the ClassItem serialisers use it, e.g. 0048df64 writes the four int16 fields 0048df20 reads. The DBSIM copy of VSHELL's Stream_WriteWord. Ghidra shows it with one parameter, so the decompile drops the value at every call site.",
+      "source": "DBSIM decompile and disassembly at 00491097"
+    },
+    {
+      "address": "0049233b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteWord2",
+      "description": "(stream, value): writes the low 2 bytes of its value argument through the stream's write slot (vtable +0x14); a second copy of Stream_WriteWord with an identical body, beside Stream_ReadWord2. 36 direct call sites, e.g. the eleven int16 fields 004827e8 writes. Ghidra shows it with one parameter, so the decompile drops the value at every call site.",
+      "source": "DBSIM decompile and disassembly at 0049233b"
+    },
+    {
       "address": "0048f2de",
       "binary": "DBSIM",
       "type": "function",
@@ -1156,6 +1174,42 @@
       "name": "Math_DivMod64_Thunk",
       "description": "Forwarder to Math_DivMod64 that returns its out pointer.",
       "source": "DBSIM decompile and disassembly at 0047e9b2"
+    },
+    {
+      "address": "00450958",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Mul32To64",
+      "description": "(out int64, a, b): IMUL into EDX:EAX, stores the 64-bit product a * b and returns out. The VSHELL copy of DBSIM's Math_Mul32To64.",
+      "source": "VSHELL decompile and disassembly at 00450958"
+    },
+    {
+      "address": "0045083d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_DivMod64",
+      "description": "(out{quotient, remainder}, int64 *n, d): IDIV of n by d, storing n / d and n % d as two int32s; returns out. The VSHELL copy of DBSIM's Math_DivMod64.",
+      "source": "VSHELL decompile and disassembly at 0045083d"
+    },
+    {
+      "address": "00451471",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Mul32To64_Thunk",
+      "description": "Forwarder to Math_Mul32To64 that returns its out pointer. Math_PlaneSegmentIntersect calls it once per component. The VSHELL copy of DBSIM's Math_Mul32To64_Thunk.",
+      "source": "VSHELL decompile and disassembly at 00451471"
+    },
+    {
+      "address": "0045148e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_DivMod64_Thunk",
+      "description": "Forwarder to Math_DivMod64 that returns its out pointer. Math_PlaneSegmentIntersect calls it once per component. The VSHELL copy of DBSIM's Math_DivMod64_Thunk.",
+      "source": "VSHELL decompile and disassembly at 0045148e"
     },
     {
       "address": "0047d940",
@@ -1273,6 +1327,24 @@
       "name": "Stream_ReadWord",
       "description": "(stream, dst): reads 2 bytes through the stream's read slot (vtable +0x18). VshellPanel_ReadFromStream reads its int16 fields with it.",
       "source": "VSHELL decompile and disassembly at 004646b0"
+    },
+    {
+      "address": "00462d8e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadWord2",
+      "description": "(stream, dst): reads 2 bytes through the stream's read slot (vtable +0x18); a second copy of Stream_ReadWord with an identical body, in the block after Stream_WriteWords and Stream_ReadWords. It sits where DBSIM's Stream_ReadWord (00491080) does in that binary's layout.",
+      "source": "VSHELL decompile and disassembly at 00462d8e"
+    },
+    {
+      "address": "00462da5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteWord2",
+      "description": "(stream, value): writes the low 2 bytes of its value argument (LEA of [EBP+0xc]) through the stream's write slot (vtable +0x14); a second copy of Stream_WriteWord with an identical body, beside Stream_ReadWord2. Ghidra shows it with one parameter, so the decompile drops the value at every call site.",
+      "source": "VSHELL decompile and disassembly at 00462da5"
     },
     {
       "address": "00403d88",
@@ -1478,7 +1550,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GL_GetGlobal7",
-      "description": "GL_GetGlobal(7). The DBSIM copy of VSHELL's GL_GetGlobal7.",
+      "description": "GL_GetGlobal(7), the object at 006c5f54. The DBSIM copy of VSHELL's GL_GetGlobal7.",
       "source": "DBSIM decompile and disassembly at 0048d892"
     },
     {
@@ -1545,6 +1617,24 @@
       "source": "DBSIM decompile and disassembly at 004837f1"
     },
     {
+      "address": "00481244",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_GetAttribute",
+      "description": "(display, which): a jump table over which 0-0x10 returning one of the display's dwords: 0 +8, 1 +0xc, 2 +0x28, 3 +0x2c, 4 +0x10, 6 +0x14, 7 +0x18, 9 +0x1c, 10 +0x20, 11 +0x24; 5, 8 and 0x10 return the globals 004a57bd, 004a4fb9 and 004a36a6; anything else 0. Every direct call site passes GL_GetGlobal7's object (006c5f54) with 0 then 1, the screen width and height; three of the six callers take one off each for the last column and row. The DBSIM copy of VSHELL's GLDisplay_GetAttribute.",
+      "source": "DBSIM decompile and disassembly at 00481244 and its six callers"
+    },
+    {
+      "address": "00452df0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_GetAttribute",
+      "description": "(display, which): the same jump table as DBSIM's GLDisplay_GetAttribute (00481244), with the globals for 5, 8 and 0x10 at 0047e539, 0047dd35 and 0047c422. Every direct call site passes GL_GetGlobal7's object (0048e17c) with 0 then 1, the screen width and height: 0041f663 builds the rect {0, 0, width, height} from them and 004089b9 halves them for the screen centre.",
+      "source": "VSHELL decompile and disassembly at 00452df0 and its three callers"
+    },
+    {
       "address": "0048bd14",
       "binary": "DBSIM",
       "type": "function",
@@ -1552,6 +1642,15 @@
       "name": "TSBase_Dtor",
       "description": "TSBase destructor (vtable 004a6a2c, RTTI name 'TSBase', 4 bytes): restores the vtable and frees the object when flag & 1.",
       "source": "DBSIM decompile and disassembly at 0048bd14"
+    },
+    {
+      "address": "0045db7c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_Dtor",
+      "description": "TSBase destructor: decrements the live-object counter at *005ddec0, restores vtable 0047f858 and frees the object with Mem_Delete when flag & 1. Constructors such as TSSolidPoly_Construct install 0047f834 then 0047f858 then their own vtable, the same chain as DBSIM's 004a6a08 then TSBase's 004a6a2c, and the body matches DBSIM's TSBase_Dtor. The derived destructors chain to it, 21 direct call sites.",
+      "source": "VSHELL decompile and disassembly at 0045db7c; vtable chain compared with DBSIM's TSBase_Dtor"
     },
     {
       "address": "0048bbb8",
@@ -7476,6 +7575,69 @@
       "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
     },
     {
+      "address": "00450fe0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_PlaneSegmentIntersect",
+      "description": "The VSHELL copy of DBSIM's Math_PlaneSegmentIntersect (0047e504), the same computation: (plane{nx,ny,nz,d}, segment{start[3],end[3]}, out[3]) -> bool, applying the parameter per component through Math_Mul32To64_Thunk and Math_DivMod64_Thunk.",
+      "source": "VSHELL decompile and disassembly at 00450fe0"
+    },
+    {
+      "address": "0047e9ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_ClassifyPoint",
+      "description": "(plane{nx,ny,nz,d}, point[3]) -> int: 1 when dot(n, point) > -d, 0 when equal, -1 when less, the dot product through DotProductVec3Int_Thunk. Poly_SplitByPlane sorts vertices with it.",
+      "source": "DBSIM decompile and disassembly at 0047e9ec"
+    },
+    {
+      "address": "004514c8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_ClassifyPoint",
+      "description": "The VSHELL copy of DBSIM's Plane_ClassifyPoint (0047e9ec): 1, 0 or -1 as dot(n, point) is above, on or below -d, the dot product through DotProductVec3Int_Thunk (0045f71d).",
+      "source": "VSHELL decompile and disassembly at 004514c8"
+    },
+    {
+      "address": "0047e630",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_SplitByPlane",
+      "description": "(plane, poly, front, back) -> bool, each polygon {count, int32 {x, y, z} points*} with the output point buffers supplied by the caller. Walks the edges from the last vertex, classifying each with Plane_ClassifyPoint: a front vertex (1) goes to front, a back vertex (-1) to back, one on the plane (0) to both, and an edge that crosses from one side to the other adds its Math_PlaneSegmentIntersect point to both before the vertex. A side left with fewer than 3 points is emptied. When each side either ends that way or received no vertex strictly on its own side (a polygon lying in the plane), front becomes a copy of the whole input. Returns 1 only when both sides are non-empty, and empties both for an input of fewer than 3 points. Its two callers, 00494ba8 and 00494d4c, each call it at six sites, keeping front each time and swapping the in and out lists with Dword_Swap.",
+      "source": "DBSIM decompile and disassembly at 0047e630"
+    },
+    {
+      "address": "0045110c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_SplitByPlane",
+      "description": "The VSHELL copy of DBSIM's Poly_SplitByPlane (0047e630), the same code: (plane, poly, front, back) -> bool, through Plane_ClassifyPoint (004514c8) and Math_PlaneSegmentIntersect (00450fe0). Its two callers, 00467920 and 00467ac4, clip against up to six planes chosen by bits 0x02-0x40 of the object's +8 flags, keeping front each time and swapping the in and out lists with Dword_Swap.",
+      "source": "VSHELL decompile and disassembly at 0045110c"
+    },
+    {
+      "address": "00467e9e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Dword_Swap",
+      "description": "(a, b): exchanges the dwords at a and b. Every direct caller swaps the in and out point-list pointers after a Poly_SplitByPlane pass.",
+      "source": "VSHELL decompile and disassembly at 00467e9e"
+    },
+    {
+      "address": "00495115",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Dword_Swap",
+      "description": "(a, b): exchanges the dwords at a and b. The DBSIM copy of VSHELL's Dword_Swap; every direct caller swaps the in and out point-list pointers after a Poly_SplitByPlane pass.",
+      "source": "DBSIM decompile and disassembly at 00495115"
+    },
+    {
       "address": "0046bed8",
       "binary": "DBSIM",
       "type": "function",
@@ -8034,6 +8196,24 @@
       "name": "DotProductVec3Int",
       "description": "Same as DotProductVec3Short but on int (not short) components -- used by Light_ComputeShadeForFace's type-2 (point light) branch after converting the light-to-face displacement into ints.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0045072a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Int",
+      "description": "(a, b): the int32 dot product a.x*b.x + a.y*b.y + a.z*b.z. The VSHELL copy of DBSIM's DotProductVec3Int.",
+      "source": "VSHELL decompile and disassembly at 0045072a"
+    },
+    {
+      "address": "0045f71d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Int_Thunk",
+      "description": "One-line forwarder to DotProductVec3Int with the same arguments. Plane_ClassifyPoint calls it.",
+      "source": "VSHELL decompile and disassembly at 0045f71d"
     },
     {
       "address": "004d4f88",
@@ -18011,6 +18191,24 @@
       "source": "docs/simulation/ai-squadmates.md"
     },
     {
+      "address": "00447130",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashComm_SelectRow",
+      "description": "(display, widget, row): only when widget is the display's base panel widget (+0xfb) and the current mode (+0xc1) is 1, FLASH COMM, stores row as the display's shared selected row through MfdDisplay_SetSharedRow and sets the byte at +0xe6, FLASH COMM's entry in the per-screen byte array at +0xe5 + mode. Both keyboard handlers pass the display's own +0xfb, so the mode test is the one that can refuse: 004469c0 for the plain hotkeys and 00446c10 for the [Alt] ones after it has transmitted. See docs/formats/mfd.md#keyboard.",
+      "source": "DBSIM decompile and disassembly at 00447130; docs/formats/mfd.md#keyboard"
+    },
+    {
+      "address": "0044707c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_SetSharedRow",
+      "description": "(display, row): stores row at display+0xb1, the first int of the screen-shared state block, when it differs from what is there. Direct callers: MfdFlashComm_SelectRow, MfdFlashComm_HandleListClick, 00447014 and 00447048.",
+      "source": "DBSIM decompile and disassembly at 0044707c"
+    },
+    {
       "address": "0043f998",
       "binary": "DBSIM",
       "type": "function",
@@ -25099,6 +25297,24 @@
       "name": "Poly_ClipToHalfPlane",
       "description": "(keepHigh, alongX, value, in, out): one Sutherland-Hodgman pass keeping the part of polygon in ({count, points*}) with x (alongX) or y at >= value (keepHigh) or <= value, points on the line kept, into out (whose point pointer the caller sets); crossings computed from the previous point, truncating. Returns the count's low byte. The case bodies sit behind a jump table Ghidra left undisassembled.",
       "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "00472ac0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipToHalfPlane",
+      "description": "The DBSIM copy of VSHELL's Poly_ClipToHalfPlane (004300c7): (keepHigh, alongX, value, in, out), the same comparisons and the same jump table dispatch on 10 * !keepHigh + 3 * previous side + current side, in a frame 8 bytes larger (0x50 against 0x48). Its two callers, 00471e38 and 004723f8, follow its calls with Poly_BuildSpanList, the pattern of VSHELL's CellWalk_Polygon and CellWalk_PolygonByColumn.",
+      "source": "DBSIM decompile and disassembly at 00472ac0, compared with VSHELL 004300c7"
+    },
+    {
+      "address": "00472a08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_BuildSpanList",
+      "description": "The DBSIM copy of VSHELL's Poly_BuildSpanList (0043000d): (poly, spans, header), translating the points so their minimum x and y are 0, scan-converting with Poly_ScanConvertEitherWinding, adding the minimum x back to every span and filling header = {top row, bottom row, row count, pointer to the first {x0, x1} pair}. Called after Poly_ClipToHalfPlane by 00471e38 and 004723f8.",
+      "source": "DBSIM decompile and disassembly at 00472a08, compared with VSHELL 0043000d"
     },
     {
       "address": "0042f3b0",

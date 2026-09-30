@@ -89,7 +89,8 @@ Reference-manager searches see only what Ghidra has already disassembled and typ
 | --- | --- | --- |
 | `ES2DumpVtable` | `base` `slots` `out` | N consecutive dwords, each resolved to a function name. |
 | `ES2DumpVtablesBatch` | `spec` | Same for many tables; spec lines are `label addr slotCount`. |
-| `ES2DumpAllVtables` | `out` `[minSlots]` | Every vtable-shaped structure: the typed and labelled ones, then a heuristic sweep for runs of dwords that are all function entry points. |
+| `ES2DumpAllVtables` | `out` `[minSlots]` | Every vtable-shaped structure: the typed and labelled ones, then a heuristic sweep for runs of dwords that are all function entry points. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/<BINARY>_vtables_full.txt`. |
+| `ES2DumpStructs` | `out` | The object structures under the `/ES2` category, from `known_structs.json`, one line per defined field; vtable structs are left to `ES2DumpAllVtables`. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/<BINARY>_structs_full.txt`. |
 | `ES2DumpClassRegistry` | `countAddr` `arrayBase` `out` | Walks a `ClassItem` registry — buckets of `{id, loadFn, extra}` — rendering each id both as hex and as a byte-swapped FourCC. |
 
 ### Repairing the database

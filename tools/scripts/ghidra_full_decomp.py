@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Regenerate the whole-program decompilation dumps and report how much of DBSIM is named.
+"""Regenerate the whole-program decompilation, vtable and struct dumps and report how much of DBSIM is named.
 
 Runs `ES2DumpFullDecomp` headless against the ES2Recon project, once per binary, writing
-`tools/analysis_out/<BINARY>_decomp_full.c`. The two runs are sequential because headless Ghidra
-locks the project. Each dump is written to a temporary file and moved into place only when the
-script reports `SCRIPT-OK`, so a failed or cancelled run leaves the previous dump intact.
+`tools/analysis_out/<BINARY>_decomp_full.c`, then `ES2DumpAllVtables` the same way, writing
+`tools/analysis_out/<BINARY>_vtables_full.txt` (read by `es2_xref.py`), then `ES2DumpStructs`,
+writing `tools/analysis_out/<BINARY>_structs_full.txt`. The runs are sequential
+because headless Ghidra locks the project. Each dump is written to a temporary file and moved into
+place only when the script reports `SCRIPT-OK`, so a failed or cancelled run leaves the previous
+dump intact.
 
 It then counts the DBSIM functions whose name in the dump is the one `known_symbols.json` records
 for that address -- the names this project assigned, as opposed to `FUN_` placeholders and the
 names Ghidra supplies itself (Borland runtime functions, Win32 import thunks, `entry`).
 
 Usage:
-    python tools/scripts/ghidra_full_decomp.py              # dump both binaries, then count
+    python tools/scripts/ghidra_full_decomp.py              # dump both binaries (decomp, vtables, structs), then count
     python tools/scripts/ghidra_full_decomp.py --no-dump    # count from the existing DBSIM dump
     python tools/scripts/ghidra_full_decomp.py --binary DBSIM
 """
@@ -43,12 +46,19 @@ def dump_path(binary: str) -> str:
     return os.path.join(OUT_DIR, f"{binary}_decomp_full.c")
 
 
-def run_dump(binary: str) -> bool:
-    final = dump_path(binary)
+def vtables_path(binary: str) -> str:
+    return os.path.join(OUT_DIR, f"{binary}_vtables_full.txt")
+
+
+def structs_path(binary: str) -> str:
+    return os.path.join(OUT_DIR, f"{binary}_structs_full.txt")
+
+
+def run_dump(binary: str, script: str, final: str, script_args: list[str], what: str) -> bool:
     tmp = final + ".tmp"
     cmd = [GHIDRA, PROJECT, "ES2Recon", "-process", f"{binary}.EXE", "-noanalysis",
-           "-scriptPath", SCRIPTS, "-postScript", "ES2DumpFullDecomp", tmp, str(TIMEOUT_SECONDS)]
-    print(f"=== {binary}: decompiling (several minutes)", flush=True)
+           "-scriptPath", SCRIPTS, "-postScript", script, tmp, *script_args]
+    print(f"=== {binary}: {what}", flush=True)
     ok = False
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                           text=True, errors="replace") as proc:
@@ -121,7 +131,12 @@ def main() -> int:
     ok = True
     if not args.no_dump:
         for binary in args.binary or BINARIES:
-            ok = run_dump(binary) and ok
+            ok = run_dump(binary, "ES2DumpFullDecomp", dump_path(binary), [str(TIMEOUT_SECONDS)],
+                          "decompiling (several minutes)") and ok
+            ok = run_dump(binary, "ES2DumpAllVtables", vtables_path(binary), [],
+                          "dumping vtables") and ok
+            ok = run_dump(binary, "ES2DumpStructs", structs_path(binary), [],
+                          "dumping structs") and ok
     report_names("DBSIM")
     report_names("VSHELL")
     return 0 if ok else 1

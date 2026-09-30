@@ -5,7 +5,8 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// What happens where a shot lands — DBSIM's explosion class, built by <c>Explosion_Construct</c> (<c>00407f1c</c>) and
-/// advanced by <c>Explosion_TickUpdate</c> (<c>0040813c</c>), allocated from the pool at <c>DAT_004a96a2</c>.
+/// advanced by <c>Explosion_TickUpdate</c> (<c>0040813c</c>), allocated from the pool at <c>DAT_004a96a2</c>
+/// (docs/simulation/impact-effects.md).
 ///
 /// <para>An effect is a <c>dts\EXPLOS.DTS</c> root standing still at the point of impact, playing
 /// its flipbook of billboards through exactly once. <c>Explosion_TickUpdate</c> is the whole of its life:
@@ -14,9 +15,10 @@ namespace Herculan.Engine.Sim;
 /// zero. Nothing moves it and nothing else can stop it.</para>
 ///
 /// <para>Like a <see cref="BeamTracer"/> and a <see cref="Projectile"/> it is <b>not</b> a
-/// <see cref="SimObject"/> in the original either — it comes from the effect pool
+/// <see cref="SimObject"/> in the original either — it comes from a pool of its own that
 /// <c>Sim_MainTick</c> walks ahead of the machine list, so nothing can shoot it and nothing collides
-/// with it.</para>
+/// with it. The original's pool holds 40 and this list is unbounded, and the original's owner-based
+/// draw rule is not ported (both under Open in the doc).</para>
 ///
 /// <para>A row with a nonzero <see cref="ExplosionTypeEntry.LightMode"/> also claims a dynamic
 /// light for as long as the flipbook runs — <see cref="EffectLightField"/>, whose slot this drives
@@ -86,7 +88,7 @@ public sealed class ImpactEffect {
 	public int Frame { get; private set; }
 
 	/// <summary>
-	/// <c>Explosion_TickUpdate</c> (<c>0040813c</c>), vtable <c>+0x14</c>. Returns whether the effect is finished and should be
+	/// <c>Explosion_TickUpdate</c> (<c>0040813c</c>), called directly by <c>Sim_MainTick</c>. Returns whether the effect is finished and should be
 	/// freed — which happens the moment the flipbook wraps, so the animation plays exactly once.
 	///
 	/// <para>A shape with no frames at all ends on its first timer expiry, matching the original's

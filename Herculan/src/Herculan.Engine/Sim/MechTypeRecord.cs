@@ -110,9 +110,10 @@ public sealed class MechTypeRecord {
 	/// pilot's eye sits relative to the node <see cref="CameraBoneId"/> names, in that node's own
 	/// frame and in world units. The X component is always zero: the mech vtable's <c>+0x30</c>
 	/// accessor (<c>004155c4</c>) builds the point as <c>(0, +0x64, +0x66)</c>, and the cockpit
-	/// branch of <c>FUN_004011a0</c> puts it through the node's world matrix to get the eye.
+	/// branch of <c>Cam_Update</c> (<c>004011a0</c>) puts it through the node's world matrix to get
+	/// the eye. Values per chassis: docs/simulation/mech-locomotion.md, "Mech type record".
 	///
-	/// <para>The lift is the load-bearing half. Retail states 0-820 for it across the fleet, which on
+	/// <para>The lift is the load-bearing half. Retail states 0-820 for it across the fleet bar the PITBULL's 2000, which on
 	/// OUTLAW moves the eye from 44% of the model's height to 82% — waist to cockpit. It is also what
 	/// gives the eye a lever arm on the node: the node rotates through a turn-in-place, and an eye
 	/// sitting on top of it swings where one sitting at its origin would not.</para>
@@ -126,7 +127,8 @@ public sealed class MechTypeRecord {
 	/// Record fields 102 and 104 (the exe's <c>typeRecord+0x68</c> and <c>+0x6a</c>) — the point the
 	/// outside view orbits, in the machine's own frame: the mech vtable's <c>+0x30</c> accessor
 	/// (<c>004155c4</c>) builds it as <c>(0, +0x68, +0x6a)</c> beside the eye offset. The fore/aft half
-	/// is 0 on every retail chassis and the height 1400-2600. See docs/simulation/external-views.md.
+	/// is 0 on every retail chassis and the height 800-2600 (0 on the RAZOR). Per chassis:
+	/// docs/simulation/mech-locomotion.md, "Mech type record"; use: docs/simulation/external-views.md.
 	/// </summary>
 	public short OrbitCentreY => Data.CameraExtOrgOffsetY;
 

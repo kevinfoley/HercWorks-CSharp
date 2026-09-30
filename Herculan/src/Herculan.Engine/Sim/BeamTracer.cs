@@ -54,8 +54,8 @@ public sealed class BeamTracer {
 
 	/// <summary>
 	/// How many quads the original's vertex-index list can address; a longer chain would read past
-	/// it. No retail weapon reaches it — see docs/simulation/beam-visuals.md, "The paint is the
-	/// shape renderer's point-list path", for the table this comes from.
+	/// it. No retail weapon reaches it — see docs/simulation/beam-visuals.md, "The paint uses the
+	/// polygon renderers' project, clip and fill chain", for the table this comes from.
 	/// </summary>
 	public const int MaxQuads = 30;
 
@@ -120,7 +120,8 @@ public sealed class BeamTracer {
 	/// <summary>
 	/// The four points of quad <paramref name="index"/>, in the order the original's vertex-index
 	/// table puts them — low, high, high, low, so the quad is wound as a ribbon rather than crossed.
-	/// The table and how it is built are in docs/simulation/beam-visuals.md.
+	/// The table and how it is built are in docs/simulation/beam-visuals.md, "The paint uses the
+	/// polygon renderers' project, clip and fill chain".
 	/// </summary>
 	public (Vec3i A, Vec3i B, Vec3i C, Vec3i D) Quad(int index) {
 		int node = index * 2;

@@ -94,7 +94,7 @@ public sealed class ShapeInstance {
 	///
 	/// <para>It decides nothing on 17 of the 18 retail HERCs, whose locomotion, twist and pitch
 	/// sequences cover disjoint nodes; HEADHUNT is the one exception. The per-HERC node lists are in
-	/// docs/simulation/torso-aim.md, "Three threads per machine".</para>
+	/// docs/formats/dts-node-posing.md, "Several threads on one shape".</para>
 	/// </summary>
 	private AnimTransform? LocalOf(int transformId) {
 		foreach (var thread in _threads) {

@@ -167,13 +167,13 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 | `0x08` | `WATCH YOUR TARGET, SIR!` | friendly fire — [`../simulation/ai-targeting.md`](../simulation/ai-targeting.md) |
 | `0x09` | `I'M BREAKIN' UP! EJECTING!` | ejecting |
 | `0x0a` | `NO PROBLEM.` | — |
-| `0x0b` | `ON MY WAY.` | `DEFEND ME` taken |
-| `0x0c` | `ROGER. SITTING TIGHT.` | `HOLD FIRE` taken |
+| `0x0b` | `ON MY WAY.` | `HELP ME OUT!` taken |
+| `0x0c` | `ROGER. SITTING TIGHT.` | `HOLD YOUR FIRE` taken |
 | `0x0d` | `NO CAN DO. THESE GUYS ARE ALL OVER ME!` | `ATTACK MY TARGET` refused: already broken off |
 | `0x0e` | `I DON'T SEE ANYTHING!` | — |
-| `0x0f` | `I HEARD YOU.` | the order is the one already in force |
+| `0x0f` | `I HEARD YOU.` | the order is the one already in force, or `SCAN FOR HOSTILES` to a machine whose radar is already active |
 | `0x10` | `I'M OUT OF RANGE.` | — |
-| `0x11` | `ENGAGING TARGET!` | `ATTACK MY TARGET` / `ATTACK TARGET` taken |
+| `0x11` | `ENGAGING TARGET!` | `ATTACK MY TARGET` / `ATTACK ENEMY` taken |
 | `0x12` | `WHAT'S YOUR TARGET?` | refused: the player has nothing selected |
 | `0x13` | `STAND BY.` | — |
 | `0x14` | `ON MY WAY.` | `JOIN ON ME` taken from outside formation range |
@@ -181,13 +181,13 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 | `0x17` | `ROGER, SWITCHING OVER TO DEFENSIVE MODE.` | `DEFEND POSITION` taken |
 | `0x18` | `ROGER. SIGHTING CONFIRMED.` | — |
 | `0x19` | `ROGER. MOVIN' OUT.` | — |
-| `0x1a` | `CAN'T HELP YOU THERE. I HAVE MY OWN PROBLEMS RIGHT NOW.` | `DEFEND ME` refused: already committed |
-| `0x1b` | `MY HERC'S TOO SHOT UP!` | any order refused: out of action |
+| `0x1a` | `CAN'T HELP YOU THERE. I HAVE MY OWN PROBLEMS RIGHT NOW.` | `HELP ME OUT!` refused: already committed to that threat |
+| `0x1b` | `MY HERC'S TOO SHOT UP!` | any order but `IGNORE MY TARGET` refused: out of action (or, for the movement orders, immobilised) |
 | `0x1c` | `ROGER THAT! PREPARING TO OPEN FIRE!` | `FIRE AT WILL` taken |
-| `0x1d` | `WHAT?!` | `DEFEND ME` refused: nothing is shooting at the player |
-| `0x1e` | `AFFIRMATIVE!` / `YES SIR.` / `ROGER.` | the generic yes — `JOIN ON ME` from inside formation range, `IGNORE MY TARGET` already set |
+| `0x1d` | `WHAT?!` | `HELP ME OUT!` refused: nothing is shooting at the player; `ATTACK ENEMY` refused: the subject is already neutralised |
+| `0x1e` | `AFFIRMATIVE!` / `YES SIR.` / `ROGER.` | the generic yes — `JOIN ON ME` from inside formation range, and `IGNORE MY TARGET` from a machine that is out of action |
 | `0x1f` | `NEGATIVE.` / `SORRY SIR.` / `UNABLE TO COMPLY.` | the generic no. Nothing in the simulator posts it |
-| `0x20` | `ALREADY GOTCHA COVERED.` | the order names a post this machine already holds |
+| `0x20` | `ALREADY GOTCHA COVERED.` | the order names a post this machine already holds; `FIRE AT WILL` to a machine already in a fight |
 | `0x21` | `PLEASE STAND BY...` | — |
 | `0x22` | `STANDING BY...` | — |
 | `0x23` | `DAMN!` | — |
@@ -198,9 +198,9 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 | `0x29` | `NEGATIVE. IT'S TRASHED.` | — |
 | `0x2a` | `ON MY WAY.` | `PATROL GRIDPOINT` / `GOTO GRIDPOINT` taken |
 
-`0x15` is in no bank at all. The em-dashed ids are recorded but have no poster found ([Open](#open)); which situation raises each of the rest is [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)'s case table.
+`0x15` is in no bank at all. The em-dashed ids are recorded but have no poster found ([Open](#open)); which arm of `Mech_ReceiveSquadOrder` raises each of the rest is [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md#receiving-one--mech_receivesquadorder-00420ad4-mech-vtable-0x28)'s case table.
 
-**`0x1e` is the yes and `0x1f` the no.** Mistaking them is easy because the refusal arms of `Mech_ReceiveSquadOrder` post `0x1e`: a squadmate that will not take an order because it is already carrying it answers affirmatively, which is correct and reads as a bug in a table of refusals.
+**`0x1e` is the yes and `0x1f` the no.** Mistaking them is easy because one refusal arm of `Mech_ReceiveSquadOrder` posts `0x1e`: a squadmate too shot up to comply with `IGNORE MY TARGET` answers affirmatively, which is correct and reads as a bug in a table of refusals.
 
 ### Its box
 

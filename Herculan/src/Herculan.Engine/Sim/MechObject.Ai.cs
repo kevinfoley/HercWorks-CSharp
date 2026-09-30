@@ -698,7 +698,8 @@ public partial class MechObject {
 	/// <summary>
 	/// <c>mech+0x26b</c> — a countdown that holds the radar off. <c>Mech_DirectFireHitTest</c> loads it
 	/// with <see cref="RadarSilenceOnArmHit"/> when an anti-radiation round lands: the machine goes
-	/// dark and stays dark long enough for the seeker to lose it. See docs/simulation/ai-weapons.md.
+	/// dark and stays dark long enough for the seeker to lose it. See docs/simulation/target-selection.md
+	/// ("How an AI machine's radar is set").
 	/// </summary>
 	public short RadarSilenceTimer { get; private set; }
 

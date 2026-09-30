@@ -145,7 +145,7 @@ public sealed class WeaponMounts {
 	/// <summary>
 	/// <c>Mech_ConvergeGunsOnRange</c>'s loop — every mount toed in on the range the turret is aiming
 	/// at. Run from <see cref="MechObject.TorsoPitchTick"/>, so it happens for the player and the AI
-	/// alike; see docs/simulation/ai-weapons.md.
+	/// alike; see docs/simulation/weapon-firing.md ("Gun convergence").
 	/// </summary>
 	internal void ConvergeOnRange(MechObject owner, int range) {
 		foreach (var mount in Mounts) {

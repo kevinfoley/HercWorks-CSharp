@@ -14,7 +14,7 @@ count x 26-byte record
 | Offset | Size | Field | Role |
 |---|---|---|---|
 | `+0x00` | int16 | bone id | the model bone the gun rides and the shot leaves from (`WeaponMount_HardpointBoneId`, `0040e61c`); `GunLayout_CollectHardpointBones` (`0040fc50`) reports -1 in its place when the mounting code is 4 |
-| `+0x02` | int16 | convergence pitch node | negative on every retail chassis; the mount constructor maps a negative value to zero, and zero is what lets the gun convergence apply — [`../simulation/ai-weapons.md`](../simulation/ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c) |
+| `+0x02` | int16 | convergence pitch node | negative on every retail chassis; the mount constructor maps a negative value to zero, and zero is what lets the gun convergence apply — [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#gun-convergence--mech_convergegunsonrange-0041a74c) |
 | `+0x04` | int16 | convergence yaw node | as `+0x02` |
 | `+0x06` | byte | mounting code | 0 on top, 1 underneath, 2 left side, 3 right side, 4 invisible. Codes below 4 are drawn; the code picks the weapon model shape and the side of the muzzle offset — [`weapons-dat-sim.md`](weapons-dat-sim.md), [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#where-the-shot-comes-from--weaponmount_prepareshot-0040e788) |
 | `+0x07` | byte | fire-chain number | the cockpit weapon row this mount owns: handed to the gauge factory as a `.GAU` weapon-slot index, so the panel prints it as `n+1` |

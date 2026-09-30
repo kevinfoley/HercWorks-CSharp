@@ -223,8 +223,9 @@ public sealed partial class MechObject : SimObject {
 	public bool Scanner { get; private set; }
 
 	/// <summary>
-	/// <c>Mech_ToggleRadarMode</c> (<c>0041b468</c>) — the manual's [R], and the F4 scanner screen's PASS/ACTIVE button pair,
-	/// which both reach the same place. <b>Only the machine the player is flying toggles</b>: the
+	/// <c>Mech_ToggleRadarMode</c> (<c>0041b468</c>) — the manual's [R]. The F4 scanner screen's
+	/// PASS/ACTIVE button pair is a different path, <see cref="SetScanner"/>; see
+	/// docs/simulation/target-selection.md, "Radar mode". <b>Only the machine the player is flying toggles</b>: the
 	/// original gates the flip on <c>mech+0xa3</c> and then repaints the console lights for whatever
 	/// the mode now is, so calling it on an AI machine only refreshes the display.
 	///

@@ -27,8 +27,9 @@ namespace Herculan.Engine.Sim;
 /// <c>TargetSelect_SetObject(view, 0)</c>.</item>
 /// </list>
 ///
-/// <para>The MFD scanner's TARGET button and a click on the gunsight reach <see cref="Select"/>, the
-/// same entry point <see cref="Clear"/> uses.</para>
+/// <para>A click on the gunsight reaches <see cref="Select"/>, the same entry point
+/// <see cref="Clear"/> uses. The MFD scanner's TARGET button does not: it runs <see cref="Cycle"/>,
+/// as [Enter] does.</para>
 ///
 /// <para>Each of the three ends by pushing the new target into the gunsight widget
 /// (<c>Gunsight_SetValues</c>), which draws the HUD target box —
@@ -67,7 +68,8 @@ public sealed class TargetSelection {
 	///
 	/// <para>The original picks between this and a second object (<c>DAT_004d2708</c>) on the
 	/// <c>DAT_0049ef5c</c> flag, which is set while the player is watching a machine other than their
-	/// own. There is no such mode here, so this is always the pilot's machine.</para>
+	/// own. There is no such mode here, so this is always the pilot's machine. See
+	/// docs/simulation/external-views.md, "The spectator flag".</para>
 	/// </param>
 	public TargetSelection(SimWorld world, SimObject viewer) {
 		_world = world;
@@ -252,8 +254,8 @@ public sealed class TargetSelection {
 	}
 
 	/// <summary>
-	/// <c>TargetSelect_SetObject</c> (<c>004332dc</c>) — select one named object, the entry point the MFD scanner's TARGET button
-	/// and a click on the gunsight both use. Passing null clears the selection, which is what the
+	/// <c>TargetSelect_SetObject</c> (<c>004332dc</c>) — select one named object, the entry point a
+	/// click on the gunsight uses. Passing null clears the selection, which is what the
 	/// <c>;</c> key does.
 	///
 	/// <para><b>It walks rather than assigns</b>, and the walk is visible in the result: the selection

@@ -8,40 +8,12 @@ namespace Herculan.Engine.Sim;
 /// Missile lock — the second half of <c>Mech_PerTickSystemsUpdate</c> (<c>0041aa5c</c>), everything
 /// after the reactor and shield bookkeeping <see cref="PowerTick"/> ports.
 ///
-/// <para><b>What <c>manager+0x0a</c> is.</b> Its reader is <c>Mech_MissileLockState</c>, and it
-/// counts nothing. The array is five flags,
-/// one per <c>PROJ.DAT</c> missile subtype, meaning <i>this class of launcher has achieved lock on
-/// the machine's current target</i>. It is cleared and rebuilt every tick, for every machine, by
-/// the block ported here — the player's included, which is why a player's missiles lock in retail
-/// and why <c>Rocket_Fire</c>'s gate on it is a real gate rather than something to skip. The genuine
-/// ammunition count is a separate local array built by <c>WeaponMounts_RoundsByMissileType</c> (<c>0040fbdc</c>)
-/// (<see cref="WeaponMounts.RoundsByMissileType"/>), which this block uses only to decide which
-/// timers to run.</para>
-///
-/// <para><b>How a lock is built.</b> Each subtype the machine actually carries rounds for has its
-/// own countdown. Every tick the block either <i>reloads</i> that countdown — holding it at full,
-/// so no lock can form — or lets it tick down; when one reaches zero its flag is set. The reload
-/// value is <b>range over four</b>, so a distant target takes proportionally longer to lock, and
-/// the reload happens wholesale whenever the target leaves the cone, the machine has just switched
-/// target, or line of sight is broken. That is the whole mechanism: lock is "how long have you held
-/// this thing in front of you", scaled by how far away it is.</para>
-///
-/// <para><b>Each subtype has its own hold condition</b>, and they are what distinguish the four
-/// guided weapons:</para>
-/// <list type="table">
-/// <item><term>0 and 4</term><description>Held while the machine's <b>own</b> scanner is off. These
-/// need your radar running.</description></item>
-/// <item><term>1</term><description>No emission condition at all — it locks on sight.</description></item>
-/// <item><term>2</term><description>Held while the <b>target</b> is silent, and released the moment
-/// the target's scanner or jammer comes on. This is the anti-radiation missile, and it is the same
-/// pair of flags its guidance homes on (see <see cref="Rocket"/>).</description></item>
-/// <item><term>3</term><description>Never locked, because the pilot flies it himself — see
-/// <see cref="Rocket.PlayerFlownSubtype"/> and <see cref="SimWorld.FireRocket"/>.</description></item>
-/// </list>
-///
-/// <para><b>ECM.</b> A jamming target rolls <see cref="EcmSpoofed"/> a few times a minute, and while
-/// it is set no subtype but the anti-radiation one can complete a lock. That is the mechanical form
-/// of the manual's ECM, and it is the same flag that makes a missile already in the air weave.</para>
+/// <para>What <c>manager+0x0a</c> is, how a lock is built, each subtype's hold condition and the ECM
+/// roll are in docs/simulation/missile-lock.md. The genuine ammunition count is the separate array
+/// <see cref="WeaponMounts.RoundsByMissileType"/> fills, which this block uses only to decide which
+/// timers to run. The anti-radiation subtype's flags are the pair its guidance homes on (see
+/// <see cref="Rocket"/>); subtype 3 is never locked, because the pilot flies it — see
+/// <see cref="Rocket.PlayerFlownSubtype"/> and <see cref="SimWorld.FireRocket"/>.</para>
 /// </summary>
 public sealed partial class MechObject {
 	/// <summary>
@@ -54,7 +26,9 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// What the lock countdown is reloaded with: the range to the target over four, saturated at a
-	/// short. Lock time is therefore linear in range.
+	/// short. Lock time is therefore linear in range. At the 81 units a tick a hardware-speed
+	/// simulation steps, a target 20000 units away locks after about 62 ticks and one at 57205 after
+	/// about 177; a run of <c>SAV/script1.dat</c> (APOCA, two ARH launchers) measured 63 and 178.
 	/// </summary>
 	private const int LockTimeRangeShift = 2;
 
@@ -317,7 +291,6 @@ public sealed partial class MechObject {
 		}
 	}
 
-	/// <summary>
 	/// <summary>
 	/// <c>Mech_PerTickSystemsUpdate</c>'s jammer block, through <c>FUN_0041aa10</c> — the only writer
 	/// of <c>mech+0xa1</c>.

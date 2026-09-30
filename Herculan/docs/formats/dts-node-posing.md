@@ -60,6 +60,12 @@ Three arrays on the shape instance: `+0x12` per-node **local** transforms (strid
 
 There is no separate render rate for them to be per-frame at: `Time_BeginSimTick` (`004677bc`) spin-waits the whole loop to 40 ms, so **tick and frame are the same thing in DBSIM** (see [`dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md#fixed-point-math-toolkit)). A vanilla frame always shows a pose evaluated that same iteration, at 25 Hz.
 
+## Several threads on one shape
+
+A shape instance holds a list of animation threads, each playing one sequence. `ShapeInst_EvalAllNodeLocals` (`004789f4`) runs `AnimThread_EvalNodeLocals` over them **last-registered first**, each overwriting the local transform of every node its sequence covers with no regard for what is already there. The **first**-registered thread's writes are therefore the ones left standing.
+
+A HERC registers three, in the order `Mech_Constructor` builds them — locomotion, then the turret's twist and pitch ([`torso-aim.md`](../simulation/torso-aim.md#three-threads-per-machine)) — so locomotion outranks the turret wherever both cover a node. It decides nothing on 17 of the 18 retail HERCs: locomotion covers nodes 1, 2, 3 and 5-10, twist covers 4 and pitch covers 11 (MONGOOSE 11 and 12), disjoint. **HEADHUNT is the exception**: its twist node is 5, which its own locomotion sequences also animate, so its twist is overridden while it is moving. That is the retail data's own behaviour.
+
 ## Fleet shape
 
 All 18 retail HERCs: geometry occupies **11 groups**, on transform ids **1-11**, out of 12 nodes (13 for MONGOOSE and HEADHUNT). Transform 0 carries sequence root motion and never places geometry.

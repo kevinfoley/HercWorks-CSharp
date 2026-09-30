@@ -44,7 +44,7 @@ V2 = (F2, F3)
 V3 = (F0, F3)
 ```
 
-from the decompiled assignment sequence `_DAT_0048a190`..`_DAT_0048a1ac` = `F0,F1,F2,F1,F2,F3,F0,F3`. The corners are the frame's own, so each DBA frame is independently cropped rather than a sub-rect of a shared atlas ([Open](#open)).
+from the decompiled assignment sequence `_DAT_0048a190`..`_DAT_0048a1ac` = `F0,F1,F2,F1,F2,F3,F0,F3`. The corners are the descriptor's own. DBSIM builds the descriptors as sub-rectangles of a shared atlas page ([below](#the-frame-descriptor-table-and-the-span-routines-dbsim)); VSHELL's builder is [Open](#open).
 
 A `TSPoly` carries no per-vertex UVs: the frame rect's four corners map to the poly's four corners, and `TSTexture4Poly_Render` hands the rasterizer the whole quad, so one map covers the face.
 
@@ -98,7 +98,7 @@ Byte-verified against every `simvol0/dat/*.DAT` (226 bytes each: 9-byte VOL pref
 
 ### The flyers' bank
 
-Every flyer chassis shares **one** bank, and it is group 3's `ENEMY`. `maybe_FlyerType_LoadResources` (`00422ed0`) writes the literal slot address `0x004a9e0e` into the shape's `+0x26`, which is `g_MechTextureGroupSlots` plus `3 * 8` — there is no per-chassis choice, which fits a roster that is entirely Cybrid. See [`../simulation/ai-flyers.md`](../simulation/ai-flyers.md#drawing).
+Every flyer chassis shares **one** bank, and it is group 3's `ENEMY`, the Cybrid mechs' own. `FlyerType_LoadResources` (`00422ed0`) writes the literal slot address `0x004a9e0e` into the shape's `+0x26`, which is `g_MechTextureGroupSlots` (`004a9df6`) plus `3 * 8` — there is no per-chassis choice, which fits a roster that is entirely Cybrid.
 
 ### Fleet audit
 
@@ -203,6 +203,44 @@ Distinguishing evidence: the `.RMP` row shifts every ramp entry down one step an
 `Bullet_Draw` (`0040a120`) is what zeroes it — for the duration of one projectile's shape render, restoring it from `DAT_004a5b20` afterwards. **That is what makes a round fullbright**, and it is a property of the draw rather than of the shape: the same shape drawn by anything else would be lit. The vtable slot is shared with the launcher rounds, so both classes get it. The one retail shape it reaches is `BULLETS.DTS` root 8, the plasma cannon's round — every other projectile shape is `TSSolidPoly` geometry with no texture to copy.
 
 None of the ramp's own rows is the identity this bypasses: row 0 lands at 0.36x the source colour and row 31 at 1.16x. `Render.PaletteRampTable` therefore carries the raw palette as one extra row past every depth slice, and `Render.SceneItem.Fullbright` is what selects it. Skipping the ramp skips the depth bias with it, so a fullbright surface does not fog either.
+
+### The frame descriptor table and the span routines (DBSIM)
+
+`BitmapArray_PackToAtlas` (`00469f38`) turns a loaded `.DBA` into the descriptor table `TSTexture4Poly_Render` reads as `slot[1]`. It packs every frame into 256x256 atlas pages with `Bitmap_PlaceInAtlasPage` (`00469d10`) and returns one 20-byte descriptor per frame. The mech texture groups (`g_MechTextureGroupSlots`), the terrain bank, `WPNTEX`, `BULLETS.DBA` and `BEAMTEX.DBA` are all built this way.
+
+| Offset | Field |
+|---|---|
+| `+0x00` | `x0` (int32), the frame's left edge in its atlas page |
+| `+0x04` | `y0` (int32) |
+| `+0x08` | `x1` (int32), `x0 + width - 1` |
+| `+0x0c` | `y1` (int32), `y0 + height - 1` |
+| `+0x10` | page index (int16), the texture-data handle the rasterizer takes |
+| `+0x12` | int16, 1 when any texel of the frame is palette index 0, else 0 |
+
+`+0x12` is the transparency argument `TSTexture4Poly_Render` passes as `Raster_DrawPolygon`'s last parameter, so the colour-key skip is decided per frame at load and a frame with no index 0 draws the same either way.
+
+`Raster_DrawPolygon` (`00468310`) is `(vertexCount, vertices, mode, atlasPage, shadePtr, transparency)`. Its `mode` selects the span routine, and `transparency` selects that routine's opaque or colour-key half:
+
+| mode | span routine | interpolants |
+|---|---|---|
+| 0 | `Raster_SpanTextured` (`0046ab10`) | u, v |
+| 1 | `FUN_0046ac48` | u, v, and a shade level from `shadePtr` |
+| 2 | `FUN_0046adad` | u, v, and a third interpolant at vertex `+0x14` |
+
+Mode 0 with `transparency` zero is the opaque half of `Raster_SpanTextured`: fetch `atlasPage[v][u]`, store that palette byte to the framebuffer, step the fixed-point u and v. The non-zero form skips index 0 as a colour key and does not blend. Nothing in that path applies alpha, a shade level or a colour lookup. The beam draw submits through it: [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#drawing--beamtracer_draw-0040bc14-vtable-slot-0).
+
+### The projection, clip and fill chain (DBSIM)
+
+A flat poly is drawn in three steps: project the face's vertices to screen points, clip the ring against the near plane if a vertex fell behind it, and fill the result. The face arrives in globals: `DAT_006c6968` the vertex count, `DAT_006c696a` the offset into the vertex-index list `DAT_006c6976`, and the per-point state byte `DAT_006c697e` (0 untouched, 1 behind the near plane, 2 projected) that memoises a vertex shared between faces. The screen points come out in `DAT_006cbb86`, count `DAT_006cbc86`.
+
+| Function | Does |
+|---|---|
+| `Poly_ProjectShapeVertices` (`0048c848`) | Projects over the group's 6-byte `Vec3Short` points at `DAT_006c696c`. Called by `TSSolidPoly_Render`, `TSShadedPoly_Render` and `TSTexture4Poly_Render` |
+| `Poly_ProjectIndexedVertices` (`0048c964`) | The same over 12-byte `int32` points at `DAT_006c6970`; returns non-zero when any vertex fell behind the near plane. Called by `BeamTracer_Draw` and by `maybe_TSGouraudOrSimilarPoly_Render` (`0042ff2d`) |
+| `Poly_ClipRingToNearPlane` (`0048ce14`) | Run only when a vertex fell behind the plane: clips the ring and rebuilds the screen-point list. Called by `TSSolidPoly_Render`, `TSShadedPoly_Render` and `BeamTracer_Draw`, among others |
+| `PolyFill_Fill` (`0048d4b4`) | Fills the screen polygon through `Raster_DrawPolygonEitherWinding`, then runs `PolyFill_FillThenOutline`'s outline pass without its mode-5 guard |
+
+Both fills' outline pass is gated on the default brush (`DAT_006c60d4 != DAT_006c60dc`) and writes that brush, so a caller that installed its own brush on the context, as the beam draw does, gets an identical flat redraw instead of an outline.
 
 ### The `.DPL` shade-ramp table
 
@@ -360,6 +398,5 @@ Tracked in `KNOWN_ISSUES.md`.
 - **Open:** what the original draws for a two-vertex line poly whose surface names no distinct line colour.
 - **Open:** why retail grades the type-15 octagon's back facet; see [Type-15 band widths](#type-15-band-widths).
 - **Open:** what DBSIM draws for a back-facing three-vertex texture poly, where the back-face corner swap touches the unused slot 3.
-- **Open:** trace the function that populates `g_ActiveBitmapArray[1]`'s 20-byte-stride descriptor table, to confirm `F0/F1` (frame UV top-left) are always `(0,0)` or can be nonzero (atlas sub-rects).
+- **Open:** the function that populates VSHELL's `g_ActiveBitmapArray[1]` descriptor table, which decides whether `F0/F1` (frame UV top-left) can be nonzero there. DBSIM's builder is [`BitmapArray_PackToAtlas`](#the-frame-descriptor-table-and-the-span-routines-dbsim), which places frames as atlas sub-rectangles.
 - **Open:** `TSTexture4Poly_RasterizeA`/`RasterizeB`'s internal fixed-point interpolation math and 4th interpolant semantics — including whether retail's texture mapping is exactly projective.
-- **Open:** where the runtime frame descriptor's **transparency flag** comes from. `TSTexture4Poly_Render` passes `*(int16*)(frameDescriptor + 0x12)` as `Raster_DrawPolygon`'s last argument, which selects the span routine's transparent half (`DAT_004a09ac`). Nothing in the `.DBM`/`.DBA` headers carries it — every retail frame's two spare header fields are zero — so it is derived or set at load, by the function that builds the descriptor table. A bank-wide index-0 transparency is equivalent on retail data, because a frame with no index 0 draws the same either way.

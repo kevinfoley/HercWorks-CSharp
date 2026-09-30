@@ -9,7 +9,8 @@ namespace Herculan.Engine.Sim.Ai;
 /// command display's own list; the two overlap in meaning but not in code, and the handler gives
 /// each pair its own case where they differ.
 ///
-/// <para>Two entries have no text and no case: 6 and 9. See docs/simulation/ai-squadmates.md.</para>
+/// <para>Two entries have no text and no case: 6 and 9, and neither screen can send them. See
+/// docs/simulation/ai-squadmates.md.</para>
 /// </summary>
 public enum SquadCommand {
 	/// <summary>0 <c>ATTACK MY TARGET</c> — engage whatever the player currently has selected.</summary>
@@ -69,8 +70,8 @@ public enum SquadCommand {
 /// </summary>
 /// <param name="Verb">The order.</param>
 /// <param name="Issuer">Who sent it — always the player's own machine in retail.</param>
-/// <param name="Point">The gridpoint the order names, for the four that take one.</param>
-/// <param name="Subject">The unit the order names, for the three that take one.</param>
+/// <param name="Point">The gridpoint the order names, for the three that take one (12, 13, 14).</param>
+/// <param name="Subject">The unit the order names, for the two that take one (11, 12).</param>
 public readonly record struct SquadOrderMessage(
 	SquadCommand Verb,
 	SimObject? Issuer = null,
@@ -201,7 +202,7 @@ public static class SquadOrders {
 
 	/// <summary>
 	/// How well a machine suits an order, which is the only thing that puts the group in an order of
-	/// preference. Six of the eighteen verbs score at all: the three that want someone free to take a
+	/// preference. Eight of the eighteen verbs score at all: the three that want someone free to take a
 	/// fight prefer a machine that is <b>not</b> committed, the three that end one prefer a machine
 	/// that <b>is</b>, and the two radar orders prefer a machine not already in the mode being asked
 	/// for. Everything else scores zero for everyone, so the group is simply walked in range order.

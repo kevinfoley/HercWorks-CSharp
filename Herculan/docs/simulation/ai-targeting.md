@@ -216,7 +216,7 @@ Fields settled elsewhere link out rather than being restated.
 | `+0xb4` | byte | Collapsed — the machine has finished going down and is lying on the ground. Latched when the death animation plays out ([`mech-locomotion.md`](mech-locomotion.md#going-down)), or at spawn for a machine the mission places as a wreck ([`component-damage.md`](component-damage.md#starting-condition--mech_applystartingcondition-004178e8)) |
 | `+0xb7` | byte | Invulnerable; `Base_Construct` sets it from `BASES.DAT +0x1e` |
 | `+0x250` | short | Squad order's abandon threshold — [`ai-squadmates.md`](ai-squadmates.md) |
-| `+0x26b` | short | Countdown that holds the radar off, 6000 after an ARM hit — [`ai-weapons.md`](ai-weapons.md) |
+| `+0x26b` | short | Countdown that holds the radar off, 6000 after an ARM hit — [`target-selection.md`](target-selection.md#how-an-ai-machines-radar-is-set) |
 | `+0x273` | int | Retarget cooldown, 10000 on reacting to fire |
 | `+0x278` | int | Friendly-fire complaint cooldown, 40000 |
 | `+0x27d` | int | Under-fire window, 30000; its expiry clears `+0x281` |

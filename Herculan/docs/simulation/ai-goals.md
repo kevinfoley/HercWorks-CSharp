@@ -2,25 +2,25 @@
 
 What tells a machine *what it is for*. Every AI machine belongs to a mission group, and the group carries an ordered list of orders it works through; the order in force is what [`ai-dispatch.md`](ai-dispatch.md#choosing-a-state--mech_aiselectbehaviour-0041eb34) turns into a behaviour state, and it is also what the target filter, the combat reassess and the abandonment test read when they ask what this machine was sent to do — see [`ai-targeting.md`](ai-targeting.md).
 
-This layer is structurally **upstream of the rest of the AI**: `Mech_AiTick`'s only caller is `Group_OrderTick`, so a machine that is not a live member of a group never thinks at all.
+This layer is structurally **upstream of the rest of the AI**: `Mech_AiTick`'s only caller is `Group_OrderTick`, so a machine that is not a live member of a group never thinks at all — see [`ai-dispatch.md`](ai-dispatch.md#the-ai-tick--mech_aitick-00411cec).
 
 The file half of the subject — how block 10 and block 11 are written and read — belongs to [`script-dat.md`](../formats/script-dat.md).
 
-## The order record — 22 bytes
+## The order record
 
-`DBSim_SpawnMissionObjects` (`004253d8`) allocates `orderCount * 0x16` and fills one record per block-10 entry, resolving each of that entry's four refs to a pointer as it goes. The seven source fields land in a different order than they are read in.
+The 22-byte record, its offsets and the block-10 fields each is built from are [`script-dat.md`](../formats/script-dat.md#block-10-in-memory--22-bytes-0x16)'s. What the simulation makes of each field:
 
-| Offset | Type | Built from | Meaning |
-|---|---|---|---|
-| `+0x00` | short | block 10 `0x08` | **The verb.** 0–6; see below |
-| `+0x02` | short | block 10 `0x0a` | Copied verbatim. **No reader exists** |
-| `+0x04` | ptr | block 10 `0x0c` → block 1 | A point. **No reader exists** |
-| `+0x08` | ptr | block 10 `0x0e` → block 3 | **The route** — a waypoint group. Read once, by `DBSim_BuildGroupRecord`, and only from slot 0 |
-| `+0x0c` | short | block 10 `0x10` | **What kind of thing the order names**: `-1` nothing, 0 a group, 1 a mech, 2 a flyer, 3 a base |
-| `+0x0e` | ptr | block 10 `0x12` | **The subject**, resolved against `+0x0c` by `Mission_ResolveRefByKind` (`00425348`) — a group record for kind 0, an object for 1-3 |
-| `+0x12` | ptr | block 10 `0x14` → block 5 | **A mission action.** When it fires, the group moves on |
+| Offset | Meaning to the simulation |
+|---|---|
+| `+0x00` | **The verb.** 0-6; the state and completion tables below |
+| `+0x02` | **No reader exists** |
+| `+0x04` | A block-1 point. **No reader exists** |
+| `+0x08` | **The route** — a waypoint group. Read by `DBSim_BuildGroupRecord`, from slot 0 only, and by `Mission_GroupOrderCompleteOnRoute` (`0041324c`), which matches it across all ten slots against an objective's waypoint group ([`mission-objectives.md`](mission-objectives.md#the-record)) |
+| `+0x0c` | **What kind of thing the order names** |
+| `+0x0e` | **The subject** — a group record for kind 0, an object for 1-3 |
+| `+0x12` | **A mission action.** When it fires, the group moves on |
 
-**`+0x02` and `+0x04` are confirmed dead fields, not merely unexamined ones.** An order is only ever reached as `group.orders[group.orderIndex]`, and the whole image holds 29 such fetches; every one of them goes on to read `+0x00`, `+0x0c`, `+0x0e` or `+0x12` and none reads either of these two. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3, so both are authored and both are ignored.
+**`+0x02` and `+0x04` are confirmed dead fields, not merely unexamined ones.** An order is reached through a group's order array, and every access in the image goes on to read `+0x00`, `+0x08`, `+0x0c`, `+0x0e` or `+0x12` and none reads either of these two. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3, so both are authored and both are ignored.
 
 The verb's range is the first confirmation the field is what it looks like: across the 62 retail `.MSN` files that parse, block 10's `0x08` only ever holds 0-6, which is exactly the span of the switch in `Mech_AiSelectBehaviour`.
 
@@ -33,14 +33,14 @@ A mission group's own record is `0x7a` bytes, built by `DBSim_BuildGroupRecord` 
 | `+0x04` | short | **Route cursor** — the index of the waypoint last reached |
 | `+0x06` | ptr | **Route** — the waypoint group the cursor runs over |
 | `+0x0c` / `+0x10` | ptr / short | Member array and count |
-| `+0x12` | byte | Side — [`mission-deployment.md`](mission-deployment.md) |
-| `+0x14` | ptr | Deployment action; non-null means the group is not in the mission yet |
-| `+0x1c` / `+0x30` | short[10] x2 | The group's own ten mission-variable slots — indices and opcodes — run by `Group_ReportIfAllOutOfAction` (`00423f30`) once every member but one is immobilised or destroyed. Same opcode set as `Mech_ReportOutOfAction` |
+| `+0x12` | byte | Side, 0 human and 1 Cybrid — [`script-dat.md`](../formats/script-dat.md#the-two-pass-read--and-what-it-means-for-dbsim-keeps) |
+| `+0x14` | ptr | Deployment action; non-null means the group is not in the mission yet — [`mission-deployment.md`](mission-deployment.md#the-deployment-gate--group0x14) |
+| `+0x1c` / `+0x30` | short[10] x2 | The group's own ten mission-counter slots, refs and operations — [`mission-deployment.md`](mission-deployment.md#the-out-of-action-report) |
 | `+0x44` | ptr[10] | **The order array**, a null in every slot the block-11 record left unset |
 | `+0x6c` | int | **The current order's index** |
 | `+0x70` | byte[10] | One flag per order, set when that order reaches completion. Nothing in the AI reads it; the mission-objective layer does — [`mission-objectives.md`](mission-objectives.md) |
 
-`Sim_MainTick` runs exactly one of two things per group per frame: `Group_DeploymentCheck` (`004236c4`) when `+0x14` is set, `Group_OrderTick` (`00423a74`) otherwise. **A group waiting to arrive runs no orders and no AI.**
+`Sim_MainTick` runs `Group_OrderTick` (`00423a74`) only for a group whose `+0x14` is clear, so **a group waiting to arrive runs no orders and no AI** — [`mission-deployment.md`](mission-deployment.md#the-deployment-gate--group0x14).
 
 ### The route cursor is loaded once
 
@@ -106,19 +106,21 @@ So a group is written off either by losing enough machines or by having enough d
 
 Walks every mission group and answers false the moment it finds one that is **on the other side**, whose own current order names **the same subject pointer**, and that still has a member in the fight. A guard order therefore ends when the thing being guarded is gone *or* when nothing hostile is assigned against it any more: the post is finished, not just survived.
 
-**"In the fight" here is the full three-byte test, not just the damage ones.** `Group_IsWipedOut` (`00412be4`) passes a member that is destroyed (`+0x99`), immobilised (`+0xa4`) **or disarmed** (`+0xa5`) — see [`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5). Including the disarmed term is the point rather than an oversight: the question this order asks is whether anything can still contest the post, and a machine with no working hardpoint cannot. It does mean a rival group of ordinary structures never blocks a guard order at all, because `Base_Construct` sets `+0xa5` on an unarmed building type at spawn — again the right answer to the question being asked, and the reason the function's name is worth reading as "out of the fight" rather than "destroyed".
+**"Still has a member in the fight" is `Group_IsWipedOut` (`00412be4`), which tests all three out-of-the-fight bytes, the disarmed one included** — [`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5) owns the triple and the reading of that function's name. The disarmed term is the point rather than an oversight: this order asks whether anything can still contest the post, and a machine with no working hardpoint cannot. It does mean a rival group of ordinary structures, born disarmed, never blocks a guard order at all.
 
 The comparison is on the subject pointer, not on the guarded position, so two groups only count as rivals when the mission gave them literally the same subject.
 
 ## What else reads an order
 
-Only four of the record's fields are ever read, and only through the current index:
+Only five of the record's fields are ever read. Four are read through the current index:
 
 | Field | Read by |
 |---|---|
 | `+0x00` verb | `Mech_AiSelectBehaviour`, `Mech_AiCombatReassess`, `Ai_SelectTarget`, the `patrolling` think, `Mech_ReceiveSquadOrder` (`00420ad4`), `Flyer_BehaviourSearchDestroyThink` (`00422a80`) — all with the same "or `0x0b` if the slot is null" idiom |
 | `+0x0c` / `+0x0e` subject | `Group_OrderTargetObject` (`004238a0`), `Group_IsOrderTarget` (`00423918`), `Group_OrderTargetPosition` (`004238d4`) — see [`ai-targeting.md`](ai-targeting.md) for what each decides |
 | `+0x12` action | `Group_OrderTick` alone |
+
+The fifth, `+0x08`, is read outside the current index: `DBSim_BuildGroupRecord` takes slot 0's, and `Mission_GroupOrderCompleteOnRoute` scans all ten slots for the one whose route is the objective's waypoint group, then answers that slot's `+0x70` flag.
 
 `Group_OrderTargetPosition` is the one that falls back: with no subject it answers the **first waypoint of the group's route**, which is why a group ordered to hold a place with nothing named still has somewhere to stand.
 

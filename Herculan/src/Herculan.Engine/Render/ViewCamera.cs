@@ -123,11 +123,12 @@ public sealed class ViewCamera {
 	}
 
 	/// <summary>
-	/// <c>FUN_0045ed94</c>: asks <paramref name="target"/> for its <see cref="SimObject.ViewMounts"/>
-	/// and attaches to it twice over — <c>FUN_0040111c</c> takes the eye and sets
-	/// <see cref="ViewCameraMode.Attached"/>, then <c>FUN_0040109c</c> takes the orbit centre, starts
+	/// <c>Cam_AttachTo</c> (<c>0045ed94</c>): asks <paramref name="target"/> for its <see cref="SimObject.ViewMounts"/>
+	/// and attaches to it twice over — <c>Cam_AttachEye</c> (<c>0040111c</c>) takes the eye and sets
+	/// <see cref="ViewCameraMode.Attached"/>, then <c>Cam_AttachOrbit</c> (<c>0040109c</c>) takes the orbit centre, starts
 	/// the orbit over from directly behind at no distance, and sets <see cref="ViewCameraMode.Orbit"/>.
-	/// Roll and its rate survive.
+	/// The original zeroes the roll and its rate as well; nothing here ever sets either, so they are
+	/// always zero and need no reset.
 	/// </summary>
 	public void AttachTo(SimObject target) {
 		if (Locked) {

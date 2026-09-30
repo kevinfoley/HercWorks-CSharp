@@ -1,6 +1,6 @@
 # DBSIM.EXE beam visuals: the tracer object and how it is drawn
 
-What a fired beam looks like. The firing side — trigger, dispatch, shot record, hit resolution — is in [`weapon-firing.md`](weapon-firing.md).
+What a fired beam looks like. The firing side — trigger, dispatch, shot record, hit resolution — is in [`weapon-firing.md`](weapon-firing.md); the effect a shot spawns where it lands is in [`impact-effects.md`](impact-effects.md).
 
 ## Chain
 
@@ -35,33 +35,7 @@ A straight beam stores exactly two points: the muzzle and the hit.
 
 ## Appearance data
 
-`Beam_LoadResourceTables` (`0040b6e0`, the beam module's init, named by the `BEAM.CPP` string at `00498781`) loads two resources once at startup.
-
-**`dat\BEAM.DAT`** → `DAT_004a9888`. `int16 count`, then `count x` 3 `int16`s. Indexed by the `PROJ.DAT` record's **subtype id**, not by weapon id. C# port: `HercWorks.Core.Data.File.Dat.Sim.BeamData`; engine wrapper `Content.BeamAppearance`.
-
-| Field | Meaning |
-|---|---|
-| 0 | half-width, world units |
-| 1 | palette index — **unused by the straight path**, see below |
-| 2 | `BEAMTEX.DBA` frame |
-
-Retail (10 records, frame 0 throughout):
-
-| id | Weapon | Half-width | Colour |
-|---|---|---|---|
-| 0 | PBW | 60 | 10 |
-| 1 | ELFW | 30 | 104 |
-| 2 | BPBW | 120 | 10 |
-| 3 | L100 | 20 | 88 |
-| 4 | L200 / L400 | 25 | 88 |
-| 5 | L300 / L500 | 30 | 88 |
-| 6 | PBW2 | 75 | 1 |
-| 7 | ELF2 | 45 | 99 |
-| 8-9 | unused | 35, 40 | 88 |
-
-**`dba\BEAMTEX.DBA`** → `DAT_004a988c` via `BitmapArray_PackToAtlas` (`00469f38`), which packs each frame into a 256x256 atlas page and writes a 20-byte descriptor `{x0, y0, x1, y1, pageIndex}` — hence the draw's `(short)entry[4]`. The `+0x12` short flags a frame containing palette index 0.
-
-Retail ships **one** frame, 128x25, every row a single repeated index: 11 at both edges, then the ramp 84..95 in to the middle and back out. Nothing varies along the beam's length, so the frame is a pure cross-section. In a `WORLD<n>.DPL` that ramp is the fire ramp — dark orange (184, 92, 20) climbing to near-white (252, 248, 228).
+`Beam_LoadResourceTables` (`0040b6e0`) loads `dat\BEAM.DAT` and `dba\BEAMTEX.DBA` once at startup; their layout and the retail records are in [`../formats/beam-dat.md`](../formats/beam-dat.md). The draw reads the tracer's subtype id (`+0x52`) into `BEAM.DAT` for a half-width, a palette index and a `BEAMTEX` frame. Retail's one frame is a pure cross-section ribbon, so the half-width is all that tells straight beams apart.
 
 ## Drawing — `BeamTracer_Draw` (`0040bc14`, vtable slot 0)
 
@@ -78,15 +52,7 @@ No z is written — the vertex struct's `+8` is left untouched.
 
 ### The fill is a plain texture copy
 
-`Raster_DrawPolygon` (`00468310`)'s third argument selects the span routine, and its last selects transparency:
-
-| mode | span routine | interpolants |
-|---|---|---|
-| 0 | `Raster_SpanTextured` (`0046ab10`) | u, v |
-| 1 | `FUN_0046ac48` | u, v + a shade level from `param_5` |
-| 2 | `FUN_0046adad` | u, v + a third at vertex `+0x14` |
-
-A beam uses **mode 0 with the transparency argument zero**, which is `Raster_SpanTextured`'s opaque half: fetch `atlasPage[v][u]`, store that palette byte to the framebuffer, step the fixed-point u/v, repeat. The non-zero form is a colour-key skip of index 0 — not blending. **There is no alpha, no shade level and no colour lookup anywhere in this path.**
+A beam uses `Raster_DrawPolygon`'s **mode 0 with the transparency argument zero**, which is `Raster_SpanTextured`'s opaque half: the palette byte at `atlasPage[v][u]` goes to the framebuffer unchanged. The non-zero form is a colour-key skip of index 0, not blending. **There is no alpha, no shade level and no colour lookup anywhere in this path.** The mode table is in [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#the-frame-descriptor-table-and-the-span-routines-dbsim).
 
 ### `BEAM.DAT`'s colour index is the fill brush, and only the jagged path uses it
 
@@ -105,21 +71,15 @@ So every retail straight beam draws the identical orange-to-white ribbon and is 
 - Node `k` is the running point; the **last** node restarts from the exact endpoint instead. Every node but the first — the last one included — is then jittered on each axis by `Math_RandomNext() & 0x7f`. The mask leaves that one-sided, 0 to 127, so the chain bows off the straight line rather than wandering either side of it, and the far end does not sit on the impact point.
 - Each node writes a **pair**: `points[2k]` with `BEAM.DAT`'s width added to its z, `points[2k+1]` without. So the chain is a ribbon standing vertically **in the world**, not a camera-facing one: seen from directly above an ELF is edge-on.
 
-### The paint is the shape renderer's point-list path
+### The paint uses the polygon renderers' project, clip and fill chain
 
-The three functions the paint loop calls are not beam code — they are the generic path `TSSolidPoly_Render` and the rest of the `.DTS` renderers use, driven by globals the beam draw publishes up front: `DAT_006c6970` = point array, `DAT_006c6974` = point count, `DAT_006c6976` = the vertex-index list, and per quad `DAT_006c6968` = 4 vertices with `DAT_006c696a` = `k << (3 - jaggedFlag)` as the offset into that list. `jaggedFlag` is 1 on every object that reaches here, so the shift is always 2 and the other value is unreachable.
-
-| | |
-|---|---|
-| `Poly_ProjectIndexedVertices` (`0048c964`) | Projects the four named vertices, memoising each in a per-point state byte at `DAT_006c697e` — 0 untouched, 1 behind the near plane, 2 projected — and writing screen points to `DAT_006cbb86` / count `DAT_006cbc86`. Returns non-zero when any vertex fell behind the near plane |
-| `Poly_ClipRingToNearPlane` (`0048ce14`) | Only then: clips the vertex ring against the near plane, rebuilding the same screen-point list |
-| `PolyFill_Fill` (`0048d4b4`) | Fills the screen polygon. Sibling of `PolyFill_FillThenOutline` (`0048d518`) without its mode-5 guard |
+The paint loop is not beam code past its set-up. It calls `Poly_ProjectIndexedVertices`, then `Poly_ClipRingToNearPlane` if a vertex fell behind the near plane, then `PolyFill_Fill` — the flat-poly chain described in [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#the-projection-clip-and-fill-chain-dbsim). The beam draw feeds it through the globals that chain reads, published up front: `DAT_006c6970` = point array, `DAT_006c6974` = point count, `DAT_006c6976` = the vertex-index list, and per quad `DAT_006c6968` = 4 vertices with `DAT_006c696a` = `k << (3 - jaggedFlag)` as the offset into that list. `jaggedFlag` is 1 on every object that reaches here, so the shift is always 2 and the other value is unreachable.
 
 The fill is winding-agnostic — `Raster_DrawPolygonEitherWinding` (`004841af`) measures the signed area and hands the other winding to `Raster_DrawPolygonReversed` (`00484116`), [`../polygon-fill.md`](../polygon-fill.md#filling-a-polygon) — so the ribbon draws from either side. The index list is the 120-entry table at `DAT_004a9796`, built by `Beam_LoadResourceTables` as `(i >> 1) + {1, 0, 1, 2}[i & 3]` over the **`int16`** table at `00498640`. Read four entries from `4k`, that is `points[2k+1]`, `points[2k]`, `points[2k+2]`, `points[2k+3]` — a wound quad spanning nodes `k` and `k+1`.
 
 120 entries is 30 quads. Retail never approaches it: the longer-ranged of the two is `ELF` at 20000 units (see [`weapons-dat-sim.md`](../formats/weapons-dat-sim.md)), which is 20.
 
-`PolyFill_Fill`'s second pass — re-fill in the line colour when `DAT_006c60d4 != DAT_006c60dc` — is a no-op here. Those globals are the *default* brush; the beam installed its own on the context, so the redraw is an identical flat fill.
+`PolyFill_Fill`'s outline pass, gated on `DAT_006c60d4 != DAT_006c60dc`, draws nothing new here. Those globals are the *default* brush; the beam installed its own on the context, so the redraw is an identical flat fill.
 
 ### The muzzle stub is a retail fall-through
 
@@ -129,10 +89,6 @@ Nothing in the fire path spawns a muzzle visual for this to be part of — `Bull
 
 Retail reference: `Reference/Simulator3.jpg` shows an ELF as a thin bright yellow zigzag.
 
-## Impact effects
-
-Ported — [`impact-effects.md`](impact-effects.md) carries the array ordering.
-
 ## Rejected readings
 
 Readings a fresh pass could land on. Each is disproven; do not reintroduce.
@@ -140,6 +96,7 @@ Readings a fresh pass could land on. Each is disproven; do not reintroduce.
 | Reading | Why it is wrong |
 |---|---|
 | `BEAM.DAT`'s colour index is unused — the `+0x22c` pair is a HUD colour pair mode 0 never reads | `ctx+0x22c` is `clipBlock+0x228`, the fill brush, because the clip block is `ctx + 4`. The jagged path dispatches on it |
+| `Poly_ProjectIndexedVertices` (`0048c964`) is the projection the `.DTS` renderers use | Theirs is `Poly_ProjectShapeVertices` (`0048c848`), over 6-byte `Vec3Short` points. The indexed one reads 12-byte `int32` points and has two callers, this draw and `maybe_TSGouraudOrSimilarPoly_Render` (`0042ff2d`) |
 | One of `0048c964`/`0048ce14`/`0048d4b4` redirects the geometry, since the tail reads `points[0]` and `points[1]` with no loop index | That tail is the straight-beam code the jagged branch falls through into — a separate draw, not part of the chain's |
 | The chain's last node is the exact endpoint | It is the endpoint **plus** the same jitter every other node gets |
 | The index table at `00498640` is bytes | `word ptr [ECX*2 + 0x498640]`; as bytes the quads collapse |

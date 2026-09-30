@@ -114,9 +114,17 @@ Every nonzero value in the retail table is a clean turn: 8190 (45°), 16380 (90�
 Confirmed on the Scramble training base: group 1 uses formation 9, and roster slots 6 and 8 are two of its three identical silo-cluster structures (type 7). Formation 9's slots 6 and 8 carry 16380 and 32760, and in retail those two stand turned by 90° and 180° while the third does not. The 90° one is at world (989519, 1033792), the base the mismatch was reported against.
 - **Mechs:** `Mech_AttachToGroup` (`00417aa8`) has the same heading-fallback shape, but `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a per-slot heading ([Open](#open)).
 - **Anchor adjustment — implemented.** A `BinaryFlag` base group is moved onto a fixed spot in its terrain tile before any per-member offset is added. See [Base formation terrain](#base-formation-terrain).
-- **Flyers.** `Flyer_AttachToGroup` is the flyer attach equivalent. No multi-flyer groups appear in retail data ([Open](#open)).
+- **Flyers.** Vtable `+0x78` is `Flyer_ApplyFormationOffset` (`00421e98`), reading `dat\FFORMS.DAT` — [below](#the-flyer-formation-table). `Flyer_AttachToGroup` (`00421ee8`) is the flyer attach equivalent. The live `data\script.dat` has one two-flyer group, in formation 3.
 - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups get distinct member positions, 0 exceptions; BFORMS.DAT/MFORMS.DAT both still parse byte-exact.
 8. **A group whose record names a block-5 action (`0x70`) is not in the mission yet** — undrawn, unsimulated and non-solid until that action fires and the group arrives, on foot or by drop pod. Its placed position is a placeholder the arrival overwrites, which is why retail missions leave such groups stacked on shared points (routinely the player's own spawn). See [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md); **do not read a waiting group's position as where the mission means it to be.**
+
+## The flyer formation table
+
+`Flyer_LoadResources` (`00422d8f`, `flyersys.cpp`) opens `dat\fforms` (string at `0049a68c`), reads a 2-byte record count and then that many `0x12`-byte records. `dat\FFORMS.DAT` is 92 content bytes, a count of 5 and five records, with nothing left over. `FlyerFormation_GetSlotOffset` (`00423044`) resolves an offset as `base + formationId * 0x12 + slot * 6 - 6`, so a record is **three** slots of three `int16` (x, y, z), and the slot index is **one-based**: the group's first member, the flight leader, takes no offset at all.
+
+The offset carries a Z, where `MFORMS.DAT`'s and `BFORMS.DAT`'s entries do not. `Flyer_ApplyFormationOffset` hands all three components to the shared `Formation_RotateAndAddOffset` (`00411d64`), which rotates the (x, y) by the **group leader's** heading and adds the Z unrotated. Every slot is 400 units higher than the one before (400, 800, 1200). Formations 0, 1, 2 and 4 are a trailing column, 2500, 5000 and 7500 units aft (−y). Formation 3, the one the live `script.dat`'s two-flyer group uses, is a box: slot 1 at (−2500, 0), slot 2 at (0, −2500) and slot 3 at (−2500, −2500).
+
+Once placed, a wingman is held to the same offset in flight — [`../simulation/ai-flyers.md`](../simulation/ai-flyers.md#station-keeping).
 
 ## Base formation terrain
 
@@ -181,7 +189,7 @@ The "DBSIM keeps" column below describes **pass 1 only** — see the two-pass se
 | 7 | #12 (144B type) | count + count×134B (`0x08`-`0x2F` 40B span, `0x30` `SmallDiscrete`, `0x32`-`0x45` 20B span, `0x46`/`0x48` 2 shorts, two 20-short interleaved spans, `0x74`-`0x87` 20B span, 4 trailing shorts; `SmallDiscrete2` at `0x4A` is the one field of row #12 skipped/not exported) | yes | reads all 134B but keeps **only `SmallDiscrete` (`0x30`)**, the mech type — confirmed via the writer's own assert string on this field ("Invalid mech type"). Pass 2 comes back for the rest | **full 134B kept**; the map places a squad member only when its block-7 index is below this block's count |
 | 8 | #13 `UnkEntity102Bytes` | count + count×92B (`0x08`-`0x33` `FlagsA`+refs, `0x34` `BinaryField`, `0x38`-`0x5F` `FlagsB`, `0x60`-`0x64` refs+`UnkVal_100`; `Unk36` at `0x36` is skipped/not exported) | yes | reads all 92B but keeps only **`BinaryField` (`0x34`)**, the flyer type. Pass 2 comes back for the rest | **skipped** (seek past, discarded) |
 | 9 | #14 `MiscEntityInfo` | count + count×52B (`0x08` `TypeLikeScalar`, `0x0A`/`0x0C` refs, `0x10`-`0x37` `SparseBlock` as two interleaved spans, `0x38`-`0x3D` refs+`TrailingField`; `0x0E` is not exported) | yes | reads all 52B but keeps only **`TypeLikeScalar` (`0x08`)** — the base type, an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
-| 10 | #15 `LinkedRef22` | count + count×14B (`0x08`-`0x14`, the 7 fields `msn-mission-file.md` decoded as small-int/refs/discriminator) | yes | pass 1 reads all 14B and discards it; **pass 2 resolves it** into a 22-byte **mission-group order** — `0x00` verb, `0x04` block-1 point, `0x08` block-3 waypoint group, `0x0e` subject object/group, `0x12` block-5 action, laid out in [`../simulation/ai-goals.md`](../simulation/ai-goals.md) — and a group's route and spawn point come from its slot-0 link's `0x08` | **full 14B kept** — the map takes its nav path, its squad's anchor and formation from record 0's first order |
+| 10 | #15 `LinkedRef22` | count + count×14B (`0x08`-`0x14`, the 7 fields `msn-mission-file.md` decoded as small-int/refs/discriminator) | yes | pass 1 reads all 14B and discards it; **pass 2 resolves it** into a 22-byte **mission-group order** ([below](#block-10-in-memory--22-bytes-0x16)) — and a group's route and spawn point come from its slot-0 link's `0x08` | **full 14B kept** — the map takes its nav path, its squad's anchor and formation from record 0's first order |
 | 11 | #16 `EntitySpawn164` | count + count×156B (two 40B/20B spans, a 20-entry nested cross-ref array with a 3-way discriminator, trailing shorts) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-squad placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept; every type-2 record moves the bases it names and sets whether the map shows them, and record 0 is the squad the map draws |
 | 12 | #17 `UnitSpawn58` | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and discards it; **pass 2 comes back and builds the mission's objectives** from it — see below | **skipped** (seek past, discarded) |
 | 13 | #4 (no stable name) | flat tail: **one** count (how many of row #4's 10-slot sub-array A are populated, from its front — assumes no gaps) + that many×2B (the refs themselves) | n/a — single mission-level record, not a per-entity array | full — **the mission's objective list as the player is shown it**: one `data\mission.str` line index per entry. Count into `DAT_004a9ec8`, refs into `DAT_004a9ecc`, and the only reader is the in-mission objectives panel (`obj_alrt`, `ObjectivesPanel_Ctor` (`0045751c`)), which prints one label per entry | not read (VSHELL's `ShellMap` reader stops after block 12) |
@@ -214,6 +222,20 @@ The text refs at `0x44`-`0x4D`, `mission.str` lines like every other text ref in
 | `0x2c` | `0x08` | the countdown, in the simulation's timer unit — [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md#timer-units) |
 
 This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary rather than dead.
+
+### Block 10 in memory — 22 bytes (`0x16`)
+
+The **mission-group order** record. `DBSim_SpawnMissionObjects` (`004253d8`) allocates `orderCount * 0x16` and fills one record per block-10 entry, resolving each of that entry's four refs to a pointer as it goes. The seven source fields land in a different order than they are read in. What each field means to the simulation, and which of them nothing reads, is [`../simulation/ai-goals.md`](../simulation/ai-goals.md#the-order-record)'s.
+
+| offset | from | field |
+|---|---|---|
+| `0x00` | `0x08` | verb, 0-6 |
+| `0x02` | `0x0a` | short, copied verbatim |
+| `0x04` | `0x0c` | ref → block 1 (a point), resolved to a pointer |
+| `0x08` | `0x0e` | ref → block 3 (a waypoint group), resolved to a pointer — the order's route |
+| `0x0c` | `0x10` | subject kind: `-1` nothing, 0 a group, 1 a mech, 2 a flyer, 3 a base |
+| `0x0e` | `0x12` | subject ref, resolved against the kind by `Mission_ResolveRefByKind` (`00425348`) — a group record for kind 0, an object for kinds 1-3 |
+| `0x12` | `0x14` | ref → block 5 (the action that ends the order), resolved to a pointer |
 
 ### Block 12 in memory — 76 bytes (`0x4c`)
 
@@ -283,4 +305,3 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 ## Open
 
 - **Open:** whether mechs get any per-slot heading turn on formation attach, the way bases do — `MFORMS.DAT`'s 28-byte formations have no field for one, so the fallback shape `Mech_AttachToGroup` shares with `Base_AttachToGroup` may simply have nothing to read.
-- **Unported:** flyer group formation offset — `Flyer_AttachToGroup` (`00421ee8`) is `Mech_AttachToGroup`/`Base_AttachToGroup`'s flyer equivalent and has no port; no multi-flyer groups appear in retail data to exercise it.

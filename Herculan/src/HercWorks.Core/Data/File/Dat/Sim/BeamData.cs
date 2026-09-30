@@ -3,11 +3,12 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// <summary>
 /// FILE - /DBSIM/DAT/BEAM.DAT
 ///   0 - UINT16 - total beam count
-///   SEQ0: width, color index id (only active on ELF weapons for some reason), BEAMTEX.DBA frame
-///   number.
+///   SEQ0: half-width, color index id (only the ELF weapons' jagged path uses it), BEAMTEX.DBA
+///   frame number.
 /// Stock beam order maps to ProjectileData "missile_id" when "type" == "BEAM":
-///   0 PBW I, 1 ELF I, 2 ?, 3 LAS100, 4 LAS200/LAS400, 5 LAS300/LAS500, 6 PBW II, 7 ELF II,
-///   8 ???, 9 ???
+///   0 PBW I, 1 ELF I, 2 BPBW, 3 LAS100, 4 LAS200/LAS400, 5 LAS300/LAS500, 6 PBW II, 7 ELF II,
+///   8 and 9 unused.
+/// Layout and the retail records: docs/formats/beam-dat.md.
 /// Ported from org.hercworks.core.data.file.dat.sim.BeamData.
 /// </summary>
 public class BeamData {

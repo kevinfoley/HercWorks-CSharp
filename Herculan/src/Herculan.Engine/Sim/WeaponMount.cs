@@ -1343,7 +1343,8 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// <c>WeaponMount_RangeAllows</c> (<c>0040e5f8</c>) — whether a target at <paramref name="range"/> is inside this weapon's
 	/// engagement window, <see cref="MinimumRange"/> exclusive to <see cref="Range"/> exclusive. Both
-	/// the AI's weapon choice and its ELF latch ask it.
+	/// the AI's weapon choice and its ELF latch ask it, as does the cockpit's readiness predicate;
+	/// see docs/simulation/weapon-mounts.md ("Readiness").
 	/// </summary>
 	public bool RangeAllows(int range) => MinimumRange < range && range < Range;
 

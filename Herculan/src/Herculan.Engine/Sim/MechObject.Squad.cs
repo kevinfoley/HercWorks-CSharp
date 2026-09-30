@@ -447,9 +447,9 @@ public partial class MechObject {
 
 	// The reply ids. They index the pilot-and-squad channel's own catalog (Content.SquadMessages);
 	// the names below say what raises each one rather than what it reads out, and docs/formats/
-	// audio.md carries the line each one speaks. ReplyAffirmative is the one whose line and whose
-	// arms disagree: several of the arms that post it are refusals, and the line is "AFFIRMATIVE!".
-	// See PostSquadMessage.
+	// cockpit-messages.md carries the line each one speaks. ReplyAffirmative is the one whose line
+	// and whose arms disagree: one of the arms that post it is a refusal (IGNORE MY TARGET from a
+	// machine out of action), and the line is "AFFIRMATIVE!". See PostSquadMessage.
 	private const int NoReply = -1;
 	private const int ReplyOnMyWay = 0x0b;
 	private const int ReplyHoldingFire = 0x0c;

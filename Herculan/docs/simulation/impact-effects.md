@@ -2,62 +2,32 @@
 
 Addresses are DBSIM virtual addresses.
 
-What happens where a shot lands. An effect is a `dts\EXPLOS.DTS` root standing still at the point of impact, playing its flipbook of billboards ([`../formats/dts-billboards.md`](../formats/dts-billboards.md)) through exactly once — unlike a fire, which loops the same kind of flipbook until it burns out ([`destruction-effects.md`](destruction-effects.md#fire)). Like a tracer or a travelling round it lives in the effect pool (`DAT_004a96a2`) that `Sim_MainTick` walks ahead of the machine list, so nothing can shoot it and nothing collides with it.
+What happens where a shot lands. An effect is a `dts\EXPLOS.DTS` root standing still at the point of impact, playing its flipbook of billboards ([`../formats/dts-billboards.md`](../formats/dts-billboards.md)) through exactly once — unlike a fire, which loops the same kind of flipbook until it burns out ([`destruction-effects.md`](destruction-effects.md#fire)). Like a tracer or a travelling round it is not a machine: it lives in a pool of its own, `g_ExplosionPool` (`DAT_004a96a2`), which `Sim_MainTick` walks first in its effect-pool pass — ahead of the smoke, fire, debris and meteor pools, the tracer and round pool (`DAT_004a9746`) and the machine list — so nothing can shoot it and nothing collides with it. The pool holds 40 effects; a spawn into a full pool builds nothing.
 
-## Resources — `Explosion_LoadResources` (`00407b54`)
-
-Loaded once at startup:
-
-- **`dba\EXPLO0.DBA`..`EXPLO14.DBA`**, fifteen banks, from the name template `explo666` at `00497ba0` (the loader overwrites from the sixth character on with the index). With `CockpitArt_LoadOnDemand` set it loads thirteen `EXPLO<n>S.DBA` banks instead.
-- **`dts\EXPLOS.DTS`** (or `EXPLOS2.DTS`), 20 roots, every one a `TSCellAnimPart` of `TSBitmapPart`s.
-- **`dat\EXPLOS.DAT`**, below.
-
-## `dat\EXPLOS.DAT`
-
-```
-int16 shapeCount
-{ int16 animSequence; int16 textureBankIndex; }[shapeCount]
-int16 typeCount
-byte[0x28][typeCount]
-```
-
-Retail is 964 bytes: 20 shapes, 22 types, nothing left over. `shapeCount` matches `EXPLOS.DTS`'s root count exactly — the table's first half is one row per root, in order, and the loader writes `shape->boundBank = banks[textureBankIndex]` straight into each shape instance's own bank pointer.
-
-`animSequence` is the cell-animation sequence the effect drives; zero on every retail row, matching every `TSCellAnimPart` in `EXPLOS.DTS`. Negative means the shape has no flipbook.
-
-### Type row (0x28 bytes)
-
-Reached as `table + typeId * 0x28` (`Explosion_GetTypeRecord`, `00407b20`).
-
-| Offset | Field | Meaning |
-|---|---|---|
-| `+0x00` | `ShapeIndex` | which shape row, i.e. which `EXPLOS.DTS` root |
-| `+0x02` | `FrameInterval` | ticks each flipbook frame is held; **1 on every retail row** |
-| `+0x04` | `TrailEffect` | nonzero attaches a second effect object; **0 on every retail row** |
-| `+0x06` | `LightMode` | nonzero attaches a light source; 0, 1 or 2 in retail, and 1 and 2 behave alike |
-| `+0x08`..`+0x1f` | `FrameIntensity[12]` | the light's intensity per frame; low byte passed to the light as each frame is stepped |
-| `+0x20` | `ProximityRadius` (int32) | radius the effect's own query slot (`FUN_00408100`) reports a hit inside; 0 or 20000 |
-| `+0x24` | `SoundId` | played as `id + 10`; negative is silent |
-| `+0x26` | `ObjectClass` | 0 registers the effect under class tag 2, else 8 |
+The tables, the texture banks and the shape file it draws from are [`../formats/explos-dat.md`](../formats/explos-dat.md). Everything below refers to that file's type row by its field names.
 
 ## Construction — `Explosion_Construct` (`00407f1c`)
 
-`(effect, typeId, worldPoint, ownerObject, playSound)`. Resolves the shape through the two tables, resets the shape instance's frame counter for the type's sequence to 0, loads the countdown from `FrameInterval`, and optionally builds the light and the trail object. `playSound` gates the `SoundId` call, not the effect. What the light is and what it does to a shape is [`../formats/effect-lights.md`](../formats/effect-lights.md).
+`(effect, typeId, worldPoint, ownerObject, playSound)`. Resolves the shape through the two tables, records the type id (`effect+0x41`) and the owner (`effect+0x57`), resets the shape instance's frame counter for the type's sequence to 0, loads the countdown from `FrameInterval`, and optionally builds the trail object and the light. `playSound` gates the `SoundId` call, not the effect. What the light is and what it does to a shape is [`../formats/effect-lights.md`](../formats/effect-lights.md).
+
+The owner is the object the effect belongs to for drawing ([below](#drawing)): the struck structure or machine at their hit tests, the structure at its collapse and death sequence, the machine at a component's loss. A flyer's hit test, a terrain hit and a debris piece's burst pass none.
 
 ## Tick — `Explosion_TickUpdate` (`0040813c`)
 
 ```
 if (CountdownTimerTick(effect+0x4a) != 0) return alive;   // counter is the short at +0x4b
+if (animSequence < 0) return finished;    // no flipbook to step
 frame = (frame + 1) % shapeFrameCount;
 if (frame == 0) return finished;          // the flipbook wrapped: the effect is over
 light?.SetIntensity(FrameIntensity[frame]);
+trail?.frame = (trail.frame + 1) % trailShapeFrameCount;
 timer = FrameInterval;                    // i.e. effect+0x4b
 return alive;
 ```
 
-Nothing moves it and nothing else can stop it. The frame count comes off the loaded shape (`shape+0x20`'s per-sequence array), not off the table.
+`Sim_MainTick` calls it directly, once per pool entry, and queues a finished effect for deletion; the effect class's vtable slot `+0x14` is a stub, not this function. Nothing moves the effect and nothing else can stop it. The frame count comes off the loaded shape (`shape+0x20`'s per-sequence array), not off the table. `FrameIntensity` has twelve entries; a flipbook longer than that would read on into `ProximityRadius`, and no retail shape is.
 
-The tick argument is the record base, not the counter: `Math_CountdownTimerTick` reads the `short` at `+1` from the pointer it is given. See the countdown-timer entry in `dbsim-physics-notes.md`.
+The tick argument is the record base, not the counter: `Math_CountdownTimerTick` reads the `short` at `+1` from the pointer it is given. See the countdown-timer entry in [`dbsim-physics-notes.md`](dbsim-physics-notes.md).
 
 ## Which effect a shot spawns
 
@@ -67,7 +37,7 @@ Every `PROJ.DAT` record carries three four-entry `ImpactFX` arrays. The shot rec
 |---|---|---|---|
 | 0 | `ImpactFXShield` | a shot the struck facing's shields **fully** absorbed | `Mech_DirectFireHitTest`, base `+0` |
 | 1 | `ImpactFXGround` | a shot ending on **terrain**; also an armour hit that left the struck component in the health band it was already in | `Sim_RaycastObjectList` tail, base `+8`; `Mech_ApplyDirectFireDamage` with `group == 1` |
-| 2 | `ImpactFXArmor` | an armour hit that dropped the component's health band; also the only array the non-mech hit test (`Base_DirectFireHitTest`, `00405038`) uses | `Mech_ApplyDirectFireDamage` with `group == 2`, base `+0x10` |
+| 2 | `ImpactFXArmor` | an armour hit that dropped the component's health band; also the only array the non-mech hit tests (`Base_DirectFireHitTest`, `00405038`, and `Flyer_DirectFireHitTest`, `00421c8c`) use | `Mech_ApplyDirectFireDamage` with `group == 2`, base `+0x10` |
 
 **All 27 retail records carry byte-identical `ImpactFXGround` and `ImpactFXArmor` arrays**, so groups 1 and 2 are indistinguishable on real data.
 
@@ -80,6 +50,16 @@ point = rayTransform.TransformPoint(0, rayLength, 0);
 Explosion_Construct(alloc(pool), impactFx[4 + (rand & 3)], point, owner: 0, playSound: false);
 ```
 
-So a shot that ends in the dirt puts one down and a shot that ends on a machine does not, even though the ground clipped the ray first in both cases. **The ground pseudo-object `Sim_RaycastTerrain` installs at `DAT_004aab58` has nothing to do with it** — its fields are written and never read. Unlike every object-hit spawn this one passes no owner and suppresses the sound.
+So a shot that ends in the dirt puts one down and a shot that ends on a machine does not, even though the ground clipped the ray first in both cases. **The ground pseudo-object `Sim_RaycastTerrain` reports has nothing to do with it** ([`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)). Unlike the object-hit spawns this one passes no owner and suppresses the sound.
 
 The object-hit sites spawn from inside the hit test itself, at `transform(0, hitDistance, 0)` off the shot's frame, and do so whether or not the sweep goes on to find something nearer.
+
+## Drawing
+
+`maybe_Scene_SubmitFrameObjects` (`0042841c`) walks `g_ExplosionPool` once a frame, after the machine lists, and asks `Explosion_IsHiddenFromOwnerCockpit` (`00408240`) whether to skip each effect. The answer is no when the effect has an owner and the cockpit camera is attached to that owner ([`external-views.md`](external-views.md)), unless the type id is 2 or 11 to 14, which are always drawn. So from inside the cockpit of the machine being hit, the impact effects on its own hull are not drawn. A drawn effect is filed into the draw table ([`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md)) under its owner's cached terrain cell (`Explosion_GetOwnerDrawCell`, `00408228`: `owner+0x1e8`, the pair this walk stored on the owner earlier in the same pass), or under the cell its own position falls in when it has no owner.
+
+## Open
+
+- **Unported:** the owner rule under [Drawing](#drawing): the owner-attached-camera suppression and the filing under the owner's cell.
+- **Unported:** the 40-entry pool limit: a forty-first simultaneous effect is not built.
+- **Open:** which `EXPLOS.DAT` types are 2 and 11 to 14, and why those escape the owner rule.

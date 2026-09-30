@@ -119,7 +119,8 @@ public sealed partial class MechObject {
 	/// <c>Cockpit_TargetAnglesFromCameraBone</c> (<c>0041ef14</c>) — bring <paramref name="point"/>
 	/// into the pilot's own frame, drive both turret axes at it, and hand back what is left of the
 	/// error. It is the whole of "point the turret at that", and the AI's fire path reaches it exactly
-	/// as the player's automatic tracking does.
+	/// as the player's automatic tracking does. The derivation is in docs/simulation/torso-aim.md,
+		/// "Aiming at a point".
 	///
 	/// <list type="bullet">
 	/// <item>Each axis' demand is the residual angle scaled by <see cref="CenterGain"/>, clamped to

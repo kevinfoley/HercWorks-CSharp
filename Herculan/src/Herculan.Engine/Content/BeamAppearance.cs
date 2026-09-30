@@ -7,42 +7,19 @@ using HercWorks.Core.Io.Transform.Dbsim;
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// What a beam looks like: the two resources <c>Beam_LoadResourceTables</c> (<c>0040b6e0</c>) — the
-/// beam module's own init, which the string <c>BEAM.CPP</c> at <c>00498781</c> names — loads once at
-/// startup.
+/// What a beam looks like: <c>dat\BEAM.DAT</c> (<see cref="BeamData"/>) and <c>dba\BEAMTEX.DBA</c>,
+/// the two resources <c>Beam_LoadResourceTables</c> (<c>0040b6e0</c>) loads once at startup. The
+/// layouts and the retail records are in docs/formats/beam-dat.md.
 ///
-/// <list type="bullet">
-/// <item><c>dat\BEAM.DAT</c>, a count followed by that many six-byte records
-/// (<see cref="BeamData"/>), read straight into the table at <c>DAT_004a9888</c> and indexed by the
-/// firing <c>PROJ.DAT</c> record's <b>subtype id</b> — not by weapon id.</item>
-/// <item><c>dba\BEAMTEX.DBA</c>, whose frames become the descriptor table at <c>DAT_004a988c</c>
-/// (<c>BitmapArray_PackToAtlas</c> (<c>00469f38</c>), twenty bytes each: a UV rect and a texture handle) that the draw indexes
-/// with the record's third field.</item>
-/// </list>
+/// <para>Retail's one <c>BEAMTEX.DBA</c> frame is a pure cross-section, every row one constant
+/// palette index, so this class keeps it as a profile of <see cref="ProfileTexels"/> RGBA samples
+/// rather than a 2D image (engine choice). The table is indexed by the firing <c>PROJ.DAT</c>
+/// record's subtype id, not by weapon id.</para>
 ///
-/// <para><b>Retail ships one frame and every record points at it.</b> <c>BEAMTEX.DBA</c> holds a
-/// single 128x25 bitmap whose every row is one constant palette index — 11 at both edges, then the
-/// ramp 84..95 in to the middle and back out — so the frame is a pure cross-section profile with
-/// nothing varying along the beam's length. In a <c>WORLD&lt;n&gt;.DPL</c> that ramp is the fire
-/// ramp, dark orange (184, 92, 20) climbing to near-white (252, 248, 228). That is why this class
-/// keeps a profile of <see cref="ProfileTexels"/> RGBA samples rather than a 2D image.</para>
-///
-/// <para><b>Only the width differs per weapon.</b> The record's first field is the beam's half-width
-/// in world units — <c>BeamTracer_Draw</c> feeds it to the perspective divide at <c>0048c4c0</c> and
-/// floors the result at two pixels. Retail widths run 20 (LAS100) to 120 (BPBW).</para>
-///
-/// <para><b>The record's colour index belongs to the jagged path, and only to it.</b> The pair the
-/// draw writes to the graphics context is the rasterizer's <b>fill brush</b>, and an ELF's chain
-/// quads are a flat fill of that palette index with no texture involved. A straight beam installs
-/// the same brush and then never uses it — its span routine has no colour lookup — so every retail
-/// straight beam draws the same orange-to-white ribbon and is told apart only by how wide it is.
-/// PBW/BPBW 10, PBW2 1 and the LAS family 88 are all parsed and all ignored; ELF's 104 and ELF2's 99
-/// decide what those two look like. See <see cref="Color"/> and docs/simulation/beam-visuals.md.</para>
-///
-/// <para><b>There is no alpha.</b> <c>Bullet_FireBurst</c>'s draw passes <c>Raster_DrawPolygon</c> (<c>00468310</c>)'s last
-/// parameter as 0, which selects the span routine's opaque half; the non-zero form is a colour-key
-/// skip of palette index 0, not blending, and the profile contains no index 0 anyway. A beam is an
-/// opaque ribbon over whatever it crosses.</para>
+/// <para>Only the record's width differs per straight beam. Its colour index reaches the screen
+/// through the jagged (ELF) path alone — see <see cref="Color"/> and docs/simulation/beam-visuals.md,
+/// "<c>BEAM.DAT</c>'s colour index is the fill brush". A beam has no alpha and is an opaque ribbon
+/// over whatever it crosses.</para>
 /// </summary>
 public sealed class BeamAppearance {
 	/// <summary>The <c>dat</c> resource <c>Beam_LoadResourceTables</c> opens by the literal name <c>beam</c>.</summary>

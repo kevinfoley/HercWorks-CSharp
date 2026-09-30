@@ -123,6 +123,17 @@ Only under HAT = 2 does the hat drive axes, and then it writes straight over the
 
 Under HAT = 1 the four bytes are left alone and reach `CockpitView_PollViewDevice` (`00432b14`), which queues view commands 1, 0, 5 and 4 off them — up, down, and the two outside-view steps. Under HAT = 0, and after the axis write under HAT = 2, they are zeroed, so the view path sees nothing.
 
+### While the camera has the controls
+
+The two camera axes, the device struct's `+0x22` and `+0x26`, are pointers that `Input_BuildPlayerDevice` sets at its tail, and `Sim_PollPlayerInput` reads through them to steer the external-view camera ([`../simulation/external-views.md`](../simulation/external-views.md#steering-the-camera--cam_steer)). While `InputDrivesCamera` is clear they follow the JOYSTICK row (the turret pair under 2, the movement pair otherwise). While it is set they point at the steering and throttle axes, and the input build changes in step:
+
+- The keyboard's first pair is no longer moved onto the second, so the arrow keys steer the camera instead of the turret.
+- The stick's X and Y replace that keyboard pair wherever they have moved and are zeroed as sources, so the stick reaches the camera whatever the JOYSTICK row says.
+- A throttle lever and a rudder keep their bindings on a stick that has a lever, and are zeroed on one without.
+- Backturn is applied afterwards, to the camera's axes as it is to the machine's.
+
+The machine's steering, throttle and twist inputs are zero and its trigger is not read; the two centring commands, being dispatcher cases, still reach it. Its pitch axis is the exception. `Sim_PollPlayerInput` (`00460764`) still reads the device struct's `+0x14` into the turret block, but only when a stick is present (`Input_GetDevice(3)`) and the capability block's `+4` says it has a throttle, a second stick counting. The lever is the one source left that can reach it: the stick's X and Y and the keyboard's second pair are all zeroed as sources, and a rudder feeds the twist axis, which the machine ignores. A lever bound to the turret pair (THROTTLE = 2) therefore pitches the machine's turret while the camera flies, and under any other binding the axis reads zero. What the turret does with it is [`../simulation/torso-aim.md`](../simulation/torso-aim.md#automatic-turret-tracking--t). The input build takes the same branch for the missile camera (`DAT_004d25aa`).
+
 ### The buttons
 
 Each of the eight destination bytes takes its device button OR'd with whatever key is bound alongside it. Two things then happen to them.
@@ -147,7 +158,7 @@ The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 | 8 | `TARGET NEAREST` | `TargetSelect_Nearest`, ['] |
 | 9, 10 | `SHIELDS FRONT`, `SHIELDS REAR` | mech commands `0x1a` / `0x1b`, the bracket keys |
 | 11 | `HDD VIEW` | scancode `0x41` (F7) or `1` ([Esc]) to the widget tree — but see [below](#hdd-view-can-only-leave) |
-| 12, 15 | `OUTSIDE VIEW`, `CHASE VIEW` | step the chain of views `DAT_004d2572`, 12 as [V] does; 15 waits for the frame counter `DAT_004d25ff` to pass `0x31` — see [`../simulation/external-views.md`](../simulation/external-views.md#the-chain-of-views) |
+| 12, 15 | `OUTSIDE VIEW`, `CHASE VIEW` | step the chain of views `ViewChain_View`, 12 as [V] does; 15 waits for the frame counter `Sim_FrameCount` to pass `0x31` — see [`../simulation/external-views.md`](../simulation/external-views.md#the-chain-of-views) |
 | 13 | `LINK WEAPON` | presses the console LINK button, scancode `0x26` |
 | 14 | `MFD DISPLAYS` | `FUN_00446e14` — step the MFD's mode, wrapping at six |
 | 16 | `WEAPON TOGGLE` | weapon command `0x202`, which is `ToggleChainMember(0)` — **row 1's chain membership, not a general toggle** |
@@ -191,3 +202,4 @@ The only part of the input configuration outside `prefs.cfg`. `Keyjoy_LoadConfig
 ## Open
 
 - **Open:** the keyboard's `(dx, dy)` table at `0049eb6d` (28 bytes, one pair per key of [The keyboard](#the-keyboard)). It is zero in the image and `Input_BuildKeyboardAxes` is the only code found referring to it by address, so the writer, and the direction each key pushes an axis, are not found. Retail's arrow keys steer, so something fills it.
+- **Unported:** a throttle lever bound to the turret pair pitching the machine's turret while the camera has the controls ([above](#while-the-camera-has-the-controls)).

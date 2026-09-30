@@ -36,7 +36,7 @@ return 0
 | `+0x10` | `int32` | Near standoff. Starts 15000 |
 | `+0x14` | `int32` | Far standoff. Starts 30000 |
 
-The aspect is `targetTurretTwist + (bearingToTarget - 0x8000) - targetHeading`, and its only consumer is `Ai_ChooseWeapon`'s shield-facing test — see [`ai-weapons.md`](ai-weapons.md#open). The two travel thinks build the same quantity by hand rather than through this function.
+The aspect is `targetTurretTwist + (bearingToTarget - 0x8000) - targetHeading`. The twist is added, the same direction the player's forward-cone test and the sensor arc fold it in ([`target-selection.md`](target-selection.md#can-this-be-targeted--targetselect_cantarget-00433174)). The states below steer on it. The copy `Ai_AimAndFire` is handed has one reader, `Ai_ChooseWeapon`'s shield-facing test ([`ai-weapons.md`](ai-weapons.md#choosing-a-weapon--ai_chooseweapon-0041f358)). The two travel thinks build the same quantity by hand rather than through this function, for that hand-off alone.
 
 ## The move step — `Ai_CombatMoveStep` (`0041e828`)
 

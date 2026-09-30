@@ -21,8 +21,8 @@ public sealed partial class FlyerObject : IFlightBody {
 	/// moves a Cybrid flyer's throttle.</b> The control law fills a five-element command array and
 	/// leaves the throttle element zero at every site, so the flight model's rate branch never steps
 	/// the setting; the one field the AI does write a throttle-shaped figure into
-	/// (<c>flyer+0x21c</c>, which <c>Flyer_FormationThrottle</c> (<c>00422260</c>) works out from the leader's speed and the
-	/// station error) has no reader anywhere in the image. So a SKIMMER cruises at the airspeed
+	/// (<c>flyer+0x21c</c>, <c>Flyer_FormationThrottle</c> (<c>00422260</c>)'s own accumulator) is
+	/// never handed to the model. So a SKIMMER cruises at the airspeed
 	/// 0x200 asks for — 875 of its 500-1000 range — biased only by its own pitch attitude.
 	/// </summary>
 	private const short InitialThrottle = 0x200;
@@ -178,9 +178,8 @@ public sealed partial class FlyerObject : IFlightBody {
 	/// <para><b>The probes are lighter than a RAZOR's.</b> There are four rather than seven, none of
 	/// them sweeps forward against objects, and <b>none of them does any damage</b>: a Cybrid flyer
 	/// that scrapes a hillside is rolled or pitched off it and flies on. Nor is there any gate on
-	/// being wrecked — a destroyed aircraft keeps integrating, because the thing that takes it out of
-	/// the sky is the large negative vertical rate <c>Flyer_ComponentDamageWrite</c> writes into it,
-	/// not a stopped move.</para>
+	/// being wrecked: none is needed, because the <c>dead</c> state carries no move slot at all and
+	/// <c>Flyer_ComponentDamageWrite</c> has already dropped the wreck's Z to -100000.</para>
 	///
 	/// <para>The frame the probes are placed through is captured <i>after</i> the position moves and
 	/// is <b>not</b> rebuilt as they go, even though each contact marks the attitude stale. That is

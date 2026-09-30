@@ -181,7 +181,7 @@ A pod row is the one place the name is decorated. `PodGauge_Ctor` (`00441524`) s
 | `+0x1d` | armed mount index, `0xff` for none |
 | `+0x1f`, `+0x25`, `+0x2b` | the three fire-group arrays, one `short` per mount |
 | `+0x31` | range to the selected target — see [Readiness](#readiness--weaponmounts_mountisready-00410970) |
-| `+0x14` | TRACK's latch — Automatic Turret Tracking, read by the input path's turret block ([`torso-aim.md`](torso-aim.md#automatic-turret-tracking--t)) |
+| `+0x14` | TRACK's latch — Automatic Turret Tracking, read by the input path's turret block and the per-frame cockpit update ([`torso-aim.md`](torso-aim.md#automatic-turret-tracking--t)) |
 | `+0x18` | single-fire flag, below |
 
 **Every non-pod mount starts in group I and groups II and III start empty.** The constructor writes `group == wanted` into all three arrays with `wanted` fixed at 0 for a weapon and −1 for a pod. The initial selection is the first non-pod mount in *mount* order.
@@ -199,11 +199,11 @@ mount->vtable+0x2c                                       // the class's own CanF
 && (followLink || !mount+0x4b || MountIsReady(partner, followLink: 1))
 ```
 
-**The range gate is what makes a weapon that cannot reach the target red and skippable.** `WeaponMount_RangeAllows` (`0040e5f8`) is the same engagement window the AI's weapon choice uses — `template+0x2c < range < template+0x30`, both bounds exclusive, upper bound 15000–75000 across the table; see [`ai-weapons.md`](ai-weapons.md#the-engagement-envelope--weaponmount_rangeallows-0040e5f8).
+**The range gate is what makes a weapon that cannot reach the target red and skippable.** `WeaponMount_RangeAllows` (`0040e5f8`) is the weapon's engagement window, `template+0x2c < range < template+0x30`, both bounds exclusive. The upper bound is the weapon's range, 15000–75000 across the table; **the lower bound is zero for every one of the 33 retail templates**, so a minimum range exists in the format and never bites ([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md)). It is not the player's alone: the AI's weapon choice and its ELF latch ask the same test, against the ground-plane range to the point being shot at ([`ai-weapons.md`](ai-weapons.md#the-fire-decision--ai_fireatpoint-0041f5a0)).
 
 `manager+0x31` is the distance to the **selected target**, written by `Player_PerFrameCockpitUpdate` (`0041b130`) through `WeaponMounts_PerFrameUpdate`'s argument, and `Math_DistanceBetweenPoints` measures it from the machine to `target+0x26` each frame. **Zero when nothing is selected**, and the gate is skipped outright on zero — which is what stops every row going red on a machine with no target rather than the window's exclusive lower bound failing them all. The store happens *before* the chain advance, so both readers see the same frame's range.
 
-The measurement's origin is the machine's own position, except while `DAT_0049ef5c` is set and this is the local player, when it is the watched object `DAT_004d2708`, the spectator camera ([`target-selection.md`](target-selection.md), [Open](#open)).
+The measurement's origin is the machine's own position, except while `DAT_0049ef5c` is set and this is the local player, when it is the watched object `DAT_004d2708`, the spectator camera ([`external-views.md`](external-views.md#the-spectator-flag--dat_0049ef5c)).
 
 The third gate is **missile lock**, not ammunition: the mount's `vtable+0x60` subtype must have its flag up in `manager+0x0a`. Two subtypes are exempt — 5, which is "not a launcher", and 3, the electro-optical missile, which never latches a flag because the pilot flies it ([`missile-lock.md`](missile-lock.md)). Without that exemption an EO launcher's row could never go green.
 
@@ -262,5 +262,4 @@ One LINK press runs the toggle **three** times: the button's own click handler (
 ## Open
 
 - **Unported:** the missile-lock gate on readiness: a launcher whose subtype holds no lock reads red and is skipped.
-- **Unported:** the spectator camera as the readiness range's measurement origin (`DAT_0049ef5c`/`DAT_004d2708`) — see [`target-selection.md`](target-selection.md).
 - **Open:** template fields other than those named here — see [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).

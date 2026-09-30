@@ -323,6 +323,14 @@
           "description": "+0x96 -- this object's own active scanner. Toggled by Mech_ToggleRadarMode (0041b468); latched on by Base_Construct for structure types 5, 6, 0x1d and 0x1e. One of the two emissions the anti-radiation missile homes on."
         },
         {
+          "offset": 151,
+          "width": 1,
+          "type": "byte",
+          "name": "standingRadarSetting",
+          "confidence": "high",
+          "description": "+0x97 -- the mission file's own radar setting for this machine (.MSN row #12 +0x08, script.dat block 7 +0x00), stored once by DBSim_SpawnMissionObjects and never written again. Ai_UpdateWeaponsFree copies it to scannerActive for a machine whose group is not led by the player, and the travel and follow thinks fall back on it. Width from 'MOV byte ptr [EAX + 0x5],0x1' off the 0x92 base, which is why a scalar search for 0x97 finds the write and no read."
+        },
+        {
           "offset": 152,
           "width": 1,
           "type": "byte",
@@ -408,12 +416,28 @@
           "description": "+0xb1 -- something ran into this object. SimObject_SetRunInto (0042200c, vtable +0x68) is the only writer instruction, reached from two collision sweeps that name whatever blocked the move: Mech_CollisionTest and FUN_0046a510, inside StructureGroundVehicleVtable's tick slot. Mech_BehaviourRamTick is the only reader, and nothing clears it. Width from 'MOV byte ptr [EAX + 0x1f],0x1' off the 0x92 base -- both instructions rebase, which is why a scalar search for 0xb1 finds neither."
         },
         {
+          "offset": 178,
+          "width": 1,
+          "type": "byte",
+          "name": "squadRadarOrder",
+          "confidence": "high",
+          "description": "+0xb2 -- the player squad's radar order. Mech_ReceiveSquadOrder (00420ad4) sets it for SCAN FOR HOSTILES and clears it for EMCON. Ai_UpdateWeaponsFree copies it to scannerActive for a machine whose group is led by the local player, and Mech_AiCombatReassess and Mech_BehaviourGuardThink test it to keep a squadmate's radar on."
+        },
+        {
           "offset": 180,
           "width": 1,
           "type": "byte",
           "name": "collapsed",
           "confidence": "medium",
           "description": "+0xb4 -- the machine has finished going down and is lying on the ground. Two writers, both now known: Mech_LocomotionTick latches it on the frame the death animation plays out, and Mech_ApplyStartingCondition sets it at spawn for a machine the mission places as a wreck. A THIRD condition alongside destroyed (+0x99) and immobilised (+0xa4), not a synonym: it is what rejects a candidate in Ai_IsTargetable and in the mission group's condition tier, so a machine that is down but still falling is still a target. See docs/simulation/mech-locomotion.md."
+        },
+        {
+          "offset": 181,
+          "width": 1,
+          "type": "byte",
+          "name": "skipWeaponSelection",
+          "confidence": "high",
+          "description": "+0xb5 -- suppresses Ai_FireAtPoint's weapon choice for one tick. Rocket_HomingSteer (0040a254) sets it on every tick a subtype 3 (electro-optical) round steers, which is the AI's equivalent of the pilot flying the missile; Ai_FireAtPoint (0041f5a0) clears it when it spends it. Width from 'MOV byte ptr [EAX + 0x23],0x1' off the 0x92 base."
         },
         {
           "offset": 183,

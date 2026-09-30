@@ -4,24 +4,10 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// FILE — /SIMVOL0/DAT/EXPLOS.DAT (and its low-memory twin EXPLOS2.DAT), the impact/explosion
 /// effect tables DBSIM's <c>EXPLO.CPP</c> subsystem loads at startup (<c>Explosion_LoadResources</c>, <c>00407b54</c>).
 ///
-/// <para>Two tables back to back, both length-prefixed:</para>
-/// <code>
-///   int16 shapeCount
-///   { int16 animSequence; int16 textureBankIndex; }[shapeCount]
-///   int16 typeCount
-///   byte[0x28][typeCount]
-/// </code>
-///
-/// <para>The first table is indexed by root of <c>dts\EXPLOS.DTS</c> — one entry per root, in the
-/// same order — and its second field selects the bank the loader binds to that shape, from the
-/// fifteen <c>dba\EXPLO&lt;n&gt;.DBA</c> banks it opens by the name template <c>explo666</c> at
-/// <c>00497ba0</c>: the loader writes <c>shape-&gt;boundBank = banks[textureBankIndex]</c> straight
-/// into each shape instance's own bank pointer. Retail ships 20 shapes and 22 types, matching
-/// <c>EXPLOS.DTS</c>'s 20 roots exactly.</para>
-///
-/// <para>The second is the effect table proper, indexed by the effect type ids that
-/// <see cref="ProjectileData.Projectile"/>'s three <c>ImpactFX</c> arrays hold. See
-/// <see cref="ExplosionTypeEntry"/>.</para>
+/// <para>Two length-prefixed tables back to back: one <see cref="ExplosionShapeEntry"/> per root of
+/// <c>dts\EXPLOS.DTS</c>, then the <see cref="ExplosionTypeEntry"/> effect table proper, indexed by
+/// the effect type ids that <see cref="ProjectileData.Projectile"/>'s three <c>ImpactFX</c> arrays hold. The byte
+/// layout and how the loader binds the banks are in docs/formats/explos-dat.md.</para>
 /// </summary>
 public class ExplosionData {
 	public ExplosionShapeEntry[]? Shapes { get; set; }
@@ -88,8 +74,8 @@ public class ExplosionTypeEntry {
 	public const int FrameIntensityCount = 12;
 
 	/// <summary>
-	/// <c>+0x20</c>, an int32 — the radius the effect's own proximity query (vtable slot
-	/// <c>FUN_00408100</c>) reports a hit inside. Either 0 or 20000 in retail data.
+	/// <c>+0x20</c>, an int32 — the radius the effect's proximity test (<c>Explosion_ProximityTest</c>, <c>00408100</c>, which nothing
+	/// in the image calls) reports a hit inside. Either 0 or 20000 in retail data.
 	/// </summary>
 	public int ProximityRadius { get; set; }
 

@@ -207,4 +207,4 @@ A fatal contact sheds wreckage — group 3 at the contact point, and only from t
 ## Open
 
 - **Open:** whether any retail mission places an AI-controlled RAZOR, which the constructor would give the walker move. None has been found.
-- **Unported:** `Razor_MovementTick`'s closing call to `Mech_ConvergeGunsOnRange` (`0041a74c`), passing the distance from the machine to its selected target (`mech+0x1a4`), or 0 with none. A flyer has no pitch tick to reach the convergence from, as a walker does ([`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c)), so the movement tick drives it.
+- **Unported:** `Razor_MovementTick`'s closing call to `Mech_ConvergeGunsOnRange` (`0041a74c`), passing the distance from the machine to its selected target (`mech+0x1a4`), or 0 with none. A flyer has no pitch tick to reach the convergence from, as a walker does ([`weapon-firing.md`](weapon-firing.md#gun-convergence--mech_convergegunsonrange-0041a74c)), so the movement tick drives it.

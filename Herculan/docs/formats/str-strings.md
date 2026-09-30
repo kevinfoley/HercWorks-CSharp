@@ -51,7 +51,7 @@ Groups referenced by decoded code:
 | 14 | 19 | The same list for a flyer, selected by the subject type's `+0x50`. Only 6 slots are filled (`COCKPIT ARMOR`, `L`/`R NACELLE ARMOR`, `FUSELAGE ARMOR`, `L`/`R WING ARMOR`); the other 13 are empty strings, so the group stays index-compatible with group 13 |
 | 15 | 12 | Internal system names, walker variant |
 | 16 | 12 | The same list for a flyer — group 15 with the two leg servos replaced by `L`/`R WING SERVO` and the two trailing rear-leg slots blanked |
-| 17 | 1 | `YOU` |
+| 17 | 1 | `YOU` — the name on the external view's caption when the player's machine is the one viewed ([`../simulation/external-views.md`](../simulation/external-views.md#what-the-external-view-shows)) |
 | 19 | 2 | `NO TARGET SELECTED`, `NO INFO AVAILABLE` — the damage screen with no subject |
 | 20 | 3 | `ID:`, `TARGET:`, `DIST:  ` |
 | 21 | 1 | `STATUS:` |
@@ -65,6 +65,7 @@ Groups referenced by decoded code:
 | 29 | 2 | `ACT`, `PASS` — consumer not located; the scanner's own toggles caption from group 5 |
 | 30, 31 | 1,1 | `TRG:` and `RNG:`, the scanner's two corner captions (`DAT_004d16b4`/`b8`) |
 | 33 | 2 | `STATUS:` and `OBJECTIVE:`, the squad comm box's two fixed captions |
+| 36 | 4 | `VIEW: `, `CONTROL: `, `CAMERA`, `HERC` — the external view's caption ([`../simulation/external-views.md`](../simulation/external-views.md#what-the-external-view-shows)) |
 | 37 | 2 | `ATT` and `"WAYPOINT "` (trailing space) — the Automatic Turret Tracking legend and the waypoint indicator's caption prefix, both of them the gunsight complex's ([`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md#front-window-hud--the-gunsight-complex)) |
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
 | 40 | 8 | Squad comm box's current-order line: `ATTACK`, `TRAVEL`, `PATROL`, `FORM UP`, `GUARD`, `FLEE`, `DEAD`, `IMMOBILE` |

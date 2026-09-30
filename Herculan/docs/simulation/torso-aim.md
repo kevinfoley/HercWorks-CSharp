@@ -14,43 +14,16 @@ Reverse-engineered from `DBSIM.EXE`. Movement of the machine itself is in [`mech
 | `0041a808` | `Mech_TorsoPitchTick` | The same on the pitch axis |
 | `0041e8d4` | `Mech_CenterTorsoTick` | The [Backspace] centring command |
 | `00479238` | `AnimThread_SeekToPosition` | Angle → frame + intra-frame offset |
-| `0041a6d0` / `0041a994` | — | Servo loop sound, gated on `mech+0xa3` |
-| `0041a74c` | — | Gun convergence, run from the pitch tick |
+| `0041a6d0` / `0041a994` | — | Servo-sound helpers, gated on `mech+0xa3` — [below](#the-servo-sound-helpers) |
+| `0041a74c` | `Mech_ConvergeGunsOnRange` | Gun convergence, run at the tail of the pitch tick — [`weapon-firing.md`](weapon-firing.md#gun-convergence--mech_convergegunsonrange-0041a74c) |
+| `0041ef14` | `Cockpit_TargetAnglesFromCameraBone` | Bring a world point into the eye's frame and drive both ticks at it — [below](#aiming-at-a-point) |
 | `00415488` | `Mech_GetTorsoTwistAngle` | Twist-angle accessor, mech vtable `+0x3c` |
 
-Three callers, all once per tick: `Sim_PollPlayerInput` (`00460764`) for the player, `Cockpit_TargetAnglesFromCameraBone`'s caller for AI aiming, and `Mech_CenterTorsoTick` for centring. `Mech_MovementTick` does **not** call them — the turret is driven from the input path, between the throttle and the move.
+Each tick has four call sites, none of them more than once per tick: `Sim_PollPlayerInput` (`00460764`) for the pilot's axes, and again for the [Center Body](mech-locomotion.md#center-body) block; `Cockpit_TargetAnglesFromCameraBone`, which `Sim_PollPlayerInput` calls for the tracker and `Ai_FireAtPoint` calls for every AI shot; and `Mech_CenterTorsoTick`. `Mech_MovementTick` does **not** call them — the turret is driven from the input path, between the throttle and the move.
 
-## Instance fields
+## Fields
 
-| Offset | Meaning |
-|---|---|
-| `+0x230` | Twist animation thread |
-| `+0x234` | Pitch animation thread |
-| `+0x294` / `+0x298` | Twist rate / angle |
-| `+0x296` / `+0x29a` | Pitch rate / angle |
-
-Both angles are binary angle measure relative to the machine's own heading.
-
-## Type record fields
-
-Two record fields previously carried names nothing read. Both are **sequence ids**:
-
-| rec | typeRec | C# field | Meaning |
-|---|---|---|---|
-| 26 | `+0x1c` | `AnimId_TorsoTwist` | Twist sequence (was `InputTorsoRazrFlag`) |
-| 28 | `+0x1e` | `TorsoTwistSpeed` | Twist rate at full stick |
-| 30 | `+0x20` | `TorsoRotateAccel` | How fast the twist rate may build |
-| 32 | `+0x22` | `TorsoTwistDegreeMax` | Twist limit, applied symmetrically |
-| 34 | `+0x24` | `AnimId_TorsoPitch` | Pitch sequence (was `InputFlagsTorso`) |
-| 36 | `+0x26` | `TorsoPitchMaxRate` | Pitch rate at full stick |
-| 38 | `+0x28` | `TorsoPitchRate` | How fast the pitch rate may build |
-| 40 | `+0x2a` | `TorsoPitchMax` | Pitch limit looking up |
-| 42 | `+0x2c` | `TorsoPitchMin` | Pitch limit looking down, negative |
-
-Fleet values: twist rate 1000 and limit 14000 (76.9°) on all 18; twist accel 1000 except RAPTOR2's
-250. Pitch rate 800 except RAPTOR2's 700; pitch range 3500/−2000 on OUTLAW, MAVERICK, STINGRAY and MONGOOSE, 6000/−4000 on the rest.
-
-Unlike the locomotion accel pair, both accel fields go through `Math_IntegrateRateOverTick`, so they are already time-based and need no rescale.
+The turret's state — the two animation threads at `mech+0x230` / `+0x234` and each axis' rate and angle at `+0x294`..`+0x29a` — is in the [instance-field table](mech-locomotion.md#mech-instance-fields), and its tuning, nine words of the type record at `typeRec+0x1c`..`+0x2c` (sequence id, rate at full stick, acceleration and limits, per axis), in the [type-record table](mech-locomotion.md#mech-type-record). Unlike the locomotion accel pair, both accel fields go through `Math_IntegrateRateOverTick`, so they are time-based.
 
 ## The tick
 
@@ -77,7 +50,7 @@ if ((angle - target >= 0 && before - target < 0) || (angle - target <= 0 && befo
 }
 ```
 
-Normal piloting passes it **disabled**. It exists for the centring command.
+The pilot's own axes pass it **disabled**. Two callers enable it: the centring command, with target 0, and [the aim primitive](#aiming-at-a-point), with the angle the turret would hold if it were already on the point.
 
 ### Angle to pose
 
@@ -97,9 +70,7 @@ The intra-frame offset lands on a whole animation tick, because the scale-down t
 
 `Mech_Constructor` (`00415bb0`) builds them in this order, skipping any whose sequence id is negative: locomotion on `typeRec+0x12` at `mech+0x22c`, twist on `+0x1c` at `+0x230`, pitch on `+0x24` at `+0x234`.
 
-The order matters. `ShapeInst_EvalAllNodeLocals` (`004789f4`) runs the threads **last-registered first**, each overwriting the local transform of every node its sequence covers with no regard for what is already there, so the **first**-registered thread's writes are the ones left standing: locomotion outranks the turret.
-
-It decides nothing on 17 of the 18 retail HERCs — locomotion covers parts 1,2,3,5–10, twist covers 4 and pitch covers 11 (MONGOOSE 11 and 12), disjoint. **HEADHUNT is the exception**: its twist node is 5, which its own locomotion sequences also animate, so its twist is overridden while it is moving. That is the retail data's own behaviour.
+The order matters: the first-registered thread wins any node two of them cover, so locomotion outranks the turret. Which nodes each covers, and the one HERC where it decides anything, are in [`dts-node-posing.md`](../formats/dts-node-posing.md#several-threads-on-one-shape).
 
 ### The angle is not the drawn direction
 
@@ -109,13 +80,15 @@ Nothing is inconsistent as a result: `Cockpit_TargetAnglesFromCameraBone` (`0041
 
 ## Automatic Turret Tracking — [T]
 
-ATT flies the turret at the selected target on its own. Its latch is the weapon manager's `manager+0x14`, which the console's TRACK button and the [T] command both toggle; the input path's turret block is the only thing that reads it.
+ATT flies the turret at the selected target on its own. Its latch is the weapon manager's `manager+0x14`, which the console's TRACK button and the [T] command both toggle; it is read by the input path's turret block and by the per-frame cockpit update whose timeout closes this section.
 
 The block's three cases, in its own order of tests:
 
 1. **Either turret axis non-zero** — the pilot has the turret. Tracking is skipped for the tick and the centring latch is cleared.
-2. **ATT latched, a target selected, and that target's `+0x99` clear** — `Player_ResolveTargetAimPoint` (`0041b728`) takes the target's aim point and hands it to `Cockpit_TargetAnglesFromCameraBone`, which runs both axis ticks itself. Note the liveness test is `+0x99` **alone**: unlike every AI test, a crippled (`+0xa4`) target is still tracked.
+2. **ATT latched, a target selected, and that target's `+0x99` clear** — `Player_ResolveTargetAimPoint` (`0041b728`) takes the target's aim point and hands it to `Cockpit_TargetAnglesFromCameraBone`, which runs both axis ticks itself, and the centring latch is cleared. Note the liveness test is `+0x99` **alone**: unlike every AI test, a crippled (`+0xa4`) target is still tracked.
 3. **Otherwise** the centring mode or the plain axis ticks, as before.
+
+The block is the walker's; a RAZOR takes its flight input instead. Center Body replaces it while it holds the legs. It also runs while the external-view camera has the controls, with the twist axis zero and the pitch axis whatever a throttle lever bound to the turret pair reads ([`../formats/joystick-input.md`](../formats/joystick-input.md#while-the-camera-has-the-controls)), so a non-zero reading there takes the turret from the tracker exactly as case 1 says.
 
 **Both centring commands turn ATT off.** `Sim_DispatchCommand`'s scancode `0x0e` ([Backspace]) and `0x2b` (`\`) each write `manager+0x14 = 0` alongside their own latch, so a pilot who asks for the turret back keeps it.
 
@@ -139,12 +112,25 @@ It is a **mode**, not a keypress: scancode `0x0e` latches `DAT_004d2588`, and th
 
 Scancode `0x2b` (`\`, "Center Body") sets the opposite flag `g_CenterBodyMode` (`004d2af4`), which turns the legs under the turret rather than the turret back to the legs. It substitutes the steering and the twist axis both, and is documented with the rest of the steering in [`mech-locomotion.md`](mech-locomotion.md#center-body).
 
-## The pilot's frame
+## Aiming at a point
 
-`Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) composes the camera node's world transform with the machine's and brings a target into that frame to place it on the HUD. It is also **the "point the turret at that" primitive**: it drives both ticks below from the residual angle and hands that residual back — see [`ai-weapons.md`](ai-weapons.md#the-fire-decision--ai_fireatpoint-0041f5a0). **That frame's orientation is what "the direction the pilot is looking" means in DBSIM** — the camera node hangs below both turret nodes (see [`mech-locomotion.md`](mech-locomotion.md#cockpit-eye-and-bob)'s chain table), so twist and pitch turn the view with nothing having to add them to it.
+`Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) is **the "point the turret at that" primitive**. The tracker calls it with the selected target's aim point and `Ai_FireAtPoint` with every AI shot, whether or not anything fires ([`ai-weapons.md`](ai-weapons.md#the-fire-decision--ai_fireatpoint-0041f5a0)). It works in the pilot's frame: the camera node's world transform composed with the machine's. **That frame's orientation is what "the direction the pilot is looking" means in DBSIM** — the camera node hangs below both turret nodes (see [`mech-locomotion.md`](mech-locomotion.md#cockpit-eye-and-bob)'s chain table), so twist and pitch turn the view with nothing having to add them to it, and the walk cycle does not.
 
-The walk cycle does not rotate that frame: on OUTLAW, OGRE, MONGOOSE and HEADHUNT the eye's yaw, pitch and roll stay at zero across a full stride with the turret centred. MONGOOSE's camera node carries a −570 (−3.1°) rest pitch of its own, so its view looks slightly down even then.
+```
+p        = point in the eye's frame, less typeRec+0x66 off its Z      // the eye's lift
+(e, y)   = Math_EulerToward(p)                                        // residual pitch and yaw
+a        = Q10(0xfa, residual)                                        // per axis
+if (p.y > 50000)                                                      // beyond ~300 m
+    if (|yaw|   < 1000) a_yaw   = |yaw|   < 0x32 ? 0 : Q10(700, a_yaw)
+    if (|pitch| < 1000) a_pitch = |pitch| < 0x55 ? 0 : Q10(700, a_pitch)
+axis     = Q8(|c|, c),  c = clamp(a, ±0x100)                          // yaw negated first
+Mech_TorsoTwistTick(mech, twistAxis, angle - yaw,   snap on)
+Mech_TorsoPitchTick(mech, pitchAxis, |p|, angle + pitch, snap on)     // |p| is the guns' convergence range
+return (e, y)
+```
 
-## Open
+The demand is a quarter of the residual, so a residual of about 5.8° is full stick. Squaring it after the clamp is what lets the turret run hard while it is far off and ease as it arrives; the snap target, the angle the axis would hold if it were already on the point, is what stops it exactly there. Beyond 50000 units a residual under 1000 (5.5°) is damped and one under `0x32` yaw or `0x55` pitch is discarded, so the turret does not hunt on a distant target. The residual it returns is the static pair at `004a9d80` — pitch, then yaw — which `Ai_FireAtPoint` tests against 1000 before it lets a gun fire.
 
-- **Unported:** the servo sound (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and the angle is still changing, stopped when the axis centres or the angle stops.
+## The servo-sound helpers
+
+Each tick ends, for the locally piloted machine only (`mech+0xa3`), with a helper: `0041a6d0` after the twist and `0041a994` after the pitch. They look like a servo loop and are not one. When the axis exceeds `0xc0` in magnitude and the angle has moved since the last call, the helper tests whether sound `0x21` is playing and, if not, sets a byte; it clears the byte when the axis returns to zero or the angle stops. **It never starts or stops a sound.** The byte and the last-angle word are function-local statics that nothing else references (`es2_xref.py` on `0049a1c9` and `0049a1cc` finds only each helper's own instructions), so no servo sound plays in retail. Sound `0x21` is `explo4.wav`, the rumble under the drop-in lift ([`mission-deployment.md`](mission-deployment.md#the-ride--liftstart_rise-0045d840)).

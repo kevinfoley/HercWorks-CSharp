@@ -537,8 +537,9 @@ public sealed class SimWorld {
 	public IReadOnlyList<WeaponShot> Impacts => _impacts;
 
 	/// <summary>
-	/// The impact effects playing right now — the same <c>DAT_004a9746</c>-style effect pool
-	/// <see cref="Tracers"/> and <see cref="Projectiles"/> come from, walked by the same loop. An
+	/// The impact effects playing right now — the original's <c>g_ExplosionPool</c> (<c>DAT_004a96a2</c>), a pool
+	/// of its own that <c>Sim_MainTick</c> walks in the same effect-pool pass as the one
+	/// <see cref="Tracers"/> and <see cref="Projectiles"/> come from. An
 	/// entry lives for exactly one pass of its shape's flipbook; see <see cref="ImpactEffect"/>.
 	/// </summary>
 	public IReadOnlyList<ImpactEffect> Effects => _effects;

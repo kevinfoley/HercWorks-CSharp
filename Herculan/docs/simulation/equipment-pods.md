@@ -70,8 +70,6 @@ So a Shield, Targeting or Energy pod row clicks and sounds but has no on/off sta
 
 **The button is visible in the row's own name.** `PodGauge_Paint` (`0044171c`), the pod row's paint, picks the name label's font and background from the two state bytes: the destroyed byte at `+0xc3` wins outright and prints the offline text across the widened label, and failing that the button at `+0xc2` selects the `gray` font over background `0x2e` when it is off and the `dark` font over `COLORS.DAT` id 12 — green — when it is on. Both go into the label itself, the font at `label+0` and the background at `label+0x1d`, so an engaged pod reads as dark lettering on a green plate filling the label rect. That is the only feedback a pod's row gives, since it has no state box.
 
-**The Shield and Energy pods read their damage live** — `Component_ReadDamagePercent` against the mount's own component, `.GL +0x17` + 19 — where the Targeting Pod caches its reading in `+0x7f` from its vtable `+0x68`. Same quantity, two mechanisms.
-
 ### What the two ticks do with the button
 
 `EcmPod_Tick` (`0040f184`) is the simpler: it posts `JAMMING ENGAGED` (`0x2a`) or `JAMMING DISABLED` (`0x2b`) whenever the button differs from what it copied last, then mirrors it into both `+0x7d` and `+0x7f`, and pushes the block back with the destroyed byte refreshed. It **posts rather than replaces**, unlike the radar and auto-track toggles, so a run of quick presses reads the whole sequence out.
@@ -92,6 +90,14 @@ The charge itself is the Turbo Pod's `+0x34` pool turn, `TurboPod_ChargeTick` (`
 `Mech_LocomotionTick`'s own term (`00416b64`), and the one bonus that is not a capacity: an engaged pod adds `Q10(scale, 1000)` of the machine's top speed **in the direction it is already travelling** — the type's reverse figure at a speed under 1 and its forward figure otherwise — where `scale` is the shared damage curve below. Two gates, both the original's: the pod must be engaged, and the machine must already be moving (`speed != 0`), so the pod accelerates a walk rather than starting one.
 
 A pristine pod is therefore worth about 98% of top speed, not a round 100%: the curve is taken against a literal 1000 rather than the 1024 that would double it.
+
+## Where a pod reads its damage
+
+**The Shield and Energy pods read their damage live** — `Component_ReadDamagePercent` against the mount's own component, `.GL +0x17` + 19, each time their bonus is recomputed. **The Targeting Pod is the only pod that caches its damage**: its vtable `+0x68` override, `TargetingPod_ConditionChanged` (`0040ef6c`), fills `+0x7f` from the reading `Mech_ComponentDamageWrite` hands every mount after a write. Same quantity, two mechanisms — a port that models one will not find the other by grepping for the offset. What the cached reading gates is in [`target-selection.md`](target-selection.md#a-damaged-pod-degrades-in-four-steps).
+
+**A pristine pod's cache reads zero**, so the two mechanisms agree at spawn. Neither `TargetingPod_Ctor` nor `Mech_ConfigureLoadout` writes `+0x7f` — the constructor writes the gauge handle and the catalog id and stops, and the loadout pass ends at `MechLoadout_FileEquipmentPods`, `Mech_ComputeShieldCapacity`, `Shield_RefillToBalance` and `Mech_ComputeReactorRate` without touching any mount's condition slot. What settles it is the allocation: `MechLoadout_ConstructWeaponMounts` (`0040fff8`) opens by pushing a 200000-byte arena that `Arena_Push` (`00474ab0`) has just `calloc`'d, and bump-allocates every mount out of it through `Arena_Alloc` (`0047a1bc`) — which does no zeroing of its own but never needs to, and whose fallback for an absent or full arena, `Mem_NewArray`, zeroes anyway. So a pod block is zero on every path.
+
+Because `Mech_ComponentDamageWrite` then hands **every** mount its component's reading on every write anywhere on the machine, the cache tracks the live figure from there on. The two are still not interchangeable — the cache is only as current as the last write, and a thing that changed a component reading without going through that write would part them — but no such path exists in the simulation.
 
 ## The damage curve both bonuses share
 

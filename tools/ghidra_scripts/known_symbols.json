@@ -10316,7 +10316,7 @@
       "confidence": "high",
       "name": "Mech_ConvergeGunsOnRange",
       "description": "Gun convergence, run at the tail of Mech_TorsoPitchTick with that tick's range argument -- the distance to the aim point, so the player's guns and the AI's both toe in on whatever the turret is tracking. For each mount, Math_EulerToward from the muzzle offset (its z less typeRec+0x66, the sight height) to (0, range, 0), stored at mount+0x24 and +0x28; a range of zero clears them. WeaponMount_PrepareShot is the consumer, composing them under the firing bone. Both gates (mount+0x5b/+0x5f, from .GL +0x02/+0x04) read zero on every retail chassis, so the convergence applies fleet-wide.",
-      "source": "docs/simulation/ai-weapons.md"
+      "source": "docs/simulation/weapon-firing.md"
     },
     {
       "address": "00415488",
@@ -11803,7 +11803,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Explosion_TickUpdate",
-      "description": "Impact-effect vtable +0x14. Counts the frame timer down; on expiry steps the shape's cell-animation frame modulo the shape's own frame count, drives the attached light from the type row's per-frame intensity, and reloads the timer. Returns finished on the step that wraps the frame back to 0, so the flipbook plays exactly once.",
+      "description": "Impact-effect tick, called directly by Sim_MainTick (the effect vtable's +0x14 is a shared stub). Counts the frame timer down; on expiry steps the shape's cell-animation frame modulo the shape's own frame count, drives the attached light from the type row's per-frame intensity, and reloads the timer. Returns finished on the step that wraps the frame back to 0, so the flipbook plays exactly once.",
       "source": "docs/simulation/impact-effects.md 2026-08-26"
     },
     {
@@ -11814,6 +11814,33 @@
       "name": "Explosion_GetTypeRecord",
       "description": "g_ExplosionTypeTable + obj[+0x41] * 0x28 -- the impact effect's own EXPLOS.DAT type row.",
       "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "00408100",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_ProximityTest",
+      "description": "(effect, point): returns 1 when the effect's type row has LightMode exactly 2 and the distance from the effect to the point is under the row's ProximityRadius (+0x20). Unreferenced: no rel32 branch, stored pointer or vtable slot reaches it, and the effect class's vtable (00497d4c) has six slots.",
+      "source": "docs/formats/explos-dat.md"
+    },
+    {
+      "address": "00408228",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_GetOwnerDrawCell",
+      "description": "Returns owner+0x1e8 (the owner's cached draw-table cell pair) for an impact effect that has an owner (effect+0x57), else 0. maybe_Scene_SubmitFrameObjects files the effect under that cell instead of the one its own position falls in.",
+      "source": "docs/simulation/impact-effects.md"
+    },
+    {
+      "address": "00408240",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_IsHiddenFromOwnerCockpit",
+      "description": "Returns 1 (skip drawing) when the effect has an owner (effect+0x57) the cockpit camera is attached to (Cam_IsAttachedTo(ViewObjectPtr, owner)) and its type id (effect+0x41) is not 2 or 11-14; else 0.",
+      "source": "docs/simulation/impact-effects.md"
     },
     {
       "address": "004a96ac",
@@ -11848,7 +11875,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_ExplosionPool",
-      "description": "The impact-effect object pool, allocated from by every effect spawn site. Walked by the same effect-pool pass of Sim_MainTick that carries beam tracers and travelling rounds.",
+      "description": "The impact-effect object pool (40 entries of 0x5b bytes), allocated from by every effect spawn site. A pool of its own, separate from the tracer and round pool DAT_004a9746; Sim_MainTick walks it first in the effect-pool pass, ahead of the smoke, fire, debris, meteor and DAT_004a9746 pools.",
       "source": "docs/simulation/impact-effects.md 2026-08-26"
     },
     {
@@ -11857,7 +11884,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TerrainHitPseudoObject",
-      "description": "Static stand-in object Sim_RaycastTerrain reports as the thing a ground-clipped ray struck, with the hit point stored at its +0x1a/+0x1e/+0x22. INERT: written there and read nowhere in the binary. The terrain impact effect does NOT come from it -- Sim_RaycastObjectList spawns that itself, see docs/simulation/impact-effects.md.",
+      "description": "Static stand-in object Sim_RaycastTerrain reports as the thing a ground-clipped ray struck, with the hit point stored at its +0x1a/+0x1e/+0x22. INERT: the fields are written there and never read; only its address is used, as the non-null struck-object value that reaches Mech_AiOnLineOfFireBlocked, which ignores its argument. The terrain impact effect does NOT come from it -- Sim_RaycastObjectList spawns that itself, see docs/simulation/impact-effects.md.",
       "source": "docs/simulation/impact-effects.md 2026-08-26"
     },
     {
@@ -12309,8 +12336,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ToggleRadarMode",
-      "description": "The manual's [R] and the F4 scanner's PASS/ACTIVE buttons: flips mech+0x96 between PASSIVE and ACTIVE, gated on +0xa3 so only the locally-piloted machine toggles, then repaints the two console lights (0x2c/0x2d) and plays the mode tone. A HERC powers up PASSIVE -- nothing writes +0x96 at construction and this is its only caller. Base_Construct latches it on for structure types 5, 6, 0x1d and 0x1e, the radar masts.",
-      "source": "docs/simulation/target-selection.md 2026-08-29"
+      "description": "The manual's [R]; its one caller is CockpitWidgets_HandleCommand. Flips mech+0x96 between PASSIVE and ACTIVE, gated on +0xa3 so only the locally-piloted machine toggles, then withdraws and posts the radar-mode message (0x2c/0x2d) and plays the mode tone. The F4 scanner's PASS/ACTIVE buttons are not callers: MfdButton_OnClick writes +0x96 directly. A HERC powers up PASSIVE -- no constructor writes +0x96. Base_Construct latches it on for structure types 5, 6, 0x1d and 0x1e, the radar masts.",
+      "source": "docs/simulation/target-selection.md"
     },
     {
       "address": "0040fbdc",
@@ -15614,7 +15641,7 @@
       "confidence": "high",
       "name": "Ai_UpdateWeaponsFree",
       "description": "The AI's radar switch, not a weapons gate: mech+0x96 is the PASSIVE/ACTIVE scanner mode. Copies mech+0xb2 (the squad's radar order) for a machine whose group is led by the player and mech+0x97 -- the mission file's own standing setting -- for everyone else. Every navigation state calls it; the detection sweep and the anti-radiation seeker are what read the result.",
-      "source": "docs/simulation/ai-weapons.md"
+      "source": "docs/simulation/target-selection.md"
     },
     {
       "address": "00404ca0",
@@ -15758,7 +15785,7 @@
       "confidence": "high",
       "name": "WeaponMount_RangeAllows",
       "description": "template+0x2c < range < template+0x30, both bounds exclusive: the weapon's engagement window. The lower bound is zero in all 33 retail templates. Asked by Ai_ChooseWeapon, by Ai_FireAtPoint's ELF latch, and by WeaponMounts_MountIsReady, which is what reddens a player's row and makes the firing chain skip a weapon that cannot reach the selected target.",
-      "source": "docs/simulation/ai-weapons.md, docs/simulation/weapon-mounts.md",
+      "source": "docs/simulation/weapon-mounts.md; docs/simulation/ai-weapons.md",
       "signature": "int __cdecl WeaponMount_RangeAllows(void *mount, int range)"
     },
     {
@@ -15767,8 +15794,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_BuildCombatGeometry",
-      "description": "Fills the 0x18-byte block every combat think passes down: +0x00 bearing to target, +0x02 bearing error, +0x04 its magnitude, +0x06 the target's aspect (bearing back to me in its turret frame), +0x08 its magnitude, +0x0a 3D range, +0x0e approach flag, +0x10/+0x14 the 15000/30000 standoff pair. The aspect's only consumer is Ai_ChooseWeapon's shield-facing test.",
-      "source": "docs/simulation/ai-weapons.md"
+      "description": "Fills the 0x18-byte block every combat think passes down: +0x00 bearing to target, +0x02 bearing error, +0x04 its magnitude, +0x06 the target's aspect (bearing back to me in its turret frame), +0x08 its magnitude, +0x0a 3D range, +0x0e approach flag, +0x10/+0x14 the 15000/30000 standoff pair. The states steer on the aspect, and the copy Ai_AimAndFire is handed has one reader, Ai_ChooseWeapon's shield-facing test.",
+      "source": "docs/simulation/ai-combat-states.md"
     },
     {
       "address": "0041e828",
@@ -15777,7 +15804,7 @@
       "confidence": "high",
       "name": "Ai_CombatMoveStep",
       "description": "The combat states' movement: sets the block's approach flag from the range against the standoff pair -- choosing the sign so the machine opens or closes the range whichever way it is facing -- stashes it at mech+0x5a, and drives Mech_LocomotionTick with the bearing error >> 6 and +/-0x100. The range arms read the magnitude Ai_BuildCombatGeometry left, before the caller's own steering override is folded in.",
-      "source": "docs/simulation/ai-weapons.md"
+      "source": "docs/simulation/ai-combat-states.md"
     },
     {
       "address": "00406868",
@@ -17940,7 +17967,7 @@
       "confidence": "high",
       "name": "Mech_ReceiveSquadOrder",
       "signature": "short __cdecl Mech_ReceiveSquadOrder(MechObject *mech, SquadOrderRecord *order, short priorReply)",
-      "description": "Mech vtable +0x28. One machine receiving one transmitted squad order: switches on the record's verb (STRINGS0 group 0, 0-0x11) over thirteen cases and installs the standing order at mech+0x23e, its destination at +0x240, its target at +0x248, its guard subject at +0x24c and its abandon tier at +0x250. Verbs 1/2 and 0xd/0xe write patrol and move, 0/2/0xb write engage, 0xc writes guard; 3/0xa/0xf clear the order and reinstall patrolling; 4/0x10 and 7/0x11 are the radar pair, writing mech+0xb2 and mech+0x96; 5 and 8 are the FIRE AT WILL / HOLD YOUR FIRE pair, writing mech+0xb6; 1 sets the ignore-the-player's-selection latch at mech+0x9a, which 0, 2 and 5 clear. Returns 1 when the order was taken. Each case picks a reply id for Ai_PostSquadMessage, posted only when priorReply is 0, or 1 with an accepted order. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10]; the vtable call site at 0043164d pushes three and does ADD ESP,0xc.",
+      "description": "Mech vtable +0x28. One machine receiving one transmitted squad order: switches on the record's verb (STRINGS0 group 0, 0-0x11) over thirteen cases and installs the standing order at mech+0x23e, its destination at +0x240, its target at +0x248, its guard subject at +0x24c and its abandon tier at +0x250. Verbs 0xd/0xe write patrol and move, 0/2/0xb write engage, 0xc writes guard; 3/0xa/0xf clear the order and reinstall patrolling; 4/0x10 and 7/0x11 are the radar pair, writing mech+0xb2 and mech+0x96; 5 and 8 are the FIRE AT WILL / HOLD YOUR FIRE pair, writing mech+0xb6; 1 sets the ignore-the-player's-selection latch at mech+0x9a, which 0, 5 and 0xb clear. Returns 1 when the order was taken. Each case picks a reply id for Ai_PostSquadMessage, posted only when priorReply is 0, or 1 with an accepted order. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10]; the vtable call site at 0043164d pushes three and does ADD ESP,0xc.",
       "source": "docs/simulation/ai-squadmates.md"
     },
     {
@@ -17990,7 +18017,7 @@
       "confidence": "high",
       "name": "MfdFlashComm_SelectedVerb",
       "signature": "int __cdecl MfdFlashComm_SelectedVerb(int flashComm)",
-      "description": "The STRINGS0 group 0 verb the FLASH COMM page's selected row names: the row index at screen+0x32, plus 3 when that row's own state byte at screen+0x2c+row has bit 1 set. So the six rows cover verbs 0-5 or 3-8. Args derived from disassembly: [EBP+8] only.",
+      "description": "The STRINGS0 group 0 verb the FLASH COMM page's selected row names: the row index at screen+0x32, plus 3 when that row's own state byte at screen+0x2c+row has bit 1 set. Only rows 4 and 5 ever have that bit set (FUN_0043f9d0 refuses any other row), so the page sends verbs 0-5, 7 and 8. Args derived from disassembly: [EBP+8] only.",
       "source": "docs/simulation/ai-squadmates.md"
     },
     {
@@ -18183,7 +18210,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_FormationThrottle",
-      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, clamps it to [0x8c,0x100] and writes flyer+0x21c. That field has no reader anywhere in the image, and the control law leaves FlightModel_Step's throttle element zero at every site, so nothing a Cybrid flyer decides can change its airspeed.",
+      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, folds it into the previous value of flyer+0x21c and clamps the sum to [0x8c,0x100]. The field's only reader is this function; the control law leaves FlightModel_Step's throttle element zero at every site, so nothing a Cybrid flyer decides can change its airspeed.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -18282,7 +18309,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_AiSelectBehaviour",
-      "description": "The reassess slot of all seven flyer states: maps the group's current order verb onto a descriptor. 0 -> search and destroy (00499dac), 3 -> patrolling (00499d70), 4 -> sleeping (00499de8), 5 -> scouting (00499e24); 4 and 5 also latch flyer+0xa5, the out-of-the-fight byte. Verbs 1, 2 and 6 and an empty order slot match no case and leave ECX unwritten, so Behaviour_SetState is handed the caller's register: the same defect Mech_AiSelectBehaviour has for an empty slot.",
+      "description": "The reassess slot of the five flyer states that have one (sleeping and dead carry a null triple): maps the group's current order verb onto a descriptor. 0 -> search and destroy (00499dac), 3 -> patrolling (00499d70), 4 -> sleeping (00499de8), 5 -> scouting (00499e24); 4 and 5 also latch flyer+0xa5, the out-of-the-fight byte. Verbs 1, 2 and 6 and an empty order slot match no case and leave ECX unwritten, so Behaviour_SetState is handed ECX as Flyer_DispatchReassess left it: the OR of the reassess triple, which is 00422d00, this function's own address.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
       "signature": "short __cdecl Flyer_AiSelectBehaviour(void *flyer)"
     },
@@ -24693,7 +24720,7 @@
       "confidence": "high",
       "name": "Cam_Steer",
       "description": "FUN_00401c74(cam, steer, throttle, trigger), once a tick from Sim_PollPlayerInput with zeros unless InputDrivesCamera. Modes 0 and 1 only: heading rate +0x30 toward Q8(0x800, +/-steer) at step 0xc0; with the trigger the throttle axis drives +0x24 (zoom, or free-camera speed) toward Q8(0x400, axis) at 0x50, else pitch rate +0x2c toward Q8(0x800, throttle) at 0xc0.",
-      "source": "docs/simulation/external-views.md#steering-the-camera--fun_00401c74"
+      "source": "docs/simulation/external-views.md#steering-the-camera--cam_steer"
     },
     {
       "address": "00401c20",
@@ -24702,7 +24729,7 @@
       "confidence": "high",
       "name": "Cam_ApproachRate",
       "description": "Math_RateLimitedMoveToward(rate, Q8(0x800, axis), 0xc0): Cam_Steer's heading and pitch rates.",
-      "source": "docs/simulation/external-views.md#steering-the-camera--fun_00401c74"
+      "source": "docs/simulation/external-views.md#steering-the-camera--cam_steer"
     },
     {
       "address": "00401c4c",
@@ -24711,7 +24738,7 @@
       "confidence": "high",
       "name": "Cam_ApproachZoom",
       "description": "Math_RateLimitedMoveToward(rate, Q8(0x400, axis), 0x50): Cam_Steer's zoom rate and free-camera speed.",
-      "source": "docs/simulation/external-views.md#steering-the-camera--fun_00401c74"
+      "source": "docs/simulation/external-views.md#steering-the-camera--cam_steer"
     },
     {
       "address": "0040109c",
@@ -24719,7 +24746,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Cam_AttachOrbit",
-      "description": "Unless locked (+0x4a): orbit centre to +0x38, object to +0x32, zeroes distance +0x22, orbit pitch/heading +0x26/+0x2a and the pitch, heading and zoom rates, and sets mode 1. Roll +0x28 and its rate survive.",
+      "description": "Unless locked (+0x4a): orbit centre to +0x38, object to +0x32, zeroes distance +0x22, the orbit pitch, roll and heading +0x26/+0x28/+0x2a, all three rates +0x2c/+0x2e/+0x30 and the zoom rate +0x24, and sets mode 1.",
       "source": "docs/simulation/external-views.md#the-camera-object--cam"
     },
     {
@@ -24765,7 +24792,7 @@
       "confidence": "high",
       "name": "ViewChain_Apply",
       "description": "Once a tick from Sim_MainTick. While the view manager's step flag (+0x1c) is up, moves DAT_004d2572 to the pending view 004d259e and sets the camera up for it (views 1-4: free, cockpit, outside, chase); otherwise, in the outside view on the player, copies the preference 004d259c into InputDrivesCamera. Draws the caption while 004d25a4 counts.",
-      "source": "docs/simulation/external-views.md#moving-between-views--fun_0045de14"
+      "source": "docs/simulation/external-views.md#moving-between-views--viewchain_apply"
     },
     {
       "address": "0045df18",
@@ -24774,7 +24801,7 @@
       "confidence": "high",
       "name": "ViewChain_ViewObject",
       "description": "Moves ViewObjectPtr onto the squad camera (004d270c) already viewing the object, or a free one seeded from the current camera and attached afresh, or the spare at 004d27d8. Stores the object in 004d2708 and sets InputDrivesCamera to 1, or to 004d259c for the player.",
-      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--viewchain_viewobject"
     },
     {
       "address": "0045e1ec",
@@ -24792,7 +24819,7 @@
       "confidence": "high",
       "name": "ViewChain_ToggleCameraControl",
       "description": "[Enter]/[Tab] in view 4: flips 004d259c, and redraws the caption when the camera is on the player.",
-      "source": "docs/simulation/external-views.md#moving-between-views--fun_0045de14"
+      "source": "docs/simulation/external-views.md#moving-between-views--viewchain_apply"
     },
     {
       "address": "004155c4",
@@ -24828,7 +24855,7 @@
       "confidence": "high",
       "name": "ViewChain_CameraControlPreferred",
       "description": "Word, starts 1: whether the outside view on the player puts the controls on the camera. [Enter]/[Tab] in view 4 flip it.",
-      "source": "docs/simulation/external-views.md#moving-between-views--fun_0045de14"
+      "source": "docs/simulation/external-views.md#moving-between-views--viewchain_apply"
     },
     {
       "address": "004d25a0",
@@ -24873,7 +24900,7 @@
       "confidence": "high",
       "name": "ViewChain_Viewed",
       "description": "The object the view was last moved to (ViewChain_ViewObject). The developer keys' Ctrl+Alt+D hits it and their move keys move it.",
-      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--viewchain_viewobject"
     },
     {
       "address": "004d270c",
@@ -24882,7 +24909,7 @@
       "confidence": "high",
       "name": "ViewChain_SquadCameras",
       "description": "One CAM pointer per member of the player's group, built by Sim_InitMissionSession.",
-      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--viewchain_viewobject"
     },
     {
       "address": "004d27d8",
@@ -24891,7 +24918,7 @@
       "confidence": "high",
       "name": "ViewChain_SpareCamera",
       "description": "The CAM used once every squad camera views something else.",
-      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--fun_0045df18"
+      "source": "docs/simulation/external-views.md#one-camera-per-squadmate--viewchain_viewobject"
     },
     {
       "address": "004a7c80",

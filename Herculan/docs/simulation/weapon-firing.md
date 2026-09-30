@@ -105,9 +105,9 @@ What the power scale does to the two figures is in [`weapon-damage-types.md`](we
 
 ## Where the shot comes from — `WeaponMount_PrepareShot` (`0040e788`)
 
-The frame is the **firing hardpoint's own model bone**, posed as it stands this tick and composed with the machine's world transform. A beam follows the torso because the gun bone does: nothing adds the twist or pitch angle, and nothing needs to.
+The frame is the **firing hardpoint's own model bone**, posed as it stands this tick and composed with the machine's world transform. A beam follows the torso because the gun bone does: nothing adds the twist or pitch angle, and nothing needs to. The spectator flag swaps the machine for the watched object in that composition: [`external-views.md`](external-views.md#the-spectator-flag--dat_0049ef5c).
 
-The prologue also composes a per-hardpoint aim rotation over the top: the **gun convergence**, which toes each hardpoint in on the range the turret is aiming at. Its gates and retail values are in [`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c).
+The prologue also composes a per-hardpoint aim rotation under the bone's pose: the [gun convergence](#gun-convergence--mech_convergegunsonrange-0041a74c), which toes each hardpoint in on the range the turret is aiming at.
 
 The muzzle point is three offsets summed in bone space:
 
@@ -133,6 +133,30 @@ The prologue then arms the refire timer as `Q10Multiply(mount+0x63, template[0x4
 
 Its last two writes set the mount's `+0x33` and `+0x3b` flag blocks, which is what makes an ELF's sustained fire possible; see [`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
 
+### Gun convergence — `Mech_ConvergeGunsOnRange` (`0041a74c`)
+
+Every hardpoint is toed in so that its shots cross the sight line at the range the turret is currently aiming at. It runs at the tail of `Mech_TorsoPitchTick`, for the player and the AI alike, and its argument is that tick's third parameter — the 3D distance to the aim point, which `Cockpit_TargetAnglesFromCameraBone` supplies ([`torso-aim.md`](torso-aim.md#aiming-at-a-point)).
+
+```
+for each mount:
+    if (range == 0) { mount+0x24 = mount+0x28 = 0; continue }
+    muzzle    = WeaponMount_MuzzleOffset(mount)
+    muzzle.z -= typeRec+0x66                                  // the sight line's own height
+    euler      = Math_EulerToward((0, range, 0), muzzle)
+    mount+0x24 = euler[0]; mount+0x28 = euler[2]              // pitch and yaw
+```
+
+`WeaponMount_PrepareShot` is the consumer, and it applies each half only when the corresponding gate is clear:
+
+```
+if (mount+0x5f == 0 || mount+0x5b == 0) {
+    aim = (mount+0x5b == 0 ? mount+0x24 : 0, 0, mount+0x5f == 0 ? mount+0x28 : 0)
+    boneFrame = BuildEulerRotationMatrixQ14(aim) * boneFrame
+}
+```
+
+`mount+0x5b` and `+0x5f` are shape-thread lookups from the hardpoint's `.GL` `+0x02` and `+0x04` ([`../formats/gun-layout-gl.md`](../formats/gun-layout-gl.md)), and `WeaponMount_CtorBase` writes **zero** for a negative record value. Both fields read −1 on every retail chassis, so both gates are clear and **the convergence is live on all of them** — a machine's guns really do toe in and out as its turret walks a target through depth. A centring command passes range 0 and squares them up again; every AI caller of `Mech_CenterTorsoTick` does.
+
 ## Power level — `WeaponMount_AdjustPowerLevel` (`0040f48c`)
 
 Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50` (80), clamped to 0..1200. `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) is the bulk counterpart, putting every capacitor back to the idle 820.
@@ -150,4 +174,3 @@ The ray record's `+0x08` is passed along as a walk radius, but the thin-ray terr
 ## Open
 
 - **Unported:** the flags `WeaponMounts_FireTrigger` sets on firing an electro-optical missile (`DAT_004d25ac`, `DAT_004d25aa`): the player never flies the missile, so nothing sets them and the chain advance never pauses for one.
-- **Unported:** `WeaponMount_PrepareShot`'s spectator branch. While `DAT_0049ef5c` is set and the owner is `LocalPlayerMech`, it copies the hardpoint's bone record with the last translation component lowered by 1500 (`0x5dc`) and composes it with the watched object `DAT_004d2708` in place of the machine — see [`target-selection.md`](target-selection.md).

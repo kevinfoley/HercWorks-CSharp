@@ -135,9 +135,12 @@ public sealed partial class FlyerObject {
 	/// tick that drives them is the same function — so the order is reassess, dwell countdown, move,
 	/// think, and the move is <see cref="Tick"/>'s, run from the object pass that precedes this one.
 	///
-	/// <para>The reassess is <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>) for every one of the seven states; there is no
-	/// combat form. An aircraft picks its target inside its think and never changes state to do it.
-	/// </para>
+	/// <para>The reassess is <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>); there is no combat form.
+	/// An aircraft picks its target inside its think and never changes state to do it. <b>This
+	/// engine runs it in every state, where retail has none for <c>sleeping</c> and <c>dead</c></b>
+	/// — <c>Flyer_DispatchReassess</c> finds a null triple and returns — so an order advance can wake
+	/// a sleeping aircraft here and never can in retail. Retail's flyer groups carry one order each,
+	/// so nothing reaches it; see KNOWN_ISSUES.md.</para>
 	/// </summary>
 	public void AiTick(SimWorld world) {
 		if (Behaviour.State is not { } state) {
@@ -179,11 +182,11 @@ public sealed partial class FlyerObject {
 	/// <item>5 <c>travel</c> → <see cref="FlyerBehaviourState.Scouting"/>, same</item>
 	/// </list>
 	///
-	/// <para><b>Verbs 1, 2 and 6 install nothing</b>, and neither does an empty order slot. The
-	/// original's switch has no default and the descriptor it is about to install lives in a register
-	/// nothing on that path writes, so it hands <c>Behaviour_SetState</c> whatever the caller left
-	/// there — the same defect <c>Mech_AiSelectBehaviour</c> has for an empty slot, and the same
-	/// answer here: the aircraft keeps the state it has. See docs/simulation/ai-goals.md.</para>
+	/// <para><b>Verbs 1, 2 and 6 install nothing here</b>, and neither does an empty order slot. The
+	/// original's switch has no default and hands <c>Behaviour_SetState</c> whatever <c>ECX</c> holds
+	/// — its own address, which puts the aircraft in a "state" made of opcode bytes and calls a wild
+	/// address on the same tick. This engine leaves the aircraft in the state it has instead. See
+	/// docs/simulation/ai-flyers.md, "Orders", and KNOWN_ISSUES.md.</para>
 	///
 	/// <para><b>Sleeping and scouting latch <see cref="SimObject.OutOfAction"/>.</b> That is not a
 	/// side effect — it is what keeps an aircraft that was sent somewhere rather than sent to fight
@@ -388,11 +391,10 @@ public sealed partial class FlyerObject {
 	/// reversed, so it eases back onto the station from in front instead of hauling round through a
 	/// half turn.</para>
 	///
-	/// <para>Not reproduced: <c>Flyer_FormationThrottle</c> (<c>00422260</c>), which works a throttle setting out of the station
-	/// error and the leader's speed and writes it to <c>flyer+0x21c</c>. That field has no reader
-	/// anywhere in the image, and the control law leaves the flight model's throttle element zero at
-	/// every site, so nothing a Cybrid flyer decides can change its airspeed. See
-	/// <see cref="InitialThrottle"/>.</para>
+	/// <para>Not reproduced: <c>Flyer_FormationThrottle</c> (<c>00422260</c>), which accumulates a
+	/// throttle figure into <c>flyer+0x21c</c>. Nothing feeds that field to the flight model, so
+	/// nothing a Cybrid flyer decides can change its airspeed — docs/simulation/ai-flyers.md, "A flyer
+	/// cannot change speed", and <see cref="InitialThrottle"/>.</para>
 	/// </summary>
 	private void FormationStep(SimWorld world) {
 		if (Group?.Leader is not { } leader) {

@@ -31,7 +31,7 @@ Reached as `table + typeId * 0x28` (`Explosion_GetTypeRecord`, `00407b20`). The 
 |---|---|---|
 | `+0x00` | `ShapeIndex` | which shape row, i.e. which `EXPLOS.DTS` root |
 | `+0x02` | `FrameInterval` | ticks each flipbook frame is held; **1 on every retail row** |
-| `+0x04` | `TrailEffect` | nonzero attaches a second object (class tag 9) from another pool, whose cell-animation frame steps with the effect's; **0 on every retail row** |
+| `+0x04` | `GroundShape` | nonzero lays root 1 of the theater's flat set on the ground under the effect, stepped with its flipbook and deleted with it ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#an-impact-effects-shape)); **0 on every row of `EXPLOS.DAT` and `EXPLOS2.DAT`** |
 | `+0x06` | `LightMode` | nonzero attaches a light source; 0, 1 or 2 in retail. `Explosion_Construct` tests it only against zero, so 1 and 2 attach the same light ([`effect-lights.md`](effect-lights.md#claiming-a-slot)) |
 | `+0x08`..`+0x1f` | `FrameIntensity[12]` | the light's intensity per frame; low byte passed to the light as each frame is stepped |
 | `+0x20` | `ProximityRadius` (int32) | 0 or 20000. Read by `Explosion_ProximityTest` alone, below |

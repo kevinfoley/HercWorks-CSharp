@@ -5873,7 +5873,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObject_ConformToTerrain",
-      "description": "Sits an object on sloped ground. Samples Terrain_HeightQuery at +/-r forward and +/-r right (r from vtable +0x10, the shape's own radius), takes pitch from Math_Atan2Bam(2r, front - back) and roll from the left/right pair -- Math_Atan2Bam's argument order is (x, y), so the span is the x -- and writes Z as the mean of the four samples (sum >> 2). Clears the rotation-valid flag so the matrix rebuilds. Its only caller is GroundVehicle_ThinkTick, which makes it the only thing in the simulation that writes a structure's pitch and roll.",
+      "description": "Sits an object on sloped ground. Samples Terrain_HeightQuery at +/-r forward and +/-r right (r from vtable +0x10, the shape's own radius), takes pitch from Math_Atan2Bam(2r, front - back) and roll from the left/right pair -- Math_Atan2Bam's argument order is (x, y), so the span is the x -- and writes Z as the mean of the four samples (sum >> 2). Clears the rotation-valid flag so the matrix rebuilds. Two callers: GroundVehicle_ThinkTick, which makes it the only thing in the simulation that writes a structure's pitch and roll, and FlatObj_Draw, which conforms every ground shape it draws.",
       "source": "docs/simulation/structure-behaviour.md"
     },
     {
@@ -7506,10 +7506,10 @@
       "address": "0042841c",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Scene_SubmitFrameObjects",
-      "description": "Per-frame scene assembly. Calls HeightGrid_ClearCellScratch(ActiveHeightGrid) first, then walks ~10 separate global object lists (the flat/flat2 ground shapes from maybe_Ground_LoadFlatShapes' list at 004a9711, GlobalMechList, and eight others), calling a small per-object submit helper (004282d8 / 0042837c / 004283b4) on each and caching a 2-byte result pair into each object at +0x7a / +0x1ea. Named 'maybe_' because the per-object helpers were not decoded, so 'submit for render' vs. some other per-frame pass is inferred from position and structure, not proven.",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+      "confidence": "high",
+      "name": "Scene_SubmitFrameObjects",
+      "description": "Per-frame scene assembly. Calls HeightGrid_ClearCellScratch(ActiveHeightGrid), then walks the object pools and lists in a fixed order and files each drawable object into ObjList::drawTable by terrain cell: g_FlatObjPool first (only shapes within 30000 of the view object, by Math_DistanceBetweenPoints, through Scene_SubmitObject), then the 004a9624 list, GlobalMechList and the 004a9e3d list (skipping a group whose +0x14 deployment gate is set, and caching the cell record at obj+0x7a/+0x1ea), the projectile pool 004a9746, g_ExplosionPool (Explosion_IsHiddenFromOwnerCockpit, then the owner's cell or its own), g_DebrisPool, 004a96f2, g_FirePool (Scene_SubmitObjectAtCell) and g_MeteorPool. It decides no visibility beyond the flat-shape range and the two gates.",
+      "source": "docs/simulation/ground-shapes.md#the-draw-pass"
     },
     {
       "address": "00470910",
@@ -7526,7 +7526,7 @@
       "type": "function",
       "confidence": "high",
       "name": "World_LoadTheater",
-      "description": "World/theater setup, called by DBSim_LoadScriptDat with script.dat's 20-byte header as its argument (it copies the first 5 dwords to DAT_004cfd48). Builds the base name 'world<N>' via _itoa where N = DAT_004cfd48*2 + DAT_004cfd5a, i.e. header[0]*2 + header[18] -- five theaters, two variants each. Loads dpl\\world<N>.dpl (the per-theater palette, which is what the retail WORLD0.DPL..WORLD9.DPL family is), then reads wld\\world<N>.wld field-by-field (descriptor layout decoded and verified byte-exact against all ten retail .WLD files), then 'shades' via 0042e760, then world<N>.rmp -- the 8-bit software renderer's colour-ramp/lighting LUT. .RMP layout, byte-verified against all 10 retail files (WORLD0-9.RMP, all exactly 98312 bytes): int32 width, int32 height, then width*height*256 raw bytes (every file: width=32, height=12, 8+32*12*256=98312). width/height are read via the same generic field-reader callback used for .wld fields; the body is read in one call into DAT_004a09b0 (FUN_004734ac(fileHandle, width*height*256, DAT_004a09b0)). Installs _DAT_004a5b18=rampTableBase and DAT_004a5b1c=DAT_004a5b20=width -- height is used locally for the allocation size and not retained in any global. TSSolidPoly_Render's ramp-offset formula ((DAT_004a5b1c-1)*shade & 0xffffff00, i.e. (width-1)*shade rounded down to a multiple of 256) confirms width=32 is the light-level-row COUNT with 256 bytes per row (one byte per dither-table output 0-255), so that path only ever reads the first 32*256=8192 bytes of the 98304-byte body; the other 11 height-slices are not consumed by it (purpose unknown, possibly a different render mode's ramp bank). Finishes with Terrain_BindTextureBank(the 4th of the descriptor's 5 trailing strings) and maybe_Ground_LoadFlatShapes.",
+      "description": "World/theater setup, called by DBSim_LoadScriptDat with script.dat's 20-byte header as its argument (it copies the first 5 dwords to DAT_004cfd48). Builds the base name 'world<N>' via _itoa where N = DAT_004cfd48*2 + DAT_004cfd5a, i.e. header[0]*2 + header[18] -- five theaters, two variants each. Loads dpl\\world<N>.dpl (the per-theater palette, which is what the retail WORLD0.DPL..WORLD9.DPL family is), then reads wld\\world<N>.wld field-by-field (descriptor layout decoded and verified byte-exact against all ten retail .WLD files), then 'shades' via 0042e760, then world<N>.rmp -- the 8-bit software renderer's colour-ramp/lighting LUT. .RMP layout, byte-verified against all 10 retail files (WORLD0-9.RMP, all exactly 98312 bytes): int32 width, int32 height, then width*height*256 raw bytes (every file: width=32, height=12, 8+32*12*256=98312). width/height are read via the same generic field-reader callback used for .wld fields; the body is read in one call into DAT_004a09b0 (FUN_004734ac(fileHandle, width*height*256, DAT_004a09b0)). Installs _DAT_004a5b18=rampTableBase and DAT_004a5b1c=DAT_004a5b20=width -- height is used locally for the allocation size and not retained in any global. TSSolidPoly_Render's ramp-offset formula ((DAT_004a5b1c-1)*shade & 0xffffff00, i.e. (width-1)*shade rounded down to a multiple of 256) confirms width=32 is the light-level-row COUNT with 256 bytes per row (one byte per dither-table output 0-255), so that path only ever reads the first 32*256=8192 bytes of the 98304-byte body; the other 11 height-slices are not consumed by it (purpose unknown, possibly a different render mode's ramp bank). Finishes with Terrain_BindTextureBank(the 4th of the descriptor's 5 trailing strings) and FlatObj_LoadResources.",
       "source": "docs/formats/terrain-texturing.md; docs/formats/dts-texture-binding.md"
     },
     {
@@ -7534,7 +7534,7 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "medium",
-      "name": "maybe_Ground_LoadFlatShapes",
+      "name": "FlatObj_LoadResources",
       "description": "Loads a DTS shape set and binds a matching DBA to it, choosing base name 'flat' when param_1 == 0 and 'flat2' otherwise; the same base name is used for both 'dts\\<name>' and 'dba\\<name>'. Stores the loaded shape list at 004a971c with its count at 004a9720, then loops over every loaded shape writing the bound-DBA pointer into each instance's +0x26 -- the SAME bound-active-DBA field confirmed for mech texturing in docs/formats/dts-texture-binding.md. Called at the end of World_LoadTheater. Retail data has FLAT2.DBA (a single 64x54 frame). Named 'maybe_' because what the flat/flat2 shapes are actually drawn as (ground plane, distant filler, skirt) was not determined.",
       "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
     },
@@ -7718,7 +7718,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_SetupVisibleRegion",
-      "description": "Per-frame terrain visibility setup, called twice per frame from the frame function 0045fb9c with ActiveHeightGrid passed AS A PARAMETER (which is why a search for readers of the ActiveHeightGrid global missed the terrain render path entirely). WRITES the LOD field: grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3], then >>= (cellShift - 14) when cellShift > 14. DAT_004a0bcc is three int16s -- 6, 10, 14 cells -- indexed by the terrain-detail option DAT_004d1fc3, so the draw radius is a player setting; the >> only ever fires on the two shift-15 zones and nothing compensates below shift 14. Passes grid[0x10c] << cellShift to 00428bc0 (which derives 5 distance bands), builds the visible cell-space region into grid+0x28 with count grid+0xc8 / pointer grid+0xcc / visible flag grid+0x11c, and installs two texture-basis vectors at grid+4 and grid+0x10.",
+      "description": "Per-frame terrain visibility setup, called twice per frame from the frame function 0045fb9c with ActiveHeightGrid passed AS A PARAMETER (which is why a search for readers of the ActiveHeightGrid global missed the terrain render path entirely). WRITES the LOD field: grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3], then >>= (cellShift - 14) when cellShift > 14. DAT_004a0bcc is three int16s -- 6, 10, 14 cells -- indexed by the terrain-detail option DAT_004d1fc3, so the draw radius is a player setting; the >> only ever fires on the two shift-15 zones and nothing compensates below shift 14. Passes grid[0x10c] << cellShift to 00428bc0 (which derives 5 distance bands), builds the visible cell-space region into grid+0x28 with count grid+0xc8 / pointer grid+0xcc / visible flag grid+0x11c, and installs the grid origin in view space at grid+0x1c and the view-space step of one cell along X at grid+4 and along Y at grid+0x10. The region: Terrain_BuildDrawRegionQuad's square clipped by ViewFrustum_ClipGroundPolygon against a ViewFrustum_Build frustum loosened by 1.5 cells, points shifted down by the cell shift; when nothing is left grid+0x11c goes 0 and the previous polygon stays. Also copies the view's position to g_TerrainViewerPos.",
       "source": "docs/formats/terrain-texturing.md, 'grid+0x10c -- the LOD / draw-radius field'"
     },
     {
@@ -7728,7 +7728,7 @@
       "confidence": "high",
       "name": "Terrain_DrawCellQuad",
       "signature": "void __cdecl Terrain_DrawCellQuad(int cellX, int cellY, void *grid, int *vertexBlock)",
-      "description": "Draws one terrain cell. The caller (FUN_0046dcd8 / FUN_0046dea4) hands it a vertex block already carrying the quad's four camera-space corner positions, in the order (cellX,cellY), (cellX,cellY+1), (cellX+1,cellY+1), (cellX+1,cellY); this fetches the matching four cells at grid[0xec] + index*0x10 (16 bytes/cell) and adds each corner's projected raw height byte (cell[0], via 00495240 against the grid+0xd0 projection state). It re-derives the diagonal split here from the projected corners rather than reading cell[+0xf]: z0+z2 == z1+z3 emits one 4-vertex quad, < 0 splits along corner 0-2, > 0 along corner 1-3. Texture comes from Terrain_ResolveCellTexture(&mat0[cell[0xf] >> 2], cellX, cellY, uvOut), whose four UV pairs are handed to the vertices by index in all three branches -- the fact that pins the corner-to-UV mapping. Each triangle's shade byte is cell[+0xd] (near) / cell[+0xe] (far) and its backface test uses the normals at cell[+0x1] / cell[+0x7] via Terrain_FaceVisibilityTest. Fog: installs the visibility range grid[0x10c] << grid[0x108] via Raster_SetVisibilityRange, then Raster_SetDepthFadeFromDistance(min of the four corners' component 1) -- component 1 is the view-space DEPTH (Raster_PerspectiveDivide divides by it), so a whole cell is fogged from its NEAREST corner's depth, not per pixel and not from a radial distance. Ends by calling Terrain_DrawCellObjects for the cell.",
+      "description": "Draws one terrain cell. The caller (Terrain_DrawCellRowRun / Terrain_DrawCellColumnRun) hands it a vertex block already carrying the quad's four camera-space corner positions, in the order (cellX,cellY), (cellX,cellY+1), (cellX+1,cellY+1), (cellX+1,cellY); this fetches the matching four cells at grid[0xec] + index*0x10 (16 bytes/cell) and adds each corner's projected raw height byte (cell[0], via 00495240 against the grid+0xd0 projection state). It re-derives the diagonal split here from the projected corners rather than reading cell[+0xf]: z0+z2 == z1+z3 emits one 4-vertex quad, < 0 splits along corner 0-2, > 0 along corner 1-3. Texture comes from Terrain_ResolveCellTexture(&mat0[cell[0xf] >> 2], cellX, cellY, uvOut), whose four UV pairs are handed to the vertices by index in all three branches -- the fact that pins the corner-to-UV mapping. Each triangle's shade byte is cell[+0xd] (near) / cell[+0xe] (far) and its backface test uses the normals at cell[+0x1] / cell[+0x7] via Terrain_FaceVisibilityTest. Fog: installs the visibility range grid[0x10c] << grid[0x108] via Raster_SetVisibilityRange, then Raster_SetDepthFadeFromDistance(min of the four corners' component 1) -- component 1 is the view-space DEPTH (Raster_PerspectiveDivide divides by it), so a whole cell is fogged from its NEAREST corner's depth, not per pixel and not from a radial distance. Ends by calling Terrain_DrawCellObjects for the cell.",
       "source": "docs/formats/terrain-texturing.md, 'Which quad corner takes which UV'"
     },
     {
@@ -7746,7 +7746,7 @@
       "type": "function",
       "confidence": "high",
       "name": "maybe_Sim_RenderFrame",
-      "description": "The per-frame render root. Order: Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), then FUN_004327ac(CockpitViewInstance) (per-widget paint dispatch over the weapon-slot array and the chain/link/autotrack/shield/etc. sub-widgets), then maybe_Scene_SubmitFrameObjects (the 3D world), then conditionally a second terrain setup plus maybe_Terrain_ComputeViewDistance and 0042883c, then Player_PerFrameCockpitUpdate, then three more vtable paint dispatches on CockpitViewInstance sub-objects (+0x1f5, FUN_00433158's result, +0x20b). Widget paint therefore happens BEFORE the 3D scene submit each frame, not after -- though DBSIM's software-blit ordering need not constrain an OpenGL implementation that composites via alpha/depth instead. Named 'maybe_' because the individual draw dispatches were not decoded; its role as the frame root is solid (it is the sole caller of both the terrain setup and the view setup).",
+      "description": "The per-frame render root. Order: Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), then FUN_004327ac(CockpitViewInstance) (per-widget paint dispatch over the weapon-slot array and the chain/link/autotrack/shield/etc. sub-widgets), then maybe_Scene_SubmitFrameObjects (the 3D world), then conditionally a second terrain setup plus FUN_0042e700 (maybe_Terrain_ComputeViewDistance, then Scene_DrawTerrain) and ObjList_DrawAfterTerrain, then Player_PerFrameCockpitUpdate, then three more vtable paint dispatches on CockpitViewInstance sub-objects (+0x1f5, FUN_00433158's result, +0x20b). Widget paint therefore happens BEFORE the 3D scene submit each frame, not after -- though DBSIM's software-blit ordering need not constrain an OpenGL implementation that composites via alpha/depth instead. Named 'maybe_' because the individual draw dispatches were not decoded; its role as the frame root is solid (it is the sole caller of both the terrain setup and the view setup).",
       "source": "docs/formats/terrain-texturing.md; docs/formats/cockpit-hud-widgets.md"
     },
     {
@@ -8221,7 +8221,7 @@
       "type": "data",
       "confidence": "medium",
       "name": "maybe_g_BitmapAtlasCache",
-      "description": "CORRECTS this entry's own prior 'static compiled-in dither table' claim from earlier the same session -- that was WRONG. DBSIM.EXE's total file size is 724,512 bytes; this address sits in the DATA section's second (huge, 2,245,120-byte) chunk, which is almost certainly BSS-style zero-fill reserved space, not literal file content, ruling out a ~16MB static table outright. Traced the real populator: FUN_00469d10 (a rectangle-packing cache-insertion routine, recurses into an overflow bank via param_1[0x200]/[0x201] when a 256-wide row is full) and its wrapper FUN_00469f38 (allocates a 20-byte-stride descriptor per inserted image via Rtl_VectorNew, matching the SAME stride as TSTexture4Poly's already-solved g_ActiveBitmapArray[1] frame-descriptor table). FUN_00469f38 is called from 7 places across totally unrelated subsystems -- Base_LoadResources, maybe_Ground_LoadFlatShapes, Weapons_LoadResourceTables, Terrain_BindTextureBank, and two weapon-effect loaders (bullets.cpp/beam.cpp equivalents, FUN_0040ade0/FUN_0040b6e0) -- each packing a freshly-loaded DBA's frames into this SAME shared atlas via FUN_0045cdd8 (DBA loader). CONCLUSION: this is a generic runtime bitmap/texture atlas cache shared by the whole engine (mechs, weapons, terrain, ground shapes), not a purpose-built dither table. TSSolidPoly_Render's (colorField<<16 | pixelCoord) addressing therefore means 'sample pixel pixelCoord from cached bitmap slot colorField', not 'look up a fixed dither pattern' -- meaning the earlier assumption that colorField=FrontColor (a 0-255 palette index) is now suspect; it more plausibly indexes a specific SMALL-N cached bitmap slot (a dither/shading swatch loaded once per theater), which would also explain why the naive 16MB address range is never actually exercised. WHICH atlas slot TSSolidPoly_Render's shading swatch specifically occupies, and who inserts it, was NOT found this session -- none of the 7 known FUN_00469f38 callers is an obvious 'load lighting dither pattern' site. This is now the real open question, distinct from and more specific than 'extract the dither table's raw bytes'.",
+      "description": "CORRECTS this entry's own prior 'static compiled-in dither table' claim from earlier the same session -- that was WRONG. DBSIM.EXE's total file size is 724,512 bytes; this address sits in the DATA section's second (huge, 2,245,120-byte) chunk, which is almost certainly BSS-style zero-fill reserved space, not literal file content, ruling out a ~16MB static table outright. Traced the real populator: FUN_00469d10 (a rectangle-packing cache-insertion routine, recurses into an overflow bank via param_1[0x200]/[0x201] when a 256-wide row is full) and its wrapper FUN_00469f38 (allocates a 20-byte-stride descriptor per inserted image via Rtl_VectorNew, matching the SAME stride as TSTexture4Poly's already-solved g_ActiveBitmapArray[1] frame-descriptor table). FUN_00469f38 is called from 7 places across totally unrelated subsystems -- Base_LoadResources, FlatObj_LoadResources, Weapons_LoadResourceTables, Terrain_BindTextureBank, and two weapon-effect loaders (bullets.cpp/beam.cpp equivalents, FUN_0040ade0/FUN_0040b6e0) -- each packing a freshly-loaded DBA's frames into this SAME shared atlas via FUN_0045cdd8 (DBA loader). CONCLUSION: this is a generic runtime bitmap/texture atlas cache shared by the whole engine (mechs, weapons, terrain, ground shapes), not a purpose-built dither table. TSSolidPoly_Render's (colorField<<16 | pixelCoord) addressing therefore means 'sample pixel pixelCoord from cached bitmap slot colorField', not 'look up a fixed dither pattern' -- meaning the earlier assumption that colorField=FrontColor (a 0-255 palette index) is now suspect; it more plausibly indexes a specific SMALL-N cached bitmap slot (a dither/shading swatch loaded once per theater), which would also explain why the naive 16MB address range is never actually exercised. WHICH atlas slot TSSolidPoly_Render's shading swatch specifically occupies, and who inserts it, was NOT found this session -- none of the 7 known FUN_00469f38 callers is an obvious 'load lighting dither pattern' site. This is now the real open question, distinct from and more specific than 'extract the dither table's raw bytes'.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up (correction pass), docs/formats/dts-texture-binding.md"
     },
     {
@@ -10350,8 +10350,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_PlaceLegsOnGround",
-      "description": "Per-leg terrain placement over the mech animated node hierarchy.",
-      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+      "description": "Per-leg terrain placement over the mech animated node hierarchy. For each entry of mech+0x238 still holding a ground shape: moves the shape to the world position of the node typeRec+0x77[i] names, gives it the machine's heading (euler +0x10) and clears its +0x32 matrix-valid flag -- unconditionally. Then, within 15000 of the camera or for the player, tests the footfall for kind-0 entries (typeRec+0x72[i]) against the gait's thresholds and plays sound 0x1d on a plant.",
+      "source": "docs/simulation/ground-shapes.md#a-hercs-shapes"
     },
     {
       "address": "00478de8",
@@ -11901,7 +11901,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ObjList_AddToDrawTable",
-      "description": "Files one object into ObjList::drawTable at DAT_004aab80 (rows of 1000 bytes, row index interned per cell by ObjList_InternCellRow) or, when it resolves to no cell, into the flat DAT_004cf910 bucket that FUN_0042883c draws directly with no depth fade. Asserts carry the objlist.cpp strings 'ObjList::drawTable entry full' and 'ObjList::drawTable full'.",
+      "description": "Files one object into ObjList::drawTable at DAT_004aab80 (rows of 1000 bytes, row index interned per cell by ObjList_InternCellRow) or, when it resolves to no cell, into the flat DAT_004cf910 bucket that ObjList_DrawAfterTerrain draws after the terrain walk with no depth fade of its own. Asserts carry the objlist.cpp strings 'ObjList::drawTable entry full' and 'ObjList::drawTable full'.",
       "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
     },
     {
@@ -11919,7 +11919,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_DrawCellObjects",
-      "description": "Draws the objects registered against one terrain cell: bounds-checks the cell index, fetches the cell's pending-object count, and if nonzero calls the hook at HeightGrid+0x125 (ObjList_DrawCellObjects) with (cellX, cellY, count), then clears the cell's scratch. Called from the terrain cell walk and once directly for the player's own cell.",
+      "description": "Draws the objects registered against one terrain cell: bounds-checks the cell index, fetches the cell's pending-object count, and if nonzero calls the hook at HeightGrid+0x125 (ObjList_DrawCellObjects) with (cellX, cellY, count), then clears the cell's scratch. Called from Terrain_DrawCellQuad for every cell the walk draws, from Terrain_DrawVisibleCells for the viewer's cell when the walk missed it, and from ObjList_DrawAfterTerrain for the player's cached cell.",
       "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
     },
     {
@@ -16803,7 +16803,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ReportOutOfAction",
-      "description": "es2_xref.py finds four calls, each immediately before the defeat action at a damage endpoint that puts an object out of the fight: both of Mech_ComponentDamageWrite's branches, Flyer_ComponentDamageWrite and Base_ApplyDamage (the name predates the other two). No call from Ai_ChooseWeapon's weapons-out defeat was found. Calls Group_ReportIfAllOutOfAction for the object's own group, then walks its 10 mission-counter slots (refs at obj+0x1ba, ops at obj+0x1ce) writing DAT_004a9ef4: op 1 zeroes the counter, 2 increments it, 0xd-0x10 store op-0xc, anything else writes nothing.",
+      "description": "es2_xref.py finds four calls, each immediately before the defeat action at a damage endpoint that puts an object out of the fight: both of Mech_ComponentDamageWrite's branches, Flyer_ComponentDamageWrite and Base_ApplyDamage (the name predates the other two). Ai_ChooseWeapon's weapons-out defeat does not call it: that block's only call is Action_Activate. Calls Group_ReportIfAllOutOfAction for the object's own group, then walks its 10 mission-counter slots (refs at obj+0x1ba, ops at obj+0x1ce) writing DAT_004a9ef4: op 1 zeroes the counter, 2 increments it, 0xd-0x10 store op-0xc, anything else writes nothing.",
       "source": "docs/simulation/component-damage.md",
       "signature": "void __cdecl Mech_ReportOutOfAction(SimObject *obj)"
     },
@@ -16832,7 +16832,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ObjectPool_QueueForDelete",
-      "description": "Appends an object to a deferred-delete queue (pointer at queue+0, count at queue+4), used with the global DAT_004a9715. Nothing is destructed here.",
+      "description": "Appends an object to a deferred-delete queue (pointer array at queue+0, int16 count at queue+4), used with g_FlatObjDeleteQueue and the other pools' queues. Nothing is destructed here, and the append does not test the capacity at queue+6.",
       "source": "docs/simulation/component-damage.md"
     },
     {
@@ -16850,8 +16850,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_FlushDeleteQueue",
-      "description": "One-line wrapper running ObjectPool_FlushDeleteQueue(DAT_004a9715, DAT_004a9711). Mech_ComponentDamageWrite ends with it, which is what commits the child parts a lost leg or a vanishing chassis queued during the damage write.",
-      "source": "docs/simulation/component-damage.md"
+      "description": "One-line wrapper running ObjectPool_FlushDeleteQueue(g_FlatObjDeleteQueue, g_FlatObjPool). Registered at subsystem phase 5, which maybe_Sim_RenderFrame runs at the start of every frame's draw, and called again at the end of Mech_ComponentDamageWrite, which commits the ground shapes a lost leg or a vanishing chassis queued during the damage write.",
+      "source": "docs/simulation/ground-shapes.md#lifetimes"
     },
     {
       "address": "004240f4",
@@ -25513,6 +25513,517 @@
       "name": "Sim_Resume",
       "description": "Clears DAT_004d25f6, resumes every sound and resumes the cockpit's two message ports. The main window's WM_SETFOCUS calls it.",
       "source": "docs/formats/cockpit-messages.md#the-port"
+    },
+    {
+      "address": "004a9711",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_FlatObjPool",
+      "description": "Pool of FlatObj ground shapes (Borland 'ObjPool<FlatObj>'): 150 entries of 0x41 bytes, built by FlatObj_LoadResources. Allocated from by Explosion_Construct (when the EXPLOS.DAT row's +0x04 is nonzero: shape 1, pointer kept at explosion+0x4f; no retail row sets it), Mech_Constructor (one per entry of the type record's byte list at +0x72, into the array at mech+0x238, count +0x23c) and Meteor_Tick (shape 3, at a group-carrying pod's landing site). None of the three checks the allocation. The only walk is Scene_SubmitFrameObjects' draw submit; nothing ticks a FlatObj.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "004a971c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_FlatShapes",
+      "description": "The flat set's shape roots, loaded by FlatObj_LoadResources from dts\\flat or dts\\flat2 through Shape_LoadAllRoots; count at 004a9720. Indexed by each FlatObj spawner for its shape.",
+      "source": "docs/simulation/mission-deployment.md#the-drop-pod--meteor"
+    },
+    {
+      "address": "004a9720",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_FlatShapeCount",
+      "description": "Number of roots in g_FlatShapes (int16).",
+      "source": "docs/simulation/mission-deployment.md#the-drop-pod--meteor"
+    },
+    {
+      "address": "004a9715",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_FlatObjDeleteQueue",
+      "description": "FlatObj delete queue: an 8-byte list header (capacity 0x19 at +6, count at +4) over a 100-byte pointer array, built by FlatObj_LoadResources and drained into g_FlatObjPool by Sim_FlushDeleteQueue.",
+      "source": "docs/simulation/mission-deployment.md#the-drop-pod--meteor"
+    },
+    {
+      "address": "0049aeea",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "World_FlatSetSelector",
+      "description": "int16 read by World_LoadTheater as the tenth int16 of wld\\world<N>.wld (byte 18) and passed to FlatObj_LoadResources: 0 loads the 'flat' set, nonzero 'flat2'. All ten retail files hold 1, and only FLAT2.DTS/FLAT2.DBA ship.",
+      "source": "docs/simulation/mission-deployment.md#the-drop-pod--meteor"
+    },
+    {
+      "address": "0040991c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlatObj_Draw",
+      "description": "FlatObj vtable slot 0: SimObject_ConformToTerrain, SimObject_InstallModelTransform, then the shape instance's (obj+0x34) own vtable +0x1c draw.",
+      "source": "docs/simulation/mission-deployment.md#the-drop-pod--meteor"
+    },
+    {
+      "address": "00409940",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlatObj_RegisterSubsystem",
+      "description": "Static-init registrar for the FlatObj pool: registers Sim_FlushDeleteQueue at phase 5 and nulls g_FlatObjPool.",
+      "source": "docs/simulation/mission-deployment.md#the-drop-pod--meteor"
+    },
+    {
+      "address": "0049a262",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "FlatObj_Vtable",
+      "description": "Vtable of class FlatObj (Borland RTTI at 0041bcf6: 'FlatObj', 0x41 bytes). Five slots: FlatObj_Draw, SimObject_GetPosition, FlatObj_Destruct, Stub_ReturnZero, SimObject_GetShapeRadius -- no tick, so a FlatObj is static unless its owner moves it. Every spawner writes type 9 at obj+0x04, the tag ObjList_DrawCellObjects draws on the spot with the ramp row count zeroed.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "004282d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Scene_SubmitObject",
+      "description": "(obj): Scene_SubmitObjectWithRadius(obj, obj->vtable[+0x10]()) -- files one object into ObjList::drawTable under the terrain cell its position and its own shape radius pick. Scene_SubmitFrameObjects' submit for ground shapes (FlatObj), projectiles, ownerless explosions, debris, the 004a96f2 pool and drop pods.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "0042837c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Scene_SubmitObjectWithRadius",
+      "description": "(obj, radius): HeightGrid_PickDrawCell(ActiveHeightGrid, obj->vtable[+0x04](), radius), then ObjList_AddToDrawTable(obj, cell); returns the cell record, which Scene_SubmitFrameObjects' machine walks cache at obj+0x7a/+0x1ea (0xffff when null).",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "004283b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Scene_SubmitObjectAtCell",
+      "description": "(obj, cellXY): HeightGrid_ClaimDrawCell(ActiveHeightGrid, cellXY), then ObjList_AddToDrawTable(obj, cell); returns the cell record. Used where the cell is already known: a machine with a cached cell at +0x1e8, an explosion filed under its owner's cell (Explosion_GetOwnerDrawCell), and every fire.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "0046e528",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_PickDrawCell",
+      "description": "(grid, pos, radius): the terrain cell an object is drawn with. Starts from the cell holding pos (x, y >> grid+0x108). By the quadrant the viewer's cell (DAT_006b4fc8/cc, same shift) lies in, when pos is within radius of that cell's viewer-side edge it moves one cell toward the viewer on that axis -- reverted when Terrain_FaceNormalAt gives a face and Terrain_FaceVisibilityTest says it faces away, and per axis when the move lands one cell outside the visible region (the cell list at grid+0xcc, count grid+0xc8). Returns HeightGrid_ClaimDrawCell's record, or 0 off the grid.",
+      "source": "docs/formats/terrain-drawing.md#heightgrid_pickdrawcell-0046e528"
+    },
+    {
+      "address": "0046e7c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_ClaimDrawCell",
+      "description": "(grid, cellXY): the 16-byte cell at grid+0xec + (y << grid+0x100 | x) * 16, or 0 off the grid. For a real cell writes x, y and Terrain_IncrementCellObjectCount's new count into the static 3-byte record at 006b50dc and returns it.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "0046b801",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetPosition",
+      "description": "Returns obj+0x26, the object's position (the translation of the transform at obj+0x12). Vtable +0x04 of every simulation-object, projectile, effect and FlatObj table; Scene_SubmitObjectWithRadius and ObjList_DrawCellObjects call it for the position.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "004785bf",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stub_ReturnZero",
+      "description": "Returns 0. Vtable +0x0c of every simulation-object, projectile, effect and FlatObj table, and of the table at 00498064; what the slot is for is not established.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "0041bd46",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlatObj_Destruct",
+      "description": "FlatObj vtable +0x08: restores ProjectileSuperBaseVtable (004a0b98), deletes the shape instance at obj+0x34 through its own +0x18 with flag 3, and frees the object when the flag's low bit is set. ObjectPool_FlushDeleteQueue calls it with 2 and hands the node back to g_FlatObjPool itself.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "00407e48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_Destruct",
+      "description": "Explosion vtable +0x08: queues the effect's ground shape (+0x4f) on g_FlatObjDeleteQueue and its light (+0x53) on the queue at 004a9686, then as FlatObj_Destruct: restores ProjectileSuperBaseVtable, deletes the shape instance at +0x34 (flag 3), frees on the flag's low bit.",
+      "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "00471e24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CellWalk_SetCallback",
+      "description": "The DBSIM copy of VSHELL's CellWalk_SetCallback (0042f3b0): (ctx, callback, value) stores the callback at ctx+0x14 and its value at ctx+0x18. Terrain_DrawVisibleCells passes the height grid as the value.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "00471e38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CellWalk_Polygon",
+      "description": "The DBSIM copy of VSHELL's CellWalk_Polygon (0042f3c4), read in its own decompile: (ctx, centre, polygon) cuts the polygon into four quadrants about the centre cell with Poly_ClipToHalfPlane, scan-converts each with Poly_BuildSpanList and calls callback(ctx, row, xFrom, xTo) per run, far to near when DAT_0049f270 == 0 && DAT_0049aad4 != 0 (0 and 1 in the image) and near to far otherwise. Terrain_DrawVisibleCells walks the terrain by row with it, callback Terrain_DrawCellRowRun.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "004723f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CellWalk_PolygonByColumn",
+      "description": "The DBSIM copy of VSHELL's CellWalk_PolygonByColumn (0042f9b8): turns the polygon a quarter about the centre with Point_RotateQuarterAbout, runs CellWalk_Polygon's far-to-near branch with no flag test, turns each run's ends back with Point_UnrotateQuarterAbout and calls callback(ctx, column, yFrom, yTo), then turns the points back. Terrain_DrawVisibleCells walks the terrain by column with it, callback Terrain_DrawCellColumnRun. Ghidra's decompile shows the context as Rtl_VectorNew's return, as it does for the VSHELL copy.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "004723ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point_RotateQuarterAbout",
+      "description": "The DBSIM copy of VSHELL's Point_RotateQuarterAbout (0042f968): (&x, &y, centre) x' = cx + (y - cy), y' = cy - (x - cx), in place.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "004723d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point_UnrotateQuarterAbout",
+      "description": "The DBSIM copy of VSHELL's Point_UnrotateQuarterAbout (0042f990): (&x, &y, centre) x = cx + cy - y', y = cy + (x' - cx), in place, the inverse of Point_RotateQuarterAbout.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0046dcd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_DrawCellRowRun",
+      "description": "(ctx, row, xFrom, xTo): CellWalk_Polygon's callback in the terrain draw. The grid is ctx+0x18. Builds the four view-space corners of cell (xFrom, row) from the grid origin at grid+0x1c and the per-cell steps at grid+4 (X) and grid+0x10 (Y), then calls Terrain_DrawCellQuad(cellX, row) for cellX from xFrom to xTo by ctx+0xc, adding the X step to the corners each time. Clears DAT_006b4fe0 when row is the viewer's (DAT_006b4fd8) and the run covered the viewer's column (DAT_006b4fd4).",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0046dea4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_DrawCellColumnRun",
+      "description": "(ctx, column, yFrom, yTo): CellWalk_PolygonByColumn's callback in the terrain draw, Terrain_DrawCellRowRun with the axes exchanged: Terrain_DrawCellQuad(column, cellY) for cellY from yFrom to yTo by ctx+0x10, stepping the corners by the Y step at grid+0x10. Clears DAT_006b4fe0 when column is the viewer's and the run covered the viewer's row.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0046d0a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_DrawVisibleCells",
+      "description": "(grid, view): the terrain draw. Nothing while grid+0x11c is clear. Installs the identity model transform, points the render context's +0x22c at a zero dword for the duration, puts the view's cell (position >> cellShift) in DAT_006b4fd4/fd8 and that cell's pending-object count in DAT_006b4fe0, then walks the visible region (grid+0xc8) about that cell: by column (CellWalk_PolygonByColumn, Terrain_DrawCellColumnRun) when the view's heading (+0x14) has magnitude 0x2001..0x5fff (-0x8000 read as 0x7fff), by row (CellWalk_Polygon, Terrain_DrawCellRowRun) otherwise. Ends with Terrain_DrawCellObjects for the viewer's cell when DAT_006b4fe0 is still set.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00428140",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Scene_DrawTerrain",
+      "description": "(view): Raster_SetModelTransform(&DAT_004aab08); sets the render context's clip mode +0x208 to 1 while its clip block (+4) holds one region whose first dword is 0; Terrain_DrawVisibleCells(g_TerrainDrawGrid, view); restores +0x208. Called from FUN_0042e700 in the frame draw and from the heads-down map's terrain pass.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0042883c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_DrawAfterTerrain",
+      "description": "(view): runs after the terrain walk in maybe_Sim_RenderFrame. Calls slot 0 of every object in the no-cell bucket DAT_004cf910 (count DAT_004cf9b0) that ObjList_AddToDrawTable fills. Then, when LocalPlayerMech's +0x1f2 record has a nonzero +0x50 and Cam_IsAttachedTo(view, player) is 0, Terrain_DrawCellObjects for the player's cached cell (+0x1e8/+0x1ea). Then, not decoded: a raster page swap under DAT_004cf9b4 around ObjList_SetViewObject(view), and FUN_00428b38 when DAT_0049abbc is set.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00428eec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_SetViewObject",
+      "description": "(obj): stores its argument at DAT_0049ac3c. ObjList_DrawCellObjects and ObjList_DrawAfterTerrain pass the view object.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00494898",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewFrustum_Ctor",
+      "description": "(frustum, far, margin): constructs the position at +0xc and the six 0x10-byte planes from +0x18 (Plane_Ctor), stores far at +4, margin at +0 and -1 (every plane enabled) at +8. Terrain_SetupVisibleRegion builds one with far = grid+0x10c << cellShift and margin = 1.5 cells.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "004948d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewFrustum_Build",
+      "description": "(frustum, view, far, margin): the six planes of the view's frustum, each built in view axes (across, depth, up), rotated by the view's euler matrix and handed to Plane_FromPointNormal. With F = far, M = margin, s = the view's perspective shift (+0x1a), and from the render context (+0x16) the rect +0x210..+0x21c (w, h) and the pair +0x220/+0x224 (-cx, -cy): near (+0x18) through (0,-M,0), normal (0,F,0); far (+0x28) through (0,F,0), normal -(0,F,0); top (+0x38) through (0,0,M), normal (0, cy*F>>s, -F); bottom (+0x48) through -(0,0,M), normal (0,(h-cy)*F>>s, F); left (+0x58) through -(M,0,0), normal (F, cx*F>>s, 0); right (+0x68) through (M,0,0), normal (-F,(w-cx)*F>>s, 0). The position (+0xc) is the view's.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00494d4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewFrustum_ClipGroundPolygon",
+      "description": "(frustum, poly, lowZ, highZ, out) -> bool: copies the six planes, shifting each non-vertical one (Plane_IsVertical) along Z by lowZ when its Z component is <= 0 and by -highZ when positive (Plane_ShiftAlongZ); moves poly to the eye (Poly3_SubtractOffset), cuts it with Poly_SplitByPlane keeping the front against the enabled planes in the order left, right, top, bottom, far, near, and moves the result back (Poly3_AddOffset). Returns whether any points are left. Terrain_SetupVisibleRegion clips the draw square with it, passing grid+0x110 and grid+0x114.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00494ba8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewFrustum_ClipPolygon",
+      "description": "(frustum, poly, out) -> bool: ViewFrustum_ClipGroundPolygon without the Z shift, with the planes as built.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00494f98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly3_SubtractOffset",
+      "description": "(in, offset, out): out = in with offset subtracted from each int32 {x, y, z} point; count copied.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00494fe0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly3_AddOffset",
+      "description": "(in, offset, out): out = in with offset added to each int32 {x, y, z} point; count copied.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0049512a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_IsVertical",
+      "description": "(plane) -> 1 when the normal's Z is 0 and X, Y are not both 0; 0 otherwise.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00495148",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_ShiftAlongZ",
+      "description": "(plane, v): plane.d -= v * plane.nz.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0049504b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetPosition",
+      "description": "(view) -> view + 4, the view's int32 position.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00495056",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetPerspectiveShift",
+      "description": "(view) -> the dword at view + 0x1a, the perspective shift.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00495061",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetRenderContext",
+      "description": "(view) -> the dword at view + 0x16, the view's render context.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0049506c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_BuildTransform",
+      "description": "(view, out): Transform_SetEulerAndTranslation(out, view + 0x10, view + 4).",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0049509b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_SetEulerAndTranslation",
+      "description": "(out, euler, position): writes position into the transform's translation (+0x14..+0x1c) and builds the rotation from the euler triple with BuildEulerRotationMatrixQ14.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "004950e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuildEulerRotationMatrixQ14_Thunk",
+      "description": "(matrix, euler): BuildEulerRotationMatrixQ14(euler, matrix), the arguments exchanged.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00495026",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_Ctor",
+      "description": "Constructs a transform: FUN_00495088 on it (which returns its argument) and maybe_Point3I_Ctor on its translation at +0x14. Returns it.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "004950ca",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_Negate",
+      "description": "(p): negates Z, then X and Y through Point3I_NegateXY.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "004950f5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_NegateXY",
+      "description": "(p): negates X and Y.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "00495102",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_Ctor",
+      "description": "maybe_Point3I_Ctor on the plane's normal, which it starts with; returns it. ViewFrustum_Ctor and ViewFrustum_ClipGroundPolygon build their six planes with it.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0047e344",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_FromPointNormal",
+      "description": "(plane, point, normal): scales normal to length 0x800 component by component through Math_Mul32To64 and Math_DivMod64 by its magnitude -- Point3I_ExactMagnitude when every component lies strictly within +/-15001 (0x3a99), Point3I_Magnitude otherwise -- and sets plane.d = -(point . normal').",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0047e958",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_ExactMagnitude",
+      "description": "(p): Math_ISqrt of x*x + y*y + z*z, summed in 32 bits.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0047e986",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_ISqrt_Thunk",
+      "description": "One-line forwarder to Math_ISqrt.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0047de90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_ISqrt",
+      "description": "(n) -> floor(sqrt(n)) for unsigned n, bit by bit: BSR for the top bit, then trial additions of halving powers of two against the running square. 0 for 0.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0049aac8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TerrainDrawGrid",
+      "description": "The zone's HeightGrid as Terrain_LoadZone constructs it (the HeightGrid_Constructor result stored through ESI at 004279ec). Scene_DrawTerrain passes it to Terrain_DrawVisibleCells.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "006b4fc8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TerrainViewerPos",
+      "description": "int32 {x, y, z} (006b4fc8/cc/d0): the view's position, copied by Terrain_SetupVisibleRegion. Terrain_FaceVisibilityTest measures from it, Terrain_BuildDrawRegionQuad centres the draw square on it, and HeightGrid_PickDrawCell takes the viewer's cell from it.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "006b4fd4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TerrainViewerCellX",
+      "description": "The view's cell X, set by Terrain_DrawVisibleCells for the walk; with g_TerrainViewerCellY (006b4fd8) it is the walk's centre.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "006b4fd8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TerrainViewerCellY",
+      "description": "The view's cell Y; see g_TerrainViewerCellX.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "006b4fe0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TerrainViewerCellPending",
+      "description": "Byte: the viewer's cell's pending-object count at the start of the walk. The run callbacks clear it when a run covers that cell; if still set after the walk, Terrain_DrawVisibleCells draws that cell's objects then.",
+      "source": "docs/formats/terrain-drawing.md"
+    },
+    {
+      "address": "0049f270",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "low",
+      "description": "CellWalk_Polygon's first walk-direction flag: the far-to-near walk runs when this is 0 and DAT_0049aad4 is nonzero. 0 in the image; es2_xref finds only reads (CMP), the others in the textured-polygon rasterizers. VSHELL's counterpart is 00471888.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0049aad4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "low",
+      "description": "CellWalk_Polygon's second walk-direction flag: 1 in the image, which with DAT_0049f270 == 0 selects the far-to-near walk. es2_xref finds one reference, the read in CellWalk_Polygon. VSHELL's counterpart is 00471884.",
+      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
     }
   ]
 }

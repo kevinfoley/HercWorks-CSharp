@@ -451,6 +451,61 @@ public sealed class SimWorld {
 	private int _dropPodFrames;
 	private readonly List<MeteorObject> _meteors = new();
 
+	/// <summary>
+	/// The flat shapes lying on the ground — <c>g_FlatObjPool</c> (<c>004a9711</c>). See
+	/// <see cref="GroundShape"/>: a HERC's, an impact effect's and a landed drop pod's, all out of the
+	/// one pool.
+	/// </summary>
+	public IReadOnlyList<GroundShape> GroundShapes => _groundShapes;
+
+	/// <summary>
+	/// <c>Pool_Alloc(g_FlatObjPool)</c> and the <c>FlatObj</c> construction every spawner inlines after
+	/// it: root <paramref name="shapeIndex"/> of the flat set at <paramref name="position"/>, heading 0.
+	///
+	/// <para>A full pool gives null. <b>None of the three spawners checks for that</b>: each goes on
+	/// to write the position (or, in the HERC's case, the Z) through the pointer it got, which is a
+	/// crash in the original (KNOWN_ISSUES.md). Here each caller simply does without the shape.</para>
+	/// </summary>
+	internal GroundShape? SpawnGroundShape(int shapeIndex, Vec3i position) {
+		if (_groundShapes.Count >= GroundShape.PoolSize) {
+			return null;
+		}
+
+		int radius = shapeIndex >= 0 && shapeIndex < _groundShapeRadii.Count ? _groundShapeRadii[shapeIndex] : 0;
+		var shape = new GroundShape(shapeIndex, radius, position);
+		_groundShapes.Add(shape);
+		return shape;
+	}
+
+	/// <summary>
+	/// <c>ObjectPool_QueueForDelete(g_FlatObjDeleteQueue, shape)</c>. The original frees the entry at
+	/// the next <c>Sim_FlushDeleteQueue</c> (<c>00409904</c>) — the start of the next frame's draw, or
+	/// the end of the damage write that queued it — so the shape is never drawn again either way.
+	/// </summary>
+	internal void ReleaseGroundShape(GroundShape? shape) {
+		if (shape != null) {
+			_groundShapes.Remove(shape);
+		}
+	}
+
+	/// <summary>
+	/// Each root of the flat set's bounding radius and cell count, supplied by whoever loaded the
+	/// shapes, for the reason <see cref="BindDebrisShapeRadii"/> is. Until it is, a shape conforms at
+	/// radius 0 and an impact effect's steps no cell.
+	/// </summary>
+	public void BindGroundShapes(IReadOnlyList<int> radii, IReadOnlyList<int> frameCounts) {
+		_groundShapeRadii = radii;
+		_groundShapeFrames = frameCounts;
+	}
+
+	/// <summary>How many cells root <paramref name="shapeIndex"/>'s sequence 0 has, or 0 unbound.</summary>
+	internal int GroundShapeFrameCount(int shapeIndex) =>
+		shapeIndex >= 0 && shapeIndex < _groundShapeFrames.Count ? _groundShapeFrames[shapeIndex] : 0;
+
+	private IReadOnlyList<int> _groundShapeRadii = Array.Empty<int>();
+	private IReadOnlyList<int> _groundShapeFrames = Array.Empty<int>();
+	private readonly List<GroundShape> _groundShapes = new();
+
 	/// <summary>Ticks elapsed since the world was created.</summary>
 	public long TickCount { get; private set; }
 
@@ -575,7 +630,7 @@ public sealed class SimWorld {
 		}
 
 		_effects.Add(new ImpactEffect(
-			typeId, record, Explosions.FrameCount(record.ShapeIndex), position, EffectLights));
+			typeId, record, Explosions.FrameCount(record.ShapeIndex), position, EffectLights, this));
 
 		if (playSound && record.SoundId >= 0) {
 			// Math_RandomBelow(0x32) on the presentation generator, whose result the constructor throws
@@ -933,6 +988,10 @@ public sealed class SimWorld {
 	public void Add(SimObject simObject) {
 		simObject.ListIndex = _objects.Count;
 		_objects.Add(simObject);
+
+		// Mech_Constructor takes its shadows out of the flat pool as it builds the machine; this
+		// is the first point here at which a machine has a world to take them from.
+		(simObject as MechObject)?.AllocateShadows(this);
 
 		for (int i = 0; i < _objects.Count; i++) {
 			_objects[i].EnsureTableSize(_objects.Count);

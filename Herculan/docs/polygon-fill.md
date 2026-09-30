@@ -54,9 +54,9 @@ A shallow edge's value is the outermost pixel its Bresenham line puts on that ro
 
 ## Walking a polygon's cells
 
-`Poly_ScanConvert` (`00465e0a`; DBSIM `00493086`) is the same scan converter writing `int32`: the region is `{top, count}` followed by `int32` `{x0, x1}` pairs, by the rules above. `Poly_ScanConvertEitherWinding` (`00465d39`; DBSIM `00492fb5`) and `Poly_ScanConvertReversed` (`00465db9`; DBSIM `00493035`) are its steps 1 and 2. `Poly_BuildSpanList` (`0043000d`) moves a polygon `{count, points*}` to the origin, scan-converts it, moves the spans back, and fills a header `{top, bottom, rows, first pair*}`.
+`Poly_ScanConvert` (`00465e0a`; DBSIM `00493086`) is the same scan converter writing `int32`: the region is `{top, count}` followed by `int32` `{x0, x1}` pairs, by the rules above. `Poly_ScanConvertEitherWinding` (`00465d39`; DBSIM `00492fb5`) and `Poly_ScanConvertReversed` (`00465db9`; DBSIM `00493035`) are its steps 1 and 2. `Poly_BuildSpanList` (`0043000d`; DBSIM `00472a08`) moves a polygon `{count, points*}` to the origin, scan-converts it, moves the spans back, and fills a header `{top, bottom, rows, first pair*}`.
 
-The walk cuts the polygon into four quadrants around a centre cell `(ox, oy)` with `Poly_ClipToHalfPlane` (`004300c7`). `Poly_ClipToHalfPlane(keepHigh, alongX, value, in, out)` keeps the part of a polygon with `x` (or `y`) `≥ value` when `keepHigh` is set and `≤ value` otherwise, points on the line kept. It is one Sutherland–Hodgman pass with crossings computed from the previous point, truncating.
+The walk cuts the polygon into four quadrants around a centre cell `(ox, oy)` with `Poly_ClipToHalfPlane` (`004300c7`; DBSIM `00472ac0`). `Poly_ClipToHalfPlane(keepHigh, alongX, value, in, out)` keeps the part of a polygon with `x` (or `y`) `≥ value` when `keepHigh` is set and `≤ value` otherwise, points on the line kept. It is one Sutherland–Hodgman pass with crossings computed from the previous point, truncating.
 
 | Quadrant | Rows | Columns |
 |---|---|---|
@@ -65,18 +65,18 @@ The walk cuts the polygon into four quadrants around a centre cell `(ox, oy)` wi
 | 2 | `y ≤ oy` | `x ≤ ox − 1` |
 | 3 | `y ≤ oy` | `x ≥ ox` |
 
-The centre cell is in quadrant 3. The walk context is `0x1c` bytes: `+0` `ox`, `+4` `oy`, `+8` the quadrant, `+0xc` and `+0x10` the steps along `x` and `y` (±1), `+0x14` the callback and `+0x18` a value for it, the last two set by `CellWalk_SetCallback` (`0042f3b0`).
+The centre cell is in quadrant 3. The walk context is `0x1c` bytes: `+0` `ox`, `+4` `oy`, `+8` the quadrant, `+0xc` and `+0x10` the steps along `x` and `y` (±1), `+0x14` the callback and `+0x18` a value for it, the last two set by `CellWalk_SetCallback` (`0042f3b0`; DBSIM `00471e24`).
 
-`CellWalk_Polygon(ctx, centre, polygon)` (`0042f3c4`) calls `callback(ctx, row, xFrom, xTo)` once per row of each quadrant, the run going from `xFrom` to `xTo` by the `x` step. With the values the image holds, it walks **far to near**:
+`CellWalk_Polygon(ctx, centre, polygon)` (`0042f3c4`; DBSIM `00471e38`) calls `callback(ctx, row, xFrom, xTo)` once per row of each quadrant, the run going from `xFrom` to `xTo` by the `x` step. With the values the image holds, it walks **far to near**:
 
 1. rows below the centre, `y ≥ oy + 1`, from the last row up to `oy + 1`: on each row quadrant 0's run from its right end leftward, then quadrant 1's from its left end rightward;
 2. rows `y ≤ oy`, from the first row down to `oy`: on each row quadrant 2's run from its left end rightward, then quadrant 3's from its right end leftward.
 
-Every run ends beside the centre's column and the rows close in on the centre's row, so the centre cell comes last. A half whose rows are all negative is skipped. The choice is `DAT_00471888 == 0 && DAT_00471884 != 0`, 0 and 1 in the image; every absolute-address operand on either is a read, and `DAT_00471888` is also read by the textured-polygon rasterizers. The other branch walks **near to far**, a quadrant at a time: 2, 3, 0, 1, each from the centre's row outward and each run from beside the centre's column outward.
+Every run ends beside the centre's column and the rows close in on the centre's row, so the centre cell comes last. A half whose rows are all negative is skipped. The choice is `DAT_00471888 == 0 && DAT_00471884 != 0` (DBSIM `DAT_0049f270` and `DAT_0049aad4`), 0 and 1 in both images; every absolute-address operand on any of the four is a read, and `DAT_00471888` (`DAT_0049f270`) is also read by the textured-polygon rasterizers. The other branch walks **near to far**, a quadrant at a time: 2, 3, 0, 1, each from the centre's row outward and each run from beside the centre's column outward.
 
-`hgrid.cpp`'s cell renderer (`00429b4a`) walks the polygon at the grid's `+0xc8` around the cell of the position it is passed (shifted down by the cell shift at `+0x104`) with `CellWalk_Polygon`, callback `00429dac`.
+`hgrid.cpp`'s cell renderer (`00429b4a`) walks the polygon at the grid's `+0xc8` around the cell of the position it is passed (shifted down by the cell shift at `+0x104`) with `CellWalk_Polygon`, callback `00429dac`. DBSIM's terrain draw walks its visible region with the DBSIM copies, by row or by column: see [`formats/terrain-drawing.md`](formats/terrain-drawing.md#the-cell-walk--terrain_drawvisiblecells-0046d0a4).
 
-`CellWalk_PolygonByColumn` (`0042f9b8`) is the far-to-near walk by column. It turns the polygon's points in place a quarter turn about the centre with `Point_RotateQuarterAbout` (`0042f968`: `x' = ox + (y − oy)`, `y' = oy − (x − ox)`), walks, turns each run's end cells back with `Point_UnrotateQuarterAbout` (`0042f990`) and calls `callback(ctx, column, yFrom, yTo)`, then turns the points back. It does not test the two flags, and the step fields swap roles: `+0xc` is set per half and `+0x10` per quadrant. `CellWalk_Rect` (`0042fe5a`) is the far-to-near walk over a rectangle `{x0, y0, x1, y1}` with no scan conversion, each half running its first quadrant's rows before its second's.
+`CellWalk_PolygonByColumn` (`0042f9b8`; DBSIM `004723f8`) is the far-to-near walk by column. It turns the polygon's points in place a quarter turn about the centre with `Point_RotateQuarterAbout` (`0042f968`; DBSIM `004723ac`: `x' = ox + (y − oy)`, `y' = oy − (x − ox)`), walks, turns each run's end cells back with `Point_UnrotateQuarterAbout` (`0042f990`; DBSIM `004723d4`) and calls `callback(ctx, column, yFrom, yTo)`, then turns the points back. It does not test the two flags, and the step fields swap roles: `+0xc` is set per half and `+0x10` per quadrant. `CellWalk_Rect` (`0042fe5a`) is the far-to-near walk over a rectangle `{x0, y0, x1, y1}` with no scan conversion, each half running its first quadrant's rows before its second's.
 
 ## Rejected readings
 
@@ -86,5 +86,5 @@ Every run ends beside the centre's column and the rows close in on the centre's 
 
 ## Open
 
-- **Open:** what writes `DAT_00471888` and `DAT_00471884`, if anything does through a base register, and so whether the near-to-far walk ever runs.
-- **Open:** `es2_xref.py` finds no reference to `CellWalk_PolygonByColumn` or `CellWalk_Rect`.
+- **Open:** what writes `DAT_00471888` and `DAT_00471884` (DBSIM `DAT_0049f270` and `DAT_0049aad4`), if anything does through a base register, and so whether the near-to-far walk ever runs.
+- **Open:** `es2_xref.py` finds no reference to VSHELL's `CellWalk_PolygonByColumn` or `CellWalk_Rect`.

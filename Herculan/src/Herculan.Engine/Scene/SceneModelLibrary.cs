@@ -615,6 +615,41 @@ public sealed class SceneModelLibrary {
 	}
 
 	/// <summary>
+	/// One root of the theater's ground-shape set — <c>dts\&lt;set&gt;.DTS</c> with
+	/// <c>dba\&lt;set&gt;.DBA</c>, the pair <c>FlatObj_LoadResources</c> (<c>004097a8</c>) loads and
+	/// binds into every root — one entry per cell of its sequence-0 flipbook. See
+	/// <see cref="Sim.GroundShape"/> and <see cref="TheaterDescriptor.FlatSetName"/>.
+	///
+	/// <para>Retail's <c>FLAT2</c> has four roots: 0 and 2 single flat solid polys in palette 224, 1
+	/// a five-cell ring of solid polys in 96 and 97, and 3 one textured square. The bank is decoded
+	/// with index 0 transparent, which changes nothing unless a frame carries that index.</para>
+	/// </summary>
+	/// <returns>The cells in order, or empty when the set or the root is missing.</returns>
+	public IReadOnlyList<SceneModel> GroundShape(string setName, int shapeIndex) {
+		string dtsName = setName + ".DTS";
+		if (Root(dtsName, shapeIndex) is not { } root) {
+			return Array.Empty<SceneModel>();
+		}
+
+		var cells = new List<SceneModel>();
+		for (int cell = 0; cell < DtsMeshBuilder.CellFrameCount(root); cell++) {
+			if (Build(dtsName, shapeIndex, setName, transparentBank: true, cellFrame: cell) is { } model) {
+				cells.Add(model);
+			}
+		}
+
+		return cells;
+	}
+
+	/// <summary>
+	/// A ground-shape root's own bounding radius in world units — the <c>shape+8</c>
+	/// <c>SimObject_GetShapeRadius</c> reads, which the draw's terrain conform probes at. Zero when
+	/// the root is missing.
+	/// </summary>
+	public int GroundShapeRadius(string setName, int shapeIndex) =>
+		Root(setName + ".DTS", shapeIndex) is TSBasePart root ? root.Radius : 0;
+
+	/// <summary>
 	/// One root of <c>dts\FIRE.DTS</c> — a burning object's looping flipbook of billboards, out of
 	/// <c>dba\FIRE0.DBA</c> or <c>FIRE1.DBA</c>. Which of the two is
 	/// <c>dat\FIRE.DAT</c>: a four-byte header and then one byte per shape, which

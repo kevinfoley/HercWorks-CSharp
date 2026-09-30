@@ -102,7 +102,7 @@ public class HercSimDat {
 	/// <summary>
 	/// Offset 74 (the exe's <c>typeRecord+0x4c</c>) — <b>this chassis leaves no wreck</b>. On death
 	/// <c>Mech_ComponentDamageWrite</c> takes a different branch for it: the machine drops to
-	/// <c>in limbo</c> rather than <c>dead</c>, is sunk to z = -100000, and every child part it owns
+	/// <c>in limbo</c> rather than <c>dead</c>, is sunk to z = -100000, and every shadow it casts
 	/// is deleted. Set only on the SPIDER, which is also the one chassis with no legs and no mass.
 	/// Was <c>ModelFlagNoDebris</c>, which it is not — the debris a destroyed component throws is
 	/// unaffected. See Herculan.Engine.Sim.MechObject.ComponentDamageWrite.
@@ -180,11 +180,14 @@ public class HercSimDat {
 	public short Unk120_val { get; set; }
 
 	/// <summary>
-	/// Offsets 112 and 117 read as <b>bytes</b>, one per leg — the per-leg kind byte
-	/// (<c>typeRec+0x72</c>) and the shape part id the leg's node hangs on (<c>typeRec+0x77</c>).
-	/// <c>Mech_PlaceLegsOnGround</c> (<c>004195c8</c>) walks both with the leg index, for
-	/// <see cref="ModelLegsTotal"/> legs. Every retail HERC states two legs, kinds 0 and 0, on parts
-	/// 14 and 15.
+	/// Offsets 112 and 117 read as <b>bytes</b>, one per shadow the machine casts — the entry's kind,
+	/// which is also the index of the flat-set shape laid under it (<c>typeRec+0x72</c>), and the shape part
+	/// id it follows (<c>typeRec+0x77</c>). The first list runs to its first negative byte, and that
+	/// length is the entry count: <c>Mech_Constructor</c> counts it into <c>mech+0x23c</c> and
+	/// <c>Mech_PlaceLegsOnGround</c> (<c>004195c8</c>) walks both lists that far, so it is not
+	/// <see cref="ModelLegsTotal"/>. Retail states kinds 0, 0, 2 on parts 14, 15, 12 — a shadow under
+	/// each foot and one under the body — on every HERC but the PITBULL (four feet, kind 0, on parts 14, 15, 22, 23) and
+	/// the SPIDER (none). See docs/simulation/ground-shapes.md.
 	///
 	/// <para><b>Read-only views.</b> These bytes overlap the shorts declared above —
 	/// <see cref="ModelFlagsShadow1"/> covers 112-113, and 117-118 straddle

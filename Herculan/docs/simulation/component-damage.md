@@ -80,7 +80,7 @@ The names of the slots are [the file's](../formats/dmg-damage-file.md#the-two-in
 
 Two independent branches, and they are **not** two readings of one condition. Losing legs disables; losing the cockpit, the pilot or life support kills.
 
-**Disabled** — the leg branch, non-flyers only. A leg whose servos read fully destroyed has its child object deleted, so `Mech_PlaceLegsOnGround` stops placing it; that runs whatever else is true of the machine. Then, if it is not already immobilised and half or more of its legs are gone:
+**Disabled** — the leg branch, non-flyers only. A leg whose servos read fully destroyed has its shadow deleted ([`ground-shapes.md`](ground-shapes.md#a-hercs-shadows)), so `Mech_PlaceLegsOnGround` skips it and it plants no more footfalls; that runs whatever else is true of the machine. Then, if it is not already immobilised and half or more of its legs are gone:
 
 1. the attacker is told, through *its own* vtable `+0x60` ([below](#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710)), with "was already immobilised" clear;
 2. the machine's [out-of-action report](mission-deployment.md#the-out-of-action-report) runs, then its own defeat action fires;
@@ -98,7 +98,7 @@ Steps 1–3 run only while `+0x99` is clear; step 4 runs regardless.
 5. target released, scanner forced passive;
 6. the state: `in limbo` (19) when the chassis' `typeRecord+0x4c` is set, otherwise `dead` (20) for a non-flyer. **A flyer takes neither**, and keeps whatever state it was in.
 
-`typeRecord+0x4c` means *this chassis leaves no wreck*, and the SPIDER is the only one that sets it: that branch also sinks the object to z = -100000, raises `obj+0x38` (a structure's no-wreck branch does the same at `004039a1`, a machine's at `004185ec` and a flyer's at `00421c36`, into the 8 bytes `SimObjectBase_Constructor` zeroes at `00402250`; [Open](#open)), and hands every child part in `mech+0x238` to `ObjectPool_QueueForDelete` (`00418634`), nulling each slot and zeroing the count at `mech+0x23c`. The machine itself is not queued — the branch takes it off the screen by sinking it, not by removing it from the object list.
+`typeRecord+0x4c` means *this chassis leaves no wreck*, and the SPIDER is the only one that sets it: that branch also sinks the object to z = -100000, raises `obj+0x38` (a structure's no-wreck branch does the same at `004039a1`, a machine's at `004185ec` and a flyer's at `00421c36`, into the 8 bytes `SimObjectBase_Constructor` zeroes at `00402250`; [Open](#open)), and hands every ground shape in `mech+0x238` to `ObjectPool_QueueForDelete` (`00418634`), nulling each slot and zeroing the count at `mech+0x23c` — none, on the SPIDER, whose part list is empty. The machine itself is not queued — the branch takes it off the screen by sinking it, not by removing it from the object list.
 
 The three state indices and their think are [`ai-combat-states.md`](ai-combat-states.md)'s. What a machine does *after* the state is installed — the fall, and the collapse that ends it — is [`mech-locomotion.md`](mech-locomotion.md#going-down)'s.
 

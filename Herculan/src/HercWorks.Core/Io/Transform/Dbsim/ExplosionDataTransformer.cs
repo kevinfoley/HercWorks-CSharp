@@ -38,7 +38,7 @@ public class ExplosionDataTransformer : ByteTransformer<ExplosionData> {
 			var type = new ExplosionTypeEntry {
 				ShapeIndex = IndexShortLE(),
 				FrameInterval = IndexShortLE(),
-				TrailEffect = IndexShortLE(),
+				GroundShape = IndexShortLE(),
 				LightMode = IndexShortLE()
 			};
 
@@ -77,7 +77,7 @@ public class ExplosionDataTransformer : ByteTransformer<ExplosionData> {
 
 			Emit(outStream, WriteShortLE(type.ShapeIndex));
 			Emit(outStream, WriteShortLE(type.FrameInterval));
-			Emit(outStream, WriteShortLE(type.TrailEffect));
+			Emit(outStream, WriteShortLE(type.GroundShape));
 			Emit(outStream, WriteShortLE(type.LightMode));
 
 			for (int f = 0; f < ExplosionTypeEntry.FrameIntensityCount; f++) {

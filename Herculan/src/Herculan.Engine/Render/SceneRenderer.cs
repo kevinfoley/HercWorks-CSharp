@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Sim;
+using Herculan.Engine.Terrain;
 using Silk.NET.OpenGL;
 
 namespace Herculan.Engine.Render;
@@ -77,11 +78,12 @@ public sealed class SceneItem {
 	public SimObject? LightSubject { get; set; }
 
 	/// <summary>
-	/// Whether this item is the zone's cell grid, and so takes its fog distance a cell at a time the
-	/// way <c>Terrain_DrawCellQuad</c> does rather than a pixel at a time — see
-	/// <see cref="SceneRenderer.FogCellSize"/>. Set on the terrain and nothing else: every other
-	/// drawn thing is fogged from one distance of its own (<c>ObjList_DrawEntryRender</c> passes the
-	/// render entry's <c>+0x12</c>), which is already what a small object per-pixel amounts to.
+	/// Whether this item takes its fog distance a cell at a time the way <c>Terrain_DrawCellQuad</c>
+	/// does rather than a pixel at a time — see <see cref="SceneRenderer.FogCellSize"/>. Set on the
+	/// terrain, and on the ground shapes, which the original draws under the fade their cell's quad
+	/// installed (docs/simulation/ground-shapes.md, "The draw pass"). Every other drawn thing is
+	/// fogged from one distance of its own (<c>ObjList_DrawEntryRender</c> passes the render entry's
+	/// <c>+0x12</c>), which is already what a small object per-pixel amounts to.
 	/// </summary>
 	public bool CellQuantisedFog { get; set; }
 }
@@ -136,6 +138,7 @@ public sealed class SceneRenderer : IDisposable {
 	private int _depthSlices;
 	private int _shadeRampRows;
 	private int _shadeRampGouraudRow;
+	private TerrainPaintRankBuffer? _paintRanks;
 	private readonly SelectedEffectLight[] _effectLights =
 		new SelectedEffectLight[EffectLightSelection.MaxPerObject];
 
@@ -342,18 +345,57 @@ public sealed class SceneRenderer : IDisposable {
 	/// caller has set, which is how passes sharing one viewport stay out of each other's pixels.
 	/// </summary>
 	public void Render(Camera camera, IEnumerable<SceneItem> items,
+			int viewportX, int viewportY, int viewportWidth, int viewportHeight) =>
+		Render(camera, items, null, viewportX, viewportY, viewportWidth, viewportHeight);
+
+	/// <summary>
+	/// The same pass with the ground drawn as the original paints it: <paramref name="ground"/>'s
+	/// terrain first, then its ground shapes in the terrain's paint order, then everything else in
+	/// <paramref name="items"/> (which may hold the terrain item too; it is not drawn twice).
+	///
+	/// <para>The original paints each ground shape straight after its own cell's ground, so the
+	/// ground of every cell its walk paints later covers it and it covers everything painted
+	/// before (docs/simulation/ground-shapes.md, "The draw pass"). Here each shape is filed under the
+	/// cell <see cref="HeightGrid.PickDrawCell"/> picks, as the original's submit files it, takes that
+	/// cell's <see cref="TerrainPaintOrder.Rank"/>, and is drawn with depth testing off, keeping only
+	/// the pixels where the ground showing ranks no later — <see cref="TerrainPaintRankBuffer"/>. Where
+	/// no ground shows, the sky, it draws. The shapes are drawn in rank order, so where two overlap
+	/// the later cell's is on top, and within one cell in the order given, the original's submit
+	/// order. A shape off the grid ranks after all of it, as the original's no-cell bucket
+	/// draws.</para>
+	///
+	/// <para>Everything else is drawn afterwards with the depth test, so a machine stands over its
+	/// own shadow. The original also paints a shape over an object filed under a cell painted earlier
+	/// where the two overlap on screen; that is not reproduced here — every object is drawn over every
+	/// shape — and is listed as Unported in docs/simulation/ground-shapes.md.</para>
+	/// </summary>
+	public void Render(Camera camera, IEnumerable<SceneItem> items, GroundShapeLayer? ground,
 			int viewportX, int viewportY, int viewportWidth, int viewportHeight) {
+		float aspect = (float)viewportWidth / System.Math.Max(viewportHeight, 1);
+		var projection = camera.ProjectionMatrix(aspect);
+
+		// Before anything is drawn into the frame, because it draws into a target of its own.
+		var groundShapes = ground is { Shapes.Count: > 0 }
+			? RankGroundShapes(camera, aspect, projection, ground,
+				viewportX, viewportY, viewportWidth, viewportHeight)
+			: null;
+
 		_gl.Viewport(viewportX, viewportY, (uint)System.Math.Max(viewportWidth, 1), (uint)System.Math.Max(viewportHeight, 1));
 
 		DrawSky(camera, viewportY, viewportWidth, viewportHeight);
 
 		_shader.Use();
 		_shader.SetMatrix("uView", camera.ViewMatrix);
-		_shader.SetMatrix("uProjection", camera.ProjectionMatrix((float)viewportWidth / System.Math.Max(viewportHeight, 1)));
+		_shader.SetMatrix("uProjection", projection);
 		_shader.SetVector3("uLightDirection", LightDirection);
 		_shader.SetVector3("uFogColor", FogColor);
 		_shader.SetFloat("uFogStart", FogEnabled ? FogStart : FogDisabledDistance);
 		_shader.SetFloat("uFogEnd", FogEnabled ? FogEnd : FogDisabledDistance);
+
+		// Always on its own unit, even with no layer: a usampler2D left on unit 0 beside uTexture's
+		// sampler2D is two sampler types on one unit, which fails every draw.
+		_shader.SetInt("uPaintRank", PaintRankUnit);
+		_shader.SetInt("uPaintRankTest", 0);
 
 		if (_hasGrid) {
 			_shader.SetVector3("uGridColor", Grid.Color);
@@ -418,9 +460,36 @@ public sealed class SceneRenderer : IDisposable {
 		// item after the first costs nothing.
 		int uploadedLightCount = -1;
 
+		if (ground != null) {
+			Draw(ground.Terrain);
+		}
+
+		if (groundShapes != null) {
+			_gl.Disable(EnableCap.DepthTest);
+			_gl.DepthMask(false);
+			_gl.ActiveTexture(TextureUnit.Texture0 + PaintRankUnit);
+			_gl.BindTexture(TextureTarget.Texture2D, _paintRanks!.RankTexture);
+			_shader.SetInt("uPaintRankTest", 1);
+
+			foreach (var (item, rank) in groundShapes) {
+				_shader.SetUInt("uGroundShapeRank", rank);
+				Draw(item);
+			}
+
+			_shader.SetInt("uPaintRankTest", 0);
+			_gl.DepthMask(true);
+			_gl.Enable(EnableCap.DepthTest);
+		}
+
 		foreach (var item in items) {
+			if (ground == null || !ReferenceEquals(item, ground.Terrain)) {
+				Draw(item);
+			}
+		}
+
+		void Draw(SceneItem item) {
 			if (!item.Visible || !item.DetailSelected) {
-				continue;
+				return;
 			}
 
 			_shader.SetMatrix("uModel", item.Transform);
@@ -463,6 +532,42 @@ public sealed class SceneRenderer : IDisposable {
 
 			item.Mesh.Draw();
 		}
+	}
+
+	/// <summary>The texture unit the terrain's paint ranks are sampled from.</summary>
+	private const int PaintRankUnit = 3;
+
+	/// <summary>
+	/// This pass's side of the original's submit and walk, for the ground shapes: rebuilds the
+	/// zone's visible region for the pass's view, as <c>Terrain_SetupVisibleRegion</c> does before
+	/// the submit; files each shape under the cell <see cref="HeightGrid.PickDrawCell"/> picks and
+	/// takes that cell's rank in this view's walk; and draws the terrain's ranks for the shapes'
+	/// fragments to test against. Returns the shapes in the order to draw them.
+	/// </summary>
+	private List<(SceneItem Item, uint Rank)> RankGroundShapes(Camera camera, float aspect,
+			Matrix4x4 projection, GroundShapeLayer ground,
+			int viewportX, int viewportY, int viewportWidth, int viewportHeight) {
+		var grid = ground.Grid;
+		var viewer = camera.Position;
+		ground.Region.Update(grid, viewer, camera.ViewRotation, camera.EdgeSlopes(aspect));
+		var order = TerrainPaintOrder.For(grid, viewer, camera.SimHeading);
+
+		var ranked = new List<(SceneItem Item, uint Rank)>(ground.Shapes.Count);
+		foreach (var shape in ground.Shapes) {
+			var cell = grid.PickDrawCell(shape.Position, shape.Radius, viewer, ground.Region);
+			ranked.Add((shape.Item, cell is { } picked
+				? order.Rank(picked.X, picked.Y)
+				: TerrainPaintOrder.AfterTerrain));
+		}
+
+		// Stable, so shapes sharing a cell keep the order they were given in.
+		ranked = ranked.OrderBy(entry => entry.Rank).ToList();
+
+		_paintRanks ??= new TerrainPaintRankBuffer(_gl);
+		_paintRanks.Draw(ground.Terrain, grid, order, camera.ViewMatrix, projection,
+			viewportX, viewportY, viewportWidth, viewportHeight);
+
+		return ranked;
 	}
 
 	/// <summary>
@@ -548,6 +653,7 @@ public sealed class SceneRenderer : IDisposable {
 		_paletteRampTexture?.Dispose();
 		_impactShadeRampTexture?.Dispose();
 		_impactPaletteRampTexture?.Dispose();
+		_paintRanks?.Dispose();
 		_gl.DeleteVertexArray(_skyVertexArray);
 	}
 }

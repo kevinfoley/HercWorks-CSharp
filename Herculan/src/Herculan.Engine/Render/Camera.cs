@@ -108,6 +108,32 @@ public sealed class Camera {
 	private Transform3 SimRotation =>
 		Transform3.FromEuler(unchecked((short)Pitch), unchecked((short)Roll), unchecked((short)-Yaw));
 
+	/// <summary>
+	/// The view's orientation as the simulation holds it — the <c>BuildEulerRotationMatrixQ14</c>
+	/// matrix of its euler triple, rows right, forward and up — for the ported code that builds
+	/// the original's view geometry from it (<see cref="Terrain.TerrainVisibleRegion"/>).
+	/// </summary>
+	public Transform3 ViewRotation => SimRotation;
+
+	/// <summary>The view's heading as the simulation holds it, <c>view+0x14</c>: <see cref="Yaw"/> negated.</summary>
+	public short SimHeading => unchecked((short)-Yaw);
+
+	/// <summary>
+	/// How far this view reaches either side of its axis at unit depth, for a viewport of the given
+	/// aspect ratio: the same extents <see cref="ProjectionMatrix"/> builds its frustum from, split
+	/// about <see cref="PrincipalPoint"/>. They stand where DBSIM's view has its rect, projection
+	/// centre and focal length.
+	/// </summary>
+	public Terrain.ViewEdgeSlopes EdgeSlopes(float aspectRatio) {
+		float height = 2f * MathF.Tan(FieldOfView / 2f);
+		float width = height * MathF.Max(aspectRatio, 0.0001f);
+		return new Terrain.ViewEdgeSlopes(
+			Left: PrincipalPoint.X * width,
+			Right: (1f - PrincipalPoint.X) * width,
+			Top: PrincipalPoint.Y * height,
+			Bottom: (1f - PrincipalPoint.Y) * height);
+	}
+
 	/// <summary>Unit forward direction in render space.</summary>
 	public Vector3 Forward {
 		get {

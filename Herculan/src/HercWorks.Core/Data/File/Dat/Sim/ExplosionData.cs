@@ -52,10 +52,12 @@ public class ExplosionTypeEntry {
 	public short FrameInterval { get; set; }
 
 	/// <summary>
-	/// <c>+0x04</c> — nonzero attaches a second effect object at the same point, allocated from a
-	/// different pool. Zero on every retail row, so nothing in retail data reaches it.
+	/// <c>+0x04</c> — nonzero lays a ground shape under the effect: root 1 of the theater's flat set,
+	/// whose cell steps with the effect's frame and which goes when the effect does. Zero on every
+	/// row of both <c>EXPLOS.DAT</c> and <c>EXPLOS2.DAT</c>, so nothing in retail data reaches it.
+	/// See docs/simulation/ground-shapes.md.
 	/// </summary>
-	public short TrailEffect { get; set; }
+	public short GroundShape { get; set; }
 
 	/// <summary>
 	/// <c>+0x06</c> — nonzero attaches a light source, driven per frame from

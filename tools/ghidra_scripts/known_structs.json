@@ -831,17 +831,17 @@
           "offset": 568,
           "width": 4,
           "type": "void *",
-          "name": "parts",
+          "name": "groundShapes",
           "confidence": "high",
-          "description": "+0x238 -- a malloc'd array of pointers to the machine's own child objects, one per entry in the type record's list at +0x72. Mech_PlaceLegsOnGround walks it to place the legs."
+          "description": "+0x238 -- a malloc'd array of FlatObj pointers, the machine's ground shapes, one per entry in the type record's list at +0x72 (each entry's shape index). Mech_PlaceLegsOnGround moves each under its node; the leg branch of Mech_ComponentDamageWrite queues a lost leg's for deletion and nulls the slot. See docs/simulation/ground-shapes.md."
         },
         {
           "offset": 572,
           "width": 2,
           "type": "short",
-          "name": "partCount",
+          "name": "groundShapeCount",
           "confidence": "high",
-          "description": "+0x23c -- how many, counted by Mech_Constructor off the same list."
+          "description": "+0x23c -- how many, counted by Mech_Constructor off the same list up to its first negative byte."
         },
         {
           "offset": 574,
@@ -1550,7 +1550,7 @@
       "function": "004195c8",
       "parameter": 0,
       "struct": "MechObject",
-      "description": "Mech_PlaceLegsOnGround's machine -- walks parts/partCount against legArmed."
+      "description": "Mech_PlaceLegsOnGround's machine -- walks groundShapes/groundShapeCount against legArmed."
     },
     {
       "function": "00415498",

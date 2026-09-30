@@ -32,13 +32,23 @@ public sealed class TheaterDescriptor {
 	public const int Count = 10;
 
 	private TheaterDescriptor(int index, string paletteName, string terrainBankName,
-			string impactPaletteName, IReadOnlyList<string> allStrings) {
+			string impactPaletteName, IReadOnlyList<string> allStrings, short flatSetSelector) {
 		Index = index;
 		PaletteName = paletteName;
 		TerrainBankName = terrainBankName;
 		ImpactPaletteName = impactPaletteName;
 		Strings = allStrings;
+		FlatSetName = flatSetSelector == 0 ? "FLAT" : "FLAT2";
 	}
+
+	/// <summary>
+	/// The base name of the ground-shape set the theater loads, <c>dts\&lt;name&gt;.DTS</c> with
+	/// <c>dba\&lt;name&gt;.DBA</c> bound to every root — <c>FlatObj_LoadResources</c>
+	/// (<c>004097a8</c>)'s <c>flat</c> for a zero <see cref="WorldData.FlatSetSelector"/> and
+	/// <c>flat2</c> otherwise. Every retail descriptor selects <c>FLAT2</c>, the only set that ships.
+	/// See docs/simulation/ground-shapes.md.
+	/// </summary>
+	public string FlatSetName { get; }
 
 	/// <summary>Which <c>WORLD&lt;n&gt;</c> this is — <c>theaterIndex * 2 + variant</c>.</summary>
 	public int Index { get; }
@@ -109,6 +119,7 @@ public sealed class TheaterDescriptor {
 			wld.TextureExtension ?? string.Empty,
 		};
 
-		return new TheaterDescriptor(worldIndex, baseName, strings[3], strings[2], strings);
+		return new TheaterDescriptor(worldIndex, baseName, strings[3], strings[2], strings,
+			wld.FlatSetSelector);
 	}
 }

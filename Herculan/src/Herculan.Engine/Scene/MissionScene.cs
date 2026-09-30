@@ -65,8 +65,10 @@ public sealed class MissionScene {
 			IReadOnlyDictionary<string, IReadOnlyList<SceneModel?>> debrisModels,
 			IReadOnlyList<SceneModel?> fireModels,
 			IReadOnlyDictionary<int, SceneModel> hulkModels,
-			SceneModel? dropPodModel, IReadOnlyList<SceneModel> dropPodOpeningModels) {
+			SceneModel? dropPodModel, IReadOnlyList<SceneModel> dropPodOpeningModels,
+			IReadOnlyList<IReadOnlyList<SceneModel>> groundShapeModels) {
 		Atmosphere = atmosphere;
+		GroundShapeModels = groundShapeModels;
 		ShadeRamps = shadeRamps;
 		PaletteRamp = paletteRamp;
 		ImpactFlash = impactFlash;
@@ -248,6 +250,14 @@ public sealed class MissionScene {
 	/// </summary>
 	public IReadOnlyList<SceneModel> DropPodOpeningModels { get; }
 
+	/// <summary>
+	/// The theater's ground-shape set, one entry per root and one model per cell of that root's
+	/// flipbook — <see cref="Sim.GroundShape.ShapeIndex"/> picks the root and
+	/// <see cref="Sim.GroundShape.Frame"/> the cell. A root the set lacks is an empty list, and the
+	/// shape is simulated and not drawn.
+	/// </summary>
+	public IReadOnlyList<IReadOnlyList<SceneModel>> GroundShapeModels { get; }
+
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
 
@@ -315,6 +325,20 @@ public sealed class MissionScene {
 		world.LoadMissionCounters(mission.Counters);
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
+
+		// The theater's ground-shape set, which FlatObj_LoadResources loads at the end of
+		// World_LoadTheater -- before a single object exists, which matters here: a HERC takes its
+		// shadows as it joins the world below, and each is built with its root's radius.
+		var groundShapeModels = new IReadOnlyList<SceneModel>[models.ShapeCount(theater.FlatSetName + ".DTS")];
+		var groundShapeRadii = new int[groundShapeModels.Length];
+		var groundShapeFrames = new int[groundShapeModels.Length];
+		for (int i = 0; i < groundShapeModels.Length; i++) {
+			groundShapeModels[i] = models.GroundShape(theater.FlatSetName, i);
+			groundShapeRadii[i] = models.GroundShapeRadius(theater.FlatSetName, i);
+			groundShapeFrames[i] = groundShapeModels[i].Count;
+		}
+
+		world.BindGroundShapes(groundShapeRadii, groundShapeFrames);
 
 		// The structure hit-sphere table, read straight after the type table as Base_LoadResources
 		// reads it, and sized by it: BASECOL.DAT carries no count of its own.
@@ -631,7 +655,7 @@ public sealed class MissionScene {
 				? new ImpactFlash(SurfaceRampTable.Build(impact), PaletteRampTable.Build(impact),
 					Atmosphere.From(terrain, impact))
 				: null,
-			debrisModels, fireModels, hulkModels, dropPodModel, dropPodOpening);
+			debrisModels, fireModels, hulkModels, dropPodModel, dropPodOpening, groundShapeModels);
 	}
 
 	/// <summary>

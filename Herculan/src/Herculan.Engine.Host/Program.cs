@@ -1286,6 +1286,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// The terrain's own draw item, kept because its texture follows the TERRAIN TEXTURE preference and so
 	// changes after the item list is built -- see the per-frame update.
 	SceneItem? terrainItem = null;
+
+	// The terrain again, with the ground shapes painted in its cell order -- see
+	// SceneRenderer.Render. Its shape list is rebuilt each frame by RefreshGroundShapeItems.
+	GroundShapeLayer? groundLayer = null;
 	GpuTexture? cockpitFrontTexture = null;
 	GpuTexture? cockpitSideTexture = null;
 	GpuTexture? cockpitHeadsDownTexture = null;
@@ -1579,6 +1583,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		terrainItem = new SceneItem(terrainMesh, Matrix4x4.Identity, TerrainTextureHandle()) {
 			CellQuantisedFog = true,
 		};
+		groundLayer = new GroundShapeLayer(terrainItem, scene.World.Terrain);
 		var built = new List<SceneItem> { terrainItem };
 
 		// The player's own machine, kept aside so the cockpit view can leave it out — see below. A
@@ -1759,7 +1764,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 
 		// A unit whose group is still waiting on its arrival action is not in the mission, and
-		// maybe_Scene_SubmitFrameObjects does not submit it -- but it does submit it the moment the group
+		// Scene_SubmitFrameObjects does not submit it -- but it does submit it the moment the group
 		// arrives, so this is a per-frame filter and not a build-time one. Its geometry is built like
 		// everything else's and hidden until then; skipping the build instead leaves an arrived machine
 		// with no body at all, and only its weapons, which are rebuilt every frame, on screen.
@@ -2729,6 +2734,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		RefreshProjectileItems();
 		RefreshDebrisItems();
 		RefreshDropPodItems();
+		RefreshGroundShapeItems();
 		RefreshWeaponItems();
 		RefreshSpriteBatches();
 
@@ -3093,7 +3099,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		} else if (ExternalViewActive() && !MouseOutsideView()) {
 			DrawExternalView(gl, size.X, size.Y);
 		} else {
-			renderer.Render(camera, VisibleItems(), 0, 0, size.X, size.Y);
+			renderer.Render(camera, VisibleItems(), groundLayer, 0, 0, size.X, size.Y);
 			DrawBeams(camera, size.X, size.Y);
 			DrawSprites(camera, size.X, size.Y);
 			DrawSkeleton(camera, size.X, size.Y);
@@ -3596,7 +3602,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 		gl.Enable(EnableCap.ScissorTest);
 		gl.Scissor(0, viewY, (uint)Math.Max(width, 1), (uint)viewHeight);
-		renderer!.Render(externalCamera, VisibleItems(), 0, viewY, width, viewHeight);
+		renderer!.Render(externalCamera, VisibleItems(), groundLayer, 0, viewY, width, viewHeight);
 		DrawBeams(externalCamera, width, viewHeight);
 		DrawSprites(externalCamera, width, viewHeight);
 		DrawSkeleton(externalCamera, width, viewHeight);
@@ -3664,7 +3670,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			// The scissor is also what confines this pass to its own panel of the shared viewport.
 			ApplyWorldViewportScissor(gl, surface, viewIndex, mirrorHorizontally);
 
-			renderer!.Render(cockpitCamera, VisibleItems(), world.X, world.Y, world.Width, world.Height);
+			renderer!.Render(cockpitCamera, VisibleItems(), groundLayer, world.X, world.Y, world.Width, world.Height);
 
 			DrawBeams(cockpitCamera, world.Width, world.Height);
 			DrawSprites(cockpitCamera, world.Width, world.Height);
@@ -4278,6 +4284,46 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 	}
 
+	// One entry per ground shape within range of the camera -- the FlatObj walk at the head of
+	// Scene_SubmitFrameObjects (0042841c), which submits a shape only under GroundShape.DrawRange of
+	// the view object, oldest first. Each is drawn by FlatObj_Draw (0040991c), whose first act is to sit
+	// the shape on the terrain under it, so the conform runs here, on exactly the shapes being drawn --
+	// after its position is taken for filing, which the original's submit reads before any draw.
+	//
+	// The original draws a type-9 object on the spot inside its terrain cell's pass, with the ramp's
+	// row count zeroed (so a textured face is a plain palette copy, fullbright) and the fade that
+	// cell's quad installed (so it fogs as the ground it lies on does). Those are Fullbright and
+	// CellQuantisedFog; the cell order is the renderer's, through the GroundShapeLayer.
+	void RefreshGroundShapeItems() {
+		if (groundLayer is null) {
+			return;
+		}
+
+		groundLayer.Shapes.Clear();
+
+		foreach (var shape in scene.World.GroundShapes) {
+			if (shape.Position.ApproxDistanceTo(camera.Position) >= GroundShape.DrawRange
+				|| shape.ShapeIndex < 0 || shape.ShapeIndex >= scene.GroundShapeModels.Count
+				|| scene.GroundShapeModels[shape.ShapeIndex] is not { Count: > 0 } cells) {
+				continue;
+			}
+
+			var submitted = shape.Position;
+			shape.ConformToTerrain(scene.World.Terrain);
+
+			var model = cells[shape.Frame % cells.Count];
+			if (!modelMeshes.TryGetValue(model.Key, out var mesh)) {
+				continue;
+			}
+
+			uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+			var item = new SceneItem(mesh, WorldScale.ToRenderMatrix(shape.WorldFrame), texture, fullbright: true) {
+				CellQuantisedFog = true,
+			};
+			groundLayer.Shapes.Add(new GroundShapeDraw(item, submitted, shape.ShapeRadius));
+		}
+	}
+
 	// One item per piece of wreckage in the air, from the shape file and root its own record names --
 	// a debris table's .DTS for anything a destruction threw, and MECHWPN2.DTS for a gun knocked off its
 	// hardpoint. The transform is the piece's own frame, so the tumble shows.
@@ -4313,7 +4359,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// The player's own guns are drawn too, unlike its hull. The hull is left out of the cockpit view
 	// because the eye node sits inside the torso and its geometry would wrap the camera; a gun hangs off
 	// an arm or a shoulder, out where a pilot can see it, and its flash is the whole point.
-	// maybe_Scene_SubmitFrameObjects (0042841c) submits every mech in GlobalMechList with no
+	// Scene_SubmitFrameObjects (0042841c) submits every mech in GlobalMechList with no
 	// local-player test of any kind, so nothing in the original hides either.
 	//
 	// The mount's draw slot (FUN_0040ded8) pushes HERC DETAIL's TSDetailPart bias around the render.

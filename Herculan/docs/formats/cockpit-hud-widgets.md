@@ -399,7 +399,7 @@ Each display runs the toggle from its own update, so a display whose update does
 
 ## Per-frame ordering
 
-`maybe_Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `FUN_004327ac` (`CockpitViewInstance` widget paint dispatch), then `maybe_Scene_SubmitFrameObjects` (the 3D world), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `CockpitView_GetSquadMessagePort` (`00433158`)'s result, `+0x20b`).
+`maybe_Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `FUN_004327ac` (`CockpitViewInstance` widget paint dispatch), then `Scene_SubmitFrameObjects` (the 3D world), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `CockpitView_GetSquadMessagePort` (`00433158`)'s result, `+0x20b`).
 
 ## Rejected readings
 

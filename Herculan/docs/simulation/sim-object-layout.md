@@ -66,7 +66,7 @@ The pool globals are zero in the image and filled in at load, so the size is not
 
 `Pool_Init` (`004719cc`) `memset`s a pool once at startup and `Pool_Alloc` (`00471a24`) hands back a node without zeroing it, so a recycled slot carries its predecessor's bytes. The only route back into a pool is `Pool_Free` (`00471abc`), whose sole caller is `ObjectPool_FlushDeleteQueue`. The mech pair's flush — registered as subsystem phase 5 and so run once a frame — drains the queue at `DAT_004a9c02`, which **has one writer, the one-time setup in `DBSim_LoadScriptDat`, and one reader, the flush itself**. Nothing ever queues a machine onto it, so a machine's slot is never reissued and no field of one is inherited.
 
-The short-lived classes are recycled every frame — explosions, debris, fires, drop pods, and the child parts `Mech_ComponentDamageWrite` queues — and those do inherit a predecessor's stale fields.
+The short-lived classes are recycled every frame — explosions, debris, fires, drop pods and ground shapes — and those do inherit a predecessor's stale fields.
 
 ## Where the base ends — `0x1f2`
 
@@ -132,4 +132,4 @@ None of the three means "removed from the simulation". Which subset a test reads
 - **Open:** what `obj+0x92` is in the source. Whether it is a sub-object the compiler is addressing or just a base register it chose is not settled, so `known_structs.json` places those bytes at their absolute offsets rather than inside an invented struct.
 - **Open:** what class `004a0b98` is. The projectile base derives from it and `SimObjectBase_Constructor` installs it, but the `0046bxxx` block its slots point into is shared engine code and none of it is named.
 - **Open:** the table at `004a0bb8`. Next after the root in memory, with `FireEffect_Dtor` in its destructor slot but data at `+0x14` — possibly a five-slot sibling of `ProjectileVtable` rather than a sixth instance of it, and left out of `known_vtables.json` deliberately.
-- **Open:** the eight unnamed `SimObjectVtable` slots (`+0x04`, `+0x0c`, `+0x28`, `+0x30`, `+0x60`, `+0x68`, `+0x80`, `+0x84`). `+0x4` and `+0xc` hold the same function in every table in the file, base and projectile alike, which makes them the likeliest to be worth a name.
+- **Open:** the seven unnamed `SimObjectVtable` slots (`+0x0c`, `+0x28`, `+0x30`, `+0x60`, `+0x68`, `+0x80`, `+0x84`). `+0xc` holds `Stub_ReturnZero` (`004785bf`) in every table in the file, base and projectile alike.

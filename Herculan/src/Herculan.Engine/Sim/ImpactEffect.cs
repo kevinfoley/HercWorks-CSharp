@@ -27,10 +27,10 @@ namespace Herculan.Engine.Sim;
 /// where the original runs off the end of the row into <c>ProximityRadius</c>; no retail shape has a
 /// flipbook long enough to reach it.</para>
 ///
-/// <para><b>One thing the original's constructor also does is not here</b>: the second attached
-/// effect at <see cref="ExplosionTypeEntry.TrailEffect"/>, which no retail row asks for. The
-/// proximity radius the type's own query slot reports on is likewise unread — nothing queries
-/// it.</para>
+/// <para>A row with a nonzero <see cref="ExplosionTypeEntry.GroundShape"/> lays a
+/// <see cref="Sim.GroundShape"/> under the effect for as long as it runs, stepping its cell with the
+/// flipbook. No retail row asks for one. The proximity radius the type's own query slot reports on is
+/// unread — nothing queries it.</para>
 /// </summary>
 public sealed class ImpactEffect {
 	private readonly ExplosionTypeEntry _record;
@@ -45,9 +45,12 @@ public sealed class ImpactEffect {
 	/// <param name="lights">
 	/// The field a light-bearing row claims a slot in, or null to run the effect without one.
 	/// </param>
+	/// <param name="world">
+	/// The world a row asking for a ground shape takes it from, or null to run the effect without one.
+	/// </param>
 	internal ImpactEffect(
 			short typeId, ExplosionTypeEntry record, int frameCount, Vec3i position,
-			EffectLightField? lights = null) {
+			EffectLightField? lights = null, SimWorld? world = null) {
 		TypeId = typeId;
 		_record = record;
 		_frameCount = frameCount;
@@ -63,7 +66,25 @@ public sealed class ImpactEffect {
 		// the ramp at the frame it has just stepped to and stops the effect when that wraps to 0.
 		_lights = record.LightMode != 0 ? lights : null;
 		LightHandle = _lights?.Claim(position, FrameIntensity(0)) ?? -1;
+
+		// Explosion_Construct (00407fc5): root 1 of the flat set at the effect's own point, before the
+		// light. The pointer is kept at effect+0x4f and the destructor (Explosion_Destruct, 00407e48)
+		// queues it for deletion.
+		if (record.GroundShape != 0 && world != null) {
+			_world = world;
+			GroundShape = world.SpawnGroundShape(Sim.GroundShape.ImpactShapeIndex, position);
+			_groundShapeFrames = world.GroundShapeFrameCount(Sim.GroundShape.ImpactShapeIndex);
+		}
 	}
+
+	/// <summary>
+	/// <c>effect+0x4f</c> — the ground shape this effect laid, or null for a row that asks for none (every
+	/// retail row) or a spawn into a full pool.
+	/// </summary>
+	public GroundShape? GroundShape { get; private set; }
+
+	private readonly SimWorld? _world;
+	private readonly int _groundShapeFrames;
 
 	/// <summary>The <c>EXPLOS.DAT</c> type row this effect is, <c>obj+0x41</c>.</summary>
 	public short TypeId { get; }
@@ -101,19 +122,25 @@ public sealed class ImpactEffect {
 		}
 
 		if (_frameCount <= 0) {
-			ReleaseLight();
+			Release();
 			return true;
 		}
 
 		Frame = (Frame + 1) % _frameCount;
 		if (Frame == 0) {
-			ReleaseLight();
+			Release();
 			return true;
 		}
 
 		// EffectLight_SetIntensity (004076a0), driven from the ramp at the frame just stepped to. Reached only for a
 		// nonzero frame, which is why FrameIntensity[0] is the constructor's business alone.
 		_lights?.SetIntensity(LightHandle, FrameIntensity(Frame));
+
+		// The ground shape's own sequence 0 steps beside it, modulo its own cell count rather than the
+		// effect's, so the two flipbooks need not be the same length.
+		if (GroundShape != null && _groundShapeFrames > 0) {
+			GroundShape.Frame = (GroundShape.Frame + 1) % _groundShapeFrames;
+		}
 
 		_timer = _record.FrameInterval;
 		return false;
@@ -128,9 +155,15 @@ public sealed class ImpactEffect {
 	private int FrameIntensity(int frame) =>
 		frame >= 0 && frame < _record.FrameIntensity.Length ? _record.FrameIntensity[frame] & 0xff : 0;
 
-	/// <summary><c>EffectLight_Destruct</c> (<c>0040765c</c>) — hands the slot back when the effect is over.</summary>
-	private void ReleaseLight() {
+	/// <summary>
+	/// What the effect's end hands back: the light slot (<c>EffectLight_Destruct</c>,
+	/// <c>0040765c</c>) and the ground shape (<c>Explosion_Destruct</c>, <c>00407e48</c>).
+	/// </summary>
+	private void Release() {
 		_lights?.Release(LightHandle);
 		LightHandle = -1;
+
+		_world?.ReleaseGroundShape(GroundShape);
+		GroundShape = null;
 	}
 }

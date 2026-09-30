@@ -84,7 +84,7 @@ Every mech, flyer and structure carries two action pointers, resolved by `DBSim_
 
 Both routes are gated on the struck object's `obj+0xa2` being clear. That byte is a per-tick latch: `Mech_PerTickSystemsUpdate` raises it (`0041abd8`) on whatever the machine's targeting-computer pod holds a lock on, and `Sim_DetectionTick` clears it on everything at the end of the pass ([`target-selection.md`](target-selection.md)). `Action_Activate` is itself one-shot, so the gate can only suppress a duplicate inside one tick.
 
-**`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat. The first three run the object's [out-of-action report](#the-out-of-action-report) just before it; no call from the fourth has been found ([Open](#open)):
+**`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat. The first three run the object's [out-of-action report](#the-out-of-action-report) just before it; the fourth does not:
 
 | site | when |
 |---|---|
@@ -101,7 +101,7 @@ Both routes are gated on the struck object's `obj+0xa2` being clear. That byte i
 
 | site | effect when non-null |
 |---|---|
-| `maybe_Scene_SubmitFrameObjects` (`0042841c`) | the mech, flyer or base is **not submitted for drawing** |
+| `Scene_SubmitFrameObjects` (`0042841c`) | the mech, flyer or base is **not submitted for drawing** |
 | `Sim_MainTick` (`0045f464`) | the group runs `Group_DeploymentCheck` (`004236c4`) **instead of** `Group_OrderTick` (`00423a74`); a base's own `+0x18` tick is skipped outright |
 | `Mech_CollisionTest` (`00418f74`) | the object is skipped before any distance is measured |
 
@@ -156,7 +156,7 @@ vz     = -height / n
 `Meteor_Tick` (`00409d2c`), walked from `Sim_MainTick` over the pool *before* the group pass, has two phases:
 
 1. **Falling** (`+0x4b == 0`). Integrates position by the velocity at `+0x45`, pitches the shape to `atan2(vz, 2000)` so it faces its fall line, plays sound `0x2f` once below absolute height 50,000, and on ground contact (`Terrain_HeightQuery`) sets the landed flag, snaps to ground height, plays sound `0x30` and detonates `Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null)`. **If anything was in range it sets `+0x4c`** — the sweep answers on range alone, so a machine whose shields swallow the blast still trips the latch. It is the terrain query and not the flight-time count that ends the fall, so a pod aimed at ground well below the player keeps flying past its target.
-2. **Landed.** Advances `+0x4d` at rate `0x5dc` per tick and drives the shape's frame counter from `+0x4d >> 10` — the pod opening. When that reaches the shape's frame count: if the pod carries a group and **`+0x4c` is clear**, it copies its own landed position onto the group's **leader** and clears `group+0x14`, which is the moment the group becomes real. A pod that landed on something delivers nothing, and the group it carried stays out of the mission for the rest of the run. Whenever the pod carries a group it then spawns a leftover effect from the theater's flat-shape pool at the site, releases its shape instance and returns 1, and `Sim_MainTick` frees it.
+2. **Landed.** Advances `+0x4d` at rate `0x5dc` per tick and drives the shape's frame counter from `+0x4d >> 10` — the pod opening. When that reaches the shape's frame count: if the pod carries a group and **`+0x4c` is clear**, it copies its own landed position onto the group's **leader** and clears `group+0x14`, which is the moment the group becomes real. A pod that landed on something delivers nothing, and the group it carried stays out of the mission for the rest of the run. Whenever the pod carries a group it then leaves a square mark on the ground at its landing point for the rest of the mission ([`ground-shapes.md`](ground-shapes.md#a-drop-pods-shape)), releases its shape instance and returns 1, and `Sim_MainTick` frees it.
 
 `Meteor_Render` (`00409cd0`) draws the plain shape (root 0) while falling and the opening animation's own shape instance at `+0x41` (root 1) once landed.
 
@@ -193,7 +193,7 @@ At the top it stops `0x21`, plays `0x29` (`explo2.wav`) and shakes the view for 
 
 1,000 shorts, and the **campaign's** flag array for the length of a mission. It makes a round trip through `data\mission.var`: the shell writes the file from its own flag array before launch and reads it back at debrief ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-files-crossing-between-the-two-binaries)). The simulator's two ends of it:
 
-1. `DBSim_LoadScriptDat` (`00424308`) reads 2,000 bytes of it into `DAT_004a9ef4`, before it opens `player.mec`, and then zeroes slot 20, slot 10 and slots 21 to 42. Every other slot carries the campaign's value into the mission. Slots 21 to 49 are the weapon units the debrief grants ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)), so the zeroing starts a mission with none owed but the last seven ([Open](#open)).
+1. `DBSim_LoadScriptDat` (`00424308`) reads 2,000 bytes of it into `DAT_004a9ef4`, before it opens `player.mec`, and then zeroes slot 20, slot 10 and slots 21 to 42. Every other slot carries the campaign's value into the mission. Slots 21 to 42 are the 22 entries of the debrief's weapon-unit table ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)), and the loop (`00424450`) stops at the table's last, so a mission starts with no unit grant owed. The debrief's grant loop runs on to slot 49, past the table's end; those seven slots name no weapon, and the load leaves them as the campaign left them.
 2. `Mission_WriteResults` (`0042412c`) writes, as the mission ends, `results.dat` and then the same 2,000 bytes back to `mission.var` ([`mission-objectives.md`](mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
 
 Four things write the counters during a mission: `Action_Activate`, an objective ([`mission-objectives.md`](mission-objectives.md)), an object or a whole group going out of the fight ([below](#the-out-of-action-report)), and `Mech_CreditNeutralisedTarget` (`00415710`), which adds one to slot 10 when the player puts a machine of its own group out of the fight ([`component-damage.md`](component-damage.md#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710)).
@@ -202,11 +202,11 @@ The simulator reads slot 20 itself: `Mission_WriteResults` adds 25,000 kg of sal
 
 ### The out-of-action report
 
-`Mech_ReportOutOfAction` (`00411bc8`) writes the counters an object is set to write when it goes out of the fight. `es2_xref.py` finds four calls to it, each immediately before the object's defeat action ([`+0x1b6`](#an-objects-own-two-actions--0x1b2-and-0x1b6)): both of `Mech_ComponentDamageWrite`'s branches ([disabled and dead](component-damage.md#going-out-of-the-fight)), `Flyer_ComponentDamageWrite` when component 0 goes, and `Base_ApplyDamage` when a structure's last component goes. The fourth defeat-action site, a machine running out of working weapons, is not among them ([Open](#open)).
+`Mech_ReportOutOfAction` (`00411bc8`) writes the counters an object is set to write when it goes out of the fight. `es2_xref.py` finds four calls to it, each immediately before the object's defeat action ([`+0x1b6`](#an-objects-own-two-actions--0x1b2-and-0x1b6)): both of `Mech_ComponentDamageWrite`'s branches ([disabled and dead](component-damage.md#going-out-of-the-fight)), `Flyer_ComponentDamageWrite` when component 0 goes, and `Base_ApplyDamage` when a structure's last component goes. The fourth defeat-action site is not among them: `Ai_ChooseWeapon`'s weapons-out block (`0041f554`-`0041f596`) latches `+0xa5`, activates `+0x1b6` and raises `004a9ee7` to 1000, and `Action_Activate` is its only call. A machine that runs out of weapons writes none of its counters.
 
 It does two things:
 
-1. **The group's report.** `Group_ReportIfAllOutOfAction` (`00423f30`) walks the object's group, skipping the object itself, and returns at the first member that is neither destroyed (`+0x99`) nor immobilised (`+0xa4`). If none is left standing it runs the group's own ten slots at `group+0x1c`/`+0x30`. The reporting object is skipped rather than tested because the leg branch reports before it latches `+0xa4`. Nothing latches the group's writes; they run once because each member reports once and only the last one standing finds the rest down.
+1. **The group's report.** `Group_ReportIfAllOutOfAction` (`00423f30`) walks the object's group, skipping the object itself, and returns at the first member that is neither destroyed (`+0x99`) nor immobilised (`+0xa4`). It does not test `+0xa5`, so a disarmed member counts as standing and holds back its group's report. If none is left standing it runs the group's own ten slots at `group+0x1c`/`+0x30`. The reporting object is skipped rather than tested because the leg branch reports before it latches `+0xa4`. Nothing latches the group's writes; they run once because each member reports once and only the last one standing finds the rest down.
 2. **The object's own.** Ten slots at `obj+0x1ba` (counter refs) and `obj+0x1ce` (operations).
 
 Each slot with a non-negative ref writes that counter by its operation. These are neither the action layer's codes nor the objective layer's ([`mission-objectives.md`](mission-objectives.md#the-record)):
@@ -249,13 +249,12 @@ Action 0's circle is centred at (1005988, 1058404) with radius 150,000 and its s
 | `Deployment_PickPointNearPlayer` avoids deployed objects | Only for the walk-on verbs; a drop pod's point is picked without that test |
 | `Actions_EvaluateTriggers` runs before the group pass | `Sim_MainTick` runs it after, so a group arrives a tick after its trigger |
 | `obj+0x1b6` is a death action | It is also activated when a machine runs out of weapons |
+| The load's zeroing of slots 21-42 misses the last seven weapon grants | The debrief's grant loop reads to slot 49, but its unit table ends at 42. The seven slots past it name no weapon |
+| A disarmed machine counts as out of the fight for the out-of-action report | `+0xa5` sits beside the two damage latches, but the weapons-out branch runs no report and `Group_ReportIfAllOutOfAction` tests only `+0x99` and `+0xa4` |
 | An action's message is a `data\mission.str` line | That file holds the objective text, and the id looks like a ref into it. The port it is posted to resolves a speakerless id in `COMMAND<n>.STR` |
 
 ## Open
 
-- **Open:** what sets block `+0x54`, the lift start's gate. No absolute reference to `004d2594` exists, the block's static initialiser `Main_StaticInit` (`0045cad8`) does not store it, and of the `+0x54` writes `es2_fieldscan.py` finds, none is through a register holding the block.
-- **Open:** what reads `0049aef4`, the byte the lift start clears for its duration (1 in the image). `es2_xref.py` finds only the lift's two stores.
-- **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
-- **Open:** why the load's zeroing stops at slot 42, leaving the grants in 43 to 49 owed from before the mission.
-- **Open:** whether anything writes a player-squad machine's operation slots (`+0x1ce`-`+0x1e1`) after construction. `es2_fieldscan.py` finds no writer but `SimObject_SetOutOfActionCounters`, and even that one only at `+0x1ce`: the scan misses writes through a stepping pointer, which is how that function fills the other nine.
-- **Open:** whether the weapons-out defeat in `Ai_ChooseWeapon` (`0041f358`) runs an out-of-action report. `es2_xref.py` finds no branch, stored pointer or vtable slot reaching `Mech_ReportOutOfAction` from there; that sweep would miss a call through a pointer built at run time.
+- **Open:** what sets block `+0x54`, the lift start's gate. No absolute reference to `004d2594` exists, the block's static initialiser `Main_StaticInit` (`0045cad8`) does not store it, and of the `+0x54` writes `es2_fieldscan.py` finds, none is through a register holding the block. That includes wider writes at `+0x51`-`+0x53` that would overlap the byte: the nine writes at `+0x51`-`+0x54` inside functions that also load the block's base go through their own first argument, and none of their eight call sites passes the block.
+- **Open:** what reads `0049aef4`, the byte the lift start clears for its duration (1 in the image). `es2_xref.py` finds only the lift's two stores (the same sweep finds both references to its neighbour `0049aeea`). Every other access in `0049aee0`-`0049aef8` is by absolute address, and the nearest immediate below the block, `0049aeb4`, is `CockpitClipRegions_Load`'s exception table, so nothing found reaches the byte through a base either.
+- **Open:** whether anything writes a player-squad machine's slots (`+0x1ba`-`+0x1e1`) after construction. No writer found beyond `Mech_Constructor`, `Base_Construct` and `SimObject_SetOutOfActionCounters`, by `es2_fieldscan.py` over the whole span. The scan sees a loop that steps a pointer through the slots at its first access, as it sees the copy's loop and `Mech_ReportOutOfAction`'s two. Every `REP MOVSD` large enough to reach the slots (`0x81` or `0x101` dwords) is in render or palette code, and every fixed-size `_memcpy` in the simulation copies at most `0x14` bytes. A writer that derives its pointer from an offset outside the span would still be missed.

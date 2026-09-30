@@ -3,9 +3,72 @@ using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
 
-// Footfall detection — Mech_PlaceLegsOnGround (004195c8), the part of it that matters to anything
-// ported so far. See docs/simulation/mech-locomotion.md.
+// Mech_PlaceLegsOnGround (004195c8): the shadows under the machine's parts, and footfall
+// detection. See docs/simulation/mech-locomotion.md and docs/simulation/ground-shapes.md.
 public sealed partial class MechObject {
+	/// <summary>
+	/// <c>mech+0x238</c>, count <c>mech+0x23c</c> — the machine's shadows, one <see cref="GroundShape"/>
+	/// per entry of the chassis' part list (<see cref="MechTypeRecord.ShadowCount"/>): one under each
+	/// foot and one under the body on a biped, one under each of four feet on the PITBULL, none on the
+	/// SPIDER. <see cref="PlaceLegsOnGround"/> moves each under its
+	/// part every movement tick. An entry is null once its leg has been shot off
+	/// (<see cref="GradeLegs"/>), after the SPIDER's vanish, or when the pool was full at spawn.
+	/// </summary>
+	public IReadOnlyList<GroundShape?> Shadows => _shadows;
+
+	private GroundShape?[] _shadows = System.Array.Empty<GroundShape?>();
+
+	/// <summary>
+	/// <c>Mech_Constructor</c>'s allocation (<c>00415e4a</c>-<c>00415f11</c>): entry <c>i</c> is the
+	/// flat set's root <see cref="MechTypeRecord.LegKind"/>(<c>i</c>), a shadow, built at
+	/// <see cref="GroundShape.HiddenDepth"/> so it is out of sight until the first placement. Called
+	/// once, as the machine joins the world.
+	/// </summary>
+	internal void AllocateShadows(SimWorld world) {
+		if (_shadows.Length > 0) {
+			return;
+		}
+
+		_shadows = new GroundShape?[Type.ShadowCount];
+		for (int i = 0; i < _shadows.Length; i++) {
+			_shadows[i] = world.SpawnGroundShape(Type.LegKind(i),
+				new Vec3i(0, 0, GroundShape.HiddenDepth));
+		}
+	}
+
+	/// <summary>
+	/// <c>ObjectPool_QueueForDelete</c> on one entry and a null in its slot — the leg branch of
+	/// <c>Mech_ComponentDamageWrite</c> (<c>00418152</c>-<c>00418185</c>) for a leg whose servos read
+	/// fully destroyed, and its no-wreck branch for every entry.
+	/// </summary>
+	private void ReleaseShadow(SimWorld world, int index) {
+		if (index >= 0 && index < _shadows.Length) {
+			world.ReleaseGroundShape(_shadows[index]);
+			_shadows[index] = null;
+		}
+	}
+
+	/// <summary>
+	/// The first half of each pass of <c>Mech_PlaceLegsOnGround</c>'s loop, run for every entry
+	/// whatever the machine is doing: the entry's shadow goes to its part's world position and takes
+	/// the machine's heading. Its height, pitch and roll are the draw's business — see
+	/// <see cref="GroundShape.ConformToTerrain"/>.
+	/// </summary>
+	private void PlaceShadows() {
+		for (int i = 0; i < _shadows.Length; i++) {
+			if (_shadows[i] is not { } shape) {
+				continue;
+			}
+
+			// Transform_ApplyToPoint of the part's node translation through the machine's frame —
+			// the translation PartTransform composes, and the machine's own origin for a part the
+			// shape lacks.
+			var part = PartTransform(Type.LegPartId(i));
+			shape.Position = new Vec3i(part.X, part.Y, part.Z);
+			shape.Heading = Heading;
+		}
+	}
+
 	/// <summary>
 	/// How near the camera a machine has to be for its footsteps to be played at all — the
 	/// original's own test, made before it calls Sound_PlayAt rather than left to the catalog row's
@@ -37,16 +100,20 @@ public sealed partial class MechObject {
 	/// (<see cref="MechTypeRecord.FootfallTrigger"/>). Reversing flips both comparisons, since the
 	/// foot travels the other way, and it has its own pair of figures.</para>
 	///
-	/// <para>The plant does three things. It kicks the player's cockpit view (see
-	/// <c>CockpitViewKick</c>, driven off <see cref="Footfalls"/>); it plays sound <c>0x1d</c> for
-	/// any machine within <see cref="FootfallAudibleRange"/> of the camera; and — the one part still
-	/// unported — it copies each leg node's world position onto a per-leg child object, the
-	/// dust/debris emitter.</para>
+	/// <para>The plant does two things. It kicks the player's cockpit view (see
+	/// <c>CockpitViewKick</c>, driven off <see cref="Footfalls"/>), and it plays sound <c>0x1d</c> for
+	/// any machine within <see cref="FootfallAudibleRange"/> of the camera.</para>
+	///
+	/// <para>Before any of that, every pass of the loop moves its entry's shadow — see
+	/// <see cref="PlaceShadows"/>. The original does both in the one loop, the placement first
+	/// and unconditionally, so doing all the placement up front is the same outcome.</para>
 	/// </summary>
 	private void PlaceLegsOnGround(SimWorld world) {
 		if (Thread is not { } thread || Animation is not { } animation) {
 			return;
 		}
+
+		PlaceShadows();
 
 		var type = Type;
 		int legs = type.LegCount;
@@ -83,7 +150,7 @@ public sealed partial class MechObject {
 		for (int leg = 0; leg < legs; leg++) {
 			if (type.LegKind(leg) != 0 || LegLost(leg)) {
 				// A leg the machine has had shot off plants nothing. The original deletes that leg's
-				// child object, and this loop is the walk over that array — a deleted slot is simply
+				// shadow, and this loop is the walk over that array — a deleted slot is simply
 				// not there any more. See MechObject.GradeLegs.
 				continue;
 			}

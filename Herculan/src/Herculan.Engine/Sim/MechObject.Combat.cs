@@ -331,9 +331,10 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// Which of this machine's legs have come off — <c>mech+0x238</c>'s dropped entries. The original
-	/// holds a child object per leg and deletes one outright when its servos read fully destroyed;
-	/// here the legs are nodes of the one shape, so what is modelled is the consequence rather than
-	/// the allocation. See <see cref="GradeLegs"/> and <see cref="PlaceLegsOnGround"/>.
+	/// deletes the leg's shadow when its servos read fully destroyed, and
+	/// <c>Mech_PlaceLegsOnGround</c> skips an entry with no shadow, footfall and all; this is that
+	/// skip, kept apart from <see cref="Shadows"/> so a shadow the pool could not supply does not
+	/// read as a lost leg. See <see cref="GradeLegs"/> and <see cref="PlaceLegsOnGround"/>.
 	/// </summary>
 	private bool[] _legsLost = System.Array.Empty<bool>();
 
@@ -1158,12 +1159,16 @@ public sealed partial class MechObject {
 
 			if (Type.VanishesOnDeath) {
 				// The SPIDER, and only the SPIDER: it leaves no wreck. The original sinks it a
-				// hundred thousand units under the map and deletes every child part it owns, which
-				// between them are what take it off the screen -- it is never removed from the
-				// object list. The sink is the half that carries here; the engine holds a chassis'
-				// parts as nodes of its one shape rather than as objects of their own, so there is
-				// nothing to delete, and a machine put that far under the terrain is not drawn.
+				// hundred thousand units under the map and deletes every shadow it owns
+				// (00418600-00418650). It is never removed from the object list, and a machine put
+				// that far under the terrain is not drawn. The SPIDER's part list is empty, so on
+				// retail data the deletion has nothing to do.
 				Position = new Vec3i(Position.X, Position.Y, VanishedDepth);
+				for (int i = 0; i < Shadows.Count; i++) {
+					ReleaseShadow(world, i);
+				}
+
+				_shadows = System.Array.Empty<GroundShape?>();
 				SetBehaviourState(BehaviourState.InLimbo);
 			} else if (!Type.IsFlyer) {
 				SetBehaviourState(BehaviourState.Dead);
@@ -1195,8 +1200,8 @@ public sealed partial class MechObject {
 	///
 	/// <para>Two things happen here, and only the second is guarded on the machine still being able
 	/// to walk. <b>A leg that reads fully destroyed is dropped</b> — the original deletes that leg's
-	/// child object outright, so <c>Mech_PlaceLegsOnGround</c> stops placing it and it stops
-	/// planting; that runs whatever else is already true of the machine. <b>Half the legs gone
+	/// shadow, so <c>Mech_PlaceLegsOnGround</c> skips it and it stops planting; that runs
+	/// whatever else is already true of the machine. <b>Half the legs gone
 	/// immobilises it</b>, which is the disabled branch: the machine goes out of the fight there and
 	/// then, on the same terms a kill does.</para>
 	/// </summary>
@@ -1220,6 +1225,7 @@ public sealed partial class MechObject {
 			if (_damage.DependentPercent(slot) == FullyDamaged) {
 				destroyed++;
 				_legsLost[leg] = true;
+				ReleaseShadow(world, leg);
 			}
 
 			leg++;

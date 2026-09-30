@@ -260,6 +260,15 @@ public static class SimMath {
 	}
 
 	/// <summary>
+	/// <c>Math_ISqrt</c> (<c>0047de90</c>) — <c>floor(sqrt(n))</c>, the exact integer root the
+	/// original takes bit by bit. <c>Point3I_ExactMagnitude</c> (<c>0047e958</c>) is it over a
+	/// summed-squares, which <c>Plane_FromPointNormal</c> uses for a short normal instead of
+	/// <see cref="FastMagnitude3D"/>. A double's square root of a 32-bit integer floors to the same
+	/// value, so no loop is needed to get it.
+	/// </summary>
+	public static int ISqrt(uint n) => (int)System.Math.Sqrt(n);
+
+	/// <summary>
 	/// <c>Math_FastMagnitude2D</c> (<c>0047dd40</c>) — the 2D counterpart of
 	/// <see cref="FastMagnitude3D"/>: <c>max + min/2</c>, the octagonal estimate. Exact on axis, up
 	/// to ~11.8% high on a diagonal. This is the distance the HUD's own range readouts display, so

@@ -100,6 +100,8 @@ public sealed class ShaderProgram : IDisposable {
 
 	public void SetInt(string name, int value) => _gl.Uniform1(Location(name), value);
 
+	public void SetUInt(string name, uint value) => _gl.Uniform1(Location(name), value);
+
 	public void SetSamplerTexture(string name, uint textureHandle, uint textureUnit) {
 		_gl.ActiveTexture(TextureUnit.Texture0 + (int)textureUnit);
 		_gl.BindTexture(TextureTarget.Texture2D, textureHandle);

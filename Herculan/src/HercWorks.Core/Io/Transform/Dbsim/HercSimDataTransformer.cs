@@ -132,23 +132,38 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		data.DebrisFile = IndexSegment(12);
 
-		// The per-leg byte arrays, taken at their own offsets rather than in sequence: they overlap
+		// The per-part byte arrays, taken at their own offsets rather than in sequence: they overlap
 		// shorts already read above, and the sequential pass emits those shorts unchanged. See
-		// HercSimDat.LegKinds for why both readings of the same bytes exist.
-		int legs = data.ModelLegsTotal < 0 ? 0 : data.ModelLegsTotal;
-		data.LegKinds = ReadLegBytes(inputArray, LegKindsOffset, legs);
-		data.LegPartIds = ReadLegBytes(inputArray, LegPartIdsOffset, legs);
+		// HercSimDat.LegKinds for why both readings of the same bytes exist, and why the count is the
+		// kind list's own terminator rather than ModelLegsTotal.
+		int parts = TerminatedLength(inputArray, LegKindsOffset);
+		data.LegKinds = ReadLegBytes(inputArray, LegKindsOffset, parts);
+		data.LegPartIds = ReadLegBytes(inputArray, LegPartIdsOffset, parts);
 
 		return data;
 	}
 
-	/// <summary>Record offset of the per-leg kind bytes — the exe's <c>typeRec+0x72</c>.</summary>
+	/// <summary>Record offset of the per-part kind bytes — the exe's <c>typeRec+0x72</c>.</summary>
 	private const int LegKindsOffset = 112;
 
-	/// <summary>Record offset of the per-leg part-id bytes — the exe's <c>typeRec+0x77</c>.</summary>
+	/// <summary>Record offset of the per-part part-id bytes — the exe's <c>typeRec+0x77</c>.</summary>
 	private const int LegPartIdsOffset = 117;
 
-	/// <summary>One per-leg byte run, clipped to what the record actually holds.</summary>
+	/// <summary>
+	/// How many bytes from <paramref name="offset"/> come before the first negative one — the count
+	/// <c>Mech_Constructor</c> takes (<c>00415e3a</c>-<c>00415e46</c>: <c>MOVSX</c>, <c>INC</c>,
+	/// <c>JG</c>). It has no cap of its own; this one stops at the end of the record.
+	/// </summary>
+	private static int TerminatedLength(byte[] record, int offset) {
+		int count = 0;
+		while (offset + count < record.Length && (sbyte)record[offset + count] >= 0) {
+			count++;
+		}
+
+		return count;
+	}
+
+	/// <summary>One per-part byte run, clipped to what the record actually holds.</summary>
 	private static byte[] ReadLegBytes(byte[] record, int offset, int count) {
 		int available = record.Length - offset;
 		if (available <= 0 || count <= 0) {

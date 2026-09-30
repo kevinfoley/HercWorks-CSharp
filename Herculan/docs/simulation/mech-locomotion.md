@@ -20,7 +20,7 @@ Reverse-engineered from `DBSIM.EXE` (`mechsys.cpp`) in the `ES2Recon` Ghidra pro
 | `0040250c` | `SimObject_ApplyRootMotion` | Root-motion → world position/heading |
 | `00402628` / `004027fc` | `SimObject_PushTransform` / `PopTransform` | Save/restore full transform incl. node hierarchy |
 | `00418f74` | `Mech_CollisionTest` | Returns nonzero on blocked move |
-| `004195c8` | `Mech_PlaceLegsOnGround` | Per-leg terrain placement |
+| `004195c8` | `Mech_PlaceLegsOnGround` | Moves each of the machine's shadows under its part ([`ground-shapes.md`](ground-shapes.md#a-hercs-shadows)); footfall detection |
 | `0041a550` / `0041a808` | `Mech_TorsoTwistTick` / `Mech_TorsoPitchTick` | Turret aim, not locomotion — [`torso-aim.md`](torso-aim.md) |
 
 `Mech_MovementTick` is the **move** slot of the AI behaviour state a machine currently holds, shared by 18 of the 22 states; it decides nothing, the think function calls `Mech_LocomotionTick` with the steering. How the slot is reached, and which states differ, is in [`ai-dispatch.md`](ai-dispatch.md).
@@ -336,7 +336,7 @@ A block against another **machine** also hurts both of them, through the explosi
 
 ### The structure a machine stands in
 
-Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entry and, for each candidate whose `TargetClass` is 1 (a structure) and whose body radius contains the machine, stores that structure there (`00418fb2`, `00419016`). It is a render-side hand-off, not an aim or lock-on aid: `maybe_Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius.
+Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entry and, for each candidate whose `TargetClass` is 1 (a structure) and whose body radius contains the machine, stores that structure there (`00418fb2`, `00419016`). It is a render-side hand-off, not an aim or lock-on aid: `Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius.
 
 ### The landing
 

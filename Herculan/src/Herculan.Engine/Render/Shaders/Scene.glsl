@@ -202,6 +202,14 @@ uniform float uDepthSlices;
 uniform float uFogDepthBias;
 uniform bool uFullbright;
 
+// A ground shape is painted in the original straight after its own terrain cell, so the ground of
+// every cell painted later covers it. uPaintRank holds, per pixel, the paint rank of the ground
+// showing there (TerrainPaintRankBuffer); uGroundShapeRank is the rank of the shape's own cell. See
+// SceneRenderer.Render.
+uniform usampler2D uPaintRank;
+uniform bool uPaintRankTest;
+uniform uint uGroundShapeRank;
+
 out vec4 FragColor;
 
 // Which of the theater ramp's depth slices this fragment is drawn in — the original's distance fog,
@@ -260,6 +268,10 @@ float gridCoverage() {
 #endif
 
 void main() {
+	if (uPaintRankTest && texelFetch(uPaintRank, ivec2(gl_FragCoord.xy), 0).r > uGroundShapeRank) {
+		discard;
+	}
+
 	// Interpolated from the three corners' own shade bytes — the vertex shader computes them,
 	// which is what makes a TSGouraudPoly Gouraud rather than Phong. See there.
 	float shade = clamp(vLightShade, 0.0, 255.0);

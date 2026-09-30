@@ -502,7 +502,7 @@ public sealed partial class HeightGrid {
 	/// parameter along the segment is kept as an exact numerator/denominator pair and applied to
 	/// each component through a 64-bit multiply and divide, so nothing is lost to an intermediate.
 	/// </summary>
-	private static bool PlanePoint(int normalX, int normalY, int normalZ, int planeD,
+	internal static bool PlanePoint(int normalX, int normalY, int normalZ, int planeD,
 			int fromX, int fromY, int fromZ, int toX, int toY, int toZ,
 			out int hitX, out int hitY, out int hitZ) {
 		hitX = 0;

@@ -232,15 +232,26 @@ public sealed class MechTypeRecord {
 			: System.Text.Encoding.ASCII.GetString(field).TrimEnd('\0', ' ');
 
 	/// <summary>
-	/// The shape part each leg's node hangs on, and the leg's kind byte — record offsets 117 and 112
-	/// read per leg. Only kind 0 walks; <c>Mech_PlaceLegsOnGround</c> skips anything else outside the
-	/// falling case. Every retail HERC states parts 14 and 15, both kind 0.
+	/// The shape part each entry of the chassis' part list follows, and the entry's kind byte —
+	/// record offsets 117 and 112, read per entry. The first <see cref="LegCount"/> entries are the
+	/// legs; only kind 0 walks, and <c>Mech_PlaceLegsOnGround</c> skips anything else outside the
+	/// falling case. The kind is also which shadow the entry casts — see
+	/// <see cref="ShadowCount"/>.
 	/// </summary>
 	public int LegPartId(int leg) =>
 		leg >= 0 && leg < Data.LegPartIds.Length ? Data.LegPartIds[leg] : -1;
 
 	/// <inheritdoc cref="LegPartId"/>
 	public int LegKind(int leg) => leg >= 0 && leg < Data.LegKinds.Length ? Data.LegKinds[leg] : -1;
+
+	/// <summary>
+	/// How many shadows a machine of this chassis casts, one per entry of the part list —
+	/// <c>Mech_Constructor</c>'s count into <c>mech+0x23c</c>. Entry <c>i</c> is flat-set shape
+	/// <see cref="LegKind"/>(<c>i</c>), a <see cref="GroundShape"/>, laid under part
+	/// <see cref="LegPartId"/>(<c>i</c>). See
+	/// docs/simulation/ground-shapes.md and <see cref="GroundShape"/>.
+	/// </summary>
+	public int ShadowCount => Data.LegKinds.Length;
 
 	/// <summary>
 	/// The fore/aft position a leg node passes through as the foot plants, per gait — see

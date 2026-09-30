@@ -8,7 +8,7 @@ The tables, the texture banks and the shape file it draws from are [`../formats/
 
 ## Construction — `Explosion_Construct` (`00407f1c`)
 
-`(effect, typeId, worldPoint, ownerObject, playSound)`. Resolves the shape through the two tables, records the type id (`effect+0x41`) and the owner (`effect+0x57`), resets the shape instance's frame counter for the type's sequence to 0, loads the countdown from `FrameInterval`, and optionally builds the trail object and the light. `playSound` gates the `SoundId` call, not the effect. What the light is and what it does to a shape is [`../formats/effect-lights.md`](../formats/effect-lights.md).
+`(effect, typeId, worldPoint, ownerObject, playSound)`. Resolves the shape through the two tables, records the type id (`effect+0x41`) and the owner (`effect+0x57`), resets the shape instance's frame counter for the type's sequence to 0, loads the countdown from `FrameInterval`, and optionally lays a ground shape and builds the light. `playSound` gates the `SoundId` call, not the effect. What the light is and what it does to a shape is [`../formats/effect-lights.md`](../formats/effect-lights.md); the ground shape, which no retail row asks for, is [`ground-shapes.md`](ground-shapes.md#an-impact-effects-shape).
 
 The owner is the object the effect belongs to for drawing ([below](#drawing)): the struck structure or machine at their hit tests, the structure at its collapse and death sequence, the machine at a component's loss. A flyer's hit test, a terrain hit and a debris piece's burst pass none.
 
@@ -20,7 +20,7 @@ if (animSequence < 0) return finished;    // no flipbook to step
 frame = (frame + 1) % shapeFrameCount;
 if (frame == 0) return finished;          // the flipbook wrapped: the effect is over
 light?.SetIntensity(FrameIntensity[frame]);
-trail?.frame = (trail.frame + 1) % trailShapeFrameCount;
+groundShape?.frame = (groundShape.frame + 1) % groundShapeFrameCount;
 timer = FrameInterval;                    // i.e. effect+0x4b
 return alive;
 ```
@@ -56,7 +56,7 @@ The object-hit sites spawn from inside the hit test itself, at `transform(0, hit
 
 ## Drawing
 
-`maybe_Scene_SubmitFrameObjects` (`0042841c`) walks `g_ExplosionPool` once a frame, after the machine lists, and asks `Explosion_IsHiddenFromOwnerCockpit` (`00408240`) whether to skip each effect. The answer is no when the effect has an owner and the cockpit camera is attached to that owner ([`external-views.md`](external-views.md)), unless the type id is 2 or 11 to 14, which are always drawn. So from inside the cockpit of the machine being hit, the impact effects on its own hull are not drawn. A drawn effect is filed into the draw table ([`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md)) under its owner's cached terrain cell (`Explosion_GetOwnerDrawCell`, `00408228`: `owner+0x1e8`, the pair this walk stored on the owner earlier in the same pass), or under the cell its own position falls in when it has no owner.
+`Scene_SubmitFrameObjects` (`0042841c`) walks `g_ExplosionPool` once a frame, after the machine lists, and asks `Explosion_IsHiddenFromOwnerCockpit` (`00408240`) whether to skip each effect. The answer is no when the effect has an owner and the cockpit camera is attached to that owner ([`external-views.md`](external-views.md)), unless the type id is 2 or 11 to 14, which are always drawn. So from inside the cockpit of the machine being hit, the impact effects on its own hull are not drawn. A drawn effect is filed into the draw table ([`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md)) under its owner's cached terrain cell (`Explosion_GetOwnerDrawCell`, `00408228`: `owner+0x1e8`, the pair this walk stored on the owner earlier in the same pass), or under the cell its own position falls in when it has no owner.
 
 ## Open
 

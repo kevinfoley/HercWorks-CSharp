@@ -47,9 +47,18 @@ public class WorldData {
 	/// than storing a struct, so only the first four have names anyone has proposed, and those come
 	/// from the Java port's guesses rather than from the code: <c>2</c>, a sky palette id (208 in
 	/// retail data, which is where the sky band starts — see docs/formats/distance-fog-and-sky.md),
-	/// a horizon height and a horizon start height. The rest are constant across all ten files.
+	/// a horizon height and a horizon start height. Of the rest only short 4 varies across the ten
+	/// files, and short 9 is <see cref="FlatSetSelector"/>.
 	/// </summary>
 	public short[] Header { get; set; } = new short[HeaderShorts];
+
+	/// <summary>
+	/// <see cref="Header"/> short 9, byte 18 — which ground-shape set the theater loads.
+	/// <c>World_LoadTheater</c> reads it into <c>World_FlatSetSelector</c> (<c>0049aeea</c>) and
+	/// hands it to <c>FlatObj_LoadResources</c> (<c>004097a8</c>): 0 loads <c>flat</c>, anything else
+	/// <c>flat2</c>. 1 in all ten retail files. See docs/simulation/ground-shapes.md.
+	/// </summary>
+	public short FlatSetSelector => Header.Length > 9 ? Header[9] : (short)0;
 
 	/// <summary>
 	/// First distance-band table — 16 entries in every retail file, ascending from 60000 in steps of

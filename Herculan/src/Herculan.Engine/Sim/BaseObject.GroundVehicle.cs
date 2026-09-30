@@ -226,37 +226,15 @@ public sealed partial class BaseObject {
 
 	/// <summary>
 	/// <c>SimObject_ConformToTerrain</c> (<c>004029d8</c>) — sit the vehicle on the ground it is
-	/// standing on. The one thing in the simulation that writes a structure's
-	/// <see cref="SimObject.Pitch"/> and <see cref="SimObject.Roll"/>.
-	///
-	/// <para>Four ground samples, at <see cref="SimObject.ShapeRadius"/> forward, back, left and
-	/// right of the vehicle in its own frame. Pitch is the arctangent of the fore-aft drop over the
-	/// span between those two samples and roll the same across the beam; Z is the mean of all four,
-	/// so the vehicle rides on the average of the ground under its footprint rather than on the point
-	/// its origin happens to sit over.</para>
+	/// standing on, probing at <see cref="SimObject.ShapeRadius"/>; see <see cref="TerrainConform"/>.
+	/// The one thing in the simulation that writes a structure's <see cref="SimObject.Pitch"/> and
+	/// <see cref="SimObject.Roll"/>.
 	/// </summary>
 	private void ConformToTerrain(SimWorld world) {
-		int radius = ShapeRadius;
-		var frame = WorldFrame;
-
-		int front = SampleGround(world, frame, 0, radius);
-		int back = SampleGround(world, frame, 0, -radius);
-		int left = SampleGround(world, frame, -radius, 0);
-		int right = SampleGround(world, frame, radius, 0);
-
-		Pitch = (short)SimTrig.Atan2(front - back, radius * 2);
-		Roll = (short)SimTrig.Atan2(left - right, radius * 2);
-		Position = new Vec3i(Position.X, Position.Y, (front + back + left + right) >> 2);
-	}
-
-	/// <summary>
-	/// The ground height under one of <see cref="ConformToTerrain"/>'s probes. The offset is rotated
-	/// by the vehicle's frame but added to its position in X and Y only, which is what keeps the four
-	/// probes on the ground plane whatever the current lean is.
-	/// </summary>
-	private static int SampleGround(SimWorld world, in Transform3 frame, int x, int y) {
-		var offset = frame.RotateVector(x, y, 0);
-		return world.Terrain.HeightAtWorld(frame.X + offset.X, frame.Y + offset.Y);
+		var (pitch, roll, z) = TerrainConform.Apply(world.Terrain, WorldFrame, ShapeRadius);
+		Pitch = pitch;
+		Roll = roll;
+		Position = new Vec3i(Position.X, Position.Y, z);
 	}
 
 	/// <summary>

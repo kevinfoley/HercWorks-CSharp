@@ -183,8 +183,13 @@ public sealed class MeteorObject {
 			group.Deploy();
 		}
 
-		// The original also drops a ground-mark effect from the theater's flat-shape pool here.
-		// That pool is not ported, so the site is left; nothing else depends on it.
+		// A pod that carried a group leaves its mark on the ground whether or not it delivered it —
+		// the flat set's root 3 at the landing point, for the rest of the mission. It keeps no pointer
+		// to it. See docs/simulation/ground-shapes.md.
+		if (Group != null) {
+			world.SpawnGroundShape(GroundShape.DropPodShapeIndex, Position);
+		}
+
 		return true;
 	}
 

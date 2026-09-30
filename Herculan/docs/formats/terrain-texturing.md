@@ -2,6 +2,8 @@
 
 Terrain *lighting* is a separate subject with its own file: [`terrain-lighting.md`](terrain-lighting.md).
 
+Which cells a frame draws, in what order, and how the objects on them are painted in between: [`terrain-drawing.md`](terrain-drawing.md).
+
 See `dts-texture-binding.md` for the mech-side texturing chain — terrain and mechs share a data structure.
 
 ## The answer, end to end
@@ -141,22 +143,6 @@ Two things fall out of that. The tile is the same 65,536 or 131,072 world units 
 **The map is a levelling mask, not the pad's shape.** Every cell of the tile takes the material unconditionally; only cells whose map byte is nonzero also get `Terrain_SetCellScratch(1)`, feeding the flattening pass in [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass) as its second input. The pad's outline is drawn into the frame art itself — overlay a formation's map on its frame and the marked entries land on that frame's concrete and nowhere else. **Map row 0 indexes the tile's high-y edge and counts down**, the same inversion the anchor placement uses.
 
 The material write, but not the levelling mark, is skipped when `CockpitArt_LoadOnDemand` is set — the low-memory mode (`-l`, or under 12 MB physical). Such a machine gets flat ground with no pad painted on it.
-
-## The render path, for whoever picks this up
-
-```
-maybe_Sim_RenderFrame (0045fb9c)          ← the frame root
- ├─ Terrain_SetupVisibleRegion (0046ca98)  ← takes ActiveHeightGrid AS A PARAMETER
- │   ├─ Terrain_BuildDrawRegionQuad (0046d220)
- │   └─ maybe_Terrain_SetDistanceBands (00428bc0)
- ├─ maybe_Scene_SubmitFrameObjects (0042841c)
- └─ maybe_Terrain_ComputeViewDistance (00470910), via 0042e700
-
-Terrain_DrawCellQuad (0046d344)            ← per cell
- ├─ 4x corner projection via 00495240 against grid+0xd0
- ├─ Terrain_ResolveCellTexture (0046bcf4)  ← the texture + tiling answer
- └─ 0046865c / 00468078                    ← the two triangles
-```
 
 ## Rejected readings
 

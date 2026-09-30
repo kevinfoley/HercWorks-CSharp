@@ -6,8 +6,8 @@ Everything below sits *above* [`dts-node-posing.md`](dts-node-posing.md), which 
 
 | Address | Role |
 | --- | --- |
-| `0042841c` | `maybe_Scene_SubmitFrameObjects` — files every object into `ObjList::drawTable` with its terrain cell. No visibility decision is made here |
-| `0042883c` | Walks the flat bucket, calling each object's vtable `+0x00` |
+| `0042841c` | `Scene_SubmitFrameObjects` — files every object into `ObjList::drawTable` with its terrain cell. It makes no visibility decision for a machine beyond the deployment gate ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-deployment-gate--group0x14)) |
+| `0042883c` | `ObjList_DrawAfterTerrain` — calls vtable `+0x00` of each object in the no-cell bucket, after the terrain walk ([`terrain-drawing.md`](terrain-drawing.md#after-the-walk--objlist_drawafterterrain-0042883c)) |
 | `004174c8` | `Mech_Draw`, the mech's `+0x00`: splices the hardpoints, then draws |
 | `004033e4` | `Shape_DrawAtDetailLevel` — picks the LOD root, installs the transform, calls the shape instance's `+0x1c` |
 | `00401fe4` | `SimObject_InstallModelTransform` — builds the Q14 euler matrix if dirty, installs it |

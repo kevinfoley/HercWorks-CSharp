@@ -279,6 +279,20 @@ public sealed partial class BaseObject : SimObject {
 		(Vec3i.Zero, new Vec3i(0, 0, Type.AimPointHeight));
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// The same <c>+0x24</c> node <see cref="SightHeight"/> reads, composed with the structure's frame
+	/// as <c>Transform_Concat</c> does it. So the [Ctrl+F] attached view sits at the aim-point height
+	/// looking along the structure's heading, not at its ground origin.
+	/// </remarks>
+	public override Transform3? ViewNodeFrame {
+		get {
+			var node = Transform3.Identity;
+			node.Z = Type.AimPointHeight;
+			return Transform3.Concat(node, WorldFrame);
+		}
+	}
+
+	/// <inheritdoc />
 	public override bool ScannerActive => ScannerTypes.Contains(Type.Index);
 
 	/// <inheritdoc />

@@ -68,4 +68,12 @@ public interface ISoundSink {
 	/// toggle uses on both of its own lines before posting the one it wants.
 	/// </summary>
 	void Unsay(int messageId);
+
+	/// <summary>
+	/// Withdraws a line from the pilot-and-squad port by id and by the machine it is about — the same
+	/// <c>MessagePort_Withdraw</c> on <c>view+0x207</c>, which <c>Squad_SendOrderToSlot</c>
+	/// (<c>00431610</c>) uses on the squadmate it has just addressed. See
+	/// <see cref="Content.SquadMessagePort.Withdraw"/>.
+	/// </summary>
+	void SquadUnsay(int messageId, object? speaker);
 }

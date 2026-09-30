@@ -229,6 +229,33 @@ public sealed class SquadMessagePort {
 		}
 	}
 
+	/// <summary>
+	/// <c>MessagePort_Withdraw</c> (<c>00435ac8</c>) on this port, with the same rules as
+	/// <see cref="MessagePort.Withdraw"/>: the match is on the id and the speaker, the current line is
+	/// cancelled unless it is due and waiting to go up, and any other match is removed from the queue.
+	/// A cancelled line that is up comes down on the next <see cref="Update"/>, through
+	/// <see cref="End"/>, so its comm box closes as it would at the end of the line.
+	/// </summary>
+	/// <returns>Whether anything was withdrawn.</returns>
+	public bool Withdraw(int messageId, object? speaker) {
+		if (_current is { } current && current.Id == messageId && ReferenceEquals(current.Speaker, speaker)) {
+			if (_activated) {
+				return false;
+			}
+
+			_cancel = true;
+			return true;
+		}
+
+		int at = _queue.FindIndex(queued => queued.Id == messageId && ReferenceEquals(queued.Speaker, speaker));
+		if (at < 0) {
+			return false;
+		}
+
+		_queue.RemoveAt(at);
+		return true;
+	}
+
 	/// <summary>Takes everything down and forgets it — leaving the cockpit, or the mission ending.</summary>
 	public void Clear() {
 		_queue.Clear();

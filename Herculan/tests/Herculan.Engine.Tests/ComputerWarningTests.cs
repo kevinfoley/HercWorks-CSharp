@@ -296,6 +296,8 @@ public class ComputerWarningTests {
 		public void CommandSay(int messageId) { }
 
 		public void Unsay(int messageId) => Said.Remove(messageId);
+
+		public void SquadUnsay(int messageId, object? speaker) { }
 	}
 
 	private static SimWorld FlatWorld(ISoundSink sounds, params MechObject[] mechs) {

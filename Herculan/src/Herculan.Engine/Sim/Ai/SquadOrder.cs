@@ -102,9 +102,18 @@ public enum SquadOrderReply {
 /// </summary>
 public static class SquadOrders {
 	/// <summary>
+	/// The pilot-and-squad line <see cref="SendToSlot"/> withdraws: <c>0x22</c> <c>STANDING BY...</c>
+	/// in the <c>PILOT&lt;bank&gt;.STR</c> catalog.
+	/// </summary>
+	public const int StandingByMessage = 0x22;
+
+	/// <summary>
 	/// <c>Squad_SendOrderToSlot</c> (<c>00431610</c>) — the [F7] command display's XMIT: one named squadmate, addressed by comm
 	/// box. A slot that is empty, that holds the player's own machine, or whose pilot is dead takes
 	/// nothing.
+	///
+	/// <para>Whether or not the order is delivered, the slot's machine then has any
+	/// <see cref="StandingByMessage"/> about it withdrawn from the pilot-and-squad port.</para>
 	/// </summary>
 	/// <returns>Whether the order reached a recipient at all — what the XMIT blip is chosen on.</returns>
 	public static bool SendToSlot(SimWorld world, IReadOnlyList<SimObject> squad, int slot,
@@ -112,16 +121,16 @@ public static class SquadOrders {
 		ArgumentNullException.ThrowIfNull(world);
 		ArgumentNullException.ThrowIfNull(squad);
 
-		if (slot < 0 || slot >= squad.Count || squad[slot] is not MechObject mate) {
-			return false;
+		var occupant = slot >= 0 && slot < squad.Count ? squad[slot] : null;
+		bool delivered = false;
+
+		if (occupant is MechObject mate && !ReferenceEquals(mate, world.PlayerMech) && !mate.Destroyed) {
+			mate.ReceiveSquadOrder(world, message with { Issuer = world.PlayerMech }, SquadOrderReply.Unsent);
+			delivered = true;
 		}
 
-		if (ReferenceEquals(mate, world.PlayerMech) || mate.Destroyed) {
-			return false;
-		}
-
-		mate.ReceiveSquadOrder(world, message with { Issuer = world.PlayerMech }, SquadOrderReply.Unsent);
-		return true;
+		world.Sounds?.SquadUnsay(StandingByMessage, occupant);
+		return delivered;
 	}
 
 	/// <summary>

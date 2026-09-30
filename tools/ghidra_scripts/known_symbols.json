@@ -13520,8 +13520,8 @@
       "type": "function",
       "confidence": "high",
       "name": "MessagePort_Withdraw",
-      "description": "Withdraws a posted message, matching on the message id AND the record's +0x02 subject pointer, so the same message about two machines is two entries. Sets the cancel latch on the current message only if it is not yet due -- a line already on screen runs out its display time -- and otherwise removes the match from the queue. Mech_ToggleRadarMode withdraws both radar lines before posting the one the mode became.",
-      "source": "docs/formats/audio.md"
+      "description": "Withdraws a posted message, matching on the message id AND the record's +0x02 subject pointer, so the same message about two machines is two entries. Sets the cancel latch on a matching current message unless it is due (+0x4c9: past its delay, waiting to go up), which is left alone and returns 0; the show clears +0x4c9, so a line already on screen is cancelled. Otherwise removes the match from the queue. Mech_ToggleRadarMode withdraws both radar lines before posting the one the mode became; Squad_SendOrderToSlot withdraws 0x22 STANDING BY... about the addressed squadmate from the pilot-and-squad port.",
+      "source": "docs/formats/cockpit-messages.md"
     },
     {
       "address": "00435b58",

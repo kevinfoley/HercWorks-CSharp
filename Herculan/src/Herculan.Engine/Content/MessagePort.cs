@@ -61,8 +61,7 @@ public readonly record struct MessageTicker(string? Text, long ScrollTicks, bool
 /// split <see cref="Herculan.Engine.Sim.SimWorld"/> and <see cref="Audio.ISoundSink"/> draw.</para>
 ///
 /// <para>The original keeps a second instance of the same class for the pilot and squad channel, at
-/// <c>view+0x207</c>, differing only in painting several wrapped lines instead of one scrolling one.
-/// Nothing posts to it here yet.</para>
+/// <c>view+0x207</c>, which is <see cref="SquadMessagePort"/> here.</para>
 /// </summary>
 public sealed class MessagePort {
 	/// <summary>
@@ -204,9 +203,10 @@ public sealed class MessagePort {
 	/// radar lines before posting the one the mode just became, so flipping twice quickly announces
 	/// where it ended up rather than reading out the sequence.
 	///
-	/// <para>A message that has already been activated is left alone and this returns false: the
-	/// original only sets the cancel latch on one still waiting. A line already on screen therefore
-	/// runs out its display time.</para>
+	/// <para>The one message left alone is the current one while it is activated, due and waiting to
+	/// go up; this then returns false. The show clears that latch, so a line already on screen is
+	/// cancelled and comes down on the next <see cref="Update"/>. See docs/formats/cockpit-messages.md,
+	/// "The port".</para>
 	/// </summary>
 	/// <returns>Whether anything was withdrawn.</returns>
 	public bool Withdraw(int messageId, object? subject = null) {

@@ -136,18 +136,16 @@ public sealed partial class FlyerObject {
 	/// think, and the move is <see cref="Tick"/>'s, run from the object pass that precedes this one.
 	///
 	/// <para>The reassess is <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>); there is no combat form.
-	/// An aircraft picks its target inside its think and never changes state to do it. <b>This
-	/// engine runs it in every state, where retail has none for <c>sleeping</c> and <c>dead</c></b>
-	/// — <c>Flyer_DispatchReassess</c> finds a null triple and returns — so an order advance can wake
-	/// a sleeping aircraft here and never can in retail. Retail's flyer groups carry one order each,
-	/// so nothing reaches it; see KNOWN_ISSUES.md.</para>
+	/// An aircraft picks its target inside its think and never changes state to do it. <c>sleeping</c>
+	/// and <c>dead</c> have no reassess (<see cref="FlyerBehaviourState.Reassesses"/>), so an order
+	/// advance cannot wake a sleeping aircraft or put a wreck back in the air.</para>
 	/// </summary>
 	public void AiTick(SimWorld world) {
 		if (Behaviour.State is not { } state) {
 			return;
 		}
 
-		if (Behaviour.DwellCountdown == 0) {
+		if (Behaviour.DwellCountdown == 0 && state.Reassesses) {
 			SelectBehaviour();
 		}
 

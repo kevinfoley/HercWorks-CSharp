@@ -1,5 +1,6 @@
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Sim.Ai;
 
@@ -57,6 +58,10 @@ public sealed class HddCommandScreen {
 	public const int DefaultObjective = 3;
 
 	private double _blinkTicks;
+
+	// The order record's point and subject halves, kept across transmissions — see Transmit.
+	private Vec3i _recordPoint;
+	private SimObject? _recordSubject;
 
 	/// <param name="view">The map camera, sized to the herc's own map viewport.</param>
 	/// <param name="raster">The mission's terrain raster, or null when the zone could not supply one.</param>
@@ -224,6 +229,14 @@ public sealed class HddCommandScreen {
 	/// no pilot, no order, or the order still wants something picked; the caller plays the accepted or
 	/// rejected blip on the result, which is whether the order found a recipient at all rather than
 	/// whether that recipient agreed to it.
+	///
+	/// <para><b>The point and subject are the mission's one order record</b> (<c>DAT_004d0458</c>),
+	/// which nothing clears: <c>HddCommandScreen_FillOrderRecord</c> (<c>0044db24</c>) writes only the
+	/// half the pick names, and an order with no pick writes neither. So a DEFEND POSITION on bare
+	/// ground carries the unit of whichever earlier order last named one, and the receiver guards that
+	/// unit. With <see cref="TweakSettingDefinitions.FixDefendPositionOrder"/> on, each order is built
+	/// fresh instead, and a unit pick also fills the point with the unit's position. See
+	/// docs/simulation/ai-squadmates.md, "The order record — 22 bytes".</para>
 	/// </summary>
 	public bool Transmit() {
 		if (SelectedPilot < 0 || SelectedOrder is not { } order
@@ -232,11 +245,20 @@ public sealed class HddCommandScreen {
 			return false;
 		}
 
+		if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.FixDefendPositionOrder)) {
+			_recordPoint = ChosenPoint ?? ChosenUnit?.Position ?? default;
+			_recordSubject = ChosenUnit;
+		} else if (ChosenUnit != null) {
+			_recordSubject = ChosenUnit;
+		} else if (ChosenPoint is { } point) {
+			_recordPoint = point;
+		}
+
 		// The screen counts its eight orders from zero; the verb is the group-0 entry they name.
 		var message = new SquadOrderMessage(
 			(SquadCommand)((int)order + HddLayout.FirstCommandOrder),
-			Point: ChosenPoint ?? ChosenUnit?.Position ?? default,
-			Subject: ChosenUnit);
+			Point: _recordPoint,
+			Subject: _recordSubject);
 
 		bool reached = World == null || SquadOrders.SendToSlot(World, Squad, SelectedPilot, message);
 

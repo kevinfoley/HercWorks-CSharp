@@ -133,6 +133,9 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <inheritdoc />
 	void ISoundSink.CommandSay(int messageId) => Squad?.PostUnattributed(messageId);
 
+	/// <inheritdoc />
+	void ISoundSink.SquadUnsay(int messageId, object? speaker) => Squad?.Port.Withdraw(messageId, speaker);
+
 	/// <summary>
 	/// The pilot and squad channel — the three comm boxes, their queue and the portraits they play.
 	/// Null until <see cref="AttachSquad"/> is called, because which pilots are in the boxes is a

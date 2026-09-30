@@ -44,13 +44,14 @@ public enum FlyerThinkSlot {
 /// </summary>
 public sealed class FlyerBehaviourState {
 	private FlyerBehaviourState(int index, string name, int dwell, int flags,
-			FlyerThinkSlot think = FlyerThinkSlot.None, bool moves = true) {
+			FlyerThinkSlot think = FlyerThinkSlot.None, bool moves = true, bool reassesses = true) {
 		Index = index;
 		Name = name;
 		Dwell = dwell;
 		Flags = flags;
 		Think = think;
 		Moves = moves;
+		Reassesses = reassesses;
 	}
 
 	/// <summary>The state's index into the table — descriptor <c>00499cf8 + 0x3c*N</c>.</summary>
@@ -77,6 +78,14 @@ public sealed class FlyerBehaviourState {
 	/// an aircraft in any of them stops dead in the air rather than gliding.
 	/// </summary>
 	public bool Moves { get; }
+
+	/// <summary>
+	/// Whether the descriptor's reassess slot holds <c>Flyer_AiSelectBehaviour</c> (<c>00422d00</c>).
+	/// Five of the seven do; <c>sleeping</c> and <c>dead</c> hold a null triple, so
+	/// <c>Flyer_DispatchReassess</c> (<c>00421888</c>) returns without calling anything, and an aircraft
+	/// in either stays there whatever its group's orders do.
+	/// </summary>
+	public bool Reassesses { get; }
 
 	/// <summary>
 	/// Bit 0 — <see cref="FlyerObject.AiTick"/> does not run the dwell countdown. The flyer table sets
@@ -106,13 +115,13 @@ public sealed class FlyerBehaviourState {
 		new(3, "search and destroy", 5000, 0x00, FlyerThinkSlot.SearchDestroy);
 
 	public static readonly FlyerBehaviourState Sleeping =
-		new(4, "sleeping", 500, 0x01, moves: false);
+		new(4, "sleeping", 500, 0x01, moves: false, reassesses: false);
 
 	public static readonly FlyerBehaviourState Scouting =
 		new(5, "scouting", 5000, 0x00, FlyerThinkSlot.Scout);
 
 	public static readonly FlyerBehaviourState Dead =
-		new(6, "dead", 500, 0x01, moves: false);
+		new(6, "dead", 500, 0x01, moves: false, reassesses: false);
 
 	/// <summary>All seven, in the order the descriptor table holds them.</summary>
 	public static readonly IReadOnlyList<FlyerBehaviourState> All = new[] {

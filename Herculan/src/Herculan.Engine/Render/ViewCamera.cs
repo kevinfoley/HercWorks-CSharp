@@ -127,8 +127,6 @@ public sealed class ViewCamera {
 	/// and attaches to it twice over — <c>Cam_AttachEye</c> (<c>0040111c</c>) takes the eye and sets
 	/// <see cref="ViewCameraMode.Attached"/>, then <c>Cam_AttachOrbit</c> (<c>0040109c</c>) takes the orbit centre, starts
 	/// the orbit over from directly behind at no distance, and sets <see cref="ViewCameraMode.Orbit"/>.
-	/// The original zeroes the roll and its rate as well; nothing here ever sets either, so they are
-	/// always zero and need no reset.
 	/// </summary>
 	public void AttachTo(SimObject target) {
 		if (Locked) {
@@ -140,9 +138,11 @@ public sealed class ViewCamera {
 		OrbitCentre = orbitCentre;
 		Target = target;
 		OrbitPitch = 0;
+		OrbitRoll = 0;
 		OrbitYaw = 0;
 		Distance = 0;
 		PitchRate = 0;
+		RollRate = 0;
 		YawRate = 0;
 		ZoomRate = 0;
 		Mode = ViewCameraMode.Orbit;

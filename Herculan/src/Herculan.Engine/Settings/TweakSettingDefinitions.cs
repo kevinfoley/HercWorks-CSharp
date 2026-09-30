@@ -82,12 +82,19 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> MouseExternalView = new("tweak.mouse_external_view", TweakCategory.Functional, false);
 
+	/// <summary>
+	/// Build each order the Heads-Down Display transmits from scratch. Retail reuses one order record
+	/// and overwrites only the half the new order picks, so DEFEND POSITION on bare ground can guard a
+	/// unit an earlier order named instead. See <see cref="Content.HddCommandScreen.Transmit"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FixDefendPositionOrder = new("tweak.fix_defend_position_order", TweakCategory.Functional, false);
+
 	#endregion
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, SmootherTurretMovement,
-		MouseExternalView,
+		MouseExternalView, FixDefendPositionOrder,
 	};
 }

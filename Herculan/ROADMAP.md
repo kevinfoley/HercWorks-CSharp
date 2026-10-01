@@ -31,3 +31,6 @@ The engine cannot be faithful here until the original is understood.
 ## Debugging features
 - Launch option to disable AI (so units other than the player remain stationary, though still subject to damage and destruction)
 - Support for editing the current script.dat in the Mission Editor, to facilitate setting up scenarios for rapid testing? The main short-term needs would be moving Cybrid or player spawnpoints.
+
+## HercWorks editors
+- **Edit the configuration files and zone headers in HercWorks UI.** Core reads and writes `data\keyjoy.cfg` (`KeyjoyTransformer`), `data\prefs.cfg` (`PrefsTransformer`), `data\drive.cfg` (`DriveTransformer`) and `dat\zoneNNNN.dat` (`ZoneDatTransformer`), but the UI has no form for any of them. Two things to settle first: `keyjoy.cfg`'s writer drops the comments a retail file ships with, and `prefs.cfg` should be written back as the simulator does — a read-modify-write of the bytes the form changed, never a fresh 54-byte dump. → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md), [`docs/simulation/preferences.md`](docs/simulation/preferences.md), [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)

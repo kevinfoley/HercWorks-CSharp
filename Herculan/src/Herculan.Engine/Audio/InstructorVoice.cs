@@ -1,3 +1,6 @@
+using HercWorks.Core.Data.File.Cfg;
+using HercWorks.Core.Io.Transform.Common;
+
 namespace Herculan.Engine.Audio;
 
 /// <summary>
@@ -12,16 +15,13 @@ namespace Herculan.Engine.Audio;
 /// the path <c>FUN_0045f144</c> reads at startup). One clip per instruction, not per sentence.</para>
 /// </summary>
 public static class InstructorVoice {
-	/// <summary>The file <c>FUN_0045f144</c> reads the directory out of, in the install's data folder.</summary>
-	public const string DriveConfigName = "drive.cfg";
-
 	/// <summary>The clip for instruction <paramref name="messageId"/> of training mission <paramref name="trainingMission"/>.</summary>
 	public static string ClipName(int trainingMission, int messageId) =>
 		$"TM{trainingMission}_{messageId + 1:0000}.WAV";
 
 	/// <summary>
 	/// The folder the clips are in: <paramref name="voiceFolder"/> under the first token of
-	/// <c>drive.cfg</c>, or under the install root (the data folder's parent) when that file is
+	/// <c>drive.cfg</c> (<see cref="Drive"/>, read by <c>FUN_0045f144</c> at startup), or under the install root (the data folder's parent) when that file is
 	/// missing or empty.
 	/// </summary>
 	/// <param name="dataDirectory">The install's data folder — where <c>script.dat</c> came from.</param>
@@ -34,11 +34,9 @@ public static class InstructorVoice {
 		}
 
 		string? root = null;
-		string config = Path.Combine(dataDirectory, DriveConfigName);
+		string config = Path.Combine(dataDirectory, Drive.FileName);
 		if (File.Exists(config)) {
-			root = File.ReadAllText(config)
-				.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-				.FirstOrDefault();
+			root = new DriveTransformer().Parse(File.ReadAllBytes(config))?.Directory;
 		}
 
 		root ??= Path.GetDirectoryName(Path.GetFullPath(dataDirectory));

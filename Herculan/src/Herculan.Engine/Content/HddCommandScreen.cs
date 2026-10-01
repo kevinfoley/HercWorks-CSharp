@@ -3,6 +3,7 @@ using Herculan.Engine.Render;
 using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Sim.Ai;
+using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Content;
 
@@ -282,7 +283,7 @@ public sealed class HddCommandScreen {
 	/// <param name="route">The player squad's route, for the numbered waypoint markers.</param>
 	/// <param name="strings">For the message row and the comm boxes' text.</param>
 	public HddCommandState Build(SimObject? player, IReadOnlyList<SimObject> objects,
-			IReadOnlyList<Vec3i>? route, SimStringTable? strings) {
+			IReadOnlyList<Vec3i>? route, StringFile? strings) {
 		ArgumentNullException.ThrowIfNull(objects);
 		if (player != null) {
 			View.Follow(player.Position);

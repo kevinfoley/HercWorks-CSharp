@@ -1,4 +1,5 @@
 using Herculan.Engine.Content;
+using HercWorks.Core.Data.File.Cfg;
 
 namespace Herculan.Engine.Terrain;
 
@@ -53,6 +54,6 @@ public static class TerrainDetail {
 	/// <param name="dataDirectory">The game's <c>data</c> folder — where its <c>script.dat</c> is.</param>
 	public static int LevelFrom(string? dataDirectory) =>
 		SimulatorPreferences.Load(dataDirectory) is { } prefs
-			? Math.Clamp(prefs[SimulatorPreferences.TerrainDistanceOption], 0, RadiusInCells.Length - 1)
+			? Math.Clamp(prefs[Prefs.TerrainDistanceOption], 0, RadiusInCells.Length - 1)
 			: DefaultLevel;
 }

@@ -1,5 +1,6 @@
 using HercWorks.Core.Data.File.Dyn;
 using Herculan.Engine.Content;
+using HercWorks.Core.Data.File.Cfg;
 
 namespace Herculan.Engine.Shell;
 
@@ -137,9 +138,9 @@ public sealed class ShellPreferencesScreen {
 	private static readonly ShellRect AlertAcceptRect = new(0xa8, 0x38, 0x107, 0x47);
 
 	/// <summary>The <c>prefs.cfg</c> options the checkboxes show: the two sound bytes, then the four radio groups.</summary>
-	private const int MusicOption = SimulatorPreferences.MusicOption;
-	private const int SoundsOption = SimulatorPreferences.SoundsOption;
-	private const int ResolutionOption = SimulatorPreferences.VideoModeOption;
+	private const int MusicOption = Prefs.MusicOption;
+	private const int SoundsOption = Prefs.SoundsOption;
+	private const int ResolutionOption = Prefs.VideoModeOption;
 	private const int DisplayModeOption = 6;
 	private const int RepairOption = 0x2c;
 	private const int WeaponsBuildingOption = 0x2d;
@@ -245,7 +246,7 @@ public sealed class ShellPreferencesScreen {
 			// 00436c51: ShellOptions_Commit(0), then ShellOptions_SaveAll.
 			case ShellPreferencesWidget.Accept:
 				_options.Commit(apply: false);
-				_options.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+				_options.Save(Enumerable.Range(0, Prefs.Length).ToArray());
 				return true;
 		}
 

@@ -3,6 +3,7 @@ using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Dbsim;
 using Herculan.Engine.Content;
 using Herculan.Engine.World;
+using HercWorks.Core.Data.File.Cfg;
 
 namespace Herculan.Engine.Input;
 
@@ -32,7 +33,7 @@ public sealed class InputTapePlayer {
 	/// <summary>The bundle's seven files, in bundle order, as <c>-r</c> names them in <c>data\</c>.</summary>
 	public static readonly IReadOnlyList<string> BundleFileNames = new[] {
 		MissionLoader.ScriptFileName, MissionLoader.PlayerFileName, MissionLoader.CountersFileName,
-		SimulatorPreferences.FileName, "restore.dat", "object.str", KeyjoyConfig.FileName,
+		Prefs.FileName, "restore.dat", "object.str", Keyjoy.FileName,
 	};
 
 	/// <summary>
@@ -126,7 +127,7 @@ public sealed class InputTapePlayer {
 			return null;
 		}
 
-		var entries = new StringFileTransformer().Parse(File.ReadAllBytes(listPath))?.Entries?
+		var entries = new StringFileTransformer().Parse(File.ReadAllBytes(listPath))?.Group(0)
 			.Where(entry => entry is { Text.Length: > 0 })
 			.ToArray();
 		if (entries is not { Length: > 0 }) {
@@ -166,12 +167,12 @@ public sealed class InputTapePlayer {
 
 		var names = BundleFileNames;
 		for (int i = 0; i < InputTape.BundleFileCount; i++) {
-			if (names[i] == KeyjoyConfig.FileName) {
+			if (names[i] == Keyjoy.FileName) {
 				continue;
 			}
 
 			byte[] contents = Tape.Bundle[i];
-			if (names[i] == SimulatorPreferences.FileName) {
+			if (names[i] == Prefs.FileName) {
 				contents = ReconcilePreferences(contents, Path.Combine(directory, names[i]));
 			}
 

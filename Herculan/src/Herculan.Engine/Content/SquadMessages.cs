@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File;
 namespace Herculan.Engine.Content;
 
 /// <summary>
@@ -95,7 +96,7 @@ public sealed class SquadMessages {
 	/// or does not parse.
 	/// </summary>
 	public static SquadMessages? Load(GameContent content, int voiceBank) =>
-		SimStringTable.Load(content, ResourceName(voiceBank)) is { } table ? FromTable(table) : null;
+		SimStrings.Load(content, ResourceName(voiceBank)) is { } table ? FromTable(table) : null;
 
 	/// <summary>
 	/// Reads the speakerless set — what <c>Gau_BuildCockpitWidgets</c> (<c>00431bf8</c>) has
@@ -103,10 +104,10 @@ public sealed class SquadMessages {
 	/// port. The shape is a pilot bank's, with an eighth attribute byte.
 	/// </summary>
 	public static SquadMessages? LoadCommand(GameContent content, int trainingMission) =>
-		SimStringTable.Load(content, CommandResourceName(trainingMission)) is { } table ? FromTable(table) : null;
+		SimStrings.Load(content, CommandResourceName(trainingMission)) is { } table ? FromTable(table) : null;
 
 	/// <summary>Scatters an already-parsed <c>.STR</c> by attribute byte 0.</summary>
-	public static SquadMessages FromTable(SimStringTable table) {
+	public static SquadMessages FromTable(StringFile table) {
 		var byId = new Dictionary<int, List<Entry>>();
 		var ordered = new List<Entry>();
 		var firstIndex = new Dictionary<int, int>();

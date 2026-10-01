@@ -116,7 +116,7 @@ public sealed class PilotRoster {
 	public static PilotRoster? Load(GameContent content) {
 		ArgumentNullException.ThrowIfNull(content);
 
-		if (SimStringTable.Load(content, ResourceName) is not { } table) {
+		if (SimStrings.Load(content, ResourceName) is not { } table) {
 			return null;
 		}
 

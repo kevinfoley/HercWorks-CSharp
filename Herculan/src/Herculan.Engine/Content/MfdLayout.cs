@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File;
 ﻿using HercWorks.Core.Data.File.Gau;
 
 namespace Herculan.Engine.Content;
@@ -404,7 +405,7 @@ public static class MfdLayout {
 	/// exactly as <c>MfdStatusScreen_Paint</c> (<c>0043a5a0</c>) builds it (<c>strcpy</c> the caption, <c>itoa</c> onto the end).
 	/// The caption's own trailing spaces are what separate the two.
 	/// </summary>
-	public static string DistanceReadout(SimStringTable? strings, int distance) =>
+	public static string DistanceReadout(StringFile? strings, int distance) =>
 		(strings?.Text(IdentLabelGroup, IdentDistanceEntry) ?? "DIST:  ") + distance;
 
 	/// <summary>
@@ -528,14 +529,14 @@ public static class MfdLayout {
 	/// "TARGET", "MISSILE CAM" — or null when the string table is absent. Modes index
 	/// <see cref="CaptionGroup"/> directly, which is what <c>MfdDisplay_Update</c> (<c>00446328</c>) does.
 	/// </summary>
-	public static string? Title(SimStringTable? strings, MfdMode mode) =>
+	public static string? Title(StringFile? strings, MfdMode mode) =>
 		strings?.Text(CaptionGroup, (int)mode);
 
 	/// <summary>
 	/// Button <paramref name="index"/>'s caption: "F1".."F6" for the mode column, otherwise the
 	/// caption table entry. Null when the table is absent.
 	/// </summary>
-	public static string? Caption(SimStringTable? strings, int index) {
+	public static string? Caption(StringFile? strings, int index) {
 		if (index < 0 || index >= ButtonCount) {
 			return null;
 		}

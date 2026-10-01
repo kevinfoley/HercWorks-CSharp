@@ -1,28 +1,20 @@
+using HercWorks.Core.Data.File.Cfg;
+using HercWorks.Core.Io.Transform.Common;
+
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// <c>data\prefs.cfg</c>, the simulator's option array — what the [F12] preferences panel shows and
-/// edits.
+/// The simulator's options at run time — <c>data\prefs.cfg</c> (<see cref="Prefs"/>, which owns the
+/// layout and the option indices) plus what the original hangs off it: a handler per option, the
+/// load-time shadow the panels commit and revert against, and the read-modify-write save each panel
+/// performs. What the [F12] preferences panel shows and edits.
 ///
-/// <para><b>The file is the array.</b> <c>Prefs_LoadOptions</c> (<c>00459754</c>) memsets
-/// <c>DAT_004d1fbc</c> to zero for <c>0x36</c> bytes and then reads the file straight over it, with
-/// no parse at all, so an option's index is its byte offset and a retail <c>prefs.cfg</c> is 54
-/// bytes. <c>Prefs_SetOption</c> (<c>0045993c</c>) writes one byte by that index and calls the
-/// option's own handler from the parallel table at <c>DAT_004d2060</c> — see
-/// <see cref="RegisterHandler"/>.</para>
-///
-/// <para>Only the options the preferences panel puts on screen are named here; the remaining bytes
-/// are read and carried, not interpreted. The panel's own reader is
-/// <c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>), which maps a byte to one of the <c>PRF_ALRT.STR</c> captions —
-/// see <see cref="PreferencesPanel"/>.</para>
+/// <para><c>Prefs_SetOption</c> (<c>0045993c</c>) writes one byte by its index and calls the option's
+/// own handler from the parallel table at <c>DAT_004d2060</c> — see <see cref="RegisterHandler"/>.
+/// The panel's own reader is <c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>), which maps a byte to
+/// one of the <c>PRF_ALRT.STR</c> captions — see <see cref="PreferencesPanel"/>.</para>
 /// </summary>
 public sealed class SimulatorPreferences {
-	/// <summary>Where the simulator keeps the file, relative to the game's <c>data</c> folder.</summary>
-	public const string FileName = "prefs.cfg";
-
-	/// <summary>How many bytes the simulator reads, and so how long a usable file is.</summary>
-	public const int Length = 0x36;
-
 	private readonly byte[] _options;
 
 	private SimulatorPreferences(byte[] options, string? sourceDirectory = null) {
@@ -48,71 +40,6 @@ public sealed class SimulatorPreferences {
 	/// </summary>
 	public bool SaveEnabled { get; set; } = true;
 
-	/// <summary>MUSIC — CD audio on or off.</summary>
-	public const int MusicOption = 0;
-
-	/// <summary>SOUNDS — the effect mixer on or off.</summary>
-	public const int SoundsOption = 1;
-
-	/// <summary>PILOT MESSAGE, <c>DAT_004d1fbe</c> — the pilot and squad channel's two halves.</summary>
-	public const int PilotMessageOption = 2;
-
-	/// <summary>COMPUTER MESSAGE, <c>DAT_004d1fbf</c> — the computer ticker's two halves.</summary>
-	public const int ComputerMessageOption = 3;
-
-	/// <summary>
-	/// VSHELL's <c>Game Resolution</c>, and the byte <c>VideoMode_Configure</c> reads: 0 for
-	/// 640x480, 1 for 320x240. See docs/simulation/preferences.md.
-	/// </summary>
-	public const int VideoModeOption = 4;
-
-	/// <summary>TERRAIN DISTANCE, <c>DAT_004d1fc3</c> — the draw radius, see <see cref="Terrain.TerrainDetail"/>.</summary>
-	public const int TerrainDistanceOption = 7;
-
-	/// <summary>
-	/// TERRAIN TEXTURE, <c>DAT_004d1fc4</c>. The original tests it per triangle to pick textured or
-	/// flat span writers (docs/formats/terrain-texturing.md, "The terrain-texture switch"). Here the
-	/// terrain mesh carries both the atlas UV and the height/slope ramp colour, so the switch is the
-	/// texture binding on the terrain's draw item: bound, each cell takes its material's frame;
-	/// unbound, the shader falls back to the vertex colour. It is re-read every frame, so the ground
-	/// changes under the preferences panel as the row is stepped, as the original's does.
-	/// </summary>
-	public const int TerrainTextureOption = 8;
-
-	/// <summary>HERC DETAIL, <c>DAT_004d1fc5</c>.</summary>
-	public const int HercDetailOption = 9;
-
-	/// <summary>STRUCTURE DETAIL, <c>DAT_004d1fc6</c>.</summary>
-	public const int StructureDetailOption = 10;
-
-	/// <summary>EFFECTS DETAIL, <c>Sound_DetailSetting</c> (<c>004d1fc7</c>).</summary>
-	public const int EffectsDetailOption = 11;
-
-	/// <summary>
-	/// Where the [F12] → CONTROLS panel's twelve options start for a walking HERC — <c>DAT_004d25fb</c>
-	/// as <c>Sim_InitMissionSession</c> (<c>004614fc</c>) sets it, and the value
-	/// <c>Main_StaticInit</c> (<c>0045cad8</c>) starts it on.
-	/// </summary>
-	public const int HercControlsBase = 0x0d;
-
-	/// <summary>
-	/// And where they start for the RAZOR, which has a second twelve-byte block of its own. The two
-	/// sets are independent: rebinding in one machine does not disturb the other's.
-	/// </summary>
-	public const int RazorControlsBase = 0x19;
-
-	/// <summary>
-	/// How many options a controls block holds: the four axis assignments, then one action code per
-	/// joystick button.
-	/// </summary>
-	public const int ControlsOptionCount = 12;
-
-	/// <summary>How many of those are the axis rows, which come first.</summary>
-	public const int ControlsAxisCount = 4;
-
-	/// <summary>Which block the machine being flown reads — the whole of what <c>DAT_004d25f5</c> selects.</summary>
-	public static int ControlsBase(bool razor) => razor ? RazorControlsBase : HercControlsBase;
-
 	/// <summary>
 	/// The nine options the preferences panel saves — <c>DAT_0049e304</c>, the list
 	/// <c>PreferencesPanel_Save</c> (<c>004574cc</c>) hands to
@@ -131,8 +58,8 @@ public sealed class SimulatorPreferences {
 	/// read, so it changes nothing, and the arithmetic is the original's.</para>
 	/// </summary>
 	public static int[] ControlsPanelOptions(bool razor) {
-		int start = ControlsBase(razor) - 1;
-		var options = new int[ControlsOptionCount + 1];
+		int start = Prefs.ControlsBase(razor) - 1;
+		var options = new int[Prefs.ControlsOptionCount + 1];
 		for (int i = 0; i < options.Length; i++) {
 			options[i] = start + i;
 		}
@@ -144,7 +71,7 @@ public sealed class SimulatorPreferences {
 	/// The options as the simulator would hold them: all zero where no file was read, since that is
 	/// what the memset leaves behind.
 	/// </summary>
-	public static SimulatorPreferences Defaults() => new(new byte[Length]);
+	public static SimulatorPreferences Defaults() => new(new Prefs().Options);
 
 	/// <summary>Option <paramref name="index"/>'s byte, or 0 when it is outside the array.</summary>
 	public byte this[int index] => index >= 0 && index < _options.Length ? _options[index] : (byte)0;
@@ -156,7 +83,7 @@ public sealed class SimulatorPreferences {
 	/// </summary>
 	public bool Changed { get; private set; }
 
-	private readonly Action<byte>?[] _handlers = new Action<byte>?[Length];
+	private readonly Action<byte>?[] _handlers = new Action<byte>?[Prefs.Length];
 
 	/// <summary>
 	/// Installs option <paramref name="index"/>'s handler — <c>Prefs_RegisterOptionHandler</c>
@@ -228,7 +155,7 @@ public sealed class SimulatorPreferences {
 	/// handler runs.</para>
 	/// </summary>
 	public void Commit(bool apply = true) {
-		for (int i = 0; i < Length && i < _options.Length; i++) {
+		for (int i = 0; i < Prefs.Length && i < _options.Length; i++) {
 			if (_baseline[i] == _options[i]) {
 				continue;
 			}
@@ -247,7 +174,7 @@ public sealed class SimulatorPreferences {
 	/// The preferences screen's <c>Cancel</c> passes it clear.
 	/// </summary>
 	public void Revert(bool apply) {
-		for (int i = 0; i < Length && i < _options.Length; i++) {
+		for (int i = 0; i < Prefs.Length && i < _options.Length; i++) {
 			if (_baseline[i] == _options[i]) {
 				continue;
 			}
@@ -293,10 +220,7 @@ public sealed class SimulatorPreferences {
 	/// <summary>
 	/// Reads the file beside a mission's <c>script.dat</c>, or null when there is none there to read.
 	///
-	/// <para>A short file is rejected rather than taken as a partial one. The simulator would treat
-	/// every byte it could not fill as option 0; here that would silently put every setting on its
-	/// lowest value, which a caller with a sounder default of its own should be told about rather
-	/// than handed.</para>
+	/// <para>A short file is rejected; see <see cref="PrefsTransformer.Parse"/>.</para>
 	/// </summary>
 	/// <param name="dataDirectory">The game's <c>data</c> folder — where its <c>script.dat</c> is.</param>
 	public static SimulatorPreferences? Load(string? dataDirectory) {
@@ -305,13 +229,14 @@ public sealed class SimulatorPreferences {
 		}
 
 		try {
-			string path = Path.Combine(dataDirectory, FileName);
+			string path = Path.Combine(dataDirectory, Prefs.FileName);
 			if (!File.Exists(path)) {
 				return null;
 			}
 
-			byte[] bytes = File.ReadAllBytes(path);
-			return bytes.Length < Length ? null : new SimulatorPreferences(bytes, dataDirectory);
+			return new PrefsTransformer().Parse(File.ReadAllBytes(path)) is { } prefs
+				? new SimulatorPreferences(prefs.Options, dataDirectory)
+				: null;
 		} catch (IOException) {
 			return null;
 		} catch (UnauthorizedAccessException) {
@@ -352,19 +277,19 @@ public sealed class SimulatorPreferences {
 		}
 
 		try {
-			string path = Path.Combine(directory, FileName);
+			string path = Path.Combine(directory, Prefs.FileName);
 			if (!File.Exists(path)) {
 				return false;
 			}
 
 			byte[] bytes = File.ReadAllBytes(path);
-			if (bytes.Length < Length) {
+			if (bytes.Length < Prefs.Length) {
 				return false;
 			}
 
 			bool dirty = false;
 			foreach (int index in indices) {
-				if (index < 0 || index >= Length || bytes[index] == _options[index]) {
+				if (index < 0 || index >= Prefs.Length || bytes[index] == _options[index]) {
 					continue;
 				}
 
@@ -378,7 +303,7 @@ public sealed class SimulatorPreferences {
 
 			// What is left over: the options this save did not name and that still differ from the
 			// file. After the second panel has closed there are none, and this lands back on false.
-			Changed = !bytes.AsSpan(0, Length).SequenceEqual(_options.AsSpan(0, Length));
+			Changed = !bytes.AsSpan(0, Prefs.Length).SequenceEqual(_options.AsSpan(0, Prefs.Length));
 			return dirty;
 		} catch (IOException) {
 			return false;

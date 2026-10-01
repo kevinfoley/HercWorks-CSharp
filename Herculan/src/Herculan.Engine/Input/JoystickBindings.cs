@@ -1,4 +1,5 @@
 using Herculan.Engine.Content;
+using HercWorks.Core.Data.File.Cfg;
 
 namespace Herculan.Engine.Input;
 
@@ -41,8 +42,11 @@ public sealed class JoystickBindings {
 	/// </summary>
 	public bool PilotingRazor { get; set; }
 
-	/// <summary>The four axis-sense switches from <c>data\keyjoy.cfg</c>.</summary>
-	public KeyjoyConfig Keyjoy { get; set; } = KeyjoyConfig.Defaults;
+	/// <summary>
+	/// The four axis-sense switches from <c>data\keyjoy.cfg</c>. <see cref="Keyjoy.ReverseMissile"/> is
+	/// carried and not applied: this engine has no missile camera.
+	/// </summary>
+	public Keyjoy Keyjoy { get; set; } = new Keyjoy();
 
 	/// <summary>
 	/// Whether the throttle lever is being read upside down — the <c>-1</c> half of
@@ -110,7 +114,7 @@ public sealed class JoystickBindings {
 	/// RUDDER and HAT.
 	/// </summary>
 	public JoystickAxisAssignment Assignment(SimulatorPreferences preferences, int row) {
-		byte value = preferences[SimulatorPreferences.ControlsBase(PilotingRazor) + row];
+		byte value = preferences[Prefs.ControlsBase(PilotingRazor) + row];
 		return value <= (byte)JoystickAxisAssignment.Turret
 			? (JoystickAxisAssignment)value
 			: JoystickAxisAssignment.Unassigned;
@@ -119,8 +123,8 @@ public sealed class JoystickBindings {
 	/// <summary>What button <paramref name="index"/> (0-based) is bound to.</summary>
 	public JoystickAction Action(SimulatorPreferences preferences, int index) =>
 		(JoystickAction)preferences[
-			SimulatorPreferences.ControlsBase(PilotingRazor)
-			+ SimulatorPreferences.ControlsAxisCount + index];
+			Prefs.ControlsBase(PilotingRazor)
+			+ Prefs.ControlsAxisCount + index];
 
 	/// <summary>
 	/// Resolves one tick. <paramref name="reading"/> is the stick as the device map built it and

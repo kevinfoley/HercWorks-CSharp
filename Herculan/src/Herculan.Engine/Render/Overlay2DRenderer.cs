@@ -8,6 +8,7 @@ using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
 using Silk.NET.OpenGL;
 using Herculan.Engine.Settings;
+using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Render;
 
@@ -522,7 +523,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <see cref="DrawHddMap"/>. What this leaves behind it is the flood its render target sits on.</para>
 	/// </summary>
 	private void AddHddCommandDisplay(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
-			SimStringTable? strings, CockpitHudState state, Vector3? background,
+			StringFile? strings, CockpitHudState state, Vector3? background,
 			Action<string, int, float, float> blit, Action<HddLayout.Rect, Vector3> fill,
 			HddLabelWriter drawLabel) {
 		if (background is { } mapFill) {
@@ -613,7 +614,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// blank.</para>
 	/// </summary>
 	private static void AddHddDamageDetail(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
-			SimStringTable? strings, HddDamageView view, CockpitHudState state,
+			StringFile? strings, HddDamageView view, CockpitHudState state,
 			Action<string, int, float, float> blit, Action<HddLayout.Rect, Vector3> fill,
 			HddLabelWriter drawLabel, Action<float, float, float, float, Vector3> fillRect) {
 		const float S = CockpitArt.GauToPixelScale;
@@ -2557,7 +2558,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// lights the row too. It is a hollow rounded rect and goes down <i>after</i> the text, which is
 	/// the paint's own order.</para>
 	/// </summary>
-	private static void AddMfdFlashComm(CockpitArt hud, CockpitHudState state, SimStringTable? strings,
+	private static void AddMfdFlashComm(CockpitArt hud, CockpitHudState state, StringFile? strings,
 			Action<string, int, float, float> blitDevice, MfdHotkeyLabelWriter drawLabel,
 			float insetX, float insetY) {
 		var rows = MfdLayout.FlashCommRows;
@@ -2805,7 +2806,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// indexed by the widget's own kind field (1 = LINK, 2 = TRACK) — see
 	/// docs/formats/str-strings.md.</para>
 	/// </summary>
-	private static void AddConsoleButtons(GAUFile gau, SimStringTable? strings, CockpitHudState state,
+	private static void AddConsoleButtons(GAUFile gau, StringFile? strings, CockpitHudState state,
 			Action<string, int, float, float> blit,
 			Action<string, string, int, int, int, int, Vector3?> drawCentered) {
 		const float S = CockpitArt.GauToPixelScale;
@@ -2846,7 +2847,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// that rect in <c>DARK</c>. Nothing is drawn while it is off. See
 	/// docs/formats/cockpit-gunsight-hud.md#the-att-legend.
 	/// </summary>
-	private static void AddAutoTrackLegend(GAUFile gau, SimStringTable? strings, CockpitHudState state,
+	private static void AddAutoTrackLegend(GAUFile gau, StringFile? strings, CockpitHudState state,
 			Action<string, int, float, float> blit,
 			Action<string, string, int, int, int, int, Vector3?> drawCentered) {
 		if (!state.AutoTrack || gau.AutoTrackLegend is not { } legend) {

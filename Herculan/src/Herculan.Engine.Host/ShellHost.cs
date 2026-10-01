@@ -5,6 +5,7 @@ using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
+using HercWorks.Core.Data.File.Cfg;
 
 namespace Herculan.Engine.Host;
 
@@ -651,7 +652,7 @@ static class ShellHost {
 			shellOptions.Set(ShellSound.MusicTrackOption, (byte)(shellOptions[ShellSound.MusicTrackOption] ^ 1),
 				apply: false);
 			shellOptions.Commit();
-			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+			shellOptions.Save(Enumerable.Range(0, Prefs.Length).ToArray());
 
 			sound.Start();
 			if (startup == null || returnCode != StartupCode) {
@@ -1009,7 +1010,7 @@ static class ShellHost {
 			practiceScreen.SelectRow(ShellPracticeScreen.RowCount + shellOptions[InstantActionOption]);
 			shellOptions.Step(InstantActionOption, InstantActionMissionCount);
 			shellOptions.Commit();
-			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+			shellOptions.Save(Enumerable.Range(0, Prefs.Length).ToArray());
 
 			if (LaunchTraining(practiceScreen.SelectedRow, "Instant Action")) {
 				blanked = window.FullScreen;
@@ -1349,7 +1350,7 @@ static class ShellHost {
 				RepaintContent();
 			} else {
 				shellOptions.Commit(apply: false);
-				shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+				shellOptions.Save(Enumerable.Range(0, Prefs.Length).ToArray());
 			}
 		}
 
@@ -1403,7 +1404,7 @@ static class ShellHost {
 		// lit row.
 		void BeginPractice() {
 			shellOptions.Commit();
-			shellOptions.Save(Enumerable.Range(0, SimulatorPreferences.Length).ToArray());
+			shellOptions.Save(Enumerable.Range(0, Prefs.Length).ToArray());
 			LaunchTraining(practiceScreen!.SelectedRow, "Begin Mission");
 		}
 

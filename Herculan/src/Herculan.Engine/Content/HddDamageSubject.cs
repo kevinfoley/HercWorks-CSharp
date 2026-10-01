@@ -1,4 +1,5 @@
 using Herculan.Engine.Sim;
+using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Content;
 
@@ -87,7 +88,7 @@ public readonly record struct HddDamageSubject(
 	/// <param name="selected">The current selection.</param>
 	/// <param name="strings">For the captions and the no-subject text.</param>
 	public static HddDamageSubject For(int slot, SimObject? player, IReadOnlyList<SimObject?> squad,
-			Func<int, string> pilotName, SimObject? selected, SimStringTable? strings) {
+			Func<int, string> pilotName, SimObject? selected, StringFile? strings) {
 		SimObject? machine = slot switch {
 			PlayerSlot => player,
 			TargetSlot => selected?.TargetClass == TargetClass.Herc ? selected : null,

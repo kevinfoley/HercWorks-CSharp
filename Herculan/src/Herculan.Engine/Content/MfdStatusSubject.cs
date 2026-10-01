@@ -1,5 +1,6 @@
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Settings;
+using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Content;
 
@@ -116,7 +117,7 @@ public readonly record struct MfdStatusSubject(
 	/// <param name="viewer">The machine the range is measured from — the original's <c>CockpitView+0x203</c>.</param>
 	/// <param name="strings">For the structure and vehicle type-name groups.</param>
 	public static MfdStatusSubject For(Sim.SimObject? subject, Sim.SimObject? viewer,
-			SimStringTable? strings) {
+			StringFile? strings) {
 		if (subject == null) {
 			return None;
 		}

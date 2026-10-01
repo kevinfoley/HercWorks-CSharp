@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Io.Transform.Common;
 using Herculan.Engine.Content;
@@ -16,10 +15,8 @@ namespace Herculan.Engine.Terrain;
 /// <para>Two files per zone, both keyed off the same <c>zoneNNNN</c> base name the original builds
 /// with <c>_itoa</c>:</para>
 /// <list type="number">
-/// <item><c>dat\zoneNNNN.dat</c> — exactly 16 bytes, four little-endian <see cref="int"/>s. The
-/// first two are width/height shifts, which the original reads and then overwrites from the
-/// heightmap image itself, so this loader skips them the same way; the third and fourth are the
-/// cell shift and height scale it actually keeps.</item>
+/// <item><c>dat\zoneNNNN.dat</c> — the 16-byte <see cref="HercWorks.Core.Data.File.Dat.Sim.ZoneDat"/>
+/// header, of which the original keeps the cell shift and height scale.</item>
 /// <item><c>dba\zoneNNNN.dba</c> — an ordinary <see cref="DynamixBitmapArray"/> holding a single
 /// 8-bit image, the same container format as any other texture in the game. Its pixels
 /// <i>are</i> the heightmap.</item>
@@ -57,17 +54,16 @@ public static class TerrainZoneLoader {
 			int detailLevel = TerrainDetail.DefaultLevel) {
 		string baseName = $"zone{zoneIndex}";
 
-		byte[] header = content.ReadRequired(HeaderFolder, baseName + ".dat");
-		if (header.Length < 16) {
-			throw new InvalidDataException(
-				$"{HeaderFolder}\\{baseName}.dat is {header.Length} bytes; the zone header is 16.");
-		}
+		byte[] bytes = content.ReadRequired(HeaderFolder, baseName + ".dat");
+		var header = new ZoneDatTransformer().Parse(bytes)
+			?? throw new InvalidDataException(
+				$"{HeaderFolder}\\{baseName}.dat is {bytes.Length} bytes; the zone header is {ZoneDatTransformer.Size}.");
 
-		// header[0]/header[1] are the width/height shifts. The original reads them into locals and
-		// then discards them — TerrainZone_PopulateFromBitmap re-derives both from the heightmap
-		// image's own dimensions rather than trusting these copies — so they are skipped here too.
-		int cellShift = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(8));
-		int heightScale = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(12));
+		// The width/height shifts are not used. The original reads them into locals and then
+		// discards them — TerrainZone_PopulateFromBitmap re-derives both from the heightmap image's
+		// own dimensions rather than trusting these copies.
+		int cellShift = header.CellShift;
+		int heightScale = header.HeightScale;
 
 		var bitmap = ReadHeightmapImage(content, baseName);
 

@@ -71,7 +71,7 @@ public sealed class ObjectivesPanel {
 		ArgumentNullException.ThrowIfNull(briefingLines);
 		ArgumentNullException.ThrowIfNull(textAt);
 
-		if (SimStringTable.Load(content, StringsFileName) is not { } strings) {
+		if (SimStrings.Load(content, StringsFileName) is not { } strings) {
 			return null;
 		}
 

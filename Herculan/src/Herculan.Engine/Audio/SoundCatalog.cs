@@ -1,4 +1,5 @@
 using Herculan.Engine.Content;
+using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Audio;
 
@@ -7,7 +8,7 @@ namespace Herculan.Engine.Audio;
 /// and a set of playback rules. <c>SoundCatalog_Load</c> (<c>00462448</c>) is what this ports.
 ///
 /// <para>The file is an ordinary <c>.STR</c> string table with one group of 57 entries, each a
-/// <c>.wav</c> name plus a seven-byte attribute blob; <see cref="SimStringTable"/> already does that
+/// <c>.wav</c> name plus a seven-byte attribute blob; <see cref="StringFile"/> already does that
 /// parse. What this type adds is the meaning of the seven bytes, the two <c>0xff</c> defaults the
 /// loader patches in, and the three further bytes the original keeps as runtime scratch.</para>
 ///
@@ -146,13 +147,13 @@ public sealed class SoundCatalog {
 	/// does not parse.
 	/// </summary>
 	public static SoundCatalog? Load(GameContent content) =>
-		SimStringTable.Load(content, ResourceName) is { } table ? FromTable(table) : null;
+		SimStrings.Load(content, ResourceName) is { } table ? FromTable(table) : null;
 
 	/// <summary>
 	/// Builds the catalog from an already-parsed <c>.STR</c>. The file holds exactly one group, so
 	/// anything else is treated as the wrong file rather than read anyway.
 	/// </summary>
-	public static SoundCatalog? FromTable(SimStringTable table) {
+	public static SoundCatalog? FromTable(StringFile table) {
 		if (table.GroupCount != 1) {
 			return null;
 		}

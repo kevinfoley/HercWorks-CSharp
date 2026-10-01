@@ -23,6 +23,7 @@ using Silk.NET.Input;
 using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using InputTape = HercWorks.Core.Data.File.Dbsim.InputTape;
+using HercWorks.Core.Data.File.Cfg;
 
 // The thin front-end host from docs/engine/planning.md's "Engine internal architecture" section:
 // it locates an install, asks the engine to build a scene from a real mission, and runs a real-time
@@ -649,21 +650,21 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// which comes to the same thing. The MUSIC and SOUNDS handlers skip their mute while the walk runs,
 	// as the originals do under PrefsInitInProgress.
 	if (audio.Director is { } optionDirector) {
-		simulatorPreferences.RegisterHandler(SimulatorPreferences.MusicOption,
+		simulatorPreferences.RegisterHandler(Prefs.MusicOption,
 			value => optionDirector.ApplyMusicOption(value != 0, simulatorPreferences.Initialising));
-		simulatorPreferences.RegisterHandler(SimulatorPreferences.SoundsOption,
+		simulatorPreferences.RegisterHandler(Prefs.SoundsOption,
 			value => optionDirector.ApplySoundsOption(value != 0, simulatorPreferences.Initialising));
 	}
 
-	simulatorPreferences.RegisterHandler(SimulatorPreferences.PilotMessageOption,
+	simulatorPreferences.RegisterHandler(Prefs.PilotMessageOption,
 		value => audio.SpeechEnabled = value != 0);
 	simulatorPreferences.ApplyAll();
 
 	// With no voice archive both message rows are forced to TEXT ONLY, through the ordinary setter, so
 	// the PILOT MESSAGE handler silences the speech channel with them.
 	if (!voiceAvailable) {
-		simulatorPreferences.Set(SimulatorPreferences.PilotMessageOption, 0);
-		simulatorPreferences.Set(SimulatorPreferences.ComputerMessageOption, 0);
+		simulatorPreferences.Set(Prefs.PilotMessageOption, 0);
+		simulatorPreferences.Set(Prefs.ComputerMessageOption, 0);
 	}
 
 	var preferencesPanel = PreferencesPanel.Build(content, simulatorPreferences,
@@ -696,8 +697,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	var joystickBindings = new JoystickBindings {
 		PilotingRazor = pilotingRazor,
 		Keyjoy = dataDirectory is null
-			? KeyjoyConfig.Defaults
-			: KeyjoyConfig.Load(Path.Combine(dataDirectory, KeyjoyConfig.FileName)),
+			? new Keyjoy()
+			: Keyjoy.Load(Path.Combine(dataDirectory, Keyjoy.FileName)),
 	};
 	var joystickInput = JoystickPilotInput.None;
 	// CENTER LEGS has no latch of its own on the machine — MechObject reads it off the controls
@@ -2611,7 +2612,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 		// EFFECTS DETAIL, the same way: Sound_DetailSetting (004d1fc7) is prefs option 11, read where it
 		// is used -- by a collapsing structure's smoke, a debris piece's burst and the sound throttle.
-		byte effectsDetail = simulatorPreferences[SimulatorPreferences.EffectsDetailOption];
+		byte effectsDetail = simulatorPreferences[Prefs.EffectsDetailOption];
 		scene.World.EffectsDetail = effectsDetail;
 		if (audio.Director is { } soundDirector) {
 			soundDirector.DetailSetting = effectsDetail;
@@ -2620,9 +2621,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// And the two message channels' modes, which each port tests as it shows a line: COMPUTER MESSAGE
 		// (ComputerMessageMode, 004d1fbf) in MessagePort_Show, PILOT MESSAGE (004d1fbe) in the pilot
 		// port's paint. The voice half of PILOT MESSAGE is its handler's, registered at startup.
-		audio.Messages.Mode = (MessageChannelMode)simulatorPreferences[SimulatorPreferences.ComputerMessageOption];
+		audio.Messages.Mode = (MessageChannelMode)simulatorPreferences[Prefs.ComputerMessageOption];
 		if (audio.Squad is { } squadChannel) {
-			squadChannel.Port.Mode = (MessageChannelMode)simulatorPreferences[SimulatorPreferences.PilotMessageOption];
+			squadChannel.Port.Mode = (MessageChannelMode)simulatorPreferences[Prefs.PilotMessageOption];
 		}
 
 		// Every modal freezes the simulation behind it, which is the original's own behaviour: each of
@@ -4119,7 +4120,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 
 		int focalPixels = DetailFocalPixels();
-		int bias = ShapeDetail.BiasFor(simulatorPreferences[SimulatorPreferences.HercDetailOption]);
+		int bias = ShapeDetail.BiasFor(simulatorPreferences[Prefs.HercDetailOption]);
 		var eye = camera.Position;
 
 		foreach (var chain in detailChains) {
@@ -4159,7 +4160,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 
 		int focalPixels = DetailFocalPixels();
-		int bias = PartDetail.StructureBias(simulatorPreferences[SimulatorPreferences.StructureDetailOption]);
+		int bias = PartDetail.StructureBias(simulatorPreferences[Prefs.StructureDetailOption]);
 		var eye = WorldScale.ToRender(camera.Position);
 
 		// Many pieces share one detail part -- every cell of every level -- so each part is measured once.
@@ -4332,7 +4333,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// for a gun -- see DebrisObject.HercDetailBias.
 	void RefreshDebrisItems() {
 		debrisItems.Clear();
-		int hercBias = PartDetail.HercBias(simulatorPreferences[SimulatorPreferences.HercDetailOption]);
+		int hercBias = PartDetail.HercBias(simulatorPreferences[Prefs.HercDetailOption]);
 
 		foreach (var piece in scene.World.DebrisInFlight) {
 			if (!scene.DebrisModels.TryGetValue(piece.ShapeLibrary, out var shapes)
@@ -4365,7 +4366,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// The mount's draw slot (FUN_0040ded8) pushes HERC DETAIL's TSDetailPart bias around the render.
 	void RefreshWeaponItems() {
 		weaponItems.Clear();
-		int bias = PartDetail.HercBias(simulatorPreferences[SimulatorPreferences.HercDetailOption]);
+		int bias = PartDetail.HercBias(simulatorPreferences[Prefs.HercDetailOption]);
 
 		foreach (var sceneObject in scene.Objects) {
 			if (sceneObject.Object is not MechObject mech || sceneObject.Object.AwaitingDeployment) {
@@ -4530,7 +4531,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// the colour when no texture is bound. So the switch is the texture binding and nothing else, and it
 	// applies on the frame it is thrown, as the original's does.
 	uint? TerrainTextureHandle() =>
-		simulatorPreferences[SimulatorPreferences.TerrainTextureOption] != 0
+		simulatorPreferences[Prefs.TerrainTextureOption] != 0
 			? terrainTexture?.Handle
 			: null;
 
@@ -4643,7 +4644,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			return;
 		}
 
-		int scale = simulatorPreferences[SimulatorPreferences.VideoModeOption] == 1 ? 2 : 1;
+		int scale = simulatorPreferences[Prefs.VideoModeOption] == 1 ? 2 : 1;
 		var (screenX, screenY) = AlertPanelLayout.Placement.CreateAt(framebufferWidth, framebufferHeight, 0, 0)
 			.ToPanel(x, y);
 		tapeRecorder.AddMouse(new InputTape.MouseEvent {
@@ -4732,7 +4733,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// lands wherever this engine puts that screen.
 	void ApplyTapeMouse(InputTape.MouseEvent mouseEvent, bool underPanel) {
 		var framebuffer = window.FramebufferSize;
-		int scale = simulatorPreferences[SimulatorPreferences.VideoModeOption] == 1 ? 2 : 1;
+		int scale = simulatorPreferences[Prefs.VideoModeOption] == 1 ? 2 : 1;
 
 		var (x, y) = AlertPanelLayout.Placement.CreateAt(framebuffer.X, framebuffer.Y, 0, 0)
 			.ToWindow(mouseEvent.X * scale, mouseEvent.Y * scale);

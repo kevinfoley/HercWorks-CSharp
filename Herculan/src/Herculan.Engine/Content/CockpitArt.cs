@@ -5,6 +5,7 @@ using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Dbsim;
+using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Content;
 
@@ -185,7 +186,7 @@ public sealed class CockpitArt {
 
 	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,
 			HudColorTable? colors, PaletteColors resolved, PaletteColors? flashResolved,
-			int colorSchemeIndex, bool clipRegionsLoaded, string hercName, SimStringTable? strings) {
+			int colorSchemeIndex, bool clipRegionsLoaded, string hercName, StringFile? strings) {
 		Front = front;
 		Side = side;
 		HeadsDown = headsDown;
@@ -211,7 +212,7 @@ public sealed class CockpitArt {
 	/// prints, including the MFD's screen titles and button captions. Null when the resource is
 	/// missing, in which case text-bearing widgets draw their art and no words.
 	/// </summary>
-	public SimStringTable? Strings { get; }
+	public StringFile? Strings { get; }
 
 	/// <summary>
 	/// The herc's <c>pdg\&lt;HERC&gt;.PDG</c> damage diagram — three views, each an origin/size pair
@@ -489,7 +490,7 @@ public sealed class CockpitArt {
 			schemeIndex,
 			clipped,
 			hercName.ToUpperInvariant(),
-			SimStringTable.Load(content)) {
+			SimStrings.Load(content)) {
 			ImpactSpritePixels = impactPalette != null && sprites != null
 				? sprites.Atlas.ExpandThrough(impactPalette)
 				: null,

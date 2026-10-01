@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File;
 ﻿using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Content;
@@ -130,7 +131,7 @@ public readonly record struct WeaponRowState(
 	/// <param name="coarseTicks">The current coarse tick, for <paramref name="powerUp"/>'s ramps.</param>
 	/// <param name="dropouts">The cockpit's sensor dropouts, one per row, or null for none.</param>
 	public static IReadOnlyList<WeaponRowState> Build(WeaponMounts mounts, int slots,
-			SimStringTable? strings, CockpitPowerUp? powerUp = null, long coarseTicks = 0,
+			StringFile? strings, CockpitPowerUp? powerUp = null, long coarseTicks = 0,
 			CockpitDropouts? dropouts = null) {
 		string offline = strings?.Text(OfflineStringGroup, 0) ?? string.Empty;
 		string podSuffix = strings?.Text(PodSuffixStringGroup, 0) ?? string.Empty;

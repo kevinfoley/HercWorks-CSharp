@@ -1,3 +1,5 @@
+using HercWorks.Core.Data.File;
+using HercWorks.Core.Data.File.Cfg;
 namespace Herculan.Engine.Content;
 
 /// <summary>
@@ -19,8 +21,8 @@ namespace Herculan.Engine.Content;
 /// it.</para>
 ///
 /// <para><b>The bindings are twelve bytes of <c>data\prefs.cfg</c></b>, at
-/// <see cref="SimulatorPreferences.HercControlsBase"/> for a walker and
-/// <see cref="SimulatorPreferences.RazorControlsBase"/> for the RAZOR — a machine's set is its own.
+/// <see cref="Prefs.HercControlsBase"/> for a walker and
+/// <see cref="Prefs.RazorControlsBase"/> for the RAZOR — a machine's set is its own.
 /// An axis row's byte indexes its three-word set directly; a button row's byte is an action code
 /// into the twenty-one names, also directly. See <see cref="ActionsFor"/> for the separate table
 /// that says which of those actions a given button is <i>allowed</i>.</para>
@@ -117,17 +119,17 @@ public sealed class ControlsPanel {
 	private readonly string[] _values;
 	private readonly string[] _actionNames;
 	private readonly byte[][] _buttonActions;
-	private readonly SimStringTable _strings;
+	private readonly StringFile _strings;
 	private readonly SimulatorPreferences _preferences;
 	private readonly int _optionBase;
 	private readonly int _firstAxisGroup;
 
-	private ControlsPanel(SimStringTable strings, SimulatorPreferences preferences, string title,
+	private ControlsPanel(StringFile strings, SimulatorPreferences preferences, string title,
 			string optionsCaption, string[] captions, string[] actionNames, byte[][] buttonActions,
 			JoystickCapabilities capabilities, bool razor) {
 		_strings = strings;
 		_preferences = preferences;
-		_optionBase = SimulatorPreferences.ControlsBase(razor);
+		_optionBase = Prefs.ControlsBase(razor);
 		_firstAxisGroup = razor ? FirstRazorAxisGroup : FirstAxisGroup;
 		Title = title;
 		OptionsCaption = optionsCaption;
@@ -274,7 +276,7 @@ public sealed class ControlsPanel {
 			bool razor = false, JoystickCapabilities capabilities = default) {
 		ArgumentNullException.ThrowIfNull(content);
 
-		if (SimStringTable.Load(content, StringsFileName) is not { } strings) {
+		if (SimStrings.Load(content, StringsFileName) is not { } strings) {
 			return null;
 		}
 

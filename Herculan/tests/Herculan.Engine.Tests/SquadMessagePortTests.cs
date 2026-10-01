@@ -104,7 +104,7 @@ public class SquadMessagePortTests {
 		var bytes = new byte[4 + content.Length];
 		BitConverter.GetBytes(content.Length).CopyTo(bytes, 0);
 		content.CopyTo(bytes, 4);
-		return SquadMessages.FromTable(SimStringTable.Parse(bytes)!);
+		return SquadMessages.FromTable(SimStrings.Parse(bytes)!);
 	}
 
 	private static HeightGrid FlatTerrain() {

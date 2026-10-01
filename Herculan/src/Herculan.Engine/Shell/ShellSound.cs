@@ -1,5 +1,6 @@
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
+using HercWorks.Core.Data.File.Cfg;
 
 namespace Herculan.Engine.Shell;
 
@@ -141,7 +142,7 @@ public sealed class ShellSound {
 	/// startup is 0.
 	/// </summary>
 	public void FadeIn() {
-		if (_options[SimulatorPreferences.MusicOption] == 0) {
+		if (_options[Prefs.MusicOption] == 0) {
 			return;
 		}
 
@@ -157,7 +158,7 @@ public sealed class ShellSound {
 	/// callers do once its blocking loop has returned.
 	/// </summary>
 	public void FadeOut() {
-		if (_options[SimulatorPreferences.MusicOption] == 0) {
+		if (_options[Prefs.MusicOption] == 0) {
 			return;
 		}
 
@@ -213,7 +214,7 @@ public sealed class ShellSound {
 	public void PlaySwitch() => Play(_switch);
 
 	private void Play(int sample) {
-		if (Active && _options[SimulatorPreferences.SoundsOption] != 0) {
+		if (Active && _options[Prefs.SoundsOption] != 0) {
 			_backend.Start(sample, Gain(FullVolume), 0f, 1f, looping: false);
 		}
 	}

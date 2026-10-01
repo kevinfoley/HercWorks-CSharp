@@ -291,7 +291,7 @@ public static class MissionLoader {
 			return Array.Empty<string>();
 		}
 
-		if (SimStringTable.Parse(File.ReadAllBytes(textPath)) is not { } table) {
+		if (SimStrings.Parse(File.ReadAllBytes(textPath)) is not { } table) {
 			return Array.Empty<string>();
 		}
 

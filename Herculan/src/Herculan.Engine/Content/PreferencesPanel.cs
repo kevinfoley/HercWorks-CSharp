@@ -1,3 +1,5 @@
+using HercWorks.Core.Data.File;
+using HercWorks.Core.Data.File.Cfg;
 namespace Herculan.Engine.Content;
 
 /// <summary>
@@ -84,23 +86,23 @@ public sealed class PreferencesPanel {
 	/// <c>PreferencesPanel_Run</c>'s for the last two, which are also the first nine widget indices.
 	/// </summary>
 	public static readonly (int Option, int Group, int[] Map, int Modulus, RowCycle Cycle)[] Options = {
-		(SimulatorPreferences.MusicOption, SwitchGroup, Direct, 2, RowCycle.Toggle),
-		(SimulatorPreferences.SoundsOption, SwitchGroup, Direct, 2, RowCycle.Toggle),
-		(SimulatorPreferences.PilotMessageOption, ChannelGroup, Direct, 3, RowCycle.StepForwardIfVoice),
-		(SimulatorPreferences.ComputerMessageOption, ChannelGroup, Direct, 3, RowCycle.StepForwardIfVoice),
-		(SimulatorPreferences.TerrainDistanceOption, DetailGroup, ThreeSteps, 3, RowCycle.Step),
-		(SimulatorPreferences.TerrainTextureOption, SwitchGroup, Direct, 2, RowCycle.Toggle),
-		(SimulatorPreferences.HercDetailOption, DetailGroup, FiveSteps, 5, RowCycle.Step),
-		(SimulatorPreferences.StructureDetailOption, DetailGroup, ThreeSteps, 3, RowCycle.StepForwardOnly),
-		(SimulatorPreferences.EffectsDetailOption, DetailGroup, ThreeSteps, 3, RowCycle.StepForwardOnly),
+		(Prefs.MusicOption, SwitchGroup, Direct, 2, RowCycle.Toggle),
+		(Prefs.SoundsOption, SwitchGroup, Direct, 2, RowCycle.Toggle),
+		(Prefs.PilotMessageOption, ChannelGroup, Direct, 3, RowCycle.StepForwardIfVoice),
+		(Prefs.ComputerMessageOption, ChannelGroup, Direct, 3, RowCycle.StepForwardIfVoice),
+		(Prefs.TerrainDistanceOption, DetailGroup, ThreeSteps, 3, RowCycle.Step),
+		(Prefs.TerrainTextureOption, SwitchGroup, Direct, 2, RowCycle.Toggle),
+		(Prefs.HercDetailOption, DetailGroup, FiveSteps, 5, RowCycle.Step),
+		(Prefs.StructureDetailOption, DetailGroup, ThreeSteps, 3, RowCycle.StepForwardOnly),
+		(Prefs.EffectsDetailOption, DetailGroup, ThreeSteps, 3, RowCycle.StepForwardOnly),
 	};
 
 	private readonly string[] _captions;
 	private readonly string[] _values;
-	private readonly SimStringTable _strings;
+	private readonly StringFile _strings;
 	private readonly SimulatorPreferences _preferences;
 
-	private PreferencesPanel(SimStringTable strings, SimulatorPreferences preferences, string title,
+	private PreferencesPanel(StringFile strings, SimulatorPreferences preferences, string title,
 			string[] captions, bool soundAvailable, bool voiceAvailable) {
 		_strings = strings;
 		_preferences = preferences;
@@ -188,7 +190,7 @@ public sealed class PreferencesPanel {
 			bool soundAvailable = true, bool voiceAvailable = true) {
 		ArgumentNullException.ThrowIfNull(content);
 
-		if (SimStringTable.Load(content, StringsFileName) is not { } strings) {
+		if (SimStrings.Load(content, StringsFileName) is not { } strings) {
 			return null;
 		}
 

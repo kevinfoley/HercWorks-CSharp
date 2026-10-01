@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File;
 namespace Herculan.Engine.Content;
 
 /// <summary>
@@ -45,13 +46,13 @@ public sealed class SystemMessages {
 	/// does not parse.
 	/// </summary>
 	public static SystemMessages? Load(GameContent content) =>
-		SimStringTable.Load(content, ResourceName) is { } table ? FromTable(table) : null;
+		SimStrings.Load(content, ResourceName) is { } table ? FromTable(table) : null;
 
 	/// <summary>
 	/// Flattens an already-parsed <c>.STR</c>. An entry whose attributes are short is kept with no
 	/// voice clip rather than dropped, so that ids past it keep their positions.
 	/// </summary>
-	public static SystemMessages FromTable(SimStringTable table) {
+	public static SystemMessages FromTable(StringFile table) {
 		var entries = new List<Entry>();
 
 		for (int group = 0; group < table.GroupCount; group++) {

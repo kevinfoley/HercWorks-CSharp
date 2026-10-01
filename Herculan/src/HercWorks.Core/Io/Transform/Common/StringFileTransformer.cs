@@ -1,97 +1,88 @@
+using System.Text;
 using HercWorks.Core.Data.File;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
 /// <summary>
-/// Reads .STR string tables into <see cref="StringFile"/> — the first group only, with each entry's
-/// attribute bytes kept raw as its trailer and found by scanning for the next well-formed entry
-/// rather than read through the attribute count. Read-only: <see cref="Write"/> returns null.
+/// Reads and writes .STR string tables (<see cref="StringFile"/>), every group with its attribute
+/// bytes. See docs/formats/str-strings.md#layout.
 /// </summary>
 public class StringFileTransformer : ByteTransformer<StringFile> {
-	/// <summary>How far past an entry's null terminator to search for the next well-formed entry.</summary>
-	private const int MaxTrailerScan = 64;
-
-	public override StringFile? Parse(byte[]? inputArray) {
-		if (inputArray == null) {
+	/// <summary>
+	/// Walks the layout. Returns null on any inconsistency — a length running past the declared
+	/// content, or a group that does not complete — rather than a partial table: group indices are
+	/// positional, so a truncated walk would silently shift every later group.
+	/// </summary>
+	public override StringFile? Parse(byte[]? bytes) {
+		if (bytes == null || bytes.Length < 4) {
 			return null;
 		}
 
-		SetBytes(inputArray);
-
-		var file = new StringFile {
-			ContentLength = IndexIntLE(),
-		};
-
-		int count = IndexShortLE();
-		var entries = new StringFile.StringEntry[count];
-
-		for (int i = 0; i < count; i++) {
-			if (Index + 2 > inputArray.Length) {
-				break; // truncated/corrupt file — return what parsed cleanly so far.
-			}
-
-			int len = IndexShortLE();
-			if (len <= 0 || Index + len > inputArray.Length) {
-				break;
-			}
-
-			string text = IndexString(len - 1); // len includes the null terminator.
-			Skip(1); // the null terminator itself.
-
-			bool isLast = i == count - 1;
-			int trailerLen = isLast ? inputArray.Length - Index : FindNextEntryOffset(inputArray);
-
-			entries[i] = new StringFile.StringEntry {
-				Text = text,
-				Trailer = IndexSegment(trailerLen)
-			};
+		int end = 4 + BitConverter.ToInt32(bytes, 0);
+		if (end < 4 || end > bytes.Length) {
+			return null;
 		}
 
-		file.Entries = entries;
-		return file;
+		var groups = new List<StringFile.Entry[]>();
+		int at = 4;
+		while (at + 2 <= end) {
+			int count = BitConverter.ToInt16(bytes, at);
+			at += 2;
+			if (count < 0) {
+				return null;
+			}
+
+			var entries = new StringFile.Entry[count];
+			for (int i = 0; i < count; i++) {
+				if (at + 2 > end) {
+					return null;
+				}
+
+				int length = BitConverter.ToInt16(bytes, at);
+				at += 2;
+				if (length < 0 || at + length >= end) {
+					return null;
+				}
+
+				// The stored length counts the NUL terminator; the text is everything before it.
+				string text = Encoding.ASCII.GetString(bytes, at, Math.Max(length - 1, 0));
+				at += length;
+
+				int attributeCount = bytes[at++];
+				if (at + attributeCount > end) {
+					return null;
+				}
+
+				entries[i] = new StringFile.Entry(text, bytes[at..(at + attributeCount)]);
+				at += attributeCount;
+			}
+
+			groups.Add(entries);
+		}
+
+		return at == end ? new StringFile { Groups = groups.ToArray() } : null;
 	}
 
-	/// <summary>
-	/// Finds the next entry after this one's attribute bytes: scans
-	/// forward from the current position for the nearest offset where a UINT16 length field is
-	/// immediately followed by that many bytes ending in a null terminator, with the preceding
-	/// bytes mostly printable ASCII. Falls back to 0 (no trailer) if nothing plausible is found
-	/// within <see cref="MaxTrailerScan"/> bytes, rather than desyncing the rest of the file.
-	/// </summary>
-	private int FindNextEntryOffset(byte[] data) {
-		for (int t = 0; t <= MaxTrailerScan; t++) {
-			int candidate = Index + t;
-			if (candidate + 2 > data.Length) {
-				break;
-			}
-
-			int len = data[candidate] | (data[candidate + 1] << 8);
-			if (len <= 0) {
-				continue;
-			}
-
-			int strEnd = candidate + 2 + len;
-			if (strEnd > data.Length || data[strEnd - 1] != 0x00) {
-				continue;
-			}
-
-			int printable = 0;
-			for (int k = candidate + 2; k < strEnd - 1; k++) {
-				if (data[k] is >= 0x20 and <= 0x7E) {
-					printable++;
+	/// <summary>Writes the layout back: the content length, then each group as read.</summary>
+	public override byte[]? Write(StringFile source) {
+		using var content = new MemoryStream();
+		using (var writer = new BinaryWriter(content, Encoding.ASCII, leaveOpen: true)) {
+			foreach (var group in source.Groups) {
+				writer.Write((short)group.Length);
+				foreach (var entry in group) {
+					byte[] text = Encoding.ASCII.GetBytes(entry.Text);
+					writer.Write((short)(text.Length + 1));
+					writer.Write(text);
+					writer.Write((byte)0);
+					writer.Write((byte)entry.Attributes.Length);
+					writer.Write(entry.Attributes);
 				}
 			}
-
-			int textLen = len - 1;
-			if (textLen == 0 || printable / (double)textLen > 0.9) {
-				return t;
-			}
 		}
 
-		return 0;
-	}
-
-	public override byte[]? Write(StringFile? source) {
-		return null;
+		var output = new byte[4 + content.Length];
+		BitConverter.GetBytes((int)content.Length).CopyTo(output, 0);
+		content.ToArray().CopyTo(output, 4);
+		return output;
 	}
 }

@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File;
 ﻿using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Content;
@@ -87,11 +88,11 @@ public sealed class StatusAlertPanel {
 		1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1,
 	};
 
-	private readonly SimStringTable _strings;
+	private readonly StringFile _strings;
 	private string[] _buttons = Array.Empty<string>();
 	private string[] _body = Array.Empty<string>();
 
-	private StatusAlertPanel(SimStringTable strings) {
+	private StatusAlertPanel(StringFile strings) {
 		_strings = strings;
 	}
 
@@ -133,7 +134,7 @@ public sealed class StatusAlertPanel {
 	/// </summary>
 	public static StatusAlertPanel? Build(GameContent content) {
 		ArgumentNullException.ThrowIfNull(content);
-		return SimStringTable.Load(content, StringsFileName) is { } strings
+		return SimStrings.Load(content, StringsFileName) is { } strings
 			? new StatusAlertPanel(strings)
 			: null;
 	}

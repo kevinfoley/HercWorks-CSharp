@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 
 using Herculan.Engine.Content;
+using HercWorks.Core.Io.Read;
 
 namespace Herculan.Engine.Input;
 
@@ -208,7 +209,7 @@ public sealed class JoystickDeviceMap {
 	public static JoystickDeviceMap? Load(string path) {
 		Dictionary<string, string> values;
 		try {
-			values = KeyjoyConfig.ReadSection(File.ReadAllLines(path), Section);
+			values = IniSection.Read(File.ReadAllLines(path), Section);
 		} catch (IOException) {
 			return null;
 		} catch (UnauthorizedAccessException) {
@@ -220,8 +221,8 @@ public sealed class JoystickDeviceMap {
 		}
 
 		var defaults = new JoystickDeviceMap();
-		int Int(string key, int fallback) => KeyjoyConfig.IntValue(values, key, fallback);
-		bool Bool(string key, bool fallback) => KeyjoyConfig.BoolValue(values, key, fallback);
+		int Int(string key, int fallback) => IniSection.IntValue(values, key, fallback);
+		bool Bool(string key, bool fallback) => IniSection.BoolValue(values, key, fallback);
 
 		var buttons = new int[JoystickCapabilities.MaxButtons];
 		for (int i = 0; i < buttons.Length; i++) {

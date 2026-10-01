@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using HercWorks.Core.Data.File.Gau;
+using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Content;
 
@@ -586,7 +587,7 @@ public sealed class HddLayout {
 	/// " INTERN DAMAGE" / " WEAPON DAMAGE". <c>HddDisplay_SetTitle</c> (<c>0044a6dc</c>) picks between the two groups on the
 	/// page and indexes the second by the damage screen's current category, not by page.
 	/// </summary>
-	public static string? Title(SimStringTable? strings, HddPage page, HddDamageView view) =>
+	public static string? Title(StringFile? strings, HddPage page, HddDamageView view) =>
 		page == HddPage.CommandDisplay
 			? strings?.Text(PageTitleGroup, 0)
 			: strings?.Text(DamageTitleGroup, (int)view);
@@ -600,16 +601,16 @@ public sealed class HddLayout {
 	/// view's own region order and each region's id indexes here, which is why the internal page lists
 	/// its systems 0,1,2,5,6,7,8,3,4,9.</para>
 	/// </summary>
-	public static IReadOnlyList<SimStringTable.Entry> ComponentNames(SimStringTable? strings, HddDamageView view,
+	public static IReadOnlyList<StringFile.Entry> ComponentNames(StringFile? strings, HddDamageView view,
 			bool flyer = false) =>
 		view switch {
 			HddDamageView.Structural => strings?.Group(
 				flyer ? StructuralFlyerComponentGroup : StructuralComponentGroup)
-				?? Array.Empty<SimStringTable.Entry>(),
+				?? Array.Empty<StringFile.Entry>(),
 			HddDamageView.Internal => strings?.Group(
 				flyer ? InternalFlyerComponentGroup : InternalComponentGroup)
-				?? Array.Empty<SimStringTable.Entry>(),
-			_ => Array.Empty<SimStringTable.Entry>(),
+				?? Array.Empty<StringFile.Entry>(),
+			_ => Array.Empty<StringFile.Entry>(),
 		};
 
 	/// <summary>

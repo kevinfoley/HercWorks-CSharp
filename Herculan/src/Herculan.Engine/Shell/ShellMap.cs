@@ -139,7 +139,7 @@ public sealed class ShellMap {
 		}
 
 		string? textPath = working.Text;
-		int textCount = File.Exists(textPath) && SimStringTable.Parse(File.ReadAllBytes(textPath)) is { GroupCount: > 0 } text
+		int textCount = File.Exists(textPath) && SimStrings.Parse(File.ReadAllBytes(textPath)) is { GroupCount: > 0 } text
 			? text.Group(0).Count : 0;
 
 		// ShellMap_ReadSquadHeader reads data\player.mec's second short, the squad size.
@@ -970,8 +970,8 @@ public sealed class ZoneRelief {
 	private int Size => 1 << WidthShift;
 
 	public static ZoneRelief? Load(GameContent content, int zone) {
-		byte[]? header = content.Read("dat", $"ZONE{zone}.DAT");
-		if (header is not { Length: >= 16 } || ShellArt.ReadBankFrames(content, $"ZONE{zone}") is not { Length: > 0 } frames
+		var header = new ZoneDatTransformer().Parse(content.Read("dat", $"ZONE{zone}.DAT"));
+		if (header == null || ShellArt.ReadBankFrames(content, $"ZONE{zone}") is not { Length: > 0 } frames
 				|| frames[0].ImageData is not { } pixels) {
 			return null;
 		}
@@ -981,7 +981,7 @@ public sealed class ZoneRelief {
 			widthShift++;
 		}
 
-		return new ZoneRelief(widthShift, BitConverter.ToInt32(header, 8), frames[0].Rows, pixels);
+		return new ZoneRelief(widthShift, header.CellShift, frames[0].Rows, pixels);
 	}
 
 	/// <summary>

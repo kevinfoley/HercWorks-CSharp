@@ -41,7 +41,7 @@ public sealed record ShellMissionTexts(string Briefing, string Objectives, strin
 	/// <summary>The texts of <paramref name="save"/>, assembled from its working <c>mission.str</c>, or <see cref="Empty"/>.</summary>
 	public static ShellMissionTexts Load(ShellWorkingFiles working, PlayerSave? save) {
 		string? path = working.Text;
-		if (save == null || !File.Exists(path) || SimStringTable.Parse(File.ReadAllBytes(path)) is not { GroupCount: > 0 } table) {
+		if (save == null || !File.Exists(path) || SimStrings.Parse(File.ReadAllBytes(path)) is not { GroupCount: > 0 } table) {
 			return Empty;
 		}
 
@@ -61,7 +61,7 @@ public sealed record ShellMissionTexts(string Briefing, string Objectives, strin
 	/// mission's reload wrote. Empty when that text has no strings.
 	/// </summary>
 	public static string AssembleDebrief(MissionDebriefText debrief) {
-		if (SimStringTable.Parse(debrief.MissionText) is not { GroupCount: > 0 } table) {
+		if (SimStrings.Parse(debrief.MissionText) is not { GroupCount: > 0 } table) {
 			return string.Empty;
 		}
 
@@ -234,7 +234,7 @@ public static class ShellCampaignText {
 	/// <c>TextBox_SetText</c>; what that does with it is not read, and here the box stays empty.
 	/// </summary>
 	public static string? Load(GameContent content, int stage) =>
-		content.Read(Folder, ResourceName) is { } bytes && SimStringTable.Parse(bytes) is { } table
+		content.Read(Folder, ResourceName) is { } bytes && SimStrings.Parse(bytes) is { } table
 			? table.Text(0, stage - 1) : null;
 }
 

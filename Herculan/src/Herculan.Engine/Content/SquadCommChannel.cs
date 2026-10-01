@@ -154,7 +154,7 @@ public sealed class SquadCommChannel {
 		}
 
 		_command = SquadMessages.LoadCommand(content, trainingMission);
-		_headquarters = SimStringTable.Load(content)?.Text(HeadquartersNameGroup, 0) ?? string.Empty;
+		_headquarters = SimStrings.Load(content)?.Text(HeadquartersNameGroup, 0) ?? string.Empty;
 
 		Port = new SquadMessagePort(CatalogFor, random, training: trainingMission != 0);
 		Port.Begin += BeginMessage;

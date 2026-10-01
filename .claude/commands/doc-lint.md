@@ -8,7 +8,7 @@ Run the documentation linter and repair everything it reports.
 python tools/scripts/doc_lint.py $ARGUMENTS
 ```
 
-(No arguments lints `Herculan/docs`. `--staged` lints staged files only. `--code` also covers C# doc
+(No arguments lints `Herculan/docs` and the `known_*.json` descriptions. `--staged` lints staged files only. `--code` also covers C# doc
 comments. Specific paths may be passed instead.)
 
 ## How to fix each finding
@@ -33,6 +33,10 @@ rule below rather than deleting the matched words in place.
   which investigation question it answered.
 - **changelog-lede** ("Since:", "Where this left off") — That belongs in a commit message or a
   handoff scratchpad, not a reference doc.
+- **csharp-name** — A retail doc naming a C# type or member. Describe the field in words ("the
+  paints-ground flag, `0x06`") and let the C# doc comment that cites the section carry the name. If
+  the token is really a retail name that only coincides with one, record it in `known_symbols.json`
+  or `known_structs.json` where it belongs; otherwise append `<!-- doc-lint: ok -->`.
 - **self-disclaimer** ("not re-verified", "may be out of date") — A section that disclaims its own
   accuracy should be fixed or deleted. If it cannot be verified now, say what is unknown and why,
   specifically.

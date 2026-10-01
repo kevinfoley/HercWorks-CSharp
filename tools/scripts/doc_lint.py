@@ -8,7 +8,7 @@ that is scattered through the body or named inconsistently: it belongs in one
 final `## Open` section, as bullets labelled **Unported:** or **Open:**.
 
 Usage:
-    python tools/scripts/doc_lint.py                  # lint the default doc set
+    python tools/scripts/doc_lint.py                  # lint Herculan/docs and the known_*.json descriptions
     python tools/scripts/doc_lint.py PATH [PATH ...]  # lint specific files/dirs
     python tools/scripts/doc_lint.py --staged         # lint staged files only
     python tools/scripts/doc_lint.py --code           # also lint C# doc comments
@@ -212,7 +212,110 @@ ENGINE_RULES: list[tuple[str, re.Pattern[str], str]] = [
         "a doc comment on the C# instead, citing this section, and keep the doc to retail.",
     ),
 ]
-ENGINE_RULE_IDS = {rule_id for rule_id, _, _ in ENGINE_RULES}
+
+# The same rule catches what the markers above cannot: a retail doc naming a C# type or member bare.
+# A field is described in the doc ("the paints-ground flag, `0x06`") and named only in code, so a C#
+# rename never touches a doc. A backticked token is flagged when it is declared in one of these
+# projects and is not also a retail name: a known_*.json name, the class prefix of one
+# (`Text` from `Text_Ctor`), or an identifier in a retail binary — the 3Space class names the
+# HercWorks DTS model reuses are strings in DBSIM.EXE. The binaries are gitignored, so a checkout
+# without ES2/ reports those few class names too.
+CSHARP_SOURCE_DIRS = [os.path.join("Herculan", "src", p) for p in ("HercWorks.Core", "Herculan.Engine")]
+RETAIL_JSON_FILES = [os.path.join("tools", "ghidra_scripts", f"known_{k}.json")
+                     for k in ("symbols", "structs", "vtables")]
+RETAIL_BINARIES = [os.path.join("ES2", f) for f in ("DBSIM.EXE", "VSHELL.EXE")]
+CSHARP_TYPE_DECL = re.compile(r"\b(?:class|struct|record|enum|interface)\s+(?:struct\s+|class\s+)?([A-Za-z_]\w*)")
+CSHARP_PUBLIC_MEMBER = re.compile(
+    r"^\s*public\s+[^=;]*?\b([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*(?:\{\s*(?:get|set|init)\b|=>|\(|=|;)")
+CODE_SPAN = re.compile(r"`([^`\n]+)`")
+DOTTED_IDENT = re.compile(r"(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:\(\))?")
+JSON_DESCRIPTION = re.compile(r'"description"\s*:\s*"((?:[^"\\]|\\.)*)"')
+# engine-mention without "the engine", which in a plate comment means DBSIM's own 3D engine.
+JSON_ENGINE_MENTION = re.compile(r"\b(?:HERCULAN|Herculan(?:\.\w+)+|this\s+engine|ported\s+as)", re.IGNORECASE)
+# One English word (`Height`, `Data`, `Mech`) is as likely prose or a retail keyword as a C# name;
+# only a compound — two words run together, or a word and a digit — is distinctive enough to flag.
+# A letter and a number alone (`Q10`) is fixed-point notation.
+COMPOUND = re.compile(r"[a-z][A-Z0-9_]|[0-9][A-Za-z_]|[A-Z]{2}[a-z]")
+CSHARP_WHY = ("A retail doc naming a C# type or member. A rename then has to find this prose: describe "
+              "the field or behaviour in words, and leave the name to the C# doc comment that cites "
+              "this section.")
+
+_name_sets: tuple[set[str], set[str], set[str]] | None = None
+
+
+def name_sets() -> tuple[set[str], set[str], set[str]]:
+    """(C# type names, all C# names, retail names), read once per run."""
+    global _name_sets
+    if _name_sets is not None:
+        return _name_sets
+    types: set[str] = set()
+    names: set[str] = set()
+    for src in CSHARP_SOURCE_DIRS:
+        for root, dirs, files in os.walk(os.path.join(REPO_ROOT, src)):
+            dirs[:] = [d for d in dirs if d not in {"obj", "bin"}]
+            for name in files:
+                if not name.endswith(".cs"):
+                    continue
+                with open(os.path.join(root, name), encoding="utf-8-sig", errors="replace") as fh:
+                    for line in fh:
+                        code = line.split("//")[0]
+                        types.update(m.group(1) for m in CSHARP_TYPE_DECL.finditer(code))
+                        m = CSHARP_PUBLIC_MEMBER.match(code)
+                        if m:
+                            names.add(m.group(1))
+    names |= types
+
+    import json
+
+    retail: set[str] = set()
+
+    def collect(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "name" and isinstance(value, str):
+                    name = value.removeprefix("maybe_")
+                    retail.add(name)
+                    retail.add(name.split("_")[0])
+                else:
+                    collect(value)
+        elif isinstance(node, list):
+            for item in node:
+                collect(item)
+
+    for rel in RETAIL_JSON_FILES:
+        try:
+            with open(os.path.join(REPO_ROOT, rel), encoding="utf-8-sig") as fh:
+                collect(json.load(fh))
+        except (OSError, ValueError):
+            pass
+    for rel in RETAIL_BINARIES:
+        try:
+            with open(os.path.join(REPO_ROOT, rel), "rb") as fh:
+                retail.update(m.decode() for m in re.findall(rb"[A-Za-z_]\w{2,}", fh.read()))
+        except OSError:
+            pass
+    _name_sets = (types, names, retail)
+    return _name_sets
+
+
+def csharp_mention(token: str) -> str | None:
+    """The part of an identifier-shaped token that names C# rather than retail, if any."""
+    if not DOTTED_IDENT.fullmatch(token):
+        return None
+    parts = token.removesuffix("()").split(".")
+    # A file name: `MECHS.NAM`, `script.dat`.
+    if len(parts) > 1 and len(parts[-1]) <= 4 and (parts[-1].isupper() or parts[-1].islower()):
+        return None
+    types, names, retail = name_sets()
+    if len(parts) > 1 and parts[0] in types and parts[0] not in retail:
+        return token
+    for part in parts:
+        if part in names and part not in retail and COMPOUND.search(part):
+            return part
+    return None
+
+
+ENGINE_RULE_IDS = {rule_id for rule_id, _, _ in ENGINE_RULES} | {"csharp-name"}
 
 
 def is_engine_doc(path: str) -> bool:
@@ -238,7 +341,7 @@ def iter_files(targets: list[str], include_code: bool) -> list[str]:
     for target in targets:
         path = target if os.path.isabs(target) else os.path.join(REPO_ROOT, target)
         if os.path.isfile(path):
-            if os.path.splitext(path)[1].lower() in exts:
+            if os.path.splitext(path)[1].lower() in exts or is_retail_json(path):
                 found.append(path)
             continue
         for root, dirs, files in os.walk(path):
@@ -254,17 +357,44 @@ def staged_files() -> list[str]:
         ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
         cwd=REPO_ROOT, capture_output=True, text=True, check=False,
     ).stdout.split("\n")
-    return [os.path.join(REPO_ROOT, p) for p in out
-            if p.strip() and os.path.splitext(p)[1].lower() in {".md", ".cs"}]
+    paths = [os.path.join(REPO_ROOT, p) for p in out if p.strip()]
+    return [p for p in paths if os.path.splitext(p)[1].lower() in {".md", ".cs"} or is_retail_json(p)]
+
+
+def is_retail_json(path: str) -> bool:
+    try:
+        return os.path.relpath(os.path.join(REPO_ROOT, path), REPO_ROOT) in RETAIL_JSON_FILES
+    except ValueError:  # another drive
+        return False
+
+
+def lint_json(lines: list[str]) -> list[tuple[int, str, str, str, str]]:
+    """Rule 9 over the known_*.json descriptions, which become Ghidra plate comments on retail code."""
+    hits = []
+    for n, line in enumerate(lines, 1):
+        m = JSON_DESCRIPTION.search(line)
+        if not m or SUPPRESS.search(m.group(1)):
+            continue
+        text = m.group(1)
+        engine = JSON_ENGINE_MENTION.search(text)
+        if engine:
+            hits.append((n, "engine-mention", "warn", engine.group(0).strip(), ENGINE_RULES[1][2]))
+        named = next(filter(None, (csharp_mention(t.group(0))
+                                   for t in re.finditer(r"(?<![\w.])" + DOTTED_IDENT.pattern, text))), None)
+        if named:
+            hits.append((n, "csharp-name", "warn", named, CSHARP_WHY))
+    return hits
 
 
 def lint_file(path: str, include_code: bool) -> list[tuple[int, str, str, str, str]]:
     is_cs = path.lower().endswith(".cs")
     try:
-        with open(path, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8-sig") as fh:
             lines = fh.read().replace("\r\n", "\n").split("\n")
     except (OSError, UnicodeDecodeError):
         return []
+    if path.lower().endswith(".json"):
+        return lint_json(lines) if is_retail_json(path) else []
 
     check_status = not is_cs and os.path.basename(path) not in STATUS_EXEMPT_BASENAMES
     check_engine = not is_cs and not is_engine_doc(path)
@@ -311,6 +441,9 @@ def lint_file(path: str, include_code: bool) -> list[tuple[int, str, str, str, s
                 m = pattern.search(text)
                 if m:
                     hits.append((n, rule_id, "warn", m.group(0).strip(), why))
+            named = next(filter(None, (csharp_mention(m.group(1)) for m in CODE_SPAN.finditer(text))), None)
+            if named:
+                hits.append((n, "csharp-name", "warn", named, CSHARP_WHY))
         if check_status:
             # A heading is judged by status-heading alone, so '## Open questions' is flagged once.
             outside = [] if in_open or HEADING.match(line) else OUTSIDE_OPEN_RULES
@@ -352,7 +485,7 @@ def hook_mode() -> int:
         return 0
 
     norm = path.replace("\\", "/")
-    if not norm.lower().endswith(".md") or "/docs/" not in norm.lower():
+    if not (norm.lower().endswith(".md") and "/docs/" in norm.lower()) and not is_retail_json(path):
         return 0
     if is_exempt(path) or not os.path.isfile(path):
         return 0
@@ -392,6 +525,10 @@ def hook_mode() -> int:
         "bullets starting '**Unported:**' or '**Open:**'; the body states only what is known.",
         "Engine mentions (engine-*) do not belong in a retail doc: describe this engine's behaviour "
         "in a doc comment on the C# that implements it, citing the doc section.",
+        "A C# name (csharp-name) does not belong in one either: describe the field or behaviour in "
+        "words (\"the paints-ground flag, `0x06`\"), so a C# rename never has to touch the doc. If "
+        "the token is a retail name that only happens to match one, add it to known_symbols.json "
+        "or known_structs.json if it belongs there, otherwise append <!-- doc-lint: ok -->.",
     ]
 
     json.dump({
@@ -409,7 +546,8 @@ def main() -> int:
         return hook_mode()
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("paths", nargs="*", help="files or directories (default: Herculan/docs)")
+    ap.add_argument("paths", nargs="*",
+                    help="files or directories (default: Herculan/docs and the known_*.json files)")
     ap.add_argument("--staged", action="store_true", help="lint staged files only")
     ap.add_argument("--code", action="store_true", help="also lint C# doc comments")
     ap.add_argument("--engine", action="store_true",
@@ -420,9 +558,9 @@ def main() -> int:
     if args.staged:
         files = [f for f in staged_files() if not is_exempt(f)]
         if not args.code:
-            files = [f for f in files if f.lower().endswith(".md")]
+            files = [f for f in files if not f.lower().endswith(".cs")]
     else:
-        files = iter_files(args.paths or DEFAULT_TARGETS, args.code)
+        files = iter_files(args.paths or DEFAULT_TARGETS + RETAIL_JSON_FILES, args.code)
 
     # Windows consoles default to a codepage that cannot render the messages below.
     try:

@@ -2,7 +2,7 @@
 
 Make a field's name and description live in one place, and have the copies that must exist checked by the build or the doc linter instead of by a reader noticing drift.
 
-This is a plan, not a record of something built. Nothing here is implemented.
+Stage 1 is built; Stages 2 to 5 are a plan.
 
 ## Why
 
@@ -37,13 +37,13 @@ Renames themselves were the other cost: `RefRow6` meant a spawn point on one typ
 
 ## Stage 1 — retail docs never name C# members
 
-Extend `tools/scripts/doc_lint.py` with a check over the retail docs (`formats/`, `simulation/`, `shell/` and the top-level docs rule 9 names):
+`tools/scripts/doc_lint.py` rule `csharp-name`, over the retail docs and the `description` strings of `known_symbols.json`, `known_structs.json` and `known_vtables.json`:
 
-1. Collect every public type and member name declared under `Herculan/src/HercWorks.Core` and `Herculan/src/Herculan.Engine` — a regex over `class|struct|record|enum` declarations and `public … { get` properties is enough; it need not be a compiler.
-2. Flag a backticked token in a retail doc that matches one, skipping tokens that are also retail symbols (`known_symbols.json` names, `DAT_`/`FUN_` labels, file names).
-3. Report under the existing `--engine` listing so the edit hook shows it on the lines an edit wrote.
-
-Run the same check over the `description` strings in `known_symbols.json` and `known_structs.json`.
+- **C# names** are every type declared under `Herculan/src/HercWorks.Core` and `Herculan/src/Herculan.Engine`, plus every `public` property, field and method there, read by regex.
+- **Retail names** are exempt: every `name` in the three `known_*.json` files, the class prefix of each (`Text` from `Text_Ctor`), and every identifier in `ES2/DBSIM.EXE` and `ES2/VSHELL.EXE`. The binaries supply the 3Space class names (`TSPoly`, `ANAnimList`) the DTS model reuses; they are gitignored, so a checkout without `ES2/` reports those few as well.
+- **Single words pass.** Only a compound — two words run together, or a word and a digit (`SplashFactor`, `Unknown3`) — is flagged; `Height` or `Data` is as likely prose or a retail keyword. A `Type.Member` token is flagged on its type alone. File names (`MECHS.NAM`) and fixed-point notation (`Q10`) pass.
+- In a doc the check reads backticked tokens; in a JSON description, which has no backticks, every identifier. The JSON pass also runs `engine-mention` without "the engine", which in a plate comment means DBSIM's own 3D engine.
+- Findings sit in the `--engine` listing, so a full run counts them per file and the edit hook reports only the lines an edit wrote. The hook also fires on edits to the `known_*.json` files.
 
 With this in place a doc describes a field ("the paints-ground flag, `0x06`") and only code carries its name, so a C# rename never touches a doc.
 
@@ -80,12 +80,13 @@ Stages 1 and 2 are the cheapest and would have prevented most of the drift the c
 
 ## Verification
 
-- Stage 1: the new check reports zero findings on the current docs, and reports a planted `` `SmallDiscrete` `` in a format doc.
+- Stage 1: a planted `` `MechRosterEntry144.TypeIndex` `` or `` `MissionFileTransformer` `` in a format doc is reported by the edit hook; a planted `` `Text_Ctor` ``, `` `Button` ``, `` `MECHS.NAM` `` or `` `Q10` `` is not. Zero findings over the whole set waits on the cleanup in [Open](#open).
 - Stage 2: renaming a row property without touching the designer fails the Windows build.
 - Stage 4: the offset test passes, and moving a property in a model without updating its constant fails it.
 - Stage 5: renaming `MissionGroup164.MemberKind` and back leaves `git diff` empty.
 
 ## Open
 
+- **Open:** the retail docs and `known_*.json` descriptions still name the C# types and members `csharp-name` reports (`python tools/scripts/doc_lint.py --engine` lists them); most are in `mech-locomotion.md`, `bnd-notes.md`, `dts-texture-binding.md`, `flight-model-fm.md` and `known_symbols.json`. Each is rewritten as a description of the field, or the C# is renamed to the retail name where the token is retail vocabulary.
 - **Open:** whether the Windows Forms designer preserves `nameof` in `InitializeComponent` on regeneration, which decides where Stage 2's assignments go.
 - **Open:** whether `MSBuildWorkspace` loads `HerculanEngine.sln` on Linux without the WindowsDesktop SDK, given the solution does not include `HercWorks.UI`.

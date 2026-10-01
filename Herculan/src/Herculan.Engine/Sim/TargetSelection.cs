@@ -66,7 +66,7 @@ public sealed class TargetSelection {
 	/// The machine the selection is made from — the cockpit widget tree's <c>+0x203</c>. Every range
 	/// and every bearing below is measured from it.
 	///
-	/// <para>The original picks between this and a second object (<c>DAT_004d2708</c>) on the
+	/// <para>The original picks between this and a second object (<c>ViewChain_Viewed</c> (<c>004d2708</c>)) on the
 	/// <c>DAT_0049ef5c</c> flag, which is set while the player is watching a machine other than their
 	/// own. There is no such mode here, so this is always the pilot's machine. See
 	/// docs/simulation/external-views.md, "The spectator flag".</para>
@@ -305,7 +305,7 @@ public sealed class TargetSelection {
 
 	/// <summary>
 	/// Drops a selection that can no longer be selected — the tail of the cockpit's per-frame update
-	/// (<c>FUN_004327ac</c>, run from <c>maybe_Sim_RenderFrame</c>), which clears <c>view+0x210</c>
+	/// (<c>CockpitView_PerFrameUpdate</c>, <c>004327ac</c>, run from <c>maybe_Sim_RenderFrame</c>), which clears <c>view+0x210</c>
 	/// whenever <see cref="CanTarget"/> fails for it. So a target that dies, or that stops being
 	/// <i>known</i> by either sensor route, is let go: a Cybrid the radar loses line of sight to and
 	/// that is outside contact range is deselected the next frame.

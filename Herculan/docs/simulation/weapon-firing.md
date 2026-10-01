@@ -86,11 +86,11 @@ The gauge's rolling round counter, `+0x7d`, is in [the ammunition mount](weapon-
 |---|---|
 | `+0x00` | pointer to the ray record below |
 | `+0x04` | `Q10Multiply(power, armourDamage)`, then scaled by the mission difficulty |
-| `+0x06` | `Q10Multiply(power, shieldDamage)`, the same |
+| `+0x06` | `Q10Multiply(power, shieldDamage)`, the same. The shot record puts armour first where [the `PROJ.DAT` record](../formats/proj-dat.md#layout) puts shield first |
 | `+0x08` | the splash factor, the Q10 secondary-explosion fraction |
 | `+0x0a` | pointer to the record's three impact-effect arrays, indexed as one 12-entry array — see [`impact-effects.md`](impact-effects.md#which-effect-a-shot-spawns) |
 | `+0x0e` | the owner machine, which the sweep skips |
-| `+0x12` | a weapon-class code, a literal 5 on the beam path |
+| `+0x12` | the firing rocket's subtype id, a literal 5 from a beam or a bullet. `Mech_DirectFireHitTest` reads it to set the target's scanner ([`target-selection.md`](target-selection.md#how-an-ai-machines-radar-is-set)). It is not `PROJ.DAT`'s `Type`, which is decided at the mount's fire dispatch and never reaches the shot record |
 
 The ray record:
 
@@ -101,7 +101,7 @@ The ray record:
 | `+0x08` | a literal 200, slack the range check adds before rejecting a candidate |
 | `+0x0a` | the world-to-muzzle transform, cached by the sweep for every hit test to work in |
 
-What the power scale does to the two figures is in [`weapon-damage-types.md`](weapon-damage-types.md#weapon-type-effectiveness); the difficulty scale, applied at the top of `Sim_RaycastObjectList` itself, is in [`difficulty.md`](difficulty.md#the-damage-scale-reaches-all-direct-fire-not-just-plasma).
+What the power scale does to the two figures is in [`../formats/proj-dat.md`](../formats/proj-dat.md#layout); the difficulty scale, applied at the top of `Sim_RaycastObjectList` itself, is in [`difficulty.md`](difficulty.md#the-damage-scale-reaches-all-direct-fire-not-just-plasma).
 
 ## Where the shot comes from — `WeaponMount_PrepareShot` (`0040e788`)
 

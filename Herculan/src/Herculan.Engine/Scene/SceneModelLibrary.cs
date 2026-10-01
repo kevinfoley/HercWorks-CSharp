@@ -843,12 +843,11 @@ public sealed class SceneModelLibrary {
 	/// <para>The <b>structure</b> banks are cutouts too: <c>BASETEX</c> frames 11, 36, 38, 39, 52, 53,
 	/// 60, 61, 63, 64 and 65 are 20-73% index 0 each, and they are the lattice girders on a
 	/// structure's support towers — drawn opaque they come out as black panels where the original
-	/// shows sky through the frame. The original's own switch is per frame rather than per bank
-	/// (<c>TSTexture4Poly_Render</c> passes a flag from the runtime frame descriptor's <c>+0x12</c>
-	/// down to <c>Raster_DrawPolygon</c>, which selects the span routine's transparent half), and
-	/// where that flag is authored has not been traced — but a frame with no index 0 in it draws
-	/// identically either way, so decoding the whole bank transparent reproduces the original on this
-	/// data.</para>
+	/// shows sky through the frame. The original's own switch is per frame rather than per bank: the
+	/// loader sets the frame descriptor's <c>+0x12</c> when any texel of the frame is index 0 (docs/formats/dts-texture-binding.md,
+	/// "The frame descriptor table and the span routines (DBSIM)"). A frame with no index 0 in it
+	/// draws identically either way, so decoding the whole bank transparent reproduces the original
+	/// on this data.</para>
 	///
 	/// <para>It is still not done for <i>every</i> mesh bank: the mech skins carry a handful of stray
 	/// index-0 texels each (9 of 44376 in <c>LIGHT</c>, 7 of 68464 in <c>MEDIUM</c>) that are plainly

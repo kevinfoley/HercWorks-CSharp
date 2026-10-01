@@ -153,7 +153,7 @@ standoffs = 0 / 10000000
 TurboPod_Engage(mech+0x317)
 ```
 
-Two legs. While the threat is still within 67.5° of the nose the machine reverses with its steering pointed a half turn away, which turns it; once it has turned, the other leg runs it off at 135° to the threat, flipping sides every 4000 counts — about two seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units) — so it does not run in a straight line. The Turbo Pod is engaged on every tick — this is the one place in the AI that uses one on mission orders, since [`ai-navigation.md`](ai-navigation.md)'s sprint needs a standing squad order.
+Two legs. While the threat is still within 67.5° of the nose the machine reverses with its steering pointed a half turn away, which turns it; once it has turned, the other leg runs it off at 135° to the threat, flipping sides every 4000 counts — about two seconds, see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#timer-units) — so it does not run in a straight line. The Turbo Pod is engaged on every tick — this is the one place in the AI that uses one on mission orders, since [`ai-navigation.md`](ai-navigation.md)'s sprint needs a standing squad order.
 
 **It still shoots at what it is running from.** `Ai_AimAndFire` is called against the stash, and `Mech_AiFleeCheck` has already set `mech+0x2aa` to 300, 600 or 1000, which drops `Ai_ChooseWeapon`'s score floor to near or below zero — so a fleeing machine fires almost anything it still has.
 
@@ -323,7 +323,7 @@ if (|aspect| < threshold) {                         // the target is facing me: 
 
 - **The circle is a point 15000 units out from the target on the machine's own approach line, rotated 33° to one side** — near enough a tangent, so the machine walks a wide arc around a target that is pointing at it and closes on one that is not.
 - **Which side it circles to is the side it is already turning toward**, re-chosen every tick, so a machine that overshoots reverses its arc rather than committing.
-- **The break-off costs half a second and is bought with damage.** `mech+0x288` is the running total of damage taken; once it passes 100 the machine spends 1000 counts in every 4000 — about half a second in every two — reversing in a straight line with no steering at all. An undamaged machine never breaks off.
+- **The break-off costs half a second and is bought with damage.** `mech+0x288` is the damage taken within the current ~4000-count window (about two seconds), zeroed at each window's expiry ([`sim-object-layout.md`](sim-object-layout.md#countdowns-keep-their-counter-one-byte-past-the-record)); once it passes 100 the machine spends 1000 counts in every 4000 — about half a second in every two — reversing in a straight line with no steering at all. An undamaged machine never breaks off, and one that has stopped taking fire stops breaking off within about two seconds.
 - **The hysteresis is one-sided.** The threshold is 0x6000 (135°) while the machine is circling and 0x4000 (90°) once it has squared up, so a target has to turn further to start the circle than to stop it.
 - The square-up arm gates on the machine's *own* turret twist rather than on any range: it stands still while the turret is within 2000 BAM of centre and reverses while it is not, so the machine walks backwards until its hull has caught up with where its guns are already pointing.
 
@@ -359,7 +359,7 @@ Fields outside the block:
 |---|---|---|
 | `+0xad` | byte | The line of fire is blocked. Written by `Mech_AiOnLineOfFireBlocked`, cleared when `skirting` ends |
 | `+0xb1` | byte | Something ran into this object. Written by `SimObject_SetRunInto` through vtable `+0x68`, called from `Mech_CollisionTest` and `GroundVehicle_CollisionTest`; read by `Mech_BehaviourRamTick`; never cleared |
-| `+0x288` | int | Total damage taken — [`damage-system.md`](damage-system.md). Read here as the gate on the circling break-off |
+| `+0x288` | int | Damage taken within the current ~4000-count window, zeroed at its expiry — [`sim-object-layout.md`](sim-object-layout.md#countdowns-keep-their-counter-one-byte-past-the-record), [`damage-system.md`](damage-system.md). Read here as the gate on the circling break-off |
 | `+0x31e` | `int32`×3 | Where the target was when the line of fire was found blocked |
 
 ## Rejected readings

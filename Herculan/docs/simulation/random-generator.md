@@ -2,7 +2,7 @@
 
 Reverse-engineered from `DBSIM.EXE` disassembly. All addresses are DBSIM.EXE virtual addresses.
 
-A general math-library utility rather than a simulation subsystem: every randomised decision in the game comes out of here, from the load-time terrain material pass to the explosion's per-component roll. Its determinism is what makes replay parity and a differential harness possible at all, so that property gets as much space below as the algorithm.
+A general math-library utility rather than a simulation subsystem: every randomised decision in the game comes out of here, from the load-time terrain material pass to the explosion's per-component roll. Its seeding, which makes every run draw the same stream, gets as much space below as the algorithm.
 
 ## The algorithm
 
@@ -10,13 +10,15 @@ An additive lagged Fibonacci generator over a 56-entry table of `short`s with tw
 
 `Math_RandomBelow` (`00492e18`) wraps it as `(next & 0x7fff) % bound` — the mask **drops the sign bit rather than taking an absolute value**, so a bounded draw is over the low fifteen bits, not the full sixteen, and is not quite uniform for a bound that does not divide `0x8000`.
 
-Callers pass the state block's address and mask the result: `& 0xfff` for the terrain material roll and for the explosion's per-component roll. The simulation's shared block is `0x4d261d`; sounds, messages and the cockpit's own effects draw on a [second generator](#the-presentation-generator) instead.
+Callers pass the state block's address and mask the result to the width they need: `& 0xfff` for the terrain material roll and for the explosion's per-component roll, `& 0x7f` for a beam node's jitter. The simulation's shared block is `0x4d261d`; sounds, messages and the cockpit's own effects draw on a [second generator](#the-presentation-generator) instead.
 
 ## Seeding — `Math_RandomSeed` (`00492d7c`)
 
-**The generator has no entropy input of any kind.** The state lives in BSS and is seeded only here, which sets the two cursors to the literals `0x37` and `0x18` and `memmove`s 112 bytes from the static table at `004a6958`. The two functions it calls either side — `00492e3c` and `00492e41` — are both `push ebp; pop ebp; ret`. There is no `srand`, and the image imports no clock function that reaches it.
+**Seeding takes no input.** The state lives in BSS. `Math_RandomSeed` sets the two cursors to the literals `0x37` and `0x18`, `memmove`s 112 bytes from the static table at `004a6958`, and then calls `00492e3c`, which is `push ebp; pop ebp; ret`. It reads no clock and takes no value from its caller beyond the block's address.
 
-So **DBSIM replays identically on every run**, up to the one wall-clock path into simulation state: `SimTickDelta`, whose measured 40 ms comes back as 41 or 42 under load and rescales every rate that tick (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md)). Pin that and the whole simulation is a pure function of the mission file and the input — the premise [`../engine/plan-differential-harness.md`](../engine/plan-differential-harness.md) rests on.
+`es2_xref.py` finds three calls to it. Two are in `Main_StaticInit` (`0045cbcd` and `0045cbd8`), one per block. The third is in `Math_RandomSeedAndSkip` (`00492da8`), a wrapper nothing in the image references: it seeds the block it is given, calls a second empty function (`00492e41`), then discards `param_2` draws.
+
+So the generator contributes no run-to-run variation: **DBSIM draws the same stream on every run**. The known wall-clock path into simulation state is `SimTickDelta`, whose measured 40 ms comes back as 41 or 42 under load and rescales every rate that tick (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md)).
 
 ## The presentation generator
 
@@ -43,8 +45,8 @@ Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding
 
 ## Open
 
-- **Open:** match call order (tick order), not just the seed, so a specific retail roll replays exactly rather than only statistically — see [`../../ROADMAP.md`](../../ROADMAP.md).
+- **Open:** the order in which DBSIM's draws fall within a tick. A roll's result depends on its position in the stream, so the draw order across the tick's subsystems decides every roll after the first.
 - **Open:** what constructs `SMOKE`. `Sim_MainTick` ticks a list of them through `Smoke_Tick` (`004092dc`), each releasing a `SMOKE_BALL` every 200 ticks while its count lasts, but `es2_xref.py` finds no branch or pointer reaching `Smoke_Construct` or landing anywhere from `00409200` to `00409240`.
 - **Open:** whether `TexPoly` is ever built. Its constructor (`0042f700`, in bytes Ghidra left undisassembled) has no reference `es2_xref.py` finds, the class name appears only in its own RTTI record — not in the persistence name table beside `TSTexture4Poly` — and no retail `.DTS` names it.
 - **Unported:** the death flash's draws, with the feature.
-- **Open:** whether DBSIM draws from the generator before a zone populates. The terrain scatter is the visible case:, because the draws before it move where the scatter lands.
+- **Open:** whether DBSIM draws from the generator before a zone populates. The terrain scatter is the visible case, because any draw before it moves where the scatter lands.

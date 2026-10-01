@@ -147,7 +147,7 @@ public class HercSimDat {
 
 	/// <summary>
 	/// Offset 84 — whether a hit can knock this chassis' weapon mounts out: 1 on every biped, 0 on
-	/// the PITBULL. See docs/simulation/weapon-damage-types.md#weapon-mount-destruction.
+	/// the PITBULL. See docs/simulation/weapon-mounts.md#the-chance-path--the-destruction-roll.
 	/// </summary>
 	public short WeaponMountsDestructible { get; set; }
 

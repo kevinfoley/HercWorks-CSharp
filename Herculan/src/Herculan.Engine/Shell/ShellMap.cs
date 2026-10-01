@@ -256,7 +256,7 @@ public sealed class ShellMap {
 
 			_squad[slot] = anchor;
 			if (slot != 0 && forms?.OffsetFor(formation, slot) is { } offset) {
-				// FUN_00451f94: the offset as two shorts through the heading's matrix, each rounded to Q14.
+				// Math_RotateVec2Q14 (00451f94): the offset as two shorts through the heading's matrix, each rounded to Q14.
 				short dx = (short)offset.X;
 				short dy = (short)offset.Y;
 				_squad[slot] = (anchor.X + (short)((dx * cos - dy * sin + 0x2000) >> 14),
@@ -267,7 +267,7 @@ public sealed class ShellMap {
 
 	private (int X, int Y) Point(int index) => index >= 0 && index < _points.Length ? _points[index] : (0, 0);
 
-	/// <summary><c>FUN_0042524e</c>: the centre of the bounds, and the altitude that fits both their halves in the viewport's.</summary>
+	/// <summary><c>ShellMap_FitBounds</c> (<c>0042524e</c>): the centre of the bounds, and the altitude that fits both their halves in the viewport's.</summary>
 	private void SetFullView() {
 		int halfX = (MaxX - MinX) >> 1;
 		int halfY = (MaxY - MinY) >> 1;
@@ -276,7 +276,7 @@ public sealed class ShellMap {
 	}
 
 	/// <summary>
-	/// <c>FUN_004252e1</c>: the same over the squad's positions, widened by <see cref="SquadMargin"/>, for
+	/// <c>ShellMap_FitSquad</c> (<c>004252e1</c>): the same over the squad's positions, widened by <see cref="SquadMargin"/>, for
 	/// the first <c>+0x80</c> slots — the count <c>player.mec</c> gives — whose member is not <c>-1</c>.
 	/// </summary>
 	private void SetSquadView() {
@@ -303,7 +303,7 @@ public sealed class ShellMap {
 	}
 
 	/// <summary>
-	/// <c>FUN_00427891</c>: holds a camera inside the relief. The altitude is capped at the full view's,
+	/// <c>ShellMap_ClampCamera</c> (<c>00427891</c>): holds a camera inside the relief. The altitude is capped at the full view's,
 	/// and the centre is kept at least half a viewport's world width inside the bounds widened by
 	/// <see cref="ReliefMargin"/> on each side, the far side having the last word.
 	/// </summary>
@@ -323,12 +323,12 @@ public sealed class ShellMap {
 		return (x, y, z);
 	}
 
-	/// <summary><c>FUN_00420195</c>, the camera base's pan step for an altitude.</summary>
+	/// <summary><c>MapCamera_PanStepFor</c> (<c>00420195</c>), the camera base's pan step for an altitude.</summary>
 	private static int PanStepFor(int altitude) => unchecked(
 		((altitude - MinAltitude >> 3) * (PanStepFar - PanStepNear >> 3)) / (PanScaleAltitude - MinAltitude >> 3) * 8
 		+ PanStepNear);
 
-	/// <summary><c>FUN_00427ae7</c>, the map's own pan step, scaled over its altitude limit instead.</summary>
+	/// <summary><c>ShellMap_PanStepFor</c> (<c>00427ae7</c>), the map's own pan step, scaled over its altitude limit instead.</summary>
 	private int MapPanStepFor(int altitude) {
 		int range = FullView.Z - MinAltitude;
 		return range == 0 ? PanStepNear : unchecked(((altitude - MinAltitude >> 8) * (PanStepFar - PanStepNear)) / range * 0x100
@@ -338,8 +338,8 @@ public sealed class ShellMap {
 	/// <summary>
 	/// A map button: the six methods the arrows call, <c>+0xc</c> north, <c>+0x10</c> south, <c>+0x14</c>
 	/// west and <c>+0x18</c> east, each of which pans by <see cref="PanStep"/> only when the clamp leaves
-	/// the moved centre alone; <c>+4</c>, <c>FUN_004200e4</c>, down one step while that stays above
-	/// <see cref="MinAltitude"/>; and <c>+8</c>, <c>FUN_00427946</c>, up one step only when the clamp leaves
+	/// the moved centre alone; <c>+4</c>, <c>MapCamera_ZoomIn</c> (<c>004200e4</c>), down one step while that stays above
+	/// <see cref="MinAltitude"/>; and <c>+8</c>, <c>ShellMap_ZoomOut</c> (<c>00427946</c>), up one step only when the clamp leaves
 	/// the new altitude alone. The two zooms re-derive the pan step, each by its own formula.
 	/// </summary>
 	public void Press(ShellMissionArrow arrow) {
@@ -398,7 +398,7 @@ public sealed class ShellMap {
 		return (clamped.X + PanX, clamped.Y + PanY, clamped.Z);
 	}
 
-	/// <summary>A world point on the canvas through <paramref name="camera"/>: <c>FUN_0041fff2</c>'s plan-view projection about the viewport's centre.</summary>
+	/// <summary>A world point on the canvas through <paramref name="camera"/>: <c>MapCamera_Project</c> (<c>0041fff2</c>)'s plan-view projection about the viewport's centre.</summary>
 	private static (int X, int Y) Project((int X, int Y, int Z) camera, int x, int y) => unchecked(
 		(CentreX + ((x - camera.X) << FocalShift) / camera.Z, CentreY - ((y - camera.Y) << FocalShift) / camera.Z));
 
@@ -444,7 +444,7 @@ public sealed class ShellMap {
 	}
 
 	/// <summary>
-	/// <c>FUN_004258f6</c>: grid lines in <c>0x0f</c> through the projected world origin, one every
+	/// <c>ShellMap_PaintGrid</c> (<c>004258f6</c>): grid lines in <c>0x0f</c> through the projected world origin, one every
 	/// <see cref="GridSpacing"/> — the spacing measured on the projection of sixteen of them along x —
 	/// rightwards, leftwards, downwards and upwards, across the whole viewport; then, outside the intro's
 	/// first paint, the bounds outlined in colour 10. Draws at most <paramref name="limit"/> lines and
@@ -493,7 +493,7 @@ public sealed class ShellMap {
 	}
 
 	/// <summary>
-	/// <c>FUN_0042670d</c>: with the whole path revealed, a line in <c>0x0e</c> through its points in
+	/// <c>ShellMap_PaintPath</c> (<c>0042670d</c>): with the whole path revealed, a line in <c>0x0e</c> through its points in
 	/// order; part-way through the intro, only the line from the last point reached to the camera's
 	/// centre, and a pen of radius <c>DAT_00471c5c</c> at the centre.
 	/// </summary>
@@ -565,7 +565,7 @@ public sealed class ShellMap {
 	}
 
 	/// <summary>
-	/// <c>FUN_00426c8c</c>: an icon at a world point. Its world size projected is its size on screen; below
+	/// <c>ShellMap_PaintIcon</c> (<c>00426c8c</c>): an icon at a world point. Its world size projected is its size on screen; below
 	/// <see cref="MapIcon.PixelBelow"/> it is one pixel of its colour, below the frame's height the frame
 	/// scaled to that size and centred, and otherwise the frame as it is, offset by half
 	/// <see cref="MapIcon.DrawnSize"/>.
@@ -584,7 +584,7 @@ public sealed class ShellMap {
 	}
 
 	/// <summary>
-	/// <c>FUN_00426d3f</c>: the path's points after the first, as <c>mis_icon.dba</c> frames 14 onward, as
+	/// <c>ShellMap_PaintNavMarkers</c> (<c>00426d3f</c>): the path's points after the first, as <c>mis_icon.dba</c> frames 14 onward, as
 	/// many as are revealed and at most nine, each offset by half of 13.
 	/// </summary>
 	private void PaintNavMarkers(ShellSurface surface, (int X, int Y, int Z) camera, ShellMapArt? art) {
@@ -607,7 +607,7 @@ public sealed class ShellMap {
 	private const int NavMarkerSize = 13;
 
 	/// <summary>
-	/// <c>FUN_00426e5c</c>: the squad's revealed members, walking the twenty slots and counting only those
+	/// <c>ShellMap_PaintSquad</c> (<c>00426e5c</c>): the squad's revealed members, walking the twenty slots and counting only those
 	/// whose member is not <c>-1</c>, each as frame 3 when the member is block-7 record 0 and frame 5
 	/// otherwise.
 	/// </summary>
@@ -695,7 +695,7 @@ public sealed class ShellMap {
 	public bool IntroRunning => !_finished;
 
 	/// <summary>
-	/// A click or <c>Esc</c> or <c>Space</c> during the intro, which <c>FUN_004253ef</c> answers by jumping
+	/// A click or <c>Esc</c> or <c>Space</c> during the intro, which <c>ShellMap_SkipIntro</c> (<c>004253ef</c>) answers by jumping
 	/// to the closing zoom. It waits until the intro's first paint has finished, as the original's does.
 	/// </summary>
 	public void Skip() => _skip = true;
@@ -949,7 +949,7 @@ public sealed class ShellMapArt {
 
 /// <summary>
 /// One zone's heights as the map reads them: <c>dat\zone%d.dat</c>'s cell shift and <c>dba\zone%d.dba</c>'s
-/// first frame, a byte per cell with the bitmap's rows running north to south (<c>FUN_00428d5b</c>).
+/// first frame, a byte per cell with the bitmap's rows running north to south (<c>HeightGrid_FromBitmap</c> (<c>00428d5b</c>)).
 /// </summary>
 public sealed class ZoneRelief {
 	private readonly byte[] _pixels;
@@ -997,7 +997,7 @@ public sealed class ZoneRelief {
 	}
 
 	/// <summary>
-	/// <c>FUN_00426fe0</c>: the cells under the bounds widened by the relief margin, drawn as two banded
+	/// <c>ShellMap_BuildRelief</c> (<c>00426fe0</c>): the cells under the bounds widened by the relief margin, drawn as two banded
 	/// triangles each at a whole number of pixels per cell — the most that fits 640 by 400 — into a bitmap
 	/// a cell wider and taller than the triangles fill. Each corner's colour is its height's step on the
 	/// <c>0xd1</c> ramp; a cell off the grid has all four corners at 0.
@@ -1041,7 +1041,7 @@ public sealed class ZoneRelief {
 	}
 
 	/// <summary>
-	/// <c>FUN_00457aa8</c>, the 8-bit "Gouraud" triangle: not interpolated per pixel but cut into one flat
+	/// <c>Gfx_BandedTriangle</c> (<c>00457aa8</c>), the 8-bit "Gouraud" triangle: not interpolated per pixel but cut into one flat
 	/// band per palette index between its corners' colours. The edge from the highest-coloured corner to
 	/// the lowest is divided into one step per index; the band between steps <c>i</c> and <c>i + 1</c> is
 	/// filled with the highest colour less <c>i</c>, closed along whichever of the other two edges it

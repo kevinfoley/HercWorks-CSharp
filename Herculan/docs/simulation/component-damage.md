@@ -1,6 +1,6 @@
 # DBSIM.EXE component damage — the damage arrays, cascade, and going out of the fight
 
-Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). All addresses are DBSIM.EXE virtual addresses. This is the shared endpoint both damage pathways in [`damage-system.md`](damage-system.md) write into — see that doc for how a shot or a blast decides how much damage arrives and at which component. [`weapon-damage-types.md`](weapon-damage-types.md) covers the separate weapon-mount destruction roll and `PROJ.DAT`'s per-weapon damage shape. The `.DMG` file that supplies every component's armour, parent and internals is [`../formats/dmg-damage-file.md`](../formats/dmg-damage-file.md).
+Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). All addresses are DBSIM.EXE virtual addresses. This is the shared endpoint both damage pathways in [`damage-system.md`](damage-system.md) write into — see that doc for how a shot or a blast decides how much damage arrives and at which component. The separate weapon-mount destruction roll is in [`weapon-mounts.md`](weapon-mounts.md#the-chance-path--the-destruction-roll), and `PROJ.DAT`'s per-weapon damage figures are in [`../formats/proj-dat.md`](../formats/proj-dat.md). The `.DMG` file that supplies every component's armour, parent and internals is [`../formats/dmg-damage-file.md`](../formats/dmg-damage-file.md).
 
 ## The component damage system
 
@@ -50,7 +50,7 @@ if (destroyed) {
 The names of the slots are [the file's](../formats/dmg-damage-file.md#the-two-index-spaces); the retail values behind them are in [which internals each component holds](../formats/dmg-damage-file.md#which-internals-each-component-holds).
 
 - **Components 0–1, the cockpits** — individually checked (`Component_IsFullyDestroyed`) as the mech's death-trigger gate.
-- **Components 19–28, the weapon mounts** — `Mech_ComponentDamageWrite` snapshots each mount's reading, `Component_ReadDamagePercent(.GL +0x17 + 19)`, before and after the write, and `Mech_SalvageValue` reads the same ([weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction)). The brackets, 4–5, are structure the mounts hang off through the parent index; a mount's runtime ammo and heat are not in this array.
+- **Components 19–28, the weapon mounts** — `Mech_ComponentDamageWrite` snapshots each mount's reading, `Component_ReadDamagePercent(.GL +0x17 + 19)`, before and after the write, and `Mech_SalvageValue` reads the same ([the destruction roll](weapon-mounts.md#the-chance-path--the-destruction-roll)). The brackets, 4–5, are structure the mounts hang off through the parent index; a mount's runtime ammo and heat are not in this array.
 - **Internals (22-entry) read by literal index in `Mech_ComponentDamageWrite`**, not by a loop. 0 and 1 are the front leg servos, joined by 10 and 11 (the rear pair) when `typeRecord+0x4a` is 4; the pair(s) are averaged before being compared against `0x8d` (crippled) and `0x50` (the milder grade), and half of them destroyed immobilises the machine. 4 is the shield generator, which `Mech_ComputeShieldCapacity` reads — so shooting it shrinks the array the machine can hold, and that recompute happens **here as well as at spawn**. 5 is the reactor, latching the two output-damage flags. 8 and 9 are life support and the pilot: either destroyed, or either cockpit slot fully gone, and the machine dies.
 
 ### What the endpoint announces
@@ -102,6 +102,18 @@ Steps 1–3 run only while `+0x99` is clear; step 4 runs regardless.
 
 The three state indices and their think are [`ai-combat-states.md`](ai-combat-states.md)'s. What a machine does *after* the state is installed — the fall, and the collapse that ends it — is [`mech-locomotion.md`](mech-locomotion.md#going-down)'s.
 
+### The three out-of-the-fight bytes — `+0x99`, `+0xa4`, `+0xa5`
+
+Read together by `Group_IsWipedOut` (`00412be4`) and `Ai_IsTargetable` (`00411e80`), and separately by everything else. They are **three different conditions, not three damage latches**, and each has its own writers:
+
+| Byte | Condition | Written by |
+|---|---|---|
+| `+0x99` | **Destroyed** | The three classes' damage-write paths, and nothing else: `Mech_ComponentDamageWrite` (`00417de4`) when a core component reaches full damage, `Flyer_ComponentDamageWrite`, `Base_ApplyDamage`. `Base_Construct` also sets it for a structure spawned already destroyed |
+| `+0xa4` | **Immobilised** — cannot move under its own power | `Mech_ComponentDamageWrite` when half or more legs reach full damage; `Razor_MovementTick` (`004198f4`) when the airframe loses its nose or belly |
+| `+0xa5` | **Disarmed** — has no working weapon | `Ai_ChooseWeapon` (`0041f358`) the first time it walks a machine's whole mount list and finds nothing ([`ai-weapons.md`](ai-weapons.md#running-dry--mech0xa5)); `Base_Construct` at spawn, for a structure type that has no weapons ([`structure-behaviour.md`](structure-behaviour.md#five-classes-one-switch)); `Flyer_AiSelectBehaviour` for a flight ordered to sleep or travel ([`ai-flyers.md`](ai-flyers.md#orders--flyer_aiselectbehaviour-00422d00)) |
+
+None of the three means "removed from the simulation". Which subset a test reads is the behaviour: the detection sweep, the player's target selection and `Group_ConditionTier` read `+0x99` and `+0xa4` only; the AI's own tests add `+0xa5`, which is why a disarmed machine flees and is abandoned as a target while remaining a legal player target. `Group_IsWipedOut` reads all three, so its name overstates what it asks — [`ai-goals.md`](ai-goals.md#no-rival-group-is-still-working-to-it--group_norivalorderonsubject-00412e74).
+
 ### What the attacker is told — `Mech_CreditNeutralisedTarget` (`00415710`)
 
 Mech vtable `+0x60`, called on the machine that put the victim out of the fight, from both branches above and only when the write named an attacker. It is `void __cdecl(SimObject *attacker, SimObject *victim, short victimAlreadyImmobilised)` — plain `__cdecl` on three stack arguments, whatever the decompiler's `__thiscall` rendering of the vtable slot says; all four call sites push three and clean 12 bytes. The base class' slot is an empty stub, so only a HERC credits anything.
@@ -142,10 +154,16 @@ What the player's side takes home. `Mission_TotalSalvage` (`00423e88`) sums this
 Per machine, in order:
 
 1. **`mech+0xb3` short-circuits it to zero.** A machine the mission placed already broken — the two worst starting-condition grades above — is worth nothing, so a mission cannot be farmed by authoring derelicts into it.
-2. **Each surviving hardpoint is queued.** For every mount whose component is under `0x80` damage, `Salvage_QueueWeapon` (`00426ac8`) takes `{template+0x56, (0x100 - damage) * 100 >> 8}` — the weapon's catalog id and its condition as a percentage. This is the same list the mount-destruction path appends to ([Weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction)), and the results carry it to the shell as salvage pairs. The list is `Mem_NewArray(200)` (`004773e4`, at `0042530d`), room for 50 four-byte pairs, and the append checks nothing. `Mem_NewArray` allocates 8 bytes more than it is asked for, so pairs 51 and 52 land in that slack; pair 53 is the first that can write past the block ([Open](#open)).
+2. **Each surviving hardpoint is queued.** For every mount whose component is under `0x80` damage, `Salvage_QueueWeapon` (`00426ac8`) takes `{template+0x56, (0x100 - damage) * 100 >> 8}` — the weapon's catalog id and its condition as a percentage. This is the same list the mount-destruction path appends to ([the destruction roll](weapon-mounts.md#the-chance-path--the-destruction-roll)), and the results carry it to the shell as salvage pairs. The list is `Mem_NewArray(200)` (`004773e4`, at `0042530d`), room for 50 four-byte pairs, and the append checks nothing. `Mem_NewArray` allocates 8 bytes more than it is asked for, so pairs 51 and 52 land in that slack; pair 53 is the first that can write past the block ([Open](#open)).
 3. **The chassis itself** is `Q10(Mech_WeightedArmorRemaining(mech), typeRec+0x54)`, and `typeRec+0x54` is **halved when component 0 is at full damage** — a chassis blown apart is worth half one merely stopped. `Mech_WeightedArmorRemaining` (`0041537c`) sums `(maxArmor - damage) * weight / maxArmor` over the live components, against the weight table at `00499fe0`; `maxArmor` is the component's own `.DMG` record and a component at or past 150 damage contributes nothing.
 
 So a machine pays for what survived, not for what was wrecked, and its guns pay separately by how intact each one is.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| `+0xa4` is "removed" and `+0xa5` is "destroyed" | `+0xa4` is written where a machine loses its legs and a RAZOR loses its fuselage, and the flyer's position integration refuses to run while it is set — it is *immobilised*. `+0xa5` is written by the weapon chooser and by `Base_Construct` for unarmed structure types — it is *disarmed*. `+0x99` is the one the damage paths write. |
 
 ## Open
 

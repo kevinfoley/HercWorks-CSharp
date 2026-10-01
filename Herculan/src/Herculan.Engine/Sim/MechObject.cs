@@ -411,7 +411,7 @@ public sealed partial class MechObject : SimObject {
 	/// type's own eye offset (<see cref="MechTypeRecord.EyeOffsetY"/>) put through it.
 	/// <see cref="EyePosition"/> is its translation.
 	///
-	/// <para>The offset is the cockpit branch of <c>FUN_004011a0</c>'s own step — it takes the node's
+	/// <para>The offset is the cockpit branch of <c>Cam_Update</c> (<c>004011a0</c>)'s own step — it takes the node's
 	/// world matrix from the mech vtable's <c>+0x24</c> accessor (<c>00417b98</c>) and calls
 	/// <c>Transform_ApplyToShortPoint</c> with the offset point the <c>+0x30</c> accessor
 	/// (<c>004155c4</c>) built out of the type record. Without it the eye sits at the node's own
@@ -823,11 +823,11 @@ public sealed partial class MechObject : SimObject {
 	/// <inheritdoc cref="CenteringBody"/>
 	public short CenterBodyReference => _centerBodyReference;
 
-	// DAT_004d2588 — the latched centring mode. A global in the original, since only the player has
+	// g_CenterTurretMode (004d2588) — the latched centring mode. A global in the original, since only the player has
 	// one; per-object here for the same reason SimWorld has no globals.
 	private bool _centeringTorso;
 
-	// DAT_004d2af4 and DAT_004d2af8 — the Center Body mode and the turret world direction it was
+	// g_CenterBodyMode (004d2af4) and g_CenterBodyTargetHeading (004d2af8) — the Center Body mode and the turret world direction it was
 	// latched on, globals in the original for the same reason. _centerBodyHeld is the edge detector
 	// the original gets for free from being dispatched on a keystroke rather than on a held key.
 	private bool _centeringBody;
@@ -1157,7 +1157,7 @@ public sealed partial class MechObject : SimObject {
 	}
 
 	/// <summary>
-	/// <c>DAT_0049a058</c> — the Q10 factor the slide's length becomes damage through, by
+	/// <c>SlideDamageScaleByDifficulty</c> (<c>0049a058</c>) — the Q10 factor the slide's length becomes damage through, by
 	/// <see cref="SimWorld.Difficulty"/>. Unlike the other three difficulty tables this one is only
 	/// ever applied to the player's own machine.
 	/// </summary>

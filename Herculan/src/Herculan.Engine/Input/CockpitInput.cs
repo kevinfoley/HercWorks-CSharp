@@ -119,7 +119,7 @@ public sealed class CockpitInput {
 	///
 	/// <para>This is <c>Widget_TrackPressedWidget</c> (<c>00452954</c>), which the symbol table long called
 	/// <c>Widget_OnMouseHover</c> — a misreading. The function early-outs unless
-	/// <c>DAT_0049dbdc</c>, the globally remembered pressed-widget index, is valid, and that global is
+	/// <c>Widget_PressedIndex</c> (<c>0049dbdc</c>), the globally remembered pressed-widget index, is valid, and that global is
 	/// set only by <c>Widget_OnMouseDown</c> and cleared to -1 by <c>Widget_OnMouseUp</c>. It therefore
 	/// cannot run unless a button is held, and what it does is toggle the held widget's state byte
 	/// between 1 and 0 as the pointer moves on and off it, repainting each time: a button that pops

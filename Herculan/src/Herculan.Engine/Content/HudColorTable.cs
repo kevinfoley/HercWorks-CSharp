@@ -11,7 +11,7 @@ namespace Herculan.Engine.Content;
 /// <para>HUD data files never name a palette index directly. A <c>.PDG</c> damage region, a gauge
 /// constructor, a text label: each carries a small id, and DBSIM resolves it once at load time
 /// through this table, in place (<c>arr[i] = table[arr[i]]</c>). The table itself lives at
-/// <c>DAT_004d3c00</c> in DBSIM's .bss; no code in the image materialises that address to write it,
+/// <c>HudColorTable</c> (<c>004d3c00</c>) in DBSIM's .bss; no code in the image materialises that address to write it,
 /// and the file supplies exactly the 27 entries the code's observed access range and id values
 /// require.</para>
 ///

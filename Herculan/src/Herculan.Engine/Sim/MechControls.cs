@@ -38,7 +38,7 @@ namespace Herculan.Engine.Sim;
 /// <see cref="ThrottleLeverBipolar"/> for this engine's centre-zero one. A negative value is
 /// either mode read upside down.
 ///
-/// <para>This is the original's <c>DAT_0049a06e</c>, which is <b>not</b> a forward/reverse gear
+/// <para>This is the original's <c>ThrottleLeverMode</c> (<c>0049a06e</c>), which is <b>not</b> a forward/reverse gear
 /// selector despite the name in the symbol table — docs/simulation/mech-locomotion.md carries the
 /// argument. What matters here is that it gates the throttle clamp: at 0 the setting is free to
 /// take either sign, and with a unipolar lever present the clamp closes to one side of zero.</para>
@@ -55,7 +55,7 @@ namespace Herculan.Engine.Sim;
 /// <param name="TorsoPitch">The turret axis, up/down. Positive looks up.</param>
 /// <param name="CenterTorso">
 /// The manual's [Backspace] "Center Turret" command — a mode, not a keypress: the original latches
-/// it (<c>DAT_004d2588</c>) and runs the centring tick every tick until the pilot moves either
+/// it (<c>g_CenterTurretMode</c> (<c>004d2588</c>)) and runs the centring tick every tick until the pilot moves either
 /// turret axis, which clears it. The host holds it the same way.
 /// </param>
 /// <param name="CenterBody">
@@ -63,8 +63,8 @@ namespace Herculan.Engine.Sim;
 /// rather than a turret one: it steers the <i>legs</i> round to line up under the turret, rather
 /// than bringing the turret back to the legs.
 ///
-/// <para>Read on its rising edge, not held: latching it (<c>DAT_004d2af4</c>) captures the world
-/// direction the turret is pointing in (<c>DAT_004d2af8</c>), and everything after that is measured
+/// <para>Read on its rising edge, not held: latching it (<c>g_CenterBodyMode</c> (<c>004d2af4</c>)) captures the world
+/// direction the turret is pointing in (<c>g_CenterBodyTargetHeading</c> (<c>004d2af8</c>)), and everything after that is measured
 /// against that one number, so it has to be taken once. It clears <see cref="CenterTorso"/> and is
 /// cleared by it — the original's dispatch sets one of the two globals and zeroes the other
 /// wherever it touches either.</para>

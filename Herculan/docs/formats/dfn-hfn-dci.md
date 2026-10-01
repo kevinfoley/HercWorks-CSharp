@@ -125,7 +125,7 @@ The first two are **raw palette indices** and the third a logical id: a construc
 
 ### Consumers
 
-`HddGauge_LoadPilotFrames` (`0044a7c0`), `HddCommandScreen_RefreshOrders` (`0044ddec`), `HddDamageScreen_Update` (`00450c54`), `FUN_00451e94`, `MfdStatusScreen_Paint` (`0043a5a0`), `FUN_0043fe1c`, `HddCommandScreen_Update` (`0044c960`). VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back — that load is vestigial.
+`HddGauge_LoadPilotFrames` (`0044a7c0`), `HddCommandScreen_RefreshOrders` (`0044ddec`), `HddDamageScreen_Update` (`00450c54`), `FUN_00451e94`, `MfdStatusScreen_Paint` (`0043a5a0`), `MfdMissileViewScreen_Paint` (`0043fe1c`), `HddCommandScreen_Update` (`0044c960`). VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back — that load is vestigial.
 
 ## Ruled out: `.BND` and `.SNC`
 

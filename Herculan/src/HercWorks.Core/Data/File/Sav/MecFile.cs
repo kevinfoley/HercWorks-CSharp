@@ -57,7 +57,7 @@ public class MecFile {
 public class MecEntry {
 	/// <summary>
 	/// The pilot's name index — pilot record <c>+0x02</c> on the shell side, into
-	/// <c>esnames.bin</c>. VSHELL's per-entry writer is <c>FUN_004106b7</c>.
+	/// <c>esnames.bin</c>. VSHELL's per-entry writer is <c>PlayerMec_WriteEntry</c> (<c>004106b7</c>).
 	///
 	/// <para>DBSIM reads it too: <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) stamps it onto the
 	/// spawned machine at <c>mech+0x29c</c>, and <c>FUN_00431530</c> hands it to

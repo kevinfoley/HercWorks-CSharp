@@ -64,7 +64,7 @@ Notes the table makes visible:
 | Offset | Type | Field |
 |---|---|---|
 | `+0x00` | ptr | The state's name, into `BehaviourStateNames` |
-| `+0x04` | int | **Dwell time**, in the simulation's timer unit ([`structure-behaviour.md`](structure-behaviour.md#timer-units)) — how long the machine stays in this state before reassessing |
+| `+0x04` | int | **Dwell time**, in the simulation's timer unit ([`dbsim-physics-notes.md`](dbsim-physics-notes.md#timer-units)) — how long the machine stays in this state before reassessing |
 | `+0x08` | 16 B | 16 one-byte booleans, expanded from a 16-bit mask by `Behaviour_ExpandFlagBits` (`00415028`) |
 | `+0x18` | triple | **Think** — `{func, thisDelta, vtableIndex}` |
 | `+0x24` | triple | **Move** |
@@ -114,7 +114,7 @@ Not a pointer field: `0x45` bytes embedded in the mech, running `mech+0x4d` to `
 
 ### What the dwell time buys
 
-`Timer_CountDown` (`004679a4`) subtracts `SimTickDelta` from the countdown each AI tick and clamps it at zero, so `descriptor+0x04` is in **the simulation's timer unit, not milliseconds**: one count is about 0.49 ms ([`structure-behaviour.md`](structure-behaviour.md#timer-units)). It is handed `&block+0x04` and steps only the `int` that follows, never touching the byte it is given. But `Mech_AiTick` only runs the countdown when descriptor flag bit 0 is *clear*, and that is true of exactly eight states: `deciding`, the five combat states, `driving off en` and `fleeing`. **For every other state the countdown is loaded and never stepped**, so its dwell value — 10 counts, bar `dead` and `disabled` at 0 — never expires on its own. Those states end on their own terms instead, through the paths below.
+`Timer_CountDown` (`004679a4`) subtracts `SimTickDelta` from the countdown each AI tick and clamps it at zero, so `descriptor+0x04` is in **the simulation's timer unit, not milliseconds**: one count is about 0.49 ms ([`dbsim-physics-notes.md`](dbsim-physics-notes.md#timer-units)). It is handed `&block+0x04` and steps only the `int` that follows, never touching the byte it is given. But `Mech_AiTick` only runs the countdown when descriptor flag bit 0 is *clear*, and that is true of exactly eight states: `deciding`, the five combat states, `driving off en` and `fleeing`. **For every other state the countdown is loaded and never stepped**, so its dwell value — 10 counts, bar `dead` and `disabled` at 0 — never expires on its own. Those states end on their own terms instead, through the paths below.
 
 The eight that do run a clock:
 
@@ -128,7 +128,7 @@ Three things cut a dwell short, and they are the whole of what writes `block+0x0
 
 - `Group_OrderTick` (`00423adf`) zeroes every member's countdown when the group advances to its next order.
 - `Mech_AiTick` (`00411d51`) zeroes the machine's own when its think returns nonzero — the state's way of saying it is finished.
-- `Mech_ReceiveSquadOrder` (`00420d53`) zeroes it when the order names the target the machine already holds *and* the current descriptor carries the "holding a place" flag bit.
+- `Mech_ReceiveSquadOrder` (`00420ad4`; the store is at `00420d53`) zeroes it when the order names the target the machine already holds, the current descriptor carries the "committed to a fight" flag bit (descriptor `+0x09`) *and* the "holding a place" bit (`+0x0a`). A committed machine that does not hold a place retargets instead — [`ai-squadmates.md`](ai-squadmates.md#receiving-one--mech_receivesquadorder-00420ad4-mech-vtable-0x28).
 
 Because a zeroed countdown is what lets the reassess slot run, the first and third of these reach even a state whose flag bit 0 stops the clock — so "the countdown never expires" is not the same as "nothing outside the state can end it."
 

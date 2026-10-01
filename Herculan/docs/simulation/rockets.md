@@ -4,33 +4,9 @@ Addresses are DBSIM virtual addresses.
 
 The third and last fire branch. A `Beam` record resolves inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a travelling shot ([`projectiles.md`](projectiles.md)); a `Rocket` record becomes one of these. Every missile launcher — `MSL6`, `MSL8`, `MSL10`, `FLYMSL`, `BMSL` — fires one.
 
-Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` walks **before** the machine list, cannot be shot at, and does not move on the tick that spawned it.
+Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` walks **before** the machine list, cannot be shot at, and does not move on the tick that spawned it ([`projectiles.md`](projectiles.md)).
 
-## `dat\ROCKETS.DAT`
-
-`Rocket_LoadTypeTable_Unguided` (`0040a818`) reads it as `int16 count` then that many 14-byte records, and loads `dts\ROCKETS.DTS` alongside it. **Indexed by the firing `PROJ.DAT` record's subtype id** — `Rocket_GetTypeRecord` (`0040a234`) is `table + id * 14`.
-
-**The layout is not `BULLETS.DAT`'s.** The two files share a stride and their first two fields and nothing else; the readers are different functions reading different offsets.
-
-| Offset | Meaning |
-|---|---|
-| `+0x00` | model: root of `ROCKETS.DTS` |
-| `+0x02` | lifetime, in **ticks** — a plain `+1` counter, not the bullet's `0x200` age units |
-| `+0x04` | acceleration, per 125 ms |
-| `+0x06` | the shot record's slack, which is what a bullet keeps at `+0x04` |
-| `+0x08` | animation frame interval; 0 = static shape |
-| `+0x0a` | which of the shape's sequences that interval steps |
-| `+0x0c` | fire sound id, played as `id + 10` |
-
-Retail (5 records, one per `Rocket` subtype id):
-
-| id | Weapon | Shape | Life | Accel | Slack | Anim | Seq | Sfx |
-|---|---|---|---|---|---|---|---|---|
-| 0 | `SARH` | 0 | 80 | 250 | 200 | 256 | 0 | 5 |
-| 1 | `ARH` | 0 | 80 | 250 | 200 | 256 | 0 | 5 |
-| 2 | `ARM` | 0 | 80 | 250 | 200 | 256 | 0 | 5 |
-| 3 | `EO` | 0 | 80 | 250 | 200 | 256 | 0 | 5 |
-| 4 | `BMSL` | 1 | 80 | 250 | 300 | 0 | 0 | 5 |
+The round's type table, indexed by the firing `PROJ.DAT` record's subtype id, and its shapes are in [`../formats/rockets-dat.md`](../formats/rockets-dat.md). The `record[+0x..]` offsets below are that table's.
 
 ## Spawning — `Rocket_Fire` (`0040a9c4`)
 
@@ -38,10 +14,11 @@ Retail (5 records, one per `Rocket` subtype id):
 
 - **The aim triple goes in verbatim.** No `ROCKETS.DAT` field is a scatter and the spawn draws no random numbers — a launcher does not disperse.
 - **Launch speed is a literal 500** plus the machine's own travel speed (mech vtable `+0x38`). The record's `Speed` is not read here; it is the ceiling the burn climbs toward.
-- **The target is captured once, at launch**, into `+0x56` — the machine's selected target at `mech+0x1a4`, and only when mech vtable `+0x6c` (`Mech_MissileLockState`, `004155ac`) returns nonzero. **That is not an ammunition count**: it reads `manager+0x0a[subtype]`, the per-subtype *lock* flags — see [`missile-lock.md`](missile-lock.md). The one bypass: a machine other than the locally piloted one (`mech+0xa3` clear) firing subtype 3 skips the gate outright, so an AI's electro-optical missile always locks. The AI's own weapon scoring has the same subtype 3 exemption from the lock test, separately ([`ai-weapons.md`](ai-weapons.md#choosing-a-weapon--ai_chooseweapon-0041f358)). A lock also asks the target for a node handle (target vtable `+0x54`) into `+0x5a`, which is the point the seeker steers at.
-- Plays `record[+0x0c] + 10`.
+- **The target is captured once, at launch**, into `+0x56` — the machine's selected target at `mech+0x1a4`, and only when mech vtable `+0x6c` (`Mech_MissileLockState`, `004155ac`) returns nonzero. That reads the per-subtype *lock* flag, not an ammunition count ([`missile-lock.md`](missile-lock.md#manager0x0a-is-the-lock-state-not-an-ammunition-count)). The one bypass: a machine other than the locally piloted one (`mech+0xa3` clear) firing subtype 3 skips the gate outright, so an AI's electro-optical missile always locks. That bypass is `Rocket_Fire`'s own and is not the AI's weapon-scoring exemption from the lock test ([`ai-weapons.md`](ai-weapons.md#choosing-a-weapon--ai_chooseweapon-0041f358)). A lock also asks the target for a node handle (target vtable `+0x54`) into `+0x5a`, which is the point the seeker steers at.
+- **A locally piloted owner's round is remembered** in `DAT_0049c394` whatever its subtype, for the missile camera ([Flight](#flight--rocket_tickupdate-0040a538)).
+- Plays `record[+0x0c] + 10` at the muzzle point.
 
-Only the `Type == 0` class is ever built. `Grenade_Construct` (`0040ac3c`) builds a second class for `Type == 3` records — the cut `Grenade` class, named by its own Borland class record at `0040acdc` ([`../formats/borland-rtti.md`](../formats/borland-rtti.md)). **Nothing calls it**: a scan of the whole image for its address, every section, as a bare little-endian dword as well as an `E8`/`E9` rel32 branch target, finds it nowhere but in its own prologue. Its vtable's per-tick slot is `FUN_0040acb4`, a bare `return 0` — an instance would never move and never die. Retail's three `Type 3` records are unreachable data; see [`weapon-damage-types.md`](weapon-damage-types.md#type--a-firing-mechanism-selector) and [`../cut-content.md`](../cut-content.md#projectiles).
+Only the `Type == 0` class is ever built. The `Type == 3` class, `Grenade_Construct` (`0040ac3c`), is never called — [`weapon-damage-types.md`](weapon-damage-types.md#type--a-firing-mechanism-selector) and [`../cut-content.md`](../cut-content.md#projectiles).
 
 ## Flight — `Rocket_TickUpdate` (`0040a538`)
 
@@ -50,45 +27,43 @@ Vtable `+0x14` of `RocketVtable` (`00498448`); draw is `Bullet_Draw`, shared wit
 1. **Animation.** When `record[+0x08]` is nonzero, a countdown at `+0x5c` steps the shape instance's cell-frame entry for sequence `record[+0x0a]`, modulo the shape's own frame count for that sequence. This is the exhaust flame — see below.
 2. **Age.** `+0x54 += 1`; expire at `record[+0x02] < age` (the lifetime), with no impact of any kind. A rocket burns out, it does not detonate on a timer.
 3. **Burn**, damped: `speed += IntegrateRateOverTick(record[+0x04])`, then averaged with the speed the tick opened at, then capped at the `PROJ.DAT` record's `Speed` (`proj+0x0a`).
-4. **Guidance** — `Rocket_PlayerSteer` when the owner is locally simulated *and* the subtype is 3, `Rocket_HomingSteer` otherwise.
+4. **Guidance** — `Rocket_PlayerSteer` when the owner is locally piloted (`mech+0xa3` set) *and* the subtype is 3, which also raises `DAT_004d25aa`; `Rocket_HomingSteer` otherwise.
 5. `step = IntegrateRateOverTick(speed)` along the frame's Y axis, then a `Sim_RaycastObjectList` over that step alone with `record[+0x06]` as the shot record's slack — the same sweep-the-segment arrangement a bullet uses. Struck anything and the round ends.
 
-**Damage is never power-scaled**: a rocket comes off a rack, not a capacitor, so the `PROJ.DAT` figures apply at face value. The shot record's `+0x12` carries the subtype id where a bullet hardcodes 5; that field gates an unrelated target-side alert.
+**Damage is never power-scaled**: a rocket comes off a rack, not a capacitor, so the `PROJ.DAT` figures apply at face value. The shot record's `+0x12` carries the subtype id where a bullet hardcodes 5 ([`weapon-firing.md`](weapon-firing.md#the-shot-record)).
 
-Also here: the proximity beep once the round is within 40000 units of the camera's machine, and the pair of globals (`DAT_0049c394`/`DAT_0049c398`) that tell the cockpit its missile view is over ([Open](#open)).
+**When the round ends**, a subtype 3 round of a locally piloted owner clears the trigger byte `004d2357` and calls `Input_LatchButton(1, 1)`, the press-once latch ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)); and if the round is the one in `DAT_0049c394` and ended before its lifetime, `DAT_0049c398` is raised.
+
+**The missile camera.** `DAT_004d25aa`, "an electro-optical missile is being flown", is zeroed by `Sim_MainTick` just before it walks the effect pool and raised again by this tick's player-steer call; `WeaponMounts_FireTrigger` also raises it on the firing tick ([`weapon-firing.md`](weapon-firing.md#weaponmounts_firetrigger-in-order)). It hands the controls to the camera, as `InputDrivesCamera` does ([`../formats/joystick-input.md`](../formats/joystick-input.md#while-the-camera-has-the-controls)). `DAT_0049c394` and `DAT_0049c398` are read by the MFD's missile-camera screen (`MfdMissileViewScreen_Paint`, `0043fe1c`; [`../formats/mfd.md`](../formats/mfd.md)), which draws from the tracked round and, once `DAT_0049c398` is raised, flashes its panel for 30 coarse ticks before clearing it ([Open](#open)).
+
+**The proximity beep.** A round fired by a machine that is **not** locally piloted (`mech+0xa3` clear) plays sound `0x32` when it comes within 40000 units of the camera (`ViewObjectPtr`, the camera position); a latch at `+0x06` holds it to once per approach and re-arms when the round leaves that range. The player's own rounds never beep.
 
 **On retail data the speed cap is unreachable.** Every record's rate of 250 becomes 79 at the simulation's timestep and 39 after the damping, so 80 ticks carry a round from ~540 to ~3600 against a ceiling of 6000 — it is still accelerating when it burns out, and `PROJ.DAT`'s `Speed` sets nothing. Because the life is a tick count while the step scales with the timestep, a rocket is the one shot whose **range** was frame-rate dependent in the original.
 
 ## Guidance — `Rocket_HomingSteer` (`0040a254`)
 
-A steer of the euler angles, not of a velocity, as the plasma round's is — but with a real lead and three gates the plasma round has none of.
+A steer of the euler angles, not of a velocity, as the plasma round's is — but with a real lead and gates the plasma round has none of.
 
-- **Lead.** A round holding a node handle (`+0x5a >= 0`) steers at that node's world position (target vtable `+0x58`); otherwise at the target's extrapolated position (vtable `+0x24`, then either the raw origin or `Transform_ApplyToPoint` (`00480330`) through the target's own rebuilt frame). `Math_EulerToward` (`00492884`) turns that into a bearing triple; the two aiming components are moved toward it through `Math_RateLimitedMoveToward` at **`0x500` per 125 ms**, twice the plasma round's cap.
+- **The selection gate.** A round with no target does not steer. A locally piloted owner's round also steers only while its target is still the owner's selected target (`mech+0x1a4`), so changing target drops guidance on every missile in the air; an AI's rounds are not asked.
+- **Lead.** A round holding a node handle (`+0x5a >= 0`) steers at that node's world position (target vtable `+0x58`); otherwise at the target's aim point ([`target-selection.md`](target-selection.md#aim-point--vtable-0x24)). `Math_EulerToward` (`00492884`) turns that into a bearing triple; the two aiming components are moved toward it through `Math_RateLimitedMoveToward` at **`0x500` per 125 ms**, twice the plasma round's cap.
 - **The emission gate.** Subtype 2 (`ARM`, anti-radiation) steers only while the target has `+0x96` (the scanner the pilot toggles, `Mech_ToggleRadarMode` (`0041b468`)) or `+0xa1` (its jammer) set.
 - **The spoofing wobble.** For every subtype but 2, when the *launching* machine's `+0x9c` is set, an aim error inside `±0xc00` is pushed **away** by `0xc00`, so the round weaves instead of converging. `Mech_PerTickSystemsUpdate` (`0041aa5c`) rolls that flag while the machine's selected target is jamming (`target+0xa1`) — the odds, interval and Targeting Pod discount are in [`missile-lock.md`](missile-lock.md#ecm). **This is the mechanical form of the manual's ECM.**
-- Subtype 3 instead sets the owner's `+0xb5`, which suppresses the AI's weapon selection for a tick while its own guided missile is in the air (`Ai_FireAtPoint`, `0041f5a0`).
+- Subtype 3 instead sets the owner's `+0xb5` once per tick it steers; what that does to the AI is in [`ai-weapons.md`](ai-weapons.md#the-fire-decision--ai_fireatpoint-0041f5a0).
 
 ## `Rocket_PlayerSteer` (`0040a488`) — the player flying the missile
 
-Not a "non-homing variant". It reads two axis accumulators out of the **global player input block** at `0x4d234a` (memset each frame by `Input_BuildPlayerDevice`, also the VCR playback sink), steers by `Q8Multiply(0x500, axis)` per tick with no rate limit and no deadband, and zeroes them. The gate `0x4d2357` is "missile control active", which `Rocket_TickUpdate` clears when the round ends — this is the electro-optical missile's nose camera. With that flag clear the function instead drops the round's target and rewrites its subtype id to 0.
+Not a "non-homing variant": the pilot flies the electro-optical missile from its nose camera. It reads two axis values through pointers in the **player input block** at `0x4d234a` ([`../formats/tap-input-tape.md`](../formats/tap-input-tape.md)) — one turns the round's yaw, the other its pitch — steers by `Q8Multiply(0x500, axis)` per tick with no rate limit and no deadband, and zeroes them.
+
+The gate is the block's `+0x0d`, `0x4d2357`: **the fire trigger** ([`weapon-firing.md`](weapon-firing.md#the-trigger-is-polled-not-dispatched)), so the round is flown only while the trigger is held. With the trigger released the function drops the round's target and rewrites its subtype id to 0, and the round flies straight on as an unguided subtype 0 round (`Rocket_TickUpdate` then sends it to `Rocket_HomingSteer`, which has no target to steer at).
 
 ## The exhaust flame
 
-Both `ROCKETS.DTS` roots are a `TSDetailPart` over four LODs (`details = [4, 12, 45, 255]`). At the highest, the shape is a static body plus a **two-cell `TSCellAnimPart` holding geometry** — the cells are flat-poly cones at the tail, and their surface colours are the palette's flame range against the body's grey:
-
-| | model-space centre Y | surface colours |
-|---|---|---|
-| body | 69 (root 0) / 139 (root 1) | 200 — grey `(116,116,116)` |
-| flame cell 0 | 17 / 33 | 109, 94, 87, 86 — red `(224,4,0)` through orange |
-| flame cell 1 | 8 / 17 | 93, 109, 86, 88 — pale yellow `(248,236,168)` through orange |
-
-Both roots declare one sequence of two frames (`TSShape.SequenceList == [2]`, the `shape+0x20` array the tick mods by) and every `TSCellAnimPart` in them carries `AnimSequence == 0` — the sequence every `ROCKETS.DAT` record names. So the record's interval of 256 really does drive them, at one cell every four ticks. `BMSL`'s record carries zero, so its flame is frozen on cell 0.
-
-**There is no `ROCKETS.DBA` and no bank is bound.** Unlike `Bullet_LoadResources`, the rocket loader never writes the shapes' bound-bank pointer, and the shapes hold no `TSBitmapPart` to want one: a rocket is entirely ramp-coloured `TSSolidPoly`/`TSShadedPoly` geometry.
+The shape is a static body plus a two-cell animation of flame cones at the tail ([`../formats/rockets-dat.md`](../formats/rockets-dat.md#dtsrocketsdts)). The animation step is the first step of `Rocket_TickUpdate`. The record's interval of 256 drives the cells at one cell every four ticks, because the record names sequence 0 and every cell-animation part in both roots carries sequence 0. `BMSL`'s record carries an interval of zero, so its flame is frozen on cell 0.
 
 ## Open
 
-- **Unported:** the pair of globals (`DAT_0049c394`/`DAT_0049c398`) that tell the cockpit its missile view is over.
+- **Unported:** the missile camera and the player-flown round it exists for: `Rocket_PlayerSteer`, `DAT_004d25aa`, and the two globals `DAT_0049c394`/`DAT_0049c398` with their reader `MfdMissileViewScreen_Paint`. A player-flown round flies straight.
 - **Unported:** the node handle (`+0x5a`) a homing round steers at.
 - **Unported:** the ECM wobble on a homing round's steer.
-- **Unported:** the player-flown missile view that feeds `Rocket_PlayerSteer`.
+- **Unported:** the selection gate on a locally piloted owner's homing round.
+- **Open:** the missile-camera screen's draw, `MfdMissileViewScreen_Paint`: its behaviour beyond the two global reads is not documented ([`../formats/mfd.md`](../formats/mfd.md#open)).

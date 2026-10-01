@@ -2801,7 +2801,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <para>The chain button's caption is its count in Roman numerals, read from DBSIM's own
 	/// three-entry table at <c>0049c71c</c> ("I", "II", "III") — a literal table in <c>.rdata</c>,
 	/// unrelated to the string file. LINK and TRACK are not fixed: <c>ConsoleButton_Paint</c>
-	/// (<c>00442c88</c>) reads them out of <c>DAT_004d13d0</c>, the <c>.bss</c> array
+	/// (<c>00442c88</c>) reads them out of <c>ConsoleButtonCaptions</c> (<c>004d13d0</c>), the <c>.bss</c> array
 	/// <c>SimStrings_LoadAll</c> fills from <c>STRINGS0.STR</c> group <see cref="CaptionGroup"/>,
 	/// indexed by the widget's own kind field (1 = LINK, 2 = TRACK) — see
 	/// docs/formats/str-strings.md.</para>
@@ -3118,7 +3118,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// The external view's caption, <c>FUN_0045e1ec</c>: two runs of <see cref="ExternalViewLayout.CaptionFont"/>
+	/// The external view's caption, <c>ViewChain_DrawCaption</c> (<c>0045e1ec</c>): two runs of <see cref="ExternalViewLayout.CaptionFont"/>
 	/// on one row below the 3D view, placed on a 640x480 screen centred in the window the way the
 	/// modal panels are. The paint floods the row with colour 19 first, which is the black the rest of
 	/// the band is already, so nothing is drawn for it here.

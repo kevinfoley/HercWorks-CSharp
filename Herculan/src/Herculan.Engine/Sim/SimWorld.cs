@@ -118,7 +118,7 @@ public sealed class SimWorld {
 	public SimRandom PresentationRandom { get; } = new();
 
 	/// <summary>
-	/// <c>DAT_004a9ee0</c> — the mission difficulty, <c>0</c>-<c>3</c>, out of
+	/// <c>MissionDifficulty</c> (<c>004a9ee0</c>) — the mission difficulty, <c>0</c>-<c>3</c>, out of
 	/// <see cref="World.ScriptDatHeader.Difficulty"/>. It is the player pilot's own skill in a
 	/// campaign and the practice missions screen's setting outside one, so the shell picks it once and
 	/// the simulator only reads it.
@@ -131,7 +131,7 @@ public sealed class SimWorld {
 	public int Difficulty { get; set; }
 
 	/// <summary>
-	/// <c>DAT_004a9edc</c> — the mission's <b>unlimited ammunition and energy</b> flag, out of
+	/// <c>UnlimitedAmmoFlag</c> (<c>004a9edc</c>) — the mission's <b>unlimited ammunition and energy</b> flag, out of
 	/// <see cref="World.ScriptDatHeader.UnlimitedAmmunition"/>. It reaches two places, both of them
 	/// the locally piloted machine's mounts: <see cref="WeaponMounts.FireTick"/> passes it to the
 	/// shot as its free-shot flag, and <see cref="WeaponMounts.ChargeTick"/> refunds the whole tick's
@@ -140,7 +140,7 @@ public sealed class SimWorld {
 	public bool UnlimitedAmmunition { get; set; }
 
 	/// <summary>
-	/// <c>DAT_004a9ede</c> — the mission's <b>player invulnerability</b> flag, out of
+	/// <c>PlayerInvulnerableFlag</c> (<c>004a9ede</c>) — the mission's <b>player invulnerability</b> flag, out of
 	/// <see cref="World.ScriptDatHeader.PlayerInvulnerable"/>, and the whole of
 	/// <c>Sim_DamageToPlayerDisabled</c> (<c>004240f4</c>) once the gate that function shares with
 	/// the difficulty is accounted for. Read where the damage write starts.
@@ -164,10 +164,10 @@ public sealed class SimWorld {
 	public int DamageScaleFor(World.MissionSide side) =>
 		(side == World.MissionSide.Human ? DamageScaleHuman : DamageScaleCybrid)[Difficulty];
 
-	/// <summary><c>DAT_0049a73c</c> — <see cref="DamageScaleFor"/>'s table for a shot fired by side 0.</summary>
+	/// <summary><c>DamageScaleBySide0Difficulty</c> (<c>0049a73c</c>) — <see cref="DamageScaleFor"/>'s table for a shot fired by side 0.</summary>
 	private static readonly int[] DamageScaleHuman = { 3500, 2800, 2100, 1400 };
 
-	/// <summary><c>DAT_0049a744</c> — the same, for a shot fired by any other side.</summary>
+	/// <summary><c>DamageScaleByCybridDifficulty</c> (<c>0049a744</c>) — the same, for a shot fired by any other side.</summary>
 	private static readonly int[] DamageScaleCybrid = { 300, 600, 800, 1000 };
 
 	/// <summary>
@@ -180,7 +180,7 @@ public sealed class SimWorld {
 	public ISoundSink? Sounds { get; set; }
 
 	/// <summary>
-	/// Where the camera is, in world units — the original's own view object (<c>DAT_004d256e</c>),
+	/// Where the camera is, in world units — the original's own view object (<c>ViewObjectPtr</c> (<c>004d256e</c>)),
 	/// which simulation code legitimately reads.
 	///
 	/// <para>Two ported sites need it and both are audio range gates: a footfall is only played for a
@@ -599,7 +599,7 @@ public sealed class SimWorld {
 	public IReadOnlyList<WeaponShot> Impacts => _impacts;
 
 	/// <summary>
-	/// The impact effects playing right now — the original's <c>g_ExplosionPool</c> (<c>DAT_004a96a2</c>), a pool
+	/// The impact effects playing right now — the original's <c>g_ExplosionPool</c> (<c>004a96a2</c>), a pool
 	/// of its own that <c>Sim_MainTick</c> walks in the same effect-pool pass as the one
 	/// <see cref="Tracers"/> and <see cref="Projectiles"/> come from. An
 	/// entry lives for exactly one pass of its shape's flipbook; see <see cref="ImpactEffect"/>.

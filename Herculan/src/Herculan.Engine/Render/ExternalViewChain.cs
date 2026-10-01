@@ -4,7 +4,7 @@ using Herculan.Engine.Terrain;
 namespace Herculan.Engine.Render;
 
 /// <summary>
-/// Which view the chain is in — <c>DAT_004d2572</c>.
+/// Which view the chain is in — <c>ViewChain_View</c> (<c>004d2572</c>).
 /// </summary>
 public enum ExternalViewMode : short {
 	/// <summary>The free camera, which only the developer keys reach.</summary>
@@ -21,40 +21,40 @@ public enum ExternalViewMode : short {
 }
 
 /// <summary>
-/// DBSIM's chain of views: the view it is in (<c>DAT_004d2572</c>) and the one it is going to
-/// (<c>DAT_004d259e</c>), the cameras behind them (<c>ViewObjectPtr</c> and the per-squad cameras at
-/// <c>DAT_004d270c</c>), whether the controls drive the camera or the machine, and the cockpit view
+/// DBSIM's chain of views: the view it is in (<c>ViewChain_View</c> (<c>004d2572</c>)) and the one it is going to
+/// (<c>ViewChain_PendingView</c> (<c>004d259e</c>)), the cameras behind them (<c>ViewObjectPtr</c> and the per-squad cameras at
+/// <c>ViewChain_SquadCameras</c> (<c>004d270c</c>)), whether the controls drive the camera or the machine, and the cockpit view
 /// manager's step to and from its view 4. The rules, and what each command does from each view, are
 /// docs/simulation/external-views.md.
 ///
 /// <para>The host calls the command methods as the dispatcher's cases would run, and
 /// <see cref="Advance"/> once per simulation tick in the original's order: the camera's steer from
-/// <c>Sim_PollPlayerInput</c>, the chain's <c>FUN_0045de14</c>, the placement in
-/// <c>FUN_004011a0</c>, then the view manager's half of <c>Sim_EndFrame</c>.</para>
+/// <c>Sim_PollPlayerInput</c>, the chain's <c>ViewChain_Apply</c> (<c>0045de14</c>), the placement in
+/// <c>Cam_Update</c> (<c>004011a0</c>), then the view manager's half of <c>Sim_EndFrame</c>.</para>
 ///
 /// <para><b>The view manager is only the part of it the chain reaches</b>: the one command latch, the
-/// armed flag <c>FUN_0045de14</c> waits on, and the two-frame cooldown, for commands 2 and 3 alone.
+/// armed flag <c>ViewChain_Apply</c> (<c>0045de14</c>) waits on, and the two-frame cooldown, for commands 2 and 3 alone.
 /// The heads-down pan and the glances keep their own state in <see cref="CockpitPan"/> and
 /// <see cref="CockpitGlance"/>; a switch to the external view never waits behind one of them here,
 /// where retail's single latch would make it.</para>
 /// </summary>
 public sealed class ExternalViewChain {
 	/// <summary>
-	/// The chase view needs the frame counter <c>DAT_004d25ff</c> past <c>0x31</c> — the frames
+	/// The chase view needs the frame counter <c>Sim_FrameCount</c> (<c>004d25ff</c>) past <c>0x31</c> — the frames
 	/// <see cref="PlayerTrail"/> needs to fill.
 	/// </summary>
 	public const int ChaseFrameGate = PlayerTrail.Length;
 
-	/// <summary><c>DAT_004d25a4</c>'s reload: the caption is drawn on this many frames.</summary>
+	/// <summary><c>ViewChain_CaptionFrames</c> (<c>004d25a4</c>)'s reload: the caption is drawn on this many frames.</summary>
 	public const int CaptionFrames = 2;
 
 	/// <summary><c>Sim_InitMissionSession</c>'s view camera, which the chain starts on.</summary>
 	private readonly ViewCamera _main = new();
 
-	/// <summary><c>DAT_004d270c</c>: one camera per member of the player's squad.</summary>
+	/// <summary><c>ViewChain_SquadCameras</c> (<c>004d270c</c>): one camera per member of the player's squad.</summary>
 	private readonly ViewCamera[] _squadCameras;
 
-	/// <summary><c>DAT_004d27d8</c>: the camera used once every squad camera is taken.</summary>
+	/// <summary><c>ViewChain_SpareCamera</c> (<c>004d27d8</c>): the camera used once every squad camera is taken.</summary>
 	private readonly ViewCamera _spare = new();
 
 	private readonly SimObject _player;
@@ -89,13 +89,13 @@ public sealed class ExternalViewChain {
 		_main.SetMode(ViewCameraMode.Attached);
 	}
 
-	/// <summary><c>DAT_004d2572</c>.</summary>
+	/// <summary><c>ViewChain_View</c> (<c>004d2572</c>).</summary>
 	public ExternalViewMode Mode { get; private set; } = ExternalViewMode.Cockpit;
 
 	/// <summary><c>ViewObjectPtr</c>: the camera the view is drawn from.</summary>
 	public ViewCamera Camera { get; private set; }
 
-	/// <summary><c>DAT_004d2708</c>: the object the view was last moved to.</summary>
+	/// <summary><c>ViewChain_Viewed</c> (<c>004d2708</c>): the object the view was last moved to.</summary>
 	public SimObject Watched { get; private set; }
 
 	/// <summary>The player's recorded path, which the chase view follows.</summary>
@@ -110,13 +110,13 @@ public sealed class ExternalViewChain {
 	/// <summary>Whether the cockpit view manager is in its view 4, the one with no cockpit.</summary>
 	public bool ExternalViewUp { get; private set; }
 
-	/// <summary><c>DAT_004d25ff</c>: frames run since the mission started.</summary>
+	/// <summary><c>Sim_FrameCount</c> (<c>004d25ff</c>): frames run since the mission started.</summary>
 	public int FrameCount { get; private set; }
 
 	/// <summary>
 	/// What the caption along the bottom of the external view last showed: the object named after
-	/// VIEW and whether CONTROL read CAMERA. Null until it is first drawn. <c>FUN_0045e1ec</c> only
-	/// paints on the frames <c>DAT_004d25a4</c> counts, and what it painted stays up until it paints
+	/// VIEW and whether CONTROL read CAMERA. Null until it is first drawn. <c>ViewChain_DrawCaption</c> (<c>0045e1ec</c>) only
+	/// paints on the frames <c>ViewChain_CaptionFrames</c> (<c>004d25a4</c>) counts, and what it painted stays up until it paints
 	/// again.
 	/// </summary>
 	public (SimObject Viewed, bool CameraControl)? Caption { get; private set; }
@@ -179,7 +179,7 @@ public sealed class ExternalViewChain {
 	}
 
 	/// <summary>
-	/// [Enter] or [Tab] from the external view (<c>FUN_0045fd2c</c>): the controls go between the camera
+	/// [Enter] or [Tab] from the external view (<c>ViewChain_ToggleCameraControl</c> (<c>0045fd2c</c>)): the controls go between the camera
 	/// and the machine. It only changes the preference; <see cref="Advance"/> hands the controls over,
 	/// and only while the outside view is on the player.
 	/// </summary>
@@ -292,7 +292,7 @@ public sealed class ExternalViewChain {
 		FrameCount++;
 	}
 
-	// FUN_0045de14: while the view manager is mid-step, move to the pending view; otherwise keep
+	// ViewChain_Apply (0045de14): while the view manager is mid-step, move to the pending view; otherwise keep
 	// the controls where the preference puts them, while the outside view is on the player.
 	private void ApplyPending() {
 		if (!_armed) {
@@ -332,7 +332,7 @@ public sealed class ExternalViewChain {
 		}
 	}
 
-	// FUN_0045df18: onto the camera that already views the object, or onto a free squad camera
+	// ViewChain_ViewObject (0045df18): onto the camera that already views the object, or onto a free squad camera
 	// seeded from the current one and attached afresh, or failing both onto the spare the same way.
 	private void View(SimObject target) {
 		ViewCamera? next = null;

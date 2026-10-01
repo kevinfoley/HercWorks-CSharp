@@ -112,7 +112,7 @@ public static class MfdLayout {
 
 	/// <summary>
 	/// <c>STRINGS0.STR</c> group holding the 13 button captions — the sixth registration in
-	/// <c>SimStrings_LoadAll</c> (<c>00437598</c>), landing in <c>DAT_004d13e0</c>. Entries 0-5 are the six screen
+	/// <c>SimStrings_LoadAll</c> (<c>00437598</c>), landing in <c>MfdCaptionTable</c> (<c>004d13e0</c>). Entries 0-5 are the six screen
 	/// <i>titles</i> and 6-12 the aux button captions: <c>MfdButton_SetCaption</c> (<c>00447358</c>) composes "F1".."F6" from
 	/// its own <c>"Fx"</c> literal for the mode buttons and only reaches this table for index >= 6.
 	/// </summary>
@@ -204,7 +204,7 @@ public static class MfdLayout {
 	/// <summary>
 	/// Group holding the status screen's condition strings — "OK", "SHIELDS DN", "INT DAMAGE",
 	/// "CRITICAL", "DESTROYED". <c>MfdStatusScreen_SetCondition</c> (<c>0043b260</c>) indexes it as
-	/// <c>DAT_004d1698[state]</c> into the fourth label.
+	/// <c>MfdStatusConditionStrings[state]</c> (<c>004d1698</c>) into the fourth label.
 	///
 	/// <para>Group 10 holds a near-identical five-string set ("OK", "INT DMG", "SHLD DWN",
 	/// "CRITICAL", "WASTED") and is the obvious wrong answer here: it is <b>dead data</b>, with

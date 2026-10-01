@@ -5,7 +5,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>
 /// Reads and writes <c>dat\{name}_DEB.DAT</c> — see <see cref="DebrisHerc"/> for the layout and
-/// where it came from. Round-trips byte-exactly on all 24 retail files.
+/// where it came from. Round-trips byte-exactly on all 21 retail files.
 /// </summary>
 public class DebrisHercTransformer : ByteTransformer<DebrisHerc> {
 	public override DebrisHerc? Parse(byte[]? inputArray) {

@@ -78,7 +78,7 @@ Only cells inside the region polygon are visited, and the viewer's own cell is l
 
 ## Objects in the walk
 
-`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under the cell `HeightGrid_PickDrawCell` picks for it (below), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order, turns every other object into a render entry, and draws those sorted at the end of the cell. So what is filed under a cell is painted over that cell's ground and under every cell painted after it.
+`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under the cell `HeightGrid_PickDrawCell` picks for it (below), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order with the ramp's row count `DAT_004a5b1c` zeroed around each draw ([`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), turns every other object into a render entry, and draws those sorted at the end of the cell. So what is filed under a cell is painted over that cell's ground and under every cell painted after it. A tag-9 object has no fade of its own: its solid faces fog with the one its cell's quad installed ([`distance-fog-and-sky.md`](distance-fog-and-sky.md#what-gets-faded)).
 
 ### `HeightGrid_PickDrawCell` (`0046e528`)
 

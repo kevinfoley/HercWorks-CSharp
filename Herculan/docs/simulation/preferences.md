@@ -74,7 +74,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 12 | the joystick-configured flag | gates `Joystick_InitAndSeedBindings`' one-time seeding |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
-| 37-41 | **VSHELL's**, not the simulator's: the practice missions screen's five parameters, difficulty among them | [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte) |
+| 37-41 | **VSHELL's**, not the simulator's: the practice missions screen's five parameters, difficulty among them | [`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters) |
 | 42 | **VSHELL's** campaign-or-training flag | seeds `CampaignModeFlag`, so the mode survives a restart |
 | 43 | **VSHELL's** language | the `LANG0.VOL` folder every `.BIN` is opened under: 0 `eng\`, 1 `fre\`, 2 `ger\` ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-bin-string-tables)) |
 | 44 | **VSHELL's** `Repair Options:` | 0 `AutoRepair All Hercs`, 1 `Manually Repair My Herc`, 2 `Manually Repair All Hercs` |
@@ -86,7 +86,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 
 No instruction in either image addresses options 48-53 by name, and they are zero in a retail file; only the loops that walk the whole array touch them.
 
-**The file is shared with VSHELL**, which keeps the same 54-byte array, the same load-time shadow and the same handler table, and reads and writes the same path. Options 4, 5 and 37-47 are its side of that sharing, and of those the simulator reads only 4 and 6, both straight from the file at startup and 6 again from the array at shutdown ([below](#the-video-mode-and-full-screen-bytes)). The shell's own screens that edit them are [`../shell/screen-layout.md`](../shell/screen-layout.md#the-preferences-screen) and [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte); options 0 and 1, the two sound bytes, are edited by both programs.
+**The file is shared with VSHELL**, which keeps the same 54-byte array (`DAT_004824b8`), the same load-time shadow (`004824ee`) and the same handler table (`00482524`), and reads and writes the same path: `ShellOptions_Load` (`0040d6a3`) and `ShellOptions_SaveAll` (`0040d752`), with the same step, step-back and commit trio (`ShellOptions_StepOption`, `ShellOptions_StepOptionBack`, `ShellOptions_Commit`). Options 4, 5 and 37-47 are its side of that sharing, and of those the simulator reads only 4 and 6, both straight from the file at startup and 6 again from the array at shutdown ([below](#the-video-mode-and-full-screen-bytes)). The shell's own screens that edit them are [`../shell/screen-layout.md`](../shell/screen-layout.md#the-preferences-screen) and [the practice missions screen](../shell/screen-layout.md#the-parameters); options 0 and 1, the two sound bytes, are edited by both programs.
 
 ### The video-mode and full-screen bytes
 

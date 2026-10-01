@@ -1006,8 +1006,8 @@
           "offset": 645,
           "width": 3,
           "type": "CountdownTimer",
-          "confidence": "low",
-          "description": "+0x285 -- ticked by Mech_PerTickSystemsUpdate, which reloads the counter at +0x286 with 4000. What it gates is not established."
+          "confidence": "high",
+          "description": "+0x285 -- the window damageTaken accumulates over. Mech_PerTickSystemsUpdate steps it and, each time the counter at +0x286 reaches 0, reloads it with 4000 and zeroes damageTaken (0041ab72..0041ab98)."
         },
         {
           "offset": 648,
@@ -1015,7 +1015,7 @@
           "type": "int",
           "name": "damageTaken",
           "confidence": "high",
-          "description": "+0x288 -- the running total of damage this machine has taken. Mech_DirectFireHitTest adds to it; the AI's circling step spends it, breaking off only past 100."
+          "description": "+0x288 -- the damage this machine has taken since the +0x285 timer last expired, zeroed every 4000 counts. Mech_DirectFireHitTest adds to it; the AI's circling step reads it, breaking off only past 100."
         },
         {
           "offset": 652,

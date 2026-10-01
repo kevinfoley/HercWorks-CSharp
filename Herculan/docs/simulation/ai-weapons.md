@@ -64,7 +64,7 @@ Six things it settles.
 
 **Only a travelling shot gets a lead.** `range × targetSpeed ÷ projectileSpeed` along the target's own heading, from the `PROJ.DAT` record's `Speed` at `+0x0a`. A `Beam` record carries speed 0 and so takes no lead, which is right; a structure returns speed 0 from vtable `+0x38` and takes none either.
 
-**The scatter is Cybrid-only and one-sided.** `group+0x12` is the group's side, so a machine in the *player's* squad never has its aim perturbed at all. The table at `0049a30c` is indexed by the mission difficulty (`004a9ee0`, the same global `Damage_ScaleByDifficulty` reads) and holds `1000, 800, 400, 200` — the enemy shoots straighter the harder the game is set. Where that number comes from is [`difficulty.md`](difficulty.md). `Math_RandomBelow` draws in `[0, bound)`, so all three components are displaced in the **positive** direction only; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+**The scatter is Cybrid-only and one-sided.** `group+0x12` is the group's side, so a machine in the *player's* squad never has its aim perturbed at all. The table at `0049a30c` is indexed by the mission difficulty (`004a9ee0`, the same global `Damage_ScaleByDifficulty` reads) — the enemy shoots straighter the harder the game is set. Its entries and where the difficulty comes from are [`difficulty.md`](difficulty.md#what-the-difficulty-changes)'s. `Math_RandomBelow` draws in `[0, bound)`, so all three components are displaced in the **positive** direction only; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
 **`mech+0x2ac` is the ELF latch.** Only weapon ids 6 and 22 are kept, and only while the mount stays ready and in range — `WeaponMount_RangeAllows` ([`weapon-mounts.md`](weapon-mounts.md#readiness--weaponmounts_mountisready-00410970)) asked with the ground-plane range to the point, not the 3D range `Ai_AimAndFireAtMech` measured a moment earlier. That is what lets an AI machine sustain an ELF burst across ticks instead of re-rolling its choice each one — `ElfMount_CanFire`'s sustain clause needs the mount fired on the previous tick.
 
@@ -99,6 +99,8 @@ for each mount:
 
 **The +10000 is the whole scoring model.** Retail costs at `template+0x34` run 500–600 for a launcher, 150 for a beam, 10–30 for an autocannon, 5 for an ELF; the damage term is scaled by 100/1024 while the cost is scaled by 1000/1024, so a launcher's ~156 of damage credit against its ~488 of cost is deeply negative. **A launcher is only ever worth firing on the shot that breaks the shield**, which is exactly when the bonus applies. Once the shields are down the AI falls back to guns, whose costs are small enough to stay positive on armour damage alone.
 
+**The score reads the mount's own `PROJ.DAT` record, which is not always the record a shot applies.** ATC75, ATC100, L400 and L500 are each shadowed by an earlier record with the same `(Type, id)`, so the AI scores them on their own larger figures while the shot does the earlier weapon's damage ([`proj-dat.md`](../formats/proj-dat.md#lookup); the lookup has not been confirmed in retail play, [Open](../formats/proj-dat.md#open)).
+
 **The jitter is larger than the signal.** Two independent draws below 35 multiplied together average 289 against deterministic terms in the tens. The choice is therefore mostly noise, biased by the damage-versus-cost term and decided outright by the shield-break bonus.
 
 **Missile lock is a hard gate on scoring.** `manager+0x0a` is the per-subtype lock array ([`missile-lock.md`](missile-lock.md)); every launcher needs its own subtype's flag up before it can even be scored, except subtype 3 (EO) and the non-launcher class 5, which skip the test. No flag is ever raised for an EO missile — the pilot flies it — so without the exemption an AI machine could never fire one. This is `Ai_ChooseWeapon`'s own test. `Rocket_Fire` applies a separate gate at launch, and its subtype 3 exemption is for any machine the player is not flying ([`rockets.md`](rockets.md#spawning--rocket_fire-0040a9c4)); the cockpit's readiness predicate has the same two exemptions as the scoring ([`weapon-mounts.md`](weapon-mounts.md#readiness--weaponmounts_mountisready-00410970)).
@@ -119,7 +121,7 @@ if (MissionPollTimer_Count < 1000) MissionPollTimer_Count = 1000
 
 **The last line defers the mission's objective poll.** `004a9ee7` is the counter of the poll-interval timer record at `004a9ee6`, which `Mission_PollStatus` steps each tick through `Math_CountdownTimerTick` and evaluates the objectives when it reaches 0 ([`mission-objectives.md`](mission-objectives.md#the-poll--mission_pollstatus-004131ac)). Raising it to 1000 counts, about half a second, means the next evaluation — including any "disarmed" objective (condition 7) — runs no sooner than that after the machine runs dry; a poll already further off is left alone.
 
-`mech+0xa5` is "this machine has no weapons left", not a third damage latch beside `+0xa4` and `+0x99`; what the three mean and which tests read them is [`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5).
+`mech+0xa5` is "this machine has no weapons left", not a third damage latch beside `+0xa4` and `+0x99`; what the three mean and which tests read them is [`component-damage.md`](component-damage.md#the-three-out-of-the-fight-bytes--0x99-0xa4-0xa5).
 
 ## Open
 

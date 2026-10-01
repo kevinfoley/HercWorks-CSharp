@@ -256,10 +256,12 @@ public sealed partial class BaseObject : SimObject {
 	/// <inheritdoc />
 	/// <remarks>
 	/// The structure's vtable <c>+0x30</c> (<c>0040351c</c>): the base accessor zeroes the offset
-	/// triple and this one writes <see cref="BaseType.AimPointHeight"/> into its Z, and the caller
-	/// adds it to the position unrotated. So a building is aimed at a stated height up its side
-	/// rather than at the ground point its model origin sits on — which is what every shooter in the
-	/// game reads when it shoots a structure.
+	/// triple and this one writes <see cref="BaseType.AimPointHeight"/> into its Z, which the tower
+	/// ticks add to the position unrotated. So a building is aimed at a stated height up its side
+	/// rather than at the ground point its model origin sits on. Homing, the HUD indicator and line
+	/// of sight read the <c>+0x24</c> slot instead; this one is read by the tower ticks, the camera
+	/// attach and <c>Ai_AimAndFire</c>'s fallback
+	/// (docs/simulation/structure-behaviour.md, "What a structure is aimed at").
 	/// </remarks>
 	public override Vec3i AimPoint =>
 		new(Position.X, Position.Y, Position.Z + Type.AimPointHeight);
@@ -750,9 +752,10 @@ public sealed partial class BaseObject : SimObject {
 	///
 	/// <para>The <i>stepping</i> is the point for a structure: it is what plays a radar dish's sweep,
 	/// and it is what re-poses the turret nodes a seek has moved. <b>The root motion is inert on
-	/// retail data</b> — none of <c>BASES_AN.DTS</c>'s eleven sequences sets the ground-movement
-	/// flag, so the delta read back is always identity. It is applied anyway because the original
-	/// applies it, and because a hand-authored shape could carry one.</para>
+	/// retail data</b> — no sequence in <c>BASES_AN.DTS</c> sets the ground-movement flag, so the
+	/// delta read back is always identity (docs/simulation/structure-behaviour.md, "The root motion
+	/// is inert on retail data"). It is applied anyway because the original applies it, and because
+	/// a hand-authored shape could carry one.</para>
 	///
 	/// <para>Only the translation and the heading are taken, where the original adds the delta's whole
 	/// euler triple to the shared pitch/roll/heading fields. That costs nothing while the delta stays

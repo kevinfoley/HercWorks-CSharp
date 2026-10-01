@@ -93,7 +93,7 @@ public sealed class ShellCrewScreen {
 
 	/// <summary>
 	/// Builds the screen and enters it with <paramref name="bay"/> selected, the way the previous tab
-	/// left <c>DAT_00482ae5</c>; the entry then moves it — see <see cref="SelectedBay"/>.
+	/// left <c>SelectedBaySlot</c> (<c>00482ae5</c>); the entry then moves it — see <see cref="SelectedBay"/>.
 	/// </summary>
 	public ShellCrewScreen(ShellHangar? hangar = null, int bay = -1, ShellBayPictures? pictures = null,
 			ShellCrewPortraits? portraits = null) {
@@ -104,7 +104,7 @@ public sealed class ShellCrewScreen {
 	}
 
 	/// <summary>
-	/// <c>DAT_004776dc</c> — which of the four rows is selected. It is 0 in the image, and every entry
+	/// <c>CrewSelectedRow</c> (<c>004776dc</c>) — which of the four rows is selected. It is 0 in the image, and every entry
 	/// leaves it at 0.
 	/// </summary>
 	public int SelectedRow { get; private set; }
@@ -117,7 +117,7 @@ public sealed class ShellCrewScreen {
 	public int LitPortrait { get; private set; } = -1;
 
 	/// <summary>
-	/// <c>DAT_00482ae5</c>, the bay the squad panel shows. <b>Entering the screen leaves it on the last
+	/// <c>SelectedBaySlot</c> (<c>00482ae5</c>), the bay the squad panel shows. <b>Entering the screen leaves it on the last
 	/// bay that holds a finished machine</b>: after selecting the player's row, the entry offers every
 	/// occupied bay in turn to <c>Squad_SelectBay</c> (<c>0043d64d</c>), and the crew arm accepts each finished one — so the
 	/// readout is not the player's until the player's row is clicked. See docs/shell/screen-layout.md,
@@ -134,7 +134,7 @@ public sealed class ShellCrewScreen {
 	/// <summary>
 	/// <c>Crew_Enter</c> (<c>00441a01</c>), the tab's entry, over <paramref name="hangar"/> with
 	/// <paramref name="bay"/> as the bay the previous tab left selected. The tab handler sets
-	/// <c>DAT_0047581c</c> to 6 before calling it — the one tab handler that does so before its builder
+	/// <c>CurrentTabIndex</c> (<c>0047581c</c>) to 6 before calling it — the one tab handler that does so before its builder
 	/// rather than after — so every bay move below takes <c>Squad_SelectBay</c> (<c>0043d64d</c>)'s
 	/// crew arm.
 	/// </summary>
@@ -172,7 +172,7 @@ public sealed class ShellCrewScreen {
 
 	/// <summary>
 	/// A <c>Squad Inventory</c> row click on this tab: <c>Squad_SelectBay</c> (<c>0043d64d</c>) with
-	/// <c>DAT_004765be</c> set, so a bay the crew arm accepts goes to the selected row's pilot. Returns
+	/// <c>Squad_RosterClickFlag</c> (<c>004765be</c>) set, so a bay the crew arm accepts goes to the selected row's pilot. Returns
 	/// whether the bay moved; the bay already selected, and one the arm refuses, change nothing.
 	/// </summary>
 	public bool ClickRoster(int bay) => SelectBay(bay, rosterClick: true);
@@ -230,7 +230,7 @@ public sealed class ShellCrewScreen {
 	/// <summary>
 	/// <c>Squad_SelectBay</c> (<c>0043d64d</c>)'s crew arm. Returns at once for the bay already selected;
 	/// otherwise takes <c>-1</c> or a bay <see cref="ShellSquadPanel.CanSelectForCrew"/> accepts, and on
-	/// a roster click (<c>DAT_004765be</c> set) gives it to the selected row's pilot.
+	/// a roster click (<c>Squad_RosterClickFlag</c> (<c>004765be</c>) set) gives it to the selected row's pilot.
 	/// </summary>
 	private bool SelectBay(int bay, bool rosterClick) {
 		if (bay == SelectedBay || !ShellSquadPanel.CanSelectForCrew(_hangar, bay, SelectedRow)) {

@@ -19,7 +19,7 @@ The message goes to the **pilot and squad** port (`view+0x207`, through `Cockpit
 | an object being engaged | `Detection_Sweep` (`004128f8`) | that object's `+0x1b2`, at 50000 units |
 | an object being defeated | four sites below | that object's `+0x1b6` |
 
-**None of these is the primary and the others fallbacks.** One action commonly carries two routes — in the shipped mission, action 0 has both a trigger area and a machine whose death activates it, and whichever happens first wins.
+**None of these is the primary and the others fallbacks.** One action commonly carries two routes — in `TRAIN8.MSN`, action 0 has both a trigger area and a machine whose death activates it, and whichever happens first wins.
 
 Both per-frame evaluators run from `Sim_MainTick` (`0045f464`), back to back and **after** the group pass, not before it:
 
@@ -82,7 +82,7 @@ Every mech, flyer and structure carries two action pointers, resolved by `DBSim_
 
 **`+0x1b2` — engaged.** Two routes. `Detection_Sweep` activates it when a hostile that already has contact on this object closes to 50000 units; both parties latch `+0x9e` and both activate their own. And a shot that reaches the shooter's own selected target raises the *shooter's* `+0x9e` (`0042671f`) and activates the *struck* object's action, from the tail of `Sim_RaycastObjectList` ([`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)) — so shooting at what you have boxed engages it with nothing in detection range of it, the other way into mission-objective condition 6 ([`mission-objectives.md`](mission-objectives.md)).
 
-Both routes are gated on the struck object's `obj+0xa2` being clear. That byte is a per-tick latch: `Mech_PerTickSystemsUpdate` raises it (`0041abd8`) on whatever the machine's targeting-computer pod holds a lock on, and `Sim_DetectionTick` clears it on everything at the end of the pass ([`target-selection.md`](target-selection.md)). `Action_Activate` is itself one-shot, so the gate can only suppress a duplicate inside one tick.
+Both routes are gated on the struck object's `obj+0xa2` being clear. That byte is a per-tick latch: `Mech_PerTickSystemsUpdate` raises it (`0041abd8`) on the machine's own selected target while its ECM pod's switch is on, which only the player's ever is ([`equipment-pods.md`](equipment-pods.md#what-each-class-actually-overrides)), and `Sim_DetectionTick` clears it on everything at the end of the pass ([`target-selection.md`](target-selection.md)). `Action_Activate` is itself one-shot, so the gate can only suppress a duplicate inside one tick.
 
 **`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat. The first three run the object's [out-of-action report](#the-out-of-action-report) just before it; the fourth does not:
 
@@ -93,7 +93,7 @@ Both routes are gated on the struck object's `obj+0xa2` being clear. That byte i
 | `Base_ApplyDamage` (`00404d70`) | the last component goes — [`structure-behaviour.md`](structure-behaviour.md#taking-damage--base_applydamage-00404d70) |
 | `Ai_ChooseWeapon` (`0041f358`) | the machine runs out of working weapons — [`ai-weapons.md`](ai-weapons.md) |
 
-**This is how a retail mission chains its reinforcement waves.** The shipped `script.dat` names one on five of its ten mech records; see the worked example below.
+**This is how a retail mission chains its reinforcement waves.** `TRAIN8.MSN` names one on five of its ten mech records; see the worked example below.
 
 ## The deployment gate — `group+0x14`
 
@@ -227,18 +227,20 @@ Across the 62 `.MSN` missions, 32 use the mech slots, 31 the structure slots, 22
 
 The six others carry op 6 or `0x17`, which write nothing here.
 
-## The shipped mission, end to end
+## `TRAIN8.MSN` end to end
 
-A worked example, because it is the only place the four mechanisms are visible together. The live `script.dat` fields 3 actions, 1 trigger area, 0 action timers, and 8 Cybrid HERCs in six groups:
+A worked example, because it is the only place the four mechanisms are visible together. `TRAIN8.MSN` (Scramble) fields 3 actions, 1 trigger area (two row-9 records sharing a GUID), 0 action timers, and 8 Cybrid HERCs in six groups; group numbers are `script.dat` block-11 record indices:
 
 | stage | what activates it | who arrives |
 |---|---|---|
-| start | — | group 2, one ACHILLES, north of the player; group 8, two flyers |
-| wave 1 | group 2's machine dies (`+0x1b6` → action 0), **or** it walks into action 0's circle | groups 3 (two ACHILLES) and 4 (one), **in place** |
-| wave 2 | either of group 3's machines dies (`+0x1b6` → action 1) | group 5, a HEADHUNTER and a HYPERION, in place |
-| wave 3 | either of group 5's machines dies (`+0x1b6` → action 2) | groups 6 and 7, one ACHILLES each, **by drop pod** |
+| start | — | group 2, one HERC, north of the player; group 8, two flyers |
+| wave 1 | group 2's machine dies (`+0x1b6` → action 0), **or** it walks into action 0's circle | groups 3 (two HERCs) and 4 (one), **in place** |
+| wave 2 | either of group 3's machines dies (`+0x1b6` → action 1) | group 5, two HERCs, in place |
+| wave 3 | either of group 5's machines dies (`+0x1b6` → action 2) | groups 6 and 7, one HERC each, **by drop pod** |
 
-Action 0's circle is centred at (1005988, 1058404) with radius 150,000 and its subject is type 3 — deployed **Cybrid** groups, not the player. The player spawns inside it at 64,132; group 2's ACHILLES spawns north at 252,252 and walks south, crossing in at tick 1222 (~49 s at 25 Hz). So the first wave arrives on its own if the player does nothing, and sooner if the player kills the machine. Actions 1 and 2 carry no area, so their only route is the kill.
+Action 0's circle is centred at (1005988, 1058404) with radius 150,000 and its subject is type 3 — deployed **Cybrid** groups, not the player. The player spawns inside it at 64,132; group 2's machine spawns north at 252,252 and walks south, crossing in at tick 1222 (~49 s at 25 Hz). So the first wave arrives on its own if the player does nothing, and sooner if the player kills the machine. Actions 1 and 2 carry no area, so their only route is the kill.
+
+The Cybrid HERCs' chassis are not fixed. Each of the eight roster records names a type-3 variant key, so every HERC draws its own chassis (DIABLO, ACHILLES, HYPERION or HEADHUNTER) when the mission loads ([`msn-mission-file.md`](../formats/msn-mission-file.md#variants)). The counts, groups, actions and routes above are the same on every load.
 
 ## Rejected readings
 

@@ -303,7 +303,7 @@ public sealed class ShellSurface {
 		}
 	}
 
-	/// <summary>A filled ellipse inside the inclusive box around (<paramref name="cx"/>, <paramref name="cy"/>) — <c>FUN_0045852c</c>'s solid path.</summary>
+	/// <summary>A filled ellipse inside the inclusive box around (<paramref name="cx"/>, <paramref name="cy"/>) — <c>Gfx_FillEllipse</c> (<c>0045852c</c>)'s solid path.</summary>
 	public void FillEllipse(int cx, int cy, int radiusX, int radiusY, byte index) {
 		if (radiusX <= 0 || radiusY <= 0) {
 			Fill(cx - radiusX, cy - radiusY, cx + radiusX, cy + radiusY, index);

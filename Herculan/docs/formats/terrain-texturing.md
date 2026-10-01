@@ -31,7 +31,7 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 | | |
 |---|---|
 | 8 x `int16` | dispatched into subsystem setup (`0042ebbc`, sky/fog globals), not stored as a struct |
-| 6 x `int16` | ditto; two land in `DAT_004cfd76`/`DAT_004cfd78` |
+| 6 x `int16` | ditto; two land in `DAT_004cfd76`/`DAT_004cfd78`. The second of the six, the file's tenth `int16` (byte 18), is `World_FlatSetSelector` (`0049aeea`), which picks the theater's ground-shape set ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-shape-set--flatobj_loadresources-004097a8)); 1 in all ten retail files |
 | `int32` count + count x `int32` | 16 entries in every retail file, ascending in even steps |
 | `int32` count + count x `int32` | 16 again, identical to the first array |
 | `int16` rows, `int16` cols | sizes the pair of ramp tables that follow |
@@ -44,7 +44,7 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 |---|---|---|---|---|---|---|---|---|---|---|
 | bank | urban | urban | bsnow | bsnow | volcan | volcan | ice | ice | moon | moon |
 
-Five theaters, two variants each. The variant is **time of day**: the practice missions screen's `Day` / `Night` row writes it straight into the header field, and the ten retail files all carry `Day`. See [`../simulation/difficulty.md`](../simulation/difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte). Which theater, variant and zone a mission runs is the `script.dat` header's — see [`script-dat.md`](script-dat.md#header-format).
+Five theaters, two variants each. The variant is **time of day**: the practice missions screen's `Day` / `Night` row writes it straight into the header field, and the ten retail files all carry `Day`. See [`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters). Which theater, variant and zone a mission runs is the `script.dat` header's — see [`script-dat.md`](script-dat.md#header-format).
 
 Alongside the terrain bank, `maybe_World_LoadTheater` loads the theater palette `dpl\world<N>.dpl`, one per theater, which mech and structure shading resolves through too.
 
@@ -111,7 +111,7 @@ The setting is **option 7** of the simulator's option array, and it has no write
 
 ### The terrain-texture switch
 
-**Option 8**, the panel's TERRAIN TEXTURE row, reaches the draw path as `TerrainTexturingEnabled` (`004aab2c`), which `Terrain_DrawCellQuad` tests per triangle: 1 picks the textured span writers and 0 the flat ones. Two things write it — the option's own handler (`00459d4c`) and `Terrain_LoadZone`, from the same byte — so the setting lands on the next zone whether or not the handler ever runs. `FUN_0043fe1c` saves it, forces it to 0 and restores it around the heads-down map's terrain pass, which is why that view's terrain is never textured however the setting reads.
+**Option 8**, the panel's TERRAIN TEXTURE row, reaches the draw path as `TerrainTexturingEnabled` (`004aab2c`), which `Terrain_DrawCellQuad` tests per triangle: 1 picks the textured span writers and 0 the flat ones. Two things write it — the option's own handler (`00459d4c`) and `Terrain_LoadZone`, from the same byte — so the setting lands on the next zone whether or not the handler ever runs. `MfdMissileViewScreen_Paint` (`0043fe1c`) saves it, forces it to 0 and restores it around the MISSILE CAM screen's terrain pass, which is why that view's terrain is never textured however the setting reads.
 
 ## Who writes `cell[+0xf]`
 

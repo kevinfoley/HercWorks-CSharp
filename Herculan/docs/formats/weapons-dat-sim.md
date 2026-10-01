@@ -91,7 +91,7 @@ Answers how a weapon id maps to a `PROJ.DAT` record. Read via `WeaponMountTempla
 - **Otherwise -- direct flat array index into `PROJ.DAT`** (`index * 0x24 + ProjDat_RecordTable`, via `Proj_LookupRecordByIndex` at `0x0040ffb0`). Confirmed for all other real weapons.
 - **0 for non-firing entries** (`NONE`, `LAEW`, `MINE`, `TARG`, `SHLD`, `TURB`, `ENRG`). Field is inert for passive stat-boost systems. `LAEW` coincidentally resolves to index 0 (`ATC20`).
 
-The records each index reaches: [`../simulation/weapon-damage-types.md`](../simulation/weapon-damage-types.md#the-retail-records).
+The records each index reaches: [`proj-dat.md`](proj-dat.md#the-retail-records), which also says how a fired shot resolves its record a second time.
 
 ## Open
 

@@ -45,7 +45,7 @@ public sealed class ShellArt {
 
 	/// <summary>
 	/// The backdrop every tab screen's root widget is textured with, loaded once by the shell's global
-	/// init into <c>DAT_0046dcd4</c> and handed to each screen builder as its root's image.
+	/// init into <c>ShellBackdropBitmap</c> (<c>0046dcd4</c>) and handed to each screen builder as its root's image.
 	/// </summary>
 	public const string BackdropName = "BAY2A_84";
 
@@ -82,7 +82,7 @@ public sealed class ShellArt {
 	/// </summary>
 	public static readonly string[] FontNames = { "FONT", "FONT2", "BLACK" };
 
-	/// <summary>The font tab captions are drawn in — <c>DAT_0046dccc</c>, the handle each strip button is given.</summary>
+	/// <summary>The font tab captions are drawn in — <c>ShellButtonFontHandle</c> (<c>0046dccc</c>), the handle each strip button is given.</summary>
 	public const string ButtonFont = "BLACK";
 
 	/// <summary>

@@ -3,7 +3,7 @@ namespace Herculan.Engine.Render;
 /// <summary>
 /// The screen of the cockpit view manager's view 4, in the 640x480 mode's device pixels: the 3D rect
 /// <c>CockpitViewManager_Ctor</c> (<c>00429660</c>) sets as the default, and the caption
-/// <c>FUN_0045e1ec</c> paints under it. See docs/simulation/external-views.md, "What the external view
+/// <c>ViewChain_DrawCaption</c> (<c>0045e1ec</c>) paints under it. See docs/simulation/external-views.md, "What the external view
 /// shows".
 /// </summary>
 public static class ExternalViewLayout {

@@ -30,11 +30,11 @@ The angular-size correction the function computes from the target's range and sh
 Alive (`obj+0x99`/`+0xa4` both clear), on the other side, and **known** by either sensor route:
 
 - radar-visible (`obj+0x95`) within `DAT_004d1cfc` = **200000**, the last of the scanner's three ranges (`MfdDisplay_Ctor` writes 50000/100000/200000) — read directly, not the current setting;
-- or a held contact within `FUN_00426aec` = **30000** on the short scan setting, **60000** otherwise.
+- or a held contact within `Detection_ContactScanRange` (`00426aec`) = **30000** on the short scan setting, **60000** otherwise.
 
 Ranges here and in the cone test are measured from the machine (`view+0x203`), or from the watched object `DAT_004d2708` while the spectator flag `DAT_0049ef5c` is set — see [The spectator flag](external-views.md#the-spectator-flag--dat_0049ef5c).
 
-### Losing the selection — `FUN_004327ac`
+### Losing the selection — `CockpitView_PerFrameUpdate`
 
 The cockpit's per-frame update, run from `maybe_Sim_RenderFrame` just before `Player_PerFrameCockpitUpdate` copies the selection onto the machine, ends by re-running `TargetSelect_CanTarget` on `view+0x210` and clearing it when that fails. A selection is therefore dropped the frame its target dies **or stops being known** — no longer radar-visible within 200000 and not a held contact within the scan range. The whole widget pass, this check included, is skipped while `view+0x20f` is set, which `CockpitView_ApplyViewState` does for view 4, the external view; a selection survives there until the cockpit returns.
 
@@ -83,7 +83,7 @@ A terrain ray between the two objects' aim nodes (`+0x1c` of the vtable `+0x24` 
 
 This matters for what the player can target. Passive, targeting depends on visual contacts and reaches the 60000-unit contact range, about 360 m; active, it reaches the 200000-unit radar range (1200 m) as far as terrain gives line of sight — a stock-mission hostile at 831 m is targetable that way. A distant enemy is usually targetable because *its own* radar is on: `Mech_AiCombatReassess` switches an AI machine to ACTIVE the moment it enters a fight and a squadmate of the player's back to PASSIVE.
 
-Radar mode is also what an AI machine's ECM pod follows — see [`equipment-pods.md`](equipment-pods.md#what-each-class-actually-overrides).
+Radar mode is also what an AI machine's ECM pod follows — see [`missile-lock.md`](missile-lock.md#ecm).
 
 ### How an AI machine's radar is set
 
@@ -187,7 +187,7 @@ The Targeting Pod is the only pod that caches its damage, and a pristine pod's c
 | Obvious reading | Actually |
 |---|---|
 | `mech+0x96` is a weapons-free flag, and `Ai_UpdateWeaponsFree` is the AI's trigger gate | It is the radar mode. `Rocket_HomingSteer` homes an ARM on it, `Mech_DirectFireHitTest` clears it on an ARM hit, and the detection sweep reads it as the scanner. Nothing in the fire path consults it; the mission-file field feeding it is the mission's radar setting, not a rule of engagement. The Ghidra symbol keeps the misleading name — see [How an AI machine's radar is set](#how-an-ai-machines-radar-is-set) |
-| The player's selection is never dropped: the death path `Mech_AiSelectBehaviour` (`0041eb34`) and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) both run only for AI machines, and a text search for writes to `+ 0x210)` finds only the three selection commands | `FUN_004327ac` clears it, written by the decompiler as `param_1[0x84] = 0` — `0x84 * 4 = 0x210` — so an offset search misses it. See [Losing the selection](#losing-the-selection--fun_004327ac) |
+| The player's selection is never dropped: the death path `Mech_AiSelectBehaviour` (`0041eb34`) and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) both run only for AI machines, and a text search for writes to `+ 0x210)` finds only the three selection commands | `CockpitView_PerFrameUpdate` clears it, written by the decompiler as `param_1[0x84] = 0` — `0x84 * 4 = 0x210` — so an offset search misses it. See [Losing the selection](#losing-the-selection--cockpitview_perframeupdate) |
 | Structures sight from the literal 500 because they install the `return 0` stub at vtable `+0x24` | That stub (`00411a9c`) is the flyer's and the base class's; all five structure vtables install `Base_GetAimNodeTransform` (`00403548`). See [Aim point](#aim-point--vtable-0x24) |
 
 ## Open

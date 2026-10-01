@@ -350,7 +350,7 @@ public sealed class ShellMissionScreen {
 
 	public ShellMissionScreen(ShellMissionArt? art = null) => _art = art;
 
-	/// <summary><c>DAT_0048106c</c>, the view up.</summary>
+	/// <summary><c>MissionScreenView</c> (<c>0048106c</c>), the view up.</summary>
 	public ShellMissionView View { get; private set; } = ShellMissionView.Briefing;
 
 	/// <summary>The campaign map view's text box, box 0.</summary>

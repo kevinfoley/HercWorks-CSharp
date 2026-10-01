@@ -21,7 +21,7 @@ It reaches the file through a plain-file-read helper with no container header, s
 | `+0x1e` | `int16` | non-zero = invulnerable (types 21, 22, 23) |
 | `+0x20` | `int16`×2 | playback rate for each of those threads — [`structure-behaviour.md`](../simulation/structure-behaviour.md#the-animation-threads) |
 | `+0x24` | `int16` | idle cell-flipbook sequence, `-1` for none — [`structure-behaviour.md`](../simulation/structure-behaviour.md#the-plain-tick--base_thinktick-00403ca8) |
-| `+0x26` | `int16` | that flipbook's frame interval, in the simulation's timer unit — [`structure-behaviour.md`](../simulation/structure-behaviour.md#timer-units) |
+| `+0x26` | `int16` | that flipbook's frame interval, in the simulation's timer unit — [`dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md#timer-units) |
 | `+0x28` | `int16` | MFD silhouette frame and type-name index |
 | `+0x2a` | `int16` | body radius, vtable `+0x5c` (`Base_GetBodyRadius`, `004035a4`), and `+0x7c` for an animated type; four types state 0 — [`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-three-radius-slots) |
 | `+0x2c` | `int16` | how far up the structure anything aiming at it aims, vtable `+0x30` (`0040351c`) — [`structure-behaviour.md`](../simulation/structure-behaviour.md#what-a-structure-is-aimed-at) |

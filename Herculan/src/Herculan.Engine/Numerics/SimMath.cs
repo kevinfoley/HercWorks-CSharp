@@ -20,7 +20,7 @@ namespace Herculan.Engine.Numerics;
 /// </summary>
 public static class SimMath {
 	/// <summary>
-	/// The global simulation timestep — DBSIM's <c>SimTickDelta</c> (<c>DAT_004d3be8</c>), read by
+	/// The global simulation timestep — DBSIM's <c>SimTickDelta</c> (<c>004d3be8</c>), read by
 	/// <see cref="IntegrateRateOverTick"/> and <see cref="CountdownTimerTick"/>. In DBSIM this is
 	/// refreshed once per frame from a hardware timer by the per-frame sim tick
 	/// (<c>Sim_MainTick</c>, <c>0045f464</c>); here the sim loop owns it the same way (see <c>Sim/SimWorld</c>).

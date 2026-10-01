@@ -40,26 +40,21 @@ public class ScriptDat {
 	/// the goal position, 3 or 7 the data-link sequence. Type 3 also takes the data-link subject out
 	/// of the AI's candidate set, so the player's squad does not shoot the thing they came to read.
 	///
-	/// <para>Every one of the ten files in the retail install carries 0, which is what a save-slot
-	/// snapshot of a conventional mission would; the other three arms are reached from the
-	/// campaign's own missions.</para>
+	/// <para>Which missions patch it is in docs/formats/script-dat.md#header-format.</para>
 	/// </summary>
 	public short ObjectiveType { get => ReadHeader(6); set => WriteHeader(6, value); }
 
 	/// <summary>
-	/// Header offset 8 — <c>DAT_004a9eda</c>, the <b>training mission number</b>, 0 for anything that
+	/// Header offset 8 — <c>ScriptDatTrainingMission</c> (<c>004a9eda</c>), the <b>training mission number</b>, 0 for anything that
 	/// is not one. The <c>.MSN</c> header patch sets it: <c>TRAIN1</c>-<c>TRAIN4</c> carry 1-4, every
 	/// other mission 0. It selects the cockpit's training message port and the instructor's
 	/// <c>COMMAND&lt;n&gt;.STR</c> and <c>TM&lt;n&gt;_</c> clips, and silences the music. See
 	/// docs/formats/script-dat.md#the-training-mission-number.
-	///
-	/// <para>Every one of the ten files in the retail install carries 0: the training missions reach
-	/// DBSIM through the shell, not through a save-slot snapshot.</para>
 	/// </summary>
 	public short TrainingMissionNumber { get => ReadHeader(8); set => WriteHeader(8, value); }
 
 	/// <summary>
-	/// Header offset 10 — <c>DAT_004a9edc</c>, <b>unlimited ammunition and energy</b> when the file
+	/// Header offset 10 — <c>UnlimitedAmmoFlag</c> (<c>004a9edc</c>), <b>unlimited ammunition and energy</b> when the file
 	/// says exactly 1. The shell's practice missions screen sets it; a campaign forces it to 0. It acts
 	/// on the player's machine alone, in two ways: a shot spends no ammunition, and the weapon mounts
 	/// hand the Master Energy Pool back everything they drew this tick. See
@@ -68,14 +63,14 @@ public class ScriptDat {
 	public short UnlimitedAmmunition { get => ReadHeader(10); set => WriteHeader(10, value); }
 
 	/// <summary>
-	/// Header offset 12 — <c>DAT_004a9ede</c>, <b>player invulnerable</b> when the file says exactly
+	/// Header offset 12 — <c>PlayerInvulnerableFlag</c> (<c>004a9ede</c>), <b>player invulnerable</b> when the file says exactly
 	/// 1. It gates the whole of the damage write for the locally piloted machine, so its components
 	/// take nothing; its shields still absorb and still drain, because that happens before the write.
 	/// </summary>
 	public short PlayerInvulnerable { get => ReadHeader(12); set => WriteHeader(12, value); }
 
 	/// <summary>
-	/// Header offset 14 — <c>DAT_004a9ee0</c>, the <b>mission difficulty</b>, 0-3. The shell writes
+	/// Header offset 14 — <c>MissionDifficulty</c> (<c>004a9ee0</c>), the <b>mission difficulty</b>, 0-3. The shell writes
 	/// the player pilot's own skill here in a campaign and the practice missions screen's setting
 	/// outside one, which is why every retail file carries 2 (<c>VETERAN</c>). Four things in the
 	/// original index a four-entry table with it — see docs/simulation/difficulty.md.

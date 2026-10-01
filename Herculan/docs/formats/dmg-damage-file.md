@@ -35,9 +35,9 @@ piece = 8 bytes, then dependentCount * 4 bytes of dependent list
 | Bit | Meaning |
 |---|---|
 | 0 | The piece runs its destruction at all. `Component_ApplyDamageAndCascade` calls `Component_DestroyAndCascade` only for a piece with this bit set, and that call clears the active flag, throws the debris and cascades to every live piece whose parent (`+0x04`) names it. A piece without it (the torso, in 20 of the 21 files) reads fully damaged once its armour and internals are gone and does none of that |
-| 1 | The piece going up releases every fire already on the machine and lights shape 0 in its place — the machine going up as a whole |
-| 3 | With bit 1 clear, lights shape 2 |
-| 2 | The piece's explosion is type `0x11` rather than 10, and once one has gone off the rest of that cascade start neither a fire nor an explosion — the latch is `DAT_004a98b0`, cleared at the start of each cascade |
+| 1 | Whole-machine fire: shape 0 replaces every fire already on the machine — [`destruction-effects.md`](../simulation/destruction-effects.md#who-catches-fire) |
+| 3 | With bit 1 clear, the component's own fire, shape 2 — [`destruction-effects.md`](../simulation/destruction-effects.md#who-catches-fire) |
+| 2 | The piece's explosion is type `0x11` rather than 10, and sets the cascade's latch — [`destruction-effects.md`](../simulation/destruction-effects.md#a-machines-component) |
 
 The fires are [`destruction-effects.md`](../simulation/destruction-effects.md#fire)'s. Retail files carry 0, 1, 3, 5, 7 and 9: 7 is the front cockpit on 18 chassis, 9 is both weapon brackets on 13, 1 is the leg chains and the rear cockpit on most, and 5 and 3 are one component each in MAVERICK, OUTLAW, SPIDER and RAMSES.
 

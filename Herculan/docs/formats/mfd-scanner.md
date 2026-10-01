@@ -121,7 +121,7 @@ Both values go through `Hud_WorldUnitsToMetres` and then `_itoa` into a four-byt
 | Button | Action |
 |---|---|
 | 8 RANGE | `MfdDisplay_CycleScannerRange` (`00446fc8`) — step the zoom index, wrapping at 3 |
-| 9 TARGET | shares its case with SELECT: `TargetSelect_Cycle` unless the mode is 0, so it does what [Enter] does |
+| 9 TARGET | `TargetSelect_Cycle`, so it does what [Enter] does. Its case is shared with 7 SELECT, which branches on the current mode and takes the `TargetSelect_Cycle` arm in every mode but 0 — the scanner is mode 3 — see [`mfd.md`](mfd.md) |
 | 11 PASS | `mech+0x96 = 0`, then light itself and clear ACTIVE |
 | 12 ACTIVE | `mech+0x96 = 1`, and the reverse |
 

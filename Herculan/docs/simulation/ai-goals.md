@@ -106,7 +106,7 @@ So a group is written off either by losing enough machines or by having enough d
 
 Walks every mission group and answers false the moment it finds one that is **on the other side**, whose own current order names **the same subject pointer**, and that still has a member in the fight. A guard order therefore ends when the thing being guarded is gone *or* when nothing hostile is assigned against it any more: the post is finished, not just survived.
 
-**"Still has a member in the fight" is `Group_IsWipedOut` (`00412be4`), which tests all three out-of-the-fight bytes, the disarmed one included** — [`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5) owns the triple and the reading of that function's name. The disarmed term is the point rather than an oversight: this order asks whether anything can still contest the post, and a machine with no working hardpoint cannot. It does mean a rival group of ordinary structures, born disarmed, never blocks a guard order at all.
+**"Still has a member in the fight" is `Group_IsWipedOut` (`00412be4`), which tests all three out-of-the-fight bytes, the disarmed one included** ([the bytes](component-damage.md#the-three-out-of-the-fight-bytes--0x99-0xa4-0xa5)). Its name says destroyed; what it tests is "out of the fight", so a group whose members are alive but disarmed answers yes. The disarmed term is the point rather than an oversight: this order asks whether anything can still contest the post, and a machine with no working hardpoint cannot. It does mean a rival group of ordinary structures, born disarmed ([`structure-behaviour.md`](structure-behaviour.md#five-classes-one-switch)), is wiped out from the moment it is built and never blocks a guard order at all. Anything that reused the function for a destroy-the-group objective would be reading its name, not its test.
 
 The comparison is on the subject pointer, not on the guarded position, so two groups only count as rivals when the mission gave them literally the same subject.
 
@@ -126,14 +126,20 @@ The fifth, `+0x08`, is read outside the current index: `DBSim_BuildGroupRecord` 
 
 ## A group with no order at all
 
-`Mech_AiSelectBehaviour` substitutes verb `0x0b` for a null order slot, and `0x0b` matches no case in its jump table. The function is `__cdecl(mech)` and the descriptor it is about to install lives in `EDX`, which nothing on that path writes — so the value handed to `Behaviour_SetState` is the caller's `EDX`. The caller is always `Behaviour_DispatchReassess` (`00415b74`), whose last write to `EDX` is the reassess triple's third word, and that word is zero in every one of the 22 source blocks. **The default path installs a null descriptor, and `Behaviour_SetState` dereferences it two instructions later.**
+`Mech_AiSelectBehaviour` substitutes verb `0x0b` for a null order slot, and `0x0b` matches no case in its jump table. The function is `__cdecl(mech)`. Every case of the jump table loads its descriptor into `EDX`, and the default label (`0041ed82`) runs `MOV EAX,EDX; PUSH EAX` ahead of `Behaviour_SetState`. A non-player machine whose group order is null gets there from `0041ebb6` through `0041ecf6`, which write only `EAX` and `ECX`, so the descriptor handed to `Behaviour_SetState` is the **caller's `EDX`**.
 
-Nothing reaches it in retail. Across all twelve shipped `script.dat` handoffs every mech group and every flyer group carries an order in slot 0; the groups that carry none are all structures, and a structure has no behaviour block for `Mech_AiTick` to find.
+Through `Behaviour_DispatchReassess` (`00415b74`) that is the reassess triple's third word, the last thing the dispatcher writes to `EDX`, and the word is zero in all 22 source blocks. **That default path installs a null descriptor, and `Behaviour_SetState` reads `descriptor+0x04` from it a few instructions on.** The seven direct calls (`Mech_AiFleeCheck`, `Mech_AiCombatReassess` twice, `Mech_AiOnTakingFire`, `Mech_ReceiveSquadOrder` three times) hand over whatever `EDX` they hold; [Open](#open).
+
+Nothing in the retail missions reaches it. Across the 62 `.MSN` files, every mech group and every flyer group that names a member carries an order in slot 0 as authored (503 groups, counted by GUID, the player's record 0 left out, campaign conditions not applied); the groups that carry none are all structures, and a structure has no behaviour block for `Mech_AiTick` to find.
 
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
 | Each order carries the route the group follows while that order is in force | The order record does hold one at `+0x08`, and retail missions do give later orders their own — but only slot 0's is ever installed, at group construction. A group that advances to its second order keeps walking the first one's route, which by then is exhausted |
-| A group with no orders simply keeps whatever state its machines already had | That is what the *absence* of a matching case looks like in the decompiler, where the descriptor argument reads as an unwritten parameter. In the disassembly it is `EDX`, and `EDX` is zero |
+| A group with no orders simply keeps whatever state its machines already had | That is what the *absence* of a matching case looks like in the decompiler, where the descriptor argument reads as an unwritten parameter. In the disassembly it is `EDX`, which is zero when the reassess dispatcher is the caller |
 | `Group_OrderTick` skips members that are dead or removed | It ticks every member unconditionally. The filtering is `Mech_AiTick`'s, and it is by whether the machine has a behaviour descriptor at all |
+
+## Open
+
+- **Open:** what `EDX` holds at each of `Mech_AiSelectBehaviour`'s seven direct call sites (`0041cc24`, `0041d068`, `0041d134`, `0041fab5`, `00420d82`, `004210af`, `00421109`), which is what a null order slot would install when reached that way. Only the `Behaviour_DispatchReassess` route is known to hand over zero, and the combat states reassess through `Mech_AiCombatReassess`'s own calls instead.

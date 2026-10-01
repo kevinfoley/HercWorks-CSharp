@@ -14,16 +14,16 @@ The counts are `grep -Eio` hits for the claim vocabulary in "Why only these clai
 
 Take them in this order. It is not the density order: it front-loads the docs that [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md) leans on, for the reason in "Audit the KNOWN_ISSUES entries with their doc" below.
 
-| Doc | Lines | Claim words | KNOWN_ISSUES entries it owns | Status |
-|---|---|---|---|---|
-| `ai-dispatch.md` | 246 | 24 | — | Done |
-| `ai-combat-states.md` | 411 | 71 | ramming self-destructs on a stale bump; ramming killed by any obstacle | Done bar one hand-off to `ai-weapons.md`; both entries re-verified and hold |
-| `ai-navigation.md` | 235 | 59 | `travelling` skips waypoints; `follow` never finishes; slows for nothing it steers around | Done. All three entries hold; `follow` gained the action-path qualifier |
-| `ai-weapons.md` | 215 | 41 | front shield whatever the facing; Cybrid aim skewed one way | **Next.** Also settles `ai-combat-states.md`'s aspect hand-off |
-| `ai-goals.md` | 151 | 38 | route loaded once; **orderless group would crash, "no shipped mission has one"** | Not started |
-| `ai-flyers.md` | 270 | 45 | **flyer `ram`/`guard`/`follow` unimplemented — self-flagged unverified** | Not started |
-| `ai-squadmates.md` | 157 | 29 | — | Not started |
-| `ai-targeting.md` | 247 | 20 | aim component reads own damage; `rand & 1000` | Not started. Its `flanking` gate paragraph is already corrected — do not re-derive it |
+| Doc | Claim words | KNOWN_ISSUES entries it owns | Status |
+|---|---|---|---|
+| `ai-dispatch.md` | 24 | — | Done |
+| `ai-combat-states.md` | 71 | ramming self-destructs on a stale bump; ramming killed by any obstacle | Done; both entries re-verified and hold. The aspect hand-off is settled: `Ai_FireAtPoint` passes it only to `Ai_ChooseWeapon`, which reads it once |
+| `ai-navigation.md` | 59 | `travelling` skips waypoints; `follow` never finishes; slows for nothing it steers around | Done. All three entries hold; `follow` gained the action-path qualifier |
+| `ai-weapons.md` | 41 | front shield whatever the facing; Cybrid aim skewed one way | **Next** |
+| `ai-goals.md` | 38 | route loaded once; **orderless group would crash, "no shipped mission has one"** | The orderless-group claim is re-verified: the default path pushes the caller's `EDX`, zero through the reassess dispatcher and unknown at seven direct call sites (an `## Open` item); the `script.dat` files number ten and are saves. The rest of the doc's quantified claims, route-loaded-once included: not started |
+| `ai-flyers.md` | 45 | flyer `ram`/`guard`/`follow` unimplemented | The mechanism is verified: `Flyer_AiSelectBehaviour`'s only references are its five stored pointers, and its default pushes `ECX`. The data question is answered from the `.MSN` rows: the 76 flyer groups all have a first order and use only verbs 0, 3 and 4. The rest of the doc: not started |
+| `ai-squadmates.md` | 29 | — | Not started |
+| `ai-targeting.md` | 20 | aim component reads own damage; `rand & 1000` | Not started. Its `flanking` gate paragraph is already corrected — do not re-derive it |
 
 **Do not pre-write inventories for the un-started docs.** Generate each one at the start of its own session with the grep below. A pre-written list goes stale as the doc is edited, and costs more to carry than to regenerate.
 
@@ -74,10 +74,7 @@ The ~33 entries that cite shell and format docs are a separate programme — tho
 
 ## What is left
 
-Nothing on the spine, and nothing on navigation. Two claims belong to other docs' audits:
-
-- The combat geometry's aspect passes through `Ai_AimAndFire` (`0041ea7c`) untouched into `Ai_AimAndFireAtMech` or `Ai_FireAtPoint`, so whether `Ai_ChooseWeapon`'s shield-facing test is its **only** consumer is settled in `ai-weapons.md`.
-- `Group_OrderTick` (`00423a74`) advances a group past an order whose own action has fired, whether or not the order completed. Navigation's `follow` entry now says so; `ai-goals.md` owns the mechanism and should check its own wording against it.
+Nothing on the spine, and nothing on navigation.
 
 A warning for the docs still to audit, since it cost time here: **a symbol name cited in a doc can outlive the address it was attached to.** `known_symbols.json` is the arbiter, and it says so — check the name there before treating a failed grep of the dump as a finding. `Bases_LoadTypeTable` was cited by two docs and four code comments and is in no dump; the function is `Base_LoadResources` (`00405fac`).
 

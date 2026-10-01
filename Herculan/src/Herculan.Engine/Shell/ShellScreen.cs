@@ -1,7 +1,7 @@
 namespace Herculan.Engine.Shell;
 
 /// <summary>
-/// Which campaign the shell is running — <c>DAT_0048260c</c>, the flag that also picks
+/// Which campaign the shell is running — <c>CampaignModeFlag</c> (<c>0048260c</c>), the flag that also picks
 /// <c>GAME_R.SAV</c> over <c>GAME_T.SAV</c> (docs/formats/save-games.md). It is what gates three of
 /// the eight tabs; see <see cref="ShellScreen.ApplyTabGate"/>.
 /// </summary>
@@ -33,12 +33,12 @@ public enum ShellCampaignMode {
 ///
 /// <para><b>Three tabs are gated in training mode.</b> The builder clears <c>+0x49</c> on tab
 /// 5 as it constructs it, and the strip's refresh (<c>0043b0c8</c>) rewrites that flag on tabs 2 to 6
-/// from <c>DAT_0048260c</c> — REPAIR, BUILD and ARMORY off in training, everything on in the
+/// from <c>CampaignModeFlag</c> (<c>0048260c</c>) — REPAIR, BUILD and ARMORY off in training, everything on in the
 /// campaign. See <see cref="ApplyTabGate"/>.</para>
 ///
 /// <para><b>Tabs 0 and 1 never latch.</b> Every handler starts by clearing the lit flag on all nine
 /// strip buttons (<c>00439dcb</c>); the six from WEAPONS on then write their own back to 1, and the
-/// main menu's and the save screen's do not — <see cref="SelectedTab"/> is <c>DAT_0047581c</c>, which
+/// main menu's and the save screen's do not — <see cref="SelectedTab"/> is <c>CurrentTabIndex</c> (<c>0047581c</c>), which
 /// screen is up, and the latch is the lit flag, which only six of the eight ever take. Those two
 /// hide the strip outright instead, and <see cref="StripVisible"/> carries that; see
 /// <see cref="SelectTab"/>.</para>
@@ -61,14 +61,14 @@ public sealed class ShellScreen {
 	public int SelectedTab { get; private set; }
 
 	/// <summary>
-	/// <c>DAT_0047581c</c>'s parked value, <c>0xffff</c>: no tab is up, so whichever is clicked next is
+	/// <c>CurrentTabIndex</c> (<c>0047581c</c>)'s parked value, <c>0xffff</c>: no tab is up, so whichever is clicked next is
 	/// never mistaken for the one already showing.
 	/// </summary>
 	public const int NoTab = -1;
 
 	/// <summary>
 	/// Whether the strip is drawn and answers clicks — the hidden bit of the full-screen panel every
-	/// strip button is parented to (<c>DAT_0048d448</c>).
+	/// strip button is parented to (<c>ShellPanelWidget</c> (<c>0048d448</c>)).
 	/// </summary>
 	public bool StripVisible { get; private set; } = true;
 
@@ -104,7 +104,7 @@ public sealed class ShellScreen {
 	/// The strip refresh, <c>0043b0c8</c>: REPAIR, BUILD and ARMORY answer only in the campaign, while
 	/// WEAPONS and CREW answer in both. It writes those five and no others — the two leftmost tabs,
 	/// MISSION and the square button are never gated. The rest of the refresh — showing the strip and
-	/// parking <c>DAT_0047581c</c> — is <see cref="ReturnToFrame"/>'s.
+	/// parking <c>CurrentTabIndex</c> (<c>0047581c</c>) — is <see cref="ReturnToFrame"/>'s.
 	///
 	/// <para><b>The flag is <c>+0x49</c>, the enable flag.</b> A cleared tab is still hit by the
 	/// pointer, and its handler, <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>), then ignores the
@@ -185,7 +185,7 @@ public sealed class ShellScreen {
 	/// <summary>
 	/// Puts the bare frame back up with no tab current — the pair the save screen's EXIT and RESTORE
 	/// both end with: <c>0043b162(8)</c>, which shows the frame's root, then the strip refresh
-	/// <c>0043b0c8</c>, which shows the strip's panel, regates it and parks <c>DAT_0047581c</c> at
+	/// <c>0043b0c8</c>, which shows the strip's panel, regates it and parks <c>CurrentTabIndex</c> (<c>0047581c</c>) at
 	/// <c>0xffff</c>. Neither writes a lit flag, and nothing is lit: the save tab's handler cleared all
 	/// nine and latched none.
 	/// </summary>
@@ -208,7 +208,7 @@ public sealed class ShellScreen {
 	}
 
 	/// <summary>
-	/// The current tab's button unlit and no tab current (<c>DAT_0047581c = 0xffff</c>), the strip left
+	/// The current tab's button unlit and no tab current (<c>CurrentTabIndex = 0xffff</c> (<c>0047581c</c>)), the strip left
 	/// up — what <c>Movie_PlayQueue</c> does after <c>Mission_Leave</c> ahead of the location picture.
 	/// </summary>
 	public void LeaveTab() {

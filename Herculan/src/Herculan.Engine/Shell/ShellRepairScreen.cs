@@ -108,7 +108,7 @@ public sealed class ShellRepairScreen {
 	}
 
 	/// <summary>
-	/// Which hangar bay the screen is working on — <c>DAT_00482ae5</c>, <c>-1</c> for none. It is
+	/// Which hangar bay the screen is working on — <c>SelectedBaySlot</c> (<c>00482ae5</c>), <c>-1</c> for none. It is
 	/// shared with the arming, build and crew tabs rather than owned by this one.
 	/// </summary>
 	public int SelectedBay { get; private set; }

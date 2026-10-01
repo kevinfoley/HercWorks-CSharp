@@ -21,7 +21,7 @@ public sealed class CockpitPowerUp {
 	public const int RowCount = 10;
 
 	/// <summary>
-	/// The gap between one row winking on and the next, in coarse ticks. <c>DAT_0049b05a</c> is ten
+	/// The gap between one row winking on and the next, in coarse ticks. <c>PowerUp_RowArmDelays</c> (<c>0049b05a</c>) is ten
 	/// shorts reading 20, 40, … 200, so row <c>n</c> (0-based) arms once more than <c>20 * (n + 1)</c>
 	/// ticks have passed: 320 ms apart, the last at 3.2 s.
 	/// </summary>

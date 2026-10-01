@@ -180,7 +180,7 @@ public sealed class MciCdAudio : ICdAudio {
 
 	/// <summary>
 	/// <c>Music_ResumeAt</c> (<c>00473cc0</c>). The end of the play is the same track end
-	/// <see cref="PlayTrack"/> last worked out — the original keeps it in <c>DAT_006b5610</c> across
+	/// <see cref="PlayTrack"/> last worked out — the original keeps it in <c>Music_TrackLength</c> (<c>006b5610</c>) across
 	/// the two calls rather than querying it again, which is why resuming only ever follows a play.
 	/// </summary>
 	public bool ResumeAt(int packedTmsf) {

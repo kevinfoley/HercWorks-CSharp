@@ -27,11 +27,15 @@ Consumption is not a subtraction: the pool is **rebuilt** each tick from whateve
 rate = 20                                  // MOV ESI,0x14 — a literal
 if   (mech+0xab) rate = Q10(200, 20)  = 3  // reactor critical
 elif (mech+0xaa) rate = Q10(600, 20)  = 11 // reactor degraded
-if (EnergyPod && podDamage < 225)
-    rate += Q10(1024 - 204*(podDamage/51), 20)   // up to +20
+if (EnergyPod)
+    rate += Q10(podCurve(podDamage), 20)   // up to +20; nothing past the curve's cutoff
 ```
 
+`podCurve` is the damage curve every pod bonus shares, owned by [`equipment-pods.md`](equipment-pods.md#the-damage-curve-both-bonuses-share). The pod is `mech+0x313`, slot 3 of the array [`equipment-pods.md`](equipment-pods.md) describes.
+
 **Base rate is uniform across the fleet.** The function never reads the mech type record. At the 25 Hz tick `IntegrateRateOverTick(20)` yields 6 pool units/tick, i.e. 150/s.
+
+**The Energy Pod doubles the recharge rate, not the pool's capacity.** The manual says capacity. A pristine pod adds the full 20 to the base 20, while the ceiling is the literal 10000 in both `Mech_Constructor` and the clamp, so nothing can raise it. The manual's own aside, a modest increase in the Pool recharge rate, describes what the code does.
 
 **Computed once, at spawn.** `Mech_ComputeReactorRate` has exactly one reference in the binary — the tail of `Mech_ConfigureLoadout` (`004175dc`), itself only reached on spawn. Damage taken mid-mission never changes the rate; the damage terms still matter because a machine can spawn already damaged.
 
@@ -49,13 +53,6 @@ Its sibling `Mech_ComputeShieldCapacity` (`00417bec`) is **not** like this: `Mec
 
 Identified as the reactor by effect: the same pair cuts power and mobility together. Both latch and are never cleared, and the check is gated on **both** being clear — so once `+0xaa` sets, `+0xab` is only reachable by a single hit crossing both thresholds at once.
 
-## Equipment pods
-
-Five non-firing pods hang off the weapon-mount factory, filed into a five-pointer array at `mech+0x307` by `MechLoadout_FileEquipmentPods` (`0040fb2c`). Two of them are read from this page — the **Energy Pod** at `+0x313` by `Mech_ComputeReactorRate` above, and the **Turbo Pod** at `+0x317`, which is the only pod that draws on the pool. Its `+0x34` override `TurboPod_ChargeTick` (`0040f0d0`) takes its turn like a weapon mount's: an engaged pod spends 35 of its own charge a tick and then, if the mount is alive, buys back `min(20, budget, 2000 - charge)` out of what the guns left. So it competes with the weapons for the same budget and a machine firing hard refills it slowly. The family itself — the five classes, what each overrides, their cockpit rows, when they tick and the damage curve they share — is [`equipment-pods.md`](equipment-pods.md).
-
-> The manual says the Energy Pod doubles the pool's *capacity*. It does not — 10000 is a literal in > both the constructor and the clamp. It doubles the recharge *rate*, which is the manual's own > afterthought ("a modest increase in the Pool recharge rate").
-
-
 ## Weapon energy arbitration — `WeaponMounts_ArbitrateEnergy` (`004107e4`)
 
 Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`00499238`) and remote (`00499338`) manager classes. The mounts it serves are in [`weapon-mounts.md`](weapon-mounts.md).
@@ -65,6 +62,7 @@ Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`
 - Per mount, `WeaponMount_ChargeCapacitor` (`0040f00c`) takes `min(chargeRate +0x7f, budget, capacitor deficit)` into `+0x7d` and passes the remainder on.
 - Once any mount reports itself mid-charge, every mount after it targets zero instead and **bleeds its capacitor back into the pool** at 5/tick. One energy weapon charges at a time.
 - Ammunition mounts consume nothing — their slot-`0x34` override returns the budget untouched.
+- The equipment pods are mounts too and take the same turn. Every pod but one inherits the refire-timer turn and returns the budget untouched; the **Turbo Pod** is the only pod that draws on the pool, buying its charge back out of what the guns left, so it competes with the weapons for the same budget and a machine firing hard refills it slowly. The spend, the `min(20, budget, 2000 - charge)` buy-back and the rest of the pod are in [`equipment-pods.md`](equipment-pods.md#what-each-class-actually-overrides).
 - PLAS (id 25) is half-efficiency: its deficit counts double and only half of what it draws is stored.
 - The **unlimited energy and ammunition** setting refunds the whole pass's consumption, player only (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`): the mounts are served and charged as they otherwise would be, and the budget handed back to the pool is the one the pass was called with. Both globals are `script.dat` header fields and the practice missions screen is what sets them — see [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
 
@@ -72,16 +70,10 @@ An idle machine draws nothing: every energy mount powers up with `+0x7d` already
 
 ## Cockpit readouts
 
-- **Energy meter.** `Player_PerFrameCockpitUpdate` (`0041b130`) computes `(pool << 10) / 10000` and pushes it to the LED bar at UI slot `+0x1e5`, whose range is `0x400`.
-- **Shield rings** show charge; **the shield numbers show balance.** See [cockpit-hud-widgets.md](../formats/cockpit-hud-widgets.md#shieldsgauge).
-- **Weapon charge bars** are per-mount capacitors, not the pool, and are scaled against a fixed 1200 rather than the mount's own level — see [weapon-mounts.md](weapon-mounts.md).
+The pool's one cockpit readout is the **Master Energy Pool meter**: `Player_PerFrameCockpitUpdate` (`0041b130`) computes `(pool << 10) / 10000` and pushes it to the LED bar at cockpit slot `+0x1e5`, whose range is `0x400` — see [`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#led-gauges). The shield rings and numbers show the shield array, not the pool ([`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#shieldsgauge)), and a weapon's charge bar shows its own capacitor ([`weapon-mounts.md`](weapon-mounts.md#energy)).
 
-## Verified against retail
+## Shield refill time
 
-Refilling a damaged shield array takes ~30 s, matching 3500 ÷ 5 per tick = 700 ticks at the hard 25 Hz cap (28 s). The recharge cap is per *tick*, not per unit time, but the tick is capped by a `GetTickCount` spin (`Time_BeginSimTick`, `004677bc`), so this does not vary with hardware.
+The recharge cap is per *tick*, not per unit time, but the tick is held to 25 Hz ([`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)), so the refill time of 28 s from empty ([`damage-system.md`](damage-system.md#recharge-tick--shield_rechargetick-00413b38)) does not vary with hardware. Retail takes about 30 s, matching.
 
-> In retail the shield rings fade black→green over ~10 s at mission start. Both facings are full from `Shield_Init` onward and nothing writes zero to the struct (every reference enumerated, including a raw scan for the `0x222` displacement outside decompiled code), so this is a HUD animation, not charge ([Open](#open)).
-
-## Open
-
-- **Open:** find the HUD animation that fades the shield rings black→green at mission start.
+At mission start the shield rings fade in black to green. That is the power-up animation, not charge: both facings are full from `Shield_Init` onward ([`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#shield-rings-fill)).

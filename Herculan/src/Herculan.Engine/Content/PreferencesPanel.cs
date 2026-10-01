@@ -74,7 +74,7 @@ public sealed class PreferencesPanel {
 
 		/// <summary>
 		/// Steps forward only, and only while the voice archive is present. PILOT MESSAGE and COMPUTER
-		/// MESSAGE, whose cases are wrapped in <c>DAT_0049e9cd</c> — see <see cref="VoiceAvailable"/>.
+		/// MESSAGE, whose cases are wrapped in <c>VoiceArchivePresent</c> (<c>0049e9cd</c>) — see <see cref="VoiceAvailable"/>.
 		/// </summary>
 		StepForwardIfVoice,
 	}
@@ -131,7 +131,7 @@ public sealed class PreferencesPanel {
 	public bool SoundAvailable { get; }
 
 	/// <summary>
-	/// Whether the voice archive is on disk — <c>DAT_0049e9cd</c>, which <c>Voice_ArchiveExists</c> (<c>00459d6c</c>) sets by
+	/// Whether the voice archive is on disk — <c>VoiceArchivePresent</c> (<c>0049e9cd</c>), which <c>Voice_ArchiveExists</c> (<c>00459d6c</c>) sets by
 	/// building the localised <c>simvoice</c> name and simply trying to <c>fopen</c> it. Without it
 	/// the two message rows are forced to 0 at startup and neither can be clicked off it, so the
 	/// player cannot ask for voice the install does not have.

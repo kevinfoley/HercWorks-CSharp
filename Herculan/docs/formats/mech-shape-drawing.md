@@ -139,6 +139,7 @@ The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every dr
 |---|---|
 | The roots share one node space, because each crude root's transform ids are a **subset** of root 0's | A subset of ids is not the same joints. The ids are drawn from one range because the numbering is compacted, not because a node kept its number: APOCA's upper body is node 11 on root 0 and node 9 on root 4, where node 9 is a knee. The relation list is the only thing that says what a node is, and each root declares its own |
 | A mech `.DTS` carries one `ANAnimList`, on its root shape | One **per root**, and they differ in every dimension — APOCA's root 0 declares 8 sequences over 372 keyframes and 12 nodes, its root 4 declares 1 over 17 and 9 |
+| The `.DMG` record's `+0x03` byte is a HUD slot | It is the index of the `TSCellAnimPart` sequence the component drives, which the destruction path steps to its blank cell. The `= 2` write is a cell frame, not a damage state ([A destroyed component hides its own geometry](#a-destroyed-component-hides-its-own-geometry)) |
 | A nonzero detail bias is harmless because the walk can still reach root 0 | The walk only ever advances, and it starts at the bias. `g_ShapeDetailBias` is the floor on how fine a machine is ever drawn, which is what makes the lowest HERC DETAIL setting a visible change at point-blank range and not only at distance |
 
 ## Open

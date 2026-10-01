@@ -5,7 +5,7 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// What happens where a shot lands — DBSIM's explosion class, built by <c>Explosion_Construct</c> (<c>00407f1c</c>) and
-/// advanced by <c>Explosion_TickUpdate</c> (<c>0040813c</c>), allocated from the pool at <c>DAT_004a96a2</c>
+/// advanced by <c>Explosion_TickUpdate</c> (<c>0040813c</c>), allocated from the pool at <c>g_ExplosionPool</c> (<c>004a96a2</c>)
 /// (docs/simulation/impact-effects.md).
 ///
 /// <para>An effect is a <c>dts\EXPLOS.DTS</c> root standing still at the point of impact, playing

@@ -84,7 +84,7 @@ Loaded by `MechType_InitOne` (`004201a8`) as a 216-byte little-endian record int
 | 72 | `+0x4a` | Leg count: 2, except PITBULL's 4. Selects whether the front leg servos or all four are averaged in `Mech_ComponentDamageWrite` — [`component-damage.md`](component-damage.md#slots-the-write-path-reads-by-index) |
 | 76 | `+0x4e` | Chassis mass, the Q10 weight each party's speed carries in a collision. 5000 light … 20000 PITBULL, **0 SPIDER** |
 | 78 | `+0x50` | 1 = Razor. Selects the flight paths ([`razor-flight.md`](razor-flight.md)) and the `fm\<NAME>.FM` load ([`../formats/flight-model-fm.md`](../formats/flight-model-fm.md)) |
-| 84 | `+0x56` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction) |
+| 84 | `+0x56` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`weapon-mounts.md`](weapon-mounts.md#the-chance-path--the-destruction-roll) |
 | 98 | `+0x64` | Fore/aft half of the pilot's eye, from the camera node, in that node's frame: 200 on ten chassis and 0 on eight, 300 on RAPTOR2, 800 on APOCA, 1200 on RAZOR. Half of `Mech_GetAimPoint`'s (`004155c4`) eye triple `(0, +0x64, +0x66)` — [`external-views.md`](external-views.md#the-camera-object--cam) |
 | 100 | `+0x66` | The eye's lift above the node, the other half of that triple: 0 to 820 across the walkers, 2000 on PITBULL, 0 on RAZOR. It is also the height the sight line is measured from — [`ai-weapons.md`](ai-weapons.md) |
 | 102 | `+0x68` | Fore/aft half of the outside view's orbit centre in the machine's own frame, `Mech_GetAimPoint`'s second triple: 0 on every retail chassis |
@@ -95,7 +95,7 @@ Loaded by `MechType_InitOne` (`004201a8`) as a 216-byte little-endian record int
 | 190 | `+0xc0` | Shield array capacity before any Shield Pod: 3500 on every HERC, 0 on SPIDER — [`damage-system.md`](damage-system.md#the-shield-system) |
 | 194 | `+0xc4` | Stride calibration divisor |
 | 196 | `+0xc6` | Stride calibration numerator |
-| 204 | `+0xce` | Base name of the chassis' own debris file, 12 bytes NUL-padded — [`destruction-effects.md`](destruction-effects.md) |
+| 204 | `+0xce` | Base name of the chassis' own debris file, 12 bytes NUL-padded — [`debris-dat.md`](../formats/debris-dat.md) |
 | — | `+0xc2` | HUD scale, set at load to `Q10(315 × rawSpeedForward)` |
 
 ### Load-time speed rescale
@@ -281,7 +281,7 @@ Three terms, applied to the speed the machine is *asking* for rather than to the
 
 The severe pair wins outright where both apply. Both leg flags are written by the leg grading in [`component-damage.md`](component-damage.md); the reactor pair cuts power and mobility together — see [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
 
-- `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31). While engaged it adds a term to desired speed *in the current direction of travel*, gated on `speed != 0`, so the pod accelerates a walk rather than starting one. The term is a speed bonus that degrades with the pod's damage and is maximal at full health. What engages it, what it costs the pool and the curve are in [`equipment-pods.md`](equipment-pods.md#what-the-turbo-pod-is-worth).
+- `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31). While engaged it adds a term to desired speed (`00416b64`) *in the current direction of travel*: `Q10(Q10(scale, 1000), top)`, where `scale` is the pod's [damage curve](equipment-pods.md#the-damage-curve-both-bonuses-share) and `top` is the type's reverse speed at a current speed under 1 and its forward speed otherwise. Both gates are the original's: the pod must be engaged and the machine must already be moving (`speed != 0`), so the pod accelerates a walk rather than starting one. A pristine pod is worth about 98% of top speed, not a round 100%: the curve is taken against a literal 1000 rather than the 1024 that would double it. What engages the pod and what it costs the pool are in [`equipment-pods.md`](equipment-pods.md#what-the-two-ticks-do-with-the-button).
 
 ## Going down
 
@@ -344,7 +344,7 @@ Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entr
 A slide that carried the machine more than `0xfa` (250) world units, measured as `Math_FastMagnitude2D` over the two accumulated axes, hurts on arrival:
 
 ```
-base   = Q10Multiply(slideDamageScale[difficulty], distance)     // 0049a058: 400, 800, 1200, 1600
+base   = Q10Multiply(slideDamageScale[difficulty], distance)     // 0049a058, entries in difficulty.md
 spread = base * 3
 for component in 7..12:                                          // the six leg components
     vtable+0x74(component, RandomBelow(spread) + base, no attacker)

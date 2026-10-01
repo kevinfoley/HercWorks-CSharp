@@ -4,9 +4,9 @@ using Herculan.Engine.Sim;
 namespace Herculan.Engine.Render;
 
 /// <summary>
-/// The chase view's memory of where the player has been: <c>FUN_004011a0</c> records the player's
+/// The chase view's memory of where the player has been: <c>Cam_Update</c> (<c>004011a0</c>) records the player's
 /// position, euler triple and the frame's length into a 50-entry ring every frame
-/// (<c>DAT_004a7c80</c>, <c>DAT_004a7ed8</c>, <c>DAT_004a8004</c>, cursor <c>DAT_004a80cc</c>), and the
+/// (<c>ChaseTrail_Positions</c> (<c>004a7c80</c>), <c>ChaseTrail_Rotations</c> (<c>004a7ed8</c>), <c>ChaseTrail_Lengths</c> (<c>004a8004</c>), cursor <c>ChaseTrail_Cursor</c> (<c>004a80cc</c>)), and the
 /// chase camera sits wherever that ring puts the player <see cref="Delay"/> ago. The walk back and its
 /// interpolation are docs/simulation/external-views.md's "Mode 3: the chase".
 /// </summary>

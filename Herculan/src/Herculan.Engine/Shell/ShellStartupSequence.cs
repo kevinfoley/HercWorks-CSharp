@@ -2,7 +2,7 @@ namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// The six-frame sequence that first brings the main menu up — an <c>esanim2.cpp</c> widget over the
-/// whole window (<c>DAT_0048d0c0</c>, class <c>FUN_0040c85c</c>, event handler <c>FUN_0040c8b3</c>) that
+/// whole window (<c>StartupAnimWidget</c> (<c>0048d0c0</c>), class <c>AnimWidget_Ctor</c> (<c>0040c85c</c>), event handler <c>AnimWidget_HandleEvent</c> (<c>0040c8b3</c>)) that
 /// <c>MainMenu_BuildScreen</c> fills with <c>dbm\bay2a_80</c> to <c>bay2a_84</c>, the last twice, and the
 /// startup shows once its movies are done. See docs/shell/screen-layout.md#the-main-menu.
 ///
@@ -13,7 +13,7 @@ namespace Herculan.Engine.Shell;
 /// half a second after the backdrop reaches its last image.</para>
 /// </summary>
 public sealed class ShellStartupSequence {
-	/// <summary>The frames, in the order the builder adds them (<c>FUN_0040ca06</c>).</summary>
+	/// <summary>The frames, in the order the builder adds them (<c>AnimWidget_AddFrame</c> (<c>0040ca06</c>)).</summary>
 	public static readonly string[] FrameNames = { "BAY2A_80", "BAY2A_81", "BAY2A_82", "BAY2A_83", "BAY2A_84", "BAY2A_84" };
 
 	/// <summary>The alarm's delay and period, <c>WinTimer_InstallAlarm</c>'s 500 and 500.</summary>

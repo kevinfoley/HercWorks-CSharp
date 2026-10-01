@@ -52,7 +52,7 @@ public sealed class ShellScrapDialog {
 	public bool IsOpen { get; private set; }
 
 	/// <summary>
-	/// What ACCEPT scraps: the bay the machine dialog was opened on, the one <c>DAT_00482ae5</c> held, or
+	/// What ACCEPT scraps: the bay the machine dialog was opened on, the one <c>SelectedBaySlot</c> (<c>00482ae5</c>) held, or
 	/// the weapon id the weapon dialog was, which <c>WeaponScrapDialog_Show</c> keeps in <c>DAT_0048d970</c>.
 	/// </summary>
 	public int Subject { get; private set; } = -1;

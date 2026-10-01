@@ -48,7 +48,7 @@ public static class Detection {
 	public const int RadarTargetingRange = 200000;
 
 	/// <summary>
-	/// The scan range a <i>known contact</i> can be selected from — <c>FUN_00426aec</c>, which is
+	/// The scan range a <i>known contact</i> can be selected from — <c>Detection_ContactScanRange</c> (<c>00426aec</c>), which is
 	/// 30000 on the short setting and 60000 otherwise. The setting is <c>DAT_004a9ee2</c>, the
 	/// manual's Alt+R; nothing changes it here, so the long range applies.
 	/// </summary>

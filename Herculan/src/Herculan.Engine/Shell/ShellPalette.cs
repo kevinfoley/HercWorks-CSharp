@@ -1,7 +1,7 @@
 namespace Herculan.Engine.Shell;
 
 /// <summary>
-/// Which of the mission tab's three faces is up. It is the shell's <c>DAT_0048106c</c>, and its three
+/// Which of the mission tab's three faces is up. It is the shell's <c>MissionScreenView</c> (<c>0048106c</c>), and its three
 /// values are the ones the palette switch and the screen builder both test for; nothing has been read
 /// that uses 2 or 3.
 /// </summary>
@@ -21,7 +21,7 @@ public enum ShellMissionView {
 ///
 /// <para><b>The palette is a widget, not a call.</b> Every tab screen's builder makes one more child
 /// than the tab strip — a <see cref="ShellLayout.PaletteScope"/>-sized window of its own class
-/// (<c>0040ca6c</c>, vtable <c>PTR_FUN_0046ef04</c>) held in <c>DAT_0048d444</c>, whose <c>+0x45</c>
+/// (<c>0040ca6c</c>, vtable <c>PTR_FUN_0046ef04</c>) held in <c>PaletteScopeWidget</c> (<c>0048d444</c>), whose <c>+0x45</c>
 /// is a palette index. Its event handler (<c>0040cab7</c>) installs that index's palette when it is
 /// shown, so the shell changes palette by hiding the widget, writing <c>+0x45</c> and showing it again
 /// — which is the whole of <c>Shell_SetPaletteScope(index)</c> (<c>00439da0</c>).</para>
@@ -87,7 +87,7 @@ public static class ShellPalette {
 	/// <summary>
 	/// The palette a tab is drawn through, or null where the original installs none. That case is real
 	/// rather than defensive: <c>Shell_SelectTabPalette</c> (<c>0043b162</c>)'s mission arm is three bare <c>if</c>s against
-	/// <c>DAT_0048106c</c> with no <c>else</c>, so a fourth value leaves whatever palette was up.
+	/// <c>MissionScreenView</c> (<c>0048106c</c>) with no <c>else</c>, so a fourth value leaves whatever palette was up.
 	///
 	/// <para><paramref name="stage"/> is the campaign stage as the save holds it, 1-5 for the campaign.
 	/// The arithmetic is the original's and is unguarded there: it is reproduced unguarded here, so a

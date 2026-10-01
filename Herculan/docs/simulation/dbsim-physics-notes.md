@@ -15,7 +15,7 @@ spin until GetTickCount() >= last + 40             // 25 Hz frame cap
 SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2)
 ```
 
-Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not per-second or per-tick-count, and one countdown unit is 125/256 ms, so a reload of 10000 lasts about 4.9 s. Everything scaled by it is a "per this tick" quantity — DBSIM runs a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40 ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored); a tick measured at 41 ms gives 83.
+Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not per-second or per-tick-count, and one countdown unit is 125/256 ms ([Timer units](#timer-units)). Everything scaled by it is a "per this tick" quantity — DBSIM runs a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40 ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored); a tick measured at 41 ms gives 83.
 
 Not every per-tick quantity is scaled by this timestep: locomotion's accel-step fields (mech type record `+0x08`/`+0x0a`) are raw per-tick steps with no `Math_IntegrateRateOverTick` (`00467820`) integration, making the original's control law frame-rate dependent — see [`mech-locomotion.md`](mech-locomotion.md#timing) for the consequence.
 
@@ -46,11 +46,17 @@ An alpha-max-plus-beta-min-style approximation that avoids a real `sqrt`. It is 
 
 **`Math_FastMagnitude2D(dx, dy)` (`0047dd40`) — the 2D counterpart.** `max(|dx|,|dy|) + min(|dx|,|dy|)/2`, the octagonal estimate: exact on an axis and up to about 11.8% high on a diagonal. It measures ground-plane distances (the detection sweep's decay range, a locomotion slide, the scanner's range test) and is the distance both HUD range readouts display, so the original's own on-screen ranges carry the error.
 
+## Timer units
+
+Every countdown in the simulation is in `SimTickDelta` counts, and **a count is not a millisecond**. `Math_CountdownTimerTick` and `Timer_CountDown` subtract `SimTickDelta`, which is Q8 with 1.0 = 125 ms and 81 on hardware that keeps up with the 40 ms frame cap. So one count is 125/256 ms, about 0.49 ms, and a stated reload of 10000 expires in about 4.9 seconds. Reading a stated constant as milliseconds overstates the interval by a factor of about two.
+
+A mission action timer's delay is the one stated in seconds: it is shifted left 11 on load, and 2048 counts are exactly one second ([`../formats/script-dat.md`](../formats/script-dat.md#block-6-in-memory--49-bytes-0x31)).
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
-| The distance test in `Rocket_TickUpdate` (`0040a538`), `Math_FastMagnitude3D(round - camera) < 40000`, is a proximity fuze or a target-proximity check | It measures the round's distance to the machine the camera is following (`ViewObjectPtr`), and only plays sound `0x32` once as the round comes within range. Nothing detonates on it; a round ends on its lifetime or on the raycast alone ([`rockets.md`](rockets.md#flight--rocket_tickupdate-0040a538)) |
+| The distance test in `Rocket_TickUpdate` (`0040a538`), `Math_FastMagnitude3D(round - camera) < 40000`, is a proximity fuze or a target-proximity check | It measures the round's distance to the machine the camera is following (`ViewObjectPtr`) and plays a warning beep, for rounds from a machine that is not locally piloted. Nothing detonates on it; a round ends on its lifetime or on the raycast alone. The beep's conditions are [`rockets.md`](rockets.md#flight--rocket_tickupdate-0040a538)'s |
 | A countdown's value is in milliseconds | The unit is one `SimTickDelta` count, 125/256 ms. A reload of 10000 lasts about 4.9 s |
 
 ## Open

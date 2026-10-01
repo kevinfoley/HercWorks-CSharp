@@ -24,7 +24,7 @@ public enum ViewCameraMode : short {
 /// <summary>
 /// DBSIM's view camera, class <c>CAM</c> (<c>0x4e</c> bytes, vtable <c>0049f900</c>, a
 /// <c>TSCamera</c>): the object <c>ViewObjectPtr</c> points at, placed once a frame by
-/// <c>FUN_004011a0</c> in whichever of four <see cref="ViewCameraMode"/>s it is in. Field names
+/// <c>Cam_Update</c> (<c>004011a0</c>) in whichever of four <see cref="ViewCameraMode"/>s it is in. Field names
 /// follow their offsets in the original; the rules are docs/simulation/external-views.md's
 /// "The camera object".
 ///
@@ -93,7 +93,7 @@ public sealed class ViewCamera {
 	/// </summary>
 	public bool Locked { get; set; }
 
-	/// <summary><c>FUN_00401148</c> and the inline copies of it: sets the mode unless locked.</summary>
+	/// <summary><c>Cam_SetMode</c> (<c>00401148</c>) and the inline copies of it: sets the mode unless locked.</summary>
 	public void SetMode(ViewCameraMode mode) {
 		if (!Locked) {
 			Mode = mode;
@@ -101,7 +101,7 @@ public sealed class ViewCamera {
 	}
 
 	/// <summary>
-	/// The field-by-field copy <c>FUN_0045df18</c> makes before re-attaching a camera to a new
+	/// The field-by-field copy <c>ViewChain_ViewObject</c> (<c>0045df18</c>) makes before re-attaching a camera to a new
 	/// object: everything but the vtable.
 	/// </summary>
 	public void CopyFrom(ViewCamera other) {
@@ -149,7 +149,7 @@ public sealed class ViewCamera {
 	}
 
 	/// <summary>
-	/// <c>FUN_00401c74</c>, once a frame from <c>Sim_PollPlayerInput</c>: steers the free camera or the
+	/// <c>Cam_Steer</c> (<c>00401c74</c>), once a frame from <c>Sim_PollPlayerInput</c>: steers the free camera or the
 	/// orbit off the steering and throttle axes, zero unless the controls drive the camera. With the
 	/// trigger held the throttle axis zooms (or, free, flies) instead of pitching. The other two modes
 	/// ignore it, so their rates hold until the camera is next in one of these.
@@ -181,7 +181,7 @@ public sealed class ViewCamera {
 			PitchRate = Approach(PitchRate, 0x800, throttle, 0xc0);
 		}
 
-		// FUN_00401c20 and FUN_00401c4c: the axis scaled by a Q8 gain, reached at a fixed step.
+		// Cam_ApproachRate (00401c20) and Cam_ApproachZoom (00401c4c): the axis scaled by a Q8 gain, reached at a fixed step.
 		static short Approach(short current, int gain, short axis, short step) {
 			SimMath.RateLimitedMoveToward(ref current, (short)SimMath.Q8Multiply(gain, axis), step);
 			return current;
@@ -189,7 +189,7 @@ public sealed class ViewCamera {
 	}
 
 	/// <summary>
-	/// <c>FUN_004011a0</c>'s placement, after it has recorded the player into
+	/// <c>Cam_Update</c> (<c>004011a0</c>)'s placement, after it has recorded the player into
 	/// <paramref name="trail"/>. <paramref name="terrain"/> may be null, which drops the ground
 	/// clearance; retail always has a zone.
 	/// </summary>

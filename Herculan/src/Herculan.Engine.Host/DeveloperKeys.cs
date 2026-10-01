@@ -87,7 +87,7 @@ sealed class DeveloperKeys(bool enabled) {
 	/// already held when <c>Ctrl</c> or <c>Alt</c> goes down does not fire on it.
 	/// </summary>
 	/// <param name="views">
-	/// The chain of views, whose watched object — <c>DAT_004d2708</c>, the player's machine until the
+	/// The chain of views, whose watched object — <c>ViewChain_Viewed</c> (<c>004d2708</c>), the player's machine until the
 	/// camera moves — <c>Ctrl+Alt+D</c> hits and the move keys move.
 	/// </param>
 	public void Read(IKeyState keys, SimWorld world, MechObject player, ExternalViewChain views,

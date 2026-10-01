@@ -196,11 +196,11 @@ Distinguishing evidence: the `.RMP` row shifts every ramp entry down one step an
 
 ### `TSTexture4Poly` — frame index, ramp row by light, fullbright on demand
 
-`TSTexture4Poly_Render` (`00474e9c`) resolves the surface pair the same way the flat types do and spends it as a **`.DBA` frame index**: the frame descriptor is `g_CurrentShapeDbaContext[1] + frontValue * 0x14`, and its 5th int32 is the handle the fill routine `Raster_SetupTexturedSpan` samples. Light enters per pixel through the row selection, not as a multiplier — the span writes `Raster_ShadeRampRow(shade)[texelPaletteIndex]`, so the face's shade picks a row of the theater `.RMP` and the texel picks the column.
+`TSTexture4Poly_Render` (`00474e9c`) resolves the surface pair the same way the flat types do and spends it as a **`.DBA` frame index**: the frame descriptor is `g_CurrentShapeDbaContext[1] + frontValue * 0x14`, and its 5th int32 is the atlas page handle it passes to `Raster_SetupTexturedSpan` (`00468078`), which projects and near-plane-clips the vertices and hands the ring to `Raster_DrawPolygon` (`00468310`), whose span routine samples it. Light enters per pixel through the row selection, not as a multiplier — the span writes `Raster_ShadeRampRow(shade)[texelPaletteIndex]`, so the face's shade picks a row of the theater `.RMP` and the texel picks the column.
 
-**The row count is a switch.** `DAT_004a5b1c` is the `.RMP`'s row count, installed as 32 by `World_LoadTheater` (`0042e010`), and this renderer is its only reader. When it is **zero** the poly is filled through `Raster_SetupTexturedSpan`'s mode 0 instead: a plain texture copy, with neither a light term nor a ramp lookup, so the texel's palette index reaches the framebuffer unchanged.
+**The row count is a switch.** `DAT_004a5b1c` is the `.RMP`'s row count, installed as 32 by `World_LoadTheater` (`0042e010`), and this renderer is its only reader. When it is **zero** the poly is drawn in `Raster_DrawPolygon`'s mode 0 instead: a plain texture copy, with neither a light term nor a ramp lookup, so the texel's palette index reaches the framebuffer unchanged.
 
-`Bullet_Draw` (`0040a120`) is what zeroes it — for the duration of one projectile's shape render, restoring it from `DAT_004a5b20` afterwards. **That is what makes a round fullbright**, and it is a property of the draw rather than of the shape: the same shape drawn by anything else would be lit. The vtable slot is shared with the launcher rounds, so both classes get it. The one retail shape it reaches is `BULLETS.DTS` root 8, the plasma cannon's round — every other projectile shape is `TSSolidPoly` geometry with no texture to copy.
+Two draws zero it, each for the duration of one object's shape render and restoring it from `DAT_004a5b20` afterwards: `Bullet_Draw` (`0040a120`) and `ObjList_DrawCellObjects` (`00428c60`) around a ground shape's draw ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)). **That is what makes a round fullbright**, and it is a property of the draw rather than of the shape: the same shape drawn by anything else would be lit. The vtable slot is shared with the launcher rounds, so both classes get it. The one retail projectile shape it reaches is `BULLETS.DTS` root 8, the plasma cannon's round — every other projectile shape is `TSSolidPoly` geometry with no texture to copy; the other textured shape it reaches is the drop pod's square, root 3 of `FLAT2.DTS`.
 
 None of the ramp's own rows is the identity this bypasses: row 0 lands at 0.36x the source colour and row 31 at 1.16x. Skipping the ramp skips the depth bias with it, so a fullbright surface does not fog either.
 
@@ -217,7 +217,7 @@ None of the ramp's own rows is the identity this bypasses: row 0 lands at 0.36x 
 | `+0x10` | page index (int16), the texture-data handle the rasterizer takes |
 | `+0x12` | int16, 1 when any texel of the frame is palette index 0, else 0 |
 
-`+0x12` is the transparency argument `TSTexture4Poly_Render` passes as `Raster_DrawPolygon`'s last parameter, so the colour-key skip is decided per frame at load and a frame with no index 0 draws the same either way.
+`+0x12` is the transparency argument `TSTexture4Poly_Render` passes through `Raster_SetupTexturedSpan` as `Raster_DrawPolygon`'s last parameter, so the colour-key skip is decided per frame at load and a frame with no index 0 draws the same either way.
 
 `Raster_DrawPolygon` (`00468310`) is `(vertexCount, vertices, mode, atlasPage, shadePtr, transparency)`. Its `mode` selects the span routine, and `transparency` selects that routine's opaque or colour-key half:
 
@@ -225,7 +225,7 @@ None of the ramp's own rows is the identity this bypasses: row 0 lands at 0.36x 
 |---|---|---|
 | 0 | `Raster_SpanTextured` (`0046ab10`) | u, v |
 | 1 | `FUN_0046ac48` | u, v, and a shade level from `shadePtr` |
-| 2 | `FUN_0046adad` | u, v, and a third interpolant at vertex `+0x14` |
+| 2 | `FUN_0046adad` | u, v, and a third interpolant at vertex `+0x18`, where `Raster_SetupTexturedSpan` stores it |
 
 Mode 0 with `transparency` zero is the opaque half of `Raster_SpanTextured`: fetch `atlasPage[v][u]`, store that palette byte to the framebuffer, step the fixed-point u and v. The non-zero form skips index 0 as a colour key and does not blend. Nothing in that path applies alpha, a shade level or a colour lookup. The beam draw submits through it: [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#drawing--beamtracer_draw-0040bc14-vtable-slot-0).
 

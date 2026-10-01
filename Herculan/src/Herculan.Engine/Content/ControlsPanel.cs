@@ -13,7 +13,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para><b>It is two panels in one file.</b> <c>str\CTL_ALRT.STR</c> carries thirteen groups, and
 /// the constructor reads eight of them — title, the fourteen captions, the twenty-one action names,
-/// the OPTIONS caption, then a three-word set for each axis row. When <c>DAT_004d25f5</c> is set it
+/// the OPTIONS caption, then a three-word set for each axis row. When <c>PilotingRazor</c> (<c>004d25f5</c>) is set it
 /// then reads five <i>more</i> and overwrites the title and all four axis sets with them, which is
 /// how the same panel becomes RAZOR CONTROLS with flight words (PITCH / ROLL, YAW) in place of the
 /// walker's. That flag is set by <c>DBSim_LoadScriptDat</c> as
@@ -268,7 +268,7 @@ public sealed class ControlsPanel {
 	/// <paramref name="preferences"/>. Returns null when the string table is missing.
 	/// </summary>
 	/// <param name="razor">
-	/// Whether the player's machine is the RAZOR — <c>DAT_004d25f5</c>. It picks both the title and
+	/// Whether the player's machine is the RAZOR — <c>PilotingRazor</c> (<c>004d25f5</c>). It picks both the title and
 	/// the axis word sets, and which twelve bytes of the file the bindings come from.
 	/// </param>
 	/// <param name="capabilities">What the input layer reports. Defaults to no stick.</param>

@@ -5,7 +5,7 @@ namespace HercWorks.Core.Data.File.Cfg;
 /// <see cref="Io.Transform.Common.PrefsTransformer"/>. See docs/simulation/preferences.md.
 ///
 /// <para><b>The file is the array.</b> <c>Prefs_LoadOptions</c> (<c>00459754</c>) memsets
-/// <c>DAT_004d1fbc</c> to zero for <c>0x36</c> bytes and reads the file straight over it, with no
+/// <c>SimOptions</c> (<c>004d1fbc</c>) to zero for <c>0x36</c> bytes and reads the file straight over it, with no
 /// parse at all, so an option's index is its byte offset and a retail <c>prefs.cfg</c> is 54 bytes.
 /// Only the options the two [F12] panels and VSHELL's preferences screen put on screen are named
 /// here; the remaining bytes are carried, not interpreted.</para>
@@ -23,10 +23,10 @@ public class Prefs {
 	/// <summary>SOUNDS — the effect mixer on or off.</summary>
 	public const int SoundsOption = 1;
 
-	/// <summary>PILOT MESSAGE, <c>DAT_004d1fbe</c> — the pilot and squad channel's two halves.</summary>
+	/// <summary>PILOT MESSAGE, <c>PilotMessageMode</c> (<c>004d1fbe</c>) — the pilot and squad channel's two halves.</summary>
 	public const int PilotMessageOption = 2;
 
-	/// <summary>COMPUTER MESSAGE, <c>DAT_004d1fbf</c> — the computer ticker's two halves.</summary>
+	/// <summary>COMPUTER MESSAGE, <c>ComputerMessageMode</c> (<c>004d1fbf</c>) — the computer ticker's two halves.</summary>
 	public const int ComputerMessageOption = 3;
 
 	/// <summary>
@@ -54,7 +54,7 @@ public class Prefs {
 	public const int EffectsDetailOption = 11;
 
 	/// <summary>
-	/// Where the [F12] → CONTROLS panel's twelve options start for a walking HERC — <c>DAT_004d25fb</c>
+	/// Where the [F12] → CONTROLS panel's twelve options start for a walking HERC — <c>ControlsOptionBase</c> (<c>004d25fb</c>)
 	/// as <c>Sim_InitMissionSession</c> (<c>004614fc</c>) sets it, and the value
 	/// <c>Main_StaticInit</c> (<c>0045cad8</c>) starts it on.
 	/// </summary>
@@ -72,7 +72,7 @@ public class Prefs {
 	/// <summary>How many of those are the axis rows, which come first.</summary>
 	public const int ControlsAxisCount = 4;
 
-	/// <summary>Which block the machine being flown reads — the whole of what <c>DAT_004d25f5</c> selects.</summary>
+	/// <summary>Which block the machine being flown reads — the whole of what <c>PilotingRazor</c> (<c>004d25f5</c>) selects.</summary>
 	public static int ControlsBase(bool razor) => razor ? RazorControlsBase : HercControlsBase;
 
 	/// <summary>

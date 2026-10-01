@@ -140,7 +140,7 @@ public static class ShellChrome {
 	/// <param name="headerHeight">
 	/// The widget's <c>+0x61</c>, and the constructor's last argument: how tall the header strip is, and
 	/// also the row the divider lands on. 19 on the save screen, 20 for the subclass at
-	/// <c>FUN_0040afe0</c>.
+	/// <c>ESAlert_Ctor</c> (<c>0040afe0</c>).
 	/// </param>
 	/// <param name="headerChrome">
 	/// The widget's <c>+0x65</c>, set by the constructor and never cleared: whether to draw the hatch,

@@ -595,7 +595,7 @@ public sealed class WeaponMounts {
 			return false;
 		}
 
-		// The free-shot flag off DAT_004a9edc. The original builds it from the globals alone, because
+		// The free-shot flag off UnlimitedAmmoFlag (004a9edc). The original builds it from the globals alone, because
 		// the only caller of this is the player's own trigger poll; here the trigger path runs for
 		// every machine, so the owner is tested for what that caller guarantees.
 		bool freeShot = owner.LocallyPiloted && world.UnlimitedAmmunition;

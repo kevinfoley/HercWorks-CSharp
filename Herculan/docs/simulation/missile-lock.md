@@ -23,7 +23,7 @@ Each subtype the machine carries rounds for has its own countdown. Every tick th
 | 0 | `+0x258` | `+0x0a` | own scanner off, or the ECM roll came up spoofed this tick |
 | 1 | `+0x25b` | `+0x0c` | the ECM roll came up spoofed this tick — otherwise locks on sight |
 | 2 (ARM) | `+0x25e` | `+0x0e` | **target** silent (`+0x96` and `+0xa1` both clear) |
-| 3 (EO) | — | `+0x10` | never set; the pilot flies it, and `Rocket_Fire` exempts it from the gate ([`rockets.md`](rockets.md#spawning--rocket_fire-0040a9c4)) |
+| 3 (EO) | — | `+0x10` | never set. The player's round therefore leaves with no target: the pilot steers it while the trigger is held. `Rocket_Fire` skips the gate only for a machine that is not locally piloted ([`rockets.md`](rockets.md#spawning--rocket_fire-0040a9c4)) |
 | 4 | `+0x264` | `+0x12` | as subtype 0 |
 
 Each timer offset is the countdown record's base; the counter is the `short` one byte above it. The run leaves room for a subtype 3 timer at `+0x261`, which this block never touches.
@@ -32,7 +32,14 @@ Subtype 2's inverted condition is the anti-radiation missile: it locks *because*
 
 ## ECM
 
-A target that is a HERC with its jammer (`+0xa1`) on re-rolls `mech+0x9c` whenever the countdown record at `mech+0x267` expires: `(rand & 0xfff) < 0x14 * 0x29` — about 20% — holding for 5000 (about 2.4 s) on a spoof and re-rolling after `0x5dc` (about 0.7 s) otherwise. A target that is not a HERC, or whose jammer is off, clears the flag outright. Whether the jammer is on is derived in [`equipment-pods.md`](equipment-pods.md#what-each-class-actually-overrides).
+A target that is a HERC with its jammer (`+0xa1`) on re-rolls `mech+0x9c` whenever the countdown record at `mech+0x267` expires: `(rand & 0xfff) < 0x14 * 0x29` — about 20% — holding for 5000 (about 2.4 s) on a spoof and re-rolling after `0x5dc` (about 0.7 s) otherwise. A target that is not a HERC, or whose jammer is off, clears the flag outright.
+
+**The jammer flag is derived every tick.** `Mech_IsEcmSwitchedOn` (`0041aa10`) stores it into `mech+0xa1` ahead of the lock block, and an ECM pod at `mech+0x307` is its outer gate: without one the flag is clear. With one, who is flying decides which switch is read:
+
+- **The player's follows the pod row's button**, through the copy `EcmPod_Tick` keeps at `pod+0x7d` ([`equipment-pods.md`](equipment-pods.md#what-the-two-ticks-do-with-the-button)). Their own radar mode does not enter into it.
+- **Any other machine jams exactly while its radar mode (`mech+0x96`) is ACTIVE.** Its pod is never ticked, so it has no button to read. A squadmate's radar is set back to PASSIVE on entering a fight, so in practice this branch means Cybrids; `SCAN FOR HOSTILES` lights a squadmate up and its jammer with it, and `EMCON` clears both. Nothing orders a squadmate's pod on its own ([`target-selection.md`](target-selection.md#how-an-ai-machines-radar-is-set), [`ai-squadmates.md`](ai-squadmates.md)).
+
+An anti-radiation hit therefore silences the jamming it homed on: it clears the machine's scanner and holds it dark for 6000, so the machine stops spoofing the player's locks for the same window ([`target-selection.md`](target-selection.md#how-an-ai-machines-radar-is-set)).
 
 The flag has two effects on the lock. A roll that comes up spoofed reloads the timers of subtypes 0, 1 and 4 on that tick; and while the flag stands, no subtype but 2 can latch a completed countdown. It is the same flag that makes a missile already in the air weave ([`rockets.md`](rockets.md#guidance--rocket_homingsteer-0040a254)).
 

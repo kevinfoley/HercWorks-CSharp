@@ -25,7 +25,7 @@ public readonly record struct ShellKey(char? Character, int? Command) {
 /// code into its position in the table at <c>0046d384</c>, a set-1 scancode, and drops a key that is
 /// not in it. A key in the command filter at <c>0046e450</c> becomes a command through
 /// <c>0046e471</c>, on the press and on the release alike; any other key's press becomes a character
-/// through <c>0046e571</c>, or <c>0046e5c5</c> with Shift down, upper-cased (<c>FUN_00408f95</c>).
+/// through <c>0046e571</c>, or <c>0046e5c5</c> with Shift down, upper-cased (<c>Keyboard_PostEvents</c> (<c>00408f95</c>)).
 /// Only the keys that produce an event are listed here: the digits, the letters, Space and the
 /// command keys. Punctuation's virtual-key codes are not in <c>0046d384</c>, and the keypad's digits
 /// with Num Lock on are not either.</para>

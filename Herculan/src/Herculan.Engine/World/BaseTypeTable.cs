@@ -157,10 +157,12 @@ public readonly record struct BaseComponentType(
 /// own. Read only when this was the last part standing.
 /// </param>
 /// <param name="AimPointHeight">
-/// <c>+0x2c</c> — how far up the structure anything aiming at it aims, in world units. The type's
-/// vtable <c>+0x30</c> (<c>0040351c</c>) zeroes the offset triple and then writes this into its Z, and
-/// every caller adds the triple to the structure's position unrotated. All 65 retail types state one,
-/// 1000 to 2000, so a building is never shot at its own ground origin.
+/// <c>+0x2c</c> — how far up the structure anything aiming at it aims, in world units. Two vtable
+/// slots carry it: <c>+0x24</c> (<c>Base_GetAimNodeTransform</c>, <c>00403548</c>) as the translation of
+/// a node transform, and <c>+0x30</c> (<c>Base_GetAimPoint</c>, <c>0040351c</c>) as the Z of an offset
+/// triple that the tower ticks add to the target's position unrotated while the camera attach
+/// rotates it (docs/simulation/structure-behaviour.md, "What a structure is aimed at"). All 65 retail
+/// types state one, 1000 to 2000, so a building is never shot at its own ground origin.
 /// </param>
 /// <param name="Armament">
 /// <c>+0x2e</c> — what the type shoots, and the same field <see cref="ThreatensAttackers"/> reads as

@@ -296,7 +296,7 @@ public sealed class ShellBayMachine {
 	}
 
 	/// <summary>
-	/// The whole 66-byte status block as <c>FUN_004106b7</c> copies it out of the record's <c>+0x08</c> span
+	/// The whole 66-byte status block as <c>PlayerMec_WriteEntry</c> (<c>004106b7</c>) copies it out of the record's <c>+0x08</c> span
 	/// into <c>player.mec</c>: the 13 external facets, the ten internal entries — the nine components and
 	/// the overall condition — and the ten hardpoints, every one an <c>int16</c>.
 	/// </summary>
@@ -540,7 +540,7 @@ public sealed class ShellBayPilot {
 /// what the repair screen in particular reads a machine out of.
 ///
 /// <para>VSHELL keeps the bays as eight pointers at <c>00482ac3</c>, null for an empty bay, with the
-/// selected slot in <c>DAT_00482ae5</c> (<c>-1</c> for none). Sparse is normal: a save really can have
+/// selected slot in <c>SelectedBaySlot</c> (<c>00482ae5</c>) (<c>-1</c> for none). Sparse is normal: a save really can have
 /// a machine in bay 3 and nothing in bay 2, so the bays are addressed by index rather than packed.</para>
 /// </summary>
 public sealed class ShellHangar {
@@ -1046,7 +1046,7 @@ public sealed class ShellHangar {
 	public IReadOnlyList<ShellBayPilot> SquadMembers => _squad;
 
 	/// <summary>
-	/// The player structure's leading <c>int16</c>, <c>DAT_00482a78</c>: how many squad positions,
+	/// The player structure's leading <c>int16</c>, <c>SquadPositionsInPlay</c> (<c>00482a78</c>): how many squad positions,
 	/// counting the player's as position 0, are in play. The auto-repair pass and the
 	/// <c>player.mec</c> export both bound their per-position loops by it, a squad member counts as on
 	/// strength only in a position below it (<c>Squad_UpdateOnStrength</c>, <c>00410366</c>), and the crew screen draws the rows

@@ -79,7 +79,7 @@ public sealed class StatusAlertPanel {
 	public const int ExitGameStatus = 1;
 
 	/// <summary>
-	/// <c>DAT_0049f5d8</c> — for each status, the index of the button whose press ends the mission.
+	/// <c>AlertPanel_EndsMissionButton</c> (<c>0049f5d8</c>) — for each status, the index of the button whose press ends the mission.
 	/// Both call sites compare the modal's answer against this entry and nothing else decides it, so
 	/// a status whose only button is 0 and whose entry is 1 — status 7, the boundary warning — can
 	/// only ever be acknowledged.

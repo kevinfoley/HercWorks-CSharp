@@ -114,9 +114,11 @@ Children 7 and 8, the manual's Waypoint Indicator. Both are `HudWaypointIndicato
 | Child | `+0x45` | Subject | Colour id | Caption |
 |---|---|---|---|---|
 | 7 | 1 | `NavMarker_Position` (`0043495c`) | `DAT_004d3c1e`, id 15 → palette 13 yellow | none |
-| 8 | 0 | The player group's route, or `mech+0x1a4` on a branch that never runs | table entry 0 → palette 14 green | `WAYPOINT n: d M.` |
+| 8 | 0 | The waypoint after the player group's route cursor, or `mech+0x1a4` on a branch that is never taken | table entry 0 → palette 14 green | `WAYPOINT n: d M.` |
 
-What each points at, and the branch that never runs, are [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md).
+What each points at, and how the player's route and the nav marker behave, is [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md).
+
+**Child 8 never points at the player's selected target.** The branch exists, gated on `DAT_004d2af0`, but `es2_xref.py` finds exactly one reference to that global in the image: the read that tests it. Its two `.bss` neighbours `DAT_004d2aec` and `DAT_004d2af4` are each written by name, so the region is individually addressed and nothing reaches it through a base-plus-offset either. It is zero for the whole run, so the route is always the subject.
 
 `Hud_UpdateWaypointIndicator` (`0043c3e4`) is the shared paint. It takes the ground range with `Vec2_DistanceBetween` and the bearing with the `Math_Atan2Guarded(dx, dy) - 0x4000` that `Math_HeadingToward` is, then works the error `mech.heading - bearing` as an unsigned short:
 

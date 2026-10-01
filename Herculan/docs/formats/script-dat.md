@@ -65,7 +65,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x42` / `0x56` | ten mission-counter refs and their ten operations → `SimObject_SetOutOfActionCounters` (`00411b90`), `mech+0x1ba`/`+0x1ce` — written when the machine goes out of the fight, [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-out-of-action-report) |
 | | | `0x6a`-`0x7d` | ammunition type, 10 slots, paired with the weapon fit → `Mech_ConfigureLoadout`'s second array. Only the four launchers read it; every other slot carries the filler 5 |
 | | | `0x80` | ref → block 5 — the action this machine fires when it is **engaged** (`mech+0x1b2`) |
-| | | `0x82` | ref → block 5 — the action it fires when it is **defeated** (`mech+0x1b6`). Five of the shipped mission's ten mech records carry one, and that is what chains its reinforcement waves |
+| | | `0x82` | ref → block 5 — the action it fires when it is **defeated** (`mech+0x1b6`). Five of `TRAIN8.MSN`'s ten mech records carry one, and that is what chains its reinforcement waves |
 | | | `0x84` | **starting condition, per cent.** 100 is pristine; under 80 the machine spawns pre-damaged and under 20 it is placed as a wreck — `Mech_ApplyStartingCondition` (`004178e8`), whose bands are in [`../simulation/component-damage.md`](../simulation/component-damage.md#starting-condition--mech_applystartingcondition-004178e8). The available `script.dat` files are **saves**, formatted from a handful of the 50-odd `.MSN` missions, so they cannot say how the campaign uses this: across those ten, 138 of 139 mech records read 100 and one reads 50 |
 | 8 (flyers) | 92B | `0x28` | ref → block 1 (position) |
 | | | `0x56` / `0x58` | refs → block 5, the flyer's own engaged/defeated actions |
@@ -115,7 +115,7 @@ Every nonzero value in the retail table is a clean turn: 8190 (45°), 16380 (90�
 Confirmed on the Scramble training base: group 1 uses formation 9, and roster slots 6 and 8 are two of its three identical silo-cluster structures (type 7). Formation 9's slots 6 and 8 carry 16380 and 32760, and in retail those two stand turned by 90° and 180° while the third does not. The 90° one is at world (989519, 1033792), the base the mismatch was reported against.
 - **Mechs:** `Mech_AttachToGroup` (`00417aa8`) has the same heading-fallback shape, but `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a per-slot heading ([Open](#open)).
 - **Anchor adjustment — implemented.** A base group with its paints-ground flag set is moved onto a fixed spot in its terrain tile before any per-member offset is added. See [Base formation terrain](#base-formation-terrain).
-- **Flyers.** Vtable `+0x78` is `Flyer_ApplyFormationOffset` (`00421e98`), reading `dat\FFORMS.DAT` — [below](#the-flyer-formation-table). `Flyer_AttachToGroup` (`00421ee8`) is the flyer attach equivalent. The live `data\script.dat` has one two-flyer group, in formation 3.
+- **Flyers.** Vtable `+0x78` is `Flyer_ApplyFormationOffset` (`00421e98`), reading `dat\FFORMS.DAT` — [below](#the-flyer-formation-table). `Flyer_AttachToGroup` (`00421ee8`) is the flyer attach equivalent. `TRAIN8.MSN` has one two-flyer group, in formation 3.
 - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups get distinct member positions, 0 exceptions; BFORMS.DAT/MFORMS.DAT both still parse byte-exact.
 8. **A group whose record names a block-5 action (`0x70`) is not in the mission yet** — undrawn, unsimulated and non-solid until that action fires and the group arrives, on foot or by drop pod. Its placed position is a placeholder the arrival overwrites, which is why retail missions leave such groups stacked on shared points (routinely the player's own spawn). See [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md); **do not read a waiting group's position as where the mission means it to be.**
 
@@ -123,7 +123,7 @@ Confirmed on the Scramble training base: group 1 uses formation 9, and roster sl
 
 `Flyer_LoadResources` (`00422d8f`, `flyersys.cpp`) opens `dat\fforms` (string at `0049a68c`), reads a 2-byte record count and then that many `0x12`-byte records. `dat\FFORMS.DAT` is 92 content bytes, a count of 5 and five records, with nothing left over. `FlyerFormation_GetSlotOffset` (`00423044`) resolves an offset as `base + formationId * 0x12 + slot * 6 - 6`, so a record is **three** slots of three `int16` (x, y, z), and the slot index is **one-based**: the group's first member, the flight leader, takes no offset at all.
 
-The offset carries a Z, where `MFORMS.DAT`'s and `BFORMS.DAT`'s entries do not. `Flyer_ApplyFormationOffset` hands all three components to the shared `Formation_RotateAndAddOffset` (`00411d64`), which rotates the (x, y) by the **group leader's** heading and adds the Z unrotated. Every slot is 400 units higher than the one before (400, 800, 1200). Formations 0, 1, 2 and 4 are a trailing column, 2500, 5000 and 7500 units aft (−y). Formation 3, the one the live `script.dat`'s two-flyer group uses, is a box: slot 1 at (−2500, 0), slot 2 at (0, −2500) and slot 3 at (−2500, −2500).
+The offset carries a Z, where `MFORMS.DAT`'s and `BFORMS.DAT`'s entries do not. `Flyer_ApplyFormationOffset` hands all three components to the shared `Formation_RotateAndAddOffset` (`00411d64`), which rotates the (x, y) by the **group leader's** heading and adds the Z unrotated. Every slot is 400 units higher than the one before (400, 800, 1200). Formations 0, 1, 2 and 4 are a trailing column, 2500, 5000 and 7500 units aft (−y). Formation 3, the one `TRAIN8.MSN`'s two-flyer group uses, is a box: slot 1 at (−2500, 0), slot 2 at (0, −2500) and slot 3 at (−2500, −2500).
 
 Once placed, a wingman is held to the same offset in flight — [`../simulation/ai-flyers.md`](../simulation/ai-flyers.md#station-keeping).
 
@@ -220,7 +220,7 @@ The text refs at `0x44`-`0x4D`, `mission.str` lines like every other text ref in
 |---|---|---|
 | `0x00` | `0x06` | the primary action, or null. Null means the timer runs from mission start |
 | `0x04`-`0x28` | `0x0A`-`0x1D` | ten action pointers, activated together when the timer expires |
-| `0x2c` | `0x08` | the countdown, in the simulation's timer unit — [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md#timer-units) |
+| `0x2c` | `0x08` | the countdown, in the simulation's timer unit — [`../simulation/dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md#timer-units) |
 
 This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary rather than dead.
 
@@ -265,14 +265,16 @@ Three independent real readers (`DBSim_LoadScriptDat`, `DBSim_SpawnMissionObject
 |---|---|
 | 0 | theater index, 0-4 — selects `wld\world<index * 2 + variant>.wld` (texture bank, palette) |
 | 2 | zone index — passed to `Terrain_LoadZone` |
-| 4 | a mode flag (`DAT_004a9ed6`). The writer emits a literal 1 and the reader stores 0 over it before anything reads it, so the value on disk never reaches a consumer; what it gates is [the two cheat fields below](#the-training-fields) |
-| 6 | **mission objective type** (`DAT_004a9ed8`) — which arm of the player's think watches for progress, and whether the AI is kept off the data-link subject. See [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-player-thinks-objective-arms). All ten files in the retail install carry 0 |
-| 8 | **training mission number** (`ScriptDatTrainingMission`), 0 for anything that is not one — see [below](#the-training-mission-number). Set by the `.MSN` header patch: `TRAIN1`-`TRAIN4` carry 1-4; `TRAIN5`-`TRAIN8` and every campaign mission leave it 0. All ten files in the retail install carry 0 |
-| 10 | **unlimited ammunition and energy** (`DAT_004a9edc`) when 1 |
-| 12 | **player invulnerable** (`DAT_004a9ede`) when 1 |
-| 14 | **mission difficulty**, 0-3 (`DAT_004a9ee0`) — see [`../simulation/difficulty.md`](../simulation/difficulty.md). All ten files in the retail install carry 2 |
-| 18 | theater variant, 0 or 1 — low bit of world number, and the practice missions screen's `Day` / `Night` row |
+| 4 | a mode flag (`MissionModeFlag`, `004a9ed6`). The writer emits a literal 1 and the reader stores 0 over it before anything reads it, so the value on disk never reaches a consumer; what it gates is [the two cheat fields below](#the-training-fields) |
+| 6 | **mission objective type** (`DAT_004a9ed8`) — which arm of the player's think watches for progress, and whether the AI is kept off the data-link subject. See [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-player-thinks-objective-arms). Set by the `.MSN` header patch, and 0 where none sets it: 2 in `TRAIN1`, `TRAIN3` and `TRAIN4`; 3 in `TRAIN2` and six campaign missions (`C1_08`, `C2_04`, `C3_03`, `C5_01`, `C5_03`, `C5_06`); 7 in `C1_09`, behind a condition. Selector 5 is in no mission's patch |
+| 8 | **training mission number** (`ScriptDatTrainingMission`), 0 for anything that is not one — see [below](#the-training-mission-number). Set by the `.MSN` header patch: `TRAIN1`-`TRAIN4` carry 1-4; `TRAIN5`-`TRAIN8` and every campaign mission leave it 0 |
+| 10 | **unlimited ammunition and energy** (`UnlimitedAmmoFlag`, `004a9edc`) when 1 |
+| 12 | **player invulnerable** (`PlayerInvulnerableFlag`, `004a9ede`) when 1 |
+| 14 | **mission difficulty**, 0-3 (`MissionDifficulty`, `004a9ee0`) — see [`../simulation/difficulty.md`](../simulation/difficulty.md). A mission's own header patch is overwritten before the file is written |
 | 16 | zero across the corpus and unread by `DBSim_LoadScriptDat` |
+| 18 | theater variant, 0 or 1 — low bit of world number, and the practice missions screen's `Day` / `Night` row |
+
+`WriteScriptDatFile` writes the ten shorts from `00485446` upward, and `DBSim_LoadScriptDat` reads all 20 bytes into `004a9ed2` in one call, so a field's address in DBSIM is `0x4a9ed2 + offset`.
 
 The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZone` / `maybe_World_LoadTheater`. See [`terrain-texturing.md`](terrain-texturing.md) for theater details.
 
@@ -287,7 +289,14 @@ The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZ
 
 ### The training fields
 
-Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) rather than parsed out of the `.msn`, over what the mission's own [header patch](msn-mission-file.md#the-header-patch--row-2) left there. In a campaign the two cheat fields are forced to 0 and the difficulty is the player pilot's skill; outside one all three come from the practice missions screen, which keeps them in `data\prefs.cfg`. The whole chain is in [`../simulation/difficulty.md`](../simulation/difficulty.md).
+Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) rather than parsed out of the `.msn`, over what the mission's own [header patch](msn-mission-file.md#the-header-patch--row-2) left there, on `CampaignModeFlag` (`DAT_0048260c`):
+
+| Mode | 10, unlimited | 12, invulnerable | 14, difficulty |
+|---|---|---|---|
+| 1, campaign | forced 0 | forced 0 | `PlayerPilotSkill` (`00482aa1`), the player pilot record's skill at `+0x25` |
+| 0, training — the practice missions and `INSTANT ACTION` | `prefs.cfg` option `0x25` | option `0x26` | option `0x27` |
+
+The options are the practice missions screen's rows ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters)); what the three fields do in the simulator is [`../simulation/difficulty.md`](../simulation/difficulty.md).
 
 The same code sets two more fields. A campaign load writes offset 0, the theater, from the stage's campaign index in `gam\career.dat`. A training load writes offset 0 as 1 whatever the mission patched it to — `TRAIN5.MSN` patches in 3 and flies on theater 1 — offset 16 as 0, and offset 18, the variant, from the practice screen's `Time of Day`.
 

@@ -96,7 +96,7 @@ Consequences now resolved: the heading tape's index 74 is a theater colour; the 
 
 ### The damage shake
 
-Taking a hit shakes the view and flashes the palette, for `0x3c` coarse ticks — 0.96 s. Two functions in `MECHVIEW.CPP` own it, and it is the sibling of the footfall kick below: the cockpit's per-frame pass (`FUN_004327ac`) ticks the two one after the other.
+Taking a hit shakes the view and flashes the palette, for `0x3c` coarse ticks — 0.96 s. Two functions in `MECHVIEW.CPP` own it, and it is the sibling of the footfall kick below: the cockpit's per-frame pass (`CockpitView_PerFrameUpdate`) ticks the two one after the other.
 
 `Cockpit_StartHitShake` (`00434010`) arms it, and returns at once in view mode 4:
 

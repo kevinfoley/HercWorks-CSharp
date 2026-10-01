@@ -12,7 +12,7 @@ namespace Herculan.Engine.Audio;
 /// in front — <c>simvoice</c> with its last letter patched for the language, as
 /// <c>Voice_ArchiveName</c> (<c>0045ef68</c>) does for the archive — and, because the digit is never
 /// <c>0</c> on this port, prefixes the directory <c>data\drive.cfg</c> names (<c>FUN_0045ee44</c>,
-/// the path <c>FUN_0045f144</c> reads at startup). One clip per instruction, not per sentence.</para>
+/// the path <c>Sim_Run</c> (<c>0045f144</c>) reads at startup). One clip per instruction, not per sentence.</para>
 /// </summary>
 public static class InstructorVoice {
 	/// <summary>The clip for instruction <paramref name="messageId"/> of training mission <paramref name="trainingMission"/>.</summary>
@@ -21,7 +21,7 @@ public static class InstructorVoice {
 
 	/// <summary>
 	/// The folder the clips are in: <paramref name="voiceFolder"/> under the first token of
-	/// <c>drive.cfg</c> (<see cref="Drive"/>, read by <c>FUN_0045f144</c> at startup), or under the install root (the data folder's parent) when that file is
+	/// <c>drive.cfg</c> (<see cref="Drive"/>, read by <c>Sim_Run</c> (<c>0045f144</c>) at startup), or under the install root (the data folder's parent) when that file is
 	/// missing or empty.
 	/// </summary>
 	/// <param name="dataDirectory">The install's data folder — where <c>script.dat</c> came from.</param>

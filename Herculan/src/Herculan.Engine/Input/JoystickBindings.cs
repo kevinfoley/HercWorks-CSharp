@@ -37,7 +37,7 @@ public sealed class JoystickBindings {
 	private readonly bool[] _latched = new bool[ButtonCount];
 
 	/// <summary>
-	/// Which block is read, <c>ControlsOptionBase</c> (<c>DAT_004d25fb</c>): the walker's twelve bytes
+	/// Which block is read, <c>ControlsOptionBase</c> (<c>004d25fb</c>): the walker's twelve bytes
 	/// or the RAZOR's.
 	/// </summary>
 	public bool PilotingRazor { get; set; }

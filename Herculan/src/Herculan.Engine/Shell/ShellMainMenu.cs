@@ -171,8 +171,8 @@ public sealed class ShellMainMenu {
 /// <summary>
 /// The dialog <c>CONTINUE GAME</c> puts up over the menu when the game it loaded has ended: an
 /// <c>END OF GAME</c> alert saying why, <c>Restore or start a new game.</c>, and <c>OKAY</c>. Built once at
-/// startup by <c>FUN_0044cc2c</c>, filled and put up by <c>FUN_0044cecf(state)</c> and taken down by
-/// <c>OKAY</c>'s handler, <c>FUN_0044cf7b</c>. The launch refusal's sibling, in a window the size of the
+/// startup by <c>EndOfGame_Build</c> (<c>0044cc2c</c>), filled and put up by <c>EndOfGame_Show(state)</c> (<c>0044cecf</c>) and taken down by
+/// <c>OKAY</c>'s handler, <c>EndOfGame_OnOkay</c> (<c>0044cf7b</c>). The launch refusal's sibling, in a window the size of the
 /// display, so its rect is a canvas rect; while it is up this engine hit-tests nothing but <c>OKAY</c>,
 /// as it does for that dialog. See docs/shell/screen-layout.md#the-main-menu.
 /// </summary>
@@ -194,7 +194,7 @@ public sealed class ShellEndOfGameDialog {
 	public int FirstLineText { get; private set; }
 
 	/// <summary>
-	/// <c>FUN_0044cecf(state)</c>: the first line from the game state, <c>0048260e</c>, then the alert up.
+	/// <c>EndOfGame_Show(state)</c> (<c>0044cecf</c>): the first line from the game state, <c>0048260e</c>, then the alert up.
 	/// State 0 is <c>The war is lost.</c>, 1 <c>The cybrids were defeated.</c> and 3 <c>You have been
 	/// killed.</c>; the caller never passes 2, the state a game goes on from.
 	/// </summary>
@@ -208,7 +208,7 @@ public sealed class ShellEndOfGameDialog {
 		IsOpen = true;
 	}
 
-	/// <summary><c>FUN_0044cf7b</c>: the alert down. The menu under it stays up.</summary>
+	/// <summary><c>EndOfGame_OnOkay</c> (<c>0044cf7b</c>): the alert down. The menu under it stays up.</summary>
 	public void Close() => IsOpen = false;
 
 	/// <summary><c>OKAY</c>'s rect, in the canvas.</summary>

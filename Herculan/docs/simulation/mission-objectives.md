@@ -97,7 +97,7 @@ After a post the answer is held still for 500 ms so the caller's next poll canno
 
 Both are `CountdownTimer` records, a byte followed by the short counter at `+1` that `Math_CountdownTimerTick` steps; the poll passes each record's base, so neither counter is read by its own address.
 
-- **The poll interval** (`MissionPollTimer`, `004a9ee6`; counter `004a9ee7`) is re-armed to 10000 counts — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units) — every time the answer is not worth raising, so the objectives are read about once every five seconds. A player **outside the mission box** skips the interval and is read every tick, which is what makes the boundary warning prompt. The one other writer is [`Ai_ChooseWeapon`](ai-weapons.md#running-dry--mech0xa5): when a machine runs out of weapons it raises the counter to at least 1000, about half a second, so the next poll is never sooner than that.
+- **The poll interval** (`MissionPollTimer`, `004a9ee6`; counter `004a9ee7`) is re-armed to 10000 counts — about 4.9 seconds, see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#timer-units) — every time the answer is not worth raising, so the objectives are read about once every five seconds. A player **outside the mission box** skips the interval and is read every tick, which is what makes the boundary warning prompt. The one other writer is [`Ai_ChooseWeapon`](ai-weapons.md#running-dry--mech0xa5): when a machine runs out of weapons it raises the counter to at least 1000, about half a second, so the next poll is never sooner than that.
 - **The alert delay** (`MissionAlertTimer`, `004a9ee9`; counter `004a9eea`) is armed the first time an alert-worthy status appears, latched by `MissionAlertArmed` (`004a9eec`), and the status is not handed up until its 10000 counts run out. A destroyed player skips it. The [Q] path clears the latch after its panel closes, so the next alert-worthy status waits the full delay again.
 
 A status is worth raising when `DAT_0049935c[status]` is set — 2, 3, 6, 7, 8 and 9. The caller builds the [status alert](#the-status-alert--gnl_alrt-00455934) for it. `DAT_004a9ed0` is the status already raised, which is what stops the same one being raised twice; `Mission_StatusForAlert` (`00413180`) is the wrapper both this and [Q] go through, and **the [Q] path writes that baseline as well** — reading the status yourself is enough to stop the poll announcing it.
@@ -142,7 +142,7 @@ What [F11] puts up lists block 13's lines and tests nothing; block 12's conditio
 | 3, 7 | **the data link**, below |
 | other | nothing |
 
-All ten retail `script.dat` files carry selector 0; the other arms are reached from the campaign's own missions.
+Selector 0 is what a mission gets when its header patch sets none. The patches set 2 (`TRAIN1`, `TRAIN3`, `TRAIN4`, which reaches no arm), 3 (`TRAIN2` and six campaign missions) and 7 (`C1_09`, behind a condition) — [`script-dat.md`](../formats/script-dat.md#header-format). No mission sets 5.
 
 Selector **3** also reaches into the AI: `Ai_IsTargetable` refuses the current order's target to a group led by the player's machine, so the squad does not shoot the thing the player came to read. Selector 7 does not get that shield. See [`ai-targeting.md`](ai-targeting.md#is-it-a-target-at-all--ai_istargetable-00411e80).
 
@@ -202,7 +202,7 @@ Every way out of the simulator ends in `Sim_Shutdown` (`00461eec`), which `Sim_R
 |---|---|
 | outcome | `Mission_EvaluateObjectives(player) == 9`. The objectives are walked once more, so a record first met now applies its counters before they are written; the player's own condition and the mission box play no part |
 | salvage award | `Q10(2500, Mission_TotalSalvage)` plus 25,000 kg per unit of counter 20. `Mission_TotalSalvage` (`00423e88`) sums [`Mech_SalvageValue`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60) over every machine off the player's side that is destroyed or immobilised, walking the machine list from its end |
-| salvage pairs | the list `Salvage_QueueWeapon` (`00426ac8`) built: the enemy wrecks' surviving mounts, queued by that walk, after every Cybrid mount the [destruction roll](weapon-damage-types.md#weapon-mount-destruction) knocked off during the mission |
+| salvage pairs | the list `Salvage_QueueWeapon` (`00426ac8`) built: the enemy wrecks' surviving mounts, queued by that walk, after every Cybrid mount the [destruction roll](weapon-mounts.md#the-chance-path--the-destruction-roll) knocked off during the mission |
 | a block per machine | `Group_WriteStatusBlocks` (`00423d68`) over the player's group, in group order: 33 conditions, then the machine's kill tallies |
 
 **The 33 conditions** are the [damage readouts](../formats/mfd.md) the damage screens read, entries 1-13, 20-29 and 32-41 — the first thirteen components on their own armour, the first ten dependents, and the ten weapon mounts with their paired dependent — each turned from a Q8 damage reading into a percentage condition as `((0x100 - reading) * 100) >> 8`, an arithmetic shift where the decompiler shows an unsigned one. The shell reads the 66 bytes straight over the machine's status block ([`../formats/save-games.md`](../formats/save-games.md#the-66-byte-status-block)).

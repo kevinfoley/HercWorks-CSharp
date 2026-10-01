@@ -42,7 +42,7 @@ A point the player drops under their own feet and is steered back to. Three fiel
 | `view+0x26a` | Set — a marker is down |
 | `view+0x26b` | Armed — the player has since left 10000 units of it |
 
-`NavMarker_DropAtPlayer` (`00434974`) drops one, replacing any already down and always leaving it unarmed. `NavMarker_Tick` (`004349ac`) is the whole lifecycle and runs once a frame from the cockpit's own paint (`FUN_004327ac`): leaving 10000 units arms the marker, and returning inside 10000 clears it and posts the same `0x1d` the route arm posts. A marker dropped where the player stands therefore cannot clear on the frame it appeared. `NavMarker_Position` (`0043495c`) is the accessor the HUD child reads, and answers null while the marker is not set.
+`NavMarker_DropAtPlayer` (`00434974`) drops one, replacing any already down and always leaving it unarmed. `NavMarker_Tick` (`004349ac`) is the whole lifecycle and runs once a frame from the cockpit's own paint (`CockpitView_PerFrameUpdate`): leaving 10000 units arms the marker, and returning inside 10000 clears it and posts the same `0x1d` the route arm posts. A marker dropped where the player stands therefore cannot clear on the frame it appeared. `NavMarker_Position` (`0043495c`) is the accessor the HUD child reads, and answers null while the marker is not set.
 
 **It is dropped by `[Alt+D]`** — command `0x220`, set-1 scancode `0x20` with the `0x200` the cockpit adds for `[Alt]` ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes)). `CockpitWidgets_HandleCommand` claims that code in its own switch, so it never falls through to the FlashComm panel, which is where the manual's `[Alt]`+hotkey documents `D` (DISENGAGE) going. The manual does not mention the marker at all.
 
@@ -52,9 +52,5 @@ A point the player drops under their own feet and is steered back to. Three fiel
 |---|---|
 | The player's waypoints are their own mission record, separate from the AI's routes | They are order slot 0's route on the player's own group, read through the same `Route_WaypointAt` the AI uses |
 | Reaching a waypoint fires the mission action attached to it | A waypoint carries no action ref. What fires is a block-4 trigger area the author has put on the same coordinate |
-| The waypoint indicator can point at the player's selected target instead of the route | The branch exists, gated on `DAT_004d2af0`. That global has exactly one reference in the image — the read that tests it. Its two `.bss` neighbours `DAT_004d2aec` and `DAT_004d2af4` are each written by name, so the region is individually addressed and nothing is reaching it through a base-plus-offset either: it is zero for the whole run and the branch is unreachable |
-| `Ai_FollowRoute` is the only thing that advances a route cursor | It is one of four callers of `Route_AdvanceCursor`. The others are this think, `Flyer_LeadRouteStep` ([`ai-flyers.md`](ai-flyers.md)) and `GroundVehicle_LeaderSteer` (`0046a8e4`), the route half of a movement tick at `0046a70c` whose owning class this doc does not name ([Open](#open)) |
-
-## Open
-
-- **Open:** identify the class whose movement tick at `0046a70c` calls `GroundVehicle_LeaderSteer` (`0046a8e4`), the fourth caller of `Route_AdvanceCursor`.
+| The waypoint indicator can point at the player's selected target instead of the route | The branch exists but its gate is never set — [`cockpit-gunsight-hud.md`](../formats/cockpit-gunsight-hud.md#waypoint-indicators) |
+| `Ai_FollowRoute` is the only thing that advances a route cursor | It is one of four callers of `Route_AdvanceCursor`, and this think is another — [`ai-navigation.md`](ai-navigation.md#follow-the-route--ai_followroute-0041fb60) lists all four |

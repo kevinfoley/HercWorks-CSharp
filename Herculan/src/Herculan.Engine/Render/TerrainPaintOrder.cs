@@ -34,10 +34,10 @@ public readonly struct TerrainPaintOrder : IEquatable<TerrainPaintOrder> {
 		ByColumn = byColumn;
 	}
 
-	/// <summary>The viewer's cell X — <c>DAT_006b4fd4</c>, the walk's centre, painted last.</summary>
+	/// <summary>The viewer's cell X — <c>g_TerrainViewerCellX</c> (<c>006b4fd4</c>), the walk's centre, painted last.</summary>
 	public int CentreX { get; }
 
-	/// <summary>The viewer's cell Y — <c>DAT_006b4fd8</c>.</summary>
+	/// <summary>The viewer's cell Y — <c>g_TerrainViewerCellY</c> (<c>006b4fd8</c>).</summary>
 	public int CentreY { get; }
 
 	/// <summary>

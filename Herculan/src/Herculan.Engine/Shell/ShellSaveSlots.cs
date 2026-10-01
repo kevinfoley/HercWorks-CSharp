@@ -154,7 +154,7 @@ public static class ShellSaveSlots {
 	/// <paramref name="slot"/> and returns the slot's new directory entry, or null when nothing was
 	/// written. Slot 10 is slot 11 in training. A player slot (0-9) takes <paramref name="label"/> as its
 	/// label; every slot is marked in use, and the whole directory is written back
-	/// (<c>FUN_0040e115</c>). The save follows, and <c>Career_SaveSlot</c> (<c>00412a71</c>) copies the
+	/// (<c>Game_SetSlotInUse</c> (<c>0040e115</c>)). The save follows, and <c>Career_SaveSlot</c> (<c>00412a71</c>) copies the
 	/// three working files beside it. See docs/formats/save-games.md.
 	///
 	/// <para>The working files are <c>data\</c>'s, which this engine does not keep: see

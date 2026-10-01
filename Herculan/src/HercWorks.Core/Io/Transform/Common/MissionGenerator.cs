@@ -416,7 +416,7 @@ public sealed class MissionGenerator {
 		}
 	}
 
-	/// <summary><c>FUN_00415a7c(id, count, 1)</c>: a text id to its <c>mission.str</c> line, or <c>-1</c>.</summary>
+	/// <summary><c>Msn_ResolveTextRef(id, count, 1)</c> (<c>00415a7c</c>): a text id to its <c>mission.str</c> line, or <c>-1</c>.</summary>
 	private short TextLine(short id) {
 		if (id == -1) {
 			return -1;

@@ -7,7 +7,7 @@ namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// Why <c>Rock &amp; Roll &gt;</c> refused to launch — the code <c>Mission_OnRockAndRoll</c> (<c>00445509</c>)
-/// hands the refusal dialog, <c>FUN_0044d27c</c>, which prints the two <c>estext.bin</c> lines from
+/// hands the refusal dialog, <c>LaunchRefusal_Show</c> (<c>0044d27c</c>), which prints the two <c>estext.bin</c> lines from
 /// <c>0x13c + 2 * code</c>.
 /// </summary>
 public enum ShellLaunchRefusal {
@@ -32,7 +32,7 @@ public enum ShellLaunchRefusal {
 /// </summary>
 public static class ShellMissionLaunch {
 	/// <summary>
-	/// The first weapon id that does not arm a machine: <c>FUN_004116ec</c> counts a mount only while its
+	/// The first weapon id that does not arm a machine: <c>Herc_HasWeapon</c> (<c>004116ec</c>) counts a mount only while its
 	/// id is below <c>0x1d</c>, so the four pods, <c>TARG</c> to <c>ENRG</c>, leave a machine unarmed.
 	/// </summary>
 	public const int FirstUnarmingWeapon = 0x1d;
@@ -40,13 +40,13 @@ public static class ShellMissionLaunch {
 	/// <summary>How many catalog ids the export's closing table carries, <c>PlayerMec_WriteUnlockTable</c>'s literal <c>0x21</c>.</summary>
 	public const int WeaponCatalogCount = 0x21;
 
-	/// <summary>The mount slots <c>FUN_004116ec</c> walks — all ten a record has, whatever its capacity.</summary>
+	/// <summary>The mount slots <c>Herc_HasWeapon</c> (<c>004116ec</c>) walks — all ten a record has, whatever its capacity.</summary>
 	private const int MountSlots = 10;
 
 	/// <summary>
 	/// The four tests, in <c>Mission_OnRockAndRoll</c>'s order: the player has a bay (<c>00482a9e != -1</c>);
-	/// its machine is built and flightworthy (<c>FUN_00410a9d</c>); it is armed (<c>FUN_00410b11</c>); and
-	/// every squad member on strength in a position in play has an armed machine (<c>FUN_0040f6c6</c>).
+	/// its machine is built and flightworthy (<c>Herc_IsDeployable</c> (<c>00410a9d</c>)); it is armed (<c>Herc_IsArmed</c> (<c>00410b11</c>)); and
+	/// every squad member on strength in a position in play has an armed machine (<c>Squad_AllArmed</c> (<c>0040f6c6</c>)).
 	/// Null when the launch goes ahead.
 	/// </summary>
 	public static ShellLaunchRefusal? Check(ShellHangar hangar) {
@@ -71,7 +71,7 @@ public static class ShellMissionLaunch {
 		return null;
 	}
 
-	/// <summary><c>FUN_00410b11</c> through <c>FUN_004116ec</c>: a machine is armed when any of its ten mounts holds a weapon below <see cref="FirstUnarmingWeapon"/>.</summary>
+	/// <summary><c>Herc_IsArmed</c> (<c>00410b11</c>) through <c>Herc_HasWeapon</c> (<c>004116ec</c>): a machine is armed when any of its ten mounts holds a weapon below <see cref="FirstUnarmingWeapon"/>.</summary>
 	public static bool IsArmed(ShellBayMachine? machine) {
 		if (machine == null) {
 			return false;
@@ -90,7 +90,7 @@ public static class ShellMissionLaunch {
 	/// <c>data\player.mec</c> as <c>Game_ExportMissionHandoff</c> writes it: the player's entry index, always
 	/// 0; the count at <c>00482a7a</c>; the player's machine; then the machine of each squad member on
 	/// strength, walking the positions in play from 1; and the weapon unlock table. Each entry is the
-	/// pilot's name index and skill, then <c>FUN_004106b7</c>'s record of the pilot's bay. The count is
+	/// pilot's name index and skill, then <c>PlayerMec_WriteEntry</c> (<c>004106b7</c>)'s record of the pilot's bay. The count is
 	/// written as the player structure holds it, whatever the entries come to, and a bay with no machine
 	/// writes its two leading fields and nothing after them, as the original's does.
 	/// </summary>
@@ -202,7 +202,7 @@ public static class ShellMissionLaunch {
 /// <summary>
 /// The dialog <c>Rock &amp; Roll &gt;</c> refuses through: a <c>WARNING!</c> alert with two centred lines
 /// and <c>OKAY</c>, built once at startup by the function ending at <c>0044d27c</c>, filled and put up by
-/// <c>FUN_0044d27c(code)</c> and taken down by <c>OKAY</c>'s handler, <c>FUN_0044d404</c>. Like the scrap
+/// <c>LaunchRefusal_Show(code)</c> (<c>0044d27c</c>) and taken down by <c>OKAY</c>'s handler, <c>LaunchRefusal_OnOkay</c> (<c>0044d404</c>). Like the scrap
 /// dialog it is placed in a window the size of the display, so its rect is a canvas rect, and while it
 /// is up this engine hit-tests nothing but <c>OKAY</c>, which is this engine's choice.
 /// </summary>

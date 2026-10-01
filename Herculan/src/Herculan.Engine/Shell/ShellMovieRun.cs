@@ -40,7 +40,7 @@ public sealed class ShellMovieHooks {
 	public required Action<int, string?> ShowLocationPicture { get; init; }
 
 	/// <summary>
-	/// <c>FUN_004441ae</c> taking the location picture down, the frame's root repainted and palette 1
+	/// <c>Mission_HideLocationPicture</c> (<c>004441ae</c>) taking the location picture down, the frame's root repainted and palette 1
 	/// installed. Called only while the picture is up.
 	/// </summary>
 	public required Action HideLocationPicture { get; init; }
@@ -63,7 +63,7 @@ public sealed class ShellMovieHooks {
 /// open is skipped (see <see cref="Begin"/>).</para>
 /// </summary>
 public sealed class ShellMovieRun : IDisposable {
-	/// <summary>How long the location picture stays up: <c>FUN_00401d53(2)</c>'s busy wait, in milliseconds.</summary>
+	/// <summary>How long the location picture stays up: <c>Shell_BusyWaitSeconds(2)</c> (<c>00401d53</c>)'s busy wait, in milliseconds.</summary>
 	public const long LocationHoldMilliseconds = 2000;
 
 	/// <summary>
@@ -92,7 +92,7 @@ public sealed class ShellMovieRun : IDisposable {
 	// The run's bVar1: the music was started again at a location picture, so the end of the run does not.
 	private bool _musicRestarted;
 
-	// DAT_00470fe0: a click or Esc or Space during an intro movie skips the intro's other part. Nothing
+	// MovieQueue_IntroSkipped (00470fe0): a click or Esc or Space during an intro movie skips the intro's other part. Nothing
 	// clears it.
 	private bool _introSkipped;
 	private long _locationShownAt;

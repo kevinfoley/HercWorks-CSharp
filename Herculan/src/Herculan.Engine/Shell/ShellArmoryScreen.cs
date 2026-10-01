@@ -249,7 +249,7 @@ public sealed class ShellArmoryScreen {
 	}
 
 	/// <summary>
-	/// <c>DAT_00479174</c>, the lit row: <c>-1</c> in the image, and put back to it by
+	/// <c>Armory_LitRow</c> (<c>00479174</c>), the lit row: <c>-1</c> in the image, and put back to it by
 	/// <c>Armory_Leave</c>, so every entry selects afresh.
 	/// </summary>
 	public int SelectedRow { get; private set; } = -1;

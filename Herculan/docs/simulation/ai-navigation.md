@@ -45,7 +45,7 @@ Four things it fixes for everything downstream:
 - **The cruise speed is per machine**, out of the mission file: `mech+0x252`, set at spawn from block 7's `+0x02` and zero in 91% of retail records. Zero means `0xaa`, about two thirds of the `0x100` that saturates a chassis' maximum.
 - **Arrival is 10000 units** — 60 metres, and again on the ground plane.
 
-`Ai_DriveToPoint`'s Turbo Pod sprint fires only under a standing squad order, so nothing a machine does on mission orders sprints it to a waypoint however far it has to walk. It is not the pod's only user: `Mech_BehaviourFleeThink` (`0041d2c4`) engages it with no gate at all, which is the one place in the AI a pod fires on mission orders. Both call sites reach `mech+0x317` and there is no third. How an AI machine's pod is engaged and charged is [`equipment-pods.md`](equipment-pods.md#what-the-two-ticks-do-with-the-button); what the sprint is worth is [`equipment-pods.md`](equipment-pods.md#what-the-turbo-pod-is-worth).
+`Ai_DriveToPoint`'s Turbo Pod sprint fires only under a standing squad order, so nothing a machine does on mission orders sprints it to a waypoint however far it has to walk. It is not the pod's only user: `Mech_BehaviourFleeThink` (`0041d2c4`) engages it with no gate at all, which is the one place in the AI a pod fires on mission orders. Both call sites reach `mech+0x317` and there is no third. How an AI machine's pod is engaged and charged is [`equipment-pods.md`](equipment-pods.md#what-the-two-ticks-do-with-the-button); what the sprint is worth is [`mech-locomotion.md`](mech-locomotion.md#damage-effects-on-movement).
 
 ### Follow the route — `Ai_FollowRoute` (`0041fb60`)
 
@@ -59,12 +59,12 @@ The whole route mechanism for a walking AI machine. It always drives at the wayp
 
 `Route_AdvanceCursor` (`0042313c`) has four callers, and all four hand it the same `group+0x04` — every class that walks a route steps the cursor of the group it belongs to, at its own arrival range:
 
-| Caller | Arrival | |
-|---|---|---|
-| `Ai_FollowRoute` (`0041fb99`) | 10000 | this layer |
-| `Mech_BehaviourPlayerThink` (`0041c208`) | 10000 | announces it: [`player-waypoints.md`](player-waypoints.md) |
-| `Flyer_LeadRouteStep` (`00422539`) | 15000 | [`ai-flyers.md`](ai-flyers.md) |
-| `GroundVehicle_LeaderSteer` (`0046a93d`) | `GroundVehicle_DriveToPoint`'s own | [`structure-behaviour.md`](structure-behaviour.md) |
+| Caller (entry) | Call site | Arrival | |
+|---|---|---|---|
+| `Ai_FollowRoute` (`0041fb60`) | `0041fb99` | 10000 | this layer |
+| `Mech_BehaviourPlayerThink` (`0041c194`) | `0041c208` | 10000 | announces it: [`player-waypoints.md`](player-waypoints.md) |
+| `Flyer_LeadRouteStep` (`004224c4`) | `00422539` | 15000 | [`ai-flyers.md`](ai-flyers.md) |
+| `GroundVehicle_LeaderSteer` (`0046a8e4`) | `0046a93d` | `GroundVehicle_DriveToPoint`'s own | [`structure-behaviour.md`](structure-behaviour.md) |
 
 A route that runs out leaves the machine standing on the spot with its throttle at zero — and, through `Group_IsOrderComplete`, ends the order. The cursor wraps to zero on a closed route, so a patrol never runs out and a patrol order never completes; see [`ai-goals.md`](ai-goals.md#the-route-cursor-is-loaded-once).
 
@@ -158,7 +158,7 @@ Six of the 22 states are navigation rather than combat — 8, 9, 10, 11, 12 and 
 
 That is not the same as a follower never fighting. Two things reach one: `Mech_AiOnTakingFire`, and the combat reassess's leader sweep, which the leader's own think triggers the moment it finds something. So a follower cannot *notice* a fight, only join one, and it joins by acquiring its own target rather than taking the leader's. See [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18).
 
-Past the gate, on a 10000-count timer — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units) — in the behaviour block's scratch (`mech+0x5a`):
+Past the gate, on a 10000-count timer — about 4.9 seconds, see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#timer-units) — in the behaviour block's scratch (`mech+0x5a`):
 
 - A machine that is out of action (`+0xa5`, `+0xa4` or `+0x99`) acquires a target and takes `fleeing`.
 - Otherwise it acquires only when the group order verb is 3 or the squad order verb is 2 — the two that actually mean patrol — with the mission-target-only filter, and hands what it finds to `Mech_AiEnterCombat`.

@@ -51,9 +51,9 @@ Offset 3 (49 = ASCII `'1'`) appears at the same offset in `CAM`, `MECH` and `MEC
 
 ## Build-time-only source format — values compiled into DBSIM.EXE, never read at runtime
 
-Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and weapon range breakpoints found in the disassembly match byte-exact values in their corresponding `.BND` files:
+Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and the weapon rows' sensor-dropout ranges ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#sensor-dropout)) found in the disassembly match byte-exact values in their corresponding `.BND` files:
 - `ROCKET.BND` at content offsets 6-7, 8-9, 14-15: `1280`, `3072`, `40000`
-- `PWEAPONS.BND` at content offsets 58-65: `120, 360, 180, 1800` (contiguous)
+- `PWEAPONS.BND` at content offsets 58-65: `120, 360, 180, 1800` (contiguous), `WeaponGauge_Ctor`'s dark and shown ranges
 
 **Conclusion:** `.BND` files are human/build-tool source format (likely compiled by `ES2/BATCH.EXE`) whose values are baked directly into `DBSIM.EXE`'s code at build time. The retail game never opens `.bnd` files; there is no runtime loader.
 
@@ -76,4 +76,3 @@ Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) a
   - `CAM.BND`'s layout above is the template.
   - Group the rest by payload length and diff within a family (`P*.BND` cockpit panels, `*_ALRT.BND` alert configs) — the approach that decoded `.DCI`.
   - Cross-reference fields against the per-subsystem constants in `dbsim-physics-notes.md`, `damage-system.md` and `weapon-damage-types.md`, the technique that established the format is build-time-only.
-- **Open:** write the `PWEAPONS.BND` range breakpoints (120, 360, 180, 1800) up in [`../simulation/weapon-damage-types.md`](../simulation/weapon-damage-types.md) with the code that uses them.

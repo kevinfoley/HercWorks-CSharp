@@ -359,7 +359,7 @@ What `START NEW GAME` opens: a pilot name and a skill for a new campaign career.
 
 **The field takes keys from the start.** The builder writes its permitted-character set, `00476169` — the digits, both alphabets and the space — and leaves `EditField_Ctor`'s `+0xbf` and `+0xb3` set and `+0xb7` at 0, where [the save rows](#the-save-screen) clear the first two and raise the third. So it types as [a save row being renamed does](#typing-into-a-row), letters upper-cased, and erases down to empty. `Registration_Show` shows the three widgets and then does what `SAVE` does to a row: posts a left press at the field, moves the pointer onto it and locks it there, so the field has the focus and its caret blinks as the screen comes up. A press elsewhere ends that as it does on the save screen, and the field takes no key until it is clicked again.
 
-**Nothing clears the name or the skill.** The field starts empty, and neither the show nor either button writes it, so a second `START NEW GAME` comes back to the name typed last. The skill is `RegistrationSkillChoice` (`004761ac`), 0 in the image.
+**Nothing clears the name or the skill.** The field starts empty, and neither the show nor either button writes it, so a second `START NEW GAME` comes back to the name typed last. The skill is `RegistrationSkillChoice` (`004761ac`), 0 in the image. `Game_NewCareer` writes it to the player pilot's `+0x25` through `Pilot_Init` (`0040fcd8`), and it never changes after ([`campaign-loop.md`](campaign-loop.md#pilot-progression)), so it is also the career's [simulator difficulty](../simulation/difficulty.md).
 
 **`ACCEPT` is live once the name has a character.** `Registration_OnNameEvent` runs on every event the field takes, and on a character or a command writes [the greying trio](#the-condition-readout) at `ACCEPT` from the field's first character: greyed while it is empty, lit once it is not. The builder greys the caption and clears the enable flag but leaves the border at `0x22`, so until the first key `ACCEPT` is a live border round a grey caption.
 
@@ -406,17 +406,19 @@ The list's face of `0x10` flattens its checkerboard; the parameter box keeps a v
 
 ### The parameters
 
-Each label steps one `prefs.cfg` option and rewrites its readout from the option's `estext.bin` run; the options, their moduli and what they become are in [`../simulation/difficulty.md`](../simulation/difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte). The event's sub-code decides the direction: the left release steps forward through `ShellOptions_StepOption`, the right back through `ShellOptions_StepOptionBack`.
+Each label steps one `prefs.cfg` option, with its own modulus, and rewrites its readout from the option's `estext.bin` run. The event's sub-code decides the direction: the left release steps forward through `ShellOptions_StepOption`, the right back through `ShellOptions_StepOptionBack`.
 
-| Label | Handler | Option |
-|---|---|---|
-| `Damage` | `0044bf29` | `0x26` |
-| `Ammo` | `0044bfe6` | `0x25` |
-| `Mission Difficulty` | `0044c0a3` | `0x27` |
-| `Time of Day` | `0044c160` | `0x29` |
-| `Herc Type` | `0044c21d` | `0x28` |
+| Label | Handler | Option | Modulus | Readout | Becomes |
+|---|---|---|---|---|---|
+| `Damage` | `0044bf29` | `0x26` | 2 | `0x128` `Vulnerable` / `Invulnerable` | `script.dat` header `+0x0c`, the player takes no damage |
+| `Ammo` | `0044bfe6` | `0x25` | 2 | `0x12a` `Limited` / `Unlimited` | header `+0x0a`, unlimited ammunition and energy |
+| `Mission Difficulty` | `0044c0a3` | `0x27` | 4 | `0x35` `ROOKIE` to `ELITE` | header `+0x0e`, the [difficulty](../simulation/difficulty.md) |
+| `Time of Day` | `0044c160` | `0x29` | 2 | `0x12c` `Day` / `Night` | header `+0x12`, the theater variant |
+| `Herc Type` | `0044c21d` | `0x28` | 9 | `0x6e` `Outlaw` to `Razor` | the chassis the player flies — not a header field |
 
-A step changes the array in memory only. `Begin Mission` (`0044c396`) is what saves it, and then flies the lit row — [Starting a practice mission](#starting-a-practice-mission). `Main Menu` (`0044c2da`) is `PracticeScreen_Hide` then `MainMenu_Show`, and leaves the mode where it is.
+The header fields are written from these options by `MsnGen_LoadMission` ([`../formats/script-dat.md`](../formats/script-dat.md#the-training-fields)); the simulator never reads the options themselves.
+
+A step changes the array in memory only. `Begin Mission` (`0044c396`) is what saves it, so the settings persist between runs, and then flies the lit row — [Starting a practice mission](#starting-a-practice-mission). `Main Menu` (`0044c2da`) is `PracticeScreen_Hide` then `MainMenu_Show`, and leaves the mode where it is.
 
 ### Selecting a mission
 

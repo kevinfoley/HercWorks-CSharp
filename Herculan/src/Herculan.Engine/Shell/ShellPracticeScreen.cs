@@ -93,7 +93,7 @@ public sealed class ShellPracticeScreen {
 	/// <summary>
 	/// The <c>prefs.cfg</c> option each parameter steps, its modulus, and the first <c>estext.bin</c>
 	/// entry of the run its readout prints — the value is added to it. Indexed by
-	/// <see cref="ShellPracticeButton"/>. See docs/simulation/difficulty.md.
+	/// <see cref="ShellPracticeButton"/>. See docs/shell/screen-layout.md, "The parameters".
 	/// </summary>
 	private static readonly (int Option, int Modulus, int FirstText)[] Parameters = {
 		(0x26, 2, 0x128),
@@ -134,9 +134,9 @@ public sealed class ShellPracticeScreen {
 	public ShellPracticeScreen(SimulatorPreferences options) => _options = options;
 
 	/// <summary>
-	/// <c>DAT_00479bb8</c> — the practice row that is lit. <c>-1</c> in the image, so the first
+	/// <c>PracticeScreen_SelectedRow</c> (<c>00479bb8</c>) — the practice row that is lit. <c>-1</c> in the image, so the first
 	/// <see cref="Show"/> lights row 0. A new career in training mode starts on this mission of stage 0
-	/// (<c>FUN_00412a2f</c>).
+	/// (<c>Career_SeedPosition</c> (<c>00412a2f</c>)).
 	/// </summary>
 	public int SelectedRow { get; private set; } = -1;
 

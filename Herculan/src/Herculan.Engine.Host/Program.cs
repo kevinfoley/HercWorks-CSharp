@@ -638,7 +638,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// SimMath.PerTickStepsScaled.
 	SimMath.PerTickStepsScaled = tapePlayer == null;
 	// The two gates the original's own panel reads. SfxManager being null greys its first four rows, and
-	// DAT_0049e9cd -- which Voice_ArchiveExists (00459d6c) sets by trying to fopen the localised simvoice archive -- is
+	// VoiceArchivePresent (0049e9cd) -- which Voice_ArchiveExists (00459d6c) sets by trying to fopen the localised simvoice archive -- is
 	// what lets the two message rows be stepped at all.
 	bool soundAvailable = audio.Director != null;
 	bool voiceAvailable = content.MountedArchives.Any(
@@ -1125,7 +1125,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	System.Numerics.Vector2 externalOrbitLastMouse = System.Numerics.Vector2.Zero;
 
 	// The tick's camera axes and trigger, built with the machine's controls each frame and handed to the
-	// chain on each tick — Sim_PollPlayerInput's arguments to FUN_00401c74.
+	// chain on each tick — Sim_PollPlayerInput's arguments to Cam_Steer (00401c74).
 	PilotAxes viewCameraAxes = PilotAxes.Centred;
 	bool viewCameraTrigger = false;
 
@@ -2794,7 +2794,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				// turns the view without anything here having to add the angles in.
 				//
 				// All three angles are taken, roll included, which is what the cockpit branch of
-				// FUN_004011a0 does: it converts the pilot node's world matrix with Transform_RotationToEuler (0047f894) and
+				// Cam_Update (004011a0) does: it converts the pilot node's world matrix with Transform_RotationToEuler (0047f894) and
 				// stores the whole triple in the view. A walking machine's node barely rotates, but one
 				// turning on the spot rolls it several degrees a step — the rock through a turn-in-place.
 				var look = eyeFrame.ToEuler();
@@ -3589,7 +3589,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// the canvas — HB1 starts at row 474 and HB0 runs to 479 — and the original resolves that by blitting
 	// view 1 before view 0, so the draw order below does the same.
 	// The cockpit view manager's view 4: the world in the rows ExternalViewLayout gives it, across the
-	// window's width, and below it the band FUN_0042da08 floods black and the caption on it. The focal
+	// window's width, and below it the band View_FillOutside3dRect (0042da08) floods black and the caption on it. The focal
 	// length stays the cockpit's; the view is only shorter, so its field of view is the angle that length
 	// subtends over its own rows.
 	void DrawExternalView(GL gl, int width, int height) {

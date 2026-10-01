@@ -102,7 +102,7 @@ public sealed class ShellBuildScreen {
 
 	/// <summary>
 	/// Builds the screen and enters it with <paramref name="bay"/> selected, the bay the previous tab
-	/// left in <c>DAT_00482ae5</c>.
+	/// left in <c>SelectedBaySlot</c> (<c>00482ae5</c>).
 	/// </summary>
 	public ShellBuildScreen(ShellHangar? hangar = null, int bay = -1, IReadOnlyList<HercInfEntry>? catalog = null,
 			ShellRepairDiagrams? blueprints = null, ShellBayPictures? pictures = null) {
@@ -128,7 +128,7 @@ public sealed class ShellBuildScreen {
 	/// </summary>
 	public int SelectedChassis { get; private set; } = -1;
 
-	/// <summary><c>DAT_00482ae5</c>, the bay the squad panel shows.</summary>
+	/// <summary><c>SelectedBaySlot</c> (<c>00482ae5</c>), the bay the squad panel shows.</summary>
 	public int SelectedBay { get; private set; }
 
 	/// <summary>

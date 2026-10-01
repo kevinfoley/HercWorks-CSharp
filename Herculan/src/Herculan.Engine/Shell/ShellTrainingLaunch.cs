@@ -72,7 +72,7 @@ public static class ShellTrainingLaunch {
 	/// Builds and writes the handoff into <paramref name="directory"/>, or returns null with the reason
 	/// when the install lacks a file the original would open. <paramref name="clearList"/> is the row-2
 	/// clear list the shell keeps across loads (<see cref="MissionGenerator.Load"/>).
-	/// <paramref name="instantAction"/> is <c>DAT_0047363c</c>, which <c>INSTANT ACTION</c> sets.
+	/// <paramref name="instantAction"/> is <c>InstantAction_Active</c> (<c>0047363c</c>), which <c>INSTANT ACTION</c> sets.
 	/// <paramref name="held"/> is the game the shell's memory holds, as <see cref="ShellCampaignLaunch.NewCareer"/> takes it.
 	/// </summary>
 	public static ShellTrainingHandoff? Write(string directory, GameContent content, SimulatorPreferences options,
@@ -120,7 +120,7 @@ public static class ShellTrainingLaunch {
 		int positions = mission.SquadPositions;
 		hangar.SetPositionsInPlay(positions);
 
-		// FUN_0041c58d: the first four rows, and INSTANT ACTION, fly group 0's first member; the rest fly
+		// MsnGen_BuildPlayerHerc (0041c58d): the first four rows, and INSTANT ACTION, fly group 0's first member; the rest fly
 		// a stock fit of the chassis the Herc Type option holds.
 		var player = row < FirstChosenChassisRow || instantAction
 			? Machine(mission.Herc(mission.SquadMember(0)))

@@ -64,18 +64,18 @@ static class ShellHost {
 	/// <summary>
 	/// Runs the front end until its window closes. Returns the exit code and, when <c>Rock &amp; Roll &gt;</c>,
 	/// <c>Begin Mission</c>, <c>INSTANT ACTION</c> or the debrief's <c>REPLAY MISSION?</c> closed it, the mission
-	/// to run — <c>FUN_0040876a(2)</c>, the code the retail launcher answers by starting the simulator.
+	/// to run — <c>Shell_SetExitCode(2)</c> (<c>0040876a</c>), the code the retail launcher answers by starting the simulator.
 	/// <c>VIEW DEMO</c> closes it with <see cref="DemoExitCode"/> and no mission.
 	///
 	/// <para><paramref name="returnCode"/> is <c>-X</c>, the state the launcher starts the shell in
 	/// (<c>0048227e</c>): <see cref="StartupCode"/> on a first start, or the code the simulator returned —
 	/// <see cref="MissionResults.DebriefExitCode"/> into the debrief, <see cref="MissionResults.DemoExitCode"/>
 	/// after a demo (<c>Shell_BuildScreensAndStart</c>, <c>004012b0</c>). <paramref name="forcedMode"/> overrides
-	/// the campaign/training mode the startup seeds from <c>prefs.cfg</c> option 42 (<c>FUN_0040e17e</c>); the mode
+	/// the campaign/training mode the startup seeds from <c>prefs.cfg</c> option 42 (<c>Shell_InitGameState</c> (<c>0040e17e</c>)); the mode
 	/// the shell ends in is returned for the next turn, which is how it survives a return from the simulator when
 	/// <c>--no-write-prefs</c> keeps option 42 off the disk.</para>
 	///
-	/// <para>Retail ignores <c>WM_CLOSE</c> while the startup sequence runs (<c>DAT_0046c098</c> clear); this
+	/// <para>Retail ignores <c>WM_CLOSE</c> while the startup sequence runs (<c>Shell_CloseAllowed</c> (<c>0046c098</c>) clear); this
 	/// window closes.</para>
 	/// </summary>
 	public static (int ExitCode, ShellLaunch? Launch, ShellCampaignMode? Mode) Run(string installRoot, string? paletteName, string? screenshotPath = null,
@@ -95,7 +95,7 @@ static class ShellHost {
 		int missionInStage = 0;
 		bool missionMapShown = false;
 
-		// MissionScreenView (DAT_0048106c) at 4, which only the debrief writes, and the tab handler's own map
+		// MissionScreenView (0048106c) at 4, which only the debrief writes, and the tab handler's own map
 		// or briefing overwrites; with it, the debrief's text, its movie, and that movie's once-per-load flag
 		// (DAT_004778ac), which a load and a new career clear.
 		bool debriefUp = false;
@@ -130,7 +130,7 @@ static class ShellHost {
 		// archive entries, so they are read from the install root and not through GameContent.
 		var slots = ShellSaveSlots.Load(installRoot, art.Text);
 
-		// DAT_0048260a, whether there is a game in progress to save. The startup clears it and a load sets
+		// maybe_HasGameInProgress (0048260a), whether there is a game in progress to save. The startup clears it and a load sets
 		// it; Game_SaveSlot writes nothing while it is clear, and SAVE is gated on it.
 		bool gameInProgress = false;
 		var saveScreen = new ShellSaveScreen(slots, canSave: gameInProgress);
@@ -197,7 +197,7 @@ static class ShellHost {
 		bool scopeFilled = false;
 
 		// The END OF GAME alert CONTINUE GAME puts up over the menu when the game it loaded is over, and
-		// INSTANT ACTION's DAT_0047363c, which nothing clears.
+		// INSTANT ACTION's InstantAction_Active (0047363c), which nothing clears.
 		var endOfGame = new ShellEndOfGameDialog();
 		bool instantActionSet = false;
 
@@ -222,7 +222,7 @@ static class ShellHost {
 		var shellOptions = preferences ?? SimulatorPreferences.Defaults();
 		shellOptions.SaveEnabled = writePreferences;
 
-		// CampaignModeFlag (DAT_0048260c), which the startup (FUN_0040e17e) seeds from option 42 so the mode
+		// CampaignModeFlag (0048260c), which the startup (Shell_InitGameState, 0040e17e) seeds from option 42 so the mode
 		// survives a restart, and a return from a mission with it: it is what picks GAME_R or GAME_T as slot 10.
 		var mode = forcedMode ?? (shellOptions[CampaignModeOption] == (byte)ShellCampaignMode.Campaign
 			? ShellCampaignMode.Campaign : ShellCampaignMode.Training);
@@ -482,7 +482,7 @@ static class ShellHost {
 
 			// The map's intro runs as the original's does, in a loop of its own that takes nothing but a
 			// button going down or Esc or Space, each of which skips to its closing zoom
-			// (FUN_0040146a). Every widget is out of reach until it ends — this engine's choice.
+			// (ShellMap_RunIntro (0040146a)). Every widget is out of reach until it ends — this engine's choice.
 			if (MapIntroUp() is { } intro) {
 				bool left = mouse.IsButtonPressed(MouseButton.Left);
 				bool right = mouse.IsButtonPressed(MouseButton.Right);
@@ -596,7 +596,7 @@ static class ShellHost {
 			}
 
 			// Clicking the tab you are already on is a no-op in the original: every handler returns
-			// early when DAT_0047581c already holds its own index, before the teardown, the palette and
+			// early when CurrentTabIndex (0047581c) already holds its own index, before the teardown, the palette and
 			// the click sound.
 			if (id == screen.SelectedTab) {
 				return;
@@ -998,7 +998,7 @@ static class ShellHost {
 			}
 		}
 
-		// INSTANT ACTION, 004312a6: DAT_0047363c set, training mode, then InstantAction_SelectDemo (0044befb) —
+		// INSTANT ACTION, 004312a6: InstantAction_Active (0047363c) set, training mode, then InstantAction_SelectDemo (0044befb) —
 		// row 8 + option 46 selected, option 46 stepped modulo 3, the options committed and all saved — and
 		// Begin Mission's path from the new career on. The original blanks the screen first, full screen,
 		// or shows and hides the palette scope in a window, whose black fill the window closing straight
@@ -1019,7 +1019,7 @@ static class ShellHost {
 
 		// CONTINUE GAME, MainMenu_OnContinue (004313e4): campaign mode, slot 10 loaded and selected on the save
 		// screen, then the bare frame when the game goes on (state 2) and the END OF GAME alert over the menu
-		// otherwise (FUN_0044cecf). Unlike RESTORE it neither autosaves nor clears the campaign map's
+		// otherwise (EndOfGame_Show (0044cecf)). Unlike RESTORE it neither autosaves nor clears the campaign map's
 		// once-per-load flag. The original wraps the load in the hourglass, which a load inside one update,
 		// with no message pumped, would never show.
 		void ContinueGame() {
@@ -1041,7 +1041,7 @@ static class ShellHost {
 			RepaintContent();
 		}
 
-		// START NEW GAME, MainMenu_OnStartNewGame (00431379): MainMenu_Hide, the mode to 1 (FUN_0040e69e), then
+		// START NEW GAME, MainMenu_OnStartNewGame (00431379): MainMenu_Hide, the mode to 1 (Shell_SetCampaignMode (0040e69e)), then
 		// Registration_Show (0043bc0a) — the screen up and a left press posted at its name field with the pointer
 		// locked on it, as SAVE takes a save row, so keys reach the field at once.
 		void StartNewGame() {
@@ -1225,7 +1225,7 @@ static class ShellHost {
 			}
 		}
 
-		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (FUN_0040e69e), point the
+		// SAVE/RESTORE, 00431498: hide the menu, set the campaign mode to 1 (Shell_SetCampaignMode (0040e69e)), point the
 		// save screen's EXIT back here, and enter it.
 		void OpenSaveRestore() {
 			SetMode(ShellCampaignMode.Campaign);
@@ -1245,7 +1245,7 @@ static class ShellHost {
 			window.Close();
 		}
 
-		// FUN_0040e69e, the mode write the main menu's handlers make: the mode, and prefs.cfg option 42 set to
+		// Shell_SetCampaignMode (0040e69e), the mode write the main menu's handlers make: the mode, and prefs.cfg option 42 set to
 		// it without its handler and written alone. The tabs are regated by the strip refresh the frame comes
 		// back up through (ReturnToFrame), the strip being hidden until then.
 		void SetMode(ShellCampaignMode newMode) {
@@ -1586,7 +1586,7 @@ static class ShellHost {
 			return true;
 		}
 
-		// The game in progress from here on, from a load or a new career — DAT_0048260a set, the briefing's and
+		// The game in progress from here on, from a load or a new career — maybe_HasGameInProgress (0048260a) set, the briefing's and
 		// debrief's movies to play again (DAT_004778ab and DAT_004778ac cleared), and the mission map rebuilt on
 		// the briefing's next visit.
 		void AdoptGame(HercWorks.Core.Data.File.Sav.PlayerSave game, ShellHangar gameHangar, ShellWorkingFiles files) {
@@ -2116,7 +2116,7 @@ static class ShellHost {
 		}
 
 		// The page arrows page the text that is up; the map's six call the map's methods and repaint it
-		// (FUN_00444ee7 to FUN_004452f2), once each, the auto-repeat not being ported.
+		// (Mission_OnMapUp (00444ee7) to Mission_OnMapZoomOut (004452f2)), once each, the auto-repeat not being ported.
 		void ClickMissionArrow(ShellMissionArrow arrow) {
 			if (arrow is not (ShellMissionArrow.PageUp or ShellMissionArrow.PageDown)) {
 				if (missionMap != null) {
@@ -2165,7 +2165,7 @@ static class ShellHost {
 				+ $"page {box.Page + 1} of {box.PageCount}.");
 		}
 
-		// Tab 6's entry. The bay it starts from is the one the previous tab left selected, DAT_00482ae5,
+		// Tab 6's entry. The bay it starts from is the one the previous tab left selected, SelectedBaySlot (00482ae5),
 		// which here only the repair screen tracks; the entry then moves it.
 		void EnterCrew() {
 			if (crewScreen == null) {
@@ -2318,7 +2318,7 @@ static class ShellHost {
 		}
 	}
 
-	/// <summary>The map's timer, <c>FUN_00465a1c</c>: <c>GetTickCount()</c> in units of 16 ms.</summary>
+	/// <summary>The map's timer, <c>Shell_TimerTicks</c> (<c>00465a1c</c>): <c>GetTickCount()</c> in units of 16 ms.</summary>
 	private static uint MapClock() => (uint)(Environment.TickCount64 >> 4);
 
 	/// <summary>The tabs this engine has a screen behind.</summary>
@@ -2335,7 +2335,7 @@ static class ShellHost {
 	/// <summary><c>prefs.cfg</c> option 6, <c>Display Mode</c>: 0 a window, 1 full screen.</summary>
 	private const int DisplayModeOption = 6;
 
-	/// <summary><c>prefs.cfg</c> option 42, the campaign-or-training flag <c>FUN_0040e69e</c> writes.</summary>
+	/// <summary><c>prefs.cfg</c> option 42, the campaign-or-training flag <c>Shell_SetCampaignMode</c> (<c>0040e69e</c>) writes.</summary>
 	private const int CampaignModeOption = 42;
 
 	/// <summary>

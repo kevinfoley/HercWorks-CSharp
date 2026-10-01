@@ -15,6 +15,8 @@ secondaryKey = ammoTypes [record[0x17]]      // 5 is rewritten to 0
 
 Consequences: the fit array's slot positions are load-bearing (compacting it fits the wrong weapon to the wrong hardpoint), a slot no hardpoint addresses contributes nothing, and the same `player.mec` entry produces a different panel on two different HERCs. Weapon id 0 and id 27 (`MINE`, which has no case in the factory's switch) build no mount; the array keeps the hole.
 
+**Every mount block starts zeroed.** The factory opens by pushing a 200000-byte arena that `Arena_Push` (`00474ab0`) has just `calloc`'d, and bump-allocates every mount out of it through `Arena_Alloc` (`0047a1bc`), which does no zeroing of its own but never needs to. Its fallback for an absent or full arena, `Mem_NewArray`, zeroes anyway. A field no constructor writes therefore reads zero — the Targeting Pod's cached damage is one ([`equipment-pods.md`](equipment-pods.md#where-a-pod-reads-its-damage)).
+
 ### The hardpoint list
 
 The record layout is in [`../formats/gun-layout-gl.md`](../formats/gun-layout-gl.md). The loadout path reads three fields: `+0x07`, the fire-chain number, is **the cockpit weapon row this mount owns**; `+0x16` is the link partner offset; `+0x17` is the fit slot. The rest of the record is placement data this system does not touch.
@@ -40,7 +42,7 @@ The factory's switch on the weapon id picks one of four live classes. Nothing el
 
 The ELF case is the only one that is not just a constructor call: the factory runs the energy constructor and then **overwrites the object's vtable pointer** with `ElfMountVtable` (`004992c0`). The two classes therefore share every field and differ only in the five slots that table replaces — see [ELF and ELF2](#elf-and-elf2).
 
-Five pod classes hang off `Pod_CtorBase` (`0040e234`) and are laid out differently past `+0x77`. Only the ECM and Turbo pods override anything behavioural, and only they have a button on their cockpit row; the Shield, Targeting and Energy pods inherit the base's `Pod_TickBase` and its do-nothing pool turn — see [`equipment-pods.md`](equipment-pods.md#only-two-pods-have-a-button). The table below is the two weapon-carrying classes only.
+Five pod classes hang off `Pod_CtorBase` (`0040e234`) and are laid out differently past `+0x77`. Only the ECM and Turbo pods override a tick, and only they have a button on their cockpit row; the Shield, Targeting and Energy pods inherit the base's `Pod_TickBase`, and all but the Turbo Pod inherit the base's free pool turn. The Targeting Pod's one override is its condition notification — see [`equipment-pods.md`](equipment-pods.md#what-each-class-actually-overrides) and [the button split](equipment-pods.md#only-two-pods-have-a-button). The table below is the two weapon-carrying classes only.
 
 Shared mount fields mean different things per class:
 
@@ -136,11 +138,11 @@ mount+0x10 = 0;      // drop the weapon model: the gun stops being drawn on the 
 mount+0x49 = 1;      // destroyed: charges nothing, fires nothing, cannot be armed, prints OFFLINE
 ```
 
-A visibly-mounted hardpoint then throws its own gun as a debris object — the same shape index out of `dts\MECHWPN2.DTS`, off the mount point, on a `Math_EulerToward` bearing away from the machine's aim point. The third argument selects the pair the piece is built with, and it is the *path* that picks it, not who is flying: the certain notification below passes 0 and throws a piece that bursts, the destruction roll passes 1 and throws one that just falls. See [`destruction-effects.md`](destruction-effects.md#spawn-sites).
+A visibly-mounted hardpoint then throws its own gun as a debris object ([`destruction-effects.md`](destruction-effects.md#spawn-sites)). The path picks the piece's kind, not who is flying: the certain notification below passes 0 and throws a piece that bursts, the destruction roll passes 1 and throws one that just falls.
 
 ### The certain path — the condition notification
 
-`Mech_ComponentDamageWrite` snapshots **every** mount's component reading before its write and hands both readings to every mount afterwards, through the mount's vtable `+0x68`. The snapshot has to cover all of them because the write cascades: a hit on a shoulder can move a mount several components away. The component a mount reads is `.GL +0x17` + 19 — see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction).
+`Mech_ComponentDamageWrite` snapshots **every** mount's component reading before its write and hands both readings to every mount afterwards, through the mount's vtable `+0x68`. The snapshot has to cover all of them because the write cascades: a hit on a shoulder can move a mount several components away. The component a mount reads is `.GL +0x17` + 19 — see [the destruction roll](#the-chance-path--the-destruction-roll).
 
 `WeaponMount_ConditionChangedBase` (`0040ee0c`), the base class' whole slot: a component reading 256 destroys the mount, with no roll.
 
@@ -156,7 +158,28 @@ A visibly-mounted hardpoint then throws its own gun as a debris object — the s
 
 ### The chance path — the destruction roll
 
-A band change on a mount component rolls once to take that mount out, inside `Mech_ApplyDirectFireDamage`. It is decoded in [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction), which owns the damage side; `WeaponMounts_MountForHardpointSlot` (`00410670`) is the component-to-mount lookup it uses, matching on `.GL +0x17` rather than on a position in the mount array.
+Components **19-28** are the machine's weapon mounts. The component a mount occupies is its `.GL` record's `+0x17` plus 19, which is also how `Mech_ConfigureLoadout` registers each mount's collision and damage records; `WeaponMounts_MountForHardpointSlot` (`00410670`) is the lookup back, matching on `.GL +0x17` rather than on a position in the mount array.
+
+`Mech_ApplyDirectFireDamage` (`004188c8`) rolls once for a hit that moved a mount component into a new damage band:
+
+```c
+if (after != 0x100 && typeRec+0x56 != 0 && component > 0x12) {
+    odds = (obj[+0x45][+0x12] == 0) ? 3 : 10;            // the mission group's side byte
+    if ((rand & 0xfff) < odds * 0x29) {                  // 123/4096 (~3%) or 410/4096 (~10%)
+        WeaponMount_Destroy(mountFor(component), mech, 1);
+        mech+0x20e[component] = 0;                       // clear the active flag FIRST
+        if (side == 1) queueSalvage(template+0x56, (0x100 - Q10(500, after)) * 100 >> 8);
+        Component_ApplyDamageAndCascade(component, 10000);
+    }
+}
+```
+
+Four things a port has to keep:
+
+- **The chassis gates it.** `typeRec+0x56` is record offset 84 (the record sits at `MECH_TYPE_DATA[i]+2`), and the PITBULL alone states zero — its mounts are immune to the roll, though not to the certain path. See [`mech-locomotion.md`](mech-locomotion.md#mech-type-record).
+- **The odds depend on whose machine it is**: about 3% for the player's side, about 10% for the Cybrids.
+- **The order of the three writes.** Clearing the active flag before the flat 10000 is what stops the component cascading, so losing a gun does not take the shoulder it hangs off with it. `Component_ApplyDamageAndCascade` does **not** test the active flag — the flag gates `Mech_ComponentDamageWrite` at its entry and `Component_DestroyAndCascade`, and neither of those is reached here.
+- **The Cybrid branch queues salvage.** `Salvage_QueueWeapon` (`00426ac8`) appends the destroyed weapon's catalog id (`template+0x56`) to the mission's salvage list, with a condition taken from just under half the component's reading, so a gun knocked off a half-wrecked mount comes home in better shape than the mount reads. The list is what the player recovers after the mission ([`component-damage.md`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)).
 
 ## Names — `WeaponMount_GetDisplayName` (`0040e18c`)
 
@@ -170,7 +193,7 @@ A pod row is the one place the name is decorated. `PodGauge_Ctor` (`00441524`) s
 
 ## The manager — `mech+0x202`
 
-`MechLoadout_ConstructWeaponMounts` builds the base object (the mount array and its count); `WeaponMounts_CtorLocal` (`004104ec`) extends it for a locally-simulated machine with the selection and the fire groups. A remote machine gets the base class and never has either read.
+`mech+0x202` points at a separately allocated manager with its own vtable. `Mech_ConfigureLoadout` (`004175dc`) allocates it on every spawn and equip change: 0x14 bytes and `MechLoadout_ConstructWeaponMounts` alone, which builds the base object (the mount array and its count), or 0x35 bytes and `WeaponMounts_CtorLocal` (`004104ec`) on top when `mech+0xa3` is set, which extends it for a locally-simulated machine with the selection and the fire groups. A remote machine gets the base class and never has either read.
 
 | Offset | Field |
 |---|---|

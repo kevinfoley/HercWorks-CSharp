@@ -160,7 +160,7 @@ A dword whose image value is 0. `es2_xref.py` finds seven accesses to it over th
 
 ## What the external view shows
 
-Entering view 4 (`CockpitView_ApplyViewState`, `00429e60`) installs the default 3D rect `CockpitViewManager_Ctor` (`00429660`) made — columns 0-319 and rows 0-194 at 320x240, doubled in the 640-wide modes, with the projection centre 160 across and 90 down — and turns the cockpit's widgets off (`+0x20f`). `FUN_0042da08` floods everything outside the rect with colour 19. No cockpit, gunsight, MFD or heads-down display is drawn ([`../formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#when-each-display-ticks)).
+Entering view 4 (`CockpitView_ApplyViewState`, `00429e60`) installs the default 3D rect `CockpitViewManager_Ctor` (`00429660`) made — columns 0-319 and rows 0-194 at 320x240, doubled in the 640-wide modes, with the projection centre 160 across and 90 down — and turns the cockpit's widgets off (`+0x20f`). `View_FillOutside3dRect` (`0042da08`) floods everything outside the rect with colour 19. No cockpit, gunsight, MFD or heads-down display is drawn ([`../formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#when-each-display-ticks)).
 
 With the widgets off, `CockpitWidgets_HandleCommand` answers nothing, so every key it owns goes dead: the weapon-row numbers, [F1]-[F11], [Enter] and [;], [Tab], [R], the `Alt` order letters and [Alt+D]. [Enter], [Tab] and [Esc] fall through to the dispatcher's own cases above. The dispatcher's own cases — ['], [T], [Q], [P], [F12] — work as in the cockpit, and so do the joystick actions that call their handlers directly; HDD VIEW and COCKPIT VIEW, which go through the widgets, do nothing.
 

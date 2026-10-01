@@ -42,7 +42,7 @@ public sealed class ShellWeaponsArt {
 		}
 	}
 
-	/// <summary><c>wpn_desc.bin</c>, opened by <c>Arming_BuildScreen</c> into <c>DAT_0048d728</c>.</summary>
+	/// <summary><c>wpn_desc.bin</c>, opened by <c>Arming_BuildScreen</c> into <c>Arming_DescriptionBin</c> (<c>0048d728</c>).</summary>
 	public ShellText? Descriptions { get; }
 
 	/// <summary>How many weapons have a picture — 26 in the retail file.</summary>
@@ -162,7 +162,7 @@ public sealed class ShellWeaponsScreen {
 
 	/// <summary>
 	/// Builds the screen and enters it with <paramref name="bay"/> selected, the bay the previous tab
-	/// left in <c>DAT_00482ae5</c>.
+	/// left in <c>SelectedBaySlot</c> (<c>00482ae5</c>).
 	/// </summary>
 	public ShellWeaponsScreen(ShellHangar? hangar = null, int bay = -1, ShellWeaponsArt? art = null,
 			ShellBayPictures? pictures = null) {
@@ -172,16 +172,16 @@ public sealed class ShellWeaponsScreen {
 		Enter(_hangar, bay);
 	}
 
-	/// <summary><c>DAT_00482ae5</c>, the bay the squad panel shows.</summary>
+	/// <summary><c>SelectedBaySlot</c> (<c>00482ae5</c>), the bay the squad panel shows.</summary>
 	public int SelectedBay { get; private set; } = -1;
 
 	/// <summary>
-	/// <c>DAT_00476d5a</c>, the lit row, <c>-1</c> in the image. The widgets outlive a visit, so it does too.
+	/// <c>Arming_LitRow</c> (<c>00476d5a</c>), the lit row, <c>-1</c> in the image. The widgets outlive a visit, so it does too.
 	/// </summary>
 	public int SelectedRow { get; private set; } = -1;
 
 	/// <summary>
-	/// <c>DAT_00476d5c</c>, the guidance kind last put up, <c>-1</c> in the image. Selecting a missile rack
+	/// <c>Arming_ShownGuidance</c> (<c>00476d5c</c>), the guidance kind last put up, <c>-1</c> in the image. Selecting a missile rack
 	/// hides its picture and leaves the value, so it is not the same thing as <see cref="ShowingGuidance"/>.
 	/// </summary>
 	public int ShownGuidance { get; private set; } = -1;
@@ -189,7 +189,7 @@ public sealed class ShellWeaponsScreen {
 	/// <summary>Whether the picture box shows <see cref="ShownGuidance"/>'s picture rather than the selected weapon's.</summary>
 	public bool ShowingGuidance { get; private set; }
 
-	/// <summary><c>DAT_004769e6</c> — whether the five buttons are up. Only a missile rack's row puts them up.</summary>
+	/// <summary><c>Arming_GuidanceButtonsUp</c> (<c>004769e6</c>) — whether the five buttons are up. Only a missile rack's row puts them up.</summary>
 	public bool GuidanceButtonsShown { get; private set; }
 
 	/// <summary>The guidance button whose border is lit <c>0x20</c>, as an index into <see cref="ButtonGuidance"/>, or <c>-1</c>.</summary>
@@ -244,7 +244,7 @@ public sealed class ShellWeaponsScreen {
 	/// clears the hardpoint and selects row 0.
 	///
 	/// <para>The original selects that bay through <c>Squad_SelectBay</c> under the previous tab's rule,
-	/// because the tab handler stores 2 in <c>DAT_0047581c</c> only after the entry — a retail bug, recorded
+	/// because the tab handler stores 2 in <c>CurrentTabIndex</c> (<c>0047581c</c>) only after the entry — a retail bug, recorded
 	/// in KNOWN_ISSUES.md. This engine applies the arming tab's rule, which takes any finished machine.</para>
 	/// </summary>
 	public void Enter(ShellHangar hangar, int bay) {

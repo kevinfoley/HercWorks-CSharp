@@ -87,10 +87,10 @@ public sealed partial class MechObject {
 	/// </summary>
 	private const long LockToneBlinkBit = 0x40;
 
-	/// <summary><c>DAT_0049a1d1</c> — whether a lock was held, so its loss can be announced once.</summary>
+	/// <summary><c>LockTone_WasLocked</c> (<c>0049a1d1</c>) — whether a lock was held, so its loss can be announced once.</summary>
 	private bool _lockToneWasLocked;
 
-	/// <summary><c>DAT_0049a1d0</c> — whether this blink phase's beep has already sounded.</summary>
+	/// <summary><c>LockTone_PhaseSounded</c> (<c>0049a1d0</c>) — whether this blink phase's beep has already sounded.</summary>
 	private bool _lockToneSounded;
 
 	/// <summary>
@@ -292,7 +292,7 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>Mech_PerTickSystemsUpdate</c>'s jammer block, through <c>FUN_0041aa10</c> — the only writer
+	/// <c>Mech_PerTickSystemsUpdate</c>'s jammer block, through <c>Mech_IsEcmSwitchedOn</c> (<c>0041aa10</c>) — the only writer
 	/// of <c>mech+0xa1</c>.
 	///
 	/// <para>An ECM pod is the outer gate: without one the answer is false and nothing else is

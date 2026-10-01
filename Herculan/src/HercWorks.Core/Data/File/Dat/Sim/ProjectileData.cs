@@ -3,7 +3,7 @@ using HercWorks.Core.Data.Struct;
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
-/// FILE - /DBSIM/DAT/PROJ.DAT — 27 records of 36 bytes, in weapon-id order, behind a
+/// FILE - /DBSIM/DAT/PROJ.DAT — 27 records of 36 bytes behind a
 /// <c>UINT16</c> count. Each record is <see cref="Projectile.Type"/>, <see cref="Projectile.SubtypeId"/>
 /// (into BULLETS.DAT, ROCKETS.DAT or BEAM.DAT by type), DamageShield, DamageArmor,
 /// <see cref="Projectile.SplashFactor"/>, Speed (fixed point, 5000 -> 500.0), then the impact-effect
@@ -19,14 +19,15 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// constructors never consume the index 0 it reads. See docs/simulation/weapon-mounts.md.</para>
 ///
 /// <para>The retail records, index by index, are tabulated in
-/// docs/simulation/weapon-damage-types.md#the-retail-records.</para>
+/// docs/formats/proj-dat.md#the-retail-records, which also says how a fired shot resolves its
+/// record a second time by (Type, SubtypeId).</para>
 ///
 /// <para><b>Damage scaling.</b> A shot's power level — the capacitor charge it was fired at,
 /// <c>min(template+0x38, mount+0x7d)</c> — is Q10-multiplied against DamageShield before shield
 /// absorption, and against DamageArmor before the damage-application step;
 /// <see cref="Projectile.SplashFactor"/>'s own multiplier one step further down is Q10 as well.
 /// DamageShield/DamageArmor are the weapon's own base stats, not abstract multipliers. See
-/// docs/simulation/weapon-firing.md and docs/simulation/weapon-damage-types.md.</para>
+/// docs/simulation/weapon-firing.md and docs/formats/proj-dat.md#layout.</para>
 ///
 /// <para><b><see cref="Projectile.Type"/> is a firing-mechanism selector</b>, not a cosmetic tag —
 /// each value builds a different class; see <see cref="ProjectileType"/>. Every <c>Beam</c> (4)
@@ -60,7 +61,7 @@ public class ProjectileData {
 		/// <summary>
 		/// The Q10 fraction of this hit's shield-absorbed armour damage that <c>Mech_ApplyDirectFireDamage</c>
 		/// (<c>004188c8</c>) diverts into a 500-unit secondary explosion on the struck object instead of
-		/// the struck component's health. Zero means none. See docs/simulation/weapon-damage-types.md.
+		/// the struck component's health. Zero means none. See docs/simulation/damage-system.md.
 		/// </summary>
 		public short SplashFactor { get; set; }
 

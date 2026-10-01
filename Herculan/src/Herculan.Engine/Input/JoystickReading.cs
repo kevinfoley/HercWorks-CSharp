@@ -38,7 +38,7 @@ public readonly record struct JoystickReading(
 	/// The width of the device layer's own reading, before the response curve:
 	/// <c>Joystick_NormaliseAxes</c> (<c>00477750</c>) normalises a raw <c>joyGetPosEx</c> value as
 	/// <c>(raw &lt;&lt; 8) / 0xffff - 0x80</c>, so an axis arrives spanning <c>-0x80..+0x7f</c>. The
-	/// device object's resolution field (<c>+0x16</c>, set to 7 by <c>FUN_004774d0</c>) is what fixes
+	/// device object's resolution field (<c>+0x16</c>, set to 7 by <c>JoystickDevice_CtorBase</c> (<c>004774d0</c>)) is what fixes
 	/// that width.
 	///
 	/// <para>It is <b>not</b> what a stick delivers to the simulation —

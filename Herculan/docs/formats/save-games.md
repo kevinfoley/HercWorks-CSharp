@@ -65,13 +65,13 @@ No header, no magic, no length field: the file is the concatenation below. Writt
 
 | # | Bytes | Content | Writer / reader |
 |---|---|---|---|
-| 1 | varies | armory stock — 33 records, one per `weapons.dat` catalog id | `Armory_Write` (`004121cf`) / `FUN_0041215d` |
+| 1 | varies | armory stock — 33 records, one per `weapons.dat` catalog id | `Armory_Write` (`004121cf`) / `Armory_Read` (`0041215d`) |
 | 2 | 22 | the armory build queue: free-slot count (`0046f8d4`), then 5x `{ int16 slot; int16 weapon id }` from `0046f8d6` | same |
 | 3 | 152 | career block (below) | `Career_SaveSlot` (`00412a71`) / `Career_LoadSlot` (`00412bbf`) |
-| 4 | varies | 3 squads x 12 pilot records, then 3x `int16` at `00483b48`, each squad's current member, and 3x `int16` at `00483b4e`, the member `Squad_TakeMember` (`0040fb4f`) takes next, modulo 12 | `FUN_0040fc16` / `FUN_0040fc77` |
-| 5 | varies | the player: `int16` squad positions in play (`00482a78`), `int16` machines on strength (`00482a7a`), then one pilot record — **the same shape as a squadmate's**, roster id included | `FUN_0041016d` / `Player_Read` (`004101b8`) |
-| 6 | varies | hangar: `int16` count, then that many `{ int16 slot; HERC record }` | `FUN_00410658` / `FUN_0041080a` |
-| 7 | 18 | the 9 chassis availability flags — `herc_inf.dat` record `+0x0e`, stride 16 from `00483b62` | `FUN_00411954` / `FUN_00411989` |
+| 4 | varies | 3 squads x 12 pilot records, then 3x `int16` at `00483b48`, each squad's current member, and 3x `int16` at `00483b4e`, the member `Squad_TakeMember` (`0040fb4f`) takes next, modulo 12 | `Squads_Write` (`0040fc16`) / `Squads_Read` (`0040fc77`) |
+| 5 | varies | the player: `int16` squad positions in play (`00482a78`), `int16` machines on strength (`00482a7a`), then one pilot record — **the same shape as a squadmate's**, roster id included | `Player_Write` (`0041016d`) / `Player_Read` (`004101b8`) |
+| 6 | varies | hangar: `int16` count, then that many `{ int16 slot; HERC record }` | `Hangar_Write` (`00410658`) / `Hangar_Read` (`0041080a`) |
+| 7 | 18 | the 9 chassis availability flags — `herc_inf.dat` record `+0x0e`, stride 16 from `00483b62` | `ChassisAvailability_Write` (`00411954`) / `ChassisAvailability_Read` (`00411989`) |
 | 8 | 4 | the salvage pool (`00482af4`) | inline |
 | 9 | 2000 | the campaign flag array (`00482af8`) | inline |
 | 10 | 2 | game state (`0048260e`) | inline |

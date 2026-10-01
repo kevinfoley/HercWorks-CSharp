@@ -60,6 +60,1860 @@
   ],
   "entries": [
     {
+      "address": "00456cd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PrefsAlert_Dtor",
+      "description": "PrefsAlert destructor (vtable 0049e40c, RTTI name 'PrefsAlert', 0x3c7 bytes): (panel, flags) reinstalls the vtable, Mem_Delete on the nine pointers at +0x332, GLBitmapArray_Dtor(_, 3) on DAT_004d1f80 when set (clearing +0x30), Alert_Dtor(panel, 0), then Mem_Delete when flags bit 0 is set. PreferencesPanel_Raise runs it with 3.",
+      "source": "DBSIM decompile at 00456cd4; RTTI at vtable-0xc"
+    },
+    {
+      "address": "004585d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsAlert_Dtor",
+      "description": "ControlsAlert destructor (vtable 0049e82c, RTTI name 'ControlsAlert', 0x47e bytes): PrefsAlert_Dtor's shape with the twelve pointers at +0x3f6 and the bank DAT_004d1fb8. PreferencesPanel_Run runs it on its local with 2.",
+      "source": "DBSIM decompile at 004585d8; RTTI at vtable-0xc"
+    },
+    {
+      "address": "00455f90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GeneralAlert_Dtor",
+      "description": "GeneralAlert destructor (vtable 0049e148, RTTI name 'GeneralAlert', 0x57e bytes): reinstalls the vtable, Mem_Delete on the four pointers at +0x33e, Alert_Dtor(panel, 0), then Mem_Delete when flags bit 0 is set. Sim_DeathFlash runs it with 3.",
+      "source": "DBSIM decompile at 00455f90; RTTI at vtable-0xc"
+    },
+    {
+      "address": "00457180",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_Present",
+      "description": "(panel): sets the close flag +0x2d1 when the quit flag 004d2582 is set; calls vtable slot 3 (+0xc, the deferred paint) of each widget in the +0x291 list (count +0x2cd); for the first of the nine rows whose refresh count (+0x3be + row) is non-zero, PreferencesPanel_RefreshRow and decrements it; then WidgetRoot_ServicePressFlashes(+0x285) and Display_Present. PreferencesPanel_Run calls it every pass.",
+      "source": "DBSIM decompile at 00457180"
+    },
+    {
+      "address": "00457450",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_SetDrawHook",
+      "description": "(panel, hook): stores hook at panel+0x3ba. PreferencesPanel_Raise installs 0045cfac.",
+      "source": "DBSIM decompile at 00457450"
+    },
+    {
+      "address": "00457464",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_CallDrawHook",
+      "description": "(panel): when the hook +0x3ba is set, points the display's (006c5f54) draw page +0x3c at its +0x8c (through maybe_g_RasterRoutines_SetDrawPage, mirroring it to 004a36a2), installs the panel's +0x281 render context, calls the hook, and reinstalls the panel's own context at +0x48. PreferencesPanel_Run calls it.",
+      "source": "DBSIM decompile at 00457464"
+    },
+    {
+      "address": "00461344",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_ShowLoadingScreen",
+      "description": "(name): builds the bitmap's path with ResourcePath_BuildFolderName under the folder at PTR_DAT_004a0a28 (PTR_DAT_004a0a40 when VideoMode_PanelMode is 3), loads it with Resource_Load, blits frame 0 at (0, 0), Display_Present, and frees the array with GLBitmapArray_Dtor. Sim_InitMissionSession shows the mission loading screen with it.",
+      "source": "DBSIM decompile at 00461344"
+    },
+    {
+      "address": "00492e48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ovl_ReadFile",
+      "description": "(dst, size, count, path): opens path with VolRStream_CtorFromPath, asserting (OVL.CPP line 0x15) on a bad stream status, reads size * count bytes into dst with VolRStream_Read, asserting (line 0x17) when that fails, and closes it. MechType_InitOne reads the 0xd8-byte type record and the 0x36-byte block with it; FlyerType_LoadResources its 0x2e-byte stats.",
+      "source": "DBSIM decompile at 00492e48"
+    },
+    {
+      "address": "00405df4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Structure_InitPool",
+      "description": "(count): DAT_004a9624 = a new 0x12-byte pool of count 0x26d-byte structure objects (Pool_Init), and DAT_004a9628 = a new 8-byte list {Mem_NewArray(100), int16 count 0, int16 capacity 0x19}. DBSim_LoadScriptDat calls it.",
+      "source": "DBSIM decompile at 00405df4"
+    },
+    {
+      "address": "004091cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Effect_DriftAndAnimate",
+      "description": "(obj): adds the int16 velocity +0x41/+0x43/+0x45 to the position +0x26/+0x2a/+0x2e; when Timer_CountDown(+0x47) expires, reloads +0x48 with 200 and steps the shape's frame counter (*(shape(+0x34)+8)) on modulo the frame count, returning 1 when it wraps to 0. Sim_MainTick runs it on every object of the pool 004a96f2 and queues those returning 1 for delete.",
+      "source": "DBSIM decompile at 004091cc"
+    },
+    {
+      "address": "00449f3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_PaintCurrentScreen",
+      "description": "(hdd): saves the current render context (006c5ff4, 0x81 dwords plus +0x208), hands the current screen (+0x101 array at index +0x109) the paint countdown +0xb0 at its +0xc, calls its vtable slot 1, decrements +0xb0, and restores the context. HddDisplay_Update calls it.",
+      "source": "DBSIM decompile at 00449f3c"
+    },
+    {
+      "address": "004cfac4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ExternalView_Rect",
+      "description": "The external view's (view manager view 4) 3D rect {x0, y0, x1, y1} followed by the offset pair at 004cfad4/004cfad8 that goes to the render context's +0x220/+0x224. Copied from ExternalView_DefaultRect by CockpitViewManager_Ctor and ExternalView_ResetRect, set by ExternalView_SetRect, and installed by CockpitView_ApplyViewState.",
+      "source": "DBSIM decompile at 0042d89c, 0042d944"
+    },
+    {
+      "address": "004cfaac",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ExternalView_DefaultRect",
+      "description": "The default 3D rect and offset pair (6 dwords) CockpitViewManager_Ctor builds; ExternalView_ResetRect copies it back to ExternalView_Rect.",
+      "source": "DBSIM decompile at 0042d944"
+    },
+    {
+      "address": "0042d89c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ExternalView_SetRect",
+      "description": "(rect, offset): stores rect in ExternalView_Rect and at 004cfd28, and offset at 004cfad4/004cfad8; when CockpitViewManager_Published is in view 4, also writes them into the render context's (006c5ff4) +0x210..+0x224. PreferencesPanel_Raise calls it.",
+      "source": "DBSIM decompile at 0042d89c"
+    },
+    {
+      "address": "0042d944",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ExternalView_ResetRect",
+      "description": "ExternalView_SetRect's body with ExternalView_DefaultRect as the source. PreferencesPanel_Raise calls it.",
+      "source": "DBSIM decompile at 0042d944"
+    },
+    {
+      "address": "0048d9b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_SubPoint3S",
+      "description": "(p int[3], s short[3]): p.z -= s.z, then Point2I_SubPoint2S for x and y; returns p. Light_ComputeShadeForFace calls it.",
+      "source": "DBSIM decompile at 0048d9b0"
+    },
+    {
+      "address": "0048db09",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_SubPoint2S",
+      "description": "(p int[2], s short[2]): p.x -= s.x, p.y -= s.y.",
+      "source": "DBSIM decompile at 0048db09"
+    },
+    {
+      "address": "0048d9f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetNearPlane",
+      "description": "Returns view+0x1e, the near plane Raster_InstallViewProjection installs at 006c60b0.",
+      "source": "DBSIM decompile at 0048d9f0"
+    },
+    {
+      "address": "0048d9fb",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetOrthoDivisor",
+      "description": "Returns view+0x22, the orthographic divisor Raster_InstallViewProjection installs at 006c60b4.",
+      "source": "DBSIM decompile at 0048d9fb"
+    },
+    {
+      "address": "0048da87",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_ApplyToShortPoint_Thunk",
+      "description": "One-line forwarder to Transform_ApplyToShortPoint with the same arguments. Poly_ProjectShapeVertices calls it.",
+      "source": "DBSIM decompile at 0048da87"
+    },
+    {
+      "address": "0048db37",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_TransposeRotation_Thunk",
+      "description": "One-line forwarder to Transform_TransposeRotation. Transform_InvertRigid calls it.",
+      "source": "DBSIM decompile at 0048db37"
+    },
+    {
+      "address": "0048dd6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_Reset",
+      "description": "(xf): memsets the 0x20-byte transform to 0 -- which leaves the rank byte +0x12 at 0, translation only -- then stores 0x4000 at +0, +6 and +0x10, and returns xf. Light_ResetSystem calls it on 006c6080.",
+      "source": "DBSIM disassembly at 0048dd6c"
+    },
+    {
+      "address": "004929bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Atan2Bam_Thunk",
+      "description": "One-line forwarder to Math_Atan2Bam with the same arguments. Math_Atan2Guarded calls it.",
+      "source": "DBSIM decompile at 004929bc"
+    },
+    {
+      "address": "004929f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_DivInt",
+      "description": "(a, b): a / b, signed. Math_NormalizeVec3ToLength calls it.",
+      "source": "DBSIM decompile at 004929f8"
+    },
+    {
+      "address": "004929d1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_CosBam_Thunk",
+      "description": "(angle): Math_CosBam(angle), returned in AX.",
+      "source": "DBSIM decompile at 004929d1"
+    },
+    {
+      "address": "00492a46",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_SinBam",
+      "description": "(angle): Math_CosBam(angle - 0x4000), i.e. the sine in Q14, returned in AX.",
+      "source": "DBSIM decompile at 00492a46"
+    },
+    {
+      "address": "004929e1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Q14Multiply_Thunk",
+      "description": "(a, b): Math_Q14Multiply(a, b) on int16 arguments, returned in AX.",
+      "source": "DBSIM decompile at 004929e1"
+    },
+    {
+      "address": "00492a04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_ScaleByCos",
+      "description": "(length, angle): Math_Q14Multiply_Thunk(length, Math_CosBam_Thunk(angle)) as a sign-extended int16. Math_OffsetPointByBearing calls it.",
+      "source": "DBSIM decompile at 00492a04"
+    },
+    {
+      "address": "00492a25",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_ScaleBySin",
+      "description": "(length, angle): Math_Q14Multiply_Thunk(length, Math_SinBam(angle)) as a sign-extended int16. Math_OffsetPointByBearing calls it.",
+      "source": "DBSIM decompile at 00492a25"
+    },
+    {
+      "address": "00483480",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLCursor_Ctor",
+      "description": "GLCursor constructor (vtable 004a3358 after the ClassItem 004a6a08 and GLBase 004a3380 base vtables; RTTI name 'GLCursor', 0x10 bytes): Rtl_ReturnArg on +8 and clears +4. AlertPanel_CtorBase calls it.",
+      "source": "DBSIM decompile at 00483480; RTTI at vtable-0xc"
+    },
+    {
+      "address": "004868f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpanList_FromRect",
+      "description": "(rect{x0, y0, x1, y1}, out): int16 y0 at out+0, the row count y1 - y0 + 1 at out+2, then one int16 pair {x0, x1} per row. Raster_FillRect calls it. The DBSIM copy of VSHELL's SpanList_FromRect (00457634).",
+      "source": "DBSIM decompile at 004868f0"
+    },
+    {
+      "address": "00488cbb",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_BuildRotation2DInto",
+      "description": "(out, angle): Math_BuildRotation2D(angle, out) -- the same call with the arguments the other way round. Bitmap_BlitRotatedScaled calls it.",
+      "source": "DBSIM decompile at 00488cbb"
+    },
+    {
+      "address": "00474b04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_LoadAfterPeek",
+      "description": "(stream): ClassItem_PeekTypeTag into a local, then ClassItem_LoadResource(stream, 0), whose EAX it leaves as the return. WeaponMount_ShapeForMountingCode calls it.",
+      "source": "DBSIM decompile and disassembly at 00474b04"
+    },
+    {
+      "address": "00476ce8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Heap_InitInBuffer",
+      "description": "(heap, size, block): heap+0 and +8 = block, +4 = size, +0xc and +0x10 = size & ~7; the block's first dword 0, second size & ~7, and the tag 'KLBF' (0x46424c4b) at block+8. Sim_Run sets up 006bb37c over the 0xb0000 bytes at 00604f88 with it when CockpitArt_LoadOnDemand is set.",
+      "source": "DBSIM decompile at 00476ce8"
+    },
+    {
+      "address": "004774d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "JoystickDevice_CtorBase",
+      "description": "(this, kind, ...): InputDriver_ClaimInstance(this, kind, this); when this is the instance claimed for kind (006c5f38[kind]), Joystick_Enumerate(this, kind); then sets the resolution field +0x16 to 7. JoystickDevice_Ctor runs it.",
+      "source": "DBSIM decompile at 004774d0"
+    },
+    {
+      "address": "00477940",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "KeyboardDriver_Init",
+      "description": "(this): WndProcHook_Register(00477ae0), then returns bit 0 of this+0. KeyboardDriver_Ctor runs it for the claimed keyboard instance and goes on only when it returns non-zero.",
+      "source": "DBSIM decompile at 00477940"
+    },
+    {
+      "address": "0047a2f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ArenaStack_Push",
+      "description": "(a, b, c): increments the depth 004a16d8, stores the three dwords in the 12-byte entry at 006c59ec + depth*12 and points the current-arena pointer 006c58b4 at it. Arena_Push calls it.",
+      "source": "DBSIM decompile at 0047a2f0"
+    },
+    {
+      "address": "0047a368",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ArenaStack_Pop",
+      "description": "Decrements the depth 004a16d8 and points 006c58b4 back at the entry below. Arena_Pop calls it.",
+      "source": "DBSIM decompile at 0047a368"
+    },
+    {
+      "address": "0047dabe",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Dot2S",
+      "description": "(a, b): a.x*b.x + a.y*b.y on int16 pairs, as an int. Mech_ApplyTerrainSlopeToSpeed calls it.",
+      "source": "DBSIM decompile at 0047dabe"
+    },
+    {
+      "address": "0047e9cf",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3IPair_Ctor",
+      "description": "(p): runs maybe_Point3I_Ctor on p and p+0xc. Poly_SplitByPlane calls it on a local. The DBSIM copy of VSHELL's Point3IPair_Ctor (004514ab).",
+      "source": "DBSIM decompile at 0047e9cf"
+    },
+    {
+      "address": "00480dc3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_SetClipBlock",
+      "description": "(display, block): stores block at display+0x44 and, when display is GLDisplay_GetCurrent's, installs it with Raster_SetClipBlock. Raster_InstallRenderContext calls it. The DBSIM copy of VSHELL's GLDisplay_SetClipBlock (00452993).",
+      "source": "DBSIM decompile at 00480dc3"
+    },
+    {
+      "address": "00461188",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_CreateRenderContext",
+      "description": "Allocates 0x239 bytes, runs GLViewport_Ctor on them, stores the result in Sim_RenderContext (004d2552), sets its int at +0x208 to 1 and installs it with Raster_InstallRenderContext. Sim_InitMissionSession calls it.",
+      "source": "DBSIM decompile at 00461188"
+    },
+    {
+      "address": "004d2552",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sim_RenderContext",
+      "description": "Pointer to the 0x239-byte GLViewport render context Sim_CreateRenderContext builds. Sim_RenderFrame adds CockpitView_GetShakeOffset's pair to its +0x220/+0x224 for the frame and takes it off again.",
+      "source": "DBSIM decompile at 00461188 and Sim_RenderFrame"
+    },
+    {
+      "address": "00462edc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SoundCatalog_EffectiveVolume",
+      "description": "(id): 0 when there is no SfxManager, else SoundCatalog_Attributes[id] byte 1 (volume) times byte 8 (category volume percent) / 100. CockpitView_StepViewTransition stores sound 0x2d's into 004cfd38.",
+      "source": "DBSIM decompile at 00462edc"
+    },
+    {
+      "address": "0046339c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Snc_Advance_Thunk",
+      "description": "One-line forwarder to Snc_Advance with the same argument. Snc_ServiceQueue calls it.",
+      "source": "DBSIM decompile at 0046339c"
+    },
+    {
+      "address": "00463474",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SfxHandle_SetVolume",
+      "description": "(handle*, volume): Sfx_SetVolume(SfxManager, *handle, volume) when the manager exists and *handle is not -1. Voice_PlayNamed calls it.",
+      "source": "DBSIM decompile at 00463474"
+    },
+    {
+      "address": "00466488",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Video_CreateDirectDrawExclusive",
+      "description": "DirectDrawCreate into 004d3794, then IDirectDraw::SetCooperativeLevel (vtable +0x50) with MainWindow_Handle and flags 0x57 (FULLSCREEN | ALLOWREBOOT | NOWINDOWCHANGES | EXCLUSIVE | ALLOWMODEX). Returns 1 when both succeed, else 0. Video_ToggleFullscreen calls it. VSHELL's Display_CreateDirectDrawExclusive is the same without ALLOWMODEX.",
+      "source": "DBSIM decompile at 00466488"
+    },
+    {
+      "address": "00442424",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_FlushDeferredPaint",
+      "description": "WeaponSelectGadgetVtable +0x0c: the same body as MFDStateGadget_FlushDeferredPaint -- at pending-paint count +0x1f 1, Widget_DrawToCockpit(0, gadget, 0); at 2, slot 0 of the vtable at +0x17; decrementing it either way.",
+      "source": "DBSIM decompile at 00442424; es2_xref.py"
+    },
+    {
+      "address": "00442458",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_OnClick",
+      "description": "WeaponSelectGadgetVtable +0x08 (gadget, flags): unconditionally calls the owner's (+0x24) vtable slot 0 with (owner, gadget, flags), then slot 1 of the vtable at +0x17 and slot 2 of the sub-object at +0x20.",
+      "source": "DBSIM decompile at 00442458; es2_xref.py"
+    },
+    {
+      "address": "00442920",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ChainedWeaponSelectGadget_OnClick",
+      "description": "ChainedWeaponSelectGadgetVtable +0x08: the same body as WeaponSelectGadget_OnClick.",
+      "source": "DBSIM decompile at 00442920; es2_xref.py"
+    },
+    {
+      "address": "00442be8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSliderGadget_FlushDeferredPaint",
+      "description": "WeaponSliderGadgetVtable +0x0c: calls slot 0 of the vtable at +0x17 when the pending-paint count +0x1f is 2, and does nothing at 1 and never decrements it.",
+      "source": "DBSIM decompile at 00442be8; es2_xref.py"
+    },
+    {
+      "address": "00442d94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponRangeSelectGadget_FlushDeferredPaint",
+      "description": "WeaponRangeSelectGadgetVtable +0x0c: the same body as WeaponSelectGadget_FlushDeferredPaint.",
+      "source": "DBSIM decompile at 00442d94; es2_xref.py"
+    },
+    {
+      "address": "00442dc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponRangeSelectGadget_OnClick",
+      "description": "WeaponRangeSelectGadgetVtable +0x08 (gadget, flags): when flags bit 0 is set, slot 2 of the sub-object at +0x20, then the owner's (+0x24) slot 0 with (owner, gadget, flags). No +0x17 repaint call and no state toggle.",
+      "source": "DBSIM decompile at 00442dc8; es2_xref.py"
+    },
+    {
+      "address": "00442df8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_ShiftRects2",
+      "description": "(rects): VideoMode_ShiftRect on the first rect, then shifts the next 16-byte rect by VideoMode_XCoordShift / VideoMode_YCoordShift -- the same body as GauEnergyMeter_ApplyCoordShift. Gau_ShiftRects3, Gau_ShiftRects3Point and Gau_ShiftRects5 start with it.",
+      "source": "DBSIM decompile at 00442df8"
+    },
+    {
+      "address": "00442e38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_ShiftRects3",
+      "description": "(rects): Gau_ShiftRects2, then shifts the third rect (+0x20). Gau_BuildCockpitWidgets runs it on CockpitGauRecord+0x2d.",
+      "source": "DBSIM decompile at 00442e38"
+    },
+    {
+      "address": "00442e78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_ShiftRects3Point",
+      "description": "(rects): Gau_ShiftRects2, then shifts the third rect (+0x20) and the x0/y0 pair at +0x30. Gau_BuildCockpitWidgets runs it on CockpitGauRecord+0x41.",
+      "source": "DBSIM decompile at 00442e78"
+    },
+    {
+      "address": "00442ecc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_ShiftRects5",
+      "description": "(rects): Gau_ShiftRects2, then shifts the three rects after it (+0x20, +0x30, +0x40). Gau_BuildCockpitWidgets runs it on CockpitGauRecord+0x59.",
+      "source": "DBSIM decompile at 00442ecc"
+    },
+    {
+      "address": "0043901c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HSliderGadget_OnClick",
+      "description": "OnClick (+0x08) of WeaponSliderGadgetVtable, ThrottleHSliderGadgetVtable and PanelHSliderGadgetVtable: the same body as VSliderGadget_OnClick (0043904c) -- owner's slot 0 with (owner, slider, value), then slot 1 at +0x17 and slot 2 of the +0x3e sub-object.",
+      "source": "DBSIM decompile at 0043901c; es2_xref.py"
+    },
+    {
+      "address": "0040cafc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_CollectNodeAnchors",
+      "description": "(node, components, nodeIds, points): for each of the node's int16 count (+4) 16-byte cluster records at +6, writes the record's +6 component index to components[i], a pointer to the record's +8 sphere centre to points[i] and the node's own int16 +0 to nodeIds[i]; returns the count. Collision_CollectComponentAnchors calls it per node.",
+      "source": "DBSIM decompile at 0040cafc"
+    },
+    {
+      "address": "0040cbd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CollisionTable_Reserve",
+      "description": "(n): returns CollisionTable_Count (004987dc) and adds n to it -- the collision twin of DmgTable_Reserve.",
+      "source": "DBSIM decompile at 0040cbd4"
+    },
+    {
+      "address": "0040cbec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CollisionTable_Alloc",
+      "description": "When CollisionTable_Count is non-zero, CollisionTable_Array = Mem_NewArray(CollisionTable_Count * 6). DBSim_LoadScriptDat calls it after DmgTable_Alloc.",
+      "source": "DBSIM decompile at 0040cbec"
+    },
+    {
+      "address": "004987dc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CollisionTable_Count",
+      "description": "int16: the number of 6-byte collision model entries CollisionTable_Reserve has handed out.",
+      "source": "DBSIM decompile at 0040cbd4"
+    },
+    {
+      "address": "004a98a8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CollisionTable_Array",
+      "description": "Pointer to CollisionTable_Count 6-byte collision models. Collision_RegisterObject loads entry 004987de (then increments it) with Collision_LoadRecordArray.",
+      "source": "DBSIM decompile at 0040cbec and Collision_RegisterObject"
+    },
+    {
+      "address": "00495913",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_UnbindLibrary",
+      "description": "Decrements Sos_BindRefCount when it is non-zero and, when that reaches 0, FreeLibrary on the module handle at 006cbddc. Returns 0. Sos_InitBackend calls it on a failed open, 00473698 at shutdown.",
+      "source": "DBSIM decompile at 00495913"
+    },
+    {
+      "address": "004514ab",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3IPair_Ctor",
+      "description": "(p): runs maybe_Point3I_Ctor on p and p+0xc -- two int32 triples. Poly_SplitByPlane calls it on a local.",
+      "source": "VSHELL decompile at 004514ab"
+    },
+    {
+      "address": "00453f9c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Font_CellHeightCopy",
+      "description": "Returns the int16 at font+0x0a, the glyph cell height: a byte-identical second copy of Font_CellHeight. Font_DrawGlyph calls it.",
+      "source": "VSHELL decompile at 00453f9c"
+    },
+    {
+      "address": "004546cc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteDwordsCopy",
+      "description": "(stream, count, src): writes count * 4 bytes through the stream's write slot (vtable +0x14); a second copy of Stream_WriteDwords (00460eb0). VshellPanel_WriteToStream calls it.",
+      "source": "VSHELL decompile at 004546cc"
+    },
+    {
+      "address": "004546e8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadDwordsCopy",
+      "description": "(stream, count, dst): reads count * 4 bytes through the stream's read slot (vtable +0x18); a second copy of Stream_ReadDwords (00460ecc). VshellPanel_ReadFromStream calls it.",
+      "source": "VSHELL decompile at 004546e8"
+    },
+    {
+      "address": "00457634",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpanList_FromRect",
+      "description": "(rect{x0, y0, x1, y1}, out): writes int16 y0 at out+0, the row count y1 - y0 + 1 at out+2, then one int16 pair {x0, x1} per row from out+4. Gfx_FillRect builds its span list in the buffer at PTR_DAT_0047c429 with it.",
+      "source": "VSHELL decompile at 00457634"
+    },
+    {
+      "address": "00452993",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_SetClipBlock",
+      "description": "(display, block): stores block at display+0x44 and, when display is GLDisplay_GetCurrent's current one, installs it with Gfx_SetClipBlock. Gfx_SetCurrentContext calls it.",
+      "source": "VSHELL decompile at 00452993"
+    },
+    {
+      "address": "00453054",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_Dtor",
+      "description": "GLBitmap destructor (vtable 0047be58, RTTI name 'GLBitmap', 0x1a bytes): (bmp, flags) reinstalls the vtable, Mem_DeleteArray of +0x16 when the int16 +0x14 is non-zero and of +0xe when +0xa is non-zero, GLBase_Dtor(bmp, 0), then Mem_Delete when flags bit 0 is set. ShellMap_BuildRelief runs it on a local with flags 2.",
+      "source": "VSHELL decompile at 00453054; RTTI at vtable-0xc"
+    },
+    {
+      "address": "0042870b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_Ctor",
+      "description": "HeightGrid constructor (vtable 00472470 after the ClassItem 0047f834 and TSBase 0047f858 base vtables; RTTI name 'HeightGrid', 0x125 bytes): Rtl_VectorNew of 0x14 8-byte elements at +0x28, 00467ee4(+0xd0, 0x100) for the height offset table, zeroes +0xf0/+0xf4/+0xf8 and sets +0x104 = 10, +0x108 = 8. ShellMap_LoadZone calls it.",
+      "source": "VSHELL decompile at 0042870b; RTTI at vtable-0xc"
+    },
+    {
+      "address": "00415928",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_FreeBitmapsAndGrids",
+      "description": "For each of nine slots: GLBitmapArray_Dtor(_, 3) on the non-null array at 0046fdc4[i] and clears it, then Grid_InitAllRows on 0048d88c[i]. Build_Leave calls it.",
+      "source": "VSHELL decompile at 00415928"
+    },
+    {
+      "address": "00444041",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_FreePictures",
+      "description": "Grid_InitAllRows(0048d814), then GLBitmapArray_Dtor(_, 3) on the non-null arrays at 00477fc0 and 00477fc4, clearing each. Mission_Leave calls it.",
+      "source": "VSHELL decompile at 00444041"
+    },
+    {
+      "address": "00444bf9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_ResetViewButtonBorders",
+      "description": "Sets the border colour +0x4d of the three mission buttons 0048d804, 0048d808 and 0048d80c to 0x22 and repaints each with Widget_RepaintRecursive. Mission_LightViewButton calls it before lighting one.",
+      "source": "VSHELL decompile at 00444bf9"
+    },
+    {
+      "address": "00444ba9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_ObjectivesText_Thunk",
+      "description": "Calls Career_ObjectivesText and returns its result (the decompile drops it). Mission_Show calls it.",
+      "source": "VSHELL disassembly at 00444ba9"
+    },
+    {
+      "address": "00444baf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_IntelligenceText_Thunk",
+      "description": "Calls Career_IntelligenceText and returns its result. Mission_Show calls it.",
+      "source": "VSHELL decompile at 00444baf"
+    },
+    {
+      "address": "00444bb5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_BriefingText_Thunk",
+      "description": "Calls Career_BriefingText and returns its result. Mission_Show calls it.",
+      "source": "VSHELL decompile at 00444bb5"
+    },
+    {
+      "address": "0044574b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_BriefingMovie_Thunk",
+      "description": "Calls Career_BriefingMovie and returns its result. Mission_Show calls it.",
+      "source": "VSHELL decompile at 0044574b"
+    },
+    {
+      "address": "0044d3f7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LaunchRefusal_HideAlert",
+      "description": "Alert_Hide(0048dbec). LaunchRefusal_OnOkay calls it.",
+      "source": "VSHELL decompile at 0044d3f7"
+    },
+    {
+      "address": "0040fc16",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squads_Write",
+      "description": "Save block 4: (stream) Pilot_Write on each of the 3 squads x 12 pilot records at 004832fc (squad stride 0x2c4, record stride 0x3b), then the 3 int16 current members at 00483b48 and the 3 int16 next members at 00483b4e through the write slot (vtable +0x14). Game_SaveSlot calls it.",
+      "source": "VSHELL decompile at 0040fc16"
+    },
+    {
+      "address": "0040fc77",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squads_Read",
+      "description": "Save block 4 reader, the mirror of Squads_Write: Pilot_Read into the same 3 x 12 records, then the 6 bytes at 00483b48 and at 00483b4e through the read slot (vtable +0x18). Game_LoadSlot calls it.",
+      "source": "VSHELL decompile at 0040fc77"
+    },
+    {
+      "address": "0041016d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Player_Write",
+      "description": "Save block 5: (player, stream) writes the int16s at player+0 and +2 and then the pilot record at +4 with Pilot_Write. Game_SaveSlot passes SquadPositionsInPlay (00482a78). The mirror of Player_Read.",
+      "source": "VSHELL decompile at 0041016d"
+    },
+    {
+      "address": "00411954",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ChassisAvailability_Write",
+      "description": "Save block 7: writes the 9 int16 chassis availability flags at 00483b62, stride 16 (herc_inf.dat record +0x0e), through the write slot. Game_SaveSlot calls it.",
+      "source": "VSHELL decompile at 00411954"
+    },
+    {
+      "address": "00411989",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ChassisAvailability_Read",
+      "description": "Save block 7 reader: reads the 9 int16 flags back to 00483b62, stride 16. Game_LoadSlot calls it.",
+      "source": "VSHELL decompile at 00411989"
+    },
+    {
+      "address": "0041215d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_Read",
+      "description": "Save blocks 1-2 reader, the mirror of Armory_Write: 00411dbb on each of the 0x21 weapons.dat records (WeaponsDat_RecordArray, stride 0x1d), Armory_ResetQueue, then the int16 ArmoryQueueFreeSlots and five {int16 slot, int16 weapon} pairs, each weapon stored at ArmoryQueueSlots[slot]. Game_LoadSlot calls it.",
+      "source": "VSHELL decompile at 0041215d"
+    },
+    {
+      "address": "0041080a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hangar_Read",
+      "description": "Save block 6 reader, the mirror of Hangar_Write (herclist.cpp asserts at lines 0x77 and 0x79): HercsDat_Clear, the int16 count into +0x20, then per entry an int16 bay, asserting the bay is empty, a new 0x7a-byte HercRecord_Ctor record stored there and filled by 004110c2.",
+      "source": "VSHELL decompile at 0041080a"
+    },
+    {
+      "address": "00411a7f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponUnit_SetWeaponAndAmmo",
+      "description": "(unit, weapon, ammo): unit+0 = weapon id, unit+2 = Weapon_ClassIndexForId(weapon), unit+8 = ammo, leaving +4 and +6 as they are (WeaponUnit_Init sets all of them). Herc_FitNewUnit calls it on the slot's unit.",
+      "source": "VSHELL decompile at 00411a7f"
+    },
+    {
+      "address": "00411f87",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_UnitListEmpty",
+      "description": "(record): true when the weapons.dat record's owned-unit count (+0x17) is 0. Armory_PopUnit tests it.",
+      "source": "VSHELL decompile at 00411f87"
+    },
+    {
+      "address": "0041332e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_FreeBriefingText",
+      "description": "Mem_DeleteArray and clears each of the three text buffers 0046fb1c, 0046fb20 and 0046fb24 that are non-null. Career_BuildBriefingText calls it.",
+      "source": "VSHELL decompile at 0041332e"
+    },
+    {
+      "address": "004135a5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_FreeDebriefText",
+      "description": "Mem_DeleteArray and clears the debrief text buffer 0046fb28 when non-null. Career_BuildDebriefText calls it.",
+      "source": "VSHELL decompile at 004135a5"
+    },
+    {
+      "address": "00406964",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_CopyEntries",
+      "description": "(dst, first, count): copies count dwords from the palette entry table at 00481e70, starting at entry first. Avi_BuildPalette takes entries 10-245 with it.",
+      "source": "VSHELL decompile at 00406964"
+    },
+    {
+      "address": "00406e03",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vshell_LoadItemFromPath",
+      "description": "(path): opens path with VolRStream_CtorFromPath and loads one item with VshellClassItem_LoadItem, asserting (winstuff.cpp lines 0x2eb, 0x2ee) when the open or the load fails, and returns the item. Shell_InstallPalette loads its .dpl with it.",
+      "source": "VSHELL decompile at 00406e03"
+    },
+    {
+      "address": "00406eb5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_CreateDirectDrawExclusive",
+      "description": "DirectDrawCreate into 00481e58, then IDirectDraw::SetCooperativeLevel (vtable +0x50) with the window 00481e54 and flags 0x17 (FULLSCREEN | ALLOWREBOOT | NOWINDOWCHANGES | EXCLUSIVE). Returns 1 when both succeed, else 0. Display_ToggleFullScreen calls it on the way into full screen.",
+      "source": "VSHELL decompile at 00406eb5"
+    },
+    {
+      "address": "0040828a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Text_LoadDataFile",
+      "description": "Text::loadDataFile, named by its assert string (ctxt.cpp line 0x3f): (text, stream) reads two dword counts into +8 and +0xc, then +8 * 2 bytes into a new array at +0 and +0xc bytes into a new array at +4, all through the stream's read slot (vtable +0x18). Returns true when the stream status (+4) is 0. WeaponsBin_Open calls it.",
+      "source": "VSHELL decompile at 0040828a"
+    },
+    {
+      "address": "004087b9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_ReadLanguageCfg",
+      "description": "Opens data\\language.cfg with FileRStream_Ctor (asserting at utility.cpp line 0xb7 when that fails), reads one byte, closes it and returns the byte in AL. OnlineManual_Open calls it.",
+      "source": "VSHELL decompile at 004087b9"
+    },
+    {
+      "address": "0040cbf0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Str_CountChar",
+      "description": "(str, ch): the number of times ch occurs in the NUL-terminated str (the decompile drops the return). TextBox_Layout calls it.",
+      "source": "VSHELL decompile at 0040cbf0"
+    },
+    {
+      "address": "0046e818",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Input_EventTime",
+      "description": "DWORD GetTickCount stamp. Shell_Main, Mouse_QueueRecord, Keyboard_PostEvents and 00408f3e set it as they handle input, and Mouse_QueueRecord copies it into each queued record. Input_SetEventTime stores it directly.",
+      "source": "VSHELL decompile at 0040dd72 and its writers"
+    },
+    {
+      "address": "0040dd72",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_SetEventTime",
+      "description": "(t): stores Input_EventTime (0046e818). Devices_Init calls it with 0.",
+      "source": "VSHELL decompile at 0040dd72"
+    },
+    {
+      "address": "0045db04",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSCamera_Ctor",
+      "description": "TSCamera constructor (vtable 0047e9d1, RTTI name 'TSCamera', 0x22 bytes): (obj, a, b, c, p5, p6) runs 0045d9d0(obj, p5, p6), installs the vtable and stores a at +0x16, b at +0x1a and c at +0x1e. MapCamera_Ctor calls it.",
+      "source": "VSHELL decompile at 0045db04; RTTI at vtable-0xc"
+    },
+    {
+      "address": "0041d644",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EventConsumer_Dtor",
+      "description": "EventConsumer destructor (vtable 00470c58 at +4, RTTI name 'EventConsumer', 0x10 bytes): (obj, flags) reinstalls the vtable, calls 0041dd79(+8, obj) when +8 is non-null, then Mem_Delete(obj) when flags bit 0 is set.",
+      "source": "VSHELL decompile at 0041d644; RTTI at vtable-0xc"
+    },
+    {
+      "address": "004509c4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_CosBam",
+      "description": "Cosine of a 16-bit binary angle in Q14: rounds the angle to a 16-BAM step ((a >> 4) + bit 3), takes its magnitude, and reads the quarter-turn table at 0047b3e4 directly below 0x400 and negated as table[0x800 - i] above. The VSHELL copy of DBSIM's Math_CosBam (0047dee4). TSBounds_ScreenVisibility and 0042bc4e call it.",
+      "source": "VSHELL decompile at 004509c4"
+    },
+    {
+      "address": "00451ff0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Rotate2DPoint",
+      "description": "(point int[2], m short[4], out int[2]): out.x = (x*m0 + y*m2 + 0x2000) >> 14, out.y = (x*m1 + y*m3 + 0x2000) >> 14 with 64-bit intermediates. The VSHELL copy of DBSIM's Math_Rotate2DPoint (0047fedc). ShellMap_PaintRelief calls it.",
+      "source": "VSHELL decompile at 00451ff0"
+    },
+    {
+      "address": "004591ac",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Rotate2DPoint_Thunk",
+      "description": "One-line forwarder to Math_Rotate2DPoint with the same arguments, as DBSIM's Math_Rotate2DPoint_Thunk (00488cd1).",
+      "source": "VSHELL decompile at 004591ac"
+    },
+    {
+      "address": "00401dd0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_MonoPrintFps",
+      "description": "Advances an 8-entry ring of GetTickCount stamps (index 00481140, stamps 00481120), takes 8000 / (now - the stamp eight calls ago) as frames per second, and prints it as 'fps %f' with Mono_Printf at column 0, row 0x14. Shell_Main calls it.",
+      "source": "VSHELL decompile at 00401dd0"
+    },
+    {
+      "address": "00467f64",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightOffsetTable_SetScale",
+      "description": "(table, base, step): stores base at table+8 and step at table+4. The VSHELL copy of DBSIM's HeightOffsetTable_SetScale (004951dc). HeightGrid_FromBitmap and HeightGrid_Load call it.",
+      "source": "VSHELL decompile at 00467f64"
+    },
+    {
+      "address": "00467f78",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightOffsetTable_Reset",
+      "description": "(table): memsets the per-height computed flags (table+0x10, length table+0xc) and writes the view-space image of (0, 0, 0x10000) under g_ModelToView into *(table+0x18). The VSHELL copy of DBSIM's HeightOffsetTable_Reset (004951f0).",
+      "source": "VSHELL decompile at 00467f78"
+    },
+    {
+      "address": "0045c110",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Int64_AddInPlace",
+      "description": "(lo*, hi*, addLo, addHi): adds the 64-bit value {addHi:addLo} to the one held in the two dwords, carrying from the low half. TSTexture4Poly_RasterizeB and 0045c6f8 step their 64-bit accumulators with it.",
+      "source": "VSHELL decompile at 0045c110"
+    },
+    {
+      "address": "0045c128",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Int64_SubInPlace",
+      "description": "(lo*, hi*, subLo, subHi): subtracts {subHi:subLo} from the 64-bit value held in the two dwords, borrowing from the low half. TSTexture4Poly_RasterizeB calls it.",
+      "source": "VSHELL decompile at 0045c128"
+    },
+    {
+      "address": "0045c15e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Int64Pair_Q16Divide",
+      "description": "(out, in): out[0] = ({in[1]:in[0]} << 16) / in[4] and out[1] = ({in[3]:in[2]} << 16) / in[4] -- two 64-bit values divided by one int32 divisor, keeping 16 fraction bits. TSTexture4Poly_RasterizeB calls it.",
+      "source": "VSHELL decompile at 0045c15e"
+    },
+    {
+      "address": "00452684",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_SetGlobal",
+      "description": "(index, value): stores value at 0048e160 + index*4 and returns 0, unless value is non-null and the slot already holds one, when it stores nothing and returns 1. The VSHELL copy of DBSIM's GL_SetGlobal (004804a8).",
+      "source": "VSHELL decompile and disassembly at 00452684"
+    },
+    {
+      "address": "00452ff5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_SetGlobal7",
+      "description": "(value): GL_SetGlobal(7, value). Gfx_SelectRenderTarget installs its display with it.",
+      "source": "VSHELL decompile at 00452ff5"
+    },
+    {
+      "address": "00452fe8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_ClearGlobal7",
+      "description": "GL_SetGlobal7(0). Gfx_SelectRenderTarget calls it.",
+      "source": "VSHELL decompile at 00452fe8"
+    },
+    {
+      "address": "00452fb9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_GetCurrent",
+      "description": "GL_GetGlobal(7): the current display. A second copy of GL_GetGlobal7 (0045f741), called by Gfx_SelectRenderTarget and GLDisplay_SetClipBlock. The VSHELL copy of DBSIM's GLDisplay_GetCurrent (00481411).",
+      "source": "VSHELL decompile at 00452fb9"
+    },
+    {
+      "address": "004547a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_DrawLine",
+      "description": "(gl, from, to): Gfx_DrawLine(from, to), ignoring the first argument. Font_DrawGlyph calls it. The VSHELL copy of DBSIM's GL_DrawLine (00482c38).",
+      "source": "VSHELL decompile at 004547a0"
+    },
+    {
+      "address": "00458b97",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_AbsInt",
+      "description": "Returns |x| of an int32 by the sign-mask idiom (x ^ (x >> 31)) - (x >> 31). The VSHELL copy of DBSIM's Math_AbsInt (004886bf). Gfx_FillEllipse calls it.",
+      "source": "VSHELL decompile at 00458b97"
+    },
+    {
+      "address": "00460eb0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteDwords",
+      "description": "(stream, count, src): writes count * 4 bytes through the stream's write slot (vtable +0x14). VshellPanel_WriteToStream calls it.",
+      "source": "VSHELL decompile at 00460eb0"
+    },
+    {
+      "address": "00460ecc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadDwords",
+      "description": "(stream, count, dst): reads count * 4 bytes through the stream's read slot (vtable +0x18). The VSHELL copy of DBSIM's Stream_ReadDwords (0048f2de). VshellPanel_ReadFromStream calls it.",
+      "source": "VSHELL decompile at 00460ecc"
+    },
+    {
+      "address": "00408778",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_GetExitCode",
+      "description": "Returns the int16 exit code at 0046e210 that Shell_SetExitCode stores (the decompile drops the return). Shell_Main and 00406507 read it.",
+      "source": "VSHELL disassembly at 00408778"
+    },
+    {
+      "address": "0045f7c4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightFrame_SetPosition",
+      "description": "(frame, pos): copies an int32 triple to frame+4..+0xc. A light carries its world frame at +0 and the model-space copy at +0x1e; Light_TransformToModelSpace writes the model position through it. The VSHELL copy of DBSIM's LightFrame_SetPosition (0048d915).",
+      "source": "VSHELL decompile at 0045f7c4"
+    },
+    {
+      "address": "0045f7e3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightFrame_SetDirection",
+      "description": "(frame, dir): copies an int16 triple to frame+0x10..+0x14. Light_TransformToModelSpace writes the model direction through it. The VSHELL copy of DBSIM's LightFrame_SetDirection (0048d933).",
+      "source": "VSHELL decompile at 0045f7e3"
+    },
+    {
+      "address": "0045f7a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightFrame_GetDirection",
+      "description": "(frame): returns frame+0x10, the int16 direction triple. Light_TransformToModelSpace reads the world direction through it; 0045f839 calls it on the model frame (+0x1e).",
+      "source": "VSHELL decompile at 0045f7a0"
+    },
+    {
+      "address": "0048d915",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightFrame_SetPosition",
+      "description": "(frame, pos): copies an int32 triple to frame+4..+0xc. Light_TransformToModelSpace writes the model-space position (light+0x1e+4 = +0x22, which Light_GetModelPosition returns) through it.",
+      "source": "DBSIM decompile at 0048d915"
+    },
+    {
+      "address": "0048d933",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightFrame_SetDirection",
+      "description": "(frame, dir): copies an int16 triple to frame+0x10..+0x14. Light_TransformToModelSpace writes the model-space direction (light+0x2e, Light_GetModelDirection) through it.",
+      "source": "DBSIM decompile at 0048d933"
+    },
+    {
+      "address": "004488cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GauThrottle_ApplyCoordShift",
+      "description": "(rects): VideoMode_ShiftRect on the first rect, then shifts the three 16-byte rects after it by VideoMode_XCoordShift / VideoMode_YCoordShift. Gau_ThrottleWidget runs it on the .GAU block at +1000.",
+      "source": "DBSIM decompile at 004488cc"
+    },
+    {
+      "address": "0049d248",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CommBox0PilotOverride",
+      "description": "int, the -t<n> command-line value. HddGauge_LoadPilotFrames takes it as squad comm box 0's pilot index when it is non-negative.",
+      "source": "DBSIM decompile at 0044ba9c and HddGauge_LoadPilotFrames"
+    },
+    {
+      "address": "0044ba9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_SetCommBox0PilotOverride",
+      "description": "(n): stores CommBox0PilotOverride (0049d248). Sim_ParseCommandLine passes the _atol of the -t argument.",
+      "source": "DBSIM decompile at 0044ba9c"
+    },
+    {
+      "address": "0044d348",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_BlinkTick",
+      "description": "Sets 0049d6ac and 0049d6ae to 1 and flips the blink phase 0049d6ad; marks the widget at *(0049d6b0 + 8) for repaint (+0x10f = 1, paint count +0xb0 = 2); and counts 0049d6b0+0x13e down when non-zero, setting +0x144 when it reaches 0. HddCommandScreen_Update calls it every 0x1e coarse ticks.",
+      "source": "DBSIM decompile at 0044d348"
+    },
+    {
+      "address": "0044ddc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_RedrawOrderHighlight",
+      "description": "(screen, pressed): when the selection +0x5d is not -1, HddCommandScreen_DrawOrderHighlight(screen, +0x5d - 10, pressed, 0). HddButton_Paint calls it with its press byte (+0x1b).",
+      "source": "DBSIM decompile at 0044ddc8"
+    },
+    {
+      "address": "004539b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StrTable_FirstString",
+      "description": "(table): the loaded .STR buffer (*table) + 4, the first entry's text, or 0 when nothing is loaded. HddGauge_LoadPilotFrames walks DAT_0049d238 from it.",
+      "source": "DBSIM decompile at 004539b0"
+    },
+    {
+      "address": "00453a08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StrTable_GetAttributes",
+      "description": "(table, string): the entry's attribute bytes -- string + its int16 length prefix (string-2) is the attribute count byte, and the result is the byte after it -- or 0 when the count is 0 or string lies past the buffer (*table + size table[2]). MessagePort_StepToVariant stores it at its record's +5.",
+      "source": "DBSIM decompile and disassembly at 00453a08"
+    },
+    {
+      "address": "00454b70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_LoadCursor",
+      "description": "(panel, cursor): fills the panel's cursor record -- +0x2e6 = 004a3630 - 4, +0x2ea = 004a3640, +0x2ee = 004a3644, +0x2f2 = cursor -- then sets the cursor image through maybe_Driver3_SetCursorImage on the scroll-window path (Display_UseScrollWindow) or maybe_Cursor_SetImage otherwise. AlertPanel_Enter passes DAT_0049dd90.",
+      "source": "DBSIM decompile at 00454b70"
+    },
+    {
+      "address": "004d238a",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Input_CursorPos",
+      "description": "The cursor position Input_BuildPlayerDevice keeps: from Cursor_GetPosition, or from the mouse record it pushes on CockpitMouseQueue_Push. Input_GetCursorPos returns its address.",
+      "source": "DBSIM decompile at 0045b734 and Input_BuildPlayerDevice"
+    },
+    {
+      "address": "0045b734",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_GetCursorPos",
+      "description": "Returns &Input_CursorPos (004d238a). Cockpit_PickEdgeCursor reads the cursor from it during TapePlayback.",
+      "source": "DBSIM decompile at 0045b734"
+    },
+    {
+      "address": "0045c528",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "JoystickDevice_Poll",
+      "description": "(device): Joystick_Poll(device). Input_PollDeviceBlock calls it on Input_GetDevice(3).",
+      "source": "DBSIM decompile at 0045c528"
+    },
+    {
+      "address": "00460fa1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_GetConsoleButtons",
+      "description": "Returns CockpitViewInstance+0x1e1, the weapon console panel: WeaponMounts_SetChain hands it to ConsoleButtons_SetChainNumber, Sim_DispatchCommand to ConsoleButtons_ToggleAutoTrack and reads its auto-track latch +0xb3.",
+      "source": "DBSIM decompile at 00460fa1"
+    },
+    {
+      "address": "004355dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_AddEndCallback",
+      "description": "(port, callback): stores callback in the next of two slots at port+0x4c1 (count byte +0x4b8) and returns 1; returns 0 when both are taken. The end twin of MessagePort_AddBeginCallback. HddDisplay_Ctor registers CommBox_OnMessageEnd.",
+      "source": "DBSIM decompile at 004355dc"
+    },
+    {
+      "address": "00438f14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelStateGadget_OnClick",
+      "description": "PanelStateGadgetVtable +0x08 (gadget, flags): when flags bit 0 is set, flips the state byte +0x40, calls the owner's (+0x24) vtable slot 0 with (owner, gadget, flags), then slot 1 of the vtable at +0x17 and slot 2 of the sub-object at +0x20.",
+      "source": "DBSIM decompile at 00438f14; es2_xref.py"
+    },
+    {
+      "address": "004474a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDStateGadget_OnClick",
+      "description": "MFDStateGadgetVtable +0x08 (gadget, flags): PanelStateGadget_OnClick's body, but only while the state byte +0x40 is 0, so a click latches it on and never off.",
+      "source": "DBSIM decompile at 004474a8; es2_xref.py"
+    },
+    {
+      "address": "004475a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDStateGadget_FlushDeferredPaint",
+      "description": "MFDStateGadgetVtable +0x0c: steps the pending-paint count at +0x1f -- at 1, Widget_DrawToCockpit(0, gadget, 0); at 2, slot 0 of the vtable at +0x17 -- decrementing it either way.",
+      "source": "DBSIM decompile at 004475a0; es2_xref.py"
+    },
+    {
+      "address": "004473e8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDSelectGadget_FlushDeferredPaint",
+      "description": "MFDSelectGadgetVtable +0x0c: the same body as MFDStateGadget_FlushDeferredPaint.",
+      "source": "DBSIM decompile at 004473e8; es2_xref.py"
+    },
+    {
+      "address": "0043f9d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashComm_ToggleRowVariant",
+      "description": "(screen): for selected row (+0x32) 4 or 5 only, flips bit 1 of that row's state byte at screen+0x2c+row and sets +0x36; any other row is left alone. MfdFlashComm_SelectedVerb adds 3 to the verb of a row with that bit set. MfdFlashComm_Transmit calls it.",
+      "source": "DBSIM decompile at 0043f9d0"
+    },
+    {
+      "address": "004414a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AmmoWeaponGauge_GetState",
+      "description": "Returns gauge+0xc2, the display state block WeaponMount_PushAmmoGaugeState copies into a local from the mount's +0x77 gauge. The ammunition twin of EnergyWeaponGauge_GetState.",
+      "source": "DBSIM decompile at 004414a4"
+    },
+    {
+      "address": "00442f18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GauWeaponButtons_ApplyCoordShift",
+      "description": "(rects): VideoMode_ShiftRect on the first rect, then shifts the four 16-byte rects after it left by VideoMode_XCoordShift (x) and VideoMode_YCoordShift (y). Gau_WeaponButtonsWidget runs it on the .GAU block at +0x1d4 (the panel and its four buttons).",
+      "source": "DBSIM decompile at 00442f18"
+    },
+    {
+      "address": "00445110",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GauEnergyMeter_ApplyCoordShift",
+      "description": "(rects): VideoMode_ShiftRect on the first rect, then shifts the one rect after it by VideoMode_XCoordShift / VideoMode_YCoordShift. Gau_EnergyMeterWidget runs it on the .GAU block at +0x224 (the panel and its one child).",
+      "source": "DBSIM decompile at 00445110"
+    },
+    {
+      "address": "004450d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyMeter_SetValue",
+      "description": "(meter, &value): stores value at meter+0xb1 and, when it differs from the previous one, sets the paint count +0xb0 to 2. Player_PerFrameCockpitUpdate passes CockpitViewInstance+0x1e5 and energyPool << 10 / 10000 (0..0x400, the range of the LEDBarGraphV 00444edc builds).",
+      "source": "DBSIM decompile at 004450d0"
+    },
+    {
+      "address": "00446e14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_CycleMode",
+      "description": "(mfd): MfdDisplay_SetMode(mfd, (+0xc1 + 1) wrapped at 6). Sim_PollPlayerInput's command 0xe calls it on CockpitViewInstance+0x1ed.",
+      "source": "DBSIM decompile at 00446e14"
+    },
+    {
+      "address": "00446f88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_CycleTarget",
+      "description": "TargetSelect_Cycle(CockpitViewInstance). MfdButton_OnClick's SELECT/TARGET case calls it in every mode but 0.",
+      "source": "DBSIM decompile at 00446f88"
+    },
+    {
+      "address": "00446f9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_StepStatusSubject",
+      "description": "(mfd): increments the status screen's subject cursor +0x318, wrapping to 0 at the count +0x31c. MfdButton_OnClick's SELECT/TARGET case calls it in mode 0.",
+      "source": "DBSIM decompile at 00446f9c"
+    },
+    {
+      "address": "00446fec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_SetScannerRange",
+      "description": "(mfd, index): when index differs from +0xc5, stores it there and MfdScannerRanges[index] at +0xbd. MfdDisplay_CycleScannerRange calls it.",
+      "source": "DBSIM decompile at 00446fec"
+    },
+    {
+      "address": "0040d200",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DmgTable_Reserve",
+      "description": "(n): returns DmgTable_Count (00498856) and adds n to it. maybe_MechTypeSlot_Allocate and FlyerType_Register reserve one each.",
+      "source": "DBSIM disassembly at 0040d200"
+    },
+    {
+      "address": "0040d218",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DmgTable_Alloc",
+      "description": "When DmgTable_Count is non-zero, DmgTable_Array = Mem_NewArray(DmgTable_Count * 0xc). DBSim_LoadScriptDat calls it after GunLayout_AllocTable.",
+      "source": "DBSIM decompile at 0040d218"
+    },
+    {
+      "address": "00498856",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DmgTable_Count",
+      "description": "int16: the number of 12-byte .DMG component tables DmgTable_Reserve has handed out, one per mech and flyer type.",
+      "source": "DBSIM disassembly at 0040d200"
+    },
+    {
+      "address": "004a98ac",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DmgTable_Array",
+      "description": "Pointer to DmgTable_Count 12-byte entries. Damage_LoadMechDmgFile fills entry 00498854 (then increments it) with HercPiece_LoadTable.",
+      "source": "DBSIM decompile at 0040d218 and Damage_LoadMechDmgFile"
+    },
+    {
+      "address": "00411df8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectList_Init",
+      "description": "(list, capacity): list+0 = Mem_NewArray(capacity * 4), int16 list+4 = capacity. DBSim_LoadScriptDat sizes maybe_GlobalLiveObjectList with it.",
+      "source": "DBSIM decompile at 00411df8"
+    },
+    {
+      "address": "00422fb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlyerTypes_LoadAll",
+      "description": "When the flyer type count 004a9e4e is non-zero: 004a9e74 = LoadNameList('flyers', 0x22), 004a9e78 = Rtl_VectorNew of that many 0x70-byte records (element ctor 00423098), then FlyerType_LoadResources for each of the 0x22 name indices whose FlyerType_RecordIndex is not 0xff. DBSim_LoadScriptDat calls it.",
+      "source": "DBSIM decompile at 00422fb4"
+    },
+    {
+      "address": "00427d80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_HeightQueryActive",
+      "description": "(point): Terrain_HeightQuery(ActiveHeightGrid, point). Debris_TickUpdate calls it.",
+      "source": "DBSIM decompile at 00427d80"
+    },
+    {
+      "address": "00431500",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_DisableWidgets",
+      "description": "(view): sets the widgets-off byte view+0x20f to 1, the counterpart of CockpitView_EnableWidgets (00431518). CockpitView_ApplyViewState calls it on the manager's +0x1f view when it sets the manager's +0x14 to view 4.",
+      "source": "DBSIM decompile at 00431500"
+    },
+    {
+      "address": "004351c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_QueueDropLast",
+      "description": "(queue): clears the flag byte at +0x212 + the id held in the tenth slot (+0x20e) and decrements the count +0x21c. MessagePort_Enqueue calls it when the queue is full (count 10).",
+      "source": "DBSIM decompile at 004351c0"
+    },
+    {
+      "address": "00435074",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_QueueFront",
+      "description": "(queue): 0 when the count +0x21c is 0, otherwise the record queue + slot0(+0x1ea) * 0x31. MessagePort_Tick takes it as the current message (+0x49a).",
+      "source": "DBSIM decompile at 00435074"
+    },
+    {
+      "address": "004351ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_QueueExpire",
+      "description": "(queue): from the last slot down to slot 1, MessagePort_RemoveAt each whose record's maxWait (+0x28) is earlier than Time_GetCoarseTicks. Slot 0 is never dropped. MessagePort_Tick calls it.",
+      "source": "DBSIM decompile at 004351ec"
+    },
+    {
+      "address": "00435240",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_QueueRemoveMatch",
+      "description": "(queue, subject, id): removes the first queued record whose int16 id (+0) and subject pointer (+2) both match with MessagePort_RemoveAt and returns 1; returns 0 when none does. MessagePort_Withdraw calls it.",
+      "source": "DBSIM decompile at 00435240"
+    },
+    {
+      "address": "00435298",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_QueueShiftDeadlines",
+      "description": "(queue, delta): adds delta to each queued record's +0x24 and +0x28 deadlines that are still later than Time_GetCoarseTicks. MessagePort_Resume calls it with the pause length.",
+      "source": "DBSIM decompile at 00435298"
+    },
+    {
+      "address": "0048daa0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_DrawPolygonReversed",
+      "description": "(gl, count, points): Raster_DrawPolygonReversed(count, points), ignoring the first argument. The DBSIM copy of VSHELL's GL_FillPolygonReversed (0045f8d2).",
+      "source": "DBSIM decompile at 0048daa0"
+    },
+    {
+      "address": "0048dab5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_DrawPolygonDispatch",
+      "description": "(gl, count, points): Raster_DrawPolygonDispatch(count, points), ignoring the first argument. The DBSIM copy of VSHELL's GL_FillPolygon (0045f8e7).",
+      "source": "DBSIM decompile at 0048dab5"
+    },
+    {
+      "address": "00482c38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_DrawLine",
+      "description": "(gl, from, to): Raster_DrawLine(from, to), ignoring the first argument (GL_GetGlobal7's object at both call sites, HudFont_DrawGlyph and 00482bc0).",
+      "source": "DBSIM decompile at 00482c38"
+    },
+    {
+      "address": "0045f8d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_FillPolygonReversed",
+      "description": "(gl, count, points): Gfx_FillPolygonReversed(count, points), ignoring the first argument. PolyFill_FillThenOutline calls it.",
+      "source": "VSHELL decompile at 0045f8d2"
+    },
+    {
+      "address": "0045f8e7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_FillPolygon",
+      "description": "(gl, count, points): Gfx_FillPolygon(count, points), ignoring the first argument. PolyFill_FillThenOutline calls it.",
+      "source": "VSHELL decompile at 0045f8e7"
+    },
+    {
+      "address": "004809d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_GetGlobal2",
+      "description": "Returns GL_GetGlobal(2) in EAX (the decompile drops the return). MouseDriver_Ctor and MouseInputDevice_Dtor (00480548) compare their object with it.",
+      "source": "DBSIM disassembly at 004809d8"
+    },
+    {
+      "address": "0044edb8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_TogglePilotButton",
+      "description": "(screen, index): flips bit 0 of byte +0x36 of the button at (screen+0x31)[index] and calls slot 1 of the vtable at the button's +0x17 on it. HddCommandScreen_SelectPilot calls it on the previous selection (+0x105) and on the new one.",
+      "source": "DBSIM decompile at 0044edb8"
+    },
+    {
+      "address": "00453804",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "OwnedArray_Dtor",
+      "description": "(holder, flags): decrements the counter at *006cbf74, Mem_DeleteArray of the array pointer at holder+0 when non-null, then Mem_Delete(holder) when flags bit 0 is set. Alert_Dtor runs it on its +0x34 member and 00457a80 on its +0x332, both with flags 2.",
+      "source": "DBSIM decompile at 00453804"
+    },
+    {
+      "address": "004d37a4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Win_PumpCursor",
+      "description": "HCURSOR. Win_PumpMessages calls SetCursor with it whenever no message is waiting and it is non-null. Win_SetPumpCursor stores it.",
+      "source": "DBSIM decompile at 00464b64 and Win_PumpMessages"
+    },
+    {
+      "address": "00464b64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Win_SetPumpCursor",
+      "description": "(cursor): stores Win_PumpCursor (004d37a4). Sim_Run and 00465288 call it with a non-null HCURSOR.",
+      "source": "DBSIM decompile at 00464b64"
+    },
+    {
+      "address": "00467790",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Time_ElapsedToQ8Clamped",
+      "description": "(unit, elapsed): (elapsed << 8) / unit clamped to [0x40, 0x1c2], returned in AX (the decompile drops the return). Time_BeginSimTick computes SimTickDelta with unit 004d3bec and 004d3bea with unit 004d3bee through it.",
+      "source": "DBSIM decompile and disassembly at 00467790"
+    },
+    {
+      "address": "00469cd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AtlasPage_Init",
+      "description": "(page, index): fills the 256 two-int entries at page+0 with {0, 0x100}, zeroes page+0x800 and stores index at page+0x804. Bitmap_PlaceInAtlasPage calls it on a new chained page with the current page's +0x804 plus one; 0046a2bc on page 0.",
+      "source": "DBSIM decompile at 00469cd8"
+    },
+    {
+      "address": "00492850",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_ElevationAngle",
+      "description": "(a, b): Math_Atan2Guarded(Math_FastMagnitude2D_Thunk(a.x - b.x, a.y - b.y), a.z - b.z) on int32 triples, returned in AX. Flyer_AttackRun passes its aim point and the flyer's position (+0x26) and feeds the result to Flyer_PitchCommand.",
+      "source": "DBSIM decompile at 00492850"
+    },
+    {
+      "address": "00495043",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_ReturnArgCopy2",
+      "description": "Returns its argument unchanged (MOV EAX,[EBP+8]; the decompile drops it) -- a third copy of Rtl_ReturnArg. Transform_Ctor and Bitmap_BlitRotatedScaled call it.",
+      "source": "DBSIM disassembly at 00495043"
+    },
+    {
+      "address": "00495fd5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_CallVolumeHook",
+      "description": "(volume): calls the function pointer at 006cbf1c with an int16 volume. Sos_ApplyVolume and 004739bc pass their +0x10 times 127 / 100.",
+      "source": "DBSIM decompile at 00495fd5"
+    },
+    {
+      "address": "00401fa8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SetModelTransformFromPose",
+      "description": "(obj): builds a transform from the Euler angles at obj+0x1c (BuildEulerRotationMatrixQ14) with the translation obj+0x10/+0x14/+0x18 and installs it with Raster_SetModelTransform. Called from the undisassembled code at 00402cd4 that follows the 'TS_REG_OBJ' string.",
+      "source": "DBSIM decompile at 00401fa8; es2_xref.py"
+    },
+    {
+      "address": "004a9690",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Light_PersistentList",
+      "description": "Array of light pointers, count Light_PersistentCount (00497ae4). Light_AddPersistent appends, Light_RemovePersistent removes, Light_ReregisterPersistent re-registers each with Light_Register.",
+      "source": "DBSIM decompile at 00407800, 00407820, 00407878"
+    },
+    {
+      "address": "00497ae4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Light_PersistentCount",
+      "description": "Entry count of Light_PersistentList (004a9690).",
+      "source": "DBSIM decompile at 00407800"
+    },
+    {
+      "address": "00407800",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_AddPersistent",
+      "description": "(light): appends to Light_PersistentList and increments Light_PersistentCount, with no bound check. Light_CreateMissionSun adds the sun after Light_Register.",
+      "source": "DBSIM decompile at 00407800"
+    },
+    {
+      "address": "00407820",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_RemovePersistent",
+      "description": "(light): finds the light in Light_PersistentList and shifts the later entries down over it and decrements Light_PersistentCount.",
+      "source": "DBSIM decompile at 00407820"
+    },
+    {
+      "address": "00407878",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_ReregisterPersistent",
+      "description": "Light_Register on every entry of Light_PersistentList. ObjList_DrawEntryRender calls it when DAT_004cfa08 is set.",
+      "source": "DBSIM decompile at 00407878"
+    },
+    {
+      "address": "004a9682",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "EffectLightPool",
+      "description": "The effect-light handle pool LightManager_InitSubsystem builds; Explosion_Construct allocates from it, EffectLightPool_FlushDeletes drains its delete queue (004a9686), and 004078c8 zeroes it.",
+      "source": "DBSIM decompile at 004077e8 and LightManager_InitSubsystem"
+    },
+    {
+      "address": "004077e8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EffectLightPool_FlushDeletes",
+      "description": "ObjectPool_FlushDeleteQueue(004a9686, EffectLightPool).",
+      "source": "DBSIM decompile at 004077e8"
+    },
+    {
+      "address": "00407b3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ExplosionPool_FlushDeletes",
+      "description": "ObjectPool_FlushDeleteQueue(004a96a6, g_ExplosionPool).",
+      "source": "DBSIM decompile at 00407b3c"
+    },
+    {
+      "address": "004a9968",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "GunLayout_Table",
+      "description": "Pointer to the gun-layout table of 6-byte {int16 count, record*} entries, GunLayout_Count (004a996c) long. GunLayout_AllocTable allocates it; GunLayout_GetBySlot indexes it.",
+      "source": "DBSIM decompile at 0040fecc"
+    },
+    {
+      "address": "004a996c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "GunLayout_Count",
+      "description": "Entry count of GunLayout_Table (004a9968).",
+      "source": "DBSIM decompile at 0040fecc"
+    },
+    {
+      "address": "0040fecc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GunLayout_AllocTable",
+      "description": "GunLayout_Table = Mem_NewArray(GunLayout_Count * 6). DBSim_LoadScriptDat calls it.",
+      "source": "DBSIM decompile at 0040fecc"
+    },
+    {
+      "address": "004951dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightOffsetTable_SetScale",
+      "description": "(table, base, step): stores base at table+8 and step at table+4. TerrainZone_LoadHeightmap, TerrainZone_PopulateFromBitmap and Terrain_SetupVisibleRegion call it on HeightGrid+0xd0 with the grid's height base (+0x110) and height scale (+0x118).",
+      "source": "DBSIM decompile at 004951dc"
+    },
+    {
+      "address": "004951f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightOffsetTable_Reset",
+      "description": "(table): memsets the per-height computed flags (table+0x10, length table+0xc) to 0 and writes the view-space image of the up vector (0, 0, 0x10000) under g_ModelToView into the vector table+0x18 points at, via Transform_RotatePoint_Thunk. Called on HeightGrid+0xd0 after each HeightOffsetTable_SetScale.",
+      "source": "DBSIM decompile at 004951f0"
+    },
+    {
+      "address": "00495240",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightOffsetTable_Get",
+      "description": "(table, rawHeight): returns the 12-byte view-space offset of a raw height byte at table+0x14 + rawHeight*12. Filled on first use after HeightOffsetTable_Reset (flag byte table+0x10[rawHeight]): each component of the up vector at *(table+0x18) times rawHeight*step(+4) + base(+8), through Math_Q16Multiply. Terrain_DrawCellQuad adds it to each corner.",
+      "source": "DBSIM decompile at 00495240"
+    },
+    {
+      "address": "004390b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraph_GetRect",
+      "description": "Returns obj+4, the rect {x0, y0, x1, y1} BarGraph_Ctor copies there. ThrottleSlider_PaintV and 00448710 call it on the slider's LED bar (+0x7e), 00444f20 and 00444fe0 on the gauge's bar (+0xb5) before CockpitView_RectCornerVisible.",
+      "source": "DBSIM decompile at 004390b8"
+    },
+    {
+      "address": "0048d8ae",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_DrawPolygonEitherWinding",
+      "description": "(gl, count, points): Raster_DrawPolygonEitherWinding(count, points); the first argument, GL_GetGlobal7's object at every call site, is ignored. PolyFill_Fill and 00482bfc call it. The DBSIM copy of VSHELL's GL_FillPolygonEitherWinding (0045f75d).",
+      "source": "DBSIM decompile at 0048d8ae"
+    },
+    {
+      "address": "0045f75d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GL_FillPolygonEitherWinding",
+      "description": "(gl, count, points): Gfx_FillPolygonEitherWinding(count, points), ignoring the first argument. The VSHELL copy of DBSIM's GL_DrawPolygonEitherWinding (0048d8ae).",
+      "source": "VSHELL decompile at 0045f75d"
+    },
+    {
+      "address": "0040ccc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_ComputeAllBoundingSpheres",
+      "description": "(model): for each of the int16 count at model+4 16-byte nodes at model+6, Collision_ComputeBoundingSphere(node, node+8) and stores the returned radius at node+0xe. Collision_LoadRecordArray calls it.",
+      "source": "DBSIM decompile at 0040ccc8"
+    },
+    {
+      "address": "00411e40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectList_Next",
+      "description": "(list, obj): the entry after obj in the list, wrapping: items(+0)[(obj+0x4b + 1) % count(+6)], where obj+0x4b is the slot ObjectList_Add recorded. Sim_DispatchCommand cycles maybe_GlobalLiveObjectList with it.",
+      "source": "DBSIM decompile at 00411e40"
+    },
+    {
+      "address": "00411e60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectList_Prev",
+      "description": "(list, obj): the entry before obj in the list, wrapping: items(+0)[(obj+0x4b + count - 1) % count(+6)]. The reverse of ObjectList_Next.",
+      "source": "DBSIM decompile at 00411e60"
+    },
+    {
+      "address": "004aab54",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "RaycastShapeMinDistance",
+      "description": "int. Sim_RaycastShapeVolume lowers it to an object's centre distance from the ray origin when that is smaller, and sets it to 0 when the object is within the ray's reach. RaycastShapeMinDistance_Clear zeroes it; Sim_RaycastObjectList reads it through RaycastShapeMinDistance_Get into 004aaaf0 and 004aaaec.",
+      "source": "DBSIM decompile at 00427da8, 00427d98, 00427da0"
+    },
+    {
+      "address": "00427d98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RaycastShapeMinDistance_Clear",
+      "description": "Sets RaycastShapeMinDistance (004aab54) to 0. Sim_RaycastObjectList calls it twice, once just before Sim_RaycastTerrain.",
+      "source": "DBSIM decompile at 00427d98"
+    },
+    {
+      "address": "00427da0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RaycastShapeMinDistance_Get",
+      "description": "Returns RaycastShapeMinDistance (004aab54) in EAX (the decompile drops the return).",
+      "source": "DBSIM disassembly at 00427da0"
+    },
+    {
+      "address": "00435574",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_ShiftRect",
+      "description": "(port, delta{dx, dy}): subtracts dx from port+0x4a7 and +0x4af and dy from +0x4ab and +0x4b3, moving the rect {x0, y0, x1, y1} at +0x4a7. CockpitView_ApplyViewState calls it on CockpitView_GetSquadMessagePort's port.",
+      "source": "DBSIM decompile at 00435574"
+    },
+    {
+      "address": "0043904c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VSliderGadget_OnClick",
+      "description": "PanelVSliderGadgetVtable +0x08 (slider, value): calls the owner's (+0x42) vtable slot 0 with (owner, slider, value), then slot 1 of the vtable at slider+0x17 with the slider, then slot 2 of the sub-object at slider+0x3e. ThrottleSlider_OnValue calls it as its base; for the throttle the owner's slot 0 is ThrottleGauge_OnChildValue. HSliderGadget_OnClick (0043901c) has the same body.",
+      "source": "DBSIM decompile at 0043904c"
+    },
+    {
+      "address": "00440e74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyWeaponGauge_GetState",
+      "description": "Returns gauge+0xc2, the 0x17-byte display state block that WeaponMount_PushEnergyGaugeState and 0040e0e0 copy into a local.",
+      "source": "DBSIM decompile at 00440e74"
+    },
+    {
+      "address": "00432074",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_CreateEnergyWeaponGauge",
+      "description": "(view, row, mount): copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0x104, allocates 0xdf bytes, runs EnergyWeaponGauge_Ctor(gauge, record+0x104, view, row, mount) and CockpitView_RegisterWeaponGauge(view, gauge, row), and returns the gauge. 0040e0e0 stores the result at mount+0x77.",
+      "source": "DBSIM decompile at 00432074"
+    },
+    {
       "address": "00403020",
       "binary": "DBSIM",
       "type": "function",
@@ -6139,7 +7993,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_Write",
-      "description": "armory.cpp. Writes all 33 weapons.dat catalog records' armory state: the +0x16 byte, the owned-unit count at +0x17, and that many 10-byte units from the +0x19 list. FUN_0041215d is the reader.",
+      "description": "armory.cpp. Writes all 33 weapons.dat catalog records' armory state: the +0x16 byte, the owned-unit count at +0x17, and that many 10-byte units from the +0x19 list. Armory_Read is the reader.",
       "source": "docs/formats/weapons-dat.md"
     },
     {
@@ -8238,7 +10092,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_UseFlatPolyFallback",
-      "description": "Boolean flag read at the top of TSTexture4Poly_Render, gating which of two entirely different code paths runs; it is not an 'activeDba pointer-table vs descriptor-table' switch (see TSTexture4Poly_Render's entry). ==0: the REAL scanline-textured path -- builds a per-vertex 3D position array plus a UV-corner array from a 20-byte-stride per-frame descriptor (via g_ActiveBitmapArray[1]), then calls TSTexture4Poly_RasterizeA/B. !=0: a flat/solid 2D polygon-fill FALLBACK -- projects+clips the poly's vertices to screen space (FUN_0045e694/FUN_0045ee2c) and fills with FUN_0045f364 (-> FUN_0045f8e7/FUN_0045f8d2), never touching a texture at all, even though it still resolves a DBA frame index via the pointer-table lookup (that resolved value goes unused for actual pixel sampling in this branch). The runtime condition that sets this flag is not determined.",
+      "description": "Boolean flag read at the top of TSTexture4Poly_Render, gating which of two entirely different code paths runs; it is not an 'activeDba pointer-table vs descriptor-table' switch (see TSTexture4Poly_Render's entry). ==0: the REAL scanline-textured path -- builds a per-vertex 3D position array plus a UV-corner array from a 20-byte-stride per-frame descriptor (via g_ActiveBitmapArray[1]), then calls TSTexture4Poly_RasterizeA/B. !=0: a flat/solid 2D polygon-fill FALLBACK -- projects+clips the poly's vertices to screen space (FUN_0045e694/FUN_0045ee2c) and fills with FUN_0045f364 (-> GL_FillPolygon/GL_FillPolygonReversed), never touching a texture at all, even though it still resolves a DBA frame index via the pointer-table lookup (that resolved value goes unused for actual pixel sampling in this branch). The runtime condition that sets this flag is not determined.",
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
@@ -8826,7 +10680,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RenderFrame",
-      "description": "The whole frame draw; 13 callers -- Sim_Run once a frame, and the redraws in PreferencesPanel_Raise, LiftStart_Rise, Sim_DeathFlash, DemoTape_PickRandom and Sim_InitMissionSession. Order: Subsystem_RunPhase(5); ShapeDetail_ApplyHercDetailSetting when option byte 004d1fc5 has changed and StructureDetail_ApplySetting when 004d1fc6 has; adds CockpitView_GetShakeOffset's pair into the ints at DAT_004d2552 +0x220/+0x224 for the frame; Raster_InstallViewProjection, Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), CockpitView_PerFrameUpdate, Scene_SubmitFrameObjects; then, when CockpitView_ShowsWorld, Raster_InstallViewProjection, LightManager_SetCameraPosition, Terrain_SetupVisibleRegion again, Raster_SetModelTransform(0), Scene_DrawTerrainPass and ObjList_DrawAfterTerrain; then Player_PerFrameCockpitUpdate, slot +8 of CockpitViewInstance+0x1f5, slot +0x10 of CockpitView_GetSquadMessagePort's port and of CockpitViewInstance+0x20b; takes the shake offset back out; and ends with FUN_00434520(CockpitViewInstance, &DAT_004d234c).",
+      "description": "The whole frame draw; 13 callers -- Sim_Run once a frame, and the redraws in PreferencesPanel_Raise, LiftStart_Rise, Sim_DeathFlash, DemoTape_PickRandom and Sim_InitMissionSession. Order: Subsystem_RunPhase(5); ShapeDetail_ApplyHercDetailSetting when option byte 004d1fc5 has changed and StructureDetail_ApplySetting when 004d1fc6 has; adds CockpitView_GetShakeOffset's pair into the ints at Sim_RenderContext +0x220/+0x224 for the frame; Raster_InstallViewProjection, Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), CockpitView_PerFrameUpdate, Scene_SubmitFrameObjects; then, when CockpitView_ShowsWorld, Raster_InstallViewProjection, LightManager_SetCameraPosition, Terrain_SetupVisibleRegion again, Raster_SetModelTransform(0), Scene_DrawTerrainPass and ObjList_DrawAfterTerrain; then Player_PerFrameCockpitUpdate, slot +8 of CockpitViewInstance+0x1f5, slot +0x10 of CockpitView_GetSquadMessagePort's port and of CockpitViewInstance+0x20b; takes the shake offset back out; and ends with FUN_00434520(CockpitViewInstance, &DAT_004d234c).",
       "source": "DBSIM decompile at 0045fb9c; docs/formats/terrain-drawing.md#the-frame"
     },
     {
@@ -9202,7 +11056,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_Register",
-      "description": "Adds a light object pointer to the active light list (DAT_006c6130, 10-slot max, dedups by pointer identity). Only 4 call sites in the whole binary: FUN_00407388/FUN_00407444 (pooled directional/point light getters, see their own entries), FUN_00407878 (re-registers a persistent light list DAT_004a9690 into the active manager), and Sim_InitMissionSession (FUN_004614fc, inlines the same directional-light-creation logic as FUN_00407388 and calls this directly).",
+      "description": "Adds a light object pointer to the active light list (DAT_006c6130, 10-slot max, dedups by pointer identity). Only 4 call sites in the whole binary: FUN_00407388/FUN_00407444 (pooled directional/point light getters, see their own entries), Light_ReregisterPersistent (re-registers a persistent light list Light_PersistentList into the active manager), and Sim_InitMissionSession (FUN_004614fc, inlines the same directional-light-creation logic as FUN_00407388 and calls this directly).",
       "source": "flat-shaded lighting RE"
     },
     {
@@ -9229,7 +11083,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_CreateMissionSun",
-      "description": "Called exactly once per mission, unconditionally, from Sim_InitMissionSession (FUN_004614fc) right after the light-system reset (FUN_0048dbfc) and before DBSim_LoadScriptDat -- creates the ONE directional 'sun' light every mission gets. Direction is NOT read from any mission/theater file: it's built from two HARDCODED constant vectors, local_38=(0,0x1000,0) and local_40=(-6000,0,21000), combined via FUN_0047eaac (looks like a normalize/transform) then FUN_0047ffb4 (looks like it derives a direction from a target-point + up-vector pair, output stored as the light's direction field). Intensity is set via vtable+4 call with literal 0x100 (256). The created light is registered via Light_Register (FUN_0048bd44) AND pushed onto a persistent list (DAT_004a9690) via FUN_00407800, so it survives a later Light_ReregisterPersistent (FUN_00407878) call. No separate ambient (type=0) light creation was found anywhere in the binary -- Light_ComputeShadeForFace's type-0 branch may be genuinely unused by real missions, meaning faces angled away from the sun likely render fully unlit (shade=0), not floor-lit. FUN_0047eaac/FUN_0047ffb4/FUN_0048d99b (the actual per-face dot-product math) are not decoded; the lighting is a single fixed sun direction and intensity with no mission-specific lighting data.",
+      "description": "Called exactly once per mission, unconditionally, from Sim_InitMissionSession (FUN_004614fc) right after the light-system reset (FUN_0048dbfc) and before DBSim_LoadScriptDat -- creates the ONE directional 'sun' light every mission gets. Direction is NOT read from any mission/theater file: it's built from two HARDCODED constant vectors, local_38=(0,0x1000,0) and local_40=(-6000,0,21000), combined via FUN_0047eaac (looks like a normalize/transform) then FUN_0047ffb4 (looks like it derives a direction from a target-point + up-vector pair, output stored as the light's direction field). Intensity is set via vtable+4 call with literal 0x100 (256). The created light is registered via Light_Register (FUN_0048bd44) AND pushed onto a persistent list (Light_PersistentList) via Light_AddPersistent, so it survives a later Light_ReregisterPersistent (Light_ReregisterPersistent) call. No separate ambient (type=0) light creation was found anywhere in the binary -- Light_ComputeShadeForFace's type-0 branch may be genuinely unused by real missions, meaning faces angled away from the sun likely render fully unlit (shade=0), not floor-lit. FUN_0047eaac/FUN_0047ffb4/FUN_0048d99b (the actual per-face dot-product math) are not decoded; the lighting is a single fixed sun direction and intensity with no mission-specific lighting data.",
       "source": "flat-shaded lighting RE, docs/formats/dts-texture-binding.md"
     },
     {
@@ -10284,7 +12138,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdDisplay_CycleScannerRange",
-      "description": "The SCANNER screen's RANGE button: steps MfdDisplay+0xc5 and wraps at 3, then FUN_00446fec installs MfdScannerRanges[index] at MfdDisplay+0xbd. Stepping outwards from the default index 2 means the first press goes from 1200 m to 300 m.",
+      "description": "The SCANNER screen's RANGE button: steps MfdDisplay+0xc5 and wraps at 3, then MfdDisplay_SetScannerRange installs MfdScannerRanges[index] at MfdDisplay+0xbd. Stepping outwards from the default index 2 means the first press goes from 1200 m to 300 m.",
       "source": "docs/formats/mfd-scanner.md"
     },
     {
@@ -11834,7 +13688,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ThrottleSlider_OnValue",
-      "description": "Throttle slider commit slot (vtable +8). Notifies the parent gauge via FUN_0043904c (which dispatches the owner's slot 0 = ThrottleGauge_OnChildValue, then repaints), then sets ThrottleLeverMode (0049a06e) from the sign of the committed value -- but gated on a joystick throttle control being configured AND assigned to THROTTLE in preferences, so it is inert on a keyboard/mouse setup.",
+      "description": "Throttle slider commit slot (vtable +8). Notifies the parent gauge via VSliderGadget_OnClick (which dispatches the owner's slot 0 = ThrottleGauge_OnChildValue, then repaints), then sets ThrottleLeverMode (0049a06e) from the sign of the committed value -- but gated on a joystick throttle control being configured AND assigned to THROTTLE in preferences, so it is inert on a keyboard/mouse setup.",
       "source": "docs/formats/cockpit-hud-widgets.md"
     },
     {
@@ -11870,7 +13724,7 @@
       "type": "function",
       "confidence": "high",
       "name": "LedBarGraph_CtorV",
-      "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). They are not four throttle detent points. NEITHER THROTTLE BAR IS EVER DRAWN: the slider holds them privately, ThrottleSlider_PaintV reads them only for their rects (via FUN_004390b8) to widen the region it invalidates, and the bar draw routines 00439398/00439460 have no callers in the image. A cut feature, along with the gauge+0xb1 speed fraction that would have filled them.",
+      "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). They are not four throttle detent points. NEITHER THROTTLE BAR IS EVER DRAWN: the slider holds them privately, ThrottleSlider_PaintV reads them only for their rects (via BarGraph_GetRect) to widen the region it invalidates, and the bar draw routines 00439398/00439460 have no callers in the image. A cut feature, along with the gauge+0xb1 speed fraction that would have filled them.",
       "source": "docs/formats/cockpit-hud-widgets.md"
     },
     {
@@ -12443,7 +14297,7 @@
       "type": "function",
       "confidence": "high",
       "name": "EnergyWeaponGauge_Ctor",
-      "description": "The weapon-row gauge class for energy mounts (vtable 0049c91c), built via FUN_00432074. Builds the LED charge bar over the same value field the ammunition class puts its number in (x0+36..x0+53, y0..y0+5), handing it to FUN_00442950.",
+      "description": "The weapon-row gauge class for energy mounts (vtable 0049c91c), built via CockpitView_CreateEnergyWeaponGauge. Builds the LED charge bar over the same value field the ammunition class puts its number in (x0+36..x0+53, y0..y0+5), handing it to FUN_00442950.",
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
@@ -12769,7 +14623,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RaycastTerrain",
-      "description": "The ray-versus-terrain query Sim_RaycastObjectList runs before it tests any object. Calls maybe_Terrain_RayWalk(ActiveHeightGrid, origin, endPoint, rayRecord+8 -- the literal 200, as a radius, &hitPoint, 0); on a ground hit the caller measures the distance back to the origin and clips the ray to it. This is what stops a shot passing through a hillside. Its companion FUN_00427d98 is only a counter reset (DAT_004aab54), not part of the query.",
+      "description": "The ray-versus-terrain query Sim_RaycastObjectList runs before it tests any object. Calls maybe_Terrain_RayWalk(ActiveHeightGrid, origin, endPoint, rayRecord+8 -- the literal 200, as a radius, &hitPoint, 0); on a ground hit the caller measures the distance back to the origin and clips the ray to it. This is what stops a shot passing through a hillside. Its companion RaycastShapeMinDistance_Clear is only a counter reset (RaycastShapeMinDistance), not part of the query.",
       "source": "docs/simulation/weapon-firing.md"
     },
     {
@@ -13659,7 +15513,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Atan2Guarded",
-      "description": "atan2 as a BAM angle, with the degenerate pair nudged onto an axis. ARGUMENT ORDER IS (x, y), NOT (y, x): it forwards to FUN_004929bc(p1, p2) and sets p1 -- the X -- to 1 when both are zero. Both Math_HeadingToward and Math_EulerToward call it as (dx, dy). Getting this backwards mirrors a bearing about the 45-degree line and turns an elevation into a polar angle from +Z.",
+      "description": "atan2 as a BAM angle, with the degenerate pair nudged onto an axis. ARGUMENT ORDER IS (x, y), NOT (y, x): it forwards to Math_Atan2Bam_Thunk(p1, p2) and sets p1 -- the X -- to 1 when both are zero. Both Math_HeadingToward and Math_EulerToward call it as (dx, dy). Getting this backwards mirrors a bearing about the 45-degree line and turns an elevation into a polar angle from +Z.",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -15534,7 +17388,7 @@
       "type": "function",
       "confidence": "high",
       "name": "LightManager_InitSubsystem",
-      "description": "Builds the effect light manager singleton DAT_004a968c (0x404 bytes, FUN_00406e44), then overrides the constructor's falloff constants with LightManager_SetFalloffConstants(mgr, 10, 2000) -- the pair that actually reaches every frame, giving A=0 and B=62 after the setter's >>5. Also builds the effect-light handle pool DAT_004a9682.",
+      "description": "Builds the effect light manager singleton DAT_004a968c (0x404 bytes, FUN_00406e44), then overrides the constructor's falloff constants with LightManager_SetFalloffConstants(mgr, 10, 2000) -- the pair that actually reaches every frame, giving A=0 and B=62 after the setter's >>5. Also builds the effect-light handle pool EffectLightPool.",
       "source": "docs/formats/effect-lights.md"
     },
     {
@@ -16197,7 +18051,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Collision_CollectComponentAnchors",
-      "description": "Walks a loaded .COL model's nodes and emits one (componentIndex, nodeIndex, pointer to the cluster's load-time bounding-sphere centre) triple per cluster into three caller-supplied parallel arrays, returning the count. Per node it delegates to FUN_0040cafc, which strides the 16-byte cluster records reading componentIndex at +6 and taking the address of the bound centre at +8. Called once, from Mech_ConfigureLoadout, feeding HercPiece_BindComponentAnchors.",
+      "description": "Walks a loaded .COL model's nodes and emits one (componentIndex, nodeIndex, pointer to the cluster's load-time bounding-sphere centre) triple per cluster into three caller-supplied parallel arrays, returning the count. Per node it delegates to Collision_CollectNodeAnchors, which strides the 16-byte cluster records reading componentIndex at +6 and taking the address of the bound centre at +8. Called once, from Mech_ConfigureLoadout, feeding HercPiece_BindComponentAnchors.",
       "source": "docs/simulation/damage-system.md",
       "signature": "short __cdecl Collision_CollectComponentAnchors(short *model, short *componentOut, short *nodeOut, int *pointOut)"
     },
@@ -19163,7 +21017,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Font_CellHeight",
-      "description": "Returns font +0x0a, the glyph cell height. FUN_00453f9c is a byte-identical second copy at a different address. Both text paints centre with this, not with the ink height -- which is font +0x16 and is what the glyph blitter subtracts.",
+      "description": "Returns font +0x0a, the glyph cell height. Font_CellHeightCopy is a byte-identical second copy at a different address. Both text paints centre with this, not with the ink height -- which is font +0x16 and is what the glyph blitter subtracts.",
       "source": "docs/shell/screen-layout.md#text-placement-and-colour"
     },
     {
@@ -19339,9 +21193,9 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdFlashComm_SelectedVerb",
-      "signature": "int __cdecl MfdFlashComm_SelectedVerb(int flashComm)",
-      "description": "The STRINGS0 group 0 verb the FLASH COMM page's selected row names: the row index at screen+0x32, plus 3 when that row's own state byte at screen+0x2c+row has bit 1 set. Only rows 4 and 5 ever have that bit set (FUN_0043f9d0 refuses any other row), so the page sends verbs 0-5, 7 and 8. Args derived from disassembly: [EBP+8] only.",
-      "source": "docs/simulation/ai-squadmates.md"
+      "description": "The STRINGS0 group 0 verb the FLASH COMM page's selected row names: the row index at screen+0x32, plus 3 when that row's own state byte at screen+0x2c+row has bit 1 set. Only rows 4 and 5 ever have that bit set (MfdFlashComm_ToggleRowVariant refuses any other row), so the page sends verbs 0-5, 7 and 8. Args derived from disassembly: [EBP+8] only.",
+      "source": "docs/simulation/ai-squadmates.md",
+      "signature": "int __cdecl MfdFlashComm_SelectedVerb(int flashComm)"
     },
     {
       "address": "0044db24",
@@ -20381,7 +22235,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Joystick_NormaliseAxes",
-      "description": "Maps each of the four raw joyGetPosEx axes onto a signed byte: (raw << 8) / 0xffff - 0x80, giving -0x80..+0x7f. The width comes from the device object's resolution field +0x16, which FUN_004774d0 sets to 7. No JOYCAPS min/max is consulted -- the game leans entirely on Windows' own calibration.",
+      "description": "Maps each of the four raw joyGetPosEx axes onto a signed byte: (raw << 8) / 0xffff - 0x80, giving -0x80..+0x7f. The width comes from the device object's resolution field +0x16, which JoystickDevice_CtorBase sets to 7. No JOYCAPS min/max is consulted -- the game leans entirely on Windows' own calibration.",
       "source": "docs/formats/joystick-input.md"
     },
     {
@@ -20399,7 +22253,7 @@
       "type": "function",
       "confidence": "high",
       "name": "JoystickDevice_Ctor",
-      "description": "Constructs the joystick input device: base ctor FUN_004774d0 (which enumerates and sets the resolution field +0x16 to 7), registers it in the device table as kind 3, installs vtable PTR_FUN_0049ec9c at +0x24 and stores the response-curve selector at +0x28. Its one caller FUN_00459dd4 passes (3, 0x201, 0xf, 1).",
+      "description": "Constructs the joystick input device: base ctor JoystickDevice_CtorBase (which enumerates and sets the resolution field +0x16 to 7), registers it in the device table as kind 3, installs vtable PTR_FUN_0049ec9c at +0x24 and stores the response-curve selector at +0x28. Its one caller FUN_00459dd4 passes (3, 0x201, 0xf, 1).",
       "source": "docs/formats/joystick-input.md"
     },
     {
@@ -21119,7 +22973,7 @@
       "type": "function",
       "confidence": "high",
       "name": "View_FillOutside3dRect",
-      "description": "Floods the four bands around the 3D rect (DAT_004cfac4/+4/+8/+0xc: left, top, right, bottom) with COLORS.DAT id 19 (DAT_004d3c26): a full-width band above it, one below it, and the left and right strips between. It installs a {0, colour} fill brush at the render context's +0x22c, zeroes the context's +0x208/+0x20c offsets for the fills and restores them, and issues one Raster_FillRect per non-empty band. Called by CockpitView_ApplyViewState for view 4, by FUN_0042d9e8 and twice by PreferencesPanel_Raise. See docs/simulation/external-views.md.",
+      "description": "Floods the four bands around the 3D rect (ExternalView_Rect/+4/+8/+0xc: left, top, right, bottom) with COLORS.DAT id 19 (DAT_004d3c26): a full-width band above it, one below it, and the left and right strips between. It installs a {0, colour} fill brush at the render context's +0x22c, zeroes the context's +0x208/+0x20c offsets for the fills and restores them, and issues one Raster_FillRect per non-empty band. Called by CockpitView_ApplyViewState for view 4, by FUN_0042d9e8 and twice by PreferencesPanel_Raise. See docs/simulation/external-views.md.",
       "source": "docs/simulation/external-views.md"
     },
     {
@@ -21687,7 +23541,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Arena_Push",
-      "description": "Allocates a new arena block with Mem_HeapAlloc -- so the block is ZEROED -- and pushes it onto the DAT_006c59ec arena stack through FUN_0047a2f0. Paired with Arena_Pop. MechLoadout_ConstructWeaponMounts pushes 200000 bytes around its per-hardpoint loop.",
+      "description": "Allocates a new arena block with Mem_HeapAlloc -- so the block is ZEROED -- and pushes it onto the DAT_006c59ec arena stack through ArenaStack_Push. Paired with Arena_Pop. MechLoadout_ConstructWeaponMounts pushes 200000 bytes around its per-hardpoint loop.",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -22802,7 +24656,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_Present",
-      "description": "Screen_PresentFrame(&Display_OriginX, &Display_ScreenRect): puts the viewport window at the display origin on screen. 29 call sites (es2_xref): 25 on the scroll-window path only, 21 in CockpitView_StepViewTransition and one each in AlertPanel_Present, AlertPanel_Leave, Sim_EndFrame and Sim_InitMissionSession; the mission loading screen FUN_00461344, the preferences panel's per-pass FUN_00457180, and MainWndProc's WM_PAINT (windowed) and 0x812 handlers unconditionally.",
+      "description": "Screen_PresentFrame(&Display_OriginX, &Display_ScreenRect): puts the viewport window at the display origin on screen. 29 call sites (es2_xref): 25 on the scroll-window path only, 21 in CockpitView_StepViewTransition and one each in AlertPanel_Present, AlertPanel_Leave, Sim_EndFrame and Sim_InitMissionSession; the mission loading screen Sim_ShowLoadingScreen, the preferences panel's per-pass PreferencesPanel_Present, and MainWndProc's WM_PAINT (windowed) and 0x812 handlers unconditionally.",
       "source": "docs/formats/cockpit-views.md",
       "signature": "void __cdecl Display_Present(void)"
     },
@@ -27625,7 +29479,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Devices_Init",
-      "description": "devices.cpp's setup, called once from Shell_Main: allocates a 1-byte object (constructor 00409958 stores GetTickCount at 0046e818) into 0046f190, FUN_0040dd72(0), then a GLViewport into 0046f194 sized to the screen (00481884 x 00481888, centre at minus half of each), stores the viewport's +4 at +0x44 of the object at 00481868 and, when that object is GL_GetGlobal7's, installs it with Gfx_SetClipBlock, and makes the viewport the current context (Gfx_SetCurrentContext).",
+      "description": "devices.cpp's setup, called once from Shell_Main: allocates a 1-byte object (constructor 00409958 stores GetTickCount at 0046e818) into 0046f190, Input_SetEventTime(0), then a GLViewport into 0046f194 sized to the screen (00481884 x 00481888, centre at minus half of each), stores the viewport's +4 at +0x44 of the object at 00481868 and, when that object is GL_GetGlobal7's, installs it with Gfx_SetClipBlock, and makes the viewport the current context (Gfx_SetCurrentContext).",
       "source": "VSHELL decompile at 0040db38"
     },
     {

@@ -467,7 +467,7 @@ public sealed class ExternalViewChain {
 		}
 	}
 
-	// FUN_00411e40 / FUN_00411e60 round the live list, skipping what fails the test. The walk stops
+	// ObjectList_Next (00411e40) / ObjectList_Prev (00411e60) round the live list, skipping what fails the test. The walk stops
 	// at the start if nothing passes, where the original's would go round for ever.
 	private static SimObject? Walk(IReadOnlyList<SimObject> objects, SimObject from, bool forward,
 			Func<SimObject, bool> accept) {

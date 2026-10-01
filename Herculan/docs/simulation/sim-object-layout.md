@@ -32,7 +32,7 @@ None of these classes is allocated with a literal `operator new` size. Each is d
 |---|---|---|---|
 | Mech | `0x36a` (874) | `00425185`, in `DBSim_LoadScriptDat` | `004a9bfe` |
 | Flyer | `0x291` (657) | `00425220`, same function | `004a9e3d` |
-| Structure | `0x26d` (621) | `00405e1e`, in `FUN_00405df4` | `004a9624` |
+| Structure | `0x26d` (621) | `00405e1e`, in `Structure_InitPool` (`00405df4`) | `004a9624` |
 
 The pool globals are zero in the image and filled in at load, so the size is not visible at the allocation site — `MOV EAX,[0x004a9bfe]` there loads the *pool pointer*. Follow the write to the global to find the size.
 

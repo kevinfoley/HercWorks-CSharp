@@ -170,7 +170,7 @@ Every widget in the clickable list carries its vtable at `+0x17` — the offset 
 | `+0x18` | Drag-move | `00455540`, empty |
 | `+0x1c` | Recompute scale — sliders only, absent from the base table | — |
 
-**`OnClick` is therefore always `+8`**, for the throttle slider and the ordinary MFD/HDD leaf buttons as much as for `ConsoleButton` (`FUN_00442dc8`) and `WeaponSelectGadget` (`FUN_00442458`). What varies is which implementation sits there:
+**`OnClick` is therefore always `+8`**, for the throttle slider and the ordinary MFD/HDD leaf buttons as much as for `ConsoleButton` (`WeaponRangeSelectGadget_OnClick`, `00442dc8`) and `WeaponSelectGadget` (`WeaponSelectGadget_OnClick`, `00442458`). What varies is which implementation sits there:
 
 - Most leaves inherit `Widget_ForwardClickToOwner` (`00438e3c`) unchanged from the intermediate class at vtable `0049dee4` — gated on the left-button bit, it calls `owner->vtable[0](owner, self, buttonFlags)` through the owner pointer its constructor stored at `+0x24`. That is the same function the shield facings use (§8) and the same one the MFD's momentary button class gets; it is a base-class default, not a per-class handler.
 - The MFD's latching button class and `HddButton` override `+8` to flip their own `+0x40` lit flag first and refuse a second press while lit ([`mfd.md`](mfd.md#two-button-classes)).

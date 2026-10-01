@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para><b>Six positions, not six orders.</b> Each row names one of two verbs from
 /// <c>STRINGS0.STR</c> group 0: its own index, or that index <b>+ 3</b> when the row's state byte
-/// (<c>screen+0x2c + row</c>) has bit 1 set. Only rows 4 and 5 ever toggle — <c>FUN_0043f9d0</c>
+/// (<c>screen+0x2c + row</c>) has bit 1 set. Only rows 4 and 5 ever toggle — <c>MfdFlashComm_ToggleRowVariant</c> (<c>0043f9d0</c>)
 /// flips the bit after a transmission and returns immediately for any other row — so the page reads
 /// <c>SCAN FOR HOSTILES</c>/<c>EMCON</c> and <c>FIRE AT WILL</c>/<c>HOLD YOUR FIRE</c> and the first
 /// four rows are fixed.</para>
@@ -153,7 +153,7 @@ public sealed class MfdFlashCommScreen {
 	/// <summary>
 	/// <c>MfdFlashComm_Transmit</c> (<c>00447220</c>) — resolves the screen's row to a verb, writes it
 	/// into the shared order record and broadcasts it to the whole of the player's group. On
-	/// acceptance, <c>FUN_0043f9d0</c> flips the row's second-verb bit, so a taken <c>SCAN FOR
+	/// acceptance, <c>MfdFlashComm_ToggleRowVariant</c> (<c>0043f9d0</c>) flips the row's second-verb bit, so a taken <c>SCAN FOR
 	/// HOSTILES</c> leaves the row reading <c>EMCON</c>.
 	/// </summary>
 	/// <returns>Whether anyone took the order.</returns>
@@ -163,7 +163,7 @@ public sealed class MfdFlashCommScreen {
 		bool accepted = SquadOrders.Broadcast(world, group,
 			new SquadOrderMessage((SquadCommand)SelectedVerb));
 
-		// FUN_0043f9d0's own bound: it returns immediately unless the row is 4 or 5.
+		// MfdFlashComm_ToggleRowVariant (0043f9d0)'s own bound: it returns immediately unless the row is 4 or 5.
 		if (accepted && _row is >= ToggleableFirstRow and <= ToggleableLastRow) {
 			_state[_row] ^= ToggledBit;
 		}
@@ -172,7 +172,7 @@ public sealed class MfdFlashCommScreen {
 	}
 
 	/// <summary>
-	/// Which rows can show a second verb. <c>FUN_0043f9d0</c>'s guard is
+	/// Which rows can show a second verb. <c>MfdFlashComm_ToggleRowVariant</c> (<c>0043f9d0</c>)'s guard is
 	/// <c>row - 4 &lt;= 1</c> unsigned, so rows 4 and 5 and nothing else.
 	/// </summary>
 	public const int ToggleableFirstRow = 4;

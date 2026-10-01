@@ -5043,7 +5043,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				mech.Weapons.ToggleLink();
 				break;
 
-			// FUN_00446e14: step the MFD's mode, wrapping at six. Selecting a screen also pans back up,
+			// MfdDisplay_CycleMode (00446e14): step the MFD's mode, wrapping at six. Selecting a screen also pans back up,
 			// which is the manual's own rule for leaving the heads-down display.
 			case JoystickAction.MfdDisplays:
 				hudState = hudState with { Mfd = (MfdMode)(((int)hudState.Mfd + 1) % MfdLayout.ModeCount) };

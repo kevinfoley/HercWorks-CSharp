@@ -46,7 +46,7 @@ At full intensity that is 50,592 world units, about 300 m.
 
 `Explosion_Construct` (`00407f1c`) branches on the type row's light mode at `+0x06` and tests it **only against zero**. Values 1 and 2 both take the same branch. The only other reader is the unreferenced proximity test `Explosion_ProximityTest` ([`explos-dat.md`](explos-dat.md#type-row-0x28-bytes)), so the two are indistinguishable at runtime; the split is authoring intent that the code never honoured. Twelve of the twenty-two retail rows are nonzero.
 
-Nonzero allocates a 0x12-byte handle from the pool at `DAT_004a9682` and runs `EffectLight_Construct` (`00407604`), which is the whole of the attachment:
+Nonzero allocates a 0x12-byte handle from the pool `EffectLightPool` (`004a9682`) and runs `EffectLight_Construct` (`00407604`), which is the whole of the attachment:
 
 ```
 slotIndex   = LightManager_ClaimSlot(mgr, worldPoint)                // 00406f38

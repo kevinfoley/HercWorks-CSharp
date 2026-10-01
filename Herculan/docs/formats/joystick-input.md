@@ -44,7 +44,7 @@ There is no calibration of the game's own: `JOYCAPS`' `wXmin`/`wXmax` are never 
 
 Two steps, and reading only the first of them is the trap that costs a factor of two.
 
-`Joystick_NormaliseAxes` (`00477750`) maps a raw reading onto a signed byte: `(raw << 8) / 0xffff - 0x80`, so an axis arrives spanning `-0x80..+0x7f`. The width comes from the device object's resolution field (`+0x16`), which `FUN_004774d0` sets to 7.
+`Joystick_NormaliseAxes` (`00477750`) maps a raw reading onto a signed byte: `(raw << 8) / 0xffff - 0x80`, so an axis arrives spanning `-0x80..+0x7f`. The width comes from the device object's resolution field (`+0x16`), which `JoystickDevice_CtorBase` (`004774d0`) sets to 7.
 
 `Joystick_ReadWithResponse` (`0045c314`) then applies the deadzone and a **response curve** selected by the object's `+0x28`. The joystick is constructed as `JoystickDevice_Ctor(obj, 3, 0x201, 0xf, 1)` (`0045c27c`) by `Joystick_InitAndSeedBindings` (`00459dd4`) — that last argument is `+0x28`, so a joystick is always **mode 1, the squared curve**:
 
@@ -160,7 +160,7 @@ The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 | 11 | `HDD VIEW` | scancode `0x41` (F7) or `1` ([Esc]) to the widget tree — but see [below](#hdd-view-can-only-leave) |
 | 12, 15 | `OUTSIDE VIEW`, `CHASE VIEW` | step the chain of views `ViewChain_View`, 12 as [V] does; 15 waits for the frame counter `Sim_FrameCount` to pass `0x31` — see [`../simulation/external-views.md`](../simulation/external-views.md#the-chain-of-views) |
 | 13 | `LINK WEAPON` | presses the console LINK button, scancode `0x26` |
-| 14 | `MFD DISPLAYS` | `FUN_00446e14` — step the MFD's mode, wrapping at six |
+| 14 | `MFD DISPLAYS` | `MfdDisplay_CycleMode` (`00446e14`) — step the MFD's mode, wrapping at six |
 | 16 | `WEAPON TOGGLE` | weapon command `0x202`, which is `ToggleChainMember(0)` — **row 1's chain membership, not a general toggle** |
 | 17 | `COCKPIT VIEW` | scancode 1 to the widget tree |
 | 18 | `NEXT CHAIN` | presses the console chain button, scancode `0x29` |

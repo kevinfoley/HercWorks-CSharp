@@ -67,7 +67,7 @@ A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`W
 
 `ThrottleGauge_Ctor` (`00447b84`), called only by `Gau_ThrottleWidget` (`0043254c`).
 
-The constructor is handed `.GAU` offset **1000**, not 1016, and treats the whole block from there as one widget record. `FUN_004488cc` shifts ints `[4..0xf]` left by the video mode's coordinate shift before it ever sees them, so the geometry below is in device pixels (`.GAU` units x2 at 640x480):
+The constructor is handed `.GAU` offset **1000**, not 1016, and treats the whole block from there as one widget record. `GauThrottle_ApplyCoordShift` (`004488cc`) shifts ints `[4..0xf]` left by the video mode's coordinate shift before it ever sees them, so the geometry below is in device pixels (`.GAU` units x2 at 640x480):
 
 | int | file offset | Role |
 |---|---|---|
@@ -81,7 +81,7 @@ The constructor is handed `.GAU` offset **1000**, not 1016, and treats the whole
 
 Ints `[8..15]` are **two rects, not four points**. That explains both things the point reading found odd: "points" 1 and 2 always sit close together because they are the bottom of the upper bar and the top of the lower one, and the x alternates between two values because those are each bar's left and right edge. On OUTLAW they are two 4x20 strips inside the 14x49 track, one either side of centre.
 
-**Neither bar is ever drawn.** `ThrottleSlider_CtorV` keeps them as private fields (`+0x7e`, `+0x82`) and never registers them with the widget tree, so nothing dispatches their paint; `LedBarGraph`'s own draw routines (`00439398`, `00439460`) have no callers anywhere in the image. The slider's paint (`ThrottleSlider_PaintV`, `0044819c`) reads them only through `FUN_004390b8`, which returns the object's rect, and unions those rects into the region it invalidates. The bars are a cut feature whose construction was left in — see the speed fraction below, which is what would have filled them.
+**Neither bar is ever drawn.** `ThrottleSlider_CtorV` keeps them as private fields (`+0x7e`, `+0x82`) and never registers them with the widget tree, so nothing dispatches their paint; `LedBarGraph`'s own draw routines (`00439398`, `00439460`) have no callers anywhere in the image. The slider's paint (`ThrottleSlider_PaintV`, `0044819c`) reads them only through `BarGraph_GetRect` (`004390b8`), which returns the object's rect, and unions those rects into the region it invalidates. The bars are a cut feature whose construction was left in — see the speed fraction below, which is what would have filled them.
 
 ### Slider geometry
 
@@ -165,7 +165,7 @@ Three gauge classes, one per mount class, all built on `WeaponGauge_Ctor` (`0044
 
 | Class | Factory → ctor | Value field |
 |---|---|---|
-| energy | `FUN_00432074` → `EnergyWeaponGauge_Ctor` (`00440a68`) | `LEDBarGraph` (`WeaponChargeBar_Ctor`, `00442950`) |
+| energy | `CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`) | `LEDBarGraph` (`WeaponChargeBar_Ctor`, `00442950`) |
 | ammunition | `FUN_00432124` → `AmmoWeaponGauge_Ctor` (`00440f78`) | round count, `itoa` (`AmmoWeaponGauge_Paint`, `004411b4`) |
 | pod | `CockpitView_CreatePodGauge` → one of three `PodGauge` classes | none — the name label widens over both fields — except the Turbo Pod's |
 

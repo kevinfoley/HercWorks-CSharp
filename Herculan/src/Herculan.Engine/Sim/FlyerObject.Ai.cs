@@ -550,7 +550,7 @@ public sealed partial class FlyerObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00492850</c> — the elevation angle from this aircraft to a point, against the
+	/// <c>Math_ElevationAngle</c> (<c>00492850</c>) — the elevation angle from this aircraft to a point, against the
 	/// simulation's own sqrt-free ground distance.
 	/// </summary>
 	private int ElevationToward(Vec3i point) =>

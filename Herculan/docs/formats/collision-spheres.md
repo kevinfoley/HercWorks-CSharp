@@ -13,7 +13,7 @@ nodeCount
 ```
 
 - **Structures** read 65 of these back to back out of `dat\BASECOL.DAT`, in `BASES.DAT` type order, as one continuous stream partway through `Base_LoadResources` (`00405fac`). `componentIndex` indexes the type's `BASES.DAT` component array ([`bases-dat.md`](bases-dat.md#the-component-record-30-bytes)).
-- **Mechs and flyers** each read one whole file, `col\<NAME>.COL`, through `Collision_RegisterObject` (`0040cd88`), which files each model in a fixed table (`004a98a8`, 6 bytes an entry, count at `004987de`) — the mech from `Mech_Constructor` (`00415bb0`, into `mech+0x1f6`), the flyer from its type loader (`FlyerType_LoadResources` (`00422ed0`), into `flyerTypeRec+0x32`). `componentIndex` indexes the `.DMG` file's 29-slot component array instead ([`../simulation/component-damage.md`](../simulation/component-damage.md#the-component-damage-system)).
+- **Mechs and flyers** each read one whole file, `col\<NAME>.COL`, through `Collision_RegisterObject` (`0040cd88`), which files each model in a fixed table (`CollisionTable_Array`, `004a98a8`, 6 bytes an entry, count at `004987de`) — the mech from `Mech_Constructor` (`00415bb0`, into `mech+0x1f6`), the flyer from its type loader (`FlyerType_LoadResources` (`00422ed0`), into `flyerTypeRec+0x32`). `componentIndex` indexes the `.DMG` file's 29-slot component array instead ([`../simulation/component-damage.md`](../simulation/component-damage.md#the-component-damage-system)).
 
 `nodeIndex` is `-1` for the object's own frame; anything else is a shape part id, resolved at test time ([`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-test--mech_selectstruckcomponent-0040c9d4)).
 

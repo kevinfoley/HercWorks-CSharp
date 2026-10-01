@@ -61,7 +61,7 @@ Per-button fields, base a button pointer from `+0x18`:
 | `+0x28` | Button index 0-12 — what both the ctor switch and the caption re-font test key on |
 | `+0x2c` | Caption label |
 | `+0x30` | Two sprite pointers, unlit then lit |
-| `+0x40` | Selection flag, **latching class only**. Set by the button's click handler (`FUN_004474a8`), never by a press — the press path sets the shared widget state byte `+0x1b` instead (see [`cockpit-input.md`](cockpit-input.md) §7) |
+| `+0x40` | Selection flag, **latching class only**. Set by the button's click handler (`MFDStateGadget_OnClick`, `004474a8`), never by a press — the press path sets the shared widget state byte `+0x1b` instead (see [`cockpit-input.md`](cockpit-input.md) §7) |
 
 ## Modes
 
@@ -268,7 +268,7 @@ The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by 
 
 The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor immediate, so an index and not a logical id ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids)).
 
-The six rows are six *positions*, not six of the eighteen orders: `MfdFlashComm_SelectedVerb` (`0043f998`) reads the selected row at `screen+0x32` and adds 3 when that row's own state byte at `screen+0x2c + row` has bit 1 set. `FUN_0043f9d0` is what flips that bit, after a transmission that at least one squadmate took, and it **returns immediately unless the row is 4 or 5**. So rows 0-3 always name `STRINGS0` group 0 verbs 0-3 (`ATTACK MY TARGET`, `IGNORE MY TARGET`, `HELP ME OUT!`, `JOIN ON ME`), row 4 alternates `SCAN FOR HOSTILES` and `EMCON` (verbs 4 and 7), row 5 `FIRE AT WILL` and `HOLD YOUR FIRE` (5 and 8), and the page sends verbs 0-5, 7 and 8. XMIT (`MfdFlashComm_Transmit`, `00447220`) writes the resolved verb into the shared order record and broadcasts it to the whole of the player's group — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md).
+The six rows are six *positions*, not six of the eighteen orders: `MfdFlashComm_SelectedVerb` (`0043f998`) reads the selected row at `screen+0x32` and adds 3 when that row's own state byte at `screen+0x2c + row` has bit 1 set. `MfdFlashComm_ToggleRowVariant` (`0043f9d0`) is what flips that bit, after a transmission that at least one squadmate took, and it **returns immediately unless the row is 4 or 5**. So rows 0-3 always name `STRINGS0` group 0 verbs 0-3 (`ATTACK MY TARGET`, `IGNORE MY TARGET`, `HELP ME OUT!`, `JOIN ON ME`), row 4 alternates `SCAN FOR HOSTILES` and `EMCON` (verbs 4 and 7), row 5 `FIRE AT WILL` and `HOLD YOUR FIRE` (5 and 8), and the page sends verbs 0-5, 7 and 8. XMIT (`MfdFlashComm_Transmit`, `00447220`) writes the resolved verb into the shared order record and broadcasts it to the whole of the player's group — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md).
 
 Screen fields, based at `MfdDisplay+0xd1`:
 

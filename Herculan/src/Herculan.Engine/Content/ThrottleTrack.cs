@@ -22,7 +22,7 @@ namespace Herculan.Engine.Content;
 /// asked for, the bars would have shown the speed reached.</para>
 ///
 /// <para><b>Units.</b> Everything here is device pixels, the 640-wide space the rest of the cockpit
-/// art and the sprite banks live in — <c>FUN_004488cc</c> shifts the whole block left by the video
+/// art and the sprite banks live in — <c>GauThrottle_ApplyCoordShift</c> (<c>004488cc</c>) shifts the whole block left by the video
 /// mode's coordinate shift before the gauge ever sees it, which is
 /// <see cref="CockpitArt.GauToPixelScale"/>.</para>
 ///

@@ -36,7 +36,7 @@ The factory's switch on the weapon id picks one of four live classes. Nothing el
 | Class | Ctor | Weapon ids | Carries | Gauge |
 |---|---|---|---|---|
 | Ammunition | `WeaponMount_CtorAmmunition` | 1–5, 13–16, 21, 26 | rounds | numeric (`FUN_00432124` → `AmmoWeaponGauge_Ctor` (`00440f78`)) |
-| Energy | `WeaponMount_CtorEnergy` | 7–12, 17, 19, 20, 23–25, 28 | a capacitor | LED bar (`FUN_00432074` → `EnergyWeaponGauge_Ctor` (`00440a68`)) |
+| Energy | `WeaponMount_CtorEnergy` | 7–12, 17, 19, 20, 23–25, 28 | a capacitor | LED bar (`CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`)) |
 | ELF | `WeaponMount_CtorEnergy`, then vtable `ElfMountVtable` | 6, 22 | a capacitor | LED bar, as Energy |
 | Pod | `EcmPod_Ctor`/`TargetingPod_Ctor`/`ShieldPod_Ctor`/`TurboPod_Ctor`/`EnergyPod_Ctor` | 18, 29–32 | nothing, bar the Turbo Pod's charge | name only (`CockpitView_CreatePodGauge` → one of three `PodGauge` classes) |
 

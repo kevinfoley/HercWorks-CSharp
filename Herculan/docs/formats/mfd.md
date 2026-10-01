@@ -84,7 +84,7 @@ Scanner ranges are `_DAT_004d1cf4` = 50000 / 100000 / 200000 world units = 300 /
 
 One rect comes from the herc's `.GAU`; everything inside is hardcoded in DBSIM.
 
-**`.GAU` offset 728** — the MFD block. 728/732 are an origin offset added to the rest, zero in all nine retail files. 744-951 hold 13 rect-shaped slots that `MfdGau_ApplyCoordShift` coordinate-shifts but no constructor reads; zero in every retail file. 952 is the panel rect (`GAUFile.MfdPanel`), read as `param_2[0x38..0x3b]`.
+**`.GAU` offset 728** — the MFD block. 728/732 are an origin offset added to the rest, zero in all nine retail files. 744-951 hold 13 rect-shaped slots that `MfdGau_ApplyCoordShift` coordinate-shifts but no constructor reads; zero in every retail file. 952 is the panel rect, read as `param_2[0x38..0x3b]`.
 
 Panel rect is 115x60 exclusive / 116x61 inclusive in every herc — only its position varies:
 
@@ -98,7 +98,7 @@ Panel rect is 115x60 exclusive / 116x61 inclusive in every herc — only its pos
 
 **Screen inset.** The constructor applies `x0 += 0x12 << XCoordShift` and leaves `y0`, `x1`, `y1`, then works relative to that origin. The strip left of the inset holds the F-key column, which is why its table x values are negative. The inset region is 98x61 GAU inclusive = **196x122 device** = exactly the size of `MFD` bank frames 0-2.
 
-Coordinates below are GAU (320-wide) units relative to the inset origin, inclusive on all edges. Device pixels are 2x (`CockpitArt.GauToPixelScale`).
+Coordinates below are GAU (320-wide) units relative to the inset origin, inclusive on all edges. Device pixels are 2x in the 640-wide modes.
 
 ### Buttons
 

@@ -619,12 +619,13 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// <b>The weapon's range, in world units</b> — the template's int32 at <c>0x30</c>, which
 	/// <c>WeaponMount_FireDispatch_GunBeam</c> hands straight to <c>Bullet_FireBurst</c> as the ray's
-	/// length. That call is what settles the field: it was previously known only as the value
-	/// <c>WeaponMounts_ToggleChainMember</c> (<c>004110ac</c>) requires to be positive before it will put a hardpoint into a fire chain,
-	/// and was left undecoded because the manual's own 20 m figure for the ELF did not fit it.
+	/// length, and that call is what identifies the field. <c>WeaponMounts_ToggleChainMember</c>
+	/// (<c>004110ac</c>) also requires it to be positive before it will put a hardpoint into a fire
+	/// chain.
 	///
-	/// <para>It does not fit that figure now either — ELF reads 20000 units, which is 120 m at the
-	/// simulation's own scale — but the manual is not what identifies a field, and the fire path is.
+	/// <para>It does not fit the manual's 20 m figure for the ELF — ELF reads 20000 units, which is
+	/// 120 m at the simulation's own scale — but the manual is not what identifies a field, and the
+	/// fire path is.
 	/// Retail values run 75000 (ATC20, 450 m) down to 15000 (ELF2, 90 m), descending with calibre
 	/// across each family.</para>
 	///

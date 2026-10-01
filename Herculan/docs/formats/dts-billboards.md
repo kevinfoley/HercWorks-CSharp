@@ -2,7 +2,7 @@
 
 Addresses are DBSIM virtual addresses.
 
-The one `TSObject` render slot that puts pixels on screen with no polygon involved. It is what `BULLETS.DTS` roots 2 and 3 (the three EMP cannons' rounds) and all twenty `EXPLOS.DTS` roots (every impact effect, see [`../simulation/impact-effects.md`](../simulation/impact-effects.md)) are made of.
+The one shape-object render slot that puts pixels on screen with no polygon involved. It is what `BULLETS.DTS` roots 2 and 3 (the three EMP cannons' rounds) and all twenty `EXPLOS.DTS` roots (every impact effect, see [`../simulation/impact-effects.md`](../simulation/impact-effects.md)) are made of.
 
 Which `.DBA` a sprite resolves against is the shape instance's own bound bank, the same binding a mesh uses — see [`dts-texture-binding.md`](dts-texture-binding.md).
 
@@ -28,9 +28,9 @@ child->vtable[+0x1c]();
 
 ## `TSBitmapPart_Render` (`004762e8`)
 
-`BmpTag` (`part+0x10`) indexes the bound bank directly. The rest is a screen-space blit of a rotated, scaled quad, built from four things:
+The bitmap tag (`part+0x10`) indexes the bound bank directly. The rest is a screen-space blit of a rotated, scaled quad, built from four things:
 
-**Scale.** `scale = (radius * 4 << focalShift) / depth`, where `radius` is `TSBasePart.Radius` and `depth` is the part's centre in view space. Every dimension below is `Q8Multiply`d by it. Since the projection maps a view-plane length `L` at depth `D` to `(L << focalShift) / D` pixels, the projection constant cancels: **one bitmap pixel spans `radius / 64` world units**, whatever the field of view is.
+**Scale.** `scale = (radius * 4 << focalShift) / depth`, where `radius` is `TSBasePart.Radius` and `depth` is the part's centre in view space. Every dimension below is `Math_Q8Multiply`'d by it. Since the projection maps a view-plane length `L` at depth `D` to `(L << focalShift) / D` pixels, the projection constant cancels: **one bitmap pixel spans `radius / 64` world units**, whatever the field of view is.
 
 **Rotation.** The model origin and the model point `(0, 0, 0x800)` — a fixed distance up the model's *own* Z axis — are both transformed and projected, and the quad is blitted rotated by the screen angle between them. For a shot in flight that axis is the shot's frame, not the world's.
 
@@ -42,7 +42,7 @@ height = cols + (rows - cols) * measured / 0x800
 
 so it runs from the bitmap's *width* (axis pointing at the viewer) to its *height* (axis across the view). A round puff therefore reads as a disc from overhead rather than collapsing to nothing. The drawn width is always `cols`.
 
-**Anchor.** The destination quad's corners are `(0,0), (w,0), (w,h), (0,h)`, each rotated and then offset by the projected centre displaced by `-(OfsX, OfsY')` — same scale, same rotation — where `OfsY' = OfsY * height / rows`. So the part's centre lands on bitmap pixel `(OfsX, OfsY')`. `OfsX` is read signed (`*(char *)(part + 0x12)`), `OfsY` unsigned (`*(byte *)(part + 0x13)`).
+**Anchor.** The destination quad's corners are `(0,0), (w,0), (w,h), (0,h)`, each rotated and then offset by the projected centre displaced by `-(ofsX, ofsY')` — same scale, same rotation — where `ofsY' = ofsY * height / rows`. So the part's centre lands on bitmap pixel `(ofsX, ofsY')`. `ofsX` is read signed (`*(char *)(part + 0x12)`), `ofsY` unsigned (`*(byte *)(part + 0x13)`).
 
 In-memory bitmap object:
 

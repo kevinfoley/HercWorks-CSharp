@@ -41,14 +41,6 @@ Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding
 | `0045dcfb` | `Sim_DeathFlash` (`0045dc34`) | `Math_RandomBelow(10)`, the same kind of shake step — [`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#palette-module) |
 | `00462753`, `004627ff` | `Sound_Play`, `Sound_PlayAt` | `Math_RandomBelow` over the sound's variation count |
 
-## Ported
-
-`Numerics.SimRandom`. Its default constructor is that starting state exactly — the same table, the same two cursors — so it and the original step in lockstep from there. `MissionScene` builds one instance and hands it to both the terrain pass and `SimWorld`, because DBSIM has a single simulation generator that the zone load draws from before anything else does; two instances would produce the same stream twice rather than one continuing stream.
-
-`SimWorld.PresentationRandom` is the second generator, a separate default-constructed `SimRandom`. `SimWorld.SpawnImpactEffect` makes `Explosion_Construct`'s discarded draw on it, and the host hands it to the sound director, the squad comm channel (its message variants, the scream's roll and the portrait paint's discarded draw) the cockpit hit shake and the sensor dropout.
-
-A roll's result depends on how many draws preceded it, so matching a specific retail roll means matching tick order, not just the seed; any particular roll is statistically faithful rather than replay-faithful today ([Open](#open)).
-
 ## Open
 
 - **Open:** match call order (tick order), not just the seed, so a specific retail roll replays exactly rather than only statistically — see [`../../ROADMAP.md`](../../ROADMAP.md).

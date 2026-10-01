@@ -8,20 +8,20 @@ Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Cov
 
 | Offset | Field | Meaning |
 |---|---|---|
-| `+0xec` | `int*` | Base pointer to the per-cell array (16 bytes/cell, row-major: `cellIndex = x + y*(1<<WidthShift)`) |
+| `+0xec` | `int*` | Base pointer to the per-cell array (16 bytes/cell, row-major: `cellIndex = x + y*(1 << grid[0x100])`) |
 | `+0xf0` | `byte*` | Parallel per-cell scratch byte array (`width*height` bytes). Zeroed at load, used by the [structure-footprint pass](#structure-footprints--the-flattening-pass) at spawn, then `memset` to 0 at the top of every frame and reused as `Terrain_DrawCellObjects`' per-cell pending-object count — see [that section](#structure-footprints--the-flattening-pass) for the handover |
-| `+0x100` | `int` | `WidthShift` — log2(grid width in cells) |
-| `+0x104` | `int` | `HeightShift` — log2(grid height in cells) |
-| `+0x108` | `int` | `CellShift` — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
+| `+0x100` | `int` | Width shift — log2(grid width in cells) |
+| `+0x104` | `int` | Height shift — log2(grid height in cells) |
+| `+0x108` | `int` | Cell shift — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
 | `+0x10c` | `int` | **View radius in cells** (10 at retail detail settings). Its derivation, writer and consumers are in [`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field); `Terrain_DrawCellQuad` installs `+0x10c << +0x108` as the visibility range distance fog is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
-| `+0x110` | `int` | `HeightBase` — additive height offset (0 for real/binary zones; `MinHeight*8` for the ASCII debug format) |
-| `+0x118` | `int` | `HeightScale` — multiplicative height scale applied to each cell's raw byte |
+| `+0x110` | `int` | Height base — additive height offset (0 for real/binary zones; `MinHeight*8` for the ASCII debug format) |
+| `+0x118` | `int` | Height scale — multiplicative height scale applied to each cell's raw byte |
 | `+0x11d` | `int` | Material/detail-type record count (from `dat\mat0`) |
 | `+0x121` | `int*` | Pointer to the material/detail-type table, `count` × 8-byte records (`ZONES_MaterialTable`, from `dat\mat0`, confirmed against real `ES2/VOL/simvol0/dat/MAT0.DAT`) |
 
 ## Per-cell record (16 bytes)
 
-- `+0x0` (byte): raw height value 0–255. World height = `rawByte * HeightScale + HeightBase`.
+- `+0x0` (byte): raw height value 0–255. World height = `rawByte * grid[0x118] + grid[0x110]` (height scale, height base).
 - `+0x1`..`+0x6` (3 shorts): the **near** face normal, scaled to length 0x800.
 - `+0x7`..`+0xc` (3 shorts): the **far** face normal, same scale. Which of the two a point belongs to is the diagonal selector's decision, exactly as in `Terrain_HeightQuery`.
 - `+0xd` (byte): the **near** triangle's baked shade byte; `+0xe` (byte): the **far** triangle's. Written by the surface build and read straight back by `Terrain_DrawCellQuad` as the ramp row — see [`terrain-lighting.md`](terrain-lighting.md).
@@ -35,23 +35,21 @@ Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Cov
 | `h00 + h11 - (h01 + h10) < 1` | 2 | along the `(0,0)`–`(1,1)` diagonal |
 | otherwise | 0 | along the `(0,1)`–`(1,0)` anti-diagonal |
 
-Normals are built in *raw height units*, not world units: the horizontal components are plain corner differences and the vertical one is `cellSize / HeightScale`, which is a true cross product divided through by `HeightScale`. All six components are doubled before `Math_NormalizeVec3ShortToLength` (`0046c138`) rescales them to 0x800, which changes nothing. The last row and column are skipped — no east/north neighbour to difference against — so they keep a flat `(0, 0, 0x800)` normal and selector 0.
+Normals are built in *raw height units*, not world units: the horizontal components are plain corner differences and the vertical one is `cellSize / heightScale`, which is a true cross product divided through by the height scale. All six components are doubled before `Math_NormalizeVec3ShortToLength` (`0046c138`) rescales them to 0x800, which changes nothing. The last row and column are skipped — no east/north neighbour to difference against — so they keep a flat `(0, 0, 0x800)` normal and selector 0.
 
 ## Loading pipeline
 
 Confirmed against real files in `ES2/VOL/ZONES.VOL`.
 
-1. `Terrain_LoadZone(zoneIndex)` builds the base name `zoneNNNN` and reads a **16-byte per-zone header** resource at `dat\zoneNNNN` (`ZONES.VOL\DAT\ZONE*.DAT`, always exactly 16 bytes): four LE `int32`s — `[0] WidthShift` and `[1] HeightShift` (redundant, re-derived from the bitmap itself later), `[2] CellShift`, `[3] HeightScale`. E.g. `ZONE504.DAT` = `07 00 00 00 07 00 00 00 0E 00 00 00 95 00 00 00` → WidthShift=7, HeightShift=7 (128×128 cells), CellShift=14, HeightScale=149.
-2. `TerrainZone_LoadHeightmap` (`0046c650`) loads the shared material table from `dat\mat0`, then opens `dba\zoneNNNN.dba`. Every real zone resolves to `.dba` and goes through the generic `ClassItem_LoadResource` polymorphic loader — the same registry-dispatch architecture as `.DFN`/`.HFN`/`.DCI` — into `TerrainZone_PopulateFromBitmap` (`0046c3c0`). Any other extension falls back to a plain `fopen`/`fscanf` ASCII format (`"%d %d %d %d"` header = WidthShift/HeightShift/MaxHeightRaw/MinHeightRaw, then one `%d` per cell) — a level-design/debug path; no loose files of this kind exist in retail data.
-3. **`TerrainZone_PopulateFromBitmap`: a zone's heightmap is literally an ordinary `DynamixBitmap` image** — the same 8-bit-indexed container used for `.DBM`/`.DBA` textures elsewhere (see `dfn-hfn-dci.md`). Each pixel byte (minus a small bias) becomes one cell's raw height byte; `WidthShift`/`HeightShift` are re-derived from the bitmap's own dimensions rather than trusted from the zone header. **Verified byte-exact against every real file in `ES2/VOL/ZONES.VOL/DBA/`:** 128×128 zones are exactly 16418 bytes (`128*128 + 34`-byte `DynamixBitmap` header), 256×256 zones exactly 65570 bytes (`256*256 + 34`) — the zones that come out 256×256 are precisely the ones whose `.DAT` header declared `WidthShift=HeightShift=8` (e.g. `ZONE123.DAT`).
+1. `Terrain_LoadZone(zoneIndex)` builds the base name `zoneNNNN` and reads a **16-byte per-zone header** resource at `dat\zoneNNNN` (`ZONES.VOL\DAT\ZONE*.DAT`, always exactly 16 bytes): four LE `int32`s — `[0]` width shift and `[1]` height shift (redundant, re-derived from the bitmap itself later), `[2]` cell shift, `[3]` height scale. E.g. `ZONE504.DAT` = `07 00 00 00 07 00 00 00 0E 00 00 00 95 00 00 00` → width and height shift 7 (128×128 cells), cell shift 14, height scale 149.
+2. `TerrainZone_LoadHeightmap` (`0046c650`) loads the shared material table from `dat\mat0`, then opens `dba\zoneNNNN.dba`. Every real zone resolves to `.dba` and goes through the generic `ClassItem_LoadResource` polymorphic loader — the same registry-dispatch architecture as `.DFN`/`.HFN`/`.DCI` — into `TerrainZone_PopulateFromBitmap` (`0046c3c0`). Any other extension falls back to a plain `fopen`/`fscanf` ASCII format (`"%d %d %d %d"` header = width shift, height shift, maximum raw height, minimum raw height, then one `%d` per cell) — a level-design/debug path; no loose files of this kind exist in retail data.
+3. **`TerrainZone_PopulateFromBitmap`: a zone's heightmap is literally an ordinary Dynamix bitmap** — the same 8-bit-indexed container used for `.DBM`/`.DBA` textures elsewhere (see `dfn-hfn-dci.md`). Each pixel byte (minus a small bias) becomes one cell's raw height byte; the width and height shifts are re-derived from the bitmap's own dimensions rather than trusted from the zone header. **Verified byte-exact against every real file in `ES2/VOL/ZONES.VOL/DBA/`:** 128×128 zones are exactly 16418 bytes (`128*128 + 34`-byte bitmap header), 256×256 zones exactly 65570 bytes (`256*256 + 34`) — the zones that come out 256×256 are precisely the ones whose `.DAT` header declared width and height shift 8 (e.g. `ZONE123.DAT`).
 
-`Terrain_HeightQuery(HeightGrid*, {x,y})` (`0046e07c`) converts a world `(x, y)` into a grid cell via `CellShift`, fetches the enclosing cell's 4 corner texels from the 16-byte-per-cell array, and — using each cell's `+0xf` diagonal-selector bits — does barycentric/bilinear interpolation across whichever triangle the query point falls in. Each grid quad can independently choose which way its diagonal split runs, chosen at terrain-authoring/compile time.
+`Terrain_HeightQuery(HeightGrid*, {x,y})` (`0046e07c`) converts a world `(x, y)` into a grid cell via the cell shift, fetches the enclosing cell's 4 corner texels from the 16-byte-per-cell array, and — using each cell's `+0xf` diagonal-selector bits — does barycentric/bilinear interpolation across whichever triangle the query point falls in. Each grid quad can independently choose which way its diagonal split runs, chosen at terrain-authoring/compile time.
 
-Neither loader path writes the selector — every `+0xf` write in `TerrainZone_PopulateFromBitmap` and its ASCII counterpart masks with `& 2` and sets only the material index, via `Math_RandomNext() & 0xfff < 0x4ce` (~30%) for material 1 vs. 0. (The bitmap path hardcodes a ceiling of two materials, unlike the ASCII fallback which loops the whole `mat0` table. The roll is sparse: only cells on a block boundary roll, block size `(1 << (0x15 - mat0[0].field4 - CellShift)) - 1` — 2×2 cells at `CellShift` 14, 4×4 at 13.) `Terrain_BuildCellSurface` runs afterwards and is what fills it in.
+Neither loader path writes the selector — every `+0xf` write in `TerrainZone_PopulateFromBitmap` and its ASCII counterpart masks with `& 2` and sets only the material index, via `Math_RandomNext() & 0xfff < 0x4ce` (~30%) for material 1 vs. 0. (The bitmap path hardcodes a ceiling of two materials, unlike the ASCII fallback which loops the whole `mat0` table. The roll is sparse: only cells on a block boundary roll, block size `(1 << (0x15 - mat0[0].field4 - cellShift)) - 1` — 2×2 cells at cell shift 14, 4×4 at 13.) `Terrain_BuildCellSurface` runs afterwards and is what fills it in.
 
 ## Structure footprints — the flattening pass
-
-Ported in `HeightGrid.MarkStructureFootprint` / `HeightGrid.FlattenStructureFootprints` (`HeightGrid.Footprints.cs`), driven from `MissionScene.Load`.
 
 A zone heightmap marks a ground vehicle with a **single raised sample**: `ZONE555` puts one cell of 120 in a plain of 97 under each of its five turrets, and 120 is the only even value anywhere in that half of the file's histogram. Read as corner samples — which is what `Terrain_HeightQuery` and `Terrain_DrawCellQuad` both do — one raised sample is the apex of a four-quad pyramid standing at the *corner* of the marked cell, while the structure it was painted for stands near that cell's *centre* (all five of `ZONE555`'s turrets sit at a cell fraction of about 0.5, 0.5). DBSIM reconciles the two at spawn time rather than in the data.
 
@@ -71,7 +69,7 @@ The scratch byte's three bits all belong to this pass — bit 0 marked, bit 1 co
 
 **The bits are wiped before anything else reads the array.** `HeightGrid_ClearCellScratch` (`0046e840`) `memset`s the whole thing to 0 as the first act of `Scene_SubmitFrameObjects` (`0042841c`), which runs every frame — so the pass's marks never survive into the frame that follows mission spawn. From then on the same byte is a per-cell pending-object count: `Terrain_IncrementCellObjectCount` (`00470cac`) increments it as an object registers against a cell, and `Terrain_DrawCellObjects` (`0046e4a0`) reads it, dispatches that many, and clears that cell back to 0. Nothing bridges the two uses, and without the per-frame `memset` the first frame would read a flattened base's marks as object counts.
 
-Two divergences in the port, both deliberate. The original bounds-checks nothing when marking beyond refusing to step to a negative index, so a structure near a zone edge writes past the array; the port clamps to the grid, since an out-of-bounds write is not behaviour worth reproducing. And the original walks both axes to `1 << WidthShift` in `00471190` and `00470edc`; the port uses the grid's own height, which cannot differ on retail data since every zone is square.
+The marking bounds-checks nothing beyond refusing to step to a negative index, so a structure near a zone edge writes past the array. `00471190` and `00470edc` walk both axes to `1 << grid[0x100]`, the width, which cannot misbehave on retail data since every zone is square.
 
 ## Ray-versus-terrain — `Terrain_RayWalk` (`0046e87c`)
 

@@ -82,7 +82,7 @@ public class Weapons {
 		/// for a <c>Missile</c> record chosen by the hardpoint's ammunition type
 		/// (<c>MSL6</c>/<c>MSL8</c>/<c>MSL10</c>/<c>FLYMSL</c>), otherwise a direct PROJ.DAT index. The
 		/// non-firing entries carry 0, which their mount constructors never consume. See
-		/// docs/formats/weapons-dat-sim.md#projdatindex--tail-relative-offset-0x1c-absolute-offset-0x3e.
+		/// docs/formats/weapons-dat-sim.md#the-projdat-index--tail-relative-offset-0x1c-absolute-offset-0x3e.
 		/// </summary>
 		public short ProjDatIndex => BitConverter.ToInt16(Tail, 0x1c);
 

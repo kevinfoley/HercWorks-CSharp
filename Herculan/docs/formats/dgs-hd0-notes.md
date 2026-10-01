@@ -6,7 +6,7 @@ The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat
 
 `BASES.DGS`/`BHULKS.DGS`: a flat sequential list of `ClassItem`-tagged records — **not** the same container as `.DTS`, despite `BASES_AN.DTS` and `BASES.DGS` both starting with a 4-byte value that resembles `recordSize<<16|version`.
 
-**Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/ `.DCI` (see `project_es2_exe_recon` memory), different registered class. `BaseType_LoadShape` (`00405ebc`) → `BaseType_ResolveShape` (`00474cd8`) walks this list sequentially by index (not random-access) to resolve `dat\BASES.DAT`'s `ShapeIndex`.
+**Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/`.DCI` ([`dfn-hfn-dci.md`](dfn-hfn-dci.md)), different registered class. `BaseType_LoadShape` (`00405ebc`) → `BaseType_ResolveShape` (`00474cd8`) walks this list sequentially by index (not random-access) to resolve `dat\BASES.DAT`'s shape index (`+0x02`, [`bases-dat.md`](bases-dat.md#the-type-record)).
 
 **Record layout** (traced via the class's Watcom base-constructor chain — `BaseShape_ReadFromStream` (`0042762c`) → `ClassItemTree_ReadFromStream` (`00490d5c`) → `ClassItemTree_ReadChildren` (`0048fd94`) → `ClassItemTree_ReadBaseHeader` (`0048f894`)):
 1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius** — [below](#the-bounding-radius--shape8).
@@ -17,9 +17,9 @@ The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat
 
 Every record's on-disk footprint (header+payload) pads to an even total.
 
-**The key finding: every retail record's one child (step 2) is an ordinary TSObjectHeader-family DTS chunk** — observed tag `0x0014000c` = `TSDetailPart`, byte-identical format to a plain `.DTS` file's own chunks. No new mesh format was needed; `DTSModelTransformer` gained a public `ReadOneObject(bytes, ref index)` entry point to parse it in place. Steps 3–4 are read to keep the cursor correct but not modelled; step 5 is modelled and is what makes a building solid.
+**Every retail record's one child (step 2) is an ordinary DTS chunk** — observed tag `0x0014000c` = `TSDetailPart`, byte-identical format to a plain `.DTS` file's own chunks. The `.DGS` is a new envelope around the existing mesh format, not a new mesh format.
 
-**Verified against retail data:** an independent whole-file scan for the `0x02BC0001` tag pattern finds the same record boundaries the sequential reader does (45/45 `BASES.DGS`, matching `BaseTypeTable`'s 57 static types many-to-45 via shared `ShapeIndex`es). Every embedded child parses through `DTSModelTransformer` with zero exceptions and produces real geometry: `BASES.DGS` 45/45 records, 1536 groups, 8978 polys; `BHULKS.DGS` 16/16 records, 113 groups, 786 polys.
+**Verified against retail data:** an independent whole-file scan for the `0x02BC0001` tag pattern finds the same record boundaries the sequential reader does (45/45 `BASES.DGS`, matching `BASES.DAT`'s 57 static types many-to-45 through shared shape indices). Every embedded child parses as a DTS chunk with zero exceptions and produces real geometry: `BASES.DGS` 45/45 records, 1536 groups, 8978 polys; `BHULKS.DGS` 16/16 records, 113 groups, 786 polys.
 
 ### Shape origin
 

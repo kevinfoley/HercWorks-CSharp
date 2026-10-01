@@ -90,21 +90,21 @@ So a root whose numbering is compacted has its geometry composed against whateve
 
 Built once, per LOD root, by `MechType_InitOne`:
 
-- `GunLayout_CollectHardpointBones` (`0040fc50`) walks the `.GL` and emits each record's `BoneId`, or `-1` when its mounting code (`.GL +6`) is 4, the invisible mounting.
-- `MechType_BindHardpointSlots` (`0040304c`) resolves each id through the shape's vtable `+0x24` to the **address of the part slot** holding the part whose `TSBasePart.IdNumber` is that id, and stores null for `-1`. The result is a `{void **slots; short count}` pair per root, at `typeRec+0xe6`.
+- `GunLayout_CollectHardpointBones` (`0040fc50`) walks the `.GL` and emits each record's bone id (`+0x00`), or `-1` when its mounting code (`.GL +6`) is 4, the invisible mounting.
+- `MechType_BindHardpointSlots` (`0040304c`) resolves each id through the shape's vtable `+0x24` to the **address of the part slot** holding the part whose id (`part+6`) is that id, and stores null for `-1`. The result is a `{void **slots; short count}` pair per root, at `typeRec+0xe6`.
 
 Applied every frame by `Mech_SpliceHardpointShapes` (`004030d0`), for each root:
 
 ```c
 replacement = mount->shape ? mount->shape : blankRecord;   // blanks from typeRec+0xec, 0x18 apart
 replacement[+4] = (*slot)[+4];                             // inherit TSBasePart.Transform
-replacement[+6] = (*slot)[+6];                             // inherit TSBasePart.IdNumber
+replacement[+6] = (*slot)[+6];                             // inherit the part id
 *slot = replacement;
 ```
 
-**The match is on `IdNumber`, not on the transform node.** Verified against every retail chassis, where the ids are exactly the visible hardpoints' bones:
+**The match is on the part id, not on the transform node.** Verified against every retail chassis, where the ids are exactly the visible hardpoints' bones:
 
-| Chassis | Visible hardpoints | Placeholder `IdNumber`s |
+| Chassis | Visible hardpoints | Placeholder part ids |
 |---|---|---|
 | SAMSON | 7 | 8, 9, 10, 11, 18, 66, 77 |
 | APOCA | 4 | 10, 11, 66, 77 |
@@ -127,7 +127,7 @@ if (damageRecord[+3] >= 0)                                  // signed byte: the 
 
 `shapeInstance+8` is the per-sequence cell-frame array `TSCellAnimPart_Render` indexes by `AnimSequence` — see [`dts-billboards.md`](dts-billboards.md). So losing a component is drawn by stepping its parts to their blank cell, and the `.DMG` record's `+3` byte is the component-to-sequence map. The same byte gates the fire that component lights — see [`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#who-catches-fire) — and the damage arithmetic behind it is in [`../simulation/component-damage.md`](../simulation/component-damage.md).
 
-**The blank cell is blank because a `TSPoly` has no colour.** The surface index (`ColorIndexId`) lives on `TSSolidPoly`, and all three flat renderers the exe ships — `TSSolidPoly_Render` (`00474db4`), `TSShadedPoly_Render` (`0047542c`) and `TSTexture4Poly_Render` (`00474e9c`) — resolve their fill through it. A plain `TSPoly` carries no such field on disk, so there is nothing for a renderer to fill it with, and stepping to the third cell is what removes the part. This is read off the chunk layout and the set of renderers that exist, not off a disassembled `TSPoly` vtable slot.
+**The blank cell is blank because a `TSPoly` has no colour.** The surface index (`poly+0xc`) lives on `TSSolidPoly`, and all three flat renderers the exe ships — `TSSolidPoly_Render` (`00474db4`), `TSShadedPoly_Render` (`0047542c`) and `TSTexture4Poly_Render` (`00474e9c`) — resolve their fill through it. A plain `TSPoly` carries no such field on disk, so there is nothing for a renderer to fill it with, and stepping to the third cell is what removes the part. This is read off the chunk layout and the set of renderers that exist, not off a disassembled `TSPoly` vtable slot.
 
 The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every drawn root of the mech, flyer and structure libraries.
 

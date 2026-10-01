@@ -70,7 +70,7 @@ Two multi-shot rules sit on the charge-up branch, and each identifies exactly on
 | `template[0x3c] == 3` | catalog id 19, `BEMP`, the Bull's EMP (the simulator also names it `EMP`) | fires **three** shots, from barrels at `-x`, `0` and `+x` of the template's own muzzle offset |
 | `template[0x3e] == 0x13` | catalog id 23, `EMP2` | arms `mount+0x4d`, so the mount fires again a quarter of a refire delay later and *then* empties — two volleys per trigger pull |
 
-`0x3e` is `ProjDatIndex`, and `0x13` is `EMP2`'s own `PROJ.DAT` row, so that second test is a weapon check spelled as a data comparison. The follow-up shot is dispatched from the energy arbitration (`WeaponMounts_ArbitrateEnergy`, via `WeaponMount_AutoFireDue`), not from the trigger.
+`0x3e` is the template's `PROJ.DAT` index, and `0x13` is `EMP2`'s own `PROJ.DAT` row, so that second test is a weapon check spelled as a data comparison. The follow-up shot is dispatched from the energy arbitration (`WeaponMounts_ArbitrateEnergy`, via `WeaponMount_AutoFireDue`), not from the trigger.
 
 ### The ammunition dispatch
 
@@ -85,10 +85,10 @@ The gauge's rolling round counter, `+0x7d`, is in [the ammunition mount](weapon-
 | Offset | Field |
 |---|---|
 | `+0x00` | pointer to the ray record below |
-| `+0x04` | `Q10Multiply(power, DamageArmor)`, then scaled by the mission difficulty |
-| `+0x06` | `Q10Multiply(power, DamageShield)`, the same |
-| `+0x08` | `SplashFactor`, the Q10 secondary-explosion fraction |
-| `+0x0a` | pointer to the record's three `ImpactFX` arrays, indexed as one 12-entry array — see [`impact-effects.md`](impact-effects.md#which-effect-a-shot-spawns) |
+| `+0x04` | `Q10Multiply(power, armourDamage)`, then scaled by the mission difficulty |
+| `+0x06` | `Q10Multiply(power, shieldDamage)`, the same |
+| `+0x08` | the splash factor, the Q10 secondary-explosion fraction |
+| `+0x0a` | pointer to the record's three impact-effect arrays, indexed as one 12-entry array — see [`impact-effects.md`](impact-effects.md#which-effect-a-shot-spawns) |
 | `+0x0e` | the owner machine, which the sweep skips |
 | `+0x12` | a weapon-class code, a literal 5 on the beam path |
 

@@ -8,7 +8,7 @@ The manual describes a HUD/HDD display split into "structural, internal, and wea
 
 - **Structural** = most of the 29-slot `HercPiece` array — named body pieces (torso, legs, feet, shoulders).
 - **Weaponry** = a *subset of that same array*, distinguished only by name/position (`WEPN_BRACK/LEFT`/`RIGHT`). Weapon-specific runtime state (ammo, heat) lives elsewhere, in the weapon-mount-manager object (`this+0x202`), not in this health record.
-- **Internal** = a *wholly separate*, smaller table, `HercInternals` (Left/Right Leg Servos, Sensor Array, Targeting Computer, Shield Generator, Engine, Hydraulics, Stabilizers, Life Support, Pilot) — reached *probabilistically* through a struck structural/weaponry piece's own `MappedInternals`/`SpillWeight` list, not directly targetable. An Internal system has no health slot of its own in the 29-component array; damaging it is a chance-based side effect of hitting whichever structural piece maps to it.
+- **Internal** = a *wholly separate*, smaller table of internal systems (Left/Right Leg Servos, Sensor Array, Targeting Computer, Shield Generator, Engine, Hydraulics, Stabilizers, Life Support, Pilot) — reached *probabilistically* through a struck structural/weaponry piece's own dependent list of internal indices and spill weights ([`../formats/dmg-damage-file.md`](../formats/dmg-damage-file.md#the-piece-record)), not directly targetable. An Internal system has no health slot of its own in the 29-component array; damaging it is a chance-based side effect of hitting whichever structural piece maps to it.
 
 "Armor" in the manual's "where shields leave off, armor takes over... duranium plates" sense maps to the per-component `Armor` field on `HercPiece` (`this+0x20a`/`this+0x206`) — not a separate third depleting pool distinct from "structure." Whether shields differentiate by weapon type anywhere is checked below under [Weapon-type effectiveness](#weapon-type-effectiveness); it is not found in the shield-absorption functions themselves ([Open](#open)).
 
@@ -16,33 +16,62 @@ The manual describes a HUD/HDD display split into "structural, internal, and wea
 
 The manual: "Two weapons are effective against shields: EMP cannons disrupt the shield matrix, and the ELF is so incredibly powerful that it punches through shields as if they are not even there," "energy weapons... are effective against shields... Projectile weapons have longer range and do more damage to enemy armor, but have little effect on a target with shields," Lasers have "limited effectiveness against shields," ATCs are "fast and hard enough to penetrate most armor plating."
 
-**Not found in code.** The one candidate — `Mech_ApplyDirectFireDamage` (`004188c8`)'s `Math_Q10Multiply(shotData[+8], armorDamage)` — is `SplashFactor`, the secondary-explosion split documented below, not a per-weapon-type effectiveness scale. The whole of the manual's claim that lives in code is the two separate `DamageShield`/`DamageArmor` figures each `PROJ.DAT` record carries; nothing scales either by the *target's* defence type. The shield absorption functions were also checked and carry no weapon-type term.
+**Not found in code.** The one candidate — `Mech_ApplyDirectFireDamage` (`004188c8`)'s `Math_Q10Multiply(shotData[+8], armorDamage)` — is the splash factor, the secondary-explosion split documented below, not a per-weapon-type effectiveness scale. The whole of the manual's claim that lives in code is the two separate damage figures each `PROJ.DAT` record carries, one against shields and one against armour; nothing scales either by the *target's* defence type. The shield absorption functions were also checked and carry no weapon-type term.
 
 The shot descriptor (`shotData`, the same struct `Mech_DirectFireHitTest` (`00418ba8`) and `Mech_ApplyDirectFireDamage` consume) is built in `Bullet_FireBurst` right before the `Sim_RaycastObjectList` (`00426528`) raycast call from the firing weapon's `PROJ.DAT` record — layout in [`weapon-firing.md`](weapon-firing.md#the-shot-record); `+0x04` is the figure `Mech_ApplyDirectFireDamage` applies to structure and armor, `+0x06` the one `Mech_DirectFireHitTest` feeds into shields.
 
-The record table is `PROJ.DAT` (`HercWorks.Core.Data.File.Dat.Sim.ProjectileData`). Cross-checked against the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix + `[Total:u16=27][27×36-byte records]` + 1 trailing marker byte): values line up with the manual —
-- Entries with `DamageShield ≫ DamageArmor` (e.g. 2000/400, 8000/2000) — EMP-shaped.
-- Entries with `DamageArmor ≫ DamageShield` (e.g. 400/1600, 3000/7200) — ordinary Autocannon-shaped.
-- Several `DamageShield ≥ DamageArmor` entries with `Speed=0` (no travel time) — beam-shaped.
+The record table is `PROJ.DAT`. Each record holds, as shorts in order, the category (`Type`), the subtype id, the shield damage, the armour damage, the splash factor and the speed, then the impact-effect arrays for shield, ground and armour. Cross-checked against the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix + `[Total:u16=27][27×36-byte records]` + 1 trailing marker byte): values line up with the manual —
+- Entries with shield damage ≫ armour damage (e.g. 2000/400, 8000/2000) — EMP-shaped.
+- Entries with armour damage ≫ shield damage (e.g. 400/1600, 3000/7200) — ordinary Autocannon-shaped.
+- Several shield ≥ armour entries with `Speed=0` (no travel time) — beam-shaped.
 - The first 3 entries (60/360, 120/480, 180/600, `Speed=5000`) match ATC20/35/50.
 
-**`DamageShield`/`DamageArmor` are the weapon's own base damage stats against each defense type** — the value scaled against them (`shotPower`) is not a "raw damage" the file further adjusts.
+### The retail records
 
-`shotPower` is the capacitor charge the shot was fired at, `min(template+0x38, mount+0x7d)`, and the scale is **Q10** — against a capacitor scaled to 1200, so a mount holding more than 1024 makes a shot worth slightly more than the record's face value. `SplashFactor`'s own multiply below is Q10 as well (`Math_Q10Multiply`, `0047dfa4`).
+In file order; the index is what a mount template's `PROJ.DAT` index field names ([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md#the-projdat-index--tail-relative-offset-0x1c-absolute-offset-0x3e)). Weapon names are the shell catalog's ([`../formats/weapons-dat.md`](../formats/weapons-dat.md)); index 22's two claimants are catalog ids 25 (`PLAS`) and 28 (`MFAC`, which the simulator's name table calls `MAGN`).
 
-**`SplashFactor` (short-index 4, `shotData+8`) — a per-weapon splash/secondary- explosion trigger, not a third damage-type multiplier.** Consumer, `Mech_ApplyDirectFireDamage`:
+| Index | Weapon | `Type` | Subtype id | Shield | Armour | Splash | Speed |
+|---|---|---|---|---|---|---|---|
+| 0 | ATC20 | 2 | 0 | 60 | 360 | 0 | 5000 |
+| 1 | ATC35 | 2 | 1 | 120 | 480 | 0 | 5000 |
+| 2 | ATC50 | 2 | 2 | 180 | 600 | 0 | 5000 |
+| 3 | L100 | 4 | 3 | 1500 | 600 | 0 | 0 |
+| 4 | L200 | 4 | 4 | 1800 | 960 | 0 | 0 |
+| 5 | L300 | 4 | 5 | 2000 | 1200 | 0 | 0 |
+| 6 | EMPC | 2 | 6 | 2000 | 400 | 0 | 2000 |
+| 7-9 | (unreachable) | 3 | 0-2 | 1000 | 1000 | 500-1000 | 1000 |
+| 10-13 | MSL6/8/10, FLYMSL (by ammunition type) | 0 | 0-3 | 400 | 1600 | 500 | 6000 |
+| 14 | PBW | 4 | 0 | 1000 | 1000 | 0 | 0 |
+| 15 | ELFW | 4 | 1 | 150 | 200 | 0 | 0 |
+| 16 | BEMP | 2 | 7 | 8000 | 2000 | 0 | 2000 |
+| 17 | BPBW | 4 | 2 | 4000 | 4000 | 0 | 0 |
+| 18 | BMSL | 0 | 4 | 3000 | 7200 | 500 | 6000 |
+| 19 | EMP2 | 2 | 8 | 2000 | 400 | 0 | 2000 |
+| 20 | PBW2 | 4 | 6 | 1400 | 1400 | 0 | 0 |
+| 21 | ELF2 | 4 | 7 | 200 | 300 | 0 | 0 |
+| 22 | PLAS, MFAC | 2 | 9 | 3000 | 3000 | 1000 | 1000 |
+| 23 | ATC75 | 2 | 1 | 220 | 700 | 0 | 5000 |
+| 24 | ATC100 | 2 | 2 | 260 | 800 | 0 | 5000 |
+| 25 | L400 | 4 | 4 | 3000 | 1920 | 0 | 0 |
+| 26 | L500 | 4 | 5 | 3000 | 2000 | 0 | 0 |
+
+**The shield and armour damage figures are the weapon's own base damage stats against each defense type** — the value scaled against them (`shotPower`) is not a "raw damage" the file further adjusts.
+
+`shotPower` is the capacitor charge the shot was fired at, `min(template+0x38, mount+0x7d)`, and the scale is **Q10** — against a capacitor scaled to 1200, so a mount holding more than 1024 makes a shot worth slightly more than the record's face value. The splash factor's own multiply below is Q10 as well (`Math_Q10Multiply`, `0047dfa4`).
+
+**The splash factor (short-index 4, `shotData+8`) — a per-weapon splash/secondary-explosion trigger, not a third damage-type multiplier.** Consumer, `Mech_ApplyDirectFireDamage`:
 ```c
-uVar1 = Q10mul(shotData+8 /*SplashFactor*/, shotData+4 /*armor-scaled damage*/);
+uVar1 = Q10mul(shotData+8 /*splash factor*/, shotData+4 /*armor-scaled damage*/);
 call obj[+0x74](obj, part, armorDamage - uVar1, ...);      // general component health takes the REMAINDER
 if (uVar1 != 0) call obj[+0x70](obj, uVar1, ..., blastRadius=500, ...);  // secondary explosion, same formula explosive weapons use
 ```
 A Q10 **fraction of the already shield-absorbed armor damage** diverted into a small (500-unit-radius) secondary explosion instead of applying straight to the struck component's health. Zero means no secondary explosion — the guard (`if (uVar1 != 0)`) skips it and the full armor-damage amount goes straight to health.
 
-Real nonzero values (`500` or `1000`) appear scattered across several weapons, most consistently for one whole weapon family (uniform `DamageShield==DamageArmor`) ([Open](#open): whether that family is Electron Flux).
+Real nonzero values (`500` or `1000`) appear scattered across several weapons, most consistently for one whole weapon family (shield damage equal to armour damage throughout) ([Open](#open): whether that family is Electron Flux).
 
 **It is a direct call on the struck object, not a sweep**, so the blast stays inside the machine that was hit and cannot reach anything standing next to it. It also runs the share through `Mech_ShieldAbsorb_Explosive` a second time — the original does not exempt one that has already been through `Mech_ShieldAbsorb_DirectFire` — so both that absorption and its 4× apply on top of what the shot already lost to shields.
 
-**The loader:** `Weapons_LoadResourceTables` (`0040fc8c`) opens `"wpntex"`, `"mechwpn2"`, `"weapons"` (count + 88-byte records — a candidate per-hardpoint mount-template table, [Open](#open)), then `"proj"` and reads its count + 36-byte records in one flat read into `DAT_004a9980`, linear-searched by `Proj_LookupRecord(category, subtypeId)` (`0040ffc8`) — `PROJ.DAT`'s in-memory copy is keyed by `(category, id)` (matching `Projectile.Type`/`MissileId`), not by flat array index.
+**The loader:** `Weapons_LoadResourceTables` (`0040fc8c`) opens `"wpntex"`, `"mechwpn2"`, `"weapons"` (count + 88-byte records — a candidate per-hardpoint mount-template table, [Open](#open)), then `"proj"` and reads its count + 36-byte records in one flat read into `DAT_004a9980`, linear-searched by `Proj_LookupRecord(category, subtypeId)` (`0040ffc8`) — `PROJ.DAT`'s in-memory copy is keyed by `(category, id)` (the record's first two shorts, category and subtype id), not by flat array index.
 
 ### `Type` — a firing-mechanism selector
 
@@ -50,9 +79,9 @@ Traced all 5 callers of `Proj_LookupRecord` and all 3 of `Bullet_FireBurst` — 
 
 | `Type` | Constructor | Object kind | Real `PROJ.DAT` shape |
 |---|---|---|---|
-| `0` | `Missile_Construct` (`0040a948`) | the launcher round (14-byte type table `ROCKETS.DAT`, vtable `RocketVtable` (`00498448`)) — see [`rockets.md`](rockets.md) | 5 entries, `SplashFactor=500` uniformly, real `Speed`, armor≫shield |
-| `2` | `Bullet_Construct` (`0040af6c`) | the travelling gun round (own 14-byte type table `BULLETS.DAT`, own vtable `BulletVtable` (`00498628`)) — see [`projectiles.md`](projectiles.md) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — `SplashFactor=0` for all but `MissileId=9` (Plasma cannon, below) |
-| `3` | `Grenade_Construct` (`0040ac3c`) | **dead code** — a cut `Grenade` class, see below | 3 entries, shield==armor exactly, `SplashFactor` 1000/500/500, all unreachable |
+| `0` | `Missile_Construct` (`0040a948`) | the launcher round (14-byte type table `ROCKETS.DAT`, vtable `RocketVtable` (`00498448`)) — see [`rockets.md`](rockets.md) | 5 entries, splash factor 500 uniformly, real `Speed`, armor≫shield |
+| `2` | `Bullet_Construct` (`0040af6c`) | the travelling gun round (own 14-byte type table `BULLETS.DAT`, own vtable `BulletVtable` (`00498628`)) — see [`projectiles.md`](projectiles.md) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — splash factor 0 for all but subtype id 9 (Plasma cannon, below) |
+| `3` | `Grenade_Construct` (`0040ac3c`) | **dead code** — a cut `Grenade` class, see below | 3 entries, shield==armor exactly, splash factor 1000/500/500, all unreachable |
 | `4` | `Bullet_FireBurst` (`0040bf74`) | **no persistent simulated object at all** — resolves its raycast hit synchronously inside the call itself, then spawns pure-visual tracer segments | every `Type=4` record has `Speed=0`, no exceptions |
 
 `Type=4`'s "no persistent object, resolves at the call site, always `Speed=0`" combination is the concrete mechanical definition of a beam/hitscan weapon. Only `0` and `2` are live classes: the ammunition dispatch (`WeaponMount_FireDispatch_Missile`) tests for `Type == 0` and sends everything else to `Bullet_Fire`, and `Rocket_Fire` always builds the `Type 0` class.
@@ -68,9 +97,9 @@ Mapping onto the weapon taxonomy — flagged as a reasoned hypothesis from mecha
 - **`Type 2` (real flight time, no splash) → Autocannons + EMP** — accounts for every `Type 2` entry except the one Plasma outlier.
 - **`Type 0` (5 entries) → the game's Missile weapons**, confirmed: its five subtype ids are the five `ROCKETS.DAT` records, and the four the `MSL` launchers reach are `SARH`/`ARH`/`ARM`/`EO` while `BMSL` takes the fifth. `Type 3`'s three entries are data for a class that never runs.
 
-**Plasma cannon — confirmed.** The one `Type 2` outlier (`DamageShield==DamageArmor==3000`, `SplashFactor=1000`) is `MissileId 9`. The `Bullet` class's vtable (`BulletVtable` (`00498628`)) per-tick slot (`+0x14`) is `Bullet_TickUpdate` (`0040b124`), whose `type == 9` branch (checked via `*(char*)(this+0x41) == '\t'`) calls the explosion formula directly instead of the ordinary single-target hit path — `this+0x41` is exactly where every projectile constructor (`Missile_Construct`/`Bullet_Construct`/`Grenade_Construct`) stores its own `MissileId` argument, so this is checking `MissileId==9` on a live `Bullet` instance. `(Type=2, MissileId=9)` is mechanically a `Bullet` (real flight time, unlike true `Beam`s) that explodes with splash on impact (unlike every other `Bullet`), matching the manual's Plasma description exactly.
+**Plasma cannon — confirmed.** The one `Type 2` outlier (shield and armour damage both 3000, splash factor 1000) is subtype id 9. The `Bullet` class's vtable (`BulletVtable` (`00498628`)) per-tick slot (`+0x14`) is `Bullet_TickUpdate` (`0040b124`), whose `type == 9` branch (checked via `*(char*)(this+0x41) == '\t'`) calls the explosion formula directly instead of the ordinary single-target hit path — `this+0x41` is exactly where every projectile constructor (`Missile_Construct`/`Bullet_Construct`/`Grenade_Construct`) stores its own subtype id argument, so this is checking subtype id 9 on a live `Bullet` instance. `(Type=2, id=9)` is mechanically a `Bullet` (real flight time, unlike true `Beam`s) that explodes with splash on impact (unlike every other `Bullet`), matching the manual's Plasma description exactly.
 
-A weapon's `(Type, MissileId)` pair is set upstream, in the mount template table ([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md)) via each template's `ProjDatIndex`. `MissileId` also indexes `BULLETS.DAT`/`ROCKETS.DAT` for model data.
+A weapon's `(Type, id)` pair is set upstream, in the mount template table ([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md)) via each template's `PROJ.DAT` index. The subtype id also indexes `BULLETS.DAT`/`ROCKETS.DAT` for model data.
 
 ### Beam-weapon dispatch
 
@@ -109,13 +138,9 @@ Four things a port has to keep:
 
 The mount side of all this — what `WeaponMount_Destroy` writes, and the second, certain path through each mount's vtable `+0x68` — is in [`weapon-mounts.md`](weapon-mounts.md#losing-a-mount).
 
-## Ported
-
-Weapon-mount destruction is ported on both paths — `Sim.WeaponMount.Destroy` and `ConditionChanged`, and `MechObject.RollWeaponMountDestruction`.
-
 ## Open
 
 - **Open:** whether shields differentiate by weapon type anywhere; not found in the shield-absorption functions checked so far.
-- **Open:** whether the weapon family carrying `SplashFactor` 500/1000 (uniform `DamageShield==DamageArmor`) is Electron Flux's.
+- **Open:** whether the weapon family carrying splash factor 500/1000 (shield damage equal to armour damage throughout) is Electron Flux's.
 - **Open:** whether the `"weapons"` table (count + 88-byte records) is a per-hardpoint mount-template table; nothing beyond its load has been checked.
 - **Open:** whether the two low-damage `Type 4` entries (150/200, 200/300) are Electron Flux's.

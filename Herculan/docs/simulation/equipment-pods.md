@@ -20,7 +20,7 @@ Pods are ordinary weapon mounts on ordinary hardpoints. At the end of `Mech_Conf
 | 3 | `+0x313` | 32 | ENRG | reactor rate, `Mech_ComputeReactorRate` (`00417d08`) |
 | 4 | `+0x317` | 31 | TURB | speed while engaged, `TurboPod_Tick` (`0040f1f0`) and [mech-locomotion.md](mech-locomotion.md) |
 
-Slot order is not id order (`0x1f`→[4], `0x20`→[3]). The switch assigns rather than accumulates, so a second copy of a pod fills the same slot and contributes nothing — the last mount in hardpoint order wins. Ported in `Sim.MechPods`.
+Slot order is not id order (`0x1f`→[4], `0x20`→[3]). The switch assigns rather than accumulates, so a second copy of a pod fills the same slot and contributes nothing — the last mount in hardpoint order wins.
 
 Each pod is its own class: `Pod_CtorBase` (`0040e234`) installs the shared table `00498cdc` after `WeaponMount_CtorBase`, and one of `EcmPod_Ctor`, `TargetingPod_Ctor`, `ShieldPod_Ctor`, `EnergyPod_Ctor` and `TurboPod_Ctor` (`0040e274`, `e308`, `e344`, `e380`, `e2bc`) then replaces it with its own and writes its catalog id to `+0x77`. **A pod's layout diverges from a weapon mount's at that offset**: `+0x77` is the catalog id and `+0x79` the cockpit gauge handle, where an ammunition mount keeps the gauge handle at `+0x77` itself; and what `+0x7d` and `+0x7f` hold differs again per pod, so an offset read off one of these classes says nothing about the others.
 

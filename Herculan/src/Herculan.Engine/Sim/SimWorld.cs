@@ -99,13 +99,20 @@ public sealed class SimWorld {
 	/// The simulation's pseudo-random generator — DBSIM's single global state block at
 	/// <c>0x4d261d</c>, which every roll in the simulation shares. Weapon scatter is the first thing
 	/// in the engine to draw on it during a tick.
+	///
+	/// <para>The mission scene builds one instance and hands it to both the terrain pass and this
+	/// world, because the zone load draws from the same generator before anything else does; two
+	/// instances would produce the same stream twice rather than one continuing stream.</para>
 	/// </summary>
 	public SimRandom Random { get; }
 
 	/// <summary>
 	/// DBSIM's second generator, the state block at <c>0x4d268f</c> that sounds, message variants,
 	/// the comm-box portraits and the cockpit hit shake draw on, so none of them moves
-	/// <see cref="Random"/>. Seeded beside it to the same vanilla state — see
+	/// <see cref="Random"/>. <see cref="SpawnImpactEffect"/> makes <c>Explosion_Construct</c>'s
+	/// discarded draw on it, and the host hands it to the sound director, the squad comm channel
+	/// (message variants, the scream's roll, the portrait paint's discarded draw), the cockpit hit
+	/// shake and the sensor dropout. Seeded beside it to the same vanilla state — see
 	/// docs/simulation/random-generator.md#the-presentation-generator.
 	/// </summary>
 	public SimRandom PresentationRandom { get; } = new();

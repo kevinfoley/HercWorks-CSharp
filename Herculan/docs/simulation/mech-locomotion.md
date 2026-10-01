@@ -55,47 +55,48 @@ World scale is 166.667 units/metre (see `docs/engine/planning.md`).
 
 Loaded by `MechType_InitOne` (`004201a8`) as a 216-byte little-endian record into `MECH_TYPE_DATA[i]+2`. **Record offset N = `typeRec+N+2`.** Record offsets count from the start of the entry's content, past the per-entry prefix ([`vol-archive.md`](../formats/vol-archive.md#the-per-entry-prefix--fixed-9-bytes)).
 
-| rec | typeRec | Field | Meaning |
-|---|---|---|---|
-| 0 | `+0x02` | `SpeedTurn` | Max turn rate (not rescaled at load) |
-| 2 | `+0x04` | `SpeedReverse` | Max reverse speed (negative) |
-| 4 | `+0x06` | `SpeedForward` | Max forward speed |
-| 6 | `+0x08` | `SpeedAccelDecel` | Linear accel step, per tick, **not** dt-scaled |
-| 8 | `+0x0a` | `TurnAccelDecel` | Turn-rate accel step, per tick, **not** dt-scaled |
-| 10 | `+0x0c` | `CameraBoneId` | Node the cockpit eye rides |
-| 12 | `+0x0e` | `AnimId_Walk` | Walk sequence id |
-| 14 | `+0x10` | `AnimId_Run` | Run sequence id |
-| 16 | `+0x12` | `AnimId_StopMove` | Stop/step-off sequence, forward |
-| 18 | `+0x14` | `AnimId_StopReverse` | Stop/step-off sequence, reverse |
-| 20 | `+0x16` | `RideHeight` | Ride height added to terrain height |
-| 22 | `+0x18` | `HitCenterHeight` | Height of the direct-fire hit cylinder's centre above the machine's origin: 1000 heavy and medium, 750 light, 0 RAZOR. Read by `Mech_ShieldAbsorb_DirectFire` — [`damage-system.md`](damage-system.md#direct-fire-damage-armor-then-part-deterministic-shield-gated) |
-| 24 | `+0x1a` | `HitRadius` | Radius of that cylinder, and of the coarse reject in front of it: 2500 heavy, 1500 medium, 1000 SPIDER. Deliberately generous — it only has to be wide enough that nothing which could hit is rejected, since the sphere model behind it decides. Its two consumers are both direct-fire hit tests |
-| 26 | `+0x1c` | `AnimId_TorsoTwist` | The twist sequence: a single full sweep of the twist node, which the twist angle selects a position within — [`torso-aim.md`](torso-aim.md#angle-to-pose). Negative for a chassis with none (RAZOR, SPIDER) |
-| 28 | `+0x1e` | `TorsoTwistMaxRate` | Twist rate at full stick: 1000 on the 18 bipeds, PITBULL and RAZOR, 1500 on SPIDER |
-| 30 | `+0x20` | `TorsoTwistAccel` | How fast the twist rate may build: 1000, except RAPTOR2's 250 and SPIDER's 300 |
-| 32 | `+0x22` | `TorsoTwistLimit` | Twist limit, applied symmetrically: 14000 (76.9°) everywhere but PITBULL's 32767, which is no limit. `Ai_AimAndFireAtMech` also reads it as the arc it will shoot in — [`ai-weapons.md`](ai-weapons.md#aiming-at-a-machine--ai_aimandfireatmech-0041e984) |
-| 34 | `+0x24` | `AnimId_TorsoPitch` | The pitch sequence, the same way. Negative for RAZOR and SPIDER |
-| 36 | `+0x26` | `TorsoPitchMaxRate` | Pitch rate at full stick: 800, except RAPTOR2's 700 and SPIDER's 1000 |
-| 38 | `+0x28` | `TorsoPitchAccel` | How fast the pitch rate may build: 800, except RAPTOR2's 175 and SPIDER's 200 |
-| 40 | `+0x2a` | `TorsoPitchMax` | Pitch limit looking up: 3500 on OUTLAW, MAVERICK, STINGRAY, MONGOOSE and RAZOR, 6000 on the rest |
-| 42 | `+0x2c` | `TorsoPitchMin` | Pitch limit looking down, negative: −2000 on those five and PITBULL, −4000 on the rest |
-| 44 | `+0x2e` | `GaitThreshold` | Walk↔run threshold speed |
-| 68 | `+0x46` | `AnimId_Death` | The sequence an immobilised machine goes down in — see [Going down](#going-down). The chassis' one non-cyclic sequence |
-| 72 | `+0x4a` | `LegCount` | Leg count: 2, except PITBULL's 4. Selects whether the front leg servos or all four are averaged in `Mech_ComponentDamageWrite` — [`component-damage.md`](component-damage.md#slots-the-write-path-reads-by-index) |
-| 76 | `+0x4e` | `Mass` | Chassis mass, the Q10 weight each party's speed carries in a collision. 5000 light … 20000 PITBULL, **0 SPIDER** |
-| 78 | `+0x50` | `FlyerFlag` | 1 = Razor. Selects the flight paths ([`razor-flight.md`](razor-flight.md)) and the `fm\<NAME>.FM` load ([`../formats/flight-model-fm.md`](../formats/flight-model-fm.md)) |
-| 84 | `+0x56` | `WeaponMountsDestructible` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction) |
-| 98 | `+0x64` | `EyeOffsetY` | Fore/aft half of the pilot's eye, from the camera node, in that node's frame: 200 on ten chassis and 0 on eight, 300 on RAPTOR2, 800 on APOCA, 1200 on RAZOR. Half of `Mech_GetAimPoint`'s (`004155c4`) eye triple `(0, +0x64, +0x66)` — [`external-views.md`](external-views.md#the-camera-object--cam) |
-| 100 | `+0x66` | `EyeOffsetZ` | The eye's lift above the node, the other half of that triple: 0 to 820 across the walkers, 2000 on PITBULL, 0 on RAZOR. It is also the height the sight line is measured from — [`ai-weapons.md`](ai-weapons.md) |
-| 102 | `+0x68` | `OrbitCentreY` | Fore/aft half of the outside view's orbit centre in the machine's own frame, `Mech_GetAimPoint`'s second triple: 0 on every retail chassis |
-| 104 | `+0x6a` | `OrbitCentreZ` | The orbit centre's height: 1600 on most chassis, 1400 on MAVERICK, MONGOOSE, OUTLAW and STINGRAY, 800 on SPIDER, 2600 on PITBULL, 0 on RAZOR |
-| 108 | `+0x6e` | `GaitThresholdReverse` | Reverse-side walk↔run threshold |
-| 110 | `+0x70` | `BodyRadius` | Body radius, **750 on every HERC** — both radius vtable slots return it, see [`hit-detection.md`](hit-detection.md#the-three-radius-slots) |
-| 122 | `+0x7c` | `AnimId_TurnInPlace` | Turn-in-place sequence id |
-| 190 | `+0xc0` | `ShieldMaxTotal` | Shield array capacity before any Shield Pod: 3500 on every HERC, 0 on SPIDER — [`damage-system.md`](damage-system.md#the-shield-system) |
-| 194 | `+0xc4` | `StrideScaleDivisor` | Stride calibration divisor |
-| 196 | `+0xc6` | `StrideScaleNumerator` | Stride calibration numerator |
-| — | `+0xc2` | — | HUD scale, set at load to `Q10(315 × rawSpeedForward)` |
+| rec | typeRec | Meaning |
+|---|---|---|
+| 0 | `+0x02` | Max turn rate (not rescaled at load) |
+| 2 | `+0x04` | Max reverse speed (negative) |
+| 4 | `+0x06` | Max forward speed |
+| 6 | `+0x08` | Linear accel step, per tick, **not** dt-scaled |
+| 8 | `+0x0a` | Turn-rate accel step, per tick, **not** dt-scaled |
+| 10 | `+0x0c` | Node the cockpit eye rides |
+| 12 | `+0x0e` | Walk sequence id |
+| 14 | `+0x10` | Run sequence id |
+| 16 | `+0x12` | Stop/step-off sequence, forward |
+| 18 | `+0x14` | Stop/step-off sequence, reverse |
+| 20 | `+0x16` | Ride height added to terrain height |
+| 22 | `+0x18` | Height of the direct-fire hit cylinder's centre above the machine's origin: 1000 heavy and medium, 750 light, 0 RAZOR. Read by `Mech_ShieldAbsorb_DirectFire` — [`damage-system.md`](damage-system.md#direct-fire-damage-armor-then-part-deterministic-shield-gated) |
+| 24 | `+0x1a` | Radius of that cylinder, and of the coarse reject in front of it: 2500 heavy, 1500 medium, 1000 SPIDER. Deliberately generous — it only has to be wide enough that nothing which could hit is rejected, since the sphere model behind it decides. Its two consumers are both direct-fire hit tests |
+| 26 | `+0x1c` | The twist sequence: a single full sweep of the twist node, which the twist angle selects a position within — [`torso-aim.md`](torso-aim.md#angle-to-pose). Negative for a chassis with none (RAZOR, SPIDER) |
+| 28 | `+0x1e` | Twist rate at full stick: 1000 on the 18 bipeds, PITBULL and RAZOR, 1500 on SPIDER |
+| 30 | `+0x20` | How fast the twist rate may build: 1000, except RAPTOR2's 250 and SPIDER's 300 |
+| 32 | `+0x22` | Twist limit, applied symmetrically: 14000 (76.9°) everywhere but PITBULL's 32767, which is no limit. `Ai_AimAndFireAtMech` also reads it as the arc it will shoot in — [`ai-weapons.md`](ai-weapons.md#aiming-at-a-machine--ai_aimandfireatmech-0041e984) |
+| 34 | `+0x24` | The pitch sequence, the same way. Negative for RAZOR and SPIDER |
+| 36 | `+0x26` | Pitch rate at full stick: 800, except RAPTOR2's 700 and SPIDER's 1000 |
+| 38 | `+0x28` | How fast the pitch rate may build: 800, except RAPTOR2's 175 and SPIDER's 200 |
+| 40 | `+0x2a` | Pitch limit looking up: 3500 on OUTLAW, MAVERICK, STINGRAY, MONGOOSE and RAZOR, 6000 on the rest |
+| 42 | `+0x2c` | Pitch limit looking down, negative: −2000 on those five and PITBULL, −4000 on the rest |
+| 44 | `+0x2e` | Walk↔run threshold speed |
+| 68 | `+0x46` | The sequence an immobilised machine goes down in — see [Going down](#going-down). The chassis' one non-cyclic sequence |
+| 72 | `+0x4a` | Leg count: 2, except PITBULL's 4. Selects whether the front leg servos or all four are averaged in `Mech_ComponentDamageWrite` — [`component-damage.md`](component-damage.md#slots-the-write-path-reads-by-index) |
+| 76 | `+0x4e` | Chassis mass, the Q10 weight each party's speed carries in a collision. 5000 light … 20000 PITBULL, **0 SPIDER** |
+| 78 | `+0x50` | 1 = Razor. Selects the flight paths ([`razor-flight.md`](razor-flight.md)) and the `fm\<NAME>.FM` load ([`../formats/flight-model-fm.md`](../formats/flight-model-fm.md)) |
+| 84 | `+0x56` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction) |
+| 98 | `+0x64` | Fore/aft half of the pilot's eye, from the camera node, in that node's frame: 200 on ten chassis and 0 on eight, 300 on RAPTOR2, 800 on APOCA, 1200 on RAZOR. Half of `Mech_GetAimPoint`'s (`004155c4`) eye triple `(0, +0x64, +0x66)` — [`external-views.md`](external-views.md#the-camera-object--cam) |
+| 100 | `+0x66` | The eye's lift above the node, the other half of that triple: 0 to 820 across the walkers, 2000 on PITBULL, 0 on RAZOR. It is also the height the sight line is measured from — [`ai-weapons.md`](ai-weapons.md) |
+| 102 | `+0x68` | Fore/aft half of the outside view's orbit centre in the machine's own frame, `Mech_GetAimPoint`'s second triple: 0 on every retail chassis |
+| 104 | `+0x6a` | The orbit centre's height: 1600 on most chassis, 1400 on MAVERICK, MONGOOSE, OUTLAW and STINGRAY, 800 on SPIDER, 2600 on PITBULL, 0 on RAZOR |
+| 108 | `+0x6e` | Reverse-side walk↔run threshold |
+| 110 | `+0x70` | Body radius, **750 on every HERC** — both radius vtable slots return it, see [`hit-detection.md`](hit-detection.md#the-three-radius-slots) |
+| 122 | `+0x7c` | Turn-in-place sequence id |
+| 190 | `+0xc0` | Shield array capacity before any Shield Pod: 3500 on every HERC, 0 on SPIDER — [`damage-system.md`](damage-system.md#the-shield-system) |
+| 194 | `+0xc4` | Stride calibration divisor |
+| 196 | `+0xc6` | Stride calibration numerator |
+| 204 | `+0xce` | Base name of the chassis' own debris file, 12 bytes NUL-padded — [`destruction-effects.md`](destruction-effects.md) |
+| — | `+0xc2` | HUD scale, set at load to `Q10(315 × rawSpeedForward)` |
 
 ### Load-time speed rescale
 
@@ -121,7 +122,7 @@ throttle += Q8(0x91, -stickAxis)                  // 0.566/tick, clamp ±0x400
 desired   = Q10(throttle < 0 ? maxRev : maxFwd, throttle)
 desired  += slopeTerm                             // dot(terrainNormal, forward) / 2400
 desired   = clamp(desired, maxRev, maxFwd)
-RateLimitedMoveToward(speed, desired, SpeedAccelDecel)
+RateLimitedMoveToward(speed, desired, typeRec[0x08])
 ```
 
 `DAT_0049a06e` is **not** a gear selector. `Input_SetThrottleLeverMode` (`00459d20`) sets it to 1 only when the input configuration reports a throttle control *and* the preferences page has that control assigned to THROTTLE rather than TURRET, and to 0 otherwise; the key command and the cockpit slider that "toggle" it only ever flip between +1 and −1, gated on that same pair. It selects the **joystick throttle-lever mode**: 0 = none, ±1 = lever present, sign inverting its sense.
@@ -130,7 +131,7 @@ It matters because it is what gates the throttle clamp. At 0 — keyboard and pl
 
 The throttle is two-way bound to the cockpit throttle gauge, arbitrated by the `mech+0x93` dirty flag — see [`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md).
 
-Turn rate — a symmetric tent over speed, `T = SpeedTurn`:
+Turn rate — a symmetric tent over speed, `T` the max turn rate (`typeRec+0x02`):
 
 ```
 if (inStopAnim || speed == 0) turnBase = 0
@@ -140,7 +141,7 @@ else {
                            : T - T·(s-45-H)/(2H)
 }
 turnTarget = Q8(Q10(1600, turnBase), stickAxis)    // stick clamped ±0x100
-RateLimitedMoveToward(turnRate, turnTarget, TurnAccelDecel)
+RateLimitedMoveToward(turnRate, turnTarget, typeRec[0x0a])
 heading += turnRate
 ```
 
@@ -148,7 +149,7 @@ Half turn rate at crawl, peak at half top speed, half again at top speed. `Q16Di
 
 **Turning in place is not produced here** — at zero speed `turnBase` is 0. The turn-in-place branch only sets the animation rate to `Q10(350, stickAxis)`; the rotation comes from the turn-in-place sequence's root rotation.
 
-The remainder of `Mech_LocomotionTick` (~60% of its body) is the gait state machine, switching between sequences `AnimId_Walk` / `AnimId_Run` / stop-forward / stop-reverse / turn-in-place / death and maintaining `mech+0x2a0`. In steady state `animRate = speed`.
+The remainder of `Mech_LocomotionTick` (~60% of its body) is the gait state machine, switching between the walk / run / stop-forward / stop-reverse / turn-in-place / death sequences and maintaining `mech+0x2a0`. In steady state `animRate = speed`.
 
 ## Center Body
 
@@ -179,7 +180,7 @@ The mode is not cancelled by steering or by the turret axes — only by its own 
 
 Tick rate, the `SimTickDelta`/`DAT_004d3be8` formula (`Time_BeginSimTick`, `004677bc`), and its Q8/125ms scale are documented in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit) — not repeated here.
 
-Locomotion accel constants (`SpeedAccelDecel`, `TurnAccelDecel`) are raw per-tick steps with no `Math_IntegrateRateOverTick`, so **the control law is frame-rate dependent**. The animation advance and the torso rates *are* dt-scaled.
+The locomotion accel steps (`typeRec+0x08`, `+0x0a`) are raw per-tick steps with no `Math_IntegrateRateOverTick`, so **the control law is frame-rate dependent**. The animation advance and the torso rates *are* dt-scaled.
 
 ## Root motion
 
@@ -207,7 +208,7 @@ else {
 }
 ```
 
-`ANSequence.GroundMovement` is the enable flag. `ANAnimListTransition.TransformIndex` is a *different* field — a gait-change hook used only when switching sequences, not the steady gait.
+The sequence's ground-movement flag is the enable flag. A transition's transform index is a *different* field — a gait-change hook used only when switching sequences, not the steady gait.
 
 Application is a matched set around the fraction `thread+0x1c / thread+0x1e` (intra-frame accumulator ÷ frame duration):
 
@@ -293,7 +294,7 @@ Two things happen before the gait machine is even reached:
 
 | Thread state | What happens |
 |---|---|
-| Neither running nor targeting `AnimId_Death` | Aim playback at it with `AnimThread_SetTarget` (`00479570`) so the list's own transition is used; a machine in the reverse step-off is first snapped to the forward one, which is the only one with a transition to take. Sound `0x1e`. Rate 100 |
+| Neither running nor targeting the death sequence (`typeRec+0x46`) | Aim playback at it with `AnimThread_SetTarget` (`00479570`) so the list's own transition is used; a machine in the reverse step-off is first snapped to the forward one, which is the only one with a transition to take. Sound `0x1e`. Rate 100 |
 | Running it | Rate `0x78` |
 | Running it, and `frame == nextFrame` | It has played out: latch `mech+0xb4` **collapsed**, take the landing damage, sound `0x29` |
 
@@ -307,7 +308,7 @@ The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — s
 
 ## Cockpit eye and bob
 
-No dedicated bob code, and none is needed. `typeRec+0x0c` (`CameraBoneId`) is a shape **part** id. `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) resolves it through the shape's find-by-id, takes that part's `TSBasePart.Transform` as a transform id, and indexes the shape instance's per-node transform array at `shapeInst+0x16` (`0x20` bytes per entry) — the same array `SimObject_PushTransform` (`00402628`) memcpy's `count << 5` bytes of when saving state for a blocked step. The eye rides a node the walk cycle animates, so the bob falls out of correct root motion.
+No dedicated bob code, and none is needed. `typeRec+0x0c`, the camera node, is a shape **part** id. `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) resolves it through the shape's find-by-id, takes that part's `TSBasePart.Transform` as a transform id, and indexes the shape instance's per-node transform array at `shapeInst+0x16` (`0x20` bytes per entry) — the same array `SimObject_PushTransform` (`00402628`) memcpy's `count << 5` bytes of when saving state for a blocked step. The eye rides a node the walk cycle animates, so the bob falls out of correct root motion.
 
 Resolution is uniform across the fleet. Every ground HERC lands on the same chain shape, and the parent links come from the `ANAnimList` relation pairs, the same table that places geometry ([`dts-node-posing.md`](../formats/dts-node-posing.md)):
 
@@ -336,7 +337,7 @@ A block against another **machine** also hurts both of them, through the explosi
 
 ### The structure a machine stands in
 
-Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entry and, for each candidate whose `TargetClass` is 1 (a structure) and whose body radius contains the machine, stores that structure there (`00418fb2`, `00419016`). It is a render-side hand-off, not an aim or lock-on aid: `Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius.
+Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entry and, for each candidate whose target class (`obj+0x1a8`) is 1 (a structure) and whose body radius contains the machine, stores that structure there (`00418fb2`, `00419016`). It is a render-side hand-off, not an aim or lock-on aid: `Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius.
 
 ### The landing
 

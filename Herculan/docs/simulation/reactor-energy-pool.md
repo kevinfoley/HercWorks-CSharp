@@ -58,7 +58,7 @@ Five non-firing pods hang off the weapon-mount factory, filed into a five-pointe
 
 ## Weapon energy arbitration — `WeaponMounts_ArbitrateEnergy` (`004107e4`)
 
-Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`00499238`) and remote (`00499338`) manager classes. Ported in `WeaponMounts.ChargeTick`; the mounts it serves are in [`weapon-mounts.md`](weapon-mounts.md).
+Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`00499238`) and remote (`00499338`) manager classes. The mounts it serves are in [`weapon-mounts.md`](weapon-mounts.md).
 
 - Mounts are served one at a time, highest priority first. Priority is the mount's `+0x7b`, except a mount already mid-charge (`+0x43`) reports 10000 and jumps the queue.
 - The player's selected mount (`manager+0x1d`) is served before the ranking is consulted; the AI passes `-1` and goes straight to the ranking.

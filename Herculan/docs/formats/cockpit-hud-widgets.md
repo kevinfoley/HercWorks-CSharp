@@ -42,7 +42,7 @@ Verified: the heads-down display resolves ids 19, 9, 15, 12 → palette 16, 10, 
 
 **Not every colour number is an id.** The indirection exists for numbers that arrive in a *data file*; a colour a *constructor states as an immediate* is already a palette index and goes nowhere near this table. The weapon panel's raw 32/34/46 (`WeaponChargeBar_Ctor`, `00442950`) are the clearest case, and the scanner screen uses both conventions at once: its contact colours are read out of the table at paint time while its screen background is the literal `0x11` its constructor writes — palette 17, matching the dish art's own corner pixels. Reading such an immediate as an id lands on a believable but wrong colour (`0x11` as an id is palette 24, a mid grey).
 
-Consumers: `PaperDollGraphic.ViewRegion` at record offset `0x14`; `HddDamageScreen_Ctor` (`0045079c`, 4-entry id array at `DAT_0049d9ec`); `HudColorTable_Get` (`00434280`).
+Consumers: the `.PDG` paper doll's regions, colour id at region offset `0x14` ([below](#pdg--paper-doll-damage-diagram)); `HddDamageScreen_Ctor` (`0045079c`, 4-entry id array at `DAT_0049d9ec`); `HudColorTable_Get` (`00434280`).
 
 ## LED gauges
 
@@ -94,7 +94,7 @@ knobBottom(v) = trackBottom - ((v + 0x400) * scale >> 16)     // 00452644
 
 so `+0x400` puts the knob at the top and `-0x400` at the bottom. **Up is forward** — corroborated by `Reference/Simulator1.jpg`, where the knob sits at the track's top while the HUD reads 61 K/H.
 
-The original reaches that convention through two sign flips that cancel: `SliderWidget_GetValueV` (`00452628`) reads the knob's *top* against the track's top, so it returns the negation of what `_SetValueV` was given, and `ThrottleGauge_OnChildValue` (`00447de0`) negates again for the vertical variant (gated on the gauge's `+0xc1 == 0`). Net effect, and what `ThrottleTrack` exposes: positive is forward, linear in knob position.
+The original reaches that convention through two sign flips that cancel: `SliderWidget_GetValueV` (`00452628`) reads the knob's *top* against the track's top, so it returns the negation of what `_SetValueV` was given, and `ThrottleGauge_OnChildValue` (`00447de0`) negates again for the vertical variant (gated on the gauge's `+0xc1 == 0`). Net effect: positive is forward, linear in knob position.
 
 ### Sprites
 
@@ -205,9 +205,9 @@ The chain button's caption is its count in Roman numerals from `ChainCountCaptio
 
 ## `.PDG` — paper-doll damage diagram
 
-`PaperDoll_Load` (`004379cc`, `pdamage.cpp`) matches `PaperDollGraphic` field for field: 3 views, each an origin/size pair plus a vector of `0x1c`-byte regions (`{int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int recolorMode}`).
+`PaperDoll_Load` (`004379cc`, `pdamage.cpp`) reads 3 views, each an origin/size pair plus a vector of `0x1c`-byte regions (`{int index; int left, top; int right, bottom; int colorId; int recolorMode}`).
 
-Coordinates are authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`, with `bottomRight` additionally `+1` in the 640-wide mode, so a region covers the full 2x2 device footprint of each source pixel. Region art comes from `{herc}.HBA`/`.DBA`, frame `n` for view `n`.
+Coordinates are authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`, with the bottom-right corner additionally `+1` in the 640-wide mode, so a region covers the full 2x2 device footprint of each source pixel. Region art comes from `{herc}.HBA`/`.DBA`, frame `n` for view `n`.
 
 The two nameless fields are what makes a region a damage region:
 

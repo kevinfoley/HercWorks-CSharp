@@ -12,17 +12,15 @@ Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` w
 
 **The layout is not `BULLETS.DAT`'s.** The two files share a stride and their first two fields and nothing else; the readers are different functions reading different offsets.
 
-| Offset | Field | Meaning |
-|---|---|---|
-| `+0x00` | `ModelId` | root of `ROCKETS.DTS` |
-| `+0x02` | `Lifetime` | in **ticks** — a plain `+1` counter, not the bullet's `0x200` age units |
-| `+0x04` | *`ClipRadius` in the shared parser* | acceleration, per 125 ms |
-| `+0x06` | *`FrameInterval`* | the shot record's slack, which is what a bullet keeps at `+0x04` |
-| `+0x08` | *`SfxFireIdBullets`* | animation frame interval; 0 = static shape |
-| `+0x0a` | *`Scatter`* | which of the shape's sequences that interval steps |
-| `+0x0c` | `SfxFireIdMissiles` | sound id, played as `id + 10` |
-
-The italicised property names are `ProjMissileDatEntry`'s, which are `BULLETS.DAT`'s, and the shared parser reads neither file's meaning into them.
+| Offset | Meaning |
+|---|---|
+| `+0x00` | model: root of `ROCKETS.DTS` |
+| `+0x02` | lifetime, in **ticks** — a plain `+1` counter, not the bullet's `0x200` age units |
+| `+0x04` | acceleration, per 125 ms |
+| `+0x06` | the shot record's slack, which is what a bullet keeps at `+0x04` |
+| `+0x08` | animation frame interval; 0 = static shape |
+| `+0x0a` | which of the shape's sequences that interval steps |
+| `+0x0c` | fire sound id, played as `id + 10` |
 
 Retail (5 records, one per `Missile` subtype id):
 
@@ -50,7 +48,7 @@ Only the `Type == 0` class is ever built. `Grenade_Construct` (`0040ac3c`) build
 Vtable `+0x14` of `RocketVtable` (`00498448`); draw is `Bullet_Draw`, shared with the bullet class.
 
 1. **Animation.** When `record[+0x08]` is nonzero, a countdown at `+0x5c` steps the shape instance's cell-frame entry for sequence `record[+0x0a]`, modulo the shape's own frame count for that sequence. This is the exhaust flame — see below.
-2. **Age.** `+0x54 += 1`; expire at `record.Lifetime < age`, with no impact of any kind. A rocket burns out, it does not detonate on a timer.
+2. **Age.** `+0x54 += 1`; expire at `record[+0x02] < age` (the lifetime), with no impact of any kind. A rocket burns out, it does not detonate on a timer.
 3. **Burn**, damped: `speed += IntegrateRateOverTick(record[+0x04])`, then averaged with the speed the tick opened at, then capped at the `PROJ.DAT` record's `Speed` (`proj+0x0a`).
 4. **Guidance** — `Rocket_PlayerSteer` when the owner is locally simulated *and* the subtype is 3, `Rocket_HomingSteer` otherwise.
 5. `step = IntegrateRateOverTick(speed)` along the frame's Y axis, then a `Sim_RaycastObjectList` over that step alone with `record[+0x06]` as the shot record's slack — the same sweep-the-segment arrangement a bullet uses. Struck anything and the round ends.

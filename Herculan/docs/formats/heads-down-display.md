@@ -403,7 +403,7 @@ Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. 
 
 ### Who is in it
 
-The machine's own pilot index — `MecEntry.PilotNameIndex`, the leading field of its `player.mec` record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by `DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for the box's name, takes `index / 3` (`FUN_00434240`) as the portrait bank `dba\PILOT<n>.DBA` + `ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`FUN_00434260`) as the voice bank ([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are indexed by the same number.
+The machine's own pilot index — the leading field of its `player.mec` record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by `DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for the box's name, takes `index / 3` (`FUN_00434240`) as the portrait bank `dba\PILOT<n>.DBA` + `ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`FUN_00434260`) as the voice bank ([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are indexed by the same number.
 
 ### The gauge
 

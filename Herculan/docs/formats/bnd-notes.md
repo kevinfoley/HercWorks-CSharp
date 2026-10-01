@@ -2,7 +2,7 @@
 
 83 entries in `SIMVOL0.VOL`'s `bnd\` folder, one per DBSIM subsystem; filenames map to `DBSIM.EXE` translation units (`ACTOR`, `ALERT`, `BULLET`, `CAM`, `DEBRIS`, `FIRE`, `MECH`, `MECHSYS`, `OBJLIST`, `ROCKET`, `TERRAIN`, `TS_PART`, `PWEAPONS`, etc.). Contents are 6–394 bytes; small per-module tuning/config records, not per-entity arrays.
 
-All offsets below are content-relative — the start of what `VolEntry.RawBytes` holds. A copy unpacked by `ES2/VOL/extractVol.py` carries a further nine leading bytes belonging to the archive, not to this format; see [vol-archive.md](vol-archive.md).
+All offsets below are content-relative — the start of the entry's content in the archive. A copy unpacked by `ES2/VOL/extractVol.py` carries a further nine leading bytes belonging to the archive, not to this format; see [vol-archive.md](vol-archive.md).
 
 DBSIM never reads a `.BND` file; see [Build-time-only source format](#build-time-only-source-format--values-compiled-into-dbsimexe-never-read-at-runtime). Decoding the other 82 is shelved for that reason.
 
@@ -14,34 +14,34 @@ There is no envelope, no format marker and no record tag: the first byte of a `.
 
 The Java source (`herc-works-mdk-main/ES2Core/.../data/file/bnd/{Cam,Mech,MechSys,AppInput,MechView}.java`) has **sample-value-annotated byte layouts** for 5 of the 83 files; for `CAM.BND` specifically it accounts for **every byte of the record**:
 
-| Content offset | Field | Real value | C# property |
-|---|---|---|---|
-| 0 | UINT8 | 54 | `Unknown0` |
-| 1 | UINT8 | 208 | `Unknown1` |
-| 2 | UINT8 | 52 | `Unknown2` |
-| 3 | UINT8 | 49 | `Unknown3` |
-| 4-5 | UINT16 LE | 2500 | `Distance1` |
-| 6-7 | UINT16 LE | 30000 | `Distance2` |
-| 8 | UINT8 | 0 | `Blank1` |
-| 9 | UINT8 | 8 | `Unknown4` |
-| 10 | UINT8 | 192 | `Unknown5` |
-| 11 | UINT8 | 0 | `Blank2` |
-| 12 | UINT8 | 0 | `Blank3` |
-| 13 | UINT8 | 4 | `Unknown6` |
-| 14 | UINT8 | 80 | `Unknown7` |
-| 15 | UINT8 | 0 | `Blank4` |
-| 16 | UINT8 | 0 | `Blank5` |
-| 17 | UINT8 | 48 | `Unknown8` |
-| 18 | UINT8 | 38 | `Unknown9` |
-| 19 | UINT8 | 2 | `Unknown10` |
-| 20-21 | UINT16 LE | 500 | `Value3` |
-| 22-23 | UINT16 LE | 8000 | `Value4` |
+| Content offset | Type | Retail value |
+|---|---|---|
+| 0 | UINT8 | 54 |
+| 1 | UINT8 | 208 |
+| 2 | UINT8 | 52 |
+| 3 | UINT8 | 49 |
+| 4-5 | UINT16 LE | 2500 |
+| 6-7 | UINT16 LE | 30000 |
+| 8 | UINT8 | 0 |
+| 9 | UINT8 | 8 |
+| 10 | UINT8 | 192 |
+| 11 | UINT8 | 0 |
+| 12 | UINT8 | 0 |
+| 13 | UINT8 | 4 |
+| 14 | UINT8 | 80 |
+| 15 | UINT8 | 0 |
+| 16 | UINT8 | 0 |
+| 17 | UINT8 | 48 |
+| 18 | UINT8 | 38 |
+| 19 | UINT8 | 2 |
+| 20-21 | UINT16 LE | 500 |
+| 22-23 | UINT16 LE | 8000 |
 
-All 22 numeric fields but one match the Java author's sample values exactly. Offset 14 (`Unknown7`): author's notes say "50" but retail is `0x50` = 80 (likely hex transcription).
+All 22 numeric fields but one match the Java author's sample values exactly. Offset 14: author's notes say "50" but retail is `0x50` = 80 (likely hex transcription).
 
-Implemented as `HercWorks.Core.Data.File.Bnd.Cam` + `HercWorks.Core.Io.Transform.Bnd.CamTransformer`, registered in `TransformerRegistry` by exact file name (`CAM.BND` — every other `.BND` file has an unrelated record shape). Round-trips byte-exact against real retail `CAM.BND`.
+Every other `.BND` file has an unrelated record shape.
 
-`Unknown3` (49 = ASCII `'1'`) appears at the same offset in `CAM`, `MECH` and `MECHSYS`. What the fields mean is [Open](#open).
+Offset 3 (49 = ASCII `'1'`) appears at the same offset in `CAM`, `MECH` and `MECHSYS`. What the fields mean is [Open](#open).
 
 **Other Java-annotated files** (`MECH.BND`, `MECHSYS.BND`, `AppInput.BND`, `MechView.BND`):
 - `MECH.BND`: first 8 bytes match Java notes exactly (242, 164, 51, 49, 12, 0, 42, 0); bytes 8+ diverge. Record 394 bytes total; the Java notes document the first 16.
@@ -70,10 +70,10 @@ Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) a
 
 ## Open
 
-- **Open:** what `CAM.BND`'s fields mean. `Distance1`/`Distance2`/`Value3`/`Value4` (2500, 30000, 500, 8000) may be camera near/far or zoom-range values; `Unknown3`, shared with `MECH` and `MECHSYS`, may be a format sub-version byte. Matching them to immediates in DBSIM's camera code would settle both.
+- **Open:** what `CAM.BND`'s fields mean. the four 16-bit fields at offsets 4, 6, 20 and 22 (2500, 30000, 500, 8000) may be camera near/far or zoom-range values; offset 3, shared with `MECH` and `MECHSYS`, may be a format sub-version byte. Matching them to immediates in DBSIM's camera code would settle both.
 - **Open:** the layouts of the other 82 files, shelved because the game never reads them. `MECH.BND` looks like a per-mech-type array from about offset 8; `MECHSYS.BND`'s decreasing 75…6 run looks like distance or LOD tiers. If resumed:
   - Only 5 of 83 files have Java source doc comments (`Cam`, `Mech`, `MechSys`, `AppInput`, `MechView`). Check `herc-works-mdk-main/ES2Core/.../data/file/bnd/*.java` before hex-diffing.
-  - `CAM.BND` is the template: `HercWorks.Core.Data.File.Bnd.Cam` + `Io.Transform.Bnd.CamTransformer`.
+  - `CAM.BND`'s layout above is the template.
   - Group the rest by payload length and diff within a family (`P*.BND` cockpit panels, `*_ALRT.BND` alert configs) — the approach that decoded `.DCI`.
   - Cross-reference fields against the per-subsystem constants in `dbsim-physics-notes.md`, `damage-system.md` and `weapon-damage-types.md`, the technique that established the format is build-time-only.
 - **Open:** write the `PWEAPONS.BND` range breakpoints (120, 360, 180, 1800) up in [`../simulation/weapon-damage-types.md`](../simulation/weapon-damage-types.md) with the code that uses them.

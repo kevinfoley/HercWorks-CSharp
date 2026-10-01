@@ -5,7 +5,8 @@ namespace HercWorks.Core.Io.Transform.Bnd;
 
 /// <summary>
 /// Transforms byte[] data to and from CAM.BND (see <see cref="Cam"/>). Matches this one file by
-/// name (see <see cref="TransformerRegistry"/>): every other .BND file has its own record shape.
+/// name (see <see cref="TransformerRegistry"/>): every other .BND file has its own record shape. Round-trips
+/// the retail file byte-exact.
 ///
 /// <para>Reads the entry's content, offset 0 first. A loose <c>.BND</c> unpacked with a tool that
 /// keeps the VOL entry prefix carries nine extra leading bytes that are no part of the format —

@@ -89,7 +89,7 @@ bank = Q16(-turn, 2500) + Q16(bankTurnRate, 32000) + Q16(rollRate, -5000)
 
 where `bankTurnRate` is `flyer+0x287` — the heading rate the current bank is already producing, which is the term that stops a turn once it is actually coming round. Three arms follow:
 
-- Past the chassis' `MaxBankAngle` (type record `+0x0e`, 14000 on `SKIMMER`) less a 1500 hysteresis band, and only in the direction that would take it further over, the aircraft is **held at the limit**.
+- Past the chassis' bank limit (type record `+0x0e`, 14000 on `SKIMMER`) less a 1500 hysteresis band, and only in the direction that would take it further over, the aircraft is **held at the limit**.
 - A steering command **under 2000** is answered with rudder (`Q16(-turn, 4000)`) and level wings rather than a bank at all — and the rudder is refused while the roll is still over 800, so the wings come level first.
 - Anything larger is flown as a bank.
 

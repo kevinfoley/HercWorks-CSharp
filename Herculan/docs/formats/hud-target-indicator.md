@@ -16,7 +16,7 @@ The 38-byte state block, offsets from the gunsight's `+0xb1` and from a child's 
 |---|---|
 | 0, 2, 4 | Machine heading, turret twist, turret pitch |
 | 6 | Selected object, or 0 |
-| 10, 14, 18 | Its world aim point (`SimObject.AimPoint`) |
+| 10, 14, 18 | Its world aim point |
 | 22 | The target's own heading |
 | 24 | Whether a Targeting Pod has singled out a component — `CockpitView+0x27c`, the pod's **present flag**. The component id beside it at `+0x27e` never reaches the gunsight; only the MFD reads that |
 | 28 | The target's shape radius (vtable `+0x10`), which sizes the box |
@@ -74,7 +74,7 @@ The brackets and ticks are drawn only when state-block offset 24 is 0. A Targeti
 
 ### The arrow
 
-Drawn when the projected point is not inside the `.GAU`'s gunsight area (offset 1148, `GAUFile.GunsightArea`) — or whenever the target is behind. Every retail file places that rect well inside the canopy's window opening, which is what keeps the arrow off the cockpit frame:
+Drawn when the projected point is not inside the `.GAU`'s gunsight area (offset 1148) — or whenever the target is behind. Every retail file places that rect well inside the canopy's window opening, which is what keeps the arrow off the cockpit frame:
 
 | Herc | Area | Herc | Area |
 |---|---|---|---|

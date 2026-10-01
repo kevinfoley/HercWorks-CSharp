@@ -73,7 +73,7 @@ That also puts rank 0 in its place: `MFAC` is unbuyable because it has no panel,
 
 ## WEAPONS.BIN — weapon name strings (fully confirmed, byte-exact)
 
-Lives in `ES2/VOL/LANG0.VOL` (one copy per language folder: `ENG`, `FRE`, `GER`) — **not** in `SHELL0.VOL` alongside `WEAPONS.DAT` itself, which is why it's easy to miss when only looking at the loose-extracted `SHELL0/GAM/` tree. Extract via `HercWorks.Vol.Io.VolFileReader.ParseVolFile`.
+Lives in `ES2/VOL/LANG0.VOL` (one copy per language folder: `ENG`, `FRE`, `GER`) — **not** in `SHELL0.VOL` alongside `WEAPONS.DAT` itself, which is why it's easy to miss when only looking at the loose-extracted `SHELL0/GAM/` tree.
 
 Verified byte-exact against all 3 language copies (identical; weapon names not localized):
 

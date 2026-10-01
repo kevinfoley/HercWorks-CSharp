@@ -29,7 +29,7 @@ FUN_0048c338((undefined2 *)out);                                        // insta
 
 A negative transform id skips the composition and leaves the object-to-view transform standing.
 
-`TSBasePart.Transform` at offset `+4` is the same field `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) and the cockpit eye resolve `CameraBoneId` through — one field, one meaning, geometry and named nodes alike.
+`TSBasePart.Transform` at offset `+4` is the same field `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) and the cockpit eye resolve the mech type record's camera node (`typeRec+0x0c`) through — one field, one meaning, geometry and named nodes alike.
 
 ## Keyframe interpolation
 
@@ -70,7 +70,7 @@ A HERC registers three, in the order `Mech_Constructor` builds them — locomoti
 
 All 18 retail HERCs: geometry occupies **11 groups**, on transform ids **1-11**, out of 12 nodes (13 for MONGOOSE and HEADHUNT). Transform 0 carries sequence root motion and never places geometry.
 
-**No node in any retail HERC has a rotation in its rest pose.** Every entry `ANAnimList.DefaultTransforms` points at has all three euler shorts zero, fleet-wide. Rotation is something an *animated* node acquires; a rest pose is pure translation.
+**No node in any retail HERC has a rotation in its rest pose.** Every entry the `ANAnimList`'s default transforms point at has all three euler shorts zero, fleet-wide. Rotation is something an *animated* node acquires; a rest pose is pure translation.
 
 ## Cyclic and one-shot sequences
 
@@ -83,4 +83,4 @@ An animation list holds two kinds of sequence, and the difference is the **chunk
 
 The clamp is what makes a one-shot observable: `frame == nextFrame` is true only on a played-out non-cyclic sequence, and that equality is the sole end-of-sequence test in the simulation. See [`mech-locomotion.md`](../simulation/mech-locomotion.md#going-down).
 
-**Every retail chassis carries exactly one one-shot**, and its own `AnimId_Death` names it: index 7 on the 18 bipeds, 2 on the PITBULL, 1 on the SPIDER. The RAZOR's list holds a single sequence and its `AnimId_Death` of 7 is out of range, which never bites because a flyer has no locomotion thread.
+**Every retail chassis carries exactly one one-shot**, and its own death sequence (mech type record offset 68) names it: index 7 on the 18 bipeds, 2 on the PITBULL, 1 on the SPIDER. The RAZOR's list holds a single sequence and its death sequence of 7 is out of range, which never bites because a flyer has no locomotion thread.

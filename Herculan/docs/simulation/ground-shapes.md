@@ -45,7 +45,7 @@ The same entries drive the footfalls: the byte at `+0x72` is also the entry's ki
 | PITBULL | 0, 0, 0, 0 | 14, 15, 22, 23 |
 | SPIDER | none | — |
 
-So a biped casts three shadows: one under each foot and one under part 12, its body. The count is the list's, not `LegCount` (`typeRec+0x4a`, 2 on a biped).
+So a biped casts three shadows: one under each foot and one under part 12, its body. The count is the list's, not the leg count (`typeRec+0x4a`, 2 on a biped).
 
 **Placement** is the first half of each pass of `Mech_PlaceLegsOnGround`'s loop (`004195c8`), run from `Mech_MovementTick` and `Mech_BehaviourRamTick` every movement tick. For each entry still holding a shadow it resolves the part's node through the shape instance, puts the node's translation through the machine's frame (`Transform_ApplyToPoint`) into the shadow's position, copies the machine's heading (euler `+0x10`) and clears the shadow's matrix-valid flag. That runs for every entry whatever the machine is doing; the footfall tests after it are the loop's other half ([`mech-locomotion.md`](mech-locomotion.md)). The draw then presses each shadow onto the ground under its part, so the shadows follow the feet and the body through a walk, a fall and the wreck.
 
@@ -81,7 +81,7 @@ Deletion goes through `g_FlatObjDeleteQueue`. `Sim_FlushDeleteQueue` (`00409904`
 |---|---|
 | `EXPLOS.DAT`'s `+0x04` attaches a trail object at `effect+0x4f` | It lays a `FlatObj` on the ground: root 1 of the flat set, stepped with the effect and deleted with it |
 | `mech+0x238` holds a HERC's legs as child objects | They are its shadows, `FlatObj`s drawn from the flat set; the legs are nodes of the machine's own shape |
-| The HERC part list runs for `LegCount` entries | `Mech_Constructor` counts to the list's first negative byte: three on a biped, the third the body's |
+| The HERC part list runs for the leg count's (`typeRec+0x4a`) entries | `Mech_Constructor` counts to the list's first negative byte: three on a biped, the third the body's |
 | `SimObject_ConformToTerrain` is the ground vehicle's alone | `FlatObj_Draw` calls it on every ground shape it draws |
 | A shadow lies on the terrain's surface, so it only has to beat the ground under it by a little depth | It is a flat plane through four ground samples, and on uneven ground it passes under the terrain and over it. What keeps it visible is the paint order: it is drawn after its own cell's ground and before every nearer cell's |
 

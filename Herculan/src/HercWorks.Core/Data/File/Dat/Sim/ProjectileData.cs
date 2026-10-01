@@ -18,32 +18,8 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// <c>SHLD</c>, <c>TURB</c>, <c>ENRG</c>) carry an all-zero placeholder template whose mount
 /// constructors never consume the index 0 it reads. See docs/simulation/weapon-mounts.md.</para>
 ///
-/// <para>Retail index table:</para>
-///
-/// | idx | Weapon | Type | MissileId | DmgShield | DmgArmor | Splash | Speed |
-/// |---|---|---|---|---|---|---|---|
-/// | 0 | ATC20 | Bullet | 0 | 60 | 360 | 0 | 5000 |
-/// | 1 | ATC35 | Bullet | 1 | 120 | 480 | 0 | 5000 |
-/// | 2 | ATC50 | Bullet | 2 | 180 | 600 | 0 | 5000 |
-/// | 3 | L100 | Beam | 3 | 1500 | 600 | 0 | 0 |
-/// | 4 | L200 | Beam | 4 | 1800 | 960 | 0 | 0 |
-/// | 5 | L300 | Beam | 5 | 2000 | 1200 | 0 | 0 |
-/// | 6 | EMPC | Bullet | 6 | 2000 | 400 | 0 | 2000 |
-/// | 7-9 | (unreachable) | Grenade | 0-2 | 1000 | 1000 | 500-1000 | 1000 |
-/// | 10-13 | MSL6/8/10, FLYMSL (by ammunition type) | Missile | 0-3 | 400 | 1600 | 500 | 6000 |
-/// | 14 | PBW | Beam | 0 | 1000 | 1000 | 0 | 0 |
-/// | 15 | ELFW | Beam | 1 | 150 | 200 | 0 | 0 |
-/// | 16 | BEMP | Bullet | 7 | 8000 | 2000 | 0 | 2000 |
-/// | 17 | BPBW | Beam | 2 | 4000 | 4000 | 0 | 0 |
-/// | 18 | BMSL | Missile | 4 | 3000 | 7200 | 500 | 6000 |
-/// | 19 | EMP2 | Bullet | 8 | 2000 | 400 | 0 | 2000 |
-/// | 20 | PBW2 | Beam | 6 | 1400 | 1400 | 0 | 0 |
-/// | 21 | ELF2 | Beam | 7 | 200 | 300 | 0 | 0 |
-/// | 22 | PLAS, MFAC | Bullet | 9 | 3000 | 3000 | 1000 | 1000 |
-/// | 23 | ATC75 | Bullet | 1 | 220 | 700 | 0 | 5000 |
-/// | 24 | ATC100 | Bullet | 2 | 260 | 800 | 0 | 5000 |
-/// | 25 | L400 | Beam | 4 | 3000 | 1920 | 0 | 0 |
-/// | 26 | L500 | Beam | 5 | 3000 | 2000 | 0 | 0 |
+/// <para>The retail records, index by index, are tabulated in
+/// docs/simulation/weapon-damage-types.md#the-retail-records.</para>
 ///
 /// <para><b>Damage scaling.</b> A shot's power level — the capacitor charge it was fired at,
 /// <c>min(template+0x38, mount+0x7d)</c> — is Q10-multiplied against DamageShield before shield
@@ -59,10 +35,6 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// EMP-shaped high-shield entries: real flight time, and <see cref="Projectile.SplashFactor"/> 0
 /// throughout — except one. <c>Missile</c> (0) is the splash-capable guided weapon; <c>Grenade</c>
 /// (3) is a cut class whose records are never looked up.</para>
-///
-/// <para>Weapon names above are the shell catalog's (<see cref="WeaponLUT"/>), not DBSIM's own —
-/// index 22's two claimants are catalog ids 25 (<c>PLAS</c>) and 28 (<c>MFAC</c>, which the
-/// simulator's name table calls <c>MAGN</c>).</para>
 ///
 /// <para><b>The Plasma cannon is index 22</b>, the single <c>Bullet</c> record that breaks the
 /// no-splash rule (<see cref="Projectile.MissileId"/> 9, 3000/3000, SplashFactor 1000). DBSIM's

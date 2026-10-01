@@ -119,9 +119,7 @@ After the 9-byte VOL prefix: `int32 viewCount`, then `viewCount x` 8 `int32`s. A
 | 4-5 | Projection centre, `cx, cy` — **stored negated**, see below |
 | 6-7 | Canvas origin `originX, originY` |
 
-C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the above; they were `WidthMax`/`UnkOfs*` pre-RE guesses). Engine wrapper: `Content.CockpitViewGeometry`.
-
-The rect is the **outer bound** on where the 3D scene may reach, and the `.HD<n>` scanline spans below are the canopy-shaped hole inside it: two mechanisms over one view, both applied. `Content.CockpitViewGeometry.WorldViewport` reads it, and the host draws each panel's whole 3D pass — sky, world, beams, sprites — under a GL scissor set from it, before the canopy quad goes over the top with the spans already punched into its alpha. The two agree on retail data (`APOCA.HD0` resolves to rows 0-371 against a rect of `0,0 - 640,372`), so the scissor changes nothing that is visible on a herc whose canopy is opaque outside its rect — which is what makes the spans sufficient on their own and the rect easy to miss.
+The rect is the **outer bound** on where the 3D scene may reach, and the `.HD<n>` scanline spans below are the canopy-shaped hole inside it: two mechanisms over one view, both applied to the whole 3D pass. The two agree on retail data (`APOCA.HD0` resolves to rows 0-371 against a rect of `0,0 - 640,372` in the 640-wide modes), so the rect changes nothing that is visible on a herc whose canopy is opaque outside its rect — which is what makes the spans sufficient on their own and the rect easy to miss.
 
 The two glances share a canopy bitmap but not a rect: view 3's runs the full width where view 2's stops short of it, on every retail herc.
 
@@ -153,15 +151,13 @@ Every retail rect starts at `(0,0)`, so the centre in a view's own window is `-(
 
 For the glances the canvas origin does not cancel. View 2, origin `+320`, gets its centre at x = `160 - 320 = -160` authored — 160 columns left of its own window, which is exactly where the forward view's centre sits when the forward window is placed immediately left of it on the canvas. View 3, origin `-320`, gets `160 + 320 = 480`, the same point seen from the other side. With the same focal length and no change of orientation (the yaw turn in `CockpitView_ProcessViewCommand` does not run; see [Rejected readings](#rejected-readings)), the forward view and both glances are three windows onto **one** perspective image 960 columns wide authored: the glances are the forward view's image plane continued sideways, not cameras turned to face sideways. That is why the retail side views stretch towards their outer edges the way a very wide lens does.
 
-`Raster_InstallViewProjection` (`0048c1d8`) also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the back buffer's width (`DAT_004d30c4`, a copy of `VideoMode_BackBufferWidth`; see [Video modes](#video-modes)) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
-
-Engine: `Content.CockpitViewGeometry.ProjectionCenter`, applied via `Render.Camera.PrincipalPoint` as an off-centre frustum.
+`Raster_InstallViewProjection` (`0048c1d8`) also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the back buffer's width (`DAT_004d30c4`, a copy of `VideoMode_BackBufferWidth`; see [Video modes](#video-modes)) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical.
 
 ### Cockpit canvas
 
 `CockpitCanvasWidth`/`Height` (`004d25d2`/`004d25d6`) are 320x480 in mode 0 and 640x960 in modes 1/2 — taller and wider than the 3D viewport (`004d25c2`/`004d25c6` = 320x240 / 640x480). The canvas is a virtual space the views window into at their `.VUE` origins: rows 0-239 the forward cockpit, rows 237-476 the heads-down display, x ±320 the side views.
 
-**No retail `.GAU` uses more than the forward quadrant.** Widget origins across all nine hercs span `x:[3..298] y:[1..230]`, so the declared `HudScreenSize` of (320,400) overstates the used range and the side views have no widgets of their own.
+**No retail `.GAU` uses more than the forward quadrant.** Widget origins across all nine hercs span `x:[3..298] y:[1..230]`, so the screen size the `.GAU` header declares at offset 8, (320,400), overstates the used range and the side views have no widgets of their own.
 
 ## `.HD0`-`.HD3` / `.ED0`-`.ED3` — 3D-viewport clip regions
 

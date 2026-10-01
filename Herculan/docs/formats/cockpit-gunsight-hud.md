@@ -18,10 +18,10 @@ Its own ints:
 | `[8]`,`[0xa]`,`[0xb]` | 1120, 1128, 1132 | Speed and time readout anchors — see below |
 | `[0xc]`,`[0xd]` | 1136, 1140 | Reticle point |
 | `[0xe]` | 1144 | Half-extent of child 4's rect about the reticle point. Zero in all 9 retail files, and unread by that child's paint |
-| `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 — `GAUFile.GunsightArea`, the target arrow's safe area |
+| `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 — the gunsight area, the target arrow's safe area |
 | `[0x13..0x16]` | 1164-1179 | The **`ATT` legend's** rect — see below |
 | `[0x17..0x1a]` | 1180-1195 | A second label of the same kind, at the widget's `+0x107`. Neither gunsight paint reaches it |
-| `[0x1b]`,`[0x1c]` | 1196, 1200 | Top-left of the floating scanner repeater — `GAUFile.HudScanner`, a bare point with no size. Per herc; see [`mfd-scanner.md`](mfd-scanner.md) |
+| `[0x1b]`,`[0x1c]` | 1196, 1200 | Top-left of the floating scanner repeater, a bare point with no size. Per herc; see [`mfd-scanner.md`](mfd-scanner.md) |
 
 The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend** — see [below](#the-att-legend).
 
@@ -148,8 +148,6 @@ Captions use `ColorSchemePanels[16]` (`HUD2`, ink 73) and values `[17]` (`HUD3`,
 The manual's upper-left indicator that Automatic Turret Tracking is on. Its label is built over the rect at 1164 — 24x7 in every retail file, `68,0 - 92,7` on most hercs, `60,0` on OGRE, `30,0` on SAMSON and `60,67` on RAZOR — centred (`Label_SetRect` flag 2) with no margin.
 
 Both `Gunsight_Paint` and `Gunsight_UpdateAndPaint` test the console button panel's auto-track latch (`CockpitView+0x1e1`, byte `+0xb3` — the flag `ConsoleButtons_GetStateBlock` copies into the mount manager's `+0x14`) after the child loop. While it is set they blit `HUD` frame 14, a 50x16 plate, at the rect's top-left, then set the label's text to `STRINGS0.STR` group 37 entry 0, `ATT`. While it is clear nothing is drawn. The tracker itself: [`../simulation/torso-aim.md`](../simulation/torso-aim.md#automatic-turret-tracking--t).
-
-Engine: `GAUFile.AutoTrackLegend`, drawn by `Overlay2DRenderer.AddAutoTrackLegend`.
 
 ## Open
 

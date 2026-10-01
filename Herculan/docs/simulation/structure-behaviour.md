@@ -244,4 +244,4 @@ Spawn-time health comes from the block-9 record's `param_1[0x19]`: `<0` or `100`
 - **Unported:** the kill credit a destroyed structure hands its attacker (vtable `+0x60`).
 - **Unported:** spawn-time component health from the mission record.
 - **Open:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when none of them reaches a tick that fires it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
-- **Open:** the ground vehicle follower arm has no mission exercising a second mobile vehicle to hold station on; confirm it once `MissionLoader` can load the campaign's `.MSN` files directly instead of only the `script.dat` handoff.
+- **Open:** the ground vehicle follower arm: no `script.dat` handoff examined places a second mobile vehicle for it to hold station on. The campaign's `.MSN` files are where to look for one.

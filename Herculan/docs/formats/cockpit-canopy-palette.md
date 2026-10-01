@@ -12,7 +12,7 @@ The view manager that loads this art per view, and the `.HD`/`.ED` viewport cuto
 
 No literal `"hb0"`/`"db0"` string exists anywhere in `DBSIM.EXE`. The folder name is built at runtime: the global folder literal `"dba"` (or `"hba"` when `VideoMode_PanelMode == 3`) is copied to a stack buffer and index 2 overwritten with an ASCII digit via `_itoa`, giving `db0`/`db1`/`db2` or `hb0`/`hb1`/`hb2`. Then `ResourcePath_BuildFolderName(hercName, buf)` → `ClassItem_LoadResource`. The same trick produces `ed<i>`/`hd<i>` from `"edg"`/`"hdg"` — see [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions).
 
-Files are `DynamixBitmapArray`s with one frame: `.DB*` 320x240 (76844 bytes), `.HB*` 640x480 (307244).
+Files are Dynamix bitmap arrays ([`dfn-hfn-dci.md`](dfn-hfn-dci.md)) with one frame: `.DB*` 320x240 (76844 bytes), `.HB*` 640x480 (307244).
 
 `CockpitCanopy_FreeViewBitmap` (`00429de4`) releases one view's handle, also nulling slot 3 when freeing view 2. Used only when `CockpitArt_LoadOnDemand` (`004d2704`) is set — a low-memory mode that loads and frees per view switch rather than keeping all four resident.
 
@@ -45,7 +45,7 @@ Palette_InstallRange(0x2a, 0x18, COCKPIT.DPL.entries + (schemeIndex*0x18 + 0x20)
 
 Live slots **42-65** ← `COCKPIT.DPL` entries `[32 + 24*schemeIndex, +24)`. No other site installs `COCKPIT.DPL`; its remaining 232 entries are never read.
 
-`schemeIndex` is the mech type record's `+0x52`, i.e. **offset 80 of `dat\<MECH>.DAT`** — `HercSimDat.CockpitColorScheme`. Retail values are a 0-8 permutation over the nine player hercs, so the nine schemes tile `COCKPIT.DPL` entries 32-247 exactly:
+`schemeIndex` is the mech type record's `+0x52`, i.e. **offset 80 of `dat\<MECH>.DAT`** ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#mech-type-record)). Retail values are a 0-8 permutation over the nine player hercs, so the nine schemes tile `COCKPIT.DPL` entries 32-247 exactly:
 
 | Herc | scheme | COCKPIT.DPL entries |
 |---|---|---|
@@ -123,28 +123,9 @@ The flash is a whole-palette swap rather than a fade: `Palette_ActivateImpact` (
 
 Its two triggers are both damage: a direct-fire hit on either of the player's own **cockpit** components while that component still reads under `0x64` damaged ([`../simulation/damage-system.md`](../simulation/damage-system.md#direct-fire-damage-armor-then-part-deterministic-shield-gated)), and the landing at the bottom of a long slide ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#the-landing)). The first is gated and sits inside that function's band-change branch, so a shot that only scuffs the cockpit's armour is not felt; the second is ungated.
 
-**Both halves are ported.** `Render/CockpitHitShake.cs` is the band, its walk and the flash's timer, driven off `MechObject.CockpitHits` the way the step kick is driven off `Footfalls`; the host folds the offset into the projection centre beside the kick's and follows `FlashActive` into the palette.
+Because the swap is of the whole palette, everything drawn through it flashes: the world, the canopy and the HUD. Twenty of `COLORS.DAT`'s twenty-seven entries move under a retail impact palette, and they move a long way — HUD green `(64,212,40)` becomes orange `(208,92,0)`, white `(228,228,228)` becomes `(252,0,0)`.
 
-The flash is a swap between two prebuilt sets rather than a live palette write, because this renderer resolves the palette when it loads rather than per pixel. `Scene.ImpactFlash` carries the theater's two shade-ramp lookup textures and its sky and fog colours rebuilt against `IMPACT<n>.DPL`, and `CockpitFrame.ImpactPixels` carries the canopy art decoded a second time through `IMPACT<n>.DPL` + `IMPACTCP.DPL`. Both are built once with the scene.
-
-`TSSolidPoly` follows the swap too, and by the same table. Its surface value is a palette index and its colour is `rampRow(UnlitShade)[index]` — **one fixed row of that same `PaletteRampTable`**, read at `ShadeRamp.UnlitShade`'s row in slice 0 rather than at the light's. So the index travels on the vertex (`MeshVertex.SolidPaletteIndex`) and the lookup happens per fragment, exactly as it does for a lit textured texel. The outline pass carries its line entry's index the same way. `DtsMeshBuilder.ResolveSolidColors` still resolves the colour and it still rides on the vertex, but only as the fallback for a theater whose palette ramp did not load.
-
-**The two lookups are the same byte**, which is what makes moving it safe rather than a recolouring: compared over every palette index of all ten theaters, through both the ordinary palette and the impact one, the table row and the baked colour agree on all 5120 pairs.
-
-The class is small overall — 2.8% of the triangle vertices across the 55 retail `.DTS` files — but it is not spread evenly, and where it lands is combat geometry:
-
-| | flat-solid share |
-|---|---|
-| `ROCKETS`, `METEOR` | 100% |
-| `FLAT2` | 90% |
-| `BULLETS` | 66% |
-| fitted weapon models (`MECHWPNS`, `MECHWPN2`) | 11-13% |
-| machines, structures and the rest | 1.5% |
-| debris (`*_DEB`) | 0.2% |
-
-The HUD follows it too, in three parts, because its colour is resolved from the palette in three different ways: `CockpitArt` resolves `COLORS.DAT`'s ids and the raw palette slots into tables at load, so it holds **two** sets and `CockpitArt.FlashActive` picks between them; the sprite sheet's plates and glyphs are re-expanded from `TextureAtlas.IndexPixels` through the flash palette; and the heads-down map's relief raster is rasterized a second time, since it resolves its colours up front rather than per draw. Twenty of `COLORS.DAT`'s twenty-seven entries move under a retail impact palette, and they move a long way — HUD green `(64,212,40)` becomes orange `(208,92,0)`, white `(228,228,228)` becomes `(252,0,0)` — so a HUD that kept its colours would be the one part of the screen visibly refusing to flash.
-
-The shield meter's rings are the deliberate exception. Their six colours are immediates in the exe (`0049c9cb`/`0049c9ce`) that `ShieldsGauge` writes into whichever palette is active on every frame, so they read the same through a flash.
+The shield meter's rings are the exception. Their six colours are immediates in the exe (`0049c9cb`/`0049c9ce`) that `ShieldsGauge` writes into whichever palette is active on every frame, so they read the same through a flash.
 
 ## Rejected readings
 

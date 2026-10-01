@@ -18,7 +18,9 @@ namespace HercWorks.Core.Io.Transform;
 ///
 /// HercSimDataTransformer's target ("dat\[herc].dat") can't be distinguished from other .DAT
 /// files by name/path, so it's matched instead by the 4-byte VolEntry.MagicPrefix observed on
-/// real herc data files: 41 20 00 7A or 41 20 01 7A.
+/// real herc data files: 41 20 00 7A or 41 20 01 7A. Those bytes are the source files' MS-DOS
+/// date and time (docs/formats/vol-archive.md), so the match holds only for unmodified retail
+/// archives.
 /// </summary>
 public static class TransformerRegistry {
 	private sealed record Registration(string Label, Func<VolEntry, bool> Matches, Func<ThreeSpaceByteTransformer> Create);

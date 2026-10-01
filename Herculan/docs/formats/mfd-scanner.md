@@ -141,7 +141,7 @@ It reaches the scanner screen object through `CockpitView+0x1ed`'s `+0xd9`, call
 
 ### Geometry
 
-Top-left is **`.GAU` offset 1196/1200** (`GAUFile.HudScanner`), two more ints of the gunsight block that `Gau_RovingGunsightWidget` reads into the widget at `+0x10b`/`+0x10f`. Position is per herc:
+Top-left is **`.GAU` offset 1196/1200**, two more ints of the gunsight block that `Gau_RovingGunsightWidget` reads into the widget at `+0x10b`/`+0x10f`. Position is per herc:
 
 | Herc | Point | Herc | Point |
 |---|---|---|---|

@@ -10,6 +10,11 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// <see cref="WriteMissionText"/> is <c>MissionStr_Write</c> (<c>004179f0</c>). What the rows mean, and the condition,
 /// variant and merge rules, are docs/formats/msn-mission-file.md's.
 ///
+/// <para>Loads all 62 retail missions. At the generator state docs/shell/campaign-loop.md, "The
+/// shell's generator", describes, it reproduces two retail training handoffs of TRAIN5 — each a
+/// <c>script11.dat</c> and <c>missn11.str</c> that retail wrote to save slot 11 — byte for byte
+/// through their content.</para>
+///
 /// <para><b>This is not <see cref="MissionFileTransformer"/>'s job.</b> That transformer round-trips
 /// a file for editing; this is the game's own load, which filters, merges and renumbers as it reads —
 /// a nested waypoint list is resolved against the points loaded so far before its own record's

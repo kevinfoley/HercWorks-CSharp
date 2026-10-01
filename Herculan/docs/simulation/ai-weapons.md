@@ -8,7 +8,7 @@ What an AI machine does once it has something to shoot at: bring the turret onto
 
 `Ai_AimAndFire(mech, aspect, target)` is the last thing every fighting state does ([`ai-combat-states.md`](ai-combat-states.md#the-shape-they-share)), and `travelling` and `following` call it too — **a walking machine shoots at whatever it is watching**, without ever making it a selected target. A null `target` means `mech+0x1a4`.
 
-Its whole body is a switch on the target's `TargetClass` (`obj+0x1a8`, [`target-selection.md`](target-selection.md)), choosing where on the target to put the shot:
+Its whole body is a switch on the target's target class (`obj+0x1a8`, [`target-selection.md`](target-selection.md)), choosing where on the target to put the shot:
 
 | Class | Aim point |
 |---|---|
@@ -60,7 +60,7 @@ Six things it settles.
 
 **Aiming happens whether or not anything fires.** The turret is slewed on the tick a weapon is chosen and on the tick none is, so the AI tracks continuously and shoots intermittently.
 
-**Only a gun waits for the turret.** `AmmoType` 5 is `WeaponMount_GetAmmoType`'s "not a launcher" ([`weapon-mounts.md`](weapon-mounts.md)); those fire only once the residual aim error is inside 1000 BAM (5.5°) in *both* axes. A launcher fires the moment it is chosen — the round steers itself, so pointing it is enough.
+**Only a gun waits for the turret.** Ammunition type 5 is `WeaponMount_GetAmmoType`'s "not a launcher" ([`weapon-mounts.md`](weapon-mounts.md)); those fire only once the residual aim error is inside 1000 BAM (5.5°) in *both* axes. A launcher fires the moment it is chosen — the round steers itself, so pointing it is enough.
 
 **Only a travelling shot gets a lead.** `range × targetSpeed ÷ projectileSpeed` along the target's own heading, from the `PROJ.DAT` record's `Speed` at `+0x0a`. A `Beam` record carries speed 0 and so takes no lead, which is right; a structure returns speed 0 from vtable `+0x38` and takes none either.
 

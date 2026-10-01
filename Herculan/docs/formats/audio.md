@@ -353,7 +353,7 @@ if (mech+0x1f2 -> +0x50 != 0):
 
 The engine hum is not started at its recorded rate: it is dropped to roughly two thirds of it immediately, which is what turns the sample into a hum rather than a whine. It loops for the rest of the mission — attribute byte 0 is 0 — and follows its machine through `Sound_UpdatePosition`. <!-- doc-lint: ok -->
 
-**The hum belongs to the flyer, not to a HERC.** The gate is type record `+0x50`, which is file offset 78, `FlyerFlag`, set on the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). A walking HERC powers up with `start3` and nothing else; its running noise is its footsteps.
+**The hum belongs to the flyer, not to a HERC.** The gate is type record `+0x50`, which is file offset 78, the flyer flag, set on the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). A walking HERC powers up with `start3` and nothing else; its running noise is its footsteps.
 
 ### Sounds a cockpit control makes
 
@@ -416,7 +416,7 @@ The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the las
 | Attribute byte 2 is "looping" | It is the preload flag; `Sfx_Cache` is a load call, not a play call. Looping is byte 0. |
 | The `battle1.wav` entries are the real music | The file ships in no archive. The ten slots are a stub; music is Red Book CD audio through MCI. |
 | A `.wav` name resolves under one directory | It resolves under `HMI\` or `HMX\` depending on the low-memory flag, and the two banks are not identical — `EXPLO5.WAV` is missing from `HMX\`. |
-| `herceng1` is the HERC engine hum | The name says so and the sample is one, but the only thing that starts it gates on type record `+0x50` — `FlyerFlag`, the RAZOR. A walking HERC never plays it. |
+| `herceng1` is the HERC engine hum | The name says so and the sample is one, but the only thing that starts it gates on type record `+0x50` — the flyer flag, the RAZOR. A walking HERC never plays it. |
 | One voice per catalog id means one copy of that sound at a time | The voice record is bookkeeping, not a hardware channel. `Sfx_Play` starts a fresh `sosDIGIStartSample` every call without testing the `0x100` playing flag, so the copies overlap — see [A repeated play layers; it does not restart](#a-repeated-play-layers-it-does-not-restart). |
 
 ## Open

@@ -33,8 +33,10 @@ public class VolEntry : DataFile {
 
 	/// <summary>
 	/// The single byte the archive stores after this entry's content, before the next entry's
-	/// prefix. It repeats the content's last byte and is outside the declared size, so nothing
-	/// reads it; round-tripped rather than reconstructed.
+	/// prefix. It repeats the content's last byte and is outside the declared size; VSHELL's
+	/// stream read copies it on a read that runs past the content. Round-tripped rather than
+	/// reconstructed, as are the writers' (<see cref="VolEntryPrefixCodec"/>,
+	/// <c>VolFileWriter</c>, <c>VolFileCompiler</c>).
 	/// </summary>
 	public byte[]? UnknownEoFByte { get; set; }
 

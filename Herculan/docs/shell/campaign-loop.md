@@ -115,20 +115,20 @@ Every campaign save in the retail install is this path's output. Each of `GAME_0
 2. `_remove` deletes the previous output file.
 3. Opens the export and writes `int16 0` and the squad count (`00482a7a`), then one entry per machine via `FUN_004106b7`: the player's first, then every squad member whose on-strength byte (`+0x24`) is set, each preceded by two fields taken from its pilot.
 
-This is `data\player.mec`, and the record it emits is the one `HercWorks.Core.Data.File.Sav.MecFile` already models from the other end — decoded from DBSIM's reader without reference to this writer. The two derivations agree field for field:
+This is `data\player.mec`, and the record it emits is the one DBSIM's reader (`DBSim_LoadScriptDat`, `00424308`, and `DBSim_SpawnMissionObjects`, `004253d8`) takes. Read from each side independently, writer and reader agree field for field. In file order, every field an `int16` but the last:
 
-| `MecEntry` | Written from |
+| Field | Written from |
 |---|---|
-| *(file header)* `PlayerEntryIndex` | literal `0` — the player is always entry 0 |
+| *(file header)* player entry index | literal `0` — the player is always entry 0 |
 | *(file header)* entry count | `00482a7a` |
-| `PilotNameIndex` | the pilot's `esnames.bin` name index (pilot `+0x02`). DBSIM reads the same field as an index into `str\PILOTS.STR` — [`heads-down-display.md`](../formats/heads-down-display.md#who-is-in-it) |
-| `Skill` | the pilot's skill tier (pilot `+0x25`) |
-| `MechType` | HERC record `+0x00` |
-| `SlotCount` | HERC record `+0x4c`, the mount capacity |
-| `WeaponRefs[]` | per slot, the mounted unit's id — **`0` when the hardpoint is empty** |
-| `WeaponAmmoTypes[]` | per slot, the unit's `+0x08` — **`5` when the hardpoint is empty** |
-| `Unk3A` | literal `0` |
-| `ExternalConditions`/`InternalConditions`/`HardpointConditions` (26+20+20) | one contiguous 66-byte span, HERC record `+0x08`–`+0x49`, the same bytes the save stores for that machine |
+| pilot name index | the pilot's `esnames.bin` name index (pilot `+0x02`). DBSIM reads the same field as an index into `str\PILOTS.STR` — [`heads-down-display.md`](../formats/heads-down-display.md#who-is-in-it) |
+| skill | the pilot's skill tier (pilot `+0x25`) |
+| mech type | HERC record `+0x00` |
+| slot count | HERC record `+0x4c`, the mount capacity; both arrays below are this long |
+| weapon ids, one per slot | the mounted unit's id — **`0` when the hardpoint is empty** |
+| ammunition types, one per slot | the unit's `+0x08` — **`5` when the hardpoint is empty** |
+| one field | literal `0` |
+| condition block, 26 + 20 + 20 bytes: external, internal and hardpoint conditions | one contiguous 66-byte span, HERC record `+0x08`–`+0x49`, the same bytes the save stores for that machine |
 
 The player's own entry reads its two leading fields from `00482a7e` and `00482aa1`, which are the same two pilot fields reached directly: the player structure at `00482a78` embeds its pilot record at `+0x04`, putting the name index at `00482a7e` and the skill tier at `00482aa1`.
 
@@ -143,11 +143,11 @@ int16   33 (0x21), written as a literal
 33 x byte   weapons.dat record +0x16, one per catalog id, walked at the 29-byte stride
 ```
 
-35 bytes, and they close the gap in the retail sample: `MecFile`'s note that a 263-byte `player.mec` has only 228 bytes of entries leaves exactly 35 unaccounted for. They are this table, not slack — and an export cannot carry a stale tail anyway, since the export and copy streams open with `_open(path, 0x8301, 0x180)`, `O_BINARY|O_CREAT|O_TRUNC|O_WRONLY`. Only the save-slot stream skips `O_TRUNC` ([`../formats/save-games.md`](../formats/save-games.md)).
+35 bytes, and they close the gap in the retail sample: a 263-byte `player.mec` has only 228 bytes of entries, which leaves exactly 35 unaccounted for. They are this table, not slack — and an export cannot carry a stale tail anyway, since the export and copy streams open with `_open(path, 0x8301, 0x180)`, `O_BINARY|O_CREAT|O_TRUNC|O_WRONLY`. Only the save-slot stream skips `O_TRUNC` ([`../formats/save-games.md`](../formats/save-games.md)).
 
 The byte is the weapon's unlock flag, the same one every save slot stores for all 33 catalog ids ([`../formats/weapons-dat.md`](../formats/weapons-dat.md)).
 
-**Nothing traced reads this table back.** VSHELL reopens `data\player.mec` in exactly one place — `ShellMap_ReadSquadHeader` (`00424db0`), the briefing's map ([`mission-map.md`](mission-map.md#the-squads-positions)) — and reads only the leading two `int16`, the player entry index and the squad size, before closing it and moving on to `data\mforms.dat` for formation layout. It never reaches the entries, let alone the table. On the simulator side, `MecFile`'s note records DBSIM's reader stopping at the last entry. The save file, not the export, is where the flags are authoritative: the export is regenerated from it at every launch, so the copy here is duplicated state.
+**Nothing traced reads this table back.** VSHELL reopens `data\player.mec` in exactly one place — `ShellMap_ReadSquadHeader` (`00424db0`), the briefing's map ([`mission-map.md`](mission-map.md#the-squads-positions)) — and reads only the leading two `int16`, the player entry index and the squad size, before closing it and moving on to `data\mforms.dat` for formation layout. It never reaches the entries, let alone the table. On the simulator side, DBSIM's reader stops at the last entry. The save file, not the export, is where the flags are authoritative: the export is regenerated from it at every launch, so the copy here is duplicated state.
 
 Both path strings are referenced as bare addresses (`0046f511`, `0046f521`), so the decompile does not show their text; read out of the binary they are two separate copies of the same literal, `data\player.mec`. The function removes that file and immediately recreates it.
 

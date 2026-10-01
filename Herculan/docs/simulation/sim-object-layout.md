@@ -80,7 +80,7 @@ Below that line all three constructors write an *identical* block — `+0x1a8 = 
 
 ## The object's frame is a transform, and its position is that transform's translation
 
-`obj+0x12` is a complete 32-byte transform record of the kind `Transform_Concat` (`0047f914`) composes: nine Q14 `int16` matrix entries, a rank byte at `+0x12`, and an `int32` translation at `+0x14`/`+0x18`/`+0x1c`. Laid at `obj+0x12`, that translation falls at `obj+0x26`/`+0x2a`/`+0x2e` — **which is the object's world position**. The two are the same storage, not a copy: `SimObject_InstallModelTransform` (`00401fe4`) builds the matrix half from the euler angles at `obj+0x0c` whenever the dirty flag at `obj+0x32` is clear, and every caller that wants a position passes `obj+0x26` as a `Vec3i`.
+`obj+0x12` is a complete 32-byte transform record of the kind `Transform_Concat` (`0047f914`) composes: nine Q14 `int16` matrix entries, a rank byte at `+0x12`, and an `int32` translation at `+0x14`/`+0x18`/`+0x1c`. Laid at `obj+0x12`, that translation falls at `obj+0x26`/`+0x2a`/`+0x2e` — **which is the object's world position**. The two are the same storage, not a copy: `SimObject_InstallModelTransform` (`00401fe4`) builds the matrix half from the euler angles at `obj+0x0c` whenever the dirty flag at `obj+0x32` is clear, and every caller that wants a position passes `obj+0x26` as an `int[3]`.
 
 ## The two per-object tables are 112 rows each
 

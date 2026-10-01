@@ -15,9 +15,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// requested index — i.e. the file is a flat, sequential list of tagged records, not a
 /// random-access table. Each record's 8-byte header is <c>[classId:int32][payloadSize:int32]</c>
 /// (little-endian); the type code DBSIM passes for this library, <c>0x02BC0001</c>, is exactly
-/// the record's own leading 4 bytes on disk — the "recordSize&lt;&lt;16|version" reading an
-/// earlier pass of this doc gave that constant was a coincidence, not the real container
-/// scheme.</para>
+/// the record's own leading 4 bytes on disk. That it resembles <c>recordSize&lt;&lt;16|version</c>
+/// is a coincidence, not the container scheme.</para>
 ///
 /// <para><b>Record layout</b>, traced through the class's Watcom C++ base-constructor chain
 /// (<c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) → <c>ClassItemTree_ReadFromStream</c> (<c>00490d5c</c>) → <c>ClassItemTree_ReadChildren</c> (<c>0048fd94</c>) → <c>ClassItemTree_ReadBaseHeader</c> (<c>0048f894</c>)) and

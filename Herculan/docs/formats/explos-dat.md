@@ -25,17 +25,17 @@ Retail is 964 bytes: 20 shapes, 22 types, nothing left over. `shapeCount` matche
 
 ## Type row (0x28 bytes)
 
-Reached as `table + typeId * 0x28` (`Explosion_GetTypeRecord`, `00407b20`). The id is what a `PROJ.DAT` `ImpactFX` entry holds.
+Reached as `table + typeId * 0x28` (`Explosion_GetTypeRecord`, `00407b20`). The id is what an entry of a `PROJ.DAT` impact-effect array holds.
 
-| Offset | Field | Meaning |
-|---|---|---|
-| `+0x00` | `ShapeIndex` | which shape row, i.e. which `EXPLOS.DTS` root |
-| `+0x02` | `FrameInterval` | ticks each flipbook frame is held; **1 on every retail row** |
-| `+0x04` | `GroundShape` | nonzero lays root 1 of the theater's flat set on the ground under the effect, stepped with its flipbook and deleted with it ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#an-impact-effects-shape)); **0 on every row of `EXPLOS.DAT` and `EXPLOS2.DAT`** |
-| `+0x06` | `LightMode` | nonzero attaches a light source; 0, 1 or 2 in retail. `Explosion_Construct` tests it only against zero, so 1 and 2 attach the same light ([`effect-lights.md`](effect-lights.md#claiming-a-slot)) |
-| `+0x08`..`+0x1f` | `FrameIntensity[12]` | the light's intensity per frame; low byte passed to the light as each frame is stepped |
-| `+0x20` | `ProximityRadius` (int32) | 0 or 20000. Read by `Explosion_ProximityTest` alone, below |
-| `+0x24` | `SoundId` | played as `id + 10`; negative is silent |
-| `+0x26` | `ObjectClass` | 0 registers the effect under class tag 2, else 8 |
+| Offset | Meaning |
+|---|---|
+| `+0x00` | shape index: which shape row, i.e. which `EXPLOS.DTS` root |
+| `+0x02` | frame interval: ticks each flipbook frame is held; **1 on every retail row** |
+| `+0x04` | ground shape: nonzero lays root 1 of the theater's flat set on the ground under the effect, stepped with its flipbook and deleted with it ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#an-impact-effects-shape)); **0 on every row of `EXPLOS.DAT` and `EXPLOS2.DAT`** |
+| `+0x06` | light mode: nonzero attaches a light source; 0, 1 or 2 in retail. `Explosion_Construct` tests it only against zero, so 1 and 2 attach the same light ([`effect-lights.md`](effect-lights.md#claiming-a-slot)) |
+| `+0x08`..`+0x1f` | intensity ramp, twelve `int16`: the light's intensity per frame; low byte passed to the light as each frame is stepped |
+| `+0x20` | proximity radius, `int32`: 0 or 20000. Read by `Explosion_ProximityTest` alone, below |
+| `+0x24` | sound id, played as `id + 10`; negative is silent |
+| `+0x26` | object class: 0 registers the effect under class tag 2, else 8 |
 
-`Explosion_ProximityTest` (`00408100`) returns 1 when the row's `LightMode` is exactly 2 and the effect lies within `ProximityRadius` of a point it is handed. It is a proximity test with no reference anywhere in the image: no rel32 branch, no stored pointer, and the effect class's vtable (`00497d4c`, six slots, the last a stub shared with other classes) has no slot for it. `LightMode` 2 and `ProximityRadius` therefore have no effect on a running mission.
+`Explosion_ProximityTest` (`00408100`) returns 1 when the row's light mode is exactly 2 and the effect lies within the proximity radius of a point it is handed. It is a proximity test with no reference anywhere in the image: no rel32 branch, no stored pointer, and the effect class's vtable (`00497d4c`, six slots, the last a stub shared with other classes) has no slot for it. Light mode 2 and the proximity radius therefore have no effect on a running mission.

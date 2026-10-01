@@ -50,15 +50,15 @@ Alongside the terrain bank, `maybe_World_LoadTheater` loads the theater palette 
 
 ### `mat0`'s two fields
 
-`TerrainMaterial.Index` (field 0) is **a DBA frame index** — `_DAT_006b4fc4[Index * 0x14]`.
+Field 0 is **a DBA frame index** — `_DAT_006b4fc4[index * 0x14]`.
 
-`TerrainMaterial.BlockShift` (field 1) selects between two placement modes:
+Field 1, the block shift, selects between two placement modes:
 
-- **`BlockShift == 0`** — the frame's own `F0..F3` corners are used verbatim: the whole frame is stretched across the quad.
-- **`BlockShift != 0`** — tiled:
+- **`blockShift == 0`** — the frame's own `F0..F3` corners are used verbatim: the whole frame is stretched across the quad.
+- **`blockShift != 0`** — tiled:
 
   ```
-  shift = cellShift + BlockShift - 13
+  shift = cellShift + blockShift - 13
   u0    = (cellX << shift) & 0xff        u1 = u0 + (1 << shift)
   v0    = (cellY << shift) & 0xff        v1 = v0 + (1 << shift)      (V is negated)
   ```
@@ -109,8 +109,6 @@ One function **writes** the field; four read it:
 
 The setting is **option 7** of the simulator's option array, and it has no writer of its own — the preferences panel's TERRAIN DISTANCE row is the only thing that moves it. The array and the file it is read from are in [`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array). So the draw distance is a player setting, not a property of the zone.
 
-Ported in `TerrainDetail`, which reads the setting through `SimulatorPreferences` and falls back to the highest when there is no readable file.
-
 ### The terrain-texture switch
 
 **Option 8**, the panel's TERRAIN TEXTURE row, reaches the draw path as `TerrainTexturingEnabled` (`004aab2c`), which `Terrain_DrawCellQuad` tests per triangle: 1 picks the textured span writers and 0 the flat ones. Two things write it — the option's own handler (`00459d4c`) and `Terrain_LoadZone`, from the same byte — so the setting lands on the next zone whether or not the handler ever runs. `FUN_0043fe1c` saves it, forces it to 0 and restores it around the heads-down map's terrain pass, which is why that view's terrain is never textured however the setting reads.
@@ -133,12 +131,12 @@ A base group whose `script.dat` block-11 record sets its paints-ground flag (`0x
 The record supplies the material index and a square `dim`×`dim` map of `0`/`1` bytes — see [`script-dat.md`](script-dat.md#the-per-formation-trailer), which owns the file layout, how many formations carry one, and the anchor placement that goes with it. A formation whose material index is `-1` paints nothing.
 
 ```
-tile      = 1 << (0x15 - mat0[material].BlockShift)     world units square, CellShift-independent
+tile      = 1 << (0x15 - mat0[material].blockShift)     world units square, cellShift-independent
 map entry = tile / dim                                  so dim spans the tile exactly
-per cell  = 1 << (CellShift - 13)                       map entries along each axis
+per cell  = 1 << (cellShift - 13)                       map entries along each axis
 ```
 
-Two things fall out of that. The tile is the same 65,536 or 131,072 world units whatever the zone's cell size, the map simply resolving finer or coarser against it; and `dim` is not free data — it is `2 ^ (8 - BlockShift)` at `CellShift` 13, which holds for all eleven retail formations with no exceptions.
+Two things fall out of that. The tile is the same 65,536 or 131,072 world units whatever the zone's cell size, the map simply resolving finer or coarser against it; and `dim` is not free data — it is `2 ^ (8 - blockShift)` at cell shift 13, which holds for all eleven retail formations with no exceptions.
 
 **The map is a levelling mask, not the pad's shape.** Every cell of the tile takes the material unconditionally; only cells whose map byte is nonzero also get `Terrain_SetCellScratch(1)`, feeding the flattening pass in [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass) as its second input. The pad's outline is drawn into the frame art itself — overlay a formation's map on its frame and the marked entries land on that frame's concrete and nowhere else. **Map row 0 indexes the tile's high-y edge and counts down**, the same inversion the anchor placement uses.
 

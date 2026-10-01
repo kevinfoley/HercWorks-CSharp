@@ -66,7 +66,7 @@ Runs once per tick from `Sim_MainTick`, **after** every object update and the in
 
 Looking: bearing plus aim twist against the ±`0x3800` sensor arc (`SimObject_BearingInSensorArc` (`00411acc`), vtable `+0x44`), then LOS. An AI machine's contact goes to `Detection_ShareContact` (`00412704`), which shares it to everything on its side within 100000; the player's machine keeps it to itself. The reciprocal bearing is tested from the other object's arc in the same pass.
 
-Decay (`Detection_DecayContacts`, `0041251c`) drops a contact past **100001** measured **on the ground plane only** (`FastMagnitude2D`, where every other range here is the 3D approximation) or with no LOS, mutually.
+Decay (`Detection_DecayContacts`, `0041251c`) drops a contact past **100001** measured **on the ground plane only** (`Math_FastMagnitude2D`, where every other range here is the 3D approximation) or with no LOS, mutually.
 
 ### Line of sight — `Detection_LineOfSight` (`00412608`)
 
@@ -123,7 +123,7 @@ An object's side is its group record's `+0x12`, 0 human and 1 Cybrid, filled fro
 
 **Which node is per class:**
 
-- **Mech** — `Mech_GetAimNodeTransform` (`00417b98`) pushes the type record's `+0x0c` (`.DAT` file offset 10, `CameraBoneId`, [`mech-locomotion.md`](mech-locomotion.md#mech-type-record)) as the part id, so a HERC is aimed at **through its cockpit node**, the same one the pilot's eye rides. It walks and leans with the machine. Retail rises are 7.2 m (HEADHUNT) to 10.4 m (ACHILLES) above the model origin, which sits on the ground.
+- **Mech** — `Mech_GetAimNodeTransform` (`00417b98`) pushes the type record's `+0x0c` (`.DAT` file offset 10, the camera node, [`mech-locomotion.md`](mech-locomotion.md#mech-type-record)) as the part id, so a HERC is aimed at **through its cockpit node**, the same one the pilot's eye rides. It walks and leans with the machine. Retail rises are 7.2 m (HEADHUNT) to 10.4 m (ACHILLES) above the model origin, which sits on the ground.
 - **Structure** — all five structure vtables install `Base_GetAimNodeTransform` (`00403548`), which fills a static record with a fixed matrix and the translation `(0, 0, BASES.DAT +0x2c)`, the type's aim-point height (1000 to 2000; [`bases-dat.md`](../formats/bases-dat.md), [`structure-behaviour.md`](structure-behaviour.md#what-a-structure-is-aimed-at)). A structure is aimed at that far up its side, the same point its own `+0x30` (`Base_GetAimPoint`, `0040351c`) gives, and sights from that height. A turret standing just behind a rise stays in line of sight over the rise's edge because of it; at 500 it drops out.
 - **Flyer** — installs `SimObject_GetAimNodeTransform_None` (`00411a9c`), which is `return 0`, so a flyer is aimed at its raw origin and sights from the literal 500.
 
@@ -165,7 +165,7 @@ Two `SimObjectVtable` slots exist for this and nothing else; the pod is the only
 
 Seven of a machine's twenty-nine slots, straddling both the chassis band (0, 4, 5) and the systems band (7–10) of [`ai-targeting.md`](ai-targeting.md#which-component-the-shot-is-aimed-at--mech_aiselectaimcomponent-0041ce08)'s table — the manual's "target areas".
 
-Only a HERC has them: `TargetingPod_ResetComponentLock` writes `-1` for every target whose `TargetClass` is not 0, which is the same fence that keeps a structure's and a flyer's `+0x58` out of the aim-point path ([`damage-system.md`](damage-system.md#where-a-component-stands--the-0x58-slot)). A structure's `+0x80` and `+0x84` are therefore installed but never reached.
+Only a HERC has them: `TargetingPod_ResetComponentLock` writes `-1` for every target whose target class (`obj+0x1a8`) is not 0, which is the same fence that keeps a structure's and a flyer's `+0x58` out of the aim-point path ([`damage-system.md`](damage-system.md#where-a-component-stands--the-0x58-slot)). A structure's `+0x80` and `+0x84` are therefore installed but never reached.
 
 ### A damaged pod degrades in four steps
 

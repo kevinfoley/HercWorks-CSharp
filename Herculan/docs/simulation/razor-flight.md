@@ -1,8 +1,8 @@
 # Razor flight — flight model, contact probes, and the flight ceiling
 
-The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `Flyer` class the SKIMMER uses. It is built by `Mech_Constructor`, carries a mech's 29-component damage array and a mech's weapon mounts, and appears on the target list as target class 0, a HERC (`obj+0x1a8`). What the flag (`typeRec+0x50`, `FlyerFlag`, file offset 78) changes is which code paths it takes, and it changes nearly all of them.
+The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `Flyer` class the SKIMMER uses. It is built by `Mech_Constructor`, carries a mech's 29-component damage array and a mech's weapon mounts, and appears on the target list as target class 0, a HERC (`obj+0x1a8`). What the flag (`typeRec+0x50`, file offset 78) changes is which code paths it takes, and it changes nearly all of them.
 
-[`mech-locomotion.md`](mech-locomotion.md) covers the walker paths; nothing in it applies to a RAZOR. The flight model's parameters come from `fm\<NAME>.FM`, laid out in [`../formats/flight-model-fm.md`](../formats/flight-model-fm.md); the field names below are that document's.
+[`mech-locomotion.md`](mech-locomotion.md) covers the walker paths; nothing in it applies to a RAZOR. The flight model's parameters come from `fm\<NAME>.FM`, laid out in [`../formats/flight-model-fm.md`](../formats/flight-model-fm.md); `fm[N]` below is that file's field at byte offset N.
 
 ## Call graph
 
@@ -85,16 +85,16 @@ An analogue throttle axis is read as a position, `axis << 3` clamped to ±0x400.
 ### Airspeed
 
 ```
-demand = AirSpeedMin + Q10(AirSpeedMax - AirSpeedMin, (throttle + 0x400) >> 1)
+demand = fm[46] + Q10(fm[42] - fm[46], (throttle + 0x400) >> 1)   // idle and top airspeed
 demand -= Q10(pitch < 0 ? 250 : 62, pitch)
-RateLimitedMoveTowardInt(airspeed, demand, IntegrateRateOverTick(ThrustResponse))
+RateLimitedMoveTowardInt(airspeed, demand, IntegrateRateOverTick(fm[10]))   // thrust response
 ```
 
 **Airspeed is not thrust and pitch is not momentum.** Attitude biases the speed the throttle *asks for*, four times as strongly nose-down as nose-up, and the aircraft slews toward it at a fixed rate. A dive is fast and a climb is slow, but level out and the speed returns to whatever the throttle wants. There is no energy to trade.
 
 ### Sideslip drag
 
-The sideways and vertical components of body velocity — forward excluded, which is what makes this drag rather than braking — are rotated into world space, scaled by `LateralDrag`, rotated back through **last tick's** frame, and subtracted. This is what keeps the aircraft flying where it is pointing instead of drifting round its own turns.
+The sideways and vertical components of body velocity — forward excluded, which is what makes this drag rather than braking — are rotated into world space, scaled by the lateral drag (`fm[50]`), rotated back through **last tick's** frame, and subtracted. This is what keeps the aircraft flying where it is pointing instead of drifting round its own turns.
 
 Only the two ground-plane components are scaled; the world-vertical one is subtracted at an effective coefficient of 1 (`00466c26`-`00466c67` scales two of the three). The asymmetry is load-bearing: a RAZOR sheds vertical speed far harder than sideslip, which is why it settles onto its flight path rather than floating.
 
@@ -102,9 +102,9 @@ Only the two ground-plane components are scaled; the world-vertical one is subtr
 
 | Axis | Command with input | Command without | Damping |
 | --- | --- | --- | --- |
-| Pitch | `Q8(MaxPitchRate, elevator)` | `-pitch >> PitchLevelShift` | `-Q10(AngularDamping, pitchRate)` |
-| Roll | `Q8(MaxRollRate, aileron)` | `-roll >> RollLevelShift` | as above, but only when the stick fights the roll already under way |
-| Yaw | `Q8(MaxYawRate, -rudder)` | — | always `-Q10(AngularDamping, yawRate)` |
+| Pitch | `Q8(fm[0], elevator)` | `-pitch >> fm[22]` | `-Q10(fm[18], pitchRate)` |
+| Roll | `Q8(fm[2], aileron)` | `-roll >> fm[26]` | as above, but only when the stick fights the roll already under way |
+| Yaw | `Q8(fm[4], -rudder)` | — | always `-Q10(fm[18], yawRate)` |
 
 **Pitch self-levelling is switched off on retail data.** Both files state a shift of 16, and a 16-bit angle shifted 16 is nothing. An aircraft holds the attitude it is trimmed to and bleeds only its pitch *rate* away — which is why a RAZOR left nose-up climbs until the ceiling stops it. Roll self-levels for real, and its branch stops the wings exactly at level rather than letting the term overshoot into a wallow.
 
@@ -127,8 +127,8 @@ With a nacelle gone, pitch and roll are out of the pilot's hands. A lost wing le
 ### Turning is banking
 
 ```
-bankTurnRate = |roll| < 0x4000 ? -roll >> BankTurnShift
-                               : (short)(roll - 0x8000) >> BankTurnShift
+bankTurnRate = |roll| < 0x4000 ? -roll >> fm[30]
+                               : (short)(roll - 0x8000) >> fm[30]
 ```
 
 The rudder yaws the airframe about its own axis, but what swings the nose round the sky is the bank. The rate is read straight off the bank angle and applied to the heading **on top of** the integrated attitude, so a banked RAZOR turns about the world's vertical axis and not its own. Past a quarter turn of bank the sense inverts, measured from the half turn, so an inverted aircraft turns the way its wings say.
@@ -142,7 +142,7 @@ Finally the world velocity is re-expressed in the new body frame. That costs for
 ### The flight ceiling
 
 ```
-ceiling = CeilingAtMinSpeed + Q16(airspeed - AirSpeedMin, CeilingPerSpeed)
+ceiling = fm[38] + Q16(airspeed - fm[46], fm[14])   // fm[14]: the slope the loader derives
 ```
 
 **Altitude is bought with speed.** The RAZOR's ceiling runs from 6000 world units (36 m) at its 250 idle airspeed to 60000 (360 m) at its 1500 maximum. A pilot who wants height has to go and get it at full throttle; one who throttles back is pushed back down.
@@ -189,7 +189,7 @@ A fatal contact sheds wreckage — group 3 at the contact point, and only from t
 
 ## HUD speed
 
-`Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, AirSpeedMax]` onto `[0, typeRec+0xc2]` (the loader computes that field for walkers only, so a RAZOR carries its type file's own value) through `Math_MapRange` (`0047de3c`), where the walker branch divides by the type's top speed. Both land on the same readout scale, so the gauge reads the same way for either chassis. A RAZOR at full throttle reads 83 km/h.
+`Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, fm[42]]` onto `[0, typeRec+0xc2]` (the loader computes that field for walkers only, so a RAZOR carries its type file's own value) through `Math_MapRange` (`0047de3c`), where the walker branch divides by the type's top speed. Both land on the same readout scale, so the gauge reads the same way for either chassis. A RAZOR at full throttle reads 83 km/h.
 
 ## The engine hum
 
@@ -200,7 +200,7 @@ A fatal contact sheds wreckage — group 3 at the contact point, and only from t
 | Reading | Why it is wrong |
 | --- | --- |
 | `004198f4` is a flyer terrain-avoidance autopilot | It is the flyer's whole per-tick move, the counterpart of `Mech_MovementTick`. The terrain probes are its collision model, not an assist; the pull-up look-ahead is one of seven points |
-| `CeilingAtMaxSpeed` (34) is a flat maximum altitude | Nothing clamps to it. It is the far end of a ramp the loader derives at offset 14, reached only at `AirSpeedMax` — see [the flight ceiling](#the-flight-ceiling) |
+| The ceiling at top airspeed (`fm[34]`) is a flat maximum altitude | Nothing clamps to it. It is the far end of a ramp the loader derives at offset 14, reached only at the top airspeed (`fm[42]`) — see [the flight ceiling](#the-flight-ceiling) |
 | The cockpit throttle slider does nothing on a RAZOR | It works. `Player_PerFrameCockpitUpdate` has a flyer-gated line writing the gauge value to `mech+0x2d7`. What is dead is the gauge's *speed* bar, which reads the walker scalar |
 | The RAZOR is an instance of the `Flyer` class | That class is the SKIMMER's. The RAZOR is a `Mech` with `typeRec+0x50` set |
 

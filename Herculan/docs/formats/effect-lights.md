@@ -4,7 +4,7 @@ Addresses are DBSIM virtual addresses.
 
 An impact effect can carry a dynamic light. It is not a light in the renderer's own list: it is a slot in a separate *effect light manager*, and that manager synthesises a throwaway renderer light per drawn object, per frame, from whichever slots are close enough to matter. The manager is the only producer of dynamic lights in the binary — nothing else, not a muzzle flash and not a beam, claims a slot.
 
-The table row that starts one is `EXPLOS.DAT`'s `LightMode`, in [`explos-dat.md`](explos-dat.md#type-row-0x28-bytes); the effect that owns the light is [`../simulation/impact-effects.md`](../simulation/impact-effects.md). The shade byte a light finally moves is `Light_ComputeShadeForFace`, in [`dts-texture-binding.md`](dts-texture-binding.md). This doc owns everything between the two.
+The table field that starts one is `EXPLOS.DAT`'s light mode, in [`explos-dat.md`](explos-dat.md#type-row-0x28-bytes); the effect that owns the light is [`../simulation/impact-effects.md`](../simulation/impact-effects.md). The shade byte a light finally moves is `Light_ComputeShadeForFace`, in [`dts-texture-binding.md`](dts-texture-binding.md). This doc owns everything between the two.
 
 ## The manager — `DAT_004a968c`
 
@@ -44,19 +44,19 @@ At full intensity that is 50,592 world units, about 300 m.
 
 ## Claiming a slot
 
-`Explosion_Construct` (`00407f1c`) branches on the type row's `LightMode` at `+0x06` and tests it **only against zero**. Values 1 and 2 both take the same branch. The only other reader is the unreferenced proximity test `Explosion_ProximityTest` ([`explos-dat.md`](explos-dat.md#type-row-0x28-bytes)), so the two are indistinguishable at runtime; the split is authoring intent that the code never honoured. Twelve of the twenty-two retail rows are nonzero.
+`Explosion_Construct` (`00407f1c`) branches on the type row's light mode at `+0x06` and tests it **only against zero**. Values 1 and 2 both take the same branch. The only other reader is the unreferenced proximity test `Explosion_ProximityTest` ([`explos-dat.md`](explos-dat.md#type-row-0x28-bytes)), so the two are indistinguishable at runtime; the split is authoring intent that the code never honoured. Twelve of the twenty-two retail rows are nonzero.
 
 Nonzero allocates a 0x12-byte handle from the pool at `DAT_004a9682` and runs `EffectLight_Construct` (`00407604`), which is the whole of the attachment:
 
 ```
 slotIndex   = LightManager_ClaimSlot(mgr, worldPoint)                // 00406f38
 handle+0x0c = slotIndex
-LightManager_SetSlotIntensity(mgr, slotIndex, FrameIntensity[0])     // 00407048
+LightManager_SetSlotIntensity(mgr, slotIndex, row[+0x08])           // 00407048, ramp entry 0
 ```
 
-`LightManager_ClaimSlot` (`00406f38`) seeds the slot's intensity to `0xff` and copies `A`/`B` in; the `LightManager_SetSlotIntensity` (`00407048`) call right behind it overwrites the intensity with the row's first ramp entry and, critically, is the **only** writer of `+0x1b`. `Explosion_TickUpdate` then calls `EffectLight_SetIntensity(handle, ...)` (`004076a0`) — the same setter through the handle — with `FrameIntensity[frame] & 0xff` as each frame is stepped, and `EffectLight_Destruct` (`0040765c`) releases the slot when the effect dies.
+`LightManager_ClaimSlot` (`00406f38`) seeds the slot's intensity to `0xff` and copies `A`/`B` in; the `LightManager_SetSlotIntensity` (`00407048`) call right behind it overwrites the intensity with the row's first ramp entry and, critically, is the **only** writer of `+0x1b`. `Explosion_TickUpdate` then calls `EffectLight_SetIntensity(handle, ...)` (`004076a0`) — the same setter through the handle — with the ramp entry for the frame, `& 0xff`, as each frame is stepped, and `EffectLight_Destruct` (`0040765c`) releases the slot when the effect dies.
 
-The intensity is read from the ramp at the **new** frame index, and the tick reaches that line only when the stepped frame is nonzero, so `FrameIntensity[0]` is used exactly once, by the constructor.
+The intensity is read from the ramp at the **new** frame index, and the tick reaches that line only when the stepped frame is nonzero, so ramp entry 0 is used exactly once, by the constructor.
 
 ### The allocator overruns when all twenty slots are busy
 
@@ -136,7 +136,7 @@ The intensities are real and large, and the effect is still hard to see. Four st
 
 | Reading | Why it is wrong |
 |---|---|
-| `LightMode` 1 and 2 select directional versus point | `Explosion_Construct` tests the field against zero, and the only other reader, `Explosion_ProximityTest` (`00408100`), is never called. The type is chosen per drawn object by `LightManager_SelectLightsForObject` (`00407098`)'s angular test, and both values reach the same code. |
+| Light mode 1 and 2 select directional versus point | `Explosion_Construct` tests the field against zero, and the only other reader, `Explosion_ProximityTest` (`00408100`), is never called. The type is chosen per drawn object by `LightManager_SelectLightsForObject` (`00407098`)'s angular test, and both values reach the same code. |
 | `A` and `B` are 2000 and 3000 | Those are `LightManager_Construct` (`00406e44`)'s constructor defaults, overwritten by `LightManager_InitSubsystem` (`004076e4`) before any frame runs. Both calls also shift right by 5, which the raw literals do not show. |
 | `Math_Atan2Guarded(d, radius)` makes near lights directional | The helper takes `(x, y)`, so this is `atan(radius / dist)` — the object's angular size. Small angle means far, and far is the directional branch. |
 | `Light_ComputeShadeForFace` reads the light's world position | It reads `+0x22`/`+0x2e`, the model-space copies `Raster_SetModelTransform` rebuilds per node. `+0x04`/`+0x10` are the world-space fields `LightManager_SelectLightsForObject` writes. |

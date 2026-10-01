@@ -114,7 +114,14 @@ public struct MeshVertex {
 	/// through, read at a fixed row instead of the light's. So this travels to the GPU for the same
 	/// reason <see cref="ShadeRamp"/> does: the table is swapped wholesale for the cockpit's damage
 	/// flash (<see cref="Scene.ImpactFlash"/>), and a colour resolved on the CPU cannot follow that.
-	/// </para>
+	/// The outline pass carries its line entry's index the same way.</para>
+	///
+	/// <para>Moving the lookup to the GPU changes no colour: over every palette index of all ten
+	/// theaters, through both the ordinary and the impact palette, the table row and the colour
+	/// resolved on the CPU agree on all 5120 pairs. The class is 2.8% of the triangle vertices
+	/// across the 55 retail <c>.DTS</c> files, but it is concentrated in combat geometry: all of
+	/// <c>ROCKETS</c> and <c>METEOR</c>, 90% of <c>FLAT2</c>, 66% of <c>BULLETS</c>, 11-13% of the
+	/// fitted weapon models, 1.5% of machines and structures, 0.2% of debris.</para>
 	///
 	/// <para><see cref="Color"/> still carries the resolved colour and is what draws when no palette
 	/// ramp is installed, so a theater whose palette did not load is unaffected by this path.</para>

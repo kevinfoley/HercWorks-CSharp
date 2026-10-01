@@ -40,19 +40,19 @@ groupCount × {
 }
 ```
 
-| Offset | Field | Meaning |
-|---|---|---|
-| `+0x00` | `ShapeIndex` | root of the matching `.DTS` |
-| `+0x02` | `Weight` | share of the group's weighted draw; retail states 10 or 20 |
-| `+0x04` | `ChildGroup` | group this piece bursts into where it ends, `-1` for none |
-| `+0x06` | `DestroyEffect` | `EXPLOS.DAT` type that goes off there, `-1` for none |
-| `+0x08` | `OrientationYaw` | **degrees**, `-1` = leave the spawn frame alone |
-| `+0x0a` | `ThrowYaw` | **degrees** relative to the above, `-1` = throw on a random bearing |
-| `+0x0c` | `Mass` | divides the throw speed; retail 800-4000 |
+| Offset | Meaning |
+|---|---|
+| `+0x00` | shape index: root of the matching `.DTS` |
+| `+0x02` | weight: share of the group's weighted draw; retail states 10 or 20 |
+| `+0x04` | child group: the group this piece bursts into where it ends, `-1` for none |
+| `+0x06` | destroy effect: the `EXPLOS.DAT` type that goes off there, `-1` for none |
+| `+0x08` | orientation yaw, **degrees**, `-1` = leave the spawn frame alone |
+| `+0x0a` | throw yaw, **degrees** relative to the above, `-1` = throw on a random bearing |
+| `+0x0c` | mass: divides the throw speed; retail 800-4000 |
 
 `Debris_LoadPieceList` (`004083f8`) multiplies both angles by 182 as it reads them (`65536 / 360 ≈ 182.04`, degrees to BAM) unless the raw value is the `-1` sentinel, and accumulates the group's total weight, which the file does not store.
 
-Walking this shape consumes all 24 retail files exactly, with nothing left over in any of them. The three kinds are `DEF_DEB`, `BASE_DEB`, and one per HERC chassis named by that chassis' `HercSimDat.DebrisFile` (record offset 204, a 12-byte NUL-padded string).
+Walking this shape consumes all 24 retail files exactly, with nothing left over in any of them. The three kinds are `DEF_DEB`, `BASE_DEB`, and one per HERC chassis named by that chassis' mech type record at offset 204, a 12-byte NUL-padded string ([`mech-locomotion.md`](mech-locomotion.md#mech-type-record)).
 
 ### Throwing a group
 
@@ -63,7 +63,7 @@ Walking this shape consumes all 24 retail files exactly, with nothing left over 
 
 `Debris_ThrowGroupAt` (`00408530`) is the same call from a *point* rather than a frame — it builds an identity rotation with the point in the translation. Every site but a machine's own component destruction uses it.
 
-`Debris_Throw` (`00408588`) places one piece. A piece stating either angle has its own yaw composed onto the spawn frame and the composed attitude read back out as Euler angles; only a piece stating `OrientationYaw` keeps that attitude, so one stating only `ThrowYaw` does the matrix work and discards it. **The position is the spawn frame's own either way** — the composed transform is a temporary nothing is placed at.
+`Debris_Throw` (`00408588`) places one piece. A piece stating either angle has its own yaw composed onto the spawn frame and the composed attitude read back out as Euler angles; only a piece stating an orientation yaw keeps that attitude, so one stating only a throw yaw does the matrix work and discards it. **The position is the spawn frame's own either way** — the composed transform is a temporary nothing is placed at.
 
 `Debris_Launch` (`004089e4`) does the launch:
 
@@ -166,7 +166,7 @@ The three squares are 32-bit `IMUL`s and the sum wraps. Distance is in world uni
 
 Two sites, and they light different shapes:
 
-- **`Component_DestroyAndCascade`**, for a component whose `.DMG` `+0x03` byte is not `-1` (the same byte that drives its shape sequence — see [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md)). `DestructionFlags` bit 1 releases every fire already on the machine and lights **shape 0** in their place — the machine going up as a whole; bit 3 adds **shape 2** to whatever is already alight.
+- **`Component_DestroyAndCascade`**, for a component whose `.DMG` `+0x03` byte is not `-1` (the same byte that drives its shape sequence — see [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md)). The `.DMG` flags byte's (`+0x05`) bit 1 releases every fire already on the machine and lights **shape 0** in their place — the machine going up as a whole; bit 3 adds **shape 2** to whatever is already alight.
 - **`Base_DeathSequenceTick`**, at the last stage of a collapsing part — see below.
 
 ## A structure coming down

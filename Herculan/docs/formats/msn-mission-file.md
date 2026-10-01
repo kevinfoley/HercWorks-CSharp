@@ -1,6 +1,6 @@
 # .MSN mission file (ZONES.VOL/MSN/*.msn) and its VSHELL load path
 
-**Macro-structure: revision field + 17 array/skip rows in order (14 fully field-decoded), verified against all 62 real retail `.MSN` files.** Reversed from `VSHELL.EXE` disassembly and validated against real data; implemented in `HercWorks.Core.Io.Transform.Common.MissionFileTransformer`.
+**Macro-structure: revision field + 17 array/skip rows in order (14 fully field-decoded), verified against all 62 real retail `.MSN` files.** Reversed from `VSHELL.EXE` disassembly and validated against real data.
 
 ## Call chain — confirmed
 
@@ -399,13 +399,9 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 `Msn_LoadEngText` (`0041768c`) loads it between rows 2 and 3, from the mission's path with everything from its first `.` replaced by the language's extension — `.eng`, or `.fre`/`.ger` by the value in `0048227a`, which a command-line switch sets. A record whose condition fails is skipped, and one whose id is already loaded replaces that entry's text. `MissionStr_Write` (`004179f0`) writes every record that stays into `data\mission.str` as an ordinary [`.STR`](str-strings.md) of one group — the length of the rest, the count, then each line's length with its NUL, the line, and an attribute count of 0 — and rows #4, #10 and #17 have their ids renumbered to match, which is why `script.dat`'s refs are small where these are not.
 
 
-## How to apply
+## Recurring patterns
 
-- **The record table is byte-exact against 61 of 62 retail `.MSN` files**, and is implemented: `HercWorks.Core.Io.Transform.Common.MissionFileTransformer` walks the rows in this order, including skip-only row #5 and nested row #8's 2-bytes-per-entry width. Each row has a model under `HercWorks.Core.Data.File.Msn/`.
-
-- **The load is `HercWorks.Core.Io.Transform.Common.MissionGenerator`**: the conditions, the header patch, the `.ENG` text, variants, repeated GUIDs, the renumbering and both writers, working on the raw words as the original does rather than on `MissionFileTransformer`'s models. It loads all 62 retail missions, and at the generator state [`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-shells-generator) describes it reproduces two retail training handoffs of TRAIN5, each a `script11.dat` and `missn11.str` that retail wrote to save slot 11, byte for byte through their content ([`../shell/screen-layout.md`](../shell/screen-layout.md#starting-a-practice-mission)).
-
-- **Recurring pattern: most declared array/discriminator capacity goes unused in retail.** C# models should expose the actually-used shape, not full nominal capacity, while still round-tripping raw bytes.
+- **Recurring pattern: most declared array/discriminator capacity goes unused in retail.**
 
 - **Recurring pattern: `0x02`/`0x0X` "compound condition" pairs** — second field is real only when `0x02` is, drawn from a narrow set including sentinel `-99`. Confirmed in rows #12/#15/#16.
 

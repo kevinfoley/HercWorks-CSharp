@@ -1,12 +1,12 @@
 # simvol0/dat/WEAPONS.DAT (sim-side weapon mount template table)
 
-Distinct from `SHELL0/GAM/WEAPONS.DAT` (the UI-facing weapon catalog, see `docs/formats/weapons-dat.md`). This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceTables` (`0x0040fc8c`) via a resource literally named `"weapons"`. **Fully SOLVED and verified byte-exact against the real retail file.**
+Distinct from `SHELL0/GAM/WEAPONS.DAT` (the UI-facing weapon catalog, see `docs/formats/weapons-dat.md`). This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceTables` (`0x0040fc8c`) via a resource literally named `"weapons"`. The layout below reads the retail file byte-exact.
 
 ## Structure
 
 ```
-0x00  UINT16  Total          -- 33 in the real file, matches SHELL0/GAM/WEAPONS.DAT's catalog count
-0x02  WeaponMountTemplate[Total]   -- variable-length records, back to back (NOT a fixed stride --
+0x00  UINT16  count          -- 33 in the real file, matches SHELL0/GAM/WEAPONS.DAT's catalog count
+0x02  template[count]        -- variable-length records, back to back (NOT a fixed stride --
                                        see below)
 ```
 
@@ -17,23 +17,23 @@ Built entirely from **reused low-level record readers**: `HercPiece_ReadRecord` 
 Read order (all fields little-endian):
 
 ```
-+0   short Field0        -- 0 for id0/NONE; one of {1500, 2000, 2500, 15000} for every real weapon
++0   short               -- 0 for id0/NONE; one of {1500, 2000, 2500, 15000} for every real weapon
                              seen -- too few distinct values to be a per-weapon-unique stat ([Open](#open)).
-+2   short Field1        -- 0 for NONE; exactly -1 (0xFFFF) for every real weapon seen.
-+4   short Field2        -- 0 for NONE; exactly 0x01FF (511) for every real weapon seen.
-+6   short DepCount       -- 0 for NONE, 1 for every real weapon seen.
-     DepCount*4 bytes     -- DepCount raw 16-bit pairs, present only if DepCount != 0. Always
++2   short               -- 0 for NONE; exactly -1 (0xFFFF) for every real weapon seen.
++4   short               -- 0 for NONE; exactly 0x01FF (511) for every real weapon seen.
++6   short dependentCount -- 0 for NONE, 1 for every real weapon seen.
+     dependentCount*4 bytes -- that many raw 16-bit pairs, present only if the count != 0. Always
                              exactly (20, 12) in every real weapon record seen. This is
                              HercPiece_ReadRecord's "dependent sub-component list" mechanism
                              reused generically; for weapons it never varies ([Open](#open)).
-     short SubSphereFlagRaw   -- read via Collision_ReadCluster; constant 0x13 (19) in EVERY
+     short clusterComponent   -- read via Collision_ReadCluster; constant 0x13 (19) in EVERY
                                   real record seen, including id0/NONE. In a real collision model
                                   this field is the component index; here it never varies ([Open](#open)).
-     short SubMeshCountRaw    -- read via Collision_ReadSphereArray; real count is this value
+     short sphereCount        -- read via Collision_ReadSphereArray; real count is this value
                                   masked with 0x1FFF (top 3 bits are reserved for flags in the
                                   original collision-record format; never observed set here). 0 for
                                   NONE.
-     (SubMeshCountRaw & 0x1FFF) * 8 bytes  -- present only if the masked count != 0. Each 8-byte
+     (sphereCount & 0x1FFF) * 8 bytes  -- present only if the masked count != 0. Each 8-byte
                                   entry is 4 int16s. Pattern suggests (offsetish, offsetish,
                                   0-or-small, rate-ish) tuples ([Open](#open)).
 +0x22 (relative) 48 raw bytes (0x30)  -- decoded fields below ([Open](#open)). Two
@@ -56,7 +56,7 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 | `0x38` | energy fire threshold, high, **and the per-shot cost** — for an ammunition mount, rounds per shot | `WeaponMount_EnergyCanFire`, both fire dispatchers |
 | `0x3a` | magazine size | `WeaponMount_CtorAmmunition` (`0040e140`) |
 | `0x3c` | barrel count; `3` fires three shots spread along the muzzle offset's own X | `WeaponMount_FireDispatch_GunBeam` |
-| `0x3e` | `ProjDatIndex` | `MechLoadout_ConstructWeaponMounts` |
+| `0x3e` | **`PROJ.DAT` index**, below | `MechLoadout_ConstructWeaponMounts` |
 | `0x40`–`0x44` | muzzle offset, three int16, in the firing bone's space | `WeaponMount_PrepareShot` |
 | `0x46` | lateral muzzle offset, for a side-mounted hardpoint | `WeaponMountTemplate_SideMuzzleOffset` |
 | `0x4a` | vertical muzzle offset, for a top- or bottom-mounted one | `WeaponMountTemplate_SideMuzzleOffset` |
@@ -82,7 +82,7 @@ See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) for the m
 
 Neither is file data. `Weapons_LoadResourceTables` writes the record's own table index into `+0x56` — which is what identifies the sim table and the shell catalog as sharing one 0-32 weapon id — and a pointer from a 33-entry string array at `00498eb0` into `+0x52`. That pointer is the name a weapon gauge prints, and it is **not** the shell catalog's name for the same id. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--weaponmount_getdisplayname-0040e18c).
 
-## `ProjDatIndex` — tail-relative offset 0x1c, absolute offset 0x3e
+## The `PROJ.DAT` index — tail-relative offset 0x1c, absolute offset 0x3e
 
 Answers how a weapon id maps to a `PROJ.DAT` record. Read via `WeaponMountTemplate_GetByWeaponId` (`0x0040fe84`) and `MechLoadout_ConstructWeaponMounts` (`0x0040fff8`). Both `simvol0/dat/WEAPONS.DAT` and `SHELL0/GAM/WEAPONS.DAT` share the same 33-entry weapon-id indexing.
 
@@ -91,14 +91,12 @@ Answers how a weapon id maps to a `PROJ.DAT` record. Read via `WeaponMountTempla
 - **Otherwise -- direct flat array index into `PROJ.DAT`** (`index * 0x24 + ProjDat_RecordTable`, via `Proj_LookupRecordByIndex` at `0x0040ffb0`). Confirmed for all other real weapons.
 - **0 for non-firing entries** (`NONE`, `LAEW`, `MINE`, `TARG`, `SHLD`, `TURB`, `ENRG`). Field is inert for passive stat-boost systems. `LAEW` coincidentally resolves to index 0 (`ATC20`).
 
-Full weapon-id-to-index table: see `HercWorks.Core.Data.File.Dat.Sim.ProjectileData` doc comment.
-
-Implementation: see `HercWorks.Core.Data.File.Dat.Sim.Weapons` and `HercWorks.Core.Io.Transform.Dbsim.WeaponsSimTransformer`.
+The records each index reaches: [`../simulation/weapon-damage-types.md`](../simulation/weapon-damage-types.md#the-retail-records).
 
 ## Open
 
-- **Open:** `Field0`'s tier semantics — **not** the range, which is `0x30`.
-- **Open:** whether `DepCount`'s pair and `SubSphereFlagRaw`, both reused constant fields from `.DMG`/`.COL`, carry any real per-weapon value.
+- **Open:** what the first word (`+0`) means — it looks like a tier, and it is **not** the range, which is `0x30`.
+- **Open:** whether the dependent pair and the cluster component word, both reused constant fields from `.DMG`/`.COL`, carry any real per-weapon value.
 - **Open:** the firing-sequence tuple fields' exact meaning.
 - **Open:** `0x4e` (200 for LAS100 rising to 800 for the big launchers).
 - **Open:** the rest of the tail outside the fields decoded above.

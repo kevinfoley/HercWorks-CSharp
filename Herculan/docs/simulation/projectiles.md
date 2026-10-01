@@ -10,15 +10,15 @@ Like a tracer, a bullet lives in the effect pool (`DAT_004a9746`) that `Sim_Main
 
 `Bullet_LoadResources` (`0040ade0`) reads it as `int16 count` then that many 14-byte records, and loads `dts\BULLETS.DTS` and `dba\BULLETS.DBA` alongside it. **Indexed by the firing `PROJ.DAT` record's subtype id**, as `BEAM.DAT` is — `Bullet_GetTypeRecord` (`0040adc0`) is `table + id * 14`.
 
-| Offset | Field | Meaning |
-|---|---|---|
-| `+0x00` | `ModelId` | root of `BULLETS.DTS` |
-| `+0x02` | `Lifetime` | in 125 ms units; the shot is dropped when its age passes `Lifetime * 0x200` |
-| `+0x04` | `ClipRadius` | the shot record's `+0x08` slack, in place of a beam's literal 200 |
-| `+0x06` | `FrameInterval` | animation frame interval; 0 = static shape |
-| `+0x08` | `SfxFireIdBullets` | sound id, played as `id + 10` |
-| `+0x0a` | `Scatter` | **firing scatter**, in binary-angle units |
-| `+0x0c` | *`SfxFireIdMissiles` in the shared parser* | nonzero arms a per-lifetime rate at `obj+0x61` ([Open](#open)) |
+| Offset | Meaning |
+|---|---|
+| `+0x00` | model: root of `BULLETS.DTS` |
+| `+0x02` | lifetime, in 125 ms units; the shot is dropped when its age passes `lifetime * 0x200` |
+| `+0x04` | clip radius: the shot record's `+0x08` slack, in place of a beam's literal 200 |
+| `+0x06` | animation frame interval; 0 = static shape |
+| `+0x08` | fire sound id, played as `id + 10` |
+| `+0x0a` | **firing scatter**, in binary-angle units |
+| `+0x0c` | nonzero arms a per-lifetime rate at `obj+0x61` ([Open](#open)) |
 
 Retail (12 records; the five not listed are unreachable — no `Bullet` record carries their id):
 
@@ -32,7 +32,7 @@ Retail (12 records; the five not listed are unreachable — no `Bullet` record c
 | 8 | EMP2 | 2 | 30 | 100 | 256 | 0 |
 | 9 | PLAS, MAGN | 8 | 40 | 100 | 0 | 0 |
 
-Weapon names above are the simulator's own. Subtype 9 is reached by two weapon ids, `PLAS` (25) and `MAGN` (28, the shell catalog's `MFAC` — [`../formats/weapons-dat.md`](../formats/weapons-dat.md)), whose templates both carry `ProjDatIndex` 22.
+Weapon names above are the simulator's own. Subtype 9 is reached by two weapon ids, `PLAS` (25) and `MAGN` (28, the shell catalog's `MFAC` — [`../formats/weapons-dat.md`](../formats/weapons-dat.md)), whose templates both carry `PROJ.DAT` index 22.
 
 ## Spawning — `Bullet_Fire` (`0040b43c`)
 
@@ -46,7 +46,7 @@ Weapon names above are the simulator's own. Subtype 9 is reached by two weapon i
 ## Flight — `Bullet_TickUpdate` (`0040b124`)
 
 1. Advance the shape's animation frame when the record's `+0x06` is nonzero.
-2. `age += IntegrateRateOverTick(0x200)`; expire at `Lifetime * 0x200` with no impact of any kind.
+2. `age += IntegrateRateOverTick(0x200)`; expire at `record[+0x02] * 0x200` (the lifetime) with no impact of any kind.
 3. Home, if a target was attached — `Bullet_HomingSteer` (`0040aff0`). Only the plasma round is ever given one.
 4. `step = IntegrateRateOverTick(obj+0x52)`, taken along the frame's Y axis.
 5. Build a shot record (same layout as a beam's, see [`weapon-firing.md`](weapon-firing.md#the-shot-record)) with **the frame as the ray and the step as its length**, and run `Sim_RaycastObjectList`. A bullet therefore sweeps the segment it is about to cross rather than testing a point, which is what stops a fast round tunnelling through a machine between ticks.
@@ -56,7 +56,7 @@ Weapon names above are the simulator's own. Subtype 9 is reached by two weapon i
 
 ### The plasma branch
 
-Subtype 9 is singled out by literal value. Before the raycast it stashes both damage figures in globals and then **empties the shot record** — armour, shield and `SplashFactor` alike — so the raycast reports contact and nothing more. Everything the round does it does through a `Damage_ExplosiveBlastSweep` at 4000 units, which **excludes nothing**: the object it touched stands in the blast like any other. A proximity fuze detonates it within 2000 units of the homing target once the bearing error exceeds a quarter turn.
+Subtype 9 is singled out by literal value. Before the raycast it stashes both damage figures in globals and then **empties the shot record** — armour, shield and splash factor alike — so the raycast reports contact and nothing more. Everything the round does it does through a `Damage_ExplosiveBlastSweep` at 4000 units, which **excludes nothing**: the object it touched stands in the blast like any other. A proximity fuze detonates it within 2000 units of the homing target once the bearing error exceeds a quarter turn.
 
 The blast figure is the record's **armour** damage, power-scaled — the two are equal on the one record this reaches — and then difficulty-scaled by a direct `Damage_ScaleByDifficulty` (`00426b04`) call, because the emptied record gives the raycast's own scaling nothing to scale ([`difficulty.md`](difficulty.md#the-damage-scale-reaches-all-direct-fire-not-just-plasma)). The stash is written before that scale, so it holds the power-scaled figures without the difficulty scale.
 

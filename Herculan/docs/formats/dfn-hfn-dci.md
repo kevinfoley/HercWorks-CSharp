@@ -4,21 +4,21 @@ Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly in the `ES2Recon` G
 
 ## The shared "Dynamix resource" envelope
 
-All of `.DFN`, `.HFN`, `.DCI`, `.DBA`/`.HBA`/`.HB0-2`/`.DB0-2` (already-ported `DynamixBitmapArray`), and the embedded per-image `DynamixBitmap` sub-header share one 4-byte envelope shape, immediately after the standard 9-byte VOL-entry prefix (`HercWorks.Vol.VolEntryPrefixCodec`):
+All of `.DFN`, `.HFN`, `.DCI`, the bitmap arrays `.DBA`/`.HBA`/`.HB0-2`/`.DB0-2`, and the embedded per-image bitmap sub-header share one 4-byte envelope shape at the start of the entry's content ([`vol-archive.md`](vol-archive.md)):
 
 ```
 [0..1] uint16 typeId   -- distinguishes the specific resource kind
 [2..3] uint16 0x0028   -- constant across the whole family
 ```
 
-Confirmed `typeId` values (all read as **big-endian** 4-byte magic, matching the existing `DynamixBitmapArray.HeaderMagic = 0x01002800` convention already in the codebase):
+Confirmed `typeId` values, each written as the envelope's 4 bytes read **big-endian**:
 
-| typeId (BE dword) | Kind | Status |
-|---|---|---|
-| `0x01002800` | `.DBA`/`.HBA`/`.HB0-2`/`.DB0-2` — bitmap array | already ported (`DynamixBitmapArrayTransformer`) |
-| `0x0E002800` | Embedded single-image sub-header inside the above | already ported |
-| `0x0B002800` | `.DCI` — cursor image | decoded below |
-| `0x05002800` | `.DFN`/`.HFN` — bitmap font | decoded below |
+| typeId (BE dword) | Kind |
+|---|---|
+| `0x01002800` | `.DBA`/`.HBA`/`.HB0-2`/`.DB0-2` — bitmap array |
+| `0x0E002800` | Embedded single-image sub-header inside the above |
+| `0x0B002800` | `.DCI` — cursor image, below |
+| `0x05002800` | `.DFN`/`.HFN` — bitmap font, below |
 
 `.DFN`/`.HFN`/`.DCI` are dispatched by a generic class-registry loader in `DBSIM.EXE` (`ClassItem_ReadTypeTag` (`0047a5a8`) → `ClassItem_FindHandler` (`0047a394`)). Specific loaders: `Panel_LoadWrapper` (`00430f58`, fonts), `Cursor_LoadWrapper` (`00430fb0`, cursors).
 
@@ -26,7 +26,7 @@ Confirmed `typeId` values (all read as **big-endian** 4-byte magic, matching the
 
 7 real files in `ES2/VOL/simvol0/dci/`: `{CURSOR,ECURSOR,MCURSOR,NCURSOR,PCURSOR,SCURSOR,WCURSOR}.DCI`.
 
-Unlike `DynamixBitmapArray`, `.DCI` is a single embedded `DynamixBitmap` with an extra **hotspot** field spliced between the outer envelope and the sub-header.
+Unlike a bitmap array, `.DCI` is a single embedded bitmap with an extra **hotspot** field spliced between the outer envelope and the sub-header.
 
 Confirmed layout (offsets relative to the start of file content, i.e. after the 9-byte VOL prefix):
 
@@ -36,7 +36,7 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 0x04  uint32 totalSize    -- content size below this field
 0x08  int32  hotspotX     -- cursor click-point X, CONFIRMED (see below)
 0x0C  int32  hotspotY     -- cursor click-point Y, CONFIRMED (see below)
-0x10  --- embedded DynamixBitmap sub-header starts here (typeId 0x0E002800) ---
+0x10  --- embedded bitmap sub-header starts here (typeId 0x0E002800) ---
 0x10  uint16 typeId       = 0x000E
 0x12  uint16              = 0x0028
 0x14  uint32 subSize

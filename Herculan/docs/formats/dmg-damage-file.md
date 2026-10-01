@@ -23,7 +23,7 @@ piece = 8 bytes, then dependentCount * 4 bytes of dependent list
 | `+0x00` | `int16` `Armor`, the component's own maximum | `Component_ReadDamagePercent`'s `local_10 = *psVar5` |
 | `+0x02` | `int8` — the debris group this component throws, `-1` = fall back to group 2. See [`destruction-effects.md`](../simulation/destruction-effects.md#the-two-database-index-space) | `Component_DestroyAndCascade`, on destruction |
 | `+0x03` | `int8` — the `TSCellAnimPart` sequence this component drives on the machine's shape, stepped to its blank cell on destruction (`*(int*)(mechThis+0x34)+8`, `[index] = 2`), `-1` for a component with no geometry of its own. It also gates the fire — see [`mech-shape-drawing.md`](mech-shape-drawing.md) | `Component_DestroyAndCascade`, guarded by `-1 < value` |
-| `+0x04` | `int8` `ParentComponent` — the **index of the parent component** this one hangs off, `-1` for none. Destroying component *n* queues every still-live piece whose `ParentComponent` is *n* | `Component_DestroyAndCascade`'s trailing loop |
+| `+0x04` | `int8` — the **index of the parent component** this one hangs off, `-1` for none. Destroying component *n* queues every still-live piece whose parent is *n* | `Component_DestroyAndCascade`'s trailing loop |
 | `+0x05` | `uint8` flags, below | `Component_ApplyDamageAndCascade`, `Component_DestroyAndCascade` |
 | `+0x06` | `int16` dependent count | `HercPiece_ReadRecord`, `Component_ReadDamagePercent`'s loop bound |
 | `+0x08` | pointer to the dependent list, read in place after the first 8 bytes. Four bytes an entry: `int16` **spill weight** at `+0`, `int16` internal index at `+2` | `Component_SpillIntoDependents`, `Component_ReadDamagePercent` |
@@ -34,7 +34,7 @@ piece = 8 bytes, then dependentCount * 4 bytes of dependent list
 
 | Bit | Meaning |
 |---|---|
-| 0 | The piece runs its destruction at all. `Component_ApplyDamageAndCascade` calls `Component_DestroyAndCascade` only for a piece with this bit set, and that call clears the active flag, throws the debris and cascades to every live piece whose `ParentComponent` names it. A piece without it (the torso, in 20 of the 21 files) reads fully damaged once its armour and internals are gone and does none of that |
+| 0 | The piece runs its destruction at all. `Component_ApplyDamageAndCascade` calls `Component_DestroyAndCascade` only for a piece with this bit set, and that call clears the active flag, throws the debris and cascades to every live piece whose parent (`+0x04`) names it. A piece without it (the torso, in 20 of the 21 files) reads fully damaged once its armour and internals are gone and does none of that |
 | 1 | The piece going up releases every fire already on the machine and lights shape 0 in its place — the machine going up as a whole |
 | 3 | With bit 1 clear, lights shape 2 |
 | 2 | The piece's explosion is type `0x11` rather than 10, and once one has gone off the rest of that cascade start neither a fire nor an explosion — the latch is `DAT_004a98b0`, cleared at the start of each cascade |
@@ -45,7 +45,7 @@ The fires are [`destruction-effects.md`](../simulation/destruction-effects.md#fi
 
 ## The two index spaces
 
-The file names nothing. The labels below are the conventional ones, and what confirms them is the structure — the `ParentComponent` chains and what [`Mech_ComponentDamageWrite` reads by literal index](../simulation/component-damage.md#slots-the-write-path-reads-by-index).
+The file names nothing. The labels below are the conventional ones, and what confirms them is the structure — the parent chains (`+0x04`) and what [`Mech_ComponentDamageWrite` reads by literal index](../simulation/component-damage.md#slots-the-write-path-reads-by-index).
 
 **Components** (the 29 pieces):
 
@@ -61,7 +61,7 @@ The file names nothing. The labels below are the conventional ones, and what con
 | 13–18 | the rear pair's three pieces on a four-legged chassis, carrying armour 1 elsewhere: left 13, 15, 17 and right 14, 16, 18 |
 | 19–28 | the ten weapon mounts. A mount occupies its `.GL` record's `+0x17` plus 19 |
 
-The leg chain runs upper → lower → foot through `ParentComponent`: ACHILLES' left leg is 7 → 9 → 11 and its right 8 → 10 → 12. Its mount components 19, 21 and 24 hang off bracket 5, 20, 23 and 25 off bracket 4, and 22 off the front cockpit; 26–28 hang off nothing. SPIDER sets `-1` throughout, so nothing on it cascades.
+The leg chain runs upper → lower → foot through the parent index: ACHILLES' left leg is 7 → 9 → 11 and its right 8 → 10 → 12. Its mount components 19, 21 and 24 hang off bracket 5, 20, 23 and 25 off bracket 4, and 22 off the front cockpit; 26–28 hang off nothing. SPIDER sets `-1` throughout, so nothing on it cascades.
 
 **Internals** (the 22 slots):
 

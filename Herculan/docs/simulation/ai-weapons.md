@@ -114,8 +114,10 @@ When every mount is either absent or destroyed, and the flag is not already up:
 ```
 mech+0xa5 = 1
 if (mech+0x1b6) Action_Activate(mech+0x1b6)      // the object's own mission action
-if (DAT_004a9ee7 < 1000) DAT_004a9ee7 = 1000     // the radio cooldown
+if (MissionPollTimer_Count < 1000) MissionPollTimer_Count = 1000
 ```
+
+**The last line defers the mission's objective poll.** `004a9ee7` is the counter of the poll-interval timer record at `004a9ee6`, which `Mission_PollStatus` steps each tick through `Math_CountdownTimerTick` and evaluates the objectives when it reaches 0 ([`mission-objectives.md`](mission-objectives.md#the-poll--mission_pollstatus-004131ac)). Raising it to 1000 counts, about half a second, means the next evaluation — including any "disarmed" objective (condition 7) — runs no sooner than that after the machine runs dry; a poll already further off is left alone.
 
 `mech+0xa5` is "this machine has no weapons left", not a third damage latch beside `+0xa4` and `+0x99`; what the three mean and which tests read them is [`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5).
 

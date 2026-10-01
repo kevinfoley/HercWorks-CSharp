@@ -19422,6 +19422,51 @@
       "source": "docs/simulation/difficulty.md"
     },
     {
+      "address": "004a9ee6",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionPollTimer",
+      "description": "CountdownTimer record: the objective poll's interval. Mission_PollStatus passes this base to Math_CountdownTimerTick each tick and evaluates the status only when the counter (MissionPollTimer_Count, +1) reaches 0, or when the player is outside the mission box.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004a9ee7",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionPollTimer_Count",
+      "description": "Short counter of MissionPollTimer (+1 of the record), stepped through the record base by Math_CountdownTimerTick, so it has no absolute-address reader. Re-armed to 10000 by Mission_PollStatus when the answer is not worth raising; Ai_ChooseWeapon raises it to at least 1000 when a machine runs out of weapons, deferring the next poll.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004a9ee9",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionAlertTimer",
+      "description": "CountdownTimer record: how long an alert-worthy status must stand before Mission_PollStatus hands it up. Ticked through this base every poll.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004a9eea",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionAlertTimer_Count",
+      "description": "Short counter of MissionAlertTimer (+1 of the record). Armed to 10000 by Mission_PollStatus when MissionAlertArmed is first raised, and read directly there.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004a9eec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionAlertArmed",
+      "description": "Short latch: MissionAlertTimer has been armed. Set by Mission_PollStatus with the arm; cleared by Sim_DispatchCommand's [Q] case after its status alert closes (00460585), so the next alert-worthy status waits the full delay again.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
       "address": "004a9edc",
       "binary": "DBSIM",
       "type": "data",

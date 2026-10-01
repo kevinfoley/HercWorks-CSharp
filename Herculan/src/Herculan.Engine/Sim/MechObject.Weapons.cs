@@ -214,11 +214,12 @@ public sealed partial class MechObject {
 		}
 
 		if (!anyArmed && !Disarmed) {
-			// Running dry is a mission event: the machine's own block-5 action fires and the radio
-			// channel is held open for the callout. This is the fourth of that action's firing sites
-			// and the only one that is not a death -- see SimObject.DefeatAction.
+			// Running dry is a mission event: the machine's own block-5 action fires and the next
+			// objective poll is put at least DisarmedPollDeferral away. This is the fourth of that
+			// action's firing sites and the only one that is not a death -- see SimObject.DefeatAction.
 			Disarmed = true;
 			ActivateDefeatAction(world);
+			world.Objectives.DeferPoll(DisarmedPollDeferral);
 		}
 
 		return chosen;
@@ -268,6 +269,12 @@ public sealed partial class MechObject {
 
 	/// <summary><c>mech+0x2ac</c> — the latched mount. Only an ELF is ever kept.</summary>
 	private WeaponMount? _latchedWeapon;
+
+	/// <summary>
+	/// How far <see cref="ChooseWeapon"/> pushes the next objective poll when a machine runs dry, in
+	/// <see cref="SimMath.CountdownTimerTick"/> counts: about half a second.
+	/// </summary>
+	public const short DisarmedPollDeferral = 1000;
 
 	/// <summary>The turret error a gun will fire inside, in binary angle — about 5.5°.</summary>
 	public const short AimedFireTolerance = 1000;

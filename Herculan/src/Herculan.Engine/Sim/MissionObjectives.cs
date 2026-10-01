@@ -68,13 +68,14 @@ public sealed class MissionObjectives {
 	/// <c>Mission_PollStatus</c> (<c>004131ac</c>), run once a tick from <c>Sim_MainTick</c> with the
 	/// player's machine, and only while that machine is not destroyed.
 	///
-	/// <para>Two countdowns shape it, and between them they are why a finished mission takes tens of
-	/// seconds to say so. <b>The poll interval</b> (<c>DAT_004a9ee6</c>) is re-armed to
-	/// <see cref="PollInterval"/> every time the answer is not worth raising, so the objectives are
-	/// actually read about once every ten seconds — except that a player outside the mission box is
-	/// read every tick, which is what makes the boundary warning prompt. <b>The alert delay</b>
-	/// (<c>DAT_004a9ee9</c>) is armed once, the first time an alert-worthy status appears, and the
-	/// status is not handed up until it runs out. A destroyed player skips it.</para>
+	/// <para>Two countdowns shape it, and between them they are why a finished mission takes several
+	/// seconds to say so. <b>The poll interval</b> (<c>MissionPollTimer</c>, <c>004a9ee6</c>) is
+	/// re-armed to <see cref="PollInterval"/> every time the answer is not worth raising, so the
+	/// objectives are actually read about once every five seconds — except that a player outside the
+	/// mission box is read every tick, which is what makes the boundary warning prompt.
+	/// <see cref="DeferPoll"/> is its other writer. <b>The alert delay</b> (<c>MissionAlertTimer</c>,
+	/// <c>004a9ee9</c>) is armed the first time an alert-worthy status appears, and the status is not
+	/// handed up until it runs out. A destroyed player skips it.</para>
 	/// </summary>
 	/// <returns>
 	/// The status the caller should raise its modal alert for, or <see cref="MissionStatus.None"/>
@@ -110,9 +111,21 @@ public sealed class MissionObjectives {
 	}
 
 	/// <summary>
+	/// <c>Ai_ChooseWeapon</c>'s write to <c>MissionPollTimer_Count</c> (<c>004a9ee7</c>): put the next
+	/// poll at least <paramref name="minimum"/> away, leaving one already further off alone. See
+	/// docs/simulation/ai-weapons.md, "Running dry".
+	/// </summary>
+	internal void DeferPoll(short minimum) {
+		if (_pollInterval < minimum) {
+			_pollInterval = minimum;
+		}
+	}
+
+	/// <summary>
 	/// <c>Mission_StatusForAlert</c> (<c>00413180</c>) with its publish flag set — the [Q] path.
-	/// Evaluates quietly, then records the answer as <see cref="Announced"/> and disarms the poll's
-	/// pending alert, which is the whole of what that flag does.
+	/// Evaluates quietly, then records the answer as <see cref="Announced"/>, which is the whole of
+	/// what that flag does, and disarms the poll's pending alert, which <c>Sim_DispatchCommand</c>'s
+	/// [Q] case does itself once its panel closes (<c>00460585</c>).
 	///
 	/// <para>Both of those matter to what the player sees next. Recording the answer means the poll
 	/// will not raise the same status again as a change, so a player who presses [Q], reads
@@ -478,15 +491,16 @@ public sealed class MissionObjectives {
 
 	/// <summary>
 	/// How long the poll waits between readings once it has one that is not worth raising —
-	/// <c>DAT_004a9ee6</c>'s re-arm, in <see cref="SimMath.CountdownTimerTick"/>'s unit rather than
+	/// <c>MissionPollTimer</c>'s re-arm, in <see cref="SimMath.CountdownTimerTick"/>'s unit rather than
 	/// milliseconds: about 4.9 seconds.
 	/// </summary>
 	public const short PollInterval = 10000;
 
 	/// <summary>
 	/// How long an alert-worthy status has to stand before the poll hands it up —
-	/// <c>DAT_004a9ee9</c>'s arm, in the same unit — about 4.9 seconds. Armed once and never
-	/// re-armed.
+	/// <c>MissionAlertTimer</c>'s arm, in the same unit — about 4.9 seconds. Armed once per latch of
+	/// <c>MissionAlertArmed</c> (<c>004a9eec</c>), which only the [Q] path clears — see
+	/// <see cref="QueryForPlayer"/>.
 	/// </summary>
 	public const short AlertDelay = 10000;
 

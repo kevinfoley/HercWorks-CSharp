@@ -257,7 +257,7 @@ public sealed class ShellPreferencesScreen {
 	/// Whether a checkbox is ticked — its <c>+0x69</c>, which <c>PreferencesScreen_Enter</c> seeds from the
 	/// options. <c>Music</c> and <c>Sound Effects</c> take their byte as it is (<c>PreferencesScreen_SyncSoundChecks</c>, <c>00436790</c>). A radio
 	/// group's relight ticks the one whose value the option holds and clears the others
-	/// (<c>FUN_0043692e</c>, <c>PreferencesScreen_SyncBuildModeRadios</c> (<c>00436adc</c>), <c>FUN_00436a28</c>, <c>FUN_004367cd</c>); a value no
+	/// (<c>PreferencesScreen_SyncRepairModeRadios</c> (<c>0043692e</c>), <c>PreferencesScreen_SyncBuildModeRadios</c> (<c>00436adc</c>), <c>PreferencesScreen_SyncResolutionRadios</c> (<c>00436a28</c>), <c>PreferencesScreen_SyncDisplayModeRadios</c> (<c>004367cd</c>)); a value no
 	/// checkbox in the group names writes none, and on the first entry that leaves all of them at the
 	/// constructor's 0.
 	/// </summary>

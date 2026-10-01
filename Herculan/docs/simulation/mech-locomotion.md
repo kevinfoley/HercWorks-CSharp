@@ -187,7 +187,7 @@ The locomotion accel steps (`typeRec+0x08`, `+0x0a`) are raw per-tick steps with
 `SimObject_ApplyRootMotion` (`0040250c`), called once per tick from `Mech_IntegrateMotion`:
 
 ```c
-setRootTransform(shape, IDENTITY);   // FUN_00478a70
+setRootTransform(shape, IDENTITY);   // ShapeInst_SeedRootTransform (00478a70)
 advanceAnimation(shape, dt);         // ShapeInstance_StepAnimation (00478c2c), dt = Q8(SimTickDelta, 100)
 delta = shape->nodeWorldTransforms[0];
 pos   = objRotationMatrix × delta.translation + pos;   // Transform_ApplyToPoint (00480330)

@@ -467,7 +467,7 @@ public static class MfdLayout {
 
 	/// <summary>
 	/// The <i>alternate</i> font each row carries at <c>+0x21</c> — <c>ColorSchemePanels[2]</c>,
-	/// <c>CPRED</c>. It is not an unavailable state: <c>FUN_00438aac</c> redraws exactly one
+	/// <c>CPRED</c>. It is not an unavailable state: <c>Label_SetTextWithHotkey</c> (<c>00438aac</c>) redraws exactly one
 	/// character of the row in it, at the index the order's own attribute byte names, which is how
 	/// the hotkey letter is picked out. The [F7] order list uses the same mechanism.
 	/// </summary>
@@ -475,7 +475,7 @@ public static class MfdLayout {
 
 	/// <summary>
 	/// The plate laid over the selected row — <c>MFD</c> frame 11, a 91x8 GAU hollow rounded rect,
-	/// blitted by <c>FUN_0043fa34</c> <b>after</b> the row's text so it frames rather than covers it.
+	/// blitted by <c>MfdFlashCommScreen_DrawRowPlate</c> (<c>0043fa34</c>) <b>after</b> the row's text so it frames rather than covers it.
 	/// The frame index is <c>0xb +</c> the XMIT button's own press byte, so holding XMIT swaps it for
 	/// <see cref="FlashCommRowPlatePressedFrame"/>.
 	/// </summary>

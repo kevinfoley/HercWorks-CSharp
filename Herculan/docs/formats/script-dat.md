@@ -214,7 +214,7 @@ The text refs at `0x44`-`0x4D`, `mission.str` lines like every other text ref in
 
 ### Block 6 in memory — 49 bytes (`0x31`)
 
-`DBSim_BuildActionTimerRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms the timer through `FUN_004679c0`, which stores the file value **shifted left 11** into the simulation's timer unit — 2048 counts, so the on-disk unit is exactly one second.
+`DBSim_BuildActionTimerRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms the timer through `ActionTimer_SetDelay` (`004679c0`), which stores the file value **shifted left 11** into the simulation's timer unit — 2048 counts, so the on-disk unit is exactly one second.
 
 | offset | from | field |
 |---|---|---|

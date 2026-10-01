@@ -11,7 +11,7 @@ namespace Herculan.Engine.Audio;
 /// training number and <b>the posted id plus one</b> into <c>TMx_0000</c>, puts the voice folder
 /// in front — <c>simvoice</c> with its last letter patched for the language, as
 /// <c>Voice_ArchiveName</c> (<c>0045ef68</c>) does for the archive — and, because the digit is never
-/// <c>0</c> on this port, prefixes the directory <c>data\drive.cfg</c> names (<c>FUN_0045ee44</c>,
+/// <c>0</c> on this port, prefixes the directory <c>data\drive.cfg</c> names (<c>DriveCfg_PrefixPath</c>, <c>0045ee44</c>,
 /// the path <c>Sim_Run</c> (<c>0045f144</c>) reads at startup). One clip per instruction, not per sentence.</para>
 /// </summary>
 public static class InstructorVoice {

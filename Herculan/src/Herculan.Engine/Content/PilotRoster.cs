@@ -11,9 +11,9 @@ namespace Herculan.Engine.Content;
 ///
 /// <para><c>HddGauge_LoadPilotFrames</c> (<c>0044a7c0</c>) is where the three meet: it walks
 /// <c>PILOTS.STR</c> to that index for the name, divides the index by three
-/// (<c>FUN_00434240</c>) for the portrait bank <c>dba\PILOT&lt;n&gt;.DBA</c> and its
+/// (<c>Pilot_PortraitOf</c>, <c>00434240</c>) for the portrait bank <c>dba\PILOT&lt;n&gt;.DBA</c> and its
 /// <c>ofs\PILOT&lt;n&gt;.OFS</c> offsets, and takes <c>(n &gt;&gt; 2) + 1</c> with 3 remapped to 4
-/// (<c>FUN_00434260</c>) for the voice bank. So 36 pilots share 12 portraits and 12 portraits share
+/// (<c>Pilot_VoiceBankOf</c>, <c>00434260</c>) for the voice bank. So 36 pilots share 12 portraits and 12 portraits share
 /// three recorded voices.</para>
 /// </summary>
 public sealed class PilotRoster {
@@ -23,7 +23,7 @@ public sealed class PilotRoster {
 	/// <summary>Folder the per-portrait offset tables live in.</summary>
 	public const string OffsetFolder = "ofs";
 
-	/// <summary>How many roster entries share one portrait — <c>FUN_00434240</c>'s divisor.</summary>
+	/// <summary>How many roster entries share one portrait — <c>Pilot_PortraitOf</c>'s divisor.</summary>
 	public const int PilotsPerPortrait = 3;
 
 	/// <summary>How many portrait banks there are, and how many speakers the <c>.SNC</c> names cover.</summary>
@@ -59,11 +59,11 @@ public sealed class PilotRoster {
 	/// <summary>Pilot <paramref name="pilot"/>'s name, or null when the index is off the roster.</summary>
 	public string? Name(int pilot) => pilot >= 0 && pilot < _names.Length ? _names[pilot] : null;
 
-	/// <summary>Which portrait bank a pilot talks with — <c>FUN_00434240</c>.</summary>
+	/// <summary>Which portrait bank a pilot talks with — <c>Pilot_PortraitOf</c>.</summary>
 	public static int PortraitOf(int pilot) => pilot / PilotsPerPortrait;
 
 	/// <summary>
-	/// Which recorded voice a portrait speaks with — <c>FUN_00434260</c>. Banks 1, 2 and 4 exist;
+	/// Which recorded voice a portrait speaks with — <c>Pilot_VoiceBankOf</c>. Banks 1, 2 and 4 exist;
 	/// the third group is remapped onto 4 rather than getting one of its own.
 	/// </summary>
 	public static int VoiceBankOf(int portrait) {

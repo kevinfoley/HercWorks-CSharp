@@ -199,7 +199,7 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud-widgets.md`](cockpit-hud
 
 ### The map's frame of reference
 
-**The mission box is `script.dat` block 1's bounding box.** `DBSim_LoadScriptDat` (`00424308`) accumulates it into `DAT_004aa6c4`..`d0` (min x, min y, max x, max y) as it reads the coordinate list, before any roster block. Everything the map does is measured against it:
+**The mission box is `script.dat` block 1's bounding box.** `DBSim_LoadScriptDat` (`00424308`) accumulates it into `Mission_Box` (`004aa6c4`..`d0`: min x, min y, max x, max y) as it reads the coordinate list, before any roster block. Everything the map does is measured against it:
 
 - the screen copies it into its own `+0x160` rect and draws it as the manual's red mission border;
 - the pan clamp is that box grown by 60000 world units on every edge;
@@ -403,7 +403,7 @@ Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. 
 
 ### Who is in it
 
-The machine's own pilot index — the leading field of its `player.mec` record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by `DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for the box's name, takes `index / 3` (`FUN_00434240`) as the portrait bank `dba\PILOT<n>.DBA` + `ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`FUN_00434260`) as the voice bank ([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are indexed by the same number.
+The machine's own pilot index — the leading field of its `player.mec` record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by `DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for the box's name, takes `index / 3` (`Pilot_PortraitOf`, `00434240`) as the portrait bank `dba\PILOT<n>.DBA` + `ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`Pilot_VoiceBankOf`, `00434260`) as the voice bank ([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are indexed by the same number.
 
 ### The gauge
 

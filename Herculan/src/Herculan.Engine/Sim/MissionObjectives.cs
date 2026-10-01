@@ -442,9 +442,8 @@ public sealed class MissionObjectives {
 	};
 
 	/// <summary>
-	/// <c>Mission_AccumulateBounds</c> (<c>0041373c</c>) — whether a position is outside the mission's bounding box, grown by
-	/// <paramref name="margin"/> on every side. The box is block 1's own extent, accumulated as the
-	/// coordinates are read; the Heads-Down Display's map is framed by the same one.
+	/// <c>Mission_IsOutsideBox</c> (<c>0041373c</c>) — whether a position is outside the mission's bounding box, grown by
+	/// <paramref name="margin"/> on every side. See <see cref="SimWorld.MissionBounds"/>.
 	/// </summary>
 	private static bool IsOutsideMissionBox(SimWorld world, SimObject subject, int margin) {
 		var box = world.MissionBounds;
@@ -477,7 +476,7 @@ public sealed class MissionObjectives {
 
 	/// <summary>
 	/// How far beyond the mission box counts as abandoning the mission rather than drifting out of
-	/// it — <c>FUN_00413780</c>'s literal, and the difference between the two boundary statuses.
+	/// it — <c>SimObject_IsFarOutsideMissionBox</c>'s (<c>00413780</c>) literal, and the difference between the two boundary statuses.
 	/// </summary>
 	public const int RulesOfEngagementMargin = 110000;
 

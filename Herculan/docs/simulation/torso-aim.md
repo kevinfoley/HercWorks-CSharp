@@ -70,7 +70,7 @@ The intra-frame offset lands on a whole animation tick, because the scale-down t
 
 `Mech_Constructor` (`00415bb0`) builds them in this order, skipping any whose sequence id is negative: locomotion on `typeRec+0x12` at `mech+0x22c`, twist on `+0x1c` at `+0x230`, pitch on `+0x24` at `+0x234`.
 
-The order matters: the first-registered thread wins any node two of them cover, so locomotion outranks the turret. Which nodes each covers, and the one HERC where it decides anything, are in [`dts-node-posing.md`](../formats/dts-node-posing.md#several-threads-on-one-shape).
+The shape re-ranks them by their sequences' priority on every step, and registration order only breaks ties; the three cover disjoint nodes on every retail chassis, so the ranking decides which thread carries root motion rather than any pose. Both are in [`dts-node-posing.md`](../formats/dts-node-posing.md#several-threads-on-one-shape).
 
 ### The angle is not the drawn direction
 

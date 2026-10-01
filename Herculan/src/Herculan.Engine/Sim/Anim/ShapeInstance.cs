@@ -8,9 +8,9 @@ namespace Herculan.Engine.Sim.Anim;
 ///
 /// <para>A HERC runs <b>three</b> threads at once, built in this order by <c>Mech_Constructor</c>
 /// (<c>00415bb0</c>): locomotion on <c>typeRec+0x12</c> at <c>mech+0x22c</c>, torso twist on
-/// <c>typeRec+0x1c</c> at <c>+0x230</c>, torso pitch on <c>typeRec+0x24</c> at <c>+0x234</c>. Each
-/// covers a disjoint set of nodes on every retail HERC but one, so mostly they simply do not meet;
-/// where they do, <see cref="LocalOf"/> settles it the way the original does.</para>
+/// <c>typeRec+0x1c</c> at <c>+0x230</c>, torso pitch on <c>typeRec+0x24</c> at <c>+0x234</c>. On
+/// retail data they cover disjoint nodes and never meet; where a shape's threads do,
+/// <see cref="LocalOf"/> settles it the way the original does.</para>
 ///
 /// <para>DBSIM keeps a ready-made array of every node's world transform on the shape instance
 /// (<c>shapeInst+0x16</c>) and rebuilds all of it each tick: <c>ShapeInst_EvalAllNodeLocals</c>
@@ -35,8 +35,13 @@ public sealed class ShapeInstance {
 	/// <summary>
 	/// Adds a thread playing <paramref name="sequence"/> from its first frame, stopped —
 	/// <c>ShapeInst_AddThread</c> (<c>00402374</c>), which builds the thread, cuts it to the sequence, sets its rate to zero
-	/// and registers it on the shape instance (<c>FUN_00478930</c>). A caller that wants the thread
-	/// running sets <see cref="AnimationThread.Rate"/> itself, as the locomotion tick does.
+	/// and registers it on the shape instance (<c>ShapeInst_RegisterThread</c>, <c>00478930</c>). A
+	/// caller that wants the thread running sets <see cref="AnimationThread.Rate"/> itself, as the
+	/// locomotion tick does.
+	///
+	/// <para>The original re-sorts its thread slots by priority on every registration and every
+	/// step; this list stays in registration order and <see cref="LocalOf"/> applies the ranking
+	/// when it reads.</para>
 	/// </summary>
 	public AnimationThread AddThread(int sequence) {
 		var thread = new AnimationThread(Animation);
@@ -47,8 +52,9 @@ public sealed class ShapeInstance {
 
 	/// <summary>
 	/// <c>AnimThread_StepAll</c>'s (<c>004789a0</c>) advance half — every thread on this shape moved
-	/// on by one timestep's worth of animation time. The original then reads the first thread's
-	/// ramped root transform into the node array; a caller that wants that root motion asks the
+	/// on by one timestep's worth of animation time. The original then re-sorts the threads by
+	/// priority and reads the first one's ramped root transform into the node array; a caller that
+	/// wants that root motion asks the
 	/// thread for it directly (<see cref="AnimationThread.ReadRoot"/>), as
 	/// <see cref="MechObject.IntegrateMotion"/> and <see cref="BaseObject.StepAnimation"/> both do.
 	///
@@ -86,23 +92,38 @@ public sealed class ShapeInstance {
 	}
 
 	/// <summary>
-	/// Which transform a node holds right now: the first thread that animates it wins, and a node no
-	/// thread animates keeps its rest transform.
+	/// Which transform a node holds right now: of the threads that animate it, the one whose playing
+	/// sequence has the lowest <see cref="AnimSequence.Priority"/> wins, the earlier-added on a tie,
+	/// and a node no thread animates keeps its rest transform.
 	///
-	/// <para><b>First</b>, not last, is the original's rule. <c>ShapeInst_EvalAllNodeLocals</c> runs
-	/// the threads from last-registered to first, each overwriting the locals of every node its
-	/// sequence covers with no regard for what is already there, so the first-registered thread's
-	/// writes are the ones left standing. For a HERC that means locomotion outranks the torso.</para>
+	/// <para><c>ShapeInst_EvalAllNodeLocals</c> (<c>004789f4</c>) runs the thread slots last to
+	/// first, each overwriting the locals of every node its sequence covers, so the first slot's
+	/// writes stand; <c>ShapeInst_SortThreadsByPriority</c> (<c>004788c4</c>) keeps the slots in
+	/// ascending priority, swapping only on strictly greater, so equal priorities never change places
+	/// and stay in registration order. Ranking at read time gives the same answer as keeping the
+	/// list sorted.</para>
 	///
-	/// <para>It decides nothing on 17 of the 18 retail HERCs, whose locomotion, twist and pitch
-	/// sequences cover disjoint nodes; HEADHUNT is the one exception. The per-HERC node lists are in
-	/// docs/formats/dts-node-posing.md, "Several threads on one shape".</para>
+	/// <para>On retail data it decides nothing: the sequences a type record names cover disjoint
+	/// nodes on every chassis. See docs/formats/dts-node-posing.md, "Several threads on one
+	/// shape".</para>
 	/// </summary>
 	private AnimTransform? LocalOf(int transformId) {
+		AnimTransform? winner = null;
+		int winnerPriority = 0;
 		foreach (var thread in _threads) {
-			if (thread.TryGetLocal(transformId, out var local)) {
-				return local;
+			if (!thread.TryGetLocal(transformId, out var local)) {
+				continue;
 			}
+
+			int priority = Animation.Sequences[thread.Sequence].Priority;
+			if (winner == null || priority < winnerPriority) {
+				winner = local;
+				winnerPriority = priority;
+			}
+		}
+
+		if (winner != null) {
+			return winner;
 		}
 
 		var defaults = Animation.DefaultTransforms;

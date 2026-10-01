@@ -262,9 +262,9 @@ Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on t
 | `ColorSchemePanels[1]` `CPGREEN` | an ordinary row |
 | `[3]` `CPYLW` | the selected row, which the paint re-fonts as it fills it |
 | `[6]` `CPOFF` | an unavailable row. **No retail row reaches it**: neither of the two functions that set and clear the unavailable bit (`FUN_0043f9f4`, `FUN_0043fa14`) has a caller in the image |
-| `[2]` `CPRED` | the row's alternate at `+0x21`, which is **not** an unavailable state — `FUN_00438aac` redraws exactly one character of the row in it, at the index the order's own attribute byte names, which is how the hotkey letter is picked out. The [F7] order list uses the same mechanism |
+| `[2]` `CPRED` | the row's alternate at `+0x21`, which is **not** an unavailable state — `Label_SetTextWithHotkey` (`00438aac`) redraws exactly one character of the row in it, at the index the order's own attribute byte names, which is how the hotkey letter is picked out. The [F7] order list uses the same mechanism |
 
-The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `FUN_0043fa34` **after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed, 12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate that erases a row which has just stopped being selected. `FUN_0043f878` repaints exactly those two rows when the cursor moves, rather than the whole block.
+The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `MfdFlashCommScreen_DrawRowPlate` (`0043fa34`) **after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed, 12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate that erases a row which has just stopped being selected. `FUN_0043f878` repaints exactly those two rows when the cursor moves, rather than the whole block.
 
 The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor immediate, so an index and not a logical id ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids)).
 

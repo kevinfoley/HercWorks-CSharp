@@ -319,7 +319,7 @@ public sealed class SimWorld {
 	public void SetObjectives(MissionObjectives objectives) => Objectives = objectives;
 
 	/// <summary>
-	/// <c>DAT_004aa6c4</c>-<c>d0</c> — the mission's bounding box, which
+	/// <c>Mission_Box</c> (<c>004aa6c4</c>-<c>d0</c>) — the mission's bounding box, which
 	/// <c>DBSim_LoadScriptDat</c> accumulates over block 1 as it reads the coordinates. Two things
 	/// read it: the Heads-Down Display's map frames itself on it, and the objective layer's two
 	/// boundary statuses are the player leaving it. An empty box turns both off.

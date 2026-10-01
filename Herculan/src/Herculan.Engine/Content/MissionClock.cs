@@ -1,7 +1,7 @@
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// The front window's <c>TIME:</c> readout — <c>FUN_0043dcac</c>, the gunsight complex's clock
+/// The front window's <c>TIME:</c> readout — <c>HudClock_Tick</c> (<c>0043dcac</c>), the gunsight complex's clock
 /// gadget, called from <c>Gunsight_Paint</c> (<c>0043d5c8</c>) and <c>Gunsight_UpdateAndPaint</c>
 /// (<c>0043d6dc</c>) just before the four readout labels are re-texted.
 ///
@@ -24,7 +24,7 @@ namespace Herculan.Engine.Content;
 /// than 60 ticks still advances the display by exactly one second.</para>
 /// </summary>
 public sealed class MissionClock {
-	/// <summary>Coarse ticks per displayed second — <c>FUN_0043dcac</c>'s <c>+ 0x3c</c>.</summary>
+	/// <summary>Coarse ticks per displayed second — <c>HudClock_Tick</c>'s <c>+ 0x3c</c>.</summary>
 	private const double TicksPerSecond = 0x3c;
 
 	/// <summary><c>Time_GetCoarseTicks</c>' unit: <c>GetTickCount() >> 4</c>, so 16 ms.</summary>
@@ -62,7 +62,7 @@ public sealed class MissionClock {
 	}
 
 	/// <summary>
-	/// <c>FUN_0043dcac</c>'s carry chain, digit for digit. The seconds tens roll at <c>'5'</c> and
+	/// <c>HudClock_Tick</c>'s carry chain, digit for digit. The seconds tens roll at <c>'5'</c> and
 	/// everything else at <c>'9'</c>; the wrap test is on the minutes, and it fires before the ones
 	/// digit is normalised, which is why it reads against <c>':'</c> — the character <c>'9' + 1</c>
 	/// has already become.

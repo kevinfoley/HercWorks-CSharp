@@ -19,7 +19,7 @@ The extension is forced to `tap` in the first three cases, so `<name>` is a bare
 
 `DemoTape_PickRandom` (`0045ce9c`) loads group `0x14` of `tapes\demolist.str` and returns entry `time() % count`, or entry 0 when the table holds one name. The retail table holds `DEMO1`, `DEMO2`, `DEMO3`.
 
-Demo mode is playback plus an abort: with `004d25b4` set, any key the player presses that makes a command code, the first axis key (`Input_KeyjoyAxisKey`'s opening test), closing the window (`WM_CLOSE` in the window procedure) or a `WM_QUIT` raises `004d25b6`, which the mission loop and `StatusAlertPanel_RunModal` read to leave the mission. That is attract-mode behaviour — run until somebody touches something. The command-code test reads the live keyboard's command word, which `FUN_0045ba8c` builds at `004d247a` each frame, not the tape's — see [Rejected readings](#rejected-readings).
+Demo mode is playback plus an abort: with `004d25b4` set, any key the player presses that makes a command code, the first axis key (`Input_KeyjoyAxisKey`'s opening test), closing the window (`WM_CLOSE` in the window procedure) or a `WM_QUIT` raises `004d25b6`, which the mission loop and `StatusAlertPanel_RunModal` read to leave the mission. That is attract-mode behaviour — run until somebody touches something. The command-code test reads the live keyboard's command word, which `Input_PollDeviceBlock` (`0045ba8c`) builds at `004d247a` each frame, not the tape's — see [Rejected readings](#rejected-readings).
 
 ## File layout
 
@@ -37,7 +37,7 @@ Seven length-prefixed blocks, written once when `-r` opens the tape and unpacked
 | 5 | `data\object.str` | the same | 0 | 0 | 0 |
 | 6 | `data\keyjoy.cfg` | `tapes\keyjoy.cfg` | 518 | 518 | 518 |
 
-The two configuration files change folder because `FUN_0045eea4`, which builds both of their paths, prefixes `data\` normally and `tapes\` once `004d255a` is set. The other five go over the live `data\` copies.
+The two configuration files change folder because `Config_BuildPath` (`0045eea4`), which builds both of their paths, prefixes `data\` normally and `tapes\` once `004d255a` is set. The other five go over the live `data\` copies.
 
 The three retail tapes are three different missions — `script.dat` byte 0, the theater, reads 1, 2 and 4 — and all three were recorded at pilot skill 3, the value at `script.dat +0x0e` ([`../simulation/difficulty.md`](../simulation/difficulty.md)).
 
@@ -142,11 +142,11 @@ The main menu's `VIEW DEMO` button (`FUN_0043156f`, VSHELL) exits the shell with
 | `TapeStem` | `004d255e` | The name the `tap` extension is forced onto |
 | `DemoMode` / `DemoAbort` | `004d25b4` / `004d25b6` | `-D`'s extra flag, and the abort it raises |
 | `CockpitMouseLive` | `004d1e5a` | Gates `CockpitMouse_OnEvent`; clear while a tape plays |
-| `FUN_0045ba8c` | `0045ba8c` | Builds the live device block at `004d247a`, whose head is the live command word the stop and abort tests read |
+| `Input_PollDeviceBlock` | `0045ba8c` | Builds the live device block at `004d247a`, whose head is the live command word the stop and abort tests read |
 | `Time_BeginSimTick` | `004677bc` | The 40 ms frame cap and `SimTickDelta` measurement; skipped during playback |
 | `FUN_00401dc0` | `00401dc0` | The checkpoint: buffers a snapshot when recording, compares one when playing back |
 | — | `004d2562` | The open `.dmp` checkpoint file's `FILE*` |
-| `FUN_0045eea4` | `0045eea4` | Prefixes `data\`, or `tapes\` during playback, onto `prefs.cfg` and `keyjoy.cfg` |
+| `Config_BuildPath` | `0045eea4` | Prefixes `data\`, or `tapes\` during playback, onto `prefs.cfg` and `keyjoy.cfg` |
 | `Keyjoy_LoadConfig` | `0045b78c` | Reads `data\keyjoy.cfg` whatever is playing |
 | — | `0049e844` | The preferences path; `tapes\prefs.cfg` during playback |
 
@@ -154,7 +154,7 @@ The main menu's `VIEW DEMO` button (`FUN_0043156f`, VSHELL) exits the shell with
 
 | Reading | Why it is wrong |
 |---|---|
-| The `-D` abort and the `Ctrl+E` stop test the tape's own command word, so a recorded `Ctrl+E` ends playback and a retail demo aborts itself at its first command. | `Input_BuildPlayerDevice` tests `*DAT_004d2414`, which `FUN_0045ba8c` points at the live device block `004d247a`, and it tests it before the frame record is copied into `PlayerInputBlock`. The tape's command word never reaches either test. |
+| The `-D` abort and the `Ctrl+E` stop test the tape's own command word, so a recorded `Ctrl+E` ends playback and a retail demo aborts itself at its first command. | `Input_BuildPlayerDevice` tests `*DAT_004d2414`, which `Input_PollDeviceBlock` points at the live device block `004d247a`, and it tests it before the frame record is copied into `PlayerInputBlock`. The tape's command word never reaches either test. |
 
 ## Open
 

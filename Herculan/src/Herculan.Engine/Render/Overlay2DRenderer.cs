@@ -318,7 +318,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		}
 
 		// One run of glyphs left to right, with the character at hotkeyIndex drawn in an alternate
-		// font — FUN_00438aac's own behaviour, and where the order list's red hotkey letters come from.
+		// font — Label_SetTextWithHotkey's (00438aac) own behaviour, and where the order list's red hotkey letters come from.
 		// Pass -1 for a plain run.
 		void DrawText(string fontName, string alternateFont, string text, int hotkeyIndex,
 				float left, float top) {
@@ -1073,7 +1073,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		// Draws one run of glyphs left to right from a device-pixel top-left and reports where the run
 		// ended — the original chains its readouts by measuring the previous one the same way. The
-		// character at hotkeyIndex is drawn in an alternate font, which is all FUN_00438aac does over
+		// character at hotkeyIndex is drawn in an alternate font, which is all Label_SetTextWithHotkey (00438aac) does over
 		// a plain Label_SetText: it measures the prefix, then redraws that one glyph in the label's
 		// own +0x21 alternate. Pass -1 for a plain run.
 		float DrawRun(string fontName, string alternateFont, string text, int hotkeyIndex,
@@ -1522,7 +1522,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// A filled disc, one row of spans at a time — the original's general ellipse rasterizer
-	/// (<c>FUN_00488070</c>) with the brush in fill mode, which is how the repeater draws a blip: a
+	/// (<c>Raster_DrawEllipse</c>, <c>00488070</c>) with the brush in fill mode, which is how the repeater draws a blip: a
 	/// radius-2 disc in black with a radius-1 one in the contact's colour inside it.
 	/// </summary>
 	private static void AddFilledCircle(float centerX, float centerY, int radius, Vector3 color,
@@ -2740,7 +2740,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// A one-device-pixel circle outline, stamped a pixel at a time by the midpoint algorithm. The
-	/// original rasterizes it through its general ellipse routine (<c>FUN_00488070</c>) with the brush
+	/// original rasterizes it through its general ellipse routine (<c>Raster_DrawEllipse</c>, <c>00488070</c>) with the brush
 	/// in outline mode; this reproduces the same aliased ring without a second drawing primitive, and
 	/// is the only place the cockpit needs one.
 	/// </summary>

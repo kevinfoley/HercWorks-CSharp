@@ -80,7 +80,7 @@ public readonly record struct AnimTransition(
 /// </summary>
 public sealed class AnimSequence {
 	internal AnimSequence(short[] frameDurations, short[] transitionCounts, short[] firstTransitions,
-			short[] transformIndices, short[] partIds, bool groundMovement, bool cyclic) {
+			short[] transformIndices, short[] partIds, bool groundMovement, bool cyclic, short priority) {
 		FrameDurations = frameDurations;
 		TransitionCounts = transitionCounts;
 		FirstTransitions = firstTransitions;
@@ -88,7 +88,11 @@ public sealed class AnimSequence {
 		PartIds = partIds;
 		GroundMovement = groundMovement;
 		Cyclic = cyclic;
+		Priority = priority;
 	}
+
+	/// <inheritdoc cref="ANSequence.Priority"/>
+	public short Priority { get; }
 
 	/// <summary>Each frame's length in animation ticks.</summary>
 	public short[] FrameDurations { get; }
@@ -363,7 +367,8 @@ public sealed class ShapeAnimation {
 			sequence?.TransformIndices ?? Array.Empty<short>(),
 			sequence?.PartIds ?? Array.Empty<short>(),
 			sequence?.GroundMovement != 0,
-			sequence is ANCyclicSequence);
+			sequence is ANCyclicSequence,
+			sequence?.Priority ?? 0);
 	}
 
 	/// <summary>

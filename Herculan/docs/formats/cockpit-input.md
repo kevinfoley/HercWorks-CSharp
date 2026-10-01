@@ -135,7 +135,7 @@ Widget state byte (`+0x1b`):
 
 **The point it is given is in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` subtract the root widget's own rect origin from the event position first, and that origin is moved by the view-change delta on every view change, so the same widget rect answers a different part of the screen in each view — see §10, where it is the whole of how one edge strip serves two opposite edges. The two also add `DAT_004d25da`/`de` under a flag, but that path is dead: [`cockpit-views.md`](cockpit-views.md#video-modes) shows the mode byte that would write those globals can never be set, so the term is always zero.
 
-**Nothing in DBSIM ever selects the second form.** `Widget_CtorRect` (`00452478`) writes `+0x10 = 0`, and all sixteen leaf-widget constructors run it; the only other widget-rect setter in the image (`004526c4`, which `Gau_BuildCockpitWidgets` and `AlertPanel_CtorBase` use) writes 0 too. Nothing writes that byte again, so the circular branch is library code the game does not reach.
+**Nothing in DBSIM ever selects the second form.** `Widget_CtorRect` (`00452478`) writes `+0x10 = 0`, and all sixteen leaf-widget constructors run it; the only other widget-rect setter in the image (`CTLWindow_Ctor`, `004526c4`, which `Gau_BuildCockpitWidgets` and `AlertPanel_CtorBase` use) writes 0 too. Nothing writes that byte again, so the circular branch is library code the game does not reach.
 
 ## 7. Press, release, click vs. drag
 
@@ -313,7 +313,17 @@ So the click sets a flag; a gameplay tick consumes the flag into real sim state 
 
 ## 9. Cursor rendering
 
-The position the click pipeline reads is the same one the player watches: `Cursor_SyncPosition` (`00486d70`) stores the position in one of two slots, chosen by `DAT_004a365e`, and when that byte is set brackets the store with `g_RasterRoutines` slots 31 and 30; driver 3, the only raster driver the image installs, fills both with empty stubs. `Screen_PresentFrame` (`00465524`) copies the back buffer's viewport window to the screen ([`cockpit-views.md`](cockpit-views.md#presentation)) — `StretchBlt` in windowed/GDI mode, a row copy into the locked DirectDraw surface in fullscreen — and in the fullscreen path also blits a cursor sprite at `GetCursorPos()`, clipped to the viewport and colour-keyed on byte value 1, when a software cursor bitmap (`DAT_004d37a8`) is active.
+The position the click pipeline reads is the same one the player watches: `Cursor_SyncPosition` (`00486d70`) stores the position in one of two slots, chosen by `DAT_004a365e`, and when that byte is set brackets the store with `g_RasterRoutines` slots 31 and 30; driver 3, the only raster driver the image installs, fills both with empty stubs. `Screen_PresentFrame` (`00465524`) copies the back buffer's viewport window to the screen ([`cockpit-views.md`](cockpit-views.md#presentation)) — `StretchBlt` in windowed/GDI mode, a row copy into the locked DirectDraw surface in fullscreen — and in the fullscreen path also blits a cursor sprite at `GetCursorPos()`, clipped to the viewport and colour-keyed on byte value 1, when a software cursor bitmap (`Screen_SoftwareCursor`, `004d37a8`) is active. Its one writer, `Screen_SetSoftwareCursor` (`00465514`), is called once, by `Sim_InitMissionSession` with the `lo_curs` bitmap when the display is narrower than 640.
+
+The cockpit also picks among the seven `.DCI` cursors ([`dfn-hfn-dci.md`](dfn-hfn-dci.md)), which `ColorSchemePanels_LoadAll` loads into `Cockpit_CursorImages` (`0049b08c`) in the order `CURSOR`, `PCURSOR`, `MCURSOR`, `NCURSOR`, `SCURSOR`, `ECURSOR`, `WCURSOR`. The view object keeps three slots and a pointer to the active one at `+0x226`:
+
+| Slot | Shown | Image |
+|---|---|---|
+| `+0x236` | the forward view — `Cockpit_UseForwardCursor` (`00433f7c`) | `PCURSOR` while the pointer is on the gunsight's click surface, `CURSOR` elsewhere — `Gunsight_ClickSurface_Paint` through `Cockpit_SetForwardCursor` (`00433d90`) |
+| `+0x23a` | the heads-down view and the glances — `Cockpit_UseOffForwardCursor` (`00433ee8`) | `MCURSOR` while an HDD order waits for a map pick, `CURSOR` otherwise — `Cockpit_SetOffForwardCursor` (`00433e3c`) |
+| `+0x232` | over a [screen-edge strip](#10-the-screen-edges-are-three-widgets), saving the active slot at `+0x22a` | the arrow toward the view that strip leads to — `Cockpit_PickEdgeCursor` (`00433b20`), applied each frame by `Cockpit_UpdateEdgeCursor` (`00433c54`) |
+
+Every change of image is passed on to `maybe_Cursor_SetImage` (`00486d64`) or, on the scroll-window path, `maybe_Driver3_SetCursorImage` (`00489822`), and both are empty in driver 3 — see [Open](#open).
 
 `Mouse_WarpCursorToPoint` (`004807d0`) runs the conversion the other way — game space back to client coordinates, `ClientToScreen`, `SetCursorPos` — and three places use it, all of them putting the pointer somewhere known and all gated on a live mouse device:
 
@@ -452,5 +462,6 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 ## Open
 
 - **Unported:** the two system buttons (§5), the online manual and the fullscreen toggle.
+- **Open:** whether anything draws the `.DCI` cursor slots (§9). A search for the displacements `+0x226`, `+0x236` and `+0x23a` finds only the cursor-slot functions and `ColorSchemePanels_LoadAll`, and the image-change hooks they call are empty in driver 3.
 - **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).
 

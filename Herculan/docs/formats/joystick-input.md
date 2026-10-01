@@ -7,7 +7,7 @@ joyGetDevCapsA / joyGetPosEx     Joystick_Enumerate (00477568) / Joystick_Poll (
   -> raw X, Y, Z, R + POV + buttons, two devices merged
   -> Joystick_NormaliseAxes (00477750)       normalise each axis to +/-0x80
   -> Joystick_ReadWithResponse (0045c314)    deadzone and the squared response curve, to +/-0x100
-  -> FUN_0045ba8c                            the device block at DAT_004d247a
+  -> Input_PollDeviceBlock (0045ba8c)        the device block at DAT_004d247a
   -> Input_BuildPlayerDevice                 apply the bindings; write the four game axes and eight buttons
   -> Sim_PollPlayerInput                     the control laws, and the button action switch
 ```
@@ -70,7 +70,7 @@ Eight bytes rebuilt on every call, and the whole of what any caller is told abou
 | `+5` | has a rudder | `wCaps & JOYCAPS_HASR`, or the same |
 | `+6` | has a hat | `wCaps & JOYCAPS_HASPOV` |
 
-Field `+0` never being 0 is why the presence test is `Input_GetDevice(3)` (`0045c508`) — a lookup into the device table at `DAT_004d24ec` — rather than a field of this block. The CONTROLS panel's use of the block is [`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block); the throttle row also reaches `+4` through `Input_SetThrottleLeverMode`.
+Field `+0` never being 0 is why the presence test is `Input_GetDevice(3)` (`0045c508`) — a lookup into the device table `Input_DeviceTable` (`004d24ec`) — rather than a field of this block. The CONTROLS panel's use of the block is [`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block); the throttle row also reaches `+4` through `Input_SetThrottleLeverMode`.
 
 ## Sources and destinations — `Input_BuildSourceTable` (`0045a5c0`)
 

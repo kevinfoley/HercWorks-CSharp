@@ -2853,7 +2853,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			pilotMech.PodTick(scene.World);
 			throttleGauge = pilotMech.ExchangeCockpitThrottle(throttleGauge);
 
-			// FUN_0043dcac runs inside the gunsight's paint, so a view with no gunsight in it does not
+			// HudClock_Tick (0043dcac) runs inside the gunsight's paint, so a view with no gunsight in it does not
 			// advance the clock at all.
 			if (!ExternalViewActive()) {
 				missionClock.Advance(deltaSeconds);

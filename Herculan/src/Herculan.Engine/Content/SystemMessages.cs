@@ -138,14 +138,16 @@ public sealed class SystemMessages {
 	public const int DataTransferAborted = 0x38;
 
 	/// <summary>
-	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> Posted by <see cref="Audio.GameAudio.AnnouncePowerUp"/>,
-	/// always: the original posts the damage variant <c>0x22</c> instead on a gauge reading
-	/// (<c>FUN_0041b514</c>) that is not decompiled. A machine at the start of a mission is undamaged
-	/// and gets the nominal line either way.
+	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> Posted by <see cref="Audio.GameAudio.AnnouncePowerUp"/>
+	/// when the machine's internals read no damage.
 	/// </summary>
 	public const int PowerUpNominal = 0x21;
 
-	/// <summary><c>POWERUP INITIATED. INTERNAL DAMAGE DETECTED.</c> Posted by nothing yet; see <see cref="Audio.GameAudio.AnnouncePowerUp"/>.</summary>
+	/// <summary>
+	/// <c>POWERUP INITIATED. INTERNAL DAMAGE DETECTED.</c> Posted by
+	/// <see cref="Audio.GameAudio.AnnouncePowerUp"/> in place of <see cref="PowerUpNominal"/> when one
+	/// of the first ten internals reads any damage.
+	/// </summary>
 	public const int PowerUpDamaged = 0x22;
 
 	/// <summary><c>AUTO TRACKING ENGAGED</c>. Posted by <see cref="Sim.MechObject.ToggleAutoTrack"/>.</summary>

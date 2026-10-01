@@ -107,8 +107,8 @@ public sealed partial class MechObject : SimObject {
 			Shape = new ShapeInstance(animation);
 			Thread = Shape.AddThread(Type.StopForwardSequence);
 
-			// The torso's two threads, in the constructor's own order — it matters, because the
-			// first-registered thread wins any node two of them both animate. Neither ever plays:
+			// The torso's two threads, in the constructor's own order, which breaks priority ties
+			// between threads (ShapeInstance.LocalOf). Neither ever plays:
 			// their rate stays zero and the torso tick seeks them by angle instead. A type record
 			// with a negative sequence id gets no thread, exactly as the original skips one.
 			TorsoTwistThread = AddTorsoThread(animation, Type.TorsoTwistSequence);
@@ -928,6 +928,12 @@ public sealed partial class MechObject : SimObject {
 	/// of animation time, then read the root back: what comes out is exactly the ground movement
 	/// that step covered, ramped within the current frame and committed whole at each frame
 	/// boundary. Rotate it into world space, add it on, and reset.</para>
+	///
+	/// <para>This seeds and reads the locomotion thread throughout. The original seeds the shape's
+	/// first thread (<c>ShapeInst_SeedRootTransform</c>, <c>00478a70</c>) and reads the first one
+	/// after <c>AnimThread_StepAll</c>'s priority re-sort, which is the twist thread while
+	/// locomotion plays a stop/step-off sequence — see docs/formats/dts-node-posing.md, "Several
+	/// threads on one shape".</para>
 	/// </summary>
 	private void IntegrateMotion() {
 		if (Thread == null) {

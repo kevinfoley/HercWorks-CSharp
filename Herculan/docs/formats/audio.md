@@ -353,7 +353,7 @@ if (mech+0x1f2 -> +0x50 != 0):
 
 The engine hum is not started at its recorded rate: it is dropped to roughly two thirds of it immediately, which is what turns the sample into a hum rather than a whine. It loops for the rest of the mission — attribute byte 0 is 0 — and follows its machine through `Sound_UpdatePosition`. <!-- doc-lint: ok -->
 
-**The hum belongs to the flyer, not to a HERC.** The gate is type record `+0x50`, which is file offset 78, the flyer flag, set on the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). A walking HERC powers up with `start3` and nothing else; its running noise is its footsteps.
+**The hum belongs to the flyer, not to a HERC.** The gate is type record `+0x50`, which is file offset 78, the flyer flag, set on the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). A walking HERC powers up with `start3` and nothing else; its running noise is its footsteps. The RAZOR powers up with the hum and nothing else: `Gau_BuildCockpitWidgets` sets `+0x245` for a flyer before this runs ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#power-up-sequence)), so `start3` never plays for it, its start is never stamped and the power-up announcement never comes.
 
 ### Sounds a cockpit control makes
 

@@ -49,15 +49,15 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 
 **Hotspot field (click-point coordinates), verified against all 7 files by their directional prefix:**
 
-| File | width×height | hotspot (x,y) | Interpretation |
+| File | width×height | hotspot (x,y) | Shown ([`cockpit-input.md`](cockpit-input.md#9-cursor-rendering)) |
 |---|---|---|---|
-| CURSOR.DCI | 7×8 | (3,3) | default/center |
-| MCURSOR.DCI | 7×8 | (3,3) | move — also center |
-| ECURSOR.DCI | 7×8 | (7,3) | east — right edge, vertically centered |
-| WCURSOR.DCI | 7×8 | (0,3) | west — left edge, vertically centered |
-| NCURSOR.DCI | 8×8 | (3,0) | north — top edge |
-| SCURSOR.DCI | 8×8 | (3,7) | south — bottom edge |
-| PCURSOR.DCI | 9×16 | (4,4) | pointer/pick — tip-ish, not center |
+| CURSOR.DCI | 7×8 | (3,3) | the default in the forward and off-forward slots |
+| MCURSOR.DCI | 7×8 | (3,3) | while an HDD order waits for a map pick |
+| ECURSOR.DCI | 7×8 | (7,3) | edge-strip arrow, east |
+| WCURSOR.DCI | 7×8 | (0,3) | edge-strip arrow, west |
+| NCURSOR.DCI | 8×8 | (3,0) | edge-strip arrow, north |
+| SCURSOR.DCI | 8×8 | (3,7) | edge-strip arrow, south |
+| PCURSOR.DCI | 9×16 | (4,4) | over the gunsight's click surface |
 
 `PCURSOR.DCI` carries about 101 trailing bytes after its pixels, mostly zero with scattered `0x38` and `0x3C` values ([Open](#open)); the other 6 files end with 5 zero-padding bytes. Preserve them as raw when parsing.
 

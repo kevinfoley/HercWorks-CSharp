@@ -10,7 +10,11 @@ public class ANSequence : TSObject {
 	/// <summary>Meaning not established.</summary>
 	public short Tick { get; set; }
 
-	/// <summary>Meaning not established.</summary>
+	/// <summary>
+	/// The sequence's rank among the threads playing on one shape: the lowest wins a node two of them
+	/// animate, and equal ranks keep the order the threads were added in. See
+	/// docs/formats/dts-node-posing.md, "Several threads on one shape".
+	/// </summary>
 	public short Priority { get; set; }
 
 	/// <summary>

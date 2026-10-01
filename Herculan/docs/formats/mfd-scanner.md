@@ -82,7 +82,7 @@ The hostile branch does not simply skip. On every other coarse tick (`Time_GetCo
 1. Flood the dish rect, palette index 17.
 2. The wedge, rotated about the plot centre.
 3. Frame 14 over it.
-4. The passive-range ring, **only** when the machine is passive *and* `140000 < range` — so it appears on the 1200 m setting alone. `FUN_00488070` (midpoint ellipse) with the brush in outline mode, colour id 11 → palette 15, green. 140000 is the range at which a scanner paints something that is not emitting back, the same figure the detection sweep uses.
+4. The passive-range ring, **only** when the machine is passive *and* `140000 < range` — so it appears on the 1200 m setting alone. `Raster_DrawEllipse` (`00488070`) with the brush in outline mode, colour id 11 → palette 15, green. 140000 is the range at which a scanner paints something that is not emitting back, the same figure the detection sweep uses.
 5. The reference line, then the player marker.
 6. Each contact as a 2x2 device-pixel fill in its own colour.
 7. The bracket over the selected target's blip, offset `-2` GAU on both axes.
@@ -157,7 +157,7 @@ The extent is not in the file: the paint squares off `0x2e` GAU units from that 
 
 Nothing it shares with the screen beyond two sprites — no dish, no wedge sprite, no background flood, no reference line, no range ring and no readouts.
 
-1. The circle: `FUN_00488070` over the 92x92 rect with the brush in outline mode, colour id 9 → palette 10, red.
+1. The circle: `Raster_DrawEllipse` (`00488070`) over the 92x92 rect with the brush in outline mode, colour id 9 → palette 10, red.
 2. The turret arc as **two lines** from the centre to the rim (`Raster_DrawLine`, `004838f8`), at `Mech_GetTorsoTwistAngle() +/- 0x2000` — the same 90 degrees the screen's wedge sprite covers, drawn with the pen in the same red. Each endpoint is the point `(0, -radius)` rotated, so both reach the rim exactly.
 3. `MFD` frame 18, the player marker, at `centre - (3 << XCoordShift, 0)` as on the screen.
 4. Each contact as two filled discs: radius 2 in colour id 19 (palette 16, black) with radius 1 in the contact's own colour inside it. Both radii are literal device pixels, unshifted, so a blip is the same size in every video mode.

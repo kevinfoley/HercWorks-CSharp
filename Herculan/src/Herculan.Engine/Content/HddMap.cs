@@ -8,7 +8,7 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// The rectangle the command display's map covers — the bounding box of <c>script.dat</c> block 1's
 /// coordinate list, which <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) accumulates into
-/// <c>DAT_004aa6c4</c>..<c>d0</c> as it reads the block.
+/// <c>Mission_Box</c> (<c>004aa6c4</c>..<c>d0</c>) as it reads the block.
 ///
 /// <para>Those four globals are the map's whole frame of reference: the command screen copies them
 /// into its own <c>+0x160</c> rect and draws them as the manual's red mission border, its zoom fit

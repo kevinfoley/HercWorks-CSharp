@@ -94,7 +94,7 @@ No instruction in either image addresses options 48-53 by name, and they are zer
 
 Byte 4 is reduced to two cases — **1 gives the 320x240 block and anything else the 640x480 block with hi-res banks**, which is the mode a retail file's 0 selects. What the modes are, why the file never reaches the middle one and how `-v` overrides it are [`../formats/cockpit-views.md`](../formats/cockpit-views.md#video-modes)'s.
 
-Byte 6 non-zero makes `FUN_00465054` size the window to the desktop and place it topmost, and `WinMain` then clears the flag and calls the toggle at `004666c4`, which takes DirectDraw exclusive and sets an 8-bit display mode. `-Z1` and `-Z0` override it. Because the player can toggle full-screen during the session, the byte is written back at shutdown when it no longer matches what was loaded.
+Byte 6 non-zero makes `MainWindow_Create` (`00465054`) size the window to the desktop and place it topmost, and `WinMain` then clears the flag and calls the toggle at `004666c4`, which takes DirectDraw exclusive and sets an 8-bit display mode. `-Z1` and `-Z0` override it. Because the player can toggle full-screen during the session, the byte is written back at shutdown when it no longer matches what was loaded.
 
 ## The preferences panel — `prf_alrt` (`004566c4`)
 

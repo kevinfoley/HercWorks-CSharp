@@ -25,7 +25,7 @@ Its own ints:
 
 The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend** — see [below](#the-att-legend).
 
-`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws two things that are not children at all: the **floating scanner repeater** (`Gunsight_PaintHudScanner` (`0043e0ec`) into `HudScanner_Paint` (`0043f2b0`)) and `FUN_0043dd70`, which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46, -0x12)` device ([Open](#open)).
+`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws two things that are not children at all: the **floating scanner repeater** (`Gunsight_PaintHudScanner` (`0043e0ec`) into `HudScanner_Paint` (`0043f2b0`)) and the [RAZOR's altitude scale](#the-razors-altitude-scale), which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46, -0x12)` device.
 
 All nine children derive from `GunsightChild_CtorBase` (`0043b344`), a bare rect holder. Children 4, 5 and 6 additionally receive the 38-byte state block described in [`hud-target-indicator.md`](hud-target-indicator.md), at `+0x14`.
 
@@ -151,6 +151,17 @@ The manual's upper-left indicator that Automatic Turret Tracking is on. Its labe
 
 Both `Gunsight_Paint` and `Gunsight_UpdateAndPaint` test the console button panel's auto-track latch (`CockpitView+0x1e1`, byte `+0xb3` — the flag `ConsoleButtons_GetStateBlock` copies into the mount manager's `+0x14`) after the child loop. While it is set they blit `HUD` frame 14, a 50x16 plate, at the rect's top-left, then set the label's text to `STRINGS0.STR` group 37 entry 0, `ATT`. While it is clear nothing is drawn. The tracker itself: [`../simulation/torso-aim.md`](../simulation/torso-aim.md#automatic-turret-tracking--t).
 
+### The RAZOR's altitude scale
+
+`Gunsight_PaintAltitudeScale` (`0043dd70`), which `Gunsight_Paint` and `Gunsight_UpdateAndPaint` call after the children, draws only when the piloted machine is a flyer (type record `+0x50`). It is a vertical scale `0x24 << YCoordShift` tall hanging from the point at `+0x113`, out of the `HUD` bank's frames 15-18:
+
+- Frame 15 is blitted at the point and frame 16 at the scale's foot; the scale runs between them.
+- At frame 15's right edge, a column from `1 << XCoordShift` left of that edge to the edge is filled in palette index `0x4b` from the foot up to the terrain height under the machine, and its two sides are drawn in `0x49` from there to the top.
+- Frame 17 is centred on that column at the machine's own height (`mech+0x2e`).
+- Frame 18 is drawn twice, scrolled by height / 50 modulo the scale's length — a moving tape — and clipped to a strip of its own width starting `2 << XCoordShift` right of the point.
+
+Both heights map linearly from the zone's height range, `grid+0x110` at the foot to `grid+0x114` + 5000 at the top, and are clamped to the scale.
+
 ## Open
 
-- **Open:** what `FUN_0043dd70` draws. `Gunsight_Paint` calls it after the children, working from the derived point at the widget's `+0x113`.
+- **Unported:** the RAZOR's altitude scale ([above](#the-razors-altitude-scale)).

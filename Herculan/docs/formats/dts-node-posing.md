@@ -62,9 +62,24 @@ There is no separate render rate for them to be per-frame at: `Time_BeginSimTick
 
 ## Several threads on one shape
 
-A shape instance holds a list of animation threads, each playing one sequence. `ShapeInst_EvalAllNodeLocals` (`004789f4`) runs `AnimThread_EvalNodeLocals` over them **last-registered first**, each overwriting the local transform of every node its sequence covers with no regard for what is already there. The **first**-registered thread's writes are therefore the ones left standing.
+A shape instance holds up to ten animation threads in slots at `+0x1a`, each playing one sequence. `ShapeInst_EvalAllNodeLocals` (`004789f4`) runs `AnimThread_EvalNodeLocals` over them **last slot first**, each overwriting the local transform of every node its sequence covers with no regard for what is already there. The **first** slot's writes are therefore the ones left standing.
 
-A HERC registers three, in the order `Mech_Constructor` builds them — locomotion, then the turret's twist and pitch ([`torso-aim.md`](../simulation/torso-aim.md#three-threads-per-machine)) — so locomotion outranks the turret wherever both cover a node. It decides nothing on 17 of the 18 retail HERCs: locomotion covers nodes 1, 2, 3 and 5-10, twist covers 4 and pitch covers 11 (MONGOOSE 11 and 12), disjoint. **HEADHUNT is the exception**: its twist node is 5, which its own locomotion sequences also animate, so its twist is overridden while it is moving. That is the retail data's own behaviour.
+The slots are kept in ascending order of the playing sequence's **priority**, the second short of the `ANSequence` header (`+6` in memory, after the tick count and before the ground-movement flag at `+8`), which `AnimThread_SequencePriority` (`00478d80`) reads. `ShapeInst_SortThreadsByPriority` (`004788c4`) bubble-sorts the slots, swapping only on strictly greater, so threads of equal priority never change places and stay in registration order. `ShapeInst_RegisterThread` (`00478930`) runs the sort on every registration and `AnimThread_StepAll` (`004789a0`) after every advance, so a thread changes rank on the step its sequence changes. The lowest priority wins a node two threads cover.
+
+A HERC registers three, in the order `Mech_Constructor` builds them — locomotion, then the turret's twist and pitch ([`torso-aim.md`](../simulation/torso-aim.md#three-threads-per-machine)). Their retail priorities:
+
+| Sequence | Priority |
+|---|---|
+| Walk, run, turn in place, the death fall | 0 |
+| The two stop/step-off sequences (`typeRec+0x12`, `+0x14`) | 96 |
+| Twist | 1 |
+| Pitch | 2 (HEADHUNT 1) |
+
+So locomotion holds the first slot while the machine walks, runs or turns, and the last while it stands in a step-off sequence, which is the sequence every HERC starts in.
+
+On retail data the ranking decides no node, because the sequences a type record names cover disjoint nodes on every chassis. On 17 of the 18 bipeds locomotion covers nodes 1, 2, 3 and 5-10, twist covers 4 and pitch covers 11 (MONGOOSE 11 and 12). HEADHUNT's locomotion covers 1-3 and 6-11, its twist 5 and its pitch 4 and 12. PITBULL's locomotion covers 1-5 and 7-18, its twist 6 and its pitch 19. Column 0, which every sequence carries, is skipped by `AnimThread_EvalNodeLocals`.
+
+What the ranking does decide is which thread carries root motion. `SimObject_ApplyRootMotion` seeds the first slot through `ShapeInst_SeedRootTransform` (`00478a70`) before stepping, and `AnimThread_StepAll` reads the first slot back after its re-sort: the twist thread while locomotion plays a step-off sequence. See [Open](#open).
 
 ## Fleet shape
 
@@ -84,3 +99,7 @@ An animation list holds two kinds of sequence, and the difference is the **chunk
 The clamp is what makes a one-shot observable: `frame == nextFrame` is true only on a played-out non-cyclic sequence, and that equality is the sole end-of-sequence test in the simulation. See [`mech-locomotion.md`](../simulation/mech-locomotion.md#going-down).
 
 **Every retail chassis carries exactly one one-shot**, and its own death sequence (mech type record offset 68) names it: index 7 on the 18 bipeds, 2 on the PITBULL, 1 on the SPIDER. The RAZOR's list holds a single sequence and its death sequence of 7 is out of range, which never bites because a flyer has no locomotion thread.
+
+## Open
+
+- **Open:** what reading the root from the first slot does on the step locomotion enters or leaves a step-off sequence. `ShapeInst_SeedRootTransform` seeds the slot that is first before `AnimThread_StepAll` advances, and the re-sort can put a different thread first by the time the root is read back.

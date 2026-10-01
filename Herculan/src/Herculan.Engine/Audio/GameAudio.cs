@@ -347,18 +347,22 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <c>herceng1</c>. The original gates it on the type record's <c>+0x50</c> — file offset 78,
 	/// <c>FlyerFlag</c>, set on the RAZOR alone — so a HERC powers up without one and its
 	/// running noise is its footsteps. See docs/simulation/mech-locomotion.md's type-record table.</para>
+	///
+	/// <para><b>A flyer gets the hum and nothing else.</b> <c>start3</c> and the announcement both
+	/// sit behind <c>cockpit+0x245</c>, which <c>Gau_BuildCockpitWidgets</c> sets for a flyer before
+	/// this runs; see docs/formats/audio.md, "The cockpit power-up".</para>
 	/// </summary>
 	public void PowerUp(MechObject pilot) {
 		_pilot = pilot;
-		_powerUpAnnounceIn = PowerUpAnnounceDelay;
+		bool flyer = pilot.Type.IsFlyer;
+		_powerUpAnnounceIn = flyer ? TimeSpan.MinValue : PowerUpAnnounceDelay;
 
 		if (_director == null) {
 			return;
 		}
 
-		_director.Play(SoundId.PowerUp);
-
-		if (!pilot.Type.IsFlyer) {
+		if (!flyer) {
+			_director.Play(SoundId.PowerUp);
 			_engineLoopOwner = null;
 			return;
 		}
@@ -437,12 +441,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <c>Cockpit_PowerUpTick</c> (<c>00432924</c>)'s tail — the cockpit's power-up sequence announcing itself once
 	/// <see cref="PowerUpAnnounceDelay"/> has passed since the sequence began.
 	///
-	/// <para><b>Always the nominal line.</b> The original chooses between it and
-	/// <see cref="SystemMessages.PowerUpDamaged"/> by walking ten damage readings and testing
-	/// each one's reading against 0x5a, through two accessors (<c>FUN_0041b514</c> and
-	/// <c>Damage_ToConditionState</c>) that are not decompiled — so what that reading is a percentage <i>of</i>
-	/// is not known, and the threshold is not transcribed rather than guessed at. A machine taken at
-	/// the start of a mission is undamaged and gets the nominal line either way.</para>
+	/// <para>Which line is <see cref="PowerUpFindsDamage"/>'s.</para>
 	/// </summary>
 	private void AnnouncePowerUp(TimeSpan elapsed) {
 		if (_powerUpAnnounceIn == TimeSpan.MinValue) {
@@ -455,8 +454,36 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		}
 
 		_powerUpAnnounceIn = TimeSpan.MinValue;
-		Messages.Post(SystemMessages.PowerUpNominal);
+		Messages.Post(PowerUpFindsDamage(_pilot)
+			? SystemMessages.PowerUpDamaged
+			: SystemMessages.PowerUpNominal);
 	}
+
+	/// <summary>
+	/// Whether the power-up announces <see cref="SystemMessages.PowerUpDamaged"/>: true when any of
+	/// the first <see cref="PowerUpCheckedInternals"/> internals reads any damage at all, which is
+	/// <c>Cockpit_PowerUpTick</c>'s test as docs/formats/cockpit-messages.md, "Posters", derives it.
+	///
+	/// <para>The original's reading (<c>Mech_ReadEntryDamage</c>, <c>0041b514</c>) takes a zero
+	/// maximum as fully damaged where <see cref="ComponentDamage.DependentPercent"/> reads it as 0;
+	/// no chassis that announces has one among these slots.</para>
+	/// </summary>
+	private static bool PowerUpFindsDamage(MechObject? pilot) {
+		if (pilot?.Damage is not { } damage) {
+			return false;
+		}
+
+		for (int slot = 0; slot < PowerUpCheckedInternals; slot++) {
+			if (damage.DependentPercent(slot) != 0) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>How many internals the power-up checks, from slot 0 — the original's literal 10.</summary>
+	private const int PowerUpCheckedInternals = 10;
 
 	/// <summary>
 	/// Stops both message ports' clock and nothing else — what a modal panel does. The original's

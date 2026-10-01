@@ -8,7 +8,7 @@ namespace Herculan.Engine.Input;
 /// four-way hat and eight buttons.
 ///
 /// <para>This is the retail device block <c>Joystick_ReadWithResponse</c> (<c>0045c314</c>) builds at <c>DAT_004d24b0</c> and
-/// <c>FUN_0045ba8c</c> copies to <c>DAT_004d2487</c> (the device struct's <c>+0x0d</c> onwards): the
+/// <c>Input_PollDeviceBlock</c> (<c>0045ba8c</c>) copies to <c>DAT_004d2487</c> (the device struct's <c>+0x0d</c> onwards): the
 /// four normalised axes at <c>+0x0d</c>/<c>+0x11</c>/<c>+0x15</c>/<c>+0x19</c>, the eight button
 /// bytes at <c>+0x1d</c>..<c>+0x24</c> and the four hat bytes at <c>+0x25</c>..<c>+0x28</c>.
 /// <b>Nothing in it names hardware</b>, which is the whole reason a modern stick can drive a retail

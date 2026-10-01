@@ -1,4 +1,5 @@
 using System.Numerics;
+using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Content;
 using Herculan.Engine.Render;
 using Herculan.Engine.Terrain;
@@ -40,24 +41,26 @@ namespace Herculan.Engine.Scene;
 /// <see cref="Render.SceneRenderer.FogCellSize"/>.
 /// </param>
 /// <param name="Sky">
-/// The theater's banded sky (<see cref="SkyGradient"/>), or null when its palette did not load. The
-/// gradient's own bottom band is a neighbour of <paramref name="FogColor"/> in the same palette run,
-/// which is what makes fogged ground meet the sky without a seam.
+/// The theater's banded sky (<see cref="SkyGradient"/>), or null when its palette did not load. How
+/// closely <paramref name="FogColor"/> matches the colour retail paints at the horizon, per theater,
+/// is docs/formats/distance-fog-and-sky.md's "Where the two meet".
 /// </param>
 public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? FogColor,
 		float CellSize, SkyGradient? Sky) {
 	/// <summary>
 	/// Reads all of it off the loaded zone and theater. <paramref name="shading"/> may be null (no
 	/// ramp), which costs the colours but not the distances: those come from the grid alone.
+	/// <paramref name="world"/> is the theater's <c>.WLD</c>, which says which palette entries the
+	/// sky runs over and how its bands are laid out.
 	/// </summary>
-	public static Atmosphere From(HeightGrid terrain, SurfaceShading? shading) {
+	public static Atmosphere From(HeightGrid terrain, SurfaceShading? shading, WorldData world) {
 		long range = terrain.VisibilityRange;
 		return new Atmosphere(
 			WorldScale.DistanceToRender((int)(range / 2)),
 			WorldScale.DistanceToRender((int)range),
 			shading?.Ramp.FogColor(shading.Palette),
 			WorldScale.DistanceToRender(terrain.CellSize),
-			SkyGradient.FromPalette(shading?.Palette));
+			SkyGradient.From(world, shading?.Palette));
 	}
 
 	/// <summary>
@@ -87,8 +90,9 @@ public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? 
 	/// <para>The shapes differ: the original's region is a world-axis-aligned square, so along its
 	/// diagonals it reaches a further 41%, while a far plane is uniform in every direction. That
 	/// difference is invisible because the fade is already total at
-	/// <see cref="FogEnd"/> — everything in the gap is drawn flat in the fog colour, which is the
-	/// colour the sky's bottom band paints where the terrain stops (see <see cref="SkyGradient"/>).
+	/// <see cref="FogEnd"/> — everything in the gap is drawn flat in the fog colour, which in seven
+	/// theaters of ten is the colour the sky paints below the horizon where the terrain stops (see
+	/// <see cref="SkyGradient"/>).
 	/// So the far plane is set to the range itself rather than to its diagonal.</para>
 	/// </summary>
 	public void ApplyTo(Camera camera) {

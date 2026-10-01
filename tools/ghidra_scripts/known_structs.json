@@ -1624,6 +1624,206 @@
           "description": "+0x39 -- missions flown; Pilot_AccumulateMissionStats increments it once per mission."
         }
       ]
+    },
+    {
+      "name": "hzline",
+      "binary": "DBSIM",
+      "size": 122,
+      "description": "The theater's sky backdrop (RTTI 'hzline', vtable 0049afb0, over TSGroup's 0x28 bytes): a horizon line projected from the view each frame, palette bands above it and one fill below. Built by Hzline_Ctor in World_LoadTheater from the .WLD's first eight shorts and held at g_TheaterHzline; drawn by Hzline_Draw from Scene_DrawTerrainPass. docs/formats/distance-fog-and-sky.md#the-sky--hzline.",
+      "notes": [
+        "+0x00..+0x27 is the TSGroup base; TSGroup_Ctor zeroes +0x10..+0x1c."
+      ],
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "void *",
+          "name": "vtable",
+          "confidence": "high",
+          "description": "+0x00 -- Hzline_Ctor stamps 0049afb0 after TSGroup_Ctor."
+        },
+        {
+          "offset": 40,
+          "width": 4,
+          "type": "int",
+          "name": "horizonColor",
+          "confidence": "high",
+          "description": "+0x28 -- palette index of the band at the line and of the fill below it: Hzline_SetColors stores zenith + bandCount - 1. Hzline_FillSky counts down from it; Hzline_FillGround fills with it."
+        },
+        {
+          "offset": 44,
+          "width": 4,
+          "type": "int",
+          "name": "groundColor",
+          "confidence": "high",
+          "description": "+0x2c -- .WLD short 4, via Hzline_SetColors. Read only by Hzline_FillGround's ground-band branch, which +0x71 always skips."
+        },
+        {
+          "offset": 48,
+          "width": 4,
+          "type": "int",
+          "name": "lineOffset",
+          "confidence": "high",
+          "description": "+0x30 -- .WLD short 7: rows the line is moved down. Hzline_BuildHorizon adds it, Hzline_DrawWithOffset (through Hzline_Draw) adds half again."
+        },
+        {
+          "offset": 52,
+          "width": 2,
+          "type": "short",
+          "name": "negPitch",
+          "confidence": "high",
+          "description": "+0x34 -- the view's pitch (view+0x10) negated, stored by Hzline_DrawWithOffset each frame."
+        },
+        {
+          "offset": 54,
+          "width": 2,
+          "type": "short",
+          "name": "roll",
+          "confidence": "high",
+          "description": "+0x36 -- the view's roll (view+0x12). Zero selects the Raster_FillRect paths in both fills, anything else the polygon paths."
+        },
+        {
+          "offset": 56,
+          "width": 4,
+          "type": "int",
+          "name": "lineX0",
+          "confidence": "high",
+          "description": "+0x38 -- horizon line end 0, screen x. Written by Hzline_BuildHorizon."
+        },
+        {
+          "offset": 60,
+          "width": 4,
+          "type": "int",
+          "name": "lineY0",
+          "confidence": "high",
+          "description": "+0x3c -- end 0, screen y. Hzline_DrawWithOffset adds lineOffset >> 1, then 1 before Hzline_FillGround."
+        },
+        {
+          "offset": 64,
+          "width": 4,
+          "type": "int",
+          "name": "lineX1",
+          "confidence": "high",
+          "description": "+0x40 -- end 1, screen x."
+        },
+        {
+          "offset": 68,
+          "width": 4,
+          "type": "int",
+          "name": "lineY1",
+          "confidence": "high",
+          "description": "+0x44 -- end 1, screen y; adjusted as lineY0."
+        },
+        {
+          "offset": 72,
+          "width": 4,
+          "type": "int",
+          "name": "stepX",
+          "confidence": "high",
+          "description": "+0x48 -- sin(roll), Q14. The fills step -stepX * height >> 14 across per band."
+        },
+        {
+          "offset": 76,
+          "width": 4,
+          "type": "int",
+          "name": "stepY",
+          "confidence": "high",
+          "description": "+0x4c -- -cos(roll), Q14. The fills step stepY * height >> 14 down per band (negative: toward the sky)."
+        },
+        {
+          "offset": 80,
+          "width": 4,
+          "type": "void *",
+          "name": "maybe_bitmapBank",
+          "confidence": "medium",
+          "description": "+0x50 -- Hzline_LoadBitmapBank stores a dba resource here; Hzline_Ctor zeroes it. es2_xref.py finds no caller of the loader."
+        },
+        {
+          "offset": 84,
+          "width": 4,
+          "type": "int",
+          "name": "bandHeight",
+          "confidence": "high",
+          "description": "+0x54 -- .WLD short 2, sky band height in rows (6 in retail)."
+        },
+        {
+          "offset": 88,
+          "width": 4,
+          "type": "int",
+          "name": "bandCount",
+          "confidence": "high",
+          "description": "+0x58 -- .WLD short 3, sky band count including the horizon colour and the zenith fill (15 or 16)."
+        },
+        {
+          "offset": 92,
+          "width": 4,
+          "type": "int",
+          "name": "groundBandHeight",
+          "confidence": "high",
+          "description": "+0x5c -- .WLD short 5. Read only by the ground-band branch."
+        },
+        {
+          "offset": 96,
+          "width": 4,
+          "type": "int",
+          "name": "groundBandCount",
+          "confidence": "high",
+          "description": "+0x60 -- .WLD short 6. Read only by the ground-band branch."
+        },
+        {
+          "offset": 100,
+          "width": 4,
+          "type": "int",
+          "confidence": "low",
+          "description": "+0x64 -- Hzline_Ctor stores 1. es2_fieldscan.py over the hzline functions (0042e000-0042f700) and its vtable slots (0048e818-0048eae0) finds no other access."
+        },
+        {
+          "offset": 104,
+          "width": 4,
+          "type": "int",
+          "confidence": "low",
+          "description": "+0x68 -- Hzline_Ctor stores 1. es2_fieldscan.py over the hzline functions (0042e000-0042f700) and its vtable slots (0048e818-0048eae0) finds no other access."
+        },
+        {
+          "offset": 108,
+          "width": 4,
+          "type": "int",
+          "name": "horizonGap",
+          "confidence": "high",
+          "description": "+0x6c -- .WLD short 0. Hzline_FillSky starts the first band past the horizon colour (+0x6c >> 1) rows above the line."
+        },
+        {
+          "offset": 112,
+          "width": 1,
+          "type": "byte",
+          "confidence": "low",
+          "description": "+0x70 -- Hzline_Ctor stores 0. es2_fieldscan.py over the hzline functions (0042e000-0042f700) and its vtable slots (0048e818-0048eae0) finds no other access."
+        },
+        {
+          "offset": 113,
+          "width": 1,
+          "type": "byte",
+          "name": "oneColorGround",
+          "confidence": "high",
+          "description": "+0x71 -- set by Hzline_Ctor and by Scene_DrawTerrainPass immediately before every draw; Hzline_FillGround fills below the line in horizonColor when set, and paints ground bands only when clear."
+        },
+        {
+          "offset": 114,
+          "width": 4,
+          "type": "int",
+          "name": "farEdgeX",
+          "confidence": "high",
+          "description": "+0x72 -- screen x of Terrain_ProjectFarEdgeAhead's point. Read only by Hzline_FillGround's rolled branch, into polygon vertices it overwrites before drawing."
+        },
+        {
+          "offset": 118,
+          "width": 4,
+          "type": "int",
+          "name": "farEdgeY",
+          "confidence": "high",
+          "description": "+0x76 -- screen y of the same point."
+        }
+      ]
     }
   ],
   "applications": [
@@ -2196,6 +2396,48 @@
       "parameter": 0,
       "struct": "PilotRecord",
       "description": "Pilot_AccumulateMissionStats' pilot (parameter 1 is the results stream). Reads the mission counters in and adds them into the career totals."
+    },
+    {
+      "function": "0042eb5c",
+      "parameter": 0,
+      "struct": "hzline",
+      "description": "Hzline_Ctor's object: the 0x7a bytes World_LoadTheater allocates, returned as the result."
+    },
+    {
+      "function": "0042ebbc",
+      "parameter": 0,
+      "struct": "hzline",
+      "description": "Hzline_SetColors' object."
+    },
+    {
+      "function": "0042ebe8",
+      "parameter": 0,
+      "struct": "hzline",
+      "description": "Hzline_Draw's object."
+    },
+    {
+      "function": "0042ec08",
+      "parameter": 0,
+      "struct": "hzline",
+      "description": "Hzline_DrawWithOffset's object."
+    },
+    {
+      "function": "0042ec68",
+      "parameter": 0,
+      "struct": "hzline",
+      "description": "Hzline_BuildHorizon's object."
+    },
+    {
+      "function": "0042ee88",
+      "parameter": 0,
+      "struct": "hzline",
+      "description": "Hzline_FillSky's object."
+    },
+    {
+      "function": "0042f0b0",
+      "parameter": 0,
+      "struct": "hzline",
+      "description": "Hzline_FillGround's object."
     }
   ]
 }

@@ -8,7 +8,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// its own count or dimension, so the layout is a walk, matching <c>maybe_World_LoadTheater</c>
 /// (<c>0042e010</c>) read for read:</para>
 /// <code>
-/// 14 x int16                       -- sky/fog setup, dispatched straight into 0042ebbc
+/// 14 x int16                       -- 0-7 the sky backdrop (hzline), 9 the ground-shape set
 /// int32 count, count x int32       -- distance bands A
 /// int32 count, count x int32       -- distance bands B
 /// int16 rampRows, int16 rampColumns
@@ -35,12 +35,58 @@ public class WorldData {
 	public const int HeaderShorts = 14;
 
 	/// <summary>
-	/// The 14 leading shorts, in file order. The original hands them to its sky/fog setup
-	/// (<c>0042ebbc</c>) rather than storing a struct, and their individual meanings are not
-	/// established except short 9, <see cref="FlatSetSelector"/>. Only short 4 varies across the ten
-	/// retail files.
+	/// The 14 leading shorts, in file order. Shorts 0-7 build the theater's sky backdrop, the
+	/// <c>hzline</c> (<see cref="HorizonGap"/> through <see cref="HorizonOffset"/>); short 9 is
+	/// <see cref="FlatSetSelector"/>. Only shorts 3 and 4 vary across the ten retail files.
 	/// </summary>
 	public short[] Header { get; set; } = new short[HeaderShorts];
+
+	/// <summary>
+	/// Header short 0, the <c>hzline</c>'s <c>+0x6c</c>: half of it is how many rows above the horizon
+	/// line the first band past the horizon colour starts. 2 in retail data. See
+	/// docs/formats/distance-fog-and-sky.md, "The object".
+	/// </summary>
+	public short HorizonGap => HeaderShort(0);
+
+	/// <summary>Header short 1: the sky's zenith palette index, and the base its bands count up from. 208 in retail data.</summary>
+	public short ZenithColor => HeaderShort(1);
+
+	/// <summary>Header short 2, <c>+0x54</c>: the sky's band height in screen rows. 6 in retail data.</summary>
+	public short SkyBandHeight => HeaderShort(2);
+
+	/// <summary>
+	/// Header short 3, <c>+0x58</c>: how many sky bands, the horizon colour and the zenith fill
+	/// included. 16 in <c>WORLD0</c>, <c>WORLD2</c> and <c>WORLD6</c>, 15 in the rest.
+	/// </summary>
+	public short SkyBandCount => HeaderShort(3);
+
+	/// <summary>
+	/// The horizon colour, <c>+0x28</c>: <c>Hzline_SetColors</c> (<c>0042ebbc</c>) stores
+	/// <see cref="ZenithColor"/> + <see cref="SkyBandCount"/> - 1, and it paints both the band at the
+	/// line and everything below it.
+	/// </summary>
+	public int HorizonColor => (ZenithColor + SkyBandCount - 1) & 0xffffff;
+
+	/// <summary>
+	/// Header short 4, <c>+0x2c</c>: the first ground colour. Read only by the ground-band branch of
+	/// <c>Hzline_FillGround</c> (<c>0042f0b0</c>), which no frame takes.
+	/// </summary>
+	public short GroundColor => HeaderShort(4);
+
+	/// <summary>Header short 5, <c>+0x5c</c>: the ground band height. See <see cref="GroundColor"/>.</summary>
+	public short GroundBandHeight => HeaderShort(5);
+
+	/// <summary>Header short 6, <c>+0x60</c>: the ground band count. See <see cref="GroundColor"/>.</summary>
+	public short GroundBandCount => HeaderShort(6);
+
+	/// <summary>
+	/// Header short 7, <c>+0x30</c>: the horizon line's vertical offset in rows, which the draw applies
+	/// one and a half times (<c>Hzline_BuildHorizon</c> adds it, <c>Hzline_DrawWithOffset</c> half of
+	/// it again). 0 in retail data.
+	/// </summary>
+	public short HorizonOffset => HeaderShort(7);
+
+	private short HeaderShort(int index) => Header.Length > index ? Header[index] : (short)0;
 
 	/// <summary>
 	/// <see cref="Header"/> short 9, byte 18 — which ground-shape set the theater loads.
@@ -48,7 +94,7 @@ public class WorldData {
 	/// hands it to <c>FlatObj_LoadResources</c> (<c>004097a8</c>): 0 loads <c>flat</c>, anything else
 	/// <c>flat2</c>. 1 in all ten retail files. See docs/simulation/ground-shapes.md.
 	/// </summary>
-	public short FlatSetSelector => Header.Length > 9 ? Header[9] : (short)0;
+	public short FlatSetSelector => HeaderShort(9);
 
 	/// <summary>
 	/// First distance-band table — 16 entries in every retail file, ascending from 60000 in steps of

@@ -14,6 +14,7 @@ Sim_RenderFrame (0045fb9c)
      ├─ Terrain_SetupVisibleRegion (0046ca98)    ← again, same view
      ├─ Scene_DrawTerrainPass (0042e700)
      │   ├─ Terrain_ProjectFarEdgeAhead (00470910)
+     │   ├─ Hzline_Draw (0042ebe8)               ← the sky backdrop, distance-fog-and-sky.md
      │   └─ Scene_DrawTerrain (00428140)
      │       └─ Terrain_DrawVisibleCells (0046d0a4)
      │           └─ the cell walk → Terrain_DrawCellQuad (0046d344) per cell

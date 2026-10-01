@@ -2,7 +2,7 @@
 
 Addresses are DBSIM virtual addresses.
 
-Two mechanisms that share one palette: everything fades toward the colour the sky already is just above the horizon.
+Two mechanisms that share one palette: the distance fade, and the backdrop the sky is painted as. In seven of the ten theaters the fade ends on exactly the colour the backdrop paints at and below the horizon.
 
 ## Visibility range
 
@@ -70,24 +70,68 @@ The third does **not** reset anything drawn through `TSSolidPoly_Render`. It is 
 
 So **a flat solid face is not pinned to ramp row 15 at distance**; it fades from its own range like anything else drawn.
 
-## The sky — palette entries 208-223
+## The sky — `hzline`
 
-Sixteen horizontal bands, entry 208 at the zenith and 223 at the horizon, with flat 208 above the gradient. Measured, not RE'd: the draw routine registers itself into a frame-callback table (`Subsystem_RunPhase` (`00401d94`)'s table at `004a80d0`) that lives in uninitialised memory, so static analysis cannot reach it.
+The sky is a backdrop of flat palette fills, painted into the view every frame before any terrain. `Scene_DrawTerrainPass` (`0042e700`), which `Sim_RenderFrame` runs only for a view that shows the world ([`terrain-drawing.md`](terrain-drawing.md#the-frame)), calls `Hzline_Draw` (`0042ebe8`) on the theater's horizon object `g_TheaterHzline` (`0049aee0`) ahead of `Scene_DrawTerrain`, so the ground and everything on it paint over the backdrop. `Hzline_DrawWithOffset` (`0042ec08`) does the work in three steps: build the horizon line, band the sky above it, fill below it in one colour. Nothing in it is textured or fogged, and every pixel is a palette index, so the sky follows any palette swap.
 
-- `Reference/Apocalypse_Cockpit.png` is lossless and shows the zone `DATA\script.dat` points at (zone 888, theater 1, `WORLD2`). Every band is an exact match for a consecutive `WORLD2.DPL` entry — `#D4D0D4`, `#D4D0D8`, `#D8D0D8`, … — changing every 6 rows at y = 107, 113, 119, 125 … in a 480-row view, with flat 208 above.
-- `Reference/Simulator5_Preferences.jpg` shows a `WORLD0` zone, orange `#985C20` at the top to olive `#747060` at the horizon. Its ground is flat rather than a ridge, so the run is visible there all the way to entry 223, which is what fixes the end of the range.
+### The object
 
-Band height differs slightly between the two captures (6 px vs ~5.5 px at the same resolution), so the bands may be angular rather than screen-space.
+`World_LoadTheater` (`0042e010`) builds it with `Hzline_Ctor` (`0042eb5c`) — Borland class `hzline`, `0x7a` bytes over `TSGroup` — and fills it from the first eight `int16`s of `wld\world<N>.wld`, through `Hzline_SetColors` (`0042ebbc`) for shorts 1, 4 and 7:
+
+| Short | Field | Retail value | Meaning |
+|---|---|---|---|
+| 0 | `+0x6c` | 2 | the first band past the horizon colour starts `+0x6c >> 1` rows above the line (`t` below) |
+| 1 | `+0x28` | 208 | the zenith colour. `Hzline_SetColors` stores `short1 + short3 - 1`, the **horizon colour** `C` |
+| 2 | `+0x54` | 6 | band height `h`, in screen rows at every resolution |
+| 3 | `+0x58` | 16 in `WORLD0`, `WORLD2`, `WORLD6`; 15 in the other seven | band count `N`, the horizon colour and the zenith fill included |
+| 4 | `+0x2c` | 239 where short 3 is 16, 224 elsewhere | first ground colour |
+| 5 | `+0x5c` | 1 | ground band height |
+| 6 | `+0x60` | 1 | ground band count |
+| 7 | `+0x30` | 0 | the line's vertical offset in rows: `Hzline_BuildHorizon` adds it and `Hzline_DrawWithOffset` adds half of it again |
+
+So the sky is the palette run from 208 up to `C` = 223 in `WORLD0`, `WORLD2` and `WORLD6`, and up to `C` = 222 in the other seven, which never draw entry 223. Shorts 4–6 reach only a branch no frame takes ([Below the line](#below-the-line)). `World_LoadTheater` also stores `short4 + short6 - 1` at `0049aee8` ([Open](#open)).
+
+### The horizon line
+
+`Hzline_DrawWithOffset` copies the view's pitch, negated, and its roll (`view+0x10`, `+0x12`) to `+0x34`/`+0x36`. `Hzline_BuildHorizon` (`0042ec68`) then writes the line's two screen ends to `+0x38`/`+0x3c` and `+0x40`/`+0x44`, with `f = 2^DAT_006c60ac` the focal length, `(cx, cy)` the projection centre (`DAT_006c60b8`/`bc`) and `k` the coordinate shift (`VideoMode_XCoordShift` across, `VideoMode_YCoordShift` down; 1 in the 640-wide mode):
+
+```
+mid  = (cx, cy) + f·tan(pitch) · (sin roll, cos roll)        screen axes, y down; cos(pitch) floored at 1
+ends = mid ∓ (256 << k) · (cos roll, −sin roll)               ±512 px at 640x480
+```
+
+That is the vanishing line of level ground, with pitch positive looking up. The line is lengthened when the view's canvas origin (`DAT_004cfa24`/`28`, [`cockpit-views.md`](cockpit-views.md#vue--per-view-geometry)) is non-zero, so it still spans a view whose projection centre sits outside its own window: by its own length at both ends when the origin's y is non-zero, otherwise at the end on the side its x points to.
+
+`+0x48`/`+0x4c` hold `(sin roll, −cos roll)` in Q14, from which `Hzline_FillSky` steps `h·(−sin roll, −cos roll)` per band, toward the sky. The test that would negate the pair once the pitch passes vertical compares the unsigned angle with `−0x4000` and is never true.
+
+### Above the line
+
+`Hzline_FillSky` (`0042ee88`) installs the solid brush `{0, colour}` at the render context's `+0x22c` and paints `N − 1` bands outward from the line, the first in `C` and each next one palette entry lower, then the zenith colour over everything beyond the last.
+
+- **Level** (`roll` 0): `Raster_FillRect` rects, band `i` (colour `C − i`) from row `H − t − i·h` down to the previous band's top row inclusive, with `H` the line's row. Each band's top row is painted over by the next, so with the retail `t` = 1 and `h` = 6 the horizon colour covers the line's own row and colour `C − i` covers rows `H − 6i` to `H − 6i + 5`. The zenith fill runs from the top of the view (context `+0x214`) to the last band, when the view reaches that high.
+- **Rolled**: `Raster_DrawPolygonReversed` quads, each edge parallel to the line. Band `i`'s far edge is the line moved by `(−h·i·sin roll, −(t + (i − 1)·h)·cos roll)`: the vertical term counts one band fewer than the level fill's `t + i·h`, so the moment the view rolls at all the gradient drops toward the ground by `h − 1` rows, 5 in retail data (one band, less the row the level fill's overpainting takes back). The first quad starts `2h` below the line, inside what the ground fill then covers, and the zenith quad reaches 5000 px past the last band.
+
+Both retail captures fit this. `Reference/Apocalypse_Cockpit.png` (lossless, `WORLD2`) steps through consecutive `WORLD2.DPL` entries every 6 rows, 209 on rows 107–112 up to 219 on rows 167–172, which puts its line on row 191; `Reference/Simulator5_Preferences.jpg` (`WORLD0`) runs orange `#985C20` (208) to olive `#747060` (223) at the horizon.
+
+### Below the line
+
+`Hzline_DrawWithOffset` moves the line down one row, and `Hzline_FillGround` (`0042f0b0`) fills from it to the bottom of the view (context `+0x21c`). `Scene_DrawTerrainPass` sets the line's `+0x71` immediately before its call — only `Terrain_ProjectFarEdgeAhead` runs in between, writing `+0x72` on — so the branch taken is always the one-colour fill: colour `C`, through `Raster_FillRect` when level, otherwise a polygon of the line and the view-rect corners on its lower side through `Raster_DrawPolygonDispatch`. The terrain paints over it, and what stays visible is the strip between the terrain's far edge and the horizon.
+
+With `+0x71` clear the routine would paint `+0x60` bands of `+0x5c` rows downward from colour `+0x2c + +0x60 − 1`. That is the only use of shorts 4–6.
+
+**`Terrain_ProjectFarEdgeAhead`'s point does not reach the frame.** It is written to `+0x72`/`+0x76` ([`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field)), and only the rolled branch reads it: it moves the line by the offset from the line's midpoint to the point and stores the moved ends as polygon vertices 2 and 3, then on every path overwrites vertex 2 with a view-rect corner and either overwrites vertex 3 too or draws three vertices. The level branch does not read it.
 
 ## Where the two meet
 
-A theater's fog colour — the commonest output of `world<N>.rmp`'s last depth slice at the unlit shade — lands on entry **222 or 223**, the last colours of that same sky run:
+The backdrop paints `C` on and below the horizon, so terrain at the edge of the visibility range is drawn against `C`. A theater's fog colour — the commonest output of `world<N>.rmp`'s last depth slice at the unlit shade — is `C`'s own colour in seven theaters, and palette entry 221, a step darker, in theaters 2, 4 and 6:
 
 | | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `C` | 223 | 222 | 223 | 222 | 222 | 222 | 223 | 222 | 222 | 222 |
+| `C`'s colour | `#747060` | `#1C1818` | `#FCDCBC` | `#242828` | `#DC0400` | `#101010` | `#F4F4FC` | `#0C3058` | `#040404` | `#040404` |
 | Fog | `#747060` | `#1C1818` | `#F4D4BC` | `#242828` | `#D80400` | `#101010` | `#ECF0FC` | `#0C3058` | `#040404` | `#040404` |
 
-Two independent derivations — the ramp's far slice, and a palette run measured off screenshots — landing on adjacent entries. Distant terrain therefore fogs to very nearly the colour of the sky immediately above it, which is why retail's horizon reads as continuous rather than as a seam.
+Where they match, fully fogged terrain meets the backdrop without a seam.
 
 ## Rejected readings
 
@@ -96,3 +140,11 @@ Two independent derivations — the ramp's far slice, and a palette run measured
 | Fog is a blend toward the fog colour, so the ramp slices can be replaced by a linear fade of the same mean strength | The slices fog each palette index at its own rate and keep distinct colours apart almost to the last one. A uniform blend fades a whole surface evenly and washes distant terrain into featureless pastel. Only a surface with no `.RMP` row of its own — a `TSGouraudPoly` — legitimately blends |
 | Fog is measured against distance from the eye | It is measured against view-space **depth**, component 1 of `Raster_PerspectiveDivide`'s input. Radial distance is larger everywhere off the view axis, by 18% at the corner of the view |
 | The game draws past the visibility range, so the far clip is a separate free parameter | `Terrain_BuildDrawRegionQuad` (`0046d220`) makes the draw region that same radius: the world ends exactly where the fade saturates |
+| The fill below the horizon stops at `Terrain_ProjectFarEdgeAhead`'s point, the projected far edge of the terrain, which `Scene_DrawTerrainPass` computes every frame for it | The rolled branch of `Hzline_FillGround` puts the moved line into polygon vertices it then overwrites or leaves past the vertex count, and the level branch never reads the point. The fill always runs from the horizon line to the bottom of the view |
+| The `.WLD`'s ground fields (shorts 4–6) colour the ground below the horizon | They feed only the branch `+0x71` clear selects, and `Scene_DrawTerrainPass` sets `+0x71` before every draw. Below the line is the sky's own horizon colour `C` |
+
+## Open
+
+- **Open:** what `DAT_0049aee4` holds. `Scene_DrawTerrainPass` calls its slot `+0x34` with the view, after the backdrop, when it is non-null; it is zero in the image and `es2_xref.py` finds no reference besides that read.
+- **Open:** what reads `0049aee8`, which `World_LoadTheater` sets to `short4 + short6 - 1`; `es2_xref.py` finds only that store.
+- **Open:** whether anything draws a horizon strip. `Hzline_BlitHorizonStrip` (`0042f398`) blits a bitmap set's frames end to end along the horizon line, scrolled by the view's heading and rotated with its roll, and `Hzline_LoadBitmapBank` (`0042f65c`) loads a bank from the `dba` folder into `+0x50`. `es2_xref.py` finds no reference to either, and `World_LoadTheater` reads the `.WLD`'s second string, `clouds2`, into a buffer the next string overwrites.

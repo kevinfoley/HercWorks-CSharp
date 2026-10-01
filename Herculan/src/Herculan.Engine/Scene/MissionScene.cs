@@ -649,11 +649,11 @@ public sealed class MissionScene {
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
 			terrainMesh, theater, terrainBank, playerObject,
 			beams, bulletModels, explosionModels,
-			rocketModels, mechWeaponModels, Atmosphere.From(terrain, models.Shading),
+			rocketModels, mechWeaponModels, Atmosphere.From(terrain, models.Shading, theater.File),
 			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading),
 			models.ImpactShading is { } impact
 				? new ImpactFlash(SurfaceRampTable.Build(impact), PaletteRampTable.Build(impact),
-					Atmosphere.From(terrain, impact))
+					Atmosphere.From(terrain, impact, theater.File))
 				: null,
 			debrisModels, fireModels, hulkModels, dropPodModel, dropPodOpening, groundShapeModels);
 	}

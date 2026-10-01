@@ -30,7 +30,7 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 
 | | |
 |---|---|
-| 8 x `int16` | dispatched into subsystem setup (`0042ebbc`, sky/fog globals), not stored as a struct |
+| 8 x `int16` | the sky backdrop's `hzline` — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md#the-object) |
 | 6 x `int16` | ditto; two land in `DAT_004cfd76`/`DAT_004cfd78`. The second of the six, the file's tenth `int16` (byte 18), is `World_FlatSetSelector` (`0049aeea`), which picks the theater's ground-shape set ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-shape-set--flatobj_loadresources-004097a8)); 1 in all ten retail files |
 | `int32` count + count x `int32` | 16 entries in every retail file, ascending in even steps |
 | `int32` count + count x `int32` | 16 again, identical to the first array |
@@ -101,7 +101,7 @@ One function **writes** the field; four read it:
 - `ObjList_SetDrawDistances` (`00428bc0`) scales that same distance by five Q10 factors into the per-class object draw distances ([`terrain-drawing.md`](terrain-drawing.md#objects-in-the-walk)). **Not** the distance fog, which is 12-slice and computed per drawn thing.
 - `Terrain_DrawCellQuad` (`0046d344`) installs `grid[+0x10c] << grid[+0x108]` per cell as the visibility range the distance fade is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md), which tabulates the resulting range per cell shift.
 
-`Terrain_ProjectFarEdgeAhead` (`00470910`) reads the same field once a frame, from `Scene_DrawTerrainPass`: it projects to the screen the point that radius straight ahead of the viewer along its heading, at the grid's lowest height (`+0x110`), and writes the screen point to `+0x72`/`+0x76` of the object at `DAT_0049aee0`. When the viewer's cell is within the radius of a grid edge the distance is a literal 1000 world units instead. `FUN_0042f0b0` reads the point ([Open](#open)).
+`Terrain_ProjectFarEdgeAhead` (`00470910`) reads the same field once a frame, from `Scene_DrawTerrainPass`: it projects to the screen the point that radius straight ahead of the viewer along its heading, at the grid's lowest height (`+0x110`), and writes the screen point to `+0x72`/`+0x76` of the theater's `hzline`. When the viewer's cell is within the radius of a grid edge the distance is a literal 1000 world units instead. The point never reaches the frame: [`distance-fog-and-sky.md`](distance-fog-and-sky.md#below-the-line).
 
 ### The terrain-detail setting
 
@@ -152,5 +152,4 @@ The material write, but not the levelling mark, is skipped when `CockpitArt_Load
 
 ## Open
 
-- **Open:** what `FUN_0042f0b0` draws with `Terrain_ProjectFarEdgeAhead`'s point. With `+0x71` of the `DAT_0049aee0` object set, which `Scene_DrawTerrainPass` does every frame, and the view's roll non-zero, it moves the edge of the polygon it fills by the difference between that edge's midpoint and the point.
 - **Open:** whether DBSIM has already drawn from the shared RNG instance before terrain populates on a given zone load, which would offset the draw sequence and land the frame-1 roll ([Retail numbers](#retail-numbers)) on different cells even with a matching seed and algorithm; a retail screenshot comparison would settle it.

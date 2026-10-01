@@ -7535,8 +7535,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_ProjectFarEdgeAhead",
-      "description": "(grid, view, out): projects to the screen the point the terrain draw radius (grid+0x10c << cellShift) straight ahead of the viewer along its heading (+0x14), at the grid's lowest height (+0x110); the distance is a literal 1000 instead when the viewer's cell is within the radius of any grid edge. Builds the 2D transform with Math_BuildRotation2D and the viewer's x/y, applies it with Transform2D_ApplyToPoint, then Transform_ApplyToPoint by the world-to-view transform at 006c6078, Raster_PerspectiveDivide and Raster_ProjectToScreen; the screen x/y go to out[0]/out[1]. Its one caller, Scene_DrawTerrainPass, passes +0x72 of the object at DAT_0049aee0, which FUN_0042f0b0 reads.",
-      "source": "DBSIM decompile at 00470910; docs/formats/terrain-texturing.md#grid0x10c--the-lod--draw-radius-field"
+      "description": "(grid, view, out): projects to the screen the point the terrain draw radius (grid+0x10c << cellShift) straight ahead of the viewer along its heading (+0x14), at the grid's lowest height (+0x110); the distance is a literal 1000 instead when the viewer's cell is within the radius of any grid edge. Builds the 2D transform with Math_BuildRotation2D and the viewer's x/y, applies it with Transform2D_ApplyToPoint, then Transform_ApplyToPoint by the world-to-view transform at 006c6078, Raster_PerspectiveDivide and Raster_ProjectToScreen; the screen x/y go to out[0]/out[1]. Its one caller, Scene_DrawTerrainPass, passes +0x72 of g_TheaterHzline. Only Hzline_FillGround's rolled branch reads it, into polygon vertices it overwrites before drawing, so the point never reaches the frame.",
+      "source": "DBSIM decompile at 00470910; docs/formats/terrain-texturing.md#grid0x10c--the-lod--draw-radius-field; docs/formats/distance-fog-and-sky.md#below-the-line"
     },
     {
       "address": "0042e010",
@@ -26286,8 +26286,114 @@
       "type": "function",
       "confidence": "high",
       "name": "Scene_DrawTerrainPass",
-      "description": "(view): sets +0x71 of the object at DAT_0049aee0 and has Terrain_ProjectFarEdgeAhead write into its +0x72; runs FUN_0042ebe8(DAT_0049aee0, view, &DAT_004cfa24) when that object exists and slot +0x34 of DAT_0049aee4 when that does; then Scene_DrawTerrain(view) and Palette_NoOp. Sim_RenderFrame's conditional arm.",
-      "source": "DBSIM decompile at 0042e700; docs/formats/terrain-drawing.md#the-frame"
+      "description": "(view): sets +0x71 of the theater's horizon object g_TheaterHzline and has Terrain_ProjectFarEdgeAhead write into its +0x72; when that object exists, Hzline_Draw(it, view, &DAT_004cfa24, the view's canvas origin) paints the sky backdrop; then slot +0x34 of DAT_0049aee4 when that is non-null, Scene_DrawTerrain(view) and Palette_NoOp. Sim_RenderFrame's conditional arm.",
+      "source": "DBSIM decompile at 0042e700; docs/formats/terrain-drawing.md#the-frame; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0049aee0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TheaterHzline",
+      "description": "Pointer to the theater's hzline, the sky backdrop. World_LoadTheater stores it (Hzline_Ctor) and fills it from the .WLD's first eight int16s; Scene_DrawTerrainPass reads it once a frame. Every access in 0049aee0-0049aef8 is by absolute address.",
+      "source": "DBSIM decompile at 0042e010 and 0042e700; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042eb5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_Ctor",
+      "description": "hzline constructor (vtable 0049afb0, RTTI name 'hzline', 0x7a bytes over TSGroup): TSGroup_Ctor, then the defaults +0x6c = 1, +0x54 = 3, +0x58 = 16, +0x5c = 1, +0x60 = 8, +0x64 = +0x68 = 1, +0x50 = 0, +0x70 = 0, +0x71 = 1. World_LoadTheater overwrites +0x54..+0x60 and +0x6c from the .WLD.",
+      "signature": "hzline * __cdecl Hzline_Ctor(hzline *self)",
+      "source": "DBSIM decompile at 0042eb5c; RTTI via es2_classes.py; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042ebbc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_SetColors",
+      "description": "(self, zenithColor, groundColor, yOffset): +0x28 = (zenithColor + band count +0x58 - 1) & 0xffffff, the horizon colour; +0x2c = groundColor & 0xffffff; +0x30 = yOffset. World_LoadTheater passes .WLD shorts 1, 4 and 7.",
+      "signature": "void __cdecl Hzline_SetColors(hzline *self, int zenithColor, int groundColor, int yOffset)",
+      "source": "DBSIM decompile at 0042ebbc; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042ebe8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_Draw",
+      "description": "(self, view, canvasOrigin): Hzline_DrawWithOffset(self, view, self+0x30, canvasOrigin). Called only by Scene_DrawTerrainPass, with &DAT_004cfa24.",
+      "signature": "void __cdecl Hzline_Draw(hzline *self, void *view, int *canvasOrigin)",
+      "source": "DBSIM decompile at 0042ebe8; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042ec08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_DrawWithOffset",
+      "description": "(self, view, yOffset, canvasOrigin): +0x34 = -view pitch (+0x10), +0x36 = view roll (+0x12); Hzline_BuildHorizon; adds yOffset >> 1 to both line ends' y; Hzline_FillSky; moves both ends down one row; Hzline_FillGround.",
+      "signature": "void __cdecl Hzline_DrawWithOffset(hzline *self, void *view, int yOffset, int *canvasOrigin)",
+      "source": "DBSIM decompile at 0042ec08; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042ec68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_BuildHorizon",
+      "description": "(self, canvasOrigin): writes the horizon line's screen ends to +0x38/+0x3c and +0x40/+0x44: (256 << coord shift) either side of a midpoint f*tan(pitch) from the projection centre (006c60b8/bc) along the rolled screen vertical, f = 2^006c60ac, plus +0x30 in y. A non-zero canvas origin lengthens it by its own length: both ends for a non-zero y, else the end on the x's side. +0x48/+0x4c = (sin roll, -cos roll), Q14, the band step direction; the test that would negate it compares the unsigned pitch with -0x4000 and is never true.",
+      "signature": "void __cdecl Hzline_BuildHorizon(hzline *self, int *canvasOrigin)",
+      "source": "DBSIM decompile and disassembly at 0042ec68; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042ee88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_FillSky",
+      "description": "Paints the sky above the horizon line with the solid brush {0, colour} at the render context's +0x22c: +0x58 - 1 bands of +0x54 rows, the first in the horizon colour +0x28 and each next one entry lower, then the zenith colour beyond the last. Raster_FillRect rects when roll (+0x36) is 0, Raster_DrawPolygonReversed quads otherwise; the rolled bands' y offset uses one band fewer than the level fill's.",
+      "signature": "void __cdecl Hzline_FillSky(hzline *self)",
+      "source": "DBSIM decompile and disassembly at 0042ee88; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042f0b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_FillGround",
+      "description": "Fills from the horizon line to the bottom of the view (render context +0x21c). With +0x71 set, which Scene_DrawTerrainPass does before its only call, one fill in the horizon colour +0x28: Raster_FillRect when level, else a polygon of the line and the view-rect corners below it through Raster_DrawPolygonDispatch. The rolled branch moves the line by its midpoint's offset from Terrain_ProjectFarEdgeAhead's point (+0x72/+0x76) into polygon slots 2-3, which every path overwrites or leaves past the vertex count. With +0x71 clear it would paint +0x60 bands of +0x5c rows down from colour +0x2c + +0x60 - 1.",
+      "signature": "void __cdecl Hzline_FillGround(hzline *self)",
+      "source": "DBSIM decompile and disassembly at 0042f0b0; docs/formats/distance-fog-and-sky.md#the-sky--hzline"
+    },
+    {
+      "address": "0042f398",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "Hzline_BlitHorizonStrip",
+      "description": "(self, bitmapSet, view, yOffset, offset): blits the frames of a bitmap set (count +4, frame list +8) one after another along the hzline's horizon line, starting from a position scrolled by the view's heading (+0x14) and wrapping the frame index; VideoMode_BlitBitmapFlags when level, VideoMode_BlitRotated by the negated roll otherwise. es2_xref.py finds no reference to it.",
+      "source": "DBSIM decompile at 0042f398; docs/formats/distance-fog-and-sky.md#open"
+    },
+    {
+      "address": "0042f65c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "Hzline_LoadBitmapBank",
+      "description": "(self, name): loads the named resource from the folder PTR_DAT_004a0a28 names (the 'dba' folder Terrain_BindTextureBank uses) and stores it at +0x50, which Hzline_Ctor zeroes. es2_xref.py finds no reference to it.",
+      "source": "DBSIM decompile at 0042f65c; docs/formats/distance-fog-and-sky.md#open"
+    },
+    {
+      "address": "004757a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_Ctor",
+      "description": "TSGroup constructor (final vtable 004a0fd7, RTTI name 'TSGroup', 0x28 bytes): stamps its bases' vtables in turn, then TSGroup's, and zeroes +0x10..+0x1c.",
+      "source": "DBSIM decompile at 004757a8; RTTI via es2_classes.py"
     },
     {
       "address": "00428c08",

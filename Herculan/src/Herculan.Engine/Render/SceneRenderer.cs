@@ -267,7 +267,7 @@ public sealed class SceneRenderer : IDisposable {
 	public Vector3 FogColor { get; set; } = new(0.55f, 0.60f, 0.68f);
 
 	/// <summary>
-	/// The theater's sky, sixteen banded colours out of its own palette — see
+	/// The theater's sky backdrop, banded out of its own palette — see
 	/// <see cref="Content.SkyGradient"/>. Null draws a flat <see cref="SkyColor"/> instead.
 	/// </summary>
 	public Content.SkyGradient? Sky { get; set; }
@@ -277,9 +277,8 @@ public sealed class SceneRenderer : IDisposable {
 	/// <see cref="Sky"/> is null.
 	///
 	/// <para>Deliberately <b>not</b> <see cref="FogColor"/> — the sky and the
-	/// colour distant terrain fades into are separate things in the original, even though its palette
-	/// makes them meet: the sky's bottom band and the ramp's fog colour are neighbouring entries of
-	/// one gradient.</para>
+	/// colour distant terrain fades into are separate things in the original, which match in seven
+	/// theaters of ten (docs/formats/distance-fog-and-sky.md, "Where the two meet").</para>
 	/// </summary>
 	public Vector3 SkyColor { get; set; } = new(0.55f, 0.60f, 0.68f);
 
@@ -382,7 +381,7 @@ public sealed class SceneRenderer : IDisposable {
 
 		_gl.Viewport(viewportX, viewportY, (uint)System.Math.Max(viewportWidth, 1), (uint)System.Math.Max(viewportHeight, 1));
 
-		DrawSky(camera, viewportY, viewportWidth, viewportHeight);
+		DrawSky(camera, viewportX, viewportY, viewportWidth, viewportHeight);
 
 		_shader.Use();
 		_shader.SetMatrix("uView", camera.ViewMatrix);
@@ -589,22 +588,40 @@ public sealed class SceneRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// Paints the panel's sky before any geometry goes into it. Depth-testing and depth-writing are
-	/// both off, so this is a background fill rather than something at the far plane — the scene draws
-	/// straight over it and nothing needs the far plane to sit beyond the sky.
+	/// Paints the panel's sky before any geometry goes into it, as <c>Scene_DrawTerrainPass</c> paints
+	/// the <c>hzline</c> before the terrain. Depth-testing and depth-writing are both off, so this is
+	/// a background fill rather than something at the far plane — the scene draws straight over it and
+	/// nothing needs the far plane to sit beyond the sky. The line and the band rule are
+	/// <see cref="Content.SkyGradient"/>'s; this hands them to Sky.glsl.
 	/// </summary>
-	private void DrawSky(Camera camera, int viewportY, int viewportWidth, int viewportHeight) {
+	private void DrawSky(Camera camera, int viewportX, int viewportY, int viewportWidth, int viewportHeight) {
 		if (Sky is not { } sky) {
 			return;
 		}
 
+		int height = System.Math.Max(viewportHeight, 1);
+		float focalPixels = height / (2f * MathF.Tan(camera.FieldOfView / 2f));
+
+		// PrincipalPoint is measured from the viewport's top-left, y down; the shader works in window
+		// coordinates, y up from the bottom of the whole framebuffer.
+		var centre = new Vector2(
+			viewportX + camera.PrincipalPoint.X * viewportWidth,
+			viewportY + (1f - camera.PrincipalPoint.Y) * height);
+		var line = sky.Place(unchecked((short)camera.Pitch), unchecked((short)camera.Roll), centre, focalPixels);
+
 		_skyShader.Use();
-		for (int band = 0; band < Content.SkyGradient.BandCount; band++) {
+		for (int band = 0; band < sky.Bands.Length; band++) {
 			_skyShader.SetVector3($"uBands[{band}]", sky.Bands[band]);
 		}
 
-		_skyShader.SetFloat("uHorizonY", HorizonWindowY(camera, viewportY, viewportWidth, viewportHeight));
-		_skyShader.SetFloat("uBandHeight", Content.SkyGradient.BandHeightFor(viewportHeight));
+		_skyShader.SetInt("uBandCount", sky.Bands.Length);
+		_skyShader.SetFloat("uBandHeight", sky.BandHeight);
+		_skyShader.SetFloat("uGap", sky.HorizonGap);
+		_skyShader.SetVector2("uLineMid", line.Mid);
+		_skyShader.SetVector2("uLineUp", line.Up);
+		_skyShader.SetFloat("uScale", line.Scale);
+		_skyShader.SetInt("uRolled", line.Rolled ? 1 : 0);
+		_skyShader.SetFloat("uCosRoll", line.CosRoll);
 
 		_gl.Disable(EnableCap.DepthTest);
 		_gl.DepthMask(false);
@@ -613,37 +630,6 @@ public sealed class SceneRenderer : IDisposable {
 		_gl.BindVertexArray(0);
 		_gl.DepthMask(true);
 		_gl.Enable(EnableCap.DepthTest);
-	}
-
-	/// <summary>
-	/// Where the horizon lands in window coordinates (the frame <c>gl_FragCoord</c> is in, so measured
-	/// from the bottom of the whole framebuffer, not of the panel).
-	///
-	/// <para>Found by projecting the camera's own forward direction flattened onto the ground plane —
-	/// a direction, not a point, so it is the vanishing point of every horizontal line and therefore
-	/// the horizon itself. It has to be computed rather than assumed to be the middle of the view:
-	/// pitch moves it, and so does <see cref="Camera.PrincipalPoint"/>, which the cockpit sets well
-	/// above centre.</para>
-	/// </summary>
-	private static float HorizonWindowY(Camera camera, int viewportY, int viewportWidth, int viewportHeight) {
-		int height = System.Math.Max(viewportHeight, 1);
-
-		Vector3 forward = camera.Forward;
-		var flattened = new Vector3(forward.X, 0f, forward.Z);
-
-		// Looking straight up or down leaves no horizontal component to project. Nothing in the game
-		// does, but a free camera can, and the fallback keeps the sky drawable rather than NaN.
-		if (flattened.LengthSquared() < 1e-9f) {
-			return viewportY + height * 0.5f;
-		}
-
-		var viewProjection = camera.ViewMatrix * camera.ProjectionMatrix((float)viewportWidth / height);
-		var clip = Vector4.Transform(new Vector4(Vector3.Normalize(flattened), 0f), viewProjection);
-		if (MathF.Abs(clip.W) < 1e-6f) {
-			return viewportY + height * 0.5f;
-		}
-
-		return viewportY + (clip.Y / clip.W * 0.5f + 0.5f) * height;
 	}
 
 	public void Dispose() {

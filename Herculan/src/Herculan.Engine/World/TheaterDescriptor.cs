@@ -18,9 +18,9 @@ namespace Herculan.Engine.World;
 /// WORLD8/9 <c>moon</c>. Both indices come from <see cref="ScriptDatHeader"/>.</para>
 ///
 /// <para>The file is parsed by <see cref="WorldData"/> in HercWorks.Core, which carries the layout.
-/// Most of its fields are still undecoded — two int32 arrays, two colour-ramp tables sized by a
-/// row/column pair, and about a dozen loose 16- and 32-bit fields — and are kept raw rather than
-/// guessed at. What <i>is</i> certain is the structure, because the walk consumes every one of the
+/// Much of it is still undecoded — two int32 arrays, two colour-ramp tables sized by a row/column
+/// pair, and several loose 16- and 32-bit fields — and is kept raw rather than guessed at; the
+/// leading shorts that build the sky are named on <see cref="WorldData"/>. What <i>is</i> certain is the structure, because the walk consumes every one of the
 /// ten retail files to its exact last byte, and the strings that fall out of the end are real
 /// resource names (see <see cref="TerrainBankName"/> and <see cref="ImpactPaletteName"/>).</para>
 /// </summary>
@@ -32,14 +32,21 @@ public sealed class TheaterDescriptor {
 	public const int Count = 10;
 
 	private TheaterDescriptor(int index, string paletteName, string terrainBankName,
-			string impactPaletteName, IReadOnlyList<string> allStrings, short flatSetSelector) {
+			string impactPaletteName, IReadOnlyList<string> allStrings, WorldData file) {
 		Index = index;
+		File = file;
 		PaletteName = paletteName;
 		TerrainBankName = terrainBankName;
 		ImpactPaletteName = impactPaletteName;
 		Strings = allStrings;
-		FlatSetName = flatSetSelector == 0 ? "FLAT" : "FLAT2";
+		FlatSetName = file.FlatSetSelector == 0 ? "FLAT" : "FLAT2";
 	}
+
+	/// <summary>
+	/// The whole parsed file, for the fields this class does not lift out itself — the sky
+	/// backdrop's eight shorts among them (<see cref="Content.SkyGradient"/>).
+	/// </summary>
+	public WorldData File { get; }
 
 	/// <summary>
 	/// The base name of the ground-shape set the theater loads, <c>dts\&lt;name&gt;.DTS</c> with
@@ -119,7 +126,6 @@ public sealed class TheaterDescriptor {
 			wld.TextureExtension ?? string.Empty,
 		};
 
-		return new TheaterDescriptor(worldIndex, baseName, strings[3], strings[2], strings,
-			wld.FlatSetSelector);
+		return new TheaterDescriptor(worldIndex, baseName, strings[3], strings[2], strings, wld);
 	}
 }

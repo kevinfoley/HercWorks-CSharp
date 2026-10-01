@@ -173,9 +173,7 @@ public sealed class ShadeRamp {
 	/// sample: by the last slice the ramp has collapsed almost the whole palette onto two to four
 	/// distinct bytes, one of them covering the large majority.</para>
 	///
-	/// <para>The answer lands where the sky ends — on palette entry 222 or 223, the last colours of
-	/// the same 208-223 run <see cref="SkyGradient"/> draws the sky from, which is why retail's
-	/// horizon reads as continuous. Per-theater colours and the two independent derivations are in
+	/// <para>How it compares, per theater, with the colour retail's sky paints at the horizon is
 	/// docs/formats/distance-fog-and-sky.md's "Where the two meet".</para>
 	/// </summary>
 	public Vector3? FogColor(DynamixPalette? palette) {

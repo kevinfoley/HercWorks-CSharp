@@ -35,8 +35,13 @@ public readonly record struct CockpitClick(CockpitWidgetId Id, CockpitMouseButto
 /// <param name="Surface">The surface its rect is measured on.</param>
 /// <param name="ArtX">Pointer x in that surface's art pixels — not clamped to the widget.</param>
 /// <param name="ArtY">Pointer y in that surface's art pixels.</param>
+/// <param name="Released">
+/// Whether this is the release that ends the capture — where the original reads the widget's value
+/// (<c>+0x10</c>) and commits it (<c>+8</c>). The throttle acts on every position; a charge bar only
+/// on this one.
+/// </param>
 public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Surface,
-	float ArtX, float ArtY);
+	float ArtX, float ArtY, bool Released = false);
 
 /// <summary>
 /// The cockpit's mouse pipeline: raw window events in, completed widget clicks out.
@@ -59,9 +64,11 @@ public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Sur
 /// <para><b>Drag capture</b> (§7) is reproduced, because one retail control does use it. A press on a
 /// widget whose <c>+0x1d</c> flag is set — the slider base <c>004524a8</c> sets it, every button class
 /// leaves it clear — latches the pointer to that widget until the button comes back up, and every
-/// move in between is delivered to it wherever the pointer has got to. The throttle slider is the only
-/// widget in a retail cockpit built that way, which is why it is the only one that can be dragged.
-/// Read §7 without tracing that flag to its one setter and the cockpit looks entirely undraggable.
+/// move in between is delivered to it wherever the pointer has got to. The throttle slider is the one such
+/// widget a press can reach — the energy rows' charge bars carry the flag but lie wholly under their
+/// rows' select gadgets — which is why it is the only one that can be dragged, unless
+/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/> lists the bars first. Read §7
+/// without tracing that flag to its one setter and the cockpit looks entirely undraggable.
 /// A captured
 /// release fires no click: the original's release path skips <c>Widget_OnMouseUp</c> entirely while
 /// the capture flag is set.</para>
@@ -246,7 +253,8 @@ public sealed class CockpitInput {
 			// mouse pump dispatches the drag handler from both places (004527a0 and 00452d18).
 			if (_capturing && _pressed is { } dragged) {
 				var (artX, artY) = toArt?.Invoke(_pressedSurface, e.X, e.Y) ?? (e.X, e.Y);
-				_drags.Add(new CockpitDrag(dragged, _pressedSurface, artX, artY));
+				_drags.Add(new CockpitDrag(dragged, _pressedSurface, artX, artY,
+					Released: releasedNow != CockpitMouseButtons.None));
 			}
 
 			if (releasedNow != CockpitMouseButtons.None) {

@@ -40,7 +40,7 @@ GAU coordinates are authored in the 320-wide space, half the 640-wide art's. See
 
 Verified: the heads-down display resolves ids 19, 9, 15, 12 → palette 16, 10, 13, 14 — black, red, yellow, green, matching the retail HDD readouts.
 
-**Not every colour number is an id.** The indirection exists for numbers that arrive in a *data file*; a colour a *constructor states as an immediate* is already a palette index and goes nowhere near this table. The weapon panel's raw 32/34/46 (`WeaponChargeBar_Ctor`, `00442950`) are the clearest case, and the scanner screen uses both conventions at once: its contact colours are read out of the table at paint time while its screen background is the literal `0x11` its constructor writes — palette 17, matching the dish art's own corner pixels. Reading such an immediate as an id lands on a believable but wrong colour (`0x11` as an id is palette 24, a mid grey).
+**Not every colour number is an id.** The indirection exists for numbers that arrive in a *data file*; a colour a *constructor states as an immediate* is already a palette index and goes nowhere near this table. The weapon panel's raw 32/34/46 (`WeaponSliderGadget_Ctor`, `00442950`) are the clearest case, and the scanner screen uses both conventions at once: its contact colours are read out of the table at paint time while its screen background is the literal `0x11` its constructor writes — palette 17, matching the dish art's own corner pixels. Reading such an immediate as an id lands on a believable but wrong colour (`0x11` as an id is palette 24, a mid grey).
 
 Consumers: the `.PDG` paper doll's regions, colour id at region offset `0x14` ([below](#pdg--paper-doll-damage-diagram)); `HddDamageScreen_Ctor` (`0045079c`, 4-entry id array at `DAT_0049d9ec`); `HudColorTable_Get` (`00434280`).
 
@@ -61,7 +61,7 @@ Both class variants fill along **x**: `LedBarGraph_CtorBase` takes start/end fro
 
 `EnergyPoolGauge_Ctor` (`00444d5c`) constructs one over the `.GAU` widget rect at 564 with range `0x400`, writing colour ids 6 and 5 into `0x2c`/`0x30` and id 19 into `0x24`. Those resolve to palette indices 98/97/16 = `(0,116,204)`, `(0,40,160)`, `(0,0,0)` — the blue pinstripe bar retail draws directly under the TRACK button, i.e. the **Master Energy Pool meter**. `Player_PerFrameCockpitUpdate` feeds it the pool scaled to that range — see [../simulation/reactor-energy-pool.md](../simulation/reactor-energy-pool.md#cockpit-readouts). Its only caller is `Gau_EnergyMeterWidget`, and the binary's own class-name table pairs `EnergyPoolGauge` with `LEDBarGraphV` (file offset 280429) and `ShieldsGauge` with `ShieldsSelectGadget` (279148) — the LED bar is the energy meter, and `ShieldsGauge` is a different class entirely.
 
-A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`WeaponChargeBar_Ctor` (`00442950`), range `0x400`) — but with raw palette indices `0x20`/`0x22` and remainder `0x2e`, not `COLORS.DAT` ids. See [Weapon hardpoint rows](#weapon-hardpoint-rows).
+A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`WeaponSliderGadget_Ctor` (`00442950`), range `0x400`) — but with raw palette indices `0x20`/`0x22` and remainder `0x2e`, not `COLORS.DAT` ids. See [Weapon hardpoint rows](#weapon-hardpoint-rows).
 
 ## Throttle gauge
 
@@ -115,7 +115,7 @@ The gauge captures the tick's blit position **once**, in the constructor, at the
 
 **`+0xb1` drives nothing.** `ThrottleGauge_SetValues` marks the slider child dirty when it changes, and `ThrottleSlider_PaintV` copies it into `+0x7a` and `+0x4a` and does nothing further with it — so its only observable effect is to force a repaint whenever the machine's speed changes. It is the other half of the cut feature the two fill bars are: the knob shows the throttle asked for, the bars would have shown the speed actually reached.
 
-The slider is the **only draggable widget in a retail cockpit** — see cockpit-input.md §7. `ThrottleSlider_OnValue` (`00448378`) also sets `ThrottleLeverMode` (`0049a06e`) from the committed value's sign, but gated on a joystick throttle control being configured. See mech-locomotion.md for what that global actually is.
+The slider is the **only widget a press can drag in a retail cockpit**: the energy rows' charge bars carry the same drag flag, but each lies under its row's select gadget — see [cockpit-input.md §7](cockpit-input.md#7-press-release-click-vs-drag). `ThrottleSlider_OnValue` (`00448378`) also sets `ThrottleLeverMode` (`0049a06e`) from the committed value's sign, but gated on a joystick throttle control being configured. See mech-locomotion.md for what that global actually is.
 
 ## `ShieldsGauge`
 
@@ -165,7 +165,7 @@ Three gauge classes, one per mount class, all built on `WeaponGauge_Ctor` (`0044
 
 | Class | Factory → ctor | Value field |
 |---|---|---|
-| energy | `CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`) | `LEDBarGraph` (`WeaponChargeBar_Ctor`, `00442950`) |
+| energy | `CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`) | charge bar: a `WeaponSliderGadget` slider over an `LEDBarGraph` (`WeaponSliderGadget_Ctor`, `00442950`) |
 | ammunition | `FUN_00432124` → `AmmoWeaponGauge_Ctor` (`00440f78`) | round count, `itoa` (`AmmoWeaponGauge_Paint`, `004411b4`) |
 | pod | `CockpitView_CreatePodGauge` → one of three `PodGauge` classes | none — the name label widens over both fields — except the Turbo Pod's |
 
@@ -185,7 +185,7 @@ Sub-rects, all relative to the `.GAU` hardpoint rect and mirrored from its right
 
 The two pod labels are the only sub-rects that are ever painted rather than merely written in, and the paint is the only feedback a pod row gives, since it has no state box. `PodGauge_Paint` (`0044171c`) picks the label's font and background from the gauge's two state bytes: the destroyed byte at `+0xc3` wins outright and prints the offline text across the widened label, and failing that the button at `+0xc2` selects the `gray` font over background `0x2e` when it is off and the `dark` font over `COLORS.DAT` id 12 — green — when it is on. Both go into the label itself, the font at `label+0` and the background at `label+0x1d`, so an engaged pod reads as dark lettering on a green plate filling the label rect. What sets the button is in [`../simulation/equipment-pods.md`](../simulation/equipment-pods.md#only-two-pods-have-a-button). Both edges are inclusive, so the Turbo Pod's plate is 57x9 device pixels against a plain pod's 85x11. The label's *text* does not follow its rect — every row on the panel prints its name at the same `x0+11`, the Turbo Pod's included, which is why that plate has green to the left of the `T`.
 
-`WeaponChargeBar_Ctor` then drops the bar's own top edge one GAU unit below the value field's, and builds it over `0x400` with colour **palette indices** `0x20`/`0x22` and remainder `0x2e` written straight into the bar object — not `COLORS.DAT` ids, which is why a capacitor bar is blue where the energy meter is grey.
+`WeaponSliderGadget_Ctor` then drops the bar's own top edge one GAU unit below the value field's, and builds it over `0x400` with colour **palette indices** `0x20`/`0x22` and remainder `0x2e` written straight into the bar object — not `COLORS.DAT` ids, which is why a capacitor bar is blue where the energy meter is grey.
 
 `WeaponSelectGadget_Paint` (`004426c0`) draws:
 
@@ -379,7 +379,7 @@ A display holds back while `+0x76` is set, and one with a sequencer also while t
 
 - **Gunsight.** `Gunsight_UpdateAndPaint` and `Gunsight_Paint` skip the whole paint: every child, the readouts, and the floating scanner repeater.
 - **MFD.** `MfdDisplay_Update` returns before the buttons' updates, a squadmate's transmission and the screen's own update. `MfdDisplay_Repaint` paints the chrome, the buttons and the title and skips the screen.
-- **Weapon rows.** `WeaponSelectGadget_Paint` draws the row plate and nothing else. The underlay and slot number (`WeaponSelectGadget_PaintUnderlay`), the name, the state box, the round count (`AmmoWeaponGauge_Paint`, `004411b4`), the charge bar (`WeaponChargeBar_Paint`, `00442b38`) and a pod's label all hold back, so the wipe's frame is what fills the plate's hole.
+- **Weapon rows.** `WeaponSelectGadget_Paint` draws the row plate and nothing else. The underlay and slot number (`WeaponSelectGadget_PaintUnderlay`), the name, the state box, the round count (`AmmoWeaponGauge_Paint`, `004411b4`), the charge bar (`WeaponSliderGadget_Paint`, `00442b38`) and a pod's label all hold back, so the wipe's frame is what fills the plate's hole.
 - **Heads-Down Display.** `HddCommandScreen_DrawMap` floods the map viewport in id 19 and draws nothing in it; `HddCommandScreen_RefreshOrders` fonts every order `CPBLUE` with no highlight; `HddDamageScreen_Update` floods the screen rect in id 3 and draws nothing else, the subject caption included. `HddDisplay_Update` flags the current page for a full repaint whenever `+0x76` changes.
 
 **The Heads-Down Display holds its buttons too.** `HddDisplay_HandleWidgetPress` acts on the two page buttons while dark, and for any other press returns before it clears the pending index at `+0x528`. The press stays latched, a later one replaces it, and it runs on the first update that finds the display back — which handles the press before it ticks the dropout, so one frame after the flip. The arrow keys, the magnifiers' keys and `[1]`-`[3]` reach it the same way, since `HddDisplay_KeyDispatch` (`00449fcc`) presses the widget for each; `[S]`/`[I]`/`[W]` and the command display's own keys do not.

@@ -95,12 +95,12 @@ Reference-manager searches see only what Ghidra has already disassembled and typ
 
 ### Repairing the database
 
-These three mutate the program. Ghidra routinely places a function entry past the real prologue, or never promotes code to a function at all when its only reference is a vtable slot.
+These three mutate the program. Ghidra routinely places a function entry past the real prologue, or never promotes code to a function at all when its only reference is a vtable slot. `tools/scripts/es2_late_entries.py` lists the late entries from the binary and the dumps, and `es2_naming.py fixentry` repairs a batch of them in one headless session: `ES2MergeFunctionAt <entry> auto` for each, then the structure and symbol applies, then `ES2CheckFunctionEntries`.
 
 | Script | Args | Does |
 | --- | --- | --- |
 | `ES2DefineFunctionAt` | `addrs...` | Creates a function at each address. Destroys nothing: an existing function is reported and left alone, and no code units are cleared. Run before `ES2ApplySymbolNames`, which skips an address that has no function. |
-| `ES2MergeFunctionAt` | `trueEntry` `len` `out` | Removes every function entered within the range, clears it, and creates one function at `trueEntry`. For an entry split by a stray prologue function. |
+| `ES2MergeFunctionAt` | `trueEntry` `len\|auto` `out` | Removes every function entered within the range, clears it, and creates one function at `trueEntry`. For an entry split by a stray prologue function. `auto` sweeps through the last body of any function entered in the first 16 bytes, and refuses when that would reach a later function. A removed function's non-default name would survive as a label, so the script also deletes that label and its plate comment at every removed entry other than `trueEntry`. The new function's prototype is committed from the decompiler at `ANALYSIS`, so `ES2ApplyStructures` still finds the parameters it types. |
 | `ES2RedefineFunction` | `clearStart` `trueEntry` `out` | Clears from `clearStart`, recreates at `trueEntry`, and decompiles the result. |
 | `ES2CheckFunctionEntries` | `out` `addrs...` | Read-only: whether a function starts exactly at each address, and what contains it. Run after any of the above. |
 

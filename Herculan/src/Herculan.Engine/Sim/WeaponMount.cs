@@ -1120,6 +1120,10 @@ public sealed class WeaponMount {
 	/// <see cref="ShotCost"/>. A laser is unaffected in everything but its bar: its threshold and its
 	/// cost are both fixed. A charge-up weapon's target <i>is</i> its shot strength, and turning it
 	/// down is what makes one fire sooner and hit softer.</para>
+	///
+	/// <para>Retail also passes the target through the charge bar's slider once a frame, which leaves it
+	/// one or two units below what the keys set (960 comes back as 959). This engine keeps the exact
+	/// target: docs/simulation/weapon-firing.md#the-charge-bar.</para>
 	/// </summary>
 	/// <param name="raise">True for the two "up" keys.</param>
 	internal void AdjustPower(bool raise) {
@@ -1130,6 +1134,32 @@ public sealed class WeaponMount {
 		ChargeTarget += raise ? EnergyPowerStep : (short)-EnergyPowerStep;
 		ChargeTarget = Math.Clamp(ChargeTarget, (short)0, EnergyChargeScale);
 	}
+
+	/// <summary>
+	/// The charge bar's slider committed at <paramref name="position"/> (0..<see cref="Content.ChargeBarSlider.Range"/>),
+	/// under <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>. Retail's path, which no
+	/// press reaches there: <c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>) clamps the position
+	/// into the gauge's state block, and the next <c>WeaponMount_PushEnergyGaugeState</c>
+	/// (<c>0040f288</c>) with <c>+0x34</c> clear reads it back as <c>position * 1200 &gt;&gt; 10</c>. This
+	/// engine sets the target on the commit itself, skipping the frame's wait and the <c>+0x34</c>
+	/// hand-off that would let a key press in that frame win; docs/simulation/weapon-firing.md#the-charge-bar.
+	/// </summary>
+	/// <returns>Whether this mount has a charge bar to take it — an energy or ELF mount still working.</returns>
+	internal bool SetPowerFromChargeBar(int position) {
+		if (!IsEnergyClass || Disabled) {
+			return false;
+		}
+
+		ChargeTarget = ChargeTargetForBarPosition(position);
+		return true;
+	}
+
+	/// <summary>
+	/// The charge target a charge-bar position reads back as: clamped to the slider's range as
+	/// <c>EnergyWeaponGauge_OnChildClick</c> clamps it, then <c>position * 1200 &gt;&gt; 10</c>.
+	/// </summary>
+	internal static short ChargeTargetForBarPosition(int position) =>
+		(short)(Math.Clamp(position, 0, Content.ChargeBarSlider.Range) * EnergyChargeScale >> 10);
 
 	/// <summary>
 	/// Vtable slot <c>0x28</c>, the fire dispatch — <c>WeaponMount_FireDispatch_GunBeam</c>

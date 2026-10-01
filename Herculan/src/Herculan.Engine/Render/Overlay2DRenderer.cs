@@ -1776,7 +1776,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <see cref="PodPlateColorId"/>.</item>
 	/// <item>the value field past the name, at <c>+0x24..+0x35</c> GAU — a round count for an
 	/// ammunition mount (<c>AmmoWeaponGauge_Paint</c> (<c>004411b4</c>) prints <c>itoa(rounds)</c> there) and an LED charge bar
-	/// for an energy one (<c>WeaponChargeBar_Paint</c> (<c>00442b38</c>) paints one across the same span). A pod has neither: its
+	/// for an energy one (<c>WeaponSliderGadget_Paint</c> (<c>00442b38</c>) paints one across the same span). A pod has neither: its
 	/// own constructor widens the name label across both fields instead.</item>
 	/// </list>
 	///
@@ -1892,11 +1892,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// Where a weapon row's value field starts and ends, in <c>.GAU</c> units from the row's own
 	/// left edge — the ammunition gauge's <c>+0x24..+0x35</c> label rect (<c>AmmoWeaponGauge_Ctor</c>, <c>00440f78</c>), which
-	/// is also the span the energy gauge hands its LED bar (<c>WeaponChargeBar_Ctor</c>, <c>00442950</c>).
+	/// is also the span the energy gauge hands its LED bar (<c>WeaponSliderGadget_Ctor</c>, <c>00442950</c>).
 	/// </summary>
-	private const int ValueFieldLeft = 0x24;
+	internal const int ValueFieldLeft = 0x24;
 
-	private const int ValueFieldRight = 0x35;
+	internal const int ValueFieldRight = 0x35;
 
 	/// <summary>
 	/// A pod row's name label, in <c>.GAU</c> units from the row's own left edge and top. It is the
@@ -1938,7 +1938,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// The charge bar's top and bottom edges, in <c>.GAU</c> units below the row's own top. The
 	/// energy gauge builds the bar's rect as the value field at <c>y0..y0+5</c>
-	/// (<c>EnergyWeaponGauge_Ctor</c>, <c>00440a68</c>), and <c>WeaponChargeBar_Ctor</c> (<c>00442950</c>) then drops the top edge by one more unit — so
+	/// (<c>EnergyWeaponGauge_Ctor</c>, <c>00440a68</c>), and <c>WeaponSliderGadget_Ctor</c> (<c>00442950</c>) then drops the top edge by one more unit — so
 	/// the bar is a touch shorter than the row and sits clear of the plate's upper bezel.
 	/// </summary>
 	private const int ChargeBarTop = 1;

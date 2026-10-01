@@ -98,12 +98,20 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FixWeaponDamageRecords = new("tweak.fix_weapon_damage_records", TweakCategory.Functional, true);
 
+	/// <summary>
+	/// Click or drag an energy weapon row's charge bar to set that weapon's power level, as the
+	/// <c>[-]</c>/<c>[=]</c> keys do. Retail builds the bar as a slider whose position the mount reads back as its charge
+	/// target, but the row's select gadget is registered first over the whole row and takes every
+	/// press, so the bar can never be reached. See <see cref="Content.ChargeBarSlider"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> ChargeBarPowerLevel = new("tweak.charge_bar_power_level", TweakCategory.Functional, false);
+
 	#endregion
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, SmootherTurretMovement,
-		MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
+		MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords, ChargeBarPowerLevel,
 	};
 }

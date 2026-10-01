@@ -54,7 +54,7 @@ Shared mount fields mean different things per class:
 | `+0x7d` | rounds in 256ths | capacitor level |
 | `+0x7f` | — | charge rate, a flat 20 |
 | `+0x31` | refire countdown | refire countdown |
-| `+0x33`, `+0x3b` | fired-recently blocks | fired-recently blocks (the ELF sustain reads `+0x33`) |
+| `+0x33`, `+0x3b` | fired-recently blocks | fired-recently blocks (the ELF sustain reads `+0x33`); byte 1, `+0x34`/`+0x3c`, is the power-level hand-off ([`weapon-firing.md`](weapon-firing.md#the-charge-bar)) |
 | `+0x43` | — | mid-charge flag |
 | `+0x47`, `+0x48`, `+0x84` | — | ELF spin-up running / latched / cell timer |
 | `+0x49` | destroyed | destroyed |
@@ -95,7 +95,7 @@ Readiness (`WeaponMount_EnergyCanFire`) is `!destroyed && refireTimer == 0 && ch
 
 Both ELFs read `+0x36` = 400 against a charge target of 960, so a fresh trigger pull needs the full capacitor. The second clause is the sustain: `+0x33` means the mount fired on the previous tick, and while it is set the bar drops to one shot's 70, so the weapon empties itself over successive ticks and can only start again once it has climbed all the way back. There is no refire-timer term — which is consistent with both ELFs carrying a `+0x4c` of zero.
 
-`+0x33` and `+0x3b` are two 8-byte blocks. `WeaponMount_PrepareShot` sets both on firing; `WeaponMount_RefireTick` **ands** `+0x33` with `+0x3b` (`WeaponMount_AndFlagBlocks`, `0040f881`) and then clears `+0x3b`. So `+0x33` survives only while the mount fires on every tick.
+`+0x33` and `+0x3b` are two 8-byte blocks. `WeaponMount_PrepareShot` sets byte 0 of both on firing; `WeaponMount_RefireTick` **ands** `+0x33` with `+0x3b` (`WeaponMount_AndFlagBlocks`, `0040f881`) and then clears `+0x3b`. So `+0x33` survives only while the mount fires on every tick.
 
 **`ElfMount_FireDispatch`** subtracts `template+0x38` unconditionally rather than capping it at the charge — the last partial shot takes the capacitor slightly negative, which is what ends the burst — and passes `Bullet_FireBurst` a **fixed 1200** as the shot power instead of the charge spent. Every shot of a burst therefore lands at full strength however far the capacitor has drained, which is what makes the ELF the damage outlier the manual describes from small `PROJ.DAT` figures.
 

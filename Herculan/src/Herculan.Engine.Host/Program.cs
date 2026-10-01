@@ -2550,6 +2550,13 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 					throttleGauge = track.ThrottleAt(drag.ArtY);
 
 				}
+
+				// A charge bar, listed only under the ChargeBarPowerLevel tweak. Retail's slider commits on
+				// the release alone, so the positions on the way there do nothing.
+				if (drag is { Released: true, Id.Kind: CockpitWidgetKind.WeaponChargeBar } && pilotMech != null
+					&& ChargeBarSlider.For(cockpitArt, drag.Id.Index) is { } bar) {
+					pilotMech.Weapons.SetPowerFromChargeBar(drag.Id.Index, bar.PositionAt(drag.ArtX));
+				}
 			}
 
 			// Held buttons draw depressed, and pop back up if the pointer slides off them still held.
@@ -2913,6 +2920,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 					cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings, cockpitPowerUp, audio.CoarseTicks,
 					cockpitDropouts),
 				Dropout = cockpitDropouts.Snapshot,
+				ChargeBarsDraggable = TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ChargeBarPowerLevel),
 				ChainGroup = pilotMech.Weapons.Group,
 				AutoTrack = pilotMech.Weapons.AutoTrack,
 				Target = ResolveTargetIndicator(pilotMech, targetAim),

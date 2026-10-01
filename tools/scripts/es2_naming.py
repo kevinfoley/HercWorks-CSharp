@@ -42,6 +42,13 @@ Subcommands (BIN is DBSIM or VSHELL):
   apply BIN [--write]
       Run ES2ApplySymbolNames headless (-readOnly unless --write) and print only the summary,
       errors and warnings.
+  fixentry BIN addr[+addr...] [--write]
+      Repair functions Ghidra starts past their prologue (es2_late_entries.py finds them): one
+      headless session runs ES2MergeFunctionAt <addr> auto for each true entry, then
+      ES2ApplyStructures and ES2ApplySymbolNames (the merge drops the old functions' signatures
+      and struct-typed parameters), then ES2CheckFunctionEntries. -readOnly unless --write; a
+      FAILED or SHORT line in the dry run means do not write. Re-address the known_symbols entry
+      first when the name sits on the late address.
 
 Write batch/spec JSON files with the Write tool; heredocs eat backslashes.
 """
@@ -52,6 +59,7 @@ import json
 import os
 import pickle
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -561,9 +569,44 @@ def cmd_apply(args):
     print("exit", r.returncode, "(read-only)" if "--write" not in args else "(written)")
 
 
+def cmd_fixentry(args):
+    binary = args[0]
+    addrs = [a.lower() for a in re.split(r"[+,]", args[1]) if a]
+    assert all(re.fullmatch(r"[0-9a-f]{8}", a) for a in addrs), addrs
+    write = "--write" in args
+    scripts = os.path.join(REPO, "tools", "ghidra_scripts")
+    bat = os.path.join(REPO, "tools", "ghidra_12.1.2_PUBLIC", "support", "analyzeHeadless.bat")
+    tmp = tempfile.mkdtemp(prefix="es2_fixentry_")
+    try:
+        cmd = [bat, os.path.join(REPO, "tools", "ghidra_project"), "ES2Recon", "-process", f"{binary}.EXE",
+               "-noanalysis"] + ([] if write else ["-readOnly"]) + ["-scriptPath", scripts]
+        for a in addrs:
+            cmd += ["-postScript", "ES2MergeFunctionAt", a, "auto", os.path.join(tmp, f"merge_{a}.txt")]
+        cmd += ["-postScript", "ES2ApplyStructures", os.path.join(scripts, "known_structs.json"),
+                "-postScript", "ES2ApplySymbolNames", SYMBOLS,
+                "-postScript", "ES2CheckFunctionEntries", os.path.join(tmp, "check.txt")] + addrs
+        r = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+        keep = re.compile(r"ES2Apply\w+\.java>.*(errors|summary|=)|ERROR|exception|fail", re.I)
+        for l in (r.stdout + r.stderr).splitlines():
+            if keep.search(l) and "bundle event for non-GhidraBundle" not in l:
+                print(l.strip()[:300])
+        bad = False
+        for a in addrs:
+            p = os.path.join(tmp, f"merge_{a}.txt")
+            text = open(p, encoding="utf-8").read() if os.path.exists(p) else "FAILED: no merge output\n"
+            bad |= bool(re.search(r"^(FAILED|SHORT)", text, re.M))
+            print(f"== {a}\n{text.rstrip()}")
+        p = os.path.join(tmp, "check.txt")
+        print("== check\n" + (open(p, encoding="utf-8").read().rstrip() if os.path.exists(p) else "(no check output)"))
+        print("exit", r.returncode, "(written)" if write else "(read-only)", "-- PROBLEMS ABOVE" if bad else "")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 COMMANDS = {"triage": cmd_triage, "body": cmd_body, "callers": cmd_callers, "precheck": cmd_precheck,
             "sym": cmd_sym, "rtti": cmd_rtti, "insert": cmd_insert, "edit": cmd_edit,
-            "mentions": cmd_mentions, "relink": cmd_relink, "fixrefs": cmd_fixrefs, "repl": cmd_repl, "apply": cmd_apply}
+            "mentions": cmd_mentions, "relink": cmd_relink, "fixrefs": cmd_fixrefs, "repl": cmd_repl, "apply": cmd_apply,
+            "fixentry": cmd_fixentry}
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

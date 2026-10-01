@@ -60,6 +60,60 @@
   ],
   "entries": [
     {
+      "address": "0045d43c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClipRegions_BuildScanlineSpans",
+      "description": "VSHELL's copy of DBSIM's ClipRegions_BuildScanlineSpans (0048b9a8): the same code compiled separately -- the bytes differ only in register allocation and instruction order, and the callees match (Mem_NewArray twice, _memcpy). Flattens a region list into a per-scanline span table and stores it at 0047e92c where the DBSIM copy stores ActiveScanlineClipSpans. tools/scripts/es2_xref.py finds no branch to and no stored pointer of 0045d43c in VSHELL.",
+      "source": "VSHELL disassembly at 0045d43c; byte comparison with DBSIM 0048b9a8"
+    },
+    {
+      "address": "00440d4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyWeaponGauge_SetState",
+      "description": "EnergyWeaponGauge vtable +0x10 (gauge, block), the write-back twin of EnergyWeaponGauge_GetState over the 0x17-byte state block at +0xc2. Block[1], the charge bar's slider position, when it differs from +0xc6: stored there and set on the slider (child +0x1c) through its slot +0x14, SliderWidget_SetValueH, which commits back through EnergyWeaponGauge_OnChildClick. Block[0], the bar's fill, when it differs from +0xc2: stored there and at the bar's +0x7a, and at +0xdb unless the power-up fill is running (+0x8d). The destroyed byte (+0x11) puts both children's state (+0x1b) to 2 or back to 0, deferred through +0xc1 while CockpitView_GetShakeOffset reports a shake. Bytes +0x14..+0x16 go to +0xd6..+0xd8. Repaints whichever children changed.",
+      "source": "DBSIM decompile at 00440d4c; DBSIM_vtables_full.txt table_0049c91c"
+    },
+    {
+      "address": "0040e0e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_CreateEnergyGauge",
+      "description": "Energy mount vtable +0x64, the gauge factory WeaponMounts_BuildGauges dispatches: CockpitView_CreateEnergyWeaponGauge(CockpitViewInstance, the hardpoint record's row byte +7, mount) into +0x77, then one EnergyWeaponGauge_SetState with the gauge's own block and block[1] set to the raw charge target (+0x7b) -- not the (target << 10) / 1200 WeaponMount_PushEnergyGaugeState pushes.",
+      "source": "DBSIM decompile at 0040e0e0"
+    },
+    {
+      "address": "004116ad",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_ZeroChargeTarget",
+      "description": "Energy mount vtable +0x44 (and the ELF table's): zeroes the charge target (+0x7b) and the mid-charge flag (+0x43), and sets +0x34 and +0x3c so the next WeaponMount_PushEnergyGaugeState carries the new target out to the charge bar.",
+      "source": "DBSIM decompile at 004116ad; DBSIM_vtables_full.txt"
+    },
+    {
+      "address": "004116cf",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DrainCapacitor",
+      "description": "Energy mount vtable +0x4c (and the ELF table's): zeroes the charge (+0x7d) and the charge target (+0x7b), and sets +0x34 and +0x3c as WeaponMount_ZeroChargeTarget does.",
+      "source": "DBSIM decompile at 004116cf; DBSIM_vtables_full.txt"
+    },
+    {
+      "address": "00411a1d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_ArbitrateEnergyNoSelection",
+      "description": "(manager, budget, arg): WeaponMounts_ArbitrateEnergy(manager, budget, -1, arg), the energy pool turn with no selected mount served first. Its one reference is the stored pointer at 00499338.",
+      "source": "DBSIM decompile at 00411a1d; tools/scripts/es2_xref.py 00411a1d"
+    },
+    {
       "address": "0045766c",
       "binary": "VSHELL",
       "type": "function",
@@ -16252,13 +16306,13 @@
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
-      "address": "0042349d",
+      "address": "00423497",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_RenderPolys",
-      "description": "Render-setup wrapper (implicit-this via unaff_EBP, likely a __thiscall stub or inlined caller) for a TSGroup runtime object. Reads iVar1+0x10 (indexes pointer, default &DAT_005d8014 if null), +0x14 (points pointer -> DAT_005d8894; later 6-byte-stride vertex math, three shorts per point), +0x18 (surfaces pointer -> DAT_005d88a2, the per-surface runtime record array TSTexture4Poly_Render indexes), +0x1c (polys pointer, walked as an array of object pointers), +0x22 (ushort, copied to DAT_005d889c, bounds-checked < 1000 and used as a memset-zero byte count for a scratch buffer at DAT_005d88a6 -- the on-disk surface count field, which the file stores as surfaceCount*4), +0x26 (ushort poly count, loop bound). The loop calls each poly's own vtable slot +0x1c, matching TSShapeInstance_RenderPolys's per-poly render dispatch. The field order (index count, point count, surface count*4, poly count) matches TSGroup's on-disk chunk layout, which identifies this as TSGroup's own render-time layout. See docs/formats/dts-texture-binding.md.",
-      "source": "docs/formats/dts-texture-binding.md"
+      "description": "TSGroup's render method: slot +0x1c of the vtable at 00471bf4, whose RTTI names TSGroup (0x28 bytes). Calls TSGroup_BindNodeTransform into a local transform, saves the render context's (0048e184) +0x228, +0x22c and +0x20c, installs the default brushes 005d7ff8 and 005d8000 at +0x228 and +0x22c and clears +0x20c. Publishes the group's surfaces (+0x18) as g_ActiveSurfaceRecords, its points (+0x14, three int16 each) at 005d8894 and its indexes (+0x10, or 005d8014 when null) at 005d889e. Copies +0x22, the on-disk surface count that the file stores as surfaceCount*4, to 005d889c, asserts it is at most 1000 (severity 4, ts_base.h line 0x2e7) and zeroes that many bytes of the scratch at 005d88a6. Then draws the +0x26 polys of the +0x1c pointer array in order, each through its own vtable slot +0x1c, restores the three context fields and calls TSRender_NoOp. TSBSPGroup_Render is the TSBSPGroup counterpart, drawing the polys in BSP order instead. See docs/formats/dts-texture-binding.md.",
+      "source": "VSHELL disassembly at 00423497; tools/scripts/es2_naming.py rtti VSHELL 00471bf4; VSHELL_vtables_full.txt"
     },
     {
       "address": "00423709",
@@ -16275,7 +16329,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_ActiveSurfaceRecords",
-      "description": "Global pointer, set from the active TSGroup's own +0x18 field by TSGroup_RenderPolys/RenderPolysFromRef for the duration of one group's poly walk (save/swap/restore, the same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine) -- a TSGroup surface entry's 8-short, 16-byte on-disk layout, which is why the file stores a group's surface count as surfaceCount*4. TSTexture4Poly_Render indexes it at byte offset field*4 (front) and field*4+8 (back) with the poly's surface field, which lands on one surface's Front/Back slots because that field holds surfaceIndex*4. See docs/formats/dts-texture-binding.md.",
+      "description": "Global pointer, set from the active TSGroup's own +0x18 field by TSGroup_RenderPolys and TSBSPGroup_Render for the duration of one group's poly walk (save/swap/restore, the same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine) -- a TSGroup surface entry's 8-short, 16-byte on-disk layout, which is why the file stores a group's surface count as surfaceCount*4. TSTexture4Poly_Render indexes it at byte offset field*4 (front) and field*4+8 (back) with the poly's surface field, which lands on one surface's Front/Back slots because that field holds surfaceIndex*4. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
@@ -17558,12 +17612,12 @@
       "source": "docs/formats/cockpit-canopy-palette.md (Palette module)"
     },
     {
-      "address": "0045d532",
+      "address": "0045d52c",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "LiftStart_DarkenPalette",
-      "description": "The lift start's darkening, left over from Metaltech: Earthsiege's elevator-lift mission start. Ghidra's function starts six bytes into this one; the real entry is 0045d52c (push ebp / mov ebp,esp / add esp,-0x34), called from Sim_InitMissionSession at 00461cec when block +0x54 is set. Builds two palette objects over copies of the live entries (004d27c8 over 004d27d0, 004d27cc over 004d27d4), rewrites entries 32-47 and 64-79 of the first as (G>>1, R>>1, B>>1) -- red and green swapped as well as halved -- installs those two spans live, and starts a 0x78-coarse-tick Palette_BeginCrossFade from the darkened object to the copy. Clears 0049aef4. LiftStart_Rise steps the fade and frees all four allocations.",
+      "description": "The lift start's darkening, left over from Metaltech: Earthsiege's elevator-lift mission start: called from Sim_InitMissionSession at 00461cec when block +0x54 is set. Builds two GLPalette objects whose headers copy ActivePaletteObject's, each over its own copy of the live entries (004d27c8 over 004d27d0, 004d27cc over 004d27d4), sets 0049aef6 to 8 and calls Palette_NoOp, rewrites entries 32-47 and 64-79 of the first as (G>>1, R>>1, B>>1) -- red and green swapped as well as halved -- installs those two spans live, and starts a 0x78-coarse-tick Palette_BeginCrossFade from the darkened object to the copy. Clears 0049aef4. LiftStart_Rise steps the fade and frees all four allocations.",
       "source": "docs/simulation/mission-deployment.md (The lift start)"
     },
     {
@@ -18653,8 +18707,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "WeaponChargeBar_Paint",
-      "description": "Energy row charge bar's paint: the LEDBarGraph at +0x46 to the value at +0x7a, skipped while the owning gauge (+0x42) is dark or mid-wipe or not yet armed.",
+      "name": "WeaponSliderGadget_Paint",
+      "description": "WeaponSliderGadgetVtable +0x00, the energy row charge bar's paint: the LEDBarGraph at +0x46 to the value at +0x7a, skipped while the owning gauge (+0x42) is dark or mid-wipe or not yet armed.",
       "source": "docs/formats/cockpit-hud-widgets.md"
     },
     {
@@ -19682,7 +19736,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SliderWidget_CtorBase",
-      "description": "Shared slider base ctor (obj, trackRect, min, max, initial, knobSize). Sets the widget's +0x1d drag flag to 1 unconditionally -- the ONLY ctor traced that does, and therefore the whole reason the throttle slider is the one draggable control in a retail cockpit. Widget_OnMouseDown (004527a0) tests that flag before latching Widget_DragCapture.",
+      "description": "Shared slider base ctor (obj, trackRect, min, max, initial, knobSize). Sets the widget's +0x1d drag flag to 1 unconditionally -- the only ctor that does, and every slider is built on it: the throttle (ThrottleSlider_CtorV, ThrottleSlider_CtorFixed), the energy rows' charge bars (WeaponSliderGadget_Ctor) and AlertSliderGadget_Ctor's alert-panel slider. Of the cockpit's, only the throttle can be pressed: each charge bar lies under its row's select gadget. Widget_OnMouseDown (004527a0) tests that flag before latching Widget_DragCapture.",
       "source": "docs/formats/cockpit-input.md"
     },
     {
@@ -19871,7 +19925,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_RenderPolys",
-      "description": "DBSIM's counterpart to VSHELL's symbol of the same name, and the same field layout: +0x10 Indexes (defaulted when null), +0x14 Points, +0x18 Surfaces, +0x22 colorCount (memset size for the scratch buffer), +0x1c Polys walked as object pointers, +0x26 Polys.Length. Loop body calls each poly's vtable slot +0x1c. Opens by calling TSGroup_BindNodeTransform (00476014), which is what places the group's geometry at its own animated node -- see docs/formats/dts-node-posing.md. FUN_004758ce is the same function reached mid-prologue.",
+      "description": "DBSIM's counterpart to VSHELL's symbol of the same name, and the same field layout: +0x10 Indexes (defaulted when null), +0x14 Points, +0x18 Surfaces, +0x22 colorCount (memset size for the scratch buffer), +0x1c Polys walked as object pointers, +0x26 Polys.Length. Loop body calls each poly's vtable slot +0x1c. Opens by calling TSGroup_BindNodeTransform (00476014), which is what places the group's geometry at its own animated node -- see docs/formats/dts-node-posing.md.",
       "source": "docs/formats/dts-node-posing.md"
     },
     {
@@ -20213,7 +20267,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_PushEnergyGaugeState",
-      "description": "Energy mount vtable+0x50, called once per mount per frame from WeaponMounts_PerFrameUpdate. Pushes (charge << 10) / 1200 as the LED bar's value and the charge target scaled the same way as its tick mark, plus the destroyed and mid-charge flags and the three caller-supplied bytes (selected, in current fire group, ready). The fixed 1200 denominator -- not the mount's own capacity -- is why a fully charged weapon fills four-fifths of its bar.",
+      "description": "Energy mount vtable+0x50, called once per mount per frame from WeaponMounts_PerFrameUpdate. Copies the gauge's state block (EnergyWeaponGauge_GetState), fills it and hands it back through EnergyWeaponGauge_SetState. Block[0] is (charge << 10) / 1200, the LED bar's fill; the fixed 1200 denominator -- not the mount's own capacity -- is why a fully charged weapon fills four-fifths of its bar. Block[1] is the charge bar's slider position, and byte +0x34 (byte 1 of the +0x33 flag block) decides which way it flows: set, the charge target goes out as (target << 10) / 1200; clear, the slider position comes back as the charge target, +0x7b = position * 1200 >> 10. WeaponMount_CtorEnergy, WeaponMount_AdjustPowerLevel, WeaponMount_ZeroChargeTarget and WeaponMount_DrainCapacitor set it together with +0x3c, which carries it through one pool turn. No press reaches the charge bar, so the position read back is the one last pushed, less the round trip's loss (960 out as 819, back as 959); WeaponMount_RefireTick's AND with the +0x3b block clears it a pool turn later. Also fills the destroyed and mid-charge flags (+0x11, +0x12) and the three caller-supplied bytes (+0x14 selected, +0x15 in current fire group, +0x16 ready). See docs/simulation/weapon-firing.md.",
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
@@ -20363,7 +20417,7 @@
       "type": "function",
       "confidence": "high",
       "name": "EnergyWeaponGauge_Ctor",
-      "description": "The weapon-row gauge class for energy mounts (vtable 0049c91c), built via CockpitView_CreateEnergyWeaponGauge. Builds the LED charge bar over the same value field the ammunition class puts its number in (x0+36..x0+53, y0..y0+5), handing it to FUN_00442950.",
+      "description": "The weapon-row gauge class for energy mounts (vtable 0049c91c), built via CockpitView_CreateEnergyWeaponGauge. Builds the charge bar (WeaponSliderGadget_Ctor) over the same value field the ammunition class puts its number in (x0+36..x0+53, y0..y0+5).",
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
@@ -20371,9 +20425,9 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "WeaponChargeBar_Ctor",
-      "description": "The energy weapon row's LED bar widget. Drops the value field's top edge by one GAU unit, builds an LEDBarGraph over range 0x400, and then, when the byte it is handed is zero (as it is in every retail .GAU, where it lands in confirmed-zero padding), overwrites its three colour fields with raw palette indices 0x20 (even columns), 0x22 (odd) and 0x2e (remainder) -- not COLORS.DAT ids, which is why a capacitor bar is blue where the Master Energy Pool's meter is grey.",
-      "source": "docs/simulation/weapon-mounts.md"
+      "name": "WeaponSliderGadget_Ctor",
+      "description": "Constructor for WeaponSliderGadget (object size 0x7e; class name from the descriptor record at 004432df), a PanelHSliderGadget leaf: the energy weapon row's charge bar, child 1 of EnergyWeaponGauge_Ctor's gauge. Its last vtable stores are WeaponSliderGadgetVtable at +0x17 and WeaponSliderGadget_PanelSliderGadgetVtable at +0x3e. Built on SliderWidget_CtorBase, so it is a horizontal slider over 0..0x400 carrying the +0x1d drag flag, but no press reaches it: the row's ChainedWeaponSelectGadget is registered first and its hit rect, the whole .GAU hardpoint rect, contains the bar in every retail file. Drops the value field's top edge by one GAU unit, builds an LEDBarGraph over range 0x400 at +0x46, and then, when the byte it is handed is zero (as it is in every retail .GAU, where it lands in confirmed-zero padding), overwrites its three colour fields with raw palette indices 0x20 (even columns), 0x22 (odd) and 0x2e (remainder) -- not COLORS.DAT ids, which is why a capacitor bar is blue where the Master Energy Pool's meter is grey.",
+      "source": "DBSIM decompile at 00442950; docs/formats/cockpit-input.md; docs/simulation/weapon-mounts.md"
     },
     {
       "address": "004157c8",
@@ -29665,7 +29719,7 @@
       "type": "function",
       "confidence": "high",
       "name": "EnergyWeaponGauge_OnChildClick",
-      "description": "The energy weapon row's vtable slot 0, which its WeaponSelectGadget child forwards to. Searches the child table at +0x18 (count +0x68): child 0 is the select gadget, and it chains the row via WeaponMounts_ToggleChainMember when bit 1 of the click value (the mouse-button word 0049db6c) is set and arms it via CockpitView_ArmWeaponByGauge otherwise; child 1 is the LED charge bar, whose value is clamped to 0..0x400 and stored at +0xc6.",
+      "description": "The energy weapon row's vtable slot 0, which its children forward to. Searches the child table at +0x18 (count +0x68): child 0 is the select gadget, and it chains the row via WeaponMounts_ToggleChainMember when bit 1 of the click value (the mouse-button word 0049db6c) is set and arms it via CockpitView_ArmWeaponByGauge otherwise; child 1 is the charge bar (WeaponSliderGadget, which no press reaches in retail), whose committed slider position is clamped to 0..0x400 and stored at +0xc6 -- block[1] of the state block WeaponMount_PushEnergyGaugeState reads back as the charge target.",
       "source": "docs/simulation/weapon-mounts.md",
       "signature": "void __cdecl EnergyWeaponGauge_OnChildClick(int gauge, int child, uint value)"
     },
@@ -29957,15 +30011,6 @@
       "confidence": "high",
       "name": "WeaponRangeSelectGadget_Ctor",
       "description": "Constructor for WeaponRangeSelectGadget (object size 0x41), the weapon-range gauge's button; derives from PanelStateGadget, so it latches. Built by FUN_00441dd0. Class name from the descriptor record at 00443223.",
-      "source": "docs/formats/cockpit-input.md"
-    },
-    {
-      "address": "00442956",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "WeaponSliderGadget_Ctor",
-      "description": "Constructor for WeaponSliderGadget (object size 0x7e), a PanelHSliderGadget leaf. Unreferenced: no rel32 branch and no stored pointer anywhere in the image, so no retail weapon gauge builds one. Class name from the descriptor record at 004432df.",
       "source": "docs/formats/cockpit-input.md"
     },
     {
@@ -30292,9 +30337,9 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_BuildGauges",
-      "signature": "void __cdecl WeaponMounts_BuildGauges(int mountManager)",
-      "description": "Walks the mount array (pointer at +4, count at +8) and calls each mount's own gauge factory slot, vtable +0x64. The closing call of Gau_BuildCockpitWidgets, so every weapon row's clickables are appended to the flat list after all seven gauges and before the edge strips. An energy row registers two -- ChainedWeaponSelectGadget then WeaponChargeBar -- which is why the select gadget wins where the bar overlaps it.",
-      "source": "docs/formats/cockpit-input.md"
+      "description": "Walks the mount array (pointer at +4, count at +8) and calls each mount's own gauge factory slot, vtable +0x64. The closing call of Gau_BuildCockpitWidgets, so every weapon row's clickables are appended to the flat list after all seven gauges and before the edge strips. An energy row registers two -- ChainedWeaponSelectGadget then the charge bar's WeaponSliderGadget -- which is why the select gadget wins where the bar overlaps it.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "void __cdecl WeaponMounts_BuildGauges(int mountManager)"
     },
     {
       "address": "00447630",

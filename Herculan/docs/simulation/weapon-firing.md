@@ -54,7 +54,7 @@ Bullet_FireBurst(proj.subtypeId, shotTransform, template[0x30], ownerMech, power
 `template[0x38]` is also the upper half of the readiness threshold pair, which [the energy mount's readiness test](weapon-mounts.md#energy) combines with the charge target. The two shapes the pair takes are two kinds of weapon:
 
 - **Fixed cost.** `0x36 == 0x38` (`LAS100` 80/80 … `LAS500` 120/120): the mount fires at that charge and the cost is that number, so every shot is identical.
-- **Charge-up.** `0x36 < 0x38` with `0x38` at 10000 (`PBEAM` 300/10000; `EMP`, `PLAS` and `MAGN` 350/10000): the mount fires at the charge target and the cost is the whole capacitor, so the shot is worth as much as the pilot let it accumulate. The manual's *power level* is that charge target.
+- **Charge-up.** `0x36 < 0x38` with `0x38` at 10000 (`PBEAM` 300/10000; `EMP`, `PLAS` and `MAGN` 350/10000): the mount fires at the charge target and the cost is the whole capacitor, so the shot is worth as much as the pilot let it accumulate. That charge target is the mount's [power level](#power-level--weaponmount_adjustpowerlevel-0040f48c).
 
 ### The gun branches
 
@@ -159,11 +159,26 @@ if (mount+0x5f == 0 || mount+0x5b == 0) {
 
 ## Power level — `WeaponMount_AdjustPowerLevel` (`0040f48c`)
 
-Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50` (80), clamped to 0..1200. `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) is the bulk counterpart, putting every capacitor back to the idle 820.
+Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50` (80), clamped to 0..1200, and sets `+0x34` and `+0x3c` ([below](#the-charge-bar)). `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) is the bulk counterpart, putting every capacitor back to the idle 820.
 
-**After power-up, this is the only thing in the retail build that raises a charge target past the idle 820.** `WeaponMount_DemandFullCharge` (`0040f4f0`) does the same in one step and is the obvious candidate, but its only caller `WeaponMounts_DemandFullChargeOnArmed_Dead` (`00410d50`) has no reference of any kind anywhere in the image — neither a `CALL rel32` nor a stored address — so neither is ever reached.
+`WeaponMount_DemandFullCharge` (`0040f4f0`) would raise the target to 1200 in one step, but its only caller `WeaponMounts_DemandFullChargeOnArmed_Dead` (`00410d50`) has no reference of any kind anywhere in the image — neither a `CALL rel32` nor a stored address — so neither is ever reached.
 
-For a fixed-cost weapon this changes nothing but the cockpit bar. For a charge-up weapon the target *is* the shot strength: retail `PBEAM` at 960 does 937 damage every 48 ticks, and five presses of `[-]` make it 546 every 28.
+For a fixed-cost weapon the target changes nothing but the cockpit bar. For a charge-up weapon the target *is* the shot strength: retail `PBEAM` at 960 does 937 damage every 48 ticks, and five presses of `[-]` make it 546 every 28.
+
+### The charge bar
+
+The row's charge bar is built as a slider over 0..`0x400` and carries the drag flag, and a commit on it would store its position in the gauge (`EnergyWeaponGauge_OnChildClick`, `00440ef0`). No press reaches it: the row's select gadget is registered first and its hit rect is the whole hardpoint row, which contains the bar in every retail `.GAU` ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#where-retail-rects-overlap)). The keys are the only power-level control, and the manual does not mention them.
+
+The slider still takes part in a once-a-frame exchange with the mount, `WeaponMount_PushEnergyGaugeState` (`0040f288`), in a direction set by `+0x34`, byte 1 of the mount's `+0x33` flag block ([`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2)):
+
+| `+0x34` | Direction |
+|---|---|
+| set | the charge target goes out to the slider as `(target << 10) / 1200` |
+| clear | the slider's position comes back as the charge target, `position * 1200 >> 10` |
+
+`WeaponMount_AdjustPowerLevel`, `WeaponMount_ZeroChargeTarget` (`004116ad`), `WeaponMount_DrainCapacitor` (`004116cf`) and `WeaponMount_CtorEnergy` set `+0x34` together with `+0x3c`, the same byte of the `+0x3b` block. On each pool turn `WeaponMount_RefireTick` ANDs `+0x33` with `+0x3b` and clears `+0x3b`, so `+0x34` holds for one turn after any of them and is clear the rest of the time. With nothing else moving the slider, the read-back returns the value last pushed, and what remains is the round trip's loss: a target of 960 goes out as 819 and comes back as 959. A mount therefore runs one or two units below the target its constructor or the keys set.
+
+The gauge factory, `WeaponMount_CreateEnergyGauge` (`0040e0e0`), seeds the slider with the raw target, 960 rather than 819; the pair the constructor set has the first push replace that seed, so a fresh mount's target settles at 959 ([Open](#open)).
 
 ## Resolving the hit
 
@@ -173,4 +188,6 @@ The ray record's `+0x08` is passed along as a walk radius, but the thin-ray terr
 
 ## Open
 
+- **Unported:** [the charge bar](#the-charge-bar)'s round trip, which leaves an energy mount's charge target one or two units below what its constructor or the keys set.
+- **Open:** whether a gauge push (`Player_PerFrameCockpitUpdate`) always falls between a mount's first two pool turns (`WeaponMounts_ArbitrateEnergy`). The power-up hand-off relies on it: two pool turns first would clear `+0x34` with the 960 seed still in the slider, and the read-back would make the target 960 × 1200 >> 10 = 1125.
 - **Unported:** the flags `WeaponMounts_FireTrigger` sets on firing an electro-optical missile (`DAT_004d25ac`, `DAT_004d25aa`): the player never flies the missile, so nothing sets them and the chain advance never pauses for one.

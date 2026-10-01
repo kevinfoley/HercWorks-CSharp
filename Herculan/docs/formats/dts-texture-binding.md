@@ -26,7 +26,7 @@ Two independent sources agree:
 - Raw disassembly of `TSTexture4Poly_Render` (`00422af5`): `MOVZX ESI,word ptr [EBX+0xc]` → `SHL ESI,0x2` → added to `g_ActiveSurfaceRecords` (`DAT_005d88a2`) as a byte offset; front = `*(int32*)(base+offset)`, back = `+8`.
 - The file format itself: a group's on-disk colour count is four times its surface count, one per slot of each surface's four `{int16 value, int16 flag}` slots — front fill, front line, back fill, back line.
 
-Related symbols: `TSGroup_RenderPolys` (`0042349d`), `TSBSPGroup_Render` (`00423709`, [below](#tsbspgroup-poly-order-vshell)), `g_ActiveSurfaceRecords` (`005d88a2`).
+Related symbols: `TSGroup_RenderPolys` (`00423497`), `TSBSPGroup_Render` (`00423709`, [below](#tsbspgroup-poly-order-vshell)), `g_ActiveSurfaceRecords` (`005d88a2`).
 
 ### Render path and UV generation
 

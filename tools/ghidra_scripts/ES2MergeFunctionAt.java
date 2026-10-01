@@ -1,3 +1,5 @@
+import ghidra.app.decompiler.DecompInterface;
+import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.CodeUnit;
@@ -5,6 +7,8 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionIterator;
 import ghidra.program.model.listing.FunctionManager;
 import ghidra.program.model.listing.Listing;
+import ghidra.program.model.pcode.HighFunctionDBUtil;
+import ghidra.program.model.pcode.HighFunctionDBUtil.ReturnCommitOption;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.program.model.symbol.SymbolTable;
@@ -18,18 +22,55 @@ import java.util.List;
 // clears the code units there, then disassembles and creates one function at trueEntry.
 // Removing a function turns its non-default name into a plain label, and plate comments are not
 // code units, so a removed late entry would keep its old name and comment. Both are deleted at
-// every removed entry other than trueEntry.
-// args[0] = trueEntry (hex), args[1] = byte length to sweep (decimal), args[2] = output path.
+// every removed entry other than trueEntry. The new function starts with no parameters, so the
+// script commits the decompiler's prototype for it at ANALYSIS, the tier ES2CommitAllParams gives
+// every other function; ES2ApplyStructures and ES2ApplySymbolNames then type it as before.
+// args[0] = trueEntry (hex), args[1] = byte length to sweep (decimal), or "auto": through the end
+// of the last body of any function entered in [trueEntry, trueEntry+16), which covers a prologue
+// of up to 16 bytes and never reaches a function entered after it. args[2] = output path.
 public class ES2MergeFunctionAt extends GhidraScript {
+    private static final int AUTO_WINDOW = 16;
+
     @Override
     public void run() throws Exception {
         Address entry = currentProgram.getAddressFactory().getAddress(getScriptArgs()[0]);
-        int length = Integer.parseInt(getScriptArgs()[1]);
+        String lengthArg = getScriptArgs()[1];
         String outPath = getScriptArgs()[2];
-        Address end = entry.add(length - 1);
 
         try (PrintWriter pw = new PrintWriter(new FileWriter(outPath))) {
             FunctionManager fm = currentProgram.getFunctionManager();
+            Address end;
+            if (lengthArg.equals("auto")) {
+                end = null;
+                Address windowEnd = entry.add(AUTO_WINDOW - 1);
+                FunctionIterator w = fm.getFunctions(entry, true);
+                while (w.hasNext()) {
+                    Function f = w.next();
+                    if (f.getEntryPoint().compareTo(windowEnd) > 0) {
+                        break;
+                    }
+                    Address last = f.getBody().getMaxAddress();
+                    if (end == null || last.compareTo(end) > 0) {
+                        end = last;
+                    }
+                }
+                if (end == null) {
+                    pw.println("FAILED: no function entered within " + AUTO_WINDOW + " bytes of " + entry);
+                    println("wrote merge result to " + outPath);
+                    return;
+                }
+                // A non-contiguous body can reach past a neighbour; never sweep one away.
+                Function beyond = getFunctionAfter(windowEnd);
+                if (beyond != null && beyond.getEntryPoint().compareTo(end) <= 0) {
+                    pw.println("FAILED: auto range " + entry + ".." + end + " would sweep "
+                        + beyond.getName() + " @ " + beyond.getEntryPoint() + "; pass an explicit length");
+                    println("wrote merge result to " + outPath);
+                    return;
+                }
+                pw.println("auto length " + (end.subtract(entry) + 1) + " (" + entry + ".." + end + ")");
+            } else {
+                end = entry.add(Integer.parseInt(lengthArg) - 1);
+            }
             SymbolTable st = currentProgram.getSymbolTable();
             Listing listing = currentProgram.getListing();
             List<Address> doomed = new ArrayList<>();
@@ -70,6 +111,22 @@ public class ES2MergeFunctionAt extends GhidraScript {
             pw.println(made == null
                 ? "FAILED: no function at " + entry
                 : "created " + made.getName() + " @ " + entry + " body=" + made.getBody());
+            if (made != null && !made.getBody().contains(entry, end)) {
+                pw.println("SHORT: the new body does not cover " + entry + ".." + end);
+            }
+            if (made != null) {
+                DecompInterface decomp = new DecompInterface();
+                decomp.openProgram(currentProgram);
+                DecompileResults res = decomp.decompileFunction(made, 60, monitor);
+                if (res != null && res.getHighFunction() != null) {
+                    HighFunctionDBUtil.commitParamsToDatabase(res.getHighFunction(), true,
+                        ReturnCommitOption.COMMIT, SourceType.ANALYSIS);
+                    pw.println("committed prototype " + made.getPrototypeString(false, false));
+                } else {
+                    pw.println("FAILED: decompile of " + made.getName() + " for its prototype");
+                }
+                decomp.dispose();
+            }
         }
         println("wrote merge result to " + outPath);
     }

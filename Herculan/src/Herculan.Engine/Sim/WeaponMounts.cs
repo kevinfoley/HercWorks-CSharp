@@ -629,6 +629,16 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
+	/// A drag released on weapon row <paramref name="gaugeSlot"/>'s charge bar, under
+	/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/> — see
+	/// <see cref="WeaponMount.SetPowerFromChargeBar"/>. Unlike the keys, which reach only the armed
+	/// mount, the bar sets the power level of whichever row it belongs to.
+	/// </summary>
+	/// <returns>Whether a mount took it.</returns>
+	public bool SetPowerFromChargeBar(int gaugeSlot, int position) =>
+		BySlot(gaugeSlot)?.SetPowerFromChargeBar(position) ?? false;
+
+	/// <summary>
 	/// The mounts' claim on the Master Energy Pool — vtable slot 0 of the manager,
 	/// <c>WeaponMounts_ArbitrateEnergy</c> (<c>004107e4</c>), called from <c>Mech_PerTickSystemsUpdate</c> between the reactor's
 	/// contribution and the shields'.

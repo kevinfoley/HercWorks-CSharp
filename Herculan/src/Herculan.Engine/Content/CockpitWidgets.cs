@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Render;
+using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Content;
 
@@ -54,6 +55,13 @@ public enum CockpitWidgetKind {
 	/// <see cref="ViewEdgeStrip"/>.
 	/// </summary>
 	ViewEdge = 9,
+
+	/// <summary>
+	/// An energy weapon row's charge bar, as the slider retail builds it — index is the row's
+	/// <c>.GAU</c> weapon slot. Listed only under
+	/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>; see <see cref="ChargeBarSlider"/>.
+	/// </summary>
+	WeaponChargeBar = 10,
 }
 
 /// <summary>
@@ -141,6 +149,12 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 	/// <summary>Weapon panel row <paramref name="gaugeSlot"/>, zero-based.</summary>
 	public static CockpitWidgetId Weapon(int gaugeSlot) => new(CockpitWidgetKind.WeaponRow, gaugeSlot);
 
+	/// <summary>The charge bar of weapon panel row <paramref name="gaugeSlot"/>, zero-based.</summary>
+	public static CockpitWidgetId ChargeBar(int gaugeSlot) => new(CockpitWidgetKind.WeaponChargeBar, gaugeSlot);
+
+	/// <summary>This id as the row index of a charge bar, or null when it is not one.</summary>
+	public int? AsWeaponChargeBar => Kind == CockpitWidgetKind.WeaponChargeBar ? Index : null;
+
 	/// <summary>One of the three console buttons.</summary>
 	public static CockpitWidgetId Console(ConsoleButton button) =>
 		new(CockpitWidgetKind.ConsoleButton, (int)button);
@@ -207,7 +221,7 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 /// Whether pressing this widget captures the pointer — the original's per-widget <c>+0x1d</c> flag,
 /// which <c>Widget_OnMouseDown</c> (<c>004527a0</c>) tests before latching the global drag capture
 /// and dispatching the widget's own drag handler. Every button class leaves it clear; the slider
-/// base (<c>004524a8</c>) sets it, which is the whole of what makes the throttle draggable.
+/// base (<c>004524a8</c>) sets it, which is the whole of what makes the throttle draggable (the energy rows' charge bars carry it too, under their rows' select gadgets).
 /// </param>
 public readonly record struct CockpitWidget(CockpitWidgetId Id, CockpitSurface Surface,
 		int X0, int Y0, int X1, int Y1, bool Lit, bool Selected = false, bool Draggable = false) {
@@ -399,6 +413,12 @@ public static class CockpitWidgets {
 	/// row whose mount is a pod <i>is</i>: on an ECM or Turbo row the press works the pod's on/off
 	/// button, and on the other three it clicks, sounds and changes nothing. Which of those a row
 	/// does is decided by its gauge class — see <see cref="WeaponMounts.PressRow"/>.</para>
+	///
+	/// <para>Under <see cref="CockpitHudState.ChargeBarsDraggable"/> an energy or ELF row's charge bar is
+	/// listed just ahead of its row, so it takes presses on its own span — the
+	/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/> tweak, and the one place this
+	/// list departs from the original's order. A row the power-up has not reached, or the sensor
+	/// dropout is holding back, draws no bar and lists none.</para>
 	/// </summary>
 	public static IEnumerable<CockpitWidget> VisibleWeaponRows(CockpitArt art, CockpitHudState state) {
 		ArgumentNullException.ThrowIfNull(art);
@@ -411,6 +431,12 @@ public static class CockpitWidgets {
 
 		for (int i = 0; i < slots; i++) {
 			var rect = rows[i];
+			if (state.ChargeBarsDraggable && i < state.Weapons.Count
+				&& state.Weapons[i] is { Kind: WeaponMountKind.Energy or WeaponMountKind.Elf, Powered: true, DropoutHidden: false }
+				&& ChargeBarSlider.For(art, i) is { } bar) {
+				yield return bar.Widget(i);
+			}
+
 			yield return new CockpitWidget(CockpitWidgetId.Weapon(i), CockpitSurface.Forward,
 				X0: rect.Origin.X * scale,
 				Y0: rect.Origin.Y * scale,
@@ -486,11 +512,13 @@ public static class CockpitWidgets {
 	/// contested pixel. <see cref="Visible"/> enumerates in the original's own registration order,
 	/// which is what makes that rule reach the same widget here.</para>
 	///
-	/// <para>Retail cockpits do contest pixels, in four places — the FLASH COMM rows, whose rects are
+	/// <para>Retail cockpits do contest pixels, in five places — the FLASH COMM rows, whose rects are
 	/// built <c>top..top+14</c> and stepped by 14 so each shares its bottom line with the row below;
 	/// the Heads-Down Display's XMIT and CANCEL, whose <c>.GAU</c> rects overlap by two authored
-	/// units; the same display's arrow plates, which touch at the corners; and the view strip under
-	/// three hercs' consoles. The earlier widget wins every one of them.</para>
+	/// units; the same display's arrow plates, which touch at the corners; the view strip under
+	/// three hercs' consoles; and every energy row's charge bar, which lies wholly inside its row. The
+	/// earlier widget wins every one of them, which leaves the bars unreachable unless
+	/// <see cref="CockpitHudState.ChargeBarsDraggable"/> lists them first.</para>
 	/// </summary>
 	public static CockpitWidget? HitTest(CockpitArt art, CockpitHudState state,
 			CockpitSurface surface, float artX, float artY) {

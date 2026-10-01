@@ -134,6 +134,11 @@
 /// Which displays the sensor dropout has blanked — see <see cref="CockpitDropouts"/>. The weapon rows
 /// carry their own, in <see cref="WeaponRowState"/>.
 /// </param>
+/// <param name="ChargeBarsDraggable">
+/// Whether the energy rows' charge bars take presses —
+/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>, carried here so the widget list
+/// can be built without the settings. See <see cref="CockpitWidgets.VisibleWeaponRows"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	int ShieldFront,
@@ -166,7 +171,8 @@ public readonly record struct CockpitHudState(
 	MfdNavMapState NavMap = default,
 	TrainingMessageBox? TrainingMessage = null,
 	int? MfdPowerUpFrame = null,
-	CockpitDropoutState Dropout = default) {
+	CockpitDropoutState Dropout = default,
+	bool ChargeBarsDraggable = false) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>

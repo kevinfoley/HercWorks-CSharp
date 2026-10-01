@@ -349,7 +349,7 @@
         {
           "address": "0049c798",
           "label": "WeaponSliderGadgetVtable",
-          "description": "WeaponSliderGadget_Ctor (00442956) builds it and no retail gauge calls that constructor."
+          "description": "WeaponSliderGadget_Ctor (00442950) installs it last: the energy weapon row's charge bar, which EnergyWeaponGauge_Ctor builds."
         },
         {
           "address": "0049dfd8",

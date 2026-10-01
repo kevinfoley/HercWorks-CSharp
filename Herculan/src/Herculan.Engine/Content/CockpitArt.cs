@@ -392,7 +392,7 @@ public sealed class CockpitArt {
 
 	/// <summary>
 	/// A weapon row's charge bar, which does <b>not</b> take its colours from <c>COLORS.DAT</c> the
-	/// way <see cref="GaugeColors"/> does: <c>WeaponChargeBar_Ctor</c> (<c>00442950</c>) overwrites the bar's three colour
+	/// way <see cref="GaugeColors"/> does: <c>WeaponSliderGadget_Ctor</c> (<c>00442950</c>) overwrites the bar's three colour
 	/// fields with the raw palette indices 32, 34 and 46 immediately after constructing it. So a
 	/// capacitor bar is pinned to fixed palette slots, where the Master Energy Pool's meter follows
 	/// whatever <c>COLORS.DAT</c> ids 6/5/19 resolve to (<see cref="HudColorTable.GaugeFillEvenId"/>).

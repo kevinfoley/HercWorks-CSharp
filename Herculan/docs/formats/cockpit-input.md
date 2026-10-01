@@ -83,11 +83,11 @@ First-hit-wins makes the order the list is built in the whole of the tie-break: 
 | 9 | `WeaponMounts_BuildGauges` (`00410644`) | Per mount, in mount order: the row's select gadget, then an energy row's charge bar |
 | 10 | `CockpitView_BuildScrollTriggers` (`00433770`) | The three edge strips (§10), on the first cockpit frame |
 
-Step 9 is the closing call of `Gau_BuildCockpitWidgets`: it walks the machine's weapon-mount array and dispatches each mount's own gauge-factory slot (`+0x64`), so a row's clickables are registered by the mount rather than by the cockpit. An energy row registers **two** — `ChainedWeaponSelectGadget` first and `WeaponChargeBar` second — which is why the select gadget takes the click where the charge bar overlaps it.
+Step 9 is the closing call of `Gau_BuildCockpitWidgets`: it walks the machine's weapon-mount array and dispatches each mount's own gauge-factory slot (`+0x64`), so a row's clickables are registered by the mount rather than by the cockpit. An energy row registers **two** — `ChainedWeaponSelectGadget` first and the charge bar, a `WeaponSliderGadget`, second — and the select gadget's rect is the whole row, so it takes every click on the bar ([below](#where-retail-rects-overlap)).
 
 ### Where retail rects overlap
 
-Four places, measured across all nine retail cockpits. First-hit-wins resolves each in favour of the earlier registration:
+Five places, measured across all nine retail cockpits. First-hit-wins resolves each in favour of the earlier registration:
 
 | Contested | Extent | Taken by |
 |---|---|---|
@@ -95,6 +95,7 @@ Four places, measured across all nine retail cockpits. First-hit-wins resolves e
 | HDD `XMIT` against `CANCEL` | 2 `.GAU` units, every herc | `XMIT`, widget 13 |
 | HDD up/down arrow against left/right | a 3x3 device corner, the six hercs on arrow set 0 | the up/down arrow, widgets 2-3 ([`heads-down-display.md`](heads-down-display.md#widgets)) |
 | The bottom edge strip against a console instrument | MAVERICK's `[F6]`, RAPTOR2's throttle, RAZOR's `TRACK` | the instrument (§10) |
+| An energy row's select gadget against its charge bar | the whole bar: the gadget's rect is the 55x6 hardpoint rect, which contains the bar's `x0+36..x0+53`, `y0+1..y0+5`, every row of every herc | the select gadget, so the bar never takes a press (§7) |
 
 MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mfd.md`](mfd.md#button-visibility)).
 
@@ -143,7 +144,7 @@ Widget state byte (`+0x1b`):
 
 `Widget_OnMouseDown` (`004527a0`): on hit, stores the hit index in `Widget_PressedIndex` (`0049dbdc`) — one global for the whole cockpit — sets the widget's state to `1` and repaints it. If the widget's own `+0x1d` flag is `1`, begins mouse capture (`DAT_0049dbde=1`) and forwards the position to its drag-move vtable slot (`+0x18`) immediately.
 
-**One retail widget does use capture: the throttle slider.** Every button class leaves `+0x1d` clear, but the shared slider base `SliderWidget_CtorBase` (`004524a8`) sets it unconditionally, and the throttle's vertical slider child (`00447e24`) is built through it. It is why the manual's "set throttle with the mouse by clicking on the slide and dragging it up or down" works, and why clicking anywhere on the track jumps the knob there — the press itself dispatches the drag handler.
+**One retail widget does use capture: the throttle slider.** Every button class leaves `+0x1d` clear, but the shared slider base `SliderWidget_CtorBase` (`004524a8`) sets it unconditionally, and the throttle's vertical slider child (`00447e24`) is built through it. An energy row's charge bar (`WeaponSliderGadget_Ctor`, `00442950`) is built through it too and carries the flag, but its row's select gadget covers it and takes every press ([above](#where-retail-rects-overlap)), so it never captures; what its slider does instead is in [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#the-charge-bar). The throttle's capture is why the manual's "set throttle with the mouse by clicking on the slide and dragging it up or down" works, and why clicking anywhere on the track jumps the knob there — the press itself dispatches the drag handler.
 
 While capture is held, `CockpitMouse_ProcessQueue` takes a different branch on every position change: it dispatches `+0x18` on the captured widget with the pointer position and repaints it, **without hit-testing** — so a drag follows the pointer off the widget, off the panel and off the window. `Widget_TrackPressedWidget` is not called at all in that branch, so a captured widget stays depressed however far the pointer wanders.
 
@@ -226,7 +227,7 @@ The four classes hanging straight off `CTLButtonControl` are the ones that take 
 | `WeaponSelectGadget` | `0x46` | `PanelSelectGadget` | `WeaponSelectGadget_Ctor` (`004421dc`) | A pod row — the class without chain membership, which only `PodGauge_Ctor` builds ([`../simulation/equipment-pods.md`](../simulation/equipment-pods.md)) |
 | `ChainedWeaponSelectGadget` | `0x67` | `WeaponSelectGadget` | `ChainedWeaponSelectGadget_Ctor` (`00442488`) | A weapon row, from `EnergyWeaponGauge_Ctor` and `AmmoWeaponGauge_Ctor` ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#arming-chaining-and-linking)) |
 | `WeaponRangeSelectGadget` | `0x41` | `PanelStateGadget` | `WeaponRangeSelectGadget_Ctor` (`00442c00`) | The weapon-range gauge's button |
-| `WeaponSliderGadget` | `0x7e` | `PanelHSliderGadget` | `WeaponSliderGadget_Ctor` (`00442956`) | Unreferenced — no retail gauge builds one |
+| `WeaponSliderGadget` | `0x7e` | `PanelHSliderGadget` | `WeaponSliderGadget_Ctor` (`00442950`) | An energy weapon row's charge bar, from `EnergyWeaponGauge_Ctor`. Carries the drag flag, but its row's select gadget covers it (§7) |
 | `ShieldsSelectGadget` | `0x40` | `PanelSelectGadget` | `ShieldsGauge_FacingCtor` (`00444aec`) | A shield facing (§8) |
 | `MFDSelectGadget` | `0x40` | `PanelSelectGadget` | `MFDSelectGadget_Ctor` (`004472e4`) | An MFD momentary button |
 | `MFDStateGadget` | `0x41` | `PanelStateGadget` | `MFDStateGadget_Ctor` (`0044741c`) | An MFD latching button ([`mfd.md`](mfd.md#two-button-classes)) |

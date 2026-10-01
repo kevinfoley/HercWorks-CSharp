@@ -94,7 +94,7 @@ Two shapes need care:
 | 10 | `DAT_00470660` | 82 (`0x52`) bytes/record | `DAT_00470630` | #9 (8 shorts), `.ENG` text (5 shorts at `0x44`), and a target resolved after row 16 by the action's type (7/8/9/10 → #12/#13/#14/#16) | the mission **action**, `script.dat` block 5. The objective record is row #17 |
 | 11 | `DAT_00470662` | 30 (`0x1e`) bytes/record | `DAT_00470634` | #10 (once) + #10 again (10 shorts) | **decoded — see "Row #11 field decode" below.** A mission timer: an action that arms it, a delay, and the actions fired on expiry. DBSIM reads all ten sequence slots, but not all of them are always used |
 | 12 | `DAT_00470652` | 144 (`0x90`) bytes/record | `DAT_00470614` | #6, #7, #10 (×2) — sparse in retail (≤2.4% used) but all live at runtime; real payload is a 10-slot weapon fit | **decoded — see "Row #12 field decode" below.** The mission's **mech roster**: one record per HERC it can field, with type, weapon fit and optional placement. A second, distinct 144-byte type from #4; heaviest variant usage of any decoded row (48%) |
-| 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** `UnkEntity102Bytes` — real structure is a 20-flag boolean array + a mostly-inert second 20-slot span + a constant trailing field (always `100`), not the flat `Flags[49]` the old hypothesis assumed |
+| 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** The mission's **flyer roster**: one record per flyer or ground vehicle it can field — a 20-short boolean span, the flyer type, the out-of-action report and a constant trailing field (always `100`) |
 | 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** `MiscEntityInfo` — 4 real cross-refs, not the 3 the macro pass found (it missed #7); a type-like field at `0x08` correlates ~99% with the trailing constant field being `100` vs `0` |
 | 15 | `DAT_00470658` | 22 (`0x16`) bytes/record | `DAT_00470620` | #6 (rare), #8 (dominant — 94% populated), #10 (rare), plus a **4-way** discriminated ref (0/1/2/3 → #16/#12/#13/#14, resolved in two passes since #16 loads after #15) | **decoded — see "Row #15 field decode" below.** A "typed link" record whose primary payload is a near-always-populated ref into row #8 — confirms it's structurally distinct from #6 (which is a flat position record), not just size-coincidentally 22 bytes |
 | 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and ten mission-counter (ref, operation) pairs with their count at `0x78` |
@@ -264,9 +264,9 @@ All three arrays are ids into the mission's own [`.ENG` table](#the-eng-string-t
 Records are read into the slot the survivor count names, so the first survivor holds slot 0; with none, slot 0 holds the last record read. `Msn_LoadDebrief` hands slot 0 by value to `Career_SetDebriefLines` (`00413386`), which copies the thirty lines to `0048407c` and the row-3 value, the debrief movie, to `004840ba`. `Career_BuildDebriefText` (`004133d2`) then assembles the mission tab's debrief from those lines ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-summary-text-box)). None of this reaches the save, whose career block ends before `0048407c` ([`save-games.md`](save-games.md#career-block--152-bytes)). What lasts is the draws: the next mission's load starts that many generator steps further on.
 
 
-## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
+## Row #13 field decode — the flyer record (`DAT_00470654`, 102 bytes/record)
 
-Item flags + condition/variant (24%/30% real usage — highest combined rates in file). 124 instances.
+The flyer roster, `script.dat` block 8; condition and variant are both well used (24%/30% real — the highest combined rates in the file). 124 instances.
 
 | offset | field | notes |
 |---|---|---|
@@ -274,15 +274,15 @@ Item flags + condition/variant (24%/30% real usage — highest combined rates in
 | `0x02` | condition ref | 24% real (tier: rows #1/#3/#13) |
 | `0x04` | variant key | 30% real |
 | `0x06` | ? | **dead** — always `-1` |
-| `0x08–0x30` | flags block A (20 shorts) | 100% populated; boolean: 96.5% `0`, 3.5% `1` |
+| `0x08–0x2F` | flag span (20 shorts) | 100% populated; boolean: 96.5% `0`, 3.5% `1`. What reads it is [open](#open) |
 | `0x30` | ref→row #6 | always `-1` in retail, but **not dead** — DBSIM reads it as this flyer's spawn-position override (see `script-dat.md`) |
 | `0x32` | ref→row #7 | same, for heading |
-| `0x34` | presence flag | 68% real; always `0` if present |
-| `0x36` | ? | nearly always `0` ([Open](#open)) |
+| `0x34` | **flyer type** | 68% real; always `0` when present — an index into `nam\FLYERS.NAM`, whose one flyer with data is `SKIMMER` |
+| `0x36` | pair count | how many of the pairs below are filled, from the front: `1` in the one record that fills a slot (`C1_03.MSN`), `0` in the other 123. Not exported to `script.dat`; a variant does not copy it |
 | `0x38–0x5E` | 10 (counter ref, operation) pairs | 99.9% `-1`; one retail record uses a slot. The flyer's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 8's `0x2e`/`0x42` |
-| `0x60` | ref→row #10 slot 1 | **dead** — always `-1` |
-| `0x62` | ref→row #10 slot 2 | **only live ref** — 21% real |
-| `0x64` | constant | always exactly `100` |
+| `0x60` | engaged action, ref→row #10 | **dead** — always `-1`; exported as `script.dat` block 8's `0x56` |
+| `0x62` | defeated action, ref→row #10 | **only live ref** — 21% real; block 8's `0x58` |
+| `0x64` | constant | always exactly `100`; what reads it is [open](#open) |
 
 
 ## Row #14 field decode — "MiscEntityInfo" (`DAT_0047065c`, 62 bytes/record)
@@ -298,8 +298,8 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 | `0x08` | **base type** | 71% real; range 0–56 (43 values) — an index into `dat\BASES.DAT`'s 65-entry structure table, which names the model and its texture bank |
 | `0x0A` | ref→row #6 | 6.4% sparse — this structure's spawn-position override |
 | `0x0C` | ref→row #7 | 6.7% sparse — its heading |
-| `0x0E` | small discrete | 100% real; 0/1/2 (64%/33%/3%) |
-| `0x10–0x36` | 10 (counter ref, operation) pairs | 3.9% sparse — the structure's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
+| `0x0E` | pair count | how many of the pairs below are filled, from the front; 0/1/2 (64%/33%/3%). Not exported; a variant does not copy it |
+| `0x10–0x36` | 10 (counter ref, operation) pairs | 36% of records fill at least one — the structure's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
 | `0x38` | ref→row #10 slot 1 | 0.4% rare |
 | `0x3A` | ref→row #10 slot 2 | 0.1% dead |
 | `0x3C` | health modifier | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real** |
@@ -331,9 +331,9 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0xA2` | trailing flag | 6% sparse; 0/1 |
 
 
-## Row #12 field decode — "EntityTemplate144" (`DAT_00470652`, 144 bytes/record)
+## Row #12 field decode — the mech roster record (`DAT_00470652`, 144 bytes/record)
 
-The HERC roster; highest variant usage (48%). Three-way identity split: a GUID and a variant key (48%), a GUID alone (11%), or a conditional variant with no GUID (41%). 1,683 instances.
+The HERC roster, `script.dat` block 7; highest variant usage (48%). Three-way identity split: a GUID and a variant key (48%), a GUID alone (11%), or a conditional variant with no GUID (41%). 1,683 instances.
 
 | offset | field | notes |
 |---|---|---|
@@ -344,18 +344,17 @@ The HERC roster; highest variant usage (48%). Three-way identity split: a GUID a
 | `0x08` | **AI radar setting** | 100% real; 0/1. DBSIM copies it to `mech+0x97`, which is the standing PASSIVE/ACTIVE the machine walks its route on — see [`../simulation/ai-weapons.md`](../simulation/ai-weapons.md) |
 | `0x0A` | **AI cruise speed** | 100% real; `0` in 91% of records, which means "use the `0xaa` default". Copied to `mech+0x252`, the speed `Ai_DriveToPoint` walks at |
 | `0x0C–0x2E` | dead zone (18 shorts) | **always `0`** — padding |
-| `0x30` | small discrete | 47% real; range 0–20 |
+| `0x30` | **mech type** | 47% real; range 0–20 — an index into `nam\MECHS.NAM`; DBSIM asserts "Invalid mech type" on it |
 | `0x32–0x44` | **weapon fit**, 10 slots | **real workhorse**: slot 0: 46% real → slot 9: 0.1%; bursty population. Resolved via `script.dat`: DBSIM hands this array straight to `Mech_ConfigureLoadout`, the same call the player's own fit from `player.mec` goes through |
 | `0x46` | ref→row #6 | 0.1% populated in `.msn` data, but **not dead** — this is the spawn-position override DBSIM reads per mech (see `script-dat.md`); unset means "use the group's point" |
 | `0x48` | ref→row #7 | same, for heading |
-| `0x4A` | small discrete | 100% real; 0–4 (84% `0`) |
+| `0x4A` | pair count | how many of the pairs below are filled, from the front; 0–4 (84% `0`). Not exported; a variant does not copy it |
 | `0x4C–0x72` | 10 (counter ref, operation) pairs | sparse; slot 0 15.9% → slot 4 0.5%. The machine's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 7's `0x42`/`0x56` |
-| `0x74–0x84` | always-populated block | 100% real; 6 shorts; values 0–5, trending up |
-| `0x86` | constant | always `5` |
+| `0x74–0x87` | **ammunition type**, 10 slots | 100% real; values 0–5: a launcher slot reads 1 in the retail mission, every other slot the filler `5`. The second array `Mech_ConfigureLoadout` takes alongside the weapon fit — [`script-dat.md`](script-dat.md)'s block 7 `0x6a` |
 | `0x88` | constant | always `2` |
-| `0x8A` | ref→row #10 slot 1 | 0.7% dead |
-| `0x8C` | ref→row #10 slot 2 | 2.4% dead |
-| `0x8E` | health modifier | 100% real; `100` (98.5%) or `50` (1.5%) |
+| `0x8A` | engaged action, ref→row #10 | 0.7% real; block 7's `0x80` |
+| `0x8C` | defeated action, ref→row #10 | 2.4% real; block 7's `0x82` |
+| `0x8E` | **starting condition**, per cent | 100% real; `100` (98.5%) or `50` (1.5%); block 7's `0x84` |
 
 **Model:** A roster record with high variant/condition usage. The payload is the 10-slot **weapon fit** at `0x32`, plus the per-mech spawn-position and heading overrides at `0x46`/`0x48` — sparsely populated but live, and the pair of AI settings at `0x08`/`0x0A` ([`ai-navigation.md`](../simulation/ai-navigation.md)). Three identity patterns: a HERC whose fields come from a random variant (GUID and key), a HERC authored whole (GUID only), or a variant itself (no GUID, a condition naming its row-1 child).
 
@@ -409,6 +408,8 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 
 - **Recurring pattern: `0x02`/`0x0X` "compound condition" pairs** — second field is real only when `0x02` is, drawn from a narrow set including sentinel `-99`. Confirmed in rows #12/#15/#16.
 
+- **Recurring pattern: a pair count in front of the counter pairs** — rows #12 (`0x4A`), #13 (`0x36`), #14 (`0x0E`) and #16 (`0x78`) hold the number of filled (counter ref, operation) pairs, filled from slot 0 without gaps. It equals the filled count in all 4,999 retail records of the four rows; the load writes every pair regardless, so the count is never consumed. Row #17's `0x10` is the same idiom for its nested pairs.
+
 - **Recurring pattern: trailing scalar fields that are almost always a specific constant** — row #13's `0x64` (always `100`), row #14's `0x3C` (`100`/`0`), row #12's `0x8E` (`100` or `50`).
 
 - **Note:** `DEMO2.MSN` undershoots by 42 bytes at row #17; treat as a known outlier rather than a table error.
@@ -422,4 +423,4 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 
 ## Open
 
-- **Open:** what row #13's `0x36` field is; nearly always `0`, not confirmed dead.
+- **Open:** what reads row #13's 20-short flag span at `0x08–0x2F` and its constant `100` at `0x64`. The mech and base rows end in a starting-condition percentage of the same shape, but no flyer path is traced reading one.

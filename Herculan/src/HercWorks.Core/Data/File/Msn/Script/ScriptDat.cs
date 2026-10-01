@@ -54,7 +54,7 @@ public class ScriptDat {
 	public ScriptActionTimer[] ActionTimers { get; set; } = [];
 
 	/// <summary>
-	/// Block 7 — row #12 (<see cref="EntityTemplate144"/>) export, 134 bytes/record: <b>the mech
+	/// Block 7 — row #12 (<see cref="MechRosterEntry144"/>) export, 134 bytes/record: <b>the mech
 	/// roster</b>. One record per mech the mission can field, carrying its type, weapon fit and
 	/// (usually unset) placement. DBSIM builds one live mech per record its block-11 activation
 	/// marks; VSHELL's own `ShellMap` reader keeps the whole record for UI display.
@@ -62,7 +62,7 @@ public class ScriptDat {
 	public ScriptSpawnRecordExport[] SpawnRecords { get; set; } = [];
 
 	/// <summary>
-	/// Block 8 — row #13 (<see cref="UnkEntity102Bytes"/>) export, 92 bytes/record: <b>the
+	/// Block 8 — row #13 (<see cref="FlyerRosterEntry102"/>) export, 92 bytes/record: <b>the
 	/// flyer/vehicle roster</b>, the same arrangement as <see cref="SpawnRecords"/> one class down.
 	/// </summary>
 	public ScriptEntity102Export[] Entities102 { get; set; } = [];
@@ -176,18 +176,18 @@ public class ScriptActionTimer {
 }
 
 /// <summary>
-/// Block 7 entry — 134 bytes, row #12 (<see cref="EntityTemplate144"/>) minus GUID/ConditionRef/
-/// InheritIndex/CompoundConditionPartner and minus <c>SmallDiscrete2</c> (skipped by the writer,
-/// not exported). <see cref="HeadBytes"/> = source offsets 0x08-0x2F (BinaryFlag+NearConstant+
-/// DeadZone), <see cref="TailBytes"/> = source offsets 0x4C-0x8F (PairedRefs,
-/// AlwaysPopulatedBlock+Constant5, Constant2, RefRow10Slot1/2, TrailingField, in that exact
+/// Block 7 entry — 134 bytes, row #12 (<see cref="MechRosterEntry144"/>) minus GUID/ConditionRef/
+/// InheritIndex/CompoundConditionPartner and minus <c>PairCount</c> (skipped by the writer,
+/// not exported). <see cref="HeadBytes"/> = source offsets 0x08-0x2F (AiRadarActive+AiCruiseSpeed+
+/// DeadZone), <see cref="TailBytes"/> = source offsets 0x4C-0x8F (OutOfActionReport,
+/// WeaponSecondary, Constant2, EngagementActionRef, DefeatActionRef, StartingCondition, in that exact
 /// on-disk order).
 ///
 /// <para>The four named fields between them are the ones DBSIM's world-spawn pass
 /// (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) reads back out: it re-opens <c>script.dat</c> after
 /// <c>DBSim_LoadScriptDat</c> has marked which slots are live and builds one mech per live slot
 /// from this record. Do not be misled by <c>DBSim_LoadScriptDat</c> reading 134 bytes and keeping
-/// only <see cref="SmallDiscrete"/> — that first pass exists to count and allocate, not to
+/// only <see cref="TypeIndex"/> — that first pass exists to count and allocate, not to
 /// place.</para>
 /// </summary>
 public class ScriptSpawnRecordExport {
@@ -211,7 +211,7 @@ public class ScriptSpawnRecordExport {
 		HeadBytes.Length >= offset + 2 ? BitConverter.ToInt16(HeadBytes, offset) : (short)0;
 
 	/// <summary>Source offset 0x30 — the mech type, an index into <c>nam\MECHS.NAM</c>'s name list.</summary>
-	public short SmallDiscrete { get; set; }
+	public short TypeIndex { get; set; }
 
 	/// <summary>
 	/// Source offsets 0x32-0x45 — the mech's weapon fit, passed straight to DBSIM's
@@ -357,13 +357,13 @@ public class ScriptSpawnRecordExport {
 }
 
 /// <summary>
-/// Block 8 entry — 92 bytes, row #13 (<see cref="UnkEntity102Bytes"/>) minus GUID/ConditionRef/
-/// InheritIndex/Unk06 and minus <c>Unk36</c> (skipped, not exported). <see cref="HeadBytes"/> =
-/// source offsets 0x08-0x2F (FlagsA), <see cref="TailBytes"/> = source offsets 0x38-0x64 (FlagsB,
-/// RefRow10Slot1/2, UnkVal_100).
+/// Block 8 entry — 92 bytes, row #13 (<see cref="FlyerRosterEntry102"/>) minus GUID/ConditionRef/
+/// InheritIndex/Unk06 and minus <c>PairCount</c> (skipped, not exported). <see cref="HeadBytes"/> =
+/// source offsets 0x08-0x2F (FlagsA), <see cref="TailBytes"/> = source offsets 0x38-0x64 (OutOfActionReport,
+/// EngagementActionRef, DefeatActionRef, UnkVal_100).
 ///
 /// <para>DBSIM's world-spawn pass (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) builds one flyer/vehicle per live slot from
-/// this record, taking its type from <see cref="BinaryField"/> and its placement from the two refs
+/// this record, taking its type from <see cref="TypeIndex"/> and its placement from the two refs
 /// below.</para>
 /// </summary>
 public class ScriptEntity102Export {
@@ -376,7 +376,7 @@ public class ScriptEntity102Export {
 	public short HeadingRef { get; set; }
 
 	/// <summary>Source offset 0x34 — the flyer type, an index into <c>nam\FLYERS.NAM</c>'s name list.</summary>
-	public short BinaryField { get; set; }
+	public short TypeIndex { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[46];
 
@@ -467,9 +467,9 @@ internal static class ScriptActionRefs {
 
 /// <summary>
 /// Block 9 entry — 52 bytes, row #14 (<see cref="MiscEntityInfo"/>) minus GUID/ConditionRef/
-/// InheritIndex/Unk06 and minus <c>SmallDiscrete</c> at 0x0E (not exported). <see cref="TailBytes"/> =
-/// source offsets 0x10-0x3D (SparseBlock, its even words then its odd words, then RefRow10Slot1/2
-/// and TrailingField).
+/// InheritIndex/Unk06 and minus <c>PairCount</c> at 0x0E (not exported). <see cref="TailBytes"/> =
+/// source offsets 0x10-0x3D (OutOfActionReport, its even words then its odd words, then
+/// EngagementActionRef, DefeatActionRef and TrailingField).
 ///
 /// <para>DBSIM's world-spawn pass (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) builds one base/structure per live slot
 /// from this record.</para>
@@ -479,7 +479,7 @@ public class ScriptMiscEntityExport {
 	/// Source offset 0x08 — the base type, an index into the 65-entry table in
 	/// <c>dat\BASES.DAT</c> (which in turn names the model and its texture bank).
 	/// </summary>
-	public short TypeLikeScalar { get; set; }
+	public short TypeIndex { get; set; }
 
 	/// <summary>Source offset 0x0A — index into <see cref="ScriptDat.Coordinates"/>, or <c>-1</c>.</summary>
 	public short PositionRef { get; set; }

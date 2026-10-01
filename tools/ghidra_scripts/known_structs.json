@@ -16,7 +16,7 @@
     "                DOCUMENTED. See 'Sizes' below.",
     "  vtable      - OPTIONAL, the known_vtables.json type the field at offset 0 points to.",
     "  description - what the class is; becomes the data type's description.",
-    "  notes       - OPTIONAL, things known about the layout that are not placeable fields: a",
+    "  notes       - OPTIONAL, an array of strings -- things known about the layout that are not placeable fields: a",
     "                sub-object whose extent is still open, a codegen idiom that makes a field hard to",
     "                find, a disagreement between two docs.",
     "  fields      - sparse, in offset order. Each has:",
@@ -1408,7 +1408,9 @@
       "binary": "VSHELL",
       "size": 16,
       "description": "The widget box every VSHELL screen builder writes onto its own stack and hands to a constructor, and the record gam\\arm_hots.dat and gam\\rpr_hots.dat store on disk. BOTH CORNERS ARE INCLUSIVE, which is why the full-screen panel is {0, 0, 0x27f, 0x1df} rather than {0, 0, 640, 480}. A builder writes one of these, calls a constructor, then overwrites it for the next widget -- so the same four stack slots are reused across a whole screen and only some fields are rewritten between widgets.",
-      "notes": "Widths are pinned by the store, not inferred: ServiceBay_BuildScreen writes the panel's far corner as C7 45 A8 7F 02 00 00 / C7 45 AC DF 01 00 00 at 0043aa61 and 0043aa68 -- 'mov dword ptr [ebp-0x58], 0x27f' and 'mov dword ptr [ebp-0x54], 0x1df', four bytes apart. The same 16 bytes arrive from disk in the two *_hots.dat files, read by a bulk read and passed straight to Panel_Ctor's rect parameter, which is what ties the file record to this type.",
+      "notes": [
+        "Widths are pinned by the store, not inferred: ServiceBay_BuildScreen writes the panel's far corner as C7 45 A8 7F 02 00 00 / C7 45 AC DF 01 00 00 at 0043aa61 and 0043aa68 -- 'mov dword ptr [ebp-0x58], 0x27f' and 'mov dword ptr [ebp-0x54], 0x1df', four bytes apart. The same 16 bytes arrive from disk in the two *_hots.dat files, read by a bulk read and passed straight to Panel_Ctor's rect parameter, which is what ties the file record to this type."
+      ],
       "fields": [
         {
           "offset": 0,
@@ -1481,6 +1483,145 @@
           "name": "subject",
           "confidence": "high",
           "description": "+0x12 -- the unit the order names, for the three verbs that take one. Lands on mech+0x248 for an engage and mech+0x24c for a guard."
+        }
+      ]
+    },
+    {
+      "name": "PilotRecord",
+      "binary": "VSHELL",
+      "size": 59,
+      "description": "One pilot -- a squadmate or the player; both use the same shape, the player's roster id included. Serialized by Pilot_Write (0040fd5f), read by Pilot_Read (0040fefc), initialised by Pilot_Init (0040fcd8) and Pilot_SetDefaults (0040fd17). Packed and unaligned. The save screen's 67-byte (0x43) staging record embeds one at its start, and the player's copy sits at 00482a7c. See docs/formats/save-games.md, 'Pilot record'.",
+      "notes": [
+        "Offsets, widths and the 0x3b size are taken from that doc's table, which closes exactly at +0x3b with no gap; the field semantics at +0x24 onward are bound to specific readers there (Stats_StageCurrentGame, Pilot_AccumulateMissionStats, Pilot_Progress). Widths are pinned by Pilot_Write's typed loads and Pilot_Init's and Pilot_SetDefaults' typed stores; the three fields whose meaning rests on the doc alone (+0x00, +0x02, +0x22) carry medium confidence and a maybe_ name. The squad block stores 36 of these, three squads of twelve, and the player block one."
+      ],
+      "fields": [
+        {
+          "offset": 0,
+          "width": 2,
+          "type": "short",
+          "name": "maybe_rosterId",
+          "confidence": "medium",
+          "description": "+0x00 -- roster id, 0-11: squad index x 4 plus a per-squad shuffle. Width pinned by Pilot_Write (0040fd5f), which loads it as a 16-bit value, and Pilot_Init (0040fcd8), which stores one. The name rests on the doc's reading of the value."
+        },
+        {
+          "offset": 2,
+          "width": 2,
+          "type": "short",
+          "name": "maybe_nameIndex",
+          "confidence": "medium",
+          "description": "+0x02 -- index into esnames.bin, 0-35. Width as for +0x00: Pilot_Write loads it as a 16-bit value (param_1[1]) and Pilot_Init stores one."
+        },
+        {
+          "offset": 4,
+          "width": 30,
+          "type": "byte[30]",
+          "name": "name",
+          "confidence": "high",
+          "description": "+0x04 -- the pilot's name, copied from esnames.bin; 30 bytes in memory. A NUL-terminated string: Pilot_Init strcpy's it in and Pilot_Write serializes strlen + 1 bytes of it after an int16 length, so the length exists only on disk. The buffer's 30-byte extent is the distance to the next field at +0x22."
+        },
+        {
+          "offset": 34,
+          "width": 2,
+          "type": "short",
+          "name": "maybe_hangarSlot",
+          "confidence": "medium",
+          "description": "+0x22 -- assigned hangar slot, -1 when unassigned. Width pinned by Pilot_Write's 16-bit load and Pilot_SetDefaults' 16-bit store of 0xffff; the name rests on the doc's reading of the value."
+        },
+        {
+          "offset": 36,
+          "width": 1,
+          "type": "byte",
+          "name": "onStrength",
+          "confidence": "high",
+          "description": "+0x24 -- on strength. Set by Squad_UpdateOnStrength; gates repair billing, results accounting and the player.mec export."
+        },
+        {
+          "offset": 37,
+          "width": 2,
+          "type": "short",
+          "name": "skill",
+          "confidence": "high",
+          "description": "+0x25 -- skill 0-3 (ROOKIE, REGULAR, VETERAN, ELITE), drawn against the weight table at 0046f5ec. Bound to the save screen's staging record by Stats_StageCurrentGame (0043084c)."
+        },
+        {
+          "offset": 39,
+          "width": 2,
+          "type": "short",
+          "name": "squadPosition",
+          "confidence": "high",
+          "description": "+0x27 -- squad position, 1-3, the crew screen row the pilot fills; -1 from Pilot_SetDefaults (0040fd17); 0 for the player (Player_Create). Written by Squad_SetMemberPosition; selects the promotion divisors in Pilot_Progress (00410066)."
+        },
+        {
+          "offset": 41,
+          "width": 2,
+          "type": "short",
+          "name": "rank",
+          "confidence": "high",
+          "description": "+0x29 -- rank 0-3 (Lieutenant, Captain, Major, Lt Colonel), seeded from the skill through 0046f5f4 by Squad_GenerateRoster; Player_Create writes 0. Bound to the staging record by Stats_StageCurrentGame."
+        },
+        {
+          "offset": 43,
+          "width": 2,
+          "type": "short",
+          "name": "condition",
+          "confidence": "high",
+          "description": "+0x2b -- condition, initialised 100 and overwritten at debrief from the HERC's damage."
+        },
+        {
+          "offset": 45,
+          "width": 2,
+          "type": "short",
+          "name": "missionHercKills",
+          "confidence": "high",
+          "description": "+0x2d -- Herc kills, this mission. Pilot_AccumulateMissionStats (0041000e) adds it into +0x33."
+        },
+        {
+          "offset": 47,
+          "width": 2,
+          "type": "short",
+          "name": "missionFlyerKills",
+          "confidence": "high",
+          "description": "+0x2f -- Flyer kills, this mission. Pilot_AccumulateMissionStats adds it into +0x35."
+        },
+        {
+          "offset": 49,
+          "width": 2,
+          "type": "short",
+          "name": "missionBaseKills",
+          "confidence": "high",
+          "description": "+0x31 -- Base kills, this mission. Pilot_AccumulateMissionStats adds it into +0x37."
+        },
+        {
+          "offset": 51,
+          "width": 2,
+          "type": "short",
+          "name": "careerHercKills",
+          "confidence": "high",
+          "description": "+0x33 -- Herc kills, career total. Read by Pilot_Progress, which promotes on +0x33 + +0x35."
+        },
+        {
+          "offset": 53,
+          "width": 2,
+          "type": "short",
+          "name": "careerFlyerKills",
+          "confidence": "high",
+          "description": "+0x35 -- Flyer kills, career total. Read by Pilot_Progress."
+        },
+        {
+          "offset": 55,
+          "width": 2,
+          "type": "short",
+          "name": "careerBaseKills",
+          "confidence": "high",
+          "description": "+0x37 -- Base kills, career total. Pilot_Progress never reads it."
+        },
+        {
+          "offset": 57,
+          "width": 2,
+          "type": "short",
+          "name": "missionsFlown",
+          "confidence": "high",
+          "description": "+0x39 -- missions flown; Pilot_AccumulateMissionStats increments it once per mission."
         }
       ]
     }
@@ -2019,6 +2160,42 @@
       "parameter": 0,
       "struct": "MechObject",
       "description": "Ai_LineOfSightBlocked's subject -- its one caller, Mech_BehaviourSkirtThink, passes its mech."
+    },
+    {
+      "function": "0040fd5f",
+      "parameter": 0,
+      "struct": "PilotRecord",
+      "description": "Pilot_Write's pilot (parameter 1 is the output stream). Reads the record at offsets +0x00 to +0x39, with the name at +0x04."
+    },
+    {
+      "function": "0040fefc",
+      "parameter": 0,
+      "struct": "PilotRecord",
+      "description": "Pilot_Read's pilot (parameter 1 is the input stream). Writes the record at offsets +0x00 to +0x39."
+    },
+    {
+      "function": "0040fcd8",
+      "parameter": 0,
+      "struct": "PilotRecord",
+      "description": "Pilot_Init's pilot: stores the roster id, name index, name, skill and rank, then calls Pilot_SetDefaults on it."
+    },
+    {
+      "function": "0040fd17",
+      "parameter": 0,
+      "struct": "PilotRecord",
+      "description": "Pilot_SetDefaults' pilot: stores the hangar slot, on strength, position, condition and the kill and mission counters."
+    },
+    {
+      "function": "00410066",
+      "parameter": 0,
+      "struct": "PilotRecord",
+      "description": "Pilot_Progress's pilot (parameter 1 is the player flag). Reads on strength, position, skill, rank, the career kills and missions flown."
+    },
+    {
+      "function": "0041000e",
+      "parameter": 0,
+      "struct": "PilotRecord",
+      "description": "Pilot_AccumulateMissionStats' pilot (parameter 1 is the results stream). Reads the mission counters in and adds them into the career totals."
     }
   ]
 }

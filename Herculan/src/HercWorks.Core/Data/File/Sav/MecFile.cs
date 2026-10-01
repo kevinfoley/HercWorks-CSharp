@@ -75,7 +75,7 @@ public class MecEntry {
 	public short Unk02 { get; set; }
 
 	/// <summary>The mech type, an index into <c>nam\MECHS.NAM</c>'s name list — the same numbering
-	/// <see cref="Msn.Script.ScriptSpawnRecordExport.SmallDiscrete"/> uses.</summary>
+	/// <see cref="Msn.Script.ScriptSpawnRecordExport.TypeIndex"/> uses.</summary>
 	public short MechType { get; set; }
 
 	/// <summary>

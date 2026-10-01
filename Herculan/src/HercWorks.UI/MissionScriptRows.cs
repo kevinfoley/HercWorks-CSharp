@@ -154,7 +154,7 @@ internal sealed class ScriptMechRow : ScriptRow {
 	/// Index into <c>nam\MECHS.NAM</c>, presented as a name via <see cref="HercTypeOption"/>; the
 	/// underlying model field keeps Core's own name.
 	/// </summary>
-	public short HercType { get => Source.SmallDiscrete; set => Source.SmallDiscrete = value; }
+	public short HercType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
 
@@ -214,7 +214,7 @@ internal sealed class ScriptWeaponSlotRow {
 internal sealed class ScriptFlyerRow : ScriptRow {
 	public required ScriptEntity102Export Source { get; init; }
 
-	public short FlyerType { get => Source.BinaryField; set => Source.BinaryField = value; }
+	public short FlyerType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
 	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }
@@ -225,7 +225,7 @@ internal sealed class ScriptFlyerRow : ScriptRow {
 internal sealed class ScriptBaseRow : ScriptRow {
 	public required ScriptMiscEntityExport Source { get; init; }
 
-	public short BaseType { get => Source.TypeLikeScalar; set => Source.TypeLikeScalar = value; }
+	public short BaseType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
 	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }

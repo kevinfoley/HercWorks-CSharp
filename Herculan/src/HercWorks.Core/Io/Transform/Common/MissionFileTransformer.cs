@@ -166,45 +166,44 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		SequenceRefs = IndexShortLEArray(10)
 	};
 
-	// ---- Row #12: EntityTemplate144 (144 bytes) ------------------------------------------------
+	// ---- Row #12: MechRosterEntry144 (144 bytes) -----------------------------------------------
 
-	private EntityTemplate144 ParseRow12() => new() {
+	private MechRosterEntry144 ParseRow12() => new() {
 		GUID = IndexShortLE(),
 		ConditionRef = IndexShortLE(),
 		InheritIndex = IndexShortLE(),
 		CompoundConditionPartner = IndexShortLE(),
-		BinaryFlag = IndexShortLE(),
-		NearConstant = IndexShortLE(),
+		AiRadarActive = IndexShortLE(),
+		AiCruiseSpeed = IndexShortLE(),
 		DeadZone = IndexShortLEArray(18),
-		SmallDiscrete = IndexShortLE(),
-		UnresolvedRefs = IndexShortLEArray(10),
-		RefRow6 = IndexShortLE(),
-		RefRow7 = IndexShortLE(),
-		SmallDiscrete2 = IndexShortLE(),
-		PairedRefs = IndexShortLEArray(20),
-		AlwaysPopulatedBlock = IndexShortLEArray(9),
-		Constant5 = IndexShortLE(),
+		TypeIndex = IndexShortLE(),
+		WeaponRefs = IndexShortLEArray(10),
+		PositionRef = IndexShortLE(),
+		HeadingRef = IndexShortLE(),
+		PairCount = IndexShortLE(),
+		OutOfActionReport = IndexShortLEArray(20),
+		WeaponSecondary = IndexShortLEArray(10),
 		Constant2 = IndexShortLE(),
-		RefRow10Slot1 = IndexShortLE(),
-		RefRow10Slot2 = IndexShortLE(),
-		TrailingField = IndexShortLE()
+		EngagementActionRef = IndexShortLE(),
+		DefeatActionRef = IndexShortLE(),
+		StartingCondition = IndexShortLE()
 	};
 
-	// ---- Row #13: UnkEntity102Bytes (102 bytes) ---------------------------------------------
+	// ---- Row #13: FlyerRosterEntry102 (102 bytes) -------------------------------------------
 
-	private UnkEntity102Bytes ParseRow13() => new() {
+	private FlyerRosterEntry102 ParseRow13() => new() {
 		GUID = IndexShortLE(),
 		ConditionRef = IndexShortLE(),
 		InheritIndex = IndexShortLE(),
 		Unk06 = IndexShortLE(),
 		FlagsA = IndexShortLEArray(20),
-		RefRow6 = IndexShortLE(),
-		RefRow7 = IndexShortLE(),
-		BinaryField = IndexShortLE(),
-		Unk36 = IndexShortLE(),
-		FlagsB = IndexShortLEArray(20),
-		RefRow10Slot1 = IndexShortLE(),
-		RefRow10Slot2 = IndexShortLE(),
+		PositionRef = IndexShortLE(),
+		HeadingRef = IndexShortLE(),
+		TypeIndex = IndexShortLE(),
+		PairCount = IndexShortLE(),
+		OutOfActionReport = IndexShortLEArray(20),
+		EngagementActionRef = IndexShortLE(),
+		DefeatActionRef = IndexShortLE(),
 		UnkVal_100 = IndexShortLE()
 	};
 
@@ -215,13 +214,13 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		ConditionRef = IndexShortLE(),
 		InheritIndex = IndexShortLE(),
 		Unk06 = IndexShortLE(),
-		TypeLikeScalar = IndexShortLE(),
-		RefRow6 = IndexShortLE(),
-		RefRow7 = IndexShortLE(),
-		SmallDiscrete = IndexShortLE(),
-		SparseBlock = IndexShortLEArray(20),
-		RefRow10Slot1 = IndexShortLE(),
-		RefRow10Slot2 = IndexShortLE(),
+		TypeIndex = IndexShortLE(),
+		PositionRef = IndexShortLE(),
+		HeadingRef = IndexShortLE(),
+		PairCount = IndexShortLE(),
+		OutOfActionReport = IndexShortLEArray(20),
+		EngagementActionRef = IndexShortLE(),
+		DefeatActionRef = IndexShortLE(),
 		TrailingField = IndexShortLE()
 	};
 
@@ -450,41 +449,40 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLESegment(e.SequenceRefs));
 	}
 
-	private void WriteRow12(MemoryStream o, EntityTemplate144 e) {
+	private void WriteRow12(MemoryStream o, MechRosterEntry144 e) {
 		Emit(o, WriteShortLE(e.GUID));
 		Emit(o, WriteShortLE(e.ConditionRef));
 		Emit(o, WriteShortLE(e.InheritIndex));
 		Emit(o, WriteShortLE(e.CompoundConditionPartner));
-		Emit(o, WriteShortLE(e.BinaryFlag));
-		Emit(o, WriteShortLE(e.NearConstant));
+		Emit(o, WriteShortLE(e.AiRadarActive));
+		Emit(o, WriteShortLE(e.AiCruiseSpeed));
 		Emit(o, WriteShortLESegment(e.DeadZone));
-		Emit(o, WriteShortLE(e.SmallDiscrete));
-		Emit(o, WriteShortLESegment(e.UnresolvedRefs));
-		Emit(o, WriteShortLE(e.RefRow6));
-		Emit(o, WriteShortLE(e.RefRow7));
-		Emit(o, WriteShortLE(e.SmallDiscrete2));
-		Emit(o, WriteShortLESegment(e.PairedRefs));
-		Emit(o, WriteShortLESegment(e.AlwaysPopulatedBlock));
-		Emit(o, WriteShortLE(e.Constant5));
+		Emit(o, WriteShortLE(e.TypeIndex));
+		Emit(o, WriteShortLESegment(e.WeaponRefs));
+		Emit(o, WriteShortLE(e.PositionRef));
+		Emit(o, WriteShortLE(e.HeadingRef));
+		Emit(o, WriteShortLE(e.PairCount));
+		Emit(o, WriteShortLESegment(e.OutOfActionReport));
+		Emit(o, WriteShortLESegment(e.WeaponSecondary));
 		Emit(o, WriteShortLE(e.Constant2));
-		Emit(o, WriteShortLE(e.RefRow10Slot1));
-		Emit(o, WriteShortLE(e.RefRow10Slot2));
-		Emit(o, WriteShortLE(e.TrailingField));
+		Emit(o, WriteShortLE(e.EngagementActionRef));
+		Emit(o, WriteShortLE(e.DefeatActionRef));
+		Emit(o, WriteShortLE(e.StartingCondition));
 	}
 
-	private void WriteRow13(MemoryStream o, UnkEntity102Bytes e) {
+	private void WriteRow13(MemoryStream o, FlyerRosterEntry102 e) {
 		Emit(o, WriteShortLE(e.GUID));
 		Emit(o, WriteShortLE(e.ConditionRef));
 		Emit(o, WriteShortLE(e.InheritIndex));
 		Emit(o, WriteShortLE(e.Unk06));
 		Emit(o, WriteShortLESegment(e.FlagsA));
-		Emit(o, WriteShortLE(e.RefRow6));
-		Emit(o, WriteShortLE(e.RefRow7));
-		Emit(o, WriteShortLE(e.BinaryField));
-		Emit(o, WriteShortLE(e.Unk36));
-		Emit(o, WriteShortLESegment(e.FlagsB));
-		Emit(o, WriteShortLE(e.RefRow10Slot1));
-		Emit(o, WriteShortLE(e.RefRow10Slot2));
+		Emit(o, WriteShortLE(e.PositionRef));
+		Emit(o, WriteShortLE(e.HeadingRef));
+		Emit(o, WriteShortLE(e.TypeIndex));
+		Emit(o, WriteShortLE(e.PairCount));
+		Emit(o, WriteShortLESegment(e.OutOfActionReport));
+		Emit(o, WriteShortLE(e.EngagementActionRef));
+		Emit(o, WriteShortLE(e.DefeatActionRef));
 		Emit(o, WriteShortLE(e.UnkVal_100));
 	}
 
@@ -493,13 +491,13 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLE(e.ConditionRef));
 		Emit(o, WriteShortLE(e.InheritIndex));
 		Emit(o, WriteShortLE(e.Unk06));
-		Emit(o, WriteShortLE(e.TypeLikeScalar));
-		Emit(o, WriteShortLE(e.RefRow6));
-		Emit(o, WriteShortLE(e.RefRow7));
-		Emit(o, WriteShortLE(e.SmallDiscrete));
-		Emit(o, WriteShortLESegment(e.SparseBlock));
-		Emit(o, WriteShortLE(e.RefRow10Slot1));
-		Emit(o, WriteShortLE(e.RefRow10Slot2));
+		Emit(o, WriteShortLE(e.TypeIndex));
+		Emit(o, WriteShortLE(e.PositionRef));
+		Emit(o, WriteShortLE(e.HeadingRef));
+		Emit(o, WriteShortLE(e.PairCount));
+		Emit(o, WriteShortLESegment(e.OutOfActionReport));
+		Emit(o, WriteShortLE(e.EngagementActionRef));
+		Emit(o, WriteShortLE(e.DefeatActionRef));
 		Emit(o, WriteShortLE(e.TrailingField));
 	}
 

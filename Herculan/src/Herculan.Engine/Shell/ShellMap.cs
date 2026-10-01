@@ -167,7 +167,7 @@ public sealed class ShellMap {
 
 		// Block 9 kept whole, then every type-2 group writes its members' shown field and, from its own
 		// point or its route's first, their position.
-		var bases = script.MiscEntities.Select(b => new ShellMapBase(b.TypeLikeScalar, b.PositionRef,
+		var bases = script.MiscEntities.Select(b => new ShellMapBase(b.TypeIndex, b.PositionRef,
 			BitConverter.ToInt16(b.TailBytes, BaseShownTailOffset))).ToArray();
 		foreach (var owner in script.Entities164.Where(g => g.Discriminator == 2)) {
 			foreach (short member in owner.DiscriminatedRefs) {

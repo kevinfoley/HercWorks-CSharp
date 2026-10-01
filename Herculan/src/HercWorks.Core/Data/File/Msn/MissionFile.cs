@@ -56,10 +56,10 @@ public class MissionFile {
 	public ActionTimer30[]? ActionTimers { get; set; }
 
 	/// <summary>Row #12 — entity/spawn-style records; second, distinct 144-byte type from row #4.</summary>
-	public EntityTemplate144[]? SpawnRecords { get; set; }
+	public MechRosterEntry144[]? SpawnRecords { get; set; }
 
 	/// <summary>Row #13 — a per-item boolean flag set with mostly-dead cross-refs.</summary>
-	public UnkEntity102Bytes[]? Entities102 { get; set; }
+	public FlyerRosterEntry102[]? Entities102 { get; set; }
 
 	/// <summary>Row #14 — misc entity info (buildings/vehicles).</summary>
 	public MiscEntityInfo[]? MiscEntities { get; set; }
@@ -92,8 +92,8 @@ public class MissionFile {
 	public LinkOrReward12? GetLinkOrReward(short guid) => FindByGuid(LinksOrRewards, guid);
 	public Action82? GetAction(short guid) => FindByGuid(Actions, guid);
 	public ActionTimer30? GetActionTimer(short guid) => FindByGuid(ActionTimers, guid);
-	public EntityTemplate144? GetSpawnRecord(short guid) => FindByGuid(SpawnRecords, guid);
-	public UnkEntity102Bytes? GetEntity102(short guid) => FindByGuid(Entities102, guid);
+	public MechRosterEntry144? GetSpawnRecord(short guid) => FindByGuid(SpawnRecords, guid);
+	public FlyerRosterEntry102? GetEntity102(short guid) => FindByGuid(Entities102, guid);
 	public MiscEntityInfo? GetMiscEntity(short guid) => FindByGuid(MiscEntities, guid);
 	public LinkedRef22? GetLinkedRef22(short guid) => FindByGuid(LinkedRefs22, guid);
 	public EntitySpawn164? GetEntity164(short guid) => FindByGuid(Entities164, guid);

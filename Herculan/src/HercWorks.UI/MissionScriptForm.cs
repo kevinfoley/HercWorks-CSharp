@@ -169,7 +169,7 @@ public partial class MissionScriptForm : Form {
 		// values the new lists may not cover, so they have to go before the swap.
 		_mechRows.Clear();
 		_slotRows.Clear();
-		_mechTypeColumn.DataSource = HercTypeOption.Build(script.SpawnRecords.Select(r => r.SmallDiscrete));
+		_mechTypeColumn.DataSource = HercTypeOption.Build(script.SpawnRecords.Select(r => r.TypeIndex));
 		_slotWeaponColumn.DataSource = WeaponFitOption.Build(script.SpawnRecords.SelectMany(r => r.WeaponRefs), includeEmptySlot: true);
 		_slotAmmoColumn.DataSource = AmmoTypeOption.Build(script.SpawnRecords.SelectMany(r => r.WeaponSecondary));
 

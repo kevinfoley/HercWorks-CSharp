@@ -109,7 +109,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 
 	private ScriptSpawnRecordExport ParseSpawnRecordExport() => new() {
 		HeadBytes = IndexSegment(40),
-		SmallDiscrete = IndexShortLE(),
+		TypeIndex = IndexShortLE(),
 		WeaponRefs = IndexShortLEArray(10),
 		PositionRef = IndexShortLE(),
 		HeadingRef = IndexShortLE(),
@@ -122,14 +122,14 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		HeadBytes = IndexSegment(40),
 		PositionRef = IndexShortLE(),
 		HeadingRef = IndexShortLE(),
-		BinaryField = IndexShortLE(),
+		TypeIndex = IndexShortLE(),
 		TailBytes = IndexSegment(46)
 	};
 
 	// ---- Block 9: ScriptMiscEntityExport (52 bytes) --------------------------------------------
 
 	private ScriptMiscEntityExport ParseMiscEntityExport() => new() {
-		TypeLikeScalar = IndexShortLE(),
+		TypeIndex = IndexShortLE(),
 		PositionRef = IndexShortLE(),
 		HeadingRef = IndexShortLE(),
 		TailBytes = IndexSegment(46)
@@ -256,7 +256,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 
 	private void WriteSpawnRecordExport(MemoryStream o, ScriptSpawnRecordExport e) {
 		Emit(o, e.HeadBytes);
-		Emit(o, WriteShortLE(e.SmallDiscrete));
+		Emit(o, WriteShortLE(e.TypeIndex));
 		Emit(o, WriteShortLESegment(e.WeaponRefs));
 		Emit(o, WriteShortLE(e.PositionRef));
 		Emit(o, WriteShortLE(e.HeadingRef));
@@ -267,12 +267,12 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Emit(o, e.HeadBytes);
 		Emit(o, WriteShortLE(e.PositionRef));
 		Emit(o, WriteShortLE(e.HeadingRef));
-		Emit(o, WriteShortLE(e.BinaryField));
+		Emit(o, WriteShortLE(e.TypeIndex));
 		Emit(o, e.TailBytes);
 	}
 
 	private void WriteMiscEntityExport(MemoryStream o, ScriptMiscEntityExport e) {
-		Emit(o, WriteShortLE(e.TypeLikeScalar));
+		Emit(o, WriteShortLE(e.TypeIndex));
 		Emit(o, WriteShortLE(e.PositionRef));
 		Emit(o, WriteShortLE(e.HeadingRef));
 		Emit(o, e.TailBytes);

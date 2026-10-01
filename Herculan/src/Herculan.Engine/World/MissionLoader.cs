@@ -633,8 +633,8 @@ public static class MissionLoader {
 
 			placements.Add(new MissionPlacement(
 				MissionUnitKind.Mech,
-				record.SmallDiscrete,
-				mechNames[record.SmallDiscrete],
+				record.TypeIndex,
+				mechNames[record.TypeIndex],
 				slot,
 				group.Index,
 				position,
@@ -662,8 +662,8 @@ public static class MissionLoader {
 			var offset = flyerFormations.OffsetFor(group.FormationId, claim.MemberIndex);
 			placements.Add(new MissionPlacement(
 				MissionUnitKind.Flyer,
-				record.BinaryField,
-				flyerNames[record.BinaryField],
+				record.TypeIndex,
+				flyerNames[record.TypeIndex],
 				slot,
 				group.Index,
 				Coordinate(script, record.PositionRef)
@@ -692,7 +692,7 @@ public static class MissionLoader {
 
 			placements.Add(new MissionPlacement(
 				MissionUnitKind.Base,
-				record.TypeLikeScalar,
+				record.TypeIndex,
 				null,
 				slot,
 				group.Index,

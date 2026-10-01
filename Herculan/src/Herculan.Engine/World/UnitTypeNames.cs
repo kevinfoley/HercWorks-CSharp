@@ -8,7 +8,7 @@ namespace Herculan.Engine.World;
 /// <c>nam\FLYERS.NAM</c>, each a flat run of NUL-terminated ASCII names indexed by type.
 ///
 /// <para>This is the missing half of <c>script.dat</c>'s mech roster: block 7's
-/// <c>SmallDiscrete</c> is a mech type, but nothing in <c>script.dat</c> says what type 13 is.
+/// <c>TypeIndex</c> is a mech type, but nothing in <c>script.dat</c> says what type 13 is.
 /// <c>MechType_InitOne</c> (<c>004201a8</c>) answers it — its first act is
 /// <c>nameTable[typeIndex]</c> followed by joining that name to the <c>dat\</c>, <c>dts\</c> and
 /// <c>bnd\</c> folder prefixes, so the name is simultaneously the mech's stats file, its model and

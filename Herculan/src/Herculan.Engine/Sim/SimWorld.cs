@@ -185,7 +185,7 @@ public sealed class SimWorld {
 	///
 	/// <para>Two ported sites need it and both are audio range gates: a footfall is only played for a
 	/// machine within <see cref="MechObject.FootfallAudibleRange"/> of it, and a launcher round
-	/// announces itself when it first comes inside <see cref="Rocket.InboundWarningRange"/>. Neither
+	/// announces itself when it comes inside <see cref="Rocket.InboundWarningRange"/>. Neither
 	/// is a rendering concern — the original makes both tests inside the simulation, before it calls
 	/// the sound layer at all.</para>
 	/// </summary>

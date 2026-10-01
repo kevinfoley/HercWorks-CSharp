@@ -52,7 +52,7 @@ A steer of the euler angles, not of a velocity, as the plasma round's is — but
 
 ## `Rocket_PlayerSteer` (`0040a488`) — the player flying the missile
 
-Not a "non-homing variant": the pilot flies the electro-optical missile from its nose camera. It reads two axis values through pointers in the **player input block** at `0x4d234a` ([`../formats/tap-input-tape.md`](../formats/tap-input-tape.md)) — one turns the round's yaw, the other its pitch — steers by `Q8Multiply(0x500, axis)` per tick with no rate limit and no deadband, and zeroes them.
+Not a "non-homing variant": the pilot flies the electro-optical missile from its nose camera. It reads two axis values through pointers in the **player input block** at `0x4d234a` ([`../formats/tap-input-tape.md`](../formats/tap-input-tape.md)) — one turns the round's yaw, the other its pitch — steers by `Q8Multiply(0x500, axis)` per tick with no rate limit and no deadband, and zeroes them. It also clears the trigger byte itself. `Sim_MainTick` rebuilds the byte with `Input_BuildPlayerDevice` before it walks the effect pool and reads it in `Sim_PollPlayerInput` after, so while the player flies a round the trigger never reaches the fire path and the machine fires nothing.
 
 The gate is the block's `+0x0d`, `0x4d2357`: **the fire trigger** ([`weapon-firing.md`](weapon-firing.md#the-trigger-is-polled-not-dispatched)), so the round is flown only while the trigger is held. With the trigger released the function drops the round's target and rewrites its subtype id to 0, and the round flies straight on as an unguided subtype 0 round (`Rocket_TickUpdate` then sends it to `Rocket_HomingSteer`, which has no target to steer at).
 
@@ -62,7 +62,7 @@ The shape is a static body plus a two-cell animation of flame cones at the tail 
 
 ## Open
 
-- **Unported:** the missile camera and the player-flown round it exists for: `Rocket_PlayerSteer`, `DAT_004d25aa`, and the two globals `DAT_0049c394`/`DAT_0049c398` with their reader `MfdMissileViewScreen_Paint`. A player-flown round flies straight.
+- **Unported:** the missile camera and flying the round from it: `Rocket_PlayerSteer`'s held-trigger branch (the stick steer and its clearing of the trigger), `DAT_004d25aa`, the trigger clear and press-once latch when a player-flown round ends, and the two globals `DAT_0049c394`/`DAT_0049c398` with their reader `MfdMissileViewScreen_Paint`. A round flown with the trigger held keeps its heading; the release branch is ported.
 - **Unported:** the node handle (`+0x5a`) a homing round steers at.
 - **Unported:** the ECM wobble on a homing round's steer.
 - **Unported:** the selection gate on a locally piloted owner's homing round.

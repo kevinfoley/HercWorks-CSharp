@@ -46,7 +46,8 @@ namespace Herculan.Engine.Sim;
 /// firing-mechanism selector".</para>
 /// </summary>
 public sealed class Rocket {
-	private readonly RocketType _record;
+	private RocketType _record;
+	private short _subtype;
 	private Transform3 _frame;
 	private short _eulerX;
 	private short _eulerY;
@@ -74,6 +75,7 @@ public sealed class Rocket {
 			Vec3i muzzle, (short X, short Y, short Z) aim, short ownerSpeed, SimObject? owner) {
 		Data = projectile;
 		_record = record;
+		_subtype = projectile.SubtypeId;
 		Owner = owner;
 
 		_eulerX = aim.X;
@@ -102,10 +104,18 @@ public sealed class Rocket {
 	public ProjectileData.Projectile Data { get; }
 
 	/// <summary>
-	/// The record's subtype id, <c>+0x41</c>. It indexes <see cref="RocketCatalog"/>, picks the shape
-	/// drawn, and selects which of the guidance branches the round would take.
+	/// <c>+0x41</c>, the round's own subtype id, set at launch from the firing record's. It picks the
+	/// <see cref="RocketCatalog"/> record the round reads and which guidance branch it takes;
+	/// <see cref="GuidanceTick"/> rewrites it to <see cref="ReleasedSubtype"/> when the player lets a
+	/// round go.
 	/// </summary>
-	public short SubtypeId => Data.SubtypeId;
+	public short SubtypeId => _subtype;
+
+	/// <summary>
+	/// The subtype the round's shape was built from at launch. A later rewrite of
+	/// <see cref="SubtypeId"/> does not change what is drawn.
+	/// </summary>
+	public short ShapeSubtypeId => Data.SubtypeId;
 
 	/// <summary>
 	/// Subtype 2 — <c>ARM</c>, the anti-radiation missile. <c>Rocket_HomingSteer</c> singles it out by
@@ -116,12 +126,17 @@ public sealed class Rocket {
 	public const short AntiRadiationSubtype = 2;
 
 	/// <summary>
-	/// Subtype 3 — <c>EO</c>, the electro-optical missile, the one the pilot flies himself.
+	/// Subtype 3 — <c>EO</c>, the electro-optical missile, the one the player flies.
 	/// <c>Rocket_TickUpdate</c> sends it to <c>Rocket_PlayerSteer</c> (<c>0040a488</c>) instead of
-	/// the seeker when its owner is the locally-simulated machine, and that reads the player's stick
-	/// straight out of the global input block at <c>0x4d234a</c>. See <see cref="Tick"/>.
+	/// the seeker when its owner is locally piloted. See <see cref="GuidanceTick"/>.
 	/// </summary>
 	public const short PlayerFlownSubtype = 3;
+
+	/// <summary>
+	/// What <c>Rocket_PlayerSteer</c> rewrites a <see cref="PlayerFlownSubtype"/> round's subtype to
+	/// once the trigger is released.
+	/// </summary>
+	public const short ReleasedSubtype = 0;
 
 	/// <summary>The machine that fired. The sweep skips it, so nothing shoots itself.</summary>
 	public SimObject? Owner { get; }
@@ -194,6 +209,8 @@ public sealed class Rocket {
 	/// <item><b>The step</b>, <c>IntegrateRateOverTick(speed)</c>, taken along the frame's Y axis.</item>
 	/// <item><b>The hit test is a raycast over that step alone</b>, exactly as a gun round's is, with
 	/// the record's own slack in place of the beam's literal 200.</item>
+	/// <item><b>The proximity warning</b>, last, on every tick including the one that ends the round
+	/// — see <see cref="InboundWarningTick"/>.</item>
 	/// </list>
 	///
 	/// <para><b>The acceleration is damped, not linear.</b> The original adds the record's rate to
@@ -202,13 +219,20 @@ public sealed class Rocket {
 	/// otherwise, and the whole climb is capped at the <c>PROJ.DAT</c> record's <c>Speed</c>. Kept
 	/// literally: it is what the burn curve is.</para>
 	///
-	/// <para><b>One thing the original does here is left out.</b> The pair of globals that track the
-	/// missile the player is flying (<c>DAT_0049c394</c> and <c>DAT_0049c398</c>) exist to tell the
-	/// cockpit that its missile view is over; there is no missile view. The proximity warning is
-	/// <see cref="InboundWarningTick"/>.</para>
+	/// <para><b>What the original does when a round ends is left out.</b> The pair of globals that
+	/// track the missile the player is flying (<c>DAT_0049c394</c> and <c>DAT_0049c398</c>) exist to
+	/// tell the cockpit that its missile view is over, and the trigger release and press-once latch
+	/// that follow a player-flown round's end belong to flying it; there is no missile view.</para>
 	/// </summary>
 	/// <returns>Whether the round is finished and should be freed.</returns>
 	internal bool Tick(SimWorld world) {
+		bool finished = FlightTick(world);
+		InboundWarningTick(world);
+		return finished;
+	}
+
+	/// <summary><see cref="Tick"/> up to and including the hit test.</summary>
+	private bool FlightTick(SimWorld world) {
 		AnimationTick();
 
 		_age = (short)(_age + 1);
@@ -218,8 +242,7 @@ public sealed class Rocket {
 		}
 
 		AccelerationTick();
-		GuidanceTick();
-		InboundWarningTick(world);
+		GuidanceTick(world);
 
 		short step = (short)SimMath.IntegrateRateOverTick(_speed);
 		RebuildFrame();
@@ -250,29 +273,32 @@ public sealed class Rocket {
 	/// </summary>
 	public const int InboundWarningRange = 0x9c40;
 
-	/// <summary><c>round+0x6</c> — the latch that makes the warning fire once per round.</summary>
+	/// <summary><c>round+0x06</c> — the latch that holds the warning to once per approach.</summary>
 	private bool _warned;
 
 	/// <summary>
-	/// <c>Rocket_TickUpdate</c>'s missile-inbound warning: every tick the round measures itself
-	/// against the camera, and the first time it comes inside <see cref="InboundWarningRange"/> it
-	/// plays <see cref="SoundId.MissileInbound"/> and latches.
-	///
-	/// <para><b>It does not care whose missile it is</b>, or where it is heading — the original tests
-	/// distance to the view and nothing else, so the player's own launch warns them as it leaves.
-	/// And it is not positional: the warning is a cockpit tone, played through <c>Sound_Play</c>.</para>
+	/// <c>Rocket_TickUpdate</c>'s missile-inbound warning. A round whose owner is not locally piloted
+	/// plays <see cref="SoundId.MissileInbound"/> when it is inside <see cref="InboundWarningRange"/>
+	/// of the camera with the latch clear, and sets the latch; outside that range the latch clears, so
+	/// a round that leaves and comes back warns again. The player's own rounds never warn. The
+	/// warning is a cockpit tone, played through <c>Sound_Play</c>, not a positional sound. See
+	/// docs/simulation/rockets.md ("Flight").
 	/// </summary>
 	private void InboundWarningTick(SimWorld world) {
-		if (_warned || world.Sounds is not { } sounds) {
+		if (Owner is { LocallyPiloted: true }) {
 			return;
 		}
 
-		var position = new Vec3i(_frame.X, _frame.Y, _frame.Z);
-		if (position.ApproxDistanceTo(world.ListenerPosition) >= InboundWarningRange) {
+		if (Position.ApproxDistanceTo(world.ListenerPosition) >= InboundWarningRange) {
+			_warned = false;
 			return;
 		}
 
-		sounds.Play(SoundId.MissileInbound);
+		if (_warned) {
+			return;
+		}
+
+		world.Sounds?.Play(SoundId.MissileInbound);
 		_warned = true;
 	}
 
@@ -296,22 +322,26 @@ public sealed class Rocket {
 	}
 
 	/// <summary>
-	/// <c>Rocket_TickUpdate</c>'s guidance branch: the pilot flies an <see cref="PlayerFlownSubtype"/>
-	/// round of his own, everything else seeks.
+	/// <c>Rocket_TickUpdate</c>'s guidance branch: <c>Rocket_PlayerSteer</c> (<c>0040a488</c>) for a
+	/// <see cref="PlayerFlownSubtype"/> round whose owner is locally piloted, <see cref="HomingTick"/>
+	/// for everything else.
 	///
-	/// <para><b>The player's branch is not ported.</b> <c>Rocket_PlayerSteer</c> (<c>0040a488</c>)
-	/// reads two axis accumulators straight out of the global input block the frame loop fills
-	/// (<c>0x4d234a</c>), consumes them and zeroes them, and steers by <c>Q8Multiply(0x500, axis)</c>
-	/// per tick with no rate limit and no deadband — it is a missile the pilot flies from a camera in
-	/// its nose, and there is no missile view here to fly it from. The original's own no-input state
-	/// is destructive rather than inert (it drops the round's target and rewrites its subtype id to
-	/// zero, which would change both the record it reads and the shape it draws mid-flight), so
-	/// reproducing that with an input source that can never be fed would be reproducing a state the
-	/// original only ever passes through, not one it sits in. A player-flown round flies straight
-	/// instead.</para>
+	/// <para>The player flies the round only while the fire trigger is held. Once it is released the
+	/// round drops its target and becomes <see cref="ReleasedSubtype"/>, reading that subtype's
+	/// <c>ROCKETS.DAT</c> record from then on and seeking with nothing to seek, so it flies straight
+	/// on. See docs/simulation/rockets.md ("<c>Rocket_PlayerSteer</c>").</para>
 	/// </summary>
-	private void GuidanceTick() {
-		if (SubtypeId == PlayerFlownSubtype && Owner is MechObject { IsPlayer: true }) {
+	private void GuidanceTick(SimWorld world) {
+		if (SubtypeId == PlayerFlownSubtype && Owner is MechObject { LocallyPiloted: true } pilot) {
+			if (pilot.Controls.Fire) {
+				// PLACEHOLDER: the steer by the stick from the missile's nose camera is unported (there is
+				// no missile view), so a round flown with the trigger held keeps its heading.
+				return;
+			}
+
+			Target = null;
+			_subtype = ReleasedSubtype;
+			_record = world.Rockets?.Record(ReleasedSubtype) ?? _record;
 			return;
 		}
 

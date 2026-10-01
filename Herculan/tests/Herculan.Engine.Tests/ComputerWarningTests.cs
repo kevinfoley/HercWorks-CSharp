@@ -206,7 +206,7 @@ public class ComputerWarningTests {
 	/// torso height: fired from the machine's own origin it starts at ground level, and the terrain
 	/// query clips the ray to nothing before an object is ever tested.
 	/// </summary>
-	private static WeaponShot Shot(MechObject shooter) {
+	internal static WeaponShot Shot(MechObject shooter) {
 		var muzzle = shooter.WorldTransform;
 		muzzle.Z += MuzzleHeight;
 		return new WeaponShot(muzzle, ShotRange, ShotDamage, ShotDamage, TestRound, shooter, excluded: null);
@@ -276,7 +276,7 @@ public class ComputerWarningTests {
 	private const int BlastRadius = 40000;
 
 	/// <summary>Records the message ids posted to the port and ignores every other noise.</summary>
-	private sealed class MessageLog : ISoundSink {
+	internal sealed class MessageLog : ISoundSink {
 		public List<int> Said { get; } = new();
 
 		public void Say(int messageId) => Said.Add(messageId);
@@ -300,7 +300,7 @@ public class ComputerWarningTests {
 		public void SquadUnsay(int messageId, object? speaker) { }
 	}
 
-	private static SimWorld FlatWorld(ISoundSink sounds, params MechObject[] mechs) {
+	internal static SimWorld FlatWorld(ISoundSink sounds, params MechObject[] mechs) {
 		const int widthShift = 8;
 		const int cellShift = 12;
 		const int cellCount = 1 << (widthShift * 2);
@@ -331,7 +331,7 @@ public class ComputerWarningTests {
 	/// damage entry point returns at its first line, and a test that shells the machine would pass
 	/// while proving nothing.
 	/// </summary>
-	private static MechObject? Spawn(GameContent content, string herc) {
+	internal static MechObject? Spawn(GameContent content, string herc) {
 		if (content.Read("dat", herc + ".DAT") is not { } datBytes
 				|| new HercSimDataTransformer().Parse(datBytes) is not HercSimDat data
 				|| content.Read("dmg", herc + ".DMG") is not { } dmgBytes
@@ -345,7 +345,7 @@ public class ComputerWarningTests {
 		return new MechObject(herc, data, 0, MechLoadout.None, damage: damage);
 	}
 
-	private static GameContent? Content() {
+	internal static GameContent? Content() {
 		string? root = GameInstall.Locate(null);
 		return root != null ? GameContent.Mount(GameInstall.ArchiveDirectory(root)) : null;
 	}

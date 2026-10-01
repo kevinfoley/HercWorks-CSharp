@@ -56,7 +56,7 @@ A mission action timer's delay is the one stated in seconds: it is shifted left 
 
 | Reading | Why it is wrong |
 |---|---|
-| The distance test in `Rocket_TickUpdate` (`0040a538`), `Math_FastMagnitude3D(round - camera) < 40000`, is a proximity fuze or a target-proximity check | It measures the round's distance to the machine the camera is following (`ViewObjectPtr`) and plays a warning beep, for rounds from a machine that is not locally piloted. Nothing detonates on it; a round ends on its lifetime or on the raycast alone. The beep's conditions are [`rockets.md`](rockets.md#flight--rocket_tickupdate-0040a538)'s |
+| The distance test in `Rocket_TickUpdate` (`0040a538`), `Math_FastMagnitude3D(round - camera) < 40000`, is a proximity fuze or a target-proximity check | It measures the round's distance to the camera (`ViewObjectPtr`) and plays a warning beep, for rounds from a machine that is not locally piloted. Nothing detonates on it; a round ends on its lifetime or on the raycast alone. The beep's conditions are [`rockets.md`](rockets.md#flight--rocket_tickupdate-0040a538)'s |
 | A countdown's value is in milliseconds | The unit is one `SimTickDelta` count, 125/256 ms. A reload of 10000 lasts about 4.9 s |
 
 ## Open

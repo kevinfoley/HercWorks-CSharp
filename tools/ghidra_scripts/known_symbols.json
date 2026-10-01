@@ -5243,7 +5243,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_FastMagnitude3D",
-      "description": "Sqrt-free 3D magnitude approximation: L + M*0.34375 + S*0.25 (sorted |dx|,|dy|,|dz|). Verified via raw disassembly (three CMP/XCHG sort pairs, SAR+ADD coefficient chains). Direction-dependent error: about 8% low on the body diagonal, up to about 8.7% high elsewhere. Reused for collision bounding-sphere radius, sound placement, LOD size and the rocket's proximity beep (round to camera machine, not a fuze).",
+      "description": "Sqrt-free 3D magnitude approximation: L + M*0.34375 + S*0.25 (sorted |dx|,|dy|,|dz|). Verified via raw disassembly (three CMP/XCHG sort pairs, SAR+ADD coefficient chains). Direction-dependent error: about 8% low on the body diagonal, up to about 8.7% high elsewhere. Reused for collision bounding-sphere radius, sound placement, LOD size and the rocket's proximity beep (round to camera, not a fuze).",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -5362,7 +5362,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_TickUpdate",
-      "description": "Per-tick launcher-round update, vtable +0x14. Steps the shape cell-anim frame on ROCKETS.DAT +0x08/+0x0a (the exhaust flame, NOT a seeker reacquire); age +1 vs record +0x02 in ticks; damped burn speed += Math_IntegrateRateOverTick(record +0x04) averaged with the opening speed, capped at PROJ.DAT Speed; Rocket_PlayerSteer for a locally-simulated subtype 3 else Rocket_HomingSteer; Sim_RaycastObjectList over this tick step with record +0x06 as slack. Proximity beep under 40000 units.",
+      "description": "Per-tick launcher-round update, vtable +0x14. Steps the shape cell-anim frame on ROCKETS.DAT +0x08/+0x0a (the exhaust flame, NOT a seeker reacquire); age +1 vs record +0x02 in ticks; damped burn speed += Math_IntegrateRateOverTick(record +0x04) averaged with the opening speed, capped at PROJ.DAT Speed; Rocket_PlayerSteer for a locally-simulated subtype 3 else Rocket_HomingSteer; Sim_RaycastObjectList over this tick step with record +0x06 as slack. Last, on every tick: for a round whose owner is not locally piloted (owner+0xa3 clear), sound 0x32 within 40000 of ViewObjectPtr, latched at round+0x06 and re-armed when the round leaves that range.",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -5389,7 +5389,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_PlayerSteer",
-      "description": "The electro-optical missile's nose-camera control, not a ballistic variant. Reads two axis accumulators out of the global player control block at 0x4d234a, steers by Math_Q8Multiply(0x500, axis) per tick with no rate limit or deadband, and zeroes them. Gate 0x4d2357 is missile-control-active; with it clear the function drops the round's target and rewrites its subtype id to 0.",
+      "description": "The electro-optical missile's nose-camera control, not a ballistic variant. Reads two axis accumulators out of the global player control block at 0x4d234a, steers by Math_Q8Multiply(0x500, axis) per tick with no rate limit or deadband, and zeroes them. Gate 0x4d2357 is the fire trigger (input device +0x0d); with it set the function also clears it, so the player's fire path never sees the trigger while a round is flown; with it clear the function drops the round's target and rewrites its subtype id to 0.",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -15369,7 +15369,7 @@
       "confidence": "high",
       "name": "Base_DeathSequenceTick",
       "signature": "void __cdecl Base_DeathSequenceTick(int *structure)",
-      "description": "Steps every structure part that is coming down through the next stage of its death sequence, counting the stage number DOWN from the count Base_ApplyDamage seeded. Stage above 1 scatters one smoke explosion at a random point inside the part's own spread box and reloads the timer to 300, and stage exactly 4 also runs Base_FinishDependents. Stage 1 is the collapse: Base_CollapseExplosion, Base_ThrowDebris, then either the part's sub-shape stops being drawn or -- for the last part of a type that leaves a wreck -- the object's model instance shape pointer is switched to g_HulkShapes[typeRec+0x04]. Stage 0 lights the fire, or drops a one-part type that leaves nothing to -100000 on its Z.",
+      "description": "Steps every structure part that is coming down through the next stage of its death sequence, counting the stage number DOWN from the count Base_ApplyDamage seeded. Stage above 1 scatters one smoke explosion at a random point inside the part's own spread box and reloads the timer to 300, and stage exactly 4 also runs Base_FinishDependents. Stage 1 is the collapse: Base_CollapseExplosion, Base_ThrowDebris, then either the part's sequence (component +2) steps to its rubble cell and Base_FinishDependents runs, or -- once Base_EveryPartGone passes, for a type that leaves a wreck (typeRec+0x04 >= 0), whatever the fires -- the object's model instance shape pointer is switched to g_HulkShapes[typeRec+0x04]. Stage 0 lights a fire (the type's once every part is gone when the type and the part both state one, else the part's own), or drops a one-part type with no wreck and no part sequence to -100000 on its Z.",
       "source": "docs/simulation/destruction-effects.md"
     },
     {
@@ -16163,7 +16163,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_CircleStep",
-      "description": "The circling step flanking and attacking base share. On mech+0x60 (1000 ms break-off) it reverses in a straight line; otherwise it circles a target whose |aspect| is under the mech+0x66 hysteresis threshold (0x6000 circling, 0x4000 squared up) by steering at a point 15000 units out from the target on this machine's approach line rotated +/-6000, and squares up on one that is not, standing still while its own turret twist is inside 2000. The break-off is armed only once mech+0x288 (total damage taken) passes 100.",
+      "description": "The circling step flanking and attacking base share. On mech+0x60 (a 1000-count break-off, about half a second) it reverses in a straight line; otherwise it circles a target whose |aspect| is under the mech+0x66 hysteresis threshold (0x6000 circling, 0x4000 squared up) by steering at a point 15000 units out from the target on this machine's approach line rotated +/-6000, and squares up on one that is not, standing still while its own turret twist is inside 2000. The break-off is armed only while mech+0x288 (damage taken in the current ~2 s window, which Mech_PerTickSystemsUpdate zeroes at each expiry of the +0x285 countdown) is past 100.",
       "source": "docs/simulation/ai-combat-states.md"
     },
     {

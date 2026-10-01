@@ -154,7 +154,8 @@ public readonly record struct BaseComponentType(
 /// </param>
 /// <param name="DestroyedEffect">
 /// <c>+0x10</c> — the death sequence the structure runs as a whole, in place of the failing part's
-/// own. Read only when this was the last part standing.
+/// own. Read only once every part is gone, and only when the type and the failing part both state a
+/// fire.
 /// </param>
 /// <param name="AimPointHeight">
 /// <c>+0x2c</c> — how far up the structure anything aiming at it aims, in world units. Two vtable

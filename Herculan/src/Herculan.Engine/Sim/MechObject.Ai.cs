@@ -741,8 +741,8 @@ public partial class MechObject {
 		Group?.OrderVerb is 5 or 6;
 
 	/// <summary>
-	/// The three AI countdowns <c>Mech_PerTickSystemsUpdate</c> steps, and the accumulator the third
-	/// one clears. Called once per tick per machine from the systems pass.
+	/// The AI countdowns <c>Mech_PerTickSystemsUpdate</c> steps, in its order, and the two damage
+	/// accumulators their expiries clear. Called once per tick per machine from the systems pass.
 	/// </summary>
 	internal void AiTimersTick() {
 		int retarget = RetargetCooldown;
@@ -763,6 +763,14 @@ public partial class MechObject {
 		}
 
 		UnderFireWindow = underFire;
+
+		short damageWindow = DamageWindowTimer;
+		if (SimMath.CountdownTimerTick(ref damageWindow) == 0) {
+			damageWindow = DamageWindowReload;
+			DamageTaken = 0;
+		}
+
+		DamageWindowTimer = damageWindow;
 	}
 
 	/// <summary><c>mech+0xac</c> — a target was just handed over; skip one acquisition.</summary>

@@ -799,13 +799,13 @@ public sealed partial class BaseObject : SimObject {
 	/// this one is finished off, so a tower goes when the block under it does.</item>
 	/// <item><b>Stage 1 is the collapse.</b> The sequence's own explosion goes off, the part throws
 	/// its debris out of <c>BASE_DEB</c>, and then either the part is redrawn as its own rubble or —
-	/// for the last part of a type that leaves a wreck — the whole structure switches over to its
-	/// hulk.</item>
-	/// <item><b>Stage 0 is the fire</b>, and it is where the two scales meet: a type that states a
-	/// whole-structure fire lights that one once every part is down, and every other part lights its
-	/// own. A structure whose type and part both state none, and which has exactly one part, is
-	/// dropped through the floor instead — <see cref="SunkDepth"/>, the original's own way of making
-	/// a small object disappear.</item>
+	/// once every part is gone, for a type that leaves a wreck — the whole structure switches over to
+	/// its hulk.</item>
+	/// <item><b>Stage 0 is the fire</b>, and it is where the two scales meet. When the type and the
+	/// part both state a fire, only the type's whole-structure fire is lit, once every part is gone;
+	/// otherwise the part lights its own, if it states one. A structure with no wreck and exactly one
+	/// part, which has no rubble cell, is dropped through the floor instead —
+	/// <see cref="SunkDepth"/>, the original's own way of making a small object disappear.</item>
 	/// </list>
 	///
 	/// <para>The part changes through <see cref="CellFrames"/>: its sequence steps to
@@ -852,9 +852,10 @@ public sealed partial class BaseObject : SimObject {
 	}
 
 	/// <summary>
-	/// The last stage. A type that states a whole-structure fire uses it in place of the part's own,
-	/// but only once every part is down (<see cref="EveryPartGone"/>); otherwise the part burns
-	/// alone. A structure with neither, and only one part, is dropped out of the world.
+	/// The last stage. When the type and the part both state a fire, the type's whole-structure fire
+	/// is lit in place of the part's, and only once every part is gone (<see cref="EveryPartGone"/>);
+	/// otherwise the part burns alone. A structure with no wreck and one part, which has no rubble
+	/// cell, is dropped out of the world.
 	/// </summary>
 	private void LightTheFire(SimWorld world, BaseComponentType component) {
 		if (Type.HulkTypeIndex == -1 && component.DestroyedSubShape == -1
@@ -881,15 +882,17 @@ public sealed partial class BaseObject : SimObject {
 	}
 
 	/// <summary>
-	/// The collapse. The explosion is the type's own when this was the last part standing and the
-	/// part's own otherwise, and the sequence decides whether it goes off at the emission point or at
-	/// the structure's origin. Then the debris, and then the shape change.
+	/// The collapse. The explosion is the type's own when every part is gone and the type and this
+	/// part both state a fire, and the part's own otherwise; the sequence decides whether it goes off
+	/// at the emission point or at the structure's origin. Then the debris, and then the shape change:
+	/// the hulk once every part is gone, whatever the fires, for a type that leaves a wreck. See
+	/// docs/simulation/destruction-effects.md ("A structure coming down").
 	/// </summary>
 	private void Collapse(SimWorld world, int index, BaseComponentType component,
 			StructureDeathSequence sequence) {
-		bool whole = EveryPartGone() && Type.FireShapeIndex >= 0 && component.FireShapeIndex >= 0;
+		bool gone = EveryPartGone();
 
-		if (whole) {
+		if (gone && Type.FireShapeIndex >= 0 && component.FireShapeIndex >= 0) {
 			SpawnCollapseExplosion(world, Type.DestroyedEffect, Type.FirePoint, ref _deathTimer[index]);
 		} else if (component.DestroyedEffect >= 0) {
 			SpawnCollapseExplosion(world, component.DestroyedEffect, component.EmitPoint,
@@ -898,9 +901,9 @@ public sealed partial class BaseObject : SimObject {
 
 		ThrowDebris(world, component);
 
-		// A type that leaves a wreck switches to it when its last part falls; anything else loses the
+		// A type that leaves a wreck switches to it once every part is gone; anything else loses the
 		// part's own geometry and takes everything hanging off that part with it.
-		if (whole && Type.HulkTypeIndex != -1) {
+		if (gone && Type.HulkTypeIndex >= 0) {
 			ShowingHulk = true;
 			return;
 		}

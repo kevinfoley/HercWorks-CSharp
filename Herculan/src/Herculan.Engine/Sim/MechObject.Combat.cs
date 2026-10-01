@@ -260,10 +260,20 @@ public sealed partial class MechObject {
 	private short _autoTrackIdle;
 
 	/// <summary>
-	/// Total damage this machine has taken, <c>mech+0x288</c> — the running sum the original keeps of
-	/// everything both shields and armour have absorbed.
+	/// <c>mech+0x288</c> — the damage shields and armour have absorbed inside the current
+	/// <see cref="DamageWindowTimer"/> window, about two seconds; <see cref="AiTimersTick"/> zeroes it
+	/// at each expiry. See docs/simulation/ai-combat-states.md ("The circling step").
 	/// </summary>
 	public int DamageTaken { get; private set; }
+
+	/// <summary>
+	/// <c>mech+0x285</c> — the countdown <see cref="DamageTaken"/> accumulates over, reloaded with
+	/// <see cref="DamageWindowReload"/> at each expiry.
+	/// </summary>
+	public short DamageWindowTimer { get; private set; }
+
+	/// <summary>The damage window, in <see cref="SimMath.CountdownTimerTick"/>'s unit — about two seconds.</summary>
+	public const short DamageWindowReload = 4000;
 
 	/// <summary>
 	/// How many shots have got past this machine's shields. Not part of the original — a plain
@@ -745,11 +755,11 @@ public sealed partial class MechObject {
 
 		short overflow = Shields.AbsorbExplosion(front, damage);
 
-		// What the facing swallowed. The overflow comes back in the blast's own units -- the two shield
-		// scales are exact inverses -- so the two subtract directly. The original's own write of this
-		// field on this path has not been read; the field is kept consistent here so that it means
-		// what its name says whichever way a machine was hurt.
-		DamageTaken += damage - overflow;
+		// Not ported: no retail write of DamageTaken (mech+0x288) on the blast path has been found yet.
+		// Mech_ApplyExplosiveDamage and Mech_ShieldAbsorb_Explosive were searched; the only writes
+		// found are Mech_DirectFireHitTest's. Counting blasts would let them arm the circling
+		// break-off, so the line stays out until something in retail is found that does this.
+		// DamageTaken += damage - overflow;
 
 		if (overflow <= 0) {
 			return;

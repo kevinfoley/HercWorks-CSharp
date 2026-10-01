@@ -4407,7 +4407,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// TSCellAnimPart, and the cell is the round's own frame counter. Picking the mesh here is the
 		// engine's equivalent of TSCellAnimPart_Render choosing one child.
 		foreach (var rocket in scene.World.RocketsInFlight) {
-			if (scene.RocketModels.TryGetValue(rocket.SubtypeId, out var cells) && cells.Count > 0) {
+			if (scene.RocketModels.TryGetValue(rocket.ShapeSubtypeId, out var cells) && cells.Count > 0) {
 				AddModel(cells[rocket.AnimationFrame % cells.Count], rocket.Frame);
 			}
 		}

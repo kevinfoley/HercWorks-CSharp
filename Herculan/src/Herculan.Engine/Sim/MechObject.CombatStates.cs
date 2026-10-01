@@ -420,9 +420,10 @@ public sealed partial class MechObject {
 	/// re-chosen every tick from the way it is already turning, so a machine that overshoots reverses
 	/// its arc rather than committing.</para>
 	///
-	/// <para><b>The break-off is bought with damage.</b> Once <see cref="DamageTaken"/> passes 100 the
-	/// machine spends one second in every four reversing in a straight line with no steering at all;
-	/// an undamaged machine never breaks off.</para>
+	/// <para><b>The break-off is bought with damage.</b> While <see cref="DamageTaken"/> — the damage
+	/// taken in the last two seconds or so — is past 100, the machine spends about half a second in
+	/// every two reversing in a straight line with no steering at all; one that stops taking fire stops
+	/// breaking off when that window next expires.</para>
 	///
 	/// <para>The square-up arm gates on this machine's <i>own</i> turret twist rather than on any
 	/// range, so it walks backwards until its hull has caught up with where its guns already
@@ -681,6 +682,6 @@ public sealed partial class MechObject {
 	/// <summary>How often one may be armed, in the same unit — about two seconds.</summary>
 	private const short CircleBreakOffInterval = 4000;
 
-	/// <summary>Total damage taken past which the machine starts breaking off at all.</summary>
+	/// <summary><see cref="DamageTaken"/> past which an interval's expiry arms a break-off.</summary>
 	private const int CircleBreakOffDamage = 100;
 }

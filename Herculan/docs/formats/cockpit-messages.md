@@ -127,7 +127,7 @@ An ordinary mission speaks from `COMMAND0.STR`: three lines, one group, a pilot 
 | `0x01` | `MAYDAY! MAYDAY! OUR BASE IS UNDER ATTACK!` | 3, 5, 0, 10 |
 | `0x02` | `THIS IS BASE COMMAND. WE ARE UNDER ATTACK! ALL UNITS, PLEASE ASSIST!` | 3, 6, 0, 10 |
 
-The composer signs it `HQ` — `STRINGS0.STR` group 8, the one string at `DAT_004d1430` that `FUN_004342b8` returns — and with no squadmate to colour it, [the box](#its-box) is the computer's black and red. `CommBox_OnMessageBegin` resolves the null subject to no slot and returns, so no comm box opens, no portrait runs and no static plays.
+The composer signs it `HQ` — `STRINGS0.STR` group 8, the one string at `DAT_004d1430` that `PilotMessagePort_GetHqName` (`004342b8`) returns — and with no squadmate to colour it, [the box](#its-box) is the computer's black and red. `CommBox_OnMessageBegin` resolves the null subject to no slot and returns, so no comm box opens, no portrait runs and no static plays.
 
 Byte 7 is 1 on all three, and it lands at the queued record's `+0x2c`, which gates two things. The port's per-frame update (`PilotMessagePort_Update`, `004361cc`, vtable `+0x10`) sets the ready latch for a due message only when it is set; a squadmate's line, whose byte 7 is 0, is instead made ready by the comm box as its portrait starts talking (`MessagePort_MarkReady`, `00435b14`, from `HddDisplay_ServiceCommBoxes` (`0044b5f8`)), and cancelled when the portrait's script runs out (`MessagePort_Cancel`, `00435b38`). So byte 7 is what lets a line up with no comm box behind it — without it a speakerless line would wait out its `maxWait` and drop unshown. The same byte gates `PilotMessagePort_Speak`'s voice arm, which patches `id + 1` and the variant digit into `BC_00000` and hands the name to `Voice_PlayNamed`. No `BC_*` clip ships in any archive, so an action's line is text only.
 
@@ -216,7 +216,7 @@ border = slot < 0 ? COLORS.DAT[9]  : fill - 1
 
 That subtraction is arithmetic on the already-resolved palette index, not a second logical id — slot 0's id 0 lands on palette 14, green, and its frame on palette 13, yellow. Only a message with no squadmate behind it falls back to the computer's black and red. The text is `ColorSchemePanels[2]` `CPRED` either way, so red on green is what a squadmate's reply looks like.
 
-`PilotMessagePort_ComposeLine` (`00435d0c`) builds the line: the speaker's name from their comm box (`Squad_PilotName` (`00434298`) into `HddGauge_Name` (`0044b900`), the gauge's own `+0x137`), or the fallback at `004342b8` when the record names no object; then `": "`; then the message text, `strncat`ed at 0x4a characters.
+`PilotMessagePort_ComposeLine` (`00435d0c`) builds the line: the speaker's name from their comm box (`Squad_PilotName` (`00434298`) into `HddGauge_Name` (`0044b900`), the gauge's own `+0x137`), or `HQ` from `PilotMessagePort_GetHqName` (`004342b8`) when the record names no object; then `": "`; then the message text, `strncat`ed at 0x4a characters.
 
 A training mission draws a different picture altogether ([above](#the-training-port)). What is on screen in `Reference/MFD_Talking_head.png` is the speaker-coloured single line.
 

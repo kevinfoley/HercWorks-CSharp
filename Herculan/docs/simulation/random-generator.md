@@ -14,9 +14,9 @@ Callers pass the state block's address and mask the result to the width they nee
 
 ## Seeding — `Math_RandomSeed` (`00492d7c`)
 
-**Seeding takes no input.** The state lives in BSS. `Math_RandomSeed` sets the two cursors to the literals `0x37` and `0x18`, `memmove`s 112 bytes from the static table at `004a6958`, and then calls `00492e3c`, which is `push ebp; pop ebp; ret`. It reads no clock and takes no value from its caller beyond the block's address.
+**Seeding takes no input.** The state lives in BSS. `Math_RandomSeed` sets the two cursors to the literals `0x37` and `0x18`, `memmove`s 112 bytes from the static table at `004a6958`, and then calls `Math_RandomSeedNoOp` (`00492e3c`), which is `push ebp; pop ebp; ret`. It reads no clock and takes no value from its caller beyond the block's address.
 
-`es2_xref.py` finds three calls to it. Two are in `Main_StaticInit` (`0045cbcd` and `0045cbd8`), one per block. The third is in `Math_RandomSeedAndSkip` (`00492da8`), a wrapper nothing in the image references: it seeds the block it is given, calls a second empty function (`00492e41`), then discards `param_2` draws.
+`es2_xref.py` finds three calls to it. Two are in `Main_StaticInit` (`0045cbcd` and `0045cbd8`), one per block. The third is in `Math_RandomSeedAndSkip` (`00492da8`), a wrapper nothing in the image references: it seeds the block it is given, calls a second empty function (`Math_RandomSeedAndSkipNoOp`, `00492e41`), then discards `param_2` draws.
 
 So the generator contributes no run-to-run variation: **DBSIM draws the same stream on every run**. The known wall-clock path into simulation state is `SimTickDelta`, whose measured 40 ms comes back as 41 or 42 under load and rescales every rate that tick (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md)).
 

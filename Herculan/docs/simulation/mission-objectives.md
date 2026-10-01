@@ -104,7 +104,7 @@ Status 2 has an exemption from the delay here, and `Sim_MainTick` declines to ra
 
 A status is worth raising when `DAT_0049935c[status]` is set — 2, 3, 6, 7, 8 and 9. The caller builds the [status alert](#the-status-alert--gnl_alrt-00455934) for it. `DAT_004a9ed0` is the status already raised, which is what stops the same one being raised twice; `Mission_StatusForAlert` (`00413180`) is the wrapper both this and [Q] go through, and **the [Q] path writes that baseline as well** — reading the status yourself is enough to stop the poll announcing it.
 
-`Sim_MainTick` also rewrites one answer before it builds the panel: a status 3 whose `FUN_00423f08` says the machine went down in Cybrid-held ground becomes **18**, which is the same "disabled" alert with a worse ending.
+`Sim_MainTick` also rewrites one answer before it builds the panel. On a status 3 it first runs `Group_ApplyOutnumberedDamage` (`00423f08`) over the player's group, and if that destroys the player the status becomes **18**, the same "disabled" alert with a worse ending. Each member not [clear of threats](#clear-of-threats--mission_isclearofthreats-004137b4) weighs the strength around it, split by side: every deployed HERC within 45000 that is not out of weapons, immobilised or destroyed counts its chassis' salvage scale (type record `+0x54`, [`component-damage.md`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)), every such flyer within 50000 and armed structure within 35000 counts 500. The friendly sum loses 600, and the member takes `Mech_SpreadImpactDamage(member, 0x40, 0x40)` once per 400 by which the hostile sum exceeds what is left (`Mech_ApplyOutnumberedDamage`, `0041b804`).
 
 ## The status alert — `gnl_alrt` (`00455934`)
 

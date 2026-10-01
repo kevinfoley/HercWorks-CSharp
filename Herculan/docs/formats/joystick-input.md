@@ -56,7 +56,7 @@ out  = sign(x) * Math_Q16Multiply(|x|², k)
 
 Full deflection is therefore `103² / 41 = 258` — a shade over `0x100`, which the control laws clamp to. **`0x100` is the scale every input source shares:** a held keyboard direction is worth `0x80`, half of it ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)), and a hat direction `0xc0`.
 
-Modes 0 and 2 are linear and are what the deadzone's other arm (`local_18`, a rescale to `0x80`) is for. Nothing constructs a joystick with either — see [Rejected readings](#rejected-readings).
+Modes 0 and 2 take the deadzone's other arm (`local_18`, a rescale to `0x80`), and mode 0 is then linear. Mode 2 reads the axes through `Joystick_ReadAxisSigns` (`0047779c`) instead of `Joystick_NormaliseAxes`, collapsing each to -1, 0 or +1, which that deadzone then zeroes, so a mode-2 device reports no axis movement. Nothing constructs a joystick with either — see [Rejected readings](#rejected-readings).
 
 ## The capability block — `Input_QueryCapabilities` (`004777f8`)
 

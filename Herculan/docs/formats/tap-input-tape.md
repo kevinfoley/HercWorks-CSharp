@@ -43,7 +43,7 @@ The three retail tapes are three different missions — `script.dat` byte 0, the
 
 **A replay is not fully determined by the tape.** Three things come from the playing machine's install:
 
-- **Six preference bytes.** `-p` reads `data\prefs.cfg` and `tapes\prefs.cfg`, copies bytes 0-3 and 8-10 of the former over the latter — sound, music, the two message modes, terrain texture and the two detail settings ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)) — and writes `tapes\prefs.cfg` back. EFFECTS DETAIL is one of them, and a collapsing structure's smoke and a debris piece's burst read it, so the playing machine's setting reaches the simulation. It also stores that path in the preferences path at `0049e844`, which the loader otherwise fills with `data\prefs.cfg`, so the simulator runs from the reconciled copy.
+- **Six preference bytes.** `-p` reads `data\prefs.cfg` and `tapes\prefs.cfg`, copies bytes 0-3 and 8-10 of the former over the latter — sound, music, the two message modes, terrain texture and the two detail settings ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)) — and writes `tapes\prefs.cfg` back. EFFECTS DETAIL is one of them, and a collapsing structure's smoke and a debris piece's burst read it, so the playing machine's setting reaches the simulation. It also stores that path in the preferences path `Prefs_Path` (`0049e844`), which the loader otherwise fills with `data\prefs.cfg`, so the simulator runs from the reconciled copy.
 - **The keyjoy switches.** `Keyjoy_LoadConfig` (`0045b78c`) always reads `data\keyjoy.cfg`, so the tape's own copy in `tapes\` is never read. Its `Backturn` applies to the replayed axes: it is applied after the point where a frame is recorded, and playback runs that code too.
 - **Everything the bundle does not carry**, which is whatever `data\` already holds — the mission's text in `mission.str` among it.
 
@@ -148,7 +148,7 @@ The main menu's `VIEW DEMO` button (`FUN_0043156f`, VSHELL) exits the shell with
 | — | `004d2562` | The open `.dmp` checkpoint file's `FILE*` |
 | `Config_BuildPath` | `0045eea4` | Prefixes `data\`, or `tapes\` during playback, onto `prefs.cfg` and `keyjoy.cfg` |
 | `Keyjoy_LoadConfig` | `0045b78c` | Reads `data\keyjoy.cfg` whatever is playing |
-| — | `0049e844` | The preferences path; `tapes\prefs.cfg` during playback |
+| — | `Prefs_Path` (`0049e844`) | The preferences path; `tapes\prefs.cfg` during playback |
 
 ## Rejected readings
 

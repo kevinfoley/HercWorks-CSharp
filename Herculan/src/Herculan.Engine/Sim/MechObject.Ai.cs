@@ -87,7 +87,7 @@ public partial class MechObject {
 			Behaviour.DwellCountdown = 0;
 		}
 
-		Behaviour.TickCount++;
+		Behaviour.CountTick();
 	}
 
 	/// <summary>

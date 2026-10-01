@@ -5,7 +5,7 @@ namespace Herculan.Engine.Sim.Anim;
 
 /// <summary>
 /// One playing animation on a shape — DBSIM's 0x52-byte animation thread (constructed by
-/// <c>FUN_00478d3c</c>, stepped by <c>AnimThread_Advance</c> (<c>00479614</c>)). A mech keeps one, at <c>mech+0x22c</c>.
+/// <c>AnimThread_Ctor</c> (<c>00478d3c</c>), stepped by <c>AnimThread_Advance</c> (<c>00479614</c>)). A mech keeps one, at <c>mech+0x22c</c>.
 ///
 /// <para>Beyond the obvious sequence/frame cursor, a thread carries two things locomotion depends
 /// on. The first is the <b>root-motion accumulator</b>: while a ground-movement sequence plays, the

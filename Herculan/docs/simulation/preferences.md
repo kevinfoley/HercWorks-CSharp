@@ -10,7 +10,7 @@ The two panels [F12] reaches, and the file they edit. Both are members of the mo
 
 **The file is the array.** `Prefs_LoadOptions` (`00459754`) memsets `SimOptions` (`004d1fbc`) to zero for `0x36` bytes and reads the file straight over it with no parse at all, so **an option's index is its byte offset** and a retail `prefs.cfg` is 54 bytes. It then walks all 54 options, calls the handler of each one that has one with the byte just loaded, and seeds both shadow arrays — the load-time one at `004d1ff2` and the outgoing one at `004d2028` — from the array.
 
-Three functions write it, all through `Prefs_SetOption` (`0045993c`), which saves the outgoing byte to the shadow array at `004d2028`, stores the new one, and — when told to apply — calls that option's handler from the parallel table at `004d2060`:
+Three functions write it, all through `Prefs_SetOption` (`0045993c`), which saves the outgoing byte to the shadow array at `004d2028`, stores the new one, and — when told to apply — calls that option's handler from the parallel table `Prefs_OptionHandlers` (`004d2060`):
 
 | | |
 |---|---|

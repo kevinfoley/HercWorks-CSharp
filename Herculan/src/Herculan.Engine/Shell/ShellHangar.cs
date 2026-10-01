@@ -1228,7 +1228,7 @@ public sealed class ShellHangar {
 		hangar.SalvageKilograms = save.SalvageTotal;
 		foreach (var item in save.Inventory?.Items ?? Array.Empty<Inventory.InventoryItem>()) {
 			if (item?.Id is { } id) {
-				// The save's stock reader, FUN_00411dbb, pushes each unit onto the head as it reads it, so the
+				// The save's stock reader, Armory_ReadWeaponStock (00411dbb), pushes each unit onto the head as it reads it, so the
 				// file's last unit is the head.
 				var stock = hangar.Stock(id.Id);
 				stock.UnlockFlag = (byte)item.UnlockFlag;

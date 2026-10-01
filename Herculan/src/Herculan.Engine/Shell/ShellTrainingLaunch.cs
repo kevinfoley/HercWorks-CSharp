@@ -264,7 +264,7 @@ public static class ShellTrainingLaunch {
 	internal const short PlayerNameIndexCount = 11;
 	internal const short SalvageDrawCount = 11;
 
-	/// <summary>The rank a roster pilot starts at for each skill, <c>0046f5f4</c> through <c>FUN_0040fa21</c>.</summary>
+	/// <summary>The rank a roster pilot starts at for each skill, <c>0046f5f4</c> through <c>Pilot_RankForSkill</c> (<c>0040fa21</c>).</summary>
 	private static readonly int[] RankForSkill = { 0, 1, 2, 2 };
 
 	/// <summary>

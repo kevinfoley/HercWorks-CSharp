@@ -146,7 +146,7 @@ A facing runs 0..`0x800` with `0x400` the whole pool on one side, so an even 100
 
 ### `.GAU` block at 616
 
-A 16-byte header whose first two ints are an origin offset added to the rest (all-zero in every retail file), then four ordinary `x0,y0,x1,y1` rects, all shifted by `VideoMode_X/YCoordShift` in `FUN_00444b9c`:
+A 16-byte header whose first two ints are an origin offset added to the rest (all-zero in every retail file), then four ordinary `x0,y0,x1,y1` rects, all shifted by `VideoMode_X/YCoordShift` in `ShieldsGauge_ApplyCoordShift` (`00444b9c`):
 
 | Offset | Rect |
 |---|---|

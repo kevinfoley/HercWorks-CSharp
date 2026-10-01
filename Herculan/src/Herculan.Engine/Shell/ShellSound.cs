@@ -221,7 +221,7 @@ public sealed class ShellSound {
 
 	/// <summary>
 	/// The SOS volume, 0-100, as a gain. The driver is handed <c>volume * master * 0x7fff / 10000</c>
-	/// with the master at <c>00473160</c> on the 100 it holds in the image, which is linear in the volume.
+	/// with the master <c>Sos_MasterVolume</c> (<c>00473160</c>) on the 100 it holds in the image, which is linear in the volume.
 	/// </summary>
 	private static float Gain(int volume) => Math.Clamp(volume / (float)FullVolume, 0f, 1f);
 }

@@ -65,8 +65,8 @@ public readonly record struct JoystickReading(
 	/// The response curve every joystick axis goes through — <c>Joystick_ReadWithResponse</c> (<c>0045c314</c>)'s arm for response
 	/// mode 1, which is the mode the joystick device is built with:
 	/// <c>Joystick_InitAndSeedBindings</c> (<c>00459dd4</c>) constructs it as <c>JoystickDevice_Ctor(obj, 3, 0x201, 0xf, 1)</c> (<c>0045c27c</c>), and that last
-	/// argument is the field at <c>+0x28</c> the curve is selected on. (Modes 0 and 2 exist and are
-	/// linear; nothing constructs a joystick with either.)
+	/// argument is the field at <c>+0x28</c> the curve is selected on. (Modes 0 and 2 exist; nothing
+	/// constructs a joystick with either — see docs/formats/joystick-input.md.)
 	///
 	/// <para><b>It is a squared curve, and it is what makes a stick reach full scale.</b> The
 	/// deadzone is subtracted to give <c>±103</c>, then the result is squared and divided by

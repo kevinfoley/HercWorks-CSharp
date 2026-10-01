@@ -459,6 +459,88 @@ public sealed partial class MechObject {
 	/// <summary>The reading a mount's component must be under for the mount to be salvaged — the literal <c>0x80</c>.</summary>
 	private const short SalvageableMountReading = 0x80;
 
+	/// <summary>
+	/// <c>Group_ApplyOutnumberedDamage</c> (<c>00423f08</c>): <see cref="ApplyOutnumberedDamage"/> on
+	/// every member of <paramref name="group"/>. <see cref="SimWorld"/> runs it on the player's group when
+	/// the mission poll answers <see cref="MissionStatus.PlayerImmobilised"/>. See
+	/// docs/simulation/mission-objectives.md#the-poll--mission_pollstatus-004131ac.
+	/// </summary>
+	internal static void ApplyGroupOutnumberedDamage(SimWorld world, MissionGroup group) {
+		for (int i = 0; i < group.Members.Count; i++) {
+			if (group.Members[i] is MechObject member) {
+				member.ApplyOutnumberedDamage(world);
+			}
+		}
+	}
+
+	/// <summary>
+	/// <c>Mech_ApplyOutnumberedDamage</c> (<c>0041b804</c>): unless this machine is
+	/// <see cref="MissionObjectives.IsClearOfThreats">clear of threats</see>, weighs the hostile strength
+	/// around it against the friendly and spreads one <see cref="OutnumberedImpactDamage"/> impact over it
+	/// per <see cref="OutnumberedStrengthPerImpact"/> of difference. The original walks its HERC, flyer and
+	/// structure pools in turn; one walk over every object sums the same.
+	/// </summary>
+	private void ApplyOutnumberedDamage(SimWorld world) {
+		if (MissionObjectives.IsClearOfThreats(world, this) || Group is not { } ownGroup) {
+			return;
+		}
+
+		int friendly = 0;
+		int hostile = 0;
+		var objects = world.Objects;
+
+		for (int i = 0; i < objects.Count; i++) {
+			var other = objects[i];
+			if (other.Removed || other.OutOfAction || other.AwaitingDeployment || other.Group is not { } otherGroup) {
+				continue;
+			}
+
+			(int range, int strength) = other switch {
+				MechObject mech => (OutnumberedHercRange, (int)mech.Type.SalvageScale),
+				FlyerObject => (OutnumberedFlyerRange, OutnumberedFlyerStrength),
+				BaseObject { Type.Armament: not BaseArmament.None } => (OutnumberedStructureRange, OutnumberedStructureStrength),
+				_ => (0, 0)
+			};
+
+			if (range == 0 || Position.ApproxDistanceTo(other.Position) >= range) {
+				continue;
+			}
+
+			if (otherGroup.Side == ownGroup.Side) {
+				friendly += strength;
+			} else {
+				hostile += strength;
+			}
+		}
+
+		friendly = Math.Max(friendly - OutnumberedFriendlyAllowance, 0);
+		for (; friendly < hostile; hostile -= OutnumberedStrengthPerImpact) {
+			SpreadImpactDamage(world, OutnumberedImpactDamage, OutnumberedImpactDamage);
+		}
+	}
+
+	/// <summary><c>Mech_ApplyOutnumberedDamage</c>'s reach for a HERC, which counts its <see cref="MechTypeRecord.SalvageScale"/>.</summary>
+	private const int OutnumberedHercRange = 45000;
+
+	/// <summary>Its reach for an aircraft, which counts <see cref="OutnumberedFlyerStrength"/>.</summary>
+	private const int OutnumberedFlyerRange = 50000;
+
+	/// <summary>Its reach for an armed structure, which counts <see cref="OutnumberedStructureStrength"/>.</summary>
+	private const int OutnumberedStructureRange = 35000;
+
+	private const int OutnumberedFlyerStrength = 500;
+
+	private const int OutnumberedStructureStrength = 500;
+
+	/// <summary>Taken off the friendly sum, floored at zero, before the two are compared.</summary>
+	private const int OutnumberedFriendlyAllowance = 600;
+
+	/// <summary>How much hostile excess each impact accounts for.</summary>
+	private const int OutnumberedStrengthPerImpact = 400;
+
+	/// <summary>Both the most damage and the per-component odds of each impact, <c>0x40</c>.</summary>
+	private const short OutnumberedImpactDamage = 0x40;
+
 	/// <summary><c>mech+0xa6</c> — raised by the first kill this machine scores. Latched.</summary>
 	public bool ScoredAKill { get; private set; }
 

@@ -55,5 +55,12 @@ public enum MissionStatus {
 	/// to this while a hostile is aware of the player and near enough — the one status that says
 	/// "finish disengaging first".
 	/// </summary>
-	DecidedButEngaged = 10
+	DecidedButEngaged = 10,
+
+	/// <summary>
+	/// Not one of <c>Mission_Status</c>'s answers: <c>Sim_MainTick</c> raises it in place of
+	/// <see cref="PlayerImmobilised"/> when the outnumbered damage it deals first
+	/// (<see cref="MechObject.ApplyGroupOutnumberedDamage"/>) destroys the player.
+	/// </summary>
+	ImmobilisedThenDestroyed = 18
 }

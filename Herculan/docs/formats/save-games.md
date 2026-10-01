@@ -95,7 +95,7 @@ int16   number of owned units (weapons.dat record +0x17)
         that many 10-byte weapon unit records
 ```
 
-The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. `FUN_00411dbb` reads one weapon's entry and pushes each unit onto the list's head as it reads it, so the file's last unit is the head — the one the weapons screen fits next. `FUN_00411e64`, `Armory_Write`'s per-weapon writer, walks the list from the head, so the head is the first unit written: **every save and load reverses a weapon's units**, and the unit fitted next alternates between the two ends of the stock from one load to the next. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to and [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record) for the unit record, which is the same five `int16` a HERC's mounts serialize.
+The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. `Armory_ReadWeaponStock` (`00411dbb`) reads one weapon's entry and pushes each unit onto the list's head as it reads it, so the file's last unit is the head — the one the weapons screen fits next. `FUN_00411e64`, `Armory_Write`'s per-weapon writer, walks the list from the head, so the head is the first unit written: **every save and load reverses a weapon's units**, and the unit fitted next alternates between the two ends of the stock from one load to the next. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to and [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record) for the unit record, which is the same five `int16` a HERC's mounts serialize.
 
 ### Pilot record — 59 bytes (`0x3b`) in memory
 
@@ -130,7 +130,7 @@ Skill and rank advance separately, in `Pilot_Progress` — see [`../shell/campai
 
 ### HERC record — 122 bytes (`0x7a`) in memory
 
-Serialized by `Herc_Write` (`0041123e`), read by `FUN_004110c2`.
+Serialized by `Herc_Write` (`0041123e`), read by `Herc_Read` (`004110c2`).
 
 ```
 int16   +0x00  chassis type, 0-8

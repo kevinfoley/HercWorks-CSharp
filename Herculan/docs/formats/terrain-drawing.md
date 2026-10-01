@@ -82,7 +82,7 @@ Only cells inside the region polygon are visited, and the viewer's own cell is l
 
 ## Objects in the walk
 
-`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under the cell `HeightGrid_PickDrawCell` picks for it (below), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order with the ramp's row count `DAT_004a5b1c` zeroed around each draw ([`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), turns every other object into a render entry, and draws those sorted at the end of the cell. An object the camera rides is skipped, and one farther away than its class's draw distance gets no entry:
+`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under the cell `HeightGrid_PickDrawCell` picks for it (below), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order with the ramp's row count `DAT_004a5b1c` zeroed around each draw ([`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), turns every other object into a render entry, and draws those at the end of the cell farthest first: `ObjList_DrawSorted` (`00429620`) files them in a binary tree keyed on the entry's distance and walks it in order. An object the camera rides is skipped, and one farther away than its class's draw distance gets no entry:
 
 | Type tag at `+4` | Draw distance, × the terrain draw radius |
 |---|---|
@@ -111,6 +111,13 @@ So an object within its radius of the edge its cell shares with the next cell to
 
 It calls slot 0 of every object in the no-cell bucket (`DAT_004cf910`, count `DAT_004cf9b0`) with no fade installed of its own. Then, when the local player's record at `+0x1f2` has a nonzero `+0x50` and the camera is not riding the player (`Cam_IsAttachedTo`), it runs `Terrain_DrawCellObjects` for the player's cached cell (`+0x1e8`/`+0x1ea`), which draws nothing once the walk has emptied that cell. Everything it draws lands over all the ground.
 
+### The pixel pick and the occlusion probe
+
+Two screen tests ride on the object draw, each armed by a function `es2_xref.py` finds no reference to ([Open](#open)).
+
+- **The pick.** `ObjPick_Arm` (`004282a0`) stores a screen point at `004cf9b5` and sets `DAT_004cf9b4`. While it is set, `ObjList_DrawAfterTerrain` points the display's source page `+0x38` at its `+0x8c`, saves the pixel under the point (`g_RasterRoutines_GetPixel`, slot 4) at `004cfa00`, writes 1 there (`g_RasterRoutines_PutPixel`, slot 5) and clears the picked object `004cf9c0`; after `ObjList_SetViewObject` it writes the saved pixel back and clears the flag. `ObjList_DrawEntryRender` re-reads the pixel after each entry's draw and, when it is no longer 1, records the entry's object at `004cf9c0` and writes 1 again. `Gunsight_UpdateAndPaint` hands that object (`ObjPick_GetObject`, `004282c0`) to `TargetSelect_SetObject`.
+- **The occlusion probe.** `ObjProbe_Arm` (`00428960`) records one object at `004cf9f8` and the four corners of a screen square sized from its radius, and sets `DAT_0049abbc`. `ObjList_DrawEntryRender` saves and marks each corner with 2 just after drawing that object (`ObjProbe_MarkCorners`, `00428ae0`); `ObjProbe_TestCorners` (`00428b38`), the last step of `ObjList_DrawAfterTerrain`, flags every corner that no longer reads 2 as covered and restores the rest. `ObjProbe_IsHidden` (`00428ab8`) answers whether all four are covered. The arm's off-screen test never advances its point pointer, so all four corners take the first corner's answer.
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -122,5 +129,5 @@ It calls slot 0 of every object in the no-cell bucket (`DAT_004cf910`, count `DA
 - **Unported:** leaving undrawn an object filed under a cell the walk does not visit.
 - **Unported:** the per-class object draw distances ([Objects in the walk](#objects-in-the-walk)).
 - **Open:** which class carries type tag 0. No constructor stores it as an immediate.
-- **Open:** the rest of `ObjList_DrawAfterTerrain`: the raster page swap around `ObjList_SetViewObject` (`00428eec`) under `DAT_004cf9b4`, and `FUN_00428b38` under `DAT_0049abbc`.
+- **Open:** what arms [the pick and the probe](#the-pixel-pick-and-the-occlusion-probe). `es2_xref.py` finds no reference to `ObjPick_Arm` or `ObjProbe_Arm`, and they hold the only stores of 1 to `DAT_004cf9b4` and `DAT_0049abbc`. Unless something else arms the pick, `ObjPick_GetObject` always returns 0 and a gunsight click selects nothing.
 - **Open:** what the player record's `+0x1f2`→`+0x50` test in `ObjList_DrawAfterTerrain` is.

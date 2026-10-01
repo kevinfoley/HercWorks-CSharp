@@ -141,8 +141,11 @@ public struct FlyerBehaviourBlock {
 	/// <summary>Block <c>+0x05</c> — the dwell countdown, in <see cref="SimMath.TimerCountDown"/>'s unit.</summary>
 	public int DwellCountdown;
 
-	/// <summary>Block <c>+0x09</c> — incremented once per AI tick by <c>00413eb0</c>.</summary>
+	/// <inheritdoc cref="BehaviourBlock.TickCount"/>
 	public int TickCount;
+
+	/// <inheritdoc cref="BehaviourBlock.JustInstalled"/>
+	public bool JustInstalled;
 
 	/// <summary>
 	/// <c>Behaviour_SetState</c> (<c>00413e50</c>) — installs a descriptor and arms its countdown at
@@ -154,5 +157,16 @@ public struct FlyerBehaviourBlock {
 		State = state;
 		DwellCountdown = state.Dwell + BehaviourBlock.NextJitter();
 		TickCount = 0;
+		JustInstalled = true;
+	}
+
+	/// <inheritdoc cref="BehaviourBlock.CountTick"/>
+	public void CountTick() {
+		if (JustInstalled) {
+			JustInstalled = false;
+			return;
+		}
+
+		TickCount++;
 	}
 }

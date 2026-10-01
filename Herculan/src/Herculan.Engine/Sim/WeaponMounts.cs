@@ -72,7 +72,7 @@ public sealed class WeaponMounts {
 
 	/// <summary>
 	/// <c>manager+0x14</c>, the TRACK button's latch — Automatic Turret Tracking. The console button
-	/// sets and clears it (<c>FUN_00410f04</c> and <c>WeaponMounts_PerFrameUpdate</c>'s own else branch), which is
+	/// sets and clears it (<c>WeaponMounts_SetTrackLatch</c> (<c>00410f04</c>) and <c>WeaponMounts_PerFrameUpdate</c>'s own else branch), which is
 	/// why TRACK is the one console button that stays lit, and so does the [T] command.
 	///
 	/// <para>Read by <see cref="MechObject.TorsoTick"/>, which flies the turret at the selected

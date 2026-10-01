@@ -39,7 +39,7 @@ Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANE
 1. Load `vue\<HERC>`: `int32 viewCount`, then `viewCount x 32`-byte records.
 2. Allocate the four per-view slot arrays above.
 3. Per view `i`: `CockpitClipRegions_Load` on `ed<i>`/`hd<i>`, then `ClipRegions_BuildScanlineSpans`; and unless `CockpitArt_LoadOnDemand`, `CockpitCanopy_LoadViewBitmap` for `db<i>`/`hb<i>` — see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#canopy-art--hb0hb1hb2-and-db0db1db2).
-4. Build `CockpitViewInstance` (`00431008` → `ColorSchemePanels_LoadAll`) and `Gau_BuildCockpitWidgets`.
+4. Build `CockpitViewInstance` (`CockpitView_Ctor`, `00431008` → `ColorSchemePanels_LoadAll`) and `Gau_BuildCockpitWidgets`.
 5. Install the per-herc cockpit colour scheme — see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#palette).
 6. Install `IMPACTCP.DPL`'s same-index scheme into the secondary palette `DAT_0049aef8` for the damage flash — see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#the-damage-shake).
 
@@ -251,11 +251,11 @@ DBSIM draws everything into a system-memory back buffer and copies a viewport-si
 | `CockpitView_SetShakeBand` (`0042d2f8`) | Rests the band on the view's canvas origin (`DAT_004cfa24`/`28`) and, in views 2 and 3, zeroes the resting x and the saved resting y (`004cfae4`, `004cfae0`) |
 | `AlertPanel_Present` (`00454ab0`), `AlertPanel_Leave` (`004548ac`) | Do not present |
 | `PanelButton_Paint`, `ControlsPanel_RefreshRow`, `PreferencesPanel_Run` | Wrap their painting in `g_RasterRoutines` slots 31 and 30 (`004a5840`/`004a583c`), the pair `Cursor_SyncPosition` calls around a pointer move |
-| `AlertPanel_Leave`, `AlertPanel_LoadCursor` (`00454b70`), `FUN_00454c10`, `Cockpit_UpdateEdgeCursor` (`00433c54`), `Cockpit_SetForwardCursor` (`00433d90`), `Cockpit_SetOffForwardCursor` (`00433e3c`), `Cockpit_UseOffForwardCursor` (`00433ee8`), `Cockpit_UseForwardCursor` (`00433f7c`) | Call `Cursor_SyncPosition` or `maybe_Cursor_SetImage` (`00486d64`) in place of driver 3's `FUN_0048982e` or `maybe_Driver3_SetCursorImage` (`00489822`) |
+| `AlertPanel_Leave`, `AlertPanel_LoadCursor` (`00454b70`), `AlertPanel_RestoreCursorImage` (`00454c10`), `Cockpit_UpdateEdgeCursor` (`00433c54`), `Cockpit_SetForwardCursor` (`00433d90`), `Cockpit_SetOffForwardCursor` (`00433e3c`), `Cockpit_UseOffForwardCursor` (`00433ee8`), `Cockpit_UseForwardCursor` (`00433f7c`) | Call `Cursor_SyncPosition` or `maybe_Cursor_SetImage` (`00486d64`) in place of driver 3's `Driver3_SyncCursorPosition` (`0048982e`) or `maybe_Driver3_SetCursorImage` (`00489822`) |
 
 The block-base scan finds the rest of the readers: over the eighteen holders, `es2_fieldscan.py` reports three reads of `+0xaa`, all in `Sim_InitMissionSession`, and `Main_StaticInit`'s store.
 
-**Driver 3 implements none of the paging.** In its routine table slots 16, 17 and 18 are the empty stubs `004897f0`, `004897f6` and `004897fc`, and slots 30 and 31 are `004897c8` and `004897d3`, which save and restore registers and return. `maybe_Cursor_SetImage` and `maybe_Driver3_SetCursorImage` are empty; `FUN_0048982e` is `Cursor_SyncPosition` again. Slot 20, the rect copy `Region_CopyBetweenPages` (`00487d54`) ends in (`0048a69b`), moves pixels within the one DIB by the offset it is given and returns at once when the offset is zero, so every `Widget_DrawToCockpit` copy moves nothing. The page indices reach only those stubs and the page-origin lookups, and the origins are zero.
+**Driver 3 implements none of the paging.** In its routine table slots 16, 17 and 18 are the empty stubs `004897f0`, `004897f6` and `004897fc`, and slots 30 and 31 are `Driver3_Slot30NoOp` (`004897c8`) and `Driver3_Slot31NoOp` (`004897d3`), which save and restore registers and return. `maybe_Cursor_SetImage` and `maybe_Driver3_SetCursorImage` are empty; `Driver3_SyncCursorPosition` (`0048982e`) is `Cursor_SyncPosition` again, calling `Driver3_Slot30NoOp` directly instead of through slot 30. Slot 20, the rect copy `Region_CopyBetweenPages` (`00487d54`) ends in (`0048a69b`), moves pixels within the one DIB by the offset it is given and returns at once when the offset is zero, so every `Widget_DrawToCockpit` copy moves nothing. The page indices reach only those stubs and the page-origin lookups, and the origins are zero.
 
 What that leaves:
 

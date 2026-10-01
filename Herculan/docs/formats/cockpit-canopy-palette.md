@@ -127,6 +127,12 @@ Because the swap is of the whole palette, everything drawn through it flashes: t
 
 The shield meter's rings are the exception. Their six colours are immediates in the exe (`0049c9cb`/`0049c9ce`) that `ShieldsGauge` writes into whichever palette is active on every frame, so they read the same through a flash.
 
+### The step kick
+
+Each footfall of the player's own machine bobs the view through the projection centre, as the shake does. `Mech_PlaceLegsOnGround` calls `Cockpit_StartStepKick` (`00434144`) for a locally piloted machine; outside view mode 4 it takes out any offset in progress (`CockpitView_ClearKickOffset`, `0042d854`) and restarts the curve, `StepKickStartTick` (`0049b634`) at now and `StepKickEndTick` (`0049b638`) at now + `0x3c` coarse ticks, 0.96 s. A machine stepping faster than that re-triggers it.
+
+`Cockpit_StepKickTick` (`00434194`), which `CockpitView_PerFrameUpdate` runs straight after `Cockpit_HitShakeTick`, plays `StepKickCurve` (`0049b046`), ten `int16`s `1 2 3 4 5 5 4 3 2 1`, indexed `(now - start) * 10 / 0x3c`. It halves the value when `VideoMode_YCoordShift` is 0 and shifts it left by `YCoordShift - 1` otherwise, so the peak is five device pixels in the 640-wide modes. `CockpitView_SetKickOffset` (`0042d82c`) adds the value to the render context's `+0x224` after taking out the one it added last (`CockpitView_KickOffset`, `004cfd3c`), and `Raster_InstallViewProjection` subtracts that field, so the whole image slides behind a cockpit that stays put. View mode 4 or the end tick passing ends it, through `CockpitView_ClearKickOffset`. The camera node's world orientation does not move over a stride.
+
 ## Rejected readings
 
 | Reading | Why it is wrong |

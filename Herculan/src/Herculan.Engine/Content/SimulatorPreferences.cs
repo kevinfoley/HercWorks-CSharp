@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 /// performs. What the [F12] preferences panel shows and edits.
 ///
 /// <para><c>Prefs_SetOption</c> (<c>0045993c</c>) writes one byte by its index and calls the option's
-/// own handler from the parallel table at <c>DAT_004d2060</c> — see <see cref="RegisterHandler"/>.
+/// own handler from the parallel table at <c>Prefs_OptionHandlers</c> (<c>004d2060</c>) — see <see cref="RegisterHandler"/>.
 /// The panel's own reader is <c>PreferencesPanel_RefreshRow</c> (<c>004571f4</c>), which maps a byte to
 /// one of the <c>PRF_ALRT.STR</c> captions — see <see cref="PreferencesPanel"/>.</para>
 /// </summary>
@@ -29,7 +29,7 @@ public sealed class SimulatorPreferences {
 	/// <summary>
 	/// The <c>data</c> folder this was read from, or null when it was not read from one. A
 	/// <see cref="Save"/> goes back where it came from, as the original's does — it keeps the one path
-	/// buffer at <c>DAT_0049e844</c> that <c>Prefs_LoadOptions</c> reads through.
+	/// buffer at <c>Prefs_Path</c> (<c>0049e844</c>) that <c>Prefs_LoadOptions</c> reads through.
 	/// </summary>
 	public string? SourceDirectory { get; }
 
@@ -87,7 +87,7 @@ public sealed class SimulatorPreferences {
 
 	/// <summary>
 	/// Installs option <paramref name="index"/>'s handler — <c>Prefs_RegisterOptionHandler</c>
-	/// (<c>00459c58</c>), into the table at <c>DAT_004d2060</c>. <c>Prefs_Init</c> fills five slots
+	/// (<c>00459c58</c>), into the table at <c>Prefs_OptionHandlers</c> (<c>004d2060</c>). <c>Prefs_Init</c> fills five slots
 	/// and leaves the rest empty; an option with no handler is read where it is used instead. See
 	/// docs/simulation/preferences.md.
 	/// </summary>

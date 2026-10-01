@@ -128,7 +128,7 @@ public sealed class SquadCommChannel {
 
 	/// <summary>
 	/// <c>STRINGS0.STR</c> group holding the name a speakerless line is signed with — <c>HQ</c>, the
-	/// one entry at <c>DAT_004d1430</c> that <c>FUN_004342b8</c> hands the composer.
+	/// one entry at <c>DAT_004d1430</c> that <c>PilotMessagePort_GetHqName</c> (<c>004342b8</c>) hands the composer.
 	/// </summary>
 	public const int HeadquartersNameGroup = 8;
 

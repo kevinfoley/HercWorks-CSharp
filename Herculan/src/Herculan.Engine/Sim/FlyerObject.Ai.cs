@@ -165,7 +165,7 @@ public sealed partial class FlyerObject {
 			Behaviour.DwellCountdown = 0;
 		}
 
-		Behaviour.TickCount++;
+		Behaviour.CountTick();
 	}
 
 	/// <summary>

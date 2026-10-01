@@ -206,7 +206,7 @@ public sealed class ShellSurface {
 
 	/// <summary>
 	/// A bitmap drawn to fill a rectangle <paramref name="width"/> by <paramref name="height"/> from
-	/// <paramref name="left"/>, <paramref name="top"/> — the blitter's scaled path, <c>FUN_00458e78</c>,
+	/// <paramref name="left"/>, <paramref name="top"/> — the blitter's scaled path, <c>Bitmap_BlitScaledClipDispatch</c> (<c>00458e78</c>),
 	/// sampled nearest. Source index 0 is left alone, as in <see cref="Blit"/>.
 	/// </summary>
 	public void ScaledBlit(DynamixBitmap bitmap, int left, int top, int width, int height) {
@@ -231,7 +231,7 @@ public sealed class ShellSurface {
 	/// <summary>
 	/// Another surface drawn stretched over the inclusive rectangle from <paramref name="left"/>,
 	/// <paramref name="top"/> to <paramref name="left"/> + <paramref name="width"/>, <paramref name="top"/>
-	/// + <paramref name="height"/> — <c>FUN_0045330c</c>, a texture-mapped quad whose corners carry the
+	/// + <paramref name="height"/> — <c>GLBitmap_DrawStretched</c> (<c>0045330c</c>), a texture-mapped quad whose corners carry the
 	/// source's corner texels, sampled nearest. Source index 0 is left alone.
 	/// </summary>
 	public void StretchBlit(ShellSurface source, int left, int top, int width, int height) {

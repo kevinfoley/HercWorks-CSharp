@@ -102,6 +102,8 @@ MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mf
 
 `SystemButtons_Ctor` (`00434368`) builds a pair of `SystemGadget`s from hardcoded coordinates rather than from the `.GAU` — 12x11 GAU units each, at x 305-317 and x 291-303, y 2-13, so they sit in the forward view's top-right corner. Their art is the `sysbuttn` bank, and the constructor leaves them in state **3**, which `Widget_HitTestChildren` treats as clickable and `SystemGadget_Paint` (`00434748`) draws as the plain frame.
 
+**The pair shows only while the pointer is level with it.** `SystemButtons_PaintForPointer` (`00434520`), the last call of `Sim_RenderFrame`, puts each button in state 0, which `SystemGadget_Paint` draws, while the pointer's y (`004d234c`, offset by the cockpit viewport's `+0x224`) lies within the button's own y span, and in state 3, which restores the art beneath, otherwise. `CockpitView_ProcessViewCommand` hides both with `SystemButtons_HideAll` (`00434604`), which saves each button's state at `+0x5c` and forces 3, and `CockpitView_StepViewTransition` puts the saved states back with `SystemButtons_RestoreAll` (`00434634`).
+
 `SystemButtons_OnChildClick` (`004345a0`) matches the clicked child against the pair at `CockpitViewInstance+0x246`/`+0x24a` and, unless a `.TAP` is replaying:
 
 | Child | Effect |
@@ -161,13 +163,13 @@ Every widget in the clickable list carries its vtable at `+0x17` — the offset 
 
 | Slot | Role | Base implementation (`0049dbb6`) |
 |---|---|---|
-| `+0x00` | Paint: redraw the widget's own content | `00452ab2`, empty |
-| `+0x04` | Invalidate | `00452ab7`, empty; every cockpit button class takes `Widget_InvalidateDeferred` (`00455524`) |
-| `+0x08` | `OnClick`, or commit a value | `0045555e`, empty |
-| `+0x0c` | Per-frame tick: runs the deferred paint | `0045554a`, empty |
+| `+0x00` | Paint: redraw the widget's own content | `CTLControl_PaintNoOp` (`00452ab2`), empty |
+| `+0x04` | Invalidate | `CTLControl_InvalidateNoOp` (`00452ab7`), empty; every cockpit button class takes `Widget_InvalidateDeferred` (`00455524`) |
+| `+0x08` | `OnClick`, or commit a value | `CTLControl_OnClickNoOp` (`0045555e`), empty |
+| `+0x0c` | Per-frame tick: runs the deferred paint | `CTLControl_FlushDeferredPaintNoOp` (`0045554a`), empty |
 | `+0x10` | `GetValue` | `Widget_GetButtonValue` (`00455530`) |
-| `+0x14` | `SetValue` | `0045553b`, empty |
-| `+0x18` | Drag-move | `00455540`, empty |
+| `+0x14` | `SetValue` | `CTLControl_SetValueNoOp` (`0045553b`), empty |
+| `+0x18` | Drag-move | `CTLControl_DragMoveNoOp` (`00455540`), empty |
 | `+0x1c` | Recompute scale — sliders only, absent from the base table | — |
 
 **`OnClick` is therefore always `+8`**, for the throttle slider and the ordinary MFD/HDD leaf buttons as much as for `ConsoleButton` (`WeaponRangeSelectGadget_OnClick`, `00442dc8`) and `WeaponSelectGadget` (`WeaponSelectGadget_OnClick`, `00442458`). What varies is which implementation sits there:

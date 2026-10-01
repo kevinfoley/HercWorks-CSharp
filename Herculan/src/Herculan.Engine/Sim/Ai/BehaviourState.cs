@@ -228,8 +228,11 @@ public struct BehaviourBlock {
 	/// </summary>
 	public int DwellCountdown;
 
-	/// <summary>Block <c>+0x09</c> — incremented once per AI tick by <c>00413eb0</c>.</summary>
+	/// <summary>Block <c>+0x09</c> — the AI ticks the state has run; see <see cref="CountTick"/>.</summary>
 	public int TickCount;
+
+	/// <summary>Block <c>+0x36</c> — set by <see cref="SetState"/>, cleared by the next <see cref="CountTick"/>.</summary>
+	public bool JustInstalled;
 
 	/// <summary>
 	/// <c>Behaviour_SetState</c> (<c>00413e50</c>): installs a descriptor and arms its countdown at
@@ -240,6 +243,21 @@ public struct BehaviourBlock {
 		State = state;
 		DwellCountdown = state.Dwell + NextJitter();
 		TickCount = 0;
+		JustInstalled = true;
+	}
+
+	/// <summary>
+	/// <c>Behaviour_CountTick</c> (<c>00413eb0</c>), the last step of every AI tick: the first call
+	/// after <see cref="SetState"/> only clears <see cref="JustInstalled"/>, every later one counts.
+	/// See docs/simulation/ai-dispatch.md#the-mechs-behaviour-block--mech0x4d.
+	/// </summary>
+	public void CountTick() {
+		if (JustInstalled) {
+			JustInstalled = false;
+			return;
+		}
+
+		TickCount++;
 	}
 
 	/// <summary>

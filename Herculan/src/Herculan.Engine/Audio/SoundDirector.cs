@@ -175,7 +175,7 @@ public sealed class SoundDirector : IDisposable {
 
 	/// <summary>
 	/// <c>Prefs_ApplyMusicOption</c> (<c>00459c98</c>), the MUSIC row's handler out of the option
-	/// table at <c>004d2060</c>: stores the flag and then unmutes or mutes — unless
+	/// table <c>Prefs_OptionHandlers</c> (<c>004d2060</c>): stores the flag and then unmutes or mutes — unless
 	/// <paramref name="initialising"/>, which is <c>PrefsInitInProgress</c> and skips the second half
 	/// so that reading the file cannot drive the mixer.
 	/// </summary>

@@ -1393,11 +1393,30 @@ public sealed class SimWorld {
 		}
 
 		if (PlayerMech is { Removed: false, Destroyed: false } pilot) {
-			var alert = Objectives.Poll(this, pilot);
-			if (alert != MissionStatus.None) {
-				PendingMissionAlert = alert;
+			PollMission(pilot);
+		}
+	}
+
+	/// <summary>
+	/// <c>Sim_MainTick</c>'s mission poll: <see cref="MissionObjectives.Poll"/>, and on
+	/// <see cref="MissionStatus.PlayerImmobilised"/> the outnumbered damage on the player's group first,
+	/// which turns the answer into <see cref="MissionStatus.ImmobilisedThenDestroyed"/> when it kills the
+	/// player. See docs/simulation/mission-objectives.md#the-poll--mission_pollstatus-004131ac.
+	/// </summary>
+	private void PollMission(MechObject pilot) {
+		var alert = Objectives.Poll(this, pilot);
+		if (alert == MissionStatus.None) {
+			return;
+		}
+
+		if (alert == MissionStatus.PlayerImmobilised && pilot.Group is { } group) {
+			MechObject.ApplyGroupOutnumberedDamage(this, group);
+			if (pilot.Destroyed) {
+				alert = MissionStatus.ImmobilisedThenDestroyed;
 			}
 		}
+
+		PendingMissionAlert = alert;
 	}
 
 	/// <summary>
@@ -1467,7 +1486,7 @@ public sealed class SimWorld {
 		// One sound serves every fire in the mission, so it is placed on whichever of them is nearest
 		// the camera: FireEffect_TickUpdate measures its own distance to ViewObjectPtr and calls
 		// Sound_UpdatePosition(0x33) whenever it beats the running minimum at DAT_006b4fc0, which the
-		// pool's phase-5 hook (LAB_0046b084, run from Sim_RenderFrame) resets to 0x7fffffff
+		// pool's phase-5 hook (FireEffect_PerFrameReset, 0046b084, run from Sim_RenderFrame) resets to 0x7fffffff
 		// every frame. Taking the minimum across the walk and placing once is the same outcome.
 		//
 		// A burnt-out fire still counts towards the minimum on the tick it goes out, as it does in the
@@ -1558,10 +1577,7 @@ public sealed class SimWorld {
 		// after the systems pass and gated on the player's machine still being alive. It is throttled
 		// hard inside: see MissionObjectives.Poll.
 		if (PlayerMech is { Removed: false, Destroyed: false } pilot) {
-			var alert = Objectives.Poll(this, pilot);
-			if (alert != MissionStatus.None) {
-				PendingMissionAlert = alert;
-			}
+			PollMission(pilot);
 		}
 
 		TickCount++;

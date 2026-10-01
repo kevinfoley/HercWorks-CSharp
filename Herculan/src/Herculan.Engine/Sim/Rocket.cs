@@ -7,7 +7,7 @@ using Herculan.Engine.Numerics;
 namespace Herculan.Engine.Sim;
 
 /// <summary>
-/// A launcher's round — DBSIM's <c>Missile</c> class, built by <c>Missile_Construct</c>
+/// A launcher's round — DBSIM's <c>ROCKET</c> class, built by <c>Rocket_Construct</c>
 /// (<c>0040a948</c>, vtable <c>PTR_Bullet_Draw_00498448</c>) and advanced by
 /// <c>Rocket_TickUpdate</c> (<c>0040a538</c>, vtable <c>+0x14</c>). It is the third and last fire
 /// branch, and the one weapon class that fired nothing at all until now.
@@ -37,7 +37,7 @@ namespace Herculan.Engine.Sim;
 /// player-flown branch. See <see cref="HomingTick"/> for which parts are ported.</item>
 /// </list>
 ///
-/// <para>Only <c>PROJ.DAT</c> <see cref="ProjectileType.Missile"/> records reach here.
+/// <para>Only <c>PROJ.DAT</c> <see cref="ProjectileType.Rocket"/> records reach here.
 /// <see cref="ProjectileType.Grenade"/> (type 3) records exist in retail data and are unreachable:
 /// <c>Grenade_Construct</c> (<c>0040ac3c</c>) builds their class and nothing calls it, and its
 /// vtable's per-tick slot is <c>FUN_0040acb4</c>, a bare <c>return 0</c>, so an instance would never
@@ -158,7 +158,7 @@ public sealed class Rocket {
 	///
 	/// <para>That makes a rocket the one shot in the simulation whose <i>range</i> is frame-rate
 	/// dependent in the original: it lives a fixed number of frames while each frame's step scales
-	/// with the timestep, so a slower machine threw its missiles further. The engine's fixed timestep
+	/// with the timestep, so a slower machine threw its rockets further. The engine's fixed timestep
 	/// pins it to what the original produces at its own 40 ms cap.</para>
 	/// </summary>
 	public short Age => _age;
@@ -227,7 +227,7 @@ public sealed class Rocket {
 
 		// Power is zero: a launcher spends a round out of a rack, never a capacitor charge, so the
 		// record's two damage figures apply at face value. The clearance is the ROCKETS.DAT record's
-		// own — 200 for the four ordinary missiles, 300 for the big one, which is what makes BMSL the
+		// own — 200 for the four ordinary rockets, 300 for the BMSL round, which is what makes BMSL the
 		// more forgiving hit.
 		var shot = new WeaponShot(_frame, step, Data, 0, Owner, _record.ClipRadius) {
 			WeaponClass = Data.SubtypeId
@@ -404,7 +404,7 @@ public sealed class Rocket {
 	/// palette's red and yellow-white range, beside a static grey body. See
 	/// <see cref="Scene.SceneModelLibrary.Rocket"/>.</para>
 	///
-	/// <para>Zero interval means a static shape, which is the big missile alone — its shape has the
+	/// <para>Zero interval means a static shape, which is the BMSL round alone — its shape has the
 	/// two cells but nothing ever steps them, so its flame is frozen. The four ordinary rounds run at
 	/// 256, the same figure the EMP rounds use, which works out to a cell every four ticks.</para>
 	/// </summary>

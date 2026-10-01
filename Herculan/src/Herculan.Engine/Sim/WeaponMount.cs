@@ -291,7 +291,7 @@ public sealed class WeaponMount {
 	/// <para>It is what indexes the machine's missile-lock state — see
 	/// <see cref="MechObject.MissileLocked"/>.</para>
 	/// </summary>
-	public short AmmoType => Projectile is { } record && record.Type == ProjectileType.Missile
+	public short AmmoType => Projectile is { } record && record.Type == ProjectileType.Rocket
 		? record.SubtypeId
 		: NotAMissile;
 
@@ -507,7 +507,7 @@ public sealed class WeaponMount {
 	/// hardpoint — the roll in <c>MechObject.RollWeaponMountDestruction</c> is the other, and takes
 	/// mounts out before their component is gone.</item>
 	/// <item><b>A launcher cooks off.</b> Past <see cref="MountDamageOnset"/> — half damage — a
-	/// <c>Missile</c> mount rolls <see cref="MountCookOffOdds"/> in 1024 once for every
+	/// <c>Rocket</c> mount rolls <see cref="MountCookOffOdds"/> in 1024 once for every
 	/// <see cref="MountDamageStep"/> the reading crossed, and the first success destroys it. A hit
 	/// that takes the component from pristine to nearly gone therefore rolls five or six times.</item>
 	/// <item><b>A gun's refire scale moves instead</b>, by
@@ -542,7 +542,7 @@ public sealed class WeaponMount {
 
 		int last = (after - MountDamageOnset) / MountDamageStep;
 
-		if (projectile.Type != ProjectileType.Missile) {
+		if (projectile.Type != ProjectileType.Rocket) {
 			if (projectile.Type == ProjectileType.Bullet) {
 				RefireScale = (short)(RefireScaleFull - last * RefireScalePerDamageStep);
 			}
@@ -1117,7 +1117,7 @@ public sealed class WeaponMount {
 	///
 	/// <para><b>All three branches are live.</b> A <see cref="ProjectileType.Beam"/> record resolves
 	/// its hit synchronously and is over inside this call; a <see cref="ProjectileType.Bullet"/>
-	/// record becomes a travelling <see cref="Projectile"/>; a <see cref="ProjectileType.Missile"/>
+	/// record becomes a travelling <see cref="Projectile"/>; a <see cref="ProjectileType.Rocket"/>
 	/// record becomes a <see cref="Rocket"/>. <see cref="ProjectileType.Grenade"/> is the fourth value
 	/// and no dispatch tests for it — its class is built by a constructor nothing calls, so those
 	/// records are unreachable in the original too.</para>
@@ -1263,12 +1263,12 @@ public sealed class WeaponMount {
 	/// cycle rather than leaving it armed and dry.</para>
 	///
 	/// <para><b>A launcher now pays for its round too.</b> The spend used to be skipped on the
-	/// <see cref="ProjectileType.Missile"/> branch, because the branch fired nothing and a faithful
+	/// <see cref="ProjectileType.Rocket"/> branch, because the branch fired nothing and a faithful
 	/// spend would have emptied a rack for free. The original does it before it looks at the type at
 	/// all, and it does it here now.</para>
 	///
 	/// <para>The two branches are a gun and a launcher — <c>Bullet_Fire</c> for anything that is not
-	/// a <see cref="ProjectileType.Missile"/>, <c>Rocket_Fire</c> for one that is. Only the gun branch
+	/// a <see cref="ProjectileType.Rocket"/>, <c>Rocket_Fire</c> for one that is. Only the gun branch
 	/// raises the muzzle-flash flag at <c>mount+0x44</c>; a rocket comes off a rail rather than out of
 	/// a barrel and the original lights nothing for it.</para>
 	///
@@ -1288,7 +1288,7 @@ public sealed class WeaponMount {
 		}
 
 		var aim = bone.ToEuler();
-		if (projectile.Type == ProjectileType.Missile) {
+		if (projectile.Type == ProjectileType.Rocket) {
 			world.FireRocket(projectile, muzzle, aim, owner.TravelSpeed, owner);
 			return;
 		}

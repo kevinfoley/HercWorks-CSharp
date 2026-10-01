@@ -276,7 +276,7 @@ public class ScriptMechRecord {
 	/// Source offset 0x74 — the second of the two parallel per-slot arrays
 	/// <c>Mech_ConfigureLoadout</c> takes, alongside <see cref="WeaponRefs"/>. It is the ammunition
 	/// type each missile launcher is loaded with, the value a launcher's mount resolves through
-	/// <c>Proj_LookupRecord(Missile, key)</c> and then prints as its name; non-launcher slots carry a
+	/// <c>Proj_LookupRecord(Rocket, key)</c> and then prints as its name; non-launcher slots carry a
 	/// filler 5.
 	///
 	/// <para>Located by the two stack locals <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) hands

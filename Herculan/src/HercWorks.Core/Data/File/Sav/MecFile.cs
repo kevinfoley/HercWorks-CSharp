@@ -89,7 +89,7 @@ public class MecEntry {
 	///
 	/// <para>Resolved from <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>),
 	/// which takes this array's entry for a hardpoint through
-	/// <c>Proj_LookupRecord(Missile, key)</c> whenever the weapon's template carries the launcher
+	/// <c>Proj_LookupRecord(Rocket, key)</c> whenever the weapon's template carries the launcher
 	/// sentinel, and from <c>WeaponMount_GetDisplayName</c> (<c>0040e18c</c>), which then prints that record's own subtype as the
 	/// mount's name. That is why the retail player's <c>MSL10</c> hardpoint reads <c>ARH</c> in the
 	/// cockpit rather than <c>MSL10</c>. Non-launcher slots carry a filler 5, which the factory

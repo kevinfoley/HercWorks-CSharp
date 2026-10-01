@@ -148,7 +148,7 @@ A visibly-mounted hardpoint then throws its own gun as a debris object — the s
 
 | `PROJ.DAT` type | Effect per 25 points of damage past `0x80` |
 |---|---|
-| `Missile` | Rolls `rand & 0x3ff < 300` — a shade under 30% — and the first success destroys the mount. One hit crossing several steps rolls several times |
+| `Rocket` | Rolls `rand & 0x3ff < 300` — a shade under 30% — and the first success destroys the mount. One hit crossing several steps rolls several times |
 | `Bullet` | Sets the refire scale `mount+0x63 = 0x400 - steps * 0x66` |
 | `Beam` | Neither |
 
@@ -162,7 +162,7 @@ A band change on a mount component rolls once to take that mount out, inside `Me
 
 **The simulator does not use the shell catalog's names.** `Weapons_LoadResourceTables` (`0040fc8c`) walks a 33-entry string-pointer array at `00498eb0` as it reads the template table and stores one pointer into each record's `+0x52`; that is what a gauge prints. The two spellings are tabulated per id in [`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-weapon-id-space--three-spellings-per-weapon) alongside each weapon's full name.
 
-The name is chosen off the **resolved projectile**, not the weapon id: when the mount's `PROJ.DAT` record is a `Missile`, the gauge prints that record's own subtype from a four-entry table at `004989c8` — `SARH`, `ARH`, `ARM`, `EO` — so a launcher is named by what is loaded in it. This is why the retail player's `MSL10` hardpoint reads `ARH`. Ids 13–16's own names are bare round counts (`"6"`, `"8"`, `"10"`, `"24"`) precisely because a launcher never prints them.
+The name is chosen off the **resolved projectile**, not the weapon id: when the mount's `PROJ.DAT` record is a `Rocket`, the gauge prints that record's own subtype from a four-entry table at `004989c8` — `SARH`, `ARH`, `ARM`, `EO` — so a launcher is named by what is loaded in it. This is why the retail player's `MSL10` hardpoint reads `ARH`. Ids 13–16's own names are bare round counts (`"6"`, `"8"`, `"10"`, `"24"`) precisely because a launcher never prints them.
 
 The subtype index is unbounded in the original. `MISSL` (id 21) points straight at the `BMSL` record, subtype 4, and reads one past the four-entry table. `BMSL` is Bull armament and no player HERC can mount it.
 

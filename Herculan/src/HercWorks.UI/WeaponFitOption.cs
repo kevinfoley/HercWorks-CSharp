@@ -71,7 +71,7 @@ internal sealed class WeaponFitOption {
 	/// <summary>
 	/// Whether a weapon id is a missile launcher — the only kind of mount that reads the loadout's
 	/// second array at all. These four are exactly the ids whose <c>WEAPONS.DAT</c> mount template
-	/// carries the "resolve by (Missile, key) search" sentinel instead of a direct PROJ.DAT index,
+	/// carries the "resolve by (Rocket, key) search" sentinel instead of a direct PROJ.DAT index,
 	/// so every other weapon fires the same projectile whatever the ammunition slot says. Hardcoded
 	/// rather than read from the template table, which lives in a VOL this form has not loaded.
 	/// </summary>
@@ -83,7 +83,7 @@ internal sealed class WeaponFitOption {
 /// <summary>
 /// One entry of the ammunition dropdown — the loadout's parallel second array, which is the
 /// guidance type a launcher's rounds are loaded with. Values are <see cref="MissileType"/> ids,
-/// matching the PROJ.DAT Missile subtype a launcher's mount resolves through.
+/// matching the PROJ.DAT Rocket subtype a launcher's mount resolves through.
 ///
 /// <para><see cref="MissileType.None"/> (5) is retail's filler in every non-launcher slot. On a
 /// launcher it is not rejected: DBSIM's mount factory rewrites a 5 to 0, so such a launcher fires

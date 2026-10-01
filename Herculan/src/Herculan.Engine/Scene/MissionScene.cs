@@ -974,7 +974,7 @@ public sealed class MissionScene {
 						// The two PROJ.DAT rows the flyer AI names by literal — see FlyerObject.AttackRun.
 						GunProjectile = weapons?.ProjectileAt(FlyerObject.GunProjectileIndex),
 						MissileProjectile = weapons?.Lookup(
-							ProjectileType.Missile, FlyerObject.MissileSubtype)
+							ProjectileType.Rocket, FlyerObject.MissileSubtype)
 					},
 					model, null);
 			}
@@ -993,7 +993,7 @@ public sealed class MissionScene {
 						// way the flyer AI does — see BaseObject.ArmedThinkTick.
 						GunProjectile = weapons?.ProjectileAt(BaseObject.GunProjectileIndex),
 						MissileProjectile = weapons?.Lookup(
-							ProjectileType.Missile, BaseObject.MissileSubtype)
+							ProjectileType.Rocket, BaseObject.MissileSubtype)
 					},
 					model, null);
 			}

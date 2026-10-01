@@ -2,7 +2,7 @@ namespace HercWorks.Core.Data.Struct;
 
 /// <summary>
 /// A hardpoint's ammo type — the guidance kind a missile rack is loaded with, and the subtype that
-/// picks its PROJ.DAT <c>Missile</c> record. 0-3 are the four the shell offers; 4 is the BMSL's own
+/// picks its PROJ.DAT <c>Rocket</c> record. 0-3 are the four the shell offers; 4 is the BMSL's own
 /// round; 5 means the hardpoint carries nothing guided. See
 /// docs/formats/herc-catalogs.md#the-weapon-unit-record.
 /// </summary>

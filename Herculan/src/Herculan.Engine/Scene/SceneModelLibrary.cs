@@ -430,7 +430,7 @@ public sealed class SceneModelLibrary {
 	/// once per cell for the flame to move. See <see cref="DtsMeshBuilder.CellFrameCount"/>.</para>
 	///
 	/// <para><paramref name="modelId"/> is the <c>ROCKETS.DAT</c> record's first field. Retail ships
-	/// two roots and the five records name both: root 0 for the four ordinary missiles, root 1 for
+	/// two roots and the five records name both: root 0 for the four ordinary rockets, root 1 for
 	/// <c>BMSL</c>.</para>
 	/// </summary>
 	/// <returns>The cells in order, or empty when the shape file or the index is missing.</returns>

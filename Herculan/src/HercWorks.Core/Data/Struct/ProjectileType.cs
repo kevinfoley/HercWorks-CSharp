@@ -8,12 +8,11 @@ namespace HercWorks.Core.Data.Struct;
 /// no persisting object (every Beam record has <c>Speed</c> 0).
 ///
 /// <para>The C++ class behind each is named by the binary itself — `0` is <c>ROCKET</c>, `2` is
-/// <c>BULLET</c>, `3` is <c>GRENADE</c>, `4` has no class at all. `0` is named <c>Missile</c> here
-/// because that is the weapon it carries in the game's own terms. See
+/// <c>BULLET</c>, `3` is <c>GRENADE</c>, `4` has no class at all. See
 /// docs/simulation/weapon-damage-types.md, "Type — a firing-mechanism selector".</para>
 /// </summary>
 public sealed class ProjectileType {
-	public static readonly ProjectileType Missile = new("MISSILE", 0);
+	public static readonly ProjectileType Rocket = new("ROCKET", 0);
 	public static readonly ProjectileType Bullet = new("BULLET", 2);
 
 	/// <summary>
@@ -24,7 +23,7 @@ public sealed class ProjectileType {
 
 	public static readonly ProjectileType Beam = new("BEAM", 4);
 
-	private static readonly IReadOnlyList<ProjectileType> All = new[] { Missile, Bullet, Grenade, Beam };
+	private static readonly IReadOnlyList<ProjectileType> All = new[] { Rocket, Bullet, Grenade, Beam };
 	private static readonly Dictionary<short, ProjectileType> ById = All.ToDictionary(p => p.Val);
 
 	public string Type { get; }

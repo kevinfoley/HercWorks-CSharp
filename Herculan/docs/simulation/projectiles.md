@@ -36,7 +36,7 @@ Weapon names above are the simulator's own. Subtype 9 is reached by two weapon i
 
 ## Spawning — `Bullet_Fire` (`0040b43c`)
 
-`Bullet_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech)`. The powered form `Bullet_FirePowered` (`0040b5a0`) is the same call with two fields written after it.
+`Bullet_Fire(projIndex, muzzleWorldPoint, aimEulerTriple, ownerMech)`. The powered form `Bullet_FirePowered` (`0040b5a0`) is the same call with two fields written after it.
 
 - **Geometry is one transform.** The object holds a euler triple at `+0x0c` and a transform at `+0x12` whose translation *is* the position (`+0x26`); the rotation is rebuilt from the triple whenever the dirty flag at `+0x32` says the angles moved.
 - **Scatter** displaces euler components 0 and 2 by `(scatter * 2 & random) - scatter`. The mask is literally `scatter * 2`, not a power of two minus one, so the retail 63 draws odd values only. Component 1 is roll about the shot's own axis and is left alone.

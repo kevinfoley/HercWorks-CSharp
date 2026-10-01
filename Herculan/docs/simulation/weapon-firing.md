@@ -38,7 +38,7 @@ Two implementations serve the energy and ammunition classes, both opening with `
 | Class | Function | Branch |
 |---|---|---|
 | Energy / gun | `WeaponMount_FireDispatch_GunBeam` (`0040ea58`) | `Beam` → `Bullet_FireBurst`; else a travelling `Bullet` |
-| Ammunition | `WeaponMount_FireDispatch_Missile` (`0040e964`) | `Missile` → `Rocket_Fire` ([`rockets.md`](rockets.md)); else the same `Bullet` fallback |
+| Ammunition | `WeaponMount_FireDispatch_Missile` (`0040e964`) | `Rocket` → `Rocket_Fire` ([`rockets.md`](rockets.md)); else the same `Bullet` fallback |
 
 Both also raise `mount+0x44`, the muzzle flash, on a visible hardpoint; the conditions are in [the muzzle flash](weapon-mounts.md#the-muzzle-flash).
 

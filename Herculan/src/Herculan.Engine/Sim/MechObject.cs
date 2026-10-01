@@ -1264,7 +1264,7 @@ public sealed partial class MechObject : SimObject {
 /// <param name="SecondaryKeys">
 /// The parallel second value per slot, the array DBSIM's loadout call takes alongside the first.
 /// It is the ammunition type a missile launcher is loaded with — the value a launcher's mount takes
-/// through <c>Proj_LookupRecord(Missile, key)</c> and then prints as its name. Retail data puts
+/// through <c>Proj_LookupRecord(Rocket, key)</c> and then prints as its name. Retail data puts
 /// <see cref="WeaponCatalog.DefaultSecondaryKey"/> in every slot that is not a launcher. May be
 /// shorter than <see cref="WeaponIds"/>, or empty, in which case the default is assumed.
 /// </param>

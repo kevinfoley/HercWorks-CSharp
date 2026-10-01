@@ -83,7 +83,7 @@ Three call sites in two unrelated gadgets share it — the HUD waypoint indicato
 | terrain cell (`CellShift` 14) | 16384 | 98.3 |
 | retail zone (128 x 128 cells) | 2097152 | 12580 (12.6 km) |
 | zone 504's highest ground | 23393 | 140 |
-| missile ground-impact blast radius | 3000 | 18 |
+| drop pod landing blast radius | 3000 | 18 |
 | mech death explosion | 2000 | 12 |
 | rocket proximity warning | 40000 | 240 |
 | SAMSON model, bounding box height | 2364 | 14.2 |

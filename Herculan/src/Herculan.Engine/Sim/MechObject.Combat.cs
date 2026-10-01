@@ -600,7 +600,7 @@ public sealed partial class MechObject {
 	/// own vtable <c>+0x70</c>, <see cref="ExplosiveDamage"/>, at
 	/// <see cref="SecondaryBlastRadius"/> — and the struck component gets only the remainder. Every
 	/// retail beam states zero, so on a beam the whole shot still lands on the one component; the
-	/// missile records and the plasma round are what state a share.</para>
+	/// rocket records and the plasma round are what state a share.</para>
 	///
 	/// <para><b>The share is absorbed a second time on its way in.</b> The explosion path opens with
 	/// its own shield absorption, and the original does not exempt a blast that came out of a shot

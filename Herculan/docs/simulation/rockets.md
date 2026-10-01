@@ -1,8 +1,8 @@
-# DBSIM.EXE launcher rounds (`PROJ.DAT` type `Missile`)
+# DBSIM.EXE launcher rounds (`PROJ.DAT` type `Rocket`)
 
 Addresses are DBSIM virtual addresses.
 
-The third and last fire branch. A `Beam` record resolves inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a travelling shot ([`projectiles.md`](projectiles.md)); a `Missile` record becomes one of these. Every missile launcher — `MSL6`, `MSL8`, `MSL10`, `FLYMSL`, `BMSL` — fires one.
+The third and last fire branch. A `Beam` record resolves inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a travelling shot ([`projectiles.md`](projectiles.md)); a `Rocket` record becomes one of these. Every missile launcher — `MSL6`, `MSL8`, `MSL10`, `FLYMSL`, `BMSL` — fires one.
 
 Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` walks **before** the machine list, cannot be shot at, and does not move on the tick that spawned it.
 
@@ -22,7 +22,7 @@ Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` w
 | `+0x0a` | which of the shape's sequences that interval steps |
 | `+0x0c` | fire sound id, played as `id + 10` |
 
-Retail (5 records, one per `Missile` subtype id):
+Retail (5 records, one per `Rocket` subtype id):
 
 | id | Weapon | Shape | Life | Accel | Slack | Anim | Seq | Sfx |
 |---|---|---|---|---|---|---|---|---|
@@ -34,7 +34,7 @@ Retail (5 records, one per `Missile` subtype id):
 
 ## Spawning — `Rocket_Fire` (`0040a9c4`)
 
-`Rocket_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed)`, called from `WeaponMount_FireDispatch_Missile` (`0040e964`) for a mount whose `PROJ.DAT` record has `Type == 0`. **The magazine is spent before that type test**, so a launcher pays for its round on the same line an autocannon does.
+`Rocket_Fire(projIndex, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed)`, called from `WeaponMount_FireDispatch_Missile` (`0040e964`) for a mount whose `PROJ.DAT` record has `Type == 0`. **The magazine is spent before that type test**, so a launcher pays for its round on the same line an autocannon does.
 
 - **The aim triple goes in verbatim.** No `ROCKETS.DAT` field is a scatter and the spawn draws no random numbers — a launcher does not disperse.
 - **Launch speed is a literal 500** plus the machine's own travel speed (mech vtable `+0x38`). The record's `Speed` is not read here; it is the ceiling the burn climbs toward.

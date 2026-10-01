@@ -14,7 +14,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// sentinel meaning "no record" (<c>ECM</c> only), or — for <c>MSL6</c>/<c>MSL8</c>/<c>MSL10</c>/
 /// <c>FLYMSL</c> — resolved through the mission's second loadout array, the ammunition type
 /// (<c>MecEntry.WeaponAmmoTypes</c>, or <c>script.dat</c> block 7 offset <c>0x72</c>), which picks
-/// among the <c>Missile</c> records. Seven catalog ids (<c>NONE</c>, <c>LAEW</c>, <c>MINE</c>, <c>TARG</c>,
+/// among the <c>Rocket</c> records. Seven catalog ids (<c>NONE</c>, <c>LAEW</c>, <c>MINE</c>, <c>TARG</c>,
 /// <c>SHLD</c>, <c>TURB</c>, <c>ENRG</c>) carry an all-zero placeholder template whose mount
 /// constructors never consume the index 0 it reads. See docs/simulation/weapon-mounts.md.</para>
 ///
@@ -33,7 +33,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// record has <see cref="Projectile.Speed"/> 0 and resolves its hit synchronously at fire time
 /// rather than as a travelling instance. <c>Bullet</c> (2) covers both the ATC progression and the
 /// EMP-shaped high-shield entries: real flight time, and <see cref="Projectile.SplashFactor"/> 0
-/// throughout — except one. <c>Missile</c> (0) is the splash-capable guided weapon; <c>Grenade</c>
+/// throughout — except one. <c>Rocket</c> (0) is the splash-capable guided weapon; <c>Grenade</c>
 /// (3) is a cut class whose records are never looked up.</para>
 ///
 /// <para><b>The Plasma cannon is index 22</b>, the single <c>Bullet</c> record that breaks the

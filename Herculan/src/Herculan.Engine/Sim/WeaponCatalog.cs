@@ -38,13 +38,13 @@ public sealed class WeaponCatalog {
 
 	/// <summary>
 	/// The four missile guidance types, <c>DBSIM.EXE</c>'s pointer array at <c>004989c8</c>, indexed
-	/// by a <c>PROJ.DAT</c> Missile record's own subtype id. Semi-active radar homing, active radar
+	/// by a <c>PROJ.DAT</c> Rocket record's own subtype id. Semi-active radar homing, active radar
 	/// homing, anti-radiation and electro-optical.
 	/// </summary>
 	public static readonly IReadOnlyList<string> MissileAmmoNames = new[] { "SARH", "ARH", "ARM", "EO" };
 
 	/// <summary>
-	/// The template's <c>ProjDatIndex</c> sentinel for "resolve by (Missile, secondary key) search"
+	/// The template's <c>ProjDatIndex</c> sentinel for "resolve by (Rocket, secondary key) search"
 	/// rather than by direct index — the four tube/rack launchers, whose actual projectile is the
 	/// ammunition the hardpoint was loaded with.
 	/// </summary>
@@ -98,7 +98,7 @@ public sealed class WeaponCatalog {
 	/// <summary>
 	/// The <c>PROJ.DAT</c> record a mount fires, resolved exactly as
 	/// <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>) resolves it: the launcher sentinel
-	/// takes the hardpoint's own secondary key through a <c>(Missile, key)</c> search, the
+	/// takes the hardpoint's own secondary key through a <c>(Rocket, key)</c> search, the
 	/// no-projectile sentinel resolves to nothing, and every other value is a direct index.
 	/// </summary>
 	/// <param name="weaponId">The hardpoint's weapon id.</param>
@@ -112,7 +112,7 @@ public sealed class WeaponCatalog {
 
 		if (index == MissileLookupSentinel) {
 			short key = secondaryKey == DefaultSecondaryKey ? (short)0 : secondaryKey;
-			return records.FirstOrDefault(r => r.Type == ProjectileType.Missile && r.SubtypeId == key);
+			return records.FirstOrDefault(r => r.Type == ProjectileType.Rocket && r.SubtypeId == key);
 		}
 
 		return index != NoProjectileSentinel && index >= 0 && index < records.Length ? records[index] : null;
@@ -130,7 +130,7 @@ public sealed class WeaponCatalog {
 
 	/// <summary>
 	/// <c>Proj_LookupRecord</c> (<c>0040ffc8</c>) — the linear search by category and subtype id that
-	/// <c>Bullet_Construct</c> and <c>Missile_Construct</c> resolve a fire call's first argument with.
+	/// <c>Bullet_Construct</c> and <c>Rocket_Construct</c> resolve a fire call's first argument with.
 	/// </summary>
 	public ProjectileData.Projectile? Lookup(ProjectileType category, short subtypeId) =>
 		_projectiles.Data?.FirstOrDefault(r => r.Type == category && r.SubtypeId == subtypeId);
@@ -139,7 +139,7 @@ public sealed class WeaponCatalog {
 	/// The name a mount's gauge prints — <c>WeaponMount_GetDisplayName</c> (<c>0040e18c</c>).
 	///
 	/// <para>Two cases, and the discriminator is the resolved projectile rather than the weapon id: a
-	/// mount whose record is a <see cref="ProjectileType.Missile"/> prints that record's guidance
+	/// mount whose record is a <see cref="ProjectileType.Rocket"/> prints that record's guidance
 	/// type (<c>ARH</c>, <c>SARH</c>, ...) — a launcher is named by what is loaded in it, which is
 	/// why the same <c>MSL10</c> hardpoint reads differently in two different fits. Everything else
 	/// prints the weapon id's own name.</para>
@@ -151,7 +151,7 @@ public sealed class WeaponCatalog {
 	/// read off the end of a table.</para>
 	/// </summary>
 	public string MountName(int weaponId, short secondaryKey) {
-		if (Projectile(weaponId, secondaryKey) is { } missile && missile.Type == ProjectileType.Missile
+		if (Projectile(weaponId, secondaryKey) is { } missile && missile.Type == ProjectileType.Rocket
 			&& missile.SubtypeId >= 0 && missile.SubtypeId < MissileAmmoNames.Count) {
 			return MissileAmmoNames[missile.SubtypeId];
 		}

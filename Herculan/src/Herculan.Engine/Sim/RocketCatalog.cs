@@ -17,15 +17,15 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para><b>Indexed by the firing <c>PROJ.DAT</c> record's subtype id</b>, like every other appearance
 /// table here: <c>Rocket_GetTypeRecord</c> (<c>0040a234</c>) is <c>table + id * 14</c> against the id
-/// <c>Missile_Construct</c> stored at the object's <c>+0x41</c>.</para>
+/// <c>Rocket_Construct</c> stored at the object's <c>+0x41</c>.</para>
 ///
 /// <para><b>The record layout is not <c>BULLETS.DAT</c>'s.</b> The two files share a stride and their
 /// first two fields and nothing else — the readers are different functions reading different offsets,
 /// which is why a rocket's record is its own <see cref="RocketType"/>. The field map and the retail
 /// table are in docs/simulation/rockets.md.</para>
 ///
-/// <para>Retail ships five records, one per <c>Missile</c> subtype id, four of them identical: every
-/// launcher round flies for 80 ticks (3.2 s) and accelerates at the same figure, and the big missile
+/// <para>Retail ships five records, one per <c>Rocket</c> subtype id, four of them identical: every
+/// launcher round flies for 80 ticks (3.2 s) and accelerates at the same figure, and the BMSL round
 /// is the one with its own shape, a wider hit slack and a shape that does not animate.</para>
 /// </summary>
 public sealed class RocketCatalog {
@@ -56,7 +56,7 @@ public sealed class RocketCatalog {
 
 	/// <summary>
 	/// The record for <paramref name="subtypeId"/>, or null when the id is outside the table — which
-	/// no retail <c>Missile</c> record is, but a hand-edited <c>PROJ.DAT</c> could be.
+	/// no retail <c>Rocket</c> record is, but a hand-edited <c>PROJ.DAT</c> could be.
 	/// </summary>
 	public RocketType? Record(int subtypeId) =>
 		_table.Entries is { } entries && subtypeId >= 0 && subtypeId < entries.Length

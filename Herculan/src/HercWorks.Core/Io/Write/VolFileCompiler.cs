@@ -179,8 +179,8 @@ public static class VolFileCompiler {
 		Console.WriteLine("COMPILE FILE LIST=====================================");
 
 		foreach (var entry in vol.FilesSet) {
-			string tailByte = entry.UnknownEoFByte != null ? ByteOps.ToHex(entry.UnknownEoFByte) : "";
-			int tailByteVal = entry.UnknownEoFByte != null ? entry.UnknownEoFByte[0] & 0xFF : 0;
+			string tailByte = entry.Trailer != null ? ByteOps.ToHex(entry.Trailer) : "";
+			int tailByteVal = entry.Trailer != null ? entry.Trailer[0] & 0xFF : 0;
 
 			Console.WriteLine($"{entry.FileName}\t| ofs[{entry.VolOffsetValue}]\t| magic[{entry.PrintMagicPrefix()}]\t| rawByteSize[{entry.RawBytes?.Length}]\t| tail byte[{tailByte}]({tailByteVal})");
 
@@ -190,7 +190,7 @@ public static class VolFileCompiler {
 			bass.Write(entry.RawBytes!, 0, entry.RawBytes!.Length);
 
 			if (tailByte.Length > 0) {
-				bass.Write(entry.UnknownEoFByte!, 0, entry.UnknownEoFByte!.Length);
+				bass.Write(entry.Trailer!, 0, entry.Trailer!.Length);
 			}
 		}
 	}
@@ -205,7 +205,7 @@ public static class VolFileCompiler {
 		// treating the hex text as literal ASCII bytes, then halving the count). That's
 		// mathematically equivalent to just the tail byte count for any length, since a hex
 		// string is always 2 characters per byte — simplified to the direct form here.
-		seg += entry.UnknownEoFByte?.Length ?? 0;
+		seg += entry.Trailer?.Length ?? 0;
 
 		return seg;
 	}

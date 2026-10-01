@@ -112,7 +112,7 @@ public sealed class WeaponCatalog {
 
 		if (index == MissileLookupSentinel) {
 			short key = secondaryKey == DefaultSecondaryKey ? (short)0 : secondaryKey;
-			return records.FirstOrDefault(r => r.Type == ProjectileType.Missile && r.MissileId == key);
+			return records.FirstOrDefault(r => r.Type == ProjectileType.Missile && r.SubtypeId == key);
 		}
 
 		return index != NoProjectileSentinel && index >= 0 && index < records.Length ? records[index] : null;
@@ -133,7 +133,7 @@ public sealed class WeaponCatalog {
 	/// <c>Bullet_Construct</c> and <c>Missile_Construct</c> resolve a fire call's first argument with.
 	/// </summary>
 	public ProjectileData.Projectile? Lookup(ProjectileType category, short subtypeId) =>
-		_projectiles.Data?.FirstOrDefault(r => r.Type == category && r.MissileId == subtypeId);
+		_projectiles.Data?.FirstOrDefault(r => r.Type == category && r.SubtypeId == subtypeId);
 
 	/// <summary>
 	/// The name a mount's gauge prints — <c>WeaponMount_GetDisplayName</c> (<c>0040e18c</c>).
@@ -152,8 +152,8 @@ public sealed class WeaponCatalog {
 	/// </summary>
 	public string MountName(int weaponId, short secondaryKey) {
 		if (Projectile(weaponId, secondaryKey) is { } missile && missile.Type == ProjectileType.Missile
-			&& missile.MissileId >= 0 && missile.MissileId < MissileAmmoNames.Count) {
-			return MissileAmmoNames[missile.MissileId];
+			&& missile.SubtypeId >= 0 && missile.SubtypeId < MissileAmmoNames.Count) {
+			return MissileAmmoNames[missile.SubtypeId];
 		}
 
 		return weaponId >= 0 && weaponId < MountNames.Count ? MountNames[weaponId] : string.Empty;

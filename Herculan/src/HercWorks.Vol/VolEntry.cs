@@ -38,7 +38,7 @@ public class VolEntry : DataFile {
 	/// reconstructed, as are the writers' (<see cref="VolEntryPrefixCodec"/>,
 	/// <c>VolFileWriter</c>, <c>VolFileCompiler</c>).
 	/// </summary>
-	public byte[]? UnknownEoFByte { get; set; }
+	public byte[]? Trailer { get; set; }
 
 	/// <summary>
 	/// The prefix's 4-byte field at +5: the source file's MS-DOS packed date (UINT16) and time

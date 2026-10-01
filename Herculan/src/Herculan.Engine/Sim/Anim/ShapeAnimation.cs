@@ -215,7 +215,7 @@ public sealed class ShapeAnimation {
 
 	/// <summary>
 	/// Shape part id to transform id, for the parts the shape tree names. The mech type record
-	/// identifies its camera node by <i>part</i> id (<c>CameraBoneId</c>), and the original resolves
+	/// identifies its camera node by <i>part</i> id (<c>CameraPartId</c>), and the original resolves
 	/// it through the shape's own find-by-id before indexing the transform table with the part's
 	/// <c>TSBasePart.Transform</c>; this is that resolution, done once at load.
 	/// </summary>

@@ -218,7 +218,7 @@ public class DifficultyTests {
 		world.Add(victim);
 
 		var round = Round();
-		round.MissileId = Projectile.PlasmaSubtype;
+		round.SubtypeId = Projectile.PlasmaSubtype;
 
 		var shot = new Projectile(round, Record(), Muzzle, (0, 0, 0), ownerSpeed: 0,
 			power: Q10Unit, owner: attacker, random: world.Random);
@@ -271,14 +271,14 @@ public class DifficultyTests {
 
 	/// <summary>A minimal <c>PROJ.DAT</c> row: the fields the shot path reads and nothing else.</summary>
 	private static ProjectileData.Projectile Round() => new() {
-		MissileId = 1,
+		SubtypeId = 1,
 		DamageArmor = 100,
 		DamageShield = 40,
 		Speed = 1000
 	};
 
 	/// <summary>A minimal <c>BULLETS.DAT</c> row — no scatter, no animation, a long enough life.</summary>
-	private static ProjMissileDatEntry Record() => new() {
+	private static BulletType Record() => new() {
 		Lifetime = 1000,
 		ClipRadius = 100,
 		FrameInterval = 0,

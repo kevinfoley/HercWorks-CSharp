@@ -8,7 +8,7 @@ namespace HercWorks.Core.Data.File.Dts.Part;
 /// rest of the blit — scale, rotation and the vertical squash — is in docs/formats/dts-billboards.md.
 ///
 /// <para>Which DBA is bound is not recorded in the .DTS or the .DBA: for a mech it is chosen by
-/// <c>HercSimDat.ModelSkinId</c> (file offset 148) through a 7-entry group table, which
+/// <c>HercSimDat.TextureGroup</c> (file offset 148) through a 7-entry group table, which
 /// docs/formats/dts-texture-binding.md carries under "DBSIM's mech-to-texture mapping".</para>
 /// </summary>
 public class TSBitmapPart : TSBasePart {

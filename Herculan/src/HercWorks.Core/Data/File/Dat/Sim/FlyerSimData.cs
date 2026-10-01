@@ -21,8 +21,8 @@ public class FlyerSimData {
 	/// <summary>Offset 8, at the offset of <see cref="HercSimDat.TurnAccelDecel"/>. 150 in SKIMMER.DAT.</summary>
 	public short TurnAccelDecel { get; set; }
 
-	/// <summary>Offset 10, at the offset of <see cref="HercSimDat.CameraBoneId"/>. 4 in SKIMMER.DAT.</summary>
-	public short CameraBoneId { get; set; }
+	/// <summary>Offset 10, at the offset of <see cref="HercSimDat.CameraPartId"/>. 4 in SKIMMER.DAT.</summary>
+	public short CameraPartId { get; set; }
 
 	/// <summary>Offset 12, at the offset of <see cref="HercSimDat.AnimId_Walk"/>. -1 in SKIMMER.DAT, as on the RAZOR.</summary>
 	public short AnimId_Walk { get; set; }

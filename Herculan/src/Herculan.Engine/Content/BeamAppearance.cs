@@ -89,32 +89,32 @@ public sealed class BeamAppearance {
 	}
 
 	/// <summary>
-	/// The record for <paramref name="missileId"/>, or null when the id is outside the table — which
+	/// The record for <paramref name="subtypeId"/>, or null when the id is outside the table — which
 	/// no retail beam is, but a hand-edited <c>PROJ.DAT</c> could be.
 	/// </summary>
-	public BeamData.Entry? Record(int missileId) =>
-		_table.Data is { } data && missileId >= 0 && missileId < data.Length ? data[missileId] : null;
+	public BeamData.Entry? Record(int subtypeId) =>
+		_table.Data is { } data && subtypeId >= 0 && subtypeId < data.Length ? data[subtypeId] : null;
 
 	/// <summary>
 	/// Half the beam's width, in world units — the record's first field, which the original uses as
 	/// the perpendicular offset applied to both sides of the centre line. Zero when the id is unknown.
 	/// </summary>
-	public int HalfWidth(int missileId) => Record(missileId)?.HalfWidth ?? 0;
+	public int HalfWidth(int subtypeId) => Record(subtypeId)?.HalfWidth ?? 0;
 
 	/// <summary>
 	/// The record's colour index resolved through the theater palette — the fill colour a
 	/// <b>jagged</b> beam is painted in, and the one thing that tells ELF from ELF2 on screen. The
 	/// straight path never reaches it; see the class remarks. Black when the id is outside the table.
 	/// </summary>
-	public Vector3 Color(int missileId) => Lookup(_palette, Record(missileId)?.ColorId ?? 0);
+	public Vector3 Color(int subtypeId) => Lookup(_palette, Record(subtypeId)?.ColorId ?? 0);
 
 	/// <summary>
-	/// The cross-section for <paramref name="missileId"/> as RGBA texels, one per source row, running
+	/// The cross-section for <paramref name="subtypeId"/> as RGBA texels, one per source row, running
 	/// from one edge of the beam to the other. Falls back to frame 0 when the record names a frame the
 	/// bank does not have.
 	/// </summary>
-	public ReadOnlySpan<byte> Profile(int missileId) {
-		int frame = Record(missileId)?.DBAFrameNum ?? 0;
+	public ReadOnlySpan<byte> Profile(int subtypeId) {
+		int frame = Record(subtypeId)?.DBAFrameNum ?? 0;
 		if (frame < 0 || frame >= _profiles.Length) {
 			frame = 0;
 		}

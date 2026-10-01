@@ -23,7 +23,7 @@ public class HercSimDat {
 	public short TurnAccelDecel { get; set; }
 
 	/// <summary>Offset 10 — the model node the cockpit eye rides.</summary>
-	public short CameraBoneId { get; set; }
+	public short CameraPartId { get; set; }
 
 	/// <summary>Offset 12 — walk sequence id.</summary>
 	public short AnimId_Walk { get; set; }
@@ -155,7 +155,7 @@ public class HercSimDat {
 	public byte[]? NameBytes { get; set; }
 
 	/// <summary>
-	/// Offsets 98 and 100 — the pilot's eye relative to <see cref="CameraBoneId"/>'s node, in that
+	/// Offsets 98 and 100 — the pilot's eye relative to <see cref="CameraPartId"/>'s node, in that
 	/// node's frame: fore/aft, then lift. The eye point is <c>(0, EyeOffsetY, EyeOffsetZ)</c>.
 	/// </summary>
 	public short EyeOffsetY { get; set; }
@@ -242,13 +242,13 @@ public class HercSimDat {
 	/// <c>TSShapeInstance+0x26</c>. <see cref="TextureGroupDbaBaseName"/> names the groups; the
 	/// per-mech roster is in docs/formats/dts-texture-binding.md#dbsims-mech-to-texture-mapping.
 	/// </summary>
-	public short ModelSkinId { get; set; }
+	public short TextureGroup { get; set; }
 
 	/// <summary>
-	/// Maps <see cref="ModelSkinId"/> to the simvol0/dba/&lt;name&gt;.DBA basename DBSIM loads for that
+	/// Maps <see cref="TextureGroup"/> to the simvol0/dba/&lt;name&gt;.DBA basename DBSIM loads for that
 	/// group — the exe's literal 7-entry name table. Null for an out-of-range value.
 	/// </summary>
-	public static string? TextureGroupDbaBaseName(short modelSkinId) => modelSkinId switch {
+	public static string? TextureGroupDbaBaseName(short textureGroup) => textureGroup switch {
 		0 => "LIGHT",
 		1 => "MEDIUM",
 		2 => "HEAVY",

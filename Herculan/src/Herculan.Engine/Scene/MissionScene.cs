@@ -573,7 +573,7 @@ public sealed class MissionScene {
 					&& machine.Type.DebrisTableName is { Length: > 0 } table
 					&& debris?.Database(table) != null) {
 				LoadDebrisShapes(table,
-					HercSimDat.TextureGroupDbaBaseName(machine.Type.Data.ModelSkinId));
+					HercSimDat.TextureGroupDbaBaseName(machine.Type.Data.TextureGroup));
 			}
 		}
 

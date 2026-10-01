@@ -50,7 +50,7 @@ public sealed class GameFile {
 			Content = entry.RawBytes ?? Array.Empty<byte>(),
 			CompressionType = entry.FileCompressionType,
 			MagicPrefix = entry.MagicPrefix,
-			HadTrailingByte = entry.UnknownEoFByte != null
+			HadTrailingByte = entry.Trailer != null
 		};
 	}
 }

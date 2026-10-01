@@ -32,16 +32,16 @@ public sealed class BulletCatalog {
 	public const string TableResource = "BULLETS.DAT";
 
 	/// <summary>
-	/// The rate the age counter climbs at, and the unit <see cref="ProjMissileDatEntry.Lifetime"/>
+	/// The rate the age counter climbs at, and the unit <see cref="BulletType.Lifetime"/>
 	/// is measured against — <c>Bullet_TickUpdate</c>'s literal <c>Math_IntegrateRateOverTick(0x200)</c>
 	/// and its <c>lifetime * 0x200 &lt; age</c> test. Since <c>0x200</c> is the rate per 125 ms, a
 	/// record's lifetime is directly a count of 125 ms intervals: ATC20's 20 is 2.5 seconds.
 	/// </summary>
 	public const short AgeRate = 0x200;
 
-	private readonly MissileDatFile _table;
+	private readonly BulletData _table;
 
-	private BulletCatalog(MissileDatFile table) {
+	private BulletCatalog(BulletData table) {
 		_table = table;
 	}
 
@@ -55,16 +55,16 @@ public sealed class BulletCatalog {
 	/// </summary>
 	public static BulletCatalog? Load(byte[]? bulletsDat) =>
 		bulletsDat != null
-			&& new MissileDatFileTransformer().Parse(bulletsDat) is MissileDatFile { Entries: not null } table
+			&& new BulletDataTransformer().Parse(bulletsDat) is BulletData { Entries: not null } table
 			? new BulletCatalog(table)
 			: null;
 
 	/// <summary>
-	/// The record for <paramref name="missileId"/>, or null when the id is outside the table — which
+	/// The record for <paramref name="subtypeId"/>, or null when the id is outside the table — which
 	/// no retail <c>Bullet</c> record is, but a hand-edited <c>PROJ.DAT</c> could be.
 	/// </summary>
-	public ProjMissileDatEntry? Record(int missileId) =>
-		_table.Entries is { } entries && missileId >= 0 && missileId < entries.Length
-			? entries[missileId]
+	public BulletType? Record(int subtypeId) =>
+		_table.Entries is { } entries && subtypeId >= 0 && subtypeId < entries.Length
+			? entries[subtypeId]
 			: null;
 }

@@ -183,7 +183,7 @@ public sealed class BeamRenderer : IDisposable {
 				_chain.Add(pd);
 			}
 
-			_jaggedShader.SetVector3("uColor", _appearance.Color(tracer.MissileId));
+			_jaggedShader.SetVector3("uColor", _appearance.Color(tracer.SubtypeId));
 			_gl.BufferData<Vector3>(BufferTargetARB.ArrayBuffer, CollectionsMarshal.AsSpan(_chain),
 				BufferUsageARB.DynamicDraw);
 			_gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_chain.Count);
@@ -195,8 +195,8 @@ public sealed class BeamRenderer : IDisposable {
 	}
 
 	private void Draw(BeamTracer tracer, Matrix4x4 view, float nearPlane) {
-		int halfWidth = _appearance.HalfWidth(tracer.MissileId);
-		if (halfWidth <= 0 || Profile(tracer.MissileId) is not { } profile) {
+		int halfWidth = _appearance.HalfWidth(tracer.SubtypeId);
+		if (halfWidth <= 0 || Profile(tracer.SubtypeId) is not { } profile) {
 			return;
 		}
 
@@ -269,18 +269,18 @@ public sealed class BeamRenderer : IDisposable {
 	/// The uploaded cross-section for one subtype id, built on first use. The profile is one texel
 	/// wide and as tall as the source frame's row count, so it is sampled purely by v.
 	/// </summary>
-	private GpuTexture? Profile(int missileId) {
-		if (_profiles.TryGetValue(missileId, out var cached)) {
+	private GpuTexture? Profile(int subtypeId) {
+		if (_profiles.TryGetValue(subtypeId, out var cached)) {
 			return cached;
 		}
 
-		var texels = _appearance.Profile(missileId);
+		var texels = _appearance.Profile(subtypeId);
 		if (texels.IsEmpty) {
 			return null;
 		}
 
 		var texture = new GpuTexture(_gl, texels, 1, texels.Length / 4);
-		_profiles[missileId] = texture;
+		_profiles[subtypeId] = texture;
 		return texture;
 	}
 

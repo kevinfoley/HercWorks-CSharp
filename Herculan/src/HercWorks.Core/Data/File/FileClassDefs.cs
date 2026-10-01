@@ -1,6 +1,7 @@
 using T_ArmHerc = HercWorks.Core.Data.File.Dat.Shell.ArmHerc;
 using T_ArmWeap = HercWorks.Core.Data.File.Dat.Shell.ArmWeap;
 using T_BeamData = HercWorks.Core.Data.File.Dat.Sim.BeamData;
+using T_BulletData = HercWorks.Core.Data.File.Dat.Sim.BulletData;
 using T_CareerMissions = HercWorks.Core.Data.File.Dat.Shell.CareerMissions;
 using T_DamageRepairCost = HercWorks.Core.Data.File.Dat.Shell.DamageRepairCost;
 using T_FlightModel = HercWorks.Core.Data.File.Dbsim.FlightModel;
@@ -11,9 +12,9 @@ using T_Hercs = HercWorks.Core.Data.File.Dat.Shell.Hercs;
 using T_HercSimDamage = HercWorks.Core.Data.File.Dbsim.HercSimDamage;
 using T_HercSimDat = HercWorks.Core.Data.File.Dat.Sim.HercSimDat;
 using T_InitHerc = HercWorks.Core.Data.File.Dat.Shell.InitHerc;
-using T_MissileDatFile = HercWorks.Core.Data.File.Dat.Sim.MissileDatFile;
 using T_PaperDollGraphic = HercWorks.Core.Data.File.Dbsim.PaperDollGraphic;
 using T_ProjectileData = HercWorks.Core.Data.File.Dat.Sim.ProjectileData;
+using T_RocketData = HercWorks.Core.Data.File.Dat.Sim.RocketData;
 using T_RprHerc = HercWorks.Core.Data.File.Dat.Shell.RprHerc;
 using T_TrainingHercs = HercWorks.Core.Data.File.Dat.Shell.TrainingHercs;
 using T_Weapons = HercWorks.Core.Data.File.Dat.Sim.Weapons;
@@ -45,7 +46,8 @@ public sealed class FileClassDefs {
 	// SIM
 	public static readonly FileClassDefs BeamData = new("BeamData", typeof(T_BeamData));
 	public static readonly FileClassDefs HercSimData = new("HercSimData", typeof(T_HercSimDat));
-	public static readonly FileClassDefs MissileData = new("MissileData", typeof(T_MissileDatFile));
+	public static readonly FileClassDefs BulletData = new("BulletData", typeof(T_BulletData));
+	public static readonly FileClassDefs RocketData = new("RocketData", typeof(T_RocketData));
 	public static readonly FileClassDefs ProjectileData = new("ProjectileData", typeof(T_ProjectileData));
 	public static readonly FileClassDefs WeaponsSimData = new("WeaponsSimData", typeof(T_Weapons));
 	public static readonly FileClassDefs FlightModel = new("FlightModel", typeof(T_FlightModel));

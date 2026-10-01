@@ -33,7 +33,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.SpeedAccelDecel = IndexShortLE();
 		data.TurnAccelDecel = IndexShortLE();
 
-		data.CameraBoneId = IndexShortLE();
+		data.CameraPartId = IndexShortLE();
 
 		data.AnimId_Walk = IndexShortLE();
 
@@ -108,7 +108,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		}
 		data.AiRatingSystemPenalty = seg500;
 
-		data.ModelSkinId = IndexShortLE();
+		data.TextureGroup = IndexShortLE();
 
 		data.FootfallTriggerWalk = IndexShortLE();
 		data.FootfallTriggerReverse = IndexShortLE();
@@ -184,7 +184,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Emit(outStream, WriteShortLE(data.SpeedAccelDecel));
 		Emit(outStream, WriteShortLE(data.TurnAccelDecel));
 
-		Emit(outStream, WriteShortLE(data.CameraBoneId));
+		Emit(outStream, WriteShortLE(data.CameraPartId));
 
 		Emit(outStream, WriteShortLE(data.AnimId_Walk));
 
@@ -260,7 +260,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 			Emit(outStream, WriteShortLE(data.AiRatingSystemPenalty![i]));
 		}
 
-		Emit(outStream, WriteShortLE(data.ModelSkinId));
+		Emit(outStream, WriteShortLE(data.TextureGroup));
 
 		Emit(outStream, WriteShortLE(data.FootfallTriggerWalk));
 		Emit(outStream, WriteShortLE(data.FootfallTriggerReverse));

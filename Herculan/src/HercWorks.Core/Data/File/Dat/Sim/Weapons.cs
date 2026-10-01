@@ -48,16 +48,16 @@ public class Weapons {
 		/// Read through <c>Collision_ReadCluster</c>, where it is a component index. 0x13 (19) in every
 		/// record including NONE; meaning here unknown.
 		/// </summary>
-		public short SubSphereFlagRaw { get; set; }
+		public short ClusterComponent { get; set; }
 
 		/// <summary>
 		/// Read through <c>Collision_ReadSphereArray</c>: the low 13 bits are the entry count of
 		/// <see cref="FiringSequence"/> (see <see cref="FiringSequenceCount"/>); the top three are that
 		/// format's flag bits, never set here.
 		/// </summary>
-		public short SubMeshCountRaw { get; set; }
+		public short SphereCountRaw { get; set; }
 
-		public int FiringSequenceCount => SubMeshCountRaw & 0x1FFF;
+		public int FiringSequenceCount => SphereCountRaw & 0x1FFF;
 
 		/// <summary>
 		/// <see cref="FiringSequenceCount"/> entries of four raw int16s each. Meaning unknown; kept raw.

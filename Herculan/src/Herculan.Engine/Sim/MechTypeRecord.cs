@@ -103,11 +103,11 @@ public sealed class MechTypeRecord {
 	public short TurnAccel => Data.TurnAccelDecel;
 
 	/// <summary>Record field 10 — the model node the cockpit eye rides.</summary>
-	public short CameraBoneId => Data.CameraBoneId;
+	public short CameraPartId => Data.CameraPartId;
 
 	/// <summary>
 	/// Record fields 98 and 100 (the exe's <c>typeRecord+0x64</c> and <c>+0x66</c>) — where the
-	/// pilot's eye sits relative to the node <see cref="CameraBoneId"/> names, in that node's own
+	/// pilot's eye sits relative to the node <see cref="CameraPartId"/> names, in that node's own
 	/// frame and in world units. The X component is always zero: the mech vtable's <c>+0x30</c>
 	/// accessor (<c>004155c4</c>) builds the point as <c>(0, +0x64, +0x66)</c>, and the cockpit
 	/// branch of <c>Cam_Update</c> (<c>004011a0</c>) puts it through the node's world matrix to get

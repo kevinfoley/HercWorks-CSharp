@@ -4,7 +4,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
 /// FILE - /DBSIM/DAT/PROJ.DAT — 27 records of 36 bytes, in weapon-id order, behind a
-/// <c>UINT16</c> count. Each record is <see cref="Projectile.Type"/>, <see cref="Projectile.MissileId"/>
+/// <c>UINT16</c> count. Each record is <see cref="Projectile.Type"/>, <see cref="Projectile.SubtypeId"/>
 /// (into BULLETS.DAT, ROCKETS.DAT or BEAM.DAT by type), DamageShield, DamageArmor,
 /// <see cref="Projectile.SplashFactor"/>, Speed (fixed point, 5000 -> 500.0), then the impact-effect
 /// arrays in the order shield, ground, armour.
@@ -37,8 +37,8 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// (3) is a cut class whose records are never looked up.</para>
 ///
 /// <para><b>The Plasma cannon is index 22</b>, the single <c>Bullet</c> record that breaks the
-/// no-splash rule (<see cref="Projectile.MissileId"/> 9, 3000/3000, SplashFactor 1000). DBSIM's
-/// <c>Bullet</c> per-tick method has a <c>MissileId == 9</c> branch calling the explosion formula
+/// no-splash rule (<see cref="Projectile.SubtypeId"/> 9, 3000/3000, SplashFactor 1000). DBSIM's
+/// <c>Bullet</c> per-tick method has a <c>SubtypeId == 9</c> branch calling the explosion formula
 /// directly instead of the single-target hit path — a bullet with real flight time that explodes
 /// with splash on impact.</para>
 /// </summary>
@@ -53,7 +53,7 @@ public class ProjectileData {
 		public ProjectileType? Type { get; set; }
 
 		/// <summary>The subtype id: the BULLETS.DAT, ROCKETS.DAT or BEAM.DAT record, by <see cref="Type"/>.</summary>
-		public short MissileId { get; set; }
+		public short SubtypeId { get; set; }
 		public short DamageShield { get; set; }
 		public short DamageArmor { get; set; }
 

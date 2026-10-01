@@ -32,8 +32,8 @@ public class WeaponsSimTransformer : ByteTransformer<Weapons> {
 			short depCount = IndexShortLE();
 			t.DependentRaw = IndexShortLEArray(depCount * 2);
 
-			t.SubSphereFlagRaw = IndexShortLE();
-			t.SubMeshCountRaw = IndexShortLE();
+			t.ClusterComponent = IndexShortLE();
+			t.SphereCountRaw = IndexShortLE();
 
 			t.FiringSequence = new short[t.FiringSequenceCount][];
 			for (int s = 0; s < t.FiringSequenceCount; s++) {
@@ -70,8 +70,8 @@ public class WeaponsSimTransformer : ByteTransformer<Weapons> {
 				WriteShort(v);
 			}
 
-			WriteShort(t.SubSphereFlagRaw);
-			WriteShort(t.SubMeshCountRaw);
+			WriteShort(t.ClusterComponent);
+			WriteShort(t.SphereCountRaw);
 			foreach (var seq in t.FiringSequence) {
 				foreach (short v in seq) {
 					WriteShort(v);

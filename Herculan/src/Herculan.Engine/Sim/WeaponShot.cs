@@ -71,7 +71,7 @@ public sealed class WeaponShot {
 		DamageArmor = damageArmor;
 		DamageShield = damageShield;
 		SplashFactor = 0;
-		MissileId = effects.MissileId;
+		SubtypeId = effects.SubtypeId;
 		Effects = effects;
 		Owner = owner;
 		Excluded = excluded;
@@ -102,7 +102,7 @@ public sealed class WeaponShot {
 			? projectile.DamageShield
 			: (short)SimMath.Q10Multiply(power, projectile.DamageShield);
 		SplashFactor = projectile.SplashFactor;
-		MissileId = projectile.MissileId;
+		SubtypeId = projectile.SubtypeId;
 		Effects = projectile;
 		Owner = owner;
 	}
@@ -156,7 +156,7 @@ public sealed class WeaponShot {
 	/// keeps it as its own first parameter and hands it to the tracer directly. Carried here because
 	/// it is what picks the shot's appearance: <c>BEAM.DAT</c> is indexed by this, not by weapon id.
 	/// </summary>
-	public short MissileId { get; }
+	public short SubtypeId { get; }
 
 	/// <summary>
 	/// The shot record's <c>+0x12</c> — the <b>weapon class</b> the target reacts to.

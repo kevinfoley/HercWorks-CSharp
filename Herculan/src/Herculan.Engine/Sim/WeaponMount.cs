@@ -292,7 +292,7 @@ public sealed class WeaponMount {
 	/// <see cref="MechObject.MissileLocked"/>.</para>
 	/// </summary>
 	public short AmmoType => Projectile is { } record && record.Type == ProjectileType.Missile
-		? record.MissileId
+		? record.SubtypeId
 		: NotAMissile;
 
 	/// <summary>

@@ -21,9 +21,8 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para><b>The record layout is not <c>BULLETS.DAT</c>'s.</b> The two files share a stride and their
 /// first two fields and nothing else — the readers are different functions reading different offsets,
-/// so <see cref="ProjMissileDatEntry"/>'s property names mean different things here. The field map and
-/// the retail table are in docs/simulation/rockets.md; the accessors below are what this engine reads
-/// through, and are the only safe way to read a rocket record.</para>
+/// which is why a rocket's record is its own <see cref="RocketType"/>. The field map and the retail
+/// table are in docs/simulation/rockets.md.</para>
 ///
 /// <para>Retail ships five records, one per <c>Missile</c> subtype id, four of them identical: every
 /// launcher round flies for 80 ticks (3.2 s) and accelerates at the same figure, and the big missile
@@ -36,9 +35,9 @@ public sealed class RocketCatalog {
 	/// <inheritdoc cref="ResourceFolder" />
 	public const string TableResource = "ROCKETS.DAT";
 
-	private readonly MissileDatFile _table;
+	private readonly RocketData _table;
 
-	private RocketCatalog(MissileDatFile table) {
+	private RocketCatalog(RocketData table) {
 		_table = table;
 	}
 
@@ -51,16 +50,16 @@ public sealed class RocketCatalog {
 	/// </summary>
 	public static RocketCatalog? Load(byte[]? rocketsDat) =>
 		rocketsDat != null
-			&& new MissileDatFileTransformer().Parse(rocketsDat) is MissileDatFile { Entries: not null } table
+			&& new RocketDataTransformer().Parse(rocketsDat) is RocketData { Entries: not null } table
 			? new RocketCatalog(table)
 			: null;
 
 	/// <summary>
-	/// The record for <paramref name="missileId"/>, or null when the id is outside the table — which
+	/// The record for <paramref name="subtypeId"/>, or null when the id is outside the table — which
 	/// no retail <c>Missile</c> record is, but a hand-edited <c>PROJ.DAT</c> could be.
 	/// </summary>
-	public ProjMissileDatEntry? Record(int missileId) =>
-		_table.Entries is { } entries && missileId >= 0 && missileId < entries.Length
-			? entries[missileId]
+	public RocketType? Record(int subtypeId) =>
+		_table.Entries is { } entries && subtypeId >= 0 && subtypeId < entries.Length
+			? entries[subtypeId]
 			: null;
 }

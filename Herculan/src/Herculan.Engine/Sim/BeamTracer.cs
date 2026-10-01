@@ -37,10 +37,10 @@ public sealed class BeamTracer {
 	/// The two <c>PROJ.DAT</c> subtype ids <c>BeamTracer_Ctor</c> tests for before it builds anything —
 	/// ELF and ELF2, the only two weapons that get the jagged chain instead of a straight segment.
 	/// </summary>
-	public const short ElfMissileId = 1;
+	public const short ElfSubtype = 1;
 
-	/// <inheritdoc cref="ElfMissileId"/>
-	public const short Elf2MissileId = 7;
+	/// <inheritdoc cref="ElfSubtype"/>
+	public const short Elf2Subtype = 7;
 
 	/// <summary>How far apart the chain's nodes sit: the length the start-to-end delta is rescaled to.</summary>
 	public const short NodeSpacing = 0x400;
@@ -63,17 +63,17 @@ public sealed class BeamTracer {
 
 	/// <param name="start">The muzzle point.</param>
 	/// <param name="end">Where the beam stopped.</param>
-	/// <param name="missileId">The <c>PROJ.DAT</c> subtype id, which selects the shape and the appearance.</param>
+	/// <param name="subtypeId">The <c>PROJ.DAT</c> subtype id, which selects the shape and the appearance.</param>
 	/// <param name="halfWidth">
 	/// The <c>BEAM.DAT</c> half-width for that subtype, which the jagged branch reads at construction
 	/// time — it is baked into the geometry as the z offset between each node's two points, not
 	/// applied at draw time as it is for a straight beam.
 	/// </param>
 	/// <param name="random">The simulation generator, which the node jitter draws from.</param>
-	internal BeamTracer(Vec3i start, Vec3i end, short missileId, int halfWidth, SimRandom random) {
+	internal BeamTracer(Vec3i start, Vec3i end, short subtypeId, int halfWidth, SimRandom random) {
 		Start = start;
 		End = end;
-		MissileId = missileId;
+		SubtypeId = subtypeId;
 		Life = InitialLife;
 		_points = IsJagged ? BuildChain(start, end, halfWidth, random) : Array.Empty<Vec3i>();
 	}
@@ -92,7 +92,7 @@ public sealed class BeamTracer {
 	/// weapon id. It is <c>Bullet_FireBurst</c>'s own first parameter, passed straight through to the
 	/// tracer and read back by the draw at <c>+0x52</c>.
 	/// </summary>
-	public short MissileId { get; }
+	public short SubtypeId { get; }
 
 	/// <summary>Ticks remaining, in the timer unit <see cref="InitialLife"/> documents.</summary>
 	public short Life { get; private set; }
@@ -101,7 +101,7 @@ public sealed class BeamTracer {
 	/// Whether this shot took <c>BeamTracer_Ctor</c>'s second branch — the one ELF and ELF2 alone take,
 	/// which stores a chain of jittered nodes instead of the muzzle and the hit.
 	/// </summary>
-	public bool IsJagged => MissileId is ElfMissileId or Elf2MissileId;
+	public bool IsJagged => SubtypeId is ElfSubtype or Elf2Subtype;
 
 	/// <summary>
 	/// The chain's point list, empty for a straight beam. Node <c>k</c> owns the pair

@@ -36,7 +36,7 @@ public class VolRoundTripTests {
 			Assert.Equal(41, entry.VolOffsetValue);
 			Assert.Equal(new byte[] { 0x44, 0x41, 0x54, 0x41 }, entry.RawBytes); // "DATA"
 			Assert.Empty(entry.Header!);
-			Assert.Null(entry.UnknownEoFByte);
+			Assert.Null(entry.Trailer);
 
 			string outDir = Path.Combine(tempDir, "out");
 			VolFileWriter.PackVolToFileStrict(vol, outDir);

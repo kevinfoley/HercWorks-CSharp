@@ -12,7 +12,7 @@ namespace HercWorks.UI;
 /// mesh coloured the way DBSIM colours it (see DtsGeometryBuilder for the poly types and
 /// Model3DViewerControl for the rasterizer). That needs three inputs: a theater palette (.DPL), the
 /// same theater's ramp (.RMP, found by the palette's basename) and, for textured polys, the bank
-/// the shape is bound to. A mech's bank comes from its sim .DAT's ModelSkinId — the seven shared
+/// the shape is bound to. A mech's bank comes from its sim .DAT's TextureGroup — the seven shared
 /// atlases in docs/formats/dts-texture-binding.md's "DBSIM's mech-to-texture mapping"; same-basename
 /// DBAs like SAMSON.DBA are 2D damage-readout art, not mesh textures. Whatever is missing falls back
 /// to placeholder colours. TSBitmapPart billboards are not built.
@@ -444,11 +444,11 @@ public partial class Model3DViewerForm : Form {
 	/// <summary>
 	/// Auto-selects the correct DBA texture bank for a mech model, instead of requiring a manual
 	/// "Load Texture Bank" click — the exe itself resolves this per mech type (see
-	/// HercSimDat.ModelSkinId's doc comment for the confirming Ghidra RE). Looks for a same-basename
-	/// simvol0/dat/&lt;mech&gt;.DAT alongside the loaded .dts in the same VOL, reads its ModelSkinId,
+	/// HercSimDat.TextureGroup's doc comment for the confirming Ghidra RE). Looks for a same-basename
+	/// simvol0/dat/&lt;mech&gt;.DAT alongside the loaded .dts in the same VOL, reads its TextureGroup,
 	/// and maps that to one of the 7 shared atlas DBAs (light/medium/heavy/enemy/apocatex/razortex/
 	/// newhercs). Silent best-effort, same convention as TryLoadDefaultPalette: only runs for
-	/// VOL-sourced loads, and any failure (no matching .DAT, unmapped ModelSkinId, missing .DBA)
+	/// VOL-sourced loads, and any failure (no matching .DAT, unmapped TextureGroup, missing .DBA)
 	/// just leaves _loadedTextureBank null so the model still renders with the flat placeholder
 	/// color — Load Texture Bank remains available as a manual override or fallback.
 	/// </summary>
@@ -470,7 +470,7 @@ public partial class Model3DViewerForm : Form {
 			if (_hercSimDataTransformer.Parse(datBytes) is not HercSimDat simData) {
 				return;
 			}
-			groupName = HercSimDat.TextureGroupDbaBaseName(simData.ModelSkinId);
+			groupName = HercSimDat.TextureGroupDbaBaseName(simData.TextureGroup);
 		} catch {
 			return;
 		}

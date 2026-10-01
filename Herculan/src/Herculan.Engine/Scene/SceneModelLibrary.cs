@@ -62,7 +62,7 @@ public sealed record SceneModel(
 /// <list type="bullet">
 /// <item><b>Mechs</b> — every root of <c>dts\&lt;name&gt;.DTS</c>, which are LOD variants of the one
 /// chassis and are drawn one at a time (see <see cref="MechDetailRoots"/>), textured by the bank
-/// <c>HercSimDat.ModelSkinId</c> selects (see docs/formats/dts-texture-binding.md).</item>
+/// <c>HercSimDat.TextureGroup</c> selects (see docs/formats/dts-texture-binding.md).</item>
 /// <item><b>Flyers</b> — <c>dts\&lt;name&gt;.DTS</c> root 0, textured from <c>ENEMY.DBA</c>: the flyer
 /// type loader binds one fixed slot rather than choosing by chassis, and that slot is the Cybrid
 /// mechs' own (see <see cref="FlyerTextureGroup"/>).</item>
@@ -301,7 +301,7 @@ public sealed class SceneModelLibrary {
 	/// </summary>
 	public SceneModel? Mech(string mechName, int rootIndex = 0) {
 		string? bankName = MechData(mechName) is { } data
-			? HercSimDat.TextureGroupDbaBaseName(data.ModelSkinId)
+			? HercSimDat.TextureGroupDbaBaseName(data.TextureGroup)
 			: null;
 
 		return Build(mechName + ".DTS", rootIndex, bankName, segmented: true,
@@ -376,7 +376,7 @@ public sealed class SceneModelLibrary {
 	/// <c>ENEMY.DBA</c></b>.
 	///
 	/// <para>Where a HERC picks its bank per chassis (<c>MechType_InitOne</c> writes
-	/// <c>&amp;g_MechTextureGroupSlots + ModelSkinId*8</c> into the shape's <c>+0x26</c>), the flyer
+	/// <c>&amp;g_MechTextureGroupSlots + TextureGroup*8</c> into the shape's <c>+0x26</c>), the flyer
 	/// type loader (<c>maybe_FlyerType_LoadResources</c>, <c>00422ed0</c>) writes a <i>literal</i>
 	/// slot address, <c>0x004a9e0e</c>. That is <c>g_MechTextureGroupSlots</c> (<c>004a9df6</c>) plus
 	/// <c>3 * 8</c>, so every flyer type shares one bank and it is the enemy one — which makes sense

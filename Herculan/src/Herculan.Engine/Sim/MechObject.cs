@@ -165,7 +165,7 @@ public sealed partial class MechObject : SimObject {
 	/// <inheritdoc />
 	/// <remarks>
 	/// <c>Mech_GetAimNodeTransform</c> (<c>00417b98</c>), the mech vtable <c>+0x24</c>: it pushes the <b>type record's <c>+0x0c</c></b>
-	/// as a shape part id — <c>.DAT</c> file offset 10, <see cref="MechTypeRecord.CameraBoneId"/>, the
+	/// as a shape part id — <c>.DAT</c> file offset 10, <see cref="MechTypeRecord.CameraPartId"/>, the
 	/// same node the cockpit eye rides — resolves it to that node's transform, and the callers put its
 	/// translation through the machine's own rotation. So a HERC is aimed at from its cockpit, which
 	/// walks and leans with it, and not from the ground point its model origin sits on.
@@ -192,7 +192,7 @@ public sealed partial class MechObject : SimObject {
 	/// <inheritdoc />
 	/// <remarks>The same node's <i>model-space</i> Z, which is the <c>+0x1c</c> the sweep reads.</remarks>
 	public override int SightHeight =>
-		Shape is { } shape && Animation?.TransformIdOfPart(Type.CameraBoneId) is { } node && node >= 0
+		Shape is { } shape && Animation?.TransformIdOfPart(Type.CameraPartId) is { } node && node >= 0
 			? shape.NodeTransform(node).Z
 			: Detection.DefaultSightHeight;
 
@@ -383,7 +383,7 @@ public sealed partial class MechObject : SimObject {
 
 	/// <summary>
 	/// Where the pilot's eye is, in world units — the machine's own position with the pose of the
-	/// node its type record names in <see cref="MechTypeRecord.CameraBoneId"/> applied.
+	/// node its type record names in <see cref="MechTypeRecord.CameraPartId"/> applied.
 	///
 	/// <para>There is no cockpit-bob code anywhere in DBSIM, and none is needed: the eye rides a
 	/// model node, the walk cycle animates that node's parent, and the bob falls out.
@@ -404,7 +404,7 @@ public sealed partial class MechObject : SimObject {
 	/// The node the eye rides, in world space — the camera node's own posed transform composed with
 	/// the machine's, and nothing else. This is the frame <see cref="EyeTransform"/> is measured in.
 	/// </summary>
-	public Transform3 CameraNodeTransform => PartTransform(Type.CameraBoneId);
+	public Transform3 CameraNodeTransform => PartTransform(Type.CameraPartId);
 
 	/// <summary>
 	/// The pilot's whole frame in world space, orientation included: the camera node's frame with the
@@ -1181,7 +1181,7 @@ public sealed partial class MechObject : SimObject {
 	/// <see cref="CollisionDamage"/> reads it.
 	/// </summary>
 	private int EyeNodeHeight() {
-		int transformId = Animation?.TransformIdOfPart(Type.CameraBoneId) ?? -1;
+		int transformId = Animation?.TransformIdOfPart(Type.CameraPartId) ?? -1;
 		return transformId < 0 || Shape == null ? 0 : Shape.NodeTransform(transformId).Z;
 	}
 

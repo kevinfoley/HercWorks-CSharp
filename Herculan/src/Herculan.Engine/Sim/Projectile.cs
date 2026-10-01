@@ -30,7 +30,7 @@ namespace Herculan.Engine.Sim;
 /// convention the muzzle frame and the beam ray both use.</para>
 /// </summary>
 public sealed class Projectile {
-	private readonly ProjMissileDatEntry _record;
+	private readonly BulletType _record;
 	private Transform3 _frame;
 	private short _eulerX;
 	private short _eulerY;
@@ -55,7 +55,7 @@ public sealed class Projectile {
 	/// <param name="power">The charge the shot was fired at, or zero — see <see cref="Power"/>.</param>
 	/// <param name="owner">The machine that fired, which the sweep skips.</param>
 	/// <param name="random">The simulation's generator, for the scatter.</param>
-	internal Projectile(ProjectileData.Projectile projectile, ProjMissileDatEntry record,
+	internal Projectile(ProjectileData.Projectile projectile, BulletType record,
 			Vec3i muzzle, (short X, short Y, short Z) aim, short ownerSpeed, short power,
 			SimObject? owner, SimRandom random) {
 		Data = projectile;
@@ -92,7 +92,7 @@ public sealed class Projectile {
 	/// picks the shape drawn, and — at <see cref="PlasmaSubtype"/> — what selects the homing and
 	/// blast branch.
 	/// </summary>
-	public short MissileId => Data.MissileId;
+	public short SubtypeId => Data.SubtypeId;
 
 	/// <summary>
 	/// The subtype the tick singles out by literal value: 9, the plasma cannon's record. Two weapon
@@ -140,7 +140,7 @@ public sealed class Projectile {
 	/// <summary>Where the shot is, in world units.</summary>
 	public Vec3i Position => new(_frame.X, _frame.Y, _frame.Z);
 
-	/// <summary>How far along its life the shot is, against <see cref="ProjMissileDatEntry.Lifetime"/> scaled by <see cref="BulletCatalog.AgeRate"/>.</summary>
+	/// <summary>How far along its life the shot is, against <see cref="BulletType.Lifetime"/> scaled by <see cref="BulletCatalog.AgeRate"/>.</summary>
 	public short Age => _age;
 
 	/// <summary>
@@ -204,7 +204,7 @@ public sealed class Projectile {
 		// The proximity fuze, which is ahead of the sweep in the original: a plasma round that has
 		// gone past its target — the bearing error is over a quarter turn, so the target is behind it
 		// — goes off where it is rather than flying on to nothing.
-		if (MissileId == PlasmaSubtype && Target != null
+		if (SubtypeId == PlasmaSubtype && Target != null
 				&& Position.ApproxDistanceTo(Target.AimPoint) < PlasmaProximityFuze) {
 			var (_, _, bearing) = SimTrig.EulerToward(Target.AimPoint, Position);
 			if ((ushort)(bearing - _eulerZ + BinaryAngle.QuarterTurn) >= BinaryAngle.HalfTurn) {
@@ -217,7 +217,7 @@ public sealed class Projectile {
 
 		// The plasma round's own preparation, in the original's order: stash and empty before the
 		// raycast, so that whatever it touches is only touched, not damaged.
-		if (MissileId == PlasmaSubtype) {
+		if (SubtypeId == PlasmaSubtype) {
 			shot.StashDamage();
 		}
 
@@ -251,7 +251,7 @@ public sealed class Projectile {
 	/// <c>Bullet_StashDirectFireDamage</c> runs before the scale.</para>
 	/// </summary>
 	private void Detonate(SimWorld world, Vec3i at) {
-		if (MissileId != PlasmaSubtype) {
+		if (SubtypeId != PlasmaSubtype) {
 			return;
 		}
 

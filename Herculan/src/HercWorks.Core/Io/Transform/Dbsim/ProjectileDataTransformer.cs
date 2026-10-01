@@ -22,7 +22,7 @@ public class ProjectileDataTransformer : ByteTransformer<ProjectileData> {
 			var proj = data.NewProjectile();
 
 			proj.Type = ProjectileType.ForId(IndexShortLE());
-			proj.MissileId = IndexShortLE();
+			proj.SubtypeId = IndexShortLE();
 			proj.DamageShield = IndexShortLE();
 			proj.DamageArmor = IndexShortLE();
 			proj.SplashFactor = IndexShortLE();
@@ -65,7 +65,7 @@ public class ProjectileDataTransformer : ByteTransformer<ProjectileData> {
 			var proj = data.Data[p];
 
 			WriteShort(proj.Type!.Val);
-			WriteShort(proj.MissileId);
+			WriteShort(proj.SubtypeId);
 			WriteShort(proj.DamageShield);
 			WriteShort(proj.DamageArmor);
 			WriteShort(proj.SplashFactor);

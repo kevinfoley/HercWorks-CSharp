@@ -46,7 +46,7 @@ namespace Herculan.Engine.Sim;
 /// firing-mechanism selector".</para>
 /// </summary>
 public sealed class Rocket {
-	private readonly ProjMissileDatEntry _record;
+	private readonly RocketType _record;
 	private Transform3 _frame;
 	private short _eulerX;
 	private short _eulerY;
@@ -70,7 +70,7 @@ public sealed class Rocket {
 	/// </param>
 	/// <param name="ownerSpeed">The launching machine's own travel speed — see <see cref="Speed"/>.</param>
 	/// <param name="owner">The machine that fired, which the sweep skips.</param>
-	internal Rocket(ProjectileData.Projectile projectile, ProjMissileDatEntry record,
+	internal Rocket(ProjectileData.Projectile projectile, RocketType record,
 			Vec3i muzzle, (short X, short Y, short Z) aim, short ownerSpeed, SimObject? owner) {
 		Data = projectile;
 		_record = record;
@@ -89,7 +89,7 @@ public sealed class Rocket {
 		// at the same rate regardless of what it is, and the launching machine's own travel speed is
 		// added on top exactly as it is for a gun round.
 		_speed = (short)(ownerSpeed + LaunchSpeed);
-		_animationTimer = AnimationInterval(record);
+		_animationTimer = record.FrameInterval;
 	}
 
 	/// <summary>
@@ -105,7 +105,7 @@ public sealed class Rocket {
 	/// The record's subtype id, <c>+0x41</c>. It indexes <see cref="RocketCatalog"/>, picks the shape
 	/// drawn, and selects which of the guidance branches the round would take.
 	/// </summary>
-	public short MissileId => Data.MissileId;
+	public short SubtypeId => Data.SubtypeId;
 
 	/// <summary>
 	/// Subtype 2 — <c>ARM</c>, the anti-radiation missile. <c>Rocket_HomingSteer</c> singles it out by
@@ -153,7 +153,7 @@ public sealed class Rocket {
 
 	/// <summary>
 	/// <c>+0x54</c>, and it is a plain tick count — <c>Rocket_TickUpdate</c>'s <c>+ 1</c> against the
-	/// record's <see cref="ProjMissileDatEntry.Lifetime"/> with no scaling in between. Retail's 80
+	/// record's <see cref="RocketType.Lifetime"/> with no scaling in between. Retail's 80
 	/// is 3.2 s at the simulation's rate.
 	///
 	/// <para>That makes a rocket the one shot in the simulation whose <i>range</i> is frame-rate
@@ -229,8 +229,8 @@ public sealed class Rocket {
 		// record's two damage figures apply at face value. The clearance is the ROCKETS.DAT record's
 		// own — 200 for the four ordinary missiles, 300 for the big one, which is what makes BMSL the
 		// more forgiving hit.
-		var shot = new WeaponShot(_frame, step, Data, 0, Owner, ClipRadius(_record)) {
-			WeaponClass = Data.MissileId
+		var shot = new WeaponShot(_frame, step, Data, 0, Owner, _record.ClipRadius) {
+			WeaponClass = Data.SubtypeId
 		};
 		if (world.Raycast(shot) != 0) {
 			HitObject = shot.HitObject;
@@ -287,7 +287,7 @@ public sealed class Rocket {
 	/// </summary>
 	private void AccelerationTick() {
 		short opening = _speed;
-		_speed = (short)(_speed + SimMath.IntegrateRateOverTick(Acceleration(_record)));
+		_speed = (short)(_speed + SimMath.IntegrateRateOverTick(_record.Acceleration));
 		_speed = (short)((_speed + opening) >> 1);
 
 		if (Data.Speed < _speed) {
@@ -311,7 +311,7 @@ public sealed class Rocket {
 	/// instead.</para>
 	/// </summary>
 	private void GuidanceTick() {
-		if (MissileId == PlayerFlownSubtype && Owner is MechObject { IsPlayer: true }) {
+		if (SubtypeId == PlayerFlownSubtype && Owner is MechObject { IsPlayer: true }) {
 			return;
 		}
 
@@ -353,7 +353,7 @@ public sealed class Rocket {
 		// Reachable now that a target can be selected; nothing turns either emitter on yet, so in
 		// practice this subtype flies straight, which is also what it does against a silent target in
 		// the original.
-		if (MissileId == AntiRadiationSubtype
+		if (SubtypeId == AntiRadiationSubtype
 				&& !Target.ScannerActive && !Target.JammerActive) {
 			return;
 		}
@@ -361,7 +361,7 @@ public sealed class Rocket {
 		// An electro-optical round in flight suppresses its launcher's next AI weapon selection, once
 		// per tick it steers — the machine's equivalent of a pilot flying it, and the only writer of
 		// mech+0xb5. See docs/simulation/ai-weapons.md.
-		if (MissileId == PlayerFlownSubtype && Owner is MechObject launcher) {
+		if (SubtypeId == PlayerFlownSubtype && Owner is MechObject launcher) {
 			launcher.WeaponSelectionSuppressed = true;
 		}
 
@@ -409,12 +409,12 @@ public sealed class Rocket {
 	/// 256, the same figure the EMP rounds use, which works out to a cell every four ticks.</para>
 	/// </summary>
 	private void AnimationTick() {
-		if (AnimationInterval(_record) == 0) {
+		if (_record.FrameInterval == 0) {
 			return;
 		}
 
 		if (SimMath.CountdownTimerTick(ref _animationTimer) == 0) {
-			_animationTimer = AnimationInterval(_record);
+			_animationTimer = _record.FrameInterval;
 			AnimationFrame++;
 		}
 	}
@@ -435,20 +435,4 @@ public sealed class Rocket {
 		_frame = rotation;
 		_frameStale = false;
 	}
-
-	/// <summary>
-	/// <c>ROCKETS.DAT +0x04</c>. The field's property name is <c>ClipRadius</c> because
-	/// <c>BULLETS.DAT</c> keeps that there and the two files share one parser; on a rocket record it
-	/// is the burn rate — see <see cref="RocketCatalog"/>.
-	/// </summary>
-	private static short Acceleration(ProjMissileDatEntry record) => record.ClipRadius;
-
-	/// <summary>
-	/// <c>ROCKETS.DAT +0x06</c>, the shot record's slack. Same story as <see cref="Acceleration"/>:
-	/// the property is named for what a bullet keeps at that offset.
-	/// </summary>
-	private static short ClipRadius(ProjMissileDatEntry record) => record.FrameInterval;
-
-	/// <summary><c>ROCKETS.DAT +0x08</c>, the animation frame interval. As above.</summary>
-	private static short AnimationInterval(ProjMissileDatEntry record) => record.SfxFireIdBullets;
 }

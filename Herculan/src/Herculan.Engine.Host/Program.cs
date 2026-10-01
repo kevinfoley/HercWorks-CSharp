@@ -4400,14 +4400,14 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		projectileItems.Clear();
 
 		foreach (var projectile in scene.World.Projectiles) {
-			Add(scene.BulletModels, projectile.MissileId, projectile.Frame);
+			Add(scene.BulletModels, projectile.SubtypeId, projectile.Frame);
 		}
 
 		// A rocket's shape is a flipbook of geometry, not one mesh: its exhaust flame is a two-cell
 		// TSCellAnimPart, and the cell is the round's own frame counter. Picking the mesh here is the
 		// engine's equivalent of TSCellAnimPart_Render choosing one child.
 		foreach (var rocket in scene.World.RocketsInFlight) {
-			if (scene.RocketModels.TryGetValue(rocket.MissileId, out var cells) && cells.Count > 0) {
+			if (scene.RocketModels.TryGetValue(rocket.SubtypeId, out var cells) && cells.Count > 0) {
 				AddModel(cells[rocket.AnimationFrame % cells.Count], rocket.Frame);
 			}
 		}
@@ -4444,7 +4444,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		spriteBatches.Clear();
 
 		foreach (var projectile in scene.World.Projectiles) {
-			if (scene.BulletModels.TryGetValue(projectile.MissileId, out var model)) {
+			if (scene.BulletModels.TryGetValue(projectile.SubtypeId, out var model)) {
 				Add(model, WorldScale.ToRenderMatrix(projectile.Frame), projectile.AnimationFrame);
 			}
 		}

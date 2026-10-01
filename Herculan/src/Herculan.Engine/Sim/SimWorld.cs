@@ -1261,8 +1261,8 @@ public sealed class SimWorld {
 		_tracers.Add(new BeamTracer(
 			new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z),
 			shot.Muzzle.TransformPoint(0, travelled, 0),
-			shot.MissileId,
-			BeamTable?.HalfWidth(shot.MissileId) ?? 0,
+			shot.SubtypeId,
+			BeamTable?.HalfWidth(shot.SubtypeId) ?? 0,
 			Random));
 
 		_beams.Add(shot);
@@ -1287,7 +1287,7 @@ public sealed class SimWorld {
 	/// <returns>The shot, or null when <see cref="Bullets"/> has no record for its subtype.</returns>
 	internal Projectile? FireBullet(ProjectileData.Projectile projectile, Vec3i muzzle,
 			(short X, short Y, short Z) aim, short ownerSpeed, short power, SimObject? owner) {
-		if (Bullets?.Record(projectile.MissileId) is not { } record) {
+		if (Bullets?.Record(projectile.SubtypeId) is not { } record) {
 			return null;
 		}
 
@@ -1295,12 +1295,12 @@ public sealed class SimWorld {
 
 		// Unlike the beam's fixed report this one is the weapon's own, out of the record: BULLETS.DAT
 		// +0x08, played at the muzzle as the stored id plus the effects-half bias.
-		PlayTableSound(record.SfxFireIdBullets, muzzle);
+		PlayTableSound(record.FireSoundId, muzzle);
 
 		// The powered form's second write, and the whole of what makes one subtype behave differently
 		// from the other eight: the plasma round takes the firing machine's selected target and
 		// chases it. Everything else flies where it was pointed.
-		if (projectile.MissileId == Projectile.PlasmaSubtype && owner is MechObject firing) {
+		if (projectile.SubtypeId == Projectile.PlasmaSubtype && owner is MechObject firing) {
 			shot.Target = firing.Target;
 		}
 
@@ -1337,19 +1337,18 @@ public sealed class SimWorld {
 	/// <returns>The round, or null when <see cref="Rockets"/> has no record for its subtype.</returns>
 	internal Rocket? FireRocket(ProjectileData.Projectile projectile, Vec3i muzzle,
 			(short X, short Y, short Z) aim, short ownerSpeed, SimObject? owner) {
-		if (Rockets?.Record(projectile.MissileId) is not { } record) {
+		if (Rockets?.Record(projectile.SubtypeId) is not { } record) {
 			return null;
 		}
 
 		var round = new Rocket(projectile, record, muzzle, aim, ownerSpeed, owner);
 
-		// ROCKETS.DAT's layout is not BULLETS.DAT's: the launch sound is the field the shared record
-		// type calls SfxFireIdMissiles (+0x0c), not the one the guns use.
-		PlayTableSound(record.SfxFireIdMissiles, muzzle);
+		// ROCKETS.DAT's layout is not BULLETS.DAT's: the launch sound is at +0x0c, not the guns' +0x08.
+		PlayTableSound(record.FireSoundId, muzzle);
 
 		if (owner is MechObject launching
-				&& (launching.MissileLocked(projectile.MissileId)
-					|| (!launching.LocallyPiloted && projectile.MissileId == Rocket.PlayerFlownSubtype))) {
+				&& (launching.MissileLocked(projectile.SubtypeId)
+					|| (!launching.LocallyPiloted && projectile.SubtypeId == Rocket.PlayerFlownSubtype))) {
 			round.Target = launching.Target;
 		} else if (owner is FlyerObject aircraft) {
 			// The lock gate is the launcher's own vtable +0x6c, and the Flyer class' slot is a

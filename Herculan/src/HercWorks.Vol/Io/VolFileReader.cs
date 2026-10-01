@@ -149,7 +149,7 @@ public static class VolFileReader {
 				}
 			}
 
-			entry.UnknownEoFByte = endOfs < vol.RawBytes.Length
+			entry.Trailer = endOfs < vol.RawBytes.Length
 				? ByteOps.Slice(vol.RawBytes, endOfs, 1)
 				: null;
 

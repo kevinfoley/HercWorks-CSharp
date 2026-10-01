@@ -48,7 +48,7 @@ Both also raise `mount+0x44`, the muzzle flash, on a visible hardpoint; the cond
 power = min(template[0x38], capacitor +0x7d)      // the cost, capped at what is held
 capacitor -= power
 shotTransform.translation = muzzleWorldPoint      // overwrite the gun frame's origin
-Bullet_FireBurst(proj.MissileId, shotTransform, template[0x30], ownerMech, power)
+Bullet_FireBurst(proj.subtypeId, shotTransform, template[0x30], ownerMech, power)
 ```
 
 `template[0x38]` is also the upper half of the readiness threshold pair, which [the energy mount's readiness test](weapon-mounts.md#energy) combines with the charge target. The two shapes the pair takes are two kinds of weapon:

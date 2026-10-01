@@ -108,8 +108,8 @@ public static class VolFileWriter {
 			fout.Write(entry.MagicPrefix!, 0, entry.MagicPrefix!.Length);
 			fout.Write(entry.RawBytes!, 0, entry.RawBytes!.Length);
 
-			if (entry.UnknownEoFByte is { Length: > 0 }) {
-				fout.Write(entry.UnknownEoFByte, 0, entry.UnknownEoFByte.Length);
+			if (entry.Trailer is { Length: > 0 }) {
+				fout.Write(entry.Trailer, 0, entry.Trailer.Length);
 			}
 		}
 	}
@@ -160,8 +160,8 @@ public static class VolFileWriter {
 			fout.Write(entry.MagicPrefix!, 0, entry.MagicPrefix!.Length);
 			fout.Write(entry.RawBytes!, 0, entry.RawBytes!.Length);
 
-			if (entry.UnknownEoFByte is { Length: > 0 }) {
-				fout.Write(entry.UnknownEoFByte, 0, entry.UnknownEoFByte.Length);
+			if (entry.Trailer is { Length: > 0 }) {
+				fout.Write(entry.Trailer, 0, entry.Trailer.Length);
 			}
 		} catch (IOException e) {
 			Console.WriteLine($"{e.Message}\n file={entry.FilePath}\\{entry.FileName}");

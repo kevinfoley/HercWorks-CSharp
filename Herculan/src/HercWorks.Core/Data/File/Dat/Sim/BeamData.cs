@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// <summary>
 /// FILE - /DBSIM/DAT/BEAM.DAT — a <c>UINT16</c> count, then six-byte records of half-width, colour
 /// index and <c>BEAMTEX.DBA</c> frame. Indexed by the firing <see cref="ProjectileData"/> record's
-/// MissileId when its type is Beam:
+/// SubtypeId when its type is Beam:
 ///   0 PBW I, 1 ELF I, 2 BPBW, 3 LAS100, 4 LAS200/LAS400, 5 LAS300/LAS500, 6 PBW II, 7 ELF II,
 ///   8 and 9 unused.
 /// Layout and the retail records: docs/formats/beam-dat.md.

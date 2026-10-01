@@ -59,5 +59,5 @@ public static class SkeletonPose {
 	/// rides — or -1 when the shape does not carry it.
 	/// </summary>
 	public static int CameraTransformId(MechObject mech) =>
-		mech.Animation?.TransformIdOfPart(mech.Type.CameraBoneId) ?? -1;
+		mech.Animation?.TransformIdOfPart(mech.Type.CameraPartId) ?? -1;
 }

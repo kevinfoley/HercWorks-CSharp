@@ -3,9 +3,11 @@
 
 Subcommands (BIN is DBSIM or VSHELL):
 
-  triage BIN [--limit N] [--max-lines L]
+  triage BIN [--limit N] [--max-lines L] [--sort named|sites|callers]
       The es2_unnamed_callees backlog with each target's decompile size and its own unnamed
-      callee count, so short leaf functions can be taken first.
+      callee count, so short leaf functions can be taken first. Columns: named callers, direct
+      call/branch sites in the whole binary, distinct calling functions (fns). --sort orders by
+      named callers (default), by sites, or by fns.
   body BIN addr... [-d] [--full]
       Decompile bodies with known_symbols names substituted for FUN_/DAT_ labels, the header
       banner, blank lines and local declarations dropped (--full keeps them). -d appends the
@@ -23,8 +25,10 @@ Subcommands (BIN is DBSIM or VSHELL):
       Insert new entries after the '"entries": [' line, validating schema, uniqueness, maybe_ vs
       medium, and control characters. Dry run without --write.
   edit edits.json [--write]
-      [{"binary","address","field","value"}]: rewrite that one entry's block. A name change also
-      renames the old name elsewhere in the file (word boundary).
+      [{"binary","address","field","value"} or {"binary","address","fields":{...}}]: rewrite that
+      one entry's block, all fields of one edit before validating (so a low entry can take a
+      confidence and a name together). A name change also renames the old name, or the FUN_/DAT_
+      label of a newly named entry, elsewhere in the file (word boundary).
   relink batch.json [--write]
       Rewrite FUN_/DAT_<addr> mentions of the batch's named entries in the descriptions of other
       entries of the same binary (insert does this itself).
@@ -138,20 +142,34 @@ def cmd_triage(args):
     binary = args[0]
     limit = int(args[args.index("--limit") + 1]) if "--limit" in args else 0
     maxl = int(args[args.index("--max-lines") + 1]) if "--max-lines" in args else 10 ** 9
+    sort = args[args.index("--sort") + 1] if "--sort" in args else "named"
+    assert sort in ("named", "sites", "callers"), sort
     rows = uc.analyse(binary, uc.CONFIDENCE_RANK["high"], False, None)
     backlog = {r["address"] for r in rows}
     _, branches = uc.parse_disasm(binary)
+    # Distinct functions anywhere in the binary that CALL each backlog target.
+    callers = {}
+    for c, sites in branches.items():
+        for _, k, t in sites:
+            if k == "CALL" and t in backlog:
+                callers.setdefault(t, set()).add(c)
+    for r in rows:
+        r["all_callers"] = len(callers.get(r["address"], ()))
+    if sort == "sites":
+        rows.sort(key=lambda r: (-r["total_call_sites"], -r["all_callers"], r["address"]))
+    elif sort == "callers":
+        rows.sort(key=lambda r: (-r["all_callers"], -r["total_call_sites"], r["address"]))
     known = names(binary)
     d = bodies(binary)
     shown = 0
-    print("address   named sites lines unnamedCallees  callers")
+    print("address   named sites fns lines unnamedCallees  callers")
     for r in rows:
         a = r["address"]
         n = len(compact(d[a], known).splitlines()) if a in d else -1
         if n > maxl:
             continue
         sub = sorted({t for _, k, t in branches.get(a, []) if k == "CALL" and t not in known})
-        print(f"{a}  {r['named_caller_count']:>5} {r['total_call_sites']:>5} {n:>5} {len(sub):>3}"
+        print(f"{a}  {r['named_caller_count']:>5} {r['total_call_sites']:>5} {r['all_callers']:>3} {n:>5} {len(sub):>3}"
               f"{'(' + ','.join(t for t in sub if t in backlog) + ')' if any(t in backlog for t in sub) else ''}"
               f"  {', '.join(sorted(r['named_callers'])[:3])}")
         shown += 1
@@ -408,16 +426,22 @@ def cmd_edit(args):
         assert len(ms) == 1, (ed["address"], len(ms))
         m = ms[0]
         e = json.loads(m.group(0))
-        old = e.get("name") if ed["field"] == "name" else None
-        e[ed["field"]] = ed["value"]
+        old = e.get("name")
+        fields = ed.get("fields") or {ed["field"]: ed["value"]}
+        for k, v in fields.items():
+            assert k in FIELDS and k not in ("address", "binary"), k
+            assert not re.search(r"[\x00-\x1f]", v)
+            e[k] = v
         if e.get("name"):
             assert e["name"].startswith("maybe_") == (e["confidence"] == "medium"), (e["name"], e["confidence"])
         else:
             assert e["confidence"] == "low", ed["address"]
-        assert not re.search(r"[\x00-\x1f]", ed["value"])
         text = text[:m.start()] + block(e) + text[m.end():]
-        if old and old != ed["value"]:
-            text = rename_mentions(text, ed["binary"], ed["address"], old, ed["value"])
+        if old and e.get("name") and old != e["name"]:
+            text = rename_mentions(text, ed["binary"], ed["address"], old, e["name"])
+        elif not old and e.get("name"):
+            prefix = "FUN_" if e["type"] == "function" else "DAT_"
+            text = rename_mentions(text, ed["binary"], ed["address"], prefix + ed["address"], e["name"])
     d = check_unique(text)
     print("ok", len(d["entries"]))
     if "--write" in args:

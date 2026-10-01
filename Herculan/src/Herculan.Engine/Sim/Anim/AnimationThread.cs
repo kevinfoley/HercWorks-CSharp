@@ -645,7 +645,7 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// <c>FUN_004792c8</c> — walks the current sequence's frames looking for one that offers a
+	/// <c>AnimThread_FindTransition</c> (<c>004792c8</c>) — walks the current sequence's frames looking for one that offers a
 	/// transition into the target sequence, and arms it. Gives up after a full lap, leaving
 	/// <see cref="_scanFrame"/> at -1 so playback simply continues where it is.
 	/// </summary>

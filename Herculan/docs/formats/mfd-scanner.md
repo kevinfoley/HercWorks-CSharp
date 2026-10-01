@@ -75,7 +75,7 @@ The survivor is rotated into the machine's own frame by `Math_BuildRotation2D(-h
 
 The hostile branch does not simply skip. On every other coarse tick (`Time_GetCoarseTicks() & 0x20`) it looks for a stored position at `obj+0x1aa`, gated on `obj+0xa7 == 0`, and plots that instead — a blinking last-known-position marker.
 
-**It can never run.** `Mech_Constructor`, `Flyer_Constructor` and the base-object prologue `Base_Construct` inlines five times all set `obj+0xa7 = 1` immediately before `ObjectList_Add`, and nothing in the image clears it. Nothing writes `obj+0x1aa` either. The same idiom appears in `Mech_ReceiveSquadOrder` (`00420ad4`) and `FUN_0044e92c` and is equally dead there.
+**It can never run.** `Mech_Constructor`, `Flyer_Constructor` and the base-object prologue `Base_Construct` inlines five times all set `obj+0xa7 = 1` immediately before `ObjectList_Add`, and nothing in the image clears it. Nothing writes `obj+0x1aa` either. The same idiom appears in `Mech_ReceiveSquadOrder` (`00420ad4`) and `HddCommandScreen_DrawMarker` (`0044e92c`) and is equally dead there.
 
 ## Paint order
 

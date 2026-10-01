@@ -26,14 +26,14 @@ Two independent sources agree:
 - Raw disassembly of `TSTexture4Poly_Render` (`00422af5`): `MOVZX ESI,word ptr [EBX+0xc]` → `SHL ESI,0x2` → added to `g_ActiveSurfaceRecords` (`DAT_005d88a2`) as a byte offset; front = `*(int32*)(base+offset)`, back = `+8`.
 - The file format itself: a group's on-disk colour count is four times its surface count, one per slot of each surface's four `{int16 value, int16 flag}` slots — front fill, front line, back fill, back line.
 
-Related symbols: `TSGroup_RenderPolys` / `TSGroup_RenderPolysFromRef` (`0042349d` / `00423709`), `g_ActiveSurfaceRecords` (`005d88a2`).
+Related symbols: `TSGroup_RenderPolys` (`0042349d`), `TSBSPGroup_Render` (`00423709`, [below](#tsbspgroup-poly-order-vshell)), `g_ActiveSurfaceRecords` (`005d88a2`).
 
 ### Render path and UV generation
 
-`DAT_00471890` (`g_UseFlatPolyFallback`) selects the mode:
+`g_TexturedPolyUseBitmapBrush` (`00471890`) selects one of two textured fills:
 
-- `== 0` — the textured path, and the only branch that reaches a rasterizer. Builds a per-vertex 3D position array from the group's points and a 4-entry UV-corner array, then calls `TSTexture4Poly_RasterizeA` / `RasterizeB` (`004202dd` / `00420900`).
-- `!= 0` — a flat 2D polygon fill. Projects and edge-clips the vertices (`Poly_ProjectShapeVertices`, `0045e694`, and `FUN_0045ee2c`), fills via `PolyFill_FillThenOutline` (`0045f364`) → `GL_FillPolygon` (`0045f8e7`) / `GL_FillPolygonReversed` (`0045f8d2`). **No texture sampling.** It still resolves a DBA frame index through the same pointer-table lookup `TSBitmapPart_Render` uses, but only for a bounds-check assert.
+- `== 0` — the only branch that reaches a 3D rasterizer. Builds a per-vertex 3D position array from the group's points and a 4-entry UV-corner array, then calls `TSTexture4Poly_RasterizeA` / `RasterizeB` (`004202dd` / `00420900`), the [screen-linear and perspective-correct fills](#screen-linear-and-perspective-correct-fills).
+- `!= 0` — a 2D bitmap fill. It resolves the frame's bitmap through the same pointer-table lookup `TSBitmapPart_Render` uses and installs it in a type-7 bitmap brush, the UVs the bitmap's extent inset by 3 pixels on each side and the remap row chosen by the face's shade. It projects the vertices (`Poly_ProjectShapeVertices`, `0045e694`), clips them to the near plane with their UVs when one fell behind it (`Poly_ClipRingToNearPlaneWithUV`, `0045ee2c`), and fills via `PolyFill_FillThenOutline` (`0045f364`) → `GL_FillPolygon` (`0045f8e7`) / `GL_FillPolygonReversed` (`0045f8d2`). DBSIM has the same branch behind its own `g_TexturedPolyUseBitmapBrush` (`0049f26c`). Both flags are 0 in the images.
 
 The front/back value indexes a **20-byte-stride per-frame descriptor table** reached via `g_ActiveBitmapArray[1]` — one extra pointer dereference from `*g_ActiveBitmapArray`. The first 16 bytes are four `int32` fields `F0..F3`; a 5th field at byte 16 is passed to the rasterizer as a texture-data handle. UV corners, in vertex order:
 
@@ -224,10 +224,24 @@ None of the ramp's own rows is the identity this bypasses: row 0 lands at 0.36x 
 | mode | span routine | interpolants |
 |---|---|---|
 | 0 | `Raster_SpanTextured` (`0046ab10`) | u, v |
-| 1 | `FUN_0046ac48` | u, v, and a shade level from `shadePtr` |
-| 2 | `FUN_0046adad` | u, v, and a third interpolant at vertex `+0x18`, where `Raster_SetupTexturedSpan` stores it |
+| 1 | `Raster_SpanTexturedShaded` (`0046ac48`) | u, v, and a shade level from `shadePtr` |
+| 2 | `Raster_SpanTexturedGouraud` (`0046adad`) | u, v, and a third interpolant at vertex `+0x18`, where `Raster_SetupTexturedSpan` stores it |
 
 Mode 0 with `transparency` zero is the opaque half of `Raster_SpanTextured`: fetch `atlasPage[v][u]`, store that palette byte to the framebuffer, step the fixed-point u and v. The non-zero form skips index 0 as a colour key and does not blend. Nothing in that path applies alpha, a shade level or a colour lookup. The beam draw submits through it: [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#drawing--beamtracer_draw-0040bc14-vtable-slot-0).
+
+Before the spans, `Raster_ClipPolygonX` (`004698c4`) and `Raster_ClipPolygonY` (`00469b60`) clip the ring to the render context's rect and `Raster_BuildEdgeTables` (`00477c3c`) walks it into per-row left and right edge entries. Each span routine has a twin that draws only a list of visible runs on the row — `Raster_SpanTexturedClipped` (`0048b418`), `Raster_SpanTexturedShadedClipped` (`0048b4a3`), `Raster_SpanTexturedGouraudClipped` (`0048b52e`) — which `Raster_DrawPolygon` uses when `ActiveScanlineClipSpans` is set and either the context's clip mode is 2 or the [depth buffer](#the-depth-buffer) is on.
+
+### Screen-linear and perspective-correct fills
+
+`Raster_DrawPolygon` steps u, v and the ramp row linearly down each edge and across each row, so its texture map is **linear in screen space**. It is the fill `TSTexture4Poly_Render` uses while `g_TexturedPolyPerspective` (`0049f274`) is 0, which is its value in the image, and the one `Terrain_DrawCellQuad` uses for a cell whose nearest corner is at view depth `2 * DAT_0049aad0` or more ([`terrain-drawing.md`](terrain-drawing.md#the-cell-walk--terrain_drawvisiblecells-0046d0a4)).
+
+`Raster_DrawTexturedPolyNear` (`0046865c`) is the **perspective-correct** fill: the nearer terrain cells, and `TSTexture4Poly_Render` when `g_TexturedPolyPerspective` is set. It stores `u/z`, `v/z` and `1/z` per vertex and draws each row in runs of `2^k` pixels, dividing back to u and v at each run's end and stepping linearly inside the run. `k` is 10 when the row's two ends have equal `1/z`, otherwise 4, 5, 6 or 7 as `|Δ(1/z)| >> 12` exceeds 3000, 1000, 300 or none of them. When `g_PerspectiveUseQuadraticFit` (`0049f278`) is set — `Terrain_DrawCellQuad` sets it for a cell whose nearest corner is beyond view depth 25000 — the row's start and its last partial run's end are taken from a quadratic fit that `Raster_BuildEdgeTables` makes through each edge's ends and middle, instead of a divide. Every mode draws with `Raster_SpanTexturedShaded`: mode 1's single ramp row applies, and mode 2's per-vertex row is interpolated down the edges but no span reads it.
+
+VSHELL has the same pair: `TSTexture4Poly_RasterizeA` (`004202dd`) is the screen-linear fill (DBSIM's `Raster_SetupTexturedSpan` and `Raster_DrawPolygon` as one function) and `TSTexture4Poly_RasterizeB` (`00420900`) the perspective-correct one, chosen by `g_TexturedPolyPerspective` (`00471898`). RasterizeB's run thresholds are the globals `DAT_00471980`, `DAT_00471984` and `DAT_00471988`; its `g_PerspectiveUseQuadraticFit` (`0047188c`) is set per cell by `hgrid.cpp`'s cell callback (`00429dac`).
+
+### The depth buffer
+
+When `maybe_g_DepthBufferEnabled` (`0049f270`) is non-zero, `Raster_SetupTexturedSpan` stores each vertex's view depth, and for each row `Raster_DrawPolygon` (and `Raster_DrawTexturedPolyNear`) runs `Raster_DepthTestSpan` (`0048b748`) before drawing. It walks the row's dwords in the buffer at `DAT_006c6014`, comparing each against the interpolated depth with `(row + DAT_004a5b04)` in its top byte; where the stored dword is greater it writes the new value, and the pixels that pass form the row's visible runs. Those runs are drawn through the clipped span routines when `ActiveScanlineClipSpans` is set; otherwise the whole span is drawn. The same flag makes the `TSBSPPart` walk draw the viewer's side of each plane first ([below](#tsbsppart-child-selection)) and the terrain cell walk run near to far ([`../polygon-fill.md`](../polygon-fill.md#walking-a-polygons-cells)). It is 0 in the image; what writes it is [Open](../polygon-fill.md#open).
 
 ### The projection, clip and fill chain (DBSIM)
 
@@ -306,8 +320,8 @@ Per **poly**, not per pixel. Takes the poly's own stored normal and centre point
 ```
 d = dot(node.normal, viewOrigin) - node.coeff          // node+0x1c names a transform id;
                                                        // -1 means the plane is untransformed
-near, far = (d < 0) == DAT_0049f270 ? (back, front) : (front, back)
-for each of near, far:
+first, second = (d < 0) == maybe_g_DepthBufferEnabled ? (back, front) : (front, back)
+for each of first, second:
     if (value < 0)            draw nothing
     else if (value & 0x4000)  render Parts[value & 0x3fff]     // leaf
     else                      recurse into node `value`
@@ -316,6 +330,21 @@ for each of near, far:
 So a child no node reaches is never drawn, and the tree is what orders back-to-front. Every child of every retail weapon and machine shape checked is reachable, so walking `Parts` in file order happens to agree on retail data — but it is not the rule, and it would diverge on a shape that carried an unreferenced part.
 
 `part+0x1c` is a parallel `int16` per **node**, not per child: the transform whose world matrix the splitting plane is brought into. `Shape_StampTransformId` (`00417530`) stamps a single transform id across all of them when a weapon model is attached to a machine.
+
+### `TSBSPGroup` poly order (VSHELL)
+
+A `TSBSPGroup` is a `TSGroup` with a BSP tree over its own polys. VSHELL's `TSBSPGroup_Render` (`00423709`) sets up as a plain group's render does, then draws through `TSBSPGroup_RenderNode` (`0042362c`) from node 0 instead of walking the polys in order. In the file a node is four `int16`s — plane constant, poly, front, back — and VSHELL walks them as 10-byte records at `group+0x2a` whose constant is an `int32`. The splitting plane is the node poly's own stored normal:
+
+```
+d = dot(polys[node.poly].normal, eyeInModelSpace) - node.constant
+first, second = d < 0 ? (front, back) : (back, front)
+draw first; draw polys[node.poly]; draw second
+    child < 0           nothing
+    child & 0x4000      polys[child & 0x3fff]
+    otherwise           recurse into node `child`
+```
+
+So each node's poly is drawn between the two half-spaces it splits, far side first. How DBSIM draws the type is [Open](#open).
 
 ## `TSDetailPart` level selection and STRUCTURE DETAIL
 
@@ -360,6 +389,7 @@ Readings a fresh pass could land on. Each is disproven; do not reintroduce.
 
 | Reading | Why it is wrong |
 |---|---|
+| `g_TexturedPolyUseBitmapBrush` selects a flat, untextured fallback that resolves the frame only for its bounds-check assert | The resolved bitmap is the fill: the branch installs it, with UVs and a remap row, in a type-7 bitmap brush before calling the same fill chain `TSSolidPoly_Render` uses, and restores the default colour brush after. See [Render path and UV generation](#render-path-and-uv-generation) |
 | `00474e9c` is `TSSolidPoly_Render` | It is `TSTexture4Poly_Render`; the type registry settles it. Assigned by resemblance to VSHELL's renderer |
 | A flat poly's front value is a `.DBA` frame index sampled as a dither swatch | Only `TSTexture4Poly`'s is a frame index |
 | A flat/shaded surface renders as the frame's **average colour** | The value is a palette index (`TSSolidPoly`) or a ramp number (`TSShadedPoly`/`TSGouraudPoly`). Averaging `BASETEX` frames 0/8/12 gives browns and greens where ramps 0/8/12 are greys and blue-greys |
@@ -393,9 +423,10 @@ Tracked in `KNOWN_ISSUES.md`.
 - **Unported:** the 5120 "do not draw this face" skip.
 - **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `0047689c` has no reference `es2_xref.py` finds, which does not settle it. The image holds 1024.
 - **Unported:** the `TSBSPPart` tree walk, with its ordering and reachability rule.
+- **Open:** how DBSIM draws a `TSBSPGroup`. Its `TSGroup_RenderPolys` (`004758c8`) walks a plain group's polys in order.
 - **Unported:** one-vertex polys, which the original paints as one pixel.
 - **Open:** what the original draws for a two-vertex line poly whose surface names no distinct line colour.
 - **Open:** why retail grades the type-15 octagon's back facet; see [Type-15 band widths](#type-15-band-widths).
 - **Open:** what DBSIM draws for a back-facing three-vertex texture poly, where the back-face corner swap touches the unused slot 3.
 - **Open:** the function that populates VSHELL's `g_ActiveBitmapArray[1]` descriptor table, which decides whether `F0/F1` (frame UV top-left) can be nonzero there. DBSIM's builder is [`BitmapArray_PackToAtlas`](#the-frame-descriptor-table-and-the-span-routines-dbsim), which places frames as atlas sub-rectangles.
-- **Open:** `TSTexture4Poly_RasterizeA`/`RasterizeB`'s internal fixed-point interpolation math and 4th interpolant semantics — including whether retail's texture mapping is exactly projective.
+- **Open:** what writes `g_TexturedPolyPerspective` (`0049f274`), and so whether a retail shape is ever textured perspective-correct. `es2_xref.py` finds only the one read in `TSTexture4Poly_Render`.

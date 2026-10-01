@@ -78,6 +78,8 @@ Mode index = F-key - 1. `Gau_MfdPanelWidget` boots the display at mode 3.
 
 Modes 0 and 4 share one constructor and one class — the target screen is the status screen pointed at another object.
 
+**The display switches itself to the missile cam.** Every update, `MfdDisplay_SyncMissileCamMode` (`00447164`) tests a condition ([Open](#open)); when it starts, it saves the current mode and selects mode 5, and when it ends it restores the saved mode. Choosing a mode by hand meanwhile (`MfdDisplay_SetMode` clears the pending state) keeps that choice until the condition ends, when the saved mode is restored over it.
+
 Scanner ranges are `_DAT_004d1cf4` = 50000 / 100000 / 200000 world units = 300 / 600 / 1200 m at 1000 units = 6 m. Index 2 is the default, matching the retail screenshot's `RNG: 1200`.
 
 ## Geometry
@@ -284,12 +286,12 @@ Screen fields, based at `MfdDisplay+0xd1`:
 
 #### Keyboard
 
-Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers every code to `FUN_00446c10` first and then to the MFD widget's own command slot `FUN_004469c0`. Codes are PC set-1 scancodes, `+0x200` for [Alt].
+Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers every code to `MfdFlashComm_HandleAltKey` (`00446c10`) first and then to the MFD widget's own command slot `FUN_004469c0`. Codes are PC set-1 scancodes, `+0x200` for [Alt].
 
 | Code | Handler | Effect |
 |---|---|---|
 | `0x1e` `0x22` `0x23` `0x18` `0x2e` `0x12` `0x21` (A G H O C E F) | `FUN_004469c0` | Select rows 0, 1, 2, 3, 4, 4, 5. Gated on the display being on mode 1 |
-| the same seven `+0x200` | `FUN_00446c10` | Select **and transmit**, from any screen. `0x22e` only transmits when the resolved verb is 4 and `0x212` only when it is 7 |
+| the same seven `+0x200` | `MfdFlashComm_HandleAltKey` (`00446c10`) | Select **and transmit**, from any screen. `0x22e` only transmits when the resolved verb is 4 and `0x212` only when it is 7 |
 | `0x2d` (X) | `FUN_004469c0` | Press button 10 if the current mode shows it |
 | `0x33` `0x34` (`,` `.`) | `FUN_004469c0` | Previous / next available row, wrapping |
 | `0x20` (D) | `FUN_004469c0` | Press button 7 SELECT if visible |
@@ -343,5 +345,6 @@ Nothing sets the FLASH COMM order list's unavailable bit, so every row draws ava
 ## Open
 
 - **Open:** what triggers `mfd_dmg`'s three animation sequences of 3/2/3 frames (7 frames, 192x118, built by `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`) and what they mean; consistent with display-damage static.
-- **Unported:** mode 5, the missile camera, beyond its button and background layout.
+- **Unported:** mode 5, the missile camera, beyond its button and background layout, including the switch to it.
+- **Open:** the condition the missile-cam switch tests: `00434310(CockpitViewInstance)` returns an object for which `00440a14` is 0 and `00440a3c` is 3.
 - **Unported:** mode 0's arm of the shared SELECT/TARGET case, which steps a squad roster.

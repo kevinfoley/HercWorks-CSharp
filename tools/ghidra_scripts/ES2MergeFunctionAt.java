@@ -1,8 +1,13 @@
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.CodeUnit;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionIterator;
 import ghidra.program.model.listing.FunctionManager;
+import ghidra.program.model.listing.Listing;
+import ghidra.program.model.symbol.SourceType;
+import ghidra.program.model.symbol.Symbol;
+import ghidra.program.model.symbol.SymbolTable;
 import java.io.PrintWriter;
 import java.io.FileWriter;
 import java.util.ArrayList;
@@ -11,6 +16,9 @@ import java.util.List;
 // Repairs a function whose entry Ghidra placed past the real prologue, leaving the prologue as a
 // tiny separate function. Removes every function whose entry lies in [trueEntry, trueEntry+length),
 // clears the code units there, then disassembles and creates one function at trueEntry.
+// Removing a function turns its non-default name into a plain label, and plate comments are not
+// code units, so a removed late entry would keep its old name and comment. Both are deleted at
+// every removed entry other than trueEntry.
 // args[0] = trueEntry (hex), args[1] = byte length to sweep (decimal), args[2] = output path.
 public class ES2MergeFunctionAt extends GhidraScript {
     @Override
@@ -22,6 +30,8 @@ public class ES2MergeFunctionAt extends GhidraScript {
 
         try (PrintWriter pw = new PrintWriter(new FileWriter(outPath))) {
             FunctionManager fm = currentProgram.getFunctionManager();
+            SymbolTable st = currentProgram.getSymbolTable();
+            Listing listing = currentProgram.getListing();
             List<Address> doomed = new ArrayList<>();
             FunctionIterator it = fm.getFunctions(true);
             while (it.hasNext()) {
@@ -36,7 +46,23 @@ public class ES2MergeFunctionAt extends GhidraScript {
                 fm.removeFunction(a);
             }
 
-            currentProgram.getListing().clearCodeUnits(entry, end, false);
+            for (Address a : doomed) {
+                if (a.equals(entry)) {
+                    continue;
+                }
+                for (Symbol s : st.getSymbols(a)) {
+                    if (s.getSource() != SourceType.DEFAULT) {
+                        pw.println("deleting leftover label " + s.getName() + " @ " + a);
+                        s.delete();
+                    }
+                }
+                if (listing.getComment(CodeUnit.PLATE_COMMENT, a) != null) {
+                    pw.println("deleting leftover plate comment @ " + a);
+                    listing.setComment(a, CodeUnit.PLATE_COMMENT, null);
+                }
+            }
+
+            listing.clearCodeUnits(entry, end, false);
             disassemble(entry);
             createFunction(entry, null);
 

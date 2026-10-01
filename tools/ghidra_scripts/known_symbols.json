@@ -60,6 +60,1167 @@
   ],
   "entries": [
     {
+      "address": "0045766c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_FillSpanList",
+      "description": "(spans, origin): the VSHELL copy of DBSIM's Raster_FillSpanList: copies the span list into the buffer at PTR_DAT_0047c425 translated by origin (and the context's translation when +0x208 is set) and fills it with the fill at +0x228 -- type 0 through the span routine 0047e540 with its colour (a type-4 colour resolved through the ramp records at 0047dd39), type 6 through 0047e544; other types return -- clipped by the clip mode: none, the rect at +0x20c (0045794d), or each entry of the clip list. Gfx_FillEllipse fills its spans with it.",
+      "source": "VSHELL decompile at 0045766c, diffed against DBSIM 00486928"
+    },
+    {
+      "address": "00458f68",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitRotatedScaled",
+      "description": "(bitmapDims, position, flip, size, angle): the VSHELL copy of DBSIM's Bitmap_BlitRotatedScaled: source quad (0,0), (cols-1,0), (cols-1,rows-1), (0,rows-1), mirrored in x by flip bit 2 and in y by bit 1; destination quad (0,0), (w,0), (w,h), (0,h) from size, each corner rotated by the binary angle (00459196, Math_Rotate2DPoint_Thunk) and translated by position; filled with Gfx_FillPolygon through a type-5 bitmap fill {5, 4, source quad, bitmap} installed at the context's +0x228 and restored after. GLDisplay_DrawBitmapStretched calls it.",
+      "source": "VSHELL decompile at 00458f68, compared with DBSIM 00488a8c"
+    },
+    {
+      "address": "0045e03c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_InstallViewProjection",
+      "description": "(view): the VSHELL copy of DBSIM's Raster_InstallViewProjection, call for call: perspective shift (005d7fd4), near plane (005d7fd8), orthographic divisor when the shift is 0 (005d7fdc), the render context's clip rect +0x210..+0x21c, the projection centre (005d7fe0) less the context's +0x220 pair, then the view's transform inverted and installed with Raster_SetViewTransform. ShellMap_Paint and ShellMap_InstallCamera call it.",
+      "source": "VSHELL decompile at 0045e03c, compared with DBSIM 0048c1d8"
+    },
+    {
+      "address": "00467dc1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_Ctor",
+      "description": "(transform): 00467e10 on it and maybe_Point3I_Ctor on its translation at +0x14; returns it. The VSHELL copy of DBSIM's Transform_Ctor.",
+      "source": "VSHELL disassembly at 00467dc1"
+    },
+    {
+      "address": "00467dde",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetPerspectiveShift",
+      "description": "(view) -> the dword at view + 0x1a. The VSHELL copy of DBSIM's View_GetPerspectiveShift.",
+      "source": "VSHELL disassembly at 00467dde"
+    },
+    {
+      "address": "0045f880",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetNearPlane",
+      "description": "(view) -> the dword at view + 0x1e. The VSHELL copy of DBSIM's View_GetNearPlane.",
+      "source": "VSHELL disassembly at 0045f880"
+    },
+    {
+      "address": "0045f88b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetOrthoDivisor",
+      "description": "(view) -> the dword at view + 0x22. The VSHELL copy of DBSIM's View_GetOrthoDivisor.",
+      "source": "VSHELL disassembly at 0045f88b"
+    },
+    {
+      "address": "00467de9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetRenderContext",
+      "description": "(view) -> the dword at view + 0x16. The VSHELL copy of DBSIM's View_GetRenderContext.",
+      "source": "VSHELL disassembly at 00467de9"
+    },
+    {
+      "address": "0045f6b3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec2_Subtract",
+      "description": "(a, b): a.x -= b.x, a.y -= b.y on int32 pairs. The VSHELL copy of DBSIM's Vec2_Subtract.",
+      "source": "VSHELL disassembly at 0045f6b3"
+    },
+    {
+      "address": "00467df4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_BuildTransform",
+      "description": "(view, out): 00467e23(out, view + 0x10, view + 4) -- the VSHELL copy of DBSIM's View_BuildTransform.",
+      "source": "VSHELL disassembly at 00467df4"
+    },
+    {
+      "address": "0045e108",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SetViewTransform",
+      "description": "(viewTransform): the VSHELL copy of DBSIM's Raster_SetViewTransform: installs viewTransform (the identity at 005d7fa8 for null) at 005d7fa0, rebuilds g_ModelToView from the model transform (005d7fa4) and it (00465739), copies that to g_ViewToModel and inverts it (Transform_InvertRigid), and sets g_EyeInModelSpace to the view-space origin carried back through g_ViewToModel.",
+      "source": "VSHELL disassembly at 0045e108"
+    },
+    {
+      "address": "00420066",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_InstallCamera",
+      "description": "(map): places the map's view (+0xc) at x = +0x12 + +0x3a, y = +0x16 + +0x3e and +0xc = +0x1a, installs it (Raster_InstallViewProjection) and clears the model transform (Raster_SetModelTransform(0)). ShellMap_Paint calls it.",
+      "source": "VSHELL decompile at 00420066"
+    },
+    {
+      "address": "0042424a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_Dtor",
+      "description": "(map, flags): ShellMap's destructor (vtable 004721b0, RTTI ShellMap, 0x3c5 bytes): restamps the vtable, passes the object at +0x4e to 0045dbf0 and then runs its virtual destructor, frees the arrays at +0x52, +0x56, +0x5e, +0x62, +0x6e and the +0x72 six-byte records' buffers at +0x5a and the array itself, deletes +0x66, runs 00427ea4 on +0x219 and +0x1b7 and the base destructor 0041ff27, and Mem_Delete's the map when flags bit 0 is set. ShellMap_Build destroys the previous map with it.",
+      "source": "VSHELL decompile at 0042424a; tools/scripts/es2_naming.py rtti VSHELL 004721b0"
+    },
+    {
+      "address": "00429b4a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HGrid_RenderAround",
+      "description": "(grid, position): hgrid.cpp's cell renderer, while grid +0x118 is set. Clears the model transform, installs a mode-0 brush at the context's +0x22c for the walk, takes the cell of position (+4, +8, shifted down by grid +0x104) and its byte +0x17, and walks the polygon at grid +0xc8 around it with CellWalk_Polygon, callback 00429dac. When that byte was set it calls 0042afd7(grid, cellX, cellY) after the walk. Restores the brush. See docs/polygon-fill.md.",
+      "source": "VSHELL decompile at 00429b4a"
+    },
+    {
+      "address": "004792c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_FindTransition",
+      "description": "(thread): walks the current sequence's (+4) frames from the current frame (+6) when playing backward (rate +0x4e < 0) or the next frame (+0xa) otherwise, stepping with the sequence's vtable +0x24 (previous) or +0x20 (next) until it laps, and scans each frame's transitions (8-byte records at anim +0x1e, a frame's first index and count in the sequence's 6-byte per-frame table at +0xc) for one whose destination (+2) is the target sequence (+0x16). A match is armed: duration (+0) to +0x12, the target to +0xe, destination frame (+4) to +0x10, transform index (+6) to +0x14. With no target frame (+0x18 == -1) that is final; otherwise the destination sequence's vtable +0x2c (backward) or +0x28 (forward) is asked, with (destination frame, target frame, +0x1c), whether it lands on the near side of the target, and the scan continues when it does not. Leaves the scan frame (+0xc) at -1 when nothing qualifies. AnimThread_SetTarget calls it.",
+      "source": "DBSIM decompile at 004792c8; ported as AnimationThread.FindTransition"
+    },
+    {
+      "address": "0044e92c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_DrawMarker",
+      "description": "(screen, marker, isSelectedPilot): paints one marker of the command display's map. Its point is the marker's object's (+0x38) position (+0x26/+0x2a), or its own +0x3c/+0x40/+0x44 with no object. An object flagged +0xa4 or +0x99 on a group whose side (+0x12) is non-zero is not drawn; one with +0x95 clear on a group with a side or awaiting deployment (+0x14) blinks with coarse-tick bit 0x20 and is drawn at its +0x1aa point instead (not at all when +0xa7 is set). Projects the point into the map viewport (HddMap_ToViewport) and moves the marker there (0045242c). With isSelectedPilot and an object it draws the link line to the armed order's pick in the pilot's HudColorTable colour, then returns before painting while a pilot is selected (screen +0x381) and the blink flag 0049d6ad is set. A marker with +0x4c set records its distance from screen +0x18 at +0x53. Paints through slot 0 of the vtable whose pointer is at marker +0x17. HddCommandScreen_DrawMap calls it for every marker. See docs/formats/heads-down-display.md.",
+      "source": "DBSIM decompile at 0044e92c"
+    },
+    {
+      "address": "004d044c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_SquadmateMachines",
+      "description": "Up to three machine pointers, the player's squadmates by slot: filled at mission start by Cockpit_LoadSquadmatePilots, and indexed by slot in Squad_SendOrderToSlot, Squad_IndexOf, HddDisplay_SelectPilot, HddDisplay_HandleWidgetPress, HddGauge_LoadPilotFrames, HddGauge_PaintIdle and HddCommandScreen_DrawMap.",
+      "source": "DBSIM disassembly: every operand naming 004d044c"
+    },
+    {
+      "address": "004316c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_InvalidateWidgets",
+      "description": "(cockpit): unless the widgets are off (+0x20f), calls vtable slot +4 (a widget's Invalidate) on each non-null widget pointer: the ten at +0x70 and those at +0x1e1, +0x1e5, +0x1e9, +0x1f1, +0x1ed and +0x1f9 inside Cockpit_PushCanvasContext / Cockpit_PopRenderContext, then +0x1f5 after the pop. CockpitView_SetView runs it after blitting the canopy.",
+      "source": "DBSIM decompile at 004316c0; slot +4 from known_vtables.json CockpitWidgetVtable"
+    },
+    {
+      "address": "00431530",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_LoadSquadmatePilots",
+      "description": "(cockpit): finds the player's machine (+0xa3) walking GlobalMechList with Pool_Prev, keeps its mission group (+0x45) at 0049b0f8, and takes up to three of the group's members (group +0xc, count +0x10, stopping at a null) other than the cockpit's own machine (+0x203) into 004d044c. Loads each one's pilot (+0x29c) into slot i of the HDD gauge (+0x1f9) with HddGauge_LoadPilotFrames, then calls 00447294(+0x1ed, count). Sim_InitMissionSession calls it.",
+      "source": "DBSIM decompile at 00431530; mech +0xa3 and +0x45 from known_structs.json"
+    },
+    {
+      "address": "00447164",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_SyncMissileCamMode",
+      "description": "(mfd): switches the MFD to mode 5 (MISSILE CAM) and back on a condition: 00434310(CockpitViewInstance) returns an object for which 00440a14 is 0 and 00440a3c is 3. When it holds and g_MfdMissileCamMode is -1: with g_MfdMissileCamArmed set it saves the current mode (+0xc1) in g_MfdMissileCamSavedMode and MfdDisplay_SetMode(5); either way g_MfdMissileCamMode becomes 5 and the flag is set. When it no longer holds and g_MfdMissileCamMode is not -1, MfdDisplay_SetMode(saved mode) and the flag is set. MfdDisplay_SetMode clears both whenever it runs with g_MfdMissileCamMode not -1, so a mode chosen by hand while the condition holds stays until the condition ends, when the saved mode is restored over it. MfdDisplay_Update calls it.",
+      "source": "DBSIM decompile at 00447164 and MfdDisplay_SetMode's writes at 00446e8e-00446e98"
+    },
+    {
+      "address": "0049cbc6",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_MfdMissileCamMode",
+      "description": "int16: 5 while MfdDisplay_SyncMissileCamMode's condition holds, -1 otherwise (-1 in the image). MfdDisplay_SetMode resets it to -1 whenever it runs with it set; MfdDisplay_Update also tests it.",
+      "source": "DBSIM disassembly: all 7 absolute operands (0044658c, 00446e8e, 00446e9f, 004471a7-004471f4)"
+    },
+    {
+      "address": "0049cbc4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_MfdMissileCamSavedMode",
+      "description": "int16: the MFD mode MfdDisplay_SyncMissileCamMode saved before switching to the missile cam, and restores after (3 in the image).",
+      "source": "DBSIM disassembly 004471c5, 00447202"
+    },
+    {
+      "address": "0049cbc8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_MfdMissileCamArmed",
+      "description": "byte: whether MfdDisplay_SyncMissileCamMode switches to the missile cam when its condition starts (1 in the image). MfdDisplay_SetMode clears it when it runs during the condition; MfdDisplay_SyncMissileCamMode sets it again.",
+      "source": "DBSIM disassembly 00446e98, 004471b5, 004471eb, 00447213"
+    },
+    {
+      "address": "00446c10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashComm_HandleAltKey",
+      "description": "(mfd, code): FLASH COMM's [Alt] order keys, offered every code before the MFD's own command slot. For 0x21e, 0x222, 0x223, 0x218, 0x221 ([Alt]+A G H O F) it selects row 0, 1, 2, 3 or 5 through 0043f9b8 on the comm screen (+0xd1), transmits (MfdFlashComm_Transmit) and selects the row again (MfdFlashComm_SelectRow); 0x22e and 0x212 ([Alt]+C, E) select row 4 and transmit only when MfdFlashComm_SelectedVerb is 4 or 7 respectively. Returns 1 for those seven codes, 0 for any other. See docs/formats/mfd.md.",
+      "source": "DBSIM decompile at 00446c10"
+    },
+    {
+      "address": "00480734",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stub_ReturnZeroCopy",
+      "description": "Returns 0 -- a second copy of Stub_ReturnZero. Gau_RovingGunsightWidget calls it and ignores the result.",
+      "source": "DBSIM decompile at 00480734"
+    },
+    {
+      "address": "0046fcac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FindDiagonalCrossing",
+      "description": "(grid, a, b, cellX, cellY, out): where the segment a-b crosses the diagonal of cell (cellX, cellY). Works in cell-local x and y (less the cell origin, (cellX, cellY) << grid+0x108), mirroring x across the cell when the cell's split bits (cell+0xf & 3) are 0. When a and b lie on the same side of the diagonal (y < x) out = a; otherwise it bisects between them at most eight times until the midpoint's y equals its x, and out = that midpoint back in grid coordinates with z = 0. The cell is grid+0xec + (cellY << grid+0x100 | cellX) * 0x10; an index outside 1 << (grid+0x100 + grid+0x104) makes the cell pointer 0, and the split bits are then read from address 0xf. Terrain_RayWalk calls it for the exit point.",
+      "source": "DBSIM decompile at 0046fcac"
+    },
+    {
+      "address": "0046bb40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FillCellUntextured",
+      "description": "(points, count, shades): Terrain_DrawCellQuad's fill for a cell when terrain texturing is off. Installs the points as the current face (DAT_006c6970, count DAT_006c6968, index list 006c60ec, state bytes cleared), projects them (0048cbd8) and clips them to the near plane (Poly_ClipRingToNearPlane) when that reports one behind it. With shade mode DAT_004aab30 == 2 it installs a mode-1 brush on ramp 2 with the per-vertex shades (carried through the clip by 0048d280), which Raster_FillContourPolygon bands; otherwise a mode-0 brush of the one colour Raster_ShadeRampRow(0x4b)[Palette_ShadeRampLookup(2, shades[0])]. Then 0042e8e8 on a stack object (vtable 004a0cb8) and PolyFill_Fill.",
+      "source": "DBSIM decompile at 0046bb40"
+    },
+    {
+      "address": "0042900c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_SortCompareSegment",
+      "description": "(node, newNode): ObjList_SortCompare's case where exactly one render entry carries a segment (entry +0x16 of 1 or 2, endpoints at +0x18 and +0x24). When the segment entry is the nearer (+0x12) the answer is plain distance order, and also when 00428f38 accepts neither the camera (0049ac3c + 4) nor the other entry's position (+4) against it. Otherwise it builds, once per entry (flag +0xc), the normal of the plane that contains the segment and faces the camera -- Vec3I_Cross(segment, Vec3I_Cross(segment, camera - start)), each vector halved until Math_FastMagnitude3D is at most 32000 -- at +0x11 with the camera's side of it (Vec3I_DotSign) at +0xd, and returns whether the other entry's position lies on the camera's side.",
+      "source": "DBSIM decompile at 0042900c"
+    },
+    {
+      "address": "0042937c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_SortCompareSegments",
+      "description": "(node, newNode): ObjList_SortCompare's case where both render entries carry segments. Asks 0042933c for a point of one against the other, each way round; with none, plain distance order (+0x12). Otherwise it moves that entry's position (+4) to the point and its type (+0x16) to 0 for the call, compares through ObjList_SortCompareSegment with the other entry as the segment, restores both fields, and inverts the answer when the moved entry was node.",
+      "source": "DBSIM decompile at 0042937c"
+    },
+    {
+      "address": "0047da41",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec3I_Cross",
+      "description": "(a, b, out): out = a x b on int32 triples (x = a.y*b.z - a.z*b.y, y = a.z*b.x - a.x*b.z, z = a.x*b.y - a.y*b.x), 32-bit products; returns out. ObjList_SortCompareSegment builds its plane normal with it.",
+      "source": "DBSIM decompile at 0047da41"
+    },
+    {
+      "address": "0047dcc1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec3I_DotSign",
+      "description": "(a, b): the sign of the dot product of two int32 triples, summed in 64 bits: 1 when it is zero or more, -1 when negative. ObjList_SortCompareSegment tests plane sides with it.",
+      "source": "DBSIM decompile at 0047dcc1"
+    },
+    {
+      "address": "00404663",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVKeyboard_Init",
+      "description": "(this): returns bit 0 of the keyboard's first dword and does nothing else. DVKeyboard_Ctor registers the keyboard's handlers only when it returns non-zero.",
+      "source": "VSHELL disassembly at 00404663"
+    },
+    {
+      "address": "00404670",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVKeyboard_Shutdown",
+      "description": "Returns 0 and does nothing else. DVKeyboard_Dtor calls it.",
+      "source": "VSHELL disassembly at 00404670"
+    },
+    {
+      "address": "004053bf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVMouse_Init",
+      "description": "(this): when bit 0 of the mouse's first dword is set, calls 0040550f(this, 1), 00405446 on +0x24 and on +0xe, sets the four dwords at +0xe to 0, 0, 480, 640 and passes +0xe to 00405470. Returns that bit. DVMouse_Ctor registers its assert hook only when it returns non-zero.",
+      "source": "VSHELL disassembly at 004053bf"
+    },
+    {
+      "address": "0040541b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVMouse_Shutdown",
+      "description": "(this): when bit 0 of the mouse's first dword is set, clears that dword, passes +0x24 to 00405470 and returns 1; otherwise returns 0. DVMouse_Dtor calls it.",
+      "source": "VSHELL disassembly at 0040541b"
+    },
+    {
+      "address": "004041cd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_FormatError",
+      "description": "(format): sprintf(format, the class name of the current frame's handler -- VshellClassItem_FindHandler(*ClassItem_CurrentFrame) + 8, or '[No class entry]') into a 256-byte stack buffer, which is then dropped: nothing is printed or returned. ClassItem_CloseItem reports an overread through it.",
+      "source": "VSHELL disassembly at 004041cd"
+    },
+    {
+      "address": "0042362c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBSPGroup_RenderNode",
+      "description": "(group, node): draws a TSBSPGroup's polys by its BSP tree from one node. Nodes are 10 bytes at group+0x2a: int32 plane constant, uint16 poly index (into the polys at +0x1c), and two int16 children at +6 and +8. The plane is the node poly's own stored normal (poly+4, a point index into +0x14): d = dot(normal, g_EyeInModelSpace) - constant. For d < 0 it draws the +6 child, then the node's poly, then the +8 child; otherwise the +8 child first. A child below zero is nothing, one with bit 0x4000 the poly [value & 0x3fff], and anything else a node to recurse into; polys draw through their vtable slot +0x1c. TSBSPGroup_Render starts it at node 0.",
+      "source": "VSHELL decompile and disassembly at 0042362c"
+    },
+    {
+      "address": "0043c7ea",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_FreeTabWidgets",
+      "description": "Frees the nine arrays at 00476328 (Mem_DeleteArray), then for each of the eight squad slots at 00482ac3 that has a chassis (HercList_ChassisAt) and a widget array at 00476308: detaches and deletes that slot's widgets -- the member's +0x4c of them on tab 2, 0048d57c[chassis] plus the member's +0x4e on tab 3, none on any other tab (CurrentTabIndex) -- and frees the array. Squad_FreeTabPictures calls it.",
+      "source": "VSHELL disassembly at 0043c7ea"
+    },
+    {
+      "address": "0045f528",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_RestoreState",
+      "description": "(slot): the VSHELL copy of DBSIM's Raster_RestoreState: reinstates the model and view transform pointers (005d7fa4, 005d7fa0), g_ModelToView, a recomputed g_ViewToModel (Transform_InvertRigid), g_EyeInModelSpace and, when 005ddbb0 is set, each registered light's model-space copy from +0x34 through 0045f907, reading the fixed list slot [005d8058] every pass as DBSIM's does. ShapeNode_ComposeToViewTransform restores slot 0 (004869d8) with it.",
+      "source": "VSHELL disassembly at 0045f528"
+    },
+    {
+      "address": "0045f704",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_FastMagnitude3D_Thunk",
+      "description": "One-line forwarder to Math_FastMagnitude3D(x, y, z). The VSHELL copy of DBSIM's Math_FastMagnitude3D_Thunk.",
+      "source": "VSHELL disassembly at 0045f704"
+    },
+    {
+      "address": "0045f6e7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_Magnitude",
+      "description": "Math_FastMagnitude3D of an int32 point's three components, through Math_FastMagnitude3D_Thunk. The VSHELL copy of DBSIM's Point3I_Magnitude; Light_ComputeShadeForFace takes a point light's distance with it.",
+      "source": "VSHELL disassembly at 0045f6e7"
+    },
+    {
+      "address": "004506f7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Short",
+      "description": "a.x*b.x + a.y*b.y + a.z*b.z of two int16 triples, unscaled. The VSHELL copy of DBSIM's DotProductVec3Short.",
+      "source": "VSHELL disassembly at 004506f7"
+    },
+    {
+      "address": "0045f84b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Short_Thunk",
+      "description": "One-line forwarder to DotProductVec3Short with the same arguments. Light_ComputeShadeForFace dots the face normal with a directional light through it.",
+      "source": "VSHELL disassembly at 0045f84b"
+    },
+    {
+      "address": "0045f937",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_SubPoint2S",
+      "description": "(p int[2], s short[2]): p.x -= s.x, p.y -= s.y. The VSHELL copy of DBSIM's Point2I_SubPoint2S.",
+      "source": "VSHELL disassembly at 0045f937"
+    },
+    {
+      "address": "0045f860",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_SubPoint3S",
+      "description": "(p int[3], s short[3]): p.z -= s.z, then Point2I_SubPoint2S for x and y; returns p. The VSHELL copy of DBSIM's Point3I_SubPoint3S.",
+      "source": "VSHELL disassembly at 0045f860"
+    },
+    {
+      "address": "0042ce58",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_EvictForSpace",
+      "description": "(sfx, bytesNeeded): frees cached sound files until bytesNeeded are released. Scores each loaded file reference count * 10 + 1, plus for each of its sample slots the slot's +0xc, 1000 when it is playing (0x100) and 10000 more when it is also flagged 0x80; a file with a 0x1000 sample scores 0 and is never evicted. Then repeatedly takes the lowest non-zero score, stops every sample of the file through 0042ca95 when the score is 1000 or more, frees it through Sos_LoadOrFreeSample and takes its size off the bytes cached (+0x1c). The free's MIDI flag comes from the last sample slot the scoring pass visited, not from the evicted file. Returns whether enough was freed. Sfx_Cache calls it.",
+      "source": "VSHELL decompile at 0042ce58"
+    },
+    {
+      "address": "0042d906",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_LoadOrFreeSample",
+      "description": "(file + 4, unused, load, isMidiSong): the VSHELL counterpart of DBSIM's Sos_LoadOrFreeSample: loads (0042e47d digital, 0042e76c MIDI) or frees (0042e625, 0042e816) the file's backend object at file +0x214, nulling it on a free. Returns true on success. Sfx_Cache and Sfx_EvictForSpace call it.",
+      "source": "VSHELL decompile at 0042d906"
+    },
+    {
+      "address": "0042da8c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_StopVoice",
+      "description": "(file + 4, sample + 4): stops a playing sample by its flags (sample +8): bit 0, a MIDI song, Sos_MidiStopSong and Sos_MidiUnInitSong; 0x1000, a stream, 0042eb13; otherwise Sos_StopSample on Sos_GetDriverHandle(). The voice handle is sample +0x24. Returns 1. Sfx_StopAll calls it.",
+      "source": "VSHELL decompile at 0042da8c"
+    },
+    {
+      "address": "0042d7d0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Str_FormatToStatic",
+      "description": "(format, ...): vsprintf into the static buffer 0048a840 and returns it. Sfx_Cache formats its assert messages with it.",
+      "source": "VSHELL decompile at 0042d7d0"
+    },
+    {
+      "address": "0042d7f0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_InitBackend",
+      "description": "(window, format): the VSHELL counterpart of DBSIM's Sos_InitBackend: keeps window at 0048a940, Sos_BindLibrary, copies the format words (from the SFX's +0x24) into 00473174-0047317c, and opens the drivers through 0042df68 with the configured driver id, then with id 1, unbinding the library when both fail. Returns true on success. Sfx_Init calls it.",
+      "source": "VSHELL decompile at 0042d7f0"
+    },
+    {
+      "address": "0042e447",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_GetLastError",
+      "description": "MOV EAX,[00473180]; RET -- returns Sos_LastError. Sfx_StartVoice reads it when Sos_StartSample fails.",
+      "source": "VSHELL disassembly at 0042e447"
+    },
+    {
+      "address": "00473180",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sos_LastError",
+      "description": "The last SOS result the backend stored: the driver open (0042df68) and Sos_ShutdownDrivers write their SOS calls' results here. Read by Sos_GetLastError. The VSHELL counterpart of DBSIM's Sos_LastError.",
+      "source": "VSHELL disassembly: writes 0042dfcc-0042e402"
+    },
+    {
+      "address": "0042e846",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_StartFileStream",
+      "description": "(path, arg, handleOut): plays a file as an SOS stream: Sos_StreamAcquire with a raw 8-bit mono 11025 Hz header, opens the file with _lopen (the plain file system), reads eight 0x8000-byte buffers into GlobalAlloc'd memory, prepares and queues each that read anything (Sos_StreamPrepareBuffer, Sos_StreamAddBuffer) and Sos_StreamStart, storing the stream handle in *handleOut. Returns 0, or 1 when the stream, the file or an allocation fails. Sfx_StartVoice's path for a sample flagged 0x1000.",
+      "source": "VSHELL decompile at 0042e846"
+    },
+    {
+      "address": "00474430",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_LoadBankFile",
+      "description": "(path, outMemory, outPrepared): reads the whole file through a VolRStream into GlobalAlloc'd memory and Sos_Prepare32Memory's it. Returns 0, or 1 when the file will not open or the allocation fails. Sos_OpenDrivers loads MELODIC.BNK and DRUM.BNK with it.",
+      "source": "DBSIM decompile at 00474430"
+    },
+    {
+      "address": "00473da0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_OpenDrivers",
+      "description": "(digitalId, midiId, window, arg4): opens whichever SOS drivers are asked for and not yet open. MIDI (midiId != 0xffff, 004a0e6e clear) is detected first (Sos_MidiDetectInit/FindFirst/UnInit). Digital (digitalId != -1, 004a0e6c clear): detect, Sos_InitSystem, Sos_TimerInitSystem, then check the configured format bits (004a0e5c | 004a0e5e | 004a0e60) against the detected capabilities 006b5660 -- falling back to 0x15 when they are not all supported but one of 0x15's is, otherwise returning the capabilities | 0x1c0000 -- fill the driver block 006b5614 (window, arg4, buffers 004a0e62 and 004a0e64) and Sos_InitDriver into Sos_DriverHandle, Sos_SetActiveWindow, and set 004a0e6c. MIDI then: Sos_MidiInitSystem and Sos_MidiInitDriver into 006b56f4; for driver type 0xa002 or 0xa009 with capability bit 2 it loads MELODIC.BNK and DRUM.BNK (00474430) and installs them with Sos_MidiSetInsData; sets 004a0e6e. Returns 0, or 1 after an SOS error, which it keeps in Sos_LastError. Sos_InitBackend calls it.",
+      "source": "DBSIM decompile at 00473da0; strings at 004a0ebc, 004a0ec8"
+    },
+    {
+      "address": "00474254",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_LoadWaveSample",
+      "description": "(path, out): reads the whole file through a VolRStream into GlobalAlloc'd memory behind a 0x100-byte SOS sample header and Sos_Prepare32Memory's it, storing the header in *out; returns 0, or 1 when the file will not open or the allocation fails. A file starting 'RIFF' is read as a canonical WAV: data at file +0x2c, length the dword at +0x28 less 0x2c, rate +0x18, channels +0x16, bits +0x22 (8-bit samples flagged 0x8000). Anything else is taken as raw 8-bit unsigned mono at 11025 Hz. Sos_LoadOrFreeSample's digital path.",
+      "source": "DBSIM decompile at 00474254; string at 004a0ed1"
+    },
+    {
+      "address": "00474550",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_LoadMidiSong",
+      "description": "(path, out): reads the whole file with _lopen/_hread -- the plain file system, not a volume -- into GlobalAlloc'd memory behind a 0x24-byte song header, Sos_Prepare32Memory's both, and stores the header in *out; returns 0, or 1 when the file will not open or the allocation fails. Sos_LoadOrFreeSample's .hmp path.",
+      "source": "DBSIM decompile at 00474550"
+    },
+    {
+      "address": "0042bf3d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Construct",
+      "description": "(sfx): clears the file and sample tables (+0x34, +0x38), the voice counts (+0x3c, +0x40) and the bytes cached (+0x1c), sets defaults, and reads [Sound] from data\\sound.cfg: Driver (read, then +0x2a set to 1 regardless), Buffers into +0x30 (1-64, else 5), Rate 11 giving +0x24 = 0x10 and anything else 0x20, and Width 'Mono' giving +0x28 = 4 and anything else 8. Increments the count at *005ddec0. ShellSound_Init constructs the shell's SFX with it before Sfx_Init.",
+      "source": "VSHELL decompile at 0042bf3d; strings at 0047250b-00472550"
+    },
+    {
+      "address": "0042be3c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Init",
+      "description": "(sfx, cacheLimit, fileCount, sampleCount): stores the cache limit at +0x18 (the bytes Sfx_Cache may hold, 0 for none) and the counts at +0x10 and +0x14, allocates the 0x21c-byte file table (+0x34) and the 0x28-byte sample table (+0x38) with every slot's +0 at -1, then opens the drivers through 0042d7f0(+0x44, the format at +0x24). Returns 1; 0 with SetLastError(14) when an allocation fails (both tables freed) or SetLastError(0x3eb) when 0042d7f0 does. ShellSound_Init calls it with sampleCount = fileCount + 10.",
+      "source": "VSHELL decompile and disassembly at 0042be3c"
+    },
+    {
+      "address": "0042d6a5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_StopAll",
+      "description": "SFX::stopAll (assert file .\\inc\\sfx_fix.h): (sfx). For each sample slot with the playing bit 0x100, asserts its file handle is valid and current, stops it through 0042da8c and, when that succeeds, decrements the playing-song (+0x40, flag bit 0) or playing-sample (+0x3c) count and clears the playing bit. The loop runs over the first +0x10 slots of the sample table, +0x10 being the file count. ShellSound_Stop calls it.",
+      "source": "VSHELL decompile at 0042d6a5"
+    },
+    {
+      "address": "0042c56b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Cache",
+      "description": "SFX::cache (assert file .\\inc\\sfx_fix.h): (sfx, sampleHandle, load). Asserts the handle and its file handle are valid and current. A sample flagged 0x1000 returns 1 at once. Otherwise brings its file's loaded state (+0x20c) to load: unloading (only while the file's reference count +0x208 is below 2, else SetLastError(0x20)) frees it through 0042d906 and takes its size (+0x210) off the bytes cached (+0x1c); loading opens the file as a VolRStream (assert 'Unable to open file' otherwise), takes its size once (assert 'Bogus file size' for 0), makes room through 0042ce58 when the cache limit (+0x18) would be exceeded, and loads it through 0042d906. Returns the resulting loaded state. Sfx_Play calls it.",
+      "source": "VSHELL decompile at 0042c56b"
+    },
+    {
+      "address": "0042d96f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_StartVoice",
+      "description": "(file + 4, sample + 4): starts a cached sample. Flag bit 0 (sample +8) is a MIDI song: Sos_MidiInitSong on the file's loaded object (file +0x214), then Sos_MidiStartSong, uninitialising it on failure. Flag 0x1000 goes to 0042e846. Otherwise a digital sample: both channels' volume = volume (+0x14) * Sos_MasterVolume * 0x7fff / 10000, the loop count (+0x18) less 1 (-1, forever, for 0), and two further fields copied into the SOS sample header, then Sos_StartSample on Sos_GetDriverHandle() with the voice handle out at sample +0x24. Returns true on success. Sfx_Play calls it.",
+      "source": "VSHELL decompile at 0042d96f"
+    },
+    {
+      "address": "0047ccec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Volume_FindEntry",
+      "description": "(volume, path, entryInfo): the DBSIM copy of VSHELL's Volume_FindEntry (0040279f), line for line: splits the path with Path_Split, matches the directory (+0x1d count, +0x24 names) and then the name and directory index against the 18-byte entries (+0x1e count, +0x2c table) case-insensitively, and on a hit seeks the volume's stream (+4) to the entry, reads its 9-byte prefix and fills entryInfo ([0] stream, [2] and [4] data offset, [5] compression type, [6] size). Returns 1 on a hit, 0 otherwise. VolumeGroup_FindEntry calls it per volume.",
+      "source": "DBSIM decompile at 0047ccec, diffed against VSHELL 0040279f"
+    },
+    {
+      "address": "0047d08c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_Split",
+      "description": "(path, drive, dir, name, ext): the DBSIM copy of VSHELL's Path_Split (0045045c).",
+      "source": "DBSIM decompile at 0047d08c, diffed against VSHELL 0045045c"
+    },
+    {
+      "address": "00465920",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_CreateForDisplay",
+      "description": "(quads, count): builds the 256-entry LOGPALETTE at 004d37ac from RGBQUADs and returns CreatePalette's handle. With the system palette in SYSPAL_NOSTATIC use, it copies count entries flagged 1 (PC_RESERVED), clears the rest, and forces entry 0 to black and 255 to white, both flagged 0. Otherwise it keeps the NUMRESERVED/2 system colours at each end (flags 0) and copies the middle entries flagged 5 (PC_RESERVED | PC_NOCOLLAPSE), moving the blue of any that matches a static colour by 3 (down from 0xfc and up, up otherwise). Screen_SetPalette calls it.",
+      "source": "DBSIM decompile at 00465920"
+    },
+    {
+      "address": "00465b3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_ClearSystemPalette",
+      "description": "Creates a palette from the LOGPALETTE header at 004a041c with all 256 entries black and flagged 5 (PC_RESERVED | PC_NOCOLLAPSE), selects and realizes it on the screen DC, then selects the old palette back and deletes it. Screen_SetPalette runs it before realizing a new palette.",
+      "source": "DBSIM decompile at 00465b3c"
+    },
+    {
+      "address": "00465bc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_SetDisplayEntries",
+      "description": "(palette): builds 256 PALETTEENTRYs: the NUMRESERVED/2 system colours at each end flagged 0, the rest from the palette's 6-bit entries at +8 shifted left 2 and flagged 5. Windowed (004d25e2 clear) it sets them as the back buffer DIB's colour table (SetDIBColorTable on 004d30b8) and AnimatePalettes the screen palette 004d30b0; full screen it hands them to the DirectDraw palette 004d37a0 (slot +0x18, SetEntries(0, 0, 256, entries)). Palette_FlushDirtyRange calls it.",
+      "source": "DBSIM decompile at 00465bc0"
+    },
+    {
+      "address": "004664c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DDraw_SetModeAndCreateSurfaces",
+      "description": "(width, height, bpp): IDirectDraw::SetDisplayMode on 004d3794 (slot +0x54); on success releases the back surface 004d379c, the primary 004d3798 and the palette 004d37a0, and creates the primary (slot +0x18) into 004d3798: below a display width (004d25c2) of 640 a ModeX flip chain with one back buffer (caps 0x204218) whose back surface it fetches into 004d379c (GetAttachedSurface, slot +0x30), otherwise a single primary (caps 0x4200). A failed create is retried once without DDSCAPS_VIDEOMEMORY (0x4000). Returns 1 on success, 0 otherwise. Video_ToggleFullscreen calls it.",
+      "source": "DBSIM decompile at 004664c0"
+    },
+    {
+      "address": "0046662c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DDraw_Release",
+      "description": "Clears the screen (Screen_ClearToBlack) when a DirectDraw object exists, releases the back surface 004d379c, the primary 004d3798, the palette 004d37a0 and the DirectDraw object 004d3794 (slot +8 each, nulling the globals), and ClipCursors the pointer to the whole screen. Video_ToggleFullscreen calls it on the way back to a window, and 00465288 once its message loop ends.",
+      "source": "DBSIM decompile at 0046662c"
+    },
+    {
+      "address": "00487c01",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_CopySpansBetweenPages",
+      "description": "(region, point): Region_CopyBetweenPages for a type-2 region: copies its span list translated by point (and the drawing context's translation when +0x208 is set) into the scratch span buffer 004a36a9 and hands it to the page-copy routine 004a5810 as (spans, point): unclipped for clip mode 0, through SpanList_ClipToRect against the context rect for mode 1, and for mode 2 per clip-list entry (rects through SpanList_ClipToRect, span regions through SpanRegion_Intersect).",
+      "source": "DBSIM decompile at 00487c01"
+    },
+    {
+      "address": "00487e5e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Region_SaveSpans",
+      "description": "(region, buffer), hand-written: Region_Save for a type-2 region. Copies each row of its span list from the screen into buffer through the raster routine 004a5818 (buffer, row, x0, x1), advancing buffer by x1 - x0 + 1. When the drawing context's +0x208 is set it first translates the list into 004a36a9, adding CX + ctx+0x210 - ctx+0x220 to the top row and DX + ctx+0x20c - ctx+0x21c to each x, with ECX and EDX as the caller left them: Region_Save has the region pointer in both.",
+      "source": "DBSIM disassembly at 00487e5e and its call in Region_Save (00487f2d); Region_Save's callers load EDX with the region they push"
+    },
+    {
+      "address": "0045045c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_Split",
+      "description": "(path, drive, dir, name, ext): clears each non-null output, then splits path: a leading 'X:' into drive, everything up to and including the last backslash into dir, then the name up to the first '.' into name and the rest, dot included, into ext (all of it into name when there is no dot). Volume_FindEntry splits its lookup path with it.",
+      "source": "VSHELL decompile at 0045045c"
+    },
+    {
+      "address": "00406bb9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_ClearSystemPalette",
+      "description": "The VSHELL copy of DBSIM's Palette_ClearSystemPalette: realizes and deletes an all-black palette flagged 5 on the screen DC. Display_RealizePalette runs it first.",
+      "source": "VSHELL decompile at 00406bb9, diffed against DBSIM 00465b3c"
+    },
+    {
+      "address": "0040698f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_CreateForDisplay",
+      "description": "(quads, count): the VSHELL copy of DBSIM's Palette_CreateForDisplay, building the LOGPALETTE at 00481e6c, except that in SYSPAL_NOSTATIC use it flags the copied entries 5 (PC_RESERVED | PC_NOCOLLAPSE) where DBSIM flags them 1. Display_RealizePalette makes its result the palette 00481870.",
+      "source": "VSHELL decompile at 0040698f, compared with DBSIM 00465920"
+    },
+    {
+      "address": "00406c4d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_RealizePalette",
+      "description": "(palette): does nothing unless 0046c080 is set. Counts its calls at 0046db80 (Mono_Printf '%d times in realize palette'), converts the palette's 256 entries (+8) to RGBQUADs as DBSIM's Screen_SetPalette does (flags bit 0: 6-bit, shifted left 2; otherwise copied only with flags bit 1), runs Palette_ClearSystemPalette, makes Palette_CreateForDisplay(quads, 256) the palette 00481870, selects and realizes it on the screen DC and sets the DIB colour table of 00481878. Full screen (00481e68) it also flags entries 10-245 5, creates a DirectDraw palette (IDirectDraw slot +0x14, flags 0x4c) into 00481e64 and sets it on the primary 00481e5c (slot +0x7c), asserting 'create pal failed' (winstuff.cpp) on failure. Palette_ApplyToDisplay calls it.",
+      "source": "VSHELL decompile at 00406c4d"
+    },
+    {
+      "address": "00406eeb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DDraw_SetModeAndCreatePrimary",
+      "description": "(width, height, bpp): IDirectDraw::SetDisplayMode on 00481e58 (slot +0x54); on success releases 00481e60, the primary 00481e5c and the palette 00481e64, and creates a single primary surface (caps 0x4200) into 00481e5c, retrying once without DDSCAPS_VIDEOMEMORY; a second failure asserts 'coulnd't create dd surface' (winstuff.cpp). Returns 1 on success. DBSIM's DDraw_SetModeAndCreateSurfaces without the ModeX flip chain. Display_ToggleFullScreen calls it.",
+      "source": "VSHELL decompile at 00406eeb"
+    },
+    {
+      "address": "00469790",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipEdgeCrossX",
+      "description": "(x, a, b, out, flags): writes the vertex where edge a-b crosses the vertical line x into out and returns 1; returns 0 and writes nothing when either endpoint lies exactly on the line. Interpolates from the endpoint with the smaller x by t = (x - lo.x) / (hi.x - lo.x) (Q16): y always, and by flags as in Raster_BuildEdgeTables -- 8 depth (+8), 1 u and v (+0xc, +0x10), 1 with 2 w (+0x14), 4 shade (+0x18). Raster_ClipPolygonX's crossing routine.",
+      "source": "DBSIM decompile at 00469790"
+    },
+    {
+      "address": "00469a28",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipEdgeCrossY",
+      "description": "Raster_ClipEdgeCrossX for a horizontal line y, interpolating x from the endpoint with the smaller y. Raster_ClipPolygonY's crossing routine.",
+      "source": "DBSIM decompile at 00469a28"
+    },
+    {
+      "address": "00483b60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Line_ClipToRect",
+      "description": "(a, b, rect{x0, y0, x1, y1}): clips the segment a-b in place against the inclusive rect, against y0, x0, y1 and x1 in that order, each time moving the outside endpoint to the crossing computed from it in 64 bits (truncating). Returns 0, leaving the points as they were, when both endpoints lie beyond the same bound; otherwise 1. Raster_DrawLine clips through it for clip mode 1 and for each rect of a clip list.",
+      "source": "DBSIM decompile at 00483b60"
+    },
+    {
+      "address": "00483c60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Line_ScanConvertToSpanRegion",
+      "description": "(a, b, out): writes the int16 span region of a one-pixel line: top row min(y), count |dy| + 1, then an {x0, x1} pair per row -- {x, x} on each row of a vertical line, one row {xmin, xmax} for a horizontal one, and otherwise the run of x a Bresenham walk from the smaller-x end puts on each row. Raster_DrawLine fills the result with the pen's span routine.",
+      "source": "DBSIM decompile at 00483c60"
+    },
+    {
+      "address": "004879c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_FillContourPolygon",
+      "description": "Brush mode 1 of Raster_DrawPolygonDispatch, (count, points): a polygon shaded per vertex. Maps each vertex's ushort shade from the brush's list at +0xc to a palette index through the ramp the brush colour's low word names (8-byte records at 004a4fbd: +0 entry array, +4 int16 length; entry (shade * length) >> 8), fans triangles from vertex 0 and fills each with Raster_FillContourTriangle, with the brush switched to mode 0 meanwhile. Restores the brush's colour and mode 1 after.",
+      "source": "DBSIM decompile at 004879c0"
+    },
+    {
+      "address": "0048cfec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipRingToNearPlaneWithUV",
+      "description": "(uvIn, uvOut): Poly_ClipRingToNearPlane carrying a per-vertex {u, v} int pair along. Walks the current face's index ring (count DAT_006c6968, indices from DAT_006c6976 + DAT_006c696a * 2): an edge with both ends projected (state byte 2) emits the end's screen point and copies its pair; an edge with one projected end emits the crossing of the near plane DAT_006c60b0 (view x and -y linear in depth, plus the centre DAT_006c60b8) with the pair interpolated by the same fraction, then the end if it is the projected one. Returns the new count DAT_006cbc86 (points at DAT_006cbb86). TSTexture4Poly_Render's g_TexturedPolyUseBitmapBrush branch calls it when Poly_ProjectShapeVertices returns 1.",
+      "source": "DBSIM decompile and disassembly at 0048cfec (returns [ESI+0x5b2e] = 006cbc86)"
+    },
+    {
+      "address": "0045c1e0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipEdgeCrossX",
+      "description": "The VSHELL copy of DBSIM's Raster_ClipEdgeCrossX: the crossing of edge a-b with the line x, interpolated from the smaller-x end by the flags; 0 when an endpoint lies on the line. Raster_ClipPolygonX's crossing routine.",
+      "source": "VSHELL decompile at 0045c1e0"
+    },
+    {
+      "address": "0045c46c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipEdgeCrossY",
+      "description": "The VSHELL copy of DBSIM's Raster_ClipEdgeCrossY. Raster_ClipPolygonY's crossing routine.",
+      "source": "VSHELL decompile at 0045c46c"
+    },
+    {
+      "address": "0045554c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Line_ClipToRect",
+      "description": "The VSHELL copy of DBSIM's Line_ClipToRect, line for line: clips a-b in place against the inclusive rect {x0, y0, x1, y1}, returning 0 when the segment is wholly beyond one bound. Gfx_DrawLine clips through it.",
+      "source": "VSHELL decompile at 0045554c, diffed against DBSIM 00483b60"
+    },
+    {
+      "address": "0045564c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Line_ScanConvertToSpanRegion",
+      "description": "The VSHELL copy of DBSIM's Line_ScanConvertToSpanRegion, line for line: the int16 span region {top, count, {x0, x1} per row} of a one-pixel Bresenham line. Gfx_DrawLine fills the result.",
+      "source": "VSHELL decompile at 0045564c, diffed against DBSIM 00483c60"
+    },
+    {
+      "address": "00458438",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_FillBandedPolygon",
+      "description": "Fill type 1 of Gfx_FillPolygon, (count, points): the VSHELL copy of DBSIM's Raster_FillContourPolygon. Maps each vertex's ushort shade (fill +0xc) through the ramp the fill colour's low word names (records at 0047dd39), fans triangles from vertex 0 and fills each with Gfx_BandedTriangle with the fill set to type 0, then restores its colour and type 1.",
+      "source": "VSHELL decompile at 00458438"
+    },
+    {
+      "address": "0045ee2c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipRingToNearPlaneWithUV",
+      "description": "The VSHELL copy of DBSIM's Poly_ClipRingToNearPlaneWithUV: clips the current face's ring (count 005d8890, indices from 005d889e + 005d8892 * 2) to the near plane with a per-vertex {u, v} pair carried along, and returns the new count 005ddbae. TSTexture4Poly_Render's g_TexturedPolyUseBitmapBrush branch calls it with the UV corners at 0048a190.",
+      "source": "VSHELL decompile at 0045ee2c, diffed against DBSIM 0048cfec"
+    },
+    {
+      "address": "0045dd40",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_ComputeShadeForFace",
+      "description": "(normal, centre): the VSHELL copy of DBSIM's Light_ComputeShadeForFace (0048bedc), call for call: a 0-255 shade accumulated over the active light list at 005d8058 (count 005d8054) -- type 0 adds its intensity, type 1 subtracts (intensity * ((dot - 0x400000) >> 1)) >> 22 when that is negative, type 2 adds a distance-attenuated term. TSTexture4Poly_Render and the poly renderers at 00423024, 00423193, 004238d9 and 00423a48 call it, with the normal negated for a back face.",
+      "source": "VSHELL decompile at 0045dd40, compared with DBSIM 0048bedc"
+    },
+    {
+      "address": "0045f7fb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetType",
+      "description": "Returns light+0x16, the light type. The VSHELL copy of DBSIM's Light_GetType.",
+      "source": "VSHELL disassembly at 0045f7fb"
+    },
+    {
+      "address": "0045f806",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetIntensity",
+      "description": "Returns light+0x1a, the intensity. The VSHELL copy of DBSIM's Light_GetIntensity.",
+      "source": "VSHELL disassembly at 0045f806"
+    },
+    {
+      "address": "0045f839",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetModelDirection",
+      "description": "(light): LightFrame_GetDirection(light + 0x1e), the model-space direction at light+0x2e. The VSHELL copy of DBSIM's Light_GetModelDirection.",
+      "source": "VSHELL disassembly at 0045f839"
+    },
+    {
+      "address": "0045f811",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetModelPosition",
+      "description": "(light): LightFrame_GetPosition(light + 0x1e), the model-space position at light+0x22. The VSHELL copy of DBSIM's Light_GetModelPosition.",
+      "source": "VSHELL disassembly at 0045f811"
+    },
+    {
+      "address": "0045f823",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetRangeNumerator",
+      "description": "Returns light+0x38, the numerator of the point-light falloff. The VSHELL copy of DBSIM's Light_GetRangeNumerator.",
+      "source": "VSHELL disassembly at 0045f823"
+    },
+    {
+      "address": "0045f82e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetFalloffOffset",
+      "description": "Returns light+0x34, the denominator offset of the point-light falloff. The VSHELL copy of DBSIM's Light_GetFalloffOffset.",
+      "source": "VSHELL disassembly at 0045f82e"
+    },
+    {
+      "address": "00471898",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TexturedPolyPerspective",
+      "description": "Selects TSTexture4Poly_Render's textured fill: 0 TSTexture4Poly_RasterizeA (u and v linear in screen space), non-zero TSTexture4Poly_RasterizeB (perspective-correct). The VSHELL counterpart of DBSIM's g_TexturedPolyPerspective (0049f274).",
+      "source": "VSHELL decompile of TSTexture4Poly_Render; disassembly read at 00422fbf"
+    },
+    {
+      "address": "0046ac48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedShaded",
+      "description": "Mode 1 span routine of Raster_DrawPolygon: as Raster_SpanTextured, but each texel goes through one ramp row, ShadeRampTable + (DAT_004a09c4 >> 16) * 0x100, fixed for the span. Two halves selected by DAT_004a09ac: zero stores every texel, non-zero skips a raw texel of palette index 0.",
+      "source": "DBSIM decompile at 0046ac48"
+    },
+    {
+      "address": "0046adad",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedGouraud",
+      "description": "Mode 2 span routine of Raster_DrawPolygon: as Raster_SpanTexturedShaded, but the ramp row is per pixel, DAT_004a09c4 stepped by DAT_004a09c8, and there is only an opaque half (no DAT_004a09ac test).",
+      "source": "DBSIM decompile at 0046adad"
+    },
+    {
+      "address": "0048b418",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedClipped",
+      "description": "Draws the span at x DAT_004a5958, length DAT_004a0984, through the visible-run list at DAT_004a5954 ({x, length} pairs, DAT_004a5950 of them): for each run that overlaps it, advances the destination DAT_004a0980 and the u/v accumulators past the hidden pixels, trims the length at the run's end and calls Raster_SpanTextured. Returns at the first run that starts at or past the span's end. Raster_DrawPolygon uses it in mode 0 when ActiveScanlineClipSpans is set and either the context clip mode (+0x208) is 2 or maybe_g_DepthBufferEnabled is set; the run list is then the row's clip spans, or with the depth buffer the runs Raster_DepthTestSpan leaves.",
+      "source": "DBSIM decompile at 0048b418"
+    },
+    {
+      "address": "0048b4a3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedShadedClipped",
+      "description": "Raster_SpanTexturedClipped for mode 1: the same visible-run walk, calling Raster_SpanTexturedShaded.",
+      "source": "DBSIM decompile at 0048b4a3"
+    },
+    {
+      "address": "0048b52e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedGouraudClipped",
+      "description": "Raster_SpanTexturedClipped for mode 2: the same visible-run walk, also advancing the ramp-row accumulator DAT_004a09c4 by DAT_004a09c8 per skipped pixel, calling Raster_SpanTexturedGouraud.",
+      "source": "DBSIM decompile at 0048b52e"
+    },
+    {
+      "address": "0048b748",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_DepthTestSpan",
+      "description": "Per-pixel depth test and write for one span: walks DAT_004a5b00 dwords of the buffer from DAT_004a5af4 with a value starting at DAT_004a5af8 and stepped by DAT_004a5afc per pixel; where the stored dword is greater it writes the value and the pixel is visible. Collects the visible pixels as {x, length} runs at 004a595c (x = index + DAT_004a5af0), sets DAT_004a5950 to the run count and DAT_004a5954 to 004a595c, the list the ...Clipped span routines walk. Raster_DrawPolygon calls it per row when maybe_g_DepthBufferEnabled is set, with the buffer at _DAT_006c6014 + (row * stride + x) * 4 and the value the edge's interpolated view depth ORed with (row + DAT_004a5b04) << 24.",
+      "source": "DBSIM decompile at 0048b748 and its call site in Raster_DrawPolygon (004684fb)"
+    },
+    {
+      "address": "004698c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipPolygonX",
+      "description": "(count, in, out, flags): one Sutherland-Hodgman pass of a ring of 7-dword vertices against x in [ctx+0x210, ctx+0x218 + 1] of the installed render context (006c5ff4). An inside vertex is copied; an edge that crosses a bound gets the crossing from 00469790 (passed the bound, both vertices, the output slot and flags), kept when that returns non-zero. Returns the output count. The first stage of Raster_DrawPolygon and Raster_DrawTexturedPolyNear.",
+      "source": "DBSIM decompile and disassembly at 004698c4 (returns [EBP-8])"
+    },
+    {
+      "address": "00469b60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipPolygonY",
+      "description": "Raster_ClipPolygonX for y (vertex +4) against [ctx+0x214, ctx+0x21c + 1], crossings from 00469a28. Returns the output count.",
+      "source": "DBSIM decompile and disassembly at 00469b60 (returns [EBP-8])"
+    },
+    {
+      "address": "00477c3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_BuildEdgeTables",
+      "description": "(count, vertices, flags): turns a clipped ring of 7-dword screen vertices {x, y, depth, u, v, w, shade} into per-row edge entries. Drops repeated points (fewer than 3 left gives 0 rows); walks forward from the top vertex (smallest y, rightmost) into the right-edge table at 006bbe14 and backward from the top-leftmost one into the left-edge table at 006c0914, until each reaches the bottom y. Each 10-dword row entry: +0 x, +4 depth (flag 8), +8/+0xc u and v (flag 1), +0x14 shade (flag 4); flag 2 makes u and v 64-bit (high dwords at +0x20/+0x24, shifted by 10 instead of 8) and adds w at +0x10 and a quadratic fit of u/w and v/w through the edge's ends and middle at +0x18/+0x1c. Returns 006c5414 = {first row (clamped to ctx+0x214), row count, left table, right table}.",
+      "source": "DBSIM decompile at 00477c3c; table roles from Raster_DrawPolygon's use (+8 start x, +0xc end x)"
+    },
+    {
+      "address": "00471bcc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Int64_AddInPlace",
+      "description": "(lo*, hi*, addLo, addHi): adds {addHi:addLo} to the 64-bit value in the two dwords, carrying from the low half. The DBSIM copy of VSHELL's Int64_AddInPlace (0045c110). Raster_BuildEdgeTables and Raster_DrawTexturedPolyNear step their 64-bit accumulators with it.",
+      "source": "DBSIM decompile at 00471bcc"
+    },
+    {
+      "address": "00471be4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Int64_SubInPlace",
+      "description": "(lo*, hi*, subLo, subHi): subtracts {subHi:subLo} from the 64-bit value in the two dwords, borrowing from the low half. The DBSIM copy of VSHELL's Int64_SubInPlace (0045c128).",
+      "source": "DBSIM decompile at 00471be4"
+    },
+    {
+      "address": "00471c1a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Int64Pair_Q16Divide",
+      "description": "(out, in): when the int32 divisor in[4] is non-zero, out[0] = ({in[1]:in[0]} << 16) / in[4] and out[1] = ({in[3]:in[2]} << 16) / in[4]; otherwise out is left unchanged. The DBSIM copy of VSHELL's Int64Pair_Q16Divide (0045c15e).",
+      "source": "DBSIM decompile at 00471c1a"
+    },
+    {
+      "address": "00471c55",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ScaleRunStep",
+      "description": "(out, delta, length, shift): the DBSIM copy of VSHELL's Raster_ScaleRunStep (0045c193): divides the two 64-bit and one 32-bit deltas by length, scaled by 2^shift. Raster_DrawTexturedPolyNear calls it once per row.",
+      "source": "DBSIM decompile at 00471c55"
+    },
+    {
+      "address": "0045bc20",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTextured",
+      "description": "Mode 0 span routine of TSTexture4Poly_RasterizeA: fetches the texel at a packed page<<16 | v<<8 | u index into the atlas at 00497f20 and stores it, stepping u and v. Two halves selected by DAT_0047e88c: zero stores every texel, non-zero skips palette index 0. The VSHELL copy of DBSIM's Raster_SpanTextured.",
+      "source": "VSHELL decompile at 0045bc20"
+    },
+    {
+      "address": "0045bd58",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedShaded",
+      "description": "Mode 1 span routine of TSTexture4Poly_RasterizeA and the only one TSTexture4Poly_RasterizeB uses: each texel through the ramp row _DAT_0047e890 + (DAT_0047e8a4 >> 16) * 0x100, fixed for the span. Unlike DBSIM's Raster_SpanTexturedShaded it has only an opaque half.",
+      "source": "VSHELL decompile at 0045bd58"
+    },
+    {
+      "address": "0045be3d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedGouraud",
+      "description": "Mode 2 span routine of TSTexture4Poly_RasterizeA: the ramp row per pixel, DAT_0047e8a4 stepped by DAT_0047e8a8; opaque only. The VSHELL copy of DBSIM's Raster_SpanTexturedGouraud.",
+      "source": "VSHELL decompile at 0045be3d"
+    },
+    {
+      "address": "0045b6d8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedClipped",
+      "description": "Draws the span at x DAT_0047e6a8, length DAT_0047e864, through the visible-run list at DAT_0047e6a4 (DAT_0047e6a0 {x, length} pairs), calling Raster_SpanTextured for each overlapping run after advancing the destination and u/v past the hidden pixels. The VSHELL copy of DBSIM's Raster_SpanTexturedClipped.",
+      "source": "VSHELL decompile at 0045b6d8"
+    },
+    {
+      "address": "0045b763",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedShadedClipped",
+      "description": "Raster_SpanTexturedClipped for Raster_SpanTexturedShaded. TSTexture4Poly_RasterizeA (mode 1) and TSTexture4Poly_RasterizeB call it.",
+      "source": "VSHELL decompile at 0045b763"
+    },
+    {
+      "address": "0045b7ee",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTexturedGouraudClipped",
+      "description": "Raster_SpanTexturedClipped for Raster_SpanTexturedGouraud, also advancing DAT_0047e8a4 by DAT_0047e8a8 per skipped pixel.",
+      "source": "VSHELL decompile at 0045b7ee"
+    },
+    {
+      "address": "0045ba08",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_DepthTestSpan",
+      "description": "The VSHELL copy of DBSIM's Raster_DepthTestSpan: tests and writes DAT_0047e850 dwords of the depth buffer from DAT_0047e844 (value DAT_0047e848, step DAT_0047e84c) and leaves the visible runs at 0047e6ac, count DAT_0047e6a0, pointer DAT_0047e6a4. Both textured rasterizers call it per row when maybe_g_DepthBufferEnabled is set.",
+      "source": "VSHELL decompile at 0045ba08"
+    },
+    {
+      "address": "0045c193",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ScaleRunStep",
+      "description": "(out, delta, length, shift): out[0..1] = (int32)(delta64[0] / length) sign-extended and shifted left by shift as a 64-bit value, out[2..3] the same for delta64[1], out[4] = ((int64)delta32[4] << shift) / length. TSTexture4Poly_RasterizeB calls it once per row with the row's u/z, v/z and 1/z differences, giving their step over one 2^shift-pixel run.",
+      "source": "VSHELL decompile at 0045c193"
+    },
+    {
+      "address": "0045c318",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipPolygonX",
+      "description": "(count, in, out, flags): one Sutherland-Hodgman pass of a ring of 7-dword vertices against x in [ctx+0x210, ctx+0x218] of the current context; crossings from 0045c1e0. Returns the output count. DBSIM's Raster_ClipPolygonX uses ctx+0x218 + 1 as the upper bound.",
+      "source": "VSHELL decompile at 0045c318"
+    },
+    {
+      "address": "0045c5a4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ClipPolygonY",
+      "description": "Raster_ClipPolygonX for y against [ctx+0x214, ctx+0x21c]; crossings from 0045c46c. Returns the output count.",
+      "source": "VSHELL decompile at 0045c5a4"
+    },
+    {
+      "address": "0045c6f8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_BuildEdgeTables",
+      "description": "The VSHELL copy of DBSIM's Raster_BuildEdgeTables: same flags and 10-dword row entries, right-edge table 0048e604, left-edge table 00493104, result block 00497c04. Its flag-2 shift is 12 (DBSIM 10), and it builds the quadratic u/w, v/w fit with the Point3I/Point2I helpers instead of inline.",
+      "source": "VSHELL decompile at 0045c6f8"
+    },
+    {
+      "address": "0045cf87",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_GetCurrentContextCopy",
+      "description": "MOV EAX,[0048e184]; RET -- a second copy of Gfx_GetCurrentContext. The clip and edge stages of the textured rasterizers call it.",
+      "source": "VSHELL disassembly at 0045cf87"
+    },
+    {
+      "address": "0045cf8d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_Add",
+      "description": "(a, b): adds b's three int32 components to a's in place (z, then x and y through Point2I_Add).",
+      "source": "VSHELL decompile at 0045cf8d"
+    },
+    {
+      "address": "0045cfac",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_ShiftRight",
+      "description": "(p, n): arithmetic right shift of an int32 point's three components by n (z, then x and y through Point2I_ShiftRight).",
+      "source": "VSHELL decompile at 0045cfac"
+    },
+    {
+      "address": "0045cfca",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_DivideXYByZ",
+      "description": "(out, p): when p.z is non-zero, out = (FixedDivQ16(p.x, p.z), FixedDivQ16(p.y, p.z)); otherwise out is left unchanged.",
+      "source": "VSHELL decompile at 0045cfca"
+    },
+    {
+      "address": "0045d006",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_ShiftLeft",
+      "description": "(p, n): shifts an int32 point's two components left by n.",
+      "source": "VSHELL decompile at 0045d006"
+    },
+    {
+      "address": "0045d01a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point2I_ShiftRight",
+      "description": "(p, n): arithmetic right shift (SAR) of an int32 point's two components by n.",
+      "source": "VSHELL disassembly at 0045d01a"
+    },
+    {
+      "address": "0049f278",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_PerspectiveUseQuadraticFit",
+      "description": "When non-zero, Raster_DrawTexturedPolyNear takes each row's starting u and v, and its last partial run's end, from Raster_BuildEdgeTables' quadratic fit (edge +0x18/+0x1c) instead of dividing by 1/z; the run ends inside a row are divided either way. Terrain_DrawCellQuad sets it per cell to (nearest corner's view depth > 25000), the depth it passes Raster_SetDepthFadeFromDistance.",
+      "source": "DBSIM disassembly: writer 0046da89 in Terrain_DrawCellQuad, readers 00468c9d and 00468ed1 in Raster_DrawTexturedPolyNear"
+    },
+    {
+      "address": "0047188c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_PerspectiveUseQuadraticFit",
+      "description": "VSHELL's counterpart of DBSIM's g_PerspectiveUseQuadraticFit (0049f278): when non-zero, TSTexture4Poly_RasterizeB takes each row's starting u and v, and its last partial run's end, from Raster_BuildEdgeTables' quadratic fit instead of dividing. The hgrid cell callback 00429dac sets it per cell to (DAT_0047223c < the value it passes 00420279).",
+      "source": "VSHELL disassembly: writer 0042a9df in 00429dac, readers 00420f3b and 004211b1 in TSTexture4Poly_RasterizeB"
+    },
+    {
+      "address": "00471888",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_DepthBufferEnabled",
+      "description": "The VSHELL counterpart of DBSIM's maybe_g_DepthBufferEnabled (0049f270). When non-zero, both textured rasterizers run Raster_DepthTestSpan per row and, when the clip-span table DAT_0047e92c is set, draw its runs through the ...Clipped spans (TSTexture4Poly_RasterizeA also stores the view depth in vertex +8 and adds edge flag 8, which TSTexture4Poly_RasterizeB always does), and CellWalk_Polygon walks near to far. 0 in the image; every absolute-address operand found is a read.",
+      "source": "VSHELL decompile of TSTexture4Poly_RasterizeA/B and CellWalk_Polygon; docs/polygon-fill.md"
+    },
+    {
       "address": "0043e118",
       "binary": "DBSIM",
       "type": "function",
@@ -155,7 +1316,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLDisplay_DrawBitmapStretched",
-      "description": "(display, bitmap, srcRect, flags, dstRect, extra): 00458f68(bitmap, srcRect, flags, dstRect, extra); display is not read. GLBitmap_DrawStretched calls it with GL_GetGlobal7's display, as GLBitmap_DrawScaled does GLDisplay_DrawBitmapScaled.",
+      "description": "(display, bitmapDims, position, flip, size, angle): Bitmap_BlitRotatedScaled(bitmapDims, position, flip, size, angle); display is not read. GLBitmap_DrawStretched calls it with GL_GetGlobal7's display, as GLBitmap_DrawScaled does GLDisplay_DrawBitmapScaled.",
       "source": "VSHELL decompile at 00453708"
     },
     {
@@ -1685,7 +2846,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLBitmap_DrawStretched",
-      "description": "(bitmap, srcRect, flags, dstRect, extra): GLBitmap_DrawScaled's shape for a rect-to-rect draw, handing the bitmap at +4 and all four arguments to GLDisplay_DrawBitmapStretched with GL_GetGlobal7's display, through GLBitmap_Decompress first for a compressed bitmap (+0x12). ShellMap_PaintRelief stretches the relief bitmap with it.",
+      "description": "(bitmap, position, flip, size, angle): GLBitmap_DrawScaled's shape for a stretched and rotated draw, handing the bitmap at +4 and all four arguments to GLDisplay_DrawBitmapStretched (and so Bitmap_BlitRotatedScaled) with GL_GetGlobal7's display, through GLBitmap_Decompress first for a compressed bitmap (+0x12). ShellMap_PaintRelief stretches the relief bitmap with it.",
       "source": "VSHELL decompile at 0045330c"
     },
     {
@@ -8237,7 +9398,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Region_Save",
-      "description": "(unused, unused, region, buffer): copies the screen pixels a region covers into buffer: 00487da0 for a type-0 rect, 00487e5e for a type-2 span list. The message ports, AlertPanel_Enter and CockpitView_SetShakeBand save screen areas with it. A region is {int type; ...}: type 0 carries a rect {x0, y0, x1, y1} at +4, type 2 a pointer to a span list ({int16 top row, int16 row count, {x0, x1} per row}) at +4.",
+      "description": "(region, buffer): copies the screen pixels a region covers into buffer: Region_SaveRect for a type-0 rect, Region_SaveSpans for a type-2 span list, called with the region in ECX. The message ports, AlertPanel_Enter and CockpitView_SetShakeBand save screen areas with it, each pushing (region, buffer). A region is {int type; ...}: type 0 carries a rect {x0, y0, x1, y1} at +4, type 2 a pointer to a span list ({int16 top row, int16 row count, {x0, x1} per row}) at +4.",
       "source": "DBSIM decompile and disassembly at 00487f06"
     },
     {
@@ -8732,7 +9893,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sfx_Open",
-      "description": "SFX::open (asserts 'SFX::open: Can not allocate a ...' in inc\\sfx_fix.h, with SetLastError(14)): (sfx, name, mode, a, b). Takes a free 0x28-byte handle slot from the table at +0x38 (count +0x14), numbering it (serial +0x20 << 16) | index, and fills its defaults (flags +8 = 0, +0xc = 5, +0x14 = 100, +0x18 = 1, +0x1c = 0x8000, +0x20 = 0x10000); its +4 takes the data entry's handle. Reuses a loaded 0x21c-byte data entry with the same name from the table at +0x34 (count +0x10), bumping its reference count at +0x204, or takes a free one and records the name, a and b. Mode 0 sets flag 1 at +8, and mode 2 sets 0x1000 there for a new data entry only. Returns the handle, or -1 when either table is full. ShellSound_Init calls it.",
+      "description": "SFX::open (asserts 'SFX::open: Can not allocate a ...' in inc\\sfx_fix.h, with SetLastError(14)): (sfx, name, mode, a, b). Takes a free 0x28-byte handle slot from the table at +0x38 (count +0x14), numbering it (serial +0x20 << 16) | index, and fills its defaults (flags +8 = 0, +0xc = 5, +0x14 = 100, +0x18 = 1, +0x1c = 0x8000, +0x20 = 0x10000); its +4 takes the data entry's handle. Reuses a loaded 0x21c-byte data entry with the same name from the table at +0x34 (count +0x10), bumping its reference count at +0x208, or takes a free one and fills it: +4 the name, +0x204 a, +0x208 reference count 1, +0x20c loaded 0, +0x210 b (the size Sfx_Cache uses when non-zero), +0x214 the backend object, null. Mode 0 sets flag 1 at +8, and mode 2 sets 0x1000 there for a new data entry only. Returns the handle, or -1 when either table is full. ShellSound_Init calls it.",
       "source": "VSHELL decompile and disassembly at 0042c19c"
     },
     {
@@ -11081,7 +12242,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sfx_Play",
-      "description": "SFX::play (assert file .\\inc\\sfx_fix.h): (sfx, handle). Asserts on an invalid (-1) or stale handle, and on a sample whose file index is invalid or stale. Sample slots are 0x28 bytes at sfx+0x38 (the handle's low 16 bits index them; +4 the file index, +8 flags), sound files 0x21c bytes at sfx+0x34 (+4 the file name, +0x20c loaded). Loads the file when needed (0042c56b), starts it (0042d96f), counts it as a looped (+0x40) or one-shot (+0x3c) voice by flag bit 0, sets the playing bit 0x100 and returns 1; returns 0 when loading or starting fails.",
+      "description": "SFX::play (assert file .\\inc\\sfx_fix.h): (sfx, handle). Asserts on an invalid (-1) or stale handle, and on a sample whose file index is invalid or stale. Sample slots are 0x28 bytes at sfx+0x38 (the handle's low 16 bits index them; +4 the file index, +8 flags), sound files 0x21c bytes at sfx+0x34 (+4 the file name, +0x20c loaded). Loads the file when needed (Sfx_Cache), starts it (Sfx_StartVoice), counts it as a playing song (+0x40; flag bit 0, Sfx_StartVoice's MIDI path) or sample (+0x3c), sets the playing bit 0x100 and returns 1; returns 0 when loading or starting fails.",
       "source": "VSHELL decompile and disassembly at 0042c923"
     },
     {
@@ -14996,9 +16157,9 @@
       "binary": "VSHELL",
       "type": "data",
       "confidence": "high",
-      "name": "g_UseFlatPolyFallback",
-      "description": "Boolean flag read at the top of TSTexture4Poly_Render, gating which of two entirely different code paths runs; it is not an 'activeDba pointer-table vs descriptor-table' switch (see TSTexture4Poly_Render's entry). ==0: the REAL scanline-textured path -- builds a per-vertex 3D position array plus a UV-corner array from a 20-byte-stride per-frame descriptor (via g_ActiveBitmapArray[1]), then calls TSTexture4Poly_RasterizeA/B. !=0: a flat/solid 2D polygon-fill FALLBACK -- projects+clips the poly's vertices to screen space (FUN_0045e694/FUN_0045ee2c) and fills with FUN_0045f364 (-> GL_FillPolygon/GL_FillPolygonReversed), never touching a texture at all, even though it still resolves a DBA frame index via the pointer-table lookup (that resolved value goes unused for actual pixel sampling in this branch). The runtime condition that sets this flag is not determined.",
-      "source": "docs/formats/dts-texture-binding.md"
+      "name": "g_TexturedPolyUseBitmapBrush",
+      "description": "Selects how TSTexture4Poly_Render fills a textured poly; both ways sample the frame. 0: the frame descriptor at g_ActiveBitmapArray[1] gives the UV corners, and the 3D positions go to TSTexture4Poly_RasterizeA or B (g_TexturedPolyPerspective). Non-zero: the frame's bitmap comes from the DBA's pointer list (+8), and a type-7 bitmap brush {7, count, uvs, bitmap, remap row} is installed at the context's +0x22c with the UVs the bitmap's extent inset by 3 on each side and the remap row ((DAT_0047e9ac - 1) * shade & ~0xff) + DAT_0047e9a8 (0 while DAT_0047e9ac is 0); the vertices are projected (Poly_ProjectShapeVertices), near-plane clipped with the UVs when needed (Poly_ClipRingToNearPlaneWithUV) and filled through PolyFill_FillThenOutline, and the default brush 005d8000 is restored after. The runtime condition that sets this flag is not determined.",
+      "source": "VSHELL decompile of TSTexture4Poly_Render (00422af5)"
     },
     {
       "address": "00421db2",
@@ -15087,7 +16248,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_Render",
-      "description": "TSTexture4Poly's vtable-slot-0x1c render method (see g_TSTexture4PolyVtable). Reads poly+0xc (the surface field) as MOVZX (unsigned short), SHL 2 (x4) to a byte offset into g_ActiveSurfaceRecords (DAT_005d88a2), then reads front=*(int32*)(base+offset) and back=*(int32*)(base+offset+8), i.e. two int32 slots on -- read from ES2DumpAsm raw disassembly, not just the decompiler. A TSGroup's on-disk surface count is stored as surfaceCount*4 and each surface entry is four slots (Front, FrontLine, Back, BackLine), so the surface field holds surfaceIndex*4: the front value is surface[field/4].Front and the back value surface[field/4].Back. Front/back is chosen by TSPoly_FrontBackVisibilityTest against poly+4/+6. g_UseFlatPolyFallback (DAT_00471890) does not choose between two texture-lookup styles: it chooses between this scanline-textured rasterizer (flag == 0) and a separate flat 2D polygon fill that never samples a texture (flag != 0). Only the flag == 0 path reaches TSTexture4Poly_RasterizeA/B. In that path the resolved frame index indexes the 20-byte-stride per-frame descriptor table at g_ActiveBitmapArray[1] (a pointer distinct from the DBA object itself): int32 fields F0..F3 (bytes 0-15) and F4 at byte 16, passed to the rasterizer as param_4 (a pixel-data handle). The quad's UV corners are [V0=(F0,F1), V1=(F2,F1), V2=(F2,F3), V3=(F0,F3)] (decompiled assignment sequence _DAT_0048a190.._0048a1ac = F0,F1,F2,F1,F2,F3,F0,F3): an axis-aligned rect, top-left, top-right, bottom-right, bottom-left, with F0/F1 the frame's texture-space left/top and F2/F3 its right/bottom. The function that builds that descriptor table, which decides whether F0/F1 can be nonzero, is open. See docs/formats/dts-texture-binding.md.",
+      "description": "TSTexture4Poly's vtable-slot-0x1c render method (see g_TSTexture4PolyVtable). Reads poly+0xc (the surface field) as MOVZX (unsigned short), SHL 2 (x4) to a byte offset into g_ActiveSurfaceRecords (DAT_005d88a2), then reads front=*(int32*)(base+offset) and back=*(int32*)(base+offset+8), i.e. two int32 slots on -- read from ES2DumpAsm raw disassembly, not just the decompiler. A TSGroup's on-disk surface count is stored as surfaceCount*4 and each surface entry is four slots (Front, FrontLine, Back, BackLine), so the surface field holds surfaceIndex*4: the front value is surface[field/4].Front and the back value surface[field/4].Back. Front/back is chosen by TSPoly_FrontBackVisibilityTest against poly+4/+6; when the ramp row count DAT_0047e9ac is non-zero the face's shade comes from Light_ComputeShadeForFace, with the normal negated for a back face. g_TexturedPolyUseBitmapBrush (00471890) chooses between two textured fills: this descriptor-and-rasterizer path (flag == 0) and a 2D bitmap-brush fill of the frame's bitmap (flag != 0; see the flag's entry). Only the flag == 0 path reaches TSTexture4Poly_RasterizeA/B. In that path the resolved frame index indexes the 20-byte-stride per-frame descriptor table at g_ActiveBitmapArray[1] (a pointer distinct from the DBA object itself): int32 fields F0..F3 (bytes 0-15) and F4 at byte 16, passed to the rasterizer as param_4 (a pixel-data handle). The quad's UV corners are [V0=(F0,F1), V1=(F2,F1), V2=(F2,F3), V3=(F0,F3)] (decompiled assignment sequence _DAT_0048a190.._0048a1ac = F0,F1,F2,F1,F2,F3,F0,F3): an axis-aligned rect, top-left, top-right, bottom-right, bottom-left, with F0/F1 the frame's texture-space left/top and F2/F3 its right/bottom. The function that builds that descriptor table, which decides whether F0/F1 can be nonzero, is open. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
@@ -15104,9 +16265,9 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "TSGroup_RenderPolysFromRef",
-      "description": "Explicit-param_1 (__cdecl) sibling of TSGroup_RenderPolys (FUN_0042349d) -- identical field reads (param_1+0x10/0x14/0x18/0x1c/0x22/0x26) into the same globals, differing only in dispatching the poly walk via FUN_0042362c(param_1,0) instead of an inline loop. Same TSShapeInstance_Render/RenderFromRef-style by-value-vs-by-ref pairing already documented for TSBitmapPart's mechanism. See docs/formats/dts-texture-binding.md.",
-      "source": "docs/formats/dts-texture-binding.md"
+      "name": "TSBSPGroup_Render",
+      "description": "TSBSPGroup's render method: slot +0x1c of the vtable at 00471bc0, whose RTTI names TSBSPGroup (0x2e bytes). Sets up like TSGroup's render: TSGroup_BindNodeTransform, the default brushes 005d7ff8 and 005d8000 installed at the context's +0x228 and +0x22c with +0x20c cleared, the group's surfaces (+0x18), points (+0x14) and indexes (+0x10, defaulted when null), and a zeroed scratch of +0x22 bytes, asserting that count is at most 1000. Then draws the polys by the group's BSP tree through TSBSPGroup_RenderNode from node 0 rather than in order, and restores the three context fields. See docs/formats/dts-texture-binding.md.",
+      "source": "VSHELL decompile at 00423709; tools/scripts/es2_naming.py rtti VSHELL 00471bc0; VSHELL_vtables_full.txt"
     },
     {
       "address": "005d88a2",
@@ -15123,7 +16284,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_RasterizeA",
-      "description": "One of two near-identical textured-polygon scanline rasterizer variants called by TSTexture4Poly_Render (dispatched by DAT_00471898), only reached via TSTexture4Poly_Render's g_UseFlatPolyFallback==0 path. Genuine span-based rasterizer: per-edge clipping (FUN_0045c318/c5a4/c6f8), perspective-correct-looking fixed-point interpolation of screen position + a fourth interpolant (lighting or a second UV axis, not yet disambiguated), and inner-loop draw calls (FUN_0045bd58 etc.) -- UV-mapped texturing, not flat shading. The caller's UV-corner-generation formula (what param_2 contains per vertex) is in TSTexture4Poly_Render's entry. This function's own per-pixel interpolation and sampling math (the fixed-point span-fill loop, and the fourth interpolant's exact semantics) is not decoded; it is not needed to resolve which UV a vertex gets, only to reproduce the fill algorithm bit-exactly.",
+      "description": "(positions, uvCorners, count, atlasPage, shadePtr, mode, preTransformed): VSHELL's affine textured-polygon fill, one function doing what DBSIM splits into Raster_SetupTexturedSpan and Raster_DrawPolygon. Per vertex: model-to-view unless preTransformed, project, u and v << 8, the view depth into +8 when maybe_g_DepthBufferEnabled is set, and in mode 2 a ramp row from shadePtr[i]; near-plane clip; Raster_ClipPolygonX, Raster_ClipPolygonY and Raster_BuildEdgeTables with flags 1 (|4 in mode 2, |8 with the depth buffer). Then per row u and v are stepped linearly across the span by the span routine the mode selects: 0 Raster_SpanTextured, 1 Raster_SpanTexturedShaded (with *shadePtr turned into one ramp row in place), 2 Raster_SpanTexturedGouraud, or their ...Clipped twins when the clip-span table DAT_0047e92c is set and the context clip mode is 2 or the depth buffer is on. TSTexture4Poly_Render dispatches between it and TSTexture4Poly_RasterizeB on g_TexturedPolyPerspective.",
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
@@ -15132,7 +16293,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_RasterizeB",
-      "description": "The other of the two rasterizer variants TSTexture4Poly_Render dispatches between -- longer and does extra sub-span/mip-style step-size selection (DAT_00471980/84/88 thresholds) not present in TSTexture4Poly_RasterizeA, suggesting a mipmapped/higher-quality path vs. a simpler one, but not confirmed. See docs/formats/dts-texture-binding.md.",
+      "description": "(positions, uvCorners, count, atlasPage, shadePtr, mode, preTransformed): the perspective-correct twin of TSTexture4Poly_RasterizeA, and VSHELL's copy of DBSIM's Raster_DrawTexturedPolyNear. Per vertex it stores 1/z (1 << DAT_005d7fd4 over the view depth) at +0x14, u and v << 16 times 1/z, and the view depth at +8; clips and builds edges with flags 0xb (0xf in mode 2). Each row is drawn in runs of 2^k pixels: k = 10 when the row's ends have equal 1/z, else 4, 5, 6 or 7 as |delta 1/z| >> 12 is over DAT_00471980, over DAT_00471984, over DAT_00471988 or none. At each run's end u and v are recovered with Int64Pair_Q16Divide (per-run steps from Raster_ScaleRunStep) and the run is filled affinely by Raster_SpanTexturedShaded, or Raster_SpanTexturedShadedClipped under RasterizeA's conditions. With DAT_0047188c set, the row's start and its last partial run's end take Raster_BuildEdgeTables' quadratic fit instead of a divide. Every mode draws with the shaded span: mode 1 sets its ramp row from *shadePtr, and mode 2 interpolates a per-vertex row along the edges that no span reads.",
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
@@ -15934,7 +17095,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSSolidPoly_Render",
-      "description": "TSSolidPoly's real vtable-slot-0x1c render method (see g_TSSolidPolyVtable). Resolves the surface record via (surfaceField*4 + g_ActiveSurfaceRecords) -- the same *4 stride as TSTexture4Poly_Render, consistent with the poly's surface field holding surfaceIndex*4. Runs TSPoly_FrontBackVisibilityTest against poly+4/+6 (normal/centre point indices, each *6 into the three-short point array) to pick front (piVar3[0]/[1] = Front/FrontLine) or back (piVar3[2]/[3] = Back/BackLine) color pair -- confirms the surface entry's 4-slot Front/FrontLine/Back/BackLine layout applies to flat polys too, not just textured ones. Skips drawing if both resolved color dwords have top byte 0x18-shift == 0x14 (looks like an uninitialized/sentinel guard, not chased further). Otherwise clips via FUN_0045e694/FUN_0045ec54 and fills via FUN_0045f364 -- the SAME flat/solid 2D fill chain TSTexture4Poly_Render's DAT_00471890!=0 fallback branch also uses, confirming that branch really is 'reuse the flat-poly fill path' as its name implies. No dithering/lighting-ramp math visible anywhere in this chain -- VSHELL (a shell/viewer app) passes the front/back colours straight through to the fill routines, unlike DBSIM's in-mission renderer.",
+      "description": "TSSolidPoly's real vtable-slot-0x1c render method (see g_TSSolidPolyVtable). Resolves the surface record via (surfaceField*4 + g_ActiveSurfaceRecords) -- the same *4 stride as TSTexture4Poly_Render, consistent with the poly's surface field holding surfaceIndex*4. Runs TSPoly_FrontBackVisibilityTest against poly+4/+6 (normal/centre point indices, each *6 into the three-short point array) to pick front (piVar3[0]/[1] = Front/FrontLine) or back (piVar3[2]/[3] = Back/BackLine) color pair -- confirms the surface entry's 4-slot Front/FrontLine/Back/BackLine layout applies to flat polys too, not just textured ones. Skips drawing if both resolved color dwords have top byte 0x18-shift == 0x14 (looks like an uninitialized/sentinel guard, not chased further). Otherwise projects and clips via Poly_ProjectShapeVertices/FUN_0045ec54 and fills via PolyFill_FillThenOutline -- the chain TSTexture4Poly_Render's g_TexturedPolyUseBitmapBrush branch also uses, there with a bitmap brush installed in place of the default colour brush. No dithering/lighting-ramp math visible anywhere in this chain -- VSHELL (a shell/viewer app) passes the front/back colours straight through to the fill routines, unlike DBSIM's in-mission renderer.",
       "source": "flat-shaded lighting RE, docs/formats/dts-texture-binding.md"
     },
     {
@@ -16087,7 +17248,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TexPoly_Render",
-      "description": "TexPoly's vtable (0049afe6) slot +0x2c, which TexPoly_DrawAtPoints calls once per point. Normally builds the poly's quad from the frame descriptor g_CurrentShapeDbaContext[1] + surface*0x14 (surface base 006c697a, index this+0xc) and hands it to Raster_SetupTexturedSpan, as TSTexture4Poly_Render does; while g_TSPolyUseAltPath_maybeDead is set it takes the bitmap of the surface's +0 field when Raster_FrontFacing on the points this+4/+6 is positive and of its +8 field otherwise, and draws through Poly_ProjectIndexedVertices and PolyFill_FillThenOutline, calling slot +0x30 when the projection reports a vertex behind the near plane.",
+      "description": "TexPoly's vtable (0049afe6) slot +0x2c, which TexPoly_DrawAtPoints calls once per point. Normally builds the poly's quad from the frame descriptor g_CurrentShapeDbaContext[1] + surface*0x14 (surface base 006c697a, index this+0xc) and hands it to Raster_SetupTexturedSpan, as TSTexture4Poly_Render does; while g_TexturedPolyUseBitmapBrush is set it takes the bitmap of the surface's +0 field when Raster_FrontFacing on the points this+4/+6 is positive and of its +8 field otherwise, and draws through Poly_ProjectIndexedVertices and PolyFill_FillThenOutline, calling slot +0x30 when the projection reports a vertex behind the near plane.",
       "source": "DBSIM decompile at 0042fc34; tools/scripts/es2_classes.py --vtables"
     },
     {
@@ -16239,18 +17400,18 @@
       "binary": "DBSIM",
       "type": "data",
       "confidence": "high",
-      "name": "g_TSPolyUseAltPath_maybeDead",
-      "description": "Read-only byte: 6 read sites (TSTexture4Poly_Render x5, TexPoly_Render x1) and no write site among getReferencesTo's results across DBSIM.EXE. Its value in the mapped image (ES2ReadDataValue.java) is 0, in an initialized, file-backed DATA block -- a compile-time constant baked into the shipped exe, the same pattern as VSHELL's DAT_00471890 (g_UseFlatPolyFallback) in the sibling ThreeSpace codebase. Every reader branches on == 0 / != 0, so with the byte at 0 retail runs the == 0 branch (the g_CurrentShapeDbaContext[1] frame lookup and FUN_00468078 dispatch); the != 0 branch (local_28-based lookup, FUN_0048c848/FUN_0048cfec/FUN_0048d518) runs only if the byte is nonzero.",
-      "source": "flat-shaded lighting RE"
+      "name": "g_TexturedPolyUseBitmapBrush",
+      "description": "The DBSIM counterpart of VSHELL's g_TexturedPolyUseBitmapBrush (00471890), read by TSTexture4Poly_Render (x5) and TexPoly_Render (x1); getReferencesTo finds no write site, and it is 0 in the image, in an initialized DATA block. 0: TSTexture4Poly_Render takes the frame descriptor from g_CurrentShapeDbaContext[1] and draws through the fill g_TexturedPolyPerspective picks. Non-zero: it takes the frame's bitmap from the DBA's pointer list and fills the projected poly (Poly_ProjectShapeVertices, then Poly_ClipRingToNearPlaneWithUV when it returns 1) with a type-7 bitmap brush {7, count, uvs, bitmap, remap row} installed at the context's +0x22c, the UVs the bitmap's extent inset by 3 and the remap row ((DAT_004a5b1c - 1) * shade & ~0xff) + DAT_004a5b18, through PolyFill_FillThenOutline; the default brush 006c60d8 is restored after.",
+      "source": "DBSIM decompile of TSTexture4Poly_Render (00474e9c); ES2ReadDataValue.java"
     },
     {
       "address": "0049f274",
       "binary": "DBSIM",
       "type": "data",
       "confidence": "high",
-      "name": "g_TSSolidPolyRasterizerVariant_maybeDead",
-      "description": "Same dead-constant pattern as g_TSPolyUseAltPath_maybeDead (0049f26c): single read site (TSTexture4Poly_Render, selects FUN_00468078 vs FUN_0046865c), zero write sites anywhere in DBSIM.EXE, value read directly from the image is 0 in an initialized DATA block. FUN_00468078 is therefore confirmed as the only rasterizer dispatch target ever taken in retail for TSTexture4Poly.",
-      "source": "flat-shaded lighting RE"
+      "name": "g_TexturedPolyPerspective",
+      "description": "Selects TSTexture4Poly_Render's textured fill: 0 calls Raster_SetupTexturedSpan, which maps u and v linearly in screen space, non-zero Raster_DrawTexturedPolyNear, which is perspective-correct. One read site (004753b7); es2_xref finds no other reference in DBSIM.EXE (the same scan finds the writer of the neighbouring g_PerspectiveUseQuadraticFit). 0 in the image, in an initialized DATA block. VSHELL's counterpart is 00471898.",
+      "source": "DBSIM disassembly at 004753b7; es2_xref 0049f274"
     },
     {
       "address": "0041fdb0",
@@ -16646,7 +17807,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_SetView",
-      "description": "Switches the cockpit to view 0-4. Calls CockpitView_ApplyViewState, then blits the view's full-screen canopy bitmap once via Bitmap_Blit(bitmap, {0,0}, flags) with flags = 2 (horizontal mirror) for view 3 and 0 otherwise -- this is where the side view's single authored bitmap is flipped for the opposite side. Finally repaints every cockpit widget (FUN_004316c0). The canopy is NOT redrawn per frame: it is blitted once per view change and the 3D scene is then rasterized over it, clipped to ActiveScanlineClipSpans. In CockpitLayoutMode 1 view 0 additionally blits slot 1 at y+0xc5.",
+      "description": "Switches the cockpit to view 0-4. Calls CockpitView_ApplyViewState, then blits the view's full-screen canopy bitmap once via Bitmap_Blit(bitmap, {0,0}, flags) with flags = 2 (horizontal mirror) for view 3 and 0 otherwise -- this is where the side view's single authored bitmap is flipped for the opposite side. Finally repaints every cockpit widget (CockpitView_InvalidateWidgets). The canopy is NOT redrawn per frame: it is blitted once per view change and the 3D scene is then rasterized over it, clipped to ActiveScanlineClipSpans. In CockpitLayoutMode 1 view 0 additionally blits slot 1 at y+0xc5.",
       "source": "cockpit rendering RE session"
     },
     {
@@ -19647,7 +20808,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygon",
-      "description": "Polygon submit: (vertexCount, vertices, mode, atlasPage, shadeLevelPtr, transparencyFlag). Clips, builds edges, then walks scanlines calling the span routine the mode selects -- 0 Raster_SpanTextured (u,v only), 1 FUN_0046ac48 (u,v plus a shade level taken from param_5), 2 FUN_0046adad (u,v plus a third interpolant, which Raster_DrawPolygon reads from slot +0x14 of its edge records; it sits at +0x18 in the vertex record Raster_SetupTexturedSpan fills). param_4 goes to DAT_004a09b4 as the atlas page; param_6 to DAT_004a09ac, which selects the span routine's transparent half. In mode 1 it turns *param_5 into a ramp row in place -- shade * (DAT_004d3d38 - 1) + DAT_004a08c8, the depth bias included -- so this path fogs by the same rule as Raster_ShadeRampRow without calling it. See Raster_SetupTexturedSpan for the mode-2 equivalent.",
+      "description": "Polygon submit: (vertexCount, vertices, mode, atlasPage, shadeLevelPtr, transparencyFlag). Clips, builds edges, then walks scanlines calling the span routine the mode selects -- 0 Raster_SpanTextured (u,v only), 1 Raster_SpanTexturedShaded (u,v plus a shade level taken from param_5), 2 Raster_SpanTexturedGouraud (u,v plus a third interpolant, which Raster_DrawPolygon reads from slot +0x14 of its edge records; it sits at +0x18 in the vertex record Raster_SetupTexturedSpan fills). param_4 goes to DAT_004a09b4 as the atlas page; param_6 to DAT_004a09ac, which selects the span routine's transparent half. In mode 1 it turns *param_5 into a ramp row in place -- shade * (DAT_004d3d38 - 1) + DAT_004a08c8, the depth bias included -- so this path fogs by the same rule as Raster_ShadeRampRow without calling it. See Raster_SetupTexturedSpan for the mode-2 equivalent.",
       "source": "docs/simulation/beam-visuals.md"
     },
     {
@@ -19740,7 +20901,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygonDispatch",
-      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine DAT_004a57c4 and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; mode 6 calls slot 1 of g_RasterRoutines, mode 1 FUN_004879c0, and modes 5 and 7 Raster_FillBitmapPolygon through slot 33 (004a5848). Raster_DrawPolygonReversed reverses an anticlockwise outline before calling it.",
+      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine DAT_004a57c4 and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; mode 6 calls slot 1 of g_RasterRoutines, mode 1 Raster_FillContourPolygon, and modes 5 and 7 Raster_FillBitmapPolygon through slot 33 (004a5848). Raster_DrawPolygonReversed reverses an anticlockwise outline before calling it.",
       "source": "docs/formats/dts-texture-binding.md, docs/simulation/beam-visuals.md"
     },
     {
@@ -19982,9 +21143,9 @@
       "address": "0046865c",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
+      "confidence": "high",
       "name": "Raster_DrawTexturedPolyNear",
-      "description": "Textured polygon draw used for terrain cells inside twice the near-distance threshold (DAT_0049aad0); FUN_00468078 is the far/cheaper twin, chosen by the same distance test in Terrain_DrawCellQuad. Signature (verts, uvs, vertexCount, bitmapHandle, shades, shadeMode, worldSpaceFlag, flags). shadeMode is DAT_004aab30: mode 2 takes a shade PER VERTEX out of the shades array and builds a Gouraud ramp offset per vertex ((shade * (shadeLevels-1) + depthBias) << 8); mode 1 takes shades[0] alone and sets one flat ramp row for the whole polygon into DAT_004a09c4 by the identical formula, i.e. Raster_ShadeRampRow. Terrain only ever fills shades[0] (from the cell's baked byte), so retail terrain is flat-shaded per triangle, mode 1.",
+      "description": "(verts, uvs, vertexCount, bitmapHandle, shades, shadeMode, worldSpaceFlag, transparency): the perspective-correct textured polygon fill, DBSIM's counterpart of VSHELL's TSTexture4Poly_RasterizeB. Terrain_DrawCellQuad uses it for cells inside twice the near-distance threshold (DAT_0049aad0) and Raster_SetupTexturedSpan, which maps affinely, for the rest. Per vertex it stores 1/z (1 << DAT_006c60ac over the view depth) at +0x14 and u and v << 16 times 1/z; clips (Raster_ClipPolygonX/Y) and builds edges (Raster_BuildEdgeTables, flags 0xb, 0xf in shade mode 2). Each row is drawn in runs of 2^k pixels: k = 10 when the row's ends have equal 1/z, else 4, 5, 6 or 7 as |delta 1/z| >> 12 is over 3000, over 1000, over 300 or less; at each run's end u and v are recovered with Int64Pair_Q16Divide and the run is filled affinely by Raster_SpanTexturedShaded, or Raster_SpanTexturedShadedClipped through a run list. With DAT_0049f278 set, the row's start and its last partial run's end take Raster_BuildEdgeTables' quadratic fit instead of a divide. shadeMode is DAT_004aab30: mode 1 turns shades[0] into one ramp row for the polygon, DAT_004a09c4 = (shade * (shadeLevels-1) + depthBias) << 8, the Raster_ShadeRampRow formula; mode 2 builds that row per vertex and interpolates it along the edges, but no span reads it. Terrain only ever fills shades[0] (from the cell's baked byte), so retail terrain is flat-shaded per triangle, mode 1.",
       "source": "docs/formats/terrain-lighting.md (terrain lighting RE session)"
     },
     {
@@ -20656,7 +21817,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_IndexOf",
-      "description": "Returns an object's index in the three-entry squadmate array DAT_004d044c, or -1. MfdStatusScreen_Paint uses it to decide between ID: with a pilot name and TARGET: with a type name.",
+      "description": "Returns an object's index in the three-entry squadmate array g_SquadmateMachines, or -1. MfdStatusScreen_Paint uses it to decide between ID: with a pilot name and TARGET: with a type name.",
       "source": "docs/formats/mfd.md"
     },
     {
@@ -24627,9 +25788,9 @@
       "type": "function",
       "confidence": "high",
       "name": "AnimThread_SetTarget",
-      "signature": "void __cdecl AnimThread_SetTarget(void *thread, short sequence, short frame, short flags)",
-      "description": "Asks playback to reach a sequence via whatever transition leads there rather than snapping to it: writes thread+0x16/+0x18/+0x1a, clears the at-target bit and runs FUN_004792c8 to find the transition. frame -1 means any frame will do; flags bit 0 stops playback dead on arrival. This, not AnimThread_SetSequence, is how the death fall is started, so sweeping the latter's call sites alone does not enumerate what plays a sequence. Args derived from disassembly: four pushes with ADD ESP,0x10 at 00416db5.",
-      "source": "docs/simulation/mech-locomotion.md"
+      "description": "Asks playback to reach a sequence via whatever transition leads there rather than snapping to it: writes thread+0x16/+0x18/+0x1a, clears the at-target bit and runs AnimThread_FindTransition to find the transition. frame -1 means any frame will do; flags bit 0 stops playback dead on arrival. This, not AnimThread_SetSequence, is how the death fall is started, so sweeping the latter's call sites alone does not enumerate what plays a sequence. Args derived from disassembly: four pushes with ADD ESP,0x10 at 00416db5.",
+      "source": "docs/simulation/mech-locomotion.md",
+      "signature": "void __cdecl AnimThread_SetTarget(void *thread, short sequence, short frame, short flags)"
     },
     {
       "address": "004786d8",
@@ -26040,9 +27201,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_SendOrderToSlot",
-      "signature": "void __cdecl Squad_SendOrderToSlot(int cockpitView, SquadOrderRecord *order, short slot)",
-      "description": "The [F7] command display's XMIT: addresses one squadmate by comm-box slot out of DAT_004d044c, stamps the record's issuer field at +0x02 with the player's machine (view+0x203), and calls that machine's vtable +0x28. Skips an empty slot, the player's own machine and a destroyed pilot; withdraws message 0x22 from the pilot-and-squad port (view+0x207) either way. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10].",
-      "source": "docs/simulation/ai-squadmates.md"
+      "description": "The [F7] command display's XMIT: addresses one squadmate by comm-box slot out of g_SquadmateMachines, stamps the record's issuer field at +0x02 with the player's machine (view+0x203), and calls that machine's vtable +0x28. Skips an empty slot, the player's own machine and a destroyed pilot; withdraws message 0x22 from the pilot-and-squad port (view+0x207) either way. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10].",
+      "source": "docs/simulation/ai-squadmates.md",
+      "signature": "void __cdecl Squad_SendOrderToSlot(int cockpitView, SquadOrderRecord *order, short slot)"
     },
     {
       "address": "004231a4",
@@ -33298,7 +34459,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CellWalk_Polygon",
-      "description": "(ctx, centre, polygon): cuts the polygon into four quadrants around the centre cell with Poly_ClipToHalfPlane, scan-converts each with Poly_BuildSpanList, and calls ctx's callback(ctx, row, xFrom, xTo) per row run, far to near when DAT_00471888 == 0 && DAT_00471884 != 0 (the image values) and near to far otherwise. hgrid.cpp's cell renderer 00429b4a calls it.",
+      "description": "(ctx, centre, polygon): cuts the polygon into four quadrants around the centre cell with Poly_ClipToHalfPlane, scan-converts each with Poly_BuildSpanList, and calls ctx's callback(ctx, row, xFrom, xTo) per row run, far to near when maybe_g_DepthBufferEnabled == 0 && DAT_00471884 != 0 (the image values) and near to far otherwise. hgrid.cpp's cell renderer 00429b4a calls it.",
       "source": "docs/polygon-fill.md#walking-a-polygons-cells"
     },
     {
@@ -33649,7 +34810,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CellWalk_Polygon",
-      "description": "The DBSIM copy of VSHELL's CellWalk_Polygon (0042f3c4), read in its own decompile: (ctx, centre, polygon) cuts the polygon into four quadrants about the centre cell with Poly_ClipToHalfPlane, scan-converts each with Poly_BuildSpanList and calls callback(ctx, row, xFrom, xTo) per run, far to near when DAT_0049f270 == 0 && DAT_0049aad4 != 0 (0 and 1 in the image) and near to far otherwise. Terrain_DrawVisibleCells walks the terrain by row with it, callback Terrain_DrawCellRowRun.",
+      "description": "The DBSIM copy of VSHELL's CellWalk_Polygon (0042f3c4), read in its own decompile: (ctx, centre, polygon) cuts the polygon into four quadrants about the centre cell with Poly_ClipToHalfPlane, scan-converts each with Poly_BuildSpanList and calls callback(ctx, row, xFrom, xTo) per run, far to near when maybe_g_DepthBufferEnabled == 0 && DAT_0049aad4 != 0 (0 and 1 in the image) and near to far otherwise. Terrain_DrawVisibleCells walks the terrain by row with it, callback Terrain_DrawCellRowRun.",
       "source": "docs/polygon-fill.md#walking-a-polygons-cells"
     },
     {
@@ -33980,16 +35141,17 @@
       "address": "0049f270",
       "binary": "DBSIM",
       "type": "data",
-      "confidence": "low",
-      "description": "CellWalk_Polygon's first walk-direction flag: the far-to-near walk runs when this is 0 and DAT_0049aad4 is nonzero. 0 in the image; es2_xref finds only reads (CMP), the others in the textured-polygon rasterizers. VSHELL's counterpart is 00471888.",
-      "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+      "confidence": "medium",
+      "name": "maybe_g_DepthBufferEnabled",
+      "description": "Depth-buffer switch, read by every consumer as one. When non-zero: Raster_SetupTexturedSpan stores the view depth in vertex +8; Raster_DrawPolygon and Raster_DrawTexturedPolyNear run Raster_DepthTestSpan per row and, when ActiveScanlineClipSpans is set, draw its visible runs through the ...Clipped span routines; TSBSPPart_RenderNode draws the viewer's side of each splitting plane first instead of the far side; CellWalk_Polygon walks near to far. 0 in the image; es2_xref finds only reads (CMP). VSHELL's counterpart is 00471888.",
+      "source": "DBSIM decompile of Raster_SetupTexturedSpan, Raster_DrawPolygon, Raster_DrawTexturedPolyNear, TSBSPPart_RenderNode (00476a96) and CellWalk_Polygon (00471e90); es2_xref"
     },
     {
       "address": "0049aad4",
       "binary": "DBSIM",
       "type": "data",
       "confidence": "low",
-      "description": "CellWalk_Polygon's second walk-direction flag: 1 in the image, which with DAT_0049f270 == 0 selects the far-to-near walk. es2_xref finds one reference, the read in CellWalk_Polygon. VSHELL's counterpart is 00471884.",
+      "description": "CellWalk_Polygon's second walk-direction flag: 1 in the image, which with maybe_g_DepthBufferEnabled == 0 selects the far-to-near walk. es2_xref finds one reference, the read in CellWalk_Polygon. VSHELL's counterpart is 00471884.",
       "source": "docs/polygon-fill.md#walking-a-polygons-cells"
     },
     {

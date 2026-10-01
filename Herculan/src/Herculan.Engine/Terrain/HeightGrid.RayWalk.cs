@@ -50,10 +50,12 @@ public sealed partial class HeightGrid {
 	/// walk", so it answers what blocks a machine rather than what a bullet would hit.
 	/// </summary>
 	/// <param name="hitPoint">
-	/// Where the segment met the blocking face. The original refines this against the face's own
-	/// plane (<c>FUN_0046fcac</c>); the walk's own point for that step stands in here, which is
-	/// within a cell of it and is all either caller — the AI's obstacle probes and its line-of-sight
-	/// test — measures a range from.
+	/// Where the segment met the blocking face. The original refines this with
+	/// <c>Terrain_FindDiagonalCrossing</c> (<c>0046fcac</c>): where the step crosses its cell's
+	/// diagonal, found by bisection, with <c>z</c> set to 0, or the step's first point when it does
+	/// not cross. The walk's own point for that step stands in here; its <c>x</c> and <c>y</c> are
+	/// within a cell of the original's, and it is all either caller — the AI's obstacle probes and
+	/// its line-of-sight test — measures a range from.
 	/// </param>
 	public bool RayWalkVolume(Vec3i start, Vec3i end, out Vec3i hitPoint) =>
 		Walk(start, end, volume: true, out hitPoint);

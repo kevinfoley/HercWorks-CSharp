@@ -68,7 +68,7 @@ public sealed class HddCommandScreen {
 	/// <param name="raster">The mission's terrain raster, or null when the zone could not supply one.</param>
 	/// <param name="squad">
 	/// The squadmates the three comm boxes address, in slot order — the original's
-	/// <c>DAT_004d044c</c>. Fewer than three leaves the remaining boxes empty.
+	/// <c>g_SquadmateMachines</c> (<c>004d044c</c>). Fewer than three leaves the remaining boxes empty.
 	/// </param>
 	/// <param name="world">The simulation a transmitted order is delivered into, or null for none.</param>
 	public HddCommandScreen(HddMapView view, HddMapRaster? raster, IReadOnlyList<SimObject> squad,

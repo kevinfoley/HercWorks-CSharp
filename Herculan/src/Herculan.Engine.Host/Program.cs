@@ -842,7 +842,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// three squad comm boxes. All three are per-mission, so they are built once here.
 	//
 	// The squad is the player.mec entries other than the player's own — the same three machines the
-	// original keeps in DAT_004d044c, in file order, which is the order the comm boxes are numbered in.
+	// original keeps in g_SquadmateMachines (004d044c), in file order, which is the order the comm boxes are numbered in.
 	HddCommandScreen? hddCommand = null;
 	if (cockpitArt?.HeadsDownLayout is { } commandLayout && scene.World is { } commandWorld) {
 		var mapBounds = HddMapBounds.Of(scene.Mission.Coordinates);
@@ -976,7 +976,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				  : "empty"))
 		: $"No {PilotRoster.ResourceName} — the comm boxes have no names and no portraits.");
 
-	// FLASH COMM's seven order keys, in the order FUN_00446c10 and FUN_004469c0 both switch on their
+	// FLASH COMM's seven order keys, in the order MfdFlashComm_HandleAltKey (00446c10) and FUN_004469c0 both switch on their
 	// scancodes: which row each selects, and — for the two rows that carry two orders — which verb has to
 	// be showing before [Alt] will transmit it. -1 means transmit whatever the row reads.
 	(Key Key, int Row, int Verb)[] FlashCommKeys = {
@@ -2237,7 +2237,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 		// FLASH COMM's own keyboard, from the two dispatches that share it. The bare letters
 		// (FUN_004469c0's tail) only move the cursor and only while the page is up; the same letters with
-		// [Alt] (FUN_00446c10) select the row and transmit it in one go, from whichever screen is showing,
+		// [Alt] (MfdFlashComm_HandleAltKey, 00446c10) select the row and transmit it in one go, from whichever screen is showing,
 		// which is why they are the shortcuts the manual gives. Each letter is the one its order's own
 		// attribute byte draws in red.
 		//

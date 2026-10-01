@@ -10,7 +10,7 @@ Both end at the same per-machine handler. What differs is who hears it.
 
 | Screen | Dispatcher | Reaches |
 |---|---|---|
-| [F7] command display, XMIT | `Squad_SendOrderToSlot` (`00431610`) | one comm-box slot out of `DAT_004d044c` |
+| [F7] command display, XMIT | `Squad_SendOrderToSlot` (`00431610`) | one comm-box slot out of `g_SquadmateMachines` (`004d044c`) |
 | MFD FLASH COMM, XMIT | `Squad_BroadcastOrder` (`004231a4`), through `Squad_BroadcastOrderFromCockpit` (`0043166c`) | every member of the player's group (`DAT_0049b0f8`) |
 
 `Squad_SendOrderToSlot` skips an empty slot, the player's own machine and a destroyed pilot, and withdraws message `0x22` from the pilot-and-squad port either way. It sends with no prior reply, so the one recipient always answers.

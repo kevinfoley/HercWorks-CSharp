@@ -1214,9 +1214,11 @@ public static class DtsMeshBuilder {
 	/// <c>(u·w, v·w)</c> against <c>w</c> and dividing per fragment produces exactly that. A
 	/// parallelogram gives <c>s = t = ½</c> and equal weights, the affine map this replaces, so a quad
 	/// that was already right is untouched; a degenerate or non-convex quad stays affine rather than
-	/// being guessed at. Whether retail's own rasterizer is exactly projective or interpolates
-	/// linearly across spans is open; the two differ only inside a strongly foreshortened quad, and
-	/// both are free of the kink.</para>
+	/// being guessed at. Retail's own fill is neither this map nor the GPU's perspective-correct
+	/// one: it steps u and v linearly in screen space down the quad's edges and across each row
+	/// (docs/formats/dts-texture-binding.md, "Screen-linear and perspective-correct fills"). That
+	/// is free of the kink too, but differs from this map wherever the quad's depth varies across
+	/// it; KNOWN_ISSUES.md lists the divergence.</para>
 	///
 	/// <para>The crossing is solved as a least-squares one rather than a planar intersection because
 	/// a DTS quad is not guaranteed to be planar.</para>

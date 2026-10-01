@@ -73,7 +73,7 @@ The marking bounds-checks nothing beyond refusing to step to a negative index, s
 
 ## Ray-versus-terrain — `Terrain_RayWalk` (`0046e87c`)
 
-The terrain module's largest function (5129 bytes). Takes two world points and reports where the segment between them first passes into the ground. Its last argument selects one of two bodies over a shared walk: **mode 0** is the thin-ray query (weapon fire, via `Sim_RaycastTerrain`); **mode 1** sweeps a volume instead, through `Terrain_FaceBlocksAt` (`0046fe84`)/`Terrain_EdgeFaceBlocks` (`0046ff74`)/`FUN_0046fcac`, and is the movement collision path. Only mode 0 is described here.
+The terrain module's largest function (5129 bytes). Takes two world points and reports where the segment between them first passes into the ground. Its last argument selects one of two bodies over a shared walk: **mode 0** is the thin-ray query (weapon fire, via `Sim_RaycastTerrain`); **mode 1** sweeps a volume instead, through `Terrain_FaceBlocksAt` (`0046fe84`)/`Terrain_EdgeFaceBlocks` (`0046ff74`)/`Terrain_FindDiagonalCrossing` (`0046fcac`), and is the movement collision path. Only mode 0 is described here.
 
 Setup: halve the segment delta until every component fits ±32000 (mode 1 packs it into three shorts), take four Q16 slopes — `dy/dx`, `dz/dx`, `dx/dy`, `dz/dy`, each falling back to 1.0 on a zero denominator — and classify the ground-plane delta into an **octant** 0–7, which encodes the major axis and both step signs in one value. Ties make X the major axis.
 

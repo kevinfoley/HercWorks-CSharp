@@ -63,7 +63,7 @@ Views 2 and 3 share one bitmap handle: `CockpitCanopy_LoadViewBitmap` maps view 
 
 - `CockpitView_QueueViewCommand` (`0042a3f4`) latches a command at `+0x18`, gated on the current view.
 - `CockpitView_ProcessViewCommand` (`0042a4c4`) executes it.
-- `CockpitView_SetView` (`0042a1f0`) does the work: `CockpitView_ApplyViewState`, then one `Bitmap_Blit` of the canopy at `(0,0)` (see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#blitting)), then `FUN_004316c0` repaints every cockpit widget.
+- `CockpitView_SetView` (`0042a1f0`) does the work: `CockpitView_ApplyViewState`, then one `Bitmap_Blit` of the canopy at `(0,0)` (see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#blitting)), then `CockpitView_InvalidateWidgets` (`004316c0`) invalidates every cockpit widget.
 - `CockpitView_ApplyViewState` (`00429e60`) copies the view's `0x204`-byte clip block into the render context (`DAT_006c5ff4 + 4`), sets that context's clip mode (`+0x208`) to **2** — the region-list mode, which makes even sprite blits follow the cutout scanline by scanline — points `ActiveScanlineClipSpans` at its span table for the polygon rasterizers, and installs the `.VUE` rect into context slots `0x84`-`0x89`. Only the target box is drawn through this context; see [`hud-target-indicator.md`](hud-target-indicator.md).
 
 **The canopy is blitted once per view change, not per frame.** The 3D scene is then rasterized over it every frame, span-clipped to `ActiveScanlineClipSpans`; HUD widgets repaint on top.

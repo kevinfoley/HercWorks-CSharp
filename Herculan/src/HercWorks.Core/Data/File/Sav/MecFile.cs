@@ -60,7 +60,7 @@ public class MecEntry {
 	/// <c>esnames.bin</c>. VSHELL's per-entry writer is <c>PlayerMec_WriteEntry</c> (<c>004106b7</c>).
 	///
 	/// <para>DBSIM reads it too: <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) stamps it onto the
-	/// spawned machine at <c>mech+0x29c</c>, and <c>FUN_00431530</c> hands it to
+	/// spawned machine at <c>mech+0x29c</c>, and <c>Cockpit_LoadSquadmatePilots</c> (<c>00431530</c>) hands it to
 	/// <c>HddGauge_LoadPilotFrames</c> (<c>0044a7c0</c>), which walks <c>str\PILOTS.STR</c> to that
 	/// index for the comm box's name and divides it by three for the portrait bank that talks in it.
 	/// So the simulator's own 36-name table is indexed by the same number.</para>

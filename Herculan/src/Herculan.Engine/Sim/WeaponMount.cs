@@ -2,6 +2,7 @@
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
 
 namespace Herculan.Engine.Sim;
 
@@ -128,6 +129,9 @@ public sealed class WeaponMount {
 		Kind = WeaponCatalog.Kind(weaponId);
 		Name = catalog.MountName(weaponId, secondaryKey);
 		Projectile = catalog.Projectile(weaponId, secondaryKey);
+		_lookedUpProjectile = Projectile is { Type: { } type } own
+			? catalog.Lookup(type, own.SubtypeId) ?? own
+			: Projectile;
 		_template = catalog.Template(weaponId);
 
 		switch (Kind) {
@@ -269,8 +273,27 @@ public sealed class WeaponMount {
 	/// </summary>
 	public string Name { get; }
 
-	/// <summary>The <c>PROJ.DAT</c> record this mount fires, or null for a pod and for <c>ECM</c>.</summary>
+	/// <summary>
+	/// The <c>PROJ.DAT</c> record this mount holds, or null for a pod and for <c>ECM</c>. The fire
+	/// dispatch tests its type and the AI scores and leads with it; what a shot applies is
+	/// <see cref="ShotProjectile"/>.
+	/// </summary>
 	public ProjectileData.Projectile? Projectile { get; }
+
+	/// <summary>
+	/// The record a shot from this mount applies its damage, splash and impact effects from. Retail's
+	/// shot constructors look the record up again by type and subtype id
+	/// (<see cref="WeaponCatalog.Lookup"/>) and take the first match, which for <c>ATC75</c>,
+	/// <c>ATC100</c>, <c>LAS400</c> and <c>LAS500</c> is an earlier weapon's record. With
+	/// <see cref="TweakSettingDefinitions.FixWeaponDamageRecords"/> on, the shot applies
+	/// <see cref="Projectile"/> instead. See docs/formats/proj-dat.md#lookup.
+	/// </summary>
+	public ProjectileData.Projectile? ShotProjectile =>
+		TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.FixWeaponDamageRecords)
+			? Projectile
+			: _lookedUpProjectile;
+
+	private readonly ProjectileData.Projectile? _lookedUpProjectile;
 
 	/// <summary>
 	/// The magazine size — the template's field at <c>+0x3a</c>, which <c>WeaponMount_CtorAmmunition</c> (<c>0040e140</c>) reads as
@@ -1134,7 +1157,8 @@ public sealed class WeaponMount {
 	internal void Fire(MechObject owner, SimWorld world, bool freeShot = false) {
 		var (bone, muzzle) = PrepareShot(owner);
 
-		if (Projectile is not { } projectile) {
+		// Both records share a type, so the dispatch's type tests read the same either way.
+		if (ShotProjectile is not { } projectile) {
 			return;
 		}
 

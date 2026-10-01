@@ -5254,7 +5254,7 @@
       "confidence": "high",
       "name": "Math_NormalizeVec3ToLength",
       "signature": "int * __cdecl Math_NormalizeVec3ToLength(int *vector, short length)",
-      "description": "Rescales an int Vec3 in place to the requested length and returns it. Zeroes all three when the magnitude is zero; otherwise scales each by Q16Divide(length << 16, magnitude) NARROWED TO A SIGNED 16-BIT VALUE before the multiply, so a step over a short delta comes out shorter than asked for. Distinct from Math_NormalizeVec3ShortToLength (0046c138), which is the Vec3Short form and halves until the magnitude fits first.",
+      "description": "Rescales an int Vec3 in place to the requested length and returns it. Zeroes all three when the magnitude is zero; otherwise scales each by Math_Q16Divide(length << 16, magnitude) NARROWED TO A SIGNED 16-BIT VALUE before the multiply, so a step over a short delta comes out shorter than asked for. Distinct from Math_NormalizeVec3ShortToLength (0046c138), which is the three-short form and halves until the magnitude fits first.",
       "source": "docs/simulation/beam-visuals.md, docs/simulation/hit-detection.md"
     },
     {
@@ -5308,7 +5308,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_GetTypeRecord",
-      "description": "RocketType* getType() accessor: RocketTypeTable + instance.typeIndex(byte @ +0x41) * 0xe.",
+      "description": "getType() accessor: returns the instance's 14-byte ROCKETS.DAT record, maybe_RocketTypeTable_Unguided + instance.typeIndex (byte @ +0x41) * 0xe.",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -5317,7 +5317,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_Fire",
-      "description": "Rocket_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed) -- spawns one PROJ.DAT Type-0 Missile from the effect pool DAT_004a9746. Always builds via Missile_Construct; Grenade_Construct is never called. Speed = ownerTravelSpeed + literal 500. Attaches mech+0x1a4 (selected target) only when mech vtable +0x6c returns nonzero. Plays ROCKETS.DAT +0x0c + 10.",
+      "description": "Rocket_Fire(subtypeId, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed) -- spawns one PROJ.DAT Type-0 rocket from the effect pool DAT_004a9746. Always builds via Rocket_Construct; Grenade_Construct is never called. Speed = ownerTravelSpeed + literal 500. Attaches mech+0x1a4 (selected target) only when mech vtable +0x6c returns nonzero. Plays ROCKETS.DAT +0x0c + 10.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -5325,8 +5325,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Missile_Construct",
-      "description": "Constructs the Type-0/unguided rocket-family object. PROJ.DAT category 0 (5 entries, real Speed, armor>>shield, uniform SplashFactor=500).",
+      "name": "Rocket_Construct",
+      "description": "Constructs the ROCKET class (rocket.cpp), the launcher round: PROJ.DAT Type 0, 5 entries, each with a real Speed, armor damage well above shield damage, and splash factor 500.",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -5344,7 +5344,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_Construct",
-      "description": "Constructs the Type-2 Bullet-class object (own vtable BulletVtable (00498628), own 14-byte type table). PROJ.DAT category 2; MissileId 9 is the confirmed Plasma cannon.",
+      "description": "Constructs the Type-2 Bullet-class object (own vtable BulletVtable (00498628), own 14-byte type table). PROJ.DAT category 2; subtype id 9 is the confirmed Plasma cannon.",
       "source": "docs/simulation/weapon-damage-types.md"
     },
     {
@@ -5353,7 +5353,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_TickUpdate",
-      "description": "Per-tick launcher-round update, vtable +0x14. Steps the shape cell-anim frame on ROCKETS.DAT +0x08/+0x0a (the exhaust flame, NOT a seeker reacquire); age +1 vs record +0x02 in ticks; damped burn speed += IntegrateRateOverTick(record +0x04) averaged with the opening speed, capped at PROJ.DAT Speed; Rocket_PlayerSteer for a locally-simulated subtype 3 else Rocket_HomingSteer; Sim_RaycastObjectList over this tick step with record +0x06 as slack. Proximity beep under 40000 units.",
+      "description": "Per-tick launcher-round update, vtable +0x14. Steps the shape cell-anim frame on ROCKETS.DAT +0x08/+0x0a (the exhaust flame, NOT a seeker reacquire); age +1 vs record +0x02 in ticks; damped burn speed += Math_IntegrateRateOverTick(record +0x04) averaged with the opening speed, capped at PROJ.DAT Speed; Rocket_PlayerSteer for a locally-simulated subtype 3 else Rocket_HomingSteer; Sim_RaycastObjectList over this tick step with record +0x06 as slack. Proximity beep under 40000 units.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -5371,7 +5371,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_MissileLockState",
-      "description": "Mech vtable +0x6c: returns manager[0x0a + missileId*2], the per-missile-subtype LOCK flag -- NOT an ammunition count, despite this slot's former name Mech_MissileAmmoCount. Written every tick for every mech by Mech_PerTickSystemsUpdate, which clears all five and sets the ones whose range-derived countdown expired. Rocket_Fire will not attach a target without it; WeaponMounts_MountIsReady gates a missile row's ready box on it. The real per-subtype round count is FUN_0040fbdc's separate local array.",
+      "description": "Mech vtable +0x6c: returns manager[0x0a + subtypeId*2], the per-missile-subtype LOCK flag -- NOT an ammunition count. Written every tick for every mech by Mech_PerTickSystemsUpdate, which clears all five and sets the ones whose range-derived countdown expired. Rocket_Fire will not attach a target without it; WeaponMounts_MountIsReady gates a missile row's ready box on it. The real per-subtype round count is FUN_0040fbdc's separate local array.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -5380,7 +5380,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_PlayerSteer",
-      "description": "The electro-optical missile's nose-camera control, not a ballistic variant. Reads two axis accumulators out of the global player control block at 0x4d234a, steers by Q8Multiply(0x500, axis) per tick with no rate limit or deadband, and zeroes them. Gate 0x4d2357 is missile-control-active; with it clear the function drops the round's target and rewrites its subtype id to 0.",
+      "description": "The electro-optical missile's nose-camera control, not a ballistic variant. Reads two axis accumulators out of the global player control block at 0x4d234a, steers by Math_Q8Multiply(0x500, axis) per tick with no rate limit or deadband, and zeroes them. Gate 0x4d2357 is missile-control-active; with it clear the function drops the round's target and rewrites its subtype id to 0.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -5389,7 +5389,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_TickUpdate",
-      "description": "bullet.cpp per-bullet-instance tick. Fixed age rate Math_IntegrateRateOverTick(0x200). type==9 branch (confirmed Plasma cannon, MissileId 9 on a Bullet instance) calls Damage_ExplosiveBlastSweep directly with a 4000-unit blast radius.",
+      "description": "bullet.cpp per-bullet-instance tick. Fixed age rate Math_IntegrateRateOverTick(0x200). type==9 branch (confirmed Plasma cannon, subtype id 9 on a Bullet instance) calls Damage_ExplosiveBlastSweep directly with a 4000-unit blast radius.",
       "source": "docs/simulation/projectiles.md"
     },
     {
@@ -5398,7 +5398,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_FireBurst",
-      "description": "Fire-burst/tracer spawner, called as Bullet_FireBurst(missileId, shotTransform, range, ownerMech, power). Builds the shot record -- ray {transform, range, 200} plus Q10Multiply(power, DamageArmor), Q10Multiply(power, DamageShield), SplashFactor, the ImpactFX table pointer and the owner -- and calls Sim_RaycastObjectList synchronously to resolve the hit before any tracer visual spawns. This is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object. Splits the tracer into 5000-unit segments (FUN_0040b804) over the resolved distance.",
+      "description": "Fire-burst/tracer spawner, called as Bullet_FireBurst(subtypeId, shotTransform, range, ownerMech, power). Builds the shot record -- ray {transform, range, 200} plus Math_Q10Multiply(power, PROJ.DAT armor damage), Math_Q10Multiply(power, PROJ.DAT shield damage), the PROJ.DAT splash factor, the ImpactFX table pointer and the owner -- and calls Sim_RaycastObjectList synchronously to resolve the hit before any tracer visual spawns. This is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object. Splits the tracer into 5000-unit segments (FUN_0040b804) over the resolved distance.",
       "source": "docs/simulation/beam-visuals.md"
     },
     {
@@ -5461,7 +5461,7 @@
       "type": "data",
       "confidence": "medium",
       "name": "maybe_RocketTypeTable_Unguided",
-      "description": "dat/ROCKETS.DAT in memory, 14-byte stride, loaded by Rocket_LoadTypeTable_Unguided. Layout is NOT BULLETS.DAT's: +0x00 ModelId, +0x02 lifetime in ticks, +0x04 acceleration, +0x06 hit-test slack, +0x08 animation interval, +0x0a animation sequence, +0x0c sound id.",
+      "description": "dat/ROCKETS.DAT in memory, 14-byte stride, loaded by Rocket_LoadTypeTable_Unguided. Layout is NOT BULLETS.DAT's: +0x00 model id, +0x02 lifetime in ticks, +0x04 acceleration, +0x06 hit-test slack, +0x08 animation interval, +0x0a animation sequence, +0x0c sound id.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -5570,7 +5570,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ApplyDirectFireDamage",
-      "description": "Splits the armor damage by PROJ.DAT SplashFactor (Math_Q10Multiply(shotData+8, shotData+4)) -- NOT a per-weapon-type effectiveness scale. The remainder goes to component health via mech vtable +0x74; the split-off share, when nonzero, becomes a 500-unit secondary explosion through the struck object's OWN +0x70 (a direct call, not a sweep). Also rolls to destroy the struck weapon mount on a damage-band change.",
+      "description": "Splits the armor damage by the PROJ.DAT splash factor (Math_Q10Multiply(shotData+8, shotData+4)) -- NOT a per-weapon-type effectiveness scale. The remainder goes to component health via mech vtable +0x74; the split-off share, when nonzero, becomes a 500-unit secondary explosion through the struck object's OWN +0x70 (a direct call, not a sweep). Also rolls to destroy the struck weapon mount on a damage-band change.",
       "source": "docs/simulation/damage-system.md"
     },
     {
@@ -5993,7 +5993,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Component_DestroyAndCascade",
-      "description": "Destroys a component and walks the BoneId destruction-dependency group, destroying every sibling that shares it. Also the whole of what a lost part puts on screen: the .DMG record's +0x03 (the TSCellAnimPart sequence this component drives) gates a fire and is stepped to its blank cell, an explosion goes off at the component's own composed frame -- type 0x11 and a one-per-cascade-group latch at DAT_004a98b0 when DestructionFlags bit 2 is set, type 10 otherwise -- and the +0x02 debris group is thrown, falling back to group 2 when it states -1.",
+      "description": "Destroys a component and walks the destruction-dependency group named by its .DMG bone id, destroying every sibling that shares it. Also the whole of what a lost part puts on screen: the .DMG record's +0x03 (the TSCellAnimPart sequence this component drives) gates a fire and is stepped to its blank cell, an explosion goes off at the component's own composed frame -- type 0x11 and a one-per-cascade-group latch at DAT_004a98b0 when the .DMG destruction flags' bit 2 is set, type 10 otherwise -- and the +0x02 debris group is thrown, falling back to group 2 when it states -1.",
       "source": "docs/simulation/component-damage.md"
     },
     {
@@ -6029,7 +6029,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HercPiece_ReadRecord",
-      "description": "Loads one 18-byte .DMG HercPiece record: max health, debris-flags index pair, BoneId (bone/destruction-group key), DestructionFlags bitfield, dependent sub-component list pointer+count.",
+      "description": "Loads one 18-byte .DMG HercPiece record: max health, debris-flags index pair, bone id (bone/destruction-group key), destruction-flags bitfield, dependent sub-component list pointer+count.",
       "source": "docs/formats/dmg-damage-file.md"
     },
     {
@@ -6267,7 +6267,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Gau_ShieldDisplayWidget",
-      "description": ".GAU offset 616 widget wrapper -> FUN_004434fc: Shield Display's front/rear numeric value label widgets (children at 632/648/664/680), nested inside the confirmed HShieldDisplay byte range.",
+      "description": ".GAU offset 616 widget wrapper -> FUN_004434fc: Shield Display's front/rear numeric value label widgets (children at 632/648/664/680), nested inside the Shield Display's .GAU byte range.",
       "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
     },
     {
@@ -6276,7 +6276,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Gau_MfdPanelWidget",
-      "description": ".GAU offset 728 widget wrapper -> FUN_00445218: the MFD's actual interactive behavior -- mode-switching state machine, radar-sweep table, damage-readout digits. Behavior behind the confirmed HMfdPanel bounding box at 952.",
+      "description": ".GAU offset 728 widget wrapper -> FUN_00445218: the MFD's actual interactive behavior -- mode-switching state machine, radar-sweep table, damage-readout digits. Behaviour behind the MFD panel's bounding box at .GAU offset 952.",
       "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
     },
     {
@@ -6312,7 +6312,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Gau_PilotRosterWidget",
-      "description": ".GAU offset 1212 widget wrapper -> FUN_00448cc8: pilot-roster/crew-status HDD readout ('hddclip'/'pilots'/'static' strings), constructs 15 sub-widgets, accounts for the remainder of GAUFile.Remainder (roughly bytes 1212-1588).",
+      "description": ".GAU offset 1212 widget wrapper -> FUN_00448cc8: pilot-roster/crew-status HDD readout ('hddclip'/'pilots'/'static' strings), constructs 15 sub-widgets, accounts for the rest of the .GAU, roughly bytes 1212-1588.",
       "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
     },
     {
@@ -6321,7 +6321,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DBSim_LoadScriptDat",
-      "description": "DBSIM's reader for data\\script.dat, called from World::ctor-equivalent init path (also opens player.mec and mission.str at nearby offsets). Reads a fixed 20-byte header into DAT_004a9ed2 and uses it twice: World_LoadTheater(&header) takes the int16 at 0 as the theater and the int16 at 18 as its variant, and Terrain_LoadZone(header[2]) takes the int16 at 2 as THE ZONE INDEX -- verified against all ten retail script.dat files, every offset-2 value is a zone that ships. It also zeroes the field at offset 4 before use. Then 13 count-prefixed blocks in exact order matching VSHELL's WriteScriptDatFile (0041ac54): row6-coords(12B), row7-heading(2B, x0xb6 degrees->BAM), row8-nested-waypoints, row9(6B), row10-action(74B read, only 1 field of the row10-referencing sub-block reused), row11-ActionTimer30(24B, resolved via FUN_00423104), row12(134B raw, only the mech-type-ref field at rec-offset 40 kept), row13(92B raw, only rec-offset 44 field kept), row14(52B raw, only the type field kept), row15(14B, read and fully discarded), row16(156B, nested 20-entry crossref with a 3-way discriminator that marks row6/row7/row14 slots 'live' -- this is DBSIM's actual entity-activation mechanism), row17(54B, read and fully discarded), then a final flat count+array tail = row4's populated LUT-ref prefix (the mission's herc/weapon unlock package). See docs/formats/script-dat.md.",
+      "description": "DBSIM's reader for data\\script.dat, called from World::ctor-equivalent init path (also opens player.mec and mission.str at nearby offsets). Reads a fixed 20-byte header into DAT_004a9ed2 and uses it twice: World_LoadTheater(&header) takes the int16 at 0 as the theater and the int16 at 18 as its variant, and Terrain_LoadZone(header[2]) takes the int16 at 2 as THE ZONE INDEX -- verified against all ten retail script.dat files, every offset-2 value is a zone that ships. It also zeroes the field at offset 4 before use. Then 13 count-prefixed blocks in exact order matching VSHELL's WriteScriptDatFile (0041ac54): row6-coords(12B), row7-heading(2B, x0xb6 degrees->BAM), row8-nested-waypoints, row9(6B), row10-action(74B read, only 1 field of the row10-referencing sub-block reused), row11-action-timer(24B, resolved via FUN_00423104), row12(134B raw, only the mech-type-ref field at rec-offset 40 kept), row13(92B raw, only rec-offset 44 field kept), row14(52B raw, only the type field kept), row15(14B, read and fully discarded), row16(156B, nested 20-entry crossref with a 3-way discriminator that marks row6/row7/row14 slots 'live' -- this is DBSIM's actual entity-activation mechanism), row17(54B, read and fully discarded), then a final flat count+array tail = row4's populated LUT-ref prefix (the mission's herc/weapon unlock package). See docs/formats/script-dat.md.",
       "source": "docs/formats/script-dat.md"
     },
     {
@@ -6330,7 +6330,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DBSim_BuildActionTimerRecord",
-      "description": "Small helper called once per row11 (ActionTimer30) record inside DBSim_LoadScriptDat: builds a resolved in-memory action timer from a primary-action ref + the delay short + a 10-slot ref array, all already resolved to row10-array pointers by the caller.",
+      "description": "Small helper called once per row11 (action timer) record inside DBSim_LoadScriptDat: builds a resolved in-memory action timer from a primary-action ref + the delay short + a 10-slot ref array, all already resolved to row10-array pointers by the caller.",
       "source": "docs/formats/script-dat.md"
     },
     {
@@ -7032,7 +7032,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TerrainZone_LoadHeightmap",
-      "description": "terrain.cpp. Called by Terrain_LoadZone with the zone's built 'dba\\zoneNNNN' path. Also separately loads the shared 'dat\\mat0' material/detail-type table (count-prefixed array of 8-byte records, ZONES_MaterialTable) into HeightGrid+0x121. Branches on the path's extension: '.dba' (real retail data, ZONES.VOL\\DBA\\ZONE*.DBA) goes through ClassItem_LoadResource -> TerrainZone_PopulateFromBitmap; any other extension falls back to an ASCII fopen/fscanf format ('%d %d %d %d' header = WidthShift/HeightShift/MaxHeightRaw/MinHeightRaw, then one '%d' per cell) -- almost certainly a level-design/debug-only path, no such loose files found in retail data.",
+      "description": "terrain.cpp. Called by Terrain_LoadZone with the zone's built 'dba\\zoneNNNN' path. Also separately loads the shared 'dat\\mat0' material/detail-type table (count-prefixed array of 8-byte records, ZONES_MaterialTable) into HeightGrid+0x121. Branches on the path's extension: '.dba' (real retail data, ZONES.VOL\\DBA\\ZONE*.DBA) goes through ClassItem_LoadResource -> TerrainZone_PopulateFromBitmap; any other extension falls back to an ASCII fopen/fscanf format ('%d %d %d %d' header = width shift, height shift, max raw height, min raw height, then one '%d' per cell) -- almost certainly a level-design/debug-only path, no such loose files found in retail data.",
       "source": "memory project_es2_exe_recon 2026-08-11 (terrain data-structure session)"
     },
     {
@@ -7041,7 +7041,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TerrainZone_PopulateFromBitmap",
-      "description": "Real retail terrain loader. Takes a loaded DynamixBitmap (the SAME format used for ordinary .DBM/.DBA textures) and treats its 8-bit grayscale pixel grid directly as the heightmap: WidthShift/HeightShift are re-derived from the bitmap's own width/height fields (log2), each pixel byte (minus a bias param_3) becomes one HeightGrid cell's raw height byte (offset 0), and cell diagonal-select/material-type bits (offset 0xf) are assigned via a weighted random roll (~30.6% chance, first match wins) sparsely at an LOD-driven block stride. The roll's upper bound is the hard literal 2 (CMP EBX,0x2 at 0046c5ca), NOT the mat0 count, so this path only ever produces material 0 or 1 -- every shipped zone is a .dba and comes through here. Only the ASCII fallback in TerrainZone_LoadHeightmap bounds the roll by the mat0 count, and materials 2-12 reach shipped terrain solely through Terrain_PaintFormationPad (00471260) (finer cells inherit their block's already-rolled material). Verified byte-exact against real ES2/VOL/ZONES.VOL/DBA/ZONE*.DBA files: 128x128 zones are 16418 bytes (128*128+34-byte DynamixBitmap header), 256x256 zones are 65570 bytes (256*256+34) -- exact match.",
+      "description": "Real retail terrain loader. Takes a loaded Dynamix bitmap (the SAME format used for ordinary .DBM/.DBA textures) and treats its 8-bit grayscale pixel grid directly as the heightmap: the width and height shifts are re-derived from the bitmap's own width/height fields (log2), each pixel byte (minus a bias param_3) becomes one HeightGrid cell's raw height byte (offset 0), and cell diagonal-select/material-type bits (offset 0xf) are assigned via a weighted random roll (~30.6% chance, first match wins) sparsely at an LOD-driven block stride. The roll's upper bound is the hard literal 2 (CMP EBX,0x2 at 0046c5ca), NOT the mat0 count, so this path only ever produces material 0 or 1 -- every shipped zone is a .dba and comes through here. Only the ASCII fallback in TerrainZone_LoadHeightmap bounds the roll by the mat0 count, and materials 2-12 reach shipped terrain solely through Terrain_PaintFormationPad (00471260) (finer cells inherit their block's already-rolled material). Verified byte-exact against real ES2/VOL/ZONES.VOL/DBA/ZONE*.DBA files: 128x128 zones are 16418 bytes (128*128+34-byte bitmap header), 256x256 zones are 65570 bytes (256*256+34) -- exact match.",
       "source": "memory project_es2_exe_recon 2026-08-11 (terrain data-structure session)"
     },
     {
@@ -7077,7 +7077,7 @@
       "type": "data",
       "confidence": "high",
       "name": "DbaExtensionLiteral",
-      "description": "Literal string '.dba' -- checked via stricmp in TerrainZone_LoadHeightmap to pick the real-data (ClassItem/DynamixBitmap) loading path over the ASCII fscanf fallback. Confirmed: every real zone heightmap in ES2/VOL/ZONES.VOL/DBA/ uses this extension.",
+      "description": "Literal string '.dba' -- checked via stricmp in TerrainZone_LoadHeightmap to pick the real-data (ClassItem bitmap) loading path over the ASCII fscanf fallback. Confirmed: every real zone heightmap in ES2/VOL/ZONES.VOL/DBA/ uses this extension.",
       "source": "memory project_es2_exe_recon 2026-08-11 (terrain data-structure session)"
     },
     {
@@ -7104,7 +7104,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MechLoadout_ConstructWeaponMounts",
-      "description": "Called from Mech_ConfigureLoadout (0x004175dc). Given per-hardpoint slot records (stride 0x1a) and two parallel weapon-id/secondary-key lookup tables, for each occupied slot: reads the weapon id, looks up its WeaponMountTemplate (WeaponMountTemplate_GetByWeaponId), reads that template's ProjDatIndex field, resolves the matching PROJ.DAT record (Proj_LookupRecordByIndex direct-index, or Proj_LookupRecord(0,secondaryKey) search for the 0x22 sentinel), then constructs a weapon-id-specific mount C++ object (one of several vtables/sizes keyed by a big switch on the weapon id) passing the resolved template/PROJ.DAT pointers. This is the mech-loadout-time mechanism that resolves a real catalog weapon id into the shot data direct-fire/beam dispatch consumes. Four live classes: WeaponMount_CtorAmmunition (ids 1-5, 13-16, 21, 26), WeaponMount_CtorEnergy (7-12, 17, 19, 20, 23-25, 28), the five pod constructors (18, 29-32), and the ELF case (6, 22) -- which is the only one that is not just a constructor call: it runs WeaponMount_CtorEnergy and then OVERWRITES the object's vtable pointer with ElfMountVtable. Id 27 (MINE) has no case at all. See docs/simulation/weapon-mounts.md.",
+      "description": "Called from Mech_ConfigureLoadout (0x004175dc). Given per-hardpoint slot records (stride 0x1a) and two parallel weapon-id/secondary-key lookup tables, for each occupied slot: reads the weapon id, looks up its WeaponMountTemplate (WeaponMountTemplate_GetByWeaponId), reads that template's PROJ.DAT index (in-memory +0x3e), resolves the matching PROJ.DAT record (Proj_LookupRecordByIndex direct-index, or Proj_LookupRecord(0,secondaryKey) search for the 0x22 sentinel), then constructs a weapon-id-specific mount C++ object (one of several vtables/sizes keyed by a big switch on the weapon id) passing the resolved template/PROJ.DAT pointers. This is the mech-loadout-time mechanism that resolves a real catalog weapon id into the shot data direct-fire/beam dispatch consumes. Four live classes: WeaponMount_CtorAmmunition (ids 1-5, 13-16, 21, 26), WeaponMount_CtorEnergy (7-12, 17, 19, 20, 23-25, 28), the five pod constructors (18, 29-32), and the ELF case (6, 22) -- which is the only one that is not just a constructor call: it runs WeaponMount_CtorEnergy and then OVERWRITES the object's vtable pointer with ElfMountVtable. Id 27 (MINE) has no case at all. See docs/simulation/weapon-mounts.md.",
       "source": "docs/simulation/weapon-mounts.md; docs/formats/weapons-dat-sim.md"
     },
     {
@@ -7122,7 +7122,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Proj_LookupRecordByIndex",
-      "description": "index * 0x24 + ProjDat_RecordTable -- direct flat-array index into PROJ.DAT's in-memory table, distinct from Proj_LookupRecord's (category,subtypeId) linear search. Called by MechLoadout_ConstructWeaponMounts with the value read from a WeaponMountTemplate's ProjDatIndex field, which is what resolves a real catalog weapon id to its PROJ.DAT damage record for 21 of 32 real weapons directly (see Sim.Weapons.WeaponMountTemplate.ProjDatIndex's doc comment for the confirmed full mapping).",
+      "description": "index * 0x24 + ProjDat_RecordTable -- direct flat-array index into PROJ.DAT's in-memory table, distinct from Proj_LookupRecord's (category,subtypeId) linear search. Called by MechLoadout_ConstructWeaponMounts with the value read from a WeaponMountTemplate's PROJ.DAT index (in-memory +0x3e), which is what resolves a real catalog weapon id to its PROJ.DAT damage record for 21 of 32 real weapons directly. See docs/formats/weapons-dat-sim.md.",
       "source": "docs/simulation/dbsim-physics-notes.md; docs/formats/weapons-dat-sim.md 2026-08-11"
     },
     {
@@ -7158,7 +7158,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_ActiveBitmapArray",
-      "description": "Process-wide 'currently active DBA bitmap-array' pointer. Swapped to a TSShapeInstance's own bound DBA (instance+0x26) for the duration of that instance's render call by TSShapeInstance_Render, then restored. TSBitmapPart_Render indexes into *this* global by BmpTag, not anything owned by the poly's shape. CORRECTION (2026-08-11 UV-formula follow-up): this global is better understood as a 2-field context, not a bare DBA pointer -- *g_ActiveBitmapArray (one deref, offset+0 of what it points to) is the actual DBA object pointer (whose own offset+4=frame count, offset+8=frames pointer-table, confirmed via TSBase::getBitmapPtr's assert), while g_ActiveBitmapArray[1] (a DIFFERENT single deref at offset+4 of g_ActiveBitmapArray's OWN stored value, NOT of the nested DBA object) is a separate pointer to a parallel 20-byte-stride per-frame UV/texture-descriptor table -- see TSTexture4Poly_Render's updated entry. That second field's own builder function was not traced this session (only found via distinguishing instruction-load-count in raw disassembly, not yet reverse engineered further). See docs/formats/dts-texture-binding.md.",
+      "description": "Process-wide 'currently active DBA bitmap-array' context. Swapped to a TSShapeInstance's own bound DBA (instance+0x26) for the duration of that instance's render call by TSShapeInstance_Render, then restored. TSBitmapPart_Render indexes into *this* global by the part's bitmap tag, not anything owned by the poly's shape. It is a two-field context, not a bare DBA pointer: *g_ActiveBitmapArray (offset +0 of what it points to) is the DBA object (its +4 = frame count, +8 = frame pointer table, per TSBase::getBitmapPtr's assert), while g_ActiveBitmapArray[1] (offset +4 of the global's own stored value, NOT of the nested DBA object) points at a separate 20-byte-stride per-frame UV/texture-descriptor table -- see TSTexture4Poly_Render (00422af5). The builder of that second table is open. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md 2026-08-11, corrected 2026-08-11 UV-formula follow-up"
     },
     {
@@ -7176,7 +7176,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBitmapPart_Render",
-      "description": "Contains the 'TSBase::getBitmapPtr() : index out of range' assert. Reads poly+0x10 (== TSBitmapPart.BmpTag) as a frame index, bounds-checks against g_ActiveBitmapArray's count, looks up g_ActiveBitmapArray.Frames[frameIndex], and if non-null draws a textured quad using poly+0x12/+0x13 (== TSBitmapPart.OfsX/OfsY) for placement. This is the confirmed BmpTag-to-bitmap resolution path. See docs/formats/dts-texture-binding.md.",
+      "description": "Contains the 'TSBase::getBitmapPtr() : index out of range' assert. Reads poly+0x10 (the part's bitmap tag) as a frame index, bounds-checks against g_ActiveBitmapArray's count, looks up g_ActiveBitmapArray.Frames[frameIndex], and if non-null draws a textured quad using poly+0x12/+0x13 (the x and y offset bytes) for placement. This is the bitmap-tag-to-bitmap resolution path. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md 2026-08-11"
     },
     {
@@ -7221,7 +7221,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ESGrid_SetPart",
-      "description": "Contains the 'ESGrid::setPart out of range' assert (src/esgrid.cpp). Writes a resolved GLBitmap* plus placement fields into one of up to 29 named part slots (0x38-byte stride) on an ESGrid Herc-display widget -- the 2D icon/portrait-painting layer built on top of the base BmpTag mechanism, matching the same 29-part hit-zone indexing used by the mech damage formula. Not needed for base .DTS/.DBA texture rendering, only for VSHELL's per-poly paint-job overlay UI. See docs/formats/dts-texture-binding.md.",
+      "description": "Contains the 'ESGrid::setPart out of range' assert (src/esgrid.cpp). Writes a resolved GLBitmap* plus placement fields into one of up to 29 named part slots (0x38-byte stride) on an ESGrid Herc-display widget -- the 2D icon/portrait-painting layer built on top of the base bitmap-tag mechanism, matching the same 29-part hit-zone indexing used by the mech damage formula. Not needed for base .DTS/.DBA texture rendering, only for VSHELL's per-poly paint-job overlay UI. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md 2026-08-11"
     },
     {
@@ -7230,7 +7230,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSObjectTypeRegistry",
-      "description": "18-entry, 12-byte-stride table: {tag:uint32 matching TSObjectHeader's on-disk [subtype:u16][supertype:u16] bytes, constructorFnPtr, nameStringPtr}. Confirmed by matching every tag value against Herculan's already-known TSObjectHeader constants (e.g. 0x0014000f = TSTexture4Poly) and the adjacent name strings (\"TSPoly\", \"TSGroup\", etc.). This is the DTS-tree node factory VSHELL's/DBSIM's shared ThreeSpace engine uses to construct the right C++ class per on-disk chunk tag -- the reliable way to find any TS*/AN* class's real constructor (and from there its real vtable) when RTTI type-name strings turn out to have zero code references (a recurring dead end in this binary, also seen for .BND's MECH string). One tag (0x0e) has no corresponding entry in TSObjectHeader.cs -- an object type ES2's real .DTS files apparently never use. See docs/formats/dts-texture-binding.md.",
+      "description": "18-entry, 12-byte-stride table: {tag:uint32 matching a DTS chunk header's on-disk [subtype:u16][supertype:u16] bytes, constructorFnPtr, nameStringPtr}. Every tag matches a known DTS chunk tag (e.g. 0x0014000f = TSTexture4Poly) and sits beside its name string (\"TSPoly\", \"TSGroup\", etc.). This is the DTS-tree node factory VSHELL's and DBSIM's shared ThreeSpace engine uses to construct the right C++ class per on-disk chunk tag -- the reliable way to find any TS*/AN* class's real constructor (and from there its real vtable) when RTTI type-name strings have zero code references, as they often do in this binary (also seen for .BND's MECH string). Tag 0x0e is registered here but has no known retail .DTS chunk. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md 2026-08-11"
     },
     {
@@ -7257,7 +7257,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_Render",
-      "description": "TSTexture4Poly's real vtable-slot-0x1c render method (see g_TSTexture4PolyVtable). Stride SETTLED (2026-08-11 follow-up session): reads poly+0xc (ColorIndexId) as MOVZX (unsigned short), SHL 2 (x4) to a byte offset into g_ActiveSurfaceRecords (DAT_005d88a2), then reads front=*(int32*)(base+offset) and back=*(int32*)(base+offset+8) (i.e. +2 int32 slots) -- confirmed via fresh ES2DumpAsm raw disassembly, not just the decompiler. Cross-confirmed independently from DTSModelTransformer.cs's ReadTSGroup/WriteTSGroup, which already read/write the file's group-level surface count as colorCount/4 / Surfaces.Length*4 -- the file format itself encodes surface-related indices in 4-int32-slot units, matching TSSurfaceEntry's true 4-slot (Front/FrontLine/Back/BackLine) layout. CONCLUSION: ColorIndexId = surfaceIndex*4; surfaceIndex = ColorIndexId/4; front value = Surfaces[surfaceIndex].FrontColor, back value = Surfaces[surfaceIndex].BackColor. Front/back is chosen by a visibility test (see TSPoly_FrontBackVisibilityTest) against poly+4/+6. UV-GENERATION FORMULA FOUND (2026-08-11 second follow-up, CORRECTS a wrong claim this entry previously made about g_UseFlatPolyFallback/DAT_00471890): that flag does NOT choose between two texture-lookup styles -- it chooses between the REAL scanline-textured rasterizer (flag==0) and an entirely separate flat/solid 2D polygon-fill FALLBACK (flag!=0, see g_UseFlatPolyFallback's own entry) that never samples a texture at all. Only the flag==0 path reaches TSTexture4Poly_RasterizeA/B. In that path, the resolved frame index indexes a 20-byte-stride per-frame descriptor table at g_ActiveBitmapArray[1] (a pointer distinct from the DBA object itself -- see g_ActiveBitmapArray's corrected entry): 4 leading int32 fields F0,F1,F2,F3 (bytes 0-15) plus a 5th field F4 at byte 16 (passed to the rasterizer as param_4, likely a pixel-data pointer/handle). The UV-corner array built for the rasterizer's 4-vertex quad is exactly [V0=(F0,F1), V1=(F2,F1), V2=(F2,F3), V3=(F0,F3)] -- confirmed via decompiled assignment sequence (_DAT_0048a190.._0048a1ac = F0,F1,F2,F1,F2,F3,F0,F3). This is a standard axis-aligned rect-corner mapping (top-left, top-right, bottom-right, bottom-left in vertex order) IF F0/F1=(left,top) and F2/F3=(right,bottom) of that frame's own texture-space rect. NOT YET TRACED: the builder function that populates g_ActiveBitmapArray[1]'s descriptor table (would settle whether F0-F3 are always a trivial (0,0,width,height) per independently-cropped frame, matching Herculan's existing per-frame DynamixBitmap parsing, or genuine shared-atlas sub-rect coordinates requiring new file/mechanism support) -- a bounded follow-up if resumed, not chased this session per the project's 'don't spend unbounded time on RE before shipping' lesson. See docs/formats/dts-texture-binding.md.",
+      "description": "TSTexture4Poly's vtable-slot-0x1c render method (see g_TSTexture4PolyVtable). Reads poly+0xc (the surface field) as MOVZX (unsigned short), SHL 2 (x4) to a byte offset into g_ActiveSurfaceRecords (DAT_005d88a2), then reads front=*(int32*)(base+offset) and back=*(int32*)(base+offset+8), i.e. two int32 slots on -- read from ES2DumpAsm raw disassembly, not just the decompiler. A TSGroup's on-disk surface count is stored as surfaceCount*4 and each surface entry is four slots (Front, FrontLine, Back, BackLine), so the surface field holds surfaceIndex*4: the front value is surface[field/4].Front and the back value surface[field/4].Back. Front/back is chosen by TSPoly_FrontBackVisibilityTest against poly+4/+6. g_UseFlatPolyFallback (DAT_00471890) does not choose between two texture-lookup styles: it chooses between this scanline-textured rasterizer (flag == 0) and a separate flat 2D polygon fill that never samples a texture (flag != 0). Only the flag == 0 path reaches TSTexture4Poly_RasterizeA/B. In that path the resolved frame index indexes the 20-byte-stride per-frame descriptor table at g_ActiveBitmapArray[1] (a pointer distinct from the DBA object itself): int32 fields F0..F3 (bytes 0-15) and F4 at byte 16, passed to the rasterizer as param_4 (a pixel-data handle). The quad's UV corners are [V0=(F0,F1), V1=(F2,F1), V2=(F2,F3), V3=(F0,F3)] (decompiled assignment sequence _DAT_0048a190.._0048a1ac = F0,F1,F2,F1,F2,F3,F0,F3): an axis-aligned rect, top-left, top-right, bottom-right, bottom-left, with F0/F1 the frame's texture-space left/top and F2/F3 its right/bottom. The function that builds that descriptor table, which decides whether F0/F1 can be nonzero, is open. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md 2026-08-11, settled 2026-08-11 follow-up, UV formula found 2026-08-11 second follow-up"
     },
     {
@@ -7266,7 +7266,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_RenderPolys",
-      "description": "Render-setup wrapper (implicit-this via unaff_EBP, likely a __thiscall stub or inlined caller) for a TSGroup-like runtime object. Reads iVar1+0x10 (Indexes ptr, default &DAT_005d8014 if null), +0x14 (Points ptr -> DAT_005d8894, confirmed by later x6-byte-stride vertex math matching Vec3Short), +0x18 (Surfaces ptr -> DAT_005d88a2, the 'per-surface runtime record array' TSTexture4Poly_Render indexes), +0x1c (Polys ptr, walked as an array of object pointers), +0x22 (ushort, copied to DAT_005d889c, bounds-checked <1000 and used as a memset-zero byte count for a scratch buffer at DAT_005d88a6 -- matches DTSModelTransformer.cs's on-disk 'colorCount' = Surfaces.Length*4 field exactly, both in field order and in the x4 convention), +0x26 (ushort Polys.Length, loop bound). Loop body calls (*(int*)*polyPtr + 0x1c) i.e. each poly's own vtable slot +0x1c -- matches TSShapeInstance_RenderPolys's documented per-poly render dispatch. Field order (Indexes.Length, Points.Length, colorCount, Polys.Length) is an exact match for TSGroup's on-disk chunk layout as already independently implemented in DTSModelTransformer.cs's ReadTSGroup/WriteTSGroup -- strong two-source confirmation this is TSGroup's own render-time field layout, not merely 'some context object'. See docs/formats/dts-texture-binding.md.",
+      "description": "Render-setup wrapper (implicit-this via unaff_EBP, likely a __thiscall stub or inlined caller) for a TSGroup runtime object. Reads iVar1+0x10 (indexes pointer, default &DAT_005d8014 if null), +0x14 (points pointer -> DAT_005d8894; later 6-byte-stride vertex math, three shorts per point), +0x18 (surfaces pointer -> DAT_005d88a2, the per-surface runtime record array TSTexture4Poly_Render indexes), +0x1c (polys pointer, walked as an array of object pointers), +0x22 (ushort, copied to DAT_005d889c, bounds-checked < 1000 and used as a memset-zero byte count for a scratch buffer at DAT_005d88a6 -- the on-disk surface count field, which the file stores as surfaceCount*4), +0x26 (ushort poly count, loop bound). The loop calls each poly's own vtable slot +0x1c, matching TSShapeInstance_RenderPolys's per-poly render dispatch. The field order (index count, point count, surface count*4, poly count) matches TSGroup's on-disk chunk layout, which identifies this as TSGroup's own render-time layout. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md 2026-08-11 follow-up"
     },
     {
@@ -7284,7 +7284,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_ActiveSurfaceRecords",
-      "description": "Global pointer, set from the active TSGroup-like object's own +0x18 field by TSGroup_RenderPolys/RenderPolysFromRef for the duration of one group's poly walk (save/swap/restore pattern, same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine), matching TSSurfaceEntry's 8-short/16-byte on-disk layout and DTSModelTransformer.cs's colorCount=Surfaces.Length*4 convention. TSTexture4Poly_Render indexes it at byte offset ColorIndexId*4 (front) and ColorIndexId*4+8 (back), which only lands correctly on a single surface's Front/Back slots if ColorIndexId itself equals surfaceIndex*4 -- confirmed true by the independent file-format cross-check. See docs/formats/dts-texture-binding.md.",
+      "description": "Global pointer, set from the active TSGroup's own +0x18 field by TSGroup_RenderPolys/RenderPolysFromRef for the duration of one group's poly walk (save/swap/restore, the same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine) -- a TSGroup surface entry's 8-short, 16-byte on-disk layout, which is why the file stores a group's surface count as surfaceCount*4. TSTexture4Poly_Render indexes it at byte offset field*4 (front) and field*4+8 (back) with the poly's surface field, which lands on one surface's Front/Back slots because that field holds surfaceIndex*4. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md 2026-08-11 follow-up"
     },
     {
@@ -7320,7 +7320,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_MechTextureGroupNames",
-      "description": "7-entry array of pointers to the literal strings 'light'/'medium'/'heavy'/'enemy'/'apocatex'/'razortex'/'newhercs' (the strings themselves start at 0049a437, 0x0049a37c holds an 8th unrelated pointer -- not part of this array, unresearched). Confirmed dead in DBSIM.EXE's own code (zero xrefs to the array base or any individual string, checked both via ReferenceManager and a full-binary decompiled-text scan) -- DBSIM does NOT read this table at runtime to pick a mech's DBA. The real runtime mechanism is MechType_TextureGroupIndex (see that entry) feeding g_MechTextureGroupSlots directly; this string table is very likely leftover linked-in rodata from the same shared ThreeSpace source file, present in the binary but never actually executed. Byte-verified against Herculan/docs/formats/dts-texture-binding.md's already-known 7-name set from VSHELL/user domain knowledge -- exact match.",
+      "description": "7-entry array of pointers to the literal strings 'light'/'medium'/'heavy'/'enemy'/'apocatex'/'razortex'/'newhercs' (the strings themselves start at 0049a437, 0x0049a37c holds an 8th unrelated pointer -- not part of this array, unresearched). Confirmed dead in DBSIM.EXE's own code (zero xrefs to the array base or any individual string, checked both via ReferenceManager and a full-binary decompiled-text scan) -- DBSIM does NOT read this table at runtime to pick a mech's DBA. The real runtime mechanism is MechType_TextureGroupIndex (see that entry) feeding g_MechTextureGroupSlots directly; this string table is very likely leftover linked-in rodata from the same shared ThreeSpace source file, present in the binary but never actually executed. Byte-verified against the 7-name set in docs/formats/dts-texture-binding.md.",
       "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
     },
     {
@@ -7338,7 +7338,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MechType_InitOne",
-      "description": "Per-mech-type init, called once per valid slot (0-0x54) by Mechs_InitAllTypes. Opens the per-mech-type resource files (name built from the mech's own code string + several folder-prefix globals), reads a 0xd8-byte fixed record into the MECH_TYPE_DATA[typeIndex] struct (0x21e bytes/entry) at record offset 2, initializes hit-zone/collision/debris sub-resources, and -- the confirmed answer to 'how does DBSIM pick a mech's texture' -- for every mesh sub-component of this mech type, sets TSShapeInstance+0x26 (bound active DBA, see docs/formats/dts-texture-binding.md) to '&g_MechTextureGroupSlots + typeRecord[0x96]*8'. typeRecord+0x96 is MechType_TextureGroupIndex (see that entry); the 0xd8-byte record it lives in is read directly from simvol0/dat/<MECHNAME>.DAT, byte-exact match with HercWorks.Core's already-ported (but previously unregistered) HercSimDat/HercSimDataTransformer -- offset 0x96 in the record = offset 148 in the file = HercSimDat.ModelSkinId, which the original Java port had already named correctly without knowing why.",
+      "description": "Per-mech-type init, called once per valid slot (0-0x54) by Mechs_InitAllTypes. Opens the per-mech-type resource files (name built from the mech's own code string + several folder-prefix globals), reads a 0xd8-byte fixed record into the MECH_TYPE_DATA[typeIndex] struct (0x21e bytes/entry) at record offset 2, initializes hit-zone/collision/debris sub-resources, and -- the confirmed answer to 'how does DBSIM pick a mech's texture' -- for every mesh sub-component of this mech type, sets TSShapeInstance+0x26 (bound active DBA, see docs/formats/dts-texture-binding.md) to '&g_MechTextureGroupSlots + typeRecord[0x96]*8'. typeRecord+0x96 is MechType_TextureGroupIndex (see that entry); the 0xd8-byte record it lives in is read directly from simvol0/dat/<MECHNAME>.DAT at record offset 2, so record offset 0x96 is file offset 148, the texture-group index.",
       "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
     },
     {
@@ -7394,7 +7394,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_PaintFormationPad",
-      "description": "Stamps one base formation's material over the terrain tile a world point falls in, and marks that formation's occupied cells for the flattening pass. The only writer of cell +0xf bits [2:7] outside the two zone loaders, and the only path by which materials 2-12 reach shipped terrain -- TerrainZone_PopulateFromBitmap's roll is capped at 2. The tile is 1 << (0x15 - mat0[material].BlockShift) world units square, independent of CellShift, and dimension x dimension map entries span it exactly; a cell takes 1 << (CellShift - 13) entries per axis. Every cell of the tile is painted; only cells whose map byte is nonzero also get Terrain_SetCellScratch(1), which is the second input to Terrain_FlattenStructureFootprints (00471190) alongside the per-object radius marks of Terrain_MarkStructureFootprint (00470dc8), and is why a base's whole pad levels as one region. Map row 0 indexes the tile's HIGH-y edge and counts down. The material write is skipped entirely when CockpitArt_LoadOnDemand is set (the low-memory mode: -l, or under 12 MB physical), leaving the ground flat but unpainted.",
+      "description": "Stamps one base formation's material over the terrain tile a world point falls in, and marks that formation's occupied cells for the flattening pass. The only writer of cell +0xf bits [2:7] outside the two zone loaders, and the only path by which materials 2-12 reach shipped terrain -- TerrainZone_PopulateFromBitmap's roll is capped at 2. The tile is 1 << (0x15 - mat0[material].BlockShift) world units square, independent of the zone's cell shift, and dimension x dimension map entries span it exactly; a cell takes 1 << (cellShift - 13) entries per axis. Every cell of the tile is painted; only cells whose map byte is nonzero also get Terrain_SetCellScratch(1), which is the second input to Terrain_FlattenStructureFootprints (00471190) alongside the per-object radius marks of Terrain_MarkStructureFootprint (00470dc8), and is why a base's whole pad levels as one region. Map row 0 indexes the tile's HIGH-y edge and counts down. The material write is skipped entirely when CockpitArt_LoadOnDemand is set (the low-memory mode: -l, or under 12 MB physical), leaving the ground flat but unpainted.",
       "signature": "void __cdecl Terrain_PaintFormationPad(void *grid, int *worldPoint, int materialIndex, unsigned char **mapRows, int dimension)",
       "source": "docs/formats/terrain-texturing.md (base formation pads)"
     },
@@ -7643,7 +7643,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_BuildCellSurface",
-      "description": "Writes one height-grid cell's diagonal selector (cell+0xf bits [0:1]) and both face normals (cell+0x1 and cell+0x7, three shorts each) from its four corner heights. Selector 1 = coplanar quad (h00+h11 == h01+h10, both normals identical), 2 = split along the (0,0)-(1,1) diagonal, 0 = along the anti-diagonal. Normals are in raw height units -- horizontal components are corner differences, vertical is cellSize/HeightScale -- doubled, then rescaled to length 0x800 by FUN_0046c138. This is the writer of the selector bits that was open until 2026-08-24; neither zone loader touches them.",
+      "description": "Writes one height-grid cell's diagonal selector (cell+0xf bits [0:1]) and both face normals (cell+0x1 and cell+0x7, three shorts each) from its four corner heights. Selector 1 = coplanar quad (h00+h11 == h01+h10, both normals identical), 2 = split along the (0,0)-(1,1) diagonal, 0 = along the anti-diagonal. Normals are in raw height units -- horizontal components are corner differences, vertical is the cell size over the height scale -- doubled, then rescaled to length 0x800 by FUN_0046c138. This is the writer of the selector bits; neither zone loader touches them.",
       "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
     },
     {
@@ -7690,7 +7690,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SetupTexturedSpan",
-      "description": "Per-vertex setup for the textured/Gouraud span fills. In its param_6 == 2 (Gouraud) branch it computes each vertex's ramp row as shade * (DAT_004d3d38 - 1) + DAT_004a08c8 << 8 -- the same arithmetic as Raster_ShadeRampRow, depth bias included. Together with Raster_DrawPolygon's mode-1 branch this is why the Gouraud and textured paths fog by the same rule as the flat ones, even though neither renderer calls Raster_ShadeRampRow itself. Its param_1 (positions, stride 3 int32) and param_2 (UV corners, stride 2 int32) are both walked one entry per vertex for param_3 vertices, and param_3 is the poly's own VertexCount. That is why a 3-vertex TSTexture4Poly is textured from the first three of the four corners its caller always writes -- see docs/formats/dts-texture-binding.md, 'Three-vertex texture polys'.",
+      "description": "Per-vertex setup for the textured/Gouraud span fills. In its param_6 == 2 (Gouraud) branch it computes each vertex's ramp row as shade * (DAT_004d3d38 - 1) + DAT_004a08c8 << 8 -- the same arithmetic as Raster_ShadeRampRow, depth bias included. Together with Raster_DrawPolygon's mode-1 branch this is why the Gouraud and textured paths fog by the same rule as the flat ones, even though neither renderer calls Raster_ShadeRampRow itself. Its param_1 (positions, stride 3 int32) and param_2 (UV corners, stride 2 int32) are both walked one entry per vertex for param_3 vertices, and param_3 is the poly's own vertex count (poly+8). That is why a 3-vertex TSTexture4Poly is textured from the first three of the four corners its caller always writes -- see docs/formats/dts-texture-binding.md, 'Three-vertex texture polys'.",
       "source": "docs/formats/distance-fog-and-sky.md, 'The fade'"
     },
     {
@@ -8050,7 +8050,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ClassItemTree_ReadChildren",
-      "description": "Generic base-class reader (below ClassItemTree_ReadFromStream): reads an int16 child count then that many nested objects via ClassItem_LoadResource. For dgs\\bases/bhulks shape records, every retail child is an ordinary TSObjectHeader-family DTS chunk (observed tag 0x0014000c = TSDetailPart) -- the key finding that lets DTSModelTransformer.ReadOneObject parse it directly. See dgs-hd0-notes.md.",
+      "description": "Generic base-class reader (below ClassItemTree_ReadFromStream): reads an int16 child count then that many nested objects via ClassItem_LoadResource. For dgs\\bases/bhulks shape records, every retail child is an ordinary tagged DTS chunk (observed tag 0x0014000c = TSDetailPart), so the ordinary DTS chunk reader reads it. See dgs-hd0-notes.md.",
       "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
     },
     {
@@ -8095,7 +8095,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSSolidPoly_Render",
-      "description": "TSSolidPoly's real vtable-slot-0x1c render method (see g_TSSolidPolyVtable). Resolves surface record via (ColorIndexId*4 + g_ActiveSurfaceRecords) -- same *4 stride as TSTexture4Poly_Render, independently reconfirming ColorIndexId=surfaceIndex*4. Runs maybe_TSPoly_FrontBackVisibilityTest against poly+4/+6 (Normal/Center point indices, each *6 into the Vec3Short point array) to pick front (piVar3[0]/[1] = Front/FrontLine) or back (piVar3[2]/[3] = Back/BackLine) color pair -- confirms TSSurfaceEntry's 4-slot Front/FrontLine/Back/BackLine layout applies to flat polys too, not just textured ones. Skips drawing if both resolved color dwords have top byte 0x18-shift == 0x14 (looks like an uninitialized/sentinel guard, not chased further). Otherwise clips via FUN_0045e694/FUN_0045ec54 and fills via FUN_0045f364 -- the SAME flat/solid 2D fill chain TSTexture4Poly_Render's DAT_00471890!=0 fallback branch also uses, confirming that branch really is 'reuse the flat-poly fill path' as its name implies. No dithering/lighting-ramp math visible anywhere in this chain -- VSHELL (a shell/viewer app) passes FrontColor/BackColor straight through to the fill routines, unlike DBSIM's in-mission renderer.",
+      "description": "TSSolidPoly's real vtable-slot-0x1c render method (see g_TSSolidPolyVtable). Resolves the surface record via (surfaceField*4 + g_ActiveSurfaceRecords) -- the same *4 stride as TSTexture4Poly_Render, consistent with the poly's surface field holding surfaceIndex*4. Runs maybe_TSPoly_FrontBackVisibilityTest against poly+4/+6 (normal/centre point indices, each *6 into the three-short point array) to pick front (piVar3[0]/[1] = Front/FrontLine) or back (piVar3[2]/[3] = Back/BackLine) color pair -- confirms the surface entry's 4-slot Front/FrontLine/Back/BackLine layout applies to flat polys too, not just textured ones. Skips drawing if both resolved color dwords have top byte 0x18-shift == 0x14 (looks like an uninitialized/sentinel guard, not chased further). Otherwise clips via FUN_0045e694/FUN_0045ec54 and fills via FUN_0045f364 -- the SAME flat/solid 2D fill chain TSTexture4Poly_Render's DAT_00471890!=0 fallback branch also uses, confirming that branch really is 'reuse the flat-poly fill path' as its name implies. No dithering/lighting-ramp math visible anywhere in this chain -- VSHELL (a shell/viewer app) passes the front/back colours straight through to the fill routines, unlike DBSIM's in-mission renderer.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
     },
     {
@@ -8104,7 +8104,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPoly_FrontBackVisibilityTest",
-      "description": "DBSIM's counterpart to VSHELL's maybe_TSPoly_FrontBackVisibilityTest -- called identically (two Vec3Short point pointers, Normal then Center) from all three flat poly renderers (TSSolidPoly_Render 00474db4, TSShadedPoly_Render 0047542c, TSTexture4Poly_Render 00474e9c) to pick front vs. back surface color. Confirmed via structural match, not independently disassembled instruction-by-instruction.",
+      "description": "DBSIM's counterpart to VSHELL's maybe_TSPoly_FrontBackVisibilityTest -- called identically (two three-short point pointers, normal then centre) from all three flat poly renderers (TSSolidPoly_Render 00474db4, TSShadedPoly_Render 0047542c, TSTexture4Poly_Render 00474e9c) to pick front vs. back surface color. Confirmed via structural match, not independently disassembled instruction-by-instruction.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
     },
     {
@@ -8113,7 +8113,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_ComputeShadeForFace",
-      "description": "The per-face 'shade byte' (0-255, clamped) calculation feeding TSShadedPoly_Render (0047542c). TSSolidPoly_Render does NOT call it -- a solid poly carries no light term at all. NOT a simple angle calc -- a real light-accumulation loop over the active light list (DAT_006c6130, max 10 slots, count DAT_006c612c), dispatching per-entry on a type tag from FUN_0048d94b: type 0 = ambient (adds a flat intensity from FUN_0048d956 unconditionally -- never seen actually populated this session, see Light_AddDirectional/PointHelper's entries), type 1 = directional (dot-product-like test via FUN_0048d99b against the face's Normal point (param_1), only contributes when the result crosses a fixed threshold, i.e. face-vs-light-direction test), type 2 = point light (distance-attenuated: displacement from the light's position (FUN_0048d961) to the face's Center point (param_2) combined with the Normal via FUN_0048d86e, divided by distance/range fields FUN_0048d973/FUN_0048d97e). Params: param_1 = poly's Normal-index Vec3Short pointer, param_2 = poly's Center-index Vec3Short pointer (same two pointers TSPoly_FrontBackVisibilityTest receives). Sibling functions FUN_0048bdcc/FUN_0048c060 are near-identical variants (different param shapes) used elsewhere for the same shade calc, likely per-vertex vs. per-face evaluation.",
+      "description": "The per-face 'shade byte' (0-255, clamped) calculation feeding TSShadedPoly_Render (0047542c). TSSolidPoly_Render does NOT call it -- a solid poly carries no light term at all. NOT a simple angle calc -- a real light-accumulation loop over the active light list (DAT_006c6130, max 10 slots, count DAT_006c612c), dispatching per-entry on a type tag from FUN_0048d94b: type 0 = ambient (adds a flat intensity from FUN_0048d956 unconditionally -- not populated by a retail mission, see Light_AddDirectional/PointHelper's entries), type 1 = directional (dot-product-like test via FUN_0048d99b against the face's Normal point (param_1), only contributes when the result crosses a fixed threshold, i.e. face-vs-light-direction test), type 2 = point light (distance-attenuated: displacement from the light's position (FUN_0048d961) to the face's Center point (param_2) combined with the Normal via FUN_0048d86e, divided by distance/range fields FUN_0048d973/FUN_0048d97e). Params: param_1 = the poly's normal point (three shorts), param_2 = its centre point (same two pointers TSPoly_FrontBackVisibilityTest receives). Sibling functions FUN_0048bdcc/FUN_0048c060 are near-identical variants (different param shapes) used elsewhere for the same shade calc, likely per-vertex vs. per-face evaluation.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
     },
     {
@@ -8167,7 +8167,7 @@
       "type": "function",
       "confidence": "high",
       "name": "BuildEulerRotationMatrixQ14",
-      "description": "Builds a 3x3 rotation matrix (9 Q14 fixed-point shorts + 1 mode byte, 10 shorts total output) from a Vec3Short of Euler angles (param_1), using a sin/cos lookup table at DAT_004a25dc (1024-entry quarter-wave table, angle unit = 0x10000 per full circle, i.e. raw/65536*360 = degrees). Has a fast-path when the X and Y angle components are both zero (2-axis-only case, cos/sin of Z alone); otherwise builds the general 3-axis matrix via the standard trig-table-driven approach (same trig-table technique as the sim's other rotation math, see [[project_es2_terrain_format]]-adjacent RE). Called by Light_CreateMissionSun with angles (-6000, 0, 21000) -- confirms the sun's direction is computed, not stored as a literal vector.",
+      "description": "Builds a 3x3 rotation matrix (9 Q14 fixed-point shorts + 1 mode byte, 10 shorts total output) from three short Euler angles (param_1), using a sin/cos lookup table at DAT_004a25dc (1024-entry quarter-wave table, angle unit = 0x10000 per full circle, i.e. raw/65536*360 = degrees). Has a fast-path when the X and Y angle components are both zero (2-axis-only case, cos/sin of Z alone); otherwise builds the general 3-axis matrix via the standard trig-table-driven approach (the same trig-table technique as the simulation's other rotation math). Called by Light_CreateMissionSun with angles (-6000, 0, 21000) -- confirms the sun's direction is computed, not stored as a literal vector.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
     },
     {
@@ -8176,7 +8176,7 @@
       "type": "function",
       "confidence": "high",
       "name": "RotateVectorByMatrixQ14",
-      "description": "Matrix-vector multiply: rotates param_1 (Vec3Short) by the 3x3 Q14 matrix param_2 (as built by BuildEulerRotationMatrixQ14), writing the result to param_3. Has fast-paths for the matrix's degenerate mode byte (param_2[9]) similar to the matrix builder's own fast path. Called by Light_CreateMissionSun as rotate((0,0x1000,0), sunRotationMatrix) -- i.e. the sun's direction is 'straight up' rotated by the fixed Euler angles, not an arbitrary hand-authored vector.",
+      "description": "Matrix-vector multiply: rotates param_1 (three shorts) by the 3x3 Q14 matrix param_2 (as built by BuildEulerRotationMatrixQ14), writing the result to param_3. Has fast-paths for the matrix's degenerate mode byte (param_2[9]) similar to the matrix builder's own fast path. Called by Light_CreateMissionSun as rotate((0,0x1000,0), sunRotationMatrix) -- i.e. the sun's direction is 'straight up' rotated by the fixed Euler angles, not an arbitrary hand-authored vector.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
     },
     {
@@ -8185,7 +8185,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DotProductVec3Short",
-      "description": "Literal 3-component dot product on two Vec3Short pointers: a.x*b.x+a.y*b.y+a.z*b.z, no scaling/clamping. Called (via the Light_ComputeShadeForFace accessor wrapper FUN_0048d99b) with the poly's Normal-index point and a directional light's own direction vector -- confirms the type-1 (directional) lighting term in Light_ComputeShadeForFace is a plain dot product, i.e. the poly's 'Normal' auxiliary point genuinely holds a normal-like vector (not a position), consistent with the earlier front/back visibility-test finding that Normal/Center are auxiliary vertex-index fields used for facing math, not literal mesh geometry.",
+      "description": "Literal 3-component dot product on two three-short vector pointers: a.x*b.x+a.y*b.y+a.z*b.z, no scaling/clamping. Called (via the Light_ComputeShadeForFace accessor wrapper FUN_0048d99b) with the poly's Normal-index point and a directional light's own direction vector -- confirms the type-1 (directional) lighting term in Light_ComputeShadeForFace is a plain dot product, i.e. the poly's 'Normal' auxiliary point genuinely holds a normal-like vector (not a position), consistent with TSPoly_FrontBackVisibilityTest's use of them: the normal and centre are auxiliary vertex-index fields used for facing math, not literal mesh geometry.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
     },
     {
@@ -8221,7 +8221,7 @@
       "type": "data",
       "confidence": "medium",
       "name": "maybe_g_BitmapAtlasCache",
-      "description": "CORRECTS this entry's own prior 'static compiled-in dither table' claim from earlier the same session -- that was WRONG. DBSIM.EXE's total file size is 724,512 bytes; this address sits in the DATA section's second (huge, 2,245,120-byte) chunk, which is almost certainly BSS-style zero-fill reserved space, not literal file content, ruling out a ~16MB static table outright. Traced the real populator: FUN_00469d10 (a rectangle-packing cache-insertion routine, recurses into an overflow bank via param_1[0x200]/[0x201] when a 256-wide row is full) and its wrapper FUN_00469f38 (allocates a 20-byte-stride descriptor per inserted image via Rtl_VectorNew, matching the SAME stride as TSTexture4Poly's already-solved g_ActiveBitmapArray[1] frame-descriptor table). FUN_00469f38 is called from 7 places across totally unrelated subsystems -- Base_LoadResources, FlatObj_LoadResources, Weapons_LoadResourceTables, Terrain_BindTextureBank, and two weapon-effect loaders (bullets.cpp/beam.cpp equivalents, FUN_0040ade0/FUN_0040b6e0) -- each packing a freshly-loaded DBA's frames into this SAME shared atlas via FUN_0045cdd8 (DBA loader). CONCLUSION: this is a generic runtime bitmap/texture atlas cache shared by the whole engine (mechs, weapons, terrain, ground shapes), not a purpose-built dither table. TSSolidPoly_Render's (colorField<<16 | pixelCoord) addressing therefore means 'sample pixel pixelCoord from cached bitmap slot colorField', not 'look up a fixed dither pattern' -- meaning the earlier assumption that colorField=FrontColor (a 0-255 palette index) is now suspect; it more plausibly indexes a specific SMALL-N cached bitmap slot (a dither/shading swatch loaded once per theater), which would also explain why the naive 16MB address range is never actually exercised. WHICH atlas slot TSSolidPoly_Render's shading swatch specifically occupies, and who inserts it, was NOT found this session -- none of the 7 known FUN_00469f38 callers is an obvious 'load lighting dither pattern' site. This is now the real open question, distinct from and more specific than 'extract the dither table's raw bytes'.",
+      "description": "The shared runtime texture atlas: 256x256 pages that BitmapArray_PackToAtlas (00469f38) packs each loaded .DBA's frames into through Bitmap_PlaceInAtlasPage (00469d10), which spills into an overflow bank (param_1[0x200]/[0x201]) when a row is full, and records one 20-byte descriptor per frame. It lies in the DATA section's 2,245,120-byte zero-fill tail (DBSIM.EXE is 724,512 bytes on disk), so it is not a static table: it holds nothing until a loader fills it. Packer callers: Base_LoadResources, FlatObj_LoadResources, Weapons_LoadResourceTables, Terrain_BindTextureBank, Bullet_LoadResources (0040ade0) and Beam_LoadResourceTables (0040b6e0), each loading the .DBA through Resource_Load (0045cdd8). A textured span addresses it as (page << 16 | pixel), the page taken from the frame descriptor's +0x10. See docs/formats/dts-texture-binding.md.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up (correction pass), docs/formats/dts-texture-binding.md"
     },
     {
@@ -8230,7 +8230,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_CurrentShapeDbaContext",
-      "description": "RESOLVES handoff item #6/#8. Set once per shape instance by FUN_0042fa18 (maybe_TSShapeInstance_PrepareRenderContext) as `param_1 + 0x1a`, i.e. a pointer into the per-shape render object -- the exact same offset pattern as VSHELL's TSShapeInstance+0x26 bound-DBA field, just a different struct layout. g_CurrentShapeDbaContext[1] (== param_1+0x1e) is the shape's currently-bound DBA's 20-byte-stride frame-descriptor table -- THE SAME g_ActiveBitmapArray[1]-equivalent table TSTexture4Poly_Render indexes for UV corners. TSTexture4Poly_Render (FUN_00474e9c) uses `g_CurrentShapeDbaContext[1] + FrontColor*0x14` to fetch a frame descriptor, then reads its field+0x10 (the 5th int32, F4 -- previously found to be a 'texture-data pointer/handle' in the TSTexture4Poly descriptor) as the value shifted into the shared bitmap atlas (maybe_g_BitmapAtlasCache/DAT_004d4f88) bank selector for ordered-dither pixel fill.",
+      "description": "Set once per shape instance by maybe_TSShapeInstance_PrepareRenderContext (0042fa18) as param_1 + 0x1a, a pointer into the per-shape render object -- the same pattern as VSHELL's TSShapeInstance+0x26 bound-DBA field, at a different offset. g_CurrentShapeDbaContext[1] (== param_1+0x1e) is the shape's bound DBA's 20-byte-stride frame-descriptor table, DBSIM's counterpart of VSHELL's g_ActiveBitmapArray[1]. TSTexture4Poly_Render (00474e9c) fetches a frame descriptor at g_CurrentShapeDbaContext[1] + frontValue*0x14 and takes its +0x10 (F4) as the atlas page (maybe_g_BitmapAtlasCache, 004d4f88) the fill samples. See docs/formats/dts-texture-binding.md.",
       "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation)"
     },
     {
@@ -8248,7 +8248,7 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_TSGouraudOrSimilarPoly_Render",
-      "description": "Sibling poly-render function reusing g_CurrentShapeDbaContext/_DAT_006c697a exactly like TSSolidPoly_Render (same ColorIndexId*4 surface lookup, same FrontColor-indexes-frame-descriptor-table pattern feeding FUN_00468078 as the 4th arg). Not yet matched to a specific TSPoly subtype via the RTTI registry -- flagged here only because it shares and thus corroborates the g_CurrentShapeDbaContext mechanism.",
+      "description": "Sibling poly-render function reusing g_CurrentShapeDbaContext/_DAT_006c697a exactly like TSTexture4Poly_Render (00474e9c): the same surfaceField*4 surface lookup, and the front value indexing the frame-descriptor table that feeds Raster_SetupTexturedSpan (00468078) as the 4th argument. Not matched to a TSPoly subtype through the type registry. Recorded because it corroborates the g_CurrentShapeDbaContext mechanism.",
       "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation)"
     },
     {
@@ -8257,7 +8257,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_Render",
-      "description": "CORRECTS this address's long-standing 'TSSolidPoly_Render' name, which was assigned by structural resemblance to VSHELL's TSSolidPoly_Render and was wrong. DBSIM's DTS type registry (g_TSObjectTypeRegistry, 004a63c8) settles it by construction: tag 0x0014000f -> ctor 0048e210 -> final vtable 004a5f24, whose slot +0x1c is this function. FrontColor really is a frame index into g_CurrentShapeDbaContext[1] here, because this is the TEXTURED poly type; the flat/solid type is TSSolidPoly_Render (00474db4) and works completely differently. Also the only reader of DAT_004a5b1c: when that is zero the poly is drawn in FUN_00468078 mode 0 (plain texture copy, no light term), which is how Bullet_Draw (0040a120) makes a projectile fullbright. No vertex-count branch anywhere in its UV setup: it writes all four corners of the frame descriptor unconditionally and passes poly+8 (VertexCount) to the rasterizer, which reads only that many. 40 retail TSTexture4Polys have 3 vertices and are textured this way; the back-face case's swap of positions/corners 1 and 3 touches a slot a triangle does not have. See docs/formats/dts-texture-binding.md, 'Three-vertex texture polys'.",
+      "description": "Not TSSolidPoly_Render, which structural resemblance to VSHELL's TSSolidPoly_Render suggests. DBSIM's DTS type registry (g_TSObjectTypeRegistry, 004a63c8) settles it by construction: tag 0x0014000f -> ctor 0048e210 -> final vtable 004a5f24, whose slot +0x1c is this function. The surface's front value is a frame index into g_CurrentShapeDbaContext[1] here, because this is the TEXTURED poly type; the flat/solid type is TSSolidPoly_Render (00474db4) and works completely differently. Also the only reader of DAT_004a5b1c: when that is zero the poly is drawn in FUN_00468078 mode 0 (plain texture copy, no light term), which is how Bullet_Draw (0040a120) makes a projectile fullbright. No vertex-count branch anywhere in its UV setup: it writes all four corners of the frame descriptor unconditionally and passes poly+8 (the vertex count) to the rasterizer, which reads only that many. 40 retail TSTexture4Polys have 3 vertices and are textured this way; the back-face case's swap of positions/corners 1 and 3 touches a slot a triangle does not have. See docs/formats/dts-texture-binding.md, 'Three-vertex texture polys'.",
       "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
     },
     {
@@ -8284,7 +8284,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Palette_ShadeRampLookup",
-      "description": "Palette_ShadeRampLookup(value, shade): idx = value & 0xff, clamped to 0 when >= ActivePaletteObject+0x0c (the ramp count); reads ActivePaletteObject+0x10 as an array of 8-byte {int16* indices, int32 length} shade ramps and returns ramp[idx].indices[ Q8Multiply(shade, length) ], stepping back one when that lands on the end. So a value here is a RAMP NUMBER, not a colour: the ramps are per-material brightness sequences of palette indices. They live in the tail of each .DPL, after the 256 colour entries, and HercWorks.Core's DynamixPaletteTransformer does not parse them yet. Sole consumer found: TSShadedPoly_Render.",
+      "description": "Palette_ShadeRampLookup(value, shade): idx = value & 0xff, clamped to 0 when >= ActivePaletteObject+0x0c (the ramp count); reads ActivePaletteObject+0x10 as an array of 8-byte {int16* indices, int32 length} shade ramps and returns ramp[idx].indices[ Math_Q8Multiply(shade, length) ], stepping back one when that lands on the end. So a value here is a RAMP NUMBER, not a colour: the ramps are per-material brightness sequences of palette indices. They live in the tail of each .DPL, after the 256 colour entries. Sole consumer found: TSShadedPoly_Render.",
       "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
     },
     {
@@ -8311,7 +8311,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SetDepthFadeFromDistance",
-      "description": "Sets DAT_004a08c8, the depth-slice byte offset Raster_ShadeRampRow adds: zero for anything inside half the visibility range (DAT_004a08c4), otherwise Q16Multiply(t, depthSlices - 1) * shadeLevels * 256. That is the original's distance fog, and it is what the world<N>.rmp's 12 height slices are for -- an earlier pass recorded them as unused. Called per drawn object (FUN_0042876c, with the object's own distance), per terrain cell (Terrain_DrawCellQuad), and with zero from maybe_TSShapeInstance_PrepareRenderContext.",
+      "description": "Sets DAT_004a08c8, the depth-slice byte offset Raster_ShadeRampRow adds: zero for anything inside half the visibility range (DAT_004a08c4), otherwise Math_Q16Multiply(t, depthSlices - 1) * shadeLevels * 256. That is the original's distance fog, and it is what the world<N>.rmp's 12 height slices are for. Called per drawn object (FUN_0042876c, with the object's own distance), per terrain cell (Terrain_DrawCellQuad), and with zero from maybe_TSShapeInstance_PrepareRenderContext.",
       "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
     },
     {
@@ -8320,7 +8320,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSObjectTypeRegistry",
-      "description": "DBSIM's DTS node factory, the counterpart of VSHELL's 0047f258: 12-byte entries of {uint32 tag, constructorFnPtr, nameStringPtr} where tag is the on-disk chunk marker. Use it rather than structural resemblance to identify a TSObject subclass -- doing so corrected two poly-render assignments (see TSSolidPoly_Render 00474db4 and TSTexture4Poly_Render 00474e9c).",
+      "description": "DBSIM's DTS node factory, the counterpart of VSHELL's 0047f258: 12-byte entries of {uint32 tag, constructorFnPtr, nameStringPtr} where tag is the on-disk chunk marker. Use it rather than structural resemblance to identify a DTS object's class -- structural resemblance misidentifies two poly renderers (see TSSolidPoly_Render 00474db4 and TSTexture4Poly_Render 00474e9c).",
       "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
     },
     {
@@ -8338,7 +8338,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_Fire",
-      "description": "Bullet_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech) -- spawns one travelling PROJ.DAT Type-2 Bullet from the effect pool DAT_004a9746. Copies the muzzle point to obj+0x26 (the frame's translation), stores the euler triple at obj+0x0c with components 0 and 2 displaced by (spread*2 & random) - spread from the BULLETS.DAT record's +0x0a, sets obj+0x52 = ownerMech->vtable+0x38 (travel speed) + PROJ.Speed, and plays the record's +0x08 sound. Returns the object so Bullet_FirePowered can add to it.",
+      "description": "Bullet_Fire(subtypeId, muzzleWorldPoint, aimEulerTriple, ownerMech) -- spawns one travelling PROJ.DAT Type-2 Bullet from the effect pool DAT_004a9746. Copies the muzzle point to obj+0x26 (the frame's translation), stores the euler triple at obj+0x0c with components 0 and 2 displaced by (spread*2 & random) - spread from the BULLETS.DAT record's +0x0a, sets obj+0x52 = ownerMech->vtable+0x38 (travel speed) + PROJ.Speed, and plays the record's +0x08 sound. Returns the object so Bullet_FirePowered can add to it.",
       "source": "docs/simulation/projectiles.md 2026-08-25"
     },
     {
@@ -8347,7 +8347,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_FirePowered",
-      "description": "Bullet_Fire plus two writes: obj+0x56 = the capacitor charge the shot was fired at (which scales both damage figures Q10 in Bullet_TickUpdate; zero leaves them at face value), and for missileId 9 only (the plasma cannon) obj+0x5b = ownerMech+0x1a4, the firing machine's selected target, which is what makes that one subtype home.",
+      "description": "Bullet_Fire plus two writes: obj+0x56 = the capacitor charge the shot was fired at (which scales both damage figures Q10 in Bullet_TickUpdate; zero leaves them at face value), and for subtypeId 9 only (the plasma cannon) obj+0x5b = ownerMech+0x1a4, the firing machine's selected target, which is what makes that one subtype home.",
       "source": "docs/simulation/projectiles.md 2026-08-25"
     },
     {
@@ -8392,7 +8392,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_EulerToward",
-      "description": "Math_EulerToward(out, from, to), d = from - to: euler[2] = Math_Atan2Guarded(dx, dy) - 0x4000, euler[1] = 0, euler[0] = Math_Atan2Guarded(FastMagnitude2D(dx, dy), dz). Math_Atan2Guarded takes (x, y), so euler[2] is the ground bearing and euler[0] is an ELEVATION above the horizon, not a polar angle from +Z. The quarter-turn subtraction is because the simulation's forward axis is model Y. Same helper and same argument order as Math_HeadingToward.",
+      "description": "Math_EulerToward(out, from, to), d = from - to: euler[2] = Math_Atan2Guarded(dx, dy) - 0x4000, euler[1] = 0, euler[0] = Math_Atan2Guarded(Math_FastMagnitude2D(dx, dy), dz). Math_Atan2Guarded takes (x, y), so euler[2] is the ground bearing and euler[0] is an ELEVATION above the horizon, not a polar angle from +Z. The quarter-turn subtraction is because the simulation's forward axis is model Y. Same helper and same argument order as Math_HeadingToward.",
       "source": "docs/simulation/projectiles.md 2026-08-25"
     },
     {
@@ -8401,7 +8401,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSPolyUseAltPath_maybeDead",
-      "description": "CLOSES handoff #7. Read-only byte: 6 read sites (TSTexture4Poly_Render x5, maybe_TSGouraudOrSimilarPoly_Render x1), ZERO write sites found anywhere in DBSIM.EXE (checked via getReferencesTo across the whole binary). Read directly from the mapped image (ES2ReadDataValue.java): value is 0, in an initialized/file-backed (not BSS) DATA block -- i.e. this is a compile-time constant baked into the shipped exe, not a runtime-toggled setting, same pattern as VSHELL's DAT_00471890 (g_UseFlatPolyFallback) in the sibling ThreeSpace codebase. Since every reader branches on `==0`/`!=0` and the byte is permanently 0, the `==0` branch (the one solved in handoff #6: local_c/g_CurrentShapeDbaContext[1] frame lookup, FUN_00468078 dispatch) is the ONLY branch that ever executes in retail DBSIM.EXE. The `!=0` branch (local_28-based lookup, FUN_0048c848/FUN_0048cfec/FUN_0048d518) is dead code in the shipped game and does not need reverse engineering for a faithful Herculan.Engine implementation.",
+      "description": "Read-only byte: 6 read sites (TSTexture4Poly_Render x5, maybe_TSGouraudOrSimilarPoly_Render x1) and no write site among getReferencesTo's results across DBSIM.EXE. Its value in the mapped image (ES2ReadDataValue.java) is 0, in an initialized, file-backed DATA block -- a compile-time constant baked into the shipped exe, the same pattern as VSHELL's DAT_00471890 (g_UseFlatPolyFallback) in the sibling ThreeSpace codebase. Every reader branches on == 0 / != 0, so with the byte at 0 retail runs the == 0 branch (the g_CurrentShapeDbaContext[1] frame lookup and FUN_00468078 dispatch); the != 0 branch (local_28-based lookup, FUN_0048c848/FUN_0048cfec/FUN_0048d518) runs only if the byte is nonzero.",
       "source": "flat-shaded lighting RE, 2026-08-14 third follow-up (#7 closure)"
     },
     {
@@ -8464,7 +8464,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ResourcePath_BuildFolderName",
-      "description": "The shared folder\\name resource-path builder: ResourcePath_BuildFolderName(name, folder) writes 'folder\\\\name' into a shared static buffer (&DAT_006cbcae) via FUN_00492a84(name) + strcat('\\\\') + strcat(folder). Confirmed by tracing its two operands against known-good results (e.g. ResourcePath_BuildFolderName(hercName, \"vue\") and the folder-name pointer table at CockpitDpl_ResourceFolderNames). Matches Herculan.Engine.Content.GameContent's own folder\\name resolution convention exactly -- this is DBSIM's side of the same addressing scheme.",
+      "description": "The shared folder\\name resource-path builder: ResourcePath_BuildFolderName(name, folder) writes 'folder\\\\name' into a shared static buffer (&DAT_006cbcae) via FUN_00492a84(name) + strcat('\\\\') + strcat(folder). Confirmed by tracing its two operands against known-good results (e.g. ResourcePath_BuildFolderName(hercName, \"vue\") and the folder-name pointer table at CockpitDpl_ResourceFolderNames).",
       "source": "docs/formats/cockpit-canopy-palette.md 2026-08-15 (Milestone 8 Phase 0)"
     },
     {
@@ -8482,7 +8482,7 @@
       "type": "data",
       "confidence": "high",
       "name": "CockpitPaletteSingleton",
-      "description": "Pointer to the currently-loaded cockpit-family DynamixPalette object. First loaded lazily (guarded by == 0) as the literal resource 'dpl\\\\cockpit' (s_cockpit_0049ae69 + CockpitDpl_ResourceFolderNames[0]=\"dpl\", via ResourcePath_BuildFolderName + ClassItem_LoadTaggedResource) -- confirms DBSIM loads COCKPIT.DPL by a plain literal name, not a derived/offset one, and the real retail file ES2/VOL/simvol0/dpl/COCKPIT.DPL exists under exactly that name. Later swapped to 'dpl\\\\impactcp' (IMPACTCP.DPL, also a real retail file) as a second, smaller damage/impact-flash palette, whose colors get copied into a 24-entry sub-range of the global active display palette (Palette_InstallRange(0x2a, 0x18, ...)) rather than replacing CockpitPaletteSingleton wholesale. No index-remap/offset was found anywhere in this load path -- decoding a real .HB0 through COCKPIT.DPL with a direct, unmodified index lookup produces a correct, recognizable cockpit image (visually verified against APOCA.HB0/SAMSON.HB0), settling Milestone 8 Phase 0 Q1: the existing TextureViewerForm.PreferredPaletteFor(\"COCKPIT\") heuristic is exactly right, not merely a plausible guess.",
+      "description": "Pointer to the currently-loaded cockpit-family palette object. First loaded lazily (guarded by == 0) as the literal resource 'dpl\\\\cockpit' (s_cockpit_0049ae69 + CockpitDpl_ResourceFolderNames[0]=\"dpl\", via ResourcePath_BuildFolderName + ClassItem_LoadTaggedResource) -- confirms DBSIM loads COCKPIT.DPL by a plain literal name, not a derived/offset one, and the real retail file ES2/VOL/simvol0/dpl/COCKPIT.DPL exists under exactly that name. Later swapped to 'dpl\\\\impactcp' (IMPACTCP.DPL, also a real retail file) as a second, smaller damage/impact-flash palette, whose colors get copied into a 24-entry sub-range of the global active display palette (Palette_InstallRange(0x2a, 0x18, ...)) rather than replacing CockpitPaletteSingleton wholesale. No index-remap/offset was found anywhere in this load path -- decoding a real .HB0 through COCKPIT.DPL with a direct, unmodified index lookup produces a correct, recognizable cockpit image (visually verified against APOCA.HB0/SAMSON.HB0).",
       "source": "docs/formats/cockpit-canopy-palette.md 2026-08-15 (Milestone 8 Phase 0)"
     },
     {
@@ -8518,7 +8518,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitViewManager_LoadViews",
-      "description": "The whole cockpit bring-up, in order: (1) loads vue\\\\<herc> -- int32 viewCount then viewCount x 32-byte records {int x0,y0,x1,y1, cx, cy, canvasOriginX, canvasOriginY}, all coordinates shifted by VideoMode_X/YCoordShift; every retail .VUE has viewCount=4; (2) allocates 4 slots for canopy bitmaps, 4 x 0x204 clip-region blocks and 4 span tables; (3) per view i, calls CockpitClipRegions_Load on ed<i>/hd<i> and ClipRegions_BuildScanlineSpans on the result, and (unless CockpitArt_LoadOnDemand) CockpitCanopy_LoadViewBitmap for db<i>/hb<i>; (4) builds the CockpitView widget object (FUN_00431008 -> ColorSchemePanels_LoadAll, which sets CockpitViewInstance) and Gau_BuildCockpitWidgets; (5) THE PER-HERC COCKPIT COLOUR SCHEME: Palette_InstallRange(0x2a, 0x18, COCKPIT.DPL.entries + (schemeIdx*0x18 + 0x20)*4), i.e. live palette slots 42..65 are overwritten with COCKPIT.DPL entries [32 + 24*schemeIdx .. +24), where schemeIdx = mechTypeRecord+0x52 = offset 80 of simvol0/dat/<MECH>.DAT (HercSimDat.Unk80_ValHudId). Retail values are a 0-8 permutation: APOCA 0, COLOSSUS 1, SAMSON 2, MAVERICK 3, OGRE 4, OUTLAW 5, RAPTOR2 6, RAZOR 7, TOMAHAWK 8, so the nine 24-entry schemes fill COCKPIT.DPL entries 32..247. This matches the independently measured retail screenshots exactly (APOCA renders canopy index i as COCKPIT.DPL[i-10] => base 32; COLOSSUS as COCKPIT.DPL[i+14] => base 56) and explains why every WORLD<n>.DPL parks exactly slots 42-65 at filler green. (6) Repeats the same install with IMPACTCP.DPL into the secondary palette object DAT_0049aef8 for the damage flash.",
+      "description": "The whole cockpit bring-up, in order: (1) loads vue\\\\<herc> -- int32 viewCount then viewCount x 32-byte records {int x0,y0,x1,y1, cx, cy, canvasOriginX, canvasOriginY}, all coordinates shifted by VideoMode_X/YCoordShift; every retail .VUE has viewCount=4; (2) allocates 4 slots for canopy bitmaps, 4 x 0x204 clip-region blocks and 4 span tables; (3) per view i, calls CockpitClipRegions_Load on ed<i>/hd<i> and ClipRegions_BuildScanlineSpans on the result, and (unless CockpitArt_LoadOnDemand) CockpitCanopy_LoadViewBitmap for db<i>/hb<i>; (4) builds the CockpitView widget object (FUN_00431008 -> ColorSchemePanels_LoadAll, which sets CockpitViewInstance) and Gau_BuildCockpitWidgets; (5) THE PER-HERC COCKPIT COLOUR SCHEME: Palette_InstallRange(0x2a, 0x18, COCKPIT.DPL.entries + (schemeIdx*0x18 + 0x20)*4), i.e. live palette slots 42..65 are overwritten with COCKPIT.DPL entries [32 + 24*schemeIdx .. +24), where schemeIdx = mechTypeRecord+0x52 = offset 80 of simvol0/dat/<MECH>.DAT. Retail values are a 0-8 permutation: APOCA 0, COLOSSUS 1, SAMSON 2, MAVERICK 3, OGRE 4, OUTLAW 5, RAPTOR2 6, RAZOR 7, TOMAHAWK 8, so the nine 24-entry schemes fill COCKPIT.DPL entries 32..247. This matches the independently measured retail screenshots exactly (APOCA renders canopy index i as COCKPIT.DPL[i-10] => base 32; COLOSSUS as COCKPIT.DPL[i+14] => base 56) and explains why every WORLD<n>.DPL parks exactly slots 42-65 at filler green. (6) Repeats the same install with IMPACTCP.DPL into the secondary palette object DAT_0049aef8 for the damage flash.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -8654,7 +8654,7 @@
       "type": "data",
       "confidence": "high",
       "name": "VideoMode_XCoordShift",
-      "description": "Per-axis resolution shift for hardcoded widget coordinates: the exe writes them as `value << (VideoMode_XCoordShift & 0x1f)`. 0 in the 320-wide mode, 1 in the 640-wide one -- the mechanism behind Herculan.Engine's CockpitArt.GauToPixelScale = 2. DAT_004d25c0 is the Y counterpart.",
+      "description": "Per-axis resolution shift for hardcoded widget coordinates: the exe writes them as `value << (VideoMode_XCoordShift & 0x1f)`. 0 in the 320-wide mode, 1 in the 640-wide one, so every .GAU coordinate is doubled in the 640-wide mode. DAT_004d25c0 is the Y counterpart.",
       "source": "docs/formats/cockpit-hud-widgets.md (.GAU widget tree)"
     },
     {
@@ -8744,7 +8744,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PaperDoll_Load",
-      "description": "pdamage.cpp .PDG loader. Reads 3 views, each an origin/size pair plus a vector of 0x1c-byte regions {int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}; resolves each region's colorId through HudColorTable in place and shifts its coordinates by VideoMode_X/YCoordShift, with bottomRight additionally +1 in the 640-wide mode. Matches HercWorks.Core's PaperDollGraphic field-for-field, identifying its ViewRegion.Unk_val at offset 0x14 as the colour id. Then reads the weapon-icon hardpoint list into +0x54 (count) / +0x58 (0x14-byte entries {int x, int y, int frameOffset, int alignment, int blitFlags}), shifting x and y.",
+      "description": "pdamage.cpp .PDG loader. Reads 3 views, each an origin/size pair plus a vector of 0x1c-byte regions {int index, int left, int top, int right, int bottom, int colorId, int spacer}; resolves each region's colorId through HudColorTable in place and shifts its coordinates by VideoMode_X/YCoordShift, with bottomRight additionally +1 in the 640-wide mode. Then reads the weapon-icon hardpoint list into +0x54 (count) / +0x58 (0x14-byte entries {int x, int y, int frameOffset, int alignment, int blitFlags}), shifting x and y.",
       "source": "docs/formats/cockpit-hud-widgets.md (.PDG)"
     },
     {
@@ -10340,7 +10340,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_CollisionTest",
-      "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records at mech+0x2b0 the last structure (TargetClass 1) whose body radius contains the machine, clearing the field on entry; that is a render-side hand-off, not an aim aid -- maybe_Scene_SubmitFrameObjects reads it every frame and buckets the machine with that structure instead of by its own radius.",
+      "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records at mech+0x2b0 the last structure (target class 1, obj+0x1a8) whose body radius contains the machine, clearing the field on entry; that is a render-side hand-off, not an aim aid -- maybe_Scene_SubmitFrameObjects reads it every frame and buckets the machine with that structure instead of by its own radius.",
       "source": "docs/simulation/mech-locomotion.md",
       "signature": "char __cdecl Mech_CollisionTest(MechObject *this)"
     },
@@ -10531,7 +10531,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Cockpit_TargetAnglesFromCameraBone",
-      "description": "Transforms a world point into the pilot eye's frame and returns its azimuth/elevation. CameraBoneId (typeRec+0x0c) is a shape PART id: the shape find-by-id vtable slot (+0x20) returns the part, its TSBasePart.Transform (+4) is a transform id, and that indexes the per-node transform array at shapeInst+0x16 (0x20 bytes per entry). Composes the inverse of the mech transform (mech+0xc) then the inverse of that node transform, and subtracts typeRec+0x66. The cockpit eye rides the same node, which is where the retail cockpit bob comes from -- no dedicated bob code exists. Chain is uniform across the fleet: part 5 -> transform 11 -> 4 -> 1 for 16 of 18 HERCs, node 1 being the one the walk cycle animates.",
+      "description": "Transforms a world point into the pilot eye's frame and returns its azimuth/elevation. The camera part id (typeRec+0x0c) is a shape PART id: the shape find-by-id vtable slot (+0x20) returns the part, its TSBasePart.Transform (+4) is a transform id, and that indexes the per-node transform array at shapeInst+0x16 (0x20 bytes per entry). Composes the inverse of the mech transform (mech+0xc) then the inverse of that node transform, and subtracts typeRec+0x66. The cockpit eye rides the same node, which is where the retail cockpit bob comes from -- no dedicated bob code exists. Chain is uniform across the fleet: part 5 -> transform 11 -> 4 -> 1 for 16 of 18 HERCs, node 1 being the one the walk cycle animates.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-21"
     },
     {
@@ -10627,7 +10627,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Behaviour_DispatchReassess",
-      "description": "Mech vtable +0x1c, reading the descriptor's +0x30 triple. 'Reassess' is this engine's name for the slot, from what its two implementations do -- the game's own name is not in the binary. Combat states (attacking, flanking, facing off, attacking base, attacking flyer, fleeing) point it at 0041cf18; every other live state points it straight at Mech_AiSelectBehaviour, and 0041cf18 itself calls that twice.",
+      "description": "Mech vtable +0x1c, reading the descriptor's +0x30 triple. 'Reassess' is a coined name for the slot, from what its two implementations do; the binary carries none. Combat states (attacking, flanking, facing off, attacking base, attacking flyer, fleeing) point it at 0041cf18; every other live state points it straight at Mech_AiSelectBehaviour, and 0041cf18 itself calls that twice.",
       "source": "docs/simulation/ai-dispatch.md",
       "signature": "undefined4 __cdecl Behaviour_DispatchReassess(MechObject *mech)"
     },
@@ -10754,7 +10754,7 @@
       "type": "function",
       "confidence": "high",
       "name": "LedBarGraph_CtorV",
-      "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). This is what those ints are; they are NOT the four detent points HThrottle previously recorded. NEITHER THROTTLE BAR IS EVER DRAWN: the slider holds them privately, ThrottleSlider_PaintV reads them only for their rects (via FUN_004390b8) to widen the region it invalidates, and the bar draw routines 00439398/00439460 have no callers in the image. A cut feature, along with the gauge+0xb1 speed fraction that would have filled them.",
+      "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). They are not four throttle detent points. NEITHER THROTTLE BAR IS EVER DRAWN: the slider holds them privately, ThrottleSlider_PaintV reads them only for their rects (via FUN_004390b8) to widen the region it invalidates, and the bar draw routines 00439398/00439460 have no callers in the image. A cut feature, along with the gauge+0xb1 speed fraction that would have filled them.",
       "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
@@ -10781,7 +10781,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Anim_BlendKeyframeTransforms",
-      "description": "Blends two 12-byte ANAnimListTransform records (3 euler shorts then 3 translation shorts) by a Q10 factor (0x400 == fully the second). Rotation components take the SHORTEST ARC: the difference is biased by 0x10000 when it would go negative, subtracted, then folded back by 0x10000 when it exceeds 0x7fff -- the same wrap BinaryAngle.Delta performs -- before the Q10 multiply and arithmetic >>10. Translation components are a plain truncating lerp on the 16-bit difference. All fixed point; no float anywhere.",
+      "description": "Blends two 12-byte ANAnimList transform records (3 euler shorts then 3 translation shorts) by a Q10 factor (0x400 == fully the second). Rotation components take the SHORTEST ARC: the difference is biased by 0x10000 when it would go negative, subtracted, then folded back by 0x10000 when it exceeds 0x7fff -- the shortest signed 16-bit difference -- before the Q10 multiply and arithmetic >>10. Translation components are a plain truncating lerp on the 16-bit difference. All fixed point; no float anywhere.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-22"
     },
     {
@@ -10808,7 +10808,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShapeInst_ComposeChildTransform",
-      "description": "Same expansion as ShapeInst_ExpandRootTransform, then concatenates the result onto the parent's world transform (FUN_0047f914) into the destination slot. The parent-chain composition Herculan's AnimationThread.NodeTransform performs lazily per requested node.",
+      "description": "Same expansion as ShapeInst_ExpandRootTransform, then concatenates the result onto the parent's world transform (FUN_0047f914) into the destination slot.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-22"
     },
     {
@@ -10844,7 +10844,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_BindNodeTransform",
-      "description": "One-line forwarder: ShapeNode_ComposeToViewTransform(group, out, (short)*(group + 4)). Field +4 is TSBasePart.Transform, the same transform id CameraBoneId resolves to through a part -- so every geometry group is drawn through its own node. See docs/formats/dts-node-posing.md.",
+      "description": "One-line forwarder: ShapeNode_ComposeToViewTransform(group, out, (short)*(group + 4)). Field +4 is TSBasePart.Transform, the same transform id the camera part id resolves to through a part -- so every geometry group is drawn through its own node. See docs/formats/dts-node-posing.md.",
       "source": "docs/formats/dts-node-posing.md 2026-08-22"
     },
     {
@@ -11042,7 +11042,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ComputeShieldCapacity",
-      "description": "Sibling of Mech_ComputeReactorRate for shield capacity; writes mech+0x228 via Shield_SetMax. Base is typeRecord+0xc0 = record offset 190 = HercSimDat.ShieldMaxTotal, a fleet-wide 3500. Chassis damage above 0x80 on dependent-subpiece 4 scales it down in five steps to 50%; a Shield Pod in slot mech+0x30f adds up to a second full base (doubling it) on the same five-step pod-damage curve the Energy Pod uses. Called from Mech_ConfigureLoadout (followed by Shield_RefillToBalance) and again from Mech_ComponentDamageWrite, so capacity shrinks as the generator is damaged.",
+      "description": "Sibling of Mech_ComputeReactorRate for shield capacity; writes mech+0x228 via Shield_SetMax. Base is typeRecord+0xc0 = record offset 190, the maximum total shield, a fleet-wide 3500. Chassis damage above 0x80 on dependent-subpiece 4 scales it down in five steps to 50%; a Shield Pod in slot mech+0x30f adds up to a second full base (doubling it) on the same five-step pod-damage curve the Energy Pod uses. Called from Mech_ConfigureLoadout (followed by Shield_RefillToBalance) and again from Mech_ComponentDamageWrite, so capacity shrinks as the generator is damaged.",
       "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
     },
     {
@@ -11168,7 +11168,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_CtorEnergy",
-      "description": "Energy mount constructor (vtable 00498dcc): writes Q10Multiply(820, 1200) = 960 into both the charge target (+0x7b) and the capacitor level (+0x7d), and 20 into the charge rate (+0x7f). All three are literals shared by every energy weapon. Used for weapon ids 6-12, 17, 19, 20 and 22-25, 28.",
+      "description": "Energy mount constructor (vtable 00498dcc): writes Math_Q10Multiply(820, 1200) = 960 into both the charge target (+0x7b) and the capacitor level (+0x7d), and 20 into the charge rate (+0x7f). All three are literals shared by every energy weapon. Used for weapon ids 6-12, 17, 19, 20 and 22-25, 28.",
       "source": "docs/simulation/weapon-mounts.md 2026-08-23"
     },
     {
@@ -11563,7 +11563,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_FireTrigger",
-      "description": "The weapon manager's fire entry. Resolves the armed mount and, if it is linked (+0x4b), its partner via the hardpoint's +0x16 offset; requires both to pass vtable +0x2c (CanFire) AND both to pass vtable +0x30 (trigger held) before either fires through vtable +0x28. Clears the single-fire flag (+0x18) once the armed mount is no longer ready. Also passes a free-shot flag built from DAT_004a9ed6/DAT_004a9edc, which only the ammunition class reads.",
+      "description": "The weapon manager's fire entry. Resolves the armed mount and, if it is linked (+0x4b), its partner via the hardpoint's +0x16 offset; requires both to pass vtable +0x2c (can fire) AND both to pass vtable +0x30 (trigger held) before either fires through vtable +0x28. Clears the single-fire flag (+0x18) once the armed mount is no longer ready. Also passes a free-shot flag built from DAT_004a9ed6/DAT_004a9edc, which only the ammunition class reads.",
       "source": "docs/simulation/weapon-firing.md 2026-08-24"
     },
     {
@@ -11581,7 +11581,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_PrepareShot",
-      "description": "The fire prologue both dispatchers open with. Resolves the firing hardpoint's bone (.GL +0) to its posed node transform, composes the gun convergence (mount+0x24/+0x28, gated on mount+0x5b/+0x5f) under it and the mech's own transform (mech+0x12) over it into the global shot transform at 004a98b8, transforms the muzzle offset into world space at 004a98d8, extracts the firing euler triple to 004a98e4, and arms the refire timer as Q10Multiply(mount+0x63, template+0x4c). Both convergence gates read zero fleet-wide, so the rotation is live.",
+      "description": "The fire prologue both dispatchers open with. Resolves the firing hardpoint's bone (.GL +0) to its posed node transform, composes the gun convergence (mount+0x24/+0x28, gated on mount+0x5b/+0x5f) under it and the mech's own transform (mech+0x12) over it into the global shot transform at 004a98b8, transforms the muzzle offset into world space at 004a98d8, extracts the firing euler triple to 004a98e4, and arms the refire timer as Math_Q10Multiply(mount+0x63, template+0x4c). Both convergence gates read zero fleet-wide, so the rotation is live.",
       "source": "docs/simulation/weapon-firing.md; docs/simulation/ai-weapons.md"
     },
     {
@@ -11928,7 +11928,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBitmapPart_Render",
-      "description": "TSBitmapPart vtable +0x1c. Resolves BmpTag against the shape's bound DBA, then blits a screen-space quad: scale = (Radius*4 << focalShift)/depth (so one bitmap pixel spans Radius/64 world units, the focal shift cancelling), rotated by the screen angle of the model's own +Z axis, height interpolated between the bitmap's cols and rows by how much of that axis survives in the view plane, anchored so the part's Center lands on bitmap pixel (OfsX, OfsY*height/rows). Identified via g_TSObjectTypeRegistry tag 0x00140013 -> ctor 0048fa68 -> vtable 004a62d0.",
+      "description": "TSBitmapPart vtable +0x1c. Resolves the part's bitmap tag against the shape's bound DBA, then blits a screen-space quad: scale = (Radius*4 << focalShift)/depth (so one bitmap pixel spans Radius/64 world units, the focal shift cancelling), rotated by the screen angle of the model's own +Z axis, height interpolated between the bitmap's cols and rows by how much of that axis survives in the view plane, anchored so the part's Center lands on bitmap pixel (x offset, y offset*height/rows). Identified via g_TSObjectTypeRegistry tag 0x00140013 -> ctor 0048fa68 -> vtable 004a62d0.",
       "source": "docs/formats/dts-billboards.md 2026-08-26"
     },
     {
@@ -11974,7 +11974,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Explosion_Construct",
-      "description": "Builds one impact effect: (obj, typeId, worldPoint, ownerObject, playSound). Resolves the EXPLOS.DAT type row's shape, resets that shape's cell-animation frame counter to 0, loads the frame countdown from the row's FrameInterval, and optionally attaches a light source and a trail object. playSound gates the row's SoundId+10.",
+      "description": "Builds one impact effect: (obj, typeId, worldPoint, ownerObject, playSound). Resolves the EXPLOS.DAT type row's shape, resets that shape's cell-animation frame counter to 0, loads the frame countdown from the row's frame interval, and optionally attaches a light source and a trail object. playSound gates the row's sound id + 10.",
       "source": "docs/simulation/impact-effects.md 2026-08-26"
     },
     {
@@ -12001,7 +12001,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Explosion_ProximityTest",
-      "description": "(effect, point): returns 1 when the effect's type row has LightMode exactly 2 and the distance from the effect to the point is under the row's ProximityRadius (+0x20). Unreferenced: no rel32 branch, stored pointer or vtable slot reaches it, and the effect class's vtable (00497d4c) has six slots.",
+      "description": "(effect, point): returns 1 when the effect's type row has light mode exactly 2 and the distance from the effect to the point is under the row's proximity radius (+0x20). Unreferenced: no rel32 branch, stored pointer or vtable slot reaches it, and the effect class's vtable (00497d4c) has six slots.",
       "source": "docs/formats/explos-dat.md"
     },
     {
@@ -12046,7 +12046,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_ExplosionShapes",
-      "description": "Array of loaded EXPLOS.DTS root shapes (20 in retail), indexed by an EXPLOS.DAT type row's ShapeIndex. Every root is a TSCellAnimPart flipbook of TSBitmapParts.",
+      "description": "Array of loaded EXPLOS.DTS root shapes (20 in retail), indexed by an EXPLOS.DAT type row's shape index. Every root is a TSCellAnimPart flipbook of TSBitmapParts.",
       "source": "docs/simulation/impact-effects.md 2026-08-26"
     },
     {
@@ -12073,7 +12073,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_ComputeShadeForNormal",
-      "description": "The per-normal sibling of Light_ComputeShadeForFace (0048bdcc/0048c060 were flagged as near-identical variants; this is the one the terrain uses). Takes (Vec3Short* normal, int* centre) and walks the same active light list, returning a shade byte clamped to 255. Directional (type 1) branch, which is the only one a retail mission populates: dot = DotProductVec3Short(normal, lightDir); if (dot < 0) shade -= (intensity * dot) >> 22. Normals arrive normalised to length 0x800 and the mission sun's direction vector is length 0x1000 at intensity 0x100, so the whole expression is shade = min(255, 512 * cos) -- IT SATURATES AT cos 0.5, i.e. every surface within 60 degrees of facing the sun gets the ramp's top row rather than a falloff. Flat ground sits at cos 0.544 and is pinned at 255. Called by Terrain_BuildCellSurfaceAndShade once per cell triangle at zone load.",
+      "description": "The per-normal sibling of Light_ComputeShadeForFace (0048bdcc/0048c060 were flagged as near-identical variants; this is the one the terrain uses). Takes (short* normal, int* centre) and walks the same active light list, returning a shade byte clamped to 255. Directional (type 1) branch, which is the only one a retail mission populates: dot = DotProductVec3Short(normal, lightDir); if (dot < 0) shade -= (intensity * dot) >> 22. Normals arrive normalised to length 0x800 and the mission sun's direction vector is length 0x1000 at intensity 0x100, so the whole expression is shade = min(255, 512 * cos) -- IT SATURATES AT cos 0.5, i.e. every surface within 60 degrees of facing the sun gets the ramp's top row rather than a falloff. Flat ground sits at cos 0.544 and is pinned at 255. Called by Terrain_BuildCellSurfaceAndShade once per cell triangle at zone load.",
       "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
     },
     {
@@ -12091,7 +12091,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_NormalizeVec3ShortToLength",
-      "description": "Rescales a Vec3Short in place to a requested length (param_2). Halves all three components until Math_FastMagnitude3D fits under 0x7d01, then multiplies each by Q16Divide(length, magnitude). Called by Terrain_BuildCellSurfaceAndShade with 0x800 for both of a cell's face normals -- which is the constant that makes Light_ComputeShadeForNormal's >> 22 come out as a saturating 512*cos.",
+      "description": "Rescales a three-short vector in place to a requested length (param_2). Halves all three components until Math_FastMagnitude3D fits under 0x7d01, then multiplies each by Math_Q16Divide(length, magnitude). Called by Terrain_BuildCellSurfaceAndShade with 0x800 for both of a cell's face normals -- which is the constant that makes Light_ComputeShadeForNormal's >> 22 come out as a saturating 512*cos.",
       "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
     },
     {
@@ -12100,7 +12100,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_FaceVisibilityTest",
-      "description": "Per-triangle backface test in Terrain_DrawCellQuad: dot(faceNormal, viewerPos - facePoint) > 0, with the viewer position read from DAT_006b4fc8, DAT_006b4fcc, DAT_006b4fd0. Takes the cell's Vec3Short normal (cell+0x1 for the near triangle, cell+0x7 for the far) and a world point on that triangle. Purely a visibility gate -- it computes no light term; the shade the triangle draws at was baked at zone load, see Terrain_BuildCellSurfaceAndShade.",
+      "description": "Per-triangle backface test in Terrain_DrawCellQuad: dot(faceNormal, viewerPos - facePoint) > 0, with the viewer position read from DAT_006b4fc8, DAT_006b4fcc, DAT_006b4fd0. Takes the cell's three-short normal (cell+0x1 for the near triangle, cell+0x7 for the far) and a world point on that triangle. Purely a visibility gate -- it computes no light term; the shade the triangle draws at was baked at zone load, see Terrain_BuildCellSurfaceAndShade.",
       "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
     },
     {
@@ -12118,7 +12118,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_DirectFireHitTest",
-      "description": "Structure vtable +0x20 -- all five type-switched vtables Base_Construct installs (00497784/97818/978ac/97940/979d4) point this slot here. Hit test and damage in one call. Branches on typeRec+0x38 (installed when BASES.DAT +0x30 is nonzero): non-null runs Mech_SelectStruckComponent against the type's BASECOL.DAT sphere model and names the struck component, null runs Sim_RaycastShapeVolume against the shape's collision height field and always reports component 0. A destroyed type with a hulk (typeRec+4 != -1) is forced to the volume path. Spawns from ImpactFXArmor (shot effects base +0x10). See docs/simulation/hit-detection.md.",
+      "description": "Structure vtable +0x20 -- all five type-switched vtables Base_Construct installs (00497784/97818/978ac/97940/979d4) point this slot here. Hit test and damage in one call. Branches on typeRec+0x38 (installed when BASES.DAT +0x30 is nonzero): non-null runs Mech_SelectStruckComponent against the type's BASECOL.DAT sphere model and names the struck component, null runs Sim_RaycastShapeVolume against the shape's collision height field and always reports component 0. A destroyed type with a hulk (typeRec+4 != -1) is forced to the volume path. Spawns the shot's armour impact effect (shot effects base +0x10). See docs/simulation/hit-detection.md.",
       "source": "docs/simulation/hit-detection.md 2026-08-27"
     },
     {
@@ -12219,7 +12219,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObject_GetShapeRadius",
-      "description": "SimObject vtable +0x10: the current LOD shape's bounding radius, shape+8 via the shape instance at obj+0x34. Every hit test's coarse reject uses it, as does the LOD selector FUN_004033e4. shape+8 is the third of the three int16 head fields ClassItemTree_ReadBaseHeader reads -- BasesDgsTransformer previously called it an id.",
+      "description": "SimObject vtable +0x10: the current LOD shape's bounding radius, shape+8 via the shape instance at obj+0x34. Every hit test's coarse reject uses it, as does the LOD selector FUN_004033e4. shape+8 is the third of the three int16 head fields ClassItemTree_ReadBaseHeader reads -- a radius, not an id.",
       "source": "docs/simulation/hit-detection.md 2026-08-27"
     },
     {
@@ -12228,7 +12228,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Collision_ClusterBoundTest",
-      "description": "Tests one cluster's load-time bounding sphere against the ray: centre into muzzle space, unsigned compare of Y against radius plus the working ray length (DAT_004a9894), and FastMagnitude2D of X/Z under radius plus the ray clearance (DAT_004a9898). The cheap gate before Collision_ClusterSphereTest.",
+      "description": "Tests one cluster's load-time bounding sphere against the ray: centre into muzzle space, unsigned compare of Y against radius plus the working ray length (DAT_004a9894), and Math_FastMagnitude2D of X/Z under radius plus the ray clearance (DAT_004a9898). The cheap gate before Collision_ClusterSphereTest.",
       "source": "docs/simulation/hit-detection.md 2026-08-27"
     },
     {
@@ -12291,7 +12291,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_DirectFireHitTest",
-      "description": "Flyer vtable +0x20. Coarse reject on SimObject_GetShapeRadius (shape+8), then Mech_SelectStruckComponent against the type's col/<NAME>.COL model (flyerTypeRec+0x32) with the per-component alive flags at obj+0x208. Damage through vtable +0x74; spawns from ImpactFXArmor, or a fixed effect id 10 once the flyer is destroyed. No shields and no collision volume -- the simplest of the three hit tests. Ported.",
+      "description": "Flyer vtable +0x20. Coarse reject on SimObject_GetShapeRadius (shape+8), then Mech_SelectStruckComponent against the type's col/<NAME>.COL model (flyerTypeRec+0x32) with the per-component alive flags at obj+0x208. Damage through vtable +0x74; spawns the shot's armour impact effect, or a fixed effect id 10 once the flyer is destroyed. No shields and no collision volume -- the simplest of the three hit tests.",
       "source": "docs/simulation/hit-detection.md 2026-08-28"
     },
     {
@@ -12552,7 +12552,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_GetAimNodeTransform",
-      "description": "Mech vtable +0x24: resolves the type record's +0x0c (.DAT file offset 10, CameraBoneId -- the node the cockpit eye rides) through the shape's part lookup (shape vtable +0x20) and returns that node's 0x20-byte transform record at shapeInstance+0x16 + index*0x20, or the zeroed DAT_006c572c when the shape has no such part. Callers take its +0x14 translation as the point to aim at and its +0x1c as a sight height. This is what makes both guidance routines and the HUD target indicator aim at a HERC's cockpit rather than the ground point its model origin sits on.",
+      "description": "Mech vtable +0x24: resolves the type record's +0x0c (.DAT file offset 10, the camera node's shape part id -- the node the cockpit eye rides) through the shape's part lookup (shape vtable +0x20) and returns that node's 0x20-byte transform record at shapeInstance+0x16 + index*0x20, or the zeroed DAT_006c572c when the shape has no such part. Callers take its +0x14 translation as the point to aim at and its +0x1c as a sight height. This is what makes both guidance routines and the HUD target indicator aim at a HERC's cockpit rather than the ground point its model origin sits on.",
       "source": "docs/simulation/target-selection.md 2026-08-29"
     },
     {
@@ -12579,7 +12579,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Gunsight_ReticlePaint",
-      "description": "Gunsight child 4's paint: blits one HUD-bank reticle frame centred on the .GAU reticle point (offset 1136). Frame 0 with no target, with the selection behind the near plane, or with its aim point projecting further than 5<<CoordShift from the reticle on either axis; frame 2 inside that tolerance; frame 1 when the armed missile mount also has lock (state block +0x39 = mech+0x9b).",
+      "description": "Gunsight child 4's paint: blits one HUD-bank reticle frame centred on the .GAU reticle point (offset 1136). Frame 0 with no target, with the selection behind the near plane, or with its aim point projecting further than 5 << (the video-mode coordinate shift) from the reticle on either axis; frame 2 inside that tolerance; frame 1 when the armed missile mount also has lock (state block +0x39 = mech+0x9b).",
       "source": "docs/formats/hud-target-indicator.md 2026-08-30"
     },
     {
@@ -13250,7 +13250,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sound_IsCategoryEnabled",
-      "description": "Splits the catalog at id 10: below 10 answers to the music enable flag (0049f90c), 10 and up to the effects flag (0049f910). This is why every data-driven table plays SoundId + 10.",
+      "description": "Splits the catalog at id 10: below 10 answers to the music enable flag (0049f90c), 10 and up to the effects flag (0049f910). This is why every data-driven table plays its sound id + 10.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -14223,7 +14223,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSDetailPart_Render",
-      "description": "Detail-level selection. size = (radius << DAT_006c60ac) / max(FastMagnitude3D(viewOffset) - radius, 1); t = Q10Multiply(DAT_004a1034, size); i starts at the STRUCTURE DETAIL bias DAT_004a1038 and advances while details[i] < t; renders parts[min(i - bias, count-1)]. Thresholds are ascending and index-aligned with Parts, so part 0 is the coarsest and the last is the finest; bias 0 is MAXIMUM.",
+      "description": "Detail-level selection. size = (radius << DAT_006c60ac) / max(Math_FastMagnitude3D(viewOffset) - radius, 1); t = Math_Q10Multiply(DAT_004a1034, size); i starts at the STRUCTURE DETAIL bias DAT_004a1038 and advances while details[i] < t; renders parts[min(i - bias, count-1)]. Thresholds are ascending and index-aligned with Parts, so part 0 is the coarsest and the last is the finest; bias 0 is MAXIMUM.",
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
@@ -14250,7 +14250,7 @@
       "type": "function",
       "confidence": "high",
       "name": "FireEffect_Ctor",
-      "description": "Builds one burning-object effect on a FIRE.DTS shape index: owner at +0x4a, attach cluster id at +0x4e (negative uses the raw local point, 0xffff is the structures' 'no cluster'), attach point at +0x50, frame timer +0x57 = 0x40, and the loop count at +0x59 (30, or 5 in theater 4, the Moon -- ScriptDatHeader is the script.dat theater index). On the Moon only shapes 1 and 3 are built; the others go straight back on the free list. The first live instance starts sound 0x33 and FireEffect_Dtor stops it on the last, counted by DAT_006b4fbc. Two spawn sites: Component_DestroyAndCascade, whose DestructionFlags bit 1 releases the machine's other fires and lights shape 0 in their place while bit 3 adds shape 2, and Base_DeathSequenceTick's last stage.",
+      "description": "Builds one burning-object effect on a FIRE.DTS shape index: owner at +0x4a, attach cluster id at +0x4e (negative uses the raw local point, 0xffff is the structures' 'no cluster'), attach point at +0x50, frame timer +0x57 = 0x40, and the loop count at +0x59 (30, or 5 in theater 4, the Moon, the script.dat header's theater index). On the Moon only shapes 1 and 3 are built; the others go straight back on the free list. The first live instance starts sound 0x33 and FireEffect_Dtor stops it on the last, counted by DAT_006b4fbc. Two spawn sites: Component_DestroyAndCascade, whose .DMG destruction flags' bit 1 releases the machine's other fires and lights shape 0 in their place while bit 3 adds shape 2, and Base_DeathSequenceTick's last stage.",
       "source": "docs/simulation/destruction-effects.md"
     },
     {
@@ -14331,7 +14331,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_SpliceHardpointShapes",
-      "description": "Walks a root's hardpoint slot list against the machine's mount array and overwrites each slot: the mount's weapon shape when one is fitted, else the next 0x18-byte blank from typeRec+0xec. The replacement inherits the placeholder's TSBasePart.Transform (+4) and IdNumber (+6). This is why a machine's own .DTS placeholder geometry is never drawn, fitted or not.",
+      "description": "Walks a root's hardpoint slot list against the machine's mount array and overwrites each slot: the mount's weapon shape when one is fitted, else the next 0x18-byte blank from typeRec+0xec. The replacement inherits the placeholder's TSBasePart transform (+4) and id number (+6). This is why a machine's own .DTS placeholder geometry is never drawn, fitted or not.",
       "signature": "void __cdecl Mech_SpliceHardpointShapes(void *slotList, void *mountArray, int blankRecords)",
       "source": "docs/formats/mech-shape-drawing.md"
     },
@@ -14341,7 +14341,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MechType_BindHardpointSlots",
-      "description": "Builds one root's hardpoint slot list: for each hardpoint bone id, resolves the shape's vtable +0x24 to the ADDRESS of the part slot holding the part whose TSBasePart.IdNumber is that id, storing null for the -1 the invisible mounting emits. Writes a {void **slots; short count} pair, which MechType_InitOne keeps per LOD root at typeRec+0xe6 with the count at +0xea.",
+      "description": "Builds one root's hardpoint slot list: for each hardpoint bone id, resolves the shape's vtable +0x24 to the ADDRESS of the part slot holding the part whose TSBasePart id number (+6) is that id, storing null for the -1 the invisible mounting emits. Writes a {void **slots; short count} pair, which MechType_InitOne keeps per LOD root at typeRec+0xe6 with the count at +0xea.",
       "signature": "void __cdecl MechType_BindHardpointSlots(void *slotList, void *shapeRoot, short hardpointCount, short *boneIds)",
       "source": "docs/formats/mech-shape-drawing.md"
     },
@@ -14351,7 +14351,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GunLayout_CollectHardpointBones",
-      "description": "Walks a .GL hardpoint list (26-byte records) and writes one short per hardpoint: the record's BoneId when its mounting code at +6 is under 4, else -1. Returns the hardpoint count. The -1 is what keeps the invisible mounting out of the hardpoint splice, which matters because that bone carries real body geometry.",
+      "description": "Walks a .GL hardpoint list (26-byte records) and writes one short per hardpoint: the record's bone id when its mounting code at +6 is under 4, else -1. Returns the hardpoint count. The -1 is what keeps the invisible mounting out of the hardpoint splice, which matters because that bone carries real body geometry.",
       "signature": "short __cdecl GunLayout_CollectHardpointBones(void *gunLayout, short *boneIdsOut)",
       "source": "docs/formats/mech-shape-drawing.md"
     },
@@ -14499,7 +14499,7 @@
       "type": "function",
       "confidence": "high",
       "name": "EffectLight_Construct",
-      "description": "Attaches an effect light: claims a manager slot at the world point, stores the index at handle+0x0c, and sets the slot intensity to the EXPLOS.DAT row's FrameIntensity[0]. Called only by Explosion_Construct, gated on the row's LightMode being nonzero.",
+      "description": "Attaches an effect light: claims a manager slot at the world point, stores the index at handle+0x0c, and sets the slot intensity to the EXPLOS.DAT row's frame intensity [0]. Called only by Explosion_Construct, gated on the row's light mode being nonzero.",
       "source": "docs/formats/effect-lights.md"
     },
     {
@@ -14517,7 +14517,7 @@
       "type": "function",
       "confidence": "high",
       "name": "EffectLight_SetIntensity",
-      "description": "Sets the handle's slot intensity. Explosion_TickUpdate calls it with FrameIntensity[frame] & 0xff on each flipbook step.",
+      "description": "Sets the handle's slot intensity. Explosion_TickUpdate calls it with the row's frame intensity [frame] & 0xff on each flipbook step.",
       "source": "docs/formats/effect-lights.md"
     },
     {
@@ -14908,7 +14908,7 @@
       "confidence": "high",
       "name": "FlightModel_Step",
       "signature": "void __cdecl FlightModel_Step(int *input, int *state, short *flightModel, int *wingDestroyed, int unused)",
-      "description": "The flight model. Settles, in order: the throttle setting at state+0x1e, the airspeed it demands (throttle interpolated across AirSpeedMin..AirSpeedMax, biased by pitch attitude at Q10 250 nose-down against 62 nose-up), sideslip drag, the three angular rates, the new attitude, and the velocity vector in that attitude. It moves nothing -- it produces the world velocity Razor_MovementTick integrates. Turning is bank-driven: the heading rate is -roll >> fm[30] and is applied on top of the integrated attitude. Attitude is integrated as a rotation MATRIX from the mean of this tick's rates and last tick's, with the eulers read back out, so a vertical climb does not gimbal. The fifth argument, a literal 1 at the one call site, is never read.",
+      "description": "The flight model. Settles, in order: the throttle setting at state+0x1e, the airspeed it demands (throttle interpolated across the type's minimum..maximum airspeed, biased by pitch attitude at Q10 250 nose-down against 62 nose-up), sideslip drag, the three angular rates, the new attitude, and the velocity vector in that attitude. It moves nothing -- it produces the world velocity Razor_MovementTick integrates. Turning is bank-driven: the heading rate is -roll >> fm[30] and is applied on top of the integrated attitude. Attitude is integrated as a rotation MATRIX from the mean of this tick's rates and last tick's, with the eulers read back out, so a vertical climb does not gimbal. The fifth argument, a literal 1 at the one call site, is never read.",
       "source": "docs/simulation/razor-flight.md"
     },
     {
@@ -15052,7 +15052,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_GetBodyRadius",
-      "description": "Mech vtable +0x5c: returns typeRec+0x70 (HercSimDat offset 110, BodyRadius), which every retail HERC states as 750. Mech_GetCollisionRadius at 0041552c (vtable +0x7c) is a byte-identical second copy of this function, so a machine's body and collision radii are the same field. Distinct from typeRec+0x1a, the generous shot radius the direct-fire hit test rejects against, and from shape+8, the drawn model's bound.",
+      "description": "Mech vtable +0x5c: returns typeRec+0x70 (.DAT offset 110, the body radius), which every retail HERC states as 750. Mech_GetCollisionRadius at 0041552c (vtable +0x7c) is a byte-identical second copy of this function, so a machine's body and collision radii are the same field. Distinct from typeRec+0x1a, the generous shot radius the direct-fire hit test rejects against, and from shape+8, the drawn model's bound.",
       "source": "docs/simulation/hit-detection.md",
       "signature": "short __cdecl Mech_GetBodyRadius(MechObject *this)"
     },
@@ -15151,7 +15151,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Debris_Throw",
-      "description": "Places and launches one piece of a debris group. A piece stating either angle has its own yaw composed onto the spawn frame and the composed attitude read back as Euler angles, but only one stating OrientationYaw keeps it; the position is the spawn frame's own translation either way, the composed transform being a temporary. Then Debris_ThrowAtBearing, or Debris_ThrowRandomBearing when the piece states no throw yaw.",
+      "description": "Places and launches one piece of a debris group. A piece stating either angle has its own yaw composed onto the spawn frame and the composed attitude read back as Euler angles, but only one stating an orientation yaw keeps it; the position is the spawn frame's own translation either way, the composed transform being a temporary. Then Debris_ThrowAtBearing, or Debris_ThrowRandomBearing when the piece states no throw yaw.",
       "source": "docs/simulation/destruction-effects.md"
     },
     {
@@ -15210,7 +15210,7 @@
       "confidence": "high",
       "name": "Debris_Launch",
       "signature": "void __cdecl Debris_Launch(int *debris, int mass, short pitch, short yaw)",
-      "description": "Gives one piece its launch velocity and tumble. speed = (g_DebrisSpeedScale << 10) / mass; the pitch splits it into a horizontal part and a vertical one and the yaw spreads the horizontal onto X and Y, all Q14 against the cosine table. Adds the carrier velocity at DAT_004a96e4, which only Flyer_ComponentDamageWrite ever sets. The spin is Q10Multiply(-1700, rand & 0x3ff) - 800, so always negative: every piece tumbles the same way at 800-2500 BAM a second.",
+      "description": "Gives one piece its launch velocity and tumble. speed = (g_DebrisSpeedScale << 10) / mass; the pitch splits it into a horizontal part and a vertical one and the yaw spreads the horizontal onto X and Y, all Q14 against the cosine table. Adds the carrier velocity at DAT_004a96e4, which only Flyer_ComponentDamageWrite ever sets. The spin is Math_Q10Multiply(-1700, rand & 0x3ff) - 800, so always negative: every piece tumbles the same way at 800-2500 BAM a second.",
       "source": "docs/simulation/destruction-effects.md"
     },
     {
@@ -15238,7 +15238,7 @@
       "confidence": "high",
       "name": "Debris_TickUpdate",
       "signature": "short __cdecl Debris_TickUpdate(int *debris)",
-      "description": "Debris vtable +0x14. Spin into euler X and gravity (-0x20, or -10 in theater 4, the Moon) into the vertical speed; Q10Multiply(30, v) drag on the two horizontal axes only; then the move, by the AVERAGE of the speed before and after this tick and added UN-INTEGRATED, so a debris velocity is per-tick where a flyer's is per-second. Below terrain + Q10Multiply(500, shapeRadius) the piece snaps up and bounces at -Q10Multiply(450, vz), clearing its countdown; a rebound under 0x2d has stopped. A piece with a child group then bursts -- the countdown is ticked only while it is still flying, so ground contact bursts it either way -- spawning its death effect, re-installing the database at +0x5d and throwing the child group at a tightened window (3000, 8000, 320).",
+      "description": "Debris vtable +0x14. Spin into euler X and gravity (-0x20, or -10 in theater 4, the Moon) into the vertical speed; Math_Q10Multiply(30, v) drag on the two horizontal axes only; then the move, by the AVERAGE of the speed before and after this tick and added UN-INTEGRATED, so a debris velocity is per-tick where a flyer's is per-second. Below terrain + Math_Q10Multiply(500, shapeRadius) the piece snaps up and bounces at -Math_Q10Multiply(450, vz), clearing its countdown; a rebound under 0x2d has stopped. A piece with a child group then bursts -- the countdown is ticked only while it is still flying, so ground contact bursts it either way -- spawning its death effect, re-installing the database at +0x5d and throwing the child group at a tightened window (3000, 8000, 320).",
       "source": "docs/simulation/destruction-effects.md"
     },
     {
@@ -15928,7 +15928,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_AimAndFire",
-      "description": "The aim-and-fire tail every combat think ends on, and which travelling/following call against their look-at object -- so a walking machine shoots at what it watches without selecting it. Switches on the target's TargetClass (obj+0x1a8) to pick the aim point: class 0 goes to Ai_AimAndFireAtMech, class 1 to the structure's first live component (vtable +0x54 with a null second argument, then +0x58), anything else to the object's position plus its own aim offset (vtable +0x30). A null third argument means mech+0x1a4.",
+      "description": "The aim-and-fire tail every combat think ends on, and which travelling/following call against their look-at object -- so a walking machine shoots at what it watches without selecting it. Switches on the target's class (obj+0x1a8) to pick the aim point: class 0 goes to Ai_AimAndFireAtMech, class 1 to the structure's first live component (vtable +0x54 with a null second argument, then +0x58), anything else to the object's position plus its own aim offset (vtable +0x30). A null third argument means mech+0x1a4.",
       "source": "docs/simulation/ai-weapons.md"
     },
     {
@@ -15955,7 +15955,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_ChooseWeapon",
-      "description": "Scores every mount and returns the best above a floor mapped from mech+0x2aa (fear) through [0,0x400] -> [150,-100]; nothing above the floor means the machine aims and does not shoot. Score is Q10(100, damage credit) - Q10(1000, template+0x34) plus rand(35)*rand(35), where the credit is DamageArmor with no shield, DamageShield when the shield holds, and DamageArmor+10000 on the shot that breaks it. Gates launchers on manager+0x0a lock, turns the radar on for an in-range SARH launcher, and latches mech+0xa5 -- no weapons left -- when every mount is gone.",
+      "description": "Scores every mount and returns the best above a floor mapped from mech+0x2aa (fear) through [0,0x400] -> [150,-100]; nothing above the floor means the machine aims and does not shoot. Score is Q10(100, damage credit) - Q10(1000, template+0x34) plus rand(35)*rand(35), where the credit is the armor damage with no shield, the shield damage when the shield holds, and the armor damage + 10000 on the shot that breaks it. Gates launchers on manager+0x0a lock, turns the radar on for an in-range SARH launcher, and latches mech+0xa5 -- no weapons left -- when every mount is gone.",
       "source": "docs/simulation/ai-weapons.md"
     },
     {
@@ -16714,7 +16714,7 @@
       "confidence": "high",
       "name": "Mech_SpreadImpactDamage",
       "signature": "void __cdecl Mech_SpreadImpactDamage(MechObject *mech, short maxDamage, short odds)",
-      "description": "Spreads one impact over the whole machine instead of aiming it. Each of the 29 live components draws its own (rand & 0xff) < odds roll; a component that is caught takes Q8Multiply(rand(maxDamage) + maxDamage/2, Component_TotalArmor(i)) through vtable +0x74, so the share scales with what that component had to lose. maxDamage 0 returns immediately. Callers: the collapse landing in Mech_LocomotionTick (150, 120) and Mech_ApplyStartingCondition. Args derived from disassembly: [EBP+8] mech, [EBP+0xc] and [EBP+0x10] words, plain RET.",
+      "description": "Spreads one impact over the whole machine instead of aiming it. Each of the 29 live components draws its own (rand & 0xff) < odds roll; a component that is caught takes Math_Q8Multiply(rand(maxDamage) + maxDamage/2, Component_TotalArmor(i)) through vtable +0x74, so the share scales with what that component had to lose. maxDamage 0 returns immediately. Callers: the collapse landing in Mech_LocomotionTick (150, 120) and Mech_ApplyStartingCondition. Args derived from disassembly: [EBP+8] mech, [EBP+0xc] and [EBP+0x10] words, plain RET.",
       "source": "docs/simulation/component-damage.md"
     },
     {
@@ -16724,7 +16724,7 @@
       "confidence": "high",
       "name": "Component_TotalArmor",
       "signature": "int __cdecl Component_TotalArmor(ComponentDamageArrays *arrays, short componentIndex)",
-      "description": "Everything a component has to lose: its own armour plus the maximum of every internal mapped onto it, walking the piece's MappedInternals list. The denominator Component_ReadDamagePercent divides by, and the scale Mech_SpreadImpactDamage multiplies by. Args derived from disassembly: [EBP+8] pointer, [EBP+0xc] word.",
+      "description": "Everything a component has to lose: its own armour plus the maximum of every internal mapped onto it, walking the piece's mapped-internals list. The denominator Component_ReadDamagePercent divides by, and the scale Mech_SpreadImpactDamage multiplies by. Args derived from disassembly: [EBP+8] pointer, [EBP+0xc] word.",
       "source": "docs/simulation/component-damage.md"
     },
     {
@@ -16764,7 +16764,7 @@
       "confidence": "high",
       "name": "AnimSequence_NextFrame",
       "signature": "short __cdecl AnimSequence_NextFrame(void *sequence, short frame)",
-      "description": "Plain ANSequence vtable +0x20: frame >= frameCount-1 ? frame : frame+1, i.e. CLAMPS rather than wrapping. That clamp is the only way a one-shot's end is observable, because the end-of-sequence test everywhere is frame == nextFrame. Every retail chassis carries exactly one non-cyclic sequence and its AnimId_Death names it. Args derived from disassembly: [EBP+8] sequence, [EBP+0xc] frame.",
+      "description": "Plain ANSequence vtable +0x20: frame >= frameCount-1 ? frame : frame+1, i.e. CLAMPS rather than wrapping. That clamp is the only way a one-shot's end is observable, because the end-of-sequence test everywhere is frame == nextFrame. Every retail chassis carries exactly one non-cyclic sequence and its chassis record's death-animation id names it. Args derived from disassembly: [EBP+8] sequence, [EBP+0xc] frame.",
       "source": "docs/formats/dts-node-posing.md"
     },
     {
@@ -18326,7 +18326,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_GetSpeed",
-      "description": "Flyer vtable +0x38: Q10(1000, flyer+0x233), where +0x233 is the type record's +0x04 SpeedForward copied in by Flyer_Constructor and never written again. A chassis constant, not anything the aircraft is doing.",
+      "description": "Flyer vtable +0x38: Q10(1000, flyer+0x233), where +0x233 is the type record's +0x04 forward speed, copied in by Flyer_Constructor and never written again. A chassis constant, not anything the aircraft is doing.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
       "signature": "short __cdecl Flyer_GetSpeed(FlyerObject *flyer)"
     },
@@ -18381,7 +18381,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_PitchToAltitude",
-      "description": "Elevator command that flies the aircraft to a world Z: Atan2Guarded(targetZ - flyer.z, 10000) into Flyer_PitchCommand. The 10000 is a fixed horizontal run, so the demanded angle depends on the height error alone. Its other arm, gated on flyer+0xae and reading flyer+0x23c, belongs to the walking machine's obstacle avoidance and leg placement and cannot fire on a flyer: nothing on any flyer path writes either field.",
+      "description": "Elevator command that flies the aircraft to a world Z: Math_Atan2Guarded(targetZ - flyer.z, 10000) into Flyer_PitchCommand. The 10000 is a fixed horizontal run, so the demanded angle depends on the height error alone. Its other arm, gated on flyer+0xae and reading flyer+0x23c, belongs to the walking machine's obstacle avoidance and leg placement and cannot fire on a flyer: nothing on any flyer path writes either field.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -18417,7 +18417,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_SteerAndFly",
-      "description": "The flyer's steering channel and the function every think ends in. Builds a 16-bit bank command from Q16(-turn,2500) + Q16(bankTurnRate at flyer+0x287, 32000) + Q16(rollRate,-5000); holds the aircraft at +/-(typeRecord+0x0e MaxBankAngle) with a 1500 hysteresis band when the bank would take it further over; answers a steering command under 2000 with rudder (Q16(-turn,4000)) and level wings instead of a bank, and only if the roll is already under 800. Fills the command array's fifth element with the terrain height under the aircraft, which is FlightModel_Step's ceiling reference. Its leader term reads leader+0x1f8, a field written nowhere in the image.",
+      "description": "The flyer's steering channel and the function every think ends in. Builds a 16-bit bank command from Q16(-turn,2500) + Q16(bankTurnRate at flyer+0x287, 32000) + Q16(rollRate,-5000); holds the aircraft at +/-(typeRecord+0x0e, the maximum bank angle) with a 1500 hysteresis band when the bank would take it further over; answers a steering command under 2000 with rudder (Q16(-turn,4000)) and level wings instead of a bank, and only if the roll is already under 800. Fills the command array's fifth element with the terrain height under the aircraft, which is FlightModel_Step's ceiling reference. Its leader term reads leader+0x1f8, a field written nowhere in the image.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -19895,7 +19895,7 @@
       "type": "data",
       "confidence": "high",
       "name": "ImpactPaletteObject",
-      "description": "The theater's impact palette, loaded by World_LoadTheater (0042e010) from the third trailing string of wld/WORLD<n>.WLD -- IMPACT0.DPL through IMPACT9.DPL, which the port already parses as TheaterDescriptor.ImpactPaletteName. Its only readers are the three Palette_*Impact functions that flash it during the cockpit damage shake.",
+      "description": "The theater's impact palette, loaded by World_LoadTheater (0042e010) from the third trailing string of wld/WORLD<n>.WLD -- IMPACT0.DPL through IMPACT9.DPL. Its only readers are the three Palette_*Impact functions that flash it during the cockpit damage shake.",
       "source": "docs/simulation/mech-locomotion.md"
     },
     {
@@ -20084,7 +20084,7 @@
       "type": "data",
       "confidence": "high",
       "name": "ShellOption_RepairMode",
-      "description": "prefs.cfg option 44. The PREFERENCES screen row Repair Options, three ways -- 0 AutoRepair All Hercs, 1 Manually Repair My Herc, 2 Manually Repair All Hercs (estext.bin 0x113-0x115). Repair_Enter also prints it as the repair screen's mode readout, but branches only on 0 and 1.",
+      "description": "prefs.cfg option 44. The PREFERENCES screen row Repair Options, three ways -- 0 'AutoRepair All Hercs', 1 'Manually Repair My Herc', 2 'Manually Repair All Hercs' (estext.bin 0x113-0x115). Repair_Enter also prints it as the repair screen's mode readout, but branches only on 0 and 1.",
       "source": "docs/simulation/preferences.md"
     },
     {
@@ -20138,7 +20138,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TargetingPod_ResetComponentLock",
-      "description": "Targeting Pod (mech+0x30b): the selection changed, so restart the component rotation. Sets the cursor pod+0x7d to 0 when the new target exists and its TargetClass (obj+0x1a8) is 0, and to -1 otherwise -- which is what fences component targeting, and with it the target's vtable +0x58/+0x80/+0x84, off everything that is not a HERC. Called once per selection change by Player_PerFrameCockpitUpdate, which is the only writer of the player's mech+0x1a4.",
+      "description": "Targeting Pod (mech+0x30b): the selection changed, so restart the component rotation. Sets the cursor pod+0x7d to 0 when the new target exists and its target class (obj+0x1a8) is 0, and to -1 otherwise -- which is what fences component targeting, and with it the target's vtable +0x58/+0x80/+0x84, off everything that is not a HERC. Called once per selection change by Player_PerFrameCockpitUpdate, which is the only writer of the player's mech+0x1a4.",
       "source": "docs/simulation/target-selection.md",
       "signature": "void __cdecl TargetingPod_ResetComponentLock(void *pod, void *target)"
     },
@@ -20416,7 +20416,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_NextTargetableComponent",
-      "description": "Structure vtables +0x80, the structure's Mech_NextTargetableComponent: the same walk over its type's whole component list (count at type+0x12, occupancy at structure+0x201) with the component id equal to the cursor. Not reached in retail -- a targeting pod's lock is set to -1 for every target whose TargetClass is not 0, the same fence damage-system.md records for vtable +0x58.",
+      "description": "Structure vtables +0x80, the structure's Mech_NextTargetableComponent: the same walk over its type's whole component list (count at type+0x12, occupancy at structure+0x201) with the component id equal to the cursor. Not reached in retail -- a targeting pod's lock is set to -1 for every target whose target class (obj+0x1a8) is not 0, the same fence damage-system.md records for vtable +0x58.",
       "source": "docs/simulation/target-selection.md",
       "signature": "void __cdecl Base_NextTargetableComponent(StructureObject *structure, int cursor, int *outComponentId)"
     },
@@ -20946,7 +20946,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShapeInst_Construct",
-      "description": "TSShapeInstance constructor. Reads the node count from shape->animList+0x16 into shapeInst+0xc, then allocates the three per-node arrays ONCE: dirty flags at +0xe, local transforms at +0x12 (stride 0xc) and world transforms at +0x16 (stride 0x20). Seeds the locals from the anim list's DefaultTransforms and calls ShapeInst_BuildWorldTransforms. Nothing reallocates these, so an instance stays sized and numbered by the shape it was built with -- root 0 for a machine -- whatever root Shape_DrawAtDetailLevel later swaps in.",
+      "description": "TSShapeInstance constructor. Reads the node count from shape->animList+0x16 into shapeInst+0xc, then allocates the three per-node arrays ONCE: dirty flags at +0xe, local transforms at +0x12 (stride 0xc) and world transforms at +0x16 (stride 0x20). Seeds the locals from the anim list's default transforms and calls ShapeInst_BuildWorldTransforms. Nothing reallocates these, so an instance stays sized and numbered by the shape it was built with -- root 0 for a machine -- whatever root Shape_DrawAtDetailLevel later swaps in.",
       "source": "docs/formats/mech-shape-drawing.md"
     },
     {
@@ -22542,7 +22542,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_ClickRow",
-      "description": "A row's left release. On a row other than the lit one, or with weapons built automatically: recolours the old row 0x27 and hides its picture, lights the new one 0x29, shows its picture and fills the five wpn_info.bin lines from Arming_RowOfWeapon(id) * 5, and stores the row. On the lit row with weapons built by hand: with a queue slot free and QueuedTotal + price < CareerSalvage, Armory_Enqueue and the row's queued count and the readout refreshed.",
+      "description": "A row's left release. On a row other than the lit one, or with weapons built automatically: recolours the old row 0x27 and hides its picture, lights the new one 0x29, shows its picture and fills the five wpn_info.bin lines from Arming_RowOfWeapon(id) * 5, and stores the row. On the lit row with weapons built by hand: with a queue slot free and the queued total + price < the career salvage, Armory_Enqueue and the row's queued count and the readout refreshed.",
       "source": "docs/shell/screen-layout.md#the-armory-screen"
     },
     {

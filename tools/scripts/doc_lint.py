@@ -230,6 +230,10 @@ CSHARP_PUBLIC_MEMBER = re.compile(
 CODE_SPAN = re.compile(r"`([^`\n]+)`")
 DOTTED_IDENT = re.compile(r"(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:\(\))?")
 JSON_DESCRIPTION = re.compile(r'"description"\s*:\s*"((?:[^"\\]|\\.)*)"')
+# A quoted span in a description is literal retail text ('hddclip', 'AutoRepair All Hercs'), which
+# csharp-name does not read. A single quote opens a span only with no letter before it, so a
+# possessive ("row's") never does.
+JSON_QUOTED = re.compile(r"(?<!\w)'[^']*'(?!\w)|\\\"(?:(?!\\\").)*\\\"")
 # engine-mention without "the engine", which in a plate comment means DBSIM's own 3D engine.
 JSON_ENGINE_MENTION = re.compile(r"\b(?:HERCULAN|Herculan(?:\.\w+)+|this\s+engine|ported\s+as)", re.IGNORECASE)
 # One English word (`Height`, `Data`, `Mech`) is as likely prose or a retail keyword as a C# name;
@@ -379,8 +383,9 @@ def lint_json(lines: list[str]) -> list[tuple[int, str, str, str, str]]:
         engine = JSON_ENGINE_MENTION.search(text)
         if engine:
             hits.append((n, "engine-mention", "warn", engine.group(0).strip(), ENGINE_RULES[1][2]))
+        unquoted = JSON_QUOTED.sub(" ", text)
         named = next(filter(None, (csharp_mention(t.group(0))
-                                   for t in re.finditer(r"(?<![\w.])" + DOTTED_IDENT.pattern, text))), None)
+                                   for t in re.finditer(r"(?<![\w.])" + DOTTED_IDENT.pattern, unquoted))), None)
         if named:
             hits.append((n, "csharp-name", "warn", named, CSHARP_WHY))
     return hits

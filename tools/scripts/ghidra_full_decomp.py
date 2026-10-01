@@ -17,6 +17,7 @@ Usage:
     python tools/scripts/ghidra_full_decomp.py              # dump both binaries (decomp, vtables, structs), then count
     python tools/scripts/ghidra_full_decomp.py --no-dump    # count from the existing DBSIM dump
     python tools/scripts/ghidra_full_decomp.py --binary DBSIM
+    python tools/scripts/ghidra_full_decomp.py --binary DBSIM --dump decomp --dump vtables
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ OUT_DIR = os.path.join(REPO_ROOT, "tools", "analysis_out")
 KNOWN_SYMBOLS = os.path.join(SCRIPTS, "known_symbols.json")
 
 BINARIES = ["DBSIM", "VSHELL"]
+DUMPS = ["decomp", "vtables", "structs"]
 TIMEOUT_SECONDS = 60  # per function, passed through to ES2DumpFullDecomp
 
 # The banner ES2DumpFullDecomp writes above each function: "   NAME @ ADDR  [thunk]".
@@ -126,17 +128,23 @@ def main() -> int:
     parser.add_argument("--no-dump", action="store_true", help="skip Ghidra; count from the existing dump")
     parser.add_argument("--binary", choices=BINARIES, action="append",
                         help="dump only this binary (repeatable; default both)")
+    parser.add_argument("--dump", choices=DUMPS, action="append",
+                        help="regenerate only this dump (repeatable; default all three)")
     args = parser.parse_args()
 
     ok = True
     if not args.no_dump:
+        dumps = args.dump or DUMPS
         for binary in args.binary or BINARIES:
-            ok = run_dump(binary, "ES2DumpFullDecomp", dump_path(binary), [str(TIMEOUT_SECONDS)],
-                          "decompiling (several minutes)") and ok
-            ok = run_dump(binary, "ES2DumpAllVtables", vtables_path(binary), [],
-                          "dumping vtables") and ok
-            ok = run_dump(binary, "ES2DumpStructs", structs_path(binary), [],
-                          "dumping structs") and ok
+            if "decomp" in dumps:
+                ok = run_dump(binary, "ES2DumpFullDecomp", dump_path(binary), [str(TIMEOUT_SECONDS)],
+                              "decompiling (several minutes)") and ok
+            if "vtables" in dumps:
+                ok = run_dump(binary, "ES2DumpAllVtables", vtables_path(binary), [],
+                              "dumping vtables") and ok
+            if "structs" in dumps:
+                ok = run_dump(binary, "ES2DumpStructs", structs_path(binary), [],
+                              "dumping structs") and ok
     report_names("DBSIM")
     report_names("VSHELL")
     return 0 if ok else 1

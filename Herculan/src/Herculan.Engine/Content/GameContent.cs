@@ -6,7 +6,8 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// The engine's resource layer: mounts a set of the game's own <c>.VOL</c> archives and resolves
 /// <c>folder\name</c> lookups against them, which is how DBSIM addresses everything it loads
-/// (<c>dat\zone504</c>, <c>dba\zone504.dba</c>, <c>dts\samson.dts</c>, ...).
+/// (<c>dat\zone504</c>, <c>dba\zone504.dba</c>, <c>dts\samson.dts</c>, ...). DBSIM builds each such
+/// path with <c>ResourcePath_BuildFolderName</c> (<c>00492ae0</c>).
 ///
 /// Mount order follows the VOL header's own load-precedence byte (<c>VolOrderNum</c>: 0x05 for
 /// "first loaded", 0x0A for "load second", e.g. SIMPATCH.VOL) — archives are mounted in ascending
@@ -15,8 +16,7 @@ namespace Herculan.Engine.Content;
 ///
 /// Parsing is delegated wholesale to <see cref="VolFileReader"/> in HercWorks.Vol; this type adds
 /// only the index and the load-order rule. Per docs/engine/planning.md's repo-structure decision
-/// the engine talks to HercWorks.Core/HercWorks.Vol directly and never through
-/// HercWorks.TransferApi, which is UI-only plumbing.
+/// the engine talks to HercWorks.Core/HercWorks.Vol directly.
 /// </summary>
 public sealed class GameContent {
 	/// <summary>

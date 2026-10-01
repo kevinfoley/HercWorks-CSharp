@@ -63,6 +63,8 @@ public sealed class ShapeInstance {
 
 	/// <summary>
 	/// One node's pose in shape space: its own local transform composed up its parent chain.
+	/// The original composes every node into its world slot through
+	/// <c>ShapeInst_ComposeChildTransform</c> (<c>00478ab8</c>); this composes one node per request.
 	///
 	/// <para>Identity for an unknown id, so a shape with no such node puts whatever rides it at the
 	/// machine's own origin rather than somewhere invented.</para>

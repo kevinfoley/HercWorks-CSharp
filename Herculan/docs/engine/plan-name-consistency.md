@@ -42,7 +42,7 @@ Renames themselves were the other cost: `RefRow6` meant a spawn point on one typ
 - **C# names** are every type declared under `Herculan/src/HercWorks.Core` and `Herculan/src/Herculan.Engine`, plus every `public` property, field and method there, read by regex.
 - **Retail names** are exempt: every `name` in the three `known_*.json` files, the class prefix of each (`Text` from `Text_Ctor`), and every identifier in `ES2/DBSIM.EXE` and `ES2/VSHELL.EXE`. The binaries supply the 3Space class names (`TSPoly`, `ANAnimList`) the DTS model reuses; they are gitignored, so a checkout without `ES2/` reports those few as well.
 - **Single words pass.** Only a compound — two words run together, or a word and a digit (`SplashFactor`, `Unknown3`) — is flagged; `Height` or `Data` is as likely prose or a retail keyword. A `Type.Member` token is flagged on its type alone. File names (`MECHS.NAM`) and fixed-point notation (`Q10`) pass.
-- In a doc the check reads backticked tokens; in a JSON description, which has no backticks, every identifier. The JSON pass also runs `engine-mention` without "the engine", which in a plate comment means DBSIM's own 3D engine.
+- In a doc the check reads backticked tokens; in a JSON description, which has no backticks, every identifier outside a quoted span — a quoted span there is literal retail text, such as a menu string (`'AutoRepair All Hercs'`) the EXEs do not carry. The JSON pass also runs `engine-mention` without "the engine", which in a plate comment means DBSIM's own 3D engine.
 - Findings sit in the `--engine` listing, so a full run counts them per file and the edit hook reports only the lines an edit wrote. The hook also fires on edits to the `known_*.json` files.
 
 With this in place a doc describes a field ("the paints-ground flag, `0x06`") and only code carries its name, so a C# rename never touches a doc.
@@ -80,13 +80,12 @@ Stages 1 and 2 are the cheapest and would have prevented most of the drift the c
 
 ## Verification
 
-- Stage 1: a planted `` `MechRosterEntry144.TypeIndex` `` or `` `MissionFileTransformer` `` in a format doc is reported by the edit hook; a planted `` `Text_Ctor` ``, `` `Button` ``, `` `MECHS.NAM` `` or `` `Q10` `` is not. Zero findings over the whole set waits on the cleanup in [Open](#open).
+- Stage 1: a planted `` `MechRosterEntry144.TypeIndex` `` or `` `MissionFileTransformer` `` in a format doc is reported by the edit hook; a planted `` `Text_Ctor` ``, `` `Button` ``, `` `MECHS.NAM` `` or `` `Q10` `` is not. A full `--engine` run lists no findings; a quoted `'AutoRepair All Hercs'` in a JSON description passes and an unquoted `ShellHangar.AutoRepair` does not.
 - Stage 2: renaming a row property without touching the designer fails the Windows build.
 - Stage 4: the offset test passes, and moving a property in a model without updating its constant fails it.
 - Stage 5: renaming `MissionGroup164.MemberKind` and back leaves `git diff` empty.
 
 ## Open
 
-- **Open:** the `description` strings in `known_symbols.json`, `known_structs.json` and `known_vtables.json` still name the C# types and members `csharp-name` reports, and still trip `engine-mention` (`python tools/scripts/doc_lint.py --engine` lists both). Each is rewritten as a description of the field. Some name C# members since renamed (`MissileId`, `CameraBoneId`, `ModelSkinId`), which the linter no longer flags, so search for those by name too. They become Ghidra plate comments, so the pass ends with `ES2ApplySymbolNames` / `ES2ApplyStructures` re-run. The retail docs under `Herculan/docs` are clear.
 - **Open:** whether the Windows Forms designer preserves `nameof` in `InitializeComponent` on regeneration, which decides where Stage 2's assignments go.
 - **Open:** whether `MSBuildWorkspace` loads `HerculanEngine.sln` on Linux without the WindowsDesktop SDK, given the solution does not include `HercWorks.UI`.

@@ -74,7 +74,8 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x2c` | flyer type → index into `nam\FLYERS.NAM` |
 | 9 (bases) | 52B | `0x00` | base type → index into `dat\BASES.DAT`'s 65-entry table |
 | | | `0x2e` / `0x30` | refs → block 5, the structure's own engaged/defeated actions |
-| | | `0x06` / `0x1a` | mission-counter refs and operations, as block 7's `0x42` / `0x56` |
+| | | `0x06` / `0x1a` | mission-counter refs and operations, as block 7's `0x42` / `0x56` — `SimObject_SetOutOfActionCounters` (`00411b90`), run by `Base_ApplyDamage` when the structure goes out of the fight |
+| | | `0x32` | **starting condition, per cent** — read by `Base_Construct` (`00405314`); [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md) |
 | | | `0x02` | ref → block 1 (position) |
 | | | `0x04` | ref → block 2 (heading) |
 | 11 (groups) | 156B | `0x28` | discriminator: 0/1/2 → block 7/8/9 |
@@ -188,7 +189,7 @@ The "DBSIM keeps" column below describes **pass 1 only** — see the two-pass se
 | 6 | #11 timers | count + count×24B (`0x06` ref into row10, `0x08` delay, `0x0A`-`0x1D` 10-slot ref array into row10) | yes | full, resolved via `DBSim_BuildActionTimerRecord` (`00423104`) — **a mission timer**, see below | **skipped** (seek past, discarded) |
 | 7 | #12 mech roster | count + count×134B (`0x08`-`0x2F` 40B span, `0x30` mech type, `0x32`-`0x45` weapon fit, `0x46`/`0x48` 2 shorts, two 20-short interleaved spans, `0x74`-`0x87` 20B span, 4 trailing shorts; the pair count at `0x4A` is the one field of row #12 skipped/not exported) | yes | reads all 134B but keeps **only the mech type (`0x30`)** — confirmed via the writer's own assert string on this field ("Invalid mech type"). Pass 2 comes back for the rest | **full 134B kept**; the map places a squad member only when its block-7 index is below this block's count |
 | 8 | #13 flyer roster | count + count×92B (`0x08`-`0x33` flag span + refs, `0x34` flyer type, `0x38`-`0x5F` out-of-action pairs, `0x60`-`0x64` action refs + a constant `100`; the pair count at `0x36` is skipped/not exported) | yes | reads all 92B but keeps only **the flyer type (`0x34`)**. Pass 2 comes back for the rest | **skipped** (seek past, discarded) |
-| 9 | #14 base roster | count + count×52B (`0x08` base type, `0x0A`/`0x0C` refs, `0x10`-`0x37` out-of-action pairs as two interleaved spans, `0x38`-`0x3D` action refs + a trailing field; the pair count at `0x0E` is not exported) | yes | reads all 52B but keeps only **the base type (`0x08`)** — an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
+| 9 | #14 base roster | count + count×52B (`0x08` base type, `0x0A`/`0x0C` refs, `0x10`-`0x37` out-of-action pairs as two interleaved spans, `0x38`/`0x3A` action refs + `0x3C` starting condition; the pair count at `0x0E` is not exported) | yes | reads all 52B but keeps only **the base type (`0x08`)** — an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept**, and in that copy each type-2 block-11 record writes its `0x9a` over its members' `0x1a` (operation 0) and its side `0x6e` over `0x1c` (operation 1) — [`../shell/mission-map.md`](../shell/mission-map.md#what-it-reads). The file is never rewritten, so DBSIM's pass 2 reads the record's own operations |
 | 10 | #15 orders | count + count×14B (`0x08`-`0x15`: verb, formation, point, route, subject kind and ref, action) | yes | pass 1 reads all 14B and discards it; **pass 2 resolves it** into a 22-byte **mission-group order** ([below](#block-10-in-memory--22-bytes-0x16)) — and a group's route and spawn point come from its slot-0 link's `0x08` | **full 14B kept** — the map takes its nav path, its squad's anchor and formation from record 0's first order |
 | 11 | #16 groups | count + count×156B (`0x06`-`0x77`, then the out-of-action pairs as two interleaved spans and `0xA2`; the pair count at `0x78` is not exported) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-squad placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept; every type-2 record moves the bases it names and sets whether the map shows them, and record 0 is the squad the map draws |
 | 12 | #17 objectives | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and discards it; **pass 2 comes back and builds the mission's objectives** from it — see below | **skipped** (seek past, discarded) |
@@ -266,7 +267,7 @@ Three independent real readers (`DBSim_LoadScriptDat`, `DBSim_SpawnMissionObject
 | 2 | zone index — passed to `Terrain_LoadZone` |
 | 4 | a mode flag (`DAT_004a9ed6`). The writer emits a literal 1 and the reader stores 0 over it before anything reads it, so the value on disk never reaches a consumer; what it gates is [the two cheat fields below](#the-training-fields) |
 | 6 | **mission objective type** (`DAT_004a9ed8`) — which arm of the player's think watches for progress, and whether the AI is kept off the data-link subject. See [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-player-thinks-objective-arms). All ten files in the retail install carry 0 |
-| 8 | **training mission number** (`ScriptDatTrainingMission`), 0 for anything that is not one — see [below](#the-training-mission-number). All ten files in the retail install carry 0 |
+| 8 | **training mission number** (`ScriptDatTrainingMission`), 0 for anything that is not one — see [below](#the-training-mission-number). Set by the `.MSN` header patch: `TRAIN1`-`TRAIN4` carry 1-4; `TRAIN5`-`TRAIN8` and every campaign mission leave it 0. All ten files in the retail install carry 0 |
 | 10 | **unlimited ammunition and energy** (`DAT_004a9edc`) when 1 |
 | 12 | **player invulnerable** (`DAT_004a9ede`) when 1 |
 | 14 | **mission difficulty**, 0-3 (`DAT_004a9ee0`) — see [`../simulation/difficulty.md`](../simulation/difficulty.md). All ten files in the retail install carry 2 |
@@ -277,11 +278,12 @@ The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZ
 
 ### The training mission number
 
-`DBSim_LoadScriptDat` only stores offset 8. Every reader takes the copy `TrainingMissionNumber` (`004aa7ac`) made at the end of the load (`00425321`), and three things test it:
+`DBSim_LoadScriptDat` only stores offset 8. Every reader takes the copy `TrainingMissionNumber` (`004aa7ac`) made at the end of the load (`00425321`), and four sites read it:
 
-- **No music.** `Sim_InitMissionSession` sets the CD track only when it is 0, so a training mission runs in silence — see [`audio.md`](audio.md#which-track-and-whether-there-is-one).
-- **A different pilot and squad port.** The cockpit builds a `0x4ef`-byte instance at `view+0x207` instead of the ordinary `0x4df`-byte one, raises its box by the `.GAU`'s offset-1664 value, and indexes `COMMAND<n>.STR` into it with this number as the digit.
-- **Its own voice clips.** The instructor speaks from the `TM<n>_` name template rather than the squad's `P<bank>_` one, with this number as the digit. Both are [`cockpit-messages.md`](cockpit-messages.md#the-training-port)'s.
+- **No music.** `Sim_InitMissionSession` (`00461c8f`) sets the CD track only when it is 0, so a training mission runs in silence — see [`audio.md`](audio.md#which-track-and-whether-there-is-one).
+- **A different pilot and squad port.** `Gau_BuildCockpitWidgets` (`00431cda`) builds the `0x4ef`-byte training port at `view+0x207` instead of the ordinary `0x4df`-byte one, and on that arm alone raises the port's `.GAU` rect by the herc's training lift — [`cockpit-messages.md`](cockpit-messages.md#the-training-port).
+- **Its instructor's script.** The same function (`00431dab`) indexes `COMMAND<n>.STR` into the port with this number as the digit whatever its value, so an ordinary mission loads `COMMAND0.STR`.
+- **Its own voice clips.** The training port's paint (`004368fb`): the instructor speaks from the `TM<n>_` name template rather than the squad's `P<bank>_` one, with this number as the digit. Both are [`cockpit-messages.md`](cockpit-messages.md#the-training-port)'s.
 
 ### The training fields
 
@@ -305,3 +307,4 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 ## Open
 
 - **Open:** whether mechs get any per-slot heading turn on formation attach, the way bases do — `MFORMS.DAT`'s 28-byte formations have no field for one, so the fallback shape `Mech_AttachToGroup` shares with `Base_AttachToGroup` may simply have nothing to read.
+- **Open:** which arm of the player's think objective type 2 selects. `TRAIN1`-`TRAIN4` patch header offset 6, the objective type, to 2, 3, 2 and 2.

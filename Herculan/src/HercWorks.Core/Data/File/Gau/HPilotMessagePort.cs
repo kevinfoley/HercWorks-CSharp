@@ -15,10 +15,9 @@ namespace HercWorks.Core.Data.File.Gau;
 /// </summary>
 public class HPilotMessagePort : WidgetBase {
 	/// <summary>
-	/// Content offset 1664, the <c>int32</c> immediately before the rect: how far the box is raised,
-	/// both edges, in a training mission. <c>Gau_BuildCockpitWidgets</c> (<c>00431bf8</c>) subtracts it (coordinate-shifted) only
-	/// on the arm that builds the training port, which grows downward by eleven lines of text and so
-	/// needs the room. 34-85 across the retail files, 0 for RAZOR.
+	/// Content offset 1664, the <c>int32</c> immediately before the rect: the training lift, subtracted
+	/// (coordinate-shifted) from both y edges only when <c>Gau_BuildCockpitWidgets</c> (<c>00431bf8</c>)
+	/// builds the training port. Values and derivation: docs/formats/cockpit-messages.md#the-training-port.
 	/// </summary>
 	public int TrainingLift { get; set; }
 }

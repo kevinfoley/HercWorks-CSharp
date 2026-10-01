@@ -741,7 +741,7 @@ public sealed class MissionGenerator {
 				Overlay(source, target, MissionAction82.CounterPairsWord, 20, -1);
 				Overlay(source, target, MissionAction82.TextRefsWord, 5, -1);
 				Overlay(source, target, MissionAction82.MessageIdWord, 1, 0);
-				Overlay(source, target, MissionAction82.TargetWord, 1, -1);
+				Overlay(source, target, MissionAction82.TargetRefWord, 1, -1);
 			});
 		}
 	}
@@ -870,7 +870,7 @@ public sealed class MissionGenerator {
 			AddOrMerge(_bases, record, (source, target) => {
 				Overlay(source, target, BaseRosterEntry62.TypeIndexWord, 3, -1);
 				Overlay(source, target, BaseRosterEntry62.OutOfActionReportWord, 22, -1);
-				Overlay(source, target, BaseRosterEntry62.TrailingFieldWord, 1, 100);
+				Overlay(source, target, BaseRosterEntry62.StartingConditionWord, 1, 100);
 			});
 		}
 	}
@@ -964,7 +964,7 @@ public sealed class MissionGenerator {
 			}
 		}
 
-		const int target = MissionAction82.TargetWord;
+		const int target = MissionAction82.TargetRefWord;
 		foreach (var action in _actions) {
 			action[target] = action[MissionAction82.TypeWord] switch {
 				7 => Ref(_hercs, action[target]),
@@ -1289,9 +1289,12 @@ public sealed class MissionGenerator {
 }
 
 /// <summary>
-/// One row-12 record as <c>MsnGen_LoadMission</c> builds a squad machine from it: the chassis at
-/// <c>0x30</c>, the ten weapons at <c>0x32</c> and the ten ammunition types at <c>0x74</c>.
+/// One row-12 record as <c>MsnGen_LoadMission</c> builds a squad machine from it: its chassis, ten
+/// weapons and ten ammunition types.
 /// </summary>
+/// <param name="Chassis"><inheritdoc cref="MechRosterEntry144.TypeIndex"/></param>
+/// <param name="Weapons"><inheritdoc cref="MechRosterEntry144.WeaponRefs"/></param>
+/// <param name="AmmoTypes"><inheritdoc cref="MechRosterEntry144.WeaponSecondary"/></param>
 public sealed record MissionHerc(short Chassis, short[] Weapons, short[] AmmoTypes);
 
 /// <summary>

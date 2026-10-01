@@ -26,7 +26,7 @@ The counters are applied the first time the condition holds and never again; the
 
 ## What each condition asks
 
-The original writes the eleven cases out twice, once for a group subject and once for an object one. They are the same eleven questions.
+`Mission_EvaluateObjectives` (`00413280`) writes the cases out twice, once for a group subject and once for an object one, each as an eleven-entry jump table on codes 0–10 (`004132d6`, `004133de`) whose entry 5 is the default. They are the same ten questions.
 
 | code | of a group | of an object |
 |---|---|---|
@@ -35,11 +35,11 @@ The original writes the eleven cases out twice, once for a group subject and onc
 | 2 | not written off, and every living member is clear of threats | clear of threats |
 | 3, 4 | the player has completed a data link (`player+0xa0`) — the subject is not looked at | as for a group |
 | 6 | any member has been engaged (`+0x9e`) | engaged |
-| 7 | **every** member is disarmed (`+0xa5`) | disarmed |
+| 7 | **every** member is disarmed (`+0xa5`; `Group_AllMembersDisarmed`, `00412c58`, which answers yes for an empty group) | disarmed |
 | 8 | condition 6 negated | condition 6 negated |
 | 9, 10 | the player has *not* completed a data link | as for a group |
 
-**Code 5 has no case in either switch**, and neither does a subject kind above 3. The original leaves its working register untouched, so such a record silently answers whatever the record before it answered. No retail mission reaches either: across the 127 objective records in the 62 `.MSN` files the codes used are 1 (67), 2 (27), 0 (19), 3 (5), 6 (5), 4 (3) and 7 (1), and the subject is a group 92 times, a mech 22 and a structure 13 — never a flyer. 91 records are mandatory and 36 are failure conditions. **Codes 8, 9 and 10 are unused as well**, so the two negations and one of the two data-link readings are exercised by nothing that ships.
+**Code 5 has no case in either switch**, and neither does a subject kind above 3. The original leaves its working register untouched, so such a record silently answers whatever the record before it answered — or, as the first record, whatever the caller left in the register ([Open](#open)). A negative code takes the same path, since the bound check is unsigned. No retail mission reaches either: across the 127 objective records in the 62 `.MSN` files the codes used are 1 (67), 2 (27), 0 (19), 3 (5), 6 (5), 4 (3) and 7 (1), and the subject is a group 92 times, a mech 22 and a structure 13 — never a flyer. 91 records are mandatory and 36 are failure conditions. **Codes 8, 9 and 10 are unused as well**, so neither negation — not engaged (8) and no data link (9, 10) — is exercised by anything that ships.
 
 **A group's write-off threshold is not the same for both sides** (`Group_IsWrittenOff`, `00413920`): a human group is written off at condition tier 3, a Cybrid one only at 4. So "wipe out this Cybrid group" means every machine, and "this convoy did not make it" is answered a tier earlier. The tiers are [`ai-goals.md`](ai-goals.md)'s.
 
@@ -223,3 +223,4 @@ The exit code follows, into `004d283c`; the codes are [`../command-line.md`](../
 ## Open
 
 - **Open:** whether anything reaches the group report cluster (`Group_StatusLineIndex`, `Group_OrderSubjectEngaged`, `Group_OrderSubjectRouteExhausted`) through a static-initialiser registration. `es2_xref.py` finds no branch, pointer or vtable slot for any of the three, but a registered function can be absent from that sweep, and `RegisterSubsystemLoader` (`00401d64`) has many callers.
+- **Open:** what the working register holds when `Mission_Status` and `Mission_WriteResults` call `Mission_EvaluateObjectives`. It decides how a code-5 or out-of-range-kind record answers when it is first in the array; no retail mission has such a record.

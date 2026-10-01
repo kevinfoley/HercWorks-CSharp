@@ -21,7 +21,7 @@ public class ActionTimer30 : MapObject {
 	public short Delay { get; set; }
 	public const int DelayWord = 0x08 / 2;
 
-	/// <summary>0x0A-0x1D — refs into row #10: the actions fired when the delay runs out. DBSIM fires all ten; retail fills at most the first.</summary>
+	/// <summary>0x0A-0x1D — refs into row #10: the actions fired when the delay runs out, <c>-1</c> for an unused slot. DBSIM fires all ten; retail fills at most the first.</summary>
 	public short[] SequenceRefs { get; set; } = new short[10];
 	public const int SequenceRefsWord = 0x0A / 2;
 }

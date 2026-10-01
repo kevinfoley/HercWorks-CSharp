@@ -35,30 +35,31 @@ public enum MissionOrderSubject {
 /// — are not carried here.</para>
 /// </summary>
 /// <param name="Verb">
-/// Record <c>+0x00</c>, 0-6. <c>Mech_AiSelectBehaviour</c> maps it onto a behaviour state and
-/// <c>Group_IsOrderComplete</c> onto a completion test; both are keyed by the raw number, so it is
-/// kept as one rather than turned into an enum that would need a name for each of the two roles.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptOrder.Verb"/>
+/// Kept as the raw number rather than turned into an enum that would need a name for each of its
+/// two readers' roles.
 /// </param>
-/// <param name="SubjectKind">Record <c>+0x0c</c> — what <paramref name="SubjectRef"/> indexes.</param>
+/// <param name="SubjectKind">
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptOrder.SubjectKind"/>
+/// A value the enum does not name is read as <see cref="MissionOrderSubject.None"/>.
+/// </param>
 /// <param name="SubjectRef">
-/// Record <c>+0x0e</c> before resolution: a block-11 group index for
-/// <see cref="MissionOrderSubject.Group"/>, otherwise a roster slot. <c>-1</c> when the order names
-/// nothing.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptOrder.SubjectRef"/>
+/// Carried before resolution.
 /// </param>
 /// <param name="Route">
 /// Record <c>+0x08</c> resolved to block-1 points. Only slot 0's is ever installed as the group's
 /// route; see <see cref="Sim.MissionGroup.Route"/>.
 /// </param>
 /// <param name="RouteRef">
-/// Record <c>+0x08</c> <i>unresolved</i> — the block-3 waypoint group index, or <c>-1</c>. The AI
-/// never wants it, but the mission objective layer does: a "get there" objective names the order it
-/// is about by the route that order runs on rather than by slot. See
-/// <see cref="Sim.MissionGroup.OrderCompletedForRoute"/>.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptOrder.RouteRef"/>
+/// Carried <i>unresolved</i>, which the AI never wants but the mission objective layer does: a "get
+/// there" objective names the order it is about by the route that order runs on rather than by
+/// slot. See <see cref="Sim.MissionGroup.OrderCompletedForRoute"/>.
 /// </param>
 /// <param name="ActionRef">
-/// Record <c>+0x12</c> — the block-5 action this order hangs on, or <c>-1</c>. When it fires the
-/// group moves to its next order whether or not this one finished; see
-/// <see cref="Sim.MissionGroup.AiTick"/>.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptOrder.ActionRef"/>
+/// A ref outside block 5 is read as <c>-1</c>. See <see cref="Sim.MissionGroup.AiTick"/>.
 /// </param>
 public sealed record MissionOrder(
 	short Verb,

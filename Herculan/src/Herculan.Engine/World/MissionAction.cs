@@ -70,12 +70,12 @@ public readonly record struct MissionTriggerArea(
 /// dropped, then <c>+0x34</c> and <c>+0x36</c>. See docs/formats/script-dat.md.</para>
 /// </summary>
 /// <param name="Type">
-/// Record <c>+0x00</c>, 0-10 — the trigger's subject. See
-/// <see cref="Sim.MissionTriggers.Evaluate"/> for the table.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptAction.Type"/>
+/// See <see cref="Sim.MissionTriggers.Evaluate"/> for the table.
 /// </param>
 /// <param name="Verb">
-/// Record <c>+0x02</c> — how a group waiting on this action arrives once it fires. See
-/// <see cref="Sim.MissionGroup.DeploymentCheck"/>.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptAction.Verb"/>
+/// See <see cref="Sim.MissionGroup.DeploymentCheck"/>.
 /// </param>
 /// <param name="Areas">
 /// The block-4 refs at file offset <c>+0x04</c>, resolved. <b>The list stops at the first negative
@@ -83,12 +83,12 @@ public readonly record struct MissionTriggerArea(
 /// exactly that many, so a populated slot behind a gap is never tested.
 /// </param>
 /// <param name="CounterRefs">
-/// Record <c>+0x0c</c>, ten slots — which mission counters firing touches, with unused slots
-/// <c>-1</c>.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptAction.CounterRefs"/>
 /// </param>
 /// <param name="CounterOps">
-/// Record <c>+0x20</c>, ten slots parallel to <paramref name="CounterRefs"/> — what firing does to
-/// each: <see cref="CounterIncrement"/>, <see cref="CounterClear"/>, or anything else for nothing.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptAction.CounterOps"/>
+/// <see cref="CounterIncrement"/> and <see cref="CounterClear"/> are the two that do anything; any
+/// other value does nothing.
 /// </param>
 /// <param name="MessageId">
 /// Record <c>+0x34</c>, <b>already decremented</b> — the load pass subtracts one from the stored
@@ -97,9 +97,9 @@ public readonly record struct MissionTriggerArea(
 /// docs/simulation/mission-deployment.md.
 /// </param>
 /// <param name="TargetRef">
-/// Record <c>+0x36</c> — the subject of trigger types 7-10, as the raw ref the file states. The
-/// original resolves it to a pointer during the spawn pass; <see cref="Sim.MissionActionState"/>
-/// holds the resolved form.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptAction.TargetRef"/>
+/// Carried as the raw ref the file states. The original resolves it to a pointer during the spawn
+/// pass; <see cref="Sim.MissionActionState"/> holds the resolved form.
 /// </param>
 public sealed record MissionAction(
 	short Type,
@@ -185,14 +185,15 @@ public sealed record MissionAction(
 /// <see cref="Sim.MissionActionState"/>.</para>
 /// </summary>
 /// <param name="PrimaryActionRef">
-/// The action that arms the timer, or <c>-1</c> for one that runs from mission start.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptActionTimer.PrimaryActionRef"/>
+/// A ref outside block 5 is read as <c>-1</c>.
 /// </param>
 /// <param name="Delay">
 /// How long the timer runs, in <see cref="Numerics.SimMath.TickDelta"/>'s timer unit. The file
 /// states it in <see cref="DelayShift"/>-bit units, which <c>FUN_004679c0</c> converts on the way
 /// in.
 /// </param>
-/// <param name="SequenceRefs">The actions the timer activates, ten slots with unused ones <c>-1</c>.</param>
+/// <param name="SequenceRefs"><inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptActionTimer.SequenceRefs"/></param>
 public sealed record MissionActionTimer(int PrimaryActionRef, int Delay, IReadOnlyList<short> SequenceRefs) {
 	/// <summary>Actions one timer can activate.</summary>
 	public const int SequenceSlots = 10;

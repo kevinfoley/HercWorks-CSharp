@@ -48,7 +48,8 @@ public class MissionGroup164 : MapObject {
 
 	/// <summary>
 	/// 0x38-0x5F — the roster slots the group activates, <c>-1</c> for unused; a member's slot index
-	/// here is its formation slot. Not read for record 0, the player's squad.
+	/// here is its formation slot, so slot 0 stands exactly on the group's point. Not read for record
+	/// 0, the player's squad.
 	/// </summary>
 	public short[] MemberRefs { get; set; } = new short[20];
 	public const int MemberRefsWord = 0x38 / 2;
@@ -73,8 +74,11 @@ public class MissionGroup164 : MapObject {
 
 	/// <summary>
 	/// 0x7A-0xA1 — the group's out-of-action report: ten interleaved (counter ref, operation) pairs,
-	/// written once every member is out of the fight. The export separates them into
-	/// <see cref="Script.ScriptGroup.CounterRefs"/> and <see cref="Script.ScriptGroup.CounterOps"/>.
+	/// a counter ref of <c>-1</c> for an unused one, written once every member is out of the fight.
+	/// The export separates them into <see cref="Script.ScriptGroup.CounterRefs"/> and
+	/// <see cref="Script.ScriptGroup.CounterOps"/>, and <c>DBSim_BuildGroupRecord</c>
+	/// (<c>00423b34</c>) copies the refs to <c>group+0x1c</c> and the operations to
+	/// <c>group+0x30</c>. See docs/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	public short[] OutOfActionReport { get; set; } = new short[20];
 	public const int OutOfActionReportWord = 0x7A / 2;

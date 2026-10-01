@@ -15,8 +15,8 @@ public class MissionAction82 : MapObject {
 	public short Unk04 { get; set; }
 
 	/// <summary>
-	/// 0x06 — whose position the action's trigger areas test, and for 7-10 what
-	/// <see cref="Target"/> names (7/8/9 a mech, flyer or base, 10 a group).
+	/// 0x06, 0-10 — whose position the action's trigger areas test, and for 7-10 what
+	/// <see cref="TargetRef"/> names (7/8/9 a mech, flyer or base, 10 a group).
 	/// </summary>
 	public short Type { get; set; }
 	public const int TypeWord = 0x06 / 2;
@@ -33,7 +33,8 @@ public class MissionAction82 : MapObject {
 
 	/// <summary>
 	/// 0x1C-0x43 — ten interleaved (counter ref, operation) pairs: the mission counters the action
-	/// writes when it activates. The export separates them into
+	/// writes when it activates, a counter ref of <c>-1</c> for an unused pair. Operation 6 increments
+	/// the counter and 5 clears it. The export separates them into
 	/// <see cref="Script.ScriptAction.CounterRefs"/> and <see cref="Script.ScriptAction.CounterOps"/>.
 	/// </summary>
 	public short[] CounterPairs { get; set; } = new short[20];
@@ -48,6 +49,6 @@ public class MissionAction82 : MapObject {
 	public const int MessageIdWord = 0x4E / 2;
 
 	/// <summary>0x50 — for types 7-10, a ref into row #12, #13, #14 or #16 by type; otherwise kept as authored.</summary>
-	public short Target { get; set; }
-	public const int TargetWord = 0x50 / 2;
+	public short TargetRef { get; set; }
+	public const int TargetRefWord = 0x50 / 2;
 }

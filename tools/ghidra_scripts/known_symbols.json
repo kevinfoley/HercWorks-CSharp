@@ -1284,6 +1284,15 @@
       "source": "DBSIM decompile and disassembly at 00454aa4"
     },
     {
+      "address": "0049b0a8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitGauRecord",
+      "description": "Pointer to the current herc's loaded .GAU record (Gau_Load's 0x6a4-byte buffer, content offsets 1:1), stored by Gau_BuildCockpitWidgets (00431c27). Widget builders read rects from it by content offset; the pilot-port rect at +0x684 and the training lift at +0x680 are coordinate-shifted in place.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
       "address": "004d1ee8",
       "binary": "DBSIM",
       "type": "data",
@@ -19631,6 +19640,15 @@
       "source": "docs/simulation/mission-objectives.md"
     },
     {
+      "address": "00412c58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_AllMembersDisarmed",
+      "description": "True when every member of the mission group (member pointers at group+0x0c, count at group+0x10) is disarmed (+0xa5); an empty group answers true, since the loop returns 1 on running off the end. The group form of objective condition 7 in Mission_EvaluateObjectives.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
       "address": "00412d90",
       "binary": "DBSIM",
       "type": "function",
@@ -21557,7 +21575,7 @@
       "type": "data",
       "confidence": "high",
       "name": "ScriptDatTrainingMission",
-      "description": "script.dat header +0x08. The training mission number, 0 for anything that is not one. DBSim_LoadScriptDat only stores it; every reader takes the copy at TrainingMissionNumber (004aa7ac).",
+      "description": "script.dat header +0x08. The training mission number, 0 for anything that is not one. DBSim_LoadScriptDat only stores it; every reader takes the copy at TrainingMissionNumber (004aa7ac). Set by the .MSN header patch (VSHELL DAT_0048544e).",
       "source": "docs/formats/audio.md"
     },
     {
@@ -21566,8 +21584,8 @@
       "type": "data",
       "confidence": "high",
       "name": "TrainingMissionNumber",
-      "description": "Copy of ScriptDatTrainingMission taken at the end of DBSim_LoadScriptDat (00425321), and the one every reader tests. Nonzero suppresses the mission's CD music, makes the cockpit build the larger 0x4ef-byte pilot and squad message port instead of the 0x4df-byte one, and supplies the digit of the TM<n>_ instructor voice template.",
-      "source": "docs/formats/audio.md"
+      "description": "Copy of ScriptDatTrainingMission taken at the end of DBSim_LoadScriptDat (00425321), and the one every reader takes. Read at 00431cda (nonzero builds the 0x4ef-byte training port and raises its .GAU rect by the offset-1664 training lift), 00431dab (the COMMAND<n>.STR digit, whatever its value), 004368fb (the TM<n>_ digit and the PILOT MESSAGE voice gate) and 00461c8f (no CD music when nonzero). TRAIN1-TRAIN4 set 1-4.",
+      "source": "docs/formats/script-dat.md"
     },
     {
       "address": "004a5884",

@@ -11,11 +11,16 @@ public class MissionObjective58 {
 	public short ConditionRef { get; set; }
 	public const int ConditionRefWord = 0x00 / 2;
 
-	/// <summary>0x02 — 1 when the objective must be satisfied; anything else makes it a failure condition.</summary>
+	/// <summary>
+	/// 0x02 — <b>1 when the objective must be satisfied</b> for the mission to be a success, and the
+	/// first unsatisfied one supplies the failure text. <b>Anything else makes it a failure
+	/// condition</b>, and the mission is lost the moment it comes back true. There is no third
+	/// reading — the evaluator's own test is <c>== 1</c>.
+	/// </summary>
 	public short Required { get; set; }
 	public const int RequiredWord = 0x02 / 2;
 
-	/// <summary>0x04 — the condition code, 0-7, that the objective tests.</summary>
+	/// <summary>0x04 — the condition code the objective tests: the simulator has cases for 0-4 and 6-10; retail files use 0-4, 6 and 7. See docs/simulation/mission-objectives.md, "What each condition asks".</summary>
 	public short ConditionCode { get; set; }
 
 	/// <summary>0x06 — what <see cref="SubjectRef"/> names: 0 a group (row #16), 1 a mech (#12), 2 a flyer (#13), 3 a base (#14).</summary>
@@ -30,7 +35,11 @@ public class MissionObjective58 {
 	public short PointRef { get; set; }
 	public const int PointRefWord = 0x0A / 2;
 
-	/// <summary>0x0C — ref into row #8 (<see cref="WaypointGroup"/>): the waypoint group condition 0 asks about.</summary>
+	/// <summary>
+	/// 0x0C — ref into row #8 (<see cref="WaypointGroup"/>): the waypoint group condition 0 asks about.
+	/// It names which of the subject group's ten orders has to be finished, matched by the route that
+	/// order runs on.
+	/// </summary>
 	public short RouteRef { get; set; }
 	public const int RouteRefWord = 0x0C / 2;
 

@@ -747,7 +747,7 @@ partial class MissionScriptForm {
 		//
 		// _acTargetColumn
 		//
-		_acTargetColumn.DataPropertyName = nameof(ScriptActionRow.Target);
+		_acTargetColumn.DataPropertyName = nameof(ScriptActionRow.TargetRef);
 		_acTargetColumn.HeaderText = "Target ref";
 		_acTargetColumn.Name = "_acTargetColumn";
 		_acTargetColumn.Width = 70;
@@ -892,7 +892,7 @@ partial class MissionScriptForm {
 		//
 		// Items are filled per load (see MissionScriptForm.BindHercTypes) so that a type the file
 		// carries but MECHS.NAM has no name for still has an entry to select.
-		_mechTypeColumn.DataPropertyName = nameof(ScriptMechRow.HercType);
+		_mechTypeColumn.DataPropertyName = nameof(ScriptMechRow.TypeIndex);
 		_mechTypeColumn.DisplayMember = nameof(HercTypeOption.Label);
 		_mechTypeColumn.HeaderText = "Herc Type";
 		_mechTypeColumn.Name = "_mechTypeColumn";
@@ -1070,7 +1070,7 @@ partial class MissionScriptForm {
 		//
 		// _flyTypeColumn
 		//
-		_flyTypeColumn.DataPropertyName = nameof(ScriptFlyerRow.FlyerType);
+		_flyTypeColumn.DataPropertyName = nameof(ScriptFlyerRow.TypeIndex);
 		_flyTypeColumn.HeaderText = "Flyer type (FLYERS.NAM)";
 		_flyTypeColumn.Name = "_flyTypeColumn";
 		_flyTypeColumn.Width = 170;
@@ -1140,7 +1140,7 @@ partial class MissionScriptForm {
 		//
 		// _baseTypeColumn
 		//
-		_baseTypeColumn.DataPropertyName = nameof(ScriptBaseRow.BaseType);
+		_baseTypeColumn.DataPropertyName = nameof(ScriptBaseRow.TypeIndex);
 		_baseTypeColumn.HeaderText = "Base type (BASES.DAT)";
 		_baseTypeColumn.Name = "_baseTypeColumn";
 		_baseTypeColumn.Width = 170;
@@ -1446,7 +1446,7 @@ partial class MissionScriptForm {
 		//
 		// _elLutRefColumn
 		//
-		_elLutRefColumn.DataPropertyName = nameof(ScriptObjectiveRow.FailureTextLine);
+		_elLutRefColumn.DataPropertyName = nameof(ScriptObjectiveRow.TextRef);
 		_elLutRefColumn.HeaderText = "Failure text line (mission.str)";
 		_elLutRefColumn.Name = "_elLutRefColumn";
 		_elLutRefColumn.Width = 90;

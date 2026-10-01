@@ -357,7 +357,7 @@ public static class MissionLoader {
 	/// <see cref="ScriptAction.CounterRefs"/> is the counter refs, <see cref="ScriptAction.CounterOps"/> the
 	/// operations that go with them, <see cref="ScriptAction.TextRefs"/> is read and discarded by
 	/// DBSIM entirely, <see cref="ScriptAction.MessageId"/> is the mission message and
-	/// <see cref="ScriptAction.Target"/> the trigger's own subject.</para>
+	/// <see cref="ScriptAction.TargetRef"/> the trigger's own subject.</para>
 	///
 	/// <para>Two things the pass does that reading the file alone would not show: it <b>subtracts one
 	/// from the message id</b> as it stores it, and it stops counting block-4 refs at the first
@@ -388,7 +388,7 @@ public static class MissionLoader {
 				record.CounterRefs,
 				record.CounterOps,
 				(short)(record.MessageId - 1),
-				record.Target);
+				record.TargetRef);
 		}
 
 		return actions;
@@ -847,7 +847,7 @@ public static class MissionLoader {
 
 	private static int? Heading(ScriptDat script, short reference) =>
 		reference >= 0 && reference < script.Headings.Length
-			? script.Headings[reference].Value * DegreesToBinaryAngle
+			? script.Headings[reference].Degrees * DegreesToBinaryAngle
 			: null;
 
 	/// <summary>

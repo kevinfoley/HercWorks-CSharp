@@ -21,7 +21,10 @@ public class BaseRosterEntry62 : MapObject {
 	/// <summary>0x06 — always -1 in retail; the load does not read it.</summary>
 	public short Unk06 { get; set; }
 
-	/// <summary>0x08 — the base type, an index into the 65-entry table in <c>dat\BASES.DAT</c>.</summary>
+	/// <summary>
+	/// 0x08 — the base type, an index into the 65-entry table in <c>dat\BASES.DAT</c> (which in turn
+	/// names the model and its texture bank).
+	/// </summary>
 	public short TypeIndex { get; set; }
 	public const int TypeIndexWord = 0x08 / 2;
 
@@ -38,21 +41,36 @@ public class BaseRosterEntry62 : MapObject {
 
 	/// <summary>
 	/// 0x10-0x37 — the structure's out-of-action report: ten interleaved (counter ref, operation)
-	/// pairs, written to the mission counters when it goes out of the fight. The export separates them
+	/// pairs, a counter ref of <c>-1</c> for an unused one, written to the mission counters when it
+	/// goes out of the fight. The export separates them
 	/// into <see cref="Script.ScriptBaseRecord.CounterRefs"/> and <see cref="Script.ScriptBaseRecord.CounterOps"/>.
+	/// The briefing map writes over the exported first two operations in its own copy only
+	/// (docs/shell/mission-map.md#what-it-reads).
 	/// </summary>
 	public short[] OutOfActionReport { get; set; } = new short[20];
 	public const int OutOfActionReportWord = 0x10 / 2;
 
-	/// <summary>0x38 — ref into row #10 (<see cref="MissionAction82"/>): the action this structure fires when it is engaged.</summary>
+	/// <summary>
+	/// 0x38 — ref into row #10 (<see cref="MissionAction82"/>): the action this structure fires when it
+	/// is engaged, <c>-1</c> for none. DBSIM resolves it into the structure's own <c>+0x1b2</c>, where
+	/// a machine's lands (<see cref="MechRosterEntry144.EngagementActionRef"/>).
+	/// </summary>
 	public short EngagementActionRef { get; set; }
 	public const int EngagementActionRefWord = 0x38 / 2;
 
-	/// <summary>0x3A — ref into row #10: the action it fires when its last component goes.</summary>
+	/// <summary>
+	/// 0x3A — ref into row #10: the action it fires when its last component goes, <c>-1</c> for none.
+	/// DBSIM resolves it into the structure's own <c>+0x1b6</c>, and <c>Base_ApplyDamage</c>
+	/// (<c>00404d70</c>) fires it.
+	/// </summary>
 	public short DefeatActionRef { get; set; }
 	public const int DefeatActionRefWord = 0x3A / 2;
 
-	/// <summary>0x3C — 100 or 0 in retail, 100 where <see cref="TypeIndex"/> is set; what reads it is not established.</summary>
-	public short TrailingField { get; set; }
-	public const int TrailingFieldWord = 0x3C / 2;
+	/// <summary>
+	/// 0x3C — the structure's starting condition, per cent: exported as block 9's <c>0x32</c>, which
+	/// <c>Base_Construct</c> (<c>00405314</c>) reads (docs/simulation/structure-behaviour.md). 100 or 0
+	/// in retail, 100 where <see cref="TypeIndex"/> is set.
+	/// </summary>
+	public short StartingCondition { get; set; }
+	public const int StartingConditionWord = 0x3C / 2;
 }

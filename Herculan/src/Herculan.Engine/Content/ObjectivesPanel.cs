@@ -61,14 +61,12 @@ public sealed class ObjectivesPanel {
 	/// refs against its text. Returns null when the string table is missing, since a panel with no
 	/// title and no button caption is not worth putting up.
 	/// </summary>
-	/// <param name="briefingLines">
-	/// <c>Mission.BriefingLines</c> — block 13, one <c>data\mission.str</c> line index per entry.
-	/// </param>
+	/// <param name="objectiveTextRefs"><see cref="World.Mission.ObjectiveTextRefs"/>.</param>
 	/// <param name="textAt">Resolves one of those indices to its line.</param>
-	public static ObjectivesPanel? Build(GameContent content, IReadOnlyList<int> briefingLines,
+	public static ObjectivesPanel? Build(GameContent content, IReadOnlyList<int> objectiveTextRefs,
 			Func<int, string> textAt) {
 		ArgumentNullException.ThrowIfNull(content);
-		ArgumentNullException.ThrowIfNull(briefingLines);
+		ArgumentNullException.ThrowIfNull(objectiveTextRefs);
 		ArgumentNullException.ThrowIfNull(textAt);
 
 		if (SimStrings.Load(content, StringsFileName) is not { } strings) {
@@ -78,7 +76,7 @@ public sealed class ObjectivesPanel {
 		// The paint skips an empty line rather than leaving a blank row for it, and stops once seven
 		// labels have text — the panel builds seven and no more, so an eighth entry is dropped.
 		var lines = new List<string>(ObjectivesPanelLayout.LineCount);
-		foreach (int reference in briefingLines) {
+		foreach (int reference in objectiveTextRefs) {
 			string text = textAt(reference);
 			if (text.Length == 0) {
 				continue;

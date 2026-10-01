@@ -7,21 +7,24 @@ using Herculan.Engine.World;
 
 namespace Herculan.Engine.Shell;
 
-/// <summary>One base the map draws: its type, the <c>script.dat</c> block-1 point it stands on, and the field that decides whether it is shown.</summary>
-public readonly record struct ShellMapBase(int Type, int Point, int Shown);
+/// <summary>One base the map draws.</summary>
+/// <param name="TypeIndex"><inheritdoc cref="ScriptBaseRecord.TypeIndex"/></param>
+/// <param name="Point">The <c>script.dat</c> block-1 point it stands on.</param>
+/// <param name="Shown">Block 9's <c>+0x1a</c> as the map's copy holds it: the record's first out-of-action operation, replaced by its type-2 group's <see cref="ScriptGroup.MapShown"/> (docs/shell/mission-map.md#what-it-reads).</param>
+public readonly record struct ShellMapBase(int TypeIndex, int Point, int Shown);
 
 /// <summary>
 /// The shell's map object, <c>DAT_0046f26c</c> (<c>shellmap.cpp</c>): the picture inside the briefing's
 /// <c>Mission Map</c> panel. Built by <c>ShellMap_Constructor</c> (<c>00423f43</c>) each time a mission is
-/// loaded, drawn by its vtable slot 0, <c>FUN_0042540a</c>, moved by the six map buttons through slots
-/// <c>+4</c> to <c>+0x18</c>, and introduced by the animation <c>FUN_00425c7b</c> runs the first time the
+/// loaded, drawn by its vtable slot 0, <c>ShellMap_Paint</c>, moved by the six map buttons through slots
+/// <c>+4</c> to <c>+0x18</c>, and introduced by the animation <c>ShellMap_IntroStep</c> runs the first time the
 /// briefing comes up. See docs/shell/mission-map.md.
 ///
 /// <para>Everything is in world units until it is projected, and the projection is a plan view:
 /// <c>((world - camera) &lt;&lt; 7) / altitude</c> about the viewport's centre, north up.</para>
 /// </summary>
 public sealed class ShellMap {
-	/// <summary>The map's rect in the canvas, the literal <c>FUN_0040e1a7</c> builds it with.</summary>
+	/// <summary>The map's rect in the canvas, the literal <c>ShellMap_Build</c> builds it with.</summary>
 	public static readonly ShellRect ViewRect = new(0x123, 0x43, 0x249, 0x124);
 
 	/// <summary><c>+0x46</c> and <c>+0x4a</c>: the rect's right minus left and bottom minus top.</summary>
@@ -165,12 +168,14 @@ public sealed class ShellMap {
 		int[]? path = order is { RouteRef: >= 0 } && order.RouteRef < script.WaypointGroups.Length
 			? script.WaypointGroups[order.RouteRef].Waypoints.Select(w => (int)w).ToArray() : null;
 
-		// Block 9 kept whole, then every type-2 group writes its members' shown field and, from its own
-		// point or its route's first, their position.
+		// Block 9 kept whole: the map's copy starts each base's shown field from its first out-of-action
+		// operation at +0x1a. Every type-2 group then writes its MapShown there (and its side at +0x1c,
+		// which nothing here reads) and, from its own point or its route's first, their position.
 		var bases = script.Bases.Select(b => new ShellMapBase(b.TypeIndex, b.PositionRef,
-			BitConverter.ToInt16(b.TailBytes, BaseShownTailOffset))).ToArray();
+			b.CounterOps[0])).ToArray();
 		foreach (var owner in script.Groups.Where(g => g.MemberKind == 2)) {
 			foreach (short member in owner.MemberRefs) {
+				// Retail does not bound the member ref; the upper check is this engine's.
 				if (member < 0 || member >= bases.Length) {
 					continue;
 				}
@@ -195,9 +200,6 @@ public sealed class ShellMap {
 		map.SetSquadView();
 		return map;
 	}
-
-	/// <summary>Block 9's record <c>+0x1a</c>, the field the map shows a base by, in the record's tail after its three leading shorts.</summary>
-	private const int BaseShownTailOffset = 0x1a - 6;
 
 	private static (int MinX, int MinY, int MaxX, int MaxY) Bounds((int X, int Y)[] points) {
 		if (points.Length == 0) {
@@ -226,7 +228,7 @@ public sealed class ShellMap {
 			heading = path is { Length: >= 2 } && Point(path[0]) is var p0 && Point(path[1]) is var p1
 				? unchecked((short)(SimTrig.Atan2(p1.Y - p0.Y, p1.X - p0.X) - 0x4000)) : (short)0;
 		} else {
-			heading = group.HeadingRef < script.Headings.Length ? script.Headings[group.HeadingRef].Value : (short)0;
+			heading = group.HeadingRef < script.Headings.Length ? script.Headings[group.HeadingRef].Degrees : (short)0;
 		}
 
 		(int X, int Y) anchor;
@@ -379,7 +381,7 @@ public sealed class ShellMap {
 	}
 
 	/// <summary>
-	/// The camera a paint draws through, <c>FUN_0042540a</c>'s opening. Once the intro is over the panned
+	/// The camera a paint draws through, <c>ShellMap_Paint</c>'s opening. Once the intro is over the panned
 	/// camera is clamped and the clamp is kept, the pan surviving it; before then the camera is clamped
 	/// for the paint alone and the pan is not applied.
 	/// </summary>
@@ -401,7 +403,7 @@ public sealed class ShellMap {
 		(CentreX + ((x - camera.X) << FocalShift) / camera.Z, CentreY - ((y - camera.Y) << FocalShift) / camera.Z));
 
 	/// <summary>
-	/// Draws the map, <c>FUN_0042540a</c>'s passes in order: the viewport cleared to <c>0x10</c>, the relief
+	/// Draws the map, <c>ShellMap_Paint</c>'s passes in order: the viewport cleared to <c>0x10</c>, the relief
 	/// stretched over the bounds widened by <see cref="ReliefMargin"/>, the grid and the bounds, the nav
 	/// path, the bases, the nav markers and the squad.
 	/// </summary>
@@ -521,18 +523,18 @@ public sealed class ShellMap {
 	private const int PenRadius = 3;
 
 	/// <summary>
-	/// <c>FUN_0042698d</c>: each base whose shown field allows it, as the <c>mis_icon.dba</c> frame and
+	/// <c>ShellMap_PaintBases</c>: each base whose shown field allows it, as the <c>mis_icon.dba</c> frame and
 	/// colour its type picks, at its point. A friendly base is shown while the field is non-zero and a
 	/// hostile one only while it is 1; types below <c>0x18</c> and <c>0x2d</c>-<c>0x36</c> are friendly.
 	/// </summary>
 	private void PaintBases(ShellSurface surface, (int X, int Y, int Z) camera, ShellMapArt? art) {
 		foreach (var site in _bases) {
-			bool hostile = !(site.Type < 0x18 || (site.Type > 0x2c && site.Type < 0x37));
+			bool hostile = !(site.TypeIndex < 0x18 || (site.TypeIndex > 0x2c && site.TypeIndex < 0x37));
 			if (!(hostile ? site.Shown == 1 : site.Shown != 0)) {
 				continue;
 			}
 
-			var icon = BaseIcon(site.Type, hostile);
+			var icon = BaseIcon(site.TypeIndex, hostile);
 			var at = Point(site.Point);
 			PaintIcon(surface, camera, at.X, at.Y, icon, art?.Icon(icon.Frame));
 		}
@@ -546,7 +548,7 @@ public sealed class ShellMap {
 	private static readonly MapIcon SmallFriendlyIcon = new(24, FriendlyColor, 50000, 5, 3);
 	private static readonly MapIcon SmallHostileIcon = new(25, HostileColor, 50000, 5, 3);
 
-	/// <summary>The type switch in <c>FUN_0042698d</c>, its sizes and frames the shorts at <c>DAT_00471c5e</c> to <c>DAT_00471c82</c>.</summary>
+	/// <summary>The type switch in <c>ShellMap_PaintBases</c>, its sizes and frames the shorts at <c>DAT_00471c5e</c> to <c>DAT_00471c82</c>.</summary>
 	private static MapIcon BaseIcon(int type, bool hostile) {
 		switch (type) {
 			case 4 or 5 or 6 or 8 or 9 or 10 or 11 or 13 or 14 or 16 or 18 or 19 or 20:
@@ -624,7 +626,7 @@ public sealed class ShellMap {
 		}
 	}
 
-	// ---- The intro, FUN_00425c7b -----------------------------------------------------------------
+	// ---- The intro, ShellMap_IntroStep -----------------------------------------------------------------
 
 	/// <summary><c>+0x172</c>. Named where the value has one meaning; the rest are the switch's own numbers.</summary>
 	private enum State : short {
@@ -689,7 +691,7 @@ public sealed class ShellMap {
 	private (int X, int Y, int Z) _to;
 	private (int X, int Y, int Z) _step;
 
-	/// <summary>Whether the intro still has frames to run — <c>FUN_00425c7b</c>'s return, false once <c>+0x17a</c> is set.</summary>
+	/// <summary>Whether the intro still has frames to run — <c>ShellMap_IntroStep</c>'s return, false once <c>+0x17a</c> is set.</summary>
 	public bool IntroRunning => !_finished;
 
 	/// <summary>
@@ -699,7 +701,7 @@ public sealed class ShellMap {
 	public void Skip() => _skip = true;
 
 	/// <summary>
-	/// One pass of <c>FUN_00425c7b</c>, the intro's state machine, at <paramref name="now"/> in the
+	/// One pass of <c>ShellMap_IntroStep</c>, the intro's state machine, at <paramref name="now"/> in the
 	/// original's timer ticks (<c>GetTickCount() &gt;&gt; 4</c>). The caller paints after every pass.
 	/// Returns whether the intro is still running.
 	/// </summary>

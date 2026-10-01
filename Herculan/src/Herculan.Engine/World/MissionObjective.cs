@@ -27,7 +27,7 @@ public enum MissionObjectiveSubject {
 /// runtime record and <c>Mission_EvaluateObjectives</c> (<c>00413280</c>) walks once per poll.
 ///
 /// <para>An objective is a <b>question about one subject</b> plus what answering it does. The
-/// question is <see cref="Condition"/> asked of <see cref="SubjectKind"/>/<see cref="SubjectRef"/>;
+/// question is <see cref="ConditionCode"/> asked of <see cref="SubjectKind"/>/<see cref="SubjectRef"/>;
 /// the answer is read two different ways depending on <see cref="Required"/>, and the first time it
 /// comes back true the record's ten counter slots are applied and the record latches.</para>
 ///
@@ -35,40 +35,37 @@ public enum MissionObjectiveSubject {
 /// statement of it: seven shorts, then ten counter refs, then ten operations. See
 /// docs/simulation/mission-objectives.md.</para>
 /// </summary>
-/// <param name="Required">
-/// Record <c>+0x00</c>. <b>1 means the objective must be satisfied</b> for the mission to be a
-/// success, and the first unsatisfied one supplies the failure text. <b>Anything else means the
-/// opposite</b>: the record is a failure condition, and the mission is lost the moment it comes
-/// back true. There is no third reading — the evaluator's own test is <c>== 1</c>.
+/// <param name="Required"><inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptObjective.Required"/></param>
+/// <param name="ConditionCode">Record <c>+0x02</c> — which question is asked. See the constants below.</param>
+/// <param name="SubjectKind"><inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptObjective.SubjectKind"/></param>
+/// <param name="SubjectRef">
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptObjective.SubjectRef"/>
+/// Carried before resolution.
 /// </param>
-/// <param name="Condition">Record <c>+0x02</c> — which question is asked. See the constants below.</param>
-/// <param name="SubjectKind">Record <c>+0x04</c> — what <paramref name="SubjectRef"/> indexes.</param>
-/// <param name="SubjectRef">Record <c>+0x06</c> before resolution: a group index or a roster slot.</param>
 /// <param name="Point">
 /// Record <c>+0x08</c> resolved to a block-1 coordinate, or null. Carried because the record carries
 /// it; no condition reads it.
 /// </param>
 /// <param name="RouteRef">
-/// Record <c>+0x0a</c> — a block-3 waypoint group, and the only field
-/// <see cref="ConditionOrderComplete"/> uses besides the subject: it names <i>which</i> of the
-/// subject group's ten orders has to be finished, matched by the route that order runs on.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptObjective.RouteRef"/>
+/// It is the only field <see cref="ConditionOrderComplete"/> uses besides the subject.
 /// </param>
 /// <param name="TextRef">
-/// Record <c>+0x0c</c> — the first of <see cref="TextLines"/> consecutive <c>data\mission.str</c>
-/// lines describing this objective, or <c>-1</c>. It is what the failure alert prints.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptObjective.TextRef"/>
+/// The failure alert prints it and the lines after it, <see cref="TextLines"/> in all.
 /// </param>
 /// <param name="CounterRefs">
-/// Record <c>+0x0e</c>, ten slots — which mission counters satisfying this objective touches, with
-/// unused slots <c>-1</c>. The same 1,000-short array <c>Action_Activate</c> writes; see
-/// <see cref="Sim.SimWorld.MissionCounters"/>.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptObjective.CounterRefs"/>
+/// Written when the objective is satisfied, to the same 1,000-short array <c>Action_Activate</c>
+/// writes; see <see cref="Sim.SimWorld.MissionCounters"/>.
 /// </param>
 /// <param name="CounterOps">
-/// Record <c>+0x22</c>, ten slots parallel to <paramref name="CounterRefs"/>. <b>The operation
-/// codes are not the action record's</b> — see the four constants below.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptObjective.CounterOps"/>
+/// <b>The operation codes are not the action record's</b> — see the four constants below.
 /// </param>
 public sealed record MissionObjective(
 	short Required,
-	short Condition,
+	short ConditionCode,
 	MissionObjectiveSubject SubjectKind,
 	int SubjectRef,
 	Vec3i? Point,

@@ -129,7 +129,7 @@ public class MissionWordOffsetTests {
 		AssertSpan(words, MissionAction82.CounterPairsWord, action.CounterPairs);
 		AssertSpan(words, MissionAction82.TextRefsWord, action.TextRefs);
 		Assert.Equal(words[MissionAction82.MessageIdWord], action.MessageId);
-		Assert.Equal(words[MissionAction82.TargetWord], action.Target);
+		Assert.Equal(words[MissionAction82.TargetRefWord], action.TargetRef);
 
 		var timer = file.ActionTimers![0];
 		words = rows[11];
@@ -180,7 +180,7 @@ public class MissionWordOffsetTests {
 		AssertSpan(words, BaseRosterEntry62.OutOfActionReportWord, structure.OutOfActionReport);
 		Assert.Equal(words[BaseRosterEntry62.EngagementActionRefWord], structure.EngagementActionRef);
 		Assert.Equal(words[BaseRosterEntry62.DefeatActionRefWord], structure.DefeatActionRef);
-		Assert.Equal(words[BaseRosterEntry62.TrailingFieldWord], structure.TrailingField);
+		Assert.Equal(words[BaseRosterEntry62.StartingConditionWord], structure.StartingCondition);
 
 		var order = file.Orders![0];
 		words = rows[15];

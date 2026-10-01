@@ -2,11 +2,11 @@
 
 Make a field's name and description live in one place, and have the copies that must exist checked by the build or the doc linter instead of by a reader noticing drift.
 
-Stages 1, 2, 4 and 5 are built; Stage 3 is a plan.
+All five stages are built.
 
 ## Why
 
-One decoded datum is currently restated in up to ten places. Take the mech type in a mission's mech roster:
+One decoded datum appears in up to ten places. Take the mech type in a mission's mech roster:
 
 | place | spelling |
 |---|---|
@@ -15,17 +15,17 @@ One decoded datum is currently restated in up to ten places. Take the mech type 
 | `HercWorks.Core` `.msn` model | `MechRosterEntry144.TypeIndex` |
 | `HercWorks.Core` `script.dat` model | `ScriptMechRecord.TypeIndex` |
 | `MissionFileTransformer`, `ScriptDatTransformer` | the parse and write order |
-| `MissionGenerator` | a raw word index into a `short[]` |
+| `MissionGenerator` | a word index into a `short[]`, `MechRosterEntry144.TypeIndexWord` |
 | `Herculan.Engine` | `MissionPlacement.TypeIndex` |
-| `HercWorks.UI` row wrapper | `ScriptMechRow.HercType` |
-| `MissionScriptForm.Designer.cs` | the string `"HercType"` |
+| `HercWorks.UI` row wrapper | `ScriptMechRow.TypeIndex` |
+| `MissionScriptForm.Designer.cs` | `nameof(ScriptMechRow.TypeIndex)` |
 | `tools/ghidra_scripts/known_symbols.json` | prose in a function description |
 
 The cleanup that prompted this plan found drift in almost every one of those, and three kinds caused most of it:
 
 - **Retail docs naming C# members.** `BinaryFlag`, `SmallDiscrete`, `MiscEntityInfo` and `EntitySpawn164` sat in the format docs after the code had moved on. Rule 9 of `CLAUDE.md` forbids this, but `doc_lint.py` only catches explicit markers, not a bare type or member name.
-- **String bindings in the UI.** The grids bind columns by `DataPropertyName = "TriStateFlag"`. A rename compiles cleanly and breaks the column at run time, and `HercWorks.UI` cannot be built on Linux, so a cloud session verifies UI edits by grep alone.
-- **Descriptions restated per layer.** The `.msn` model, the `script.dat` export, the UI row and the engine record each carried their own comment for the same datum, and they disagreed.
+- **String bindings in the UI.** A grid column bound by a string `DataPropertyName` compiles cleanly after a rename and breaks at run time, and `HercWorks.UI` cannot be built on Linux, so a cloud session verifies UI edits by grep alone.
+- **Descriptions restated per layer.** When the `.msn` model, the `script.dat` export, the UI row and the engine record each carry their own comment for the same datum, they disagree.
 
 Renames themselves were the other cost: `RefRow6` meant a spawn point on one type and an unread point on two others, so a text-level rename had to be scoped by hand.
 
@@ -53,13 +53,13 @@ Every grid column's `DataPropertyName` and every combo column's `DisplayMember`/
 
 ## Stage 3 — one description per datum
 
-The `.msn` model owns the description of a field. Every other layer that carries the same datum inherits it:
+The `.msn` model owns the description of a field, including the RE facts (reader addresses, value ranges, retail observations). Every other layer that carries the same datum inherits it, and `CLAUDE.md` rule 5 holds new code to this:
 
-- `script.dat` export properties: `/// <inheritdoc cref="MechRosterEntry144.TypeIndex"/>`, adding only what differs (the exported offset, refs being block indices). `ScriptDat.cs` already does this for the action, order, group and objective records.
-- UI row wrappers: `inheritdoc` from the export property they wrap, instead of a restated summary.
-- Engine records that hold a datum straight from a Core field: `inheritdoc` the Core member, plus the engine's own behaviour where it adds any.
+- `script.dat` export properties (`ScriptDat.cs`) use `<inheritdoc cref="MechRosterEntry144.TypeIndex"/>`. "Refs as block indices" is said once per record class; the tail-view records add the exported offset as a `<remarks>`. A field the export changes keeps its own summary stating only the difference and linking the model member: the counter arrays (the model holds interleaved pairs, the export splits them into `CounterRefs`/`CounterOps`) and the text refs (renumbered from `.ENG` ids into `mission.str` lines).
+- UI row wrappers (`MissionScriptRows.cs`) inherit from the export property they wrap; UI-only notes are `<remarks>`.
+- Engine records that hold a datum straight from a Core field inherit the Core member, as a property `inheritdoc` or a nested `<param><inheritdoc/></param>`. A value the loader resolves, converts or assembles (`Position`, `Heading`, `Delay`, `MessageId`, `Point`, `Route`) keeps its own summary.
 
-Where an engine name and a Core name differ for the same datum (`ScriptMechRow.HercType` against `TypeIndex`), rename to the Core name unless the difference is the point.
+A layer that names the same datum differently takes the Core name (`ScriptMechRow.TypeIndex`, `ScriptHeading.Degrees`, `Mission.ObjectiveTextRefs`), and Core follows its own `…Ref` convention (`MissionAction82.TargetRef`), unless the difference is the point. Two differences are: `MissionHerc` keeps the shell's wording (`Chassis`, `Weapons`, `AmmoTypes`), and `ScriptDat.ObjectiveTextRefs` is not `MissionText144.ObjectiveLines`, because the export keeps only the populated lines and renumbers them.
 
 ## Stage 4 — named word offsets for `MissionGenerator`
 
@@ -96,4 +96,3 @@ dotnet run --project tools/scripts/rename_symbol -- Herculan/HerculanEngine.sln 
 
 - **Open:** whether the Windows Forms designer preserves `nameof` in `InitializeComponent` on regeneration, which decides where Stage 2's assignments go.
 - **Open:** whether `MSBuildWorkspace` loads `HerculanEngine.sln` on Linux without the WindowsDesktop SDK, given the solution does not include `HercWorks.UI`.
-- **Open:** Stage 3 — one description per datum — is not started.

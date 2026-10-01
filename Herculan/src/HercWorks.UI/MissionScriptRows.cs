@@ -49,8 +49,13 @@ internal abstract class ScriptRow {
 internal sealed class ScriptPointRow : ScriptRow {
 	public required ScriptCoordinate Source { get; init; }
 
+	/// <inheritdoc cref="ScriptCoordinate.X"/>
 	public int X { get => Source.X; set => Source.X = value; }
+
+	/// <inheritdoc cref="ScriptCoordinate.Y"/>
 	public int Y { get => Source.Y; set => Source.Y = value; }
+
+	/// <inheritdoc cref="ScriptCoordinate.Z"/>
 	public int Z { get => Source.Z; set => Source.Z = value; }
 }
 
@@ -61,8 +66,9 @@ internal sealed class ScriptPointRow : ScriptRow {
 internal sealed class ScriptHeadingRow : ScriptRow {
 	public required ScriptHeading Source { get; init; }
 
-	public short Degrees { get => Source.Value; set => Source.Value = value; }
-	public int Bam => Source.Value * 182;
+	/// <inheritdoc cref="ScriptHeading.Degrees"/>
+	public short Degrees { get => Source.Degrees; set => Source.Degrees = value; }
+	public int Bam => Source.Degrees * 182;
 }
 
 /// <summary>Block 3 — an ordered list of block-1 point refs forming one route.</summary>
@@ -71,7 +77,8 @@ internal sealed class ScriptRouteRow : ScriptRow {
 
 	public int Count => Source.Waypoints.Length;
 
-	/// <summary>Variable-length by format, so unlike the fixed ref arrays this may be any length.</summary>
+	/// <inheritdoc cref="ScriptWaypointGroup.Waypoints"/>
+	/// <remarks>Variable-length by format, so unlike the fixed ref arrays this may be any length.</remarks>
 	public string Waypoints {
 		get => ShortCsv.Format(Source.Waypoints);
 		set => Source.Waypoints = ShortCsv.Parse(value);
@@ -85,8 +92,13 @@ internal sealed class ScriptRouteRow : ScriptRow {
 internal sealed class ScriptTriggerAreaRow : ScriptRow {
 	public required ScriptTriggerArea Source { get; init; }
 
+	/// <inheritdoc cref="ScriptTriggerArea.Shape"/>
 	public short Shape { get => Source.Shape; set => Source.Shape = value; }
+
+	/// <inheritdoc cref="ScriptTriggerArea.PointRef"/>
 	public short PointRef { get => Source.PointRef; set => Source.PointRef = value; }
+
+	/// <inheritdoc cref="ScriptTriggerArea.SecondPointOrRadius"/>
 	public short SecondPointOrRadius { get => Source.SecondPointOrRadius; set => Source.SecondPointOrRadius = value; }
 }
 
@@ -99,28 +111,37 @@ internal sealed class ScriptTriggerAreaRow : ScriptRow {
 internal sealed class ScriptActionRow : ScriptRow {
 	public required ScriptAction Source { get; init; }
 
+	/// <inheritdoc cref="ScriptAction.Type"/>
 	public short Type { get => Source.Type; set => Source.Type = value; }
-	public short Verb { get => Source.Verb; set => Source.Verb = value; }
-	public short MessageId { get => Source.MessageId; set => Source.MessageId = value; }
-	public short Target { get => Source.Target; set => Source.Target = value; }
 
+	/// <inheritdoc cref="ScriptAction.Verb"/>
+	public short Verb { get => Source.Verb; set => Source.Verb = value; }
+
+	/// <inheritdoc cref="ScriptAction.MessageId"/>
+	public short MessageId { get => Source.MessageId; set => Source.MessageId = value; }
+
+	/// <inheritdoc cref="ScriptAction.TargetRef"/>
+	public short TargetRef { get => Source.TargetRef; set => Source.TargetRef = value; }
+
+	/// <inheritdoc cref="ScriptAction.AreaRefs"/>
 	public string AreaRefs {
 		get => ShortCsv.Format(Source.AreaRefs);
 		set => ShortCsv.ParseInto(value, Source.AreaRefs);
 	}
 
+	/// <inheritdoc cref="ScriptAction.TextRefs"/>
 	public string TextRefs {
 		get => ShortCsv.Format(Source.TextRefs);
 		set => ShortCsv.ParseInto(value, Source.TextRefs);
 	}
 
-	/// <summary>Ten mission-counter refs.</summary>
+	/// <inheritdoc cref="ScriptAction.CounterRefs"/>
 	public string CounterRefs {
 		get => ShortCsv.Format(Source.CounterRefs);
 		set => ShortCsv.ParseInto(value, Source.CounterRefs);
 	}
 
-	/// <summary>The operation for each counter ref: 6 increments it, 5 clears it.</summary>
+	/// <inheritdoc cref="ScriptAction.CounterOps"/>
 	public string CounterOps {
 		get => ShortCsv.Format(Source.CounterOps);
 		set => ShortCsv.ParseInto(value, Source.CounterOps);
@@ -134,9 +155,13 @@ internal sealed class ScriptActionRow : ScriptRow {
 internal sealed class ScriptActionTimerRow : ScriptRow {
 	public required ScriptActionTimer Source { get; init; }
 
+	/// <inheritdoc cref="ScriptActionTimer.PrimaryActionRef"/>
 	public short PrimaryActionRef { get => Source.PrimaryActionRef; set => Source.PrimaryActionRef = value; }
+
+	/// <inheritdoc cref="ScriptActionTimer.Delay"/>
 	public short Delay { get => Source.Delay; set => Source.Delay = value; }
 
+	/// <inheritdoc cref="ScriptActionTimer.SequenceRefs"/>
 	public string SequenceRefs {
 		get => ShortCsv.Format(Source.SequenceRefs);
 		set => ShortCsv.ParseInto(value, Source.SequenceRefs);
@@ -150,26 +175,29 @@ internal sealed class ScriptActionTimerRow : ScriptRow {
 internal sealed class ScriptMechRow : ScriptRow {
 	public required ScriptMechRecord Source { get; init; }
 
-	/// <summary>
-	/// Index into <c>nam\MECHS.NAM</c>, presented as a name via <see cref="HercTypeOption"/>.
-	/// </summary>
-	public short HercType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
+	/// <inheritdoc cref="ScriptMechRecord.TypeIndex"/>
+	/// <remarks>Presented as a name via <see cref="HercTypeOption"/>.</remarks>
+	public short TypeIndex { get => Source.TypeIndex; set => Source.TypeIndex = value; }
+
+	/// <inheritdoc cref="ScriptMechRecord.PositionRef"/>
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
+
+	/// <inheritdoc cref="ScriptMechRecord.HeadingRef"/>
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
 
-	/// <summary>The standing PASSIVE/ACTIVE the machine walks its route on (<c>mech+0x97</c>).</summary>
+	/// <inheritdoc cref="ScriptMechRecord.AiRadarActive"/>
 	public short AiRadarActive { get => Source.AiRadarActive; set => Source.AiRadarActive = value; }
 
-	/// <summary>The speed the AI walks at (<c>mech+0x252</c>); 0 means its own default.</summary>
+	/// <inheritdoc cref="ScriptMechRecord.AiCruiseSpeed"/>
 	public short AiCruiseSpeed { get => Source.AiCruiseSpeed; set => Source.AiCruiseSpeed = value; }
 
-	/// <summary>Per cent: under 80 the machine spawns pre-damaged, under 20 as a wreck.</summary>
+	/// <inheritdoc cref="ScriptMechRecord.StartingCondition"/>
 	public short StartingCondition { get => Source.StartingCondition; set => Source.StartingCondition = value; }
 
-	/// <summary>Block-5 action fired when the machine is engaged.</summary>
+	/// <inheritdoc cref="ScriptMechRecord.EngagementActionRef"/>
 	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }
 
-	/// <summary>Block-5 action fired when the machine is defeated — how retail chains its waves.</summary>
+	/// <inheritdoc cref="ScriptMechRecord.DefeatActionRef"/>
 	public short DefeatActionRef { get => Source.DefeatActionRef; set => Source.DefeatActionRef = value; }
 
 	/// <summary>
@@ -213,10 +241,19 @@ internal sealed class ScriptWeaponSlotRow {
 internal sealed class ScriptFlyerRow : ScriptRow {
 	public required ScriptFlyerRecord Source { get; init; }
 
-	public short FlyerType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
+	/// <inheritdoc cref="ScriptFlyerRecord.TypeIndex"/>
+	public short TypeIndex { get => Source.TypeIndex; set => Source.TypeIndex = value; }
+
+	/// <inheritdoc cref="ScriptFlyerRecord.PositionRef"/>
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
+
+	/// <inheritdoc cref="ScriptFlyerRecord.HeadingRef"/>
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
+
+	/// <inheritdoc cref="ScriptFlyerRecord.EngagementActionRef"/>
 	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }
+
+	/// <inheritdoc cref="ScriptFlyerRecord.DefeatActionRef"/>
 	public short DefeatActionRef { get => Source.DefeatActionRef; set => Source.DefeatActionRef = value; }
 }
 
@@ -224,10 +261,19 @@ internal sealed class ScriptFlyerRow : ScriptRow {
 internal sealed class ScriptBaseRow : ScriptRow {
 	public required ScriptBaseRecord Source { get; init; }
 
-	public short BaseType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
+	/// <inheritdoc cref="ScriptBaseRecord.TypeIndex"/>
+	public short TypeIndex { get => Source.TypeIndex; set => Source.TypeIndex = value; }
+
+	/// <inheritdoc cref="ScriptBaseRecord.PositionRef"/>
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
+
+	/// <inheritdoc cref="ScriptBaseRecord.HeadingRef"/>
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
+
+	/// <inheritdoc cref="ScriptBaseRecord.EngagementActionRef"/>
 	public short EngagementActionRef { get => Source.EngagementActionRef; set => Source.EngagementActionRef = value; }
+
+	/// <inheritdoc cref="ScriptBaseRecord.DefeatActionRef"/>
 	public short DefeatActionRef { get => Source.DefeatActionRef; set => Source.DefeatActionRef = value; }
 }
 
@@ -241,12 +287,25 @@ internal sealed class ScriptBaseRow : ScriptRow {
 internal sealed class ScriptOrderRow : ScriptRow {
 	public required ScriptOrder Source { get; init; }
 
+	/// <inheritdoc cref="ScriptOrder.Verb"/>
 	public short Verb { get => Source.Verb; set => Source.Verb = value; }
+
+	/// <inheritdoc cref="ScriptOrder.FormationId"/>
 	public short FormationId { get => Source.FormationId; set => Source.FormationId = value; }
+
+	/// <inheritdoc cref="ScriptOrder.PointRef"/>
 	public short PointRef { get => Source.PointRef; set => Source.PointRef = value; }
+
+	/// <inheritdoc cref="ScriptOrder.RouteRef"/>
 	public short RouteRef { get => Source.RouteRef; set => Source.RouteRef = value; }
+
+	/// <inheritdoc cref="ScriptOrder.SubjectKind"/>
 	public short SubjectKind { get => Source.SubjectKind; set => Source.SubjectKind = value; }
+
+	/// <inheritdoc cref="ScriptOrder.SubjectRef"/>
 	public short SubjectRef { get => Source.SubjectRef; set => Source.SubjectRef = value; }
+
+	/// <inheritdoc cref="ScriptOrder.ActionRef"/>
 	public short ActionRef { get => Source.ActionRef; set => Source.ActionRef = value; }
 }
 
@@ -263,25 +322,38 @@ internal sealed class ScriptGroupRow : ScriptRow {
 
 	public bool IsPlayerSquad => Index == 0;
 
+	/// <inheritdoc cref="ScriptGroup.PaintsGround"/>
 	public short PaintsGround { get => Source.PaintsGround; set => Source.PaintsGround = value; }
+
+	/// <inheritdoc cref="ScriptGroup.MemberKind"/>
 	public short MemberKind { get => Source.MemberKind; set => Source.MemberKind = value; }
+
+	/// <inheritdoc cref="ScriptGroup.FormationId"/>
 	public short FormationId { get => Source.FormationId; set => Source.FormationId = value; }
+
+	/// <inheritdoc cref="ScriptGroup.PositionRef"/>
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
+
+	/// <inheritdoc cref="ScriptGroup.HeadingRef"/>
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
+
+	/// <inheritdoc cref="ScriptGroup.RouteRef"/>
 	public short RouteRef { get => Source.RouteRef; set => Source.RouteRef = value; }
+
+	/// <inheritdoc cref="ScriptGroup.Side"/>
 	public short Side { get => Source.Side; set => Source.Side = value; }
+
+	/// <inheritdoc cref="ScriptGroup.DeploymentActionRef"/>
 	public short DeploymentActionRef { get => Source.DeploymentActionRef; set => Source.DeploymentActionRef = value; }
 
-	/// <summary>
-	/// The 20 member slots, indexing whichever roster <see cref="MemberKind"/> names. Slot position
-	/// matters beyond membership: it is also the formation slot, so slot 0 always stands exactly on
-	/// the group's point and reordering members moves them.
-	/// </summary>
+	/// <inheritdoc cref="ScriptGroup.MemberRefs"/>
+	/// <remarks>Reordering the members moves them.</remarks>
 	public string MemberRefs {
 		get => ShortCsv.Format(Source.MemberRefs);
 		set => ShortCsv.ParseInto(value, Source.MemberRefs);
 	}
 
+	/// <inheritdoc cref="ScriptGroup.OrderRefs"/>
 	public string OrderRefs {
 		get => ShortCsv.Format(Source.OrderRefs);
 		set => ShortCsv.ParseInto(value, Source.OrderRefs);
@@ -295,25 +367,34 @@ internal sealed class ScriptGroupRow : ScriptRow {
 internal sealed class ScriptObjectiveRow : ScriptRow {
 	public required ScriptObjective Source { get; init; }
 
-	/// <summary>1 = must be satisfied; anything else makes it a failure condition.</summary>
+	/// <inheritdoc cref="ScriptObjective.Required"/>
 	public short Required { get => Source.Required; set => Source.Required = value; }
 
+	/// <inheritdoc cref="ScriptObjective.ConditionCode"/>
 	public short ConditionCode { get => Source.ConditionCode; set => Source.ConditionCode = value; }
+
+	/// <inheritdoc cref="ScriptObjective.SubjectKind"/>
 	public short SubjectKind { get => Source.SubjectKind; set => Source.SubjectKind = value; }
+
+	/// <inheritdoc cref="ScriptObjective.SubjectRef"/>
 	public short SubjectRef { get => Source.SubjectRef; set => Source.SubjectRef = value; }
+
+	/// <inheritdoc cref="ScriptObjective.PointRef"/>
 	public short PointRef { get => Source.PointRef; set => Source.PointRef = value; }
+
+	/// <inheritdoc cref="ScriptObjective.RouteRef"/>
 	public short RouteRef { get => Source.RouteRef; set => Source.RouteRef = value; }
 
-	/// <summary>The first of three consecutive <c>data\mission.str</c> lines shown when the objective fails.</summary>
-	public short FailureTextLine { get => Source.TextRef; set => Source.TextRef = value; }
+	/// <inheritdoc cref="ScriptObjective.TextRef"/>
+	public short TextRef { get => Source.TextRef; set => Source.TextRef = value; }
 
-	/// <summary>Mission-counter refs.</summary>
+	/// <inheritdoc cref="ScriptObjective.CounterRefs"/>
 	public string CounterRefs {
 		get => ShortCsv.Format(Source.CounterRefs);
 		set => ShortCsv.ParseInto(value, Source.CounterRefs);
 	}
 
-	/// <summary>The operation for each counter ref.</summary>
+	/// <inheritdoc cref="ScriptObjective.CounterOps"/>
 	public string CounterOps {
 		get => ShortCsv.Format(Source.CounterOps);
 		set => ShortCsv.ParseInto(value, Source.CounterOps);

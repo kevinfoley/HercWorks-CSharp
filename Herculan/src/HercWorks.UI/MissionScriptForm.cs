@@ -429,7 +429,7 @@ public partial class MissionScriptForm : Form {
 
 		for (int i = 0; i < script.Actions.Length; i++) {
 			if (TargetCount(script, script.Actions[i].Type) is { } targets) {
-				CheckRef(warnings, $"Action {i} target ref", script.Actions[i].Target, targets, "targets");
+				CheckRef(warnings, $"Action {i} target ref", script.Actions[i].TargetRef, targets, "targets");
 			}
 		}
 

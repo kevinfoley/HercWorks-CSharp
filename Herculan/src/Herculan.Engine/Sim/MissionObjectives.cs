@@ -37,13 +37,8 @@ public sealed class MissionObjectives {
 	/// </summary>
 	public IReadOnlyList<MissionObjectiveState> Objectives => _objectives;
 
-	/// <summary>
-	/// <c>DAT_004a9ecc</c>, count <c>DAT_004a9ec8</c> — block 13, the <c>data\mission.str</c> lines
-	/// the objectives screen lists. It is a separate list from the records above and is not derived
-	/// from them: an author writes the briefing lines the player reads and the conditions the
-	/// simulation tests independently, and nothing cross-checks them.
-	/// </summary>
-	public IReadOnlyList<int> BriefingLines { get; init; } = Array.Empty<int>();
+	/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptDat.ObjectiveTextRefs"/>
+	public IReadOnlyList<int> ObjectiveTextRefs { get; init; } = Array.Empty<int>();
 
 	/// <summary>
 	/// The mission's own selector — <c>script.dat</c>'s header at <c>+0x06</c> (<c>DAT_004a9ed8</c>),
@@ -224,9 +219,12 @@ public sealed class MissionObjectives {
 			// The original leaves the working register untouched for a subject kind past 3 and for
 			// condition 5, which has no case in either of its two switches -- so such a record
 			// silently reuses the previous record's answer. Carried rather than corrected: nothing
-			// here should quietly disagree with the original about a mission that reaches it.
-			if ((uint)objective.Record.SubjectKind <= (uint)MissionObjectiveSubject.Base) {
-				satisfied = Test(world, player, objective);
+			// here should quietly disagree with the original about a mission that reaches it. For the
+			// first record the original carries whatever its caller left in the register; starting
+			// from false is this engine's choice.
+			if ((uint)objective.Record.SubjectKind <= (uint)MissionObjectiveSubject.Base
+					&& Test(world, player, objective) is bool answer) {
+				satisfied = answer;
 			}
 
 			objective.Satisfied = satisfied;
@@ -255,17 +253,19 @@ public sealed class MissionObjectives {
 	}
 
 	/// <summary>
-	/// One record's condition, asked of its own subject. The original writes the eleven cases out
-	/// twice, once for a group subject and once for an object one; they are the same eleven questions
-	/// and only the subject differs, so they are folded here.
+	/// One record's condition, asked of its own subject, or <see langword="null"/> for a code with no
+	/// case (5, or outside 0-10), which leaves the running answer alone. The original writes the cases
+	/// out twice, once for a group subject and once for an object one; they are the same ten questions
+	/// and only the subject differs, so they are folded here. See
+	/// docs/simulation/mission-objectives.md, "What each condition asks".
 	/// </summary>
-	private static bool Test(SimWorld world, MechObject player, MissionObjectiveState objective) {
+	private static bool? Test(SimWorld world, MechObject player, MissionObjectiveState objective) {
 		var record = objective.Record;
 		bool isGroup = record.SubjectKind == MissionObjectiveSubject.Group;
 		var group = isGroup ? objective.SubjectGroup : objective.SubjectObject?.Group;
 		var subject = objective.SubjectObject;
 
-		switch (record.Condition) {
+		switch (record.ConditionCode) {
 			case MissionObjective.ConditionOrderComplete:
 				return group?.OrderCompletedForRoute(record.RouteRef) ?? false;
 
@@ -297,7 +297,7 @@ public sealed class MissionObjectives {
 				return isGroup ? AllMembersDisarmed(group) : subject is { } armed && IsDisarmed(armed);
 
 			default:
-				return false;
+				return null;
 		}
 	}
 
@@ -403,7 +403,7 @@ public sealed class MissionObjectives {
 	}
 
 	/// <summary>
-	/// <c>FUN_00412c58</c> — <b>every</b> member of the group is disarmed. An empty group answers
+	/// <c>Group_AllMembersDisarmed</c> (<c>00412c58</c>) — <b>every</b> member of the group is disarmed. An empty group answers
 	/// yes, which is the original's own loop shape: it returns 1 when the walk runs off the end.
 	/// </summary>
 	private static bool AllMembersDisarmed(MissionGroup? group) {

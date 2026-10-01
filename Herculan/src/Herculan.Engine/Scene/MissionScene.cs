@@ -832,13 +832,13 @@ public sealed class MissionScene {
 			states[i] = state;
 		}
 
-		var briefing = new int[mission.BriefingLines.Count];
+		var briefing = new int[mission.ObjectiveTextRefs.Count];
 		for (int i = 0; i < briefing.Length; i++) {
-			briefing[i] = mission.BriefingLines[i];
+			briefing[i] = mission.ObjectiveTextRefs[i];
 		}
 
 		return new MissionObjectives(states) {
-			BriefingLines = briefing,
+			ObjectiveTextRefs = briefing,
 			ObjectiveType = mission.Header.ObjectiveType
 		};
 	}

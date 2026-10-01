@@ -22,11 +22,18 @@ public class MechRosterEntry144 : MapObject {
 	/// <summary>0x06 — compound-condition partner: -99 or 2, set only alongside <see cref="ConditionRef"/>.</summary>
 	public short CompoundConditionPartner { get; set; }
 
-	/// <summary>0x08 — the machine's standing AI radar setting, 0 PASSIVE or 1 ACTIVE; DBSIM copies it to <c>mech+0x97</c>.</summary>
+	/// <summary>
+	/// 0x08 — the machine's standing AI radar setting, 0 PASSIVE or 1 ACTIVE: the one an AI machine
+	/// walks its route on. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) copies it to
+	/// <c>mech+0x97</c>. 0 or 1 in every retail record.
+	/// </summary>
 	public short AiRadarActive { get; set; }
 	public const int AiRadarActiveWord = 0x08 / 2;
 
-	/// <summary>0x0A — the speed the machine's AI walks at, copied to <c>mech+0x252</c>; 0 means the AI's default.</summary>
+	/// <summary>
+	/// 0x0A — the speed the machine's AI walks at, copied to <c>mech+0x252</c>. Zero, which is 91% of
+	/// retail records, means the AI's own default. See <c>docs/simulation/ai-navigation.md</c>.
+	/// </summary>
 	public short AiCruiseSpeed { get; set; }
 
 	/// <summary>0x0C-0x2F — 18 shorts, 0 in every retail record.</summary>
@@ -59,16 +66,28 @@ public class MechRosterEntry144 : MapObject {
 
 	/// <summary>
 	/// 0x4C-0x73 — the machine's out-of-action report: ten interleaved (counter ref, operation) pairs,
-	/// written to the mission counters when it goes out of the fight. The export separates them into
-	/// <see cref="Script.ScriptMechRecord.CounterRefs"/> and <see cref="Script.ScriptMechRecord.CounterOps"/>.
+	/// a counter ref of <c>-1</c> for an unused one, written to the mission counters when it goes out
+	/// of the fight. The export separates them into <see cref="Script.ScriptMechRecord.CounterRefs"/>
+	/// and <see cref="Script.ScriptMechRecord.CounterOps"/>, and <c>DBSim_SpawnMissionObjects</c>
+	/// (<c>004253d8</c>) copies the refs to <c>mech+0x1ba</c> through
+	/// <c>SimObject_SetOutOfActionCounters</c> (<c>00411b90</c>). See
+	/// docs/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	public short[] OutOfActionReport { get; set; } = new short[20];
 	public const int OutOfActionReportWord = 0x4C / 2;
 
 	/// <summary>
-	/// 0x74-0x87 — the ammunition type per weapon slot, the second array <c>Mech_ConfigureLoadout</c>
-	/// takes alongside <see cref="WeaponRefs"/>; non-launcher slots carry the filler 5. See
-	/// <see cref="Script.ScriptMechRecord.WeaponSecondary"/>.
+	/// 0x74-0x87 — the second of the two parallel per-slot arrays <c>Mech_ConfigureLoadout</c> takes,
+	/// alongside <see cref="WeaponRefs"/>. It is the ammunition type each missile launcher is loaded
+	/// with, the value a launcher's mount resolves through <c>Proj_LookupRecord(Rocket, key)</c> and
+	/// then prints as its name; non-launcher slots carry a filler 5.
+	///
+	/// <para>Located by the two stack locals <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) hands
+	/// the loadout call, which sit exactly 64 bytes apart in a frame holding one exported record —
+	/// placing the second array 64 bytes past <see cref="WeaponRefs"/> in the export, 0x74 here since
+	/// the writer drops 0x4a between them; VSHELL's squad build reads it here too. Confirmed against
+	/// the retail mission: every slot whose <see cref="WeaponRefs"/> entry is a launcher
+	/// (<c>MSL10</c>, id 15) reads 1 here and every other slot reads 5.</para>
 	/// </summary>
 	public short[] WeaponSecondary { get; set; } = new short[10];
 	public const int WeaponSecondaryWord = 0x74 / 2;
@@ -77,15 +96,37 @@ public class MechRosterEntry144 : MapObject {
 	public short Constant2 { get; set; }
 	public const int Constant2Word = 0x88 / 2;
 
-	/// <summary>0x8A — ref into row #10 (<see cref="MissionAction82"/>): the action this machine fires when it is engaged.</summary>
+	/// <summary>
+	/// 0x8A — ref into row #10 (<see cref="MissionAction82"/>): the mission action this machine fires
+	/// when it is <b>engaged</b>, <c>-1</c> for none. <c>DBSim_SpawnMissionObjects</c>
+	/// (<c>004253d8</c>) resolves it into <c>mech+0x1b2</c>, and <c>Detection_Sweep</c>
+	/// (<c>004128f8</c>) fires it once a hostile that already has contact on this machine closes to
+	/// 50,000 units.
+	/// </summary>
 	public short EngagementActionRef { get; set; }
 	public const int EngagementActionRefWord = 0x8A / 2;
 
-	/// <summary>0x8C — ref into row #10: the action this machine fires when it is defeated.</summary>
+	/// <summary>
+	/// 0x8C — ref into row #10: the mission action this machine fires when it is <b>defeated</b>,
+	/// resolved into <c>mech+0x1b6</c>. A machine fires it on death
+	/// (<c>Mech_ComponentDamageWrite</c>, <c>00417de4</c>) and again on running out of working
+	/// weapons; it is not a death action alone.
+	///
+	/// <para><b>This is how a retail mission chains its reinforcements.</b> The shipped
+	/// <c>script.dat</c> has five of its ten mech records naming one, which is what brings each wave
+	/// in as the last is beaten — see docs/simulation/mission-deployment.md.</para>
+	/// </summary>
 	public short DefeatActionRef { get; set; }
 	public const int DefeatActionRefWord = 0x8C / 2;
 
-	/// <summary>0x8E — the machine's starting condition, per cent; see <see cref="Script.ScriptMechRecord.StartingCondition"/>.</summary>
+	/// <summary>
+	/// 0x8E — the machine's <b>starting condition, as a percentage</b>. 100 is pristine; anything
+	/// under 80 has <c>DBSim_SpawnMissionObjects</c> pre-damage the machine through
+	/// <c>Mech_ApplyStartingCondition</c> (<c>004178e8</c>) before it ever takes a shot, in four
+	/// widening bands at 80 / 60 / 40 / 20. Below 20 the machine is placed as a <b>wreck</b>: a leg
+	/// destroyed outright, immobilised and collapsed where it stands. See
+	/// docs/simulation/component-damage.md#starting-condition--mech_applystartingcondition-004178e8.
+	/// </summary>
 	public short StartingCondition { get; set; }
 	public const int StartingConditionWord = 0x8E / 2;
 }

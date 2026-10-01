@@ -32,7 +32,9 @@ The docs state what is true now. How the project got there belongs in `git log`.
 4. **No dates**, including "solved on" headers and status lines.
 
 5. **One fact, one home.** The doc owns the RE evidence and derivation; the code comment owns the
-   constants, the local behaviour, and a link to the doc section. Never both.
+   constants, the local behaviour, and a link to the doc section. Never both. The same holds between
+   code layers: the `.msn` model owns a field's description, and a `script.dat`, UI or engine member
+   carrying that datum uses `<inheritdoc cref="..."/>` and adds only what differs.
 
 6. **Keep a disproven reading only when it protects a reader** — could someone reach that wrong
    conclusion independently (a symbol still misnamed in Ghidra, an obvious-but-false

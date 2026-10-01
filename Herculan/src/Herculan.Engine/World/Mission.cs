@@ -36,7 +36,13 @@ public enum MissionSide {
 /// One object the mission puts in the world: what it is, where it stands and which way it faces.
 /// </summary>
 /// <param name="Kind">Which roster it came from.</param>
-/// <param name="TypeIndex">Its index within that roster's type list.</param>
+/// <param name="TypeIndex">
+/// The roster record's type, by <paramref name="Kind"/>:
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.TypeIndex"/>,
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptFlyerRecord.TypeIndex"/> or
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptBaseRecord.TypeIndex"/>; for the player's
+/// squad, <c>player.mec</c>'s <see cref="HercWorks.Core.Data.File.Sav.MecEntry.MechType"/>.
+/// </param>
 /// <param name="TypeName">
 /// The resolved resource base name (<c>HYPERION</c>, <c>SKIMMER</c>) for mechs and flyers, or null
 /// for bases, which are named by table index rather than by string.
@@ -47,13 +53,13 @@ public enum MissionSide {
 /// spawn point is a terrain query the scene does once the zone is loaded, exactly as DBSIM does.</param>
 /// <param name="Heading">Facing as a binary angle, already converted from the file's degrees.</param>
 /// <param name="WeaponRefs">
-/// The mech's weapon fit, one entry per fit slot and holes left in — empty for anything else. The
-/// slot positions are load-bearing: the chassis' <c>.GL</c> hardpoint list indexes this array, so it
-/// is carried as the file states it rather than compacted.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.WeaponRefs"/>
+/// Empty for anything but a mech, and <c>player.mec</c>'s for the player's squad; carried as the
+/// file states it, holes and all, since the chassis' <c>.GL</c> hardpoint list indexes it.
 /// </param>
 /// <param name="WeaponSecondary">
-/// The parallel second array the same loadout call takes — the ammunition type per slot. See
-/// <see cref="Herculan.Engine.Sim.MechLoadout.SecondaryKeys"/>.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.WeaponSecondary"/>
+/// Empty for anything but a mech. See <see cref="Herculan.Engine.Sim.MechLoadout.SecondaryKeys"/>.
 /// </param>
 /// <param name="IsPlayerLance">
 /// Whether this came from <c>player.mec</c> rather than the mission's own roster.
@@ -71,17 +77,30 @@ public enum MissionSide {
 /// it off the object, not off a group record it does not have.
 /// </param>
 /// <param name="AiCruiseSpeed">
-/// Block 7 <c>+0x02</c> — the speed this machine's AI walks at, or 0 for the AI's own default.
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.AiCruiseSpeed"/>
 /// </param>
-/// <param name="AiRadarActive">Block 7 <c>+0x00</c> — this machine's standing radar setting, PASSIVE or ACTIVE.</param>
+/// <param name="AiRadarActive">
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.AiRadarActive"/>
+/// Carried as a bool: any nonzero value is ACTIVE.
+/// </param>
 /// <param name="EngagementActionRef">
-/// The roster record's <c>0x80</c> — the mission action this object fires when an enemy that
-/// already sees it closes to engagement range, or <c>-1</c>. See
+/// The roster record's engagement action —
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.EngagementActionRef"/>,
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptFlyerRecord.EngagementActionRef"/> or
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptBaseRecord.EngagementActionRef"/> — with a
+/// ref outside block 5 read as <c>-1</c>. See
 /// <see cref="Herculan.Engine.Sim.SimObject.EngagementAction"/>.
 /// </param>
 /// <param name="DefeatActionRef">
-/// The roster record's <c>0x82</c> — the mission action this object fires when it is defeated, or
-/// <c>-1</c>. See <see cref="Herculan.Engine.Sim.SimObject.DefeatAction"/>.
+/// The roster record's defeat action —
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.DefeatActionRef"/>,
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptFlyerRecord.DefeatActionRef"/> or
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptBaseRecord.DefeatActionRef"/> — with a ref
+/// outside block 5 read as <c>-1</c>. See <see cref="Herculan.Engine.Sim.SimObject.DefeatAction"/>.
+/// </param>
+/// <param name="StartingCondition">
+/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.StartingCondition"/>
+/// <see cref="PristineCondition"/> for anything but a mission-roster mech.
 /// </param>
 /// <param name="FormationOffset">
 /// This member's unrotated spread offset out of <c>MFORMS.DAT</c>, or null for the group's slot 0
@@ -158,7 +177,7 @@ public sealed class Mission {
 			IReadOnlyList<MissionUnitKind> groupKinds,
 			IReadOnlyList<MissionSide> groupSides,
 			IReadOnlyList<MissionObjective>? objectives = null,
-			IReadOnlyList<int>? briefingLines = null,
+			IReadOnlyList<int>? objectiveTextRefs = null,
 			IReadOnlyList<string>? text = null,
 			IReadOnlyList<short>? counters = null,
 			IReadOnlyList<OutOfActionReport>? groupOutOfActionReports = null) {
@@ -176,7 +195,7 @@ public sealed class Mission {
 		GroupKinds = groupKinds;
 		GroupSides = groupSides;
 		Objectives = objectives ?? Array.Empty<MissionObjective>();
-		BriefingLines = briefingLines ?? Array.Empty<int>();
+		ObjectiveTextRefs = objectiveTextRefs ?? Array.Empty<int>();
 		Text = text ?? Array.Empty<string>();
 		Counters = counters ?? Array.Empty<short>();
 		GroupOutOfActionReports = groupOutOfActionReports ?? Array.Empty<OutOfActionReport>();
@@ -262,12 +281,9 @@ public sealed class Mission {
 	/// </summary>
 	public IReadOnlyList<MissionObjective> Objectives { get; }
 
-	/// <summary>
-	/// Block 13 — the <see cref="Text"/> lines the in-mission objectives screen lists, in the order
-	/// it lists them. <b>Separate data from <see cref="Objectives"/></b>: an author writes what the
-	/// player is told and what the simulation tests independently, and nothing reconciles the two.
-	/// </summary>
-	public IReadOnlyList<int> BriefingLines { get; }
+	/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptDat.ObjectiveTextRefs"/>
+	/// <remarks>Each is an index into <see cref="Text"/>.</remarks>
+	public IReadOnlyList<int> ObjectiveTextRefs { get; }
 
 	/// <summary>
 	/// <c>data\mission.str</c>, flattened — the mission's own text: the objective lines the briefing

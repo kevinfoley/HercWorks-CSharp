@@ -31,25 +31,62 @@ public class ScriptDat {
 	/// <summary>Header offset 0 — the theater, 0-4.</summary>
 	public short TheaterIndex { get => ReadHeader(0); set => WriteHeader(0, value); }
 
-	/// <summary>Header offset 2 — the zone, passed to <c>Terrain_LoadZone</c>.</summary>
+	/// <summary>Header offset 2 — the zone, the <c>zoneNNNN</c> the mission plays in, passed to <c>Terrain_LoadZone</c>.</summary>
 	public short ZoneIndex { get => ReadHeader(2); set => WriteHeader(2, value); }
 
-	/// <summary>Header offset 6 — the mission objective type the player's think watches for.</summary>
+	/// <summary>
+	/// Header offset 6 — <c>DAT_004a9ed8</c>, the <b>mission objective type</b>. It selects which arm of
+	/// the player's own think watches for progress: 0 the order target coming into range, 5 closing on
+	/// the goal position, 3 or 7 the data-link sequence. Type 3 also takes the data-link subject out
+	/// of the AI's candidate set, so the player's squad does not shoot the thing they came to read.
+	///
+	/// <para>Every one of the ten files in the retail install carries 0, which is what a save-slot
+	/// snapshot of a conventional mission would; the other three arms are reached from the
+	/// campaign's own missions.</para>
+	/// </summary>
 	public short ObjectiveType { get => ReadHeader(6); set => WriteHeader(6, value); }
 
-	/// <summary>Header offset 8 — the training mission number, 0 for anything that is not one.</summary>
+	/// <summary>
+	/// Header offset 8 — <c>DAT_004a9eda</c>, the <b>training mission number</b>, 0 for anything that
+	/// is not one. The <c>.MSN</c> header patch sets it: <c>TRAIN1</c>-<c>TRAIN4</c> carry 1-4, every
+	/// other mission 0. It selects the cockpit's training message port and the instructor's
+	/// <c>COMMAND&lt;n&gt;.STR</c> and <c>TM&lt;n&gt;_</c> clips, and silences the music. See
+	/// docs/formats/script-dat.md#the-training-mission-number.
+	///
+	/// <para>Every one of the ten files in the retail install carries 0: the training missions reach
+	/// DBSIM through the shell, not through a save-slot snapshot.</para>
+	/// </summary>
 	public short TrainingMissionNumber { get => ReadHeader(8); set => WriteHeader(8, value); }
 
-	/// <summary>Header offset 10 — unlimited ammunition and energy when exactly 1.</summary>
+	/// <summary>
+	/// Header offset 10 — <c>DAT_004a9edc</c>, <b>unlimited ammunition and energy</b> when the file
+	/// says exactly 1. The shell's practice missions screen sets it; a campaign forces it to 0. It acts
+	/// on the player's machine alone, in two ways: a shot spends no ammunition, and the weapon mounts
+	/// hand the Master Energy Pool back everything they drew this tick. See
+	/// docs/simulation/difficulty.md.
+	/// </summary>
 	public short UnlimitedAmmunition { get => ReadHeader(10); set => WriteHeader(10, value); }
 
-	/// <summary>Header offset 12 — player invulnerable when exactly 1.</summary>
+	/// <summary>
+	/// Header offset 12 — <c>DAT_004a9ede</c>, <b>player invulnerable</b> when the file says exactly
+	/// 1. It gates the whole of the damage write for the locally piloted machine, so its components
+	/// take nothing; its shields still absorb and still drain, because that happens before the write.
+	/// </summary>
 	public short PlayerInvulnerable { get => ReadHeader(12); set => WriteHeader(12, value); }
 
-	/// <summary>Header offset 14 — the mission difficulty, 0-3.</summary>
+	/// <summary>
+	/// Header offset 14 — <c>DAT_004a9ee0</c>, the <b>mission difficulty</b>, 0-3. The shell writes
+	/// the player pilot's own skill here in a campaign and the practice missions screen's setting
+	/// outside one, which is why every retail file carries 2 (<c>VETERAN</c>). Four things in the
+	/// original index a four-entry table with it — see docs/simulation/difficulty.md.
+	/// </summary>
 	public short Difficulty { get => ReadHeader(14); set => WriteHeader(14, value); }
 
-	/// <summary>Header offset 18 — the theater variant, 0 day or 1 night.</summary>
+	/// <summary>
+	/// Header offset 18 — the theater variant, 0 day or 1 night: it selects between a theater's two
+	/// descriptors, and the shell's practice missions screen writes it from a <c>Day</c> /
+	/// <c>Night</c> row. Every retail file carries 0.
+	/// </summary>
 	public short TheaterVariant { get => ReadHeader(18); set => WriteHeader(18, value); }
 
 	private short ReadHeader(int offset) =>
@@ -66,7 +103,7 @@ public class ScriptDat {
 	/// <summary>Block 1 — row #6 (<see cref="MapPoint22"/>) export: X/Y/Z world positions only.</summary>
 	public ScriptCoordinate[] Coordinates { get; set; } = [];
 
-	/// <summary>Block 2 — row #7 (<see cref="Heading10"/>) export: headings in degrees, which DBSIM multiplies by 182 to reach BAM.</summary>
+	/// <summary>Block 2 — row #7 (<see cref="Heading10"/>) export: the headings.</summary>
 	public ScriptHeading[] Headings { get; set; } = [];
 
 	/// <summary>Block 3 — row #8 (<see cref="WaypointGroup"/>) export: the waypoint ref list only (no GUID/condition).</summary>
@@ -139,27 +176,34 @@ public class ScriptDat {
 
 /// <summary>Block 1 entry — 12 bytes (int32 X/Y/Z), a positions-only export of row #6.</summary>
 public class ScriptCoordinate {
+	/// <inheritdoc cref="MapPoint22.X"/>
 	public int X { get; set; }
+
+	/// <inheritdoc cref="MapPoint22.Y"/>
 	public int Y { get; set; }
+
+	/// <inheritdoc cref="MapPoint22.Z"/>
 	public int Z { get; set; }
 }
 
 /// <summary>Block 2 entry — 2 bytes, row #7's heading in degrees.</summary>
 public class ScriptHeading {
-	public short Value { get; set; }
+	/// <inheritdoc cref="Heading10.Degrees"/>
+	public short Degrees { get; set; }
 }
 
 /// <summary>Block 3 entry — a count, then that many waypoints as block-1 indices.</summary>
 public class ScriptWaypointGroup {
+	/// <inheritdoc cref="WaypointGroup.Waypoints"/>
 	public short[] Waypoints { get; set; } = [];
 }
 
-/// <summary>Block 4 entry — 6 bytes, a trigger area; the fields are <see cref="TriggerArea12"/>'s.</summary>
+/// <summary>Block 4 entry — 6 bytes, a trigger area; the fields are <see cref="TriggerArea12"/>'s, refs as block-1 indices.</summary>
 public class ScriptTriggerArea {
 	/// <inheritdoc cref="TriggerArea12.Shape"/>
 	public short Shape { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.Coordinates"/>: the box's first corner or the circle's centre.</summary>
+	/// <inheritdoc cref="TriggerArea12.PointRef"/>
 	public short PointRef { get; set; }
 
 	/// <inheritdoc cref="TriggerArea12.SecondPointOrRadius"/>
@@ -168,8 +212,9 @@ public class ScriptTriggerArea {
 
 /// <summary>
 /// Block 5 entry — 74 bytes, row #10 (<see cref="MissionAction82"/>) less its GUID, condition, 0x04
-/// and 0x1A, with its counter pairs split into <see cref="CounterRefs"/> then <see cref="CounterOps"/>.
-/// What DBSIM keeps of it is docs/formats/script-dat.md#block-5-in-memory--58-bytes-0x3a.
+/// and 0x1A, with its counter pairs split into <see cref="CounterRefs"/> then <see cref="CounterOps"/>
+/// and refs as block indices. What DBSIM keeps of it is
+/// docs/formats/script-dat.md#block-5-in-memory--58-bytes-0x3a.
 /// </summary>
 public class ScriptAction {
 	/// <inheritdoc cref="MissionAction82.Type"/>
@@ -178,34 +223,34 @@ public class ScriptAction {
 	/// <inheritdoc cref="MissionAction82.Verb"/>
 	public short Verb { get; set; }
 
-	/// <summary>Indices into <see cref="ScriptDat.TriggerAreas"/>, <c>-1</c> for none.</summary>
+	/// <inheritdoc cref="MissionAction82.AreaRefs"/>
 	public short[] AreaRefs { get; set; } = new short[8];
 
-	/// <summary>The mission counters the action writes when it activates, <c>-1</c> for an unused slot.</summary>
+	/// <summary>The counter ref of each of <see cref="MissionAction82.CounterPairs"/>' ten pairs.</summary>
 	public short[] CounterRefs { get; set; } = new short[10];
 
-	/// <summary>The operation for each of <see cref="CounterRefs"/>: 6 increments the counter, 5 clears it.</summary>
+	/// <summary>The operation of each of <see cref="MissionAction82.CounterPairs"/>' ten pairs, slot for slot with <see cref="CounterRefs"/>.</summary>
 	public short[] CounterOps { get; set; } = new short[10];
 
-	/// <summary><c>data\mission.str</c> line indices; DBSIM reads and drops them.</summary>
+	/// <summary><see cref="MissionAction82.TextRefs"/>, renumbered into <c>data\mission.str</c> line indices.</summary>
 	public short[] TextRefs { get; set; } = new short[5];
 
 	/// <inheritdoc cref="MissionAction82.MessageId"/>
 	public short MessageId { get; set; }
 
-	/// <inheritdoc cref="MissionAction82.Target"/>
-	public short Target { get; set; }
+	/// <inheritdoc cref="MissionAction82.TargetRef"/>
+	public short TargetRef { get; set; }
 }
 
-/// <summary>Block 6 entry — 24 bytes, row #11 (<see cref="ActionTimer30"/>) less its GUID, condition and 0x04.</summary>
+/// <summary>Block 6 entry — 24 bytes, row #11 (<see cref="ActionTimer30"/>) less its GUID, condition and 0x04, refs as block-5 indices.</summary>
 public class ScriptActionTimer {
-	/// <summary>Index into <see cref="ScriptDat.Actions"/>: the action that arms the timer, or <c>-1</c> to run from mission start.</summary>
+	/// <inheritdoc cref="ActionTimer30.PrimaryActionRef"/>
 	public short PrimaryActionRef { get; set; }
 
 	/// <inheritdoc cref="ActionTimer30.Delay"/>
 	public short Delay { get; set; }
 
-	/// <summary>Indices into <see cref="ScriptDat.Actions"/>: fired when the delay runs out.</summary>
+	/// <inheritdoc cref="ActionTimer30.SequenceRefs"/>
 	public short[] SequenceRefs { get; set; } = new short[10];
 }
 
@@ -213,7 +258,8 @@ public class ScriptActionTimer {
 /// Block 7 entry — 134 bytes, row #12 (<see cref="MechRosterEntry144"/>) less its GUID, condition,
 /// variant key, compound-condition partner and pair count. <see cref="HeadBytes"/> is source
 /// 0x08-0x2F and <see cref="TailBytes"/> source 0x4C-0x8F with the counter pairs split; both are kept
-/// raw for a byte-exact round trip, and the named properties are views over them.
+/// raw for a byte-exact round trip, and the named properties are views over them. Refs are block
+/// indices.
 ///
 /// <para><c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) builds one mech per live slot from
 /// this record. <c>DBSim_LoadScriptDat</c>'s first pass keeps only <see cref="TypeIndex"/>, to count
@@ -222,73 +268,43 @@ public class ScriptActionTimer {
 public class ScriptMechRecord {
 	public byte[] HeadBytes { get; set; } = new byte[40];
 
-	/// <summary>
-	/// Source offset 0x08, the first field of <see cref="HeadBytes"/> — the machine's standing AI
-	/// radar setting. <c>DBSim_SpawnMissionObjects</c> copies it to <c>mech+0x97</c>, which is the
-	/// PASSIVE/ACTIVE an AI machine walks its route on. 0/1 in every retail record.
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.AiRadarActive"/>
+	/// <remarks>The first word of <see cref="HeadBytes"/>.</remarks>
 	public short AiRadarActive { get => ReadHead(0); set => ScriptActionRefs.Write(HeadBytes, 0, value); }
 
-	/// <summary>
-	/// Source offset 0x0a — the speed the machine's AI walks at, copied to <c>mech+0x252</c>. Zero,
-	/// which is 91% of retail records, means the AI's own default. See
-	/// <c>docs/simulation/ai-navigation.md</c>.
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.AiCruiseSpeed"/>
+	/// <remarks>The second word of <see cref="HeadBytes"/>.</remarks>
 	public short AiCruiseSpeed { get => ReadHead(2); set => ScriptActionRefs.Write(HeadBytes, 2, value); }
 
 	private short ReadHead(int offset) =>
 		HeadBytes.Length >= offset + 2 ? BitConverter.ToInt16(HeadBytes, offset) : (short)0;
 
-	/// <summary>Source offset 0x30 — the mech type, an index into <c>nam\MECHS.NAM</c>'s name list.</summary>
+	/// <inheritdoc cref="MechRosterEntry144.TypeIndex"/>
 	public short TypeIndex { get; set; }
 
-	/// <summary>
-	/// Source offsets 0x32-0x45 — the mech's weapon fit, passed straight to DBSIM's
-	/// <c>Mech_ConfigureLoadout</c> alongside <see cref="WeaponSecondary"/>. Unused slots are <c>-1</c>.
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.WeaponRefs"/>
 	public short[] WeaponRefs { get; set; } = new short[10];
 
-	/// <summary>
-	/// Source offset 0x46 — index into <see cref="ScriptDat.Coordinates"/>, or <c>-1</c>, in which
-	/// case the mech takes its spawn point from the block-11 group that activates it (see
-	/// <see cref="ScriptGroup.PositionRef"/>).
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.PositionRef"/>
 	public short PositionRef { get; set; }
 
-	/// <summary>Source offset 0x48 — index into <see cref="ScriptDat.Headings"/>, or <c>-1</c>.</summary>
+	/// <inheritdoc cref="MechRosterEntry144.HeadingRef"/>
 	public short HeadingRef { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[68];
 
-	/// <summary>
-	/// Exported offset <c>0x42</c> — the machine's ten mission-counter refs, <c>-1</c> for an unused
-	/// slot. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) copies them to <c>mech+0x1ba</c>
-	/// through <c>SimObject_SetOutOfActionCounters</c> (<c>00411b90</c>), and they are written when
-	/// the machine goes out of the fight. See
-	/// docs/simulation/mission-deployment.md#the-out-of-action-report.
-	/// </summary>
+	/// <summary>Exported offset <c>0x42</c> — the counter ref of each of <see cref="MechRosterEntry144.OutOfActionReport"/>'s ten pairs.</summary>
 	public short[] CounterRefs => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterRefs);
 
-	/// <summary>Exported offset <c>0x56</c> — the operation for each of <see cref="CounterRefs"/>' counters.</summary>
+	/// <summary>Exported offset <c>0x56</c> — the operation of each of those pairs, slot for slot with <see cref="CounterRefs"/>.</summary>
 	public short[] CounterOps => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterOps);
 
-	/// <summary>
-	/// Source offset 0x74 — the second of the two parallel per-slot arrays
-	/// <c>Mech_ConfigureLoadout</c> takes, alongside <see cref="WeaponRefs"/>. It is the ammunition
-	/// type each missile launcher is loaded with, the value a launcher's mount resolves through
-	/// <c>Proj_LookupRecord(Rocket, key)</c> and then prints as its name; non-launcher slots carry a
-	/// filler 5.
-	///
-	/// <para>Located by the two stack locals <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) hands
-	/// the loadout call, which sit exactly 64 bytes apart in a frame holding one record — placing the
-	/// second array 64 bytes past <see cref="WeaponRefs"/> in the exported record, source 0x74 since the
-	/// writer drops 0x4a between them; VSHELL's squad build reads it there too. Confirmed against the retail
-	/// mission: every slot whose <see cref="WeaponRefs"/> entry is a launcher (<c>MSL10</c>, id 15)
-	/// reads 1 here and every other slot reads 5.</para>
-	///
-	/// <para>A view over <see cref="TailBytes"/> rather than a field of its own, so the record still
-	/// round-trips byte-exact through <see cref="Io.Transform.Common.ScriptDatTransformer"/>.</para>
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.WeaponSecondary"/>
+	/// <remarks>
+	/// Exported offset <c>0x6a</c>. A view over <see cref="TailBytes"/> rather than a field of its own,
+	/// so the record still round-trips byte-exact through
+	/// <see cref="Io.Transform.Common.ScriptDatTransformer"/>.
+	/// </remarks>
 	public short[] WeaponSecondary => HasWeaponSecondary
 		? Enumerable.Range(0, SlotCount)
 			.Select(i => BitConverter.ToInt16(TailBytes, SecondaryOffset + i * 2))
@@ -318,40 +334,22 @@ public class ScriptMechRecord {
 		BitConverter.GetBytes(value).CopyTo(TailBytes, SecondaryOffset + slot * 2);
 	}
 
-	/// <summary>
-	/// Exported offset <c>0x80</c> — the mission action this machine fires when it is <b>engaged</b>:
-	/// <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) resolves it into <c>mech+0x1b2</c>, and
-	/// <c>Detection_Sweep</c> (<c>004128f8</c>) fires it once a hostile that already has contact on
-	/// this machine closes to 50,000 units. <c>-1</c> for a record that names none.
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.EngagementActionRef"/>
+	/// <remarks>Exported offset <c>0x80</c>.</remarks>
 	public short EngagementActionRef {
 		get => ReadTail(EngagementActionOffset);
 		set => ScriptActionRefs.Write(TailBytes, EngagementActionOffset, value);
 	}
 
-	/// <summary>
-	/// Exported offset <c>0x82</c> — the mission action this machine fires when it is
-	/// <b>defeated</b>, resolved into <c>mech+0x1b6</c>. A machine fires it on death
-	/// (<c>Mech_ComponentDamageWrite</c>, <c>00417de4</c>) and again on running out of working
-	/// weapons; it is not a death action alone.
-	///
-	/// <para><b>This is how a retail mission chains its reinforcements.</b> The shipped
-	/// <c>script.dat</c> has five of its ten mech records naming one, which is what brings each wave
-	/// in as the last is beaten — see docs/simulation/mission-deployment.md.</para>
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.DefeatActionRef"/>
+	/// <remarks>Exported offset <c>0x82</c>.</remarks>
 	public short DefeatActionRef {
 		get => ReadTail(DefeatActionOffset);
 		set => ScriptActionRefs.Write(TailBytes, DefeatActionOffset, value);
 	}
 
-	/// <summary>
-	/// Exported offset <c>0x84</c> — the machine's <b>starting condition, as a percentage</b>. 100 is
-	/// pristine; anything under 80 has <c>DBSim_SpawnMissionObjects</c> pre-damage the machine
-	/// through <c>Mech_ApplyStartingCondition</c> (<c>004178e8</c>) before it ever takes a shot, in
-	/// four widening bands at 80 / 60 / 40 / 20. Below 20 the machine is placed as a <b>wreck</b>:
-	/// a leg destroyed outright, immobilised and collapsed where it stands. See
-	/// docs/simulation/component-damage.md#starting-condition--mech_applystartingcondition-004178e8.
-	/// </summary>
+	/// <inheritdoc cref="MechRosterEntry144.StartingCondition"/>
+	/// <remarks>Exported offset <c>0x84</c>.</remarks>
 	public short StartingCondition {
 		get => ReadTail(StartingConditionOffset);
 		set => ScriptActionRefs.Write(TailBytes, StartingConditionOffset, value);
@@ -379,7 +377,7 @@ public class ScriptMechRecord {
 /// <summary>
 /// Block 8 entry — 92 bytes, row #13 (<see cref="FlyerRosterEntry102"/>) less its GUID, condition,
 /// variant key, 0x06 and pair count. <see cref="HeadBytes"/> is source 0x08-0x2F (the flag span) and
-/// <see cref="TailBytes"/> source 0x38-0x65 with the counter pairs split.
+/// <see cref="TailBytes"/> source 0x38-0x65 with the counter pairs split. Refs are block indices.
 ///
 /// <para>DBSIM's world-spawn pass (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) builds one flyer/vehicle per live slot from
 /// this record, taking its type from <see cref="TypeIndex"/> and its placement from the two refs
@@ -388,37 +386,32 @@ public class ScriptMechRecord {
 public class ScriptFlyerRecord {
 	public byte[] HeadBytes { get; set; } = new byte[40];
 
-	/// <summary>Source offset 0x30 — index into <see cref="ScriptDat.Coordinates"/>, or <c>-1</c>.</summary>
+	/// <inheritdoc cref="FlyerRosterEntry102.PositionRef"/>
 	public short PositionRef { get; set; }
 
-	/// <summary>Source offset 0x32 — index into <see cref="ScriptDat.Headings"/>, or <c>-1</c>.</summary>
+	/// <inheritdoc cref="FlyerRosterEntry102.HeadingRef"/>
 	public short HeadingRef { get; set; }
 
-	/// <summary>Source offset 0x34 — the flyer type, an index into <c>nam\FLYERS.NAM</c>'s name list.</summary>
+	/// <inheritdoc cref="FlyerRosterEntry102.TypeIndex"/>
 	public short TypeIndex { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[46];
 
-	/// <inheritdoc cref="ScriptMechRecord.CounterRefs" />
-	/// <remarks>Exported offset <c>0x2e</c>.</remarks>
+	/// <summary>Exported offset <c>0x2e</c> — the counter ref of each of <see cref="FlyerRosterEntry102.OutOfActionReport"/>'s ten pairs.</summary>
 	public short[] CounterRefs => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterRefs);
 
-	/// <inheritdoc cref="ScriptMechRecord.CounterOps" />
-	/// <remarks>Exported offset <c>0x42</c>.</remarks>
+	/// <summary>Exported offset <c>0x42</c> — the operation of each of those pairs, slot for slot with <see cref="CounterRefs"/>.</summary>
 	public short[] CounterOps => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterOps);
 
-	/// <inheritdoc cref="ScriptMechRecord.EngagementActionRef" />
-	/// <remarks>Exported offset <c>0x56</c>; the flyer's own <c>+0x1b2</c>.</remarks>
+	/// <inheritdoc cref="FlyerRosterEntry102.EngagementActionRef"/>
+	/// <remarks>Exported offset <c>0x56</c>.</remarks>
 	public short EngagementActionRef {
 		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
 		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallEngagement, value);
 	}
 
-	/// <inheritdoc cref="ScriptMechRecord.DefeatActionRef" />
-	/// <remarks>
-	/// Exported offset <c>0x58</c>; the flyer's own <c>+0x1b6</c>, fired by
-	/// <c>Flyer_ComponentDamageWrite</c> (<c>00421bb4</c>).
-	/// </remarks>
+	/// <inheritdoc cref="FlyerRosterEntry102.DefeatActionRef"/>
+	/// <remarks>Exported offset <c>0x58</c>.</remarks>
 	public short DefeatActionRef {
 		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
 		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallDestruction, value);
@@ -487,46 +480,45 @@ internal static class ScriptActionRefs {
 /// <summary>
 /// Block 9 entry — 52 bytes, row #14 (<see cref="BaseRosterEntry62"/>) less its GUID, condition,
 /// variant key, 0x06 and pair count. <see cref="TailBytes"/> is source 0x10-0x3D with the counter
-/// pairs split.
+/// pairs split. Refs are block indices.
 ///
 /// <para>DBSIM's world-spawn pass (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) builds one base/structure per live slot
 /// from this record.</para>
 /// </summary>
 public class ScriptBaseRecord {
-	/// <summary>
-	/// Source offset 0x08 — the base type, an index into the 65-entry table in
-	/// <c>dat\BASES.DAT</c> (which in turn names the model and its texture bank).
-	/// </summary>
+	/// <inheritdoc cref="BaseRosterEntry62.TypeIndex"/>
 	public short TypeIndex { get; set; }
 
-	/// <summary>Source offset 0x0A — index into <see cref="ScriptDat.Coordinates"/>, or <c>-1</c>.</summary>
+	/// <inheritdoc cref="BaseRosterEntry62.PositionRef"/>
 	public short PositionRef { get; set; }
 
-	/// <summary>Source offset 0x0C — index into <see cref="ScriptDat.Headings"/>, or <c>-1</c>.</summary>
+	/// <inheritdoc cref="BaseRosterEntry62.HeadingRef"/>
 	public short HeadingRef { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[46];
 
-	/// <inheritdoc cref="ScriptMechRecord.CounterRefs" />
-	/// <remarks>Exported offset <c>0x06</c>.</remarks>
+	/// <summary>Exported offset <c>0x06</c> — the counter ref of each of <see cref="BaseRosterEntry62.OutOfActionReport"/>'s ten pairs.</summary>
 	public short[] CounterRefs => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterRefs);
 
-	/// <inheritdoc cref="ScriptMechRecord.CounterOps" />
-	/// <remarks>Exported offset <c>0x1a</c>.</remarks>
+	/// <summary>Exported offset <c>0x1a</c> — the operation of each of those pairs, slot for slot with <see cref="CounterRefs"/>. The file always carries the row's own operations; the briefing map reuses the first two slots in its own copy of the block (docs/shell/mission-map.md#what-it-reads).</summary>
 	public short[] CounterOps => ScriptActionRefs.ReadSlots(TailBytes, ScriptActionRefs.CounterOps);
 
-	/// <inheritdoc cref="ScriptMechRecord.EngagementActionRef" />
-	/// <remarks>Exported offset <c>0x2e</c>; the structure's own <c>+0x1b2</c>.</remarks>
+	/// <inheritdoc cref="BaseRosterEntry62.StartingCondition"/>
+	/// <remarks>Exported offset <c>0x32</c>.</remarks>
+	public short StartingCondition {
+		get => ScriptActionRefs.Read(TailBytes, 0x32 - 6);
+		set => ScriptActionRefs.Write(TailBytes, 0x32 - 6, value);
+	}
+
+	/// <inheritdoc cref="BaseRosterEntry62.EngagementActionRef"/>
+	/// <remarks>Exported offset <c>0x2e</c>.</remarks>
 	public short EngagementActionRef {
 		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
 		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallEngagement, value);
 	}
 
-	/// <inheritdoc cref="ScriptMechRecord.DefeatActionRef" />
-	/// <remarks>
-	/// Exported offset <c>0x30</c>; the structure's own <c>+0x1b6</c>, fired by
-	/// <c>Base_ApplyDamage</c> (<c>00404d70</c>) when the last component goes.
-	/// </remarks>
+	/// <inheritdoc cref="BaseRosterEntry62.DefeatActionRef"/>
+	/// <remarks>Exported offset <c>0x30</c>.</remarks>
 	public short DefeatActionRef {
 		get => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
 		set => ScriptActionRefs.Write(TailBytes, ScriptActionRefs.SmallDestruction, value);
@@ -545,19 +537,19 @@ public class ScriptOrder {
 	/// <inheritdoc cref="MissionOrder22.FormationId"/>
 	public short FormationId { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.Coordinates"/>; DBSIM resolves it and never reads it.</summary>
+	/// <inheritdoc cref="MissionOrder22.PointRef"/>
 	public short PointRef { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.WaypointGroups"/>: the route.</summary>
+	/// <inheritdoc cref="MissionOrder22.RouteRef"/>
 	public short RouteRef { get; set; }
 
 	/// <inheritdoc cref="MissionOrder22.SubjectKind"/>
 	public short SubjectKind { get; set; }
 
-	/// <summary>The subject, as a block-11, -7, -8 or -9 index per <see cref="SubjectKind"/>.</summary>
+	/// <inheritdoc cref="MissionOrder22.SubjectRef"/>
 	public short SubjectRef { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.Actions"/>: when it fires, the group moves to its next order.</summary>
+	/// <inheritdoc cref="MissionOrder22.ActionRef"/>
 	public short ActionRef { get; set; }
 }
 
@@ -577,25 +569,25 @@ public class ScriptGroup {
 	/// <inheritdoc cref="MissionGroup164.DeadZone"/>
 	public short[] DeadZone { get; set; } = new short[18];
 
-	/// <summary>Which roster <see cref="MemberRefs"/> indexes: 0 <see cref="ScriptDat.Mechs"/>, 1 <see cref="ScriptDat.Flyers"/>, 2 <see cref="ScriptDat.Bases"/>.</summary>
+	/// <inheritdoc cref="MissionGroup164.MemberKind"/>
 	public short MemberKind { get; set; }
 
 	/// <inheritdoc cref="MissionGroup164.FormationId"/>
 	public short FormationId { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.Coordinates"/>: the group's spawn point, or <c>-1</c> for its first order's route's first waypoint.</summary>
+	/// <inheritdoc cref="MissionGroup164.PositionRef"/>
 	public short PositionRef { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.Headings"/>, or <c>-1</c> for the bearing of the route's first leg.</summary>
+	/// <inheritdoc cref="MissionGroup164.HeadingRef"/>
 	public short HeadingRef { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.WaypointGroups"/>; the group's own route.</summary>
+	/// <inheritdoc cref="MissionGroup164.RouteRef"/>
 	public short RouteRef { get; set; }
 
 	/// <inheritdoc cref="MissionGroup164.MemberRefs"/>
 	public short[] MemberRefs { get; set; } = new short[20];
 
-	/// <summary>Indices into <see cref="ScriptDat.Orders"/>: the group's orders, in slot order.</summary>
+	/// <inheritdoc cref="MissionGroup164.OrderRefs"/>
 	public short[] OrderRefs { get; set; } = new short[10];
 
 	/// <inheritdoc cref="MissionGroup164.Side"/>
@@ -604,18 +596,10 @@ public class ScriptGroup {
 	/// <inheritdoc cref="MissionGroup164.DeploymentActionRef"/>
 	public short DeploymentActionRef { get; set; }
 
-	/// <summary>
-	/// Exported offset <c>0x72</c> — the group's ten mission-counter refs, <c>-1</c> for an unused
-	/// slot. <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) copies them to <c>group+0x1c</c>; they
-	/// are written when every member of the group is out of the fight. See
-	/// docs/simulation/mission-deployment.md#the-out-of-action-report.
-	/// </summary>
+	/// <summary>Exported offset <c>0x72</c> — the counter ref of each of <see cref="MissionGroup164.OutOfActionReport"/>'s ten pairs.</summary>
 	public short[] CounterRefs { get; set; } = new short[10];
 
-	/// <summary>
-	/// Exported offset <c>0x86</c> — the operation for each of <see cref="CounterRefs"/>' counters,
-	/// copied to <c>group+0x30</c>.
-	/// </summary>
+	/// <summary>Exported offset <c>0x86</c> — the operation of each of those pairs, slot for slot with <see cref="CounterRefs"/>.</summary>
 	public short[] CounterOps { get; set; } = new short[10];
 
 	/// <inheritdoc cref="MissionGroup164.MapShown"/>
@@ -624,8 +608,9 @@ public class ScriptGroup {
 
 /// <summary>
 /// Block 12 entry — 54 bytes, row #17 (<see cref="MissionObjective58"/>) less its condition and pair
-/// count, with its counter pairs split into <see cref="CounterRefs"/> then <see cref="CounterOps"/>.
-/// What DBSIM builds from it is docs/formats/script-dat.md#block-12-in-memory--76-bytes-0x4c.
+/// count, with its counter pairs split into <see cref="CounterRefs"/> then <see cref="CounterOps"/>
+/// and refs as block indices. What DBSIM builds from it is
+/// docs/formats/script-dat.md#block-12-in-memory--76-bytes-0x4c.
 /// </summary>
 public class ScriptObjective {
 	/// <inheritdoc cref="MissionObjective58.Required"/>
@@ -637,21 +622,21 @@ public class ScriptObjective {
 	/// <inheritdoc cref="MissionObjective58.SubjectKind"/>
 	public short SubjectKind { get; set; }
 
-	/// <summary>The subject, as a block-11, -7, -8 or -9 index per <see cref="SubjectKind"/>.</summary>
+	/// <inheritdoc cref="MissionObjective58.SubjectRef"/>
 	public short SubjectRef { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.Coordinates"/>; no condition reads it.</summary>
+	/// <inheritdoc cref="MissionObjective58.PointRef"/>
 	public short PointRef { get; set; }
 
-	/// <summary>Index into <see cref="ScriptDat.WaypointGroups"/>: the waypoint group condition 0 asks about.</summary>
+	/// <inheritdoc cref="MissionObjective58.RouteRef"/>
 	public short RouteRef { get; set; }
 
-	/// <summary>The failure text, a <c>data\mission.str</c> line index: the first of three consecutive lines.</summary>
+	/// <summary><see cref="MissionObjective58.TextRef"/>, renumbered into its <c>data\mission.str</c> line index, or <c>-1</c> for an id with no surviving line.</summary>
 	public short TextRef { get; set; }
 
-	/// <summary>The mission counters the objective writes, <c>-1</c> for an unused slot.</summary>
+	/// <summary>The <see cref="CounterPair.CounterRef"/> of each of <see cref="MissionObjective58.Pairs"/>.</summary>
 	public short[] CounterRefs { get; set; } = new short[10];
 
-	/// <summary>The operation for each of <see cref="CounterRefs"/>.</summary>
+	/// <summary>The <see cref="CounterPair.Op"/> of each of <see cref="MissionObjective58.Pairs"/>, slot for slot with <see cref="CounterRefs"/>.</summary>
 	public short[] CounterOps { get; set; } = new short[10];
 }

@@ -8,7 +8,7 @@ namespace Herculan.Engine.Content;
 /// word-wrapped (<see cref="Wrap"/>), and the box is sized to the result: as wide as the widest
 /// line plus <see cref="HorizontalPadding"/> each side and centred on the screen, as tall as the
 /// lines plus one. White text on the computer's black, framed in its red. Derivation:
-/// docs/formats/cockpit-messages.md, "Its speakerless set".
+/// docs/formats/cockpit-messages.md, "The training port".
 /// </summary>
 /// <param name="Top">
 /// Device-pixel top edge: the <c>.GAU</c> rect's own top raised by

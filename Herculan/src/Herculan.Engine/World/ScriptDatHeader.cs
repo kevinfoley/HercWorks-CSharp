@@ -40,79 +40,40 @@ public readonly struct ScriptDatHeader {
 		TrainingMissionNumber = trainingMissionNumber;
 	}
 
-	/// <summary>Theater to load, 0-4 — see <see cref="TheaterDescriptor"/>.</summary>
+	/// <inheritdoc cref="ScriptDat.TheaterIndex"/>
+	/// <remarks>See <see cref="TheaterDescriptor"/>.</remarks>
 	public int TheaterIndex { get; }
 
-	/// <summary>Which <c>zoneNNNN</c> the mission plays in.</summary>
+	/// <inheritdoc cref="ScriptDat.ZoneIndex"/>
 	public int ZoneIndex { get; }
 
-	/// <summary>
-	/// Offset 6 — <c>DAT_004a9ed8</c>, the <b>mission objective type</b>. It selects which arm of the
-	/// player's own think watches for progress: 0 the order target coming into range, 5 closing on
-	/// the goal position, 3 or 7 the data-link sequence. Type 3 also takes the data-link subject out
-	/// of the AI's candidate set, so the player's squad does not shoot the thing they came to read.
-	/// See <see cref="Sim.MechObject.PlayerThink"/> and
-	/// <see cref="Sim.Ai.AiTargeting.IsTargetable"/>.
-	///
-	/// <para>Every one of the ten files in the retail install carries 0, which is what a save-slot
-	/// snapshot of a conventional mission would; the other three arms are reached from the
-	/// campaign's own missions.</para>
-	/// </summary>
+	/// <inheritdoc cref="ScriptDat.ObjectiveType"/>
+	/// <remarks>
+	/// See <see cref="Sim.MechObject.PlayerThink"/> and <see cref="Sim.Ai.AiTargeting.IsTargetable"/>.
+	/// </remarks>
 	public int ObjectiveType { get; }
 
-	/// <summary>
-	/// Selects between a theater's two descriptors: it is <b>time of day</b>, written by the shell's
-	/// practice missions screen from a <c>Day</c> / <c>Night</c> row. Every retail file carries 0.
-	/// </summary>
+	/// <inheritdoc cref="ScriptDat.TheaterVariant"/>
 	public int TheaterVariant { get; }
 
-	/// <summary>
-	/// Offset 14 — <c>DAT_004a9ee0</c>, the <b>mission difficulty</b>, <c>0</c>-<c>3</c>. The shell
-	/// writes the player pilot's own skill here in a campaign and the practice missions screen's setting
-	/// outside one, which is why every retail file carries 2 (<c>VETERAN</c>). Four things in the
-	/// original index a four-entry table with it, of which three are ported — see
-	/// <see cref="Sim.SimWorld.Difficulty"/> and docs/simulation/difficulty.md.
+	/// <inheritdoc cref="ScriptDat.Difficulty"/>
+	/// <remarks>
+	/// Three of the four tables it indexes are ported — see <see cref="Sim.SimWorld.Difficulty"/>.
 	///
 	/// <para><b>Clamped on the way in.</b> The original indexes those tables with whatever the file
 	/// says and would read past them; a hand-edited file is held to the four levels here instead.</para>
-	/// </summary>
+	/// </remarks>
 	public int Difficulty { get; }
 
-	/// <summary>
-	/// Offset 10 — <c>DAT_004a9edc</c>, <b>unlimited ammunition and energy</b> when the file says
-	/// exactly 1. The shell's practice missions screen sets it; a campaign forces it to 0. What it does
-	/// is two things, both for the player's machine alone and both in
-	/// <see cref="Sim.WeaponMounts"/>: a shot spends no ammunition, and the mounts hand the Master
-	/// Energy Pool back everything they drew this tick. See docs/simulation/difficulty.md.
-	/// </summary>
+	/// <inheritdoc cref="ScriptDat.UnlimitedAmmunition"/>
+	/// <remarks>Both effects are in <see cref="Sim.WeaponMounts"/>.</remarks>
 	public bool UnlimitedAmmunition { get; }
 
-	/// <summary>
-	/// Offset 8 — <c>DAT_004a9eda</c>, the <b>training mission number</b>, 0 for anything that is
-	/// not one. <c>DBSim_LoadScriptDat</c> only stores it; the copy every reader takes is
-	/// <c>DAT_004aa7ac</c>, made at the end of the load (<c>00425321</c>). Three things branch on it,
-	/// and all three read the copy:
-	///
-	/// <list type="bullet">
-	/// <item><b>No music.</b> <c>Sim_InitMissionSession</c> sets the CD track only when this is 0, so
-	/// a training mission plays none — see <see cref="Audio.SoundDirector.StartMissionMusic"/>.</item>
-	/// <item><b>A different pilot and squad port.</b> The cockpit builds a <c>0x4ef</c>-byte instance
-	/// at <c>view+0x207</c> instead of the ordinary <c>0x4df</c>-byte one, and moves the box up by its
-	/// own height.</item>
-	/// <item><b>Its own voice clips.</b> The instructor speaks from the <c>TM&lt;n&gt;_</c> name
-	/// template rather than the squad's <c>P&lt;bank&gt;_</c> one, with this number as the digit.</item>
-	/// </list>
-	///
-	/// <para>Every one of the ten files in the retail install carries 0: the training missions reach
-	/// DBSIM through the shell, not through a save-slot snapshot.</para>
-	/// </summary>
+	/// <inheritdoc cref="ScriptDat.TrainingMissionNumber"/>
+	/// <remarks>The music branch is <see cref="Audio.SoundDirector.StartMissionMusic"/>.</remarks>
 	public int TrainingMissionNumber { get; }
 
-	/// <summary>
-	/// Offset 12 — <c>DAT_004a9ede</c>, <b>player invulnerable</b> when the file says exactly 1. It
-	/// gates the whole of the damage write for the locally piloted machine, so its components take
-	/// nothing; its shields still absorb and still drain, because that happens before the write.
-	/// </summary>
+	/// <inheritdoc cref="ScriptDat.PlayerInvulnerable"/>
 	public bool PlayerInvulnerable { get; }
 
 	/// <summary>

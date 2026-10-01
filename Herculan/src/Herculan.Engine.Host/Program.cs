@@ -599,7 +599,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// The [F11] objectives panel. Built once with the mission's own block-13 text rather than on every
 	// press, which is the one place this diverges from the original's own lifetime: it constructs the
 	// panel, runs it and destroys it per press. Nothing in it changes during a mission.
-	var objectivesPanel = ObjectivesPanel.Build(content, mission.BriefingLines, mission.TextAt);
+	var objectivesPanel = ObjectivesPanel.Build(content, mission.ObjectiveTextRefs, mission.TextAt);
 
 	// The two modal alert panels. Only one can be up at a time -- they are modal in the original, and
 	// each owns the input while it is -- so they share the pointer's press state.

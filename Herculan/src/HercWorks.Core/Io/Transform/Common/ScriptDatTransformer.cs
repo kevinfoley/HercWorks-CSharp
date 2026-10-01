@@ -57,7 +57,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 
 	// ---- Block 2: ScriptHeading (2 bytes) ----------------------------------------------------
 
-	private ScriptHeading ParseHeading() => new() { Value = IndexShortLE() };
+	private ScriptHeading ParseHeading() => new() { Degrees = IndexShortLE() };
 
 	// ---- Block 3: ScriptWaypointGroup (variable) ---------------------------------------------
 
@@ -84,7 +84,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		CounterOps = IndexShortLEArray(10),
 		TextRefs = IndexShortLEArray(5),
 		MessageId = IndexShortLE(),
-		Target = IndexShortLE()
+		TargetRef = IndexShortLE()
 	};
 
 	// ---- Block 6: ScriptActionTimer (24 bytes) --------------------------------------------------
@@ -213,7 +213,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 	}
 
 	private void WriteHeading(MemoryStream o, ScriptHeading e) {
-		Emit(o, WriteShortLE(e.Value));
+		Emit(o, WriteShortLE(e.Degrees));
 	}
 
 	private void WriteWaypointGroup(MemoryStream o, ScriptWaypointGroup e) {
@@ -235,7 +235,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Emit(o, WriteShortLESegment(e.CounterOps));
 		Emit(o, WriteShortLESegment(e.TextRefs));
 		Emit(o, WriteShortLE(e.MessageId));
-		Emit(o, WriteShortLE(e.Target));
+		Emit(o, WriteShortLE(e.TargetRef));
 	}
 
 	private void WriteActionTimer(MemoryStream o, ScriptActionTimer e) {

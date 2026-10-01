@@ -144,7 +144,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		CounterPairs = IndexShortLEArray(20),
 		TextRefs = IndexShortLEArray(5),
 		MessageId = IndexShortLE(),
-		Target = IndexShortLE()
+		TargetRef = IndexShortLE()
 	};
 
 	// ---- Row #11: ActionTimer30 (30 bytes) ---------------------------------------------------
@@ -213,7 +213,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		OutOfActionReport = IndexShortLEArray(20),
 		EngagementActionRef = IndexShortLE(),
 		DefeatActionRef = IndexShortLE(),
-		TrailingField = IndexShortLE()
+		StartingCondition = IndexShortLE()
 	};
 
 	// ---- Row #15: MissionOrder22 (22 bytes) -------------------------------------------------
@@ -423,7 +423,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLESegment(e.CounterPairs));
 		Emit(o, WriteShortLESegment(e.TextRefs));
 		Emit(o, WriteShortLE(e.MessageId));
-		Emit(o, WriteShortLE(e.Target));
+		Emit(o, WriteShortLE(e.TargetRef));
 	}
 
 	private void WriteRow11(MemoryStream o, ActionTimer30 e) {
@@ -484,7 +484,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLESegment(e.OutOfActionReport));
 		Emit(o, WriteShortLE(e.EngagementActionRef));
 		Emit(o, WriteShortLE(e.DefeatActionRef));
-		Emit(o, WriteShortLE(e.TrailingField));
+		Emit(o, WriteShortLE(e.StartingCondition));
 	}
 
 	private void WriteRow15(MemoryStream o, MissionOrder22 e) {

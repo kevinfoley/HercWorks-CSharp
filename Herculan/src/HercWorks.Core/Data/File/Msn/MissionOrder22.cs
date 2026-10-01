@@ -21,7 +21,11 @@ public class MissionOrder22 : MapObject {
 	/// <summary>0x06 — compound-condition partner: 1 or -99, set only alongside <see cref="ConditionRef"/>.</summary>
 	public short CompoundConditionPartner { get; set; }
 
-	/// <summary>0x08 — the verb, 0-6: search/destroy, ram, guard, patrol, sleep, travel, follow.</summary>
+	/// <summary>
+	/// 0x08 — the verb, 0-6: search/destroy, ram, guard, patrol, sleep, travel, follow.
+	/// <c>Mech_AiSelectBehaviour</c> maps it onto a behaviour state and <c>Group_IsOrderComplete</c>
+	/// onto a completion test, both keyed by the raw number.
+	/// </summary>
 	public short Verb { get; set; }
 	public const int VerbWord = 0x08 / 2;
 
@@ -44,7 +48,7 @@ public class MissionOrder22 : MapObject {
 	public short SubjectRef { get; set; }
 	public const int SubjectRefWord = 0x12 / 2;
 
-	/// <summary>0x14 — ref into row #10 (<see cref="MissionAction82"/>): when it fires, the group moves to its next order.</summary>
+	/// <summary>0x14 — ref into row #10 (<see cref="MissionAction82"/>): when it fires, the group moves to its next order whether or not this one is finished.</summary>
 	public short ActionRef { get; set; }
 	public const int ActionRefWord = 0x14 / 2;
 }

@@ -41,17 +41,26 @@ public class FlyerRosterEntry102 : MapObject {
 
 	/// <summary>
 	/// 0x38-0x5F — the flyer's out-of-action report: ten interleaved (counter ref, operation) pairs,
-	/// written to the mission counters when it goes out of the fight. The export separates them into
+	/// a counter ref of <c>-1</c> for an unused one, written to the mission counters when it goes out
+	/// of the fight. The export separates them into
 	/// <see cref="Script.ScriptFlyerRecord.CounterRefs"/> and <see cref="Script.ScriptFlyerRecord.CounterOps"/>.
 	/// </summary>
 	public short[] OutOfActionReport { get; set; } = new short[20];
 	public const int OutOfActionReportWord = 0x38 / 2;
 
-	/// <summary>0x60 — ref into row #10 (<see cref="MissionAction82"/>): the action this flyer fires when it is engaged.</summary>
+	/// <summary>
+	/// 0x60 — ref into row #10 (<see cref="MissionAction82"/>): the action this flyer fires when it is
+	/// engaged, <c>-1</c> for none. DBSIM resolves it into the flyer's own <c>+0x1b2</c>, where a
+	/// machine's lands (<see cref="MechRosterEntry144.EngagementActionRef"/>).
+	/// </summary>
 	public short EngagementActionRef { get; set; }
 	public const int EngagementActionRefWord = 0x60 / 2;
 
-	/// <summary>0x62 — ref into row #10: the action this flyer fires when it is defeated.</summary>
+	/// <summary>
+	/// 0x62 — ref into row #10: the action this flyer fires when it is defeated, <c>-1</c> for none.
+	/// DBSIM resolves it into the flyer's own <c>+0x1b6</c>, and <c>Flyer_ComponentDamageWrite</c>
+	/// (<c>00421bb4</c>) fires it.
+	/// </summary>
 	public short DefeatActionRef { get; set; }
 	public const int DefeatActionRefWord = 0x62 / 2;
 

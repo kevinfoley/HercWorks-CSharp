@@ -300,10 +300,10 @@ The base roster, `script.dat` block 9. Largest sample (1,949 instances); clear `
 | `0x0A` | ref→row #6 | 6.4% sparse — this structure's spawn-position override |
 | `0x0C` | ref→row #7 | 6.7% sparse — its heading |
 | `0x0E` | pair count | how many of the pairs below are filled, from the front; 0/1/2 (64%/33%/3%). Not exported; a variant does not copy it |
-| `0x10–0x36` | 10 (counter ref, operation) pairs | 36% of records fill at least one — the structure's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
+| `0x10–0x36` | 10 (counter ref, operation) pairs | 698 of 1,949 records fill the first pair and 58 of those a second; slots 2–9 are always `-1`, and every filled operation is 2 (increment). The structure's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
 | `0x38` | engaged action, ref→row #10 | 0.4% real; block 9's `0x2e` |
 | `0x3A` | defeated action, ref→row #10 | 0.1% real; block 9's `0x30` |
-| `0x3C` | health modifier | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real** |
+| `0x3C` | starting condition, per cent | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real**; block 9's `0x32`, read by `Base_Construct` ([`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md)) |
 
 
 ## Row #16 field decode — the group record (`DAT_0047065a`, 164 bytes/record)
@@ -329,7 +329,7 @@ The mission group, `script.dat` block 11; how DBSIM places it is [`script-dat.md
 | `0x76` | deployment action, ref→row #10 | 31% real. While set, the group is not in the mission until that action fires ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-deployment-gate--group0x14)) |
 | `0x78` | pair count | 100% real; 0/1/2 (97%/2.8%/0.5%) — how many of the pairs below are filled. Not exported to `script.dat` |
 | `0x7A–0xA0` | 10 (counter ref, operation) pairs | refs 20–650, operations {2, 23}; slots 2–9 always `-1`. The group's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 11's `0x72`/`0x86` |
-| `0xA2` | map shown | 6% sparse; 0/1. For a base group, what VSHELL's briefing map writes into each member's shown field ([`../shell/mission-map.md`](../shell/mission-map.md)) |
+| `0xA2` | map shown | 6% sparse; 0/1. For a base group, what VSHELL's briefing map writes over each member's first out-of-action operation in its own copy of block 9: `-1` shows friendly members and hides hostile ones, 0 hides both, 1 shows both ([`../shell/mission-map.md`](../shell/mission-map.md#what-it-reads)) |
 
 
 ## Row #12 field decode — the mech roster record (`DAT_00470652`, 144 bytes/record)
@@ -367,7 +367,7 @@ The HERC roster, `script.dat` block 7; highest variant usage (48%). Three-way id
 |---|---|---|
 | `0x00` | condition ref | 2% real (values 79/80 only). Not exported to `script.dat` |
 | `0x02` | **required flag** | 100% real; binary 72%/28%. `1` = must be satisfied; anything else = a failure condition |
-| `0x04` | **condition code** | 100% real; range 0–7; mode `1` (53%) |
+| `0x04` | **condition code** | 100% real; values 0–4, 6 and 7 (5 and 8–10 never occur); mode `1` (53%). The simulator has cases for 0–4 and 6–10 — [`mission-objectives.md`](../simulation/mission-objectives.md#what-each-condition-asks) |
 | `0x06` | **subject kind** | 0/1/3 (72%/17%/10%); `2` (flyer) never occurs |
 | `0x08` | subject ref | → rows #16/#12/#13/#14 per `0x06` — group / mech / flyer / base |
 | `0x0A` | ref→row #6 | **dead** — always `-1`; no condition reads it |

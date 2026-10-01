@@ -33,14 +33,14 @@ Two functions resolve a record, and a fired shot uses both.
 
 The mount's fire dispatch hands `Rocket_Fire`, `Bullet_Fire` and `Bullet_FireBurst` only the mount's record's subtype id, and each constructor looks the record up again by `(Type, id)`. The record a shot applies damage, splash and impact effects from is therefore the first with that pair, not necessarily the one the mount holds. The mount's own record still supplies the dispatch's `Type` test, the `Speed` the AI leads by, and the figures `Ai_ChooseWeapon` scores weapons with.
 
-Only a record that shares its `(Type, id)` with an earlier one is shadowed. Four are, all among the later additions to the file ([Open](#open)):
+Only a record that shares its `(Type, id)` with an earlier one is shadowed. Four are, all among the later additions to the file ([Open](#open)). The power a beam is fired at is still the mount's own (`min(template+0x38, mount+0x7d)`, [above](#layout)), so a shadowed laser applies the earlier record's figures at its own power; an autocannon round carries no charge and applies them as they stand.
 
-| Record | Weapon | Same `(Type, id)` as | Applied instead |
-|---|---|---|---|
-| 23 | ATC75 | 1, ATC35 | 120 / 480 in place of 220 / 700 |
-| 24 | ATC100 | 2, ATC50 | 180 / 600 in place of 260 / 800 |
-| 25 | L400 | 4, L200 | 1800 / 960 in place of 3000 / 1920 |
-| 26 | L500 | 5, L300 | 2000 / 1200 in place of 3000 / 2000 |
+| Record | Weapon | Same `(Type, id)` as | Figures applied | A full shot hits like |
+|---|---|---|---|---|
+| 23 | ATC75 | 1, ATC35 | 120 / 480 in place of 220 / 700 | ATC35 |
+| 24 | ATC100 | 2, ATC50 | 180 / 600 in place of 260 / 800 | ATC50 |
+| 25 | L400 | 4, L200 | 1800 / 960 in place of 3000 / 1920 | L200 × 1.2: L400's power is 120, L200's 100 |
+| 26 | L500 | 5, L300 | 2000 / 1200 in place of 3000 / 2000 | L300: both fire at 120 |
 
 Record 22 is claimed by two weapons, `PLAS` and `MFAC`, and resolves to itself.
 
@@ -48,30 +48,30 @@ Record 22 is claimed by two weapons, `PLAS` and `MFAC`, and resolves to itself.
 
 In file order. The index is what a weapon template's `PROJ.DAT` index field names. Weapon names are the shell catalog's ([`weapons-dat.md`](weapons-dat.md)); index 22's two claimants are catalog ids 25 (`PLAS`) and 28 (`MFAC`, which the simulator's name table calls `MAGN`).
 
-| Index | Weapon | `Type` | Subtype id | Shield | Armour | Splash | Speed |
-|---|---|---|---|---|---|---|---|
-| 0 | ATC20 | 2 | 0 | 60 | 360 | 0 | 5000 |
-| 1 | ATC35 | 2 | 1 | 120 | 480 | 0 | 5000 |
-| 2 | ATC50 | 2 | 2 | 180 | 600 | 0 | 5000 |
-| 3 | L100 | 4 | 3 | 1500 | 600 | 0 | 0 |
-| 4 | L200 | 4 | 4 | 1800 | 960 | 0 | 0 |
-| 5 | L300 | 4 | 5 | 2000 | 1200 | 0 | 0 |
-| 6 | EMPC | 2 | 6 | 2000 | 400 | 0 | 2000 |
-| 7-9 | (grenade, never looked up) | 3 | 0-2 | 1000 | 1000 | 500-1000 | 1000 |
-| 10-13 | MSL6/8/10, FLYMSL (by ammunition type) | 0 | 0-3 | 400 | 1600 | 500 | 6000 |
-| 14 | PBW | 4 | 0 | 1000 | 1000 | 0 | 0 |
-| 15 | ELFW | 4 | 1 | 150 | 200 | 0 | 0 |
-| 16 | BEMP | 2 | 7 | 8000 | 2000 | 0 | 2000 |
-| 17 | BPBW | 4 | 2 | 4000 | 4000 | 0 | 0 |
-| 18 | BMSL | 0 | 4 | 3000 | 7200 | 500 | 6000 |
-| 19 | EMP2 | 2 | 8 | 2000 | 400 | 0 | 2000 |
-| 20 | PBW2 | 4 | 6 | 1400 | 1400 | 0 | 0 |
-| 21 | ELF2 | 4 | 7 | 200 | 300 | 0 | 0 |
-| 22 | PLAS, MFAC | 2 | 9 | 3000 | 3000 | 1000 | 1000 |
-| 23 | ATC75 | 2 | 1 | 220 | 700 | 0 | 5000 |
-| 24 | ATC100 | 2 | 2 | 260 | 800 | 0 | 5000 |
-| 25 | L400 | 4 | 4 | 3000 | 1920 | 0 | 0 |
-| 26 | L500 | 4 | 5 | 3000 | 2000 | 0 | 0 |
+| Index | Weapon                                 | `Type` | Subtype id | Shield | Armour | Splash   | Speed |
+| ----- | -------------------------------------- | ------ | ---------- | ------ | ------ | -------- | ----- |
+| 0     | ATC20                                  | 2      | 0          | 60     | 360    | 0        | 5000  |
+| 1     | ATC35                                  | 2      | 1          | 120    | 480    | 0        | 5000  |
+| 2     | ATC50                                  | 2      | 2          | 180    | 600    | 0        | 5000  |
+| 3     | L100                                   | 4      | 3          | 1500   | 600    | 0        | 0     |
+| 4     | L200                                   | 4      | 4          | 1800   | 960    | 0        | 0     |
+| 5     | L300                                   | 4      | 5          | 2000   | 1200   | 0        | 0     |
+| 6     | EMPC                                   | 2      | 6          | 2000   | 400    | 0        | 2000  |
+| 7-9   | (grenade, never looked up)             | 3      | 0-2        | 1000   | 1000   | 500-1000 | 1000  |
+| 10-13 | MSL6/8/10, FLYMSL (by ammunition type) | 0      | 0-3        | 400    | 1600   | 500      | 6000  |
+| 14    | PBW                                    | 4      | 0          | 1000   | 1000   | 0        | 0     |
+| 15    | ELFW                                   | 4      | 1          | 150    | 200    | 0        | 0     |
+| 16    | BEMP                                   | 2      | 7          | 8000   | 2000   | 0        | 2000  |
+| 17    | BPBW                                   | 4      | 2          | 4000   | 4000   | 0        | 0     |
+| 18    | BMSL                                   | 0      | 4          | 3000   | 7200   | 500      | 6000  |
+| 19    | EMP2                                   | 2      | 8          | 2000   | 400    | 0        | 2000  |
+| 20    | PBW2                                   | 4      | 6          | 1400   | 1400   | 0        | 0     |
+| 21    | ELF2                                   | 4      | 7          | 200    | 300    | 0        | 0     |
+| 22    | PLAS, MFAC                             | 2      | 9          | 3000   | 3000   | 1000     | 1000  |
+| 23    | ATC75                                  | 2      | 1          | 220    | 700    | 0        | 5000  |
+| 24    | ATC100                                 | 2      | 2          | 260    | 800    | 0        | 5000  |
+| 25    | L400                                   | 4      | 4          | 3000   | 1920   | 0        | 0     |
+| 26    | L500                                   | 4      | 5          | 3000   | 2000   | 0        | 0     |
 
 What the figures say about the weapon families:
 

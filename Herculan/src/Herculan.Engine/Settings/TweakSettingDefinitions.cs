@@ -89,12 +89,21 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FixDefendPositionOrder = new("tweak.fix_defend_position_order", TweakCategory.Functional, false);
 
+	/// <summary>
+	/// Each weapon's shots apply its own <c>PROJ.DAT</c> record. Retail applies the first record that
+	/// shares its type and subtype id, so <c>ATC75</c> and <c>ATC100</c> hit like <c>ATC35</c> and
+	/// <c>ATC50</c>, <c>LAS500</c> like <c>LAS300</c>, and <c>LAS400</c> like <c>LAS200</c> at a
+	/// higher power.
+	/// <para>Defaults on, an exception to the retail-by-default rule. See <see cref="Sim.WeaponMount.ShotProjectile"/>.</para>
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FixWeaponDamageRecords = new("tweak.fix_weapon_damage_records", TweakCategory.Functional, true);
+
 	#endregion
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, SmootherTurretMovement,
-		MouseExternalView, FixDefendPositionOrder,
+		MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
 	};
 }

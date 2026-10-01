@@ -12,8 +12,7 @@ namespace HercWorks.Core.Io.Transform;
 /// ever live loose in the install — data\script.dat, data\player.mec, sav\GAMEFILE.STR, the .TAP
 /// tapes — have readers too, but never appear inside a VOL, so they are not registered here. Plenty of other file
 /// types exist in the game data with a parsed C# data-model class but no ported
-/// ThreeSpaceByteTransformer (e.g. MapInfo, MapLOCS, Theater, Mech.BND/MechSys.BND/MechView.BND/
-/// AppInput.BND, WorldData) — those
+/// ThreeSpaceByteTransformer (e.g. MapInfo, MapLOCS, Theater) — those
 /// intentionally have no registration here and will report "no parser available" rather than
 /// risk a wrong/guessed match.
 ///

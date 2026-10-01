@@ -1,0 +1,91 @@
+# Plan — one home per name
+
+Make a field's name and description live in one place, and have the copies that must exist checked by the build or the doc linter instead of by a reader noticing drift.
+
+This is a plan, not a record of something built. Nothing here is implemented.
+
+## Why
+
+One decoded datum is currently restated in up to ten places. Take the mech type in a mission's mech roster:
+
+| place | spelling |
+|---|---|
+| [`../formats/msn-mission-file.md`](../formats/msn-mission-file.md), row #12 table | "mech type", `0x30` |
+| [`../formats/script-dat.md`](../formats/script-dat.md), block 7 rows | "mech type", `0x30` / `0x28` |
+| `HercWorks.Core` `.msn` model | `MechRosterEntry144.TypeIndex` |
+| `HercWorks.Core` `script.dat` model | `ScriptMechRecord.TypeIndex` |
+| `MissionFileTransformer`, `ScriptDatTransformer` | the parse and write order |
+| `MissionGenerator` | a raw word index into a `short[]` |
+| `Herculan.Engine` | `MissionPlacement.TypeIndex` |
+| `HercWorks.UI` row wrapper | `ScriptMechRow.HercType` |
+| `MissionScriptForm.Designer.cs` | the string `"HercType"` |
+| `tools/ghidra_scripts/known_symbols.json` | prose in a function description |
+
+The cleanup that prompted this plan found drift in almost every one of those, and three kinds caused most of it:
+
+- **Retail docs naming C# members.** `BinaryFlag`, `SmallDiscrete`, `MiscEntityInfo` and `EntitySpawn164` sat in the format docs after the code had moved on. Rule 9 of `CLAUDE.md` forbids this, but `doc_lint.py` only catches explicit markers, not a bare type or member name.
+- **String bindings in the UI.** The grids bind columns by `DataPropertyName = "TriStateFlag"`. A rename compiles cleanly and breaks the column at run time, and `HercWorks.UI` cannot be built on Linux, so a cloud session verifies UI edits by grep alone.
+- **Descriptions restated per layer.** The `.msn` model, the `script.dat` export, the UI row and the engine record each carried their own comment for the same datum, and they disagreed.
+
+Renames themselves were the other cost: `RefRow6` meant a spawn point on one type and an unread point on two others, so a text-level rename had to be scoped by hand.
+
+## Constraints
+
+- **The docs keep the evidence.** Value distributions, reader addresses, which offsets an export drops — that is reverse-engineering evidence and stays in the doc tables. Nothing here generates doc tables from code.
+- **No new copy.** A central glossary file would be one more place to keep in step. Every step below either removes a copy or puts a check on one.
+- **`MissionGenerator` stays a raw-word walk.** It filters, merges and renumbers as it reads, as VSHELL does; it is not to be rebuilt on `MissionFile`'s models.
+
+## Stage 1 — retail docs never name C# members
+
+Extend `tools/scripts/doc_lint.py` with a check over the retail docs (`formats/`, `simulation/`, `shell/` and the top-level docs rule 9 names):
+
+1. Collect every public type and member name declared under `Herculan/src/HercWorks.Core` and `Herculan/src/Herculan.Engine` — a regex over `class|struct|record|enum` declarations and `public … { get` properties is enough; it need not be a compiler.
+2. Flag a backticked token in a retail doc that matches one, skipping tokens that are also retail symbols (`known_symbols.json` names, `DAT_`/`FUN_` labels, file names).
+3. Report under the existing `--engine` listing so the edit hook shows it on the lines an edit wrote.
+
+Run the same check over the `description` strings in `known_symbols.json` and `known_structs.json`.
+
+With this in place a doc describes a field ("the paints-ground flag, `0x06`") and only code carries its name, so a C# rename never touches a doc.
+
+## Stage 2 — UI bindings that fail to compile
+
+- Replace every `DataPropertyName = "X"` in the `*.Designer.cs` files with `nameof(RowType.X)`. The designer tolerates `nameof` in the generated block; if regeneration would strip it, move the assignments into the form's constructor after `InitializeComponent()`.
+- Add a GitHub Actions workflow on a `windows-latest` runner that builds `Herculan/HercWorksMDK.sln`, so a UI break shows up on the branch whichever environment made the edit.
+
+## Stage 3 — one description per datum
+
+The `.msn` model owns the description of a field. Every other layer that carries the same datum inherits it:
+
+- `script.dat` export properties: `/// <inheritdoc cref="MechRosterEntry144.TypeIndex"/>`, adding only what differs (the exported offset, refs being block indices). `ScriptDat.cs` already does this for the action, order, group and objective records.
+- UI row wrappers: `inheritdoc` from the export property they wrap, instead of a restated summary.
+- Engine records that hold a datum straight from a Core field: `inheritdoc` the Core member, plus the engine's own behaviour where it adds any.
+
+Where an engine name and a Core name differ for the same datum (`ScriptMechRow.HercType` against `TypeIndex`), rename to the Core name unless the difference is the point.
+
+## Stage 4 — named word offsets for `MissionGenerator`
+
+`MissionGenerator` reads fields as `record[37]`, `record[61]`. Give each `.msn` model class `const int` word offsets for the fields the generator touches (`MechRosterEntry144.PairCountWord = 37`, `OutOfActionWord = 38`, and so on), and have the generator use them. The offset then lives next to the field it describes, and a model restructure shows up as a compile error in the generator rather than a silent misread.
+
+A test parses a synthetic record through `MissionFileTransformer` and through the generator's word view and asserts that each named offset reads the same value as its property.
+
+## Stage 5 — a symbol-aware rename tool
+
+Add `tools/scripts/rename_symbol` — a small console project on `Microsoft.CodeAnalysis.CSharp.Workspaces` that loads `HerculanEngine.sln` through `MSBuildWorkspace` and calls `Renamer.RenameSymbolAsync` for one symbol, `cref`s included. Usage: `rename_symbol <solution> <Type.Member> <NewName>`.
+
+This works on Linux for Core, the engine and the tests. `HercWorks.UI` is outside that solution; Stage 2's `nameof` bindings make the remaining UI references compile errors that the Windows build reports.
+
+## Order and cost
+
+Stages 1 and 2 are the cheapest and would have prevented most of the drift the cleanup found. Stage 3 is incremental and can ride along with any edit to a model. Stages 4 and 5 are each a small self-contained piece of tooling.
+
+## Verification
+
+- Stage 1: the new check reports zero findings on the current docs, and reports a planted `` `SmallDiscrete` `` in a format doc.
+- Stage 2: renaming a row property without touching the designer fails the Windows build.
+- Stage 4: the offset test passes, and moving a property in a model without updating its constant fails it.
+- Stage 5: renaming `MissionGroup164.MemberKind` and back leaves `git diff` empty.
+
+## Open
+
+- **Open:** whether the Windows Forms designer preserves `nameof` in `InitializeComponent` on regeneration, which decides where Stage 2's assignments go.
+- **Open:** whether `MSBuildWorkspace` loads `HerculanEngine.sln` on Linux without the WindowsDesktop SDK, given the solution does not include `HercWorks.UI`.

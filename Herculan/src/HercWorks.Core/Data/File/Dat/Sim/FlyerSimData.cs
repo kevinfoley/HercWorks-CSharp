@@ -1,51 +1,42 @@
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
-/// FILE - dat\[flyer].dat — a much smaller sibling of <see cref="HercSimDat"/>'s dat\[herc].dat,
-/// for flyer-type sim units (no legs/torso/walk-animation-set fields at all). Reverse-engineered
-/// from the only known real-world sample, SKIMMER.DAT (9-byte VOL file prefix + 46-byte payload +
-/// 1 trailing byte = 56 bytes on disk). The payload is 9 little-endian shorts (18 bytes) followed
-/// by a 28-byte null-padded ASCII name ("Landskimmer" in the sample).
+/// FILE - dat\[flyer].dat — the type record of a <c>Flyer</c>-class unit, SKIMMER.DAT the one retail
+/// example: nine little-endian shorts and a 28-byte NUL-padded name, 46 bytes in all. It is its own
+/// layout, not a truncated <see cref="HercSimDat"/>, though the first seven shorts sit where
+/// HercSimDat's do (SpeedTurn .. AnimId_Walk).
 ///
-/// The first 7 shorts line up byte-for-byte with HercSimDat's opening fields (SpeedTurn ..
-/// AnimId_Walk) — DecelTurning matches both the position AND the exact value (150) seen on every
-/// known Herc, CameraBoneId matches position with a small plausible bone id, and AnimId_Walk
-/// matches position with the exact -1 "no walk animation" value RAZOR.DAT (the one Herc that's
-/// also a flyer) uses. The pattern breaks after that: the short at 0x0e is the flyer AI's bank
-/// angle limit, which no Herc record has. This is therefore its own distinct, shorter layout rather
-/// than a truncated HercSimDat.
-///
-/// DBSIM reads the payload straight into the first 0x2e bytes of its 0x70-byte flyer type record
-/// (maybe_FlyerType_LoadResources, 00422ed0), so the offsets here are that record's offsets too:
-/// SpeedForward at +4 is what the flyer's vtable +0x38 travel speed reads, and MaxBankAngle at +0x0e
-/// is what its roll controller clamps to.
+/// <para>DBSIM reads the payload straight into the first 0x2e bytes of its 0x70-byte flyer type
+/// record (<c>FlyerType_LoadResources</c>, <c>00422ed0</c>), so the offsets here are that record's
+/// offsets too. See docs/simulation/ai-flyers.md.</para>
 /// </summary>
 public class FlyerSimData {
 	public short SpeedTurn { get; set; }
 	public short SpeedReverse { get; set; }
+
+	/// <summary>Offset 4 — the travel speed the flyer's vtable <c>+0x38</c> reads.</summary>
 	public short SpeedForward { get; set; }
 	public short SpeedAccelDecel { get; set; }
 
-	/// <summary>150 in the one known sample — same constant HercSimDat.DecelTurning holds on every known Herc, at the same byte offset.</summary>
-	public short DecelTurning { get; set; }
+	/// <summary>Offset 8, at the offset of <see cref="HercSimDat.TurnAccelDecel"/>. 150 in SKIMMER.DAT.</summary>
+	public short TurnAccelDecel { get; set; }
 
-	/// <summary>4 in the one known sample — same byte offset as HercSimDat.CameraBoneId.</summary>
+	/// <summary>Offset 10, at the offset of <see cref="HercSimDat.CameraBoneId"/>. 4 in SKIMMER.DAT.</summary>
 	public short CameraBoneId { get; set; }
 
-	/// <summary>-1 in the one known sample — same byte offset and value as RAZOR.DAT's HercSimDat.AnimId_Walk.</summary>
+	/// <summary>Offset 12, at the offset of <see cref="HercSimDat.AnimId_Walk"/>. -1 in SKIMMER.DAT, as on the RAZOR.</summary>
 	public short AnimId_Walk { get; set; }
 
 	/// <summary>
-	/// Payload offset 0x0e — the <b>bank angle limit</b>, as a binary angle. Read only by the flyer
-	/// AI's roll controller (<c>Flyer_SteerAndFly</c>, <c>004222fc</c>), which clamps the commanded bank to it (with a
-	/// 1500-unit hysteresis band) rather than letting the aircraft roll past. 14000 in the one known
-	/// sample, which is about 77 degrees.
+	/// Offset 0x0e — the bank angle limit, as a binary angle. The flyer AI's roll controller
+	/// (<c>Flyer_SteerAndFly</c>, <c>004222fc</c>) holds the commanded bank at it, with a 1500-unit
+	/// hysteresis band. 14000 in SKIMMER.DAT, about 77 degrees.
 	/// </summary>
 	public short MaxBankAngle { get; set; }
 
-	/// <summary>Payload offset 0x10 — 1500 in the one known sample. No reader traced in DBSIM.</summary>
+	/// <summary>Offset 0x10. 1500 in SKIMMER.DAT; meaning not established.</summary>
 	public short Unk16_val { get; set; }
 
-	/// <summary>Payload offset 0x12-0x2D (18, 28 bytes) — null-padded ASCII name, e.g. "Landskimmer".</summary>
+	/// <summary>Offsets 0x12-0x2d — NUL-padded ASCII name, "Landskimmer" in SKIMMER.DAT.</summary>
 	public byte[]? NameBytes { get; set; }
 }

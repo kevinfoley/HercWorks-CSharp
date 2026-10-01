@@ -36,7 +36,7 @@ public static class DatFileReader {
 		iniStats.Data.BuildPercent = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
 		cursor += 2;
 
-		iniStats.Data.BuildStepNum = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
+		iniStats.Data.BuildMissionsLeft = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
 		cursor += 2;
 
 		// WARN (carried over from Java): this does not sync up to the herc's total hardpoint
@@ -51,14 +51,14 @@ public static class DatFileReader {
 			var hardpoint = new UiWeaponEntry();
 			i += 2;
 
-			hardpoint.ItemId = EndianOps.ToShort(data, i, ByteOrder.LittleEndian);
+			hardpoint.WeaponId = EndianOps.ToShort(data, i, ByteOrder.LittleEndian);
 			i += 2;
 
-			hardpoint.HealthPercent = EndianOps.ToShort(data, i, ByteOrder.LittleEndian);
+			hardpoint.Condition = EndianOps.ToShort(data, i, ByteOrder.LittleEndian);
 			i += 2;
 
 			short mslType = EndianOps.ToShort(data, i, ByteOrder.LittleEndian);
-			hardpoint.MissileType = MissileType.GetById(mslType);
+			hardpoint.Guidance = MissileType.GetById(mslType);
 
 			iniStats.Data.Hardpoints[id] = hardpoint;
 		}

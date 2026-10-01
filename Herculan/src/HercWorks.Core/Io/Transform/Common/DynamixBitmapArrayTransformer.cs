@@ -22,11 +22,11 @@ public class DynamixBitmapArrayTransformer : ByteTransformer<DynamixBitmapArray>
 
 		var dba = new DynamixBitmapArray {
 			FileSize = IndexSegmentLE(4),
-			ArrayRow = IndexShortLE(),
+			FrameCount = IndexShortLE(),
 			ArrayCols = IndexShortLE() // TODO (carried over from Java): could this actually be an INT32 for total images?
 		};
 
-		var images = new DynamixBitmap[dba.ArrayRow];
+		var images = new DynamixBitmap[dba.FrameCount];
 
 		int imageCount = 0;
 
@@ -69,7 +69,7 @@ public class DynamixBitmapArrayTransformer : ByteTransformer<DynamixBitmapArray>
 		// Written as stored — see the IndexSegmentLE trap on this class.
 		objectBytes.Write(dba.FileSize!, 0, dba.FileSize!.Length);
 
-		var rowBytes = WriteShortLE(dba.ArrayRow);
+		var rowBytes = WriteShortLE(dba.FrameCount);
 		objectBytes.Write(rowBytes, 0, rowBytes.Length);
 
 		var colBytes = WriteShortLE(dba.ArrayCols);

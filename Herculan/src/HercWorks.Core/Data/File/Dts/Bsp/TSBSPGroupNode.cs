@@ -2,7 +2,10 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Bsp;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.bsp.TSBSPGroupNode.</summary>
+/// <summary>
+/// One node of a <see cref="TSBSPGroup"/>: four <c>int16</c>s, read and written back verbatim. What
+/// each field means is not established.
+/// </summary>
 public class TSBSPGroupNode {
 	public int Index { get; set; }
 	public int Len { get; set; }

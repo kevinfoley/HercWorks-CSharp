@@ -54,14 +54,14 @@ public class MecFileRoundTripTests {
 		Assert.Equal(0, parsed.PlayerEntryIndex);
 		MecEntry entry = Assert.Single(parsed.Entries);
 		Assert.Equal(7, entry.PilotNameIndex);
-		Assert.Equal(2, entry.Unk02);
+		Assert.Equal(2, entry.Skill);
 		Assert.Equal(5, entry.MechType);
 		Assert.Equal(2, entry.SlotCount);
 		Assert.Equal(new short[] { 3, 0 }, entry.WeaponRefs);
 		Assert.Equal(new short[] { 1, 5 }, entry.WeaponAmmoTypes);
-		Assert.Equal(26, entry.BlockA.Length);
-		Assert.Equal(20, entry.BlockB.Length);
-		Assert.Equal(20, entry.BlockC.Length);
+		Assert.Equal(26, entry.ExternalConditions.Length);
+		Assert.Equal(20, entry.InternalConditions.Length);
+		Assert.Equal(20, entry.HardpointConditions.Length);
 	}
 
 	/// <summary>

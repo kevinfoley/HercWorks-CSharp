@@ -13,9 +13,9 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// verification are in <c>docs/formats/collision-spheres.md</c>; the 22 retail files round-trip
 /// byte-exact through <c>HercColliderTransformer</c>.</para>
 ///
-/// Ported from org.hercworks.core.data.file.dbsim.HercCollider, then corrected. The node/cluster/
-/// sphere types are top-level (see <see cref="ColliderNode"/>) rather than nested, so that the
-/// engine can consume the parsed model without taking a dependency on <see cref="DataFile"/>.
+/// <para>The node/cluster/sphere types are top-level (see <see cref="ColliderNode"/>) rather than
+/// nested, so that the engine can consume the parsed model without taking a dependency on
+/// <see cref="DataFile"/>.</para>
 /// </summary>
 public class HercCollider {
 	/// <summary>The model's nodes, in file order.</summary>

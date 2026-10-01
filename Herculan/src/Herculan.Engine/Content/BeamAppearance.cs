@@ -99,7 +99,7 @@ public sealed class BeamAppearance {
 	/// Half the beam's width, in world units — the record's first field, which the original uses as
 	/// the perpendicular offset applied to both sides of the centre line. Zero when the id is unknown.
 	/// </summary>
-	public int HalfWidth(int missileId) => Record(missileId)?.Width ?? 0;
+	public int HalfWidth(int missileId) => Record(missileId)?.HalfWidth ?? 0;
 
 	/// <summary>
 	/// The record's colour index resolved through the theater palette — the fill colour a

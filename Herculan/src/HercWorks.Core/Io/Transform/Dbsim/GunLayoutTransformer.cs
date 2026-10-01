@@ -17,9 +17,9 @@ public class GunLayoutTransformer : ByteTransformer<GunLayout> {
 			var entry = data.NewEntry();
 
 			entry.BoneId = IndexShortLE();
-			entry.Unk1_val = IndexShortLE();
-			entry.Unk2_val = IndexShortLE();
-			entry.AngleDirOption = IndexByte();
+			entry.ConvergencePitchNode = IndexShortLE();
+			entry.ConvergenceYawNode = IndexShortLE();
+			entry.MountingCode = IndexByte();
 			entry.FireChainNumber = IndexByte();
 			entry.Unk3_0or_Neg5000 = IndexShortLE();
 			entry.Unk4_0or_5000 = IndexShortLE();
@@ -28,9 +28,9 @@ public class GunLayoutTransformer : ByteTransformer<GunLayout> {
 			entry.Offset[0] = IndexShortLE();
 			entry.Offset[1] = IndexShortLE();
 			entry.Offset[2] = IndexShortLE();
-			entry.Unk7_val = IndexByte();
-			entry.HardpointId = IndexByte();
-			entry.Unk8_val = IndexShortLE();
+			entry.LinkPartnerOffset = IndexByte();
+			entry.LoadoutSlot = IndexByte();
+			entry.DebrisPitch = IndexShortLE();
 
 			data.Hardpoints![i] = entry;
 		}
@@ -50,9 +50,9 @@ public class GunLayoutTransformer : ByteTransformer<GunLayout> {
 				var entry = src.Hardpoints[i];
 
 				Emit(outStream, WriteShortLE(entry.BoneId));
-				Emit(outStream, WriteShortLE(entry.Unk1_val));
-				Emit(outStream, WriteShortLE(entry.Unk2_val));
-				outStream.WriteByte(entry.AngleDirOption);
+				Emit(outStream, WriteShortLE(entry.ConvergencePitchNode));
+				Emit(outStream, WriteShortLE(entry.ConvergenceYawNode));
+				outStream.WriteByte(entry.MountingCode);
 				outStream.WriteByte(entry.FireChainNumber);
 				Emit(outStream, WriteShortLE(entry.Unk3_0or_Neg5000));
 				Emit(outStream, WriteShortLE(entry.Unk4_0or_5000));
@@ -61,9 +61,9 @@ public class GunLayoutTransformer : ByteTransformer<GunLayout> {
 				Emit(outStream, WriteShortLE(entry.Offset[0]));
 				Emit(outStream, WriteShortLE(entry.Offset[1]));
 				Emit(outStream, WriteShortLE(entry.Offset[2]));
-				outStream.WriteByte(entry.Unk7_val);
-				outStream.WriteByte(entry.HardpointId);
-				Emit(outStream, WriteShortLE(entry.Unk8_val));
+				outStream.WriteByte(entry.LinkPartnerOffset);
+				outStream.WriteByte(entry.LoadoutSlot);
+				Emit(outStream, WriteShortLE(entry.DebrisPitch));
 			}
 		}
 

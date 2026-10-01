@@ -10,12 +10,9 @@ namespace HercWorks.Core.Data.File.Gau;
 /// <see cref="WidgetBase.Size"/> is unused. The repeater's extent is not in the file: its paint
 /// (<c>HudScanner_Paint</c>, <c>0043f2b0</c>) squares off <c>0x2e</c> units from this point on both axes.
 ///
-/// Position varies per herc — APOCA <c>40,27</c>, SAMSON <c>51,5</c>, OGRE <c>67,80</c>, RAZOR
-/// <c>15,20</c> — in the file's own 320-wide space.
+/// Position varies per herc; see docs/formats/mfd-scanner.md, "Geometry".
 ///
-/// Read out of <see cref="GAUFile.Remainder"/> rather than carved out of it, exactly as
-/// <see cref="HGunsightArea"/> is: surfaced here and still written back verbatim, so the byte-exact
-/// round-trip is untouched.
+/// Read out of <see cref="GAUFile.Remainder"/>, which is still what the write path emits.
 /// </summary>
 public class HHudScanner : WidgetBase {
 }

@@ -37,7 +37,7 @@ public sealed class ShellWeaponsArt {
 			_weapons[record.Id] = record;
 		}
 
-		foreach (var record in layout?.Secondary ?? Array.Empty<UiHardpointGraphic>()) {
+		foreach (var record in layout?.GuidancePanels ?? Array.Empty<UiHardpointGraphic>()) {
 			_guidance[record.Id] = record;
 		}
 	}

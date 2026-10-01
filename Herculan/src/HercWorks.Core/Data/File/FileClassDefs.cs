@@ -22,17 +22,11 @@ using T_WeaponsDat = HercWorks.Core.Data.File.Dat.Shell.WeaponsDat;
 namespace HercWorks.Core.Data.File;
 
 /// <summary>
-/// Why: DBSIM and VSHELL are hardcoded to load specific files, with specific names and
-/// extensions — each exe knows which files to pull from which folders. Any outside program
-/// doesn't have this limitation or meta-info.
-/// Example: /GAM/ARM_OUTL.DAT and /DAT/OUTLAW.DAT are both '.dat' files, but /GAM/ is for VSHELL
-/// and /DAT/ is DBSIM. Worse, only /ARM_OUTL.DAT has any sort of unique key-phrase in the file
-/// name. To let other users name their files however they'd like while still binding to a known
-/// ES2 file type, here's FileClassDefs.
-/// Ported from org.hercworks.core.data.file.FileClassDefs. Java's Class&lt;? extends DataFile&gt;
-/// maps to System.Type here. Type aliases (T_*) above avoid ambiguity between each static
-/// field's name and the identically-named class it points to (mirroring the Java enum, whose
-/// constants are also named the same as their bound class).
+/// Binds a file to the model class that reads it, independent of its name. DBSIM and VSHELL each
+/// load fixed paths, so a file's folder and name are what say which format it is — and names do not
+/// always tell: <c>GAM\ARM_OUTL.DAT</c> (VSHELL) and <c>DAT\OUTLAW.DAT</c> (DBSIM) are both
+/// <c>.DAT</c>. An outside tool that lets a user name files freely binds them through this list.
+/// The <c>T_*</c> aliases above keep each field's name apart from the class it points to.
 /// </summary>
 public sealed class FileClassDefs {
 	// SHELL

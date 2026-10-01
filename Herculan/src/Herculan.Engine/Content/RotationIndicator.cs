@@ -12,7 +12,7 @@ namespace Herculan.Engine.Content;
 /// slide-bar base <c>HudSlideBar_CtorBase</c> (<c>0043b378</c>) and the paint at <c>HudRotationIndicator_Paint</c> (<c>0043b4a4</c>).</para>
 ///
 /// <para><b>Where it comes from.</b> Not a <c>.GAU</c> rect of its own. The complex reads the rect
-/// at offset 1104 — <see cref="HTorsoTwist"/>, which is really the heading tape's box — and derives
+/// at offset 1104 — the heading tape's box, <see cref="HHeadingTape"/> — and derives
 /// this bar from it with literals in the constructor: <c>+15, -10</c> from the rect's top-left, 90
 /// wide and 4 tall. Every retail file puts that rect at <c>100,y - 220,y+17</c>, so the bar lands
 /// horizontally centred on the 320-wide HUD.</para>
@@ -79,7 +79,7 @@ public readonly struct RotationIndicator {
 	/// </summary>
 	public static RotationIndicator? From(CockpitArt art) {
 		ArgumentNullException.ThrowIfNull(art);
-		if (art.Gau.TorsoTwist is not { } widget
+		if (art.Gau.HeadingTape is not { } widget
 			|| art.Sprites?.Sprite(SpriteBank, TrackFrame) is null
 			|| art.Sprites?.Sprite(SpriteBank, CenteredFrame) is null) {
 			return null;

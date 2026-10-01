@@ -62,7 +62,7 @@ public class ShellHangarStoreTests {
 		var save = Assert.IsType<PlayerSave>(transformer.Parse(PlayerSaveRoundTripTests.BuildSave()));
 
 		// The synthetic save's squad pointers are out of range; point squad 0's at its first record.
-		save.UnkRange_prePlayer[0] = 0;
+		save.SquadTailAndPlayerHead[0] = 0;
 		var hangar = ShellHangar.From(save);
 		var member = Assert.Single(hangar.SquadMembers);
 		int salvage = hangar.SalvageKilograms;
@@ -73,7 +73,7 @@ public class ShellHangarStoreTests {
 		hangar.Store(save);
 
 		var reread = Assert.IsType<PlayerSave>(transformer.Parse(transformer.Write(save)!));
-		reread.UnkRange_prePlayer[0] = 0;
+		reread.SquadTailAndPlayerHead[0] = 0;
 		var reloaded = ShellHangar.From(reread);
 
 		Assert.Equal(salvage - price, reloaded.SalvageKilograms);
@@ -86,8 +86,8 @@ public class ShellHangarStoreTests {
 		var moved = Assert.Single(reloaded.SquadMembers);
 		Assert.Equal(5, moved.Bay);
 		Assert.Equal(2, moved.SquadPosition);
-		Assert.Equal(5, reread.Squadmates![0].BayId);
-		Assert.Equal(2, reread.Squadmates[0].CrewRowNum);
+		Assert.Equal(5, reread.Squadmates![0].Bay);
+		Assert.Equal(2, reread.Squadmates[0].SquadPosition);
 	}
 
 	/// <summary>
@@ -98,7 +98,7 @@ public class ShellHangarStoreTests {
 	public void StoresTheOnStrengthByteAndCount() {
 		var transformer = new PlayerSaveTransform();
 		var save = Assert.IsType<PlayerSave>(transformer.Parse(PlayerSaveRoundTripTests.BuildSave()));
-		save.UnkRange_prePlayer[0] = 0;
+		save.SquadTailAndPlayerHead[0] = 0;
 		var hangar = ShellHangar.From(save);
 		Assert.True(hangar.SquadMembers[0].OnStrength);
 		int onStrength = hangar.MachinesOnStrength;
@@ -107,8 +107,8 @@ public class ShellHangarStoreTests {
 		hangar.Store(save);
 
 		var reread = Assert.IsType<PlayerSave>(transformer.Parse(transformer.Write(save)!));
-		Assert.Equal(0, reread.Squadmates![0].Active);
-		Assert.Equal(-1, reread.Squadmates[0].BayId);
+		Assert.Equal(0, reread.Squadmates![0].OnStrength);
+		Assert.Equal(-1, reread.Squadmates[0].Bay);
 		Assert.Equal(onStrength - 1, reread.MachinesOnStrength);
 	}
 
@@ -117,8 +117,8 @@ public class ShellHangarStoreTests {
 
 		var expected = Assert.IsType<PlayerSave>(transformer.Parse(original));
 		foreach (var item in expected.Inventory?.Items ?? Array.Empty<Inventory.InventoryItem>()) {
-			if (item?.Data != null) {
-				Array.Reverse(item.Data);
+			if (item?.Units != null) {
+				Array.Reverse(item.Units);
 			}
 		}
 

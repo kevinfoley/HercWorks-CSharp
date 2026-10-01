@@ -4,16 +4,17 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
 /// FILE - /DBSIM/DAT/PROJ.DAT — 27 records of 36 bytes, in weapon-id order, behind a
-/// <c>UINT16</c> count. Each record is: unknown, <see cref="Projectile.MissileId"/> (into
-/// BULLETS.DAT or ROCKETS.DAT), DamageShield, DamageArmor, ?, Speed (fixed point, 5000 -> 500.0),
-/// then ImpactShield[0-3], ImpactGround[0-3], ImpactArmor[0-3].
+/// <c>UINT16</c> count. Each record is <see cref="Projectile.Type"/>, <see cref="Projectile.MissileId"/>
+/// (into BULLETS.DAT, ROCKETS.DAT or BEAM.DAT by type), DamageShield, DamageArmor,
+/// <see cref="Projectile.SplashFactor"/>, Speed (fixed point, 5000 -> 500.0), then the impact-effect
+/// arrays in the order shield, ground, armour.
 ///
 /// <para><b>How a weapon reaches a record.</b> A catalog weapon's
 /// <see cref="Weapons.WeaponMountTemplate.ProjDatIndex"/> is either a flat index into this table, a
 /// sentinel meaning "no record" (<c>ECM</c> only), or — for <c>MSL6</c>/<c>MSL8</c>/<c>MSL10</c>/
 /// <c>FLYMSL</c> — resolved through the mission's second loadout array, the ammunition type
-/// (<c>MecEntry.WeaponAmmoTypes</c>, or <c>script.dat</c> block 7 offset <c>0x72</c>), which is what
-/// reaches indices 7-13. Seven catalog ids (<c>NONE</c>, <c>LAEW</c>, <c>MINE</c>, <c>TARG</c>,
+/// (<c>MecEntry.WeaponAmmoTypes</c>, or <c>script.dat</c> block 7 offset <c>0x72</c>), which picks
+/// among the <c>Missile</c> records. Seven catalog ids (<c>NONE</c>, <c>LAEW</c>, <c>MINE</c>, <c>TARG</c>,
 /// <c>SHLD</c>, <c>TURB</c>, <c>ENRG</c>) carry an all-zero placeholder template whose mount
 /// constructors never consume the index 0 it reads. See docs/simulation/weapon-mounts.md.</para>
 ///
@@ -28,8 +29,8 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// | 4 | L200 | Beam | 4 | 1800 | 960 | 0 | 0 |
 /// | 5 | L300 | Beam | 5 | 2000 | 1200 | 0 | 0 |
 /// | 6 | EMPC | Bullet | 6 | 2000 | 400 | 0 | 2000 |
-/// | 7-9 | (unclaimed) | Rocket | 0-2 | 1000 | 1000 | 500-1000 | 1000 |
-/// | 10-13 | (unclaimed) | Missile | 0-3 | 400 | 1600 | 500 | 6000 |
+/// | 7-9 | (unreachable) | Grenade | 0-2 | 1000 | 1000 | 500-1000 | 1000 |
+/// | 10-13 | MSL6/8/10, FLYMSL (by ammunition type) | Missile | 0-3 | 400 | 1600 | 500 | 6000 |
 /// | 14 | PBW | Beam | 0 | 1000 | 1000 | 0 | 0 |
 /// | 15 | ELFW | Beam | 1 | 150 | 200 | 0 | 0 |
 /// | 16 | BEMP | Bullet | 7 | 8000 | 2000 | 0 | 2000 |
@@ -56,8 +57,8 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// record has <see cref="Projectile.Speed"/> 0 and resolves its hit synchronously at fire time
 /// rather than as a travelling instance. <c>Bullet</c> (2) covers both the ATC progression and the
 /// EMP-shaped high-shield entries: real flight time, and <see cref="Projectile.SplashFactor"/> 0
-/// throughout — except one. <c>Missile</c> (0) and <c>Rocket</c> (3) are the splash-capable guided
-/// weapons.</para>
+/// throughout — except one. <c>Missile</c> (0) is the splash-capable guided weapon; <c>Grenade</c>
+/// (3) is a cut class whose records are never looked up.</para>
 ///
 /// <para>Weapon names above are the shell catalog's (<see cref="WeaponLUT"/>), not DBSIM's own —
 /// index 22's two claimants are catalog ids 25 (<c>PLAS</c>) and 28 (<c>MFAC</c>, which the
@@ -68,8 +69,6 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// <c>Bullet</c> per-tick method has a <c>MissileId == 9</c> branch calling the explosion formula
 /// directly instead of the single-target hit path — a bullet with real flight time that explodes
 /// with splash on impact.</para>
-///
-/// <para>Ported from org.hercworks.core.data.file.dat.sim.ProjectileData.</para>
 /// </summary>
 public class ProjectileData {
 	public short Total { get; set; }
@@ -78,37 +77,34 @@ public class ProjectileData {
 	public Projectile NewProjectile() => new();
 
 	public class Projectile {
-		/// <summary>TODO (carried over from Java): possible projectile type bitflag — 0x04 == beams, 0x02 == bullets?</summary>
+		/// <summary>The firing-mechanism selector — which projectile class the record builds. See <see cref="ProjectileType"/>.</summary>
 		public ProjectileType? Type { get; set; }
 
+		/// <summary>The subtype id: the BULLETS.DAT, ROCKETS.DAT or BEAM.DAT record, by <see cref="Type"/>.</summary>
 		public short MissileId { get; set; }
 		public short DamageShield { get; set; }
 		public short DamageArmor { get; set; }
 
 		/// <summary>
-		/// Was <c>Unk2_val</c> — resolved via DBSIM.EXE disassembly
-		/// (<c>Mech_ApplyDirectFireDamage</c> (<c>004188c8</c>), see docs/simulation/weapon-damage-types.md). A Q8 fraction of
-		/// this hit's (already shield-absorbed) armor/structure damage that gets diverted into a
-		/// secondary small-radius explosion — reusing the same blast-sweep formula explosive
-		/// weapons use — instead of going straight to the struck component's health. Zero (the
-		/// common case in real data) means no secondary explosion: the full armor-damage amount
-		/// applies directly. Nonzero for every <see cref="ProjectileType.Grenade"/> (Type 3) entry
-		/// (uniform DamageShield==DamageArmor, unlike every other type) and every
-		/// <see cref="ProjectileType.Missile"/> (Type 0) entry — i.e. the two splash-capable
-		/// types, consistent with this being that splash's actual damage-delivery mechanism.
-		/// Zero for every real <see cref="ProjectileType.Beam"/> entry with no exceptions, and
-		/// zero for all but one <see cref="ProjectileType.Bullet"/> entry — the sole exception
-		/// (<see cref="Projectile.MissileId"/>==9, DamageShield==DamageArmor==3000) is the Plasma
-		/// cannon, confirmed via DBSIM's Bullet-class per-tick method having a dedicated
-		/// MissileId==9 explosion branch (see the class doc comment above) — so "Bullet never
-		/// splashes" is a strong pattern with one identified, explained exception, not a
-		/// coincidental outlier. Real per-weapon values seen: 0, 500, or 1000.
+		/// The Q10 fraction of this hit's shield-absorbed armour damage that <c>Mech_ApplyDirectFireDamage</c>
+		/// (<c>004188c8</c>) diverts into a 500-unit secondary explosion on the struck object instead of
+		/// the struck component's health. Zero means none. See docs/simulation/weapon-damage-types.md.
 		/// </summary>
 		public short SplashFactor { get; set; }
 
 		public short Speed { get; set; }
+
+		/// <summary>
+		/// <c>EXPLOS.DAT</c> effect types for a shot the shields fully absorbed — impact group 0, one of
+		/// the four drawn at random. The file order is shield, ground, armour. See
+		/// docs/simulation/impact-effects.md.
+		/// </summary>
 		public short[] ImpactFXShield { get; set; } = new short[4];
+
+		/// <summary>Impact group 2: an armour hit that dropped the struck component's health band.</summary>
 		public short[] ImpactFXArmor { get; set; } = new short[4];
+
+		/// <summary>Impact group 1: a shot ending on terrain, or an armour hit that left the band unchanged.</summary>
 		public short[] ImpactFXGround { get; set; } = new short[4];
 	}
 }

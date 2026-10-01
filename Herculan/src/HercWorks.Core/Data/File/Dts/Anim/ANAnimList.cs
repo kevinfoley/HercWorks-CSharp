@@ -3,15 +3,27 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Anim;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.anim.ANAnimList.</summary>
+/// <summary>
+/// A shape root's animation data: its sequences and the pools they index. Every root of a
+/// multi-root shape carries its own, with its own node numbering. See
+/// docs/formats/mech-shape-drawing.md, "Each root numbers its own nodes".
+/// </summary>
 public class ANAnimList : TSObject {
+	/// <summary><see cref="ANSequence"/> and <see cref="ANCyclicSequence"/> chunks.</summary>
 	public TSObject[]? Sequences { get; set; }
+
+	/// <summary>The transition pool frames index into.</summary>
 	public ANAnimListTransition[]? Transitions { get; set; }
+
+	/// <summary>The keyframe pool sequences, transitions and rest poses index into.</summary>
 	public ANAnimListTransform[]? Transforms { get; set; }
 
-	// FIXME (carried over from Java): confirm datatype
+	/// <summary>
+	/// Each node's rest transform, as an index into <see cref="Transforms"/>, by transform id.
+	/// </summary>
 	public short[]? DefaultTransforms { get; set; }
 
+	/// <summary>The node tree as (parent, child) transform-id pairs; a parent of -1 marks a root.</summary>
 	public Vec2Short[]? Relations { get; set; }
 
 	public ANAnimList() : base(TSObjectHeader.ANAnimList) { }

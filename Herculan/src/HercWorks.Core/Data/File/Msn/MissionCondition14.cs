@@ -4,22 +4,19 @@ namespace HercWorks.Core.Data.File.Msn;
 
 /// <summary>
 /// Row #1 (14 bytes/record) — the mission's conditions. Every other row's condition field names one
-/// of these by its GUID at 0x00, and a record whose condition names no surviving row-1 record is
-/// dropped at load. The type at 0x04 decides how a row-1 record itself survives — 0 a flag
-/// comparison, 1 a random draw, 2 a range over its parent's draw, 3 a variant key's parent — and
-/// type 3 is what the other rows' 0x04 variant keys name. The load is
+/// of these by its <see cref="MapObject.GUID"/>, and a record whose condition names no surviving
+/// row-1 record is dropped at load. <see cref="Type"/> decides how a row-1 record itself survives —
+/// 0 a flag comparison, 1 a random draw, 2 a range over its parent's draw, 3 a variant key's parent —
+/// and type 3 is what the other rows' variant keys name. The load is
 /// <see cref="Io.Transform.Common.MissionGenerator"/>; the rules are
 /// docs/formats/msn-mission-file.md#the-conditions--row-1.
 /// </summary>
-public class UnkHeaderEntry {
-	/// <summary>0x00 — the GUID the other rows' condition refs name.</summary>
-	public short Ordinal { get; set; }
-
+public class MissionCondition14 : MapObject {
 	/// <summary>0x02 — this record's own condition; for type 2, its parent.</summary>
-	public short ConditionInput { get; set; }
+	public short ConditionRef { get; set; }
 
 	/// <summary>0x04 — 0 a flag comparison, 1 a draw, 2 a range over the parent's draw, 3 a variant key's parent.</summary>
-	public short TypeDiscriminator { get; set; }
+	public short Type { get; set; }
 
 	/// <summary>0x06 — the flag index (type 0), the draw's bound (type 1), the range's low end (type 2) or the variant key (type 3).</summary>
 	public short FlagIndexOrRangeLower { get; set; }
@@ -34,32 +31,31 @@ public class UnkHeaderEntry {
 	public short ComparisonOperand { get; set; }
 
 	/// <summary>0x0C — 0 in every file; the load stores a type-3 record's latest variant draw here.</summary>
-	public short AlwaysZero { get; set; }
+	public short LatestDraw { get; set; }
 
-	public UnkHeaderEntry() { }
+	public MissionCondition14() { }
 
-	public UnkHeaderEntry(short ordinal, short conditionInput, short typeDiscriminator,
-		short flagIndexOrRangeLower, short operatorOrRangeUpperOrResult, short comparisonOperand,
-		short alwaysZero) {
-		Ordinal = ordinal;
-		ConditionInput = conditionInput;
-		TypeDiscriminator = typeDiscriminator;
+	public MissionCondition14(short guid, short conditionRef, short type, short flagIndexOrRangeLower,
+		short operatorOrRangeUpperOrResult, short comparisonOperand, short latestDraw) {
+		GUID = guid;
+		ConditionRef = conditionRef;
+		Type = type;
 		FlagIndexOrRangeLower = flagIndexOrRangeLower;
 		OperatorOrRangeUpperOrResult = operatorOrRangeUpperOrResult;
 		ComparisonOperand = comparisonOperand;
-		AlwaysZero = alwaysZero;
+		LatestDraw = latestDraw;
 	}
 
 	public override string ToString() {
 		var b = new StringBuilder();
 		b.Append('[')
-			.Append(Ordinal).Append(", ")
-			.Append(ConditionInput).Append(", ")
-			.Append(TypeDiscriminator).Append(", ")
+			.Append(GUID).Append(", ")
+			.Append(ConditionRef).Append(", ")
+			.Append(Type).Append(", ")
 			.Append(FlagIndexOrRangeLower).Append(", ")
 			.Append(OperatorOrRangeUpperOrResult).Append(", ")
 			.Append(ComparisonOperand).Append(", ")
-			.Append(AlwaysZero)
+			.Append(LatestDraw)
 			.Append(']');
 
 		return b.ToString();

@@ -3,33 +3,35 @@ using HercWorks.Core.Util;
 namespace HercWorks.Core.Data.Struct.Vshell.Hercs;
 
 /// <summary>
-/// As observed at various parts of the code, herc hardpoint structs are seen mostly in VSHELL.EXE.
-/// WARN: hardpoint IDs themselves are controlled by the parent of this class; this is just the
-/// byte data for weapons-in-hardpoint.
-///   0 - UINT16 - weapon id
-///   2 - UINT16 - health percentage as 0-100, usually 0x64 (100%)
-///   4 - UINT16 - missile enum — 'none' = 0x05, then 0x01-0x03 for the actual missile types.
-/// Ported from org.hercworks.core.data.struct.vshell.hercs.UiWeaponEntry.
+/// The six-byte <c>gam\*.dat</c> form of a weapon unit (<c>WeaponUnit_ReadCatalogForm</c>,
+/// <c>00411a36</c>): record <c>+0x00</c>, <c>+0x06</c> and <c>+0x08</c>. The hardpoint it sits on
+/// is the parent's key. <see cref="Sav.ShellWeaponEntry"/> is the full save form. See
+/// <c>docs/formats/herc-catalogs.md#the-weapon-unit-record</c>.
 /// </summary>
 public class UiWeaponEntry {
-	public short ItemId { get; set; }
-	public short HealthPercent { get; set; }
-	public MissileType? MissileType { get; set; }
+	/// <summary>The weapon catalog id.</summary>
+	public short WeaponId { get; set; }
+
+	/// <summary>The unit's condition, 0-100.</summary>
+	public short Condition { get; set; }
+
+	/// <summary>The ammo type — the guidance kind 0-3 (SARH, ARH, ARM, EO), or 5 for none.</summary>
+	public MissileType? Guidance { get; set; }
 
 	public UiWeaponEntry() { }
 
-	public UiWeaponEntry(short itemId, short healthPercent, MissileType missileType) {
-		ItemId = itemId;
-		HealthPercent = healthPercent;
-		MissileType = missileType;
+	public UiWeaponEntry(short weaponId, short condition, MissileType guidance) {
+		WeaponId = weaponId;
+		Condition = condition;
+		Guidance = guidance;
 	}
 
 	public byte[] ToByte() {
 		var data = new byte[6];
 
-		ByteOps.ShortLEToByteArr(data, 0, ItemId);
-		ByteOps.ShortLEToByteArr(data, 2, HealthPercent);
-		ByteOps.ShortLEToByteArr(data, 4, (short)(MissileType?.Id ?? 0));
+		ByteOps.ShortLEToByteArr(data, 0, WeaponId);
+		ByteOps.ShortLEToByteArr(data, 2, Condition);
+		ByteOps.ShortLEToByteArr(data, 4, (short)(Guidance?.Id ?? 0));
 
 		return data;
 	}

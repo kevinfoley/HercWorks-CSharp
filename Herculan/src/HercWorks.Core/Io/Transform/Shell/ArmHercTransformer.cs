@@ -25,23 +25,23 @@ public class ArmHercTransformer : ByteTransformer<ArmHerc> {
 		var armData = new ArmHerc();
 
 		var topHercImg = new UiHardpointGraphic();
-		armData.TopImgArrId = IndexShortLE();
+		armData.TopImgPartId = IndexShortLE();
 		topHercImg.OriginX = IndexIntLE();
 		topHercImg.OriginY = IndexIntLE();
 		topHercImg.OutlineX = IndexIntLE(); // note: for some reason these are probably because all UIharpdoint images use the same struct.
 		topHercImg.OutlineY = IndexIntLE(); // note: for some reason these are probably because all UIharpdoint images use the same struct.
 		topHercImg.FrameId = IndexShortLE();
-		topHercImg.Flags = UiImageDBA.RFlag.Get(IndexShortLE());
+		topHercImg.BlitFlags = UiImageDBA.BlitFlag.Get(IndexShortLE());
 		armData.HercTopImg = topHercImg;
 
 		var bottomHercImg = new UiHardpointGraphic();
-		armData.BottomImgArrId = IndexShortLE();
+		armData.BottomImgPartId = IndexShortLE();
 		bottomHercImg.OriginX = IndexIntLE();
 		bottomHercImg.OriginY = IndexIntLE();
 		bottomHercImg.OutlineX = IndexIntLE(); // note: for some reason these are probably because all UIharpdoint images use the same struct.
 		bottomHercImg.OutlineY = IndexIntLE(); // note: for some reason these are probably because all UIharpdoint images use the same struct.
 		bottomHercImg.FrameId = IndexShortLE();
-		bottomHercImg.Flags = UiImageDBA.RFlag.Get(IndexShortLE());
+		bottomHercImg.BlitFlags = UiImageDBA.BlitFlag.Get(IndexShortLE());
 		armData.HercBotImg = bottomHercImg;
 
 		armData.TotalWeapons = IndexShortLE();
@@ -62,7 +62,7 @@ public class ArmHercTransformer : ByteTransformer<ArmHerc> {
 				hardpoint.OutlineX = IndexIntLE();
 				hardpoint.OutlineY = IndexIntLE();
 				hardpoint.FrameId = IndexShortLE();
-				hardpoint.Flags = UiImageDBA.RFlag.Get(IndexShortLE());
+				hardpoint.BlitFlags = UiImageDBA.BlitFlag.Get(IndexShortLE());
 				graphics[h] = hardpoint;
 			}
 			weaponHardpoints[weaponId] = graphics;
@@ -76,10 +76,10 @@ public class ArmHercTransformer : ByteTransformer<ArmHerc> {
 
 		using var objectBytes = new MemoryStream();
 
-		WriteToStream(objectBytes, WriteShortLE(data.TopImgArrId));
+		WriteToStream(objectBytes, WriteShortLE(data.TopImgPartId));
 		WriteUiImage(data.HercTopImg!, objectBytes);
 
-		WriteToStream(objectBytes, WriteShortLE(data.BottomImgArrId));
+		WriteToStream(objectBytes, WriteShortLE(data.BottomImgPartId));
 		WriteUiImage(data.HercBotImg!, objectBytes);
 
 		WriteToStream(objectBytes, WriteShortLE(data.TotalWeapons));
@@ -113,7 +113,7 @@ public class ArmHercTransformer : ByteTransformer<ArmHerc> {
 		}
 
 		WriteToStream(targ, WriteShortLE(img.FrameId));
-		WriteToStream(targ, WriteShortLE(img.Flags!.Val));
+		WriteToStream(targ, WriteShortLE(img.BlitFlags!.Val));
 	}
 
 	private void WriteUiHardpoint(UiHardpointGraphic img, MemoryStream targ) {
@@ -122,7 +122,7 @@ public class ArmHercTransformer : ByteTransformer<ArmHerc> {
 		WriteToStream(targ, WriteIntLE(img.OutlineX));
 		WriteToStream(targ, WriteIntLE(img.OutlineY));
 		WriteToStream(targ, WriteShortLE(img.FrameId));
-		WriteToStream(targ, WriteShortLE(img.Flags!.Val));
+		WriteToStream(targ, WriteShortLE(img.BlitFlags!.Val));
 	}
 
 	private static void WriteToStream(MemoryStream targ, byte[] bytes) {

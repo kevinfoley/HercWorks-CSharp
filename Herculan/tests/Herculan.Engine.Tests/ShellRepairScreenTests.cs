@@ -311,13 +311,13 @@ public class ShellRepairScreenTests {
 		var entry = BayEntry(mountCapacity: 0, weapons: Array.Empty<int>());
 
 		// The cockpit's two facets, front and rear.
-		entry.HealthExternals![HercExternals.CockpitFront].Health = 100;
-		entry.HealthExternals[HercExternals.CockpitRear].Health = 50;
+		entry.ExternalConditions![HercExternals.CockpitFront].Health = 100;
+		entry.ExternalConditions[HercExternals.CockpitRear].Health = 50;
 
 		// The left leg's three: thigh, calf, foot.
-		entry.HealthExternals[HercExternals.LegLeftTop].Health = 30;
-		entry.HealthExternals[HercExternals.LegLeftMid].Health = 60;
-		entry.HealthExternals[HercExternals.LegLeftFoot].Health = 61;
+		entry.ExternalConditions[HercExternals.LegLeftTop].Health = 30;
+		entry.ExternalConditions[HercExternals.LegLeftMid].Health = 60;
+		entry.ExternalConditions[HercExternals.LegLeftFoot].Health = 61;
 
 		var machine = ShellBayMachine.From(entry);
 		Assert.Equal(75, machine.Condition(ShellRepairCategory.ExternalGroup, 0));
@@ -427,8 +427,8 @@ public class ShellRepairScreenTests {
 	[Fact]
 	public void RepairWritesEveryFacetOfAGroup() {
 		var entry = BayEntry(mountCapacity: 0, weapons: Array.Empty<int>());
-		entry.HealthExternals![HercExternals.CockpitFront].Health = 100;
-		entry.HealthExternals[HercExternals.CockpitRear].Health = 50;
+		entry.ExternalConditions![HercExternals.CockpitFront].Health = 100;
+		entry.ExternalConditions[HercExternals.CockpitRear].Health = 50;
 		var screen = ScreenFor(HangarWith(salvage: 1_000_000, entry));
 
 		// The mean, 75, is level 2: both facets go to 80, the front one down from 100.
@@ -446,8 +446,8 @@ public class ShellRepairScreenTests {
 	public void RepairAllRebuildsTheMachineIncludingADestroyedMount() {
 		var entry = BayEntry(mountCapacity: 3, weapons: new[] { 5, 0, 7 }, groupCondition: 40,
 			internalCondition: 70);
-		entry.HealthHardpoints[0]!.Health = 0;
-		entry.HealthHardpoints[2]!.Health = 55;
+		entry.HardpointConditions[0]!.Health = 0;
+		entry.HardpointConditions[2]!.Health = 55;
 		var hangar = HangarWith(salvage: 1_000_000, entry);
 		var screen = ScreenFor(hangar);
 
@@ -599,28 +599,28 @@ public class ShellRepairScreenTests {
 	private static HercBayEntry BayEntry(int mountCapacity, int[] weapons, int chassisType = 0,
 			int groupCondition = 100, int internalCondition = 100) {
 		var entry = new HercBayEntry {
-			Id = HercLUT.GetById((short)chassisType),
-			HardpointMax = (short)mountCapacity,
+			ChassisType = HercLUT.GetById((short)chassisType),
+			MountCapacity = (short)mountCapacity,
 			BuildPercent = 100,
-			HealthExternals = new Dictionary<HercExternals, ShellHercPart>(),
-			HealthInternals = new Dictionary<HercInternals, ShellHercPart>(),
+			ExternalConditions = new Dictionary<HercExternals, ShellHercPart>(),
+			InternalConditions = new Dictionary<HercInternals, ShellHercPart>(),
 		};
 
 		foreach (var facet in HercExternals.Values()) {
-			entry.HealthExternals[facet] = new ShellHercPart(facet.Id, facet.Label, (short)groupCondition);
+			entry.ExternalConditions[facet] = new ShellHercPart(facet.Id, facet.Label, (short)groupCondition);
 		}
 
 		foreach (var component in HercInternals.Values()) {
 			if (component.Id < HercInternals.ServosLegLeftRear.Id) {
-				entry.HealthInternals[component] =
+				entry.InternalConditions[component] =
 					new ShellHercPart(component.Id, component.Label, (short)internalCondition);
 			}
 		}
 
-		for (short slot = 0; slot < entry.HealthHardpoints.Length; slot++) {
-			entry.HealthHardpoints[slot] = new ShellHercPart(slot, "hardpoint_" + slot, 100);
+		for (short slot = 0; slot < entry.HardpointConditions.Length; slot++) {
+			entry.HardpointConditions[slot] = new ShellHercPart(slot, "hardpoint_" + slot, 100);
 			if (slot < weapons.Length && weapons[slot] != 0) {
-				entry.Weapons[slot] = new ShellWeaponEntry { Id = WeaponLUT.GetById(weapons[slot]) };
+				entry.Mounts[slot] = new ShellWeaponEntry { Id = WeaponLUT.GetById(weapons[slot]) };
 			}
 		}
 

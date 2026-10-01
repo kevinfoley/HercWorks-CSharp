@@ -84,13 +84,13 @@ public class ShellSaveGameTests : IDisposable {
 	public void DropsAStaleTailFromTheGame() {
 		const int TailLength = PlayerSave.CampaignFlagCount * 2 + 2 + 20;
 		var game = Game();
-		game.UnknownSaveValues = Enumerable.Range(0, TailLength + 100).Select(i => (byte)i).ToArray();
+		game.CampaignStateTail = Enumerable.Range(0, TailLength + 100).Select(i => (byte)i).ToArray();
 
 		ShellSaveSlots.SaveGame(_root, Slots(), 2, " 3. B", false, game, NoWorkingFiles, out _);
 
-		Assert.Equal(TailLength, game.UnknownSaveValues!.Length);
+		Assert.Equal(TailLength, game.CampaignStateTail!.Length);
 		var written = new PlayerSaveTransform().Parse(File.ReadAllBytes(Path.Combine(Sav, "GAME_2.SAV")));
-		Assert.Equal(TailLength, written!.UnknownSaveValues!.Length);
+		Assert.Equal(TailLength, written!.CampaignStateTail!.Length);
 	}
 
 	/// <summary>

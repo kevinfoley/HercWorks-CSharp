@@ -2,22 +2,15 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
 /// FILE - /DBSIM/DAT/WEAPONS.DAT — DBSIM's own runtime weapon-mount-template table (distinct from
-/// SHELL0/GAM/WEAPONS.DAT, the UI-facing weapon catalog ported as <see cref="Shell.WeaponsDat"/>).
+/// SHELL0/GAM/WEAPONS.DAT, the UI-facing weapon catalog, <see cref="Shell.WeaponsDat"/>). Loaded by
+/// <c>Weapons_LoadResourceTables</c> (<c>0040fc8c</c>) from a resource named "weapons"; one record per
+/// weapon id, 33 in retail.
 ///
-/// Cracked by decompiling the real loader in DBSIM.EXE (see
-/// docs/formats/weapons-dat-sim.md for the full writeup and open semantic gaps) — a resource
-/// literally named "weapons", opened by <c>Weapons_LoadResourceTables</c> (0x0040fc8c). Structure
-/// confirmed byte-exact: parsing this exact record shape consumes the real retail file's full 3790
-/// content bytes across its 33 records with zero remainder. Every byte is preserved (even where the
-/// semantic meaning isn't decoded yet), so this round-trips byte-exact despite several fields being
-/// undecoded.
-///
-/// Records are variable-length, NOT a fixed stride — each is built out of the exact same low-level
+/// <para>Records are variable-length, not a fixed stride: each is built from the same low-level
 /// record readers <c>.DMG</c>/<c>.COL</c> use (<c>HercPiece_ReadRecord</c>,
-/// <c>Collision_ReadCluster</c>/<c>Collision_ReadSphereArray</c>), reused generically by
-/// DBSIM rather than a bespoke weapon-record reader — see <see cref="WeaponMountTemplate"/>.
-/// Ported from org.hercworks.core.data.file.dat.sim.Weapons (extended — the original Java class
-/// only ever modeled the Total field).
+/// <c>Collision_ReadCluster</c>/<c>Collision_ReadSphereArray</c>) — see
+/// <see cref="WeaponMountTemplate"/>. Fields whose meaning is open are kept raw so the file
+/// round-trips byte-exact. Layout: docs/formats/weapons-dat-sim.md.</para>
 /// </summary>
 public class Weapons {
 	public short Total { get; set; }
@@ -32,94 +25,69 @@ public class Weapons {
 	public WeaponMountTemplate NewWeaponMountTemplate() => new();
 
 	/// <summary>
-	/// One weapon's mount-template record. See docs/formats/weapons-dat-sim.md for the full
-	/// field-by-field evidence — most fields here are confirmed present/sized but NOT semantically
-	/// decoded; they're modeled and round-tripped raw rather than dropped.
+	/// One weapon's mount-template record. See docs/formats/weapons-dat-sim.md for the field-by-field
+	/// evidence; the fields before <see cref="Tail"/> are modeled raw, and their meaning is open.
 	/// </summary>
 	public class WeaponMountTemplate {
-		/// <summary>0 for id0/NONE; one of {1500, 2000, 2500, 15000} for every real weapon seen —
-		/// too few distinct values to be a per-weapon-unique stat, plausibly a range/tier bucket.</summary>
+		/// <summary>0 for NONE; one of 1500, 2000, 2500, 15000 for every real weapon. Meaning unknown — not the range.</summary>
 		public short Field0 { get; set; }
 
-		/// <summary>0 for NONE; exactly -1 (0xFFFF) for every real weapon seen.</summary>
+		/// <summary>0 for NONE; -1 for every real weapon. Meaning unknown.</summary>
 		public short Field1 { get; set; }
 
-		/// <summary>0 for NONE; exactly 0x01FF (511) for every real weapon seen.</summary>
+		/// <summary>0 for NONE; 0x01FF (511) for every real weapon. Meaning unknown.</summary>
 		public short Field2 { get; set; }
 
 		/// <summary>
-		/// HercPiece_ReadRecord's "dependent sub-component list," reused generically here. Always
-		/// exactly (20, 12) in every real weapon record seen (empty for NONE) — never observed to
-		/// vary, despite the mechanism supporting an arbitrary-length list. Raw 16-bit values,
-		/// semantics unknown.
+		/// <c>HercPiece_ReadRecord</c>'s dependent sub-component list, reused here. (20, 12) on every
+		/// real weapon and empty for NONE; meaning unknown.
 		/// </summary>
 		public short[] DependentRaw { get; set; } = [];
 
 		/// <summary>
-		/// Read via the reused Collision_ReadCluster call. Constant 0x13 (19) in EVERY real
-		/// record seen, including id0/NONE — not the boolean flag its origin function's name
-		/// suggests; semantics unknown in this context.
+		/// Read through <c>Collision_ReadCluster</c>, where it is a component index. 0x13 (19) in every
+		/// record including NONE; meaning here unknown.
 		/// </summary>
 		public short SubSphereFlagRaw { get; set; }
 
 		/// <summary>
-		/// Read via the reused Collision_ReadSphereArray call. The real entry count is this value
-		/// masked with 0x1FFF (top 3 bits reserved for flags in the original collision-record
-		/// format; never observed set in real weapon data) — see <see cref="FiringSequenceCount"/>.
+		/// Read through <c>Collision_ReadSphereArray</c>: the low 13 bits are the entry count of
+		/// <see cref="FiringSequence"/> (see <see cref="FiringSequenceCount"/>); the top three are that
+		/// format's flag bits, never set here.
 		/// </summary>
 		public short SubMeshCountRaw { get; set; }
 
 		public int FiringSequenceCount => SubMeshCountRaw & 0x1FFF;
 
 		/// <summary>
-		/// FiringSequenceCount entries, each 4 raw int16s. Real values resemble the original Java
-		/// doc comment's guessed per-shot muzzle-offset/fire-rate "SEQ" array for multi-shot/chain
-		/// weapons — plausible but NOT confirmed field-by-field. Kept raw.
+		/// <see cref="FiringSequenceCount"/> entries of four raw int16s each. Meaning unknown; kept raw.
 		/// </summary>
 		public short[][] FiringSequence { get; set; } = [];
 
 		/// <summary>
-		/// Trailing 48 raw bytes (0x30). Kept raw, but much of it is decoded and read directly by
-		/// <c>Herculan.Engine.Sim.WeaponMount</c> at these tail-relative offsets: <c>0x00</c> range,
-		/// <c>0x06</c>/<c>0x08</c> the readiness threshold pair, <c>0x0a</c> magazine size,
-		/// <c>0x0c</c> barrel count, <c>0x10</c>-<c>0x14</c> the muzzle offset triple,
-		/// <c>0x16</c>/<c>0x1a</c> the side offsets, <c>0x1c</c> <see cref="ProjDatIndex"/>, and
-		/// <c>0x1e</c> the refire interval, <c>0x2e</c> <see cref="DamageIconIndex"/>. See
-		/// docs/formats/weapons-dat-sim.md.
+		/// The 48-byte tail, record offset <c>0x22</c>-<c>0x51</c>, kept raw. The doc's table gives the
+		/// decoded fields by in-memory offset; tail-relative is that minus <c>0x22</c>: the four model
+		/// shapes at <c>0x00</c>-<c>0x06</c>, minimum range (int32) <c>0x0a</c>, range (int32)
+		/// <c>0x0e</c>, AI shot-value penalty <c>0x12</c>, energy thresholds <c>0x14</c>/<c>0x16</c>,
+		/// magazine size <c>0x18</c>, barrel count <c>0x1a</c>, <see cref="ProjDatIndex"/> <c>0x1c</c>,
+		/// muzzle offset <c>0x1e</c>-<c>0x22</c>, side offsets <c>0x24</c>/<c>0x28</c>, refire delay
+		/// <c>0x2a</c>, <see cref="DamageIconIndex"/> <c>0x2e</c>. See
+		/// docs/formats/weapons-dat-sim.md#decoded-tail-fields.
 		/// </summary>
 		public byte[] Tail { get; set; } = new byte[0x30];
 
 		/// <summary>
-		/// Tail-relative offset 0x1c (absolute in-memory offset 0x3e). Read by DBSIM's
-		/// <c>Mech_ConfigureLoadout</c> (0x004175dc) -&gt; weapon-mount factory (0x0040fff8), which
-		/// branches on it. This is the mechanism
-		/// behind <see cref="ProjectileData"/>'s weapon-id-to-record mapping — see
-		/// docs/simulation/weapon-damage-types.md and docs/formats/weapons-dat-sim.md for the full
-		/// writeup, and <c>ProjectileData</c>'s own doc comment for the resulting confirmed mapping.
-		/// Three cases, confirmed against every real weapon in the retail catalog:
-		///   <list type="bullet">
-		///   <item>0x21 (33) — no PROJ.DAT lookup at all. Only ECM has this literal sentinel; the six
-		///   other non-firing catalog entries (NONE, LAEW, MINE, TARG, SHLD, TURB, ENRG) instead carry
-		///   an all-zero/blank template (this field reads 0, a coincidentally "valid" index that their
-		///   mount constructors never actually consume — confirmed by reading the mount-factory's
-		///   per-case argument lists, not all of which pass the resolved PROJ.DAT pointer through).</item>
-		///   <item>0x22 (34) — resolved via a (category=Missile, secondary-key) search
-		///   (<c>Proj_LookupRecord</c>) instead of a direct index. The secondary key is the mission's
-		///   ammunition-type array (<c>MecEntry.WeaponAmmoTypes</c>, or <c>script.dat</c> block 7
-		///   offset <c>0x72</c>), which is what selects among PROJ.DAT's remaining Missile/Rocket
-		///   entries (indices 7-13); <c>Herculan.Engine.Sim.WeaponCatalog</c> resolves it. Seen only
-		///   for MSL6/MSL8/MSL10/FLYMSL.</item>
-		///   <item>otherwise — a direct flat array index into PROJ.DAT
-		///   (<c>ProjDat_RecordTable[value]</c>), confirmed byte-exact against all 21 other real
-		///   catalog weapons (e.g. ATC20/35/50/75/100 -&gt; indices 0/1/2/23/24 in a clean armor-damage
-		///   progression; PLAS -&gt; index 22, the same MissileId==9 splash-Bullet record already
-		///   independently identified as the Plasma cannon by mechanism alone).</item>
-		///   </list>
+		/// Tail-relative <c>0x1c</c> (in-memory <c>0x3e</c>) — how the weapon reaches its
+		/// <see cref="ProjectileData"/> record: <c>0x21</c> (33) for none (<c>ECM</c>), <c>0x22</c> (34)
+		/// for a <c>Missile</c> record chosen by the hardpoint's ammunition type
+		/// (<c>MSL6</c>/<c>MSL8</c>/<c>MSL10</c>/<c>FLYMSL</c>), otherwise a direct PROJ.DAT index. The
+		/// non-firing entries carry 0, which their mount constructors never consume. See
+		/// docs/formats/weapons-dat-sim.md#projdatindex--tail-relative-offset-0x1c-absolute-offset-0x3e.
 		/// </summary>
 		public short ProjDatIndex => BitConverter.ToInt16(Tail, 0x1c);
 
 		/// <summary>
-		/// Tail-relative offset 0x2e (absolute 0x50): which icon of the <c>WEAPONS</c> bank the
+		/// Tail-relative <c>0x2e</c> (in-memory <c>0x50</c>): which icon of the <c>WEAPONS</c> bank the
 		/// Heads-Down Display's damage detail draws for this weapon, before the <c>.PDG</c>
 		/// hardpoint's own frame offset is added. -1 draws none. See
 		/// docs/formats/weapons-dat-sim.md.
@@ -129,7 +97,7 @@ public class Weapons {
 		/// <summary>
 		/// Which shape of <c>dts\MECHWPNS.DTS</c> this weapon is drawn as when it is fitted to a
 		/// hardpoint whose mounting code (<c>.GL +6</c>,
-		/// <see cref="Dbsim.GunLayout.HardpointEntry.AngleDirOption"/>) is
+		/// <see cref="Dbsim.GunLayout.HardpointEntry.MountingCode"/>) is
 		/// <paramref name="mountingCode"/> — four shorts at tail-relative <c>0x00</c>-<c>0x06</c>,
 		/// one per code, read by <c>WeaponMount_ShapeForMountingCode</c> (<c>0040fab0</c>) as <c>template[0x22 + code * 2]</c>.
 		///

@@ -3,7 +3,7 @@ using HercWorks.Core.Data.Struct.Herc;
 namespace HercWorks.UI;
 
 /// <summary>
-/// Editable grid-row shape for one entry of PlayerSave.UnlockedHercs. The underlying field is a
+/// Editable grid-row shape for one entry of PlayerSave.ChassisAvailability. The underlying field is a
 /// short, but every real .sav file probed only ever stored 0 or 1, so this exposes it as a plain
 /// checkbox rather than a numeric field.
 /// </summary>

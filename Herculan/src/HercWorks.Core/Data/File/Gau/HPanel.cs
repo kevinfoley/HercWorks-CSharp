@@ -3,7 +3,7 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Gau;
 
-/// <summary>Ported from org.hercworks.core.data.file.gau.HPanel.</summary>
+/// <summary>A widget kind <see cref="Io.Transform.Dbsim.GauFileTransformer"/> does not produce.</summary>
 public class HPanel : WidgetBase {
 	public PixelPoint PanelOffset { get; set; }
 

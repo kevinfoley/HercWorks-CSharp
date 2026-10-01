@@ -447,7 +447,7 @@ public sealed class Rocket {
 	/// <c>ROCKETS.DAT +0x06</c>, the shot record's slack. Same story as <see cref="Acceleration"/>:
 	/// the property is named for what a bullet keeps at that offset.
 	/// </summary>
-	private static short ClipRadius(ProjMissileDatEntry record) => record.Unk2Flag;
+	private static short ClipRadius(ProjMissileDatEntry record) => record.FrameInterval;
 
 	/// <summary><c>ROCKETS.DAT +0x08</c>, the animation frame interval. As above.</summary>
 	private static short AnimationInterval(ProjMissileDatEntry record) => record.SfxFireIdBullets;

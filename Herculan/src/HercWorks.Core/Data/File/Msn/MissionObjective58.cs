@@ -1,0 +1,45 @@
+namespace HercWorks.Core.Data.File.Msn;
+
+/// <summary>
+/// Row #17 (58 bytes/record) — a mission objective, <c>script.dat</c> block 12: a condition the
+/// simulation tests about a subject, the failure text, and the mission counters it writes. No GUID;
+/// nothing names one. See docs/formats/msn-mission-file.md, "Row #17 field decode", and
+/// docs/simulation/mission-objectives.md.
+/// </summary>
+public class MissionObjective58 {
+	/// <summary>0x00 — condition ref. Not exported to <c>script.dat</c>.</summary>
+	public short ConditionRef { get; set; }
+
+	/// <summary>0x02 — 1 when the objective must be satisfied; anything else makes it a failure condition.</summary>
+	public short Required { get; set; }
+
+	/// <summary>0x04 — the condition code, 0-7, that the objective tests.</summary>
+	public short ConditionCode { get; set; }
+
+	/// <summary>0x06 — what <see cref="SubjectRef"/> names: 0 a group (row #16), 1 a mech (#12), 2 a flyer (#13), 3 a base (#14).</summary>
+	public short SubjectKind { get; set; }
+
+	/// <summary>0x08 — the objective's subject, per <see cref="SubjectKind"/>.</summary>
+	public short SubjectRef { get; set; }
+
+	/// <summary>0x0A — ref into row #6 (<see cref="MapPoint22"/>); no condition reads it.</summary>
+	public short PointRef { get; set; }
+
+	/// <summary>0x0C — ref into row #8 (<see cref="WaypointGroup"/>): the waypoint group condition 0 asks about.</summary>
+	public short RouteRef { get; set; }
+
+	/// <summary>0x0E — the failure text, an <c>.ENG</c> id: the first of three consecutive lines.</summary>
+	public short TextRef { get; set; }
+
+	/// <summary>0x10 — how many of <see cref="Pairs"/> are filled, from the front. Not exported to <c>script.dat</c>.</summary>
+	public short PairCount { get; set; }
+
+	/// <summary>0x12-0x39 — the mission counters the objective writes, unused slots <c>-1</c>/<c>-1</c>.</summary>
+	public CounterPair[] Pairs { get; set; } = new CounterPair[10];
+}
+
+/// <summary>One (counter ref, operation) pair of <see cref="MissionObjective58.Pairs"/> — 4 bytes on disk.</summary>
+public class CounterPair {
+	public short CounterRef { get; set; } = -1;
+	public short Op { get; set; } = -1;
+}

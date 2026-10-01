@@ -431,9 +431,9 @@ public sealed class ComponentDamage {
 	/// <summary>
 	/// <c>Component_DestroyAndCascade</c> (<c>0040d434</c>) — takes one component out: the entry goes
 	/// to <see cref="Destroyed"/>, the active flag clears, everything under it is finished off, and
-	/// every <i>other</i> component whose record names this one as its bone group is queued to follow.
+	/// every <i>other</i> component whose record names this one as its parent is queued to follow.
 	///
-	/// <para><b>The <c>.DMG</c>'s <c>BoneId</c> is a parent component index</b>, not a model bone: the
+	/// <para><b>The <c>.DMG</c> piece's <c>ParentComponent</c> byte is a component index</b>, not a model bone: the
 	/// original compares it against the index of the component that just died. That is the whole of
 	/// the dependency graph between main components — losing a shoulder takes the arm on it.</para>
 	///
@@ -468,7 +468,7 @@ public sealed class ComponentDamage {
 		// by accident rather than the right comparison.
 		var pieces = _model.ComponentData ?? Array.Empty<HercSimDamage.HercPiece>();
 		for (int i = 0; i < _active.Length && i < pieces.Length; i++) {
-			if (_active[i] && (sbyte)pieces[i].BoneId == index) {
+			if (_active[i] && (sbyte)pieces[i].ParentComponent == index) {
 				_pendingCascade.Add(i);
 			}
 		}
@@ -594,7 +594,7 @@ public sealed class ComponentDamage {
 	/// <c>Component_SpillIntoDependents</c> (<c>0040cf44</c>) — pours a component's overflow damage into its dependents, one at a time.
 	///
 	/// <para>The pick is <b>weighted and random</b>: each live dependent contributes the record's own
-	/// per-dependent figure (<see cref="HercSimDamage.InternalsTarget.CritChance"/>, 20 on most mech
+	/// per-dependent figure (<see cref="HercSimDamage.InternalsTarget.SpillWeight"/>, 20 on most mech
 	/// pieces and 150 on the skimmer's one) to a total, a number is drawn under that total, and the
 	/// entry whose band it lands in takes the hit. If that spill destroys the dependent, its own
 	/// excess goes round again — so one large hit can strip several internals in sequence.</para>
@@ -611,7 +611,7 @@ public sealed class ComponentDamage {
 			foreach (var dependent in dependents) {
 				int slot = dependent.InternalsId?.Id ?? -1;
 				if (slot >= 0 && slot < _dependentDamage.Length && _dependentDamage[slot] >= 0) {
-					total += dependent.CritChance;
+					total += dependent.SpillWeight;
 				}
 			}
 
@@ -631,7 +631,7 @@ public sealed class ComponentDamage {
 					continue;
 				}
 
-				draw -= dependent.CritChance;
+				draw -= dependent.SpillWeight;
 				if (draw < 0) {
 					break;
 				}

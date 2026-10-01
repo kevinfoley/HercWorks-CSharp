@@ -358,7 +358,7 @@ public sealed class ShellBuildScreen {
 				if (entry.HercId == HercInfEntry.OutlawHercId) {
 					speed = 100;
 				}
-				if (entry.HercId == HercInfEntry.RaptorII) {
+				if (entry.HercId == HercInfEntry.RaptorIIHercId) {
 					hardpointTotal = 5;
 				}
 			}

@@ -1,5 +1,5 @@
 namespace HercWorks.Core.Data.File.Gau;
 
-/// <summary>Ported from org.hercworks.core.data.file.gau.HRegion.</summary>
+/// <summary>A widget kind <see cref="Io.Transform.Dbsim.GauFileTransformer"/> does not produce.</summary>
 public class HRegion : WidgetBase {
 }

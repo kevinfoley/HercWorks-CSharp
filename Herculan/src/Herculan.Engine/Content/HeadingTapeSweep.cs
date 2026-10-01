@@ -39,7 +39,7 @@ public sealed class HeadingTapeSweep {
 	/// <summary>
 	/// The sweep for a cockpit powering up at <paramref name="coarseTicks"/>. A flyer's comes back
 	/// already latched and never moves the tape — <c>Gau_BuildCockpitWidgets</c>' own branch, on the
-	/// same <c>InputFlagFlyer</c> that gates the engine hum in
+	/// same <c>FlyerFlag</c> that gates the engine hum in
 	/// <see cref="Herculan.Engine.Audio.GameAudio.PowerUp"/>.
 	/// </summary>
 	public static HeadingTapeSweep ForPowerUp(MechObject pilot, long coarseTicks) {

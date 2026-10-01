@@ -45,13 +45,13 @@ public sealed record ShellSaveSummary(
 			return null;
 		}
 
-		short[] career = save.Unk4_stateFlags;
+		short[] career = save.CareerBlock;
 		return new ShellSaveSummary(
 			pilot.Name ?? string.Empty,
 			pilot.Skill?.Id ?? 0,
 			pilot.Rank?.Id ?? 0,
-			pilot.KillsHercs, pilot.KillsFlyers, pilot.KillsBuilding,
-			pilot.TotalKillHerc, pilot.TotalKillFlyer, pilot.TotalKillBldng,
+			pilot.HercKills, pilot.FlyerKills, pilot.BaseKills,
+			pilot.TotalHercKills, pilot.TotalFlyerKills, pilot.TotalBaseKills,
 			save.SalvageTotal,
 			career.Length > 0 ? career[0] : 0,
 			career.Length > 1 ? career[1] : 0);
@@ -181,8 +181,8 @@ public static class ShellSaveSlots {
 
 		// The tail is the flag array, the game state and the 20-byte block, 2022 bytes; anything past that
 		// is a stale tail the reader carried in from the file, which the original's memory never holds.
-		if (game.UnknownSaveValues is { Length: > SaveTailLength } tail) {
-			game.UnknownSaveValues = tail[..SaveTailLength];
+		if (game.CampaignStateTail is { Length: > SaveTailLength } tail) {
+			game.CampaignStateTail = tail[..SaveTailLength];
 		}
 
 		string folder = Directory(installRoot);

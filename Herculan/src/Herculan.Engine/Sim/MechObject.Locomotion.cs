@@ -592,7 +592,7 @@ public sealed partial class MechObject {
 	/// <c>script.dat</c> files are saves taken from a few of the 50-odd <c>.MSN</c> missions, and in
 	/// those, 138 of 139 mech records read 100 and one reads 50 — enough to confirm the field is a
 	/// percentage, not enough to say which bands the campaign exercises. See
-	/// <c>ScriptSpawnRecordExport.StartingCondition</c>.</para>
+	/// <c>ScriptMechRecord.StartingCondition</c>.</para>
 	///
 	/// <para>The two worst grades also raise <see cref="WorthNoSalvage"/>.</para>
 	/// </summary>

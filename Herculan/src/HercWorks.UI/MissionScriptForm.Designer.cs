@@ -669,21 +669,21 @@ partial class MissionScriptForm {
 		//
 		// _lrTypeColumn
 		//
-		_lrTypeColumn.DataPropertyName = "TypeFlag";
+		_lrTypeColumn.DataPropertyName = "Shape";
 		_lrTypeColumn.HeaderText = "Type (0 box / else radius)";
 		_lrTypeColumn.Name = "_lrTypeColumn";
 		_lrTypeColumn.Width = 80;
 		//
 		// _lrRefAColumn
 		//
-		_lrRefAColumn.DataPropertyName = "RefA";
+		_lrRefAColumn.DataPropertyName = "PointRef";
 		_lrRefAColumn.HeaderText = "Point ref";
 		_lrRefAColumn.Name = "_lrRefAColumn";
 		_lrRefAColumn.Width = 100;
 		//
 		// _lrRefBColumn
 		//
-		_lrRefBColumn.DataPropertyName = "RefBOrLiteral";
+		_lrRefBColumn.DataPropertyName = "SecondPointOrRadius";
 		_lrRefBColumn.HeaderText = "Box corner point ref / radius ÷ 10";
 		_lrRefBColumn.Name = "_lrRefBColumn";
 		_lrRefBColumn.Width = 120;
@@ -740,7 +740,7 @@ partial class MissionScriptForm {
 		//
 		// _acSecondaryColumn
 		//
-		_acSecondaryColumn.DataPropertyName = "SecondaryValue";
+		_acSecondaryColumn.DataPropertyName = "MessageId";
 		_acSecondaryColumn.HeaderText = "Message + 1 (0 = none)";
 		_acSecondaryColumn.Name = "_acSecondaryColumn";
 		_acSecondaryColumn.Width = 80;
@@ -754,15 +754,15 @@ partial class MissionScriptForm {
 		//
 		// _acRefsColumn
 		//
-		_acRefsColumn.DataPropertyName = "RefsRow9";
+		_acRefsColumn.DataPropertyName = "AreaRefs";
 		_acRefsColumn.HeaderText = "Trigger area refs (8)";
 		_acRefsColumn.Name = "_acRefsColumn";
 		_acRefsColumn.Width = 220;
 		//
 		// _acLutRefsColumn
 		//
-		_acLutRefsColumn.DataPropertyName = "LutRefs";
-		_acLutRefsColumn.HeaderText = "Herc LUT refs (5, unread by DBSIM)";
+		_acLutRefsColumn.DataPropertyName = "TextRefs";
+		_acLutRefsColumn.HeaderText = "Text lines (5, unread by DBSIM)";
 		_acLutRefsColumn.Name = "_acLutRefsColumn";
 		_acLutRefsColumn.Width = 160;
 		//
@@ -824,7 +824,7 @@ partial class MissionScriptForm {
 		//
 		// _apTimerColumn
 		//
-		_apTimerColumn.DataPropertyName = "TimerValue";
+		_apTimerColumn.DataPropertyName = "Delay";
 		_apTimerColumn.HeaderText = "Delay (seconds)";
 		_apTimerColumn.Name = "_apTimerColumn";
 		_apTimerColumn.Width = 100;
@@ -1211,15 +1211,15 @@ partial class MissionScriptForm {
 		//
 		// _rlSmall1Column
 		//
-		_rlSmall1Column.DataPropertyName = "SmallInt1";
+		_rlSmall1Column.DataPropertyName = "Verb";
 		_rlSmall1Column.HeaderText = "Verb (0-6)";
 		_rlSmall1Column.Name = "_rlSmall1Column";
 		_rlSmall1Column.Width = 80;
 		//
 		// _rlSmall2Column
 		//
-		_rlSmall2Column.DataPropertyName = "SmallInt2";
-		_rlSmall2Column.HeaderText = "Small int (unread)";
+		_rlSmall2Column.DataPropertyName = "FormationId";
+		_rlSmall2Column.HeaderText = "Map formation (unread by DBSIM)";
 		_rlSmall2Column.Name = "_rlSmall2Column";
 		_rlSmall2Column.Width = 80;
 		//
@@ -1239,14 +1239,14 @@ partial class MissionScriptForm {
 		//
 		// _rlDiscriminatorColumn
 		//
-		_rlDiscriminatorColumn.DataPropertyName = "DiscriminatorType";
+		_rlDiscriminatorColumn.DataPropertyName = "SubjectKind";
 		_rlDiscriminatorColumn.HeaderText = "Subject kind (-1 none / 0 group / 1 herc / 2 flyer / 3 base)";
 		_rlDiscriminatorColumn.Name = "_rlDiscriminatorColumn";
 		_rlDiscriminatorColumn.Width = 90;
 		//
 		// _rlDiscriminatedRefColumn
 		//
-		_rlDiscriminatedRefColumn.DataPropertyName = "DiscriminatedRef";
+		_rlDiscriminatedRefColumn.DataPropertyName = "SubjectRef";
 		_rlDiscriminatedRefColumn.HeaderText = "Subject ref";
 		_rlDiscriminatedRefColumn.Name = "_rlDiscriminatedRefColumn";
 		_rlDiscriminatedRefColumn.Width = 90;
@@ -1297,21 +1297,21 @@ partial class MissionScriptForm {
 		//
 		// _grpRosterColumn
 		//
-		_grpRosterColumn.DataPropertyName = "Roster";
+		_grpRosterColumn.DataPropertyName = "MemberKind";
 		_grpRosterColumn.HeaderText = "Roster (0 herc / 1 flyer / 2 base)";
 		_grpRosterColumn.Name = "_grpRosterColumn";
 		_grpRosterColumn.Width = 200;
 		//
 		// _grpFormationColumn
 		//
-		_grpFormationColumn.DataPropertyName = "Formation";
+		_grpFormationColumn.DataPropertyName = "FormationId";
 		_grpFormationColumn.HeaderText = "Formation";
 		_grpFormationColumn.Name = "_grpFormationColumn";
 		_grpFormationColumn.Width = 80;
 		//
 		// _grpPointColumn
 		//
-		_grpPointColumn.DataPropertyName = "PointRef";
+		_grpPointColumn.DataPropertyName = "PositionRef";
 		_grpPointColumn.HeaderText = "Point ref";
 		_grpPointColumn.Name = "_grpPointColumn";
 		_grpPointColumn.Width = 80;
@@ -1339,28 +1339,28 @@ partial class MissionScriptForm {
 		//
 		// _grpRouteLinksColumn
 		//
-		_grpRouteLinksColumn.DataPropertyName = "RouteLinkRefs";
+		_grpRouteLinksColumn.DataPropertyName = "OrderRefs";
 		_grpRouteLinksColumn.HeaderText = "Order refs (10, in order)";
 		_grpRouteLinksColumn.Name = "_grpRouteLinksColumn";
 		_grpRouteLinksColumn.Width = 260;
 		//
 		// _grpBinaryFlagColumn
 		//
-		_grpBinaryFlagColumn.DataPropertyName = "BinaryFlag";
+		_grpBinaryFlagColumn.DataPropertyName = "PaintsGround";
 		_grpBinaryFlagColumn.HeaderText = "Formation pad flag";
 		_grpBinaryFlagColumn.Name = "_grpBinaryFlagColumn";
 		_grpBinaryFlagColumn.Width = 100;
 		//
 		// _grpTriStateColumn
 		//
-		_grpTriStateColumn.DataPropertyName = "TriStateFlag";
+		_grpTriStateColumn.DataPropertyName = "Side";
 		_grpTriStateColumn.HeaderText = "Side (0 human / 1 Cybrid)";
 		_grpTriStateColumn.Name = "_grpTriStateColumn";
 		_grpTriStateColumn.Width = 80;
 		//
 		// _grpActionColumn
 		//
-		_grpActionColumn.DataPropertyName = "ActionRef";
+		_grpActionColumn.DataPropertyName = "DeploymentActionRef";
 		_grpActionColumn.HeaderText = "Deployment action ref (-1 = present at start)";
 		_grpActionColumn.Name = "_grpActionColumn";
 		_grpActionColumn.Width = 90;
@@ -1418,14 +1418,14 @@ partial class MissionScriptForm {
 		//
 		// _elDiscriminatorColumn
 		//
-		_elDiscriminatorColumn.DataPropertyName = "Discriminator";
+		_elDiscriminatorColumn.DataPropertyName = "SubjectKind";
 		_elDiscriminatorColumn.HeaderText = "Subject kind (0 group / 1 herc / 2 flyer / 3 base)";
 		_elDiscriminatorColumn.Name = "_elDiscriminatorColumn";
 		_elDiscriminatorColumn.Width = 90;
 		//
 		// _elDiscriminatedRefColumn
 		//
-		_elDiscriminatedRefColumn.DataPropertyName = "DiscriminatedRef";
+		_elDiscriminatedRefColumn.DataPropertyName = "SubjectRef";
 		_elDiscriminatedRefColumn.HeaderText = "Subject ref";
 		_elDiscriminatedRefColumn.Name = "_elDiscriminatedRefColumn";
 		_elDiscriminatedRefColumn.Width = 90;

@@ -30,7 +30,7 @@ public class HercsStartTransformer : ByteTransformer<Hercs> {
 			entry.BayId = IndexShortLE();
 			entry.Herc.HercId = IndexShortLE();
 			entry.Herc.BuildPercent = IndexShortLE();
-			entry.Herc.BuildStepNum = IndexShortLE();
+			entry.Herc.BuildMissionsLeft = IndexShortLE();
 
 			short hardpointCount = IndexShortLE();
 			entry.Herc.Hardpoints = new Dictionary<short, UiWeaponEntry>();
@@ -38,9 +38,9 @@ public class HercsStartTransformer : ByteTransformer<Hercs> {
 			for (int h = 0; h < hardpointCount; h++) {
 				var item = new UiWeaponEntry();
 				short hardpointId = IndexShortLE();
-				item.ItemId = IndexShortLE();
-				item.HealthPercent = IndexShortLE();
-				item.MissileType = MissileType.GetById(IndexShortLE());
+				item.WeaponId = IndexShortLE();
+				item.Condition = IndexShortLE();
+				item.Guidance = MissileType.GetById(IndexShortLE());
 				entry.Herc.Hardpoints[hardpointId] = item;
 			}
 			startHercs.Data[i] = entry;
@@ -61,15 +61,15 @@ public class HercsStartTransformer : ByteTransformer<Hercs> {
 			Emit(WriteShortLE(entry.BayId));
 			Emit(WriteShortLE(entry.Herc!.HercId));
 			Emit(WriteShortLE(entry.Herc.BuildPercent));
-			Emit(WriteShortLE(entry.Herc.BuildStepNum));
+			Emit(WriteShortLE(entry.Herc.BuildMissionsLeft));
 			Emit(WriteShortLE((short)entry.Herc.Hardpoints!.Count));
 
 			for (int h = 0; h < entry.Herc.Hardpoints.Count; h++) {
 				var item = entry.Herc.Hardpoints.GetValueOrDefault((short)h);
 				Emit(WriteShortLE((short)h));
-				Emit(WriteShortLE(item!.ItemId));
-				Emit(WriteShortLE(item.HealthPercent));
-				Emit(WriteShortLE((short)item.MissileType!.Id));
+				Emit(WriteShortLE(item!.WeaponId));
+				Emit(WriteShortLE(item.Condition));
+				Emit(WriteShortLE((short)item.Guidance!.Id));
 			}
 		}
 

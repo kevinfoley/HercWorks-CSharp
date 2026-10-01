@@ -20,35 +20,25 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// 5 x null-terminated string
 /// </code>
 ///
-/// <para><b>The middle is not a fixed layout of two raw blocks, 190 and 48 bytes.</b> Those are the
-/// sizes the walk above happens to produce for every retail file, so a fixed-layout reading parses
-/// all of retail correctly and would misread any file whose arrays differed. Such a reading
-/// describes the structure without recognising it: its "14-value UINT32 arithmetic progression
-/// repeated twice, each repeat preceded by the same 60000/64400 pair" is the two 16-entry distance
-/// band arrays, whose first two entries are 60000 and 64400 — the pair it names separately at
-/// offsets 32 and 36. The two shorts it reads as the tail of <see cref="Header"/> (offsets 28 and
-/// 30) are the low and high halves of band array A's count.</para>
+/// <para>A fixed-offset reading of the middle — two raw blocks of 190 and 48 bytes — parses every
+/// retail file only because their arrays happen to have the same lengths; the counts are what size
+/// it.</para>
 ///
 /// <para>The five trailing strings are constant in retail data except the third and fourth:
 /// <c>world24</c>, <c>clouds2</c>, <c>impact&lt;n&gt;</c> (one per world file), the terrain texture
 /// bank (<c>urban</c>, <c>bsnow</c>, <c>volcan</c>, <c>ice</c>, <c>moon</c>), then literally
 /// <c>tex</c> — five separately terminated strings, not one dotted name. The fourth is the one
-/// <c>Terrain_BindTextureBank</c> receives; see docs/formats/terrain-texturing.md.</para>
-///
-/// Ported from org.hercworks.core.data.file.dbsim.WorldData (which modeled only the header fields
-/// and had no transformer), then corrected.
+/// <c>Terrain_BindTextureBank</c> receives. Layout: docs/formats/terrain-texturing.md.</para>
 /// </summary>
 public class WorldData {
 	/// <summary>Shorts in <see cref="Header"/>.</summary>
 	public const int HeaderShorts = 14;
 
 	/// <summary>
-	/// The 14 leading shorts, in file order. The original hands them to its sky/fog setup rather
-	/// than storing a struct, so only the first four have names anyone has proposed, and those come
-	/// from the Java port's guesses rather than from the code: <c>2</c>, a sky palette id (208 in
-	/// retail data, which is where the sky band starts — see docs/formats/distance-fog-and-sky.md),
-	/// a horizon height and a horizon start height. Of the rest only short 4 varies across the ten
-	/// files, and short 9 is <see cref="FlatSetSelector"/>.
+	/// The 14 leading shorts, in file order. The original hands them to its sky/fog setup
+	/// (<c>0042ebbc</c>) rather than storing a struct, and their individual meanings are not
+	/// established except short 9, <see cref="FlatSetSelector"/>. Only short 4 varies across the ten
+	/// retail files.
 	/// </summary>
 	public short[] Header { get; set; } = new short[HeaderShorts];
 
@@ -62,7 +52,7 @@ public class WorldData {
 
 	/// <summary>
 	/// First distance-band table — 16 entries in every retail file, ascending from 60000 in steps of
-	/// 4400. Consumer not traced.
+	/// 4400. What reads it is not established.
 	/// </summary>
 	public int[] DistanceBandsA { get; set; } = Array.Empty<int>();
 

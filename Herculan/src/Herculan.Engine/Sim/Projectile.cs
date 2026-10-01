@@ -68,7 +68,7 @@ public sealed class Projectile {
 		// a power-of-two-minus-one, so with the retail 63 the draw lands on odd values only — kept
 		// literally because it is what the weapon's dispersion actually is. The middle angle is roll
 		// about the shot's own axis, which nothing can see, and the original leaves it alone.
-		short spread = record.Unk3Uint16;
+		short spread = record.Scatter;
 		_eulerX = (short)(aim.X + Scatter(random, spread));
 		_eulerY = aim.Y;
 		_eulerZ = (short)(aim.Z + Scatter(random, spread));
@@ -81,7 +81,7 @@ public sealed class Projectile {
 		// A shot inherits the speed of whatever fired it, on top of the record's own — which is what
 		// keeps a machine running forward from outrunning its own autocannon rounds.
 		Speed = (short)(ownerSpeed + projectile.Speed);
-		_animationTimer = record.Unk2Flag;
+		_animationTimer = record.FrameInterval;
 	}
 
 	/// <summary>The <c>PROJ.DAT</c> record this shot came from — its damage, its splash and its subtype id.</summary>
@@ -292,12 +292,12 @@ public sealed class Projectile {
 	/// needing to know what the shape looks like.</para>
 	/// </summary>
 	private void AnimationTick() {
-		if (_record.Unk2Flag == 0) {
+		if (_record.FrameInterval == 0) {
 			return;
 		}
 
 		if (SimMath.CountdownTimerTick(ref _animationTimer) == 0) {
-			_animationTimer = _record.Unk2Flag;
+			_animationTimer = _record.FrameInterval;
 			AnimationFrame++;
 		}
 	}

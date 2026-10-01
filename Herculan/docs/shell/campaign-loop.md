@@ -122,13 +122,13 @@ This is `data\player.mec`, and the record it emits is the one `HercWorks.Core.Da
 | *(file header)* `PlayerEntryIndex` | literal `0` — the player is always entry 0 |
 | *(file header)* entry count | `00482a7a` |
 | `PilotNameIndex` | the pilot's `esnames.bin` name index (pilot `+0x02`). DBSIM reads the same field as an index into `str\PILOTS.STR` — [`heads-down-display.md`](../formats/heads-down-display.md#who-is-in-it) |
-| `Unk02` | the pilot's skill tier (pilot `+0x25`) |
+| `Skill` | the pilot's skill tier (pilot `+0x25`) |
 | `MechType` | HERC record `+0x00` |
 | `SlotCount` | HERC record `+0x4c`, the mount capacity |
 | `WeaponRefs[]` | per slot, the mounted unit's id — **`0` when the hardpoint is empty** |
 | `WeaponAmmoTypes[]` | per slot, the unit's `+0x08` — **`5` when the hardpoint is empty** |
 | `Unk3A` | literal `0` |
-| `BlockA`/`BlockB`/`BlockC` (26+20+20) | one contiguous 66-byte span, HERC record `+0x08`–`+0x49`, the same bytes the save stores for that machine |
+| `ExternalConditions`/`InternalConditions`/`HardpointConditions` (26+20+20) | one contiguous 66-byte span, HERC record `+0x08`–`+0x49`, the same bytes the save stores for that machine |
 
 The player's own entry reads its two leading fields from `00482a7e` and `00482aa1`, which are the same two pilot fields reached directly: the player structure at `00482a78` embeds its pilot record at `+0x04`, putting the name index at `00482a7e` and the skill tier at `00482aa1`.
 

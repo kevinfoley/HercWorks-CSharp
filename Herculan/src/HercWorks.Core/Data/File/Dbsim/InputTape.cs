@@ -5,7 +5,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// from, the recording machine's joystick capability block, then one record per input build of
 /// everything the player did. Loose files beside the install, not VOL entries.
 ///
-/// New (no Java equivalent — not a ported format): read from DBSIM's own writer and reader,
+/// The layout is DBSIM's own writer and reader,
 /// <c>Tape_PackFile</c> (<c>0045cc88</c>) for the bundle and <c>Input_BuildPlayerDevice</c>
 /// (<c>0045a7f4</c>) for the rest. See docs/formats/tap-input-tape.md for what each field is and how
 /// the simulator consumes it.

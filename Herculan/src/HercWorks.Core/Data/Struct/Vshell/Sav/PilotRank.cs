@@ -10,7 +10,6 @@ namespace HercWorks.Core.Data.Struct.Vshell.Sav;
 /// rank from four in — so a single 0-7 enum will appear to display correctly while conflating two
 /// fields the game keeps apart and caps independently.</para>
 ///
-/// Ported from org.hercworks.core.data.struct.vshell.sav.PilotRank.
 /// See <c>docs/formats/save-games.md</c> and <c>docs/shell/campaign-loop.md</c>.
 /// </summary>
 public sealed class PilotRank {
@@ -34,10 +33,9 @@ public sealed class PilotRank {
 
 	public static PilotRank? GetById(short id) => ById.GetValueOrDefault(id);
 
-	/// <summary>Equivalent of Java's enum .values().</summary>
 	public static IReadOnlyList<PilotRank> Values() => All;
 
-	/// <summary>Original Java defaults to the lowest rank when no name matches; preserved here.</summary>
+	/// <summary>The rank whose label matches, case-insensitively; Lieutenant when none does.</summary>
 	public static PilotRank GetByName(string name) =>
 		All.FirstOrDefault(r => string.Equals(name, r.Label, StringComparison.OrdinalIgnoreCase)) ?? Lieutenant;
 

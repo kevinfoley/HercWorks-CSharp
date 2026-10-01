@@ -12,7 +12,7 @@ namespace Herculan.Engine.Tests;
 public class ScriptRecordFieldTests {
 	[Fact]
 	public void MechFieldsWriteToTheirExportedOffsets() {
-		var mech = new ScriptSpawnRecordExport();
+		var mech = new ScriptMechRecord();
 
 		mech.AiRadarActive = 1;
 		mech.AiCruiseSpeed = 0x1234;
@@ -31,8 +31,8 @@ public class ScriptRecordFieldTests {
 
 	[Fact]
 	public void FlyerAndBaseActionsShareTheirTailOffsets() {
-		var flyer = new ScriptEntity102Export { EngagementActionRef = 7, DefeatActionRef = 8 };
-		var structure = new ScriptMiscEntityExport { EngagementActionRef = 9, DefeatActionRef = 10 };
+		var flyer = new ScriptFlyerRecord { EngagementActionRef = 7, DefeatActionRef = 8 };
+		var structure = new ScriptBaseRecord { EngagementActionRef = 9, DefeatActionRef = 10 };
 
 		Assert.Equal(7, BitConverter.ToInt16(flyer.TailBytes, 40));
 		Assert.Equal(8, BitConverter.ToInt16(flyer.TailBytes, 42));
@@ -42,7 +42,7 @@ public class ScriptRecordFieldTests {
 
 	[Fact]
 	public void WritingPastAShortSpanThrowsRatherThanGrowingIt() {
-		var mech = new ScriptSpawnRecordExport { TailBytes = new byte[10] };
+		var mech = new ScriptMechRecord { TailBytes = new byte[10] };
 
 		Assert.Throws<InvalidOperationException>(() => mech.StartingCondition = 100);
 		Assert.Equal(10, mech.TailBytes.Length);

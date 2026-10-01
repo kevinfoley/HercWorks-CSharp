@@ -12,8 +12,6 @@ namespace HercWorks.Core.Data.File.Dts;
 /// TSGouraudPoly. The flag sits in the high half of the int32 the renderers index with — retail uses
 /// 1024 on front pairs and 5120 (0x14 in that int32's top byte, "do not draw this face") on back
 /// ones. See docs/formats/dts-texture-binding.md, "Poly types and their colour mechanisms".</para>
-///
-/// Ported from org.hercworks.core.data.file.dts.TSSurfaceEntry.
 /// </summary>
 public class TSSurfaceEntry {
 	public short FrontColor { get; set; }
@@ -23,7 +21,7 @@ public class TSSurfaceEntry {
 	public short FrontLineFlag { get; set; }
 
 	public short BackColor { get; set; }
-	public short BackColorFlag { get; set; }
+	public short BackFlag { get; set; }
 
 	public short BackLineColor { get; set; }
 	public short BackLineFlag { get; set; }
@@ -38,7 +36,7 @@ public class TSSurfaceEntry {
 		str.Append("\"frontEdgeColor\" : ").Append(FrontLineColor).Append(",\n");
 		str.Append("\"frontEdgeFlag\" : ").Append(FrontLineFlag).Append(",\n");
 		str.Append("\"backColor\" : ").Append(BackColor).Append(",\n");
-		str.Append("\"backFlag\" : ").Append(BackColorFlag).Append(",\n");
+		str.Append("\"backFlag\" : ").Append(BackFlag).Append(",\n");
 		str.Append("\"backEdgeColor\" : ").Append(BackLineColor).Append(",\n");
 		str.Append("\"backEdgeFlag\" : ").Append(BackLineFlag).Append("\n");
 

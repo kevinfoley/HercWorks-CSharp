@@ -3,8 +3,9 @@ using System.Text;
 namespace HercWorks.Core.Data.File.Dts.Poly;
 
 /// <summary>
-/// An untextured poly, assigned an indexed palette color based on in-game light calculations.
-/// Ported from org.hercworks.core.data.file.dts.poly.TSShadedPoly.
+/// A flat-lit poly: its surface value is a shade-ramp number, and the face's light level picks the
+/// step along that ramp. See docs/formats/dts-texture-binding.md, "TSShadedPoly — shade-ramp number,
+/// per-face light, fixed .RMP row".
 /// </summary>
 public class TSShadedPoly : TSSolidPoly {
 	public TSShadedPoly() : base(TSObjectHeader.TSShadedPoly) { }

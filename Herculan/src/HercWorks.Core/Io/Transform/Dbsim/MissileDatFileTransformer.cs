@@ -21,9 +21,9 @@ public class MissileDatFileTransformer : ByteTransformer<MissileDatFile> {
 				ModelId = IndexShortLE(),
 				Lifetime = IndexShortLE(),
 				ClipRadius = IndexShortLE(),
-				Unk2Flag = IndexShortLE(),
+				FrameInterval = IndexShortLE(),
 				SfxFireIdBullets = IndexShortLE(),
-				Unk3Uint16 = IndexShortLE(),
+				Scatter = IndexShortLE(),
 				SfxFireIdMissiles = IndexShortLE()
 			};
 
@@ -48,9 +48,9 @@ public class MissileDatFileTransformer : ByteTransformer<MissileDatFile> {
 			Emit(outStream, WriteShortLE(bullet.ModelId));
 			Emit(outStream, WriteShortLE(bullet.Lifetime));
 			Emit(outStream, WriteShortLE(bullet.ClipRadius));
-			Emit(outStream, WriteShortLE(bullet.Unk2Flag));
+			Emit(outStream, WriteShortLE(bullet.FrameInterval));
 			Emit(outStream, WriteShortLE(bullet.SfxFireIdBullets));
-			Emit(outStream, WriteShortLE(bullet.Unk3Uint16));
+			Emit(outStream, WriteShortLE(bullet.Scatter));
 			Emit(outStream, WriteShortLE(bullet.SfxFireIdMissiles));
 		}
 

@@ -137,7 +137,7 @@ public sealed class ShellRepairDiagrams {
 		if (chassisType >= 0 && chassisType < _layouts.Length && _layouts[chassisType] is { } layout) {
 			foreach (var (id, record) in layout.BodyImages ?? new()) {
 				SetPart(parts, id, Frame(_bodyBanks[chassisType], record.FrameId), record.OriginX, record.OriginY,
-					record.Flags?.Val ?? 0, BodyInk, BodyInk);
+					record.BlitFlags?.Val ?? 0, BodyInk, BodyInk);
 			}
 		}
 
@@ -200,7 +200,7 @@ public sealed class ShellRepairDiagrams {
 			int group = id > 0xf ? id - 0x10 : id;
 			int condition = machine.Condition(ShellRepairCategory.ExternalGroup, group);
 			SetPart(parts, id, Frame(_bodyBanks[type], record.FrameId), record.OriginX, record.OriginY,
-				record.Flags?.Val ?? 0, BodyInk, ShellRepairScreen.BandColor(condition));
+				record.BlitFlags?.Val ?? 0, BodyInk, ShellRepairScreen.BandColor(condition));
 		}
 
 		for (int mount = 0; mount < machine.MountCapacity; mount++) {
@@ -210,7 +210,7 @@ public sealed class ShellRepairDiagrams {
 
 			int condition = machine.Condition(ShellRepairCategory.Hardpoint, mount);
 			SetPart(parts, record.Id, Frame(_weaponBank, record.FrameId), record.OriginX, record.OriginY,
-				record.Flags?.Val ?? 0, WeaponInk, ShellRepairScreen.BandColor(condition));
+				record.BlitFlags?.Val ?? 0, WeaponInk, ShellRepairScreen.BandColor(condition));
 		}
 
 		return parts;

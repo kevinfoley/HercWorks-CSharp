@@ -2,7 +2,7 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Anim;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.anim.ANShape.</summary>
+/// <summary>A <see cref="TSShape"/> followed by its <see cref="ANAnimList"/>.</summary>
 public class ANShape : TSShape {
 	public ANAnimList? AnimationList { get; set; }
 

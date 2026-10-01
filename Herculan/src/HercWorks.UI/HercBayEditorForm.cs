@@ -10,7 +10,7 @@ namespace HercWorks.UI;
 /// Per-bay detail editor opened from CampaignResourcesForm's Herc Bay tab — edits one
 /// HercBayEntry's per-part health (externals/internals/hardpoints) and equipped weapons in place.
 /// Externals/Internals/Hardpoints are fixed-identity rows (Health is the only editable field);
-/// Weapons is a free add/remove grid since HercBayEntry.Weapons is a sparse dictionary keyed by
+/// Weapons is a free add/remove grid since HercBayEntry.Mounts is a sparse dictionary keyed by
 /// hardpoint socket id. Edits are only written back into the live HercBayEntry if the dialog is
 /// accepted (OK) — Cancel discards them, matching standard modal-dialog convention.
 /// </summary>
@@ -33,7 +33,7 @@ public partial class HercBayEditorForm : Form {
 		_weaponMissileColumn.DataPropertyName = nameof(HercWeaponRow.MissileType);
 
 		foreach (var external in HercExternals.Values()) {
-			var part = entry.HealthExternals?.GetValueOrDefault(external) ?? new ShellHercPart(external.Id, external.Label);
+			var part = entry.ExternalConditions?.GetValueOrDefault(external) ?? new ShellHercPart(external.Id, external.Label);
 			_externalsRows.Add(new HercPartRow { Id = external.Id, Label = external.Label, Health = part.Health });
 		}
 
@@ -41,26 +41,26 @@ public partial class HercBayEditorForm : Form {
 			if (internalPart.Id >= HercInternals.ServosLegLeftRear.Id) {
 				continue;
 			}
-			var part = entry.HealthInternals?.GetValueOrDefault(internalPart) ?? new ShellHercPart(internalPart.Id, internalPart.Label);
+			var part = entry.InternalConditions?.GetValueOrDefault(internalPart) ?? new ShellHercPart(internalPart.Id, internalPart.Label);
 			// In the save, index 9 is the machine's overall condition rather than a component
 			// (docs/formats/save-games.md); HercInternals' own label for it serves the sim's .DMG files.
 			string label = internalPart == HercInternals.Pilot ? "Overall condition" : internalPart.Label;
 			_internalsRows.Add(new HercPartRow { Id = internalPart.Id, Label = label, Health = part.Health });
 		}
 
-		for (short h = 0; h < entry.HealthHardpoints.Length; h++) {
-			var part = entry.HealthHardpoints[h];
+		for (short h = 0; h < entry.HardpointConditions.Length; h++) {
+			var part = entry.HardpointConditions[h];
 			_hardpointsRows.Add(new HercPartRow { Id = h, Label = $"Slot {h}", Health = part?.Health ?? 0 });
 		}
 
-		foreach (var kv in entry.Weapons) {
+		foreach (var kv in entry.Mounts) {
 			_weaponsRows.Add(new HercWeaponRow {
 				SocketId = kv.Key,
 				WeaponId = kv.Value.Id,
-				NameId = kv.Value.NameId,
-				HealthArmor = kv.Value.HealthArmor,
-				HealthInternal = kv.Value.HealthInteral,
-				MissileType = kv.Value.MissileType
+				NameId = kv.Value.ClassIndex,
+				HealthArmor = kv.Value.FitCondition,
+				HealthInternal = kv.Value.Condition,
+				MissileType = kv.Value.Guidance
 			});
 		}
 
@@ -71,40 +71,39 @@ public partial class HercBayEditorForm : Form {
 	}
 
 	private void OnOk(object? sender, EventArgs e) {
-		_entry.HealthExternals ??= new Dictionary<HercExternals, ShellHercPart>();
+		_entry.ExternalConditions ??= new Dictionary<HercExternals, ShellHercPart>();
 		foreach (var row in _externalsRows) {
 			var external = HercExternals.GetById(row.Id)!;
-			_entry.HealthExternals[external] = new ShellHercPart(external.Id, external.Label, row.Health);
+			_entry.ExternalConditions[external] = new ShellHercPart(external.Id, external.Label, row.Health);
 		}
 
-		_entry.HealthInternals ??= new Dictionary<HercInternals, ShellHercPart>();
+		_entry.InternalConditions ??= new Dictionary<HercInternals, ShellHercPart>();
 		foreach (var row in _internalsRows) {
 			var internalPart = HercInternals.GetById(row.Id)!;
-			_entry.HealthInternals[internalPart] = new ShellHercPart(internalPart.Id, internalPart.Label, row.Health);
+			_entry.InternalConditions[internalPart] = new ShellHercPart(internalPart.Id, internalPart.Label, row.Health);
 		}
 
 		foreach (var row in _hardpointsRows) {
-			_entry.HealthHardpoints[row.Id] = new ShellHercPart(row.Id, row.Label, row.Health);
+			_entry.HardpointConditions[row.Id] = new ShellHercPart(row.Id, row.Label, row.Health);
 		}
 
-		_entry.Weapons.Clear();
+		_entry.Mounts.Clear();
 		foreach (var row in _weaponsRows) {
 			if (row.WeaponId == null || row.MissileType == null) {
 				continue;
 			}
-			_entry.Weapons[row.SocketId] = new ShellWeaponEntry {
+			_entry.Mounts[row.SocketId] = new ShellWeaponEntry {
 				Id = row.WeaponId,
-				NameId = row.NameId,
-				HealthArmor = row.HealthArmor,
-				HealthInteral = row.HealthInternal,
-				MissileType = row.MissileType
+				ClassIndex = row.NameId,
+				FitCondition = row.HealthArmor,
+				Condition = row.HealthInternal,
+				Guidance = row.MissileType
 			};
 		}
 
-		// ActiveSockets is a real on-disk field (count of weapon entries that follow) — must stay
-		// in sync with the actually-written Weapons dictionary, same reasoning as
-		// CampaignResourcesForm's WorkshopSpace recalculation.
-		_entry.ActiveSockets = (short)_entry.Weapons.Count;
+		// MountsOccupied is the on-disk count of mount entries that follow, so it must match the
+		// Mounts dictionary actually written.
+		_entry.MountsOccupied = (short)_entry.Mounts.Count;
 
 		DialogResult = DialogResult.OK;
 		Close();

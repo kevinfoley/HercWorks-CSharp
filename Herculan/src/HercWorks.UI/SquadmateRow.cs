@@ -33,40 +33,40 @@ public class SquadmateRow {
 
 	public static SquadmateRow FromEntry(PilotEntry entry, bool isPlayer) => new() {
 		IsPlayer = isPlayer,
-		SquadmateId = entry.SquadmateId,
+		SquadmateId = entry.RosterId,
 		NameIndex = entry.NameIndex,
 		Name = entry.Name ?? string.Empty,
-		BayId = entry.BayId,
-		Active = entry.Active,
+		BayId = entry.Bay,
+		Active = entry.OnStrength,
 		SkillLabel = entry.Skill?.Label ?? PilotSkill.Rookie.Label,
-		CrewRowNum = entry.CrewRowNum,
+		CrewRowNum = entry.SquadPosition,
 		RankLabel = entry.Rank?.Label ?? PilotRank.Lieutenant.Label,
-		ProbablyHealth = entry.ProbablyHealth,
-		KillsHercs = entry.KillsHercs,
-		KillsFlyers = entry.KillsFlyers,
-		KillsBuilding = entry.KillsBuilding,
-		TotalKillHerc = entry.TotalKillHerc,
-		TotalKillFlyer = entry.TotalKillFlyer,
-		TotalKillBldng = entry.TotalKillBldng,
-		MissionCount = entry.MissionCount
+		ProbablyHealth = entry.Condition,
+		KillsHercs = entry.HercKills,
+		KillsFlyers = entry.FlyerKills,
+		KillsBuilding = entry.BaseKills,
+		TotalKillHerc = entry.TotalHercKills,
+		TotalKillFlyer = entry.TotalFlyerKills,
+		TotalKillBldng = entry.TotalBaseKills,
+		MissionCount = entry.MissionsFlown
 	};
 
 	public void ApplyTo(PilotEntry entry) {
-		entry.SquadmateId = SquadmateId;
+		entry.RosterId = SquadmateId;
 		entry.NameIndex = NameIndex;
 		entry.Name = Name;
-		entry.BayId = BayId;
-		entry.Active = Active;
+		entry.Bay = BayId;
+		entry.OnStrength = Active;
 		entry.Skill = PilotSkill.GetByName(SkillLabel);
-		entry.CrewRowNum = CrewRowNum;
+		entry.SquadPosition = CrewRowNum;
 		entry.Rank = PilotRank.GetByName(RankLabel);
-		entry.ProbablyHealth = ProbablyHealth;
-		entry.KillsHercs = KillsHercs;
-		entry.KillsFlyers = KillsFlyers;
-		entry.KillsBuilding = KillsBuilding;
-		entry.TotalKillHerc = TotalKillHerc;
-		entry.TotalKillFlyer = TotalKillFlyer;
-		entry.TotalKillBldng = TotalKillBldng;
-		entry.MissionCount = MissionCount;
+		entry.Condition = ProbablyHealth;
+		entry.HercKills = KillsHercs;
+		entry.FlyerKills = KillsFlyers;
+		entry.BaseKills = KillsBuilding;
+		entry.TotalHercKills = TotalKillHerc;
+		entry.TotalFlyerKills = TotalKillFlyer;
+		entry.TotalBaseKills = TotalKillBldng;
+		entry.MissionsFlown = MissionCount;
 	}
 }

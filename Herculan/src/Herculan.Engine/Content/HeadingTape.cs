@@ -14,7 +14,7 @@ namespace Herculan.Engine.Content;
 /// that is what the gunsight does before the call. Both are
 /// docs/formats/cockpit-gunsight-hud.md's heading-tape section, which also owns why the sign is there.</para>
 ///
-/// <para>The rect is the <c>.GAU</c>'s offset 1104, <see cref="HTorsoTwist"/> — the one
+/// <para>The rect is the <c>.GAU</c>'s offset 1104, <see cref="HHeadingTape"/> — the one
 /// <see cref="RotationIndicator"/> and <see cref="WaypointIndicator"/> hang off too. Units are device
 /// pixels, like <see cref="RotationIndicator"/>. The wind-up that drives this at power-up is
 /// <see cref="HeadingTapeSweep"/>.</para>
@@ -51,7 +51,7 @@ public readonly struct HeadingTape {
 	/// </summary>
 	public static HeadingTape? From(CockpitArt art) {
 		ArgumentNullException.ThrowIfNull(art);
-		if (art.Gau.TorsoTwist is not { } widget || art.Sprites is not { } sprites) {
+		if (art.Gau.HeadingTape is not { } widget || art.Sprites is not { } sprites) {
 			return null;
 		}
 

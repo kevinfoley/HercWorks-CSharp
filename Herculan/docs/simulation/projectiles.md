@@ -15,9 +15,9 @@ Like a tracer, a bullet lives in the effect pool (`DAT_004a9746`) that `Sim_Main
 | `+0x00` | `ModelId` | root of `BULLETS.DTS` |
 | `+0x02` | `Lifetime` | in 125 ms units; the shot is dropped when its age passes `Lifetime * 0x200` |
 | `+0x04` | `ClipRadius` | the shot record's `+0x08` slack, in place of a beam's literal 200 |
-| `+0x06` | *`Unk2Flag` in the shared parser* | animation frame interval; 0 = static shape |
+| `+0x06` | `FrameInterval` | animation frame interval; 0 = static shape |
 | `+0x08` | `SfxFireIdBullets` | sound id, played as `id + 10` |
-| `+0x0a` | *`Unk3Uint16` in the shared parser* | **firing scatter**, in binary-angle units |
+| `+0x0a` | `Scatter` | **firing scatter**, in binary-angle units |
 | `+0x0c` | *`SfxFireIdMissiles` in the shared parser* | nonzero arms a per-lifetime rate at `obj+0x61` ([Open](#open)) |
 
 Retail (12 records; the five not listed are unreachable — no `Bullet` record carries their id):

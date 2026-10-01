@@ -87,17 +87,17 @@ Two shapes need care:
 | 3 | `DAT_00470666` | 8 bytes/record | `DAT_0047063c` | referenced by #4 | **decoded — see "Row #3 field decode" below.** A small campaign-variant value lookup: GUID + condition + payload, where the same GUID can carry several condition-gated payload variants and the last to survive wins |
 | 4 | `DAT_00470668` | 144 (`0x90`) bytes/record | `DAT_00470640` | 3 sub-arrays (10, 30, 30 shorts) of `.ENG` string ids; 1 ref into #3 | **decoded — see "Row #4 field decode" below.** The mission's objective, briefing and intelligence text and its briefing movie. No GUID/identity field at all (offset `0x00` is the condition ref instead); nothing else in the file references this row |
 | 5 | `DAT_0047066a` | **skip-only**, `count * 0x40` bytes, nothing stored | — | — | skipped by this load; the debrief's reload keeps it — see [Row #5](#row-5--the-debrief) |
-| 6 | `DAT_0047064e` | 22 (`0x16`) bytes/record | `DAT_0047060c` | self (variant, sum) | **decoded — see "Row #6 field decode" below. A 3D world-position/waypoint record** (`MapPoint22`): GUID + 3 dead fields + an int32 X/Y/Z triple. This is the record every row #9 link/reward ref, and several other rows' refs, ultimately resolve to |
+| 6 | `DAT_0047064e` | 22 (`0x16`) bytes/record | `DAT_0047060c` | self (variant, sum) | **decoded — see "Row #6 field decode" below. A 3D world-position/waypoint record**: GUID + 3 dead fields + an int32 X/Y/Z triple. This is the record every row #9 link/reward ref, and several other rows' refs, ultimately resolve to |
 | 7 | `DAT_00470650` | 10 bytes/record | `DAT_00470610` | self | **decoded — see "Row #7 field decode" below.** A minimal record: GUID + 3 fully-dead fields + one small discrete payload (`0`/`1`/`10`) — the simplest record type in the file, unreferenced by anything else |
-| 8 | `DAT_00470656` | **variable**: 10 fixed bytes/record + (nested-count × 2) bytes | `DAT_0047061c` | #6 (nested entries) | **decoded — see "Row #8 field decode" below.** A named, orderable list of row #6 world positions (`WaypointGroup`) — a patrol route/waypoint chain, with real evidence of both spatial coherence and closed-loop (patrol circuit) structure |
-| 9 | `DAT_0047065e` | 12 (`0xc`) bytes/record | `DAT_0047062c` | #6, self | **decoded — see "Row #9 field decode" below.** A typed dual-purpose record: a GUID-pair "link" (two refs into row #6) when its type flag is 0, or a single row-#6 ref plus a round-number literal (likely a salvage/reward value) when the flag is 1 |
+| 8 | `DAT_00470656` | **variable**: 10 fixed bytes/record + (nested-count × 2) bytes | `DAT_0047061c` | #6 (nested entries) | **decoded — see "Row #8 field decode" below.** A named, orderable list of row #6 world positions — a patrol route/waypoint chain, with real evidence of both spatial coherence and closed-loop (patrol circuit) structure |
+| 9 | `DAT_0047065e` | 12 (`0xc`) bytes/record | `DAT_0047062c` | #6, self | **decoded — see "Row #9 field decode" below.** A **trigger area**, `script.dat` block 4: a box between two row-#6 points when its shape field is 0, otherwise a circle about one point with a radius in tens of units |
 | 10 | `DAT_00470660` | 82 (`0x52`) bytes/record | `DAT_00470630` | #9 (8 shorts), `.ENG` text (5 shorts at `0x44`), and a target resolved after row 16 by the action's type (7/8/9/10 → #12/#13/#14/#16) | the mission **action**, `script.dat` block 5. The objective record is row #17 |
 | 11 | `DAT_00470662` | 30 (`0x1e`) bytes/record | `DAT_00470634` | #10 (once) + #10 again (10 shorts) | **decoded — see "Row #11 field decode" below.** A mission timer: an action that arms it, a delay, and the actions fired on expiry. DBSIM reads all ten sequence slots, but not all of them are always used |
 | 12 | `DAT_00470652` | 144 (`0x90`) bytes/record | `DAT_00470614` | #6, #7, #10 (×2) — sparse in retail (≤2.4% used) but all live at runtime; real payload is a 10-slot weapon fit | **decoded — see "Row #12 field decode" below.** The mission's **mech roster**: one record per HERC it can field, with type, weapon fit and optional placement. A second, distinct 144-byte type from #4; heaviest variant usage of any decoded row (48%) |
 | 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** The mission's **flyer roster**: one record per flyer or ground vehicle it can field — a 20-short boolean span, the flyer type, the out-of-action report and a constant trailing field (always `100`) |
-| 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** `MiscEntityInfo` — 4 real cross-refs, not the 3 the macro pass found (it missed #7); a type-like field at `0x08` correlates ~99% with the trailing constant field being `100` vs `0` |
+| 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** The mission's **base roster**: one record per structure it can place, with its type, optional placement, out-of-action report and action links |
 | 15 | `DAT_00470658` | 22 (`0x16`) bytes/record | `DAT_00470620` | #6 (rare), #8 (dominant — 94% populated), #10 (rare), plus a **4-way** discriminated ref (0/1/2/3 → #16/#12/#13/#14, resolved in two passes since #16 loads after #15) | **decoded — see "Row #15 field decode" below.** A "typed link" record whose primary payload is a near-always-populated ref into row #8 — confirms it's structurally distinct from #6 (which is a flat position record), not just size-coincidentally 22 bytes |
-| 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and ten mission-counter (ref, operation) pairs with their count at `0x78` |
+| 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** The **mission group**, `script.dat` block 11: the roster slots it activates, where they stand, the orders they work through and the action that brings them in |
 | 17 | `DAT_0047064a` | 58 (`0x3a`) bytes/record | `DAT_00470608` | #6 (declared, **never used in retail data**), #8, a `.ENG` id (dominant), a 4-way discriminated ref (0/1/2/3 → #16/#12/#13/#14) | **the mission objective — see "Row #17 field decode" below.** Structurally unusual — no leading GUID field at all (this record is never referenced by anything else in the file); the 42-byte tail is a nested pair-count array, the same idiom as row #8's nested waypoint list |
 
 `DAT_00470664` is the count of `.ENG` records the load kept, read by `Msn_LoadEngText` (`0041768c`) between rows 2 and 3; rows 4, 10 and 17 renumber their text refs into that list, which is `data\mission.str` ([The `.ENG` string table](#the-eng-string-table)).
@@ -110,7 +110,7 @@ Two shapes need care:
 
 `data\script.dat` is a GUID-filtered, field-subset re-export of these same `.msn` row arrays, written by `WriteScriptDatFile` (`0041ac54`) right after `.msn` parsing finishes. It is read independently by both DBSIM (the real gameplay simulator) and VSHELL's briefing map, `ShellMap`. For full verified block-by-block mapping and field-level detail on what each reader keeps vs. discards from each row, see [`script-dat.md`](script-dat.md) — treat that doc as authoritative.
 
-## Row #6 field decode — "MapPoint22" (`DAT_0047064e`, 22 bytes/record)
+## Row #6 field decode — the point record (`DAT_0047064e`, 22 bytes/record)
 
 Central spatial-reference table: `{GUID, X, Y, Z}` points (2,661 real instances across 62 files).
 
@@ -126,7 +126,7 @@ Central spatial-reference table: `{GUID, X, Y, Z}` points (2,661 real instances 
 | `0x12` | Z (int32) | range 0–35,400 (altitude) |
 
 
-## Row #8 field decode — "WaypointGroup" (`DAT_00470656`, 10 fixed bytes + nested-count×2 bytes/record)
+## Row #8 field decode — the waypoint group (`DAT_00470656`, 10 fixed bytes + nested-count×2 bytes/record)
 
 Ordered waypoint list, heavily referenced by row #15 (470 real instances across 62 files).
 
@@ -142,7 +142,7 @@ Ordered waypoint list, heavily referenced by row #15 (470 real instances across 
 
 Spatial validation: consecutive waypoints have median distance ~191k units (tighter than random pairs ~310k), confirming authored path structure. 24% of records form closed loops (first = last waypoint).
 
-## Row #15 field decode — "LinkedRef22" (`DAT_00470658`, 22 bytes/record)
+## Row #15 field decode — the order record (`DAT_00470658`, 22 bytes/record)
 
 **A mission-group order.** Row #16 names up to ten of these and works through them in slot order; what each does is [`../simulation/ai-goals.md`](../simulation/ai-goals.md). 637 real instances across 62 files.
 
@@ -153,7 +153,7 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 | `0x04` | variant key | **dead** — always `-1` |
 | `0x06` | condition operand | correlates 100% with real `0x02`; values {1, -99} |
 | `0x08` | **the verb** | range 0–6, the whole span DBSIM switches on: search/destroy, ram, guard, patrol, sleep, travel, follow |
-| `0x0A` | small int | range 0–3; resolved into the order record and never read |
+| `0x0A` | formation | range 0–3. DBSIM copies it into the order record and never reads it; VSHELL's briefing map stands the squad in it ([`../shell/mission-map.md`](../shell/mission-map.md)) |
 | `0x0C` | ref→row #6 | 7% real — a point; resolved into the order record and never read |
 | `0x0E` | ref→row #8 | **94% real** — the route. Only the group's first order's is ever used |
 | `0x10` | discriminator | what `0x12` names: `-1` nothing, 0 a group (row #16), 1 a HERC (#12), 3 a structure (#14). `2` (a flyer, #13) never occurs |
@@ -161,21 +161,21 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 | `0x14` | ref→row #10 | 2% real — an action that, when it fires, moves the group to its next order |
 
 
-## Row #9 field decode — "LinkOrReward12" (`DAT_0047065e`, 12 bytes/record)
+## Row #9 field decode — the trigger area record (`DAT_0047065e`, 12 bytes/record)
 
-Dual-purpose: link (two row #6 refs) or reward (one row #6 ref + literal value). 335 real instances; 100% of row #10's sub-refs match row #9 GUIDs. Row #10's verb code correlates with the type: verb 3 is 97% link, verbs 1/2 lean reward.
+A trigger area, `script.dat` block 4: what DBSIM tests a position against is [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-areas--block-4-resolved-by-triggerarea_resolve-00423358)'s. 335 real instances; every row-#10 area ref names one of these by GUID.
 
 | offset | field | notes |
 |---|---|---|
 | `0x00` | GUID | identity key; dedup via GUID match |
 | `0x02` | condition ref | **dead** — always `-1` |
 | `0x04` | ? | **dead** — always `-1` |
-| `0x06` | type flag | binary: 0→link (157 real), 1→reward (178 real) |
-| `0x08` | ref→row #6 | always resolved; range 0–161 |
-| `0x0A` | ref→row #6 OR literal | if `0x06=0`: row #6 index (87% adjacent to `0x08`); if `0x06=1`: literal value (100–20000 in round increments) |
+| `0x06` | shape | 0 a box (157 real), 1 a circle (178 real) |
+| `0x08` | ref→row #6 | the box's first corner or the circle's centre |
+| `0x0A` | ref→row #6 or radius | a box's opposite corner; a circle's radius, which DBSIM multiplies by 10 (stored 100–20000) |
 
 
-## Row #10 field decode — "Action82" (`DAT_00470660`, 82 bytes/record)
+## Row #10 field decode — the action record (`DAT_00470660`, 82 bytes/record)
 
 The mission action — `script.dat` block 5, laid out in [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md). Sparse payload (most 82 bytes are dead). 338 real instances; heavy cross-referencing from rows #12/#13/#14/#16.
 
@@ -184,18 +184,19 @@ The mission action — `script.dat` block 5, laid out in [`../simulation/mission
 | `0x00` | GUID | identity key |
 | `0x02` | condition ref | **dead** — always `-1` |
 | `0x04` | ? | **dead** — always `-1` |
-| `0x06` | type/discriminator | 0/1/3/4/7/9 seen; `8`/`10` never occur |
-| `0x08` | verb code | 0–3; correlates with row #9 type (verb 3 → link-type, 1/2 → reward-type) |
-| `0x0A–0x11` | ref[0..3]→row #9 | only 4 real slots; authored as row #9 GUIDs; 100% match rate |
+| `0x06` | type | whose position the trigger areas test, and for 7-10 what `0x50` names. 0/1/3/4/7/9 seen; `8`/`10` never occur |
+| `0x08` | verb | how a group gated on this action arrives; 0–3 |
+| `0x0A–0x11` | ref[0..3]→row #9 | the trigger areas; only 4 real slots |
 | `0x12–0x19` | ref[4..7]→row #9 | **dead** — always `-1` |
-| `0x1A–0x43` | (42 bytes) | **dead** — constant padding (`0000` + twenty `-1`s) |
+| `0x1A` | ? | not exported to `script.dat` |
+| `0x1C–0x43` | 10 (counter ref, operation) pairs | the mission counters the action writes when it activates, exported as `script.dat` block 5's two 10-short spans. 337 of 338 retail records carry `0` at `0x1A` and `-1` throughout the pairs |
 | `0x44–0x45` | text ref | 1% real; renumbered into `mission.str` like every other text ref |
 | `0x46–0x4D` | text refs [1..4] | **dead** — always `-1` |
 | `0x4E` | message | the mission message the action posts, **plus one**; 0 for none. `script.dat` block 5 `0x4E` carries it through and DBSIM subtracts the one at load ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-four-ways-an-action-activates)). 66 real instances: 65 in the four `TRAIN*.MSN` and one in `C1_02.MSN` |
 | `0x50` | target | 1% real. The load resolves it only for types 7-10, into rows #12/#13/#14/#16; any other type keeps it as authored |
 
 
-## Row #3 field decode — "VariantValue8" (`DAT_00470666`, 8 bytes/record)
+## Row #3 field decode — the variant value record (`DAT_00470666`, 8 bytes/record)
 
 Condition-gated variant table; same GUID with different conditions/payloads (194 real instances). Referenced by row #4.
 
@@ -207,7 +208,7 @@ Condition-gated variant table; same GUID with different conditions/payloads (194
 | `0x06` | payload | 54 distinct values; fetched by row #4 |
 
 
-## Row #7 field decode — "Heading10" (`DAT_00470650`, 10 bytes/record)
+## Row #7 field decode — the heading record (`DAT_00470650`, 10 bytes/record)
 
 Heading record (degrees → BAM conversion). 105 real instances; simplest record type in file.
 
@@ -220,7 +221,7 @@ Heading record (degrees → BAM conversion). 105 real instances; simplest record
 | `0x08` | payload | 0/1/10 (62%/34%/4%); multiplied by 182 → degrees to BAM |
 
 
-## Row #11 field decode — "ActionTimer30" (`DAT_00470662`, 30 bytes/record)
+## Row #11 field decode — the timer record (`DAT_00470662`, 30 bytes/record)
 
 A mission timer: an action that arms it, a delay, and the actions fired when the delay runs out. 72 real instances.
 
@@ -285,9 +286,9 @@ The flyer roster, `script.dat` block 8; condition and variant are both well used
 | `0x64` | constant | always exactly `100`; what reads it is [open](#open) |
 
 
-## Row #14 field decode — "MiscEntityInfo" (`DAT_0047065c`, 62 bytes/record)
+## Row #14 field decode — the base roster record (`DAT_0047065c`, 62 bytes/record)
 
-Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` correlation.
+The base roster, `script.dat` block 9. Largest sample (1,949 instances); clear `0x08`/`0x3C` correlation.
 
 | offset | field | notes |
 |---|---|---|
@@ -300,21 +301,21 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 | `0x0C` | ref→row #7 | 6.7% sparse — its heading |
 | `0x0E` | pair count | how many of the pairs below are filled, from the front; 0/1/2 (64%/33%/3%). Not exported; a variant does not copy it |
 | `0x10–0x36` | 10 (counter ref, operation) pairs | 36% of records fill at least one — the structure's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
-| `0x38` | ref→row #10 slot 1 | 0.4% rare |
-| `0x3A` | ref→row #10 slot 2 | 0.1% dead |
+| `0x38` | engaged action, ref→row #10 | 0.4% real; block 9's `0x2e` |
+| `0x3A` | defeated action, ref→row #10 | 0.1% real; block 9's `0x30` |
 | `0x3C` | health modifier | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real** |
 
 
-## Row #16 field decode — "EntitySpawn164" (`DAT_0047065a`, 164 bytes/record)
+## Row #16 field decode — the group record (`DAT_0047065a`, 164 bytes/record)
 
-Entity-activation directive; position/flag/route/action + 20-entry discriminated refs. 1,247 instances. DBSIM uses this to spawn live entities.
+The mission group, `script.dat` block 11; how DBSIM places it is [`script-dat.md`](script-dat.md#placement--the-actual-rule)'s. 1,247 instances.
 
 | offset | field | notes |
 |---|---|---|
 | `0x00` | GUID | 100% real |
 | `0x02` | condition ref | 2.5% sparse; **compound pair** with `0x04` |
 | `0x04` | condition operand | 1.4% real; always `-99` when populated |
-| `0x06` | binary flag | 100% real; 39/61 split |
+| `0x06` | paints ground | 100% real; 39/61 split. A base group that sets it stands on and paints its formation's terrain tile ([`script-dat.md`](script-dat.md#base-formation-terrain)) |
 | `0x08` | near-constant | 100% real; usually `0` |
 | `0x0A–0x2C` | dead zone (18 shorts) | **always `0`** — padding |
 | `0x2E` | discriminator | 89% real; 0/1/2 — selects which row the `0x38` array's entries point at (rows #12/#13/#14) |
@@ -322,13 +323,13 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0x32` | ref→row #6 | 37% real — **the group's spawn point** |
 | `0x34` | ref→row #7 | 45% real — **the group's heading** |
 | `0x36` | ref→row #8 | 43% real — the group's patrol route |
-| `0x38–0x5E` | 20-entry discriminated refs | slot 0: 89% real → slot 8: 0.6% → slots 9–19: never used |
+| `0x38–0x5E` | 20 member refs | the roster slots the group activates, into the row `0x2E` names; slot 0: 89% real → slot 8: 0.6% → slots 9–19: never used |
 | `0x60–0x72` | 10-entry ref→row #15 | **the group's orders**, worked through in slot order — slot 0: 47% real → slot 3+: never used. Slot 0's is also where the group's route and its spawn-point fallback come from |
-| `0x74` | tri-state flag | 89% real; 0/1 or `-1` |
-| `0x76` | ref→row #10 | 31% real |
+| `0x74` | side | 0 human, 1 Cybrid; `-1` in 11% |
+| `0x76` | deployment action, ref→row #10 | 31% real. While set, the group is not in the mission until that action fires ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-deployment-gate--group0x14)) |
 | `0x78` | pair count | 100% real; 0/1/2 (97%/2.8%/0.5%) — how many of the pairs below are filled. Not exported to `script.dat` |
 | `0x7A–0xA0` | 10 (counter ref, operation) pairs | refs 20–650, operations {2, 23}; slots 2–9 always `-1`. The group's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 11's `0x72`/`0x86` |
-| `0xA2` | trailing flag | 6% sparse; 0/1 |
+| `0xA2` | map shown | 6% sparse; 0/1. For a base group, what VSHELL's briefing map writes into each member's shown field ([`../shell/mission-map.md`](../shell/mission-map.md)) |
 
 
 ## Row #12 field decode — the mech roster record (`DAT_00470652`, 144 bytes/record)
@@ -350,7 +351,7 @@ The HERC roster, `script.dat` block 7; highest variant usage (48%). Three-way id
 | `0x48` | ref→row #7 | same, for heading |
 | `0x4A` | pair count | how many of the pairs below are filled, from the front; 0–4 (84% `0`). Not exported; a variant does not copy it |
 | `0x4C–0x72` | 10 (counter ref, operation) pairs | sparse; slot 0 15.9% → slot 4 0.5%. The machine's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 7's `0x42`/`0x56` |
-| `0x74–0x87` | **ammunition type**, 10 slots | 100% real; values 0–5: a launcher slot reads 1 in the retail mission, every other slot the filler `5`. The second array `Mech_ConfigureLoadout` takes alongside the weapon fit — [`script-dat.md`](script-dat.md)'s block 7 `0x6a` |
+| `0x74–0x87` | **ammunition type**, 10 slots | 100% real; values 0–5, the filler `5` on every slot that is not a launcher. The second array `Mech_ConfigureLoadout` takes alongside the weapon fit — [`script-dat.md`](script-dat.md)'s block 7 `0x6a` |
 | `0x88` | constant | always `2` |
 | `0x8A` | engaged action, ref→row #10 | 0.7% real; block 7's `0x80` |
 | `0x8C` | defeated action, ref→row #10 | 2.4% real; block 7's `0x82` |
@@ -408,7 +409,7 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 
 - **Recurring pattern: `0x02`/`0x0X` "compound condition" pairs** — second field is real only when `0x02` is, drawn from a narrow set including sentinel `-99`. Confirmed in rows #12/#15/#16.
 
-- **Recurring pattern: a pair count in front of the counter pairs** — rows #12 (`0x4A`), #13 (`0x36`), #14 (`0x0E`) and #16 (`0x78`) hold the number of filled (counter ref, operation) pairs, filled from slot 0 without gaps. It equals the filled count in all 4,999 retail records of the four rows; the load writes every pair regardless, so the count is never consumed. Row #17's `0x10` is the same idiom for its nested pairs.
+- **Recurring pattern: a pair count in front of the counter pairs** — rows #12 (`0x4A`), #13 (`0x36`), #14 (`0x0E`) and #16 (`0x78`) hold the number of filled (counter ref, operation) pairs, filled from slot 0 without gaps. It equals the filled count in every retail record of the four rows; the load writes every pair regardless, so the count is never consumed. Row #17's `0x10` is the same idiom for its nested pairs.
 
 - **Recurring pattern: trailing scalar fields that are almost always a specific constant** — row #13's `0x64` (always `100`), row #14's `0x3C` (`100`/`0`), row #12's `0x8E` (`100` or `50`).
 
@@ -418,8 +419,9 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 
 | Reading | Why it is wrong |
 |---|---|
-| `0x04` is a parent index: the record copies an earlier record of its row, as the Core models' `InheritIndex` names it | It is a variant key into row 1. The copy's source is found by the condition field of the candidates, never by index or GUID, and which candidate it is depends on a draw — see [Variants](#variants) |
-| Row 1's `0x00` is authoring bookkeeping, never read (the Core model's `Ordinal`) | It is the GUID every condition ref in the file names; `Msn_ConditionFilterGate` searches for it |
+| `0x04` is a parent index: the record copies an earlier record of its row | It is a variant key into row 1. The copy's source is found by the condition field of the candidates, never by index or GUID, and which candidate it is depends on a draw — see [Variants](#variants) |
+| Row 1's `0x00` is authoring bookkeeping, never read | It is the GUID every condition ref in the file names; `Msn_ConditionFilterGate` searches for it |
+| Row #9's type 1 is a reward: a point and a salvage value, the literal running 100–20000 in round numbers | It is a circle trigger area: DBSIM's `TriggerArea_Resolve` multiplies the literal by 10 into a radius about the point, and `TriggerArea_ContainsPoint` tests a position against it |
 
 ## Open
 

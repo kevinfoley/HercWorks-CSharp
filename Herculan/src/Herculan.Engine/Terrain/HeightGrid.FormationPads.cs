@@ -3,7 +3,7 @@ namespace Herculan.Engine.Terrain;
 /// <summary>
 /// The base-formation terrain pass — why a retail base stands on a concrete pad with painted
 /// markings rather than on open ground. A base group whose <c>script.dat</c> block-11 record sets
-/// its <c>BinaryFlag</c> stamps its formation's own material over a tile of terrain cells, which
+/// its <c>PaintsGround</c> stamps its formation's own material over a tile of terrain cells, which
 /// draws that material's <c>dat\mat0</c> frame — one of the eleven pad layouts frames 2-12 of a
 /// theater bank carry — in place of the rolled ground texture.
 ///

@@ -2,7 +2,11 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Poly;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.poly.TSTexture4Poly.</summary>
+/// <summary>
+/// A textured poly: its surface value is a frame index into the shape's bound <c>.DBA</c>. Three- and
+/// four-vertex polys both occur. See docs/formats/dts-texture-binding.md, "TSTexture4Poly — frame
+/// index, ramp row by light, fullbright on demand".
+/// </summary>
 public class TSTexture4Poly : TSSolidPoly {
 	public TSTexture4Poly() : base(TSObjectHeader.TSTexture4Poly) { }
 

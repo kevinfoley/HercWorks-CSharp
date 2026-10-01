@@ -2,7 +2,7 @@ using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
-/// <summary>Ported from org.hercworks.core.data.file.gau.HLabel.</summary>
+/// <summary>A widget kind <see cref="Io.Transform.Dbsim.GauFileTransformer"/> does not produce.</summary>
 public class HLabel : WidgetBase {
 	public HLabel() { }
 

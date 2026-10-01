@@ -67,7 +67,7 @@ static class MissionFileLaunch {
 		}
 
 		var flags = new short[MissionGenerator.CampaignFlagCount];
-		var campaign = ShellCampaignLaunch.Write(HandoffDirectory, content, stage, mission, player.Unk02, flags, clearList,
+		var campaign = ShellCampaignLaunch.Write(HandoffDirectory, content, stage, mission, player.Skill, flags, clearList,
 			bound => random.NextBelow(bound), out failure);
 		if (campaign == null) {
 			return null;
@@ -79,7 +79,7 @@ static class MissionFileLaunch {
 		File.WriteAllBytes(Path.Combine(HandoffDirectory, ShellMissionLaunch.MissionVarFileName), flagBytes);
 
 		Console.WriteLine($"{campaign.MissionPath}: stage {stage} mission {mission}, loaded as a campaign mission at "
-			+ $"skill {player.Unk02} — {campaign.SquadPositions} squad position(s), the lance from {playerPath}, "
+			+ $"skill {player.Skill} — {campaign.SquadPositions} squad position(s), the lance from {playerPath}, "
 			+ $"handoff written to {HandoffDirectory}.");
 		return campaign.ScriptPath;
 	}

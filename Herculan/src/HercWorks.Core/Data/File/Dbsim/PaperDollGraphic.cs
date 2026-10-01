@@ -3,11 +3,10 @@ using HercWorks.Core.Data.Struct;
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
-/// FILE - /SIMVOL0/PDG/{herc}.PDG — defines HUD wireframe graphics for targets, player herc, and
-/// squadmates. Each herc/flyer gets a .PDG defining 3 views, each using a form of
-/// drawSubImage(x,y,x1,y1) against the .DBA files in /SIMVOL0/DBA/{herc}.DBA (which house the 3
-/// view forms of wireframes). See Java source for the full documented byte layout.
-/// Ported from org.hercworks.core.data.file.dbsim.PaperDollGraphic.
+/// FILE - /SIMVOL0/PDG/{herc}.PDG — the paper-doll damage diagram: three views, each an origin/size
+/// pair and a list of damage regions over that view's frame of <c>{herc}.HBA</c>/<c>.DBA</c>, then
+/// the weapon-icon anchors. Coordinates are in the 320-wide space. Read by <c>PaperDoll_Load</c>
+/// (<c>004379cc</c>); see docs/formats/cockpit-hud-widgets.md#pdg--paper-doll-damage-diagram.
 /// </summary>
 public class PaperDollGraphic {
 	public int TotalViews { get; set; }
@@ -24,17 +23,22 @@ public class PaperDollGraphic {
 		public ViewRegion[]? Regions { get; set; }
 	}
 
+	/// <summary>One damage region: a rect whose pixels of <see cref="ColorId"/> are recoloured by condition.</summary>
 	public class ViewRegion {
 		public int Index { get; set; }
 		public PixelPoint TopLeft { get; set; }
 		public PixelPoint BottomRight { get; set; }
-		public int Unk_val { get; set; }
-		public int Spacer { get; set; }
+
+		/// <summary>The <c>COLORS.DAT</c> id the art drew this body part in — the pixels the tint replaces.</summary>
+		public int ColorId { get; set; }
+
+		/// <summary>Recolour mode, 0-3. 0 in every retail region. See docs/formats/cockpit-hud-widgets.md#tinting.</summary>
+		public int RecolorMode { get; set; }
 	}
 
 	/// <summary>
 	/// Where one weapon icon sits around the doll — entry <c>n</c> places the icon of the hardpoint
-	/// whose <c>.GL</c> slot byte (<see cref="GunLayout.HardpointEntry.HardpointId"/>) is <c>n</c>.
+	/// whose <c>.GL</c> slot byte (<see cref="GunLayout.HardpointEntry.LoadoutSlot"/>) is <c>n</c>.
 	/// See docs/formats/cockpit-hud-widgets.md#weapon-icons.
 	/// </summary>
 	public class HardpointEntry {

@@ -39,7 +39,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 			}
 		}
 
-		dts.Meshes = meshes;
+		dts.Roots = meshes;
 
 		return dts;
 	}
@@ -132,7 +132,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 		if (marker.SequenceEqual(TSObjectHeader.TSPartList.Val())) return ReadTSPartList(null, parent);
 		if (marker.SequenceEqual(TSObjectHeader.TSShape.Val())) return ReadTSShape(null, parent);
 		if (marker.SequenceEqual(TSObjectHeader.ANShape.Val())) return ReadANShape(null, parent);
-		if (marker.SequenceEqual(TSObjectHeader.BSPPart.Val())) return ReadTSBSPPart(null, parent);
+		if (marker.SequenceEqual(TSObjectHeader.TSBSPPart.Val())) return ReadTSBSPPart(null, parent);
 		if (marker.SequenceEqual(TSObjectHeader.TSGroup.Val())) return ReadTSGroup(null, parent);
 		if (marker.SequenceEqual(TSObjectHeader.TSPoly.Val())) return ReadTSPoly(null, parent);
 		if (marker.SequenceEqual(TSObjectHeader.TSSolidPoly.Val())) return ReadTSSolidPoly(null, parent);
@@ -297,7 +297,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 				FrontLineColor = IndexShortLE(),
 				FrontLineFlag = IndexShortLE(),
 				BackColor = IndexShortLE(),
-				BackColorFlag = IndexShortLE(),
+				BackFlag = IndexShortLE(),
 				BackLineColor = IndexShortLE(),
 				BackLineFlag = IndexShortLE()
 			};
@@ -481,7 +481,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 			Index = Index
 		};
 
-		frame.Tick = IndexShortLE();
+		frame.Duration = IndexShortLE();
 		frame.FirstTransition = IndexShortLE();
 		frame.NumTransitions = IndexShortLE();
 
@@ -542,10 +542,10 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	private ANAnimListTransition ReadANAnimListTransition() {
 		var transition = new ANAnimListTransition {
 			Index = Index,
-			Tick = IndexShortLE(),
+			Duration = IndexShortLE(),
 			DestSequence = IndexShortLE(),
 			DestFrame = IndexShortLE(),
-			GroundMovement = IndexShortLE()
+			TransformIndex = IndexShortLE()
 		};
 
 		return transition;
@@ -622,7 +622,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 
 		using var outStream = new MemoryStream();
 
-		foreach (var o in mdl.Meshes!) {
+		foreach (var o in mdl.Roots!) {
 			byte[] data = WriteTSObject(null, o);
 			outStream.Write(data, 0, data.Length);
 		}
@@ -640,7 +640,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 		if (hdrVal.SequenceEqual(TSObjectHeader.TSPartList.Val())) WriteTSPartList((TSPartList)o, objectBytes);
 		if (hdrVal.SequenceEqual(TSObjectHeader.TSShape.Val())) WriteTSShape((TSShape)o, objectBytes);
 		if (hdrVal.SequenceEqual(TSObjectHeader.ANShape.Val())) WriteANShape((ANShape)o, objectBytes);
-		if (hdrVal.SequenceEqual(TSObjectHeader.BSPPart.Val())) WriteTSBSPPart((TSBSPPart)o, objectBytes);
+		if (hdrVal.SequenceEqual(TSObjectHeader.TSBSPPart.Val())) WriteTSBSPPart((TSBSPPart)o, objectBytes);
 		if (hdrVal.SequenceEqual(TSObjectHeader.TSGroup.Val())) WriteTSGroup((TSGroup)o, objectBytes);
 		if (hdrVal.SequenceEqual(TSObjectHeader.TSPoly.Val())) WriteTSPoly((TSPoly)o, objectBytes);
 		if (hdrVal.SequenceEqual(TSObjectHeader.TSSolidPoly.Val())) WriteTSSolidPoly((TSSolidPoly)o, objectBytes);
@@ -730,7 +730,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 			Emit(bos, WriteShortLE(surface.FrontLineColor));
 			Emit(bos, WriteShortLE(surface.FrontLineFlag));
 			Emit(bos, WriteShortLE(surface.BackColor));
-			Emit(bos, WriteShortLE(surface.BackColorFlag));
+			Emit(bos, WriteShortLE(surface.BackFlag));
 			Emit(bos, WriteShortLE(surface.BackLineColor));
 			Emit(bos, WriteShortLE(surface.BackLineFlag));
 		}
@@ -814,10 +814,10 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	}
 
 	private void WriteANAnimListTransition(ANAnimListTransition transition, MemoryStream bos) {
-		Emit(bos, WriteShortLE(transition.Tick));
+		Emit(bos, WriteShortLE(transition.Duration));
 		Emit(bos, WriteShortLE(transition.DestSequence));
 		Emit(bos, WriteShortLE(transition.DestFrame));
-		Emit(bos, WriteShortLE(transition.GroundMovement));
+		Emit(bos, WriteShortLE(transition.TransformIndex));
 	}
 
 	private void WriteANAnimListTransform(ANAnimListTransform transform, MemoryStream bos) {
@@ -860,7 +860,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	}
 
 	private void WriteANSequenceFrame(ANSequenceFrame frame, MemoryStream bos) {
-		Emit(bos, WriteShortLE(frame.Tick));
+		Emit(bos, WriteShortLE(frame.Duration));
 		Emit(bos, WriteShortLE(frame.FirstTransition));
 		Emit(bos, WriteShortLE(frame.NumTransitions));
 	}

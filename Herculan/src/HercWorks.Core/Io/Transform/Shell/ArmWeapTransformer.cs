@@ -23,23 +23,23 @@ public class ArmWeapTransformer : ByteTransformer<ArmWeap> {
 			icon.OriginX = IndexIntLE();
 			icon.OriginY = IndexIntLE();
 			icon.FrameId = IndexShortLE();
-			icon.Flags = UiImageDBA.RFlag.Normal;
+			icon.BlitFlags = UiImageDBA.BlitFlag.Normal;
 			armWeap.Entries![i] = icon;
 		}
 
-		armWeap.TotalSecondList = IndexShortLE();
-		var secondList = new UiHardpointGraphic[armWeap.TotalSecondList];
+		armWeap.TotalGuidancePanels = IndexShortLE();
+		var secondList = new UiHardpointGraphic[armWeap.TotalGuidancePanels];
 
-		for (int i = 0; i < armWeap.TotalSecondList; i++) {
+		for (int i = 0; i < armWeap.TotalGuidancePanels; i++) {
 			var icon = new UiHardpointGraphic();
 			icon.Id = IndexShortLE();
 			icon.OriginX = IndexIntLE();
 			icon.OriginY = IndexIntLE();
 			icon.FrameId = IndexShortLE();
-			icon.Flags = UiImageDBA.RFlag.Normal;
+			icon.BlitFlags = UiImageDBA.BlitFlag.Normal;
 			secondList[i] = icon;
 		}
-		armWeap.Secondary = secondList;
+		armWeap.GuidancePanels = secondList;
 
 		return armWeap;
 	}
@@ -60,10 +60,10 @@ public class ArmWeapTransformer : ByteTransformer<ArmWeap> {
 			Emit(WriteShortLE(icon.FrameId));
 		}
 
-		Emit(WriteShortLE(data.TotalSecondList));
+		Emit(WriteShortLE(data.TotalGuidancePanels));
 
-		for (int i = 0; i < data.TotalSecondList; i++) {
-			var icon = data.Secondary![i];
+		for (int i = 0; i < data.TotalGuidancePanels; i++) {
+			var icon = data.GuidancePanels![i];
 			Emit(WriteShortLE(icon.Id));
 			Emit(WriteIntLE(icon.OriginX));
 			Emit(WriteIntLE(icon.OriginY));

@@ -1196,7 +1196,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// in setup and would not be positioned if it did, so the machine's own eye stands in — which is where
 	// the camera opens anyway.
 	// The compass winds up from north over the same power-up, on a walking machine only — the sweep
-	// decides that for itself off the same InputFlagFlyer the engine hum is gated on. Built here rather
+	// decides that for itself off the same FlyerFlag the engine hum is gated on. Built here rather
 	// than at cockpit-build time because it needs the tick the power-up began on.
 	// Sim_InitMissionSession's music arm, which plays only when the flag the MUSIC handler left at startup
 	// is up.

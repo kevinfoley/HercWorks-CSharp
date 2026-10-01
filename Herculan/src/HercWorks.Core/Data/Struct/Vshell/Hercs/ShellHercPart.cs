@@ -1,12 +1,10 @@
 namespace HercWorks.Core.Data.Struct.Vshell.Hercs;
 
 /// <summary>
-/// As observed in PlayerSave files, and possible .MEC files. The values stored are not
-/// sequential — example: left and right torsos list their front-armor value first, then rear
-/// armor (Left Torso front, Right Torso front, Left Torso rear, Right Torso rear). Likewise,
-/// internal components only have a single HP value for the entire component, while legs EACH
-/// have 3 values.
-/// Ported from org.hercworks.core.data.struct.vshell.hercs.ShellHercPart.
+/// One entry of a HERC's 66-byte status block — an external facet, an internal component or a
+/// hardpoint — with its condition, 0-100. The <see cref="Id"/> is the entry's index within its
+/// array, which follows <see cref="Herc.HercExternals"/> and <see cref="Herc.HercInternals"/>
+/// rather than reading front-to-back. See <c>docs/formats/save-games.md#the-66-byte-status-block</c>.
 /// </summary>
 public class ShellHercPart {
 	public short Id { get; set; }

@@ -17,9 +17,9 @@ Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` w
 | `+0x00` | `ModelId` | root of `ROCKETS.DTS` |
 | `+0x02` | `Lifetime` | in **ticks** — a plain `+1` counter, not the bullet's `0x200` age units |
 | `+0x04` | *`ClipRadius` in the shared parser* | acceleration, per 125 ms |
-| `+0x06` | *`Unk2Flag`* | the shot record's slack, which is what a bullet keeps at `+0x04` |
+| `+0x06` | *`FrameInterval`* | the shot record's slack, which is what a bullet keeps at `+0x04` |
 | `+0x08` | *`SfxFireIdBullets`* | animation frame interval; 0 = static shape |
-| `+0x0a` | *`Unk3Uint16`* | which of the shape's sequences that interval steps |
+| `+0x0a` | *`Scatter`* | which of the shape's sequences that interval steps |
 | `+0x0c` | `SfxFireIdMissiles` | sound id, played as `id + 10` |
 
 The italicised property names are `ProjMissileDatEntry`'s, which are `BULLETS.DAT`'s, and the shared parser reads neither file's meaning into them.

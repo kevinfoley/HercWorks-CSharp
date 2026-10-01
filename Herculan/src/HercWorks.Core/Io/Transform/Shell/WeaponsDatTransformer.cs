@@ -34,9 +34,9 @@ public class WeaponsDatTransformer : ByteTransformer<WeaponsDat> {
 
 		for (int i = 0; i < data.StartWeaponTotal; i++) {
 			var item = new UiWeaponEntry();
-			item.ItemId = IndexShortLE();
-			item.HealthPercent = IndexShortLE();
-			item.MissileType = MissileType.GetById(IndexShortLE());
+			item.WeaponId = IndexShortLE();
+			item.Condition = IndexShortLE();
+			item.Guidance = MissileType.GetById(IndexShortLE());
 			data.StartingWeapons[i] = item;
 		}
 
@@ -63,9 +63,9 @@ public class WeaponsDatTransformer : ByteTransformer<WeaponsDat> {
 		Emit(WriteShortLE(data.StartWeaponTotal));
 		for (int i = 0; i < data.StartWeaponTotal; i++) {
 			var item = data.StartingWeapons![i];
-			Emit(WriteShortLE(item.ItemId));
-			Emit(WriteShortLE(item.HealthPercent));
-			Emit(WriteShortLE((short)item.MissileType!.Id));
+			Emit(WriteShortLE(item.WeaponId));
+			Emit(WriteShortLE(item.Condition));
+			Emit(WriteShortLE((short)item.Guidance!.Id));
 		}
 
 		return objectBytes.ToArray();

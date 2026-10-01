@@ -2,7 +2,10 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Bsp;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.bsp.TSBSPGroup.</summary>
+/// <summary>
+/// A <see cref="TSGroup"/> with a BSP node list appended. The node list's meaning is not established;
+/// see <see cref="TSBSPGroupNode"/>.
+/// </summary>
 public class TSBSPGroup : TSGroup {
 	public TSBSPGroupNode[]? GroupNodes { get; set; }
 

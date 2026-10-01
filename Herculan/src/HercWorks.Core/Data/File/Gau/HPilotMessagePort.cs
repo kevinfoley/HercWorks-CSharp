@@ -11,9 +11,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// every frame, centring a box of the measured text's own width on the screen, so the authored x
 /// pair is overwritten before anything is drawn with it.
 ///
-/// Read out of <see cref="GAUFile.Remainder"/> rather than carved out of it, exactly as
-/// <see cref="HGunsightArea"/>, <see cref="HHudScanner"/> and <see cref="HMessageTicker"/> are:
-/// surfaced here and still written back verbatim, so the byte-exact round-trip is untouched.
+/// Read out of <see cref="GAUFile.Remainder"/>, which is still what the write path emits.
 /// </summary>
 public class HPilotMessagePort : WidgetBase {
 	/// <summary>

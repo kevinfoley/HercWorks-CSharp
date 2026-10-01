@@ -16,7 +16,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para><c>schemeIndex</c> is the mech type record's <c>+0x52</c>, i.e. offset 80 of
 /// <c>dat\&lt;MECH&gt;.DAT</c> —
-/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.Unk80_ValHudId"/>. Retail values are a 0-8
+/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.CockpitColorScheme"/>. Retail values are a 0-8
 /// permutation over the nine player hercs, so the nine schemes tile <c>COCKPIT.DPL</c> entries
 /// 32..247 exactly.</para>
 /// </summary>

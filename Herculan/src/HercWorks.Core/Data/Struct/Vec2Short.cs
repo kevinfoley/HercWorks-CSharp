@@ -2,7 +2,7 @@ using HercWorks.Core.Util;
 
 namespace HercWorks.Core.Data.Struct;
 
-/// <summary>Ported from org.hercworks.core.data.struct.Vec2Short.</summary>
+/// <summary>A pair of signed 16-bit values, as the data files store them.</summary>
 public class Vec2Short {
 	public short X { get; set; }
 	public short Y { get; set; }

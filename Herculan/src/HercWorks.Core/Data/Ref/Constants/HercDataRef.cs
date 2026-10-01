@@ -1,14 +1,10 @@
 namespace HercWorks.Core.Data.Ref.Constants;
 
 /// <summary>
-/// Data convenience class to reference hercs quickly.
-/// Ported from org.hercworks.core.data.ref.constants.HercDataRef.
-///
-/// NOTE: the Java original stored 2-byte fields as favre `Bytes` and called `.toInt()` on them
-/// directly. That method is normally documented for 4-byte (int-sized) values; its exact behavior
-/// on a 2-byte array wasn't verified against real data, so the big-endian interpretation used here
-/// for IntId/HardpointCount is the most likely reading (consistent with this library's confirmed
-/// default-BIG_ENDIAN behavior — see HercWorks.Core.Util.ByteOps) but unconfirmed against real files.
+/// A HERC's id, hardpoint count and name, the id and count held as raw two-byte fields.
+/// <see cref="IntId"/> and <see cref="HardpointCount"/> decode them big-endian, unlike the
+/// little-endian files the game ships; which file, if any, carries them in that order is not
+/// established.
 /// </summary>
 public class HercDataRef {
 	public byte[] IdBytes { get; set; } = new byte[2];

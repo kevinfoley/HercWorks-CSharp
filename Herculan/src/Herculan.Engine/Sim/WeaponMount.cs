@@ -121,8 +121,8 @@ public sealed class WeaponMount {
 		_hardpoint = hardpoint;
 		MountIndex = mountIndex;
 		GaugeSlot = hardpoint.FireChainNumber;
-		LoadoutSlot = hardpoint.HardpointId;
-		LinkPartnerOffset = (sbyte)hardpoint.Unk7_val;
+		LoadoutSlot = hardpoint.LoadoutSlot;
+		LinkPartnerOffset = (sbyte)hardpoint.LinkPartnerOffset;
 		WeaponId = weaponId;
 		SecondaryKey = secondaryKey;
 		Kind = WeaponCatalog.Kind(weaponId);
@@ -168,8 +168,8 @@ public sealed class WeaponMount {
 
 		// WeaponMount_CtorBase (0040df30)'s own first act: an invisibly-mounted hardpoint loads no shape, and every
 		// other one loads the weapon model its template names for the mounting code it sits at.
-		ModelShapeIndex = _hardpoint.AngleDirOption < InvisibleMounting && _template != null
-			? _template.ModelShapeIndex(_hardpoint.AngleDirOption)
+		ModelShapeIndex = _hardpoint.MountingCode < InvisibleMounting && _template != null
+			? _template.ModelShapeIndex(_hardpoint.MountingCode)
 			: -1;
 		FlashCellCount = ModelShapeIndex >= 0 ? modelCellCount?.Invoke(ModelShapeIndex) ?? 0 : 0;
 	}
@@ -454,7 +454,7 @@ public sealed class WeaponMount {
 			return;
 		}
 
-		bool visible = _hardpoint.AngleDirOption < InvisibleMounting;
+		bool visible = _hardpoint.MountingCode < InvisibleMounting;
 		int thrownShape = ModelShapeIndex;
 
 		ModelShapeIndex = -1;
@@ -471,7 +471,7 @@ public sealed class WeaponMount {
 		world.SpawnDebrisPiece(DebrisShapeLibraryName, thrownShape,
 			world.DebrisShapeRadius(DebrisShapeLibraryName, thrownShape),
 			muzzle, bone.ToEuler(),
-			SimTrig.EulerToward(muzzle, owner.AimPoint).Z, _hardpoint.Unk8_val, DebrisMass,
+			SimTrig.EulerToward(muzzle, owner.AimPoint).Z, _hardpoint.DebrisPitch, DebrisMass,
 			rolled ? (short)-1 : ComponentDamage.DefaultDebrisGroup,
 			rolled ? (short)-1 : DebrisBurstEffect,
 			debris);
@@ -1386,10 +1386,10 @@ public sealed class WeaponMount {
 	/// pinned to instead of converging. <c>WeaponMount_CtorBase</c> writes zero for a negative id, and
 	/// every retail hardpoint's is <c>-1</c>, so nothing is ever locked.
 	/// </summary>
-	private bool ConvergencePitchLocked => _hardpoint.Unk1_val >= 0;
+	private bool ConvergencePitchLocked => _hardpoint.ConvergencePitchNode >= 0;
 
 	/// <summary><c>mount+0x5f</c>, the yaw half, from <c>.GL +0x04</c>.</summary>
-	private bool ConvergenceYawLocked => _hardpoint.Unk2_val >= 0;
+	private bool ConvergenceYawLocked => _hardpoint.ConvergenceYawNode >= 0;
 
 	/// <summary>
 	/// The template's <c>+0x4e</c> — what this weapon is worth to the AI's combat rating, scaled by
@@ -1498,7 +1498,7 @@ public sealed class WeaponMount {
 			int vertical = 0;
 
 			if (_template?.Tail is { Length: >= 0x2a } tail) {
-				switch (_hardpoint.AngleDirOption) {
+				switch (_hardpoint.MountingCode) {
 					case 0:
 						vertical = BitConverter.ToInt16(tail, 0x28);
 						break;

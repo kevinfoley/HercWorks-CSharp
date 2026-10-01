@@ -326,15 +326,15 @@ public partial class PlayerSquadForm : Form {
 		var template = (_squadGrid.CurrentRow?.DataBoundItem as PlayerSquadRow ?? _rows[0]).Source;
 		var clone = new MecEntry {
 			PilotNameIndex = template.PilotNameIndex,
-			Unk02 = template.Unk02,
+			Skill = template.Skill,
 			MechType = template.MechType,
 			SlotCount = template.SlotCount,
 			WeaponRefs = (short[])template.WeaponRefs.Clone(),
 			WeaponAmmoTypes = (short[])template.WeaponAmmoTypes.Clone(),
 			Unk3A = template.Unk3A,
-			BlockA = (byte[])template.BlockA.Clone(),
-			BlockB = (byte[])template.BlockB.Clone(),
-			BlockC = (byte[])template.BlockC.Clone()
+			ExternalConditions = (byte[])template.ExternalConditions.Clone(),
+			InternalConditions = (byte[])template.InternalConditions.Clone(),
+			HardpointConditions = (byte[])template.HardpointConditions.Clone()
 		};
 
 		_rows.Add(new PlayerSquadRow { Index = _rows.Count, Source = clone });

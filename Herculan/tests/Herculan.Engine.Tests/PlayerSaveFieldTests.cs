@@ -11,21 +11,21 @@ public class PlayerSaveFieldTests {
 	[Fact]
 	public void CareerAndSquadFieldsNameTheirShorts() {
 		var save = new PlayerSave();
-		save.Unk4_stateFlags[2] = 3;
-		save.Unk4_stateFlags[3] = 40;
-		save.Unk4_stateFlags[13] = 1;
-		save.Unk4_stateFlags[14] = 50;
-		save.Unk4_stateFlags[44] = 2;
-		save.Unk4_stateFlags[45] = 60;
+		save.CareerBlock[2] = 3;
+		save.CareerBlock[3] = 40;
+		save.CareerBlock[13] = 1;
+		save.CareerBlock[14] = 50;
+		save.CareerBlock[44] = 2;
+		save.CareerBlock[45] = 60;
 
 		save.CampaignStage = 2;
 		save.MissionInStage = 5;
 		save.SquadPositionsInPlay = 3;
 		save.MachinesOnStrength = 2;
 
-		Assert.Equal(new short[] { 2, 5 }, save.Unk4_stateFlags[..2]);
-		Assert.Equal((short)3, save.UnkRange_prePlayer[6]);
-		Assert.Equal((short)2, save.UnkRange_prePlayer[7]);
+		Assert.Equal(new short[] { 2, 5 }, save.CareerBlock[..2]);
+		Assert.Equal((short)3, save.SquadTailAndPlayerHead[6]);
+		Assert.Equal((short)2, save.SquadTailAndPlayerHead[7]);
 		Assert.Equal((3, 40), (save.CareerObjectives.Count, save.CareerObjectives.Lines[0]));
 		Assert.Equal((1, 50), (save.CareerBriefing.Count, save.CareerBriefing.Lines[0]));
 		Assert.Equal((2, 60), (save.CareerIntelligence.Count, save.CareerIntelligence.Lines[0]));
@@ -34,19 +34,19 @@ public class PlayerSaveFieldTests {
 
 	[Fact]
 	public void FlagsAndGameStateLiveInTheTail() {
-		var save = new PlayerSave { UnknownSaveValues = new byte[2000 + 2 + 20] };
+		var save = new PlayerSave { CampaignStateTail = new byte[2000 + 2 + 20] };
 
 		save.SetCampaignFlag(0x3f, 1);
 		save.GameState = 7;
 
-		Assert.Equal(1, BitConverter.ToInt16(save.UnknownSaveValues, 0x3f * 2));
-		Assert.Equal(7, BitConverter.ToInt16(save.UnknownSaveValues, 2000));
+		Assert.Equal(1, BitConverter.ToInt16(save.CampaignStateTail, 0x3f * 2));
+		Assert.Equal(7, BitConverter.ToInt16(save.CampaignStateTail, 2000));
 		Assert.Equal((short)1, save.GetCampaignFlag(0x3f));
 	}
 
 	[Fact]
 	public void AShortTailHasNoCampaignState() {
-		var save = new PlayerSave { UnknownSaveValues = new byte[100] };
+		var save = new PlayerSave { CampaignStateTail = new byte[100] };
 
 		Assert.False(save.HasCampaignState);
 		Assert.Throws<InvalidOperationException>(() => save.GameState);

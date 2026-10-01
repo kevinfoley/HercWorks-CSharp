@@ -246,14 +246,14 @@ public sealed class WeaponMounts {
 
 			// A negative id is clamped to zero and a zero id builds nothing, so the slot stays a hole
 			// in the array rather than shifting everything after it up.
-			int weaponId = Math.Max(loadout.WeaponAt(record.HardpointId), 0);
+			int weaponId = Math.Max(loadout.WeaponAt(record.LoadoutSlot), 0);
 			if (weaponId == WeaponMount.EmptyWeaponId
 				|| WeaponCatalog.Kind(weaponId) == WeaponMountKind.None) {
 				continue;
 			}
 
 			manager._slots[i] = new WeaponMount(
-				i, record, weaponId, loadout.SecondaryAt(record.HardpointId), catalog, modelCellCount);
+				i, record, weaponId, loadout.SecondaryAt(record.LoadoutSlot), catalog, modelCellCount);
 		}
 
 		foreach (var mount in manager.Mounts) {

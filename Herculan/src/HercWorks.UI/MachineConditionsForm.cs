@@ -6,9 +6,9 @@ using HercWorks.Core.Data.Struct.Herc;
 namespace HercWorks.UI;
 
 /// <summary>
-/// Edits one <c>player.mec</c> entry's condition arrays — <see cref="MecEntry.BlockA"/> (13 external
-/// facets), <see cref="MecEntry.BlockB"/> (the nine internals, then the machine's overall condition)
-/// and <see cref="MecEntry.BlockC"/> (one per hardpoint, in weapon-slot order). They are the HERC
+/// Edits one <c>player.mec</c> entry's condition arrays — <see cref="MecEntry.ExternalConditions"/> (13 external
+/// facets), <see cref="MecEntry.InternalConditions"/> (the nine internals, then the machine's overall condition)
+/// and <see cref="MecEntry.HardpointConditions"/> (one per hardpoint, in weapon-slot order). They are the HERC
 /// record's 66-byte status block, which VSHELL copies into the export verbatim; see
 /// docs/formats/save-games.md. Each value is 0-100. Edits are written back only on OK.
 /// </summary>
@@ -34,7 +34,7 @@ public partial class MachineConditionsForm : Form {
 			_externalsRows.Add(new HercPartRow {
 				Id = i,
 				Label = HercExternals.GetById(i)?.Label ?? $"Facet {i}",
-				Health = Read(entry.BlockA, i)
+				Health = Read(entry.ExternalConditions, i)
 			});
 		}
 
@@ -44,7 +44,7 @@ public partial class MachineConditionsForm : Form {
 				Label = i == OverallConditionIndex
 					? "Overall condition"
 					: HercInternals.GetById(i)?.Label ?? $"Internal {i}",
-				Health = Read(entry.BlockB, i)
+				Health = Read(entry.InternalConditions, i)
 			});
 		}
 
@@ -52,7 +52,7 @@ public partial class MachineConditionsForm : Form {
 			string fitted = i < entry.WeaponRefs.Length
 				? WeaponLUT.GetById(entry.WeaponRefs[i])?.Name ?? $"id {entry.WeaponRefs[i]}"
 				: "(no slot)";
-			_hardpointsRows.Add(new HercPartRow { Id = i, Label = $"Slot {i}: {fitted}", Health = Read(entry.BlockC, i) });
+			_hardpointsRows.Add(new HercPartRow { Id = i, Label = $"Slot {i}: {fitted}", Health = Read(entry.HardpointConditions, i) });
 		}
 
 		_externalsGrid.DataSource = _externalsRows;
@@ -75,13 +75,13 @@ public partial class MachineConditionsForm : Form {
 		}
 
 		foreach (var row in _externalsRows) {
-			Write(_entry.BlockA, row.Id, row.Health);
+			Write(_entry.ExternalConditions, row.Id, row.Health);
 		}
 		foreach (var row in _internalsRows) {
-			Write(_entry.BlockB, row.Id, row.Health);
+			Write(_entry.InternalConditions, row.Id, row.Health);
 		}
 		foreach (var row in _hardpointsRows) {
-			Write(_entry.BlockC, row.Id, row.Health);
+			Write(_entry.HardpointConditions, row.Id, row.Health);
 		}
 
 		DialogResult = DialogResult.OK;

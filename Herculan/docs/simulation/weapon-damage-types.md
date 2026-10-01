@@ -8,7 +8,7 @@ The manual describes a HUD/HDD display split into "structural, internal, and wea
 
 - **Structural** = most of the 29-slot `HercPiece` array — named body pieces (torso, legs, feet, shoulders).
 - **Weaponry** = a *subset of that same array*, distinguished only by name/position (`WEPN_BRACK/LEFT`/`RIGHT`). Weapon-specific runtime state (ammo, heat) lives elsewhere, in the weapon-mount-manager object (`this+0x202`), not in this health record.
-- **Internal** = a *wholly separate*, smaller table, `HercInternals` (Left/Right Leg Servos, Sensor Array, Targeting Computer, Shield Generator, Engine, Hydraulics, Stabilizers, Life Support, Pilot) — reached *probabilistically* through a struck structural/weaponry piece's own `MappedInternals`/`CritChance` list, not directly targetable. An Internal system has no health slot of its own in the 29-component array; damaging it is a chance-based side effect of hitting whichever structural piece maps to it.
+- **Internal** = a *wholly separate*, smaller table, `HercInternals` (Left/Right Leg Servos, Sensor Array, Targeting Computer, Shield Generator, Engine, Hydraulics, Stabilizers, Life Support, Pilot) — reached *probabilistically* through a struck structural/weaponry piece's own `MappedInternals`/`SpillWeight` list, not directly targetable. An Internal system has no health slot of its own in the 29-component array; damaging it is a chance-based side effect of hitting whichever structural piece maps to it.
 
 "Armor" in the manual's "where shields leave off, armor takes over... duranium plates" sense maps to the per-component `Armor` field on `HercPiece` (`this+0x20a`/`this+0x206`) — not a separate third depleting pool distinct from "structure." Whether shields differentiate by weapon type anywhere is checked below under [Weapon-type effectiveness](#weapon-type-effectiveness); it is not found in the shield-absorption functions themselves ([Open](#open)).
 
@@ -30,7 +30,7 @@ The record table is `PROJ.DAT` (`HercWorks.Core.Data.File.Dat.Sim.ProjectileData
 
 `shotPower` is the capacitor charge the shot was fired at, `min(template+0x38, mount+0x7d)`, and the scale is **Q10** — against a capacitor scaled to 1200, so a mount holding more than 1024 makes a shot worth slightly more than the record's face value. `SplashFactor`'s own multiply below is Q10 as well (`Math_Q10Multiply`, `0047dfa4`).
 
-**`SplashFactor` (`Unk2_val`, short-index 4, `shotData+8`) — a per-weapon splash/secondary- explosion trigger, not a third damage-type multiplier.** Consumer, `Mech_ApplyDirectFireDamage`:
+**`SplashFactor` (short-index 4, `shotData+8`) — a per-weapon splash/secondary- explosion trigger, not a third damage-type multiplier.** Consumer, `Mech_ApplyDirectFireDamage`:
 ```c
 uVar1 = Q10mul(shotData+8 /*SplashFactor*/, shotData+4 /*armor-scaled damage*/);
 call obj[+0x74](obj, part, armorDamage - uVar1, ...);      // general component health takes the REMAINDER

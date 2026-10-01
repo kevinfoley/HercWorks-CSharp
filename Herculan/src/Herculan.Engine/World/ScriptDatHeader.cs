@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+using HercWorks.Core.Data.File.Msn.Script;
 
 namespace Herculan.Engine.World;
 
@@ -12,15 +12,11 @@ namespace Herculan.Engine.World;
 /// short at 0 and the short at 18 as <c>world&lt;index * 2 + variant&gt;</c>) and passes the short at
 /// 2 straight to <c>Terrain_LoadZone</c>.</para>
 ///
-/// <para>Verified against the ten real files in the retail install (<c>ES2\DATA\script.dat</c> plus
-/// the <c>ES2\SAV\script*.dat</c> snapshots): every <see cref="ZoneIndex"/> is a zone that actually
-/// ships (555, 123, 22, 234, 3333 — all present as <c>dat\zoneNNNN.dat</c>), and every
-/// <see cref="TheaterIndex"/> is 0, 1 or 2. This resolves script-dat.md's open question about the
-/// header field at offset 2, which that doc guessed might be a mission id or checksum.</para>
+/// <para>The offsets are <see cref="ScriptDat"/>'s; this is the engine's interpretation of them.</para>
 /// </summary>
 public readonly struct ScriptDatHeader {
 	/// <summary>Bytes the header occupies; the original reads exactly this many in one call.</summary>
-	public const int Size = 20;
+	public const int Size = ScriptDat.HeaderSize;
 
 	/// <summary>How many difficulty levels there are; see <see cref="Difficulty"/>.</summary>
 	public const int DifficultyLevels = 4;
@@ -120,13 +116,7 @@ public readonly struct ScriptDatHeader {
 	public bool PlayerInvulnerable { get; }
 
 	/// <summary>
-	/// Reads the header from the start of a <c>script.dat</c>'s bytes. The remaining fields are left
-	/// undecoded rather than exposed as raw numbers — <c>DBSim_LoadScriptDat</c> zeroes the one at
-	/// offset 4 before use, and offset 16 is unread. <see cref="ObjectiveType"/> is not the
-	/// theater's: it is the mission layer's, and its reader is <c>Mech_BehaviourPlayerThink</c>.
-	///
-	/// <para>The two cheat flags are read as <c>== 1</c> rather than as "nonzero", which is how both
-	/// of their readers spell the test.</para>
+	/// Reads the header from the start of a <c>script.dat</c>'s bytes; see <see cref="From"/>.
 	/// </summary>
 	public static ScriptDatHeader Read(ReadOnlySpan<byte> scriptDat) {
 		if (scriptDat.Length < Size) {
@@ -134,15 +124,25 @@ public readonly struct ScriptDatHeader {
 				$"script.dat is {scriptDat.Length} bytes; its header alone is {Size}.");
 		}
 
-		return new ScriptDatHeader(
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat),
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[2..]),
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[6..]),
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[18..]),
-			System.Math.Clamp(
-				(int)BinaryPrimitives.ReadInt16LittleEndian(scriptDat[14..]), 0, DifficultyLevels - 1),
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[10..]) == CheatEnabled,
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[12..]) == CheatEnabled,
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[8..]));
+		return From(new ScriptDat { HeaderBytes = scriptDat[..Size].ToArray() });
 	}
+
+	/// <summary>
+	/// The engine's reading of a parsed <c>script.dat</c>'s header fields. The fields offsets 4 and
+	/// 16 hold are left out — <c>DBSim_LoadScriptDat</c> zeroes the one at 4 before use, and 16 is
+	/// unread. <see cref="ObjectiveType"/> is not the theater's: it is the mission layer's, and its
+	/// reader is <c>Mech_BehaviourPlayerThink</c>.
+	///
+	/// <para>The two cheat flags are read as <c>== 1</c> rather than as "nonzero", which is how both
+	/// of their readers spell the test.</para>
+	/// </summary>
+	public static ScriptDatHeader From(ScriptDat script) => new(
+		script.TheaterIndex,
+		script.ZoneIndex,
+		script.ObjectiveType,
+		script.TheaterVariant,
+		System.Math.Clamp((int)script.Difficulty, 0, DifficultyLevels - 1),
+		script.UnlimitedAmmunition == CheatEnabled,
+		script.PlayerInvulnerable == CheatEnabled,
+		script.TrainingMissionNumber);
 }

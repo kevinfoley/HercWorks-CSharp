@@ -77,7 +77,7 @@ internal sealed class WeaponFitOption {
 	/// </summary>
 	public static bool IsLauncher(short weaponId) =>
 		weaponId == WeaponLUT.Msl6.Id || weaponId == WeaponLUT.Msl8.Id
-		|| weaponId == WeaponLUT.Msl10.Id || weaponId == WeaponLUT.Mslr.Id;
+		|| weaponId == WeaponLUT.Msl10.Id || weaponId == WeaponLUT.Flymsl.Id;
 }
 
 /// <summary>

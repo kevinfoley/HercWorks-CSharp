@@ -8,7 +8,6 @@ namespace HercWorks.Core.Data.File.Dbsim;
 ///   4 - SEQ_0 (INT32 each): 3D viewport rect x0/y0/x1/y1, view centre cx/cy, canvas origin x/y.
 /// All coordinates are authored in the 320-wide space; the loader shifts them by
 /// <c>VideoMode_X/YCoordShift</c> (1 in the 640x480 modes) before use.
-/// Ported from org.hercworks.core.data.file.dbsim.Vue.
 /// </summary>
 public class Vue {
 	public int TotalViewports { get; set; }

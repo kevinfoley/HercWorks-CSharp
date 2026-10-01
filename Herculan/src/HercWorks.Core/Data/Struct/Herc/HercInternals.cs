@@ -1,13 +1,16 @@
 namespace HercWorks.Core.Data.Struct.Herc;
 
 /// <summary>
-/// Ported from org.hercworks.core.data.struct.herc.HercInternals.
+/// A HERC's internal components by index. Two index spaces share it:
 ///
-/// <para><b>Only ids 0-9 exist on disk.</b> The internal condition array is ten shorts: ids 0-8 are
-/// the nine components the repair bay names, and id 9 is the machine's overall condition — the mean
-/// of the externals and internals, which the debrief copies into the pilot's own condition, hence
-/// the <c>Pilot</c> label. Ids 10-12 are not in the file at all, which is why readers and editors
-/// stop at <see cref="ServosLegLeftRear"/>. See <c>docs/formats/save-games.md</c>.</para>
+/// <para>DBSIM's <c>.DMG</c> files carry 22 internal slots: 0-8 the nine components, 9 the pilot,
+/// 10 and 11 the rear leg servos of a four-legged chassis, and 12-21 unused
+/// (<c>docs/formats/dmg-damage-file.md#the-two-index-spaces</c>).</para>
+///
+/// <para>The shell's HERC status block carries only ids 0-9: 0-8 the same nine components, and 9 the
+/// machine's overall condition — the mean the debrief copies into the pilot's own condition — under
+/// the <see cref="Pilot"/> entry. Shell readers and editors therefore stop at
+/// <see cref="ServosLegLeftRear"/> (<c>docs/formats/save-games.md#the-66-byte-status-block</c>).</para>
 /// </summary>
 public sealed class HercInternals {
 	public static readonly HercInternals ServosLegLeft = new(0, "Left Leg Servos");
@@ -22,12 +25,12 @@ public sealed class HercInternals {
 	public static readonly HercInternals Pilot = new(9, "Pilot");
 	public static readonly HercInternals ServosLegLeftRear = new(10, "Rear Left Leg Servos");
 	public static readonly HercInternals ServosLegRightRear = new(11, "Rear Right Leg Servos");
-	public static readonly HercInternals Unknown = new(12, "unkown/empty");
+	public static readonly HercInternals Unused = new(12, "Unused");
 
 	private static readonly IReadOnlyList<HercInternals> All = new[]
 	{
 		ServosLegLeft, ServosLegRight, SensorArray, TargComp, ShieldGen, Engine, Hydraulics,
-		Stabilizers, LifeSupport, Pilot, ServosLegLeftRear, ServosLegRightRear, Unknown
+		Stabilizers, LifeSupport, Pilot, ServosLegLeftRear, ServosLegRightRear, Unused
 	};
 
 	private static readonly Dictionary<short, HercInternals> ById = All.ToDictionary(e => e.Id);
@@ -42,7 +45,6 @@ public sealed class HercInternals {
 
 	public static HercInternals? GetById(short id) => ById.GetValueOrDefault(id);
 
-	/// <summary>Equivalent of Java's enum .values().</summary>
 	public static IReadOnlyList<HercInternals> Values() => All;
 
 	public static HercInternals? GetByName(string name) =>

@@ -29,7 +29,7 @@ public class MecFileTransformer : ByteTransformer<MecFile> {
 		for (int i = 0; i < entries.Length; i++) {
 			var entry = new MecEntry {
 				PilotNameIndex = IndexShortLE(),
-				Unk02 = IndexShortLE(),
+				Skill = IndexShortLE(),
 				MechType = IndexShortLE(),
 				SlotCount = IndexShortLE()
 			};
@@ -37,9 +37,9 @@ public class MecFileTransformer : ByteTransformer<MecFile> {
 			entry.WeaponRefs = IndexShortLEArray(entry.SlotCount);
 			entry.WeaponAmmoTypes = IndexShortLEArray(entry.SlotCount);
 			entry.Unk3A = IndexShortLE();
-			entry.BlockA = IndexSegment(26);
-			entry.BlockB = IndexSegment(20);
-			entry.BlockC = IndexSegment(20);
+			entry.ExternalConditions = IndexSegment(26);
+			entry.InternalConditions = IndexSegment(20);
+			entry.HardpointConditions = IndexSegment(20);
 
 			entries[i] = entry;
 		}
@@ -79,15 +79,15 @@ public class MecFileTransformer : ByteTransformer<MecFile> {
 
 		foreach (var entry in data.Entries) {
 			Emit(outStream, WriteShortLE(entry.PilotNameIndex));
-			Emit(outStream, WriteShortLE(entry.Unk02));
+			Emit(outStream, WriteShortLE(entry.Skill));
 			Emit(outStream, WriteShortLE(entry.MechType));
 			Emit(outStream, WriteShortLE(entry.SlotCount));
 			Emit(outStream, WriteShortLESegment(entry.WeaponRefs));
 			Emit(outStream, WriteShortLESegment(entry.WeaponAmmoTypes));
 			Emit(outStream, WriteShortLE(entry.Unk3A));
-			Emit(outStream, entry.BlockA);
-			Emit(outStream, entry.BlockB);
-			Emit(outStream, entry.BlockC);
+			Emit(outStream, entry.ExternalConditions);
+			Emit(outStream, entry.InternalConditions);
+			Emit(outStream, entry.HardpointConditions);
 		}
 
 		if (data.WeaponFlags.Length > 0) {

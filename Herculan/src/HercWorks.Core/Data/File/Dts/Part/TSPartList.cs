@@ -2,7 +2,10 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Part;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.part.TSPartList.</summary>
+/// <summary>
+/// A part with child chunks. A plain part list draws every child; <see cref="TSCellAnimPart"/>,
+/// <see cref="TSDetailPart"/> and <see cref="Bsp.TSBSPPart"/> each pick among theirs instead.
+/// </summary>
 public class TSPartList : TSBasePart {
 	public TSObject[]? Parts { get; set; }
 

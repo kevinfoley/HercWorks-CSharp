@@ -1,8 +1,7 @@
 namespace HercWorks.Core.Data.Struct;
 
 /// <summary>
-/// Pure utility class to capture the underlying bytes of any 24-bit color value.
-/// Ported from org.hercworks.core.data.struct.ColorBytes.
+/// The four raw bytes of a palette colour entry, with an optional resolved <see cref="RgbaColor"/>.
 /// </summary>
 public class ColorBytes {
 	private RgbaColor _color;

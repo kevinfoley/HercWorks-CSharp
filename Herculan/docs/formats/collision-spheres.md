@@ -31,7 +31,7 @@ Each cluster's bounding sphere is built at load by `Collision_ComputeBoundingSph
 
 **The 22 `.COL` files** likewise walk exactly to their own end and round-trip byte-exact. Every `componentIndex` is inside the 29-slot array (max 28); every node id resolves to a real shape part except RAZOR's single node 5, which the hit test gives an identity transform. Node counts run 1 (RAZOR, SKIMMER) to 13 (SPIDER); sphere radii 40–600 world units. `SKIMMER` is the only file with an object-frame cluster.
 
-ACHILLES' first cluster cross-checks against its `.DMG`: it places spheres for components 7, 9 and 11 on nodes 3 and 1, and 7→9→11 is exactly the `BoneId` chain that file states for the left leg. Component 7's two spheres are `(-20, 0, -100) r=200` and `(-20, 0, -400) r=180` — a thigh as two stacked balls.
+ACHILLES' first cluster cross-checks against its `.DMG`: it places spheres for components 7, 9 and 11 on nodes 3 and 1, and 7→9→11 is exactly the `ParentComponent` chain that file states for the left leg. Component 7's two spheres are `(-20, 0, -100) r=200` and `(-20, 0, -400) r=180` — a thigh as two stacked balls.
 
 ## Rejected readings
 

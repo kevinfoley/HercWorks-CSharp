@@ -3,12 +3,22 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Bsp;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.bsp.TSBSPPart.</summary>
+/// <summary>
+/// A part list whose children are drawn through a BSP tree: <see cref="TSPartList.Parts"/> is a pool
+/// the tree's leaves index, not a list drawn in order. See docs/formats/dts-texture-binding.md,
+/// "TSBSPPart child selection".
+/// </summary>
 public class TSBSPPart : TSPartList {
+	/// <summary>The tree, walked from node 0.</summary>
 	public TSBSPPartNode[]? Nodes { get; set; }
+
+	/// <summary>
+	/// One per node: the transform id whose world matrix the node's splitting plane is brought into,
+	/// -1 for an untransformed plane.
+	/// </summary>
 	public short[]? Transforms { get; set; }
 
-	public TSBSPPart() : base(TSObjectHeader.BSPPart) { }
+	public TSBSPPart() : base(TSObjectHeader.TSBSPPart) { }
 
 	public TSBSPPart(TSObjectHeader hdr) : base(hdr) { }
 

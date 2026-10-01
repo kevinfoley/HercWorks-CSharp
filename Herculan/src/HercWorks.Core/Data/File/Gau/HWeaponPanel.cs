@@ -3,7 +3,10 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Gau;
 
-/// <summary>Ported from org.hercworks.core.data.file.gau.HWeaponPanel.</summary>
+/// <summary>
+/// A widget kind <see cref="Io.Transform.Dbsim.GauFileTransformer"/> does not produce; the weapon
+/// rows are read into <see cref="GAUFile.Weapons"/> instead.
+/// </summary>
 public class HWeaponPanel : WidgetBase {
 	public int ActiveTotal { get; set; }
 

@@ -368,8 +368,8 @@ public static class DtsMeshBuilder {
 	/// </summary>
 	public static MeshBuild BuildAll(DynamixThreeSpaceModel model, TextureAtlas? atlas = null, SurfaceShading? shading = null) {
 		var sink = new Collector();
-		if (model.Meshes != null) {
-			foreach (var root in model.Meshes) {
+		if (model.Roots != null) {
+			foreach (var root in model.Roots) {
 				Collect(root, null, sink, atlas, shading);
 			}
 		}
@@ -431,7 +431,7 @@ public static class DtsMeshBuilder {
 	public static IReadOnlySet<short> AttachmentPartIds(GunLayout? hardpoints) {
 		var ids = new HashSet<short>();
 		foreach (var hardpoint in hardpoints?.Hardpoints ?? Array.Empty<GunLayout.HardpointEntry>()) {
-			if (hardpoint.AngleDirOption < Sim.WeaponMount.InvisibleMounting && hardpoint.BoneId != 0) {
+			if (hardpoint.MountingCode < Sim.WeaponMount.InvisibleMounting && hardpoint.BoneId != 0) {
 				ids.Add(hardpoint.BoneId);
 			}
 		}

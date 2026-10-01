@@ -34,7 +34,7 @@ public sealed class MechTypeRecord {
 
 		DebrisTableName = Name(data.DebrisFile);
 
-		IsFlyer = data.InputFlagFlyer != 0;
+		IsFlyer = data.FlyerFlag != 0;
 		RawMaxForward = data.SpeedForward;
 		MaxTurnRate = data.SpeedTurn;
 
@@ -100,7 +100,7 @@ public sealed class MechTypeRecord {
 	public short SpeedAccel => Data.SpeedAccelDecel;
 
 	/// <summary>Record field 8 — the same, for the turn rate. Also scaled at the call site.</summary>
-	public short TurnAccel => Data.DecelTurning;
+	public short TurnAccel => Data.TurnAccelDecel;
 
 	/// <summary>Record field 10 — the model node the cockpit eye rides.</summary>
 	public short CameraBoneId => Data.CameraBoneId;
@@ -118,10 +118,10 @@ public sealed class MechTypeRecord {
 	/// gives the eye a lever arm on the node: the node rotates through a turn-in-place, and an eye
 	/// sitting on top of it swings where one sitting at its origin would not.</para>
 	/// </summary>
-	public short EyeOffsetY => Data.CameraYAxisAdj;
+	public short EyeOffsetY => Data.EyeOffsetY;
 
 	/// <inheritdoc cref="EyeOffsetY"/>
-	public short EyeOffsetZ => Data.CameraXAxisAdj;
+	public short EyeOffsetZ => Data.EyeOffsetZ;
 
 	/// <summary>
 	/// Record fields 102 and 104 (the exe's <c>typeRecord+0x68</c> and <c>+0x6a</c>) — the point the
@@ -130,10 +130,10 @@ public sealed class MechTypeRecord {
 	/// is 0 on every retail chassis and the height 800-2600 (0 on the RAZOR). Per chassis:
 	/// docs/simulation/mech-locomotion.md, "Mech type record"; use: docs/simulation/external-views.md.
 	/// </summary>
-	public short OrbitCentreY => Data.CameraExtOrgOffsetY;
+	public short OrbitCentreY => Data.OrbitCentreY;
 
 	/// <inheritdoc cref="OrbitCentreY"/>
-	public short OrbitCentreZ => Data.CameraExtOrgOffset;
+	public short OrbitCentreZ => Data.OrbitCentreZ;
 
 	/// <summary>
 	/// Record field 22 (the exe's <c>typeRecord+0x18</c>) — how high above the machine's origin its
@@ -187,7 +187,7 @@ public sealed class MechTypeRecord {
 	/// <c>Mech_ComponentDamageWrite</c> reads it to decide whether the leg-condition check covers the
 	/// two front dependent slots alone or averages them with the rear pair at slots 10 and 11.
 	/// </summary>
-	public short LegCount => Data.ModelLegsTotal;
+	public short LegCount => Data.LegCount;
 
 	/// <summary>
 	/// Whether a hit can knock this chassis' weapon mounts out — record offset 84, the type record's
@@ -327,7 +327,7 @@ public sealed class MechTypeRecord {
 	public short StopReverseSequence => Data.AnimId_StopReverse;
 
 	/// <summary>Record field 20 — ride height, added to the terrain height under the machine.</summary>
-	public short RideHeight => Data.UnitOffsetYAdjust;
+	public short RideHeight => Data.RideHeight;
 
 	/// <summary>
 	/// Record field 26 — the torso-twist sequence, a full turn of the twist node. The machine's
@@ -337,20 +337,20 @@ public sealed class MechTypeRecord {
 	public short TorsoTwistSequence => Data.AnimId_TorsoTwist;
 
 	/// <summary>Record field 28 — twist rate at full stick, in binary angle per second.</summary>
-	public short TorsoTwistMaxRate => Data.TorsoTwistSpeed;
+	public short TorsoTwistMaxRate => Data.TorsoTwistMaxRate;
 
 	/// <summary>
 	/// Record field 30 — how fast the twist rate itself may build. Unlike the locomotion accel pair
 	/// this one is already integrated over the tick by the original, so it needs no rescale.
 	/// </summary>
-	public short TorsoTwistAccel => Data.TorsoRotateAccel;
+	public short TorsoTwistAccel => Data.TorsoTwistAccel;
 
 	/// <summary>
 	/// Record field 32 — how far the torso may twist either way, as a binary angle. 14000 (76.9
 	/// degrees) on twenty of the twenty-one chassis; the Pitbull states 32767, the sentinel for a
 	/// turret with no stop at all.
 	/// </summary>
-	public short TorsoTwistLimit => Data.TorsoTwistDegreeMax;
+	public short TorsoTwistLimit => Data.TorsoTwistLimit;
 
 	/// <summary>
 	/// Whether <c>Mech_AiSelectBehaviour</c> (<c>0041eb34</c>) gives this chassis <c>bulldog
@@ -372,7 +372,7 @@ public sealed class MechTypeRecord {
 	public short TorsoPitchMaxRate => Data.TorsoPitchMaxRate;
 
 	/// <summary>Record field 38 — how fast the pitch rate may build.</summary>
-	public short TorsoPitchAccel => Data.TorsoPitchRate;
+	public short TorsoPitchAccel => Data.TorsoPitchAccel;
 
 	/// <summary>Record field 40 — pitch limit looking up. Asymmetric with <see cref="TorsoPitchMin"/>.</summary>
 	public short TorsoPitchMax => Data.TorsoPitchMax;

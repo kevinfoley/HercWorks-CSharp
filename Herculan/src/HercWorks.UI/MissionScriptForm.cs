@@ -36,17 +36,17 @@ public partial class MissionScriptForm : Form {
 	private readonly BindingList<ScriptPointRow> _pointRows = new();
 	private readonly BindingList<ScriptHeadingRow> _headingRows = new();
 	private readonly BindingList<ScriptRouteRow> _routeRows = new();
-	private readonly BindingList<ScriptLinkRewardRow> _linkRows = new();
+	private readonly BindingList<ScriptTriggerAreaRow> _linkRows = new();
 	private readonly BindingList<ScriptActionRow> _actionRows = new();
 	private readonly BindingList<ScriptActionTimerRow> _actionTimerRows = new();
 	private readonly BindingList<ScriptMechRow> _mechRows = new();
 	private readonly BindingList<ScriptWeaponSlotRow> _slotRows = new();
 	private readonly BindingList<ScriptFlyerRow> _flyerRows = new();
 	private readonly BindingList<ScriptBaseRow> _baseRows = new();
-	private readonly BindingList<ScriptRouteLinkRow> _routeLinkRows = new();
+	private readonly BindingList<ScriptOrderRow> _routeLinkRows = new();
 	private readonly BindingList<ScriptGroupRow> _groupRows = new();
-	private readonly BindingList<ScriptEntityLinkRow> _entityLinkRows = new();
-	private readonly BindingList<ScriptUnlockRow> _unlockRows = new();
+	private readonly BindingList<ScriptObjectiveRow> _entityLinkRows = new();
+	private readonly BindingList<ScriptObjectiveLineRow> _unlockRows = new();
 
 	private ScriptDat? _loaded;
 	private string? _loadedPath;
@@ -137,8 +137,8 @@ public partial class MissionScriptForm : Form {
 			string prefixNote = prefix.HadPrefix ? " (VOL entry prefix detected — will be preserved on save)" : "";
 			_statusLabel.Text =
 				$"Loaded {Path.GetFileName(path)} — {script.Coordinates.Length} points, " +
-				$"{script.SpawnRecords.Length} hercs, {script.Entities102.Length} flyers, " +
-				$"{script.MiscEntities.Length} bases, {script.Entities164.Length} groups.{prefixNote}";
+				$"{script.Mechs.Length} hercs, {script.Flyers.Length} flyers, " +
+				$"{script.Bases.Length} bases, {script.Groups.Length} groups.{prefixNote}";
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -146,21 +146,21 @@ public partial class MissionScriptForm : Form {
 	}
 
 	private void Populate(ScriptDat script) {
-		_theaterInput.Value = Clamp(ReadHeaderShort(script, 0), _theaterInput);
-		_zoneInput.Value = Clamp(ReadHeaderShort(script, 2), _zoneInput);
-		_variantInput.Value = Clamp(ReadHeaderShort(script, 18), _variantInput);
-		_objectiveTypeInput.Value = Clamp(ReadHeaderShort(script, 6), _objectiveTypeInput);
-		_trainingInput.Value = Clamp(ReadHeaderShort(script, 8), _trainingInput);
-		_unlimitedCheck.Checked = ReadHeaderShort(script, 10) == 1;
-		_invulnerableCheck.Checked = ReadHeaderShort(script, 12) == 1;
-		_difficultyInput.Value = Clamp(ReadHeaderShort(script, 14), _difficultyInput);
+		_theaterInput.Value = Clamp(script.TheaterIndex, _theaterInput);
+		_zoneInput.Value = Clamp(script.ZoneIndex, _zoneInput);
+		_variantInput.Value = Clamp(script.TheaterVariant, _variantInput);
+		_objectiveTypeInput.Value = Clamp(script.ObjectiveType, _objectiveTypeInput);
+		_trainingInput.Value = Clamp(script.TrainingMissionNumber, _trainingInput);
+		_unlimitedCheck.Checked = script.UnlimitedAmmunition == 1;
+		_invulnerableCheck.Checked = script.PlayerInvulnerable == 1;
+		_difficultyInput.Value = Clamp(script.Difficulty, _difficultyInput);
 		_headerRawText.Text = string.Join(" ", script.HeaderBytes.Select(b => b.ToString("X2")));
 		UpdateWorldLabel();
 
 		Refill(_pointRows, script.Coordinates, (src, i) => new ScriptPointRow { Index = i, Source = src });
 		Refill(_headingRows, script.Headings, (src, i) => new ScriptHeadingRow { Index = i, Source = src });
 		Refill(_routeRows, script.WaypointGroups, (src, i) => new ScriptRouteRow { Index = i, Source = src });
-		Refill(_linkRows, script.LinksOrRewards, (src, i) => new ScriptLinkRewardRow { Index = i, Source = src });
+		Refill(_linkRows, script.TriggerAreas, (src, i) => new ScriptTriggerAreaRow { Index = i, Source = src });
 		Refill(_actionRows, script.Actions, (src, i) => new ScriptActionRow { Index = i, Source = src });
 		Refill(_actionTimerRows, script.ActionTimers, (src, i) => new ScriptActionTimerRow { Index = i, Source = src });
 		// A combo column rejects a value it has no item for, so any type or weapon id the file
@@ -169,20 +169,20 @@ public partial class MissionScriptForm : Form {
 		// values the new lists may not cover, so they have to go before the swap.
 		_mechRows.Clear();
 		_slotRows.Clear();
-		_mechTypeColumn.DataSource = HercTypeOption.Build(script.SpawnRecords.Select(r => r.TypeIndex));
-		_slotWeaponColumn.DataSource = WeaponFitOption.Build(script.SpawnRecords.SelectMany(r => r.WeaponRefs), includeEmptySlot: true);
-		_slotAmmoColumn.DataSource = AmmoTypeOption.Build(script.SpawnRecords.SelectMany(r => r.WeaponSecondary));
+		_mechTypeColumn.DataSource = HercTypeOption.Build(script.Mechs.Select(r => r.TypeIndex));
+		_slotWeaponColumn.DataSource = WeaponFitOption.Build(script.Mechs.SelectMany(r => r.WeaponRefs), includeEmptySlot: true);
+		_slotAmmoColumn.DataSource = AmmoTypeOption.Build(script.Mechs.SelectMany(r => r.WeaponSecondary));
 
-		Refill(_mechRows, script.SpawnRecords, (src, i) => new ScriptMechRow { Index = i, Source = src });
-		Refill(_flyerRows, script.Entities102, (src, i) => new ScriptFlyerRow { Index = i, Source = src });
-		Refill(_baseRows, script.MiscEntities, (src, i) => new ScriptBaseRow { Index = i, Source = src });
-		Refill(_routeLinkRows, script.LinkedRefs22, (src, i) => new ScriptRouteLinkRow { Index = i, Source = src });
-		Refill(_groupRows, script.Entities164, (src, i) => new ScriptGroupRow { Index = i, Source = src });
-		Refill(_entityLinkRows, script.LinkedRefs58, (src, i) => new ScriptEntityLinkRow { Index = i, Source = src });
+		Refill(_mechRows, script.Mechs, (src, i) => new ScriptMechRow { Index = i, Source = src });
+		Refill(_flyerRows, script.Flyers, (src, i) => new ScriptFlyerRow { Index = i, Source = src });
+		Refill(_baseRows, script.Bases, (src, i) => new ScriptBaseRow { Index = i, Source = src });
+		Refill(_routeLinkRows, script.Orders, (src, i) => new ScriptOrderRow { Index = i, Source = src });
+		Refill(_groupRows, script.Groups, (src, i) => new ScriptGroupRow { Index = i, Source = src });
+		Refill(_entityLinkRows, script.Objectives, (src, i) => new ScriptObjectiveRow { Index = i, Source = src });
 
 		_unlockRows.Clear();
 		foreach (short value in script.ObjectiveTextRefs) {
-			_unlockRows.Add(new ScriptUnlockRow { Value = value });
+			_unlockRows.Add(new ScriptObjectiveLineRow { Value = value });
 		}
 
 		BindLoadout();
@@ -194,9 +194,6 @@ public partial class MissionScriptForm : Form {
 			rows.Add(makeRow(source[i], i));
 		}
 	}
-
-	private static short ReadHeaderShort(ScriptDat script, int offset) =>
-		script.HeaderBytes.Length >= offset + 2 ? BitConverter.ToInt16(script.HeaderBytes, offset) : (short)0;
 
 	private static decimal Clamp(short value, NumericUpDown input) =>
 		Math.Clamp(value, input.Minimum, input.Maximum);
@@ -315,10 +312,10 @@ public partial class MissionScriptForm : Form {
 					? Enumerable.Repeat(grid, 1)
 					: GridsIn(child));
 
-	private void OnAddUnlock(object? sender, EventArgs e) => _unlockRows.Add(new ScriptUnlockRow());
+	private void OnAddUnlock(object? sender, EventArgs e) => _unlockRows.Add(new ScriptObjectiveLineRow());
 
 	private void OnRemoveUnlock(object? sender, EventArgs e) {
-		if (_unlocksGrid.CurrentRow?.DataBoundItem is ScriptUnlockRow row) {
+		if (_unlocksGrid.CurrentRow?.DataBoundItem is ScriptObjectiveLineRow row) {
 			_unlockRows.Remove(row);
 		}
 	}
@@ -396,21 +393,15 @@ public partial class MissionScriptForm : Form {
 	/// left exactly as loaded.
 	/// </summary>
 	private void ApplyHeader(ScriptDat script) {
-		WriteHeaderShort(script, 0, (short)_theaterInput.Value);
-		WriteHeaderShort(script, 2, (short)_zoneInput.Value);
-		WriteHeaderShort(script, 18, (short)_variantInput.Value);
-		WriteHeaderShort(script, 6, (short)_objectiveTypeInput.Value);
-		WriteHeaderShort(script, 8, (short)_trainingInput.Value);
-		WriteHeaderShort(script, 10, (short)(_unlimitedCheck.Checked ? 1 : 0));
-		WriteHeaderShort(script, 12, (short)(_invulnerableCheck.Checked ? 1 : 0));
-		WriteHeaderShort(script, 14, (short)_difficultyInput.Value);
+		script.TheaterIndex = (short)_theaterInput.Value;
+		script.ZoneIndex = (short)_zoneInput.Value;
+		script.TheaterVariant = (short)_variantInput.Value;
+		script.ObjectiveType = (short)_objectiveTypeInput.Value;
+		script.TrainingMissionNumber = (short)_trainingInput.Value;
+		script.UnlimitedAmmunition = (short)(_unlimitedCheck.Checked ? 1 : 0);
+		script.PlayerInvulnerable = (short)(_invulnerableCheck.Checked ? 1 : 0);
+		script.Difficulty = (short)_difficultyInput.Value;
 		_headerRawText.Text = string.Join(" ", script.HeaderBytes.Select(b => b.ToString("X2")));
-	}
-
-	private static void WriteHeaderShort(ScriptDat script, int offset, short value) {
-		if (script.HeaderBytes.Length >= offset + 2) {
-			BitConverter.GetBytes(value).CopyTo(script.HeaderBytes, offset);
-		}
 	}
 
 	/// <summary>
@@ -427,7 +418,7 @@ public partial class MissionScriptForm : Form {
 		}
 
 		for (int i = 0; i < script.Actions.Length; i++) {
-			CheckRefs(warnings, $"Action {i} link refs", script.Actions[i].RefsRow9, script.LinksOrRewards.Length, "links/rewards");
+			CheckRefs(warnings, $"Action {i} trigger area refs", script.Actions[i].AreaRefs, script.TriggerAreas.Length, "trigger areas");
 		}
 
 		for (int i = 0; i < script.ActionTimers.Length; i++) {
@@ -442,54 +433,54 @@ public partial class MissionScriptForm : Form {
 			}
 		}
 
-		for (int i = 0; i < script.SpawnRecords.Length; i++) {
-			var mech = script.SpawnRecords[i];
+		for (int i = 0; i < script.Mechs.Length; i++) {
+			var mech = script.Mechs[i];
 			CheckRef(warnings, $"Herc {i} point ref", mech.PositionRef, script.Coordinates.Length, "points");
 			CheckRef(warnings, $"Herc {i} heading ref", mech.HeadingRef, script.Headings.Length, "headings");
 			CheckRef(warnings, $"Herc {i} engaged action", mech.EngagementActionRef, script.Actions.Length, "actions");
 			CheckRef(warnings, $"Herc {i} defeated action", mech.DefeatActionRef, script.Actions.Length, "actions");
 		}
 
-		for (int i = 0; i < script.Entities102.Length; i++) {
-			var flyer = script.Entities102[i];
+		for (int i = 0; i < script.Flyers.Length; i++) {
+			var flyer = script.Flyers[i];
 			CheckRef(warnings, $"Flyer {i} point ref", flyer.PositionRef, script.Coordinates.Length, "points");
 			CheckRef(warnings, $"Flyer {i} heading ref", flyer.HeadingRef, script.Headings.Length, "headings");
 			CheckRef(warnings, $"Flyer {i} engaged action", flyer.EngagementActionRef, script.Actions.Length, "actions");
 			CheckRef(warnings, $"Flyer {i} defeated action", flyer.DefeatActionRef, script.Actions.Length, "actions");
 		}
 
-		for (int i = 0; i < script.MiscEntities.Length; i++) {
-			var structure = script.MiscEntities[i];
+		for (int i = 0; i < script.Bases.Length; i++) {
+			var structure = script.Bases[i];
 			CheckRef(warnings, $"Base {i} point ref", structure.PositionRef, script.Coordinates.Length, "points");
 			CheckRef(warnings, $"Base {i} heading ref", structure.HeadingRef, script.Headings.Length, "headings");
 			CheckRef(warnings, $"Base {i} engaged action", structure.EngagementActionRef, script.Actions.Length, "actions");
 			CheckRef(warnings, $"Base {i} defeated action", structure.DefeatActionRef, script.Actions.Length, "actions");
 		}
 
-		for (int i = 0; i < script.LinkedRefs22.Length; i++) {
-			var order = script.LinkedRefs22[i];
-			CheckRef(warnings, $"Order {i} route ref", order.RefRow8, script.WaypointGroups.Length, "routes");
-			CheckRef(warnings, $"Order {i} action ref", order.RefRow10, script.Actions.Length, "actions");
-			if (order.DiscriminatorType >= 0) {
-				CheckRef(warnings, $"Order {i} subject ref", order.DiscriminatedRef,
-					SubjectCount(script, order.DiscriminatorType), "subjects");
+		for (int i = 0; i < script.Orders.Length; i++) {
+			var order = script.Orders[i];
+			CheckRef(warnings, $"Order {i} route ref", order.RouteRef, script.WaypointGroups.Length, "routes");
+			CheckRef(warnings, $"Order {i} action ref", order.ActionRef, script.Actions.Length, "actions");
+			if (order.SubjectKind >= 0) {
+				CheckRef(warnings, $"Order {i} subject ref", order.SubjectRef,
+					SubjectCount(script, order.SubjectKind), "subjects");
 			}
 		}
 
-		for (int i = 0; i < script.LinkedRefs58.Length; i++) {
-			var objective = script.LinkedRefs58[i];
-			CheckRef(warnings, $"Objective {i} route ref", objective.RefRow8, script.WaypointGroups.Length, "routes");
-			CheckRef(warnings, $"Objective {i} subject ref", objective.DiscriminatedRef,
-				SubjectCount(script, objective.Discriminator), "subjects");
+		for (int i = 0; i < script.Objectives.Length; i++) {
+			var objective = script.Objectives[i];
+			CheckRef(warnings, $"Objective {i} route ref", objective.RouteRef, script.WaypointGroups.Length, "routes");
+			CheckRef(warnings, $"Objective {i} subject ref", objective.SubjectRef,
+				SubjectCount(script, objective.SubjectKind), "subjects");
 		}
 
-		for (int i = 0; i < script.Entities164.Length; i++) {
-			var group = script.Entities164[i];
-			CheckRef(warnings, $"Group {i} point ref", group.RefRow6, script.Coordinates.Length, "points");
-			CheckRef(warnings, $"Group {i} heading ref", group.RefRow7, script.Headings.Length, "headings");
-			CheckRef(warnings, $"Group {i} route ref", group.RefRow8, script.WaypointGroups.Length, "routes");
-			CheckRef(warnings, $"Group {i} action ref", group.RefRow10, script.Actions.Length, "actions");
-			CheckRefs(warnings, $"Group {i} route link refs", group.Row15Refs, script.LinkedRefs22.Length, "route links");
+		for (int i = 0; i < script.Groups.Length; i++) {
+			var group = script.Groups[i];
+			CheckRef(warnings, $"Group {i} point ref", group.PositionRef, script.Coordinates.Length, "points");
+			CheckRef(warnings, $"Group {i} heading ref", group.HeadingRef, script.Headings.Length, "headings");
+			CheckRef(warnings, $"Group {i} route ref", group.RouteRef, script.WaypointGroups.Length, "routes");
+			CheckRef(warnings, $"Group {i} action ref", group.DeploymentActionRef, script.Actions.Length, "actions");
+			CheckRefs(warnings, $"Group {i} order refs", group.OrderRefs, script.Orders.Length, "orders");
 
 			// Record 0 is the player squad placeholder: DBSIM never reads its member list (it fills
 			// the squad from data\player.mec instead), so whatever indexes it carries are inert.
@@ -497,19 +488,19 @@ public partial class MissionScriptForm : Form {
 				continue;
 			}
 
-			(int rosterCount, string rosterName) = group.Discriminator switch {
-				0 => (script.SpawnRecords.Length, "hercs"),
-				1 => (script.Entities102.Length, "flyers"),
-				2 => (script.MiscEntities.Length, "bases"),
+			(int rosterCount, string rosterName) = group.MemberKind switch {
+				0 => (script.Mechs.Length, "hercs"),
+				1 => (script.Flyers.Length, "flyers"),
+				2 => (script.Bases.Length, "bases"),
 				_ => (-1, "")
 			};
 
 			if (rosterCount < 0) {
-				warnings.Add($"Group {i} roster is {group.Discriminator} — only 0 (hercs), 1 (flyers) and 2 (bases) exist.");
+				warnings.Add($"Group {i} roster is {group.MemberKind} — only 0 (hercs), 1 (flyers) and 2 (bases) exist.");
 				continue;
 			}
 
-			CheckRefs(warnings, $"Group {i} member slots", group.DiscriminatedRefs, rosterCount, rosterName);
+			CheckRefs(warnings, $"Group {i} member slots", group.MemberRefs, rosterCount, rosterName);
 		}
 
 		return warnings;
@@ -520,23 +511,23 @@ public partial class MissionScriptForm : Form {
 	/// numbering orders and objectives share. -1 for a kind with no block, which CheckRef reports.
 	/// </summary>
 	private static int SubjectCount(ScriptDat script, short kind) => kind switch {
-		0 => script.Entities164.Length,
-		1 => script.SpawnRecords.Length,
-		2 => script.Entities102.Length,
-		3 => script.MiscEntities.Length,
+		0 => script.Groups.Length,
+		1 => script.Mechs.Length,
+		2 => script.Flyers.Length,
+		3 => script.Bases.Length,
 		_ => 0
 	};
 
 	/// <summary>
-	/// What an action's target indexes: types 0/1/3/4 name a herc, flyer, base or group (row #10's
-	/// discriminator, docs/formats/msn-mission-file.md). Null for any other type, whose target is not
-	/// documented, so it goes unchecked.
+	/// What an action's target indexes: types 7/8/9/10 name a herc, flyer, base or group
+	/// (docs/simulation/mission-deployment.md#trigger-areas--actions_evaluatetriggers-00426b70). Null
+	/// for any other type, whose target DBSIM zeroes, so it goes unchecked.
 	/// </summary>
 	private static int? TargetCount(ScriptDat script, short type) => type switch {
-		0 => script.SpawnRecords.Length,
-		1 => script.Entities102.Length,
-		3 => script.MiscEntities.Length,
-		4 => script.Entities164.Length,
+		7 => script.Mechs.Length,
+		8 => script.Flyers.Length,
+		9 => script.Bases.Length,
+		10 => script.Groups.Length,
 		_ => null
 	};
 

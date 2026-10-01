@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.Struct;
 /// <summary>
 /// A 32-bit RGBA color, standing in for System.Drawing.Color so HercWorks.Core has no
 /// System.Drawing.Common dependency (which throws PlatformNotSupportedException on non-Windows
-/// as of .NET 7+ — see docs/engine/planning.md's "Known technical debt" section). Matches
+/// as of .NET 7+). Matches
 /// System.Drawing.Color's ARGB byte order and <see cref="ToArgb"/> bit layout exactly, so
 /// consumers that convert back to System.Drawing.Color (e.g. HercWorks.UI, which is
 /// Windows-only and free to keep using GDI+) get byte-identical results.

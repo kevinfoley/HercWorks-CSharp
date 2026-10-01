@@ -1,6 +1,9 @@
 namespace HercWorks.Core.Data.Ref.Constants;
 
-/// <summary>Ported from org.hercworks.core.data.ref.constants.DTSBoneId.</summary>
+/// <summary>
+/// Bone names for a HERC's DTS shape by id, with a display <see cref="Order"/>. <c>UNK_*</c> are ids
+/// whose bone is not identified. The ids have not been checked against the decoded shape format.
+/// </summary>
 public sealed class DTSBoneId {
 	public static readonly DTSBoneId None = new("NONE", -1, -1);
 	public static readonly DTSBoneId Origin = new("ORIGIN", 0x00, 0);
@@ -46,7 +49,7 @@ public sealed class DTSBoneId {
 		Order = order;
 	}
 
-	/// <summary>Original Java defaults to ORIGIN when no value matches; preserved here.</summary>
+	/// <summary>The bone with this id; <see cref="Origin"/> when none matches.</summary>
 	public static DTSBoneId ForVal(short val) =>
 		All.FirstOrDefault(b => b.Val == val) ?? Origin;
 }

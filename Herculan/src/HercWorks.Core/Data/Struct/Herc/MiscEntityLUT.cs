@@ -1,6 +1,10 @@
 namespace HercWorks.Core.Data.Struct.Herc;
 
-/// <summary>Ported from org.hercworks.core.data.struct.herc.MiscEntityLUT.</summary>
+/// <summary>
+/// Names for a numbered list of non-HERC entities — structures and vehicles, human and Cybrid. Which
+/// file or table this id space indexes is not established. Ids marked <c>CRASH</c> have no entry;
+/// the mark records that using them crashed the game, which has not been checked against the binary.
+/// </summary>
 public sealed class MiscEntityLUT {
 	public static readonly MiscEntityLUT SupplyDepot = new(0, "Supply Depot");
 	public static readonly MiscEntityLUT HercFactory = new(1, "Herc Factory");

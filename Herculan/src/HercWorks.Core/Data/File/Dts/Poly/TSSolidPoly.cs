@@ -2,8 +2,15 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Poly;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.poly.TSSolidPoly.</summary>
+/// <summary>
+/// An unlit poly whose surface value is a palette index, drawn as a fill plus an outline. See
+/// docs/formats/dts-texture-binding.md, "TSSolidPoly — palette index, unlit, fill plus outline".
+/// </summary>
 public class TSSolidPoly : TSPoly {
+	/// <summary>
+	/// Which of the group's surfaces the poly uses, stored as <c>surfaceIndex * 4</c>. The surface
+	/// value's meaning depends on the poly type — see <see cref="TSSurfaceEntry"/>.
+	/// </summary>
 	public short ColorIndexId { get; set; }
 
 	public TSSolidPoly() : base(TSObjectHeader.TSSolidPoly) { }

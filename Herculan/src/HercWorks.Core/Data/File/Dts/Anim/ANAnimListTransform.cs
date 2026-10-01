@@ -3,10 +3,15 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Anim;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.anim.ANAnimListTransform.</summary>
+/// <summary>
+/// One keyframe of an <see cref="ANAnimList"/>'s transform pool: three euler angles, then a
+/// translation. See docs/formats/dts-node-posing.md, "Keyframe interpolation".
+/// </summary>
 public class ANAnimListTransform {
 	public Vec3Short? Rotation { get; set; }
 	public Vec3Short? Translation { get; set; }
+
+	/// <summary>Offset of the record in the buffer it was read from.</summary>
 	public int Index { get; set; }
 
 	public override string ToString() {

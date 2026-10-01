@@ -14,13 +14,10 @@ namespace HercWorks.Core.Data.File.Sav;
 /// position carried by <c>script.dat</c> block 11's <b>record 0</b>, which exists purely to place
 /// it — DBSIM overwrites that record's member list with these entries.</para>
 ///
-/// <para>The 35 bytes past the last entry in the retail 263-byte sample are not slack: VSHELL's
-/// <c>PlayerMec_WriteUnlockTable</c> (<c>00412253</c>) closes the export with <c>int16 33</c> and then 33 bytes, one per weapon
-/// catalog id, carrying that weapon's <c>weapons.dat</c> <c>+0x16</c> unlock flag. They are
-/// <see cref="WeaponFlags"/>. See <c>docs/shell/campaign-loop.md</c>.</para>
-///
-/// <para>Replaces a never-implemented stub that guessed this file held a single VSHELL
-/// <c>ShellHercPart</c>.</para>
+/// <para>VSHELL writes it in <c>Game_ExportMissionHandoff</c> (<c>0040f0d4</c>) and closes it with
+/// <c>PlayerMec_WriteUnlockTable</c> (<c>00412253</c>): <c>int16 33</c> and then 33 bytes, one per
+/// weapon catalog id, the <see cref="WeaponFlags"/>. See
+/// <c>docs/shell/campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4</c>.</para>
 /// </summary>
 public class MecFile {
 	/// <summary>
@@ -44,24 +41,23 @@ public class MecFile {
 	/// it at every mission launch — so the table is preserved for byte-fidelity, not because the
 	/// game depends on it.</para>
 	///
-	/// <para>Empty when the source file carried no table, which is the case for files written
-	/// before it was decoded; retail accepts those. An empty table is written back as no table at
-	/// all rather than as zeroes, because the flags cannot be reconstructed from anything else in
-	/// this file and inventing them would state something false about the player's armory.</para>
+	/// <para>Empty when the source file carried no table; retail accepts those. An empty table is
+	/// written back as no table at all rather than as zeroes, because the flags cannot be
+	/// reconstructed from anything else in this file and inventing them would state something false
+	/// about the player's armory.</para>
 	/// </summary>
 	public byte[] WeaponFlags { get; set; } = [];
 }
 
 /// <summary>
-/// One machine in the player's squad. DBSIM reads the two leading fields but never uses them along
-/// the paths traced so far; they carry the entry's pilot, and the three trailing spans are copied
-/// wholesale into the mech's in-memory record, so they round-trip raw rather than being guessed at.
+/// One machine in the player's squad: two fields from its pilot, then the HERC — type, loadout and
+/// the 66-byte status block, which DBSIM copies wholesale into the mech's in-memory record as the
+/// three condition spans below.
 /// </summary>
 public class MecEntry {
 	/// <summary>
 	/// The pilot's name index — pilot record <c>+0x02</c> on the shell side, into
-	/// <c>esnames.bin</c>. See <c>docs/shell/campaign-loop.md</c> for the writer, VSHELL's
-	/// <c>FUN_004106b7</c>.
+	/// <c>esnames.bin</c>. VSHELL's per-entry writer is <c>FUN_004106b7</c>.
 	///
 	/// <para>DBSIM reads it too: <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) stamps it onto the
 	/// spawned machine at <c>mech+0x29c</c>, and <c>FUN_00431530</c> hands it to
@@ -72,10 +68,10 @@ public class MecEntry {
 	public short PilotNameIndex { get; set; }
 
 	/// <summary>The pilot's skill tier, 0-3 — pilot record <c>+0x25</c> on the shell side.</summary>
-	public short Unk02 { get; set; }
+	public short Skill { get; set; }
 
 	/// <summary>The mech type, an index into <c>nam\MECHS.NAM</c>'s name list — the same numbering
-	/// <see cref="Msn.Script.ScriptSpawnRecordExport.TypeIndex"/> uses.</summary>
+	/// <see cref="Msn.Script.ScriptMechRecord.TypeIndex"/> uses.</summary>
 	public short MechType { get; set; }
 
 	/// <summary>
@@ -101,31 +97,27 @@ public class MecEntry {
 	/// </summary>
 	public short[] WeaponAmmoTypes { get; set; } = [];
 
+	/// <summary>Meaning unknown. VSHELL writes a literal 0.</summary>
 	public short Unk3A { get; set; }
 
 	/// <summary>
-	/// 26 bytes copied to the mech record at <c>+0x3c</c> — thirteen <c>int16</c> external component
-	/// conditions on the shell side, the facets enumerated by
-	/// <see cref="Struct.Herc.HercExternals"/>. They are facets rather than named parts: the shell
-	/// groups them six ways (cockpit front/rear, each torso front/rear, chassis, each leg's
-	/// thigh/calf/foot) and only the group carries a name and a repair price. Retail data holds
-	/// 0-100 throughout. See <c>docs/formats/save-games.md</c>.
+	/// 26 bytes copied to the mech record at <c>+0x3c</c> — thirteen <c>int16</c> external facet
+	/// conditions, 0-100, by <see cref="Struct.Herc.HercExternals"/> index. See
+	/// <c>docs/formats/save-games.md#the-66-byte-status-block</c>.
 	/// </summary>
-	public byte[] BlockA { get; set; } = new byte[26];
+	public byte[] ExternalConditions { get; set; } = new byte[26];
 
 	/// <summary>
-	/// 20 bytes copied to the mech record at <c>+0x56</c> — ten <c>int16</c> condition values on the
-	/// shell side. Indices 0-8 are the nine internal components named by
-	/// <see cref="Struct.Herc.HercInternals"/>; index 9 is the machine's overall condition, the mean
-	/// of the externals and internals that the debrief reads to set its pilot's, and resets to 100
-	/// for a machine it does not scrap. Retail data holds 0-100 throughout.
+	/// 20 bytes copied to the mech record at <c>+0x56</c> — ten <c>int16</c> conditions, 0-100.
+	/// Indices 0-8 are the nine internal components named by <see cref="Struct.Herc.HercInternals"/>;
+	/// index 9 is the machine's overall condition, which the debrief reads to set its pilot's.
 	/// </summary>
-	public byte[] BlockB { get; set; } = new byte[20];
+	public byte[] InternalConditions { get; set; } = new byte[20];
 
 	/// <summary>
-	/// 20 bytes copied to the mech record at <c>+0x6a</c> — ten <c>int16</c> per-hardpoint condition
-	/// values, one per weapon slot, in the same slot order as <see cref="MecEntry.WeaponRefs"/>. The
-	/// shell destroys a mount whose value reaches 0.
+	/// 20 bytes copied to the mech record at <c>+0x6a</c> — ten <c>int16</c> per-hardpoint
+	/// conditions, one per weapon slot, in the same slot order as <see cref="WeaponRefs"/>. The shell
+	/// destroys a mount whose value reaches 0.
 	/// </summary>
-	public byte[] BlockC { get; set; } = new byte[20];
+	public byte[] HardpointConditions { get; set; } = new byte[20];
 }

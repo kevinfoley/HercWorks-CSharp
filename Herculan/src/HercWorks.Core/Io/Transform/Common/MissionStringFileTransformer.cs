@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
-/// <summary>Ported from org.hercworks.core.io.transform.common.MissionStringFileTransformer.</summary>
+/// <summary>Reads a mission's <c>.ENG</c> text; see <see cref="MissionStringFile"/>.</summary>
 public class MissionStringFileTransformer : ByteTransformer<MissionStringFile> {
 	public override MissionStringFile? Parse(byte[]? inputArray) {
 		SetBytes(inputArray!);
@@ -14,13 +14,11 @@ public class MissionStringFileTransformer : ByteTransformer<MissionStringFile> {
 
 		for (int i = 0; i < entries.Length; i++) {
 			short guid = IndexShortLE();
-			short rval = IndexShortLE();
-			short rflag = IndexShortLE();
+			short conditionRef = IndexShortLE();
+			short parentRef = IndexShortLE();
 			short len = IndexShortLE();
 
-			// Bytes.from(indexSegment(len)).toCharArray() is the same zero-extend-per-byte
-			// conversion as IndexString(len).
-			var ent = str.CreateEntry(guid, rval, rflag, len, IndexString(len));
+			var ent = str.CreateEntry(guid, conditionRef, parentRef, len, IndexString(len));
 
 			Debug.WriteLine($"Created string entry {ent}");
 			entries[i] = ent;
@@ -31,7 +29,7 @@ public class MissionStringFileTransformer : ByteTransformer<MissionStringFile> {
 	}
 
 	public override byte[]? Write(MissionStringFile? source) {
-		// TODO (carried over from Java): not implemented in the original
+		// Not implemented.
 		return null;
 	}
 }

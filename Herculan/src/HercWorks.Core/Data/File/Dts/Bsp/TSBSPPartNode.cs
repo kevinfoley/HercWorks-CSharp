@@ -3,17 +3,32 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Bsp;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.bsp.TSBSPPartNode.</summary>
+/// <summary>
+/// One 14-byte node of a <see cref="TSBSPPart"/>'s tree: a splitting plane and its two sides. See
+/// docs/formats/dts-texture-binding.md, "TSBSPPart child selection".
+/// </summary>
 public class TSBSPPartNode {
+	/// <summary>Offset of the record in the buffer it was read from.</summary>
 	public int Index { get; set; }
+
 	public int ByteLen { get; set; }
+
+	/// <summary>The record's bytes as read.</summary>
 	public byte[]? Data { get; set; }
 
+	/// <summary>The splitting plane's normal.</summary>
 	public Vec3Short? Normal { get; set; }
 
+	/// <summary>The plane's offset: a point's side is the sign of <c>dot(Normal, point) - Coeff</c>.</summary>
 	public int Coeff { get; set; }
 
+	/// <summary>
+	/// What lies on each side: negative for nothing, <c>0x4000 | i</c> for the leaf
+	/// <c>Parts[i]</c>, otherwise the index of another node.
+	/// </summary>
 	public short Front { get; set; }
+
+	/// <inheritdoc cref="Front"/>
 	public short Back { get; set; }
 
 	public override string ToString() {

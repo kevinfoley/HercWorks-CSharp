@@ -131,33 +131,33 @@ public static class ShellCampaignLaunch {
 		// LoadWeaponsDat (00411fc4): each record's unlock byte, its stock cleared, then the trailing units
 		// added one by one; and Armory_ResetQueue, five free slots, all empty.
 		var units = (weapons.StartingWeapons ?? Array.Empty<UiWeaponEntry>())
-			.Where(unit => unit != null).ToLookup(unit => (int)unit.ItemId);
+			.Where(unit => unit != null).ToLookup(unit => (int)unit.WeaponId);
 		var items = new Inventory.InventoryItem[ShellMissionLaunch.WeaponCatalogCount];
 		for (int id = 0; id < items.Length; id++) {
-			var stock = units[id].Select(unit => new ShellWeaponUnit(unit.ItemId, condition: unit.HealthPercent,
-				guidance: unit.MissileType?.Id ?? ShellWeaponUnit.NoGuidance).ToEntry()).ToArray();
+			var stock = units[id].Select(unit => new ShellWeaponUnit(unit.WeaponId, condition: unit.Condition,
+				guidance: unit.Guidance?.Id ?? ShellWeaponUnit.NoGuidance).ToEntry()).ToArray();
 			items[id] = new Inventory.InventoryItem {
 				Id = WeaponLUT.GetById(id),
 				UnlockFlag = weapons.Data.FirstOrDefault(entry => entry?.Id == id)?.StartUnlock ?? 0,
 				Quantity = (short)stock.Length,
-				Data = stock,
+				Units = stock,
 			};
 		}
 
 		game.Inventory = new Inventory { Items = items };
-		game.WorkshopSpace = ShellHangar.QueueSlots;
-		Array.Fill(game.WorkshopSlots, WeaponLUT.None);
+		game.BuildQueueFreeSlots = ShellHangar.QueueSlots;
+		Array.Fill(game.BuildQueue, WeaponLUT.None);
 
 		// Squad_GenerateRoster, then Player_Create (00410107): each squad's record 0 taken as its member
 		// (00483b48) and the member cursor (00483b4e) stepped to 1; the player's record at roster id 0 with
 		// a drawn name index, the typed name and the skill, rank 0, bay 0, position 0, on strength; no
 		// positions in play and one machine on strength.
 		game.Squadmates = ShellTrainingLaunch.GenerateRoster(ShellText.Load(content, "ESNAMES.BIN"), roll);
-		game.UnkRange_prePlayer = [0, 0, 0, 1, 1, 1, 0, 1];
+		game.SquadTailAndPlayerHead = [0, 0, 0, 1, 1, 1, 0, 1];
 		var player = ShellTrainingLaunch.NewPilot(name, 0, roll(ShellTrainingLaunch.PlayerNameIndexCount), skill, 0);
-		player.BayId = 0;
-		player.CrewRowNum = 0;
-		player.Active = 1;
+		player.Bay = 0;
+		player.SquadPosition = 0;
+		player.OnStrength = 1;
 		game.PlayerPilot = player;
 
 		// LoadHercsDat (004104ed) empties the hangar, and in a campaign puts gam\hercs.dat's machines in their bays.
@@ -170,9 +170,9 @@ public static class ShellCampaignLaunch {
 		// Each chassis's availability, the file's or the held game's.
 		for (short id = 0; id < HercLUT.Mongoose.Id; id++) {
 			var herc = HercLUT.GetById(id)!;
-			game.UnlockedHercs[herc] = chassis != null
-				? chassis.FirstOrDefault(entry => entry?.HercId == id)?.FlagCampaignStart ?? 0
-				: held!.UnlockedHercs.GetValueOrDefault(herc);
+			game.ChassisAvailability[herc] = chassis != null
+				? chassis.FirstOrDefault(entry => entry?.HercId == id)?.AvailabilityFlag ?? 0
+				: held!.ChassisAvailability.GetValueOrDefault(herc);
 		}
 
 		// Career_SeedPosition (00412a2f): stage 1, mission 0 in a campaign, whose load writes the rest of the
@@ -181,17 +181,17 @@ public static class ShellCampaignLaunch {
 			game.CampaignStage = 1;
 			game.MissionInStage = 0;
 		} else if (held != null) {
-			held.Unk4_stateFlags.AsSpan(2).CopyTo(game.Unk4_stateFlags.AsSpan(2));
+			held.CareerBlock.AsSpan(2).CopyTo(game.CareerBlock.AsSpan(2));
 		}
 
 		game.SalvageTotal = roll(ShellTrainingLaunch.SalvageDrawCount) * ShellRepairCosts.KilogramsPerTon + StartingSalvage;
 
 		// The flag array cleared (CampaignFlags_Clear), game state 2, and block 11 as memory holds it.
 		const int heldOffset = PlayerSave.CampaignFlagCount * 2 + 2;
-		game.UnknownSaveValues = new byte[heldOffset + HeldBlockLength];
+		game.CampaignStateTail = new byte[heldOffset + HeldBlockLength];
 		game.GameState = ContinuingGameState;
-		if (held?.UnknownSaveValues is { Length: >= heldOffset + HeldBlockLength } tail) {
-			tail.AsSpan(heldOffset, HeldBlockLength).CopyTo(game.UnknownSaveValues.AsSpan(heldOffset));
+		if (held?.CampaignStateTail is { Length: >= heldOffset + HeldBlockLength } tail) {
+			tail.AsSpan(heldOffset, HeldBlockLength).CopyTo(game.CampaignStateTail.AsSpan(heldOffset));
 		}
 
 		failure = null;
@@ -231,7 +231,7 @@ public static class ShellCampaignLaunch {
 		}
 
 		// Career_SetBriefing: each array copied whole, its count the entries that are not -1.
-		short[] career = game.Unk4_stateFlags;
+		short[] career = game.CareerBlock;
 		void Copy(int countIndex, short[] lines) {
 			lines.CopyTo(career, countIndex + 1);
 			career[countIndex] = (short)lines.Count(line => line != -1);

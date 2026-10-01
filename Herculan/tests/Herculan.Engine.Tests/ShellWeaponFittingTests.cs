@@ -191,11 +191,11 @@ public class ShellWeaponFittingTests {
 			Items = stock.Select(entry => new Inventory.InventoryItem(entry.Conditions.Length) {
 				Id = WeaponLUT.GetById(entry.Weapon),
 				UnlockFlag = 1,
-				Data = entry.Conditions.Select(condition => new ShellWeaponEntry {
+				Units = entry.Conditions.Select(condition => new ShellWeaponEntry {
 					Id = WeaponLUT.GetById(entry.Weapon),
-					HealthArmor = (short)condition,
-					HealthInteral = 100,
-					MissileType = MissileType.None,
+					FitCondition = (short)condition,
+					Condition = 100,
+					Guidance = MissileType.None,
 				}).ToArray(),
 			}).ToArray(),
 		};
@@ -205,17 +205,17 @@ public class ShellWeaponFittingTests {
 
 	private static HercBayEntry BayEntry(int[] mounts) {
 		var entry = new HercBayEntry {
-			Id = HercLUT.GetById(0),
-			HardpointMax = (short)mounts.Length,
+			ChassisType = HercLUT.GetById(0),
+			MountCapacity = (short)mounts.Length,
 			BuildPercent = 100,
 		};
 
-		for (short slot = 0; slot < entry.HealthHardpoints.Length; slot++) {
-			entry.HealthHardpoints[slot] = new ShellHercPart(slot, "hardpoint_" + slot, 100);
+		for (short slot = 0; slot < entry.HardpointConditions.Length; slot++) {
+			entry.HardpointConditions[slot] = new ShellHercPart(slot, "hardpoint_" + slot, 100);
 			if (slot < mounts.Length && mounts[slot] != 0) {
-				entry.Weapons[slot] = new ShellWeaponEntry {
-					Id = WeaponLUT.GetById(mounts[slot]), HealthArmor = 100, HealthInteral = 100,
-					MissileType = MissileType.None,
+				entry.Mounts[slot] = new ShellWeaponEntry {
+					Id = WeaponLUT.GetById(mounts[slot]), FitCondition = 100, Condition = 100,
+					Guidance = MissileType.None,
 				};
 			}
 		}

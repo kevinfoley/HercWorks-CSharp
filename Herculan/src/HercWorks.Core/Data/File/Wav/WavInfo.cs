@@ -6,9 +6,7 @@ namespace HercWorks.Core.Data.File.Wav;
 /// how it's read; nothing here decodes the sample data itself.
 /// </summary>
 public sealed class WavInfo {
-	/// <summary>The fmt chunk's format tag, decoded to a name where recognized — "PCM" (tag 1) is
-	/// the only one SIMSOUND.VOL's own samples ever use (see
-	/// Herculan.Engine.Audio.WaveSample's doc comment); anything else shows as "Unknown (tag N)".</summary>
+	/// <summary>The fmt chunk's format tag as a name — "PCM" for tag 1, otherwise "Unknown (tag N)".</summary>
 	public string Format { get; init; } = "";
 
 	public int Channels { get; init; }

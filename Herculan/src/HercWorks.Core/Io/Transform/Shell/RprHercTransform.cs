@@ -23,7 +23,7 @@ public class RprHercTransform : ByteTransformer<RprHerc> {
 			frame.OriginX = IndexIntLE();
 			frame.OriginY = IndexIntLE();
 			frame.FrameId = IndexShortLE();
-			frame.Flags = UiImageDBA.RFlag.Get(IndexShortLE());
+			frame.BlitFlags = UiImageDBA.BlitFlag.Get(IndexShortLE());
 			bodFrames[id] = frame;
 		}
 		repairHerc.BodyImages = bodFrames;
@@ -33,7 +33,7 @@ public class RprHercTransform : ByteTransformer<RprHerc> {
 		internals.OriginX = IndexIntLE();
 		internals.OriginY = IndexIntLE();
 		internals.FrameId = IndexShortLE();
-		internals.Flags = UiImageDBA.RFlag.Get(IndexShortLE());
+		internals.BlitFlags = UiImageDBA.BlitFlag.Get(IndexShortLE());
 		repairHerc.InternalImage = internals;
 
 		short totalWeapons = IndexShortLE();
@@ -49,7 +49,7 @@ public class RprHercTransform : ByteTransformer<RprHerc> {
 				socket.OriginX = IndexIntLE();
 				socket.OriginY = IndexIntLE();
 				socket.FrameId = IndexShortLE();
-				socket.Flags = UiImageDBA.RFlag.Get(IndexShortLE());
+				socket.BlitFlags = UiImageDBA.BlitFlag.Get(IndexShortLE());
 				points[h] = socket;
 			}
 			weapons[itemId] = points;
@@ -75,7 +75,7 @@ public class RprHercTransform : ByteTransformer<RprHerc> {
 		Emit(WriteIntLE(data.InternalImage.OriginX));
 		Emit(WriteIntLE(data.InternalImage.OriginY));
 		Emit(WriteShortLE(data.InternalImage.FrameId));
-		Emit(WriteShortLE(data.InternalImage.Flags!.Val));
+		Emit(WriteShortLE(data.InternalImage.BlitFlags!.Val));
 
 		Emit(WriteShortLE(data.TotalHardpoints));
 		foreach (var id in data.WeaponHardpoints!.Keys) {
@@ -88,7 +88,7 @@ public class RprHercTransform : ByteTransformer<RprHerc> {
 				Emit(WriteIntLE(img.OriginX));
 				Emit(WriteIntLE(img.OriginY));
 				Emit(WriteShortLE(img.FrameId));
-				Emit(WriteShortLE(img.Flags!.Val));
+				Emit(WriteShortLE(img.BlitFlags!.Val));
 			}
 		}
 		return outStream.ToArray();
@@ -103,7 +103,7 @@ public class RprHercTransform : ByteTransformer<RprHerc> {
 		Emit(WriteIntLE(img.OriginX));
 		Emit(WriteIntLE(img.OriginY));
 		Emit(WriteShortLE(img.FrameId));
-		Emit(WriteShortLE(img.Flags!.Val));
+		Emit(WriteShortLE(img.BlitFlags!.Val));
 
 		return bass.ToArray();
 	}

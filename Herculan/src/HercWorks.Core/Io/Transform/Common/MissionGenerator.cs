@@ -1200,7 +1200,7 @@ public sealed class MissionGenerator {
 
 	/// <summary>
 	/// The writer's split of a span of ten word pairs: the first word of every pair, then the second —
-	/// the order <c>ScriptDat</c>'s <c>ArrayA</c>/<c>ArrayB</c> keep.
+	/// the order <c>ScriptDat</c>'s <c>CounterRefs</c>/<c>CounterOps</c> keep.
 	/// </summary>
 	private static void Interleaved(BinaryWriter writer, short[] record, int first) {
 		for (int pair = 0; pair < 10; pair++) {

@@ -3,10 +3,8 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Data.File.Cfg;
 
 /// <summary>
-/// FILE - [ROOT]/DATA/PREFS.CFG. Mostly-unidentified 16-bit preference flags (music/sfx
-/// on-off, resolution, fullscreen, herc-repair mode, weapon-build mode, and many unknowns) —
-/// see the Java source for the full byte-offset notes. No fields modeled yet in the original.
-/// Ported from org.hercworks.core.data.file.cfg.Prefs.
+/// <c>DATA\PREFS.CFG</c> — the simulator's option array, one byte per option, 54 bytes in retail.
+/// No fields are modelled here. See docs/simulation/preferences.md.
 /// </summary>
 public class Prefs : DataFile {
 	public Prefs() : base("PREFS.CFG", "DATA/") { }

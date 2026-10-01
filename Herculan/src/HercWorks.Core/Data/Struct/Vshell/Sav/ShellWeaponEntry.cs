@@ -1,23 +1,26 @@
 namespace HercWorks.Core.Data.Struct.Vshell.Sav;
 
 /// <summary>
-/// Found in .sav files. This and <see cref="Hercs.UiWeaponEntry"/> are the two on-disk forms of one
-/// ten-byte in-memory record, so both are needed: the <c>gam\*.dat</c> catalogs store six bytes
-/// (id, condition, missile type) and the save stores all five shorts. The two fields the short form
-/// omits are filled at load — the id-derived index below, and a value the constructor sets to 100
-/// and no traced path reads back from a file.
-///
-/// <para>Field order is id, that derived index, then the two health shorts, then the missile type.
-/// The derived index is a position in a thirty-entry table covering every weapon id except the
-/// three Bull weapons, which therefore resolve to -1.</para>
-///
-/// Ported from org.hercworks.core.data.struct.vshell.sav.ShellWeaponEntry.
-/// See <c>docs/formats/herc-catalogs.md</c> for the record and both its file forms.
+/// The save form of a weapon unit, all five shorts of the ten-byte in-memory record, in on-disk
+/// order. <see cref="Hercs.UiWeaponEntry"/> is the six-byte <c>gam\*.dat</c> form of the same
+/// record. See <c>docs/formats/herc-catalogs.md#the-weapon-unit-record</c>.
 /// </summary>
 public class ShellWeaponEntry {
+	/// <summary><c>+0x00</c>, the weapon catalog id.</summary>
 	public WeaponLUT? Id { get; set; }
-	public short NameId { get; set; }
-	public short HealthArmor { get; set; }
-	public short HealthInteral { get; set; }
-	public MissileType? MissileType { get; set; }
+
+	/// <summary>
+	/// <c>+0x02</c>, the armory class index, derived from the id by <c>Weapon_ClassIndexForId</c>
+	/// (<c>004119b4</c>) whenever a unit is constructed; <c>-1</c> for the three Bull weapons.
+	/// </summary>
+	public short ClassIndex { get; set; }
+
+	/// <summary><c>+0x04</c>, the hardpoint condition <c>Herc_FitMount</c> (<c>004114ec</c>) writes into the status block when the unit is fitted.</summary>
+	public short FitCondition { get; set; }
+
+	/// <summary><c>+0x06</c>, the unit's condition.</summary>
+	public short Condition { get; set; }
+
+	/// <summary><c>+0x08</c>, the ammo type — the guidance kind, or 5 for none.</summary>
+	public MissileType? Guidance { get; set; }
 }

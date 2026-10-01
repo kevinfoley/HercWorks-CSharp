@@ -1,8 +1,9 @@
 namespace HercWorks.Core.Data.Ref.Constants;
 
 /// <summary>
-/// Reference data for weapons.
-/// Ported from org.hercworks.core.data.ref.constants.ItemDataRef.
+/// A weapon's id, range and name, the id and range held as raw two-byte fields, with the range also
+/// as display text. <see cref="Id2"/> is set to the same bytes as <see cref="Id"/>, and
+/// <see cref="IdInt"/> is never computed from them.
 /// </summary>
 public class ItemDataRef {
 	public byte[] Id { get; set; } = new byte[2];

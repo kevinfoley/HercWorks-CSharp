@@ -4,9 +4,8 @@ using System.Globalization;
 namespace HercWorks.Core.Data.Struct;
 
 /// <summary>
-/// Some data structures reference a Vec3, but most common implementations assume double (float)
-/// or int, whereas ES2 uses signed shorts. Mostly for data storage, less so actual vector operations.
-/// Ported from org.hercworks.core.data.struct.Vec3Short.
+/// A triple of signed 16-bit values, as the data files store them — for storage rather than vector
+/// arithmetic.
 /// </summary>
 public class Vec3Short {
 	public short X { get; set; }

@@ -28,8 +28,8 @@ public class PaperDiagramGraphTransformer : ByteTransformer<PaperDollGraphic> {
 			region.Index = IndexIntLE();
 			region.TopLeft = new PixelPoint(IndexIntLE(), IndexIntLE());
 			region.BottomRight = new PixelPoint(IndexIntLE(), IndexIntLE());
-			region.Unk_val = IndexIntLE();
-			region.Spacer = IndexIntLE();
+			region.ColorId = IndexIntLE();
+			region.RecolorMode = IndexIntLE();
 			structure.Regions[r] = region;
 		}
 		pdg.Entries[0] = structure;
@@ -44,8 +44,8 @@ public class PaperDiagramGraphTransformer : ByteTransformer<PaperDollGraphic> {
 			region.Index = IndexIntLE();
 			region.TopLeft = new PixelPoint(IndexIntLE(), IndexIntLE());
 			region.BottomRight = new PixelPoint(IndexIntLE(), IndexIntLE());
-			region.Unk_val = IndexIntLE();
-			region.Spacer = IndexIntLE();
+			region.ColorId = IndexIntLE();
+			region.RecolorMode = IndexIntLE();
 			internals.Regions[r] = region;
 		}
 		pdg.Entries[1] = internals;
@@ -60,8 +60,8 @@ public class PaperDiagramGraphTransformer : ByteTransformer<PaperDollGraphic> {
 			region.Index = IndexIntLE();
 			region.TopLeft = new PixelPoint(IndexIntLE(), IndexIntLE());
 			region.BottomRight = new PixelPoint(IndexIntLE(), IndexIntLE());
-			region.Unk_val = IndexIntLE();
-			region.Spacer = IndexIntLE();
+			region.ColorId = IndexIntLE();
+			region.RecolorMode = IndexIntLE();
 			hudTarget.Regions[r] = region;
 		}
 		pdg.Entries[2] = hudTarget;
@@ -106,8 +106,8 @@ public class PaperDiagramGraphTransformer : ByteTransformer<PaperDollGraphic> {
 				WriteInt(region.TopLeft.Y);
 				WriteInt(region.BottomRight.X);
 				WriteInt(region.BottomRight.Y);
-				WriteInt(region.Unk_val);
-				WriteInt(region.Spacer);
+				WriteInt(region.ColorId);
+				WriteInt(region.RecolorMode);
 			}
 		}
 

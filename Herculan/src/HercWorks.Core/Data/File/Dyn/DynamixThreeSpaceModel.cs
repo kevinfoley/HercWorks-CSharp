@@ -6,16 +6,14 @@ using System.Text;
 namespace HercWorks.Core.Data.File.Dyn;
 
 /// <summary>
-/// FILE - DTS - Dynamix ThreeSpace — primary 3D model format for the ES2 engine.
-/// Ported from org.hercworks.core.data.file.dyn.DynamixThreeSpaceModel. Apache Commons Math's
-/// Vector3D maps to System.Numerics.Vector3 here.
+/// A <c>.DTS</c> ThreeSpace shape file: a sequence of root chunks. A machine's roots are complete
+/// alternate models, one per level of detail; a shape library's are unrelated shapes. See
+/// docs/formats/mech-shape-drawing.md, "The LOD root is chosen per frame, per object".
 /// </summary>
 public class DynamixThreeSpaceModel {
 	/// <summary>
-	/// Source file name, used only by <see cref="ToString"/>'s JSON dump. No parse path sets it
-	/// today — the transformer never named the model — so the dump's "file" field comes out empty,
-	/// exactly as it did when this was inherited from DataFile. Kept so a caller that does know
-	/// the name can still supply it.
+	/// Not in the file: a name for <see cref="ToString"/>'s JSON dump. The transformer does not set
+	/// it, so the dump's "file" field is empty unless a caller supplies one.
 	/// </summary>
 	public string? FileName { get; set; }
 
@@ -25,13 +23,19 @@ public class DynamixThreeSpaceModel {
 			: FileName.LastIndexOf('.') != -1 ? FileName[..FileName.LastIndexOf('.')]
 			: FileName;
 
-	public List<TSObject>? Meshes { get; set; }
+	/// <summary>The file's top-level chunks, in file order.</summary>
+	public List<TSObject>? Roots { get; set; }
 
+	/// <summary>Not in the file; the transformer does not set it.</summary>
 	public Vector3 Center { get; set; }
 
-	// XXX (carried over from Java): these are set by game engine code, and thus must be set by
-	// any code that would like to link a texture to the DTS model.
+	/// <summary>
+	/// Not in the file: a <c>.DTS</c> names no texture, so a caller that wants one bound sets these.
+	/// Which bank retail binds is in docs/formats/dts-texture-binding.md, "DBA binding".
+	/// </summary>
 	public string? TextureName { get; set; }
+
+	/// <inheritdoc cref="TextureName"/>
 	public DynamixBitmapArray? TextureDBA { get; set; }
 
 	public override string ToString() {
@@ -39,9 +43,9 @@ public class DynamixThreeSpaceModel {
 
 		str.Append("{\"file\" : \"").Append(NameNoExt()).Append("\",\n");
 		str.Append("\"meshes\" : [\n");
-		for (int s = 0; s < Meshes!.Count; s++) {
-			str.Append(Meshes[s].ToString());
-			if (s < Meshes.Count - 1) {
+		for (int s = 0; s < Roots!.Count; s++) {
+			str.Append(Roots[s].ToString());
+			if (s < Roots.Count - 1) {
 				str.Append(",\n");
 			}
 		}

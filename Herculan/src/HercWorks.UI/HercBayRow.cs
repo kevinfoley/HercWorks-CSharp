@@ -5,9 +5,9 @@ namespace HercWorks.UI;
 /// <summary>
 /// Editable grid-row shape for one PlayerSave.HercBay entry (keyed by bay id). Flat fields
 /// (BayId, Herc, BuildPercent, BuildStepNum, HardpointMax) are edited directly in the grid;
-/// ActiveSockets is shown read-only (recalculated from the equipped-weapons count on save, same
-/// pattern as CampaignResourcesForm's WorkshopSpace recalculation) since it must stay consistent
-/// with whatever the detail editor's Weapons grid ends up holding. Per-part health
+/// the mount count is shown read-only (HercBayEntry.MountsOccupied is recounted from the fitted
+/// mounts on save) since it must stay consistent with whatever the detail editor's Weapons grid
+/// ends up holding. Per-part health
 /// (externals/internals/hardpoints) and equipped weapons are too deeply nested for a flat grid row
 /// — those are edited via HercBayEditorForm, opened per-row.
 /// </summary>

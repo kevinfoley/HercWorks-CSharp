@@ -45,7 +45,7 @@ Palette_InstallRange(0x2a, 0x18, COCKPIT.DPL.entries + (schemeIndex*0x18 + 0x20)
 
 Live slots **42-65** ← `COCKPIT.DPL` entries `[32 + 24*schemeIndex, +24)`. No other site installs `COCKPIT.DPL`; its remaining 232 entries are never read.
 
-`schemeIndex` is the mech type record's `+0x52`, i.e. **offset 80 of `dat\<MECH>.DAT`** — `HercSimDat.Unk80_ValHudId`. Retail values are a 0-8 permutation over the nine player hercs, so the nine schemes tile `COCKPIT.DPL` entries 32-247 exactly:
+`schemeIndex` is the mech type record's `+0x52`, i.e. **offset 80 of `dat\<MECH>.DAT`** — `HercSimDat.CockpitColorScheme`. Retail values are a 0-8 permutation over the nine player hercs, so the nine schemes tile `COCKPIT.DPL` entries 32-247 exactly:
 
 | Herc | scheme | COCKPIT.DPL entries |
 |---|---|---|

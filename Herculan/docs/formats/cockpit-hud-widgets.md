@@ -205,7 +205,7 @@ The chain button's caption is its count in Roman numerals from `ChainCountCaptio
 
 ## `.PDG` — paper-doll damage diagram
 
-`PaperDoll_Load` (`004379cc`, `pdamage.cpp`) matches `PaperDollGraphic` field for field: 3 views, each an origin/size pair plus a vector of `0x1c`-byte regions (`{int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}`).
+`PaperDoll_Load` (`004379cc`, `pdamage.cpp`) matches `PaperDollGraphic` field for field: 3 views, each an origin/size pair plus a vector of `0x1c`-byte regions (`{int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int recolorMode}`).
 
 Coordinates are authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`, with `bottomRight` additionally `+1` in the 640-wide mode, so a region covers the full 2x2 device footprint of each source pixel. Region art comes from `{herc}.HBA`/`.DBA`, frame `n` for view `n`.
 
@@ -214,7 +214,7 @@ The two nameless fields are what makes a region a damage region:
 | Field | Offset | Meaning |
 |---|---|---|
 | `colorId` | `0x14` | The colour the art drew that body part in — a `COLORS.DAT` id, resolved to a palette index in place at load. Retail uses 9, 12, 15, 20, 24 and 25 |
-| `spacer` | `0x18` | Recolour mode. **Every retail region states 0**; modes 1-3 are unexercised |
+| `recolorMode` | `0x18` | Recolour mode. **Every retail region states 0**; modes 1-3 are unexercised |
 
 ### Tinting
 
@@ -276,7 +276,7 @@ On taking a walking machine the cockpit comes up piece by piece rather than read
 | Roving gunsight, `cockpit+0x1f5` | `!= 0` | the compass winds up — [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md#power-up-wind-up) |
 | MFD, `cockpit+0x1ed` | `!= 0` | [the scanner dish grows](#scanner-dish-grows) |
 
-**A flyer skips all of it.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* marks done every widget in the table, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start. The same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up). <!-- doc-lint: ok -->
+**A flyer skips all of it.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `FlyerFlag` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* marks done every widget in the table, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start. The same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up). <!-- doc-lint: ok -->
 
 Retail runs every one of these animations on the coarse clock from a stamped tick, so a widget that is off screen while its update is skipped shows on its return exactly what it would have shown.
 

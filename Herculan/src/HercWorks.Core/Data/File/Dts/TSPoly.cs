@@ -2,11 +2,20 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.TSPoly.</summary>
+/// <summary>
+/// A polygon with no surface of its own, so nothing fills it; a cell animation uses one as its
+/// blank cell. See docs/formats/mech-shape-drawing.md, "A destroyed component hides its own geometry".
+/// </summary>
 public class TSPoly : TSObject {
+	/// <summary>Index into the group's points of the face's stored normal (<c>poly+4</c>).</summary>
 	public short Normal { get; set; }
+
+	/// <summary>Index into the group's points of the face's centre (<c>poly+6</c>).</summary>
 	public short Center { get; set; }
+
 	public short VertexCount { get; set; }
+
+	/// <summary>Offset into the group's <see cref="TSGroup.Indexes"/> of the first corner.</summary>
 	public short VertexList { get; set; }
 
 	public TSPoly() : base(TSObjectHeader.TSPoly) { }

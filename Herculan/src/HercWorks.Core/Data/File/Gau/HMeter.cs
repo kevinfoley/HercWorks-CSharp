@@ -3,8 +3,9 @@ using HercWorks.Core.Data.Struct;
 namespace HercWorks.Core.Data.File.Gau;
 
 /// <summary>
-/// Observed: unlabeled, horizontal, will generate meter ticks from origin to maximum.
-/// Ported from org.hercworks.core.data.file.gau.HMeter.
+/// The Master Energy Pool meter, content offset 564: a vertical LED bar graph that
+/// <c>EnergyPoolGauge_Ctor</c> (<c>00444d5c</c>) builds over this rect. See
+/// docs/formats/cockpit-hud-widgets.md, "LED gauges".
 /// </summary>
 public class HMeter : WidgetBase {
 	public HMeter() { }

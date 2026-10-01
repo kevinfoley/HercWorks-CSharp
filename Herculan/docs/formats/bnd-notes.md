@@ -16,7 +16,7 @@ The Java source (`herc-works-mdk-main/ES2Core/.../data/file/bnd/{Cam,Mech,MechSy
 
 | Content offset | Field | Real value | C# property |
 |---|---|---|---|
-| 0 | UINT8 | 54 | `RecordTag` |
+| 0 | UINT8 | 54 | `Unknown0` |
 | 1 | UINT8 | 208 | `Unknown1` |
 | 2 | UINT8 | 52 | `Unknown2` |
 | 3 | UINT8 | 49 | `Unknown3` |

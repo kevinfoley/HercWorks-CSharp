@@ -2,7 +2,10 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Anim;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.anim.ANCyclicSequence.</summary>
+/// <summary>
+/// A looping <see cref="ANSequence"/>. The chunk's class is the whole difference: the frame step wraps
+/// instead of clamping. See docs/formats/dts-node-posing.md, "Cyclic and one-shot sequences".
+/// </summary>
 public class ANCyclicSequence : ANSequence {
 	public ANCyclicSequence() : base(TSObjectHeader.ANCyclicSequence) { }
 

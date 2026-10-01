@@ -1,236 +1,252 @@
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
-/// FILE - dat\[herc].dat — full documented byte layout is extensive (~216 bytes covering speed,
-/// turning, camera, animation IDs, torso pitch/twist, model flags, shadow flags, shield max,
-/// physics friction, debris file, etc.). See org.hercworks.core.data.file.dat.sim.HercSimDat in
-/// the Java source for the complete offset-by-offset documentation — reproduced there rather than
-/// duplicated here since it's ~100 lines of field-by-field notes.
-/// Ported from org.hercworks.core.data.file.dat.sim.HercSimDat.
+/// FILE - dat\[herc].dat — the 216-byte mech type record <c>MechType_InitOne</c> (<c>004201a8</c>)
+/// loads into <c>MECH_TYPE_DATA[i]+2</c>, so record offset N is the exe's <c>typeRecord+N+2</c>.
+/// Offsets below are record offsets, in decimal. The field table and per-chassis values are in
+/// docs/simulation/mech-locomotion.md#mech-type-record.
 /// </summary>
 public class HercSimDat {
+	/// <summary>Offset 0 — maximum turn rate. Not rescaled at load.</summary>
 	public short SpeedTurn { get; set; }
+
+	/// <summary>Offset 2 — maximum reverse speed, negative.</summary>
 	public short SpeedReverse { get; set; }
+
+	/// <summary>Offset 4 — maximum forward speed.</summary>
 	public short SpeedForward { get; set; }
+
 	/// <summary>Offset 6 — how far the speed scalar moves toward its target each tick.</summary>
 	public short SpeedAccelDecel { get; set; }
 
 	/// <summary>Offset 8 — the same step for the turn rate.</summary>
-	public short DecelTurning { get; set; }
+	public short TurnAccelDecel { get; set; }
 
 	/// <summary>Offset 10 — the model node the cockpit eye rides.</summary>
 	public short CameraBoneId { get; set; }
 
+	/// <summary>Offset 12 — walk sequence id.</summary>
 	public short AnimId_Walk { get; set; }
+
+	/// <summary>Offset 14 — run sequence id.</summary>
 	public short AnimId_Run { get; set; } = 2;
+
+	/// <summary>Offset 16 — the stop / step-off sequence played when slowing to a halt forwards.</summary>
 	public short AnimId_StopMove { get; set; } = 3;
-	/// <summary>
-	/// Offset 18 — the stop / step-off sequence played when slowing to a halt in reverse. The torso 
-	/// pitch parameters are offsets 36-42.
-	/// </summary>
+
+	/// <summary>Offset 18 — the stop / step-off sequence played when slowing to a halt in reverse.</summary>
 	public short AnimId_StopReverse { get; set; } = 4;
-	public short UnitOffsetYAdjust { get; set; }
+
+	/// <summary>Offset 20 — ride height, added to the terrain height under the machine.</summary>
+	public short RideHeight { get; set; }
 
 	/// <summary>
-	/// Offset 22 (the exe's <c>typeRecord+0x18</c>) — how high above the machine's origin its
-	/// direct-fire hit cylinder is centred: 1000 heavy and medium, 750 light, 0 RAZOR. Was
-	/// <c>Unk22_Val750Razor0</c>. See Herculan.Engine.Sim.MechTypeRecord.HitCenterHeight.
+	/// Offset 22 — how high above the machine's origin its direct-fire hit cylinder is centred:
+	/// 1000 heavy and medium, 750 light, 0 RAZOR.
 	/// </summary>
 	public short HitCenterHeight { get; set; }
 
 	/// <summary>
-	/// Offset 24 (the exe's <c>typeRecord+0x1a</c>) — the radius of that cylinder, and of the coarse
-	/// reject in front of it: 2500 heavy, 1500 medium, 1000 SPIDER. Was <c>AiAimTargOffset</c>, a
-	/// guess no consumer bears out. See Herculan.Engine.Sim.MechTypeRecord.HitRadius.
+	/// Offset 24 — the radius of that cylinder, and of the coarse reject in front of it: 2500 heavy,
+	/// 1500 medium, 1000 SPIDER.
 	/// </summary>
 	public short HitRadius { get; set; }
 
 	/// <summary>
-	/// Offset 26 — the torso-twist sequence id. <c>Mech_Constructor</c> builds the mech's second
-	/// animation thread on it, and <c>Mech_TorsoTwistTick</c> seeks that thread by the twist angle;
-	/// the sequence is a full turn of the torso node.
+	/// Offset 26 — the torso-twist sequence: a full turn of the torso node, which the twist angle
+	/// seeks a position within. See docs/simulation/torso-aim.md.
 	/// </summary>
 	public short AnimId_TorsoTwist { get; set; }
-	public short TorsoTwistSpeed { get; set; }
-	public short TorsoRotateAccel { get; set; }
-	public short TorsoTwistDegreeMax { get; set; }
+
+	/// <summary>Offset 28 — twist rate at full stick.</summary>
+	public short TorsoTwistMaxRate { get; set; }
+
+	/// <summary>Offset 30 — how fast the twist rate may build.</summary>
+	public short TorsoTwistAccel { get; set; }
 
 	/// <summary>
-	/// Offset 34 — the torso-pitch sequence id, the pitch counterpart of
-	/// <see cref="AnimId_TorsoTwist"/>.
+	/// Offset 32 — twist limit either way, as a binary angle: 14000 everywhere but the PITBULL's
+	/// 32767, which is no limit.
 	/// </summary>
+	public short TorsoTwistLimit { get; set; }
+
+	/// <summary>Offset 34 — the torso-pitch sequence, the pitch counterpart of <see cref="AnimId_TorsoTwist"/>.</summary>
 	public short AnimId_TorsoPitch { get; set; }
+
+	/// <summary>Offset 36 — pitch rate at full stick.</summary>
 	public short TorsoPitchMaxRate { get; set; }
-	public short TorsoPitchRate { get; set; }
+
+	/// <summary>Offset 38 — how fast the pitch rate may build.</summary>
+	public short TorsoPitchAccel { get; set; }
+
+	/// <summary>Offset 40 — pitch limit looking up.</summary>
 	public short TorsoPitchMax { get; set; }
+
+	/// <summary>Offset 42 — pitch limit looking down, negative.</summary>
 	public short TorsoPitchMin { get; set; }
 
 	/// <summary>Offset 44 — the speed at which the walk gait gives way to the run gait.</summary>
 	public short GaitThreshold { get; set; }
 
+	/// <summary>Record offset of <see cref="ModelLoDBoneIds"/>.</summary>
 	public static int ModelLodArrOFs { get; set; } = 46;
+
+	/// <summary>Offsets 46-65, twenty bytes. Meaning not established.</summary>
 	public byte[] ModelLoDBoneIds { get; set; } = new byte[20];
 
-	// 0x58-0x65 - extra boneId space in array, as seen in PITBULL.DAT
-
 	/// <summary>
-	/// Offset 66 (the exe's <c>typeRecord+0x44</c>) — the base term of the chassis' AI combat rating,
-	/// the figure DBSIM's target weighting and its flee check both weigh machines by. Every retail
-	/// chassis states 1000, so what separates two machines is entirely their guns, their armour and
-	/// their damage. Was <c>Unk66_Val1000</c>. See Herculan.Engine.Sim.MechObject.CombatRating and
-	/// docs/simulation/ai-targeting.md.
+	/// Offset 66 — the base term of the chassis' AI combat rating, which DBSIM's target weighting and
+	/// flee check both weigh machines by. 1000 on every retail chassis. See
+	/// docs/simulation/ai-targeting.md#relative-combat-rating.
 	/// </summary>
 	public short AiRatingBase { get; set; } = 1000;
 
 	/// <summary>
-	/// Offset 68 (the exe's <c>typeRecord+0x46</c>) — the death / fall sequence, and it is a real
-	/// one: every biped states 7, the PITBULL 2, the SPIDER 1, and on the walkers that id names a
-	/// full-body sequence the shape carries which nothing else references.
-	///
-	/// <para><c>Mech_LocomotionTick</c> transitions an <i>immobilised</i> machine into it — this is
-	/// the fall a HERC makes when its legs go, and the pose at the sequence's last frame is where
-	/// the wreck stays. <c>Mech_PlaceLegsOnGround</c> reads it a second time, to take a different
-	/// contact test while the fall plays. Both read it off a base register holding
-	/// <c>typeRecord + 2</c>, so the field appears in the disassembly at displacement
-	/// <c>0x44</c>. See Herculan.Engine.Sim.MechObject.FallDown.</para>
+	/// Offset 68 — the death / fall sequence an immobilised machine goes down in; the pose at its last
+	/// frame is where the wreck stays. Every biped states 7, the PITBULL 2, the SPIDER 1. See
+	/// docs/simulation/mech-locomotion.md#going-down.
 	/// </summary>
 	public short AnimId_Death { get; set; }
 
+	/// <summary>Offset 70. Meaning not established.</summary>
 	public short LegsCritFlags2 { get; set; }
-	public short ModelLegsTotal { get; set; }
+
+	/// <summary>Offset 72 — how many legs the chassis walks on: 2, except the PITBULL's 4.</summary>
+	public short LegCount { get; set; }
 
 	/// <summary>
-	/// Offset 74 (the exe's <c>typeRecord+0x4c</c>) — <b>this chassis leaves no wreck</b>. On death
-	/// <c>Mech_ComponentDamageWrite</c> takes a different branch for it: the machine drops to
-	/// <c>in limbo</c> rather than <c>dead</c>, is sunk to z = -100000, and every shadow it casts
-	/// is deleted. Set only on the SPIDER, which is also the one chassis with no legs and no mass.
-	/// Was <c>ModelFlagNoDebris</c>, which it is not — the debris a destroyed component throws is
-	/// unaffected. See Herculan.Engine.Sim.MechObject.ComponentDamageWrite.
+	/// Offset 74 — nonzero: this chassis leaves no wreck. On death it drops to <c>in limbo</c> rather
+	/// than <c>dead</c>, is sunk out of the world and loses its shadows. Set only on the SPIDER. The
+	/// debris a destroyed component throws is unaffected.
 	/// </summary>
 	public short VanishesOnDeath { get; set; }
 
 	/// <summary>
-	/// Offset 76 (the exe's <c>typeRecord+0x4e</c>) — the chassis' <b>mass</b>, the Q10 term each
-	/// party's speed is weighed by when two machines run into each other, and the whole of why a
-	/// heavier HERC wins a collision. Retail runs 5000 for a light through 20000 for the PITBULL;
-	/// SPIDER states 0, so it can neither hurt anything by walking into it nor be spared by its own
-	/// weight. Was <c>Unk76_Val</c>.
+	/// Offset 76 — the chassis' mass, the Q10 weight each party's speed carries in a collision:
+	/// 5000 for a light through 20000 for the PITBULL, and 0 for the SPIDER.
 	/// </summary>
 	public short Mass { get; set; }
 
-	/// <summary>Hercs have 0, razor has 1.</summary>
-	public short InputFlagFlyer { get; set; }
-
-	/// <summary>Possibly HUD id or even palette ID.</summary>
-	public short Unk80_ValHudId { get; set; }
+	/// <summary>
+	/// Offset 78 — nonzero for a flyer (the RAZOR alone): selects the flight code paths and the
+	/// <c>fm\&lt;NAME&gt;.FM</c> load. See docs/simulation/razor-flight.md.
+	/// </summary>
+	public short FlyerFlag { get; set; }
 
 	/// <summary>
-	/// Offset 82 (the exe's <c>typeRecord+0x54</c>) — what the chassis' wreck is worth, a Q10 scale on its
-	/// weighted remaining armour: 1024, 1500 or 800 across retail. <c>Mech_SalvageValue</c> (<c>00418e60</c>)
-	/// is its one reader. See Herculan.Engine.Sim.MechObject.SalvageValue. Was <c>Unk82_val</c>.
+	/// Offset 80 — which of <c>COCKPIT.DPL</c>'s nine 24-entry colour schemes the cockpit installs.
+	/// A 0-8 permutation over the nine player HERCs. See docs/formats/cockpit-canopy-palette.md#palette.
+	/// </summary>
+	public short CockpitColorScheme { get; set; }
+
+	/// <summary>
+	/// Offset 82 — what the chassis' wreck is worth, a Q10 scale on its weighted remaining armour:
+	/// 1024, 1500 or 800 across retail. <c>Mech_SalvageValue</c> (<c>00418e60</c>) reads it.
 	/// </summary>
 	public short SalvageScale { get; set; }
 
 	/// <summary>
-	/// Offset 84 (the exe's <c>typeRecord+0x56</c>) — whether a hit can knock this chassis' weapon
-	/// mounts out: 1 on every biped, 0 on the PITBULL. <c>Mech_ApplyDirectFireDamage</c> tests it
-	/// before it rolls. Was <c>Unk84_val</c>. See docs/simulation/weapon-damage-types.md, "Weapon
-	/// mount destruction".
+	/// Offset 84 — whether a hit can knock this chassis' weapon mounts out: 1 on every biped, 0 on
+	/// the PITBULL. See docs/simulation/weapon-damage-types.md#weapon-mount-destruction.
 	/// </summary>
 	public short WeaponMountsDestructible { get; set; }
 
-	/// <summary>0x86 - 0x97.</summary>
+	/// <summary>Offsets 86-97 — the chassis name, NUL-padded ASCII.</summary>
 	public byte[]? NameBytes { get; set; }
 
-	public short CameraYAxisAdj { get; set; }
-	public short CameraXAxisAdj { get; set; }
+	/// <summary>
+	/// Offsets 98 and 100 — the pilot's eye relative to <see cref="CameraBoneId"/>'s node, in that
+	/// node's frame: fore/aft, then lift. The eye point is <c>(0, EyeOffsetY, EyeOffsetZ)</c>.
+	/// </summary>
+	public short EyeOffsetY { get; set; }
+
+	/// <inheritdoc cref="EyeOffsetY"/>
+	public short EyeOffsetZ { get; set; }
 
 	/// <summary>
-	/// Offset 102 — the fore/aft half of the external camera's orbit centre, which DBSIM reads as
-	/// <c>typeRecord+0x68</c> beside <see cref="CameraExtOrgOffset"/>. Zero in every retail chassis.
+	/// Offsets 102 and 104 — the point the external camera orbits, in the machine's own frame:
+	/// fore/aft (0 on every retail chassis), then height. See docs/simulation/external-views.md.
 	/// </summary>
-	public short CameraExtOrgOffsetY { get; set; }
+	public short OrbitCentreY { get; set; }
 
-	/// <summary>
-	/// Offset 104 — the height of the external camera's orbit centre above the machine's origin,
-	/// <c>typeRecord+0x6a</c> in DBSIM.
-	/// </summary>
-	public short CameraExtOrgOffset { get; set; }
+	/// <inheritdoc cref="OrbitCentreY"/>
+	public short OrbitCentreZ { get; set; }
 
-	// blank bytes 0x106
+	// 106 - blank
 
-	/// <summary>
-	/// Offset 108 — <see cref="GaitThreshold"/> on the reverse side.
-	/// </summary>
+	/// <summary>Offset 108 — <see cref="GaitThreshold"/> on the reverse side.</summary>
 	public short GaitThresholdReverse { get; set; }
+
 	/// <summary>
-	/// Offset 110 (the exe's <c>typeRecord+0x70</c>) — the machine's <b>body radius</b>, in world
-	/// units: what the blast sweep measures its surface by, and what keeps two machines from walking
-	/// through each other. <b>Every retail HERC states 750</b> — 4.5 m — so machines stop 1500 units
-	/// apart whatever their size. Distinct from <see cref="HitRadius"/>, the deliberately
-	/// generous shot radius. Was <c>Unk110_camExtVal2</c>, a guess from its neighbours.
+	/// Offset 110 — the machine's body radius: what the blast sweep measures its surface by and what
+	/// keeps two machines apart. 750 on every retail HERC. Distinct from <see cref="HitRadius"/>.
+	/// See docs/simulation/hit-detection.md#the-three-radius-slots.
 	/// </summary>
 	public short BodyRadius { get; set; }
 
+	/// <summary>
+	/// Offsets 112-121 as shorts, which is how the writer emits them. The bytes are really two
+	/// per-entry lists, <see cref="LegKinds"/> and <see cref="LegPartIds"/>; these shorts have no
+	/// meaning of their own.
+	/// </summary>
 	public short ModelFlagsShadow1 { get; set; }
+
+	/// <inheritdoc cref="ModelFlagsShadow1"/>
 	public short ModelFlagsShadow2 { get; set; }
 
+	/// <inheritdoc cref="ModelFlagsShadow1"/>
 	public short Unk116_val { get; set; }
+
+	/// <inheritdoc cref="ModelFlagsShadow1"/>
 	public short Unk118_val { get; set; }
+
+	/// <inheritdoc cref="ModelFlagsShadow1"/>
 	public short Unk120_val { get; set; }
 
 	/// <summary>
 	/// Offsets 112 and 117 read as <b>bytes</b>, one per shadow the machine casts — the entry's kind,
-	/// which is also the index of the flat-set shape laid under it (<c>typeRec+0x72</c>), and the shape part
-	/// id it follows (<c>typeRec+0x77</c>). The first list runs to its first negative byte, and that
-	/// length is the entry count: <c>Mech_Constructor</c> counts it into <c>mech+0x23c</c> and
-	/// <c>Mech_PlaceLegsOnGround</c> (<c>004195c8</c>) walks both lists that far, so it is not
-	/// <see cref="ModelLegsTotal"/>. Retail states kinds 0, 0, 2 on parts 14, 15, 12 — a shadow under
-	/// each foot and one under the body — on every HERC but the PITBULL (four feet, kind 0, on parts 14, 15, 22, 23) and
-	/// the SPIDER (none). See docs/simulation/ground-shapes.md.
+	/// which is also the index of the flat-set shape laid under it (<c>typeRec+0x72</c>), and the shape
+	/// part id it follows (<c>typeRec+0x77</c>). The first list runs to its first negative byte, and
+	/// that length is the entry count (<c>Mech_Constructor</c>, <c>Mech_PlaceLegsOnGround</c>
+	/// <c>004195c8</c>), so it is not <see cref="LegCount"/>. Retail states kinds 0, 0, 2 on parts
+	/// 14, 15, 12 on every HERC but the PITBULL (four feet, kind 0, on parts 14, 15, 22, 23) and the
+	/// SPIDER (none). See docs/simulation/ground-shapes.md#a-hercs-shadows.
 	///
-	/// <para><b>Read-only views.</b> These bytes overlap the shorts declared above —
-	/// <see cref="ModelFlagsShadow1"/> covers 112-113, and 117-118 straddle
-	/// <see cref="Unk116_val"/> and <see cref="Unk118_val"/> — which are what the writer emits. They
-	/// are exposed separately because the exe reads them per byte and those shorts are not what the
-	/// bytes mean; setting them changes nothing on the way out.</para>
+	/// <para><b>Read-only views.</b> These bytes overlap the shorts at 112-121, which are what the
+	/// writer emits; setting these changes nothing on the way out.</para>
 	/// </summary>
 	public byte[] LegKinds { get; set; } = System.Array.Empty<byte>();
 
 	/// <inheritdoc cref="LegKinds"/>
 	public byte[] LegPartIds { get; set; } = System.Array.Empty<byte>();
+
 	/// <summary>
-	/// Offset 122 — the turn-in-place sequence. Uniform across the fleet: 7 frames of 1820 
-	/// BAM each, no translation.
+	/// Offset 122 — the turn-in-place sequence. Uniform across the fleet: 7 frames of 1820 BAM each,
+	/// no translation.
 	/// </summary>
 	public short AnimId_TurnInPlace { get; set; }
 
 	/// <summary>Entries in <see cref="AiRatingSystemPenalty"/>.</summary>
-	public static int Unk124_range { get; set; } = 12;
+	public static int AiRatingSystemPenaltyCount { get; set; } = 12;
 
 	/// <summary>
-	/// Offsets 124-147 (the exe's <c>typeRecord+0x7e</c>) — twelve shorts, one per system, of which
-	/// the AI combat rating reads the first ten: what that system costs the rating once it is past
-	/// 70% damaged. Every retail chassis states 500 for all twelve. Was <c>Unk124_all500</c>.
+	/// Offsets 124-147 — twelve shorts, one per system, of which the AI combat rating reads the first
+	/// ten: what that system costs the rating once it is past 70% damaged. 500 for all twelve on every
+	/// retail chassis.
 	/// </summary>
 	public short[]? AiRatingSystemPenalty { get; set; }
 
 	/// <summary>
-	/// File offset 148 — selects which shared texture atlas DBSIM binds to every TSShapeInstance
-	/// sub-component of this mech at spawn time. <c>MechType_InitOne</c> (<c>004201a8</c>) writes
-	/// <c>&amp;g_MechTextureGroupSlots + value*8</c> into <c>TSShapeInstance+0x26</c>, the bound-DBA
-	/// field the render code reads.
-	///
-	/// <para>Values 0-6 index a literal 7-entry name table in the exe; see
-	/// <see cref="TextureGroupDbaBaseName"/> for the names and
-	/// docs/formats/dts-texture-binding.md's "DBSIM's mech-to-texture mapping" for the per-mech
-	/// roster, byte-verified against every retail <c>simvol0/dat/*.DAT</c>.</para>
+	/// Offset 148 — which shared texture group DBSIM binds to every sub-shape of this mech:
+	/// <c>MechType_InitOne</c> writes <c>&amp;g_MechTextureGroupSlots + value*8</c> into
+	/// <c>TSShapeInstance+0x26</c>. <see cref="TextureGroupDbaBaseName"/> names the groups; the
+	/// per-mech roster is in docs/formats/dts-texture-binding.md#dbsims-mech-to-texture-mapping.
 	/// </summary>
 	public short ModelSkinId { get; set; }
 
 	/// <summary>
-	/// Maps ModelSkinId to the simvol0/dba/&lt;name&gt;.DBA basename DBSIM actually loads for that
-	/// group (see ModelSkinId's doc comment) -- null for an out-of-range value rather than guessing.
+	/// Maps <see cref="ModelSkinId"/> to the simvol0/dba/&lt;name&gt;.DBA basename DBSIM loads for that
+	/// group — the exe's literal 7-entry name table. Null for an out-of-range value.
 	/// </summary>
 	public static string? TextureGroupDbaBaseName(short modelSkinId) => modelSkinId switch {
 		0 => "LIGHT",
@@ -245,14 +261,14 @@ public class HercSimDat {
 
 	/// <summary>
 	/// Offsets 150, 152, 154 and 156 — the height a leg node's fore/aft position must cross for a
-	/// <b>footfall</b>, one per gait: walking forward, walking backward, running, and the fourth the
+	/// <b>footfall</b>, one per gait: walking forward, walking backward, running, and the
 	/// falling/landing case. <c>Mech_PlaceLegsOnGround</c> (<c>004195c8</c>) reads them as
 	/// <c>typeRec+0x98 + gait*2</c>.
 	///
 	/// <para>A leg arms when it passes <see cref="FootfallRearmWalk"/> and fires when it comes back
 	/// through this one, which is the instant the foot plants: the original plays sound <c>0x1d</c>
 	/// and, for the player, kicks the cockpit view. The reverse gait's pair is negative and its two
-	/// comparisons are the other way round, since the foot swings the other way.</para>
+	/// comparisons are the other way round.</para>
 	/// </summary>
 	public short FootfallTriggerWalk { get; set; }
 
@@ -265,7 +281,7 @@ public class HercSimDat {
 	/// <inheritdoc cref="FootfallTriggerWalk"/>
 	public short FootfallTriggerLand { get; set; }
 
-	// 158 - 169 - BLANK BYTES
+	// 158 - 169 - blank
 
 	/// <summary>
 	/// Offsets 170, 172 and 174 — the arming counterpart of <see cref="FootfallTriggerWalk"/>, in the
@@ -283,21 +299,32 @@ public class HercSimDat {
 	/// <inheritdoc cref="FootfallRearmWalk"/>
 	public short FootfallRearmRun { get; set; }
 
-	// 176 - 189 - BLANK BYTES
+	// 176 - 189 - blank
 
-	public short ShieldMaxTotal { get; set; }
-	public short Unk192_val { get; set; }
 	/// <summary>
-	/// Offsets 194 and 196 — the stride-calibration pair MechType_InitOne (004201a8) turns into the
-	/// Q16 factor it rescales the speed fields by, <c>Q16Divide(offset196 * 400, offset194)</c>.
-	/// See Herculan.Engine.Sim.MechTypeRecord, which applies the rescale.
+	/// Offset 190 — the shield array's capacity before any Shield Pod: 3500 on every HERC, 0 on the
+	/// SPIDER. See docs/simulation/damage-system.md#the-shield-system.
+	/// </summary>
+	public short ShieldMaxTotal { get; set; }
+
+	/// <summary>Offset 192. Meaning not established.</summary>
+	public short Unk192_val { get; set; }
+
+	/// <summary>
+	/// Offsets 194 and 196 — the stride-calibration pair <c>MechType_InitOne</c> turns into the Q16
+	/// factor it rescales the speed fields by, <c>Q16Divide(offset196 * 400, offset194)</c>. See
+	/// docs/simulation/mech-locomotion.md#load-time-speed-rescale.
 	/// </summary>
 	public short StrideScaleDivisor { get; set; }
 
 	/// <inheritdoc cref="StrideScaleDivisor"/>
 	public short StrideScaleNumerator { get; set; }
 
-	// 198 - 203 - BLANK BYTES
+	// 198 - 203 - blank
 
+	/// <summary>
+	/// Offsets 204-215 — the base name of the chassis' own debris table (<see cref="DebrisHerc"/>),
+	/// NUL-padded; empty for a chassis that names none.
+	/// </summary>
 	public byte[]? DebrisFile { get; set; }
 }

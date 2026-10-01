@@ -128,7 +128,7 @@ The byte holds two fields: the low two bits are the diagonal-split selector, bit
 
 ## Base formation pads
 
-A base group whose `script.dat` block-11 record sets its `BinaryFlag` repaints the ground it stands on with its formation's own material, which is what puts a retail base on a marked concrete pad instead of open terrain. `DBSim_SpawnMissionObjects` (`004253d8`) calls `Base_ApplyFormationTerrain` (`00405db0`) for each such group, passing the group's first-attached member; that reads the group's `BFORMS.DAT` record and calls `Terrain_PaintFormationPad`.
+A base group whose `script.dat` block-11 record sets its paints-ground flag (`0x06`) repaints the ground it stands on with its formation's own material, which is what puts a retail base on a marked concrete pad instead of open terrain. `DBSim_SpawnMissionObjects` (`004253d8`) calls `Base_ApplyFormationTerrain` (`00405db0`) for each such group, passing the group's first-attached member; that reads the group's `BFORMS.DAT` record and calls `Terrain_PaintFormationPad`.
 
 The record supplies the material index and a square `dim`×`dim` map of `0`/`1` bytes — see [`script-dat.md`](script-dat.md#the-per-formation-trailer), which owns the file layout, how many formations carry one, and the anchor placement that goes with it. A formation whose material index is `-1` paints nothing.
 

@@ -1,10 +1,9 @@
 namespace HercWorks.Core.Data.Struct;
 
 /// <summary>
-/// Hardcoded LUT for sake of development speed.
-/// TODO (carried over from Java): eventually abstract this to a configurable list, or check for
-/// WEAPONS.DAT in the shell (or /SIMVOL/WEAPONS.DAT).
-/// Ported from org.hercworks.core.data.struct.WeaponLUT.
+/// The 0-32 weapon id space shared by the shell catalog, DBSIM's mount templates and
+/// <c>player.mec</c>, hardcoded with each id's catalog code. See
+/// docs/formats/weapons-dat.md#the-weapon-id-space--three-spellings-per-weapon.
 /// </summary>
 public sealed class WeaponLUT {
 	public static readonly WeaponLUT None = new(0, "NONE", 0);
@@ -23,8 +22,7 @@ public sealed class WeaponLUT {
 	public static readonly WeaponLUT Msl6 = new(13, "MSL6", 13);
 	public static readonly WeaponLUT Msl8 = new(14, "MSL8", 14);
 	public static readonly WeaponLUT Msl10 = new(15, "MSL10", 15);
-	/// <summary>Real name confirmed against SHELL0/GAM/WEAPONS.DAT's own catalog — id 16 is "FLYMSL" there, not "MSLR" as originally guessed here.</summary>
-	public static readonly WeaponLUT Mslr = new(16, "FLYMSL", 16);
+	public static readonly WeaponLUT Flymsl = new(16, "FLYMSL", 16);
 	public static readonly WeaponLUT Pbw = new(17, "PBW", 17);
 	public static readonly WeaponLUT Ecm = new(18, "ECM", 18);
 	public static readonly WeaponLUT Bemp = new(19, "BEMP", 0);
@@ -45,7 +43,7 @@ public sealed class WeaponLUT {
 	private static readonly IReadOnlyList<WeaponLUT> All = new[]
 	{
 		None, Atc20, Atc35, Atc50, Atc75, Atc100, Elfw, Empc, Las100, Las200, Las300, Las400, Las500,
-		Msl6, Msl8, Msl10, Mslr, Pbw, Ecm, Bemp, Bpbw, Bmsl, Elf2, Emp2, Pbw2, Plas, Laew, Mine, Mfac,
+		Msl6, Msl8, Msl10, Flymsl, Pbw, Ecm, Bemp, Bpbw, Bmsl, Elf2, Emp2, Pbw2, Plas, Laew, Mine, Mfac,
 		Targ, Shld, Turb, Enrg
 	};
 
@@ -53,6 +51,10 @@ public sealed class WeaponLUT {
 
 	public int Id { get; }
 	public string Name { get; }
+	/// <summary>
+	/// A second index per weapon: the id with the three Bull weapons removed, 0 for NONE, the Bull
+	/// weapons, LAEW, MINE and MFAC. What it was meant to index is not established.
+	/// </summary>
 	public int SecondId { get; }
 
 	private WeaponLUT(int id, string name, int secondId) {
@@ -63,7 +65,7 @@ public sealed class WeaponLUT {
 
 	public static WeaponLUT? GetById(int id) => ById.GetValueOrDefault(id);
 
-	/// <summary>Equivalent of Java's enum .values().</summary>
+	/// <summary>Every entry, in id order.</summary>
 	public static IReadOnlyList<WeaponLUT> Values() => All;
 
 	public static WeaponLUT? GetByName(string name) => All.FirstOrDefault(w => w.Name == name);

@@ -527,14 +527,14 @@ public sealed class CockpitArt {
 	/// <summary>
 	/// Reads the herc's cockpit colour-scheme index out of its own <c>dat\&lt;MECH&gt;.DAT</c>, or -1
 	/// when that file is missing or unparseable. The field is
-	/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.Unk80_ValHudId"/> — record offset 80,
+	/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.CockpitColorScheme"/> — record offset 80,
 	/// which is the mech type struct's <c>+0x52</c> that
 	/// <c>CockpitViewManager_LoadViews</c> indexes <c>COCKPIT.DPL</c> with.
 	/// </summary>
 	private static int ReadColorSchemeIndex(GameContent content, string hercName) =>
 		content.Read("dat", hercName + ".DAT") is { } bytes
 			&& new HercSimDataTransformer().Parse(bytes) is HercSimDat data
-			? data.Unk80_ValHudId
+			? data.CockpitColorScheme
 			: -1;
 
 	/// <summary>All three gauge colours or none — a bar drawn with only some of them resolved would

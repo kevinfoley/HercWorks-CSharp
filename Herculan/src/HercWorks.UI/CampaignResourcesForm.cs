@@ -93,7 +93,7 @@ public partial class CampaignResourcesForm : Form {
 
 			var combos = WorkshopCombos;
 			for (int i = 0; i < combos.Length; i++) {
-				combos[i].SelectedItem = save.WorkshopSlots[i];
+				combos[i].SelectedItem = save.BuildQueue[i];
 			}
 
 			_hercUnlockRows.Clear();
@@ -101,7 +101,7 @@ public partial class CampaignResourcesForm : Form {
 				if (herc.Id >= HercLUT.Mongoose.Id) {
 					continue;
 				}
-				short val = save.UnlockedHercs.TryGetValue(herc, out var v) ? v : (short)0;
+				short val = save.ChassisAvailability.TryGetValue(herc, out var v) ? v : (short)0;
 				_hercUnlockRows.Add(HercUnlockRow.FromLut(herc, val));
 			}
 
@@ -126,11 +126,11 @@ public partial class CampaignResourcesForm : Form {
 			foreach (var kv in save.HercBay) {
 				_hercBayRows.Add(new HercBayRow {
 					BayId = kv.Key,
-					Herc = kv.Value.Id,
+					Herc = kv.Value.ChassisType,
 					BuildPercent = kv.Value.BuildPercent,
-					BuildStepNum = kv.Value.BuildStepNum,
-					HardpointMax = kv.Value.HardpointMax,
-					ActiveSocketCount = kv.Value.Weapons.Count,
+					BuildStepNum = kv.Value.BuildMissionsLeft,
+					HardpointMax = kv.Value.MountCapacity,
+					ActiveSocketCount = kv.Value.Mounts.Count,
 					Entry = kv.Value
 				});
 			}
@@ -205,7 +205,7 @@ public partial class CampaignResourcesForm : Form {
 		var row = _hercBayRows[e.RowIndex];
 		using var editor = new HercBayEditorForm(row.Entry, $"Edit Herc Bay {row.BayId} — {row.Herc?.Name ?? "(unassigned)"}");
 		if (editor.ShowDialog(this) == DialogResult.OK) {
-			row.ActiveSocketCount = row.Entry.Weapons.Count;
+			row.ActiveSocketCount = row.Entry.Mounts.Count;
 			_hercBayGrid.InvalidateRow(e.RowIndex);
 		}
 	}
@@ -233,7 +233,7 @@ public partial class CampaignResourcesForm : Form {
 	/// </summary>
 	private List<string> MountsPastCapacity() =>
 		_hercBayRows
-			.SelectMany(row => row.Entry.Weapons.Keys
+			.SelectMany(row => row.Entry.Mounts.Keys
 				.Where(socket => socket >= row.HardpointMax)
 				.Select(socket => $"Bay {row.BayId}: weapon in socket {socket}, capacity {row.HardpointMax}."))
 			.ToList();
@@ -274,21 +274,19 @@ public partial class CampaignResourcesForm : Form {
 			var combos = WorkshopCombos;
 			for (int i = 0; i < combos.Length; i++) {
 				if (combos[i].SelectedItem is WeaponLUT selected) {
-					_loadedSave.WorkshopSlots[i] = selected;
+					_loadedSave.BuildQueue[i] = selected;
 				}
 			}
 
-			// Recalculate WorkshopSpace to match the edited slots (occupied slots are anything
-			// other than WeaponLUT.None) — previously this was left at whatever value the file had
-			// on load, so changing a slot's contents without this could leave WorkshopSpace
-			// inconsistent with the slots actually written out.
-			int occupiedSlots = _loadedSave.WorkshopSlots.Count(w => w.Id != WeaponLUT.None.Id);
-			_loadedSave.WorkshopSpace = (short)(_loadedSave.WorkshopSlots.Length - occupiedSlots);
+			// Recount the free slots from the edited queue (occupied slots are anything other than
+			// WeaponLUT.None), so the stored count agrees with the slots written out.
+			int occupiedSlots = _loadedSave.BuildQueue.Count(w => w.Id != WeaponLUT.None.Id);
+			_loadedSave.BuildQueueFreeSlots = (short)(_loadedSave.BuildQueue.Length - occupiedSlots);
 
 			foreach (var row in _hercUnlockRows) {
 				var herc = HercLUT.GetById(row.HercId);
 				if (herc != null) {
-					_loadedSave.UnlockedHercs[herc] = row.Unlocked ? (short)1 : (short)0;
+					_loadedSave.ChassisAvailability[herc] = row.Unlocked ? (short)1 : (short)0;
 				}
 			}
 
@@ -312,16 +310,16 @@ public partial class CampaignResourcesForm : Form {
 			}
 
 			foreach (var row in _hercBayRows) {
-				row.Entry.Id = row.Herc;
+				row.Entry.ChassisType = row.Herc;
 				// The record stores the type twice (+0x00, and +0x02 through VSHELL's identity map
 				// over 0-8), and the shell takes the name and the stats from +0x02 — so a changed
 				// chassis has to land in both.
 				if (row.Herc != null) {
-					row.Entry.NameId = row.Herc.Id;
+					row.Entry.ChassisIndex = row.Herc.Id;
 				}
 				row.Entry.BuildPercent = row.BuildPercent;
-				row.Entry.BuildStepNum = row.BuildStepNum;
-				row.Entry.HardpointMax = row.HardpointMax;
+				row.Entry.BuildMissionsLeft = row.BuildStepNum;
+				row.Entry.MountCapacity = row.HardpointMax;
 			}
 
 			byte[] content = _transformer.Write(_loadedSave)!;
@@ -357,7 +355,7 @@ public partial class CampaignResourcesForm : Form {
 	private static void ApplyInventoryRow(InventoryRow row, Inventory.InventoryItem item) {
 		item.UnlockFlag = row.Buildable ? (short)1 : (short)0;
 
-		var oldData = item.Data ?? Array.Empty<ShellWeaponEntry>();
+		var oldData = item.Units ?? Array.Empty<ShellWeaponEntry>();
 		int newQty = Math.Max((short)0, row.Quantity);
 		var newData = new ShellWeaponEntry[newQty];
 
@@ -367,15 +365,15 @@ public partial class CampaignResourcesForm : Form {
 			} else {
 				newData[q] = new ShellWeaponEntry {
 					Id = row.WeaponId ?? item.Id,
-					NameId = oldData.Length > 0 ? oldData[0].NameId : (short)0,
-					HealthArmor = 100,
-					HealthInteral = 100,
-					MissileType = MissileType.None
+					ClassIndex = oldData.Length > 0 ? oldData[0].ClassIndex : (short)0,
+					FitCondition = 100,
+					Condition = 100,
+					Guidance = MissileType.None
 				};
 			}
 		}
 
-		item.Data = newData;
+		item.Units = newData;
 		item.Quantity = (short)newQty;
 	}
 }

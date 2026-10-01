@@ -1,21 +1,14 @@
 namespace HercWorks.Core.Data.Struct;
 
 /// <summary>
-/// Ported from org.hercworks.core.data.struct.ProjectileType.
-///
-/// Independently cross-confirmed against DBSIM.EXE disassembly (see
-/// docs/simulation/weapon-damage-types.md): these are the exact 4 literal values DBSIM's own
-/// PROJ.DAT lookup function (<c>Proj_LookupRecord</c>, <c>0040ffc8</c>) is ever called with — a closed set, found from
-/// scratch via disassembly with no reference to this enum, matching it value-for-value. Each value
-/// corresponds to a genuinely different construction path, not just a data variant: `0` (Missile)
-/// and `3` (Grenade) each build via their own distinct projectile-family C++ class (own vtable, own
-/// type table), `2` (Bullet) builds via a third with real flight time but no guidance or splash, and
-/// `4` (Beam) resolves its hit synchronously at fire time with no persisting object at all (every
-/// real `Beam`-typed PROJ.DAT record has `Speed=0`) — the mechanical definition of a hitscan weapon
-/// in this engine.
+/// A PROJ.DAT record's <c>Type</c> — the firing-mechanism selector. These are the four literal
+/// categories DBSIM ever hands its PROJ.DAT lookup (<c>Proj_LookupRecord</c>, <c>0040ffc8</c>), and
+/// each builds a different thing: <c>0</c> and <c>3</c> each their own projectile class, <c>2</c> a
+/// travelling round with no guidance, and <c>4</c> a beam that resolves its hit at fire time with
+/// no persisting object (every Beam record has <c>Speed</c> 0).
 ///
 /// <para>The C++ class behind each is named by the binary itself — `0` is <c>ROCKET</c>, `2` is
-/// <c>BULLET</c>, `3` is <c>GRENADE</c>, `4` has no class at all. `0` keeps the name `Missile` here
+/// <c>BULLET</c>, `3` is <c>GRENADE</c>, `4` has no class at all. `0` is named <c>Missile</c> here
 /// because that is the weapon it carries in the game's own terms. See
 /// docs/simulation/weapon-damage-types.md, "Type — a firing-mechanism selector".</para>
 /// </summary>

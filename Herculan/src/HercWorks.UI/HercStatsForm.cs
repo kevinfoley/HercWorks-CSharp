@@ -105,9 +105,9 @@ public partial class HercStatsForm : Form {
 					Speed = entry.Speed,
 					HardpointTotal = entry.HardpointTotal,
 					SalvageReq = entry.SalvageReq,
-					UnknownFlag = entry.UnknownFlag,
+					UnknownFlag = entry.Unknown0A,
 					BuildMissionCount = entry.BuildMissionCount,
-					FlagCampaignStart = entry.FlagCampaignStart
+					FlagCampaignStart = entry.AvailabilityFlag
 				});
 			}
 
@@ -159,9 +159,9 @@ public partial class HercStatsForm : Form {
 					Speed = row.Speed,
 					HardpointTotal = row.HardpointTotal,
 					SalvageReq = row.SalvageReq,
-					UnknownFlag = row.UnknownFlag,
+					Unknown0A = row.UnknownFlag,
 					BuildMissionCount = row.BuildMissionCount,
-					FlagCampaignStart = row.FlagCampaignStart
+					AvailabilityFlag = row.FlagCampaignStart
 				};
 			}
 

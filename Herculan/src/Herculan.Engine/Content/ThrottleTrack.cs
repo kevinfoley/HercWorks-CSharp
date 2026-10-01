@@ -9,13 +9,10 @@ namespace Herculan.Engine.Content;
 /// (<c>004524a8</c> and the value/position pair at <c>00452644</c> / <c>00452628</c>).
 ///
 /// <para><b>The track and the two bars.</b> The <c>.GAU</c> block at offset 1000 is one widget
-/// record, not the standalone rect plus four loose points <see cref="HThrottle"/> describes: the
-/// gauge constructor reads ints 4-7 as the slider's track rect and ints 8-15 as <i>two more
-/// rects</i>, which it hands to the vertical LED-bar constructor (<c>00439344</c>) with ranges
-/// <c>+0x400</c> and <c>-0x400</c>. Those are the forward and reverse fill bars either side of
-/// centre, which is why <see cref="HThrottle.DetentPoints"/>'s middle two points always sit close
-/// together — they are the bottom of the upper bar and the top of the lower one — and why their x
-/// alternates between two values: those are each bar's left and right edge.</para>
+/// record: the gauge constructor reads ints 4-7 as the slider's track rect and ints 8-15 as
+/// <i>two more rects</i> (<see cref="HThrottle.BarCorners"/>), which it hands to the vertical
+/// LED-bar constructor (<c>00439344</c>) with ranges <c>+0x400</c> and <c>-0x400</c> — the forward
+/// and reverse fill bars either side of centre.</para>
 ///
 /// <para><b>The bars are a cut feature, and not drawing them is faithful.</b> DBSIM does not draw
 /// them either: the slider keeps them as private fields, never registers them with the widget tree,

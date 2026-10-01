@@ -329,7 +329,7 @@ public sealed class SceneModelLibrary {
 	/// </summary>
 	public IReadOnlyList<SceneModel> MechDetailRoots(string mechName) {
 		string dtsName = mechName + ".DTS";
-		int count = LoadDts(dtsName)?.Meshes?.Count ?? 0;
+		int count = LoadDts(dtsName)?.Roots?.Count ?? 0;
 		var roots = new List<SceneModel>(count);
 
 		for (int i = 0; i < count; i++) {
@@ -581,7 +581,7 @@ public sealed class SceneModelLibrary {
 		Build(shapeLibrary, shapeIndex, bankName, leveled: true);
 
 	/// <summary>How many roots a debris shape file has, or zero when the install has none of it.</summary>
-	public int ShapeCount(string shapeLibrary) => LoadDts(shapeLibrary)?.Meshes?.Count ?? 0;
+	public int ShapeCount(string shapeLibrary) => LoadDts(shapeLibrary)?.Roots?.Count ?? 0;
 
 	/// <summary>
 	/// The drop pod in the air — root 0 of <c>dts\METEOR.DTS</c>, textured from
@@ -742,7 +742,7 @@ public sealed class SceneModelLibrary {
 
 	/// <summary>One root of a shape file, or null when the file or the index is missing.</summary>
 	private TSObject? Root(string dtsName, int rootIndex) =>
-		LoadDts(dtsName)?.Meshes is { Count: > 0 } roots && rootIndex >= 0 && rootIndex < roots.Count
+		LoadDts(dtsName)?.Roots is { Count: > 0 } roots && rootIndex >= 0 && rootIndex < roots.Count
 			? roots[rootIndex]
 			: null;
 

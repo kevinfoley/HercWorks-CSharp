@@ -31,7 +31,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.SpeedReverse = IndexShortLE();
 		data.SpeedForward = IndexShortLE();
 		data.SpeedAccelDecel = IndexShortLE();
-		data.DecelTurning = IndexShortLE();
+		data.TurnAccelDecel = IndexShortLE();
 
 		data.CameraBoneId = IndexShortLE();
 
@@ -40,20 +40,20 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.AnimId_Run = IndexShortLE();
 		data.AnimId_StopMove = IndexShortLE();
 		data.AnimId_StopReverse = IndexShortLE();
-		data.UnitOffsetYAdjust = IndexShortLE();
+		data.RideHeight = IndexShortLE();
 		data.HitCenterHeight = IndexShortLE();
 
 		data.HitRadius = IndexShortLE();
 
 		data.AnimId_TorsoTwist = IndexShortLE();
-		data.TorsoTwistSpeed = IndexShortLE();
+		data.TorsoTwistMaxRate = IndexShortLE();
 
-		data.TorsoRotateAccel = IndexShortLE();
+		data.TorsoTwistAccel = IndexShortLE();
 
-		data.TorsoTwistDegreeMax = IndexShortLE();
+		data.TorsoTwistLimit = IndexShortLE();
 		data.AnimId_TorsoPitch = IndexShortLE();
 		data.TorsoPitchMaxRate = IndexShortLE();
-		data.TorsoPitchRate = IndexShortLE();
+		data.TorsoPitchAccel = IndexShortLE();
 		data.TorsoPitchMax = IndexShortLE();
 		data.TorsoPitchMin = IndexShortLE();
 
@@ -67,26 +67,26 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		data.AnimId_Death = IndexShortLE();
 		data.LegsCritFlags2 = IndexShortLE();
-		data.ModelLegsTotal = IndexShortLE();
+		data.LegCount = IndexShortLE();
 		data.VanishesOnDeath = IndexShortLE();
 
 		data.Mass = IndexShortLE();
 
-		data.InputFlagFlyer = IndexShortLE();
+		data.FlyerFlag = IndexShortLE();
 
-		data.Unk80_ValHudId = IndexShortLE();
+		data.CockpitColorScheme = IndexShortLE();
 
 		data.SalvageScale = IndexShortLE();
 		data.WeaponMountsDestructible = IndexShortLE();
 
 		data.NameBytes = IndexSegment(12);
 
-		data.CameraYAxisAdj = IndexShortLE();
-		data.CameraXAxisAdj = IndexShortLE();
+		data.EyeOffsetY = IndexShortLE();
+		data.EyeOffsetZ = IndexShortLE();
 
-		data.CameraExtOrgOffsetY = IndexShortLE();
+		data.OrbitCentreY = IndexShortLE();
 
-		data.CameraExtOrgOffset = IndexShortLE();
+		data.OrbitCentreZ = IndexShortLE();
 
 		Skip(2); // blank bytes 0x106
 
@@ -135,7 +135,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		// The per-part byte arrays, taken at their own offsets rather than in sequence: they overlap
 		// shorts already read above, and the sequential pass emits those shorts unchanged. See
 		// HercSimDat.LegKinds for why both readings of the same bytes exist, and why the count is the
-		// kind list's own terminator rather than ModelLegsTotal.
+		// kind list's own terminator rather than LegCount.
 		int parts = TerminatedLength(inputArray, LegKindsOffset);
 		data.LegKinds = ReadLegBytes(inputArray, LegKindsOffset, parts);
 		data.LegPartIds = ReadLegBytes(inputArray, LegPartIdsOffset, parts);
@@ -182,7 +182,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Emit(outStream, WriteShortLE(data.SpeedReverse));
 		Emit(outStream, WriteShortLE(data.SpeedForward));
 		Emit(outStream, WriteShortLE(data.SpeedAccelDecel));
-		Emit(outStream, WriteShortLE(data.DecelTurning));
+		Emit(outStream, WriteShortLE(data.TurnAccelDecel));
 
 		Emit(outStream, WriteShortLE(data.CameraBoneId));
 
@@ -191,19 +191,19 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Emit(outStream, WriteShortLE(data.AnimId_Run));
 		Emit(outStream, WriteShortLE(data.AnimId_StopMove));
 		Emit(outStream, WriteShortLE(data.AnimId_StopReverse));
-		Emit(outStream, WriteShortLE(data.UnitOffsetYAdjust));
+		Emit(outStream, WriteShortLE(data.RideHeight));
 
 		Emit(outStream, WriteShortLE(data.HitCenterHeight));
 
 		Emit(outStream, WriteShortLE(data.HitRadius));
 
 		Emit(outStream, WriteShortLE(data.AnimId_TorsoTwist));
-		Emit(outStream, WriteShortLE(data.TorsoTwistSpeed));
-		Emit(outStream, WriteShortLE(data.TorsoRotateAccel));
-		Emit(outStream, WriteShortLE(data.TorsoTwistDegreeMax));
+		Emit(outStream, WriteShortLE(data.TorsoTwistMaxRate));
+		Emit(outStream, WriteShortLE(data.TorsoTwistAccel));
+		Emit(outStream, WriteShortLE(data.TorsoTwistLimit));
 		Emit(outStream, WriteShortLE(data.AnimId_TorsoPitch));
 		Emit(outStream, WriteShortLE(data.TorsoPitchMaxRate));
-		Emit(outStream, WriteShortLE(data.TorsoPitchRate));
+		Emit(outStream, WriteShortLE(data.TorsoPitchAccel));
 		Emit(outStream, WriteShortLE(data.TorsoPitchMax));
 		Emit(outStream, WriteShortLE(data.TorsoPitchMin));
 
@@ -217,14 +217,14 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		Emit(outStream, WriteShortLE(data.AnimId_Death));
 		Emit(outStream, WriteShortLE(data.LegsCritFlags2));
-		Emit(outStream, WriteShortLE(data.ModelLegsTotal));
+		Emit(outStream, WriteShortLE(data.LegCount));
 		Emit(outStream, WriteShortLE(data.VanishesOnDeath));
 
 		Emit(outStream, WriteShortLE(data.Mass));
 
-		Emit(outStream, WriteShortLE(data.InputFlagFlyer));
+		Emit(outStream, WriteShortLE(data.FlyerFlag));
 
-		Emit(outStream, WriteShortLE(data.Unk80_ValHudId));
+		Emit(outStream, WriteShortLE(data.CockpitColorScheme));
 
 		Emit(outStream, WriteShortLE(data.SalvageScale));
 
@@ -233,12 +233,12 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		// write name
 		outStream.Write(data.NameBytes!, 0, data.NameBytes!.Length);
 
-		Emit(outStream, WriteShortLE(data.CameraYAxisAdj));
-		Emit(outStream, WriteShortLE(data.CameraXAxisAdj));
+		Emit(outStream, WriteShortLE(data.EyeOffsetY));
+		Emit(outStream, WriteShortLE(data.EyeOffsetZ));
 
-		Emit(outStream, WriteShortLE(data.CameraExtOrgOffsetY));
+		Emit(outStream, WriteShortLE(data.OrbitCentreY));
 
-		Emit(outStream, WriteShortLE(data.CameraExtOrgOffset));
+		Emit(outStream, WriteShortLE(data.OrbitCentreZ));
 
 		// blank bytes 0x106
 		outStream.WriteByte(0x00);

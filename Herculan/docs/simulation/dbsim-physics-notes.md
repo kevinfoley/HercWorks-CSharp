@@ -17,7 +17,7 @@ SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2)
 
 Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not per-second or per-tick-count, and one countdown unit is 125/256 ms, so a reload of 10000 lasts about 4.9 s. Everything scaled by it is a "per this tick" quantity — DBSIM runs a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40 ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored); a tick measured at 41 ms gives 83.
 
-Not every per-tick quantity is scaled by this timestep: locomotion's `SpeedAccelDecel`/ `DecelTurning` accel-step fields are raw per-tick steps with no `Math_IntegrateRateOverTick` (`00467820`) integration, making the original's control law frame-rate dependent — see [`mech-locomotion.md`](mech-locomotion.md#timing) for the consequence.
+Not every per-tick quantity is scaled by this timestep: locomotion's `SpeedAccelDecel`/ `TurnAccelDecel` accel-step fields are raw per-tick steps with no `Math_IntegrateRateOverTick` (`00467820`) integration, making the original's control law frame-rate dependent — see [`mech-locomotion.md`](mech-locomotion.md#timing) for the consequence.
 
 **The multiply family.** Each is `(int64)a * b >> n` (an `IMUL` then `SHRD EAX,EDX,n`, taking the low word), and the scale is the fixed-point unit of the operands:
 

@@ -345,7 +345,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	///
 	/// <para><b>The hum is the flyer's, not the walker's</b>, despite the sample being called
 	/// <c>herceng1</c>. The original gates it on the type record's <c>+0x50</c> — file offset 78,
-	/// <c>InputFlagFlyer</c>, set on the RAZOR alone — so a HERC powers up without one and its
+	/// <c>FlyerFlag</c>, set on the RAZOR alone — so a HERC powers up without one and its
 	/// running noise is its footsteps. See docs/simulation/mech-locomotion.md's type-record table.</para>
 	/// </summary>
 	public void PowerUp(MechObject pilot) {

@@ -54,15 +54,15 @@ public sealed class ShellWeaponUnit {
 	public int Guidance { get; internal set; }
 
 	internal static ShellWeaponUnit From(ShellWeaponEntry entry) =>
-		new(entry.Id?.Id ?? 0, entry.HealthArmor, entry.HealthInteral, entry.MissileType?.Id ?? NoGuidance, entry.NameId);
+		new(entry.Id?.Id ?? 0, entry.FitCondition, entry.Condition, entry.Guidance?.Id ?? NoGuidance, entry.ClassIndex);
 
 	/// <summary><c>WeaponUnit_WriteSaveForm</c> (<c>00411aff</c>)'s five shorts, as the save model holds them.</summary>
 	internal ShellWeaponEntry ToEntry() => new() {
 		Id = WeaponLUT.GetById(WeaponId),
-		NameId = (short)ClassIndex,
-		HealthArmor = (short)FitCondition,
-		HealthInteral = (short)Condition,
-		MissileType = MissileType.GetById(Guidance),
+		ClassIndex = (short)ClassIndex,
+		FitCondition = (short)FitCondition,
+		Condition = (short)Condition,
+		Guidance = MissileType.GetById(Guidance),
 	};
 }
 
@@ -412,11 +412,11 @@ public sealed class ShellBayMachine {
 	/// </summary>
 	public static ShellBayMachine FromCatalog(ShellHercData record) {
 		var machine = Ordered(record.HercId, 0);
-		var built = new ShellBayMachine(record.HercId, machine.MountCapacity, record.BuildPercent, record.BuildStepNum,
+		var built = new ShellBayMachine(record.HercId, machine.MountCapacity, record.BuildPercent, record.BuildMissionsLeft,
 			machine._external, machine._internal, machine._overall, machine._hardpoint, machine._mounts);
 		foreach (var (slot, entry) in record.Hardpoints ?? new Dictionary<short, UiWeaponEntry>()) {
-			built.SetMount(slot, new ShellWeaponUnit(entry.ItemId, condition: entry.HealthPercent,
-				guidance: entry.MissileType?.Id ?? ShellWeaponUnit.NoGuidance));
+			built.SetMount(slot, new ShellWeaponUnit(entry.WeaponId, condition: entry.Condition,
+				guidance: entry.Guidance?.Id ?? ShellWeaponUnit.NoGuidance));
 		}
 
 		return built;
@@ -426,8 +426,8 @@ public sealed class ShellBayMachine {
 	public static ShellBayMachine From(HercBayEntry entry) {
 		var external = new short[HercExternals.Values().Count];
 		foreach (var facet in HercExternals.Values()) {
-			external[facet.Id] = entry.HealthExternals != null
-				&& entry.HealthExternals.TryGetValue(facet, out var part) ? part.Health : (short)Complete;
+			external[facet.Id] = entry.ExternalConditions != null
+				&& entry.ExternalConditions.TryGetValue(facet, out var part) ? part.Health : (short)Complete;
 		}
 
 		// Ids 0-8 are the nine named components; id 9 is the machine's overall condition and is not one
@@ -435,21 +435,21 @@ public sealed class ShellBayMachine {
 		var internals = new short[DamageRepairCost.InternalCount];
 		for (int i = 0; i < internals.Length; i++) {
 			var component = HercInternals.GetById((short)i);
-			internals[i] = component != null && entry.HealthInternals != null
-				&& entry.HealthInternals.TryGetValue(component, out var part) ? part.Health : (short)Complete;
+			internals[i] = component != null && entry.InternalConditions != null
+				&& entry.InternalConditions.TryGetValue(component, out var part) ? part.Health : (short)Complete;
 		}
 
-		var hardpoint = new short[entry.HealthHardpoints.Length];
-		var mounts = new ShellWeaponUnit?[entry.HealthHardpoints.Length];
+		var hardpoint = new short[entry.HardpointConditions.Length];
+		var mounts = new ShellWeaponUnit?[entry.HardpointConditions.Length];
 		for (int slot = 0; slot < hardpoint.Length; slot++) {
-			hardpoint[slot] = entry.HealthHardpoints[slot]?.Health ?? (short)Complete;
-			mounts[slot] = entry.Weapons.TryGetValue((short)slot, out var weapon) && weapon.Id != null
+			hardpoint[slot] = entry.HardpointConditions[slot]?.Health ?? (short)Complete;
+			mounts[slot] = entry.Mounts.TryGetValue((short)slot, out var weapon) && weapon.Id != null
 				? ShellWeaponUnit.From(weapon) : null;
 		}
 
-		short overall = entry.HealthInternals != null
-			&& entry.HealthInternals.TryGetValue(HercInternals.Pilot, out var overallPart) ? overallPart.Health : (short)Complete;
-		return new ShellBayMachine(entry.Id?.Id ?? 0, entry.HardpointMax, entry.BuildPercent, entry.BuildStepNum,
+		short overall = entry.InternalConditions != null
+			&& entry.InternalConditions.TryGetValue(HercInternals.Pilot, out var overallPart) ? overallPart.Health : (short)Complete;
+		return new ShellBayMachine(entry.ChassisType?.Id ?? 0, entry.MountCapacity, entry.BuildPercent, entry.BuildMissionsLeft,
 			external, internals, overall, hardpoint, mounts);
 	}
 
@@ -459,34 +459,34 @@ public sealed class ShellBayMachine {
 	/// </summary>
 	internal HercBayEntry ToEntry() {
 		var entry = new HercBayEntry {
-			Id = HercLUT.GetById((short)ChassisType),
-			NameId = (short)ChassisType,
-			HealthExternals = HercExternals.Values().ToDictionary(facet => facet,
+			ChassisType = HercLUT.GetById((short)ChassisType),
+			ChassisIndex = (short)ChassisType,
+			ExternalConditions = HercExternals.Values().ToDictionary(facet => facet,
 				facet => new ShellHercPart(facet.Id, facet.Label, _external[facet.Id])),
-			HealthInternals = new Dictionary<HercInternals, ShellHercPart>(),
+			InternalConditions = new Dictionary<HercInternals, ShellHercPart>(),
 			BuildPercent = (short)BuildPercent,
-			BuildStepNum = (short)BuildMissionsLeft,
-			HardpointMax = (short)MountCapacity,
+			BuildMissionsLeft = (short)BuildMissionsLeft,
+			MountCapacity = (short)MountCapacity,
 		};
 
 		for (int i = 0; i < _internal.Length; i++) {
 			var component = HercInternals.GetById((short)i)!;
-			entry.HealthInternals[component] = new ShellHercPart(component.Id, component.Label, _internal[i]);
+			entry.InternalConditions[component] = new ShellHercPart(component.Id, component.Label, _internal[i]);
 		}
 
-		entry.HealthInternals[HercInternals.Pilot] = new ShellHercPart(HercInternals.Pilot.Id, HercInternals.Pilot.Label, _overall);
-		for (int slot = 0; slot < entry.HealthHardpoints.Length; slot++) {
+		entry.InternalConditions[HercInternals.Pilot] = new ShellHercPart(HercInternals.Pilot.Id, HercInternals.Pilot.Label, _overall);
+		for (int slot = 0; slot < entry.HardpointConditions.Length; slot++) {
 			short condition = slot < _hardpoint.Length ? _hardpoint[slot] : (short)Complete;
-			entry.HealthHardpoints[slot] = new ShellHercPart((short)slot, "hardpoint_" + slot, condition);
+			entry.HardpointConditions[slot] = new ShellHercPart((short)slot, "hardpoint_" + slot, condition);
 		}
 
 		for (int slot = 0; slot < MountCapacity; slot++) {
 			if (Mount(slot) is { } unit) {
-				entry.Weapons[(short)slot] = unit.ToEntry();
+				entry.Mounts[(short)slot] = unit.ToEntry();
 			}
 		}
 
-		entry.ActiveSockets = (short)entry.Weapons.Count;
+		entry.MountsOccupied = (short)entry.Mounts.Count;
 		return entry;
 	}
 }
@@ -903,21 +903,21 @@ public sealed class ShellHangar {
 		}
 
 		int squad = _squadRecords[member] / PilotsPerSquad;
-		short next = save.UnkRange_prePlayer[SquadCount + squad];
-		save.UnkRange_prePlayer[squad] = next;
-		save.UnkRange_prePlayer[SquadCount + squad] = (short)((next + 1) % PilotsPerSquad);
+		short next = save.SquadTailAndPlayerHead[SquadCount + squad];
+		save.SquadTailAndPlayerHead[squad] = next;
+		save.SquadTailAndPlayerHead[SquadCount + squad] = (short)((next + 1) % PilotsPerSquad);
 		int record = squad * PilotsPerSquad + next;
 		if (save.Squadmates.ElementAtOrDefault(record) is not { } pilot) {
 			return;
 		}
 
-		pilot.BayId = -1;
-		pilot.Active = 0;
-		pilot.CrewRowNum = -1;
-		pilot.ProbablyHealth = 100;
-		pilot.KillsHercs = pilot.KillsFlyers = pilot.KillsBuilding = 0;
-		pilot.TotalKillHerc = pilot.TotalKillFlyer = pilot.TotalKillBldng = 0;
-		pilot.MissionCount = 0;
+		pilot.Bay = -1;
+		pilot.OnStrength = 0;
+		pilot.SquadPosition = -1;
+		pilot.Condition = 100;
+		pilot.HercKills = pilot.FlyerKills = pilot.BaseKills = 0;
+		pilot.TotalHercKills = pilot.TotalFlyerKills = pilot.TotalBaseKills = 0;
+		pilot.MissionsFlown = 0;
 		_squad[member] = Pilot(pilot)!;
 		_squadRecords[member] = record;
 		MachinesOnStrength--;
@@ -1232,7 +1232,7 @@ public sealed class ShellHangar {
 				// file's last unit is the head.
 				var stock = hangar.Stock(id.Id);
 				stock.UnlockFlag = (byte)item.UnlockFlag;
-				foreach (var entry in item.Data ?? Array.Empty<ShellWeaponEntry>()) {
+				foreach (var entry in item.Units ?? Array.Empty<ShellWeaponEntry>()) {
 					if (entry != null) {
 						stock.Units.Add(ShellWeaponUnit.From(entry));
 					}
@@ -1240,9 +1240,9 @@ public sealed class ShellHangar {
 			}
 		}
 
-		hangar.QueueFreeSlots = save.WorkshopSpace;
-		for (int slot = 0; slot < QueueSlots && slot < save.WorkshopSlots.Length; slot++) {
-			hangar._queue[slot] = save.WorkshopSlots[slot]?.Id ?? 0;
+		hangar.QueueFreeSlots = save.BuildQueueFreeSlots;
+		for (int slot = 0; slot < QueueSlots && slot < save.BuildQueue.Length; slot++) {
+			hangar._queue[slot] = save.BuildQueue[slot]?.Id ?? 0;
 		}
 		foreach (var (slot, entry) in save.HercBay) {
 			if (slot >= 0 && slot < BayCount && entry != null) {
@@ -1250,7 +1250,7 @@ public sealed class ShellHangar {
 			}
 		}
 
-		foreach (var (herc, flag) in save.UnlockedHercs) {
+		foreach (var (herc, flag) in save.ChassisAvailability) {
 			if (flag != 0) {
 				hangar._availableChassis.Add(herc.Id);
 			}
@@ -1264,7 +1264,7 @@ public sealed class ShellHangar {
 		hangar.MachinesOnStrength = save.MachinesOnStrength;
 		hangar.Player = Pilot(save.PlayerPilot);
 		for (int squad = 0; squad < SquadCount; squad++) {
-			int member = save.UnkRange_prePlayer[squad];
+			int member = save.SquadTailAndPlayerHead[squad];
 			int record = squad * PilotsPerSquad + member;
 			if (member >= 0 && member < PilotsPerSquad
 				&& Pilot(save.Squadmates?.ElementAtOrDefault(record)) is { } pilot) {
@@ -1299,14 +1299,14 @@ public sealed class ShellHangar {
 				Id = WeaponLUT.GetById(id),
 				UnlockFlag = stock?.UnlockFlag ?? (short)0,
 				Quantity = (short)units.Count,
-				Data = Enumerable.Reverse(units).Select(unit => unit.ToEntry()).ToArray(),
+				Units = Enumerable.Reverse(units).Select(unit => unit.ToEntry()).ToArray(),
 			};
 		}
 
 		save.Inventory = new Inventory { Items = items };
-		save.WorkshopSpace = (short)QueueFreeSlots;
-		for (int slot = 0; slot < QueueSlots && slot < save.WorkshopSlots.Length; slot++) {
-			save.WorkshopSlots[slot] = WeaponLUT.GetById(_queue[slot]) ?? WeaponLUT.None;
+		save.BuildQueueFreeSlots = (short)QueueFreeSlots;
+		for (int slot = 0; slot < QueueSlots && slot < save.BuildQueue.Length; slot++) {
+			save.BuildQueue[slot] = WeaponLUT.GetById(_queue[slot]) ?? WeaponLUT.None;
 		}
 
 		save.HercBay = new Dictionary<short, HercBayEntry>();
@@ -1319,28 +1319,28 @@ public sealed class ShellHangar {
 		save.SalvageTotal = SalvageKilograms;
 		for (int type = 0; type < ChassisTypeCount; type++) {
 			if (HercLUT.GetById((short)type) is { } herc) {
-				short flag = save.UnlockedHercs.TryGetValue(herc, out var read) ? read : (short)0;
-				save.UnlockedHercs[herc] = !IsChassisAvailable(type) ? (short)0 : flag != 0 ? flag : (short)1;
+				short flag = save.ChassisAvailability.TryGetValue(herc, out var read) ? read : (short)0;
+				save.ChassisAvailability[herc] = !IsChassisAvailable(type) ? (short)0 : flag != 0 ? flag : (short)1;
 			}
 		}
 
 		save.SquadPositionsInPlay = (short)SquadPositions;
 		save.MachinesOnStrength = (short)MachinesOnStrength;
 		if (Player != null && save.PlayerPilot != null) {
-			save.PlayerPilot.BayId = (short)Player.Bay;
+			save.PlayerPilot.Bay = (short)Player.Bay;
 		}
 
 		for (int member = 0; member < _squadRecords.Count; member++) {
 			if (save.Squadmates?.ElementAtOrDefault(_squadRecords[member]) is { } record) {
-				record.BayId = (short)_squad[member].Bay;
-				record.CrewRowNum = (short)_squad[member].SquadPosition;
-				record.Active = (byte)(_squad[member].OnStrength ? 1 : 0);
+				record.Bay = (short)_squad[member].Bay;
+				record.SquadPosition = (short)_squad[member].SquadPosition;
+				record.OnStrength = (byte)(_squad[member].OnStrength ? 1 : 0);
 			}
 		}
 	}
 
 	private static ShellBayPilot? Pilot(PilotEntry? pilot) =>
 		pilot == null ? null
-			: new ShellBayPilot((pilot.Name ?? string.Empty).TrimEnd('\0'), pilot.SquadmateId, pilot.BayId,
-				pilot.Skill?.Id ?? 0, pilot.CrewRowNum, pilot.Active != 0, pilot.NameIndex);
+			: new ShellBayPilot((pilot.Name ?? string.Empty).TrimEnd('\0'), pilot.RosterId, pilot.Bay,
+				pilot.Skill?.Id ?? 0, pilot.SquadPosition, pilot.OnStrength != 0, pilot.NameIndex);
 }

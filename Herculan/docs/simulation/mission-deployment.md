@@ -121,7 +121,7 @@ Runs every frame for every waiting group; does nothing until that group's action
 | 5 | on foot | 150,000 | `0x2000 - (rand & 0x3fff)` — ahead, ±45° |
 | other | in place | — | — |
 
-No retail `.MSN` authors verb 4 or 5: the verb runs 0-3 across the corpus ([`msn-mission-file.md`](../formats/msn-mission-file.md#row-10-field-decode--action82-dat_00470660-82-bytesrecord)). The two on-foot arrivals are read from the code alone.
+No retail `.MSN` authors verb 4 or 5: the verb runs 0-3 across the corpus ([`msn-mission-file.md`](../formats/msn-mission-file.md#row-10-field-decode--the-action-record-dat_00470660-82-bytesrecord)). The two on-foot arrivals are read from the code alone.
 
 **On foot** places the group's leader at that point facing `bearing - 0x8000` (the bearing itself, not the player's heading plus it), runs each other member through its own vtable `+0x78` formation offset, and clears `group+0x14` immediately. Only the leader is turned.
 

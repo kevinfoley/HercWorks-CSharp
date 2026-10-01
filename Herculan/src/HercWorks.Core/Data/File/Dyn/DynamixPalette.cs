@@ -3,25 +3,20 @@ using HercWorks.Core.Data.Struct;
 namespace HercWorks.Core.Data.File.Dyn;
 
 /// <summary>
-/// FILE - VOL file, .DPL — contains palette colors per-game object; some real optimization
-/// there. Ported from org.hercworks.core.data.file.dyn.DynamixPalette.
+/// A <c>.DPL</c> palette: a header, the colour entries, and — in the theater palettes — a shade-ramp
+/// table. Entries are <c>[R][G][B][flag]</c> with 6-bit channels; see
+/// docs/formats/cockpit-canopy-palette.md for the file layout and
+/// docs/formats/dts-texture-binding.md, "The .DPL shade-ramp table", for the tail.
 /// </summary>
 public class DynamixPalette {
-	/// <summary>
-	/// The 4-byte header, hex-decoded. Verified against a real <c>.DPL</c>
-	/// (<c>ES2\VOL\SHELL0\DPL\ALPHA.DPL</c>): its first 4 content bytes are <c>0F 00 28 00</c>.
-	/// Beware the Java original's <c>Bytes.from("0F002800", UTF_8)</c> idiom, which despite looking
-	/// like hex yields the 8 ASCII bytes of that text — <see cref="File.Dat.Shell.InitHerc"/> still
-	/// carries that form. The read path only ever skips 4 bytes for this header,
-	/// which is consistent with this being the correct length all along.
-	/// </summary>
+	/// <summary>The 4-byte type marker every <c>.DPL</c> starts with.</summary>
 	public static readonly byte[] Header = { 0x0F, 0x00, 0x28, 0x00 };
 
 	public int ColorCount { get; set; }
 
 	/// <summary>
-	/// No mapping to binary data — used to account for incredibly dark colors in most palettes.
-	/// The game binary probably scales values up too; this was likely a byte-saving measure.
+	/// Not in the file: the factor the transformer scales the 6-bit channels up by on read and
+	/// divides back out on write (4 unless the caller passes another).
 	/// </summary>
 	public int Scalar { get; set; } = 1;
 
@@ -29,25 +24,19 @@ public class DynamixPalette {
 	public byte[]? RawIndexBytes { get; set; }
 	public Dictionary<int, ColorBytes> Colors { get; set; } = new();
 
+	/// <summary>
+	/// Not in the file: the colour the toolkit's image export substitutes for palette index 0 when
+	/// asked to key it out.
+	/// </summary>
 	public ColorBytes Index0AlphaKey { get; set; }
 
 	/// <summary>
-	/// The palette's <b>shade ramps</b>, which live in the file's tail after the colour entries: one
-	/// ramp per entry of a 256-slot table, each a run of palette indices from darkest to brightest.
-	///
-	/// <para>A ramp is not a colour — it is a <i>material</i>. DBSIM's <c>TSShadedPoly_Render</c>
-	/// (<c>0047542c</c>) treats a surface's <c>FrontColor</c> as an index into this table, not as a
-	/// palette index, and picks the entry a face's computed light level lands on:
-	/// <c>Palette_ShadeRampLookup</c> (<c>00430e34</c>) is
-	/// <c>ramp[value &amp; 0xff].indices[(shade * ramp.length) &gt;&gt; 8]</c>, stepping back one when
-	/// that lands past the end. That is the whole of a shaded surface's colour, and it is why the
-	/// theater's palette changes what a HERC and a building look like.</para>
-	///
-	/// <para>Layout, read exactly and byte-complete on all four <c>WORLD&lt;n&gt;.DPL</c> files:
-	/// <c>int32 rampCount</c> (256 in every retail file) followed by <c>rampCount</c> records of
-	/// <c>int16 length</c> then <c>length</c> <c>int16</c> palette indices. Retail lengths are 1, 4,
-	/// 7, 8, 13 and 16; most of the table is the single-entry ramp <c>[255]</c>, so only the low
-	/// twenty-odd slots carry real material ramps.</para>
+	/// The palette's <b>shade ramps</b>, from the file's tail after the colour entries: one per slot of
+	/// the table, each a run of palette indices from darkest to brightest. A shaded surface's value
+	/// names a ramp, not a colour, and the face's light level picks the step along it
+	/// (<c>Palette_ShadeRampLookup</c>, <c>00430e34</c>). Layout and lookup are in
+	/// docs/formats/dts-texture-binding.md, "The .DPL shade-ramp table" and "TSShadedPoly — shade-ramp
+	/// number, per-face light, fixed .RMP row".
 	///
 	/// <para>Empty when the file carries no tail — the shell palettes are colours only.</para>
 	/// </summary>

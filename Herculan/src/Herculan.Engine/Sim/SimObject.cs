@@ -348,7 +348,7 @@ public abstract class SimObject {
 	/// <summary>
 	/// <c>obj+0x1b2</c> — the mission action this object fires when it is <b>engaged</b>: a hostile
 	/// that already has contact on it has closed to <see cref="Detection.EngagementRange"/>. Set from
-	/// its roster record's own ref; see <c>ScriptSpawnRecordExport.EngagementActionRef</c>.
+	/// its roster record's own ref; see <c>ScriptMechRecord.EngagementActionRef</c>.
 	/// </summary>
 	public MissionActionState? EngagementAction { get; set; }
 

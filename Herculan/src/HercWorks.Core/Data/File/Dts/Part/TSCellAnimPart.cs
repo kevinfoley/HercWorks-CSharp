@@ -11,8 +11,6 @@ namespace HercWorks.Core.Data.File.Dts.Part;
 /// instance's per-sequence frame counters the part reads. Children need not be bitmaps — BULLETS.DTS
 /// root 8 animates real TSGroup geometry this way. See docs/formats/dts-billboards.md,
 /// "TSCellAnimPart_Render".</para>
-///
-/// Ported from org.hercworks.core.data.file.dts.part.TSCellAnimPart.
 /// </summary>
 public class TSCellAnimPart : TSPartList {
 	public short AnimSequence { get; set; }

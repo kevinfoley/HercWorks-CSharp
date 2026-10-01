@@ -1,62 +1,66 @@
 namespace HercWorks.Core.Data.Struct.Vshell.Sav;
 
 /// <summary>
-/// Bound to PlayerSave — a chunk of save data dealing just with squadmate state, and player state.
-/// Variable-length, 31 bytes plus the name. On-disk layout, with the record's in-memory offsets
-/// (VSHELL's reader is <c>Pilot_Read</c> (<c>0040fefc</c>), its mirror writer <c>Pilot_Write</c> (<c>0040fd5f</c>)):
-///   +0x00 - UINT16 - roster id, 0-11: squad index x 4 plus a per-squad shuffle
-///   +0x02 - UINT16 - name index into esnames.bin, 0-35
-///           UINT16 - name length, strlen+1
-///           STRING - the name, NUL included
-///   +0x22 - UINT16 - assigned herc bay slot; FF FF is unassigned
-///   +0x24 - UINT8  - on strength; gates repair billing, results accounting and the .mec export
-///   +0x25 - UINT16 - skill 0-3: Rookie, Regular, Veteran, Elite
-///   +0x27 - UINT16 - squad slot, FF FF initially; selects the promotion divisor pair
-///   +0x29 - UINT16 - rank 0-3: Lieutenant, Captain, Major, Lt Colonel
-///   +0x2b - UINT16 - condition; overwritten at debrief from the machine's overall damage
-///   +0x2d,+0x2f,+0x31 - UINT16 - Herc, Flyer and Base kills for the last mission
-///   +0x33,+0x35,+0x37 - UINT16 - the same three as career totals
-///   +0x39 - UINT16 - missions flown
-///
-/// <para><b>Skill and rank are two independent 0-3 fields</b>, at +0x25 and +0x29, and both stay
-/// inside 0-3 in every retail save. They read their labels from one contiguous run of eight UI
-/// strings at different base offsets, which is why a single 0-7 enum appears to work for display
-/// while conflating two separate ladders. <see cref="Rank"/> below sits at +0x25 and so holds the
-/// <i>skill</i>; <see cref="Unk2Uint16"/> sits at +0x29 and holds the rank.</para>
-///
-/// Ported from org.hercworks.core.data.struct.vshell.sav.PilotEntry.
-/// See <c>docs/formats/save-games.md</c> for the record and
-/// <c>docs/shell/campaign-loop.md</c> for how the two ladders advance.
+/// One pilot record of <see cref="File.Sav.PlayerSave"/> — the same shape for each of the 36
+/// squadmates and for the player. Variable-length on disk, 31 bytes plus the name; VSHELL reads it
+/// with <c>Pilot_Read</c> (<c>0040fefc</c>) and writes it with <c>Pilot_Write</c> (<c>0040fd5f</c>).
+/// The offsets below are the 59-byte in-memory record's. See
+/// <c>docs/formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory</c>, and
+/// <c>docs/shell/campaign-loop.md#pilot-progression</c> for how skill and rank advance.
 /// </summary>
 public class PilotEntry {
-	public short SquadmateId { get; set; }
+	/// <summary><c>+0x00</c>, roster id 0-11: squad index x 4 plus a per-squad shuffle.</summary>
+	public short RosterId { get; set; }
 
 	/// <summary>
-	/// Index into esnames.bin, 0-35, at <c>+0x02</c>. Stored alongside the name string rather than
+	/// <c>+0x02</c>, index into <c>esnames.bin</c>, 0-35. Stored alongside the name string rather than
 	/// instead of it, and every roster draw uses the index space exactly once so no two pilots in a
 	/// run share a name.
 	/// </summary>
 	public short NameIndex { get; set; }
 
+	/// <summary><c>+0x04</c>, the name, copied from <c>esnames.bin</c>; on disk an <c>int16</c> length (NUL included) and the bytes.</summary>
 	public string? Name { get; set; }
-	public short BayId { get; set; }
-	public byte Active { get; set; }
 
-	/// <summary>Skill at <c>+0x25</c>, 0-3.</summary>
+	/// <summary><c>+0x22</c>, the assigned hangar bay; <c>-1</c> when unassigned.</summary>
+	public short Bay { get; set; }
+
+	/// <summary><c>+0x24</c>, on strength — gates repair billing, results accounting and the <c>player.mec</c> export.</summary>
+	public byte OnStrength { get; set; }
+
+	/// <summary><c>+0x25</c>, skill 0-3.</summary>
 	public PilotSkill? Skill { get; set; }
 
-	/// <summary>Squad slot at <c>+0x27</c>; also selects the pilot's promotion divisor pair.</summary>
-	public short CrewRowNum { get; set; }
+	/// <summary>
+	/// <c>+0x27</c>, squad position: the crew screen row 1-3 the pilot fills, the player's 0, <c>-1</c>
+	/// unassigned. Also selects the pilot's promotion divisor pair.
+	/// </summary>
+	public short SquadPosition { get; set; }
 
-	/// <summary>Rank at <c>+0x29</c>, 0-3 — a separate ladder from <see cref="Skill"/>.</summary>
+	/// <summary><c>+0x29</c>, rank 0-3 — a separate ladder from <see cref="Skill"/>.</summary>
 	public PilotRank? Rank { get; set; }
 
-	public short ProbablyHealth { get; set; }
-	public short KillsHercs { get; set; }
-	public short KillsFlyers { get; set; }
-	public short KillsBuilding { get; set; }
-	public short TotalKillHerc { get; set; }
-	public short TotalKillFlyer { get; set; }
-	public short TotalKillBldng { get; set; }
-	public short MissionCount { get; set; }
+	/// <summary><c>+0x2b</c>, condition: 100 at creation, overwritten at debrief from the HERC's overall condition.</summary>
+	public short Condition { get; set; }
+
+	/// <summary><c>+0x2d</c>, Herc kills this mission.</summary>
+	public short HercKills { get; set; }
+
+	/// <summary><c>+0x2f</c>, Flyer kills this mission.</summary>
+	public short FlyerKills { get; set; }
+
+	/// <summary><c>+0x31</c>, Base kills this mission.</summary>
+	public short BaseKills { get; set; }
+
+	/// <summary><c>+0x33</c>, Herc kills, career total.</summary>
+	public short TotalHercKills { get; set; }
+
+	/// <summary><c>+0x35</c>, Flyer kills, career total.</summary>
+	public short TotalFlyerKills { get; set; }
+
+	/// <summary><c>+0x37</c>, Base kills, career total.</summary>
+	public short TotalBaseKills { get; set; }
+
+	/// <summary><c>+0x39</c>, missions flown.</summary>
+	public short MissionsFlown { get; set; }
 }

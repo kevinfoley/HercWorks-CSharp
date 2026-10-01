@@ -3,18 +3,14 @@ using System.Diagnostics;
 namespace HercWorks.Core.Data.File.Dts;
 
 /// <summary>
-/// <b>A superseded stand-in, kept because it is still live code.</b> A 13-entry guess table of RGB
-/// approximations for a surface's <c>FrontColor</c>, from before the real mechanism was traced;
-/// anything it has no entry for clamps to the cyan error colour.
+/// <b>A guess table, not the game's colours.</b> Thirteen RGB approximations keyed by a surface's
+/// <c>FrontColor</c>; anything it has no entry for clamps to the cyan error colour. Do not treat its
+/// output as evidence.
 ///
 /// <para>The real resolution is in docs/formats/dts-texture-binding.md, "Poly types and their colour
 /// mechanisms": the value is a palette index (TSSolidPoly) or a shade-ramp number
-/// (TSShadedPoly/TSGouraudPoly) resolved through the theater's <c>.RMP</c> and <c>.DPL</c>, which
-/// <c>Herculan.Engine</c> implements. <c>HercWorks.UI.DtsGeometryBuilder</c> still colours every
-/// surface through this table instead, so the WinForms model viewer's colours are not the game's;
-/// do not treat them as evidence.</para>
-///
-/// Ported from org.hercworks.core.data.file.dts.DefaultShapeColors.
+/// (TSShadedPoly/TSGouraudPoly) resolved through the theater's <c>.RMP</c> and <c>.DPL</c>. The
+/// WinForms model viewer colours surfaces that way, through <c>HercWorks.UI.ShapeShading</c>.</para>
 /// </summary>
 public sealed class DefaultShapeColors {
 	public static readonly DefaultShapeColors Error = new(-1, new[] { 0.0, 2.0, 3.0 });

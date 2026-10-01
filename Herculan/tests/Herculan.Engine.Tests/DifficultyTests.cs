@@ -281,8 +281,8 @@ public class DifficultyTests {
 	private static ProjMissileDatEntry Record() => new() {
 		Lifetime = 1000,
 		ClipRadius = 100,
-		Unk2Flag = 0,
-		Unk3Uint16 = 0
+		FrameInterval = 0,
+		Scatter = 0
 	};
 
 	/// <summary>

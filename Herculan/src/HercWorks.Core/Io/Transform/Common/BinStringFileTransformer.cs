@@ -4,7 +4,7 @@ using System.Text;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
-/// <summary>Ported from org.hercworks.core.io.transform.common.BinStringFileTransformer.</summary>
+/// <summary>Transforms byte[] data to and from a <c>.BIN</c> string table (see <see cref="StringBinaryFile"/>).</summary>
 public class BinStringFileTransformer : ByteTransformer<StringBinaryFile> {
 	public override StringBinaryFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {

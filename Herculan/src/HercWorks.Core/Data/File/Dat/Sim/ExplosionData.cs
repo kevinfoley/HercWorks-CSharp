@@ -76,8 +76,10 @@ public class ExplosionTypeEntry {
 	public const int FrameIntensityCount = 12;
 
 	/// <summary>
-	/// <c>+0x20</c>, an int32 — the radius the effect's proximity test (<c>Explosion_ProximityTest</c>, <c>00408100</c>, which nothing
-	/// in the image calls) reports a hit inside. Either 0 or 20000 in retail data.
+	/// <c>+0x20</c>, an int32 — the radius the effect's proximity test (<c>Explosion_ProximityTest</c>,
+	/// <c>00408100</c>) reports a hit inside. Either 0 or 20000 in retail data. That test has no
+	/// reference in the image, so the field has no effect in a mission; see
+	/// docs/formats/explos-dat.md#type-row-0x28-bytes.
 	/// </summary>
 	public int ProximityRadius { get; set; }
 

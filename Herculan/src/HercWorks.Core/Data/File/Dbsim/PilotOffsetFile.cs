@@ -5,7 +5,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// portrait sheet is drawn inside its comm box. No header and no count field: the file is a flat
 /// array of 12-byte entries, and the loader reads a fixed 27 of them.
 ///
-/// New (no Java equivalent — not a ported format): read from DBSIM's own loader,
+/// The layout is DBSIM's own loader,
 /// <c>HddGauge_LoadPilotFrames</c> (<c>0044a7c0</c>), which per entry reads a 4-byte frame index and
 /// then copies the following 8 bytes into <c>gauge + index * 8 + 0x3d</c>. So an entry is three
 /// INT32s and the pair is signed, in the bank's own 320-wide space.

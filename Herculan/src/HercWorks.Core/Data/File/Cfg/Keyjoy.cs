@@ -3,7 +3,8 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Data.File.Cfg;
 
 /// <summary>
-/// FILE - [ROOT]/DATA/KEYJOY.CFG. Ported from org.hercworks.core.data.file.cfg.Keyjoy.
+/// <c>DATA\KEYJOY.CFG</c> — four INI keys under <c>[Keyjoy]</c>, each inverting one control axis when
+/// set to <c>Reverse</c>. See docs/formats/joystick-input.md, "data\keyjoy.cfg".
 /// </summary>
 public class Keyjoy : DataFile {
 	public enum KeyJoyLabel {

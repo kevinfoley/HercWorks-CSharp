@@ -80,20 +80,20 @@ internal sealed class ScriptRouteRow : ScriptRow {
 
 /// <summary>
 /// Block 4 — a trigger area. Type 0 is a box between two block-1 points; any other type is a
-/// circle round <see cref="RefA"/> whose radius is <see cref="RefBOrLiteral"/> × 10.
+/// circle round <see cref="PointRef"/> whose radius is <see cref="SecondPointOrRadius"/> × 10.
 /// </summary>
-internal sealed class ScriptLinkRewardRow : ScriptRow {
-	public required ScriptLinkOrReward Source { get; init; }
+internal sealed class ScriptTriggerAreaRow : ScriptRow {
+	public required ScriptTriggerArea Source { get; init; }
 
-	public short TypeFlag { get => Source.TypeFlag; set => Source.TypeFlag = value; }
-	public short RefA { get => Source.RefA; set => Source.RefA = value; }
-	public short RefBOrLiteral { get => Source.RefBOrLiteral; set => Source.RefBOrLiteral = value; }
+	public short Shape { get => Source.Shape; set => Source.Shape = value; }
+	public short PointRef { get => Source.PointRef; set => Source.PointRef = value; }
+	public short SecondPointOrRadius { get => Source.SecondPointOrRadius; set => Source.SecondPointOrRadius = value; }
 }
 
 /// <summary>
-/// Block 5 — a mission action. <see cref="SecondaryValue"/> is the message it posts plus one (0 for
-/// none), <see cref="RefsRow9"/> its block-4 trigger areas, and the two counter arrays the mission
-/// counters it writes when it activates; DBSIM reads <see cref="LutRefs"/> and throws it away. See
+/// Block 5 — a mission action. <see cref="MessageId"/> is the message it posts plus one (0 for
+/// none), <see cref="AreaRefs"/> its block-4 trigger areas, and the two counter arrays the mission
+/// counters it writes when it activates; DBSIM reads <see cref="TextRefs"/> and throws it away. See
 /// docs/formats/script-dat.md and docs/simulation/mission-deployment.md.
 /// </summary>
 internal sealed class ScriptActionRow : ScriptRow {
@@ -101,29 +101,29 @@ internal sealed class ScriptActionRow : ScriptRow {
 
 	public short Type { get => Source.Type; set => Source.Type = value; }
 	public short Verb { get => Source.Verb; set => Source.Verb = value; }
-	public short SecondaryValue { get => Source.SecondaryValue; set => Source.SecondaryValue = value; }
+	public short MessageId { get => Source.MessageId; set => Source.MessageId = value; }
 	public short Target { get => Source.Target; set => Source.Target = value; }
 
-	public string RefsRow9 {
-		get => ShortCsv.Format(Source.RefsRow9);
-		set => ShortCsv.ParseInto(value, Source.RefsRow9);
+	public string AreaRefs {
+		get => ShortCsv.Format(Source.AreaRefs);
+		set => ShortCsv.ParseInto(value, Source.AreaRefs);
 	}
 
-	public string LutRefs {
-		get => ShortCsv.Format(Source.LutRefs);
-		set => ShortCsv.ParseInto(value, Source.LutRefs);
+	public string TextRefs {
+		get => ShortCsv.Format(Source.TextRefs);
+		set => ShortCsv.ParseInto(value, Source.TextRefs);
 	}
 
-	/// <summary>Ten mission-counter refs — Core's <c>ArrayA</c>.</summary>
+	/// <summary>Ten mission-counter refs.</summary>
 	public string CounterRefs {
-		get => ShortCsv.Format(Source.ArrayA);
-		set => ShortCsv.ParseInto(value, Source.ArrayA);
+		get => ShortCsv.Format(Source.CounterRefs);
+		set => ShortCsv.ParseInto(value, Source.CounterRefs);
 	}
 
-	/// <summary>The operation for each counter ref: 6 increments it, 5 clears it — Core's <c>ArrayB</c>.</summary>
+	/// <summary>The operation for each counter ref: 6 increments it, 5 clears it.</summary>
 	public string CounterOps {
-		get => ShortCsv.Format(Source.ArrayB);
-		set => ShortCsv.ParseInto(value, Source.ArrayB);
+		get => ShortCsv.Format(Source.CounterOps);
+		set => ShortCsv.ParseInto(value, Source.CounterOps);
 	}
 }
 
@@ -135,7 +135,7 @@ internal sealed class ScriptActionTimerRow : ScriptRow {
 	public required ScriptActionTimer Source { get; init; }
 
 	public short PrimaryActionRef { get => Source.PrimaryActionRef; set => Source.PrimaryActionRef = value; }
-	public short TimerValue { get => Source.TimerValue; set => Source.TimerValue = value; }
+	public short Delay { get => Source.Delay; set => Source.Delay = value; }
 
 	public string SequenceRefs {
 		get => ShortCsv.Format(Source.SequenceRefs);
@@ -148,11 +148,10 @@ internal sealed class ScriptActionTimerRow : ScriptRow {
 /// every retail file Position/Heading are -1, meaning the mech takes its group's instead.
 /// </summary>
 internal sealed class ScriptMechRow : ScriptRow {
-	public required ScriptSpawnRecordExport Source { get; init; }
+	public required ScriptMechRecord Source { get; init; }
 
 	/// <summary>
-	/// Index into <c>nam\MECHS.NAM</c>, presented as a name via <see cref="HercTypeOption"/>; the
-	/// underlying model field keeps Core's own name.
+	/// Index into <c>nam\MECHS.NAM</c>, presented as a name via <see cref="HercTypeOption"/>.
 	/// </summary>
 	public short HercType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
@@ -189,7 +188,7 @@ internal sealed class ScriptMechRow : ScriptRow {
 /// filler 5 there.
 /// </summary>
 internal sealed class ScriptWeaponSlotRow {
-	public required ScriptSpawnRecordExport Source { get; init; }
+	public required ScriptMechRecord Source { get; init; }
 
 	/// <summary>Position in both loadout arrays. Slot order is the hardpoint order the Herc's own fit uses.</summary>
 	public required int Slot { get; init; }
@@ -212,7 +211,7 @@ internal sealed class ScriptWeaponSlotRow {
 
 /// <summary>Block 8 — one flyer roster slot.</summary>
 internal sealed class ScriptFlyerRow : ScriptRow {
-	public required ScriptEntity102Export Source { get; init; }
+	public required ScriptFlyerRecord Source { get; init; }
 
 	public short FlyerType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
@@ -223,7 +222,7 @@ internal sealed class ScriptFlyerRow : ScriptRow {
 
 /// <summary>Block 9 — one base/structure roster slot.</summary>
 internal sealed class ScriptBaseRow : ScriptRow {
-	public required ScriptMiscEntityExport Source { get; init; }
+	public required ScriptBaseRecord Source { get; init; }
 
 	public short BaseType { get => Source.TypeIndex; set => Source.TypeIndex = value; }
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
@@ -234,58 +233,58 @@ internal sealed class ScriptBaseRow : ScriptRow {
 
 /// <summary>
 /// Block 10 — a group order, one of the ten a block-11 group works through in slot order.
-/// <see cref="SmallInt1"/> is the verb (search/destroy, ram, guard, patrol, sleep, travel, follow),
-/// the discriminated pair the order's subject, and <see cref="ActionRef"/> an action that moves the
+/// <see cref="Verb"/> is search/destroy, ram, guard, patrol, sleep, travel or follow, the
+/// subject pair what it is about, and <see cref="ActionRef"/> an action that moves the
 /// group on to its next order. A group's route and its fallback spawn point come from its slot-0
 /// order's <see cref="RouteRef"/>. See docs/simulation/ai-goals.md.
 /// </summary>
-internal sealed class ScriptRouteLinkRow : ScriptRow {
-	public required ScriptLinkedRef22Export Source { get; init; }
+internal sealed class ScriptOrderRow : ScriptRow {
+	public required ScriptOrder Source { get; init; }
 
-	public short SmallInt1 { get => Source.SmallInt1; set => Source.SmallInt1 = value; }
-	public short SmallInt2 { get => Source.SmallInt2; set => Source.SmallInt2 = value; }
-	public short PointRef { get => Source.RefRow6; set => Source.RefRow6 = value; }
-	public short RouteRef { get => Source.RefRow8; set => Source.RefRow8 = value; }
-	public short DiscriminatorType { get => Source.DiscriminatorType; set => Source.DiscriminatorType = value; }
-	public short DiscriminatedRef { get => Source.DiscriminatedRef; set => Source.DiscriminatedRef = value; }
-	public short ActionRef { get => Source.RefRow10; set => Source.RefRow10 = value; }
+	public short Verb { get => Source.Verb; set => Source.Verb = value; }
+	public short FormationId { get => Source.FormationId; set => Source.FormationId = value; }
+	public short PointRef { get => Source.PointRef; set => Source.PointRef = value; }
+	public short RouteRef { get => Source.RouteRef; set => Source.RouteRef = value; }
+	public short SubjectKind { get => Source.SubjectKind; set => Source.SubjectKind = value; }
+	public short SubjectRef { get => Source.SubjectRef; set => Source.SubjectRef = value; }
+	public short ActionRef { get => Source.ActionRef; set => Source.ActionRef = value; }
 }
 
 /// <summary>
-/// Block 11 — a group: the record that actually decides what exists and where. Roster picks which
-/// roster block MemberRefs indexes (0 mechs / 1 flyers / 2 bases), and every record past record 0
-/// activates the slots it names. Record 0 is the player squad's placeholder — it activates nothing
-/// and DBSIM fills its members from data\player.mec — so it is shown but its member list is
-/// meaningless. <see cref="TriStateFlag"/> is the side (0 human, 1 Cybrid); a set
-/// <see cref="ActionRef"/> keeps the group out of the mission until that action fires.
+/// Block 11 — a group: the record that actually decides what exists and where.
+/// <see cref="MemberKind"/> picks which roster block MemberRefs indexes (0 mechs / 1 flyers /
+/// 2 bases), and every record past record 0 activates the slots it names. Record 0 is the player
+/// squad's placeholder — it activates nothing and DBSIM fills its members from data\player.mec — so
+/// it is shown but its member list is meaningless. <see cref="Side"/> is 0 human, 1 Cybrid; a set
+/// <see cref="DeploymentActionRef"/> keeps the group out of the mission until that action fires.
 /// </summary>
 internal sealed class ScriptGroupRow : ScriptRow {
-	public required ScriptEntity164Export Source { get; init; }
+	public required ScriptGroup Source { get; init; }
 
 	public bool IsPlayerSquad => Index == 0;
 
-	public short BinaryFlag { get => Source.BinaryFlag; set => Source.BinaryFlag = value; }
-	public short Roster { get => Source.Discriminator; set => Source.Discriminator = value; }
-	public short Formation { get => Source.SmallDiscrete; set => Source.SmallDiscrete = value; }
-	public short PointRef { get => Source.RefRow6; set => Source.RefRow6 = value; }
-	public short HeadingRef { get => Source.RefRow7; set => Source.RefRow7 = value; }
-	public short RouteRef { get => Source.RefRow8; set => Source.RefRow8 = value; }
-	public short TriStateFlag { get => Source.TriStateFlag; set => Source.TriStateFlag = value; }
-	public short ActionRef { get => Source.RefRow10; set => Source.RefRow10 = value; }
+	public short PaintsGround { get => Source.PaintsGround; set => Source.PaintsGround = value; }
+	public short MemberKind { get => Source.MemberKind; set => Source.MemberKind = value; }
+	public short FormationId { get => Source.FormationId; set => Source.FormationId = value; }
+	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
+	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
+	public short RouteRef { get => Source.RouteRef; set => Source.RouteRef = value; }
+	public short Side { get => Source.Side; set => Source.Side = value; }
+	public short DeploymentActionRef { get => Source.DeploymentActionRef; set => Source.DeploymentActionRef = value; }
 
 	/// <summary>
-	/// The 20 member slots, indexing whichever roster <see cref="Roster"/> names. Slot position
+	/// The 20 member slots, indexing whichever roster <see cref="MemberKind"/> names. Slot position
 	/// matters beyond membership: it is also the formation slot, so slot 0 always stands exactly on
 	/// the group's point and reordering members moves them.
 	/// </summary>
 	public string MemberRefs {
-		get => ShortCsv.Format(Source.DiscriminatedRefs);
-		set => ShortCsv.ParseInto(value, Source.DiscriminatedRefs);
+		get => ShortCsv.Format(Source.MemberRefs);
+		set => ShortCsv.ParseInto(value, Source.MemberRefs);
 	}
 
-	public string RouteLinkRefs {
-		get => ShortCsv.Format(Source.Row15Refs);
-		set => ShortCsv.ParseInto(value, Source.Row15Refs);
+	public string OrderRefs {
+		get => ShortCsv.Format(Source.OrderRefs);
+		set => ShortCsv.ParseInto(value, Source.OrderRefs);
 	}
 }
 
@@ -293,35 +292,31 @@ internal sealed class ScriptGroupRow : ScriptRow {
 /// Block 12 — a mission objective. DBSIM's first pass discards it and the spawn pass comes back to
 /// build the objectives from it; see docs/simulation/mission-objectives.md.
 /// </summary>
-internal sealed class ScriptEntityLinkRow : ScriptRow {
-	public required ScriptUnitSpawn58Export Source { get; init; }
+internal sealed class ScriptObjectiveRow : ScriptRow {
+	public required ScriptObjective Source { get; init; }
 
-	/// <summary>1 = must be satisfied; anything else makes it a failure condition. Core's <c>Unk02</c>.</summary>
-	public short Required { get => Source.Unk02; set => Source.Unk02 = value; }
+	/// <summary>1 = must be satisfied; anything else makes it a failure condition.</summary>
+	public short Required { get => Source.Required; set => Source.Required = value; }
 
-	/// <summary>Core's <c>Unk04</c>.</summary>
-	public short ConditionCode { get => Source.Unk04; set => Source.Unk04 = value; }
-	public short Discriminator { get => Source.Discriminator; set => Source.Discriminator = value; }
-	public short DiscriminatedRef { get => Source.DiscriminatedRef; set => Source.DiscriminatedRef = value; }
-	public short PointRef { get => Source.RefRow6; set => Source.RefRow6 = value; }
-	public short RouteRef { get => Source.RefRow8; set => Source.RefRow8 = value; }
+	public short ConditionCode { get => Source.ConditionCode; set => Source.ConditionCode = value; }
+	public short SubjectKind { get => Source.SubjectKind; set => Source.SubjectKind = value; }
+	public short SubjectRef { get => Source.SubjectRef; set => Source.SubjectRef = value; }
+	public short PointRef { get => Source.PointRef; set => Source.PointRef = value; }
+	public short RouteRef { get => Source.RouteRef; set => Source.RouteRef = value; }
 
-	/// <summary>
-	/// The first of three consecutive <c>data\mission.str</c> lines shown when the objective fails.
-	/// Core's <c>LutRef</c>.
-	/// </summary>
-	public short FailureTextLine { get => Source.LutRef; set => Source.LutRef = value; }
+	/// <summary>The first of three consecutive <c>data\mission.str</c> lines shown when the objective fails.</summary>
+	public short FailureTextLine { get => Source.TextRef; set => Source.TextRef = value; }
 
-	/// <summary>Mission-counter refs — Core's <c>PairRefs</c>.</summary>
+	/// <summary>Mission-counter refs.</summary>
 	public string CounterRefs {
-		get => ShortCsv.Format(Source.PairRefs);
-		set => ShortCsv.ParseInto(value, Source.PairRefs);
+		get => ShortCsv.Format(Source.CounterRefs);
+		set => ShortCsv.ParseInto(value, Source.CounterRefs);
 	}
 
-	/// <summary>The operation for each counter ref — Core's <c>PairTags</c>.</summary>
+	/// <summary>The operation for each counter ref.</summary>
 	public string CounterOps {
-		get => ShortCsv.Format(Source.PairTags);
-		set => ShortCsv.ParseInto(value, Source.PairTags);
+		get => ShortCsv.Format(Source.CounterOps);
+		set => ShortCsv.ParseInto(value, Source.CounterOps);
 	}
 }
 
@@ -330,6 +325,6 @@ internal sealed class ScriptEntityLinkRow : ScriptRow {
 /// index. This block is a plain count-prefixed list with nothing referencing it, so rows here can be
 /// added and removed freely; the whole array is rebuilt from the grid on save.
 /// </summary>
-internal sealed class ScriptUnlockRow {
+internal sealed class ScriptObjectiveLineRow {
 	public short Value { get; set; }
 }

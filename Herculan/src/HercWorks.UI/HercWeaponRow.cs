@@ -3,7 +3,7 @@ using HercWorks.Core.Data.Struct;
 namespace HercWorks.UI;
 
 /// <summary>
-/// Editable grid-row shape for one HercBayEntry.Weapons entry (keyed by hardpoint socket id) in
+/// Editable grid-row shape for one HercBayEntry.Mounts entry (keyed by hardpoint socket id) in
 /// HercBayEditorForm. Rows can be freely added/removed since the underlying dictionary is sparse
 /// (equipped hardpoints only, not every hardpoint slot).
 /// </summary>

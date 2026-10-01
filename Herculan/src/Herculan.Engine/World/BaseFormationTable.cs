@@ -75,10 +75,10 @@ public sealed record BaseFormationLayout(int MaterialIndex, int Dimension,
 /// from placing every member on the group's single point.
 ///
 /// <para>Read from the base-group-attach chain: <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>)
-/// carries the group's formation id (script.dat block-11's <c>SmallDiscrete</c> field, raw msn
+/// carries the group's formation id (script.dat block-11's <c>FormationId</c> field, raw msn
 /// offset <c>0x30</c> — see <c>docs/formats/msn-mission-file.md</c>'s row #16 decode) into
 /// <c>Base_AttachToGroup</c> (<c>00405c3c</c>), which stores it at the attached object's group-relative member index
-/// (<c>+0x49</c>, the object's position within the group's <c>DiscriminatedRefs</c> array — <b>not</b>
+/// (<c>+0x49</c>, the object's position within the group's <c>MemberRefs</c> array — <b>not</b>
 /// a compacted live-member count) and then unconditionally calls the object's own vtable
 /// <c>+0x78</c>. For every base subtype's vtable that slot is <c>Base_ApplyFormationOffset</c> (<c>00405c04</c>), which — when the
 /// member index is nonzero, i.e. every member but the group's first-claimed ("leader") slot — looks
@@ -97,7 +97,7 @@ public sealed record BaseFormationLayout(int MaterialIndex, int Dimension,
 /// structure of a group standing in the right place facing the wrong way.</para>
 ///
 /// <para><b>The trailer describes the formation's ground, and where the group stands on it</b> —
-/// see <see cref="BaseFormationLayout"/>. When the block-11 record's own <c>BinaryFlag</c> (raw msn
+/// see <see cref="BaseFormationLayout"/>. When the block-11 record's own <c>PaintsGround</c> (raw msn
 /// offset <c>0x06</c>) is set, the group's shared anchor is moved to that formation's fixed
 /// position within its terrain tile before any per-member offset above is added
 /// (<see cref="BaseFormationLayout.SnapAnchor"/>), and the same tile is painted with the
@@ -125,7 +125,7 @@ public sealed class BaseFormationTable {
 
 	/// <summary>
 	/// The spread offset for a group's <paramref name="memberIndex"/>-th member (its position within
-	/// the claiming block-11 record's <c>DiscriminatedRefs</c> array), or null when the slot takes no
+	/// the claiming block-11 record's <c>MemberRefs</c> array), or null when the slot takes no
 	/// offset — member index 0 (the group's first-claimed member), an out-of-range formation id, or a
 	/// formation with fewer follower slots than this index needs.
 	/// </summary>

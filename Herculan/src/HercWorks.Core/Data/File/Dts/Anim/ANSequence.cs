@@ -2,14 +2,31 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Anim;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.anim.ANSequence.</summary>
+/// <summary>
+/// An animation sequence that plays once and holds its last frame; <see cref="ANCyclicSequence"/> is
+/// the looping kind. See docs/formats/dts-node-posing.md, "Cyclic and one-shot sequences".
+/// </summary>
 public class ANSequence : TSObject {
+	/// <summary>Meaning not established.</summary>
 	public short Tick { get; set; }
+
+	/// <summary>Meaning not established.</summary>
 	public short Priority { get; set; }
+
+	/// <summary>
+	/// Non-zero when column 0's transform is root motion — a ground displacement applied to the
+	/// object — rather than a pose. See docs/simulation/mech-locomotion.md.
+	/// </summary>
 	public short GroundMovement { get; set; }
 
 	public ANSequenceFrame[]? Frames { get; set; }
+
+	/// <summary>The node (transform id) each column of <see cref="TransformIndices"/> animates.</summary>
 	public short[]? PartIds { get; set; }
+
+	/// <summary>
+	/// Index into <see cref="ANAnimList.Transforms"/> per (frame, column), row-major by frame.
+	/// </summary>
 	public short[]? TransformIndices { get; set; }
 
 	public ANSequence() : base(TSObjectHeader.ANSequence) { }

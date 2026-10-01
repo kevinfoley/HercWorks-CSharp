@@ -3,129 +3,61 @@ using HercWorks.Core.Data.Struct.Herc;
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
-/// FILE - dmg\[herc].DMG — armor, critical component HP, and other damage-related data per unit,
-/// tied to the unit by name from the corresponding .DAT file.
+/// FILE - dmg\[herc].DMG — the per-chassis component table: a count and that many internal maxima,
+/// then a count and that many component pieces (<see cref="HercPiece"/>, 8 bytes plus a 4-byte
+/// entry per dependent internal). DBSIM builds the filename from the machine's own name string.
+/// Retail mechs carry 22 internals and 29 components; SKIMMER carries 1 and 1.
 ///
-/// Independently confirmed as DBSIM.EXE's own per-mech hit-zone/component table (see
-/// docs/formats/dmg-damage-file.md, and docs/simulation/component-damage.md for what the simulator
-/// does with it): loaded at runtime via a filename built from the
-/// mech's own name string plus an extension, matching this file's own `dmg\[herc].DMG` location;
-/// <see cref="HercPiece"/> is exactly DBSIM's 18-byte per-component record (`Armor`=max health at
-/// offset 0, `DebrisFlags`=offsets 2-3, `BoneId`=offset 4, `DestructionFlags`=offset 5,
-/// `MappedInternals`=the offset-6/8 dependent-list). This also settles (as far as the code goes)
-/// the manual's Structural/Internal/Weaponry HDD terminology, which is not a clean
-/// 3-way partition of one index space: **Structural** = most of this class's 29-slot
-/// <see cref="HercSimDamage.ComponentData"/> array (the named body pieces in the doc comment
-/// below — TORSO, LEG/UPPER/LOWER, FOOT, SHOULDER, etc.); **Weaponry** = a *subset of that same
-/// array* distinguished only by name/position (`WEPN_BRACK/LEFT`/`RIGHT`), not a separate array —
-/// weapon-specific runtime state (ammo, heat) is tracked elsewhere by DBSIM's weapon-mount-manager
-/// object, not in this file; **Internal** = the *separate*, smaller <see cref="HercInternals"/>
-/// table (Engine, Shield Generator, Sensor Array, Life Support, Pilot, etc.), reached
-/// probabilistically through a struck structural piece's own <see cref="HercPiece.MappedInternals"/>
-/// / <see cref="InternalsTarget.CritChance"/> list rather than being directly targetable — i.e. an
-/// Internal system doesn't have its own health slot in the 29-component array, it's a chance-based
-/// side effect of damaging whichever structural piece maps to it. `COCKPIT/FRONT`/`COCKPIT/REAR`
-/// (the doc comment's own first 2 named pieces, indices 0-1) are additionally confirmed as the
-/// mech's individually-checked death-trigger components (DBSIM gates its final "is this mech
-/// actually dead" determination on these two specific slots being destroyed) — a plausible reading
-/// of "Internal" in the manual's more casual sense of "the critical stuff," even though
-/// mechanically they're ordinary Structural-array slots.
-/// Ported from org.hercworks.core.data.file.dbsim.HercSimDamage.
+/// <para>The component and internal index spaces, the piece record and what each piece's dependent
+/// list holds per chassis are in docs/formats/dmg-damage-file.md; what the simulator does with them
+/// is docs/simulation/component-damage.md.</para>
 /// </summary>
-/*
- *  *	NOTE - the following are an array of values, the Skimmer only has 1 crit
- *		2-leg Hercs: 9 internals, terminates with a 0x32(50)
- *      Pitbull: 12 internals no 0x32(50) terminator
- *      
- *  
- *  0- UINT16 - Internals count, most hercs 22, skimmer  1, 
- *  UINT16 - SERVO\LEG\LEFT - Hitpoints
- *  UINT16 - SERVO\LEG\RIGHT - Hitpoints
- *  UINT16 - SENSOR ARRAY
- *  UINT16 - TARGETING COMPUTER
- *  UINT16 - SHIELD GENERATOR
- *  UINT16 - ENGINE
- *  UINT16 - HYDRAULICS
- *  UINT16 - STABILIZERS
- *  UINT16 - LIFE SUPPORT
- *  UINT16 - 0x32 value on bipedal hercs, pilot HP possibly
- *  20- 44 - UINT16 - slots for critical components, PITBULL has more components (4 legs and turret vs normal herc setup)
- *  XX- UINT16 - 32 - always ends with 50, Either this is "PILOT" HP, array terminator, or both.
- *  
- *  46- UINT16 - Total Unit components, hercs have 29, skimmer has 1
- *  
- *  UINT16 - ? - Hercs have 29, setting to 1 crashes game
- *  UINT16 - External part HP (starting with cockpit)
- *  	UINT16 - MODEL\FLAGS\TORSO\DEBRIS - 
- *  		0xFFFF = -1 = No flame, no torso mesh debris thrown.
- *  		0x0000 = 0 = Yes flame, no torso mesh debris, mesh removed.
- *  		0x0607 = 1798 = yes flame, somehow knows to throw torso mesh
- *  			note - other values remove other mesh pieces
- *  				256 = LEG_LEFT_CALF
- *  				512 = LEG_RIGHT_CALF
- *  	        	768 = LEG_LEFT_THIGH
- *  		   	1024 = LEG_RIGHT_THIGH
- *             	1280 = LEG_RIGHT_FOOT
- *             	1536 = LEG_LEFT_FOOT
- *              1798 = somehow is TORSO_CENTER
- *     UINT8 - MODEL\BONE_ID ? maybe
- *     UINT8 - unknown byte val
- *     
- *     UINT16 - Child HercInternals count
- *       Array
- *       	UINT16 - 0x14 (20) unknown use
- *          UINT16 - HercInternals ID
- *          
- *  Component list:
- *  	COCKPIT\FRONT
- *  	COCKPIT\REAR
- *  	SHOULDER\LEFT
- *  	SHOULDER\RIGHT
- *  	WEPN_BRACK\LEFT
- *  	WEPN_BRACK\RIGHT
- *  	TORSO
- *  	LEG\LEFT\UPPER
- *  	LEG\RIGHT\UPPER
- *  	LEG\LEFT\LOWER
- *  	LEG\RIGHT\LOWER
- *  	FOOT\LEFT
- *  	FOOT\RIGHT
- */
-
 public class HercSimDamage {
 	/// <summary>
 	/// Source file name. <see cref="Io.Transform.Dbsim.HercDamageFileTransformer.Write"/> checks it
 	/// to tell a skimmer's .DMG (one internals slot) from a herc's (22), so a caller that wants to
-	/// write must set it. The read path does not populate it — that was already true when this was
-	/// inherited from DataFile, and nothing in the project calls the write path today.
+	/// write must set it. The read path does not populate it.
 	/// </summary>
 	public string? FileName { get; set; }
 
 	public short InternalsTotal { get; set; }
+
+	/// <summary>Each internal's maximum, by internal index.</summary>
 	public InternalsHealth[]? Internals { get; set; }
+
+	/// <summary>The component pieces, by component index.</summary>
 	public HercPiece[]? ComponentData { get; set; }
 
 	public InternalsHealth NewInternalsHealth() => new();
 	public HercPiece NewHercPiece() => new();
 	public InternalsTarget NewInternalsTarget() => new();
 
+	/// <summary>One component's record. See docs/formats/dmg-damage-file.md#the-piece-record.</summary>
 	public class HercPiece {
+		/// <summary><c>+0x00</c> — the component's own maximum.</summary>
 		public short Armor { get; set; }
+
 		/// <summary>
 		/// Record offsets <c>+0x02</c> (the debris group the piece throws) and <c>+0x03</c> (the
 		/// shape sequence it drives), each <c>-1</c> for none, read as one <c>short</c>. See
 		/// docs/formats/dmg-damage-file.md#the-piece-record.
 		/// </summary>
 		public short DebrisFlags { get; set; }
-		public byte BoneId { get; set; }
 
 		/// <summary>
-		/// Was <c>Unk_val</c>. The bit meanings, from <c>Component_ApplyDamageAndCascade</c>
-		/// (<c>0040da38</c>) and <c>Component_DestroyAndCascade</c> (<c>0040d434</c>), and the
-		/// values the retail files carry are in docs/formats/dmg-damage-file.md#the-piece-record.
+		/// <c>+0x04</c>, signed — the index of the parent component this one hangs off, <c>-1</c> for
+		/// none. Destroying a component cascades to every live piece naming it here.
+		/// </summary>
+		public byte ParentComponent { get; set; }
+
+		/// <summary>
+		/// <c>+0x05</c> — destruction flags. The bit meanings, from <c>Component_ApplyDamageAndCascade</c>
+		/// (<c>0040da38</c>) and <c>Component_DestroyAndCascade</c> (<c>0040d434</c>), are in
+		/// docs/formats/dmg-damage-file.md#the-piece-record.
 		/// </summary>
 		public byte DestructionFlags { get; set; }
 
+		/// <summary>The dependent list: the internals behind this component.</summary>
 		public InternalsTarget[]? MappedInternals { get; set; }
 
 		public HercPiece() { }
@@ -148,16 +80,20 @@ public class HercSimDamage {
 		}
 	}
 
+	/// <summary>One dependent-list entry: an internal behind a component.</summary>
 	public class InternalsTarget {
-		/// <summary>Defaults to 0x14 (20) in every known example.</summary>
-		public short CritChance { get; set; } = 20;
+		/// <summary>
+		/// This entry's weight in the draw that picks which internal a hit's spill lands on — 20 on
+		/// nearly every entry, 1 or 5 for the pilot.
+		/// </summary>
+		public short SpillWeight { get; set; } = 20;
 
 		public HercInternals? InternalsId { get; set; }
 
 		public InternalsTarget() { }
 
-		public InternalsTarget(short critChance, HercInternals internalsId) {
-			CritChance = critChance;
+		public InternalsTarget(short spillWeight, HercInternals internalsId) {
+			SpillWeight = spillWeight;
 			InternalsId = internalsId;
 		}
 	}

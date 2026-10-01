@@ -2,79 +2,68 @@
 namespace HercWorks.Core.Data.File.Bnd;
 
 /// <summary>
-/// FILE - SIMVOL0\BND\CAM.BND — 24 content bytes, fully byte-mapped; no field's real-world
-/// meaning is confirmed.
-///
-/// <para>The record is the whole of the entry's content, offset 0 first. The field-by-field match
-/// against the Java author's sample values, and the finding that <c>.BND</c> is a build-time-only
-/// source format DBSIM.EXE never opens at runtime, are in docs/formats/bnd-notes.md.</para>
-///
-/// Ported from org.hercworks.core.data.file.bnd.Cam.
+/// FILE - SIMVOL0\BND\CAM.BND — 24 content bytes, every one mapped to a field, offset 0 first; what
+/// the fields mean is open. <c>.BND</c> is a build-time source format DBSIM never opens. Values
+/// below are the retail file's. See <c>docs/formats/bnd-notes.md#cambnds-full-24-byte-record</c>.
 /// </summary>
 public class Cam {
-	/// <summary>Per-subsystem record tag, content offset 0. 54 (0x36) in the real CAM.BND.</summary>
-	public byte RecordTag { get; set; }
+	/// <summary>Offset 0, unknown. 54 (0x36).</summary>
+	public byte Unknown0 { get; set; }
 
-	/// <summary>Unknown. 208 in the real file.</summary>
+	/// <summary>Unknown. 208.</summary>
 	public byte Unknown1 { get; set; }
 
-	/// <summary>Unknown. 52 in the real file.</summary>
+	/// <summary>Unknown. 52.</summary>
 	public byte Unknown2 { get; set; }
 
-	/// <summary>
-	/// Unknown. 49 (0x31, ASCII '1') in the real file — CAM/MECH/MECHSYS all share this exact
-	/// value at the same relative offset, plausibly a shared format sub-version, not confirmed.
-	/// </summary>
+	/// <summary>Unknown. 49 (0x31, ASCII '1') — the same value at the same offset in MECH.BND and MECHSYS.BND.</summary>
 	public byte Unknown3 { get; set; }
 
-	/// <summary>Unknown UINT16. 2500 in the real file — plausibly a near/min camera distance.</summary>
+	/// <summary>Unknown <c>int16</c>. 2500.</summary>
 	public short Distance1 { get; set; }
 
-	/// <summary>Unknown UINT16. 30000 in the real file — plausibly a far/max camera distance.</summary>
+	/// <summary>Unknown <c>int16</c>. 30000.</summary>
 	public short Distance2 { get; set; }
 
-	/// <summary>Always 0 in the real file (Java notes: "blank").</summary>
+	/// <summary>0.</summary>
 	public byte Blank1 { get; set; }
 
-	/// <summary>Unknown. 8 in the real file.</summary>
+	/// <summary>Unknown. 8.</summary>
 	public byte Unknown4 { get; set; }
 
-	/// <summary>Unknown. 192 in the real file.</summary>
+	/// <summary>Unknown. 192.</summary>
 	public byte Unknown5 { get; set; }
 
-	/// <summary>Always 0 in the real file (Java notes: "blank").</summary>
+	/// <summary>0.</summary>
 	public byte Blank2 { get; set; }
 
-	/// <summary>Always 0 in the real file (Java notes: "blank").</summary>
+	/// <summary>0.</summary>
 	public byte Blank3 { get; set; }
 
-	/// <summary>Unknown. 4 in the real file.</summary>
+	/// <summary>Unknown. 4.</summary>
 	public byte Unknown6 { get; set; }
 
-	/// <summary>
-	/// Unknown. 80 (0x50) in the real retail file — the Java author's notes say "50", the one
-	/// field in this record that doesn't match exactly; see docs/formats/bnd-notes.md.
-	/// </summary>
+	/// <summary>Unknown. 80 (0x50).</summary>
 	public byte Unknown7 { get; set; }
 
-	/// <summary>Always 0 in the real file (Java notes: "blank").</summary>
+	/// <summary>0.</summary>
 	public byte Blank4 { get; set; }
 
-	/// <summary>Always 0 in the real file (Java notes: "blank").</summary>
+	/// <summary>0.</summary>
 	public byte Blank5 { get; set; }
 
-	/// <summary>Unknown. 48 in the real file.</summary>
+	/// <summary>Unknown. 48.</summary>
 	public byte Unknown8 { get; set; }
 
-	/// <summary>Unknown. 38 in the real file — Java notes flag this as possibly paired with the next byte.</summary>
+	/// <summary>Unknown. 38.</summary>
 	public byte Unknown9 { get; set; }
 
-	/// <summary>Unknown, possibly paired with <see cref="Unknown9"/>. 2 in the real file.</summary>
+	/// <summary>Unknown. 2.</summary>
 	public byte Unknown10 { get; set; }
 
-	/// <summary>Unknown UINT16. 500 in the real file.</summary>
+	/// <summary>Unknown <c>int16</c>. 500.</summary>
 	public short Value3 { get; set; }
 
-	/// <summary>Unknown UINT16. 8000 in the real file.</summary>
+	/// <summary>Unknown <c>int16</c>. 8000.</summary>
 	public short Value4 { get; set; }
 }

@@ -242,15 +242,15 @@ public static class ShellTrainingLaunch {
 	/// and every counter 0.
 	/// </summary>
 	internal static PilotEntry NewPilot(string name, int rosterId, int nameIndex, int skill, int rank) => new() {
-		SquadmateId = (short)rosterId,
+		RosterId = (short)rosterId,
 		NameIndex = (short)nameIndex,
 		Name = name,
-		BayId = -1,
-		Active = 0,
+		Bay = -1,
+		OnStrength = 0,
 		Skill = PilotSkill.GetById((short)skill),
-		CrewRowNum = -1,
+		SquadPosition = -1,
 		Rank = PilotRank.GetById((short)rank),
-		ProbablyHealth = 100,
+		Condition = 100,
 	};
 
 	/// <summary>The squad block's shape: three squads of twelve pilot records.</summary>

@@ -2,7 +2,7 @@ using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
-/// <summary>Ported from org.hercworks.core.data.file.gau.WidgetBase.</summary>
+/// <summary>A <c>.GAU</c> widget: a rect, held as an origin and a size.</summary>
 public abstract class WidgetBase {
 	public HWidgetId? HWidgetId { get; set; }
 	public PixelPoint Origin { get; set; }

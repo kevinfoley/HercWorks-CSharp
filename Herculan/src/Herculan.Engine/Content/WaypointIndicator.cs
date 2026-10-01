@@ -91,7 +91,7 @@ public readonly record struct WaypointMark(short BearingError, int Metres, int N
 /// <c>Hud_UpdateWaypointIndicator</c> (<c>0043c3e4</c>).
 ///
 /// <para><b>Where it comes from.</b> Neither child has a <c>.GAU</c> rect of its own: the complex
-/// hands both of them the <b>heading tape's</b> rect (offset 1104, <see cref="GAUFile.TorsoTwist"/>)
+/// hands both of them the <b>heading tape's</b> rect (offset 1104, <see cref="GAUFile.HeadingTape"/>)
 /// and the same <c>±0xe38</c> limits the tape carries, so the mark rides the same span of bearing the
 /// compass under it does and reaches the tape's own ends exactly at the limit. Everything else is
 /// literals in the constructor, shifted by the video mode the way the rest of the block is.</para>
@@ -148,7 +148,7 @@ public readonly struct WaypointIndicator {
 	/// </summary>
 	public static WaypointIndicator? From(CockpitArt art) {
 		ArgumentNullException.ThrowIfNull(art);
-		if (art.Gau.TorsoTwist is not { } tape) {
+		if (art.Gau.HeadingTape is not { } tape) {
 			return null;
 		}
 

@@ -29,9 +29,9 @@ public class HercInfoTransformer : ByteTransformer<HercInf> {
 			item.Speed = IndexShortLE();
 			item.HardpointTotal = IndexShortLE();
 			item.SalvageReq = IndexShortLE();
-			item.UnknownFlag = IndexShortLE();
+			item.Unknown0A = IndexShortLE();
 			item.BuildMissionCount = IndexShortLE();
-			item.FlagCampaignStart = IndexShortLE();
+			item.AvailabilityFlag = IndexShortLE();
 			hercInfo.Data[i] = item;
 		}
 
@@ -52,9 +52,9 @@ public class HercInfoTransformer : ByteTransformer<HercInf> {
 			Emit(WriteShortLE(entry.Speed));
 			Emit(WriteShortLE(entry.HardpointTotal));
 			Emit(WriteShortLE(entry.SalvageReq));
-			Emit(WriteShortLE(entry.UnknownFlag));
+			Emit(WriteShortLE(entry.Unknown0A));
 			Emit(WriteShortLE(entry.BuildMissionCount));
-			Emit(WriteShortLE(entry.FlagCampaignStart));
+			Emit(WriteShortLE(entry.AvailabilityFlag));
 		}
 		return objectBytes.ToArray();
 	}

@@ -2405,7 +2405,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			AddIndexedRecolor(0, 0, doll.Size.X * S, doll.Size.Y * S, ArtAt, green, blue, dollLeft, dollTop,
 				fillRect);
 			foreach (var region in doll.Regions ?? Array.Empty<PaperDollGraphic.ViewRegion>()) {
-				if (colors.PaletteIndex(region.Unk_val) is { } key && key != green) {
+				if (colors.PaletteIndex(region.ColorId) is { } key && key != green) {
 					AddIndexedRecolor(region.TopLeft.X * S, region.TopLeft.Y * S, region.BottomRight.X * S + 1,
 						region.BottomRight.Y * S + 1, ArtAt, key, blue, dollLeft, dollTop, fillRect);
 				}
@@ -2509,7 +2509,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		const int S = (int)CockpitArt.GauToPixelScale;
 
 		if (reading is not { } damage
-			|| hud.Colors?.PaletteIndex(region.Unk_val) is not { } key
+			|| hud.Colors?.PaletteIndex(region.ColorId) is not { } key
 			|| sprites.Indexed(bank, frame) is not { } art) {
 			return;
 		}

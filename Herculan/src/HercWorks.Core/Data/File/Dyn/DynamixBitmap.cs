@@ -2,26 +2,24 @@
 namespace HercWorks.Core.Data.File.Dyn;
 
 /// <summary>
-/// FILE - VOL file, .DBM — Dynamix Bitmap. Needs a matching .DPL file to really be viewed. A
-/// DynamixPalette field is provided, but DBMs don't explicitly bind a palette to themselves —
-/// the game binaries seem to know which one has which.
-///   UINT32 header tag
-///   UINT32 file size value
-///   UINT16 row count (height)
-///   UINT16 col count (width)
-///   UINT16 bitdepth length
-///   null byte
-///   UINT32 payload (raw image data) length
-///   2 null bytes
-///   [begin data]
-/// Ported from org.hercworks.core.data.file.dyn.DynamixBitmap.
+/// A <c>.DBM</c> bitmap, or one frame of a <see cref="DynamixBitmapArray"/>. The file names no
+/// palette; <see cref="Palette"/> is whichever <c>.DPL</c> a caller pairs with it.
+///   UINT32 header tag (<see cref="HeaderMagic"/>)
+///   UINT32 size of what follows
+///   UINT16 rows (height)
+///   UINT16 cols (width)
+///   UINT16 bit depth
+///   BYTE   <see cref="UnkSpacer1"/>
+///   UINT32 image data length
+///   UINT16 <see cref="UnkSpacer2"/>
+///   [image data]
 /// </summary>
 public class DynamixBitmap {
 	/// <summary>
-	/// Frame name. Set by <see cref="Io.Transform.Common.DynamixBitmapArrayTransformer"/> to
-	/// "_&lt;index&gt;" for each frame it unpacks out of a .DBA, and read back when exporting
-	/// frames to disk. Declared here rather than inherited because this is the only Dynamix model
-	/// whose name is actually consumed.
+	/// Not in the file: a name the toolkit gives the bitmap for exporting it —
+	/// <see cref="Io.Transform.Common.DynamixBitmapArrayTransformer"/> sets "_&lt;index&gt;" on each
+	/// frame of a <c>.DBA</c>, and <see cref="Io.Read.DynFileReader"/> a loose <c>.DBM</c>'s own file
+	/// name.
 	/// </summary>
 	public string? FileName { get; set; }
 
@@ -34,8 +32,12 @@ public class DynamixBitmap {
 	public short Rows { get; set; }
 	public short Cols { get; set; }
 	public short BitDepth { get; set; }
+	/// <summary>Meaning not established; read and written back verbatim.</summary>
 	public byte UnkSpacer1 { get; set; }
+
 	public int ImageDataLen { get; set; }
+
+	/// <summary>Meaning not established; read and written back verbatim.</summary>
 	public short UnkSpacer2 { get; set; }
 
 	public DynamixPalette? Palette { get; set; }

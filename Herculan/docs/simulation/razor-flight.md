@@ -1,6 +1,6 @@
 # Razor flight — flight model, contact probes, and the flight ceiling
 
-The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `Flyer` class the SKIMMER uses. It is built by `Mech_Constructor`, carries a mech's 29-component damage array and a mech's weapon mounts, and appears on the target list as target class 0, a HERC (`obj+0x1a8`). What the flag (`typeRec+0x50`, `InputFlagFlyer`, file offset 78) changes is which code paths it takes, and it changes nearly all of them.
+The RAZOR is a **HERC-class object with a flyer flag**, not an instance of the `Flyer` class the SKIMMER uses. It is built by `Mech_Constructor`, carries a mech's 29-component damage array and a mech's weapon mounts, and appears on the target list as target class 0, a HERC (`obj+0x1a8`). What the flag (`typeRec+0x50`, `FlyerFlag`, file offset 78) changes is which code paths it takes, and it changes nearly all of them.
 
 [`mech-locomotion.md`](mech-locomotion.md) covers the walker paths; nothing in it applies to a RAZOR. The flight model's parameters come from `fm\<NAME>.FM`, laid out in [`../formats/flight-model-fm.md`](../formats/flight-model-fm.md); the field names below are that document's.
 

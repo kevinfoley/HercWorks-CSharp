@@ -99,7 +99,7 @@ public static class ShellMissionLaunch {
 		var hasMachine = new List<bool>();
 
 		void Add(ShellBayPilot pilot) {
-			var entry = new MecEntry { PilotNameIndex = (short)pilot.NameIndex, Unk02 = (short)pilot.Skill };
+			var entry = new MecEntry { PilotNameIndex = (short)pilot.NameIndex, Skill = (short)pilot.Skill };
 			if (hangar.Bay(pilot.Bay) is { } machine) {
 				int capacity = Math.Max(machine.MountCapacity, 0);
 				entry.MechType = (short)machine.ChassisType;
@@ -107,7 +107,7 @@ public static class ShellMissionLaunch {
 				entry.WeaponRefs = Enumerable.Range(0, capacity).Select(slot => (short)machine.WeaponAt(slot)).ToArray();
 				entry.WeaponAmmoTypes = Enumerable.Range(0, capacity)
 					.Select(slot => (short)(machine.Mount(slot)?.Guidance ?? ShellWeaponUnit.NoGuidance)).ToArray();
-				(entry.BlockA, entry.BlockB, entry.BlockC) = machine.StatusBlock();
+				(entry.ExternalConditions, entry.InternalConditions, entry.HardpointConditions) = machine.StatusBlock();
 				hasMachine.Add(true);
 			} else {
 				hasMachine.Add(false);
@@ -141,7 +141,7 @@ public static class ShellMissionLaunch {
 				writer.Write(single, 4, single.Length - 4);
 			} else {
 				writer.Write(entries[i].PilotNameIndex);
-				writer.Write(entries[i].Unk02);
+				writer.Write(entries[i].Skill);
 			}
 		}
 

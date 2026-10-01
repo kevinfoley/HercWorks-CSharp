@@ -136,7 +136,7 @@ public sealed class ShellBayPictures {
 			return null;
 		}
 
-		return new ShellGridPart(frame, record.OutlineX + 1, record.OutlineY + 1, record.Flags?.Val ?? 0,
+		return new ShellGridPart(frame, record.OutlineX + 1, record.OutlineY + 1, record.BlitFlags?.Val ?? 0,
 			new[] { (OutlineInk, OutlineColor) });
 	}
 
@@ -213,14 +213,14 @@ public sealed class ShellBayPictures {
 			var frame = machine.IsBuilt ? Frame(body, top.FrameId)
 				: machine.BuildPercent == 0 ? Frame(_emptyBay, 0)
 				: Frame(body, machine.BuildPercent < HalfBuiltPercent ? EarlyBuildTopFrame : LateBuildTopFrame);
-			SetPart(parts, layout.TopImgArrId, frame, top.OriginX, top.OriginY, top.Flags?.Val ?? 0);
+			SetPart(parts, layout.TopImgPartId, frame, top.OriginX, top.OriginY, top.BlitFlags?.Val ?? 0);
 		}
 
 		if (layout.HercBotImg is { } bottom) {
 			var frame = machine.IsBuilt ? Frame(body, bottom.FrameId)
 				: machine.BuildPercent == 0 ? Frame(_emptyBay, 1)
 				: Frame(body, (machine.BuildPercent < HalfBuiltPercent ? EarlyBuildTopFrame : LateBuildTopFrame) + 1);
-			SetPart(parts, layout.BottomImgArrId, frame, bottom.OriginX, bottom.OriginY, bottom.Flags?.Val ?? 0);
+			SetPart(parts, layout.BottomImgPartId, frame, bottom.OriginX, bottom.OriginY, bottom.BlitFlags?.Val ?? 0);
 		}
 
 		for (int mount = 0; mount < machine.MountCapacity; mount++) {
@@ -228,7 +228,7 @@ public sealed class ShellBayPictures {
 				// LoadArmoryLayouts adds one to both corners of every weapon record as it reads them, and
 				// to neither of the two body records.
 				SetPart(parts, record.Id, Frame(_weaponBanks[type], record.FrameId), record.OriginX + 1,
-					record.OriginY + 1, record.Flags?.Val ?? 0);
+					record.OriginY + 1, record.BlitFlags?.Val ?? 0);
 			}
 		}
 

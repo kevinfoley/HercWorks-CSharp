@@ -3,20 +3,10 @@ using HercWorks.Core.Data.File.Msn.Script;
 namespace HercWorks.Core.Io.Transform.Common;
 
 /// <summary>
-/// Transforms byte[] data to and from <c>data\script.dat</c> — see docs/formats/script-dat.md for
-/// the full byte-exact-verified format writeup this follows: a fixed 20-byte header, then 13
-/// count-prefixed record blocks in exact order, each a GUID-filtered field-subset re-export of one
-/// of <see cref="MissionFile"/>'s already-decoded rows. Confirmed against two independently
-/// compiled real readers (DBSIM's own loader and VSHELL's briefing map, `ShellMap`) plus all 10
-/// real sample files found in the installed game (`ES2\DATA\script.dat` + 9 distinct
-/// `ES2\SAV\scriptN.dat` save-slot snapshots).
-///
-/// The real file is a fixed 13,520-byte preallocated buffer with stale leftover bytes past the
-/// real content's end in most real samples (confirmed byte-identical to the one sample whose real
-/// content happens to fill the whole buffer) — this transformer reads only the 13 declared blocks
-/// and stops there; it does not attempt to consume or preserve anything past block 13, and does not
-/// pad the write-back to any fixed total length. Replaces a stale, never-implemented stub that
-/// guessed at an unrelated 20-field/coordinate-array layout with no basis in the real format.
+/// Transforms byte[] data to and from <c>data\script.dat</c> (<see cref="ScriptDat"/>): the 20-byte
+/// header and the 13 count-prefixed blocks, stopping at block 13's end — bytes past it are a
+/// longer earlier mission's leftovers, and a write does not pad to any fixed length. See
+/// docs/formats/script-dat.md.
 /// </summary>
 public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 	public override ScriptDat? Parse(byte[]? inputArray) {
@@ -33,18 +23,18 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		data.Coordinates = ReadArray(ParseCoordinate);
 		data.Headings = ReadArray(ParseHeading);
 		data.WaypointGroups = ReadArray(ParseWaypointGroup);
-		data.LinksOrRewards = ReadArray(ParseLinkOrReward);
+		data.TriggerAreas = ReadArray(ParseTriggerArea);
 		data.Actions = ReadArray(ParseAction);
 		data.ActionTimers = ReadArray(ParseActionTimer);
-		data.SpawnRecords = ReadArray(ParseSpawnRecordExport);
-		data.Entities102 = ReadArray(ParseEntity102Export);
-		data.MiscEntities = ReadArray(ParseMiscEntityExport);
-		data.LinkedRefs22 = ReadArray(ParseLinkedRef22Export);
-		data.Entities164 = ReadArray(ParseEntity164Export);
-		data.LinkedRefs58 = ReadArray(ParseUnitSpawn58Export);
+		data.Mechs = ReadArray(ParseMech);
+		data.Flyers = ReadArray(ParseFlyer);
+		data.Bases = ReadArray(ParseBase);
+		data.Orders = ReadArray(ParseOrder);
+		data.Groups = ReadArray(ParseGroup);
+		data.Objectives = ReadArray(ParseObjective);
 
-		int lutCount = IndexShortLE();
-		data.ObjectiveTextRefs = IndexShortLEArray(lutCount);
+		int objectiveCount = IndexShortLE();
+		data.ObjectiveTextRefs = IndexShortLEArray(objectiveCount);
 
 		return data;
 	}
@@ -76,12 +66,12 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		return new ScriptWaypointGroup { Waypoints = IndexShortLEArray(count) };
 	}
 
-	// ---- Block 4: ScriptLinkOrReward (6 bytes) -----------------------------------------------
+	// ---- Block 4: ScriptTriggerArea (6 bytes) -----------------------------------------------
 
-	private ScriptLinkOrReward ParseLinkOrReward() => new() {
-		TypeFlag = IndexShortLE(),
-		RefA = IndexShortLE(),
-		RefBOrLiteral = IndexShortLE()
+	private ScriptTriggerArea ParseTriggerArea() => new() {
+		Shape = IndexShortLE(),
+		PointRef = IndexShortLE(),
+		SecondPointOrRadius = IndexShortLE()
 	};
 
 	// ---- Block 5: ScriptAction (74 bytes) ------------------------------------------------------
@@ -89,11 +79,11 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 	private ScriptAction ParseAction() => new() {
 		Type = IndexShortLE(),
 		Verb = IndexShortLE(),
-		RefsRow9 = IndexShortLEArray(8),
-		ArrayA = IndexShortLEArray(10),
-		ArrayB = IndexShortLEArray(10),
-		LutRefs = IndexShortLEArray(5),
-		SecondaryValue = IndexShortLE(),
+		AreaRefs = IndexShortLEArray(8),
+		CounterRefs = IndexShortLEArray(10),
+		CounterOps = IndexShortLEArray(10),
+		TextRefs = IndexShortLEArray(5),
+		MessageId = IndexShortLE(),
 		Target = IndexShortLE()
 	};
 
@@ -101,13 +91,13 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 
 	private ScriptActionTimer ParseActionTimer() => new() {
 		PrimaryActionRef = IndexShortLE(),
-		TimerValue = IndexShortLE(),
+		Delay = IndexShortLE(),
 		SequenceRefs = IndexShortLEArray(10)
 	};
 
-	// ---- Block 7: ScriptSpawnRecordExport (134 bytes) ------------------------------------------
+	// ---- Block 7: ScriptMechRecord (134 bytes) ------------------------------------------
 
-	private ScriptSpawnRecordExport ParseSpawnRecordExport() => new() {
+	private ScriptMechRecord ParseMech() => new() {
 		HeadBytes = IndexSegment(40),
 		TypeIndex = IndexShortLE(),
 		WeaponRefs = IndexShortLEArray(10),
@@ -116,9 +106,9 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		TailBytes = IndexSegment(68)
 	};
 
-	// ---- Block 8: ScriptEntity102Export (92 bytes) ---------------------------------------------
+	// ---- Block 8: ScriptFlyerRecord (92 bytes) ---------------------------------------------
 
-	private ScriptEntity102Export ParseEntity102Export() => new() {
+	private ScriptFlyerRecord ParseFlyer() => new() {
 		HeadBytes = IndexSegment(40),
 		PositionRef = IndexShortLE(),
 		HeadingRef = IndexShortLE(),
@@ -126,59 +116,59 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		TailBytes = IndexSegment(46)
 	};
 
-	// ---- Block 9: ScriptMiscEntityExport (52 bytes) --------------------------------------------
+	// ---- Block 9: ScriptBaseRecord (52 bytes) --------------------------------------------
 
-	private ScriptMiscEntityExport ParseMiscEntityExport() => new() {
+	private ScriptBaseRecord ParseBase() => new() {
 		TypeIndex = IndexShortLE(),
 		PositionRef = IndexShortLE(),
 		HeadingRef = IndexShortLE(),
 		TailBytes = IndexSegment(46)
 	};
 
-	// ---- Block 10: ScriptLinkedRef22Export (14 bytes) ------------------------------------------
+	// ---- Block 10: ScriptOrder (14 bytes) ------------------------------------------
 
-	private ScriptLinkedRef22Export ParseLinkedRef22Export() => new() {
-		SmallInt1 = IndexShortLE(),
-		SmallInt2 = IndexShortLE(),
-		RefRow6 = IndexShortLE(),
-		RefRow8 = IndexShortLE(),
-		DiscriminatorType = IndexShortLE(),
-		DiscriminatedRef = IndexShortLE(),
-		RefRow10 = IndexShortLE()
+	private ScriptOrder ParseOrder() => new() {
+		Verb = IndexShortLE(),
+		FormationId = IndexShortLE(),
+		PointRef = IndexShortLE(),
+		RouteRef = IndexShortLE(),
+		SubjectKind = IndexShortLE(),
+		SubjectRef = IndexShortLE(),
+		ActionRef = IndexShortLE()
 	};
 
-	// ---- Block 11: ScriptEntity164Export (156 bytes) -------------------------------------------
+	// ---- Block 11: ScriptGroup (156 bytes) -------------------------------------------
 
-	private ScriptEntity164Export ParseEntity164Export() => new() {
-		BinaryFlag = IndexShortLE(),
+	private ScriptGroup ParseGroup() => new() {
+		PaintsGround = IndexShortLE(),
 		NearConstant = IndexShortLE(),
 		DeadZone = IndexShortLEArray(18),
-		Discriminator = IndexShortLE(),
-		SmallDiscrete = IndexShortLE(),
-		RefRow6 = IndexShortLE(),
-		RefRow7 = IndexShortLE(),
-		RefRow8 = IndexShortLE(),
-		DiscriminatedRefs = IndexShortLEArray(20),
-		Row15Refs = IndexShortLEArray(10),
-		TriStateFlag = IndexShortLE(),
-		RefRow10 = IndexShortLE(),
-		ArrayA = IndexShortLEArray(10),
-		ArrayB = IndexShortLEArray(10),
-		TrailingFlag = IndexShortLE()
+		MemberKind = IndexShortLE(),
+		FormationId = IndexShortLE(),
+		PositionRef = IndexShortLE(),
+		HeadingRef = IndexShortLE(),
+		RouteRef = IndexShortLE(),
+		MemberRefs = IndexShortLEArray(20),
+		OrderRefs = IndexShortLEArray(10),
+		Side = IndexShortLE(),
+		DeploymentActionRef = IndexShortLE(),
+		CounterRefs = IndexShortLEArray(10),
+		CounterOps = IndexShortLEArray(10),
+		MapShown = IndexShortLE()
 	};
 
-	// ---- Block 12: ScriptUnitSpawn58Export (54 bytes) ------------------------------------------
+	// ---- Block 12: ScriptObjective (54 bytes) ------------------------------------------
 
-	private ScriptUnitSpawn58Export ParseUnitSpawn58Export() => new() {
-		Unk02 = IndexShortLE(),
-		Unk04 = IndexShortLE(),
-		Discriminator = IndexShortLE(),
-		DiscriminatedRef = IndexShortLE(),
-		RefRow6 = IndexShortLE(),
-		RefRow8 = IndexShortLE(),
-		LutRef = IndexShortLE(),
-		PairRefs = IndexShortLEArray(10),
-		PairTags = IndexShortLEArray(10)
+	private ScriptObjective ParseObjective() => new() {
+		Required = IndexShortLE(),
+		ConditionCode = IndexShortLE(),
+		SubjectKind = IndexShortLE(),
+		SubjectRef = IndexShortLE(),
+		PointRef = IndexShortLE(),
+		RouteRef = IndexShortLE(),
+		TextRef = IndexShortLE(),
+		CounterRefs = IndexShortLEArray(10),
+		CounterOps = IndexShortLEArray(10)
 	};
 
 	// ==============================================================================================
@@ -193,15 +183,15 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		WriteArray(outStream, data.Coordinates, WriteCoordinate);
 		WriteArray(outStream, data.Headings, WriteHeading);
 		WriteArray(outStream, data.WaypointGroups, WriteWaypointGroup);
-		WriteArray(outStream, data.LinksOrRewards, WriteLinkOrReward);
+		WriteArray(outStream, data.TriggerAreas, WriteTriggerArea);
 		WriteArray(outStream, data.Actions, WriteAction);
 		WriteArray(outStream, data.ActionTimers, WriteActionTimer);
-		WriteArray(outStream, data.SpawnRecords, WriteSpawnRecordExport);
-		WriteArray(outStream, data.Entities102, WriteEntity102Export);
-		WriteArray(outStream, data.MiscEntities, WriteMiscEntityExport);
-		WriteArray(outStream, data.LinkedRefs22, WriteLinkedRef22Export);
-		WriteArray(outStream, data.Entities164, WriteEntity164Export);
-		WriteArray(outStream, data.LinkedRefs58, WriteUnitSpawn58Export);
+		WriteArray(outStream, data.Mechs, WriteMech);
+		WriteArray(outStream, data.Flyers, WriteFlyer);
+		WriteArray(outStream, data.Bases, WriteBase);
+		WriteArray(outStream, data.Orders, WriteOrder);
+		WriteArray(outStream, data.Groups, WriteGroup);
+		WriteArray(outStream, data.Objectives, WriteObjective);
 
 		Emit(outStream, WriteShortLE((short)data.ObjectiveTextRefs.Length));
 		Emit(outStream, WriteShortLESegment(data.ObjectiveTextRefs));
@@ -231,30 +221,30 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Emit(o, WriteShortLESegment(e.Waypoints));
 	}
 
-	private void WriteLinkOrReward(MemoryStream o, ScriptLinkOrReward e) {
-		Emit(o, WriteShortLE(e.TypeFlag));
-		Emit(o, WriteShortLE(e.RefA));
-		Emit(o, WriteShortLE(e.RefBOrLiteral));
+	private void WriteTriggerArea(MemoryStream o, ScriptTriggerArea e) {
+		Emit(o, WriteShortLE(e.Shape));
+		Emit(o, WriteShortLE(e.PointRef));
+		Emit(o, WriteShortLE(e.SecondPointOrRadius));
 	}
 
 	private void WriteAction(MemoryStream o, ScriptAction e) {
 		Emit(o, WriteShortLE(e.Type));
 		Emit(o, WriteShortLE(e.Verb));
-		Emit(o, WriteShortLESegment(e.RefsRow9));
-		Emit(o, WriteShortLESegment(e.ArrayA));
-		Emit(o, WriteShortLESegment(e.ArrayB));
-		Emit(o, WriteShortLESegment(e.LutRefs));
-		Emit(o, WriteShortLE(e.SecondaryValue));
+		Emit(o, WriteShortLESegment(e.AreaRefs));
+		Emit(o, WriteShortLESegment(e.CounterRefs));
+		Emit(o, WriteShortLESegment(e.CounterOps));
+		Emit(o, WriteShortLESegment(e.TextRefs));
+		Emit(o, WriteShortLE(e.MessageId));
 		Emit(o, WriteShortLE(e.Target));
 	}
 
 	private void WriteActionTimer(MemoryStream o, ScriptActionTimer e) {
 		Emit(o, WriteShortLE(e.PrimaryActionRef));
-		Emit(o, WriteShortLE(e.TimerValue));
+		Emit(o, WriteShortLE(e.Delay));
 		Emit(o, WriteShortLESegment(e.SequenceRefs));
 	}
 
-	private void WriteSpawnRecordExport(MemoryStream o, ScriptSpawnRecordExport e) {
+	private void WriteMech(MemoryStream o, ScriptMechRecord e) {
 		Emit(o, e.HeadBytes);
 		Emit(o, WriteShortLE(e.TypeIndex));
 		Emit(o, WriteShortLESegment(e.WeaponRefs));
@@ -263,7 +253,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Emit(o, e.TailBytes);
 	}
 
-	private void WriteEntity102Export(MemoryStream o, ScriptEntity102Export e) {
+	private void WriteFlyer(MemoryStream o, ScriptFlyerRecord e) {
 		Emit(o, e.HeadBytes);
 		Emit(o, WriteShortLE(e.PositionRef));
 		Emit(o, WriteShortLE(e.HeadingRef));
@@ -271,51 +261,51 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Emit(o, e.TailBytes);
 	}
 
-	private void WriteMiscEntityExport(MemoryStream o, ScriptMiscEntityExport e) {
+	private void WriteBase(MemoryStream o, ScriptBaseRecord e) {
 		Emit(o, WriteShortLE(e.TypeIndex));
 		Emit(o, WriteShortLE(e.PositionRef));
 		Emit(o, WriteShortLE(e.HeadingRef));
 		Emit(o, e.TailBytes);
 	}
 
-	private void WriteLinkedRef22Export(MemoryStream o, ScriptLinkedRef22Export e) {
-		Emit(o, WriteShortLE(e.SmallInt1));
-		Emit(o, WriteShortLE(e.SmallInt2));
-		Emit(o, WriteShortLE(e.RefRow6));
-		Emit(o, WriteShortLE(e.RefRow8));
-		Emit(o, WriteShortLE(e.DiscriminatorType));
-		Emit(o, WriteShortLE(e.DiscriminatedRef));
-		Emit(o, WriteShortLE(e.RefRow10));
+	private void WriteOrder(MemoryStream o, ScriptOrder e) {
+		Emit(o, WriteShortLE(e.Verb));
+		Emit(o, WriteShortLE(e.FormationId));
+		Emit(o, WriteShortLE(e.PointRef));
+		Emit(o, WriteShortLE(e.RouteRef));
+		Emit(o, WriteShortLE(e.SubjectKind));
+		Emit(o, WriteShortLE(e.SubjectRef));
+		Emit(o, WriteShortLE(e.ActionRef));
 	}
 
-	private void WriteEntity164Export(MemoryStream o, ScriptEntity164Export e) {
-		Emit(o, WriteShortLE(e.BinaryFlag));
+	private void WriteGroup(MemoryStream o, ScriptGroup e) {
+		Emit(o, WriteShortLE(e.PaintsGround));
 		Emit(o, WriteShortLE(e.NearConstant));
 		Emit(o, WriteShortLESegment(e.DeadZone));
-		Emit(o, WriteShortLE(e.Discriminator));
-		Emit(o, WriteShortLE(e.SmallDiscrete));
-		Emit(o, WriteShortLE(e.RefRow6));
-		Emit(o, WriteShortLE(e.RefRow7));
-		Emit(o, WriteShortLE(e.RefRow8));
-		Emit(o, WriteShortLESegment(e.DiscriminatedRefs));
-		Emit(o, WriteShortLESegment(e.Row15Refs));
-		Emit(o, WriteShortLE(e.TriStateFlag));
-		Emit(o, WriteShortLE(e.RefRow10));
-		Emit(o, WriteShortLESegment(e.ArrayA));
-		Emit(o, WriteShortLESegment(e.ArrayB));
-		Emit(o, WriteShortLE(e.TrailingFlag));
+		Emit(o, WriteShortLE(e.MemberKind));
+		Emit(o, WriteShortLE(e.FormationId));
+		Emit(o, WriteShortLE(e.PositionRef));
+		Emit(o, WriteShortLE(e.HeadingRef));
+		Emit(o, WriteShortLE(e.RouteRef));
+		Emit(o, WriteShortLESegment(e.MemberRefs));
+		Emit(o, WriteShortLESegment(e.OrderRefs));
+		Emit(o, WriteShortLE(e.Side));
+		Emit(o, WriteShortLE(e.DeploymentActionRef));
+		Emit(o, WriteShortLESegment(e.CounterRefs));
+		Emit(o, WriteShortLESegment(e.CounterOps));
+		Emit(o, WriteShortLE(e.MapShown));
 	}
 
-	private void WriteUnitSpawn58Export(MemoryStream o, ScriptUnitSpawn58Export e) {
-		Emit(o, WriteShortLE(e.Unk02));
-		Emit(o, WriteShortLE(e.Unk04));
-		Emit(o, WriteShortLE(e.Discriminator));
-		Emit(o, WriteShortLE(e.DiscriminatedRef));
-		Emit(o, WriteShortLE(e.RefRow6));
-		Emit(o, WriteShortLE(e.RefRow8));
-		Emit(o, WriteShortLE(e.LutRef));
-		Emit(o, WriteShortLESegment(e.PairRefs));
-		Emit(o, WriteShortLESegment(e.PairTags));
+	private void WriteObjective(MemoryStream o, ScriptObjective e) {
+		Emit(o, WriteShortLE(e.Required));
+		Emit(o, WriteShortLE(e.ConditionCode));
+		Emit(o, WriteShortLE(e.SubjectKind));
+		Emit(o, WriteShortLE(e.SubjectRef));
+		Emit(o, WriteShortLE(e.PointRef));
+		Emit(o, WriteShortLE(e.RouteRef));
+		Emit(o, WriteShortLE(e.TextRef));
+		Emit(o, WriteShortLESegment(e.CounterRefs));
+		Emit(o, WriteShortLESegment(e.CounterOps));
 	}
 
 	private static void Emit(MemoryStream outArr, byte[] data) {

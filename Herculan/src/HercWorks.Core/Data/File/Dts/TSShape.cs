@@ -3,13 +3,16 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.TSShape.</summary>
+/// <summary>A shape root: a part list plus two per-shape <c>int16</c> arrays.</summary>
 public class TSShape : TSPartList {
+	/// <summary>
+	/// Frame count per animation sequence (<c>shape+0x20</c>) — what a cell-animation counter is
+	/// taken modulo. See docs/formats/dts-billboards.md, "TSCellAnimPart_Render (004767e4)".
+	/// </summary>
 	public short[]? SequenceList { get; set; }
-	public short[]? TransformList { get; set; }
 
-	// FIXME (carried over from Java): not sure if this is needed
-	// private TSObject[] extraParts;
+	/// <summary>Meaning not established; read and written back verbatim.</summary>
+	public short[]? TransformList { get; set; }
 
 	public TSShape() : base(TSObjectHeader.TSShape) { }
 

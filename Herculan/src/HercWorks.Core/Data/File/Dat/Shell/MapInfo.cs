@@ -1,8 +1,8 @@
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
 /// <summary>
-/// FILE - /GAM/MAP_INFO.DAT — usage completely unknown, changing values doesn't seem to affect
-/// any gameplay. Ported from org.hercworks.core.data.file.dat.shell.MapInfo.
+/// FILE - /GAM/MAP_INFO.DAT — not decoded; this type models none of
+/// its content.
 /// </summary>
 public class MapInfo {
 }

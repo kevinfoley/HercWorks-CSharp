@@ -69,8 +69,8 @@ public readonly record struct AnimTransform(
 /// <param name="DestinationFrame">Frame within that sequence playback resumes at.</param>
 /// <param name="TransformIndex">
 /// The root motion covered while the transition plays — an index into
-/// <see cref="ShapeAnimation.Transforms"/>. This is <c>ANAnimListTransition.GroundMovement</c>,
-/// which despite the name is not a flag and is unrelated to <see cref="AnimSequence.GroundMovement"/>.
+/// <see cref="ShapeAnimation.Transforms"/>. Not a flag, and unrelated to
+/// <see cref="AnimSequence.GroundMovement"/>.
 /// </param>
 public readonly record struct AnimTransition(
 	short Duration, short DestinationSequence, short DestinationFrame, short TransformIndex);
@@ -246,7 +246,7 @@ public sealed class ShapeAnimation {
 	/// <see cref="SharesNodeNumbering"/> first.</para>
 	/// </summary>
 	public static ShapeAnimation? FromModel(DynamixThreeSpaceModel? model) {
-		if (model?.Meshes is not { } roots || FirstAnimList(roots) is not { } list) {
+		if (model?.Roots is not { } roots || FirstAnimList(roots) is not { } list) {
 			return null;
 		}
 
@@ -301,7 +301,7 @@ public sealed class ShapeAnimation {
 		for (int i = 0; i < transitions.Length; i++) {
 			var entry = sourceTransitions[i];
 			transitions[i] = new AnimTransition(
-				entry.Tick, entry.DestSequence, entry.DestFrame, entry.GroundMovement);
+				entry.Duration, entry.DestSequence, entry.DestFrame, entry.TransformIndex);
 		}
 
 		var sequences = new AnimSequence[list.Sequences.Length];
@@ -353,7 +353,7 @@ public sealed class ShapeAnimation {
 		var firstTransitions = new short[frames.Length];
 
 		for (int i = 0; i < frames.Length; i++) {
-			durations[i] = frames[i].Tick;
+			durations[i] = frames[i].Duration;
 			transitionCounts[i] = frames[i].NumTransitions;
 			firstTransitions[i] = frames[i].FirstTransition;
 		}

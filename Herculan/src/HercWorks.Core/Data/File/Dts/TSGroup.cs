@@ -3,11 +3,22 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.TSGroup.</summary>
+/// <summary>
+/// A geometry group: a point pool, an index list into it, a surface table, and the polys that
+/// reference all three. See docs/formats/dts-texture-binding.md, "Normals live in the point list".
+/// </summary>
 public class TSGroup : TSBasePart {
+	/// <summary>Point indices, which a poly's <c>VertexList</c> and <c>NormalList</c> are offsets into.</summary>
 	public short[]? Indexes { get; set; }
+
+	/// <summary>The group's points: poly corners, and the normals that share the same pool.</summary>
 	public Vec3Short[]? Points { get; set; }
+
+	/// <summary>
+	/// Surface records, one per four on-disk slots; a poly picks one by <c>ColorIndexId / 4</c>.
+	/// </summary>
 	public TSSurfaceEntry[]? Surfaces { get; set; }
+
 	public TSObject[]? Polys { get; set; }
 
 	public TSGroup() : base(TSObjectHeader.TSGroup) { }

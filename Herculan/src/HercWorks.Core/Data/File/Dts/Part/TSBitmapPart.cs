@@ -10,11 +10,10 @@ namespace HercWorks.Core.Data.File.Dts.Part;
 /// <para>Which DBA is bound is not recorded in the .DTS or the .DBA: for a mech it is chosen by
 /// <c>HercSimDat.ModelSkinId</c> (file offset 148) through a 7-entry group table, which
 /// docs/formats/dts-texture-binding.md carries under "DBSIM's mech-to-texture mapping".</para>
-///
-/// Ported from org.hercworks.core.data.file.dts.part.TSBitmapPart.
 /// </summary>
 public class TSBitmapPart : TSBasePart {
 	public short BmpTag { get; set; }
+	/// <summary>The anchor's x. The original reads this byte signed; <see cref="OfsY"/> it reads unsigned.</summary>
 	public byte OfsX { get; set; }
 	public byte OfsY { get; set; }
 

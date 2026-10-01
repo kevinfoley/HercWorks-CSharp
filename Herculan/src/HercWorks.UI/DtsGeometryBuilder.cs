@@ -74,7 +74,7 @@ public readonly struct DtsLine {
 	public Color? Back { get; init; }
 }
 
-/// <summary>One top-level entry from DynamixThreeSpaceModel.Meshes, flattened to triangles and lines.</summary>
+/// <summary>One top-level entry from DynamixThreeSpaceModel.Roots, flattened to triangles and lines.</summary>
 public sealed class DtsRootMesh {
 	public string Label { get; }
 	public List<DtsTriangle> Triangles { get; }
@@ -212,13 +212,13 @@ public static class DtsGeometryBuilder {
 	/// <summary>Builds every top-level root at its highest detail level.</summary>
 	public static List<DtsRootMesh> Build(DynamixThreeSpaceModel model, ShapeRenderContext? context) {
 		var roots = new List<DtsRootMesh>();
-		if (model.Meshes == null) {
+		if (model.Roots == null) {
 			return roots;
 		}
 
 		var state = StateFor(context);
 		int index = 0;
-		foreach (var mesh in model.Meshes) {
+		foreach (var mesh in model.Roots) {
 			string label = $"{mesh.Header?.Id() ?? mesh.GetType().Name} #{index}";
 			roots.Add(BuildRootInternal(mesh, label, null, state));
 			index++;
@@ -498,7 +498,7 @@ public static class DtsGeometryBuilder {
 		public bool Hidden => ((ushort)Flag >> 8) == HiddenFlagHighByte && ((ushort)LineFlag >> 8) == HiddenFlagHighByte;
 
 		public static SurfacePair Front(TSSurfaceEntry s) => new(s.FrontColor, s.FrontFlag, s.FrontLineColor, s.FrontLineFlag);
-		public static SurfacePair Back(TSSurfaceEntry s) => new(s.BackColor, s.BackColorFlag, s.BackLineColor, s.BackLineFlag);
+		public static SurfacePair Back(TSSurfaceEntry s) => new(s.BackColor, s.BackFlag, s.BackLineColor, s.BackLineFlag);
 	}
 
 	/// <summary>

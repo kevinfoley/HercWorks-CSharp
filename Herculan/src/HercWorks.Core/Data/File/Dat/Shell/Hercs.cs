@@ -3,18 +3,13 @@ using HercWorks.Core.Data.Struct.Vshell.Hercs;
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
 /// <summary>
-/// FILE - /SHELL/GAM/HERCS.DAT — the player's starting herc bay, loaded by VSHELL's
-/// <c>LoadHercsDat</c> when a new campaign begins. A collection of ShellHercData.
-///   0 - UINT16 - total hercs
-///   SEQ0: S0_0 bayId, S0_2 Herc Id, S0_4 build percent, S0_6 build missions remaining,
-///   S0_8 hardpoint count, SEQ1 per hardpoint: id, item ID, health percentage, missile enum
-///   (05 = none).
+/// FILE - /SHELL/GAM/HERCS.DAT — the player's starting hangar, loaded by VSHELL's
+/// <c>LoadHercsDat</c> when a new career begins: a <c>UINT16</c> count, then per entry a hangar slot
+/// (0-7) and one HERC catalog record (<see cref="ShellHercData"/>).
 ///
 /// <para>Retail ships four Outlaws in bays 0-3 and, in bay 4, a Razor at 0% with three missions
 /// left to build — the state a freshly ordered chassis is left in, not a damaged one. See
-/// <c>docs/formats/herc-catalogs.md</c>.</para>
-///
-/// Ported from org.hercworks.core.data.file.dat.shell.Hercs.
+/// docs/formats/herc-catalogs.md#gamhercsdat--the-starting-hangar.</para>
 /// </summary>
 public class Hercs {
 	public Entry[]? Data { get; set; }

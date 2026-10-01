@@ -7,7 +7,7 @@ using System.Text;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
-/// <summary>Ported from org.hercworks.core.io.transform.common.PlayerSaveTransform.</summary>
+/// <summary>Transforms byte[] data to and from a <c>sav\GAME_?.SAV</c> (see <see cref="PlayerSave"/>).</summary>
 public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 	private int _dbgBuffer;
 
@@ -20,8 +20,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 
 		var save = new PlayerSave();
 
-		// INVENTORY SEGMENT - 33 entries, matches total weapons in game, ERROR/cut weapon ids
-		// ARE included here, but zeroed out.
+		// Block 1, the armory stock: one record per catalog id, all 33, cut weapons included.
 		var inventory = new Inventory {
 			Items = new Inventory.InventoryItem[WeaponLUT.Values().Count]
 		};
@@ -37,30 +36,30 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			for (int q = 0; q < quant; q++) {
 				var weapon = new ShellWeaponEntry {
 					Id = WeaponLUT.GetById(IndexShortLE()),
-					NameId = IndexShortLE(),
-					HealthArmor = IndexShortLE(),
-					HealthInteral = IndexShortLE(),
-					MissileType = MissileType.GetById(IndexShortLE())
+					ClassIndex = IndexShortLE(),
+					FitCondition = IndexShortLE(),
+					Condition = IndexShortLE(),
+					Guidance = MissileType.GetById(IndexShortLE())
 				};
 				items[q] = weapon;
 			}
-			entry.Data = items;
+			entry.Units = items;
 
 			inventory.Items[i] = entry;
 		}
 		save.Inventory = inventory;
 
-		// Workshop state
-		save.WorkshopSpace = IndexShortLE();
-		for (int w = 0; w < save.WorkshopSlots.Length; w++) {
-			IndexShortLE(); // why would these ever be out of order?
-			save.WorkshopSlots[w] = WeaponLUT.GetById(IndexShortLE())!;
+		// Block 2, the armory build queue
+		save.BuildQueueFreeSlots = IndexShortLE();
+		for (int w = 0; w < save.BuildQueue.Length; w++) {
+			IndexShortLE(); // the slot index; Write puts back the array position
+			save.BuildQueue[w] = WeaponLUT.GetById(IndexShortLE())!;
 		}
 
-		// Career block — 76 shorts. Not the campaign flag array, which is 2000 bytes and sits in the
-		// tail read below.
-		for (int f = 0; f < save.Unk4_stateFlags.Length; f++) {
-			save.Unk4_stateFlags[f] = IndexShortLE();
+		// Block 3, the career block — 76 shorts. Not the campaign flag array, which is 2000 bytes and
+		// sits in the tail read below.
+		for (int f = 0; f < save.CareerBlock.Length; f++) {
+			save.CareerBlock[f] = IndexShortLE();
 		}
 
 		// Squadmate segment
@@ -71,12 +70,12 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		save.Squadmates = squad;
 
 		// The six shorts closing the squad block plus the two opening the player block — eight.
-		for (int r = 0; r < save.UnkRange_prePlayer.Length; r++) {
-			save.UnkRange_prePlayer[r] = IndexShortLE();
+		for (int r = 0; r < save.SquadTailAndPlayerHead.Length; r++) {
+			save.SquadTailAndPlayerHead[r] = IndexShortLE();
 		}
 
 		// Pilot segment — the same record shape as a squadmate's; the two shorts that precede it were
-		// consumed with UnkRange_prePlayer above.
+		// consumed with SquadTailAndPlayerHead above.
 		save.PlayerPilot = IndexPilot();
 
 		// Herc bay data
@@ -86,11 +85,11 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			save.HercBay[bayId] = IndexHercEntry();
 		}
 
-		// Herc unlock flags — 9 shorts (18 bytes)
+		// Block 7, the nine chassis availability flags — 9 shorts (18 bytes)
 		int l = 0;
 		while (l < HercLUT.Mongoose.Id) {
 			short val = IndexShortLE();
-			save.UnlockedHercs[HercLUT.GetById((short)l)!] = val;
+			save.ChassisAvailability[HercLUT.GetById((short)l)!] = val;
 			l += 1;
 		}
 
@@ -104,7 +103,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			byte b = IndexByte();
 			fragmentFlags.WriteByte(b);
 		}
-		save.UnknownSaveValues = fragmentFlags.ToArray();
+		save.CampaignStateTail = fragmentFlags.ToArray();
 
 		return save;
 	}
@@ -113,7 +112,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 	/// One pilot record. <b>The player's is the same shape as a squadmate's</b> — VSHELL reads both
 	/// with <c>Pilot_Read</c> (<c>0040fefc</c>) and writes both with <c>Pilot_Write</c> (<c>0040fd5f</c>), roster id included. What
 	/// makes the player's segment look different is that two shorts of its own precede the record;
-	/// those belong to the surrounding block and are read with <c>UnkRange_prePlayer</c>.
+	/// those belong to the surrounding block and are read with <c>SquadTailAndPlayerHead</c>.
 	///
 	/// <para>Three shorts precede the name — roster id, esnames index, then the length — and eleven
 	/// follow the on-strength byte. Every count here matters: taking the esnames index for the length
@@ -124,7 +123,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 	private PilotEntry IndexPilot() {
 		var entry = new PilotEntry();
 
-		entry.SquadmateId = IndexShortLE();
+		entry.RosterId = IndexShortLE();
 		entry.NameIndex = IndexShortLE();
 
 		short nameLen = IndexShortLE();
@@ -133,63 +132,63 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			? BytesToLatin1String(name).Substring(0, nameLen - 1)
 			: string.Empty;
 
-		entry.BayId = IndexShortLE();
-		entry.Active = IndexByte();
+		entry.Bay = IndexShortLE();
+		entry.OnStrength = IndexByte();
 		entry.Skill = PilotSkill.GetById(IndexShortLE());
-		entry.CrewRowNum = IndexShortLE();
+		entry.SquadPosition = IndexShortLE();
 		entry.Rank = PilotRank.GetById(IndexShortLE());
-		entry.ProbablyHealth = IndexShortLE();
-		entry.KillsHercs = IndexShortLE();
-		entry.KillsFlyers = IndexShortLE();
-		entry.KillsBuilding = IndexShortLE();
-		entry.TotalKillHerc = IndexShortLE();
-		entry.TotalKillFlyer = IndexShortLE();
-		entry.TotalKillBldng = IndexShortLE();
-		entry.MissionCount = IndexShortLE();
+		entry.Condition = IndexShortLE();
+		entry.HercKills = IndexShortLE();
+		entry.FlyerKills = IndexShortLE();
+		entry.BaseKills = IndexShortLE();
+		entry.TotalHercKills = IndexShortLE();
+		entry.TotalFlyerKills = IndexShortLE();
+		entry.TotalBaseKills = IndexShortLE();
+		entry.MissionsFlown = IndexShortLE();
 
 		return entry;
 	}
 
 	private HercBayEntry IndexHercEntry() {
 		var herc = new HercBayEntry {
-			Id = HercLUT.GetById(IndexShortLE()),
-			NameId = IndexShortLE(),
-			HealthExternals = new Dictionary<HercExternals, ShellHercPart>()
+			ChassisType = HercLUT.GetById(IndexShortLE()),
+			ChassisIndex = IndexShortLE(),
+			ExternalConditions = new Dictionary<HercExternals, ShellHercPart>()
 		};
 
 		foreach (var e in HercExternals.Values()) {
-			herc.HealthExternals[e] = new ShellHercPart(e.Id, e.Label, IndexShortLE());
+			herc.ExternalConditions[e] = new ShellHercPart(e.Id, e.Label, IndexShortLE());
 		}
 
 		// Ids 0-9 only: 0-8 are the nine named components and 9 is the machine's overall condition.
 		// Ids 10-12 are not in the file at all, so stopping short of them is the format, not a gap.
 		// See HercInternals.
-		herc.HealthInternals = new Dictionary<HercInternals, ShellHercPart>();
+		herc.InternalConditions = new Dictionary<HercInternals, ShellHercPart>();
 		foreach (var internalPart in HercInternals.Values()) {
 			if (internalPart.Id < HercInternals.ServosLegLeftRear.Id) {
-				herc.HealthInternals[internalPart] = new ShellHercPart(internalPart.Id, internalPart.Label, IndexShortLE());
+				herc.InternalConditions[internalPart] = new ShellHercPart(internalPart.Id, internalPart.Label, IndexShortLE());
 			}
 		}
 
-		for (int h = 0; h < herc.HealthHardpoints.Length; h++) {
-			herc.HealthHardpoints[h] = new ShellHercPart((short)h, "hardpoint_" + h, IndexShortLE());
+		for (int h = 0; h < herc.HardpointConditions.Length; h++) {
+			herc.HardpointConditions[h] = new ShellHercPart((short)h, "hardpoint_" + h, IndexShortLE());
 		}
 
 		herc.BuildPercent = IndexShortLE();
-		herc.BuildStepNum = IndexShortLE();
+		herc.BuildMissionsLeft = IndexShortLE();
 
-		herc.HardpointMax = IndexShortLE();
-		herc.ActiveSockets = IndexShortLE();
-		for (int h = 0; h < herc.ActiveSockets; h++) {
+		herc.MountCapacity = IndexShortLE();
+		herc.MountsOccupied = IndexShortLE();
+		for (int h = 0; h < herc.MountsOccupied; h++) {
 			short socketId = IndexShortLE();
 			var weapon = new ShellWeaponEntry {
 				Id = WeaponLUT.GetById(IndexShortLE()),
-				NameId = IndexShortLE(),
-				HealthArmor = IndexShortLE(),
-				HealthInteral = IndexShortLE(),
-				MissileType = MissileType.GetById(IndexShortLE())
+				ClassIndex = IndexShortLE(),
+				FitCondition = IndexShortLE(),
+				Condition = IndexShortLE(),
+				Guidance = MissileType.GetById(IndexShortLE())
 			};
-			herc.Weapons[socketId] = weapon;
+			herc.Mounts[socketId] = weapon;
 		}
 
 		return herc;
@@ -199,30 +198,30 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 
 		using var outStream = new MemoryStream();
 
-		// INVENTORY SEGMENT
+		// ARMORY STOCK
 		foreach (var item in save.Inventory!.Items!) {
 			outStream.WriteByte((byte)item.UnlockFlag);
 			_dbgBuffer += 1;
 			WriteAndCount(outStream, WriteShortLE(item.Quantity));
 
-			foreach (var entry in item.Data!) {
+			foreach (var entry in item.Units!) {
 				WriteAndCount(outStream, WriteShortLE((short)entry.Id!.Id));
-				WriteAndCount(outStream, WriteShortLE(entry.NameId));
-				WriteAndCount(outStream, WriteShortLE(entry.HealthArmor));
-				WriteAndCount(outStream, WriteShortLE(entry.HealthInteral));
-				WriteAndCount(outStream, WriteShortLE((short)entry.MissileType!.Id));
+				WriteAndCount(outStream, WriteShortLE(entry.ClassIndex));
+				WriteAndCount(outStream, WriteShortLE(entry.FitCondition));
+				WriteAndCount(outStream, WriteShortLE(entry.Condition));
+				WriteAndCount(outStream, WriteShortLE((short)entry.Guidance!.Id));
 			}
 		}
 
-		// WORKSHOP SLOTS
-		WriteAndCount(outStream, WriteShortLE(save.WorkshopSpace));
-		for (int w = 0; w < save.WorkshopSlots.Length; w++) {
+		// BUILD QUEUE
+		WriteAndCount(outStream, WriteShortLE(save.BuildQueueFreeSlots));
+		for (int w = 0; w < save.BuildQueue.Length; w++) {
 			WriteAndCount(outStream, WriteShortLE((short)w));
-			WriteAndCount(outStream, WriteShortLE((short)save.WorkshopSlots[w].Id));
+			WriteAndCount(outStream, WriteShortLE((short)save.BuildQueue[w].Id));
 		}
 
 		// CAREER BLOCK
-		foreach (var f in save.Unk4_stateFlags) {
+		foreach (var f in save.CareerBlock) {
 			WriteAndCount(outStream, WriteShortLE(f));
 		}
 
@@ -232,28 +231,24 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		}
 
 		// SQUAD BLOCK TAIL + PLAYER BLOCK HEAD
-		foreach (var unk in save.UnkRange_prePlayer) {
+		foreach (var unk in save.SquadTailAndPlayerHead) {
 			WriteAndCount(outStream, WriteShortLE(unk));
 		}
 
 		// PLAYER PILOT
 		WritePilotData(save.PlayerPilot!, outStream);
 
-		// HERC DATA — keyed by actual bay id, not a 0..Count-1 sequential index: real saves have
-		// sparse bay ids (e.g. missing bay 2 or bay 7), so indexing by loop counter threw
-		// KeyNotFoundException on those files. Mirrors the read path, which keys by the bay id
-		// read from the file rather than assuming contiguity.
+		// HERC DATA — keyed by the bay id read from the file: retail saves have sparse bay ids
+		// (e.g. no bay 2 or bay 7), so the bays cannot be walked as 0..Count-1.
 		outStream.Write(WriteShortLE((short)save.HercBay.Count), 0, 2);
 		foreach (var kv in save.HercBay) {
 			WriteHercEntry(kv.Key, kv.Value, outStream);
 		}
 
-		// HERC UNLOCKS — mirrors the read path exactly: same id range (0 until HercLUT.Mongoose.Id),
-		// same source (save.UnlockedHercs), instead of writing a hardcoded pattern over an
-		// unrelated id range.
+		// CHASSIS AVAILABILITY — the same nine ids the read path walks (0 until HercLUT.Mongoose.Id).
 		for (short l = 0; l < HercLUT.Mongoose.Id; l++) {
 			var herc = HercLUT.GetById(l)!;
-			short val = save.UnlockedHercs.TryGetValue(herc, out var unlockVal) ? unlockVal : (short)0;
+			short val = save.ChassisAvailability.TryGetValue(herc, out var unlockVal) ? unlockVal : (short)0;
 			WriteAndCount(outStream, WriteShortLE(val));
 		}
 
@@ -261,7 +256,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		WriteAndCount(outStream, WriteIntLE(save.SalvageTotal));
 
 		// TAIL SEGMENT
-		foreach (var b in save.UnknownSaveValues!) {
+		foreach (var b in save.CampaignStateTail!) {
 			outStream.WriteByte(b);
 			_dbgBuffer += 1;
 		}
@@ -271,7 +266,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 
 	/// <summary>Mirror of <see cref="IndexPilot"/>, field for field, player and squadmate alike.</summary>
 	private void WritePilotData(PilotEntry pilot, MemoryStream outArr) {
-		WriteAndCount(outArr, WriteShortLE(pilot.SquadmateId));
+		WriteAndCount(outArr, WriteShortLE(pilot.RosterId));
 		WriteAndCount(outArr, WriteShortLE(pilot.NameIndex));
 
 		// Latin-1 to match the read side: the shell's own names are ASCII, but a player-typed name
@@ -285,38 +280,38 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		outArr.Write(arr, 0, arr.Length);
 		_dbgBuffer += arr.Length;
 
-		WriteAndCount(outArr, WriteShortLE(pilot.BayId));
-		outArr.WriteByte(pilot.Active);
+		WriteAndCount(outArr, WriteShortLE(pilot.Bay));
+		outArr.WriteByte(pilot.OnStrength);
 		_dbgBuffer += 1;
 		WriteAndCount(outArr, WriteShortLE(pilot.Skill?.Id ?? PilotSkill.Rookie.Id));
-		WriteAndCount(outArr, WriteShortLE(pilot.CrewRowNum));
+		WriteAndCount(outArr, WriteShortLE(pilot.SquadPosition));
 		WriteAndCount(outArr, WriteShortLE(pilot.Rank?.Id ?? PilotRank.Lieutenant.Id));
-		WriteAndCount(outArr, WriteShortLE(pilot.ProbablyHealth));
-		WriteAndCount(outArr, WriteShortLE(pilot.KillsHercs));
-		WriteAndCount(outArr, WriteShortLE(pilot.KillsFlyers));
-		WriteAndCount(outArr, WriteShortLE(pilot.KillsBuilding));
-		WriteAndCount(outArr, WriteShortLE(pilot.TotalKillHerc));
-		WriteAndCount(outArr, WriteShortLE(pilot.TotalKillFlyer));
-		WriteAndCount(outArr, WriteShortLE(pilot.TotalKillBldng));
-		WriteAndCount(outArr, WriteShortLE(pilot.MissionCount));
+		WriteAndCount(outArr, WriteShortLE(pilot.Condition));
+		WriteAndCount(outArr, WriteShortLE(pilot.HercKills));
+		WriteAndCount(outArr, WriteShortLE(pilot.FlyerKills));
+		WriteAndCount(outArr, WriteShortLE(pilot.BaseKills));
+		WriteAndCount(outArr, WriteShortLE(pilot.TotalHercKills));
+		WriteAndCount(outArr, WriteShortLE(pilot.TotalFlyerKills));
+		WriteAndCount(outArr, WriteShortLE(pilot.TotalBaseKills));
+		WriteAndCount(outArr, WriteShortLE(pilot.MissionsFlown));
 	}
 
 	private void WriteHercEntry(short bayId, HercBayEntry herc, MemoryStream outArr) {
 		WriteAndCount(outArr, WriteShortLE(bayId));
-		WriteAndCount(outArr, WriteShortLE(herc.Id!.Id));
-		WriteAndCount(outArr, WriteShortLE(herc.NameId));
+		WriteAndCount(outArr, WriteShortLE(herc.ChassisType!.Id));
+		WriteAndCount(outArr, WriteShortLE(herc.ChassisIndex));
 
 		foreach (var external in HercExternals.Values()) {
-			WriteAndCount(outArr, WriteShortLE(herc.HealthExternals![external].Health));
+			WriteAndCount(outArr, WriteShortLE(herc.ExternalConditions![external].Health));
 		}
 
 		foreach (var internalPart in HercInternals.Values()) {
 			if (internalPart.Id < HercInternals.ServosLegLeftRear.Id) {
-				WriteAndCount(outArr, WriteShortLE(herc.HealthInternals![internalPart].Health));
+				WriteAndCount(outArr, WriteShortLE(herc.InternalConditions![internalPart].Health));
 			}
 		}
 
-		foreach (var part in herc.HealthHardpoints) {
+		foreach (var part in herc.HardpointConditions) {
 			if (part == null) {
 				WriteAndCount(outArr, WriteShortLE(100));
 			} else {
@@ -325,21 +320,20 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		}
 
 		WriteAndCount(outArr, WriteShortLE(herc.BuildPercent));
-		WriteAndCount(outArr, WriteShortLE(herc.BuildStepNum));
+		WriteAndCount(outArr, WriteShortLE(herc.BuildMissionsLeft));
 
-		WriteAndCount(outArr, WriteShortLE(herc.HardpointMax));
-		WriteAndCount(outArr, WriteShortLE(herc.ActiveSockets));
+		WriteAndCount(outArr, WriteShortLE(herc.MountCapacity));
+		WriteAndCount(outArr, WriteShortLE(herc.MountsOccupied));
 
-		// Keyed by actual socket id, not a 0..ActiveSockets-1 sequential index — same sparse-key
-		// issue as the herc bay loop above (see comment in ObjectToBytes).
-		foreach (var kv in herc.Weapons) {
+		// Keyed by mount slot: mounts serialize sparsely, like the bays above.
+		foreach (var kv in herc.Mounts) {
 			WriteAndCount(outArr, WriteShortLE(kv.Key));
 			var weapon = kv.Value;
 			WriteAndCount(outArr, WriteShortLE((short)weapon.Id!.Id));
-			WriteAndCount(outArr, WriteShortLE(weapon.NameId));
-			WriteAndCount(outArr, WriteShortLE(weapon.HealthArmor));
-			WriteAndCount(outArr, WriteShortLE(weapon.HealthInteral));
-			WriteAndCount(outArr, WriteShortLE((short)weapon.MissileType!.Id));
+			WriteAndCount(outArr, WriteShortLE(weapon.ClassIndex));
+			WriteAndCount(outArr, WriteShortLE(weapon.FitCondition));
+			WriteAndCount(outArr, WriteShortLE(weapon.Condition));
+			WriteAndCount(outArr, WriteShortLE((short)weapon.Guidance!.Id));
 		}
 	}
 

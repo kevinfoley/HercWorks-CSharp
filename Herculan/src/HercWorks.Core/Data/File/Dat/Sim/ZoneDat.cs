@@ -3,21 +3,23 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
-/// FILE - /ZONE/DAT/ZONEXXXX.DAT
-///   0 - UINT32 - must be either 7 or 8
-///   4 - UINT32 - must be either 7 or 8
-///   8 - UINT32 - 13, 14, or 15
-///   12 - UINT32 - height scalar value, cannot be 0
-/// Ported from org.hercworks.core.data.file.dat.sim.ZoneDat. The Java original declared these
-/// fields without getters/setters (work in progress); exposed as public properties here since
-/// that's the norm for every other class in this codebase.
+/// FILE - /ZONE/DAT/ZONEXXXX.DAT — the 16-byte per-zone header <c>Terrain_LoadZone</c> reads beside
+/// the zone's heightmap, four little-endian <c>INT32</c>s. See
+/// docs/formats/terrain-heightmap.md.
 /// </summary>
 public class ZoneDat : DataFile {
-	public int UnkInt1_7or8 { get; set; }
-	public int UnkInt2_7or8 { get; set; }
+	/// <summary>
+	/// Width and height of the cell grid as shifts — 7 or 8. The original reads them and then
+	/// re-derives both from the heightmap image's own dimensions.
+	/// </summary>
+	public int WidthShift { get; set; }
 
-	/// <summary>Observed values: 13, 14, 15.</summary>
-	public int UnkInt3_varies { get; set; }
+	/// <inheritdoc cref="WidthShift"/>
+	public int HeightShift { get; set; }
 
-	public int HeightScalar { get; set; }
+	/// <summary>World units per cell as a shift: 13, 14 or 15.</summary>
+	public int CellShift { get; set; }
+
+	/// <summary>Multiplicative height scale applied to each cell's raw byte. Nonzero.</summary>
+	public int HeightScale { get; set; }
 }

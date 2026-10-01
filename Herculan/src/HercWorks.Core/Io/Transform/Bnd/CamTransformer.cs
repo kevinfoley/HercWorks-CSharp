@@ -4,13 +4,8 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Bnd;
 
 /// <summary>
-/// Transforms byte[] data to and from CAM.BND (see <see cref="Cam"/> for the format writeup and
-/// field-confidence notes). New: the Java source had a data-model doc comment with sample values
-/// but no transformer at all — this implements and verifies that layout against the real retail
-/// CAM.BND. Only matches this one specific file by name (see <see cref="TransformerRegistry"/>) —
-/// every other .BND file has its own unrelated record shape, confirmed different from CAM's both
-/// in length and in the Java author's own per-file notes for the handful of other .BND files that
-/// have any.
+/// Transforms byte[] data to and from CAM.BND (see <see cref="Cam"/>). Matches this one file by
+/// name (see <see cref="TransformerRegistry"/>): every other .BND file has its own record shape.
 ///
 /// <para>Reads the entry's content, offset 0 first. A loose <c>.BND</c> unpacked with a tool that
 /// keeps the VOL entry prefix carries nine extra leading bytes that are no part of the format —
@@ -26,7 +21,7 @@ public class CamTransformer : ByteTransformer<Cam> {
 		SetBytes(inputArray);
 
 		var cam = new Cam {
-			RecordTag = IndexByte(),
+			Unknown0 = IndexByte(),
 			Unknown1 = IndexByte(),
 			Unknown2 = IndexByte(),
 			Unknown3 = IndexByte(),
@@ -57,7 +52,7 @@ public class CamTransformer : ByteTransformer<Cam> {
 		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 		void WriteByte(byte b) => outStream.WriteByte(b);
 
-		WriteByte(cam.RecordTag);
+		WriteByte(cam.Unknown0);
 		WriteByte(cam.Unknown1);
 		WriteByte(cam.Unknown2);
 		WriteByte(cam.Unknown3);

@@ -2,8 +2,12 @@ using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
-/// <summary>Ported from org.hercworks.core.data.file.gau.HButtonBasic.</summary>
+/// <summary>
+/// A console button's rect — chain, link or auto-track. See docs/formats/cockpit-hud-widgets.md,
+/// "Console buttons".
+/// </summary>
 public class HButtonBasic : WidgetBase {
+	/// <summary>Not in the file; the transformer reads a button as a plain rect and leaves this unset.</summary>
 	public PixelPoint LabelOfs { get; set; }
 
 	public HButtonBasic() { }

@@ -3,9 +3,9 @@ using HercWorks.Core.Util;
 namespace HercWorks.Core.Data.File.Dyn;
 
 /// <summary>
-/// FILE - VOL file, .DBA — Dynamix Bitmap Array (somewhat guessed). A bitmap with defined frames.
-/// Ported from org.hercworks.core.data.file.dyn.DynamixBitmapArray. This replaces the earlier
-/// placeholder stub of the same name/namespace used ahead of this package's port.
+/// A <c>.DBA</c> bitmap array — also <c>.HBA</c>, <c>.HB0</c>-<c>.HB2</c> and <c>.DB0</c>-<c>.DB2</c>:
+/// a short header, then one <see cref="DynamixBitmap"/> per frame. See docs/formats/dfn-hfn-dci.md,
+/// "The shared "Dynamix resource" envelope".
 /// </summary>
 public class DynamixBitmapArray {
 	/// <summary>
@@ -21,9 +21,13 @@ public class DynamixBitmapArray {
 	/// </summary>
 	public static readonly byte[] HeaderMagic = EndianOps.GetIntBEBytes(0x01002800);
 
-	public short ArrayRow { get; set; }
+	/// <summary>The number of frames that follow the header.</summary>
+	public short FrameCount { get; set; }
+
+	/// <summary>Meaning not established; read and written back verbatim.</summary>
 	public short ArrayCols { get; set; }
 
 	public DynamixBitmap[]? Images { get; set; }
+	/// <summary>Not in the file: a <c>.DBA</c> names no palette, so a caller pairs one with it.</summary>
 	public DynamixPalette? Palette { get; set; }
 }

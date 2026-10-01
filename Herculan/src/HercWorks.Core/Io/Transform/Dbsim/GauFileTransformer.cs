@@ -31,10 +31,10 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 	/// </summary>
 	private const int RemainderBeforeMfdPanelLength = 256;
 
-	/// <summary>Bytes between the end of Throttle (offset 1064) and the start of TorsoTwist (offset 1104) — NOT fully decoded, see class doc comment.</summary>
-	private const int RemainderBeforeTorsoTwistLength = 40;
+	/// <summary>Bytes between the end of Throttle (offset 1064) and the start of HeadingTape (offset 1104) — see the GAUFile class doc comment.</summary>
+	private const int RemainderBeforeHeadingTapeLength = 40;
 
-	/// <summary>Bytes between the end of TorsoTwist (offset 1120) and the start of Reticle (offset 1136) — NOT decoded.</summary>
+	/// <summary>Bytes between the end of HeadingTape (offset 1120) and the start of Reticle (offset 1136) — the two readout anchors.</summary>
 	private const int RemainderBeforeReticleLength = 16;
 
 	/// <summary>Byte offset of <see cref="HGunsightArea"/>'s rect inside <see cref="GAUFile.Remainder"/>, which starts at content offset 1144.</summary>
@@ -95,16 +95,16 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 
 		gau.Throttle = ReadThrottle();
 
-		gau.RemainderBeforeTorsoTwist = IndexSegment(RemainderBeforeTorsoTwistLength);
+		gau.RemainderBeforeHeadingTape = IndexSegment(RemainderBeforeHeadingTapeLength);
 
 		// Two of the remainder's ints belong to the throttle — the gauge constructor reads offsets
 		// 1064 and 1072 straight out of the same widget record it reads the track rect from. They are
 		// surfaced on the widget but left in the remainder as well, so ObjectToBytes stays the verbatim
 		// write-back it was and the round-trip is untouched.
-		gau.Throttle.SlideMode = IntLE(gau.RemainderBeforeTorsoTwist, 0);
-		gau.Throttle.TickOffsetX = IntLE(gau.RemainderBeforeTorsoTwist, 8);
+		gau.Throttle.SlideMode = IntLE(gau.RemainderBeforeHeadingTape, 0);
+		gau.Throttle.TickOffsetX = IntLE(gau.RemainderBeforeHeadingTape, 8);
 
-		gau.TorsoTwist = ReadRect(() => new HTorsoTwist());
+		gau.HeadingTape = ReadRect(() => new HHeadingTape());
 
 		gau.RemainderBeforeReticle = IndexSegment(RemainderBeforeReticleLength);
 
@@ -211,16 +211,16 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 
 	private int[] ReadShieldSlot() => new[] { IndexIntLE(), IndexIntLE(), IndexIntLE(), IndexIntLE() };
 
-	/// <summary>Reads the throttle's track rect (normal X1,Y1,X2,Y2 order) plus 4 detent points.</summary>
 	/// <summary>One little-endian int out of an already-captured raw segment.</summary>
 	private static int IntLE(byte[]? segment, int offset) =>
 		segment != null && offset + 4 <= segment.Length ? BitConverter.ToInt32(segment, offset) : 0;
 
+	/// <summary>Reads the throttle's track rect, then the corners of its two fill bars.</summary>
 	private HThrottle ReadThrottle() {
 		var throttle = ReadRect(() => new HThrottle());
 
-		for (int i = 0; i < throttle.DetentPoints.Length; i++) {
-			throttle.DetentPoints[i] = new PixelPoint(IndexIntLE(), IndexIntLE());
+		for (int i = 0; i < throttle.BarCorners.Length; i++) {
+			throttle.BarCorners[i] = new PixelPoint(IndexIntLE(), IndexIntLE());
 		}
 
 		return throttle;
@@ -268,16 +268,16 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 		Emit(new byte[48]); // 3 null widget slots, offset 968/984/1000.
 
 		WriteRect(Emit, gau.Throttle!);
-		foreach (var pt in gau.Throttle!.DetentPoints) {
+		foreach (var pt in gau.Throttle!.BarCorners) {
 			Emit(WriteIntLE(pt.X));
 			Emit(WriteIntLE(pt.Y));
 		}
 
-		if (gau.RemainderBeforeTorsoTwist != null) {
-			Emit(gau.RemainderBeforeTorsoTwist);
+		if (gau.RemainderBeforeHeadingTape != null) {
+			Emit(gau.RemainderBeforeHeadingTape);
 		}
 
-		WriteRect(Emit, gau.TorsoTwist!);
+		WriteRect(Emit, gau.HeadingTape!);
 
 		if (gau.RemainderBeforeReticle != null) {
 			Emit(gau.RemainderBeforeReticle);

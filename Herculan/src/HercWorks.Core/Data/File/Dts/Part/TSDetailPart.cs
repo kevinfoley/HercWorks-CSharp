@@ -2,8 +2,15 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Part;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.part.TSDetailPart.</summary>
+/// <summary>
+/// One piece of a shape at several levels of detail; one part is drawn, chosen by projected size.
+/// See docs/formats/dts-texture-binding.md, "TSDetailPart level selection and STRUCTURE DETAIL".
+/// </summary>
 public class TSDetailPart : TSPartList {
+	/// <summary>
+	/// Projected-size thresholds, ascending and index-aligned with <see cref="TSPartList.Parts"/>:
+	/// part 0 is the coarsest. On disk they fill whatever of the chunk follows the part list.
+	/// </summary>
 	public short[]? Details { get; set; }
 
 	public TSDetailPart() : base(TSObjectHeader.TSDetailPart) { }

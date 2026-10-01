@@ -35,14 +35,14 @@ if (destroyed) {
     drained = Component_SpillIntoDependents(piece, subDamage, damage, subMax)   // 0040cf44
     if (drained && (piece.DestructionFlags & 1)) {
         Component_DestroyAndCascade(i)                     // 0040d434
-        drain the pending BoneId queue through the same call
+        drain the pending ParentComponent queue through the same call
     }
 }
 ```
 
 - `Component_AddDamage` **adds** damage, stores `-1` rather than the max once the entry is finished, and **writes the excess back into `damage`**. An entry already at `-1` absorbs nothing, so a lost part cannot be shot again.
 - `Component_SpillIntoDependents` pours that excess into the component's dependents, **one at a time, weighted and random**: each live dependent contributes its [spill weight](../formats/dmg-damage-file.md#the-piece-record) to a total, a draw under that total picks the one that takes the hit, and if that spill destroys it the remainder goes round again. It returns true only once no live dependents are left — which is why a component with internals still intact does not cascade even after its own armour is gone.
-- `Component_DestroyAndCascade` writes `-1`, clears the active flag, finishes off everything under it with a flat 32000, and queues every live piece whose `BoneId` names this component. The original drains that queue iteratively rather than recursing.
+- `Component_DestroyAndCascade` writes `-1`, clears the active flag, finishes off everything under it with a flat 32000, and queues every live piece whose `ParentComponent` names this component. The original drains that queue iteratively rather than recursing.
 - `Component_IsFullyDestroyed` (`0040d9f8`) ("is component *i* destroyed **and** all of its dependents too", via `Component_AllDependentsDestroyed` (`0040cf10`)) is the stricter test the mech's death gate asks of its two cockpit slots.
 
 ### Slots the write path reads by index
@@ -50,7 +50,7 @@ if (destroyed) {
 The names of the slots are [the file's](../formats/dmg-damage-file.md#the-two-index-spaces); the retail values behind them are in [which internals each component holds](../formats/dmg-damage-file.md#which-internals-each-component-holds).
 
 - **Components 0–1, the cockpits** — individually checked (`Component_IsFullyDestroyed`) as the mech's death-trigger gate.
-- **Components 19–28, the weapon mounts** — `Mech_ComponentDamageWrite` snapshots each mount's reading, `Component_ReadDamagePercent(.GL +0x17 + 19)`, before and after the write, and `Mech_SalvageValue` reads the same ([weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction)). The brackets, 4–5, are structure the mounts hang off through `BoneId`; a mount's runtime ammo and heat are not in this array.
+- **Components 19–28, the weapon mounts** — `Mech_ComponentDamageWrite` snapshots each mount's reading, `Component_ReadDamagePercent(.GL +0x17 + 19)`, before and after the write, and `Mech_SalvageValue` reads the same ([weapon-mount destruction](weapon-damage-types.md#weapon-mount-destruction)). The brackets, 4–5, are structure the mounts hang off through `ParentComponent`; a mount's runtime ammo and heat are not in this array.
 - **Internals (22-entry) read by literal index in `Mech_ComponentDamageWrite`**, not by a loop. 0 and 1 are the front leg servos, joined by 10 and 11 (the rear pair) when `typeRecord+0x4a` is 4; the pair(s) are averaged before being compared against `0x8d` (crippled) and `0x50` (the milder grade), and half of them destroyed immobilises the machine. 4 is the shield generator, which `Mech_ComputeShieldCapacity` reads — so shooting it shrinks the array the machine can hold, and that recompute happens **here as well as at spawn**. 5 is the reactor, latching the two output-damage flags. 8 and 9 are life support and the pilot: either destroyed, or either cockpit slot fully gone, and the machine dies.
 
 ### What the endpoint announces

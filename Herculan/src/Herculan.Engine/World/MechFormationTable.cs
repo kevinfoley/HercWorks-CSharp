@@ -53,7 +53,7 @@ public sealed class MechFormationTable {
 
 	/// <summary>
 	/// The spread offset for a group's <paramref name="memberIndex"/>-th member (its position within
-	/// the claiming block-11 record's <c>DiscriminatedRefs</c> array), or null when the slot takes no
+	/// the claiming block-11 record's <c>MemberRefs</c> array), or null when the slot takes no
 	/// offset — member index 0 (the group's first-claimed member), an out-of-range formation id, or a
 	/// member index past the table's 7 follower slots.
 	/// </summary>

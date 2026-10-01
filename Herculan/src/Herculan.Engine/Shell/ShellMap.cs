@@ -150,7 +150,7 @@ public sealed class ShellMap {
 		string formsPath = Path.Combine(installRoot, MissionLoader.DataFolderName, MechFormationTable.ResourceName);
 		var forms = File.Exists(formsPath) ? MechFormationTable.Parse(File.ReadAllBytes(formsPath)) : null;
 
-		int zone = script.HeaderBytes.Length >= 4 ? BitConverter.ToInt16(script.HeaderBytes, 2) : 0;
+		int zone = script.ZoneIndex;
 		return Build(script, forms, squadCount, textCount, ZoneRelief.Load(content, zone));
 	}
 
@@ -159,35 +159,35 @@ public sealed class ShellMap {
 		var points = script.Coordinates.Select(c => (c.X, c.Y)).ToArray();
 
 		// ShellMap_LoadScriptDat: the nav path is the waypoint group block 11 record 0's first order names.
-		var group = script.Entities164.Length > 0 ? script.Entities164[0] : null;
-		var order = group != null && group.Row15Refs[0] >= 0 && group.Row15Refs[0] < script.LinkedRefs22.Length
-			? script.LinkedRefs22[group.Row15Refs[0]] : null;
-		int[]? path = order is { RefRow8: >= 0 } && order.RefRow8 < script.WaypointGroups.Length
-			? script.WaypointGroups[order.RefRow8].Waypoints.Select(w => (int)w).ToArray() : null;
+		var group = script.Groups.Length > 0 ? script.Groups[0] : null;
+		var order = group != null && group.OrderRefs[0] >= 0 && group.OrderRefs[0] < script.Orders.Length
+			? script.Orders[group.OrderRefs[0]] : null;
+		int[]? path = order is { RouteRef: >= 0 } && order.RouteRef < script.WaypointGroups.Length
+			? script.WaypointGroups[order.RouteRef].Waypoints.Select(w => (int)w).ToArray() : null;
 
 		// Block 9 kept whole, then every type-2 group writes its members' shown field and, from its own
 		// point or its route's first, their position.
-		var bases = script.MiscEntities.Select(b => new ShellMapBase(b.TypeIndex, b.PositionRef,
+		var bases = script.Bases.Select(b => new ShellMapBase(b.TypeIndex, b.PositionRef,
 			BitConverter.ToInt16(b.TailBytes, BaseShownTailOffset))).ToArray();
-		foreach (var owner in script.Entities164.Where(g => g.Discriminator == 2)) {
-			foreach (short member in owner.DiscriminatedRefs) {
+		foreach (var owner in script.Groups.Where(g => g.MemberKind == 2)) {
+			foreach (short member in owner.MemberRefs) {
 				if (member < 0 || member >= bases.Length) {
 					continue;
 				}
 
 				int point = bases[member].Point;
-				if (owner.RefRow6 != -1) {
-					point = owner.RefRow6;
-				} else if (owner.RefRow8 != -1 && owner.RefRow8 < script.WaypointGroups.Length
-						&& script.WaypointGroups[owner.RefRow8].Waypoints.Length > 0) {
-					point = script.WaypointGroups[owner.RefRow8].Waypoints[0];
+				if (owner.PositionRef != -1) {
+					point = owner.PositionRef;
+				} else if (owner.RouteRef != -1 && owner.RouteRef < script.WaypointGroups.Length
+						&& script.WaypointGroups[owner.RouteRef].Waypoints.Length > 0) {
+					point = script.WaypointGroups[owner.RouteRef].Waypoints[0];
 				}
 
-				bases[member] = bases[member] with { Point = point, Shown = owner.TrailingFlag };
+				bases[member] = bases[member] with { Point = point, Shown = owner.MapShown };
 			}
 		}
 
-		var refs = group?.DiscriminatedRefs ?? Enumerable.Repeat((short)-1, SquadSlots).ToArray();
+		var refs = group?.MemberRefs ?? Enumerable.Repeat((short)-1, SquadSlots).ToArray();
 		var map = new ShellMap(points, path, bases, refs, squadCount, textCount, zone?.BuildRelief(Bounds(points)));
 		map.SetBounds();
 		map.PlaceSquad(script, group, order, path, forms);
@@ -215,40 +215,40 @@ public sealed class ShellMap {
 	/// block-7 record stands on the group's anchor, and every member after the first is offset by its
 	/// <c>mforms.dat</c> slot turned through the group's heading.
 	/// </summary>
-	private void PlaceSquad(ScriptDat script, ScriptEntity164Export? group, ScriptLinkedRef22Export? order,
+	private void PlaceSquad(ScriptDat script, ScriptGroup? group, ScriptOrder? order,
 			int[]? path, MechFormationTable? forms) {
 		if (group == null) {
 			return;
 		}
 
 		short heading;
-		if (group.RefRow7 < 0) {
+		if (group.HeadingRef < 0) {
 			heading = path is { Length: >= 2 } && Point(path[0]) is var p0 && Point(path[1]) is var p1
 				? unchecked((short)(SimTrig.Atan2(p1.Y - p0.Y, p1.X - p0.X) - 0x4000)) : (short)0;
 		} else {
-			heading = group.RefRow7 < script.Headings.Length ? script.Headings[group.RefRow7].Value : (short)0;
+			heading = group.HeadingRef < script.Headings.Length ? script.Headings[group.HeadingRef].Value : (short)0;
 		}
 
 		(int X, int Y) anchor;
-		if (group.RefRow6 != -1) {
-			anchor = Point(group.RefRow6);
+		if (group.PositionRef != -1) {
+			anchor = Point(group.PositionRef);
 		} else if (path is { Length: > 0 }) {
 			anchor = Point(path[0]);
-		} else if (order is { RefRow6: not -1 }) {
-			anchor = Point(order.RefRow6);
-		} else if (order is { RefRow8: >= 0 } && order.RefRow8 < script.WaypointGroups.Length
-				&& script.WaypointGroups[order.RefRow8].Waypoints.Length > 0) {
-			anchor = Point(script.WaypointGroups[order.RefRow8].Waypoints[0]);
+		} else if (order is { PointRef: not -1 }) {
+			anchor = Point(order.PointRef);
+		} else if (order is { RouteRef: >= 0 } && order.RouteRef < script.WaypointGroups.Length
+				&& script.WaypointGroups[order.RouteRef].Waypoints.Length > 0) {
+			anchor = Point(script.WaypointGroups[order.RouteRef].Waypoints[0]);
 		} else {
 			anchor = (0, 0);
 		}
 
-		int formation = order?.SmallInt2 ?? -1;
+		int formation = order?.FormationId ?? -1;
 		short cos = SimTrig.Cos(heading);
 		short sin = SimTrig.Sin(heading);
 		for (int slot = 0; slot < SquadSlots; slot++) {
 			short member = _squadRefs[slot];
-			if (member == -1 || member >= script.SpawnRecords.Length) {
+			if (member == -1 || member >= script.Mechs.Length) {
 				continue;
 			}
 

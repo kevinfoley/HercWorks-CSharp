@@ -114,7 +114,7 @@ public static class ShellDebrief {
 		int granted = 0;
 		MissionDebriefText? debrief = null;
 		ShellDebriefReport? report = null;
-		if (game.PlayerPilot?.ProbablyHealth == 0) {
+		if (game.PlayerPilot?.Condition == 0) {
 			state = CampaignOverState;
 		} else if (campaign) {
 			// Game_DeliverWeaponQueue (0040f324): the build queue delivered and charged.
@@ -155,13 +155,13 @@ public static class ShellDebrief {
 	private static ShellDebriefReport WriteReport(PlayerSave game, ShellHangar hangar, short outcome, int awarded,
 			int weapons, int pilotsLost) {
 		var player = game.PlayerPilot;
-		var own = (Hercs: (int)(player?.KillsHercs ?? 0), Bases: (int)(player?.KillsBuilding ?? 0), Flyers: (int)(player?.KillsFlyers ?? 0));
+		var own = (Hercs: (int)(player?.HercKills ?? 0), Bases: (int)(player?.BaseKills ?? 0), Flyers: (int)(player?.FlyerKills ?? 0));
 		var squad = own;
 		for (int position = 1; position < hangar.SquadPositions; position++) {
 			int member = hangar.SquadMemberIndexAt(position);
 			if (member != -1 && hangar.SquadMembers[member].OnStrength
 					&& game.Squadmates?.ElementAtOrDefault(hangar.SquadRecordIndex(member)) is { } record) {
-				squad = (squad.Hercs + record.KillsHercs, squad.Bases + record.KillsBuilding, squad.Flyers + record.KillsFlyers);
+				squad = (squad.Hercs + record.HercKills, squad.Bases + record.BaseKills, squad.Flyers + record.FlyerKills);
 			}
 		}
 
@@ -182,16 +182,16 @@ public static class ShellDebrief {
 			machine.ReadStatusBlock(reader.Bytes(ShellBayMachine.StatusBlockLength));
 		}
 
-		pilot.ProbablyHealth = (short)(machine?.OverallSlot ?? 100);
+		pilot.Condition = (short)(machine?.OverallSlot ?? 100);
 
 		// The three counters arrive Herc, Base, Flyer.
-		pilot.KillsHercs = reader.Short();
-		pilot.KillsBuilding = reader.Short();
-		pilot.KillsFlyers = reader.Short();
-		pilot.TotalKillHerc += pilot.KillsHercs;
-		pilot.TotalKillBldng += pilot.KillsBuilding;
-		pilot.TotalKillFlyer += pilot.KillsFlyers;
-		pilot.MissionCount++;
+		pilot.HercKills = reader.Short();
+		pilot.BaseKills = reader.Short();
+		pilot.FlyerKills = reader.Short();
+		pilot.TotalHercKills += pilot.HercKills;
+		pilot.TotalBaseKills += pilot.BaseKills;
+		pilot.TotalFlyerKills += pilot.FlyerKills;
+		pilot.MissionsFlown++;
 
 		var (salvage, wasScrapped) = hangar.SettleAfterMission(bay, costs);
 		hangar.SalvageKilograms += salvage;
@@ -207,7 +207,7 @@ public static class ShellDebrief {
 	private static int ProgressAll(PlayerSave game, ShellHangar hangar) {
 		int lost = 0;
 		if (game.PlayerPilot is { } player) {
-			if (player.ProbablyHealth != 0) {
+			if (player.Condition != 0) {
 				Progress(player, isPlayer: true);
 			} else {
 				lost++;
@@ -221,7 +221,7 @@ public static class ShellDebrief {
 				continue;
 			}
 
-			if (record.ProbablyHealth == 0) {
+			if (record.Condition == 0) {
 				lost++;
 				hangar.ReplaceSquadMember(member, game);
 			} else {
@@ -243,18 +243,18 @@ public static class ShellDebrief {
 	/// multiple of the mission divisor, each capped at 3 (docs/shell/campaign-loop.md#pilot-progression).
 	/// </summary>
 	private static void Progress(PilotEntry pilot, bool isPlayer) {
-		if (pilot.Active == 0) {
+		if (pilot.OnStrength == 0) {
 			return;
 		}
 
-		(int kills, int missions) = pilot.CrewRowNum == 0 ? (20, 10) : (10, 15);
+		(int kills, int missions) = pilot.SquadPosition == 0 ? (20, 10) : (10, 15);
 		short skill = pilot.Skill?.Id ?? 0;
-		if (skill < LadderTop && !isPlayer && (pilot.TotalKillHerc + pilot.TotalKillFlyer) % kills == 0) {
+		if (skill < LadderTop && !isPlayer && (pilot.TotalHercKills + pilot.TotalFlyerKills) % kills == 0) {
 			pilot.Skill = PilotSkill.GetById((short)(skill + 1));
 		}
 
 		short rank = pilot.Rank?.Id ?? 0;
-		if (rank < LadderTop && pilot.MissionCount % missions == 0) {
+		if (rank < LadderTop && pilot.MissionsFlown % missions == 0) {
 			pilot.Rank = PilotRank.GetById((short)(rank + 1));
 		}
 	}

@@ -1,13 +1,11 @@
 namespace HercWorks.Core.Data.File;
 
 /// <summary>
-/// FILE - /LANG0/[lang]/foo.BIN — optimized strings file, contains null-terminated strings with
-/// pre-computed offsets and a lookup index for each string. Mainly used for shell descriptions,
-/// and for swapping languages.
-///   0 - UINT32 - Number of strings stored in this file
-///   4 - UINT32 - Total data in bytes for that text, counting null terminators
-///   8 - SEQ 0 - file-offset of each string, allowing engine to jump to the string.
-/// Ported from org.hercworks.core.data.file.StringBinaryFile.
+/// FILE - LANG0\[lang]\*.BIN — a <c>.BIN</c> string table (<c>estext.bin</c>, <c>weapons.bin</c>,
+/// <c>esnames.bin</c> …): <c>uint32</c> count, <c>uint32</c> pool size, <c>count x uint16</c>
+/// offsets into the pool, then the pool of NUL-terminated strings. This model keeps only the strings,
+/// in index order; the writer regenerates the offsets. See
+/// <c>docs/formats/weapons-dat.md#the-bin-string-tables</c>.
 /// </summary>
 public class StringBinaryFile {
 	public string[]? Values { get; set; }

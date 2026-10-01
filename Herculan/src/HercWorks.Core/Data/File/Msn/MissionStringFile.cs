@@ -3,29 +3,37 @@ using System.Text;
 namespace HercWorks.Core.Data.File.Msn;
 
 /// <summary>
-/// FILE - (Mission).ENG, .GER, .FRE — a variant of the observed 'String' files, these provide
-/// the string data for missions.
-/// Ported from org.hercworks.core.data.file.msn.MissionStringFile.
+/// FILE - (Mission).ENG, .GER, .FRE — a mission's text, records keyed by id. The mission load reads
+/// it itself (<see cref="Io.Transform.Common.MissionGenerator"/>) and writes the survivors to
+/// <c>data\mission.str</c>. See docs/formats/msn-mission-file.md#the-eng-string-table.
 /// </summary>
 public class MissionStringFile {
 	public int TotalSize { get; set; }
 	public StringEntry[]? Strings { get; set; }
 
-	public StringEntry CreateEntry(short guid, short rVal, short rFlag, short len, string val) {
+	public StringEntry CreateEntry(short guid, short conditionRef, short parentRef, short len, string val) {
 		return new StringEntry {
 			Guid = guid,
-			ResultVal = rVal,
-			ResultFlag = rFlag,
+			ConditionRef = conditionRef,
+			ParentRef = parentRef,
 			Len = len,
 			Val = val
 		};
 	}
 
 	public class StringEntry {
+		/// <summary>The id the <c>.MSN</c> rows' text refs name.</summary>
 		public short Guid { get; set; }
-		public short ResultVal { get; set; }
-		public short ResultFlag { get; set; }
+
+		/// <summary>Condition ref, as in the <c>.MSN</c> rows; -1 throughout retail.</summary>
+		public short ConditionRef { get; set; }
+
+		/// <summary>-1 throughout retail.</summary>
+		public short ParentRef { get; set; }
+
+		/// <summary>The text's length, including its NUL.</summary>
 		public short Len { get; set; }
+
 		public string? Val { get; set; }
 
 		public override string ToString() {
@@ -33,8 +41,8 @@ public class MissionStringFile {
 
 			str.Append("{")
 				.Append(" guid = ").Append(Guid)
-				.Append(", r val = ").Append(ResultVal)
-				.Append(", r flag = ").Append(ResultFlag)
+				.Append(", condition = ").Append(ConditionRef)
+				.Append(", parent = ").Append(ParentRef)
 				.Append(", len = ").Append(Len)
 				.Append(", val = ").Append(Val)
 				.Append("}");

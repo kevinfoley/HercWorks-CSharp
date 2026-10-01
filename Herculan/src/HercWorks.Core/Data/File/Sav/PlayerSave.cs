@@ -13,43 +13,64 @@ namespace HercWorks.Core.Data.File.Sav;
 /// <para>There is no header, no magic and no length field — the file is a bare concatenation of the
 /// blocks in the property order below, so it must be parsed by structure. Its writer opens without
 /// <c>O_TRUNC</c>, so a shorter save over a longer one leaves a stale tail that is not a parse
-/// failure. See <c>docs/formats/save-games.md</c>.</para>
-///
-/// Ported from org.hercworks.core.data.file.sav.PlayerSave.
+/// failure. See <c>docs/formats/save-games.md#savgame_sav--block-order</c>.</para>
 /// </summary>
 public class PlayerSave {
+	/// <summary>Block 1, the armory stock: one record per weapon catalog id.</summary>
 	public Inventory? Inventory { get; set; }
-	public short WorkshopSpace { get; set; }
-	public WeaponLUT[] WorkshopSlots { get; set; } = new WeaponLUT[5];
+
+	/// <summary>Block 2's leading short — the armory build queue's free-slot count (<c>0046f8d4</c>).</summary>
+	public short BuildQueueFreeSlots { get; set; }
+
+	/// <summary>
+	/// Block 2's five queue slots, the weapon id of each (<c>0046f8d6</c>). On disk each is preceded by
+	/// its slot index, which is written as the array position rather than stored here.
+	/// </summary>
+	public WeaponLUT[] BuildQueue { get; set; } = new WeaponLUT[5];
 
 	/// <summary>
 	/// The career block, 76 shorts / 152 bytes: campaign stage, mission within the stage, then three
 	/// counted arrays of line indices into <c>data\mission.str</c> holding the briefing and debrief
-	/// prose, then one trailing short. The mission number here is cosmetic — VSHELL takes the actual
-	/// mission from the slot's own <c>script.dat</c>.
+	/// prose, then the briefing movie id. The mission number here is cosmetic — VSHELL takes the
+	/// actual mission from the slot's own <c>script.dat</c>. The named views below read it.
 	///
 	/// <para>Size is load-bearing: 152 bytes is the only length that leaves the 36 pilot records
-	/// following it aligned. See <c>docs/formats/save-games.md</c>.</para>
+	/// following it aligned. See <c>docs/formats/save-games.md#career-block--152-bytes</c>.</para>
 	/// </summary>
-	public short[] Unk4_stateFlags { get; set; } = new short[76];
+	public short[] CareerBlock { get; set; } = new short[76];
 
+	/// <summary>Block 4's 36 pilot records, three squads of twelve.</summary>
 	public PilotEntry[]? Squadmates { get; set; }
 
 	/// <summary>
 	/// The six shorts closing the squad block plus the two opening the player block — eight in all,
-	/// sitting between the last squadmate record and the player's own pilot record.
+	/// sitting between the last squadmate record and the player's own pilot record. Read through
+	/// <see cref="SquadMemberIndex"/>, <see cref="SquadPositionsInPlay"/> and
+	/// <see cref="MachinesOnStrength"/>; shorts 3-5 are each squad's next member (<c>00483b4e</c>).
 	/// </summary>
-	public short[] UnkRange_prePlayer { get; set; } = new short[8];
+	public short[] SquadTailAndPlayerHead { get; set; } = new short[8];
+
+	/// <summary>Block 5's pilot record — the same shape as a squadmate's.</summary>
 	public PilotEntry? PlayerPilot { get; set; }
+
+	/// <summary>Block 6, the hangar: occupied bays only, keyed by bay index.</summary>
 	public Dictionary<short, HercBayEntry> HercBay { get; set; } = new();
-	public Dictionary<HercLUT, short> UnlockedHercs { get; set; } = new();
+
+	/// <summary>
+	/// Block 7, the nine chassis availability flags — <c>herc_inf.dat</c> record <c>+0x0e</c> for each
+	/// chassis type. See <c>docs/formats/herc-catalogs.md#gamherc_infdat--the-chassis-stat-table</c>.
+	/// </summary>
+	public Dictionary<HercLUT, short> ChassisAvailability { get; set; } = new();
+
+	/// <summary>Block 8, the salvage pool in kilograms (<c>00482af4</c>).</summary>
 	public int SalvageTotal { get; set; }
 
 	/// <summary>
 	/// Everything past the salvage pool, carried verbatim: the 2000-byte campaign flag array, the
-	/// 2-byte game state, a 20-byte block, and any stale tail the non-truncating writer left behind.
+	/// 2-byte game state, a 20-byte block (<c>004832c8</c>) whose content is not established, and any
+	/// stale tail the non-truncating writer left behind.
 	/// </summary>
-	public byte[]? UnknownSaveValues { get; set; }
+	public byte[]? CampaignStateTail { get; set; }
 
 	// ---- Named views over the raw arrays above -------------------------------------------------
 	// The arrays stay the storage, so the round trip is unchanged; these name the fields
@@ -59,10 +80,10 @@ public class PlayerSave {
 	/// Career block short 0 — the campaign stage, <c>0046fb18</c> as the shell runs it: 0 for training and
 	/// 1-5 for the campaign's chapters, the rows of <c>gam\career.dat</c>.
 	/// </summary>
-	public short CampaignStage { get => Unk4_stateFlags[0]; set => Unk4_stateFlags[0] = value; }
+	public short CampaignStage { get => CareerBlock[0]; set => CareerBlock[0] = value; }
 
 	/// <summary>Career block short 1 — the mission within the stage.</summary>
-	public short MissionInStage { get => Unk4_stateFlags[1]; set => Unk4_stateFlags[1] = value; }
+	public short MissionInStage { get => CareerBlock[1]; set => CareerBlock[1] = value; }
 
 	/// <summary>
 	/// The career block's three counted arrays of <c>data\mission.str</c> line indices (10, 30 and 30
@@ -78,22 +99,22 @@ public class PlayerSave {
 	/// Career block short 75 — the briefing movie's id (<c>004840b8</c>), an index into VSHELL's
 	/// movie table that the mission tab's briefing plays.
 	/// </summary>
-	public short BriefingMovie { get => Unk4_stateFlags[75]; set => Unk4_stateFlags[75] = value; }
+	public short BriefingMovie { get => CareerBlock[75]; set => CareerBlock[75] = value; }
 
 	private (short, short[]) CareerArray(int countIndex, int length) =>
-		(Unk4_stateFlags[countIndex], Unk4_stateFlags.Skip(countIndex + 1).Take(length).ToArray());
+		(CareerBlock[countIndex], CareerBlock.Skip(countIndex + 1).Take(length).ToArray());
 
 	/// <summary>
 	/// The three shorts at <c>00483b48</c>: for each squad, the index of its current member among
 	/// that squad's twelve pilot records.
 	/// </summary>
-	public short SquadMemberIndex(int squad) => UnkRange_prePlayer[squad];
+	public short SquadMemberIndex(int squad) => SquadTailAndPlayerHead[squad];
 
 	/// <summary>Squad positions in play, the player's as position 0 (<c>00482a78</c>).</summary>
-	public short SquadPositionsInPlay { get => UnkRange_prePlayer[6]; set => UnkRange_prePlayer[6] = value; }
+	public short SquadPositionsInPlay { get => SquadTailAndPlayerHead[6]; set => SquadTailAndPlayerHead[6] = value; }
 
 	/// <summary>Machines on strength (<c>00482a7a</c>) — the <c>player.mec</c> export's entry count.</summary>
-	public short MachinesOnStrength { get => UnkRange_prePlayer[7]; set => UnkRange_prePlayer[7] = value; }
+	public short MachinesOnStrength { get => SquadTailAndPlayerHead[7]; set => SquadTailAndPlayerHead[7] = value; }
 
 	/// <summary>The campaign flag array (<c>00482af8</c>): 1000 shorts, the <c>.msn</c> condition store.</summary>
 	public const int CampaignFlagCount = 1000;
@@ -102,7 +123,7 @@ public class PlayerSave {
 	/// Whether the tail is long enough to hold the flag array and the game state — true for every
 	/// parsed retail save.
 	/// </summary>
-	public bool HasCampaignState => UnknownSaveValues is { Length: >= CampaignFlagCount * 2 + 2 };
+	public bool HasCampaignState => CampaignStateTail is { Length: >= CampaignFlagCount * 2 + 2 };
 
 	public short GetCampaignFlag(int index) => BitConverter.ToInt16(RequireTail(), index * 2);
 
@@ -116,6 +137,6 @@ public class PlayerSave {
 	}
 
 	private byte[] RequireTail() => HasCampaignState
-		? UnknownSaveValues!
+		? CampaignStateTail!
 		: throw new InvalidOperationException("This save's tail is too short to hold the campaign flags.");
 }

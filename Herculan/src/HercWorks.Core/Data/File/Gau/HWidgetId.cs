@@ -1,6 +1,9 @@
 namespace HercWorks.Core.Data.File.Gau;
 
-/// <summary>Ported from org.hercworks.core.data.file.gau.HWidgetId.</summary>
+/// <summary>
+/// A toolkit label for a widget, used by the widgets' <c>ToString</c>. Not in the file;
+/// <see cref="Io.Transform.Dbsim.GauFileTransformer"/> does not set one.
+/// </summary>
 public sealed class HWidgetId {
 	public static readonly HWidgetId RootPanel = new(0, "root", "ROOTPANEL");
 	public static readonly HWidgetId WeaponItem1 = new(1, "weapon_1", "WEAPON_ITEM_1");
@@ -30,7 +33,7 @@ public sealed class HWidgetId {
 	public int Id { get; set; }
 	public string Label { get; set; }
 
-	/// <summary>C# equivalent of Java's enum .name() — the constant's own identifier.</summary>
+	/// <summary>The constant's own identifier, e.g. <c>WPN_CHAIN_BTN</c>.</summary>
 	public string Name { get; }
 
 	private HWidgetId(int id, string label, string enumName) {

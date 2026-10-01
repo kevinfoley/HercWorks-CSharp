@@ -1,6 +1,10 @@
 namespace HercWorks.Core.Data.Struct.Herc;
 
-/// <summary>Ported from org.hercworks.core.data.struct.herc.HercExternals.</summary>
+/// <summary>
+/// The 13 external facets of a HERC's status block, by index. The shell names and prices them in six
+/// groups (cockpit, each torso, chassis, each leg), not one by one. See
+/// <c>docs/formats/save-games.md#the-66-byte-status-block</c>.
+/// </summary>
 public sealed class HercExternals {
 	public static readonly HercExternals CockpitFront = new(0, "Cockpit Front");
 	public static readonly HercExternals CockpitRear = new(1, "Cockpit Rear");
@@ -34,7 +38,6 @@ public sealed class HercExternals {
 
 	public static HercExternals? GetById(short id) => ById.GetValueOrDefault(id);
 
-	/// <summary>Equivalent of Java's enum .values().</summary>
 	public static IReadOnlyList<HercExternals> Values() => All;
 
 	public static HercExternals? GetByName(string name) =>

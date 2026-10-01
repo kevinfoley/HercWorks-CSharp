@@ -3,18 +3,12 @@ using HercWorks.Core.Data.File;
 namespace HercWorks.Core.Io.Transform.Common;
 
 /// <summary>
-/// Transforms byte[] data to and from .STR game files (subtitle/voice-line string tables — see
-/// <see cref="StringFile"/> for the format writeup). New: no Java equivalent existed for this
-/// format specifically (org.hercworks.core.data.file.StringFile had no matching transformer in
-/// the Java source at all — the class was modeled but never wired to an I/O path).
-///
-/// Read-only: entry trailer bytes are undecoded, so there's no reliable way to reconstruct a
-/// byte-exact write. Write-back isn't a current priority (see the codebase-wide "read and display"
-/// scope for this pass), so ObjectToBytes is left unimplemented like several other transformers
-/// in this codebase (e.g. MissionStringFileTransformer).
+/// Reads .STR string tables into <see cref="StringFile"/> — the first group only, with each entry's
+/// attribute bytes kept raw as its trailer and found by scanning for the next well-formed entry
+/// rather than read through the attribute count. Read-only: <see cref="Write"/> returns null.
 /// </summary>
 public class StringFileTransformer : ByteTransformer<StringFile> {
-	/// <summary>How far past an entry's null terminator to search for the next well-formed entry when resyncing across an undecoded trailer.</summary>
+	/// <summary>How far past an entry's null terminator to search for the next well-formed entry.</summary>
 	private const int MaxTrailerScan = 64;
 
 	public override StringFile? Parse(byte[]? inputArray) {
@@ -25,7 +19,7 @@ public class StringFileTransformer : ByteTransformer<StringFile> {
 		SetBytes(inputArray);
 
 		var file = new StringFile {
-			TotalSize = IndexIntLE(),
+			ContentLength = IndexIntLE(),
 		};
 
 		int count = IndexShortLE();
@@ -58,7 +52,7 @@ public class StringFileTransformer : ByteTransformer<StringFile> {
 	}
 
 	/// <summary>
-	/// Resyncs to the next entry after an undecoded, variable-length per-file trailer: scans
+	/// Finds the next entry after this one's attribute bytes: scans
 	/// forward from the current position for the nearest offset where a UINT16 length field is
 	/// immediately followed by that many bytes ending in a null terminator, with the preceding
 	/// bytes mostly printable ASCII. Falls back to 0 (no trailer) if nothing plausible is found
@@ -98,8 +92,6 @@ public class StringFileTransformer : ByteTransformer<StringFile> {
 	}
 
 	public override byte[]? Write(StringFile? source) {
-		// TODO: not implemented — see class doc comment (trailer bytes are undecoded, so a
-		// byte-exact round-trip isn't currently achievable).
 		return null;
 	}
 }

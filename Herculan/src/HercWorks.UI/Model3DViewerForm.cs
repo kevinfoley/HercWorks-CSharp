@@ -505,7 +505,7 @@ public partial class Model3DViewerForm : Form {
 	/// selected one, which re-reads it from the Detail Level combo in case the user has one picked.
 	/// </summary>
 	private void RebuildTexturedRoots() {
-		if (_currentModel?.Meshes is not { } meshes) {
+		if (_currentModel?.Roots is not { } meshes) {
 			return;
 		}
 
@@ -626,7 +626,7 @@ public partial class Model3DViewerForm : Form {
 		_lodSelector.Items.Clear();
 
 		int partIndex = _partSelector.SelectedIndex;
-		int levelCount = _currentModel?.Meshes is { } meshes && partIndex >= 0 && partIndex < meshes.Count
+		int levelCount = _currentModel?.Roots is { } meshes && partIndex >= 0 && partIndex < meshes.Count
 			? DtsGeometryBuilder.GetDetailLevelCount(meshes[partIndex])
 			: 0;
 
@@ -652,7 +652,7 @@ public partial class Model3DViewerForm : Form {
 	private void OnDetailLevelSelectionChanged(object? sender, EventArgs e) {
 		int partIndex = _partSelector.SelectedIndex;
 		int lodIndex = _lodSelector.SelectedIndex;
-		if (_currentModel?.Meshes is not { } meshes || partIndex < 0 || partIndex >= meshes.Count || lodIndex < 0) {
+		if (_currentModel?.Roots is not { } meshes || partIndex < 0 || partIndex >= meshes.Count || lodIndex < 0) {
 			return;
 		}
 

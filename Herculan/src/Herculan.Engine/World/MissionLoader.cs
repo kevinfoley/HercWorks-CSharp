@@ -51,7 +51,7 @@ namespace Herculan.Engine.World;
 /// in a group.</para>
 ///
 /// <para><b>Not every group is in the mission when it starts.</b> A block-11 record whose
-/// <c>RefRow10</c> names a block-5 action is <i>waiting on that action</i>, and until it fires the
+/// <c>ActionRef</c> names a block-5 action is <i>waiting on that action</i>, and until it fires the
 /// group is not in the world at all — see <see cref="Sim.SimObject.AwaitingDeployment"/> for the
 /// three places the original tests it. Such a group's placed position is a placeholder, which is
 /// why retail missions happily leave several of them stacked on the player's own spawn point: the
@@ -148,7 +148,7 @@ public static class MissionLoader {
 		var script = new ScriptDatTransformer().Parse(scriptBytes) as ScriptDat
 			?? throw new InvalidDataException($"{scriptPath} did not parse as a script.dat.");
 
-		var header = ScriptDatHeader.Read(scriptBytes);
+		var header = ScriptDatHeader.From(script);
 		var mechNames = UnitTypeNames.LoadMechs(content);
 		var flyerNames = UnitTypeNames.LoadFlyers(content);
 		var mechFormations = MechFormationTable.Load(content);
@@ -196,8 +196,8 @@ public static class MissionLoader {
 
 			// Record 0 included: the spawn pass overwrites the player squad's member list and nothing
 			// else, so its counter slots are read like any other group's.
-			var record = script.Entities164[i];
-			groupReports[i] = new OutOfActionReport(record.ArrayA, record.ArrayB);
+			var record = script.Groups[i];
+			groupReports[i] = new OutOfActionReport(record.CounterRefs, record.CounterOps);
 		}
 
 		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute,
@@ -259,22 +259,22 @@ public static class MissionLoader {
 	/// <see cref="MissionObjective"/>.
 	/// </summary>
 	private static MissionObjective[] ResolveObjectives(ScriptDat script) {
-		var objectives = new MissionObjective[script.LinkedRefs58.Length];
+		var objectives = new MissionObjective[script.Objectives.Length];
 
 		for (int i = 0; i < objectives.Length; i++) {
-			var record = script.LinkedRefs58[i];
-			var kind = (MissionObjectiveSubject)record.Discriminator;
+			var record = script.Objectives[i];
+			var kind = (MissionObjectiveSubject)record.SubjectKind;
 
 			objectives[i] = new MissionObjective(
-				record.Unk02,
-				record.Unk04,
+				record.Required,
+				record.ConditionCode,
 				kind,
-				record.DiscriminatedRef,
-				Coordinate(script, record.RefRow6),
-				record.RefRow8,
-				record.LutRef,
-				record.PairRefs,
-				record.PairTags);
+				record.SubjectRef,
+				Coordinate(script, record.PointRef),
+				record.RouteRef,
+				record.TextRef,
+				record.CounterRefs,
+				record.CounterOps);
 		}
 
 		return objectives;
@@ -332,7 +332,7 @@ public static class MissionLoader {
 			var record = script.ActionTimers[i];
 			timers[i] = new MissionActionTimer(
 				ActionRef(script, record.PrimaryActionRef),
-				record.TimerValue << MissionActionTimer.DelayShift,
+				record.Delay << MissionActionTimer.DelayShift,
 				record.SequenceRefs);
 		}
 
@@ -354,9 +354,9 @@ public static class MissionLoader {
 	/// statement of it anywhere: two shorts, then sixteen bytes of block-4 refs into a stack buffer,
 	/// then twenty bytes to the runtime record's <c>+0x0c</c> and twenty more to its <c>+0x20</c>,
 	/// then ten bytes read and dropped, then <c>+0x34</c> and <c>+0x36</c>. So
-	/// <see cref="ScriptAction.ArrayA"/> is the counter refs, <see cref="ScriptAction.ArrayB"/> the
-	/// operations that go with them, <see cref="ScriptAction.LutRefs"/> is read and discarded by
-	/// DBSIM entirely, <see cref="ScriptAction.SecondaryValue"/> is the mission message and
+	/// <see cref="ScriptAction.CounterRefs"/> is the counter refs, <see cref="ScriptAction.CounterOps"/> the
+	/// operations that go with them, <see cref="ScriptAction.TextRefs"/> is read and discarded by
+	/// DBSIM entirely, <see cref="ScriptAction.MessageId"/> is the mission message and
 	/// <see cref="ScriptAction.Target"/> the trigger's own subject.</para>
 	///
 	/// <para>Two things the pass does that reading the file alone would not show: it <b>subtracts one
@@ -370,8 +370,8 @@ public static class MissionLoader {
 			var record = script.Actions[i];
 			var areas = new List<MissionTriggerArea>(MissionAction.AreaSlots);
 
-			for (int slot = 0; slot < MissionAction.AreaSlots && slot < record.RefsRow9.Length; slot++) {
-				short reference = record.RefsRow9[slot];
+			for (int slot = 0; slot < MissionAction.AreaSlots && slot < record.AreaRefs.Length; slot++) {
+				short reference = record.AreaRefs[slot];
 				if (reference < 0) {
 					break;
 				}
@@ -385,9 +385,9 @@ public static class MissionLoader {
 				record.Type,
 				record.Verb,
 				areas,
-				record.ArrayA,
-				record.ArrayB,
-				(short)(record.SecondaryValue - 1),
+				record.CounterRefs,
+				record.CounterOps,
+				(short)(record.MessageId - 1),
 				record.Target);
 		}
 
@@ -400,21 +400,21 @@ public static class MissionLoader {
 	/// is scaled by ten into a radius.
 	/// </summary>
 	private static MissionTriggerArea? TriggerArea(ScriptDat script, short reference) {
-		if (reference >= script.LinksOrRewards.Length) {
+		if (reference >= script.TriggerAreas.Length) {
 			return null;
 		}
 
-		var record = script.LinksOrRewards[reference];
-		if (Coordinate(script, record.RefA) is not { } anchor) {
+		var record = script.TriggerAreas[reference];
+		if (Coordinate(script, record.PointRef) is not { } anchor) {
 			return null;
 		}
 
-		if (record.TypeFlag != 0) {
+		if (record.Shape != 0) {
 			return new MissionTriggerArea(MissionTriggerShape.Circle, anchor, anchor,
-				record.RefBOrLiteral * TriggerRadiusScale);
+				record.SecondPointOrRadius * TriggerRadiusScale);
 		}
 
-		return Coordinate(script, record.RefBOrLiteral) is { } opposite
+		return Coordinate(script, record.SecondPointOrRadius) is { } opposite
 			? new MissionTriggerArea(MissionTriggerShape.Box, anchor, opposite, 0)
 			: null;
 	}
@@ -426,9 +426,9 @@ public static class MissionLoader {
 
 	/// <summary>
 	/// The ground each base group repaints. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) runs
-	/// this for a group whose discriminator is 2 and whose <c>BinaryFlag</c> is set, passing
+	/// this for a group whose <c>MemberKind</c> is 2 and whose <c>PaintsGround</c> is set, passing
 	/// <c>Base_ApplyFormationTerrain</c> (<c>00405db0</c>) the group's <i>first-attached</i> member —
-	/// the lowest populated slot of its <c>DiscriminatedRefs</c> array, not necessarily slot 0,
+	/// the lowest populated slot of its <c>MemberRefs</c> array, not necessarily slot 0,
 	/// though every retail base group that paints does populate slot 0.
 	/// </summary>
 	private static List<MissionBasePad> ResolveBasePads(Group[] groups,
@@ -466,21 +466,21 @@ public static class MissionLoader {
 
 	/// <summary>A block-11 record reduced to what placement needs.</summary>
 	/// <param name="DeploymentAction">
-	/// <b>Which</b> block-5 action the record names (its <c>RefRow10</c>), or <c>-1</c>. DBSIM
+	/// <b>Which</b> block-5 action the record names (its <c>DeploymentActionRef</c>), or <c>-1</c>. DBSIM
 	/// resolves it into the group record's <c>+0x14</c> action pointer, and that pointer is both the
 	/// gate and the arrival instruction: which verb the group turns up on is read off this very
 	/// action. Reducing it to a bool loses the arrival — see this class's doc comment, and
 	/// <see cref="Sim.MissionGroup.DeploymentCheck"/>.
 	/// </param>
 	/// <param name="Side">
-	/// The record's <c>0x6e</c> — <c>ScriptEntity164Export.TriStateFlag</c>, which lands at the
+	/// The record's <c>0x6e</c> — <c>ScriptGroup.Side</c>, which lands at the
 	/// in-memory group record's <c>+0x12</c> (<c>DBSim_BuildGroupRecord</c>, <c>00423b34</c>:
 	/// <c>group[+0x12] = record[0x6e]</c>). Anything other than 1 is taken as human, which is what
 	/// every comparison in the simulation amounts to — the sweep in <c>Detection</c> is the only
 	/// place that tests for a literal value, and it tests for Cybrid.
 	/// </param>
 	/// <param name="PaintsGround">
-	/// The record's <c>BinaryFlag</c> (raw msn offset <c>0x06</c>), set on 39 of the 61 retail
+	/// The record's <c>PaintsGround</c> (raw msn offset <c>0x06</c>), set on 39 of the 61 retail
 	/// block-11 records. For a base group it gates both halves of the base-formation terrain pass:
 	/// the anchor move applied below, and the repaint of the same tile — see
 	/// <see cref="MissionBasePad"/> and <see cref="BaseFormationLayout"/>.
@@ -497,22 +497,22 @@ public static class MissionLoader {
 
 	/// <summary>
 	/// A roster slot's claim: which group activated it, and the slot's index within that group's
-	/// <c>DiscriminatedRefs</c> array — the "member index" <see cref="BaseFormationTable.OffsetFor"/>
+	/// <c>MemberRefs</c> array — the "member index" <see cref="BaseFormationTable.OffsetFor"/>
 	/// needs, which is the array position, not a compacted count of live members (see
 	/// <see cref="ClaimSlots"/>).
 	/// </summary>
 	private readonly record struct Claim(Group Group, int MemberIndex);
 
 	private static Group[] ResolveGroups(ScriptDat script, BaseFormationTable baseFormations) {
-		var groups = new Group[script.Entities164.Length];
+		var groups = new Group[script.Groups.Length];
 
 		for (int i = 0; i < groups.Length; i++) {
-			var record = script.Entities164[i];
+			var record = script.Groups[i];
 			var orders = Orders(script, record);
 			var route = Route(orders);
-			var kind = KindOf(record.Discriminator);
+			var kind = KindOf(record.MemberKind);
 
-			var position = Coordinate(script, record.RefRow6)
+			var position = Coordinate(script, record.PositionRef)
 				?? (route.Count > 0 ? route[0] : (Vec3i?)null)
 				?? Vec3i.Zero;
 
@@ -520,8 +520,8 @@ public static class MissionLoader {
 			// mission's own point only picks the tile; the formation supplies the position within
 			// it. Machines never do this -- Mech_AttachToGroup (00417aa8) takes no such flag and
 			// has no equivalent arithmetic.
-			if (kind == MissionUnitKind.Base && record.BinaryFlag != 0
-				&& baseFormations.LayoutFor(record.SmallDiscrete) is { } layout) {
+			if (kind == MissionUnitKind.Base && record.PaintsGround != 0
+				&& baseFormations.LayoutFor(record.FormationId) is { } layout) {
 				var (snappedX, snappedY) = layout.SnapAnchor(position.X, position.Y);
 				position = new Vec3i(snappedX, snappedY, position.Z);
 			}
@@ -530,13 +530,13 @@ public static class MissionLoader {
 				i,
 				kind,
 				position,
-				Heading(script, record.RefRow7) ?? RouteBearing(route),
-				record.SmallDiscrete,
-				ActionRef(script, record.RefRow10),
-				record.TriStateFlag == (short)MissionSide.Cybrid
+				Heading(script, record.HeadingRef) ?? RouteBearing(route),
+				record.FormationId,
+				ActionRef(script, record.DeploymentActionRef),
+				record.Side == (short)MissionSide.Cybrid
 					? MissionSide.Cybrid
 					: MissionSide.Human,
-				record.BinaryFlag != 0,
+				record.PaintsGround != 0,
 				orders);
 		}
 
@@ -598,7 +598,7 @@ public static class MissionLoader {
 				continue;
 			}
 
-			var refs = script.Entities164[i].DiscriminatedRefs;
+			var refs = script.Groups[i].MemberRefs;
 			for (int slot = 0; slot < GroupMemberSlots && slot < refs.Length; slot++) {
 				short member = refs[slot];
 				if (member >= 0) {
@@ -620,13 +620,13 @@ public static class MissionLoader {
 			FlyerFormationTable flyerFormations, BaseFormationTable baseFormations,
 			List<MissionPlacement> placements) {
 		var mechClaims = claims[MissionUnitKind.Mech];
-		for (int slot = 0; slot < script.SpawnRecords.Length; slot++) {
+		for (int slot = 0; slot < script.Mechs.Length; slot++) {
 			if (!mechClaims.TryGetValue(slot, out var claim)) {
 				continue;
 			}
 
 			var group = claim.Group;
-			var record = script.SpawnRecords[slot];
+			var record = script.Mechs[slot];
 			var offset = mechFormations.OffsetFor(group.FormationId, claim.MemberIndex);
 			var position = Coordinate(script, record.PositionRef)
 				?? OffsetFromGroup(group, mechFormations, claim.MemberIndex);
@@ -652,13 +652,13 @@ public static class MissionLoader {
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
-		for (int slot = 0; slot < script.Entities102.Length; slot++) {
+		for (int slot = 0; slot < script.Flyers.Length; slot++) {
 			if (!flyerClaims.TryGetValue(slot, out var claim)) {
 				continue;
 			}
 
 			var group = claim.Group;
-			var record = script.Entities102[slot];
+			var record = script.Flyers[slot];
 			var offset = flyerFormations.OffsetFor(group.FormationId, claim.MemberIndex);
 			placements.Add(new MissionPlacement(
 				MissionUnitKind.Flyer,
@@ -679,13 +679,13 @@ public static class MissionLoader {
 		}
 
 		var baseClaims = claims[MissionUnitKind.Base];
-		for (int slot = 0; slot < script.MiscEntities.Length; slot++) {
+		for (int slot = 0; slot < script.Bases.Length; slot++) {
 			if (!baseClaims.TryGetValue(slot, out var claim)) {
 				continue;
 			}
 
 			var group = claim.Group;
-			var record = script.MiscEntities[slot];
+			var record = script.Bases[slot];
 			var offset = baseFormations.OffsetFor(group.FormationId, claim.MemberIndex);
 			var position = Coordinate(script, record.PositionRef)
 				?? OffsetFromGroup(group, baseFormations, claim.MemberIndex);
@@ -856,25 +856,25 @@ public static class MissionLoader {
 	/// <c>Group_OrderTick</c> (<c>00423a74</c>) advances only while the <i>next</i> slot holds
 	/// something, so a gap stops a group where it stands.
 	/// </summary>
-	private static MissionOrder?[] Orders(ScriptDat script, ScriptEntity164Export record) {
+	private static MissionOrder?[] Orders(ScriptDat script, ScriptGroup record) {
 		var orders = new MissionOrder?[MissionOrder.Slots];
 
-		for (int i = 0; i < orders.Length && i < record.Row15Refs.Length; i++) {
-			short linkRef = record.Row15Refs[i];
-			if (linkRef < 0 || linkRef >= script.LinkedRefs22.Length) {
+		for (int i = 0; i < orders.Length && i < record.OrderRefs.Length; i++) {
+			short linkRef = record.OrderRefs[i];
+			if (linkRef < 0 || linkRef >= script.Orders.Length) {
 				continue;
 			}
 
-			var link = script.LinkedRefs22[linkRef];
-			var kind = (MissionOrderSubject)link.DiscriminatorType;
+			var link = script.Orders[linkRef];
+			var kind = (MissionOrderSubject)link.SubjectKind;
 
 			orders[i] = new MissionOrder(
-				link.SmallInt1,
+				link.Verb,
 				Enum.IsDefined(kind) ? kind : MissionOrderSubject.None,
-				link.DiscriminatedRef,
-				Waypoints(script, link.RefRow8),
-				ActionRef(script, link.RefRow10),
-				link.RefRow8);
+				link.SubjectRef,
+				Waypoints(script, link.RouteRef),
+				ActionRef(script, link.ActionRef),
+				link.RouteRef);
 		}
 
 		return orders;

@@ -30,7 +30,7 @@ public class BeamDatFileTransformer : ByteTransformer<BeamData> {
 		outStream.Write(totalBytes, 0, totalBytes.Length);
 
 		foreach (var beam in data.Data) {
-			var w = WriteShortLE(beam.Width);
+			var w = WriteShortLE(beam.HalfWidth);
 			outStream.Write(w, 0, w.Length);
 
 			var c = WriteShortLE(beam.ColorId);

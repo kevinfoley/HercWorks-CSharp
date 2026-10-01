@@ -2,8 +2,16 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts.Poly;
 
-/// <summary>Ported from org.hercworks.core.data.file.dts.poly.TSGouraudPoly.</summary>
+/// <summary>
+/// A poly lit per vertex: the same ramp number as <see cref="TSShadedPoly"/>, with a normal per
+/// corner. See docs/formats/dts-texture-binding.md, "TSGouraudPoly — same ramp number, per-vertex
+/// light, no .RMP row".
+/// </summary>
 public class TSGouraudPoly : TSSolidPoly {
+	/// <summary>
+	/// Offset into the group's <see cref="TSGroup.Indexes"/> of the per-corner normal indices,
+	/// parallel to <see cref="TSPoly.VertexList"/>.
+	/// </summary>
 	public short NormalList { get; set; }
 
 	public TSGouraudPoly() : base(TSObjectHeader.TSGouraudPoly) { }

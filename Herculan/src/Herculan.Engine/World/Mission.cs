@@ -131,7 +131,7 @@ public sealed record MissionPlacement(
 
 /// <summary>
 /// One patch of ground a base group paints with its formation's own material — the concrete pad a
-/// retail base stands on. Produced for a group whose block-11 record sets its <c>BinaryFlag</c> and
+/// retail base stands on. Produced for a group whose block-11 record sets its <c>PaintsGround</c> and
 /// whose formation declares a layout; see
 /// <see cref="Herculan.Engine.Terrain.HeightGrid.PaintFormationPad"/> for what is done with it.
 /// </summary>

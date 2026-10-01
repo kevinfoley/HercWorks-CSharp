@@ -13,9 +13,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// the cockpit's window opening (APOCA `66,0 - 253,146`, RAZOR `55,68 - 264,186`, in the file's own
 /// 320-wide space).
 ///
-/// Read out of <see cref="GAUFile.Remainder"/> rather than carved out of it, exactly as
-/// <see cref="HThrottle.SlideMode"/> is read out of <see cref="GAUFile.RemainderBeforeTorsoTwist"/>:
-/// surfaced here and still written back verbatim, so the byte-exact round-trip is untouched.
+/// Read out of <see cref="GAUFile.Remainder"/>, which is still what the write path emits.
 /// See `Herculan.Engine.Content.TargetBox` and docs/formats/cockpit-gunsight-hud.md.
 /// </summary>
 public class HGunsightArea : WidgetBase {

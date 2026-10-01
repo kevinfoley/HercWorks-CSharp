@@ -99,7 +99,7 @@ The byte is the weapon's unlock flag and the owned units are a linked list at th
 
 ### Pilot record — 59 bytes (`0x3b`) in memory
 
-Serialized by `Pilot_Write` (`0040fd5f`), read by `Pilot_Read` (`0040fefc`), initialized by `Pilot_Init` (`0040fcd8`) and `FUN_0040fd17`. On disk it is 31 bytes plus the name: three `int16` lead — roster id, name index, then the name's length — and eleven follow the on-strength byte.
+Serialized by `Pilot_Write` (`0040fd5f`), read by `Pilot_Read` (`0040fefc`), initialized by `Pilot_Init` (`0040fcd8`) and `Pilot_SetDefaults` (`0040fd17`). On disk it is 31 bytes plus the name: three `int16` lead — roster id, name index, then the name's length — and eleven follow the on-strength byte.
 
 **One record shape serves both the squad block and the player block.** Block 5's two leading `int16` belong to the block, not to the record; a reader that treats the player's record as a shorter form of a squadmate's lands its name two bytes early and desynchronizes everything after it.
 
@@ -151,7 +151,7 @@ The same record has a shorter form in `gam\hercs.dat` and `gam\ini_*.dat`, where
 
 #### The 66-byte status block
 
-Three condition arrays, all initialized to 100 by `HercStatus_InitAll` (`00411b88`) and all holding 0–100 in retail data. `HercStatus_Get(block, mode, index)` (`00411d06`) is the accessor and `FUN_00411cbd` the matching setter, and the three modes are the three arrays — mode 1 addresses `block + 0x1a + index*2`, mode 2 `block + 0x2e + index*2`, and mode 0 averages a group of the first array. The split is exactly `player.mec`'s `BlockA`/`BlockB`/`BlockC`, which were derived independently from the offsets DBSIM copies them to.
+Three condition arrays, all initialized to 100 by `HercStatus_InitAll` (`00411b88`) and all holding 0–100 in retail data. `HercStatus_Get(block, mode, index)` (`00411d06`) is the accessor and `FUN_00411cbd` the matching setter, and the three modes are the three arrays — mode 1 addresses `block + 0x1a + index*2`, mode 2 `block + 0x2e + index*2`, and mode 0 averages a group of the first array. The split is exactly `player.mec`'s three condition spans, which were derived independently from the offsets DBSIM copies them to.
 
 | Span | Size | Content |
 |---|---|---|

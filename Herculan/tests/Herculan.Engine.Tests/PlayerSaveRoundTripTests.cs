@@ -55,16 +55,16 @@ public class PlayerSaveRoundTripTests {
 		Assert.Equal(7, first.NameIndex);
 		Assert.Equal(PilotSkill.Veteran.Id, first.Skill!.Id);
 		Assert.Equal(PilotRank.Captain.Id, first.Rank!.Id);
-		Assert.Equal(11, first.CrewRowNum);
+		Assert.Equal(11, first.SquadPosition);
 
 		// The three kill counters and their career totals, in file order.
-		Assert.Equal(1, first.KillsHercs);
-		Assert.Equal(2, first.KillsFlyers);
-		Assert.Equal(3, first.KillsBuilding);
-		Assert.Equal(40, first.TotalKillHerc);
-		Assert.Equal(50, first.TotalKillFlyer);
-		Assert.Equal(60, first.TotalKillBldng);
-		Assert.Equal(9, first.MissionCount);
+		Assert.Equal(1, first.HercKills);
+		Assert.Equal(2, first.FlyerKills);
+		Assert.Equal(3, first.BaseKills);
+		Assert.Equal(40, first.TotalHercKills);
+		Assert.Equal(50, first.TotalFlyerKills);
+		Assert.Equal(60, first.TotalBaseKills);
+		Assert.Equal(9, first.MissionsFlown);
 	}
 
 	/// <summary>The career block is 76 shorts; 77 leaves the squad segment two bytes adrift.</summary>
@@ -74,8 +74,8 @@ public class PlayerSaveRoundTripTests {
 
 		PlayerSave parsed = Assert.IsType<PlayerSave>(transformer.Parse(BuildSave()));
 
-		Assert.Equal(CareerBlockShorts, parsed.Unk4_stateFlags.Length);
-		Assert.Equal(PrePlayerShorts, parsed.UnkRange_prePlayer.Length);
+		Assert.Equal(CareerBlockShorts, parsed.CareerBlock.Length);
+		Assert.Equal(PrePlayerShorts, parsed.SquadTailAndPlayerHead.Length);
 		Assert.Equal(SquadSize, parsed.Squadmates!.Length);
 	}
 
@@ -107,14 +107,14 @@ public class PlayerSaveRoundTripTests {
 			PlayerSave? parsed = transformer.Parse(original);
 			Assert.NotNull(parsed);
 
-			string diag = $"{Path.GetFileName(slot)}: workshop={parsed.WorkshopSpace} " +
+			string diag = $"{Path.GetFileName(slot)}: workshop={parsed.BuildQueueFreeSlots} " +
 				$"sq0={parsed.Squadmates![0].Name}/{parsed.Squadmates[0].NameIndex} " +
 				$"sq1={parsed.Squadmates[1].Name} " +
 				$"player={parsed.PlayerPilot?.Name} bays={parsed.HercBay.Count} " +
-				$"salvage={parsed.SalvageTotal} tail={parsed.UnknownSaveValues?.Length}";
+				$"salvage={parsed.SalvageTotal} tail={parsed.CampaignStateTail?.Length}";
 
 			Assert.Equal(SquadSize, parsed.Squadmates.Length);
-			Assert.Equal(HercUnlockCount, parsed.UnlockedHercs.Count);
+			Assert.Equal(HercUnlockCount, parsed.ChassisAvailability.Count);
 			Assert.True(parsed.HercBay.Count > 0, diag);
 
 			foreach (PilotEntry pilot in parsed.Squadmates) {

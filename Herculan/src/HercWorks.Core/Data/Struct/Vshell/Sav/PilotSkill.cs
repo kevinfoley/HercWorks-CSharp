@@ -33,10 +33,9 @@ public sealed class PilotSkill {
 
 	public static PilotSkill? GetById(short id) => ById.GetValueOrDefault(id);
 
-	/// <summary>Equivalent of Java's enum .values().</summary>
 	public static IReadOnlyList<PilotSkill> Values() => All;
 
-	/// <summary>Defaults to Rookie when no label matches, as the original PilotRank did.</summary>
+	/// <summary>The skill whose label matches, case-insensitively; Rookie when none does.</summary>
 	public static PilotSkill GetByName(string name) =>
 		All.FirstOrDefault(s => string.Equals(name, s.Label, StringComparison.OrdinalIgnoreCase)) ?? Rookie;
 

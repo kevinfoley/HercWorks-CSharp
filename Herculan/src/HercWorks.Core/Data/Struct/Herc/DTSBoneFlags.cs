@@ -1,7 +1,7 @@
 namespace HercWorks.Core.Data.Struct.Herc;
 
 /// <summary>
-/// Ported from org.hercworks.core.data.struct.herc.DTSBoneFlags.
+/// Leg-bone values, multiples of <c>0x100</c>. What field holds them is not established.
 /// </summary>
 public sealed class DTSBoneFlags {
 	public static readonly DTSBoneFlags LegLeftCalf = new(256);

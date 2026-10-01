@@ -18,7 +18,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// Normal hercs store all 22, so the skip is 0 in every such file and the padding is never
 /// exercised; SKIMMER stores 1, where an unconditional <c>(22-1)*2 = 42</c>-byte skip overruns its
 /// 18-byte content. With 0 padding the remainder decodes into one well-formed component.</item>
-/// <item><b><c>CritChance</c> is written raw, not scaled.</b> It reads as exactly <c>20</c>
+/// <item><b><c>SpillWeight</c> is written raw, not scaled.</b> It reads as exactly <c>20</c>
 /// (<c>0x14</c>) for the large majority of components across all three files, so a <c>* 100</c> on
 /// write would not round-trip.</item>
 /// </list>
@@ -97,12 +97,12 @@ public class HercDamageFileTransformer : ByteTransformer<HercSimDamage> {
 		foreach (var piece in data.ComponentData) {
 			Emit(outStream, WriteShortLE(piece.Armor));
 			Emit(outStream, WriteShortLE(piece.DebrisFlags));
-			outStream.WriteByte(piece.BoneId);
+			outStream.WriteByte(piece.ParentComponent);
 			outStream.WriteByte(piece.DestructionFlags);
 			Emit(outStream, WriteShortLE((short)piece.MappedInternals!.Length));
 
 			foreach (var t in piece.MappedInternals) {
-				Emit(outStream, WriteShortLE(t.CritChance));
+				Emit(outStream, WriteShortLE(t.SpillWeight));
 				Emit(outStream, WriteShortLE(t.InternalsId!.Id));
 			}
 		}
@@ -114,13 +114,13 @@ public class HercDamageFileTransformer : ByteTransformer<HercSimDamage> {
 		var piece = data.NewHercPiece();
 		piece.Armor = IndexShortLE();
 		piece.DebrisFlags = IndexShortLE();
-		piece.BoneId = IndexByte();
+		piece.ParentComponent = IndexByte();
 		piece.DestructionFlags = IndexByte();
 
 		piece.MappedInternals = new HercSimDamage.InternalsTarget[IndexShortLE()];
 		for (int i = 0; i < piece.MappedInternals.Length; i++) {
 			var internalComp = data.NewInternalsTarget();
-			internalComp.CritChance = IndexShortLE();
+			internalComp.SpillWeight = IndexShortLE();
 			internalComp.InternalsId = HercInternals.GetById(IndexShortLE());
 			piece.MappedInternals[i] = internalComp;
 		}

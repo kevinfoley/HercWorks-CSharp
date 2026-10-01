@@ -2,7 +2,7 @@
 
 Make a field's name and description live in one place, and have the copies that must exist checked by the build or the doc linter instead of by a reader noticing drift.
 
-Stage 1 is built; Stages 2 to 5 are a plan.
+Stages 1, 2, 4 and 5 are built; Stage 3 is a plan.
 
 ## Why
 
@@ -49,8 +49,7 @@ With this in place a doc describes a field ("the paints-ground flag, `0x06`") an
 
 ## Stage 2 — UI bindings that fail to compile
 
-- Replace every `DataPropertyName = "X"` in the `*.Designer.cs` files with `nameof(RowType.X)`. The designer tolerates `nameof` in the generated block; if regeneration would strip it, move the assignments into the form's constructor after `InitializeComponent()`.
-- Add a GitHub Actions workflow on a `windows-latest` runner that builds `Herculan/HercWorksMDK.sln`, so a UI break shows up on the branch whichever environment made the edit.
+Every grid column's `DataPropertyName` and every combo column's `DisplayMember`/`ValueMember` in the `HercWorks.UI` `*.Designer.cs` files is `nameof(RowType.X)`, assigned in `InitializeComponent`. A renamed row property is a compile error at the designer line. Whether the designer keeps `nameof` on regeneration is [Open](#open); if it strips it, the assignments move into the form's constructor after `InitializeComponent()`.
 
 ## Stage 3 — one description per datum
 
@@ -64,19 +63,27 @@ Where an engine name and a Core name differ for the same datum (`ScriptMechRow.H
 
 ## Stage 4 — named word offsets for `MissionGenerator`
 
-`MissionGenerator` reads fields as `record[37]`, `record[61]`. Give each `.msn` model class `const int` word offsets for the fields the generator touches (`MechRosterEntry144.PairCountWord = 37`, `OutOfActionWord = 38`, and so on), and have the generator use them. The offset then lives next to the field it describes, and a model restructure shows up as a compile error in the generator rather than a silent misread.
+Each `.msn` model class declares a `public const int <Property>Word` for every field `MissionGenerator` reads, on the line after the property, written as its byte offset over two (`MechRosterEntry144.TypeIndexWord = 0x30 / 2`, `OutOfActionReportWord = 0x4C / 2`) so it can be checked against the property's summary. The generator indexes records through these instead of literals; a copy or overlay spanning several fields starts at its first field's constant. The offset lives next to the field it describes, and a model restructure shows up as a compile error in the generator rather than a silent misread.
 
-A test parses a synthetic record through `MissionFileTransformer` and through the generator's word view and asserts that each named offset reads the same value as its property.
+Offsets stay literal where the model has no property to name: the row #2 settings patch and the row #5 debrief (both kept as raw arrays), the row #8 waypoint count (the model holds it as the waypoint array's length), and `VariantSource`'s word 1, which is the condition ref of every row with a variant key. Spans, record sizes and slot bounds are counts and stay literal.
+
+`MissionWordOffsetTests.EveryNamedWordOffsetReadsItsProperty` writes a synthetic `.msn` with one record per row and a distinct value in every word, parses it through `MissionFileTransformer`, and asserts that each named offset in the record's word view reads the same value as its property.
 
 ## Stage 5 — a symbol-aware rename tool
 
-Add `tools/scripts/rename_symbol` — a small console project on `Microsoft.CodeAnalysis.CSharp.Workspaces` that loads `HerculanEngine.sln` through `MSBuildWorkspace` and calls `Renamer.RenameSymbolAsync` for one symbol, `cref`s included. Usage: `rename_symbol <solution> <Type.Member> <NewName>`.
+`tools/scripts/rename_symbol` is a console project on Roslyn's `MSBuildWorkspace` that loads a solution and calls `Renamer.RenameSymbolAsync` for one type or member, `cref`s included. It is in neither solution.
 
-This works on Linux for Core, the engine and the tests. `HercWorks.UI` is outside that solution; Stage 2's `nameof` bindings make the remaining UI references compile errors that the Windows build reports.
+```
+dotnet restore Herculan/HerculanEngine.sln
+dotnet run --project tools/scripts/rename_symbol -- Herculan/HerculanEngine.sln <Type[.Member]> <NewName> [--dry-run]
+```
 
-## Order and cost
+- The type part may be a simple, namespace-qualified or metadata name; zero or several matches is an error listing the candidates.
+- Comment text, strings, overloads and file names are renamed only with `--comments`, `--strings`, `--overloads`, `--rename-file`.
+- It refuses to run while any project has compile errors (`--allow-errors` overrides), because an unrestored solution loads without a workspace diagnostic and Roslyn silently skips references it cannot bind.
+- It targets net8.0 and rolls forward to the newest installed runtime, since `MSBuildLocator` offers only SDKs the running runtime can host.
 
-Stages 1 and 2 are the cheapest and would have prevented most of the drift the cleanup found. Stage 3 is incremental and can ride along with any edit to a model. Stages 4 and 5 are each a small self-contained piece of tooling.
+`HercWorks.UI` is outside `HerculanEngine.sln`; Stage 2's `nameof` bindings make the remaining UI references compile errors that the Windows build reports. Stage 3's renames go through this tool.
 
 ## Verification
 
@@ -89,3 +96,4 @@ Stages 1 and 2 are the cheapest and would have prevented most of the drift the c
 
 - **Open:** whether the Windows Forms designer preserves `nameof` in `InitializeComponent` on regeneration, which decides where Stage 2's assignments go.
 - **Open:** whether `MSBuildWorkspace` loads `HerculanEngine.sln` on Linux without the WindowsDesktop SDK, given the solution does not include `HercWorks.UI`.
+- **Open:** Stage 3 — one description per datum — is not started.

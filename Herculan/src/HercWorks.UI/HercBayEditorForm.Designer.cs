@@ -99,7 +99,7 @@ partial class HercBayEditorForm {
 		//
 		// _externalsIdColumn
 		//
-		_externalsIdColumn.DataPropertyName = "Id";
+		_externalsIdColumn.DataPropertyName = nameof(HercPartRow.Id);
 		_externalsIdColumn.HeaderText = "Id";
 		_externalsIdColumn.Name = "_externalsIdColumn";
 		_externalsIdColumn.ReadOnly = true;
@@ -107,7 +107,7 @@ partial class HercBayEditorForm {
 		//
 		// _externalsLabelColumn
 		//
-		_externalsLabelColumn.DataPropertyName = "Label";
+		_externalsLabelColumn.DataPropertyName = nameof(HercPartRow.Label);
 		_externalsLabelColumn.HeaderText = "Component";
 		_externalsLabelColumn.Name = "_externalsLabelColumn";
 		_externalsLabelColumn.ReadOnly = true;
@@ -115,7 +115,7 @@ partial class HercBayEditorForm {
 		//
 		// _externalsHealthColumn
 		//
-		_externalsHealthColumn.DataPropertyName = "Health";
+		_externalsHealthColumn.DataPropertyName = nameof(HercPartRow.Health);
 		_externalsHealthColumn.HeaderText = "Condition";
 		_externalsHealthColumn.Name = "_externalsHealthColumn";
 		_externalsHealthColumn.Width = 80;
@@ -148,7 +148,7 @@ partial class HercBayEditorForm {
 		//
 		// _internalsIdColumn
 		//
-		_internalsIdColumn.DataPropertyName = "Id";
+		_internalsIdColumn.DataPropertyName = nameof(HercPartRow.Id);
 		_internalsIdColumn.HeaderText = "Id";
 		_internalsIdColumn.Name = "_internalsIdColumn";
 		_internalsIdColumn.ReadOnly = true;
@@ -156,7 +156,7 @@ partial class HercBayEditorForm {
 		//
 		// _internalsLabelColumn
 		//
-		_internalsLabelColumn.DataPropertyName = "Label";
+		_internalsLabelColumn.DataPropertyName = nameof(HercPartRow.Label);
 		_internalsLabelColumn.HeaderText = "Component";
 		_internalsLabelColumn.Name = "_internalsLabelColumn";
 		_internalsLabelColumn.ReadOnly = true;
@@ -164,7 +164,7 @@ partial class HercBayEditorForm {
 		//
 		// _internalsHealthColumn
 		//
-		_internalsHealthColumn.DataPropertyName = "Health";
+		_internalsHealthColumn.DataPropertyName = nameof(HercPartRow.Health);
 		_internalsHealthColumn.HeaderText = "Condition";
 		_internalsHealthColumn.Name = "_internalsHealthColumn";
 		_internalsHealthColumn.Width = 80;
@@ -197,7 +197,7 @@ partial class HercBayEditorForm {
 		//
 		// _hardpointsIdColumn
 		//
-		_hardpointsIdColumn.DataPropertyName = "Id";
+		_hardpointsIdColumn.DataPropertyName = nameof(HercPartRow.Id);
 		_hardpointsIdColumn.HeaderText = "Id";
 		_hardpointsIdColumn.Name = "_hardpointsIdColumn";
 		_hardpointsIdColumn.ReadOnly = true;
@@ -205,7 +205,7 @@ partial class HercBayEditorForm {
 		//
 		// _hardpointsLabelColumn
 		//
-		_hardpointsLabelColumn.DataPropertyName = "Label";
+		_hardpointsLabelColumn.DataPropertyName = nameof(HercPartRow.Label);
 		_hardpointsLabelColumn.HeaderText = "Hardpoint";
 		_hardpointsLabelColumn.Name = "_hardpointsLabelColumn";
 		_hardpointsLabelColumn.ReadOnly = true;
@@ -213,7 +213,7 @@ partial class HercBayEditorForm {
 		//
 		// _hardpointsHealthColumn
 		//
-		_hardpointsHealthColumn.DataPropertyName = "Health";
+		_hardpointsHealthColumn.DataPropertyName = nameof(HercPartRow.Health);
 		_hardpointsHealthColumn.HeaderText = "Condition";
 		_hardpointsHealthColumn.Name = "_hardpointsHealthColumn";
 		_hardpointsHealthColumn.Width = 80;
@@ -248,39 +248,42 @@ partial class HercBayEditorForm {
 		//
 		// _weaponSocketColumn
 		//
+		_weaponSocketColumn.DataPropertyName = nameof(HercWeaponRow.SocketId);
 		_weaponSocketColumn.HeaderText = "Socket";
 		_weaponSocketColumn.Name = "_weaponSocketColumn";
 		_weaponSocketColumn.Width = 60;
 		//
 		// _weaponIdColumn
 		//
+		_weaponIdColumn.DataPropertyName = nameof(HercWeaponRow.WeaponId);
 		_weaponIdColumn.HeaderText = "Weapon";
 		_weaponIdColumn.Name = "_weaponIdColumn";
 		_weaponIdColumn.Width = 150;
 		//
 		// _weaponNameIdColumn
 		//
-		_weaponNameIdColumn.DataPropertyName = "NameId";
+		_weaponNameIdColumn.DataPropertyName = nameof(HercWeaponRow.NameId);
 		_weaponNameIdColumn.HeaderText = "Class Index";
 		_weaponNameIdColumn.Name = "_weaponNameIdColumn";
 		_weaponNameIdColumn.Width = 70;
 		//
 		// _weaponArmorColumn
 		//
-		_weaponArmorColumn.DataPropertyName = "HealthArmor";
+		_weaponArmorColumn.DataPropertyName = nameof(HercWeaponRow.HealthArmor);
 		_weaponArmorColumn.HeaderText = "+0x04 (always 100)";
 		_weaponArmorColumn.Name = "_weaponArmorColumn";
 		_weaponArmorColumn.Width = 70;
 		//
 		// _weaponInternalColumn
 		//
-		_weaponInternalColumn.DataPropertyName = "HealthInternal";
+		_weaponInternalColumn.DataPropertyName = nameof(HercWeaponRow.HealthInternal);
 		_weaponInternalColumn.HeaderText = "Condition";
 		_weaponInternalColumn.Name = "_weaponInternalColumn";
 		_weaponInternalColumn.Width = 70;
 		//
 		// _weaponMissileColumn
 		//
+		_weaponMissileColumn.DataPropertyName = nameof(HercWeaponRow.MissileType);
 		_weaponMissileColumn.HeaderText = "Ammo Type";
 		_weaponMissileColumn.Name = "_weaponMissileColumn";
 		_weaponMissileColumn.Width = 140;

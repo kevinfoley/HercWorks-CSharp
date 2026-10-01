@@ -44,4 +44,6 @@ Herculan/tests/HercWorks.Video.Tests/bin/
 Herculan/tests/HercWorks.Video.Tests/obj/
 Herculan/.obsidian/
 tools/scripts/__pycache__/
+tools/scripts/rename_symbol/bin/
+tools/scripts/rename_symbol/obj/
 *.csproj.user

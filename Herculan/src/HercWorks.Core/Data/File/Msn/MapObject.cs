@@ -6,4 +6,5 @@ namespace HercWorks.Core.Data.File.Msn;
 /// </summary>
 public abstract class MapObject {
 	public short GUID { get; set; }
+	public const int GUIDWord = 0x00 / 2;
 }

@@ -95,14 +95,14 @@ partial class WeaponStatsForm {
 		//
 		// _idColumn
 		//
-		_idColumn.DataPropertyName = "Id";
+		_idColumn.DataPropertyName = nameof(WeaponStatRow.Id);
 		_idColumn.HeaderText = "Weapon Id";
 		_idColumn.Name = "_idColumn";
 		_idColumn.Width = 80;
 		//
 		// _nameColumn
 		//
-		_nameColumn.DataPropertyName = "Name";
+		_nameColumn.DataPropertyName = nameof(WeaponStatRow.Name);
 		_nameColumn.HeaderText = "Catalog Code";
 		_nameColumn.MaxInputLength = MaxCodeLength;
 		_nameColumn.Name = "_nameColumn";
@@ -110,21 +110,21 @@ partial class WeaponStatsForm {
 		//
 		// _salvageCostColumn
 		//
-		_salvageCostColumn.DataPropertyName = "SalvageCost";
+		_salvageCostColumn.DataPropertyName = nameof(WeaponStatRow.SalvageCost);
 		_salvageCostColumn.HeaderText = "Price (tons; x1000 = kg)";
 		_salvageCostColumn.Name = "_salvageCostColumn";
 		_salvageCostColumn.Width = 170;
 		//
 		// _startUnlockColumn
 		//
-		_startUnlockColumn.DataPropertyName = "StartUnlock";
+		_startUnlockColumn.DataPropertyName = nameof(WeaponStatRow.StartUnlock);
 		_startUnlockColumn.HeaderText = "Unlocked";
 		_startUnlockColumn.Name = "_startUnlockColumn";
 		_startUnlockColumn.Width = 110;
 		//
 		// _autobuildPriorityColumn
 		//
-		_autobuildPriorityColumn.DataPropertyName = "AutobuildPriority";
+		_autobuildPriorityColumn.DataPropertyName = nameof(WeaponStatRow.AutobuildPriority);
 		_autobuildPriorityColumn.HeaderText = "Rank (autobuild order)";
 		_autobuildPriorityColumn.Name = "_autobuildPriorityColumn";
 		_autobuildPriorityColumn.Width = 130;

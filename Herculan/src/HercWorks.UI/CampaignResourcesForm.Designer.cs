@@ -336,7 +336,7 @@ partial class CampaignResourcesForm {
 		//
 		// _hercUnlockIdColumn
 		//
-		_hercUnlockIdColumn.DataPropertyName = "HercId";
+		_hercUnlockIdColumn.DataPropertyName = nameof(HercUnlockRow.HercId);
 		_hercUnlockIdColumn.HeaderText = "Herc Id";
 		_hercUnlockIdColumn.Name = "_hercUnlockIdColumn";
 		_hercUnlockIdColumn.ReadOnly = true;
@@ -344,7 +344,7 @@ partial class CampaignResourcesForm {
 		//
 		// _hercUnlockNameColumn
 		//
-		_hercUnlockNameColumn.DataPropertyName = "HercName";
+		_hercUnlockNameColumn.DataPropertyName = nameof(HercUnlockRow.HercName);
 		_hercUnlockNameColumn.HeaderText = "Herc Name";
 		_hercUnlockNameColumn.Name = "_hercUnlockNameColumn";
 		_hercUnlockNameColumn.ReadOnly = true;
@@ -352,7 +352,7 @@ partial class CampaignResourcesForm {
 		//
 		// _hercUnlockUnlockedColumn
 		//
-		_hercUnlockUnlockedColumn.DataPropertyName = "Unlocked";
+		_hercUnlockUnlockedColumn.DataPropertyName = nameof(HercUnlockRow.Unlocked);
 		_hercUnlockUnlockedColumn.HeaderText = "Available";
 		_hercUnlockUnlockedColumn.Name = "_hercUnlockUnlockedColumn";
 		_hercUnlockUnlockedColumn.Width = 80;
@@ -389,7 +389,7 @@ partial class CampaignResourcesForm {
 		//
 		// _sqRoleColumn
 		//
-		_sqRoleColumn.DataPropertyName = "Role";
+		_sqRoleColumn.DataPropertyName = nameof(SquadmateRow.Role);
 		_sqRoleColumn.HeaderText = "Role";
 		_sqRoleColumn.Name = "_sqRoleColumn";
 		_sqRoleColumn.ReadOnly = true;
@@ -397,7 +397,7 @@ partial class CampaignResourcesForm {
 		//
 		// _sqIdColumn
 		//
-		_sqIdColumn.DataPropertyName = "SquadmateId";
+		_sqIdColumn.DataPropertyName = nameof(SquadmateRow.SquadmateId);
 		_sqIdColumn.HeaderText = "Roster Id";
 		_sqIdColumn.Name = "_sqIdColumn";
 		_sqIdColumn.ReadOnly = true;
@@ -405,105 +405,105 @@ partial class CampaignResourcesForm {
 		//
 		// _sqNameColumn
 		//
-		_sqNameColumn.DataPropertyName = "Name";
+		_sqNameColumn.DataPropertyName = nameof(SquadmateRow.Name);
 		_sqNameColumn.HeaderText = "Name";
 		_sqNameColumn.Name = "_sqNameColumn";
 		_sqNameColumn.Width = 120;
 		//
 		// _sqBayIdColumn
 		//
-		_sqBayIdColumn.DataPropertyName = "BayId";
+		_sqBayIdColumn.DataPropertyName = nameof(SquadmateRow.BayId);
 		_sqBayIdColumn.HeaderText = "Bay Id";
 		_sqBayIdColumn.Name = "_sqBayIdColumn";
 		_sqBayIdColumn.Width = 60;
 		//
 		// _sqActiveColumn
 		//
-		_sqActiveColumn.DataPropertyName = "Active";
+		_sqActiveColumn.DataPropertyName = nameof(SquadmateRow.Active);
 		_sqActiveColumn.HeaderText = "On Strength";
 		_sqActiveColumn.Name = "_sqActiveColumn";
 		_sqActiveColumn.Width = 70;
 		//
 		// _sqSkillColumn
 		//
-		_sqSkillColumn.DataPropertyName = "SkillLabel";
+		_sqSkillColumn.DataPropertyName = nameof(SquadmateRow.SkillLabel);
 		_sqSkillColumn.HeaderText = "Skill";
 		_sqSkillColumn.Name = "_sqSkillColumn";
 		_sqSkillColumn.Width = 100;
 		//
 		// _sqRankColumn
 		//
-		_sqRankColumn.DataPropertyName = "RankLabel";
+		_sqRankColumn.DataPropertyName = nameof(SquadmateRow.RankLabel);
 		_sqRankColumn.HeaderText = "Rank";
 		_sqRankColumn.Name = "_sqRankColumn";
 		_sqRankColumn.Width = 100;
 		//
 		// _sqCrewRowColumn
 		//
-		_sqCrewRowColumn.DataPropertyName = "CrewRowNum";
+		_sqCrewRowColumn.DataPropertyName = nameof(SquadmateRow.CrewRowNum);
 		_sqCrewRowColumn.HeaderText = "Squad Position";
 		_sqCrewRowColumn.Name = "_sqCrewRowColumn";
 		_sqCrewRowColumn.Width = 70;
 		//
 		// _sqHealthColumn
 		//
-		_sqHealthColumn.DataPropertyName = "ProbablyHealth";
+		_sqHealthColumn.DataPropertyName = nameof(SquadmateRow.ProbablyHealth);
 		_sqHealthColumn.HeaderText = "Condition";
 		_sqHealthColumn.Name = "_sqHealthColumn";
 		_sqHealthColumn.Width = 70;
 		//
 		// _sqKillsHercsColumn
 		//
-		_sqKillsHercsColumn.DataPropertyName = "KillsHercs";
+		_sqKillsHercsColumn.DataPropertyName = nameof(SquadmateRow.KillsHercs);
 		_sqKillsHercsColumn.HeaderText = "Last Mission Kills (Hercs)";
 		_sqKillsHercsColumn.Name = "_sqKillsHercsColumn";
 		_sqKillsHercsColumn.Width = 90;
 		//
 		// _sqKillsFlyersColumn
 		//
-		_sqKillsFlyersColumn.DataPropertyName = "KillsFlyers";
+		_sqKillsFlyersColumn.DataPropertyName = nameof(SquadmateRow.KillsFlyers);
 		_sqKillsFlyersColumn.HeaderText = "Last Mission Kills (Flyers)";
 		_sqKillsFlyersColumn.Name = "_sqKillsFlyersColumn";
 		_sqKillsFlyersColumn.Width = 90;
 		//
 		// _sqKillsBuildingColumn
 		//
-		_sqKillsBuildingColumn.DataPropertyName = "KillsBuilding";
+		_sqKillsBuildingColumn.DataPropertyName = nameof(SquadmateRow.KillsBuilding);
 		_sqKillsBuildingColumn.HeaderText = "Last Mission Kills (Bases)";
 		_sqKillsBuildingColumn.Name = "_sqKillsBuildingColumn";
 		_sqKillsBuildingColumn.Width = 100;
 		//
 		// _sqTotalKillHercColumn
 		//
-		_sqTotalKillHercColumn.DataPropertyName = "TotalKillHerc";
+		_sqTotalKillHercColumn.DataPropertyName = nameof(SquadmateRow.TotalKillHerc);
 		_sqTotalKillHercColumn.HeaderText = "Total Kills (Hercs)";
 		_sqTotalKillHercColumn.Name = "_sqTotalKillHercColumn";
 		_sqTotalKillHercColumn.Width = 110;
 		//
 		// _sqTotalKillFlyerColumn
 		//
-		_sqTotalKillFlyerColumn.DataPropertyName = "TotalKillFlyer";
+		_sqTotalKillFlyerColumn.DataPropertyName = nameof(SquadmateRow.TotalKillFlyer);
 		_sqTotalKillFlyerColumn.HeaderText = "Total Kills (Flyers)";
 		_sqTotalKillFlyerColumn.Name = "_sqTotalKillFlyerColumn";
 		_sqTotalKillFlyerColumn.Width = 110;
 		//
 		// _sqTotalKillBldngColumn
 		//
-		_sqTotalKillBldngColumn.DataPropertyName = "TotalKillBldng";
+		_sqTotalKillBldngColumn.DataPropertyName = nameof(SquadmateRow.TotalKillBldng);
 		_sqTotalKillBldngColumn.HeaderText = "Total Kills (Bases)";
 		_sqTotalKillBldngColumn.Name = "_sqTotalKillBldngColumn";
 		_sqTotalKillBldngColumn.Width = 130;
 		//
 		// _sqMissionCountColumn
 		//
-		_sqMissionCountColumn.DataPropertyName = "MissionCount";
+		_sqMissionCountColumn.DataPropertyName = nameof(SquadmateRow.MissionCount);
 		_sqMissionCountColumn.HeaderText = "Missions";
 		_sqMissionCountColumn.Name = "_sqMissionCountColumn";
 		_sqMissionCountColumn.Width = 70;
 		//
 		// _sqNameIdxColumn
 		//
-		_sqNameIdxColumn.DataPropertyName = "NameIndex";
+		_sqNameIdxColumn.DataPropertyName = nameof(SquadmateRow.NameIndex);
 		_sqNameIdxColumn.HeaderText = "Name Idx";
 		_sqNameIdxColumn.Name = "_sqNameIdxColumn";
 		_sqNameIdxColumn.ReadOnly = true;
@@ -537,7 +537,7 @@ partial class CampaignResourcesForm {
 		//
 		// _inventoryNameColumn
 		//
-		_inventoryNameColumn.DataPropertyName = "WeaponName";
+		_inventoryNameColumn.DataPropertyName = nameof(InventoryRow.WeaponName);
 		_inventoryNameColumn.HeaderText = "Weapon";
 		_inventoryNameColumn.Name = "_inventoryNameColumn";
 		_inventoryNameColumn.ReadOnly = true;
@@ -545,14 +545,14 @@ partial class CampaignResourcesForm {
 		//
 		// _inventoryBuildableColumn
 		//
-		_inventoryBuildableColumn.DataPropertyName = "Buildable";
+		_inventoryBuildableColumn.DataPropertyName = nameof(InventoryRow.Buildable);
 		_inventoryBuildableColumn.HeaderText = "Unlocked";
 		_inventoryBuildableColumn.Name = "_inventoryBuildableColumn";
 		_inventoryBuildableColumn.Width = 80;
 		//
 		// _inventoryQuantityColumn
 		//
-		_inventoryQuantityColumn.DataPropertyName = "Quantity";
+		_inventoryQuantityColumn.DataPropertyName = nameof(InventoryRow.Quantity);
 		_inventoryQuantityColumn.HeaderText = "Quantity";
 		_inventoryQuantityColumn.Name = "_inventoryQuantityColumn";
 		_inventoryQuantityColumn.Width = 80;
@@ -704,7 +704,7 @@ partial class CampaignResourcesForm {
 		//
 		// _flagIndexColumn
 		//
-		_flagIndexColumn.DataPropertyName = "Index";
+		_flagIndexColumn.DataPropertyName = nameof(CampaignFlagRow.Index);
 		_flagIndexColumn.HeaderText = "Slot";
 		_flagIndexColumn.Name = "_flagIndexColumn";
 		_flagIndexColumn.ReadOnly = true;
@@ -712,7 +712,7 @@ partial class CampaignResourcesForm {
 		//
 		// _flagHexColumn
 		//
-		_flagHexColumn.DataPropertyName = "Hex";
+		_flagHexColumn.DataPropertyName = nameof(CampaignFlagRow.Hex);
 		_flagHexColumn.HeaderText = "Slot (hex)";
 		_flagHexColumn.Name = "_flagHexColumn";
 		_flagHexColumn.ReadOnly = true;
@@ -720,7 +720,7 @@ partial class CampaignResourcesForm {
 		//
 		// _flagValueColumn
 		//
-		_flagValueColumn.DataPropertyName = "Value";
+		_flagValueColumn.DataPropertyName = nameof(CampaignFlagRow.Value);
 		_flagValueColumn.HeaderText = "Value";
 		_flagValueColumn.Name = "_flagValueColumn";
 		_flagValueColumn.Width = 100;
@@ -745,7 +745,7 @@ partial class CampaignResourcesForm {
 		//
 		// _hercBayIdColumn
 		//
-		_hercBayIdColumn.DataPropertyName = "BayId";
+		_hercBayIdColumn.DataPropertyName = nameof(HercBayRow.BayId);
 		_hercBayIdColumn.HeaderText = "Bay Id";
 		_hercBayIdColumn.Name = "_hercBayIdColumn";
 		_hercBayIdColumn.ReadOnly = true;
@@ -753,35 +753,35 @@ partial class CampaignResourcesForm {
 		//
 		// _hercBayHercColumn
 		//
-		_hercBayHercColumn.DataPropertyName = "Herc";
+		_hercBayHercColumn.DataPropertyName = nameof(HercBayRow.Herc);
 		_hercBayHercColumn.HeaderText = "Herc";
 		_hercBayHercColumn.Name = "_hercBayHercColumn";
 		_hercBayHercColumn.Width = 130;
 		//
 		// _hercBayBuildPercentColumn
 		//
-		_hercBayBuildPercentColumn.DataPropertyName = "BuildPercent";
+		_hercBayBuildPercentColumn.DataPropertyName = nameof(HercBayRow.BuildPercent);
 		_hercBayBuildPercentColumn.HeaderText = "Build %";
 		_hercBayBuildPercentColumn.Name = "_hercBayBuildPercentColumn";
 		_hercBayBuildPercentColumn.Width = 70;
 		//
 		// _hercBayBuildStepColumn
 		//
-		_hercBayBuildStepColumn.DataPropertyName = "BuildStepNum";
+		_hercBayBuildStepColumn.DataPropertyName = nameof(HercBayRow.BuildStepNum);
 		_hercBayBuildStepColumn.HeaderText = "Missions to Build";
 		_hercBayBuildStepColumn.Name = "_hercBayBuildStepColumn";
 		_hercBayBuildStepColumn.Width = 80;
 		//
 		// _hercBayHardpointMaxColumn
 		//
-		_hercBayHardpointMaxColumn.DataPropertyName = "HardpointMax";
+		_hercBayHardpointMaxColumn.DataPropertyName = nameof(HercBayRow.HardpointMax);
 		_hercBayHardpointMaxColumn.HeaderText = "Mount Capacity";
 		_hercBayHardpointMaxColumn.Name = "_hercBayHardpointMaxColumn";
 		_hercBayHardpointMaxColumn.Width = 100;
 		//
 		// _hercBayActiveSocketsColumn
 		//
-		_hercBayActiveSocketsColumn.DataPropertyName = "ActiveSocketCount";
+		_hercBayActiveSocketsColumn.DataPropertyName = nameof(HercBayRow.ActiveSocketCount);
 		_hercBayActiveSocketsColumn.HeaderText = "Equipped Weapons";
 		_hercBayActiveSocketsColumn.Name = "_hercBayActiveSocketsColumn";
 		_hercBayActiveSocketsColumn.ReadOnly = true;

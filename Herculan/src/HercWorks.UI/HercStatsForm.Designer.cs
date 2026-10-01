@@ -100,14 +100,14 @@ partial class HercStatsForm {
 		//
 		// _hercIdColumn
 		//
-		_hercIdColumn.DataPropertyName = "HercId";
+		_hercIdColumn.DataPropertyName = nameof(HercStatRow.HercId);
 		_hercIdColumn.HeaderText = "Herc Id";
 		_hercIdColumn.Name = "_hercIdColumn";
 		_hercIdColumn.Width = 60;
 		//
 		// _hercNameColumn
 		//
-		_hercNameColumn.DataPropertyName = "HercName";
+		_hercNameColumn.DataPropertyName = nameof(HercStatRow.HercName);
 		_hercNameColumn.HeaderText = "Herc Name";
 		_hercNameColumn.Name = "_hercNameColumn";
 		_hercNameColumn.ReadOnly = true;
@@ -115,49 +115,49 @@ partial class HercStatsForm {
 		//
 		// _weightColumn
 		//
-		_weightColumn.DataPropertyName = "Weight";
+		_weightColumn.DataPropertyName = nameof(HercStatRow.Weight);
 		_weightColumn.HeaderText = "Weight (tons)";
 		_weightColumn.Name = "_weightColumn";
 		_weightColumn.Width = 100;
 		//
 		// _speedColumn
 		//
-		_speedColumn.DataPropertyName = "Speed";
+		_speedColumn.DataPropertyName = nameof(HercStatRow.Speed);
 		_speedColumn.HeaderText = "Speed (KPH)";
 		_speedColumn.Name = "_speedColumn";
 		_speedColumn.Width = 100;
 		//
 		// _hardpointTotalColumn
 		//
-		_hardpointTotalColumn.DataPropertyName = "HardpointTotal";
+		_hardpointTotalColumn.DataPropertyName = nameof(HercStatRow.HardpointTotal);
 		_hardpointTotalColumn.HeaderText = "Hardpoints (display only)";
 		_hardpointTotalColumn.Name = "_hardpointTotalColumn";
 		_hardpointTotalColumn.Width = 90;
 		//
 		// _salvageReqColumn
 		//
-		_salvageReqColumn.DataPropertyName = "SalvageReq";
+		_salvageReqColumn.DataPropertyName = nameof(HercStatRow.SalvageReq);
 		_salvageReqColumn.HeaderText = "Price (tons)";
 		_salvageReqColumn.Name = "_salvageReqColumn";
 		_salvageReqColumn.Width = 130;
 		//
 		// _unknownFlagColumn
 		//
-		_unknownFlagColumn.DataPropertyName = "UnknownFlag";
+		_unknownFlagColumn.DataPropertyName = nameof(HercStatRow.UnknownFlag);
 		_unknownFlagColumn.HeaderText = "+0x0A (no reader known)";
 		_unknownFlagColumn.Name = "_unknownFlagColumn";
 		_unknownFlagColumn.Width = 100;
 		//
 		// _buildMissionCountColumn
 		//
-		_buildMissionCountColumn.DataPropertyName = "BuildMissionCount";
+		_buildMissionCountColumn.DataPropertyName = nameof(HercStatRow.BuildMissionCount);
 		_buildMissionCountColumn.HeaderText = "Build Time (missions)";
 		_buildMissionCountColumn.Name = "_buildMissionCountColumn";
 		_buildMissionCountColumn.Width = 140;
 		//
 		// _flagCampaignStartColumn
 		//
-		_flagCampaignStartColumn.DataPropertyName = "FlagCampaignStart";
+		_flagCampaignStartColumn.DataPropertyName = nameof(HercStatRow.FlagCampaignStart);
 		_flagCampaignStartColumn.HeaderText = "Available";
 		_flagCampaignStartColumn.Name = "_flagCampaignStartColumn";
 		_flagCampaignStartColumn.Width = 160;

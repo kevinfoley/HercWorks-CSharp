@@ -1,4 +1,5 @@
 using System.Text;
+using HercWorks.Core.Data.File.Msn;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
@@ -20,7 +21,9 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// a nested waypoint list is resolved against the points loaded so far before its own record's
 /// condition is even tested — so it walks the bytes itself, as the original does. Records are kept as
 /// the original keeps them, as arrays of <c>int16</c> words, and every offset below is the original's
-/// byte offset halved.</para>
+/// byte offset halved. A field a row's model class names is read through the <c>…Word</c> constant
+/// beside that property; the offsets no model property covers — row 2's, row 5's and row 8's count —
+/// are literals.</para>
 ///
 /// <para>Where the original would read outside an array — a variant with no record to copy, a ref to
 /// a row-3 record through an index taken from another space — this leaves the field as it was, which
@@ -165,7 +168,7 @@ public sealed class MissionGenerator {
 			if (record[31] != -1) {
 				short variant = Find(generator._variants, record[31], generator._variants.Count, exported: true);
 				if (variant >= 0 && variant < generator._variants.Count) {
-					record[31] = generator._variants[variant][3];
+					record[31] = generator._variants[variant][VariantValue8.ValueWord];
 				}
 			}
 
@@ -184,35 +187,39 @@ public sealed class MissionGenerator {
 	/// what every later condition ref tests against.
 	/// </summary>
 	private void ReadConditions(Cursor reader) {
+		const int condition = MissionCondition14.ConditionRefWord;
+		const int lower = MissionCondition14.FlagIndexOrRangeLowerWord;
+		const int upper = MissionCondition14.OperatorOrRangeUpperOrResultWord;
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(7);
-			switch (record[2]) {
+			switch (record[MissionCondition14.TypeWord]) {
 				case 0:
-					if (Gate(record[1], _conditions.Count)) {
-						record[4] = Compare(record[4], Flag(record[3]), record[5]) ? (short)1 : (short)0;
-						if (record[4] != 0) {
+					if (Gate(record[condition], _conditions.Count)) {
+						record[upper] = Compare(record[upper], Flag(record[lower]), record[MissionCondition14.ComparisonOperandWord])
+							? (short)1 : (short)0;
+						if (record[upper] != 0) {
 							_conditions.Add(record);
 						}
 					}
 
 					break;
 				case 1:
-					if (Gate(record[1], _conditions.Count)) {
-						record[4] = (short)_roll(record[3]);
+					if (Gate(record[condition], _conditions.Count)) {
+						record[upper] = (short)_roll(record[lower]);
 						_conditions.Add(record);
 					}
 
 					break;
 				case 2:
-					int value = ParentValue(record[1], _conditions.Count);
-					if (value == AnyVariant || ((ushort)record[3] <= value && value <= (ushort)record[4])) {
+					int value = ParentValue(record[condition], _conditions.Count);
+					if (value == AnyVariant || ((ushort)record[lower] <= value && value <= (ushort)record[upper])) {
 						_conditions.Add(record);
 					}
 
 					break;
 				case 3:
-					if (Gate(record[1], _conditions.Count)) {
+					if (Gate(record[condition], _conditions.Count)) {
 						_conditions.Add(record);
 					}
 
@@ -244,7 +251,7 @@ public sealed class MissionGenerator {
 		}
 
 		for (int i = 0; i < count && i < _conditions.Count; i++) {
-			if (_conditions[i][0] == condition) {
+			if (_conditions[i][MapObject.GUIDWord] == condition) {
 				return true;
 			}
 		}
@@ -259,11 +266,11 @@ public sealed class MissionGenerator {
 	private int ParentValue(short condition, int count) {
 		for (int i = 0; i < count; i++) {
 			var record = _conditions[i];
-			if (record[0] == condition && record[2] == 1) {
-				return record[4];
+			if (record[MapObject.GUIDWord] == condition && record[MissionCondition14.TypeWord] == 1) {
+				return record[MissionCondition14.OperatorOrRangeUpperOrResultWord];
 			}
 
-			if (record[0] == condition && record[2] == 3) {
+			if (record[MapObject.GUIDWord] == condition && record[MissionCondition14.TypeWord] == 3) {
 				return AnyVariant;
 			}
 		}
@@ -278,17 +285,21 @@ public sealed class MissionGenerator {
 	/// every call, and returns <c>-1</c> when no type-3 record's child claims the roll.
 	/// </summary>
 	private int PickVariant(short variant) {
+		const int type = MissionCondition14.TypeWord;
+		const int lower = MissionCondition14.FlagIndexOrRangeLowerWord;
+		const int upper = MissionCondition14.OperatorOrRangeUpperOrResultWord;
+		const int draw = MissionCondition14.LatestDrawWord;
 		for (int parent = 0; parent < _conditions.Count; parent++) {
 			var record = _conditions[parent];
-			if (record[2] != 3 || record[3] != variant) {
+			if (record[type] != 3 || record[lower] != variant) {
 				continue;
 			}
 
-			record[6] = (short)_roll(record[5]);
+			record[draw] = (short)_roll(record[MissionCondition14.ComparisonOperandWord]);
 			for (int child = 0; child < _conditions.Count; child++) {
 				var candidate = _conditions[child];
-				if (candidate[2] == 2 && candidate[1] == record[0]
-					&& (ushort)candidate[3] <= record[6] && record[6] <= (ushort)candidate[4]) {
+				if (candidate[type] == 2 && candidate[MissionCondition14.ConditionRefWord] == record[MapObject.GUIDWord]
+					&& (ushort)candidate[lower] <= record[draw] && record[draw] <= (ushort)candidate[upper]) {
 					return child;
 				}
 			}
@@ -308,8 +319,9 @@ public sealed class MissionGenerator {
 			return -1;
 		}
 
-		short guid = _conditions[picked][0];
+		short guid = _conditions[picked][MapObject.GUIDWord];
 		for (int i = 0; i < count; i++) {
+			// Word 1 is the condition ref of every row with a variant key.
 			if (row[i][1] == guid) {
 				return i;
 			}
@@ -460,7 +472,7 @@ public sealed class MissionGenerator {
 
 		short index = 0;
 		for (int i = 0; i < count && i < row.Count; i++) {
-			if (row[i][0] == -1) {
+			if (row[i][MapObject.GUIDWord] == -1) {
 				if (!exported) {
 					index++;
 				}
@@ -468,7 +480,7 @@ public sealed class MissionGenerator {
 				continue;
 			}
 
-			if (row[i][0] == guid) {
+			if (row[i][MapObject.GUIDWord] == guid) {
 				return index;
 			}
 
@@ -485,7 +497,7 @@ public sealed class MissionGenerator {
 
 		short index = 0;
 		for (int i = 0; i < count && i < row.Count; i++) {
-			if (row[i].Words[0] == -1) {
+			if (row[i].Words[MapObject.GUIDWord] == -1) {
 				if (!exported) {
 					index++;
 				}
@@ -493,7 +505,7 @@ public sealed class MissionGenerator {
 				continue;
 			}
 
-			if (row[i].Words[0] == guid) {
+			if (row[i].Words[MapObject.GUIDWord] == guid) {
 				return index;
 			}
 
@@ -511,7 +523,7 @@ public sealed class MissionGenerator {
 	/// the compaction every GUID-keyed row shares. The slot the original read into is reused.
 	/// </summary>
 	private static void AddOrMerge(List<short[]> row, short[] record, Action<short[], short[]> merge) {
-		int existing = Find(row, record[0], row.Count, exported: false);
+		int existing = Find(row, record[MapObject.GUIDWord], row.Count, exported: false);
 		if (existing == -1) {
 			row.Add(record);
 		} else {
@@ -539,7 +551,7 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(4);
-			if (Gate(record[1], _conditions.Count)) {
+			if (Gate(record[VariantValue8.ConditionRefWord], _conditions.Count)) {
 				AddOrMerge(_variants, record, Replace);
 			}
 		}
@@ -558,20 +570,21 @@ public sealed class MissionGenerator {
 				_textSlot0 = record;
 			}
 
-			if (!Gate(record[0], _conditions.Count)) {
+			if (!Gate(record[MissionText144.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			for (int word = 1; word < 71; word++) {
+			for (int word = MissionText144.ObjectiveLinesWord; word < MissionText144.MovieRefWord; word++) {
 				if (record[word] != -1) {
 					record[word] = TextLine(record[word]);
 				}
 			}
 
-			if (record[71] != -1) {
-				short variant = Find(_variants, record[71], _variants.Count, exported: true);
+			const int movie = MissionText144.MovieRefWord;
+			if (record[movie] != -1) {
+				short variant = Find(_variants, record[movie], _variants.Count, exported: true);
 				if (variant >= 0 && variant < _variants.Count) {
-					record[71] = _variants[variant][3];
+					record[movie] = _variants[variant][VariantValue8.ValueWord];
 				}
 			}
 
@@ -588,20 +601,22 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(11);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[MapPoint22.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			if (record[2] != -1 && VariantSource(_points, record[2], _points.Count) is >= 0 and var source) {
-				Copy(_points[source], record, 5, 6);
+			short variantKey = record[MapPoint22.VariantKeyWord];
+			if (variantKey != -1 && VariantSource(_points, variantKey, _points.Count) is >= 0 and var source) {
+				Copy(_points[source], record, MapPoint22.XWord, 6);
 			}
 
-			if (record[4] != 0) {
-				short a = Find(_points, record[5], _points.Count, exported: false);
-				short b = Find(_points, record[7], _points.Count, exported: false);
+			if (record[MapPoint22.SumFlagWord] != 0) {
+				short a = Find(_points, record[MapPoint22.XWord], _points.Count, exported: false);
+				short b = Find(_points, record[MapPoint22.YWord], _points.Count, exported: false);
 				if (a >= 0 && b >= 0) {
 					for (int axis = 0; axis < 3; axis++) {
-						SetInt(record, 5 + axis * 2, GetInt(_points[a], 5 + axis * 2) + GetInt(_points[b], 5 + axis * 2));
+						int at = MapPoint22.XWord + axis * 2;
+						SetInt(record, at, GetInt(_points[a], at) + GetInt(_points[b], at));
 					}
 				}
 			}
@@ -622,12 +637,13 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(5);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[Heading10.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			if (record[2] != -1 && VariantSource(_headings, record[2], _headings.Count) is >= 0 and var source) {
-				record[4] = _headings[source][4];
+			short variantKey = record[Heading10.VariantKeyWord];
+			if (variantKey != -1 && VariantSource(_headings, variantKey, _headings.Count) is >= 0 and var source) {
+				record[Heading10.DegreesWord] = _headings[source][Heading10.DegreesWord];
 			}
 
 			AddOrMerge(_headings, record, Replace);
@@ -647,15 +663,15 @@ public sealed class MissionGenerator {
 				group.Points.Add(Ref(_points, reader.Short()));
 			}
 
-			if (!Gate(group.Words[1], _conditions.Count)) {
+			if (!Gate(group.Words[Data.File.Msn.WaypointGroup.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			if (group.Words[2] != -1) {
-				int picked = PickVariant(group.Words[2]);
+			if (group.Words[Data.File.Msn.WaypointGroup.VariantKeyWord] != -1) {
+				int picked = PickVariant(group.Words[Data.File.Msn.WaypointGroup.VariantKeyWord]);
 				int source = -1;
 				for (int j = 0; picked >= 0 && j < _waypointGroups.Count; j++) {
-					if (_waypointGroups[j].Words[1] == _conditions[picked][0]) {
+					if (_waypointGroups[j].Words[Data.File.Msn.WaypointGroup.ConditionRefWord] == _conditions[picked][MapObject.GUIDWord]) {
 						source = j;
 						break;
 					}
@@ -668,7 +684,7 @@ public sealed class MissionGenerator {
 				}
 			}
 
-			int existing = FindGroup(_waypointGroups, group.Words[0], _waypointGroups.Count, exported: false);
+			int existing = FindGroup(_waypointGroups, group.Words[MapObject.GUIDWord], _waypointGroups.Count, exported: false);
 			if (existing == -1) {
 				_waypointGroups.Add(group);
 			} else {
@@ -682,13 +698,13 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(6);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[TriggerArea12.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			record[4] = Ref(_points, record[4]);
-			if (record[3] == 0) {
-				record[5] = Ref(_points, record[5]);
+			record[TriggerArea12.PointRefWord] = Ref(_points, record[TriggerArea12.PointRefWord]);
+			if (record[TriggerArea12.ShapeWord] == 0) {
+				record[TriggerArea12.SecondPointOrRadiusWord] = Ref(_points, record[TriggerArea12.SecondPointOrRadiusWord]);
 			}
 
 			AddOrMerge(_areas, record, Replace);
@@ -704,28 +720,28 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(41);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[MissionAction82.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			for (int slot = 5; slot < 13; slot++) {
+			for (int slot = MissionAction82.AreaRefsWord; slot < MissionAction82.AreaRefsWord + 8; slot++) {
 				if (record[slot] != -1) {
 					record[slot] = Ref(_areas, record[slot]);
 				}
 			}
 
-			for (int slot = 34; slot < 39; slot++) {
+			for (int slot = MissionAction82.TextRefsWord; slot < MissionAction82.TextRefsWord + 5; slot++) {
 				if (record[slot] != -1) {
 					record[slot] = TextLine(record[slot]);
 				}
 			}
 
 			AddOrMerge(_actions, record, (source, target) => {
-				Overlay(source, target, 3, 10, -1);
-				Overlay(source, target, 14, 20, -1);
-				Overlay(source, target, 34, 5, -1);
-				Overlay(source, target, 39, 1, 0);
-				Overlay(source, target, 40, 1, -1);
+				Overlay(source, target, MissionAction82.TypeWord, 10, -1);
+				Overlay(source, target, MissionAction82.CounterPairsWord, 20, -1);
+				Overlay(source, target, MissionAction82.TextRefsWord, 5, -1);
+				Overlay(source, target, MissionAction82.MessageIdWord, 1, 0);
+				Overlay(source, target, MissionAction82.TargetWord, 1, -1);
 			});
 		}
 	}
@@ -735,20 +751,20 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(15);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[ActionTimer30.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			for (int slot = 3; slot < 15; slot++) {
-				if (slot != 4 && record[slot] != -1) {
+			for (int slot = ActionTimer30.PrimaryActionRefWord; slot < ActionTimer30.SequenceRefsWord + 10; slot++) {
+				if (slot != ActionTimer30.DelayWord && record[slot] != -1) {
 					record[slot] = Ref(_actions, record[slot]);
 				}
 			}
 
 			AddOrMerge(_timers, record, (source, target) => {
-				Overlay(source, target, 3, 1, -1);
-				Overlay(source, target, 4, 1, 0);
-				Overlay(source, target, 5, 10, -1);
+				Overlay(source, target, ActionTimer30.PrimaryActionRefWord, 1, -1);
+				Overlay(source, target, ActionTimer30.DelayWord, 1, 0);
+				Overlay(source, target, ActionTimer30.SequenceRefsWord, 10, -1);
 			});
 		}
 	}
@@ -762,36 +778,36 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(72);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[MechRosterEntry144.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			if (record[2] == -1) {
-				record[35] = Ref(_points, record[35]);
-				record[36] = Ref(_headings, record[36]);
-				record[69] = Ref(_actions, record[69]);
-				record[70] = Ref(_actions, record[70]);
-			} else if (VariantSource(_hercs, record[2], _hercs.Count) is >= 0 and var source) {
+			if (record[MechRosterEntry144.VariantKeyWord] == -1) {
+				record[MechRosterEntry144.PositionRefWord] = Ref(_points, record[MechRosterEntry144.PositionRefWord]);
+				record[MechRosterEntry144.HeadingRefWord] = Ref(_headings, record[MechRosterEntry144.HeadingRefWord]);
+				record[MechRosterEntry144.EngagementActionRefWord] = Ref(_actions, record[MechRosterEntry144.EngagementActionRefWord]);
+				record[MechRosterEntry144.DefeatActionRefWord] = Ref(_actions, record[MechRosterEntry144.DefeatActionRefWord]);
+			} else if (VariantSource(_hercs, record[MechRosterEntry144.VariantKeyWord], _hercs.Count) is >= 0 and var source) {
 				var from = _hercs[source];
-				Copy(from, record, 4, 20);
-				Copy(from, record, 25, 10);
-				Copy(from, record, 35, 2);
-				record[24] = from[24];
-				Copy(from, record, 38, 20);
-				Copy(from, record, 58, 10);
-				Copy(from, record, 68, 4);
+				Copy(from, record, MechRosterEntry144.AiRadarActiveWord, 20);
+				Copy(from, record, MechRosterEntry144.WeaponRefsWord, 10);
+				Copy(from, record, MechRosterEntry144.PositionRefWord, 2);
+				record[MechRosterEntry144.TypeIndexWord] = from[MechRosterEntry144.TypeIndexWord];
+				Copy(from, record, MechRosterEntry144.OutOfActionReportWord, 20);
+				Copy(from, record, MechRosterEntry144.WeaponSecondaryWord, 10);
+				Copy(from, record, MechRosterEntry144.Constant2Word, 4);
 			}
 
 			AddOrMerge(_hercs, record, (source, target) => {
-				Overlay(source, target, 4, 20, 0);
-				Overlay(source, target, 25, 10, -1);
-				Overlay(source, target, 58, 10, HercNoGuidance);
-				Overlay(source, target, 24, 1, -1);
-				Overlay(source, target, 35, 2, -1);
-				Overlay(source, target, 38, 20, -1);
-				Overlay(source, target, 68, 1, 2);
-				Overlay(source, target, 69, 2, -1);
-				Overlay(source, target, 71, 1, 100);
+				Overlay(source, target, MechRosterEntry144.AiRadarActiveWord, 20, 0);
+				Overlay(source, target, MechRosterEntry144.WeaponRefsWord, 10, -1);
+				Overlay(source, target, MechRosterEntry144.WeaponSecondaryWord, 10, HercNoGuidance);
+				Overlay(source, target, MechRosterEntry144.TypeIndexWord, 1, -1);
+				Overlay(source, target, MechRosterEntry144.PositionRefWord, 2, -1);
+				Overlay(source, target, MechRosterEntry144.OutOfActionReportWord, 20, -1);
+				Overlay(source, target, MechRosterEntry144.Constant2Word, 1, 2);
+				Overlay(source, target, MechRosterEntry144.EngagementActionRefWord, 2, -1);
+				Overlay(source, target, MechRosterEntry144.StartingConditionWord, 1, 100);
 			});
 		}
 	}
@@ -804,26 +820,26 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(51);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[FlyerRosterEntry102.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			if (record[2] == -1) {
-				record[24] = Ref(_points, record[24]);
-				record[25] = Ref(_headings, record[25]);
-				record[48] = Ref(_actions, record[48]);
-				record[49] = Ref(_actions, record[49]);
-			} else if (VariantSource(_flyers, record[2], _flyers.Count) is >= 0 and var source) {
+			if (record[FlyerRosterEntry102.VariantKeyWord] == -1) {
+				record[FlyerRosterEntry102.PositionRefWord] = Ref(_points, record[FlyerRosterEntry102.PositionRefWord]);
+				record[FlyerRosterEntry102.HeadingRefWord] = Ref(_headings, record[FlyerRosterEntry102.HeadingRefWord]);
+				record[FlyerRosterEntry102.EngagementActionRefWord] = Ref(_actions, record[FlyerRosterEntry102.EngagementActionRefWord]);
+				record[FlyerRosterEntry102.DefeatActionRefWord] = Ref(_actions, record[FlyerRosterEntry102.DefeatActionRefWord]);
+			} else if (VariantSource(_flyers, record[FlyerRosterEntry102.VariantKeyWord], _flyers.Count) is >= 0 and var source) {
 				var from = _flyers[source];
-				Copy(from, record, 4, 23);
-				Copy(from, record, 28, 23);
+				Copy(from, record, FlyerRosterEntry102.FlagSpanWord, 23);
+				Copy(from, record, FlyerRosterEntry102.OutOfActionReportWord, 23);
 			}
 
 			AddOrMerge(_flyers, record, (source, target) => {
-				Overlay(source, target, 4, 20, 0);
-				Overlay(source, target, 24, 3, -1);
-				Overlay(source, target, 28, 22, -1);
-				Overlay(source, target, 50, 1, 100);
+				Overlay(source, target, FlyerRosterEntry102.FlagSpanWord, 20, 0);
+				Overlay(source, target, FlyerRosterEntry102.PositionRefWord, 3, -1);
+				Overlay(source, target, FlyerRosterEntry102.OutOfActionReportWord, 22, -1);
+				Overlay(source, target, FlyerRosterEntry102.UnkVal_100Word, 1, 100);
 			});
 		}
 	}
@@ -836,25 +852,25 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(31);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[BaseRosterEntry62.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			if (record[2] == -1) {
-				record[5] = Ref(_points, record[5]);
-				record[6] = Ref(_headings, record[6]);
-				record[28] = Ref(_actions, record[28]);
-				record[29] = Ref(_actions, record[29]);
-			} else if (VariantSource(_bases, record[2], _bases.Count) is >= 0 and var source) {
+			if (record[BaseRosterEntry62.VariantKeyWord] == -1) {
+				record[BaseRosterEntry62.PositionRefWord] = Ref(_points, record[BaseRosterEntry62.PositionRefWord]);
+				record[BaseRosterEntry62.HeadingRefWord] = Ref(_headings, record[BaseRosterEntry62.HeadingRefWord]);
+				record[BaseRosterEntry62.EngagementActionRefWord] = Ref(_actions, record[BaseRosterEntry62.EngagementActionRefWord]);
+				record[BaseRosterEntry62.DefeatActionRefWord] = Ref(_actions, record[BaseRosterEntry62.DefeatActionRefWord]);
+			} else if (VariantSource(_bases, record[BaseRosterEntry62.VariantKeyWord], _bases.Count) is >= 0 and var source) {
 				var from = _bases[source];
-				Copy(from, record, 4, 3);
-				Copy(from, record, 8, 23);
+				Copy(from, record, BaseRosterEntry62.TypeIndexWord, 3);
+				Copy(from, record, BaseRosterEntry62.OutOfActionReportWord, 23);
 			}
 
 			AddOrMerge(_bases, record, (source, target) => {
-				Overlay(source, target, 4, 3, -1);
-				Overlay(source, target, 8, 22, -1);
-				Overlay(source, target, 30, 1, 100);
+				Overlay(source, target, BaseRosterEntry62.TypeIndexWord, 3, -1);
+				Overlay(source, target, BaseRosterEntry62.OutOfActionReportWord, 22, -1);
+				Overlay(source, target, BaseRosterEntry62.TrailingFieldWord, 1, 100);
 			});
 		}
 	}
@@ -869,25 +885,26 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(11);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[MissionOrder22.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			if (record[2] == -1) {
-				record[6] = Ref(_points, record[6]);
-				record[7] = FindGroup(_waypointGroups, record[7], _waypointGroups.Count, exported: true);
-				record[10] = Ref(_actions, record[10]);
-				record[9] = record[8] switch {
-					1 => Ref(_hercs, record[9]),
-					2 => Ref(_flyers, record[9]),
-					3 => Ref(_bases, record[9]),
-					_ => record[9],
+			if (record[MissionOrder22.VariantKeyWord] == -1) {
+				const int subject = MissionOrder22.SubjectRefWord;
+				record[MissionOrder22.PointRefWord] = Ref(_points, record[MissionOrder22.PointRefWord]);
+				record[MissionOrder22.RouteRefWord] = FindGroup(_waypointGroups, record[MissionOrder22.RouteRefWord], _waypointGroups.Count, exported: true);
+				record[MissionOrder22.ActionRefWord] = Ref(_actions, record[MissionOrder22.ActionRefWord]);
+				record[subject] = record[MissionOrder22.SubjectKindWord] switch {
+					1 => Ref(_hercs, record[subject]),
+					2 => Ref(_flyers, record[subject]),
+					3 => Ref(_bases, record[subject]),
+					_ => record[subject],
 				};
-			} else if (VariantSource(_orders, record[2], _orders.Count) is >= 0 and var source) {
-				Copy(_orders[source], record, 4, 7);
+			} else if (VariantSource(_orders, record[MissionOrder22.VariantKeyWord], _orders.Count) is >= 0 and var source) {
+				Copy(_orders[source], record, MissionOrder22.VerbWord, 7);
 			}
 
-			AddOrMerge(_orders, record, (source, target) => Overlay(source, target, 4, 7, -1));
+			AddOrMerge(_orders, record, (source, target) => Overlay(source, target, MissionOrder22.VerbWord, 7, -1));
 		}
 	}
 
@@ -900,20 +917,20 @@ public sealed class MissionGenerator {
 		int count = reader.Short();
 		for (int i = 0; i < count; i++) {
 			short[] record = reader.Words(82);
-			if (!Gate(record[1], _conditions.Count)) {
+			if (!Gate(record[MissionGroup164.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			record[25] = Ref(_points, record[25]);
-			record[26] = Ref(_headings, record[26]);
-			record[27] = FindGroup(_waypointGroups, record[27], _waypointGroups.Count, exported: true);
-			record[59] = Ref(_actions, record[59]);
-			for (int slot = 28; slot < 48; slot++) {
+			record[MissionGroup164.PositionRefWord] = Ref(_points, record[MissionGroup164.PositionRefWord]);
+			record[MissionGroup164.HeadingRefWord] = Ref(_headings, record[MissionGroup164.HeadingRefWord]);
+			record[MissionGroup164.RouteRefWord] = FindGroup(_waypointGroups, record[MissionGroup164.RouteRefWord], _waypointGroups.Count, exported: true);
+			record[MissionGroup164.DeploymentActionRefWord] = Ref(_actions, record[MissionGroup164.DeploymentActionRefWord]);
+			for (int slot = MissionGroup164.MemberRefsWord; slot < MissionGroup164.MemberRefsWord + 20; slot++) {
 				if (record[slot] == -1) {
 					continue;
 				}
 
-				record[slot] = record[23] switch {
+				record[slot] = record[MissionGroup164.MemberKindWord] switch {
 					0 => Ref(_hercs, record[slot]),
 					1 => Ref(_flyers, record[slot]),
 					2 => Ref(_bases, record[slot]),
@@ -921,16 +938,16 @@ public sealed class MissionGenerator {
 				};
 			}
 
-			for (int slot = 48; slot < 58; slot++) {
+			for (int slot = MissionGroup164.OrderRefsWord; slot < MissionGroup164.OrderRefsWord + 10; slot++) {
 				record[slot] = Ref(_orders, record[slot]);
 			}
 
 			AddOrMerge(_groups, record, (source, target) => {
-				Overlay(source, target, 3, 20, 0);
-				Overlay(source, target, 28, 30, -1);
-				Overlay(source, target, 23, 5, -1);
-				Overlay(source, target, 58, 2, -1);
-				Overlay(source, target, 61, 21, -1);
+				Overlay(source, target, MissionGroup164.PaintsGroundWord, 20, 0);
+				Overlay(source, target, MissionGroup164.MemberRefsWord, 30, -1);
+				Overlay(source, target, MissionGroup164.MemberKindWord, 5, -1);
+				Overlay(source, target, MissionGroup164.SideWord, 2, -1);
+				Overlay(source, target, MissionGroup164.OutOfActionReportWord, 21, -1);
 			});
 		}
 	}
@@ -942,18 +959,19 @@ public sealed class MissionGenerator {
 	/// </summary>
 	private void ResolveDeferredRefs() {
 		foreach (var order in _orders) {
-			if (order[8] == 0) {
-				order[9] = Ref(_groups, order[9]);
+			if (order[MissionOrder22.SubjectKindWord] == 0) {
+				order[MissionOrder22.SubjectRefWord] = Ref(_groups, order[MissionOrder22.SubjectRefWord]);
 			}
 		}
 
+		const int target = MissionAction82.TargetWord;
 		foreach (var action in _actions) {
-			action[40] = action[3] switch {
-				7 => Ref(_hercs, action[40]),
-				8 => Ref(_flyers, action[40]),
-				9 => Ref(_bases, action[40]),
-				10 => Ref(_groups, action[40]),
-				_ => action[40],
+			action[target] = action[MissionAction82.TypeWord] switch {
+				7 => Ref(_hercs, action[target]),
+				8 => Ref(_flyers, action[target]),
+				9 => Ref(_bases, action[target]),
+				10 => Ref(_groups, action[target]),
+				_ => action[target],
 			};
 		}
 	}
@@ -971,19 +989,20 @@ public sealed class MissionGenerator {
 			}
 
 			short[] record = reader.Words(29);
-			if (!Gate(record[0], _conditions.Count)) {
+			if (!Gate(record[MissionObjective58.ConditionRefWord], _conditions.Count)) {
 				continue;
 			}
 
-			record[5] = Ref(_points, record[5]);
-			record[6] = FindGroup(_waypointGroups, record[6], _waypointGroups.Count, exported: true);
-			record[7] = TextLine(record[7]);
-			record[4] = record[3] switch {
-				0 => Ref(_groups, record[4]),
-				1 => Ref(_hercs, record[4]),
-				2 => Ref(_flyers, record[4]),
-				3 => Ref(_bases, record[4]),
-				_ => record[4],
+			const int subject = MissionObjective58.SubjectRefWord;
+			record[MissionObjective58.PointRefWord] = Ref(_points, record[MissionObjective58.PointRefWord]);
+			record[MissionObjective58.RouteRefWord] = FindGroup(_waypointGroups, record[MissionObjective58.RouteRefWord], _waypointGroups.Count, exported: true);
+			record[MissionObjective58.TextRefWord] = TextLine(record[MissionObjective58.TextRefWord]);
+			record[subject] = record[MissionObjective58.SubjectKindWord] switch {
+				0 => Ref(_groups, record[subject]),
+				1 => Ref(_hercs, record[subject]),
+				2 => Ref(_flyers, record[subject]),
+				3 => Ref(_bases, record[subject]),
+				_ => record[subject],
 			};
 
 			_objectives.Add(record);
@@ -1006,7 +1025,7 @@ public sealed class MissionGenerator {
 
 			var group = _groups[0];
 			int positions = 1;
-			while (28 + positions < group.Length && group[28 + positions] != -1) {
+			while (MissionGroup164.MemberRefsWord + positions < group.Length && group[MissionGroup164.MemberRefsWord + positions] != -1) {
 				positions++;
 			}
 
@@ -1024,7 +1043,7 @@ public sealed class MissionGenerator {
 
 	/// <summary>Group 0's member slot <paramref name="slot"/> — a HERC's <c>script.dat</c> index, or <c>-1</c>.</summary>
 	public short SquadMember(int slot) =>
-		_groups.Count > 0 && slot >= 0 && slot < 20 ? _groups[0][28 + slot] : (short)-1;
+		_groups.Count > 0 && slot >= 0 && slot < 20 ? _groups[0][MissionGroup164.MemberRefsWord + slot] : (short)-1;
 
 	/// <summary>
 	/// The HERC a <c>script.dat</c> index names — <c>MsnGen_HercArrayIndex</c> (<c>0041c23e</c>), which counts past the records with
@@ -1040,7 +1059,7 @@ public sealed class MissionGenerator {
 					return null;
 				}
 
-				if (_hercs[index][0] != -1) {
+				if (_hercs[index][MapObject.GUIDWord] != -1) {
 					seen++;
 				}
 
@@ -1048,7 +1067,7 @@ public sealed class MissionGenerator {
 			} while (seen < exportedIndex);
 		}
 
-		while (index < _hercs.Count && _hercs[index][0] == -1) {
+		while (index < _hercs.Count && _hercs[index][MapObject.GUIDWord] == -1) {
 			index++;
 		}
 
@@ -1057,7 +1076,10 @@ public sealed class MissionGenerator {
 		}
 
 		var record = _hercs[index];
-		return new MissionHerc(record[24], record[25..35], record[58..68]);
+		return new MissionHerc(
+			record[MechRosterEntry144.TypeIndexWord],
+			record[MechRosterEntry144.WeaponRefsWord..(MechRosterEntry144.WeaponRefsWord + 10)],
+			record[MechRosterEntry144.WeaponSecondaryWord..(MechRosterEntry144.WeaponSecondaryWord + 10)]);
 	}
 
 	// ---- The writers ------------------------------------------------------------------------------
@@ -1078,18 +1100,18 @@ public sealed class MissionGenerator {
 		var points = Exported(_points);
 		writer.Write((short)points.Count);
 		foreach (var point in points) {
-			writer.Write(GetInt(point, 5));
-			writer.Write(GetInt(point, 7));
-			writer.Write(GetInt(point, 9));
+			writer.Write(GetInt(point, MapPoint22.XWord));
+			writer.Write(GetInt(point, MapPoint22.YWord));
+			writer.Write(GetInt(point, MapPoint22.ZWord));
 		}
 
 		var headings = Exported(_headings);
 		writer.Write((short)headings.Count);
 		foreach (var heading in headings) {
-			writer.Write(heading[4]);
+			writer.Write(heading[Heading10.DegreesWord]);
 		}
 
-		var groupsOfPoints = _waypointGroups.Where(group => group.Words[0] != -1).ToList();
+		var groupsOfPoints = _waypointGroups.Where(group => group.Words[MapObject.GUIDWord] != -1).ToList();
 		writer.Write((short)groupsOfPoints.Count);
 		foreach (var group in groupsOfPoints) {
 			writer.Write(group.Words[4]);
@@ -1098,39 +1120,39 @@ public sealed class MissionGenerator {
 			}
 		}
 
-		WriteBlock(writer, _areas, record => Words(writer, record, 3, 3));
+		WriteBlock(writer, _areas, record => Words(writer, record, TriggerArea12.ShapeWord, 3));
 		WriteBlock(writer, _actions, record => {
-			Words(writer, record, 3, 10);
-			Interleaved(writer, record, 14);
-			Words(writer, record, 34, 7);
+			Words(writer, record, MissionAction82.TypeWord, 10);
+			Interleaved(writer, record, MissionAction82.CounterPairsWord);
+			Words(writer, record, MissionAction82.TextRefsWord, 7);
 		});
-		WriteBlock(writer, _timers, record => Words(writer, record, 3, 12));
+		WriteBlock(writer, _timers, record => Words(writer, record, ActionTimer30.PrimaryActionRefWord, 12));
 		WriteBlock(writer, _hercs, record => {
-			Words(writer, record, 4, 33);
-			Interleaved(writer, record, 38);
-			Words(writer, record, 58, 14);
+			Words(writer, record, MechRosterEntry144.AiRadarActiveWord, 33);
+			Interleaved(writer, record, MechRosterEntry144.OutOfActionReportWord);
+			Words(writer, record, MechRosterEntry144.WeaponSecondaryWord, 14);
 		});
 		WriteBlock(writer, _flyers, record => {
-			Words(writer, record, 4, 23);
-			Interleaved(writer, record, 28);
-			Words(writer, record, 48, 3);
+			Words(writer, record, FlyerRosterEntry102.FlagSpanWord, 23);
+			Interleaved(writer, record, FlyerRosterEntry102.OutOfActionReportWord);
+			Words(writer, record, FlyerRosterEntry102.EngagementActionRefWord, 3);
 		});
 		WriteBlock(writer, _bases, record => {
-			Words(writer, record, 4, 3);
-			Interleaved(writer, record, 8);
-			Words(writer, record, 28, 3);
+			Words(writer, record, BaseRosterEntry62.TypeIndexWord, 3);
+			Interleaved(writer, record, BaseRosterEntry62.OutOfActionReportWord);
+			Words(writer, record, BaseRosterEntry62.EngagementActionRefWord, 3);
 		});
-		WriteBlock(writer, _orders, record => Words(writer, record, 4, 7));
+		WriteBlock(writer, _orders, record => Words(writer, record, MissionOrder22.VerbWord, 7));
 		WriteBlock(writer, _groups, record => {
-			Words(writer, record, 3, 57);
-			Interleaved(writer, record, 61);
-			Words(writer, record, 81, 1);
+			Words(writer, record, MissionGroup164.PaintsGroundWord, 57);
+			Interleaved(writer, record, MissionGroup164.OutOfActionReportWord);
+			Words(writer, record, MissionGroup164.MapShownWord, 1);
 		});
 
 		writer.Write((short)_objectives.Count);
 		foreach (var objective in _objectives) {
-			Words(writer, objective, 1, 7);
-			Interleaved(writer, objective, 9);
+			Words(writer, objective, MissionObjective58.RequiredWord, 7);
+			Interleaved(writer, objective, MissionObjective58.PairsWord);
 		}
 
 		var package = TextPackage;
@@ -1138,14 +1160,14 @@ public sealed class MissionGenerator {
 			writer.Write((short)0);
 		} else {
 			short lines = 0;
-			for (int word = 1; word <= 10; word++) {
+			for (int word = MissionText144.ObjectiveLinesWord; word < MissionText144.ObjectiveLinesWord + 10; word++) {
 				if (package[word] != -1) {
 					lines++;
 				}
 			}
 
 			writer.Write(lines);
-			Words(writer, package, 1, lines);
+			Words(writer, package, MissionText144.ObjectiveLinesWord, lines);
 		}
 
 		writer.Flush();
@@ -1187,7 +1209,7 @@ public sealed class MissionGenerator {
 			return Encoding.ASCII.GetString(entry.Text, 0, length < 0 ? entry.Text.Length : length);
 		}).ToList();
 
-	private static List<short[]> Exported(IReadOnlyList<short[]> row) => row.Where(record => record[0] != -1).ToList();
+	private static List<short[]> Exported(IReadOnlyList<short[]> row) => row.Where(record => record[MapObject.GUIDWord] != -1).ToList();
 
 	private static void WriteBlock(BinaryWriter writer, IReadOnlyList<short[]> row, Action<short[]> write) {
 		var records = Exported(row);

@@ -9,24 +9,29 @@ namespace HercWorks.Core.Data.File.Msn;
 public class FlyerRosterEntry102 : MapObject {
 	/// <summary>0x02 — condition ref.</summary>
 	public short ConditionRef { get; set; }
+	public const int ConditionRefWord = 0x02 / 2;
 
 	/// <summary>
 	/// 0x04 — variant key: unless <c>-1</c>, everything from 0x08 to 0x65 except <see cref="PairCount"/>
 	/// is copied from a randomly picked variant (docs/formats/msn-mission-file.md#variants).
 	/// </summary>
 	public short VariantKey { get; set; }
+	public const int VariantKeyWord = 0x04 / 2;
 
 	/// <summary>0x06 — always -1 in retail; the load does not read it.</summary>
 	public short Unk06 { get; set; }
 
 	/// <summary>0x08-0x2F — 20 shorts, each 0 or 1. What reads them is open (docs/formats/msn-mission-file.md#open).</summary>
 	public short[] FlagSpan { get; set; } = new short[20];
+	public const int FlagSpanWord = 0x08 / 2;
 
 	/// <summary>0x30 — ref into row #6 (<see cref="MapPoint22"/>): a spawn-position override.</summary>
 	public short PositionRef { get; set; }
+	public const int PositionRefWord = 0x30 / 2;
 
 	/// <summary>0x32 — ref into row #7 (<see cref="Heading10"/>): a heading override.</summary>
 	public short HeadingRef { get; set; }
+	public const int HeadingRefWord = 0x32 / 2;
 
 	/// <summary>0x34 — the flyer type, an index into <c>nam\FLYERS.NAM</c>.</summary>
 	public short TypeIndex { get; set; }
@@ -40,13 +45,17 @@ public class FlyerRosterEntry102 : MapObject {
 	/// <see cref="Script.ScriptFlyerRecord.CounterRefs"/> and <see cref="Script.ScriptFlyerRecord.CounterOps"/>.
 	/// </summary>
 	public short[] OutOfActionReport { get; set; } = new short[20];
+	public const int OutOfActionReportWord = 0x38 / 2;
 
 	/// <summary>0x60 — ref into row #10 (<see cref="MissionAction82"/>): the action this flyer fires when it is engaged.</summary>
 	public short EngagementActionRef { get; set; }
+	public const int EngagementActionRefWord = 0x60 / 2;
 
 	/// <summary>0x62 — ref into row #10: the action this flyer fires when it is defeated.</summary>
 	public short DefeatActionRef { get; set; }
+	public const int DefeatActionRefWord = 0x62 / 2;
 
 	/// <summary>0x64 — always 100 in retail; what reads it is open (docs/formats/msn-mission-file.md#open).</summary>
 	public short UnkVal_100 { get; set; }
+	public const int UnkVal_100Word = 0x64 / 2;
 }

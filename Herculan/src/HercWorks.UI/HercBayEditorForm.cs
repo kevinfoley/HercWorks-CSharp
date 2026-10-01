@@ -26,11 +26,8 @@ public partial class HercBayEditorForm : Form {
 		InitializeComponent();
 		Text = title;
 
-		_weaponSocketColumn.DataPropertyName = nameof(HercWeaponRow.SocketId);
 		_weaponIdColumn.Items.AddRange(WeaponLUT.Values().Cast<object>().ToArray());
-		_weaponIdColumn.DataPropertyName = nameof(HercWeaponRow.WeaponId);
 		_weaponMissileColumn.Items.AddRange(MissileType.Values().Cast<object>().ToArray());
-		_weaponMissileColumn.DataPropertyName = nameof(HercWeaponRow.MissileType);
 
 		foreach (var external in HercExternals.Values()) {
 			var part = entry.ExternalConditions?.GetValueOrDefault(external) ?? new ShellHercPart(external.Id, external.Label);

@@ -9,33 +9,41 @@ namespace HercWorks.Core.Data.File.Msn;
 public class MissionObjective58 {
 	/// <summary>0x00 — condition ref. Not exported to <c>script.dat</c>.</summary>
 	public short ConditionRef { get; set; }
+	public const int ConditionRefWord = 0x00 / 2;
 
 	/// <summary>0x02 — 1 when the objective must be satisfied; anything else makes it a failure condition.</summary>
 	public short Required { get; set; }
+	public const int RequiredWord = 0x02 / 2;
 
 	/// <summary>0x04 — the condition code, 0-7, that the objective tests.</summary>
 	public short ConditionCode { get; set; }
 
 	/// <summary>0x06 — what <see cref="SubjectRef"/> names: 0 a group (row #16), 1 a mech (#12), 2 a flyer (#13), 3 a base (#14).</summary>
 	public short SubjectKind { get; set; }
+	public const int SubjectKindWord = 0x06 / 2;
 
 	/// <summary>0x08 — the objective's subject, per <see cref="SubjectKind"/>.</summary>
 	public short SubjectRef { get; set; }
+	public const int SubjectRefWord = 0x08 / 2;
 
 	/// <summary>0x0A — ref into row #6 (<see cref="MapPoint22"/>); no condition reads it.</summary>
 	public short PointRef { get; set; }
+	public const int PointRefWord = 0x0A / 2;
 
 	/// <summary>0x0C — ref into row #8 (<see cref="WaypointGroup"/>): the waypoint group condition 0 asks about.</summary>
 	public short RouteRef { get; set; }
+	public const int RouteRefWord = 0x0C / 2;
 
 	/// <summary>0x0E — the failure text, an <c>.ENG</c> id: the first of three consecutive lines.</summary>
 	public short TextRef { get; set; }
+	public const int TextRefWord = 0x0E / 2;
 
 	/// <summary>0x10 — how many of <see cref="Pairs"/> are filled, from the front. Not exported to <c>script.dat</c>.</summary>
 	public short PairCount { get; set; }
 
 	/// <summary>0x12-0x39 — the mission counters the objective writes, unused slots <c>-1</c>/<c>-1</c>.</summary>
 	public CounterPair[] Pairs { get; set; } = new CounterPair[10];
+	public const int PairsWord = 0x12 / 2;
 }
 
 /// <summary>One (counter ref, operation) pair of <see cref="MissionObjective58.Pairs"/> — 4 bytes on disk.</summary>

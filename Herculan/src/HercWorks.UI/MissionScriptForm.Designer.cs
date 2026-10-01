@@ -504,7 +504,7 @@ partial class MissionScriptForm {
 		//
 		// _ptIndexColumn
 		//
-		_ptIndexColumn.DataPropertyName = "Index";
+		_ptIndexColumn.DataPropertyName = nameof(ScriptPointRow.Index);
 		_ptIndexColumn.HeaderText = "#";
 		_ptIndexColumn.Name = "_ptIndexColumn";
 		_ptIndexColumn.ReadOnly = true;
@@ -512,21 +512,21 @@ partial class MissionScriptForm {
 		//
 		// _ptXColumn
 		//
-		_ptXColumn.DataPropertyName = "X";
+		_ptXColumn.DataPropertyName = nameof(ScriptPointRow.X);
 		_ptXColumn.HeaderText = "X";
 		_ptXColumn.Name = "_ptXColumn";
 		_ptXColumn.Width = 120;
 		//
 		// _ptYColumn
 		//
-		_ptYColumn.DataPropertyName = "Y";
+		_ptYColumn.DataPropertyName = nameof(ScriptPointRow.Y);
 		_ptYColumn.HeaderText = "Y";
 		_ptYColumn.Name = "_ptYColumn";
 		_ptYColumn.Width = 120;
 		//
 		// _ptZColumn
 		//
-		_ptZColumn.DataPropertyName = "Z";
+		_ptZColumn.DataPropertyName = nameof(ScriptPointRow.Z);
 		_ptZColumn.HeaderText = "Z";
 		_ptZColumn.Name = "_ptZColumn";
 		_ptZColumn.Width = 120;
@@ -560,7 +560,7 @@ partial class MissionScriptForm {
 		//
 		// _hdIndexColumn
 		//
-		_hdIndexColumn.DataPropertyName = "Index";
+		_hdIndexColumn.DataPropertyName = nameof(ScriptHeadingRow.Index);
 		_hdIndexColumn.HeaderText = "#";
 		_hdIndexColumn.Name = "_hdIndexColumn";
 		_hdIndexColumn.ReadOnly = true;
@@ -568,14 +568,14 @@ partial class MissionScriptForm {
 		//
 		// _hdDegreesColumn
 		//
-		_hdDegreesColumn.DataPropertyName = "Degrees";
+		_hdDegreesColumn.DataPropertyName = nameof(ScriptHeadingRow.Degrees);
 		_hdDegreesColumn.HeaderText = "Degrees";
 		_hdDegreesColumn.Name = "_hdDegreesColumn";
 		_hdDegreesColumn.Width = 100;
 		//
 		// _hdBamColumn
 		//
-		_hdBamColumn.DataPropertyName = "Bam";
+		_hdBamColumn.DataPropertyName = nameof(ScriptHeadingRow.Bam);
 		_hdBamColumn.HeaderText = "BAM at load (× 182)";
 		_hdBamColumn.Name = "_hdBamColumn";
 		_hdBamColumn.ReadOnly = true;
@@ -611,7 +611,7 @@ partial class MissionScriptForm {
 		//
 		// _rtIndexColumn
 		//
-		_rtIndexColumn.DataPropertyName = "Index";
+		_rtIndexColumn.DataPropertyName = nameof(ScriptRouteRow.Index);
 		_rtIndexColumn.HeaderText = "#";
 		_rtIndexColumn.Name = "_rtIndexColumn";
 		_rtIndexColumn.ReadOnly = true;
@@ -619,7 +619,7 @@ partial class MissionScriptForm {
 		//
 		// _rtCountColumn
 		//
-		_rtCountColumn.DataPropertyName = "Count";
+		_rtCountColumn.DataPropertyName = nameof(ScriptRouteRow.Count);
 		_rtCountColumn.HeaderText = "Waypoints";
 		_rtCountColumn.Name = "_rtCountColumn";
 		_rtCountColumn.ReadOnly = true;
@@ -627,7 +627,7 @@ partial class MissionScriptForm {
 		//
 		// _rtWaypointsColumn
 		//
-		_rtWaypointsColumn.DataPropertyName = "Waypoints";
+		_rtWaypointsColumn.DataPropertyName = nameof(ScriptRouteRow.Waypoints);
 		_rtWaypointsColumn.HeaderText = "Point refs (in order, any length)";
 		_rtWaypointsColumn.Name = "_rtWaypointsColumn";
 		_rtWaypointsColumn.Width = 700;
@@ -661,7 +661,7 @@ partial class MissionScriptForm {
 		//
 		// _lrIndexColumn
 		//
-		_lrIndexColumn.DataPropertyName = "Index";
+		_lrIndexColumn.DataPropertyName = nameof(ScriptTriggerAreaRow.Index);
 		_lrIndexColumn.HeaderText = "#";
 		_lrIndexColumn.Name = "_lrIndexColumn";
 		_lrIndexColumn.ReadOnly = true;
@@ -669,21 +669,21 @@ partial class MissionScriptForm {
 		//
 		// _lrTypeColumn
 		//
-		_lrTypeColumn.DataPropertyName = "Shape";
+		_lrTypeColumn.DataPropertyName = nameof(ScriptTriggerAreaRow.Shape);
 		_lrTypeColumn.HeaderText = "Type (0 box / else radius)";
 		_lrTypeColumn.Name = "_lrTypeColumn";
 		_lrTypeColumn.Width = 80;
 		//
 		// _lrRefAColumn
 		//
-		_lrRefAColumn.DataPropertyName = "PointRef";
+		_lrRefAColumn.DataPropertyName = nameof(ScriptTriggerAreaRow.PointRef);
 		_lrRefAColumn.HeaderText = "Point ref";
 		_lrRefAColumn.Name = "_lrRefAColumn";
 		_lrRefAColumn.Width = 100;
 		//
 		// _lrRefBColumn
 		//
-		_lrRefBColumn.DataPropertyName = "SecondPointOrRadius";
+		_lrRefBColumn.DataPropertyName = nameof(ScriptTriggerAreaRow.SecondPointOrRadius);
 		_lrRefBColumn.HeaderText = "Box corner point ref / radius ÷ 10";
 		_lrRefBColumn.Name = "_lrRefBColumn";
 		_lrRefBColumn.Width = 120;
@@ -718,7 +718,7 @@ partial class MissionScriptForm {
 		//
 		// _acIndexColumn
 		//
-		_acIndexColumn.DataPropertyName = "Index";
+		_acIndexColumn.DataPropertyName = nameof(ScriptActionRow.Index);
 		_acIndexColumn.HeaderText = "#";
 		_acIndexColumn.Name = "_acIndexColumn";
 		_acIndexColumn.ReadOnly = true;
@@ -726,56 +726,56 @@ partial class MissionScriptForm {
 		//
 		// _acTypeColumn
 		//
-		_acTypeColumn.DataPropertyName = "Type";
+		_acTypeColumn.DataPropertyName = nameof(ScriptActionRow.Type);
 		_acTypeColumn.HeaderText = "Type (whose position)";
 		_acTypeColumn.Name = "_acTypeColumn";
 		_acTypeColumn.Width = 60;
 		//
 		// _acVerbColumn
 		//
-		_acVerbColumn.DataPropertyName = "Verb";
+		_acVerbColumn.DataPropertyName = nameof(ScriptActionRow.Verb);
 		_acVerbColumn.HeaderText = "Verb (how a group arrives)";
 		_acVerbColumn.Name = "_acVerbColumn";
 		_acVerbColumn.Width = 60;
 		//
 		// _acSecondaryColumn
 		//
-		_acSecondaryColumn.DataPropertyName = "MessageId";
+		_acSecondaryColumn.DataPropertyName = nameof(ScriptActionRow.MessageId);
 		_acSecondaryColumn.HeaderText = "Message + 1 (0 = none)";
 		_acSecondaryColumn.Name = "_acSecondaryColumn";
 		_acSecondaryColumn.Width = 80;
 		//
 		// _acTargetColumn
 		//
-		_acTargetColumn.DataPropertyName = "Target";
+		_acTargetColumn.DataPropertyName = nameof(ScriptActionRow.Target);
 		_acTargetColumn.HeaderText = "Target ref";
 		_acTargetColumn.Name = "_acTargetColumn";
 		_acTargetColumn.Width = 70;
 		//
 		// _acRefsColumn
 		//
-		_acRefsColumn.DataPropertyName = "AreaRefs";
+		_acRefsColumn.DataPropertyName = nameof(ScriptActionRow.AreaRefs);
 		_acRefsColumn.HeaderText = "Trigger area refs (8)";
 		_acRefsColumn.Name = "_acRefsColumn";
 		_acRefsColumn.Width = 220;
 		//
 		// _acLutRefsColumn
 		//
-		_acLutRefsColumn.DataPropertyName = "TextRefs";
+		_acLutRefsColumn.DataPropertyName = nameof(ScriptActionRow.TextRefs);
 		_acLutRefsColumn.HeaderText = "Text lines (5, unread by DBSIM)";
 		_acLutRefsColumn.Name = "_acLutRefsColumn";
 		_acLutRefsColumn.Width = 160;
 		//
 		// _acArrayAColumn
 		//
-		_acArrayAColumn.DataPropertyName = "CounterRefs";
+		_acArrayAColumn.DataPropertyName = nameof(ScriptActionRow.CounterRefs);
 		_acArrayAColumn.HeaderText = "Mission counter refs (10)";
 		_acArrayAColumn.Name = "_acArrayAColumn";
 		_acArrayAColumn.Width = 200;
 		//
 		// _acArrayBColumn
 		//
-		_acArrayBColumn.DataPropertyName = "CounterOps";
+		_acArrayBColumn.DataPropertyName = nameof(ScriptActionRow.CounterOps);
 		_acArrayBColumn.HeaderText = "Counter operations (10: 6 increment, 5 clear)";
 		_acArrayBColumn.Name = "_acArrayBColumn";
 		_acArrayBColumn.Width = 200;
@@ -809,7 +809,7 @@ partial class MissionScriptForm {
 		//
 		// _apIndexColumn
 		//
-		_apIndexColumn.DataPropertyName = "Index";
+		_apIndexColumn.DataPropertyName = nameof(ScriptActionTimerRow.Index);
 		_apIndexColumn.HeaderText = "#";
 		_apIndexColumn.Name = "_apIndexColumn";
 		_apIndexColumn.ReadOnly = true;
@@ -817,21 +817,21 @@ partial class MissionScriptForm {
 		//
 		// _apPrimaryColumn
 		//
-		_apPrimaryColumn.DataPropertyName = "PrimaryActionRef";
+		_apPrimaryColumn.DataPropertyName = nameof(ScriptActionTimerRow.PrimaryActionRef);
 		_apPrimaryColumn.HeaderText = "Arming action ref (-1 = mission start)";
 		_apPrimaryColumn.Name = "_apPrimaryColumn";
 		_apPrimaryColumn.Width = 90;
 		//
 		// _apTimerColumn
 		//
-		_apTimerColumn.DataPropertyName = "Delay";
+		_apTimerColumn.DataPropertyName = nameof(ScriptActionTimerRow.Delay);
 		_apTimerColumn.HeaderText = "Delay (seconds)";
 		_apTimerColumn.Name = "_apTimerColumn";
 		_apTimerColumn.Width = 100;
 		//
 		// _apSequenceColumn
 		//
-		_apSequenceColumn.DataPropertyName = "SequenceRefs";
+		_apSequenceColumn.DataPropertyName = nameof(ScriptActionTimerRow.SequenceRefs);
 		_apSequenceColumn.HeaderText = "Actions fired on expiry (10)";
 		_apSequenceColumn.Name = "_apSequenceColumn";
 		_apSequenceColumn.Width = 500;
@@ -882,7 +882,7 @@ partial class MissionScriptForm {
 		//
 		// _mechIndexColumn
 		//
-		_mechIndexColumn.DataPropertyName = "Index";
+		_mechIndexColumn.DataPropertyName = nameof(ScriptMechRow.Index);
 		_mechIndexColumn.HeaderText = "#";
 		_mechIndexColumn.Name = "_mechIndexColumn";
 		_mechIndexColumn.ReadOnly = true;
@@ -892,58 +892,58 @@ partial class MissionScriptForm {
 		//
 		// Items are filled per load (see MissionScriptForm.BindHercTypes) so that a type the file
 		// carries but MECHS.NAM has no name for still has an entry to select.
-		_mechTypeColumn.DataPropertyName = "HercType";
-		_mechTypeColumn.DisplayMember = "Label";
+		_mechTypeColumn.DataPropertyName = nameof(ScriptMechRow.HercType);
+		_mechTypeColumn.DisplayMember = nameof(HercTypeOption.Label);
 		_mechTypeColumn.HeaderText = "Herc Type";
 		_mechTypeColumn.Name = "_mechTypeColumn";
-		_mechTypeColumn.ValueMember = "Id";
+		_mechTypeColumn.ValueMember = nameof(HercTypeOption.Id);
 		_mechTypeColumn.Width = 170;
 		//
 		// _mechPositionColumn
 		//
-		_mechPositionColumn.DataPropertyName = "PositionRef";
+		_mechPositionColumn.DataPropertyName = nameof(ScriptMechRow.PositionRef);
 		_mechPositionColumn.HeaderText = "Point ref";
 		_mechPositionColumn.Name = "_mechPositionColumn";
 		_mechPositionColumn.Width = 90;
 		//
 		// _mechHeadingColumn
 		//
-		_mechHeadingColumn.DataPropertyName = "HeadingRef";
+		_mechHeadingColumn.DataPropertyName = nameof(ScriptMechRow.HeadingRef);
 		_mechHeadingColumn.HeaderText = "Heading ref";
 		_mechHeadingColumn.Name = "_mechHeadingColumn";
 		_mechHeadingColumn.Width = 90;
 		// 
 		// _mechRadarColumn
 		// 
-		_mechRadarColumn.DataPropertyName = "AiRadarActive";
+		_mechRadarColumn.DataPropertyName = nameof(ScriptMechRow.AiRadarActive);
 		_mechRadarColumn.HeaderText = "AI radar active (0/1)";
 		_mechRadarColumn.Name = "_mechRadarColumn";
 		_mechRadarColumn.Width = 90;
 		// 
 		// _mechSpeedColumn
 		// 
-		_mechSpeedColumn.DataPropertyName = "AiCruiseSpeed";
+		_mechSpeedColumn.DataPropertyName = nameof(ScriptMechRow.AiCruiseSpeed);
 		_mechSpeedColumn.HeaderText = "AI cruise speed (0 = default)";
 		_mechSpeedColumn.Name = "_mechSpeedColumn";
 		_mechSpeedColumn.Width = 100;
 		// 
 		// _mechConditionColumn
 		// 
-		_mechConditionColumn.DataPropertyName = "StartingCondition";
+		_mechConditionColumn.DataPropertyName = nameof(ScriptMechRow.StartingCondition);
 		_mechConditionColumn.HeaderText = "Starting condition %";
 		_mechConditionColumn.Name = "_mechConditionColumn";
 		_mechConditionColumn.Width = 90;
 		// 
 		// _mechEngagedColumn
 		// 
-		_mechEngagedColumn.DataPropertyName = "EngagementActionRef";
+		_mechEngagedColumn.DataPropertyName = nameof(ScriptMechRow.EngagementActionRef);
 		_mechEngagedColumn.HeaderText = "Engaged action ref";
 		_mechEngagedColumn.Name = "_mechEngagedColumn";
 		_mechEngagedColumn.Width = 90;
 		// 
 		// _mechDefeatedColumn
 		// 
-		_mechDefeatedColumn.DataPropertyName = "DefeatActionRef";
+		_mechDefeatedColumn.DataPropertyName = nameof(ScriptMechRow.DefeatActionRef);
 		_mechDefeatedColumn.HeaderText = "Defeated action ref";
 		_mechDefeatedColumn.Name = "_mechDefeatedColumn";
 		_mechDefeatedColumn.Width = 90;
@@ -952,7 +952,7 @@ partial class MissionScriptForm {
 		//
 		// Read-only: the fit is edited slot by slot below, where each hardpoint gets its weapon and
 		// (for launchers) its ammunition type by name.
-		_mechFitColumn.DataPropertyName = "WeaponFit";
+		_mechFitColumn.DataPropertyName = nameof(ScriptMechRow.WeaponFit);
 		_mechFitColumn.HeaderText = "Weapon fit";
 		_mechFitColumn.Name = "_mechFitColumn";
 		_mechFitColumn.ReadOnly = true;
@@ -993,7 +993,7 @@ partial class MissionScriptForm {
 		//
 		// _slotIndexColumn
 		//
-		_slotIndexColumn.DataPropertyName = "Slot";
+		_slotIndexColumn.DataPropertyName = nameof(ScriptWeaponSlotRow.Slot);
 		_slotIndexColumn.HeaderText = "Slot";
 		_slotIndexColumn.Name = "_slotIndexColumn";
 		_slotIndexColumn.ReadOnly = true;
@@ -1003,20 +1003,20 @@ partial class MissionScriptForm {
 		//
 		// Items are filled per load (see MissionScriptForm.Populate) so that an id the file carries
 		// but WeaponLUT has no name for still has an entry to select.
-		_slotWeaponColumn.DataPropertyName = "WeaponId";
-		_slotWeaponColumn.DisplayMember = "Label";
+		_slotWeaponColumn.DataPropertyName = nameof(ScriptWeaponSlotRow.WeaponId);
+		_slotWeaponColumn.DisplayMember = nameof(WeaponFitOption.Label);
 		_slotWeaponColumn.HeaderText = "Weapon";
 		_slotWeaponColumn.Name = "_slotWeaponColumn";
-		_slotWeaponColumn.ValueMember = "Id";
+		_slotWeaponColumn.ValueMember = nameof(WeaponFitOption.Id);
 		_slotWeaponColumn.Width = 180;
 		//
 		// _slotAmmoColumn
 		//
-		_slotAmmoColumn.DataPropertyName = "AmmoType";
-		_slotAmmoColumn.DisplayMember = "Label";
+		_slotAmmoColumn.DataPropertyName = nameof(ScriptWeaponSlotRow.AmmoType);
+		_slotAmmoColumn.DisplayMember = nameof(AmmoTypeOption.Label);
 		_slotAmmoColumn.HeaderText = "Missile ammo";
 		_slotAmmoColumn.Name = "_slotAmmoColumn";
-		_slotAmmoColumn.ValueMember = "Id";
+		_slotAmmoColumn.ValueMember = nameof(AmmoTypeOption.Id);
 		_slotAmmoColumn.Width = 220;
 		//
 		// _loadoutHintLabel
@@ -1062,7 +1062,7 @@ partial class MissionScriptForm {
 		//
 		// _flyIndexColumn
 		//
-		_flyIndexColumn.DataPropertyName = "Index";
+		_flyIndexColumn.DataPropertyName = nameof(ScriptFlyerRow.Index);
 		_flyIndexColumn.HeaderText = "#";
 		_flyIndexColumn.Name = "_flyIndexColumn";
 		_flyIndexColumn.ReadOnly = true;
@@ -1070,35 +1070,35 @@ partial class MissionScriptForm {
 		//
 		// _flyTypeColumn
 		//
-		_flyTypeColumn.DataPropertyName = "FlyerType";
+		_flyTypeColumn.DataPropertyName = nameof(ScriptFlyerRow.FlyerType);
 		_flyTypeColumn.HeaderText = "Flyer type (FLYERS.NAM)";
 		_flyTypeColumn.Name = "_flyTypeColumn";
 		_flyTypeColumn.Width = 170;
 		//
 		// _flyPositionColumn
 		//
-		_flyPositionColumn.DataPropertyName = "PositionRef";
+		_flyPositionColumn.DataPropertyName = nameof(ScriptFlyerRow.PositionRef);
 		_flyPositionColumn.HeaderText = "Point ref";
 		_flyPositionColumn.Name = "_flyPositionColumn";
 		_flyPositionColumn.Width = 90;
 		//
 		// _flyHeadingColumn
 		//
-		_flyHeadingColumn.DataPropertyName = "HeadingRef";
+		_flyHeadingColumn.DataPropertyName = nameof(ScriptFlyerRow.HeadingRef);
 		_flyHeadingColumn.HeaderText = "Heading ref";
 		_flyHeadingColumn.Name = "_flyHeadingColumn";
 		_flyHeadingColumn.Width = 90;
 		// 
 		// _flyEngagedColumn
 		// 
-		_flyEngagedColumn.DataPropertyName = "EngagementActionRef";
+		_flyEngagedColumn.DataPropertyName = nameof(ScriptFlyerRow.EngagementActionRef);
 		_flyEngagedColumn.HeaderText = "Engaged action ref";
 		_flyEngagedColumn.Name = "_flyEngagedColumn";
 		_flyEngagedColumn.Width = 90;
 		// 
 		// _flyDefeatedColumn
 		// 
-		_flyDefeatedColumn.DataPropertyName = "DefeatActionRef";
+		_flyDefeatedColumn.DataPropertyName = nameof(ScriptFlyerRow.DefeatActionRef);
 		_flyDefeatedColumn.HeaderText = "Defeated action ref";
 		_flyDefeatedColumn.Name = "_flyDefeatedColumn";
 		_flyDefeatedColumn.Width = 90;
@@ -1132,7 +1132,7 @@ partial class MissionScriptForm {
 		//
 		// _baseIndexColumn
 		//
-		_baseIndexColumn.DataPropertyName = "Index";
+		_baseIndexColumn.DataPropertyName = nameof(ScriptBaseRow.Index);
 		_baseIndexColumn.HeaderText = "#";
 		_baseIndexColumn.Name = "_baseIndexColumn";
 		_baseIndexColumn.ReadOnly = true;
@@ -1140,35 +1140,35 @@ partial class MissionScriptForm {
 		//
 		// _baseTypeColumn
 		//
-		_baseTypeColumn.DataPropertyName = "BaseType";
+		_baseTypeColumn.DataPropertyName = nameof(ScriptBaseRow.BaseType);
 		_baseTypeColumn.HeaderText = "Base type (BASES.DAT)";
 		_baseTypeColumn.Name = "_baseTypeColumn";
 		_baseTypeColumn.Width = 170;
 		//
 		// _basePositionColumn
 		//
-		_basePositionColumn.DataPropertyName = "PositionRef";
+		_basePositionColumn.DataPropertyName = nameof(ScriptBaseRow.PositionRef);
 		_basePositionColumn.HeaderText = "Point ref";
 		_basePositionColumn.Name = "_basePositionColumn";
 		_basePositionColumn.Width = 90;
 		//
 		// _baseHeadingColumn
 		//
-		_baseHeadingColumn.DataPropertyName = "HeadingRef";
+		_baseHeadingColumn.DataPropertyName = nameof(ScriptBaseRow.HeadingRef);
 		_baseHeadingColumn.HeaderText = "Heading ref";
 		_baseHeadingColumn.Name = "_baseHeadingColumn";
 		_baseHeadingColumn.Width = 90;
 		// 
 		// _baseEngagedColumn
 		// 
-		_baseEngagedColumn.DataPropertyName = "EngagementActionRef";
+		_baseEngagedColumn.DataPropertyName = nameof(ScriptBaseRow.EngagementActionRef);
 		_baseEngagedColumn.HeaderText = "Engaged action ref";
 		_baseEngagedColumn.Name = "_baseEngagedColumn";
 		_baseEngagedColumn.Width = 90;
 		// 
 		// _baseDefeatedColumn
 		// 
-		_baseDefeatedColumn.DataPropertyName = "DefeatActionRef";
+		_baseDefeatedColumn.DataPropertyName = nameof(ScriptBaseRow.DefeatActionRef);
 		_baseDefeatedColumn.HeaderText = "Defeated action ref";
 		_baseDefeatedColumn.Name = "_baseDefeatedColumn";
 		_baseDefeatedColumn.Width = 90;
@@ -1203,7 +1203,7 @@ partial class MissionScriptForm {
 		//
 		// _rlIndexColumn
 		//
-		_rlIndexColumn.DataPropertyName = "Index";
+		_rlIndexColumn.DataPropertyName = nameof(ScriptOrderRow.Index);
 		_rlIndexColumn.HeaderText = "#";
 		_rlIndexColumn.Name = "_rlIndexColumn";
 		_rlIndexColumn.ReadOnly = true;
@@ -1211,49 +1211,49 @@ partial class MissionScriptForm {
 		//
 		// _rlSmall1Column
 		//
-		_rlSmall1Column.DataPropertyName = "Verb";
+		_rlSmall1Column.DataPropertyName = nameof(ScriptOrderRow.Verb);
 		_rlSmall1Column.HeaderText = "Verb (0-6)";
 		_rlSmall1Column.Name = "_rlSmall1Column";
 		_rlSmall1Column.Width = 80;
 		//
 		// _rlSmall2Column
 		//
-		_rlSmall2Column.DataPropertyName = "FormationId";
+		_rlSmall2Column.DataPropertyName = nameof(ScriptOrderRow.FormationId);
 		_rlSmall2Column.HeaderText = "Map formation (unread by DBSIM)";
 		_rlSmall2Column.Name = "_rlSmall2Column";
 		_rlSmall2Column.Width = 80;
 		//
 		// _rlPointColumn
 		//
-		_rlPointColumn.DataPropertyName = "PointRef";
+		_rlPointColumn.DataPropertyName = nameof(ScriptOrderRow.PointRef);
 		_rlPointColumn.HeaderText = "Point ref (unread)";
 		_rlPointColumn.Name = "_rlPointColumn";
 		_rlPointColumn.Width = 90;
 		//
 		// _rlRouteColumn
 		//
-		_rlRouteColumn.DataPropertyName = "RouteRef";
+		_rlRouteColumn.DataPropertyName = nameof(ScriptOrderRow.RouteRef);
 		_rlRouteColumn.HeaderText = "Route ref";
 		_rlRouteColumn.Name = "_rlRouteColumn";
 		_rlRouteColumn.Width = 90;
 		//
 		// _rlDiscriminatorColumn
 		//
-		_rlDiscriminatorColumn.DataPropertyName = "SubjectKind";
+		_rlDiscriminatorColumn.DataPropertyName = nameof(ScriptOrderRow.SubjectKind);
 		_rlDiscriminatorColumn.HeaderText = "Subject kind (-1 none / 0 group / 1 herc / 2 flyer / 3 base)";
 		_rlDiscriminatorColumn.Name = "_rlDiscriminatorColumn";
 		_rlDiscriminatorColumn.Width = 90;
 		//
 		// _rlDiscriminatedRefColumn
 		//
-		_rlDiscriminatedRefColumn.DataPropertyName = "SubjectRef";
+		_rlDiscriminatedRefColumn.DataPropertyName = nameof(ScriptOrderRow.SubjectRef);
 		_rlDiscriminatedRefColumn.HeaderText = "Subject ref";
 		_rlDiscriminatedRefColumn.Name = "_rlDiscriminatedRefColumn";
 		_rlDiscriminatedRefColumn.Width = 90;
 		//
 		// _rlActionColumn
 		//
-		_rlActionColumn.DataPropertyName = "ActionRef";
+		_rlActionColumn.DataPropertyName = nameof(ScriptOrderRow.ActionRef);
 		_rlActionColumn.HeaderText = "Next-order action ref";
 		_rlActionColumn.Name = "_rlActionColumn";
 		_rlActionColumn.Width = 90;
@@ -1289,7 +1289,7 @@ partial class MissionScriptForm {
 		//
 		// _grpIndexColumn
 		//
-		_grpIndexColumn.DataPropertyName = "Index";
+		_grpIndexColumn.DataPropertyName = nameof(ScriptGroupRow.Index);
 		_grpIndexColumn.HeaderText = "#";
 		_grpIndexColumn.Name = "_grpIndexColumn";
 		_grpIndexColumn.ReadOnly = true;
@@ -1297,70 +1297,70 @@ partial class MissionScriptForm {
 		//
 		// _grpRosterColumn
 		//
-		_grpRosterColumn.DataPropertyName = "MemberKind";
+		_grpRosterColumn.DataPropertyName = nameof(ScriptGroupRow.MemberKind);
 		_grpRosterColumn.HeaderText = "Roster (0 herc / 1 flyer / 2 base)";
 		_grpRosterColumn.Name = "_grpRosterColumn";
 		_grpRosterColumn.Width = 200;
 		//
 		// _grpFormationColumn
 		//
-		_grpFormationColumn.DataPropertyName = "FormationId";
+		_grpFormationColumn.DataPropertyName = nameof(ScriptGroupRow.FormationId);
 		_grpFormationColumn.HeaderText = "Formation";
 		_grpFormationColumn.Name = "_grpFormationColumn";
 		_grpFormationColumn.Width = 80;
 		//
 		// _grpPointColumn
 		//
-		_grpPointColumn.DataPropertyName = "PositionRef";
+		_grpPointColumn.DataPropertyName = nameof(ScriptGroupRow.PositionRef);
 		_grpPointColumn.HeaderText = "Point ref";
 		_grpPointColumn.Name = "_grpPointColumn";
 		_grpPointColumn.Width = 80;
 		//
 		// _grpHeadingColumn
 		//
-		_grpHeadingColumn.DataPropertyName = "HeadingRef";
+		_grpHeadingColumn.DataPropertyName = nameof(ScriptGroupRow.HeadingRef);
 		_grpHeadingColumn.HeaderText = "Heading ref";
 		_grpHeadingColumn.Name = "_grpHeadingColumn";
 		_grpHeadingColumn.Width = 90;
 		//
 		// _grpRouteColumn
 		//
-		_grpRouteColumn.DataPropertyName = "RouteRef";
+		_grpRouteColumn.DataPropertyName = nameof(ScriptGroupRow.RouteRef);
 		_grpRouteColumn.HeaderText = "Route ref";
 		_grpRouteColumn.Name = "_grpRouteColumn";
 		_grpRouteColumn.Width = 80;
 		//
 		// _grpMembersColumn
 		//
-		_grpMembersColumn.DataPropertyName = "MemberRefs";
+		_grpMembersColumn.DataPropertyName = nameof(ScriptGroupRow.MemberRefs);
 		_grpMembersColumn.HeaderText = "Member slots (20, -1 = empty)";
 		_grpMembersColumn.Name = "_grpMembersColumn";
 		_grpMembersColumn.Width = 460;
 		//
 		// _grpRouteLinksColumn
 		//
-		_grpRouteLinksColumn.DataPropertyName = "OrderRefs";
+		_grpRouteLinksColumn.DataPropertyName = nameof(ScriptGroupRow.OrderRefs);
 		_grpRouteLinksColumn.HeaderText = "Order refs (10, in order)";
 		_grpRouteLinksColumn.Name = "_grpRouteLinksColumn";
 		_grpRouteLinksColumn.Width = 260;
 		//
 		// _grpBinaryFlagColumn
 		//
-		_grpBinaryFlagColumn.DataPropertyName = "PaintsGround";
+		_grpBinaryFlagColumn.DataPropertyName = nameof(ScriptGroupRow.PaintsGround);
 		_grpBinaryFlagColumn.HeaderText = "Formation pad flag";
 		_grpBinaryFlagColumn.Name = "_grpBinaryFlagColumn";
 		_grpBinaryFlagColumn.Width = 100;
 		//
 		// _grpTriStateColumn
 		//
-		_grpTriStateColumn.DataPropertyName = "Side";
+		_grpTriStateColumn.DataPropertyName = nameof(ScriptGroupRow.Side);
 		_grpTriStateColumn.HeaderText = "Side (0 human / 1 Cybrid)";
 		_grpTriStateColumn.Name = "_grpTriStateColumn";
 		_grpTriStateColumn.Width = 80;
 		//
 		// _grpActionColumn
 		//
-		_grpActionColumn.DataPropertyName = "DeploymentActionRef";
+		_grpActionColumn.DataPropertyName = nameof(ScriptGroupRow.DeploymentActionRef);
 		_grpActionColumn.HeaderText = "Deployment action ref (-1 = present at start)";
 		_grpActionColumn.Name = "_grpActionColumn";
 		_grpActionColumn.Width = 90;
@@ -1396,7 +1396,7 @@ partial class MissionScriptForm {
 		//
 		// _elIndexColumn
 		//
-		_elIndexColumn.DataPropertyName = "Index";
+		_elIndexColumn.DataPropertyName = nameof(ScriptObjectiveRow.Index);
 		_elIndexColumn.HeaderText = "#";
 		_elIndexColumn.Name = "_elIndexColumn";
 		_elIndexColumn.ReadOnly = true;
@@ -1404,63 +1404,63 @@ partial class MissionScriptForm {
 		//
 		// _elUnk02Column
 		//
-		_elUnk02Column.DataPropertyName = "Required";
+		_elUnk02Column.DataPropertyName = nameof(ScriptObjectiveRow.Required);
 		_elUnk02Column.HeaderText = "Required (1 = must be met)";
 		_elUnk02Column.Name = "_elUnk02Column";
 		_elUnk02Column.Width = 80;
 		//
 		// _elUnk04Column
 		//
-		_elUnk04Column.DataPropertyName = "ConditionCode";
+		_elUnk04Column.DataPropertyName = nameof(ScriptObjectiveRow.ConditionCode);
 		_elUnk04Column.HeaderText = "Condition code";
 		_elUnk04Column.Name = "_elUnk04Column";
 		_elUnk04Column.Width = 80;
 		//
 		// _elDiscriminatorColumn
 		//
-		_elDiscriminatorColumn.DataPropertyName = "SubjectKind";
+		_elDiscriminatorColumn.DataPropertyName = nameof(ScriptObjectiveRow.SubjectKind);
 		_elDiscriminatorColumn.HeaderText = "Subject kind (0 group / 1 herc / 2 flyer / 3 base)";
 		_elDiscriminatorColumn.Name = "_elDiscriminatorColumn";
 		_elDiscriminatorColumn.Width = 90;
 		//
 		// _elDiscriminatedRefColumn
 		//
-		_elDiscriminatedRefColumn.DataPropertyName = "SubjectRef";
+		_elDiscriminatedRefColumn.DataPropertyName = nameof(ScriptObjectiveRow.SubjectRef);
 		_elDiscriminatedRefColumn.HeaderText = "Subject ref";
 		_elDiscriminatedRefColumn.Name = "_elDiscriminatedRefColumn";
 		_elDiscriminatedRefColumn.Width = 90;
 		//
 		// _elPointColumn
 		//
-		_elPointColumn.DataPropertyName = "PointRef";
+		_elPointColumn.DataPropertyName = nameof(ScriptObjectiveRow.PointRef);
 		_elPointColumn.HeaderText = "Point ref (unread)";
 		_elPointColumn.Name = "_elPointColumn";
 		_elPointColumn.Width = 90;
 		//
 		// _elRouteColumn
 		//
-		_elRouteColumn.DataPropertyName = "RouteRef";
+		_elRouteColumn.DataPropertyName = nameof(ScriptObjectiveRow.RouteRef);
 		_elRouteColumn.HeaderText = "Route ref";
 		_elRouteColumn.Name = "_elRouteColumn";
 		_elRouteColumn.Width = 90;
 		//
 		// _elLutRefColumn
 		//
-		_elLutRefColumn.DataPropertyName = "FailureTextLine";
+		_elLutRefColumn.DataPropertyName = nameof(ScriptObjectiveRow.FailureTextLine);
 		_elLutRefColumn.HeaderText = "Failure text line (mission.str)";
 		_elLutRefColumn.Name = "_elLutRefColumn";
 		_elLutRefColumn.Width = 90;
 		//
 		// _elPairRefsColumn
 		//
-		_elPairRefsColumn.DataPropertyName = "CounterRefs";
+		_elPairRefsColumn.DataPropertyName = nameof(ScriptObjectiveRow.CounterRefs);
 		_elPairRefsColumn.HeaderText = "Mission counter refs (10)";
 		_elPairRefsColumn.Name = "_elPairRefsColumn";
 		_elPairRefsColumn.Width = 240;
 		//
 		// _elPairTagsColumn
 		//
-		_elPairTagsColumn.DataPropertyName = "CounterOps";
+		_elPairTagsColumn.DataPropertyName = nameof(ScriptObjectiveRow.CounterOps);
 		_elPairTagsColumn.HeaderText = "Counter operations (10)";
 		_elPairTagsColumn.Name = "_elPairTagsColumn";
 		_elPairTagsColumn.Width = 240;
@@ -1493,7 +1493,7 @@ partial class MissionScriptForm {
 		//
 		// _unlockValueColumn
 		//
-		_unlockValueColumn.DataPropertyName = "Value";
+		_unlockValueColumn.DataPropertyName = nameof(ScriptObjectiveLineRow.Value);
 		_unlockValueColumn.HeaderText = "mission.str line";
 		_unlockValueColumn.Name = "_unlockValueColumn";
 		_unlockValueColumn.Width = 200;

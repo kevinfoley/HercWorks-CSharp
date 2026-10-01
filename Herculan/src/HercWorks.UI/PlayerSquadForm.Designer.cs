@@ -191,7 +191,7 @@ partial class PlayerSquadForm {
 		//
 		// _indexColumn
 		//
-		_indexColumn.DataPropertyName = "Index";
+		_indexColumn.DataPropertyName = nameof(PlayerSquadRow.Index);
 		_indexColumn.HeaderText = "#";
 		_indexColumn.Name = "_indexColumn";
 		_indexColumn.ReadOnly = true;
@@ -201,16 +201,16 @@ partial class PlayerSquadForm {
 		//
 		// Items are filled per load (see PlayerSquadForm.BindHercTypes) so that a type the file
 		// carries but MECHS.NAM has no name for still has an entry to select.
-		_hercTypeColumn.DataPropertyName = "HercType";
-		_hercTypeColumn.DisplayMember = "Label";
+		_hercTypeColumn.DataPropertyName = nameof(PlayerSquadRow.HercType);
+		_hercTypeColumn.DisplayMember = nameof(HercTypeOption.Label);
 		_hercTypeColumn.HeaderText = "Herc Type";
 		_hercTypeColumn.Name = "_hercTypeColumn";
-		_hercTypeColumn.ValueMember = "Id";
+		_hercTypeColumn.ValueMember = nameof(HercTypeOption.Id);
 		_hercTypeColumn.Width = 170;
 		//
 		// _slotsColumn
 		//
-		_slotsColumn.DataPropertyName = "Slots";
+		_slotsColumn.DataPropertyName = nameof(PlayerSquadRow.Slots);
 		_slotsColumn.HeaderText = "Slots";
 		_slotsColumn.Name = "_slotsColumn";
 		_slotsColumn.ReadOnly = true;
@@ -220,7 +220,7 @@ partial class PlayerSquadForm {
 		//
 		// Read-only: the fit is edited slot by slot below, where each slot gets its weapon and (for
 		// launchers) its ammunition type by name.
-		_fitColumn.DataPropertyName = "WeaponFit";
+		_fitColumn.DataPropertyName = nameof(PlayerSquadRow.WeaponFit);
 		_fitColumn.HeaderText = "Weapon fit";
 		_fitColumn.Name = "_fitColumn";
 		_fitColumn.ReadOnly = true;
@@ -263,7 +263,7 @@ partial class PlayerSquadForm {
 		//
 		// _slotIndexColumn
 		//
-		_slotIndexColumn.DataPropertyName = "Slot";
+		_slotIndexColumn.DataPropertyName = nameof(PlayerWeaponSlotRow.Slot);
 		_slotIndexColumn.HeaderText = "Slot";
 		_slotIndexColumn.Name = "_slotIndexColumn";
 		_slotIndexColumn.ReadOnly = true;
@@ -273,20 +273,20 @@ partial class PlayerSquadForm {
 		//
 		// Items are filled per load (see PlayerSquadForm.BindWeaponOptions) so that an id the file
 		// carries but WeaponLUT has no name for still has an entry to select.
-		_slotWeaponColumn.DataPropertyName = "WeaponId";
-		_slotWeaponColumn.DisplayMember = "Label";
+		_slotWeaponColumn.DataPropertyName = nameof(PlayerWeaponSlotRow.WeaponId);
+		_slotWeaponColumn.DisplayMember = nameof(WeaponFitOption.Label);
 		_slotWeaponColumn.HeaderText = "Weapon";
 		_slotWeaponColumn.Name = "_slotWeaponColumn";
-		_slotWeaponColumn.ValueMember = "Id";
+		_slotWeaponColumn.ValueMember = nameof(WeaponFitOption.Id);
 		_slotWeaponColumn.Width = 180;
 		//
 		// _slotAmmoColumn
 		//
-		_slotAmmoColumn.DataPropertyName = "AmmoType";
-		_slotAmmoColumn.DisplayMember = "Label";
+		_slotAmmoColumn.DataPropertyName = nameof(PlayerWeaponSlotRow.AmmoType);
+		_slotAmmoColumn.DisplayMember = nameof(AmmoTypeOption.Label);
 		_slotAmmoColumn.HeaderText = "Missile ammo";
 		_slotAmmoColumn.Name = "_slotAmmoColumn";
-		_slotAmmoColumn.ValueMember = "Id";
+		_slotAmmoColumn.ValueMember = nameof(AmmoTypeOption.Id);
 		_slotAmmoColumn.Width = 220;
 		//
 		// _loadoutHintLabel
@@ -335,21 +335,21 @@ partial class PlayerSquadForm {
 		//
 		// _unk00Column
 		//
-		_unk00Column.DataPropertyName = "PilotNameIndex";
+		_unk00Column.DataPropertyName = nameof(PlayerSquadRow.PilotNameIndex);
 		_unk00Column.HeaderText = "Pilot name index";
 		_unk00Column.Name = "_unk00Column";
 		_unk00Column.Width = 70;
 		//
 		// _unk02Column
 		//
-		_unk02Column.DataPropertyName = "PilotSkill";
+		_unk02Column.DataPropertyName = nameof(PlayerSquadRow.PilotSkill);
 		_unk02Column.HeaderText = "Pilot skill (0-3)";
 		_unk02Column.Name = "_unk02Column";
 		_unk02Column.Width = 70;
 		//
 		// _unk3AColumn
 		//
-		_unk3AColumn.DataPropertyName = "Unk3A";
+		_unk3AColumn.DataPropertyName = nameof(PlayerSquadRow.Unk3A);
 		_unk3AColumn.HeaderText = "Unk 3A (shell writes 0)";
 		_unk3AColumn.Name = "_unk3AColumn";
 		_unk3AColumn.Width = 70;

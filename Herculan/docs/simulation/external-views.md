@@ -1,6 +1,6 @@
 # External views (DBSIM.EXE)
 
-The views from outside the cockpit: the outside view [V] opens, the joystick's OUTSIDE VIEW and CHASE VIEW, the free camera only the developer keys reach, and the camera object every view — the cockpit's included — is drawn from. The keys are listed in [`../key-bindings.md`](../key-bindings.md#displays-and-views); the joystick actions' dispatch is [`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons); the cockpit view manager whose view 4 these all live in is [`../formats/cockpit-views.md`](../formats/cockpit-views.md#views).
+The views from outside the cockpit: the outside view [V] opens, the joystick's OUTSIDE VIEW and CHASE VIEW, the free camera only the developer keys reach, the camera that takes over when the player's machine is destroyed, and the camera object every view — the cockpit's included — is drawn from. The keys are listed in [`../key-bindings.md`](../key-bindings.md#displays-and-views); the joystick actions' dispatch is [`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons); the cockpit view manager whose view 4 these all live in is [`../formats/cockpit-views.md`](../formats/cockpit-views.md#views).
 
 The manual's own description ("COCKPIT CONTROLS: External Views") agrees with all of it: [V] out and [V] or [Esc] back, pan with the stick or arrows, zoom with the fire button or [Space] held, [Enter] to swap between viewpoint and HERC control, [N] for the other HERCs in the squad, which can be rotated and zoomed but not controlled.
 
@@ -66,7 +66,7 @@ While the flag is down it does one thing: in view 3, looking at the player, it c
 | `+0x38` | orbit centre, three shorts in the object's frame |
 | `+0x3e` | attached eye, three shorts in the object's frame |
 | `+0x44` | a rotation added to the attached view's |
-| `+0x4a` | lock: while set, nothing changes the mode, the object or the rates |
+| `+0x4a` | lock: while set, nothing changes the mode, the object or the rates. [The player-death camera](#the-player-death-camera) sets it |
 
 `Cam_AttachTo` (`0045ed94`) attaches a camera to an object. It asks the object's vtable `+0x30` for two points and passes the first to `Cam_AttachEye` (`0040111c`: eye to `+0x3e`, object to `+0x32`, mode 2) and the second to `Cam_AttachOrbit` (`0040109c`: centre to `+0x38`, object, and distance, all three orbit angles and all three rates zeroed, mode 1). Both do nothing while the camera is locked. An attach therefore always ends in mode 1, and a new outside view starts directly behind the object at the least distance, level and not turning.
 
@@ -166,6 +166,32 @@ With the widgets off, `CockpitWidgets_HandleCommand` answers nothing, so every k
 
 **The caption.** `ViewChain_DrawCaption` (`0045e1ec`) fills one row of the band below the 3D rect and writes two runs on it in the green 6x8 face (`DAT_004d1eb0`): `STRINGS0.STR` group 36's `VIEW: ` and a name at x = 50, and its `CONTROL: ` and `CAMERA` (while `InputDrivesCamera` is set) or `HERC` at x = 215, both shifted in the 640-wide modes. The name is group 17's `YOU` for the player, the pilot in the squadmate's comm box (`Squad_IndexOf`, `Squad_PilotName`), or nothing for an object not in the squad. The row is centred between the rect's last row and the screen's, kept two rows off the bottom; each run's y is the row's bottom, which `HudFont_DrawGlyph` hangs the ink above. It is drawn only on the two frames `ViewChain_CaptionFrames` (`004d25a4`) counts down after a change that sets it — entering views 3 and 4, [N], [Enter] while viewing the player, [Ctrl+N]/[Ctrl+P] outside the cockpit — and stays on screen until it is drawn again. [Ctrl+F]'s step to the free camera and [Ctrl+T] leave it as it was.
 
+## The player-death camera
+
+`ViewChain_PlayerDeathCamera` (`0045f978`) is what the player watches once their machine is destroyed. `Sim_MainTick` calls it once a tick in place of the objective poll, while the player's machine is destroyed (`+0x99`) and the simulation is not frozen (`DAT_004d2576`); the status alert it leads to is [`mission-objectives.md`](mission-objectives.md#the-status-alert--gnl_alrt-00455934)'s.
+
+Its first call, latched by `DAT_004d2aec`:
+
+1. arms the countdown `DAT_004d2adc`, a `LongCountdownTimer` ([`sim-object-layout.md`](sim-object-layout.md)), from the class table below;
+2. makes the player `ViewChain_Chosen`;
+3. from the cockpit (`ViewChain_View` 2) queues view command 2 and sets `ViewChain_PendingView` to 3, as [V] does; from any other view, views the player at once through `ViewChain_ViewObject` and sets `ViewChain_CaptionFrames` to 2;
+4. sets `InputDrivesCamera` and calls `CockpitView_ProcessViewCommand` and `ViewChain_Apply` itself, so the outside view comes up on the frame of the death rather than the next. A view change in the two frames before leaves the view manager cooling down, so that pass arms nothing and step 5 poses the camera still in use;
+5. writes the orbit's pitch and heading from the table, its roll as 0, and its distance, each only while the camera is unlocked. The rates are left as they were.
+
+Every call then clears the camera's lock (`+0x4a`), steers it with `Cam_Steer` from the table's three constant controls, sets the lock again, and steps the countdown with `Timer_CountDown`, answering whether it has reached zero. **The lock is what makes it a cutscene.** `Sim_PollPlayerInput`'s own `Cam_Steer` with the player's stick, earlier in the tick, finds the camera locked and does nothing, and [V], [Esc] and [N] refuse; OUTSIDE VIEW and CHASE VIEW do not test the lock ([above](#the-chain-of-views)).
+
+The seven tables are indexed by the type record's `+0x50`, which is 1 in `RAZOR.DAT` and 0 in the other twenty chassis files:
+
+| `+0x50` | countdown `0049f50c` | steer `0049f514` | throttle `0049f518` | trigger `0049f51c` | pitch `0049f520` | heading `0049f524` | distance `0049f528` |
+|---|---|---|---|---|---|---|---|
+| 0, walker | 20000 | 50 | -30 | 0 | `0x1f40` | 0 | 2500 |
+| 1, RAZOR | 6000 | 50 | 30 | 1 | `-0x1f40` | 0 | 7000 |
+
+Through the [orbit](#mode-1-the-orbit) and [`Cam_Steer`](#steering-the-camera--cam_steer), that is:
+
+- **A walker**, for about 9.8 seconds ([timer units](dbsim-physics-notes.md#timer-units)): directly behind the wreck at the least orbit distance, pitched 44° up, so the eye starts low and looks up at the machine. The heading rate builds to 400 a frame and the pitch rate to -240, so the view circles while swinging down through level after about 33 frames to the 67° downward limit after about 85, where it stays.
+- **The RAZOR**, for about 2.9 seconds: 7000 units behind, pitched 44° down. The heading rate builds to 400 a frame as a walker's does; the trigger turns the throttle constant into zoom, so the distance grows by up to 120 a frame and the pitch holds.
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -177,5 +203,4 @@ With the widgets off, `CockpitWidgets_HandleCommand` answers nothing, so every k
 
 ## Open
 
-- **Unported:** the player-death camera. `FUN_0045f978` runs once a tick from `Sim_MainTick` while the player is destroyed (`+0x99`) and the simulation is not paused; when it reports the countdown over, `Sim_MainTick` raises the status alert. On its first call it puts the camera in the outside view on the player and seeds a countdown (`004d2adc`) from `0049f50c`, the orbit pitch and heading from `0049f520`/`0049f524` and the distance from `0049f528`; every call then unlocks the camera, steers it with `Cam_Steer` from three per-class constants (`0049f514`, `0049f518`, `0049f51c`), locks it (`+0x4a`), and reports whether the countdown has run out. All seven tables are indexed by the machine's type-record `+0x50`, walker or RAZOR. It is part of the unported player death.
 - **Open:** what sets the spectator flag `DAT_0049ef5c` ([above](#the-spectator-flag--dat_0049ef5c)). The whole-PE sweep finds no store to it, so retail appears to run with it clear and every branch in the table unreachable; the sweep is a null result, not proof.

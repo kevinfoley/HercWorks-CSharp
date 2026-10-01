@@ -98,7 +98,9 @@ After a post the answer is held still for 500 ms so the caller's next poll canno
 Both are `CountdownTimer` records, a byte followed by the short counter at `+1` that `Math_CountdownTimerTick` steps; the poll passes each record's base, so neither counter is read by its own address.
 
 - **The poll interval** (`MissionPollTimer`, `004a9ee6`; counter `004a9ee7`) is re-armed to 10000 counts — about 4.9 seconds, see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#timer-units) — every time the answer is not worth raising, so the objectives are read about once every five seconds. A player **outside the mission box** skips the interval and is read every tick, which is what makes the boundary warning prompt. The one other writer is [`Ai_ChooseWeapon`](ai-weapons.md#running-dry--mech0xa5): when a machine runs out of weapons it raises the counter to at least 1000, about half a second, so the next poll is never sooner than that.
-- **The alert delay** (`MissionAlertTimer`, `004a9ee9`; counter `004a9eea`) is armed the first time an alert-worthy status appears, latched by `MissionAlertArmed` (`004a9eec`), and the status is not handed up until its 10000 counts run out. A destroyed player skips it. The [Q] path clears the latch after its panel closes, so the next alert-worthy status waits the full delay again.
+- **The alert delay** (`MissionAlertTimer`, `004a9ee9`; counter `004a9eea`) is armed the first time an alert-worthy status appears, latched by `MissionAlertArmed` (`004a9eec`), and the status is not handed up until its 10000 counts run out. The [Q] path clears the latch after its panel closes, so the next alert-worthy status waits the full delay again.
+
+Status 2 has an exemption from the delay here, and `Sim_MainTick` declines to raise a 2 the poll returns, but neither can happen: `Sim_MainTick`, the poll's one caller, polls only while the player's machine is not destroyed, which is the very test `Mission_Status` answers 2 on. A destroyed player's mission is ended by [the death camera](#the-status-alert--gnl_alrt-00455934) instead.
 
 A status is worth raising when `DAT_0049935c[status]` is set — 2, 3, 6, 7, 8 and 9. The caller builds the [status alert](#the-status-alert--gnl_alrt-00455934) for it. `DAT_004a9ed0` is the status already raised, which is what stops the same one being raised twice; `Mission_StatusForAlert` (`00413180`) is the wrapper both this and [Q] go through, and **the [Q] path writes that baseline as well** — reading the status yourself is enough to stop the poll announcing it.
 
@@ -106,12 +108,13 @@ A status is worth raising when `DAT_0049935c[status]` is set — 2, 3, 6, 7, 8 a
 
 ## The status alert — `gnl_alrt` (`00455934`)
 
-The panel that says how the mission stands, and the only thing in the simulator that ends one. Two ways in, and they build the same panel from the same status:
+The panel that says how the mission stands, and the only thing in the simulator that ends one. Three ways in, and they build the same panel:
 
 - **[Q]**, scancode `0x10` in `Sim_DispatchCommand`. Asks `Mission_StatusForAlert(player, publish)` with the publish flag set — a quiet evaluation, so never 7 or 8 — and raises the panel for the answer.
 - **the poll**, once the answer is worth raising and its delay has run out.
+- **the player's death.** While the player's machine is destroyed, `Sim_MainTick` runs [the death camera](external-views.md#the-player-death-camera) where it would poll, and when the camera's countdown runs out it raises the panel for status 2.
 
-Either way the caller then compares the button the player pressed against `DAT_0049f5d8[status]`, and **that comparison is the whole of what ends a mission**. It propagates out of `Sim_DispatchCommand` through `Sim_PollPlayerInput` and `Sim_MainTick` as the tick's own return.
+The first two then compare the button the player pressed against `DAT_0049f5d8[status]`, and **that comparison is what ends a mission**; the death's call ends it whatever was pressed, which status 2's one button would have done anyway. The answer goes up as `Sim_MainTick`'s return, out of `Sim_DispatchCommand` and `Sim_PollPlayerInput` first in [Q]'s case. [Q] stays live while the death camera runs, and answers 2.
 
 | status | panel | ends on |
 |---|---|---|
@@ -206,6 +209,8 @@ Every way out of the simulator ends in `Sim_Shutdown` (`00461eec`), which `Sim_R
 | a block per machine | `Group_WriteStatusBlocks` (`00423d68`) over the player's group, in group order: 33 conditions, then the machine's kill tallies |
 
 **The 33 conditions** are the [damage readouts](../formats/mfd.md) the damage screens read, entries 1-13, 20-29 and 32-41 — the first thirteen components on their own armour, the first ten dependents, and the ten weapon mounts with their paired dependent — each turned from a Q8 damage reading into a percentage condition as `((0x100 - reading) * 100) >> 8`, an arithmetic shift where the decompiler shows an unsigned one. The shell reads the 66 bytes straight over the machine's status block ([`../formats/save-games.md`](../formats/save-games.md#the-66-byte-status-block)).
+
+**A destroyed player's block always reads 0 for the pilot**, dependent 9, which is the reading the debrief takes as the pilot killed ([`campaign-loop.md`](../shell/campaign-loop.md#where-the-debrief-goes-next)). The death gate's finish-off writes 30000 on the front cockpit ([`component-damage.md`](component-damage.md#going-out-of-the-fight)), every chassis but the SPIDER keeps its pilot there ([`dmg-damage-file.md`](../formats/dmg-damage-file.md#which-internals-each-component-holds)), and on all nine player chassis the cockpit's armour and the maxima behind it total less — at most 17050, OGRE's.
 
 **The kill tallies** are `mech+0x2a4`, one short per target class: `Mech_CreditNeutralisedTarget` adds one at `victim+0x1a8` on a machine's first cross-side neutralisation of each victim (`0041576d`). The block carries the first three, classes 0, 1 and 2 — the Herc, Base and Flyer kills the shell adds to the pilot's record. A ground vehicle, class 3, is tallied and never reported.
 

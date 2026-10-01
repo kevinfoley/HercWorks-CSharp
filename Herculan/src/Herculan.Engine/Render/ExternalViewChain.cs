@@ -1,3 +1,4 @@
+using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
 
@@ -29,8 +30,9 @@ public enum ExternalViewMode : short {
 ///
 /// <para>The host calls the command methods as the dispatcher's cases would run, and
 /// <see cref="Advance"/> once per simulation tick in the original's order: the camera's steer from
-/// <c>Sim_PollPlayerInput</c>, the chain's <c>ViewChain_Apply</c> (<c>0045de14</c>), the placement in
-/// <c>Cam_Update</c> (<c>004011a0</c>), then the view manager's half of <c>Sim_EndFrame</c>.</para>
+/// <c>Sim_PollPlayerInput</c>, the chain's <c>ViewChain_Apply</c> (<c>0045de14</c>), the player-death
+/// camera <c>Sim_MainTick</c> runs last, the placement in <c>Cam_Update</c> (<c>004011a0</c>), then the
+/// view manager's half of <c>Sim_EndFrame</c>.</para>
 ///
 /// <para><b>The view manager is only the part of it the chain reaches</b>: the one command latch, the
 /// armed flag <c>ViewChain_Apply</c> (<c>0045de14</c>) waits on, and the two-frame cooldown, for commands 2 and 3 alone.
@@ -68,6 +70,12 @@ public sealed class ExternalViewChain {
 	private ViewCommand _latched = ViewCommand.None;
 	private bool _armed;
 	private int _cooldown;
+
+	/// <summary><c>DeathCamera_Started</c> (<c>004d2aec</c>): the death camera has had its first call.</summary>
+	private bool _deathCameraStarted;
+
+	/// <summary>The counter of <c>DeathCamera_Countdown</c> (<c>004d2adc</c>), a <c>LongCountdownTimer</c>: the death camera's time left.</summary>
+	private int _deathCountdown;
 
 	/// <summary>
 	/// Sets up as <c>Sim_InitMissionSession</c> does: one camera per member of the player's group,
@@ -120,6 +128,9 @@ public sealed class ExternalViewChain {
 	/// again.
 	/// </summary>
 	public (SimObject Viewed, bool CameraControl)? Caption { get; private set; }
+
+	/// <summary>Whether the player-death camera has taken the view — see <see cref="DeathCameraTick"/>.</summary>
+	public bool DeathCameraRunning => _deathCameraStarted;
 
 	/// <summary>
 	/// [V] (scancode <c>0x2f</c>) and the joystick's OUTSIDE VIEW: out to the outside view from the
@@ -273,10 +284,13 @@ public sealed class ExternalViewChain {
 	/// One tick of the chain. <paramref name="steer"/>, <paramref name="throttle"/> and
 	/// <paramref name="trigger"/> are the tick's steering and throttle axes and trigger, which reach
 	/// the camera only while <paramref name="controlsDriveCamera"/>; otherwise it is steered with
-	/// nothing, which lets its rates run down.
+	/// nothing, which lets its rates run down. <paramref name="deathCamera"/> runs
+	/// <see cref="DeathCameraTick"/>, which <c>Sim_MainTick</c> calls while the player's machine is
+	/// destroyed and the simulation is not frozen.
 	/// </summary>
-	public void Advance(short steer, short throttle, bool trigger, bool controlsDriveCamera,
-			HeightGrid? terrain) {
+	/// <returns>Whether the death camera's countdown has run out: the moment to raise the status alert.</returns>
+	public bool Advance(short steer, short throttle, bool trigger, bool controlsDriveCamera,
+			HeightGrid? terrain, bool deathCamera = false) {
 		if (controlsDriveCamera) {
 			Camera.Steer(steer, throttle, trigger);
 		} else {
@@ -285,12 +299,64 @@ public sealed class ExternalViewChain {
 
 		ApplyPending();
 
+		bool deathCameraOver = deathCamera && DeathCameraTick();
+
 		Trail.Record(_player);
 		Camera.Update(terrain, Trail);
 
 		StepViewManager();
 		FrameCount++;
+		return deathCameraOver;
 	}
+
+	/// <summary>
+	/// <c>ViewChain_PlayerDeathCamera</c> (<c>0045f978</c>). The first call takes the view out to the
+	/// outside view on the player and poses the orbit; every call steers it with the chassis class's
+	/// constant controls inside an unlock and a lock, so nothing else — the player's own stick
+	/// included — can move it. See docs/simulation/external-views.md#the-player-death-camera.
+	/// </summary>
+	/// <returns>Whether the countdown the first call armed has run out.</returns>
+	private bool DeathCameraTick() {
+		var constants = DeathCameraClasses[_player is MechObject { Type.IsFlyer: true } ? 1 : 0];
+
+		if (!_deathCameraStarted) {
+			_deathCameraStarted = true;
+			_deathCountdown = constants.Countdown;
+			_chosen = _player;
+
+			if (Mode == ExternalViewMode.Cockpit) {
+				Queue(ViewCommand.Enter);
+				_pending = ExternalViewMode.Outside;
+			} else {
+				View(_player);
+				_captionFrames = CaptionFrames;
+			}
+
+			InputDrivesCamera = true;
+			ProcessViewCommand();
+			ApplyPending();
+			Camera.PoseOrbit(constants.Pitch, constants.Heading, constants.Distance);
+		}
+
+		Camera.Locked = false;
+		Camera.Steer(constants.Steer, constants.Throttle, constants.Trigger != 0);
+		Camera.Locked = true;
+
+		return SimMath.TimerCountDown(ref _deathCountdown) == 0;
+	}
+
+	/// <summary>
+	/// The death camera's constants, one row per chassis class — the type record's <c>+0x50</c>, 0 for a
+	/// walker and 1 for the RAZOR. Each column is one of <c>ViewChain_PlayerDeathCamera</c>'s seven
+	/// tables, <c>0049f50c</c> to <c>0049f528</c>.
+	/// </summary>
+	private static readonly DeathCameraConstants[] DeathCameraClasses = {
+		new(Countdown: 20000, Steer: 50, Throttle: -30, Trigger: 0, Pitch: 8000, Heading: 0, Distance: 2500),
+		new(Countdown: 6000, Steer: 50, Throttle: 30, Trigger: 1, Pitch: -8000, Heading: 0, Distance: 7000),
+	};
+
+	private readonly record struct DeathCameraConstants(int Countdown, short Steer, short Throttle,
+		short Trigger, short Pitch, short Heading, short Distance);
 
 	// ViewChain_Apply (0045de14): while the view manager is mid-step, move to the pending view; otherwise keep
 	// the controls where the preference puts them, while the outside view is on the player.
@@ -383,6 +449,14 @@ public sealed class ExternalViewChain {
 			_cooldown = 2;
 		}
 
+		ProcessViewCommand();
+	}
+
+	// CockpitView_ProcessViewCommand's share of commands 2 and 3: a cooling-down pass spends one frame of
+	// the cooldown and does nothing else, and any other arms the latched command. Sim_EndFrame calls it
+	// once a frame and the death camera once more on its first call, so that call spends a frame of any
+	// cooldown too.
+	private void ProcessViewCommand() {
 		if (_cooldown > 0) {
 			_cooldown--;
 			return;

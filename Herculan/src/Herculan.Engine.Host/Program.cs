@@ -4482,8 +4482,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// Whether the cockpit view manager is in its view 4 — any of the external views, with no cockpit drawn.
 	bool ExternalViewActive() => viewChain is { ExternalViewUp: true } && piloting && pilotMech != null;
 
-	// Whether the outside view is the tweak's mouse orbit rather than retail's — see ExternalCamera.
-	bool MouseOutsideView() => viewChain is { Mode: ExternalViewMode.Outside }
+	// Whether the outside view is the tweak's mouse orbit rather than retail's — see ExternalCamera. Never
+	// once the player-death camera has the view: the tweak replaces the outside view the player steers,
+	// not the one that sequence locks and steers itself.
+	bool MouseOutsideView() => viewChain is { Mode: ExternalViewMode.Outside, DeathCameraRunning: false }
 		&& TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.MouseExternalView);
 
 	// Whether the cockpit's widgets are off, as CockpitView_ApplyViewState turns them off for view 4: the
@@ -4503,9 +4505,18 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	}
 
 	// The chain's share of each tick, after the simulation's — see ExternalViewChain.Advance.
+	//
+	// With the player's machine destroyed, Sim_MainTick runs the death camera where it would have polled
+	// the objectives, and not under Alt+S — nor on the tick Alt+keypad + lets through, which freezes
+	// again before it gets there. When the camera's countdown runs out it raises status 2 and ends the
+	// mission whatever the answer, which the one-button panel's own table already does.
 	void AdvanceViewChain() {
-		viewChain?.Advance(viewCameraAxes.Steer, viewCameraAxes.Throttle, viewCameraTrigger,
-			ControlsDriveCamera(), terrain);
+		bool deathCamera = pilotMech is { Destroyed: true } && !developerKeys.Frozen
+			&& !developerKeys.StepPending;
+		if (viewChain?.Advance(viewCameraAxes.Steer, viewCameraAxes.Throttle, viewCameraTrigger,
+				ControlsDriveCamera(), terrain, deathCamera) == true) {
+			scene.World.PendingMissionAlert = MissionStatus.PlayerDestroyed;
+		}
 	}
 
 	// The weapon panel's keyboard set, on the manual's own bindings. Every one of these reaches exactly
@@ -4541,8 +4552,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		statusAlertPanel is { IsOpen: true } || objectivesPanel is { IsOpen: true }
 		|| preferencesPanel is { IsOpen: true } || controlsPanel is { IsOpen: true };
 
-	// Sim_MainTick's own arm: once the mission is decided, the poll raises the status alert by itself.
-	// Latched on SimWorld.PendingMissionAlert by the tick that produced it.
+	// Sim_MainTick's own arms: once the mission is decided the poll raises the status alert by itself, and
+	// once the player is down the death camera does. Latched on SimWorld.PendingMissionAlert by the tick
+	// that produced it.
 	void RaisePendingMissionAlert() {
 		if (scene.World is { PendingMissionAlert: not MissionStatus.None } alerted
 			&& statusAlertPanel is { IsOpen: false } && objectivesPanel is not { IsOpen: true }

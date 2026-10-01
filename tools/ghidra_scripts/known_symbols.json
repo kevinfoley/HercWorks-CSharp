@@ -9771,7 +9771,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_DeathFlash",
-      "description": "Loads the death1/death2/world0 palettes, mutes effects, plays 0x26, fades death1 -> death2 -> black over 0x78 ticks each while shaking the view (band 10, Math_RandomBelow(0x4d268f, 10)) for the first 0x1e ticks, then installs world0 and runs a StatusAlertPanel of kind 2. es2_xref finds nothing reaching it.",
+      "description": "Loads the death1/death2/world0 palettes, mutes effects, plays 0x26, fades death1 -> death2 -> black over 0x78 ticks each while shaking the view (band 10, Math_RandomBelow(0x4d268f, 10)) for the first 0x1e ticks, then installs world0 and runs a StatusAlertPanel of kind 2. es2_xref finds nothing reaching it, and the death1 and death2 palettes it loads are in no shipped VOL or install file. The player's death plays ViewChain_PlayerDeathCamera instead.",
       "source": "docs/formats/cockpit-canopy-palette.md"
     },
     {
@@ -19028,7 +19028,7 @@
       "type": "data",
       "confidence": "high",
       "name": "AlertPanel_EndsMissionButton",
-      "description": "Per alert status, the index of the button whose press ends the mission. Both of the status alert's call sites compare the modal loop's return against this entry and nothing else decides it. Entry 7 is 1 against a one-button panel, which is what makes the mission-boundary warning an acknowledgement rather than a choice.",
+      "description": "Per alert status, the index of the button whose press ends the mission. The poll's and [Q]'s raises of the status alert compare the modal loop's return against this entry and nothing else decides it; the player-death camera's raise ends the mission whatever the answer. Entry 7 is 1 against a one-button panel, which is what makes the mission-boundary warning an acknowledgement rather than a choice.",
       "source": "docs/simulation/mission-objectives.md"
     },
     {
@@ -26170,6 +26170,97 @@
       "confidence": "low",
       "description": "CellWalk_Polygon's second walk-direction flag: 1 in the image, which with DAT_0049f270 == 0 selects the far-to-near walk. es2_xref finds one reference, the read in CellWalk_Polygon. VSHELL's counterpart is 00471884.",
       "source": "docs/polygon-fill.md#walking-a-polygons-cells"
+    },
+    {
+      "address": "0045f978",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ViewChain_PlayerDeathCamera",
+      "signature": "int __cdecl ViewChain_PlayerDeathCamera(void)",
+      "description": "Sim_MainTick calls it once a tick in place of Mission_PollStatus while the player's machine is destroyed (+0x99) and the simulation is not frozen (DAT_004d2576); a nonzero return makes Sim_MainTick raise the status alert for 2 and end the mission whatever the answer. First call, latched by DeathCamera_Started: arms DeathCamera_Countdown from its class table, makes the player ViewChain_Chosen, enters the outside view on the player (from the cockpit by view command 2 and pending view 3, otherwise ViewChain_ViewObject and ViewChain_CaptionFrames = 2), sets InputDrivesCamera, runs CockpitView_ProcessViewCommand and ViewChain_Apply itself, and unless the camera is locked writes the orbit pitch, roll 0, heading and distance. Every call: clears the camera lock +0x4a, Cam_Steer with the class's constant steer, throttle and trigger, sets the lock, and returns Timer_CountDown(DeathCamera_Countdown) == 0. Every table is indexed by the type record's +0x50, 0 walker and 1 RAZOR. Holds the 004d2540 block base in ESI throughout.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "004d2aec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_Started",
+      "description": "Dword: the player-death camera has had its first call. Set and tested only by ViewChain_PlayerDeathCamera (es2_xref: its two operands), zero from the image's BSS clear.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "004d2adc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_Countdown",
+      "description": "LongCountdownTimer record, its int counter at 004d2add: the player-death camera's time left. ViewChain_PlayerDeathCamera arms it from DeathCamera_CountdownByClass on its first call and steps it with Timer_CountDown on every call.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "0049f50c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_CountdownByClass",
+      "description": "int[2] by type record +0x50 (walker, RAZOR): 20000, 6000 -- the player-death camera's length in the timer unit, about 9.8 s and 2.9 s.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "0049f514",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_SteerByClass",
+      "description": "short[2] by type record +0x50 (walker, RAZOR): 50, 50 -- the steering axis the player-death camera hands Cam_Steer every tick.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "0049f518",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_ThrottleByClass",
+      "description": "short[2] by type record +0x50 (walker, RAZOR): -30, 30 -- the throttle axis it hands Cam_Steer: a pitch rate for the walker, a zoom rate for the RAZOR, whose trigger is set.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "0049f51c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_TriggerByClass",
+      "description": "short[2] by type record +0x50 (walker, RAZOR): 0, 1 -- the trigger it hands Cam_Steer, which tests the whole word.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "0049f520",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_PitchByClass",
+      "description": "short[2] by type record +0x50 (walker, RAZOR): 0x1f40, -0x1f40 -- the orbit pitch (CAM+0x26) the player-death camera's first call writes, with roll 0 in the same dword store.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "0049f524",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_HeadingByClass",
+      "description": "short[2] by type record +0x50 (walker, RAZOR): 0, 0 -- the orbit heading (CAM+0x2a) the player-death camera's first call writes, relative to the machine's own.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
+    },
+    {
+      "address": "0049f528",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DeathCamera_DistanceByClass",
+      "description": "int[2] by type record +0x50 (walker, RAZOR), stored to the word CAM+0x22: 2500, 7000 -- the orbit distance the player-death camera's first call writes.",
+      "source": "docs/simulation/external-views.md#the-player-death-camera"
     }
   ]
 }

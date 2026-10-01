@@ -328,8 +328,9 @@ public sealed class SimWorld {
 		new(int.MaxValue, int.MaxValue, int.MinValue, int.MinValue);
 
 	/// <summary>
-	/// The status the objective poll last handed up, and has not been shown yet. The original raises
-	/// a modal alert panel here; this engine has none, so the value is latched for whatever draws it.
+	/// The status the tick last handed up for the status alert, not yet shown: the objective poll's,
+	/// or <see cref="MissionStatus.PlayerDestroyed"/> once the player-death camera has run its course.
+	/// The original raises the modal panel inside the tick; the host raises it from this latch.
 	/// </summary>
 	public MissionStatus PendingMissionAlert { get; set; } = MissionStatus.None;
 

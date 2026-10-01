@@ -88,8 +88,8 @@ public sealed class ViewCamera {
 	public Vec3i Eye { get; private set; }
 
 	/// <summary>
-	/// <c>+0x4a</c>: while set, nothing may change the camera's mode, target or rates. Only the
-	/// player-death camera sets it, which this engine does not have yet.
+	/// <c>+0x4a</c>: while set, nothing may change the camera's mode, target or rates. The
+	/// player-death camera sets it (<see cref="ExternalViewChain.DeathCameraRunning"/>).
 	/// </summary>
 	public bool Locked { get; set; }
 
@@ -98,6 +98,22 @@ public sealed class ViewCamera {
 		if (!Locked) {
 			Mode = mode;
 		}
+	}
+
+	/// <summary>
+	/// The player-death camera's opening pose, written straight into <c>+0x22</c> and
+	/// <c>+0x26</c>-<c>+0x2a</c> unless locked: the orbit's pitch and heading, its roll levelled, and its
+	/// distance. The rates are left as they were.
+	/// </summary>
+	public void PoseOrbit(short pitch, short heading, short distance) {
+		if (Locked) {
+			return;
+		}
+
+		OrbitPitch = pitch;
+		OrbitRoll = 0;
+		OrbitYaw = heading;
+		Distance = distance;
 	}
 
 	/// <summary>

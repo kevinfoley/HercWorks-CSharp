@@ -75,11 +75,12 @@ public sealed class MissionObjectives {
 	/// mission box is read every tick, which is what makes the boundary warning prompt.
 	/// <see cref="DeferPoll"/> is its other writer. <b>The alert delay</b> (<c>MissionAlertTimer</c>,
 	/// <c>004a9ee9</c>) is armed the first time an alert-worthy status appears, and the status is not
-	/// handed up until it runs out. A destroyed player skips it.</para>
+	/// handed up until it runs out. The original exempts <see cref="MissionStatus.PlayerDestroyed"/>
+	/// from it, an arm its one caller never reaches, since it polls only a machine still standing.</para>
 	/// </summary>
 	/// <returns>
 	/// The status the caller should raise its modal alert for, or <see cref="MissionStatus.None"/>
-	/// for "carry on". The engine has no such alert yet; <see cref="Announced"/> is the record of it.
+	/// for "carry on".
 	/// </returns>
 	public MissionStatus Poll(SimWorld world, MechObject player) {
 		SimMath.CountdownTimerTick(ref _alertDelay);

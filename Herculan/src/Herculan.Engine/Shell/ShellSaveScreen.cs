@@ -277,7 +277,7 @@ public sealed class ShellSaveScreen {
 	public ShellSaveExitTarget ExitTarget { get; set; } = ShellSaveExitTarget.TabStrip;
 
 	/// <summary>
-	/// The teardown, <c>00439d66</c>, which EXIT and RESTORE both run first: it parks the selection on
+	/// The teardown, <c>SaveScreen_Teardown</c> (<c>00439d66</c>), which EXIT and RESTORE both run first: it parks the selection on
 	/// slot 10, past every row, so the screen comes back up with nothing selected and SAVE and RESTORE
 	/// both dead, and then hides the screen's widgets. The hiding is the host's — this screen is simply
 	/// no longer painted once the tab is not up.

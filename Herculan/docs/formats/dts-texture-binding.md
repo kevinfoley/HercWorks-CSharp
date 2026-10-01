@@ -66,7 +66,7 @@ Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this ty
 - `TSTexture4Poly_Construct` (`0045ffe0`) installs its vtable several times during construction (Watcom multi-base-class pattern), finishing with `g_TSTexture4PolyVtable` (`0047ee0c`).
 - Slot `+0x1c` of that vtable is `TSTexture4Poly_Render` (`00422af5`), which:
 - reads `poly+0xc`, the colour index, as an index into the per-surface runtime record array (`DAT_005d88a2`, 4-byte stride);
-- runs `maybe_TSPoly_FrontBackVisibilityTest` (`FUN_0045e480`) on `poly+4`/`poly+6` — confirming `TSPoly.Normal`/`Center` are auxiliary point indices used to pick the front or back colour pair;
+- runs `TSPoly_FrontBackVisibilityTest` (`0045e480`) on the points `poly+4`/`poly+6` index (`TSPoly.Normal`/`Center`), and a positive result picks the front colour pair ([below](#tspoly_frontbackvisibilitytest));
 - resolves the descriptor at `DAT_005d8010[1] + idx*0x14`;
 - builds world-space positions for all `poly+8` vertices;
 - derives UV corners from the descriptor's own fields, not from per-vertex file data (`TSPoly` carries no on-disk UV fields);
@@ -236,7 +236,7 @@ A flat poly is drawn in three steps: project the face's vertices to screen point
 | Function | Does |
 |---|---|
 | `Poly_ProjectShapeVertices` (`0048c848`) | Projects over the group's 6-byte `int16` point triples at `DAT_006c696c`. Called by `TSSolidPoly_Render`, `TSShadedPoly_Render` and `TSTexture4Poly_Render` |
-| `Poly_ProjectIndexedVertices` (`0048c964`) | The same over 12-byte `int32` points at `DAT_006c6970`; returns non-zero when any vertex fell behind the near plane. Called by `BeamTracer_Draw` and by `maybe_TSGouraudOrSimilarPoly_Render` (`0042ff2d`) |
+| `Poly_ProjectIndexedVertices` (`0048c964`) | The same over 12-byte `int32` points at `DAT_006c6970`; returns non-zero when any vertex fell behind the near plane. Called by `BeamTracer_Draw` and by `TexPoly_Render` (`0042ff2d`) |
 | `Poly_ClipRingToNearPlane` (`0048ce14`) | Run only when a vertex fell behind the plane: clips the ring and rebuilds the screen-point list. Called by `TSSolidPoly_Render`, `TSShadedPoly_Render` and `BeamTracer_Draw`, among others |
 | `PolyFill_Fill` (`0048d4b4`) | Fills the screen polygon through `Raster_DrawPolygonEitherWinding`, then runs `PolyFill_FillThenOutline`'s outline pass without its mode-5 guard |
 
@@ -297,7 +297,7 @@ so a normal derived from the corner order is the negation of the one the file ca
 
 ### `TSPoly_FrontBackVisibilityTest`
 
-Per **poly**, not per pixel. Takes the poly's own stored normal and centre points; when it answers "back", the renderer negates *all* of that poly's normals before lighting them and takes the back surface pair instead of the front.
+Per **poly**, not per pixel. Takes the poly's own stored normal and centre points and answers "front" for a positive result: with a perspective focal shift it returns `dot(normal, eyeInModelSpace − centre)`, and with a shift of 0 it returns 1 when the normal, rotated into view space, has negative depth. DBSIM's copy is `0048c620`, VSHELL's `0045e480`. When it answers "back", the renderer negates *all* of that poly's normals before lighting them and takes the back surface pair instead of the front.
 
 ### `TSBSPPart` child selection
 
@@ -348,7 +348,7 @@ render(parts[min(i - g_TSDetailPartBias, count - 1)])
 
 `Bullet_Draw` (`0040a120`), the draw slot of both projectile classes, pushes nothing, so a launcher round's `ROCKETS.DTS` levels are chosen at bias 0 whatever either setting says. A machine's own draw pushes nothing either, and its chassis shapes carry no `TSDetailPart`; its roots are selected one level up ([`mech-shape-drawing.md`](mech-shape-drawing.md#the-lod-root-is-chosen-per-frame-per-object)).
 
-**STRUCTURE DETAIL** reaches the first two rows through `StructureDetail_ApplySetting` (`0045d4f0`), which `maybe_Sim_RenderFrame` calls whenever the byte changes and `Sim_InitMissionSession` once at bring-up. Its key table is the identity over the three settings and its values (`g_StructureDetailValues`, `0049f02c`) are `{2, 1, 0}`: LOW is bias 2, MED HIGH 1, MAXIMUM 0. A byte past 2 matches no key and leaves the bias where it was. **HERC DETAIL** reaches the other two through `ShapeDetail_ApplyHercDetailSetting`'s `g_HercDetailTSDetailBiasValues`, `{2, 2, 1, 1, 0}` over its five settings.
+**STRUCTURE DETAIL** reaches the first two rows through `StructureDetail_ApplySetting` (`0045d4f0`), which `Sim_RenderFrame` calls whenever the byte changes and `Sim_InitMissionSession` once at bring-up. Its key table is the identity over the three settings and its values (`g_StructureDetailValues`, `0049f02c`) are `{2, 1, 0}`: LOW is bias 2, MED HIGH 1, MAXIMUM 0. A byte past 2 matches no key and leaves the bias where it was. **HERC DETAIL** reaches the other two through `ShapeDetail_ApplyHercDetailSetting`'s `g_HercDetailTSDetailBiasValues`, `{2, 2, 1, 1, 0}` over its five settings.
 
 Across the retail shape files `TSDetailPart`s sit in the structure libraries (`BASES.DGS`, `BASES_AN.DTS`, `BHULKS.DGS`), the flyer `SKIMMER.DTS`, the weapons (`MECHWPNS.DTS`, `MECHWPN2.DTS`) and `ROCKETS.DTS`. None is nested inside another or inside a `TSCellAnimPart`; cell-animation parts inside a level are common.
 

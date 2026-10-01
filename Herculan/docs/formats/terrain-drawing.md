@@ -7,18 +7,21 @@ Which terrain cells a frame draws, in what order, and how the objects standing o
 ## The frame
 
 ```
-maybe_Sim_RenderFrame (0045fb9c)
+Sim_RenderFrame (0045fb9c)
  ├─ Terrain_SetupVisibleRegion (0046ca98)        ← the visible region
  ├─ Scene_SubmitFrameObjects (0042841c)          ← every object filed under a cell
- └─ when FUN_0042db18 is nonzero:
+ └─ when CockpitView_ShowsWorld (0042db18) is nonzero:
      ├─ Terrain_SetupVisibleRegion (0046ca98)    ← again, same view
-     ├─ FUN_0042e700
+     ├─ Scene_DrawTerrainPass (0042e700)
+     │   ├─ Terrain_ProjectFarEdgeAhead (00470910)
      │   └─ Scene_DrawTerrain (00428140)
      │       └─ Terrain_DrawVisibleCells (0046d0a4)
      │           └─ the cell walk → Terrain_DrawCellQuad (0046d344) per cell
      │                              └─ Terrain_DrawCellObjects (0046e4a0) → ObjList_DrawCellObjects (00428c60)
      └─ ObjList_DrawAfterTerrain (0042883c)
 ```
+
+`CockpitView_ShowsWorld` is 0 when the current view's `.VUE` rect has no height and no view transition is running — the heads-down view on every HERC but RAZOR ([`cockpit-views.md`](cockpit-views.md#vue--per-view-geometry)) — so that view draws no ground, though its objects are still submitted.
 
 ## The visible region — `Terrain_SetupVisibleRegion` (`0046ca98`)
 
@@ -78,7 +81,17 @@ Only cells inside the region polygon are visited, and the viewer's own cell is l
 
 ## Objects in the walk
 
-`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under the cell `HeightGrid_PickDrawCell` picks for it (below), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order with the ramp's row count `DAT_004a5b1c` zeroed around each draw ([`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), turns every other object into a render entry, and draws those sorted at the end of the cell. So what is filed under a cell is painted over that cell's ground and under every cell painted after it. A tag-9 object has no fade of its own: its solid faces fog with the one its cell's quad installed ([`distance-fog-and-sky.md`](distance-fog-and-sky.md#what-gets-faded)).
+`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under the cell `HeightGrid_PickDrawCell` picks for it (below), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order with the ramp's row count `DAT_004a5b1c` zeroed around each draw ([`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), turns every other object into a render entry, and draws those sorted at the end of the cell. An object the camera rides is skipped, and one farther away than its class's draw distance gets no entry:
+
+| Type tag at `+4` | Draw distance, × the terrain draw radius |
+|---|---|
+| 0 | 900/1024 |
+| 8, an explosion whose type record's `+0x26` is set (2 otherwise) | 1000/1024 |
+| 5, a structure, shape radius under 7000 | 800/1024 |
+| 5, shape radius 7000 or more | 1200/1024 |
+| anything else — 7 a HERC, 3 a projectile, 2 the other explosions, 1 debris, 4 a smoke ball or fire | 800/1024 |
+
+`ObjList_SetDrawDistances` (`00428bc0`) scales the radius `grid+0x10c << cellShift` ([`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field)) by the five Q10 factors at `0049abb0` into `DAT_004cfa0c` from `Terrain_SetupVisibleRegion`, once a frame, and `ObjList_IsBeyondDrawDistance` (`00428c08`) picks the entry by the tag and compares the object's distance from the view against it. The shape radius is `SimObject_GetShapeRadius`, vtable `+0x10`. So a large structure stays drawn past the terrain's edge, and everything else that is not a tag-9 ground shape vanishes short of it. So what is filed under a cell is painted over that cell's ground and under every cell painted after it. A tag-9 object has no fade of its own: its solid faces fog with the one its cell's quad installed ([`distance-fog-and-sky.md`](distance-fog-and-sky.md#what-gets-faded)).
 
 ### `HeightGrid_PickDrawCell` (`0046e528`)
 
@@ -106,6 +119,7 @@ It calls slot 0 of every object in the no-cell bucket (`DAT_004cf910`, count `DA
 ## Open
 
 - **Unported:** leaving undrawn an object filed under a cell the walk does not visit.
+- **Unported:** the per-class object draw distances ([Objects in the walk](#objects-in-the-walk)).
+- **Open:** which class carries type tag 0. No constructor stores it as an immediate.
 - **Open:** the rest of `ObjList_DrawAfterTerrain`: the raster page swap around `ObjList_SetViewObject` (`00428eec`) under `DAT_004cf9b4`, and `FUN_00428b38` under `DAT_0049abbc`.
-- **Open:** what `FUN_0042db18` tests: it returns 0 when the int at `+0xc` of the `0x20`-byte record under `CockpitViewManagerPublished+4` that `+0x14` indexes is below 1 and the byte at `+0x1c` is clear.
 - **Open:** what the player record's `+0x1f2`→`+0x50` test in `ObjList_DrawAfterTerrain` is.

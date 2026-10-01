@@ -60,7 +60,7 @@ Every retail bitmap part carries `Transform == -1` and a centre of the origin, s
 
 ### Brush mode 5 skips palette index 0
 
-`Bitmap_BlitRotatedScaled` installs the brush `{5, 4, &sourceQuad, dimensions}` and calls `Raster_DrawPolygonDispatch`, which hands modes 5 and 7 to slot 33 of `g_RasterRoutines` (`004a57c4`, 36 function pointers). The table is zero in the image: `RasterDriver_InstallRoutines` (`0048929e`), called from `maybe_Raster_SelectRenderTarget` (`00481118`), copies it in from the per-driver list `g_RasterDriverTable` (`004a5858`). That list gives drivers 0 and 1 a null table and driver 3 `004a5884`, so slot 33 is always `Raster_FillBitmapPolygon` (`0048a818`).
+`Bitmap_BlitRotatedScaled` installs the brush `{5, 4, &sourceQuad, dimensions}` and calls `Raster_DrawPolygonDispatch`, which hands modes 5 and 7 to slot 33 of `g_RasterRoutines` (`004a57c4`, 36 function pointers). The table is zero in the image: `RasterDriver_InstallRoutines` (`0048929e`), called from `Raster_SelectRenderTarget` (`00481118`), copies it in from the per-driver list `g_RasterDriverTable` (`004a5858`). That list gives drivers 0 and 1 a null table and driver 3 `004a5884`, so slot 33 is always `Raster_FillBitmapPolygon` (`0048a818`).
 
 That routine walks the destination polygon's two edges (`Raster_BitmapEdgeSetup`, `0048a9a0`; `Raster_BitmapEdgeStep`, `0048a944`), interpolating the source quad along each, and fills each scanline with `Raster_SpanBitmap` (`0048aad8`). The span samples the nearest texel through the bitmap's cols (`+6`) and data pointer (`+0xe`). Its last argument picks one of two loops:
 

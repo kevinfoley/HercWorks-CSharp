@@ -21,7 +21,7 @@ One singleton, 0x404 bytes, built by `LightManager_InitSubsystem` (`004076e4`) a
 | `+0x1b` | intensity again, as int32; **the field every consumer reads** |
 | `+0x1f` | the renderer light object currently standing in for this slot, or 0 |
 
-Manager fields: `+0x00`..`+0x08` the camera position (`LightManager_SetCameraPosition` (`0040707c`), written once a frame from `maybe_Sim_RenderFrame`), `+0x0c` a literal 10000, `+0x10`/`+0x14` the `A`/`B` above, `+0x18` the count of live slots and `+0x1c` their pointer array, `+0x328` an embedded light object, `+0x35c` and `+0x3b0` the free lists the two synthesised light types are recycled through.
+Manager fields: `+0x00`..`+0x08` the camera position (`LightManager_SetCameraPosition` (`0040707c`), written once a frame from `Sim_RenderFrame`), `+0x0c` a literal 10000, `+0x10`/`+0x14` the `A`/`B` above, `+0x18` the count of live slots and `+0x1c` their pointer array, `+0x328` an embedded light object, `+0x35c` and `+0x3b0` the free lists the two synthesised light types are recycled through.
 
 ### `A` and `B` are 0 and 62
 

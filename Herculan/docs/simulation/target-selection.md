@@ -36,7 +36,7 @@ Ranges here and in the cone test are measured from the machine (`view+0x203`), o
 
 ### Losing the selection — `CockpitView_PerFrameUpdate`
 
-The cockpit's per-frame update, run from `maybe_Sim_RenderFrame` just before `Player_PerFrameCockpitUpdate` copies the selection onto the machine, ends by re-running `TargetSelect_CanTarget` on `view+0x210` and clearing it when that fails. A selection is therefore dropped the frame its target dies **or stops being known** — no longer radar-visible within 200000 and not a held contact within the scan range. The whole widget pass, this check included, is skipped while `view+0x20f` is set, which `CockpitView_ApplyViewState` does for view 4, the external view; a selection survives there until the cockpit returns.
+The cockpit's per-frame update, run from `Sim_RenderFrame` just before `Player_PerFrameCockpitUpdate` copies the selection onto the machine, ends by re-running `TargetSelect_CanTarget` on `view+0x210` and clearing it when that fails. A selection is therefore dropped the frame its target dies **or stops being known** — no longer radar-visible within 200000 and not a held contact within the scan range. The whole widget pass, this check included, is skipped while `view+0x20f` is set, which `CockpitView_ApplyViewState` does for view 4, the external view; a selection survives there until the cockpit returns.
 
 Radar visibility does not blink the selection off: decay clears `obj+0x95` and the sweep repaints it inside the same `Sim_DetectionTick` (`004123ac`), and the check runs outside it.
 

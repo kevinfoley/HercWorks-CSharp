@@ -305,7 +305,7 @@ public sealed class TargetSelection {
 
 	/// <summary>
 	/// Drops a selection that can no longer be selected — the tail of the cockpit's per-frame update
-	/// (<c>CockpitView_PerFrameUpdate</c>, <c>004327ac</c>, run from <c>maybe_Sim_RenderFrame</c>), which clears <c>view+0x210</c>
+	/// (<c>CockpitView_PerFrameUpdate</c>, <c>004327ac</c>, run from <c>Sim_RenderFrame</c>), which clears <c>view+0x210</c>
 	/// whenever <see cref="CanTarget"/> fails for it. So a target that dies, or that stops being
 	/// <i>known</i> by either sensor route, is let go: a Cybrid the radar loses line of sight to and
 	/// that is outside contact range is deselected the next frame.

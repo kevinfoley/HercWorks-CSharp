@@ -143,7 +143,7 @@ public sealed class CockpitArt {
 	/// detail row cycles through as its component is worn down — see
 	/// <see cref="PaperDollDamage.RowFont"/>.</para>
 	/// <para><c>TITLE</c>, <c>ACTIVE</c>, <c>PUSHED</c>, <c>INACTIVE</c> and <c>GREEN6X8</c> are five
-	/// of the seven <c>maybe_CockpitFontsAndCorners_Init</c> (<c>004544a4</c>) loads outside the
+	/// of the seven <c>CockpitFontsAndCorners_Init</c> (<c>004544a4</c>) loads outside the
 	/// <c>ColorSchemePanels</c> set, and they are the alert family's. A panel titles itself in the
 	/// first and captions its buttons in the next three — at rest, held and disabled, which is
 	/// <c>PanelButton_Ctor</c>'s own four-entry table. The last is both the status alert's body and

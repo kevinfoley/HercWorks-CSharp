@@ -4,7 +4,7 @@ How an AI machine acquires, shares, keeps and abandons a target.
 
 [`ai-dispatch.md`](ai-dispatch.md) owns the 22 behaviour states, the descriptor layout, the `mech+0x4d` behaviour block and the three vtable dispatchers; state indices, descriptor addresses and descriptor flag bits are cited from there. [`target-selection.md`](target-selection.md) owns `mech+0x1a4` itself, the sensor model that decides what is *known*, and the player's own selection, which is made in the cockpit and never by this code.
 
-`Ai_SelectTarget` is not mech-only: structures call it too — `Base_ArmedThinkTick` (`00404100`) with mask `0x30` and the triple turret's tick (`004045c8`, [`structure-behaviour.md`](structure-behaviour.md#the-triple-turret--004045c8)) with mask `0x10` inside a `0x3000` cone — so it is the sim's one target-acquisition routine.
+`Ai_SelectTarget` is not mech-only: structures call it too — `Base_ArmedThinkTick` (`00404100`) with mask `0x30` and the triple turret's tick (`Base_TripleTurretThinkTick`, `004045c8`, [`structure-behaviour.md`](structure-behaviour.md#the-triple-turret--004045c8)) with mask `0x10` inside a `0x3000` cone — so it is the sim's one target-acquisition routine.
 
 ## The writers of `+0x1a4`
 

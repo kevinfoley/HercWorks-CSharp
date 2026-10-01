@@ -21,8 +21,8 @@ FUN_00476030(group, out, (int)*(short *)(group + 4));   // group+4 == TSBasePart
 `00476030` then, for a non-negative transform id:
 
 ```c
-FUN_0047f914((short *)(id * 0x20 + _DAT_006b7bec), DAT_006b7c14, out);  // Concat(nodeWorld[id], objectToView)
-FUN_0048c338((undefined2 *)out);                                        // install as current transform
+Transform_Concat((short *)(id * 0x20 + _DAT_006b7bec), DAT_006b7c14, out);  // Concat(nodeWorld[id], objectToView)
+Raster_SetModelTransform((undefined2 *)out);                               // install as current transform
 ```
 
 `_DAT_006b7bec` is the shape instance's `+0x16` per-node world array (stride `0x20`, indexed by transform id); `DAT_006b7c14` is the current object-to-view transform. `&DAT_006bb335` is a per-node "already composed this frame" flag array, so a shape with several groups on one node composes once.

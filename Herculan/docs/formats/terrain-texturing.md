@@ -98,10 +98,10 @@ One function **writes** the field; four read it:
 
 - `Terrain_SetupVisibleRegion` (`0046ca98`) sets `grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3]` — the terrain-detail setting's own table, below — then `>>= (cellShift - 14)` when `cellShift > 14`. The `>>` only ever fires on the two shift-15 zones; nothing compensates in the other direction, so a zone with small cells is simply seen less far across. The original re-reads the setting every frame.
 - `Terrain_BuildDrawRegionQuad` (`0046d220`) builds the draw region as a square of radius `grid[+0x10c] << cellShift` world units around the viewer, clamped to the grid extent. So the LOD field is literally **a terrain draw radius in cells**.
-- `maybe_Terrain_SetDistanceBands` (`00428bc0`) turns that same distance into five scaled values via a 5-entry table at `DAT_0049abb0` ([Open](#open)). **Not** the distance fog, which is 12-slice and computed per drawn thing.
+- `ObjList_SetDrawDistances` (`00428bc0`) scales that same distance by five Q10 factors into the per-class object draw distances ([`terrain-drawing.md`](terrain-drawing.md#objects-in-the-walk)). **Not** the distance fog, which is 12-slice and computed per drawn thing.
 - `Terrain_DrawCellQuad` (`0046d344`) installs `grid[+0x10c] << grid[+0x108]` per cell as the visibility range the distance fade is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md), which tabulates the resulting range per cell shift.
 
-`maybe_Terrain_ComputeViewDistance` (`00470910`) reads the same field per frame for the view setup ([Open](#open)).
+`Terrain_ProjectFarEdgeAhead` (`00470910`) reads the same field once a frame, from `Scene_DrawTerrainPass`: it projects to the screen the point that radius straight ahead of the viewer along its heading, at the grid's lowest height (`+0x110`), and writes the screen point to `+0x72`/`+0x76` of the object at `DAT_0049aee0`. When the viewer's cell is within the radius of a grid edge the distance is a literal 1000 world units instead. `FUN_0042f0b0` reads the point ([Open](#open)).
 
 ### The terrain-detail setting
 
@@ -152,6 +152,5 @@ The material write, but not the levelling mark, is skipped when `CockpitArt_Load
 
 ## Open
 
-- **Open:** `maybe_Terrain_SetDistanceBands`'s (`00428bc0`) five-entry output table has no identified consumer; the values read as LOD thresholds or similar.
-- **Open:** what `maybe_Terrain_ComputeViewDistance`'s (`00470910`) two outputs mean.
+- **Open:** what `FUN_0042f0b0` draws with `Terrain_ProjectFarEdgeAhead`'s point. With `+0x71` of the `DAT_0049aee0` object set, which `Scene_DrawTerrainPass` does every frame, and the view's roll non-zero, it moves the edge of the polygon it fills by the difference between that edge's midpoint and the point.
 - **Open:** whether DBSIM has already drawn from the shared RNG instance before terrain populates on a given zone load, which would offset the draw sequence and land the frame-1 roll ([Retail numbers](#retail-numbers)) on different cells even with a matching seed and algorithm; a retail screenshot comparison would settle it.

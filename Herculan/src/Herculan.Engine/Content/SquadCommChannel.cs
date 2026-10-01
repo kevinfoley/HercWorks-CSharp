@@ -2,7 +2,7 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// What one squad comm box is doing — <c>gauge+0x13b</c>, the four states
-/// <c>HddDisplay_ServiceCommBoxes</c> (<c>FUN_0044b5f8</c>) switches on.
+/// <c>HddDisplay_ServiceCommBoxes</c> (<c>0044b5f8</c>) switches on.
 /// </summary>
 public enum CommBoxState {
 	/// <summary>Nobody is talking: the box shows the pilot's name, condition and objective.</summary>
@@ -55,7 +55,7 @@ public readonly record struct SquadTransmission(
 
 /// <summary>
 /// The three squad comm boxes and the transmission they publish — <c>CommBox_OnMessageBegin</c>
-/// (<c>0044b4ec</c>) and the per-frame service loop <c>FUN_0044b5f8</c> that runs their state machine.
+/// (<c>0044b4ec</c>) and the per-frame service loop <c>HddDisplay_ServiceCommBoxes</c> (<c>0044b5f8</c>) that runs their state machine.
 /// Derivation: docs/formats/heads-down-display.md, docs/formats/cockpit-messages.md and
 /// docs/formats/audio.md.
 ///
@@ -88,7 +88,7 @@ public sealed class SquadCommChannel {
 
 	/// <summary>
 	/// The death scream, <c>AAAAAAARRGHH!</c> — the one message id the service loop
-	/// (<c>FUN_0044b5f8</c>) singles out, by testing the box's <c>+0x12d</c> copy of it against
+	/// (<c>HddDisplay_ServiceCommBoxes</c>) singles out, by testing the box's <c>+0x12d</c> copy of it against
 	/// <c>'%'</c>. It gets its own picture (<see cref="ScreamFrame"/> flickering with static) and its
 	/// own ending: the box latches comms-out and stays on static for good.
 	/// </summary>
@@ -413,7 +413,7 @@ public sealed class SquadCommChannel {
 				if (box.PreviousState != CommBoxState.Talking) {
 					// Entering the state is what starts both halves, which is why the clip and the
 					// script are opened in one call and started in one place. It is also what lets the
-					// line over the canopy go up (MessagePort_MarkReady from FUN_0044b5f8).
+					// line over the canopy go up (MessagePort_MarkReady from HddDisplay_ServiceCommBoxes).
 					box.ScriptStartedAt = _now;
 					Port.MarkReady(box.Message);
 					Speak?.Invoke(box.VoiceBank, box.MessageId, box.Variant);

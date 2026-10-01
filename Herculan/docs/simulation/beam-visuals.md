@@ -96,7 +96,7 @@ Readings a fresh pass could land on. Each is disproven; do not reintroduce.
 | Reading | Why it is wrong |
 |---|---|
 | `BEAM.DAT`'s colour index is unused — the `+0x22c` pair is a HUD colour pair mode 0 never reads | `ctx+0x22c` is `clipBlock+0x228`, the fill brush, because the clip block is `ctx + 4`. The jagged path dispatches on it |
-| `Poly_ProjectIndexedVertices` (`0048c964`) is the projection the `.DTS` renderers use | Theirs is `Poly_ProjectShapeVertices` (`0048c848`), over 6-byte `int16` point triples. The indexed one reads 12-byte `int32` points and has two callers, this draw and `maybe_TSGouraudOrSimilarPoly_Render` (`0042ff2d`) |
+| `Poly_ProjectIndexedVertices` (`0048c964`) is the projection the `.DTS` renderers use | Theirs is `Poly_ProjectShapeVertices` (`0048c848`), over 6-byte `int16` point triples. The indexed one reads 12-byte `int32` points and has two callers, this draw and `TexPoly_Render` (`0042ff2d`) |
 | One of `0048c964`/`0048ce14`/`0048d4b4` redirects the geometry, since the tail reads `points[0]` and `points[1]` with no loop index | That tail is the straight-beam code the jagged branch falls through into — a separate draw, not part of the chain's |
 | The chain's last node is the exact endpoint | It is the endpoint **plus** the same jitter every other node gets |
 | The index table at `00498640` is bytes | `word ptr [ECX*2 + 0x498640]`; as bytes the quads collapse |

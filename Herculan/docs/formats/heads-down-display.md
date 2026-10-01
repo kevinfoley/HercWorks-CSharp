@@ -448,14 +448,13 @@ The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads t
 
 `Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte `{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
 
-### The state machine — `FUN_0044b5f8`
+### The state machine — `HddDisplay_ServiceCommBoxes` (`0044b5f8`)
 
-Per gauge, state at gauge-relative `+0x13b`:
+`HddDisplay_Update` runs it once a frame, and `CommBox_OnMessageBegin` once more when a box opens. It first drains the `.SNC` event queue (`Snc_ServiceQueue`), then steps each of the three boxes. Per gauge, state at gauge-relative `+0x13b`:
 
 | State | Behaviour |
 |---|---|
 | 0 idle | `HddGauge_PaintIdle` |
-| 1 | Static, until `now >= +0x143`; then falls straight through into 2 |
 | 1 | Static, until `now >= +0x143` with the comms-out latch clear; then falls straight through into 2 |
 | 2 | On entry marks the port's line ready (`MessagePort_MarkReady`) and starts the `.SNC` script; `Snc_GetFrame` drives the portrait until it returns -1, then cancels the line (`MessagePort_Cancel`), state 3, deadline `now + 0x14`, and `Sound_Play(0x1c)` — latching comms-out if the squadmate's machine is dead |
 | 3 | Static, until the deadline; then state 0 |

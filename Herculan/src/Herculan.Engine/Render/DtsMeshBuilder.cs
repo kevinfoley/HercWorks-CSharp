@@ -473,7 +473,7 @@ public static class DtsMeshBuilder {
 	/// begins by calling <c>00476014</c>, which takes the group's own <c>TSBasePart.Transform</c>
 	/// (field +4), looks the node's world transform up in the shape instance's per-node array, and
 	/// composes it with the current object-to-view transform before a single poly is drawn
-	/// (<c>Concat(nodeWorld[transform], objectToView)</c>, then <c>0048c338</c> installs it). Every
+	/// (<c>Concat(nodeWorld[transform], objectToView)</c>, then <c>Raster_SetModelTransform</c> (<c>0048c338</c>) installs it). Every
 	/// group in the shape is placed by its own node, and it is the animation thread that moves those
 	/// nodes.</para>
 	///

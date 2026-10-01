@@ -224,7 +224,7 @@ public sealed partial class MissionGroup {
 	};
 
 	/// <summary>
-	/// <c>FUN_00423974</c> — the live member nearest a given object, within 100000 units, excluding
+	/// <c>Group_NearestLiveMember</c> (<c>00423974</c>) — the live member nearest a given object, within 100000 units, excluding
 	/// that object itself. The raycast's friendly-fire path uses it to pick who complains when the
 	/// player shoots someone else's machine.
 	/// </summary>

@@ -20,7 +20,7 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 | `hdd`, `static`, `hddclip`, `pilotN` | `HddDisplay_Ctor` (`00448cc8`), `HddGauge_LoadPilotFrames` (`0044a7c0`) | heads-down display — see [`heads-down-display.md`](heads-down-display.md) |
 | `pweapons`, `wpn_dmg` | `WeaponGauge_Ctor` (`0044080c`) | weapon hardpoint plates |
 | `throttle` | `ThrottleGauge_Ctor` (`00447b84`) | throttle slider knob |
-| `sysbuttn`, `icons`, `corners` | `SystemButtons_Ctor` (`00434368`), `HddMarker_Ctor` (`0044f130`), `maybe_CockpitFontsAndCorners_Init` (`004544a4`) | |
+| `sysbuttn`, `icons`, `corners` | `SystemButtons_Ctor` (`00434368`), `HddMarker_Ctor` (`0044f130`), `CockpitFontsAndCorners_Init` (`004544a4`) | |
 
 The class names in these symbols (`ThrottleGauge`, `WeaponGauge`, …) are the classes' own, read from their Borland class records ([`borland-rtti.md`](borland-rtti.md)). [`cockpit-input.md`](cockpit-input.md#the-cockpits-own-gadget-classes) has the clickable-widget hierarchy.
 
@@ -399,7 +399,7 @@ Each display runs the toggle from its own update, so a display whose update does
 
 ## Per-frame ordering
 
-`maybe_Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `CockpitView_PerFrameUpdate` (`004327ac`; `CockpitViewInstance` widget paint dispatch), then `Scene_SubmitFrameObjects` (the 3D world), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `CockpitView_GetSquadMessagePort` (`00433158`)'s result, `+0x20b`).
+`Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `CockpitView_PerFrameUpdate` (`004327ac`; `CockpitViewInstance` widget paint dispatch), then `Scene_SubmitFrameObjects` (the 3D world), then the terrain and the objects on it when the view shows any world ([`terrain-drawing.md`](terrain-drawing.md#the-frame)), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `CockpitView_GetSquadMessagePort` (`00433158`)'s result, `+0x20b`).
 
 ## Rejected readings
 

@@ -71,7 +71,7 @@ So a biped casts three shadows: one under each foot and one under part 12, its b
 
 ## Lifetimes
 
-Deletion goes through `g_FlatObjDeleteQueue`. `Sim_FlushDeleteQueue` (`00409904`) runs `ObjectPool_FlushDeleteQueue` over it, which calls `FlatObj_Destruct` and `Pool_Free` on each entry. `FlatObj_RegisterSubsystem` registers the flush at subsystem phase 5, which `maybe_Sim_RenderFrame` runs at the start of every frame's draw (`0045fba5`), and `Mech_ComponentDamageWrite` calls it at its end. A queued shape is therefore never drawn again.
+Deletion goes through `g_FlatObjDeleteQueue`. `Sim_FlushDeleteQueue` (`00409904`) runs `ObjectPool_FlushDeleteQueue` over it, which calls `FlatObj_Destruct` and `Pool_Free` on each entry. `FlatObj_RegisterSubsystem` registers the flush at subsystem phase 5, which `Sim_RenderFrame` runs at the start of every frame's draw (`0045fba5`), and `Mech_ComponentDamageWrite` calls it at its end. A queued shape is therefore never drawn again.
 
 `ObjectPool_QueueForDelete` (`0047851c`) appends without testing the capacity at `+6`, so a 26th deletion between two flushes would write past the array. A damage write queues at most four and flushes at its end, and only an impact effect's end queues from the tick, which no retail row can reach.
 

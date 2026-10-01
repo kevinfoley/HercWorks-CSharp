@@ -56,9 +56,9 @@ The original's view space is **(across, depth, up)**: `Raster_PerspectiveDivide`
 |---|---|
 | `Terrain_DrawCellQuad` (`0046d344`) | the cell's own distance |
 | `ObjList_DrawEntryRender` (`0042876c`) | the drawn object's own distance, from its render entry `+0x12` |
-| `maybe_TSShapeInstance_PrepareRenderContext` (`0042fa18`) | `0` |
+| `TexPoly_DrawAtPoints` (`0042fa18`) | `0` |
 
-The third does **not** reset anything drawn through `TSSolidPoly_Render`. It belongs to DBSIM's other, parallel render implementation (the `0042xxxx` family); the poly renderers the DTS type registry points at are the `00474xxx`/`00475xxx` family, whose group-level setup is `TSGroup_RenderPolys` (`004758c8`) / `FUN_00475af8` — neither of which touches the bias.
+The third does **not** reset anything drawn through `TSSolidPoly_Render`. It is slot `+0x34` of `TexPoly` (vtable `0049afe6`), a `TSTexture4Poly` subclass that draws one textured poly at each of a set of points around the viewer; [`../simulation/random-generator.md`](../simulation/random-generator.md#open) tracks whether anything builds one. The poly renderers the DTS type registry points at are the `00474xxx`/`00475xxx` family, whose group-level setup is `TSGroup_RenderPolys` (`004758c8`) / `FUN_00475af8` — neither of which touches the bias.
 
 ### A projectile is faded like anything else
 

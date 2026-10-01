@@ -67,7 +67,7 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdow
 | `-@` | `00482284` = 1 | The mission picker below |
 | `-a` | `00482275` = 0 | Turns the shell's movies off: [the movie queue](shell/screen-layout.md#the-shells-movies) takes nothing and plays nothing |
 | `-l` | `00482280` = 0 | Read only by the unreferenced function at `0042f2e8`; no effect |
-| `-v`, `-?` | `00482272` = 0 | `printf` the version or the usage text, turn sound off, and call `FUN_004092dc` |
+| `-v`, `-?` | `00482272` = 0 | `printf` the version or the usage text, turn sound off, and call `Shell_ShutdownDevicesAndSound` (`004092dc`). The parse runs before `Shell_Main` (`00401525`) builds `devices.cpp`'s viewport (`Devices_Init`, `0040db38`) and the sound manager, so that call releases nothing, and the parse goes on to the next argument |
 
 `-d`, tested separately in `FUN_00406507` (VSHELL), clears `0046d740`, which the same function overwrites from `ShellOption_DisplayMode` before anything reads it.
 
@@ -150,5 +150,5 @@ Both steps start at 2000, entry 3 of both tables: the mech module's static initi
 - **Open:** what the simulator's `-T<n>`, `-V<n>`, `-W<n>`, `-a` and `-c` feed. The searches above find no reader, and a null result does not prove there is none; code Ghidra has not disassembled is covered only by the address sweeps, not by the displacement search.
 - **Open:** VSHELL's language slot 3 from `-e…`. Its readers test for 0, 1 and 2.
 - **Open:** what `-C` does with the four names that have no cockpit files (`ROADRUNNER`, `PATRIOT`, `PANTHER`, `TEST3`), and what `-E` does when `SIMVOICS.VOL` is missing.
-- **Open:** where `printf` output from VSHELL's `-v` and `-?` goes, and what `FUN_004092dc` does after it.
+- **Open:** where `printf` output from VSHELL's `-v` and `-?` goes.
 - **Open:** what the command handlers of a structure and a flyer do with the commands `Sim_DispatchCommand` passes them when `Ctrl+N`/`Ctrl+P` has left one of them viewed.

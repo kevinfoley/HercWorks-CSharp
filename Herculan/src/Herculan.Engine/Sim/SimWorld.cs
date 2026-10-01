@@ -1467,7 +1467,7 @@ public sealed class SimWorld {
 		// One sound serves every fire in the mission, so it is placed on whichever of them is nearest
 		// the camera: FireEffect_TickUpdate measures its own distance to ViewObjectPtr and calls
 		// Sound_UpdatePosition(0x33) whenever it beats the running minimum at DAT_006b4fc0, which the
-		// pool's phase-5 hook (LAB_0046b084, run from maybe_Sim_RenderFrame) resets to 0x7fffffff
+		// pool's phase-5 hook (LAB_0046b084, run from Sim_RenderFrame) resets to 0x7fffffff
 		// every frame. Taking the minimum across the walk and placing once is the same outcome.
 		//
 		// A burnt-out fire still counts towards the minimum on the tick it goes out, as it does in the

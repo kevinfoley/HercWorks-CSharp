@@ -332,7 +332,7 @@ The loop's exit is the same for every way out, `QUIT`, the launches and `WM_CLOS
 ```
 Game_SaveSlot(10, NULL)   // 0040e37b: the current-game autosave; nothing without a game in progress, slot 11 in training
 ...                       // the screens torn down, ShellMap_ReleaseResources
-FUN_004092dc()            // FUN_0040dce1, ShellSound_Shutdown
+Shell_ShutdownDevicesAndSound()   // 004092dc: Devices_Shutdown, ShellSound_Shutdown
 PostQuitMessage(0)
 ```
 
@@ -598,7 +598,7 @@ Whatever the event did, the field then runs its handler, which on a save row is 
 
 ### Leaving the save screen
 
-With [the strip hidden](#tabs-0-and-1-hide-the-strip), `EXIT` and `RESTORE` are the only ways off the screen. Both open with `maybe_SaveScreen_Teardown` (00439d66), which parks the selection on slot 10 — past every row, so the screen next comes up with nothing selected and `SAVE` and `RESTORE` both dead — and hides the screen's root, content panel and both detail panels.
+With [the strip hidden](#tabs-0-and-1-hide-the-strip), `EXIT` and `RESTORE` are the only ways off the screen. Both open with `SaveScreen_Teardown` (00439d66), which parks the selection on slot 10 — past every row, so the screen next comes up with nothing selected and `SAVE` and `RESTORE` both dead — and hides the screen's root, content panel and both detail panels.
 
 `SaveScreen_OnExit` (00437d94), `EXIT`'s handler, then goes where `DAT_0048d344` says. 0 rebuilds the main menu; the main menu's `SAVE/RESTORE` writes it ([above](#the-main-menu)). 8 is `0043b162(8)` then `0043b0c8` — show the frame's root, show and regate the strip, park the current tab at `0xffff` — which leaves the bare frame up with no tab current and nothing lit; tab 1's handler writes it.
 
@@ -1301,7 +1301,7 @@ Elsewhere:
 | `MainWndProc`, `WM_KILLFOCUS` | `ShellSound_Stop` |
 | `maybe_Mission_UpdateLocationTab` (`0044409f`), stage 5 | `ShellSound_FadeOut` and `ShellSound_Stop` after enqueuing the stage's movie |
 | `ONLINE MANUAL` (`004317ea`) | `ShellSound_Stop` before opening the help file |
-| `FUN_004092dc`, which the [main loop's exit](#quit) and the usage and version exit call, and the insert-CD failure in `Movie_PlayQueue` | `ShellSound_Shutdown` |
+| `Shell_ShutdownDevicesAndSound` (`004092dc`), which the [main loop's exit](#quit) and the switch parser's `-v` and `-?` call, and the insert-CD failure in `Movie_PlayQueue` | `ShellSound_Shutdown` |
 
 **There is one backdrop for the whole shell.** `0046dcd4` is written exactly once, by this init, and all eight screen builders pass that same handle as their root's image. So a screen that installs `arming.dpl` is drawing `bay2a_84` through a palette that is not its own. On the tab screens only the strip row ever shows it, and the backdrop's top 30 rows are black: everything below the strip is covered by [the palette scope's fill](#the-palette).
 

@@ -82,7 +82,7 @@ So a root whose numbering is compacted has its geometry composed against whateve
 | `g_ShapeDetailSizeScaleQ10` | `ShapeDetail_ApplyHercDetailSetting` from the HERC DETAIL setting, through `g_HercDetailScaleValues` | `2000` for all five settings. The image's own initialiser leaves it at Q10 one (1024), so the runtime value is the load-bearing one |
 | `g_ShapeDetailBias` | the same function, through `g_HercDetailBiasValues` | `{4, 3, 2, 1, 0}` by setting — setting 4 is the finest |
 
-`ShapeDetail_ApplyHercDetailSetting` is called from `maybe_Sim_RenderFrame` (`0045fb9c`) and from `00461ddc` with the HERC DETAIL option ([`../simulation/preferences.md`](../simulation/preferences.md)) as its argument, so the setting is re-read as the player steps the row.
+`ShapeDetail_ApplyHercDetailSetting` is called from `Sim_RenderFrame` (`0045fb9c`) and from `00461ddc` with the HERC DETAIL option ([`../simulation/preferences.md`](../simulation/preferences.md)) as its argument, so the setting is re-read as the player steps the row.
 
 ## Hardpoint attachment slots are overwritten every frame
 

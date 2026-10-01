@@ -2003,7 +2003,7 @@
       "function": "004045c8",
       "parameter": 0,
       "struct": "StructureObject",
-      "description": "maybe_Base_TripleTurretThinkTick's this -- a slot only the structure vtables hold, so this is a structure."
+      "description": "Base_TripleTurretThinkTick's this -- a slot only the structure vtables hold, so this is a structure."
     },
     {
       "function": "00404d70",

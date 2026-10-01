@@ -140,7 +140,7 @@ d = isqrt(dx*dx + dy*dy + dz*dz)      // to ViewObjectPtr, the camera
 if ((int)d < (int)DAT_006b4fc0) { Sound_UpdatePosition(0x33, firePosition); DAT_006b4fc0 = d; }
 ```
 
-`DAT_006b4fc0` is a running minimum reset to `0x7fffffff` once a frame by the pool's own phase-5 subsystem hook (`FireEffect_PerFrameReset`, `0046b084`, registered by `FireEffect_RegisterSubsystem` and driven from `maybe_Sim_RenderFrame`). So each frame the last fire to beat the minimum keeps the sound, which is the nearest one. The placement sits **above** the loops-remaining test, so a fire counts on the tick it goes out. `FireEffect_Ctor` calls the tick itself, which is why a fire's sound is placed from the moment it is lit rather than a frame later.
+`DAT_006b4fc0` is a running minimum reset to `0x7fffffff` once a frame by the pool's own phase-5 subsystem hook (`FireEffect_PerFrameReset`, `0046b084`, registered by `FireEffect_RegisterSubsystem` and driven from `Sim_RenderFrame`). So each frame the last fire to beat the minimum keeps the sound, which is the nearest one. The placement sits **above** the loops-remaining test, so a fire counts on the tick it goes out. `FireEffect_Ctor` calls the tick itself, which is why a fire's sound is placed from the moment it is lit rather than a frame later.
 
 The three squares are 32-bit `IMUL`s and the sum wraps. Distance is in world units (166.667/unit metre), so the sum passes `2^31` at about 278 m and `2^32` at about 393 m — and a fire near a wrap boundary reads as *close*, captures the loop, and is then placed past the row's own 25×1024 cutoff, i.e. at volume zero. See [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 

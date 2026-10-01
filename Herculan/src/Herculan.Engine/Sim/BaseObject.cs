@@ -219,7 +219,7 @@ public sealed partial class BaseObject : SimObject {
 		/// <summary><c>StructureArmedVtable</c> (<c>004978ac</c>), tick <c>00404100</c>.</summary>
 		Armed,
 
-		/// <summary><c>StructureType0x22Vtable</c> (<c>00497784</c>), tick <c>004045c8</c> — not ported.</summary>
+		/// <summary><c>StructureType0x22Vtable</c> (<c>00497784</c>), tick <c>Base_TripleTurretThinkTick</c> (<c>004045c8</c>) — not ported.</summary>
 		TripleTurret,
 
 		/// <summary><c>StructureGroundVehicleVtable</c> (<c>00497818</c>), tick <c>0046a5d0</c>.</summary>
@@ -401,7 +401,7 @@ public sealed partial class BaseObject : SimObject {
 
 	/// <summary>
 	/// <c>BASE_DEB</c> — the debris table the structure paths install as the alternate database
-	/// before every throw they make, exactly as <c>Base_ExplosionSequenceTick</c> installs
+	/// before every throw they make, exactly as <c>Base_ThrowDebris</c> (<c>0040379c</c>) installs
 	/// <c>g_DebrisStructure</c>. Null when the install has no such table.
 	/// </summary>
 	private static DebrisDatabase? StructureDebris(SimWorld world) =>

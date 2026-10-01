@@ -114,7 +114,7 @@ All 33 names are in the id-space table above, transcribed from `WEAPONS_ENG.BIN`
 
 ## WEAPONS.DAT catalog record (29 bytes)
 
-Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsDat_ReadRecord` (`00411d57`, per-record). Stored in-memory as a flat array at `DAT_00483be4`, 29-byte (`0x1d`) stride per weapon id (confirmed via `IMUL EDX,EDX,0x1d` in `FUN_0041266a`).
+Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsDat_ReadRecord` (`00411d57`, per-record). Stored in-memory as a flat array at `DAT_00483be4`, 29-byte (`0x1d`) stride per weapon id (confirmed via `IMUL EDX,EDX,0x1d` in `Armory_ScrapValueTons`).
 
 ```
 0x00–0x0f  (16 bytes) the catalog code, NUL-terminated ASCII. The file supplies strlen+1 bytes of
@@ -123,10 +123,10 @@ Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsD
 0x10–0x13  pointer to this weapon's WEAPONS.BIN full name, filled at load from
            WeaponsBin_LookupName(handle, id) — runtime only
 0x14–0x15  uint16 price in tons, scaled ×1000 at load to give the cost in kg. Used in
-           cost calculations (Armory_DeliverQueue (00412428), FUN_0041266a) as (price/1000) × field_0x17 / 10
+           cost calculations (Armory_DeliverQueue (00412428), Armory_ScrapValueTons (0041266a)) as (price/1000) × field_0x17 / 10
 0x16       byte — the player's unlock flag for this weapon (see below)
 0x17–0x18  short — how many units of this weapon the player owns. Not a catalog value: it counts
-           the runtime list at 0x19, and FUN_0041266a multiplies it by the price to value the stock
+           the runtime list at 0x19, and Armory_ScrapValueTons multiplies it by the price to value the stock
 0x19–0x1c  head of that owned-unit list ({ entry*, next* } nodes, 10-byte entries), runtime only —
            which is why the file never supplies it
 ```

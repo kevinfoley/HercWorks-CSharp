@@ -135,7 +135,7 @@ public sealed class ShellScrapDialog {
 	private const int TitlePlateFirst = 0x3f;
 	private const int TitlePlateLast = 0xa6;
 
-	/// <summary><c>FramedPanel_Ctor</c>'s border argument, and the class's own <c>0x25</c> checkerboard over a filled body.</summary>
+	/// <summary><c>ESRegionFill_Ctor</c>'s border argument, and the class's own <c>0x25</c> checkerboard over a filled body.</summary>
 	private const byte FrameBorder = 0x15;
 	private const byte FrameFace = 0x25;
 

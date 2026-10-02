@@ -1,8 +1,9 @@
 ﻿{
   "schema_version": 1,
   "_readme": [
-    "Vtable layouts for DBSIM.EXE's two class hierarchies -- the simulation objects and the",
-    "cockpit widgets -- applied to the Ghidra project by ES2ApplyVtables.java",
+    "Vtable layouts for DBSIM.EXE's simulation objects and cockpit widgets, and for VSHELL.EXE's",
+    "class-item (ThreeSpace, GL, animation, event), stream, widget, display and map classes --",
+    "applied to the Ghidra project by ES2ApplyVtables.java",
     "(tools/ghidra_scripts/). Re-run that script after adding entries here -- it is idempotent.",
     "",
     "The widget family is enumerable rather than discovered one class at a time: Borland emitted a",
@@ -479,6 +480,343 @@
           "label": "AlertSliderGadget_PanelSliderGadgetVtable",
           "description": "AlertSliderGadget's mixin at +0x3e, silent."
         }
+      ]
+    },
+    {
+      "name": "VshellClassItemVtable",
+      "binary": "VSHELL",
+      "description": "The class-item interface every persistent VSHELL class carries (RTTI ClassItem, the root of the TS, AN, GL and event hierarchies): six slots, all Rtl_PureError in ClassItem's own table. The tables that stop at six are ClassItem's and GLBitmapArray's; the others extend it, each extension a shape of its own below. Slot count from the table blocks: the word after the sixth is the next block's typeinfo pointer.",
+      "slots": [
+        {"offset": 0, "name": "GetClassTag", "description": "The class-item tag: the dword the class's load function is registered under in a class-item table (g_TSObjectTypeRegistry, the GL table at 0047bcd0, the AN table at 0047f750) and that a stream's 8-byte type tag carries. ClassItem's own is Rtl_PureError; the TSBase and GLBase defaults return -1."},
+        {"offset": 4, "name": "GetStreamSize", "description": "The bytes ReadFromStream consumes and WriteToStream emits, the type tag excluded; ClassItem_ItemTotalSize adds the tag. A container sums its children's ClassItem_ItemTotalSize and answers 0 as soon as one does."},
+        {"offset": 8, "name": "GetMemorySize", "description": "The bytes the object occupies, its arena blocks included: the class's own size plus its arrays, plus each child's own answer."},
+        {"offset": 12, "name": "ReadFromStream", "description": "(this, stream, mode): fill the object from a stream. The class's registered load function (TSPoly_Construct and the rest) allocates the object and calls this; containers load their children with VshellClassItem_LoadItem."},
+        {"offset": 16, "name": "WriteToStream", "description": "(this, stream, mode): the mirror of ReadFromStream, field for field; containers store their children with ClassItem_StoreItem."},
+        {"offset": 20, "name": "DebugPrint", "description": "(this, verbose, indent): print the item to stdout. VshellClassItem_DebugPrintType prints the class tag and name; overrides call it, or their base's, and add their fields when verbose is set."}
+      ],
+      "instances": [
+        {"address": "0047f834", "label": "ClassItemVtable", "description": "RTTI ClassItem: Rtl_PureError, Rtl_PureError, Rtl_PureError, Rtl_PureError, Rtl_PureError, VshellClassItem_DebugPrintType."},
+        {"address": "0047c0a8", "label": "GLBitmapArrayVtable", "description": "RTTI GLBitmapArray: GLBitmapArray_GetClassTag, GLBitmapArray_GetStreamSize, GLBitmapArray_GetMemorySize, GLBitmapArray_ReadFromStream, GLBitmapArray_WriteToStream, VshellClassItem_DebugPrintType."}
+      ]
+    },
+    {
+      "name": "VshellGLBaseVtable",
+      "binary": "VSHELL",
+      "description": "VshellClassItemVtable plus the virtual destructor: the GL resource classes (RTTI GLBase and its subclasses but GLPrimitive's branch). GLBase's defaults return -1 and 0 and do nothing.",
+      "slots": [
+        {"offset": 0, "name": "GetClassTag", "description": "The class-item tag: the dword the class's load function is registered under in a class-item table (g_TSObjectTypeRegistry, the GL table at 0047bcd0, the AN table at 0047f750) and that a stream's 8-byte type tag carries. ClassItem's own is Rtl_PureError; the TSBase and GLBase defaults return -1."},
+        {"offset": 4, "name": "GetStreamSize", "description": "The bytes ReadFromStream consumes and WriteToStream emits, the type tag excluded; ClassItem_ItemTotalSize adds the tag. A container sums its children's ClassItem_ItemTotalSize and answers 0 as soon as one does."},
+        {"offset": 8, "name": "GetMemorySize", "description": "The bytes the object occupies, its arena blocks included: the class's own size plus its arrays, plus each child's own answer."},
+        {"offset": 12, "name": "ReadFromStream", "description": "(this, stream, mode): fill the object from a stream. The class's registered load function (TSPoly_Construct and the rest) allocates the object and calls this; containers load their children with VshellClassItem_LoadItem."},
+        {"offset": 16, "name": "WriteToStream", "description": "(this, stream, mode): the mirror of ReadFromStream, field for field; containers store their children with ClassItem_StoreItem."},
+        {"offset": 20, "name": "DebugPrint", "description": "(this, verbose, indent): print the item to stdout. VshellClassItem_DebugPrintType prints the class tag and name; overrides call it, or their base's, and add their fields when verbose is set."},
+        {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."}
+      ],
+      "instances": [
+        {"address": "0047e986", "label": "GLBaseVtable", "description": "RTTI GLBase: GLBase_GetClassTag, GLBase_GetStreamSize, GLBase_GetMemorySize, GLBase_ReadFromStream, GLBase_WriteToStream, VshellClassItem_DebugPrintType, GLBase_Dtor."},
+        {"address": "0047bc28", "label": "GLViewportVtable", "description": "RTTI GLViewport: GLBase_GetClassTag, GLBase_GetStreamSize, GLBase_GetMemorySize, GLBase_ReadFromStream, GLBase_WriteToStream, VshellClassItem_DebugPrintType, GLViewport_Dtor."},
+        {"address": "0047bf10", "label": "GLPaletteVtable", "description": "RTTI GLPalette: GLPalette_GetClassTag, GLPalette_GetStreamSize, GLPalette_GetMemorySize, GLPalette_ReadFromStream, GLPalette_WriteToStream, VshellClassItem_DebugPrintType, GLPalette_Dtor."},
+        {"address": "0047bf68", "label": "GLFont_Vtable", "description": "RTTI GLFont: GLFont_GetClassTag, GLFont_GetStreamSize, GLFont_GetMemorySize, GLFont_ReadFromStream, GLFont_WriteToStream, VshellClassItem_DebugPrintType, GLFont_Dtor."},
+        {"address": "0047c124", "label": "GLRegionVtable", "description": "RTTI GLRegion: GLBase_GetClassTag, GLBase_GetStreamSize, GLBase_GetMemorySize, GLBase_ReadFromStream, GLBase_WriteToStream, VshellClassItem_DebugPrintType, GLRegion_Dtor."},
+        {"address": "0047c020", "label": "GLRectangleRegionVtable", "description": "RTTI GLRectangleRegion: GLRectangleRegion_GetClassTag, GLRectangleRegion_GetStreamSize, GLRectangleRegion_GetMemorySize, GLRectangleRegion_ReadFromStream, GLRectangleRegion_WriteToStream, VshellClassItem_DebugPrintType, GLRectangleRegion_Dtor."},
+        {"address": "0047c14c", "label": "GLEdgeTableRegionVtable", "description": "RTTI GLEdgeTableRegion: GLEdgeTableRegion_GetClassTag, GLEdgeTableRegion_GetStreamSize, GLEdgeTableRegion_GetMemorySize, GLEdgeTableRegion_ReadFromStream, GLEdgeTableRegion_WriteToStream, VshellClassItem_DebugPrintType, GLEdgeTableRegion_Dtor."},
+        {"address": "0047c0fc", "label": "GLCursorVtable", "description": "RTTI GLCursor: GLCursor_GetClassTag, GLCursor_GetStreamSize, GLCursor_GetMemorySize, GLCursor_ReadFromStream, GLCursor_WriteToStream, VshellClassItem_DebugPrintType, GLCursor_Dtor."}
+      ]
+    },
+    {
+      "name": "VshellGLPrimitiveVtable",
+      "binary": "VSHELL",
+      "description": "VshellGLBaseVtable plus a draw slot: GLPrimitive and GLBitmap.",
+      "slots": [
+        {"offset": 0, "name": "GetClassTag", "description": "The class-item tag: the dword the class's load function is registered under in a class-item table (g_TSObjectTypeRegistry, the GL table at 0047bcd0, the AN table at 0047f750) and that a stream's 8-byte type tag carries. ClassItem's own is Rtl_PureError; the TSBase and GLBase defaults return -1."},
+        {"offset": 4, "name": "GetStreamSize", "description": "The bytes ReadFromStream consumes and WriteToStream emits, the type tag excluded; ClassItem_ItemTotalSize adds the tag. A container sums its children's ClassItem_ItemTotalSize and answers 0 as soon as one does."},
+        {"offset": 8, "name": "GetMemorySize", "description": "The bytes the object occupies, its arena blocks included: the class's own size plus its arrays, plus each child's own answer."},
+        {"offset": 12, "name": "ReadFromStream", "description": "(this, stream, mode): fill the object from a stream. The class's registered load function (TSPoly_Construct and the rest) allocates the object and calls this; containers load their children with VshellClassItem_LoadItem."},
+        {"offset": 16, "name": "WriteToStream", "description": "(this, stream, mode): the mirror of ReadFromStream, field for field; containers store their children with ClassItem_StoreItem."},
+        {"offset": 20, "name": "DebugPrint", "description": "(this, verbose, indent): print the item to stdout. VshellClassItem_DebugPrintType prints the class tag and name; overrides call it, or their base's, and add their fields when verbose is set."},
+        {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."},
+        {"offset": 28, "name": "Draw", "description": "(this): draw in the current context. GLPrimitive's is empty; GLBitmap_DrawAtOrigin draws the bitmap at {0, 0}, which is how every widget paint draws a face or frame after Window_BeginPaint."}
+      ],
+      "instances": [
+        {"address": "0047be84", "label": "GLPrimitiveVtable", "description": "RTTI GLPrimitive: GLBase_GetClassTag, GLBase_GetStreamSize, GLBase_GetMemorySize, GLBase_ReadFromStream, GLBase_WriteToStream, VshellClassItem_DebugPrintType, GLPrimitive_Dtor, GLPrimitive_Draw."},
+        {"address": "0047be58", "label": "GLBitmapVtable", "description": "RTTI GLBitmap: GLBitmap_GetClassTag, GLBitmap_GetStreamSize, GLBitmap_GetMemorySize, GLBitmap_ReadFromStream, GLBitmap_WriteToStream, VshellClassItem_DebugPrintType, GLBitmap_Dtor, GLBitmap_DrawAtOrigin."}
+      ]
+    },
+    {
+      "name": "VshellTSBaseVtable",
+      "binary": "VSHELL",
+      "description": "VshellClassItemVtable plus the destructor and a render slot: the ThreeSpace objects (RTTI TSBase and the classes that keep its eight-slot shape: the polys, TSNullObj, the shape instances, the AN animation list, VectorTable and HeightGrid).",
+      "slots": [
+        {"offset": 0, "name": "GetClassTag", "description": "The class-item tag: the dword the class's load function is registered under in a class-item table (g_TSObjectTypeRegistry, the GL table at 0047bcd0, the AN table at 0047f750) and that a stream's 8-byte type tag carries. ClassItem's own is Rtl_PureError; the TSBase and GLBase defaults return -1."},
+        {"offset": 4, "name": "GetStreamSize", "description": "The bytes ReadFromStream consumes and WriteToStream emits, the type tag excluded; ClassItem_ItemTotalSize adds the tag. A container sums its children's ClassItem_ItemTotalSize and answers 0 as soon as one does."},
+        {"offset": 8, "name": "GetMemorySize", "description": "The bytes the object occupies, its arena blocks included: the class's own size plus its arrays, plus each child's own answer."},
+        {"offset": 12, "name": "ReadFromStream", "description": "(this, stream, mode): fill the object from a stream. The class's registered load function (TSPoly_Construct and the rest) allocates the object and calls this; containers load their children with VshellClassItem_LoadItem."},
+        {"offset": 16, "name": "WriteToStream", "description": "(this, stream, mode): the mirror of ReadFromStream, field for field; containers store their children with ClassItem_StoreItem."},
+        {"offset": 20, "name": "DebugPrint", "description": "(this, verbose, indent): print the item to stdout. VshellClassItem_DebugPrintType prints the class tag and name; overrides call it, or their base's, and add their fields when verbose is set."},
+        {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."},
+        {"offset": 28, "name": "Render", "description": "(this): draw the object. TSBase_Render does nothing; the polys draw themselves (TSSolidPoly_Render and its siblings), and the shape instances draw their shape (TSShapeInstance_Render, ANShapeInstance_Render)."}
+      ],
+      "instances": [
+        {"address": "0047f858", "label": "TSBaseVtable", "description": "RTTI TSBase: TSBase_GetClassTag, TSBase_GetStreamSize, TSBase_GetMemorySize, TSBase_ReadFromStream, TSBase_WriteToStream, VshellClassItem_DebugPrintType, TSBase_Dtor, TSBase_Render."},
+        {"address": "0047ee64", "label": "TSGroupItemVtable", "description": "RTTI TSGroupItem: TSBase_GetClassTag, TSBase_GetStreamSize, TSBase_GetMemorySize, TSBase_ReadFromStream, TSBase_WriteToStream, VshellClassItem_DebugPrintType, TSGroupItem_Dtor, TSBase_Render."},
+        {"address": "0047ee90", "label": "TSPolyVtable", "description": "RTTI TSPoly: TSPoly_GetClassTag, TSPoly_GetStreamSize, TSPoly_GetMemorySize, TSPoly_ReadFromStream, TSPoly_WriteToStream, TSPoly_DebugPrint, TSPoly_Dtor, TSPoly_Render."},
+        {"address": "0047ee38", "label": "g_TSSolidPolyVtable", "description": "RTTI TSSolidPoly: TSSolidPoly_GetClassTag, TSSolidPoly_GetStreamSize, TSSolidPoly_GetMemorySize, TSSolidPoly_ReadFromStream, TSSolidPoly_WriteToStream, TSSolidPoly_DebugPrint, TSSolidPoly_Dtor, TSSolidPoly_Render."},
+        {"address": "0047ee0c", "label": "g_TSTexture4PolyVtable", "description": "RTTI TSTexture4Poly: TSTexture4Poly_GetClassTag, TSSolidPoly_GetStreamSize, TSSolidPoly_GetMemorySize, TSSolidPoly_ReadFromStream, TSSolidPoly_WriteToStream, TSSolidPoly_DebugPrint, TSTexture4Poly_Dtor, TSTexture4Poly_Render."},
+        {"address": "0047ede0", "label": "TSShadedPolyVtable", "description": "RTTI TSShadedPoly: TSShadedPoly_GetClassTag, TSSolidPoly_GetStreamSize, TSSolidPoly_GetMemorySize, TSSolidPoly_ReadFromStream, TSSolidPoly_WriteToStream, TSSolidPoly_DebugPrint, TSShadedPoly_Dtor, TSShadedPoly_Render."},
+        {"address": "0047edb4", "label": "TSGouraudPolyVtable", "description": "RTTI TSGouraudPoly: TSGouraudPoly_GetClassTag, TSGouraudPoly_GetStreamSize, TSGouraudPoly_GetMemorySize, TSGouraudPoly_ReadFromStream, TSGouraudPoly_WriteToStream, TSGouraudPoly_DebugPrint, TSGouraudPoly_Dtor, TSGouraudPoly_Render."},
+        {"address": "0047ed88", "label": "TSAliasSolidPolyVtable", "description": "RTTI TSAliasSolidPoly: TSAliasSolidPoly_GetClassTag, TSSolidPoly_GetStreamSize, TSSolidPoly_GetMemorySize, TSSolidPoly_ReadFromStream, TSSolidPoly_WriteToStream, TSSolidPoly_DebugPrint, TSAliasSolidPoly_Dtor, TSAliasSolidPoly_Render."},
+        {"address": "0047ed5c", "label": "TSAliasShadedPolyVtable", "description": "RTTI TSAliasShadedPoly: TSAliasShadedPoly_GetClassTag, TSSolidPoly_GetStreamSize, TSSolidPoly_GetMemorySize, TSSolidPoly_ReadFromStream, TSSolidPoly_WriteToStream, TSSolidPoly_DebugPrint, TSAliasShadedPoly_Dtor, TSAliasShadedPoly_Render."},
+        {"address": "0047ed30", "label": "TSAliasGouraudPolyVtable", "description": "RTTI TSAliasGouraudPoly: TSAliasGouraudPoly_GetClassTag, TSGouraudPoly_GetStreamSize, TSGouraudPoly_GetMemorySize, TSGouraudPoly_ReadFromStream, TSGouraudPoly_WriteToStream, TSGouraudPoly_DebugPrint, TSAliasGouraudPoly_Dtor, TSAliasGouraudPoly_Render."},
+        {"address": "0047eebc", "label": "TSNullObjVtable", "description": "RTTI TSNullObj: TSNullObj_GetClassTag, TSNullObj_GetStreamSize, TSNullObj_GetMemorySize, TSNullObj_ReadFromStream, TSNullObj_WriteToStream, VshellClassItem_DebugPrintType, TSNullObj_Dtor, TSNullObj_Render."},
+        {"address": "0047f195", "label": "TSShapeInstanceVtable", "description": "RTTI TSShapeInstance: TSBase_GetClassTag, TSBase_GetStreamSize, TSBase_GetMemorySize, TSBase_ReadFromStream, TSBase_WriteToStream, VshellClassItem_DebugPrintType, TSShapeInstance_Dtor, TSShapeInstance_Render."},
+        {"address": "0047f420", "label": "ANShapeInstanceVtable", "description": "RTTI ANShapeInstance: TSBase_GetClassTag, TSBase_GetStreamSize, TSBase_GetMemorySize, TSBase_ReadFromStream, TSBase_WriteToStream, VshellClassItem_DebugPrintType, ANShapeInstance_Dtor, ANShapeInstance_Render."},
+        {"address": "0047f6b8", "label": "ANAnimListVtable", "description": "RTTI ANAnimList: ANAnimList_GetClassTag, ANAnimList_GetStreamSize, ANAnimList_GetMemorySize, ANAnimList_ReadFromStream, ANAnimList_WriteToStream, ANAnimList_DebugPrint, ANAnimList_Dtor, TSBase_Render."},
+        {"address": "0047f884", "label": "VectorTableVtable", "description": "RTTI VectorTable: TSBase_GetClassTag, TSBase_GetStreamSize, TSBase_GetMemorySize, TSBase_ReadFromStream, TSBase_WriteToStream, VshellClassItem_DebugPrintType, VectorTable_Dtor, TSBase_Render."},
+        {"address": "00472470", "label": "HeightGridVtable", "description": "RTTI HeightGrid: TSBase_GetClassTag, TSBase_GetStreamSize, TSBase_GetMemorySize, TSBase_ReadFromStream, TSBase_WriteToStream, VshellClassItem_DebugPrintType, HeightGrid_Dtor, TSBase_Render."}
+      ]
+    },
+    {
+      "name": "VshellTSPartBaseVtable",
+      "binary": "VSHELL",
+      "description": "VshellTSBaseVtable plus two part-tree lookups: TSPartBase and every part derived from it.",
+      "slots": [
+        {"offset": 0, "name": "GetClassTag", "description": "The class-item tag: the dword the class's load function is registered under in a class-item table (g_TSObjectTypeRegistry, the GL table at 0047bcd0, the AN table at 0047f750) and that a stream's 8-byte type tag carries. ClassItem's own is Rtl_PureError; the TSBase and GLBase defaults return -1."},
+        {"offset": 4, "name": "GetStreamSize", "description": "The bytes ReadFromStream consumes and WriteToStream emits, the type tag excluded; ClassItem_ItemTotalSize adds the tag. A container sums its children's ClassItem_ItemTotalSize and answers 0 as soon as one does."},
+        {"offset": 8, "name": "GetMemorySize", "description": "The bytes the object occupies, its arena blocks included: the class's own size plus its arrays, plus each child's own answer."},
+        {"offset": 12, "name": "ReadFromStream", "description": "(this, stream, mode): fill the object from a stream. The class's registered load function (TSPoly_Construct and the rest) allocates the object and calls this; containers load their children with VshellClassItem_LoadItem."},
+        {"offset": 16, "name": "WriteToStream", "description": "(this, stream, mode): the mirror of ReadFromStream, field for field; containers store their children with ClassItem_StoreItem."},
+        {"offset": 20, "name": "DebugPrint", "description": "(this, verbose, indent): print the item to stdout. VshellClassItem_DebugPrintType prints the class tag and name; overrides call it, or their base's, and add their fields when verbose is set."},
+        {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."},
+        {"offset": 28, "name": "Render", "description": "As VshellTSBaseVtable's: TSPartList_Render draws the children in order, TSGroup_RenderPolys and TSBSPGroup_Render the polys, TSDetailPart_Render one level of detail, TSCellAnimPart_Render one cell, TSShape_Render the whole shape."},
+        {"offset": 32, "name": "FindPart", "description": "(this, id): the part whose id (+6) is id, searching children (TSPartList_FindPart) or not (TSPartBase_FindPart)."},
+        {"offset": 36, "name": "FindPartSlot", "description": "(this, id): the address of the child-array entry holding the part whose id is id (TSPartList_FindPartSlot); a leaf answers 0. See docs/formats/mech-shape-drawing.md."}
+      ],
+      "instances": [
+        {"address": "0047f0f8", "label": "TSPartBaseVtable", "description": "RTTI TSPartBase: TSPartBase_GetClassTag, TSPartBase_GetStreamSize, TSPartBase_GetMemorySize, TSPartBase_ReadFromStream, TSPartBase_WriteToStream, TSPartBase_DebugPrint, TSPartBase_Dtor, TSBase_Render, TSPartBase_FindPart, TSPartBase_FindPartSlot."},
+        {"address": "00471ab8", "label": "TSPartListVtable", "description": "RTTI TSPartList: TSPartList_GetClassTag, TSPartList_GetStreamSize, TSPartList_GetMemorySize, TSPartList_ReadFromStream, TSPartList_WriteToStream, TSPartList_DebugPrint, TSPartList_Dtor, TSPartList_Render, TSPartList_FindPart, TSPartList_FindPartSlot."},
+        {"address": "00471bf4", "label": "TSGroupVtable", "description": "RTTI TSGroup: TSGroup_GetClassTag, TSGroup_GetStreamSize, TSGroup_GetMemorySize, TSGroup_ReadFromStream, TSGroup_WriteToStream, TSGroup_DebugPrint, TSGroup_Dtor, TSGroup_RenderPolys, TSPartBase_FindPart, TSPartBase_FindPartSlot."},
+        {"address": "00471bc0", "label": "TSBSPGroupVtable", "description": "RTTI TSBSPGroup: TSBSPGroup_GetClassTag, TSBSPGroup_GetStreamSize, TSBSPGroup_GetMemorySize, TSBSPGroup_ReadFromStream, TSBSPGroup_WriteToStream, TSBSPGroup_DebugPrint, TSBSPGroup_Dtor, TSBSPGroup_Render, TSPartBase_FindPart, TSPartBase_FindPartSlot."},
+        {"address": "00471a50", "label": "TSBSPPartVtable", "description": "RTTI TSBSPPart: TSBSPPart_GetClassTag, TSBSPPart_GetStreamSize, TSBSPPart_GetMemorySize, TSBSPPart_ReadFromStream, TSBSPPart_WriteToStream, TSBSPPart_DebugPrint, TSBSPPart_Dtor, TSBSPPart_Render, TSPartList_FindPart, TSPartList_FindPartSlot."},
+        {"address": "00471a84", "label": "TSDetailPartVtable", "description": "RTTI TSDetailPart: TSDetailPart_GetClassTag, TSDetailPart_GetStreamSize, TSDetailPart_GetMemorySize, TSDetailPart_ReadFromStream, TSDetailPart_WriteToStream, TSDetailPart_DebugPrint, TSDetailPart_Dtor, TSDetailPart_Render, TSPartList_FindPart, TSPartList_FindPartSlot."},
+        {"address": "0047f12c", "label": "TSCellAnimPartVtable", "description": "RTTI TSCellAnimPart: TSCellAnimPart_GetClassTag, TSCellAnimPart_GetStreamSize, TSCellAnimPart_GetMemorySize, TSCellAnimPart_ReadFromStream, TSCellAnimPart_WriteToStream, TSCellAnimPart_DebugPrint, TSCellAnimPart_Dtor, TSCellAnimPart_Render, TSPartList_FindPart, TSPartList_FindPartSlot."},
+        {"address": "0047f160", "label": "TSBitmapPartVtable", "description": "RTTI TSBitmapPart: TSBitmapPart_GetClassTag, TSBitmapPart_GetStreamSize, TSBitmapPart_GetMemorySize, TSBitmapPart_ReadFromStream, TSBitmapPart_WriteToStream, TSBitmapPart_DebugPrint, TSBitmapPart_Dtor, TSBitmapPart_Render, TSPartBase_FindPart, TSPartBase_FindPartSlot."},
+        {"address": "0047f1c1", "label": "TSShapeVtable", "description": "RTTI TSShape: TSShape_GetClassTag, TSShape_GetStreamSize, TSShape_GetMemorySize, TSShape_ReadFromStream, TSShape_WriteToStream, TSShape_DebugPrint, TSShape_Dtor, TSShape_Render, TSPartList_FindPart, TSPartList_FindPartSlot."},
+        {"address": "0047f684", "label": "ANShapeVtable", "description": "RTTI ANShape: ANShape_GetClassTag, ANShape_GetStreamSize, ANShape_GetMemorySize, ANShape_ReadFromStream, ANShape_WriteToStream, ANShape_DebugPrint, ANShape_Dtor, ANShape_Render, TSPartList_FindPart, TSPartList_FindPartSlot."}
+      ]
+    },
+    {
+      "name": "VshellANSequenceVtable",
+      "binary": "VSHELL",
+      "description": "VshellTSBaseVtable plus four frame-stepping slots: ANSequence and ANCyclicSequence.",
+      "slots": [
+        {"offset": 0, "name": "GetClassTag", "description": "The class-item tag: the dword the class's load function is registered under in a class-item table (g_TSObjectTypeRegistry, the GL table at 0047bcd0, the AN table at 0047f750) and that a stream's 8-byte type tag carries. ClassItem's own is Rtl_PureError; the TSBase and GLBase defaults return -1."},
+        {"offset": 4, "name": "GetStreamSize", "description": "The bytes ReadFromStream consumes and WriteToStream emits, the type tag excluded; ClassItem_ItemTotalSize adds the tag. A container sums its children's ClassItem_ItemTotalSize and answers 0 as soon as one does."},
+        {"offset": 8, "name": "GetMemorySize", "description": "The bytes the object occupies, its arena blocks included: the class's own size plus its arrays, plus each child's own answer."},
+        {"offset": 12, "name": "ReadFromStream", "description": "(this, stream, mode): fill the object from a stream. The class's registered load function (TSPoly_Construct and the rest) allocates the object and calls this; containers load their children with VshellClassItem_LoadItem."},
+        {"offset": 16, "name": "WriteToStream", "description": "(this, stream, mode): the mirror of ReadFromStream, field for field; containers store their children with ClassItem_StoreItem."},
+        {"offset": 20, "name": "DebugPrint", "description": "(this, verbose, indent): print the item to stdout. VshellClassItem_DebugPrintType prints the class tag and name; overrides call it, or their base's, and add their fields when verbose is set."},
+        {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."},
+        {"offset": 28, "name": "Render", "description": "TSBase_Render; a sequence draws nothing."},
+        {"offset": 32, "name": "NextFrame", "description": "(this, frame): the frame after frame: ANSequence_NextFrame holds at the last, ANCyclicSequence_NextFrame wraps."},
+        {"offset": 36, "name": "PrevFrame", "description": "(this, frame): the frame before: ANSequence_PrevFrame holds at 0, ANCyclicSequence_PrevFrame wraps."},
+        {"offset": 40, "name": "slot_0x28", "description": "(this, a, b, c): ANSequence's returns 1 when a < b or when a == b and c is 0; ANCyclicSequence's returns 1. What it asks is Open."},
+        {"offset": 44, "name": "slot_0x2c", "description": "(this, a, b, c): the mirror of slot +0x28 (b < a); ANCyclicSequence's returns 1."}
+      ],
+      "instances": [
+        {"address": "0047f720", "label": "ANSequenceVtable", "description": "RTTI ANSequence: ANSequence_GetClassTag, ANSequence_GetStreamSize, ANSequence_GetMemorySize, ANSequence_ReadFromStream, ANSequence_WriteToStream, ANSequence_DebugPrint, ANSequence_Dtor, TSBase_Render, ANSequence_NextFrame, ANSequence_PrevFrame, 0046301c, 00463048."},
+        {"address": "0047f6e4", "label": "ANCyclicSequenceVtable", "description": "RTTI ANCyclicSequence: ANCyclicSequence_GetClassTag, ANSequence_GetStreamSize, ANSequence_GetMemorySize, ANSequence_ReadFromStream, ANSequence_WriteToStream, ANSequence_DebugPrint, ANCyclicSequence_Dtor, TSBase_Render, ANCyclicSequence_NextFrame, ANCyclicSequence_PrevFrame, 004630b0, 004630bc."}
+      ]
+    },
+    {
+      "name": "VshellEventBaseVtable",
+      "binary": "VSHELL",
+      "description": "VshellClassItemVtable plus the destructor and a clone slot: the shell's input events (RTTI EventBase, WinEvent and its five subclasses).",
+      "slots": [
+        {"offset": 0, "name": "GetClassTag", "description": "The class-item tag: the dword the class's load function is registered under in a class-item table (g_TSObjectTypeRegistry, the GL table at 0047bcd0, the AN table at 0047f750) and that a stream's 8-byte type tag carries. ClassItem's own is Rtl_PureError; the TSBase and GLBase defaults return -1."},
+        {"offset": 4, "name": "GetStreamSize", "description": "The bytes ReadFromStream consumes and WriteToStream emits, the type tag excluded; ClassItem_ItemTotalSize adds the tag. A container sums its children's ClassItem_ItemTotalSize and answers 0 as soon as one does."},
+        {"offset": 8, "name": "GetMemorySize", "description": "The bytes the object occupies, its arena blocks included: the class's own size plus its arrays, plus each child's own answer."},
+        {"offset": 12, "name": "ReadFromStream", "description": "(this, stream, mode): fill the object from a stream. The class's registered load function (TSPoly_Construct and the rest) allocates the object and calls this; containers load their children with VshellClassItem_LoadItem."},
+        {"offset": 16, "name": "WriteToStream", "description": "(this, stream, mode): the mirror of ReadFromStream, field for field; containers store their children with ClassItem_StoreItem."},
+        {"offset": 20, "name": "DebugPrint", "description": "(this, verbose, indent): print the item to stdout. VshellClassItem_DebugPrintType prints the class tag and name; overrides call it, or their base's, and add their fields when verbose is set."},
+        {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."},
+        {"offset": 28, "name": "Clone", "description": "(this): a new event of the same class with the same fields (EventBase_Clone, WinEvent_Clone and the rest)."}
+      ],
+      "instances": [
+        {"address": "00470c18", "label": "EventBaseVtable", "description": "RTTI EventBase: EventBase_GetClassTag, EventBase_GetStreamSize, EventBase_GetMemorySize, EventBase_ReadFromStream, EventBase_WriteToStream, EventBase_DebugPrint, EventBase_Dtor, EventBase_Clone."},
+        {"address": "0047fe20", "label": "WinEventVtable", "description": "RTTI WinEvent: WinEvent_GetClassTag, WinEvent_GetStreamSize, WinEvent_GetMemorySize, WinEvent_ReadFromStream, WinEvent_WriteToStream, WinEvent_DebugPrint, WinEvent_Dtor, WinEvent_Clone."},
+        {"address": "0047fdf4", "label": "WinMouseEventVtable", "description": "RTTI WinMouseEvent: WinMouseEvent_GetClassTag, WinMouseEvent_GetStreamSize, WinMouseEvent_GetMemorySize, WinMouseEvent_ReadFromStream, WinMouseEvent_WriteToStream, WinMouseEvent_DebugPrint, WinMouseEvent_Dtor, WinMouseEvent_Clone."},
+        {"address": "0047fdc8", "label": "WinScrollEventVtable", "description": "RTTI WinScrollEvent: WinScrollEvent_GetClassTag, WinScrollEvent_GetStreamSize, WinScrollEvent_GetMemorySize, WinScrollEvent_ReadFromStream, WinScrollEvent_WriteToStream, WinScrollEvent_DebugPrint, WinScrollEvent_Dtor, WinScrollEvent_Clone."},
+        {"address": "0047fd9c", "label": "WinKeyEventVtable", "description": "RTTI WinKeyEvent: WinKeyEvent_GetClassTag, WinKeyEvent_GetStreamSize, WinKeyEvent_GetMemorySize, WinKeyEvent_ReadFromStream, WinKeyEvent_WriteToStream, WinKeyEvent_DebugPrint, WinKeyEvent_Dtor, WinKeyEvent_Clone."},
+        {"address": "0047fd70", "label": "WinCommandEventVtable", "description": "RTTI WinCommandEvent: WinCommandEvent_GetClassTag, WinCommandEvent_GetStreamSize, WinCommandEvent_GetMemorySize, WinCommandEvent_ReadFromStream, WinCommandEvent_WriteToStream, WinCommandEvent_DebugPrint, WinCommandEvent_Dtor, WinCommandEvent_Clone."},
+        {"address": "0047fd44", "label": "WinTimerEventVtable", "description": "RTTI WinTimerEvent: WinTimerEvent_GetClassTag, WinTimerEvent_GetStreamSize, WinTimerEvent_GetMemorySize, WinTimerEvent_ReadFromStream, WinTimerEvent_WriteToStream, WinTimerEvent_DebugPrint, WinTimerEvent_Dtor, WinTimerEvent_Clone."}
+      ]
+    },
+    {
+      "name": "VshellStreamIOVtable",
+      "binary": "VSHELL",
+      "description": "The stream interface (RTTI StreamIO and its nine subclasses). Status codes at +4 are listed under Stream_GetStatus.",
+      "slots": [
+        {"offset": 0, "name": "Dtor", "description": "(this, flags): close and destroy. Stream_BaseDtor ends every one."},
+        {"offset": 4, "name": "GetPosition", "description": "(this): the current position (VolRStream_GetPosition, FileRWStream_Tell and the rest)."},
+        {"offset": 8, "name": "SetPosition", "description": "(this, pos): seek; returns success (VolRStream_SetPosition, FileRWStream_Seek and the rest). The decoding streams seek forward by decoding and backward by restarting."},
+        {"offset": 12, "name": "GetCapabilities", "description": "(this, query): query 0 answers the stream's type or compression (2 plain file, 3 write file, 4 memory, 7 RLE, 9 LZH, 0xd buffered read, 0xe buffered write); queries 1 to 4 answer what it supports."},
+        {"offset": 16, "name": "Flush", "description": "(this): BuffWStream_Flush writes its buffer to the target; the read streams return whether a source is attached or 1. The filter streams call it before detaching, and Stream_BaseDtor calls StreamIO's own."},
+        {"offset": 20, "name": "Write", "description": "(this, count, buffer): returns success; the read-only streams set status 4 and return 0."},
+        {"offset": 24, "name": "Read", "description": "(this, count, buffer): returns success; the write-only streams set status 4 and return 0."}
+      ],
+      "instances": [
+        {"address": "0047a644", "label": "StreamIOVtable", "description": "RTTI StreamIO: Stream_BaseDtor, StreamIO_GetPosition, StreamIO_SetPosition, StreamIO_GetCapabilities, StreamIO_Flush, StreamIO_Write, StreamIO_Read."},
+        {"address": "0046d014", "label": "VolRStreamVtable", "description": "RTTI VolRStream: VolRStream_Dtor, VolRStream_GetPosition, VolRStream_SetPosition, VolRStream_GetCapabilities, VolRStream_Flush, VolRStream_Write, VolRStream_Read."},
+        {"address": "0047a66c", "label": "FileRWStreamVtable", "description": "RTTI FileRWStream: FileRWStream_Dtor, FileRWStream_Tell, FileRWStream_Seek, FileRWStream_GetCapabilities, FileRWStream_Flush, FileRWStream_Write, FileRWStream_Read."},
+        {"address": "0047a694", "label": "FileRStreamVtable", "description": "RTTI FileRStream: FileRStream_Dtor, FileRStream_Tell, FileRStream_Seek, FileRStream_GetCapabilities, FileRStream_Flush, FileRStream_Write, FileRStream_Read."},
+        {"address": "0047a6bc", "label": "FileWStreamVtable", "description": "RTTI FileWStream: FileWStream_Dtor, FileWStream_Tell, FileWStream_Seek, FileWStream_GetCapabilities, FileWStream_Flush, FileWStream_Write, FileWStream_Read."},
+        {"address": "0047a6e4", "label": "MemRWStreamVtable", "description": "RTTI MemRWStream: MemRWStream_Dtor, MemRWStream_GetPosition, MemRWStream_SetPosition, MemRWStream_GetCapabilities, MemRWStream_Flush, MemRWStream_Write, MemRWStream_Read."},
+        {"address": "0047a70c", "label": "RLERStreamVtable", "description": "RTTI RLERStream: RLERStream_Dtor, RLERStream_GetPosition, RLERStream_SetPosition, RLERStream_GetCapabilities, RLERStream_Flush, RLERStream_Write, RLERStream_Read."},
+        {"address": "0047a764", "label": "LZHRStreamVtable", "description": "RTTI LZHRStream: LZHRStream_Dtor, LZHRStream_GetPosition, LZHRStream_SetPosition, LZHRStream_GetCapabilities, LZHRStream_Flush, LZHRStream_Write, LZHRStream_Read."},
+        {"address": "0047aa0c", "label": "BuffWStreamVtable", "description": "RTTI BuffWStream: BuffWStream_Dtor, BuffWStream_GetPosition, BuffWStream_SetPosition, BuffWStream_GetCapabilities, BuffWStream_Flush, BuffWStream_Write, BuffWStream_Read."},
+        {"address": "0047aa34", "label": "BuffRStreamVtable", "description": "RTTI BuffRStream: BuffRStream_Dtor, BuffRStream_GetPosition, BuffRStream_SetPosition, BuffRStream_GetCapabilities, BuffRStream_Flush, BuffRStream_Write, BuffRStream_Read."}
+      ]
+    },
+    {
+      "name": "VshellWindowVtable",
+      "binary": "VSHELL",
+      "description": "The shell widget classes that stop at the event handler, at object +1 (the class records state vptr +1): Window and the ESWindow subclasses that do not derive from WinButton. The word after the slot is a pointer type's descriptor (e.g. 'ESMessage *').",
+      "slots": [
+        {"offset": 0, "name": "HandleEvent", "description": "(widget, event): Event_Deliver calls it for the first widget up the parent chain whose event mask takes the event; it consumes and deletes the event. Window's is Window_DispatchCallback. See docs/shell/screen-layout.md, The widget that takes a click decides what it does."}
+      ],
+      "instances": [
+        {"address": "004717dc", "label": "WindowVtable", "description": "RTTI Window: Window_DispatchCallback."},
+        {"address": "0046e828", "label": "ESWindowVtable", "description": "RTTI ESWindow: Window_DispatchCallback."},
+        {"address": "0046ec54", "label": "ESMessageVtable", "description": "RTTI ESMessage: ESMessage_HandleEvent."},
+        {"address": "0046edc8", "label": "ESDialogVtable", "description": "RTTI ESDialog: ESDialog_HandleEvent."},
+        {"address": "0046ee4c", "label": "ESAnimVtable", "description": "RTTI ESAnim: ESAnim_HandleEvent."},
+        {"address": "0046eec4", "label": "ESAnim2Vtable", "description": "RTTI ESAnim2: ESAnim2_HandleEvent."},
+        {"address": "0046ef04", "label": "ESPalVtable", "description": "RTTI ESPal: ESPal_HandleEvent."}
+      ]
+    },
+    {
+      "name": "VshellWinButtonVtable",
+      "binary": "VSHELL",
+      "description": "VshellWindowVtable plus a paint slot: WinButton and the shell's button, panel and grid classes derived from it.",
+      "slots": [
+        {"offset": 0, "name": "HandleEvent", "description": "As VshellWindowVtable's: WinButton_HandleEvent for the panels, ESButtonFont_HandleEvent, ESButtonBitmap_HandleEvent, ESRadioButton_HandleEvent, ESBitmap_HandleEvent, ESArm_HandleEvent, ESAlert_HandleEvent."},
+        {"offset": 4, "name": "Paint", "description": "(widget): repaint the widget; the handlers call it through the vtable after changing the lit flag. WinButton's own is Rtl_PureError. See docs/shell/screen-layout.md, How a widget paints."}
+      ],
+      "instances": [
+        {"address": "0046e810", "label": "WinButtonVtable", "description": "RTTI WinButton: WinButton_HandleEvent, Rtl_PureError."},
+        {"address": "0046ead0", "label": "ESRectVtable", "description": "RTTI ESRect: WinButton_HandleEvent, ESRect_Paint."},
+        {"address": "0046e878", "label": "ESButtonFontVtable", "description": "RTTI ESButtonFont: ESButtonFont_HandleEvent, ESButtonFont_Paint."},
+        {"address": "0046e924", "label": "ESButtonBitmapVtable", "description": "RTTI ESButtonBitmap: ESButtonBitmap_HandleEvent, ESButtonBitmap_Paint."},
+        {"address": "0046e9a0", "label": "ESRadioButtonVtable", "description": "RTTI ESRadioButton: ESRadioButton_HandleEvent, ESRadioButton_Paint."},
+        {"address": "0046eae4", "label": "ESRegionFillVtable", "description": "RTTI ESRegionFill: WinButton_HandleEvent, ESRegionFill_Paint."},
+        {"address": "0046eb28", "label": "ESTitleVtable", "description": "RTTI ESTitle: WinButton_HandleEvent, ESTitle_Paint."},
+        {"address": "0046ebe0", "label": "ESAlertVtable", "description": "RTTI ESAlert: ESAlert_HandleEvent, ESAlert_Paint."},
+        {"address": "0046ec94", "label": "ESBitmapVtable", "description": "RTTI ESBitmap: ESBitmap_HandleEvent, ESBitmap_Paint."},
+        {"address": "0046ee08", "label": "ESArmVtable", "description": "RTTI ESArm: ESArm_HandleEvent, ESArm_Paint."},
+        {"address": "0046ecd8", "label": "ESGridVtable", "description": "RTTI ESGrid: WinButton_HandleEvent, ESGrid_Paint."},
+        {"address": "00479bb0", "label": "ESQuadVtable", "description": "RTTI ESQuad: WinButton_HandleEvent, ESQuad_Paint."}
+      ]
+    },
+    {
+      "name": "VshellMapVtable",
+      "binary": "VSHELL",
+      "description": "The briefing map's camera interface: Map (Map_Ctor) and ShellMap. See docs/shell/mission-map.md.",
+      "slots": [
+        {"offset": 0, "name": "Paint", "description": "ShellMap_Paint; Map's own is Rtl_PureError."},
+        {"offset": 4, "name": "ZoomIn", "description": "Map_ZoomIn."},
+        {"offset": 8, "name": "ZoomOut", "description": "Map_ZoomOut, ShellMap_ZoomOut."},
+        {"offset": 12, "name": "PanNorth", "description": "Map_PanNorth, ShellMap_PanNorth."},
+        {"offset": 16, "name": "PanSouth", "description": "Map_PanSouth, ShellMap_PanSouth."},
+        {"offset": 20, "name": "PanWest", "description": "Map_PanWest, ShellMap_PanWest."},
+        {"offset": 24, "name": "PanEast", "description": "Map_PanEast, ShellMap_PanEast."},
+        {"offset": 28, "name": "ResetPan", "description": "Map_ResetPan."}
+      ],
+      "instances": [
+        {"address": "0047195e", "label": "MapVtable", "description": "RTTI Map: Rtl_PureError, Map_ZoomIn, Map_ZoomOut, Map_PanNorth, Map_PanSouth, Map_PanWest, Map_PanEast, Map_ResetPan."},
+        {"address": "004721b0", "label": "ShellMapVtable", "description": "RTTI ShellMap: ShellMap_Paint, Map_ZoomIn, ShellMap_ZoomOut, ShellMap_PanNorth, ShellMap_PanSouth, ShellMap_PanWest, ShellMap_PanEast, Map_ResetPan."}
+      ]
+    },
+    {
+      "name": "VshellWinDisplayVtable",
+      "binary": "VSHELL",
+      "description": "The widget layer's display, at object +1: WinDisplay, whose eight slots are Rtl_PureError, and WinWin95Display, the shell's.",
+      "slots": [
+        {"offset": 0, "name": "BeginPaint", "description": "(display, widget): Window_BeginPaint calls it to bind the drawing context to the widget and record the dirty rect (WinWin95Display_BeginPaint)."},
+        {"offset": 4, "name": "BeginPaintRect", "description": "(display, rect): the same for a bare rect (WinWin95Display_BeginPaintRect)."},
+        {"offset": 8, "name": "GetCursor", "description": "WinWin95Display_GetCursor."},
+        {"offset": 12, "name": "SetCursor", "description": "Display_SetCursor; Pointer_Enter calls it."},
+        {"offset": 16, "name": "SetCursorPos", "description": "WinWin95Display_SetCursorPos; Pointer_MoveTo calls it."},
+        {"offset": 20, "name": "GetCursorPos", "description": "WinWin95Display_GetCursorPos; Display_GetCursorPos calls it."},
+        {"offset": 24, "name": "ShowCursor", "description": "WinWin95Display_ShowCursor."},
+        {"offset": 28, "name": "HideCursor", "description": "WinWin95Display_HideCursor."}
+      ],
+      "instances": [
+        {"address": "00471818", "label": "WinDisplayVtable", "description": "RTTI WinDisplay: Rtl_PureError, Rtl_PureError, Rtl_PureError, Rtl_PureError, Rtl_PureError, Rtl_PureError, Rtl_PureError, Rtl_PureError."},
+        {"address": "004717ec", "label": "WinWin95DisplayVtable", "description": "RTTI WinWin95Display: WinWin95Display_BeginPaint, WinWin95Display_BeginPaintRect, WinWin95Display_GetCursor, Display_SetCursor, WinWin95Display_SetCursorPos, WinWin95Display_GetCursorPos, WinWin95Display_ShowCursor, WinWin95Display_HideCursor."}
+      ]
+    },
+    {
+      "name": "VshellEventProducerVtable",
+      "binary": "VSHELL",
+      "description": "An input source, at object +4: EventProducer (both slots Rtl_PureError), WinMouseProducer and WinKeyboardProducer.",
+      "slots": [
+        {"offset": 0, "name": "Reset", "description": "(producer): empty the source's queue; the constructors call it (WinMouseProducer_Reset, WinKeyboardProducer_Reset)."},
+        {"offset": 4, "name": "PostEvents", "description": "(producer): turn the queued input into events on the producer's vector (WinMouseProducer_PostEvents, Keyboard_PostEvents)."}
+      ],
+      "instances": [
+        {"address": "00470c44", "label": "EventProducerVtable", "description": "RTTI EventProducer: Rtl_PureError, Rtl_PureError."},
+        {"address": "0046e448", "label": "WinMouseProducerVtable", "description": "RTTI WinMouseProducer: WinMouseProducer_Reset, WinMouseProducer_PostEvents."},
+        {"address": "0046e6c0", "label": "WinKeyboardProducerVtable", "description": "RTTI WinKeyboardProducer: WinKeyboardProducer_Reset, Keyboard_PostEvents."}
+      ]
+    },
+    {
+      "name": "VshellEventConsumerVtable",
+      "binary": "VSHELL",
+      "description": "An event sink, at object +4: EventConsumer (Rtl_PureError) and WinConsumer.",
+      "slots": [
+        {"offset": 0, "name": "HandleEvent", "description": "(consumer, event): WinConsumer_HandleEvent."}
+      ],
+      "instances": [
+        {"address": "00470c58", "label": "EventConsumerVtable", "description": "RTTI EventConsumer: Rtl_PureError."},
+        {"address": "0046e7d0", "label": "WinConsumerVtable", "description": "RTTI WinConsumer: WinConsumer_HandleEvent."}
+      ]
+    },
+    {
+      "name": "VshellTSContextVtable",
+      "binary": "VSHELL",
+      "description": "The 3Space contexts' one slot: TSContext, TSCamera and TSOrthoCamera.",
+      "slots": [
+        {"offset": 0, "name": "Dtor", "description": "(this, flags): TSContext_Dtor, TSCamera_Dtor, TSOrthoCamera_Dtor."}
+      ],
+      "instances": [
+        {"address": "0047e9e1", "label": "TSContextVtable", "description": "RTTI TSContext: TSContext_Dtor."},
+        {"address": "0047e9d1", "label": "TSCameraVtable", "description": "RTTI TSCamera: TSCamera_Dtor."},
+        {"address": "0047e9c1", "label": "TSOrthoCameraVtable", "description": "RTTI TSOrthoCamera: TSOrthoCamera_Dtor."}
+      ]
+    },
+    {
+      "name": "VshellTSLightVtable",
+      "binary": "VSHELL",
+      "description": "TSLight and TSSunLight.",
+      "slots": [
+        {"offset": 0, "name": "Dtor", "description": "(this, flags): TSLight_Dtor, TSSunLight_Dtor."},
+        {"offset": 4, "name": "slot_0x04", "description": "(light, value): stores value at +0x1a (maybe_TSLight_SetIntensity); both EXEs call it with 0x100 on the sun."}
+      ],
+      "instances": [
+        {"address": "00472188", "label": "TSLightVtable", "description": "RTTI TSLight: TSLight_Dtor, maybe_TSLight_SetIntensity."},
+        {"address": "0047219c", "label": "TSSunLightVtable", "description": "RTTI TSSunLight: TSSunLight_Dtor, maybe_TSLight_SetIntensity."}
+      ]
+    },
+    {
+      "name": "VshellWinCursorVtable",
+      "binary": "VSHELL",
+      "description": "The widget layer's cursor: WinCursor (Rtl_PureError) and WinWin95Cursor, whose slot returns at once.",
+      "slots": [
+        {"offset": 0, "name": "slot_0x00", "description": "Its role is Open."}
+      ],
+      "instances": [
+        {"address": "00471854", "label": "WinCursorVtable", "description": "RTTI WinCursor: Rtl_PureError."},
+        {"address": "00471844", "label": "WinWin95CursorVtable", "description": "RTTI WinWin95Cursor: 0041f65e."}
       ]
     }
   ]

@@ -6,9 +6,9 @@ The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat
 
 `BASES.DGS`/`BHULKS.DGS`: a flat sequential list of `ClassItem`-tagged records — **not** the same container as `.DTS`, despite `BASES_AN.DTS` and `BASES.DGS` both starting with a 4-byte value that resembles `recordSize<<16|version`.
 
-**Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/`.DCI` ([`dfn-hfn-dci.md`](dfn-hfn-dci.md)), different registered class. `BaseType_LoadShape` (`00405ebc`) → `BaseType_ResolveShape` (`00474cd8`) walks this list sequentially by index (not random-access) to resolve `dat\BASES.DAT`'s shape index (`+0x02`, [`bases-dat.md`](bases-dat.md#the-type-record)).
+**Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/`.DCI` ([`dfn-hfn-dci.md`](dfn-hfn-dci.md)), different registered class: `GridShape` by its RTTI name (vtable `0049aaa0`, `0x438` bytes, derived from `TSShape`), built by `GridShape_Construct` (`00427568`). `BaseType_LoadShape` (`00405ebc`) → `BaseType_ResolveShape` (`00474cd8`) walks this list sequentially by index (not random-access) to resolve `dat\BASES.DAT`'s shape index (`+0x02`, [`bases-dat.md`](bases-dat.md#the-type-record)).
 
-**Record layout** (traced via the class's Watcom base-constructor chain — `BaseShape_ReadFromStream` (`0042762c`) → `ClassItemTree_ReadFromStream` (`00490d5c`) → `ClassItemTree_ReadChildren` (`0048fd94`) → `ClassItemTree_ReadBaseHeader` (`0048f894`)):
+**Record layout** (traced through the class's chain of base-class reads — `GridShape_ReadFromStream` (`0042762c`) → `TSShape_ReadFromStream` (`00490d5c`) → `TSPartList_ReadFromStream` (`0048fd94`) → `TSPartBase_ReadFromStream` (`0048f894`)):
 1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius** — [below](#the-bounding-radius--shape8).
 2. `int16` child count, then that many nested `ClassItem` records
 3. `int16` count + that many 32-byte records, consumed by `TSBSPPart_RenderNode` (`00476a1c`, [Open](#open))
@@ -31,7 +31,7 @@ So a placed structure is drawn at terrain height with no vertical correction of 
 
 ## The collision volume
 
-Step 5 of the record, read by `BaseShape_ReadFromStream` (`0042762c`):
+Step 5 of the record, read by `GridShape_ReadFromStream` (`0042762c`):
 
 | Offset | Type | Meaning |
 |---|---|---|
@@ -50,7 +50,7 @@ How a shot and a walking machine sample the grid is [`../simulation/hit-detectio
 
 ## The bounding radius — `shape+8`
 
-The third of the three `int16` head fields every `ClassItem` record carries (`ClassItemTree_ReadBaseHeader`, `0048f894`). Two unrelated consumers identify it: the LOD selector (`Shape_DrawAtDetailLevel`, `004033e4`) divides it by viewing distance to estimate on-screen size, and vtable `+0x10` (`SimObject_GetShapeRadius`, `0046b80c`) hands it to every coarse hit reject ([`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-three-radius-slots)). It tracks `BASES.DAT`'s own `+0x2a` radius ([`bases-dat.md`](bases-dat.md#the-type-record)) within about a fifth across all 45 records (6334/5600, 10325/9600, 3577/3600).
+The third of the three `int16` head fields every part record carries (`TSPartBase_ReadFromStream`, `0048f894`). Two unrelated consumers identify it: the LOD selector (`Shape_DrawAtDetailLevel`, `004033e4`) divides it by viewing distance to estimate on-screen size, and vtable `+0x10` (`SimObject_GetShapeRadius`, `0046b80c`) hands it to every coarse hit reject ([`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-three-radius-slots)). It tracks `BASES.DAT`'s own `+0x2a` radius ([`bases-dat.md`](bases-dat.md#the-type-record)) within about a fifth across all 45 records (6334/5600, 10325/9600, 3577/3600).
 
 ## Rejected readings
 

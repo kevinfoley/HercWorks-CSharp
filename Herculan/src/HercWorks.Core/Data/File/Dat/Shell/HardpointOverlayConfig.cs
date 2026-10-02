@@ -21,7 +21,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///
 /// <para><b>The four int32s are an inclusive rect, not a position and a size.</b>
 /// <c>Hotspots_BuildOverlay</c> (<c>0043c1a0</c>, <c>wsquadi.cpp</c>) hands the 16 bytes straight to
-/// <c>Panel_Ctor</c> as its rect argument, which everywhere else in the executable is
+/// <c>ESRect_Ctor</c> as its rect argument, which everywhere else in the executable is
 /// <c>{x0, y0, x1, y1}</c> with both corners inclusive. The geometry says the same on its own: the
 /// first chassis's first two arming areas are <c>(37, 94, 70, 125)</c> and <c>(157, 94, 191, 125)</c>,
 /// a left and right hardpoint mirrored about x≈114, which is only true read as two corners.</para>

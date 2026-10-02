@@ -8,9 +8,9 @@ namespace HercWorks.Core.Data.File.Dgs;
 /// DBSIM's ray-versus-structure query walks this grid rather than the geometry, so a shot passes
 /// through a doorway and stops on a wall without ever touching a polygon.
 ///
-/// <para>Read by <c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) as five <c>int16</c> scalars, a
+/// <para>Read by <c>GridShape_ReadFromStream</c> (<c>0042762c</c>) as five <c>int16</c> scalars, a
 /// fixed 1024-byte block and then <see cref="Rows"/> rows of <see cref="Columns"/> bytes; queried by
-/// <c>ShapeVolume_HeightAround</c> (<c>00427238</c>, the height under a point) and <c>ShapeVolume_Raycast</c> (<c>004273c8</c>, the ray march).</para>
+/// <c>GridShape_HeightAround</c> (<c>00427238</c>, the height under a point) and <c>GridShape_Raycast</c> (<c>004273c8</c>, the ray march).</para>
 /// </summary>
 /// <param name="Columns">Cells across, the grid's X extent (<c>+0x2a</c>).</param>
 /// <param name="Rows">Cells down, the grid's Y extent (<c>+0x2c</c>).</param>
@@ -32,7 +32,7 @@ namespace HercWorks.Core.Data.File.Dgs;
 /// <see cref="Rows"/> rows of <see cref="Columns"/> height codes, row-major with Y outermost, as the
 /// original allocates and reads them (<c>+0x434</c>, a row-pointer array).
 /// </param>
-public readonly record struct BaseShapeCollision(
+public readonly record struct GridShapeCollision(
 	short Columns, short Rows, short OriginColumn, short OriginRow, short CellShift,
 	int[] Heights, byte[][] Cells) {
 
@@ -64,14 +64,14 @@ public readonly record struct BaseShapeCollision(
 /// <param name="Geometry">
 /// The shape's drawable geometry, or null for the rare record with no child object.
 /// </param>
-/// <param name="Collision">The shape's collision volume — see <see cref="BaseShapeCollision"/>.</param>
-public readonly record struct BaseShape(
-	short BoundingRadius, TSObject? Geometry, BaseShapeCollision Collision);
+/// <param name="Collision">The shape's collision volume — see <see cref="GridShapeCollision"/>.</param>
+public readonly record struct GridShape(
+	short BoundingRadius, TSObject? Geometry, GridShapeCollision Collision);
 
 /// <summary>
 /// <c>dgs\BASES.DGS</c> / <c>dgs\BHULKS.DGS</c> — the static-structure shape library <c>dat\BASES.DAT</c>
 /// selects into by index. See <see cref="Io.Transform.Dbsim.BasesDgsTransformer"/> for the format.
 /// </summary>
-public class BaseShapeLibrary {
-	public BaseShape[]? Shapes { get; set; }
+public class GridShapeLibrary {
+	public GridShape[]? Shapes { get; set; }
 }

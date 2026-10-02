@@ -7,9 +7,9 @@ public readonly record struct ShellSprite(string Bank, int Frame);
 /// One of the shell's framed buttons: a rect, two sprites, and a caption centred on whichever sprite
 /// is showing.
 ///
-/// <para><b>Two, though the constructor takes three.</b> <c>ButtonIcon_Ctor</c> (<c>00409d14</c>)
+/// <para><b>Two, though the constructor takes three.</b> <c>ESButtonBitmap_Ctor</c> (<c>00409d14</c>)
 /// stores three frame pointers at <c>+0x51</c>, <c>+0x55</c> and <c>+0x59</c>, and both of the
-/// class's paints (<c>0040a05d</c> and its subclass's <c>0040a26d</c>) pick between the first two on
+/// class's paints (<c>ESButtonBitmap_Paint</c>, <c>0040a05d</c>, and its subclass's <c>ESRadioButton_Paint</c>, <c>0040a26d</c>) pick between the first two on
 /// the lit flag and never read the third. So a button has an unlit and a lit face and nothing
 /// else.</para>
 ///
@@ -24,7 +24,7 @@ public readonly record struct ShellSprite(string Bank, int Frame);
 /// <para><b>The face is whatever the last repaint saw.</b> <see cref="Lit"/> is the widget's own lit
 /// flag at <c>+0x45</c>, which a press, a tab handler's latch and a release all write, and
 /// <see cref="ShowsLit"/> is what the paint read from it the last time it ran. They differ because
-/// <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>) zeroes the flag on a left release without
+/// <c>ESButtonBitmap_HandleEvent</c> (<c>00409df2</c>) zeroes the flag on a left release without
 /// repainting, which is what leaves the active tab drawn lit after the click that latched it
 /// (docs/shell/screen-layout.md#which-widget-a-click-reaches).</para>
 /// </summary>
@@ -70,7 +70,7 @@ public sealed class ShellButton {
 	/// <summary>Whether the face on screen is the lit one — <see cref="Lit"/> as of the last <see cref="Repaint"/>.</summary>
 	public bool ShowsLit { get; private set; }
 
-	/// <summary>The class's paint, <c>0040a05d</c>: picks the face from the lit flag as it now stands.</summary>
+	/// <summary>The class's paint, <c>ESButtonBitmap_Paint</c> (<c>0040a05d</c>): picks the face from the lit flag as it now stands.</summary>
 	public void Repaint() => ShowsLit = Lit;
 
 	/// <summary>Which face is on screen.</summary>

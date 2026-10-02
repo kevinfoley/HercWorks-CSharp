@@ -12,6 +12,10 @@ Subcommands (BIN is DBSIM or VSHELL):
       Decompile bodies with known_symbols names substituted for FUN_/DAT_ labels, the header
       banner, blank lines and local declarations dropped (--full keeps them). -d appends the
       disassembly.
+  diff BIN addr BIN2 addr2
+      Unified diff of two decompiled bodies with names substituted and the remaining FUN_/DAT_
+      labels, locals and Ghidra variable numbers normalised: whether one binary's function is a
+      copy of the other's, and where the two differ.
   callers BIN addr... [-n CTX] [--max M]
       Every decompile line naming FUN_/DAT_<addr> (or its known name), with the enclosing function.
   precheck BIN addr...
@@ -21,6 +25,15 @@ Subcommands (BIN is DBSIM or VSHELL):
   rtti BIN vtable...
       Borland class of a vtable: typeinfo = dword at vt-0xc, size = dword ti+0, name = C string
       at ti + word[ti+6].
+  vtables BIN [vtable|class-regex ...] [--unnamed]
+      Every table in analysis_out/BIN_vtables_full.txt with its RTTI class and size, the
+      functions that install it (constructors and destructors; a class is its last vtable write)
+      and its slots, names taken from known_symbols rather than the dump. An unnamed slot is marked
+      '*', and each slot carries the number of tables holding the same function (xN): a function
+      shared by many tables is a base-class method. Arguments filter by table address or class
+      name; --unnamed keeps only tables with an unnamed slot ('L' marks one that has a low-confidence
+      entry already). A closing line totals the unnamed
+      functions and lists the RTTI class vtables the dump's sweep did not find.
   insert batch.json [--write]
       Insert new entries after the '"entries": [' line, validating schema, uniqueness, maybe_ vs
       medium, and control characters. Dry run without --write.
@@ -55,6 +68,7 @@ Write batch/spec JSON files with the Write tool; heredocs eat backslashes.
 
 from __future__ import annotations
 
+import bisect
 import json
 import os
 import pickle
@@ -200,6 +214,43 @@ def cmd_body(args):
             print(disasm(binary, a))
 
 
+def normalised(binary, addr):
+    """Compact body with known names substituted, then every remaining FUN_/DAT_/PTR_/LAB_ label,
+    stack-local name and the function's own name reduced to a placeholder, so two compiled copies
+    of one function compare equal up to what they actually do."""
+    known = names(binary)
+    body = bodies(binary).get(addr)
+    if body is None:
+        return None
+    t = compact(body, known)
+    t = re.sub(r"\bPTR_\w*?[0-9a-f]{8}\b", "PTR_?", t)
+    t = re.sub(r"\b(?:thunk_)?(FUN|DAT|LAB|_DAT)_[0-9a-f]{8}\b", r"\1_?", t)
+    t = re.sub(r"\b(?:local|auStack|uStack|iStack|puStack|pcStack|in_stack)_[0-9a-f]+\b", "local_?", t)
+    t = re.sub(r"\b(?:[a-z]{1,3}Var)\d+\b", "var?", t)
+    own = known.get(addr)
+    if own:
+        t = re.sub(r"\b" + re.escape(own) + r"\b", "SELF", t)
+    head, _, rest = t.partition("\n")
+    head = re.sub(r"\b__(?:cdecl|stdcall|fastcall|thiscall) ", "", head).replace("FUN_?(", "SELF(", 1)
+    return head + "\n" + rest
+
+
+def cmd_diff(args):
+    """diff BIN addr BIN2 addr2: unified diff of the two normalised bodies (empty when they match)."""
+    import difflib
+    (b1, a1, b2, a2) = args[:4]
+    a1, a2 = a1.lower().zfill(8), a2.lower().zfill(8)
+    t1, t2 = normalised(b1, a1), normalised(b2, a2)
+    if t1 is None or t2 is None:
+        print("not in decompile:", a1 if t1 is None else "", a2 if t2 is None else "")
+        return
+    if t1 != t2 and "".join(t1.split()) == "".join(t2.split()):
+        print(f"identical after normalisation, up to line breaks ({len(t1.splitlines())} lines)")
+        return
+    d = list(difflib.unified_diff(t1.splitlines(), t2.splitlines(), f"{b1} {a1}", f"{b2} {a2}", lineterm="", n=1))
+    print("\n".join(d) if d else f"identical after normalisation ({len(t1.splitlines())} lines)")
+
+
 def cmd_callers(args):
     binary, rest = args[0], args[1:]
     ctx = int(rest[rest.index("-n") + 1]) if "-n" in rest else 0
@@ -296,6 +347,165 @@ def cmd_rtti(args):
         size = struct.unpack_from("<I", d, to)[0]
         no = struct.unpack_from("<H", d, to + 6)[0]
         print(f"{a}: ti={ti:08x} size=0x{size:x} name={d[to + no:to + no + 64].split(b'\0')[0].decode('latin1')}")
+
+
+VT_HEAD = re.compile(r"^=== (\S+) .*?@ ([0-9a-f]{8})\s+\((\d+) slots\) ===$")
+VT_SLOT = re.compile(r"^  \+0x([0-9a-f]+) \([0-9a-f]{8}\): \S+ @ ([0-9a-f]{8})$")
+VT_STORE = re.compile(r"^([0-9a-f]{8})\s+[0-9a-f]+\s+MOV dword ptr \[[^\]]*\],0x([0-9a-f]{6,8})\s*$")
+
+
+def rtti_class(d, off, vt):
+    """(name, size) of the Borland typeinfo at vt-0xc, or None."""
+    o = off(vt - 0xc)
+    if o is None:
+        return None
+    ti = struct.unpack_from("<I", d, o)[0]
+    to = off(ti)
+    if to is None or to + 8 > len(d):
+        return None
+    no = struct.unpack_from("<H", d, to + 6)[0]
+    name = d[to + no:to + no + 64].split(b"\0")[0]
+    if not re.fullmatch(rb"[A-Za-z_][\w<>,* ]{1,62}", name):
+        return None
+    return name.decode("latin1"), struct.unpack_from("<I", d, to)[0]
+
+
+def is_typeinfo(d, off, a):
+    """A Borland type descriptor at a, of any kind (class, struct, pointer): a printable C name at
+    a + word[a+6]. A class's table can be followed by its pointer type's descriptor."""
+    o = off(a)
+    if o is None or o + 8 > len(d):
+        return False
+    no = struct.unpack_from("<H", d, o + 6)[0]
+    if no not in (0x0c, 0x10, 0x20, 0x30):
+        return False
+    return re.match(rb"[A-Za-z_][\w<>,* ]{1,62}\0", d[o + no:o + no + 64]) is not None
+
+
+def code_range(binary):
+    with open(os.path.join(REPO, "ES2", f"{binary}.EXE"), "rb") as f:
+        d = f.read()
+    o = struct.unpack_from("<I", d, 0x3c)[0]
+    n = struct.unpack_from("<H", d, o + 6)[0]
+    so = struct.unpack_from("<H", d, o + 20)[0]
+    for i in range(n):
+        s = o + 24 + so + i * 40
+        vs, va = struct.unpack_from("<II", d, s + 8)
+        if struct.unpack_from("<I", d, s + 36)[0] & 0x20:
+            return va + 0x400000, va + 0x400000 + vs
+    raise AssertionError("no code section")
+
+
+def parse_vtables(binary):
+    """{vt: [(offset, fn)]} from the dump."""
+    out, cur = {}, None
+    with open(os.path.join(ANALYSIS, f"{binary}_vtables_full.txt"), encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = VT_HEAD.match(line.rstrip("\n"))
+            if m:
+                cur = out.setdefault(m.group(2), [])
+            elif cur is not None and VT_SLOT.match(line.rstrip("\n")):
+                s = VT_SLOT.match(line.rstrip("\n"))
+                cur.append((int(s.group(1), 16), s.group(2)))
+    return out
+
+
+def disasm_index(binary):
+    """(sorted function entries, {stored dword immediate: [store sites]})."""
+    starts, stores = [], {}
+    with open(os.path.join(ANALYSIS, f"{binary}_disasm_full.txt"), encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if line.startswith("; FUNCTION "):
+                starts.append(line.rstrip()[-8:])
+            elif "MOV dword ptr [" in line:
+                m = VT_STORE.match(line)
+                if m:
+                    stores.setdefault(m.group(2).zfill(8), []).append(m.group(1))
+    return sorted(set(starts)), stores
+
+
+def containing_fn(starts, a):
+    i = bisect.bisect_right(starts, a) - 1
+    return starts[i] if i >= 0 else a
+
+
+def cmd_vtables(args):
+    binary = args[0]
+    only_unnamed = "--unnamed" in args
+    filters = [x for x in args[1:] if not x.startswith("-")]
+    known = names(binary)
+    d, off = pe(binary)
+    lo, hi = code_range(binary)
+    low = {e["address"] for e in entries() if e["binary"] == binary and not e.get("name")}
+    starts, stores = disasm_index(binary)
+    entries_ = set(starts)
+    import es2_classes
+    img = es2_classes.Image(os.path.join(REPO, "ES2", f"{binary}.EXE"))
+    recs = es2_classes.scan(img)
+    rtti_vts = {f"{v:08x}" for vts in es2_classes.find_vtables(img, recs).values() for v in vts}
+    dump = parse_vtables(binary)
+    tables, notes = {}, {}
+    # A dump table 4 bytes past an RTTI vtable lost its slot 0 to an undefined function there.
+    for vt, slots in dump.items():
+        prev = f"{int(vt, 16) - 4:08x}"
+        if vt not in rtti_vts and prev in rtti_vts:
+            s0 = f"{struct.unpack_from('<I', d, off(int(prev, 16)))[0]:08x}"
+            tables[prev] = [(0, s0)] + [(o + 4, fn) for o, fn in slots]
+            notes[prev] = f"dump has it at {vt}, without slot 0"
+        else:
+            tables[vt] = slots
+    # RTTI vtables the dump's sweep missed, or typed there shorter than the image holds: read the
+    # words while they point into code, up to the next table's typeinfo word or a type descriptor.
+    bounds = {int(v, 16) - 0xc for v in rtti_vts}
+    for vt in sorted(rtti_vts):
+        p, slots = int(vt, 16), []
+        while len(slots) < 64:
+            w = struct.unpack_from("<I", d, off(p))[0]
+            if not lo <= w < hi or w in recs or is_typeinfo(d, off, w):
+                break
+            slots.append((p - int(vt, 16), f"{w:08x}"))
+            p += 4
+            if p in bounds:
+                break
+        if vt not in tables:
+            tables[vt] = slots
+            notes[vt] = "not in the dump; slots read from the image"
+        elif len(slots) > len(tables[vt]) and slots[:len(tables[vt])] == tables[vt]:
+            notes[vt] = f"dump types {len(tables[vt])} slots; the rest read from the image"
+            tables[vt] = slots
+    # A dump table without RTTI that starts inside a longer RTTI table is that class's tail.
+    for vt in [v for v in tables if v not in rtti_vts]:
+        a = int(vt, 16)
+        for r in rtti_vts:
+            if r in tables and int(r, 16) < a < int(r, 16) + 4 * len(tables[r]):
+                notes[r] = notes.get(r, "") + f"; absorbs the dump's {vt}"
+                del tables[vt]
+                break
+    share = {}
+    for slots in tables.values():
+        for fn in {fn for _, fn in slots}:
+            share[fn] = share.get(fn, 0) + 1
+    unnamed = set()
+    for vt in sorted(tables):
+        slots = tables[vt]
+        cls = rtti_class(d, off, int(vt, 16))
+        cname = f"{cls[0]} size=0x{cls[1]:x}" if cls else "(no RTTI)"
+        if filters and not any(f.lower() == vt or (cls and re.search(f, cls[0], re.I)) for f in filters):
+            continue
+        miss = [fn for _, fn in slots if fn not in known]
+        unnamed.update(miss)
+        if only_unnamed and not miss:
+            continue
+        print(f"=== {vt} {cname}  ({len(slots)} slots, {len(set(miss))} unnamed)"
+              + (f"  [{notes[vt]}]" if vt in notes else ""))
+        fns = sorted({containing_fn(starts, a) for a in stores.get(vt, [])})
+        print("  installed by: " + (", ".join(f"{f} {known.get(f, '*')}" for f in fns) or "<no immediate store>"))
+        for o, fn in slots:
+            mark = " " if fn in known else ("L" if fn in low else "*" if fn in entries_ else "?")
+            print(f"  +0x{o:03x} {mark} {fn} {known.get(fn, '')}  x{share[fn]}")
+    if not filters:
+        print(f"\n{len(tables)} tables, {len(unnamed)} distinct unnamed slot targets"
+              " ('*' unnamed function, 'L' a low entry without a name, '?' no function starts there)")
 
 
 def read_symbols_text():
@@ -604,7 +814,7 @@ def cmd_fixentry(args):
 
 
 COMMANDS = {"triage": cmd_triage, "body": cmd_body, "callers": cmd_callers, "precheck": cmd_precheck,
-            "sym": cmd_sym, "rtti": cmd_rtti, "insert": cmd_insert, "edit": cmd_edit,
+            "sym": cmd_sym, "rtti": cmd_rtti, "vtables": cmd_vtables, "diff": cmd_diff, "insert": cmd_insert, "edit": cmd_edit,
             "mentions": cmd_mentions, "relink": cmd_relink, "fixrefs": cmd_fixrefs, "repl": cmd_repl, "apply": cmd_apply,
             "fixentry": cmd_fixentry}
 

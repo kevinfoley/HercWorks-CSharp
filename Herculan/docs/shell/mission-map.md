@@ -6,20 +6,20 @@ The picture inside the mission tab's `Mission Map` panel in the briefing view ([
 
 `ShellMap_Build` (`0040e1a7`) destroys the map there is and constructs a new one of `0x3c5` bytes over the canvas rect `{0x123, 0x43, 0x249, 0x124}`, then builds its relief. It runs from `Game_LoadSlot` and from the two paths that load a mission, `Career_LoadCurrentMission` (`0044d4cc`) and `Msn_BuildPath` (`0044d5bd`), so a map belongs to one loaded mission and lasts until the next.
 
-`ShellMap_Constructor` (`00423f43`) is built on a camera base class, `MapCamera_Ctor` (`0041fdc8`), which keeps the rect's width and height at `+0x46`/`+0x4a` (right minus left, bottom minus top: 294 and 225), its own drawing context at `+4` whose centre is the rect's left plus `width >> 1` and top plus `height >> 1` — canvas (438, 180) — and a 3Space camera at `+0xc` with focal shift 7 and no rotation. The camera's position is `+0x12`/`+0x16`, its altitude `+0x1a`.
+`ShellMap_Constructor` (`00423f43`) is built on its base class `Map` (vtable `0047195e`, by its RTTI name), whose constructor `Map_Ctor` (`0041fdc8`) keeps the rect's width and height at `+0x46`/`+0x4a` (right minus left, bottom minus top: 294 and 225), its own drawing context at `+4` whose centre is the rect's left plus `width >> 1` and top plus `height >> 1` — canvas (438, 180) — and a 3Space camera at `+0xc` with focal shift 7 and no rotation. The camera's position is `+0x12`/`+0x16`, its altitude `+0x1a`.
 
 The vtable at `004721b0`:
 
 | Slot | Function | Does |
 |---|---|---|
 | 0 | `ShellMap_Paint` (`0042540a`) | [a paint](#a-paint) |
-| `+4` | `MapCamera_ZoomIn` (`004200e4`) | [zoom in](#the-six-buttons) |
+| `+4` | `Map_ZoomIn` (`004200e4`) | [zoom in](#the-six-buttons) |
 | `+8` | `ShellMap_ZoomOut` (`00427946`) | zoom out |
 | `+0xc` | `ShellMap_PanNorth` (`00427a3f`) | pan |
 | `+0x10` | `ShellMap_PanSouth` (`00427a93`) | pan |
 | `+0x14` | `ShellMap_PanWest` (`00427997`) | pan |
 | `+0x18` | `ShellMap_PanEast` (`004279eb`) | pan |
-| `+0x1c` | `MapCamera_ResetPan` (`00420185`) | zeroes the pan |
+| `+0x1c` | `Map_ResetPan` (`00420185`) | zeroes the pan |
 
 ## What it reads
 
@@ -65,7 +65,7 @@ Three camera positions are derived at construction:
 |---|---|---|---|
 | full view, `+0x187`/`+0x18b`/`+399` | `ShellMap_FitBounds` (`0042524e`) | the bounds' centre | the larger of `(halfWidth << 7) / (294 >> 1)` and `(halfHeight << 7) / (225 >> 1)`, also stored as the altitude limit `+0x3bd` |
 | squad view, `+0x193`/`+0x197`/`+0x19b` | `ShellMap_FitSquad` (`004252e1`) | the squad's positions widened by 250000 (`DAT_00471c34`) | the same fit |
-| start | `MapCamera_Ctor` | 0, 0 | 200000 (`DAT_00471870`) |
+| start | `Map_Ctor` | 0, 0 | 200000 (`DAT_00471870`) |
 
 The squad view takes the first `+0x80` slots — the count `player.mec` gives — whose member is not `-1`.
 
@@ -84,7 +84,7 @@ The six map buttons ([`screen-layout.md`](screen-layout.md#the-mission-screen)) 
 | 5 | four arrows pointing in | `+4` | altitude down 50000 (`DAT_00471864`) while it stays at or above 50000 (`DAT_00471868`); step re-derived |
 | 6 | four arrows pointing out | `+8` | altitude up 50000 when the clamp would leave it there; step re-derived |
 
-The two zooms derive the pan step by different formulas. `MapCamera_PanStepFor` (`00420195`), zooming in and at construction:
+The two zooms derive the pan step by different formulas. `Map_PanStepFor` (`00420195`), zooming in and at construction:
 
 ```
 step = ((altitude - 50000 >> 3) * (100000 - 5000 >> 3)) / (1000000 - 50000 >> 3) * 8 + 5000

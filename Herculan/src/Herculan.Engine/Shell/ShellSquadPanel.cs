@@ -42,7 +42,7 @@ public static class ShellSquadPanel {
 	private const int RowBottomOffset = 0xd;
 
 	/// <summary>
-	/// The four text columns <c>ListRow_AddColumns</c> is given: the number centred in <c>2</c>-<c>0x21</c>,
+	/// The four text columns <c>ESQuad_AddColumns</c> is given: the number centred in <c>2</c>-<c>0x21</c>,
 	/// the chassis name left in <c>0x21</c>-<c>0x70</c>, a dash centred in <c>0x70</c>-<c>0x7b</c>, and
 	/// the pilot left from <c>0x7b</c> to two inside the row.
 	/// </summary>

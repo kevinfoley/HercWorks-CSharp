@@ -44,7 +44,7 @@ public sealed class ShellSurface {
 
 	/// <summary>
 	/// What every primitive is clipped to. It starts as the whole surface and each widget's paint
-	/// narrows it to that widget for the duration — <c>Widget_BeginPaint</c> (<c>0041f585</c>), the first call in all five
+	/// narrows it to that widget for the duration — <c>Window_BeginPaint</c> (<c>0041f585</c>), the first call in all five
 	/// paints, which binds the drawing context to the widget being painted.
 	///
 	/// <para><b>The paints depend on this rather than measuring.</b> The title bar's diagonal hatch is

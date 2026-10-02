@@ -103,7 +103,7 @@ public sealed class ShellReplayDialog {
 	private static ShellRect Inside(ShellRect parent, ShellRect child) =>
 		new(parent.X0 + child.X0, parent.Y0 + child.Y0, parent.X0 + child.X1, parent.Y0 + child.Y1);
 
-	/// <summary><c>TitledPanel_Ctor</c>'s border and header height, and the face, dither and plate the builder writes.</summary>
+	/// <summary><c>ESTitle_Ctor</c>'s border and header height, and the face, dither and plate the builder writes.</summary>
 	private const byte PanelBorder = 0x27;
 	private const int TitleHeight = 0x13;
 	private const byte PanelFace = 0x25;

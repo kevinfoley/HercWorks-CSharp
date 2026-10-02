@@ -55,8 +55,8 @@ public static class ShellChrome {
 	public const byte FontInkColor = 0x29;
 
 	/// <summary>
-	/// <c>Panel_FillAndBorder</c> (<c>0040a726</c>) — the base fill and border under <see cref="PaintFramedPanel"/> and
-	/// <see cref="PaintTitledPanel"/>, and the whole of <c>Panel_Paint</c> on its own.
+	/// <c>ESRect_FillAndBorder</c> (<c>0040a726</c>) — the base fill and border under <see cref="PaintFramedPanel"/> and
+	/// <see cref="PaintTitledPanel"/>, and the whole of <c>ESRect_Paint</c> on its own.
 	///
 	/// <para>The border is a chamfer, not a rectangle: each of the four edges stops one pixel short at
 	/// both ends, leaving the true corners empty, and then the four pixels one step <i>inside</i> each
@@ -84,7 +84,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>Button_Paint</c> (<c>00409b79</c>) without its caption — the box of every <c>Button</c>, the
+	/// <c>ESButtonFont_Paint</c> (<c>00409b79</c>) without its caption — the box of every <c>Button</c>, the
 	/// disabled readouts among them: <see cref="PaintPanel"/> with the interior filled, then a second
 	/// border one pixel inside the first in the same colour. Its top and bottom run from 2 to <c>W - 2</c>
 	/// and its sides from 2 to <c>H - 2</c>, so it meets the outer border's inset corner pixels.
@@ -103,7 +103,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>FramedPanel_Paint</c> — a plain bordered box: the interior cleared, the chamfered border, then
+	/// <c>ESRegionFill_Paint</c> — a plain bordered box: the interior cleared, the chamfered border, then
 	/// a 50% checkerboard over the interior in <paramref name="faceColor"/>.
 	///
 	/// <para>The save screen sets that face colour to <see cref="InteriorColor"/> on all three of its
@@ -127,7 +127,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>TitledPanel_Paint</c> — the group box every tab screen's content sits in: a header strip with
+	/// <c>ESTitle_Paint</c> — the group box every tab screen's content sits in: a header strip with
 	/// a diagonal hatch and a clear plate for its title, a divider under it, and a body that is either
 	/// filled or dithered.
 	///
@@ -193,7 +193,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>HatchedDivider_Paint</c> (<c>0040c513</c>) — a bordered box whose interior is laid down as
+	/// <c>ESArm_Paint</c> (<c>0040c513</c>) — a bordered box whose interior is laid down as
 	/// horizontal lines in <paramref name="lineColor"/> from row <paramref name="firstLine"/> to the
 	/// bottom, with an optional second border one pixel inside the first. With the first line at 0 the
 	/// lines are a solid fill; the class is a line fill because its constructor starts them at the
@@ -229,12 +229,12 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>ImagePanel_Paint</c> (<c>0040b772</c>), the paint of the panel class <c>ImagePanel_Ctor</c> (<c>0040b698</c>)
+	/// <c>ESBitmap_Paint</c> (<c>0040b772</c>), the paint of the panel class <c>ESBitmap_Ctor</c> (<c>0040b698</c>)
 	/// builds — one bitmap at an offset within the widget (<c>+0x55</c>, <c>+0x59</c>), then the border
 	/// over it with no fill, so an image that reaches the edge loses its outermost pixels to the border.
 	/// </summary>
 	/// <param name="border">
-	/// The widget's <c>+0x51</c>, which the constructor clears. It gates <c>Panel_FillAndBorder</c> only:
+	/// The widget's <c>+0x51</c>, which the constructor clears. It gates <c>ESRect_FillAndBorder</c> only:
 	/// the bitmap is blitted either way, so a panel left at the default is a bare picture.
 	/// </param>
 	public static void PaintImagePanel(ShellSurface surface, ShellRect rect, DynamixBitmap? image,
@@ -252,7 +252,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>Text_Paint</c> (<c>0040b439</c>) — one label or readout.
+	/// <c>ESMessage_Paint</c> (<c>0040b439</c>) — one label or readout.
 	///
 	/// <para><paramref name="backingColor"/> is the widget's <c>+0xc1</c>/<c>+0xc5</c> pair: a value
 	/// field clears its own rect first so a refresh overwrites cleanly, and a static label does not, so
@@ -284,7 +284,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>EditField_Paint</c> (<c>0040c14f</c>) — the editable text field the save screen's ten slot rows are, painted whole:
+	/// <c>ESDialog_Paint</c> (<c>0040c14f</c>) — the editable text field the save screen's ten slot rows are, painted whole:
 	/// its rect cleared, its string drawn left-aligned one pixel in, an optional caret block, and the
 	/// ink remapped to <paramref name="color"/>.
 	/// </summary>
@@ -302,7 +302,7 @@ public static class ShellChrome {
 
 		if (font != null) {
 			// The edit field's own centring: half the font's cell height plus half the rect's, which is
-			// not the same expression Text_Paint uses.
+			// not the same expression ESMessage_Paint uses.
 			int baseline = font.CellHeight / 2 + (h + 1) / 2;
 			if (!string.IsNullOrEmpty(text)) {
 				DrawString(surface, font, text, rect.X0 + 1, rect.Y0 + baseline, ShellTextAlign.Left, w + 1);

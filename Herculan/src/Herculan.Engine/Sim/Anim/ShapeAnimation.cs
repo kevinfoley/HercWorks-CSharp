@@ -155,8 +155,8 @@ public sealed class AnimSequence {
 
 	/// <summary>
 	/// The frame after <paramref name="frame"/> — vtable <c>+0x20</c> on the sequence itself, which
-	/// is <c>AnimSequence_NextFrameCyclic</c> (<c>004786d8</c>) for a cyclic sequence and
-	/// <c>AnimSequence_NextFrame</c> (<c>00478654</c>) for a plain one. The cyclic one wraps to 0;
+	/// is <c>ANCyclicSequence_NextFrame</c> (<c>004786d8</c>) for a cyclic sequence and
+	/// <c>ANSequence_NextFrame</c> (<c>00478654</c>) for a plain one. The cyclic one wraps to 0;
 	/// the plain one <b>clamps</b>, returning the last frame forever once playback reaches it.
 	///
 	/// <para>That clamp is load-bearing rather than a detail: it is the only way anything can tell
@@ -168,7 +168,7 @@ public sealed class AnimSequence {
 
 	/// <summary>
 	/// The frame before <paramref name="frame"/> — vtable <c>+0x24</c>,
-	/// <c>AnimSequence_PrevFrameCyclic</c> (<c>004786f8</c>) and <c>AnimSequence_PrevFrame</c>
+	/// <c>ANCyclicSequence_PrevFrame</c> (<c>004786f8</c>) and <c>ANSequence_PrevFrame</c>
 	/// (<c>00478670</c>), with the same asymmetry: the cyclic one wraps to the last frame, the plain
 	/// one holds at 0.
 	/// </summary>

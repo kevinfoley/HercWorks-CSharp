@@ -77,7 +77,7 @@ public sealed class ShellBuildScreen {
 	private const int RowBottomOffset = 0xd;
 
 	/// <summary>
-	/// Where <c>ListRow_AddColumns</c> is told to cut a row: the name fills the first column, <c>2</c>
+	/// Where <c>ESQuad_AddColumns</c> is told to cut a row: the name fills the first column, <c>2</c>
 	/// to <c>0x62</c>, centred, and the other three are empty — the next two zero-wide.
 	/// </summary>
 	private const int NameColumnRight = 0x62;
@@ -399,7 +399,7 @@ public sealed class ShellBuildScreen {
 
 	/// <summary>
 	/// One button box: a checkered framed panel, its title, and the button, greyed with its caption when
-	/// its gate is shut. The caption is the <c>Text</c> child <c>Button_Ctor</c> builds at
+	/// its gate is shut. The caption is the <c>Text</c> child <c>ESButtonFont_Ctor</c> builds at
 	/// <c>{1, 0, w, h}</c>, so it is centred one pixel right of the button's own rect.
 	/// </summary>
 	private void PaintButtonBox(ShellSurface surface, HudFont? font, ShellText? text, ShellRect boxRect,

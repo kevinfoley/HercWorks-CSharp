@@ -42,9 +42,12 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 0x14  uint32 subSize
 0x18  uint16 width
 0x1A  uint16 height
-0x1C  uint16 bitsPerPixel  -- CONFIRMED = 8 (indexed color) in all 7 files, constant regardless of width/height
-0x1E  uint32 pixelDataLen  -- CONFIRMED = width*height in all 7 files (1 byte/pixel)
-0x22  [pixelDataLen bytes] pixel data (0x00 = background, one non-zero indexed color = the cursor's "ink")
+0x1C  uint8  bitsPerPixel  -- 8 (indexed color) in all 7 files
+0x1D  uint8  flags         -- low nibble the bitmap type; 0 in all 7 files
+0x1E  uint8  compression   -- 0 raw, 1 RLE, 3 LZH; 0 in all 7 files
+0x1F  uint32 pixelDataLen  -- width*height in all 7 files (1 byte/pixel)
+0x23  int16  extraCount    -- 0 in all 7 files; that many uint32s follow the pixels
+0x25  [pixelDataLen bytes] pixel data (0x00 = background, one non-zero indexed color = the cursor's "ink")
 ```
 
 **Hotspot field (click-point coordinates), verified against all 7 files by their directional prefix:**
@@ -59,7 +62,7 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 | SCURSOR.DCI | 8×8 | (3,7) | edge-strip arrow, south |
 | PCURSOR.DCI | 9×16 | (4,4) | over the gunsight's click surface |
 
-`PCURSOR.DCI` carries about 101 trailing bytes after its pixels, mostly zero with scattered `0x38` and `0x3C` values ([Open](#open)); the other 6 files end with 5 zero-padding bytes. Preserve them as raw when parsing.
+The sub-header from `0x18` is the ordinary 13-byte bitmap header, read by the same code as any other bitmap item (VSHELL `GLBitmap_ReadFromStream`). In all 7 files the pixels end exactly at `0x18 + subSize`, the envelope rounds its own length up to even with one zero byte, and one more zero byte follows it. `PCURSOR.DCI` carries 96 further bytes past its envelope, zero but for pairs of `0x3C` ([Open](#open)). Preserve them as raw when parsing.
 
 ## `.DFN` / `.HFN` — bitmap font
 
@@ -85,8 +88,10 @@ Offsets relative to content start, i.e. after the 9-byte VOL prefix.
 0x16  int16  bitsPerPixel            -- 8 in every retail file
 0x18  int16             -- 0 in every retail file
 0x1a  int16  inkHeight               -- 8 (.DFN) / 11 (.HFN)
-0x1c  int16  arrayCount              -- 0 in every retail file; when non-zero, arrayCount x 4 bytes
-                                        precede the glyph pool
+0x1c  int16  arrayCount              -- 0 in every retail file; when non-zero, the class's size
+                                        functions count arrayCount x 4 bytes before the glyph pool,
+                                        but both EXEs' readers and writers move arrayCount x 16
+                                        (Stream_ReadDwords of arrayCount << 2)
 0x1e  uint32 poolLength
 0x22  [poolLength bytes]              glyph pool
       [glyphCount x uint32]           each glyph's start offset into the pool
@@ -134,5 +139,5 @@ Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_0200
 ## Open
 
 - **Open:** the `.DFN`/`.HFN` header shorts at `0x0a` and `0x18`. They are 0 in every retail file and have no consumer found.
-- **Open:** `PCURSOR.DCI`'s trailing 101 bytes. They may be a second image layer (an AND-mask or outline) specific to this cursor.
+- **Open:** `PCURSOR.DCI`'s 96 bytes past its envelope. The cursor's load reads one class item, which ends at the envelope; what reads these bytes is the open question. They may be a second image layer (an AND-mask or outline) specific to this cursor.
 - **Open:** whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).

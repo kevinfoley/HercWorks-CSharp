@@ -345,7 +345,7 @@ public sealed class ShellMissionScreen {
 	/// <summary>The report texts' strings, in <see cref="ReportTexts"/> order; each figure starts on the empty entry 0.</summary>
 	private readonly string?[] _reportStrings = new string?[ReportTexts.Length];
 
-	/// <summary>The figures' alignment, which <c>Text_SetString</c> rewrites with the string.</summary>
+	/// <summary>The figures' alignment, which <c>ESMessage_SetString</c> rewrites with the string.</summary>
 	private readonly ShellTextAlign[] _reportAlign = Array.ConvertAll(ReportTexts, text => text.Align);
 
 	public ShellMissionScreen(ShellMissionArt? art = null) => _art = art;
@@ -486,7 +486,7 @@ public sealed class ShellMissionScreen {
 
 	/// <summary>
 	/// What the pointer hits: a button or an arrow. The four panels are built disabled —
-	/// <c>TitledPanel_Ctor</c> clears <c>+0x49</c> and the builder clears the button bar's — and the
+	/// <c>ESTitle_Ctor</c> clears <c>+0x49</c> and the builder clears the button bar's — and the
 	/// Telecomm picture's handler (<c>FUN_00444e28</c>) returns at once, so a click anywhere else is
 	/// swallowed, which here is the same as hitting nothing.
 	/// </summary>
@@ -605,7 +605,7 @@ public sealed class ShellMissionScreen {
 	private const byte Border = 0x27;
 	private const int TitleHeight = 0x13;
 
-	/// <summary><c>TitledPanel_Ctor</c>'s header face, which the builder leaves on Telecomm and the summary and writes over on the map panel.</summary>
+	/// <summary><c>ESTitle_Ctor</c>'s header face, which the builder leaves on Telecomm and the summary and writes over on the map panel.</summary>
 	private const byte PanelFace = 0x24;
 	private const byte MapFace = 0x25;
 	private const int MapPlateFirst = 0x26;

@@ -8,9 +8,9 @@ Covers how a `.DTS` poly gets a colour: which `.DBA` is bound to a model, how a 
 
 Placement, sizing and rotation are in [`dts-billboards.md`](dts-billboards.md). The lookup is a plain frame index into whichever DBA is currently active:
 
-1. `TSShapeInstance` carries its bound DBA pointer at `+0x26` (`TSShapeInstance_GetBoundBitmapArray`, `0046296d`).
+1. `TSShape` carries its bound DBA pointer at `+0x26` (`TSShape_GetBoundBitmapArray`, `0046296d`). The field is the shape's: a `TSShape` is `0x2a` bytes, a `TSShapeInstance` `0xc` (its shape at `+4` and its own copy of the shape's per-sequence frames at `+8`).
 2. `g_ActiveBitmapArray` (`DAT_005d8010`) is a process-wide "currently active DBA" global, with two accessors: `TSBase_GetActiveBitmapArray` / `TSBase_SetActiveBitmapArray`.
-3. `TSShapeInstance_Render` / `TSShapeInstance_RenderFromRef` (`00462730` / `00462894`) save the global, swap in the instance's `+0x26`, call `TSShapeInstance_RenderPolys` (`0042203a`, which dispatches each poly's vtable `+0x1c`), then restore.
+3. `TSShape_Render` (`00462730`, `TSShape`'s vtable `+0x1c`) and `TSShapeInstance_Render` (`00462894`, `TSShapeInstance`'s, which works on the instance's shape) save the global, swap in the shape's `+0x26`, call `TSPartList_Render` (`0042203a`, which dispatches each child's vtable `+0x1c`), then restore.
 4. `TSBitmapPart_Render` (`00421db2`) reads `poly+0x10`, the part's bitmap tag, as a frame index, bounds-checks it against `g_ActiveBitmapArray`'s count, and looks up `*(int*)(*g_ActiveBitmapArray+8) + frameIndex*4`. The part's x and y offsets (`poly+0x12`/`+0x13`, single bytes) place the result.
 
 Resolution is `activeDba.Frames[poly+0x10]`, with no UV interpolation.
@@ -63,7 +63,7 @@ Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this ty
 `TSTexture4Poly` is a mesh poly: it lives in a `TSGroup` and references real 3D vertices through its vertex-list offset and vertex count, structurally unlike `TSBitmapPart`'s 2D quad. It has its own vtable.
 
 - `g_TSObjectTypeRegistry` (`0047f258`, VSHELL) — 18 entries, 12-byte stride, each `{tag:uint32, constructorFnPtr, nameStringPtr}`. `tag` matches an object's on-disk chunk header, `[subtype:u16][supertype:u16]` (e.g. `0x0014000f` = `TSTexture4Poly`).
-- `TSTexture4Poly_Construct` (`0045ffe0`) installs its vtable several times during construction (Watcom multi-base-class pattern), finishing with `g_TSTexture4PolyVtable` (`0047ee0c`).
+- `TSTexture4Poly_Construct` (`0045ffe0`) stamps the vtable of each level of the class's inheritance chain in turn as the inlined constructors run, finishing with `g_TSTexture4PolyVtable` (`0047ee0c`).
 - Slot `+0x1c` of that vtable is `TSTexture4Poly_Render` (`00422af5`), which:
 - reads `poly+0xc`, the colour index, as an index into the per-surface runtime record array (`DAT_005d88a2`, 4-byte stride);
 - runs `TSPoly_FrontBackVisibilityTest` (`0045e480`) on the points `poly+4`/`poly+6` index (`TSPoly.Normal`/`Center`), and a positive result picks the front colour pair ([below](#tspoly_frontbackvisibilitytest));
@@ -82,7 +82,7 @@ VSHELL's `dba\rpr_<code>.dba`, `dba\<code>_int.dba`, `_bod`/`_wep`/`_out` are 2D
 
 ### DBSIM's mech-to-texture mapping
 
-`MechType_InitOne` (`004201a8`) sets each mesh sub-component's `TSShapeInstance+0x26` to `&g_MechTextureGroupSlots + typeRecord[0x96]*8`. `g_MechTextureGroupSlots` (`004a9df6`) is an 8-byte-stride array, one slot per texture group. `typeRecord+0x96` is the mech type record's texture group, record offset 148 ([`mech-locomotion.md`](../simulation/mech-locomotion.md#mech-type-record)).
+`MechType_InitOne` (`004201a8`) sets each root shape's `TSShape+0x26` to `&g_MechTextureGroupSlots + typeRecord[0x96]*8`. `g_MechTextureGroupSlots` (`004a9df6`) is an 8-byte-stride array, one slot per texture group. `typeRecord+0x96` is the mech type record's texture group, record offset 148 ([`mech-locomotion.md`](../simulation/mech-locomotion.md#mech-type-record)).
 
 Byte-verified against every `simvol0/dat/*.DAT` (226 bytes each: 9-byte VOL prefix + 216-byte content + 1 trailer, matching the function's `0xd8` = 216-byte read):
 
@@ -129,7 +129,7 @@ DBSIM's DTS type registry (`g_TSObjectTypeRegistry`, `004a63c8` — 12-byte `{ta
 
 The four are different mechanisms. Only `TSTexture4Poly` samples a bitmap.
 
-The group's surface array is read raw (`TSGroup_ReadFromFile`, `0048e8e4`), so a renderer's surface value is the file's own `{int16 colour, int16 flag}` pair packed into one int32, flag in the high half. A pair with `0x14` in the top byte means "do not draw this face"; retail uses it on back pairs only (flag 5120, against 1024 on the front). **This is the format's back-face culling**, and most of the fleet relies on it: back pairs flagged 5120 are 790 of 998 polys in `SAMSON.DTS`, 2122 of 2202 in `BASES_AN.DTS`, and 5090 of 6988 in `MECHWPNS.DTS`. The rest are genuinely two-sided.
+The group's surface array is read raw (`TSGroup_ReadFromStream`, `0048e8e4`), so a renderer's surface value is the file's own `{int16 colour, int16 flag}` pair packed into one int32, flag in the high half. A pair with `0x14` in the top byte means "do not draw this face"; retail uses it on back pairs only (flag 5120, against 1024 on the front). **This is the format's back-face culling**, and most of the fleet relies on it: back pairs flagged 5120 are 790 of 998 polys in `SAMSON.DTS`, 2122 of 2202 in `BASES_AN.DTS`, and 5090 of 6988 in `MECHWPNS.DTS`. The rest are genuinely two-sided.
 
 Retail usage counts: `TSSolidPoly` is rare — 12 polys in `BULLETS.DTS`, 57 in `ROCKETS.DTS`, 73 across the whole mech and building fleet. `TSShadedPoly` is nearly everything else: 1227 of APOCA's 1368 polys, 2049 of `BASES_AN`'s.
 
@@ -180,7 +180,7 @@ The surface value names a *material*; the light level picks a step along that ma
 
 ### `TSGouraudPoly` — same ramp number, per-vertex light, no `.RMP` row
 
-`TSGouraudPoly_Render` (`004755c8`; its tag function `0048e450` returns `0x140009`) shares the surface-pair selection and the light function, and differs in both of the things that decide a pixel:
+`TSGouraudPoly_Render` (`004755c8`; its tag function `TSGouraudPoly_GetClassTag` (`0048e450`) returns `0x140009`) shares the surface-pair selection and the light function, and differs in both of the things that decide a pixel:
 
 ```
 for each vertex i:

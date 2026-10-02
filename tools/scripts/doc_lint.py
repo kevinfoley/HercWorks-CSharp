@@ -217,7 +217,7 @@ ENGINE_RULES: list[tuple[str, re.Pattern[str], str]] = [
 # A field is described in the doc ("the paints-ground flag, `0x06`") and named only in code, so a C#
 # rename never touches a doc. A backticked token is flagged when it is declared in one of these
 # projects and is not also a retail name: a known_*.json name, the class prefix of one
-# (`Text` from `Text_Ctor`), or an identifier in a retail binary — the 3Space class names the
+# (`Text` from `Text_LoadDataFile`), or an identifier in a retail binary — the 3Space class names the
 # HercWorks DTS model reuses are strings in DBSIM.EXE. The binaries are gitignored, so a checkout
 # without ES2/ reports those few class names too.
 CSHARP_SOURCE_DIRS = [os.path.join("Herculan", "src", p) for p in ("HercWorks.Core", "Herculan.Engine")]

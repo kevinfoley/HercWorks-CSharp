@@ -181,10 +181,10 @@ public sealed class ShellSaveScreen {
 	}
 
 	/// <summary>
-	/// A keystroke reaching a row, as <c>EditField_HandleEvent</c> (<c>0040beaf</c>) takes it: a
-	/// character is added while the row's <c>+0xbf</c> is set (<c>EditField_TypeChar</c> (<c>0040bdd2</c>)), and Backspace or the
+	/// A keystroke reaching a row, as <c>ESDialog_HandleEvent</c> (<c>0040beaf</c>) takes it: a
+	/// character is added while the row's <c>+0xbf</c> is set (<c>ESDialog_TypeChar</c> (<c>0040bdd2</c>)), and Backspace or the
 	/// left arrow takes the last one off while <c>+0xbf</c> and the focus are both set
-	/// (<c>EditField_Erase</c> (<c>0040be56</c>)). Enter's release of the pointer is the host's. Returns whether the string
+	/// (<c>ESDialog_Erase</c> (<c>0040be56</c>)). Enter's release of the pointer is the host's. Returns whether the string
 	/// changed. The handler then runs the row's click handler whatever the key was, which the host does.
 	/// </summary>
 	public bool Key(int row, ShellKey key, bool focused, HudFont? font) {
@@ -200,7 +200,7 @@ public sealed class ShellSaveScreen {
 	}
 
 	/// <summary>
-	/// <c>EditField_TypeChar</c> (<c>0040bdd2</c>): a character the row's set permits goes on the end, while the string stays
+	/// <c>ESDialog_TypeChar</c> (<c>0040bdd2</c>): a character the row's set permits goes on the end, while the string stays
 	/// under 89 characters and the glyph, the string and six pixels more fit inside the row.
 	/// </summary>
 	private bool Type(int row, char c, HudFont? font) {
@@ -218,7 +218,7 @@ public sealed class ShellSaveScreen {
 		return true;
 	}
 
-	/// <summary><c>EditField_Erase</c> (<c>0040be56</c>): the last character off, never into the first <see cref="KeptPrefix"/>.</summary>
+	/// <summary><c>ESDialog_Erase</c> (<c>0040be56</c>): the last character off, never into the first <see cref="KeptPrefix"/>.</summary>
 	private bool Erase(int row) {
 		string text = _rowText[row];
 		if (text.Length <= KeptPrefix) {
@@ -496,7 +496,7 @@ public sealed class ShellSaveScreen {
 
 	/// <summary>
 	/// The title's own rect: the panel's full width by its header height, which is what
-	/// <c>TitledPanel_Ctor</c> builds for the caption it is handed rather than anything the screen
+	/// <c>ESTitle_Ctor</c> builds for the caption it is handed rather than anything the screen
 	/// chooses.
 	/// </summary>
 	private static ShellRect TitleRect() =>

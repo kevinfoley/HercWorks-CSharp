@@ -128,7 +128,7 @@ public sealed class ShellRepairDiagrams {
 	/// The build screen's blueprint of one chassis, <c>Build_FillBlueprints</c> (<c>0041579d</c>): the
 	/// same <c>rpr_*.dat</c> body records and <c>rpr_</c> banks as the exploded external picture, each in
 	/// the slot its id names with the record's flags, and no weapons. Every part's remap pair is
-	/// <c>0xe</c> to <c>0xe</c>, which <c>Grid_Paint</c> applies and which changes nothing, so the parts
+	/// <c>0xe</c> to <c>0xe</c>, which <c>ESGrid_Paint</c> applies and which changes nothing, so the parts
 	/// show in their own ink.
 	/// </summary>
 	public void PaintBlueprint(ShellSurface surface, ShellRect rect, int chassisType, byte borderColor,

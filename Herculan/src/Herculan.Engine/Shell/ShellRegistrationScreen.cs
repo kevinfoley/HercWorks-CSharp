@@ -54,7 +54,7 @@ public sealed class ShellRegistrationScreen {
 	/// </summary>
 	public int Skill { get; private set; }
 
-	/// <summary>The field's <c>+0xb3</c>, the caret's blink phase, which <c>EditField_Ctor</c> leaves on.</summary>
+	/// <summary>The field's <c>+0xb3</c>, the caret's blink phase, which <c>ESDialog_Ctor</c> leaves on.</summary>
 	public bool CaretOn { get; private set; } = true;
 
 	/// <summary>
@@ -76,7 +76,7 @@ public sealed class ShellRegistrationScreen {
 	public static ShellHit FieldHit => new(new ShellWidget(ShellWidgetKind.RegistrationField, 0), ShellHandler.EditField);
 
 	/// <summary>
-	/// A keystroke reaching the field, as <c>EditField_HandleEvent</c> (<c>0040beaf</c>) takes it —
+	/// A keystroke reaching the field, as <c>ESDialog_HandleEvent</c> (<c>0040beaf</c>) takes it —
 	/// <c>+0xbf</c> is the constructor's 1 here, so a character is always tried and a Backspace or left
 	/// arrow erases while the field has the focus, down to empty (<c>+0xb7</c> is 0) — followed by the
 	/// field's handler, <c>Registration_OnNameEvent</c> (<c>0043bdee</c>), which on every character and
@@ -96,7 +96,7 @@ public sealed class ShellRegistrationScreen {
 	}
 
 	/// <summary>
-	/// <c>EditField_TypeChar</c> (<c>0040bdd2</c>): a character the set permits goes on the end while the
+	/// <c>ESDialog_TypeChar</c> (<c>0040bdd2</c>): a character the set permits goes on the end while the
 	/// string stays under 89 characters and the glyph, the string and six pixels more fit inside the field.
 	/// </summary>
 	private bool Type(char c, HudFont? font) {
@@ -112,7 +112,7 @@ public sealed class ShellRegistrationScreen {
 		return true;
 	}
 
-	/// <summary><c>EditField_Erase</c> (<c>0040be56</c>): the last character off, while there is one.</summary>
+	/// <summary><c>ESDialog_Erase</c> (<c>0040be56</c>): the last character off, while there is one.</summary>
 	private bool Erase() {
 		if (Name.Length == 0) {
 			return false;
@@ -229,7 +229,7 @@ public sealed class ShellRegistrationScreen {
 	private const int TitlePlateFirst = 0x3f;
 	private const int TitlePlateLast = 0xa6;
 
-	/// <summary>The box's border from <c>FramedPanel_Ctor</c> and the face the builder writes, a visible checkerboard.</summary>
+	/// <summary>The box's border from <c>ESRegionFill_Ctor</c> and the face the builder writes, a visible checkerboard.</summary>
 	private const byte BoxBorder = 0x15;
 	private const byte BoxFace = 0x25;
 

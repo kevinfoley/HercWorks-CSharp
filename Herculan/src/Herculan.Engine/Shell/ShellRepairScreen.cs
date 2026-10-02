@@ -474,7 +474,7 @@ public sealed class ShellRepairScreen {
 	}
 
 	/// <summary>
-	/// One list row — <c>Repair_FillRow</c> (<c>004339b2</c>) filling the panel <c>ListRow_AddColumns</c> (<c>0040a310</c>) built. The row is a
+	/// One list row — <c>Repair_FillRow</c> (<c>004339b2</c>) filling the panel <c>ESQuad_AddColumns</c> (<c>0040a310</c>) built. The row is a
 	/// plain panel whose border colour is the selection highlight, carrying a name at its left, an
 	/// optional mount number, and the condition right-aligned in the colour of its damage band.
 	/// </summary>
@@ -539,7 +539,7 @@ public sealed class ShellRepairScreen {
 
 		// The condition word is drawn in the readout grey like every other box, not in its damage band's
 		// colour. Repair_RefreshDetail (00433445) does look the band colour up and write it to the widget's +0xb5 — and then
-		// calls Text_SetString with 0x17, which overwrites +0xb5 before the paint. The write is dead; see
+		// calls ESMessage_SetString with 0x17, which overwrites +0xb5 before the paint. The write is dead; see
 		// docs/shell/screen-layout.md, "The repair screen".
 		PaintReadout(surface, font, Inside(panel, ItemConditionReadoutRect),
 			text?.Text(ConditionWordText(SelectionCondition)));
@@ -644,7 +644,7 @@ public sealed class ShellRepairScreen {
 	/// <summary>Where the ten hardpoint rows start, below a gap that separates them from the six groups.</summary>
 	private const int FirstHardpointRowY = 0x72;
 
-	/// <summary>The four text columns <c>ListRow_AddColumns</c> (<c>0040a310</c>) divides a row into. The second is zero-wide and unused.</summary>
+	/// <summary>The four text columns <c>ESQuad_AddColumns</c> (<c>0040a310</c>) divides a row into. The second is zero-wide and unused.</summary>
 	private const int NameColumnLeft = 2;
 	private const int NameColumnRight = 0x94;
 	private const int MountColumnLeft = 0x94;

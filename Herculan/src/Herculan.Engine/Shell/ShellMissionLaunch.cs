@@ -238,7 +238,7 @@ public sealed class ShellLaunchRefusalDialog {
 
 	/// <summary>
 	/// Draws the dialog over whatever <paramref name="surface"/> holds. The builder writes the face and the
-	/// title plate and leaves <c>TitledPanel_Ctor</c>'s filled body; the two lines are centred in <c>0x29</c>
+	/// title plate and leaves <c>ESTitle_Ctor</c>'s filled body; the two lines are centred in <c>0x29</c>
 	/// with no backing.
 	/// </summary>
 	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {

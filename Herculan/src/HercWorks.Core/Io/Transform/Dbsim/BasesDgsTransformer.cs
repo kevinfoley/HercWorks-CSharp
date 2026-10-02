@@ -18,12 +18,12 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// the record's own leading 4 bytes on disk. That it resembles <c>recordSize&lt;&lt;16|version</c>
 /// is a coincidence, not the container scheme.</para>
 ///
-/// <para><b>Record layout</b>, traced through the class's Watcom C++ base-constructor chain
-/// (<c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) → <c>ClassItemTree_ReadFromStream</c> (<c>00490d5c</c>) → <c>ClassItemTree_ReadChildren</c> (<c>0048fd94</c>) → <c>ClassItemTree_ReadBaseHeader</c> (<c>0048f894</c>)) and
+/// <para><b>Record layout</b>, traced through the class's chain of base-class reads
+/// (<c>GridShape_ReadFromStream</c> (<c>0042762c</c>) → <c>TSShape_ReadFromStream</c> (<c>00490d5c</c>) → <c>TSPartList_ReadFromStream</c> (<c>0048fd94</c>) → <c>TSPartBase_ReadFromStream</c> (<c>0048f894</c>)) and
 /// verified byte-exact against the retail file (see below):</para>
 /// <list type="bullet">
 /// <item>3 <c>int16</c> id/name fields, then 6 raw bytes (base class header, unmodelled beyond
-/// <see cref="BaseShape.BoundingRadius"/>, the third field).</item>
+/// <see cref="GridShape.BoundingRadius"/>, the third field).</item>
 /// <item>an <c>int16</c> child count, then that many recursively-loaded <c>ClassItem</c> objects.
 /// <b>Every retail record's one child is an ordinary TSObjectHeader-family chunk</b> (observed tag
 /// <c>0x0014000c</c> = <c>TSDetailPart</c>) — byte-identical to a plain <c>.DTS</c> file's own
@@ -40,8 +40,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// misreading</b>: walking the tail as "a sub-record size, a sub-record count, three undecoded
 /// scalars, an opaque block, then count × size raw bytes" consumes exactly the same bytes, so it
 /// parses every retail record correctly while naming all of it wrongly. It is the grid
-/// <c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) reads and the ray-versus-structure query
-/// walks — see <see cref="BaseShapeCollision"/>.</item>
+/// <c>GridShape_ReadFromStream</c> (<c>0042762c</c>) reads and the ray-versus-structure query
+/// walks — see <see cref="GridShapeCollision"/>.</item>
 /// </list>
 ///
 /// <para><b>Padding.</b> Every record's total on-disk footprint (8-byte header + payload) is
@@ -58,7 +58,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// substantial (1536 groups, 8978 polys total across all 45 shapes) — not degenerate placeholder
 /// data.</para>
 /// </summary>
-public class BasesDgsTransformer : ByteTransformer<BaseShapeLibrary> {
+public class BasesDgsTransformer : ByteTransformer<GridShapeLibrary> {
 	/// <summary>The record header's classId, and the record's own leading 4 on-disk bytes.</summary>
 	private const int ShapeTag = 0x02BC0001;
 
@@ -71,7 +71,7 @@ public class BasesDgsTransformer : ByteTransformer<BaseShapeLibrary> {
 	/// </summary>
 	private const int HeightTableEntries = 256;
 
-	public override BaseShapeLibrary? Parse(byte[]? inputArray) {
+	public override GridShapeLibrary? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
@@ -79,7 +79,7 @@ public class BasesDgsTransformer : ByteTransformer<BaseShapeLibrary> {
 		SetBytes(inputArray);
 
 		var dtsReader = new DTSModelTransformer();
-		var shapes = new List<BaseShape>();
+		var shapes = new List<GridShape>();
 
 		while (Index + RecordHeaderLength <= inputArray.Length) {
 			int recordStart = Index;
@@ -109,21 +109,21 @@ public class BasesDgsTransformer : ByteTransformer<BaseShapeLibrary> {
 			}
 		}
 
-		return new BaseShapeLibrary {
+		return new GridShapeLibrary {
 			Shapes = shapes.ToArray()
 		};
 	}
 
 	/// <summary>Not a real record — reserved for a tag this library doesn't recognize, skipped by its own declared length rather than guessed at.</summary>
-	private BaseShape SkipUnrecognized(int payloadEnd) {
+	private GridShape SkipUnrecognized(int payloadEnd) {
 		Index = payloadEnd;
 		return default;
 	}
 
-	private BaseShape ReadShape(DTSModelTransformer dtsReader, int payloadEnd) {
+	private GridShape ReadShape(DTSModelTransformer dtsReader, int payloadEnd) {
 		IndexShortLE(); // +4 -- unmodelled
 		IndexShortLE(); // +6 -- unmodelled
-		short boundingRadius = IndexShortLE(); // +8 -- see BaseShape.BoundingRadius
+		short boundingRadius = IndexShortLE(); // +8 -- see GridShape.BoundingRadius
 		Index += 6; // unmodelled base-class raw fields
 
 		short childCount = IndexShortLE();
@@ -149,16 +149,16 @@ public class BasesDgsTransformer : ByteTransformer<BaseShapeLibrary> {
 				"-- the record shape does not match this file.");
 		}
 
-		return new BaseShape(boundingRadius, geometry, collision);
+		return new GridShape(boundingRadius, geometry, collision);
 	}
 
 	/// <summary>
-	/// The record's collision volume, exactly as <c>BaseShape_ReadFromStream</c> reads it: five
+	/// The record's collision volume, exactly as <c>GridShape_ReadFromStream</c> reads it: five
 	/// scalars, the 256-entry height table (always present, whatever the grid's size), and then one
 	/// row of codes per grid row — the row loop is the one thing the original guards, on the row
 	/// count alone.
 	/// </summary>
-	private BaseShapeCollision ReadCollision() {
+	private GridShapeCollision ReadCollision() {
 		short columns = IndexShortLE();     // +0x2a
 		short rows = IndexShortLE();        // +0x2c
 		short originColumn = IndexShortLE(); // +0x2e
@@ -172,10 +172,10 @@ public class BasesDgsTransformer : ByteTransformer<BaseShapeLibrary> {
 			cells[row] = IndexSegment(columns);
 		}
 
-		return new BaseShapeCollision(
+		return new GridShapeCollision(
 			columns, rows, originColumn, originRow, cellShift, heights, cells);
 	}
 
-	public override byte[]? Write(BaseShapeLibrary source) =>
+	public override byte[]? Write(GridShapeLibrary source) =>
 		throw new NotSupportedException("BasesDgsTransformer is read-only -- the engine only draws structures, it never writes .DGS.");
 }

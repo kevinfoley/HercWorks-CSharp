@@ -73,7 +73,7 @@ $aliases = New-Object System.Collections.Generic.HashSet[string] ([StringCompare
 $rejected = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
 
 # A bare name is only safe to search if it cannot collide with ordinary prose or common identifiers.
-# Bullet_Draw -> "Draw" and Button_Ctor -> "Ctor" match thousands of unrelated lines and bury the
+# Bullet_Draw -> "Draw" and ESButtonFont_Ctor -> "Ctor" match thousands of unrelated lines and bury the
 # real hits. Require multi-word CamelCase (an internal capital) and a reasonable length: that keeps
 # CountdownTimerTick, RandomNext and Q16Divide while rejecting Draw, Ctor, Blit and Fire.
 function Test-DistinctiveAlias {

@@ -103,6 +103,7 @@ These three mutate the program. Ghidra routinely places a function entry past th
 | `ES2MergeFunctionAt` | `trueEntry` `len\|auto` `out` | Removes every function entered within the range, clears it, and creates one function at `trueEntry`. For an entry split by a stray prologue function. `auto` sweeps through the last body of any function entered in the first 16 bytes, and refuses when that would reach a later function. A removed function's non-default name would survive as a label, so the script also deletes that label and its plate comment at every removed entry other than `trueEntry`. The new function's prototype is committed from the decompiler at `ANALYSIS`, so `ES2ApplyStructures` still finds the parameters it types. |
 | `ES2RedefineFunction` | `clearStart` `trueEntry` `out` | Clears from `clearStart`, recreates at `trueEntry`, and decompiles the result. |
 | `ES2CheckFunctionEntries` | `out` `addrs...` | Read-only: whether a function starts exactly at each address, and what contains it. Run after any of the above. |
+| `ES2RemoveVtableType` | `names...` | Removes the `/ES2/<Name>` struct and slot category `ES2ApplyVtables` built for a vtable shape `known_vtables.json` no longer defines (renamed or dropped); refuses a struct still applied anywhere, so run it after `ES2ApplyVtables`. |
 
 ### Signatures and analysis state
 

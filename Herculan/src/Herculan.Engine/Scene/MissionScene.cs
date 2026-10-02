@@ -985,7 +985,7 @@ public sealed class MissionScene {
 				}
 
 				var model = models.Base(type);
-				var (boundingRadius, volume) = models.BaseShapeCollision(type);
+				var (boundingRadius, volume) = models.GridShapeCollision(type);
 				return (
 					new BaseObject(type, volume, baseCollision[type.Index], boundingRadius,
 						models.BaseAnimCellCount(type), models.BaseAnimation(type)) {

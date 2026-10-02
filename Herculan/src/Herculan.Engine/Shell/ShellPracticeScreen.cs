@@ -85,7 +85,7 @@ public sealed class ShellPracticeScreen {
 	private const int RowBottomOffset = 0xc;
 
 	/// <summary>
-	/// Where <c>ListRow_AddColumns</c> is told to cut a row: the name fills the first column, <c>2</c> to
+	/// Where <c>ESQuad_AddColumns</c> is told to cut a row: the name fills the first column, <c>2</c> to
 	/// <c>0xb8</c>, left-aligned, and the other three are empty — the next two zero-wide.
 	/// </summary>
 	private const int NameColumnRight = 0xb8;
@@ -290,7 +290,7 @@ public sealed class ShellPracticeScreen {
 	}
 
 	/// <summary>
-	/// One row — <c>ListRow_Paint</c> (<c>0040a600</c>): the interior cleared, the <c>0x10</c> border,
+	/// One row — <c>ESQuad_Paint</c> (<c>0040a600</c>): the interior cleared, the <c>0x10</c> border,
 	/// and the name in its opaque first column.
 	/// </summary>
 	private void PaintRow(ShellSurface surface, HudFont? font, ShellText? text, int row) {
@@ -325,7 +325,7 @@ public sealed class ShellPracticeScreen {
 
 	/// <summary>
 	/// A live button, greyed with its caption when it is not enabled. The caption is the <c>Text</c> child
-	/// <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>.
+	/// <c>ESButtonFont_Ctor</c> builds at <c>{1, 0, w, h}</c>.
 	/// </summary>
 	private void PaintButton(ShellSurface surface, HudFont? font, ShellText? text, ShellPracticeButton button,
 			int captionText) {

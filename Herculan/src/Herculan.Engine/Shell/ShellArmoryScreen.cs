@@ -196,7 +196,7 @@ public sealed class ShellArmoryScreen {
 	private const int RowBottomOffset = 0xc;
 
 	/// <summary>
-	/// Where <c>ListRow_AddColumns</c> is told to cut a row: the queued count from <c>2</c> to
+	/// Where <c>ESQuad_AddColumns</c> is told to cut a row: the queued count from <c>2</c> to
 	/// <c>0x32</c>, the name to <c>0xb4</c>, both left-aligned; the count held to <c>0xc9</c> and the price
 	/// in tons to one inside the row's right edge, both right-aligned.
 	/// </summary>
@@ -396,7 +396,7 @@ public sealed class ShellArmoryScreen {
 	public bool IsEnabled(ShellArmoryButton button) => button != ShellArmoryButton.Clear || ManualBuild;
 
 	/// <summary>
-	/// Whether a row takes clicks. <c>ListRow_AddColumns</c> builds every row disabled and
+	/// Whether a row takes clicks. <c>ESQuad_AddColumns</c> builds every row disabled and
 	/// <c>Armory_RefreshRows</c> enables the unlocked ones; selecting never touches it.
 	/// </summary>
 	public bool IsRowEnabled(int row) => _hangar.IsWeaponUnlocked(WeaponOfRow(row));
@@ -562,7 +562,7 @@ public sealed class ShellArmoryScreen {
 
 	/// <summary>
 	/// One button: its double-bordered box in <paramref name="border"/> and its caption, the <c>Text</c> child
-	/// <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>, centred. <paramref name="opaque"/> is the caption's
+	/// <c>ESButtonFont_Ctor</c> builds at <c>{1, 0, w, h}</c>, centred. <paramref name="opaque"/> is the caption's
 	/// <c>+0xc1</c>, which the builder sets on the two readout boxes only.
 	/// </summary>
 	private static void PaintButton(ShellSurface surface, HudFont? font, ShellRect rect, string? caption, byte border,
@@ -597,7 +597,7 @@ public sealed class ShellArmoryScreen {
 	private const int InfoFirstLine = 0x77;
 	private const byte InfoBand = 0x0f;
 
-	/// <summary>The two framed panels: <c>FramedPanel_Ctor</c>'s border argument, and the checkerboard the builder writes over its <c>0x25</c>.</summary>
+	/// <summary>The two framed panels: <c>ESRegionFill_Ctor</c>'s border argument, and the checkerboard the builder writes over its <c>0x25</c>.</summary>
 	private const byte FramedBorder = 0x15;
 	private const byte FramedFace = 0x0f;
 

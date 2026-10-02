@@ -239,7 +239,7 @@ public class HercSimDat {
 	/// <summary>
 	/// Offset 148 — which shared texture group DBSIM binds to every sub-shape of this mech:
 	/// <c>MechType_InitOne</c> writes <c>&amp;g_MechTextureGroupSlots + value*8</c> into
-	/// <c>TSShapeInstance+0x26</c>. <see cref="TextureGroupDbaBaseName"/> names the groups; the
+	/// <c>TSShape+0x26</c> of each root shape. <see cref="TextureGroupDbaBaseName"/> names the groups; the
 	/// per-mech roster is in docs/formats/dts-texture-binding.md#dbsims-mech-to-texture-mapping.
 	/// </summary>
 	public short TextureGroup { get; set; }

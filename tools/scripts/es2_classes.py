@@ -82,7 +82,8 @@ def scan(img: Image):
         if name_off not in NAME_OFFSETS.get(mask, ()):
             continue
         size = struct.unpack_from("<I", d, rec)[0]
-        if not 1 <= size <= 0x400:
+        # Objects run past 0x400 (ESGrid 0x6e8, HDDGauge 0x78a, Sheet 0x808).
+        if not 1 <= size <= 0x4000:
             continue
         nm = NAME.match(d, rec + name_off, rec + name_off + 62)
         if not nm:

@@ -221,7 +221,7 @@ public sealed class ShellEndOfGameDialog {
 			: null;
 
 	/// <summary>
-	/// Draws the dialog over whatever <paramref name="surface"/> holds: <c>TitledPanel_Ctor</c>'s filled body
+	/// Draws the dialog over whatever <paramref name="surface"/> holds: <c>ESTitle_Ctor</c>'s filled body
 	/// under the face and plate the builder writes, and the two lines centred in <c>0x29</c> with no backing.
 	/// </summary>
 	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {

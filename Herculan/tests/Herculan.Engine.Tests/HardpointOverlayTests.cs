@@ -13,7 +13,7 @@ namespace Herculan.Engine.Tests;
 /// <para>What these pin is the reading that a parse alone cannot settle: the four <c>int32</c> are
 /// two inclusive corners, not a corner and a size. Retail's values stay inside the canvas either way,
 /// so the discriminator is the geometry — a chassis's left and right hardpoints are mirror images
-/// only when read as corners — plus the fact that the bytes go straight to <c>Panel_Ctor</c>'s rect
+/// only when read as corners — plus the fact that the bytes go straight to <c>ESRect_Ctor</c>'s rect
 /// argument. Get it wrong and every hotspot is the right shape in the wrong place.</para>
 ///
 /// <para>Retail-data cases skip silently without an install, as the rest of the suite does.</para>

@@ -113,7 +113,7 @@ public static class ShellPalette {
 	/// Whether switching to <paramref name="tab"/> leaves the canvas below the strip filled with the
 	/// shell's background colour. Tabs 2-7 install their palette through the scope (<c>Shell_SelectTabPalette</c> (<c>0043b162</c>)
 	/// cases 2-7 all call <c>Shell_SetPaletteScope</c> (<c>00439da0</c>)), and showing the scope posts its paint,
-	/// <c>PaletteScope_Paint</c> (<c>0040cb40</c>), which fills its whole rect with <c>0x10</c> before the hide installs the
+	/// <c>ESPal_Paint</c> (<c>0040cb40</c>), which fills its whole rect with <c>0x10</c> before the hide installs the
 	/// palette. Nothing repaints the backdrop-textured root afterwards, so a tab screen is drawn over
 	/// that fill, and wherever its widgets leave the canvas bare, retail shows black. The main menu and
 	/// the save screen go through the scope too, but then put up their own backdrop-textured root over
@@ -121,7 +121,7 @@ public static class ShellPalette {
 	/// </summary>
 	public static bool FillsScope(int tab) => tab >= 2 && tab <= 7;
 
-	/// <summary><c>PaletteScope_Paint</c> (<c>0040cb40</c>): the scope's rect filled with <see cref="ShellChrome.InteriorColor"/>.</summary>
+	/// <summary><c>ESPal_Paint</c> (<c>0040cb40</c>): the scope's rect filled with <see cref="ShellChrome.InteriorColor"/>.</summary>
 	public static void PaintScope(ShellSurface surface) {
 		var scope = ShellLayout.PaletteScope;
 		surface.Fill(scope.X0, scope.Y0, scope.X1, scope.Y1, ShellChrome.InteriorColor);

@@ -9,7 +9,7 @@ namespace Herculan.Engine.Shell;
 public sealed record ShellGridPart(DynamixBitmap Frame, int X, int Y, int Flags, (byte From, byte To)[] Remaps);
 
 /// <summary>
-/// The <c>Grid</c> widget (<c>Grid_Ctor</c>, <c>0040b7e0</c>) every picture of a machine in the shell is:
+/// The <c>Grid</c> widget (<c>ESGrid_Ctor</c>, <c>0040b7e0</c>) every picture of a machine in the shell is:
 /// a filled panel with 16-pixel grid lines and thirty part slots, each a bitmap, a position, blit flags
 /// and ten colour remap pairs. The squad panel's bay pictures and the repair screen's damage diagrams
 /// are both one. See docs/shell/screen-layout.md, "The damage diagram".
@@ -21,17 +21,17 @@ public static class ShellGrid {
 	/// <summary>Colour remap pairs per part slot.</summary>
 	public const int RemapPairs = 10;
 
-	/// <summary>The border and grid-line colour, <c>Grid_Ctor</c>'s <c>0x22</c> at <c>+0x4d</c> and <c>+0x6e6</c>.</summary>
+	/// <summary>The border and grid-line colour, <c>ESGrid_Ctor</c>'s <c>0x22</c> at <c>+0x4d</c> and <c>+0x6e6</c>.</summary>
 	public const byte GridColor = 0x22;
 
-	/// <summary>The grid pitch, a literal in <c>Grid_Paint</c>.</summary>
+	/// <summary>The grid pitch, a literal in <c>ESGrid_Paint</c>.</summary>
 	private const int GridPitch = 0x10;
 
-	/// <summary>A remap pair whose target is this is skipped — <c>Grid_InitRow</c>'s default.</summary>
+	/// <summary>A remap pair whose target is this is skipped — <c>ESGrid_InitRow</c>'s default.</summary>
 	private const byte NoRemap = 0x10;
 
 	/// <summary>
-	/// <c>Grid_Paint</c> (<c>0040b97c</c>): the filled, bordered panel, the grid lines, then each part
+	/// <c>ESGrid_Paint</c> (<c>0040b97c</c>): the filled, bordered panel, the grid lines, then each part
 	/// blitted and its remap pairs applied over its rect, in slot order. Lines run from 16 up to but not
 	/// onto the far edge, so the border is the last line on each axis. A part's colour is chosen here,
 	/// at paint time, and by rect rather than by mask, so a recoloured part also recolours the matching

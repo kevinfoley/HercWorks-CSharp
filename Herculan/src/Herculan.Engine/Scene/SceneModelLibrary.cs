@@ -85,7 +85,7 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, SceneModel?> _models = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, TextureAtlas?> _atlases = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, DynamixThreeSpaceModel?> _files = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, BaseShapeLibrary?> _shapeLibraries = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, GridShapeLibrary?> _shapeLibraries = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<int, ShapeVolume?> _volumes = new();
 	private readonly Dictionary<string, HercSimDat?> _mechData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, FlyerSimData?> _flyerData = new(StringComparer.OrdinalIgnoreCase);
@@ -538,7 +538,7 @@ public sealed class SceneModelLibrary {
 	/// whose shape is an ordinary DTS and has neither — see <see cref="Sim.BaseObject"/> for why
 	/// that costs nothing on retail data.
 	/// </summary>
-	public (int BoundingRadius, ShapeVolume? Volume) BaseShapeCollision(BaseType type) {
+	public (int BoundingRadius, ShapeVolume? Volume) GridShapeCollision(BaseType type) {
 		if (type.Source == BaseShapeSource.AnimatedLibrary) {
 			return (0, null);
 		}
@@ -820,14 +820,14 @@ public sealed class SceneModelLibrary {
 	/// <see cref="BasesDgsTransformer"/>) — the caller picks by index, same as
 	/// <c>BASES_AN.DTS</c>'s roots.
 	/// </summary>
-	private BaseShapeLibrary? LoadShapeLibrary(string libraryName) {
+	private GridShapeLibrary? LoadShapeLibrary(string libraryName) {
 		if (_shapeLibraries.TryGetValue(libraryName, out var cached)) {
 			return cached;
 		}
 
 		byte[]? bytes = _content.Read("dgs", libraryName);
 		var library = bytes != null
-			? new BasesDgsTransformer().Parse(bytes) as BaseShapeLibrary
+			? new BasesDgsTransformer().Parse(bytes) as GridShapeLibrary
 			: null;
 
 		_shapeLibraries[libraryName] = library;

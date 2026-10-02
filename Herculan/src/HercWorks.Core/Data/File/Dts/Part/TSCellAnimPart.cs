@@ -7,7 +7,7 @@ namespace HercWorks.Core.Data.File.Dts.Part;
 /// <c>TSCellAnimPart_Render</c> (<c>004767e4</c>) draws
 /// <c>children[cellFrames[AnimSequence] % childCount]</c> and nothing else.
 ///
-/// <para><see cref="AnimSequence"/> (<c>part+0x12</c>) picks which entry of the drawing shape
+/// <para><see cref="AnimSequence"/> (<c>part+0x16</c>) picks which entry of the drawing shape
 /// instance's per-sequence frame counters the part reads. Children need not be bitmaps — BULLETS.DTS
 /// root 8 animates real TSGroup geometry this way. See docs/formats/dts-billboards.md,
 /// "TSCellAnimPart_Render".</para>

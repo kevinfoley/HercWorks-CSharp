@@ -870,7 +870,7 @@ static class ShellHost {
 			}
 		}
 
-		// Runs a widget's click handler — Widget_DispatchCallback (0041f5d4) calling what the builder
+		// Runs a widget's click handler — Window_DispatchCallback (0041f5d4) calling what the builder
 		// passed the widget.
 		void Fire(ShellWidget widget) {
 			switch (widget.Kind) {
@@ -1145,7 +1145,7 @@ static class ShellHost {
 
 		// One update while the queue plays out. A mouse button or Esc or Space going down ends the movie on
 		// screen and reaches nothing else: MainWndProc drops the button's messages while one plays, and
-		// Control_HandleEvent and ButtonIcon_HandleEvent every mouse event while the queue runs. The buttons'
+		// WinButton_HandleEvent and ESButtonBitmap_HandleEvent every mouse event while the queue runs. The buttons'
 		// state is still taken, so a press made meanwhile is spent rather than delivered afterwards.
 		void UpdateMovies(double delta) {
 			bool left = mouse?.IsButtonPressed(MouseButton.Left) == true;
@@ -1608,7 +1608,7 @@ static class ShellHost {
 		}
 
 		// A keystroke, delivered as VSHELL's queue delivers one: to the pointer's target, which on the save
-		// screen may be one of its rows (EditField_HandleEvent, 0040beaf). The row takes a character or a
+		// screen may be one of its rows (ESDialog_HandleEvent, 0040beaf). The row takes a character or a
 		// command, Enter releases the pointer, and whatever the key, the row's handler then runs, which
 		// selects it. The registration screen's name field takes keys the same way, its handler regating
 		// ACCEPT. Nothing else ported here takes a key. A fade or the movie queue drops keys as it drops

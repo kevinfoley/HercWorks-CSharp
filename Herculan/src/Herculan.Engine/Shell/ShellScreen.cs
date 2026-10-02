@@ -107,7 +107,7 @@ public sealed class ShellScreen {
 	/// parking <c>CurrentTabIndex</c> (<c>0047581c</c>) — is <see cref="ReturnToFrame"/>'s.
 	///
 	/// <para><b>The flag is <c>+0x49</c>, the enable flag.</b> A cleared tab is still hit by the
-	/// pointer, and its handler, <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>), then ignores the
+	/// pointer, and its handler, <c>ESButtonBitmap_HandleEvent</c> (<c>00409df2</c>), then ignores the
 	/// click, so it swallows it; nothing else sits under the strip, so leaving it out of
 	/// <see cref="ButtonAt"/> comes to the same thing.</para>
 	/// </summary>

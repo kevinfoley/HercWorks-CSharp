@@ -368,7 +368,7 @@ public sealed class ShellPreferencesScreen {
 	}
 
 	/// <summary>
-	/// A checkbox — <c>FUN_0040a26d</c>, the paint of the <c>ButtonIcon</c> subclass <c>ESRadioButton_Ctor</c> (<c>0040a100</c>)
+	/// A checkbox — <c>ESRadioButton_Paint</c> (<c>0040a26d</c>), the paint of the <c>ButtonIcon</c> subclass <c>ESRadioButton_Ctor</c> (<c>0040a100</c>)
 	/// builds: the face its <c>+0x69</c> picks, blitted at the widget's corner and clipped to it. The
 	/// builder hands the constructor <c>chk_box</c> frame 1 as the <c>+0x51</c> face and frame 0 as the
 	/// <c>+0x55</c> one. The frames are 24 wide and the rect 19, and the five columns clipped off are
@@ -386,7 +386,7 @@ public sealed class ShellPreferencesScreen {
 		surface.PopClip(clip);
 	}
 
-	/// <summary>A button: its box and its caption, the <c>Text</c> child <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>.</summary>
+	/// <summary>A button: its box and its caption, the <c>Text</c> child <c>ESButtonFont_Ctor</c> builds at <c>{1, 0, w, h}</c>.</summary>
 	private static void PaintButton(ShellSurface surface, HudFont? font, ShellText? text, ShellPreferencesWidget widget,
 			int captionText) {
 		var rect = WidgetRect(widget);
@@ -410,7 +410,7 @@ public sealed class ShellPreferencesScreen {
 	private const int AlertPlateFirst = 0xbe;
 	private const int AlertPlateLast = 0xfa;
 
-	/// <summary>The five boxes: <c>FramedPanel_Ctor</c>'s border, and the <c>0x0f</c> checkerboard the builder writes over the class's.</summary>
+	/// <summary>The five boxes: <c>ESRegionFill_Ctor</c>'s border, and the <c>0x0f</c> checkerboard the builder writes over the class's.</summary>
 	private const byte BoxBorder = 0x15;
 	private const byte BoxFace = 0x0f;
 

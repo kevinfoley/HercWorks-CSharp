@@ -376,7 +376,7 @@ public sealed class ShellCrewScreen {
 	/// portrait and three label/value pairs. Rows inside the squad's positions (<c>Crew_ColourRows</c>, <c>00441857</c>)
 	/// take a <c>0x25</c> body, greyer labels and value backing to match; the rest keep the shell's
 	/// background. The values are drawn in <c>0x29</c> whichever: <c>Crew_ColourRows</c> writes them
-	/// <c>0x16</c> or <c>0x17</c>, and <c>Crew_FillRows</c> (<c>00441c4f</c>)'s <c>Text_SetString</c> then overwrites that
+	/// <c>0x16</c> or <c>0x17</c>, and <c>Crew_FillRows</c> (<c>00441c4f</c>)'s <c>ESMessage_SetString</c> then overwrites that
 	/// with its own <c>0x29</c>.
 	/// </summary>
 	private void PaintRow(ShellSurface surface, HudFont? font, ShellText? text, int row) {
@@ -412,7 +412,7 @@ public sealed class ShellCrewScreen {
 	}
 
 	/// <summary>
-	/// CLEAR, a live button no code greys. Its caption is the <c>Text</c> child <c>Button_Ctor</c>
+	/// CLEAR, a live button no code greys. Its caption is the <c>Text</c> child <c>ESButtonFont_Ctor</c>
 	/// builds at <c>{1, 0, w, h}</c> in the button, so it is centred one pixel right of the button's
 	/// own rect.
 	/// </summary>

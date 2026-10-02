@@ -140,7 +140,7 @@ public sealed class ShellWeaponsScreen {
 	private const int RowBottomOffset = 0xc;
 
 	/// <summary>
-	/// Where <c>ListRow_AddColumns</c> is told to cut a row: the name left from <c>2</c> to <c>0x8b</c>,
+	/// Where <c>ESQuad_AddColumns</c> is told to cut a row: the name left from <c>2</c> to <c>0x8b</c>,
 	/// two one-pixel columns holding a space, and the count right-aligned from <c>0x8d</c> to one inside
 	/// the row's right edge.
 	/// </summary>
@@ -565,7 +565,7 @@ public sealed class ShellWeaponsScreen {
 
 	/// <summary>
 	/// One button: its double-bordered box in <paramref name="border"/> and its caption, the <c>Text</c> child
-	/// <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>, centred in <c>0x29</c>.
+	/// <c>ESButtonFont_Ctor</c> builds at <c>{1, 0, w, h}</c>, centred in <c>0x29</c>.
 	/// </summary>
 	private static void PaintButton(ShellSurface surface, HudFont? font, ShellWeaponsButton button, string? caption,
 			byte border) {
@@ -592,7 +592,7 @@ public sealed class ShellWeaponsScreen {
 	private const int TitlePlateFirst = 0x66;
 	private const int TitlePlateLast = 0x116;
 
-	/// <summary><c>TitledPanel_Ctor</c>'s own header face, which the builder leaves on the list.</summary>
+	/// <summary><c>ESTitle_Ctor</c>'s own header face, which the builder leaves on the list.</summary>
 	private const byte ListHeaderFace = 0x24;
 
 	/// <summary>The picture box's border, and the row its line fill starts on and the colour of those lines.</summary>

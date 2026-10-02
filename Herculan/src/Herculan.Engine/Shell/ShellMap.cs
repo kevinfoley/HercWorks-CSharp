@@ -323,7 +323,7 @@ public sealed class ShellMap {
 		return (x, y, z);
 	}
 
-	/// <summary><c>MapCamera_PanStepFor</c> (<c>00420195</c>), the camera base's pan step for an altitude.</summary>
+	/// <summary><c>Map_PanStepFor</c> (<c>00420195</c>), the camera base's pan step for an altitude.</summary>
 	private static int PanStepFor(int altitude) => unchecked(
 		((altitude - MinAltitude >> 3) * (PanStepFar - PanStepNear >> 3)) / (PanScaleAltitude - MinAltitude >> 3) * 8
 		+ PanStepNear);
@@ -338,7 +338,7 @@ public sealed class ShellMap {
 	/// <summary>
 	/// A map button: the six methods the arrows call, <c>+0xc</c> north, <c>+0x10</c> south, <c>+0x14</c>
 	/// west and <c>+0x18</c> east, each of which pans by <see cref="PanStep"/> only when the clamp leaves
-	/// the moved centre alone; <c>+4</c>, <c>MapCamera_ZoomIn</c> (<c>004200e4</c>), down one step while that stays above
+	/// the moved centre alone; <c>+4</c>, <c>Map_ZoomIn</c> (<c>004200e4</c>), down one step while that stays above
 	/// <see cref="MinAltitude"/>; and <c>+8</c>, <c>ShellMap_ZoomOut</c> (<c>00427946</c>), up one step only when the clamp leaves
 	/// the new altitude alone. The two zooms re-derive the pan step, each by its own formula.
 	/// </summary>
@@ -398,7 +398,7 @@ public sealed class ShellMap {
 		return (clamped.X + PanX, clamped.Y + PanY, clamped.Z);
 	}
 
-	/// <summary>A world point on the canvas through <paramref name="camera"/>: <c>MapCamera_Project</c> (<c>0041fff2</c>)'s plan-view projection about the viewport's centre.</summary>
+	/// <summary>A world point on the canvas through <paramref name="camera"/>: <c>Map_Project</c> (<c>0041fff2</c>)'s plan-view projection about the viewport's centre.</summary>
 	private static (int X, int Y) Project((int X, int Y, int Z) camera, int x, int y) => unchecked(
 		(CentreX + ((x - camera.X) << FocalShift) / camera.Z, CentreY - ((y - camera.Y) << FocalShift) / camera.Z));
 

@@ -93,7 +93,7 @@ public sealed class ShellMovieQueue {
 
 	/// <summary>
 	/// <c>MovieQueue_Running</c> (<c>00470e70</c>): set while <see cref="ShellMovieRun"/> plays the
-	/// ring out. <c>Control_HandleEvent</c> and <c>ButtonIcon_HandleEvent</c> ignore mouse events
+	/// ring out. <c>WinButton_HandleEvent</c> and <c>ESButtonBitmap_HandleEvent</c> ignore mouse events
 	/// while it is set.
 	/// </summary>
 	public bool Running { get; set; }

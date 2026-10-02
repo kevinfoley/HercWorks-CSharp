@@ -6,7 +6,7 @@ namespace Herculan.Engine.Sim;
 /// <summary>
 /// A structure shape's collision volume, and the two queries the simulation runs against it: the
 /// height under a point (<see cref="HeightAround"/>) and the ray march that walks the grid looking
-/// for one (<see cref="Raycast"/>). The data itself is <see cref="BaseShapeCollision"/>, read out of the
+/// for one (<see cref="Raycast"/>). The data itself is <see cref="GridShapeCollision"/>, read out of the
 /// shape's <c>.DGS</c> record.
 ///
 /// <para><b>A building is a height field, not a mesh.</b> Nothing in the original tests a shot
@@ -21,9 +21,9 @@ namespace Herculan.Engine.Sim;
 /// caller — see <see cref="HeightAround"/>.</para>
 /// </summary>
 public sealed class ShapeVolume {
-	private readonly BaseShapeCollision _grid;
+	private readonly GridShapeCollision _grid;
 
-	public ShapeVolume(BaseShapeCollision grid) {
+	public ShapeVolume(GridShapeCollision grid) {
 		_grid = grid;
 	}
 
@@ -34,7 +34,7 @@ public sealed class ShapeVolume {
 	public int MaxHeight => _grid.MaxHeight;
 
 	/// <summary>
-	/// <c>ShapeVolume_Raycast</c> (<c>004273c8</c>) — walks the ray from <paramref name="start"/> to <paramref name="end"/>,
+	/// <c>GridShape_Raycast</c> (<c>004273c8</c>) — walks the ray from <paramref name="start"/> to <paramref name="end"/>,
 	/// both in this shape's own space, and reports the first step that lands inside the volume.
 	///
 	/// <para>The step length is one cell plus the shot's clearance, so a wider round takes longer
@@ -99,7 +99,7 @@ public sealed class ShapeVolume {
 	}
 
 	/// <summary>
-	/// <c>ShapeVolume_HeightAround</c> (<c>00427238</c>) — the tallest column within <paramref name="radius"/> of a point, or the column the point is in when the radius is
+	/// <c>GridShape_HeightAround</c> (<c>00427238</c>) — the tallest column within <paramref name="radius"/> of a point, or the column the point is in when the radius is
 	/// smaller than half a cell. Both forms return zero for a point off the grid, which is what makes
 	/// the volume end at its own edges.
 	///

@@ -16,49 +16,49 @@ public enum ShellMouseButton {
 /// </summary>
 public enum ShellHandler {
 	/// <summary>
-	/// <c>Control_HandleEvent</c> (<c>004097da</c>) — panels, framed and titled panels and grids — and
-	/// <c>HatchedDivider_HandleEvent</c> (<c>0040c3b5</c>), the crew rows' copy of it. Either button: a
+	/// <c>WinButton_HandleEvent</c> (<c>004097da</c>) — panels, framed and titled panels and grids — and
+	/// <c>ESArm_HandleEvent</c> (<c>0040c3b5</c>), the crew rows' copy of it. Either button: a
 	/// press lights the widget, a release while it is lit fires, and a leave puts it out.
 	/// </summary>
 	Control,
 
 	/// <summary>
-	/// <c>Button_HandleEvent</c> (<c>00409b0f</c>), every content button: <see cref="Control"/>'s rules,
+	/// <c>ESButtonFont_HandleEvent</c> (<c>00409b0f</c>), every content button: <see cref="Control"/>'s rules,
 	/// and the press sound on either button going down.
 	/// </summary>
 	Button,
 
 	/// <summary>
-	/// <c>ButtonIcon_HandleEvent</c> (<c>00409df2</c>), the tab strip's class. The left button makes the
-	/// press sound and fires on the press; the right goes through <c>Control_HandleEvent</c>, silently,
+	/// <c>ESButtonBitmap_HandleEvent</c> (<c>00409df2</c>), the tab strip's class. The left button makes the
+	/// press sound and fires on the press; the right goes through <c>WinButton_HandleEvent</c>, silently,
 	/// and fires on its release. A leave never puts it out.
 	/// </summary>
 	ButtonIcon,
 
 	/// <summary>
-	/// <c>ButtonIcon_HandleEvent</c> on a button its builder gave the auto-repeat flag <c>+0x61</c> and a
+	/// <c>ESButtonBitmap_HandleEvent</c> on a button its builder gave the auto-repeat flag <c>+0x61</c> and a
 	/// clear <c>+0x5d</c> — the mission tab's arrows. The left press lights it and makes the press sound
 	/// without firing, and the left release fires wherever the press was; the right goes through
-	/// <c>Control_HandleEvent</c>; a leave puts it out.
+	/// <c>WinButton_HandleEvent</c>; a leave puts it out.
 	/// </summary>
 	RepeatButtonIcon,
 
 	/// <summary>
-	/// <c>FUN_0040a139</c>, the handler of the <c>ButtonIcon</c> subclass <c>ESRadioButton_Ctor</c> (<c>0040a100</c>) builds — the
+	/// <c>ESRadioButton_HandleEvent</c> (<c>0040a139</c>), the handler of the <c>ButtonIcon</c> subclass <c>ESRadioButton_Ctor</c> (<c>0040a100</c>) builds — the
 	/// preferences screen's checkboxes. The left press makes the press sound, lights the widget and fires;
-	/// the left release does nothing; the right goes through <c>Control_HandleEvent</c>, silently, and
+	/// the left release does nothing; the right goes through <c>WinButton_HandleEvent</c>, silently, and
 	/// fires on its release. A leave never puts it out.
 	/// </summary>
 	CheckBox,
 
 	/// <summary>
-	/// <c>ImagePanel_HandleEvent</c> (<c>0040b6da</c>), the crew portraits. Fires on any left release
+	/// <c>ESBitmap_HandleEvent</c> (<c>0040b6da</c>), the crew portraits. Fires on any left release
 	/// that reaches it, wherever the press was, and ignores the right button.
 	/// </summary>
 	ImagePanel,
 
 	/// <summary>
-	/// <c>EditField_HandleEvent</c> (<c>0040beaf</c>), the save list's rows and the registration screen's
+	/// <c>ESDialog_HandleEvent</c> (<c>0040beaf</c>), the save list's rows and the registration screen's
 	/// name field. Fires on the left press
 	/// and takes the pointer; the right button does nothing.
 	/// </summary>
@@ -131,7 +131,7 @@ public readonly record struct ShellHit(ShellWidget Widget, ShellHandler Handler,
 
 	/// <summary>
 	/// A <c>Button</c> at <paramref name="rect"/>. Its caption is the <c>Text</c> child
-	/// <c>Button_Ctor</c> builds at <c>{1, 0, w, h}</c>, so the button's own left column is the one part
+	/// <c>ESButtonFont_Ctor</c> builds at <c>{1, 0, w, h}</c>, so the button's own left column is the one part
 	/// of it the caption does not cover.
 	/// </summary>
 	public static ShellHit Button(ShellWidget widget, ShellRect rect, float canvasX, float canvasY) =>
@@ -139,7 +139,7 @@ public readonly record struct ShellHit(ShellWidget Widget, ShellHandler Handler,
 			LeafAt(rect, [new ShellRect(1, 0, rect.Width - 1, rect.Height - 1)], canvasX, canvasY));
 
 	/// <summary>
-	/// A list row at <paramref name="rect"/> whose four text columns <c>ListRow_AddColumns</c>
+	/// A list row at <paramref name="rect"/> whose four text columns <c>ESQuad_AddColumns</c>
 	/// (<c>0040a310</c>) cut at <paramref name="cut1"/>, <paramref name="cut2"/> and
 	/// <paramref name="cut3"/>: each column is the row's full height, the first starts at 2 and the last
 	/// ends one inside the row's right edge, so only the two columns at the left and the right edge
@@ -167,7 +167,7 @@ public readonly record struct ShellHit(ShellWidget Widget, ShellHandler Handler,
 /// and an edit field's focus flag <c>+0xa7</c>. The strip's lit flags live on its
 /// <see cref="ShellButton"/>s, because they are also the tab latch.</para>
 ///
-/// <para><c>Control_HandleEvent</c> and <c>ButtonIcon_HandleEvent</c> also ignore mouse events while a
+/// <para><c>WinButton_HandleEvent</c> and <c>ESButtonBitmap_HandleEvent</c> also ignore mouse events while a
 /// movie is playing or the movie queue is running (<c>Avi_Playing</c>, <c>MovieQueue_Running</c>).
 /// That test is the host's: it delivers nothing here while <see cref="ShellMovieRun"/> is active.</para>
 /// </summary>
@@ -336,7 +336,7 @@ public sealed class ShellPointer {
 	/// <summary>
 	/// The leave the target is sent. <see cref="ShellHandler.Control"/> acts on it, and so does a
 	/// <c>ButtonIcon</c> whose <c>+0x5d</c> its builder cleared; the strip keeps the 1
-	/// <c>ButtonIcon_Ctor</c> sets and stays lit.
+	/// <c>ESButtonBitmap_Ctor</c> sets and stays lit.
 	/// </summary>
 	private void Leave() {
 		if (Target is { Handler: ShellHandler.Control or ShellHandler.Button or ShellHandler.RepeatButtonIcon } target
@@ -346,7 +346,7 @@ public sealed class ShellPointer {
 	}
 
 	/// <summary>
-	/// <c>EditField_HandleEvent</c>'s press. An unfocused field takes the focus and the pointer and
+	/// <c>ESDialog_HandleEvent</c>'s press. An unfocused field takes the focus and the pointer and
 	/// fires. A focused one — the pointer is locked onto it, so every press comes here — gives both up,
 	/// hit-tests again, and posts the press over, so it lands on whatever is under the pointer now.
 	/// </summary>

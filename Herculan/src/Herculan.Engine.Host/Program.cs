@@ -6,6 +6,7 @@ using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Host;
 using Herculan.Engine.Host.Debugging;
+using Herculan.Engine.Host.Install;
 using Herculan.Engine.Host.Localization;
 using Herculan.Engine.Host.Settings;
 using Herculan.Engine.Input;
@@ -396,7 +397,19 @@ if (argumentErrors.Count > 0) {
 var localization = new LocalizationTable();
 TweakSettings.Current.LoadFromDisk();
 
+// The one font every ImGui window the host opens is drawn in.
+string imguiFontPath = Path.Combine(AppContext.BaseDirectory,
+	"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
+
+// An install named on the command line is never second-guessed, and a --screenshot run has nobody to ask,
+// so only a search that came up empty asks the player.
 string? installRoot = GameInstall.Locate(positional.Count > 0 ? positional[0] : null);
+if (installRoot == null && positional.Count == 0 && screenshotPath == null) {
+	installRoot = InstallPrompt.Run(localization, imguiFontPath);
+	if (installRoot == null) {
+		return 1;
+	}
+}
 if (installRoot == null) {
 	Console.Error.WriteLine(
 		"Could not find an Earthsiege 2 installation.\n" +
@@ -404,6 +417,7 @@ if (installRoot == null) {
 		$"The path should be the folder containing the '{GameInstall.ArchiveFolderName}' directory.");
 	return 1;
 }
+GameInstall.Remember(installRoot);
 
 // --movie shares even less: no archives, no zone, no shell art — one file and a quad. See MovieHost.
 if (moviePath != null) {
@@ -1170,9 +1184,6 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	}
 	bool tapeEscapeDown = false;
 
-	string debugFontPath = Path.Combine(AppContext.BaseDirectory,
-		"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
-
 	// The front window's TIME: readout. It is driven from the frames the gunsight is painted on,
 	// which is what stalls it in the external view, exactly as the original's does.
 	var missionClock = new MissionClock();
@@ -1526,7 +1537,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// built, so this is unconditional where the beam renderer is not.
 		sprites = new SpriteRenderer(gl);
 
-		imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(debugFontPath, 16));
+		imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(imguiFontPath, 16));
 
 		terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
 		terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas, indexed: true) : null;

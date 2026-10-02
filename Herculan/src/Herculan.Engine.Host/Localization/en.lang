@@ -24,3 +24,14 @@ tweak.fix_weapon_damage_records.display_name  Fix weapon damage
 tweak.fix_weapon_damage_records.description   ATC75, ATC100, LAS400 and LAS500 deal the damage listed for them, and fire their own rounds and beams. In retail each one deals a smaller weapon's damage: ATC75 and ATC100 hit exactly like ATC35 and ATC50, LAS500 exactly like LAS300, and LAS400 only slightly harder than LAS200. Each also fires that weapon's round or beam, so ATC75 and ATC100 rounds fly as far as ATC35 and ATC50 rounds, and the LAS400 and LAS500 beams are as narrow as the LAS200 and LAS300 beams.
 tweak.charge_bar_power_level.display_name  Interactive Charge Bar
 tweak.charge_bar_power_level.description   Set an energy weapon's power level by clicking or dragging its charge bar on the weapon panel: the bar then fills to where you let go. The [-] and [=] keys keep working. Retail builds the bar for this, but the weapon row's own button covers it, so it never takes a click.
+install_prompt.window_title    HERCULAN Engine — Find Earthsiege 2
+install_prompt.message         HERCULAN could not find Earthsiege 2. Choose the Earthsiege 2 folder: the one that holds the {0} folder.
+install_prompt.path_hint       Earthsiege 2 folder
+install_prompt.browse          Browse...
+install_prompt.picker_title    Choose the Earthsiege 2 folder
+install_prompt.picker_open     Waiting for the folder picker...
+install_prompt.picker_failed   The folder picker could not be opened. Type or paste the folder's path instead.
+install_prompt.use_folder      Use This Folder
+install_prompt.quit            Quit
+install_prompt.no_path         Type or paste the path to the Earthsiege 2 folder.
+install_prompt.not_an_install  {0} is not an Earthsiege 2 folder: it has no {1} folder in it.

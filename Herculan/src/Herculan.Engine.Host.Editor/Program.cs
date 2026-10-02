@@ -24,6 +24,7 @@ if (installRoot == null) {
 		$"The path should be the folder containing the '{GameInstall.ArchiveFolderName}' directory.");
 	return 1;
 }
+GameInstall.Remember(installRoot);
 
 string scriptPath = args.Length > 1 ? args[1] : MissionLoader.DefaultScriptPath(installRoot);
 if (!File.Exists(scriptPath)) {

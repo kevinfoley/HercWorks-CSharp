@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Herculan.Engine\Herculan.Engine.csproj" />
+    <ProjectReference Include="..\HercWorks.Help\HercWorks.Help.csproj" />
   </ItemGroup>
 
   <!-- The debug panel only. Nothing the game itself draws goes through ImGui — the cockpit and its

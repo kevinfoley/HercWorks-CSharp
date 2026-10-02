@@ -297,7 +297,7 @@ What the handlers call, as read:
 | `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `Registration_Show` — [the registration screen](#the-registration-screen) |
 | `CONTINUE GAME` | under [the hourglass](#the-pointer): `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, [the END OF GAME alert](#end-of-game) otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
-| `ONLINE MANUAL` | `004317ea`: out of full screen, option 6 set to 0, committed and all 54 saved, `ShellSound_Stop`, then `WinHelpA(window, path, HELP_CONTENTS, 0)` (`FUN_004073a2`) on `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
+| `ONLINE MANUAL` | `004317ea`: out of full screen, option 6 set to 0, committed and all 54 saved, `ShellSound_Stop`, then `WinHelpA(window, path, HELP_CONTENTS, 0)` (`FUN_004073a2`) on `<language>\es2guide.hlp` ([its format](../formats/winhelp.md)), chosen by the language letter `E`, `F` or `G` |
 | `PRACTICE MISSIONS` | `MainMenu_Hide`, `PracticeScreen_Show` (`0044bc92`), `FUN_0040e69e(0)` — [the practice screen](#the-practice-missions-screen) |
 | `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` — [the preferences screen](#the-preferences-screen) |
 | `VIEW DEMO` | the screen blanked full screen, `Shell_SetExitCode(5)`, `Shell_QuitFlag = 1` |
@@ -1367,7 +1367,6 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Unported:** the auto-repeat of the mission screen's arrows.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
 - **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
-- **Unported:** [the main menu](#the-main-menu)'s `ONLINE MANUAL`, a `WinHelpA` call.
 - **Open:** what shows [the second registration panel](#the-second-registration-panel). A search of the disassembly for `DAT_0048d418` and `DAT_0048d470` as absolute operands finds their builders and three hides — `SaveScreen_Enter`, the teardown and `SaveRegistration_ShowDetailPanel` (`0043b679`) — and no show; the dead rect `{9, 0xcf, 0x6b, 0xde}` that `SaveScreen_BuildScreen` writes just before `SAVE`'s may be where a button that showed it stood.
 - **Unported:** the startup's `Performance Note` box ([The main menu](#the-main-menu)).
 - **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.

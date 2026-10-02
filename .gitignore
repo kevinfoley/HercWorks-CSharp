@@ -42,6 +42,10 @@ Herculan/src/HercWorks.Video/bin/
 Herculan/src/HercWorks.Video/obj/
 Herculan/tests/HercWorks.Video.Tests/bin/
 Herculan/tests/HercWorks.Video.Tests/obj/
+Herculan/src/HercWorks.Help/bin/
+Herculan/src/HercWorks.Help/obj/
+Herculan/tests/HercWorks.Help.Tests/bin/
+Herculan/tests/HercWorks.Help.Tests/obj/
 Herculan/.obsidian/
 tools/scripts/__pycache__/
 tools/scripts/rename_symbol/bin/

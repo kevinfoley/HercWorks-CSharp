@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>HercWorks.Help</RootNamespace>
+    <AssemblyName>HercWorks.Help</AssemblyName>
+    <!-- Deliberately no AllowUnsafeBlocks. Every byte this assembly touches came out of a help file,
+         so the CLR's bounds checks are the last line of defence and are not given up for speed. See
+         docs/engine/online-manual.md, "Security posture". -->
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HercWorks.Help.Tests" />
+  </ItemGroup>
+
+  <!-- No PackageReference and no ProjectReference, on purpose. This assembly parses hostile input,
+       so it depends on nothing but the BCL: there is no transitive code to audit, and it can be
+       referenced from both solutions without dragging either one's dependencies into the other. -->
+
+</Project>

@@ -1,6 +1,6 @@
 # Cockpit mouse input
 
-How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's own click handler. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
+How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's own click handler. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols_dbsim.json`; apply with `ES2ApplySymbolNames.java`.
 
 Widget geometry, frames and paint logic are covered by [`cockpit-views.md`](cockpit-views.md), [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md), [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md), [`mfd.md`](mfd.md) and [`heads-down-display.md`](heads-down-display.md) — this document is only the input path: how a mouse event becomes a call into a specific widget's own handler.
 

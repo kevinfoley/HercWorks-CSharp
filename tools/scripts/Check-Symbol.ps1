@@ -3,7 +3,7 @@
 Show every place this repo records a fact about one symbol, so disagreements are visible at a glance.
 
 .DESCRIPTION
-An RE finding can live in four places: tools/ghidra_scripts/known_symbols.json, Herculan/docs/**,
+An RE finding can live in four places: tools/ghidra_scripts/known_symbols_<binary>.json, Herculan/docs/**,
 the C# port under Herculan/src/**, and the Ghidra database itself. Nothing keeps them in step, and
 each refers to the same function differently -- one doc says FUN_00467944, another says
 CountdownTimerTick, the C# says Math_CountdownTimerTick. A grep for any single spelling therefore
@@ -48,15 +48,16 @@ if (-not $RepoRoot) {
     $RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 }
 
-$jsonPath = Join-Path $RepoRoot 'tools/ghidra_scripts/known_symbols.json'
+$jsonPaths = @('dbsim', 'vshell' | ForEach-Object { Join-Path $RepoRoot "tools/ghidra_scripts/known_symbols_$_.json" })
 $docsPath = Join-Path $RepoRoot 'Herculan/docs'
 $srcPath  = Join-Path $RepoRoot 'Herculan/src'
 
-if (-not (Test-Path $jsonPath)) { throw "known_symbols.json not found at $jsonPath" }
-
-# The file carries a UTF-8 BOM, which ConvertFrom-Json will not accept.
-$raw = (Get-Content -Raw -Encoding UTF8 $jsonPath).TrimStart([char]0xFEFF)
-$symbols = ($raw | ConvertFrom-Json).entries
+# Each file carries a UTF-8 BOM, which ConvertFrom-Json will not accept.
+$symbols = @(foreach ($jsonPath in $jsonPaths) {
+    if (-not (Test-Path $jsonPath)) { throw "known_symbols file not found at $jsonPath" }
+    $raw = (Get-Content -Raw -Encoding UTF8 $jsonPath).TrimStart([char]0xFEFF)
+    ($raw | ConvertFrom-Json).entries
+})
 
 
 $q = $Query.Trim()
@@ -117,7 +118,7 @@ if ($matched.Count -gt 5 -and -not $Force) {
 }
 
 Write-Host ''
-Write-Host "=== known_symbols.json ===" -ForegroundColor Cyan
+Write-Host "=== known_symbols ===" -ForegroundColor Cyan
 if ($matched.Count -eq 0) {
     Write-Host "  (no entry matches '$q')" -ForegroundColor Yellow
 } else {

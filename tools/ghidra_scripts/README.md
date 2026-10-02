@@ -25,17 +25,44 @@ A single malformed `.java` in this directory breaks **every** script in it, with
 
 | File | Consumed by | Holds |
 | --- | --- | --- |
-| `known_symbols.json` | `ES2ApplySymbolNames` | address → name, description, optional C signature |
+| `known_symbols_dbsim.json`, `known_symbols_vshell.json` | `ES2ApplySymbolNames` | address → name, description, optional C signature, one file per binary |
 | `known_structs.json` | `ES2ApplyStructures` | object layouts, and the parameters to type with them |
 | `known_vtables.json` | `ES2ApplyVtables` | vtable slot names and instance addresses |
 
-Each has an `_readme` entry carrying its own schema.
+`known_structs.json` and `known_vtables.json` each carry their schema in an `_readme` entry; the symbols schema is [Known symbols](#known-symbols), below.
 
-`tools/scripts/ghidra_apply_all.sh` runs all three in the only order that works on a database that has never had them applied: vtables → structs → symbols. All three are idempotent; once the `/ES2` types exist, any one can be run alone in any order.
+`tools/scripts/ghidra_apply_all.sh` runs all three in the only order that works on a database that has never had them applied: vtables → structs → symbols, for DBSIM then VSHELL. All three are idempotent; once the `/ES2` types exist, any one can be run alone in any order.
 
 - **ES2ApplyVtables** — builds one `FunctionDefinitionDataType` per slot under `/ES2/<Name>`, assembles them into a struct of 4-byte function pointers, then applies and labels it at each instance address.
 - **ES2ApplyStructures** — builds each object struct at its declared size and places fields with `replaceAtOffset`; checks every declared field width against the resolved type's own length, and refuses overlaps and past-the-end fields. Then types the listed function parameters with a pointer to it.
 - **ES2ApplySymbolNames** — renames, writes plate comments, applies signatures. An entry with no `name` gets only a comment, so a guess cannot masquerade as a confirmed symbol. Preserves `/ES2` pointer parameter types across a signature apply, which is what stops it undoing `ES2ApplyStructures`.
+
+### Known symbols
+
+Confirmed address → meaning mappings, one file per binary: `known_symbols_dbsim.json` and `known_symbols_vshell.json`. `ES2ApplySymbolNames` applies one file to its binary (`es2_naming.py apply BIN` passes the right one), and it is idempotent: re-run it after adding or changing entries. Python tools read and write the files through `tools/scripts/es2_symbols.py`.
+
+One address, one entry: when a later finding revises an existing one, edit that entry in place rather than adding a second. Entries are in ascending address order, so two branches that add symbols insert at different places. `es2_naming.py insert` and `edit` keep the order and refuse a file that breaks it, a duplicate address or name, or an entry of the other binary. The apply script aborts on a duplicate.
+
+| Field | Holds |
+| --- | --- |
+| `address` | hex address, no `0x` prefix (`00411fc4`) |
+| `binary` | `DBSIM` or `VSHELL`: the file's own binary, matched against the `-process` file name at apply time |
+| `type` | `function` or `data` |
+| `confidence` | `high`, `medium` or `low` |
+| `name` | the symbol name. Omitted for `low` entries, which get a plate comment only, never a rename or label, so a guess can never look like a confirmed name in the database. `medium` names carry a `maybe_` prefix, written out here rather than added by the apply script. |
+| `description` | evidence and meaning, also used as the plate comment body |
+| `source` | the repo doc section the entry was taken from |
+| `signature` | optional, functions only: a full C prototype. Record it only when the argument list was derived from the disassembly by hand, never copied from what Ghidra displays: every prototype in the database is unverified `ANALYSIS`-tier inference, and it labels these functions `__stdcall` where the call sites clean their own stack (`ADD ESP,n` / `POP ECX`), i.e. `__cdecl`. A remaining `param_N` name means the derivation is unfinished; omit the field rather than record a partial one. |
+
+| Confidence | Meaning |
+| --- | --- |
+| `high` | verified by more than one cross-check: raw disassembly, a byte-exact match against real files, or a doc section that settles it |
+| `medium` | a reasoned finding that was not independently cross-checked; named with `maybe_`, never bare |
+| `low` | open or unconfirmed; comment only, no rename |
+
+**Who owns a parameter's type.** A function that carries a `signature` owns its whole parameter list, struct types included: write `SimObject *this`, not `int *this`, and do not also list that parameter in `known_structs.json`'s `applications`. A function without one gets its parameter types from `known_structs.json`. The two must not describe the same parameter, because applying a signature replaces the parameter list, so a disagreement would undo the struct typing on every run. `ES2ApplySymbolNames` guards against it — a parameter already typed with a pointer into category `/ES2` is captured before the signature apply and restored after, with a `WARN` naming the two files — but the guard is a safety net, not a licence to record the same fact twice.
+
+Struct-instance offsets (`mech+0x222`) belong in `known_structs.json`, which owns field layout; they are not fixed addresses, so they have no entry here. Vtable slot meanings belong in `known_vtables.json`.
 
 ## Catalog
 
@@ -50,7 +77,7 @@ Each has an `_readme` entry carrying its own schema.
 | `ES2DecompileContainingBatch` | `spec` | Same for many addresses, deduped by function. |
 | `ES2DecompileRange` | `lo` `hi` `out` | Decompiles every function whose entry point falls in a range. |
 | `ES2DecompileNamed` | `spec` | Decompiles functions by name. |
-| `ES2DumpFullDecomp` | `out` `[timeout]` | Whole-program decompilation. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/` and reports how many DBSIM functions carry `known_symbols.json` names. |
+| `ES2DumpFullDecomp` | `out` `[timeout]` | Whole-program decompilation. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/` and reports how many DBSIM functions carry `known_symbols_dbsim.json` names. |
 | `ES2DumpCallSites` | `addrs(+)` `ctx` `maxSites` `out` | Call sites with surrounding instructions — settles argument setup and `__cdecl` vs `__stdcall`, which the ANALYSIS-tier prototypes get wrong throughout this database. |
 
 ### Searching
@@ -110,7 +137,7 @@ These three mutate the program. Ghidra routinely places a function entry past th
 | Script | Args | Does |
 | --- | --- | --- |
 | `ES2ListFunctions` | `out` | Every function as `address<TAB>name<TAB>size`. |
-| `ES2DumpSignatures` | `known_symbols.json` `out` | Read-only companion to `ES2ApplySymbolNames`: pulls committed prototypes back out for every tracked address, tagged `verified` / `analysis` / `default`, so mass-committed guesses can be told from human decisions. |
+| `ES2DumpSignatures` | `known_symbols_<binary>.json` `out` | Read-only companion to `ES2ApplySymbolNames`: pulls committed prototypes back out for every tracked address, tagged `verified` / `analysis` / `default`, so mass-committed guesses can be told from human decisions. |
 | `ES2SignatureSourceCensus` | — | Positive control for the above: histograms `SourceType` program-wide. Zero human-sourced signatures anywhere means the detection itself is suspect; DLL thunks should report `IMPORTED`. |
 | `ES2CommitAllParams` | `[passes]` | Commits decompiler-inferred prototypes program-wide as `ANALYSIS`. Improves cross-function decompilation; also fills the database with plausible signatures nobody checked. |
 | `ES2EnableParamID` | — | Turns on Decompiler Parameter ID, with the default prototype evaluation, and fails if the option did not take. Changes nothing until the next auto-analysis, which then commits inferred prototypes program-wide as `ANALYSIS`. |

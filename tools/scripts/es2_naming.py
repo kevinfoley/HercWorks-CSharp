@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Helpers for working down the function-naming backlog in known_symbols.json.
+"""Helpers for working down the function-naming backlog in the known_symbols_<binary>.json files.
 
 Subcommands (BIN is DBSIM or VSHELL):
 
@@ -35,8 +35,8 @@ Subcommands (BIN is DBSIM or VSHELL):
       entry already). A closing line totals the unnamed
       functions and lists the RTTI class vtables the dump's sweep did not find.
   insert batch.json [--write]
-      Insert new entries after the '"entries": [' line, validating schema, uniqueness, maybe_ vs
-      medium, and control characters. Dry run without --write.
+      Insert new entries into their binary's file in address order, validating schema, uniqueness,
+      maybe_ vs medium, and control characters. Dry run without --write.
   edit edits.json [--write]
       [{"binary","address","field","value"} or {"binary","address","fields":{...}}]: rewrite that
       one entry's block, all fields of one edit before validating (so a low entry can take a
@@ -80,25 +80,24 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import es2_symbols as S  # noqa: E402
 import es2_unnamed_callees as uc  # noqa: E402
 
 REPO = uc.REPO
 ANALYSIS = uc.ANALYSIS
-SYMBOLS = uc.SYMBOLS
 HDR = re.compile(r"^/\* =+\n   (\S+) @ ([0-9a-f]{8})[^\n]*\n   =+ \*/\n", re.M)
-FIELDS = ["address", "binary", "type", "confidence", "name", "description", "source", "signature"]
+FIELDS = S.FIELDS
 CACHE = os.path.join(tempfile.gettempdir(), "es2_naming_cache")
 LABEL = re.compile(r"\b(?:thunk_)?(FUN|DAT|PTR|LAB|_DAT)_([0-9a-f]{8})\b")
 DECL = re.compile(r"^  [A-Za-z_][\w ]*?[\w*]+ \**[A-Za-z_]\w*(?:\s*\[\w+\])?;(?:\s*/\*.*\*/)?$")
 
 
-def entries():
-    with open(SYMBOLS, encoding="utf-8-sig") as f:
-        return json.load(f)["entries"]
+def entries(binary=None):
+    return S.entries(binary)
 
 
 def names(binary):
-    return {e["address"].lower(): e["name"] for e in entries() if e["binary"] == binary and e.get("name")}
+    return {e["address"].lower(): e["name"] for e in entries(binary) if e.get("name")}
 
 
 def bodies(binary):
@@ -436,7 +435,7 @@ def cmd_vtables(args):
     known = names(binary)
     d, off = pe(binary)
     lo, hi = code_range(binary)
-    low = {e["address"] for e in entries() if e["binary"] == binary and not e.get("name")}
+    low = {e["address"] for e in entries(binary) if not e.get("name")}
     starts, stores = disasm_index(binary)
     entries_ = set(starts)
     import es2_classes
@@ -508,99 +507,76 @@ def cmd_vtables(args):
               " ('*' unnamed function, 'L' a low entry without a name, '?' no function starts there)")
 
 
-def read_symbols_text():
-    with open(SYMBOLS, "rb") as f:
-        raw = f.read()
-    assert raw[:3] == b"\xef\xbb\xbf", "expected BOM"
-    text = raw[3:].decode("utf-8")
-    nl = "\r\n" if "\r\n" in text else "\n"
-    if nl == "\r\n":
-        assert text.count("\r\n") == text.count("\n"), "mixed newlines"
-    return text.replace("\r\n", "\n"), nl
+block = S.block
 
 
-def write_symbols_text(text, nl):
-    with open(SYMBOLS, "wb") as f:
-        f.write(b"\xef\xbb\xbf" + text.replace("\n", nl).encode("utf-8"))
-
-
-def block(e):
-    ordered = {k: e[k] for k in FIELDS if k in e}
-    return "\n".join("    " + l for l in json.dumps(ordered, indent=2, ensure_ascii=False).split("\n"))
-
-
-def check_unique(text):
-    d = json.loads(text)
-    seen = set()
-    for e in d["entries"]:
-        k = (e["binary"], e["address"].lower())
-        assert k not in seen, ("duplicate address", k)
-        seen.add(k)
-    nk = [(e["binary"], e["name"]) for e in d["entries"] if e.get("name")]
-    dup = {x for x in nk if nk.count(x) > 1} if len(nk) != len(set(nk)) else set()
-    assert not dup, ("duplicate (binary, name)", dup)
-    return d
+def by_binary(items):
+    """{binary: [item]} for batch entries or edits, each carrying its own "binary"."""
+    out = {}
+    for x in items:
+        assert x["binary"] in S.BINARIES, x
+        out.setdefault(x["binary"], []).append(x)
+    return out
 
 
 def cmd_insert(args):
-    text, nl = read_symbols_text()
     with open(args[0], encoding="utf-8") as f:
         new = json.load(f)
-    old = json.loads(text)["entries"]
-    existing = {(e["binary"], e["address"].lower()) for e in old}
-    taken = {(e["binary"], e.get("name")) for e in old if e.get("name")}
-    blocks = []
-    for e in new:
-        assert set(e) <= set(FIELDS), e
-        for k in ("address", "binary", "type", "confidence", "description", "source"):
-            assert k in e, (k, e)
-        assert re.fullmatch(r"[0-9a-f]{8}", e["address"]), e["address"]
-        assert e["binary"] in ("DBSIM", "VSHELL") and e["type"] in ("function", "data")
-        assert (e["binary"], e["address"]) not in existing, ("duplicate address", e["address"])
-        c = e["confidence"]
-        assert c in ("high", "medium", "low")
-        if c == "low":
-            assert "name" not in e, e["address"]
-        else:
-            n = e["name"]
-            assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", n), n
-            assert n.startswith("maybe_") == (c == "medium"), (n, c)
-            assert (e["binary"], n) not in taken, ("duplicate name", n)
-            taken.add((e["binary"], n))
-        existing.add((e["binary"], e["address"]))
-        for v in e.values():
-            assert not re.search(r"[\x00-\x1f]", v), ("control char", e["address"])
-        blocks.append(block(e) + ",")
-    anchor = '"entries": [\n'
-    assert text.count(anchor) == 1
-    text2 = relink(text.replace(anchor, anchor + "\n".join(blocks) + "\n", 1), new)
-    d = check_unique(text2)
+    texts = {}
+    for binary, batch in by_binary(new).items():
+        text, nl = S.read_text(binary)
+        old = json.loads(text)["entries"]
+        existing = {e["address"].lower() for e in old}
+        taken = {e.get("name") for e in old if e.get("name")}
+        for e in batch:
+            assert set(e) <= set(FIELDS), e
+            for k in ("address", "binary", "type", "confidence", "description", "source"):
+                assert k in e, (k, e)
+            assert re.fullmatch(r"[0-9a-f]{8}", e["address"]), e["address"]
+            assert e["type"] in ("function", "data")
+            assert e["address"] not in existing, ("duplicate address", e["address"])
+            c = e["confidence"]
+            assert c in ("high", "medium", "low")
+            if c == "low":
+                assert "name" not in e, e["address"]
+            else:
+                n = e["name"]
+                assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", n), n
+                assert n.startswith("maybe_") == (c == "medium"), (n, c)
+                assert n not in taken, ("duplicate name", n)
+                taken.add(n)
+            existing.add(e["address"])
+            for v in e.values():
+                assert not re.search(r"[\x00-\x1f]", v), ("control char", e["address"])
+        text2 = relink(S.insert_blocks(text, batch), batch)
+        texts[binary] = (text2, nl, len(S.check(binary, text2)["entries"]))
     fn = sum(1 for e in new if e.get("name") and e["type"] == "function")
     dn = sum(1 for e in new if e.get("name") and e["type"] == "data")
-    print(f"{len(new)} entries ok ({fn} named functions, {dn} named data); total {len(d['entries'])}")
+    totals = ", ".join(f"{b} {n}" for b, (_, _, n) in sorted(texts.items()))
+    print(f"{len(new)} entries ok ({fn} named functions, {dn} named data); totals {totals}")
     if "--write" in args:
-        write_symbols_text(text2, nl)
+        for binary, (text2, nl, _) in texts.items():
+            S.write_text(binary, text2, nl)
         print("written")
 
 
-ENTRY_BLOCK = re.compile(r"    \{\n(?:      .*\n)*?    \}")
-
-
 def rename_mentions(text, binary, address, old, new):
-    """Replace old with new in the description and source of the other entries of the same binary.
-    Names are per binary, so another binary may use the same name for its own function; mentions in
-    its entries are listed for a manual check instead of being rewritten."""
+    """Replace old with new in the description and source of the other entries of binary's file,
+    whose text this is. Names are per binary, so the other binary may use the same name for its own
+    function; mentions in its file are listed for a manual check instead of being rewritten."""
     rx = re.compile(r"\b" + re.escape(old) + r"\b")
+    for b in S.BINARIES:
+        if b != binary:
+            for e in entries(b):
+                if any(rx.search(e.get(k, "")) for k in ("description", "source")):
+                    print(f"  check {b} {e['address']} {e.get('name')}: mentions {old}")
     out, pos, n = [], 0, 0
-    for m in ENTRY_BLOCK.finditer(text):
+    for m in S.ENTRY_BLOCK.finditer(text):
         e = json.loads(m.group(0))
-        if e["address"] == address and e["binary"] == binary:
+        if e["address"] == address:
             continue
         hits = [k for k in ("description", "source") if rx.search(e.get(k, ""))]
         if not hits:
-            continue
-        if e["binary"] != binary:
-            print(f"  check {e['binary']} {e['address']} {e.get('name')}: mentions {old}")
             continue
         for k in hits:
             n += len(rx.findall(e[k]))
@@ -624,19 +600,35 @@ def relink(text, new):
 
 
 def cmd_relink(args):
-    text, nl = read_symbols_text()
     with open(args[0], encoding="utf-8") as f:
-        text = relink(text, json.load(f))
-    check_unique(text)
+        batch = json.load(f)
+    texts = {}
+    for binary, part in by_binary(batch).items():
+        text, nl = S.read_text(binary)
+        text = relink(text, part)
+        S.check(binary, text)
+        texts[binary] = (text, nl)
     if "--write" in args:
-        write_symbols_text(text, nl)
+        for binary, (text, nl) in texts.items():
+            S.write_text(binary, text, nl)
         print("written")
 
 
 def cmd_edit(args):
-    text, nl = read_symbols_text()
     with open(args[0], encoding="utf-8") as f:
         edits = json.load(f)
+    texts = {}
+    for binary, part in by_binary(edits).items():
+        text, nl = S.read_text(binary)
+        texts[binary] = (edit_text(text, part), nl)
+        print("ok", binary, len(S.check(binary, texts[binary][0])["entries"]))
+    if "--write" in args:
+        for binary, (text, nl) in texts.items():
+            S.write_text(binary, text, nl)
+        print("written")
+
+
+def edit_text(text, edits):
     for ed in edits:
         pat = re.compile(r'    \{\n      "address": "' + ed["address"] + r'",\n      "binary": "' + ed["binary"]
                          + r'",\n(?:      .*\n)*?    \}', re.M)
@@ -660,11 +652,7 @@ def cmd_edit(args):
         elif not old and e.get("name"):
             prefix = "FUN_" if e["type"] == "function" else "DAT_"
             text = rename_mentions(text, ed["binary"], ed["address"], prefix + ed["address"], e["name"])
-    d = check_unique(text)
-    print("ok", len(d["entries"]))
-    if "--write" in args:
-        write_symbols_text(text, nl)
-        print("written")
+    return text
 
 
 def cmd_mentions(args):
@@ -770,7 +758,7 @@ def cmd_apply(args):
     cmd = [bat, os.path.join(REPO, "tools", "ghidra_project"), "ES2Recon", "-process", f"{binary}.EXE",
            "-noanalysis"] + ([] if "--write" in args else ["-readOnly"]) + [
         "-scriptPath", os.path.join(REPO, "tools", "ghidra_scripts"),
-        "-postScript", "ES2ApplySymbolNames", SYMBOLS]
+        "-postScript", "ES2ApplySymbolNames", S.path(binary)]
     r = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
     keep = re.compile(r"renamed|labeled|skipped|error|warn|exception|fail|summary", re.I)
     for l in (r.stdout + r.stderr).splitlines():
@@ -793,7 +781,7 @@ def cmd_fixentry(args):
         for a in addrs:
             cmd += ["-postScript", "ES2MergeFunctionAt", a, "auto", os.path.join(tmp, f"merge_{a}.txt")]
         cmd += ["-postScript", "ES2ApplyStructures", os.path.join(scripts, "known_structs.json"),
-                "-postScript", "ES2ApplySymbolNames", SYMBOLS,
+                "-postScript", "ES2ApplySymbolNames", S.path(binary),
                 "-postScript", "ES2CheckFunctionEntries", os.path.join(tmp, "check.txt")] + addrs
         r = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
         keep = re.compile(r"ES2Apply\w+\.java>.*(errors|summary|=)|ERROR|exception|fail", re.I)

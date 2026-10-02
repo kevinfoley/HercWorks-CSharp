@@ -24,7 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-// args[0] = path to known_symbols.json (see that file's _readme for the schema).
+// args[0] = path to the processed binary's known_symbols_<binary>.json (schema: README.md,
+// "Known symbols").
 //
 // Applies confirmed address->meaning findings to the currently-processed program. Reads every
 // entry whose "binary" field is a case-insensitive substring of the current program's name (so
@@ -37,7 +38,7 @@ import java.util.Set;
 // An entry may also carry a "signature": a full C prototype, which is applied to the function as
 // SourceType.USER_DEFINED so it survives as a human-verified prototype rather than blending into
 // the decompiler's ANALYSIS-tier guesses. Signatures are functions-only and optional -- see the
-// known_symbols.json _readme for the rule on when one may be recorded at all. A signature that
+// README.md "Known symbols" for the rule on when one may be recorded at all. A signature that
 // fails to parse or apply is reported and skipped; it never aborts the rest of the run.
 //
 // Entries with no "name" (low-confidence findings) only get the plate comment -- never a
@@ -51,11 +52,11 @@ import java.util.Set;
 // winning. Without that, this script would quietly undo ES2ApplyStructures on every run, and
 // the damage would show up only as a decompilation that had stopped naming fields.
 //
-// Idempotent: safe to re-run after known_symbols.json gains new entries or existing descriptions
+// Idempotent: safe to re-run after the symbols file gains new entries or existing descriptions
 // change -- renames/labels are skipped if already correct, and plate comments are always
 // overwritten with the current JSON content rather than appended to.
 public class ES2ApplySymbolNames extends GhidraScript {
-    // Calling conventions that may appear in a known_symbols.json "signature" string.
+    // Calling conventions that may appear in a known_symbols "signature" string.
     private static final String[] CONVENTIONS = {
         "__cdecl", "__stdcall", "__thiscall", "__fastcall", "__watcall" };
 
@@ -63,7 +64,7 @@ public class ES2ApplySymbolNames extends GhidraScript {
     public void run() throws Exception {
         String[] scriptArgs = getScriptArgs();
         if (scriptArgs.length < 1) {
-            println("Usage: ES2ApplySymbolNames <known_symbols.json path>");
+            println("Usage: ES2ApplySymbolNames <known_symbols_<binary>.json path>");
             return;
         }
         String jsonPath = scriptArgs[0];
@@ -126,7 +127,7 @@ public class ES2ApplySymbolNames extends GhidraScript {
             }
 
             StringBuilder comment = new StringBuilder();
-            comment.append("[known_symbols.json] confidence=").append(confidence);
+            comment.append("[known_symbols] confidence=").append(confidence);
             if (name != null) {
                 comment.append(" name=").append(name);
             }

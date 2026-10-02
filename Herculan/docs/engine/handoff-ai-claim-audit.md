@@ -76,7 +76,7 @@ The ~33 entries that cite shell and format docs are a separate programme — tho
 
 Nothing on the spine, and nothing on navigation.
 
-A warning for the docs still to audit, since it cost time here: **a symbol name cited in a doc can outlive the address it was attached to.** `known_symbols.json` is the arbiter, and it says so — check the name there before treating a failed grep of the dump as a finding. `Bases_LoadTypeTable` was cited by two docs and four code comments and is in no dump; the function is `Base_LoadResources` (`00405fac`).
+A warning for the docs still to audit, since it cost time here: **a symbol name cited in a doc can outlive the address it was attached to.** `known_symbols_<binary>.json` is the arbiter, and it says so — check the name there before treating a failed grep of the dump as a finding. `Bases_LoadTypeTable` was cited by two docs and four code comments and is in no dump; the function is `Base_LoadResources` (`00405fac`).
 
 ## Traps
 
@@ -93,4 +93,4 @@ A warning for the docs still to audit, since it cost time here: **a symbol name 
 1. **Fix the doc first** — it is what the next port reads. Edit the wrong passage; never annotate it (documentation rule 1).
 2. **Code comments get a one-line summary and a link**, not the derivation (rule 5). Grep the engine for the claim's own words; the same sentence is often pasted into a C# doc comment.
 3. **If the engine's behaviour actually diverges**, it belongs in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md), not only in the doc.
-4. **Fix `tools/ghidra_scripts/known_symbols.json` too.** Its descriptions are re-emitted into every regenerated decompile dump, so a wrong one regenerates forever. Change the `name` field as well as the description when a symbol turns out to be misnamed — and check `known_vtables.json`, which holds separate copies of some names.
+4. **Fix `tools/ghidra_scripts/known_symbols_<binary>.json` too.** Its descriptions are re-emitted into every regenerated decompile dump, so a wrong one regenerates forever. Change the `name` field as well as the description when a symbol turns out to be misnamed — and check `known_vtables.json`, which holds separate copies of some names.

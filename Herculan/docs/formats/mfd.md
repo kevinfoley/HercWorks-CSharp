@@ -1,6 +1,6 @@
 # The Multi-Function Display
 
-Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. Addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. Addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols_dbsim.json`; apply with `ES2ApplySymbolNames.java`.
 
 The console screen the F1-F6 keys switch between six screens. Surrounding cockpit: [`cockpit-views.md`](cockpit-views.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). Caption text: [`str-strings.md`](str-strings.md).
 

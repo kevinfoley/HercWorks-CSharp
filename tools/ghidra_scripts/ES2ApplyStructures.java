@@ -110,7 +110,7 @@ public class ES2ApplyStructures extends GhidraScript {
                 int width = field.get("width").getAsInt();
                 String typeText = field.get("type").getAsString();
                 // A low-confidence field is placed for its WIDTH and never named, so a guess can
-                // never masquerade as a confirmed field -- the rule known_symbols.json applies to
+                // never masquerade as a confirmed field -- the rule the known_symbols files apply to
                 // functions. A null name leaves Ghidra's own field_0xNN in place.
                 String fieldName = field.has("name") ? field.get("name").getAsString() : null;
                 String fieldDesc =

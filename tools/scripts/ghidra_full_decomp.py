@@ -9,7 +9,7 @@ because headless Ghidra locks the project. Each dump is written to a temporary f
 place only when the script reports `SCRIPT-OK`, so a failed or cancelled run leaves the previous
 dump intact.
 
-It then counts the DBSIM functions whose name in the dump is the one `known_symbols.json` records
+It then counts the DBSIM functions whose name in the dump is the one `known_symbols_dbsim.json` records
 for that address -- the names this project assigned, as opposed to `FUN_` placeholders and the
 names Ghidra supplies itself (Borland runtime functions, Win32 import thunks, `entry`).
 
@@ -23,18 +23,18 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import subprocess
 import sys
+
+import es2_symbols
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GHIDRA = os.path.join(REPO_ROOT, "tools", "ghidra_12.1.2_PUBLIC", "support", "analyzeHeadless.bat")
 PROJECT = os.path.join(REPO_ROOT, "tools", "ghidra_project")
 SCRIPTS = os.path.join(REPO_ROOT, "tools", "ghidra_scripts")
 OUT_DIR = os.path.join(REPO_ROOT, "tools", "analysis_out")
-KNOWN_SYMBOLS = os.path.join(SCRIPTS, "known_symbols.json")
 
 BINARIES = ["DBSIM", "VSHELL"]
 DUMPS = ["decomp", "vtables", "structs"]
@@ -95,10 +95,8 @@ def report_names(binary: str) -> None:
     if not os.path.exists(path):
         sys.exit(f"{os.path.relpath(path, REPO_ROOT)} does not exist; run without --no-dump first")
 
-    with open(KNOWN_SYMBOLS, encoding="utf-8-sig") as f:
-        entries = json.load(f)["entries"]
-    known = {e["address"].lower(): e["name"] for e in entries
-             if e.get("binary") == binary and e.get("type") == "function" and "name" in e}
+    known = {e["address"].lower(): e["name"] for e in es2_symbols.entries(binary)
+             if e.get("type") == "function" and "name" in e}
 
     functions = {a: n for a, (n, ext) in read_functions(path).items() if not ext}
     manual = [a for a, n in functions.items() if known.get(a) == n]
@@ -116,10 +114,10 @@ def report_names(binary: str) -> None:
     print(f"   FUN_ placeholders           {len(placeholder):5}")
     print(f"   library/import/entry names  {other:5}")
     if renamed_since:
-        print(f"   {len(renamed_since)} known_symbols.json names differ from the database"
+        print(f"   {len(renamed_since)} known_symbols names differ from the database"
               " (run ES2ApplySymbolNames): " + " ".join(sorted(renamed_since)))
     if no_function:
-        print(f"   {len(no_function)} known_symbols.json names have no function at their address"
+        print(f"   {len(no_function)} known_symbols names have no function at their address"
               " in the database: " + " ".join(f"{a} ({known[a]})" for a in no_function))
 
 

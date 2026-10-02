@@ -31,15 +31,15 @@ Exit status is 1 if every address given is unreferenced, so it can gate a claim.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import struct
 import sys
 
+import es2_symbols
+
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ANALYSIS = os.path.join(REPO, "tools", "analysis_out")
-SYMBOLS = os.path.join(REPO, "tools", "ghidra_scripts", "known_symbols.json")
 
 BINARIES = {
     "DBSIM": os.path.join(REPO, "ES2", "DBSIM.EXE"),
@@ -165,24 +165,21 @@ def vtable_slots(binary: str, target: int):
 
 
 def resolve(token: str, binary: str):
-    """A bare hex address, or a name from known_symbols.json."""
+    """A bare hex address, or a name from the binary's known_symbols file."""
     if re.fullmatch(r"(0x)?[0-9a-fA-F]{6,8}", token):
         return int(token, 16)
-    if not os.path.exists(SYMBOLS):
-        raise SystemExit("cannot resolve %r: %s is missing" % (token, SYMBOLS))
-    with open(SYMBOLS, encoding="utf-8-sig") as fh:
-        blob = json.load(fh)
-    rows = blob.get("entries", blob) if isinstance(blob, dict) else blob
-    for row in rows:
-        if isinstance(row, dict) and row.get("name") == token \
-                and row.get("binary", "DBSIM").upper() == binary:
+    path = es2_symbols.path(binary)
+    if not os.path.exists(path):
+        raise SystemExit("cannot resolve %r: %s is missing" % (token, path))
+    for row in es2_symbols.entries(binary):
+        if row.get("name") == token:
             return int(row["address"], 16)
     raise SystemExit("no symbol named %r in %s" % (token, binary))
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("targets", nargs="+", help="hex addresses or known_symbols.json names")
+    ap.add_argument("targets", nargs="+", help="hex addresses or known_symbols names")
     ap.add_argument("--binary", default="DBSIM", choices=sorted(BINARIES), help="default DBSIM")
     ap.add_argument("--quiet", action="store_true", help="one summary line per target")
     args = ap.parse_args()

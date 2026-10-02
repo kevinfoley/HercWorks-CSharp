@@ -35,7 +35,7 @@ rule below rather than deleting the matched words in place.
   handoff scratchpad, not a reference doc.
 - **csharp-name** — A retail doc naming a C# type or member. Describe the field in words ("the
   paints-ground flag, `0x06`") and let the C# doc comment that cites the section carry the name. If
-  the token is really a retail name that only coincides with one, record it in `known_symbols.json`
+  the token is really a retail name that only coincides with one, record it in `known_symbols_<binary>.json`
   or `known_structs.json` where it belongs; otherwise append `<!-- doc-lint: ok -->`.
 - **self-disclaimer** ("not re-verified", "may be out of date") — A section that disclaims its own
   accuracy should be fixed or deleted. If it cannot be verified now, say what is unknown and why,

@@ -1,6 +1,6 @@
 # The Heads-Down Display
 
-The two-page console below the dashboard, reached by panning down from the forward view. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`, applied with `ES2ApplySymbolNames.java`.
+The two-page console below the dashboard, reached by panning down from the forward view. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols_dbsim.json`, applied with `ES2ApplySymbolNames.java`.
 
 Surrounding cockpit and the pan itself: [`cockpit-views.md`](cockpit-views.md). Canopy art: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). Caption text: [`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 

@@ -43,7 +43,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 
 SCOPE = [
     "tools/analysis_out",
-    "tools/ghidra_scripts/known_symbols.json",
+    "tools/ghidra_scripts/known_symbols_dbsim.json",
+    "tools/ghidra_scripts/known_symbols_vshell.json",
     "Herculan/docs",
     "Herculan/src",
 ]
@@ -463,7 +464,7 @@ SELF_TESTS = [
     ("Bash", "git log | head", ".", False),
     ("Bash", "ls tools/scripts | head", ".", False),
     ("Bash", "grep -n Mech_LocomotionTick Herculan/docs/x.md | head -5", ".", True),
-    ("Bash", "cat tools/ghidra_scripts/known_symbols.json | grep Mech | tail -3", ".", True),
+    ("Bash", "cat tools/ghidra_scripts/known_symbols_dbsim.json | grep Mech | tail -3", ".", True),
     ("Bash", "rg Mech_LocomotionTick Reference/ | head", ".", False),
     ("Bash", "grep -o 'call [0-9a-f]*' tools/analysis_out/DBSIM_disasm_full.txt | sort | uniq -c", ".", False),
     ("Bash", "grep -n foo tools/analysis_out/a.txt | head -n 20", ".", True),
@@ -486,7 +487,7 @@ SELF_TESTS = [
     ("Bash", "grep -rn Foo /e/ES2Stuff/Herculan/src | head -3", ".", True),
     ("PowerShell", "Select-String -Path tools\\analysis_out\\a.txt -Pattern '0x4d2540' | Select-Object -First 10", ".", True),
     ("PowerShell", "Select-String '0x4d2540' Herculan\\docs\\x.md | select -first 5", ".", True),
-    ("PowerShell", "Get-Content tools\\ghidra_scripts\\known_symbols.json | Select-String Mech | Select-Object -Last 3", ".", True),
+    ("PowerShell", "Get-Content tools\\ghidra_scripts\\known_symbols_vshell.json | Select-String Mech | Select-Object -Last 3", ".", True),
     ("PowerShell", "Select-String '0x4d2540' tools\\analysis_out\\a.txt | Measure-Object", ".", False),
     ("PowerShell", "Select-String Foo Reference\\notes.txt | Select-Object -First 3", ".", False),
     ("PowerShell", "git log | Select-Object -First 5", ".", False),

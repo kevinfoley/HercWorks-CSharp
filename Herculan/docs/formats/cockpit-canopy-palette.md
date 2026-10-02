@@ -1,6 +1,6 @@
 # Canopy art, blitting, and the cockpit palette
 
-Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM unless noted. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM unless noted. Symbols are in `tools/ghidra_scripts/known_symbols_dbsim.json`; apply with `ES2ApplySymbolNames.java`.
 
 Verified against retail data in `ES2/VOL/simvol0/{hb0,hb1,hb2,hba,dpl}/`.
 

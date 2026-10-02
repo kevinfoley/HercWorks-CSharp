@@ -11,11 +11,11 @@ import ghidra.program.model.symbol.SourceType;
 import java.io.FileReader;
 import java.io.PrintWriter;
 
-// args[0] = path to known_symbols.json
+// args[0] = path to the processed binary's known_symbols_<binary>.json
 // args[1] = path to write the signature dump (TSV)
 //
 // Read-only companion to ES2ApplySymbolNames: instead of pushing names INTO the Ghidra database,
-// this pulls committed function prototypes OUT of it, for the addresses known_symbols.json already
+// this pulls committed function prototypes OUT of it, for the addresses the symbols file already
 // tracks. Nothing in the program is modified.
 //
 // For every "function" entry whose "binary" matches the current program, emits one TSV row:
@@ -57,7 +57,7 @@ public class ES2DumpSignatures extends GhidraScript {
     public void run() throws Exception {
         String[] scriptArgs = getScriptArgs();
         if (scriptArgs.length < 2) {
-            println("Usage: ES2DumpSignatures <known_symbols.json path> <output tsv path>");
+            println("Usage: ES2DumpSignatures <known_symbols_<binary>.json path> <output tsv path>");
             return;
         }
 

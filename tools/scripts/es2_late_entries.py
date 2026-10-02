@@ -5,7 +5,7 @@ A late start puts a function's name and plate comment on an address nothing call
 `es2_xref.py` reports the named function UNREFERENCED, and the decompile reads the frame through
 `unaff_EBP`. Ghidra often keeps a separate few-byte function at the true entry as well.
 
-For every function entry in `analysis_out/<BIN>_disasm_full.txt` and every known_symbols.json
+For every function entry in `analysis_out/<BIN>_disasm_full.txt` and every known_symbols
 function address, this reports the entry when its first byte is not PUSH EBP (0x55) and the bytes
 immediately before it are a complete frame prologue (`55 8B EC` optionally followed by
 ADD/SUB ESP, imm8 or imm32). A function cannot end in a prologue, so such an entry is the body of
@@ -29,11 +29,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import es2_symbols  # noqa: E402
 import es2_xref as X  # noqa: E402
 
 # (label, length, byte predicate on the bytes before the entry)
@@ -96,8 +96,7 @@ def main() -> int:
     ap.add_argument("--binary", choices=sorted(X.BINARIES))
     ap.add_argument("--no-xref", action="store_true", help="skip the per-hit reference counts")
     a = ap.parse_args()
-    with open(X.SYMBOLS, encoding="utf-8-sig") as f:
-        entries = json.load(f)["entries"]
+    entries = es2_symbols.entries()
     for binary in [a.binary] if a.binary else sorted(X.BINARIES):
         scan(binary, entries, not a.no_xref)
     return 0

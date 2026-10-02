@@ -2,13 +2,13 @@
 """List unnamed functions that named functions call -- the naming backlog.
 
 Understanding a named function usually means decoding its FUN_ callees. If those
-callees never get an entry in known_symbols.json, the next session decodes them
+callees never get a known_symbols entry, the next session decodes them
 again. This lists every function that
 
-  * has no name in tools/ghidra_scripts/known_symbols.json (a low-confidence,
+  * has no name in tools/ghidra_scripts/known_symbols_<binary>.json (a low-confidence,
     comment-only entry still counts as unnamed), and
   * is the target of a direct CALL, or a JMP tail call, from a function that
-    known_symbols.json names at the chosen confidence (default: high).
+    known_symbols files name at the chosen confidence (default: high).
 
 It is ranked by how many named callers reach it, then by its call sites across
 the whole binary, so library code that every decompile passes through comes
@@ -16,13 +16,13 @@ first.
 
 Source of structure: the linear disassembly dumps in tools/analysis_out
 (`; FUNCTION name @ addr` headers, `CALL 0x... ; -> label` lines). Names come
-from known_symbols.json, never from the dump's labels, which may be stale.
+from the known_symbols files, never from the dump's labels, which may be stale.
 
 What it does not see: calls through a vtable, a function pointer or a jump table
 (CALL [reg+n], CALL reg). A callee reached only that way is not listed -- this is
 a backlog, not a proof that nothing else is unnamed.
 
-A target the dump labels with a non-FUN_ name that known_symbols.json does not
+A target the dump labels with a non-FUN_ name that the known_symbols files do not
 carry (a CRT routine, an import thunk, a Ghidra FID match) is left out unless
 --include-library is given; those names came from Ghidra, not from this project.
 
@@ -44,9 +44,10 @@ import re
 import sys
 from collections import defaultdict
 
+import es2_symbols
+
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ANALYSIS = os.path.join(REPO, "tools", "analysis_out")
-SYMBOLS = os.path.join(REPO, "tools", "ghidra_scripts", "known_symbols.json")
 
 FUNC_LINE = re.compile(r"^; FUNCTION (\S+) @ ([0-9a-f]{8})")
 BRANCH_LINE = re.compile(r"^([0-9a-f]{8})\s{3}\S+\s+(CALL|JMP) 0x([0-9a-f]{1,8})\b(?:.*; -> (\S+))?")
@@ -55,9 +56,12 @@ CONFIDENCE_RANK = {"high": 2, "medium": 1, "low": 0}
 UNNAMED_PREFIXES = ("FUN_", "LAB_", "thunk_FUN_", "SUB_")
 
 
-def load_symbols(binary: str, path: str = SYMBOLS) -> dict[str, dict]:
-    with open(path, encoding="utf-8-sig") as f:
-        entries = json.load(f)["entries"]
+def load_symbols(binary: str, path: str | None = None) -> dict[str, dict]:
+    if path is None:
+        entries = es2_symbols.entries(binary)
+    else:
+        with open(path, encoding="utf-8-sig") as f:
+            entries = json.load(f)["entries"]
     return {e["address"].lower(): e for e in entries
             if e.get("binary") == binary and e.get("type") == "function"}
 
@@ -88,7 +92,7 @@ def parse_disasm(binary: str):
 
 
 def analyse(binary: str, min_conf: int, include_library: bool, caller_filter: set[str] | None,
-            symbols_path: str = SYMBOLS):
+            symbols_path: str | None = None):
     symbols = load_symbols(binary, symbols_path)
     labels, branches = parse_disasm(binary)
     starts = {a for a in labels if not a.startswith("~")}
@@ -159,8 +163,8 @@ def main() -> int:
     ap.add_argument("--include-library", action="store_true",
                     help="also list targets the dump labels with a Ghidra/CRT name")
     ap.add_argument("--json", metavar="PATH", help="write the full result as JSON")
-    ap.add_argument("--symbols", metavar="PATH", default=SYMBOLS,
-                    help="known_symbols.json to read (default: the repo copy)")
+    ap.add_argument("--symbols", metavar="PATH",
+                    help="a known_symbols file to read (default: the repo's file for each binary)")
     args = ap.parse_args()
 
     binaries = args.binary or ["VSHELL", "DBSIM"]

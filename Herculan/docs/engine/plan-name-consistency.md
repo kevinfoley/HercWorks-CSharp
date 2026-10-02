@@ -19,7 +19,7 @@ One decoded datum appears in up to ten places. Take the mech type in a mission's
 | `Herculan.Engine` | `MissionPlacement.TypeIndex` |
 | `HercWorks.UI` row wrapper | `ScriptMechRow.TypeIndex` |
 | `MissionScriptForm.Designer.cs` | `nameof(ScriptMechRow.TypeIndex)` |
-| `tools/ghidra_scripts/known_symbols.json` | prose in a function description |
+| `tools/ghidra_scripts/known_symbols_*.json` | prose in a function description |
 
 The cleanup that prompted this plan found drift in almost every one of those, and three kinds caused most of it:
 
@@ -37,7 +37,7 @@ Renames themselves were the other cost: `RefRow6` meant a spawn point on one typ
 
 ## Stage 1 — retail docs never name C# members
 
-`tools/scripts/doc_lint.py` rule `csharp-name`, over the retail docs and the `description` strings of `known_symbols.json`, `known_structs.json` and `known_vtables.json`:
+`tools/scripts/doc_lint.py` rule `csharp-name`, over the retail docs and the `description` strings of `known_symbols_dbsim.json`, `known_symbols_vshell.json`, `known_structs.json` and `known_vtables.json`:
 
 - **C# names** are every type declared under `Herculan/src/HercWorks.Core` and `Herculan/src/Herculan.Engine`, plus every `public` property, field and method there, read by regex.
 - **Retail names** are exempt: every `name` in the three `known_*.json` files, the class prefix of each (`Text` from `ESMessage_Ctor`), and every identifier in `ES2/DBSIM.EXE` and `ES2/VSHELL.EXE`. The binaries supply the 3Space class names (`TSPoly`, `ANAnimList`) the DTS model reuses; they are gitignored, so a checkout without `ES2/` reports those few as well.

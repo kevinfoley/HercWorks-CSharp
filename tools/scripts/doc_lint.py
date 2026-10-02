@@ -222,7 +222,7 @@ ENGINE_RULES: list[tuple[str, re.Pattern[str], str]] = [
 # without ES2/ reports those few class names too.
 CSHARP_SOURCE_DIRS = [os.path.join("Herculan", "src", p) for p in ("HercWorks.Core", "Herculan.Engine")]
 RETAIL_JSON_FILES = [os.path.join("tools", "ghidra_scripts", f"known_{k}.json")
-                     for k in ("symbols", "structs", "vtables")]
+                     for k in ("symbols_dbsim", "symbols_vshell", "structs", "vtables")]
 RETAIL_BINARIES = [os.path.join("ES2", f) for f in ("DBSIM.EXE", "VSHELL.EXE")]
 CSHARP_TYPE_DECL = re.compile(r"\b(?:class|struct|record|enum|interface)\s+(?:struct\s+|class\s+)?([A-Za-z_]\w*)")
 CSHARP_PUBLIC_MEMBER = re.compile(
@@ -532,7 +532,7 @@ def hook_mode() -> int:
         "in a doc comment on the C# that implements it, citing the doc section.",
         "A C# name (csharp-name) does not belong in one either: describe the field or behaviour in "
         "words (\"the paints-ground flag, `0x06`\"), so a C# rename never has to touch the doc. If "
-        "the token is a retail name that only happens to match one, add it to known_symbols.json "
+        "the token is a retail name that only happens to match one, add it to known_symbols_<binary>.json "
         "or known_structs.json if it belongs there, otherwise append <!-- doc-lint: ok -->.",
     ]
 

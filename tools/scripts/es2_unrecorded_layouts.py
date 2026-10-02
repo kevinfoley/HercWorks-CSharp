@@ -39,6 +39,8 @@ import os
 import re
 import sys
 
+import es2_symbols
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOCS = os.path.join(REPO_ROOT, "Herculan", "docs")
 GHIDRA = os.path.join(REPO_ROOT, "tools", "ghidra_scripts")
@@ -358,7 +360,7 @@ def struct_pass(args):
 
 def vtable_pass(args):
     vt = load_json("known_vtables.json")["vtables"]
-    sym = load_json("known_symbols.json")["entries"]
+    sym = es2_symbols.entries()
     recorded_addr = {i["address"].lower().lstrip("0") for d in vt for i in d["instances"]}
     labels = {i["label"] for d in vt for i in d["instances"]} | {d["name"] for d in vt}
     function_addr = {e["address"].lower().lstrip("0") for e in sym if e.get("type") == "function"}

@@ -26,7 +26,7 @@ import java.util.Set;
 // those whose "binary" is a case-insensitive substring of the current program's name:
 //   - creates one FunctionDefinitionDataType per slot, under category /ES2/<VtableName>, with the
 //     default (undefined) return and no declared parameters -- argument lists are a separate
-//     per-function finding and belong in known_symbols.json's "signature" field, not here;
+//     per-function finding and belong in a known_symbols file's "signature" field, not here;
 //   - assembles them into a StructureDataType of that many 4-byte function pointers, each field
 //     carrying the slot's name and description;
 //   - applies that structure at every listed instance address, labels it, and writes a plate

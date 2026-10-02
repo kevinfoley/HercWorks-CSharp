@@ -6,7 +6,10 @@
 #   ES2ApplyStructures   builds the object structs (which reference the vtable types) and types the
 #                        function parameters listed in known_structs.json
 #   ES2ApplySymbolNames  renames functions, writes plate comments, applies signatures -- and a
-#                        signature may name a struct type, which is why it goes last
+#                        signature may name a struct type, which is why it goes last. It reads
+#                        the binary's own known_symbols_<binary>.json.
+#
+# It runs the three for DBSIM.EXE, then for VSHELL.EXE.
 #
 # Only a database with no /ES2 types yet actually cares about the order: once the types exist they
 # persist in the project, and from then on any of the three can be run on its own, in any order, as
@@ -20,15 +23,18 @@ GHIDRA="/e/ES2Stuff/tools/ghidra_12.1.2_PUBLIC/support/analyzeHeadless.bat"
 PROJECT="E:\\ES2Stuff\\tools\\ghidra_project"
 SCRIPTS="E:\\ES2Stuff\\tools\\ghidra_scripts"
 
-for step in "ES2ApplyVtables known_vtables.json" \
-            "ES2ApplyStructures known_structs.json" \
-            "ES2ApplySymbolNames known_symbols.json"; do
-    script=${step% *}
-    json=${step#* }
-    echo "=== $script"
-    "$GHIDRA" "$PROJECT" ES2Recon -process DBSIM.EXE -noanalysis \
-        -scriptPath "$SCRIPTS" -postScript "$script" "$SCRIPTS\\$json" 2>&1 \
-        | grep -E "ERROR|WARN|$script\.java>" || true
+for binary in DBSIM VSHELL; do
+    lower=$(echo "$binary" | tr 'A-Z' 'a-z')
+    for step in "ES2ApplyVtables known_vtables.json" \
+                "ES2ApplyStructures known_structs.json" \
+                "ES2ApplySymbolNames known_symbols_$lower.json"; do
+        script=${step% *}
+        json=${step#* }
+        echo "=== $binary $script"
+        "$GHIDRA" "$PROJECT" ES2Recon -process "$binary.EXE" -noanalysis \
+            -scriptPath "$SCRIPTS" -postScript "$script" "$SCRIPTS\\$json" 2>&1 \
+            | grep -E "ERROR|WARN|$script\.java>" || true
+    done
 done
 
 echo

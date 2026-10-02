@@ -132,7 +132,7 @@ The two camera axes, the device struct's `+0x22` and `+0x26`, are pointers that 
 - A throttle lever and a rudder keep their bindings on a stick that has a lever, and are zeroed on one without.
 - Backturn is applied afterwards, to the camera's axes as it is to the machine's.
 
-The machine's steering, throttle and twist inputs are zero and its trigger is not read; the two centring commands, being dispatcher cases, still reach it. Its pitch axis is the exception. `Sim_PollPlayerInput` (`00460764`) still reads the device struct's `+0x14` into the turret block, but only when a stick is present (`Input_GetDevice(3)`) and the capability block's `+4` says it has a throttle, a second stick counting. The lever is the one source left that can reach it: the stick's X and Y and the keyboard's second pair are all zeroed as sources, and a rudder feeds the twist axis, which the machine ignores. A lever bound to the turret pair (THROTTLE = 2) therefore pitches the machine's turret while the camera flies, and under any other binding the axis reads zero. What the turret does with it is [`../simulation/torso-aim.md`](../simulation/torso-aim.md#automatic-turret-tracking--t). The input build takes the same branch for the missile camera (`DAT_004d25aa`).
+The machine's steering, throttle and twist inputs are zero and its trigger is not read; the two centring commands, being dispatcher cases, still reach it. Its pitch axis is the exception. `Sim_PollPlayerInput` (`00460764`) still reads the device struct's `+0x14` into the turret block, but only when a stick is present (`Input_GetDevice(3)`) and the capability block's `+4` says it has a throttle, a second stick counting. The lever is the one source left that can reach it: the stick's X and Y and the keyboard's second pair are all zeroed as sources, and a rudder feeds the twist axis, which the machine ignores. A lever bound to the turret pair (THROTTLE = 2) therefore pitches the machine's turret while the camera flies, and under any other binding the axis reads zero. What the turret does with it is [`../simulation/torso-aim.md`](../simulation/torso-aim.md#automatic-turret-tracking--t). The input build takes the same branch while an electro-optical round is being flown (`DAT_004d25aa`, [`../simulation/rockets.md`](../simulation/rockets.md#the-missile-camera)), with one more step: before the stick replaces the keyboard pair, the pair's throttle half — the round's pitch — is negated, unless `keyjoy.cfg`'s `Missile` says `Reverse`.
 
 ### The buttons
 
@@ -168,6 +168,10 @@ The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 
 Code 0 is `OFF`, which a row displays when its byte is zero and which the switch has no case for.
 
+#### A latched first row holds the axes
+
+Outside the camera branch, while button 0's latch holds with state 1 the input build zeroes the pair of axes the camera-axis pointers address — the turret pair under JOYSTICK = 2, the movement pair otherwise — after the tape has recorded them. `Sim_PollPlayerInput` latches every button it acts on, so this holds for any action bound to the first row, but its purpose is the latch `Rocket_TickUpdate` makes as a flown round ends ([`../simulation/rockets.md`](../simulation/rockets.md#flight--rocket_tickupdate-0040a538)): under the default bindings row 0 is the trigger and `[Space]`, so the deflection that was steering the round does not walk the machine off until the trigger is let go. `DAT_0049ebe5` does the same for the keyboard. Any build with `DAT_004d25aa` up sets it to 1, which the same build drops to 0 unless row 0 is latched, when it becomes 2; it stays 2 until the latch goes, and while it is not 0 the keyboard's first pair is zeroed.
+
 #### `HDD VIEW` can only leave
 
 The case picks between F7 and [Esc] on `CockpitViewManager_Published` (`00429820`), and it tests **the pointer, not a field of it** — so it asks whether the cockpit view manager exists, not which view is up. `CockpitViewManager_LoadViews` publishes that pointer while the cockpit is being built and nothing ever clears it, so by the time `Sim_PollPlayerInput` runs it is always non-null and the button always sends [Esc]. A button bound to `HDD VIEW` can therefore leave the heads-down display and never enter it; see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md). The two branches read as the toggle the action's name promises.
@@ -184,7 +188,7 @@ The only part of the input configuration outside `prefs.cfg`. `Keyjoy_LoadConfig
 |---|---|---|
 | `Tilt` | `0049eab8` | the **keyboard's** turret-pitch axis, unconditionally |
 | `Backturn` | `0049eabc` | the steering axis while the throttle axis is positive — while backing up. Applied last, to the combined axes |
-| `Missile` | `0049eac0` | the pitch axis inside the missile camera (`DAT_004d25aa`) |
+| `Missile` | `0049eac0` | the keyboard's pitch while a round is flown (`DAT_004d25aa`), which the input build otherwise negates; the stick's is untouched |
 | `Rudder` | `0049eac4` | the joystick's rudder axis, and only when the device reports one |
 
 ## Rejected readings
@@ -203,3 +207,4 @@ The only part of the input configuration outside `prefs.cfg`. `Keyjoy_LoadConfig
 
 - **Open:** the keyboard's `(dx, dy)` table at `0049eb6d` (28 bytes, one pair per key of [The keyboard](#the-keyboard)). It is zero in the image and `Input_BuildKeyboardAxes` is the only code found referring to it by address, so the writer, and the direction each key pushes an axis, are not found. Retail's arrow keys steer, so something fills it.
 - **Unported:** a throttle lever bound to the turret pair pitching the machine's turret while the camera has the controls ([above](#while-the-camera-has-the-controls)).
+- **Open:** whether a replay holds the axes still for good once the first row is latched. Playback jumps past the loop that drops a released button's latch, and the tail that zeroes the axes for a latched first row runs after the jump ([above](#a-latched-first-row-holds-the-axes)).

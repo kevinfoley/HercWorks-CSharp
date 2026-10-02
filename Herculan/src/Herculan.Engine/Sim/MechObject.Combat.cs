@@ -117,7 +117,9 @@ public sealed partial class MechObject {
 	/// docs/simulation/ai-navigation.md.</para>
 	/// </summary>
 	private void FireTick(SimWorld world) {
-		bool fired = Weapons.FireTick(this, world, Controls.Fire);
+		// A round the player is flying clears the device's trigger byte before this reads it.
+		bool trigger = Controls.Fire && !(LocallyPiloted && world.PlayerTriggerCleared);
+		bool fired = Weapons.FireTick(this, world, trigger);
 
 		if (!IsPlayer) {
 			return;

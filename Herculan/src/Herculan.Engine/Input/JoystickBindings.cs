@@ -43,8 +43,9 @@ public sealed class JoystickBindings {
 	public bool PilotingRazor { get; set; }
 
 	/// <summary>
-	/// The four axis-sense switches from <c>data\keyjoy.cfg</c>. <see cref="Keyjoy.ReverseMissile"/> is
-	/// carried and not applied: this engine has no missile camera.
+	/// The four axis-sense switches from <c>data\keyjoy.cfg</c>. Three are applied here;
+	/// <see cref="Keyjoy.ReverseMissile"/> is the host's, which builds the keyboard axes a flown round
+	/// reads.
 	/// </summary>
 	public Keyjoy Keyjoy { get; set; } = new Keyjoy();
 
@@ -93,6 +94,13 @@ public sealed class JoystickBindings {
 
 	/// <summary>Drops every latch, so a held button fires once more.</summary>
 	public void ResetLatches() => Array.Clear(_latched);
+
+	/// <summary>
+	/// Whether button <paramref name="index"/> is latched, waiting for a release. While the first row is,
+	/// the original holds the pair of axes its camera pointers address still — see
+	/// docs/formats/joystick-input.md#the-buttons.
+	/// </summary>
+	public bool ButtonLatched(int index) => index >= 0 && index < ButtonCount && _latched[index];
 
 	/// <summary>
 	/// Latches everything currently held, so nothing fires when the pilot's controls come back. Call it

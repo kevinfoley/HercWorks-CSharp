@@ -78,7 +78,7 @@ Mode index = F-key - 1. `Gau_MfdPanelWidget` boots the display at mode 3.
 
 Modes 0 and 4 share one constructor and one class — the target screen is the status screen pointed at another object.
 
-**The display switches itself to the missile cam.** Every update, `MfdDisplay_SyncMissileCamMode` (`00447164`) tests a condition ([Open](#open)); when it starts, it saves the current mode and selects mode 5, and when it ends it restores the saved mode. Choosing a mode by hand meanwhile (`MfdDisplay_SetMode` clears the pending state) keeps that choice until the condition ends, when the saved mode is restored over it.
+**The display switches itself to the missile cam while an electro-optical launcher is armed.** Every update, `MfdDisplay_SyncMissileCamMode` (`00447164`) tests whether the armed mount's `PROJ.DAT` record (`mount+0x20`) is a `Rocket` of subtype 3: `CockpitView_FindArmedMountGauge` (`00434310`) finds the cockpit weapon gauge whose mount is the armed one, and `WeaponGauge_MountProjectileType` (`00440a14`) and `WeaponGauge_MountProjectileSubtype` (`00440a3c`) read the record's type and subtype through that gauge. When the condition starts the update saves the current mode in `g_MfdMissileCamSavedMode` (`0049cbc4`) and selects mode 5, and when it ends it restores the saved mode; `g_MfdMissileCamMode` (`0049cbc6`) is 5 in between. Choosing a mode by hand meanwhile (`MfdDisplay_SetMode` resets `g_MfdMissileCamMode` and clears `g_MfdMissileCamArmed`, `0049cbc8`) keeps that choice until the condition ends, when the saved mode is restored over it. A condition that starts with the display already on mode 5 saves 5, and restoring it at the end calls `MfdDisplay_SetMode` with the current mode, which returns before it touches either global, so the switch goes on holding until a mode is chosen by hand.
 
 Scanner ranges are `_DAT_004d1cf4` = 50000 / 100000 / 200000 world units = 300 / 600 / 1200 m at 1000 units = 6 m. Index 2 is the default, matching the retail screenshot's `RNG: 1200`.
 
@@ -311,6 +311,8 @@ A squadmate answering takes the whole inset, whichever screen is up. `MfdDisplay
 | `+0x786` | The caption plate's `COLORS.DAT` id — the speaker's own comm-box colour |
 | `+0x788` | The box's state; the caption is written only when it is 2 |
 
+Not while the missile-cam switch holds: the update tests `g_MfdMissileCamMode` first, and a reply that comes in then leaves the screen to the camera.
+
 Both of the comm box's video paints write it, *before* their own visibility test, so it works with the heads-down display panned up — [`heads-down-display.md`](heads-down-display.md#squad-comm-boxes) owns the box and its state machine.
 
 The update floods the inset with palette index `0x11` and blits at `inset + (0x14 << XCoordShift, 0)` **plus the `.OFS` pair added raw** — the frame is drawn doubled, the offset is not.
@@ -334,6 +336,29 @@ No grid, border or markers.
 
 The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md). Frames 14-18 are the whole of that screen's art. Frame 14 matching the `radar` bank's frame size is not a coincidence — that bank is the dish growing into frame 14's shape at power-up ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#scanner-dish-grows)).
 
+### `MFDMissileView` — mode 5
+
+`MfdMissileViewScreen_Ctor` (`0043facc`) builds an offscreen `GLViewport` over the inset rect with its origin at the rect's centre, as the nav map's is (97, 60 device pixels in), and a camera on it: `View_Ctor` with perspective shift 7 — a focal length of 128 device pixels, where the cockpit view's is 512 — and near plane `0x80`. Then four labels, all in `ColorSchemePanels[2]` `CPRED` and centred, their x, y, width and height from four `int16` tables at `0049c374`, `0049c37c`, `0049c384` and `0049c38c`:
+
+| Label | Rect | Text |
+|---|---|---|
+| 0 | `15,21 – 83,31` | `READY TO` |
+| 1 | `15,28 – 83,38` | `LAUNCH`, or `NONE` |
+| 2 | `42,30 – 56,40` | none — nothing writes it |
+| 3 | `37,42 – 61,52` | `LOCK` |
+
+The words are `STRINGS0.STR` group 35: `MISS`, `READY TO`, `LAUNCH`, `NONE`, `LOCK`.
+
+**The screen paints only with something to show.** Its update slot, `MfdMissileViewScreen_Update` (`004402ec`), which the display calls every frame the screen is up, paints when `DAT_0049c394` holds a round, when the machine has lock — `mech+0x9b`, which `Player_PerFrameCockpitUpdate` copies to the roving gunsight's `+0xd6` every frame — or when the screen's own `+0x1c` is set ([Open](#open)). Otherwise the last paint stays up until the display's next full repaint.
+
+`MfdMissileViewScreen_Paint` (`0043fe1c`) takes the first of three arms that applies:
+
+1. **The strike flash.** While `DAT_0049c398` is raised — the tracked round ended short of its lifetime ([`../simulation/rockets.md`](../simulation/rockets.md#flight--rocket_tickupdate-0040a538)) — the first paint to see it stamps a deadline `0x1e` coarse ticks ahead in `+0x46`, and until then each paint floods the inset with `COLORS.DAT` id 19 and id 16 in turn, starting on 19, and returns. At the deadline it clears `DAT_0049c398` and goes on to the arms below.
+2. **The view.** With `DAT_0049c394` set the paint walks the effect pool for the round. Gone, the round is forgotten — `DAT_0049c394` cleared — and the labels go up instead. Found, the camera stands at the round's position plus `Q14(500, cos h)` in x and `Q14(500, cos(h - 0x4000))` in y, `h` being the heading at `+0x10`, and takes the round's whole euler triple. That push is 500 units along the round's own X axis, to its right and level whatever its pitch, not along its heading, which carries an object along `(-sin h, cos h)`. The paint floods the inset with id 16, one column short of its right edge, and draws the world into it from that camera: `Scene_SubmitFrameObjects` with the camera as `ViewObjectPtr`, then `Terrain_SetupVisibleRegion` and `Scene_DrawTerrain`, with `TerrainTexturingEnabled` forced off and the shade mode `004aab30` forced to 1 for the pass. No horizon is painted, so the id 16 flood is the sky. Over the world go two `Raster_DrawLine` lines in id 19 through the centre, the context's full width and full height, and a one-pixel `Raster_DrawEllipse` ring in id 19 of radius 30 device pixels, half the centre's own y. The cockpit's damage-shake offset is taken out of the context's rect for the pass, so the picture stays still while the cockpit shakes.
+3. **The labels**, with no round: the inset floods with palette index `0x11`. When `CockpitView_SumLauncherCounts` (`00440348`) finds no rounds left in any launcher row, label 1 reads `NONE`; otherwise label 0 reads `READY TO` and label 1 `LAUNCH`. Label 3 reads `LOCK`, in `ColorSchemePanels[0]` `CPBLUE` on an id 4 plate without lock, and with it in `[3]` `CPYLW` on a plate of id 19 while coarse-tick bit `0x20` is clear and id 9 while it is set.
+
+The display's update redraws the title over whichever arm painted.
+
 ## Paint order
 
 `MfdDisplay_Repaint`: mode buttons 0-5, background, all visible buttons 0-12, the current screen's paint (`radar` frame 0 instead, while the display is [powering up](cockpit-hud-widgets.md#scanner-dish-grows) on the scanner), then the title. The background covers only the inset rect and the mode column sits left of it, so the first pass is not overdrawn.
@@ -345,6 +370,6 @@ Nothing sets the FLASH COMM order list's unavailable bit, so every row draws ava
 ## Open
 
 - **Open:** what triggers `mfd_dmg`'s three animation sequences of 3/2/3 frames (7 frames, 192x118, built by `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`) and what they mean; consistent with display-damage static.
-- **Unported:** mode 5, the missile camera, beyond its button and background layout, including the switch to it.
-- **Open:** the condition the missile-cam switch tests: `00434310(CockpitViewInstance)` returns an object for which `00440a14` is 0 and `00440a3c` is 3.
+- **Open:** what sets the MISSILE CAM screen's `+0x1c`, which its update slot tests beside the round and the lock. `es2_fieldscan.py 1c` over `0043f000`-`00440500` finds that read and no write.
+- **Open:** `MfdMissileViewScreen_BlinkLockLabel` (`004403bc`), which toggles the MISSILE CAM screen's `+0x44` with coarse-tick bit `0x20` and repaints label 3 in `CPYLW` on id 9 or id 19 to match — the paint's lock blink, latched in a byte. `es2_xref.py` finds no branch to it and no stored pointer.
 - **Unported:** mode 0's arm of the shared SELECT/TARGET case, which steps a squad roster.

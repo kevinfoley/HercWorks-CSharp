@@ -1443,7 +1443,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_PlayerSteer",
-      "description": "The electro-optical missile's nose-camera control, not a ballistic variant. Reads two axis accumulators out of the global player control block at 0x4d234a, steers by Math_Q8Multiply(0x500, axis) per tick with no rate limit or deadband, and zeroes them. Gate 0x4d2357 is the fire trigger (input device +0x0d); with it set the function also clears it, so the player's fire path never sees the trigger while a round is flown; with it clear the function drops the round's target and rewrites its subtype id to 0.",
+      "description": "The electro-optical missile's player steer, not a ballistic variant. Gate input+0x0d is the fire trigger (0x4d2357). Held: reads the two axes the block's camera-axis pointers +0x22 and +0x26 address (the steering and throttle axes while DAT_004d25aa routes the controls to the round), subtracts Math_IntegrateRateOverTick(Math_Q8Multiply(0x500, *+0x22)) from the heading (+0x10) and adds the same of *+0x26 to the pitch (+0x0c), with no rate limit or deadband, marks the frame stale (+0x32 = 0) and zeroes the trigger and both axes, so the player's fire path never sees the trigger while a round is flown. Released: drops the round's target (+0x56) and rewrites its subtype id (+0x41) to 0. See docs/simulation/rockets.md.",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -1452,7 +1452,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_TickUpdate",
-      "description": "Per-tick launcher-round update, vtable +0x14. Steps the shape cell-anim frame on ROCKETS.DAT +0x08/+0x0a (the exhaust flame, NOT a seeker reacquire); age +1 vs record +0x02 in ticks; damped burn speed += Math_IntegrateRateOverTick(record +0x04) averaged with the opening speed, capped at PROJ.DAT Speed; Rocket_PlayerSteer for a locally-simulated subtype 3 else Rocket_HomingSteer; Sim_RaycastObjectList over this tick step with record +0x06 as slack. Last, on every tick: for a round whose owner is not locally piloted (owner+0xa3 clear), sound 0x32 within 40000 of ViewObjectPtr, latched at round+0x06 and re-armed when the round leaves that range.",
+      "description": "Per-tick launcher-round update, vtable +0x14. Steps the shape cell-anim frame on ROCKETS.DAT +0x08/+0x0a (the exhaust flame, NOT a seeker reacquire); age +1 vs record +0x02 in ticks; damped burn speed += Math_IntegrateRateOverTick(record +0x04) averaged with the opening speed, capped at PROJ.DAT Speed; Rocket_PlayerSteer for a locally-simulated subtype 3, raising DAT_004d25aa, else Rocket_HomingSteer; Sim_RaycastObjectList over this tick step with record +0x06 as slack. When the round ends (lifetime or hit): a locally-simulated subtype 3 round calls Input_LatchButton(1, 1) and clears the trigger 004d2357; the round in DAT_0049c394 ending before its lifetime raises DAT_0049c398. Last, on every tick: for a round whose owner is not locally piloted (owner+0xa3 clear), sound 0x32 within 40000 of ViewObjectPtr, latched at round+0x06 and re-armed when the round leaves that range.",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -7525,6 +7525,15 @@
       "source": "docs/formats/cockpit-hud-widgets.md"
     },
     {
+      "address": "00434310",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_FindArmedMountGauge",
+      "description": "(cockpitView): the weapon gauge among the view's ten at +0x70 (count +0x98) whose mount (+0xbd) is the viewing machine's armed mount -- view+0x203 is the machine, its +0x202 the mount manager, whose +0x1d index into +4 is the armed mount, or 0 with the index negative -- or 0 when no gauge has it. MfdDisplay_SyncMissileCamMode's condition asks it first.",
+      "source": "DBSIM decompile at 00434310"
+    },
+    {
       "address": "00434368",
       "binary": "DBSIM",
       "type": "function",
@@ -9190,7 +9199,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdMissileViewScreen_Paint",
-      "description": "The MISSILE CAM screen's draw: the code pointer stored first in the vtable at 0049c449 that MfdMissileViewScreen_Ctor installs. Driven by two globals. A nonzero DAT_0049c398 starts a flash: when it differs from the screen's copy at +0x45 it stamps a deadline 0x1e coarse ticks ahead at +0x46, and until then each paint toggles the byte at +0x20 and fills the screen rect (DAT_004d1ac8) with DAT_004d3c20 or DAT_004d3c26 alternately and returns; at the deadline it clears the copy and DAT_0049c398. With DAT_0049c394 set it walks the effect pool (Pool_Prev) for that round: when the round is gone it clears DAT_0049c394 and keeps the camera pose last stored at +0x21..+0x31; otherwise the camera takes the round's position (+0x26/+0x2a/+0x2e) and heading (+0xc/+0x10), pushed 500 units forward along the heading, and the world is drawn from there into the screen's own render context (fill DAT_004d3c20, Scene_SubmitFrameObjects, Terrain_SetupVisibleRegion and Scene_DrawTerrain with TerrainTexturingEnabled forced off), followed by a cross through the centre made of two Raster_DrawLine calls and a Raster_DrawEllipse call over a rect centred on the origin. With DAT_0049c394 clear it instead fills the rect with colour 0x11 and sets the screen's labels. See docs/simulation/rockets.md, 'The missile camera'.",
+      "description": "The MISSILE CAM screen's draw: the code pointer stored first in the vtable at 0049c449 that MfdMissileViewScreen_Ctor installs. A nonzero DAT_0049c398 starts a flash: when it differs from the screen's copy at +0x45 it stamps a deadline 0x1e coarse ticks ahead at +0x46, and until then each paint toggles the byte at +0x20 and fills the screen rect (DAT_004d1ac8) with COLORS.DAT id 16 (DAT_004d3c20) or id 19 (DAT_004d3c26) alternately and returns; at the deadline it clears the copy and DAT_0049c398. With DAT_0049c394 set it walks the effect pool (Pool_Prev) for that round: gone, it clears DAT_0049c394; found, the camera takes the round's position (+0x26/+0x2a/+0x2e) plus Q14(500, cos h) in x and Q14(500, cos(h - 0x4000)) in y, h being the heading at +0x10 -- 500 units along the round's own X axis, to its right, not along its heading -- and the round's euler triple (+0xc/+0x10), and the world is drawn from there into the screen's own render context: fill id 16 one column short of the rect's right edge, Scene_SubmitFrameObjects with ViewObjectPtr swapped to the camera, Terrain_SetupVisibleRegion and Scene_DrawTerrain with TerrainTexturingEnabled forced 0 and shade mode 004aab30 forced 1, then two Raster_DrawLine calls through the centre (full width, full height) and a ring-mode Raster_DrawEllipse of radius half the centre's y, all in id 19, with the cockpit shake offset taken out of the context rect for the pass. With DAT_0049c394 clear it fills the rect with palette index 0x11 and sets the labels from STRINGS0 group 35: NONE in label 1 when CockpitView_SumLauncherCounts is 0, else READY TO and LAUNCH in labels 0 and 1; LOCK in label 3, in ColorSchemePanels[0] on id 4 while the gunsight's +0xd6 (mech+0x9b, lock) is clear, else in [3] on id 19 or id 9 by coarse-tick bit 0x20. See docs/formats/mfd.md, 'MFDMissileView -- mode 5'.",
       "source": "docs/simulation/rockets.md; docs/formats/mfd.md"
     },
     {
@@ -9210,6 +9219,15 @@
       "name": "CockpitView_SumLauncherCounts",
       "description": "Over CockpitViewInstance's weapon gauges (+0x70 array, count +0x98), sums the int16 each mount (gauge+0xbd) writes through its vtable +0x60 when that call returns a subtype other than 5, not a launcher; returns the sum. MfdMissileViewScreen_Paint shows the label 004d16f4 when it is 0.",
       "source": "DBSIM disassembly at 00440348"
+    },
+    {
+      "address": "004403bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdMissileViewScreen_BlinkLockLabel",
+      "description": "(screen): flips the MISSILE CAM screen's +0x44 with coarse-tick bit 0x20 and, on each flip, re-fonts label 3 (+0x3f) in ColorSchemePanels[3] on a plate of COLORS.DAT id 9 (bit set) or id 19 (bit clear), returning 1; 0 when nothing changed. The same blink MfdMissileViewScreen_Paint applies to the LOCK label, latched in a byte. es2_xref.py finds no branch to it and no stored pointer.",
+      "source": "DBSIM decompile at 004403bc; es2_xref.py 004403bc"
     },
     {
       "address": "00440494",
@@ -9248,6 +9266,24 @@
       "name": "WeaponGauge_Ctor",
       "description": "Constructor for a weapon hardpoint gauge. Lazily loads the `pweapons` (DAT_0049c4d0) and `wpn_dmg` (DAT_0049c4d4) sprite banks, folder selected off DAT_004d25f0, builds the two-sequence WPN_DMG frame table (frames 1-9 and 9-1, one tick each) into _DAT_004d1adc, gives the gauge its own sequencer over it at +0x6c, and sets the sensor-dropout ranges to 120-360 dark and 180-1800 shown.",
       "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
+    },
+    {
+      "address": "00440a14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponGauge_MountProjectileType",
+      "description": "(gauge): the Type (int16 +0) of the PROJ.DAT record the gauge's mount (+0xbd) holds at +0x20, or -1 with no mount or no record. MfdDisplay_SyncMissileCamMode tests it for 0, Rocket.",
+      "source": "DBSIM decompile at 00440a14"
+    },
+    {
+      "address": "00440a3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponGauge_MountProjectileSubtype",
+      "description": "(gauge): the subtype id (int16 +2) of the PROJ.DAT record the gauge's mount (+0xbd) holds at +0x20, or -1 with no mount or no record. MfdDisplay_SyncMissileCamMode tests it for 3, the electro-optical missile.",
+      "source": "DBSIM decompile at 00440a3c"
     },
     {
       "address": "00440a68",
@@ -10185,7 +10221,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdDisplay_SyncMissileCamMode",
-      "description": "(mfd): switches the MFD to mode 5 (MISSILE CAM) and back on a condition: 00434310(CockpitViewInstance) returns an object for which 00440a14 is 0 and 00440a3c is 3. When it holds and g_MfdMissileCamMode is -1: with g_MfdMissileCamArmed set it saves the current mode (+0xc1) in g_MfdMissileCamSavedMode and MfdDisplay_SetMode(5); either way g_MfdMissileCamMode becomes 5 and the flag is set. When it no longer holds and g_MfdMissileCamMode is not -1, MfdDisplay_SetMode(saved mode) and the flag is set. MfdDisplay_SetMode clears both whenever it runs with g_MfdMissileCamMode not -1, so a mode chosen by hand while the condition holds stays until the condition ends, when the saved mode is restored over it. MfdDisplay_Update calls it.",
+      "description": "(mfd): switches the MFD to mode 5 (MISSILE CAM) and back while an electro-optical launcher is armed: the condition is that CockpitView_FindArmedMountGauge(CockpitViewInstance) returns a gauge for which WeaponGauge_MountProjectileType is 0 (Rocket) and WeaponGauge_MountProjectileSubtype is 3. When it holds and g_MfdMissileCamMode is -1: with g_MfdMissileCamArmed set it saves the current mode (+0xc1) in g_MfdMissileCamSavedMode and MfdDisplay_SetMode(5); either way g_MfdMissileCamMode becomes 5 and the flag is set. When it no longer holds and g_MfdMissileCamMode is not -1, MfdDisplay_SetMode(saved mode) and the flag is set. MfdDisplay_SetMode clears both whenever it changes the mode with g_MfdMissileCamMode not -1, so a mode chosen by hand while the condition holds stays until the condition ends, when the saved mode is restored over it; a saved mode equal to the current one changes nothing and leaves the switch held. MfdDisplay_Update calls it, and while g_MfdMissileCamMode is not -1 draws no transmission. See docs/formats/mfd.md, 'Modes'.",
       "source": "DBSIM decompile at 00447164 and MfdDisplay_SetMode's writes at 00446e8e-00446e98"
     },
     {

@@ -55,6 +55,9 @@ public sealed class MoviePlayer : IDisposable {
 	/// </summary>
 	public bool HasFailed => _playback.HasFailed;
 
+	/// <inheritdoc cref="MoviePlayback.DecodeException"/>
+	public Exception? DecodeException => _playback.DecodeException;
+
 	/// <summary>
 	/// Opens a movie file, or returns null when it will not parse or uses a codec the decoder does
 	/// not implement.

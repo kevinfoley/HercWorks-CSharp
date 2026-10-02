@@ -936,7 +936,13 @@ internal sealed class Indeo4Decoder : IVideoCodec {
 
 				if (entries[p].High) {
 					// A run starting on a right-hand block decodes into the pair it shares with
-					// the block to its left, which an earlier run has already handled.
+					// the block to its left, which an earlier run has already handled. Entry 0 is
+					// always a left-hand block, so p is never 0 here; the check states that rather
+					// than leaving it to the layout DecodeMacroblocks happens to produce.
+					if (p == 0) {
+						return false;
+					}
+
 					p--;
 					if (!DecodeCoefficients(ref bits, band, entries[p + 1], buffer, 16)) {
 						return false;

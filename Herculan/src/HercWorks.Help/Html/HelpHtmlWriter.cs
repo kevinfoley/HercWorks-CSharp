@@ -66,10 +66,18 @@ public static class HelpHtmlWriter {
 			WriteStyles();
 			_html.Append("</style></head>\n<body data-contents=\"").Append(Num(contents)).Append("\">\n");
 			_html.Append("<noscript><p class=\"noscript\">This manual needs JavaScript to show its pages.</p></noscript>\n");
+			// The stage is the main window at its defined size, in CSS pixels, which the script zooms; the
+			// bar sits directly above it at its zoomed width, and the desk round both is the rest of the
+			// browser window. Secondary windows and pop-ups sit on the stage, so they zoom with it and keep
+			// their place over the main window.
+			var (width, height) = MainSize();
+			_html.Append("<div id=\"desk\"><div id=\"frame\">\n");
 			WriteBar(startup);
-			_html.Append("<div id=\"stage\">\n<div id=\"main\" class=\"box\"></div>\n");
+			_html.Append("<div id=\"stage\" data-width=\"").Append(Num(width)).Append("\" data-height=\"").Append(Num(height))
+				.Append("\" style=\"width:").Append(Num(width)).Append("px;height:").Append(Num(height)).Append("px\">\n")
+				.Append("<div id=\"main\" class=\"box\"></div>\n");
 			WriteWindows();
-			_html.Append("</div>\n<div id=\"popup\" class=\"box\" hidden></div>\n");
+			_html.Append("<div id=\"popup\" class=\"box\" hidden></div>\n</div></div></div>\n");
 
 			foreach (var topic in help.Topics) {
 				WriteTopic(topic);
@@ -80,26 +88,43 @@ public static class HelpHtmlWriter {
 			return _html.ToString();
 		}
 
+		// The main window's defined size; 640x480 in all three retail files.
+		private (int Width, int Height) MainSize() {
+			var main = help.Windows.Count > 0 ? help.Windows[0] : null;
+			return main is { Width: > 0 and <= 4096, Height: > 0 and <= 4096 } ? (main.Width, main.Height) : (640, 480);
+		}
+
 		private void WriteStyles() {
 			var main = help.Windows.Count > 0 ? help.Windows[0] : null;
-			_html.Append("[hidden]{display:none!important;}\nhtml,body{margin:0;height:100%;background:#000;}\n")
-				.Append("body{display:flex;flex-direction:column;font:10pt Arial,Helvetica,sans-serif;color:#000;}\n")
-				.Append("#bar{display:flex;flex-wrap:wrap;gap:4px;padding:4px;background:#c0c0c0;border-bottom:1px solid #808080;}\n")
-				.Append("#bar a,.wbar a,a.button{font:9pt Arial,Helvetica,sans-serif;color:#000;text-decoration:none;background:#c0c0c0;")
+			_html.Append("[hidden]{display:none!important;}\nhtml,body{margin:0;height:100%;}\n")
+				.Append("body{display:flex;flex-direction:column;font:10pt Arial,Helvetica,sans-serif;color:#000;background:#303030;}\n")
+				.Append("#bar{display:flex;flex-wrap:wrap;gap:4px;padding:4px;box-sizing:border-box;background:#c0c0c0;border-bottom:1px solid #808080;}\n")
+				.Append("#bar a,.wbuttons a,a.button{font:9pt Arial,Helvetica,sans-serif;color:#000;text-decoration:none;background:#c0c0c0;")
 				.Append("border:2px outset #fff;padding:1px 8px;cursor:pointer;white-space:nowrap;}\n")
 				.Append("#bar a.off{color:#808080;pointer-events:none;}\n")
 				.Append("#bar details{position:relative;}\n#bar summary{font:9pt Arial,sans-serif;padding:3px 6px;cursor:pointer;list-style:none;}\n")
-				.Append("#bar details div{position:absolute;z-index:3;display:flex;flex-direction:column;background:#c0c0c0;border:1px solid #808080;}\n")
-				.Append("#stage{position:relative;flex:1;min-height:0;}\n")
+				.Append("#bar details div{position:absolute;z-index:9;display:flex;flex-direction:column;background:#c0c0c0;border:1px solid #808080;}\n")
+				.Append("#zoom{margin-left:auto;display:flex;gap:4px;align-items:center;font:9pt Arial,sans-serif;}\n")
+				.Append("#zoom span{min-width:3.5em;text-align:center;}\n")
+				.Append("#desk{flex:1;min-height:0;overflow:auto;display:flex;}\n")
+				.Append("#frame{margin:auto;display:flex;flex-direction:column;}\n")
+				.Append("#stage{position:relative;flex:none;}\n#stage.pixels img{image-rendering:pixelated;}\n")
 				.Append(".box{overflow:auto;box-sizing:border-box;}\n")
-				.Append("#main{position:absolute;inset:0;background:").Append(Colour(main?.Background ?? 0xFFFFFF)).Append(";}\n")
+				.Append("#main{position:absolute;inset:0;z-index:1;background:").Append(Colour(main?.Background ?? 0xFFFFFF)).Append(";}\n")
+				.Append("#main.front{z-index:3;}\n")
 				.Append("#main .nsr{background:").Append(Colour(main?.NonScrollingBackground ?? main?.Background ?? 0xFFFFFF)).Append(";}\n")
-				.Append(".win{position:absolute;display:flex;flex-direction:column;border:2px outset #c0c0c0;z-index:2;}\n")
-				.Append(".wbar{display:flex;gap:4px;align-items:center;padding:2px 4px;background:#000080;color:#fff;font:bold 9pt Arial,sans-serif;}\n")
-				.Append(".wbar span{flex:1;}\n.wbody{flex:1;position:relative;}\n")
-				.Append("#popup{position:fixed;z-index:4;max-width:min(420px,90vw);max-height:80vh;padding:4px 8px;border:1px solid #000;background:")
+				.Append(".win{position:absolute;display:flex;flex-direction:column;box-sizing:border-box;border:2px outset #c0c0c0;z-index:2;}\n")
+				.Append(".wcaption{min-height:1.4em;padding:1px 4px;background:#000080;color:#fff;font:bold 9pt Arial,sans-serif;}\n")
+				.Append(".wbuttons{display:flex;gap:4px;padding:3px 4px;background:#c0c0c0;border-bottom:1px solid #808080;}\n")
+				.Append(".wbody{flex:1;position:relative;}\n")
+				.Append("#popup{position:absolute;z-index:8;max-width:420px;max-height:90%;padding:4px 8px;border:1px solid #000;background:")
 				.Append(Colour(_popupColour)).Append(";box-shadow:4px 4px 0 rgba(0,0,0,.5);}\n")
 				.Append(".nsr{position:sticky;top:0;z-index:1;}\n")
+				// An 8-pixel margin inside the main and secondary windows. The help file sets none, and WinHelp's
+				// own margin is not measured, so the width is this viewer's choice; it sits on the regions
+				// rather than the window so a non-scrolling region's background still reaches the edges.
+				.Append("#main>.nsr,#main>.scroll,.wbody>.nsr,.wbody>.scroll{padding-left:8px;padding-right:8px;}\n")
+				.Append("#main>:first-child,.wbody>:first-child{padding-top:8px;}\n#main>.scroll,.wbody>.scroll{padding-bottom:8px;}\n")
 				.Append("p{margin:0;}\na{color:inherit;cursor:pointer;}\nimg{vertical-align:bottom;}\n")
 				.Append("table{border-collapse:collapse;table-layout:fixed;}\ntd{vertical-align:top;padding:0;overflow:visible;}\n")
 				.Append(".tab{display:inline-block;text-indent:0;}\n")
@@ -149,32 +174,45 @@ public static class HelpHtmlWriter {
 				_html.Append("</div></details>");
 			}
 
+			// This viewer's own: a button per secondary window that brings it back in front of the main
+			// window, shown while it is open and behind, then the zoom control.
+			for (int w = 1; w < help.Windows.Count; w++) {
+				var window = help.Windows[w];
+				_html.Append("<a href=\"#\" data-go=\"raise\" data-w=\"").Append(Num(w)).Append("\" hidden>")
+					.Append(Encode(window.Caption.Length > 0 ? window.Caption : window.Name)).Append("</a>");
+			}
+
+			_html.Append("<span id=\"zoom\"><a href=\"#\" data-go=\"smaller\" title=\"Smaller\">&minus;</a><span></span>")
+				.Append("<a href=\"#\" data-go=\"larger\" title=\"Larger\">+</a></span>");
 			_html.Append("</nav>\n");
 		}
 
-		// The secondary windows, placed over the main window as their definitions place them.
+		// The secondary windows, placed over the main window as their definitions place them, clipped to
+		// it. Each is a window frame: a title bar with its caption, then a button bar holding the buttons
+		// its |CF macros create, as WinHelp's own windows have.
 		private void WriteWindows() {
-			if (help.Windows.Count == 0) {
-				return;
-			}
-
-			var main = help.Windows[0];
-			double mainWidth = Math.Max(1, main.Width), mainHeight = Math.Max(1, main.Height);
+			var (mainWidth, mainHeight) = MainSize();
 			for (int w = 1; w < help.Windows.Count; w++) {
 				var window = help.Windows[w];
-				_html.Append("<div class=\"win\" id=\"w").Append(Num(w)).Append("\" hidden style=\"left:")
-					.Append(Num(100 * window.X / mainWidth)).Append("%;top:").Append(Num(100 * window.Y / mainHeight))
-					.Append("%;width:").Append(Num(100 * window.Width / mainWidth)).Append("%;height:")
-					.Append(Num(100 * window.Height / mainHeight)).Append("%;background:")
-					.Append(Colour(window.Background ?? 0xFFFFFF)).Append("\"><div class=\"wbar\"><span>")
-					.Append(Encode(window.Caption)).Append("</span>");
-				var macros = help.WindowMacros.TryGetValue(w, out var list) ? list : [];
-				foreach (var call in macros.Select(HelpMacro.Parse).OfType<IReadOnlyList<HelpMacroCall>>().SelectMany(c => c)
-					.Where(c => c.Name == "CB" && c.Arguments.Count == 3)) {
-					WriteMacroAnchor(call.Arguments[2], call.Arguments[1], w);
+				int x = Math.Clamp(window.X, 0, mainWidth - 1), y = Math.Clamp(window.Y, 0, mainHeight - 1);
+				int width = Math.Clamp(window.Width, 1, mainWidth - x), height = Math.Clamp(window.Height, 1, mainHeight - y);
+				_html.Append("<div class=\"win\" id=\"w").Append(Num(w)).Append("\" hidden style=\"left:").Append(Num(x))
+					.Append("px;top:").Append(Num(y)).Append("px;width:").Append(Num(width)).Append("px;height:").Append(Num(height))
+					.Append("px;background:").Append(Colour(window.Background ?? 0xFFFFFF)).Append("\"><div class=\"wcaption\">")
+					.Append(Encode(window.Caption)).Append("</div>");
+				var buttons = (help.WindowMacros.TryGetValue(w, out var list) ? list : [])
+					.Select(HelpMacro.Parse).OfType<IReadOnlyList<HelpMacroCall>>().SelectMany(c => c)
+					.Where(c => c.Name == "CB" && c.Arguments.Count == 3).ToList();
+				if (buttons.Count > 0) {
+					_html.Append("<div class=\"wbuttons\">");
+					foreach (var call in buttons) {
+						WriteMacroAnchor(call.Arguments[2], call.Arguments[1], w);
+					}
+
+					_html.Append("</div>");
 				}
 
-				_html.Append("</div><div class=\"wbody box\"></div></div>\n");
+				_html.Append("<div class=\"wbody box\"></div></div>\n");
 			}
 		}
 
@@ -239,12 +277,21 @@ public static class HelpHtmlWriter {
 
 		// A row's columns keep their stored widths whatever they hold: the heading banners are a 610-pixel
 		// picture in a column a few points wide, drawn under the heading text in the next column, so a
-		// column must not grow to fit its content. Cells for one column stack inside it. The second value
-		// stored with each column is an Open item in the format doc and is not drawn.
+		// column must not grow to fit its content. Cells for one column stack inside it.
+		//
+		// The second value stored with each column is drawn as space before the column's content. That
+		// reading is this viewer's: the format doc lists the value as Open, and it is 1 for the first
+		// column and 11 for every later one, the pattern a gap between columns would leave.
 		private void WriteRow(HelpTableRow row) {
-			_html.Append("<table style=\"width:").Append(Num(row.Columns.Sum(c => c.Width) / UnitsPerPoint)).Append("pt\"><tr>");
+			int Gap(HelpColumn column) => Math.Max(0, column.Second);
+			_html.Append("<table style=\"width:").Append(Num(row.Columns.Sum(c => c.Width + Gap(c)) / UnitsPerPoint)).Append("pt\"><colgroup>");
+			foreach (var column in row.Columns) {
+				_html.Append("<col style=\"width:").Append(Num((column.Width + Gap(column)) / UnitsPerPoint)).Append("pt\">");
+			}
+
+			_html.Append("</colgroup><tr>");
 			for (int c = 0; c < row.Columns.Count; c++) {
-				_html.Append("<td style=\"width:").Append(Num(row.Columns[c].Width / UnitsPerPoint)).Append("pt\">");
+				_html.Append("<td style=\"padding-left:").Append(Num(Gap(row.Columns[c]) / UnitsPerPoint)).Append("pt\">");
 				foreach (var cell in row.Cells.Where(cell => cell.Column == c)) {
 					new Run(this, cell.Format, cell.Inlines).Write();
 				}

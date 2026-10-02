@@ -242,13 +242,9 @@ public sealed class ShellMovieRun : IDisposable {
 	private bool Begin(ShellMovieEntry entry) {
 		string? name = ShellMovieQueue.FileName(entry.Id);
 		byte[]? bytes = name == null ? null : _hooks.ReadMovie(name);
-		if (name == null || bytes == null || MoviePlayer.Open(bytes, placeholderForUnimplemented: true) is not { } player) {
+		if (name == null || bytes == null || MoviePlayer.Open(bytes) is not { } player) {
 			_hooks.Report?.Invoke(name ?? $"movie 0x{entry.Id:x}", "could not be opened, and is skipped");
 			return false;
-		}
-
-		if (player.IsPlaceholder) {
-			_hooks.Report?.Invoke(name, "has no decoder yet, and plays as a placeholder");
 		}
 
 		_player = player;

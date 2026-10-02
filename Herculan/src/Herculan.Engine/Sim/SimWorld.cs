@@ -1133,21 +1133,22 @@ public sealed class SimWorld {
 			}
 
 			// "Something just shot at me", on the candidate's own +0x50 slot. The original puts it
-			// exactly here — past the hit test, so only what the ray actually reached hears about it,
-			// and gated on the object being alive. It applies no damage; what it decides is whether
-			// the machine answers, and how. See docs/simulation/ai-targeting.md.
-			if (candidate is MechObject { Destroyed: false } struck
-					&& (candidate.Side == shot.Owner?.Side || !candidate.Neutralised)) {
-				// The player hitting someone else's machine on his own side is complained about by
-				// whichever of that machine's group is nearest it, not by the machine he hit.
-				if (ReferenceEquals(shot.Owner, PlayerMech) && candidate.Side == shot.Owner?.Side
-						&& !ReferenceEquals(candidate.Group, shot.Owner?.Group)
-						&& candidate.Group?.NearestLiveMember(candidate) is MechObject witness
-						&& witness.Position.ApproxDistanceTo(candidate.Position) < 30000) {
+			// exactly here — past the hit test, so only what the ray actually reached hears about it —
+			// and skips it for a destroyed candidate, or an enemy one that is out of action. It applies
+			// no damage. See docs/simulation/hit-detection.md.
+			if (shot.Owner is { } owner && !candidate.Destroyed
+					&& (candidate.Side == owner.Side || !candidate.OutOfAction)) {
+				// The player hitting anything on his own side outside his own group, structures
+				// included: the player's own nearest squadmate complains, if it is close enough to
+				// him to have seen it (docs/simulation/ai-targeting.md, "Radio callouts").
+				if (owner.LocallyPiloted && candidate.Side == owner.Side
+						&& !ReferenceEquals(candidate.Group, owner.Group)
+						&& owner.Group?.NearestLiveMember(owner) is MechObject witness
+						&& witness.Position.ApproxDistanceTo(owner.Position) < FriendlyFireWitnessRange) {
 					witness.FriendlyFireComplaint(this);
 				}
 
-				struck.OnTakingFire(this, shot.Owner, shot.DamageArmor);
+				candidate.OnTakingFire(this, owner, shot.DamageArmor);
 			}
 
 			shot.Distance = struckAt;
@@ -1672,4 +1673,11 @@ public sealed class SimWorld {
 	/// docs/simulation/ai-combat-states.md.
 	/// </summary>
 	private const int BlockedLineOfFireArc = 0x2000;
+
+	/// <summary>
+	/// How near the player the squadmate <see cref="Raycast"/> picks must be for it to complain about
+	/// the player's shot at a friendly outside the group. See docs/simulation/ai-targeting.md,
+	/// "Radio callouts".
+	/// </summary>
+	private const int FriendlyFireWitnessRange = 30000;
 }

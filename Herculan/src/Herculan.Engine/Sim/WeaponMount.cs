@@ -1434,9 +1434,9 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// The template's <c>+0x34</c> — what firing this weapon costs the AI in
-	/// <see cref="MechObject.ChooseWeapon"/>'s score. 500-600 for a launcher down to 5 for an ELF, and
-	/// large enough against the damage credit that heavy ordnance is only ever worth the shot that
-	/// breaks a shield. See docs/simulation/ai-weapons.md.
+	/// <see cref="MechObject.ChooseWeapon"/>'s score, weighed at ten times the damage credit's gain.
+	/// The retail values and what they do to the choice are in docs/simulation/ai-weapons.md
+	/// ("Choosing a weapon").
 	/// </summary>
 	public short AiShotCost =>
 		_template?.Tail is { Length: >= 0x14 } tail ? BitConverter.ToInt16(tail, 0x12) : (short)0;

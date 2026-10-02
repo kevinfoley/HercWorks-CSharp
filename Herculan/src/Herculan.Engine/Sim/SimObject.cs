@@ -210,15 +210,27 @@ public abstract class SimObject {
 
 	/// <summary>
 	/// The AI's own "out of the fight" test: <c>+0x99</c>, <c>+0xa4</c> and <c>+0xa5</c> together,
-	/// where <see cref="Neutralised"/> is the first two. Only a HERC can answer the third — it is the
-	/// no-weapons-left latch — so everything else answers the same as <see cref="Neutralised"/>.
+	/// where <see cref="Neutralised"/> is the first two. The third is the nothing-to-fight-with latch,
+	/// which <see cref="MechObject"/>, <see cref="FlyerObject"/> and <see cref="BaseObject"/> each
+	/// answer from their own <c>Disarmed</c>.
 	///
 	/// <para>Deliberately not folded into <see cref="Neutralised"/>: the detection sweep, the player's
 	/// target selection and a group's condition tier all read that one, and none of them consults
-	/// <c>+0xa5</c> in the original. The one place that does is a guard order's rival test — see
-	/// <c>MissionGroup.IsWipedOut</c>, which is why that reads this and not <see cref="Neutralised"/>.</para>
+	/// <c>+0xa5</c> in the original. The AI's target tests do (docs/simulation/ai-targeting.md), and
+	/// so does a guard order's rival test — see <c>MissionGroup.IsWipedOut</c>, which is why that
+	/// reads this and not <see cref="Neutralised"/>.</para>
 	/// </summary>
 	public virtual bool OutOfAction => Neutralised;
+
+	/// <summary>
+	/// Vtable <c>+0x50</c> — a shot from <paramref name="attacker"/> just struck this object, made by
+	/// <see cref="SimWorld.Raycast"/>. Every class but the HERC installs <c>Mech_ShareContact</c>
+	/// (<c>00411aec</c>), which only shares the attacker with this object's side; the HERC overrides
+	/// it with its reaction (docs/simulation/ai-targeting.md, "Passing a contact on").
+	/// </summary>
+	/// <param name="damage">The shot's damage, which only a HERC's reaction reads.</param>
+	public virtual void OnTakingFire(SimWorld world, SimObject attacker, short damage) =>
+		Detection.ShareContact(world, this, attacker);
 
 	/// <summary>
 	/// Vtable <c>+0x34</c> — the shield facing <paramref name="heading"/> points at, front within

@@ -3518,7 +3518,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_IsTargetable",
-      "description": "Whether an AI machine may target a candidate: not the same side (group+0x12), not destroyed (+0x99), collapsed (+0xb4) or invulnerable (+0xb7), currently known through Ai_KnowsObject, not a dead flyer, not the player's own selection while this machine's +0x9a is set, and with mask bit 0x10 not this machine's own object class.",
+      "description": "Whether an AI machine may target a candidate: not the same side (group+0x12), not destroyed (+0x99), collapsed (+0xb4) or invulnerable (+0xb7), currently known through Ai_KnowsObject, not an out-of-action flyer (+0xa5/+0xa4/+0x99), not the player's own selection while this machine's +0x9a is set, and with mask bit 0x10 not this machine's own object class.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -3527,7 +3527,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_SelectTarget",
-      "description": "The sim's one AI target-acquisition routine, used by mechs and structures: (this, mask, coneLimit) walks the live object list and returns the best-scoring candidate. Candidates pass Ai_IsTargetable, then a tier bar of 2*designated+alive; range caps at 1000000 for the group order's designated target and 100000 otherwise. Score starts at Q10(70, 0x1000 - (bearingError >> 3)), is overridden inside 60000 by a range term, then multiplied by four Q10 weight tables at 0049933c/00499342/00499348/0049934e and divided by the number of other holders. Mask: 0x01 restrict the designated bonus, 0x02 drop the shooting-at-me weight, 0x04 drop the crowding divisor, 0x10 reject own class, 0x20 ignore bearing.",
+      "description": "The AI's general target acquisition, used by mechs, flyers and armed structures: (this, mask, coneLimit) walks the live object list and returns the best-scoring candidate. Candidates pass Ai_IsTargetable, then a tier bar of 2*designated+alive; range caps at 1000000 for the group order's designated target and 100000 otherwise. Score starts at Q10(70, 0x1000 - (bearingError >> 3)), is overridden inside 60000 by a range term, then multiplied by four Q10 weight tables at 0049933c/00499342/00499348/0049934e and divided by the number of other holders. Mask: 0x01 restrict the designated bonus, 0x02 drop the shooting-at-me weight, 0x04 drop the crowding divisor, 0x10 reject own class, 0x20 ignore bearing.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -3581,7 +3581,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiEnemySighted",
-      "description": "Mech vtable +0x48, the enemy-detected callout. For a machine in the player's group, posts squad message 1 through Ai_PostSquadMessage the first time anyone on that side holds a contact on a given object, latched per object in DAT_004a9b84[obj+0x4b] and rate-limited to one per 10 s by DAT_004a9be9. The local player's own machine sets the latch without calling out.",
+      "description": "Mech vtable +0x48, the enemy-detected callout. For a machine in the player's group, posts squad message 1 through Ai_PostSquadMessage for an object that is not class 1, not yet radar-visible (+0x95), and held as a contact by neither this machine nor the player, latched per object in DAT_004a9b84[obj+0x4b] (set even when the rate limit swallows the callout). DAT_004a9be9 is re-armed to 10000 on each callout and stepped by this function's own Math_CountdownTimerTick(004a9be8) on every non-player call, so it runs down per call-in, not per tick. The local player's own machine sets the latch without calling out.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -4668,7 +4668,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_ShouldAbandonTarget",
-      "description": "Whether a combat state should drop its target. Under squad order verb 4, when Ai_TargetStateTier exceeds the order's threshold at mech+0x250. For the group order's designated target, dead or crippled on the human side but only +0x99 destroyed on the Cybrid side. Otherwise dead or dying. Called from the think functions of attacking, flanking, facing off and driving off en.",
+      "description": "Whether a combat state should drop its target. Under squad order verb 4, when Ai_TargetStateTier exceeds the order's threshold at mech+0x250. For the group order's designated target, dead or crippled on the human side but only +0x99 destroyed on the Cybrid side. Otherwise out of action (+0xa5, +0xa4 or +0x99). Called from the think functions of attacking, flanking, facing off and driving off en.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -4740,7 +4740,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiSelectAimComponent",
-      "description": "Chooses the component slot the AI aims at and writes it to mech+0x2a2, or -1. One rand & 0x7f picks a band: slots 7-18 under 0x28 or whenever a targeting computer at mech+0x30b reads under 0xaa at its +0x7f, the weapon-mount slots 19..19+mountCount under 0x50, else the chassis slots 0-6; a collapsed target (+0xb4) narrows it to slot 0. Within the band it skips slots the target no longer has (target+0x20e) and takes the highest Component_ReadDamagePercent + (rand & 0x3f). RETAIL BUG: the damage is read from this+0x206, the shooter's own components, while the occupancy array walked is the target's.",
+      "description": "Chooses the component slot the AI aims at and writes it to mech+0x2a2, or -1. One rand & 0x7f picks a band: slots 7-18 under 0x28 or whenever a targeting computer at mech+0x30b reads under 0xaa at its +0x7f, the weapon-mount slots 19..18+mountCount, mountCount read from the shooter's own manager (this+0x202) under 0x50, else the chassis slots 0-6; a collapsed target (+0xb4) narrows it to slot 0. Within the band it skips slots the target no longer has (target+0x20e) and takes the highest Component_ReadDamagePercent + (rand & 0x3f). RETAIL BUG: the damage is read from this+0x206, the shooter's own components, while the occupancy array walked is the target's.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -4976,7 +4976,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_AimAndFireAtMech",
-      "description": "Ai_AimAndFire's machine branch. Refuses the shot and centres the turret when the bearing error exceeds the chassis' torso-twist limit (typeRec+0x22, 14000 fleet-wide). Aims at the chosen component (mech+0x2a2) only when the 3D range is in [5000, 20000); otherwise at the target's aim node origin. Ends in Ai_FireAtPoint.",
+      "description": "Ai_AimAndFire's machine branch. Refuses the shot and centres the turret when the bearing error exceeds the chassis' torso-twist limit (typeRec+0x22: 14000 on 20 of the 21 chassis; PITBULL's 32767 passes every error but 0x7fff and -0x8000). Aims at the chosen component (mech+0x2a2) only when the 3D range is in [5000, 20000); otherwise at the target's aim node origin. Ends in Ai_FireAtPoint.",
       "source": "docs/simulation/ai-weapons.md"
     },
     {
@@ -5003,7 +5003,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ComputeCombatRating",
-      "description": "Writes the combat rating at mech+0x29e and latches the cache flag mech+0x94, which Mech_PerTickSystemsUpdate clears to force a recompute. Rating = (typeRec+0x44 base + each live weapon mount's value scaled by its condition, for the mounts whose vtable +0x54 answers non-zero -- an ammunition mount only above an eighth of its magazine + each of 19 components' maximum scaled by its condition - a penalty per system over 70% damaged) >> 4, so it falls as the machine is shot apart or runs low.",
+      "description": "Writes the combat rating at mech+0x29e and latches the cache flag mech+0x94, which Mech_DirectFireHitTest (00418ba8) clears on a hit and Mech_PerTickSystemsUpdate tests to recompute. Rating = (typeRec+0x44 base + each live weapon mount's value scaled by its condition, for the mounts whose vtable +0x54 answers non-zero -- an ammunition mount only above an eighth of its magazine + each of 19 components' maximum scaled by its condition - a penalty per system over 70% damaged) >> 4, so it falls as the machine is shot apart or runs low.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -5039,7 +5039,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiFriendlyFireComplaint",
-      "description": "Posts squad message 8 when the player shoots a machine in the player's own group, on a 40 s cooldown at mech+0x278.",
+      "description": "Posts squad message 8 when the player shoots a machine in the player's own group, on a 40000-count (about 19.5 s) cooldown at mech+0x278.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -5048,7 +5048,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiOnTakingFire",
-      "description": "Mech vtable +0x50, called with (attacker, damage) when something hits this machine. Applies no damage. Shares the attacker as a contact through Detection_ShareContact, opens the 30 s under-fire window at +0x27d, and for a machine in the player's group accumulates the damage at +0x281 and ignores it until the total passes 8000. Otherwise, on a 10 s retarget cooldown at +0x273, it reacts by the current state's descriptor flag bits: bit 2 (guarding, driving off en) defends the post via Ai_SelectDefenceTarget around Mech_AiGoalPosition, bit 3 (sleeping, ramming, bulldog travel) ignores fire entirely, and anything else re-acquires with Ai_SelectTarget(this, 0x24, 0). Also posts squad message 3, and Mech_AiFriendlyFireComplaint when the player is the shooter.",
+      "description": "Mech vtable +0x50, called with (attacker, damage) when something hits this machine. Applies no damage. Shares the attacker as a contact through Detection_ShareContact, opens the 30000-count (about 14.6 s) under-fire window at +0x27d, and for a machine in the player's group accumulates the damage at +0x281 and ignores it until the total passes 8000. Otherwise, on a 10000-count (about 4.9 s) retarget cooldown at +0x273, it reacts by the current state's descriptor flag bits: bit 2 (guarding, driving off en) defends the post via Ai_SelectDefenceTarget around Mech_AiGoalPosition (a verb-4 squad order replaces the pick unless the pick is shooting at it; failing both, the attacker), bit 3 (sleeping, ramming, bulldog travel) ignores fire entirely, and anything else re-acquires with Ai_SelectTarget(this, 0x24, 0). Also posts squad message 3, and Mech_AiFriendlyFireComplaint when the player is the shooter.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -5193,7 +5193,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ReceiveSquadOrder",
-      "description": "Mech vtable +0x28. One machine receiving one transmitted squad order: switches on the record's verb (STRINGS0 group 0, 0-0x11) over thirteen cases and installs the standing order at mech+0x23e, its destination at +0x240, its target at +0x248, its guard subject at +0x24c and its abandon tier at +0x250. Verbs 0xd/0xe write patrol and move, 0/2/0xb write engage, 0xc writes guard; 3/0xa/0xf clear the order and reinstall patrolling; 4/0x10 and 7/0x11 are the radar pair, writing mech+0xb2 and mech+0x96; 5 and 8 are the FIRE AT WILL / HOLD YOUR FIRE pair, writing mech+0xb6; 1 sets the ignore-the-player's-selection latch at mech+0x9a, which 0, 5 and 0xb clear. Returns 1 when the order was taken. Each case picks a reply id for Ai_PostSquadMessage, posted only when priorReply is 0, or 1 with an accepted order. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10]; the vtable call site at 0043164d pushes three and does ADD ESP,0xc.",
+      "description": "Mech vtable +0x28. One machine receiving one transmitted squad order: switches on the record's verb (STRINGS0 group 0, 0-0x11) over twelve jump-table arms covering sixteen verbs (6, 9 and anything above 0x11 take the default) and installs the standing order at mech+0x23e, its destination at +0x240, its target at +0x248, its guard subject at +0x24c and its abandon tier at +0x250. Verbs 0xd/0xe write patrol and move, 0/2/0xb write engage, 0xc writes guard; 3/0xa/0xf clear the order and reinstall patrolling; 4/0x10 and 7/0x11 are the radar pair, writing mech+0xb2 and mech+0x96; 5 and 8 are the FIRE AT WILL / HOLD YOUR FIRE pair, writing mech+0xb6; 1 sets the ignore-the-player's-selection latch at mech+0x9a, which 0, 5 and 0xb clear. Returns 1 when the order was taken. Each case picks a reply id for Ai_PostSquadMessage, posted only when priorReply is 0, or 1 with an accepted order. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10]; the vtable call site at 0043164d pushes three and does ADD ESP,0xc.",
       "source": "docs/simulation/ai-squadmates.md",
       "signature": "short __cdecl Mech_ReceiveSquadOrder(MechObject *mech, SquadOrderRecord *order, short priorReply)"
     },
@@ -5339,7 +5339,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_PitchToAltitude",
-      "description": "Elevator command that flies the aircraft to a world Z: Math_Atan2Guarded(targetZ - flyer.z, 10000) into Flyer_PitchCommand. The 10000 is a fixed horizontal run, so the demanded angle depends on the height error alone. Its other arm, gated on flyer+0xae and reading flyer+0x23c, belongs to the walking machine's obstacle avoidance and leg placement and cannot fire on a flyer: nothing on any flyer path writes either field.",
+      "description": "Elevator command that flies the aircraft to a world Z: Math_Atan2Guarded(targetZ - flyer.z, 10000) into Flyer_PitchCommand. The 10000 is a fixed horizontal run, so the demanded angle depends on the height error alone. Its other arm, gated on flyer+0xae and reading flyer+0x23c, belongs to the walking machine's obstacle avoidance and leg placement and is not known to fire on a flyer: the flyer pool is zero-filled and no flyer path that writes either field has been found.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -5366,7 +5366,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_FormationThrottle",
-      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, folds it into the previous value of flyer+0x21c and clamps the sum to [0x8c,0x100]. The field's only reader is this function; the control law leaves FlightModel_Step's throttle element zero at every site, so nothing a Cybrid flyer decides can change its airspeed.",
+      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, folds it into the previous value of flyer+0x21c and clamps the sum to [0x8c,0x100]. No other reader of the field is known. The control law leaves FlightModel_Step's throttle element zero on every call, so nothing a Cybrid flyer decides changes its airspeed (the player's RAZOR THROTTLE binding can: FlightModel_Step's position branch then writes the setting to 0).",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -5375,7 +5375,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_SteerAndFly",
-      "description": "The flyer's steering channel and the function every think ends in. Builds a 16-bit bank command from Q16(-turn,2500) + Q16(bankTurnRate at flyer+0x287, 32000) + Q16(rollRate,-5000); holds the aircraft at +/-(typeRecord+0x0e, the maximum bank angle) with a 1500 hysteresis band when the bank would take it further over; answers a steering command under 2000 with rudder (Q16(-turn,4000)) and level wings instead of a bank, and only if the roll is already under 800. Fills the command array's fifth element with the terrain height under the aircraft, which is FlightModel_Step's ceiling reference. Its leader term reads leader+0x1f8, a field written nowhere in the image.",
+      "description": "The flyer's steering channel and the function every movement step (route step, station keeping, attack run) ends in. Builds a 16-bit bank command from Q16(-turn,2500) + Q16(bankTurnRate at flyer+0x287, 32000) + Q16(rollRate,-5000); holds the aircraft at +/-(typeRecord+0x0e, the maximum bank angle) with a 1500 hysteresis band when the bank would take it further over; answers a steering command under 2000 with rudder (Q16(-turn,4000)) and level wings instead of a bank, and only if the roll is already under 800. Fills the command array's fifth element with the terrain height under the aircraft, which is FlightModel_Step's ceiling reference. Its leader term reads leader+0x1f8, a field for which no writer is known (es2_fieldscan.py, decompile grep); the flyer pool is zero-filled.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -5420,7 +5420,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_BehaviourSearchDestroyThink",
-      "description": "search and destroy's think. Flyer_FollowStep, then for the flight leader only and only once the flyer+0x5b countdown expires (reloaded with 10000): Ai_SelectTarget with mask 0x11 (mission target only, reject own class), checked against Group_IsOrderTarget before it is taken, then Flyer_EngageWithFlight.",
+      "description": "search and destroy's think. Flyer_FollowStep, then for the flight leader only and when the flyer+0x5b countdown reads 0. The sweep reloads it with 10000, but Behaviour_SetState zeroes +0x5a..+0x81 at every reassess, so in practice the sweep runs on the state's first tick and after each 5000-count dwell: Ai_SelectTarget with mask 0x11 (mission target only, reject own class), checked against Group_IsOrderTarget before it is taken, then Flyer_EngageWithFlight.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -5569,7 +5569,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_BroadcastOrder",
-      "description": "The MFD FLASH COMM page's transmit: sends one order to the whole of the player's group, best-suited machine first. Each pass scores every member not yet told -- verbs 0/2/5 prefer a machine whose behaviour descriptor +0x09 (committed) is clear, 1/8/0xf one where it is set, 4 and 7 one not already in the radar mode being asked for -- keeps the highest score and breaks ties on range to the issuer, then calls that machine's vtable +0x28 with the reply so far, so only the first recipient or the first to accept says anything. Verbs 0 and 2 stop at the first acceptance; the rest go round until everyone has been told. The score local is not initialised, so a verb with no case leaves every member tied and the group is walked in range order. Args derived from disassembly: [EBP+8], [EBP+0xc].",
+      "description": "The MFD FLASH COMM page's transmit: sends one order to the whole of the player's group, best-suited machine first. Each pass scores every member not yet told -- verbs 0/2/5 prefer a machine whose behaviour descriptor +0x09 (committed) is clear, 1/8/0xf one where it is set, 4 and 7 one not already in the radar mode being asked for -- keeps the highest score and breaks ties on range to the issuer, then calls that machine's vtable +0x28 with the reply so far, so only the first recipient or the first to accept says anything. Verbs 0 and 2 stop at the first acceptance; the rest go round until everyone has been told. The score local is not initialised, so for a verb with no case every member carries the same leftover stack value ([EBP-0x1c]): range order when it is -1 or more, nobody told when it is below. Args derived from disassembly: [EBP+8], [EBP+0xc].",
       "source": "docs/simulation/ai-squadmates.md",
       "signature": "bool __cdecl Squad_BroadcastOrder(int group, SquadOrderRecord *order)"
     },
@@ -5658,7 +5658,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Group_OrderTargetPosition",
-      "description": "The position the group's current order works to: the order object's +0x26 origin, falling back to the group's own stored point when the order names nothing.",
+      "description": "The position the group's current order works to: the order object's +0x26 origin, falling back to the first waypoint of the group's route (**(*(group+6)+2)), read with no null check, when the slot is empty or names no subject.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -5669,6 +5669,15 @@
       "name": "Group_IsOrderTarget",
       "description": "Whether an object is what the group's current order names: for the order's +0xc == 0 the order holds a group and the test is group identity, for 1-3 it holds the object itself.",
       "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00423960",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectPtr",
+      "description": "(group): the current order's +0x0e subject pointer -- the row-15 link at group+0x44 indexed by group+0x6c -- read without testing the slot for null. es2_xref finds no rel32 branch or stored pointer to it.",
+      "source": "DBSIM decompile at 00423960; docs/simulation/ai-goals.md"
     },
     {
       "address": "00423974",
@@ -5694,7 +5703,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Group_OrderTick",
-      "description": "Per-frame tick for a group that has entered the mission (the branch Sim_MainTick takes when group+0x14 is null). Runs the group's current order -- the row-15 link at group+0x44 indexed by the current-order index at group+0x6c -- and advances to the next when FUN_004239fc reports it complete or its own action has activated, flagging the finished order in the byte array at group+0x70 and clearing each member's +0x52. Then ticks every member via FUN_00411cec.",
+      "description": "Per-frame tick for a group that has entered the mission (the branch Sim_MainTick takes when group+0x14 is null). Runs the group's current order -- the row-15 link at group+0x44 indexed by the current-order index at group+0x6c -- and advances to the next when Group_IsOrderComplete reports it complete or its own action has activated, flagging the finished order in the byte array at group+0x70 and clearing each member's +0x52. Then ticks every member via Mech_AiTick.",
       "source": "docs/simulation/mission-deployment.md"
     },
     {
@@ -5769,6 +5778,15 @@
       "name": "Meteor_Dtor",
       "description": "METEOR vtable +0x08 (004982b8), the destructor its class record names: (this, flags). Debris_Dtor's body: installs TSObjVtable, deletes the shape instance at +0x34 through its own vtable +0x18 with flags 3, and Mem_Deletes this on flags bit 0.",
       "source": "DBSIM disassembly at 00424034; class record at 00423fe4"
+    },
+    {
+      "address": "004240e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MissionGroup_ElementCtor",
+      "description": "Rtl_VectorNew's per-element constructor for MissionGroups_Allocate's 0x7a-byte group records (its only reference is that PUSH at 00423d4b): zeroes the route cursor's index word at group+0x04 and nothing else. Ghidra has no function here; it is filed under Group_ReportIfAllOutOfAction's tail.",
+      "source": "DBSIM disassembly at 004240e4, 00423d4b"
     },
     {
       "address": "004240f4",
@@ -11106,7 +11124,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_FillOrderRecord",
-      "description": "Copies the armed order's committed pick into the transmit record: a gridpoint pick into the record's x/y/z at +0x06/+0x0a/+0x0e, a unit pick into its subject pointer at +0x12. Which of the two is decided by the per-order pick-kind field the previous call to HddCommandScreen_CommitPick latched. This is what settles the record's layout. Args derived from disassembly: [EBP+8], [EBP+0xc].",
+      "description": "Copies the armed order's committed pick into the transmit record: a gridpoint pick into the record's x/y/z at +0x06/+0x0a/+0x0e, a unit pick into its subject pointer at +0x12. Which of the two is decided by the pick kind latched in the selected pilot's pick slot (three 0x2a-byte slots at +0x85, indexed by +0x105). CommitPick latches a kind only for an order that wants a pick, so an order with no pick writes that pilot's last pick again. This is what settles the record's layout. Args derived from disassembly: [EBP+8], [EBP+0xc].",
       "source": "docs/formats/heads-down-display.md",
       "signature": "void __cdecl HddCommandScreen_FillOrderRecord(int commandScreen, SquadOrderRecord *order)"
     },
@@ -11116,7 +11134,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_CommitPick",
-      "description": "Promotes the armed order's pending map pick to its committed one -- the point triple or the subject pointer, per the order's pick kind -- and latches that kind alongside it, so the following HddCommandScreen_FillOrderRecord knows which to copy. XMIT calls the pair in that order. Args derived from disassembly: [EBP+8] only.",
+      "description": "Promotes the selected pilot's pending map pick (slot +0x85 + pilot*0x2a) to its committed one -- the point triple or the subject pointer, per the order's pick kind -- and latches that kind alongside it, so the following HddCommandScreen_FillOrderRecord knows which to copy. XMIT calls the pair in that order. Args derived from disassembly: [EBP+8] only.",
       "source": "docs/formats/heads-down-display.md",
       "signature": "void __cdecl HddCommandScreen_CommitPick(int commandScreen)"
     },
@@ -14730,7 +14748,7 @@
       "type": "function",
       "confidence": "high",
       "name": "FlightModel_Step",
-      "description": "The flight model. Settles, in order: the throttle setting at state+0x1e, the airspeed it demands (throttle interpolated across the type's minimum..maximum airspeed, biased by pitch attitude at Q10 250 nose-down against 62 nose-up), sideslip drag, the three angular rates, the new attitude, and the velocity vector in that attitude. It moves nothing -- it produces the world velocity Razor_MovementTick integrates. Turning is bank-driven: the heading rate is -roll >> fm[30] and is applied on top of the integrated attitude. Attitude is integrated as a rotation MATRIX from the mean of this tick's rates and last tick's, with the eulers read back out, so a vertical climb does not gimbal. The fifth argument, a literal 1 at the one call site, is never read.",
+      "description": "The flight model. Settles, in order: the throttle setting at state+0x1e, the airspeed it demands (throttle interpolated across the type's minimum..maximum airspeed, biased by pitch attitude at Q10 250 nose-down against 62 nose-up), sideslip drag, the three angular rates, the new attitude, and the velocity vector in that attitude. It moves nothing -- it produces the world velocity Razor_MovementTick integrates. Turning is bank-driven: the heading rate is -roll >> fm[30] and is applied on top of the integrated attitude. Attitude is integrated as a rotation MATRIX from the mean of this tick's rates and last tick's, with the eulers read back out, so a vertical climb does not gimbal. The fifth argument, a literal 1 at both call sites (Razor_ApplyFlightInput, Flyer_ApplyFlightCommand), is never read.",
       "source": "docs/simulation/razor-flight.md",
       "signature": "void __cdecl FlightModel_Step(int *input, int *state, short *flightModel, int *wingDestroyed, int unused)"
     },

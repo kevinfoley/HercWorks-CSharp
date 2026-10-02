@@ -159,6 +159,8 @@ and finishes with `SimObject_ApplyRootMotionIfEnabled(this, 100)`, which is what
 
 Type `0x22` alone, and the only object in the game that **aims three turrets from one object**: it rewrites its own heading field to `heading + 0x1555`, evaluates three turrets `0x5554` (120°) apart, and restores the original heading at the end. Each turret runs three weapon slots against `DAT_004a9640`, an 11-`short` descriptor table: slot 0 fires `Rocket_Fire(3, …)` and slots 1 and 2 `Bullet_FireBurst(3, …)` through `WeaponMountTemplate_GetByWeaponId(8)`. Its acquisition is `Ai_SelectTarget(this, 0x10, 0x3000)` — **the `0x3000` bearing cone** [`ai-targeting.md`](ai-targeting.md) names as the base turret's.
 
+Once every component but the first is at full damage, the tick sets `+0xa5` ([disarmed](component-damage.md#the-three-out-of-the-fight-bytes--0x99-0xa4-0xa5)), so a triple turret shot down to its base leaves the AI's fight without being destroyed.
+
 A slot only fires while its own component is undamaged, and the missile slot installs the target on `this+0x1a4` across the `Rocket_Fire` call and clears it again straight after, purely so the round picks up a lock — the object holds no target otherwise.
 
 Type `0x22` states no animation threads, so whatever it aims, it does not aim it by seeking one.

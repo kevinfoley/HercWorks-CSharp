@@ -153,9 +153,9 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 | `0x04` | variant key | **dead** — always `-1` |
 | `0x06` | condition operand | correlates 100% with real `0x02`; values {1, -99} |
 | `0x08` | **the verb** | range 0–6, the whole span DBSIM switches on: search/destroy, ram, guard, patrol, sleep, travel, follow |
-| `0x0A` | formation | range 0–3. DBSIM copies it into the order record and never reads it; VSHELL's briefing map stands the squad in it ([`../shell/mission-map.md`](../shell/mission-map.md)) |
-| `0x0C` | ref→row #6 | 7% real — a point; resolved into the order record and never read |
-| `0x0E` | ref→row #8 | **94% real** — the route. Only the group's first order's is ever used |
+| `0x0A` | formation | range 0–3. DBSIM copies it into the order record, and no DBSIM reader has been found ([`../simulation/ai-goals.md`](../simulation/ai-goals.md#open)); VSHELL's briefing map stands the squad in it ([`../shell/mission-map.md`](../shell/mission-map.md)) |
+| `0x0C` | ref→row #6 | 7% real — a point; resolved into the order record, and no reader has been found ([`../simulation/ai-goals.md`](../simulation/ai-goals.md#open)) |
+| `0x0E` | ref→row #8 | **94% real** — the route. Only the group's first order's is walked; the objective layer reads every slot's ([`../simulation/ai-goals.md`](../simulation/ai-goals.md#what-else-reads-an-order)) |
 | `0x10` | discriminator | what `0x12` names: `-1` nothing, 0 a group (row #16), 1 a HERC (#12), 3 a structure (#14). `2` (a flyer, #13) never occurs |
 | `0x12` | discriminated ref | **the order's subject** — what to hunt, guard or follow |
 | `0x14` | ref→row #10 | 2% real — an action that, when it fires, moves the group to its next order |

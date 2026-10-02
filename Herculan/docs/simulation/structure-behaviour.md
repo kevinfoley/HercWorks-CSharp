@@ -27,7 +27,7 @@ Every countdown in this doc is in the simulation's timer unit, which is not a mi
 
 Six indices — `0x0a`, `0x35`, `0x36`, `0x3e`-`0x40` — match no case, so nothing is constructed. Only three slots differ across the five tables: the destructor, this one, and `GetTorsoTwistAngle` (`+0x3c`).
 
-**That last one is the armed/unarmed line.** The Armed and GroundVehicle tables install `Base_GetTurretAngle` (`00403594`), which returns a real aim angle from `structure+0x20f`; Plain and Radar mast keep the shared `00411a5c` zero stub.
+**That last one is the armed/unarmed line.** The Armed and GroundVehicle tables install `Base_GetTurretAngle` (`00403594`), which returns a real aim angle from `structure+0x20f`; Plain and Radar mast keep the shared zero stub `SimObject_GetTorsoTwistAngleZero` (`00411a5c`).
 
 **An ordinary building is born disarmed.** `Base_Construct` sets `+0xa5` ([the disarmed byte](component-damage.md#the-three-out-of-the-fight-bytes--0x99-0xa4-0xa5)) at spawn for exactly the two classes that keep the stub, Plain and Radar mast, and for none of the armed families. That the structure branch and the mech branch arrive at the same meaning from opposite directions is what settles the reading.
 

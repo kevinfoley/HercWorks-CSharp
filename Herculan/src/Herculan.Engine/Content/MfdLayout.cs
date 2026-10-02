@@ -453,7 +453,7 @@ public static class MfdLayout {
 
 	/// <summary>
 	/// The font the selected row is re-written in — <c>ColorSchemePanels[3]</c>, <c>CPYLW</c>. The
-	/// page paint (<c>FUN_0043f7a4</c>) fonts every row as it fills it, so the selected row differs
+	/// page paint (<c>MfdFlashCommScreen_Paint</c> (<c>0043f7a4</c>)) fonts every row as it fills it, so the selected row differs
 	/// from its neighbours by colour as well as by the plate laid over it.
 	/// </summary>
 	public const string FlashCommSelectedFont = "CPYLW";

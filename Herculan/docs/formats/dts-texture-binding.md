@@ -348,7 +348,7 @@ So each node's poly is drawn between the two half-spaces it splits, far side fir
 
 ## `TSDetailPart` level selection and STRUCTURE DETAIL
 
-`TSDetailPart` is the shape-internal half of DBSIM's LOD system — its parts are one piece of a shape at several levels of detail, and the one drawn is chosen by projected size. `TSDetailPart_Render` (`004768bc`, vtable installed by `FUN_00476834`):
+`TSDetailPart` is the shape-internal half of DBSIM's LOD system — its parts are one piece of a shape at several levels of detail, and the one drawn is chosen by projected size. `TSDetailPart_Render` (`004768bc`, vtable installed by `TSDetailPart_Ctor` (`00476834`)):
 
 ```
 size = (radius << DAT_006c60ac) / max(FastMagnitude3D(viewOffset) - radius, 1)   // projected size
@@ -372,7 +372,7 @@ render(parts[min(i - g_TSDetailPartBias, count - 1)])
 |---|---|
 | `Structure_DrawWithDetailBias` (`004034f4`), slot `+0x00` of all five structure vtables | `g_TSDetailBiasFromStructureDetail` (`004a9638`) |
 | `Flyer_Draw` (`004215cc`) | `DAT_004a9e48`, the same value, written beside it |
-| `FUN_0040ded8`, slot `+0x00` of the eleven weapon-mount vtables from `00498aa0` and slot `+0x18` of `00499264` | `g_TSDetailBiasFromHercDetail` (`004a98ec`) |
+| `WeaponMount_RenderWithDetailBias` (`0040ded8`), slot `+0x1c` of all eleven weapon-mount vtables, `GUN_STATE`'s (`00498e44`) and every class below it | `g_TSDetailBiasFromHercDetail` (`004a98ec`) |
 | `Debris_Draw` (`00408e6c`) | the piece's own `+0x50`: 0 from `Debris_Construct`, and `g_TSDetailBiasFromHercDetail` for the gun `WeaponMount_Destroy` throws |
 
 `Bullet_Draw` (`0040a120`), the draw slot of both projectile classes, pushes nothing, so a launcher round's `ROCKETS.DTS` levels are chosen at bias 0 whatever either setting says. A machine's own draw pushes nothing either, and its chassis shapes carry no `TSDetailPart`; its roots are selected one level up ([`mech-shape-drawing.md`](mech-shape-drawing.md#the-lod-root-is-chosen-per-frame-per-object)).

@@ -30,7 +30,7 @@ Against the shared table `00498cdc`, the five reach for only four slots between 
 
 | Pod | `+0x34` pool turn | `+0x50` tick | `+0x64` gauge | `+0x68` condition changed |
 |---|---|---|---|---|
-| base | `WeaponMount_RefireTick` (`0040ef94`) | `Pod_TickBase` (`0040f144`) | stub `00496684` | `WeaponMount_ConditionChangedBase` (`0040ee0c`) |
+| base | `WeaponMount_RefireTick` (`0040ef94`) | `Pod_TickBase` (`0040f144`) | pure virtual, `Rtl_PureVirtualCalled` (`00496684`) | `WeaponMount_ConditionChangedBase` (`0040ee0c`) |
 | ECM | — | `EcmPod_Tick` (`0040f184`) | `EcmPod_CreateGauge` | — |
 | TARG | — | — | `TargetingPod_CreateGauge` | `TargetingPod_ConditionChanged` (`0040ef6c`) |
 | SHLD | — | — | `ShieldPod_CreateGauge` | — |

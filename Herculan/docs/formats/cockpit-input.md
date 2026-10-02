@@ -179,7 +179,7 @@ Every widget in the clickable list carries its vtable at `+0x17` — the offset 
 - The MFD's latching button class and `HddButton` override `+8` to flip their own `+0x40` lit flag first and refuse a second press while lit ([`mfd.md`](mfd.md#two-button-classes)).
 - The throttle slider overrides it with `ThrottleSlider_OnValue`, along with `+0x10`/`+0x14`/`+0x18`/`+0x1c` for the real slider value and drag.
 
-An **owning** display object is a different class altogether, with its own shorter vtable — stored at offset 0 rather than `+0x17`, and headed by the click handler, which is why a forwarded click lands at *its* slot 0. `ShieldsGauge`'s is `0049ca1d`, four slots of `{OnClick, Paint, Update, 00452344}`; `MfdDisplay`'s is `0049cfa0`, five. Those objects are not in the clickable list and never see `Widget_Repaint`.
+An **owning** display object is a different class altogether, with its own shorter vtable — stored at offset 0 rather than `+0x17`, and headed by the click handler, which is why a forwarded click lands at *its* slot 0. `ShieldsGauge`'s is `0049ca1d`, four slots of `{OnClick, Paint, Update, KeyDispatch}`, the last `PanelGauge_KeyDispatchNone` (`00452344`) unless the class overrides it; `MfdDisplay`'s is `0049cfa0`, the same four. Those objects are not in the clickable list and never see `Widget_Repaint`.
 
 ### The second vtable
 
@@ -254,7 +254,7 @@ The four classes hanging straight off `CTLButtonControl` are the ones that take 
 
 A class with no content to rebuild skips the first stage: `ShieldFacing_FlushDeferredPaint` (`00444b70`) decrements at 2 without calling slot 0, and blits at 1.
 
-The tree walk is per class rather than generic — each composite gauge implements its own "slot 0 on all my children" and "slot `+0x0c` on all my children" pair (`00442058` and `0044207c` for the console panel).
+The tree walk is per class rather than generic — each composite gauge implements its own "slot 0 on all my children" and "slot `+0x0c` on all my children" pair (`ConsoleButtons_Paint` (`00442058`) and `ConsoleButtons_Update` (`0044207c`) for the console panel).
 
 ### The click value carries the mouse button
 
@@ -310,7 +310,7 @@ Traced end to end, as a concrete check of the whole pipeline above:
 
 **The `[` and `]` keys join at step 2, not at step 4.** `Mech_HandleCommand` (`004157c8`) answers scancodes `0x1a`/`0x1b` with a single `Widget_PressChild(CockpitViewInstance+0x1e9, key != 0x1b, 1)` — the shield gauge, child 1 for `[` and child 0 for `]`, with the left-button bit as the flags. That dispatches the facing's own press slot, which is `Widget_ForwardClickToOwner` again. So the key and the click are one code path from step 2 onward: same flag byte, same click sound, and the same ~10-coarse-tick auto-release (`WidgetRoot_FlashPress`, `00453078`) that pops the widget back up afterwards. Nothing in the image calls `Shield_BalanceAdjust` except `Shield_BalanceInputRead`, and nothing writes `+0xc2`/`+0xc3` except `ShieldsGauge_OnClick`.
 
-RAZOR is the exception on the key side only: `Mech_HandleCommand` is a mech vtable slot and the flyer class installs a stub there (`004215c0`), so the brackets do nothing in a RAZOR — but its facings are still built and still take clicks, over what is an altimeter rather than a shield meter in that cockpit (see [`herc-catalogs.md`](herc-catalogs.md)).
+RAZOR is the exception on the key side only: `Mech_HandleCommand` is a mech vtable slot and the flyer class installs a stub there (`Flyer_HandleCommandNoOp`, `004215c0`), so the brackets do nothing in a RAZOR — but its facings are still built and still take clicks, over what is an altimeter rather than a shield meter in that cockpit (see [`herc-catalogs.md`](herc-catalogs.md)).
 
 So the click sets a flag; a gameplay tick consumes the flag into real sim state and a dirty bit; the widget's own per-frame update slot is what actually repaints from that bit.
 

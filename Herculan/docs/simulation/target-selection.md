@@ -64,7 +64,7 @@ Runs once per tick from `Sim_MainTick`, **after** every object update and the in
 | < 80000 | The looking half runs at all |
 | < 50000 | Sets `obj+0x9e` and fires the engagement action |
 
-Looking: bearing plus aim twist against the ±`0x3800` sensor arc (`SimObject_BearingInSensorArc` (`00411acc`), vtable `+0x44`), then LOS. An AI machine's contact goes to `Detection_ShareContact` (`00412704`), which shares it to everything on its side within 100000; the player's machine keeps it to itself. The reciprocal bearing is tested from the other object's arc in the same pass.
+Looking: bearing plus aim twist against the ±`0x3800` sensor arc (`SimObject_BearingInSensorArc` (`00411acc`), vtable `+0x44`), then LOS. The sweep dispatches the arc through each object's own table, and all five structure classes install `Base_BearingInSensorArc_Always` (`00405308`) there, so a structure has no arc and sees all round. An AI machine's contact goes to `Detection_ShareContact` (`00412704`), which shares it to everything on its side within 100000; the player's machine keeps it to itself. The reciprocal bearing is tested from the other object's arc in the same pass.
 
 Decay (`Detection_DecayContacts`, `0041251c`) drops a contact past **100001** measured **on the ground plane only** (`Math_FastMagnitude2D`, where every other range here is the 3D approximation) or with no LOS, mutually.
 

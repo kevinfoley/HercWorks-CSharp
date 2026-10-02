@@ -54,7 +54,7 @@ public sealed class PartDetail(short radius, short[] thresholds, int levelCount,
 	private static readonly int[] HercBiasBySetting = { 2, 2, 1, 1, 0 };
 
 	/// <summary>
-	/// The bias a weapon mount's draw (<c>FUN_0040ded8</c>) and a gun shot off its mount
+	/// The bias a weapon mount's draw (<c>WeaponMount_RenderWithDetailBias</c> (<c>0040ded8</c>)) and a gun shot off its mount
 	/// (<c>Debris_Draw</c>) push for HERC DETAIL setting <paramref name="setting"/>, clamped to the
 	/// table as <see cref="ShapeDetail.BiasFor"/> is.
 	/// </summary>

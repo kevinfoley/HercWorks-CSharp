@@ -978,7 +978,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				  : "empty"))
 		: $"No {PilotRoster.ResourceName} — the comm boxes have no names and no portraits.");
 
-	// FLASH COMM's seven order keys, in the order MfdFlashComm_HandleAltKey (00446c10) and FUN_004469c0 both switch on their
+	// FLASH COMM's seven order keys, in the order MfdFlashComm_HandleAltKey (00446c10) and MfdDisplay_KeyDispatch (004469c0) both switch on their
 	// scancodes: which row each selects, and — for the two rows that carry two orders — which verb has to
 	// be showing before [Alt] will transmit it. -1 means transmit whatever the row reads.
 	(Key Key, int Row, int Verb)[] FlashCommKeys = {
@@ -2239,7 +2239,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 
 		// FLASH COMM's own keyboard, from the two dispatches that share it. The bare letters
-		// (FUN_004469c0's tail) only move the cursor and only while the page is up; the same letters with
+		// (MfdDisplay_KeyDispatch (004469c0)'s tail) only move the cursor and only while the page is up; the same letters with
 		// [Alt] (MfdFlashComm_HandleAltKey, 00446c10) select the row and transmit it in one go, from whichever screen is showing,
 		// which is why they are the shortcuts the manual gives. Each letter is the one its order's own
 		// attribute byte draws in red.
@@ -2960,7 +2960,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 						scene.Mission.PlayerRoute, cockpitArt.Strings)
 					: hudState.Command,
 
-				// FUN_0043f7a4's first act is to copy the display's row onto the screen, so the page's own
+				// MfdFlashCommScreen_Paint (0043f7a4)'s first act is to copy the display's row onto the screen, so the page's own
 				// row only survives between repaints — which is what lets an [Alt] hotkey pressed from
 				// another screen transmit a row the cursor never moved to.
 				FlashComm = flashComm.Snapshot(),
@@ -3995,7 +3995,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		&& (HddCommandHasKeyboard() || hudState.Hdd == HddPage.DamageDetail);
 
 	// The same split for FLASH COMM's own letters. In the original both of the page's key dispatches are
-	// mode-gated the same way — FUN_004469c0 returns immediately unless the MFD is on mode 1 — and none
+	// mode-gated the same way — MfdDisplay_KeyDispatch (004469c0) takes the letters only while the MFD is on mode 1 — and none
 	// of the seven letters means anything else anywhere in the cockpit. Here they collide with this
 	// host's camera and view keys, so the page only takes them while it is the screen showing and the
 	// Heads-Down Display is not down over it.
@@ -4393,7 +4393,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// Scene_SubmitFrameObjects (0042841c) submits every mech in GlobalMechList with no
 	// local-player test of any kind, so nothing in the original hides either.
 	//
-	// The mount's draw slot (FUN_0040ded8) pushes HERC DETAIL's TSDetailPart bias around the render.
+	// The mount's draw slot (WeaponMount_RenderWithDetailBias (0040ded8)) pushes HERC DETAIL's TSDetailPart bias around the render.
 	void RefreshWeaponItems() {
 		weaponItems.Clear();
 		int bias = PartDetail.HercBias(simulatorPreferences[Prefs.HercDetailOption]);

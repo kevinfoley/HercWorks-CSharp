@@ -103,7 +103,7 @@ public sealed class MfdFlashCommScreen {
 	public int SelectedVerb => VerbOf(_row);
 
 	/// <summary>
-	/// <c>FUN_0043f7a4</c>'s first act: the paint copies the display's row onto the screen. Call at
+	/// <c>MfdFlashCommScreen_Paint</c> (<c>0043f7a4</c>)'s first act: the paint copies the display's row onto the screen. Call at
 	/// the top of any frame FLASH COMM is the current screen.
 	/// </summary>
 	public void Sync() => _row = SelectedRow;

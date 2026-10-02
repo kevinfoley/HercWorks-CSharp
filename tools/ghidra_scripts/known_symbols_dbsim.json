@@ -97,12 +97,30 @@
       "source": "docs/simulation/ai-combat-states.md"
     },
     {
+      "address": "00401f08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TinyObj_GetPosition",
+      "description": "TINY_OBJ vtable +0x04 (00497321, also TS_TINY_OBJ's): copies this+0xc and this+0x10 into the static triple at 00497098 and returns it; the third dword (004970a0) is zeroed once, on the first call, under the latch at 004970a4. A tiny object stores only two position components, and every caller shares the one static buffer.",
+      "source": "DBSIM decompile and disassembly at 00401f08"
+    },
+    {
+      "address": "00401f50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TinyObj_InstallModelTransform",
+      "description": "TINY_OBJ vtable +0x00 (00497321): takes the position from its own vtable +0x04, builds a Q14 rotation from the Euler triple (0, 0, this+0x14) with BuildEulerRotationMatrixQ14 and installs it with Raster_SetModelTransform -- a heading-only transform. TSTinyObj_Draw runs it before drawing.",
+      "source": "DBSIM decompile at 00401f50"
+    },
+    {
       "address": "00401fa8",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "Raster_SetModelTransformFromPose",
-      "description": "(obj): builds a transform from the Euler angles at obj+0x1c (BuildEulerRotationMatrixQ14) with the translation obj+0x10/+0x14/+0x18 and installs it with Raster_SetModelTransform. Called from the undisassembled code at 00402cd4 that follows the 'TS_REG_OBJ' string.",
+      "description": "(obj): builds a transform from the Euler angles at obj+0x1c (BuildEulerRotationMatrixQ14) with the translation obj+0x10/+0x14/+0x18 and installs it with Raster_SetModelTransform. REG_OBJ's vtable +0x00 (004972d5); TSRegObj_Draw runs it before drawing.",
       "source": "DBSIM decompile at 00401fa8; es2_xref.py"
     },
     {
@@ -115,13 +133,31 @@
       "source": "docs/formats/mech-shape-drawing.md"
     },
     {
+      "address": "0040201c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTinyObj_Ctor",
+      "description": "(this, shape): constructor of TS_TINY_OBJ (vtable 00497301, RTTI 'TS_TINY_OBJ', 0x1a bytes). Installs DRAWABLE (004a14bc), then TINY_OBJ (00497321) with +0xc, +0x10 and the short at +0x14 zeroed, then TS_TINY_OBJ, and stores a new 0xc-byte TSShapeInstance for shape (TSShapeInstance_Ctor) at +0x16.",
+      "source": "DBSIM decompile at 0040201c; RTTI at 00497301 and 00497321"
+    },
+    {
+      "address": "004020b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSRegObj_Ctor",
+      "description": "(this, shape): constructor of TS_REG_OBJ (vtable 004972a9, RTTI 'TS_REG_OBJ', 0x26 bytes). Installs DRAWABLE (004a14bc); constructs a second base at +0xc with View_CtorBase(this+0xc, zero triple, zero triple); installs REG_OBJ (004972d5, secondary table 004972f1 at +0xc), then TS_REG_OBJ (secondary 004972c5); and stores a new 0xc-byte TSShapeInstance for shape at +0x22.",
+      "source": "DBSIM decompile at 004020b8; RTTI at 004972a9 and 004972d5"
+    },
+    {
       "address": "00402188",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "SimObjectBase_Constructor",
-      "description": "The shared base-object constructor helper every SimObject-derived class calls immediately after storing its own vtable pointer. The common prefix of the object layout is initialised here.",
-      "source": "docs/engine/planning.md 'Simulation object architecture'"
+      "description": "Constructor of TS_OBJ (TSObjVtable, 004a0b98, RTTI 'TS_OBJ', 0x41 bytes), (this, shape). Installs DRAWABLE (004a14bc), then MAT_OBJ (00497289) with +0xc, the short at +0x10, +0x26..+0x31 and the short at +0x32 zeroed, then TSObjVtable; stores a new 0xc-byte TSShapeInstance (TSShapeInstance_Ctor) for a non-null shape at +0x34, and zeroes +0x38..+0x3f. A derived class's constructor runs it first and installs its own table after. SimObjectBase_ConstructShaped is the variant that allocates a 0x42-byte animated shape instance instead.",
+      "source": "DBSIM decompile at 00402188; RTTI at 004a0b98"
     },
     {
       "address": "00402278",
@@ -129,7 +165,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObjectBase_ConstructShaped",
-      "description": "(this, shape): installs the DRAWABLE vtable (004a14bc, RTTI 'DRAWABLE'), then 00497289, then ProjectileSuperBaseVtable; zeroes +0xc, +0x10 and +0x26..+0x33; when shape is given allocates a 0x42-byte shape instance (ShapeInst_Construct) for +0x34; zeroes +0x38..+0x3f and sets +0x39, the byte SimObject_ApplyRootMotionIfEnabled tests. SimObjectBase_ConstructAnimated and SimObjectBase_ConstructWithDetailTable run it.",
+      "description": "(this, shape): installs the DRAWABLE vtable (004a14bc, RTTI 'DRAWABLE'), then MAT_OBJ's (00497289), then TSObjVtable (004a0b98, RTTI 'TS_OBJ'); zeroes +0xc, +0x10 and +0x26..+0x33; when shape is given allocates a 0x42-byte shape instance (ShapeInst_Construct) for +0x34; zeroes +0x38..+0x3f and sets +0x39, the byte SimObject_ApplyRootMotionIfEnabled tests. SimObjectBase_ConstructAnimated and SimObjectBase_ConstructWithDetailTable run it.",
       "source": "DBSIM decompile at 00402278; RTTI at 004a14bc"
     },
     {
@@ -140,6 +176,15 @@
       "name": "ShapeInst_AddThread",
       "description": "Builds one animation thread on an object's shape instance (obj+0x34): allocates 0x52 bytes, binds it to the shape's animation list, cuts it to the given sequence at frame 0 (AnimThread_SetSequence), sets its playback rate to zero and registers it on the instance (ShapeInst_RegisterThread). A caller that wants the thread running sets the rate itself. Called by Mech_Constructor for a HERC's three threads and by Base_Construct for a structure's two.",
       "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00402400",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimObj_Dtor",
+      "description": "ANIM_OBJ vtable +0x08 (004973ac): the deleting destructor, (this, flags). Reinstalls ANIM_OBJ's table; when the owns-animated-instance byte +0x39 is set, takes every thread off the shape instance at +0x34 (ShapeInst_RemoveThread on its first slot, +0x1a, until empty), Mem_Deletes each, deletes the instance through its own vtable +0x18 with flags 3 and clears +0x34. Then installs TSObjVtable, deletes +0x34 if still set, and Mem_Deletes this on flags bit 0. Every ACTOR-derived destructor (SimObject_Dtor, Mech_Dtor, Flyer_Dtor, the five structure destructors) and DetAnimObj_Dtor call it with flags 0 after their own levels.",
+      "source": "DBSIM decompile and disassembly at 00402400"
     },
     {
       "address": "0040250c",
@@ -187,6 +232,78 @@
       "source": "docs/simulation/structure-behaviour.md"
     },
     {
+      "address": "00402c75",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MatObj_GetPosition",
+      "description": "MAT_OBJ vtable +0x04 (00497289): returns this+0x26. MAT_OBJ's own copy of what SimObject_GetPosition (0046b801) does for TS_OBJ and every class below it.",
+      "source": "DBSIM disassembly at 00402c75"
+    },
+    {
+      "address": "00402cd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSRegObj_Draw",
+      "description": "TS_REG_OBJ vtable +0x00 (004972a9): Raster_SetModelTransformFromPose(this), then draws the shape instance at +0x22 through its own vtable +0x1c.",
+      "source": "DBSIM disassembly at 00402cd4"
+    },
+    {
+      "address": "00402cef",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RegObj_GetPosition",
+      "description": "REG_OBJ vtable +0x04 (004972d5, also TS_REG_OBJ's): returns this+0x10, the translation Raster_SetModelTransformFromPose reads.",
+      "source": "DBSIM decompile at 00402cef"
+    },
+    {
+      "address": "00402cfa",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSRegObj_Dtor",
+      "description": "TS_REG_OBJ vtable +0x08 (004972a9): the deleting destructor, (this, flags). Reinstalls TS_REG_OBJ's two tables, deletes the shape instance at +0x22 through its own vtable +0x18 with flags 3, runs TSContext_Dtor(this+0xc, 0) on the second base, and Mem_Deletes this on flags bit 0.",
+      "source": "DBSIM decompile at 00402cfa"
+    },
+    {
+      "address": "00402e02",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RegObj_Dtor",
+      "description": "REG_OBJ vtable +0x08 (004972d5): the deleting destructor, (this, flags). TSContext_Dtor(this+0xc, 0) on the second base, then Mem_Delete(this) on flags bit 0.",
+      "source": "DBSIM disassembly at 00402e02"
+    },
+    {
+      "address": "00402e98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTinyObj_Draw",
+      "description": "TS_TINY_OBJ vtable +0x00 (00497301): TinyObj_InstallModelTransform(this), then draws the shape instance at +0x16 through its own vtable +0x1c.",
+      "source": "DBSIM disassembly at 00402e98"
+    },
+    {
+      "address": "00402eb3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTinyObj_Dtor",
+      "description": "TS_TINY_OBJ vtable +0x08 (00497301): the deleting destructor, (this, flags). Reinstalls TS_TINY_OBJ's table, deletes the shape instance at +0x16 through its own vtable +0x18 with flags 3, and Mem_Deletes this on flags bit 0.",
+      "source": "DBSIM decompile at 00402eb3"
+    },
+    {
+      "address": "00402f94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TinyObj_Dtor",
+      "description": "TINY_OBJ vtable +0x08 (00497321): the deleting destructor, (this, flags). Two RTL destructor-count decrements (TINY_OBJ, DRAWABLE), then Mem_Delete(this) on flags bit 0.",
+      "source": "DBSIM disassembly at 00402f94"
+    },
+    {
       "address": "00402fc0",
       "binary": "DBSIM",
       "type": "function",
@@ -223,6 +340,24 @@
       "description": "Walks a root's hardpoint slot list against the machine's mount array and overwrites each slot: the mount's weapon shape when one is fitted, else the next 0x18-byte blank from typeRec+0xec. The replacement inherits the placeholder's TSBasePart transform (+4) and id number (+6). This is why a machine's own .DTS placeholder geometry is never drawn, fitted or not.",
       "source": "docs/formats/mech-shape-drawing.md",
       "signature": "void __cdecl Mech_SpliceHardpointShapes(void *slotList, void *mountArray, int blankRecords)"
+    },
+    {
+      "address": "0040316c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConfigPart_Render",
+      "description": "CONFIG_PART vtable +0x1c (0049a494): draws the shape bound in the part's SHAPE_INST member. When +0x10 holds a shape: makes shape+0x26 the current DBA context (g_CurrentShapeDbaContext), TSGroup_BindNodeTransform(this, local), makes the part's own cell-frame copy (+0x14) g_CellAnimFrames, TSPartList_Render(shape), restores both globals and calls Render_NoOp. The private frame copy is what lets each mount's weapon model play its own flipbook.",
+      "source": "DBSIM decompile at 0040316c; docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "004031d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConfigPart_CreateArray",
+      "description": "(array, source, shapes): stores source at array+6 and its short count (source+4) at array+4, allocates count pointers (Mem_NewArray) at array+0, and fills each with a new 0x18-byte CONFIG_PART built inline -- ClassItem, TSBase, TSPartBase, then ShapeInstance_CtorCellFrames(part+0x10, *shapes++), then CONFIG_PART's table (0049a494).",
+      "source": "DBSIM decompile at 004031d4"
     },
     {
       "address": "0040332c",
@@ -506,6 +641,15 @@
       "source": "docs/simulation/hit-detection.md"
     },
     {
+      "address": "00405308",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_BearingInSensorArc_Always",
+      "description": "Vtable +0x44 of all five structure tables (BASE, RADAR_BASE, GUN_BASE, VEHICLE, LC_BASE): returns 1 in AX for any bearing, where the ACTOR base, mech and flyer share SimObject_BearingInSensorArc's +/-78.75 degree arc, so the arc test always passes for a structure.",
+      "source": "DBSIM decompile and disassembly at 00405308"
+    },
+    {
       "address": "00405314",
       "binary": "DBSIM",
       "type": "function",
@@ -597,6 +741,60 @@
       "name": "Base_FirstLiveComponent",
       "description": "Base vtable +0x54. With a null second argument returns the first component index whose damage word is non-zero, which is what Ai_AimAndFire asks for. With a mech it instead returns the component whose world position is nearest that machine's aim in |dyaw| + |dpitch|.",
       "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "00406caf",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_TripleTurretDtor",
+      "description": "LC_BASE vtable +0x08 (00497784, BASES.DAT type 0x22): the deleting destructor, (this, flags). Four RTL destructor-count decrements (LC_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this) instead of a Mem_Delete.",
+      "source": "DBSIM disassembly at 00406caf"
+    },
+    {
+      "address": "00406cfe",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ReassessTickNoOp",
+      "description": "Vtable +0x1c (the reassess slot) of all five structure tables: returns 0 and does nothing. A structure's whole behaviour runs from its +0x18 think.",
+      "source": "DBSIM decompile and disassembly at 00406cfe"
+    },
+    {
+      "address": "00406d05",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GroundVehicle_Dtor",
+      "description": "VEHICLE vtable +0x08 (00497818): the deleting destructor, (this, flags). Five RTL destructor-count decrements (VEHICLE, GUN_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
+      "source": "DBSIM decompile and disassembly at 00406d05"
+    },
+    {
+      "address": "00406d5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ArmedDtor",
+      "description": "GUN_BASE vtable +0x08 (004978ac): the deleting destructor, (this, flags). Four RTL destructor-count decrements (GUN_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
+      "source": "DBSIM decompile and disassembly at 00406d5c"
+    },
+    {
+      "address": "00406dab",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_Dtor",
+      "description": "BASE vtable +0x08 (00497940): the deleting destructor, (this, flags). Three RTL destructor-count decrements (BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
+      "source": "DBSIM decompile and disassembly at 00406dab"
+    },
+    {
+      "address": "00406df3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_RadarDtor",
+      "description": "RADAR_BASE vtable +0x08 (004979d4): the deleting destructor, (this, flags). Four RTL destructor-count decrements (RADAR_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
+      "source": "DBSIM decompile and disassembly at 00406df3"
     },
     {
       "address": "00406e44",
@@ -716,6 +914,15 @@
       "source": "docs/formats/effect-lights.md"
     },
     {
+      "address": "004075c1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSOmniLight_Dtor",
+      "description": "TSOmniLight vtable +0x00 (00497ac8, RTTI 'TSOmniLight', 0x40 bytes, derived from TSLight), the destructor named by its class record: (light, flags). Two RTL destructor-count decrements, TSContext_Dtor(light+0x1e, 2), TSContext_Dtor(light, 0), then Mem_Delete on flags bit 0 -- TSSunLight_Dtor's body.",
+      "source": "DBSIM disassembly at 004075c1; class record at 0040756d"
+    },
+    {
       "address": "00407604",
       "binary": "DBSIM",
       "type": "function",
@@ -797,6 +1004,33 @@
       "source": "DBSIM decompile at 00407878"
     },
     {
+      "address": "0040798c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSAmbientLight_Dtor",
+      "description": "TSAmbientLight vtable +0x00 (00497adc, RTTI 'TSAmbientLight', 0x34 bytes, derived from TSLight), the destructor named by its class record: (light, flags). Two RTL destructor-count decrements, TSContext_Dtor(light+0x1e, 2), TSContext_Dtor(light, 0), then Mem_Delete on flags bit 0 -- TSSunLight_Dtor's body.",
+      "source": "DBSIM disassembly at 0040798c; class record at 00407934"
+    },
+    {
+      "address": "00407ac1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EffectLight_DrawNoOp",
+      "description": "LightSource vtable +0x00 (00497b8a, RTTI 'LightSource', 0xe bytes, derived from DRAWABLE): push ebp / mov ebp,esp / pop ebp / ret. An effect light draws nothing.",
+      "source": "DBSIM disassembly at 00407ac1"
+    },
+    {
+      "address": "00407ac6",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EffectLight_GetPositionNull",
+      "description": "LightSource vtable +0x04 (00497b8a): returns 0 -- a null position pointer.",
+      "source": "DBSIM decompile and disassembly at 00407ac6"
+    },
+    {
       "address": "00407b20",
       "binary": "DBSIM",
       "type": "function",
@@ -829,7 +1063,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Explosion_Destruct",
-      "description": "Explosion vtable +0x08: queues the effect's ground shape (+0x4f) on g_FlatObjDeleteQueue and its light (+0x53) on the queue at 004a9686, then as FlatObj_Destruct: restores ProjectileSuperBaseVtable, deletes the shape instance at +0x34 (flag 3), frees on the flag's low bit.",
+      "description": "Explosion vtable +0x08: queues the effect's ground shape (+0x4f) on g_FlatObjDeleteQueue and its light (+0x53) on the queue at 004a9686, then as FlatObj_Destruct: restores TSObjVtable, deletes the shape instance at +0x34 (flag 3), frees on the flag's low bit.",
       "source": "docs/simulation/ground-shapes.md"
     },
     {
@@ -1057,6 +1291,42 @@
       "source": "docs/simulation/random-generator.md"
     },
     {
+      "address": "004096d7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Smoke_DrawNoOp",
+      "description": "SMOKE vtable +0x00 (00498064, RTTI 'SMOKE', derived from DRAWABLE): push ebp / mov ebp,esp / pop ebp / ret. The smoke emitter draws nothing itself; the SMOKE_BALLs Smoke_Tick places are what is seen.",
+      "source": "DBSIM disassembly at 004096d7"
+    },
+    {
+      "address": "004096dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Smoke_GetPositionNull",
+      "description": "SMOKE vtable +0x04 (00498064): returns 0 -- a null position pointer.",
+      "source": "DBSIM decompile and disassembly at 004096dc"
+    },
+    {
+      "address": "004096e3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Smoke_Dtor",
+      "description": "SMOKE vtable +0x08 (00498064), the destructor its class record names: (this, flags). Two RTL destructor-count decrements (SMOKE, DRAWABLE), then Mem_Delete(this) on flags bit 0.",
+      "source": "DBSIM decompile at 004096e3; class record at 00409687"
+    },
+    {
+      "address": "0040970d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SmokeBall_Dtor",
+      "description": "SMOKE_BALL vtable +0x08 (00498084), the destructor its class record names: (this, flags). Installs TSObjVtable, deletes the shape instance at +0x34 through its own vtable +0x18 with flags 3, and Mem_Deletes this on flags bit 0.",
+      "source": "DBSIM decompile at 0040970d; class record at 00409633"
+    },
+    {
       "address": "004097a8",
       "binary": "DBSIM",
       "type": "function",
@@ -1209,7 +1479,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_Fire",
-      "description": "Rocket_Fire(subtypeId, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed) -- spawns one PROJ.DAT Type-0 rocket from the effect pool DAT_004a9746. Always builds via Rocket_Construct; Grenade_Construct is never called. Speed = ownerTravelSpeed + literal 500. Attaches mech+0x1a4 (selected target) only when mech vtable +0x6c returns nonzero. Plays ROCKETS.DAT +0x0c + 10.",
+      "description": "Rocket_Fire(subtypeId, muzzleWorldPoint, aimEulerTriple, launcher, ownerTravelSpeed) -- spawns one PROJ.DAT Type-0 rocket from the effect pool DAT_004a9746. Always builds via Rocket_Construct; Grenade_Construct is never called. Speed = ownerTravelSpeed + literal 500. Attaches the launcher's +0x1a4 (selected target) when the launcher is not locally simulated (+0xa3 clear) and the subtype is 3, or else when the launcher's vtable +0x6c returns nonzero -- Mech_MissileLockState for a machine, SimObject_MissileLockState_Always (1) for a flyer or a structure. Plays ROCKETS.DAT +0x0c + 10.",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -1227,8 +1497,26 @@
       "type": "function",
       "confidence": "high",
       "name": "Grenade_Construct",
-      "description": "DEAD CODE, and the class is GRENADE -- its Borland class record at 0040acdc names it, with PROJECTILE (0040c2d0) as its one base, as for ROCKET and BULLET. See docs/formats/borland-rtti.md. Constructs a PROJ.DAT Type-3 object. A whole-image scan for 0040ac3c -- every section, bare LE dword and E8/E9 rel32 targets -- finds it nowhere but its own prologue, so nothing calls it; its vtable GrenadeVtable (004984fc) has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data for a cut grenade weapon.",
+      "description": "DEAD CODE, and the class is GRENADE -- its Borland class record at 0040acdc names it, with PROJECTILE (0040c2d0) as its one base, as for ROCKET and BULLET. See docs/formats/borland-rtti.md. Constructs a PROJ.DAT Type-3 object. A whole-image scan for 0040ac3c -- every section, bare LE dword and E8/E9 rel32 targets -- finds it nowhere but its own prologue, so nothing calls it; its vtable GrenadeVtable (004984fc) has Grenade_TickNoOp (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data for a cut grenade weapon.",
       "source": "docs/simulation/rockets.md"
+    },
+    {
+      "address": "0040acac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Grenade_FireNoOp",
+      "description": "An empty body in the GRENADE class's code, called by GrenadeMount_FireDispatch where the other fire dispatches call Rocket_Fire or Bullet_FireBurst -- so the grenade mount spends a round and launches nothing.",
+      "source": "DBSIM decompile at 0040acac; docs/simulation/weapon-damage-types.md"
+    },
+    {
+      "address": "0040acb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Grenade_TickNoOp",
+      "description": "GRENADE vtable +0x14, the tick slot: returns 0 and does nothing. For the projectile tick a non-zero return is what makes Sim_MainTick free the object (BeamTracer_LifeTick).",
+      "source": "docs/simulation/weapon-damage-types.md"
     },
     {
       "address": "0040ad2c",
@@ -1752,9 +2040,10 @@
       "address": "0040ded8",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "low",
-      "description": "Draw wrapper: pushes g_TSDetailBiasFromHercDetail into the TSDetailPart bias via TSDetailPart_SetBias, calls FUN_0040316c, restores the bias to 0. The same bracket Structure_DrawWithDetailBias applies, but from the HERC DETAIL table rather than the STRUCTURE DETAIL one. What FUN_0040316c draws is not traced.",
-      "source": "docs/formats/mech-shape-drawing.md"
+      "confidence": "high",
+      "name": "WeaponMount_RenderWithDetailBias",
+      "description": "Vtable +0x1c of GUN_STATE (00498e44) and all ten weapon-mount classes below it, in place of CONFIG_PART's own ConfigPart_Render: pushes g_TSDetailBiasFromHercDetail into the TSDetailPart bias via TSDetailPart_SetBias, runs ConfigPart_Render on the mount -- its weapon model with its own flipbook frames -- and restores the bias to 0. The same bracket Structure_DrawWithDetailBias applies, but from the HERC DETAIL table rather than the STRUCTURE DETAIL one.",
+      "source": "DBSIM decompile at 0040ded8 and 0040316c; docs/formats/dts-texture-binding.md"
     },
     {
       "address": "0040df00",
@@ -1762,7 +2051,25 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_MatchGaugeNever",
-      "description": "The pod base class's vtable +0x58 gauge-match slot: returns 0 unconditionally, so WeaponMounts_SelectByGauge can never find a pod. The energy and ammunition classes (FUN_0040df08, FUN_0040df1c) compare the argument against the mount's own gauge pointer at +0x77 instead. Together with the pod constructor clearing the selectable byte +0x4c, this is why a pod's cockpit row cannot be armed.",
+      "description": "GUN_STATE's vtable +0x58 gauge-match slot (00498e44), kept by POD_WPN and the five pods: returns 0 unconditionally, so WeaponMounts_SelectByGauge can never find a pod. The energy and ammunition classes (WeaponMount_EnergyMatchGauge, WeaponMount_AmmoMatchGauge) compare the argument against the mount's own gauge pointer at +0x77 instead. Together with the pod constructor clearing the selectable byte +0x4c, this is why a pod's cockpit row cannot be armed.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040df08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_EnergyMatchGauge",
+      "description": "ENERGY_WPN and ELF_WPN vtable +0x58: returns gauge == mount+0x77, the mount's own cockpit gauge. WeaponMounts_SelectByGauge finds the mount a clicked row belongs to with it.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040df1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AmmoMatchGauge",
+      "description": "PROJECTILE_WPN and GRENADE_WPN vtable +0x58: returns gauge == mount+0x77, the same comparison as WeaponMount_EnergyMatchGauge.",
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
@@ -1809,6 +2116,15 @@
       "name": "WeaponMount_GetDisplayName",
       "description": "The name a weapon gauge prints for a mount. If the mount's resolved PROJ.DAT record (+0x20) is null or its category is non-zero, copies the template's name pointer (+0x52, written by Weapons_LoadResourceTables from the 33-entry array at 00498eb0). If the record is a Missile (category 0), copies MissileAmmoNameTable[record.subtypeId] instead -- so a launcher is named by its loaded ammunition (ARH, SARH, ...), not by its weapon id. Returns a pointer to the shared scratch buffer at 004a9954.",
       "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040e20c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_CreateAmmoGauge",
+      "description": "PROJECTILE_WPN and GRENADE_WPN vtable +0x64, the gauge factory WeaponMounts_BuildGauges dispatches: CockpitView_CreateAmmoWeaponGauge(CockpitViewInstance, the hardpoint record's row byte (+0x18)+7, mount) into +0x77. The energy counterpart is WeaponMount_CreateEnergyGauge.",
+      "source": "DBSIM decompile at 0040e20c"
     },
     {
       "address": "0040e234",
@@ -1978,6 +2294,15 @@
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
+      "address": "0040e678",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pod_TriggerHeldNever",
+      "description": "POD_WPN vtable +0x30 (00498cdc), kept by all five pods: returns 0, so a pod never reports its trigger held.",
+      "source": "DBSIM decompile at 0040e678"
+    },
+    {
       "address": "0040e680",
       "binary": "DBSIM",
       "type": "function",
@@ -1986,6 +2311,15 @@
       "description": "ElfMountVtable +0x30, a spin-up rather than the plain trigger read WeaponMount_TriggerHeld does. While the latch +0x48 is clear it returns 0 -- no shot -- and a fresh press instead sets +0x47 and resets the cell timer at +0x84; ElfMount_SpinUpAndChargeTick then walks the muzzle-flash flipbook and latches +0x48 at the last cell. Once latched it returns the input device's fire byte, and release clears +0x48 and rewinds the flipbook. ELF2 SKIPS THE SPIN-UP: the function opens by forcing both flags to 1 when template+0x56 (the record's self-index) is 22.",
       "source": "docs/simulation/weapon-mounts.md",
       "signature": "char __cdecl ElfMount_TriggerHeld(void *mount, void *inputDevice)"
+    },
+    {
+      "address": "0040e71c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GrenadeMount_TriggerHeld",
+      "description": "GRENADE_WPN vtable +0x30 (00499248), (mount, input): a hold-to-throw trigger. Idle (+0x46 clear), a press (input+0xd) starts it -- +0x46 = 1, +0x81 = 20000 -- and returns 0. While charging it returns 1 on release; held, it adds 1000 to +0x81 per call and returns 1 once that passes 100000, calling Input_LatchButton(1, 1) as it does.",
+      "source": "DBSIM decompile at 0040e71c"
     },
     {
       "address": "0040e788",
@@ -1997,6 +2331,15 @@
       "source": "docs/simulation/weapon-firing.md; docs/simulation/ai-weapons.md"
     },
     {
+      "address": "0040e95c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pod_FireNoOp",
+      "description": "POD_WPN vtable +0x28 (00498cdc), kept by all five pods: an empty fire dispatch.",
+      "source": "DBSIM decompile at 0040e95c"
+    },
+    {
       "address": "0040e964",
       "binary": "DBSIM",
       "type": "function",
@@ -2004,6 +2347,15 @@
       "name": "WeaponMount_FireDispatch_Missile",
       "description": "Missile-capable-hardpoint fire dispatcher: checks the mount's cached PROJ.DAT Type field, Type==Missile(0) -> Rocket_Fire, else falls through to the shared Bullet fallback.",
       "source": "docs/simulation/rockets.md"
+    },
+    {
+      "address": "0040ea04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GrenadeMount_FireDispatch",
+      "description": "GRENADE_WPN vtable +0x28 (00499248), (mount, a, b): WeaponMount_PrepareShot(mount, a); takes one round off +0x7b when the third argument (a short) is zero; clears the charging latch +0x46; then Grenade_FireNoOp.",
+      "source": "DBSIM decompile at 0040ea04"
     },
     {
       "address": "0040ea58",
@@ -2025,6 +2377,15 @@
       "signature": "void __cdecl ElfMount_FireDispatch(void *mount, void *owner)"
     },
     {
+      "address": "0040ecd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pod_CanFireNever",
+      "description": "POD_WPN vtable +0x2c (00498cdc), kept by all five pods: returns 0, so WeaponMounts_FireTrigger never finds a pod ready.",
+      "source": "DBSIM decompile at 0040ecd4"
+    },
+    {
       "address": "0040ecdc",
       "binary": "DBSIM",
       "type": "function",
@@ -2033,6 +2394,24 @@
       "description": "Energy mount vtable+0x2c: not destroyed (+0x49), refire timer (+0x31) expired, and charge (+0x7d) at or above a threshold taken from the template's +0x36/+0x38 pair -- max(+0x36, +0x7b) when +0x36 < +0x38, otherwise +0x38 outright. Both shapes occur in retail data (EMP 350/10000, LAS100 80/80). NOT the test the ELFs use, despite their (400, 70) template -- they have their own class, see ElfMount_CanFire.",
       "source": "docs/simulation/weapon-mounts.md",
       "signature": "int __cdecl WeaponMount_EnergyCanFire(void *mount)"
+    },
+    {
+      "address": "0040ed34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_EnergyIsSpent",
+      "description": "ENERGY_WPN and ELF_WPN vtable +0x5c: returns the destroyed byte +0x49, sign-extended. Ai_ChooseWeapon passes over a mount whose +0x5c answers non-zero, and latches 'no weapons left' when every mount does.",
+      "source": "DBSIM decompile at 0040ed34"
+    },
+    {
+      "address": "0040ed48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AmmoIsSpent",
+      "description": "PROJECTILE_WPN and GRENADE_WPN vtable +0x5c: returns 1 when the rounds remaining (+0x7b) are zero or the mount is destroyed (+0x49), otherwise 0. Ai_ChooseWeapon passes over a spent mount.",
+      "source": "DBSIM decompile at 0040ed48"
     },
     {
       "address": "0040ed6c",
@@ -2073,12 +2452,21 @@
       "signature": "void __cdecl WeaponMount_ConditionChangedBase(void *mount, void *mech, int before, int after)"
     },
     {
+      "address": "0040ee38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_ConditionChangedEnergy",
+      "description": "ENERGY_WPN and ELF_WPN vtable +0x68: WeaponMount_ConditionChangedBase, then sets the charge rate +0x7f to 20, less Math_Q10Multiply(20, ((reading - 0x80) / 0x19) * 100) when the reading (last argument) is past 0x80 -- a damaged energy mount charges more slowly. The two weapon-carrying classes' other override is WeaponMount_ConditionChanged.",
+      "source": "DBSIM decompile at 0040ee38"
+    },
+    {
       "address": "0040ee90",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_ConditionChanged",
-      "description": "Vtable +0x68 for the two mount classes that carry a weapon. Runs the base slot, then, while the mount is not empty (+0x7b) and the reading is past 0x80: a Missile mount rolls rand & 0x3ff < 300 for each 25 points crossed and the first success destroys it; a Bullet mount instead sets its refire scale mount+0x63 = 0x400 - steps * 0x66, which makes a damaged gun fire FASTER since WeaponMount_PrepareShot multiplies by it; a Beam mount gets neither.",
+      "description": "Vtable +0x68 of the ammunition classes, PROJECTILE_WPN and GRENADE_WPN (the energy classes install WeaponMount_ConditionChangedEnergy). Runs the base slot, then, while the mount is not empty (+0x7b) and the reading is past 0x80: a Missile mount rolls rand & 0x3ff < 300 for each 25 points crossed and the first success destroys it; a Bullet mount instead sets its refire scale mount+0x63 = 0x400 - steps * 0x66, which makes a damaged gun fire FASTER since WeaponMount_PrepareShot multiplies by it; a Beam mount gets neither.",
       "source": "docs/simulation/weapon-mounts.md",
       "signature": "void __cdecl WeaponMount_ConditionChanged(void *mount, void *mech, int before, int after)"
     },
@@ -2177,6 +2565,15 @@
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
+      "address": "0040f3b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GrenadeMount_PushGaugeState",
+      "description": "GRENADE_WPN vtable +0x50 (00499248): passes its four arguments straight to WeaponMount_PushAmmoGaugeState.",
+      "source": "DBSIM decompile at 0040f3b8"
+    },
+    {
       "address": "0040f3d8",
       "binary": "DBSIM",
       "type": "function",
@@ -2222,6 +2619,15 @@
       "source": "docs/simulation/reactor-energy-pool.md"
     },
     {
+      "address": "0040f520",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AmmoCountsInCombatRating",
+      "description": "PROJECTILE_WPN and GRENADE_WPN vtable +0x54: rounds remaining (+0x7b) >= the magazine size (template+0x3a) >> 3. Mech_ComputeCombatRating adds a mount's value (template+0x4e, scaled by its condition) only when this slot answers non-zero, so a launcher or gun below an eighth of a magazine stops counting.",
+      "source": "DBSIM decompile at 0040f520"
+    },
+    {
       "address": "0040f540",
       "binary": "DBSIM",
       "type": "function",
@@ -2241,6 +2647,15 @@
       "signature": "void __cdecl WeaponMount_Destroy(void *mount, void *mech, short longDebrisLifetime)"
     },
     {
+      "address": "0040f7e6",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_Dtor",
+      "description": "DEBRIS vtable +0x08 (00497ed8), the destructor its class record names: (this, flags). Two RTL destructor-count decrements, installs TSObjVtable, deletes the shape instance at +0x34 through its own vtable +0x18 with flags 3, two more decrements, and Mem_Deletes this on flags bit 0. Meteor_Dtor is the same body.",
+      "source": "DBSIM disassembly at 0040f7e6; class record at 0040f796"
+    },
+    {
       "address": "0040f881",
       "binary": "DBSIM",
       "type": "function",
@@ -2249,6 +2664,24 @@
       "description": "dst[i] &= src[i] over 8 bytes. WeaponMount_RefireTick calls it as (mount+0x33, mount+0x3b) and then clears +0x3b, while WeaponMount_PrepareShot sets both on firing -- so +0x33 survives only while the mount fires on every tick and drops on the first tick it sits out. It is an 'is still firing' flag, not 'has ever fired', and ElfMount_CanFire is what reads it.",
       "source": "docs/simulation/weapon-mounts.md",
       "signature": "void __cdecl WeaponMount_AndFlagBlocks(unsigned char *dst, unsigned char *src)"
+    },
+    {
+      "address": "0040f89f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DrainNoOp",
+      "description": "GUN_STATE vtable +0x4c (00498e44), kept by POD_WPN and the five pods: an empty body. The energy classes install WeaponMount_DrainCapacitor, the ammunition classes WeaponMount_DrainAmmo.",
+      "source": "DBSIM decompile at 0040f89f"
+    },
+    {
+      "address": "0040f8a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_IsSpent_Always",
+      "description": "GUN_STATE vtable +0x5c (00498e44), kept by POD_WPN and the five pods: returns 1, so Ai_ChooseWeapon never considers a pod and a pod never keeps the 'no weapons left' latch off.",
+      "source": "DBSIM decompile at 0040f8a4"
     },
     {
       "address": "0040f8ad",
@@ -2466,7 +2899,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_ArbitrateEnergy",
-      "description": "Vtable slot 0 of the weapon-mount-manager at mech+0x202 for both manager classes; the weapon half of the Master Energy Pool tick. Serves the player's selected mount first (manager+0x1d; AI passes -1), then the remaining mounts highest-priority-first by vtable+0x48. Each mount takes its share via vtable+0x34 and passes the remainder on. Once any mount reports itself mid-charge (+0x43), every later mount targets zero instead and bleeds its capacitor back to the pool, so only one energy weapon charges at a time. Returns the unclaimed budget. A player-only infinite-energy debug path refunds all consumption when DAT_004a9ed6==0 and DAT_004a9edc==1.",
+      "description": "The weapon half of the Master Energy Pool tick, (manager, budget, selection, arg). Reached through the mount manager's vtable slot 0: GUNLIST's WeaponMounts_ArbitrateEnergyNoSelection passes -1, PLAYER_GUNLIST's WeaponMounts_ArbitrateEnergyWithSelection the selection byte manager+0x1d. Serves the selected mount first, then the remaining mounts highest-priority-first by vtable+0x48. Each mount takes its share via vtable+0x34 and passes the remainder on. Once any mount reports itself mid-charge (+0x43), every later mount targets zero instead and bleeds its capacitor back to the pool, so only one energy weapon charges at a time. Returns the unclaimed budget. A player-only infinite-energy debug path refunds all consumption when DAT_004a9ed6==0 and DAT_004a9edc==1.",
       "source": "docs/simulation/reactor-energy-pool.md"
     },
     {
@@ -2590,6 +3023,141 @@
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
+      "address": "00411174",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyPod_Dtor",
+      "description": "ENERGY_POD vtable +0x18 (00498a84), the destructor its class record names: (this, flags). The weapon-mount teardown -- one RTL destructor-count decrement per class level, HeapBlockOwner_Dtor(this+0x10, 0) on the weapon model's cell-frame holder, TSBase_Dtor(this, 0) -- then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00411174; class record at 00411120"
+    },
+    {
+      "address": "004111ce",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AdjustPowerLevelNoOp",
+      "description": "GUN_STATE vtable +0x38 (00498e44), kept by POD_WPN, the five pods and both ammunition classes: an empty body. Only the energy classes install WeaponMount_AdjustPowerLevel.",
+      "source": "DBSIM decompile at 004111ce"
+    },
+    {
+      "address": "004111d3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_WakeCapacitorNoOp",
+      "description": "GUN_STATE vtable +0x3c (00498e44), kept by POD_WPN, the five pods and both ammunition classes: an empty body. Only the energy classes install WeaponMount_WakeCapacitor.",
+      "source": "DBSIM decompile at 004111d3"
+    },
+    {
+      "address": "004111d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DemandFullChargeNoOp",
+      "description": "GUN_STATE vtable +0x40 (00498e44), kept by POD_WPN, the five pods and both ammunition classes: an empty body. Only the energy classes install WeaponMount_DemandFullCharge.",
+      "source": "DBSIM decompile at 004111d8"
+    },
+    {
+      "address": "004111dd",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_ZeroChargeTargetNoOp",
+      "description": "GUN_STATE vtable +0x44 (00498e44), kept by POD_WPN, the five pods and both ammunition classes: an empty body. Only the energy classes install WeaponMount_ZeroChargeTarget.",
+      "source": "DBSIM decompile at 004111dd"
+    },
+    {
+      "address": "004111e2",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_GetEnergyPriorityZero",
+      "description": "GUN_STATE vtable +0x48 (00498e44), kept by POD_WPN, the five pods and both ammunition classes: returns 0. Only the energy classes install WeaponMount_GetEnergyPriority.",
+      "source": "DBSIM decompile at 004111e2"
+    },
+    {
+      "address": "004111e9",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_CountsInCombatRating_Always",
+      "description": "GUN_STATE vtable +0x54 (00498e44), kept by POD_WPN, the five pods, ENERGY_WPN and ELF_WPN: returns 1, so every such mount's value counts in Mech_ComputeCombatRating. The ammunition classes install WeaponMount_AmmoCountsInCombatRating.",
+      "source": "DBSIM decompile at 004111e9"
+    },
+    {
+      "address": "00411246",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldPod_Dtor",
+      "description": "SHIELD_POD vtable +0x18 (00498afc), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00411246; class record at 004111f2"
+    },
+    {
+      "address": "004112f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetingPod_Dtor",
+      "description": "TARGETING_POD vtable +0x18 (00498b74), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004112f8; class record at 004112a0"
+    },
+    {
+      "address": "004113a6",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPod_Dtor",
+      "description": "TURBO_POD vtable +0x18 (00498bec), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004113a6; class record at 00411352"
+    },
+    {
+      "address": "00411450",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EcmPod_Dtor",
+      "description": "ECM_POD vtable +0x18 (00498c64), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00411450; class record at 00411400"
+    },
+    {
+      "address": "004114fa",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pod_DtorBase",
+      "description": "POD_WPN vtable +0x18 (00498cdc), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004114fa; class record at 004114aa"
+    },
+    {
+      "address": "004115a5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DtorAmmunition",
+      "description": "PROJECTILE_WPN vtable +0x18 (00498d54), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004115a5; class record at 0041154d"
+    },
+    {
+      "address": "004115f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DrainAmmo",
+      "description": "PROJECTILE_WPN and GRENADE_WPN vtable +0x4c, the slot the energy classes fill with WeaponMount_DrainCapacitor: zeroes the rounds remaining (+0x7b).",
+      "source": "DBSIM decompile at 004115f8"
+    },
+    {
+      "address": "0041165a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DtorEnergy",
+      "description": "ENERGY_WPN vtable +0x18 (00498dcc), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0041165a; class record at 00411606"
+    },
+    {
       "address": "004116ad",
       "binary": "DBSIM",
       "type": "function",
@@ -2608,6 +3176,42 @@
       "source": "DBSIM decompile at 004116cf; DBSIM_vtables_full.txt"
     },
     {
+      "address": "00411743",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DtorBase",
+      "description": "GUN_STATE vtable +0x18 (00498e44, RTTI 'GUN_STATE', 0x77 bytes, derived from CONFIG_PART), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00411743; class record at 004116ef"
+    },
+    {
+      "address": "0041194a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_ArbitrateEnergyWithSelection",
+      "description": "PLAYER_GUNLIST vtable +0x00 (00499238), (manager, budget, arg): WeaponMounts_ArbitrateEnergy(manager, budget, the selection byte manager+0x1d, arg) -- the pool turn that serves the selected mount first. The GUNLIST base installs WeaponMounts_ArbitrateEnergyNoSelection.",
+      "source": "DBSIM disassembly at 0041194a"
+    },
+    {
+      "address": "00411969",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GrenadeMount_Dtor",
+      "description": "GRENADE_WPN vtable +0x18 (00499248), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 00411969; class record at 004118a6"
+    },
+    {
+      "address": "004119c3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ElfMount_Dtor",
+      "description": "ELF_WPN vtable +0x18 (ElfMountVtable, 004992c0), the destructor its class record names: (this, flags). The weapon-mount teardown (see EnergyPod_Dtor), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 004119c3; class record at 004118fa"
+    },
+    {
       "address": "00411a1d",
       "binary": "DBSIM",
       "type": "function",
@@ -2615,6 +3219,69 @@
       "name": "WeaponMounts_ArbitrateEnergyNoSelection",
       "description": "(manager, budget, arg): WeaponMounts_ArbitrateEnergy(manager, budget, -1, arg), the energy pool turn with no selected mount served first. Its one reference is the stored pointer at 00499338.",
       "source": "DBSIM decompile at 00411a1d; tools/scripts/es2_xref.py 00411a1d"
+    },
+    {
+      "address": "00411a3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_ComponentPositionNoOp",
+      "description": "ACTOR and FLYER vtable +0x58: push ebp / mov ebp,esp / pop ebp / ret. Writes nothing to its out-parameter.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00411a44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_ComponentNearestAim_None",
+      "description": "ACTOR and FLYER vtable +0x54: returns -1 (OR EAX,-1), the 'no component' answer Mech_ComponentNearestAim gives when no slot is occupied.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00411a4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetShieldByHeadingZero",
+      "description": "Vtable +0x34 of the ACTOR base, the flyer and all five structure tables: returns 0. Only the mech overrides it (Mech_GetShieldByHeading).",
+      "source": "DBSIM decompile and disassembly at 00411a4c"
+    },
+    {
+      "address": "00411a54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetSpeedZero",
+      "description": "Vtable +0x38 of the ACTOR base and all five structure tables: returns 0. The mech (Mech_GetSpeed) and the flyer (Flyer_GetSpeed) override it.",
+      "source": "DBSIM decompile and disassembly at 00411a54"
+    },
+    {
+      "address": "00411a5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetTorsoTwistAngleZero",
+      "description": "Vtable +0x3c of the ACTOR base, the flyer, BASE, RADAR_BASE and LC_BASE: returns 0. GUN_BASE and VEHICLE replace it with Base_GetTurretAngle, the mech with Mech_GetTorsoTwistAngle.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00411a64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_ReceiveSquadOrder_Refuse",
+      "description": "Vtable +0x28 of the ACTOR base, the flyer and all five structure tables: returns 0, where Mech_ReceiveSquadOrder returns 1 for an order it took.",
+      "source": "DBSIM decompile and disassembly at 00411a64"
+    },
+    {
+      "address": "00411a6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_HandleCommandNoOp",
+      "description": "Vtable +0x2c of the ACTOR base and all five structure tables: returns 0 and acts on nothing. The mech installs Mech_HandleCommand; the flyer has its own stub, Flyer_HandleCommandNoOp.",
+      "source": "DBSIM decompile and disassembly at 00411a6c"
     },
     {
       "address": "00411a74",
@@ -2635,6 +3302,33 @@
       "source": "docs/simulation/target-selection.md"
     },
     {
+      "address": "00411aa4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetBodyRadiusZero",
+      "description": "ACTOR and FLYER vtable +0x5c: returns 0. The mech installs Mech_GetBodyRadius, the structures Base_GetBodyRadius.",
+      "source": "docs/simulation/hit-detection.md"
+    },
+    {
+      "address": "00411aac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetCollisionRadiusZero",
+      "description": "ACTOR and FLYER vtable +0x7c: returns 0, so a flyer adds nothing to the collision gap a walking machine measures against it. The mech installs Mech_GetCollisionRadius, the structures Base_GetCollisionRadius.",
+      "source": "docs/simulation/hit-detection.md"
+    },
+    {
+      "address": "00411ab4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_TickNoOp",
+      "description": "Vtable +0x14 of the ACTOR base and all five structure tables: returns 1 in AX and does nothing. The mech and flyer install their behaviour move dispatchers here (Behaviour_DispatchMove, Flyer_DispatchMove).",
+      "source": "DBSIM decompile and disassembly at 00411ab4"
+    },
+    {
       "address": "00411ac0",
       "binary": "DBSIM",
       "type": "function",
@@ -2649,7 +3343,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObject_BearingInSensorArc",
-      "description": "Mech vtable +0x44: (bearing - obj+0x10 + 0x3800) < 0x7000 unsigned, so +/-78.75 degrees about the object's heading. Callers fold the aim twist into the bearing before calling.",
+      "description": "Vtable +0x44 of the ACTOR base, the mech and the flyer: (bearing - obj+0x10 + 0x3800) < 0x7000 unsigned, so +/-78.75 degrees about the object's heading. Callers fold the aim twist into the bearing before calling. The five structure classes install Base_BearingInSensorArc_Always instead.",
       "source": "docs/simulation/target-selection.md"
     },
     {
@@ -2660,6 +3354,15 @@
       "name": "Mech_ShareContact",
       "description": "Thin wrapper over Detection_ShareContact, used by Mech_AiOnTakingFire so that being shot spreads the attacker's position to the whole side.",
       "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00411b04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_MissileLockState_Always",
+      "description": "Vtable +0x6c of the ACTOR base, the flyer and all five structure tables: returns 1 in AX for every missile subtype. The slot is the launcher's own lock gate and Mech_MissileLockState is the only override, so a missile launched by a flyer or a structure is always handed the launcher's selected target.",
+      "source": "DBSIM decompile and disassembly at 00411b04"
     },
     {
       "address": "00411b10",
@@ -2678,6 +3381,24 @@
       "name": "SimObject_NextTargetableComponent_None",
       "description": "SimObjectBaseVtable and FlyerVtable +0x80: answers -1 and writes -1, so a flyer has no components a targeting pod can single out.",
       "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "00411b2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_CreditNeutralisedTargetNoOp",
+      "description": "Vtable +0x60 of the ACTOR base, the flyer and all five structure tables: an empty body. Only the mech (Mech_CreditNeutralisedTarget) credits a kill.",
+      "source": "docs/simulation/component-damage.md"
+    },
+    {
+      "address": "00411b34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_AiOnLineOfFireBlockedNoOp",
+      "description": "Vtable +0x64 of the ACTOR base, the flyer and all five structure tables: an empty body. Only the mech (Mech_AiOnLineOfFireBlocked) reacts.",
+      "source": "docs/simulation/ai-combat-states.md"
     },
     {
       "address": "00411b3c",
@@ -2765,6 +3486,15 @@
       "source": "DBSIM decompile at 00411df8"
     },
     {
+      "address": "00411e1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_SwapRemove",
+      "description": "(list, obj): list->items[obj+0x4b] = list->items[count - 1], then count (the short at list+6) -= 1, where items is the pointer at list+0. It does not rewrite the moved item's own +0x4b. The deleting destructors of ACTOR and everything derived from it call it on maybe_GlobalLiveObjectList in place of Mem_Delete.",
+      "source": "DBSIM decompile and disassembly at 00411e1c"
+    },
+    {
       "address": "00411e40",
       "binary": "DBSIM",
       "type": "function",
@@ -2835,6 +3565,15 @@
       "name": "Detection_ShareContact",
       "description": "Passes a new contact to every object on the spotter's own side within 100000 units, the spotter included, and sets the contact's +0x9e engagement flag inside 50000. Nothing is shared to the other side and a same-side pair is not a contact at all.",
       "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "004127f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_AiEnemySightedNoOp",
+      "description": "Vtable +0x48 of the ACTOR base, the flyer and all five structure tables: an empty body. Only the mech (Mech_AiEnemySighted) calls out a contact.",
+      "source": "DBSIM decompile and disassembly at 004127f8"
     },
     {
       "address": "00412800",
@@ -3846,8 +4585,26 @@
       "type": "function",
       "confidence": "high",
       "name": "FlatObj_Destruct",
-      "description": "FlatObj vtable +0x08: restores ProjectileSuperBaseVtable (004a0b98), deletes the shape instance at obj+0x34 through its own +0x18 with flag 3, and frees the object when the flag's low bit is set. ObjectPool_FlushDeleteQueue calls it with 2 and hands the node back to g_FlatObjPool itself.",
+      "description": "FlatObj vtable +0x08: restores TSObjVtable (004a0b98), deletes the shape instance at obj+0x34 through its own +0x18 with flag 3, and frees the object when the flag's low bit is set. ObjectPool_FlushDeleteQueue calls it with 2 and hands the node back to g_FlatObjPool itself.",
       "source": "docs/simulation/ground-shapes.md"
+    },
+    {
+      "address": "0041be8d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_Dtor",
+      "description": "GUNLIST's destructor, from its class record (0041be41; GUNLIST is the 0x14-byte mount manager, table 00499338): (manager, flags). Two RTL destructor-count decrements, Mem_DeleteArray of the mount-pointer array at +4 when set, then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0041be8d; class record at 0041be41"
+    },
+    {
+      "address": "0041bf19",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_DtorLocal",
+      "description": "PLAYER_GUNLIST's destructor, from its class record (0041bde1; table 00499238): (manager, flags). Rtl_VectorDelete(manager+0x1f, 6, 3, 1, 0041bf94) over the three 6-byte fire-group arrays WeaponMounts_CtorLocal allocates, then GUNLIST's teardown -- Mem_DeleteArray of the array at +4 -- and Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0041bf19; class record at 0041bde1"
     },
     {
       "address": "0041c0f4",
@@ -4236,7 +4993,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ComputeCombatRating",
-      "description": "Writes the combat rating at mech+0x29e and latches the cache flag mech+0x94, which Mech_PerTickSystemsUpdate clears to force a recompute. Rating = (typeRec+0x44 base + each live weapon mount's value scaled by its condition + each of 19 components' maximum scaled by its condition - a penalty per system over 70% damaged) >> 4, so it falls as the machine is shot apart.",
+      "description": "Writes the combat rating at mech+0x29e and latches the cache flag mech+0x94, which Mech_PerTickSystemsUpdate clears to force a recompute. Rating = (typeRec+0x44 base + each live weapon mount's value scaled by its condition, for the mounts whose vtable +0x54 answers non-zero -- an ammunition mount only above an eighth of its magazine + each of 19 components' maximum scaled by its condition - a penalty per system over 70% damaged) >> 4, so it falls as the machine is shot apart or runs low.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -4254,7 +5011,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_ChooseWeapon",
-      "description": "Scores every mount and returns the best above a floor mapped from mech+0x2aa (fear) through [0,0x400] -> [150,-100]; nothing above the floor means the machine aims and does not shoot. Score is Q10(100, damage credit) - Q10(1000, template+0x34) plus rand(35)*rand(35), where the credit is the armor damage with no shield, the shield damage when the shield holds, and the armor damage + 10000 on the shot that breaks it. Gates launchers on manager+0x0a lock, turns the radar on for an in-range SARH launcher, and latches mech+0xa5 -- no weapons left -- when every mount is gone.",
+      "description": "Scores every mount and returns the best above a floor mapped from mech+0x2aa (fear) through [0,0x400] -> [150,-100]; nothing above the floor means the machine aims and does not shoot. A mount whose vtable +0x5c answers non-zero (destroyed; an ammunition mount also when empty; a pod always) is passed over first. Score is Q10(100, damage credit) - Q10(1000, template+0x34) plus rand(35)*rand(35), where the credit is the armor damage with no shield, the shield damage when the shield holds, and the armor damage + 10000 on the shot that breaks it. Gates launchers on manager+0x0a lock, turns the radar on for an in-range SARH launcher, and latches mech+0xa5 -- no weapons left -- when every mount is absent or spent.",
       "source": "docs/simulation/ai-weapons.md"
     },
     {
@@ -4384,6 +5141,24 @@
       "source": "docs/formats/script-dat.md (mech formation spread)"
     },
     {
+      "address": "00420729",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConfigPart_GetClassTagZero",
+      "description": "CONFIG_PART vtable +0x00 (0049a494), kept by GUN_STATE and every weapon-mount class: returns 0, where TSPartBase answers a real class tag.",
+      "source": "DBSIM disassembly at 00420729"
+    },
+    {
+      "address": "00420730",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConfigPart_Dtor",
+      "description": "CONFIG_PART vtable +0x18 (0049a494, RTTI 'CONFIG_PART', 0x18 bytes; bases TSPartBase and SHAPE_INST at +0x10), the destructor its class record names: (this, flags). HeapBlockOwner_Dtor(this+0x10, 0) on the SHAPE_INST, TSBase_Dtor(this, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 00420730; class record at 004206c9"
+    },
+    {
       "address": "00420a68",
       "binary": "DBSIM",
       "type": "function",
@@ -4421,6 +5196,15 @@
       "description": "Flyer vtable +0x38: Q10(1000, flyer+0x233), where +0x233 is the type record's +0x04 forward speed, copied in by Flyer_Constructor and never written again. A chassis constant, not anything the aircraft is doing.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
       "signature": "short __cdecl Flyer_GetSpeed(FlyerObject *flyer)"
+    },
+    {
+      "address": "004215c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_HandleCommandNoOp",
+      "description": "FLYER vtable +0x2c: loads its second argument into AX, then XOR EAX,EAX and returns 0 without acting on it -- which is why the shield bracket keys do nothing in a RAZOR.",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "004215cc",
@@ -4968,6 +5752,15 @@
       "source": "docs/simulation/ai-goals.md"
     },
     {
+      "address": "00424034",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Meteor_Dtor",
+      "description": "METEOR vtable +0x08 (004982b8), the destructor its class record names: (this, flags). Debris_Dtor's body: installs TSObjVtable, deletes the shape instance at +0x34 through its own vtable +0x18 with flags 3, and Mem_Deletes this on flags bit 0.",
+      "source": "DBSIM disassembly at 00424034; class record at 00423fe4"
+    },
+    {
       "address": "004240f4",
       "binary": "DBSIM",
       "type": "function",
@@ -5095,6 +5888,51 @@
       "name": "Actions_EvaluateTriggers",
       "description": "Per-frame mission trigger evaluator, called by Sim_MainTick with the player's mech. Walks the whole block-5 action array and, per action type (+0x00), picks whose position Action_TestTrigger is offered: 0 the player's mech, 1 every member of the player's group, 2/3 every member of every deployed group of side 0 (human) / side 1 (Cybrid), 4/5/6 every deployed mech / flyer / base group, 7/8/9 the action's own resolved target object at +0x36, 10 every member of the action's target group. Groups whose +0x14 action pointer is still set are skipped as subjects -- an undeployed group cannot trip a trigger.",
       "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00426f98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DetAnimObj_Dtor",
+      "description": "DET_ANIM_OBJ vtable +0x08 (004973cc): the deleting destructor, (this, flags). One RTL destructor-count decrement, AnimObj_Dtor(this, 0), then Mem_Delete(this) on flags bit 0.",
+      "source": "DBSIM disassembly at 00426f98"
+    },
+    {
+      "address": "00427081",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_Dtor",
+      "description": "ACTOR vtable +0x08 (0049a54c): the deleting destructor, (this, flags). Two RTL destructor-count decrements (ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this) instead of a Mem_Delete.",
+      "source": "DBSIM disassembly at 00427081"
+    },
+    {
+      "address": "004270c1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_OperatorDelete",
+      "description": "(obj): ObjList_SwapRemove(&maybe_GlobalLiveObjectList, obj). The class-specific operator delete in the +0x14 field of the ACTOR, MECH, FLYER, BASE, RADAR_BASE, GUN_BASE, VEHICLE and LC_BASE class records; their deleting destructors inline the same call.",
+      "source": "DBSIM disassembly at 004270c1; docs/formats/borland-rtti.md"
+    },
+    {
+      "address": "00427127",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_Dtor",
+      "description": "MECH vtable +0x08 (0049a282): the deleting destructor, (this, flags). Three RTL destructor-count decrements (MECH, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
+      "source": "DBSIM disassembly at 00427127"
+    },
+    {
+      "address": "004271bf",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_Dtor",
+      "description": "FLYER vtable +0x08 (0049a5e0): the deleting destructor, (this, flags). Three RTL destructor-count decrements (FLYER, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
+      "source": "DBSIM disassembly at 004271bf"
     },
     {
       "address": "00427238",
@@ -5915,6 +6753,33 @@
       "source": "DBSIM decompile at 0042f65c; docs/formats/distance-fog-and-sky.md#open"
     },
     {
+      "address": "0042f6d2",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hzline_Dtor",
+      "description": "hzline vtable +0x18 (0049afb0, the sky backdrop Hzline_Ctor builds), the destructor its class record names: (hzline, flags). One RTL destructor-count decrement, TSGroup_Dtor(hzline, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0042f6d2; class record at 0042f682"
+    },
+    {
+      "address": "0042f860",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TexPoly_RandomPointOnCircle",
+      "description": "TexPoly vtable +0x24 (0049afe6), (poly, outPoint, outAngles, _, centre, radius, shift): draws a BAM angle a with Math_RandomNext, writes the Euler triple (0, 0, a) to outAngles, and outPoint = (centre.x + (Q14(radius, cos a) << shift), centre.y + (Q14(radius, cos(a - 0x4000)) << shift), poly+0x79).",
+      "source": "DBSIM decompile at 0042f860; docs/simulation/random-generator.md"
+    },
+    {
+      "address": "0042f970",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TexPoly_SetupRings",
+      "description": "TexPoly vtable +0x20 (0049afe6), (poly, rect): ring count +0xf9 = +0x6d / +0x71 (the step); for ring i the radius step * (i + 1) + step / 2 at +0x9f[i], the int16 0xffff / ((step * (i + 1) * 4) / +0x75) at +0x81[i], and a Math_RandomNext angle at +0xdb[i]; then copies the rect's +4/+8/+0xc into +0xff/+0x103/+0x107 and sets +0x22.",
+      "source": "DBSIM decompile at 0042f970; docs/simulation/random-generator.md"
+    },
+    {
       "address": "0042fa18",
       "binary": "DBSIM",
       "type": "function",
@@ -5931,6 +6796,33 @@
       "name": "TexPoly_Render",
       "description": "TexPoly's vtable (0049afe6) slot +0x2c, which TexPoly_DrawAtPoints calls once per point. Normally builds the poly's quad from the frame descriptor g_CurrentShapeDbaContext[1] + surface*0x14 (surface base 006c697a, index this+0xc) and hands it to Raster_SetupTexturedSpan, as TSTexture4Poly_Render does; while g_TexturedPolyUseBitmapBrush is set it takes the bitmap of the surface's +0 field when Raster_FrontFacing on the points this+4/+6 is positive and of its +8 field otherwise, and draws through Poly_ProjectIndexedVertices and PolyFill_FillThenOutline, calling slot +0x30 when the projection reports a vertex behind the near plane.",
       "source": "DBSIM decompile at 0042fc34; tools/scripts/es2_classes.py --vtables"
+    },
+    {
+      "address": "0042ff88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TexPoly_ClipPolygon",
+      "description": "TexPoly vtable +0x30 (0049afe6), (poly, pairsIn, pairsOut): walks the current polygon's DAT_006c6968 vertices (indices at DAT_006c6976 + DAT_006c696a*2) edge by edge against the per-vertex code at DAT_006c697e, keeping a vertex coded 2 and, on an edge with one end coded 2, inserting the crossing at depth DAT_006c60b0 -- position interpolated with Math_Mul32To64/Math_DivMod64 and offset by DAT_006c60b8/DAT_006c60bc into 006cbb86/006cbb8a, and the vertex's 8-byte pair from pairsIn interpolated the same way into pairsOut. Returns the output count, also left in DAT_006cbc86.",
+      "source": "DBSIM decompile at 0042ff88"
+    },
+    {
+      "address": "004302fa",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TexPoly_Dtor",
+      "description": "TexPoly vtable +0x18 (0049afe6, RTTI 'TexPoly', 0x10b bytes, derived from TSTexture4Poly), the destructor its class record names: (poly, flags). Five RTL destructor-count decrements, TSBase_Dtor(poly, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004302fa; class record at 004302aa"
+    },
+    {
+      "address": "00430346",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TexPoly_Slot28NoOp",
+      "description": "TexPoly vtable +0x28 (0049afe6): an empty body.",
+      "source": "DBSIM decompile at 00430346"
     },
     {
       "address": "00430394",
@@ -6231,6 +7123,15 @@
       "name": "CockpitView_CreateEnergyWeaponGauge",
       "description": "(view, row, mount): copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0x104, allocates 0xdf bytes, runs EnergyWeaponGauge_Ctor(gauge, record+0x104, view, row, mount) and CockpitView_RegisterWeaponGauge(view, gauge, row), and returns the gauge. 0040e0e0 stores the result at mount+0x77.",
       "source": "DBSIM decompile at 00432074"
+    },
+    {
+      "address": "00432124",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_CreateAmmoWeaponGauge",
+      "description": "(view, row, mount): copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0xb4, allocates 0xef bytes, runs AmmoWeaponGauge_Ctor(gauge, record+0xb4, view, row, mount) and CockpitView_RegisterWeaponGauge(view, gauge, row), and returns the gauge. CockpitView_CreateEnergyWeaponGauge's ammunition twin; WeaponMount_CreateAmmoGauge stores the result at mount+0x77.",
+      "source": "DBSIM decompile at 00432124"
     },
     {
       "address": "004321d4",
@@ -6746,6 +7647,15 @@
       "source": "docs/formats/hud-target-indicator.md"
     },
     {
+      "address": "00434dcd",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_FlushDeferredPaintNoOp",
+      "description": "SystemGadget vtable +0x0c (0049b774): push ebp / mov ebp,esp / pop ebp / ret.",
+      "source": "DBSIM disassembly at 00434dcd"
+    },
+    {
       "address": "00434df0",
       "binary": "DBSIM",
       "type": "function",
@@ -6753,6 +7663,15 @@
       "name": "ScrollTrigger_OnClick",
       "description": "ScrollTrigger's vtable +0x08, and the whole of the class's behaviour: calls CockpitView_HandleEdgeTrigger(this->[0x20], this). ScrollTrigger carries no PanelGadget mixin, so +0x20 is a plain owner pointer rather than a second vtable, and the strip makes no console click.",
       "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00434e05",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_Dtor",
+      "description": "SystemGadget's destructor (class record 00434ced): (gadget, flags). Four RTL destructor-count decrements, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 00434e05; class record at 00434ced"
     },
     {
       "address": "00434e50",
@@ -6834,6 +7753,15 @@
       "name": "MessagePort_CtorBase",
       "description": "MsgPort constructor (vtable 0049bb00, RTTI name 'MsgPort', 0x4d3 bytes): builds the two queues at +4 and +0x222 with MessagePort_QueueInit, constructs the box at +0x49f as a GLRectangleRegion (vtable 004a327c) of type 0 holding the given rect at +0x4a7..+0x4b3, and clears the current message +0x49a, the latches +0x49e, +0x4c9..+0x4cb, +0x4d2 and the fields +0x4b7, +0x4b8, +0x4cc, +0x4d0. MessagePort_Ctor and DialogPort_Ctor run it first.",
       "source": "DBSIM decompile at 00435490; RTTI at 0049bb00 and 004a327c"
+    },
+    {
+      "address": "0043556c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_PostNoOp",
+      "description": "MsgPort vtable +0x00 (0049bb00, the base of the cockpit message ports): an empty post. EventPort installs MessagePort_PickVariant, DialogPort PilotMessagePort_Post, CommandPort TrainingMessagePort_Post.",
+      "source": "DBSIM decompile at 0043556c; docs/formats/cockpit-messages.md"
     },
     {
       "address": "00435574",
@@ -6974,6 +7902,15 @@
       "signature": "char __cdecl PilotMessagePort_Speak(void *port)"
     },
     {
+      "address": "00436130",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_Erase",
+      "description": "DialogPort and CommandPort vtable +0x0c, EventPort's MessagePort_Erase slot. Returns 1 at once when no line is up (+0x49e) or the display is suppressed (+0x4d2). Otherwise, unless the cockpit view manager's +0x1c byte is set (then it returns 0): calls each of the +0x4b8 end callbacks at +0x4c1 with the current message (+0x49a), restores the box's background from the save-under at +0x4d3 (Region_Restore inside Cockpit_PushCanvasContext/Cockpit_PopRenderContext), MessagePort_CopyBoxBetweenPages(port, 1), clears +0x49e and +0x4d2 and returns 1.",
+      "source": "DBSIM decompile at 00436130"
+    },
+    {
       "address": "004361cc",
       "binary": "DBSIM",
       "type": "function",
@@ -7092,6 +8029,24 @@
       "source": "docs/formats/audio.md"
     },
     {
+      "address": "00437044",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_RestoreBackground",
+      "description": "DialogPort and CommandPort vtable +0x14: while a line is up, the display is not suppressed and the view manager's +0x1c byte is clear, puts the box's background back from the save-under at +0x4d3 (Region_Restore(port+0x4a3, port+0x4a7, +0x4d3) between Cockpit_PushCanvasContext and Cockpit_PopRenderContext). EventPort and MsgPort leave the slot empty (MessagePort_UnpaintNoOp).",
+      "source": "DBSIM disassembly at 00437044"
+    },
+    {
+      "address": "00437094",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_RedrawFromSaveUnder",
+      "description": "DialogPort and CommandPort vtable +0x18, the slot EventPort fills with MessageTicker_Paint. Under the same three gates as PilotMessagePort_RestoreBackground: offsets the box rect (+0x4a7..+0x4b3) by the canvas origin (context +0x220/+0x224), saves the screen under it into +0x4d3 (Region_Save), takes the offset back off, and puts the box's own pixels back from +0x4d7 (Region_Restore).",
+      "source": "DBSIM decompile at 00437094; DialogPort_Ctor"
+    },
+    {
       "address": "00437164",
       "binary": "DBSIM",
       "type": "function",
@@ -7099,6 +8054,69 @@
       "name": "MessagePort_CopyBoxBetweenPages",
       "description": "(port, direction): while a line is up (+0x49e) and +0x4d2 is clear, copies the box region at +0x4a3 between the display's pages with Region_CopyBetweenPages at offset {0, 0}: page +0x88 to +0x8c for direction 0, +0x8c to +0x88 for 1. Hides the cursor around the copy and shows it again unless the view manager's +0x14 is 4 and 0049dd8c is 0; restores the draw page after. MessagePort_Show, MessagePort_Erase, PilotMessagePort_Paint, PilotMessagePort_Speak and 00436130 pass 1; CockpitView_StepViewTransition passes 0.",
       "source": "DBSIM decompile at 00437164"
+    },
+    {
+      "address": "004373f7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TrainingMessagePort_Dtor",
+      "description": "CommandPort's destructor (class record 004373a3; table 0049baa8): (port, flags). Six RTL destructor-count decrements, then Mem_Delete on flags bit 0. Frees neither save-under buffer DialogPort_Ctor allocated.",
+      "source": "DBSIM disassembly at 004373f7; class record at 004373a3"
+    },
+    {
+      "address": "00437439",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DialogPort_Dtor",
+      "description": "DialogPort's destructor (class record 0043734f; table 0049bad4): (port, flags). Five RTL destructor-count decrements, then Mem_Delete on flags bit 0. Frees neither save-under buffer (+0x4d3, +0x4d7) DialogPort_Ctor allocated.",
+      "source": "DBSIM decompile at 00437439; class record at 0043734f"
+    },
+    {
+      "address": "004374ce",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Dtor",
+      "description": "EventPort's destructor (class record 004372fb; table 0049ba7c, the computer's ticker MessagePort_Ctor builds): (port, flags). Five RTL destructor-count decrements, then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004374ce; class record at 004372fb"
+    },
+    {
+      "address": "00437517",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_DtorBase",
+      "description": "MsgPort's destructor (class record 00437482; table 0049bb00): (port, flags). Four RTL destructor-count decrements, then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 00437517; class record at 00437482"
+    },
+    {
+      "address": "0043757e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_UnpaintNoOp",
+      "description": "MsgPort and EventPort vtable +0x14: push ebp / mov ebp,esp / pop ebp / ret. DialogPort and CommandPort install PilotMessagePort_RestoreBackground.",
+      "source": "DBSIM disassembly at 0043757e"
+    },
+    {
+      "address": "00437583",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_GetRect",
+      "description": "Vtable +0x1c of all four message-port classes: returns port+0x4a7, the box rect inside the GLRectangleRegion at +0x49f.",
+      "source": "DBSIM decompile at 00437583; MessagePort_CtorBase"
+    },
+    {
+      "address": "00437590",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_PaintNoOp",
+      "description": "MsgPort vtable +0x18: an empty body.",
+      "source": "DBSIM decompile at 00437590"
     },
     {
       "address": "00437598",
@@ -7304,6 +8322,15 @@
       "source": "docs/formats/cockpit-input.md"
     },
     {
+      "address": "00438e70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelSelectGadget_Dtor",
+      "description": "PanelSelectGadget's destructor (class record 004594a0), which every button leaf's destructor ends in: (gadget, flags). Reinstalls PanelSelectGadgetVtable at +0x17 and its PanelGadget mixin table at +0x20, Mem_Deletes +0x2c, deletes each of the three objects at +0x30/+0x34/+0x38 through its own vtable +0x18 with flags 3, then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 00438e70; class record at 004594a0"
+    },
+    {
       "address": "00438f14",
       "binary": "DBSIM",
       "type": "function",
@@ -7311,6 +8338,15 @@
       "name": "PanelStateGadget_OnClick",
       "description": "PanelStateGadgetVtable +0x08 (gadget, flags): when flags bit 0 is set, flips the state byte +0x40, calls the owner's (+0x24) vtable slot 0 with (owner, gadget, flags), then slot 1 of the vtable at +0x17 and slot 2 of the sub-object at +0x20.",
       "source": "DBSIM decompile at 00438f14; es2_xref.py"
+    },
+    {
+      "address": "00438f4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelSliderGadget_Dtor",
+      "description": "PanelSliderGadget's destructor (class record 00455599), which every slider leaf's destructor runs on its mixin subobject at +0x3e: (mixin, flags). Reinstalls PanelSliderGadgetVtable at +0, Mem_Deletes +8, deletes the object at +0x10 through its own vtable +0x18 with flags 3, Mem_DeleteArrays +0x14 when set, GLBitmapArray_Dtor(+0x38, 3), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 00438f4c; class record at 00455599"
     },
     {
       "address": "00439014",
@@ -7367,6 +8403,24 @@
       "source": "docs/formats/cockpit-hud-widgets.md (LED gauges)"
     },
     {
+      "address": "00439118",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraphH_PaintToValue",
+      "description": "BarGraphH vtable +0x00 (0049bd60), (bar, value): pos = start (+0x18) + value * span (+0x14) >> 16, or end (+0x1c) minus that for a non-positive span; fills the lit run in colour +0x28 and the rest of the track in +0x24 with Raster_FillRect through the rect at +4, and stores pos at +0x20.",
+      "source": "DBSIM decompile at 00439118"
+    },
+    {
+      "address": "004391e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraphH_RepaintSpan",
+      "description": "BarGraphH vtable +0x04, (bar, a, b): orders a and b, clamps them to the track (+0x18..+0x1c), and refills just that span against the stored fill position +0x20 -- the lit part in the current brush, the unlit part in +0x24.",
+      "source": "DBSIM decompile and disassembly at 004391e0"
+    },
+    {
       "address": "00439344",
       "binary": "DBSIM",
       "type": "function",
@@ -7374,6 +8428,24 @@
       "name": "LedBarGraph_CtorV",
       "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). They are not four throttle detent points. NEITHER THROTTLE BAR IS EVER DRAWN: the slider holds them privately, ThrottleSlider_PaintV reads them only for their rects (via BarGraph_GetRect) to widen the region it invalidates, and the bar draw routines 00439398/00439460 have no callers in the image. A cut feature, along with the gauge+0xb1 speed fraction that would have filled them.",
       "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00439398",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraphV_PaintToValue",
+      "description": "BarGraphV vtable +0x00 (0049bd48): BarGraphH_PaintToValue on the y axis, with the sign test on the span reversed.",
+      "source": "DBSIM decompile at 00439398"
+    },
+    {
+      "address": "00439460",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraphV_RepaintSpan",
+      "description": "BarGraphV vtable +0x04, (bar, a, b): BarGraphH_RepaintSpan on the y axis (+8/+0x10 of the rect).",
+      "source": "DBSIM decompile and disassembly at 00439460"
     },
     {
       "address": "004395c4",
@@ -7394,6 +8466,15 @@
       "source": "docs/formats/cockpit-hud-widgets.md (LED gauges)"
     },
     {
+      "address": "004396a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraph_RepaintToValue",
+      "description": "LEDBarGraphH vtable +0x04 (0049bd30), (bar, value): LedBarGraph_PaintToValue's fill without its store -- the pinstriped lit run to the value's position, then the remainder through a temporary {0, +0x24} brush installed at the render context's +0x22c -- leaving the stored position +0x20 untouched.",
+      "source": "DBSIM disassembly at 004396a8"
+    },
+    {
       "address": "00439758",
       "binary": "DBSIM",
       "type": "function",
@@ -7410,6 +8491,114 @@
       "name": "LEDBarGraphV_Ctor",
       "description": "LEDBarGraphV constructor (vtable 0049bd18, RTTI name 'LEDBarGraphV', 0x3c bytes): (obj, rect, range) runs LedBarGraph_CtorV, which builds the BarGraphV (0049bd48) part, then installs its own vtable. 00444edc builds one with range 0x400.",
       "source": "DBSIM decompile and disassembly at 00439834"
+    },
+    {
+      "address": "00439858",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraphV_PaintToValue",
+      "description": "LEDBarGraphV vtable +0x00 (0049bd18): BarGraphV_PaintToValue with the lit run drawn by the vertical pinstripe fill at 00439a0c instead of a flat colour.",
+      "source": "DBSIM decompile at 00439858"
+    },
+    {
+      "address": "00439918",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraphV_Repaint",
+      "description": "LEDBarGraphV vtable +0x04: redraws the whole bar at the stored fill position +0x20 -- one side through a temporary {0, +0x24} brush at the render context's +0x22c, the other with the vertical pinstripe fill at 00439a0c, which side by the span's sign. Its argument is loaded and not used.",
+      "source": "DBSIM disassembly at 00439918"
+    },
+    {
+      "address": "00439ae8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphH_Ctor",
+      "description": "LEDBMBarGraphH constructor (table 0049bd00, RTTI 'LEDBMBarGraphH', 0x68 bytes), (bar, rect, range, bitmapA, bitmapB): LedBarGraph_CtorBase, its own table, two GLRectangleRegion members at +0x2c and +0x44 (each with the dword after its vptr zeroed), the two bitmaps at +0x60 and +0x64, and a 5000-byte Mem_NewArray block at +0x5c.",
+      "source": "DBSIM decompile at 00439ae8"
+    },
+    {
+      "address": "00439b8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphH_PaintToValue",
+      "description": "LEDBMBarGraphH vtable +0x00 (0049bd00): BarGraphH_PaintToValue's layout. For a positive span the lit run and the remainder are drawn by 00439c48 with the bitmaps at +0x64 and +0x60; for a non-positive span both are Raster_FillRect. Stores the position at +0x20.",
+      "source": "DBSIM decompile at 00439b8c"
+    },
+    {
+      "address": "00439c40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphH_RepaintNoOp",
+      "description": "LEDBMBarGraphH vtable +0x04: push ebp / mov ebp,esp / pop ebp / ret.",
+      "source": "DBSIM disassembly at 00439c40"
+    },
+    {
+      "address": "00439e10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphV_Ctor",
+      "description": "LEDBMBarGraphV constructor (table 0049bce8, RTTI 'LEDBMBarGraphV', 0x68 bytes): LedBmBarGraphH_Ctor's body over LedBarGraph_CtorV.",
+      "source": "DBSIM decompile at 00439e10"
+    },
+    {
+      "address": "00439eb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphV_PaintToValue",
+      "description": "LEDBMBarGraphV vtable +0x00 (0049bce8): LedBarGraphV_PaintToValue's layout with both runs drawn from the bitmaps at +0x64 (lit) and +0x60 (unlit).",
+      "source": "DBSIM decompile at 00439eb4"
+    },
+    {
+      "address": "00439f68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphV_RepaintNoOp",
+      "description": "LEDBMBarGraphV vtable +0x04: push ebp / mov ebp,esp / pop ebp / ret.",
+      "source": "DBSIM disassembly at 00439f68"
+    },
+    {
+      "address": "0043a190",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraphV_ResetToEmpty",
+      "description": "Vtable +0x08 of BarGraphV, LEDBarGraphV and LEDBMBarGraphV: stores the empty position in +0x20 -- the track end (+0x1c) for a positive span, the start (+0x18) otherwise.",
+      "source": "DBSIM disassembly at 0043a190"
+    },
+    {
+      "address": "0043a211",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BarGraphH_ResetToEmpty",
+      "description": "Vtable +0x08 of BarGraphH, LEDBarGraphH and LEDBMBarGraphH: stores the empty position in +0x20 -- the track start (+0x18) for a positive span, the end (+0x1c) otherwise.",
+      "source": "DBSIM disassembly at 0043a211"
+    },
+    {
+      "address": "0043a22a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphH_Dtor",
+      "description": "LEDBMBarGraphH's destructor (class record 0043a1a9): (bar, flags). Eight RTL destructor-count decrements -- the bar's levels and its two GLRectangleRegion members' -- then Mem_Delete on flags bit 0. It frees neither the 5000-byte block at +0x5c nor anything else the constructor allocated.",
+      "source": "DBSIM disassembly at 0043a22a; class record at 0043a1a9"
+    },
+    {
+      "address": "0043a284",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBmBarGraphV_Dtor",
+      "description": "LEDBMBarGraphV's destructor (class record 0043a128): LedBmBarGraphH_Dtor's body.",
+      "source": "DBSIM disassembly at 0043a284; class record at 0043a128"
     },
     {
       "address": "0043a2e0",
@@ -7446,6 +8635,15 @@
       "name": "MfdStatusScreen_SetCondition",
       "description": "Writes the MFD status screen's fourth and fifth labels. Label 4 (screen+0x1c) takes MfdStatusConditionStrings[state] = STRINGS0.STR group 28; state is the caller's, or FUN_00438700(damage) when the caller passes -1. Label 5 (screen+0x20) is composed from literals: \"[ \" (0049be2c), itoa((0x100 - damage) * 100 >> 8), then \"% ]\" (0049be2f) -- undamaged reads \"[ 100% ]\". When the subject is unreadable (screen+0x34 set) it writes \"XXXXXX\" and \"XXX\" instead. NOTE: STRINGS0.STR group 10 holds a near-identical five-string set and is dead data -- SimStrings_LoadAll is the only reference to its array. See docs/formats/mfd.md.",
       "source": "docs/formats/mfd.md"
+    },
+    {
+      "address": "0043b338",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ClickGadget_OnClickNoOp",
+      "description": "HUDRovingGunsightGadget vtable +0x08 (0049c188), the click surface's OnClick: tests bit 0 of its value argument and returns without acting on it.",
+      "source": "DBSIM disassembly at 0043b338"
     },
     {
       "address": "0043b344",
@@ -7520,6 +8718,24 @@
       "source": "docs/formats/cockpit-gunsight-hud.md"
     },
     {
+      "address": "0043b56c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudSlideBarHidden_RecomputeNoOp",
+      "description": "VFixRotationGauge vtable +0x08 (0049c20c), the recompute slot of HudSlideBar_CtorHidden's pitch bar: an empty body.",
+      "source": "DBSIM decompile at 0043b56c"
+    },
+    {
+      "address": "0043b574",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudSlideBarHidden_PaintNoOp",
+      "description": "VFixRotationGauge vtable +0x00 (0049c20c), the paint slot of HudSlideBar_CtorHidden's pitch bar: an empty body.",
+      "source": "DBSIM decompile at 0043b574"
+    },
+    {
       "address": "0043b57c",
       "binary": "DBSIM",
       "type": "function",
@@ -7557,6 +8773,24 @@
       "description": "Narrows the canvas clip to the tape's own rect, then blits the two frames HudHeadingTape_SetHeading chose at +0x44 and +0x44 + rectWidth, so the tape reads as a strip sliding through a window. Restores the four clip fields it borrowed before returning.",
       "source": "docs/formats/cockpit-gunsight-hud.md",
       "signature": "void __cdecl HudHeadingTape_Paint(void *widget)"
+    },
+    {
+      "address": "0043b7a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudHeadingTape_Repaint",
+      "description": "HRevRotationGauge vtable +0x04 (0049c1ec): calls the gauge's own slot +0x00, HudHeadingTape_Paint.",
+      "source": "DBSIM decompile at 0043b7a4"
+    },
+    {
+      "address": "0043b7b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudHeadingTape_SetLimits",
+      "description": "HRevRotationGauge vtable +0x10 (0049c1ec), (tape, lo, hi): +0x40 = (hi - lo) / +0x28, then HudSlideBar_SetLimits(tape, lo, hi).",
+      "source": "DBSIM decompile at 0043b7b4"
     },
     {
       "address": "0043b7e0",
@@ -7751,6 +8985,87 @@
       "source": "DBSIM decompile at 0043e118"
     },
     {
+      "address": "0043e5e7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ReticleRepaint",
+      "description": "HUDCrosshairGunsight vtable +0x04 (0049c124): calls the gauge's own slot +0x00, Gunsight_ReticlePaint.",
+      "source": "DBSIM disassembly at 0043e5e7"
+    },
+    {
+      "address": "0043e5f5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudWaypointIndicator_Repaint",
+      "description": "HNavGauge vtable +0x04 (0049c154): calls the gauge's own slot +0x00, Hud_UpdateWaypointIndicator.",
+      "source": "DBSIM decompile at 0043e5f5"
+    },
+    {
+      "address": "0043e603",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_UnusedChild_Repaint",
+      "description": "HUDPipper vtable +0x04 (0049c174): calls the gauge's own slot +0x00, Gunsight_UnusedChild_Paint.",
+      "source": "DBSIM decompile at 0043e603"
+    },
+    {
+      "address": "0043e611",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ClickGadget_PaintNoOp",
+      "description": "HUDRovingGunsightGadget vtable +0x00 (0049c188): an empty body.",
+      "source": "DBSIM decompile at 0043e611"
+    },
+    {
+      "address": "0043e616",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ClickGadget_InvalidateNoOp",
+      "description": "HUDRovingGunsightGadget vtable +0x04 (0049c188): an empty body.",
+      "source": "DBSIM decompile at 0043e616"
+    },
+    {
+      "address": "0043e61b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ClickSurface_Repaint",
+      "description": "HUDRovingGunsight vtable +0x04 (0049c1b0): calls the gauge's own slot +0x00, Gunsight_ClickSurface_Paint.",
+      "source": "DBSIM decompile at 0043e61b"
+    },
+    {
+      "address": "0043e629",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_TargetIndicatorRepaint",
+      "description": "HUDLockingGunsight vtable +0x04 (0049c1c4): calls the gauge's own slot +0x00, Gunsight_TargetIndicatorPaint.",
+      "source": "DBSIM decompile at 0043e629"
+    },
+    {
+      "address": "0043e677",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudSlideBarHidden_Repaint",
+      "description": "VFixRotationGauge vtable +0x04 (0049c20c): calls the gauge's own slot +0x00, which for this class is HudSlideBarHidden_PaintNoOp.",
+      "source": "DBSIM disassembly at 0043e677"
+    },
+    {
+      "address": "0043e685",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudRotationIndicator_Repaint",
+      "description": "HFixRotationGauge vtable +0x04 (0049c22c): calls the gauge's own slot +0x00, HudRotationIndicator_Paint.",
+      "source": "DBSIM decompile at 0043e685"
+    },
+    {
       "address": "0043e70c",
       "binary": "DBSIM",
       "type": "function",
@@ -7767,6 +9082,15 @@
       "name": "MfdRadarScreen_Update",
       "description": "Rebuilds the SCANNER screen's contact list from the live object list: skips the viewing machine, anything dead (+0x99/+0xa4), a group still awaiting deployment (group+0x14), an invulnerable structure type (class 1 with BASES.DAT +0x1e), a Cybrid not currently radar-visible (+0x95), and anything past the current display range on the ground plane. Survivors are rotated by Math_BuildRotation2D(-heading) and stored as (x, -y) with a colour id per class and side, so the plot is hull-relative nose-up. Also mirrors mech+0x96 into +0x34 and re-presses PASS or ACTIVE when it changed. Its hostile branch's blinking obj+0x1aa last-known-position marker is DEAD CODE: every constructor sets obj+0xa7 = 1 and nothing clears it. See docs/formats/mfd-scanner.md.",
       "source": "docs/formats/mfd-scanner.md"
+    },
+    {
+      "address": "0043eeb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdRadarScreen_UpdateAndPaint",
+      "description": "MFDRadar vtable +0x04 (0049c328), the MFD screen's per-frame slot: MfdRadarScreen_Update, then the screen's own slot +0x00, MfdRadarScreen_Paint.",
+      "source": "DBSIM decompile at 0043eeb4"
     },
     {
       "address": "0043eecc",
@@ -7794,6 +9118,24 @@
       "name": "MfdFlashCommScreen_Ctor",
       "description": "Constructor for the MFD's FLASH COMM screen (mode 1). Builds six order rows: rect inset+(2,0xd)-(0x60,0x3a) GAU with the top-left nudged in and bottom-right out by 1<<XCoordShift, stepping 7<<YCoordShift per row. Font ColorSchemePanels[1] CPGREEN with [2] CPRED as the alternate at +0x21, background colour id 0x11, text margin 2<<XCoordShift. Rows list the first six of STRINGS0.STR group 0's 18 squadmate orders. See docs/formats/mfd.md.",
       "source": "docs/formats/mfd.md"
+    },
+    {
+      "address": "0043f7a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashCommScreen_Paint",
+      "description": "MFDFlashComm vtable +0x00 (0049c36c): floods the screen rect (+0x39) with colour 0x11 through a temporary brush, copies the current selection (*(+8)) into +0x32, then for each of the six rows sets its label's frame -- 0049b0c4 when the row's flag byte (+0x2c+i) has bit 0, 0049b0b8 for the selected row, 0049b0b0 otherwise -- and its text and hotkey from the tables at 004d132c/004d1374 (index +3 when the flag has bit 1), and draws the selected row's plate with MfdFlashCommScreen_DrawRowPlate.",
+      "source": "DBSIM decompile at 0043f7a4"
+    },
+    {
+      "address": "0043f878",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashCommScreen_Update",
+      "description": "MFDFlashComm vtable +0x04 (0049c36c): when the selection (*(+8)) differs from +0x32, the force byte +0x36 is set, or a row is pending in +0x37: repaints the old row (+0x37 if set, else +0x32) unselected, makes the new selection current and repaints it selected, each with MfdFlashCommScreen_DrawRowPlate, Label_SetTextWithHotkey and Widget_DrawToCockpit; then clears +0x36 and sets +0x37 to -1.",
+      "source": "DBSIM decompile at 0043f878"
     },
     {
       "address": "0043f998",
@@ -7842,6 +9184,15 @@
       "source": "docs/simulation/rockets.md; docs/formats/mfd.md"
     },
     {
+      "address": "004402ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdMissileViewScreen_Update",
+      "description": "MFDMissileView vtable +0x04 (0049c449): raises the repaint counter +0x43 to 2 when DAT_0049c394, +0x1c, or the cockpit view's +0x1f5 object's +0xd6 byte is set; at 2 runs the screen's own slot +0x00 (MfdMissileViewScreen_Paint), at 1 Widget_DrawToCockpit(0, 004d1ac8), decrementing the counter either way.",
+      "source": "DBSIM decompile at 004402ec"
+    },
+    {
       "address": "00440348",
       "binary": "DBSIM",
       "type": "function",
@@ -7859,6 +9210,15 @@
       "description": "Constructor for the MFD's NAV MAP screen (mode 2). Copies the inset rect into this+0x18..0x24, allocates a 0x239-byte offscreen render target (this+0x10) centred at -((x1-x0)>>1), -((y1-y0)>>1), and a 0x22-byte view (this+0x14, View_Ctor) with perspective shift 8. No labels, no aux buttons.",
       "source": "docs/formats/mfd.md",
       "signature": "void * __cdecl MfdMapScreen_Ctor(void *this, int *insetRect)"
+    },
+    {
+      "address": "004405dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdMapScreen_PaintNoOp",
+      "description": "MFDNavMap vtable +0x00 (0049c4be): an empty body. The map draws from its per-frame slot +0x04, MfdMapScreen_Paint.",
+      "source": "DBSIM decompile at 004405dc"
     },
     {
       "address": "004405e4",
@@ -7887,6 +9247,15 @@
       "name": "EnergyWeaponGauge_Ctor",
       "description": "The weapon-row gauge class for energy mounts (vtable 0049c91c), built via CockpitView_CreateEnergyWeaponGauge. Builds the charge bar (WeaponSliderGadget_Ctor) over the same value field the ammunition class puts its number in (x0+36..x0+53, y0..y0+5).",
       "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "00440c68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyWeaponGauge_Paint",
+      "description": "EnergyWeaponGauge vtable +0x04 (0049c91c): while +0x8c is set, paints the row's two children (+0x18, +0x1c) through slot +0x00 of their tables at +0x17. AmmoWeaponGauge_Paint is the ammunition row's.",
+      "source": "DBSIM decompile at 00440c68"
     },
     {
       "address": "00440c90",
@@ -7940,7 +9309,7 @@
       "type": "function",
       "confidence": "high",
       "name": "AmmoWeaponGauge_Ctor",
-      "description": "The weapon-row gauge class for ammunition mounts (vtable 0049c8fc), built via FUN_00432124. Adds a left-aligned numeric label over the value field at x0+36..x0+53, y0..y0+5 of the .GAU hardpoint rect; FUN_004411b4 fills it with itoa(rounds) in ColorSchemePanels[10] WHITE when the mount is selected and [11] GRAY otherwise.",
+      "description": "The weapon-row gauge class for ammunition mounts (vtable 0049c8fc), built via CockpitView_CreateAmmoWeaponGauge. Adds a left-aligned numeric label over the value field at x0+36..x0+53, y0..y0+5 of the .GAU hardpoint rect; FUN_004411b4 fills it with itoa(rounds) in ColorSchemePanels[10] WHITE when the mount is selected and [11] GRAY otherwise.",
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
@@ -7960,6 +9329,15 @@
       "name": "AmmoWeaponGauge_Update",
       "description": "Ammunition row's per-frame update. Marks the power-up done at once, runs the sensor dropout as EnergyWeaponGauge_Update does, and refreshes the round-count label only while the row is neither dark nor mid-wipe (+0x76 clear and the +0x6c sequencer idle).",
       "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "004413f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AmmoWeaponGauge_SetState",
+      "description": "ProjectileWeaponGauge vtable +0x10 (0049c8fc), (gauge, block): EnergyWeaponGauge_SetState's ammunition twin. A new dword 0 (the round count) goes to +0xc2 and marks the row dirty (+0xb0 = 2). A new byte +0x11 goes to +0xd3 and sets the select gadget's (+0x18) state +0x1b to 2 or 0. New bytes +0x14/+0x15/+0x16 go to +0xd6/+0xd7/+0xd8. Any of the byte changes also invalidates the select gadget (its slot +0x04) and marks the row dirty.",
+      "source": "DBSIM decompile at 004413f4"
     },
     {
       "address": "004414a4",
@@ -8079,6 +9457,42 @@
       "signature": "void * __cdecl TurboPodGauge_Ctor(void *gauge, int *rect, int cockpitView, short hardpoint, void *pod)"
     },
     {
+      "address": "00441b84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPodGauge_SetStateBlock",
+      "description": "EnergyPodGauge (the Turbo Pod row, TurboPodGauge_Ctor) vtable +0x14, (gauge, block): when the button byte, the destroyed byte or the charge dword (block+4) differs from +0xc2/+0xc3/+0xc6, copies the block's first two dwords to +0xc2/+0xc6, also stores the charge in +0xe2 while the power-up fill is not done (+0x8d clear), and marks the row dirty (+0xb0 = 2).",
+      "source": "DBSIM decompile at 00441b84"
+    },
+    {
+      "address": "00441bdc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPodGauge_OnClick",
+      "description": "EnergyPodGauge vtable +0x00, (gauge, child): when child is the row's first child (+0x18), XORs the button byte +0xc2 and marks the row dirty -- TogglePodGauge_OnClick's toggle.",
+      "source": "DBSIM decompile at 00441bdc"
+    },
+    {
+      "address": "00441c14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPodGauge_Paint",
+      "description": "EnergyPodGauge vtable +0x04: while +0x8c is set, paints the select gadget (+0x18) and, unless +0x76 is set, the sprite sequence at +0x6c is running (SpriteSequence_State), the label's rect is off screen or the gadget is hidden (+0x1b == 2), sets the label (+0xca): a destroyed pod (+0xc3) gets the text at DAT_004d13c8 and hides the gadget; otherwise the frame and colour for the button's state (+0xc2). A live pod also paints its charge bar (+0xde) to +0xc6.",
+      "source": "DBSIM decompile at 00441c14"
+    },
+    {
+      "address": "00441d78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPodGauge_Update",
+      "description": "EnergyPodGauge vtable +0x08: PodGauge_Update(gauge).",
+      "source": "DBSIM decompile at 00441d78"
+    },
+    {
       "address": "00441d88",
       "binary": "DBSIM",
       "type": "function",
@@ -8123,6 +9537,24 @@
       "name": "ConsoleButtons_SetLinkLatch",
       "description": "Stores the LINK button's latch byte at panel+0xb4 and calls WeaponMounts_ToggleLink. Called from the button's own click handler and again from ConsoleButtons_SetStateBlock when the manager writes the byte back cleared -- two of the three toggles one press produces.",
       "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "00442058",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_Paint",
+      "description": "WeaponRangeGauge vtable +0x04 (0049c85c), the console-button row: paints its four children (+0x18..+0x24) through slot +0x00 of each child's table at +0x17.",
+      "source": "DBSIM decompile at 00442058"
+    },
+    {
+      "address": "0044207c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_Update",
+      "description": "WeaponRangeGauge vtable +0x08 (0049c85c): runs each of its four children's slot +0x0c (FlushDeferredPaint).",
+      "source": "DBSIM decompile at 0044207c"
     },
     {
       "address": "004420a0",
@@ -8341,6 +9773,60 @@
       "source": "DBSIM decompile at 00442f18"
     },
     {
+      "address": "00443417",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponGauge_SetStateNoOp",
+      "description": "WeaponGauge vtable +0x10 (0049c95c), kept by ChainedWeaponGauge, PodWeaponGauge, TogglePodGauge and EnergyPodGauge: an empty body. EnergyWeaponGauge installs EnergyWeaponGauge_SetState.",
+      "source": "DBSIM decompile at 00443417"
+    },
+    {
+      "address": "0044341c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PodGauge_PowerUpFillDone",
+      "description": "PodWeaponGauge and TogglePodGauge vtable +0x1c, the power-up fill slot: sets the done byte +0x8d at once, so a plain or toggle pod row has no ramp. EnergyPodGauge installs TurboPodGauge_PowerUpFill.",
+      "source": "DBSIM decompile at 0044341c; TurboPodGauge_PowerUpFill"
+    },
+    {
+      "address": "0044342b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ChainedWeaponSelectGadget_Dtor",
+      "description": "ChainedWeaponSelectGadget's destructor (class record 0044333b): (gadget, flags). Two RTL destructor-count decrements, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0044342b; class record at 0044333b"
+    },
+    {
+      "address": "00443460",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSliderGadget_Dtor",
+      "description": "WeaponSliderGadget's destructor (class record 004432df): (slider, flags). Two RTL destructor-count decrements, PanelSliderGadget_Dtor(slider+0x3e, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00443460; class record at 004432df"
+    },
+    {
+      "address": "00443498",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_Dtor",
+      "description": "WeaponSelectGadget's destructor (class record 00443283): (gadget, flags). One RTL destructor-count decrement, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00443498; class record at 00443283"
+    },
+    {
+      "address": "004434c5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponRangeSelectGadget_Dtor",
+      "description": "WeaponRangeSelectGadget's destructor (class record 00443223): (gadget, flags). Two RTL destructor-count decrements, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004434c5; class record at 00443223"
+    },
+    {
       "address": "004434fc",
       "binary": "DBSIM",
       "type": "function",
@@ -8458,6 +9944,15 @@
       "source": "DBSIM decompile at 00444b9c"
     },
     {
+      "address": "00444d2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_FacingDtor",
+      "description": "ShieldsSelectGadget's destructor (class record 00444cb2), ShieldsGauge_FacingCtor's object: (gadget, flags). One RTL destructor-count decrement, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00444d2c; class record at 00444cb2"
+    },
+    {
       "address": "00444d5c",
       "binary": "DBSIM",
       "type": "function",
@@ -8467,6 +9962,24 @@
       "source": "cockpit widget mapping"
     },
     {
+      "address": "00444f20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyPoolGauge_Paint",
+      "description": "EnergyPoolGauge vtable +0x04 (0049cabc): when the bar's (+0xb5) rect is on screen, installs the gauge's own render context (+0xbf, given the current one's clip and origin) when it has one, paints the bar to the value at +0xb1 through its slot +0x00, and reinstalls the previous context.",
+      "source": "DBSIM decompile at 00444f20"
+    },
+    {
+      "address": "00444fe0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyPoolGauge_Update",
+      "description": "EnergyPoolGauge vtable +0x08: EnergyPoolGauge_Paint's body gated on the dirty byte +0xb0 == 2, followed by Widget_DrawToCockpit(1, gauge+4) and +0xb0 = 0.",
+      "source": "DBSIM decompile at 00444fe0"
+    },
+    {
       "address": "004450d0",
       "binary": "DBSIM",
       "type": "function",
@@ -8474,6 +9987,15 @@
       "name": "EnergyMeter_SetValue",
       "description": "(meter, &value): stores value at meter+0xb1 and, when it differs from the previous one, sets the paint count +0xb0 to 2. Player_PerFrameCockpitUpdate passes CockpitViewInstance+0x1e5 and energyPool << 10 / 10000 (0..0x400, the range of the LEDBarGraphV 00444edc builds).",
       "source": "DBSIM decompile at 004450d0"
+    },
+    {
+      "address": "00445108",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyPoolGauge_OnChildClickNoOp",
+      "description": "EnergyPoolGauge vtable +0x00 (0049cabc): an empty body.",
+      "source": "DBSIM decompile at 00445108"
     },
     {
       "address": "00445110",
@@ -8537,6 +10059,15 @@
       "name": "MfdButton_OnClick",
       "description": "MFD button dispatch: finds the clicked button's index in the +0x18 array, then switches on it. Indices 0-5 call MfdDisplay_SetMode(i) -- this is what makes mode index = F-key - 1. Index 11 (PASS) and 12 (ACTIVE) set the radar-mode flag at CockpitViewInstance+0x203's +0x96 to 0/1 and swap which of the two lights. See docs/formats/mfd.md.",
       "source": "docs/formats/mfd.md"
+    },
+    {
+      "address": "004469c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_KeyDispatch",
+      "description": "MFDGauge vtable +0x0c (0049cfa0), (display, key): returns 0 while the display's rect (+0xeb) is off screen. Keys 0x20, 0x2d, 0x213 and 0x214 press children 7, 10, 8 and 9 when the current page's row of the table at 0049cbdf (13 bytes a page) enables them -- 0x213 cycles the scanner range with MfdDisplay_CycleScannerRange where it does not; on page 1, 0x34 and 0x33 run 00447014 and 00447048 and 0x1e/0x22/0x23/0x18/0x12 or 0x2e/0x21 pick rows 0-5 with MfdFlashComm_SelectRow. Returns 1 for a key it handled, 0 otherwise. HddDisplay_KeyDispatch is the Heads-Down Display's.",
+      "source": "DBSIM decompile at 004469c0"
     },
     {
       "address": "00446c10",
@@ -8758,6 +10289,24 @@
       "source": "DBSIM disassembly at 004478f1"
     },
     {
+      "address": "00447b21",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDSelectGadget_Dtor",
+      "description": "MFDSelectGadget's destructor (class record 00447a6f): (gadget, flags). One RTL destructor-count decrement, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00447b21; class record at 00447a6f"
+    },
+    {
+      "address": "00447b4e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDStateGadget_Dtor",
+      "description": "MFDStateGadget's destructor (class record 00447a17): (gadget, flags). Two RTL destructor-count decrements, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00447b4e; class record at 00447a17"
+    },
+    {
       "address": "00447b84",
       "binary": "DBSIM",
       "type": "function",
@@ -8765,6 +10314,24 @@
       "name": "ThrottleGauge_Ctor",
       "description": "Constructor for the throttle slider gauge. Lazily loads the `throttle` sprite bank into DAT_0049cfc4, folder selected by DAT_004d25bb == 3 choosing \"hba\" over \"dba\". Reads CockpitViewInstance and its own .GAU track rect. Bank frame 0 is a 2px tick, frame 1 the knob.",
       "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
+    },
+    {
+      "address": "00447d38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleGauge_Paint",
+      "description": "ThrottleGauge vtable +0x04 (0049d1e0): paints its child (+0x18, the slider) through slot +0x00 of its table at +0x17, then Bitmap_Blit(**(DAT_0049cfc4+8), gauge+0xc2, 0).",
+      "source": "DBSIM decompile at 00447d38"
+    },
+    {
+      "address": "00447d6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleGauge_Update",
+      "description": "ThrottleGauge vtable +0x08 (0049d1e0): runs its child's slot +0x0c (FlushDeferredPaint).",
+      "source": "DBSIM decompile at 00447d6c"
     },
     {
       "address": "00447d80",
@@ -8801,6 +10368,15 @@
       "name": "ThrottleSlider_CtorV",
       "description": "The throttle's vertical slider child, built when .GAU offset 1064 (SLIDE_DIR) == 1 -- the case all 9 retail .GAU files use. Knob spans the track's full width with its height from throttle bank frame 1 (28x12), limits +/-0x400 at +0x24/+0x26, and an initial position centred on the track (knobBottom = trackBottom - (trackHeight - knobHeight)/2), which is the manual's centred-is-stopped detent. Also constructs the two LED fill bars from .GAU ints [8..11] and [12..15] into private fields +0x7e and +0x82 -- it never registers them as children, and nothing ever paints them (see LedBarGraph_CtorV).",
       "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "004480a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleSlider_DrawKnobV",
+      "description": "ThrottleVSliderGadget vtable +0x00 (0049d12c): when the slider is on screen, places the knob rect from the knob position (+0x28/+0x2c), points the raster source page at the draw page, saves the screen under the knob (offset by the canvas origin) into +0x52 with Region_Save, blits the knob bitmap (+0x4e) mirrored (flag 2) when the knob sits right of 160 << XCoordShift, and records the knob rect at +0x6e/+0x72. ThrottleSlider_PaintV is the table's +0x0c.",
+      "source": "DBSIM decompile at 004480a0"
     },
     {
       "address": "0044819c",
@@ -8855,6 +10431,42 @@
       "name": "GauThrottle_ApplyCoordShift",
       "description": "(rects): VideoMode_ShiftRect on the first rect, then shifts the three 16-byte rects after it by VideoMode_XCoordShift / VideoMode_YCoordShift. Gau_ThrottleWidget runs it on the .GAU block at +1000.",
       "source": "DBSIM decompile at 004488cc"
+    },
+    {
+      "address": "00448b30",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VSliderGadget_InvalidateDeferred",
+      "description": "PanelVSliderGadget vtable +0x04 (0049d19c), kept by ThrottleVSliderGadget: this->[0x1f] = 2, the vertical slider's copy of Widget_InvalidateDeferred. HSliderGadget_InvalidateDeferred is the horizontal one.",
+      "source": "DBSIM decompile at 00448b30"
+    },
+    {
+      "address": "00448c0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelVSliderGadget_Dtor",
+      "description": "PanelVSliderGadget's destructor (class record 00448b9a): (slider, flags). One RTL destructor-count decrement, PanelSliderGadget_Dtor(slider+0x3e, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00448c0c; class record at 00448b9a"
+    },
+    {
+      "address": "00448c3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleSlider_DtorV",
+      "description": "ThrottleVSliderGadget's destructor (class record 00448ab2), ThrottleSlider_CtorV's object: (slider, flags). Two RTL destructor-count decrements, PanelSliderGadget_Dtor(slider+0x3e, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00448c3c; class record at 00448ab2"
+    },
+    {
+      "address": "00448c74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleSlider_DtorFixed",
+      "description": "ThrottleHSliderGadget's destructor (class record 00448a52), ThrottleSlider_CtorFixed's object: (slider, flags). Two RTL destructor-count decrements, PanelSliderGadget_Dtor(slider+0x3e, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00448c74; class record at 00448a52"
     },
     {
       "address": "00448cac",
@@ -8918,6 +10530,15 @@
       "name": "HddDisplay_KeyDispatch",
       "description": "Heads-Down Display key handler. The arrows, [-]/[=] and keypad -/+, and [1]-[3] press widgets 2-7 and 10-12 through Widget_PressChild, so they share the buttons' dark-state hold; [S]/[I]/[W] set the damage page directly; anything else goes to the current page's own dispatch (vtable +0x10).",
       "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "0044a14c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_OnChildClick",
+      "description": "HDDGauge vtable +0x00 (0049d64c), (display, child): finds child among the +0x68 children listed from +0x18 and stores its index in the byte +0x528.",
+      "source": "DBSIM decompile at 0044a14c"
     },
     {
       "address": "0044a178",
@@ -9131,6 +10752,24 @@
       "source": "docs/formats/heads-down-display.md"
     },
     {
+      "address": "0044bdf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddButton_FlushDeferredPaint",
+      "description": "HDDSelectGadget vtable +0x0c (0049d60c): while the button is on screen, at stage 2 (+0x1f) repaints it through its own slot +0x00; at stage 1 repaints buttons 10-12 (index +0x28) the same way and copies any other to the cockpit with Widget_DrawToCockpit(0, button); decrements the stage either way.",
+      "source": "DBSIM decompile at 0044bdf0"
+    },
+    {
+      "address": "0044be50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddButton_OnClick",
+      "description": "HDDSelectGadget vtable +0x08 (0049d60c), (button, value): unless the button is lit (+0x40) and is button 0 or 1 (+0x28), toggles the lit byte, calls the owning display's (+0x24) slot +0x00 with (display, button, value), invalidates itself (slot +0x04) and runs its PanelGadget mixin's (+0x20) slot +0x08, the click sound. So buttons 0 and 1 latch on.",
+      "source": "DBSIM decompile at 0044be50; HddButton_Ctor"
+    },
+    {
       "address": "0044be94",
       "binary": "DBSIM",
       "type": "function",
@@ -9147,6 +10786,33 @@
       "name": "HddGau_ApplyCoordShift",
       "description": "Pre-pass over the .GAU HDD block: adds 0x28 to the origin's y, then shifts every rect in the block by VideoMode_X/YCoordShift. The bias is what turns each retail file's authored origin (0,197) into (0,237), i.e. the same canvas origin the herc's own .VUE gives view 1 -- the row .HB1 is blitted at.",
       "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044c0ba",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelStateGadget_Dtor",
+      "description": "PanelStateGadget's destructor (class record 0044c054): (gadget, flags). One RTL destructor-count decrement, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0044c0ba; class record at 0044c054"
+    },
+    {
+      "address": "0044c1eb",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDisplay_ShowNoOp",
+      "description": "HDDisplay vtable +0x0c (0049d668), the screen base's Show slot (HddCommandScreen_Show is the map screen's): an empty body.",
+      "source": "DBSIM decompile at 0044c1eb"
+    },
+    {
+      "address": "0044c1f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddButton_Dtor",
+      "description": "HDDSelectGadget's destructor (class record 0044c175), HddButton_Ctor's object: (button, flags). Two RTL destructor-count decrements, PanelSelectGadget_Dtor(button, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0044c1f0; class record at 0044c175"
     },
     {
       "address": "0044c228",
@@ -9616,6 +11282,33 @@
       "source": "docs/formats/heads-down-display.md"
     },
     {
+      "address": "0044f5a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMarker_Invalidate",
+      "description": "HDDMapGadget vtable +0x04 (0049d9b0): this->[0x1f] = 2, and marks the command map screen (*(DAT_0049d6b0+8)) for a repaint: its +0x10f = 1 and +0xb0 = 2.",
+      "source": "DBSIM decompile at 0044f5a8"
+    },
+    {
+      "address": "0044f5cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMarker_FlushDeferredPaint",
+      "description": "HDDMapGadget vtable +0x0c (0049d9b0): when the marker is on screen and at stage 2 (+0x1f), paints it through slot +0x00 (HddMarker_Paint) with +0x37 raised for the call, copies it to the cockpit with Widget_DrawToCockpit(1, marker), and sets the stage to 0.",
+      "source": "DBSIM decompile at 0044f5cc"
+    },
+    {
+      "address": "0044f608",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMarker_OnClick",
+      "description": "HDDMapGadget vtable +0x08 (0049d9b0), (marker, value): clears +0x37 when bit 0 of value is set.",
+      "source": "DBSIM decompile at 0044f608"
+    },
+    {
       "address": "0044f61c",
       "binary": "DBSIM",
       "type": "function",
@@ -9700,6 +11393,15 @@
       "source": "DBSIM disassembly at 00450506; DBSIM_vtables_full.txt"
     },
     {
+      "address": "0045068d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLRect_Dtor",
+      "description": "GLRect vtable +0x18 (0049d984, RTTI 'GLRect', 0x14 bytes; bases GLPrimitive and Box32_2d at +4), the destructor its class record names: (rect, flags). Three RTL destructor-count decrements, then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 0045068d; class record at 00450631"
+    },
+    {
       "address": "0045079c",
       "binary": "DBSIM",
       "type": "function",
@@ -9707,6 +11409,24 @@
       "name": "HddDamageScreen_Ctor",
       "description": "The [F8] damage detail. Resolves the four colour ids at HddDamageColorIds through HudColorTable in place -- nothing ever reads them -- then builds 13 rows of two labels each down the damage column: a name from the column's left edge + 0x1e<<XCoordShift, and a value column whose width is the measured width of the literal '100'. Rows are 4<<YCoordShift tall at 7<<YCoordShift pitch, all in ColorSchemePanels[1] on colour id 19. Also builds the subject caption at the screen's bottom-left and a centred no-data label, then calls HddDamageScreen_SetView(obj, 0).",
       "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00450b2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_Repaint",
+      "description": "HDDDamage vtable +0x00 (0049dab0): sets +0x80 to -1, then HddDamageScreen_Update(screen, 0).",
+      "source": "DBSIM decompile at 00450b2c"
+    },
+    {
+      "address": "00450b4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_Tick",
+      "description": "HDDDamage vtable +0x04 (0049dab0), the per-frame slot: HddDamageScreen_Update(screen, 1).",
+      "source": "DBSIM decompile at 00450b4c"
     },
     {
       "address": "00450b60",
@@ -9763,6 +11483,15 @@
       "source": "docs/formats/heads-down-display.md"
     },
     {
+      "address": "00451d94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_Show",
+      "description": "HDDDamage vtable +0x0c (0049dab0): HddDamageScreen_SetView(screen, +0x7c), the category it last showed, then +0x80 = -1.",
+      "source": "DBSIM decompile at 00451d94"
+    },
+    {
       "address": "00451db8",
       "binary": "DBSIM",
       "type": "function",
@@ -9772,6 +11501,15 @@
       "source": "docs/formats/heads-down-display.md (Damage detail)"
     },
     {
+      "address": "00451e86",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDisplay_HideNoOp",
+      "description": "HDDisplay vtable +0x08 (0049d668), kept by HDDDamage: push ebp / mov ebp,esp / pop ebp / ret. HddCommandScreen_Hide is the map screen's.",
+      "source": "DBSIM disassembly at 00451e86"
+    },
+    {
       "address": "00451e8b",
       "binary": "DBSIM",
       "type": "function",
@@ -9779,6 +11517,51 @@
       "name": "HddDamageScreen_KeyDispatch",
       "description": "Vtable slot 4 of the damage screen (0049dab0), the slot HddDisplay's key dispatch forwards unhandled scancodes to. Returns 0: the screen handles no key of its own.",
       "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00451e94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelAmbience_Ctor",
+      "description": "PanelAmbience constructor (table 0049db5c, RTTI 'PanelAmbience', 0xc1 bytes), (gauge, record, arg): PanelGauge_Ctor over the record's rect (+0x10), its own table, then three 0x21-byte Labels in ColorSchemePanels at +0xb1, +0xb5 and +0xb9 placed in that rect (alignments 1, 4 and 2), and the refresh deadline +0xbd = now + 0x1e coarse ticks. It also builds a local name from the cockpit's (CockpitOverride_Name, or the type's entry in DAT_004a9de4) and overwrites it with 'cpwincrk'.",
+      "source": "DBSIM decompile at 00451e94"
+    },
+    {
+      "address": "004520a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelAmbience_Paint",
+      "description": "PanelAmbience vtable +0x04 (0049db5c): calls 00452144(gauge).",
+      "source": "DBSIM decompile at 004520a0"
+    },
+    {
+      "address": "004520b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelAmbience_Update",
+      "description": "PanelAmbience vtable +0x08 (0049db5c): forces the dirty byte +0xb0 to 2 while the cockpit view manager's +0x1c byte is set; when dirty, copies the rect from (+0xb1)+4/+8 to (+0xb5)+0xc/+0x10 to the cockpit with Widget_DrawToCockpit and clears it. Every 0x1e coarse ticks (deadline +0xbd) reruns 00452144 and sets the dirty byte to 1.",
+      "source": "DBSIM decompile at 004520b0"
+    },
+    {
+      "address": "0045233f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelGauge_OnChildClickNoOp",
+      "description": "PanelGauge vtable +0x00 (0049bc6c), kept by HUD, WeaponGauge, ChainedWeaponGauge and PanelAmbience: push ebp / mov ebp,esp / pop ebp / ret -- an owning display that ignores its children's forwarded clicks.",
+      "source": "DBSIM disassembly at 0045233f; docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00452344",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelGauge_KeyDispatchNone",
+      "description": "PanelGauge vtable +0x0c (0049bc6c), and the same slot in twelve classes below it: returns 0, handling no key. The Heads-Down Display installs HddDisplay_KeyDispatch in the slot.",
+      "source": "DBSIM decompile at 00452344"
     },
     {
       "address": "00452388",
@@ -9960,6 +11743,15 @@
       "name": "Widget_Repaint",
       "description": "Calls a widget's own Paint vtable slot after a state change. The slot's numeric offset is not uniform across classes (confirmed +4 for MfdDisplay and HddButton via unambiguous ctor evidence; do not assume the same offset for every class without checking).",
       "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00452aad",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CTLWindow_Slot00NoOp",
+      "description": "CTLWindow vtable +0x00 (0049db7a, RTTI 'CTLWindow', 0x398 bytes, derived from CTLBox), the table's one slot: an empty body.",
+      "source": "DBSIM decompile at 00452aad"
     },
     {
       "address": "00452ab2",
@@ -10413,6 +12205,24 @@
       "source": "docs/formats/cockpit-input.md"
     },
     {
+      "address": "00455348",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_Paint",
+      "description": "AlertSliderGadget vtable +0x00 (0049dfd8): puts back the background under the knob's last position (Region_Restore from +0x52) when the knob (+0x28) has moved; runs the bar (+0x46) slots +0x08 and +0x00 with the value +0x7a and records it at +0x4a; rebuilds the knob rect at +0x2e..+0x3a, saves the screen under it (Region_Save into +0x52) and blits the knob bitmap +0x4e with VideoMode_BlitBitmap, recording the position at +0x6e/+0x72.",
+      "source": "DBSIM decompile at 00455348"
+    },
+    {
+      "address": "004554a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_FlushDeferredPaintNoOp",
+      "description": "AlertSliderGadget vtable +0x0c (0049dfd8): an empty body.",
+      "source": "DBSIM decompile at 004554a0"
+    },
+    {
       "address": "00455524",
       "binary": "DBSIM",
       "type": "function",
@@ -10449,6 +12259,15 @@
       "source": "DBSIM disassembly at 00455540; DBSIM_vtables_full.txt"
     },
     {
+      "address": "00455545",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CTLButtonControl_PaintNoOp",
+      "description": "CTLButtonControl vtable +0x00 (0049df24), kept by ScrollTrigger, PanelSelectGadget and PanelStateGadget: an empty body.",
+      "source": "DBSIM decompile at 00455545"
+    },
+    {
       "address": "0045554a",
       "binary": "DBSIM",
       "type": "function",
@@ -10458,6 +12277,15 @@
       "source": "DBSIM disassembly at 0045554a; DBSIM_vtables_full.txt"
     },
     {
+      "address": "00455559",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CTLButtonControl_InvalidateNoOp",
+      "description": "CTLButtonControl vtable +0x04 (0049df24), kept by ScrollTrigger: an empty body. The PanelSelectGadget branch installs Widget_InvalidateDeferred.",
+      "source": "DBSIM decompile at 00455559"
+    },
+    {
       "address": "0045555e",
       "binary": "DBSIM",
       "type": "function",
@@ -10465,6 +12293,78 @@
       "name": "CTLControl_OnClickNoOp",
       "description": "Empty body. The OnClick slot +8 of CTLControl (0049dbb6), CTLButtonControl, CTLSliderControl, CTLHSlider and CTLVSlider, and +4 of the tables at 0049d174 and 0049df6c (es2_xref: 7 slots, no branch).",
       "source": "DBSIM disassembly at 0045555e; es2_xref.py"
+    },
+    {
+      "address": "00455563",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CTLWindow_Dtor",
+      "description": "CTLWindow's destructor (class record 004554c8): (window, flags). Three RTL destructor-count decrements, then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00455563; class record at 004554c8"
+    },
+    {
+      "address": "004556d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HSliderGadget_InvalidateDeferred",
+      "description": "PanelHSliderGadget vtable +0x04 (0049df94), kept by WeaponSliderGadget, ThrottleHSliderGadget and AlertSliderGadget: this->[0x1f] = 2, the horizontal slider's copy of Widget_InvalidateDeferred. VSliderGadget_InvalidateDeferred is the vertical one.",
+      "source": "DBSIM disassembly at 004556d0"
+    },
+    {
+      "address": "0045571c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CTLSliderControl_PaintNoOp",
+      "description": "CTLSliderControl vtable +0x00 (0049db8a), kept by CTLHSlider, CTLVSlider, PanelHSliderGadget and PanelVSliderGadget: push ebp / mov ebp,esp / pop ebp / ret.",
+      "source": "DBSIM disassembly at 0045571c"
+    },
+    {
+      "address": "00455721",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CTLSliderControl_InvalidateNoOp",
+      "description": "CTLSliderControl vtable +0x04 (0049db8a), kept by CTLHSlider and CTLVSlider: an empty body.",
+      "source": "DBSIM decompile at 00455721"
+    },
+    {
+      "address": "00455798",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelHSliderGadget_Dtor",
+      "description": "PanelHSliderGadget's destructor (class record 00455726): (slider, flags). One RTL destructor-count decrement, PanelSliderGadget_Dtor(slider+0x3e, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00455798; class record at 00455726"
+    },
+    {
+      "address": "0045586c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_OnClick",
+      "description": "AlertSliderGadget vtable +0x08 (0049dfd8), (slider, value): calls the owning panel's (+0x42) slot +0x0c, its OnChildClick, with (panel, slider, value), then invalidates the slider (its slot +0x04).",
+      "source": "DBSIM disassembly at 0045586c"
+    },
+    {
+      "address": "004558cb",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_OnChildClickNoOp",
+      "description": "Alert vtable +0x0c (0049e05c), the base of the modal panels: an empty body. StatusAlertPanel_OnChildClick, ObjectivesPanel_OnChildClick, PreferencesPanel_OnClick and ControlsPanel_OnClick fill the slot.",
+      "source": "DBSIM decompile at 004558cb"
+    },
+    {
+      "address": "004558d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_Dtor",
+      "description": "AlertSliderGadget's destructor (class record 00455810): (slider, flags). Two RTL destructor-count decrements, PanelSliderGadget_Dtor(slider+0x3e, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004558d0; class record at 00455810"
     },
     {
       "address": "00455908",
@@ -10573,6 +12473,15 @@
       "source": "docs/simulation/preferences.md"
     },
     {
+      "address": "004570e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_Paint",
+      "description": "PrefsAlert vtable +0x00 (0049e40c): blits the panel bitmap (+0x30) at its rect (+0x1c) offset by the screen origin (DAT_004d25da/DAT_004d25de), sets the title from +0x35e through its own slot +0x04 (AlertPanel_SetTitleText), paints its +0x2cd children (listed from +0x291) through each one's slot +0x00, and runs PreferencesPanel_RefreshRow for rows 0-8.",
+      "source": "DBSIM decompile at 004570e0"
+    },
+    {
       "address": "00457180",
       "binary": "DBSIM",
       "type": "function",
@@ -10598,6 +12507,15 @@
       "name": "PreferencesPanel_OnClick",
       "description": "The preferences panel's click slot (vtable +0xc). Records the right-button flag at panel+0x2ff from bit 1 of the click value, walks the widget list for the clicked child, moves the highlight for widgets 0-8 (the row that had it back to state 3, this one to 0) and queues the widget index at panel+0x356 for the loop to act on.",
       "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0045743c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_GetButtonCaption",
+      "description": "PrefsAlert vtable +0x14 (0049e40c), (panel, index): returns *(panel + 0x362 + index*4), the caption a button's paint asks its owner for.",
+      "source": "DBSIM decompile at 0045743c"
     },
     {
       "address": "00457450",
@@ -10646,6 +12564,15 @@
       "description": "Builds obj_alrt, the [F11] objectives panel: 630x278 device, centred on the screen when rect is null. Writes its layout block to DAT_004d1f84..004d1fa4 once, loads hba\\OBJ_ALRT.HBA as the plate and str\\OBJ_ALRT.STR as its two captions, copies block 13's mission.str pointers (count DAT_004a9ec8, refs DAT_004a9ecc) into +0x34a, then builds the title label, the RETURN button with its ALERT bank plates, and seven objective-line labels at y 34 on a 20px pitch.",
       "source": "docs/simulation/mission-objectives.md",
       "signature": "void * __cdecl ObjectivesPanel_Ctor(void *panel, char ownsBackingStore, int *rect)"
+    },
+    {
+      "address": "00457a80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectivesPanel_Dtor",
+      "description": "ObjectiveAlert's destructor (class record 00457c7a), ObjectivesPanel_Ctor's object: (panel, flags). Reinstalls its table (0049e4f8), Mem_Deletes the seven pointers at +0x39c, OwnedArray_Dtor(panel+0x332, 2), Alert_Dtor(panel, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM decompile at 00457a80; class record at 00457c7a"
     },
     {
       "address": "00457ae4",
@@ -10723,6 +12650,15 @@
       "name": "ControlsPanel_Run",
       "description": "The controls panel's modal loop and its 14-case action switch. First asks FUN_0045c508(3) for a joystick and, when that answers null or with bit 0 clear, greys all twelve rows to state 2; otherwise reads Input_QueryCapabilities and greys the THROTTLE, RUDDER and HAT rows and every button row past the reported count. Cases 1-4 step an axis option over three values and clear the list selection; 5-12 step that button row; 13 writes Input_RecommendedBindings' twelve bytes; 14 closes.",
       "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00458c68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_Paint",
+      "description": "ControlsAlert vtable +0x00 (0049e82c): PreferencesPanel_Paint's sequence with the title at +0x332 and ControlsPanel_RefreshRow for rows 1-12, then Label_SetText(+0x456, +0x3f2).",
+      "source": "DBSIM decompile at 00458c68"
     },
     {
       "address": "00458d20",
@@ -10808,6 +12744,15 @@
       "name": "ControlsPanel_FillOptionList",
       "description": "Refills the twelve OPTIONS labels from the selected button row's action list. Writes an empty string into every one when the selection is -1, and past the end of that row's list otherwise, which is why a freshly raised panel's list box is blank.",
       "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459668",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelButton_Dtor",
+      "description": "AlertSelectGadget's destructor (class record 0045960c), PanelButton_Ctor's object: (button, flags). One RTL destructor-count decrement, PanelSelectGadget_Dtor(button, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00459668; class record at 0045960c"
     },
     {
       "address": "00459710",
@@ -11318,6 +13263,15 @@
       "source": "docs/formats/joystick-input.md"
     },
     {
+      "address": "0045c2c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "JoystickDevice_Dtor",
+      "description": "IMJoystick vtable +0x00 (0049ec9c, the table at +0x24 of the joystick device JoystickDevice_Ctor builds), the destructor its class record names: (device, flags). Reinstalls that table, clears its slot in the device table DAT_004d2510 (index +0x20) and DAT_004d2528 when that holds the same index, runs DVJoystick's destructor (00477524) with flags 0, and Mem_Deletes on flags bit 0.",
+      "source": "DBSIM decompile at 0045c2c4; class record at 0045c537"
+    },
+    {
       "address": "0045c314",
       "binary": "DBSIM",
       "type": "function",
@@ -11746,6 +13700,15 @@
       "source": "DBSIM decompile at 00460fa1"
     },
     {
+      "address": "004610d9",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PausePanel_Dtor",
+      "description": "GeneralSmallAlert's destructor (class record 0046107d), PausePanel_Ctor's object: (panel, flags). One RTL destructor-count decrement, GeneralAlert_Dtor(panel, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 004610d9; class record at 0046107d"
+    },
+    {
       "address": "00461188",
       "binary": "DBSIM",
       "type": "function",
@@ -11816,6 +13779,15 @@
       "name": "TSLight_Dtor",
       "description": "The DBSIM copy of VSHELL's TSLight_Dtor (00427e02).",
       "source": "ES2DecompileContainingBatch DBSIM 0046209e / VSHELL 00427e02: identical after normalisation; RTTI TSLight vtable 0049f8ec slot +0x00"
+    },
+    {
+      "address": "00462150",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cam_Dtor",
+      "description": "CAM vtable +0x00 (0049f900, RTTI 'CAM', 0x4e bytes, derived from TSCamera), the destructor its class record names: (cam, flags). Two RTL destructor-count decrements, TSContext_Dtor(cam, 0), then Mem_Delete on flags bit 0.",
+      "source": "DBSIM disassembly at 00462150; class record at 00462104"
     },
     {
       "address": "00462238",
@@ -13212,6 +15184,15 @@
       "source": "docs/simulation/destruction-effects.md"
     },
     {
+      "address": "0046b7e6",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSObj_Draw",
+      "description": "TS_OBJ vtable +0x00 (004a0b98), inherited unchanged by ANIM_OBJ, EXPLOSION, SMOKE_BALL and FIRE: SimObject_InstallModelTransform(this), then draws the shape instance at +0x34 through its own vtable +0x1c. DET_ANIM_OBJ replaces it with Shape_DrawAtDetailLevel.",
+      "source": "DBSIM disassembly at 0046b7e6"
+    },
+    {
       "address": "0046b801",
       "binary": "DBSIM",
       "type": "function",
@@ -13234,9 +15215,18 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "ProjectileSuperBase_Dtor",
-      "description": "Deleting destructor of the class the projectile base derives from -- slot +0x8 of ProjectileSuperBaseVtable (004a0b98), which it installs at 0046b8b0. Same flags argument as the rest of the hierarchy.",
-      "source": "tools/ghidra_scripts/known_vtables.json (Destructor slot); disassembly of the vtable-pointer stores"
+      "name": "TSObj_Dtor",
+      "description": "TS_OBJ vtable +0x08 (TSObjVtable, 004a0b98, RTTI 'TS_OBJ', 0x41 bytes): the deleting destructor, (this, flags). Reinstalls TSObjVtable at 0046b8b0, deletes the shape instance at +0x34 through its own vtable +0x18 with flags 3, and Mem_Deletes this on flags bit 0. TS_OBJ is the base of every shaped simulation object -- projectiles, effects, FlatObj and, through ANIM_OBJ, the ACTOR hierarchy -- and its destructor is the level all of their destructors reinstall last.",
+      "source": "DBSIM decompile at 0046b890; RTTI at 004a0b98"
+    },
+    {
+      "address": "0046b97d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MatObj_Dtor",
+      "description": "MAT_OBJ vtable +0x08 (00497289): the deleting destructor, (this, flags). Two RTL destructor-count decrements (MAT_OBJ, DRAWABLE), then Mem_Delete(this) on flags bit 0.",
+      "source": "DBSIM disassembly at 0046b97d"
     },
     {
       "address": "0046bb40",
@@ -13634,6 +15624,33 @@
       "description": "Stamps one base formation's material over the terrain tile a world point falls in, and marks that formation's occupied cells for the flattening pass. The only writer of cell +0xf bits [2:7] outside the two zone loaders, and the only path by which materials 2-12 reach shipped terrain -- TerrainZone_PopulateFromBitmap's roll is capped at 2. The tile is 1 << (0x15 - mat0[material].BlockShift) world units square, independent of the zone's cell shift, and dimension x dimension map entries span it exactly; a cell takes 1 << (cellShift - 13) entries per axis. Every cell of the tile is painted; only cells whose map byte is nonzero also get Terrain_SetCellScratch(1), which is the second input to Terrain_FlattenStructureFootprints (00471190) alongside the per-object radius marks of Terrain_MarkStructureFootprint (00470dc8), and is why a base's whole pad levels as one region. Map row 0 indexes the tile's HIGH-y edge and counts down. The material write is skipped entirely when CockpitArt_LoadOnDemand is set (the low-memory mode: -l, or under 12 MB physical), leaving the ground flat but unpainted.",
       "source": "docs/formats/terrain-texturing.md (base formation pads)",
       "signature": "void __cdecl Terrain_PaintFormationPad(void *grid, int *worldPoint, int materialIndex, unsigned char **mapRows, int dimension)"
+    },
+    {
+      "address": "004714e3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DummyDrawable_Dtor",
+      "description": "DummyDrawable vtable +0x08 (004a0cb8, RTTI 'DummyDrawable', 0xc bytes, derived from DRAWABLE), the destructor its class record names: (this, flags). Two RTL destructor-count decrements, then Mem_Delete(this) on flags bit 0.",
+      "source": "DBSIM decompile at 004714e3; class record at 0047147d"
+    },
+    {
+      "address": "0047150d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DummyDrawable_DrawNoOp",
+      "description": "DummyDrawable vtable +0x00 (004a0cb8): an empty body. Terrain_FillCellUntextured installs the table.",
+      "source": "DBSIM decompile at 0047150d"
+    },
+    {
+      "address": "00471512",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DummyDrawable_GetPositionNull",
+      "description": "DummyDrawable vtable +0x04 (004a0cb8): returns 0 -- a null position pointer.",
+      "source": "DBSIM decompile at 00471512"
     },
     {
       "address": "00471944",
@@ -14464,6 +16481,15 @@
       "source": "docs/formats/dts-node-posing.md"
     },
     {
+      "address": "004759b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBSPGroup_Ctor",
+      "description": "The DBSIM copy of VSHELL's TSBSPGroup_Ctor (004235c4), the TSBSPGroup constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 004759b4 VSHELL 004235c4"
+    },
+    {
       "address": "004759e0",
       "binary": "DBSIM",
       "type": "function",
@@ -14626,6 +16652,15 @@
       "source": "docs/formats/dts-billboards.md"
     },
     {
+      "address": "00476834",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSDetailPart_Ctor",
+      "description": "The DBSIM copy of VSHELL's TSDetailPart_Ctor (0042216b), the TSDetailPart constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 00476834 VSHELL 0042216b"
+    },
+    {
       "address": "0047685c",
       "binary": "DBSIM",
       "type": "function",
@@ -14640,7 +16675,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSDetailPart_SetBias",
-      "description": "One-line setter for g_TSDetailPartBias, the starting level index TSDetailPart_Render walks up from, and its only writer. Every caller is a draw slot bracketing its render with a push and a restore to 0: Structure_DrawWithDetailBias, Flyer_Draw, Debris_Draw and FUN_0040ded8.",
+      "description": "One-line setter for g_TSDetailPartBias, the starting level index TSDetailPart_Render walks up from, and its only writer. Every caller is a draw slot bracketing its render with a push and a restore to 0: Structure_DrawWithDetailBias, Flyer_Draw, Debris_Draw and WeaponMount_RenderWithDetailBias.",
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
@@ -14651,6 +16686,15 @@
       "name": "TSDetailPart_Render",
       "description": "Detail-level selection. size = (radius << DAT_006c60ac) / max(Math_FastMagnitude3D(viewOffset) - radius, 1); t = Math_Q10Multiply(DAT_004a1034, size); i starts at the STRUCTURE DETAIL bias DAT_004a1038 and advances while details[i] < t; renders parts[min(i - bias, count-1)]. Thresholds are ascending and index-aligned with Parts, so part 0 is the coarsest and the last is the finest; bias 0 is MAXIMUM.",
       "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "004769a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBSPPart_Ctor",
+      "description": "The DBSIM copy of VSHELL's TSBSPPart_Ctor (004222c9), the TSBSPPart constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 004769a0 VSHELL 004222c9"
     },
     {
       "address": "004769d4",
@@ -14923,6 +16967,24 @@
       "source": "docs/simulation/ground-shapes.md"
     },
     {
+      "address": "004785c6",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Drawable_GetRadiusZero",
+      "description": "DRAWABLE vtable +0x10, kept by MAT_OBJ, REG_OBJ, TINY_OBJ, their TS_ variants, LightSource, SMOKE and DummyDrawable: returns 0. TS_OBJ and everything below it install SimObject_GetShapeRadius in the slot.",
+      "source": "DBSIM decompile and disassembly at 004785c6"
+    },
+    {
+      "address": "00478615",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Drawable_Dtor",
+      "description": "DRAWABLE vtable +0x08 (004a14bc, RTTI 'DRAWABLE', 0xc bytes): the deleting destructor, (this, flags). One RTL destructor-count decrement, reinstalls DRAWABLE's table, and Mem_Deletes this on flags bit 0.",
+      "source": "DBSIM disassembly at 00478615"
+    },
+    {
       "address": "00478654",
       "binary": "DBSIM",
       "type": "function",
@@ -14943,6 +17005,24 @@
       "signature": "short __cdecl ANSequence_PrevFrame(void *sequence, short frame)"
     },
     {
+      "address": "00478680",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANSequence_FrameShortOfTarget",
+      "description": "ANSequence vtable +0x28 (004a6864), (seq, frame, target, flag): 1 when frame < target, or frame == target and flag is 0; otherwise 0. AnimThread_FindTransition asks it of a transition's destination sequence, for forward play, with the thread's +0x1c as the flag. The DBSIM copy of VSHELL's 0046301c.",
+      "source": "DBSIM decompile at 00478680; AnimThread_FindTransition"
+    },
+    {
+      "address": "004786ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANSequence_FrameShortOfTargetBackward",
+      "description": "ANSequence vtable +0x2c (004a6864), ANSequence_FrameShortOfTarget's mirror for backward play: 1 when frame > target, or frame == target and flag is 0. The DBSIM copy of VSHELL's 00463048.",
+      "source": "DBSIM decompile at 004786ac; AnimThread_FindTransition"
+    },
+    {
       "address": "004786d8",
       "binary": "DBSIM",
       "type": "function",
@@ -14961,6 +17041,24 @@
       "description": "ANCyclicSequence vtable +0x24: frame != 0 ? frame-1 : frameCount-1, i.e. wraps. Args derived from disassembly: [EBP+8] sequence, [EBP+0xc] frame.",
       "source": "docs/formats/dts-node-posing.md",
       "signature": "short __cdecl ANCyclicSequence_PrevFrame(void *sequence, short frame)"
+    },
+    {
+      "address": "00478714",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANCyclicSequence_FrameShortOfTarget_Always",
+      "description": "ANCyclicSequence vtable +0x28 (004a6828): returns 1 in AX. The DBSIM copy of VSHELL's 004630b0.",
+      "source": "DBSIM decompile at 00478714"
+    },
+    {
+      "address": "00478720",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANCyclicSequence_FrameShortOfTargetBackward_Always",
+      "description": "ANCyclicSequence vtable +0x2c (004a6828): returns 1 in AX. The DBSIM copy of VSHELL's 004630bc.",
+      "source": "DBSIM decompile at 00478720"
     },
     {
       "address": "0047872c",
@@ -15006,6 +17104,15 @@
       "name": "ShapeInst_RegisterThread",
       "description": "(shapeInst, thread): stores thread in the first empty of the ten slots at shapeInst+0x1a and re-sorts them with ShapeInst_SortThreadsByPriority; returns 1, or 0 when all ten are taken. ShapeInst_AddThread registers through it.",
       "source": "DBSIM decompile at 00478930"
+    },
+    {
+      "address": "00478964",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_RemoveThread",
+      "description": "(shapeInst, thread): finds thread in the ten slots at shapeInst+0x1a that ShapeInst_RegisterThread fills, shifts the slots after it down by one and zeroes the tenth; returns 1, or 0 when thread is not registered. Does not free the thread.",
+      "source": "DBSIM decompile at 00478964"
     },
     {
       "address": "004789a0",
@@ -16195,6 +18302,24 @@
       "name": "LZHuffman_Start",
       "description": "The DBSIM copy of VSHELL's LZHuffman_Start.",
       "source": "DBSIM decompile and disassembly at 0047bbd0"
+    },
+    {
+      "address": "0047c13c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffWStream_Ctor",
+      "description": "The DBSIM copy of VSHELL's BuffWStream_Ctor (0044fc40), the BuffWStream constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0047c13c VSHELL 0044fc40"
+    },
+    {
+      "address": "0047c178",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffWStream_CtorOnTarget",
+      "description": "The DBSIM copy of VSHELL's BuffWStream_CtorOnTarget (0044fc78), the BuffWStream constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0047c178 VSHELL 0044fc78"
     },
     {
       "address": "0047c208",
@@ -17547,6 +19672,15 @@
       "source": "es2_naming.py diff DBSIM 004821c0 VSHELL 00453d74: differs only in callee labels and decompiler typing; RTTI GLPalette vtable slot"
     },
     {
+      "address": "004822ce",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPalette_Ctor",
+      "description": "The DBSIM copy of VSHELL's GLPalette_Ctor (00453e82), the GLPalette constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 004822ce VSHELL 00453e82"
+    },
+    {
       "address": "00482304",
       "binary": "DBSIM",
       "type": "function",
@@ -17608,6 +19742,15 @@
       "name": "GL_Blit",
       "description": "(context, bitmapData, point, flags): drops the context and calls Bitmap_BlitClipDispatch(bitmapData, point, flags). Bitmap_Blit reaches the blitter through it.",
       "source": "DBSIM decompile and disassembly at 004826af"
+    },
+    {
+      "address": "004826c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLFont_Construct",
+      "description": "The DBSIM copy of VSHELL's GLFont_Construct (00454238), the GLFont constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 004826c8 VSHELL 00454238"
     },
     {
       "address": "00482764",
@@ -17745,6 +19888,15 @@
       "source": "es2_naming.py diff DBSIM 00482dc4 VSHELL 00454930: differs only in callee labels and decompiler typing; RTTI GLBitmapArray vtable slot"
     },
     {
+      "address": "00482e2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmapArray_Ctor",
+      "description": "The DBSIM copy of VSHELL's GLBitmapArray_Ctor (00454998), the GLBitmapArray constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 00482e2c VSHELL 00454998"
+    },
+    {
       "address": "00482efc",
       "binary": "DBSIM",
       "type": "function",
@@ -17844,6 +19996,15 @@
       "source": "ES2DecompileContainingBatch DBSIM 00483161 / VSHELL 00454d4d: identical after normalisation; RTTI GLRectangleRegion vtable 004a327c slot +0x18"
     },
     {
+      "address": "004831fa",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLRectangleRegion_Ctor",
+      "description": "The DBSIM copy of VSHELL's GLRectangleRegion_Ctor (00454c5d), the GLRectangleRegion constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 004831fa VSHELL 00454c5d"
+    },
+    {
       "address": "004832dc",
       "binary": "DBSIM",
       "type": "function",
@@ -17923,6 +20084,15 @@
       "name": "GLPrimitive_Dtor",
       "description": "The DBSIM copy of VSHELL's GLPrimitive_Dtor (0045d957).",
       "source": "ES2DecompileContainingBatch DBSIM 00483684 / VSHELL 0045d957: identical after normalisation; RTTI GLPrimitive vtable 004a3058 slot +0x18"
+    },
+    {
+      "address": "004836b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLEdgeTableRegion_Ctor",
+      "description": "The DBSIM copy of VSHELL's GLEdgeTableRegion_Ctor (00455118), the GLEdgeTableRegion constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 004836b4 VSHELL 00455118"
     },
     {
       "address": "004836f8",
@@ -18690,6 +20860,15 @@
       "source": "docs/formats/effect-lights.md"
     },
     {
+      "address": "0048bc60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_TSOmniLight_SetIntensity",
+      "description": "TSOmniLight vtable +0x04 (00497ac8), its override of maybe_TSLight_SetIntensity: (light, value) stores value at +0x1a as the base does, and also value * light+0x38 at +0x3c.",
+      "source": "DBSIM decompile at 0048bc60"
+    },
+    {
       "address": "0048bc78",
       "binary": "DBSIM",
       "type": "function",
@@ -18707,6 +20886,15 @@
       "description": "Constructs a view (vtable 004a5b41): View_CtorBase for the position and angles, then the render target at +0x16, the perspective shift at +0x1a and the near plane at +0x1e -- the fields Raster_InstallViewProjection reads. Sim_InitMissionSession passes shift 8 or 9; MfdMapScreen_Ctor passes 8, near plane 0x100, and a zero position and zero angles.",
       "source": "docs/formats/cockpit-views.md",
       "signature": "void * __cdecl View_Ctor(void *this, void *renderTarget, int perspectiveShift, int nearPlane, int *position, short *angles)"
+    },
+    {
+      "address": "0048bcd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSOrthoCamera_Ctor",
+      "description": "The DBSIM copy of VSHELL's TSOrthoCamera_Ctor (0045db40): (obj, a, b, c, d, position, orientation) View_Ctor(obj, a, b, c, position, orientation) -- where VSHELL's calls TSCamera_Ctor -- then the TSOrthoCamera table (004a5b31) and d at +0x22.",
+      "source": "es2_naming.py diff DBSIM 0048bcd8 VSHELL 0045db40"
     },
     {
       "address": "0048bd14",
@@ -19316,6 +21504,15 @@
       "source": "DBSIM disassembly at 0048dd6c"
     },
     {
+      "address": "0048dd94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSNullObj_Construct",
+      "description": "The DBSIM copy of VSHELL's TSNullObj_Construct (0045fb70), the TSNullObj constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048dd94 VSHELL 0045fb70"
+    },
+    {
       "address": "0048de28",
       "binary": "DBSIM",
       "type": "function",
@@ -19359,6 +21556,15 @@
       "name": "TSNullObj_WriteToStream",
       "description": "The DBSIM copy of VSHELL's TSNullObj_WriteToStream (0045fc28).",
       "source": "es2_naming.py diff DBSIM 0048de50 VSHELL 0045fc28: identical after normalisation; RTTI TSNullObj vtable slot"
+    },
+    {
+      "address": "0048de58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSPoly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSPoly_Construct (0045fc30), the TSPoly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048de58 VSHELL 0045fc30"
     },
     {
       "address": "0048defc",
@@ -19415,6 +21621,15 @@
       "source": "es2_naming.py diff DBSIM 0048dfac VSHELL 0045fd80: differs only in callee labels and decompiler typing; RTTI TSPoly vtable slot"
     },
     {
+      "address": "0048e06c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSSolidPoly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSSolidPoly_Construct (0045fe40), the TSSolidPoly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048e06c VSHELL 0045fe40"
+    },
+    {
       "address": "0048e120",
       "binary": "DBSIM",
       "type": "function",
@@ -19469,6 +21684,15 @@
       "source": "es2_naming.py diff DBSIM 0048e1a4 VSHELL 0045ff74: differs only in callee labels and decompiler typing; RTTI TSTexture4Poly vtable slot"
     },
     {
+      "address": "0048e210",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTexture4Poly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSTexture4Poly_Construct (0045ffe0), the TSTexture4Poly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048e210 VSHELL 0045ffe0"
+    },
+    {
       "address": "0048e2c8",
       "binary": "DBSIM",
       "type": "function",
@@ -19478,6 +21702,15 @@
       "source": "es2_naming.py diff DBSIM 0048e2c8 VSHELL 00460094: identical after normalisation; RTTI TSTexture4Poly vtable slot"
     },
     {
+      "address": "0048e2d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShadedPoly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSShadedPoly_Construct (004600a0), the TSShadedPoly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048e2d4 VSHELL 004600a0"
+    },
+    {
       "address": "0048e38c",
       "binary": "DBSIM",
       "type": "function",
@@ -19485,6 +21718,15 @@
       "name": "TSShadedPoly_GetClassTag",
       "description": "The DBSIM copy of VSHELL's TSShadedPoly_GetClassTag (00460154).",
       "source": "es2_naming.py diff DBSIM 0048e38c VSHELL 00460154: identical after normalisation; RTTI TSShadedPoly vtable slot"
+    },
+    {
+      "address": "0048e398",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGouraudPoly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSGouraudPoly_Construct (00460160), the TSGouraudPoly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048e398 VSHELL 00460160"
     },
     {
       "address": "0048e450",
@@ -19541,6 +21783,15 @@
       "source": "es2_naming.py diff DBSIM 0048e4d4 VSHELL 00460298: differs only in callee labels and decompiler typing; RTTI TSAliasGouraudPoly vtable slot"
     },
     {
+      "address": "0048e540",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSAliasSolidPoly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSAliasSolidPoly_Construct (00460304), the TSAliasSolidPoly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048e540 VSHELL 00460304"
+    },
+    {
       "address": "0048e5f8",
       "binary": "DBSIM",
       "type": "function",
@@ -19550,6 +21801,15 @@
       "source": "es2_naming.py diff DBSIM 0048e5f8 VSHELL 004603b8: identical after normalisation; RTTI TSAliasSolidPoly vtable slot"
     },
     {
+      "address": "0048e604",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSAliasShadedPoly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSAliasShadedPoly_Construct (004603c4), the TSAliasShadedPoly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048e604 VSHELL 004603c4"
+    },
+    {
       "address": "0048e6c8",
       "binary": "DBSIM",
       "type": "function",
@@ -19557,6 +21817,15 @@
       "name": "TSAliasShadedPoly_GetClassTag",
       "description": "The DBSIM copy of VSHELL's TSAliasShadedPoly_GetClassTag (00460488).",
       "source": "es2_naming.py diff DBSIM 0048e6c8 VSHELL 00460488: identical after normalisation; RTTI TSAliasShadedPoly vtable slot"
+    },
+    {
+      "address": "0048e6d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSAliasGouraudPoly_Construct",
+      "description": "The DBSIM copy of VSHELL's TSAliasGouraudPoly_Construct (00460494), the TSAliasGouraudPoly constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048e6d4 VSHELL 00460494"
     },
     {
       "address": "0048e798",
@@ -19829,6 +22098,15 @@
       "source": "es2_naming.py diff DBSIM 0048f924 VSHELL 004616ac: differs only in callee labels and decompiler typing; RTTI TSPartBase vtable slot"
     },
     {
+      "address": "0048fa68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBitmapPart_Construct",
+      "description": "The DBSIM copy of VSHELL's TSBitmapPart_Construct (004617f0), the TSBitmapPart constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048fa68 VSHELL 004617f0"
+    },
+    {
       "address": "0048fb18",
       "binary": "DBSIM",
       "type": "function",
@@ -19935,6 +22213,15 @@
       "name": "TSPartList_DebugPrint",
       "description": "The DBSIM copy of VSHELL's TSPartList_DebugPrint (00461bdc).",
       "source": "es2_naming.py diff DBSIM 0048fe54 VSHELL 00461bdc: differs only in callee labels and decompiler typing; RTTI TSPartList vtable slot"
+    },
+    {
+      "address": "0048fee8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSCellAnimPart_Construct",
+      "description": "The DBSIM copy of VSHELL's TSCellAnimPart_Construct (00461c74), the TSCellAnimPart constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 0048fee8 VSHELL 00461c74"
     },
     {
       "address": "0048ff6c",
@@ -20288,6 +22575,15 @@
       "source": "DBSIM decompile at 004912d0"
     },
     {
+      "address": "004912e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANSequence_Construct",
+      "description": "The DBSIM copy of VSHELL's ANSequence_Construct (00463720), the ANSequence constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 004912e4 VSHELL 00463720"
+    },
+    {
       "address": "00491378",
       "binary": "DBSIM",
       "type": "function",
@@ -20342,6 +22638,15 @@
       "source": "es2_naming.py diff DBSIM 00491568 VSHELL 00463998: differs only in callee labels and decompiler typing; RTTI ANCyclicSequence vtable slot"
     },
     {
+      "address": "00491894",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANCyclicSequence_Construct",
+      "description": "The DBSIM copy of VSHELL's ANCyclicSequence_Construct (00463cc4), the ANCyclicSequence constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 00491894 VSHELL 00463cc4"
+    },
+    {
       "address": "00491938",
       "binary": "DBSIM",
       "type": "function",
@@ -20349,6 +22654,15 @@
       "name": "ANCyclicSequence_GetClassTag",
       "description": "The DBSIM copy of VSHELL's ANCyclicSequence_GetClassTag (00463d64).",
       "source": "es2_naming.py diff DBSIM 00491938 VSHELL 00463d64: identical after normalisation; RTTI ANCyclicSequence vtable slot"
+    },
+    {
+      "address": "00491944",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANAnimList_Construct",
+      "description": "The DBSIM copy of VSHELL's ANAnimList_Construct (00463d70), the ANAnimList constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 00491944 VSHELL 00463d70"
     },
     {
       "address": "004919d8",
@@ -20403,6 +22717,15 @@
       "name": "ANAnimList_DebugPrint",
       "description": "The DBSIM copy of VSHELL's ANAnimList_DebugPrint (004640fc).",
       "source": "es2_naming.py diff DBSIM 00491ce4 VSHELL 004640fc: differs only in callee labels and decompiler typing; RTTI ANAnimList vtable slot"
+    },
+    {
+      "address": "00492058",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANShape_Construct",
+      "description": "The DBSIM copy of VSHELL's ANShape_Construct (00464470), the ANShape constructor: identical decompiles once the vtable labels are set aside.",
+      "source": "es2_naming.py diff DBSIM 00492058 VSHELL 00464470"
     },
     {
       "address": "004920dc",
@@ -22306,6 +24629,15 @@
       "source": "docs/engine/planning.md (terrain loader port)"
     },
     {
+      "address": "00496684",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_PureVirtualCalled",
+      "description": "Borland's pure-virtual handler: pushes \"Pure virtual function called\" (004a7a3c) and calls __ErrorExit (import thunk 004966a8). Fills every abstract slot -- 24 vtables in DBSIM hold it.",
+      "source": "DBSIM disassembly at 00496684"
+    },
+    {
       "address": "00497368",
       "binary": "DBSIM",
       "type": "data",
@@ -22401,7 +24733,7 @@
       "type": "data",
       "confidence": "high",
       "name": "ElfMountVtable",
-      "description": "The ELF/ELF2 weapon-mount vtable. MechLoadout_ConstructWeaponMounts's case for weapon ids 6 and 22 runs WeaponMount_CtorEnergy and then overwrites the object's vtable pointer with this, so an ELF is an energy mount with five slots replaced: +0x28 ElfMount_FireDispatch, +0x2c ElfMount_CanFire, +0x30 ElfMount_TriggerHeld, +0x34 ElfMount_SpinUpAndChargeTick, +0x5c FUN_0040ed34. The charge, power-level, wake, priority and gauge slots are NOT replaced, so an ELF carries and charges an ordinary capacitor and prints an ordinary bar.",
+      "description": "The ELF/ELF2 weapon-mount vtable. MechLoadout_ConstructWeaponMounts's case for weapon ids 6 and 22 runs WeaponMount_CtorEnergy and then overwrites the object's vtable pointer with this, so an ELF is an energy mount with five slots replaced: +0x28 ElfMount_FireDispatch, +0x2c ElfMount_CanFire, +0x30 ElfMount_TriggerHeld, +0x34 ElfMount_SpinUpAndChargeTick, +0x5c WeaponMount_EnergyIsSpent. The charge, power-level, wake, priority and gauge slots are NOT replaced, so an ELF carries and charges an ordinary capacitor and prints an ordinary bar.",
       "source": "docs/simulation/weapon-mounts.md"
     },
     {
@@ -23849,7 +26181,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSDetailBiasFromHercDetail",
-      "description": "TSDetailPart starting level derived from the HERC DETAIL setting, via g_HercDetailTSDetailBiasValues. Read by FUN_0040ded8 and WeaponMount_Destroy, each pushing it into g_TSDetailPartBias around a draw.",
+      "description": "TSDetailPart starting level derived from the HERC DETAIL setting, via g_HercDetailTSDetailBiasValues. Read by WeaponMount_RenderWithDetailBias and WeaponMount_Destroy, each pushing it into g_TSDetailPartBias around a draw.",
       "source": "docs/formats/mech-shape-drawing.md"
     },
     {
@@ -24956,7 +27288,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_CurrentShapeDbaContext",
-      "description": "The bound DBA the poly renderers read. Four stores: FUN_0040316c saves it, installs its object's +0x10 shape instance's +0x26 -- the same field as VSHELL's TSShapeInstance+0x26 bound DBA -- around a TSGroup_BindNodeTransform/TSPartList_Render render, and restores it; FUN_00490c4c sets it to its argument; TexPoly_DrawAtPoints (0042fa18) installs its own this+0x1a. g_CurrentShapeDbaContext[1] is the shape's bound DBA's 20-byte-stride frame-descriptor table, DBSIM's counterpart of VSHELL's g_ActiveBitmapArray[1]. TSTexture4Poly_Render (00474e9c) fetches a frame descriptor at g_CurrentShapeDbaContext[1] + frontValue*0x14 and takes its +0x10 (F4) as the atlas page (maybe_g_BitmapAtlasCache, 004d4f88) the fill samples. See docs/formats/dts-texture-binding.md.",
+      "description": "The bound DBA the poly renderers read. Four stores: ConfigPart_Render saves it, installs its object's +0x10 shape instance's +0x26 -- the same field as VSHELL's TSShapeInstance+0x26 bound DBA -- around a TSGroup_BindNodeTransform/TSPartList_Render render, and restores it; FUN_00490c4c sets it to its argument; TexPoly_DrawAtPoints (0042fa18) installs its own this+0x1a. g_CurrentShapeDbaContext[1] is the shape's bound DBA's 20-byte-stride frame-descriptor table, DBSIM's counterpart of VSHELL's g_ActiveBitmapArray[1]. TSTexture4Poly_Render (00474e9c) fetches a frame descriptor at g_CurrentShapeDbaContext[1] + frontValue*0x14 and takes its +0x10 (F4) as the atlas page (maybe_g_BitmapAtlasCache, 004d4f88) the fill samples. See docs/formats/dts-texture-binding.md.",
       "source": "flat-shaded lighting RE"
     },
     {

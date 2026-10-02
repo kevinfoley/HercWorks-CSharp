@@ -6,7 +6,7 @@ Retail content that was authored, shipped in the data files or the binary, and c
 
 Three weapons appear in the `SHELL0/GAM` catalog with a code, a full name in `WEAPONS.BIN` and a price, but are not actually accessible in the campaign. Similar weapons later appeared in *Starsiege*.
 
-- **`LAEW` — Locust Launcher** (id 26), incomplete and unusable.
+- **`LAEW` — Locust Launcher** (id 26), incomplete and unusable. It has its own mount class, a hold-to-throw launcher whose shot spends a round and launches nothing, and a magazine of 0 — see [`simulation/weapon-mounts.md`](simulation/weapon-mounts.md#mount-classes).
 - **`MINE` — Mine Launcher** (id 27), incomplete and unusable.
 - **`MFAC` — MagnetoFusion Cannon** (id 28), a functional weapon firing the Plasma Cannon's round (`PROJ.DAT` row 22) at nearly twice the range.
 

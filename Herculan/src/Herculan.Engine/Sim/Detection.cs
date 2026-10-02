@@ -343,12 +343,16 @@ public static class Detection {
 	}
 
 	/// <summary>
-	/// <c>SimObject_BearingInSensorArc</c> (<c>00411acc</c>), the mech's vtable <c>+0x44</c> — whether a bearing falls inside an
-	/// object's sensor arc. The caller has already folded in the aim twist, so this is purely a
-	/// comparison against <see cref="SimObject.Heading"/>.
+	/// Vtable <c>+0x44</c>, which <c>Detection_Sweep</c> dispatches on both objects of a pair —
+	/// whether a bearing falls inside an object's sensor arc. A machine or an aircraft runs
+	/// <c>SimObject_BearingInSensorArc</c> (<c>00411acc</c>); the caller has already folded in the aim
+	/// twist, so that is purely a comparison against <see cref="SimObject.Heading"/>. All five
+	/// structure classes install <c>Base_BearingInSensorArc_Always</c> (<c>00405308</c>) instead, so a
+	/// <see cref="BaseObject"/> sees all round.
 	/// </summary>
 	public static bool InSensorArc(SimObject self, short bearing) =>
-		(ushort)(bearing - self.Heading + SensorArcHalfWidth) < SensorArcHalfWidth * 2;
+		self is BaseObject
+		|| (ushort)(bearing - self.Heading + SensorArcHalfWidth) < SensorArcHalfWidth * 2;
 
 	/// <summary>
 	/// <c>Math_HeadingToward</c> (<c>00492828</c>) — the ground-plane bearing from

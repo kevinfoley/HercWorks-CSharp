@@ -17,7 +17,7 @@ The field order matches the `tpid` type descriptor in Borland's RTL headers. The
 | `+0x0c` | `uint32` | Class flags, below |
 | `+0x10` | `uint16` | Offset of the base-class list within the record |
 | `+0x12` | `uint16` | Offset of the virtual-base list within the record |
-| `+0x14` | code ptr | Set in 8 of DBSIM's 238 class records and none of VSHELL's. `LC_BASE`'s is `004270c1`. The header calls this field the class's `operator delete` |
+| `+0x14` | code ptr | Set in 8 of DBSIM's 238 class records and none of VSHELL's: `ACTOR` and the seven classes derived from it, all holding `SimObject_OperatorDelete` (`004270c1`), which takes the object off the global live-object list. The header calls this field the class's `operator delete` |
 | `+0x18` | `uint16` | `1` where `+0x14` is set, otherwise `0` |
 | `+0x1a`, `+0x1c` | `uint16`, ptr | Zero in every record. The header calls these the array `operator delete[]` counterparts |
 | `+0x20`, `+0x24` | `uint32` | Two counts, always equal (1 to 41). The header names them the destructor count and the non-virtual destructor count |

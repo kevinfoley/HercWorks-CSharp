@@ -7,7 +7,7 @@ Mode 3, the F4 screen. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghi
 | `MfdRadarScreen_Ctor` | `0043e70c` | Builds the plot geometry, the contact vector and four labels. |
 | `MfdRadarScreen_Update` | `0043ebe0` | Rebuilds the contact list from the live object list. |
 | `MfdRadarScreen_Paint` | `0043eecc` | Draws it. Screen vtable `+0`. |
-| — | `0043eeb4` | Screen vtable `+4`: update then paint. |
+| `MfdRadarScreen_UpdateAndPaint` | `0043eeb4` | Screen vtable `+4`: update then paint. |
 
 The screen object is 0x524 bytes, the largest of the six. `MfdDisplay_Ctor` parks the inset rect pointer in the base at `+4` and the display's shared state block (`MfdDisplay+0xb1`) at `+8`, which is how the paint reaches the current range at `MfdDisplay+0xbd`.
 

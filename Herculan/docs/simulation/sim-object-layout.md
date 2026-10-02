@@ -6,21 +6,27 @@ The field-by-field and slot-by-slot inventories are **not here**. `known_structs
 
 ## Two hierarchies, one root
 
-`SimObjectBase_Constructor` (`00402188`) installs the vtable at `004a0b98` — the same table the projectile base derives from. **The simulation objects and the projectiles share a root class.** That is why `SimObjectVtable`'s first six slots are `ProjectileVtable` unchanged, and why slots `+0x4`, `+0xc` and `+0x10` hold the same three functions in every table in the file.
+Each class's Borland record names the class and its base ([`../formats/borland-rtti.md`](../formats/borland-rtti.md)), so the tree below is the binary's own. `SimObjectBase_Constructor` (`00402188`) builds `TS_OBJ` (`004a0b98`), which the projectile base derives from as well. **The simulation objects and the projectiles share a root class.** That is why `SimObjectVtable`'s first six slots are `ProjectileVtable`'s, and why slots `+0x4`, `+0xc` and `+0x10` hold the same three functions in every table in the file.
 
 ```
-root (004a0b98)                     ── SimObjectBase_Constructor (00402188)
-├── projectile base (004987a0)      ── rocket, bullet, beam tracer, cut grenade
-└── shape layer (004973ac/004973cc) ── SimObjectBase_ConstructAnimated / _ConstructStatic / _ConstructWithDetailTable (0040332c / 00403368 / 004033a4)
-    └── SimObject (0049a54c)
-        ├── MechObject  (0049a282)  ── Mech_Constructor  (00415bb0)
-        ├── FlyerObject (0049a5e0)  ── Flyer_Constructor (004215f4)
-        └── StructureVtable (00497940)         ── Base_Construct (00405314)
-            ├── StructureRadarVtable    (004979d4)
-            ├── StructureType0x22Vtable (00497784)
-            └── StructureArmedVtable    (004978ac)
-                └── StructureGroundVehicleVtable (00497818)
+DRAWABLE (004a14bc)
+└── MAT_OBJ (00497289)
+    └── TS_OBJ (004a0b98)                ── SimObjectBase_Constructor (00402188)
+        ├── PROJECTILE (004987a0)        ── ROCKET, BULLET, BEAM, the cut GRENADE
+        ├── EXPLOSION, DEBRIS, SMOKE_BALL, METEOR, FlatObj, FIRE
+        └── ANIM_OBJ (004973ac)
+            └── DET_ANIM_OBJ (004973cc)  ── SimObjectBase_ConstructAnimated / _ConstructStatic / _ConstructWithDetailTable (0040332c / 00403368 / 004033a4)
+                └── ACTOR (0049a54c)
+                    ├── MECH  (0049a282) ── Mech_Constructor  (00415bb0)
+                    ├── FLYER (0049a5e0) ── Flyer_Constructor (004215f4)
+                    └── BASE  (00497940) ── Base_Construct (00405314)
+                        ├── RADAR_BASE (004979d4)
+                        ├── LC_BASE    (00497784)
+                        └── GUN_BASE   (004978ac)
+                            └── VEHICLE (00497818)
 ```
+
+`DRAWABLE` through `DET_ANIM_OBJ`, the projectiles and the effects carry `known_vtables.json`'s five-slot `DrawableVtable` or six-slot `ProjectileVtable`; `ACTOR` and below carry the 34-slot `SimObjectVtable`. The word after a table's last slot is the next block's class-record pointer or data, as [`../formats/borland-rtti.md`](../formats/borland-rtti.md#vtable-block) describes. Each destructor counts the RTL destructor counter down once per class level it inlines — two for `ACTOR`, three for `MECH`, `FLYER` and `BASE`, four for `RADAR_BASE`, `GUN_BASE` and `LC_BASE`, five for `VEHICLE` — which agrees with the records.
 
 The structure branch is the odd one: `Base_Construct` switches on the BASES.DAT type index. **Every branch installs `StructureVtable` first and then overwrites it**, which is what establishes the four others as derived from it — and the ground vehicle branch installs three in a row, so that class is two levels down. All five are the same 34-slot shape. Which three slots differ across them, and what separates the armed classes from the unarmed ones, is [`structure-behaviour.md`](structure-behaviour.md#five-classes-one-switch)'s.
 
@@ -102,9 +108,6 @@ Nothing in the field itself says which flavour it is — only which of the two f
 
 ## Open
 
-- **Open:** the word at `+0x88`, just past the last slot. Every one of these tables sits on a uniform `0x94` stride — 34 slots, then one code address, then eight zero bytes — and the code address is in the same thunk block as the class's destructor (`00427xxx` for the object classes, `00406xxx` for the structures); that is suggestive, but across the 116 simulation functions that take an object, the highest slot anything calls through is `+0x7c`, and nothing calls `+0x88`, so it stays outside the definition.
 - **Open:** what `obj+0x92` is in the source. Whether it is a sub-object the compiler is addressing or just a base register it chose is not settled, so `known_structs.json` places those bytes at their absolute offsets rather than inside an invented struct.
-- **Open:** what class `004a0b98` is. The projectile base derives from it and `SimObjectBase_Constructor` installs it, but the `0046bxxx` block its slots point into is shared engine code and none of it is named.
-- **Open:** the table at `004a0bb8`. Next after the root in memory, with `FireEffect_Dtor` in its destructor slot but data at `+0x14` — possibly a five-slot sibling of `ProjectileVtable` rather than a sixth instance of it, and left out of `known_vtables.json` deliberately.
-- **Open:** the seven unnamed `SimObjectVtable` slots (`+0x0c`, `+0x28`, `+0x30`, `+0x60`, `+0x68`, `+0x80`, `+0x84`). `+0xc` holds `Stub_ReturnZero` (`004785bf`) in every table in the file, base and projectile alike.
+- **Open:** what vtable `+0x0c` is for. Every `DrawableVtable`, `ProjectileVtable` and `SimObjectVtable` table holds `Stub_ReturnZero` (`004785bf`) there.
 - **Open:** whether `mech+0x261`, the fourth lock-timer slot, is used at all. `Mech_PerTickSystemsUpdate` ticks the other four by name and no tick names this one, and `es2_fieldscan.py` over `00402000`-`00430000` finds no mech access to it (the one write it reports is `Flyer_Constructor`'s, a different class's field). A field that carries a value is never proven unread by a scan.

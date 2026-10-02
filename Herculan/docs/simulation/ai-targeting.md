@@ -91,7 +91,7 @@ rating = (typeRec+0x44                                                    // a p
         ) >> 4
 ```
 
-The weapon term reads the mount's own `+0x1c`, which `WeaponMount_CtorBase` (`0040df30`) sets to the `WEAPONS.DAT` template, so `+0x4e` is a template field. A mount counts when its vtable `+0x54` says so, and that slot is `return 1` on both the base and the pod class, so every mount counts.
+The weapon term reads the mount's own `+0x1c`, which `WeaponMount_CtorBase` (`0040df30`) sets to the `WEAPONS.DAT` template, so `+0x4e` is a template field. A mount counts when its vtable `+0x54` says so. That slot is `return 1` on every class but the ammunition one (`WeaponMount_CountsInCombatRating_Always`, `004111e9`); an ammunition mount counts only while it holds at least an eighth of its magazine, `template+0x3a >> 3` (`WeaponMount_AmmoCountsInCombatRating`, `0040f520`). So a machine's rating drops as its launchers and guns run low, not only as they are shot up.
 
 **Retail states the same two numbers for all 21 chassis** — a base of 1000 at `typeRec+0x44` and a penalty of 500 at each `typeRec+0x7e[i]` — so what separates two machines is entirely their guns, their armour and their damage.
 

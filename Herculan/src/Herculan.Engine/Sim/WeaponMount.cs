@@ -54,7 +54,7 @@ public sealed class WeaponMount {
 	/// </summary>
 	public const short EnergyChargeScale = 0x4b0;
 
-	/// <summary>How much an energy mount draws per tick when it is the one being served — <c>+0x7f</c>, a flat 20.</summary>
+	/// <summary>How much an energy mount draws per tick when it is the one being served — <c>+0x7f</c>, 20 until its component is past half damage (see <see cref="ConditionChanged"/>).</summary>
 	public const short EnergyChargeRate = 0x14;
 
 	/// <summary>
@@ -346,8 +346,9 @@ public sealed class WeaponMount {
 	public int Charge { get; internal set; }
 
 	/// <summary>
-	/// <c>+0x7f</c>. How much an energy mount takes per tick when it is served; zero for the other
-	/// classes, which take nothing.
+	/// <c>+0x7f</c>. How much an energy mount takes per tick when it is served, lowered by
+	/// <see cref="ConditionChanged"/> as its component is damaged; zero for the other classes, which
+	/// take nothing.
 	/// </summary>
 	public short ChargeRate { get; internal set; }
 
@@ -519,7 +520,9 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// The mount's vtable slot <c>0x68</c>, the condition notification — <c>WeaponMount_ConditionChangedBase</c> (<c>0040ee0c</c>) for the
-	/// base class and <c>WeaponMount_ConditionChanged</c> (<c>0040ee90</c>) for the two that carry a weapon.
+	/// base class and the pods, <c>WeaponMount_ConditionChanged</c> (<c>0040ee90</c>) for the ammunition class,
+	/// <c>WeaponMount_ConditionChangedEnergy</c> (<c>0040ee38</c>) for the energy and ELF classes, and
+	/// <c>TargetingPod_ConditionChanged</c> (<c>0040ef6c</c>) for the Targeting Pod.
 	/// <c>Mech_ComponentDamageWrite</c> reads every mount's component before its write and again
 	/// after, and hands both readings to every mount on the machine, so this runs on all of them for
 	/// any hit anywhere and is a no-op wherever the two agree.
@@ -537,10 +540,15 @@ public sealed class WeaponMount {
 	/// <see cref="RefireScalePerDamageStep"/> per step over the same range — see
 	/// <see cref="RefireScale"/>. A <c>Bullet</c> mount is never rolled for and a beam mount is
 	/// neither rolled for nor rescaled.</item>
+	/// <item><b>An energy mount charges more slowly instead.</b> Its <see cref="ChargeRate"/> is
+	/// reset to <see cref="EnergyChargeRate"/> on every notification and, past the same onset, loses
+	/// <c>Q10(20, steps * 100)</c> — 19, 17, 15, 13, 11 over the five steps. Neither the cook-off nor
+	/// the refire scale applies to it, whatever its projectile type.</item>
 	/// </list>
 	///
-	/// <para><b>An empty mount is exempt from both</b> — the original gates them on <c>+0x7b</c>,
-	/// <see cref="ChargeTarget"/>, so a launcher out of missiles cannot cook off.</para>
+	/// <para><b>An empty ammunition mount is exempt from both of its effects</b> — the original gates
+	/// them on <c>+0x7b</c>, <see cref="ChargeTarget"/>, so a launcher out of missiles cannot cook
+	/// off.</para>
 	/// </summary>
 	/// <param name="world">Where the wreckage the mount throws goes — see <see cref="Destroy"/>.</param>
 	/// <param name="owner">The machine the mount hangs off.</param>
@@ -549,8 +557,8 @@ public sealed class WeaponMount {
 	/// <param name="after">The same reading after it.</param>
 	internal void ConditionChanged(SimRandom random, int before, int after, SimWorld? world = null,
 			MechObject? owner = null, DebrisDatabase? debris = null) {
-		// TargetingPod_ConditionChanged (0040ef6c): the base slot, then the reading cached. It is the
-		// only override of this slot on any mount class, and the only writer of the cache.
+		// TargetingPod_ConditionChanged (0040ef6c): the base slot, then the reading cached -- the only
+		// writer of the cache.
 		if (ComponentLock != null) {
 			ComponentLock.ComponentDamage = (short)after;
 		}
@@ -559,7 +567,18 @@ public sealed class WeaponMount {
 			Destroy(world, owner, rolled: false, debris);
 		}
 
-		if (ChargeTarget == 0 || Projectile is not { } projectile || after <= MountDamageOnset) {
+		if (IsEnergyClass) {
+			ChargeRate = EnergyChargeRate;
+			if (after > MountDamageOnset) {
+				ChargeRate -= (short)SimMath.Q10Multiply(EnergyChargeRate,
+					(after - MountDamageOnset) / MountDamageStep * 100);
+			}
+
+			return;
+		}
+
+		if (Kind != WeaponMountKind.Ammunition || ChargeTarget == 0 || Projectile is not { } projectile
+				|| after <= MountDamageOnset) {
 			return;
 		}
 
@@ -734,7 +753,7 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// The priority this mount reports to the arbitration — <c>WeaponMount_GetEnergyPriority</c>
 	/// (<c>0040f504</c>) for an energy mount, a flat zero for every other class
-	/// (<c>FUN_004111e2</c>). A mount already mid-charge reports 10000 and so is always served first,
+	/// (<c>WeaponMount_GetEnergyPriorityZero</c> (<c>004111e2</c>)). A mount already mid-charge reports 10000 and so is always served first,
 	/// which is how one weapon finishes charging before another starts.
 	/// </summary>
 	public short EnergyPriority => Kind switch {
@@ -762,6 +781,30 @@ public sealed class WeaponMount {
 		WeaponMountKind.Elf => ElfCanFire,
 		_ => false,
 	};
+
+	/// <summary>
+	/// Vtable slot <c>0x5c</c> — whether the mount can no longer fight, which
+	/// <see cref="MechObject.ChooseWeapon"/> asks before it looks at a mount at all: destroyed for
+	/// the energy classes (<c>WeaponMount_EnergyIsSpent</c>, <c>0040ed34</c>), destroyed or out of
+	/// rounds for an ammunition mount (<c>WeaponMount_AmmoIsSpent</c>, <c>0040ed48</c>), and always
+	/// for a pod (<c>WeaponMount_IsSpent_Always</c>, <c>0040f8a4</c>). So a machine left with only
+	/// pods and empty magazines has run dry. See docs/simulation/weapon-mounts.md.
+	/// </summary>
+	public bool IsSpent => Kind switch {
+		WeaponMountKind.Energy or WeaponMountKind.Elf => Disabled,
+		WeaponMountKind.Ammunition => Disabled || ChargeTarget == 0,
+		_ => true,
+	};
+
+	/// <summary>
+	/// Vtable slot <c>0x54</c> — whether <see cref="MechObject.CombatRating"/> adds this mount's
+	/// <see cref="AiRatingValue"/>. An ammunition mount counts only while it holds at least an eighth
+	/// of its <see cref="MagazineSize"/> (<c>WeaponMount_AmmoCountsInCombatRating</c>,
+	/// <c>0040f520</c>); every other class always does (<c>WeaponMount_CountsInCombatRating_Always</c>,
+	/// <c>004111e9</c>).
+	/// </summary>
+	public bool CountsInCombatRating =>
+		Kind != WeaponMountKind.Ammunition || ChargeTarget >= MagazineSize >> 3;
 
 	/// <summary>
 	/// <c>ElfMount_CanFire</c> (<c>0040eda0</c>), the ELF class's vtable <c>+0x2c</c> — <b>why an ELF cannot be re-triggered

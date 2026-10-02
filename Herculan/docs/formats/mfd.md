@@ -266,7 +266,7 @@ Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on t
 | `[6]` `CPOFF` | an unavailable row. **No retail row reaches it**: neither of the two functions that set and clear the unavailable bit (`FUN_0043f9f4`, `FUN_0043fa14`) has a caller in the image |
 | `[2]` `CPRED` | the row's alternate at `+0x21`, which is **not** an unavailable state — `Label_SetTextWithHotkey` (`00438aac`) redraws exactly one character of the row in it, at the index the order's own attribute byte names, which is how the hotkey letter is picked out. The [F7] order list uses the same mechanism |
 
-The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `MfdFlashCommScreen_DrawRowPlate` (`0043fa34`) **after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed, 12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate that erases a row which has just stopped being selected. `FUN_0043f878` repaints exactly those two rows when the cursor moves, rather than the whole block.
+The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `MfdFlashCommScreen_DrawRowPlate` (`0043fa34`) **after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed, 12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate that erases a row which has just stopped being selected. `MfdFlashCommScreen_Update` (`0043f878`) repaints exactly those two rows when the cursor moves, rather than the whole block.
 
 The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor immediate, so an index and not a logical id ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids)).
 
@@ -286,15 +286,15 @@ Screen fields, based at `MfdDisplay+0xd1`:
 
 #### Keyboard
 
-Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers every code to `MfdFlashComm_HandleAltKey` (`00446c10`) first and then to the MFD widget's own command slot `FUN_004469c0`. Codes are PC set-1 scancodes, `+0x200` for [Alt].
+Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers every code to `MfdFlashComm_HandleAltKey` (`00446c10`) first and then to the MFD widget's own command slot `MfdDisplay_KeyDispatch` (`004469c0`). Codes are PC set-1 scancodes, `+0x200` for [Alt].
 
 | Code | Handler | Effect |
 |---|---|---|
-| `0x1e` `0x22` `0x23` `0x18` `0x2e` `0x12` `0x21` (A G H O C E F) | `FUN_004469c0` | Select rows 0, 1, 2, 3, 4, 4, 5. Gated on the display being on mode 1 |
+| `0x1e` `0x22` `0x23` `0x18` `0x2e` `0x12` `0x21` (A G H O C E F) | `MfdDisplay_KeyDispatch` (`004469c0`) | Select rows 0, 1, 2, 3, 4, 4, 5. Gated on the display being on mode 1 |
 | the same seven `+0x200` | `MfdFlashComm_HandleAltKey` (`00446c10`) | Select **and transmit**, from any screen. `0x22e` only transmits when the resolved verb is 4 and `0x212` only when it is 7 |
-| `0x2d` (X) | `FUN_004469c0` | Press button 10 if the current mode shows it |
-| `0x33` `0x34` (`,` `.`) | `FUN_004469c0` | Previous / next available row, wrapping |
-| `0x20` (D) | `FUN_004469c0` | Press button 7 SELECT if visible |
+| `0x2d` (X) | `MfdDisplay_KeyDispatch` (`004469c0`) | Press button 10 if the current mode shows it |
+| `0x33` `0x34` (`,` `.`) | `MfdDisplay_KeyDispatch` (`004469c0`) | Previous / next available row, wrapping |
+| `0x20` (D) | `MfdDisplay_KeyDispatch` (`004469c0`) | Press button 7 SELECT if visible |
 
 `MfdFlashComm_SelectRow(display, widget, row)` (`00447130`) writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `MfdFlashComm_HandleListClick` is the mouse path: it hit-tests the six label rects itself, inclusive on all four edges, and a click on the selected row presses XMIT and transmits while a click on any other selects it. There is no widget per row — the rows sit under the display's own `MFDListGadget`, which is the widget the shared hit test actually finds.
 

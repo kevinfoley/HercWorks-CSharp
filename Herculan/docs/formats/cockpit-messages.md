@@ -1,6 +1,6 @@
 # Cockpit messages
 
-DBSIM's **cockpit message port** is one class, two instances: the computer's own ticker at `view+0x20b` and the pilot-and-squad channel at `view+0x207`. Both are ten-slot queues sharing one lifecycle (`MessagePort_Tick`); what differs is where each posts from, what it draws, and whether it speaks through the [computer's voice or a squadmate's](audio.md#speech-and-the-comm-portraits).
+DBSIM's **cockpit message port** is two instances of two classes on one base, `MsgPort`: the computer's own ticker at `view+0x20b` (`EventPort`) and the pilot-and-squad channel at `view+0x207` (`DialogPort`, or in a training mission its subclass `CommandPort`). Both are ten-slot queues sharing one lifecycle (`MessagePort_Tick`); what differs is where each posts from, what it draws, and whether it speaks through the [computer's voice or a squadmate's](audio.md#speech-and-the-comm-portraits).
 
 ## The computer's messages
 
@@ -29,7 +29,7 @@ Byte 7 is a field and not an offset from the id: the numbering runs 1 to 66 acro
 
 ### The port
 
-Messages reach the cockpit's message port through a vtable call. The cockpit view holds two instances of the same class: the computer's ticker at `view+0x20b` and the pilot and squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes — options 3 and 2 of the simulator's option array ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
+Messages reach the cockpit's message port through a vtable call. The cockpit view holds two ports on the one `MsgPort` base: the computer's ticker at `view+0x20b` and the pilot and squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes — options 3 and 2 of the simulator's option array ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
 
 The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is not 0 — three behaviours for three settings, which is why that row offers no OFF. The voice has a second gate both ports share: PILOT MESSAGE's handler writes `Sound_SpeechEnabled`, which every clip goes through ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), so with PILOT MESSAGE on TEXT ONLY the computer is silent whatever COMPUTER MESSAGE says. With the display off the port still runs the whole lifecycle and only skips the drawing — `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is up".
 

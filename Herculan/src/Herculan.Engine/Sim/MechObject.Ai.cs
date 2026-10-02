@@ -585,7 +585,7 @@ public partial class MechObject {
 	/// machine is worth in a fight, and the figure both the target weights and the flee check read.
 	///
 	/// <para>It is the chassis' base, plus every live weapon mount's own value scaled by that mount's
-	/// condition, plus every component's maximum scaled by its condition, less a penalty for each
+	/// condition (an ammunition mount only while <see cref="WeaponMount.CountsInCombatRating"/>), plus every component's maximum scaled by its condition, less a penalty for each
 	/// system past 70% damage — so it falls as the machine is shot apart. Retail states the same
 	/// base of 1000 and the same penalty of 500 for all 21 chassis, so what separates two machines is
 	/// entirely their guns, their armour and their damage.</para>
@@ -606,7 +606,7 @@ public partial class MechObject {
 			var slots = Weapons.Slots;
 			for (int i = 0; i < slots.Count; i++) {
 				int readout = readouts[ComponentDamage.FirstCombinedReadout + i];
-				if (slots[i] is not { } mount || readout < 0) {
+				if (slots[i] is not { } mount || readout < 0 || !mount.CountsInCombatRating) {
 					continue;
 				}
 

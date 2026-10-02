@@ -2541,7 +2541,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// FLASH COMM's order list (<c>FUN_0043f7a4</c>): six evenly stacked rows spanning almost the whole
+	/// FLASH COMM's order list (<c>MfdFlashCommScreen_Paint</c> (<c>0043f7a4</c>)): six evenly stacked rows spanning almost the whole
 	/// screen, 7 GAU units apart, each naming one of the squad orders in
 	/// <see cref="MfdLayout.OrderGroup"/>.
 	///
@@ -3066,7 +3066,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// The CONTROLS panel — <c>ControlsPanel_Ctor</c> (<c>00457d1c</c>), drawn in its paint's own
-	/// order (<c>FUN_00458c68</c>): the plate at the panel's origin, the title, the fourteen buttons,
+	/// order (<c>ControlsPanel_Paint</c> (<c>00458c68</c>)): the plate at the panel's origin, the title, the fourteen buttons,
 	/// the twelve value readouts, then the OPTIONS caption. The option rows go down with the readouts,
 	/// both being <see cref="ControlsPanelLayout.ValueFont"/> labels the paint refreshes together.
 	///

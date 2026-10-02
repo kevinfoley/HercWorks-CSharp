@@ -81,7 +81,7 @@ The constructor is handed `.GAU` offset **1000**, not 1016, and treats the whole
 
 Ints `[8..15]` are **two rects, not four points**. That explains both things the point reading found odd: "points" 1 and 2 always sit close together because they are the bottom of the upper bar and the top of the lower one, and the x alternates between two values because those are each bar's left and right edge. On OUTLAW they are two 4x20 strips inside the 14x49 track, one either side of centre.
 
-**Neither bar is ever drawn.** `ThrottleSlider_CtorV` keeps them as private fields (`+0x7e`, `+0x82`) and never registers them with the widget tree, so nothing dispatches their paint; `LedBarGraph`'s own draw routines (`00439398`, `00439460`) have no callers anywhere in the image. The slider's paint (`ThrottleSlider_PaintV`, `0044819c`) reads them only through `BarGraph_GetRect` (`004390b8`), which returns the object's rect, and unions those rects into the region it invalidates. The bars are a cut feature whose construction was left in — see the speed fraction below, which is what would have filled them.
+**Neither bar is ever drawn.** `ThrottleSlider_CtorV` keeps them as private fields (`+0x7e`, `+0x82`) and never registers them with the widget tree, so nothing dispatches their paint; their class's draw slots, `BarGraphV_PaintToValue` and `BarGraphV_RepaintSpan` (`00439398`, `00439460`), have no direct caller — `es2_xref.py` finds each only in `BarGraphV`'s vtable (`0049bd48`). The slider's paint (`ThrottleSlider_PaintV`, `0044819c`) reads them only through `BarGraph_GetRect` (`004390b8`), which returns the object's rect, and unions those rects into the region it invalidates. The bars are a cut feature whose construction was left in — see the speed fraction below, which is what would have filled them.
 
 ### Slider geometry
 
@@ -166,7 +166,7 @@ Three gauge classes, one per mount class, all built on `WeaponGauge_Ctor` (`0044
 | Class | Factory → ctor | Value field |
 |---|---|---|
 | energy | `CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`) | charge bar: a `WeaponSliderGadget` slider over an `LEDBarGraph` (`WeaponSliderGadget_Ctor`, `00442950`) |
-| ammunition | `FUN_00432124` → `AmmoWeaponGauge_Ctor` (`00440f78`) | round count, `itoa` (`AmmoWeaponGauge_Paint`, `004411b4`) |
+| ammunition | `CockpitView_CreateAmmoWeaponGauge` (`00432124`) → `AmmoWeaponGauge_Ctor` (`00440f78`) | round count, `itoa` (`AmmoWeaponGauge_Paint`, `004411b4`) |
 | pod | `CockpitView_CreatePodGauge` → one of three `PodGauge` classes | none — the name label widens over both fields — except the Turbo Pod's |
 
 All three `strncpy` 12 bytes of the mount's name (`WeaponMount_GetDisplayName`, `0040e18c`) into the gauge at `+0xb1`. The pod class instead seeds an 11-char buffer with a space, appends the name, then appends `STRINGS0.STR` group 3 (`" POD"`) into the room left — `" SHIELD POD"`. A destroyed mount's row prints group 2 (`"OFFLINE"`) in place of the name.
@@ -284,7 +284,7 @@ Retail runs every one of these animations on the coarse clock from a stamped tic
 
 `cockpit+0x70` is ten widget slots indexed by `.GAU` weapon row. `CockpitView_RegisterWeaponGauge` (`00432018`), the registration every weapon-row gauge factory ends in, stores the gauge at its row; the number-key handler in `CockpitWidgets_HandleCommand` indexes the same array to arm a row. The delays are `DAT_0049b05a`, ten shorts reading 20, 40, … 200, so the rows arm top to bottom 320 ms apart and the last at 3.2 s.
 
-Every weapon and pod gauge's paint (`FUN_00440c68`, `AmmoWeaponGauge_Paint` (`004411b4`), `PodGauge_Paint`, `FUN_00441c14`) and every child's (`WeaponSelectGadget_Paint`, `WeaponSelectGadget_PaintUnderlay` (`00442394`), both through the owner at child `+0x24`) opens on the owning gauge's armed byte. **A row that is not armed draws nothing**, so the console art shows where it will be.
+Every weapon and pod gauge's paint (`EnergyWeaponGauge_Paint` (`00440c68`), `AmmoWeaponGauge_Paint` (`004411b4`), `PodGauge_Paint`, `TurboPodGauge_Paint` (`00441c14`)) and every child's (`WeaponSelectGadget_Paint`, `WeaponSelectGadget_PaintUnderlay` (`00442394`), both through the owner at child `+0x24`) opens on the owning gauge's armed byte. **A row that is not armed draws nothing**, so the console art shows where it will be.
 
 Once armed, an energy row's charge bar fills rather than appearing full. `EnergyWeaponGauge_PowerUpFill` (`00440e84`) shows `min(elapsed * 0x19, value)` against the ticks since the row was armed, then the live value outright from `elapsed >= 0x33`. That reaches `0x400`, the bar's whole range, before the ramp ends. The Turbo Pod's bar runs the same ramp in `TurboPodGauge_PowerUpFill` (`00441d88`), but its value is the pod's raw charge on a 2500-unit bar, so it climbs to 1250 and then jumps to the tank's real level. An ammunition row (`AmmoWeaponGauge_Update`, `00441268`) marks itself done on its first update and has nothing to ramp.
 

@@ -31,16 +31,19 @@ Retail data puts a filler `5` in every non-launcher slot. Verified against the r
 
 ## Mount classes
 
-The factory's switch on the weapon id picks one of four live classes. Nothing else decides what a mount is:
+The factory's switch on the weapon id picks one of five classes, four of them live. Nothing else decides what a mount is:
 
 | Class | Ctor | Weapon ids | Carries | Gauge |
 |---|---|---|---|---|
-| Ammunition | `WeaponMount_CtorAmmunition` | 1–5, 13–16, 21, 26 | rounds | numeric (`FUN_00432124` → `AmmoWeaponGauge_Ctor` (`00440f78`)) |
+| Ammunition | `WeaponMount_CtorAmmunition` | 1–5, 13–16, 21 | rounds | numeric (`CockpitView_CreateAmmoWeaponGauge` (`00432124`) → `AmmoWeaponGauge_Ctor` (`00440f78`)) |
 | Energy | `WeaponMount_CtorEnergy` | 7–12, 17, 19, 20, 23–25, 28 | a capacitor | LED bar (`CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`)) |
 | ELF | `WeaponMount_CtorEnergy`, then vtable `ElfMountVtable` | 6, 22 | a capacitor | LED bar, as Energy |
+| Grenade | `WeaponMount_CtorAmmunition`, then vtable `GrenadeMountVtable` | 26 (`LAEW`) | rounds — none, for `LAEW` | numeric, as Ammunition |
 | Pod | `EcmPod_Ctor`/`TargetingPod_Ctor`/`ShieldPod_Ctor`/`TurboPod_Ctor`/`EnergyPod_Ctor` | 18, 29–32 | nothing, bar the Turbo Pod's charge | name only (`CockpitView_CreatePodGauge` → one of three `PodGauge` classes) |
 
-The ELF case is the only one that is not just a constructor call: the factory runs the energy constructor and then **overwrites the object's vtable pointer** with `ElfMountVtable` (`004992c0`). The two classes therefore share every field and differ only in the five slots that table replaces — see [ELF and ELF2](#elf-and-elf2).
+The ELF and Grenade cases are the two that are not just a constructor call: the factory runs the energy or ammunition constructor and then **overwrites the object's vtable pointer** — with `ElfMountVtable` (`004992c0`) or `GrenadeMountVtable` (`00499248`). An ELF therefore shares every field with an energy mount and differs only in the destructor and the four slots that table replaces — see [ELF and ELF2](#elf-and-elf2).
+
+The Grenade class is `LAEW`'s, the cut Locust Launcher ([`../cut-content.md`](../cut-content.md)). Over the ammunition class it replaces the trigger with a hold-to-throw (`GrenadeMount_TriggerHeld`, `0040e71c`: a press starts a charge at `+0x81` of 20000 that grows 1000 a call, and the release, or passing 100000, asks for the shot), the fire dispatch with one that spends a round and calls an empty `Grenade_FireNoOp` (`GrenadeMount_FireDispatch`, `0040ea04`), and the gauge refresh with a forwarder to the ammunition one. `LAEW`'s template carries a magazine of 0 ([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md)), so `WeaponMount_AmmoCanFire` never passes and none of it runs.
 
 Five pod classes hang off `Pod_CtorBase` (`0040e234`) and are laid out differently past `+0x77`. Only the ECM and Turbo pods override a tick, and only they have a button on their cockpit row; the Shield, Targeting and Energy pods inherit the base's `Pod_TickBase`, and all but the Turbo Pod inherit the base's free pool turn. The Targeting Pod's one override is its condition notification — see [`equipment-pods.md`](equipment-pods.md#what-each-class-actually-overrides) and [the button split](equipment-pods.md#only-two-pods-have-a-button). The table below is the two weapon-carrying classes only.
 
@@ -76,7 +79,7 @@ Readiness (`WeaponMount_EnergyCanFire`) is `!destroyed && refireTimer == 0 && ch
 
 ## ELF and ELF2
 
-`ElfMountVtable` (`004992c0`) replaces five of the energy class's slots. The charge, power-level, wake, priority and gauge slots are **not** among them, so an ELF carries and charges an ordinary capacitor and prints an ordinary bar.
+`ElfMountVtable` (`004992c0`) replaces four of the energy class's slots besides the destructor (`ElfMount_Dtor`, `004119c3`, at `+0x18`); from `+0x38` on the two tables are word for word the same. The charge, power-level, wake, priority and gauge slots are **not** among them, so an ELF carries and charges an ordinary capacitor and prints an ordinary bar.
 
 | Slot | Energy | ELF |
 |---|---|---|
@@ -84,7 +87,6 @@ Readiness (`WeaponMount_EnergyCanFire`) is `!destroyed && refireTimer == 0 && ch
 | `+0x2c` ready | `WeaponMount_EnergyCanFire` | `ElfMount_CanFire` |
 | `+0x30` trigger | `WeaponMount_TriggerHeld` | `ElfMount_TriggerHeld` |
 | `+0x34` pool turn | `WeaponMount_ChargeCapacitor` | `ElfMount_SpinUpAndChargeTick` |
-| `+0x5c` | `FUN_004111e9` | `FUN_0040ed34` (returns the destroyed byte) |
 
 **`ElfMount_CanFire` is why an ELF cannot be re-triggered until its capacitor is full.** It reads the same two template fields as the energy test and drops the branch between them, so the threshold is always `max(+0x36, +0x7b)`:
 
@@ -146,7 +148,7 @@ A visibly-mounted hardpoint then throws its own gun as a debris object ([`destru
 
 `WeaponMount_ConditionChangedBase` (`0040ee0c`), the base class' whole slot: a component reading 256 destroys the mount, with no roll.
 
-`WeaponMount_ConditionChanged` (`0040ee90`), the two classes that carry a weapon: the base first, then, only while the mount is not empty (`+0x7b != 0`) and the reading is past `0x80`:
+`WeaponMount_ConditionChanged` (`0040ee90`), the ammunition and Grenade classes: the base first, then, only while the mount is not empty (`+0x7b != 0`) and the reading is past `0x80`:
 
 | `PROJ.DAT` type | Effect per 25 points of damage past `0x80` |
 |---|---|
@@ -155,6 +157,8 @@ A visibly-mounted hardpoint then throws its own gun as a debris object ([`destru
 | `Beam` | Neither |
 
 **A damaged gun fires faster, not slower.** `WeaponMount_PrepareShot` arms `Q10Multiply(mount+0x63, template+0x4c)`, so halving the scale halves the delay. It reads backwards for damage and it is what the original does; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+`WeaponMount_ConditionChangedEnergy` (`0040ee38`), the energy and ELF classes: the base first, then the charge rate `+0x7f` is reset to 20 and, with the reading past `0x80`, lowered by `Q10(20, steps * 100)` — 19, 17, 15, 13 and 11 over the five steps. **A damaged energy weapon recharges more slowly**, and nothing else about it changes: no cook-off roll and no refire scale, whatever its `PROJ.DAT` type. The Targeting Pod's own slot is in [`equipment-pods.md`](equipment-pods.md#where-a-pod-reads-its-damage); the other pods keep the base.
 
 ### The chance path — the destruction roll
 

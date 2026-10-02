@@ -169,7 +169,9 @@ public sealed partial class MechObject {
 		bool anyArmed = false;
 
 		foreach (var mount in Weapons.Mounts) {
-			if (mount.Disabled) {
+			// The mount's own vtable +0x5c: a destroyed mount, an empty magazine and every pod are
+			// passed over before the mount counts as armed.
+			if (mount.IsSpent) {
 				continue;
 			}
 
@@ -260,8 +262,9 @@ public sealed partial class MechObject {
 	public bool WeaponSelectionSuppressed { get; set; }
 
 	/// <summary>
-	/// <c>mech+0xa5</c> — this machine has no working hardpoint left. Latched by
-	/// <see cref="ChooseWeapon"/> the first time it walks the whole list and finds nothing, and read
+	/// <c>mech+0xa5</c> — this machine has nothing left to fight with. Latched by
+	/// <see cref="ChooseWeapon"/> the first time every mount answers <see cref="WeaponMount.IsSpent"/>
+	/// — destroyed, out of rounds, or a pod — and read
 	/// beside the damage latches by every "dead or dying" test in the AI, which is why a disarmed
 	/// machine flees and is abandoned as a target.
 	/// </summary>

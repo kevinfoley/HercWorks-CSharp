@@ -30,8 +30,8 @@ Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding
 |---|---|---|
 | `004080ca` | `Explosion_Construct` | `Math_RandomBelow(0x32)`, discarded — the sound it then plays is the type record's `+0x24` plus 10 |
 | `00409298` | `Smoke_Construct` (`0040923c`) | `next & 3`, the first of the four shape variants of smoke type `+0x28` that the emitter cycles through ([Open](#open)) |
-| `0042f86f` | `TexPoly` vtable slot 9 (`0042f860`) | `next`, a random angle; the point that far round a circle of the given radius ([Open](#open)) |
-| `0042f9c7` | `TexPoly` vtable slot 8 (`0042f970`) | `next`, one random angle per ring ([Open](#open)) |
+| `0042f86f` | `TexPoly_RandomPointOnCircle` (`0042f860`), `TexPoly` vtable `+0x24` | `next`, a random angle; the point that far round a circle of the given radius ([Open](#open)) |
+| `0042f9c7` | `TexPoly_SetupRings` (`0042f970`), `TexPoly` vtable `+0x20` | `next`, one random angle per ring ([Open](#open)) |
 | `0043404e`, `004340cc` | `Cockpit_StartHitShake`, `Cockpit_HitShakeTick` | `(next & 0xffff) % 10`, the palette flash interval |
 | `004340ea` | `Cockpit_HitShakeTick` | `(next & 0xffff) % 5`, the shake step |
 | `00435cb5` | `PilotMessagePort_Post` (`00435c48`), the squad port's post | `(next & 0xffff) % variants`, drawn only for two or more |

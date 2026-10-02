@@ -1317,9 +1317,10 @@ public sealed class SimWorld {
 	/// vtable <c>+0x6c</c> (<c>Mech_MissileLockState</c>, <c>004155ac</c>), which
 	/// reads the per-subtype lock flags at <c>manager+0x0a</c> rather than any ammunition count. See
 	/// <see cref="MechObject.MissileLockTick"/> for what builds them. A round fired without lock
-	/// flies where it was pointed, which is exactly what the original does. <b>A
-	/// <see cref="FlyerObject"/>'s slot is a <c>return 1</c> stub</b>, so its rounds always have
-	/// one.</para>
+	/// flies where it was pointed, which is exactly what the original does. <b>Every other class's
+	/// slot is a <c>return 1</c> stub</b> (<c>SimObject_MissileLockState_Always</c>, <c>00411b04</c>),
+	/// so a <see cref="FlyerObject"/>'s or a <see cref="BaseObject"/>'s rounds always take the
+	/// launcher's selected target.</para>
 	///
 	/// <para>The one exception is the original's own: a machine that is <b>not</b> locally piloted
 	/// firing <see cref="Rocket.PlayerFlownSubtype"/> skips the lock gate outright, because that
@@ -1351,11 +1352,11 @@ public sealed class SimWorld {
 				&& (launching.MissileLocked(projectile.SubtypeId)
 					|| (!launching.LocallyPiloted && projectile.SubtypeId == Rocket.PlayerFlownSubtype))) {
 			round.Target = launching.Target;
-		} else if (owner is FlyerObject aircraft) {
-			// The lock gate is the launcher's own vtable +0x6c, and the Flyer class' slot is a
-			// `return 1` stub (FUN_00411b04) — so a Cybrid flyer's missile is always given the
-			// aircraft's selected target, whatever it is carrying.
-			round.Target = aircraft.Target;
+		} else if (owner is not null and not MechObject) {
+			// The lock gate is the launcher's own vtable +0x6c, and every class but the mech installs a
+			// `return 1` stub (SimObject_MissileLockState_Always (00411b04)) -- so a Cybrid flyer's or a
+			// missile tower's round is always given the launcher's selected target.
+			round.Target = owner.Target;
 		}
 
 		_rockets.Add(round);

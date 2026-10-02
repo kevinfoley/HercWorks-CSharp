@@ -17,7 +17,7 @@ Canopy art itself and the cockpit palette: [`cockpit-canopy-palette.md`](cockpit
 | `CockpitViewInstance` | `0049b088` | The GAU widget tree, owned by the manager. |
 | `Gau_BuildCockpitWidgets` | `00431bf8` | Builds that tree from `gau\<HERC>.GAU` — see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#gau-widget-tree). |
 
-Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANEL.CPP` (widget tree, `00431008`–`00434400`), palette module (`00430346`–`00430e40`).
+Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANEL.CPP` (widget tree, `00431008`–`00434400`), palette module (`0043034c`–`00430e40`).
 
 `CockpitViewManagerInstance` fields:
 

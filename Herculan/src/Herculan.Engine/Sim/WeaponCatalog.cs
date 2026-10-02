@@ -167,6 +167,9 @@ public sealed class WeaponCatalog {
 	/// </summary>
 	public static WeaponMountKind Kind(int weaponId) => weaponId switch {
 		// WeaponMount_CtorAmmunition (0040e140) — rounds. The autocannons, the four missile launchers, MISSL and LAEW.
+		// LAEW (26) then has its vtable overwritten with GRENADE_WPN's (GrenadeMountVtable, 00499248), a
+		// hold-to-throw trigger whose fire dispatch spends a round and launches nothing; its magazine of
+		// 0 keeps it from ever firing, so this engine builds it as a plain ammunition mount.
 		1 or 2 or 3 or 4 or 5 or 13 or 14 or 15 or 16 or 21 or 26 => WeaponMountKind.Ammunition,
 
 		// The two ELFs. The factory runs WeaponMount_CtorEnergy and then overwrites the vtable

@@ -355,7 +355,7 @@ public sealed partial class MechObject {
 	/// <c>Mech_CreditNeutralisedTarget</c> (<c>00415710</c>), the mech's vtable <c>+0x60</c> — told to the machine that just put
 	/// <paramref name="victim"/> out of the fight, from both of
 	/// <see cref="ComponentDamageWrite"/>'s branches. The base class' slot
-	/// (<c>FUN_00411b2c</c>) is an empty stub, so only a HERC credits anything.
+	/// (<c>SimObject_CreditNeutralisedTargetNoOp</c> (<c>00411b2c</c>)) is an empty stub, so only a HERC credits anything.
 	///
 	/// <para><paramref name="wasImmobilised"/> is the victim's reading from <i>before</i> this
 	/// change, and it is what stops a machine being counted twice: a HERC whose legs went first was

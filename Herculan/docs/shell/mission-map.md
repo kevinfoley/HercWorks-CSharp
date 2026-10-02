@@ -149,7 +149,7 @@ A base is shown when its `+0x1a` is non-zero if it is friendly, and only when it
 
 `Mission_Show` (`004441e3`) sets `DAT_0046c075` every time it shows the briefing. The shell's main loop then calls `ShellMap_RunIntro` (`0040146a`), which installs the briefing palette and loops `ShellMap_IntroStep` (`00425c7b`) until it returns false, presenting the frame (`Display_PresentStoredRect` (`00405cd8`)) and dispatching Windows messages (`Shell_PumpMessages` (`00405d9c`)) on each pass. It empties the keyboard ring before the loop (`Keyboard_FlushKeys` (`004052e1`)) and takes one key off it per pass (`Keyboard_PopKey` (`00404781`)), so a key the loop reads is gone from the ring and never posted as a shell event. A key reading 1 or `0x39` (Esc, Space), or either mouse button going down while the loop runs (`DAT_0046c078`, set in the window procedure), calls `ShellMap_SkipIntro` (`004253ef`), which moves a state below `0x12` to `0x11`.
 
-The timer is `GetTickCount() >> 4` (`FUN_00465a1c`), a tick of 16 ms. The state is `+0x172`, a deadline `+0x176`, the state a wait returns to `+0x174`; the revealed counts are `+0x183` (squad), `+0x184` (path points) and `+0x185` (nav markers).
+The timer is `GetTickCount() >> 4` (`Shell_TimerTicks`, `00465a1c`), a tick of 16 ms. The state is `+0x172`, a deadline `+0x176`, the state a wait returns to `+0x174`; the revealed counts are `+0x183` (squad), `+0x184` (path points) and `+0x185` (nav markers).
 
 | State | Does |
 |---|---|

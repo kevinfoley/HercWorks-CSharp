@@ -219,7 +219,7 @@ While `Avi_Playing` is set, the window procedure (`MainWndProc`, 00404a2c) drops
 
 ### The pointer
 
-**The shell's pointer is the Windows arrow.** VSHELL draws none of its own. `FUN_004062cb` registers the main window's class with `LoadCursorA(NULL, IDC_ARROW)`, and `MainWndProc` passes `WM_SETCURSOR` to `DefWindowProcA`, so every move over the window puts the class's arrow up.
+**The shell's pointer is the Windows arrow.** VSHELL draws none of its own. `Shell_RegisterWindowClass` (`004062cb`) registers the main window's class with `LoadCursorA(NULL, IDC_ARROW)`, and `MainWndProc` passes `WM_SETCURSOR` to `DefWindowProcA`, so every move over the window puts the class's arrow up.
 
 The widget layer carries a cursor too, and it adds nothing to that. The startup (`Shell_Main`, `00401525`) wraps what `GetCursor()` returns — the arrow — in two cursor objects, `DAT_004810e8` and `DAT_004810ec` (`ShellCursor_Ctor`, `0041f644`: vtable `00471844`, the handle at `+4`). It gives the first to the display root's `+0x35` and installs it, and `Hotspots_BuildOverlay` (`0043c1a0`) gives the second to every arming hotspot. `Pointer_Enter` installs the `+0x35` of the first widget up the parent chain that has one through the display's slot 3, `Display_SetCursor` (`0041fab3`, vtable `004717ec`), which calls `SetCursor` with it unless it is the one already installed. What reaches `SetCursor` there is the object's address rather than the handle at its `+4`.
 
@@ -336,7 +336,7 @@ Shell_ShutdownDevicesAndSound()   // 004092dc: Devices_Shutdown, ShellSound_Shut
 PostQuitMessage(0)
 ```
 
-The startup (`FUN_00406507`) pumps messages until the `WM_QUIT` arrives, releases DirectDraw (`Display_ReleaseDirectDraw`, `00407011`) and returns `0046e210` as the shell's exit code. `Shell_Main` (`00401525`) zeroed that store right after copying the `-X` code out of it, and `QUIT` leaves it alone, so the shell exits with 0 and `ES.EXE` ends ([`../command-line.md`](../command-line.md#exit-codes)).
+The startup (`Shell_WinMain`, `00406507`) pumps messages until the `WM_QUIT` arrives, releases DirectDraw (`Display_ReleaseDirectDraw`, `00407011`) and returns `0046e210` as the shell's exit code. `Shell_Main` (`00401525`) zeroed that store right after copying the `-X` code out of it, and `QUIT` leaves it alone, so the shell exits with 0 and `ES.EXE` ends ([`../command-line.md`](../command-line.md#exit-codes)).
 
 ## The registration screen
 
@@ -521,7 +521,7 @@ The two sound checkboxes run `FUN_00436841` with 0 and 1 and then reseed both ti
 
 **Full screen is an exclusive display mode.** `Display_ToggleFullScreen` toggles it. Going in, it sets `DAT_00481e68`, creates a DirectDraw object and takes it exclusive and full screen (`Display_CreateDirectDrawExclusive` (`00406eb5`), cooperative level `0x17`), sets a 640x480 8-bit display mode and creates the primary surface (`DDraw_SetModeAndCreatePrimary` (`00406eeb`), with the canvas size from the shell's bitmap header `DAT_00481864`), and places the window topmost with its frame pushed off the screen, so its client area is the screen. It then marks the palette's entries, gives the primary surface a palette, confines the pointer to the screen (`ClipCursor`) and centres it. If DirectDraw or the mode fails the shell quits. Coming out, it clears the flag, releases every DirectDraw object (`Display_ReleaseDirectDraw`, `00407011`), which gives the desktop its mode back, and centres the window, no longer topmost.
 
-**The startup enters it from option 6.** `FUN_00406507`, the startup under `WinMain`, reads `prefs.cfg` (`FUN_0040d68c`), copies option 6 into `DAT_0046d740`, builds the window over the desktop and topmost while that is set, and then calls `Display_ToggleFullScreen`. It also looks for a `-d` or `/d` argument and clears `DAT_0046d740` for one, but that store (`0040656c`) comes before the copy from option 6 (`00406583`), which overwrites it with nothing reading it between, so `-d` has no effect. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+**The startup enters it from option 6.** `Shell_WinMain` (`00406507`), the startup under `WinMain`, reads `prefs.cfg` (`ShellOptions_Init`, `0040d68c`), copies option 6 into `DAT_0046d740`, builds the window over the desktop and topmost while that is set, and then calls `Display_ToggleFullScreen`. It also looks for a `-d` or `/d` argument and clears `DAT_0046d740` for one, but that store (`0040656c`) comes before the copy from option 6 (`00406583`), which overwrites it with nothing reading it between, so `-d` has no effect. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
 **Four keys switch it**, in `MainWndProc` (`00404a2c`), each only while no movie plays and `DAT_0046c098` is set, which the startup does once the screens are built and the startup sequence's widget clears while it runs. Alt+Enter toggles full screen on the Enter key's release; Alt+Tab, Alt+Esc and Ctrl+Esc leave it (`Display_LeaveFullScreen` (`0040722e`)) on the key going down or up. Each then writes option 6 from the flag, and with the preferences screen's panel up relights its display group and repaints it; otherwise it runs `ShellOptions_Commit(0)` and `ShellOptions_SaveAll`. A modifier other than the one named stops the key matching. The shell also leaves full screen around its own message boxes and goes back after.
 

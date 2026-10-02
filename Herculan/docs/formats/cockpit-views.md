@@ -226,8 +226,8 @@ DBSIM draws everything into a system-memory back buffer and copies a viewport-si
 | Symbol | Address | Role |
 |---|---|---|
 | `Display_SetOrigin` | `004648d4` | Slot 15 of `g_RasterRoutines` (`004a5800`), through driver 3's stub `00489802`. Moves the window to `(x, y)`: rebases the render target's pixel pointer and row table on it and stores it in `Display_OriginX`/`Y`. Its page argument is ignored |
-| `Display_OriginX` / `Display_OriginY` | `004d309c` / `004d30a0` | The window's top-left in the back buffer. Zeroed by driver 3's surface setup `FUN_0048a0c8`; every other store is `Display_SetOrigin`'s |
-| `Display_ScreenRect` | `004d307c` | `{0, 0, w-1, h-1}`, the viewport on screen, set by `FUN_0048a0c8` |
+| `Display_OriginX` / `Display_OriginY` | `004d309c` / `004d30a0` | The window's top-left in the back buffer. Zeroed by driver 3's surface setup `Driver3_OpenDisplay` (`0048a0c8`); every other store is `Display_SetOrigin`'s |
+| `Display_ScreenRect` | `004d307c` | `{0, 0, w-1, h-1}`, the viewport on screen, set by `Driver3_OpenDisplay` (`0048a0c8`) |
 | `Display_Present` | `00464910` | `Screen_PresentFrame(&Display_OriginX, &Display_ScreenRect)` |
 | `Display_PresentRect` | `00464924` | The same for one rect of the view, offset by the render context's origin when its clip mode `+0x20c` is set |
 | `Screen_PresentFrame` | `00465524` | Copies a source point's rect of the back buffer to a screen rect. Fullscreen: locks the DirectDraw primary (or, below 640 wide, the back surface, then flips), copies row by row and draws the software cursor. Windowed: `StretchBlt` from the DIB's DC |

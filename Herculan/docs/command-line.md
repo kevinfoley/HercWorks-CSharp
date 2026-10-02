@@ -69,7 +69,7 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdow
 | `-l` | `00482280` = 0 | Read only by the unreferenced function at `0042f2e8`; no effect |
 | `-v`, `-?` | `00482272` = 0 | `printf` the version or the usage text, turn sound off, and call `Shell_ShutdownDevicesAndSound` (`004092dc`). The parse runs before `Shell_Main` (`00401525`) builds `devices.cpp`'s viewport (`Devices_Init`, `0040db38`) and the sound manager, so that call releases nothing, and the parse goes on to the next argument |
 
-`-d`, tested separately in `FUN_00406507` (VSHELL), clears `0046d740`, which the same function overwrites from `ShellOption_DisplayMode` before anything reads it.
+`-d`, tested separately in VSHELL's `Shell_WinMain` (`00406507`), clears `0046d740`, which the same function overwrites from `ShellOption_DisplayMode` before anything reads it.
 
 ### `-@`: the mission picker
 

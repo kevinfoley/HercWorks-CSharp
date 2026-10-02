@@ -378,7 +378,7 @@ static class ShellHost {
 			StartSound();
 			movies = new ShellMovieRun(movieQueue, MovieHooks(), sound, audio);
 
-			// The startup (FUN_00406507) goes full screen when option 6 is set, before the shell's screens
+			// The startup (Shell_WinMain, 00406507) goes full screen when option 6 is set, before the shell's screens
 			// are built. --shell-windowed keeps the window, which retail's -d does not.
 			if (shellOptions[DisplayModeOption] != 0 && !startWindowed) {
 				ToggleFullScreen();

@@ -31,6 +31,8 @@ import re
 import subprocess
 import sys
 
+# The checkout every relative path below is resolved against. The hook rebinds it to the checkout
+# holding the edited file, which may be a worktree while this script runs from the main checkout.
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_TARGETS = [os.path.join("Herculan", "docs")]
 
@@ -293,13 +295,37 @@ def name_sets() -> tuple[set[str], set[str], set[str]]:
         except (OSError, ValueError):
             pass
     for rel in RETAIL_BINARIES:
+        path = os.path.join(REPO_ROOT, rel)
+        if not os.path.isfile(path):
+            path = os.path.join(main_checkout(), rel)
         try:
-            with open(os.path.join(REPO_ROOT, rel), "rb") as fh:
+            with open(path, "rb") as fh:
                 retail.update(m.decode() for m in re.findall(rb"[A-Za-z_]\w{2,}", fh.read()))
         except OSError:
             pass
     _name_sets = (types, names, retail)
     return _name_sets
+
+
+def checkout_root(path: str) -> str | None:
+    """The checkout holding path: the nearest directory with a .git entry (a worktree's is a file)."""
+    d = os.path.dirname(os.path.abspath(path))
+    while True:
+        if os.path.exists(os.path.join(d, ".git")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
+def main_checkout() -> str:
+    """The main checkout behind REPO_ROOT. A worktree lacks the gitignored ES2/ binaries."""
+    out = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    return os.path.dirname(os.path.normpath(out)) if out else REPO_ROOT
 
 
 def csharp_mention(token: str) -> str | None:
@@ -490,6 +516,9 @@ def hook_mode() -> int:
     path = tool_response.get("filePath") or tool_input.get("file_path") or ""
     if not path:
         return 0
+
+    global REPO_ROOT
+    REPO_ROOT = checkout_root(path) or REPO_ROOT
 
     norm = path.replace("\\", "/")
     if not (norm.lower().endswith(".md") and "/docs/" in norm.lower()) and not is_retail_json(path):

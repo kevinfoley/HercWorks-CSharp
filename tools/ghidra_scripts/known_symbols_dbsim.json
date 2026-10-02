@@ -14708,6 +14708,15 @@
       "source": "docs/engine/planning.md (world scale recovery)"
     },
     {
+      "address": "00467734",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Time_AdvanceCoarseTick",
+      "description": "Subtracts 0x10 from Time_GetCoarseTicks' start tick (004d3bfc), moving the 16 ms clock on by one tick. Ghidra had no function here. The DBSIM copy of VSHELL's Time_AdvanceCoarseTick (00465a2c).",
+      "source": "DBSIM bytes at 00467734 (capstone)"
+    },
+    {
       "address": "0046773c",
       "binary": "DBSIM",
       "type": "function",
@@ -14746,6 +14755,51 @@
       "signature": "short __cdecl Math_IntegrateRateOverTick(short ratePerTick)"
     },
     {
+      "address": "00467858",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_IntegrateRateOverTick2",
+      "description": "(rate): Math_Q8Multiply(004d3bea, rate) clamped to +/-0x7fff: Math_IntegrateRateOverTick with the second Q8 delta, the one Time_BeginSimTick computes with unit 004d3bee. The DBSIM copy of VSHELL's Math_IntegrateRateOverTick2 (00465b50).",
+      "source": "DBSIM decompile at 00467858; compared with VSHELL 00465b50"
+    },
+    {
+      "address": "00467890",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_RateFromTickDelta",
+      "description": "(delta): (delta << 8) / SimTickDelta, the inverse of Math_IntegrateRateOverTick: the per-unit rate that yields delta this tick. The DBSIM copy of VSHELL's Math_RateFromTickDelta (00465b84).",
+      "source": "DBSIM decompile at 00467890"
+    },
+    {
+      "address": "004678a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_IntegrateRateWithRemainder",
+      "description": "(value, remainder): value = clamp(value * SimTickDelta >> 8, +/-0x7fff) in place, and remainder = the low 8 bits of |value * SimTickDelta| shifted left 2, or 0x3ff when the product overflows, with value's sign. The DBSIM copy of VSHELL's Math_IntegrateRateWithRemainder (00465ba4).",
+      "source": "DBSIM decompile at 004678a8; compared with VSHELL 00465ba4"
+    },
+    {
+      "address": "00467918",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_MulTickDelta64",
+      "description": "(x): (int64)x * SimTickDelta. The DBSIM copy of VSHELL's Math_MulTickDelta64 (00465c08).",
+      "source": "DBSIM decompile at 00467918"
+    },
+    {
+      "address": "0046792c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_CountupTimerTick",
+      "description": "(rec): the short at rec+1 += SimTickDelta; returns it. Math_CountdownTimerTick's mirror. The DBSIM copy of VSHELL's Math_CountupTimerTick (00465c1c).",
+      "source": "DBSIM decompile at 0046792c; es2_naming.py match against VSHELL 00465c1c"
+    },
+    {
       "address": "00467944",
       "binary": "DBSIM",
       "type": "function",
@@ -14754,6 +14808,24 @@
       "description": "Countdown-timer tick over a 3-byte packed record. THE COUNTER IS THE SHORT AT +1 FROM THE PASSED POINTER, NOT AT +0: rec[+1] -= SimTickDelta, clamped at 0, returns the new value in AX. Verified across all 40 call sites -- each passes a base whose sibling code reads or writes the short one byte higher (mech+0x258 with the word at +0x259, mount+0x30 with the refire counter at +0x31, rocket+0x5c with the counter at +0x5d). Records sit in stride-3 runs: mech+0x258/0x25b/0x25e and +0x264/0x267/0x26a, globals 0x4a9ee6/0x4a9ee9. The leading byte is untouched by this function, and for all four global instances (0x4a9be8, 0x4a9bec, 0x4a9ee6, 0x4a9ee9) is never read or written anywhere in DBSIM -- only ever address-taken -- so its meaning is still OPEN, not settled as padding. Rocket_TickUpdate's use reloads the counter from ROCKETS.DAT +0x08, which is the exhaust-flame cell-anim and NOT a seeker target-reacquire.",
       "source": "docs/simulation/dbsim-physics-notes.md; disassembly of 00467944 + all 40 call sites",
       "signature": "short __cdecl Math_CountdownTimerTick(void *timerRecord)"
+    },
+    {
+      "address": "0046796c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Timer_SetShort",
+      "description": "(rec, value): the short at rec+1 = value * 004d3bf6 * 0x100. The DBSIM copy of VSHELL's Timer_SetShort (00465c5c).",
+      "source": "DBSIM decompile at 0046796c"
+    },
+    {
+      "address": "0046798c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Timer_CountUp",
+      "description": "(rec): the int at rec+1 += SimTickDelta; returns it. Timer_CountDown's mirror. The DBSIM copy of VSHELL's Timer_CountUp (00465c84).",
+      "source": "DBSIM decompile at 0046798c; es2_naming.py match against VSHELL 00465c84"
     },
     {
       "address": "004679a4",
@@ -17197,6 +17269,24 @@
       "source": "docs/simulation/mech-locomotion.md"
     },
     {
+      "address": "00478c54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_PushModelTransform",
+      "description": "(shapeInst, scratch, root): saves g_ModelTransformPtr, Transform_Concat(root, saved, scratch), installs scratch with Raster_SetModelTransform and returns the saved pointer. ANShapeInstance_Render brackets TSShapeInstance_Render with it and ShapeInst_PopModelTransform. The DBSIM copy of VSHELL's ShapeInst_PushModelTransform (004635a4).",
+      "source": "DBSIM decompile at 00478c54"
+    },
+    {
+      "address": "00478c84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_PopModelTransform",
+      "description": "(shapeInst, saved): Raster_SetModelTransform(saved) when saved is non-null. The DBSIM copy of VSHELL's ShapeInst_PopModelTransform (004635d0).",
+      "source": "DBSIM decompile at 00478c84"
+    },
+    {
       "address": "00478c98",
       "binary": "DBSIM",
       "type": "function",
@@ -17340,6 +17430,15 @@
       "name": "AnimThread_EvalNodeLocals",
       "description": "The keyframe interpolator. For each animated column of the playing sequence, reads the transform-pool index at (sequence, frame) and at (nextSequence, nextFrame); if the two indices match, copies the 12-byte local transform straight; otherwise calls Anim_BlendKeyframeTransforms (00492600) with a Q10 interpolant of ((frameAccumulator * 0x400 + frameDuration/2) / frameDuration) -- the SAME elapsed-frame fraction AnimThread_ReadRootScaled already ramps root motion by. Writes into the shape instance's per-node local array (shapeInst+0x12, stride 0xc, indexed by transform id) and sets that node's dirty byte in shapeInst+0xe. Columns whose part id is 0 are skipped entirely, so transform 0 keeps its default and never takes an animated pose. Thread field offsets confirmed here: +4 sequence, +6 frame, +8 nextSequence, +10 nextFrame, +0x1c frameAccumulator, +0x1e frameDuration.",
       "source": "docs/simulation/mech-locomotion.md; Herculan AnimationThread.NodeTransform"
+    },
+    {
+      "address": "00479aec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Ctor",
+      "description": "(assert): Assert_Emit(0, 1, 0, 0, 0), counts the object live and returns it. The static initialiser 00479c40 builds the assert logger 006c574c with it. The DBSIM copy of VSHELL's Assert_Ctor (0044de50).",
+      "source": "DBSIM decompile at 00479aec"
     },
     {
       "address": "00479b48",
@@ -18026,6 +18125,15 @@
       "source": "DBSIM decompile and disassembly at 0047b260"
     },
     {
+      "address": "0047b294",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MemRWStream_SetOverrunStatus",
+      "description": "(stream, writing): status 2 (end of data) when the cursor +0x10 is at the end +0xc and writing is 0, otherwise 1 (I/O error). Returns 0. The DBSIM copy of VSHELL's MemRWStream_SetOverrunStatus (0044edac).",
+      "source": "DBSIM decompile at 0047b294"
+    },
+    {
       "address": "0047b2c8",
       "binary": "DBSIM",
       "type": "function",
@@ -18314,6 +18422,96 @@
       "source": "DBSIM decompile and disassembly at 0047bbd0"
     },
     {
+      "address": "0047bc80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_EncodeChar",
+      "description": "(coder, c): walks the parent links (+8) from leaf c up to the root (0x272) collecting the code bits, writes them with LZHuffman_PutCode, then LZHuffman_Update(c). Okumura's LZHUF EncodeChar. The DBSIM copy of VSHELL's LZHuffman_EncodeChar (0044f78c).",
+      "source": "DBSIM decompile at 0047bc80; es2_naming.py diff against VSHELL 0044f78c"
+    },
+    {
+      "address": "0047bcd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_EncodePosition",
+      "description": "(coder, pos): LZHuffman_PutCode with the top six bits' length and code from the encode tables, then the low six bits in 6 bits. LZHUF's EncodePosition. The DBSIM copy of VSHELL's LZHuffman_EncodePosition (0044f7e0).",
+      "source": "DBSIM decompile at 0047bcd4; es2_naming.py diff against VSHELL 0044f7e0"
+    },
+    {
+      "address": "0047bd18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_DecodeChar",
+      "description": "(coder): walks the child links (+0xc) from the root (+0x4e4) one LZHuffman_GetBit at a time until a leaf (>= 0x273), LZHuffman_Update's it and returns leaf - 0x273. LZHUF's DecodeChar; LZHRStream_Read calls it. The DBSIM copy of VSHELL's LZHuffman_DecodeChar (0044f824).",
+      "source": "DBSIM decompile at 0047bd18; es2_naming.py diff against VSHELL 0044f824"
+    },
+    {
+      "address": "0047bd68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_DecodePosition",
+      "description": "(coder): reads a byte with LZHuffman_GetByte, takes the upper six bits and the extra bit count from the decode tables, reads those bits with LZHuffman_GetBit and returns the 12-bit position. LZHUF's DecodePosition; LZHRStream_Read calls it. The DBSIM copy of VSHELL's LZHuffman_DecodePosition (0044f874).",
+      "source": "DBSIM decompile at 0047bd68; es2_naming.py diff against VSHELL 0044f874"
+    },
+    {
+      "address": "0047bdbc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_EncodeEnd",
+      "description": "(coder): writes the top byte of the bit buffer (+0x13) when bits are pending (+0x15), then a zero byte. LZHUF's EncodeEnd with a trailing 0. The DBSIM copy of VSHELL's LZHuffman_EncodeEnd (0044f8c8).",
+      "source": "DBSIM decompile at 0047bdbc; es2_naming.py diff against VSHELL 0044f8c8"
+    },
+    {
+      "address": "0047bdec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_GetBit",
+      "description": "(coder): refills the 16-bit input buffer (+0x10, bit count +0x12) a byte at a time with Stream_ReadByte from the source (+0) while it holds fewer than 9 bits (0 at end of data), then shifts out and returns the top bit. LZHUF's GetBit. The DBSIM copy of VSHELL's LZHuffman_GetBit (0044f8f8).",
+      "source": "DBSIM decompile at 0047bdec; es2_naming.py diff against VSHELL 0044f8f8"
+    },
+    {
+      "address": "0047be4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_GetByte",
+      "description": "(coder): LZHuffman_GetBit's refill, then shifts out and returns the top 8 bits. LZHUF's GetByte. The DBSIM copy of VSHELL's LZHuffman_GetByte (0044f954).",
+      "source": "DBSIM decompile at 0047be4c; es2_naming.py diff against VSHELL 0044f954"
+    },
+    {
+      "address": "0047beac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_PutCode",
+      "description": "(coder, len, code): ORs the code's top len bits into the output buffer (+0x13, count +0x15) and writes each completed byte to the stream. LZHUF's Putcode. The DBSIM copy of VSHELL's LZHuffman_PutCode (0044f9b0).",
+      "source": "DBSIM decompile at 0047beac; es2_naming.py diff against VSHELL 0044f9b0"
+    },
+    {
+      "address": "0047bf20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Reconstruct",
+      "description": "(coder): rebuilds the adaptive Huffman tree: halves the leaf frequencies (+4), rebuilds the internal nodes in frequency order and relinks the parents (+8). LZHUF's reconst; LZHuffman_Update calls it when the root frequency reaches 0x8000. The DBSIM copy of VSHELL's LZHuffman_Reconstruct (0044fa24).",
+      "source": "DBSIM decompile at 0047bf20; es2_naming.py diff against VSHELL 0044fa24"
+    },
+    {
+      "address": "0047c054",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LZHuffman_Update",
+      "description": "(coder, c): LZHuffman_Reconstruct when the root frequency is 0x8000, then increments the frequencies from leaf c to the root, swapping a node past its lower-frequency successors to keep the order. LZHUF's update. The DBSIM copy of VSHELL's LZHuffman_Update (0044fb58).",
+      "source": "DBSIM decompile at 0047c054; es2_naming.py diff against VSHELL 0044fb58"
+    },
+    {
       "address": "0047c13c",
       "binary": "DBSIM",
       "type": "function",
@@ -18393,6 +18591,24 @@
       "name": "BuffWStream_Read",
       "description": "The DBSIM copy of VSHELL's BuffWStream_Read (0044ff08).",
       "source": "es2_naming.py diff DBSIM 0047c400 VSHELL 0044ff08: identical after normalisation; RTTI BuffWStream vtable slot"
+    },
+    {
+      "address": "0047c414",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffWStream_GrowBuffer",
+      "description": "(stream, extra): adds extra to the buffer size +0xe, rounds it up to a multiple of 100 and reallocs the buffer +0x12. The DBSIM copy of VSHELL's BuffWStream_GrowBuffer (0044ff1c).",
+      "source": "DBSIM decompile at 0047c414"
+    },
+    {
+      "address": "0047c464",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffWStream_SyncStatus",
+      "description": "(stream): status 6 (no target) when +8 is null, else the target's Stream_GetStatus. Returns 0. The DBSIM copy of VSHELL's BuffWStream_SyncStatus (0044ff6c).",
+      "source": "DBSIM decompile at 0047c464"
     },
     {
       "address": "0047c538",
@@ -18600,6 +18816,15 @@
       "name": "Stream_ReadDword2",
       "description": "(stream, dst): reads 4 bytes through the stream's read slot (vtable +0x18); a second copy of Stream_ReadDword.",
       "source": "DBSIM decompile at 0047cfb1"
+    },
+    {
+      "address": "0047d058",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Str_TrimRight",
+      "description": "(s): cuts s after its last character above a space (code > 0x20), dropping trailing blanks and control characters; returns s. The DBSIM copy of VSHELL's Str_TrimRight (00450428).",
+      "source": "DBSIM decompile at 0047d058"
     },
     {
       "address": "0047d08c",
@@ -20721,6 +20946,42 @@
       "source": "DBSIM decompile at 0048982e and 00486d70"
     },
     {
+      "address": "004898a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_BlitClipped",
+      "description": "Slot 26 of raster driver 3's routine table, the blit Bitmap_BlitClipDispatch calls: (bitmap, point, clipRect, flags) clips the bitmap at point to clipRect {x0, y0, x1, y1} inclusive, or to the surface when clipRect is null, then copies it in one of four orientations by flags bits 0-1: opaque when the bitmap's byte +5 has bit 0x10, otherwise skipping colour 0.",
+      "source": "DBSIM decompile at 004898a0"
+    },
+    {
+      "address": "0048a0c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_OpenDisplay",
+      "description": "Slot 11 of raster driver 3's routine table (g_RasterRoutines_Driver3), which RasterDriver_OpenDisplay calls with (bitmapHeader, info): allocates the surface's row-offset table into info+0, takes the width and height from the one-shot overrides when they are not negative (resetting them to -1) or else from the header, fills the rest of info and sets Display_ScreenRect and the origin to 0. The DBSIM copy of VSHELL's Driver3_OpenDisplay (004281fb).",
+      "source": "DBSIM decompile at 0048a0c8; es2_naming.py diff against VSHELL 004281fb"
+    },
+    {
+      "address": "0048a218",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_Slot7NoOp",
+      "description": "Slot 7 of raster driver 3's routine table (g_RasterRoutines_Driver3): returns at once. RasterDriver_OpenDisplay and GLDisplay_SetAttribute call slot 7.",
+      "source": "DBSIM decompile at 0048a218"
+    },
+    {
+      "address": "0048a220",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_CloseDisplay",
+      "description": "Slot 12 of raster driver 3's routine table, which RasterDriver_CloseDisplay calls: (info) frees the row-offset table at info+0 that Driver3_OpenDisplay allocated.",
+      "source": "DBSIM decompile at 0048a220"
+    },
+    {
       "address": "0048a234",
       "binary": "DBSIM",
       "type": "function",
@@ -20737,6 +20998,24 @@
       "name": "Raster_PutPixel",
       "description": "Driver 3's g_RasterRoutines slot 5: (point, value) stores the byte at the address Raster_GetPixel reads.",
       "source": "DBSIM disassembly at 0048a255; driver-3 table at 004a5898"
+    },
+    {
+      "address": "0048a382",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_SpanCopy",
+      "description": "Slot 22 of raster driver 3's routine table, Raster_SpanCopy's: (pixels, y, x0, x1) copies x1 - x0 + 1 bytes from pixels into row y at x0 through the surface's row-offset table, dwords then bytes; nothing when x0 > x1.",
+      "source": "DBSIM decompile at 0048a382"
+    },
+    {
+      "address": "0048a4a7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_SpanFill",
+      "description": "Slot 24 of raster driver 3's routine table, Raster_SpanFill's: (colour, y, x0, x1) fills x0..x1 of row y with the colour byte, dwords then bytes; nothing when x0 > x1.",
+      "source": "DBSIM decompile at 0048a4a7"
     },
     {
       "address": "0048a818",
@@ -27028,7 +27307,7 @@
       "type": "data",
       "confidence": "high",
       "name": "Display_ScreenRect",
-      "description": "int[4] {x0, y0, x1, y1}: the viewport's rect on screen, {0, 0, w-1, h-1}, set by driver 3's surface setup FUN_0048a0c8. Display_Present's destination rect.",
+      "description": "int[4] {x0, y0, x1, y1}: the viewport's rect on screen, {0, 0, w-1, h-1}, set by driver 3's surface setup Driver3_OpenDisplay. Display_Present's destination rect.",
       "source": "docs/formats/cockpit-views.md"
     },
     {
@@ -27037,7 +27316,7 @@
       "type": "data",
       "confidence": "high",
       "name": "Display_OriginX",
-      "description": "x of the viewport window's top-left in the back buffer, with Display_OriginY at 004d30a0. Written only by Display_SetOrigin and zeroed by driver 3's surface setup FUN_0048a0c8. Display_Present passes it to Screen_PresentFrame as the source point.",
+      "description": "x of the viewport window's top-left in the back buffer, with Display_OriginY at 004d30a0. Written only by Display_SetOrigin and zeroed by driver 3's surface setup Driver3_OpenDisplay. Display_Present passes it to Screen_PresentFrame as the source point.",
       "source": "docs/formats/cockpit-views.md"
     },
     {
@@ -27091,7 +27370,7 @@
       "type": "data",
       "confidence": "high",
       "name": "SimTickDelta",
-      "description": "Global simulation timestep, read (never written) by the fixed-point math toolkit. Confirms DBSIM runs a discrete fixed/semi-fixed timestep simulation.",
+      "description": "Global simulation timestep, Q8 with 1.0 = 125 ms: Time_InitSimClock sets 0x100 and Time_BeginSimTick recomputes it every frame; the time module's integrate, countdown and count-up helpers read it.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {

@@ -10,9 +10,8 @@ public static class VolFileReader {
 	private const int OffsetDBSimFlag = 4;
 	private const int OffsetVShellFlag = 5;
 
-	// Set to 0x05 in every observed file, though this might actually be a VOL 'type' or
-	// 'load precedence' value: SHELL1.vol and SIMPATCH.vol use 0x0A instead, which might mean
-	// 'load this vol second', similar to how Quake loads numbered .pak files.
+	// The search precedence: SHELL1.vol and SIMPATCH.vol carry 0x0A, every other archive 0x05, and
+	// retail searches 0x0A archives first. See docs/formats/vol-archive.md, "Which archives are mounted".
 	private const int OffsetVolOrderNum = 8;
 
 	private const int OffsetDirCount = 9;

@@ -17,6 +17,8 @@ Every panel derives from one base, `AlertPanel_CtorBase`, and runs its own near-
 
 **Widgets.** The title draws in `title` and the buttons in `active` at rest and `pushed` while held, in every member. A button's paint (`PanelButton_Paint`, `00454ff8`) overwrites its caption label's font from its own four-entry table every time, whatever the label was built in. A button's plate art is larger than its rect and is blitted at the rect's origin, so it overhangs. A click reaches the panel through `PanelButton_OnClick` (`00455080`), which forwards to the panel's vtable `+0x0c` slot.
 
+**Text.** Each member's `.STR` path comes from `Language_StringFilePath` (`0045ef00`): `str\` in English, `stf\` and `stg\` in French and German ([`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)). v1.0's `stf\` and `stg\` tables translate an earlier design of the panels: their preferences panel offers MUSIC, SOUNDS, RADIO, HORIZON, SKY, GROUND and SHADOWS, and their pause panel's title asks to return to DOS where the English asks to exit Earthsiege. v1.10's translate the panels as shipped.
+
 **Keys.** `AlertPanel_HandleEvent` (`00454e10`) is the slot-`+0x10` handler of every member but the controls panel, whose sticks must not press widgets ([`preferences.md`](preferences.md#what-a-joystick-button-does--controlspanel_handleevent-00458f9c)):
 
 | | |
@@ -102,7 +104,7 @@ Its resources are SIMALERT.VOL's, alongside the status alert's and the other two
 |---|---|
 | `hba\OBJ_ALRT.HBA` | one frame, 630x230 — the whole plate. Index 0 appears four times in it, the rounded corners |
 | `hba\ALERT.HBA` | frames 0 and 1, 124x22 — the button at rest and held. They differ only in the border's palette index |
-| `str\OBJ_ALRT.STR` | two groups of one: `OBJECTIVES` and `RETURN`. (`stf\` and `stg\` are the French and German twins) |
+| `str\OBJ_ALRT.STR` | two groups of one: `OBJECTIVES` and `RETURN` |
 
 ### The objectives panel's geometry
 

@@ -76,7 +76,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 25-36 | the same twelve, flying the RAZOR | |
 | 37-41 | **VSHELL's**, not the simulator's: the practice missions screen's five parameters, difficulty among them | [`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters) |
 | 42 | **VSHELL's** campaign-or-training flag | seeds `CampaignModeFlag`, so the mode survives a restart |
-| 43 | **VSHELL's** language | the `LANG0.VOL` folder every `.BIN` is opened under: 0 `eng\`, 1 `fre\`, 2 `ger\` ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-bin-string-tables)) |
+| 43 | **VSHELL's** language | 0 English, 1 French, 2 German: the startup copies it into the shell's language value before `-f` and `-g` are parsed ([`../command-line.md`](../command-line.md#vshell)). 0 in v1.10's shipped file; what the value selects is [`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)'s |
 | 44 | **VSHELL's** `Repair Options:` | 0 `AutoRepair All Hercs`, 1 `Manually Repair My Herc`, 2 `Manually Repair All Hercs` |
 | 45 | **VSHELL's** `Weapons Building:` | 0 `AutoBuild Weapons`, 1 `Manually Build Weapons` |
 | 46 | **VSHELL's** `INSTANT ACTION` demo | which of the three demo missions the next `INSTANT ACTION` plays, stepped modulo 3 after each; its chassis goes into option 40 ([`../shell/screen-layout.md`](../shell/screen-layout.md#which-mission-a-row-is)) |

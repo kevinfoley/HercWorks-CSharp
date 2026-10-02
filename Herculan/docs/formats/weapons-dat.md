@@ -75,7 +75,7 @@ That also puts rank 0 in its place: `MFAC` is unbuyable because it has no panel,
 
 Lives in `ES2/VOL/LANG0.VOL` (one copy per language folder: `ENG`, `FRE`, `GER`) — **not** in `SHELL0.VOL` alongside `WEAPONS.DAT` itself, which is why it's easy to miss when only looking at the loose-extracted `SHELL0/GAM/` tree.
 
-Verified byte-exact against all 3 language copies (identical; weapon names not localized):
+Verified byte-exact against all 3 language copies of v1.0, which are identical, and v1.10's translated two:
 
 ```
 0x00  uint32 count          -- 33, matches the WEAPONS.DAT catalog's real entry count exactly
@@ -102,13 +102,13 @@ Read by VSHELL: `WeaponsBin_LookupName` (`00408240`) indexes it as `offsets[id] 
 | `wpn_info.bin` | — | 130 | the armory's stat panel, **5 strings per armory slot** |
 | `wpn_desc.bin` | `0048d728` | 111 | the weapons screen's description, **3 strings per weapon id**, then 3 per guidance kind |
 
-All six walk byte-exact against the retail files: `8 + count*2 + poolSize` equals the file length in every case.
+All six walk byte-exact against the retail files of both builds, in every language: `8 + count*2 + poolSize` equals the file length in every case, and each translation has the English entry count.
 
 `wpn_info.bin` is indexed by **`gam\arm_weap.dat`'s panel order, not by catalog id** — 26 slots of five strings each. Slot 0's five are `Type: Autocannon 20 mm`, `Range: 450 m Salvage Required: 5,000 kg`, an empty line, and two description lines. Their `Salvage Required` figures agree with this file's `0x14` price times 1000 for all 26 slots, which is what confirms both the indexing and the unit. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat).
 
-**Which folder is `prefs.cfg`'s.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or `ger\` chosen by option 43, which the shell's global init copies out of the option array ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A retail file holds 0.
+**The folder is the shell's language.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or `ger\` by `0048227a`, which `-f` and `-g` set ([`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)).
 
-**`LANG0.VOL` is not localized.** Every entry — all six `.BIN` files and `CAMPAIGN.STR` — is byte-identical across the `ENG\`, `FRE\` and `GER\` directories, so the three language trees in the retail build are three copies of the English text, and that setting changes nothing.
+**v1.0's `LANG0.VOL` is not localized.** Every entry — all six `.BIN` files and `CAMPAIGN.STR` — is byte-identical across the `ENG\`, `FRE\` and `GER\` directories, three copies of the English text. v1.10's `FRE\` and `GER\` translate `estext.bin`, `weapons.bin`, `wpn_desc.bin`, `wpn_info.bin` and `CAMPAIGN.STR`, and keep the English `esnames.bin` and `missions.bin`.
 
 All 33 names are in the id-space table above, transcribed from `WEAPONS_ENG.BIN`.
 

@@ -21,7 +21,7 @@ This page is for players. The technical detail behind each option is in [`comman
 | `-s` | Turns sound off, in both the front end and the simulator. |
 | `-L` | Low-memory mode in the simulator; see `-l` [below](#memory). |
 | `-r<name>` | Records every mission flown to `<name>.tap`; see [Recording and playback](#recording-and-playback). |
-| `-a` | Passes `-a` to the front end; see [Open](#open). |
+| `-a` | Turns the front end's movies off; see `-a` [below](#front-end--vshellexe). |
 | `-SPRUNKNOWN` | Developer mode. The front end gets the mission picker (`-@`) and the simulator gets the developer keys (`-SPRUNKNOWN`), both described below. |
 | `-X` | Only after `-SPRUNKNOWN`. Skips the front end entirely and flies the current mission over and over. |
 
@@ -29,14 +29,17 @@ Before starting anything, ES.EXE checks the computer's memory. With too little v
 
 The launcher also picks the music: the first mission after it starts plays CD track 2, the next track 3, and so on up to track 6, then back to 2.
 
+The version 1.10 launcher also passes on the language chosen when the game was installed, as `-f`/`-g` to the front end and `-F`/`-G` to the simulator. Version 1.0's passes no language, so 1.0 always plays in English. See [`retail-builds.md`](retail-builds.md).
+
 ## Front end — VSHELL.EXE
 
 | Option | What it does |
 |---|---|
 | `-eggplant` | Required. Without it the front end says it cannot be run directly, and stops. |
-| `-f` | French in place of English. |
-| `-g` | German in place of English. |
+| `-f` | French in place of English. Version 1.0 carries no French menu or mission text. |
+| `-g` | German in place of English. Version 1.0 carries no German menu or mission text. |
 | `-s` | Turns sound off. |
+| `-a` | Turns the movies off. |
 | `-m` | Turns the mouse off. |
 | `-k` | Turns the keyboard off. |
 | `-X3`, `-X4` | Goes straight to the debriefing for the mission just flown, then on to the campaign. The launcher passes these after a mission. |
@@ -46,7 +49,7 @@ The launcher also picks the music: the first mission after it starts plays CD tr
 | `-v` | Listed in the help text as displaying the version number. It also turns sound off. |
 | `-?` | Listed in the help text as displaying the list of options. It also turns sound off. |
 
-`-a` and any `-e…` other than `-eggplant` are recognised too; see [Open](#open).
+Any `-e…` other than `-eggplant` is recognised too; see [Open](#open).
 
 ## Simulator — DBSIM.EXE
 
@@ -75,9 +78,9 @@ Without `-v` or `-Z` the simulator uses the settings saved from its preferences 
 |---|---|
 | `-s` | Starts without sound. |
 | `-R<n>` | Chooses the CD music track for the mission. The track played is the remainder of *n* ÷ 5, plus 2: `-R0` plays track 2 (the default), `-R1` track 3, up to `-R4` for track 6. The launcher counts up through these one mission at a time. See [`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one). |
-| `-F` | French text and speech. |
-| `-G` | German text and speech. |
-| `-E` | Spanish. The disc carries some Spanish text but no Spanish speech. |
+| `-F` | French text and speech. Version 1.0 has French text only for its pop-up panels, and no French speech. |
+| `-G` | German text and speech. Version 1.0 has German text only for its pop-up panels, and no German speech. |
+| `-E` | Spanish. Both versions carry some Spanish text but no Spanish speech. |
 
 ### Cockpit
 
@@ -121,7 +124,7 @@ Turns on a set of keys the programmers used for testing: freezing the simulation
 ## Open
 
 - **Open:** whether the simulator's `-T<n>`, `-V<n>`, `-W<n>`, `-a` and `-c` do anything; see [`command-line.md`](command-line.md#open).
-- **Open:** what the front end's `-a` and non-`eggplant` `-e…` options do.
+- **Open:** what the front end's non-`eggplant` `-e…` options do.
 - **Open:** what `-C` does with the four names that have no cockpit artwork, and what `-E` does without Spanish speech files.
 - **Open:** where the front end's `-v` and `-?` text appears; it is written to standard output, which a Windows program normally does not have.
 - **Open:** whether anything in the simulator runs the `-d` checkpoints; see [`formats/tap-input-tape.md`](formats/tap-input-tape.md#open).

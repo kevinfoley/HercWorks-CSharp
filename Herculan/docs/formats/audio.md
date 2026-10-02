@@ -16,9 +16,9 @@ The message channels themselves — the computer's ticker and the pilot/squad co
 
 `Sos_BindLibrary` (`004957f1`) picks the DLL by `GetVersion()` — Win32s (high bit set, major <= 3) gets `sos32s03.dll`, everything else `sos9503.dll` — then walks a self-describing binding table at `004a6ab4`: `0x24`-byte records of `{ void **destination, char name[0x20] }`, terminated by a NULL destination. **100 entry points** are bound this way: 44 `sosDIGI*`, 45 `sosMIDI*`, 8 `sosTIMER*`, plus `sosGetErrorString`, `sosPrepare32Memory`, `sosUnPrepare32Memory`. It refcounts (`004a6ab0`), so repeated calls bind once.
 
-The v1.0 install ships `sos9503.dll` and not `sos32s03.dll`. The later GoldGames multilingual build carries both, `sos32s03.dll` as `VER31\SOS32S03.DLL`.
+The v1.0 install ships `sos9503.dll` and not `sos32s03.dll`. v1.10 ([`../retail-builds.md`](../retail-builds.md)) carries both, `sos32s03.dll` in its Windows 3.1 build as `VER31\SOS32S03.DLL`.
 
-Digital output covers samples and `.hmp` MIDI songs; the `.hmp` path is present but no `.hmp` file ships in any v1.0 archive or on the GoldGames disc. VSHELL carries a hardcoded `.\sos\song.hmp`, and the `SOS` directory `SHELL0.VOL` lists is empty.
+Digital output covers samples and `.hmp` MIDI songs; the `.hmp` path is present but no `.hmp` file ships in either build. VSHELL carries a hardcoded `.\sos\song.hmp`, and the `SOS` directory `SHELL0.VOL` lists is empty.
 
 ### CD audio
 
@@ -225,13 +225,13 @@ Because `.STR` attribute blobs point directly into the loaded file buffer, bytes
 
 `Sound_IsCategoryEnabled` (`00462680`) splits the catalog at 10: ids below 10 answer to the music enable flag (`0049f90c`), ids 10 and up to the effects flag (`0049f910`). `Sound_MuteMusic`/`Sound_MuteEffects` and their unmute pair respect the same boundary. A second pair, `00462d20` and `00462e70`, does not: each mutes or unmutes the single id it is given and then clears or raises *both* flags. Neither has a known caller ([Open](#open)).
 
-All ten music entries name `battle1.wav`, and **no `battle1.wav` ships in any archive**, so the digital-music path is dead in retail — music is the CD. `Sound_ShiftMusicSet` (`00462fbc`) offsets one character of each of the ten filenames by a delta and re-opens them, which is how a different set would have been selected.
+All ten music entries name `battle1.wav`, and **no v1.0 archive carries a `battle1.wav`**, so the digital-music path is dead in retail — music is the CD. v1.10's `SIMPATCH.VOL` adds one under both banks, 708 samples of near-silence, so the entries open and play nothing. `Sound_ShiftMusicSet` (`00462fbc`) offsets one character of each of the ten filenames by a delta and re-opens them, which is how a different set would have been selected.
 
 ### Sample banks
 
 `Sound_ResolveSamplePath` (`00462238`) prefixes the catalog's filename with `HMI\` normally and `HMX\` in the low-memory mode. `SIMSOUND.VOL` carries both: 43 files under `hmi\` and 42 under `hmx\`. Every `hmx\` file is 8-bit mono 11,025 Hz. Of the 42 `hmi\` twins, 38 are 8-bit 22,050 Hz (twice the `hmx\` size); `TRGLOC`, `XPLMLT2` and `XPLMLT4` are 16-bit 22,050 Hz (four times); and `BACANN4` is 8-bit 11,025 Hz in both banks, the same size with different bytes.
 
-**`EXPLO5.WAV` exists only in `hmi\`.** Catalog id `0x22` names it, so in low-memory mode that one sound fails to open.
+**In v1.0, `EXPLO5.WAV` exists only in `hmi\`.** Catalog id `0x22` names it, so in low-memory mode that one sound fails to open. v1.10's `SIMPATCH.VOL` adds a copy under `hmx\`.
 
 ### The catalog
 
@@ -405,7 +405,7 @@ snc    = "P" + ('A' + portrait) + suffix   in snc/
 
 The three name templates live together in DATA as literals the loader patches digits into: `BC_00000`, `TMx_0000`, `CVM_0000`. `TMx_` is the training instructor's, and its clips are loose files rather than archive entries — see [`cockpit-messages.md`](cockpit-messages.md#the-training-port).
 
-The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the last character of the literal `simvoice` with the language byte — `SIMVOICE` / `SIMVOICF` / `SIMVOICG`. In the v1.0 install the three files are byte-identical (7,042,407 bytes each), so every language plays the English recordings. The GoldGames multilingual build carries real translations: `SIMVOICF.VOL` (7,261,567 bytes) and `SIMVOICG.VOL` (6,610,094 bytes) carry their own folder labels and the same 213 entry names, with 57 and 53 of the recordings replaced.
+The language picks a folder, not a file. `Voice_ArchiveName` (`0045ef68`) patches the last character of the literal `simvoice` with the language byte — `SIMVOICE` / `SIMVOICF` / `SIMVOICG` — and `Voice_FilePath` (`0045ef80`) puts that name in front of the clip as its folder, `simvoicf\P1_01000.wav`. Every archive in `vol\` is mounted ([`vol-archive.md`](vol-archive.md#which-archives-are-mounted)), so the clip comes from whichever archive carries that folder label. In the v1.0 install the three files are byte-identical (7,042,407 bytes each), all labelled `SIMVOICE\`, and the v1.0 installer lists the other two as 4-byte files. v1.10's are recordings in their own language: `SIMVOICF.VOL` (7,261,567 bytes) and `SIMVOICG.VOL` (6,610,094 bytes), labelled `SIMVOICF\` and `SIMVOICG\`, with the same 213 entry names ([`../retail-builds.md`](../retail-builds.md)). Only the cockpit computer is translated: 57 of the 66 `CVM_*.WAV` in French and 53 in German differ from the English, and all 147 squadmate clips are the English recordings.
 
 ## Rejected readings
 
@@ -414,8 +414,8 @@ The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the las
 | `.SNC` is an audio format | It carries no samples. It is a two-byte-per-event portrait animation script, and the audio beside it is an ordinary RIFF WAV — see [`heads-down-display.md`](heads-down-display.md#snc--portrait-lip-sync-scripts). |
 | Attribute byte 0 selects a mixer channel or category | Its three retail values (0, 1, 5) look like a small enum, but it is passed straight to `Sfx_SetLooping` as a repeat count — 0 means forever, which is why the music entries and `herceng1`/`fire1a` carry it. |
 | Attribute byte 2 is "looping" | It is the preload flag; `Sfx_Cache` is a load call, not a play call. Looping is byte 0. |
-| The `battle1.wav` entries are the real music | The file ships in no archive. The ten slots are a stub; music is Red Book CD audio through MCI. |
-| A `.wav` name resolves under one directory | It resolves under `HMI\` or `HMX\` depending on the low-memory flag, and the two banks are not identical — `EXPLO5.WAV` is missing from `HMX\`. |
+| The `battle1.wav` entries are the real music | v1.0 ships no such file, and v1.10's is near-silence. The ten slots are a stub; music is Red Book CD audio through MCI. |
+| A `.wav` name resolves under one directory | It resolves under `HMI\` or `HMX\` depending on the low-memory flag, and the two banks are not identical — v1.0's `HMX\` has no `EXPLO5.WAV`. |
 | `herceng1` is the HERC engine hum | The name says so and the sample is one, but the only thing that starts it gates on type record `+0x50` — the flyer flag, the RAZOR. A walking HERC never plays it. |
 | A speech voice's priority `0xff` protects it from eviction | Priority is one term of the [victim score](#memory-budget-and-eviction). A cached idle speech voice scores 355 and goes before any playing catalog voice (at least 1005); `0xff` wins only against catalog voices in the same cached and playing state. |
 | One voice per catalog id means one copy of that sound at a time | The voice record is bookkeeping, not a hardware channel. `Sfx_Play` starts a fresh `sosDIGIStartSample` every call without testing the `0x100` playing flag, so the copies overlap — see [A repeated play layers; it does not restart](#a-repeated-play-layers-it-does-not-restart). |

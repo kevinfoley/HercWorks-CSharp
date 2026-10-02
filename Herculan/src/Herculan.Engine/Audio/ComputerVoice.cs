@@ -20,7 +20,10 @@ namespace Herculan.Engine.Audio;
 /// <see cref="Content.MessagePort"/>'s — one queue, feeding both halves.</para>
 /// </summary>
 public sealed class ComputerVoice {
-	/// <summary>The archive folder the clips live in — the same label in all three language archives.</summary>
+	/// <summary>
+	/// The archive folder the clips live in: English's. The original names the folder after the
+	/// language's archive (<c>Voice_FilePath</c>, <c>0045ef80</c>; docs/formats/audio.md, "File naming").
+	/// </summary>
 	public const string ResourceFolder = "SIMVOICE";
 
 	/// <summary>

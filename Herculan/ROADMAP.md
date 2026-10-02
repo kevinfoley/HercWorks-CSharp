@@ -27,6 +27,7 @@ The mechanism is understood; what is left is engine work.
 - **The MFD's squad-roster step**, mode 0's arm of SELECT/TARGET. → [`docs/formats/mfd.md`](docs/formats/mfd.md#open)
 - **A throttle lever bound to the turret pair pitching the turret while the camera has the controls.** → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md#open)
 - **The `.hmp` MIDI path and reading `SOUND.CFG`.** → [`docs/formats/audio.md`](docs/formats/audio.md#open)
+- **French and German.** The engine is English only: on a v1.10 install it does not read the installed language, and does not reach that language's text, mission text or cockpit-computer speech. → [`docs/retail-builds.md`](docs/retail-builds.md#how-a-language-is-chosen)
 
 ## Reverse-engineering still open
 

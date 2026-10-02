@@ -1,6 +1,6 @@
 # Command lines: ES.EXE, VSHELL and DBSIM
 
-How the three retail executables start one another and what every switch each one parses does. The player-facing summary is [`launch-options.md`](launch-options.md); HERCULAN's own flags are in [`engine/herculan-command-line.md`](engine/herculan-command-line.md). Addresses name their binary; `ES.EXE` is not in the Ghidra project, and its 2.5 KB of code was read whole from a direct disassembly. <!-- doc-lint: ok -->
+How the three retail executables start one another and what every switch each one parses does. The player-facing summary is [`launch-options.md`](launch-options.md); HERCULAN's own flags are in [`engine/herculan-command-line.md`](engine/herculan-command-line.md). Addresses name their binary and are v1.0's; v1.10's launcher is the one difference this doc covers ([`retail-builds.md`](retail-builds.md)). `ES.EXE` is not in the Ghidra project, and both builds' code was read whole from a direct disassembly. <!-- doc-lint: ok -->
 
 ## ES.EXE — the supervisor
 
@@ -37,6 +37,10 @@ The state word at `00402070` (ES.EXE) starts at 1 and is replaced by each child'
 
 `<n>` counts simulator launches from 0 within one run of `ES.EXE`, so successive missions play CD tracks 2, 3, 4, 5, 6, 2… ([`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one)). The simulator's list also has slots for `-m` and `-Z`; their conditions test a local initialised to 0 and one initialised to 1 that nothing afterwards writes, so neither is ever passed. In the simulator-only loop every pass forces the state to 2, so the simulator reruns the mission already in `data\` and the shell never starts; an exit code of 0 still ends it.
 
+### v1.10's language switch
+
+v1.10's `VER95\ES.EXE` is v1.0's with two additions after the switch parse. It reads the first byte of `data\language.cfg`, which the installer wrote. `E`, or no file, changes nothing; any other byte becomes a switch, `-` and that byte, appended to both lists after their last optional slot. The installer writes only `E`, `F` and `G`, so a French install launches `vshell … -F` and `dbsim … -F`, and each program reads its own French switch from it ([`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)). It then loads `error.str` as a string table and takes its memory-check messages from it; without the file it shows `Missing string resource: error.str.` and exits.
+
 ### Exit codes
 
 | Code | Set by | Meaning to `ES.EXE` |
@@ -58,7 +62,7 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdow
 |---|---|---|
 | `-eggplant` | `0046c084` = 1 | Without it the shell shows "You cannot run this exe directly" and quits |
 | `-e…` other than `-eggplant` | `0048227a` = 3 | Language slot 3; see [Open](#open) |
-| `-f`, `-g` | `0048227a` = 1, 2 | French, German: the `LANG0.VOL` folder the `.BIN` string tables are opened under ([`simulation/preferences.md`](simulation/preferences.md#what-each-byte-is), byte 43) |
+| `-f`, `-g` | `0048227a` = 1, 2 | French, German, over the value `FUN_004073bc` copies from [`prefs.cfg` byte 43](simulation/preferences.md#what-each-byte-is); what it selects is [`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)'s |
 | `-s` | `00482272` = 0 | No sound |
 | `-m` | `00482270` = 1 | No mouse |
 | `-k` | `00482271` = 0 | No keyboard |
@@ -89,7 +93,7 @@ Two parsers. `FUN_0045e6b0` (DBSIM) runs first from `WinMain`, after `VideoMode_
 | `-SPRUNKNOWN` | `DAT_0049ef60` toggled | The developer keys below |
 | `-s` | `004d254c` toggled from 1 | `Sound_Init(0)`: no sound driver |
 | `-R<n>` | `Music_TrackSelect` | [`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one) |
-| `-E`, `-F`, `-G` | `004d25ba` = `s`, `f`, `g` | The language letter, `r` by default. `Voice_ArchiveName` (`0045ef68`) puts it last in `simvoice` unless it is `r`, and `Language_StringFilePath` (`0045ef00`) puts it last in `str`, giving the `st<letter>\` string folder. `s` is Spanish: `SIMALERT.VOL` has an `STS\` folder, and no `SIMVOICS.VOL` ships |
+| `-E`, `-F`, `-G` | `004d25ba` = `s`, `f`, `g` | The language letter, `r` by default. `Voice_ArchiveName` (`0045ef68`) puts it last in `simvoice` unless it is `r`, and `Language_StringFilePath` (`0045ef00`) puts it last in `str`, giving the `st<letter>\` string folder ([`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)). `s` is Spanish: `SIMALERT.VOL` has an `STS\` folder, and no `SIMVOICS.VOL` ships in either build |
 | `-l` | `CockpitArt_LoadOnDemand` = 1 | [`formats/audio.md`](formats/audio.md#memory-budget-and-eviction), [`formats/terrain-texturing.md`](formats/terrain-texturing.md#base-formation-pads) |
 | `-C<name>` | `CockpitOverride_Index` (`0049ac4c`), `CockpitOverride_Name` (`0049ac50`) | `_stricmp` against 13 names at `0049ac64`: `ROADRUNNER`, `OUTLAW`, `RAPTOR2`, `TOMAHAWK`, `PATRIOT`, `PANTHER`, `SAMSON`, `COLOSSUS`, `APOCA`, `RAZOR`, `MAVERICK`, `OGRE`, `TEST3`. A match replaces the herc index and name the cockpit view manager takes from the player's machine (`+0x27`, `+0x2d`), and the name the canopy-crack art is built from |
 | `-t<n>` | `CommBox0PilotOverride` | `HddGauge_LoadPilotFrames` (`0044a7c0`) takes it as the pilot index of squad comm box 0 when it is non-negative; [`formats/heads-down-display.md`](formats/heads-down-display.md#squad-comm-boxes) |
@@ -103,7 +107,7 @@ Two parsers. `FUN_0045e6b0` (DBSIM) runs first from `WinMain`, after `VideoMode_
 | `-c` | block `+0x72` = 1 | |
 | `-X<n>` | `004d283c` | Zeroed by `Sim_Run` (`0045f144`) before `Sim_ParseCommandLine` runs; no effect |
 
-"Block" is the `0xc3`-byte global block at `004d2540` ([`formats/cockpit-views.md`](formats/cockpit-views.md#video-modes)). For `-T`, `-V`, `-W`, `-a` and `-c`, three searches find only the stores above ([Open](#open)): `es2_xref.py` on the five addresses, which finds one dword each in the whole PE, the parser's own; every absolute operand from `004d2590` to `004d25bf`, which also rules out a wider load overlapping one of these fields; and the displacements off the base in the fifteen register holders and the three blit helpers it is pushed to, none of which spills, copies or rebases it. The same searches find the reads of the neighbouring `+0x54`, `+0x7b` and `+0x7c`. No `.EXE` on the disc passes any of the five: `ES.EXE`'s simulator list above has none of them, and VSHELL's unreferenced list below has none either.
+"Block" is the `0xc3`-byte global block at `004d2540` ([`formats/cockpit-views.md`](formats/cockpit-views.md#video-modes)). For `-T`, `-V`, `-W`, `-a` and `-c`, three searches find only the stores above ([Open](#open)): `es2_xref.py` on the five addresses, which finds one dword each in the whole PE, the parser's own; every absolute operand from `004d2590` to `004d25bf`, which also rules out a wider load overlapping one of these fields; and the displacements off the base in the fifteen register holders and the three blit helpers it is pushed to, none of which spills, copies or rebases it. The same searches find the reads of the neighbouring `+0x54`, `+0x7b` and `+0x7c`. No `.EXE` of either build passes any of the five: `ES.EXE`'s simulator list above has none of them, and VSHELL's unreferenced list below has none either.
 
 ### `-SPRUNKNOWN`: the developer keys
 

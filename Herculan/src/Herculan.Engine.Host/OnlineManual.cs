@@ -65,10 +65,10 @@ internal static class OnlineManual {
 		});
 	}
 
-	// Language_GetFolderName (DBSIM 0045efe0) and VSHELL's 004317ea pick the folder by the first byte of
-	// data\language.cfg: F French, G German, S Spanish, anything else English. A missing file reads as
-	// English here; VSHELL asserts on it instead (004087b9), and an install without it is otherwise
-	// playable.
+	// Language_GetFolderName (DBSIM 0045efe0)'s mapping of data\language.cfg's first byte: F French,
+	// G German, S Spanish, anything else, or no file, English. VSHELL's 004317ea knows only E, F and G
+	// and asserts on any other byte or a missing file (004087b9); this follows DBSIM, since an install
+	// without the file is otherwise playable.
 	private static (string Folder, string Code) Language(string installRoot) {
 		string path = Path.Combine(installRoot, "DATA", "LANGUAGE.CFG");
 		int letter = -1;

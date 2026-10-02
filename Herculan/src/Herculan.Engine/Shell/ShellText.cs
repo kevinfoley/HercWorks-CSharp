@@ -16,9 +16,9 @@ namespace Herculan.Engine.Shell;
 /// literal filename in the shell's global init (<c>esglobal.cpp</c>, <c>004073bc</c>).</para>
 ///
 /// <para>It lives in <c>LANG0.VOL</c>, not <c>SHELL0.VOL</c>, under one folder per language. Retail
-/// picks one by <c>prefs.cfg</c> option 43; this tries them in turn instead, which reaches the same
-/// file because the three folders are byte-identical in the retail build — so the setting changes
-/// nothing until somebody ships a translated archive.</para>
+/// picks one by the shell's language, which its launcher sets only in v1.10
+/// (docs/retail-builds.md, "How a language is chosen"); this tries them in turn, so it reads
+/// <c>ENG</c> whenever the archive has it.</para>
 /// </summary>
 public sealed class ShellText {
 	/// <summary>The shell's own string table.</summary>

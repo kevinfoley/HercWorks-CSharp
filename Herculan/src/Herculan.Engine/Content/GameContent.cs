@@ -9,10 +9,12 @@ namespace Herculan.Engine.Content;
 /// (<c>dat\zone504</c>, <c>dba\zone504.dba</c>, <c>dts\samson.dts</c>, ...). DBSIM builds each such
 /// path with <c>ResourcePath_BuildFolderName</c> (<c>00492ae0</c>).
 ///
-/// Mount order follows the VOL header's own load-precedence byte (<c>VolOrderNum</c>: 0x05 for
-/// "first loaded", 0x0A for "load second", e.g. SIMPATCH.VOL) — archives are mounted in ascending
-/// order and a later mount shadows an earlier one for the same <c>folder\name</c>, so the retail
-/// patch VOL wins over the base VOL exactly as it does in the original.
+/// Archives are mounted in ascending order of the header's search precedence
+/// (<see cref="Voln.VolOrderNum"/>) and a later mount shadows an earlier one for the same
+/// <c>folder\name</c>. That gives the original's answer, which searches the 0x0A archives first, so
+/// SIMPATCH.VOL wins over the base archives. Unlike the original, which mounts every <c>vol\*.vol</c>
+/// with its program's bit (docs/formats/vol-archive.md, "Which archives are mounted"), the caller
+/// names the archives.
 ///
 /// Parsing is delegated wholesale to <see cref="VolFileReader"/> in HercWorks.Vol; this type adds
 /// only the index and the load-order rule. Per docs/engine/planning.md's repo-structure decision
@@ -27,14 +29,12 @@ public sealed class GameContent {
 	/// <para>SIMALERT.VOL carries the four modal panels DBSIM puts over the cockpit — <c>gnl_alrt</c>,
 	/// <c>ctl_alrt</c>, <c>obj_alrt</c> and <c>prf_alrt</c> — as a plate bank and a string table each,
 	/// plus the shared <c>ALERT</c> button bank. Its folder labels are the same <c>hba</c>/<c>dba</c>/
-	/// <c>str</c> the main archive uses, so nothing but the mount changes for a caller; it also carries
-	/// French and German string folders (<c>stf</c>, <c>stg</c>) which nothing here reads.</para>
+	/// <c>str</c> the main archive uses, so nothing but the mount changes for a caller.</para>
 	///
-	/// <para>The two other voice archives are the same recordings in French and German —
-	/// <c>Voice_ArchiveName</c> (<c>0045ef68</c>) picks between them by patching the last character
-	/// of the literal <c>simvoice</c>, and all three carry the same <c>SIMVOICE</c> folder label
-	/// inside. Mounting more than one would therefore shadow rather than merge, so a language
-	/// selection means changing which name is in this list, not adding to it.</para>
+	/// <para>This list and every reader of it are English only: the voice clips are looked up under
+	/// <c>SIMVOICE</c> and the string tables under <c>str</c>, and SIMLANG.VOL is not mounted. A
+	/// v1.10 install's French or German text and speech are not reached; what selecting them would
+	/// take is in docs/retail-builds.md, "How a language is chosen".</para>
 	/// </summary>
 	public static readonly string[] SimulatorArchives =
 		{ "SIMVOL0.VOL", "SIMALERT.VOL", "SIMPATCH.VOL", "ZONES.VOL", "SIMSOUND.VOL", "SIMVOICE.VOL" };

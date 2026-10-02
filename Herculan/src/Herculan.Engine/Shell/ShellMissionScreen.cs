@@ -224,7 +224,10 @@ public sealed class ShellTextBox {
 /// docs/shell/screen-layout.md, "The summary text box".
 /// </summary>
 public static class ShellCampaignText {
-	/// <summary>The path's two halves as the literal at <c>0046f5be</c> names them, <c>LANG0.VOL</c>'s <c>ENG</c> folder.</summary>
+	/// <summary>
+	/// The path's two halves as v1.0's literal at <c>0046f5be</c> names them, <c>LANG0.VOL</c>'s <c>ENG</c>
+	/// folder. v1.10 picks the folder by the shell's language (docs/retail-builds.md); this reads English.
+	/// </summary>
 	private const string Folder = "ENG";
 	private const string ResourceName = "CAMPAIGN.STR";
 

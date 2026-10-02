@@ -1,6 +1,6 @@
 # .VOL — the archive container and its per-entry prefix
 
-Every one of the game's data files ships inside a `.VOL`. Eleven archives, 3,004 entries total: `SIMVOL0`, `SIMPATCH`, `ZONES`, `SHELL0`, `LANG0`, `SIMALERT`, `SIMSOUND`, `SIMVOICE`, `SIMVOICF`, `SIMVOICG`, `SHLSOUND`.
+Every one of the game's data files ships inside a `.VOL`. v1.0 has eleven archives, 3,004 entries total: `SIMVOL0`, `SIMPATCH`, `ZONES`, `SHELL0`, `LANG0`, `SIMALERT`, `SIMSOUND`, `SIMVOICE`, `SIMVOICF`, `SIMVOICG`, `SHLSOUND`. v1.10 adds `SHELL1` and `SIMLANG` ([`../retail-builds.md`](../retail-builds.md)). The counts below are v1.0's.
 
 What the game reads of an entry is its **content**, past the per-entry prefix below. Every format doc in this folder describes offsets from the start of that content. A format whose own file is unpacked with the prefix still attached — as [bnd-notes.md](bnd-notes.md) covers for `.BND` — is easy to misread as owning these nine bytes.
 
@@ -8,10 +8,8 @@ What the game reads of an entry is its **content**, past the per-entry prefix be
 
 ```
 0x00   4       "VOLN"
-0x04   byte    read by DBSIM
-0x05   byte    read by VSHELL
-0x06   2       0x0000
-0x08   byte    load precedence: 0x05 base, 0x0A second (SIMPATCH, SHELL1)
+0x04   uint32  program mask: 0x00000001 DBSIM, 0x00000100 VSHELL, both for ZONES
+0x08   byte    search precedence: 0x05 base, 0x0A first (SIMPATCH, SHELL1)
 0x09   byte    directory count
 0x0a   uint16  directory-list byte size
 0x0c   ...     directory list: name + '\' + 0x00, repeated
@@ -25,6 +23,12 @@ What the game reads of an entry is its **content**, past the per-entry prefix be
 ```
 
 The first entry's data begins at the byte immediately after the entry list, with no gap (verified in all eleven archives).
+
+## Which archives are mounted
+
+Neither program mounts an archive by name. At startup each scans `vol\*.vol`, under the directory on the first line of `data\drive.cfg` and under the current directory, and loads every file whose program mask shares a bit with its own: `VolRStream_SetGroup` (VSHELL `00402fe3`, DBSIM `00473154`) with mask `0x100` from VSHELL and `1` from DBSIM's `Sim_Run` (`0045f144`), into `VolumeGroup_SetGroup`. A name one pass loaded is skipped by the other, and a group holds at most 30. So an archive the installer copied is found in the install, one it left on the disc is found there, and an archive added to either folder is mounted with no change to the programs — v1.10's `SHELL1.VOL` and `SIMLANG.VOL` reach them that way.
+
+`VolumeGroup_AddVolume` keeps the list in descending order of the precedence byte, and `VolumeGroup_FindEntry` returns the first volume that has the entry, so a `0x0A` archive's entry hides the same `folder\name` in a `0x05` one.
 
 ## The per-entry prefix — fixed 9 bytes
 

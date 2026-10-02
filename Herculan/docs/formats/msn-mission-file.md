@@ -316,7 +316,7 @@ The mission group, `script.dat` block 11; how DBSIM places it is [`script-dat.md
 | `0x02` | condition ref | 2.5% sparse; **compound pair** with `0x04` |
 | `0x04` | condition operand | 1.4% real; always `-99` when populated |
 | `0x06` | paints ground | 100% real; 39/61 split. A base group that sets it stands on and paints its formation's terrain tile ([`script-dat.md`](script-dat.md#base-formation-terrain)) |
-| `0x08` | near-constant | 100% real; usually `0` |
+| `0x08` | ? | `0` in 1,246 of the 1,247 groups. `C2_05`'s group 188 holds 25 in v1.0, and v1.10 sets it to 0 ([Open](#open)) |
 | `0x0A–0x2C` | dead zone (18 shorts) | **always `0`** — padding |
 | `0x2E` | discriminator | 89% real; 0/1/2 — selects which row the `0x38` array's entries point at (rows #12/#13/#14) |
 | `0x30` | **formation id** | 85% real; range 0–16 — indexes the formation-offset table that spreads a group's members around its point (see `script-dat.md`'s placement section) |
@@ -396,7 +396,7 @@ count x {
 
 A line ending `" \n"` is authored to break there; the reader that copies these into a mission strips one trailing newline.
 
-`Msn_LoadEngText` (`0041768c`) loads it between rows 2 and 3, from the mission's path with everything from its first `.` replaced by the language's extension — `.eng`, or `.fre`/`.ger` by the value in `0048227a`, which a command-line switch sets. A record whose condition fails is skipped, and one whose id is already loaded replaces that entry's text. `MissionStr_Write` (`004179f0`) writes every record that stays into `data\mission.str` as an ordinary [`.STR`](str-strings.md) of one group — the length of the rest, the count, then each line's length with its NUL, the line, and an attribute count of 0 — and rows #4, #10 and #17 have their ids renumbered to match, which is why `script.dat`'s refs are small where these are not.
+`Msn_LoadEngText` (`0041768c`) loads it between rows 2 and 3, from the mission's path with everything from its first `.` replaced by the language's extension — `.eng`, or `.fre`/`.ger` by the value in `0048227a`, which a command-line switch sets. v1.0 ships only `.eng`; v1.10 adds the other two for every mission but `DEMO2` ([`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)). A record whose condition fails is skipped, and one whose id is already loaded replaces that entry's text. `MissionStr_Write` (`004179f0`) writes every record that stays into `data\mission.str` as an ordinary [`.STR`](str-strings.md) of one group — the length of the rest, the count, then each line's length with its NUL, the line, and an attribute count of 0 — and rows #4, #10 and #17 have their ids renumbered to match, which is why `script.dat`'s refs are small where these are not.
 
 A conditioned record is how a mission varies a line: an unconditioned record of the id comes first and later records of the same id replace it, so the line reads as the last record whose condition held.
 
@@ -437,4 +437,5 @@ All ten share the id, so the debrief carries **one** of them: a squadmate killed
 ## Open
 
 - **Open:** no reset of the row-2 clear list (`DAT_0048545a`) found by `es2_xref.py --binary VSHELL`: its three references are `Msn_ApplyHeaderPatch`'s write and `Msn_ClearPatchedFlags`'s two reads, and no other address from `00485440` to `00485495` but the header words is referenced.
+- **Open:** what row #16's `0x08` does.
 - **Open:** what reads row #13's 20-short flag span at `0x08–0x2F` and its constant `100` at `0x64`. The mech and base rows end in a starting-condition percentage of the same shape, but no flyer path is traced reading one.

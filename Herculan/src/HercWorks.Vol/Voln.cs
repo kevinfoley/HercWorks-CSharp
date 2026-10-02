@@ -14,7 +14,10 @@ public class Voln : DataFile {
 	public bool DbsimFlag { get; set; }
 	public bool VshellFlag { get; set; }
 
-	/// <summary>0x05 for 'first loaded', 0x0A 'load second' (e.g. SHELL1.vol, SIMPATCH.vol).</summary>
+	/// <summary>
+	/// The search precedence: 0x0A (SHELL1.vol, SIMPATCH.vol) is searched before 0x05, so its entries
+	/// hide same-named ones. See docs/formats/vol-archive.md, "Which archives are mounted".
+	/// </summary>
 	public byte VolOrderNum { get; set; }
 
 	public byte DirCount { get; set; }

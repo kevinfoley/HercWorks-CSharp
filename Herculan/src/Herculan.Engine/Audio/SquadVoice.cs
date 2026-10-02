@@ -13,9 +13,8 @@ namespace Herculan.Engine.Audio;
 /// priority <c>0xff</c> so no catalog effect can evict it. Keeping the two in one call is what makes
 /// the portrait's mouth agree with the recording.</para>
 ///
-/// <para>The name is <c>"P" + voiceBank + "_" + 2-digit message id + 3-digit variant</c>, and the
-/// three language archives all carry the <c>SIMVOICE</c> folder label, so which language is heard is
-/// which archive is mounted.</para>
+/// <para>The name is <c>"P" + voiceBank + "_" + 2-digit message id + 3-digit variant</c>, looked up
+/// under <see cref="ResourceFolder"/>.</para>
 /// </summary>
 public sealed class SquadVoice {
 	/// <summary>The archive folder the clips live in — shared with <see cref="ComputerVoice"/>.</summary>

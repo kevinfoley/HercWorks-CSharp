@@ -70,6 +70,8 @@ DBSIM's only HUD text mechanism, and VSHELL's. Not a widget-layout resource: the
 
 Two sets: `simvol0/dfn/*.DFN` and `simvol0/hfn/*.HFN` (26 and 25 files — the 18 `ColorSchemePanels` fonts plus spares), and `SHELL0/DFN/*.DFN` (`FONT`, `FONT2`, `MAP`, `BLACK`). Same format throughout. `.HFN` is the 640-wide video mode's set and `.DFN` the 320-wide one's, selected by `VideoMode_PanelMode == 3`; they are separate art, not a 2x scale of each other (cell heights 13 and 10, glyph counts 217 and 223).
 
+v1.10 replaces six of these for its translations ([`../retail-builds.md`](../retail-builds.md)), through archives whose entries take precedence: `SHELL1.VOL` carries `BLACK`, `FONT`, `FONT2` and `MAP`, and `SIMPATCH.VOL` the `.DFN` and `.HFN` of `CPYLW` and `GREEN6X8`. Every replacement has 223 glyphs, the 217-glyph ones gaining codes 249 to 254; `ü` (252) is redrawn in all of them, and the two `.HFN` also redraw `à` to `÷` (224 to 247).
+
 ### Layout
 
 Offsets relative to content start, i.e. after the 9-byte VOL prefix.

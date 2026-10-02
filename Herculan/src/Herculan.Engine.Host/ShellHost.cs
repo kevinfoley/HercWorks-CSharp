@@ -1383,7 +1383,7 @@ static class ShellHost {
 				+ (preferencesScreen.AlertOpen ? "; the Alert! dialog is up." : "."));
 		}
 
-		// A practice row's handler, one of the eight thunks from 0044c413: PracticeScreen_SelectRow
+		// A practice row's handler, PracticeScreen_OnRow0-7 (0044c413-0044c6ba): PracticeScreen_SelectRow
 		// (0044bd7c), a no-op on the row already lit.
 		void SelectPracticeRow(int row) {
 			if (practiceScreen?.SelectRow(row) == true) {

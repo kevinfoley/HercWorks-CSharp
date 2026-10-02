@@ -422,7 +422,7 @@ A step changes the array in memory only. `Begin Mission` (`0044c396`) is what sa
 
 ### Selecting a mission
 
-`PracticeScreen_SelectRow(row)` (`0044bd7c`) is each row's handler, through eight thunks from `0044c413`. It returns at once for the row already lit, `DAT_00479bb8`, which is `-1` in the image. Otherwise it puts the old row's name back to `0x27` and lights the new one's `0x29`; writes [the greying trio](#the-condition-readout) at `Herc Type`, greyed for rows 0-3 and lit from row 4; writes the row's chassis into option `0x28` (`ShellOptions_SetOption`); rewrites the `Herc Type` readout; and stores the row. The chassis is the low byte of the row's `int16` in the table at `00479bba`:
+A click on row `i` runs `PracticeScreen_OnRow0`-`7` (`0044c413`-`0044c6ba`), eight identical handlers that `PracticeScreen_Build` stores in the table `PracticeScreen_RowHandlers` (`0048db9c`) and from there into each row's handler field `+0x3d`. Each calls `PracticeScreen_SelectRow(i)` and deletes the event. `PracticeScreen_SelectRow(row)` (`0044bd7c`) returns at once for the row already lit, `PracticeScreen_SelectedRow` (`00479bb8`), which is `-1` in the image. Otherwise it puts the old row's name back to `0x27` and lights the new one's `0x29`; writes [the greying trio](#the-condition-readout) at `Herc Type`, greyed for rows 0-3 and lit from row 4; writes the row's chassis into option `0x28` (`ShellOptions_SetOption`); rewrites the `Herc Type` readout; and stores the row. The chassis is the low byte of the row's `int16` in the table at `00479bba`:
 
 | Row | Mission | Chassis |
 |---|---|---|
@@ -437,11 +437,11 @@ A step changes the array in memory only. `Begin Mission` (`0044c396`) is what sa
 
 So a row click resets `Herc Type` to that mission's machine, whatever it was stepped to. `PracticeScreen_Show` calls `PracticeScreen_SelectRow(0)`, so **the screen always comes up on `Basic Training 1`**.
 
-**`Herc Type` is greyed where the choice is not read.** `MsnGen_BuildPlayerHerc` (`0041c58d`), which builds the player's machine when the shell loads a mission, gives the player the mission's own machine while `DAT_00479bb8` is below 4 or `DAT_0047363c` is set, and a machine of option `0x28`'s chassis otherwise. `INSTANT ACTION`'s handler sets `DAT_0047363c` to 1, and `es2_xref.py` finds no reference to it but that store and this read.
+**`Herc Type` is greyed where the choice is not read.** `MsnGen_BuildPlayerHerc` (`0041c58d`), which builds the player's machine when the shell loads a mission, gives the player the mission's own machine while `PracticeScreen_SelectedRow` is below 4 or `DAT_0047363c` is set, and a machine of option `0x28`'s chassis otherwise. `INSTANT ACTION`'s handler sets `DAT_0047363c` to 1, and `es2_xref.py` finds no reference to it but that store and this read.
 
 ### Which mission a row is
 
-The row is the mission index. `FUN_00412a2f`, which puts a new career on its first mission, sets a training-mode career's position to stage 0, mission `DAT_00479bb8`, and stage 0 of `gam\career.dat` is `TRAIN1`-`TRAIN8` then `DEMO`, `DEMO_01` and `DEMO_02` ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — the eight rows in order, then three more.
+The row is the mission index. `Career_SeedPosition` (`00412a2f`), which puts a new career on its first mission, sets a training-mode career's position to stage 0, mission `PracticeScreen_SelectedRow`, and stage 0 of `gam\career.dat` is `TRAIN1`-`TRAIN8` then `DEMO`, `DEMO_01` and `DEMO_02` ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — the eight rows in order, then three more.
 
 **`INSTANT ACTION` plays the three past the list.** `InstantAction_SelectDemo` (`0044befb`) calls `PracticeScreen_SelectRow(8 + option 0x2e)`: row 8, 9 or 10, which puts the lit row out, lights none, leaves `Herc Type`'s greying as it was, and writes the table's next three chassis, 5 `Apocalypse`, 7 `Maverick` and 3 `Samson`, into option `0x28`. It then steps option `0x2e` modulo 3 and saves the array, so successive `INSTANT ACTION`s play `DEMO`, `DEMO_01` and `DEMO_02` in turn, each in its own machine.
 

@@ -60,6 +60,320 @@
   ],
   "entries": [
     {
+      "address": "0044c413",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow0",
+      "description": "Practice row 0's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(0), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow0(int *event)"
+    },
+    {
+      "address": "0044c474",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow1",
+      "description": "Practice row 1's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(1), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow1(int *event)"
+    },
+    {
+      "address": "0044c4d5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow2",
+      "description": "Practice row 2's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(2), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow2(int *event)"
+    },
+    {
+      "address": "0044c536",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow3",
+      "description": "Practice row 3's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(3), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow3(int *event)"
+    },
+    {
+      "address": "0044c597",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow4",
+      "description": "Practice row 4's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(4), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow4(int *event)"
+    },
+    {
+      "address": "0044c5f8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow5",
+      "description": "Practice row 5's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(5), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow5(int *event)"
+    },
+    {
+      "address": "0044c659",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow6",
+      "description": "Practice row 6's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(6), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow6(int *event)"
+    },
+    {
+      "address": "0044c6ba",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PracticeScreen_OnRow7",
+      "description": "Practice row 7's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(7), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission",
+      "signature": "void __cdecl PracticeScreen_OnRow7(int *event)"
+    },
+    {
+      "address": "0048db9c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PracticeScreen_RowHandlers",
+      "description": "The practice screen's eight row handlers, PracticeScreen_OnRow0..PracticeScreen_OnRow7, filled by PracticeScreen_Build and stored into row i's handler field +0x3d.",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission"
+    },
+    {
+      "address": "0048db7c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PracticeScreen_Rows",
+      "description": "The practice screen's eight mission-list ListRow widgets, built by PracticeScreen_Build; PracticeScreen_SelectRow recolours the old and new row through it.",
+      "source": "docs/shell/screen-layout.md#selecting-a-mission"
+    },
+    {
+      "address": "00462003",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSSunLight_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSSunLight_Dtor (00427e3d).",
+      "source": "ES2DecompileContainingBatch DBSIM 00462003 / VSHELL 00427e3d: identical after normalisation; RTTI TSSunLight vtable 0049f8d8 slot +0x00"
+    },
+    {
+      "address": "0046209e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSLight_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSLight_Dtor (00427e02).",
+      "source": "ES2DecompileContainingBatch DBSIM 0046209e / VSHELL 00427e02: identical after normalisation; RTTI TSLight vtable 0049f8ec slot +0x00"
+    },
+    {
+      "address": "00474da4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSNullObj_Render",
+      "description": "The DBSIM copy of VSHELL's TSNullObj_Render (00422a28).",
+      "source": "ES2DecompileContainingBatch DBSIM 00474da4 / VSHELL 00422a28: identical after normalisation; RTTI TSNullObj vtable 004a602c slot +0x1c"
+    },
+    {
+      "address": "00480cc3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLViewport_Dtor",
+      "description": "The DBSIM copy of VSHELL's GLViewport_Dtor (00452943).",
+      "source": "ES2DecompileContainingBatch DBSIM 00480cc3 / VSHELL 00452943: identical after normalisation; RTTI GLViewport vtable 004a2e28 slot +0x18"
+    },
+    {
+      "address": "004819de",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MemRWStream_Dtor",
+      "description": "The DBSIM copy of VSHELL's MemRWStream_Dtor (004536a1).",
+      "source": "ES2DecompileContainingBatch DBSIM 004819de / VSHELL 004536a1: identical after normalisation; RTTI MemRWStream vtable 004a17a0 slot +0x00"
+    },
+    {
+      "address": "00481ae5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RLERStream_Dtor",
+      "description": "The DBSIM copy of VSHELL's RLERStream_Dtor (00453620).",
+      "source": "ES2DecompileContainingBatch DBSIM 00481ae5 / VSHELL 00453620: identical after normalisation; RTTI RLERStream vtable 004a17c8 slot +0x00"
+    },
+    {
+      "address": "00481b85",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_DrawAtOrigin",
+      "description": "The DBSIM copy of VSHELL's GLBitmap_DrawAtOrigin (00453741).",
+      "source": "ES2DecompileContainingBatch DBSIM 00481b85 / VSHELL 00453741: identical after normalisation (DBSIM's Bitmap_BlitUnflipped is VSHELL's GLBitmap_DrawUnflipped); RTTI GLBitmap vtable 004a3084 slot +0x1c"
+    },
+    {
+      "address": "00482b9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrimitive_Draw",
+      "description": "The DBSIM copy of VSHELL's GLPrimitive_Draw (00454704).",
+      "source": "ES2DecompileContainingBatch DBSIM 00482b9c / VSHELL 00454704: identical after normalisation; RTTI GLPrimitive vtable 004a3058 slot +0x1c"
+    },
+    {
+      "address": "00483161",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLRectangleRegion_Dtor",
+      "description": "The DBSIM copy of VSHELL's GLRectangleRegion_Dtor (00454d4d).",
+      "source": "ES2DecompileContainingBatch DBSIM 00483161 / VSHELL 00454d4d: identical after normalisation; RTTI GLRectangleRegion vtable 004a327c slot +0x18"
+    },
+    {
+      "address": "00483684",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrimitive_Dtor",
+      "description": "The DBSIM copy of VSHELL's GLPrimitive_Dtor (0045d957).",
+      "source": "ES2DecompileContainingBatch DBSIM 00483684 / VSHELL 0045d957: identical after normalisation; RTTI GLPrimitive vtable 004a3058 slot +0x18"
+    },
+    {
+      "address": "0048d841",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSCamera_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSCamera_Dtor (0045f63e).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048d841 / VSHELL 0045f63e: identical after normalisation; RTTI TSCamera vtable 004a5b41 slot +0x00"
+    },
+    {
+      "address": "0048db9e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSOrthoCamera_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSOrthoCamera_Dtor (0045f9a6).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048db9e / VSHELL 0045f9a6: identical after normalisation; RTTI TSOrthoCamera vtable 004a5b31 slot +0x00"
+    },
+    {
+      "address": "0048dbd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_GetClassTag",
+      "description": "The DBSIM copy of VSHELL's TSBase_GetClassTag (0045f9dc).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048dbd4 / VSHELL 0045f9dc: identical after normalisation; slot +0x00 of RTTI TSBase 004a6a2c, TSGroupItem 004a5ea0, TSShapeInstance 004a6305, ANShapeInstance 004a14dc, HeightGrid 004a0c8c and VectorTable 004a6a58"
+    },
+    {
+      "address": "0048f08f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroupItem_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSGroupItem_Dtor (00460e83).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048f08f / VSHELL 00460e83: identical after normalisation; RTTI TSGroupItem vtable 004a5ea0 slot +0x18"
+    },
+    {
+      "address": "0048f10c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSPoly_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSPoly_Dtor (004614fb).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048f10c / VSHELL 004614fb: identical after normalisation; RTTI TSPoly vtable 004a5ecc slot +0x18"
+    },
+    {
+      "address": "0048f195",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSSolidPoly_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSSolidPoly_Dtor (004614c0).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048f195 / VSHELL 004614c0: identical after normalisation; RTTI TSSolidPoly vtable 004a5ef8 slot +0x18"
+    },
+    {
+      "address": "0048f22a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTexture4Poly_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSTexture4Poly_Dtor (0046147e).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048f22a / VSHELL 0046147e: identical after normalisation; RTTI TSTexture4Poly vtable 004a5f24 slot +0x18"
+    },
+    {
+      "address": "0048f63c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSAliasGouraudPoly_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSAliasGouraudPoly_Dtor (00461326).",
+      "source": "ES2DecompileContainingBatch DBSIM 0048f63c / VSHELL 00461326: identical after normalisation; RTTI TSAliasGouraudPoly vtable 004a5f50 slot +0x18"
+    },
+    {
+      "address": "004908c6",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSCellAnimPart_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSCellAnimPart_Dtor (0046264a).",
+      "source": "ES2DecompileContainingBatch DBSIM 004908c6 / VSHELL 0046264a: identical after normalisation; RTTI TSCellAnimPart vtable 004a629c slot +0x18"
+    },
+    {
+      "address": "0049224b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSPartBase_Dtor",
+      "description": "The DBSIM copy of VSHELL's TSPartBase_Dtor (00464683).",
+      "source": "ES2DecompileContainingBatch DBSIM 0049224b / VSHELL 00464683: identical after normalisation; RTTI TSPartBase vtable 004a6268 slot +0x18"
+    },
+    {
+      "address": "00492543",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ANShape_Dtor",
+      "description": "The DBSIM copy of VSHELL's ANShape_Dtor (0046493c).",
+      "source": "ES2DecompileContainingBatch DBSIM 00492543 / VSHELL 0046493c: identical after normalisation; RTTI ANShape vtable 004a67c8 slot +0x18"
+    },
+    {
+      "address": "004953ab",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VectorTable_Dtor",
+      "description": "The DBSIM copy of VSHELL's VectorTable_Dtor (00468103).",
+      "source": "ES2DecompileContainingBatch DBSIM 004953ab / VSHELL 00468103: identical after normalisation; RTTI VectorTable vtable 004a6a58 slot +0x18"
+    },
+    {
+      "address": "00481e60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPalette_Dtor",
+      "description": "The DBSIM copy of VSHELL's GLPalette_Dtor (00453a18).",
+      "source": "ES2DecompileContainingBatch DBSIM 00481e60 / VSHELL 00453a18: identical after normalisation; RTTI GLPalette vtable 004a3110 slot +0x18"
+    },
+    {
+      "address": "00483818",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLRegion_Dtor",
+      "description": "The DBSIM copy of VSHELL's GLRegion_Dtor (0045526c).",
+      "source": "ES2DecompileContainingBatch DBSIM 00483818 / VSHELL 0045526c: identical after normalisation; RTTI GLRegion vtable 004a33a8 slot +0x18"
+    },
+    {
       "address": "0046be78",
       "binary": "DBSIM",
       "type": "function",
@@ -38613,7 +38927,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_SelectRow",
-      "description": "Practice row handler (via thunks from 0044c413). No-op for the lit row (DAT_00479bb8). Relights the rows, greys Herc Type for rows 0-3, writes the row's chassis from the byte table at 00479bba into prefs option 0x28, refreshes the Herc Type readout, stores the row.",
+      "description": "Practice row handler, called by PracticeScreen_OnRow0..PracticeScreen_OnRow7, with row 0 by PracticeScreen_Show, and with rows 8-10 by InstantAction_SelectDemo. No-op for the lit row (PracticeScreen_SelectedRow). Relights the rows through PracticeScreen_Rows, greys Herc Type for rows 0-3, writes the row's chassis from PracticeScreen_RowChassis into prefs option 0x28, refreshes the Herc Type readout, stores the row.",
       "source": "docs/shell/screen-layout.md#the-practice-missions-screen"
     },
     {
@@ -38649,7 +38963,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Career_SeedPosition",
-      "description": "Seeds a new career's (stage, mission) by mode: campaign (1) -> (1, 0); training (0) -> (0, DAT_00479bb8), the practice row. Called by Game_NewCareer with CampaignModeFlag.",
+      "description": "Seeds a new career's (stage, mission) by mode: campaign (1) -> (1, 0); training (0) -> (0, PracticeScreen_SelectedRow), the practice row. Called by Game_NewCareer with CampaignModeFlag.",
       "source": "docs/shell/campaign-loop.md#the-campaign-table--gamcareerdat"
     },
     {

@@ -147,8 +147,8 @@ public sealed class ShellPracticeScreen {
 	public void Show() => SelectRow(0);
 
 	/// <summary>
-	/// <c>PracticeScreen_SelectRow</c> (<c>0044bd7c</c>), each row's handler through eight thunks from
-	/// <c>0044c413</c>. The row already lit is a no-op. Otherwise the old row goes back to <c>0x27</c>,
+	/// <c>PracticeScreen_SelectRow</c> (<c>0044bd7c</c>), which row <c>i</c>'s handler
+	/// <c>PracticeScreen_OnRow0</c>-<c>7</c> (<c>0044c413</c>-<c>0044c6ba</c>) calls. The row already lit is a no-op. Otherwise the old row goes back to <c>0x27</c>,
 	/// the new one is lit <c>0x29</c>, <c>Herc Type</c> is greyed for rows 0-3 and lit from 4, and the
 	/// row's chassis is written into option 40 — whatever Herc Type was stepped to before. Returns
 	/// whether the selection moved.

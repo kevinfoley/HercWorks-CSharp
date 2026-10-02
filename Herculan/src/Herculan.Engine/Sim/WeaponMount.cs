@@ -132,6 +132,7 @@ public sealed class WeaponMount {
 		_lookedUpProjectile = Projectile is { Type: { } type } own
 			? catalog.Lookup(type, own.SubtypeId) ?? own
 			: Projectile;
+		_correctedProjectile = catalog.CorrectedProjectile(weaponId, secondaryKey);
 		_template = catalog.Template(weaponId);
 
 		switch (Kind) {
@@ -281,19 +282,21 @@ public sealed class WeaponMount {
 	public ProjectileData.Projectile? Projectile { get; }
 
 	/// <summary>
-	/// The record a shot from this mount applies its damage, splash and impact effects from. Retail's
-	/// shot constructors look the record up again by type and subtype id
-	/// (<see cref="WeaponCatalog.Lookup"/>) and take the first match, which for <c>ATC75</c>,
-	/// <c>ATC100</c>, <c>LAS400</c> and <c>LAS500</c> is an earlier weapon's record. With
-	/// <see cref="TweakSettingDefinitions.FixWeaponDamageRecords"/> on, the shot applies
-	/// <see cref="Projectile"/> instead. See docs/formats/proj-dat.md#lookup.
+	/// The record a shot from this mount applies its damage, splash and impact effects from, and whose
+	/// subtype id picks its <c>BULLETS.DAT</c> or <c>BEAM.DAT</c> record. Retail's shot constructors
+	/// look the record up again by type and subtype id (<see cref="WeaponCatalog.Lookup"/>) and take
+	/// the first match, which for <c>ATC75</c>, <c>ATC100</c>, <c>LAS400</c> and <c>LAS500</c> is an
+	/// earlier weapon's record. With <see cref="TweakSettingDefinitions.FixWeaponDamageRecords"/> on,
+	/// the shot is <see cref="Projectile"/> under its corrected subtype id
+	/// (<see cref="WeaponCatalog.CorrectedProjectile"/>). See docs/formats/proj-dat.md#lookup.
 	/// </summary>
 	public ProjectileData.Projectile? ShotProjectile =>
 		TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.FixWeaponDamageRecords)
-			? Projectile
+			? _correctedProjectile
 			: _lookedUpProjectile;
 
 	private readonly ProjectileData.Projectile? _lookedUpProjectile;
+	private readonly ProjectileData.Projectile? _correctedProjectile;
 
 	/// <summary>
 	/// The magazine size — the template's field at <c>+0x3a</c>, which <c>WeaponMount_CtorAmmunition</c> (<c>0040e140</c>) reads as

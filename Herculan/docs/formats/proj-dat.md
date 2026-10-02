@@ -33,7 +33,7 @@ Two functions resolve a record, and a fired shot uses both.
 
 The mount's fire dispatch hands `Rocket_Fire`, `Bullet_Fire` and `Bullet_FireBurst` only the mount's record's subtype id, and each constructor looks the record up again by `(Type, id)`. The record a shot applies damage, splash and impact effects from is therefore the first with that pair, not necessarily the one the mount holds. The mount's own record still supplies the dispatch's `Type` test, the `Speed` the AI leads by, and the figures `Ai_ChooseWeapon` scores weapons with.
 
-Only a record that shares its `(Type, id)` with an earlier one is shadowed. Four are, all among the later additions to the file ([Open](#open)). The power a beam is fired at is still the mount's own (`min(template+0x38, mount+0x7d)`, [above](#layout)), so a shadowed laser applies the earlier record's figures at its own power; an autocannon round carries no charge and applies them as they stand.
+Only a record that shares its `(Type, id)` with an earlier one is shadowed. Four are, all among the later additions to the file. The power a beam is fired at is still the mount's own (`min(template+0x38, mount+0x7d)`, [above](#layout)), so a shadowed laser applies the earlier record's figures at its own power; an autocannon round carries no charge and applies them as they stand.
 
 | Record | Weapon | Same `(Type, id)` as | Figures applied | A full shot hits like |
 |---|---|---|---|---|
@@ -41,6 +41,21 @@ Only a record that shares its `(Type, id)` with an earlier one is shadowed. Four
 | 24 | ATC100 | 2, ATC50 | 180 / 600 in place of 260 / 800 | ATC50 |
 | 25 | L400 | 4, L200 | 1800 / 960 in place of 3000 / 1920 | L200 × 1.2: L400's power is 120, L200's 100 |
 | 26 | L500 | 5, L300 | 2000 / 1200 in place of 3000 / 2000 | L300: both fire at 120 |
+
+Measured in retail play, at VETERAN, by reading a structure's component damage after each hit (a structure takes the armour figure alone, scaled by the difficulty's 2100): ATC75 984 a hit and ATC100 1230, which are ATC35's and ATC50's 480 and 600 rather than their own 700 and 800 (1435, 1640); LAS400 229 and LAS500 287, which are 960 and 1200 at power 120 rather than their own 1920 and 2000 (461, 479). ATC50 at 1230 and LAS300 at 287, which carry their own records, were the controls.
+
+The subtype id also picks the round's `BULLETS.DAT` record or the beam's `BEAM.DAT` record, so the four also fly and draw as the earlier weapon. Each of those files holds records that no `PROJ.DAT` record names, and they continue the shadowed weapons' families:
+
+| Record | Weapon | Its own record | Evidence |
+|---|---|---|---|
+| 23 | ATC75 | `BULLETS.DAT` 10 | lifetime 14, after ATC20/35/50's 20/18/16; scatter 63 and fire sound 8 like theirs |
+| 24 | ATC100 | `BULLETS.DAT` 11 | lifetime 12 |
+| 25 | L400 | `BEAM.DAT` 8 | half-width 35, after L100/200/300's 20/25/30; colour 88 like theirs |
+| 26 | L500 | `BEAM.DAT` 9 | half-width 40 |
+
+`BULLETS.DAT` 10 and 11 differ from records 0–2 in one more field, `+0x0c` (0 where those carry 1), whose reader is [Open](../simulation/projectiles.md#open). Both use record 2's shape.
+
+Renumbering records 23–26 to subtype ids 10, 11, 8 and 9 collides with nothing in the simulator, and fixes the damage in retail: with the renumbered file in place ([loaded loose](vol-archive.md#loose-files-on-disk-carry-no-prefix)), ATC75 and ATC100 measured 1435 and 1640 a hit under the same conditions, their own figures. The only subtype ids it tests by value are bullet 9 (the [plasma branch](../simulation/projectiles.md#the-plasma-branch)) and beam 1 and 7 ([ELF](../simulation/beam-visuals.md#elf-and-elf2--the-jagged-branch)); the fixed ids the armed bases and flyers fire are bullet 2, beam 3 and rockets 0 and 3, which still resolve to records 2, 3, 10 and 13; and an autocannon mount reports "not a launcher" (5) to the missile-lock code whatever its subtype (`WeaponMount_GetAmmoType`, `0040e644`). VSHELL names none of `PROJ.DAT`, `BULLETS.DAT` or `BEAM.DAT`.
 
 Record 22 is claimed by two weapons, `PLAS` and `MFAC`, and resolves to itself.
 
@@ -81,7 +96,3 @@ What the figures say about the weapon families:
 - **Missiles** (`Type` 0) have a splash factor of 500 throughout. The five records are the five `ROCKETS.DAT` records, and the four the `MSL` launchers reach are `SARH`/`ARH`/`ARM`/`EO` while `BMSL` takes the fifth.
 - **The Plasma cannon** is the one `Type` 2 record with a splash factor, 1000, and the only `Bullet` that explodes on impact: [`../simulation/weapon-damage-types.md`](../simulation/weapon-damage-types.md#plasma-cannon).
 - **`Type` 3** carries shield equal to armour on all three records, and nothing looks them up.
-
-## Open
-
-- **Open:** whether a shot from ATC75, ATC100, L400 or L500 really applies the earlier record's damage in retail play, as the [lookup](#lookup) reads from the disassembly. Firing each and comparing the damage dealt against the weapons' own figures would settle it.

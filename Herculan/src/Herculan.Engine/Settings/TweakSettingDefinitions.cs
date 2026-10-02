@@ -93,7 +93,8 @@ public static class TweakSettingDefinitions {
 	/// Each weapon's shots apply its own <c>PROJ.DAT</c> record. Retail applies the first record that
 	/// shares its type and subtype id, so <c>ATC75</c> and <c>ATC100</c> hit like <c>ATC35</c> and
 	/// <c>ATC50</c>, <c>LAS500</c> like <c>LAS300</c>, and <c>LAS400</c> like <c>LAS200</c> at a
-	/// higher power.
+	/// higher power. The four also take their own <c>BULLETS.DAT</c> and <c>BEAM.DAT</c> records, so
+	/// <c>ATC75</c> and <c>ATC100</c> rounds expire sooner and the two lasers draw wider.
 	/// <para>Defaults on, an exception to the retail-by-default rule. See <see cref="Sim.WeaponMount.ShotProjectile"/>.</para>
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FixWeaponDamageRecords = new("tweak.fix_weapon_damage_records", TweakCategory.Functional, true);

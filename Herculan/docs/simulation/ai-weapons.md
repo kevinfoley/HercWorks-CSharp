@@ -99,7 +99,7 @@ for each mount:
 
 **The +10000 is the whole scoring model.** Retail costs at `template+0x34` run 500–600 for a launcher, 150 for a beam, 10–30 for an autocannon, 5 for an ELF; the damage term is scaled by 100/1024 while the cost is scaled by 1000/1024, so a launcher's ~156 of damage credit against its ~488 of cost is deeply negative. **A launcher is only ever worth firing on the shot that breaks the shield**, which is exactly when the bonus applies. Once the shields are down the AI falls back to guns, whose costs are small enough to stay positive on armour damage alone.
 
-**The score reads the mount's own `PROJ.DAT` record, which is not always the record a shot applies.** ATC75, ATC100, L400 and L500 are each shadowed by an earlier record with the same `(Type, id)`, so the AI scores them on their own larger figures while the shot applies the earlier weapon's ([`proj-dat.md`](../formats/proj-dat.md#lookup); the lookup has not been confirmed in retail play, [Open](../formats/proj-dat.md#open)).
+**The score reads the mount's own `PROJ.DAT` record, which is not always the record a shot applies.** ATC75, ATC100, L400 and L500 are each shadowed by an earlier record with the same `(Type, id)`, so the AI scores them on their own larger figures while the shot applies the earlier weapon's ([`proj-dat.md`](../formats/proj-dat.md#lookup)).
 
 **The jitter is larger than the signal.** Two independent draws below 35 multiplied together average 289 against deterministic terms in the tens. The choice is therefore mostly noise, biased by the damage-versus-cost term and decided outright by the shield-break bonus.
 

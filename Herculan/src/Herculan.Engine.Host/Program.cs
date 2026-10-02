@@ -709,6 +709,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	int objectivesKeysDown = 0;
 	int preferencesKeysDown = 0;
 	int statusAlertKeysDown = 0;
+	bool manualKeyDown = false;
+	string manualRoot = installRoot;
 	bool panelMouseDown = false;
 	bool panelRightButtonDown = false;
 	bool missionOver = false;
@@ -1883,6 +1885,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// so a press held across the frame a retail panel above consumes it doesn't read as a fresh,
 		// unconsumed press the moment that panel closes.
 		ReadMenuBarEscapeKey(objectivesHandledKey);
+		ReadManualKey();
 
 		// Everything below reads `controls` rather than the device itself: while the panel has keyboard
 		// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both
@@ -3308,6 +3311,25 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				? statusAlertKeysDown | (1 << bit)
 				: statusAlertKeysDown & ~(1 << bit);
 			return edge;
+		}
+	}
+
+	// [/] is Sim_DispatchCommand's 0x35, the on-line manual; [?] is the same key, since SimCommandMask
+	// strips the Shift bit (docs/formats/cockpit-input.md#keyboard-commands-are-scancodes). The dispatcher
+	// never sees a key while a modal panel's own loop holds the input, so neither does this. Retail drops
+	// the display out of full screen first; this window has no full screen to leave.
+	void ReadManualKey() {
+		if (keyboard == null || KeyboardCapturedByImGui() || FlashCommHasKeyboard()) {
+			manualKeyDown = false;
+			return;
+		}
+
+		bool down = keyboard.IsKeyPressed(Key.Slash);
+		bool edge = down && !manualKeyDown;
+		manualKeyDown = down;
+		if (edge && statusAlertPanel is not { IsOpen: true } && objectivesPanel is not { IsOpen: true }
+			&& preferencesPanel is not { IsOpen: true } && controlsPanel is not { IsOpen: true }) {
+			OnlineManual.Open(manualRoot);
 		}
 	}
 

@@ -275,7 +275,7 @@ The `0x400` bank is fixed by the manual: `0x410` raises the `EXIT EARTHSIEGE?` p
 | `0x58`, `0x219` | `F12`, `Alt+P` | the preferences panel, `prf_alrt` (`004566c4`) via `PreferencesPanel_Raise` (`0045cfd4`), which pauses the simulation with `DAT_004d2576` while it is up — [`../simulation/preferences.md`](../simulation/preferences.md) |
 | `0x35` | `/` | the on-line manual |
 
-**The on-line manual is a Windows help file, not a game screen.** `Sim_DispatchCommand`'s `0x35` case builds `<language>\es2guide.hlp` — `Language_GetFolderName` (`0045efe0`) reads one byte from `data\language.cfg` and answers `ENGLISH`, `FRENCH`, `GERMAN` or `SPANISH`, and the retail CD ships the first three — then calls `WinHelpA(hwnd, path, HELP_CONTENTS, 0)` after dropping the display out of the way. The manual's controls page writes the key as `?`, which is `[Shift]` and `/`; `SimCommandMask` clears the `0x800` Shift bit, so both spellings arrive as `0x35`. The dispatcher also has a `0x835` case jumping to the same handler, which that mask makes unreachable.
+**The on-line manual is a Windows help file, not a game screen** ([`winhelp.md`](winhelp.md)). `Sim_DispatchCommand`'s `0x35` case builds `<language>\es2guide.hlp` — `Language_GetFolderName` (`0045efe0`) reads one byte from `data\language.cfg` and answers `ENGLISH`, `FRENCH`, `GERMAN` or `SPANISH`, and the retail CD ships the first three — then calls `WinHelpA(hwnd, path, HELP_CONTENTS, 0)` after dropping the display out of the way. The manual's controls page writes the key as `?`, which is `[Shift]` and `/`; `SimCommandMask` clears the `0x800` Shift bit, so both spellings arrive as `0x35`. The dispatcher also has a `0x835` case jumping to the same handler, which that mask makes unreachable.
 
 ### How a keystroke becomes one of those codes
 
@@ -464,7 +464,7 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 
 ## Open
 
-- **Unported:** the two system buttons (§5), the online manual and the fullscreen toggle.
+- **Unported:** the two system buttons (§5) and the fullscreen toggle.
 - **Open:** whether anything draws the `.DCI` cursor slots (§9). A search for the displacements `+0x226`, `+0x236` and `+0x23a` finds only the cursor-slot functions and `ColorSchemePanels_LoadAll`, and the image-change hooks they call are empty in driver 3.
 - **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).
 

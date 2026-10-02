@@ -318,7 +318,7 @@ static class ShellHost {
 			+ "INSTANT ACTION flies the next of the three demo missions, CONTINUE GAME loads the current game and "
 			+ "puts the tab strip up (or says why that game is over), VIEW DEMO plays a demo tape, CREDITS plays the "
 			+ "credits, START NEW GAME asks for a pilot name and a skill and ACCEPT starts a campaign on the mission tab's "
-			+ "map, and ONLINE MANUAL does nothing yet. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
+			+ "map, and ONLINE MANUAL opens the manual in the web browser. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
 			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
 			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. PREFERENCES shows the "
 			+ "preferences screen: click a checkbox to set it, Accept to keep and save the settings or Cancel to put "
@@ -962,9 +962,12 @@ static class ShellHost {
 			}
 		}
 
-		// A main-menu button's handler. ONLINE MANUAL is not ported: it needs WinHelp.
+		// A main-menu button's handler.
 		void ClickMainMenuButton(ShellMainMenuButton button) {
 			switch (button) {
+				case ShellMainMenuButton.OnlineManual:
+					OpenOnlineManual();
+					break;
 				case ShellMainMenuButton.StartNewGame:
 					StartNewGame();
 					break;
@@ -996,6 +999,21 @@ static class ShellHost {
 					Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
 					break;
 			}
+		}
+
+		// ONLINE MANUAL, 004317ea: out of full screen with option 6 written to match, the options committed
+		// and all 54 saved, the shell's sound stopped, then the help file — here through OnlineManual,
+		// since there is no WinHelp to hand it to.
+		void OpenOnlineManual() {
+			if (window.FullScreen) {
+				ToggleFullScreen();
+			}
+
+			shellOptions.Set(DisplayModeOption, 0);
+			shellOptions.Commit();
+			shellOptions.Save(Enumerable.Range(0, Prefs.Length).ToArray());
+			sound?.Stop();
+			OnlineManual.Open(installRoot);
 		}
 
 		// INSTANT ACTION, 004312a6: InstantAction_Active (0047363c) set, training mode, then InstantAction_SelectDemo (0044befb) —

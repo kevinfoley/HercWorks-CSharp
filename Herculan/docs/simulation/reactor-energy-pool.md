@@ -37,7 +37,7 @@ if (EnergyPod)
 
 **The Energy Pod doubles the recharge rate, not the pool's capacity.** The manual says capacity. A pristine pod adds the full 20 to the base 20, while the ceiling is the literal 10000 in both `Mech_Constructor` and the clamp, so nothing can raise it. The manual's own aside, a modest increase in the Pool recharge rate, describes what the code does.
 
-**Computed once, at spawn.** `Mech_ComputeReactorRate` has exactly one reference in the binary — the tail of `Mech_ConfigureLoadout` (`004175dc`), itself only reached on spawn. Damage taken mid-mission never changes the rate; the damage terms still matter because a machine can spawn already damaged.
+**Computed once, at spawn, from a pristine machine.** `Mech_ComputeReactorRate` has exactly one reference in the binary — the tail of `Mech_ConfigureLoadout` (`004175dc`), whose one call, in `DBSim_SpawnMissionObjects` (`004258a2`), comes before either way a machine spawns damaged: a roster record's [starting condition](component-damage.md#starting-condition--mech_applystartingcondition-004178e8) and a squad machine's [carried-over condition](component-damage.md#a-squad-machines-condition--mech_applysquadcondition-00415068). The two reactor flags are clear and the pod undamaged at that moment, so every HERC generates 20, or 40 with an Energy Pod, for the whole mission, and the degraded and critical terms above never apply.
 
 Its sibling `Mech_ComputeShieldCapacity` (`00417bec`) is **not** like this: `Mech_ComponentDamageWrite` (`00417de4`) calls it as well as the spawn path, so shield capacity really does shrink as the generator is shot.
 
@@ -45,13 +45,13 @@ Its sibling `Mech_ComputeShieldCapacity` (`00417bec`) is **not** like this: `Mec
 
 `Mech_ComponentDamageWrite` (`00417de4`) latches them off dependent-subpiece **5**'s damage:
 
-| Subpiece 5 damage | Flag | Reactor output | Also |
+| Subpiece 5 damage | Flag | `Mech_ComputeReactorRate` term | Also |
 |---|---|---|---|
 | ≤ 50% (`0x80`) | — | 20 | — |
 | > 50%, < 75% (`0xc1`) | `mech+0xaa` | 11 (~59%) | movement penalty; alert sound for the player |
 | ≥ 75% | `mech+0xab` | 3 (~20%) | movement penalty; alert sound |
 
-Identified as the reactor by effect: the same pair cuts power and mobility together. Both latch and are never cleared, and the check is gated on **both** being clear — so once `+0xaa` sets, `+0xab` is only reachable by a single hit crossing both thresholds at once.
+Identified as the reactor by what reads them: the rate function and the movement penalty. Only the movement penalty is live, since the rate is worked out before either flag can be set. Both latch and are never cleared, and the check is gated on **both** being clear — so once `+0xaa` sets, `+0xab` is only reachable by a single hit crossing both thresholds at once.
 
 ## Weapon energy arbitration — `WeaponMounts_ArbitrateEnergy` (`004107e4`)
 
@@ -77,3 +77,9 @@ The pool's one cockpit readout is the **Master Energy Pool meter**: `Player_PerF
 The recharge cap is per *tick*, not per unit time, but the tick is held to 25 Hz ([`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)), so the refill time of 28 s from empty ([`damage-system.md`](damage-system.md#recharge-tick--shield_rechargetick-00413b38)) does not vary with hardware. Retail takes about 30 s, matching.
 
 At mission start the shield rings fade in black to green. That is the power-up animation, not charge: both facings are full from `Shield_Init` onward ([`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#shield-rings-fill)).
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| A damaged reactor lowers the reactor's output | `Mech_ComputeReactorRate` reads the two reactor flags, but its one call comes at spawn before anything can set them, so the output is always 20, or 40 with an Energy Pod |

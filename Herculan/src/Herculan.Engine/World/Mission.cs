@@ -112,6 +112,10 @@ public enum MissionSide {
 /// <see cref="Herculan.Engine.Sim.SimObject.OutOfActionReport"/>; null for the player's squad, which
 /// has no roster record.
 /// </param>
+/// <param name="SquadCondition">
+/// The condition a squad machine carries in from its <c>player.mec</c> entry; null for anything the
+/// mission's own roster places, which takes <paramref name="StartingCondition"/> instead.
+/// </param>
 /// <param name="FlyerFormationOffset">
 /// The flyer twin of <paramref name="FormationOffset"/>, out of <c>FFORMS.DAT</c> and carrying a Z
 /// as well — see <see cref="FlyerFormationTable"/>. A flyer wingman re-reads it every tick it holds
@@ -137,7 +141,8 @@ public sealed record MissionPlacement(
 	int EngagementActionRef = -1,
 	int DefeatActionRef = -1,
 	short StartingCondition = 100,
-	OutOfActionReport? OutOfActionReport = null) {
+	OutOfActionReport? OutOfActionReport = null,
+	SquadCondition? SquadCondition = null) {
 
 	/// <summary>
 	/// The condition a machine the mission says nothing about starts in — full health, and the

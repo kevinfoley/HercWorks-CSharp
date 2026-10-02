@@ -34,18 +34,18 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// How badly the reactor itself is hurt. <c>Mech_ComponentDamageWrite</c> (<c>00417de4</c>) sets
-	/// one of two latching flags off the damage on sub-piece 5 of the 22-entry dependent array, and
-	/// the same pair also cuts movement speed — power and mobility failing together is what
-	/// identifies that sub-piece as the reactor.
+	/// one of two latching flags off the damage on sub-piece 5 of the 22-entry dependent array. The
+	/// pair cuts movement speed; the reactor rate reads it too, but only before either can be set —
+	/// see <see cref="ReactorOutputRate"/> and docs/simulation/reactor-energy-pool.md#reactor-damage-flags.
 	/// </summary>
 	public enum ReactorCondition {
 		/// <summary>Sub-piece 5 at 50% damage or less. No penalty.</summary>
 		Intact,
 
-		/// <summary><c>mech+0xaa</c>, set past 50% damage: output falls to <c>Q10(600)</c>, about 59%.</summary>
+		/// <summary><c>mech+0xaa</c>, set past 50% damage. The rate term it selects is <c>Q10(600)</c>, about 59%.</summary>
 		Degraded,
 
-		/// <summary><c>mech+0xab</c>, set at 75% damage or worse: output falls to <c>Q10(200)</c>, about 20%.</summary>
+		/// <summary><c>mech+0xab</c>, set at 75% damage or worse. The rate term it selects is <c>Q10(200)</c>, about 20%.</summary>
 		Critical,
 	}
 
@@ -57,7 +57,8 @@ public sealed partial class MechObject {
 	/// so every damage term it reads is sampled at that one moment and the number stands for the rest
 	/// of the mission. A HERC whose reactor is shot to pieces mid-fight keeps generating exactly what
 	/// it generated when it rolled out. The damage terms are ported anyway, because they are what the
-	/// original computes and because a machine can spawn already damaged.</para>
+	/// original computes; at that one call they always read a pristine machine — see
+	/// <see cref="ConfigureLoadout"/>.</para>
 	/// </summary>
 	public short ReactorOutputRate { get; private set; }
 
@@ -111,10 +112,11 @@ public sealed partial class MechObject {
 	///
 	/// <para><b>Every damage term is sampled from the machine's own condition, here and now.</b> The
 	/// original takes no arguments for them either — it reads the shield generator's dependent and
-	/// each pod's component straight off <c>mech+0x206</c>. That matters for a machine that spawns
-	/// already damaged, which the campaign's between-mission repair state routinely produces: it
-	/// powers up with the smaller array and the slower reactor its condition earns it, not with a
-	/// fresh chassis' figures.</para>
+	/// each pod's component straight off <c>mech+0x206</c>. Its one call, in
+	/// <c>DBSim_SpawnMissionObjects</c> (<c>004258a2</c>), comes before either way a machine spawns
+	/// damaged — a roster record's starting condition and a squad machine's carried-over one — so
+	/// those terms always read a pristine machine and every HERC powers up with its chassis' full
+	/// array and reactor rate.</para>
 	///
 	/// <para>Only the reactor rate is a one-off. Shield capacity is recomputed on every component
 	/// write — see <see cref="ShieldCapacity"/>.</para>

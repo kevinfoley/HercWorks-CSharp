@@ -674,10 +674,6 @@ public sealed class ComponentDamage {
 	}
 
 	/// <summary>
-	/// One dependent's maximum, out of the <c>.DMG</c>'s flat leading array. Every retail HERC states
-	/// 22 of these and the skimmer one, matching the slot counts the constructors allocate.
-	/// </summary>
-	/// <summary>
 	/// Writes a dependent's accumulated damage directly, bypassing the cascade and the death gate.
 	/// The one caller is <see cref="MechObject.ApplyStartingCondition"/>, which needs to state a
 	/// machine's condition as it is spawned rather than damage it into that condition — the original
@@ -689,9 +685,96 @@ public sealed class ComponentDamage {
 		}
 	}
 
+	/// <summary>
+	/// <c>Mech_ApplySquadCondition</c> (<c>00415068</c>) — writes a squad machine's carried-over
+	/// condition straight into the main and dependent arrays, each entry becoming
+	/// <c>(100 - condition) * maximum / 100</c>. Which entry comes from which span, and what is
+	/// zeroed, is docs/simulation/component-damage.md#a-squad-machines-condition--mech_applysquadcondition-00415068.
+	///
+	/// <para>Like <see cref="SetDependentDamage"/> it states the condition rather than damaging the
+	/// machine into it: no cascade, no death gate, no announcement, and the active flags are left
+	/// alone.</para>
+	/// </summary>
+	internal void ApplySquadCondition(World.SquadCondition condition) {
+		// Components 0-18: the 13 external facets against each piece's own armour, the rest zeroed.
+		for (int i = 0; i < SquadArmorComponents; i++) {
+			short value = i < SquadExternalFacets
+				? Share(Entry(condition.External, i), Piece(i)?.Armor ?? 0)
+				: (short)0;
+			SetComponent(i, value);
+		}
+
+		// Dependents 0-11: the first nine internal entries against each internal's maximum; the
+		// pilot's slot and 10-11 are zeroed.
+		for (int slot = 0; slot < SquadDependentSlots; slot++) {
+			short value = slot == PilotSlot || slot >= SquadInternalEntries
+				? (short)0
+				: Share(Entry(condition.Internal, slot), DependentMaximum(slot));
+			SetDependentDamage(slot, value);
+		}
+
+		// Components 19-28, the mounts: each hardpoint's condition against the mount's armour plus
+		// the maximum of dependent 12 + n beside it, the excess past the armour going to that
+		// dependent.
+		for (int n = 0; n < SquadMountComponents; n++) {
+			int component = SquadArmorComponents + n;
+			int slot = SquadDependentSlots + n;
+			short armor = Piece(component)?.Armor ?? 0;
+			short dependentMax = DependentMaximum(slot);
+			short taken = Share(Entry(condition.Hardpoint, n), (short)(dependentMax + armor));
+			if (armor < taken) {
+				SetComponent(component, Destroyed);
+				SetDependentDamage(slot, dependentMax < (short)(taken - armor) ? Destroyed : (short)(taken - armor));
+			} else {
+				SetComponent(component, taken);
+			}
+		}
+	}
+
+	/// <summary>
+	/// One entry's share of a maximum — the original's
+	/// <c>(short)(((100 - condition) * maximum) / 100)</c>, truncating toward zero as C does.
+	/// </summary>
+	private static short Share(short condition, short maximum) => (short)((100 - condition) * maximum / 100);
+
+	/// <summary>
+	/// One condition entry. Each span is a fixed size in <c>player.mec</c>, so a missing entry is
+	/// only reachable on a hand-built <see cref="World.SquadCondition"/>; it reads as pristine.
+	/// </summary>
+	private static short Entry(IReadOnlyList<short> span, int index) =>
+		index < span.Count ? span[index] : (short)100;
+
+	private void SetComponent(int index, short damage) {
+		if (index >= 0 && index < _damage.Length) {
+			_damage[index] = damage;
+		}
+	}
+
+	/// <summary><c>Mech_ApplySquadCondition</c>'s three loop bounds: 19 components, 12 dependents, 10 mounts.</summary>
+	private const int SquadArmorComponents = 19;
+
+	/// <inheritdoc cref="SquadArmorComponents"/>
+	private const int SquadDependentSlots = 12;
+
+	/// <inheritdoc cref="SquadArmorComponents"/>
+	private const int SquadMountComponents = 10;
+
+	/// <summary>How many of the 19 components read a condition — the external span's 13 facets.</summary>
+	private const int SquadExternalFacets = 13;
+
+	/// <summary>How many of the 12 dependents read one — the original's <c>&lt; 10</c>, less the pilot.</summary>
+	private const int SquadInternalEntries = 10;
+
+	/// <summary>The pilot's dependent slot, which the condition zeroes rather than reads.</summary>
+	private const int PilotSlot = 9;
+
 	/// <summary>The most damage a dependent can take before it reads destroyed.</summary>
 	internal short DependentMax(int slot) => DependentMaximum(slot);
 
+	/// <summary>
+	/// One dependent's maximum, out of the <c>.DMG</c>'s flat leading array. Every retail HERC states
+	/// 22 of these and the skimmer one, matching the slot counts the constructors allocate.
+	/// </summary>
 	private short DependentMaximum(int slot) {
 		var internals = _model.Internals;
 		return internals != null && slot >= 0 && slot < internals.Length

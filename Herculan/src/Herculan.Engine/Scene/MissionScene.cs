@@ -900,6 +900,15 @@ public sealed class MissionScene {
 			machine.CruiseSpeed = placement.AiCruiseSpeed;
 			machine.RadarOrder = placement.AiRadarActive;
 			machine.FormationOffset = placement.FormationOffset;
+
+			// A squad machine's condition from player.mec, written in after the constructor has
+			// configured its loadout -- DBSim_SpawnMissionObjects calls Mech_ConfigureLoadout
+			// (004258a2) before Mech_ApplySquadCondition (004258de), so the shield array and the
+			// reactor rate are worked out from a pristine machine and the condition only reaches the
+			// shield array at the first hit's recompute.
+			if (placement.SquadCondition is { } condition) {
+				machine.Damage?.ApplySquadCondition(condition);
+			}
 		}
 
 		// The original's hover-height substitution, applied at spawn because that is where it

@@ -816,7 +816,8 @@ public static class MissionLoader {
 				entry.WeaponAmmoTypes,
 				IsPlayerLance: true,
 				PilotIndex: entry.PilotNameIndex,
-				Side: spawn.Side);
+				Side: spawn.Side,
+				SquadCondition: SquadCondition.Of(entry));
 
 			placements.Add(placement);
 			if (i == lance.PlayerEntryIndex) {

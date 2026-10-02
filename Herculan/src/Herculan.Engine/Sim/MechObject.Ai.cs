@@ -398,7 +398,8 @@ public partial class MechObject {
 			return;
 		}
 
-		// Being shot is a way of being spotted: the whole side near the attacker learns where it is.
+		// Being shot is a way of being spotted: the whole side near the attacker learns where it is,
+		// and inside engagement range the attacker is engaged.
 		Detection.ShareContact(world, this, attacker);
 
 		UnderFireWindow = UnderFireWindowReload;

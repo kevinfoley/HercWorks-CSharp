@@ -1640,10 +1640,11 @@ public sealed class SimWorld {
 
 		// And then the per-mech systems pass, which is where Sim_MainTick puts it — immediately after
 		// the sensor sweep, because the lock gate reads the line-of-sight cache that sweep maintains.
-		// Only the missile-lock half runs from here; the reactor and shield half is inside
-		// MechObject.Tick, where its inputs are last tick's and its position is free.
+		// Only the missile-lock half and the ECM's engagement gate run from here; the reactor and shield
+		// half is inside MechObject.Tick, where its inputs are last tick's and its position is free.
 		for (int i = 0; i < _objects.Count; i++) {
 			if (_objects[i] is MechObject { Removed: false, AwaitingDeployment: false, Destroyed: false } mech) {
+				mech.RaiseTargetEngagementGate();
 				mech.AiTimersTick();
 				mech.MissileLockTick(this);
 			}

@@ -3590,8 +3590,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Detection_ShareContact",
-      "description": "Passes a new contact to every object on the spotter's own side within 100000 units, the spotter included, and sets the contact's +0x9e engagement flag inside 50000. Nothing is shared to the other side and a same-side pair is not a contact at all.",
-      "source": "docs/simulation/target-selection.md"
+      "description": "(spotter, contact). Passes a new contact to every deployed object (group+0x14 clear) on the spotter's own side within 100000 units, the spotter included. Inside 50000 it also sets the CONTACT's +0x9e engagement flag and activates that same-side object's OWN +0x1b2 engagement action through Action_Activate unless its +0xa2 ECM gate is raised; the two writes land on different objects (EDI vs EBX, 004127a7/004127ab). Nothing is shared to the other side and a same-side pair is not a contact at all. Called from Detection_Sweep and, with the shooter as contact, from Mech_ShareContact.",
+      "source": "docs/simulation/mission-deployment.md"
     },
     {
       "address": "004127f8",

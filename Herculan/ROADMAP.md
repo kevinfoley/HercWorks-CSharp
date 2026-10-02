@@ -42,7 +42,7 @@ The engine cannot be faithful here until the original is understood.
 - **A movie that will not open.** The shell skips it, where retail asks for the CD. → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#the-shells-movies)
 
 ## Debugging features
-- **A launch option that disables the AI.** Every unit but the player's stays stationary, though it can still be damaged and destroyed. → [`docs/engine/host-flags.md`](docs/engine/host-flags.md#developer)
+- **A launch option that disables the AI.** Every unit but the player's stays stationary, though it can still be damaged and destroyed. → [`docs/engine/herculan-command-line.md`](docs/engine/herculan-command-line.md#developer)
 - **Editing the current `script.dat` in the Editor**, chiefly moving Cybrid and player spawn points, to set up test scenarios quickly. The scope, and the RE question that gates adding records, are in [`docs/engine/handoff-editor-mission-editing.md`](docs/engine/handoff-editor-mission-editing.md). → [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
 
 ## HercWorks editors

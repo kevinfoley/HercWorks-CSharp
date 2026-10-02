@@ -188,7 +188,7 @@ OUTSIDE_OPEN_RULES: list[tuple[str, re.Pattern[str], str]] = [
 # original — lives in the C# that implements it, which cites the doc section, so an engine change
 # never has to go looking for prose to update. Only these docs are about the engine itself.
 ENGINE_DOC_BASENAMES = {
-    "host-flags.md", "KNOWN_ISSUES.md", "ROADMAP.md", "README.md", "cut-content.md", "key-bindings.md",
+    "herculan-command-line.md", "KNOWN_ISSUES.md", "ROADMAP.md", "README.md", "cut-content.md", "key-bindings.md",
 }
 ENGINE_DOC_DIRS = [os.path.join("Herculan", "docs", "engine")]
 

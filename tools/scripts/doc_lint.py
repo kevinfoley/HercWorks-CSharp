@@ -478,8 +478,10 @@ def hook_mode() -> int:
     """
     import json
 
+    # Claude Code writes UTF-8; sys.stdin would decode it with the Windows codepage, so a written
+    # line with an em-dash would never match the file and its findings would be dropped.
     try:
-        payload = json.load(sys.stdin)
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except (json.JSONDecodeError, ValueError):
         return 0
 
@@ -502,7 +504,7 @@ def hook_mode() -> int:
     written += [e.get("new_string") for e in tool_input.get("edits") or [] if isinstance(e, dict)]
     touched = {ln.strip() for chunk in written if isinstance(chunk, str) for ln in chunk.split("\n")}
     touched.discard("")
-    with open(path, encoding="utf-8") as fh:
+    with open(path, encoding="utf-8-sig") as fh:
         file_lines = fh.read().replace("\r\n", "\n").split("\n")
     hits = [h for h in hits
             if h[1] not in ENGINE_RULE_IDS or file_lines[h[0] - 1].strip() in touched]

@@ -1190,7 +1190,7 @@ static class ShellHost {
 		ShellMovieHooks MovieHooks() => new() {
 			ReadMovie = name => {
 				string path = Path.Combine(installRoot, MovieHost.MovieFolderName, name);
-				return File.Exists(path) ? File.ReadAllBytes(path) : null;
+				return File.Exists(path) ? MovieHost.ReadMovieFile(path) : null;
 			},
 			InstallPalette = index => {
 				InstallPalette(index);

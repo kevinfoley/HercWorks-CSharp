@@ -45,7 +45,7 @@ public sealed class ShellMovieHooks {
 	/// </summary>
 	public required Action HideLocationPicture { get; init; }
 
-	/// <summary>A movie that played through the placeholder, or could not be opened: its file name and why.</summary>
+	/// <summary>A movie that could not be opened, or stopped on a frame it could not decode: its file name and why.</summary>
 	public Action<string, string>? Report { get; init; }
 }
 
@@ -164,6 +164,14 @@ public sealed class ShellMovieRun : IDisposable {
 				}
 
 				_player.Update(gl, delta);
+				if (_player.HasFailed) {
+					int id = _entry!.Id;
+					string name = ShellMovieQueue.FileName(id) ?? $"movie 0x{id:x}";
+					_hooks.Report?.Invoke(name, _player.DecodeException is { } ex
+						? $"stopped on a decoder fault ({ex.GetType().Name}: {ex.Message})"
+						: "stopped on a frame it could not decode");
+				}
+
 				if (stopPressed || _player.IsFinished || _player.HasFailed) {
 					EndMovie();
 					if (AfterMovie()) {

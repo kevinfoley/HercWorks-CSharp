@@ -42,10 +42,18 @@ These files are the one class of game asset a user might obtain from somewhere o
 - Nothing in it opens a file, resolves a path, starts a process, or reflects. It is handed bytes and returns pixels.
 - Every declared length is treated as a claim to verify. A length that is negative, that overflows when added to the cursor, or that runs past the enclosing chunk ends the walk rather than being followed.
 - `VideoLimits` bounds frame dimensions, pixel count per frame, file size, chunk size, frame count, RIFF nesting depth and, for Indeo 3, cell recursion depth. Indeo 4 needs no limit of its own: its loops run over the picture's macroblocks and a block's 64 coefficients, and every motion-compensated read is checked against the decoder's own buffers. Frame area is computed as `long` so two dimensions that each pass the per-axis cap cannot wrap when multiplied.
-- Pixel writes clip in one place, `VideoFrame.SetPixel`, so a malformed run cannot reach another row or past the buffer. Run and skip counts come straight out of the bitstream and are never trusted as bounds.
-- Malformed input returns null or false. Nothing throws on bad data, so a damaged cutscene cannot take down the host.
+- MS-RLE, Microsoft Video 1 and Cinepak write pixels through one clip, `VideoFrame.SetPixel`, so a malformed run cannot reach another row or past the buffer. The Indeo decoders work in their own plane buffers and convert to the frame at the end: Indeo 3 checks each cell and motion vector against the plane before it writes, and Indeo 4 checks every motion-compensated read and writes only inside each plane's padded rows. Run and skip counts come straight out of the bitstream and are never trusted as bounds.
+- Decoding work is bounded by the picture's size and the packet's length, never by a count read from the stream alone: every loop either consumes input or moves forward through the picture or a block. A Cinepak strip can carry several vector chunks and repaint itself once for each, so the work grows with the packet, at up to 16 pixel writes per input byte.
+- Malformed input returns null or false. No decoder is meant to throw on bad data; as a backstop, `MoviePlayback.Advance` treats an exception from a decoder as a failed frame and keeps it in `DecodeException`, so a missed check ends one cutscene rather than the host. The front end reports the failure and moves to the next movie.
 
-The suite covers these directly: every prefix of a valid file is parsed to prove truncation is safe at any length, a chunk is rewritten to claim `0x7FFFFFFF` bytes, and every prefix of a valid opcode stream is decoded.
+Two checks sit outside the assembly, at the points where its input arrives and its output leaves:
+
+- The hosts read a movie through `MovieHost.ReadMovieFile`, which refuses a file larger than `VideoLimits.MaxFileBytes` before allocating anything, rather than reading it whole and leaving the parser to reject it.
+- `GpuTexture` refuses a pixel buffer too short for the size it is given. GL reads `width * height * 4` bytes through a raw pointer, and a movie frame's size comes from the file.
+
+`tools/scripts/indeo4_reference`, which checks the Indeo 4 decoder against the retail `IR41_32.DLL`, loads that DLL natively and feeds it the movie — the exposure everything above avoids. It is a development tool in neither solution, for use on the retail files only.
+
+The suite covers these directly: every prefix of a valid file is parsed to prove truncation is safe at any length, a chunk is rewritten to claim `0x7FFFFFFF` bytes, and every prefix of an MS-RLE opcode stream and of a Microsoft Video 1 packet is decoded. The Indeo 3, Indeo 4 and Cinepak decoders are fed truncated and randomly damaged packets, Indeo 4 single bit flips as well, and none may throw. The Indeo 4 tests and one of the Indeo 3 tests run over the retail files and pass vacuously without an install. The tests call the decoders directly, so the backstop in `MoviePlayback.Advance` cannot hide a fault from them.
 
 ## Indeo output
 
@@ -56,3 +64,4 @@ The Indeo 4 decoder (`HercWorks.Video.Codecs.Indeo4.Indeo4Decoder`) matches `IR4
 ## Open
 
 - **Open:** a stereo path through `IAudioBackend`, so a stereo cutscene track plays in stereo as it does in retail.
+- **Open:** MS-RLE and Microsoft Video 1 have truncation tests but no random-damage tests, and no damage test is coverage-guided: each feeds seeded random damage, which reaches only the paths that damage happens to.

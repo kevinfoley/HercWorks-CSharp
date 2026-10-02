@@ -699,7 +699,7 @@ public sealed class SimWorld {
 		}
 
 		_effects.Add(new ImpactEffect(
-			typeId, record, Explosions.FrameCount(record.ShapeIndex), position, EffectLights, this));
+			typeId, Explosions, record, Explosions.FrameCount(record.ShapeIndex), position, EffectLights, this));
 
 		if (playSound && record.SoundId >= 0) {
 			// Math_RandomBelow(0x32) on the presentation generator, whose result the constructor throws
@@ -1655,6 +1655,10 @@ public sealed class SimWorld {
 		if (PlayerMech is { Removed: false, Destroyed: false } pilot) {
 			PollMission(pilot);
 		}
+
+		// The light handles ended effects queued come back at the top of the next Sim_RenderFrame,
+		// which the original runs straight after each Sim_MainTick.
+		EffectLights.FlushReleases();
 
 		TickCount++;
 		ElapsedMilliseconds += elapsedMilliseconds;

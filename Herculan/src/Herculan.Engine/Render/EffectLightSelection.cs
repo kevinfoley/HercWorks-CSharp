@@ -51,9 +51,8 @@ public readonly record struct SelectedEffectLight(bool Directional, Vector3 Vect
 public static class EffectLightSelection {
 	/// <summary>
 	/// How many effect lights one object can be lit by: the room <c>Light_Register</c>'s ten-entry active
-	/// list leaves beside the mission sun. The original never fills it, because its handle pool allows
-	/// three effect lights at once; this engine can have up to twenty live
-	/// (<see cref="EffectLightField.SlotCount"/>), so here the cap can bind and drop the surplus.
+	/// list leaves beside the mission sun. Never reached: the handle pool allows
+	/// <see cref="EffectLightField.HandleCount"/> effect lights at once.
 	/// </summary>
 	public const int MaxPerObject = 9;
 

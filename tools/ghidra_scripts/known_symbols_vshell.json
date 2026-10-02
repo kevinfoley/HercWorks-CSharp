@@ -826,6 +826,15 @@
       "source": "docs/shell/screen-layout.md#the-palette"
     },
     {
+      "address": "0040779f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellRandom_StaticInitMain",
+      "description": "Static initialiser (stored pointer at 00480fc4): ShellRandom_Reset(0x482325), the main shell generator. Ghidra has no function here. ShellRandom_Seed resets the state again before any campaign draw.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
       "address": "004077c5",
       "binary": "VSHELL",
       "type": "function",
@@ -1200,7 +1209,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinConsumer_HandleEvent",
-      "description": "WinConsumer vtable 0046e7d0 slot 0 (consumer, event): traces the event to the mono debug monitor (Mono_Printf: cursor position, event type, then Mouse/Key/Command type) and turns command events (0x100) into pointer actions by the code at +0x24: 4/5/6/7 move the pointer 8 pixels left, up, right and down (Display_GetCursorPos, then Pointer_MoveTo); 10 posts a left-down mouse event (sub-code 2) and 0x1d a left-up (1) at the pointer state's position (DAT_005ddbd0 +1) through Event_Post; 0x11 runs Pointer_Unlock and Alert_Show(DAT_0048d0fc). Then posts the event on with Event_Post.",
+      "description": "WinConsumer vtable 0046e7d0 slot 0 (consumer, event): traces the event to the mono debug monitor (Mono_Printf: cursor position, event type, then Mouse/Key/Command type) and turns command events (0x100) into pointer actions by the code at +0x24: 4/5/6/7 move the pointer 8 pixels left, up, right and down (Display_GetCursorPos, then Pointer_MoveTo); 10 posts a left-down mouse event (sub-code 2) and 0x1d a left-up (1) at the pointer state's position (DAT_005ddbd0 +1) through Event_Post; 0x11 runs Pointer_Unlock and Alert_Show(QuitAlert). Then posts the event on with Event_Post.",
       "source": "VSHELL decompile of 004093e6; vtable 0046e7d0 (RTTI WinConsumer)"
     },
     {
@@ -1434,7 +1443,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ESAlert_HandleEvent",
-      "description": "ESAlert vtable 0046ebe0 slot 0 (alert, event). Event 1 (show): Window_BeginPaint, then Bitmap_GrabClipDispatch reads the screen under the alert into the buffer bitmap at +0x75 (its +4), at {0, 0}. Event 2 (hide): Window_BeginPaint, then Bitmap_BlitClipDispatch puts that bitmap back. Event 4: repaints through vtable +4. Every event is then deleted through its vtable +0x18. The alert takes no clicks of its own; its buttons are child widgets.",
+      "description": "ESAlert vtable 0046ebe0 slot 0 (alert, event). Event 1 (show): Window_BeginPaint, then Bitmap_GrabClipDispatch reads the screen under the alert into the buffer bitmap at +0x75 (its +4), at {0, 0}. Event 2 (hide): Window_BeginPaint, then Bitmap_BlitClipDispatch puts that bitmap back. Event 4: repaints through vtable +4. Every event is then deleted through its vtable +0x18. ESAlert_Ctor adds 0x60 to the mask, so a click on the alert's body reaches this handler and is dropped; its buttons are child widgets.",
       "source": "VSHELL decompile of 0040b143; vtable 0046ebe0 (RTTI ESAlert)"
     },
     {
@@ -2577,7 +2586,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Herc_HasSingleDeployable",
-      "description": "True when exactly one of the eight bays holds a machine that is occupied, fully built and flightworthy (FUN_00410a9d). The repair screen's SCRAP button is dead while it holds.",
+      "description": "True when exactly one of the eight bays holds a machine that is occupied, fully built and flightworthy (Herc_IsDeployable, 00410a9d). The repair and build screens' SCRAP buttons are dead while it holds, whichever bay that machine is in.",
       "source": "docs/shell/screen-layout.md#what-the-buttons-are-gated-on"
     },
     {
@@ -4323,7 +4332,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Window_MoveRect",
-      "description": "Moves a widget after construction: rewrites the parent-relative rect at +0x25, rederives the absolute one and repaints. The only mover in the shell, and it is called on one widget (0048d7dc) -- so every other screen's geometry is exactly what its builder passed.",
+      "description": "Moves a widget after construction: rewrites the parent-relative rect at +0x25, rederives the absolute one and repaints. Called on one widget (0048d7dc). Window_SetPosition (0041ee1d) also moves widgets (the repair diagrams and bay pictures), and Window_SetWidth resizes them.",
       "source": "docs/shell/screen-layout.md#how-a-widget-paints"
     },
     {
@@ -5141,7 +5150,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellMap_ReadSquadHeader",
-      "description": "shellmap.cpp (source line 0x1f5). The only place VSHELL reads data\\player.mec back, and it takes just the two leading int16 -- the player entry index and the squad size -- before closing it and opening data\\mforms.dat for formation layout. Establishes that the rest of player.mec, including the trailing weapon-unlock table, is write-only as far as the shell is concerned.",
+      "description": "shellmap.cpp (source line 0x1f5). The only VSHELL function found that parses data\\player.mec (Career_SaveSlot and Career_LoadSlot copy it whole); it takes just the two leading int16 -- the player entry index and the squad size -- before closing it and opening data\\mforms.dat for formation layout. No VSHELL reader of the rest of player.mec, including the trailing weapon-unlock table, was found by a literal-reference sweep.",
       "source": "docs/shell/campaign-loop.md"
     },
     {
@@ -5622,6 +5631,15 @@
       "source": "VSHELL decompile and disassembly at 0042d36f"
     },
     {
+      "address": "0042d5d1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_PlayMusicTrack",
+      "description": "SFX-level thunk to Music_PlayTrack (0042dcef), the copy of DBSIM's. No reference found by es2_xref.",
+      "source": "docs/formats/audio.md#open"
+    },
+    {
       "address": "0042d6a5",
       "binary": "VSHELL",
       "type": "function",
@@ -5764,6 +5782,15 @@
       "name": "Sfx_ApplyLoopingNoOp",
       "description": "Empty body. Sfx_SetLooping calls it when the voice is playing.",
       "source": "VSHELL disassembly at 0042dc6e"
+    },
+    {
+      "address": "0042dcef",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_PlayTrack",
+      "description": "The copy of DBSIM's Music_PlayTrack: plays one Red Book CD track through MCI (cdaudio, TMSF, MCI_PLAY with MCI_NOTIFY). Reached only through Sfx_PlayMusicTrack.",
+      "source": "docs/formats/audio.md"
     },
     {
       "address": "0042e31c",
@@ -6162,6 +6189,33 @@
       "source": "docs/shell/screen-layout.md#the-main-menu"
     },
     {
+      "address": "00431918",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "QuitAlert_Build",
+      "description": "Builds the Alt+F4 (key code 0x23e) QUIT alert QuitAlert (0048d0fc): caption estext 0x12 QUIT, buttons 0x11 CANCEL (QuitAlert_OnCancel) and 0x10 ACCEPT (QuitAlert_OnAccept).",
+      "source": "docs/shell/screen-layout.md#quit"
+    },
+    {
+      "address": "00431b31",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "QuitAlert_OnCancel",
+      "description": "The QUIT alert's CANCEL button handler.",
+      "source": "docs/shell/screen-layout.md#quit"
+    },
+    {
+      "address": "00431ba7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "QuitAlert_OnAccept",
+      "description": "The QUIT alert's ACCEPT handler: sets Shell_QuitFlag.",
+      "source": "docs/shell/screen-layout.md#quit"
+    },
+    {
       "address": "00431f3c",
       "binary": "VSHELL",
       "type": "function",
@@ -6185,7 +6239,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Repair_Enter",
-      "description": "Brings the repair screen up: shows the content panel and both list panels, sets the mode readout from DAT_004824e4, moves the bay selection to the first built machine when the current bay holds nothing workable, fills both lists (00433caf), snapshots the pool and the machine (Repair_Snapshot, 004338f6) and seeds the selection at (0, 0).",
+      "description": "Brings the repair screen up: shows the content panel and both list panels, sets the mode readout from DAT_004824e4, calls Squad_SelectBay(Herc_FirstBuiltBay) when the current bay holds nothing workable -- before TabHandler_Repair stores 3, so that call takes the previous tab's arm, fills both lists (00433caf), snapshots the pool and the machine (Repair_Snapshot, 004338f6) and seeds the selection at (0, 0).",
       "source": "docs/shell/screen-layout.md#the-repair-screen"
     },
     {
@@ -6275,7 +6329,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Repair_SetComponentNames",
-      "description": "Writes the fifteen component names into the two lists' name columns from one of two fifteen-entry estext index tables, at 00474000 for a walker and 0047401e when the machine's chassis type is 8, the Razor. Driven by a bay change (0043d64d), not by screen entry.",
+      "description": "Writes the fifteen component names into the two lists' name columns from one of two fifteen-entry estext index tables, at 00474000 for a walker and 0047401e when the machine's chassis type is 8, the Razor. Called only from Squad_SelectBay's repair arm (0043d753); a bay change on another tab, and Repair_Enter's reselection (which runs under the previous tab's arm), leave the names as they were.",
       "source": "docs/shell/screen-layout.md#which-names-a-chassis-shows"
     },
     {
@@ -7230,7 +7284,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_Show",
-      "description": "Puts the mission tab up in a view: 0 campaign map, 1 briefing, 4 debrief. Retitles the map panel, moves the summary, fills and shows the text boxes, shows or hides the map buttons, bar and page buttons, and enqueues the view's movie once per load.",
+      "description": "Puts the mission tab up in a view: 0 campaign map, 1 briefing, 4 debrief. Retitles the map panel, moves the summary, fills and shows the text boxes, shows or hides the map buttons, bar and page buttons, and enqueues the view's movie once: the map's while its first-show flag DAT_004778aa is clear (RESTORE and a new career clear it), the briefing's and debrief's once per load.",
       "source": "docs/shell/screen-layout.md#the-mission-screen"
     },
     {
@@ -16758,7 +16812,7 @@
       "type": "data",
       "confidence": "high",
       "name": "MovieQueue_IntroSkipped",
-      "description": "Set by a mouse button down (MainWndProc) or Esc/Space (Avi_Play) while MovieQueue_PlayingIntro is set; Movie_PlayQueue then skips any further intro part. Nothing clears it.",
+      "description": "Set by a mouse button down (MainWndProc) or Esc/Space (Avi_Play) while MovieQueue_PlayingIntro is set; Movie_PlayQueue then skips any further intro part. No store clearing it found (three stores, each 1).",
       "source": "docs/shell/screen-layout.md#the-shells-movies"
     },
     {
@@ -17397,7 +17451,7 @@
       "type": "data",
       "confidence": "high",
       "name": "CareerSalvage",
-      "description": "The career salvage pool, int32 -- the game's single currency, held in kilograms and printed in tons. Seeded to rand(0..10)*1000 + 100000, credited from results.dat, debited by repairs and armory purchases. Immediately precedes the campaign flag array in memory and in the save file.",
+      "description": "The career salvage pool, int32 -- the game's single currency, held in kilograms; printed in tons by the crew and Herc Construction screens and in kilograms by the repair detail panel and armory readout. Seeded to rand(0..10)*1000 + 100000, credited from results.dat, debited by repairs and armory purchases. Immediately precedes the campaign flag array in memory and in the save file.",
       "source": "docs/formats/save-games.md"
     },
     {
@@ -17478,7 +17532,7 @@
       "type": "data",
       "confidence": "high",
       "name": "Avi_PaletteHandle",
-      "description": "The HPALETTE Avi_Play hands each movie; 0 until Avi_BuildPalette runs, which Movie_PlayQueue's startup call (argument 0) skips.",
+      "description": "The HPALETTE Avi_Play hands each movie; 0 until Avi_BuildPalette runs, which Movie_PlayQueue's startup call (argument 0) skips. Also stored at 0041deea by an undisassembled routine at 0041dea8 (236-entry palette) with no reference found.",
       "source": "docs/shell/screen-layout.md#the-shells-movies"
     },
     {
@@ -17543,6 +17597,15 @@
       "name": "StartupAnimWidget",
       "description": "The startup sequence widget MainMenu_BuildScreen builds over the whole window, frames dbm\\bay2a_80 to bay2a_84, the last twice.",
       "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0048d0fc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "QuitAlert",
+      "description": "The Alt+F4 QUIT alert widget QuitAlert_Build creates.",
+      "source": "docs/shell/screen-layout.md#quit"
     },
     {
       "address": "0048d1f8",

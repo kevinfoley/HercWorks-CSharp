@@ -24,8 +24,9 @@ namespace Herculan.Engine.Sim;
 /// light for as long as the flipbook runs — <see cref="EffectLightField"/>, whose slot this drives
 /// from the row's per-frame intensity ramp. <c>LightMode</c> 1 and 2 reach the same code; the
 /// original tests the field only against zero. A ramp read past the row's twelve entries yields 0,
-/// where the original runs off the end of the row into <c>ProximityRadius</c>; no retail shape has a
-/// flipbook long enough to reach it.</para>
+/// where the original runs off the end of the row into <c>ProximityRadius</c> and <c>SoundId</c>;
+/// <c>EXPLOS.DTS</c> roots 18 (15 frames) and 5 (14 frames), used by light rows 7 and 16, reach it
+/// (docs/simulation/impact-effects.md, "Tick").</para>
 ///
 /// <para>A row with a nonzero <see cref="ExplosionTypeEntry.GroundShape"/> lays a
 /// <see cref="Sim.GroundShape"/> under the effect for as long as it runs, stepping its cell with the
@@ -150,7 +151,8 @@ public sealed class ImpactEffect {
 	/// The type row's intensity ramp at one frame, as the original reads it — the entry's low byte,
 	/// and 0 for a frame past the twelve the row has room for. A shape with a longer flipbook than
 	/// that runs the original off the end of the row into <c>ProximityRadius</c>; stopping at the
-	/// ramp's own length is this engine's, and it only differs for data no retail shape supplies.
+	/// ramp's own length is this engine's, and it differs on rows 7 and 16, whose flipbooks run past
+	/// the ramp.
 	/// </summary>
 	private int FrameIntensity(int frame) =>
 		frame >= 0 && frame < _record.FrameIntensity.Length ? _record.FrameIntensity[frame] & 0xff : 0;

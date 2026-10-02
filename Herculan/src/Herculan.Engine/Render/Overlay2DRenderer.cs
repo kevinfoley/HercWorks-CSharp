@@ -628,8 +628,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 	///
 	/// <para>A row is a <c>.PDG</c> region rather than a table entry: the update walks the view's region
 	/// vector in file order and uses each region's id to index both the name group and the readout
-	/// buffer. The two orders differ — every retail internal view lists its regions 0,1,2,5,6,7,8,3,4,9
-	/// — so reading the group top to bottom would mislabel the rows. The percentage column's width is
+	/// buffer. The two orders differ in every retail internal view — a pilotable chassis lists its regions
+	/// 0,1,2,5,6,7,8,3,4,9 — so reading the group top to bottom would mislabel the rows. The percentage column's width is
 	/// the measured width of the literal "100", which the constructor reserves before placing either
 	/// label, so an undamaged component fills its column exactly. Both labels are re-fonted together
 	/// from the row's state, giving the manual's green through red plus grey for inoperative — see

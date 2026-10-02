@@ -17,8 +17,13 @@ namespace Herculan.Engine.Sim;
 public sealed class EffectLightField {
 	/// <summary>
 	/// Slots the manager has, the <c>Rtl_VectorNew</c> count at <c>mgr+0x6c</c>. A claim past the
-	/// last one fails here; the original overruns instead, which is a retail bug and not reproduced.
-	/// See KNOWN_ISSUES.md.
+	/// last one fails here.
+	///
+	/// <para><b>Departs from retail: up to twenty lights at once, where the original has three.</b>
+	/// The original's allocator has no full-table guard, but the handle pool an effect allocates from
+	/// before it claims (<c>EffectLightPool</c>, <c>004a9682</c>) holds three, so a fourth simultaneous
+	/// light-bearing effect runs dark. This engine has no handle pool and lights every one up to
+	/// twenty (docs/formats/effect-lights.md, "Claiming a slot").</para>
 	/// </summary>
 	public const int SlotCount = 20;
 
@@ -105,15 +110,18 @@ public sealed class EffectLightField {
 /// </summary>
 /// <param name="Position">Where it sits, in world units. Nothing moves an effect light.</param>
 /// <param name="Intensity">
-/// Brightness, 0-255 — <c>slot+0x1b</c>, the field every consumer reads. An
+/// Brightness, 0-255 — <c>slot+0x1b</c>, the field the per-object selection reads. An
 /// <see cref="ImpactEffect"/> drives it from its type row's per-frame ramp.
 /// </param>
 public readonly record struct EffectLight(Vec3i Position, int Intensity) {
 	/// <summary>
-	/// Whether the slot holds a light at all. An intensity of zero reads as free, which is also
-	/// what the original's own consumers do — <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>) skips a slot whose
-	/// <c>+0x1b</c> is 0 before it looks at anything else, so a ramp entry of 0 puts the light out
-	/// for that frame.
+	/// Whether the slot holds a light at all. An intensity of zero reads as free.
+	///
+	/// <para><b>Departs from retail.</b> <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>) skips a slot whose
+	/// <c>+0x1b</c> is 0, so a ramp entry of 0 puts the light out for that frame, but the original's
+	/// slot stays claimed until <c>LightManager_ReleaseSlot</c> (<c>00406fbc</c>) sets its free flag,
+	/// the separate <c>+0x00</c> byte. Here a slot at intensity 0 can be claimed by
+	/// another effect while the first still holds its handle.</para>
 	/// </summary>
 	public bool IsLive => Intensity > 0;
 

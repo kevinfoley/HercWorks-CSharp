@@ -92,8 +92,8 @@ public sealed class ShellMovieRun : IDisposable {
 	// The run's bVar1: the music was started again at a location picture, so the end of the run does not.
 	private bool _musicRestarted;
 
-	// MovieQueue_IntroSkipped (00470fe0): a click or Esc or Space during an intro movie skips the intro's other part. Nothing
-	// clears it.
+	// MovieQueue_IntroSkipped (00470fe0): a click or Esc or Space during an intro movie skips the intro's other part. No store
+	// clearing it is known.
 	private bool _introSkipped;
 	private long _locationShownAt;
 

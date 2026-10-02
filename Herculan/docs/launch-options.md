@@ -101,7 +101,7 @@ The simulator can record everything the player does during a mission to a file a
 | `-r<name>` | Records the mission to `<name>.tap`. |
 | `-p<name>` | Plays `<name>.tap` back. |
 | `-D` | Plays one of the shipped demo recordings, chosen at random. Player input stops it. This is what VIEW DEMO does. |
-| `-d` | Checkpoints, placed after `-r` or `-p`. Built to save snapshots of the game's state beside the recording and compare against them during playback, to catch a replay that has drifted from the original. In the released game it only creates an empty `<name>.dmp` when recording; see [Open](#open). |
+| `-d` | Checkpoints, placed after `-r`, `-p` or `-D`. Built to save snapshots of the game's state beside the recording and compare against them during playback, to catch a replay that has drifted from the original. In the released game it only creates an empty `<name>.dmp` when recording; see [Open](#open). |
 
 ### Developer mode: `-SPRUNKNOWN`
 

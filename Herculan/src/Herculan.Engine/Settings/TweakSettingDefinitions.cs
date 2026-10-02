@@ -62,6 +62,13 @@ public static class TweakSettingDefinitions {
 	/// instead of the PILOT MESSAGE preference.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FixComputerMessagePreference = new("tweak.fix_computer_message_pref", TweakCategory.Cosmetic, false, true);
+
+	/// <summary>
+	/// A second hit on the cockpit inside the damage shake keeps the palette flash going for the rest
+	/// of the shake. Retail stops the flash when the second hit lands while the impact palette is
+	/// showing. See <see cref="Render.CockpitHitShake.FlashSurvivesRestart"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FlashThroughSecondHit = new("tweak.flash_through_second_hit", TweakCategory.Cosmetic, false);
 	#endregion
 
 	#region FUNCTIONAL
@@ -112,7 +119,8 @@ public static class TweakSettingDefinitions {
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
-		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, SmootherTurretMovement,
-		MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords, ChargeBarPowerLevel,
+		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
+		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
+		ChargeBarPowerLevel, FlashThroughSecondHit,
 	};
 }

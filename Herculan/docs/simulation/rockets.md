@@ -18,7 +18,7 @@ The round's type table, indexed by the firing `PROJ.DAT` record's subtype id, an
 - **A locally piloted owner's round is remembered** in `DAT_0049c394` whatever its subtype, for [the missile camera](#the-missile-camera).
 - Plays `record[+0x0c] + 10` at the muzzle point.
 
-Only the `Type == 0` class is ever built. The `Type == 3` class, `Grenade_Construct` (`0040ac3c`), is never called — [`weapon-damage-types.md`](weapon-damage-types.md#type--a-firing-mechanism-selector) and [`../cut-content.md`](../cut-content.md#projectiles).
+`Rocket_Fire` builds only the `Type == 0` class. No caller of the `Type == 3` class's constructor, `Grenade_Construct` (`0040ac3c`), is found — [`weapon-damage-types.md`](weapon-damage-types.md#type--a-firing-mechanism-selector) and [`../cut-content.md`](../cut-content.md#projectiles).
 
 ## Flight — `Rocket_TickUpdate` (`0040a538`)
 

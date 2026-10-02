@@ -101,7 +101,7 @@ Two parsers. `FUN_0045e6b0` (DBSIM) runs first from `WinMain`, after `VideoMode_
 | `-T<n>`, `-V<n>`, `-W<n>` | block `+0x5a`, `+0x56`, `+0x58` | `Main_StaticInit` sets all three to -1 |
 | `-a` | block `+0x7d` = 0 | `Main_StaticInit` sets it to 1 |
 | `-c` | block `+0x72` = 1 | |
-| `-X<n>` | `004d283c` | Zeroed by `FUN_0045f144` before `Sim_ParseCommandLine` runs; no effect |
+| `-X<n>` | `004d283c` | Zeroed by `Sim_Run` (`0045f144`) before `Sim_ParseCommandLine` runs; no effect |
 
 "Block" is the `0xc3`-byte global block at `004d2540` ([`formats/cockpit-views.md`](formats/cockpit-views.md#video-modes)). For `-T`, `-V`, `-W`, `-a` and `-c`, three searches find only the stores above ([Open](#open)): `es2_xref.py` on the five addresses, which finds one dword each in the whole PE, the parser's own; every absolute operand from `004d2590` to `004d25bf`, which also rules out a wider load overlapping one of these fields; and the displacements off the base in the fifteen register holders and the three blit helpers it is pushed to, none of which spills, copies or rebases it. The same searches find the reads of the neighbouring `+0x54`, `+0x7b` and `+0x7c`. No `.EXE` on the disc passes any of the five: `ES.EXE`'s simulator list above has none of them, and VSHELL's unreferenced list below has none either.
 

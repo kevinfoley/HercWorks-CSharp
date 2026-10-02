@@ -495,8 +495,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			Path.Combine(installRoot, MissionLoader.DataFolderName));
 
 		var frames = tapePlayer.Tape.Frames;
-		double recordedSeconds = frames.Sum(frame => InputTapePlayer.SecondsOf(frame.TickDelta));
-		Console.WriteLine($"Tape {tapePlayer.Name}: {frames.Count} frames, {recordedSeconds:0.0} s as recorded, "
+		Console.WriteLine($"Tape {tapePlayer.Name}: {frames.Count} frames, {tapePlayer.RecordedSeconds:0.0} s as recorded, "
 			+ $"unpacked to {Path.GetDirectoryName(tapeScriptPath)}. "
 			+ (demoTape ? "Any key ends the demo." : "Ctrl+E stops it and hands the controls over."));
 		foreach (var (first, last) in tapePlayer.InferredPanelSpans) {
@@ -1341,7 +1340,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		renderer.ImpactPaletteActive = active;
 
 		// The HUD's own colours — the resolved COLORS.DAT ids and raw palette slots every widget draws
-		// through. Twenty of the twenty-seven move under the impact palette, so without this the
+		// through. Most of the twenty-seven move under the impact palette, so without this the
 		// instruments would be the one part of the screen refusing to flash.
 		if (cockpitArt != null) {
 			cockpitArt.FlashActive = active;
@@ -1988,7 +1987,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// A modal takes the player's input away entirely — the stick as well as the keyboard, and not just
 		// the command keys the key handler already gates. Each of these panels runs a loop of its own in
 		// the original (AlertPanel_Enter, poll the device, present) and that loop never calls Sim_MainTick,
-		// so Sim_PollPlayerInput and its twenty-case action switch do not run at all while one is up.
+		// so Sim_PollPlayerInput and its action switch do not run at all while one is up.
 		// Nothing the player does on the stick reaches the machine, which is what makes pressing a button
 		// on the CONTROLS panel safe: it picks that button's row and does not also fire what it is bound to.
 		//
@@ -2183,10 +2182,14 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 
 		// The controls on the camera — the outside view's default, [Enter]'s swap and [Ctrl+T]'s hand-off —
-		// or on an electro-optical round in flight, over whichever of the two above built them:
-		// Sim_PollPlayerInput gives the machine none of the four axes and skips Mech_PlayerFireTick, and
-		// Mech_ApplyThrottleInput ignores a lever. The axes went to viewCameraAxes and the round instead.
-		// The two centring commands are dispatcher cases and still reach the machine.
+		// or on an electro-optical round in flight, over whichever of the two above built them. The axes
+		// went to viewCameraAxes and the round instead; the two centring commands are dispatcher cases and
+		// still reach the machine. In the original, Sim_PollPlayerInput's camera branch tests
+		// InputDrivesCamera alone: under it the machine gets no steering, throttle or twist, skips
+		// Mech_PlayerFireTick and Mech_ApplyThrottleInput ignores a lever, but its pitch still reads a
+		// lever (docs/formats/joystick-input.md, "While the camera has the controls"), which this does
+		// not port. A round flown with InputDrivesCamera clear takes the original's ordinary branch, which
+		// this neutralises as well.
 		if (pilotInput && pilotMech != null && ControlsOnCamera()) {
 			pilotMech.Controls = MechControls.Neutral with {
 				CenterTorso = pilotMech.Controls.CenterTorso,
@@ -2850,11 +2853,13 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 		if (piloting && pilotMech != null) {
 			// The kick and the shake are the pilot's own, so they run only from inside the cockpit. The
-			// original's view mode 4 drops a shake in progress rather than pausing it, which is what
-			// Reset does here.
+			// original's view mode 4 drops a shake in progress rather than pausing it, and ignores the hits
+			// taken meanwhile, which is what Reset does here.
+			cockpitHitShake.FlashSurvivesRestart =
+				TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.FlashThroughSecondHit);
 			if (ExternalViewActive()) {
 				cockpitViewKick.Reset();
-				cockpitHitShake.Reset();
+				cockpitHitShake.Reset(pilotMech.CockpitHits);
 			} else {
 				cockpitViewKick.Update(deltaSeconds, pilotMech.Footfalls);
 				cockpitHitShake.Update(deltaSeconds, pilotMech.CockpitHits);
@@ -4866,18 +4871,15 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		});
 	}
 
-	// The stick's discrete half onto the tape: the button that fired and the hat's views. The trigger's
-	// own button is left out, as retail extracts the trigger from it before the frame is written.
+	// The stick's discrete half onto the tape: the button that fired and the hat's views. The trigger
+	// scan's own button never claims the slot, so it is already absent, as retail zeroes its byte before
+	// the frame is written.
 	void RecordStick(JoystickPilotInput input) {
 		if (tapeRecorder == null || TapePlaying()) {
 			return;
 		}
 
-		int fired = input.ClaimedButton >= 0
-			&& joystickBindings.Action(simulatorPreferences, input.ClaimedButton) != JoystickAction.Fire
-				? input.ClaimedButton
-				: -1;
-		tapeRecorder.SetDiscreteStick(fired, input.Views);
+		tapeRecorder.SetDiscreteStick(input.ClaimedButton, input.Views);
 	}
 
 	// Takes the replay's next frame once it is due, before any handler reads input this host frame, and
@@ -5166,11 +5168,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 	}
 
-	// One joystick button's action — Sim_PollPlayerInput's own twenty-case switch (00460764), which it
-	// runs over SimOptions[ControlsOptionBase + 4 + button] once per pressed button per tick.
+	// One joystick button's action — Sim_PollPlayerInput's own switch (00460764), nineteen cases for codes
+	// 2-20, which it runs over SimOptions[ControlsOptionBase + 4 + button] for the one button that claims
+	// the tick's slot.
 	//
-	// FIRE is not here: it is read as a held state one step earlier and never reaches the switch. Nor is
-	// OFF, which is what a row displays when its byte is zero rather than something it can be set to.
+	// FIRE and OFF have no case, there or here; JoystickBindings keeps both out of Pressed while still
+	// letting them claim the slot (docs/formats/joystick-input.md#the-buttons).
 	//
 	// Every case reaches the same code a key or a click does, which is also true in the original — the
 	// switch is almost entirely made of calls into the widget tree and the mech's own command handler
@@ -5193,9 +5196,11 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				mech.LatchCenterTorso();
 				break;
 
-			// The lever's sense, and only when there is a lever bound to the throttle — the original tests
-			// the capability block's +4 and the THROTTLE row together before it will move the mode, so on a
-			// stick without one this button does nothing at all.
+			// The lever's sense, and only when there is a lever bound to the throttle, so on a stick without
+			// one this button does nothing at all. The original tests the capability block's +4 and the
+			// walker's THROTTLE row through a literal, even in a RAZOR (docs/formats/joystick-input.md,
+			// "The buttons"); this tests the current machine's row, which differs from it in a RAZOR whose
+			// THROTTLE row is not the walker's.
 			case JoystickAction.ChangeDirection
 				when joystickBindings.ThrottleLeverMode(StickCapabilities(), simulatorPreferences) != 0:
 				joystickBindings.ThrottleLeverInverted = !joystickBindings.ThrottleLeverInverted;
@@ -5222,11 +5227,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				audio.Director?.Play(SoundId.ButtonClick);
 				break;
 
-			// The original picks between entering the heads-down display and leaving it on CockpitViewManager_Published (00429820)'s
-			// return, a global object pointer whose relation to the current view is not decoded — the two
-			// branches send F7 and [Esc], which together are plainly a toggle, so that is what this is.
-			// Both send a scancode to CockpitWidgets_HandleCommand, which ignores everything while the
-			// widgets are off — so neither does anything from the external view.
+			// The original's two branches both send a scancode to CockpitWidgets_HandleCommand, which ignores
+			// everything while the widgets are off — so neither does anything from the external view.
 			case JoystickAction.HddView when !CockpitWidgetsOff():
 				// A toggle, which is what the action's two branches were plainly meant to be. The original
 				// tests the view manager's pointer rather than the view, so it can only ever leave the HDD

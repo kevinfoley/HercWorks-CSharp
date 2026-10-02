@@ -38,8 +38,9 @@ namespace Herculan.Engine.Sim;
 /// </list>
 ///
 /// <para>Only <c>PROJ.DAT</c> <see cref="ProjectileType.Rocket"/> records reach here.
-/// <see cref="ProjectileType.Grenade"/> (type 3) records exist in retail data and are unreachable:
-/// <c>Grenade_Construct</c> (<c>0040ac3c</c>) builds their class and nothing calls it, and its
+/// <see cref="ProjectileType.Grenade"/> (type 3) records exist in retail data and no weapon template
+/// names them: <c>Grenade_Construct</c> (<c>0040ac3c</c>) builds their class and no reference to it is
+/// found (docs/formats/proj-dat.md#open), and its
 /// vtable's per-tick slot is <c>Grenade_TickNoOp</c> (<c>0040acb4</c>), a bare <c>return 0</c>, so an instance would never
 /// move and never die. The ammunition dispatch tests for type 0 and nothing else. What settles the
 /// class name and the unreachability is in docs/simulation/weapon-damage-types.md, "Type — a

@@ -1218,8 +1218,9 @@ public sealed class WeaponMount {
 	/// its hit synchronously and is over inside this call; a <see cref="ProjectileType.Bullet"/>
 	/// record becomes a travelling <see cref="Projectile"/>; a <see cref="ProjectileType.Rocket"/>
 	/// record becomes a <see cref="Rocket"/>. <see cref="ProjectileType.Grenade"/> is the fourth value
-	/// and no dispatch tests for it — its class is built by a constructor nothing calls, so those
-	/// records are unreachable in the original too.</para>
+	/// and no dispatch tests for it — no weapon template names those records, and their class is
+	/// built by <c>Grenade_Construct</c> (<c>0040ac3c</c>), to which no reference is found
+	/// (docs/formats/proj-dat.md#open).</para>
 	///
 	/// <para>Both dispatches also set a flag at <c>mount+0x44</c> whenever the hardpoint's mounting
 	/// code says it is visible (<c>.GL +6 &lt; 4</c>). It is the muzzle flash, and nothing here draws

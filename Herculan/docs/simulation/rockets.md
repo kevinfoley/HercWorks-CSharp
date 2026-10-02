@@ -32,7 +32,7 @@ Vtable `+0x14` of `RocketVtable` (`00498448`); draw is `Bullet_Draw`, shared wit
 
 **Damage is never power-scaled**: a rocket comes off a rack, not a capacitor, so the `PROJ.DAT` figures apply at face value. The shot record's `+0x12` carries the subtype id where a bullet hardcodes 5 ([`weapon-firing.md`](weapon-firing.md#the-shot-record)).
 
-**When the round ends**, by burning out or by striking something, a subtype 3 round of a locally piloted owner — one still being flown — clears the trigger byte `004d2357` and calls `Input_LatchButton(1, 1)`, latching the first button row, which is the trigger's under the default bindings, until it is let go ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)); and if the round is the one in `DAT_0049c394` and ended before its lifetime, `DAT_0049c398` is raised.
+**When the round ends**, by burning out or by striking something, a subtype 3 round of a locally piloted owner — one still being flown — clears the trigger byte `004d2357` and calls `Input_LatchButton(1, 1)`, latching the first button row, the trigger's, until it is let go ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)); and if the round is the one in `DAT_0049c394` and ended before its lifetime, `DAT_0049c398` is raised.
 
 **The proximity beep.** A round fired by a machine that is **not** locally piloted (`mech+0xa3` clear) plays sound `0x32` when it comes within 40000 units of the camera (`ViewObjectPtr`, the camera position); a latch at `+0x06` holds it to once per approach and re-arms when the round leaves that range. The player's own rounds never beep.
 

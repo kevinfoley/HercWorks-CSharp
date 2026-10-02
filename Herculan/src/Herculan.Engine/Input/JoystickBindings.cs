@@ -335,7 +335,7 @@ public sealed class JoystickBindings {
 	/// <c>SimOptions[0x11 + i]</c> — a literal <c>0x11</c> at <c>0045b22b</c>, the walking block's
 	/// first button row, where the dispatch loop one step later correctly uses
 	/// <c>ControlsOptionBase + 4</c>. So a RAZOR finds its trigger through the <i>walker's</i>
-	/// bindings. This engine reads the trigger from the current block; see KNOWN_ISSUES. Which button
+	/// bindings. This engine reads the trigger from the current block, which differs only with bindings the CONTROLS panel cannot set — docs/formats/joystick-input.md#the-buttons. Which button
 	/// the scan keeps out of the dispatch still follows the walker's block, as
 	/// <see cref="TriggerScanRow"/> says.</para>
 	/// </summary>

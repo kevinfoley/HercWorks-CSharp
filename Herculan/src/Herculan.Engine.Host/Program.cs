@@ -1059,9 +1059,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	var missileCamScreen = new MfdMissileCamScreen();
 	bool missileCamUpdatedLastFrame = false;
 
-	// Input_LatchButton(1, 1) as a flown round ends: the first button row, the trigger's under the default
-	// bindings, held masked until it is let go. The joystick's own latches are JoystickBindings'; this one
-	// also masks [Space], the row's key. DAT_0049ebe5 is the keyboard hold that goes with it — see
+	// Input_LatchButton(1, 1), the first button row — always FIRE — held masked until it is let go, which
+	// also holds the axes still. Two things latch it: a flown round ending, and AlertPanel_Enter (00454630)
+	// opening any modal panel. The joystick's own latches are JoystickBindings'; this one also masks
+	// [Space], the row's key. DAT_0049ebe5 is the keyboard hold that goes with it — see
 	// docs/formats/joystick-input.md. Live input only: what a replay does with a latch is that doc's Open.
 	bool fireRowLatched = false;
 	int missileKeyboardHold = 0;
@@ -2002,6 +2003,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			joystickInput = JoystickPilotInput.None;
 			joystickCenterBody = false;
 			joystickBindings.Suspend(joystick?.Read() ?? JoystickReading.Neutral);
+			fireRowLatched = true;
 
 			allStopKeyDown = controls.IsKeyPressed(Key.Keypad5);
 			shieldRearKeyDown = controls.IsKeyPressed(Key.LeftBracket);
@@ -2230,9 +2232,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
 		void PilotFromLiveInput(MechObject mech, IKeyState keys, bool hddHasArrows, bool commandHasKeys,
 				JoystickReading stickReading) {
-			// The first button row's latch: a flown round's end asks for it, and letting go of the row —
-			// [Space] and the stick's first button — drops it. While it holds, the row's state reads
-			// released, so under the default bindings the trigger does.
+			// The first button row's latch: a flown round's end and a modal panel ask for it, and letting go
+			// of the row — [Space] and the stick's first button — drops it. While it holds, the trigger reads
+			// released and the axes are held below.
 			if (scene.World.TakeFireRowLatch()) {
 				fireRowLatched = true;
 			}

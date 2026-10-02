@@ -16137,6 +16137,24 @@
       "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
     },
     {
+      "address": "00482ae7",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Hangar_DebriefScrapCount",
+      "description": "int16 at +0x24 of the hangar at 00482ac3: machines the debrief scrapped. HercsDat_Clear zeroes it at every hangar load, Herc_SettleAfterMission adds one per scrap (INC at 00410d21), and Game_ProcessMissionResults copies it into campaign flag 8 (0040eef6), which the mission's .ENG debrief loss line tests.",
+      "source": "docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+    },
+    {
+      "address": "00482aef",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Debrief_PilotsLost",
+      "description": "int16: Squad_ProgressAll's count of pilots lost, the player included when at 0 condition, stored at 0040eea9. Game_ProcessMissionResults copies it into campaign flag 9 and hands it to Debrief_WriteReport as the Losses figure.",
+      "source": "docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+    },
+    {
       "address": "00482af4",
       "binary": "VSHELL",
       "type": "data",

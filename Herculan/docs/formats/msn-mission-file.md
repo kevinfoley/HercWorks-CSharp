@@ -71,7 +71,7 @@ A record whose GUID an earlier survivor already has does not add a record. Rows 
 
 ### The header patch — row 2
 
-82 bytes read into one reused buffer and never kept: a condition, ten header words and thirty flag indices. The ten header words (`DAT_00485446` upward) are reset once row 1 is read — the first to 1, the rest to 0 — and each row-2 record whose condition passes writes every header word that is not its unset value, 1 for the first and 0 for the rest, and every flag index that is not `-1` into the clear list at `DAT_0048545a`. Then every flag the clear list names is zeroed (`Msn_ClearPatchedFlags` (`00417659`)). The clear list is never reset, and starts at zero, so a load clears flag 0 thirty times over until a patch names something else. The header words are [`script-dat.md`](script-dat.md#header-format)'s, and every retail mission sets its zone this way.
+82 bytes read into one reused buffer and never kept: a condition, ten header words and thirty flag indices. The ten header words (`DAT_00485446` upward) are reset once row 1 is read — the first to 1, the rest to 0 — and each row-2 record whose condition passes writes every header word that is not its unset value, 1 for the first and 0 for the rest, and every flag index that is not `-1` into the clear list at `DAT_0048545a`. Then every flag the clear list names is zeroed (`Msn_ClearPatchedFlags` (`00417659`)). The clear list is never reset, and starts at zero, so a load clears flag 0 thirty times over until a patch names something else. No retail patch names a flag: every clear list in the 62 files is empty, so every retail load clears flag 0 and nothing more. The header words are [`script-dat.md`](script-dat.md#header-format)'s, and every retail mission sets its zone this way.
 
 ### Record-array table — **empirically confirmed byte-exact against 61/62 real `.MSN` files**
 
@@ -385,25 +385,40 @@ Every `.MSN` has a same-named `.ENG` beside it in `ZONES.VOL`, and it holds the 
 int16 count
 count x {
     int16 id
-    int16 conditionRef      -- -1 throughout the corpus
-    int16 parentRef         -- -1 throughout the corpus
+    int16 conditionRef      -- a row-1 GUID, or -1
+    int16 word              -- -99 beside a condition, -1 otherwise
     int16 length            -- includes the NUL terminator
     byte[length] text
 }
 ```
 
-**Verified byte-exact**: all 62 files consume to their declared content length with zero slack, 1,111 records, ids 42-253.
+**Verified byte-exact**: all 62 files consume to their declared content length with zero slack, 1,111 records, ids 42-253. 468 records in 45 files carry a condition.
 
 A line ending `" \n"` is authored to break there; the reader that copies these into a mission strips one trailing newline.
 
 `Msn_LoadEngText` (`0041768c`) loads it between rows 2 and 3, from the mission's path with everything from its first `.` replaced by the language's extension — `.eng`, or `.fre`/`.ger` by the value in `0048227a`, which a command-line switch sets. A record whose condition fails is skipped, and one whose id is already loaded replaces that entry's text. `MissionStr_Write` (`004179f0`) writes every record that stays into `data\mission.str` as an ordinary [`.STR`](str-strings.md) of one group — the length of the rest, the count, then each line's length with its NUL, the line, and an attribute count of 0 — and rows #4, #10 and #17 have their ids renumbered to match, which is why `script.dat`'s refs are small where these are not.
+
+A conditioned record is how a mission varies a line: an unconditioned record of the id comes first and later records of the same id replace it, so the line reads as the last record whose condition held.
+
+### The debrief's loss line
+
+The 30 missions of chapters 1 to 3 and `DEMO_01` and `DEMO_02` give one line of their row-5 debrief the same eleven records: a blank, then ten replacements keyed on three [campaign flags](../shell/campaign-loop.md#the-campaign-flag-array-is-the-msn-condition-store) — 8, the machines the debrief scrapped; 9, the pilots it counted lost; 10, the squadmates the player put out of the fight ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4)).
+
+| order | condition | line |
+|---|---|---|
+| 1-3 | flag 8 `== 1`, `== 2`, `> 2` | one Herc, two Hercs, "a bunch of Hercs" lost |
+| 4-6 | flag 9 `== 1`, `== 2`, `> 2` | one squadmate, two, the whole squad lost |
+| 7-8 | flag 10 `== 1`, then a type-1 draw below 11: 0-9, 10 | the player caused a pilot's death; the rarer draw is the harsher line |
+| 9-10 | flag 10 `== 2`, twice | "You killed TWO squadmates!", then a line opening with a space, " Good luck in the Brig, soldier." |
+
+All ten share the id, so the debrief carries **one** of them: a squadmate killed by the player outranks a squadmate lost, which outranks a Herc lost. Record 10 replaces record 9 rather than following it, so two squadmates killed by the player read only the Brig line, and three or more match no record and leave the line blank. Chapters 4 and 5 and the training missions carry no loss line, and the two demo missions run in training mode, whose debrief never reloads the mission's text ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)).
 
 
 ## Recurring patterns
 
 - **Recurring pattern: most declared array/discriminator capacity goes unused in retail.**
 
-- **Recurring pattern: `0x02`/`0x0X` "compound condition" pairs** — second field is real only when `0x02` is, drawn from a narrow set including sentinel `-99`. Confirmed in rows #12/#15/#16.
+- **Recurring pattern: `0x02`/`0x0X` "compound condition" pairs** — second field is real only when `0x02` is, drawn from a narrow set including sentinel `-99`. Confirmed in rows #12/#15/#16 and the `.ENG` records.
 
 - **Recurring pattern: a pair count in front of the counter pairs** — rows #12 (`0x4A`), #13 (`0x36`), #14 (`0x0E`) and #16 (`0x78`) hold the number of filled (counter ref, operation) pairs, filled from slot 0 without gaps. It equals the filled count in every retail record of the four rows; the load writes every pair regardless, so the count is never consumed. Row #17's `0x10` is the same idiom for its nested pairs.
 

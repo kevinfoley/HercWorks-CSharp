@@ -98,7 +98,7 @@ At debrief `Herc_SettleAfterMission` (`00410c7c`) applies the same judgement to 
 2. The value goes into the pool.
 3. The pilot `Squad_PilotForBay` finds for the bay has its bay set to `-1`, and the squad member `Squad_MemberAtPosition` finds at that pilot's position, `+0x27`, is taken off strength through `Squad_SetOnStrength` — the pilot itself, for a squad member. The player's position is 0 and no squad member ever holds 0 ([`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)), so scrapping the player's machine takes nobody off strength and leaves the player's own on-strength byte as it was.
 
-The debrief's scrap is the same first step with one more write: it also adds one to `00482ae7`, the hangar's `+0x24`, which the shell's leaves alone.
+The debrief's scrap is the same first step with one more write: it also adds one to the hangar's `+0x24`, the debrief's scrap count ([`campaign-loop.md`](campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)), which the shell's leaves alone.
 
 **Weapons are scrapped a whole stock at a time**, from the armory's `Scrap` ([`screen-layout.md`](screen-layout.md#the-scrap-dialog)). `Armory_ScrapValueTons` (`0041266a`) values the stock at a tenth of its price in tons — `weapons.dat` `+0x14` truncated to tons, times the count held at `+0x17`, over 10 — and at least 1 ton for a stock that is not empty; an empty one is worth 0. `Armory_ScrapWeapons` (`0040e7b2`) adds `Armory_ScrapStock` (`00412555`) to the pool, which is that figure times 1000 after `Armory_ClearStock` (`00411f9d`) has freed every unit on the record's list, one off the count each. So scrapping gives up every unit for a tenth of their price, the condition of none of them counting.
 

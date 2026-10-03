@@ -75,7 +75,7 @@ static class ShellHost {
 	/// <c>VIEW DEMO</c> closes it with <see cref="DemoExitCode"/> and no mission.
 	///
 	/// <para><paramref name="returnCode"/> is <c>-X</c>, the state the launcher starts the shell in
-	/// (<c>0048227e</c>): <see cref="StartupCode"/> on a first start, or the code the simulator returned —
+	/// (<c>Shell_StartupCode</c>, <c>0048227e</c>): <see cref="StartupCode"/> on a first start, or the code the simulator returned —
 	/// <see cref="MissionResults.DebriefExitCode"/> into the debrief, <see cref="MissionResults.DemoExitCode"/>
 	/// after a demo (<c>Shell_BuildScreensAndStart</c>, <c>004012b0</c>) — or this engine's own
 	/// <see cref="SettingsRestartCode"/>, the Settings menu's restart. <paramref name="forcedMode"/> overrides
@@ -327,6 +327,9 @@ static class ShellHost {
 		// Set by QUIT, whose blank is the last thing the window shows.
 		bool blanked = false;
 
+		// Shell_HasFocus (0046c094); see FocusChanged below.
+		bool hasFocus = true;
+
 		// Set by the Settings menu's restart, which closes the window once the frame's ImGui is drawn.
 		bool restartPending = false;
 
@@ -391,8 +394,11 @@ static class ShellHost {
 
 		// WM_SETFOCUS starts the sounds again, unless a movie is playing, and WM_KILLFOCUS stops them
 		// (MainWndProc, 00404a2c). The stop reaches a movie's soundtrack too, the two sharing one backend
-		// here where retail's MCI sound is not the sound manager's.
+		// here where retail's MCI sound is not the sound manager's. Both also write Shell_HasFocus (0046c094),
+		// which holds the main loop and the movie queue (docs/shell/startup.md#the-main-loop); it starts set,
+		// as the image's 1 does, until the first WM_KILLFOCUS.
 		window.View.FocusChanged += focused => {
+			hasFocus = focused;
 			if (focused) {
 				if (movies?.Playing != true) {
 					sound?.Start();
@@ -413,6 +419,13 @@ static class ShellHost {
 
 			if (creditsUp && sound?.Fading != true) {
 				EndCredits();
+			}
+
+			// Without the focus Shell_Main's loop skips everything in a pass but the message pump, so nothing
+			// is delivered and no alarm ticks: the startup sequence, the caret and the widgets all wait. The
+			// map's intro is its own loop once running (ShellMap_RunIntro, 0040146a), which does not test the flag.
+			if (!hasFocus && MapIntroUp() == null) {
+				return;
 			}
 
 			// The startup sequence goes up once the intro movies and the fade in after them have run. It is
@@ -1236,6 +1249,7 @@ static class ShellHost {
 				RepaintContent();
 			},
 			Report = (name, what) => Console.WriteLine($"Movie avi\\{name} {what}."),
+			HasFocus = () => hasFocus,
 		};
 
 		// Shell_InstallPalette (004075b2) by index, unless --shell-palette pins one.

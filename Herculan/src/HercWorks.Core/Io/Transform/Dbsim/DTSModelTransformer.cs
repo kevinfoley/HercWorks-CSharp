@@ -467,13 +467,30 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 		}
 		link.SequenceList = sequences;
 
-		var transforms = new short[transformTotal];
+		var transforms = new TSShapeNodeTransform[transformTotal];
 		for (int t = 0; t < transforms.Length; t++) {
-			transforms[t] = IndexShortLE();
+			transforms[t] = ReadTSShapeNodeTransform();
 		}
-		link.TransformList = transforms;
+		link.NodeTransforms = transforms;
 
 		return link;
+	}
+
+	private TSShapeNodeTransform ReadTSShapeNodeTransform() {
+		var transform = new TSShapeNodeTransform {
+			Index = Index
+		};
+
+		for (int m = 0; m < transform.Matrix.Length; m++) {
+			transform.Matrix[m] = IndexShortLE();
+		}
+		transform.Rank = IndexByte();
+		transform.Byte13 = IndexByte();
+		transform.X = IndexIntLE();
+		transform.Y = IndexIntLE();
+		transform.Z = IndexIntLE();
+
+		return transform;
 	}
 
 	private ANSequenceFrame ReadANSequenceFrame() {
@@ -778,15 +795,22 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	private void WriteTSShape(TSShape shape, MemoryStream bos) {
 		WriteTSPartList(shape, bos);
 
-		Emit(bos, WriteShortLE((short)shape.TransformList!.Length));
+		Emit(bos, WriteShortLE((short)shape.NodeTransforms!.Length));
 		Emit(bos, WriteShortLE((short)shape.SequenceList!.Length));
 
 		foreach (var s in shape.SequenceList) {
 			Emit(bos, WriteShortLE(s));
 		}
 
-		foreach (var t in shape.TransformList) {
-			Emit(bos, WriteShortLE(t));
+		foreach (var t in shape.NodeTransforms) {
+			foreach (var m in t.Matrix) {
+				Emit(bos, WriteShortLE(m));
+			}
+			bos.WriteByte(t.Rank);
+			bos.WriteByte(t.Byte13);
+			Emit(bos, WriteIntLE(t.X));
+			Emit(bos, WriteIntLE(t.Y));
+			Emit(bos, WriteIntLE(t.Z));
 		}
 	}
 

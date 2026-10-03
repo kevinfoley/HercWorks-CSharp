@@ -13,7 +13,7 @@ namespace Herculan.Engine.Shell;
 /// <para>The container is the <c>.BIN</c> string table described in docs/formats/weapons-dat.md, and
 /// <see cref="BinStringFileTransformer"/> already parses it. VSHELL reaches it through
 /// <c>WeaponsBin_LookupName</c> (<c>00408240</c>) against the handle at <c>0046dcc0</c>, opened by
-/// literal filename in the shell's global init (<c>esglobal.cpp</c>, <c>004073bc</c>).</para>
+/// literal filename in the shell's global init (<c>EsGlobal_Init</c> (<c>004073bc</c>), <c>esglobal.cpp</c>).</para>
 ///
 /// <para>It lives in <c>LANG0.VOL</c>, not <c>SHELL0.VOL</c>, under one folder per language. Retail
 /// picks one by the shell's language, which its launcher sets only in v1.10

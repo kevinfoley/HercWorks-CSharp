@@ -22909,6 +22909,42 @@
       "source": "DBSIM decompile at 00490c28"
     },
     {
+      "address": "00490c2e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeRender_BindCellFrames",
+      "description": "(shape, cellFrames): stores cellFrames in g_CellAnimFrames (006b7bf0); the first argument is not read. TSShapeInstance_Render (00490b10) passes the instance's own cellFrames. The DBSIM copy of VSHELL's ShapeRender_BindCellFrames (0046295a).",
+      "source": "es2_naming.py match DBSIM VSHELL: EXACT pair with VSHELL 0046295a; DBSIM disassembly at 00490c2e"
+    },
+    {
+      "address": "00490c3b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_GetActiveBitmapArray",
+      "description": "Returns g_CurrentShapeDbaContext (006c60e8). TSShapeInstance_Render (00490b10) saves it with this before installing the shape's bound DBA. DBSIM's counterpart of VSHELL's TSBase_GetActiveBitmapArray (00462967).",
+      "source": "DBSIM disassembly at 00490c3b: MOV EAX,[0x006c60e8]; RET"
+    },
+    {
+      "address": "00490c41",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShape_GetBoundBitmapArray",
+      "description": "(shape): returns the DBA bound to the shape at +0x26 (TSShape.boundBitmapArray in known_structs.json). The DBSIM copy of VSHELL's TSShape_GetBoundBitmapArray (0046296d).",
+      "source": "es2_naming.py match DBSIM VSHELL: EXACT pair with VSHELL 0046296d; DBSIM disassembly at 00490c41"
+    },
+    {
+      "address": "00490c4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_SetActiveBitmapArray",
+      "description": "g_CurrentShapeDbaContext (006c60e8) = the argument. TSShapeInstance_Render (00490b10) calls it to install the shape's bound DBA around TSPartList_Render and again to restore the saved one. DBSIM's counterpart of VSHELL's TSBase_SetActiveBitmapArray (00462978).",
+      "source": "DBSIM disassembly at 00490c4c: MOV [0x006c60e8],EAX; RET"
+    },
+    {
       "address": "00490cd0",
       "binary": "DBSIM",
       "type": "function",
@@ -27757,7 +27793,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_CurrentShapeDbaContext",
-      "description": "The bound DBA the poly renderers read. Four stores: ConfigPart_Render saves it, installs its object's +0x10 shape instance's +0x26 -- the same field as VSHELL's TSShapeInstance+0x26 bound DBA -- around a TSGroup_BindNodeTransform/TSPartList_Render render, and restores it; FUN_00490c4c sets it to its argument; TexPoly_DrawAtPoints (0042fa18) installs its own this+0x1a. g_CurrentShapeDbaContext[1] is the shape's bound DBA's 20-byte-stride frame-descriptor table, DBSIM's counterpart of VSHELL's g_ActiveBitmapArray[1]. TSTexture4Poly_Render (00474e9c) fetches a frame descriptor at g_CurrentShapeDbaContext[1] + frontValue*0x14 and takes its +0x10 (F4) as the atlas page (maybe_g_BitmapAtlasCache, 004d4f88) the fill samples. See docs/formats/dts-texture-binding.md.",
+      "description": "The bound DBA the poly renderers read. Four stores: ConfigPart_Render saves it, installs its object's +0x10 shape instance's +0x26 -- the same field as VSHELL's TSShapeInstance+0x26 bound DBA -- around a TSGroup_BindNodeTransform/TSPartList_Render render, and restores it; TSBase_SetActiveBitmapArray sets it to its argument; TexPoly_DrawAtPoints (0042fa18) installs its own this+0x1a. g_CurrentShapeDbaContext[1] is the shape's bound DBA's 20-byte-stride frame-descriptor table, DBSIM's counterpart of VSHELL's g_ActiveBitmapArray[1]. TSTexture4Poly_Render (00474e9c) fetches a frame descriptor at g_CurrentShapeDbaContext[1] + frontValue*0x14 and takes its +0x10 (F4) as the atlas page (maybe_g_BitmapAtlasCache, 004d4f88) the fill samples. See docs/formats/dts-texture-binding.md.",
       "source": "flat-shaded lighting RE"
     },
     {

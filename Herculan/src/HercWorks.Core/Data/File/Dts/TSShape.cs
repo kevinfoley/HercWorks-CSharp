@@ -3,7 +3,10 @@ using System.Text;
 
 namespace HercWorks.Core.Data.File.Dts;
 
-/// <summary>A shape root: a part list plus two per-shape <c>int16</c> arrays.</summary>
+/// <summary>
+/// A shape root: a part list, then the per-sequence frame counts and the shape's own node
+/// transforms. See docs/formats/dts-node-posing.md, "The shape's own node transforms".
+/// </summary>
 public class TSShape : TSPartList {
 	/// <summary>
 	/// Frame count per animation sequence (<c>shape+0x20</c>) — what a cell-animation counter is
@@ -11,8 +14,8 @@ public class TSShape : TSPartList {
 	/// </summary>
 	public short[]? SequenceList { get; set; }
 
-	/// <summary>Meaning not established; read and written back verbatim.</summary>
-	public short[]? TransformList { get; set; }
+	/// <summary>The shape's own node transforms (<c>shape+0x18</c>); empty in every retail model.</summary>
+	public TSShapeNodeTransform[]? NodeTransforms { get; set; }
 
 	public TSShape() : base(TSObjectHeader.TSShape) { }
 
@@ -35,11 +38,11 @@ public class TSShape : TSPartList {
 
 		str.Append(",\n");
 		str.Append("\"sequences\" : ").Append(ArrayToString(SequenceList)).Append(",\n");
-		str.Append("\"transforms\" : ").Append(ArrayToString(TransformList));
+		str.Append("\"nodeTransforms\" : ").Append(ArrayToString(NodeTransforms));
 
 		return str;
 	}
 
-	private static string ArrayToString(short[]? arr) =>
+	private static string ArrayToString<T>(T[]? arr) =>
 		arr == null ? "null" : "[" + string.Join(", ", arr) + "]";
 }

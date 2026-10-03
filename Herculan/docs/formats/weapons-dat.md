@@ -106,7 +106,7 @@ All six walk byte-exact against the retail files of both builds, in every langua
 
 `wpn_info.bin` is indexed by **`gam\arm_weap.dat`'s panel order, not by catalog id** — 26 slots of five strings each. Slot 0's five are `Type: Autocannon 20 mm`, `Range: 450 m Salvage Required: 5,000 kg`, an empty line, and two description lines. Their `Salvage Required` figures agree with this file's `0x14` price times 1000 for all 26 slots, which is what confirms both the indexing and the unit. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat).
 
-**The folder is the shell's language.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or `ger\` by `0048227a`, which `-f` and `-g` set ([`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)).
+**The folder is the shell's language.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or `ger\` by `Shell_Language` (`0048227a`), which `-f` and `-g` set ([`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)).
 
 **v1.0's `LANG0.VOL` is not localized.** Every entry — all six `.BIN` files and `CAMPAIGN.STR` — is byte-identical across the `ENG\`, `FRE\` and `GER\` directories, three copies of the English text. v1.10's `FRE\` and `GER\` translate `estext.bin`, `weapons.bin`, `wpn_desc.bin`, `wpn_info.bin` and `CAMPAIGN.STR`, and keep the English `esnames.bin` and `missions.bin`.
 

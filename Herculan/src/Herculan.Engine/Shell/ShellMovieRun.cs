@@ -17,7 +17,7 @@ public sealed class ShellMovieHooks {
 	/// <summary><c>Shell_SetPaletteScope</c> (<c>00439da0</c>): the scope's black fill below the strip, then the palette.</summary>
 	public required Action<int> SetPaletteScope { get; init; }
 
-	/// <summary>The frame's root (<c>DAT_004810e4</c>) repainted: its backdrop over the scope's fill.</summary>
+	/// <summary>The top-level window <c>Shell_TopWindow</c> (<c>004810e4</c>), which holds the frame's root, repainted: the root's backdrop over the scope's fill.</summary>
 	public required Action RepaintRoot { get; init; }
 
 	/// <summary>Whether the frame's full-screen panel (<c>ShellPanelWidget</c>) is up — the strip is showing.</summary>
@@ -47,6 +47,12 @@ public sealed class ShellMovieHooks {
 
 	/// <summary>A movie that could not be opened, or stopped on a frame it could not decode: its file name and why.</summary>
 	public Action<string, string>? Report { get; init; }
+
+	/// <summary>
+	/// <c>Shell_HasFocus</c> (<c>0046c094</c>): whether the shell's window has the focus. After each movie the run waits
+	/// until it does — docs/shell/startup.md#the-main-loop. Null counts as having it.
+	/// </summary>
+	public Func<bool>? HasFocus { get; init; }
 }
 
 /// <summary>
@@ -76,6 +82,7 @@ public sealed class ShellMovieRun : IDisposable {
 		Idle,
 		FadingOut,
 		Playing,
+		AwaitingFocus,
 		LocationFadeIn,
 		LocationFadeOut,
 		LocationHold,
@@ -174,9 +181,19 @@ public sealed class ShellMovieRun : IDisposable {
 
 				if (stopPressed || _player.IsFinished || _player.HasFailed) {
 					EndMovie();
-					if (AfterMovie()) {
+					if (!AwaitFocus() && AfterMovie()) {
 						FinishEntry();
 					}
+				}
+
+				return;
+			case Stage.AwaitingFocus:
+				if (!HasFocus()) {
+					return;
+				}
+
+				if (AfterMovie()) {
+					FinishEntry();
 				}
 
 				return;
@@ -228,7 +245,7 @@ public sealed class ShellMovieRun : IDisposable {
 				return;
 			}
 
-			if (!AfterMovie()) {
+			if (AwaitFocus() || !AfterMovie()) {
 				return;
 			}
 
@@ -268,6 +285,19 @@ public sealed class ShellMovieRun : IDisposable {
 		_player?.Stop(_audio);
 		_player?.Dispose();
 		_player = null;
+	}
+
+	private bool HasFocus() => _hooks.HasFocus?.Invoke() ?? true;
+
+	// Once Avi_Play has returned, or an entry's movie was skipped, the queue pumps messages until the shell has the
+	// focus. Returns whether the run now waits for it.
+	private bool AwaitFocus() {
+		if (HasFocus()) {
+			return false;
+		}
+
+		_stage = Stage.AwaitingFocus;
+		return true;
 	}
 
 	// Everything after Avi_Play returns, up to the location picture. Returns whether the entry is done;

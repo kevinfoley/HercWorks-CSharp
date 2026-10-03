@@ -272,7 +272,7 @@ for (int i = 0; i < args.Length; i++) {
 		shellWindowed = true;
 		runShell = true;
 	} else if (args[i] == "--shell-no-movies") {
-		// Turn the shell's movies off — retail's -a, which clears DAT_00482275 so the movie queue takes
+		// Turn the shell's movies off — retail's -a, which clears Shell_MoviesEnabled (00482275) so the movie queue takes
 		// nothing and plays nothing. See ShellMovieQueue.
 		shellMovies = false;
 		runShell = true;

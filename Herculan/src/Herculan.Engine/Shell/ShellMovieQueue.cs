@@ -83,12 +83,12 @@ public sealed class ShellMovieQueue {
 	private int _writeIndex;
 	private int _readIndex;
 
-	/// <param name="enabled">Whether movies are on, <c>DAT_00482275</c>, which <c>-a</c> clears.</param>
+	/// <param name="enabled">Whether movies are on, <c>Shell_MoviesEnabled</c> (<c>00482275</c>), which <c>-a</c> clears.</param>
 	public ShellMovieQueue(bool enabled = true) {
 		Enabled = enabled;
 	}
 
-	/// <summary><c>DAT_00482275</c>: while it is clear nothing is queued and nothing plays.</summary>
+	/// <summary><c>Shell_MoviesEnabled</c> (<c>00482275</c>): while it is clear nothing is queued and nothing plays.</summary>
 	public bool Enabled { get; }
 
 	/// <summary>

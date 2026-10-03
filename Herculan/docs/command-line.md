@@ -56,22 +56,22 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdow
 
 ## VSHELL
 
-`FUN_0040107c` (VSHELL) parses the switches; each accepts `-` or `/` and either case. `FUN_004073bc(0)` sets the option block to its defaults immediately before.
+`Shell_ParseCommandLine` (`0040107c`, VSHELL) parses the switches; each accepts `-` or `/` and either case, but `-@` and `-X`, which are tested in one case only. `EsGlobal_Init(0)` (`004073bc`) sets the switch block to its defaults immediately before ([`shell/startup.md`](shell/startup.md#the-startup--shell_main-00401525)).
 
 | Switch | Store | Effect |
 |---|---|---|
-| `-eggplant` | `0046c084` = 1 | Without it the shell shows "You cannot run this exe directly" and quits |
-| `-e…` other than `-eggplant` | `0048227a` = 3 | Language slot 3; see [Open](#open) |
-| `-f`, `-g` | `0048227a` = 1, 2 | French, German, over the value `FUN_004073bc` copies from [`prefs.cfg` byte 43](simulation/preferences.md#what-each-byte-is); what it selects is [`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)'s |
-| `-s` | `00482272` = 0 | No sound |
-| `-m` | `00482270` = 1 | No mouse |
-| `-k` | `00482271` = 0 | No keyboard |
-| `-X<n>` | `Shell_SetExitCode(n)` → `0046e210` | Copied into `0048227e` right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
-| `-r` | `0048227e` = 3 | Overwritten by the `-X` copy; no effect ([`shell/campaign-loop.md`](shell/campaign-loop.md#rejected-readings)) |
-| `-@` | `00482284` = 1 | The mission picker below |
-| `-a` | `00482275` = 0 | Turns the shell's movies off: [the movie queue](shell/screen-layout.md#the-shells-movies) takes nothing and plays nothing |
-| `-l` | `00482280` = 0 | Read only by the unreferenced function at `0042f2e8`; no effect |
-| `-v`, `-?` | `00482272` = 0 | `printf` the version or the usage text, turn sound off, and call `Shell_ShutdownDevicesAndSound` (`004092dc`). The parse runs before `Shell_Main` (`00401525`) builds `devices.cpp`'s viewport (`Devices_Init`, `0040db38`) and the sound manager, so that call releases nothing, and the parse goes on to the next argument |
+| `-eggplant` | `Shell_EggplantGiven` (`0046c084`) = 1 | Without it the shell shows "You cannot run this exe directly" and quits |
+| `-e…` other than `-eggplant` | `Shell_Language` (`0048227a`) = 3 | Language slot 3; see [Open](#open) |
+| `-f`, `-g` | `Shell_Language` = 1, 2 | French, German, over the value `EsGlobal_Init` copies from [`prefs.cfg` byte 43](simulation/preferences.md#what-each-byte-is); what it selects is [`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)'s |
+| `-s` | `Shell_SoundEnabled` (`00482272`) = 0 | No sound |
+| `-m` | `ShellSwitch_M` (`00482270`) = 1 | Read only by the unreferenced function at `0042f2e8`; no effect ([Rejected readings](#rejected-readings)) |
+| `-k` | `Shell_KeyboardEnabled` (`00482271`) = 0 | No keyboard: the startup builds no keyboard producer |
+| `-X<n>` | `Shell_SetExitCode(n)` → `0046e210` | Copied into `Shell_StartupCode` (`0048227e`) right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
+| `-r` | `Shell_StartupCode` = 3 | Overwritten by the `-X` copy; no effect ([`shell/campaign-loop.md`](shell/campaign-loop.md#rejected-readings)) |
+| `-@` | `Shell_MissionPickerEnabled` (`00482284`) = 1 | The mission picker below |
+| `-a` | `Shell_MoviesEnabled` (`00482275`) = 0 | Turns the shell's movies off: [the movie queue](shell/screen-layout.md#the-shells-movies) takes nothing and plays nothing |
+| `-l` | `ShellSwitch_L` (`00482280`) = 0 | Read only by the unreferenced function at `0042f2e8`; no effect |
+| `-v`, `-?` | `Shell_SoundEnabled` = 0 | `printf` the version or the usage text, turn sound off, and call `Shell_ShutdownDevicesAndSound` (`004092dc`). The parse runs before `Shell_Main` (`00401525`) builds `devices.cpp`'s viewport (`Devices_Init`, `0040db38`) and the sound manager, so that call releases nothing, and the parse goes on to the next argument |
 
 `-d`, tested separately in VSHELL's `Shell_WinMain` (`00406507`), clears `0046d740`, which the same function overwrites from `ShellOption_DisplayMode` before anything reads it.
 
@@ -145,7 +145,8 @@ Both steps start at 2000, entry 3 of both tables: the mech module's static initi
 
 | Reading | Why it is wrong |
 |---|---|
-| VSHELL launches DBSIM, from its own argument list `dummy -eggplant -Z -s -v3 -h -F -G -m -D`. | That list is in VSHELL's data, and a function at `0042f2e8` (VSHELL) builds an `argv` from it, appending `-D` when `00482282` is non-zero. Ghidra never disassembled that function, and `es2_xref.py` finds no branch or stored pointer reaching it. It returns without spawning anything. `ES.EXE` launches DBSIM, with its own list. |
+| VSHELL launches DBSIM, from its own argument list `dummy -eggplant -Z -s -v3 -h -F -G -m -D`. | That list is in VSHELL's data, and a function at `0042f2e8` (VSHELL) builds an `argv` from it, appending `-D` when `ShellSwitch_D` (`00482282`) is non-zero, and `-m` when `ShellSwitch_M` is. Ghidra never disassembled that function, and `es2_xref.py` finds no branch or stored pointer reaching it. It returns without spawning anything. `ES.EXE` launches DBSIM, with its own list. |
+| VSHELL's `-m` turns the mouse off. | The usage text says so (`-m -M /m /M Disables mouse`), and the parser's `-m` case does store 1 in `ShellSwitch_M`. `Shell_Main` (`00401525`) builds the mouse producer without testing it, and its one reader `es2_xref.py` finds is the unreferenced function at `0042f2e8`, which would pass `-m` on to DBSIM. |
 | The demo attract mode cannot be started, because the `-D` in VSHELL's list sits behind a flag nothing sets. | That list is the unreferenced one above. The main menu's `VIEW DEMO` button exits the shell with code 5, and `ES.EXE` answers 5 with `dbsim … -D`. |
 | `ES.EXE` passes `-SPRUNKNOWN` to DBSIM on every launch. | The string is in its simulator list, but the slot is conditional on `ES.EXE` having been given `-SPRUNKNOWN` itself. |
 

@@ -7,12 +7,22 @@
   ],
   "entries": [
     {
+      "address": "0040107c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_ParseCommandLine",
+      "description": "(argc, argv): for each argument from 1 that starts with '-' or '/', switches on its second character, either case except '@' and 'X': '?' prints the usage text and 'v' the version ('EarthSiege2 (Shell): %s', v1.0.0 Mar 8 1996), each clearing Shell_SoundEnabled and calling Shell_ShutdownDevicesAndSound; '@' sets Shell_MissionPickerEnabled; 'a' clears Shell_MoviesEnabled; 'e' sets Shell_EggplantGiven when the whole argument is '-eggplant' and Shell_Language = 3 otherwise; 'f' and 'g' set Shell_Language 1 and 2; 'k' clears Shell_KeyboardEnabled; 'l' clears ShellSwitch_L; 'm' sets ShellSwitch_M; 'r' sets Shell_StartupCode = 3; 's' clears Shell_SoundEnabled; 'X' passes atol of the rest to Shell_SetExitCode. Shell_Main calls it once, straight after EsGlobal_Init(0).",
+      "source": "docs/command-line.md#vshell",
+      "signature": "void __cdecl Shell_ParseCommandLine(int argc, char **argv)"
+    },
+    {
       "address": "004012b0",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "Shell_BuildScreensAndStart",
-      "description": "Builds every screen, starts the music, then by 0048227e: 3 or 4 (-X3/-X4) Game_LoadSlot(10), Game_ProcessMissionResults and a fade in; 6 (-X6, after a demo) a fade in, a blank, palette 1 and the startup sequence; anything else the two intro movies (0x44, 0x45), a blank, palette 1 and the startup sequence.",
+      "description": "Builds every screen, starts the music, then by Shell_StartupCode: 3 or 4 (-X3/-X4) Game_LoadSlot(10), Game_ProcessMissionResults and a fade in; 6 (-X6, after a demo) a fade in, a blank, palette 1 and the startup sequence; anything else the two intro movies (0x44, 0x45), a blank, palette 1 and the startup sequence.",
       "source": "docs/shell/campaign-loop.md"
     },
     {
@@ -30,8 +40,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Shell_Main",
-      "description": "The shell's WinMain body: allocates the shell pool, parses the command line and copies -X into 0048227e, refuses without -eggplant, opens the CD volume, loads the catalogs and the career table, builds the display root and cursors, starts the sound, runs Shell_BuildScreensAndStart, then loops the dispatcher, events, palette commit, dirty-list flush, Movie_PlayQueue(1) and ShellMap_RunIntro until WM_QUIT or Shell_QuitFlag, and on the way out autosaves slot 10 (Game_SaveSlot(10, NULL)).",
-      "source": "docs/shell/campaign-loop.md"
+      "description": "(argc, argv), from Shell_WinMain: the shell's startup and main loop. Allocates the shell pool (Shell_PoolSize), reads drive.cfg, EsGlobal_Init(0), Shell_ParseCommandLine, copies -X into Shell_StartupCode, checks for 256 colours, refuses without -eggplant (Shell_EggplantGiven), reads Sierra.ini's VideoSpeed unless option 47 is set, scans the volumes, quits without avi\\\\pt1.avi on the disc, then Devices_Init, EsGlobal_Init(1), the game state, catalogs, career table and map resources, WinEvents_Init, the display (Shell_Display), the two cursors, the root's handler (RootWindow_DiscardEvent), the input consumer and producers, the top-level window (Shell_TopWindow) and the sound. Then Shell_BuildScreensAndStart and the main loop: while Shell_HasFocus is set, Dispatcher_RunQueue, Shell_PumpEvents, Shell_CommitPalette, DirtyList_Flush, Movie_PlayQueue(1), Shell_MainLoopStarted = 1, ShellMap_RunIntro, the break assert, mono output and QuitAlert's repaint, each stage stopping on Shell_QuitFlag; until WM_QUIT or Shell_QuitFlag. On the way out Game_SaveSlot(10, NULL), the producers and window deleted, ShellMap_ReleaseResources, Shell_ShutdownDevicesAndSound, the pool freed and PostQuitMessage.",
+      "source": "docs/shell/startup.md"
     },
     {
       "address": "00401cf4",
@@ -39,7 +49,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Shell_RunFrames",
-      "description": "Runs up to 24 shell frames, stopping early when the quit flag 0046c074 is set or Shell_PumpMessages sees WM_QUIT. Each frame, when 0046c094 is set: Dispatcher_RunQueue on 004810f4 with all masks, Shell_PumpEvents, Shell_CommitPalette and DirtyList_Flush on the screen object at [004810f0]. Called from Game_ProcessMissionResults and the main menu's Credits, Instant Action and View Demo handlers, among others.",
+      "description": "Runs up to 24 shell frames, stopping early when the quit flag Shell_QuitFlag is set or Shell_PumpMessages sees WM_QUIT. Each frame, when Shell_HasFocus is set: Dispatcher_RunQueue on Shell_Dispatcher with all masks, Shell_PumpEvents, Shell_CommitPalette and DirtyList_Flush on the screen object at [Shell_Display]. Called from Game_ProcessMissionResults and the main menu's Credits, Instant Action and View Demo handlers, among others.",
       "source": "VSHELL decompile and disassembly at 00401cf4"
     },
     {
@@ -50,6 +60,16 @@
       "name": "Shell_BusyWaitSeconds",
       "description": "Spins on GetTickCount for the argument in seconds, pumping nothing. Movie_PlayQueue holds the location picture up with it for 2.",
       "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00401d77",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RootWindow_DiscardEvent",
+      "description": "(event): deletes the event through its vtable +0x18 with 3, after adding Rtl_GetPolymorphicDtorCount to the destructor count -- what Window_DispatchCallback does itself for a widget with no handler. Shell_Main installs it as the display root's handler (+0x3d) and adds 0x60 to the root's event mask, so an event that climbs to the root is dropped there.",
+      "source": "docs/shell/startup.md#the-startup--shell_main-00401525",
+      "signature": "void __cdecl RootWindow_DiscardEvent(int *event)"
     },
     {
       "address": "00401dd0",
@@ -336,7 +356,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ClassItem_RegisterBucket",
-      "description": "(entries, count): appends an {entries, count} bucket to VshellClassItem_RegistryBuckets (count at 0046d1cc) unless count is 0. The static initialisers at 004529b8, 0045fa04 (g_TSObjectTypeRegistry), 0046370c and 00468168 register their class-item tables with it. The VSHELL copy of DBSIM's ClassItem_RegisterBucket (00479fac).",
+      "description": "(entries, count): appends an {entries, count} bucket to VshellClassItem_RegistryBuckets (count at 0046d1cc) unless count is 0. The static initialisers at 004529b8, 0045fa04 (g_TSObjectTypeRegistry), 0046370c and WinEvents_Init register their class-item tables with it. The VSHELL copy of DBSIM's ClassItem_RegisterBucket (00479fac).",
       "source": "VSHELL decompile at 00403b98; es2_naming.py diff against DBSIM 00479fac"
     },
     {
@@ -651,7 +671,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SfxTimer_Kill",
-      "description": "KillTimer on the shell's sound-service timer: the 15 ms timer (id 1, callback sfxWndProc) that Display_Init creates on window 00481e54 and whose id it keeps at 00481e4c; nothing when that id is 0. Display_ToggleFullScreen calls it.",
+      "description": "KillTimer on the shell's sound-service timer: the 15 ms timer (id 1, callback sfxWndProc) that Display_Init creates on window MainWindow_Handle and whose id it keeps at 00481e4c; nothing when that id is 0. Display_ToggleFullScreen calls it.",
       "source": "VSHELL decompile and disassembly at 004062b0"
     },
     {
@@ -696,8 +716,17 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_PresentRect",
-      "description": "(destPoint, srcRect): copies a rectangle of the 8-bit back buffer to the screen. Without DirectDraw (00481e68 clear): BitBlt from the memory DC 00481878 with the palette 00481870 selected, inside BeginPaint/EndPaint. With DirectDraw: restores a lost primary surface (00481e5c), locks it and copies rows from the back buffer 0048186c (dimensions at [00481864]), clamped to 640x480.",
+      "description": "(destPoint, srcRect): copies a rectangle of the 8-bit back buffer to the screen. Without DirectDraw (Display_FullScreen clear): BitBlt from the memory DC 00481878 with the palette 00481870 selected, inside BeginPaint/EndPaint. With DirectDraw: restores a lost primary surface (00481e5c), locks it and copies rows from the back buffer 0048186c (dimensions at [00481864]), clamped to 640x480.",
       "source": "VSHELL decompile and disassembly at 0040664a"
+    },
+    {
+      "address": "004068d6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_PresentWhole",
+      "description": "Display_PresentRect of the whole shell bitmap: the rect {0, 0, width, height} from the bitmap header at [00481864] (a negative extent taken as its magnitude) at the origin. MainWndProc runs it on WM_PAINT while Shell_PresentEnabled is set and no movie plays, and on WM_SETFOCUS when 0046d744 is set and a movie plays.",
+      "source": "VSHELL decompile of 004068d6 and MainWndProc"
     },
     {
       "address": "00406964",
@@ -732,7 +761,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_RealizePalette",
-      "description": "(palette): does nothing unless 0046c080 is set. Counts its calls at 0046db80 (Mono_Printf '%d times in realize palette'), converts the palette's 256 entries (+8) to RGBQUADs as DBSIM's Screen_SetPalette does (flags bit 0: 6-bit, shifted left 2; otherwise copied only with flags bit 1), runs Palette_ClearSystemPalette, makes Palette_CreateForDisplay(quads, 256) the palette 00481870, selects and realizes it on the screen DC and sets the DIB colour table of 00481878. Full screen (00481e68) it also flags entries 10-245 5, creates a DirectDraw palette (IDirectDraw slot +0x14, flags 0x4c) into 00481e64 and sets it on the primary 00481e5c (slot +0x7c), asserting 'create pal failed' (winstuff.cpp) on failure. Palette_ApplyToDisplay calls it.",
+      "description": "(palette): does nothing unless Shell_PresentEnabled is set. Counts its calls at 0046db80 (Mono_Printf '%d times in realize palette'), converts the palette's 256 entries (+8) to RGBQUADs as DBSIM's Screen_SetPalette does (flags bit 0: 6-bit, shifted left 2; otherwise copied only with flags bit 1), runs Palette_ClearSystemPalette, makes Palette_CreateForDisplay(quads, 256) the palette 00481870, selects and realizes it on the screen DC and sets the DIB colour table of 00481878. Full screen (Display_FullScreen) it also flags entries 10-245 5, creates a DirectDraw palette (IDirectDraw slot +0x14, flags 0x4c) into 00481e64 and sets it on the primary 00481e5c (slot +0x7c), asserting 'create pal failed' (winstuff.cpp) on failure. Palette_ApplyToDisplay calls it.",
       "source": "VSHELL decompile at 00406c4d"
     },
     {
@@ -750,7 +779,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_CreateDirectDrawExclusive",
-      "description": "DirectDrawCreate into 00481e58, then IDirectDraw::SetCooperativeLevel (vtable +0x50) with the window 00481e54 and flags 0x17 (FULLSCREEN | ALLOWREBOOT | NOWINDOWCHANGES | EXCLUSIVE). Returns 1 when both succeed, else 0. Display_ToggleFullScreen calls it on the way into full screen.",
+      "description": "DirectDrawCreate into 00481e58, then IDirectDraw::SetCooperativeLevel (vtable +0x50) with the window MainWindow_Handle and flags 0x17 (FULLSCREEN | ALLOWREBOOT | NOWINDOWCHANGES | EXCLUSIVE). Returns 1 when both succeed, else 0. Display_ToggleFullScreen calls it on the way into full screen.",
       "source": "VSHELL decompile at 00406eb5"
     },
     {
@@ -777,7 +806,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_ToggleFullScreen",
-      "description": "Flips the shell between windowed and full screen (flag 00481e68, which Display_PresentRect branches on). Entering: an exclusive DirectDraw object (00406eb5), a display mode of the back buffer's size at 8 bits and the primary surface (00406eeb), a topmost window with its frame pushed off the screen, the first and last ten palette entries flagged 5 and a palette (IDirectDraw slot +0x14) set on the primary surface (slot +0x7c), the cursor clipped to the screen and centred; on failure 004062b0 and PostQuitMessage. Leaving: clears those palette flags, releases the DirectDraw objects (00407011) and re-centres the window at its framed size. Behaviour and callers: docs/shell/screen-layout.md.",
+      "description": "Flips the shell between windowed and full screen (flag Display_FullScreen, which Display_PresentRect branches on). Entering: an exclusive DirectDraw object (00406eb5), a display mode of the back buffer's size at 8 bits and the primary surface (00406eeb), a topmost window with its frame pushed off the screen, the first and last ten palette entries flagged 5 and a palette (IDirectDraw slot +0x14) set on the primary surface (slot +0x7c), the cursor clipped to the screen and centred; on failure 004062b0 and PostQuitMessage. Leaving: clears those palette flags, releases the DirectDraw objects (00407011) and re-centres the window at its framed size. Behaviour and callers: docs/shell/screen-layout.md.",
       "source": "VSHELL decompile and disassembly at 00407085"
     },
     {
@@ -786,7 +815,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_LeaveFullScreen",
-      "description": "Display_ToggleFullScreen when full screen (00481e68 set), otherwise nothing. Callers: Movie_PlayQueue, OnlineManual_Open, StartupAnim_OnTick, ShellSound_Init.",
+      "description": "Display_ToggleFullScreen when full screen (Display_FullScreen set), otherwise nothing. Callers: Movie_PlayQueue, OnlineManual_Open, StartupAnim_OnTick, ShellSound_Init.",
       "source": "VSHELL decompile and disassembly at 0040722e"
     },
     {
@@ -795,7 +824,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Shell_BlankScreen",
-      "description": "Fills the window with palette index 0: windowed, zeroes the shell bitmap and StretchBlts 10x10 of it over the client rect; full screen (DAT_00481e68), locks the primary surface and zeroes every row. QUIT's handler calls it.",
+      "description": "Fills the window with palette index 0: windowed, zeroes the shell bitmap and StretchBlts 10x10 of it over the client rect; full screen (Display_FullScreen), locks the primary surface and zeroes every row. QUIT's handler calls it.",
       "source": "docs/shell/screen-layout.md#quit"
     },
     {
@@ -806,6 +835,16 @@
       "name": "Shell_OpenHelp",
       "description": "WinHelpA(main window, path, HELP_CONTENTS, 0).",
       "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "004073bc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EsGlobal_Init",
+      "description": "esglobal.cpp's init, by stage. Stage 0, before the command line is parsed: the switch block's defaults -- ShellSwitch_M 0, Shell_KeyboardEnabled 1, Shell_SoundEnabled 1, Shell_MoviesEnabled 1, ShellSwitch_L 1, ShellSwitch_D 0, Shell_MissionPickerEnabled 0 -- and copies of prefs.cfg options 0, 1, 2 and 43 into Shell_MusicOptionCopy, Shell_SoundsOptionCopy, Shell_PilotMessageOptionCopy and Shell_Language; then Shell_MonoPrintAudioOptions and Shell_SetExitCode(0). Stage 1, once the volume group and devices are up: palette 1 installed and committed, dfn\\font2.dfn loaded twice (ShellFont2HandleA, ShellFont2HandleB) and dfn\\black.dfn (ShellButtonFontHandle) through Path_InExtensionFolder and Util_LoadFont, dbm\\bay2a_84.dbm (ShellBackdropBitmap) through Util_LoadDBM, each asserted non-null (src\\esglobal.cpp lines 0x57-0x62), bin\\estext.bin opened (EsTextBinHandle), the shell generator 00482325 seeded with GetTickCount() & 0x7f steps, and 00482397 set. Shell_Main calls it with 0 and with 1; any other stage does nothing.",
+      "source": "docs/shell/startup.md#the-startup--shell_main-00401525",
+      "signature": "void __cdecl EsGlobal_Init(short stage)"
     },
     {
       "address": "004075b2",
@@ -826,6 +865,15 @@
       "source": "docs/shell/screen-layout.md#the-palette"
     },
     {
+      "address": "004076ff",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_MonoPrintAudioOptions",
+      "description": "Prints the three audio options EsGlobal_Init(0) copied to the mono debug monitor at column 0: 'Music: OFF'/'Music: ON' on row 10 from Shell_MusicOptionCopy, 'Sound FX: OFF'/'ON' on row 11 from Shell_SoundsOptionCopy, and on row 12 'Speech: TEXT ONLY', 'VOICE ONLY' or 'TEXT & VOICE' for Shell_PilotMessageOptionCopy 0, 1 or 2 (nothing for any other value).",
+      "source": "VSHELL decompile at 004076ff"
+    },
+    {
       "address": "0040779f",
       "binary": "VSHELL",
       "type": "function",
@@ -840,7 +888,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Memory_Init",
-      "description": "Initialises a src\\mymem.cpp pool over a caller-supplied buffer: (pool, size, buffer). Stores base and size, makes the whole buffer one free block of size & ~7 tagged 'KLBF', and sets the free and lowest-free byte counts to that size. The pool object (e.g. 0048239c): +0 base, +4 byte size, +8 free-list head, +0xc free bytes, +0x10 lowest free bytes seen. Every block starts with an 8-byte header: an allocated block holds 'KLBA' (0x41424c4b) at +0 and its size including the header at +4, the caller's data at +8; a free block holds the next free block at +0, its size at +4 and 'KLBF' (0x46424c4b) at +8. Called once at startup (00401576) for the shell pool 0048239c, with a buffer of [0046c090] bytes from Mem_NewArray.",
+      "description": "Initialises a src\\mymem.cpp pool over a caller-supplied buffer: (pool, size, buffer). Stores base and size, makes the whole buffer one free block of size & ~7 tagged 'KLBF', and sets the free and lowest-free byte counts to that size. The pool object (e.g. 0048239c): +0 base, +4 byte size, +8 free-list head, +0xc free bytes, +0x10 lowest free bytes seen. Every block starts with an 8-byte header: an allocated block holds 'KLBA' (0x41424c4b) at +0 and its size including the header at +4, the caller's data at +8; a free block holds the next free block at +0, its size at +4 and 'KLBF' (0x46424c4b) at +8. Called once at startup (00401576) for the shell pool 0048239c, with a buffer of [Shell_PoolSize] bytes from Mem_NewArray.",
       "source": "VSHELL decompile and disassembly at 004077c5"
     },
     {
@@ -1024,6 +1072,15 @@
       "source": "VSHELL decompile and disassembly at 00408324"
     },
     {
+      "address": "0040832a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Util_LoadFont",
+      "description": "utility.cpp's loadFont (assert 'loadFont: No name passed'): (path) opens the path as a VolRStream, asserts that it opened (line 0x2f, the path as the message), reads one class item from it with VshellClassItem_LoadItem, closes and destroys the stream, and returns the item. EsGlobal_Init loads the shell's three fonts with it.",
+      "source": "VSHELL decompile at 0040832a; docs/shell/screen-layout.md#what-the-whole-front-end-shares"
+    },
+    {
       "address": "004083e2",
       "binary": "VSHELL",
       "type": "function",
@@ -1200,7 +1257,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinConsumer_Ctor",
-      "description": "WinConsumer constructor (vtable 0046e7d0 at +4, RTTI name 'WinConsumer', 0x10 bytes): (this, owner) runs the base EventConsumer_Ctor, sets +0xe = 6 and +0xc = 8. Shell_Main builds it with the owner 004810f4, as it does the two producers.",
+      "description": "WinConsumer constructor (vtable 0046e7d0 at +4, RTTI name 'WinConsumer', 0x10 bytes): (this, owner) runs the base EventConsumer_Ctor, sets +0xe = 6 and +0xc = 8. Shell_Main builds it with the owner Shell_Dispatcher, as it does the two producers.",
       "source": "VSHELL decompile at 004093b4; RTTI at vtable-0xc"
     },
     {
@@ -1209,7 +1266,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinConsumer_HandleEvent",
-      "description": "WinConsumer vtable 0046e7d0 slot 0 (consumer, event): traces the event to the mono debug monitor (Mono_Printf: cursor position, event type, then Mouse/Key/Command type) and turns command events (0x100) into pointer actions by the code at +0x24: 4/5/6/7 move the pointer 8 pixels left, up, right and down (Display_GetCursorPos, then Pointer_MoveTo); 10 posts a left-down mouse event (sub-code 2) and 0x1d a left-up (1) at the pointer state's position (DAT_005ddbd0 +1) through Event_Post; 0x11 runs Pointer_Unlock and Alert_Show(QuitAlert). Then posts the event on with Event_Post.",
+      "description": "WinConsumer vtable 0046e7d0 slot 0 (consumer, event): traces the event to the mono debug monitor (Mono_Printf: cursor position, event type, then Mouse/Key/Command type) and turns command events (0x100) into pointer actions by the code at +0x24: 4/5/6/7 move the pointer 8 pixels left, up, right and down (Display_GetCursorPos, then Pointer_MoveTo); 10 posts a left-down mouse event (sub-code 2) and 0x1d a left-up (1) at the pointer state's position (g_EventQueue +1) through Event_Post; 0x11 runs Pointer_Unlock and Alert_Show(QuitAlert). Then posts the event on with Event_Post.",
       "source": "VSHELL decompile of 004093e6; vtable 0046e7d0 (RTTI WinConsumer)"
     },
     {
@@ -1641,7 +1698,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ESDialog_HandleEvent",
-      "description": "The edit field's event handler (vtable 0046edc8 slot 0). Acts on the left press only (sub-code 2), with no +0x49 or DAT_00470d70/DAT_00470e70 test. With the focus flag +0xa7 clear it installs a 500/500 WinTimer alarm, sets the pointer lock (DAT_005ddbd0 +0x1f), sets +0xa7, repaints and runs Window_DispatchCallback. With +0xa7 set it clears it, removes the alarm, releases the lock (Pointer_Unlock), sends a leave, re-hit-tests with Pointer_Enter(0) and re-posts the press (Event_Post) with its target cleared, so the press lands on whatever is under the pointer. Event 0x40 (a key) and 0x100 (a command: 1 backspace, 4 left, 0x0a enter) edit the string; 0x10 removes the alarm.",
+      "description": "The edit field's event handler (vtable 0046edc8 slot 0). Acts on the left press only (sub-code 2), with no +0x49 or DAT_00470d70/DAT_00470e70 test. With the focus flag +0xa7 clear it installs a 500/500 WinTimer alarm, sets the pointer lock (g_EventQueue +0x1f), sets +0xa7, repaints and runs Window_DispatchCallback. With +0xa7 set it clears it, removes the alarm, releases the lock (Pointer_Unlock), sends a leave, re-hit-tests with Pointer_Enter(0) and re-posts the press (Event_Post) with its target cleared, so the press lands on whatever is under the pointer. Event 0x40 (a key) and 0x100 (a command: 1 backspace, 4 left, 0x0a enter) edit the string; 0x10 removes the alarm.",
       "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
     },
     {
@@ -1695,7 +1752,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ESAnim_HandleEvent",
-      "description": "ESAnim vtable 0046ee4c slot 0 (widget, event). Event 1 (show): WinTimer_InstallAlarm(DAT_005ddbd4, widget, 500, 500, 0). Event 2 (hide): WinTimer_RemoveAlarms. Event 4: ESAnim_Paint. Event 0x200 (timer) while not hidden (+0x11 bit 2 clear): advances the frame +0x49, wrapping to 0 at the count +0x4d, and paints. Deletes the event through its vtable +0x18. Unlike ESAnim2_HandleEvent it fires no callback.",
+      "description": "ESAnim vtable 0046ee4c slot 0 (widget, event). Event 1 (show): WinTimer_InstallAlarm(g_WinTimer, widget, 500, 500, 0). Event 2 (hide): WinTimer_RemoveAlarms. Event 4: ESAnim_Paint. Event 0x200 (timer) while not hidden (+0x11 bit 2 clear): advances the frame +0x49, wrapping to 0 at the count +0x4d, and paints. Deletes the event through its vtable +0x18. Unlike ESAnim2_HandleEvent it fires no callback.",
       "source": "VSHELL decompile of 0040c727; vtable 0046ee4c (RTTI ESAnim)"
     },
     {
@@ -1859,6 +1916,33 @@
       "name": "TextBox_PageDown",
       "description": "On one page while the box is shown and not on the last.",
       "source": "docs/shell/screen-layout.md#the-mission-screen"
+    },
+    {
+      "address": "0040d280",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Str_ReplaceFirstChar",
+      "description": "(str, ch, replacement): strchr(str, ch), and when found writes replacement over it. Path_SetExtension calls it with '.' and 0 to cut a name at its extension.",
+      "source": "VSHELL decompile at 0040d280"
+    },
+    {
+      "address": "0040d2a7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_SetExtension",
+      "description": "(name, ext): copies name into the static buffer 004823bc, cuts it at its first '.' (Str_ReplaceFirstChar), appends '.' and ext, and returns the buffer.",
+      "source": "VSHELL decompile at 0040d2a7"
+    },
+    {
+      "address": "0040d2e7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Path_InExtensionFolder",
+      "description": "(name, ext): the resource path ext + '\\\\' + name.ext, built in the static buffer 004823da from Path_SetExtension(name, ext), and returned. EsGlobal_Init builds dfn\\\\font2.dfn, dfn\\\\black.dfn and dbm\\\\bay2a_84.dbm with it, ext being 'dfn' (0046f020) or 'dbm' (0046f01c).",
+      "source": "VSHELL decompile at 0040d2e7 and EsGlobal_Init"
     },
     {
       "address": "0040d327",
@@ -3288,7 +3372,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Career_StartMissionLoad",
-      "description": "Shows the mission-name dialog with the career position's name and, unless 00482284 is set, posts a press and a release to its Use Default button.",
+      "description": "Shows the mission-name dialog with the career position's name and, unless Shell_MissionPickerEnabled is set, posts a press and a release to its Use Default button.",
       "source": "docs/shell/screen-layout.md#starting-a-practice-mission"
     },
     {
@@ -3909,7 +3993,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Msn_LoadEngText",
-      "description": "Loads the mission's .eng (.fre/.ger by 0048227a) between rows 2 and 3: condition-filtered, a repeated id replacing the text. DAT_00470664 is the count kept.",
+      "description": "Loads the mission's .eng (.fre/.ger by Shell_Language) between rows 2 and 3: condition-filtered, a repeated id replacing the text. DAT_00470664 is the count kept.",
       "source": "docs/formats/msn-mission-file.md"
     },
     {
@@ -3992,6 +4076,15 @@
       "name": "Msn_LoadDebrief",
       "description": "(missionPath) Msn_LoadDebriefRows, then row 5's first slot handed by value to Career_SetDebriefLines -- its thirty mission.str lines and its row-3 value, the debrief movie -- and the load's arrays freed (MsnGen_FreeRows (0041c28f)). Called only from Career_Advance, for the mission at the career position before it advances.",
       "source": "docs/formats/msn-mission-file.md#row-5--the-debrief"
+    },
+    {
+      "address": "0041d3b8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PtrVector_Ctor",
+      "description": "(vector, growBy): zeroes the count (+0), +4 and the data pointer (+10), stores the int16 grow step at +8 and counts the object live (*Rtl_DtorCountPtr). EventQueue_Ctor builds its queue (+0x11) with a step of 5.",
+      "source": "VSHELL decompile at 0041d3b8"
     },
     {
       "address": "0041d409",
@@ -4089,7 +4182,7 @@
       "type": "function",
       "confidence": "high",
       "name": "EventBase_Dtor",
-      "description": "EventBase vtable 00470c18 slot +0x18 (event, flags): decrements the live-object counter at *005ddec0, restores the vtable, then Mem_Delete when flags bit 0 is set. The event handlers delete every event they consume through this slot.",
+      "description": "EventBase vtable 00470c18 slot +0x18 (event, flags): decrements the live-object counter at *Rtl_DtorCountPtr, restores the vtable, then Mem_Delete when flags bit 0 is set. The event handlers delete every event they consume through this slot.",
       "source": "VSHELL decompile of 0041d728"
     },
     {
@@ -4314,7 +4407,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Movie_Enqueue",
-      "description": "Adds a movie to the ten-entry ring at 00485668 at write index DAT_00470e6c, when movies are on (DAT_00482275) and the id is not already queued: the id, a rect, a palette index (0xffff for none), a flag that ends the run on the campaign map's location tab, and a callback run after it. Movie_PlayQueue plays the ring.",
+      "description": "Adds a movie to the ten-entry ring at 00485668 at write index DAT_00470e6c, when movies are on (Shell_MoviesEnabled) and the id is not already queued: the id, a rect, a palette index (0xffff for none), a flag that ends the run on the campaign map's location tab, and a callback run after it. Movie_PlayQueue plays the ring.",
       "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
     },
     {
@@ -4494,7 +4587,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellCursor_Ctor",
-      "description": "Cursor object: vtable 00471844, the HCURSOR at +4. Built twice at startup around GetCursor() into DAT_004810e8 and DAT_004810ec.",
+      "description": "Cursor object: vtable 00471844, the HCURSOR at +4. Built twice at startup around GetCursor() into Shell_RootCursor and Shell_HotspotCursor.",
       "source": "docs/shell/screen-layout.md#the-pointer"
     },
     {
@@ -4574,7 +4667,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinWin95Display_SetCursorPos",
-      "description": "WinWin95Display vtable 004717ec slot +0x10 (display, point): ClientToScreen on the main window (DAT_00481e54), then SetCursorPos. Pointer_MoveTo calls it.",
+      "description": "WinWin95Display vtable 004717ec slot +0x10 (display, point): ClientToScreen on the main window (MainWindow_Handle), then SetCursorPos. Pointer_MoveTo calls it.",
       "source": "VSHELL decompile of 0041facc"
     },
     {
@@ -4583,7 +4676,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinWin95Display_GetCursorPos",
-      "description": "WinWin95Display vtable 004717ec slot +0x14 (display, point): GetCursorPos, ScreenToClient on the main window (DAT_00481e54), stored to point. Display_GetCursorPos calls it.",
+      "description": "WinWin95Display vtable 004717ec slot +0x14 (display, point): GetCursorPos, ScreenToClient on the main window (MainWindow_Handle), stored to point. Display_GetCursorPos calls it.",
       "source": "VSHELL decompile of 0041fafe"
     },
     {
@@ -4619,7 +4712,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Map_Dtor",
-      "description": "Map destructor (camera, flags): decrements the live-object counter at *005ddec0, restores the Map vtable 0047195e, deletes the drawing context at +4 through its vtable +0x18 and the 3Space camera at +0xc through its slot 0 (each when set), then Mem_Delete when flags bit 0 is set. ShellMap_Dtor ends with it.",
+      "description": "Map destructor (camera, flags): decrements the live-object counter at *Rtl_DtorCountPtr, restores the Map vtable 0047195e, deletes the drawing context at +4 through its vtable +0x18 and the 3Space camera at +0xc through its slot 0 (each when set), then Mem_Delete when flags bit 0 is set. ShellMap_Dtor ends with it.",
       "source": "VSHELL decompile of 0041ff27"
     },
     {
@@ -4826,7 +4919,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartList_Ctor",
-      "description": "TSPartList constructor (vtable 00471ab8, RTTI 'TSPartList', 0x16 bytes): stamps ClassItem, TSBase, TSPartBase and its own vtable in turn, counting each level at *005ddec0, and clears the child count +0x10 and the child array +0x12. TSPartList_Construct, TSCellAnimPart_Construct, TSShape_Ctor, TSDetailPart_Ctor and TSBSPPart_Ctor run it. DBSIM's is TSPartList_Ctor (00476604).",
+      "description": "TSPartList constructor (vtable 00471ab8, RTTI 'TSPartList', 0x16 bytes): stamps ClassItem, TSBase, TSPartBase and its own vtable in turn, counting each level at *Rtl_DtorCountPtr, and clears the child count +0x10 and the child array +0x12. TSPartList_Construct, TSCellAnimPart_Construct, TSShape_Ctor, TSDetailPart_Ctor and TSBSPPart_Ctor run it. DBSIM's is TSPartList_Ctor (00476604).",
       "source": "VSHELL decompile of 00421f48"
     },
     {
@@ -4835,7 +4928,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartList_Dtor",
-      "description": "TSPartList vtable 00471ab8 slot +0x18 (list, flags): decrements *005ddec0, restores the vtable, deletes each child of the array +0x12 (count +0x10) through its vtable +0x18 with 3, frees the array, decrements once more for TSPartBase, TSBase_Dtor(list, 0), then Mem_Delete when flags bit 0 is set. The derived parts' destructors chain to it.",
+      "description": "TSPartList vtable 00471ab8 slot +0x18 (list, flags): decrements *Rtl_DtorCountPtr, restores the vtable, deletes each child of the array +0x12 (count +0x10) through its vtable +0x18 with 3, frees the array, decrements once more for TSPartBase, TSBase_Dtor(list, 0), then Mem_Delete when flags bit 0 is set. The derived parts' destructors chain to it.",
       "source": "VSHELL decompile of 00421f8b"
     },
     {
@@ -4889,7 +4982,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSDetailPart_Dtor",
-      "description": "TSDetailPart vtable 00471a84 slot +0x18 (part, flags): decrements *005ddec0, restores the vtable, frees the size list +0x16, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSDetailPart vtable 00471a84 slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the size list +0x16, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 00422191"
     },
     {
@@ -4916,7 +5009,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBSPPart_Dtor",
-      "description": "TSBSPPart vtable 00471a50 slot +0x18 (part, flags): decrements *005ddec0, restores the vtable, frees +0x18 and +0x1c, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSBSPPart vtable 00471a50 slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees +0x18 and +0x1c, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004222fa"
     },
     {
@@ -4997,7 +5090,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_Ctor",
-      "description": "TSGroup constructor (vtable 00471bf4, RTTI 'TSGroup', 0x28 bytes): stamps ClassItem, TSBase, TSPartBase and its own vtable, counting each level at *005ddec0, and clears the index list +0x10, the point list +0x14, the colour list +0x18 and the item list +0x1c. TSGroup_Construct and TSBSPGroup_Ctor run it.",
+      "description": "TSGroup constructor (vtable 00471bf4, RTTI 'TSGroup', 0x28 bytes): stamps ClassItem, TSBase, TSPartBase and its own vtable, counting each level at *Rtl_DtorCountPtr, and clears the index list +0x10, the point list +0x14, the colour list +0x18 and the item list +0x1c. TSGroup_Construct and TSBSPGroup_Ctor run it.",
       "source": "VSHELL decompile of 0042337d"
     },
     {
@@ -5006,7 +5099,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_Dtor",
-      "description": "TSGroup vtable 00471bf4 slot +0x18 (group, flags): decrements *005ddec0, restores the vtable, frees the index, point and colour lists, deletes each item of +0x1c (count +0x26) through its vtable +0x18 with 3, frees that list, decrements for TSPartBase, TSBase_Dtor(group, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSGroup vtable 00471bf4 slot +0x18 (group, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the index, point and colour lists, deletes each item of +0x1c (count +0x26) through its vtable +0x18 with 3, frees that list, decrements for TSPartBase, TSBase_Dtor(group, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004233c9"
     },
     {
@@ -5033,7 +5126,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBSPGroup_Dtor",
-      "description": "TSBSPGroup vtable 00471bc0 slot +0x18 (group, flags): decrements *005ddec0, restores the vtable, frees the nodes +0x2a, TSGroup_Dtor(group, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSBSPGroup vtable 00471bc0 slot +0x18 (group, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the nodes +0x2a, TSGroup_Dtor(group, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004235f0"
     },
     {
@@ -5366,7 +5459,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSLight_Dtor",
-      "description": "TSLight vtable 00472188 slot 0, the destructor (light, flags): decrements *005ddec0, destroys the member at +0x1e with TSContext_Dtor(+0x1e, 2) and the light itself with TSContext_Dtor(light, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSLight vtable 00472188 slot 0, the destructor (light, flags): decrements *Rtl_DtorCountPtr, destroys the member at +0x1e with TSContext_Dtor(+0x1e, 2) and the light itself with TSContext_Dtor(light, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 00427e02; vtable 00472188 (RTTI TSLight)"
     },
     {
@@ -5375,7 +5468,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSSunLight_Dtor",
-      "description": "TSSunLight vtable 0047219c slot 0 (light, flags): when light is set, decrements *005ddec0 twice (its own level and TSLight's), destroys the TSContext member at +0x1e with TSContext_Dtor(+0x1e, 2) and the light with TSContext_Dtor(light, 0), then Mem_Delete when flags bit 0 is set. ShellMap_Constructor builds the map's sun as one, with +0x16 = 1.",
+      "description": "TSSunLight vtable 0047219c slot 0 (light, flags): when light is set, decrements *Rtl_DtorCountPtr twice (its own level and TSLight's), destroys the TSContext member at +0x1e with TSContext_Dtor(+0x1e, 2) and the light with TSContext_Dtor(light, 0), then Mem_Delete when flags bit 0 is set. ShellMap_Constructor builds the map's sun as one, with +0x16 = 1.",
       "source": "VSHELL decompile of 00427e3d and 00423f43"
     },
     {
@@ -5501,7 +5594,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HeightGrid_Dtor",
-      "description": "HeightGrid vtable 00472470 slot +0x18 (grid, flags): decrements *005ddec0, restores the vtable, frees the array at +0xec when set, decrements once more and runs TSBase_Dtor on the height offset table at +0xd0 (the VectorTable HeightGrid_Ctor builds there), then TSBase_Dtor(grid, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "HeightGrid vtable 00472470 slot +0x18 (grid, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the array at +0xec when set, decrements once more and runs TSBase_Dtor on the height offset table at +0xd0 (the VectorTable HeightGrid_Ctor builds there), then TSBase_Dtor(grid, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 0042878b"
     },
     {
@@ -5546,7 +5639,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sfx_Construct",
-      "description": "(sfx): clears the file and sample tables (+0x34, +0x38), the voice counts (+0x3c, +0x40) and the bytes cached (+0x1c), sets defaults, and reads [Sound] from data\\sound.cfg: Driver (read, then +0x2a set to 1 regardless), Buffers into +0x30 (1-64, else 5), Rate 11 giving +0x24 = 0x10 and anything else 0x20, and Width 'Mono' giving +0x28 = 4 and anything else 8. Increments the count at *005ddec0. ShellSound_Init constructs the shell's SFX with it before Sfx_Init.",
+      "description": "(sfx): clears the file and sample tables (+0x34, +0x38), the voice counts (+0x3c, +0x40) and the bytes cached (+0x1c), sets defaults, and reads [Sound] from data\\sound.cfg: Driver (read, then +0x2a set to 1 regardless), Buffers into +0x30 (1-64, else 5), Rate 11 giving +0x24 = 0x10 and anything else 0x20, and Width 'Mono' giving +0x28 = 4 and anything else 8. Increments the count at *Rtl_DtorCountPtr. ShellSound_Init constructs the shell's SFX with it before Sfx_Init.",
       "source": "VSHELL decompile at 0042bf3d; strings at 0047250b-00472550"
     },
     {
@@ -5888,7 +5981,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellSound_Init",
-      "description": "Creates the shell's sound manager at 004731f0 unless -s cleared 00482272: loads hmi\\gm_69.wav (press), hmi\\bptlt2.wav (tab click), hmi\\lswitch2.wav (startup switch) and hmi\\shell1.wav or shell2.wav by option 5, flips option 5 and saves prefs.cfg, sets the music looping forever at the music volume.",
+      "description": "Creates the shell's sound manager at 004731f0 unless -s cleared Shell_SoundEnabled: loads hmi\\gm_69.wav (press), hmi\\bptlt2.wav (tab click), hmi\\lswitch2.wav (startup switch) and hmi\\shell1.wav or shell2.wav by option 5, flips option 5 and saves prefs.cfg, sets the music looping forever at the music volume.",
       "source": "docs/shell/screen-layout.md#sound"
     },
     {
@@ -6095,7 +6188,7 @@
       "type": "function",
       "confidence": "high",
       "name": "StartupAnim_OnTick",
-      "description": "Handler of the startup sequence widget (DAT_0048d0c0), run on every alarm tick: plays ShellSound_PlaySwitch on its first run (DAT_00473608) and, once the widget's +0x6d reaches 5, hides it and calls MainMenu_Show, once only (DAT_00473604); with DAT_0046c088 set also puts up the Performance Note message box.",
+      "description": "Handler of the startup sequence widget (DAT_0048d0c0), run on every alarm tick: plays ShellSound_PlaySwitch on its first run (DAT_00473608) and, once the widget's +0x6d reaches 5, hides it and calls MainMenu_Show, once only (DAT_00473604); with Shell_PerformanceNotePending set also puts up the Performance Note message box.",
       "source": "docs/shell/screen-layout.md#the-main-menu"
     },
     {
@@ -6518,7 +6611,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SaveScreen_BeginRename",
-      "description": "Returns at once when the rename state is 0. Otherwise posts an event at the selected row, moves the pointer onto it (Pointer_SetTarget, 00469cbc) and locks it there (+0x1f of DAT_005ddbd0), sets the row's caret flags +0xbf and +0xb3, rewrites the row as '%2d. ' with the name blanked, lights CANCEL and ACCEPT, and sets the rename state to 2.",
+      "description": "Returns at once when the rename state is 0. Otherwise posts an event at the selected row, moves the pointer onto it (Pointer_SetTarget, 00469cbc) and locks it there (+0x1f of g_EventQueue), sets the row's caret flags +0xbf and +0xb3, rewrites the row as '%2d. ' with the name blanked, lights CANCEL and ACCEPT, and sets the rename state to 2.",
       "source": "docs/shell/screen-layout.md#saving-is-a-rename"
     },
     {
@@ -7779,7 +7872,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow00",
-      "description": "Armory row 0's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(0) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(0); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 0's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(0) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(0); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow00(int *event)"
     },
@@ -7789,7 +7882,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow01",
-      "description": "Armory row 1's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(1) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(1); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 1's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(1) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(1); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow01(int *event)"
     },
@@ -7799,7 +7892,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow02",
-      "description": "Armory row 2's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(2) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(2); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 2's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(2) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(2); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow02(int *event)"
     },
@@ -7809,7 +7902,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow03",
-      "description": "Armory row 3's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(3) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(3); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 3's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(3) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(3); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow03(int *event)"
     },
@@ -7819,7 +7912,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow04",
-      "description": "Armory row 4's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(4) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(4); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 4's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(4) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(4); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow04(int *event)"
     },
@@ -7829,7 +7922,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow05",
-      "description": "Armory row 5's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(5) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(5); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 5's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(5) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(5); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow05(int *event)"
     },
@@ -7839,7 +7932,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow06",
-      "description": "Armory row 6's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(6) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(6); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 6's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(6) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(6); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow06(int *event)"
     },
@@ -7849,7 +7942,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow07",
-      "description": "Armory row 7's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(7) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(7); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 7's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(7) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(7); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow07(int *event)"
     },
@@ -7859,7 +7952,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow08",
-      "description": "Armory row 8's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(8) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(8); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 8's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(8) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(8); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow08(int *event)"
     },
@@ -7869,7 +7962,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow09",
-      "description": "Armory row 9's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(9) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(9); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 9's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(9) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(9); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow09(int *event)"
     },
@@ -7879,7 +7972,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow10",
-      "description": "Armory row 10's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(10) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(10); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 10's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(10) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(10); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow10(int *event)"
     },
@@ -7889,7 +7982,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow11",
-      "description": "Armory row 11's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(11) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(11); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 11's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(11) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(11); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow11(int *event)"
     },
@@ -7899,7 +7992,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow12",
-      "description": "Armory row 12's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(12) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(12); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 12's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(12) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(12); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow12(int *event)"
     },
@@ -7909,7 +8002,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow13",
-      "description": "Armory row 13's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(13) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(13); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 13's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(13) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(13); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow13(int *event)"
     },
@@ -7919,7 +8012,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow14",
-      "description": "Armory row 14's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(14) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(14); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 14's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(14) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(14); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow14(int *event)"
     },
@@ -7929,7 +8022,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow15",
-      "description": "Armory row 15's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(15) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(15); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 15's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(15) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(15); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow15(int *event)"
     },
@@ -7939,7 +8032,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow16",
-      "description": "Armory row 16's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(16) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(16); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 16's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(16) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(16); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow16(int *event)"
     },
@@ -7949,7 +8042,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow17",
-      "description": "Armory row 17's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(17) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(17); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 17's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(17) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(17); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow17(int *event)"
     },
@@ -7959,7 +8052,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow18",
-      "description": "Armory row 18's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(18) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(18); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 18's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(18) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(18); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow18(int *event)"
     },
@@ -7969,7 +8062,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow19",
-      "description": "Armory row 19's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(19) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(19); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 19's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(19) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(19); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow19(int *event)"
     },
@@ -7979,7 +8072,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow20",
-      "description": "Armory row 20's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(20) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(20); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 20's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(20) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(20); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow20(int *event)"
     },
@@ -7989,7 +8082,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow21",
-      "description": "Armory row 21's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(21) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(21); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 21's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(21) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(21); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow21(int *event)"
     },
@@ -7999,7 +8092,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow22",
-      "description": "Armory row 22's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(22) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(22); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 22's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(22) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(22); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow22(int *event)"
     },
@@ -8009,7 +8102,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow23",
-      "description": "Armory row 23's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(23) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(23); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 23's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(23) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(23); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow23(int *event)"
     },
@@ -8019,7 +8112,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow24",
-      "description": "Armory row 24's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(24) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(24); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 24's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(24) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(24); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow24(int *event)"
     },
@@ -8029,7 +8122,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_OnRow25",
-      "description": "Armory row 25's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(25) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(25); then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Armory row 25's click handler, one of 26 identical thunks in ArmoryRowHandlers: Armory_ClickRow(25) when the event's button byte +0x24 is 1 (left), else Armory_RightClickRow(25); then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-and-queueing",
       "signature": "void __cdecl Armory_OnRow25(int *event)"
     },
@@ -8102,7 +8195,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow0",
-      "description": "Practice row 0's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(0), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 0's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(0), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow0(int *event)"
     },
@@ -8112,7 +8205,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow1",
-      "description": "Practice row 1's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(1), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 1's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(1), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow1(int *event)"
     },
@@ -8122,7 +8215,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow2",
-      "description": "Practice row 2's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(2), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 2's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(2), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow2(int *event)"
     },
@@ -8132,7 +8225,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow3",
-      "description": "Practice row 3's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(3), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 3's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(3), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow3(int *event)"
     },
@@ -8142,7 +8235,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow4",
-      "description": "Practice row 4's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(4), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 4's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(4), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow4(int *event)"
     },
@@ -8152,7 +8245,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow5",
-      "description": "Practice row 5's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(5), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 5's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(5), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow5(int *event)"
     },
@@ -8162,7 +8255,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow6",
-      "description": "Practice row 6's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(6), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 6's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(6), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow6(int *event)"
     },
@@ -8172,7 +8265,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PracticeScreen_OnRow7",
-      "description": "Practice row 7's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(7), then deletes the event (Rtl_GetPolymorphicDtorCount into [005ddec0], virtual dtor +0x18 with 3).",
+      "description": "Practice row 7's click handler, one of eight identical thunks in PracticeScreen_RowHandlers: PracticeScreen_SelectRow(7), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
       "source": "docs/shell/screen-layout.md#selecting-a-mission",
       "signature": "void __cdecl PracticeScreen_OnRow7(int *event)"
     },
@@ -8344,7 +8437,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Assert_Ctor",
-      "description": "(assert): Assert_Emit(0, 1, 0, 0, 0), counts the object live (*005ddec0) and returns it. Assert_StaticInit builds the shell's assert logger 0048dc24 with it. The VSHELL copy of DBSIM's 00479aec.",
+      "description": "(assert): Assert_Emit(0, 1, 0, 0, 0), counts the object live (*Rtl_DtorCountPtr) and returns it. Assert_StaticInit builds the shell's assert logger g_AssertLogger with it. The VSHELL copy of DBSIM's 00479aec.",
       "source": "VSHELL decompile and disassembly at 0044de50; es2_naming.py match against DBSIM 00479aec"
     },
     {
@@ -8362,7 +8455,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Assert_Report",
-      "description": "The entry behind every src\\*.cpp assert: (logger 0048dc24, severity, condition, __FILE__, __LINE__, message). Severities 4-6 run the hooks (Assert_RunHooks), emit, and _exit(1); lower severities only emit.",
+      "description": "The entry behind every src\\*.cpp assert: (logger g_AssertLogger, severity, condition, __FILE__, __LINE__, message). Severities 4-6 run the hooks (Assert_RunHooks), emit, and _exit(1); lower severities only emit.",
       "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
     },
     {
@@ -8380,7 +8473,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Assert_StaticInit",
-      "description": "Static initialiser: Assert_Ctor on the shell's assert logger 0048dc24, the one Assert_Report reports through.",
+      "description": "Static initialiser: Assert_Ctor on the shell's assert logger g_AssertLogger, the one Assert_Report reports through.",
       "source": "VSHELL decompile at 0044df94"
     },
     {
@@ -9352,7 +9445,7 @@
       "type": "function",
       "confidence": "high",
       "name": "BuffWStream_Dtor",
-      "description": "BuffWStream vtable 0047aa0c slot 0 (stream, flags): decrements *005ddec0, restores the vtable, BuffWStream_Close, frees the buffer +0x12 when the stream owns it (+0xd), Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "BuffWStream vtable 0047aa0c slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, restores the vtable, BuffWStream_Close, frees the buffer +0x12 when the stream owns it (+0xd), Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 0044fd08"
     },
     {
@@ -9469,7 +9562,7 @@
       "type": "function",
       "confidence": "high",
       "name": "BuffRStream_Dtor",
-      "description": "BuffRStream vtable 0047aa34 slot 0 (stream, flags): decrements *005ddec0, restores the vtable, BuffRStream_ReleaseSource, frees the buffer +0x14 when the stream owns it (+0x18), Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "BuffRStream vtable 0047aa34 slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, restores the vtable, BuffRStream_ReleaseSource, frees the buffer +0x14 when the stream owns it (+0x18), Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 0045007c"
     },
     {
@@ -9955,7 +10048,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLViewport_Dtor",
-      "description": "GLViewport vtable 0047bc28 slot +0x18, the destructor (viewport, flags): decrements the live-object counter at *005ddec0, GLBase_Dtor(viewport, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the camera's context through this slot. Ghidra had no function here.",
+      "description": "GLViewport vtable 0047bc28 slot +0x18, the destructor (viewport, flags): decrements the live-object counter at *Rtl_DtorCountPtr, GLBase_Dtor(viewport, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the camera's context through this slot. Ghidra had no function here.",
       "source": "VSHELL disassembly at 00452943; vtable 0047bc28 (RTTI GLViewport)"
     },
     {
@@ -10198,7 +10291,7 @@
       "type": "function",
       "confidence": "high",
       "name": "RLERStream_Dtor",
-      "description": "RLERStream vtable 0047a70c slot 0 (stream, flags): decrements *005ddec0, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here, which is why the dump's table at 0047a710 starts one slot late.",
+      "description": "RLERStream vtable 0047a70c slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here, which is why the dump's table at 0047a710 starts one slot late.",
       "source": "capstone disassembly of 00453620; vtable 0047a70c (RTTI RLERStream)"
     },
     {
@@ -10207,7 +10300,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MemRWStream_Dtor",
-      "description": "MemRWStream vtable 0047a6e4 slot 0 (stream, flags): decrements *005ddec0, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here, which is why the dump's table at 0047a6e8 starts one slot late.",
+      "description": "MemRWStream vtable 0047a6e4 slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here, which is why the dump's table at 0047a6e8 starts one slot late.",
       "source": "capstone disassembly of 004536a1; vtable 0047a6e4 (RTTI MemRWStream)"
     },
     {
@@ -10333,7 +10426,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLPalette_Dtor",
-      "description": "GLPalette vtable 0047bf10 slot +0x18 (palette, flags): decrements *005ddec0, restores the vtable, frees the array +8 when the int16 +4 is non-zero, and when +0xc is non-zero frees the first dword of each of its 8-byte entries at +0x10 and then the array; GLBase_Dtor(palette, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "GLPalette vtable 0047bf10 slot +0x18 (palette, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the array +8 when the int16 +4 is non-zero, and when +0xc is non-zero frees the first dword of each of its 8-byte entries at +0x10 and then the array; GLBase_Dtor(palette, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 00453a18; vtable 0047bf10 (RTTI GLPalette)"
     },
     {
@@ -10414,7 +10507,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLFont_Dtor",
-      "description": "GLFont vtable 0047bf68 slot +0x18 (font, flags): decrements the live-object counter at *005ddec0, restores GLFont_Vtable, frees each block GLFont_ReadFromStream allocated (+0x1e when +0x18 is non-zero, +0x22 when +0x1a is, +0x26 when +4 is, +0x2a when +0xc is -1, +0x2e when +8 is -1) with Mem_DeleteArray, GLBase_Dtor(font, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "GLFont vtable 0047bf68 slot +0x18 (font, flags): decrements the live-object counter at *Rtl_DtorCountPtr, restores GLFont_Vtable, frees each block GLFont_ReadFromStream allocated (+0x1e when +0x18 is non-zero, +0x22 when +0x1a is, +0x26 when +4 is, +0x2a when +0xc is -1, +0x2e when +8 is -1) with Mem_DeleteArray, GLBase_Dtor(font, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 00453eb8"
     },
     {
@@ -10801,7 +10894,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLRectangleRegion_Dtor",
-      "description": "GLRectangleRegion vtable 0047c020 slot +0x18 (region, flags): decrements *005ddec0 twice (its own level and GLRegion's), GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "GLRectangleRegion vtable 0047c020 slot +0x18 (region, flags): decrements *Rtl_DtorCountPtr twice (its own level and GLRegion's), GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 00454d4d; vtable 0047c020 (RTTI GLRectangleRegion)"
     },
     {
@@ -10882,7 +10975,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLCursor_Dtor",
-      "description": "GLCursor vtable 0047c0fc slot +0x18 (cursor, flags): decrements *005ddec0, restores the vtable, deletes the bitmap +4 through its vtable +0x18 with 3, GLBase_Dtor(cursor, 0), then Mem_Delete when flags bit 0 is set. The VSHELL copy of DBSIM's GLCursor_Dtor (004834bc).",
+      "description": "GLCursor vtable 0047c0fc slot +0x18 (cursor, flags): decrements *Rtl_DtorCountPtr, restores the vtable, deletes the bitmap +4 through its vtable +0x18 with 3, GLBase_Dtor(cursor, 0), then Mem_Delete when flags bit 0 is set. The VSHELL copy of DBSIM's GLCursor_Dtor (004834bc).",
       "source": "VSHELL decompile of 0045501c"
     },
     {
@@ -10900,7 +10993,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLEdgeTableRegion_Dtor",
-      "description": "GLEdgeTableRegion vtable 0047c14c slot +0x18 (region, flags): decrements *005ddec0, restores the vtable, frees the table +8 when set, decrements once more for GLRegion, GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "GLEdgeTableRegion vtable 0047c14c slot +0x18 (region, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the table +8 when set, decrements once more for GLRegion, GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 0045515c"
     },
     {
@@ -10909,7 +11002,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLRegion_Dtor",
-      "description": "GLRegion vtable 0047c124 slot +0x18 (region, flags): decrements *005ddec0, GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "GLRegion vtable 0047c124 slot +0x18 (region, flags): decrements *Rtl_DtorCountPtr, GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 0045526c; vtable 0047c124 (RTTI GLRegion)"
     },
     {
@@ -11575,7 +11668,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLPrimitive_Dtor",
-      "description": "GLPrimitive vtable 0047be84 slot +0x18 (prim, flags): when set, decrements *005ddec0, GLBase_Dtor(prim, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "GLPrimitive vtable 0047be84 slot +0x18 (prim, flags): when set, decrements *Rtl_DtorCountPtr, GLBase_Dtor(prim, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 0045d957"
     },
     {
@@ -11611,7 +11704,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSContext_Dtor",
-      "description": "TSContext vtable 0047e9e1 slot 0, its only slot (context, flags): decrements the live-object counter at *005ddec0, restores the vtable, then Mem_Delete when flags bit 0 is set. TSCamera_Dtor, TSOrthoCamera_Dtor and the light destructors end with it. The VSHELL copy of DBSIM's TSContext_Dtor (0048bbb8).",
+      "description": "TSContext vtable 0047e9e1 slot 0, its only slot (context, flags): decrements the live-object counter at *Rtl_DtorCountPtr, restores the vtable, then Mem_Delete when flags bit 0 is set. TSCamera_Dtor, TSOrthoCamera_Dtor and the light destructors end with it. The VSHELL copy of DBSIM's TSContext_Dtor (0048bbb8).",
       "source": "VSHELL decompile of 0045da24; es2_naming.py diff VSHELL 0045da24 DBSIM 0048bbb8"
     },
     {
@@ -11674,7 +11767,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBase_Dtor",
-      "description": "TSBase destructor: decrements the live-object counter at *005ddec0, restores vtable 0047f858 and frees the object with Mem_Delete when flag & 1. Constructors such as TSSolidPoly_Construct install 0047f834 then 0047f858 then their own vtable, the same chain as DBSIM's 004a6a08 then TSBase's 004a6a2c, and the body matches DBSIM's TSBase_Dtor. The derived destructors chain to it, 21 direct call sites.",
+      "description": "TSBase destructor: decrements the live-object counter at *Rtl_DtorCountPtr, restores vtable 0047f858 and frees the object with Mem_Delete when flag & 1. Constructors such as TSSolidPoly_Construct install 0047f834 then 0047f858 then their own vtable, the same chain as DBSIM's 004a6a08 then TSBase's 004a6a2c, and the body matches DBSIM's TSBase_Dtor. The derived destructors chain to it, 21 direct call sites.",
       "source": "VSHELL decompile and disassembly at 0045db7c; vtable chain compared with DBSIM's TSBase_Dtor"
     },
     {
@@ -11836,7 +11929,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSCamera_Dtor",
-      "description": "TSCamera vtable 0047e9d1 slot 0, its only slot (camera, flags): decrements *005ddec0, TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the map's camera through it. Ghidra had no function here.",
+      "description": "TSCamera vtable 0047e9d1 slot 0, its only slot (camera, flags): decrements *Rtl_DtorCountPtr, TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the map's camera through it. Ghidra had no function here.",
       "source": "capstone disassembly of 0045f63e; vtable 0047e9d1 (RTTI TSCamera)"
     },
     {
@@ -12124,7 +12217,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSOrthoCamera_Dtor",
-      "description": "TSOrthoCamera vtable 0047e9c1 slot 0 (camera, flags): decrements *005ddec0 twice (its own level and TSCamera's), TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSOrthoCamera vtable 0047e9c1 slot 0 (camera, flags): decrements *Rtl_DtorCountPtr twice (its own level and TSCamera's), TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 0045f9a6; vtable 0047e9c1 (RTTI TSOrthoCamera)"
     },
     {
@@ -12664,7 +12757,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroupItem_Dtor",
-      "description": "TSGroupItem vtable 0047ee64 slot +0x18 (item, flags): decrements *005ddec0, TSBase_Dtor(item, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSGroupItem vtable 0047ee64 slot +0x18 (item, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(item, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 00460e83; vtable 0047ee64 (RTTI TSGroupItem)"
     },
     {
@@ -12691,7 +12784,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSAliasGouraudPoly_Dtor",
-      "description": "TSAliasGouraudPoly vtable 0047ed30 slot +0x18 (poly, flags): decrements *005ddec0 five times, once per level from TSAliasGouraudPoly down to TSGroupItem, TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSAliasGouraudPoly vtable 0047ed30 slot +0x18 (poly, flags): decrements *Rtl_DtorCountPtr five times, once per level from TSAliasGouraudPoly down to TSGroupItem, TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 00461326; vtable 0047ed30 (RTTI TSAliasGouraudPoly)"
     },
     {
@@ -12745,7 +12838,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSSolidPoly_Dtor",
-      "description": "TSSolidPoly slot +0x18 (poly, flags): decrements *005ddec0 once per level from TSSolidPoly down to TSGroupItem (three), TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSSolidPoly slot +0x18 (poly, flags): decrements *Rtl_DtorCountPtr once per level from TSSolidPoly down to TSGroupItem (three), TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004614c0"
     },
     {
@@ -12754,7 +12847,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPoly_Dtor",
-      "description": "TSPoly vtable 0047ee90 slot +0x18 (poly, flags): decrements the live-object counter at *005ddec0 once for TSPoly and once for TSGroupItem, TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSPoly vtable 0047ee90 slot +0x18 (poly, flags): decrements the live-object counter at *Rtl_DtorCountPtr once for TSPoly and once for TSGroupItem, TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004614fb"
     },
     {
@@ -12763,7 +12856,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSNullObj_Dtor",
-      "description": "TSNullObj slot +0x18 (obj, flags): decrements *005ddec0, TSBase_Dtor(obj, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSNullObj slot +0x18 (obj, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(obj, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 0046152f"
     },
     {
@@ -13177,7 +13270,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSCellAnimPart_Dtor",
-      "description": "TSCellAnimPart vtable 0047f12c slot +0x18 (part, flags): decrements *005ddec0, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSCellAnimPart vtable 0047f12c slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 0046264a; vtable 0047f12c (RTTI TSCellAnimPart)"
     },
     {
@@ -13186,7 +13279,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBitmapPart_Dtor",
-      "description": "TSBitmapPart vtable 0047f160 slot +0x18 (part, flags): when part is set, decrements *005ddec0 twice (its own level and TSPartBase's), TSBase_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSBitmapPart vtable 0047f160 slot +0x18 (part, flags): when part is set, decrements *Rtl_DtorCountPtr twice (its own level and TSPartBase's), TSBase_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 00462677"
     },
     {
@@ -13204,7 +13297,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSShape_Dtor",
-      "description": "TSShape vtable 0047f1c1 slot +0x18 (shape, flags): decrements *005ddec0, restores the vtable, frees +0x20, +0x1c and +0x18, TSPartList_Dtor(shape, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSShape vtable 0047f1c1 slot +0x18 (shape, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees +0x20, +0x1c and +0x18, TSPartList_Dtor(shape, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004626dc"
     },
     {
@@ -13231,7 +13324,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSShapeInstance_Dtor",
-      "description": "TSShapeInstance vtable 0047f195 slot +0x18 (inst, flags): decrements *005ddec0, restores the vtable, frees the frame copy +8, TSBase_Dtor(inst, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "TSShapeInstance vtable 0047f195 slot +0x18 (inst, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the frame copy +8, TSBase_Dtor(inst, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 00462854"
     },
     {
@@ -13492,7 +13585,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ANShapeInstance_Dtor",
-      "description": "ANShapeInstance vtable 0047f420 slot +0x18 (inst, flags): decrements *005ddec0, restores the vtable, frees +0xe, +0x12 and +0x16, TSShapeInstance_Dtor(inst, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "ANShapeInstance vtable 0047f420 slot +0x18 (inst, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees +0xe, +0x12 and +0x16, TSShapeInstance_Dtor(inst, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004631bc"
     },
     {
@@ -13888,7 +13981,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartBase_Dtor",
-      "description": "TSPartBase vtable 0047f0f8 slot +0x18 (part, flags): decrements *005ddec0, TSBase_Dtor(part, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSPartBase vtable 0047f0f8 slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(part, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 00464683; vtable 0047f0f8 (RTTI TSPartBase)"
     },
     {
@@ -13933,7 +14026,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ANShape_Dtor",
-      "description": "ANShape vtable 0047f684 slot +0x18 (shape, flags): decrements *005ddec0, TSShape_Dtor(shape, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "ANShape vtable 0047f684 slot +0x18 (shape, flags): decrements *Rtl_DtorCountPtr, TSShape_Dtor(shape, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 0046493c; vtable 0047f684 (RTTI ANShape)"
     },
     {
@@ -13942,7 +14035,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ANAnimList_Dtor",
-      "description": "ANAnimList vtable 0047f6b8 slot +0x18 (list, flags): when list is set, decrements *005ddec0, TSBase_Dtor(list, 0), then Mem_Delete when flags bit 0 is set. Its arrays sit in the arena and are not freed here.",
+      "description": "ANAnimList vtable 0047f6b8 slot +0x18 (list, flags): when list is set, decrements *Rtl_DtorCountPtr, TSBase_Dtor(list, 0), then Mem_Delete when flags bit 0 is set. Its arrays sit in the arena and are not freed here.",
       "source": "VSHELL decompile of 00464969"
     },
     {
@@ -13951,7 +14044,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ANCyclicSequence_Dtor",
-      "description": "ANCyclicSequence vtable 0047f6e4 slot +0x18 (sequence, flags): when set, decrements *005ddec0 twice (its own level and ANSequence's), TSBase_Dtor(sequence, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "ANCyclicSequence vtable 0047f6e4 slot +0x18 (sequence, flags): when set, decrements *Rtl_DtorCountPtr twice (its own level and ANSequence's), TSBase_Dtor(sequence, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 00464996"
     },
     {
@@ -13960,7 +14053,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ANSequence_Dtor",
-      "description": "ANSequence vtable 0047f720 slot +0x18 (sequence, flags): when set, decrements *005ddec0, TSBase_Dtor(sequence, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "ANSequence vtable 0047f720 slot +0x18 (sequence, flags): when set, decrements *Rtl_DtorCountPtr, TSBase_Dtor(sequence, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 004649ca"
     },
     {
@@ -14635,7 +14728,7 @@
       "type": "function",
       "confidence": "high",
       "name": "VectorTable_Dtor",
-      "description": "VectorTable vtable 0047f884 slot +0x18 (table, flags): decrements *005ddec0, TSBase_Dtor(table, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "VectorTable vtable 0047f884 slot +0x18 (table, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(table, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
       "source": "capstone disassembly of 00468103; vtable 0047f884 (RTTI VectorTable)"
     },
     {
@@ -14653,8 +14746,17 @@
       "type": "function",
       "confidence": "high",
       "name": "Shell_PumpEvents",
-      "description": "Timer_Tick on the timer list at [005ddbd4], then EventQueue_Pump on [005ddbd0].",
+      "description": "Timer_Tick on the timer list at [g_WinTimer], then EventQueue_Pump on [g_EventQueue].",
       "source": "VSHELL decompile and disassembly at 0046814c"
+    },
+    {
+      "address": "00468168",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinEvents_Init",
+      "description": "Registers the six window-event classes' class-item bucket (0047f9f4, count [0047fa3c] = 6: WinEvent, WinMouseEvent, WinScrollEvent, WinKeyEvent, WinCommandEvent and WinTimerEvent, tags 0x5a0000-0x5a0005) with ClassItem_RegisterBucket, builds the event queue (0x20 bytes, EventQueue_Ctor) into g_EventQueue and the WinTimer (0x149 bytes, WinTimer_Ctor) into g_WinTimer, and zeroes Pointer_FracX and Pointer_FracY. Shell_Main calls it once, after the catalogs and before the display is built.",
+      "source": "docs/shell/startup.md#the-startup--shell_main-00401525"
     },
     {
       "address": "00468224",
@@ -14662,7 +14764,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Pointer_MoveTo",
-      "description": "(point): when the point lies inside the display root (Display_GetRoot, Window_ContainsPoint), posts a mouse move (WinMouseEvent, sub-code 0) at it for Display_Current to the event queue (EventQueue_Append on DAT_005ddbd0), moves the system cursor there through the display's vtable +0x10 and zeroes DAT_005ddc18 and DAT_005ddc1c. WinConsumer_HandleEvent's cursor-key commands use it.",
+      "description": "(point): when the point lies inside the display root (Display_GetRoot, Window_ContainsPoint), posts a mouse move (WinMouseEvent, sub-code 0) at it for Display_Current to the event queue (EventQueue_Append on g_EventQueue), moves the system cursor there through the display's vtable +0x10 and zeroes Pointer_FracX and Pointer_FracY. WinConsumer_HandleEvent's cursor-key commands use it.",
       "source": "VSHELL decompile of 00468224"
     },
     {
@@ -14725,7 +14827,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_HopTo",
-      "description": "(display, point): moves the pointer onto another display: runs slot +0x1c of the outgoing display's vtable (at +1), wraps point into the outgoing display's extents and rescales it to the new one's, makes display Display_Current, runs its +0x10 with the point and +0x18, and clears 005ddc18/005ddc1c. Event_Post calls it at an edge.",
+      "description": "(display, point): moves the pointer onto another display: runs slot +0x1c of the outgoing display's vtable (at +1), wraps point into the outgoing display's extents and rescales it to the new one's, makes display Display_Current, runs its +0x10 with the point and +0x18, and clears Pointer_FracX/Pointer_FracY. Event_Post calls it at an edge.",
       "source": "VSHELL decompile at 00468710"
     },
     {
@@ -14743,7 +14845,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinEvent_Dtor",
-      "description": "WinEvent vtable 0047fe20 slot +0x18 (event, flags): decrements *005ddec0, restores the vtable, EventBase_Dtor(event, 0), then Mem_Delete when flags bit 0 is set. The derived events' destructors chain to it.",
+      "description": "WinEvent vtable 0047fe20 slot +0x18 (event, flags): decrements *Rtl_DtorCountPtr, restores the vtable, EventBase_Dtor(event, 0), then Mem_Delete when flags bit 0 is set. The derived events' destructors chain to it.",
       "source": "VSHELL decompile; vtable 0047fe20 (RTTI WinEvent)"
     },
     {
@@ -14824,7 +14926,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinMouseEvent_Dtor",
-      "description": "WinMouseEvent vtable 0047fdf4 slot +0x18 (event, flags): decrements *005ddec0, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "WinMouseEvent vtable 0047fdf4 slot +0x18 (event, flags): decrements *Rtl_DtorCountPtr, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile; vtable 0047fdf4 (RTTI WinMouseEvent)"
     },
     {
@@ -14905,7 +15007,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinScrollEvent_Dtor",
-      "description": "WinScrollEvent vtable 0047fdc8 slot +0x18 (event, flags): decrements *005ddec0, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "WinScrollEvent vtable 0047fdc8 slot +0x18 (event, flags): decrements *Rtl_DtorCountPtr, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile; vtable 0047fdc8 (RTTI WinScrollEvent)"
     },
     {
@@ -14986,7 +15088,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinKeyEvent_Dtor",
-      "description": "WinKeyEvent vtable 0047fd9c slot +0x18 (event, flags): decrements *005ddec0, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "WinKeyEvent vtable 0047fd9c slot +0x18 (event, flags): decrements *Rtl_DtorCountPtr, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile; vtable 0047fd9c (RTTI WinKeyEvent)"
     },
     {
@@ -15067,7 +15169,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinCommandEvent_Dtor",
-      "description": "WinCommandEvent vtable 0047fd70 slot +0x18 (event, flags): decrements *005ddec0, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "WinCommandEvent vtable 0047fd70 slot +0x18 (event, flags): decrements *Rtl_DtorCountPtr, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile; vtable 0047fd70 (RTTI WinCommandEvent)"
     },
     {
@@ -15148,7 +15250,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinTimerEvent_Dtor",
-      "description": "WinTimerEvent vtable 0047fd44 slot +0x18 (event, flags): decrements *005ddec0, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
+      "description": "WinTimerEvent vtable 0047fd44 slot +0x18 (event, flags): decrements *Rtl_DtorCountPtr, restores the vtable, WinEvent_Dtor(event, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile; vtable 0047fd44 (RTTI WinTimerEvent)"
     },
     {
@@ -15215,12 +15317,21 @@
       "source": "VSHELL decompile; vtable 0047fd44 (RTTI WinTimerEvent)"
     },
     {
+      "address": "00469b00",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EventQueue_Ctor",
+      "description": "(queue): the event queue and pointer state at g_EventQueue. PtrVector_Ctor(+0x11, 5), zeroes +1, +5, +9 and +0xd and the pointer lock +0x1f, and counts three class levels live (*Rtl_DtorCountPtr). It writes no vtable. EventQueue_Append, EventQueue_Pump and the Pointer_* functions work on the object.",
+      "source": "VSHELL decompile and disassembly at 00469b00"
+    },
+    {
       "address": "00469b68",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "EventQueue_Append",
-      "description": "(queue, event): PtrVector_Append(queue+0x11, event); when that fails, counts 0048dc28 and Assert_Report (include\\WHANDLER.H line 0x43). Event_Post and Pointer_MoveTo append to 005ddbd0 with it.",
+      "description": "(queue, event): PtrVector_Append(queue+0x11, event); when that fails, counts Assert_CheckCount and Assert_Report (include\\WHANDLER.H line 0x43). Event_Post and Pointer_MoveTo append to g_EventQueue with it.",
       "source": "VSHELL decompile at 00469b68"
     },
     {
@@ -15247,7 +15358,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Pointer_Unlock",
-      "description": "Clears the pointer lock, +0x1f of the pointer state at DAT_005ddbd0, and hit-tests again at the last position, sending a leave and an enter if the target changed. While the lock is set EventQueue_Pump skips the hit test and every mouse event goes to the current target; ESDialog_HandleEvent, SaveScreen_BeginRename (004377d2) and 0043bc0a set it.",
+      "description": "Clears the pointer lock, +0x1f of the pointer state at g_EventQueue, and hit-tests again at the last position, sending a leave and an enter if the target changed. While the lock is set EventQueue_Pump skips the hit test and every mouse event goes to the current target; ESDialog_HandleEvent, SaveScreen_BeginRename (004377d2) and 0043bc0a set it.",
       "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
     },
     {
@@ -15314,12 +15425,21 @@
       "source": "VSHELL decompile at 0046a000"
     },
     {
+      "address": "0046a070",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinTimer_Ctor",
+      "description": "(timer): the WinTimer at g_WinTimer: zeroes its twenty 16-byte alarm records (+1), the alarm count +0x141, and stores GetTickCount at +0x145. WinTimer_InstallAlarm, WinTimer_RemoveAlarms and Timer_Tick work on the object.",
+      "source": "VSHELL decompile at 0046a070"
+    },
+    {
       "address": "0046a0b0",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "WinTimer_InstallAlarm",
-      "description": "Adds an alarm for a widget to the WinTimer's twenty-entry table at DAT_005ddbd4 (asserts 'WinTimer::installAlarm > too many' in code\\wintimer.cpp). The edit field installs one at 500, 500 when it takes focus.",
+      "description": "Adds an alarm for a widget to the WinTimer's twenty-entry table at g_WinTimer (asserts 'WinTimer::installAlarm > too many' in code\\wintimer.cpp). The edit field installs one at 500, 500 when it takes focus.",
       "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
     },
     {
@@ -16471,7 +16591,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rtl_GetPolymorphicDtorCount",
-      "description": "Borland RTL helper (the RTL's __GetPolymorphicDTC; no name string for it in the image). Given an object and the offset of its vptr, returns the destructor count stored in the dynamic type's typeinfo: vptr, back by the offset-to-top at vptr[-4], then the typeinfo pointer at -0xc, field +0x20. Returns 0 for a null object. Every polymorphic delete runs '*DAT_005ddec0 += Rtl_GetPolymorphicDtorCount(p, 0); p->vdtor(3)' to keep the exception handler's live-destructor count right.",
+      "description": "Borland RTL helper (the RTL's __GetPolymorphicDTC; no name string for it in the image). Given an object and the offset of its vptr, returns the destructor count stored in the dynamic type's typeinfo: vptr, back by the offset-to-top at vptr[-4], then the typeinfo pointer at -0xc, field +0x20. Returns 0 for a null object. Every polymorphic delete runs '*Rtl_DtorCountPtr += Rtl_GetPolymorphicDtorCount(p, 0); p->vdtor(3)' to keep the exception handler's live-destructor count right.",
       "source": "VSHELL decompile and disassembly; calling pattern in every polymorphic delete, e.g. VolRStream_Dtor"
     },
     {
@@ -16507,16 +16627,62 @@
       "type": "data",
       "confidence": "high",
       "name": "Shell_QuitFlag",
-      "description": "Nonzero ends the shell's main loop in 00401525. The main menu's QUIT, VIEW DEMO and INSTANT ACTION set it, and so does launching a mission; Shell_RunFrames stops early on it.",
+      "description": "Nonzero ends the shell's main loop in Shell_Main. The main menu's QUIT, VIEW DEMO and INSTANT ACTION set it, and so does launching a mission; Shell_RunFrames stops early on it.",
       "source": "docs/shell/screen-layout.md#quit; VSHELL decompile at 00401cf4"
+    },
+    {
+      "address": "0046c080",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_PresentEnabled",
+      "description": "Dword, 0 in the image. While it is 0, Display_RealizePalette does nothing and MainWndProc's WM_PAINT does not present the shell's bitmap (Display_PresentWhole), so a movie's window and palette are left alone. Shell_BuildScreensAndStart sets it once the intro is done (or at once on -X3, -X4 and -X6), Shell_Main sets it for -X3 and -X4 straight after the command-line parse, and MainMenu_OnCredits clears it round the credits movie.",
+      "source": "docs/shell/startup.md#the-startup--shell_main-00401525"
+    },
+    {
+      "address": "0046c084",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_EggplantGiven",
+      "description": "Dword, 0 in the image; Shell_ParseCommandLine sets it for '-eggplant'. Shell_Main refuses to run while it is 0: 'You cannot run this exe directly', then the exit steps and PostQuitMessage.",
+      "source": "docs/command-line.md#vshell"
+    },
+    {
+      "address": "0046c088",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_PerformanceNotePending",
+      "description": "Dword, 0 in the image. Shell_Main sets it when ShellOption_SkipSierraIni is clear and Sierra.ini's [Config] VideoSpeed reads below 1000; StartupAnim_OnTick then puts up the 'Performance Note' message box as the main menu comes up.",
+      "source": "docs/shell/startup.md#sierraini"
     },
     {
       "address": "0046c08c",
       "binary": "VSHELL",
       "type": "data",
-      "confidence": "low",
-      "description": "Tested first by all nine tab-strip handlers, which return without doing anything when it is zero -- before even the already-on-this-tab check. Nothing that writes it has been traced, so whether it is an input gate, a shell-running flag or something else is unknown.",
-      "source": "docs/shell/screen-layout.md"
+      "confidence": "high",
+      "name": "Shell_MainLoopStarted",
+      "description": "Dword, 0 in the image. Shell_Main's main loop stores 1 in it every pass, straight after Movie_PlayQueue(1); es2_xref.py finds no other store among its ten references. All nine tab-strip handlers return at once while it is 0 -- before even the already-on-this-tab check -- so a tab press delivered before the loop's first pass reaches that point does nothing.",
+      "source": "docs/shell/startup.md#the-main-loop"
+    },
+    {
+      "address": "0046c090",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_PoolSize",
+      "description": "Dword 4,000,000 (0x3d0900) in the image: the size of the buffer Shell_Main allocates with Mem_NewArray and hands to Memory_Init as g_ShellPool's arena. Its two references are those two reads.",
+      "source": "docs/runtime-library.md#the-memory-pool"
+    },
+    {
+      "address": "0046c094",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_HasFocus",
+      "description": "Dword, 1 in the image. MainWndProc clears it on WM_KILLFOCUS (and stops the sound) and sets it on WM_SETFOCUS. While it is 0, Shell_Main's main loop skips the whole of each pass but the message pump, counting Shell_UnfocusedPassCount; Shell_RunFrames' passes do nothing; and Movie_PlayQueue, after each movie, pumps messages until it is set again.",
+      "source": "docs/shell/startup.md#the-main-loop"
     },
     {
       "address": "0046c098",
@@ -16526,6 +16692,60 @@
       "name": "Shell_CloseAllowed",
       "description": "Set before the main loop and by the startup widget's hide, cleared by its show. WM_CLOSE and the display hotkeys are ignored while it is clear.",
       "source": "docs/shell/screen-layout.md#the-main-menu"
+    },
+    {
+      "address": "0046c09c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_UnfocusedPassCount",
+      "description": "Main-loop passes skipped while Shell_HasFocus is clear, printed to the mono debug monitor as 'hmm: %d' at column 0x3c, row 0. Shell_Main's two references are its only ones.",
+      "source": "docs/shell/startup.md#the-main-loop"
+    },
+    {
+      "address": "0046c0a0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "QuitAlert_RepaintCounter",
+      "description": "Main-loop passes since QuitAlert (Alt+F4's QUIT alert) was last repainted: while the alert is shown (+0x11 bit 2 clear) each pass counts it, and above 50 it is zeroed and the alert repainted with Window_RepaintRecursive. Shell_Main's three references are its only ones.",
+      "source": "docs/shell/startup.md#the-main-loop"
+    },
+    {
+      "address": "0046c49d",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Str_SierraIniDefault",
+      "description": "The empty string: the default Shell_Main passes GetPrivateProfileStringA for Sierra.ini's [Config] VideoSpeed, so a missing key reads as atol('') = 0.",
+      "source": "VSHELL image at 0046c49d; Shell_Main disassembly at 004016ba"
+    },
+    {
+      "address": "0046c4a9",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Str_VolExtension",
+      "description": "'.vol', the extension Shell_Main hands VolRStream_SetGroup for the volume scan.",
+      "source": "VSHELL image at 0046c4a9; docs/formats/vol-archive.md"
+    },
+    {
+      "address": "0046c4ae",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Str_FormatString",
+      "description": "'%s', the sprintf format Shell_Main copies the disc-check path through.",
+      "source": "VSHELL image at 0046c4ae"
+    },
+    {
+      "address": "0046c4b1",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Str_DiscCheckMovie",
+      "description": "'avi\\\\pt1.avi', the movie Shell_Main opens under the drive.cfg directory (Path_UnderDriveCfg) to tell that the disc is there; failing, 'Please insert ESII CD and restart'.",
+      "source": "VSHELL image at 0046c4b1; docs/retail-builds.md"
     },
     {
       "address": "0046c9ac",
@@ -16561,6 +16781,24 @@
       "confidence": "high",
       "name": "EsTextBinHandle",
       "description": "bin\\estext.bin, 342 entries; every shell caption and label is fetched through WeaponsBin_LookupName with this handle. Dump at tools/analysis_out/ESTEXT_STRINGS.txt.",
+      "source": "docs/shell/screen-layout.md#what-the-whole-front-end-shares"
+    },
+    {
+      "address": "0046dcc4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellFont2HandleA",
+      "description": "The first of the two copies of dfn\\\\font2.dfn EsGlobal_Init loads; ShellFont2HandleB is the second. The save screen gives its buttons this one.",
+      "source": "docs/shell/screen-layout.md#what-the-whole-front-end-shares"
+    },
+    {
+      "address": "0046dcc8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellFont2HandleB",
+      "description": "The second of the two copies of dfn\\\\font2.dfn EsGlobal_Init loads. The save screen gives its title, slot rows and readouts this one.",
       "source": "docs/shell/screen-layout.md#what-the-whole-front-end-shares"
     },
     {
@@ -17221,6 +17459,59 @@
       "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
     },
     {
+      "address": "004810e0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "low",
+      "description": "Byte Shell_Main sets to 1 after DriveCfg_Read and the mono clear, before EsGlobal_Init(0). es2_xref.py finds no other reference to it or to 004810d0-004810e3 (positive control: Shell_TopWindow and Shell_Dispatcher hit), so what reads it is open.",
+      "source": "docs/shell/startup.md#open"
+    },
+    {
+      "address": "004810e4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_TopWindow",
+      "description": "The shell's top-level window: an ESWindow (0x45 bytes, no handler) Shell_Main builds over the display root's rect, parented to the root, and shows after Shell_BuildScreensAndStart. ServiceBay_BuildScreen builds the frame's root (ShellRootWidget) over its rect as its child, and the palette scope is parented to it too. Shell_Main deletes it on the way out.",
+      "source": "docs/shell/startup.md#the-startup--shell_main-00401525"
+    },
+    {
+      "address": "004810e8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_RootCursor",
+      "description": "The first of the two ShellCursor objects Shell_Main builds around GetCursor() (the arrow): given to the display root's +0x35 and installed through the display's Display_SetCursor slot.",
+      "source": "docs/shell/screen-layout.md#the-pointer"
+    },
+    {
+      "address": "004810ec",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_HotspotCursor",
+      "description": "The second ShellCursor Shell_Main builds around GetCursor(); Hotspots_BuildOverlay gives it to every arming hotspot's +0x35.",
+      "source": "docs/shell/screen-layout.md#the-pointer"
+    },
+    {
+      "address": "004810f0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_Display",
+      "description": "The shell's WinWin95Display (0x65d bytes), which Shell_Main builds and begins painting on the display root (vtable slot 0). The main loop flushes its dirty list (DirtyList_Flush) each pass, as Shell_RunFrames does.",
+      "source": "docs/shell/startup.md#the-startup--shell_main-00401525"
+    },
+    {
+      "address": "004810f4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_Dispatcher",
+      "description": "The input dispatcher Dispatcher_RunQueue drains, a static object built by the vshell.cpp static initialiser at 00401e4c (constructor 0041da18) and destroyed by 00401e86. Shell_Main builds the WinConsumer, WinMouseProducer and WinKeyboardProducer with it as their owner, and the main loop and Shell_RunFrames run its queue each pass with masks 0xffff.",
+      "source": "docs/shell/startup.md#the-startup--shell_main-00401525"
+    },
+    {
       "address": "00481248",
       "binary": "VSHELL",
       "type": "data",
@@ -17239,6 +17530,42 @@
       "source": "VSHELL decompile at 004044dc and VshellClassItem_LoadItem"
     },
     {
+      "address": "00481e54",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MainWindow_Handle",
+      "description": "The shell's HWND, stored by Shell_CreateMainWindow. Shell_Main takes its DC for the 256-colour check. The VSHELL counterpart of DBSIM's MainWindow_Handle (004d3694).",
+      "source": "VSHELL disassembly at 0040640c; Shell_Main"
+    },
+    {
+      "address": "00481e68",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Display_FullScreen",
+      "description": "Dword, nonzero while the shell runs full screen through DirectDraw: Display_ToggleFullScreen sets and clears it, Display_LeaveFullScreen tests it, and Display_PresentRect, Display_RealizePalette, Shell_BlankScreen and the screen builders branch on it.",
+      "source": "docs/shell/screen-layout.md#full-screen-asks-first"
+    },
+    {
+      "address": "00482270",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSwitch_M",
+      "description": "Byte, 1 under '-m' (Shell_ParseCommandLine), 0 from EsGlobal_Init(0). The usage text calls -m 'Disables mouse', but Shell_Main builds the WinMouseProducer regardless; the one reader es2_xref.py finds is the argv builder at 0042f2e8, which nothing found reaches, where it adds '-m' to a DBSIM command line.",
+      "source": "docs/command-line.md#vshell"
+    },
+    {
+      "address": "00482271",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_KeyboardEnabled",
+      "description": "Byte, 1 from EsGlobal_Init(0), cleared by '-k'. Shell_Main builds the WinKeyboardProducer only while it is set.",
+      "source": "docs/command-line.md#vshell"
+    },
+    {
       "address": "00482272",
       "binary": "VSHELL",
       "type": "data",
@@ -17248,6 +17575,87 @@
       "source": "docs/shell/screen-layout.md#sound"
     },
     {
+      "address": "00482273",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_MusicOptionCopy",
+      "description": "Byte: prefs.cfg option 0 (MUSIC) as EsGlobal_Init(0) copies it. Its one reader is Shell_MonoPrintAudioOptions.",
+      "source": "VSHELL disassembly at 004073e7 and 004076ff"
+    },
+    {
+      "address": "00482274",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_SoundsOptionCopy",
+      "description": "Byte: prefs.cfg option 1 (SOUNDS) as EsGlobal_Init(0) copies it. Its one reader is Shell_MonoPrintAudioOptions; the click sounds test ShellOption_Sounds itself.",
+      "source": "VSHELL disassembly at 004073f3 and 0040772c"
+    },
+    {
+      "address": "00482275",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_MoviesEnabled",
+      "description": "Byte, 1 from EsGlobal_Init(0), cleared by '-a'. While it is 0 Movie_Enqueue takes nothing and Movie_PlayQueue plays nothing.",
+      "source": "docs/shell/screen-layout.md#the-shells-movies"
+    },
+    {
+      "address": "00482276",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_PilotMessageOptionCopy",
+      "description": "Dword: prefs.cfg option 2 (PILOT MESSAGE: 0 text only, 1 voice only, 2 both) as EsGlobal_Init(0) copies it. Its one reader is Shell_MonoPrintAudioOptions.",
+      "source": "VSHELL disassembly at 00407400 and 00407759"
+    },
+    {
+      "address": "0048227a",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_Language",
+      "description": "Dword: the shell's language, 0 English, 1 French, 2 German. EsGlobal_Init(0) copies prefs.cfg option 43 (ShellOption_Language) into it, then Shell_ParseCommandLine's -f and -g store 1 and 2 and any other -e... 3. WeaponsBin_Open prefixes every .BIN it opens with the folder it picks.",
+      "source": "docs/command-line.md#vshell; docs/retail-builds.md#how-a-language-is-chosen"
+    },
+    {
+      "address": "0048227e",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_StartupCode",
+      "description": "Int16: the state the shell was started in, the -X<n> code. Shell_Main copies it from Shell_GetExitCode straight after the parse (overwriting the 3 that -r stores) and zeroes the exit code; 3 and 4 set Shell_PresentEnabled at once, 0 and 1 run the 256-colour check, and Shell_BuildScreensAndStart dispatches on 3, 4 and 6.",
+      "source": "docs/shell/campaign-loop.md; docs/shell/startup.md#the-startup--shell_main-00401525"
+    },
+    {
+      "address": "00482280",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSwitch_L",
+      "description": "Int16, 1 from EsGlobal_Init(0), cleared by '-l'. Its one reader es2_xref.py finds is the argv builder at 0042f2e8, which nothing found reaches, and which does nothing while it is 0.",
+      "source": "docs/command-line.md#vshell"
+    },
+    {
+      "address": "00482282",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellSwitch_D",
+      "description": "Int16, 0 from EsGlobal_Init(0), which is its only store es2_xref.py finds. The argv builder at 0042f2e8, which nothing found reaches, appends '-D' when it is non-zero.",
+      "source": "docs/command-line.md#rejected-readings"
+    },
+    {
+      "address": "00482284",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_MissionPickerEnabled",
+      "description": "Byte, 0 from EsGlobal_Init(0), set by '-@'. While it is set the developer's mission-name dialog (00412ce1) stays up instead of being dismissed through its Use Default button.",
+      "source": "docs/command-line.md#-the-mission-picker"
+    },
+    {
       "address": "004822d5",
       "binary": "VSHELL",
       "type": "data",
@@ -17255,6 +17663,14 @@
       "name": "DriveCfg_Directory",
       "description": "The first token of data\\drive.cfg plus a trailing backslash, written by DriveCfg_Read. Shell_Main passes it to VolRStream_SetGroup as the second directory the volume scan searches, and Path_UnderDriveCfg puts it in front of the movie paths, the startup check for avi\\pt1.avi and the on-line manual. The VSHELL counterpart of DBSIM's DriveCfg_Directory (004d2890).",
       "source": "VSHELL decompile of DriveCfg_Read, Shell_Main and Path_UnderDriveCfg; es2_xref.py --binary VSHELL 004822d5"
+    },
+    {
+      "address": "00482397",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "low",
+      "description": "Byte EsGlobal_Init(1) sets to 1 straight after seeding the shell generator, whose 0x72-byte state at 00482325 ends just before it. es2_xref.py finds no other reference, so what reads it is open.",
+      "source": "VSHELL disassembly at 004075a9"
     },
     {
       "address": "0048239c",
@@ -17325,7 +17741,7 @@
       "type": "data",
       "confidence": "high",
       "name": "ShellOption_Language",
-      "description": "prefs.cfg option 43. The LANG0.VOL folder: 0 eng, 1 fre, 2 ger. Copied into 0048227a by the shell's global init and read there by WeaponsBin_Open, which prefixes every .BIN it opens with that folder.",
+      "description": "prefs.cfg option 43. The LANG0.VOL folder: 0 eng, 1 fre, 2 ger. Copied into Shell_Language by the shell's global init and read there by WeaponsBin_Open, which prefixes every .BIN it opens with that folder.",
       "source": "docs/formats/weapons-dat.md"
     },
     {
@@ -17361,8 +17777,8 @@
       "type": "data",
       "confidence": "high",
       "name": "ShellOption_SkipSierraIni",
-      "description": "prefs.cfg option 47. Non-zero skips the startup read of Sierra.ini in FUN_00401525. A retail prefs.cfg ships 1, so that file is never read in a retail install.",
-      "source": "docs/simulation/preferences.md"
+      "description": "prefs.cfg option 47. Non-zero skips Shell_Main's startup read of Sierra.ini; Shell_Main sets it after the read and saves, so the read happens on one run. v1.10's shipped DATA\\\\PREFS.CFG has it 0.",
+      "source": "docs/shell/startup.md#sierraini"
     },
     {
       "address": "004824ee",
@@ -17824,6 +18240,33 @@
       "source": "docs/shell/screen-layout.md#selecting-a-mission"
     },
     {
+      "address": "0048dc24",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_AssertLogger",
+      "description": "The shell's assert logger, built by Assert_StaticInit with Assert_Ctor; every Assert_Report call passes it first. +4 is Assert_CheckCount, +8 maybe_Assert_BreakRequested, +0x10 the hook list Assert_AddHook pushes onto. DBSIM's counterpart is 006c574c.",
+      "source": "VSHELL decompile of Assert_StaticInit, Assert_Report and Assert_AddHook"
+    },
+    {
+      "address": "0048dc28",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Assert_CheckCount",
+      "description": "g_AssertLogger +4: incremented before every inline assert's test (352 sites), whether or not it fires. Its one reader es2_xref.py finds is the getter at 0044df84, which nothing found calls.",
+      "source": "es2_xref.py --binary VSHELL 0048dc28; disassembly at 0044df84"
+    },
+    {
+      "address": "0048dc2c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_Assert_BreakRequested",
+      "description": "g_AssertLogger +8. Each main-loop pass reports it as a severity-6 assert when it is non-zero (src\\\\vshell.cpp line 0x1de) -- Assert_Emit's 'Assert: break (Ctrl-C / Ctrl-Break)' and _exit(1). es2_xref.py finds no store: its three references are Shell_Main's two reads and the getter at 0044df8c. The name comes from severity 6's text.",
+      "source": "Shell_Main disassembly at 00401b70; Assert_Emit"
+    },
+    {
       "address": "005d7f60",
       "binary": "VSHELL",
       "type": "data",
@@ -17869,6 +18312,42 @@
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
+      "address": "005ddbd0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_EventQueue",
+      "description": "Pointer to the event queue and pointer state WinEvents_Init builds (EventQueue_Ctor): the queue at +0x11 that Event_Post and Pointer_MoveTo append to and Shell_PumpEvents drains (EventQueue_Pump), and the pointer lock at +0x1f.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "005ddbd4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_WinTimer",
+      "description": "Pointer to the WinTimer WinEvents_Init builds (WinTimer_Ctor): twenty alarms that WinTimer_InstallAlarm adds and Shell_PumpEvents ticks (Timer_Tick).",
+      "source": "VSHELL decompile of WinEvents_Init and Shell_PumpEvents"
+    },
+    {
+      "address": "005ddc18",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Pointer_FracX",
+      "description": "The pointer's sub-pixel x remainder in 1/256 pixel: Event_Post adds the display's x scale (+9) times a mouse move's dx, moves the pointer by the whole part (>> 8) and keeps the rest (% 0x100). WinEvents_Init, Pointer_MoveTo and Display_HopTo zero it. Pointer_FracY is its y twin.",
+      "source": "VSHELL decompile of Event_Post"
+    },
+    {
+      "address": "005ddc1c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Pointer_FracY",
+      "description": "The pointer's sub-pixel y remainder, Pointer_FracX's twin, from the display's y scale (+0xd).",
+      "source": "VSHELL decompile of Event_Post"
+    },
+    {
       "address": "005ddc20",
       "binary": "VSHELL",
       "type": "data",
@@ -17885,6 +18364,15 @@
       "name": "Sos_UsingSos9503",
       "description": "int16: Sos_BindLibrary sets 1 when it loads sos9503.dll (GetVersion below 0x80000000, or a major version above 3) and 0 when it loads sos32s03.dll. The VSHELL copy of DBSIM's Sos_UsingSos9503.",
       "source": "VSHELL disassembly at 005ddd2c"
+    },
+    {
+      "address": "005ddec0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Rtl_DtorCountPtr",
+      "description": "Pointer to the Borland exception handler's live-destructor count, the dword just below the stack top in the thread block (FS:[4] - 4), stored by the entry point (00401045) and by the RTL's thread setup (0046b3e2). Every constructor level adds one to *it and every destructor level takes one off, and every polymorphic delete adds Rtl_GetPolymorphicDtorCount first. DBSIM's counterpart is 006cbf74.",
+      "source": "VSHELL disassembly at 00401045 and 0046b3e2"
     }
   ]
 }

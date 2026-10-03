@@ -177,6 +177,221 @@
       ]
     },
     {
+      "name": "TSShape",
+      "binary": "DBSIM",
+      "size": 42,
+      "description": "RTTI 'TSShape', 0x2a bytes, derived from TSPartList (0x16): one root of a loaded .DTS file. The fields from +0x16 up are TSShape's own, laid out by TSShape_ReadFromStream (00490d5c) and TSShape_Ctor (00490928). Shared by every instance drawn from it; the per-object state is in TSShapeInstance.",
+      "notes": [
+        "Bytes 0x00-0x15 are the TSPartList base (RTTI: TSPartList <- TSPartBase <- TSBase <- ClassItem). Only the vtable pointer is placed here; the part list's own fields are not laid out in this file."
+      ],
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "void *",
+          "name": "vtbl",
+          "confidence": "high",
+          "description": "TSShape's vtable (004a6331) for a plain shape; ANShape (004a67c8) and GridShape (0049aaa0) derive from it."
+        },
+        {
+          "offset": 22,
+          "width": 2,
+          "type": "ushort",
+          "name": "nodeTransformCount",
+          "confidence": "high",
+          "description": "+0x16 -- the length of nodeTransforms. TSShape_ReadFromStream reads it with Stream_ReadWord and allocates count << 5 bytes from it."
+        },
+        {
+          "offset": 24,
+          "width": 4,
+          "type": "Transform32 *",
+          "name": "nodeTransforms",
+          "confidence": "high",
+          "description": "+0x18 -- nodeTransformCount 0x20-byte transforms, built with Rtl_VectorNew(stride 0x20, Transform_Ctor) and filled verbatim from the stream. TSShapeInstance_Render (00490b10) binds this array with ShapeInst_BindNodeTransformArray, so a plain TSShapeInstance, which has no per-node array of its own, draws with the shape's."
+        },
+        {
+          "offset": 28,
+          "width": 4,
+          "type": "ushort *",
+          "name": "initialCellFrames",
+          "confidence": "high",
+          "description": "+0x1c -- sequenceCount ushorts, zeroed at load (not read from the stream). TSShapeInstance_Ctor (00490a58) copies it into each new instance's cellFrames."
+        },
+        {
+          "offset": 32,
+          "width": 4,
+          "type": "ushort *",
+          "name": "sequenceFrameCounts",
+          "confidence": "high",
+          "description": "+0x20 -- sequenceCount ushorts read from the stream: how many cells each cell-animation sequence has. A ticking effect takes its cellFrames entry modulo this, as Explosion_TickUpdate (0040813c) and the rocket's exhaust flame do. See docs/formats/dts-billboards.md."
+        },
+        {
+          "offset": 36,
+          "width": 2,
+          "type": "ushort",
+          "name": "sequenceCount",
+          "confidence": "high",
+          "description": "+0x24 -- the length of initialCellFrames, sequenceFrameCounts and every instance's cellFrames. Read with Stream_ReadWord; TSShapeInstance_Ctor reads it as a ushort."
+        },
+        {
+          "offset": 38,
+          "width": 4,
+          "type": "void *",
+          "name": "boundBitmapArray",
+          "confidence": "high",
+          "description": "+0x26 -- the DBA the shape's texture and bitmap parts draw from, set at run time rather than stored in the .DTS. 'MOV EAX,dword ptr [EAX + 0x26]' in TSShape_GetBoundBitmapArray (00490c41) settles the width; TSShapeInstance_Render installs it in g_CurrentShapeDbaContext for the draw. See docs/formats/dts-texture-binding.md."
+        }
+      ]
+    },
+    {
+      "name": "TSShapeInstance",
+      "binary": "DBSIM",
+      "size": 12,
+      "description": "RTTI 'TSShapeInstance', 0xc bytes, derived from TSBase: one object's use of a TSShape, holding its own cell-animation frames. Built by TSShapeInstance_Ctor (00490a58), which SimObjectBase_Constructor (00402188) calls for every plain TS_OBJ. ANShapeInstance (RTTI, 0x42 bytes; ShapeInst_Construct, 0047872c) derives from it and adds the per-node arrays and animation threads; SimObjectBase_ConstructShaped (00402278) builds that one instead.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "void *",
+          "name": "vtbl",
+          "confidence": "high",
+          "description": "004a6305 for TSShapeInstance, 004a14dc for ANShapeInstance. Slot +0x18 is the deleting destructor every TS_OBJ destructor calls on its shape instance; slot +0x1c is the render (TSShapeInstance_Render, 00490b10)."
+        },
+        {
+          "offset": 4,
+          "width": 4,
+          "type": "TSShape *",
+          "name": "shape",
+          "confidence": "high",
+          "description": "+0x4 -- the shape drawn, stored from TSShapeInstance_Ctor's second argument. Shape_DrawAtDetailLevel (004033e4) swaps it to another root to draw a detail level and puts it back."
+        },
+        {
+          "offset": 8,
+          "width": 4,
+          "type": "ushort *",
+          "name": "cellFrames",
+          "confidence": "high",
+          "description": "+0x8 -- this instance's current cell for each sequence, shape->sequenceCount ushorts copied from shape->initialCellFrames (null when the shape has no sequences). TSShapeInstance_Render publishes it as g_CellAnimFrames (ShapeRender_BindCellFrames, 00490c2e) for TSCellAnimPart_Render to index. Effects step an entry and wrap it at shape->sequenceFrameCounts; the mech writes 2 into a component's sequence to blank its parts. See docs/formats/dts-billboards.md and docs/formats/mech-shape-drawing.md."
+        }
+      ]
+    },
+    {
+      "name": "Context",
+      "binary": "DBSIM",
+      "size": 40,
+      "description": "RTTI 'Context', 0x28 bytes, no vtable: MAT_OBJ's second base, at MAT_OBJ+0xc. An object's placement -- its euler angles and the frame built from them. It ends exactly where MAT_OBJ does (0xc + 0x28 = 0x34).",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 6,
+          "type": "short[3]",
+          "name": "eulerAngles",
+          "confidence": "high",
+          "description": "+0x0 (object +0xc) -- the object's orientation as three binary angles, and the input BuildEulerRotationMatrixQ14 turns into 'frame'. Zeroed by SimObjectBase_Constructor (00402188); Flyer_Constructor passes it as the source when it seeds the matrix itself."
+        },
+        {
+          "offset": 6,
+          "width": 32,
+          "type": "Transform32",
+          "name": "frame",
+          "confidence": "high",
+          "description": "+0x6 (object +0x12) -- the shape-to-world frame. SimObject_InstallModelTransform (00401fe4) builds it from eulerAngles when 'frameValid' is clear. ITS TRANSLATION IS THE OBJECT'S WORLD POSITION: object +0x26/+0x2a/+0x2e, which SimObject_GetPosition (0046b801) returns and TargetSelect_CanTarget hands to Math_DistanceBetweenPoints, are this record's x/y/z."
+        },
+        {
+          "offset": 38,
+          "width": 2,
+          "type": "short",
+          "name": "frameValid",
+          "confidence": "high",
+          "description": "+0x26 (object +0x32) -- clear means 'frame' has not been built from eulerAngles yet. Zeroed by SimObjectBase_Constructor; set to 1 by SimObject_InstallModelTransform and by Flyer_Constructor after it seeds the matrix itself."
+        }
+      ]
+    },
+    {
+      "name": "DRAWABLE",
+      "binary": "DBSIM",
+      "size": 12,
+      "vtable": "DrawableVtable",
+      "description": "RTTI 'DRAWABLE', 0xc bytes, no base: the root of everything the scene draws. MAT_OBJ, REG_OBJ, TINY_OBJ, LightSource, SMOKE and DummyDrawable derive from it directly.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "DrawableVtable *",
+          "name": "vtbl",
+          "confidence": "high",
+          "description": "The five-slot DrawableVtable interface. A class whose table extends it (SimObjectVtable, ProjectileVtable) needs its own struct to type this field, which is why SimObject does not embed DRAWABLE."
+        },
+        {
+          "offset": 4,
+          "width": 2,
+          "type": "short",
+          "name": "typeTag",
+          "confidence": "high",
+          "description": "+0x4 -- the type tag ObjList_DrawCellObjects (00428c60) branches on ('CMP word ptr [EBX + 0x4],0x9'): 9 draws on the spot, anything else gets a deferred, depth-sorted render entry. Written after the vtable by the constructing code: Bullet_Construct 3, a ground shape 9, an impact effect 2 or 8 by its type row's +0x26. See docs/formats/distance-fog-and-sky.md."
+        }
+      ]
+    },
+    {
+      "name": "MAT_OBJ",
+      "binary": "DBSIM",
+      "size": 52,
+      "description": "RTTI 'MAT_OBJ', 0x34 bytes: DRAWABLE plus a Context at +0xc -- a drawable with a placement. Its Draw slot only installs the model transform (SimObject_InstallModelTransform, 00401fe4).",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 12,
+          "type": "DRAWABLE",
+          "name": "base",
+          "confidence": "high",
+          "description": "RTTI primary base."
+        },
+        {
+          "offset": 12,
+          "width": 40,
+          "type": "Context",
+          "name": "context",
+          "confidence": "high",
+          "description": "+0xc -- RTTI second base."
+        }
+      ]
+    },
+    {
+      "name": "TS_OBJ",
+      "binary": "DBSIM",
+      "size": 65,
+      "description": "RTTI 'TS_OBJ', 0x41 bytes, derived from MAT_OBJ: a placed object that draws a shape. The base of every shaped simulation object -- PROJECTILE, EXPLOSION, DEBRIS, SMOKE_BALL, METEOR, FlatObj, FIRE and, through ANIM_OBJ and DET_ANIM_OBJ, ACTOR (SimObject). Both base constructors, SimObjectBase_Constructor (00402188) and SimObjectBase_ConstructShaped (00402278), take (object, shape) and build it; TSObj_Dtor (0046b890) releases the shape instance through its vtable +0x18.",
+      "notes": [
+        "+0x38 IS A BLOCK BASE. Both constructors zero 8 bytes from +0x38, and SimObject_ApplyRootMotionIfEnabled (00402604) reads rootMotionEnabled as 'LEA EDX,[EAX + 0x38]' then 'CMP byte ptr [EDX + 0x1],0x0'. A scalar search for 0x39 finds the constructor's store and misses that read; the other six bytes of the block need the same rebased search before anything is said about them."
+      ],
+      "fields": [
+        {
+          "offset": 0,
+          "width": 52,
+          "type": "MAT_OBJ",
+          "name": "base",
+          "confidence": "high",
+          "description": "RTTI base."
+        },
+        {
+          "offset": 52,
+          "width": 4,
+          "type": "TSShapeInstance *",
+          "name": "shapeInstance",
+          "confidence": "high",
+          "description": "+0x34 -- the object's shape instance, null when the constructor's shape argument is. SimObjectBase_Constructor builds a 0xc-byte TSShapeInstance; SimObjectBase_ConstructShaped builds a 0x42-byte ANShapeInstance (ShapeInst_Construct, 0047872c), whose per-node world array at +0x16 is what ShapeInst_BuildWorldTransforms fills. Every destructor in the hierarchy tests it and calls its vtable +0x18."
+        },
+        {
+          "offset": 57,
+          "width": 1,
+          "type": "byte",
+          "name": "rootMotionEnabled",
+          "confidence": "high",
+          "description": "+0x39 -- set to 1 by SimObjectBase_ConstructShaped alone, so it marks a shape instance that can carry animation threads. SimObject_ApplyRootMotionIfEnabled (00402604) does nothing while it is clear. See docs/simulation/structure-behaviour.md."
+        }
+      ]
+    },
+    {
       "name": "BehaviourBlock",
       "binary": "DBSIM",
       "size": 69,
@@ -231,7 +446,8 @@
       "notes": [
         "THE FLAG BLOCK IS ADDRESSED THROUGH obj+0x92. Every reader of the bytes from 0x92 up materialises that address first -- 'LEA ECX,[EBX + 0x92]' -- and then uses a small displacement off it: TargetSelect_CanTarget reads destroyed as [EDX + 0x7] and Mech_Constructor writes 0xa7 as [EAX + 0x15]. So a scalar search for 0x95, 0x99, 0xa1, 0xa5 or 0xa7 returns ZERO sites across the whole binary, and that is not evidence the field is unused. Whether obj+0x92 is a sub-object in the source or just a base register the compiler chose is not settled, so the fields are placed at their absolute offsets here rather than inside an invented struct.",
         "+0x1a4 (a machine's selected target) FALLS INSIDE THIS STRUCT'S EXTENT but is documented as mech+0x1a4 and is not known to be written by any other class. Left out until a flyer or a structure is seen to touch it.",
-        "+0x99, +0xa4 and +0xa5 ARE THE 'OUT OF THE FIGHT' TRIPLE, and they are three different conditions rather than three damage latches: destroyed, cannot move, cannot shoot. Each has its own writers and none of them is 'removed from the simulation' -- that is 'Removed', a separate concept the engine models on its own. Which tests read which subset is the behaviour: the detection sweep, the player's target selection and the mission group's condition tier read +0x99 and +0xa4 only; the AI's own tests add +0xa5."
+        "+0x99, +0xa4 and +0xa5 ARE THE 'OUT OF THE FIGHT' TRIPLE, and they are three different conditions rather than three damage latches: destroyed, cannot move, cannot shoot. Each has its own writers and none of them is 'removed from the simulation' -- that is 'Removed', a separate concept the engine models on its own. Which tests read which subset is the behaviour: the detection sweep, the player's target selection and the mission group's condition tier read +0x99 and +0xa4 only; the AI's own tests add +0xa5.",
+        "THE CLASS IS RTTI 'ACTOR' (0x1f2 bytes): ACTOR <- DET_ANIM_OBJ (0x45) <- ANIM_OBJ (0x41) <- TS_OBJ (0x41) <- MAT_OBJ (0x34) <- DRAWABLE (0xc). Bytes 0x00-0x40 are TS_OBJ's layout, but they are placed here flat rather than as an embedded TS_OBJ, because Ghidra cannot retype a field inside an embedded base: an embedded TS_OBJ would type the vtable pointer as DrawableVtable, five slots, and every call through SimObjectVtable's +0x14..+0x84 would stop rendering as a named method. The fields restated from the base types defer to them."
       ],
       "fields": [
         {
@@ -243,36 +459,36 @@
           "description": "The class vtable -- SimObjectBaseVtable (0049a54c) for a structure, MechVtable (0049a282) for a mech, 0049a5e0 for a flyer. Typing this is what makes an indirect call render as a named method."
         },
         {
-          "offset": 12,
-          "width": 6,
-          "type": "short[3]",
-          "name": "eulerAngles",
-          "confidence": "high",
-          "description": "+0xc -- the object's orientation as three binary angles, and the input BuildEulerRotationMatrixQ14 turns into 'frame'. Zeroed by SimObjectBase_Constructor (00402188); Flyer_Constructor passes it as the source when it seeds the matrix itself."
-        },
-        {
-          "offset": 18,
-          "width": 32,
-          "type": "Transform32",
-          "name": "frame",
-          "confidence": "high",
-          "description": "+0x12 -- the shape-to-world frame. SimObject_InstallModelTransform (00401fe4) builds it from eulerAngles when 'frameValid' is clear. ITS TRANSLATION IS THE OBJECT'S WORLD POSITION: obj+0x26/+0x2a/+0x2e, which is what TargetSelect_CanTarget hands to Math_DistanceBetweenPoints, are this record's x/y/z."
-        },
-        {
-          "offset": 50,
+          "offset": 4,
           "width": 2,
           "type": "short",
-          "name": "frameValid",
+          "name": "typeTag",
           "confidence": "high",
-          "description": "+0x32 -- clear means 'frame' has not been built from eulerAngles yet. Zeroed by SimObjectBase_Constructor; set to 1 by SimObject_InstallModelTransform and by Flyer_Constructor after it seeds the matrix itself."
+          "description": "+0x4 -- DRAWABLE.typeTag."
+        },
+        {
+          "offset": 12,
+          "width": 40,
+          "type": "Context",
+          "name": "context",
+          "confidence": "high",
+          "description": "+0xc -- MAT_OBJ.context: eulerAngles at +0xc, frame at +0x12 (world position +0x26/+0x2a/+0x2e), frameValid at +0x32."
         },
         {
           "offset": 52,
           "width": 4,
-          "type": "void *",
+          "type": "TSShapeInstance *",
           "name": "shapeInstance",
           "confidence": "high",
-          "description": "+0x34 -- the object's TSShapeInstance. Built by the root constructor from its second argument through FUN_00490a58, and tested and released by every deleting destructor in both hierarchies ('MOV ESI,dword ptr [EBX + 0x34]' in ProjectileBase_Dtor). Its per-node world transform array at shapeInstance+0x16 is what ShapeInst_BuildWorldTransforms fills."
+          "description": "+0x34 -- TS_OBJ.shapeInstance."
+        },
+        {
+          "offset": 57,
+          "width": 1,
+          "type": "byte",
+          "name": "rootMotionEnabled",
+          "confidence": "high",
+          "description": "+0x39 -- TS_OBJ.rootMotionEnabled."
         },
         {
           "offset": 65,
@@ -1404,6 +1620,102 @@
       ]
     },
     {
+      "name": "FlatObj",
+      "binary": "DBSIM",
+      "size": 65,
+      "description": "RTTI 'FlatObj', 0x41 bytes, derived from TS_OBJ and adding no fields: a ground shape -- a HERC's shadow, a drop pod's landing square, an impact effect's ring. Built inline after Pool_Alloc from g_FlatObjPool with SimObjectBase_Constructor, then FlatObj_Vtable (0049a262) and typeTag 9; drawn by FlatObj_Draw (0040991c). See docs/simulation/ground-shapes.md.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 65,
+          "type": "TS_OBJ",
+          "name": "base",
+          "confidence": "high",
+          "description": "RTTI base; the class size equals TS_OBJ's."
+        }
+      ]
+    },
+    {
+      "name": "LightSource",
+      "binary": "DBSIM",
+      "size": 14,
+      "description": "RTTI 'LightSource', 0xe bytes, derived from DRAWABLE: an impact effect's handle on a light-manager slot. EffectLight_Construct (00407604) claims the slot and seeds its intensity; it draws nothing. See docs/formats/effect-lights.md.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 12,
+          "type": "DRAWABLE",
+          "name": "base",
+          "confidence": "high",
+          "description": "RTTI base."
+        },
+        {
+          "offset": 12,
+          "width": 2,
+          "type": "short",
+          "name": "slot",
+          "confidence": "high",
+          "description": "+0xc -- the light-manager slot LightManager_ClaimSlot returned, stored as a short by EffectLight_Construct."
+        }
+      ]
+    },
+    {
+      "name": "EXPLOSION",
+      "binary": "DBSIM",
+      "size": 91,
+      "description": "RTTI 'EXPLOSION', 0x5b bytes, derived from TS_OBJ: an impact effect, a flipbook standing at the point a shot landed. Allocated from g_ExplosionPool (40 entries of 0x5b), built by Explosion_Construct (00407f1c), stepped by Explosion_TickUpdate (0040813c), released by Explosion_Destruct (00407e48). See docs/simulation/impact-effects.md.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 65,
+          "type": "TS_OBJ",
+          "name": "base",
+          "confidence": "high",
+          "description": "RTTI base. The shape instance is the EXPLOS.DTS root the type row's shape index names; typeTag is 2 or 8 by the type row's +0x26."
+        },
+        {
+          "offset": 65,
+          "width": 1,
+          "type": "sbyte",
+          "name": "typeId",
+          "confidence": "high",
+          "description": "+0x41 -- the EXPLOS.DAT type row. Explosion_Construct stores the low byte of its type argument; Explosion_GetTypeRecord (00407b20) reads it with 'MOVSX EAX,byte ptr [EAX + 0x41]' and returns table + typeId * 0x28. Explosion_IsHiddenFromOwnerCockpit (00408240) exempts types 2 and 11-14 from the owner rule."
+        },
+        {
+          "offset": 74,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "frameTimer",
+          "confidence": "high",
+          "description": "+0x4a -- the flipbook frame hold. Explosion_TickUpdate ticks it with Math_CountdownTimerTick(effect + 0x4a) and steps a frame on expiry; Explosion_Construct and the tick reload its counter (+0x4b) from the type row's +0x02."
+        },
+        {
+          "offset": 79,
+          "width": 4,
+          "type": "FlatObj *",
+          "name": "groundShape",
+          "confidence": "high",
+          "description": "+0x4f -- the ground shape laid under the effect when the type row's +0x04 is nonzero, else null. Explosion_TickUpdate steps its sequence-0 cell alongside the flipbook ('MOV EAX,dword ptr [EBX + 0x4f]'); Explosion_Destruct queues it for deletion."
+        },
+        {
+          "offset": 83,
+          "width": 4,
+          "type": "LightSource *",
+          "name": "light",
+          "confidence": "high",
+          "description": "+0x53 -- the effect's light when the type row's +0x06 is nonzero, else null. Explosion_TickUpdate sets its intensity from the type row's ramp each frame ('MOV ESI,dword ptr [EBX + 0x53]'); Explosion_Destruct queues it for deletion."
+        },
+        {
+          "offset": 87,
+          "width": 4,
+          "type": "SimObject *",
+          "name": "owner",
+          "confidence": "high",
+          "description": "+0x57 -- the struck structure or machine, from Explosion_Construct's fourth argument; null for a terrain hit, a flyer's hit test and a debris burst. Explosion_IsHiddenFromOwnerCockpit skips drawing the effect when the cockpit camera is attached to it, and Explosion_GetOwnerDrawCell (00408228) files the effect under owner+0x1e8."
+        }
+      ]
+    },
+    {
       "name": "ShellRect",
       "binary": "VSHELL",
       "size": 16,
@@ -2438,6 +2750,132 @@
       "parameter": 0,
       "struct": "hzline",
       "description": "Hzline_FillGround's object."
+    },
+    {
+      "function": "00490928",
+      "parameter": 0,
+      "struct": "TSShape",
+      "description": "TSShape_Ctor's object -- zeroes +0x18, +0x1c and +0x20 after the TSPartList base."
+    },
+    {
+      "function": "00490d5c",
+      "parameter": 0,
+      "struct": "TSShape",
+      "description": "TSShape_ReadFromStream's object -- reads +0x16 and +0x24, allocates and fills +0x18, +0x1c and +0x20."
+    },
+    {
+      "function": "00490c41",
+      "parameter": 0,
+      "struct": "TSShape",
+      "description": "TSShape_GetBoundBitmapArray's shape -- returns its +0x26."
+    },
+    {
+      "function": "00490a58",
+      "parameter": 0,
+      "struct": "TSShapeInstance",
+      "description": "TSShapeInstance_Ctor's object -- writes +0x4 and +0x8."
+    },
+    {
+      "function": "00490a58",
+      "parameter": 1,
+      "struct": "TSShape",
+      "description": "TSShapeInstance_Ctor's shape -- reads its +0x1c and +0x24."
+    },
+    {
+      "function": "00490b10",
+      "parameter": 0,
+      "struct": "TSShapeInstance",
+      "description": "TSShapeInstance_Render's object -- reads +0x4 and +0x8, and the shape's +0x18 and +0x26 through +0x4."
+    },
+    {
+      "function": "00402188",
+      "parameter": 0,
+      "struct": "TS_OBJ",
+      "description": "SimObjectBase_Constructor's object -- installs the DRAWABLE, MAT_OBJ and TS_OBJ vtables in turn, zeroes the Context fields and stores the new TSShapeInstance at +0x34. Called for every TS_OBJ-derived class, so it is typed with the base."
+    },
+    {
+      "function": "00402188",
+      "parameter": 1,
+      "struct": "TSShape",
+      "description": "SimObjectBase_Constructor's shape -- passed straight to TSShapeInstance_Ctor."
+    },
+    {
+      "function": "00402278",
+      "parameter": 0,
+      "struct": "TS_OBJ",
+      "description": "SimObjectBase_ConstructShaped's object -- as SimObjectBase_Constructor, but builds an ANShapeInstance and sets +0x39."
+    },
+    {
+      "function": "00402604",
+      "parameter": 0,
+      "struct": "TS_OBJ",
+      "description": "SimObject_ApplyRootMotionIfEnabled's object -- reads +0x39 and +0x34, nothing past TS_OBJ."
+    },
+    {
+      "function": "0046b890",
+      "parameter": 0,
+      "struct": "TS_OBJ",
+      "description": "TSObj_Dtor's object -- releases the shape instance at +0x34."
+    },
+    {
+      "function": "0041bd46",
+      "parameter": 0,
+      "struct": "FlatObj",
+      "description": "FlatObj_Destruct's object."
+    },
+    {
+      "function": "00407604",
+      "parameter": 0,
+      "struct": "LightSource",
+      "description": "EffectLight_Construct's object -- writes the slot at +0xc."
+    },
+    {
+      "function": "00407f1c",
+      "parameter": 0,
+      "struct": "EXPLOSION",
+      "description": "Explosion_Construct's object."
+    },
+    {
+      "function": "00407f1c",
+      "parameter": 3,
+      "struct": "SimObject",
+      "description": "Explosion_Construct's owner, stored at EXPLOSION +0x57."
+    },
+    {
+      "function": "00407e48",
+      "parameter": 0,
+      "struct": "EXPLOSION",
+      "description": "Explosion_Destruct's object -- queues +0x4f and +0x53 for deletion, then releases +0x34."
+    },
+    {
+      "function": "00407b20",
+      "parameter": 0,
+      "struct": "EXPLOSION",
+      "description": "Explosion_GetTypeRecord's object -- reads +0x41."
+    },
+    {
+      "function": "00408100",
+      "parameter": 0,
+      "struct": "EXPLOSION",
+      "description": "Explosion_ProximityTest's object -- reads its type row and its position at +0x26."
+    },
+    {
+      "function": "0040813c",
+      "parameter": 0,
+      "struct": "EXPLOSION",
+      "description": "Explosion_TickUpdate's object -- +0x34, +0x4a, +0x4f and +0x53."
+    },
+    {
+      "function": "00408228",
+      "parameter": 0,
+      "struct": "EXPLOSION",
+      "description": "Explosion_GetOwnerDrawCell's object -- reads +0x57."
+    },
+    {
+      "function": "00408240",
+      "parameter": 0,
+      "struct": "EXPLOSION",
+      "description": "Explosion_IsHiddenFromOwnerCockpit's object -- reads +0x41 and +0x57."
     }
   ]
 }

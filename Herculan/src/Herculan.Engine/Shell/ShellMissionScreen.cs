@@ -296,7 +296,7 @@ public sealed class ShellMissionScreen {
 
 	/// <summary>
 	/// The map panel. The builder starts it on row <c>0x2b</c> in a window and on <c>0x2a</c> when the
-	/// shell runs full-screen (<c>DAT_00481e68</c>); this engine's shell is a window.
+	/// shell runs full-screen (<c>Display_FullScreen</c> (<c>00481e68</c>)); this engine's shell is a window.
 	/// </summary>
 	public static readonly ShellRect MapRect = new(0x117, 0x2b, 0x278, 0x12b);
 

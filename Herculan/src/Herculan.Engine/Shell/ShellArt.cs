@@ -24,7 +24,7 @@ public sealed record ShellImage(byte[] Pixels, int Width, int Height);
 /// <para><b>The palette comes from the table, by index.</b> VSHELL selects one with
 /// <c>Shell_InstallPalette(index)</c> (<c>004075b2</c>) into the pointer table at <c>0046dcdc</c>, and that table is decoded —
 /// see <see cref="ShellPalette"/>, which also carries which screen picks which. Index 1,
-/// <c>dpl\palette.dpl</c>, is what the shell installs on entry (<c>esglobal.cpp</c>,
+/// <c>dpl\palette.dpl</c>, is what the shell installs on entry (<c>EsGlobal_Init</c>,
 /// <c>004073bc</c>) and what the service bay re-installs whenever it is shown (<c>0043b23d</c>),
 /// hence <see cref="DefaultPaletteName"/>. Pass another name to <see cref="Load"/> to draw the frame
 /// through one of the other nineteen.</para>
@@ -69,7 +69,7 @@ public sealed class ShellArt {
 
 	/// <summary>
 	/// The three fonts the shell's global init loads and keeps for the whole session — <c>FONT2</c>
-	/// twice into two separate handles (<c>0046dcc4</c> and <c>0046dcc8</c>) and <c>BLACK</c> into a
+	/// twice into two separate handles (<c>ShellFont2HandleA</c> and <c>ShellFont2HandleB</c>) and <c>BLACK</c> into a
 	/// third (<c>0046dccc</c>), which is the one every tab caption is drawn in. <c>FONT</c> is in the
 	/// archive and is loaded here alongside them, though the init does not ask for it.
 	/// </summary>
@@ -80,7 +80,7 @@ public sealed class ShellArt {
 
 	/// <summary>
 	/// The font every tab screen's own content is drawn in. The shell's init loads <c>font2.dfn</c>
-	/// twice, into <c>0046dcc4</c> and <c>0046dcc8</c>, and a screen builder hands out both — the save
+	/// twice, into <c>ShellFont2HandleA</c> (<c>0046dcc4</c>) and <c>ShellFont2HandleB</c> (<c>0046dcc8</c>), and a screen builder hands out both — the save
 	/// screen gives its buttons the first and its title, slot rows and readouts the second — so the two
 	/// handles are one typeface and there is nothing to choose between them.
 	/// </summary>

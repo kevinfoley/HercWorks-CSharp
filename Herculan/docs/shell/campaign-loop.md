@@ -2,14 +2,14 @@
 
 How VSHELL starts a campaign, hands a mission to DBSIM, and folds the result back into the save. **Addresses are in `VSHELL.EXE` except where the text names DBSIM**; the shell's source module is named in the assertion strings for each function cited.
 
-The shell and the simulator are separate processes that never run at the same time. They communicate through loose files in `data\` plus one number: the shell is *relaunched* when the mission ends, and `Shell_BuildScreensAndStart` (`004012b0`), which the startup `Shell_Main` (`00401525`) (`vshell.cpp`) runs once its windows are built, responds to a `-X3` or `-X4` command-line switch by loading slot 10 and running the debrief in place of the intro movies:
+The shell and the simulator are separate processes that never run at the same time. They communicate through loose files in `data\` plus one number: the shell is *relaunched* when the mission ends, and `Shell_BuildScreensAndStart` (`004012b0`), which [the startup](startup.md#the-startup--shell_main-00401525) runs once its windows are built, responds to a `-X3` or `-X4` command-line switch by loading slot 10 and running the debrief in place of the intro movies:
 
 ```
 Game_LoadSlot(10, 0);            // 0040e4f2: load the campaign autosave
 Game_ProcessMissionResults();    // 0040eae7: consume results.dat
 ```
 
-`-X6`, a return from a demo, skips the intro movies too and puts the startup sequence straight up. The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `FUN_0040107c`, stores `-X<n>` through `Shell_SetExitCode` (`0040876a`) into `0046e210`; `Shell_Main` (`00401525`) copies that into `0048227e` right after the parse, having zeroed it before through `FUN_004073bc(0)`.
+`-X6`, a return from a demo, skips the intro movies too and puts the startup sequence straight up. The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `Shell_ParseCommandLine` (`0040107c`), stores `-X<n>` through `Shell_SetExitCode` (`0040876a`) into `0046e210`; `Shell_Main` (`00401525`) copies that into `Shell_StartupCode` (`0048227e`) right after the parse, having zeroed it before through `EsGlobal_Init(0)` (`004073bc`).
 
 ## The files crossing between the two binaries
 
@@ -239,7 +239,7 @@ Two scripted events are hard-coded into the advance, keyed on the position *afte
 - Stage 1 mission 3 calls `Player_SetBay(4)` (`0040e6c8`), which moves the player into bay 4.
 - Stage 1 mission 6 calls `Hangar_WithdrawChassis(8)` (`0040e7cd`), which takes the first Razor out of the hangar. `HercList_RemoveFirstOfType` (`00410bbe`) strips its mounts into stock as a scrap does, empties the bay for no salvage and returns its index, and the pilot in that bay loses it (bay `-1`); the pilot's on-strength byte is left alone. With no Razor in the hangar `HercList_RemoveFirstOfType` (`00410bbe`) returns what its last probe read, bay 7's chassis type or `-1`, and the pilot in the bay of that number loses it instead.
 
-The autosave, `Game_SaveSlot(10, NULL)` (`0040e37b`), has five call sites: `Shell_Main` (`00401525`) once its main loop ends, which includes every launch of a mission; `Game_ProcessMissionResults` on the branch that completes the campaign; `SaveScreen_OnRestore` after a restore; `TabHandler_MainMenu` on the way to the main menu; and `ReplayDialog_OnNo`. `SaveScreen_OnAccept` is the sixth call, saving the selected slot instead. This is why `GAME_R.SAV` mirrors the newest ordinary save.
+The autosave, `Game_SaveSlot(10, NULL)` (`0040e37b`), has five call sites: [`Shell_Main`](startup.md#leaving-the-main-loop) once its main loop ends, which includes every launch of a mission; `Game_ProcessMissionResults` on the branch that completes the campaign; `SaveScreen_OnRestore` after a restore; `TabHandler_MainMenu` on the way to the main menu; and `ReplayDialog_OnNo`. `SaveScreen_OnAccept` is the sixth call, saving the selected slot instead. This is why `GAME_R.SAV` mirrors the newest ordinary save.
 
 ### Replay mission?
 
@@ -252,7 +252,7 @@ States 0 and 3 put up `REPLAY MISSION?` (`ReplayDialog_Show(state)`, `0044ca57`)
 
 | Reading | Why it is wrong |
 |---|---|
-| `-r` relaunches the shell into the debrief. | The usage text says so (`"-r -R Returning from sim"`), and the parser's `-r` case does store 3 in `0048227e`. `Shell_Main` (`00401525`) overwrites `0048227e` with the `-X` value at `004015af`, straight after the parse returns (the stack cleanup and the `Shell_GetExitCode` call come between), so `-r` has no effect: only `-X3` and `-X4` reach the debrief. |
+| `-r` relaunches the shell into the debrief. | The usage text says so (`"-r -R Returning from sim"`), and the parser's `-r` case does store 3 in `Shell_StartupCode`. `Shell_Main` (`00401525`) overwrites it with the `-X` value at `004015af`, straight after the parse returns (the stack cleanup and the `Shell_GetExitCode` call come between), so `-r` has no effect: only `-X3` and `-X4` reach the debrief. |
 
 ## Open
 

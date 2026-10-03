@@ -14,13 +14,11 @@ namespace Herculan.Engine.Audio;
 /// the portrait's mouth agree with the recording.</para>
 ///
 /// <para>The name is <c>"P" + voiceBank + "_" + 2-digit message id + 3-digit variant</c>, looked up
-/// under <see cref="ResourceFolder"/>.</para>
+/// under the language's voice folder, <see cref="ComputerVoice.VoiceFolder"/>.</para>
 /// </summary>
 public sealed class SquadVoice {
-	/// <summary>The archive folder the clips live in — shared with <see cref="ComputerVoice"/>.</summary>
-	public const string ResourceFolder = ComputerVoice.ResourceFolder;
-
 	private readonly GameContent _content;
+	private readonly string _folder;
 	private readonly IAudioBackend _backend;
 	private readonly Dictionary<string, int> _samples = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, int> _looseSamples = new(StringComparer.OrdinalIgnoreCase);
@@ -32,6 +30,7 @@ public sealed class SquadVoice {
 	public SquadVoice(GameContent content, IAudioBackend backend) {
 		_content = content ?? throw new ArgumentNullException(nameof(content));
 		_backend = backend ?? throw new ArgumentNullException(nameof(backend));
+		_folder = ComputerVoice.VoiceFolder(content.Language);
 	}
 
 	/// <summary>Speech gain, 0 to 1.</summary>
@@ -59,7 +58,7 @@ public sealed class SquadVoice {
 
 	/// <summary>Whether the archive actually holds that recording.</summary>
 	public bool Has(int voiceBank, int messageId, int variant) =>
-		_content.Contains(ResourceFolder, ClipName(voiceBank, messageId, variant));
+		_content.Contains(_folder, ClipName(voiceBank, messageId, variant));
 
 	/// <summary>
 	/// Plays one recording, cutting off anything the channel was already saying. The original's pool
@@ -129,7 +128,7 @@ public sealed class SquadVoice {
 		}
 
 		int id = -1;
-		if (_content.Read(ResourceFolder, name) is { } bytes && WaveSample.Decode(bytes) is { } sample) {
+		if (_content.Read(_folder, name) is { } bytes && WaveSample.Decode(bytes) is { } sample) {
 			id = _backend.CreateSample(sample);
 		}
 

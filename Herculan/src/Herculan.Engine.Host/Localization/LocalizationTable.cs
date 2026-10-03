@@ -20,8 +20,10 @@ public class LocalizationTable {
 
 	private static readonly string LocaleFolder = Path.Combine(AppContext.BaseDirectory, "Localization");
 
-	/// <summary>Where the player's chosen locale is remembered — just the one string, so a whole
-	/// settings file would be more ceremony than the value needs.</summary>
+	/// <summary>
+	/// Where the player's chosen locale is remembered: one line for it, and a second for the locale in use before
+	/// it, which startup falls back to when the chosen one no longer loads.
+	/// </summary>
 	private static readonly string SelectedLocaleFile = Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData,
 			Environment.SpecialFolderOption.DoNotVerify),
@@ -41,12 +43,20 @@ public class LocalizationTable {
 	}
 
 	/// <summary>
-	/// Loads the locale last chosen, or <see cref="DefaultLocale"/> when none was or it no longer loads. A
-	/// default that fails to load throws: there would be nothing to show the player in any language.
+	/// Loads the locale last chosen; when it no longer loads, the one in use before it; and failing both, or
+	/// with neither remembered, <see cref="DefaultLocale"/>. Neither fallback is written back, so a chosen file
+	/// that is mended or put back is used again on the next start. A default that fails to load throws: there
+	/// would be nothing to show the player in any language.
 	/// </summary>
 	public LocalizationTable() {
-		if (LoadSelectedLocale() is { } saved && saved != DefaultLocale && Apply(saved, persist: false)) {
-			return;
+		foreach (string saved in LoadSelectedLocales()) {
+			if (saved == DefaultLocale) {
+				break;
+			}
+
+			if (Apply(saved, persist: false)) {
+				return;
+			}
 		}
 
 		if (!Apply(DefaultLocale, persist: false)) {
@@ -69,9 +79,10 @@ public class LocalizationTable {
 
 		_keyValuePairs = strings;
 		_fallback = locale == DefaultLocale ? null : Read(PathFor(DefaultLocale));
+		string previous = _selectedLocale;
 		_selectedLocale = locale;
 		if (persist) {
-			SaveSelectedLocale(locale);
+			SaveSelectedLocales(locale, previous);
 		}
 
 		return true;
@@ -135,19 +146,25 @@ public class LocalizationTable {
 			.ToArray()!;
 	}
 
-	private static string? LoadSelectedLocale() {
+	// The remembered locales, the chosen one first; empty when none is remembered.
+	private static string[] LoadSelectedLocales() {
 		try {
-			return File.Exists(SelectedLocaleFile) ? File.ReadAllText(SelectedLocaleFile).Trim() : null;
+			return File.Exists(SelectedLocaleFile)
+				? File.ReadAllLines(SelectedLocaleFile).Select(line => line.Trim()).Where(line => line.Length > 0).ToArray()
+				: [];
 		} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
 			Console.Error.WriteLine($"Could not read {SelectedLocaleFile} ({ex.Message}); using default locale.");
-			return null;
+			return [];
 		}
 	}
 
-	private static void SaveSelectedLocale(string locale) {
+	// Remembers locale as chosen and previous, the locale it replaces, as the one to fall back to; a choice of the
+	// locale already in use keeps the fallback already remembered.
+	private static void SaveSelectedLocales(string locale, string previous) {
 		try {
+			string[] lines = previous != locale ? [locale, previous] : [locale, .. LoadSelectedLocales().Skip(1).Take(1)];
 			Directory.CreateDirectory(Path.GetDirectoryName(SelectedLocaleFile)!);
-			File.WriteAllText(SelectedLocaleFile, locale);
+			File.WriteAllLines(SelectedLocaleFile, lines);
 		} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
 			Console.Error.WriteLine($"Could not write {SelectedLocaleFile}: {ex.Message}");
 		}

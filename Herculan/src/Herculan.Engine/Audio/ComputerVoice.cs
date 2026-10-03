@@ -21,10 +21,17 @@ namespace Herculan.Engine.Audio;
 /// </summary>
 public sealed class ComputerVoice {
 	/// <summary>
-	/// The archive folder the clips live in: English's. The original names the folder after the
-	/// language's archive (<c>Voice_FilePath</c>, <c>0045ef80</c>; docs/formats/audio.md, "File naming").
+	/// The voice archive's name for <paramref name="language"/>, without its extension, and the folder its clips live
+	/// in: <c>Voice_ArchiveName</c> (<c>0045ef68</c>) patches the language letter over the last letter of
+	/// <c>simvoice</c>, and <c>Voice_FilePath</c> (<c>0045ef80</c>) puts that name in front of every clip
+	/// (docs/formats/audio.md, "File naming"). There is no English fallback: a v1.10 install copies its language's
+	/// archive at every size.
 	/// </summary>
-	public const string ResourceFolder = "SIMVOICE";
+	public static string VoiceFolder(GameLanguage language) => language switch {
+		GameLanguage.French => "SIMVOICF",
+		GameLanguage.German => "SIMVOICG",
+		_ => "SIMVOICE",
+	};
 
 	/// <summary>
 	/// How a clip number becomes a resource name. The original builds it from the literal
@@ -132,7 +139,7 @@ public sealed class ComputerVoice {
 
 		if (Messages?[messageId] is { VoiceClip: > 0 } message) {
 			string name = string.Format(ClipNameFormat, message.VoiceClip);
-			if (_content.Read(ResourceFolder, name) is { } bytes
+			if (_content.Read(VoiceFolder(_content.Language), name) is { } bytes
 					&& WaveSample.Decode(bytes) is { } sample) {
 				id = _backend.CreateSample(sample);
 			}

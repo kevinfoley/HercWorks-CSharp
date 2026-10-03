@@ -728,11 +728,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// SimMath.PerTickStepsScaled.
 	SimMath.PerTickStepsScaled = tapePlayer == null;
 	// The two gates the original's own panel reads. SfxManager being null greys its first four rows, and
-	// VoiceArchivePresent (0049e9cd) -- which Voice_ArchiveExists (00459d6c) sets by trying to fopen the localised simvoice archive -- is
-	// what lets the two message rows be stepped at all.
+	// VoiceArchivePresent (0049e9cd) -- which Voice_ArchiveExists (00459d6c) sets by trying to fopen the localised
+	// vol\simvoic?.vol under the install, not the disc -- is what lets the two message rows be stepped at all.
 	bool soundAvailable = audio.Director != null;
-	bool voiceAvailable = content.MountedArchives.Any(
-		name => name.StartsWith("SIMVOIC", StringComparison.OrdinalIgnoreCase));
+	bool voiceAvailable = Directory.Exists(GameInstall.ArchiveDirectory(installRoot))
+		&& Directory.EnumerateFiles(GameInstall.ArchiveDirectory(installRoot), ComputerVoice.VoiceFolder(content.Language) + ".VOL",
+			new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive }).Any();
 
 	// Prefs_Init (0045a19c): the option handlers, then the walk that runs each once over what was read,
 	// then the voice check. Three of the original's five are registered here; TERRAIN TEXTURE and the
@@ -1009,11 +1010,11 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		squadSeats[slot] = squadPlacements[slot].Object;
 	}
 
-	// A training mission's instructor speaks from loose files on the disc, in the English voice folder the
-	// cockpit computer's speech is read from too: the language is not chosen yet (docs/retail-builds.md,
-	// "How a language is chosen").
+	// A training mission's instructor speaks from loose files on the disc, in the language's voice folder the
+	// cockpit computer's speech is read from too.
+	string voiceFolder = ComputerVoice.VoiceFolder(content.Language);
 	audio.InstructorClip = (trainingMission, messageId) =>
-		InstructorVoice.ReadClip(installRoot, disc, ComputerVoice.ResourceFolder, trainingMission, messageId);
+		InstructorVoice.ReadClip(installRoot, disc, voiceFolder, trainingMission, messageId);
 	audio.AttachSquad(squadComm);
 
 	// A comm box captions itself with its pilot's roster name, the same one the MFD's transmission plate

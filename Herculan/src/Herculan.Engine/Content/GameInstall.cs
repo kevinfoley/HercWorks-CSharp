@@ -275,6 +275,20 @@ public static class GameInstall {
 		Path.Combine(installRoot, MissionLoader.DataFolderName, LanguageCfgName);
 
 	/// <summary>
+	/// The first byte of the install's <c>data\language.cfg</c>, the one byte every retail reader takes; null when the
+	/// file is missing, empty or unreadable.
+	/// </summary>
+	public static byte? ReadLanguageLetter(string installRoot) {
+		try {
+			using var file = File.OpenRead(LanguageCfgPath(installRoot));
+			int letter = file.ReadByte();
+			return letter < 0 ? null : (byte)letter;
+		} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+			return null;
+		}
+	}
+
+	/// <summary>
 	/// Writes <paramref name="language"/>'s letter as the install's whole <c>data\language.cfg</c>, as the installer's
 	/// <c>BATCH.EXE</c> does (<see cref="RetailInstaller.Install"/>).
 	/// </summary>

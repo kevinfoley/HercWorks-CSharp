@@ -15,9 +15,8 @@ namespace Herculan.Engine.Content;
 /// archive holding a <c>folder\name</c> answering for it (docs/formats/vol-archive.md, "Which
 /// archives are mounted").</para>
 ///
-/// <para>Every reader still asks for the English folders — the voice clips under <c>SIMVOICE</c>,
-/// the simulator's string tables under <c>str</c> — so a v1.10 install's French and German, though
-/// mounted, are not reached; docs/retail-builds.md, "How a language is chosen".</para>
+/// <para>It also carries the program's <see cref="Language"/>, which the readers of translated resources take
+/// their folder or extension from.</para>
 ///
 /// Parsing is delegated wholesale to <see cref="VolFileReader"/> in HercWorks.Vol; this type adds
 /// only the index and the load-order rule. Per docs/engine/planning.md's repo-structure decision
@@ -33,8 +32,9 @@ public sealed class GameContent {
 	private readonly Dictionary<string, VolEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
 	private readonly List<Voln> _mounted;
 
-	private GameContent(List<Voln> searchOrder) {
+	private GameContent(List<Voln> searchOrder, GameLanguage language) {
 		_mounted = searchOrder;
+		Language = language;
 		foreach (var vol in searchOrder) {
 			foreach (var entry in vol.FilesSet) {
 				// Folder labels come out of the VOL header already stripped of their '\' separator
@@ -45,6 +45,12 @@ public sealed class GameContent {
 			}
 		}
 	}
+
+	/// <summary>
+	/// The language the program runs in: <see cref="LauncherLanguage.Simulator"/> for DBSIM's mount and
+	/// <see cref="LauncherLanguage.Shell"/> for VSHELL's.
+	/// </summary>
+	public GameLanguage Language { get; }
 
 	/// <summary>Names of the archives mounted, in the order they are searched.</summary>
 	public IReadOnlyList<string> MountedArchives =>
@@ -143,7 +149,10 @@ public sealed class GameContent {
 		}
 
 		// OrderByDescending is stable, which keeps load order among equal precedences.
-		return new GameContent(loaded.OrderByDescending(vol => vol.VolOrderNum).ToList());
+		var language = (program & Voln.DbsimProgram) != 0
+			? LauncherLanguage.Simulator(installRoot)
+			: LauncherLanguage.Shell(installRoot);
+		return new GameContent(loaded.OrderByDescending(vol => vol.VolOrderNum).ToList(), language);
 	}
 
 	/// <summary>

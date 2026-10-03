@@ -99,7 +99,7 @@ The second piece is v1.0's track 2: a rip of that track from a v1.0 disc is the 
 
 ## Open
 
-- **Unported:** French and German: taking the language from `data\language.cfg` as v1.10's launcher does, and reading the translated text, mission text and voice archives.
+- **Unported:** v1.10's language folder for `campaign.str`. Its `VER95\VSHELL.EXE` code is not in the Ghidra project, so the campaign map's stage text reads `eng\campaign.str` as v1.0's does.
 - **Open:** how v1.10's `VSHELL.EXE` and `DBSIM.EXE` differ from v1.0's beyond the language readers and the music. `DBSIM.EXE`'s code section is `0x200` bytes longer, so a byte comparison says nothing, and neither v1.10 executable is in the Ghidra project; the music path was compared as instruction sequences with absolute addresses masked.
 - **Open:** whether the v1.10 disc's audio tracks are in the image's order, with v1.0's track 2 second, or the image was assembled out of order; and which of the image's first and third pieces is v1.0's track 3. Ripping v1.0's tracks 3 and 4 would settle the second.
 - **Open:** why the v1.0 `SIERRA.INF` lists `VSHELL.EXE` at 563,232 bytes. The disc it ships on carries a 564,768-byte one, the analysed `ES2\VSHELL.EXE`.

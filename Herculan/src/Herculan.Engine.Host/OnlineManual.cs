@@ -75,23 +75,14 @@ internal static class OnlineManual {
 	// Language_GetFolderName (DBSIM 0045efe0)'s mapping of data\language.cfg's first byte: F French,
 	// G German, S Spanish, anything else, or no file, English. VSHELL's 004317ea knows only E, F and G
 	// and asserts on any other byte or a missing file (004087b9); this follows DBSIM, since an install
-	// without the file is otherwise playable.
-	internal static (string Folder, string Code) Language(string installRoot) {
-		string path = GameInstall.LanguageCfgPath(installRoot);
-		int letter = -1;
-		try {
-			using var file = File.OpenRead(path);
-			letter = file.ReadByte();
-		} catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
-		}
-
-		return letter switch {
-			'F' => ("FRENCH", "fr"),
-			'G' => ("GERMAN", "de"),
-			'S' => ("SPANISH", "es"),
-			_ => ("ENGLISH", "en"),
-		};
-	}
+	// without the file is otherwise playable. It is the file's byte, not the language the game runs in
+	// (LauncherLanguage): a v1.0 install's French manual opens over an English game.
+	internal static (string Folder, string Code) Language(string installRoot) => GameInstall.ReadLanguageLetter(installRoot) switch {
+		(byte)'F' => ("FRENCH", "fr"),
+		(byte)'G' => ("GERMAN", "de"),
+		(byte)'S' => ("SPANISH", "es"),
+		_ => ("ENGLISH", "en"),
+	};
 
 	private static string? Convert(string installRoot, GameDisc? disc) {
 		var (folder, code) = Language(installRoot);

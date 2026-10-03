@@ -193,8 +193,8 @@ public static class ShellTrainingLaunch {
 
 	/// <summary>
 	/// A mission and its text as <c>MsnGen_ParseMsnFile</c> opens them: the <c>.MSN</c> at
-	/// <paramref name="missionPath"/>, and the <c>.ENG</c> <c>Msn_LoadEngText</c> (<c>0041768c</c>) finds by
-	/// swapping everything from the name's first <c>.</c> for the language's extension, or null text when
+	/// <paramref name="missionPath"/>, and the text <c>Msn_LoadEngText</c> (<c>0041768c</c>) finds by
+	/// swapping everything from the name's first <c>.</c> for the shell language's extension, or null text when
 	/// there is none. Null when the mission itself is not in the archives.
 	/// </summary>
 	internal static (byte[] Msn, byte[]? Text)? ReadMission(GameContent content, string missionPath) {
@@ -206,8 +206,16 @@ public static class ShellTrainingLaunch {
 		}
 
 		int dot = name.IndexOf('.');
-		return (msn, content.Read(folder, (dot < 0 ? name : name[..dot]) + ".ENG"));
+		string stem = dot < 0 ? name : name[..dot];
+		return (msn, content.Read(folder, stem + MissionTextExtension(content.Language)));
 	}
+
+	/// <summary><c>Msn_LoadEngText</c>'s extension for <paramref name="language"/>'s mission text.</summary>
+	internal static string MissionTextExtension(GameLanguage language) => language switch {
+		GameLanguage.French => ".FRE",
+		GameLanguage.German => ".GER",
+		_ => ".ENG",
+	};
 
 	/// <summary>
 	/// <c>Squad_GenerateRoster</c> (<c>0040fa31</c>) — three squads of twelve, each from a shuffle of four

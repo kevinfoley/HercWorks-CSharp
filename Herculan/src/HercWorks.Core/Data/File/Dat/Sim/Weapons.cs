@@ -87,6 +87,18 @@ public class Weapons {
 		public short ProjDatIndex => BitConverter.ToInt16(Tail, 0x1c);
 
 		/// <summary>
+		/// Tail-relative <c>0x0e</c> (in-memory <c>0x30</c>) — the weapon's range in world units, the
+		/// length <c>Bullet_FireBurst</c> gives the ray. See docs/formats/weapons-dat-sim.md.
+		/// </summary>
+		public int Range => BitConverter.ToInt32(Tail, 0x0e);
+
+		/// <summary>
+		/// Tail-relative <c>0x16</c> (in-memory <c>0x38</c>) — the upper energy threshold, which the
+		/// beam fire paths pass as the shot's power. See docs/formats/weapons-dat-sim.md.
+		/// </summary>
+		public short ShotCost => BitConverter.ToInt16(Tail, 0x16);
+
+		/// <summary>
 		/// Tail-relative <c>0x2e</c> (in-memory <c>0x50</c>): which icon of the <c>WEAPONS</c> bank the
 		/// Heads-Down Display's damage detail draws for this weapon, before the <c>.PDG</c>
 		/// hardpoint's own frame offset is added. -1 draws none. See

@@ -2,9 +2,9 @@
 
 ## Earthsiege 2 (original retail game)
 
-_Bugs listed in this section were tested on Windows 11. It's possible that some bugs would not occur on original 1990s hardware. Bugs in this section are reproduced as-is in HERCULAN Engine unless otherwise noted.
+_Some bugs listed in this section were tested on Windows 11. It's possible that some bugs would not occur on original 1990s hardware, though most bugs are verified in disassembly. Bugs in this section are reproduced as-is in HERCULAN Engine unless otherwise noted._
 
-Some of the bugs in this section were filed by Claude and are un-verified. Claude frequently concludes that a memory address/feature is unreachable and unused in retail, when in fact the mechanism for accessing this address/feature simply has not been found yet; any claim to this effect should be viewed with skepticism. Likewise, Claude sometimes confuses save files with the full set of retail missions, so any claim that a feature is never used in any retail mission should be viewed with skepticism._
+_Some of the bugs in this section were filed by Claude and are un-verified. Claude frequently concludes that a memory address/feature is unreachable and unused in retail, when in fact the mechanism for accessing this address/feature simply has not been found yet; any claim to this effect should be viewed with skepticism. Likewise, Claude sometimes confuses save files with the full set of retail missions, so any claim that a feature is never used in any retail mission should be viewed with skepticism._
 
 _Note to Claude: Detailed technical descriptions belong in their respective docs, not here. Give a short plain-English summary._
 

@@ -219,8 +219,12 @@ public sealed partial class BaseObject : SimObject {
 		/// <summary><c>StructureArmedVtable</c> (<c>004978ac</c>), tick <c>00404100</c>.</summary>
 		Armed,
 
-		/// <summary><c>StructureType0x22Vtable</c> (<c>00497784</c>), tick <c>Base_TripleTurretThinkTick</c> (<c>004045c8</c>) — not ported.</summary>
-		TripleTurret,
+		/// <summary>
+		/// <c>StructureTransportVtable</c> (<c>00497784</c>), tick <c>Base_TransportThinkTick</c> (<c>004045c8</c>).
+		/// The game's name for type <c>0x22</c>, <c>TRANSPORT</c>, is what its MFD target readout prints; the
+		/// model is a landed drop pod carrying three weapon stations.
+		/// </summary>
+		Transport,
 
 		/// <summary><c>StructureGroundVehicleVtable</c> (<c>00497818</c>), tick <c>0046a5d0</c>.</summary>
 		GroundVehicle
@@ -232,7 +236,7 @@ public sealed partial class BaseObject : SimObject {
 	private static StructureClass Classify(int typeIndex) =>
 		ScannerTypes.Contains(typeIndex) ? StructureClass.Radar
 		: typeIndex is 8 or 0xb or 0x20 or 0x23 ? StructureClass.Armed
-		: typeIndex == 0x22 ? StructureClass.TripleTurret
+		: typeIndex == 0x22 ? StructureClass.Transport
 		: GroundVehicleTypes.Contains(typeIndex) ? StructureClass.GroundVehicle
 		: PlainTypes.Contains(typeIndex) ? StructureClass.Plain
 		: StructureClass.Unclassified;
@@ -307,10 +311,10 @@ public sealed partial class BaseObject : SimObject {
 	/// <c>obj+0xa5</c> — this structure has nothing to fight with. <c>Base_Construct</c> sets it at
 	/// spawn for the <see cref="StructureClass.Plain"/> and <see cref="StructureClass.Radar"/> classes
 	/// and no other, so an unarmed building is out of the AI's fight from birth
-	/// (docs/simulation/structure-behaviour.md, "Five classes, one switch"). The triple turret's own
-	/// latch goes with its tick, which is unported.
+	/// (docs/simulation/structure-behaviour.md, "Five classes, one switch"). The transport latches
+	/// it from its own tick once it has nothing left to fire with.
 	/// </summary>
-	public bool Disarmed => Class is StructureClass.Plain or StructureClass.Radar;
+	public bool Disarmed => Class is StructureClass.Plain or StructureClass.Radar || _transportDisarmed;
 
 	/// <inheritdoc />
 	public override bool Invulnerable => Type.Invulnerable;
@@ -688,6 +692,8 @@ public sealed partial class BaseObject : SimObject {
 			}
 		} else if (Class == StructureClass.Armed) {
 			ArmedThinkTick(world);
+		} else if (Class == StructureClass.Transport) {
+			TransportThinkTick(world);
 		} else {
 			ThinkTick(world);
 		}
@@ -720,11 +726,10 @@ public sealed partial class BaseObject : SimObject {
 			StepAnimation();
 		}
 
-		// Only the two classes that install Base_ThinkTick free-run the flipbook. The armed and
-		// triple-turret classes step the same cell array from their own ticks, once per shot, as a
-		// muzzle flash -- free-running it for them would leave their guns permanently flashing. The
-		// triple turret's tick is the one of the five still unported; see
-		// docs/simulation/structure-behaviour.md.
+		// Only the two classes that install Base_ThinkTick free-run the flipbook. The armed class steps
+		// the same cell array from its own tick, once per shot, as a muzzle flash, and the transport's
+		// tick never steps it. Both hand their tick here once fallen, when the flipbook has stopped
+		// anyway.
 		if (Class is not (StructureClass.Plain or StructureClass.Radar)
 				|| Destroyed || Type.AnimCellSequence < 0) {
 			return;

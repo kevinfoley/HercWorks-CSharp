@@ -677,8 +677,7 @@ public sealed class WeaponMount {
 	/// <para>Zero for every pod, which is what still makes the chain gate work: a hardpoint with no
 	/// range is not a weapon.</para>
 	/// </summary>
-	public int Range =>
-		_template?.Tail is { Length: >= 0x12 } tail ? BitConverter.ToInt32(tail, 0x0e) : 0;
+	public int Range => _template?.Range ?? 0;
 
 	/// <summary>
 	/// What one shot takes out of the capacitor — the same template field at <c>0x38</c> that is the
@@ -692,8 +691,7 @@ public sealed class WeaponMount {
 	/// capacitor — a charge-up weapon whose shot is worth as much as the pilot let it accumulate. The
 	/// manual's "power level" is that charge target, and the keys below are what move it.</para>
 	/// </summary>
-	public short ShotCost =>
-		_template?.Tail is { Length: >= 0x18 } tail ? BitConverter.ToInt16(tail, 0x16) : (short)0;
+	public short ShotCost => _template?.ShotCost ?? 0;
 
 	/// <summary>
 	/// The refire delay a shot arms, in the same timer units <see cref="RefireTimer"/> counts down in

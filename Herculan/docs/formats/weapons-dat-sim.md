@@ -50,10 +50,10 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 | Absolute | Field | Read by |
 |---|---|---|
 | `0x2c` | **minimum engagement range**, int32. **Zero in all 33 retail records** | `WeaponMount_RangeAllows` |
-| `0x30` | **range**, int32, in world units | `WeaponMount_FireDispatch_GunBeam`, `WeaponMount_RangeAllows` |
+| `0x30` | **range**, int32, in world units | `WeaponMount_FireDispatch_GunBeam`, `WeaponMount_RangeAllows`, `Base_TransportThinkTick` (`LAS100`'s, for its beams) |
 | `0x34` | the AI's **shot-value penalty**, subtracted from the damage credit when it picks a hardpoint. 500 the MSL launchers, 600 BMSL; 150 the EMP cannons, the particle beams, PLAS and MAGN; 10, 20 or 30 the autocannons and lasers by size; 5 the ELFs; 1 the big EMP (id 19); 0 a pod | `Ai_ChooseWeapon` — [`../simulation/ai-weapons.md`](../simulation/ai-weapons.md) |
 | `0x36` | energy fire threshold, low | `WeaponMount_EnergyCanFire` |
-| `0x38` | energy fire threshold, high, **and the per-shot cost** — for an ammunition mount, rounds per shot | `WeaponMount_EnergyCanFire`, both fire dispatchers |
+| `0x38` | energy fire threshold, high, **and the per-shot cost** — for an ammunition mount, rounds per shot | `WeaponMount_EnergyCanFire`, both fire dispatchers, `Base_TransportThinkTick` (`LAS100`'s, as its beams' power) |
 | `0x3a` | magazine size | `WeaponMount_CtorAmmunition` (`0040e140`) |
 | `0x3c` | barrel count; `3` fires three shots spread along the muzzle offset's own X | `WeaponMount_FireDispatch_GunBeam` |
 | `0x3e` | **`PROJ.DAT` index**, below | `MechLoadout_ConstructWeaponMounts` |

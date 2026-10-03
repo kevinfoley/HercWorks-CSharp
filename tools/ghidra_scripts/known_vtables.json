@@ -92,7 +92,7 @@
       "slots": [
         { "offset": 0,   "name": "Draw",                  "description": "Draw the object. Base installs Shape_DrawAtDetailLevel (004033e4); the mech overrides with Mech_Draw (004174c8)." },
         { "offset": 4,   "name": "GetPosition",           "description": "SimObject_GetPosition (0046b801), returning obj+0x26, in every table seen -- base, mech, flyer and all four projectile classes. Scene_SubmitObjectWithRadius (0042837c) and ObjList_DrawCellObjects (00428c60) call it for the object's position." },
-        { "offset": 8,   "name": "Destructor",            "description": "The deleting destructor, (this, flags): SimObject_Dtor (00427081), Mech_Dtor (00427127), Flyer_Dtor (004271bf), Base_Dtor (00406dab), Base_RadarDtor (00406df3), Base_ArmedDtor (00406d5c), GroundVehicle_Dtor (00406d05), Base_TripleTurretDtor (00406caf). Each counts the RTL destructor counter down once per class level it inlines, runs AnimObj_Dtor (00402400) with flags 0, and on flags bit 0 takes the object off maybe_GlobalLiveObjectList with ObjList_SwapRemove (00411e1c) instead of freeing it." },
+        { "offset": 8,   "name": "Destructor",            "description": "The deleting destructor, (this, flags): SimObject_Dtor (00427081), Mech_Dtor (00427127), Flyer_Dtor (004271bf), Base_Dtor (00406dab), Base_RadarDtor (00406df3), Base_ArmedDtor (00406d5c), GroundVehicle_Dtor (00406d05), Base_TransportDtor (00406caf). Each counts the RTL destructor counter down once per class level it inlines, runs AnimObj_Dtor (00402400) with flags 0, and on flags bit 0 takes the object off maybe_GlobalLiveObjectList with ObjList_SwapRemove (00411e1c) instead of freeing it." },
         { "offset": 12,  "name": "slot_0x0c",             "description": "Stub_ReturnZero (004785bf) in every table seen. Role not established." },
         { "offset": 16,  "name": "GetShapeRadius",        "description": "SimObject_GetShapeRadius (0046b80c) in every table -- reads the radius off the instanced shape rather than any type record. See docs/simulation/hit-detection.md." },
         { "offset": 20,  "name": "Tick",                  "description": "The object's per-tick update. The mech installs Behaviour_DispatchMove (00415afc), which forwards to the current behaviour class rather than moving anything itself; the projectile classes install their own TickUpdate in the same slot. The ACTOR base and the five structure tables install SimObject_TickNoOp (00411ab4), which returns 1." },
@@ -163,8 +163,8 @@
         },
         {
           "address": "00497784",
-          "label": "StructureType0x22Vtable",
-          "description": "RTTI 'LC_BASE', 0x266 bytes: BASES.DAT type 0x22 alone. Derived from StructureVtable, overriding the destructor and the think (Base_TripleTurretThinkTick, 004045c8), which latches disarmed (+0xa5) once every one of the type's components has been destroyed -- so this class starts armed and can lose it, where a plain building is born disarmed. It does not override the aim angle. The role of the type is not established; the label names the type index rather than guessing one."
+          "label": "StructureTransportVtable",
+          "description": "RTTI 'LC_BASE', 0x266 bytes: BASES.DAT type 0x22 alone, the TRANSPORT (its MFD name), a landed drop pod with three fixed weapon stations. Derived from StructureVtable, overriding the destructor and the think (Base_TransportThinkTick, 004045c8), which latches disarmed (+0xa5) once every component after the first is at full damage -- so this class starts armed and can lose it, where a plain building is born disarmed. It does not override the aim angle."
         }
       ]
     },

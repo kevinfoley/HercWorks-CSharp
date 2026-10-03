@@ -159,7 +159,7 @@ An aircraft is drawn by **cell** rather than by node — it loses components lik
 
 ## Open
 
-- **Open:** no write that clears `flyer+0xa5` is known. `es2_fieldscan.py a5 --writes-only` finds stores of 1 on sim objects (`Flyer_AiSelectBehaviour`, `Ai_ChooseWeapon`, `Base_Construct`, `Base_TripleTurretThinkTick`) and stores of 0 only to the command screen's own `+0xa5`; a grep of the decompile for the offset finds no other.
+- **Open:** no write that clears `flyer+0xa5` is known. `es2_fieldscan.py a5 --writes-only` finds stores of 1 on sim objects (`Flyer_AiSelectBehaviour`, `Ai_ChooseWeapon`, `Base_Construct`, `Base_TransportThinkTick`) and stores of 0 only to the command screen's own `+0xa5`; a grep of the decompile for the offset finds no other.
 - **Open:** no writer of `flyer+0x1f4` (the attack run's fire gate) or `flyer+0x1f8` (the leader-term gain) is known. `es2_fieldscan.py` over the whole image finds each field's one read and no write, a grep of the decompile for both offsets and their `int`-indexed forms finds nothing more, and `Flyer_Constructor`, 402 undefined bytes in the disassembly, writes neither in the decompile.
 - **Open:** no flyer path that writes `flyer+0xae` or `flyer+0x23c` is known. `es2_fieldscan.py` finds their writes in `Mech_LocomotionTick`, `Mech_MovementTick`, `Mech_Constructor` and `Mech_ComponentDamageWrite` alone.
 - **Open:** no reader of `flyer+0x21c` but `Flyer_FormationThrottle` is known. `es2_fieldscan.py` finds that read and the five writes named above; the field's other hits are other classes' `+0x21c`.

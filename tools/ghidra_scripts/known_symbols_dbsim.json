@@ -401,7 +401,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObjectBase_ConstructStatic",
-      "description": "The static-shape structure base constructor: SimObjectBase_Constructor, then installs the shape-drawing vtable. The shape holder it leaves at obj+0x34 is the two-field cell-frames form (ShapeInstance_CtorCellFrames, 00402fc0) and obj+0x39 stays clear, so no animation thread can be built on it and SimObject_ApplyRootMotionIfEnabled does nothing. Base_Construct uses it for the Plain, triple-turret and GroundVehicle cases, which draw from dgs\\BASES.DGS.",
+      "description": "The static-shape structure base constructor: SimObjectBase_Constructor, then installs the shape-drawing vtable. The shape holder it leaves at obj+0x34 is the two-field cell-frames form (ShapeInstance_CtorCellFrames, 00402fc0) and obj+0x39 stays clear, so no animation thread can be built on it and SimObject_ApplyRootMotionIfEnabled does nothing. Base_Construct uses it for the Plain, transport and GroundVehicle cases, which draw from dgs\\BASES.DGS.",
       "source": "docs/simulation/structure-behaviour.md"
     },
     {
@@ -554,7 +554,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_ThinkTick",
-      "description": "StructureVtable's and StructureRadarVtable's +0x18 tick slot -- the plain building's whole per-tick behaviour. Base_DeathSequenceTick, then while standing: if typeRec+0x24 >= 0, step cell sequence typeRec+0x24 by one modulo that sequence's own frame count, on a countdown at +0x1f6 reloaded from typeRec+0x26 (milliseconds); and if typeRec+0x06 is non-zero, SimObject_ApplyRootMotionIfEnabled(this, 100), which steps the structure's animation threads. Eight retail types state a cell sequence but only types 9 and 0x1a reach this function; the rest are Armed or the triple turret, which step the same array as a muzzle flash instead. The flipbook is NOT what turns a radar dish -- all four radar types state -1 for it and spin a free-running thread instead.",
+      "description": "StructureVtable's and StructureRadarVtable's +0x18 tick slot -- the plain building's whole per-tick behaviour. Base_DeathSequenceTick, then while standing: if typeRec+0x24 >= 0, step cell sequence typeRec+0x24 by one modulo that sequence's own frame count, on a countdown at +0x1f6 reloaded from typeRec+0x26 (milliseconds); and if typeRec+0x06 is non-zero, SimObject_ApplyRootMotionIfEnabled(this, 100), which steps the structure's animation threads. Eight retail types state a cell sequence but only types 9 and 0x1a reach this function; of the rest, the Armed types step the same array as a muzzle flash instead, the transport (0x22) never steps it, and 0x0a is never built. The flipbook is NOT what turns a radar dish -- all four radar types state -1 for it and spin a free-running thread instead.",
       "source": "docs/simulation/structure-behaviour.md"
     },
     {
@@ -589,8 +589,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Base_TripleTurretThinkTick",
-      "description": "StructureType0x22Vtable's +0x18 tick slot, BASES.DAT type 0x22 alone. Aims THREE turrets from one object by rewriting its own heading field: heading += 0x1555, then three passes 0x5554 (120 degrees) apart, restoring the original heading at the end. Each turret runs three weapon slots against DAT_004a9640, an 11-short descriptor table; slot 0 fires Rocket_Fire(3,..) and slots 1-2 Bullet_FireBurst(3,..) via WeaponMountTemplate_GetByWeaponId(8). Acquisition is Ai_SelectTarget(this, 0x10, 0x3000) -- the 0x3000 bearing cone. A slot fires only while its own component is undamaged, and the missile slot installs the target on this+0x1a4 across the Rocket_Fire call and clears it immediately after, purely to give the round a lock.",
+      "name": "Base_TransportThinkTick",
+      "description": "StructureTransportVtable's +0x18 tick slot (class LC_BASE), BASES.DAT type 0x22 alone -- the TRANSPORT (its MFD name, STRINGS0.STR group 23 entry 24 via BASES.DAT +0x28), a landed drop pod with three fixed weapon stations; nothing on the model moves. A fallen one hands the tick to Base_ThinkTick. Otherwise runs Base_DeathSequenceTick, then fires THREE weapon stations from one object by rewriting its own heading field: heading += 0x1555, three passes 0x5554 (120 degrees) apart, original heading restored at the end. Unless +0xa5 is set it first sets +0xa5 when every component after the first is at full damage. Each station's 0x1f-byte record at +0x209+s*0x1f holds three 8-byte slots, a retarget countdown at +0x18 (Ai_SelectTarget(this, 0x10, 0x3000) on a 10000 reload) and a target at +0x1b. Slots read g_LcWeaponSlots (dat\\LC_WPNS.DAT); slot k is live while component 2s+(k!=0)+1 is short of full damage, steps a firing window (reload 004973f4[open] + Math_RandomBelow(004973f8[open]), both pairs 5000) and fires when its refire countdown is out, the window open, the aim error (from the origin, against this station's heading) inside the slot's arcs and the range under the slot's. Slot 0 fires Rocket_Fire(3, muzzle, own euler, this, 0) with the target installed on +0x1a4 across the call and cleared after, purely to give the round a lock; slots 1-2 fire Bullet_FireBurst(3, frame aimed at the target, template+0x30, this, template+0x38) with WeaponMountTemplate_GetByWeaponId(8). Muzzle = position + Rotate2D(heading, offset.xy) + offset.z. Refire reloads from the slot's +0x14.",
       "source": "docs/simulation/structure-behaviour.md"
     },
     {
@@ -747,7 +747,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_LoadResources",
-      "description": "base.cpp's resource-load sequence for the base/structure subsystem: streams dat\\bforms (-> DAT_004a9630, formation offsets; see BaseFormation_GetSlotOffset), dat\\lc_wpns, dat\\bases (-> DAT_004a9620, the BASES.DAT type table BaseTypeTable.cs also reads; this is the only reader of it -- do not look for a Bases_LoadTypeTable, which is a name 0043a2e0 has carried on the strength of loading the BASES sprite bank, and which is really MfdStatusScreen_Ctor), dat\\basecol (collision), dat\\bhulks, dat\\basetex and dat\\vehtex (texture banks) via a shared plain-file-read helper (FUN_00472e08 open / FUN_004734ac read via a vtable+0x18 dispatch / FUN_00472e58 close -- no container header, first bytes of each file are its own content, confirmed against BASES.DAT's independently-verified byte-exact parse). BFORMS.DAT's per-formation record is fully variable-length: int32 slot count N, N*10 bytes of slot data, an int32 material index (-1 for the six formations with no layout) and two more int32s (where the group's anchor sits in its tile, in 256ths), an int32 buffer count M, then M {1 length byte + that many data bytes} buffers -- confirmed byte-exact: walking the retail file this way consumes all 3186 content bytes with 17 formations (matching the block-11 formation id field's documented 0-16 range) and nothing left over.",
+      "description": "base.cpp's resource-load sequence for the base/structure subsystem: streams dat\\bforms (-> DAT_004a9630, formation offsets; see BaseFormation_GetSlotOffset), dat\\lc_wpns (-> g_LcWeaponSlotCount and g_LcWeaponSlots, the transport's weapon slots), dat\\bases (-> DAT_004a9620, the BASES.DAT type table BaseTypeTable.cs also reads; this is the only reader of it -- do not look for a Bases_LoadTypeTable, which is a name 0043a2e0 has carried on the strength of loading the BASES sprite bank, and which is really MfdStatusScreen_Ctor), dat\\basecol (collision), dat\\bhulks, dat\\basetex and dat\\vehtex (texture banks) via a shared plain-file-read helper (FUN_00472e08 open / FUN_004734ac read via a vtable+0x18 dispatch / FUN_00472e58 close -- no container header, first bytes of each file are its own content, confirmed against BASES.DAT's independently-verified byte-exact parse). BFORMS.DAT's per-formation record is fully variable-length: int32 slot count N, N*10 bytes of slot data, an int32 material index (-1 for the six formations with no layout) and two more int32s (where the group's anchor sits in its tile, in 256ths), an int32 buffer count M, then M {1 length byte + that many data bytes} buffers -- confirmed byte-exact: walking the retail file this way consumes all 3186 content bytes with 17 formations (matching the block-11 formation id field's documented 0-16 range) and nothing left over.",
       "source": "docs/formats/script-dat.md (base formation spread)"
     },
     {
@@ -770,11 +770,29 @@
       "source": "docs/simulation/ai-weapons.md"
     },
     {
+      "address": "004069c5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TransportStation_ElementCtor",
+      "description": "Rtl_VectorNew's per-element constructor for the three 0x1f-byte weapon-station records Base_Construct builds at LC_BASE+0x209 for BASES.DAT type 0x22, the transport: runs Rtl_VectorNew over the record's three 8-byte weapon slots with TransportSlot_ElementCtor, and initialises nothing itself.",
+      "source": "docs/simulation/structure-behaviour.md#the-transport--004045c8"
+    },
+    {
+      "address": "00406a98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TransportSlot_ElementCtor",
+      "description": "Rtl_VectorNew's per-element constructor for a transport weapon station's 8-byte weapon slot (refire countdown +0, firing-window countdown +3, window-open flag +6), passed by TransportStation_ElementCtor. An empty body that returns its argument.",
+      "source": "docs/simulation/structure-behaviour.md#the-transport--004045c8"
+    },
+    {
       "address": "00406caf",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Base_TripleTurretDtor",
+      "name": "Base_TransportDtor",
       "description": "LC_BASE vtable +0x08 (00497784, BASES.DAT type 0x22): the deleting destructor, (this, flags). Four RTL destructor-count decrements (LC_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this) instead of a Mem_Delete.",
       "source": "DBSIM disassembly at 00406caf"
     },
@@ -26463,6 +26481,24 @@
       "name": "g_TSDetailBiasFromStructureDetail",
       "description": "TSDetailPart starting level derived from the STRUCTURE DETAIL setting, via g_StructureDetailValues. Structure_DrawWithDetailBias pushes it into g_TSDetailPartBias for the duration of every structure's draw -- the whole route from that preference to what is drawn.",
       "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004a963c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_LcWeaponSlotCount",
+      "description": "int16 record count of dat\\LC_WPNS.DAT, read by Base_LoadResources. Retail: 3.",
+      "source": "docs/formats/lc-wpns-dat.md"
+    },
+    {
+      "address": "004a9640",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_LcWeaponSlots",
+      "description": "Pointer to dat\\LC_WPNS.DAT's 22-byte weapon slot records, allocated and filled by Base_LoadResources (null in the image). Base_TransportThinkTick is the only reader: per slot, pitch arc +0, yaw arc +2, range +4, muzzle offset +8 (three int32s), refire delay +0x14.",
+      "source": "docs/formats/lc-wpns-dat.md"
     },
     {
       "address": "004a9644",

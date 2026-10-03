@@ -59,6 +59,7 @@ public static class TransformerRegistry {
 		new("Herc Damage Data", e => ExtIs(e, FileType.Dmg), () => new Dbsim.HercDamageFileTransformer()),
 		new("Bullet Data", e => NameIs(e, "BULLETS.DAT"), () => new Dbsim.BulletDataTransformer()),
 		new("Rocket Data", e => NameIs(e, "ROCKETS.DAT"), () => new Dbsim.RocketDataTransformer()),
+		new("Transport Weapon Slots", e => NameIs(e, "LC_WPNS.DAT"), () => new Dbsim.LcWeaponDataTransformer()),
 		new("Weapons Paper Diagram", e => NameIs(e, "WEAPONS.PDG"), () => new Dbsim.WeaponPDGTransformer()),
 		new("Paper Diagram Graphic", e => ExtIs(e, FileType.Pdg) && !NameIs(e, "WEAPONS.PDG"), () => new Dbsim.PaperDiagramGraphTransformer()),
 		new("Projectile Data", e => NameIs(e, "PROJ.DAT"), () => new Dbsim.ProjectileDataTransformer()),

@@ -12,6 +12,7 @@ Every countdown in this doc is in the simulation's timer unit, which is not a mi
 | Firing window `004973e0` | 10000 | 4.9 s each way |
 | Refire `+0x211` | 1500 | 0.73 s |
 | Ground vehicle back-off `+0x223` | 3000 | 1.5 s |
+| Transport firing window `004973f4` + `004973f8` | 5000 + rand(5000) | 2.4–4.9 s each way |
 
 ## Five classes, one switch
 
@@ -22,7 +23,7 @@ Every countdown in this doc is in the simulation's timer unit, which is not a mi
 | Plain | `00497940` | `Base_ThinkTick` `00403ca8` | 0-4, 7, 9, `0x0c`-`0x1c`, `0x1f`, `0x21`, `0x24`-`0x2c` |
 | Radar mast | `004979d4` | the same | 5, 6, `0x1d`, `0x1e` |
 | Armed | `004978ac` | `00404100` | 8, `0x0b`, `0x20`, `0x23` |
-| Triple turret | `00497784` | `004045c8` | `0x22` |
+| Transport | `00497784` | `004045c8` | `0x22` |
 | GroundVehicle | `00497818` | `0046a5d0` | `0x2d`-`0x34`, `0x37`-`0x3d` |
 
 Six indices — `0x0a`, `0x35`, `0x36`, `0x3e`-`0x40` — match no case, so nothing is constructed. Only three slots differ across the five tables: the destructor, this one, and `GetTorsoTwistAngle` (`+0x3c`).
@@ -83,7 +84,7 @@ if (typeRec+0x06 != 0) SimObject_ApplyRootMotionIfEnabled(this, 100)
 
 `BASES.DAT +0x24` is a **cell sequence index** and `+0x26` its **frame interval**, in the simulation's timer unit ([Timer units](dbsim-physics-notes.md#timer-units) — 256 of them is a frame every 125 ms). The array it steps is the same per-sequence cell array damage moves, so an idle animation and a collapsed part are one mechanism pointed at different sequences.
 
-Eight retail types state a sequence, all of them sequence 0 on a 256-count interval — a frame every 125 ms: 8, 9, `0x0a`, `0x0b`, `0x1a`, `0x20`, `0x22`, `0x23`. **Only two of the eight reach this function** — 9 and `0x1a`, the two that are Plain. Types 8, `0x0b`, `0x20` and `0x23` are Armed and `0x22` is the triple turret; each of those ticks steps the same cell array from its own firing path instead, as a muzzle flash rather than a loop. `0x0a` matches no case and is never built. So the free-running flipbook belongs to exactly two structures in the game.
+Eight retail types state a sequence, all of them sequence 0 on a 256-count interval — a frame every 125 ms: 8, 9, `0x0a`, `0x0b`, `0x1a`, `0x20`, `0x22`, `0x23`. **Only two of the eight reach this function** — 9 and `0x1a`, the two that are Plain. Types 8, `0x0b`, `0x20` and `0x23` are Armed, whose tick steps the same cell array from its firing path instead, as a muzzle flash rather than a loop. `0x22` is the transport, whose tick never steps it, so the sequence it states is never played. `0x0a` matches no case and is never built. So the free-running flipbook belongs to exactly two structures in the game.
 
 The last line is the animation step, for any type that states threads at all.
 
@@ -109,7 +110,7 @@ A structure that has already fallen hands the whole tick to `Base_ThinkTick`, so
 | `0x0a`, `0x22` | TRANSPORT | 1 |
 | the other 57 | | 0 |
 
-The stated armament and the tick part company on three of the eight. The generator is Plain and type `0x0a` is never constructed, so neither reaches a tick that would fire what it states, and the triple turret has a tick of its own that does not read the field at all. Type `0x2f` does fire what it states, through the ground vehicle tick's branch into this one ([below](#the-ground-vehicle-tick--0046a5d0)). See [Open](#open).
+The stated armament and the tick part company on three of the eight. The generator is Plain and type `0x0a` is never constructed, so neither reaches a tick that would fire what it states, and the transport has a tick of its own that does not read the field at all. Type `0x2f` does fire what it states, through the ground vehicle tick's branch into this one ([below](#the-ground-vehicle-tick--0046a5d0)). See [Open](#open).
 
 **The countdown at `+0x218` is a firing window, not a barrel selector.** Each expiry flips the flag at `+0x21b` and reloads the counter at `+0x219` from the pair at `004973e0`, both of whose entries are 10000 — **about five seconds** ([Timing constants](#timing-constants)) — so a tower fires for five seconds, holds for five, and repeats. Fire is gated on the flag being set.
 
@@ -126,7 +127,7 @@ The stated armament and the tick part company on three of the eight. The generat
 
 `Ai_SelectTarget(this, 0x30, 0)` on a five-second timer is the whole of it. Specifically, a tower does **not**:
 
-- **shoot back at whoever hit it.** The only structure-side writers of `+0x1a4` that `es2_fieldscan.py` finds are this tick and the triple turret's; `Base_ApplyDamage` is not one, so there is no structure counterpart to `Mech_AiOnTakingFire`.
+- **shoot back at whoever hit it.** The only structure-side writers of `+0x1a4` that `es2_fieldscan.py` finds are this tick and the transport's; `Base_ApplyDamage` is not one, so there is no structure counterpart to `Mech_AiOnTakingFire`.
 - **hold a behaviour state.** A structure has no behaviour block, which is also why `Ai_SelectTarget`'s "not engaged" weight null-checks past it.
 - **take squad orders**, or feed the flee check: `Ai_SumAttackerRatings` walks `GlobalMechList`, so a tower holding a machine as its target adds nothing to what that machine thinks is shooting at it.
 
@@ -155,15 +156,50 @@ and finishes with `SimObject_ApplyRootMotionIfEnabled(this, 100)`, which is what
 
 **The traverse is the negated axis**, and the one with no stops: a full `short` range is no limit at all in binary angle, so a base turret traverses freely and only its elevation is held, to a little over 20°. The position is seeked as an *unsigned* Q14 fraction, so a negative angle lands in the far end of the sequence rather than off its front. **A structure's turret aims the way a HERC's does**: the angle seeks a position in a full-sweep animation rather than rotating a node — see [`torso-aim.md`](torso-aim.md).
 
-## The triple turret — `004045c8`
+## The transport — `004045c8`
 
-Type `0x22` alone, and the only object in the game that **aims three turrets from one object**: it rewrites its own heading field to `heading + 0x1555`, evaluates three turrets `0x5554` (120°) apart, and restores the original heading at the end. Each turret runs three weapon slots against `DAT_004a9640`, an 11-`short` descriptor table: slot 0 fires `Rocket_Fire(3, …)` and slots 1 and 2 `Bullet_FireBurst(3, …)` through `WeaponMountTemplate_GetByWeaponId(8)`. Its acquisition is `Ai_SelectTarget(this, 0x10, 0x3000)` — **the `0x3000` bearing cone** [`ai-targeting.md`](ai-targeting.md) names as the base turret's.
+Type `0x22` alone, class `LC_BASE`, named `TRANSPORT` by its MFD readout (`STRINGS0.STR` group 23 entry 24, through `BASES.DAT +0x28`). The model is a landed drop pod with three weapon stations round it, and **nothing on it moves**: the tick fires three stations from one object by rewriting its own heading. A fallen one hands the tick to `Base_ThinkTick`. A standing one runs its death sequence, adds `0x1555` (30°) to its own heading field, runs one station, adds `0x5554` (120°), and so on three times, then restores the heading. Each station therefore acquires, aims and fires in its own frame, and the object is never seen facing any of them.
 
-Once every component but the first is at full damage, the tick sets `+0xa5` ([disarmed](component-damage.md#the-three-out-of-the-fight-bytes--0x99-0xa4-0xa5)), so a triple turret shot down to its base leaves the AI's fight without being destroyed.
+Before the stations, unless `+0xa5` ([disarmed](component-damage.md#the-three-out-of-the-fight-bytes--0x99-0xa4-0xa5)) is already set, the tick sets it once every component but the first is at full damage, so a transport shot down to its core leaves the AI's fight without being destroyed. The stations still run on the tick that sets it; from the next tick they are skipped.
 
-A slot only fires while its own component is undamaged, and the missile slot installs the target on `this+0x1a4` across the `Rocket_Fire` call and clears it again straight after, purely so the round picks up a lock — the object holds no target otherwise.
+**Per station.** Each of the three `0x1f`-byte records at `+0x209` holds three 8-byte weapon slots, a retarget countdown at `+0x18` and a target pointer at `+0x1b`:
 
-Type `0x22` states no animation threads, so whatever it aims, it does not aim it by seeking one.
+```
+if (Math_CountdownTimerTick(&rec+0x18) == 0) {
+    rec.target = Ai_SelectTarget(this, 0x10, 0x3000)        // reject own class, 0x3000 cone off this station's heading
+    rec+0x19 = 10000
+}
+if (!rec.target) next station
+range = Math_DistanceBetweenPoints(position, target.position)
+aim   = target.position + target->vtable+0x30's second triple
+error = Math_EulerToward(aim, position) - (pitch, roll, heading)
+for slot in 0..2:
+    component = 2 * station + (slot != 0) + 1
+    if (damage[component] == maxDamage[component]) continue
+    if (Math_CountdownTimerTick(&slot.window) == 0) {
+        slot.open = !slot.open
+        slot.window = 004973f4[slot.open] + Math_RandomBelow(004973f8[slot.open])
+    }
+    if (Math_CountdownTimerTick(&slot.refire) == 0 && slot.open
+        && error.yaw in [-arc.yaw, arc.yaw) && error.pitch in [-arc.pitch, arc.pitch)
+        && range < slot.range) {
+        muzzle = position + Rotate2D(heading, offset.xy) + (0, 0, offset.z)
+        fire the slot; slot.refire = slot.refireDelay
+    }
+```
+
+The slot records' arcs, ranges, offsets and refire delays are [`LC_WPNS.DAT`](../formats/lc-wpns-dat.md). The aim error is taken from the structure's origin, not the muzzle, and the range to the target's position, not its aim point. A slot whose component is dead steps neither countdown.
+
+**The components are the stations.** Type `0x22`'s seven components are a 30000-point core and three pairs: an 8000-point launcher pod (1, 3, 5) and a 2000-point beam housing hanging off it (2, 4, 6). Station `s`'s launcher slot fires while component `1 + 2s` stands and both its beam slots while `2 + 2s` does, and the pods' stated positions sit within a few hundred units of where the stations' launcher offsets put them, 30°, 150° and 270° round from the heading.
+
+**The firing window** is the armed tick's duty cycle with a random length: each phase lasts `5000 + rand(5000)` timer units, about 2.4 to 4.9 s ([Timing constants](#timing-constants)), and each slot keeps its own. A slot's window starts shut with its countdown at zero, since a structure's pool is cleared once and its slots are never reissued ([`sim-object-layout.md`](sim-object-layout.md#only-the-short-lived-classes-are-recycled)), so the first tick the slot is live opens it.
+
+**Slot 0 is an `EO` launcher, slots 1 and 2 are beams.**
+
+- The launcher calls `Rocket_Fire(3, muzzle, euler, this, 0)` with the object's own euler triple, so the round leaves along the station's facing and not toward the target. It is the lock that brings it round: the tick installs the station's target on `+0x1a4` across the call and clears it straight after, and `Rocket_Fire` attaches `+0x1a4` to the round, without consulting the lock state, for a subtype-3 round whose owner is not locally piloted. The object holds no target otherwise.
+- A beam calls `Bullet_FireBurst(3, frame, range, this, power)` with a frame pointed from the muzzle at the aim point by `Math_EulerToward`, so a beam is aimed. Its range and power are `LAS100`'s, weapon template 8's `+0x30` and `+0x38` ([`weapons-dat-sim.md`](../formats/weapons-dat-sim.md#decoded-tail-fields)), through `WeaponMountTemplate_GetByWeaponId(8)`.
+
+Type `0x22` states no animation threads and its tick never steps a cell sequence, so nothing on the model moves when it aims or fires.
 
 ## The ground vehicle tick — `0046a5d0`
 
@@ -256,9 +292,8 @@ Spawn-time health comes from the block-9 record's starting condition (`+0x32`, [
 
 ## Open
 
-- **Unported:** the triple turret (`004045c8`, [Type `0x22`](#the-triple-turret--004045c8)).
 - **Unported:** the kill credit a destroyed structure hands its attacker (vtable `+0x60`).
 - **Unported:** spawn-time component health from the mission record.
-- **Open:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when none of them reaches a tick that fires it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
+- **Open:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when no tick any of them reaches reads it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
 - **Open:** a tower's ranges against retail play. At `Hud_WorldUnitsToMetres` (`00434228`)'s confirmed scale of `(units / 1000) * 6`, the armed tick's 40000-unit fire gate is 240 m and its 60000-unit target drop 360 m, but retail towers are seen aiming from about 320 m and firing from about 200 m, short of both by a margin the scale does not account for.
 - **Open:** the ground vehicle follower arm: no `script.dat` handoff examined places a second mobile vehicle for it to hold station on. The campaign's `.MSN` files are where to look for one.

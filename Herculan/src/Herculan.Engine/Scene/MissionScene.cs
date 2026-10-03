@@ -349,10 +349,16 @@ public sealed class MissionScene {
 			content.Read(WeaponCatalog.ResourceFolder, WeaponCatalog.TemplateResource),
 			content.Read(WeaponCatalog.ResourceFolder, WeaponCatalog.ProjectileResource));
 
+		// And the transport's weapon slots, which Base_LoadResources reads between BFORMS.DAT and
+		// BASES.DAT. Every transport in the mission shares the one table.
+		var transportArmament = TransportArmament.Load(
+			content.Read(TransportArmament.ResourceFolder, TransportArmament.SlotResource), weapons);
+
 		var objects = new List<SceneObject>(mission.Placements.Count);
 		SceneObject? playerObject = null;
 		foreach (var placement in mission.Placements) {
-			var spawned = Spawn(placement, models, baseTypes, baseCollision, weapons, world.Random);
+			var spawned = Spawn(placement, models, baseTypes, baseCollision, weapons, transportArmament,
+				world.Random);
 			if (spawned == null) {
 				continue;
 			}
@@ -872,8 +878,9 @@ public sealed class MissionScene {
 	/// </summary>
 	private static SceneObject? Spawn(MissionPlacement placement, SceneModelLibrary models,
 			BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons,
-			SimRandom random) {
-		var (simObject, model, detail) = Create(placement, models, baseTypes, baseCollision, weapons, random);
+			TransportArmament? transportArmament, SimRandom random) {
+		var (simObject, model, detail) = Create(placement, models, baseTypes, baseCollision, weapons,
+			transportArmament, random);
 		if (simObject == null) {
 			return null;
 		}
@@ -935,7 +942,7 @@ public sealed class MissionScene {
 	private static (SimObject? Object, SceneModel? Model, ShapeDetailChain? Detail) Create(
 			MissionPlacement placement,
 			SceneModelLibrary models, BaseTypeTable baseTypes, BaseCollisionTable baseCollision,
-			WeaponCatalog? weapons, SimRandom random) {
+			WeaponCatalog? weapons, TransportArmament? transportArmament, SimRandom random) {
 		switch (placement.Kind) {
 			case MissionUnitKind.Mech: {
 				if (placement.TypeName == null || models.MechData(placement.TypeName) is not { } simData) {
@@ -1002,7 +1009,8 @@ public sealed class MissionScene {
 						// way the flyer AI does — see BaseObject.ArmedThinkTick.
 						GunProjectile = weapons?.ProjectileAt(BaseObject.GunProjectileIndex),
 						MissileProjectile = weapons?.Lookup(
-							ProjectileType.Rocket, BaseObject.MissileSubtype)
+							ProjectileType.Rocket, BaseObject.MissileSubtype),
+						TransportArmament = transportArmament
 					},
 					model, null);
 			}

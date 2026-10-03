@@ -135,7 +135,7 @@ public static class AiTargeting {
 	/// <param name="filter">The original's mask argument.</param>
 	/// <param name="coneLimit">
 	/// An optional bearing limit in binary-angle units, rejecting anything outside it. Zero means no
-	/// limit; a base turret passes <c>0x3000</c>.
+	/// limit; a transport's weapon stations pass <c>0x3000</c>.
 	/// </param>
 	public static SimObject? SelectTarget(SimWorld world, SimObject self, TargetFilter filter,
 			short coneLimit = 0) {

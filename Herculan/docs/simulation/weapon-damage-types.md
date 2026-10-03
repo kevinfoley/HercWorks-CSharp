@@ -14,7 +14,7 @@ The manual says EMP cannons and the ELF are effective against shields, that ener
 
 ## `Type` — a firing-mechanism selector
 
-The five callers of `Proj_LookupRecord` ([`../formats/proj-dat.md`](../formats/proj-dat.md#lookup)) and the three of `Bullet_FireBurst` each hardcode a literal `Type`. `Bullet_FireBurst`'s are the two weapon-mount fire dispatches (`WeaponMount_FireDispatch_GunBeam`, call at `0040eae0`; `ElfMount_FireDispatch`, call at `0040ecc5`) and `Base_TripleTurretThinkTick` (`00404a65`), so a **structure's turret fires beams through the same path a HERC does**. Each `Type` is a genuinely different projectile *class* (different vtable, different construction):
+The five callers of `Proj_LookupRecord` ([`../formats/proj-dat.md`](../formats/proj-dat.md#lookup)) and the three of `Bullet_FireBurst` each hardcode a literal `Type`. `Bullet_FireBurst`'s are the two weapon-mount fire dispatches (`WeaponMount_FireDispatch_GunBeam`, call at `0040eae0`; `ElfMount_FireDispatch`, call at `0040ecc5`) and `Base_TransportThinkTick` (`00404a65`), so a **structure fires beams through the same path a HERC does**. Each `Type` is a genuinely different projectile *class* (different vtable, different construction):
 
 | `Type` | Constructor | Object kind | Real `PROJ.DAT` shape |
 |---|---|---|---|

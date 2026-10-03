@@ -41,7 +41,7 @@ The track is meant to loop: on `MM_MCINOTIFY` (`0x3b9`) with `MCI_NOTIFY_SUCCESS
 
 #### The disc
 
-The retail disc's table of contents, as `IOCTL_CDROM_READ_TOC` reports it:
+The v1.0 disc's table of contents, as `IOCTL_CDROM_READ_TOC` reports it:
 
 | Track | Kind | Start (LBA) | Length |
 |---|---|---|---|
@@ -56,6 +56,8 @@ The retail disc's table of contents, as `IOCTL_CDROM_READ_TOC` reports it:
 
 Track 7 is music in its own right, distinct from the other five, and **DBSIM never plays it**: the track formula below reaches 2 to 6 only, or below 2 for a negative `-R`. VSHELL has its own MCI play routine; see [Open](#open).
 
+The v1.10 disc image keeps no table of contents; what its audio holds is in [`../retail-builds.md`](../retail-builds.md#the-v110-disc-image).
+
 #### Which track, and whether there is one
 
 `Sim_InitMissionSession` (`004614fc`) writes `Music_CdTrack` (`0049f914`) and `Music_CdEnabled` (`0049f918`) and then calls `Sound_StartMissionMusic` (`00463038`), which plays only if `Sound_MusicEnabled` is also up.
@@ -65,6 +67,8 @@ Music_CdTrack = Music_TrackSelect % 5 + 2
 ```
 
 `Music_TrackSelect` (`004d25f7`) is the `-R` command-line switch, parsed with `atol` at `0045e824`; it is byte `+0xb7` of the `0xc3`-byte block at `004d2540` that `Main_StaticInit` clears, so it defaults to 0 ([Open](#open)). `ES.EXE` passes `-R<n>` with `n` counting the simulator launches of its own run from 0, so retail's missions play tracks 2, 3, 4, 5, 6, 2… in the order they are flown ([`../command-line.md`](../command-line.md#the-loop)). The remainder is a signed `IDIV`, so a negative `-R` would ask MCI for a track below 2.
+
+v1.10 chooses and plays the track the same way. Both of its `DBSIM.EXE`s (`VER95\`, `VER31\`) carry this formula, the same nine accesses to `Music_CdTrack`, and the same `Sfx_PlayMusicTrack` and `Music_PlayTrack`, instruction for instruction once absolute addresses are masked; `VER95\ES.EXE` numbers `-R` as v1.0's does. Since the tracks are only rotated through, the order of the music on a disc decides which song a launch plays and nothing else.
 
 The whole arm is skipped when `TrainingMissionNumber` (`004aa7ac`) is nonzero, so **a training mission runs without music**. That value is the copy of `script.dat` header offset 8 taken at the end of `DBSim_LoadScriptDat` (`00425321`); it also selects the larger pilot and squad message port and supplies the digit of the `TM<n>_` instructor voice template — see [`script-dat.md`](script-dat.md#header-format).
 

@@ -4,7 +4,7 @@ Two retail builds of Earthsiege 2 are in hand. They share the data formats every
 
 | | v1.0 | v1.10 |
 |---|---|---|
-| Source | the install under `ES2\` | the GoldGames freeware disc, `VER95\` and `VER31\` |
+| Source | the install under `ES2\`, and the HiRez Studios freeware disc image | the GoldGames freeware disc, `VER95\` and `VER31\` |
 | `SIERRA.INF` `[Ident]` | `Version=100 Maverick JC` | `Version=110` |
 | `VERSION.TXT` | `EarthSiege II version 1.0` | `EarthSiege II version 1.11` |
 | Windows | 95 | 95 (`VER95\`) or 3.1 with Win32s (`VER31\`), chosen by the installer; it refuses Windows NT |
@@ -13,7 +13,9 @@ Two retail builds of Earthsiege 2 are in hand. They share the data formats every
 | `DBSIM.EXE` | 724,512 bytes | 724,512 (`VER95\`, different bytes), 727,584 (`VER31\`) |
 | Languages | English | English, French, German |
 
-All four of v1.10's `VSHELL.EXE` and `DBSIM.EXE` carry v1.0's language strings — the `-f`/`-g` usage lines, the `eng\`/`fre\`/`ger\` folders, the `.eng`/`.fre`/`.ger` extensions, `simvoice`, `data\language.cfg` and the manual folders — and `VER95\VSHELL.EXE` adds a language-dependent folder for `campaign.str`. How else their code differs from v1.0's is [Open](#open).
+All four of v1.10's `VSHELL.EXE` and `DBSIM.EXE` carry v1.0's language strings — the `-f`/`-g` usage lines, the `eng\`/`fre\`/`ger\` folders, the `.eng`/`.fre`/`.ger` extensions, `simvoice`, `data\language.cfg` and the manual folders — and `VER95\VSHELL.EXE` adds a language-dependent folder for `campaign.str`. Both `DBSIM.EXE`s choose and play the CD music as v1.0's does ([`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one)). How else their code differs from v1.0's is [Open](#open).
+
+The HiRez Studios image, `Earthsiege2_Freeware_HiRezStudios_1r0.iso`, is a v1.0 disc: volume `ES2`, mastered 1997-12-29, a single data track of 2,048-byte sectors with no audio and no Joliet tree. Its executables, archives, `SIERRA.INF`, `BATCH.EXE`, movies and instructor clips are byte for byte the install's, as are the 1997 `ES2TS.TXT` and the 1998 `README.WRI`, so the install came from the same pressing. It adds a `DEMOS\` folder of other products' demos. Its `FRENCH\` and `GERMAN\` folders hold English copies of the readme and `ES2TS.TXT` and translate only `ES2GUIDE.HLP` and `LANGUAGE.INF`.
 
 ## The installer
 
@@ -86,11 +88,20 @@ Every archive v1.0 has is in v1.10 with the same entries, except for the transla
 | `DEMO_01.MSN`, `DEMO_02.MSN` | two orders each take the next route: 46 to 47, and 29 to 30 |
 | `TRAIN1.MSN` | two row-3 values, GUID 68 = 6 and GUID 71 = 37, which no record in the file names |
 
+## The v1.10 disc image
+
+The GoldGames image, `EarthSiege2_Freeware_GoldGames_1r11_withAudio.iso`, is one file of raw 2,352-byte sectors with no cue sheet, so no table of contents survives. Its data track is Mode 1: the ISO 9660 volume (`EARTHSIEGE2`, primary names only, no Joliet tree) spans 207,041 sectors, followed by 152 more that carry a sync pattern, 207,193 in all. Audio fills the remaining 72,795 sectors, to the end of the file at 279,988.
+
+The audio falls into six pieces between runs of exact digital silence: 150 sectors before the first, 453 to 458 between pieces, 151 after the last. From the start of one piece's music to the next, they run 12,390, 10,864, 12,387, 13,061, 13,001 and 10,941 sectors, the last to the end of the file. The v1.0 disc's tracks 2 to 7 run 10,865, 12,395, 12,393, 13,065, 13,005 and 11,019 ([`formats/audio.md`](formats/audio.md#the-disc)).
+
+The second piece is v1.0's track 2: a rip of that track from a v1.0 disc is the same recording as the image's audio there, 300 samples out of step. The other pieces match by length alone, which makes the fourth to sixth v1.0's tracks 5 to 7, and the first and third its tracks 3 and 4 in an order lengths cannot settle ([Open](#open)). Played from this image, v1.10's first mission would therefore not open with v1.0's track 2.
+
 ## Open
 
 - **Unported:** French and German: taking the language from `data\language.cfg` as v1.10's launcher does, and reading the translated text, mission text and voice archives.
-- **Open:** how v1.10's `VSHELL.EXE` and `DBSIM.EXE` differ from v1.0's beyond the language readers. `DBSIM.EXE`'s code section is `0x200` bytes longer, so a byte comparison says nothing, and neither v1.10 executable is in the Ghidra project.
-- **Open:** where the analysed `ES2\VSHELL.EXE` (564,768 bytes) comes from, when the v1.0 `SIERRA.INF` beside it lists 563,232.
-- **Open:** what `VER31\ES.EXE` does with `data\language.cfg`. It names the file; its code has not been read.
+- **Open:** how v1.10's `VSHELL.EXE` and `DBSIM.EXE` differ from v1.0's beyond the language readers and the music. `DBSIM.EXE`'s code section is `0x200` bytes longer, so a byte comparison says nothing, and neither v1.10 executable is in the Ghidra project; the music path was compared as instruction sequences with absolute addresses masked.
+- **Open:** whether the v1.10 disc's audio tracks are in the image's order, with v1.0's track 2 second, or the image was assembled out of order; and which of the image's first and third pieces is v1.0's track 3. Ripping v1.0's tracks 3 and 4 would settle the second.
+- **Open:** why the v1.0 `SIERRA.INF` lists `VSHELL.EXE` at 563,232 bytes. The disc it ships on carries a 564,768-byte one, the analysed `ES2\VSHELL.EXE`.
+- **Open:** what `VER31\ES.EXE` does with `data\language.cfg`, and how it numbers `-R`. It names the file; its code has not been read.
 - **Open:** what Sierra's `SETUP.EXE` tests `LANGUAGE_EQ` against.
 - **Open:** how v1.10 reaches the `AVF\` and `AVG\` intro movies. `VER95\VSHELL.EXE` names only `avi\intr_pt1.avi` and `avi\intr_pt2.avi`, as v1.0's does.

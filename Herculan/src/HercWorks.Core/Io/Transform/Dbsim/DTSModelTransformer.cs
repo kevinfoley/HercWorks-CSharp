@@ -62,6 +62,21 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	}
 
 	/// <summary>
+	/// Reads the part of a <see cref="TSShape"/> that follows its part list — the per-sequence frame
+	/// counts and the node transforms — starting at <paramref name="index"/>, and advances
+	/// <paramref name="index"/> past it. Used by <see cref="BasesDgsTransformer"/>, whose
+	/// <c>GridShape</c> records are <c>TSShape</c>s that keep their part list and this tail in the
+	/// record itself (see docs/formats/dgs-hd0-notes.md).
+	/// </summary>
+	public (short[] Sequences, TSShapeNodeTransform[] Transforms) ReadShapeTail(byte[] bytes, ref int index) {
+		Bytes = bytes;
+		Index = index;
+		var tail = ReadTSShapeTail();
+		index = Index;
+		return tail;
+	}
+
+	/// <summary>
 	/// Hacked-together analogue for the ChunkTypes[] object in the original python script. DTS
 	/// files are nested objects and object lists, so a tree-loading approach is necessary.
 	///
@@ -457,7 +472,14 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 			link.Parent = parent;
 		}
 		link = (TSShape)ReadTSPartList(link, parent);
+		(link.SequenceList, link.NodeTransforms) = ReadTSShapeTail();
 
+		return link;
+	}
+
+	// What TSShape_ReadFromStream (00490d5c) reads after its part list: both counts first, then the
+	// per-sequence frame counts (shape+0x20), then the node transforms (shape+0x18).
+	private (short[] Sequences, TSShapeNodeTransform[] Transforms) ReadTSShapeTail() {
 		short transformTotal = IndexShortLE();
 		short sequenceTotal = IndexShortLE();
 
@@ -465,15 +487,13 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 		for (int s = 0; s < sequences.Length; s++) {
 			sequences[s] = IndexShortLE();
 		}
-		link.SequenceList = sequences;
 
 		var transforms = new TSShapeNodeTransform[transformTotal];
 		for (int t = 0; t < transforms.Length; t++) {
 			transforms[t] = ReadTSShapeNodeTransform();
 		}
-		link.NodeTransforms = transforms;
 
-		return link;
+		return (sequences, transforms);
 	}
 
 	private TSShapeNodeTransform ReadTSShapeNodeTransform() {

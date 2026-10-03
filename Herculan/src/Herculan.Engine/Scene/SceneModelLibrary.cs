@@ -665,8 +665,9 @@ public sealed class SceneModelLibrary {
 	/// the two building ones and binds <c>BASETEX</c> to every shape in it, whatever bank the standing
 	/// building used.
 	///
-	/// <para>Split by cell like the building it replaces, though nothing steps a wreck's cells: the
-	/// split is what carries its <c>TSDetailPart</c> levels, which are chosen per frame under
+	/// <para>Split by cell like the building it replaces. The swap keeps the building's cell frames,
+	/// so a wreck's cell parts are gated on the structure's own <see cref="Sim.BaseObject.CellFrames"/>,
+	/// and the split also carries its <c>TSDetailPart</c> levels, which are chosen per frame under
 	/// STRUCTURE DETAIL just as the building's were — see <see cref="DtsMeshBuilder.BuildCells"/>.</para>
 	/// </summary>
 	public SceneModel? Hulk(int shapeIndex) =>
@@ -710,14 +711,19 @@ public sealed class SceneModelLibrary {
 			return 1;
 		}
 
-		var root = type.Source == BaseShapeSource.AnimatedLibrary
-			? Root(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex)
-			: LoadShapeLibrary(BaseTypeTable.StaticLibraryName)?.Shapes is { Length: > 0 } shapes
-					&& type.ShapeIndex >= 0 && type.ShapeIndex < shapes.Length
-				? shapes[type.ShapeIndex].Geometry
-				: null;
+		if (type.Source == BaseShapeSource.AnimatedLibrary) {
+			return DtsMeshBuilder.CellFrameCount(
+				Root(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex), type.AnimCellSequence);
+		}
 
-		return DtsMeshBuilder.CellFrameCount(root, type.AnimCellSequence);
+		// A .DGS record is itself the TSShape, so the frame counts are on the record, not on its
+		// geometry child.
+		var sequences = LoadShapeLibrary(BaseTypeTable.StaticLibraryName)?.Shapes is { Length: > 0 } shapes
+				&& type.ShapeIndex >= 0 && type.ShapeIndex < shapes.Length
+			? shapes[type.ShapeIndex].SequenceList
+			: null;
+
+		return DtsMeshBuilder.CellFrameCount(sequences, type.AnimCellSequence);
 	}
 
 	/// <summary>

@@ -178,6 +178,11 @@ The sequence is picked by the component record's `+4`, or by the type's own `+0x
 
 `dgs\BHULKS.DGS` is the wreck library, loaded by `Base_LoadResources` (`00405fac`) into `004a9608`, sized by `max(typeRec+0x04) + 1` over the whole type table, and bound to `BASETEX` whatever bank the standing building used. Retail ships 16 wrecks.
 
+**The swap changes the shape and nothing else.** Both swap sites, stage 1 above and `Base_Construct` (`00405314`) for starting condition 0, write only `shapeInstance+4`. The per-sequence cell array at `+8` stays the one `TSShapeInstance_Ctor` (`00490a58`) built for the standing shape (`shape+0x24` entries, copied from its zeroed `+0x1c`), and `TSShapeInstance_Render` (`00490b10`) binds that array as `g_CellAnimFrames` before drawing whatever shape the instance now holds. A wreck's `TSCellAnimPart`s therefore read the cells the building left. Two retail wrecks have any, and each is named by a single type with one component whose `+2` is `-1`, so neither inherits a collapsed part:
+
+- **Wreck 13** (type `0x1a`): three parts on sequence 0, two cells each. That type's idle flipbook toggles sequence 0 every 125 ms while it stands and stops the moment `Base_ApplyDamage` sets `+0x99` ([structure-behaviour.md](structure-behaviour.md#the-plain-tick--base_thinktick-00403ca8)), so the wreck stands on whichever cell was up at the kill.
+- **Wreck 15** (type `0x1f`): parts on sequences 0 and 2, two cells each. Nothing steps that type's cells, so the wreck stands on cell 0. Its standing shape has three sequences, so sequence 2 is inside the array.
+
 ## EFFECTS DETAIL
 
 The preferences row of that name is `prefs.cfg` byte 11, `Sound_DetailSetting` (`004d1fc7`), 0 to 2 ([`preferences.md`](preferences.md#what-each-byte-is)). Four instructions read it by its absolute address: the preferences panel's readout, the sound throttle ([`../formats/audio.md`](../formats/audio.md#the-play-request-gate)), and these two.
@@ -192,6 +197,7 @@ A theater-4 test sits beside these in both debris and fire and is a different th
 | Reading | Why it is wrong |
 |---|---|
 | `typeRec+0x04` indexes the base shape table, so a wreck is another building's model | It indexes `dgs\BHULKS.DGS`, a separate library `Base_LoadResources` sizes from the largest value any type states |
+| A wreck is a fresh shape, so its cell parts stand on cell 0 | The swap writes only the shape pointer; the wreck draws through the building's cell array ([above](#a-structure-coming-down)) |
 | `WeaponMount_Destroy`'s third argument selects a debris *lifetime*, shorter for the local player | It selects a `(childGroup, deathEffect)` pair, and the path that loses the mount picks it ([`weapon-mounts.md`](weapon-mounts.md#losing-a-mount)). Neither call site tests who is flying |
 | `Sound_DetailSetting` is an audio setting | The name comes from the sound throttle's read. The byte is the EFFECTS DETAIL row, and it also decides a collapsing structure's smoke and pace and a debris piece's burst ([EFFECTS DETAIL](#effects-detail)) |
 | A debris piece's `+0x59` is a lifetime or an eviction priority, as it is on a fire | Different classes at the same offset. On a piece it is the `EXPLOS.DAT` type that goes off where the piece ends |

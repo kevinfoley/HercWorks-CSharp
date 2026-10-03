@@ -347,6 +347,6 @@ public class ComputerWarningTests {
 
 	internal static GameContent? Content() {
 		string? root = GameInstall.Locate(null);
-		return root != null ? GameContent.Mount(GameInstall.ArchiveDirectory(root)) : null;
+		return root != null ? GameContent.MountSimulator(root) : null;
 	}
 }

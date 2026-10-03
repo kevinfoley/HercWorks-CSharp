@@ -1,5 +1,4 @@
-using HercWorks.Core.Data.File.Cfg;
-using HercWorks.Core.Io.Transform.Common;
+using Herculan.Engine.Content;
 
 namespace Herculan.Engine.Audio;
 
@@ -20,26 +19,10 @@ public static class InstructorVoice {
 		$"TM{trainingMission}_{messageId + 1:0000}.WAV";
 
 	/// <summary>
-	/// The folder the clips are in: <paramref name="voiceFolder"/> under the first token of
-	/// <c>drive.cfg</c> (<see cref="Drive"/>, read by <c>Sim_Run</c> (<c>0045f144</c>) at startup), or under the install root (the data folder's parent) when that file is
-	/// missing or empty.
+	/// Where that clip is read from: <paramref name="voiceFolder"/>\<see cref="ClipName"/> through
+	/// <see cref="GameInstall.DiscFile"/>.
 	/// </summary>
-	/// <param name="dataDirectory">The install's data folder — where <c>script.dat</c> came from.</param>
-	/// <param name="voiceFolder">
-	/// <c>SIMVOICE</c>, <c>SIMVOICF</c> or <c>SIMVOICG</c> — the mounted voice archive's own stem.
-	/// </param>
-	public static string? Directory(string? dataDirectory, string voiceFolder) {
-		if (string.IsNullOrEmpty(dataDirectory)) {
-			return null;
-		}
-
-		string? root = null;
-		string config = Path.Combine(dataDirectory, Drive.FileName);
-		if (File.Exists(config)) {
-			root = new DriveTransformer().Parse(File.ReadAllBytes(config))?.Directory;
-		}
-
-		root ??= Path.GetDirectoryName(Path.GetFullPath(dataDirectory));
-		return root == null ? null : Path.Combine(root, voiceFolder);
-	}
+	/// <param name="voiceFolder"><c>SIMVOICE</c>, <c>SIMVOICF</c> or <c>SIMVOICG</c>.</param>
+	public static string ClipPath(string installRoot, string voiceFolder, int trainingMission, int messageId) =>
+		GameInstall.DiscFile(installRoot, Path.Combine(voiceFolder, ClipName(trainingMission, messageId)));
 }

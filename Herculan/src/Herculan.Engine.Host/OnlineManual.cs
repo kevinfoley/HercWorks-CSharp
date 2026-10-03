@@ -1,12 +1,14 @@
 using System.Diagnostics;
 using HercWorks.Help;
 using HercWorks.Help.Html;
+using Herculan.Engine.Content;
 
 namespace Herculan.Engine.Host;
 
 /// <summary>
 /// The on-line manual: retail's <c>WinHelpA(hwnd, path, HELP_CONTENTS, 0)</c> on
-/// <c>&lt;language&gt;\ES2GUIDE.HLP</c> (docs/formats/winhelp.md), which current Windows cannot
+/// <c>&lt;language&gt;\ES2GUIDE.HLP</c> on the disc (docs/formats/winhelp.md; here through
+/// <see cref="GameInstall.DiscFile"/>), which current Windows cannot
 /// open. The first open in a run converts the help file to one HTML page under the user's local
 /// application data and hands that page to the default browser, which shows the contents topic as
 /// <c>HELP_CONTENTS</c> does. The conversion and its security rules are docs/engine/online-manual.md.
@@ -88,7 +90,7 @@ internal static class OnlineManual {
 
 	private static string? Convert(string installRoot) {
 		var (folder, code) = Language(installRoot);
-		string source = Path.Combine(installRoot, folder, FileName);
+		string source = GameInstall.DiscFile(installRoot, Path.Combine(folder, FileName));
 		var info = new FileInfo(source);
 		if (!info.Exists) {
 			Console.WriteLine($"No {source} — the on-line manual is not installed for this language.");

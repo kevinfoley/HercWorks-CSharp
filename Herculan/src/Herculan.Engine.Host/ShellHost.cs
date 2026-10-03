@@ -61,6 +61,9 @@ static class ShellHost {
 	/// </summary>
 	private static string CareerDirectory => Path.Combine(Path.GetTempPath(), "herculan-career");
 
+	/// <summary>The movie <c>Shell_Main</c> (<c>00401525</c>) opens on the disc at startup to tell that the disc is there.</summary>
+	public static readonly string DiscCheckMovie = Path.Combine(MovieHost.MovieFolderName, "PT1.AVI");
+
 	/// <summary>
 	/// Runs the front end until its window closes. Returns the exit code and, when <c>Rock &amp; Roll &gt;</c>,
 	/// <c>Begin Mission</c>, <c>INSTANT ACTION</c> or the debrief's <c>REPLAY MISSION?</c> closed it, the mission
@@ -83,9 +86,15 @@ static class ShellHost {
 			int startBay = 0, bool startPractice = false, bool silentAudio = false, bool writePreferences = true,
 			bool startWindowed = false, bool moviesEnabled = true, int returnCode = StartupCode) {
 		bool fromMission = returnCode is MissionResults.DebriefExitCode or DebriefDestroyedCode;
-		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot),
-			[.. ShellArt.Archives, ShellSound.ArchiveName]);
+		var content = GameContent.MountShell(installRoot);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
+
+		// Shell_Main (00401525) opens avi\pt1.avi through Path_UnderDriveCfg (0040d429) and, failing,
+		// shows 'Please insert ESII CD and restart' and quits. This warns and carries on without the movies;
+		// see KNOWN_ISSUES.md.
+		if (!File.Exists(GameInstall.DiscFile(installRoot, DiscCheckMovie))) {
+			Console.Error.WriteLine($"No {DiscCheckMovie} on the disc or in the install: the shell's movies will not play.");
+		}
 
 		// The mission tab's palette depends on the campaign stage, the career's own 1-5, and on which of its
 		// views the tab opens: the map while the campaign map's first-show flag (DAT_004778aa) is
@@ -108,22 +117,17 @@ static class ShellHost {
 		string startPalette = PaletteFor(startTab);
 		if (ShellArt.Load(content, startPalette) is not { } loaded) {
 			Console.Error.WriteLine(
-				$"Could not load the shell's art from {GameInstall.ArchiveDirectory(installRoot)}.\n" +
-				$"It needs {string.Join(" and ", ShellArt.Archives)}, a "
-				+ $"dpl\\{startPalette}.DPL palette and "
+				$"Could not load the shell's art from {string.Join(", ", content.MountedArchives)}.\n" +
+				$"It needs a dpl\\{startPalette}.DPL palette and "
 				+ $"dbm\\{ShellArt.BackdropName}.DBM.");
 			return (1, null, forcedMode);
 		}
 
 		var art = loaded;
 
-		Console.WriteLine(
-			$"Shell art loaded — {ShellArt.BackdropName} backdrop {art.Backdrop.Width}x{art.Backdrop.Height}, "
-			+ $"palette {art.PaletteName}. "
-			+ (art.Sprites is { } sheet
-				? $"Banks and fonts: {string.Join(", ", sheet.BankNames)} in a "
-				  + $"{sheet.Atlas.Width}x{sheet.Atlas.Height} atlas."
-				: "No sprite banks or fonts could be loaded — backdrop only."));
+		if (art.Sprites == null) {
+			Console.Error.WriteLine("No sprite banks or fonts could be loaded — backdrop only.");
+		}
 
 		// The save screen reads real files: sav\GAMEFILE.STR for the slot list and each GAME_?.SAV it
 		// says is in use for that slot's summary. Both are loose files beside the VOL folder rather than
@@ -136,11 +140,10 @@ static class ShellHost {
 		var saveScreen = new ShellSaveScreen(slots, canSave: gameInProgress);
 		var mainMenu = new ShellMainMenu(slots.ElementAtOrDefault(CurrentGameSlot)?.InUse == true);
 		var contentSurface = new ShellSurface();
-		Console.WriteLine(slots.Count > 0
-			? $"Save slots: {slots.Count(s => s.InUse)} of {slots.Count} in use — "
-			  + string.Join(", ", slots.Take(ShellSaveScreen.RowCount).Select(s => s.Label.Trim()))
-			: $"No {ShellSaveSlots.DirectoryFileName} in {ShellSaveSlots.Directory(installRoot)} — "
-			  + "the save screen draws its furniture and no rows.");
+		if (slots.Count == 0) {
+			Console.Error.WriteLine($"No {ShellSaveSlots.DirectoryFileName} in {ShellSaveSlots.Directory(installRoot)} — "
+				+ "the save screen draws its furniture and no rows.");
+		}
 
 		// The repair screen works over a loaded game, which the original only has once one is started or
 		// restored. Until the save screen's RESTORE replaces it, this opens the first slot the directory
@@ -248,7 +251,6 @@ static class ShellHost {
 			QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
 			RepairMode = shellOptions[RepairOption],
 		};
-		Console.WriteLine($"Damage diagram layouts loaded for {repairDiagrams.LayoutCount} chassis.");
 
 		// The squad panel's three-quarter view, which the crew tab shows (and WEAPONS and BUILD would), and
 		// the crew screen's two portrait banks. The crew screen is built on first entry and kept, as the
@@ -256,7 +258,6 @@ static class ShellHost {
 		var bayPictures = ShellBayPictures.Load(content);
 		var crewPortraits = ShellCrewPortraits.Load(content);
 		ShellCrewScreen? crewScreen = null;
-		Console.WriteLine($"Bay picture layouts loaded for {bayPictures.LayoutCount} chassis.");
 
 		// The build screen's chassis figures and prices, and the same body layouts the repair diagram
 		// draws, which its blueprints reuse. Built on first entry and kept, as the crew screen is.
@@ -275,27 +276,10 @@ static class ShellHost {
 		// The weapons screen's pictures and prose, and the screen itself, built on first entry and kept.
 		var weaponsArt = ShellWeaponsArt.Load(content);
 		ShellWeaponsScreen? weaponsScreen = null;
-		Console.WriteLine($"Weapon pictures loaded for {weaponsArt.WeaponCount} weapons.");
-		Console.WriteLine(repairCosts == null
-			? $"No gam\\{ShellRepairCosts.ValuesResourceName} or gam\\{ShellRepairCosts.ChassisResourceName}"
-			  + " — the repair screen draws its labels and no cost figures."
-			: $"Repair costs loaded for {repairCosts.ChassisCount} chassis.");
-
-		for (int bay = 0; bay < ShellHangar.BayCount; bay++) {
-			if (hangar.Bay(bay) is not { } machine) {
-				continue;
-			}
-
-			Console.WriteLine($"  bay {bay}: chassis type {machine.ChassisType}, "
-				+ $"{machine.MountCapacity} hardpoints, {machine.BuildPercent}% built"
-				+ (machine.IsFlightworthy ? string.Empty : ", not flightworthy")
-				+ $", rebuild {repairCosts?.HercCost(machine) ?? 0} kg");
+		if (repairCosts == null) {
+			Console.Error.WriteLine($"No gam\\{ShellRepairCosts.ValuesResourceName} or gam\\{ShellRepairCosts.ChassisResourceName}"
+				+ " — the repair screen draws its labels and no cost figures.");
 		}
-
-		Console.WriteLine(repairScreen.SelectedBay >= 0
-			? $"Repair opens on bay {repairScreen.SelectedBay}, "
-			  + $"{repairScreen.AvailableKilograms} kg available."
-			: "No built machine in any hangar bay — the repair screen draws empty rows.");
 
 		// The shell's sound, created with the window since it needs the device. With --no-sound there is
 		// none at all, as with the original's -s, which skips the sound manager's setup and so leaves
@@ -307,45 +291,12 @@ static class ShellHost {
 		var pointer = new ShellPointer(screen, () => sound?.PlayPress());
 		EnterTab(screen.SelectedTab);
 
-		Console.WriteLine(art.Text != null
-			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Id < ShellLayout.TabCount && b.Caption != null).Select(b => b.Caption))}"
-			: "No estext.bin — the tabs draw their plates and no captions.");
-		Console.WriteLine(mode == ShellCampaignMode.Training
-			? "Training mode: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
-			: "Campaign: every tab is live.");
-		Console.WriteLine("Every tab has a screen behind it. The main menu comes up after the intro movies and its startup "
-			+ "sequence; a click, Esc or Space skips a movie. On it, "
-			+ "INSTANT ACTION flies the next of the three demo missions, CONTINUE GAME loads the current game and "
-			+ "puts the tab strip up (or says why that game is over), VIEW DEMO plays a demo tape, CREDITS plays the "
-			+ "credits, START NEW GAME asks for a pilot name and a skill and ACCEPT starts a campaign on the mission tab's "
-			+ "map, and ONLINE MANUAL opens the manual in the web browser. SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu, and PRACTICE MISSIONS "
-			+ "opens the practice screen: click a mission to select it, a parameter's button to step it (the right "
-			+ "button steps back), Main Menu to go back, and Begin Mission to fly the lit mission. PREFERENCES shows the "
-			+ "preferences screen: click a checkbox to set it, Accept to keep and save the settings or Cancel to put "
-			+ "them back, either returning to the menu. Click a save "
-			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
-			+ "select it and the panels beside it follow; REPAIR lifts the selected part one level, REPAIR ALL "
-			+ "rebuilds the machine, and CANCEL undoes both since the bay was selected. On BUILD, click a chassis to see its blueprint and "
-			+ "figures, or a Squad Inventory row to pick the bay SCRAP and BUILD are gated on. On WEAPONS, click an "
-			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. BUILD orders "
-			+ "the chassis into an empty bay, and SCRAP, there or on REPAIR, asks before it scraps the bay's machine. "
-			+ "On ARMORY, click a row to see the weapon and its figures; with weapons built by hand, click the lit row "
-			+ "again to queue one, right-click it to take one off, or CLEAR to take them all off; SCRAP sells the lit "
-			+ "weapon's whole stock. On CREW, click "
-			+ "a row to select it, then a squad portrait to put that pilot in the row, a Squad Inventory row "
-			+ "to give the row's pilot that bay, or CLEAR to empty the row. MISSION shows the campaign map on the "
-			+ "first visit of a stage's first mission and the briefing otherwise: the briefing's three text buttons "
-			+ "switch the summary and the arrows beside it page through it, the six buttons beside the map move it, and "
-			+ "Rock & Roll launches the mission once every machine going is fit and armed. The square button latches and "
-			+ "shows the frame. The main menu and the save screen hide "
-			+ "the strip, as the original's do: leave the save screen with EXIT, or RESTORE a slot to load it into the "
-			+ "repair screen. Once a slot is restored, SAVE on a selected row lets you type its name and ACCEPT "
-			+ "writes the game there; the game is also autosaved to GAME_R.SAV on a restore, on the MAIN MENU tab "
-			+ "and on leaving the shell, and a practice mission's or INSTANT ACTION's career to GAME_T.SAV as the shell "
-			+ "closes on it. QUIT on the main menu, or closing the window, quits.");
-		Console.WriteLine(paletteName != null
-			? $"Palette pinned to {art.PaletteName} on every tab."
-			: "Each tab installs its own palette, as the original's do.");
+		if (art.Text == null) {
+			Console.Error.WriteLine("No estext.bin — the tabs draw their plates and no captions.");
+		}
+		if (paletteName != null) {
+			Console.WriteLine($"Palette pinned to {art.PaletteName} on every tab.");
+		}
 
 		using var window = new EngineWindow("HERCULAN Engine — shell");
 
@@ -494,10 +445,7 @@ static class ShellHost {
 				leftHeld = left;
 				rightHeld = right;
 				skipKeyHeld = key;
-				if (!intro.Advance(MapClock())) {
-					Console.WriteLine("Mission map: the intro is over; the six buttons move the map.");
-				}
-
+				intro.Advance(MapClock());
 				RepaintContent();
 				return;
 			}
@@ -584,14 +532,12 @@ static class ShellHost {
 
 			renderer?.SetBackdropOverride(startup.Done ? null : startupFrames[startup.Frame]);
 			if (startup.Done) {
-				Console.WriteLine("Main menu.");
 				RepaintContent();
 			}
 		}
 
 		void Activate(int id) {
 			if (id == ShellScreen.MenuButtonId) {
-				Console.WriteLine("Menu button — no screen behind it yet.");
 				return;
 			}
 
@@ -618,9 +564,6 @@ static class ShellHost {
 
 			debriefUp = false;
 			screen.SelectTab(id);
-			Console.WriteLine($"Tab {id}"
-				+ (screen.Button(id)?.Caption is { } caption ? $" ({caption})" : string.Empty)
-				+ (HasScreen(id) ? "." : " — no screen behind it yet."));
 
 			SwitchPalette(id);
 			EnterTab(id);
@@ -642,13 +585,13 @@ static class ShellHost {
 
 			audio = OpenAlBackend.TryCreate(out string? failure) as IAudioBackend ?? new NullAudioBackend();
 			if (failure != null) {
-				Console.WriteLine($"Audio unavailable ({failure}) — the shell runs silent.");
+				Console.Error.WriteLine($"Audio unavailable ({failure}) — the shell runs silent.");
 			}
 
 			sound = ShellSound.Load(content, audio, shellOptions);
-			Console.WriteLine(sound.HasMusic
-				? $"Shell music hmi\\{sound.MusicName}; option 5 flipped for the next run."
-				: $"No hmi\\{sound.MusicName} in {ShellSound.ArchiveName} — the shell has no music.");
+			if (!sound.HasMusic) {
+				Console.Error.WriteLine($"No hmi\\{sound.MusicName} in {ShellSound.ArchiveName} — the shell has no music.");
+			}
 			shellOptions.Set(ShellSound.MusicTrackOption, (byte)(shellOptions[ShellSound.MusicTrackOption] ^ 1),
 				apply: false);
 			shellOptions.Commit();
@@ -701,7 +644,6 @@ static class ShellHost {
 				case ShellDebrief.CampaignOverState or ShellDebrief.ShellState:
 					// ReplayDialog_Show(state) (0044ca57).
 					replayDialog.Open(result.State.Value);
-					Console.WriteLine("Replay mission? Yes flies it again from the autosave; No saves and goes to the main menu.");
 					break;
 				case ShellDebrief.CampaignWonState:
 					// Game_SaveSlot(10), the two ending movies, palette 1 and the startup sequence.
@@ -758,7 +700,6 @@ static class ShellHost {
 			replayDialog.Close();
 			if (button == ShellReplayButton.No) {
 				AutoSave();
-				Console.WriteLine("Replay: no — main menu.");
 				RepaintContent();
 				return;
 			}
@@ -1054,8 +995,6 @@ static class ShellHost {
 			}
 
 			endOfGame.Open(loadedGame.GameState);
-			Console.WriteLine($"End of game (state {loadedGame.GameState}): "
-				+ $"{art.Text?.Text(endOfGame.FirstLineText) ?? string.Empty} OKAY takes the alert down.");
 			RepaintContent();
 		}
 
@@ -1066,7 +1005,6 @@ static class ShellHost {
 			SetMode(ShellCampaignMode.Campaign);
 			registrationUp = true;
 			pointer.Grab(ShellRegistrationScreen.FieldHit, Fire);
-			Console.WriteLine("Start New Game — type a pilot name, SKILL LEVEL to pick the skill, then ACCEPT, or CANCEL.");
 			RepaintContent();
 		}
 
@@ -1076,11 +1014,9 @@ static class ShellHost {
 			switch (button) {
 				case ShellRegistrationButton.SkillLevel:
 					registration.StepSkill();
-					Console.WriteLine($"Skill: {art.Text?.Text(0x35 + registration.Skill) ?? registration.Skill.ToString()}.");
 					break;
 				case ShellRegistrationButton.Cancel:
 					registrationUp = false;
-					Console.WriteLine("Cancel — main menu.");
 					break;
 				default:
 					StartCampaign();
@@ -1142,7 +1078,6 @@ static class ShellHost {
 		void ViewDemo() {
 			blanked = window.FullScreen;
 			exitCode = DemoExitCode;
-			Console.WriteLine("View Demo.");
 			window.Close();
 		}
 
@@ -1153,7 +1088,6 @@ static class ShellHost {
 			creditsUp = true;
 			movieQueue.Enqueue(ShellMovieQueue.Credits, ShellMovieQueue.FullRect);
 			movies?.Start();
-			Console.WriteLine(movies?.Active == true ? "Credits." : "Credits — movies are off, so nothing plays.");
 		}
 
 		void EndCredits() {
@@ -1189,7 +1123,7 @@ static class ShellHost {
 		// What playing the queue does to the rest of the shell.
 		ShellMovieHooks MovieHooks() => new() {
 			ReadMovie = name => {
-				string path = Path.Combine(installRoot, MovieHost.MovieFolderName, name);
+				string path = GameInstall.DiscFile(installRoot, Path.Combine(MovieHost.MovieFolderName, name));
 				return File.Exists(path) ? MovieHost.ReadMovieFile(path) : null;
 			},
 			InstallPalette = index => {
@@ -1212,7 +1146,6 @@ static class ShellHost {
 			},
 			LeaveMissionTab = () => {
 				screen.LeaveTab();
-				Console.WriteLine("The mission tab is left, no tab up.");
 				RepaintContent();
 			},
 			CampaignStage = () => campaignStage,
@@ -1222,9 +1155,6 @@ static class ShellHost {
 				locationTexture?.Dispose();
 				locationTexture = locationPicture == null || gl == null ? null
 					: new Herculan.Engine.Gl.GpuTexture(gl, locationPicture.Pixels, locationPicture.Width, locationPicture.Height);
-				Console.WriteLine(locationPicture != null
-					? $"The location picture, dba\\{bank}, for two seconds."
-					: $"No location picture for stage {campaignStage}.");
 			},
 			HideLocationPicture = () => {
 				locationTexture?.Dispose();
@@ -1250,7 +1180,6 @@ static class ShellHost {
 			saveScreen.ExitTarget = ShellSaveExitTarget.MainMenu;
 			screen.SelectTab(ShellScreen.SaveTab);
 			saveScreen.Enter();
-			Console.WriteLine("Save/Restore — the save screen, with EXIT back to the main menu.");
 			RepaintContent();
 		}
 
@@ -1259,7 +1188,6 @@ static class ShellHost {
 		// (docs/shell/screen-layout.md#quit). The loop's common exit autosaves after window.Run returns.
 		void Quit() {
 			blanked = true;
-			Console.WriteLine("Quit.");
 			window.Close();
 		}
 
@@ -1278,8 +1206,6 @@ static class ShellHost {
 			practiceScreen.Show();
 			practiceUp = true;
 			SetMode(ShellCampaignMode.Training);
-			Console.WriteLine("Practice missions — training mode.");
-			LogPractice();
 			RepaintContent();
 		}
 
@@ -1290,8 +1216,6 @@ static class ShellHost {
 				ShellArt.ReadBankFrames(content, ShellPreferencesScreen.CheckBoxBank),
 				isFullScreen: () => window.FullScreen, toggleFullScreen: ToggleFullScreen);
 			preferencesUp = true;
-			Console.WriteLine("Preferences.");
-			LogPreferences();
 			RepaintContent();
 		}
 
@@ -1305,10 +1229,8 @@ static class ShellHost {
 			if (preferencesScreen.Click(widget, sound)) {
 				preferencesUp = false;
 				screen.SelectTab(ShellScreen.MainMenuTab);
-				Console.WriteLine($"{widget} — main menu.");
 			}
 
-			LogPreferences();
 			RepaintContent();
 		}
 
@@ -1330,8 +1252,6 @@ static class ShellHost {
 				var client = window.ClientSize;
 				mouse.Position = new System.Numerics.Vector2(client.X / 2, client.Y / 2);
 			}
-
-			Console.WriteLine(window.FullScreen ? "Full screen." : "Windowed.");
 		}
 
 		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing and the startup sequence
@@ -1372,23 +1292,11 @@ static class ShellHost {
 			}
 		}
 
-		void LogPreferences() {
-			if (preferencesScreen == null) {
-				return;
-			}
-
-			var ticked = Enum.GetValues<ShellPreferencesWidget>()
-				.Where(w => ShellPreferencesScreen.IsCheckBox(w) && preferencesScreen.IsChecked(w));
-			Console.WriteLine($"Preferences: {string.Join(", ", ticked)}"
-				+ (preferencesScreen.AlertOpen ? "; the Alert! dialog is up." : "."));
-		}
-
 		// A practice row's handler, PracticeScreen_OnRow0-7 (0044c413-0044c6ba): PracticeScreen_SelectRow
 		// (0044bd7c), a no-op on the row already lit.
 		void SelectPracticeRow(int row) {
 			if (practiceScreen?.SelectRow(row) == true) {
 				RepaintContent();
-				LogPractice();
 			}
 		}
 
@@ -1404,14 +1312,12 @@ static class ShellHost {
 				case ShellPracticeButton.MainMenu:
 					practiceUp = false;
 					screen.SelectTab(ShellScreen.MainMenuTab);
-					Console.WriteLine("Main menu.");
 					break;
 				case ShellPracticeButton.BeginMission:
 					BeginPractice();
 					return;
 				default:
 					practiceScreen.Step(button, eventButton == ShellMouseButton.Left);
-					LogPractice();
 					break;
 			}
 
@@ -1455,18 +1361,6 @@ static class ShellHost {
 			return true;
 		}
 
-		void LogPractice() {
-			if (practiceScreen == null) {
-				return;
-			}
-
-			var values = Enumerable.Range(0, (int)ShellPracticeButton.HercType + 1).Select(i =>
-				art.Text?.Text(practiceScreen.ValueText((ShellPracticeButton)i)) ?? $"{practiceScreen.ValueText((ShellPracticeButton)i)}");
-			Console.WriteLine($"Practice: row {practiceScreen.SelectedRow} "
-				+ $"({art.Text?.Text(0xf2 + practiceScreen.SelectedRow) ?? "?"}) — {string.Join(", ", values)}"
-				+ (practiceScreen.IsEnabled(ShellPracticeButton.HercType) ? "." : "; Herc Type is the mission's own."));
-		}
-
 		// A save row's handler, SaveScreen_SelectSlot (0043795f). Clicking the row already selected is a
 		// no-op, the same early return the original's selection move opens with, and so is any row while
 		// a rename is live.
@@ -1476,11 +1370,6 @@ static class ShellHost {
 			}
 
 			RepaintContent();
-			Console.WriteLine($"Slot {slot + 1}: "
-				+ (saveScreen.Slots.ElementAtOrDefault(slot) is { InUse: true, Summary: { } summary }
-					? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}, "
-					  + $"{summary.SalvageKilograms} kg salvage"
-					: "empty."));
 		}
 
 		void ClickSaveButton(ShellSaveButton button) {
@@ -1493,7 +1382,6 @@ static class ShellHost {
 					break;
 				case ShellSaveButton.Cancel:
 					saveScreen.CancelRename();
-					Console.WriteLine("Cancel — the rename is abandoned.");
 					RepaintContent();
 					break;
 				case ShellSaveButton.Restore:
@@ -1511,7 +1399,6 @@ static class ShellHost {
 			int slot = saveScreen.SelectedSlot;
 			saveScreen.BeginRename();
 			pointer.Grab(new ShellHit(new ShellWidget(ShellWidgetKind.SaveRow, slot), ShellHandler.EditField), Fire);
-			Console.WriteLine($"Save — type a name for slot {slot + 1}, then ACCEPT to save or CANCEL.");
 			RepaintContent();
 		}
 
@@ -1700,7 +1587,6 @@ static class ShellHost {
 			saveScreen.Leave();
 			if (saveScreen.ExitTarget == ShellSaveExitTarget.MainMenu) {
 				screen.SelectTab(ShellScreen.MainMenuTab);
-				Console.WriteLine("Exit — main menu.");
 				RepaintContent();
 				return;
 			}
@@ -1710,7 +1596,6 @@ static class ShellHost {
 
 		void ReturnToFrame() {
 			screen.ReturnToFrame(mode);
-			Console.WriteLine("Back to the tab strip, no tab up.");
 			RepaintContent();
 		}
 
@@ -1723,10 +1608,6 @@ static class ShellHost {
 			}
 
 			RepaintContent();
-			var category = ShellRepairScreen.CategoryOf(column, row);
-			Console.WriteLine($"{category} {ShellRepairScreen.IndexOf(category, row)}: "
-				+ $"condition {repairScreen.SelectionCondition}, "
-				+ $"{repairScreen.SelectionCost} kg to repair one level.");
 		}
 
 		// REPAIR (00434b2d), REPAIR ALL (00434c59) and CANCEL (00434d73). Each refills the rows and the readout
@@ -1734,22 +1615,18 @@ static class ShellHost {
 		void ClickRepairButton(ShellRepairButton button) {
 			switch (button) {
 				case ShellRepairButton.Repair:
-					int cost = repairScreen.Repair();
-					Console.WriteLine($"Repaired {repairScreen.SelectedCategory} {repairScreen.SelectedIndex} to "
-						+ $"{repairScreen.SelectionCondition} for {cost} kg.");
+					repairScreen.Repair();
 					break;
 				case ShellRepairButton.RepairAll:
-					Console.WriteLine($"Repaired bay {repairScreen.SelectedBay} to 100 for {repairScreen.RepairAll()} kg.");
+					repairScreen.RepairAll();
 					break;
 				case ShellRepairButton.Cancel:
 					repairScreen.Cancel();
-					Console.WriteLine($"Repairs to bay {repairScreen.SelectedBay} undone.");
 					break;
 				default:
 					return;
 			}
 
-			Console.WriteLine($"{hangar.SalvageKilograms} kg in the pool, {repairScreen.AvailableKilograms} kg available.");
 			RepaintContent();
 		}
 
@@ -1758,7 +1635,6 @@ static class ShellHost {
 			if (screen.SelectedTab == ShellScreen.CrewTab) {
 				if (crewScreen?.ClickRoster(bay) == true) {
 					RepaintContent();
-					LogCrew();
 				}
 
 				return;
@@ -1767,7 +1643,6 @@ static class ShellHost {
 			if (screen.SelectedTab == ShellScreen.BuildTab) {
 				if (buildScreen?.ClickRoster(bay) == true) {
 					RepaintContent();
-					LogBuild();
 				}
 
 				return;
@@ -1776,7 +1651,6 @@ static class ShellHost {
 			if (screen.SelectedTab == ShellScreen.WeaponsTab) {
 				if (weaponsScreen?.ClickRoster(bay) == true) {
 					RepaintContent();
-					LogWeapons();
 				}
 
 				return;
@@ -1784,7 +1658,6 @@ static class ShellHost {
 
 			if (repairScreen.SelectBay(bay)) {
 				RepaintContent();
-				Console.WriteLine($"Bay {bay}: chassis type {repairScreen.Machine?.ChassisType}.");
 			}
 		}
 
@@ -1810,38 +1683,13 @@ static class ShellHost {
 			}
 
 			RepaintContent();
-			LogCrew();
-		}
-
-		void LogCrew() {
-			if (crewScreen == null) {
-				return;
-			}
-
-			var rows = Enumerable.Range(0, ShellCrewScreen.RowCount).Select(row =>
-				crewScreen.RowPilot(row) is { } pilot ? $"{row}: {pilot.Name} in bay {pilot.Bay}" : $"{row}: empty");
-			Console.WriteLine($"Crew row {crewScreen.SelectedRow}, bay {crewScreen.SelectedBay} — "
-				+ string.Join("; ", rows) + $". {hangar.MachinesOnStrength} on strength.");
 		}
 
 		// A chassis row's handler, Build_SelectChassis (00446c3b); the chassis already selected is a no-op.
 		void SelectChassis(int chassis) {
 			if (buildScreen?.SelectChassis(chassis) == true) {
 				RepaintContent();
-				LogBuild();
 			}
-		}
-
-		void LogBuild() {
-			if (buildScreen == null) {
-				return;
-			}
-
-			Console.WriteLine($"Build: chassis {buildScreen.SelectedChassis}"
-				+ (buildScreen.SelectedEntry is { } entry ? $" ({entry.SalvageReq} tons)" : string.Empty)
-				+ $", bay {buildScreen.SelectedBay}, {buildScreen.AvailableKilograms} kg available; "
-				+ $"SCRAP {(buildScreen.IsEnabled(ShellBuildButton.Scrap) ? "live" : "dead")}, "
-				+ $"BUILD {(buildScreen.IsEnabled(ShellBuildButton.Build) ? "live" : "dead")}.");
 		}
 
 		// BUILD's handler (00446f3e) orders the chassis; SCRAP's (00446ee0) puts the dialog up.
@@ -1856,16 +1704,13 @@ static class ShellHost {
 			}
 
 			buildScreen.Build();
-			Console.WriteLine($"Built chassis {buildScreen.SelectedChassis} into bay {buildScreen.SelectedBay}.");
 			RepaintContent();
-			LogBuild();
 		}
 
 		// Both SCRAP handlers, the build tab's (00446ee0) and the repair tab's (00434d15): 00447711 quotes
 		// the selected bay's machine and shows the dialog.
 		void OpenScrapDialog(int bay) {
 			scrapDialog.Open(bay, (repairCosts?.ScrapValue(hangar.Bay(bay)) ?? 0) / ShellRepairCosts.KilogramsPerTon);
-			Console.WriteLine($"Scrap bay {bay}? It will yield {scrapDialog.YieldTons} tons.");
 			RepaintContent();
 		}
 
@@ -1880,8 +1725,7 @@ static class ShellHost {
 
 			scrapDialog.Close();
 			if (button == ShellScrapDialogButton.Accept) {
-				int value = hangar.Scrap(scrapDialog.Subject, repairCosts);
-				Console.WriteLine($"Scrapped bay {scrapDialog.Subject} for {value} kg; {hangar.SalvageKilograms} kg in the pool.");
+				hangar.Scrap(scrapDialog.Subject, repairCosts);
 				if (screen.SelectedTab == ShellScreen.RepairTab) {
 					repairScreen.SelectBay(hangar.FirstBuiltBay());
 				}
@@ -1900,8 +1744,6 @@ static class ShellHost {
 				hangar.ScrapStock(weapon, armoryCatalog.ScrapValueTons(hangar, weapon));
 				armoryCatalog.RefreshQueue(hangar, ManualWeaponBuild());
 				armoryScreen.RefreshAfterScrap();
-				Console.WriteLine($"Scrapped weapon {weapon}'s stock; {hangar.SalvageKilograms} kg in the pool.");
-				LogArmory();
 			}
 
 			RepaintContent();
@@ -1917,8 +1759,6 @@ static class ShellHost {
 			}
 
 			buildScreen.QueuedKilograms = armoryCatalog.QueuedTotal(hangar);
-
-			LogBuild();
 		}
 
 		// Tab 2's entry, from the bay the repair screen has selected, as the build and crew tabs' are.
@@ -1928,8 +1768,6 @@ static class ShellHost {
 			} else {
 				weaponsScreen.Enter(hangar, repairScreen.SelectedBay);
 			}
-
-			LogWeapons();
 		}
 
 		// An inventory row's handler, one of the thunks from 00440300: Arming_SelectRow (0043f71c) with the
@@ -1937,7 +1775,6 @@ static class ShellHost {
 		void SelectWeaponsRow(int row) {
 			if (weaponsScreen?.SelectRow(row, fit: true) == true) {
 				RepaintContent();
-				LogWeapons();
 			}
 		}
 
@@ -1945,7 +1782,6 @@ static class ShellHost {
 		void SelectHardpoint(int hardpoint) {
 			if (weaponsScreen?.SelectHardpoint(hardpoint) == true) {
 				RepaintContent();
-				LogWeapons();
 			}
 		}
 
@@ -1966,29 +1802,12 @@ static class ShellHost {
 
 			if (changed) {
 				RepaintContent();
-				LogWeapons();
 			}
 		}
 
 		bool ShowWeaponsGuidance(int button) {
 			weaponsScreen!.ShowGuidance(button);
 			return true;
-		}
-
-		void LogWeapons() {
-			if (weaponsScreen == null) {
-				return;
-			}
-
-			int weapon = weaponsScreen.SelectedWeapon;
-			int hardpoint = weaponsScreen.SelectedHardpoint;
-			var mount = weaponsScreen.Machine?.Mount(hardpoint);
-			Console.WriteLine($"Weapons: bay {weaponsScreen.SelectedBay}, row {weaponsScreen.SelectedRow} "
-				+ $"({art.Text?.Text(0x7e + weapon) ?? $"weapon {weapon}"}, {hangar.WeaponsOwned(weapon)} held)"
-				+ (hardpoint == -1 ? ", no hardpoint"
-					: $", hardpoint {hardpoint + 1} holding " + (mount == null ? "nothing"
-						: $"weapon {mount.WeaponId} at {weaponsScreen.Machine!.Condition(ShellRepairCategory.Hardpoint, hardpoint)}%, guidance {mount.Guidance}"))
-				+ (weaponsScreen.ShowingGuidance ? $", showing guidance kind {weaponsScreen.ShownGuidance}." : "."));
 		}
 
 		// Tab 5's entry, Armory_Enter (004494f7). The armory has no squad panel and no bay.
@@ -1998,11 +1817,6 @@ static class ShellHost {
 			} else {
 				armoryScreen.Enter(hangar, ManualWeaponBuild());
 			}
-
-			Console.WriteLine($"Armory: weapons built {(ManualWeaponBuild() ? "by hand" : "automatically")}, "
-				+ $"{hangar.QueueFreeSlots} of {ShellHangar.QueueSlots} queue slots free, "
-				+ $"{armoryScreen.AllocatedKilograms} kg allocated, {armoryScreen.AvailableKilograms} kg available.");
-			LogArmory();
 		}
 
 		// A row's release: Armory_ClickRow (0044969f) for the left button, Armory_RightClickRow (004499de)
@@ -2020,7 +1834,6 @@ static class ShellHost {
 			}
 
 			RepaintContent();
-			LogArmory();
 		}
 
 		// Clear (00449ef4) takes the lit weapon's units off the queue. Scrap (Armory_OnScrap, 00449e78) puts
@@ -2034,8 +1847,6 @@ static class ShellHost {
 				if (armoryScreen.SelectedRow != -1) {
 					int weapon = armoryScreen.SelectedWeapon;
 					weaponScrapDialog.Open(weapon, armoryCatalog.ScrapValueTons(hangar, weapon));
-					Console.WriteLine($"Scrap weapon {weapon}? {hangar.WeaponsOwned(weapon)} held will yield "
-						+ $"{weaponScrapDialog.YieldTons} tons.");
 					RepaintContent();
 				}
 
@@ -2044,19 +1855,6 @@ static class ShellHost {
 
 			armoryScreen.Clear();
 			RepaintContent();
-			LogArmory();
-		}
-
-		void LogArmory() {
-			if (armoryScreen == null) {
-				return;
-			}
-
-			int weapon = armoryScreen.SelectedWeapon;
-			Console.WriteLine($"Armory: row {armoryScreen.SelectedRow} "
-				+ $"({armoryCatalog.Names?.Text(weapon) ?? $"weapon {weapon}"}, {hangar.WeaponsOwned(weapon)} held, "
-				+ $"{hangar.QueuedCount(weapon)} queued, {armoryCatalog.PriceKilograms(weapon)} kg); "
-				+ $"{hangar.QueueFreeSlots} slots free, {armoryScreen.AllocatedKilograms} kg allocated.");
 		}
 
 		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks, or the debrief's. The map
@@ -2072,8 +1870,6 @@ static class ShellHost {
 					debriefMovieQueued = true;
 				}
 
-				Console.WriteLine($"Mission: the debrief, {missionScreen.DebriefBox.Lines.Count} lines"
-					+ (missionScreen.ReportTextsUp ? ", with the mission report." : "."));
 				return;
 			}
 
@@ -2085,9 +1881,6 @@ static class ShellHost {
 				missionMapShown = true;
 				string? campaignText = ShellCampaignText.Load(content, campaignStage);
 				missionScreen.EnterMap(campaignStage, campaignText, art.Text, art.Sprites?.Font(ShellArt.ScreenFont));
-				Console.WriteLine($"Mission: the campaign map, stage {campaignStage}"
-					+ (campaignText == null ? $"; eng\\campaign.str has no text for it." : $", {missionScreen.MapBox.Lines.Count} lines of its text.")
-					+ " The next visit opens the briefing.");
 				return;
 			}
 
@@ -2105,12 +1898,9 @@ static class ShellHost {
 			if (missionMap is { IntroRunning: true } intro && !BriefingMoviePending()) {
 				intro.Advance(MapClock());
 			}
-			Console.WriteLine(missionMap == null
-				? $"Mission map: no working script.dat ({workingFiles.Script}) — the panel stays black."
-				: $"Mission map: bounds {missionMap.MinX},{missionMap.MinY} - {missionMap.MaxX},{missionMap.MaxY}, "
-				  + $"altitude {missionMap.FullView.Z}"
-				  + (missionMap.IntroRunning ? "; its intro runs now — click, Esc or Space to skip it." : "."));
-			LogMission();
+			if (missionMap == null) {
+				Console.Error.WriteLine($"Mission map: no working script.dat ({workingFiles.Script}) — the panel stays black.");
+			}
 		}
 
 		// Whether a movie is queued or playing out, which on the briefing is its movie.
@@ -2130,7 +1920,6 @@ static class ShellHost {
 
 			missionScreen.ShowText(button);
 			RepaintContent();
-			LogMission();
 		}
 
 		// The page arrows page the text that is up; the map's six call the map's methods and repaint it
@@ -2140,8 +1929,6 @@ static class ShellHost {
 				if (missionMap != null) {
 					missionMap.Press(arrow);
 					RepaintContent();
-					Console.WriteLine($"{arrow}: camera {missionMap.CameraX + missionMap.PanX},"
-						+ $"{missionMap.CameraY + missionMap.PanY}, altitude {missionMap.CameraZ}, pan step {missionMap.PanStep}.");
 				}
 
 				return;
@@ -2149,7 +1936,6 @@ static class ShellHost {
 
 			if (missionScreen.Page(arrow == ShellMissionArrow.PageDown)) {
 				RepaintContent();
-				LogMission();
 			}
 		}
 
@@ -2177,12 +1963,6 @@ static class ShellHost {
 			window.Close();
 		}
 
-		void LogMission() {
-			var box = missionScreen.Box(missionScreen.ShownText);
-			Console.WriteLine($"Mission: {missionScreen.ShownText}, {box.Lines.Count} lines, "
-				+ $"page {box.Page + 1} of {box.PageCount}.");
-		}
-
 		// Tab 6's entry. The bay it starts from is the one the previous tab left selected, SelectedBaySlot (00482ae5),
 		// which here only the repair screen tracks; the entry then moves it.
 		void EnterCrew() {
@@ -2191,12 +1971,6 @@ static class ShellHost {
 			} else {
 				crewScreen.Enter(hangar, repairScreen.SelectedBay);
 			}
-
-			var player = hangar.Player;
-			Console.WriteLine($"Crew: {hangar.SquadPositions} squad positions in play, "
-				+ $"{hangar.SquadMembers.Count} squad members; "
-				+ (player != null ? $"player {player.Name} in bay {player.Bay}; " : "no player record; ")
-				+ $"the entry leaves bay {crewScreen.SelectedBay} selected.");
 		}
 
 		// Rasterizes the current tab's content and hands it to the renderer. Called on a state change
@@ -2321,7 +2095,7 @@ static class ShellHost {
 			}
 
 			if (ShellArt.Load(content, name) is not { } reloaded) {
-				Console.WriteLine($"Palette {name} could not be loaded — keeping {art.PaletteName}.");
+				Console.Error.WriteLine($"Palette {name} could not be loaded — keeping {art.PaletteName}.");
 				return;
 			}
 
@@ -2332,17 +2106,11 @@ static class ShellHost {
 			// The new renderer has no content texture, and the old one's was resolved through the old
 			// palette anyway — so the tab's content is rasterized again through the palette it is now
 			// being drawn in. Activate calls RepaintContent after this returns.
-			Console.WriteLine($"Palette dpl\\{name}.DPL.");
 		}
 	}
 
 	/// <summary>The map's timer, <c>Shell_TimerTicks</c> (<c>00465a1c</c>): <c>GetTickCount()</c> in units of 16 ms.</summary>
 	private static uint MapClock() => (uint)(Environment.TickCount64 >> 4);
-
-	/// <summary>The tabs this engine has a screen behind.</summary>
-	private static bool HasScreen(int tab) =>
-		tab is ShellScreen.MainMenuTab or ShellScreen.SaveTab or ShellScreen.WeaponsTab or ShellScreen.RepairTab or ShellScreen.BuildTab
-			or ShellScreen.ArmoryTab or ShellScreen.CrewTab or ShellScreen.MissionTab;
 
 	/// <summary><c>prefs.cfg</c> option 45, VSHELL's <c>Weapons Building:</c> — 1 builds weapons by hand (docs/simulation/preferences.md).</summary>
 	private const int WeaponsBuildingOption = 45;

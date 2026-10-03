@@ -37,7 +37,7 @@ static class MissionFileLaunch {
 	public static string? Write(string installRoot, string name, out string? failure) {
 		// The career table, the name tables and the catalogs are the shell's, and the missions are in ZONES.VOL,
 		// which the shell mounts with them.
-		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot), ShellArt.Archives);
+		var content = GameContent.MountShell(installRoot);
 		if (ShellCampaignLaunch.Find(content, name) is not var (stage, mission)) {
 			failure = $"{name} is not a mission gam\\career.dat lists.";
 			return null;

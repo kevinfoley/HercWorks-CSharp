@@ -7,8 +7,9 @@ namespace HercWorks.Vol.Io;
 /// Ported from org.hercworks.voln.io.VolFileReader.
 /// </summary>
 public static class VolFileReader {
-	private const int OffsetDBSimFlag = 4;
-	private const int OffsetVShellFlag = 5;
+	private static readonly byte[] Magic = "VOLN"u8.ToArray();
+
+	private const int OffsetProgramMask = 4;
 
 	// The search precedence: SHELL1.vol and SIMPATCH.vol carry 0x0A, every other archive 0x05, and
 	// retail searches 0x0A archives first. See docs/formats/vol-archive.md, "Which archives are mounted".
@@ -20,6 +21,24 @@ public static class VolFileReader {
 
 	// File list follows directory data; file bytes follow the file list.
 
+	/// <summary>
+	/// The program mask from a <c>.VOL</c>'s header, reading only its first eight bytes, or null when the
+	/// file is too short or does not start with <c>VOLN</c>. Lets a caller skip an archive meant for the
+	/// other program without reading it whole, as <c>Volume_LoadVolume</c> (<c>0047c9a4</c>) does.
+	/// </summary>
+	public static uint? ReadProgramMask(string volPath) {
+		Span<byte> header = stackalloc byte[OffsetProgramMask + 4];
+		using (FileStream stream = File.OpenRead(volPath)) {
+			if (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) < header.Length) {
+				return null;
+			}
+		}
+
+		return header[..Magic.Length].SequenceEqual(Magic)
+			? System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(header[OffsetProgramMask..])
+			: null;
+	}
+
 	public static Voln ParseVolFile(string volPath) {
 		byte[] data = File.ReadAllBytes(volPath);
 
@@ -30,8 +49,9 @@ public static class VolFileReader {
 
 		volFile.FilePath = volPath;
 
-		volFile.DbsimFlag = data[OffsetDBSimFlag] == 1;
-		volFile.VshellFlag = data[OffsetVShellFlag] == 1;
+		volFile.ProgramMask = (uint)ByteOps.ReadInt32LE(data, OffsetProgramMask);
+		volFile.DbsimFlag = (volFile.ProgramMask & Voln.DbsimProgram) != 0;
+		volFile.VshellFlag = (volFile.ProgramMask & Voln.VshellProgram) != 0;
 
 		volFile.VolOrderNum = data[OffsetVolOrderNum];
 

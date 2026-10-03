@@ -419,6 +419,13 @@ if (installRoot == null) {
 }
 GameInstall.Remember(installRoot);
 
+// The disc GameInstall.DiscFile falls back from, said once: a folder without the movie the shell's startup
+// probes for (ShellHost.DiscCheckMovie) is not the CD.
+if (GameInstall.DiscDirectory(installRoot) is { } disc && !File.Exists(Path.Combine(disc, ShellHost.DiscCheckMovie))) {
+	Console.Error.WriteLine($"data\\drive.cfg specifies {disc}, but no retail CD was found at that location. "
+		+ "Falling back to the install directory for some files.");
+}
+
 // --movie shares even less: no archives, no zone, no shell art — one file and a quad. See MovieHost.
 if (moviePath != null) {
 	return MovieHost.Run(installRoot, moviePath, screenshotPath, silentAudio);
@@ -530,7 +537,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 	Console.WriteLine($"HERCULAN Engine — loading {scriptPath} from {installRoot}");
 
-	var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot));
+	var content = GameContent.MountSimulator(installRoot);
 	Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
 	var scene = MissionScene.Load(content, scriptPath, shellLaunch?.DataDirectory);
@@ -545,50 +552,20 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	audio.Attach(scene.World);
 	Console.WriteLine($"Audio: {audio.Status}");
 
-	Console.WriteLine(
-		$"Mission: zone {mission.Header.ZoneIndex}, theater {mission.Header.TheaterIndex}" +
-		$" variant {mission.Header.TheaterVariant}.");
-	Console.WriteLine(
-		$"Zone {mission.Header.ZoneIndex}: {terrain.Width}x{terrain.Height} cells, {terrain.CellSize} units per cell, " +
-		$"height scale {terrain.HeightScale}, peak {terrain.MaxWorldHeight} units.");
-	Console.WriteLine(
-		$"Placed {scene.Objects.Count} objects — {mission.CountOf(MissionUnitKind.Mech)} mechs, " +
-		$"{mission.CountOf(MissionUnitKind.Flyer)} flyers, {mission.CountOf(MissionUnitKind.Base)} structures — " +
-		$"from {scene.Models.Count} distinct models.");
-
-	int awaitingDeployment = scene.Objects.Count(o => o.Object.AwaitingDeployment);
-	if (awaitingDeployment > 0) {
-		Console.WriteLine(
-			$"{awaitingDeployment} of them are waiting on a mission action and are not in the mission " +
-			"yet — undrawn, unsimulated and non-solid until they arrive by drop pod or on foot.");
-	}
-
 	if (scene.UnmodelledCount > 0) {
-		Console.WriteLine(
-			$"{scene.UnmodelledCount} of them have no model (missing install files or an out-of-range " +
+		Console.Error.WriteLine(
+			$"{scene.UnmodelledCount} placed objects have no model (missing install files or an out-of-range " +
 			"index); they are simulated and positioned but not drawn.");
 	}
 
-	Console.WriteLine(mission.Player is { } player
-		? $"Player flies {player.TypeName} at {player.Position}."
-		: "No player.mec beside the mission — camera starts at the first placed object.");
-
-	foreach (var group in scene.Objects
-			.GroupBy(o => (o.Placement.Kind, o.Placement.TypeName ?? $"base type {o.Placement.TypeIndex}"))
-			.OrderBy(g => g.Key.Kind).ThenBy(g => g.Key.Item2)) {
-		var model = group.First().Model;
-		string art = model == null
-			? "no model"
-			: model.Atlas is { } atlas
-				? $"{model.Mesh.Length / 3} tris, {atlas.FrameCount} frames in {atlas.Width}x{atlas.Height}"
-				: $"{model.Mesh.Length / 3} tris, untextured";
-		Console.WriteLine($"  {group.Count()}x {group.Key.Item2} ({art})");
+	if (mission.Player == null) {
+		Console.Error.WriteLine("No player.mec beside the mission — camera starts at the first placed object.");
 	}
 
-	Console.WriteLine($"Theater {mission.Header.TheaterIndex} ({scene.Theater.PaletteName}): " + (scene.TerrainBank is { } bank
-		? $"terrain bank {bank.BankName}, {bank.Atlas.FrameCount} frames in a {bank.Atlas.Width}x{bank.Atlas.Height} atlas, "
-		  + $"{scene.TerrainMesh.Length / 3} triangles."
-		: $"terrain bank could not be loaded — drawing {scene.TerrainMesh.Length / 3} triangles flat-shaded."));
+	if (scene.TerrainBank == null) {
+		Console.Error.WriteLine($"Theater {mission.Header.TheaterIndex}'s terrain bank could not be loaded — "
+			+ "drawing the terrain flat-shaded.");
+	}
 
 	// Milestone 8: the player's own cockpit canopy art + HUD, drawn as three simultaneous panels
 	// (front/left/right) rather than the original's single keyboard-panned view — see
@@ -741,25 +718,20 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			scene.Theater.ImpactPaletteName)
 		: null;
 	if (cockpitArt != null) {
-		Console.WriteLine(
-			$"Cockpit art loaded for {mission.Player!.TypeName} — drawing the three-panel cockpit view. "
-			+ (cockpitArt.Sprites is { } hud
-				? $"HUD sprites: {string.Join(", ", hud.BankNames)} in a {hud.Atlas.Width}x{hud.Atlas.Height} atlas."
-				: "No HUD sprite banks could be loaded — canopy art only."));
-		Console.WriteLine(cockpitArt.ColorSchemeIndex >= 0
-			? $"Cockpit colour scheme {cockpitArt.ColorSchemeIndex} — palette slots "
-			  + $"{CockpitPalette.CockpitSchemeFirstSlot}-"
-			  + $"{CockpitPalette.CockpitSchemeFirstSlot + CockpitPalette.CockpitSchemeLength - 1}"
-			  + $" from COCKPIT.DPL entries {CockpitPalette.SchemeFirstEntry(cockpitArt.ColorSchemeIndex)}+."
-			: $"No cockpit colour scheme — {mission.Player!.TypeName}.DAT unreadable, so slots "
-			  + $"{CockpitPalette.CockpitSchemeFirstSlot}+ keep the theater's filler colour.");
+		if (cockpitArt.Sprites == null) {
+			Console.Error.WriteLine("No HUD sprite banks could be loaded — canopy art only.");
+		}
+		if (cockpitArt.ColorSchemeIndex < 0) {
+			Console.Error.WriteLine($"No cockpit colour scheme — {mission.Player!.TypeName}.DAT unreadable, so slots "
+				+ $"{CockpitPalette.CockpitSchemeFirstSlot}+ keep the theater's filler colour.");
+		}
 		if (!cockpitArt.ClipRegionsLoaded) {
-			Console.WriteLine(
+			Console.Error.WriteLine(
 				"Viewport cutout fell back to inferring the hole from black pixels — at least one of the "
 				+ "herc's .HD0/.HD2 region files could not be read.");
 		}
 	} else {
-		Console.WriteLine("No cockpit art available — drawing a single full-window 3D view.");
+		Console.Error.WriteLine("No cockpit art available — drawing a single full-window 3D view.");
 	}
 
 	// How far the display window travels down the cockpit canvas to reach the Heads-Down Display, read
@@ -821,36 +793,25 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		controlsPanel?.Open();
 	}
 
-	Console.WriteLine(statusAlertPanel != null
-		? "[Q] mission-status alert: GNL_ALRT.STR loaded."
-		: "[Q] mission-status alert: GNL_ALRT.STR is missing; the panel will not open.");
-
-	Console.WriteLine(objectivesPanel is { } objectivesSummary
-		? $"[F11] objectives panel: {objectivesSummary.Lines.Count} line(s) of block-13 text."
-		: "[F11] objectives panel: OBJ_ALRT.STR is missing; the panel will not open.");
-
-	Console.WriteLine(preferencesPanel is { } preferencesSummary
-		? $"[F12] preferences panel: {string.Join(", ", preferencesSummary.Values)}."
-		: "[F12] preferences panel: PRF_ALRT.STR is missing; the panel will not open.");
-
-	Console.WriteLine(controlsPanel is { } controlsSummary
-		? $"CONTROLS panel: {controlsSummary.Title}, "
-		  + (controlsSummary.Capabilities.Present
-			  ? string.Join(", ", controlsSummary.Values)
-			  : "no joystick, so every row is greyed and reads blank.")
-		: "CONTROLS panel: CTL_ALRT.STR is missing; the panel will not open.");
+	if (statusAlertPanel == null) {
+		Console.Error.WriteLine("[Q] mission-status alert: GNL_ALRT.STR is missing; the panel will not open.");
+	}
+	if (objectivesPanel == null) {
+		Console.Error.WriteLine("[F11] objectives panel: OBJ_ALRT.STR is missing; the panel will not open.");
+	}
+	if (preferencesPanel == null) {
+		Console.Error.WriteLine("[F12] preferences panel: PRF_ALRT.STR is missing; the panel will not open.");
+	}
+	if (controlsPanel == null) {
+		Console.Error.WriteLine("CONTROLS panel: CTL_ALRT.STR is missing; the panel will not open.");
+	}
 
 	if (cockpitArt?.HeadsDown != null) {
-		Console.WriteLine(
-			$"Heads-Down Display art loaded — pan travel {cockpitPan.TravelRows} device rows, "
-			+ $"{CockpitPan.DurationSeconds:0.00}s"
-			+ (viewGeometry == null ? " (no .VUE; using the retail default travel)." : "."));
-		Console.WriteLine(cockpitArt.HeadsDownLayout is { } hddLayout
-			? $"Heads-Down widgets from the herc's own .GAU — screen {hddLayout.Screen}, "
-			  + $"arrow frame set {hddLayout.UnlitFrame(HddLayout.Widget.ArrowUp)}+."
-			: "No Heads-Down widget block in this herc's .GAU — drawing its art only.");
+		if (cockpitArt.HeadsDownLayout == null) {
+			Console.Error.WriteLine("No Heads-Down widget block in this herc's .GAU — drawing its art only.");
+		}
 	} else if (cockpitArt != null) {
-		Console.WriteLine("No .HB1 for this herc — the Heads-Down Display is unavailable.");
+		Console.Error.WriteLine("No .HB1 for this herc — the Heads-Down Display is unavailable.");
 	}
 
 	// The Heads-Down Display's command display: the map camera, the mission's terrain raster, and the
@@ -935,10 +896,6 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 			reportSquadOrders("on receipt,");
 		}
-
-		Console.WriteLine($"Command display map: mission box {mapBounds.MinX},{mapBounds.MinY} - "
-			+ $"{mapBounds.MaxX},{mapBounds.MaxY}, {hddCommand.View.FullScale >> HddMapView.ScaleShift} "
-			+ $"world units per pixel zoomed out, {squad.Count} squadmate(s) on the comm boxes.");
 	}
 
 	// The MFD's FLASH COMM page and the comm channel behind it. The page is six order rows and a
@@ -957,11 +914,11 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		squadSeats[slot] = squadPlacements[slot].Object;
 	}
 
-	// A training mission's instructor speaks from loose files beside the archives, in the folder named
-	// after whichever voice archive is mounted.
-	audio.InstructorVoiceDirectory = InstructorVoice.Directory(dataDirectory,
-		Path.GetFileNameWithoutExtension(content.MountedArchives.FirstOrDefault(
-			name => name.StartsWith("SIMVOIC", StringComparison.OrdinalIgnoreCase)) ?? "SIMVOICE"));
+	// A training mission's instructor speaks from loose files on the disc, in the English voice folder the
+	// cockpit computer's speech is read from too: the language is not chosen yet (docs/retail-builds.md,
+	// "How a language is chosen").
+	audio.InstructorClipPath = (trainingMission, messageId) =>
+		InstructorVoice.ClipPath(installRoot, ComputerVoice.ResourceFolder, trainingMission, messageId);
 	audio.AttachSquad(squadComm);
 
 	// A comm box captions itself with its pilot's roster name, the same one the MFD's transmission plate
@@ -980,16 +937,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		Console.WriteLine($"FLASH COMM: XMIT row {flashComm.SelectedRow} (group 0 verb {verb}) "
 			+ (taken ? "was taken." : "was refused by everyone."));
 	}
-	Console.WriteLine(pilotRoster != null
-		? $"Squad comm: {squadPlacements.Count} box(es) — "
-		  + string.Join(", ", Enumerable.Range(0, squadPlacements.Count)
-			  .Select(slot => squadComm.Occupied(slot)
-				  ? $"{pilotRoster.Name(squadPlacements[slot].Placement.PilotIndex)} "
-					+ $"(pilot {squadPlacements[slot].Placement.PilotIndex}, "
-					+ $"portrait {PilotRoster.PortraitOf(squadPlacements[slot].Placement.PilotIndex)}, "
-					+ $"voice {squadComm.VoiceBank(slot)})"
-				  : "empty"))
-		: $"No {PilotRoster.ResourceName} — the comm boxes have no names and no portraits.");
+	if (pilotRoster == null) {
+		Console.Error.WriteLine($"No {PilotRoster.ResourceName} — the comm boxes have no names and no portraits.");
+	}
 
 	// FLASH COMM's seven order keys, in the order MfdFlashComm_HandleAltKey (00446c10) and MfdDisplay_KeyDispatch (004469c0) both switch on their
 	// scancodes: which row each selects, and — for the two rows that carry two orders — which verb has to
@@ -1084,10 +1034,6 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				armedMech.Weapons.ToggleLink();
 			}
 		}
-
-		Console.WriteLine("Hardpoints: " + string.Join(", ", hudState.Weapons
-			.Select((row, i) => $"{i + 1} {row.Name}")
-			.Where(entry => entry.Length > 2)));
 	}
 
 	// Milestone 9: the player walks. A HERC has no velocity vector — the walk and run animations' root
@@ -1178,9 +1124,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// The -SPRUNKNOWN keys, and the Alt+S freeze a replay honours without them.
 	var developerKeys = new DeveloperKeys(developerMode);
 	if (developerMode) {
-		Console.WriteLine("Developer keys on: Alt+S freezes, Alt+keypad + steps one tick, Ctrl+Alt+1-9 size "
-			+ "the Alt+arrow moves and Ctrl+Left/Right turns, Ctrl+N/P view other objects, Ctrl+T hands the "
-			+ "controls off, Ctrl+Alt+,/. pick a component, Ctrl+Alt+D damages it, Ctrl+Alt+N hits a Cybrid.");
+		Console.WriteLine("Developer keys on (docs/key-bindings.md).");
 	}
 	bool tapeEscapeDown = false;
 
@@ -1249,59 +1193,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 	}
 
-	if (pilotMech != null) {
-		Console.WriteLine(
-			$"Piloting {pilotMech.Name}: top speed {pilotMech.Type.DisplaySpeedKph(pilotMech.Type.MaxForward)} km/h, "
-			+ $"walk/run threshold at {pilotMech.Type.DisplaySpeedKph(pilotMech.Type.GaitThreshold)} km/h"
-			+ (pilotMech.Thread == null ? " — no animation data, so it cannot walk." : "."));
-		Console.WriteLine("Up/Down arrows throttle — hold Down through zero for reverse — Left/Right "
-			+ "arrows turn, keypad 5 all stop, C switches to the free camera, V to the external view.");
-		Console.WriteLine("In the external view, hold the left mouse button and drag to orbit the camera "
-			+ "around the machine; vertical orbit is clamped to 45 degrees up or down.");
-		Console.WriteLine("J/K twist the turret, I/M pitch it, Backspace re-centres it — the manual's own "
-			+ "keyboard turret set. The cockpit view looks where the turret points.");
-		Console.WriteLine("T or the TRACK button toggles Automatic Turret Tracking, which holds the "
-			+ "turret on the selected target; turning it off with T re-centres the turret, and touching "
-			+ "either turret axis overrides it for as long as you hold the key.");
-		Console.WriteLine(throttleTrack != null
-			? "Drag the console's throttle slider with the mouse to set it; it tracks the keys either way."
-			: "No throttle slider in this herc's .GAU — keyboard throttle only.");
+	if (pilotMech is { Thread: null }) {
+		Console.Error.WriteLine($"{pilotMech.Name} has no animation data, so it cannot walk.");
 	}
-
-	Console.WriteLine("Free camera: W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts.");
-	Console.WriteLine("Esc no longer quits — it raises a menu bar at the top of the window (Debug: "
-		+ "skeleton view, animation readouts; Tweaks: this engine's own retail-deviation switchboard). "
-		+ "Esc again backs out one layer at a time: closes whichever of the two is open, then hides the "
-		+ "empty bar. Clicking outside the debug panel closes it too.");
-	Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM.");
-	Console.WriteLine("On FLASH COMM, A/G/H/O/C/E/F pick an order (, and . step through them) and X "
-		+ "transmits it; Alt with any of those seven transmits that order straight from whichever screen "
-		+ "is showing.");
-	Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage screens; "
-		+ "F1-F6 pan back up.");
-	Console.WriteLine("On the damage screen, S/I/W switch between structural, internal and weapon systems.");
-	Console.WriteLine("F11 shows the mission objectives; Return, Esc or the RETURN button puts it away. "
-		+ "The simulation is stopped while it is up, as it is in the original.");
-	Console.WriteLine("F12 shows the simulator preferences; Return, Esc or DONE puts it away. Clicking a "
-		+ "row steps its setting and the right button steps back, where that row allows it.");
-	Console.WriteLine("CONTROLS opens the joystick bindings over it. An axis row steps on every click; a "
-		+ "button row selects on the first click and steps on the next, and RECOMMEND writes the "
-		+ "recommended set. Pressing a button on the stick itself picks that button's row, and pressing "
-		+ "it again steps it. A rebinding is live on the next tick, and the panel merges its own options "
-		+ "into prefs.cfg as it closes — --no-write-prefs turns that off.");
-	Console.WriteLine("Q asks how the mission stands and offers a way out of it. Return, Esc or the "
-		+ "left button carries on; the right button, when the status offers one, ends the mission.");
-	Console.WriteLine("P pauses the mission and Ctrl+Q asks to leave the game — the same panel at a "
-		+ "smaller size. Return, Esc or CONTINUE dismisses either.");
-	Console.WriteLine("On the command display, 1-3 pick a squadmate, D/A/F/T/G/O/C/E pick an order "
-		+ "(, and . step through them), X transmits and Backspace cancels.");
-	Console.WriteLine("Its map: + and - or the two magnifiers zoom, the arrows scroll it (the keypad "
-		+ "keeps steering while it is down), keypad 5 re-centres it on your machine, and clicking a "
-		+ "squadmate's marker selects that pilot.");
-	Console.WriteLine("1-0 arm a weapon row (left-click the row does the same), W and Alt+W step through "
-		+ "the firing chain, Alt+1-0 or a right-click add and remove a row from it.");
-	Console.WriteLine("L or the LINK button links the armed weapon to its opposite hardpoint, when that "
-		+ "hardpoint carries the same weapon; both rows then light together.");
 
 	using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}");
 

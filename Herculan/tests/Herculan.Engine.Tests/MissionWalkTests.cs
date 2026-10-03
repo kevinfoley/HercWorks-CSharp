@@ -110,6 +110,6 @@ public class MissionWalkTests {
 			return null;
 		}
 
-		return MissionScene.Load(GameContent.Mount(GameInstall.ArchiveDirectory(root)), script);
+		return MissionScene.Load(GameContent.MountSimulator(root), script);
 	}
 }

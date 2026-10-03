@@ -144,10 +144,10 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	public SquadCommChannel? Squad { get; private set; }
 
 	/// <summary>
-	/// Where a training mission's instructor clips are read from — see <see cref="InstructorVoice"/>.
-	/// Null leaves the instructor silent.
+	/// Where a training mission's instructor clip is read from, given the training mission and the
+	/// message id — see <see cref="InstructorVoice.ClipPath"/>. Null leaves the instructor silent.
 	/// </summary>
-	public string? InstructorVoiceDirectory { get; set; }
+	public Func<int, int, string>? InstructorClipPath { get; set; }
 
 	/// <summary>
 	/// Hands this the mission's comm boxes and connects their two outputs: the recorded line goes to
@@ -170,9 +170,8 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		if (squad.Port.Training) {
 			squad.Port.Shown += message => {
 				if (squad.Port.Mode != MessageChannelMode.TextOnly && SpeechEnabled
-						&& InstructorVoiceDirectory is { } directory) {
-					SquadSpeech?.SpeakFile(Path.Combine(directory,
-						InstructorVoice.ClipName(squad.TrainingMission, message.Id)));
+						&& InstructorClipPath is { } clipPath) {
+					SquadSpeech?.SpeakFile(clipPath(squad.TrainingMission, message.Id));
 				}
 			};
 		}

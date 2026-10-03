@@ -26,9 +26,13 @@ The first entry's data begins at the byte immediately after the entry list, with
 
 ## Which archives are mounted
 
-Neither program mounts an archive by name. At startup each scans `vol\*.vol`, under the directory on the first line of `data\drive.cfg` and under the current directory, and loads every file whose program mask shares a bit with its own: `VolRStream_SetGroup` (VSHELL `00402fe3`, DBSIM `00473154`) with mask `0x100` from VSHELL and `1` from DBSIM's `Sim_Run` (`0045f144`), into `VolumeGroup_SetGroup`. A name one pass loaded is skipped by the other, and a group holds at most 30. So an archive the installer copied is found in the install, one it left on the disc is found there, and an archive added to either folder is mounted with no change to the programs — v1.10's `SHELL1.VOL` and `SIMLANG.VOL` reach them that way.
+Neither program mounts an archive by name. At startup each scans `vol\*.vol` twice, first under the current directory, which is the install, then under the directory `data\drive.cfg` names, which on a retail install is the disc. It loads every file whose program mask shares a bit with its own: `VolRStream_SetGroup` (VSHELL `00402fe3`, DBSIM `00473154`) hands `VolumeGroup_SetGroup` (VSHELL `00403723`, DBSIM `00467bd4`) mask `0x100` from VSHELL's `Shell_Main` (`00401525`) and `1` from DBSIM's `Sim_Run` (`0045f144`). Its last argument would put the `drive.cfg` pass first; both programs pass 0.
 
-`VolumeGroup_AddVolume` keeps the list in descending order of the precedence byte, and `VolumeGroup_FindEntry` returns the first volume that has the entry, so a `0x0A` archive's entry hides the same `folder\name` in a `0x05` one.
+The directory is the first token of `drive.cfg`, read with `fscanf("%s")` (`DriveCfg_Read`, VSHELL `0040d327`, and the top of `Sim_Run`), so a path with a space in it is cut at the space; a backslash is appended. A file whose `vol\<name>` equals the stored name of an archive already loaded is skipped. The first pass stores names in exactly that form, so the second pass skips any archive the install already supplied; the comparison is exact, case included. So an archive the installer copied is read from the install, one it left on the disc is found there, and an archive added to either folder is mounted with no change to the programs. v1.10's `SHELL1.VOL` and `SIMLANG.VOL` reach them that way, and a v1.10 install, which holds only its own language's voice archive ([`../retail-builds.md`](../retail-builds.md#the-installer)), mounts the other two from the disc.
+
+A group holds 30 archives. `VolumeGroup_SetGroup` returns before scanning when the group is full, but does not check while it scans, so a 31st file is written past the end of the list.
+
+`VolumeGroup_AddVolume` (VSHELL `00403a5c`, DBSIM `00467e90`) inserts each archive after every one whose precedence byte is equal or higher, and `VolumeGroup_FindEntry` returns the first volume that has the entry. So a `0x0A` archive's entry hides the same `folder\name` in a `0x05` one, and of two archives of equal precedence the one loaded first answers: the install's before the disc's, and within one folder in `findfirst`'s order. That order never decides what is read from the retail archives. Among one program's archives of equal precedence, the only shared `folder\name`s are SIMSOUND.VOL's 556 that SIMVOL0.VOL also carries, in both builds, and v1.0's 213 that SIMVOICE.VOL, SIMVOICF.VOL and SIMVOICG.VOL all carry under their one `SIMVOICE\` label; every one has the same content in each archive.
 
 ## The per-entry prefix — fixed 9 bytes
 
@@ -55,7 +59,7 @@ Entry stride is therefore `size + 10`, and the last entry's trailer is the archi
 
 The retail install's own override tree is content-only. `DATA\MAT0.DAT` (244 bytes) and `DATA\MFORMS.DAT` (142 bytes) are byte-identical to the content of the `dat\MAT0.DAT` and `dat\MFORMS.DAT` entries in SIMVOL0.VOL, whose size fields read 244 and 142 — no prefix, no trailer. So does `DATA\script.dat`, which the game reads straight off disk at offset 0.
 
-**A loose file at an entry's own path takes precedence over the archive.** With a content-only `DAT\PROJ.DAT` in the game folder, beside `DBSIM.EXE`, DBSIM loaded it in place of `SIMVOL0.VOL`'s `dat\PROJ.DAT`: the record table it built in memory (`004a9980`) held the loose file's values. The retail install ships no `DAT` folder; this was a file placed there for the test ([`proj-dat.md`](proj-dat.md#lookup)).
+**A loose file at an entry's own path takes precedence over the archive.** `VolRStream_Open` (VSHELL `00402d25`, DBSIM `00472fdc`) tries `_open(path)` before it searches the volume group, and the path is relative, so a loose file in the install wins; the disc is not searched for loose files. With a content-only `DAT\PROJ.DAT` in the game folder, beside `DBSIM.EXE`, DBSIM loaded it in place of `SIMVOL0.VOL`'s `dat\PROJ.DAT`: the record table it built in memory (`004a9980`) held the loose file's values. The retail install ships no `DAT` folder; this was a file placed there for the test ([`proj-dat.md`](proj-dat.md#lookup)).
 
 What does carry a prefix is anything unpacked by a tool that copies the archive bytes wholesale. `ES2/VOL/extractVol.py` slices each entry from its offset to the next entry's offset, so every file under `ES2/VOL/simvol0/`, `ES2/VOL/ZONES/` and `ES2/VOL/SHELL0/` is `prefix + content + trailer`, ten bytes longer than the file the game reads.
 
@@ -71,4 +75,4 @@ That extraction is uniform. Comparing all 1,672 entries of those three archives 
 
 ## Open
 
-- **Open:** where DBSIM's resource open checks for a loose file before the archives, whether that holds for every resource it opens, and whether VSHELL does the same. Only `DAT\PROJ.DAT` has been seen to override.
+- **Open:** whether every resource either program reads goes through `VolRStream_Open`, and so can be overridden by a loose file. Only `DAT\PROJ.DAT` has been seen to override.

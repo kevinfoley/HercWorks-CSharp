@@ -1,3 +1,7 @@
+using HercWorks.Core.Data.File.Cfg;
+using HercWorks.Core.Io.Transform.Common;
+using Herculan.Engine.World;
+
 namespace Herculan.Engine.Content;
 
 /// <summary>
@@ -81,6 +85,49 @@ public static class GameInstall {
 	/// <summary>Whether <paramref name="path"/> is an install root: a directory holding the archive directory.</summary>
 	public static bool IsInstallRoot(string path) =>
 		Directory.Exists(path) && Directory.Exists(ArchiveDirectory(path));
+
+	/// <summary>
+	/// The directory the first token of the install's <c>data\drive.cfg</c> names, which on a retail
+	/// install is the disc (docs/formats/vol-archive.md, "Which archives are mounted"), resolved against
+	/// the install root; null when the file is missing, unreadable or holds no token. Retail cannot start
+	/// without the file (<c>Sim_Run</c>, <c>0045f144</c>; <c>DriveCfg_Read</c>, VSHELL <c>0040d327</c>);
+	/// here an install without one simply has no disc.
+	/// </summary>
+	public static string? DiscDirectory(string installRoot) {
+		string path = Path.Combine(installRoot, MissionLoader.DataFolderName, Drive.FileName);
+		try {
+			if (!File.Exists(path) || new DriveTransformer().Parse(File.ReadAllBytes(path))?.Directory is not { } directory) {
+				return null;
+			}
+
+			return Path.GetFullPath(Path.Combine(installRoot, directory));
+		} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+				or NotSupportedException) {
+			Console.Error.WriteLine($"Could not read {path} ({ex.Message}); the install has no disc.");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// A file both programs read from the disc — a movie, the on-line manual, a training instructor
+	/// clip: <paramref name="relativePath"/> under <see cref="DiscDirectory"/> when it is there, and
+	/// otherwise under the install root.
+	///
+	/// <para>Retail looks on the disc only (<c>DriveCfg_PrefixPath</c>, <c>0045ee44</c>;
+	/// <c>Path_UnderDriveCfg</c>, VSHELL <c>0040d429</c>). Falling back to the install is this engine's,
+	/// so an install copied whole, whose <c>drive.cfg</c> still names a CD drive that is gone, keeps its
+	/// movies, manual and instructor; see KNOWN_ISSUES.md.</para>
+	/// </summary>
+	public static string DiscFile(string installRoot, string relativePath) {
+		if (DiscDirectory(installRoot) is { } disc) {
+			string onDisc = Path.Combine(disc, relativePath);
+			if (File.Exists(onDisc)) {
+				return onDisc;
+			}
+		}
+
+		return Path.Combine(installRoot, relativePath);
+	}
 
 	private static string? LoadRemembered() {
 		string path = RememberedPathFile;

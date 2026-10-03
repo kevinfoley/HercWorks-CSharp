@@ -90,7 +90,7 @@ public class TrainingLaunchTests {
 			return null;
 		}
 
-		var content = GameContent.Mount(GameInstall.ArchiveDirectory(root), ShellArt.Archives);
+		var content = GameContent.MountShell(root);
 		var options = SimulatorPreferences.Defaults();
 		options.Set(DifficultyOption, Veteran);
 		options.Set(ShellPracticeScreen.HercTypeOption, Colossus);
@@ -114,7 +114,7 @@ public class TrainingLaunchTests {
 			return;
 		}
 
-		var content = GameContent.Mount(GameInstall.ArchiveDirectory(root), ShellArt.Archives);
+		var content = GameContent.MountShell(root);
 		var missions = content.ListFolder("MSN").Where(name => name.EndsWith(".MSN", StringComparison.OrdinalIgnoreCase)).ToList();
 		if (missions.Count == 0) {
 			return;

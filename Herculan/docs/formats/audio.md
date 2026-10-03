@@ -76,7 +76,7 @@ The whole arm is skipped when `TrainingMissionNumber` (`004aa7ac`) is nonzero, s
 
 #### No drive is named
 
-`Music_PlayTrack` opens the device type and nothing else: `MCI_OPEN_TYPE` with the string `cdaudio`, no `MCI_OPEN_ELEMENT`, so MCI answers with whichever CD drive it picks. Neither executable imports or names `GetDriveType` or `GetLogicalDrives`, and `SOUND.CFG` has no key for a drive. Both read `data\drive.cfg`, a directory path with a drive letter, but only to prefix the paths of movies and of the training voice clips ([`cockpit-messages.md`](cockpit-messages.md#the-training-port)); it never reaches MCI. Nor is the disc checked: any audio CD in the drive plays.
+`Music_PlayTrack` opens the device type and nothing else: `MCI_OPEN_TYPE` with the string `cdaudio`, no `MCI_OPEN_ELEMENT`, so MCI answers with whichever CD drive it picks. Neither executable imports or names `GetDriveType` or `GetLogicalDrives`, and `SOUND.CFG` has no key for a drive. Both read `data\drive.cfg`, a directory path with a drive letter, but only to find archives ([`vol-archive.md`](vol-archive.md#which-archives-are-mounted)) and to prefix the paths of the movies, the on-line manual and the training voice clips ([`cockpit-messages.md`](cockpit-messages.md#the-training-port)); it never reaches MCI. Nor is the disc checked: any audio CD in the drive plays.
 
 ### `sfxWndProc` (`00462294`)
 

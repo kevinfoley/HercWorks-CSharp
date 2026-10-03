@@ -1,5 +1,6 @@
 using System.Numerics;
 using Herculan.Engine.Audio;
+using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Video;
 using Silk.NET.OpenGL;
@@ -27,7 +28,10 @@ static class MovieHost {
 	/// </summary>
 	private const int ScreenshotFrame = 5;
 
-	/// <summary>The folder cutscenes sit in, beside the archive directory rather than inside it.</summary>
+	/// <summary>
+	/// The folder cutscenes sit in, on the disc beside the archive directory rather than inside it;
+	/// paths under it go through <see cref="GameInstall.DiscFile"/>.
+	/// </summary>
 	public const string MovieFolderName = "AVI";
 
 	public static int Run(string installRoot, string movieName, string? screenshotPath = null,
@@ -36,7 +40,7 @@ static class MovieHost {
 		if (!File.Exists(path)) {
 			Console.Error.WriteLine(
 				$"No such movie: {path}\n"
-				+ $"Pass a path, or a file name to be looked up in {Path.Combine(installRoot, MovieFolderName)}.");
+				+ $"Pass a path, or a file name to be looked up in the disc's or the install's {MovieFolderName} folder.");
 			return 1;
 		}
 
@@ -95,20 +99,20 @@ static class MovieHost {
 
 	/// <summary>
 	/// Takes the argument as a path when it names a file, and otherwise as a name to look up in the
-	/// install's movie folder, so <c>--movie ALPH_TH.AVI</c> works without a full path.
+	/// movie folder, so <c>--movie ALPH_TH.AVI</c> works without a full path.
 	/// </summary>
 	private static string Resolve(string installRoot, string movieName) {
 		if (File.Exists(movieName)) {
 			return movieName;
 		}
 
-		string named = Path.Combine(installRoot, MovieFolderName, movieName);
+		string named = GameInstall.DiscFile(installRoot, Path.Combine(MovieFolderName, movieName));
 		if (File.Exists(named)) {
 			return named;
 		}
 
 		// Let the caller name a movie without its extension.
-		string suffixed = Path.Combine(installRoot, MovieFolderName, movieName + ".AVI");
+		string suffixed = GameInstall.DiscFile(installRoot, Path.Combine(MovieFolderName, movieName + ".AVI"));
 		return File.Exists(suffixed) ? suffixed : named;
 	}
 

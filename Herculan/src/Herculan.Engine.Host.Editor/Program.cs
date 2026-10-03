@@ -37,7 +37,7 @@ if (!File.Exists(scriptPath)) {
 
 Console.WriteLine($"HERCULAN Mission Editor — loading {scriptPath} from {installRoot}");
 
-var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot));
+var content = GameContent.MountSimulator(installRoot);
 var scene = MissionScene.Load(content, scriptPath);
 var mission = scene.Mission;
 

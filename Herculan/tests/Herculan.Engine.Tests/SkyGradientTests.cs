@@ -133,7 +133,7 @@ public class SkyGradientTests {
 			return;
 		}
 
-		var content = GameContent.Mount(GameInstall.ArchiveDirectory(root));
+		var content = GameContent.MountSimulator(root);
 		for (int worldIndex = 0; worldIndex < TheaterDescriptor.Count; worldIndex++) {
 			var theater = TheaterDescriptor.LoadByWorldIndex(content, worldIndex);
 			var palette = new DynamixPaletteTransformer().Parse(content.Read("dpl", theater.PaletteName + ".DPL")!) as DynamixPalette;

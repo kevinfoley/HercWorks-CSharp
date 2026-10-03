@@ -6,6 +6,7 @@ Two retail builds of Earthsiege 2 are in hand. They share the data formats every
 |---|---|---|
 | Source | the install under `ES2\` | the GoldGames freeware disc, `VER95\` and `VER31\` |
 | `SIERRA.INF` `[Ident]` | `Version=100 Maverick JC` | `Version=110` |
+| `VERSION.TXT` | `EarthSiege II version 1.0` | `EarthSiege II version 1.11` |
 | Windows | 95 | 95 (`VER95\`) or 3.1 with Win32s (`VER31\`), chosen by the installer; it refuses Windows NT |
 | `ES.EXE` | 8,736 bytes | 11,808 (`VER95\`), 40,480 (`VER31\`) |
 | `VSHELL.EXE` | 564,768 bytes ([Open](#open)) | 566,304 in both folders, different bytes |
@@ -25,11 +26,13 @@ Both builds install through Sierra's `SETUP.EXE`, which runs the script in `SIER
 - v1.0 copies `SIMVOICE.VOL` at every size. The lines that would pick the French or German archive are commented out, and its `[Files]` list gives `SIMVOICF.VOL` and `SIMVOICG.VOL` as 4 bytes each.
 - v1.10 copies the chosen language's voice archive and `README.WRI`, its `ERROR.*` as `ERROR.STR`, its `MISSION.*` as `DATA\MISSION.STR`, and under Windows 3.1 its `JCONFIG.*` as `JCONFIG.STR`. It adds `SHELL1.VOL` and `SIMLANG.VOL` to the archives.
 
+**Some files are always read from the disc**, whatever the size: the movies, the on-line manual and the training instructor's clips, each under the directory `data\drive.cfg` names (`Path_UnderDriveCfg`, VSHELL `0040d429`; `DriveCfg_PrefixPath`, DBSIM `0045ee44`). Neither installer copies them. At startup VSHELL opens `avi\pt1.avi` there, and when it cannot, shows `Please insert ESII CD and restart` and quits (`Shell_Main`, `00401525`).
+
 **`BATCH.EXE` writes the configuration.** The script runs it as `BATCH.EXE <source> <install> <E|F|G> <0|1>`. It writes:
 
 1. `data\drive.cfg`: the source directory and the install directory, one per line.
 2. `data\language.cfg`: the letter, one byte.
-3. A copy of `<install>\<LANGUAGE>\README.WRI`, under a name the two builds differ on ([`formats/winhelp.md`](formats/winhelp.md#macros)).
+3. A copy of `<install>\<LANGUAGE>\README.WRI`, under a name the two builds differ on ([`formats/winhelp.md`](formats/winhelp.md#macros)). v1.10's `BATCH.EXE` also carries `\SPANISH` and `\ITALIAN` beside the three shipped folder names; the script passes only `E`, `F` and `G`.
 4. `data\prefs.cfg`, when `Sierra.ini`'s `[Config] VideoSpeed` is at most 1000 (v1.0) or 700 (v1.10): byte 4, the low-resolution option, set to 1, and in v1.10 also byte 47, which stops the shell's own `VideoSpeed` check from showing its `Performance Note` ([`shell/screen-layout.md`](shell/screen-layout.md#the-main-menu)).
 5. With the last argument `1`, the Indeo codecs' registry entries. v1.0's returns before this step when `VideoSpeed` is above 1000; v1.10's does not. Both scripts also write the codecs' `SYSTEM.INI` entries themselves.
 
@@ -60,6 +63,7 @@ The on-line manual is the exception: both programs open `<LANGUAGE>\es2guide.hlp
 | Mission text | `.ENG` only | `.FRE` and `.GER` beside every `.ENG` but `DEMO2`'s ([`formats/msn-mission-file.md`](formats/msn-mission-file.md#the-eng-string-table)) |
 | Fonts | | six replaced, with more accented letters ([`formats/dfn-hfn-dci.md`](formats/dfn-hfn-dci.md#dfn--hfn--bitmap-font)) |
 | On-line manual | the same three `ES2GUIDE.HLP` in both builds ([`formats/winhelp.md`](formats/winhelp.md)) | |
+| Intro movie | `AVI\INTR_PT1.AVI`, `INTR_PT2.AVI` | also `AVF\` and `AVG\`, each with its own two files, different from `AVI\`'s ([Open](#open)) |
 
 ## Other content changes in v1.10
 
@@ -87,4 +91,6 @@ Every archive v1.0 has is in v1.10 with the same entries, except for the transla
 - **Unported:** French and German: taking the language from `data\language.cfg` as v1.10's launcher does, and reading the translated text, mission text and voice archives.
 - **Open:** how v1.10's `VSHELL.EXE` and `DBSIM.EXE` differ from v1.0's beyond the language readers. `DBSIM.EXE`'s code section is `0x200` bytes longer, so a byte comparison says nothing, and neither v1.10 executable is in the Ghidra project.
 - **Open:** where the analysed `ES2\VSHELL.EXE` (564,768 bytes) comes from, when the v1.0 `SIERRA.INF` beside it lists 563,232.
-- **Open:** what `VER31\ES.EXE` does with `data\language.cfg`. It names the file; its code has not been read.- **Open:** what Sierra's `SETUP.EXE` tests `LANGUAGE_EQ` against.
+- **Open:** what `VER31\ES.EXE` does with `data\language.cfg`. It names the file; its code has not been read.
+- **Open:** what Sierra's `SETUP.EXE` tests `LANGUAGE_EQ` against.
+- **Open:** how v1.10 reaches the `AVF\` and `AVG\` intro movies. `VER95\VSHELL.EXE` names only `avi\intr_pt1.avi` and `avi\intr_pt2.avi`, as v1.0's does.

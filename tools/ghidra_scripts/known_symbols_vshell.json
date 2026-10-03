@@ -1861,6 +1861,15 @@
       "source": "docs/shell/screen-layout.md#the-mission-screen"
     },
     {
+      "address": "0040d327",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DriveCfg_Read",
+      "description": "Opens data\\drive.cfg (asserting at src\\fileutil.cpp line 0x31 when that fails), fscanf's its first %s token, appends a backslash and copies it into DriveCfg_Directory (004822d5); reads the second token and discards it; then sets the assert log directory to the empty string through Assert_SetLogDir. Shell_Main calls it once at startup, before the volume group is built. The VSHELL counterpart of the drive.cfg read at the top of DBSIM's Sim_Run.",
+      "source": "VSHELL decompile at 0040d327; strings at 0046f030-0046f05c; es2_xref.py --binary VSHELL 0040d327"
+    },
+    {
       "address": "0040d3e5",
       "binary": "VSHELL",
       "type": "function",
@@ -1875,7 +1884,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Path_UnderDriveCfg",
-      "description": "Returns 004822d5 -- the first string in data\\drive.cfg plus a backslash, which FUN_0040d327 reads -- followed by the argument with any leading drive letter and colon dropped, in a static buffer at 00482448. Movie_PlayQueue builds each movie's path with it.",
+      "description": "Returns DriveCfg_Directory (004822d5) -- the first string in data\\drive.cfg plus a backslash, which DriveCfg_Read writes -- followed by the argument with any leading drive letter and colon dropped, in a static buffer at 00482448. Three callers: Movie_PlayQueue builds each movie's path with it, Shell_Main opens avi\\pt1.avi through it at startup and quits with 'Please insert ESII CD and restart' when that fails, and OnlineManual_Open resolves <language>\\es2guide.hlp through it.",
       "source": "docs/shell/screen-layout.md#the-shells-movies"
     },
     {
@@ -6176,7 +6185,7 @@
       "type": "function",
       "confidence": "high",
       "name": "OnlineManual_Open",
-      "description": "Leaves full screen, option 6 = 0, commit, save all, ShellSound_Stop, then Shell_OpenHelp on <language>\\es2guide.hlp by the language letter E/F/G.",
+      "description": "Leaves full screen, option 6 = 0, commit, save all, ShellSound_Stop, then Shell_OpenHelp on Path_UnderDriveCfg(<language>\\es2guide.hlp), the folder chosen by Shell_ReadLanguageCfg's letter E/F/G; any other letter fails a severity-4 assert, 'online help not found', and Assert_Report exits the shell.",
       "source": "docs/shell/screen-layout.md#the-main-menu"
     },
     {
@@ -8382,6 +8391,15 @@
       "name": "Assert_Format",
       "description": "(buffer, severity, file, line, message): formats 'Assert::<severity name>: Line <line> in \"<file>\"' with the severity-name table at 0047a5ac, then appends ': <message>' when there is one. The VSHELL copy of DBSIM's Assert_Format.",
       "source": "VSHELL decompile and disassembly at 0044e018"
+    },
+    {
+      "address": "0044e060",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_SetLogDir",
+      "description": "(dir): copies dir into 0048dc38, the directory Assert_LogPath puts in front of the log name, and returns that buffer. DriveCfg_Read calls it with the empty string. The VSHELL copy of DBSIM's Assert_SetLogDir (00479d0c).",
+      "source": "es2_naming.py diff DBSIM 00479d0c VSHELL 0044e060 (identical after normalisation)"
     },
     {
       "address": "0044e090",
@@ -17228,6 +17246,15 @@
       "name": "Shell_SoundEnabled",
       "description": "Cleared by -s (and by -v and -?); gates the sound manager's creation and ESButtonFont_HandleEvent's press sound.",
       "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "004822d5",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "DriveCfg_Directory",
+      "description": "The first token of data\\drive.cfg plus a trailing backslash, written by DriveCfg_Read. Shell_Main passes it to VolRStream_SetGroup as the second directory the volume scan searches, and Path_UnderDriveCfg puts it in front of the movie paths, the startup check for avi\\pt1.avi and the on-line manual. The VSHELL counterpart of DBSIM's DriveCfg_Directory (004d2890).",
+      "source": "VSHELL decompile of DriveCfg_Read, Shell_Main and Path_UnderDriveCfg; es2_xref.py --binary VSHELL 004822d5"
     },
     {
       "address": "0048239c",

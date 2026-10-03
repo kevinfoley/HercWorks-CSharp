@@ -457,8 +457,15 @@ public static class DtsMeshBuilder {
 	/// modulus from that sequence's own entry.
 	/// </summary>
 	public static int CellFrameCount(TSObject? root, int sequence) =>
-		root is TSShape { SequenceList: { } sequences } && sequence >= 0 && sequence < sequences.Length
-				&& sequences[sequence] > 1
+		CellFrameCount((root as TSShape)?.SequenceList, sequence);
+
+	/// <summary>
+	/// The same read straight off a frame-count array, for a shape whose list is not on a
+	/// <see cref="TSShape"/> object — a <c>.DGS</c> record's, which is
+	/// <see cref="HercWorks.Core.Data.File.Dgs.GridShape.SequenceList"/>.
+	/// </summary>
+	public static int CellFrameCount(short[]? sequences, int sequence) =>
+		sequences != null && sequence >= 0 && sequence < sequences.Length && sequences[sequence] > 1
 			? System.Math.Min((int)sequences[sequence], MaxCellFrames)
 			: 1;
 

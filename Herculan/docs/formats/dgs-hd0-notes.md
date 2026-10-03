@@ -11,9 +11,8 @@ The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat
 **Record layout** (traced through the class's chain of base-class reads — `GridShape_ReadFromStream` (`0042762c`) → `TSShape_ReadFromStream` (`00490d5c`) → `TSPartList_ReadFromStream` (`0048fd94`) → `TSPartBase_ReadFromStream` (`0048f894`)):
 1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius** — [below](#the-bounding-radius--shape8).
 2. `int16` child count, then that many nested `ClassItem` records
-3. `int16` count + that many 32-byte records, consumed by `TSBSPPart_RenderNode` (`00476a1c`, [Open](#open))
-4. `int16` count + that many `int16` values ([Open](#open))
-5. the shape's **collision volume**: 5×`int16` scalars, a 1024-byte height table, then one row of height codes per grid row. Layout [below](#the-collision-volume); the queries that walk it are [`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-collision-volume--the-dgs-records-height-field)'s.
+3. the rest of the `TSShape`, in `TSShape_ReadFromStream`'s order: `int16` node-transform count (`+0x16`), `int16` sequence count (`+0x24`), that many `int16` per-sequence frame counts (`+0x20`), then the node transforms, 32 bytes each (`+0x18`). The same tail a `.DTS` root carries ([`dts-node-posing.md`](dts-node-posing.md#the-shapes-own-node-transforms)); the per-sequence cell array at `+0x1c` is allocated zeroed, not read. No retail record states a node transform. 22 of the 45 `BASES.DGS` records and 2 of the 16 `BHULKS.DGS` records state sequences: the frame counts a structure's flipbook wraps on, and the size of its shape instance's cell array ([`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#a-structure-coming-down))
+4. the shape's **collision volume**: 5×`int16` scalars, a 1024-byte height table, then one row of height codes per grid row. Layout [below](#the-collision-volume); the queries that walk it are [`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-collision-volume--the-dgs-records-height-field)'s.
 
 Every record's on-disk footprint (header+payload) pads to an even total.
 
@@ -31,7 +30,7 @@ So a placed structure is drawn at terrain height with no vertical correction of 
 
 ## The collision volume
 
-Step 5 of the record, read by `GridShape_ReadFromStream` (`0042762c`):
+Step 4 of the record, read by `GridShape_ReadFromStream` (`0042762c`):
 
 | Offset | Type | Meaning |
 |---|---|---|
@@ -58,8 +57,4 @@ The third of the three `int16` head fields every part record carries (`TSPartBas
 |---|---|
 | The tail of the record is a sub-record size, a sub-record count, three scalars, an opaque block, then count × size raw bytes | It consumes exactly the same bytes, so a reader can parse every retail record correctly while naming all of it wrongly. It is the one structure in [the collision volume](#the-collision-volume): five scalars and a fixed 1024-byte table, then the height codes |
 | The third head field is a shape id | It is the bounding radius ([above](#the-bounding-radius--shape8)); its value tracks `BASES.DAT +0x2a`, not any index |
-
-## Open
-
-- **Open:** the record's step-3 32-byte records. Their consumer, `TSBSPPart_RenderNode` (`00476a1c`), suggests something BSP-plane-adjacent.
-- **Open:** the record's step-4 `int16` values.
+| Step 3 is a count and 32-byte BSP records, then a count and an `int16` array, since `TSBSPPart_RenderNode` (`00476a1c`) walks points at a 32-byte stride | Both counts come first, then the `int16` frame counts, then the 32-byte node transforms. With every retail transform count 0 the two readings consume the same bytes, but only this one puts each count with its own array |

@@ -4324,10 +4324,11 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				item.Visible = false;
 			}
 
-			// The swap installs the wreck shape into the same shape instance, whose cell frames the hulk
-			// has never had stepped, so every cell-animation part of the wreck stands on its first cell.
+			// The swap replaces only the instance's shape, so the wreck's cell-animation parts read the
+			// structure's own cell frames, frozen where the standing building left them -- see
+			// docs/simulation/destruction-effects.md, "A structure coming down".
 			foreach (var (hulkItem, gate) in hulkItems) {
-				hulkItem.Visible = gate.VisibleIn(null);
+				hulkItem.Visible = gate.VisibleIn(structure.CellFrames);
 			}
 		}
 	}

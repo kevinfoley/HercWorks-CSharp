@@ -1232,8 +1232,8 @@ static class ShellHost {
 				RepaintContent();
 			},
 			LeaveMissionTab = () => {
+				missionScreen.Leave();
 				screen.LeaveTab();
-				RepaintContent();
 			},
 			CampaignStage = () => campaignStage,
 			ShowLocationPicture = (palette, bank) => {

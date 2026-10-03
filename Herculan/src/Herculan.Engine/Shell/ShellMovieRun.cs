@@ -26,7 +26,11 @@ public sealed class ShellMovieHooks {
 	/// <summary>Every tab unlit but MISSION, which is lit, and the mission screen's view shown again.</summary>
 	public required Action LightMissionTab { get; init; }
 
-	/// <summary><c>Mission_Leave</c> (<c>00444a05</c>), the MISSION tab unlit and no tab current (<c>0xffff</c>).</summary>
+	/// <summary>
+	/// <c>Mission_Leave</c> (<c>00444a05</c>), the MISSION tab unlit and no tab current (<c>0xffff</c>), with
+	/// nothing repainted: the screen keeps the mission screen until the location picture goes up
+	/// (docs/shell/screen-layout.md#the-shells-movies).
+	/// </summary>
 	public required Action LeaveMissionTab { get; init; }
 
 	/// <summary>The campaign stage, 1-5.</summary>

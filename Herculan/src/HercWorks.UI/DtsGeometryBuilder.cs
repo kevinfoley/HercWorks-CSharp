@@ -609,7 +609,10 @@ public static class DtsGeometryBuilder {
 			triangles.Add(new DtsTriangle {
 				A = points[corners[0]], B = points[corners[i + 1]], C = points[corners[i + 2]],
 				FaceNormal = faceNormal, Front = front, Back = back,
-				UvA = QuadUvCorners[0], UvB = QuadUvCorners[i + 1], UvC = QuadUvCorners[i + 2],
+				// Only a textured poly has UVs, and it has at most four corners; a lit poly can have more.
+				UvA = textured ? QuadUvCorners[0] : default,
+				UvB = textured ? QuadUvCorners[i + 1] : default,
+				UvC = textured ? QuadUvCorners[i + 2] : default,
 				UvWeights = weights,
 				Rank = front.Texture != null ? 2 : front.Lit ? 1 : 0
 			});

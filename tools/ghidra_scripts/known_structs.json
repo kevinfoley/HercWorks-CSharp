@@ -1402,6 +1402,46 @@
       ]
     },
     {
+      "name": "StructureComponentState",
+      "binary": "DBSIM",
+      "size": 11,
+      "description": "One structure component's running state, packed with no alignment. Base_Construct allocates an array of them at StructureObject+0x205, one per BASES.DAT component (record +0x12), with Rtl_VectorNew at element size 0xb (00405a76) and StructureComponentState_ElementCtor (004069e5), which initialises nothing, so a record starts zeroed. Every reader indexes it by component * 11 (LEA ESI,[EAX+EAX*4]; LEA ESI,[EAX+ESI*2] in Base_ApplyDamage at 00404daf). docs/simulation/structure-behaviour.md owns the behaviour.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 2,
+          "type": "short",
+          "name": "damage",
+          "confidence": "high",
+          "description": "+0x0 -- damage taken, counting up to the component record's +0 maximum. Base_ApplyDamage reads it (MOVSX EDX,word ptr [ESI], 00404dc4), adds a surviving hit (ADD word ptr [ESI],AX, 00404f16) and sets it to the maximum on a kill (00404e78); Base_DamageFraction (004052d8) sums it and Base_FinishDependents compares it against the maximum."
+        },
+        {
+          "offset": 2,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "stageTimer",
+          "confidence": "high",
+          "description": "+0x2 -- the countdown to the next death-sequence stage. Base_DeathSequenceTick passes record+2 to Math_CountdownTimerTick (LEA ECX,[EDI+0x2], 00403958); the counter is the short at record+3, which Base_ApplyDamage seeds to 300 (MOV word ptr [ESI+0x3],0x12c, 00404f0a) and Base_DeathSequenceTick also reloads to 300 (00403c61)."
+        },
+        {
+          "offset": 5,
+          "width": 2,
+          "type": "short",
+          "name": "stagesLeft",
+          "confidence": "high",
+          "description": "+0x5 -- how many stages of the component's death sequence are left; 0 for a component that is standing, has no sequence, or has finished. Base_ApplyDamage seeds it from g_BaseDeathStageCount[component +4] (MOV word ptr [ESI+0x5],CX, 00404f06) and Base_DeathSequenceTick counts it down (DEC word ptr [EDI+0x5], 00403974). Component 0's is the third term of the wreck test Base_DirectFireHitTest, Base_ApplyExplosiveDamage, Base_GetCollisionRadius and Structure_GatherWalkCandidates inline (CMP word ptr [ECX+0x5],0x2 at 00405084)."
+        },
+        {
+          "offset": 7,
+          "width": 4,
+          "type": "SimObject *",
+          "name": "attacker",
+          "confidence": "high",
+          "description": "+0x7 -- who landed the hit that destroyed this component, stored by Base_ApplyDamage on the kill (MOV dword ptr [ESI+0x7],ECX, 00404e72). Base_FinishDependents passes the parent component's to vtable +0x74 for each dependent it finishes."
+        }
+      ]
+    },
+    {
       "name": "StructureObject",
       "binary": "DBSIM",
       "size": 621,
@@ -1451,10 +1491,10 @@
         {
           "offset": 517,
           "width": 4,
-          "type": "void *",
+          "type": "StructureComponentState *",
           "name": "componentStates",
           "confidence": "high",
-          "description": "+0x205 -- the per-component state array, 11 bytes per entry, record +0x12 entries. Allocated by Cpp_VectorNew in Base_Construct and stored at 00405a82."
+          "description": "+0x205 -- the per-component state array, one StructureComponentState per BASES.DAT component (record +0x12 entries). Allocated by Rtl_VectorNew in Base_Construct and stored at 00405a82."
         },
         {
           "offset": 521,

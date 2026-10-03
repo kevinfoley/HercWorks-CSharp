@@ -86,7 +86,7 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, TextureAtlas?> _atlases = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, DynamixThreeSpaceModel?> _files = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, GridShapeLibrary?> _shapeLibraries = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<int, ShapeVolume?> _volumes = new();
+	private readonly Dictionary<(string Library, int Index), ShapeVolume?> _volumes = new();
 	private readonly Dictionary<string, HercSimDat?> _mechData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, FlyerSimData?> _flyerData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, ShapeAnimation?> _animations = new(StringComparer.OrdinalIgnoreCase);
@@ -538,20 +538,29 @@ public sealed class SceneModelLibrary {
 	/// whose shape is an ordinary DTS and has neither — see <see cref="Sim.BaseObject"/> for why
 	/// that costs nothing on retail data.
 	/// </summary>
-	public (int BoundingRadius, ShapeVolume? Volume) GridShapeCollision(BaseType type) {
-		if (type.Source == BaseShapeSource.AnimatedLibrary) {
-			return (0, null);
+	public (int BoundingRadius, ShapeVolume? Volume) GridShapeCollision(BaseType type) =>
+		type.Source == BaseShapeSource.AnimatedLibrary
+			? (0, null)
+			: GridShapeCollision(BaseTypeTable.StaticLibraryName, type.ShapeIndex) ?? (0, null);
+
+	/// <summary>
+	/// The same pair for a type's wreck, the <see cref="BaseType.HulkTypeIndex"/> record of
+	/// <c>dgs\BHULKS.DGS</c> — what <see cref="Sim.BaseObject"/> is tested against once it shows its
+	/// hulk. Null for a type that leaves no wreck, and when the install has no such record.
+	/// </summary>
+	public (int BoundingRadius, ShapeVolume? Volume)? HulkCollision(BaseType type) =>
+		type.HulkTypeIndex < 0 ? null : GridShapeCollision(HulkLibraryName, type.HulkTypeIndex);
+
+	private (int BoundingRadius, ShapeVolume? Volume)? GridShapeCollision(string library, int index) {
+		if (LoadShapeLibrary(library)?.Shapes is not { Length: > 0 } shapes
+				|| index < 0 || index >= shapes.Length) {
+			return null;
 		}
 
-		if (LoadShapeLibrary(BaseTypeTable.StaticLibraryName)?.Shapes is not { Length: > 0 } shapes
-				|| type.ShapeIndex < 0 || type.ShapeIndex >= shapes.Length) {
-			return (0, null);
-		}
-
-		var shape = shapes[type.ShapeIndex];
-		if (!_volumes.TryGetValue(type.ShapeIndex, out var volume)) {
+		var shape = shapes[index];
+		if (!_volumes.TryGetValue((library, index), out var volume)) {
 			volume = shape.Collision.IsSolid ? new ShapeVolume(shape.Collision) : null;
-			_volumes[type.ShapeIndex] = volume;
+			_volumes[(library, index)] = volume;
 		}
 
 		return (shape.BoundingRadius, volume);

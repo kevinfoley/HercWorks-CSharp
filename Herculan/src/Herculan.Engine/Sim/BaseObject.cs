@@ -28,6 +28,7 @@ public sealed partial class BaseObject : SimObject {
 	private readonly ShapeVolume? _volume;
 	private readonly ColliderNode[] _collision;
 	private readonly int _shapeRadius;
+	private readonly (int BoundingRadius, ShapeVolume? Volume)? _hulk;
 
 	// Damage taken per component, against BaseComponentType.MaxDamage -- the original's own
 	// direction, counting up to the maximum rather than down from it (obj+0x205, stride 11).
@@ -43,13 +44,18 @@ public sealed partial class BaseObject : SimObject {
 	private readonly short[] _deathStage;
 	private readonly short[] _deathTimer;
 
+	// obj+0x205 +7: who landed the hit that destroyed each component, which is what that component
+	// hands on to the parts hanging off it (FinishDependents).
+	private readonly SimObject?[] _attackers;
+
 	/// <param name="type">The <c>BASES.DAT</c> entry this structure is an instance of.</param>
 	/// <param name="volume">
 	/// The shape's collision volume, or null for a type whose shape has none — every
 	/// <see cref="BaseShapeSource.AnimatedLibrary"/> type, since the volume is a field of the
 	/// <c>.DGS</c> record and those shapes are ordinary DTS. That costs nothing on retail data:
 	/// all eight animated types set <see cref="BaseType.HasCollisionModel"/>, so none of them would
-	/// reach the volume path while standing.
+	/// reach the volume path while standing. A wreck is tested against <paramref name="hulk"/>'s
+	/// volume instead.
 	/// </param>
 	/// <param name="collision">The type's <c>BASECOL.DAT</c> sphere model — see <see cref="CollisionModel"/>.</param>
 	/// <param name="shapeRadius">
@@ -77,8 +83,15 @@ public sealed partial class BaseObject : SimObject {
 	/// <param name="startingCondition">
 	/// The block-9 record's starting condition, per cent — see <see cref="ApplyStartingCondition"/>.
 	/// </param>
+	/// <param name="hulk">
+	/// The <see cref="BaseType.HulkTypeIndex"/> record of <c>dgs\BHULKS.DGS</c>: its stated bounding
+	/// radius and its collision volume, which replace the building's once <see cref="ShowingHulk"/>
+	/// is set — see <see cref="CurrentVolume"/>. Null for a type that leaves no wreck, and when the
+	/// install has no such record.
+	/// </param>
 	public BaseObject(BaseType type, ShapeVolume? volume, ColliderNode[]? collision, int shapeRadius,
-			int animCellCount = 1, ShapeAnimation? animation = null, short startingCondition = 100) {
+			int animCellCount = 1, ShapeAnimation? animation = null, short startingCondition = 100,
+			(int BoundingRadius, ShapeVolume? Volume)? hulk = null) {
 		Type = type;
 		_animCellCount = animCellCount < 1 ? 1 : animCellCount;
 		_animCellTimer = type.AnimCellInterval;
@@ -111,9 +124,11 @@ public sealed partial class BaseObject : SimObject {
 		_volume = volume;
 		_collision = collision ?? Array.Empty<ColliderNode>();
 		_shapeRadius = shapeRadius != 0 ? shapeRadius : type.HitRadius;
+		_hulk = hulk;
 		_damage = new int[type.Components.Length];
 		_deathStage = new short[type.Components.Length];
 		_deathTimer = new short[type.Components.Length];
+		_attackers = new SimObject?[type.Components.Length];
 		_alive = new bool[type.Components.Length];
 		Array.Fill(_alive, true);
 
@@ -179,6 +194,22 @@ public sealed partial class BaseObject : SimObject {
 	public bool ComponentAlive(int index) =>
 		index >= 0 && index < _alive.Length && _alive[index];
 
+	/// <summary>
+	/// The wreck test that <see cref="DirectFireHitTest"/>, <see cref="ExplosiveDamage"/>,
+	/// <see cref="CollisionRadius"/> and <see cref="BlocksWalker"/> all open with, which the original
+	/// inlines in each (docs/simulation/hit-detection.md, "Base_DirectFireHitTest"): the structure has
+	/// fallen, its type leaves a wreck, and component 0 is down to its collapse stage or past it. Until
+	/// then a fallen structure keeps its standing geometry.
+	/// </summary>
+	private bool Wrecked =>
+		Destroyed && Type.HulkTypeIndex != -1
+			// A type with no components has no stage to read, so this engine treats it as past its
+			// collapse; the original reads component 0's record unconditionally.
+			&& (_deathStage.Length == 0 || _deathStage[0] <= CollapseStage);
+
+	/// <summary>The death-sequence stage at which a part collapses — the original's literal 1.</summary>
+	private const int CollapseStage = 1;
+
 	/// <summary>Damage taken by one component, against its <see cref="BaseComponentType.MaxDamage"/>.</summary>
 	public int ComponentDamage(int index) =>
 		index >= 0 && index < _damage.Length ? _damage[index] : 0;
@@ -215,19 +246,34 @@ public sealed partial class BaseObject : SimObject {
 	public override int HitRadius => Type.HitRadius;
 
 	/// <inheritdoc />
-	public override int ShapeRadius => _shapeRadius;
+	/// <remarks>The wreck's own radius once <see cref="ShowingHulk"/> is set — see <see cref="CurrentVolume"/>.</remarks>
+	public override int ShapeRadius =>
+		ShowingHulk && _hulk is { } hulk ? hulk.BoundingRadius : _shapeRadius;
+
+	/// <summary>
+	/// The collision volume the structure is tested against now: the building's, or the wreck's once
+	/// <see cref="ShowingHulk"/> is set. The original's hulk swap replaces the shape pointer on the
+	/// object's model instance, and every structure geometry read goes through that pointer —
+	/// <c>Sim_RaycastShapeVolume</c> (<c>00427da8</c>), <c>Structure_WalkCollisionTest</c>
+	/// (<c>00427c68</c>) and <c>SimObject_GetShapeRadius</c> (<c>0046b80c</c>) — so the volume and
+	/// <see cref="ShapeRadius"/> change together (docs/simulation/hit-detection.md, "The collision
+	/// volume"). An install with no hulk record keeps the building's geometry; a retail install
+	/// always has one.
+	/// </summary>
+	private ShapeVolume? CurrentVolume =>
+		ShowingHulk && _hulk is { } hulk ? hulk.Volume : _volume;
 
 	/// <inheritdoc />
 	/// <remarks>
 	/// <b>Only a standing <see cref="BaseShapeSource.AnimatedLibrary"/> type blocks by radius</b> —
 	/// the original's slot tests <c>BASES.DAT +0x06</c>, the animation-thread count, which is non-zero
 	/// on exactly those types. Every static type, and
-	/// an animated one that has fallen to a hulk, blocks by <see cref="BlocksWalker"/> instead. The
+	/// an animated one that is <see cref="Wrecked"/>, blocks by <see cref="BlocksWalker"/> instead. The
 	/// value is the type's <see cref="BaseType.HitRadius"/>, so a structure that blocks by radius
-	/// blocks at the radius it is shot at.
+	/// blocks at the radius it is shot at. <c>Base_GetCollisionRadius</c> (<c>004035b8</c>).
 	/// </remarks>
 	public override int CollisionRadius =>
-		Type.Source == BaseShapeSource.AnimatedLibrary && !(Destroyed && Type.HulkTypeIndex != -1)
+		Type.Source == BaseShapeSource.AnimatedLibrary && !Wrecked
 			? Type.HitRadius
 			: 0;
 
@@ -400,24 +446,21 @@ public sealed partial class BaseObject : SimObject {
 	/// component 0.</item>
 	/// </list>
 	///
-	/// <para>A destroyed structure that leaves a wreck behind (<see cref="BaseType.HulkTypeIndex"/>)
-	/// is switched over to the volume path whichever it was using — the wreck is a different shape
-	/// with different geometry, and its spheres would be the standing building's. The original's
-	/// third condition on that switch, that no destruction effect is playing on component 0, is
-	/// always false here: the effect comes out of a small fixed table in the executable
-	/// (<c>0049741c</c>) that is not ported, so nothing ever starts one.</para>
+	/// <para>A <see cref="Wrecked"/> structure is switched over to the volume path whichever it was
+	/// using — the wreck is a different shape with different geometry, and its spheres would be the
+	/// standing building's. Before component 0 reaches its collapse stage a fallen sphere-model
+	/// structure is still on the sphere path, where every cluster belongs to a destroyed component and
+	/// is skipped.</para>
 	///
 	/// <para>It also rolls <see cref="HitDebrisOdds"/> in 4096 on every hit — a shade over a quarter —
 	/// to shed <see cref="HitDebrisGroup"/> off the impact point.</para>
 	/// </summary>
 	public override int DirectFireHitTest(SimWorld world, WeaponShot shot) {
-		bool wreck = Destroyed && Type.HulkTypeIndex != -1;
-
 		short component = -1;
 		short damage = shot.DamageArmor;
 		int struckAt;
 
-		if (wreck || !Type.HasCollisionModel) {
+		if (Wrecked || !Type.HasCollisionModel) {
 			struckAt = VolumeStruck(shot);
 
 			// The one consumer of the plasma round's stash: a shot that arrives with both damage
@@ -488,11 +531,11 @@ public sealed partial class BaseObject : SimObject {
 	/// </summary>
 	/// <returns>How far along the ray the volume was entered, or zero for a miss.</returns>
 	private int VolumeStruck(WeaponShot shot) {
-		if (_volume is not { IsSolid: true } || !WithinReach(shot)) {
+		if (CurrentVolume is not { IsSolid: true } volume || !WithinReach(shot)) {
 			return 0;
 		}
 
-		int reach = _shapeRadius + shot.Clearance;
+		int reach = ShapeRadius + shot.Clearance;
 		int limit = shot.Distance + reach;
 
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
@@ -506,7 +549,7 @@ public sealed partial class BaseObject : SimObject {
 		var far = shot.Muzzle.TransformPoint(0, shot.Distance, 0);
 		var end = toShapeSpace.TransformPoint(far.X, far.Y, far.Z);
 
-		return _volume.Raycast(start, end, shot.Clearance, out var hit)
+		return volume.Raycast(start, end, shot.Clearance, out var hit)
 			? hit.ApproxDistanceTo(start) + 1
 			: 0;
 	}
@@ -518,7 +561,7 @@ public sealed partial class BaseObject : SimObject {
 	/// </summary>
 	private bool WithinReach(WeaponShot shot) {
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
-		return Position.ApproxDistanceTo(muzzle) <= _shapeRadius + shot.Clearance + shot.Distance;
+		return Position.ApproxDistanceTo(muzzle) <= ShapeRadius + shot.Clearance + shot.Distance;
 	}
 
 	/// <summary>
@@ -585,7 +628,7 @@ public sealed partial class BaseObject : SimObject {
 
 		_damage[index] = component.MaxDamage;
 		_alive[index] = false;
-		LastAttacker = attacker;
+		_attackers[index] = attacker;
 
 		if (DamageFraction == FullyDestroyed) {
 			_destroyed = true;
@@ -628,21 +671,20 @@ public sealed partial class BaseObject : SimObject {
 	/// Whether a walking machine is stopped by this structure's <b>collision volume</b> — the second
 	/// of the two ways a building blocks movement, and the one that covers everything
 	/// <see cref="CollisionRadius"/> does not. The two are exact complements: a standing animated
-	/// type blocks by its radius, and every static type plus every animated wreck blocks by its
-	/// volume, so no structure is walked through and none is tested twice.
+	/// type blocks by its radius, and every static type plus every <see cref="Wrecked"/> animated
+	/// one blocks by its volume, so no structure is walked through and none is tested twice.
 	///
 	/// <para>The exception is a structure that is <i>gone</i>: destroyed, leaving no wreck, and built
 	/// from a single component. That one stops blocking entirely.</para>
 	///
-	/// <para><b>The footprint tested is not the one a shot is tested against.</b> The original's walk
-	/// test omits the grid-origin shift its ray march applies, so the two sample the volume displaced
-	/// from each other by the grid's centre. Reproduced rather than corrected — see
+	/// <para>The point is tested against the same footprint a shot meets: <see cref="ShapeVolume.HeightAt"/>
+	/// applies the grid origin as the ray march does. <c>Structure_GatherWalkCandidates</c>
+	/// (<c>00404ae4</c>) and <c>Structure_WalkCollisionTest</c> (<c>00427c68</c>); see
 	/// docs/simulation/hit-detection.md, "The collision volume".</para>
 	/// </summary>
 	/// <param name="point">Where the machine is trying to stand, in world units.</param>
 	public bool BlocksWalker(Vec3i point) {
-		bool wreck = Destroyed && Type.HulkTypeIndex != -1;
-		if (Type.Source == BaseShapeSource.AnimatedLibrary && !wreck) {
+		if (Type.Source == BaseShapeSource.AnimatedLibrary && !Wrecked) {
 			return false;
 		}
 
@@ -650,15 +692,15 @@ public sealed partial class BaseObject : SimObject {
 			return false;
 		}
 
-		if (_volume is not { IsSolid: true }
-				|| SimMath.FastMagnitude2D(point.X - Position.X, point.Y - Position.Y) >= _shapeRadius) {
+		if (CurrentVolume is not { IsSolid: true } volume
+				|| SimMath.FastMagnitude2D(point.X - Position.X, point.Y - Position.Y) >= ShapeRadius) {
 			return false;
 		}
 
 		// Only the heading matters, and only in 2D: the original transposes the transform's XY block
 		// and rotates the offset by it rather than inverting the whole thing.
 		var local = WorldTransform.Inverted().RotateVector(point.X - Position.X, point.Y - Position.Y, 0);
-		return _volume.HeightAround(local.X, local.Y, 0) != 0;
+		return volume.HeightAt(local.X, local.Y, 0) != 0;
 	}
 
 	/// <summary>
@@ -675,13 +717,12 @@ public sealed partial class BaseObject : SimObject {
 	/// <see cref="BaseType.Invulnerable"/> type takes nothing, and a structure is blast-damageable
 	/// only through its <c>BASECOL.DAT</c> model — <b>a type without one stands in a blast untouched
 	/// however close it is</b>, where direct fire would still hurt it through the shape's collision
-	/// volume. A wreck that has a hulk is skipped for the reason the hit test switches it to the
-	/// volume path: the spheres belong to the building that used to be there.</para>
+	/// volume. A <see cref="Wrecked"/> structure is skipped for the reason the hit test switches it to
+	/// the volume path: the spheres belong to the building that used to be there.</para>
 	/// </summary>
 	public override void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
 			SimObject? attacker) {
-		bool wreck = Destroyed && Type.HulkTypeIndex != -1;
-		if (Type.Invulnerable || wreck || !Type.HasCollisionModel || blastRadius <= 0) {
+		if (Type.Invulnerable || Wrecked || !Type.HasCollisionModel || blastRadius <= 0) {
 			return;
 		}
 
@@ -724,13 +765,6 @@ public sealed partial class BaseObject : SimObject {
 		var local = Type.Components[index].Position;
 		return WorldTransform.TransformPoint(local.X, local.Y, local.Z);
 	}
-
-	/// <summary>
-	/// Who landed the shot that destroyed the last component to fall — the original writes it into
-	/// that component's own record (<c>state+7</c>) so the kill can be credited. Nothing consumes it
-	/// yet.
-	/// </summary>
-	public SimObject? LastAttacker { get; private set; }
 
 	/// <summary>
 	/// Sits the structure on the ground and runs whatever is still falling off it. Same ground
@@ -901,7 +935,7 @@ public sealed partial class BaseObject : SimObject {
 					LightTheFire(world, component);
 					break;
 
-				case 1:
+				case CollapseStage:
 					Collapse(world, i, component, sequence);
 					break;
 
@@ -1026,7 +1060,8 @@ public sealed partial class BaseObject : SimObject {
 	/// <summary>
 	/// <c>Base_FinishDependents</c> — finishes off every part that hangs off this one. Recursive in the
 	/// original and here: a chain of dependent parts all comes down together, each through the
-	/// ordinary damage path so each starts its own death sequence.
+	/// ordinary damage path so each starts its own death sequence. Each is credited to whoever
+	/// destroyed the part it hangs off, read from that part's own record.
 	/// </summary>
 	private void FinishDependents(SimWorld world, int index) {
 		for (int i = 0; i < Type.Components.Length; i++) {
@@ -1035,7 +1070,7 @@ public sealed partial class BaseObject : SimObject {
 				continue;
 			}
 
-			ApplyDamage(world.Random, i, Type.Components[i].MaxDamage, LastAttacker, world);
+			ApplyDamage(world.Random, i, Type.Components[i].MaxDamage, _attackers[index], world);
 			FinishDependents(world, i);
 		}
 	}
@@ -1088,7 +1123,8 @@ public sealed partial class BaseObject : SimObject {
 	/// <summary>
 	/// Whether this structure has switched over to its <see cref="BaseType.HulkTypeIndex"/> wreck — a
 	/// root of <c>dgs\BHULKS.DGS</c> drawn in place of the building. The original writes the hulk
-	/// shape straight onto the object's model instance; here it is a flag the scene reads.
+	/// shape straight onto the object's model instance; here it is a flag the scene reads and
+	/// <see cref="CurrentVolume"/> and <see cref="ShapeRadius"/> follow.
 	/// </summary>
 	public bool ShowingHulk { get; private set; }
 

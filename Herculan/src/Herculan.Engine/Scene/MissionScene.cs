@@ -1006,7 +1006,7 @@ public sealed class MissionScene {
 				return (
 					new BaseObject(type, volume, baseCollision[type.Index], boundingRadius,
 						models.BaseAnimCellCount(type), models.BaseAnimation(type),
-						placement.StartingCondition) {
+						placement.StartingCondition, models.HulkCollision(type)) {
 						// The two PROJ.DAT rows the armed structure's tick names by literal, the same
 						// way the flyer AI does — see BaseObject.ArmedThinkTick.
 						GunProjectile = weapons?.ProjectileAt(BaseObject.GunProjectileIndex),

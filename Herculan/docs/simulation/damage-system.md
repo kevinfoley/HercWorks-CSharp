@@ -74,7 +74,7 @@ No shields, no facing, and its parts stand where the type record says.
 
 ```
 if (typeRec[+0x1e] != 0) return                        // invulnerable
-if (wreck-with-hulk) return                            // same test Base_DirectFireHitTest opens with
+if (wreck) return                                      // the three-part test Base_DirectFireHitTest opens with
 if (typeRec[+0x38] == 0) return                        // no BASECOL.DAT model -> immune to blasts
 for (i = 0; i < typeRec[+0x12]; i++) {
     if (!alive[i]) continue
@@ -83,6 +83,8 @@ for (i = 0; i < typeRec[+0x12]; i++) {
     if (d < blastRadius) vtable+0x74(i, (blastRadius - d) * damage / blastRadius, attacker)
 }
 ```
+
+`wreck` is the test [`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038) gives, component 0's collapse stage included.
 
 **The per-component roll can never fail.** `0x1004` is one above the largest value the `0xfff` mask can produce, so every live component is measured. The draw still advances the shared generator.
 

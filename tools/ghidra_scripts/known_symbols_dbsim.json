@@ -779,6 +779,15 @@
       "source": "docs/simulation/structure-behaviour.md#the-transport--004045c8"
     },
     {
+      "address": "004069e5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StructureComponentState_ElementCtor",
+      "description": "Rtl_VectorNew's per-element constructor for a structure's 11-byte component-state records (StructureComponentState), which Base_Construct allocates at structure+0x205, one per BASES.DAT component (PUSH 0x4069e5 at 00405a6a, element size 0xb, mode 1). An empty body that returns its argument, so each record starts as the zeroed memory Mem_NewArray hands back.",
+      "source": "docs/simulation/structure-behaviour.md#taking-damage--base_applydamage-00404d70"
+    },
+    {
       "address": "00406a98",
       "binary": "DBSIM",
       "type": "function",
@@ -6112,7 +6121,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Structure_WalkCollisionTest",
-      "description": "The walking-collision half of the structure volume test, called from FUN_00404ae4's gather. Per candidate: 2D distance from the point to the structure against shape+8, then the offset rotated into shape space by the transposed XY block of the object's rotation, then GridShape_HeightAround(volume, point, 0). Returns the first nonzero height. NOTE it does not apply the origin << cellShift that GridShape_Raycast applies, so the footprint a machine walks into is displaced from the one a shot is tested against by the grid's origin -- its centre on all 45 retail records. Not cross-checked against retail play.",
+      "description": "The walking-collision half of the structure volume test, called from Structure_GatherWalkCandidates's gather. Per candidate: 2D distance from the point to the structure against shape+8 (the shape read through the model instance, obj+0x34 -> +4), then the offset rotated into shape space by the transposed XY block of the object's rotation, then GridShape_HeightAt(shape, point, 0), which applies the same origin << cellShift GridShape_Raycast applies, so a walker meets the footprint a shot meets. Returns the first nonzero height; the radius argument is not read.",
       "source": "docs/simulation/hit-detection.md",
       "signature": "int __cdecl Structure_WalkCollisionTest(int *point, unsigned short radius, int *candidates, short count)"
     },

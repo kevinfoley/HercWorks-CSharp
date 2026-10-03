@@ -257,7 +257,7 @@ A speed of zero means "none stated" and takes `0xaa`, the same default `Ai_Drive
 
 ## Taking damage — `Base_ApplyDamage` (`00404d70`)
 
-Vtable `+0x74`, the endpoint a direct-fire hit ([`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038)) and a blast ([`damage-system.md`](damage-system.md)) both write into. Structures have a per-component health model, much simpler than a machine's ([`component-damage.md`](component-damage.md#the-component-damage-system)). The per-component state is the alive-flag array at `obj+0x201` and an 11-byte record per component at `obj+0x205`: `+0` damage, `+3` stage timer, `+5` stages of the death sequence left, `+7` attacker.
+Vtable `+0x74`, the endpoint a direct-fire hit ([`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038)) and a blast ([`damage-system.md`](damage-system.md)) both write into. Structures have a per-component health model, much simpler than a machine's ([`component-damage.md`](component-damage.md#the-component-damage-system)). The per-component state is the alive-flag array at `obj+0x201` and an 11-byte record per component at `obj+0x205`: `+0` damage, `+2` stage countdown (a 3-byte countdown record whose counter is the short at `+3`), `+5` stages of the death sequence left, `+7` attacker.
 
 ```
 if (typeRec[+0x1e] != 0) return                       // invulnerable

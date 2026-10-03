@@ -12,6 +12,8 @@ Reimplementation of Earthsiege 2 (1996) in C#, reverse-engineered from the retai
 Build: `dotnet build Herculan/HerculanEngine.sln` (engine) and `Herculan/HercWorksMDK.sln` (toolkit).
 Tests: `dotnet test Herculan/HerculanEngine.sln`. Keep both at 0 warnings.
 
+Questions about the retail missions — which place a structure, mech or flyer type, what tests or writes a campaign flag, per-row record counts — go to `Herculan/src/HercWorks.Query` (`--help`), not a throwaway scanner. It reads through HercWorks.Core, so a wrong answer is a Core bug to fix there.
+
 ## Reading files
 
 Read whole files with the Read tool, never `cat`/`head -n <big>`/`sed -n 'A,Bp'` — it paginates, numbers lines, and is not re-sent when the same file is read again, whereas a Bash dump that overflows the output limit returns a useless preview and gets re-read in overlapping ranges at several times the cost. Bash is for greps, `find`, and short ranges of a file already read. `tools/scripts/big_file_read_guard.py` enforces this as a `PreToolUse` hook when it is wired into `.claude/settings.json`. `tools/scripts/truncated_enumeration_guard.py` is its sibling for completeness: it denies a grep/rg/Select-String over `tools/analysis_out/`, `known_symbols_*.json`, `Herculan/docs/` or `Herculan/src/` whose output is cut by `head`/`tail`, because a truncated search cannot back an "all callers"/"only reader" claim — count with `| wc -l` first, or append `# sample-ok` when a sample is genuinely all you need.

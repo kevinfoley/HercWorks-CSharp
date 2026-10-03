@@ -47,6 +47,10 @@ Herculan/src/HercWorks.Help/bin/
 Herculan/src/HercWorks.Help/obj/
 Herculan/tests/HercWorks.Help.Tests/bin/
 Herculan/tests/HercWorks.Help.Tests/obj/
+Herculan/src/HercWorks.Query/bin/
+Herculan/src/HercWorks.Query/obj/
+Herculan/tests/HercWorks.Query.Tests/bin/
+Herculan/tests/HercWorks.Query.Tests/obj/
 Herculan/.obsidian/
 tools/scripts/__pycache__/
 tools/scripts/rename_symbol/bin/

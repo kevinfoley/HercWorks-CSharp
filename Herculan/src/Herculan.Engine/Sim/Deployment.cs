@@ -50,7 +50,7 @@ public static class Deployment {
 	/// still awaiting deployment are skipped, so a group never lands on one that has not arrived, and
 	/// an object with no collision radius is skipped too.</item>
 	/// <item><b>Structures</b>, through the same volume sweep a walking machine is stopped by.</item>
-	/// <item><b>The ground</b>, through the movement-collision face test — anything too steep to
+	/// <item><b>The ground</b>, through the terrain slope walk's face test — anything too steep to
 	/// stand on, or off the grid entirely.</item>
 	/// </list>
 	///

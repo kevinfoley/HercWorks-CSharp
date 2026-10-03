@@ -1,3 +1,4 @@
+language.name English
 tweak.target_distance_meters.display_name      Show target distance in meters
 tweak.target_distance_meters.description       On the MFD, show target distance in meters on the MFD F5 TARGET screen. Retail shows distance in engine units on this screen only.
 tweak.show_correct_stats.display_name          Show correct stats
@@ -56,8 +57,7 @@ settings.remove                Remove
 settings.in_mission            Return to the front end to change this.
 settings.languages             Languages
 settings.game_language         Game language
-settings.interface_language    Interface language
-settings.language_unavailable  Not available yet.
+settings.interface_language    HERCULAN UI language
 settings.close                 Close
 settings.cancel                Cancel
 settings.write_failed          Could not write {0}: {1}
@@ -99,8 +99,8 @@ install.size_maximum           Maximum ({0:N0} MB)
 install.size_note              A smaller install leaves more of the game on the disc, so the disc must stay where it is.
 install.language               Language
 install.language_english       English
-install.language_french        French
-install.language_german        German
+install.language_french        Français (French)
+install.language_german        Deutsche (German)
 install.destination            Install folder
 install.destination_hint       A new or empty folder
 install.picker_destination_title  Choose the folder to install into

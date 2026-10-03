@@ -20,8 +20,12 @@ namespace Herculan.Engine.Host.Settings;
 /// where the original game reads it too, and the disc image onto HERCULAN's own line of it
 /// (<see cref="GameInstall.WriteDiscImage"/>), which the original game never reads.</para>
 ///
-/// <para>The language rows show the current choices, greyed until the language can be changed
-/// (docs/engine/handoff-language-selection.md).</para>
+/// <para>The game language is <c>data\language.cfg</c>'s letter (<see cref="GameInstall.WriteLanguage"/>), offered
+/// for each retail language whose folder (<see cref="RetailInstaller.LanguageFolder"/>) is on the disc or in the
+/// install. It is a shell turn's like the folders, so it too restarts the shell and is greyed in a mission. Choosing
+/// it also switches the interface to the matching <c>.lang</c> file, when there is one. The interface language is
+/// any <c>.lang</c> file, by the name it gives itself (<see cref="LocalizationTable.GetLanguages"/>), and changes at
+/// once, in a mission too.</para>
 /// </summary>
 sealed class SettingsWindow : IDisposable {
 	private const float PanelWidth = 520f;
@@ -42,6 +46,10 @@ sealed class SettingsWindow : IDisposable {
 	private InstallPanel? _install;
 	private bool _open;
 	private string? _error;
+
+	// The languages the two rows offer, found as the window opens; finding them reads the disc and every .lang file.
+	private IReadOnlyList<RetailInstaller.Language>? _gameLanguages;
+	private IReadOnlyList<(string Locale, string Name)>? _interfaceLanguages;
 
 	/// <param name="restartShell">Brings the shell back up on the new folders; null in a mission. It is called
 	/// between this window's <c>Begin</c> and <c>End</c>, so it must not tear down the ImGui context there.</param>
@@ -64,6 +72,7 @@ sealed class SettingsWindow : IDisposable {
 		_prompt = null;
 		_error = null;
 		_open = false;
+		ForgetLanguages();
 		if (_install is { Busy: false }) {
 			_install.Dispose();
 			_install = null;
@@ -117,15 +126,15 @@ sealed class SettingsWindow : IDisposable {
 					PromptKind.DiscImage);
 			}
 
+			ImGui.SeparatorText(Text("settings.languages"));
+			GameLanguageRow(installRoot);
+			InterfaceLanguageRow();
+
 			if (_error != null) {
 				ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.4f, 1f));
 				ImGui.TextWrapped(_error);
 				ImGui.PopStyleColor();
 			}
-
-			ImGui.SeparatorText(Text("settings.languages"));
-			LanguageRow(Text("settings.game_language"), OnlineManual.Language(installRoot).Folder);
-			LanguageRow(Text("settings.interface_language"), _session.Localization.SelectedLocale);
 
 			ImGui.Separator();
 			if (ImGui.Button(Text("settings.close"), new Vector2(ImGui.GetContentRegionAvail().X, 0f))) {
@@ -141,6 +150,7 @@ sealed class SettingsWindow : IDisposable {
 			_prompt = null;
 			_error = null;
 			_open = false;
+			ForgetLanguages();
 		}
 	}
 
@@ -191,16 +201,87 @@ sealed class SettingsWindow : IDisposable {
 		return clicked;
 	}
 
-	private void LanguageRow(string label, string current) {
-		ImGui.BeginDisabled();
+	// The install's language.cfg as a combo of the retail languages whose folder is on the disc or in the install.
+	// A letter that is none of them (Spanish) shows as its folder's name.
+	private void GameLanguageRow(string installRoot) {
+		string folder = OnlineManual.Language(installRoot).Folder;
+		RetailInstaller.Language? current = null;
+		foreach (var language in RetailInstaller.Languages) {
+			if (RetailInstaller.LanguageFolder(language).Folder == folder) {
+				current = language;
+			}
+		}
+
+		_gameLanguages ??= RetailInstaller.Languages
+			.Where(language => GameInstall.DiscFolderExists(installRoot, _session.Disc, RetailInstaller.LanguageFolder(language).Folder))
+			.ToList();
+
+		RetailInstaller.Language? chosen = null;
+		ImGui.BeginDisabled(_restartShell == null);
 		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * 0.5f);
-		if (ImGui.BeginCombo(label, current)) {
+		if (ImGui.BeginCombo(Text("settings.game_language") + "###game_language",
+				current is { } known ? Text(InstallPanel.LanguageKey(known)) : folder)) {
+			foreach (var language in _gameLanguages) {
+				if (ImGui.Selectable(Text(InstallPanel.LanguageKey(language)), language == current) && language != current) {
+					chosen = language;
+				}
+			}
 			ImGui.EndCombo();
 		}
 		ImGui.EndDisabled();
-		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) {
-			ImGui.SetTooltip(Text("settings.language_unavailable"));
+		if (_restartShell == null && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) {
+			ImGui.SetTooltip(Text("settings.in_mission"));
 		}
+
+		if (chosen is { } next) {
+			ApplyGameLanguage(next);
+		}
+	}
+
+	// Every .lang file by the name it gives itself; a choice takes effect at once.
+	private void InterfaceLanguageRow() {
+		var localization = _session.Localization;
+		_interfaceLanguages ??= localization.GetLanguages();
+		string current = localization.SelectedLocale;
+		string preview = _interfaceLanguages.FirstOrDefault(language => language.Locale == current).Name ?? current;
+
+		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * 0.5f);
+		if (ImGui.BeginCombo(Text("settings.interface_language") + "###interface_language", preview)) {
+			foreach (var (locale, name) in _interfaceLanguages) {
+				ImGui.PushID(locale);
+				if (ImGui.Selectable(name, locale == current) && locale != current) {
+					localization.SelectedLocale = locale;
+				}
+				ImGui.PopID();
+			}
+			ImGui.EndCombo();
+		}
+	}
+
+	// Writes the game language into language.cfg, switches the interface to the .lang file of the same language
+	// when there is one, and brings the shell back up on it.
+	private void ApplyGameLanguage(RetailInstaller.Language language) {
+		string installRoot = _session.InstallRoot;
+		try {
+			GameInstall.WriteLanguage(installRoot, language);
+		} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+			_error = string.Format(Text("settings.write_failed"), GameInstall.LanguageCfgName, ex.Message);
+			return;
+		}
+
+		// The manual's page language is the locale code of the letter just written.
+		string locale = OnlineManual.Language(installRoot).Code;
+		if (_session.Localization.GetLocales().Contains(locale)) {
+			_session.Localization.SelectedLocale = locale;
+		}
+
+		Close();
+		_restartShell?.Invoke();
+	}
+
+	private void ForgetLanguages() {
+		_gameLanguages = null;
+		_interfaceLanguages = null;
 	}
 
 	private void OpenPrompt(PathPrompt prompt, PromptKind kind) {

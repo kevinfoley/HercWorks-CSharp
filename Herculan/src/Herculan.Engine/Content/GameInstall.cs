@@ -244,6 +244,10 @@ public static class GameInstall {
 	public static bool DiscFileExists(string installRoot, GameDisc? disc, string relativePath) =>
 		disc?.FileExists(relativePath) == true || File.Exists(Path.Combine(installRoot, relativePath));
 
+	/// <summary>Whether <paramref name="relativePath"/> names a folder on <paramref name="disc"/> or under the install root.</summary>
+	public static bool DiscFolderExists(string installRoot, GameDisc? disc, string relativePath) =>
+		disc?.DirectoryExists(relativePath) == true || Directory.Exists(Path.Combine(installRoot, relativePath));
+
 	/// <summary>
 	/// <see cref="OpenDiscFile"/>'s file read whole, or null when neither place has it or it is longer than
 	/// <paramref name="maxBytes"/>, which is checked before anything is allocated.
@@ -262,6 +266,23 @@ public static class GameInstall {
 	/// <summary>The install's <c>data\drive.cfg</c>.</summary>
 	public static string DriveCfgPath(string installRoot) =>
 		Path.Combine(installRoot, MissionLoader.DataFolderName, Drive.FileName);
+
+	/// <summary><c>language.cfg</c>'s name (<see cref="HercWorks.Core.Data.File.Cfg.Language"/>).</summary>
+	public const string LanguageCfgName = "LANGUAGE.CFG";
+
+	/// <summary>The install's <c>data\language.cfg</c>.</summary>
+	public static string LanguageCfgPath(string installRoot) =>
+		Path.Combine(installRoot, MissionLoader.DataFolderName, LanguageCfgName);
+
+	/// <summary>
+	/// Writes <paramref name="language"/>'s letter as the install's whole <c>data\language.cfg</c>, as the installer's
+	/// <c>BATCH.EXE</c> does (<see cref="RetailInstaller.Install"/>).
+	/// </summary>
+	public static void WriteLanguage(string installRoot, RetailInstaller.Language language) {
+		string path = LanguageCfgPath(installRoot);
+		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+		File.WriteAllBytes(path, [(byte)language]);
+	}
 
 	/// <summary>Why a file cannot be the install's disc image (<see cref="CheckDiscImage"/>).</summary>
 	public enum DiscImageProblem {

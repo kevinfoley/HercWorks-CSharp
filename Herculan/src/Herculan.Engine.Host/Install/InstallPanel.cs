@@ -365,7 +365,8 @@ sealed class InstallPanel : IDisposable {
 		_ => "install.size_maximum",
 	};
 
-	private static string LanguageKey(RetailInstaller.Language language) => language switch {
+	/// <summary>The localization key of <paramref name="language"/>'s name, which the Settings menu shows too.</summary>
+	internal static string LanguageKey(RetailInstaller.Language language) => language switch {
 		RetailInstaller.Language.French => "install.language_french",
 		RetailInstaller.Language.German => "install.language_german",
 		_ => "install.language_english",

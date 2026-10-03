@@ -24,6 +24,9 @@ public abstract class GameDisc : IDisposable {
 	/// <summary>Whether <paramref name="relativePath"/> names a file on the disc.</summary>
 	public abstract bool FileExists(string relativePath);
 
+	/// <summary>Whether <paramref name="relativePath"/> names a folder on the disc.</summary>
+	public abstract bool DirectoryExists(string relativePath);
+
 	/// <summary>Opens <paramref name="relativePath"/> as a seekable, read-only stream, or answers null when there is no such file.</summary>
 	public abstract Stream? OpenRead(string relativePath);
 
@@ -78,6 +81,8 @@ public abstract class GameDisc : IDisposable {
 
 		public override bool FileExists(string relativePath) => File.Exists(Path.Combine(directory, relativePath));
 
+		public override bool DirectoryExists(string relativePath) => Directory.Exists(Path.Combine(directory, relativePath));
+
 		public override Stream? OpenRead(string relativePath) {
 			string path = Path.Combine(directory, relativePath);
 			return File.Exists(path) ? File.OpenRead(path) : null;
@@ -100,6 +105,8 @@ public abstract class GameDisc : IDisposable {
 		public override DiscImage Image => image;
 
 		public override bool FileExists(string relativePath) => fileSystem.FileExists(relativePath);
+
+		public override bool DirectoryExists(string relativePath) => fileSystem.DirectoryExists(relativePath);
 
 		public override Stream? OpenRead(string relativePath) =>
 			fileSystem.Find(relativePath) is { IsDirectory: false } file ? fileSystem.OpenRead(file) : null;

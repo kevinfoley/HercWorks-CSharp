@@ -14,7 +14,8 @@ namespace Herculan.Engine.Host;
 /// <c>HELP_CONTENTS</c> does. The conversion and its security rules are docs/engine/online-manual.md.
 ///
 /// <para>The page is rewritten on the first open of every run rather than reused from an earlier
-/// one, so a page left in that folder by anything else is never what opens.</para>
+/// one, so a page left in that folder by anything else is never what opens. A run converts again when the
+/// install or its language has changed since the last open.</para>
 /// </summary>
 internal static class OnlineManual {
 	/// <summary>The help file's name inside each language folder.</summary>
@@ -28,19 +29,21 @@ internal static class OnlineManual {
 
 	private static readonly object Gate = new();
 	private static string? _page;
+	private static string? _pageSource;
 	private static bool _converting;
 
 	/// <summary>
-	/// Opens the manual, converting it first if this run has not. The conversion runs off the calling
-	/// thread so the window keeps drawing; failures are reported on the console.
+	/// Opens the manual, converting it first if this run has not for this install and language. The conversion
+	/// runs off the calling thread so the window keeps drawing; failures are reported on the console.
 	/// </summary>
 	public static void Open(string installRoot, GameDisc? disc) {
+		string source = Path.Combine(installRoot, Language(installRoot).Folder);
 		lock (Gate) {
 			if (_converting) {
 				return;
 			}
 
-			if (_page != null) {
+			if (_page != null && _pageSource == source) {
 				Launch(_page);
 				return;
 			}
@@ -58,6 +61,7 @@ internal static class OnlineManual {
 			} finally {
 				lock (Gate) {
 					_page = page;
+					_pageSource = source;
 					_converting = false;
 				}
 			}
@@ -73,7 +77,7 @@ internal static class OnlineManual {
 	// and asserts on any other byte or a missing file (004087b9); this follows DBSIM, since an install
 	// without the file is otherwise playable.
 	internal static (string Folder, string Code) Language(string installRoot) {
-		string path = Path.Combine(installRoot, "DATA", "LANGUAGE.CFG");
+		string path = GameInstall.LanguageCfgPath(installRoot);
 		int letter = -1;
 		try {
 			using var file = File.OpenRead(path);

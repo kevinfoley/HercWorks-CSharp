@@ -56,7 +56,7 @@ public enum ShellPreferencesWidget {
 /// The screen the main menu's <c>PREFERENCES</c> opens — five boxes of checkboxes over six
 /// <c>prefs.cfg</c> options, and <c>Cancel</c> and <c>Accept</c>. Built once at startup by
 /// <c>PreferencesScreen_Build</c> (<c>00434f08</c>), put up by <c>PreferencesScreen_Enter</c>
-/// (<c>004366b5</c>) and taken down by <c>FUN_00436717</c>. See
+/// (<c>004366b5</c>) and taken down by <c>PreferencesScreen_Hide</c> (<c>00436717</c>). See
 /// docs/shell/screen-layout.md#the-preferences-screen.
 ///
 /// <para>Every rect is a literal in the executable, kept parent-relative as the builder writes it: the
@@ -166,13 +166,13 @@ public sealed class ShellPreferencesScreen {
 
 	/// <summary>
 	/// Runs a widget's handler. Returns true for <c>Cancel</c> and <c>Accept</c>, whose handlers then take
-	/// the screen down (<c>FUN_00436717</c>) and put the main menu up, which is the caller's. The fades go
+	/// the screen down (<c>PreferencesScreen_Hide</c> (<c>00436717</c>)) and put the main menu up, which is the caller's. The fades go
 	/// to <paramref name="sound"/>, and do nothing without one, as the original's do with no sound
 	/// manager.
 	/// </summary>
 	public bool Click(ShellPreferencesWidget widget, ShellSound? sound) {
 		switch (widget) {
-			// FUN_00436841(0): MUSIC on then the fade in, or the fade out then MUSIC off.
+			// PreferencesScreen_ToggleAudioOption (00436841)(0): MUSIC on then the fade in, or the fade out then MUSIC off.
 			case ShellPreferencesWidget.Music when _options[MusicOption] == 0:
 				_options.Toggle(MusicOption);
 				sound?.FadeIn();
@@ -182,7 +182,7 @@ public sealed class ShellPreferencesScreen {
 				_options.Toggle(MusicOption);
 				break;
 
-			// FUN_00436841(1).
+			// PreferencesScreen_ToggleAudioOption (00436841)(1).
 			case ShellPreferencesWidget.SoundEffects:
 				_options.Toggle(SoundsOption);
 				break;

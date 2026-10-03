@@ -276,7 +276,7 @@ public sealed class RetailInstaller {
 		written.Add(driveCfg);
 		File.WriteAllBytes(driveCfg, new DriveTransformer().Write(drive)!);
 
-		string languageCfg = Under(root, Path.Combine(MissionLoader.DataFolderName, "LANGUAGE.CFG"));
+		string languageCfg = Under(root, Path.Combine(MissionLoader.DataFolderName, GameInstall.LanguageCfgName));
 		written.Add(languageCfg);
 		File.WriteAllBytes(languageCfg, [(byte)language]);
 
@@ -294,7 +294,11 @@ public sealed class RetailInstaller {
 			: throw new InvalidOperationException($"{relative} is outside the install.");
 	}
 
-	private static (string Folder, string Extension) LanguageFolder(Language language) => language switch {
+	/// <summary>
+	/// <paramref name="language"/>'s folder on the disc, which holds its manual and readme (and in v1.10 its
+	/// <c>ERROR</c> and <c>MISSION</c> text), and that text's extension.
+	/// </summary>
+	public static (string Folder, string Extension) LanguageFolder(Language language) => language switch {
 		Language.French => ("FRENCH", "FRE"),
 		Language.German => ("GERMAN", "GER"),
 		_ => ("ENGLISH", "ENG"),

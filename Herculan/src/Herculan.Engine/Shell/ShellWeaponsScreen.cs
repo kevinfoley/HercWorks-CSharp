@@ -330,8 +330,8 @@ public sealed class ShellWeaponsScreen {
 	}
 
 	/// <summary>
-	/// <c>Arming_SelectHardpoint</c> (<c>0043dbb2</c>), a hotspot's handler through the ten thunks from
-	/// <c>0043e15f</c>, and what both steppers call: a no-op for the hardpoint already selected, otherwise
+	/// <c>Arming_SelectHardpoint</c> (<c>0043dbb2</c>), a hotspot's handler through the ten thunks
+	/// <c>Arming_OnHardpoint0</c>-<c>Arming_OnHardpoint9</c> (<c>0043e15f</c>-<c>0043e4c8</c>), and what both steppers call: a no-op for the hardpoint already selected, otherwise
 	/// it selects the row of the weapon the mount carries — <c>None</c>'s for an empty one — without
 	/// fitting it, and outlines the socket. Returns whether the hardpoint moved.
 	///

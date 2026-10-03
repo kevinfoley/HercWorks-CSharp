@@ -95,7 +95,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Volume_Dtor",
-      "description": "(volume, flags): frees the arrays at +0x24, +0x28 and +0x2c, destroys the streams at +4 and +0 through their own destructors (flag 3), and frees the 0x30-byte volume when flags bit 0 is set. Volume_LoadVolume destroys a volume it fails to finish with it; 00403622 and VolumeGroup_RemoveVolume call it too.",
+      "description": "(volume, flags): frees the arrays at +0x24, +0x28 and +0x2c, destroys the streams at +4 and +0 through their own destructors (flag 3), and frees the 0x30-byte volume when flags bit 0 is set. Volume_LoadVolume destroys a volume it fails to finish with it; VolumeGroup_Dtor and VolumeGroup_RemoveVolume call it too.",
       "source": "VSHELL decompile at 00402134 and Volume_LoadVolume"
     },
     {
@@ -279,6 +279,15 @@
       "source": "VSHELL decompile at 004035dc"
     },
     {
+      "address": "00403622",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolumeGroup_Dtor",
+      "description": "VolumeGroup::~VolumeGroup (assert 'VolumeGroup::~VolumeGroup: Null pointer detected.' in src\\volgroup.cpp), the dtor its class record (RTTI 'VolumeGroup', 0x79 bytes, at 00403594) names: (group, flags) Volume_Dtor(volume, 3) on each of the count byte +0x78's volumes, asserting each pointer is set, then Mem_Delete when flags bit 0 is set. VolRStream_SetGroup runs it.",
+      "source": "es2_classes.scan: the Borland class record's +0x28 destructor; VSHELL decompile"
+    },
+    {
       "address": "0040369f",
       "binary": "VSHELL",
       "type": "function",
@@ -374,7 +383,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ClassItem_StoreItem",
-      "description": "(item, stream, mode): the write counterpart of VshellClassItem_LoadItem. Points ClassItem_CurrentFrame at a local frame (restoring it after); when the item's stream size (vtable +4) is 0 and the stream's GetCapabilities(3) (vtable +0xc) returns 0, wraps the stream in a local BuffWStream (BuffWStream_CtorOnTarget) and writes through that: 00404208 writes the type tag from the item's class tag and size, the item's WriteToStream (vtable +0x10) follows with mode, 00404392 closes the item, then the BuffWStream is destroyed (BuffWStream_Dtor with 2). Otherwise the same three steps straight onto the stream. The part lists, TSGroup, ANShape and ANAnimList write their children with it.",
+      "description": "(item, stream, mode): the write counterpart of VshellClassItem_LoadItem. Points ClassItem_CurrentFrame at a local frame (restoring it after); when the item's stream size (vtable +4) is 0 and the stream's GetCapabilities(3) (vtable +0xc) returns 0, wraps the stream in a local BuffWStream (BuffWStream_CtorOnTarget) and writes through that: ClassItem_OpenItemForWrite writes the type tag from the item's class tag and size, the item's WriteToStream (vtable +0x10) follows with mode, ClassItem_CloseItemForWrite closes the item, then the BuffWStream is destroyed (BuffWStream_Dtor with 2). Otherwise the same three steps straight onto the stream. The part lists, TSGroup, ANShape and ANAnimList write their children with it.",
       "source": "VSHELL decompile of 00403cad"
     },
     {
@@ -450,6 +459,15 @@
       "source": "VSHELL disassembly at 004041cd"
     },
     {
+      "address": "00404208",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_OpenItemForWrite",
+      "description": "(stream, typeId, size): opens an item frame for writing at ClassItem_CurrentFrame: tag typeId at +0, the stream position at +4, the position plus ClassItem_TagTotalSize({typeId, size}) as the end at +8, and +0xc set when size is even. Unless the tag's high nibble of byte 3 is set, writes the 8-byte tag {typeId, size} (vtable +0x14). ClassItem_StoreItem calls it before the item's write.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "0040428c",
       "binary": "VSHELL",
       "type": "function",
@@ -457,6 +475,15 @@
       "name": "VshellClassItem_ReadTypeTag",
       "description": "Reads the 8-byte type tag ([typeId][0x0028][totalSize]) from a resource stream, called by VshellClassItem_LoadItem. VSHELL's copy of ClassItem_ReadTypeTag.",
       "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00404392",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_CloseItemForWrite",
+      "description": "ClassItem::closeItem's write side (src32\\classio.cpp, assert line 0x256 that ClassItem_CurrentFrame is set): (stream). For a frame declared with size 0 (end - start == 8) measures what was written, pads it to an even length with a zero byte, seeks back to start + 4 to write the size and returns to the end. Otherwise writes the pad byte when +0xc says the size is odd, and reports 'Have written more than declared class size' or '...less...' through ClassItem_FormatError when the position is past or short of the end. Does nothing past the assert when the tag's byte 3 has a high nibble set. ClassItem_StoreItem calls it after the item's write.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "004044dc",
@@ -473,7 +500,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DVKeyboard_Ctor",
-      "description": "DVKeyboard::DVKeyboard (assert 'DVKeyboard::DVKeyboard: Attempt construct multiple times' in src\\dv_ky.cpp): (this) GL_ClaimGlobal(this, 1, this); when this is the claimed keyboard (0048e164) and 00404663 succeeds, registers atexit 0040456c, assert hook 0040456d and KeyListener_Register(this, 00404677, an empty code list). WinKeyboardProducer_Ctor builds it at +0x10. The VSHELL counterpart of DBSIM's KeyboardDriver_Ctor.",
+      "description": "DVKeyboard::DVKeyboard (assert 'DVKeyboard::DVKeyboard: Attempt construct multiple times' in src\\dv_ky.cpp): (this) GL_ClaimGlobal(this, 1, this); when this is the claimed keyboard (0048e164) and 00404663 succeeds, registers atexit 0040456c, assert hook 0040456d and KeyListener_Register(this, KeyListener_NoOp, an empty code list). WinKeyboardProducer_Ctor builds it at +0x10. The VSHELL counterpart of DBSIM's KeyboardDriver_Ctor.",
       "source": "VSHELL decompile at 00404572; string at 0046d4f1"
     },
     {
@@ -504,6 +531,15 @@
       "source": "VSHELL disassembly at 00404670"
     },
     {
+      "address": "00404677",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "KeyListener_NoOp",
+      "description": "Returns 0 and does nothing. DVKeyboard_Ctor registers it with KeyListener_Register and an empty code list, and WinKeyboardProducer_Ctor with KeyListener_RegisterCopy and codes 1-255.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "00404781",
       "binary": "VSHELL",
       "type": "function",
@@ -527,7 +563,7 @@
       "type": "function",
       "confidence": "high",
       "name": "KeyListener_RegisterCopy",
-      "description": "A byte-identical copy of KeyListener_Register (004047ca) at a different address, as in DBSIM. WinKeyboardProducer_Ctor registers callback 00404677 with a 255-byte code list (1..255) through it.",
+      "description": "A byte-identical copy of KeyListener_Register (004047ca) at a different address, as in DBSIM. WinKeyboardProducer_Ctor registers callback KeyListener_NoOp with a 255-byte code list (1..255) through it.",
       "source": "VSHELL bytes at 004047ca and 00404829"
     },
     {
@@ -563,7 +599,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DVMouse_Init",
-      "description": "(this): when bit 0 of the mouse's first dword is set, calls 0040550f(this, 1), 00405446 on +0x24 and on +0xe, sets the four dwords at +0xe to 0, 0, 480, 640 and passes +0xe to 00405470. Returns that bit. DVMouse_Ctor registers its assert hook only when it returns non-zero.",
+      "description": "(this): when bit 0 of the mouse's first dword is set, calls DVMouse_InitNoOp(this, 1), MouseDriver_GetBounds on +0x24 and on +0xe, sets the four dwords at +0xe to 0, 0, 480, 640 and passes +0xe to 00405470. Returns that bit. DVMouse_Ctor registers its assert hook only when it returns non-zero.",
       "source": "VSHELL disassembly at 004053bf"
     },
     {
@@ -574,6 +610,15 @@
       "name": "DVMouse_Shutdown",
       "description": "(this): when bit 0 of the mouse's first dword is set, clears that dword, passes +0x24 to 00405470 and returns 1; otherwise returns 0. DVMouse_Dtor calls it.",
       "source": "VSHELL disassembly at 0040541b"
+    },
+    {
+      "address": "00405446",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseDriver_GetBounds",
+      "description": "(driver, out): copies the pointer's bounds rect {x0, y0, x1, y1} at driver+0xe..+0x1a into out. DVMouse_Init saves the bounds to +0x24 with it. The VSHELL copy of DBSIM's MouseDriver_GetBounds (0048062c).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "00405470",
@@ -594,13 +639,229 @@
       "source": "VSHELL decompile at 004054dc"
     },
     {
+      "address": "0040550f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVMouse_InitNoOp",
+      "description": "An empty function. DVMouse_Init calls it with (mouse, 1) when bit 0 of the mouse's first dword is set. The VSHELL counterpart of DBSIM's Mouse_InitNoOp (00480700).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0040552e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseDriver_GetState",
+      "description": "Returns MouseDriver_State, the mouse driver's {int x, int y, int16 buttons} record. The VSHELL copy of DBSIM's MouseDriver_GetState (00480728).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0040553f",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "MouseListener_Register",
-      "description": "(unused, callback, eventMask): stores {1, eventMask, callback} in the first free of the ten 12-byte slots at 00481780 and returns the slot index, or 0xffff in the low word when all ten are taken. The VSHELL copy of DBSIM's MouseListener_Register.",
+      "description": "(unused, callback, eventMask): stores {1, eventMask, callback} in the first free of the ten 12-byte slots at MouseListenerTable and returns the slot index, or 0xffff in the low word when all ten are taken. The VSHELL copy of DBSIM's MouseListener_Register.",
       "source": "VSHELL decompile at 0040553f"
+    },
+    {
+      "address": "00405576",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseListener_Unregister",
+      "description": "(unused, slot): clears slot's enabled flag in MouseListenerTable and returns 0. The VSHELL copy of DBSIM's MouseListener_Unregister (00480774).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0040558d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_RecomputeScale",
+      "description": "Reads the main window's client rect into Mouse_ClientRect and, for a non-zero width, sets Mouse_ScaleX to (int16 +2 of the header 00481864 points to << 16) / client width and Mouse_ScaleY to (its int16 +0 << 16) / client height. Mouse_DispatchEvent runs it while Mouse_ScaleX is 0. DBSIM's Mouse_RecomputeScale (0048078c) has the same shape with 16.15 factors.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "004055e0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_WarpCursorToPoint",
+      "description": "(unused, point): rescales a canvas point to client coordinates (point * client size / the header 00481864 points to's int16 +2 and +0, Mouse_RecomputeScale's inverse), offsets it by the window rect plus the caption (SM_CYCAPTION + SM_CYBORDER) and border (SM_CXBORDER) metrics and calls SetCursorPos. The VSHELL counterpart of DBSIM's Mouse_WarpCursorToPoint (004807d0).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "00405670",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_DispatchEvent",
+      "description": "(eventBit, packedClientXY, buttons): rescales the client x (low word) and y (high word) into canvas space by Mouse_ScaleX/Mouse_ScaleY (Mouse_RecomputeScale first while they are 0) into MouseDriver_State, packs buttons bit 0 and bit 1 into its int16, and calls every enabled MouseListenerTable entry whose mask has eventBit set with &MouseDriver_State. MainWndProc calls it five times. The VSHELL copy of DBSIM's Mouse_DispatchEvent (0048083c).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0040572b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_ReadRawNoOp",
+      "description": "Returns 0 and does nothing (XOR EAX,EAX between the frame push and pop). The four DVJoystick range trackers call it with the joystick before folding the raw axes +4 into their min/max pairs.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405732",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_PollNoOp",
+      "description": "Returns 0 and does nothing. DVJoystick_WaitForFlag and DVJoystick_WaitForFlagClear call it on each pass of their loops on +0x14, and DVJoystick_ReadFlag before reading it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "0040574d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_Ctor",
+      "description": "DVJoystick::DVJoystick (assert 'DVJoytick::DVJoystick: Attempt construct multiple times' in src32\\dv_jy.cpp, the class name misspelt in the string): (this, kind, a, axisMask) GL_ClaimGlobal(this, kind, this); when this is the claimed instance for kind, DVJoystick_Init(this, kind, a, axisMask). es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "004057b8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_Dtor",
+      "description": "DVJoystick::~DVJoystick (assert '...Attempt to destroy multiple times' in src32\\dv_jy.cpp when the GL global for the joystick's kind (+0x68) is already clear): (this, flags) DVJoystick_Shutdown and clears that global, then Mem_Delete when flags bit 0 is set. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405823",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_Init",
+      "description": "(this, kind, a, axisMask): stores kind at +0x68 and a at +0x6d; zeroes +0x14, +0x25, +0x66, +0x77, the four raw axes +4 and the four read axes +0x15; sets both min/max pairs (+0x26/+0x36 and +0x46/+0x56) to INT_MAX/INT_MIN. joyGetDevCapsA on joystick id 0 for kind 3 and 1 otherwise; on success the axis mask +0x6f is axisMask, +0x73 its bit count and bit 0 of +0 set, returning 1. Returns 0 with +0 cleared when the caps call fails or the mask is empty. DVJoystick_Ctor calls it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "0040591c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_Shutdown",
+      "description": "(this): clears bit 0 of the joystick's first dword. DVJoystick_Dtor calls it. Byte-identical to DBSIM's 00477608.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405927",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_PollButtons",
+      "description": "(this): when enabled, joyGetPos on joysticks 0 and 1 into DVJoystick_JoyInfo (zeroing a record whose call fails) and ORs the low four button bits of both into the byte +0x25. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "004059fa",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_ReadAxes",
+      "description": "(this, out): when enabled, maps each axis the mask +0x6f selects, taken in turn from the JOYINFO record for the kind (DVJoystick_JoyInfo + (kind - 3) * 0x10), onto (raw << 8) / 0xffff - 0x80 at +0x15, and copies the 17 bytes +0x15..+0x25 (four axes, the button byte) to out; returns 1, or 0 when disabled. es2_xref finds no reference to it. Joystick_NormaliseAxes is DBSIM's counterpart of the mapping.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405a63",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_ReadAxesDigital",
+      "description": "(this, out): DVJoystick_ReadAxes with each selected axis i set to 1 when stick i/2's x (even i) or y (odd i) in DVJoystick_JoyInfo is non-zero, else 0. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405ac7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_SetRanges",
+      "description": "(this, src): when enabled and src is non-null, copies 0x40 bytes from src over the two min/max pairs at +0x26..+0x65. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405aea",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_GetRanges",
+      "description": "(this, dst): DVJoystick_SetRanges' inverse, copying the 0x40 bytes at +0x26 out to dst. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405b0d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_TrackRange",
+      "description": "(this): when enabled, DVJoystick_ReadRawNoOp, then folds each raw axis +4 into the first pair: min +0x26 and max +0x36. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405b5d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_TrackMax",
+      "description": "(this): DVJoystick_TrackRange for the maxima +0x36 alone. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405b93",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_TrackMin",
+      "description": "(this): DVJoystick_TrackRange for the minima +0x26 alone. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405bc9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_TrackRange2",
+      "description": "(this): DVJoystick_TrackRange into the second pair, min +0x46 and max +0x56. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405c19",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_WaitForFlag",
+      "description": "(this): saves +0x77, sets it to 0x80, calls DVJoystick_PollNoOp until the byte +0x14 is non-zero, then restores +0x77. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405c48",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_WaitForFlagClear",
+      "description": "(this): DVJoystick_WaitForFlag waiting for +0x14 to be zero. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
+      "address": "00405c77",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_ReadFlag",
+      "description": "(this): DVJoystick_PollNoOp, then returns the byte +0x14. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
     },
     {
       "address": "00405c8c",
@@ -1212,7 +1473,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WinKeyboardProducer_Ctor",
-      "description": "WinKeyboardProducer constructor (vtable 0046e6c0 at +4, RTTI name 'WinKeyboardProducer', 0x54 bytes): (this, owner) runs the base EventProducer_Ctor, constructs +0x10 (DVKeyboard_Ctor), stores this at 004823b8, sets +0xc = 8 and +0xe = 4, vtable slot 0, KeyListener_Register(+0x10, 00408f3e, 0046e450), and KeyListener_RegisterCopy(+0x10, 00404677, a 255-byte table 1..255). Shell_Main builds it.",
+      "description": "WinKeyboardProducer constructor (vtable 0046e6c0 at +4, RTTI name 'WinKeyboardProducer', 0x54 bytes): (this, owner) runs the base EventProducer_Ctor, constructs +0x10 (DVKeyboard_Ctor), stores this at 004823b8, sets +0xc = 8 and +0xe = 4, vtable slot 0, KeyListener_Register(+0x10, 00408f3e, 0046e450), and KeyListener_RegisterCopy(+0x10, KeyListener_NoOp, a 255-byte table 1..255). Shell_Main builds it.",
       "source": "VSHELL decompile at 00408dec; RTTI at vtable-0xc"
     },
     {
@@ -3606,7 +3867,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_FreeRepairPictures",
-      "description": "Frees the bank at 0046fde8 and, for the chassis in each of the eight bays (HercList_ChassisAt(00482ac3, bay)), the banks at 0046fdc4[chassis] and 0046fdec[chassis], with GLBitmapArray_Dtor(_, 3), clearing each pointer; ESGrid_InitAllRows on SquadSlotPictureWidgets[bay] and 0048d118[bay]. Squad_FreeTabPictures' tab 3 (REPAIR) arm.",
+      "description": "Frees the bank at 0046fde8 and, for the chassis in each of the eight bays (HercList_ChassisAt(00482ac3, bay)), the banks at 0046fdc4[chassis] and 0046fdec[chassis], with GLBitmapArray_Dtor(_, 3), clearing each pointer; ESGrid_InitAllRows on SquadSlotPictureWidgets[bay] and RepairInternalsPictures[bay]. Squad_FreeTabPictures' tab 3 (REPAIR) arm.",
       "source": "VSHELL decompile at 004145b5"
     },
     {
@@ -3689,6 +3950,15 @@
       "name": "Build_FreeBitmapsAndGrids",
       "description": "For each of nine slots: GLBitmapArray_Dtor(_, 3) on the non-null array at 0046fdc4[i] and clears it, then ESGrid_InitAllRows on 0048d88c[i]. Build_Leave calls it.",
       "source": "VSHELL decompile at 00415928"
+    },
+    {
+      "address": "004159c7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_ReturnArgCopy3",
+      "description": "Returns its argument unchanged -- a fourth copy of Rtl_ReturnArg (00468044). LoadRepairLayouts (twice) and LoadArmoryLayouts pass it to Rtl_VectorNew as the element constructor of their record arrays; three more stored pointers sit in undisassembled bytes at 0041597e-004159c6.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "004159d0",
@@ -4085,6 +4355,15 @@
       "name": "PtrVector_Ctor",
       "description": "(vector, growBy): zeroes the count (+0), +4 and the data pointer (+10), stores the int16 grow step at +8 and counts the object live (*Rtl_DtorCountPtr). EventQueue_Ctor builds its queue (+0x11) with a step of 5.",
       "source": "VSHELL decompile at 0041d3b8"
+    },
+    {
+      "address": "0041d3de",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PtrArray_Dtor",
+      "description": "PtrArray's destructor, the dtor its class record (RTTI 'PtrArray', 0xe bytes, at 004687d9) names: (array, flags) decrements *Rtl_DtorCountPtr, frees the buffer at +0xa with _free, then Mem_Delete when flags bit 0 is set. Shell_MonoPrintFps and Display_HopTo run it on their locals.",
+      "source": "es2_classes.scan: the Borland class record's +0x28 destructor; VSHELL decompile"
     },
     {
       "address": "0041d409",
@@ -5031,6 +5310,15 @@
       "source": "VSHELL decompile of 0042286d; es2_naming.py diff VSHELL 0042286d DBSIM 00476b0c"
     },
     {
+      "address": "00422978",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTransformState_Dtor",
+      "description": "TSTransformState's destructor, the dtor its class record (RTTI 'TSTransformState', 0x110 bytes, at 004229b1) names: (state, flags) for a non-null state decrements *Rtl_DtorCountPtr, Rtl_VectorDelete over the ten 0x16-byte TSContexts at +0x34 with TSContext_Dtor, then Mem_Delete when flags bit 0 is set.",
+      "source": "es2_classes.scan: the Borland class record's +0x28 destructor; VSHELL decompile"
+    },
+    {
       "address": "00422a28",
       "binary": "VSHELL",
       "type": "function",
@@ -5072,7 +5360,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSShadedPoly_Render",
-      "description": "TSShadedPoly vtable 0047ede0 slot +0x1c: TSSolidPoly_Render's front/back surface-pair selection (g_ActiveSurfaceRecords + colour*4, TSPoly_FrontBackVisibilityTest on the normal +4 and centre +6) and its skip when both colours carry 0x14 in the top byte; then shade = Light_ComputeShadeForFace(normal, centre), the normal negated for a back face, and the shade's low byte ORed into bits 16-23 of both the fill (005d8004) and line (005d7ffc) colour words; then projects the +8 vertices from list +0xa (Poly_ProjectShapeVertices), clips to the near plane when that returns 1, and PolyFill_FillThenOutline(backFacing). DBSIM's TSShadedPoly_Render (0047542c) differs at the shade step: it resolves the final palette bytes itself through Palette_ShadeRampLookup and Raster_ShadeRampRow(0x80) instead of packing the shade into the words.",
+      "description": "TSShadedPoly vtable 0047ede0 slot +0x1c: TSSolidPoly_Render's front/back surface-pair selection (g_ActiveSurfaceRecords + colour*4, TSPoly_FrontBackVisibilityTest on the normal +4 and centre +6) and its skip when both colours carry 0x14 in the top byte; then shade = Light_ComputeShadeForFace(normal, centre), the normal negated for a back face, and the shade's low byte ORed into bits 16-23 of both the fill (PolyFill_FillColour) and line (PolyFill_LineColour) colour words; then projects the +8 vertices from list +0xa (Poly_ProjectShapeVertices), clips to the near plane when that returns 1, and PolyFill_FillThenOutline(backFacing). DBSIM's TSShadedPoly_Render (0047542c) differs at the shade step: it resolves the final palette bytes itself through Palette_ShadeRampLookup and Raster_ShadeRampRow(0x80) instead of packing the shade into the words.",
       "source": "VSHELL decompile of 00423024; es2_naming.py diff VSHELL 00423024 DBSIM 0047542c"
     },
     {
@@ -5081,7 +5369,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGouraudPoly_Render",
-      "description": "TSGouraudPoly vtable 0047edb4 slot +0x1c: the surface-pair selection and skip of TSSolidPoly_Render, then one shade per vertex: Light_ComputeShadeForFace(the vertex's normal from the list +0xe, the vertex from the list +0xa), the normal negated for a back face, low byte into a local array; then projects the +8 vertices. When the projection reports 1 (a near-plane crossing) 0045f0d4 builds the clipped ring's shade array from it and the fill uses that one; either way 005d8000 = 1, the shade array goes to 005d800c and PolyFill_FillThenOutline(backFacing) draws. Matches DBSIM's 004755c8.",
+      "description": "TSGouraudPoly vtable 0047edb4 slot +0x1c: the surface-pair selection and skip of TSSolidPoly_Render, then one shade per vertex: Light_ComputeShadeForFace(the vertex's normal from the list +0xe, the vertex from the list +0xa), the normal negated for a back face, low byte into a local array; then projects the +8 vertices. When the projection reports 1 (a near-plane crossing) Poly_ClipRingToNearPlaneWithShade builds the clipped ring's shade array from it and the fill uses that one; either way PolyFill_FillBrush's mode = 1, the shade array goes to 005d800c and PolyFill_FillThenOutline(backFacing) draws. Matches DBSIM's 004755c8.",
       "source": "VSHELL decompile of 00423193; es2_naming.py diff VSHELL 00423193 DBSIM 004755c8"
     },
     {
@@ -5108,7 +5396,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_RenderPolys",
-      "description": "TSGroup's render method: slot +0x1c of the vtable at 00471bf4, whose RTTI names TSGroup (0x28 bytes). Calls TSGroup_BindNodeTransform into a local transform, saves the render context's (0048e184) +0x228, +0x22c and +0x20c, installs the default brushes 005d7ff8 and 005d8000 at +0x228 and +0x22c and clears +0x20c. Publishes the group's colour list (+0x18) as g_ActiveSurfaceRecords, its points (+0x14, three int16 each) at 005d8894 and its indexes (+0x10, or 005d8014 when null) at 005d889e. Copies the point count +0x22 to 005d889c, asserts it is at most 1000 (severity 4, ts_base.h line 0x2e7) and zeroes that many bytes of the per-point scratch at 005d88a6. Then draws the +0x26 items of the +0x1c pointer array in order, each through its own vtable slot +0x1c, restores the three context fields and calls TSRender_NoOp. TSBSPGroup_Render is the TSBSPGroup counterpart, drawing the polys in BSP order instead. Field names from TSGroup_DebugPrint; see docs/formats/dts-texture-binding.md.",
+      "description": "TSGroup's render method: slot +0x1c of the vtable at 00471bf4, whose RTTI names TSGroup (0x28 bytes). Calls TSGroup_BindNodeTransform into a local transform, saves the render context's (0048e184) +0x228, +0x22c and +0x20c, installs the default brushes PolyFill_LineBrush and PolyFill_FillBrush at +0x228 and +0x22c and clears +0x20c. Publishes the group's colour list (+0x18) as g_ActiveSurfaceRecords, its points (+0x14, three int16 each) at 005d8894 and its indexes (+0x10, or Poly_SequentialIndices when null) at Poly_RingIndices. Copies the point count +0x22 to 005d889c, asserts it is at most 1000 (severity 4, ts_base.h line 0x2e7) and zeroes that many bytes of the per-point scratch at Poly_VertexState. Then draws the +0x26 items of the +0x1c pointer array in order, each through its own vtable slot +0x1c, restores the three context fields and calls TSRender_NoOp. TSBSPGroup_Render is the TSBSPGroup counterpart, drawing the polys in BSP order instead. Field names from TSGroup_DebugPrint; see docs/formats/dts-texture-binding.md.",
       "source": "VSHELL disassembly at 00423497; tools/scripts/es2_naming.py rtti VSHELL 00471bf4; VSHELL_vtables_full.txt"
     },
     {
@@ -5144,7 +5432,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBSPGroup_Render",
-      "description": "TSBSPGroup's render method: slot +0x1c of the vtable at 00471bc0, whose RTTI names TSBSPGroup (0x2e bytes). Sets up like TSGroup's render: TSGroup_BindNodeTransform, the default brushes 005d7ff8 and 005d8000 installed at the context's +0x228 and +0x22c with +0x20c cleared, the group's surfaces (+0x18), points (+0x14) and indexes (+0x10, defaulted when null), and a zeroed scratch of +0x22 bytes, asserting that count is at most 1000. Then draws the polys by the group's BSP tree through TSBSPGroup_RenderNode from node 0 rather than in order, and restores the three context fields. See docs/formats/dts-texture-binding.md.",
+      "description": "TSBSPGroup's render method: slot +0x1c of the vtable at 00471bc0, whose RTTI names TSBSPGroup (0x2e bytes). Sets up like TSGroup's render: TSGroup_BindNodeTransform, the default brushes PolyFill_LineBrush and PolyFill_FillBrush installed at the context's +0x228 and +0x22c with +0x20c cleared, the group's surfaces (+0x18), points (+0x14) and indexes (+0x10, defaulted when null), and a zeroed scratch of +0x22 bytes, asserting that count is at most 1000. Then draws the polys by the group's BSP tree through TSBSPGroup_RenderNode from node 0 rather than in order, and restores the three context fields. See docs/formats/dts-texture-binding.md.",
       "source": "VSHELL decompile at 00423709; tools/scripts/es2_naming.py rtti VSHELL 00471bc0; VSHELL_vtables_full.txt"
     },
     {
@@ -5153,7 +5441,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSAliasSolidPoly_Render",
-      "description": "TSAliasSolidPoly vtable 0047ed88 slot +0x1c: the surface-pair selection, skip, projection and near-plane clip of the solid poly, then 005d8000 = 0 and the fill 0045f448(backFacing) where the non-alias polys call PolyFill_FillThenOutline. Matches DBSIM's 00475bc4.",
+      "description": "TSAliasSolidPoly vtable 0047ed88 slot +0x1c: the surface-pair selection, skip, projection and near-plane clip of the solid poly, then PolyFill_FillBrush's mode = 0 and the fill PolyFill_FillThenOutline_Thunk(backFacing) where the non-alias polys call PolyFill_FillThenOutline. Matches DBSIM's 00475bc4.",
       "source": "VSHELL decompile of 00423816; es2_naming.py diff VSHELL 00423816 DBSIM 00475bc4"
     },
     {
@@ -5162,7 +5450,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSAliasShadedPoly_Render",
-      "description": "TSAliasShadedPoly vtable 0047ed5c slot +0x1c: TSShadedPoly_Render with the fill 0045f448 in place of PolyFill_FillThenOutline, the shade packed into bits 16-23 of both colour words. Matches DBSIM's 00475c80, which packs the shade the same way.",
+      "description": "TSAliasShadedPoly vtable 0047ed5c slot +0x1c: TSShadedPoly_Render with the fill PolyFill_FillThenOutline_Thunk in place of PolyFill_FillThenOutline, the shade packed into bits 16-23 of both colour words. Matches DBSIM's 00475c80, which packs the shade the same way.",
       "source": "VSHELL decompile of 004238d9; es2_naming.py diff VSHELL 004238d9 DBSIM 00475c80"
     },
     {
@@ -5171,7 +5459,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSAliasGouraudPoly_Render",
-      "description": "TSAliasGouraudPoly vtable 0047ed30 slot +0x1c: TSGouraudPoly_Render with the fill 0045f448 in place of PolyFill_FillThenOutline. Matches DBSIM's 00475de0.",
+      "description": "TSAliasGouraudPoly vtable 0047ed30 slot +0x1c: TSGouraudPoly_Render with the fill PolyFill_FillThenOutline_Thunk in place of PolyFill_FillThenOutline. Matches DBSIM's 00475de0.",
       "source": "VSHELL decompile of 00423a48; es2_naming.py diff VSHELL 00423a48 DBSIM 00475de0"
     },
     {
@@ -5225,7 +5513,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellMap_Dtor",
-      "description": "(map, flags): ShellMap's destructor (vtable 004721b0, RTTI ShellMap, 0x3c5 bytes): restamps the vtable, passes the object at +0x4e to 0045dbf0 and then runs its virtual destructor, frees the arrays at +0x52, +0x56, +0x5e, +0x62, +0x6e and the +0x72 six-byte records' buffers at +0x5a and the array itself, deletes +0x66, runs 00427ea4 on +0x219 and +0x1b7 and Map_Dtor, and Mem_Delete's the map when flags bit 0 is set. ShellMap_Build destroys the previous map with it.",
+      "description": "(map, flags): ShellMap's destructor (vtable 004721b0, RTTI ShellMap, 0x3c5 bytes): restamps the vtable, passes the object at +0x4e to 0045dbf0 and then runs its virtual destructor, frees the arrays at +0x52, +0x56, +0x5e, +0x62, +0x6e and the +0x72 six-byte records' buffers at +0x5a and the array itself, deletes +0x66, runs StringTable_Dtor on +0x219 and +0x1b7 and Map_Dtor, and Mem_Delete's the map when flags bit 0 is set. ShellMap_Build destroys the previous map with it.",
       "source": "VSHELL decompile at 0042424a; tools/scripts/es2_naming.py rtti VSHELL 004721b0"
     },
     {
@@ -5481,6 +5769,15 @@
       "source": "VSHELL decompile and disassembly at 00427e80"
     },
     {
+      "address": "00427ea4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_Dtor",
+      "description": "The string table's destructor, the dtor its class record (RTTI 'Strings', 0x10 bytes, at 00427cca) names: (table, flags) decrements *Rtl_DtorCountPtr, StringTable_Free, then Mem_Delete when flags bit 0 is set. ShellMap_Dtor runs it on the map's two tables.",
+      "source": "es2_classes.scan: the Borland class record's +0x28 destructor; VSHELL decompile"
+    },
+    {
       "address": "00427ecd",
       "binary": "VSHELL",
       "type": "function",
@@ -5580,6 +5877,24 @@
       "source": "VSHELL decompile at 00428390 and 004281fb"
     },
     {
+      "address": "004284dc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FillCellUntextured",
+      "description": "(vertices, count, shades): fills one view-space polygon for hgrid.cpp's cell drawer (00429dac, twice). Points Poly_ViewVertices at vertices and the ring at Poly_SequentialIndices with count vertices from 0, clears their Poly_VertexState and runs Poly_ProjectViewVertices; when it reports a vertex behind the near plane, Poly_ClipRingToNearPlane and, with g_ShadeMode at 2, Poly_ClipRingToNearPlaneWithShade over shades. It then installs a brush at +0x22c of the context 0048e184 points to: with g_ShadeMode 2 mode 1 on the ramp 00472254 with the per-vertex shades, otherwise mode 0 with the colour (first shade << 16) | 0x4000000 | low word of 00472254; and PolyFill_Fill. The VSHELL counterpart of DBSIM's Terrain_FillCellUntextured (0046bb40), which uses ramp 2, looks the flat colour up through Palette_ShadeRampLookup and wraps the fill in a dummy drawable.",
+      "source": "VSHELL decompile; es2_naming.py diff against DBSIM 0046bb40"
+    },
+    {
+      "address": "004286a9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FaceVisibilityTest",
+      "description": "(normal int16[3], point int32[3]): dot(normal, g_TerrainViewerPos - point) > 0. HGrid's cell drawer 00429dac calls it twice and 0042b019 once. The VSHELL copy of DBSIM's Terrain_FaceVisibilityTest (0046bd98).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0042870b",
       "binary": "VSHELL",
       "type": "function",
@@ -5596,6 +5911,15 @@
       "name": "HeightGrid_Dtor",
       "description": "HeightGrid vtable 00472470 slot +0x18 (grid, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the array at +0xec when set, decrements once more and runs TSBase_Dtor on the height offset table at +0xd0 (the VectorTable HeightGrid_Ctor builds there), then TSBase_Dtor(grid, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "VSHELL decompile of 0042878b"
+    },
+    {
+      "address": "004289bc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_NormalizeVec3ShortToLength",
+      "description": "(v int16[3], length): halves all three components until Math_FastMagnitude3D fits under 0x7d01, then scales each by (length << 16) / magnitude through FixedMulQ16. 00428b2d calls it twice. The VSHELL copy of DBSIM's Math_NormalizeVec3ShortToLength (0046c138).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "00428d5b",
@@ -5621,8 +5945,44 @@
       "type": "function",
       "confidence": "high",
       "name": "HGrid_RenderAround",
-      "description": "(grid, position): hgrid.cpp's cell renderer, while grid +0x118 is set. Clears the model transform, installs a mode-0 brush at the context's +0x22c for the walk, takes the cell of position (+4, +8, shifted down by grid +0x104) and its byte +0x17, and walks the polygon at grid +0xc8 around it with CellWalk_Polygon, callback 00429dac. When that byte was set it calls 0042afd7(grid, cellX, cellY) after the walk. Restores the brush. See docs/polygon-fill.md.",
+      "description": "(grid, position): hgrid.cpp's cell renderer, while grid +0x118 is set. Clears the model transform, installs a mode-0 brush at the context's +0x22c for the walk, takes the cell of position (+4, +8, shifted down by grid +0x104) and its byte +0x17, and walks the polygon at grid +0xc8 around it with CellWalk_Polygon, callback 00429dac. When that byte was set it calls HGrid_InvokeCellHook(grid, cellX, cellY) after the walk. Restores the brush. See docs/polygon-fill.md.",
       "source": "VSHELL decompile at 00429b4a"
+    },
+    {
+      "address": "0042afd7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HGrid_InvokeCellHook",
+      "description": "(grid, cx, cy): when the cell's byte +0x17 (cells 0x1c bytes from the pointer at grid+0xec, rows of 1 << grid+0xfc) is non-zero, calls the hook at grid+0x121 with (cx, cy, that byte). HGrid_RenderAround and the cell drawer 00429dac call it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0042b8d3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HGrid_SpanAddCell",
+      "description": "(grid, cx, cy): for a cell with 0 <= cx < (1 << grid+0xfc) - 1 and 0 <= cy < (1 << grid+0x100) - 1, widens row cy's span in HGrid_RowSpans to include cx and the range HGrid_SpanFirstRow..HGrid_SpanLastRow to include cy; ignores any other cell. HGrid_SpanAddOctants calls it eight times.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0042b965",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HGrid_SpanAddOctants",
+      "description": "(grid, centre, a, b): HGrid_SpanAddCell on the eight points centre +/- (a, b) and centre +/- (b, a), each shifted down to a cell by grid+0x104. HGrid_BuildCircleSpans calls it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0042bc4e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HGrid_BuildCircleSpans",
+      "description": "(grid, centre, radius): resets HGrid_RowSpans (all 0xffff), HGrid_SpanFirstRow (1 << grid+0x100) and HGrid_SpanLastRow (0), then rasterises the circle of radius about centre into per-row cell spans: HGrid_SpanAddOctants for (0, radius) and, stepping a by the cell size from the next cell boundary, for (a, radius * cos(asin(a / radius))) while a stays below that value. When any row was added, runs 0042ba69 and passes its result to 0042bafd.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "0042be3c",
@@ -5670,6 +6030,15 @@
       "source": "VSHELL decompile at 0042c0eb"
     },
     {
+      "address": "0042c102",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Sfx_FillDefaultsThunk",
+      "description": "(sfx, out): SFX-level thunk to maybe_Sfx_FillDefaults(out), the same guarded-call shape as Sfx_StopMusic. es2_xref finds no reference to it; DBSIM's copy (00463870) has none either.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "0042c19c",
       "binary": "VSHELL",
       "type": "function",
@@ -5697,6 +6066,15 @@
       "source": "VSHELL decompile and disassembly at 0042c923"
     },
     {
+      "address": "0042ca95",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Stop",
+      "description": "SFX::stop (asserts in inc\\sfx_fix.h): (sfx, handle). Asserts the handle is valid and current (its 0x28-byte slot in the array at sfx+0x38 holds the same handle); returns 1 at once when the slot's playing bit 0x100 is clear. Otherwise asserts the slot's file handle (+4) is valid and current in the 0x21c-byte file array at sfx+0x34 and runs Sfx_StopVoice. When that returns 0: SetLastError(0x3eb), the 'Drivers will not stop sample' assert and 0. Else decrements the playing-song (+0x40, flag bit 0) or playing-sample (+0x3c) count, clears the playing bit and returns 1. Sfx_EvictForSpace and two other functions call it. The VSHELL counterpart of DBSIM's Sfx_Stop (00464014).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0042cce0",
       "binary": "VSHELL",
       "type": "function",
@@ -5711,7 +6089,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sfx_EvictForSpace",
-      "description": "(sfx, bytesNeeded): frees cached sound files until bytesNeeded are released. Scores each loaded file reference count * 10 + 1, plus for each of its sample slots the slot's +0xc, 1000 when it is playing (0x100) and 10000 more when it is also flagged 0x80; a file with a 0x1000 sample scores 0 and is never evicted. Then repeatedly takes the lowest non-zero score, stops every sample of the file through 0042ca95 when the score is 1000 or more, frees it through Sos_LoadOrFreeSample and takes its size off the bytes cached (+0x1c). The free's MIDI flag comes from the last sample slot the scoring pass visited, not from the evicted file. Returns whether enough was freed. Sfx_Cache calls it.",
+      "description": "(sfx, bytesNeeded): frees cached sound files until bytesNeeded are released. Scores each loaded file reference count * 10 + 1, plus for each of its sample slots the slot's +0xc, 1000 when it is playing (0x100) and 10000 more when it is also flagged 0x80; a file with a 0x1000 sample scores 0 and is never evicted. Then repeatedly takes the lowest non-zero score, stops every sample of the file through Sfx_Stop when the score is 1000 or more, frees it through Sos_LoadOrFreeSample and takes its size off the bytes cached (+0x1c). The free's MIDI flag comes from the last sample slot the scoring pass visited, not from the evicted file. Returns whether enough was freed. Sfx_Cache calls it.",
       "source": "VSHELL decompile at 0042ce58"
     },
     {
@@ -5742,6 +6120,24 @@
       "source": "docs/formats/audio.md#open"
     },
     {
+      "address": "0042d5ec",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_StopMusic",
+      "description": "SFX-level thunk to Music_Stop. The VSHELL copy of DBSIM's Sfx_StopMusic (00464770).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0042d5ff",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_IsMusicIdle",
+      "description": "SFX-level thunk to Music_IsIdle. The VSHELL copy of DBSIM's Sfx_IsMusicIdle (00464784).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0042d6a5",
       "binary": "VSHELL",
       "type": "function",
@@ -5749,6 +6145,24 @@
       "name": "Sfx_StopAll",
       "description": "SFX::stopAll (assert file .\\inc\\sfx_fix.h): (sfx). For each sample slot with the playing bit 0x100, asserts its file handle is valid and current, stops it through 0042da8c and, when that succeeds, decrements the playing-song (+0x40, flag bit 0) or playing-sample (+0x3c) count and clears the playing bit. The loop runs over the first +0x10 slots of the sample table, +0x10 being the file count. ShellSound_Stop calls it.",
       "source": "VSHELL decompile at 0042d6a5"
+    },
+    {
+      "address": "0042d7a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_GetMusicPosition",
+      "description": "SFX-level thunk to Music_GetPosition. The VSHELL copy of DBSIM's Sfx_GetMusicPosition (00464884).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0042d7b3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_ResumeMusicAt",
+      "description": "(sfx, position): SFX-level thunk to Music_ResumeAt. The VSHELL copy of DBSIM's Sfx_ResumeMusicAt (00464898).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "0042d7d0",
@@ -5765,7 +6179,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_InitBackend",
-      "description": "(window, format): the VSHELL counterpart of DBSIM's Sos_InitBackend: keeps window at 0048a940, Sos_BindLibrary, copies the format words (from the SFX's +0x24) into 00473174-0047317c, and opens the drivers through 0042df68 with the configured driver id, then with id 1, unbinding the library when both fail. Returns true on success. Sfx_Init calls it.",
+      "description": "(window, format): the VSHELL counterpart of DBSIM's Sos_InitBackend: keeps window at Music_NotifyWindow, Sos_BindLibrary, copies the format words (from the SFX's +0x24) into 00473174-0047317c, and opens the drivers through Sos_OpenDrivers with the configured driver id, then with id 1, unbinding the library when both fail. Returns true on success. Sfx_Init calls it.",
       "source": "VSHELL decompile at 0042d7f0"
     },
     {
@@ -5803,6 +6217,15 @@
       "name": "Sos_Service",
       "description": "(hwnd, msg, wParam, lParam): Sos_UserService(Sos_GetDriverHandle()), then Sos_HandleWindowMessage with the message when hwnd is non-null. Returns 0. The VSHELL copy of DBSIM's Sos_Service (004736cc).",
       "source": "VSHELL decompile at 0042d8b9; es2_naming.py diff against DBSIM 004736cc"
+    },
+    {
+      "address": "0042d8ea",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Sfx_FillDefaults",
+      "description": "(out): writes {0x78, 0x20, 1} into three dwords at out (+0 = 0x78, +4 = 0x20, +8 = 1). What the three mean is not established. Reached only through maybe_Sfx_FillDefaultsThunk. Byte-identical to DBSIM's 00473700.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "0042d906",
@@ -5886,6 +6309,24 @@
       "source": "VSHELL disassembly at 0042dc6e"
     },
     {
+      "address": "0042dca5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_Stop",
+      "description": "MCI_STOP then MCI_CLOSE on the cdaudio device, and resets Music_MciDeviceId to -1. The VSHELL copy of DBSIM's Music_Stop (00473af4).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0042dce1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_IsIdle",
+      "description": "Whether the cdaudio device is closed: Music_MciDeviceId == -1. Reached through Sfx_IsMusicIdle. The VSHELL copy of DBSIM's Music_IsIdle (00473b2c).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0042dcef",
       "binary": "VSHELL",
       "type": "function",
@@ -5895,12 +6336,48 @@
       "source": "docs/formats/audio.md"
     },
     {
+      "address": "0042ddf4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_GetPosition",
+      "description": "MCI_STATUS with item MCI_STATUS_POSITION and MCI_WAIT; 0 when the device is closed or the call fails. Reached through Sfx_GetMusicPosition. The VSHELL copy of DBSIM's Music_GetPosition (00473c38).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0042de38",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_GetTrackLength",
+      "description": "(track): MCI_STATUS item MCI_STATUS_LENGTH with MCI_TRACK, one track's length as an MSF triple. Music_PlayTrack keeps the result in Music_TrackLength as its MCI_TO. The VSHELL copy of DBSIM's Music_GetTrackLength (00473c78).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0042de82",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_ResumeAt",
+      "description": "(position): Music_PlayTrack's open (cdaudio), set (TMSF) and MCI_PLAY with MCI_NOTIFY, but MCI_FROM is a saved TMSF position and MCI_TO the kept Music_TrackLength; Music_Stop on any failure. Reached through Sfx_ResumeMusicAt. The VSHELL copy of DBSIM's Music_ResumeAt (00473cc0).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0042df68",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_OpenDrivers",
+      "description": "(digitalId, midiId, window, arg4): opens whichever SOS drivers are asked for and not yet open: MIDI detection first, then the digital driver (detect, Sos_InitSystem, Sos_TimerInitSystem, the format check against the detected capabilities with the 0x15 fallback, Sos_InitDriver into Sos_DriverHandle, Sos_SetActiveWindow, Sos_DigiDriverOpen set), then the MIDI driver into Sos_MidiDriverHandle, loading MELODIC.BNK and DRUM.BNK through Sos_LoadBankFile for driver type 0xa002 or 0xa009 with capability bit 2. Returns 0, or 1 / the capabilities | 0x1c0000 on failure with Sos_LastError set. Sos_InitBackend calls it twice. The VSHELL copy of DBSIM's Sos_OpenDrivers (00473da0).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0042e31c",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "Sos_ShutdownDrivers",
-      "description": "The VSHELL copy of DBSIM's Sos_ShutdownDrivers: closes the digital driver when 00473184 is set and the MIDI driver when 00473186 is set, Sos_FreePreparedMemory twice for MIDI driver ids 0xa002/0xa009 with 0048a9ba bit 1, error results into 00473180 (returning 1); Sos_TimerUnInitSystem on the MIDI side unless 00473188. Returns 0.",
+      "description": "The VSHELL copy of DBSIM's Sos_ShutdownDrivers: closes the digital driver when Sos_DigiDriverOpen is set and the MIDI driver when Sos_MidiDriverOpen is set, Sos_FreePreparedMemory twice for MIDI driver ids 0xa002/0xa009 with 0048a9ba bit 1, error results into 00473180 (returning 1); Sos_TimerUnInitSystem on the MIDI side unless 00473188. Returns 0.",
       "source": "VSHELL decompile at 0042e31c"
     },
     {
@@ -5918,7 +6395,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_AnyDriverActive",
-      "description": "Returns (00473184 & 00473188) | (00473186 & 0047318a): whether the digital driver is open and was requested, or the MIDI driver is. Sos_HandleWindowMessage asks it on WM_TIMER. The VSHELL copy of DBSIM's Sos_AnyDriverActive (00474220).",
+      "description": "Returns (Sos_DigiDriverOpen & 00473188) | (Sos_MidiDriverOpen & 0047318a): whether the digital driver is open and was requested, or the MIDI driver is. Sos_HandleWindowMessage asks it on WM_TIMER. The VSHELL copy of DBSIM's Sos_AnyDriverActive (00474220).",
       "source": "VSHELL decompile at 0042e44d; es2_naming.py diff against DBSIM 00474220"
     },
     {
@@ -5927,8 +6404,17 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_GetDriverHandle",
-      "description": "Returns the int16 at 0048aa26, the SOS digital driver handle. The VSHELL copy of DBSIM's Sos_GetDriverHandle.",
+      "description": "Returns the int16 at Sos_DriverHandle, the SOS digital driver handle. The VSHELL copy of DBSIM's Sos_GetDriverHandle.",
       "source": "VSHELL disassembly at 0042e46f"
+    },
+    {
+      "address": "0042e653",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_LoadBankFile",
+      "description": "(path, outMemory, outPrepared): reads the whole file through a VolRStream into GlobalAlloc'd memory and Sos_Prepare32Memory's it. Returns 0, or 1 when the file will not open or the allocation fails. Sos_OpenDrivers loads MELODIC.BNK and DRUM.BNK with it. The VSHELL copy of DBSIM's Sos_LoadBankFile (00474430).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "0042e73c",
@@ -5972,7 +6458,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_HandleWindowMessage",
-      "description": "(hwnd, msg, wParam, lParam): WM_DESTROY kills timer 1; WM_INITDIALOG (0x110) sets timer 1 at 1 ms; WM_TIMER runs Sos_UserService on the driver handle (0048aa26) when Sos_AnyDriverActive says so; message 0xa000 hands wParam 0xa000 to Sos_RefillStreamBuffer and 0xa002 to Sos_StopStream. Returns 0. The VSHELL copy of DBSIM's Sos_HandleWindowMessage (00474994).",
+      "description": "(hwnd, msg, wParam, lParam): WM_DESTROY kills timer 1; WM_INITDIALOG (0x110) sets timer 1 at 1 ms; WM_TIMER runs Sos_UserService on the driver handle (Sos_DriverHandle) when Sos_AnyDriverActive says so; message 0xa000 hands wParam 0xa000 to Sos_RefillStreamBuffer and 0xa002 to Sos_StopStream. Returns 0. The VSHELL copy of DBSIM's Sos_HandleWindowMessage (00474994).",
       "source": "VSHELL decompile at 0042ebea; es2_naming.py diff against DBSIM 00474994"
     },
     {
@@ -6323,7 +6809,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Repair_InstallHotspotHandlers",
-      "description": "Fills RepairHotspotHandlers' 25 slots with the thunks 004340b5..00434ac8. Repair_BuildScreen's first call.",
+      "description": "Fills RepairHotspotHandlers' 25 slots with the thunks Repair_OnHotspot00..Repair_OnInternalRow8. Repair_BuildScreen's first call.",
       "source": "VSHELL decompile at 00431f3c"
     },
     {
@@ -6404,7 +6890,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Repair_SwapDiagram",
-      "description": "Swaps the two per-bay pictures as the selection crosses between columns: the internals diagram (0048d118) is shown while the internals list is selected and the exploded external picture (0048d4bc) while column 0 is.",
+      "description": "Swaps the two per-bay pictures as the selection crosses between columns: the internals diagram (RepairInternalsPictures) is shown while the internals list is selected and the exploded external picture (0048d4bc) while column 0 is.",
       "source": "docs/shell/screen-layout.md#the-damage-diagram"
     },
     {
@@ -6451,6 +6937,265 @@
       "name": "Repair_SelectHotspot",
       "description": "Takes (column, row), returns early if that pair is already selected, refuses a hardpoint row past the machine's mount capacity (+0x4c) or with nothing fitted, then repaints old and new, stores the pair and its resolved category and index, and refreshes the panel.",
       "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "004340b5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot00",
+      "description": "Repair hotspot 0's click handler (column 0, an external group), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 0), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot00(int *event)"
+    },
+    {
+      "address": "0043411a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot01",
+      "description": "Repair hotspot 1's click handler (column 0, an external group), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 1), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot01(int *event)"
+    },
+    {
+      "address": "0043417f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot02",
+      "description": "Repair hotspot 2's click handler (column 0, an external group), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 2), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot02(int *event)"
+    },
+    {
+      "address": "004341e4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot03",
+      "description": "Repair hotspot 3's click handler (column 0, an external group), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 3), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot03(int *event)"
+    },
+    {
+      "address": "00434249",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot04",
+      "description": "Repair hotspot 4's click handler (column 0, an external group), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 4), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot04(int *event)"
+    },
+    {
+      "address": "004342ae",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot05",
+      "description": "Repair hotspot 5's click handler (column 0, an external group), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 5), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot05(int *event)"
+    },
+    {
+      "address": "00434313",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot06",
+      "description": "Repair hotspot 6's click handler (column 0, hardpoint 0), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 6), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot06(int *event)"
+    },
+    {
+      "address": "00434378",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot07",
+      "description": "Repair hotspot 7's click handler (column 0, hardpoint 1), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 7), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot07(int *event)"
+    },
+    {
+      "address": "004343dd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot08",
+      "description": "Repair hotspot 8's click handler (column 0, hardpoint 2), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 8), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot08(int *event)"
+    },
+    {
+      "address": "00434442",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot09",
+      "description": "Repair hotspot 9's click handler (column 0, hardpoint 3), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 9), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot09(int *event)"
+    },
+    {
+      "address": "004344a7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot10",
+      "description": "Repair hotspot 10's click handler (column 0, hardpoint 4), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 10), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot10(int *event)"
+    },
+    {
+      "address": "0043450c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot11",
+      "description": "Repair hotspot 11's click handler (column 0, hardpoint 5), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 11), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot11(int *event)"
+    },
+    {
+      "address": "00434571",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot12",
+      "description": "Repair hotspot 12's click handler (column 0, hardpoint 6), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 12), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot12(int *event)"
+    },
+    {
+      "address": "004345d6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot13",
+      "description": "Repair hotspot 13's click handler (column 0, hardpoint 7), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 13), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot13(int *event)"
+    },
+    {
+      "address": "0043463b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot14",
+      "description": "Repair hotspot 14's click handler (column 0, hardpoint 8), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 14), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot14(int *event)"
+    },
+    {
+      "address": "004346a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnHotspot15",
+      "description": "Repair hotspot 15's click handler (column 0, hardpoint 9), one of the sixteen column-0 thunks Repair_InstallHotspotHandlers stores in RepairHotspotHandlers and Hotspots_BuildOverlay in HotspotHandlerTable: Repair_SelectHotspot(0, 15), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnHotspot15(int *event)"
+    },
+    {
+      "address": "00434705",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalPanel",
+      "description": "The repair tab's Internal list panel's click handler (Repair_BuildScreen passes it to TitledPanel_Ctor with title 0x3f): while CurrentTabIndex is 3 and RepairSelectedColumn is 0, hides the selected bay's SquadSlotPictureWidgets entry and shows its RepairInternalsPictures entry; then deletes the event.",
+      "source": "docs/shell/screen-layout.md#the-repair-screen"
+    },
+    {
+      "address": "004347a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow0",
+      "description": "The internal list's row 0 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 0), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow0(int *event)"
+    },
+    {
+      "address": "00434805",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow1",
+      "description": "The internal list's row 1 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 1), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow1(int *event)"
+    },
+    {
+      "address": "0043486a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow2",
+      "description": "The internal list's row 2 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 2), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow2(int *event)"
+    },
+    {
+      "address": "004348cf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow3",
+      "description": "The internal list's row 3 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 3), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow3(int *event)"
+    },
+    {
+      "address": "00434934",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow4",
+      "description": "The internal list's row 4 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 4), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow4(int *event)"
+    },
+    {
+      "address": "00434999",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow5",
+      "description": "The internal list's row 5 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 5), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow5(int *event)"
+    },
+    {
+      "address": "004349fe",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow6",
+      "description": "The internal list's row 6 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 6), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow6(int *event)"
+    },
+    {
+      "address": "00434a63",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow7",
+      "description": "The internal list's row 7 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 7), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow7(int *event)"
+    },
+    {
+      "address": "00434ac8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnInternalRow8",
+      "description": "The internal list's row 8 click handler, one of the nine column-1 thunks in RepairHotspotHandlers: Repair_SelectHotspot(1, 8), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Repair_OnInternalRow8(int *event)"
     },
     {
       "address": "00434b2d",
@@ -6516,6 +7261,15 @@
       "source": "docs/simulation/preferences.md"
     },
     {
+      "address": "00436717",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_Hide",
+      "description": "Window_HideRecursive on PreferencesScreen_Root and PreferencesScreen_Panel, PreferencesScreen_Enter's inverse. The Cancel (00436b90) and Accept (00436c51) handlers end in it.",
+      "source": "docs/shell/screen-layout.md#leaving-the-preferences-screen"
+    },
+    {
       "address": "00436790",
       "binary": "VSHELL",
       "type": "function",
@@ -6532,6 +7286,15 @@
       "name": "PreferencesScreen_SyncDisplayModeRadios",
       "description": "Lights one of the pair 0048d2d0 / 0048d2d4 from ShellOption_DisplayMode (0 or 1), clearing the other's tick (+0x69) and repainting both. Any other value changes nothing. PreferencesScreen_SetDisplayMode calls it.",
       "source": "VSHELL decompile at 004367cd"
+    },
+    {
+      "address": "00436841",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_ToggleAudioOption",
+      "description": "(which): 0 toggles MUSIC (option 0) with a fade -- on, ShellOptions_ToggleOption then ShellSound_FadeIn; off, ShellSound_FadeOut then the toggle; 1 toggles SOUNDS (option 1); 2 sets ShellOption_PilotMessage to 2 from 0 and to 0 from 1 or 2; 3 sets it to 1 from 0, 2 from 1 and 1 from 2. Then PreferencesScreen_SyncSoundChecks. The Music (00436cc1) and Sound Effects (00436d22) checkboxes pass 0 and 1.",
+      "source": "docs/shell/screen-layout.md#what-a-checkbox-sets"
     },
     {
       "address": "0043692e",
@@ -7163,6 +7926,106 @@
       "name": "Arming_PreviousHardpoint",
       "description": "The < stepper: Arming_SelectHardpoint(hardpoint - 1), wrapping from 0 or none to the last mount.",
       "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "0043e15f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint0",
+      "description": "Arming hardpoint 0's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(0), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint0(int *event)"
+    },
+    {
+      "address": "0043e1c0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint1",
+      "description": "Arming hardpoint 1's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(1), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint1(int *event)"
+    },
+    {
+      "address": "0043e221",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint2",
+      "description": "Arming hardpoint 2's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(2), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint2(int *event)"
+    },
+    {
+      "address": "0043e282",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint3",
+      "description": "Arming hardpoint 3's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(3), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint3(int *event)"
+    },
+    {
+      "address": "0043e2e3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint4",
+      "description": "Arming hardpoint 4's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(4), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint4(int *event)"
+    },
+    {
+      "address": "0043e344",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint5",
+      "description": "Arming hardpoint 5's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(5), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint5(int *event)"
+    },
+    {
+      "address": "0043e3a5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint6",
+      "description": "Arming hardpoint 6's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(6), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint6(int *event)"
+    },
+    {
+      "address": "0043e406",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint7",
+      "description": "Arming hardpoint 7's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(7), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint7(int *event)"
+    },
+    {
+      "address": "0043e467",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint8",
+      "description": "Arming hardpoint 8's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(8), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint8(int *event)"
+    },
+    {
+      "address": "0043e4c8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_OnHardpoint9",
+      "description": "Arming hardpoint 9's click handler, one of the ten thunks Hotspots_BuildOverlay stores in HotspotHandlerTable for the arming tab: Arming_SelectHardpoint(9), then deletes the event (Rtl_GetPolymorphicDtorCount into [Rtl_DtorCountPtr], virtual dtor +0x18 with 3).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots",
+      "signature": "void __cdecl Arming_OnHardpoint9(int *event)"
     },
     {
       "address": "0043e52c",
@@ -8439,6 +9302,15 @@
       "name": "Assert_Ctor",
       "description": "(assert): Assert_Emit(0, 1, 0, 0, 0), counts the object live (*Rtl_DtorCountPtr) and returns it. Assert_StaticInit builds the shell's assert logger g_AssertLogger with it. The VSHELL copy of DBSIM's 00479aec.",
       "source": "VSHELL decompile and disassembly at 0044de50; es2_naming.py match against DBSIM 00479aec"
+    },
+    {
+      "address": "0044de78",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Dtor",
+      "description": "The assert logger's destructor, the dtor its class record (RTTI 'Assert', 1 byte, at 0044dfd4) names: (logger, flags) decrements *Rtl_DtorCountPtr, Assert_Emit(1, 1, 0, 0, null) -- a severity Assert_Emit's switch has no case for, so nothing is written -- then Mem_Delete when flags bit 0 is set.",
+      "source": "es2_classes.scan: the Borland class record's +0x28 destructor; VSHELL decompile"
     },
     {
       "address": "0044deac",
@@ -9724,7 +10596,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_AsinBam",
-      "description": "Arcsine of a Q14 sine as a binary angle: below 0xe00 * 4 the coarse table at 0047ac5c, above it the fine table at 004793dc, the sign restored at the end. 0042bc4e calls it. The VSHELL copy of DBSIM's Math_AsinBam (0047d940).",
+      "description": "Arcsine of a Q14 sine as a binary angle: below 0xe00 * 4 the coarse table at 0047ac5c, above it the fine table at 004793dc, the sign restored at the end. HGrid_BuildCircleSpans calls it. The VSHELL copy of DBSIM's Math_AsinBam (0047d940).",
       "source": "VSHELL decompile at 00450684; es2_naming.py diff against DBSIM 0047d940"
     },
     {
@@ -9805,7 +10677,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_CosBam",
-      "description": "Cosine of a 16-bit binary angle in Q14: rounds the angle to a 16-BAM step ((a >> 4) + bit 3), takes its magnitude, and reads the quarter-turn table at 0047b3e4 directly below 0x400 and negated as table[0x800 - i] above. The VSHELL copy of DBSIM's Math_CosBam (0047dee4). TSBounds_ScreenVisibility and 0042bc4e call it.",
+      "description": "Cosine of a 16-bit binary angle in Q14: rounds the angle to a 16-BAM step ((a >> 4) + bit 3), takes its magnitude, and reads the quarter-turn table at 0047b3e4 directly below 0x400 and negated as table[0x800 - i] above. The VSHELL copy of DBSIM's Math_CosBam (0047dee4). TSBounds_ScreenVisibility and HGrid_BuildCircleSpans call it.",
       "source": "VSHELL decompile at 004509c4"
     },
     {
@@ -9863,6 +10735,42 @@
       "source": "VSHELL decompile at 00450a94; es2_naming.py diff against DBSIM 0047dfb4"
     },
     {
+      "address": "00450aa8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PlaneShort_FromPointShortNormal",
+      "description": "(plane, point int16[3], normal int16[3]): widens the normal to int32 and runs PlaneShort_FromPointNormal. It sits after FixedMulQ14, from its 55 8B EC prologue to its RET at 00450aea, where Ghidra auto-analysis made no function (ES2DefineFunctionAt creates it). es2_xref finds no reference to it.",
+      "source": "VSHELL disassembly (capstone over 00450aa7-00450aeb)"
+    },
+    {
+      "address": "00450aec",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PlaneShort_FromPointNormal",
+      "description": "(plane, point int16[3], normal int32[3]): Plane_FromPointNormal for the 10-byte plane {int16 normal[3], int32 d}: the normal scaled to length 0x800 stored as three int16 at +0/+2/+4 and d = -dot(point, scaled normal) as an int32 at +6. PlaneShort_FromPointShortNormal and PlaneShort_FromTriangle call it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "00450c08",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PlaneShort_FromTriangle",
+      "description": "(plane, a, b, c int16[3]): PlaneShort_FromPointNormal through b with the normal (a - b) x (c - b) in int32. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile"
+    },
+    {
+      "address": "00450e20",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_FromPointNormal",
+      "description": "(plane, point, normal): scales normal to length 0x800 component by component through Math_Mul32To64_Thunk and Math_DivMod64_Thunk by its magnitude -- Point3I_ExactMagnitude when every component lies strictly within +/-15001, Point3I_Magnitude otherwise -- into plane[0..2], and sets plane[3] = -dot(point, plane normal). 00450f2c and the six calls of 00467654 use it. The VSHELL copy of DBSIM's Plane_FromPointNormal (0047e344).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "00450fe0",
       "binary": "VSHELL",
       "type": "function",
@@ -9879,6 +10787,24 @@
       "name": "Poly_SplitByPlane",
       "description": "The VSHELL copy of DBSIM's Poly_SplitByPlane (0047e630), the same code: (plane, poly, front, back) -> bool, through Plane_ClassifyPoint (004514c8) and Math_PlaneSegmentIntersect (00450fe0). Its two callers, 00467920 and 00467ac4, clip against up to six planes chosen by bits 0x02-0x40 of the object's +8 flags, keeping front each time and swapping the in and out lists with Dword_Swap.",
       "source": "VSHELL decompile and disassembly at 0045110c"
+    },
+    {
+      "address": "00451434",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Point3I_ExactMagnitude",
+      "description": "(p): Math_ISqrt of x*x + y*y + z*z, summed in 32 bits. Plane_FromPointNormal and PlaneShort_FromPointNormal take it when every component lies strictly within +/-15001. The VSHELL copy of DBSIM's Point3I_ExactMagnitude (0047e958).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "00451462",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_ISqrt_Thunk",
+      "description": "One-line forwarder to Math_ISqrt. Point3I_ExactMagnitude calls it. The VSHELL copy of DBSIM's Math_ISqrt_Thunk.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "00451471",
@@ -9996,6 +10922,15 @@
       "name": "Transform_RotatePoint",
       "description": "(point, transform, out): Transform_ApplyToPoint without the translation, i.e. the rotation alone, with the same rank-byte fast paths.",
       "source": "VSHELL decompile and disassembly at 0045230c"
+    },
+    {
+      "address": "00452444",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_ApplyToPointShortTranslation",
+      "description": "(point int32[3], transform, out int32[3]): the full 3x3 path of Transform_ApplyToPoint -- the same Q14 terms with +0x2000 rounding and 64-bit intermediates, no rank-byte fast paths -- but adds an int16 translation read at +0x14/+0x16/+0x18 where the 32-byte transform holds int32s. TSBSPPart_RenderNode's node-plane drawing transforms its five marker points with it, by a rotation BuildEulerRotationMatrixQ14 built on the stack with that int16 translation after it.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "0045250c",
@@ -10124,6 +11059,15 @@
       "source": "VSHELL decompile of 004529ec"
     },
     {
+      "address": "004529fc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_CloseCurrentAtExit",
+      "description": "The atexit handler GLDisplay_Ctor and GLDisplay_CtorAndOpen register: GLDisplay_Close on GLDisplay_GetCurrent's display when there is one and GLDisplay_GetFlags reports it open.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "00452a1c",
       "binary": "VSHELL",
       "type": "function",
@@ -10214,6 +11158,15 @@
       "source": "VSHELL decompile at 00452fb9"
     },
     {
+      "address": "00452fc2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_GetFlags",
+      "description": "(display): returns the display's first dword, its flags; bit 0 is set while it is open. GLDisplay_CloseCurrentAtExit tests it. Byte-identical to DBSIM's GLDisplay_GetFlags (0048141a).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "00452fe8",
       "binary": "VSHELL",
       "type": "function",
@@ -10250,6 +11203,24 @@
       "source": "VSHELL decompile at 00453054; RTTI at vtable-0xc"
     },
     {
+      "address": "004530b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_LoadPalette",
+      "description": "(bitmap): GLDisplay_LoadPalette(GL_GetGlobal7's display, 0, the bitmap's colour count int16 +0x14, its colours +0x16).",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "004530d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_RemapPalette",
+      "description": "(bitmap, palette, out): for each of the bitmap's colours (count int16 +0x14, 32-bit colours at +0x16) writes GLPalette_FindNearestColour(palette, colour) as one byte of out.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "00453158",
       "binary": "VSHELL",
       "type": "function",
@@ -10257,6 +11228,15 @@
       "name": "GLBitmap_Draw",
       "description": "(bitmap, position, flags): hands the bitmap at +4 to the blit (0045421f, which calls Bitmap_BlitClipDispatch) with GL_GetGlobal7. A compressed bitmap (+0x12 nonzero) is first unpacked by GLBitmap_Decompress into the buffer at 0048e18c, which stands in for the data pointer (+0xe) and size (+0xa) for the call; the buffer is then freed unless 0048e188 is set. ESGrid_Paint, ESBitmap_Paint, ShellMap_PaintIcon and ShellMap_PaintNavMarkers draw through it.",
       "source": "VSHELL decompile and disassembly at 00453158"
+    },
+    {
+      "address": "004531e4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_DrawRect",
+      "description": "(bitmap, position, flags, rect): GLBitmap_Draw's sub-rectangle twin, handing the bitmap at +4 to GLDisplay_DrawBitmapRect, with the same GLBitmap_Decompress path for a compressed bitmap. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "00453278",
@@ -10302,6 +11282,15 @@
       "name": "MemRWStream_Dtor",
       "description": "MemRWStream vtable 0047a6e4 slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here, which is why the dump's table at 0047a6e8 starts one slot late.",
       "source": "capstone disassembly of 004536a1; vtable 0047a6e4 (RTTI MemRWStream)"
+    },
+    {
+      "address": "004536ce",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_DrawBitmapRect",
+      "description": "(display, bitmap, position, flags, rect): Bitmap_BlitRectClipDispatch(bitmap, position, flags, rect); display is not read. GLBitmap_DrawRect calls it with GL_GetGlobal7's display.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "004536eb",
@@ -10439,6 +11428,15 @@
       "source": "VSHELL decompile at 00453a8c"
     },
     {
+      "address": "00453ac0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPalette_FindNearestColour",
+      "description": "(palette, rgb): the index of the palette colour (count int16 +4, the 32-bit colours the pointer at +8 addresses) nearest to rgb by Point3I_Magnitude of the difference of the low six bits of each byte (bits 0-5, 8-13 and 16-21); the first of equals wins. GLBitmap_RemapPalette and GLFont_RemapPalette call it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "00453b80",
       "binary": "VSHELL",
       "type": "function",
@@ -10563,6 +11561,33 @@
       "name": "Font_DrawString",
       "description": "Draws a run of glyphs. Tests the draw context's +0x231 for 1 and then 2, so alignment is 0 left, 1 right, 2 centred against the field width at +0x235; then advances glyph by glyph. The y it is given is an ink baseline.",
       "source": "docs/shell/screen-layout.md#text-placement-and-colour"
+    },
+    {
+      "address": "00454148",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLFont_LoadPalette",
+      "description": "(font): GLDisplay_LoadPalette(GL_GetGlobal7's display, 0, the font's colour count int16 +0x18, its colours +0x1e).",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0045416c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLFont_RemapPalette",
+      "description": "(font, palette, out): GLBitmap_RemapPalette over the font's colours (count int16 +0x18, colours at +0x1e).",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "00454205",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_LoadPalette",
+      "description": "(display, first, count, entries): calls raster routine slot 13 (0047e574) with (first, count, entries); display is not read. Driver 3's slot 13 (00459b3c) waits for vertical retrace and writes count RGB triples from 4-byte entries (the fourth byte skipped) to the VGA DAC from index first. GLBitmap_LoadPalette and GLFont_LoadPalette call it.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "0045421f",
@@ -11177,6 +12202,15 @@
       "source": "VSHELL decompile at 00458ba4"
     },
     {
+      "address": "00458c90",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitRectClipDispatch",
+      "description": "(bitmapData, position, flags, rect): draws the rect {x0, y0, x1, y1} of the bitmap at position: offsets position by the clip block's translation when block+0x208 is 1, takes origin = position - rect's top-left, and calls raster routine slot 28 (0047e5b0) with (bitmapData, &origin, &(rect offset by origin), flags). Sits between Bitmap_BlitClipDispatch and Bitmap_BlitScaledClipDispatch.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "00458d40",
       "binary": "VSHELL",
       "type": "function",
@@ -11447,6 +12481,33 @@
       "source": "VSHELL decompile at 0045a7ab; es2_naming.py diff against DBSIM 0048a4a7"
     },
     {
+      "address": "0045ab1c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_FillBitmapPolygon",
+      "description": "Raster driver 3's routine for a bitmap-textured polygon (brush modes 5 and 7): finds the top and bottom vertices, walks the two edges with Raster_BitmapEdgeSetup / Raster_BitmapEdgeStep and draws a span per row within the clip rows. Reached only through the driver-3 table, so Ghidra auto-analysis made no function here (ES2DefineFunctionAt creates it; older dumps list its body under Driver3_SpanFill). The VSHELL copy of DBSIM's Raster_FillBitmapPolygon (0048a818), instruction for instruction up to register choice.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0045ac48",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_BitmapEdgeStep",
+      "description": "(edge): steps an edge one row: at the end of its row count moves to the next edge with Raster_BitmapEdgeSetup (0 when none is left), otherwise adds the u, v and x steps. Returns 1 while the edge continues. The VSHELL copy of DBSIM's Raster_BitmapEdgeStep (0048a944).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0045aca8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_BitmapEdgeSetup",
+      "description": "(edge, vertexIndex): advances an edge of Raster_FillBitmapPolygon to the next vertex in its direction (edge[0], +1 or -1, wrapping at BitmapPoly_VertexCount), storing its row count, the source u, v in 16.16 and their per-row steps (FixedDivQ16), and the destination x start and Bresenham step. Skips zero-height edges; returns 0 at BitmapPoly_BottomVertex. The VSHELL copy of DBSIM's Raster_BitmapEdgeSetup (0048a9a0).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0045b6d8",
       "binary": "VSHELL",
       "type": "function",
@@ -11488,7 +12549,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SpanTextured",
-      "description": "Mode 0 span routine of TSTexture4Poly_RasterizeA: fetches the texel at a packed page<<16 | v<<8 | u index into the atlas at 00497f20 and stores it, stepping u and v. Two halves selected by DAT_0047e88c: zero stores every texel, non-zero skips palette index 0. The VSHELL copy of DBSIM's Raster_SpanTextured.",
+      "description": "Mode 0 span routine of TSTexture4Poly_RasterizeA: fetches the texel at a packed page<<16 | v<<8 | u index into the atlas at g_BitmapAtlasCache and stores it, stepping u and v. Two halves selected by DAT_0047e88c: zero stores every texel, non-zero skips palette index 0. The VSHELL copy of DBSIM's Raster_SpanTextured.",
       "source": "VSHELL decompile at 0045bc20"
     },
     {
@@ -11645,6 +12706,33 @@
       "source": "VSHELL disassembly at 0045d01a"
     },
     {
+      "address": "0045d02e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EdgeTableRow_Ctor",
+      "description": "(row): Rtl_ReturnArg on row + 0x18, then returns row. The element constructor of the 0x28-byte rows of Raster_BuildEdgeTables' two edge tables: the static initialiser at 0045cef8 (no Ghidra function; registered at 0048101e) runs Rtl_VectorNew(table, 0x28, 0x1e0, 1, EdgeTableRow_Ctor) on 0048e604 and on 00493104.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0045d044",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "AtlasPage_Init",
+      "description": "(page, index): fills the 256 two-int entries at page+0 with {0, 0x100}, zeroes page+0x800 and stores index at page+0x804. Bitmap_PlaceInAtlasPage calls it on a new chained page; 0045d33c on another. The VSHELL copy of DBSIM's AtlasPage_Init (00469cd8).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0045d07c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_PlaceInAtlasPage",
+      "description": "(page, bitmap, out): finds room for the bitmap (height +4, width +6, pixels +0xe) in a 256x256 atlas page, copies its rows into g_BitmapAtlasCache + page*0x10000 + y*0x100 + x with memcpy, and writes out = {x0, y0, x0+w-1, y0+h-1, int32 page index}, recursing into a chained page (Mem_New(0x808), AtlasPage_Init) when the page is full. The VSHELL copy of DBSIM's Bitmap_PlaceInAtlasPage (00469d10) with three differences: rows start below 0x100 - height where DBSIM allows 0x101 - height, rows are copied whole, and nothing records whether a texel was index 0 (DBSIM's +0x12 short).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "0045d43c",
       "binary": "VSHELL",
       "type": "function",
@@ -11677,7 +12765,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Stream_ReadCopy4",
-      "description": "(stream, count, buffer): calls the stream's read slot (vtable +0x18); a copy of Stream_Read. 0045d698 reads 0x10000 bytes into 00497f20 through it.",
+      "description": "(stream, count, buffer): calls the stream's read slot (vtable +0x18); a copy of Stream_Read. 0045d698 reads 0x10000 bytes into g_BitmapAtlasCache through it.",
       "source": "VSHELL decompile at 0045d984"
     },
     {
@@ -11785,7 +12873,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_Register",
-      "description": "(light): appends it to the 10-slot active light list at 005d8058 (count 005d8054) and returns 1, or returns 0 when the list is full or already holds it. ShellMap_Constructor registers its light. The VSHELL copy of DBSIM's Light_Register.",
+      "description": "(light): appends it to the 10-slot active light list at Light_ActiveList (count Light_ActiveCount) and returns 1, or returns 0 when the list is full or already holds it. ShellMap_Constructor registers its light. The VSHELL copy of DBSIM's Light_Register.",
       "source": "VSHELL decompile at 0045dbac"
     },
     {
@@ -11794,8 +12882,17 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_ComputeShadeForFace",
-      "description": "(normal, centre): the VSHELL copy of DBSIM's Light_ComputeShadeForFace (0048bedc), call for call: a 0-255 shade accumulated over the active light list at 005d8058 (count 005d8054) -- type 0 adds its intensity, type 1 subtracts (intensity * ((dot - 0x400000) >> 1)) >> 22 when that is negative, type 2 adds a distance-attenuated term. TSTexture4Poly_Render, TSShadedPoly_Render, TSGouraudPoly_Render, TSAliasShadedPoly_Render and TSAliasGouraudPoly_Render call it, with the normal negated for a back face.",
+      "description": "(normal, centre): the VSHELL copy of DBSIM's Light_ComputeShadeForFace (0048bedc), call for call: a 0-255 shade accumulated over the active light list at Light_ActiveList (count Light_ActiveCount) -- type 0 adds its intensity, type 1 subtracts (intensity * ((dot - 0x400000) >> 1)) >> 22 when that is negative, type 2 adds a distance-attenuated term. TSTexture4Poly_Render, TSShadedPoly_Render, TSGouraudPoly_Render, TSAliasShadedPoly_Render and TSAliasGouraudPoly_Render call it, with the normal negated for a back face.",
       "source": "VSHELL decompile at 0045dd40, compared with DBSIM 0048bedc"
+    },
+    {
+      "address": "0045dec4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_ComputeShadeForNormal",
+      "description": "(normal int16[3], centre int32[3]): walks Light_ActiveList (Light_ActiveCount entries) and sums a shade byte, clamped to 255: ambient (type 0) adds its intensity; directional (type 1) subtracts (intensity * dot(normal, direction)) >> 22 when that dot is negative; point (type 2), for a positive dot of the normal with the vector from centre to the light, adds (intensity * (dot / (distance + 1) * Light_GetRangeNumerator / (Light_GetFalloffOffset + distance))) >> 11. HGrid's cell drawer 00429dac and 00428b2d/00428bdf call it. The VSHELL copy of DBSIM's Light_ComputeShadeForNormal (0048c060).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "0045e03c",
@@ -11821,7 +12918,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SetModelTransform",
-      "description": "Installs a transform as the renderer's current model transform (null means the identity at 005d7fa8); the pointer goes to 005d7fa4. Builds model-to-view = Transform_Concat(model, [005d7fa0]) at 005d7f60, its inverse (Transform_InvertRigid) at 005d7f80, and the eye position in model space (the origin through that inverse) at 005d7fc8. When the byte at 005ddbb0 is set, also moves each light in the list at 005d8058 (count 005d8054) into model space with Light_TransformToModelSpace, using the inverse of the model transform. The VSHELL copy of DBSIM's Raster_SetModelTransform (0048c338), same code.",
+      "description": "Installs a transform as the renderer's current model transform (null means the identity at 005d7fa8); the pointer goes to 005d7fa4. Builds model-to-view = Transform_Concat(model, [005d7fa0]) at 005d7f60, its inverse (Transform_InvertRigid) at 005d7f80, and the eye position in model space (the origin through that inverse) at 005d7fc8. When the byte at 005ddbb0 is set, also moves each light in the list at Light_ActiveList (count Light_ActiveCount) into model space with Light_TransformToModelSpace, using the inverse of the model transform. The VSHELL copy of DBSIM's Raster_SetModelTransform (0048c338), same code.",
       "source": "VSHELL decompile and disassembly at 0045e198"
     },
     {
@@ -11875,8 +12972,17 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ProjectShapeVertices",
-      "description": "Projects the current polygon's vertices (count 005d8890, index list at 005d889e + first 005d8892 * 2) into the screen-point list at 005ddaae and sets its count 005ddbae. With the perspective shift 005d7fd4 zero it transforms each not-yet-seen vertex by g_ModelToView (0045f8b9), projects it with a constant divisor (x << 8 / 005d7fdc + 005d7fe0, -z << 8 / 005d7fdc + 005d7fe4), caches the screen point at 005dbb6e and marks it 2 in the per-vertex state bytes at 005d88a6, and returns 0. Otherwise it returns 00462eb8's result, the perspective path, which divides by depth and marks a vertex nearer than 005d7fd8 as 1. TSSolidPoly_Render and TSTexture4Poly_Render call it; TSSolidPoly_Render runs Poly_ClipRingToNearPlane when it returns 1.",
+      "description": "Projects the current polygon's vertices (count Poly_RingCount, index list at Poly_RingIndices + first Poly_RingFirst * 2) into the screen-point list at Poly_ScreenPoints and sets its count Poly_ScreenPointCount. With the perspective shift 005d7fd4 zero it transforms each not-yet-seen vertex by g_ModelToView (0045f8b9), projects it with a constant divisor (x << 8 / 005d7fdc + 005d7fe0, -z << 8 / 005d7fdc + 005d7fe4), caches the screen point at Poly_ScreenCache and marks it 2 in the per-vertex state bytes at Poly_VertexState, and returns 0. Otherwise it returns 00462eb8's result, the perspective path, which divides by depth and marks a vertex nearer than 005d7fd8 as 1. TSSolidPoly_Render and TSTexture4Poly_Render call it; TSSolidPoly_Render runs Poly_ClipRingToNearPlane when it returns 1.",
       "source": "VSHELL decompile and disassembly at 0045e694"
+    },
+    {
+      "address": "0045ea08",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ProjectViewVertices",
+      "description": "Projects the current ring's vertices from Poly_ViewVertices, which are already in view space (no transform): with the focal shift 005d7fd4 zero, each unseen vertex (Poly_VertexState 0) as (x << 8) / 005d7fdc + 005d7fe0, 005d7fe4 - (z << 8) / 005d7fdc; otherwise a vertex nearer than 005d7fd8 is marked 1 and the others marked 2 and divided by depth y. Each result goes to Poly_ScreenPoints and the cache Poly_ScreenCache; a vertex already marked 2 is copied from the cache. When any vertex is marked 1 it copies every ring vertex into Poly_ViewCache and returns 1, leaving Poly_ScreenPointCount for the clip to set; otherwise sets Poly_ScreenPointCount to the ring count. Terrain_FillCellUntextured calls it.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "0045ec54",
@@ -11884,7 +12990,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ClipRingToNearPlane",
-      "description": "Rebuilds the screen-point list 005ddaae for a polygon with vertices nearer than 005d7fd8: walks its edges, copies the cached screen point of each vertex marked 2, and for an edge with one end marked 2 inserts the point where it crosses depth 005d7fd8 (interpolated x and negated z, passed through 0045f772 with 005d7fe0). Returns the new count 005ddbae.",
+      "description": "Rebuilds the screen-point list Poly_ScreenPoints for a polygon with vertices nearer than 005d7fd8: walks its edges, copies the cached screen point of each vertex marked 2, and for an edge with one end marked 2 inserts the point where it crosses depth 005d7fd8 (interpolated x and negated z, passed through 0045f772 with 005d7fe0). Returns the new count Poly_ScreenPointCount.",
       "source": "VSHELL decompile and disassembly at 0045ec54"
     },
     {
@@ -11893,8 +12999,26 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ClipRingToNearPlaneWithUV",
-      "description": "The VSHELL copy of DBSIM's Poly_ClipRingToNearPlaneWithUV: clips the current face's ring (count 005d8890, indices from 005d889e + 005d8892 * 2) to the near plane with a per-vertex {u, v} pair carried along, and returns the new count 005ddbae. TSTexture4Poly_Render's g_TexturedPolyUseBitmapBrush branch calls it with the UV corners at 0048a190.",
+      "description": "The VSHELL copy of DBSIM's Poly_ClipRingToNearPlaneWithUV: clips the current face's ring (count Poly_RingCount, indices from Poly_RingIndices + Poly_RingFirst * 2) to the near plane with a per-vertex {u, v} pair carried along, and returns the new count Poly_ScreenPointCount. TSTexture4Poly_Render's g_TexturedPolyUseBitmapBrush branch calls it with the UV corners at 0048a190.",
       "source": "VSHELL decompile at 0045ee2c, diffed against DBSIM 0048cfec"
+    },
+    {
+      "address": "0045f0d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipRingToNearPlaneWithShade",
+      "description": "(shadeIn, shadeOut): Poly_ClipRingToNearPlane carrying a per-vertex uint16 shade along. Walks the current ring (Poly_RingCount indices from Poly_RingIndices + Poly_RingFirst * 2) by Poly_VertexState: an edge with both ends projected (2) emits the end's cached screen point and copies its shade; an edge with one projected end emits the crossing with the near plane (005d7fd8), interpolated in view-space depth from Poly_ViewCache and offset to the viewport centre, with the shade interpolated by the same fraction, then the end itself when it is the projected one. Rebuilds Poly_ScreenPoints and Poly_ScreenPointCount. TSGouraudPoly_Render, TSAliasGouraudPoly_Render and Terrain_FillCellUntextured call it. The VSHELL copy of DBSIM's 0048d280.",
+      "source": "docs/polygon-fill.md"
+    },
+    {
+      "address": "0045f300",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PolyFill_Fill",
+      "description": "Fills the screen polygon Poly_ScreenPoints (Poly_ScreenPointCount points) with GL_FillPolygonEitherWinding on GL_GetGlobal7's display, then when PolyFill_LineColour differs from PolyFill_FillColour copies it into the fill colour, sets PolyFill_FillBrush's mode to 4 and fills the same polygon again -- the outline pass, without PolyFill_FillThenOutline's mode-5 guard. Terrain_FillCellUntextured and PolyFill_FillThenOutline call it. The VSHELL copy of DBSIM's PolyFill_Fill (0048d4b4).",
+      "source": "docs/polygon-fill.md"
     },
     {
       "address": "0045f364",
@@ -11902,8 +13026,17 @@
       "type": "function",
       "confidence": "high",
       "name": "PolyFill_FillThenOutline",
-      "description": "(backFacing): fills the screen polygon 005ddaae (count 005ddbae) with GL_GetGlobal7 through 0045f8e7 for a front face or 0045f8d2 for a back face. When the line colour 005d7ffc differs from the fill colour 005d8004 and the mode 005d8000 is not 5, it sets the fill colour to the line colour and the mode to 4 and fills again. Does nothing for an empty list.",
+      "description": "(backFacing): fills the screen polygon Poly_ScreenPoints (count Poly_ScreenPointCount) with GL_GetGlobal7 through 0045f8e7 for a front face or 0045f8d2 for a back face. When the line colour PolyFill_LineColour differs from the fill colour PolyFill_FillColour and PolyFill_FillBrush's mode is not 5, it sets the fill colour to the line colour and the mode to 4 and fills again. Does nothing for an empty list.",
       "source": "VSHELL decompile and disassembly at 0045f364"
+    },
+    {
+      "address": "0045f448",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PolyFill_FillThenOutline_Thunk",
+      "description": "(backFacing): PolyFill_FillThenOutline(backFacing). TSAliasGouraudPoly_Render, TSAliasShadedPoly_Render and TSAliasSolidPoly_Render call it.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "0045f458",
@@ -11911,7 +13044,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SaveState",
-      "description": "(slot): the VSHELL copy of DBSIM's Raster_SaveState: g_ModelToView, the model and view transform pointers (005d7fa4, 005d7fa0), g_EyeInModelSpace and, when 005ddbb0 is set, a 0x16-byte model-space copy per registered light through Light_GetModelSpaceBlock, which reads the fixed list slot [005d8058] every pass as DBSIM's does. ShapeNode_ComposeToViewTransform and ShapeRender_BindNodeTransforms save into the slots at 004869d8.",
+      "description": "(slot): the VSHELL copy of DBSIM's Raster_SaveState: g_ModelToView, the model and view transform pointers (005d7fa4, 005d7fa0), g_EyeInModelSpace and, when 005ddbb0 is set, a 0x16-byte model-space copy per registered light through Light_GetModelSpaceBlock, which reads the fixed list slot [Light_ActiveList] every pass as DBSIM's does. ShapeNode_ComposeToViewTransform and ShapeRender_BindNodeTransforms save into the slots at 004869d8.",
       "source": "VSHELL decompile at 0045f458"
     },
     {
@@ -11920,7 +13053,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_RestoreState",
-      "description": "(slot): the VSHELL copy of DBSIM's Raster_RestoreState: reinstates the model and view transform pointers (005d7fa4, 005d7fa0), g_ModelToView, a recomputed g_ViewToModel (Transform_InvertRigid), g_EyeInModelSpace and, when 005ddbb0 is set, each registered light's model-space copy from +0x34 through 0045f907, reading the fixed list slot [005d8058] every pass as DBSIM's does. ShapeNode_ComposeToViewTransform restores slot 0 (004869d8) with it.",
+      "description": "(slot): the VSHELL copy of DBSIM's Raster_RestoreState: reinstates the model and view transform pointers (005d7fa4, 005d7fa0), g_ModelToView, a recomputed g_ViewToModel (Transform_InvertRigid), g_EyeInModelSpace and, when 005ddbb0 is set, each registered light's model-space copy from +0x34 through 0045f907, reading the fixed list slot [Light_ActiveList] every pass as DBSIM's does. ShapeNode_ComposeToViewTransform restores slot 0 (004869d8) with it.",
       "source": "VSHELL disassembly at 0045f528"
     },
     {
@@ -11947,7 +13080,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Vec3_Subtract",
-      "description": "(a, b): subtracts b from a in place, z first and then x and y through Vec2_Subtract; returns a. Light_Register (0045dc30) and 0045dec4 call it. The VSHELL copy of DBSIM's Vec3_Subtract (00492952).",
+      "description": "(a, b): subtracts b from a in place, z first and then x and y through Vec2_Subtract; returns a. Light_Register (0045dc30) and Light_ComputeShadeForNormal call it. The VSHELL copy of DBSIM's Vec3_Subtract (00492952).",
       "source": "VSHELL decompile at 0045f6c8; es2_naming.py diff against DBSIM 00492952"
     },
     {
@@ -12271,7 +13404,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_ResetSystem",
-      "description": "Clears the ten light slots (005d8058) and their counters, Light_EnableModelSpaceTransform, numbers the 32 shorts at 005d8014, zeroes 0x5b30 bytes at 005d8080, registers g_TSObjectTypeRegistry with ClassItem_RegisterBucket, and installs the identity (Transform_Reset on 005d7fa8) as both 005d7fa0 and the model transform 005d7fa4. Display_Init calls it. The VSHELL copy of DBSIM's Light_ResetSystem (0048dbfc).",
+      "description": "Clears the ten light slots (Light_ActiveList) and their counters, Light_EnableModelSpaceTransform, numbers the 32 shorts at Poly_SequentialIndices, zeroes 0x5b30 bytes at 005d8080, registers g_TSObjectTypeRegistry with ClassItem_RegisterBucket, and installs the identity (Transform_Reset on 005d7fa8) as both 005d7fa0 and the model transform 005d7fa4. Display_Init calls it. The VSHELL copy of DBSIM's Light_ResetSystem (0048dbfc).",
       "source": "VSHELL decompile at 0045fa04; es2_naming.py diff against DBSIM 0048dbfc"
     },
     {
@@ -13495,7 +14628,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ProjectShapeVerticesPerspective",
-      "description": "Poly_ProjectShapeVertices' perspective path: for each vertex of the current polygon not yet seen, transforms it by g_ModelToView (004521dc); when its depth is beyond 005d7fd8 projects it as (x << 005d7fd4) / depth + 005d7fe0 and 005d7fe4 - (z << 005d7fd4) / depth into the screen list 005ddaae and the cache 005dbb6e and marks it 2, else marks it 1. A cached vertex (2) is copied. Returns 1 when any vertex is marked 1, else 0; 0 at once when the polygon is empty or the shift is 0.",
+      "description": "Poly_ProjectShapeVertices' perspective path: for each vertex of the current polygon not yet seen, transforms it by g_ModelToView (004521dc); when its depth is beyond 005d7fd8 projects it as (x << 005d7fd4) / depth + 005d7fe0 and 005d7fe4 - (z << 005d7fd4) / depth into the screen list Poly_ScreenPoints and the cache Poly_ScreenCache and marks it 2, else marks it 1. A cached vertex (2) is copied. Returns 1 when any vertex is marked 1, else 0; 0 at once when the polygon is empty or the shift is 0.",
       "source": "VSHELL decompile and disassembly at 00462eb8"
     },
     {
@@ -14570,6 +15703,33 @@
       "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
     },
     {
+      "address": "00467d20",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly3_SubtractOffset",
+      "description": "(in, offset, out): out = in with offset subtracted from each int32 {x, y, z} point; count copied. The VSHELL copy of DBSIM's Poly3_SubtractOffset (00494f98).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "00467d68",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly3_AddOffset",
+      "description": "(in, offset, out): out = in with offset added to each int32 {x, y, z} point; count copied. The VSHELL copy of DBSIM's Poly3_AddOffset (00494fe0).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "00467dae",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_ReturnArgCopy2",
+      "description": "Returns its argument unchanged (MOV EAX,[EBP+8]; the decompile drops it) -- a third copy of Rtl_ReturnArg (00468044). Transform_CtorRotation and Bitmap_BlitRotatedScaled call it. The VSHELL copy of DBSIM's Rtl_ReturnArgCopy2 (00495043).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "00467db6",
       "binary": "VSHELL",
       "type": "function",
@@ -14584,7 +15744,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Transform_Ctor",
-      "description": "(transform): 00467e10 on it and maybe_Point3I_Ctor on its translation at +0x14; returns it. The VSHELL copy of DBSIM's Transform_Ctor.",
+      "description": "(transform): Transform_CtorRotation on it and maybe_Point3I_Ctor on its translation at +0x14; returns it. The VSHELL copy of DBSIM's Transform_Ctor.",
       "source": "VSHELL disassembly at 00467dc1"
     },
     {
@@ -14613,6 +15773,15 @@
       "name": "View_BuildTransform",
       "description": "(view, out): 00467e23(out, view + 0x10, view + 4) -- the VSHELL copy of DBSIM's View_BuildTransform.",
       "source": "VSHELL disassembly at 00467df4"
+    },
+    {
+      "address": "00467e10",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Transform_CtorRotation",
+      "description": "(transform): returns Rtl_ReturnArgCopy2(transform), its argument; constructs nothing. Transform_Ctor runs it before constructing the translation at +0x14. The VSHELL copy of DBSIM's Transform_CtorRotation (00495088).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "00467e23",
@@ -14649,6 +15818,15 @@
       "name": "Point2I_Negate",
       "description": "Negates the two int32 components of a point in place.",
       "source": "VSHELL decompile and disassembly at 00467e7e"
+    },
+    {
+      "address": "00467e8b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Plane_Ctor",
+      "description": "(plane): maybe_Point3I_Ctor on the plane's leading normal; returns the plane. 004675d4, 00467614 and 00467ac4 pass it to Rtl_VectorNew for six 0x10-byte planes each. The VSHELL copy of DBSIM's Plane_Ctor (00495102).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "00467e9e",
@@ -14703,6 +15881,15 @@
       "name": "HeightOffsetTable_Reset",
       "description": "(table): memsets the per-height computed flags (table+0x10, length table+0xc) and writes the view-space image of (0, 0, 0x10000) under g_ModelToView into *(table+0x18). The VSHELL copy of DBSIM's HeightOffsetTable_Reset (004951f0).",
       "source": "VSHELL decompile at 00467f78"
+    },
+    {
+      "address": "00467fc8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightOffsetTable_Get",
+      "description": "(table, rawHeight): returns the 12-byte offset of a raw height byte at table+0x14 + rawHeight*12, filling it on first use (flag byte table+0x10[rawHeight]): each component of the up vector at *(table+0x18) times rawHeight*step(+4) + base(+8) through FixedMulQ16. HGrid's cell drawer 00429dac calls it four times. The VSHELL copy of DBSIM's HeightOffsetTable_Get (00495240).",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "00468044",
@@ -16595,6 +17782,24 @@
       "source": "VSHELL decompile and disassembly; calling pattern in every polymorphic delete, e.g. VolRStream_Dtor"
     },
     {
+      "address": "0046b34d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_ExceptInit",
+      "description": "Borland RTL exception setup: (block): with block null, takes the exception-DLL info from the module's own __GetExceptDLLinfo export (GetProcAddress) when 0046c058 is set and the magic lies in 0x82727349-0x82727359, else from Rtl_GetExceptDllInfoInternal; with a block, points its +8 and +0xc at the RTL's 0046b274 and 0046b2ef. Stores the block at FS:[4] - 8, clears FS:[4] - 4 and the block's +4, and for a null block sets Rtl_DtorCountPtr to FS:[4] - 4. Byte-identical to DBSIM's 00496361.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0046b40a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_GetExceptDllInfoInternal",
+      "description": "Borland RTL: (info): stores (the thread's exception block at FS:[4] - 8) + 0x24 at 00480e78 and fills info with the magic 0x82727349 and the address 00480e5c. The exported __GetExceptDLLinfo (00401074) tail-jumps to it, and Rtl_ExceptInit calls it when the module exports none in the magic range.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "0046b494",
       "binary": "VSHELL",
       "type": "function",
@@ -16773,6 +17978,24 @@
       "name": "Key_VkTable",
       "description": "MainWndProc's 0x54 dword table of virtual-key codes: a key's position in it is its set-1 scancode, the key code VSHELL's keyboard works in. Punctuation VKs are absent, so those keys send nothing.",
       "source": "docs/shell/screen-layout.md#typing-into-a-row"
+    },
+    {
+      "address": "0046d608",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Mouse_ScaleX",
+      "description": "Q16 factor (header int16 +2 << 16) / client width, set by Mouse_RecomputeScale; 0 until it first runs, which is what makes Mouse_DispatchEvent run it. DBSIM's 004a2de4 is the 16.15 equivalent.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0046d60c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Mouse_ScaleY",
+      "description": "Q16 factor (header int16 +0 << 16) / client height, Mouse_ScaleX's twin. DBSIM's 004a2de8 is the 16.15 equivalent.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "0046dcc0",
@@ -17104,8 +18327,17 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TexturedPolyUseBitmapBrush",
-      "description": "Selects how TSTexture4Poly_Render fills a textured poly; both ways sample the frame. 0: the frame descriptor at g_ActiveBitmapArray[1] gives the UV corners, and the 3D positions go to TSTexture4Poly_RasterizeA or B (g_TexturedPolyPerspective). Non-zero: the frame's bitmap comes from the DBA's pointer list (+8), and a type-7 bitmap brush {7, count, uvs, bitmap, remap row} is installed at the context's +0x22c with the UVs the bitmap's extent inset by 3 on each side and the remap row ((DAT_0047e9ac - 1) * shade & ~0xff) + DAT_0047e9a8 (0 while DAT_0047e9ac is 0); the vertices are projected (Poly_ProjectShapeVertices), near-plane clipped with the UVs when needed (Poly_ClipRingToNearPlaneWithUV) and filled through PolyFill_FillThenOutline, and the default brush 005d8000 is restored after. The runtime condition that sets this flag is not determined.",
+      "description": "Selects how TSTexture4Poly_Render fills a textured poly; both ways sample the frame. 0: the frame descriptor at g_ActiveBitmapArray[1] gives the UV corners, and the 3D positions go to TSTexture4Poly_RasterizeA or B (g_TexturedPolyPerspective). Non-zero: the frame's bitmap comes from the DBA's pointer list (+8), and a type-7 bitmap brush {7, count, uvs, bitmap, remap row} is installed at the context's +0x22c with the UVs the bitmap's extent inset by 3 on each side and the remap row ((DAT_0047e9ac - 1) * shade & ~0xff) + DAT_0047e9a8 (0 while DAT_0047e9ac is 0); the vertices are projected (Poly_ProjectShapeVertices), near-plane clipped with the UVs when needed (Poly_ClipRingToNearPlaneWithUV) and filled through PolyFill_FillThenOutline, and the default brush PolyFill_FillBrush is restored after. The runtime condition that sets this flag is not determined.",
       "source": "VSHELL decompile of TSTexture4Poly_Render (00422af5)"
+    },
+    {
+      "address": "00471894",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ShadeMode",
+      "description": "Shading mode, 0-2. At 2 Terrain_FillCellUntextured fills with per-vertex shades (Poly_ClipRingToNearPlaneWithShade, a mode-1 brush) and TSTexture4Poly_Render takes its mode-2 path; it is also the span mode TSTexture4Poly_Render hands the rasterizer. ShellMap_PaintRelief sets 2 around its paint and restores it; the cell drawer 00429dac branches on 1 and 2. DBSIM's counterpart is 004aab30.",
+      "source": "VSHELL decompile: the 20 references es2_naming.py callers lists"
     },
     {
       "address": "00471898",
@@ -17126,6 +18358,15 @@
       "source": "docs/formats/dfn-hfn-dci.md"
     },
     {
+      "address": "0047315c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_MciDeviceId",
+      "description": "MCI device id of the open cdaudio device, or -1 when closed. The VSHELL copy of DBSIM's Music_MciDeviceId.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "00473160",
       "binary": "VSHELL",
       "type": "data",
@@ -17140,8 +18381,26 @@
       "type": "data",
       "confidence": "high",
       "name": "Sos_LastError",
-      "description": "The last SOS result the backend stored: the driver open (0042df68) and Sos_ShutdownDrivers write their SOS calls' results here. Read by Sos_GetLastError. The VSHELL counterpart of DBSIM's Sos_LastError.",
+      "description": "The last SOS result the backend stored: the driver open (Sos_OpenDrivers) and Sos_ShutdownDrivers write their SOS calls' results here. Read by Sos_GetLastError. The VSHELL counterpart of DBSIM's Sos_LastError.",
       "source": "VSHELL disassembly: writes 0042dfcc-0042e402"
+    },
+    {
+      "address": "00473184",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sos_DigiDriverOpen",
+      "description": "int16: set to 1 when Sos_OpenDrivers has opened the digital driver, 0 when Sos_InitDriver fails; Sos_OpenDrivers skips the digital bring-up while it is set. DBSIM's is 004a0e6c.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "00473186",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sos_MidiDriverOpen",
+      "description": "int16: set to 1 when Sos_OpenDrivers has opened the MIDI driver, 0 when Sos_MidiInitDriver fails; Sos_OpenDrivers skips the MIDI detection and bring-up while it is set. DBSIM's is 004a0e6e.",
+      "source": "VSHELL decompile and disassembly"
     },
     {
       "address": "004731f0",
@@ -17530,6 +18789,42 @@
       "source": "VSHELL decompile at 004044dc and VshellClassItem_LoadItem"
     },
     {
+      "address": "00481780",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MouseListenerTable",
+      "description": "Ten 12-byte mouse-listener slots {enabled, eventMask, callback}: MouseListener_Register fills the first free one, MouseListener_Unregister clears one and Mouse_DispatchEvent calls them. The VSHELL copy of DBSIM's 006c5f5c.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "004817f8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MouseDriver_State",
+      "description": "The mouse driver's {int x, int y, int16 buttons} record in canvas space, written by Mouse_DispatchEvent and returned by MouseDriver_GetState. The VSHELL copy of DBSIM's 006c5fd4.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "00481802",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Mouse_ClientRect",
+      "description": "RECT the main window's client area is read into by Mouse_RecomputeScale and Mouse_WarpCursorToPoint (right at 0048180a, bottom at 0048180e: the client width and height).",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "00481814",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "DVJoystick_JoyInfo",
+      "description": "Two 16-byte JOYINFO records {wXpos, wYpos, wZpos, wButtons}, joysticks 0 and 1, filled by DVJoystick_PollButtons and read by DVJoystick_ReadAxes (kind 3 the first, kind 4 the second) and DVJoystick_ReadAxesDigital.",
+      "source": "VSHELL decompile and disassembly; class from the src32\\dv_jy.cpp assert strings at 0046d6b0 and 0046d6f8"
+    },
+    {
       "address": "00481e54",
       "binary": "VSHELL",
       "type": "data",
@@ -17698,6 +18993,15 @@
       "name": "ShellOption_Sounds",
       "description": "prefs.cfg option 1, SOUNDS: gates the shell's click sounds.",
       "source": "docs/shell/screen-layout.md#sound"
+    },
+    {
+      "address": "004824ba",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_PilotMessage",
+      "description": "prefs.cfg option 2, the simulator's PILOT MESSAGE: 0 text only, 1 voice only, 2 both. Cases 2 and 3 of PreferencesScreen_ToggleAudioOption cycle it.",
+      "source": "docs/simulation/preferences.md#what-each-byte-is"
     },
     {
       "address": "004824bc",
@@ -17988,6 +19292,78 @@
       "source": "docs/shell/screen-layout.md#input-while-a-movie-plays"
     },
     {
+      "address": "0048a314",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TerrainViewerPos",
+      "description": "int32 {x, y, z} viewer position Terrain_FaceVisibilityTest measures from; 0042b019 shifts its x and y by the grid's cell shift. The VSHELL copy of DBSIM's g_TerrainViewerPos.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0048a438",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HGrid_SpanFirstRow",
+      "description": "First row HGrid_RowSpans holds a span for; HGrid_BuildCircleSpans starts it at the grid's row count and HGrid_SpanAddCell lowers it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0048a43c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HGrid_SpanLastRow",
+      "description": "Last row HGrid_RowSpans holds a span for; HGrid_BuildCircleSpans starts it at 0 and HGrid_SpanAddCell raises it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0048a440",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HGrid_RowSpans",
+      "description": "256 per-row cell spans, int16 {minX, maxX} each (0x400 bytes), that HGrid_BuildCircleSpans resets to 0xffff and HGrid_SpanAddCell widens.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0048a940",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_NotifyWindow",
+      "description": "The window handle Sos_InitBackend was given, used as MCI_PLAY's dwCallback by Music_PlayTrack and Music_ResumeAt. The VSHELL copy of DBSIM's Music_NotifyWindow.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0048a944",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_TrackLength",
+      "description": "The MSF length Music_GetTrackLength last returned, the MCI_TO of Music_PlayTrack and Music_ResumeAt. The VSHELL copy of DBSIM's Music_TrackLength.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0048aa26",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sos_DriverHandle",
+      "description": "int16 SOS digital driver handle: Sos_OpenDrivers passes its address to Sos_InitDriver as the out-parameter and hands it to Sos_SetActiveWindow. The VSHELL copy of DBSIM's Sos_DriverHandle.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0048aa28",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sos_MidiDriverHandle",
+      "description": "int16 SOS MIDI driver handle Sos_OpenDrivers gets from Sos_MidiInitDriver and passes to Sos_MidiSetInsData for the two banks.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
       "address": "0048cdcc",
       "binary": "VSHELL",
       "type": "data",
@@ -18051,6 +19427,15 @@
       "source": "docs/shell/screen-layout.md#quit"
     },
     {
+      "address": "0048d118",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairInternalsPictures",
+      "description": "Eight Grid widgets, one per bay, the internals damage pictures Repair_BuildScreen builds over {0x10, 0x2f, 0xe0, 0x12f} and Repair_BuildDiagrams fills. Repair_SwapDiagram shows the selected bay's in place of its SquadSlotPictureWidgets entry while the internals list is selected.",
+      "source": "docs/shell/screen-layout.md#the-repair-screen"
+    },
+    {
       "address": "0048d1f8",
       "binary": "VSHELL",
       "type": "data",
@@ -18058,6 +19443,24 @@
       "name": "RepairHotspotHandlers",
       "description": "Twenty-five thunks in one table, filled by 00431f3c: sixteen for column 0 (the rects over the chassis picture) then nine for column 1 (the internal-component list). Each calls Repair_SelectHotspot with its own (column, row).",
       "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "0048d2a4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PreferencesScreen_Root",
+      "description": "The preferences screen's root image panel, built by PreferencesScreen_Build, shown by PreferencesScreen_Enter and hidden by PreferencesScreen_Hide.",
+      "source": "docs/shell/screen-layout.md#the-preferences-screen"
+    },
+    {
+      "address": "0048d2a8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PreferencesScreen_Panel",
+      "description": "The preferences screen's content TitledPanel (0x103 PREFERENCES), parent of its five boxes and of Cancel and Accept; built by PreferencesScreen_Build, shown by PreferencesScreen_Enter and hidden by PreferencesScreen_Hide.",
+      "source": "docs/shell/screen-layout.md#the-preferences-screen"
     },
     {
       "address": "0048d344",
@@ -18267,6 +19670,51 @@
       "source": "Shell_Main disassembly at 00401b70; Assert_Emit"
     },
     {
+      "address": "0048e194",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "BitmapPoly_BottomVertex",
+      "description": "Index of the bottom vertex of the polygon Raster_FillBitmapPolygon is walking; Raster_BitmapEdgeSetup stops there. The VSHELL copy of DBSIM's 006c6004.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0048e198",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "BitmapPoly_VertexCount",
+      "description": "Vertex count of the polygon Raster_FillBitmapPolygon is walking (its first argument), the wrap for Raster_BitmapEdgeSetup. The VSHELL copy of DBSIM's 006c6008.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0048e19c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "BitmapPoly_DestPoints",
+      "description": "Pointer to the destination polygon's int32 {x, y} points for Raster_FillBitmapPolygon's edge walk. The VSHELL copy of DBSIM's 006c600c.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "0048e1a0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "BitmapPoly_SourcePoints",
+      "description": "Pointer to the source quad's int32 {u, v} points for Raster_FillBitmapPolygon's edge walk. The VSHELL copy of DBSIM's 006c6010.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "00497f20",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_BitmapAtlasCache",
+      "description": "The texture atlas: 256x256-byte pages, page p at +p*0x10000, that Bitmap_PlaceInAtlasPage fills and Raster_SpanTextured reads at page<<16 | v<<8 | u. The VSHELL copy of DBSIM's maybe_g_BitmapAtlasCache.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "005d7f60",
       "binary": "VSHELL",
       "type": "data",
@@ -18294,6 +19742,42 @@
       "source": "VSHELL decompile at 0045e198"
     },
     {
+      "address": "005d7ff8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PolyFill_LineBrush",
+      "description": "The default line brush TSGroup_RenderPolys and TSBSPGroup_Render install at the render context's +0x228: +0 the brush mode, +4 the colour (PolyFill_LineColour). The VSHELL copy of DBSIM's 006c60d0.",
+      "source": "VSHELL decompile: TSGroup_RenderPolys and TSBSPGroup_Render install it; the +4 colour is what PolyFill_Fill compares"
+    },
+    {
+      "address": "005d7ffc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PolyFill_LineColour",
+      "description": "+4 of PolyFill_LineBrush, the current polygon's line colour: PolyFill_Fill and PolyFill_FillThenOutline run an outline pass in it when it differs from PolyFill_FillColour. The VSHELL copy of DBSIM's 006c60d4.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "005d8000",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PolyFill_FillBrush",
+      "description": "The default fill brush TSGroup_RenderPolys and TSBSPGroup_Render install at the render context's +0x22c: +0 the brush mode, +4 the colour (PolyFill_FillColour), +0xc the per-vertex shade array the Gouraud renderers point it at. PolyFill_Fill's outline pass sets the mode to 4, the Gouraud renderers to 1 and TSAliasSolidPoly_Render to 0. The VSHELL copy of DBSIM's 006c60d8.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "005d8004",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PolyFill_FillColour",
+      "description": "+4 of PolyFill_FillBrush, the current polygon's fill colour: the TS poly renderers set it with PolyFill_LineColour from the surface record, and PolyFill_Fill's outline pass copies the line colour into it. The VSHELL copy of DBSIM's 006c60dc.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "005d8010",
       "binary": "VSHELL",
       "type": "data",
@@ -18303,6 +19787,69 @@
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
+      "address": "005d8014",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_SequentialIndices",
+      "description": "32 uint16 vertex indices 0, 1, 2, ... that Light_ResetSystem numbers: the index list TSGroup_RenderPolys uses for a group with none of its own and Terrain_FillCellUntextured for its polygon. DBSIM's is 006c60ec.",
+      "source": "VSHELL decompile: Light_ResetSystem, TSGroup_RenderPolys, Terrain_FillCellUntextured"
+    },
+    {
+      "address": "005d8054",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Light_ActiveCount",
+      "description": "Number of entries in Light_ActiveList. The VSHELL copy of DBSIM's 006c612c.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "005d8058",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Light_ActiveList",
+      "description": "The active light list, light object pointers that Light_ComputeShadeForNormal walks. The VSHELL copy of DBSIM's 006c6130.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "005d8890",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_RingCount",
+      "description": "uint16 vertex count of the current polygon ring, from the poly's +8 in the TS poly renderers. The VSHELL copy of DBSIM's 006c6968.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "005d8892",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_RingFirst",
+      "description": "uint16 index of the current ring's first entry in Poly_RingIndices, from the poly's +0xa. The VSHELL copy of DBSIM's 006c696a.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "005d8898",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_ViewVertices",
+      "description": "Pointer to the int32 {x, y, z} vertices (12 bytes each) the ring's indices select: Poly_ProjectViewVertices projects them as view-space points and copies them to Poly_ViewCache; Terrain_FillCellUntextured points it at its caller's vertices.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "005d889e",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_RingIndices",
+      "description": "Pointer to the uint16 vertex-index list the current ring indexes from Poly_RingFirst. The VSHELL copy of DBSIM's 006c6976.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
       "address": "005d88a2",
       "binary": "VSHELL",
       "type": "data",
@@ -18310,6 +19857,51 @@
       "name": "g_ActiveSurfaceRecords",
       "description": "Global pointer, set from the active TSGroup's own +0x18 field by TSGroup_RenderPolys and TSBSPGroup_Render for the duration of one group's poly walk (save/swap/restore, the same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine) -- a TSGroup surface entry's 8-short, 16-byte on-disk layout, which is why the file stores a group's surface count as surfaceCount*4. TSTexture4Poly_Render indexes it at byte offset field*4 (front) and field*4+8 (back) with the poly's surface field, which lands on one surface's Front/Back slots because that field holds surfaceIndex*4. See docs/formats/dts-texture-binding.md.",
       "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "005d88a6",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_VertexState",
+      "description": "One byte per vertex: 0 not yet projected, 1 nearer than the near plane, 2 projected (its screen point in Poly_ScreenCache). The ring clips branch on it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "005d8c8e",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_ViewCache",
+      "description": "Per-vertex cache of view-space points, int32 {x, y, z} (12 bytes each) indexed by vertex: the near-plane clips interpolate crossings from it.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "005dbb6e",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_ScreenCache",
+      "description": "Per-vertex cache of projected screen points, int32 {x, y} (8 bytes each) indexed by vertex, valid where Poly_VertexState is 2.",
+      "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "005ddaae",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_ScreenPoints",
+      "description": "The screen-point list: int32 {x, y} pairs that Poly_ProjectShapeVertices and Poly_ProjectViewVertices fill and the near-plane clips rebuild, and PolyFill_Fill / PolyFill_FillThenOutline fill. The VSHELL copy of DBSIM's 006cbb86.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
+    },
+    {
+      "address": "005ddbae",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Poly_ScreenPointCount",
+      "description": "uint16 count of Poly_ScreenPoints. The VSHELL copy of DBSIM's 006cbc86.",
+      "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
       "address": "005ddbd0",

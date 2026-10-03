@@ -462,7 +462,7 @@ The draws the path makes are VSHELL's generator's ([`campaign-loop.md`](campaign
 
 ## The preferences screen
 
-What `PREFERENCES` opens: six `prefs.cfg` options ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)) as eleven checkboxes in five boxes. Built once at startup by `PreferencesScreen_Build` (`00434f08`), which also loads `dba\chk_box.dba`; put up by `PreferencesScreen_Enter` (`004366b5`) and hidden by `FUN_00436717`. Like the main menu it stands alone over a backdrop-textured root of its own, with the strip hidden, and is left through its own `Cancel` and `Accept`. Rects are parent-relative.
+What `PREFERENCES` opens: six `prefs.cfg` options ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)) as eleven checkboxes in five boxes. Built once at startup by `PreferencesScreen_Build` (`00434f08`), which also loads `dba\chk_box.dba`; put up by `PreferencesScreen_Enter` (`004366b5`) and hidden by `PreferencesScreen_Hide` (`00436717`). Like the main menu it stands alone over a backdrop-textured root of its own, with the strip hidden, and is left through its own `Cancel` and `Accept`. Rects are parent-relative.
 
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
@@ -499,7 +499,7 @@ The display box lays its two out side by side, each label left of its checkbox; 
 
 A group's setter — `PreferencesScreen_SetRepairMode` (`00436a9c`) for repair, `PreferencesScreen_SetWeaponsBuildMode` (`00436b50`) for weapons, `PreferencesScreen_SetGameResolution` (`00436abc`) for resolution, `PreferencesScreen_SetDisplayMode` (`00436b70`) for display — stores its value in a word of its own (`00474cc4`, `00474cc8`, `00474cc6` and `00474cca`, [Open](#open)), writes the option through `ShellOptions_SetOption` with apply set, and relights the group: `+0x69` to 1 on the checkbox of the option's value and 0 on the others. A value no checkbox in the group names relights nothing.
 
-The two sound checkboxes run `FUN_00436841` with 0 and 1 and then reseed both ticks. Case 1 toggles SOUNDS. Case 0 toggles MUSIC and runs a fade: turning it on, the toggle and then `ShellSound_FadeIn`; turning it off, `ShellSound_FadeOut` and then the toggle, so the fade's own MUSIC gate lets it run ([Sound](#sound)). The function also has cases 2 and 3, which cycle option 2, the simulator's PILOT MESSAGE ([Open](#open)).
+The two sound checkboxes run `PreferencesScreen_ToggleAudioOption` (`00436841`) with 0 and 1 and then reseed both ticks. Case 1 toggles SOUNDS. Case 0 toggles MUSIC and runs a fade: turning it on, the toggle and then `ShellSound_FadeIn`; turning it off, `ShellSound_FadeOut` and then the toggle, so the fade's own MUSIC gate lets it run ([Sound](#sound)). The function also has cases 2 and 3, which cycle option 2, the simulator's PILOT MESSAGE ([Open](#open)).
 
 `Game Resolution` is the simulator's video mode ([`../simulation/preferences.md`](../simulation/preferences.md#the-video-mode-and-full-screen-bytes)); the shell has one mode and does not read it.
 
@@ -524,7 +524,7 @@ The two sound checkboxes run `FUN_00436841` with 0 and 1 and then reseed both ti
 
 ### Leaving the preferences screen
 
-Both buttons end in `FUN_00436717` and `MainMenu_Show`, and differ in what they do with the options first:
+Both buttons end in `PreferencesScreen_Hide` (`00436717`) and `MainMenu_Show`, and differ in what they do with the options first:
 
 | Button | Does first |
 |---|---|
@@ -738,7 +738,9 @@ The content panel takes the right two thirds of the canvas. The left is the [dam
 | `SCRAP` | `Button` | `{0xf, 0x17, 0x78, 0x26}` in it | `0x46` |
 | `CANCEL` | `Button` | `{0x112, 0x193, 0x156, 0x1a2}` | `0x44` |
 
-Each row carries a click handler from the 25-thunk table at `0048d1f8`, one per `(column, row)` pair, and what that pair means and which clicks are refused are [below](#the-arming-and-repair-hotspots).
+Each row carries a click handler from the 25-thunk table `RepairHotspotHandlers` (`0048d1f8`), one per `(column, row)` pair, and what that pair means and which clicks are refused are [below](#the-arming-and-repair-hotspots).
+
+The `Internal` panel has a click handler of its own, `Repair_OnInternalPanel` (`00434705`). While tab 3 is up and the selection is in column 0, it hides the bay's exploded external picture and shows its internals picture, the swap `Repair_SwapDiagram` makes when the selection crosses into column 1, and leaves the selection where it is ([Open](#open)).
 
 **Five of the "buttons" are readouts.** A `Button` is constructed with a border colour and an enable flag, and the mode, salvage, item cost, condition and total cost boxes are all built disabled with border `0x13` and caption `0x17` where a live button takes `0x22` and `0x29`. They are boxes with a figure in them, and a click on one stops there and does nothing ([Which widget a click reaches](#which-widget-a-click-reaches)). Four of the five also set the caption's `+0xc1`, so each clears its own rect before drawing and a refresh overwrites the last figure cleanly; the mode box, which changes only with the mode flag, does not.
 
@@ -771,8 +773,8 @@ Both pictures are `Grid` widgets (`ESGrid_Ctor`, 0040b7e0): a filled panel with 
 
 `Repair_BuildDiagrams` (004140a9) fills both pictures for all eight bays:
 
-- **`0048d4bc[bay]`, the exploded external picture.** These are the squad panel's eight pictures, built by `Squad_BuildRosterList` at `{5, 0x2b, 0xeb, 0x130}` and moved here to `{0x10, 0x2f}` and sized `0xd0` by `0x100`, with their grid lines on. The sizing writes the far corner as `origin + size - 1` ([below](#the-bay-picture)), so they end at `{0xdf, 0x12e}`, a pixel short of the internals pictures' literal `{0xe0, 0x12f}`. Each `gam\rpr_*.dat` body record becomes the part in the slot its id names, from frame `+0x12` of `dba\rpr_<chassis>.dba` with the record's flags, remapping index `0xe`. Each fitted mount then adds the record `RepairLayout_FindWeaponPart` (`00413ccc`) finds in the weapon's group with id `slot + 6`, from `dba\rpr_wpns.dba`, remapping `0xf`; a weapon with no record for that socket draws nothing.
-- **`0048d118[bay]`, the internals picture.** One part in slot 0 from the chassis's single internals record, drawing its frame of `dba\<chassis>_int.dba` with flags 0. The Razor gets a second part in slot 1: frame 1 of the same bank at `(0x1d, 0xe)`. The decompiler shows that handle as a global of its own, `0046fe0c`; it is entry 8 of the bank cache at `0046fdec`, the one the Razor's first part was just loaded into.
+- **`SquadSlotPictureWidgets[bay]` (`0048d4bc`), the exploded external picture.** These are the squad panel's eight pictures, built by `Squad_BuildRosterList` at `{5, 0x2b, 0xeb, 0x130}` and moved here to `{0x10, 0x2f}` and sized `0xd0` by `0x100`, with their grid lines on. The sizing writes the far corner as `origin + size - 1` ([below](#the-bay-picture)), so they end at `{0xdf, 0x12e}`, a pixel short of the internals pictures' literal `{0xe0, 0x12f}`. Each `gam\rpr_*.dat` body record becomes the part in the slot its id names, from frame `+0x12` of `dba\rpr_<chassis>.dba` with the record's flags, remapping index `0xe`. Each fitted mount then adds the record `RepairLayout_FindWeaponPart` (`00413ccc`) finds in the weapon's group with id `slot + 6`, from `dba\rpr_wpns.dba`, remapping `0xf`; a weapon with no record for that socket draws nothing.
+- **`RepairInternalsPictures[bay]` (`0048d118`), the internals picture.** One part in slot 0 from the chassis's single internals record, drawing its frame of `dba\<chassis>_int.dba` with flags 0. The Razor gets a second part in slot 1: frame 1 of the same bank at `(0x1d, 0xe)`. The decompiler shows that handle as a global of its own, `0046fe0c`; it is entry 8 of the bank cache at `0046fdec`, the one the Razor's first part was just loaded into.
 
 The blit flags are 0 or 2 in every retail record, and 2 is the mirror: each left/right pair is one frame placed twice.
 
@@ -1194,9 +1196,9 @@ Both screens lay clickable rects over a picture of the selected machine. The geo
 
 `DAT_00482ae5` is the selected bay slot, 0-7 and `-1` for none, and both screens read the machine out of the eight-pointer array at `00482ac3`.
 
-**Arming** — `Arming_SelectHardpoint(hardpoint)` (0043dbb2), ten thunks, `0043e15f`-`0043e4c8`. `Hotspots_BuildOverlay(2)` lays one chromeless `Panel` per mount below the capacity over each bay's picture, the chassis's `arm_hots.dat` area of that index, so a higher mount answers over a lower one. The handler returns immediately when the click is on the hardpoint already selected, then reads the mount pointer at `herc + 0x50 + hardpoint*4` — null for an empty slot, otherwise its first `int16` is the fitted weapon id — and repaints. What it goes on to do is [above](#fitting-a-weapon).
+**Arming** — `Arming_SelectHardpoint(hardpoint)` (0043dbb2), ten thunks, `Arming_OnHardpoint0`-`Arming_OnHardpoint9` (`0043e15f`-`0043e4c8`). `Hotspots_BuildOverlay(2)` lays one chromeless `Panel` per mount below the capacity over each bay's picture, the chassis's `arm_hots.dat` area of that index, so a higher mount answers over a lower one. The handler returns immediately when the click is on the hardpoint already selected, then reads the mount pointer at `herc + 0x50 + hardpoint*4` — null for an empty slot, otherwise its first `int16` is the fitted weapon id — and repaints. What it goes on to do is [above](#fitting-a-weapon).
 
-**Repair** — `Repair_SelectHotspot(column, row)`, twenty-five thunks in one table at `0048d1f8` (`004340b5`-`00434ac8`). Sixteen are column 0, the hotspots on the picture; nine are column 1, a list beside it. The pair is resolved into a category and an index within it:
+**Repair** — `Repair_SelectHotspot(column, row)`, twenty-five thunks in one table, `RepairHotspotHandlers` (`0048d1f8`). Sixteen are column 0, the hotspots on the picture, `Repair_OnHotspot00`-`Repair_OnHotspot15` (`004340b5`-`004346a0`); nine are column 1, a list beside it, `Repair_OnInternalRow0`-`Repair_OnInternalRow8` (`004347a0`-`00434ac8`). The pair is resolved into a category and an index within it:
 
 | | `Repair_HotspotCategory` (00433410) category | `Repair_HotspotIndex` (00433431) index | Count | What it selects |
 |---|---|---|---|---|
@@ -1372,7 +1374,8 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** whether a command key with Shift, Ctrl or Alt down posts a command. `Keyboard_PostEvents` (`00408f95`) indexes the table at `0046e471` with the whole key code, so it reads a byte of the data section past the table's 256. None of those bytes in the image is 1, 4 or `0x0a`, so none edits a row ([Typing into a row](#typing-into-a-row)), but any that is not `0xff` posts a command, and with it runs the row's handler.
 - **Unported:** the auto-repeat of the mission screen's arrows.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
-- **Open:** what reaches cases 2 and 3 of `FUN_00436841`, which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
+- **Open:** what reaches cases 2 and 3 of `PreferencesScreen_ToggleAudioOption` (`00436841`), which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
+- **Open:** whether a retail click on the repair tab's `Internal` panel outside its nine rows reaches `Repair_OnInternalPanel` and swaps the pictures while an external row is selected ([The repair screen](#the-repair-screen)). The builder registers it as the panel's handler; no retail observation confirms the swap.
 - **Open:** what shows [the second registration panel](#the-second-registration-panel). A search of the disassembly for `DAT_0048d418` and `DAT_0048d470` as absolute operands finds their builders and three hides — `SaveScreen_Enter`, the teardown and `SaveRegistration_ShowDetailPanel` (`0043b679`) — and no show; the dead rect `{9, 0xcf, 0x6b, 0xde}` that `SaveScreen_BuildScreen` writes just before `SAVE`'s may be where a button that showed it stood.
 - **Unported:** the startup's `Performance Note` box ([The main menu](#the-main-menu)).
 - **Unported:** Alt+F4's `QUIT` alert ([QUIT](#quit)).

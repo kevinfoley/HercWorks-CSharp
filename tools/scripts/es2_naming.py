@@ -3,11 +3,14 @@
 
 Subcommands (BIN is DBSIM or VSHELL):
 
-  triage BIN [--limit N] [--max-lines L] [--sort named|sites|callers]
+  triage BIN [--limit N] [--max-lines L] [--sort named|sites|callers|refs] [--all]
       The es2_unnamed_callees backlog with each target's decompile size and its own unnamed
       callee count, so short leaf functions can be taken first. Columns: named callers, direct
-      call/branch sites in the whole binary, distinct calling functions (fns). --sort orders by
-      named callers (default), by sites, or by fns.
+      call/branch sites in the whole binary, distinct calling functions (fns), and refs: every
+      E8/E9 rel32 plus every stored dword pointer to the address anywhere in the image (the
+      es2_xref.py sweep, so vtable slots, callback and factory tables count). --sort orders by
+      named callers (default), by sites, by fns, or by refs. --all widens the backlog from
+      callees of named functions to every unnamed function start in the dump.
   body BIN addr... [-d] [--full]
       Decompile bodies with known_symbols names substituted for FUN_/DAT_ labels, the header
       banner, blank lines and local declarations dropped (--full keeps them). -d appends the
@@ -165,15 +168,52 @@ def addrs(args):
     return [a.lower().zfill(8) for a in args]
 
 
+def image_refs(binary, targets):
+    """address -> E8/E9 rel32 branches (any offset in a code section) plus stored little-endian
+    dwords (any offset, any section) equal to it: es2_xref.py's sweep for many targets in one pass.
+    Brute force, like es2_xref.py, so a byte run that merely looks like a branch can count."""
+    import es2_xref as X
+    image = X.Image(X.BINARIES[binary])
+    want = {int(a, 16): a for a in targets}
+    out = {}
+    data = image.data
+    for _n, va, _vs, raw_off, raw_size in image.executable():
+        for i in range(raw_off, raw_off + raw_size - 5):
+            if data[i] in (0xE8, 0xE9):
+                t = va + (i - raw_off) + 5 + struct.unpack_from("<i", data, i + 1)[0]
+                if t in want:
+                    out[want[t]] = out.get(want[t], 0) + 1
+    for i in range(len(data) - 3):
+        t = struct.unpack_from("<I", data, i)[0]
+        if t in want:
+            out[want[t]] = out.get(want[t], 0) + 1
+    return out
+
+
 def cmd_triage(args):
     binary = args[0]
     limit = int(args[args.index("--limit") + 1]) if "--limit" in args else 0
     maxl = int(args[args.index("--max-lines") + 1]) if "--max-lines" in args else 10 ** 9
     sort = args[args.index("--sort") + 1] if "--sort" in args else "named"
-    assert sort in ("named", "sites", "callers"), sort
+    assert sort in ("named", "sites", "callers", "refs"), sort
     rows = uc.analyse(binary, uc.CONFIDENCE_RANK["high"], False, None)
+    labels, branches = uc.parse_disasm(binary)
+    if "--all" in args:
+        known_fns = {a for a, e in uc.load_symbols(binary).items() if e.get("name")}
+        seen = {r["address"] for r in rows}
+        sites = {}
+        for _, ss in branches.items():
+            for _, k, t in ss:
+                sites[t] = sites.get(t, 0) + 1
+        for a, label in labels.items():
+            if a.startswith("~") or a in known_fns or a in seen or not label.startswith(uc.UNNAMED_PREFIXES):
+                continue
+            rows.append({"address": a, "named_caller_count": 0, "named_callers": {},
+                         "total_call_sites": sites.get(a, 0)})
     backlog = {r["address"] for r in rows}
-    _, branches = uc.parse_disasm(binary)
+    refs = image_refs(binary, backlog)
+    for r in rows:
+        r["refs"] = refs.get(r["address"], 0)
     # Distinct functions anywhere in the binary that CALL each backlog target.
     callers = {}
     for c, sites in branches.items():
@@ -186,17 +226,19 @@ def cmd_triage(args):
         rows.sort(key=lambda r: (-r["total_call_sites"], -r["all_callers"], r["address"]))
     elif sort == "callers":
         rows.sort(key=lambda r: (-r["all_callers"], -r["total_call_sites"], r["address"]))
+    elif sort == "refs":
+        rows.sort(key=lambda r: (-r["refs"], -r["all_callers"], r["address"]))
     known = names(binary)
     d = bodies(binary)
     shown = 0
-    print("address   named sites fns lines unnamedCallees  callers")
+    print("address   named sites fns  refs lines unnamedCallees  callers")
     for r in rows:
         a = r["address"]
         n = len(compact(d[a], known).splitlines()) if a in d else -1
         if n > maxl:
             continue
         sub = sorted({t for _, k, t in branches.get(a, []) if k == "CALL" and t not in known})
-        print(f"{a}  {r['named_caller_count']:>5} {r['total_call_sites']:>5} {r['all_callers']:>3} {n:>5} {len(sub):>3}"
+        print(f"{a}  {r['named_caller_count']:>5} {r['total_call_sites']:>5} {r['all_callers']:>3} {r['refs']:>5} {n:>5} {len(sub):>3}"
               f"{'(' + ','.join(t for t in sub if t in backlog) + ')' if any(t in backlog for t in sub) else ''}"
               f"  {', '.join(sorted(r['named_callers'])[:3])}")
         shown += 1

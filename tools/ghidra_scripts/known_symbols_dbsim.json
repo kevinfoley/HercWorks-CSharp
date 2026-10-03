@@ -15496,7 +15496,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_FillCellUntextured",
-      "description": "(points, count, shades): Terrain_DrawCellQuad's fill for a cell when terrain texturing is off. Installs the points as the current face (DAT_006c6970, count DAT_006c6968, index list 006c60ec, state bytes cleared), projects them (0048cbd8) and clips them to the near plane (Poly_ClipRingToNearPlane) when that reports one behind it. With shade mode DAT_004aab30 == 2 it installs a mode-1 brush on ramp 2 with the per-vertex shades (carried through the clip by 0048d280), which Raster_FillContourPolygon bands; otherwise a mode-0 brush of the one colour Raster_ShadeRampRow(0x4b)[Palette_ShadeRampLookup(2, shades[0])]. Then 0042e8e8 on a stack object (vtable 004a0cb8) and PolyFill_Fill.",
+      "description": "(points, count, shades): Terrain_DrawCellQuad's fill for a cell when terrain texturing is off. Installs the points as the current face (DAT_006c6970, count DAT_006c6968, index list 006c60ec, state bytes cleared), projects them (Poly_ProjectViewVertices) and clips them to the near plane (Poly_ClipRingToNearPlane) when that reports one behind it. With shade mode DAT_004aab30 == 2 it installs a mode-1 brush on ramp 2 with the per-vertex shades (carried through the clip by Poly_ClipRingToNearPlaneWithShade), which Raster_FillContourPolygon bands; otherwise a mode-0 brush of the one colour Raster_ShadeRampRow(0x4b)[Palette_ShadeRampLookup(2, shades[0])]. Then 0042e8e8 on a stack object (vtable 004a0cb8) and PolyFill_Fill.",
       "source": "DBSIM decompile at 0046bb40"
     },
     {
@@ -19841,6 +19841,15 @@
       "source": "DBSIM disassembly at 00481411"
     },
     {
+      "address": "0048141a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_GetFlags",
+      "description": "(display): returns the display's first dword, its flags; bit 0 is set while it is open. The DBSIM copy of VSHELL's GLDisplay_GetFlags (00452fc2).",
+      "source": "DBSIM decompile; es2_naming.py match/diff against the VSHELL function named in the description"
+    },
+    {
       "address": "00481440",
       "binary": "DBSIM",
       "type": "function",
@@ -21521,6 +21530,15 @@
       "signature": "int __cdecl Poly_ProjectIndexedVertices(void)"
     },
     {
+      "address": "0048cbd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ProjectViewVertices",
+      "description": "Projects the current ring's vertices from DAT_006c6970, already in view space, marking each 1 (nearer than the near plane) or 2 (projected, screen point cached) and returning 1 when any is behind the near plane. Terrain_FillCellUntextured calls it. The DBSIM copy of VSHELL's Poly_ProjectViewVertices (0045ea08).",
+      "source": "DBSIM decompile; es2_naming.py diff against VSHELL 0045ea08"
+    },
+    {
       "address": "0048ce14",
       "binary": "DBSIM",
       "type": "function",
@@ -21538,6 +21556,15 @@
       "name": "Poly_ClipRingToNearPlaneWithUV",
       "description": "(uvIn, uvOut): Poly_ClipRingToNearPlane carrying a per-vertex {u, v} int pair along. Walks the current face's index ring (count DAT_006c6968, indices from DAT_006c6976 + DAT_006c696a * 2): an edge with both ends projected (state byte 2) emits the end's screen point and copies its pair; an edge with one projected end emits the crossing of the near plane DAT_006c60b0 (view x and -y linear in depth, plus the centre DAT_006c60b8) with the pair interpolated by the same fraction, then the end if it is the projected one. Returns the new count DAT_006cbc86 (points at DAT_006cbb86). TSTexture4Poly_Render's g_TexturedPolyUseBitmapBrush branch calls it when Poly_ProjectShapeVertices returns 1.",
       "source": "DBSIM decompile and disassembly at 0048cfec (returns [ESI+0x5b2e] = 006cbc86)"
+    },
+    {
+      "address": "0048d280",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipRingToNearPlaneWithShade",
+      "description": "(shadeIn, shadeOut): Poly_ClipRingToNearPlane carrying a per-vertex uint16 shade along, interpolating it at each near-plane crossing by the same view-space depth fraction as the point. TSGouraudPoly_Render and TSAliasGouraudPoly_Render call it. The DBSIM copy of VSHELL's Poly_ClipRingToNearPlaneWithShade (0045f0d4).",
+      "source": "DBSIM decompile; es2_naming.py match/diff against the VSHELL function named in the description"
     },
     {
       "address": "0048d4b4",

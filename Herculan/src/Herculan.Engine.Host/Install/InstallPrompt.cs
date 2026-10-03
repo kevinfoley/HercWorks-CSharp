@@ -7,10 +7,12 @@ using Silk.NET.OpenGL.Extensions.ImGui;
 namespace Herculan.Engine.Host.Install;
 
 /// <summary>
-/// The window the host opens when <see cref="GameInstall.Locate"/> finds no install: it asks the player for
+/// The window the host opens when <see cref="GameInstall.Locate"/> finds no install, or at once under
+/// <c>--ask-install</c>: it asks the player for
 /// the Earthsiege 2 folder, by the platform's own folder picker or by a typed path, and accepts only a folder
-/// <see cref="GameInstall.IsInstallRoot"/> takes. Retail has no equivalent; its installer wrote the path for
-/// it. The Settings menu asks the same way (<see cref="Create"/>).
+/// <see cref="GameInstall.IsInstallRoot"/> takes, or offers to install from a disc first
+/// (<see cref="InstallWindow"/>). Retail has no equivalent; its installer wrote the path for it. The Settings
+/// menu asks the same way (<see cref="Create"/>).
 /// </summary>
 static class InstallPrompt {
 	private const int WindowWidth = 640;
@@ -21,19 +23,35 @@ static class InstallPrompt {
 	/// <paramref name="dismissKey"/> is the string of the button that gives up, and <paramref name="messageKey"/>
 	/// the message's, when not the startup's own.
 	/// </summary>
-	public static FolderPrompt Create(LocalizationTable localization, string dismissKey, string initialPath = "",
-			string? messageKey = null) =>
+	public static PathPrompt Create(LocalizationTable localization, string dismissKey, string initialPath = "",
+			string? messageKey = null, string? alternativeKey = null) =>
 		new(localization, "install_prompt", dismissKey, path => GameInstall.IsInstallRoot(path)
 			? null
 			: string.Format(localization.GetString("install_prompt.not_an_install") ?? "install_prompt.not_an_install",
-				path, GameInstall.ArchiveFolderName), initialPath, messageKey);
+				path, GameInstall.ArchiveFolderName), initialPath, messageKey, alternativeKey: alternativeKey);
 
 	/// <summary>
-	/// Shows the prompt until the player picks an install or gives up. Returns the install root, or null
-	/// when the player chose Quit or closed the window. <paramref name="fontPath"/> is the ImGui font.
+	/// Shows the prompt until the player picks an install, makes one from a disc, or gives up. Returns the
+	/// install root, or null when the player chose Quit or closed the window. <paramref name="fontPath"/> is
+	/// the ImGui font.
 	/// </summary>
 	public static string? Run(LocalizationTable localization, string fontPath) {
-		var prompt = Create(localization, "install_prompt.quit");
+		while (true) {
+			var (chosen, install) = RunPrompt(localization, fontPath);
+			if (!install) {
+				return chosen;
+			}
+
+			if (InstallWindow.Run(localization, fontPath) is { } installed) {
+				return installed;
+			}
+		}
+	}
+
+	// The prompt's window: the folder chosen, or whether the player asked to install from a disc instead.
+	private static (string? Chosen, bool Install) RunPrompt(LocalizationTable localization, string fontPath) {
+		var prompt = Create(localization, "install_prompt.quit", alternativeKey: "install_prompt.install");
+		bool install = false;
 		using var window = new EngineWindow(localization.GetString("install_prompt.window_title") ?? "install_prompt.window_title",
 			WindowWidth, WindowHeight);
 
@@ -58,11 +76,13 @@ static class InstallPrompt {
 				| ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoBringToFrontOnFocus);
 			var outcome = prompt.Draw(window.View.Native?.Win32?.Hwnd ?? 0, GameInstall.ArchiveFolderName);
 			ImGui.End();
-			if (outcome != FolderPrompt.Outcome.Open) {
+			install = outcome == PathPrompt.Outcome.Alternative;
+			imgui.Render();
+
+			// Last: Close raises Closing at once, which disposes the controller.
+			if (outcome != PathPrompt.Outcome.Open) {
 				window.Close();
 			}
-
-			imgui.Render();
 		};
 
 		window.Closing += () => {
@@ -71,6 +91,6 @@ static class InstallPrompt {
 		};
 
 		window.Run();
-		return prompt.Chosen;
+		return (prompt.Chosen, install);
 	}
 }

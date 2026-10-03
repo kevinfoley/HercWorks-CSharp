@@ -16,4 +16,13 @@ public class Drive {
 
 	/// <summary>The install's directory, the second token, or null when there is none.</summary>
 	public string? InstallDirectory { get; set; }
+
+	/// <summary>
+	/// A disc image (<c>.iso</c>, <c>.bin</c>, <c>.cue</c>) to read in place of <see cref="Directory"/>, or null.
+	/// Not retail's: HERCULAN keeps it on a line of its own after the install's, prefixed
+	/// <see cref="Io.Transform.Common.DriveTransformer.ImagePrefix"/>. Both retail programs stop reading the file
+	/// after its second token (docs/formats/vol-archive.md, "Which archives are mounted"), so the original game
+	/// never sees it and still reads <see cref="Directory"/> as its disc.
+	/// </summary>
+	public string? DiscImage { get; set; }
 }

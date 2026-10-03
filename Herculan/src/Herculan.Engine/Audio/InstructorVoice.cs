@@ -14,15 +14,21 @@ namespace Herculan.Engine.Audio;
 /// the path <c>Sim_Run</c> (<c>0045f144</c>) reads at startup). One clip per instruction, not per sentence.</para>
 /// </summary>
 public static class InstructorVoice {
+	/// <summary>
+	/// The largest clip read. The longest retail clip is 268,058 bytes; this only keeps a damaged or foreign
+	/// file from being read into memory whole.
+	/// </summary>
+	public const long MaxClipBytes = 16 << 20;
+
 	/// <summary>The clip for instruction <paramref name="messageId"/> of training mission <paramref name="trainingMission"/>.</summary>
 	public static string ClipName(int trainingMission, int messageId) =>
 		$"TM{trainingMission}_{messageId + 1:0000}.WAV";
 
 	/// <summary>
-	/// Where that clip is read from: <paramref name="voiceFolder"/>\<see cref="ClipName"/> through
-	/// <see cref="GameInstall.DiscFile"/>.
+	/// That clip's bytes: <paramref name="voiceFolder"/>\<see cref="ClipName"/> through
+	/// <see cref="GameInstall.ReadDiscFile"/>, or null when there is none.
 	/// </summary>
 	/// <param name="voiceFolder"><c>SIMVOICE</c>, <c>SIMVOICF</c> or <c>SIMVOICG</c>.</param>
-	public static string ClipPath(string installRoot, string voiceFolder, int trainingMission, int messageId) =>
-		GameInstall.DiscFile(installRoot, Path.Combine(voiceFolder, ClipName(trainingMission, messageId)));
+	public static byte[]? ReadClip(string installRoot, GameDisc? disc, string voiceFolder, int trainingMission, int messageId) =>
+		GameInstall.ReadDiscFile(installRoot, disc, Path.Combine(voiceFolder, ClipName(trainingMission, messageId)), MaxClipBytes);
 }

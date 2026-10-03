@@ -25,8 +25,9 @@ Both builds install through Sierra's `SETUP.EXE`, which runs the script in `SIER
 
 **The size choice decides what is copied.** Minimum, Medium and Maximum copy more of the archives; whatever is left is read from the disc, which both programs find through `data\drive.cfg` ([`formats/vol-archive.md`](formats/vol-archive.md#which-archives-are-mounted)).
 
-- v1.0 copies `SIMVOICE.VOL` at every size. The lines that would pick the French or German archive are commented out, and its `[Files]` list gives `SIMVOICF.VOL` and `SIMVOICG.VOL` as 4 bytes each.
-- v1.10 copies the chosen language's voice archive and `README.WRI`, its `ERROR.*` as `ERROR.STR`, its `MISSION.*` as `DATA\MISSION.STR`, and under Windows 3.1 its `JCONFIG.*` as `JCONFIG.STR`. It adds `SHELL1.VOL` and `SIMLANG.VOL` to the archives.
+- Every size copies `SIMALERT.VOL`, `SIMSOUND.VOL` and `SIMPATCH.VOL`. Medium adds `SIMVOL0.VOL`; Maximum adds `SIMVOL0.VOL`, `SHLSOUND.VOL`, `SHELL0.VOL`, `ZONES.VOL` and `LANG0.VOL`. Both scripts also mark `PATCH1.VOL`, which neither `[Files]` list has.
+- v1.0 copies `SIMVOICE.VOL` at every size. The lines that would pick the French or German archive are commented out, and its `[Files]` list gives `SIMVOICF.VOL` and `SIMVOICG.VOL` as 4 bytes each. It marks `README.WRI` three times, against three `[Files]` entries in `ENGLISH\`, `FRENCH\` and `GERMAN\` ([Open](#open)).
+- v1.10 copies the chosen language's voice archive and `README.WRI`, its `ERROR.*` as `ERROR.STR`, its `MISSION.*` as `DATA\MISSION.STR`, and under Windows 3.1 its `JCONFIG.*` as `JCONFIG.STR`. It adds `SIMLANG.VOL` at every size and `SHELL1.VOL` to Maximum. Its Windows 3.1 branch takes the executables and the voice archives from `VER31\`, whose `SIMVOIC?.VOL` are smaller than `VOL\`'s, and its Windows 95 branch the executables from `VER95\`.
 
 **Some files are always read from the disc**, whatever the size: the movies, the on-line manual and the training instructor's clips, each under the directory `data\drive.cfg` names (`Path_UnderDriveCfg`, VSHELL `0040d429`; `DriveCfg_PrefixPath`, DBSIM `0045ee44`). Neither installer copies them. At startup VSHELL opens `avi\pt1.avi` there, and when it cannot, shows `Please insert ESII CD and restart` and quits (`Shell_Main`, `00401525`).
 
@@ -104,4 +105,5 @@ The second piece is v1.0's track 2: a rip of that track from a v1.0 disc is the 
 - **Open:** why the v1.0 `SIERRA.INF` lists `VSHELL.EXE` at 563,232 bytes. The disc it ships on carries a 564,768-byte one, the analysed `ES2\VSHELL.EXE`.
 - **Open:** what `VER31\ES.EXE` does with `data\language.cfg`, and how it numbers `-R`. It names the file; its code has not been read.
 - **Open:** what Sierra's `SETUP.EXE` tests `LANGUAGE_EQ` against.
+- **Open:** whether v1.0's three `TOGGLEON(README.WRI)` mark all three of its `README.WRI` entries. `BATCH.EXE` copies the chosen language's, which suggests each is installed.
 - **Open:** how v1.10 reaches the `AVF\` and `AVG\` intro movies. `VER95\VSHELL.EXE` names only `avi\intr_pt1.avi` and `avi\intr_pt2.avi`, as v1.0's does.

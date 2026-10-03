@@ -7,6 +7,10 @@
       "commandName": "Project",
       "commandLineArgs": "--shell"
     },
+	"Shell (ask for install)": {
+      "commandName": "Project",
+      "commandLineArgs": "--shell --ask-install"
+    },
     "Mission, developer": {
       "commandName": "Project",
       "commandLineArgs": "--developer"

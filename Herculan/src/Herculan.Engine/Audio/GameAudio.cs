@@ -144,10 +144,10 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	public SquadCommChannel? Squad { get; private set; }
 
 	/// <summary>
-	/// Where a training mission's instructor clip is read from, given the training mission and the
-	/// message id — see <see cref="InstructorVoice.ClipPath"/>. Null leaves the instructor silent.
+	/// Reads a training mission's instructor clip, given the training mission and the message id — see
+	/// <see cref="InstructorVoice.ReadClip"/>. Null leaves the instructor silent.
 	/// </summary>
-	public Func<int, int, string>? InstructorClipPath { get; set; }
+	public Func<int, int, byte[]?>? InstructorClip { get; set; }
 
 	/// <summary>
 	/// Hands this the mission's comm boxes and connects their two outputs: the recorded line goes to
@@ -170,8 +170,9 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		if (squad.Port.Training) {
 			squad.Port.Shown += message => {
 				if (squad.Port.Mode != MessageChannelMode.TextOnly && SpeechEnabled
-						&& InstructorClipPath is { } clipPath) {
-					SquadSpeech?.SpeakFile(clipPath(squad.TrainingMission, message.Id));
+						&& InstructorClip is { } readClip) {
+					int training = squad.TrainingMission;
+					SquadSpeech?.SpeakClip(InstructorVoice.ClipName(training, message.Id), () => readClip(training, message.Id));
 				}
 			};
 		}
@@ -223,8 +224,13 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// A directory of <c>TrackNN.wav</c> files to play instead of the disc; see
 	/// <see cref="WaveFileMusicSource"/>.
 	/// </param>
+	/// <param name="discImage">
+	/// The install's disc, when it is an image, whose audio tracks are preferred to a CD drive's; see
+	/// <see cref="ImageMusicSource"/>.
+	/// </param>
 	public static GameAudio Create(GameContent content, SimRandom? random = null, bool lowMemory = false,
-			bool silent = false, string? cdDrive = null, string? musicDirectory = null) {
+			bool silent = false, string? cdDrive = null, string? musicDirectory = null,
+			HercWorks.Disc.DiscImage? discImage = null) {
 		// Read first and unconditionally: the message port's display half needs nothing but the text,
 		// so the ticker still runs on a machine with no sound device and in an install with no
 		// SIMSOUND.VOL.
@@ -250,7 +256,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		// it was.
 		var cd = silent
 			? new NullCdAudio("silenced by request")
-			: CdAudio.Open(backend, cdDrive, musicDirectory);
+			: CdAudio.Open(backend, cdDrive, musicDirectory, discImage: discImage);
 		var director = new SoundDirector(bank, backend, random) { Cd = cd };
 		var voice = new ComputerVoice(content, messages, backend);
 		var squadVoice = new SquadVoice(content, backend);

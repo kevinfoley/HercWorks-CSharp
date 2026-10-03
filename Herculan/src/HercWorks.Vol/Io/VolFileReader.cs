@@ -27,11 +27,18 @@ public static class VolFileReader {
 	/// other program without reading it whole, as <c>Volume_LoadVolume</c> (<c>0047c9a4</c>) does.
 	/// </summary>
 	public static uint? ReadProgramMask(string volPath) {
+		using FileStream stream = File.OpenRead(volPath);
+		return ReadProgramMask(stream);
+	}
+
+	/// <summary>
+	/// <see cref="ReadProgramMask(string)"/> for an archive that is not a file of its own, such as one inside a
+	/// disc image, reading the first eight bytes from <paramref name="stream"/>'s current position.
+	/// </summary>
+	public static uint? ReadProgramMask(Stream stream) {
 		Span<byte> header = stackalloc byte[OffsetProgramMask + 4];
-		using (FileStream stream = File.OpenRead(volPath)) {
-			if (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) < header.Length) {
-				return null;
-			}
+		if (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) < header.Length) {
+			return null;
 		}
 
 		return header[..Magic.Length].SequenceEqual(Magic)
@@ -39,15 +46,21 @@ public static class VolFileReader {
 			: null;
 	}
 
-	public static Voln ParseVolFile(string volPath) {
-		byte[] data = File.ReadAllBytes(volPath);
+	public static Voln ParseVolFile(string volPath) =>
+		ParseVolBytes(Path.GetFileName(volPath), File.ReadAllBytes(volPath), volPath);
 
+	/// <summary>
+	/// Parses an archive already read into memory, for one that is not a file of its own, such as one inside a
+	/// disc image. <paramref name="fileName"/> is its name, <paramref name="filePath"/> where it came from, for
+	/// <see cref="Voln.FilePath"/>.
+	/// </summary>
+	public static Voln ParseVolBytes(string fileName, byte[] data, string? filePath = null) {
 		var volFile = new Voln.VolnBuilder()
-			.SetFileName(DataFile.MakeFileName(Path.GetFileName(volPath)))
+			.SetFileName(DataFile.MakeFileName(fileName))
 			.SetRawBytes(data)
 			.Build();
 
-		volFile.FilePath = volPath;
+		volFile.FilePath = filePath;
 
 		volFile.ProgramMask = (uint)ByteOps.ReadInt32LE(data, OffsetProgramMask);
 		volFile.DbsimFlag = (volFile.ProgramMask & Voln.DbsimProgram) != 0;

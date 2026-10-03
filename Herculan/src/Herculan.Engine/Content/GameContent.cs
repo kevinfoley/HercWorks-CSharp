@@ -56,13 +56,21 @@ public sealed class GameContent {
 	/// <summary>What VSHELL mounts of the install; see <see cref="MountInstall"/>.</summary>
 	public static GameContent MountShell(string installRoot) => MountInstall(installRoot, Voln.VshellProgram);
 
+	/// <summary>What DBSIM mounts of the install and its open disc; see <see cref="MountInstall(string, GameDisc?, uint)"/>.</summary>
+	public static GameContent MountSimulator(string installRoot, GameDisc? disc) =>
+		MountInstall(installRoot, disc, Voln.DbsimProgram);
+
+	/// <summary>What VSHELL mounts of the install and its open disc; see <see cref="MountInstall(string, GameDisc?, uint)"/>.</summary>
+	public static GameContent MountShell(string installRoot, GameDisc? disc) =>
+		MountInstall(installRoot, disc, Voln.VshellProgram);
+
 	/// <summary>
 	/// Mounts what <paramref name="program"/> — <see cref="Voln.DbsimProgram"/> or
 	/// <see cref="Voln.VshellProgram"/> — would of the install at <paramref name="installRoot"/>.
 	///
 	/// <para><c>VolumeGroup_SetGroup</c> (<c>00467bd4</c>) scans <c>vol\*.vol</c> under the current
-	/// directory, which is the install, and then under the <c>drive.cfg</c> directory
-	/// (<see cref="GameInstall.DiscDirectory"/>): both programs pass 0 for its directory-first
+	/// directory, which is the install, and then under the <c>drive.cfg</c> directory, here the disc
+	/// <see cref="GameInstall.OpenDisc"/> opens: both programs pass 0 for its directory-first
 	/// argument. It skips a file whose name an archive already loaded carries, and
 	/// <c>VolumeGroup_AddVolume</c> (<c>00467e90</c>) inserts each loaded archive after every one of
 	/// equal or higher precedence, so of two equal archives the first loaded is searched first.
@@ -76,41 +84,62 @@ public sealed class GameContent {
 	/// so.</para>
 	/// </summary>
 	public static GameContent MountInstall(string installRoot, uint program) {
-		string installArchives = GameInstall.ArchiveDirectory(installRoot);
-		string?[] directories = {
-			installArchives,
-			GameInstall.DiscDirectory(installRoot) is { } disc
-				? Path.Combine(disc, GameInstall.ArchiveFolderName)
-				: null,
-		};
+		using var disc = GameInstall.OpenDisc(installRoot);
+		return MountInstall(installRoot, disc, program);
+	}
 
+	/// <summary>
+	/// <see cref="MountInstall(string, uint)"/> with the disc already open, which may be an image
+	/// (<see cref="GameDisc"/>); null mounts the install alone. Every archive is read into memory, so the disc
+	/// can be closed once this returns.
+	/// </summary>
+	public static GameContent MountInstall(string installRoot, GameDisc? disc, uint program) {
 		var loaded = new List<Voln>();
 		var options = new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive };
-		foreach (string? directory in directories) {
-			if (directory == null || !Directory.Exists(directory)) {
-				continue;
+
+		bool Admit(string name, string where) {
+			if (loaded.Any(vol => string.Equals(vol.FileName, name, StringComparison.OrdinalIgnoreCase))) {
+				return false;
 			}
 
-			foreach (string path in Directory.GetFiles(directory, ArchivePattern, options)
+			if (loaded.Count == MaxArchives) {
+				Console.Error.WriteLine($"Not mounting {where}: a program holds at most {MaxArchives} archives.");
+				return false;
+			}
+
+			return true;
+		}
+
+		string installArchives = GameInstall.ArchiveDirectory(installRoot);
+		if (Directory.Exists(installArchives)) {
+			foreach (string path in Directory.GetFiles(installArchives, ArchivePattern, options)
 					.OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)) {
-				string name = Path.GetFileName(path);
-				if (loaded.Any(vol => string.Equals(Path.GetFileName(vol.FilePath), name, StringComparison.OrdinalIgnoreCase))
-						|| (VolFileReader.ReadProgramMask(path) & program) is null or 0) {
+				if ((VolFileReader.ReadProgramMask(path) & program) is not (null or 0) && Admit(Path.GetFileName(path), path)) {
+					loaded.Add(VolFileReader.ParseVolFile(path));
+				}
+			}
+		}
+
+		if (disc != null) {
+			foreach (string name in disc.ArchiveNames().Order(StringComparer.OrdinalIgnoreCase)) {
+				string relative = Path.Combine(GameInstall.ArchiveFolderName, name);
+				using var stream = disc.OpenRead(relative);
+				if (stream == null || (VolFileReader.ReadProgramMask(stream) & program) is null or 0
+						|| !Admit(name, disc.Describe(relative))) {
 					continue;
 				}
 
-				if (loaded.Count == MaxArchives) {
-					Console.Error.WriteLine($"Not mounting {path}: a program holds at most {MaxArchives} archives.");
-					continue;
-				}
-
-				loaded.Add(VolFileReader.ParseVolFile(path));
+				var bytes = new byte[stream.Length];
+				stream.Position = 0;
+				stream.ReadExactly(bytes);
+				loaded.Add(VolFileReader.ParseVolBytes(name, bytes, disc.Describe(relative)));
 			}
 		}
 
 		if (loaded.Count == 0) {
 			throw new FileNotFoundException(
-				$"No game archives for program mask 0x{program:x} in {string.Join(" or ", directories.OfType<string>())}.");
+				$"No game archives for program mask 0x{program:x} in {installArchives}"
+				+ (disc != null ? $" or {disc.Describe(GameInstall.ArchiveFolderName)}." : "."));
 		}
 
 		// OrderByDescending is stable, which keeps load order among equal precedences.

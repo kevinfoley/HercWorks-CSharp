@@ -8,7 +8,7 @@ namespace Herculan.Engine.Host;
 /// <summary>
 /// The on-line manual: retail's <c>WinHelpA(hwnd, path, HELP_CONTENTS, 0)</c> on
 /// <c>&lt;language&gt;\ES2GUIDE.HLP</c> on the disc (docs/formats/winhelp.md; here through
-/// <see cref="GameInstall.DiscFile"/>), which current Windows cannot
+/// <see cref="GameInstall.ReadDiscFile"/>), which current Windows cannot
 /// open. The first open in a run converts the help file to one HTML page under the user's local
 /// application data and hands that page to the default browser, which shows the contents topic as
 /// <c>HELP_CONTENTS</c> does. The conversion and its security rules are docs/engine/online-manual.md.
@@ -34,7 +34,7 @@ internal static class OnlineManual {
 	/// Opens the manual, converting it first if this run has not. The conversion runs off the calling
 	/// thread so the window keeps drawing; failures are reported on the console.
 	/// </summary>
-	public static void Open(string installRoot) {
+	public static void Open(string installRoot, GameDisc? disc) {
 		lock (Gate) {
 			if (_converting) {
 				return;
@@ -51,8 +51,9 @@ internal static class OnlineManual {
 		Task.Run(() => {
 			string? page = null;
 			try {
-				page = Convert(installRoot);
-			} catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
+				page = Convert(installRoot, disc);
+			} catch (Exception e) when (e is IOException or UnauthorizedAccessException or ObjectDisposedException
+					or HercWorks.Disc.DiscFormatException) {
 				Console.WriteLine($"The on-line manual could not be written: {e.Message}");
 			} finally {
 				lock (Gate) {
@@ -88,21 +89,23 @@ internal static class OnlineManual {
 		};
 	}
 
-	private static string? Convert(string installRoot) {
+	private static string? Convert(string installRoot, GameDisc? disc) {
 		var (folder, code) = Language(installRoot);
-		string source = GameInstall.DiscFile(installRoot, Path.Combine(folder, FileName));
-		var info = new FileInfo(source);
-		if (!info.Exists) {
-			Console.WriteLine($"No {source} — the on-line manual is not installed for this language.");
+		string source = Path.Combine(folder, FileName);
+		using var stream = GameInstall.OpenDiscFile(installRoot, disc, source);
+		if (stream == null) {
+			Console.WriteLine($"No {source} on the disc or in the install — the on-line manual is not installed for this language.");
 			return null;
 		}
 
-		if (info.Length > HelpLimits.Default.MaxFileBytes) {
-			Console.WriteLine($"{source} is {info.Length} bytes, over the {HelpLimits.Default.MaxFileBytes}-byte limit.");
+		if (stream.Length > HelpLimits.Default.MaxFileBytes) {
+			Console.WriteLine($"{source} is {stream.Length} bytes, over the {HelpLimits.Default.MaxFileBytes}-byte limit.");
 			return null;
 		}
 
-		if (HelpFile.Parse(File.ReadAllBytes(source), out string? error) is not { } help) {
+		var bytes = new byte[stream.Length];
+		stream.ReadExactly(bytes);
+		if (HelpFile.Parse(bytes, out string? error) is not { } help) {
 			Console.WriteLine($"{source} cannot be shown: {error}.");
 			return null;
 		}

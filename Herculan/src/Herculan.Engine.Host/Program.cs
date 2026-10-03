@@ -85,12 +85,17 @@ var stagedJoystick = JoystickCapabilities.None;
 bool probeJoystick = false;
 bool writeJoystickMap = false;
 bool writePreferences = true;
+bool askForInstall = false;
 bool startWithStatusAlert = false;
 int stagedStatusAlert = -1;
 string? playTape = null;
 bool demoTape = false;
 string? recordTape = null;
 bool developerMode = false;
+string? installSource = null;
+string? installDestination = null;
+RetailInstaller.Size installSize = RetailInstaller.Size.Maximum;
+RetailInstaller.Language installLanguage = RetailInstaller.Language.English;
 var argumentErrors = new List<string>();
 for (int i = 0; i < args.Length; i++) {
 	if (HostArguments.IsHelp(args[i])) {
@@ -153,6 +158,11 @@ for (int i = 0; i < args.Length; i++) {
 		// writes its own options back as it closes. This is the way out for anyone who would rather
 		// their retail install were not touched at all.
 		writePreferences = false;
+	} else if (args[i] == "--ask-install") {
+		// Opens the install prompt without searching — ES2_GAME_PATH, the remembered install and the ES2 folder
+		// above the executable are all passed over — and remembers nothing, neither the folder picked there nor one
+		// the Settings menu switches to. For trying another install without losing the one remembered.
+		askForInstall = true;
 	} else if (args[i] == "--hdd") {
 		// Power up already panned down to the Heads-Down Display, for the same reason as --mfd: a
 		// --screenshot run never sees a keystroke. An optional 0 or 1 picks which of its two screens
@@ -370,6 +380,30 @@ for (int i = 0; i < args.Length; i++) {
 		// DBSIM's own -D: a tape picked from TAPES\demolist.str, as VIEW DEMO plays one, which ends the
 		// mission when it runs out or the moment a key is pressed. With --play, that tape instead.
 		demoTape = true;
+	} else if (args[i] == "--install") {
+		// Install from a retail disc folder or disc image into a new or empty folder, as the Settings menu's
+		// install window does, then exit. See RetailInstaller.
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string source)
+				&& HostArguments.TryReadString(args, ref i, argumentErrors, out string destination)) {
+			installSource = source;
+			installDestination = destination;
+		}
+	} else if (args[i] == "--install-size") {
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string size)) {
+			if (Enum.TryParse(size, ignoreCase: true, out RetailInstaller.Size parsed) && Enum.IsDefined(parsed)) {
+				installSize = parsed;
+			} else {
+				argumentErrors.Add($"--install-size needs minimum, medium or maximum, not '{size}'.");
+			}
+		}
+	} else if (args[i] == "--install-language") {
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string language)) {
+			if (Enum.TryParse(language, ignoreCase: true, out RetailInstaller.Language parsed) && Enum.IsDefined(parsed)) {
+				installLanguage = parsed;
+			} else {
+				argumentErrors.Add($"--install-language needs english, french or german, not '{language}'.");
+			}
+		}
 	} else if (args[i].StartsWith("--")) {
 		argumentErrors.Add($"Unknown option {args[i]}.");
 	} else {
@@ -380,6 +414,9 @@ for (int i = 0; i < args.Length; i++) {
 if (recordTape != null && (playTape != null || demoTape)) {
 	argumentErrors.Add("--record cannot be combined with --play or --demo.");
 }
+if (askForInstall && screenshotPath != null && positional.Count == 0) {
+	argumentErrors.Add("--ask-install needs someone to ask: name the install, or drop --screenshot.");
+}
 if (positional.Count > 2) {
 	argumentErrors.Add($"Unexpected argument {positional[2]}: the only positional arguments are the install and the mission.");
 }
@@ -389,6 +426,10 @@ if (argumentErrors.Count > 0) {
 	}
 	Console.Error.WriteLine("Run with --help for the list of options.");
 	return 1;
+}
+
+if (installSource != null && installDestination != null) {
+	return InstallFromDisc(installSource, installDestination, installSize, installLanguage);
 }
 
 // Host-lifetime, not mission-lifetime: neither reads the install, and both need to survive into
@@ -402,8 +443,10 @@ string imguiFontPath = Path.Combine(AppContext.BaseDirectory,
 	"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
 
 // An install named on the command line is never second-guessed, and a --screenshot run has nobody to ask,
-// so only a search that came up empty asks the player.
-string? installRoot = GameInstall.Locate(positional.Count > 0 ? positional[0] : null);
+// so only a search that came up empty, or --ask-install's skipped one, asks the player.
+string? installRoot = positional.Count > 0 ? GameInstall.Locate(positional[0])
+	: askForInstall ? null
+	: GameInstall.Locate();
 if (installRoot == null && positional.Count == 0 && screenshotPath == null) {
 	installRoot = InstallPrompt.Run(localization, imguiFontPath);
 	if (installRoot == null) {
@@ -417,19 +460,24 @@ if (installRoot == null) {
 		$"The path should be the folder containing the '{GameInstall.ArchiveFolderName}' directory.");
 	return 1;
 }
-GameInstall.Remember(installRoot);
-var session = new HostSession(installRoot, localization, imguiFontPath);
+if (!askForInstall) {
+	GameInstall.Remember(installRoot);
+}
+using var session = new HostSession(installRoot, localization, imguiFontPath) { RememberInstall = !askForInstall };
 
-// The disc GameInstall.DiscFile falls back from, said once: a folder without the movie the shell's startup
+// The disc GameInstall.OpenDiscFile falls back from, said once: a disc without the movie the shell's startup
 // probes for (ShellHost.DiscCheckMovie) is not the CD.
-if (GameInstall.DiscDirectory(installRoot) is { } disc && !File.Exists(Path.Combine(disc, ShellHost.DiscCheckMovie))) {
-	Console.Error.WriteLine($"data\\drive.cfg specifies {disc}, but no retail CD was found at that location. "
-		+ "Falling back to the install directory for some files.");
+if (session.Disc is { } startupDisc) {
+	Console.WriteLine($"Disc: {startupDisc.Location}");
+	if (!startupDisc.FileExists(ShellHost.DiscCheckMovie)) {
+		Console.Error.WriteLine($"data\\drive.cfg specifies {startupDisc.Location}, but it is not a retail CD. "
+			+ "Falling back to the install directory for some files.");
+	}
 }
 
 // --movie shares even less: no archives, no zone, no shell art — one file and a quad. See MovieHost.
 if (moviePath != null) {
-	return MovieHost.Run(installRoot, moviePath, screenshotPath, silentAudio);
+	return MovieHost.Run(installRoot, session.Disc, moviePath, screenshotPath, silentAudio);
 }
 
 // Without --shell the one mission named runs. The codes that would bring a shell back up mean nothing with no
@@ -475,6 +523,49 @@ while (true) {
 
 	if (!ShellHost.ReturnsToShell(state)) {
 		return state;
+	}
+}
+
+// --install: RetailInstaller from a disc folder or image, reporting each file as it starts. Returns 0 once the
+// install is complete, 1 when it was refused or failed, in which case what it copied has been removed.
+static int InstallFromDisc(string source, string destination, RetailInstaller.Size size, RetailInstaller.Language language) {
+	GameDisc disc;
+	try {
+		disc = File.Exists(source) ? GameDisc.OpenImage(source)
+			: Directory.Exists(source) ? GameDisc.OpenFolder(source)
+			: throw new FileNotFoundException($"{source} does not exist.");
+	} catch (Exception ex) when (ex is HercWorks.Disc.DiscFormatException or IOException or UnauthorizedAccessException) {
+		Console.Error.WriteLine($"Cannot read {source}: {ex.Message}");
+		return 1;
+	}
+
+	using (disc) {
+		if (RetailInstaller.Identify(disc, out var problem, out string? version) is not { } installer) {
+			Console.Error.WriteLine(problem == RetailInstaller.Problem.NoScript
+				? $"{source} is not an Earthsiege 2 disc: it has no {RetailInstaller.ScriptFileName}."
+				: $"{source} holds a version of Earthsiege 2 this installer does not know ({version}).");
+			return 1;
+		}
+
+		Console.WriteLine($"Installing Earthsiege 2 {installer.BuildName} from {disc.Location} into {Path.GetFullPath(destination)}: "
+			+ $"{size}, {language}.");
+		int lastFile = -1;
+		try {
+			installer.Install(destination, size, language, new ActionProgress<InstallProgress>(report => {
+				if (report.FileIndex != lastFile && report.FileIndex < report.FileCount) {
+					lastFile = report.FileIndex;
+					Console.WriteLine($"  {report.FileIndex + 1}/{report.FileCount} {report.File}");
+				}
+			}));
+		} catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException
+				or HercWorks.Disc.DiscFormatException) {
+			Console.Error.WriteLine($"The install failed: {ex.Message}");
+			return 1;
+		}
+
+		Console.WriteLine("Done. The original game's programs are copied too, but they will not run from this install: "
+			+ "it has none of the original installer's system setup, and from an image no disc the original game can read.");
+		return 0;
 	}
 }
 
@@ -545,10 +636,11 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 	Console.WriteLine($"HERCULAN Engine — loading {scriptPath} from {installRoot}");
 
-	var content = GameContent.MountSimulator(installRoot);
+	var disc = session.Disc;
+	var content = GameContent.MountSimulator(installRoot, disc);
 	Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
-	var scene = MissionScene.Load(content, scriptPath, shellLaunch?.DataDirectory);
+	var scene =MissionScene.Load(content, scriptPath, shellLaunch?.DataDirectory);
 	var mission = scene.Mission;
 	var terrain = scene.World.Terrain;
 
@@ -556,7 +648,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// the variation roll draws on it exactly as weapon scatter does. It never throws: a machine with no
 	// device gets a working GameAudio that happens to be silent.
 	var audio = GameAudio.Create(content, scene.World.PresentationRandom, silent: silentAudio, cdDrive: cdDrive,
-		musicDirectory: musicDirectory);
+		musicDirectory: musicDirectory, discImage: disc?.Image);
 	audio.Attach(scene.World);
 	Console.WriteLine($"Audio: {audio.Status}");
 
@@ -920,8 +1012,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// A training mission's instructor speaks from loose files on the disc, in the English voice folder the
 	// cockpit computer's speech is read from too: the language is not chosen yet (docs/retail-builds.md,
 	// "How a language is chosen").
-	audio.InstructorClipPath = (trainingMission, messageId) =>
-		InstructorVoice.ClipPath(installRoot, ComputerVoice.ResourceFolder, trainingMission, messageId);
+	audio.InstructorClip = (trainingMission, messageId) =>
+		InstructorVoice.ReadClip(installRoot, disc, ComputerVoice.ResourceFolder, trainingMission, messageId);
 	audio.AttachSquad(squadComm);
 
 	// A comm box captions itself with its pilot's roster name, the same one the MFD's transmission plate
@@ -3336,7 +3428,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		manualKeyDown = down;
 		if (edge && statusAlertPanel is not { IsOpen: true } && objectivesPanel is not { IsOpen: true }
 			&& preferencesPanel is not { IsOpen: true } && controlsPanel is not { IsOpen: true }) {
-			OnlineManual.Open(manualRoot);
+			OnlineManual.Open(manualRoot, disc);
 		}
 	}
 

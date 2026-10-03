@@ -92,13 +92,14 @@ static class ShellHost {
 			bool startWindowed = false, bool moviesEnabled = true, int returnCode = StartupCode) {
 		bool fromMission = returnCode is MissionResults.DebriefExitCode or DebriefDestroyedCode;
 		string installRoot = session.InstallRoot;
-		var content = GameContent.MountShell(installRoot);
+		var disc = session.Disc;
+		var content = GameContent.MountShell(installRoot, disc);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
 		// Shell_Main (00401525) opens avi\pt1.avi through Path_UnderDriveCfg (0040d429) and, failing,
 		// shows 'Please insert ESII CD and restart' and quits. This warns and carries on without the movies;
 		// see KNOWN_ISSUES.md.
-		if (!File.Exists(GameInstall.DiscFile(installRoot, DiscCheckMovie))) {
+		if (!GameInstall.DiscFileExists(installRoot, disc, DiscCheckMovie)) {
 			Console.Error.WriteLine($"No {DiscCheckMovie} on the disc or in the install: the shell's movies will not play.");
 		}
 
@@ -562,6 +563,7 @@ static class ShellHost {
 		};
 
 		window.Run();
+		menuBar.Settings.Dispose();
 
 		// The main loop's exit, whichever way it was left: QUIT, a launch or the window closing.
 		AutoSave();
@@ -1039,7 +1041,7 @@ static class ShellHost {
 			shellOptions.Commit();
 			shellOptions.Save(Enumerable.Range(0, Prefs.Length).ToArray());
 			sound?.Stop();
-			OnlineManual.Open(installRoot);
+			OnlineManual.Open(installRoot, disc);
 		}
 
 		// INSTANT ACTION, 004312a6: InstantAction_Active (0047363c) set, training mode, then InstantAction_SelectDemo (0044befb) —
@@ -1208,8 +1210,8 @@ static class ShellHost {
 		// What playing the queue does to the rest of the shell.
 		ShellMovieHooks MovieHooks() => new() {
 			ReadMovie = name => {
-				string path = GameInstall.DiscFile(installRoot, Path.Combine(MovieHost.MovieFolderName, name));
-				return File.Exists(path) ? MovieHost.ReadMovieFile(path) : null;
+				using var stream = GameInstall.OpenDiscFile(installRoot, disc, Path.Combine(MovieHost.MovieFolderName, name));
+				return stream != null ? MovieHost.ReadMovie(stream) : null;
 			},
 			InstallPalette = index => {
 				InstallPalette(index);

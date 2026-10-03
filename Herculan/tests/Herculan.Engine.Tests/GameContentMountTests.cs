@@ -63,11 +63,14 @@ public class GameContentMountTests : IDisposable {
 	[Fact]
 	public void DiscFilePrefersTheDiscAndFallsBackToTheInstall() {
 		WriteFile(Path.Combine(Disc, "AVI", "PT1.AVI"), "disc");
+		WriteFile(Path.Combine(Install, "AVI", "PT1.AVI"), "install");
 		WriteFile(Path.Combine(Install, "AVI", "PT2.AVI"), "install");
 		WriteDriveCfg(Disc);
 
-		Assert.Equal(Path.Combine(Disc, "AVI", "PT1.AVI"), GameInstall.DiscFile(Install, Path.Combine("AVI", "PT1.AVI")));
-		Assert.Equal(Path.Combine(Install, "AVI", "PT2.AVI"), GameInstall.DiscFile(Install, Path.Combine("AVI", "PT2.AVI")));
+		using var disc = GameInstall.OpenDisc(Install);
+		Assert.Equal("disc"u8.ToArray(), GameInstall.ReadDiscFile(Install, disc, Path.Combine("AVI", "PT1.AVI"), 100));
+		Assert.Equal("install"u8.ToArray(), GameInstall.ReadDiscFile(Install, disc, Path.Combine("AVI", "PT2.AVI"), 100));
+		Assert.Null(GameInstall.ReadDiscFile(Install, disc, Path.Combine("AVI", "PT3.AVI"), 100));
 	}
 
 	/// <summary>

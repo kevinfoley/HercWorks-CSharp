@@ -89,7 +89,13 @@ static class HostArguments {
 		  --cd-drive <drive>  --music-dir <dir>
 
 		Settings and input devices
+		  --ask-install               ask for the install at once, and remember none
 		  --no-write-prefs  --joystick [0-8]  --joystick-probe  --write-joystick-map
+
+		Installing
+		  --install <disc> <folder>   install from a disc folder or disc image (.iso, .bin, .cue), then exit
+		  --install-size minimum|medium|maximum         default maximum
+		  --install-language english|french|german      default english
 
 		Developer
 		  --developer                 the developer keys

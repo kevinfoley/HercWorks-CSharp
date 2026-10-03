@@ -8,6 +8,8 @@ namespace Herculan.Engine.Audio;
 /// <para>The first of these that works, in order:</para>
 /// <list type="number">
 /// <item>A directory of <c>TrackNN.wav</c> files the caller named — <see cref="WaveFileMusicSource"/>.</item>
+/// <item>The audio tracks of the disc image the install names, when its disc is one —
+/// <see cref="ImageMusicSource"/>.</item>
 /// <item>The disc, read digitally — <see cref="CdRipMusicSource"/>, caching every track it rips.</item>
 /// <item>The disc, played by the drive through MCI — <see cref="MciCdAudio"/>, retail's own
 /// transport, for a drive that refuses raw reads or a machine with no digital output device.</item>
@@ -34,8 +36,9 @@ public static class CdAudio {
 	/// <param name="cacheRoot">
 	/// Where rips are cached; null takes <see cref="CdRipMusicSource.DefaultCacheRoot"/>.
 	/// </param>
+	/// <param name="discImage">The install's disc, when it is an image; its owner keeps it open while the music plays.</param>
 	public static ICdAudio Open(IAudioBackend backend, string? drive = null,
-			string? musicDirectory = null, string? cacheRoot = null) {
+			string? musicDirectory = null, string? cacheRoot = null, HercWorks.Disc.DiscImage? discImage = null) {
 		cacheRoot ??= CdRipMusicSource.DefaultCacheRoot;
 		var reasons = new List<string>();
 
@@ -45,6 +48,14 @@ public static class CdAudio {
 				reasons.Add(files.Status);
 			} else if (Stream(backend, files, reasons) is { } fromFiles) {
 				return fromFiles;
+			}
+		}
+
+		if (discImage != null) {
+			if (ImageMusicSource.TryCreate(discImage, out string imageFailure) is not { } fromImage) {
+				reasons.Add(imageFailure);
+			} else if (Stream(backend, fromImage, reasons) is { } streamed) {
+				return streamed;
 			}
 		}
 

@@ -33,7 +33,8 @@ install_prompt.browse          Browse...
 install_prompt.picker_title    Choose the Earthsiege 2 folder
 install_prompt.picker_open     Waiting for the folder picker...
 install_prompt.picker_failed   The folder picker could not be opened. Type or paste the folder's path instead.
-install_prompt.use_folder      Use This Folder
+install_prompt.accept          Use This Folder
+install_prompt.install         Install from a Disc...
 install_prompt.quit            Quit
 install_prompt.no_path         Type or paste the path to the Earthsiege 2 folder.
 install_prompt.not_an_install  {0} is not an Earthsiege 2 folder: it has no {1} folder in it.
@@ -44,9 +45,14 @@ settings.title                 Settings
 settings.folders               Earthsiege 2 folders
 settings.install_folder        Install folder
 settings.install_message       Choose the Earthsiege 2 folder: the one that holds the {0} folder. The front end restarts on the new install.
+settings.install_from_disc     Install from a Disc or Image...
 settings.disc_folder           Disc folder (data\drive.cfg)
 settings.no_disc               None: data\drive.cfg is missing or empty
+settings.image_overrides       Not used while a disc image is set.
+settings.disc_image            Disc image (HERCULAN only)
+settings.no_disc_image         None
 settings.change                Change...
+settings.remove                Remove
 settings.in_mission            Return to the front end to change this.
 settings.languages             Languages
 settings.game_language         Game language
@@ -58,8 +64,57 @@ settings.write_failed          Could not write {0}: {1}
 disc_prompt.message            Choose the Earthsiege 2 disc folder, such as the CD drive or a copy of the disc. It is written to the install's data\{0}, which the original game reads too, and the front end restarts.
 disc_prompt.path_hint          Disc folder
 disc_prompt.picker_title       Choose the Earthsiege 2 disc folder
-disc_prompt.use_folder         Use This Folder
+disc_prompt.accept             Use This Folder
 disc_prompt.no_path            Type or paste the path to the disc folder.
 disc_prompt.missing            {0} does not exist.
 disc_prompt.whitespace         {0} has a space in it, and the original game reads {1} only up to the first space.
 disc_prompt.not_latin1         {0} has characters the original game cannot read from {1}.
+image_prompt.message           Choose an Earthsiege 2 disc image (.iso, .bin or .cue). HERCULAN reads the disc from it in place of the disc folder. It is written to a line of the install's data\{0} that the original game does not read, and the front end restarts.
+image_prompt.path_hint         Disc image
+image_prompt.picker_title      Choose an Earthsiege 2 disc image
+image_prompt.accept            Use This Image
+image_prompt.no_path           Type or paste the path to the disc image.
+image_prompt.missing           {0} does not exist.
+image_prompt.unreadable        {0} cannot be read as a disc image: {1}
+image_prompt.not_es2           {0} is not an Earthsiege 2 disc: it has no game archives or no intro movie.
+install.window_title           HERCULAN Engine — Install Earthsiege 2
+install.title                  Install from a Disc or Image
+install.message                Install Earthsiege 2 from a retail disc into a new folder, copying what the original installer copies. The disc can be a CD drive, a copy of the disc, or a disc image (.iso, .bin or .cue). Nothing on the disc is run.
+install.source                 Disc
+install.source_hint            Disc folder or disc image
+install.browse_folder          Folder...
+install.browse_image           Image...
+install.picker_folder_title    Choose the Earthsiege 2 disc folder
+install.picker_image_title     Choose an Earthsiege 2 disc image
+install.image_filter           Disc images
+install.source_missing         {0} does not exist.
+install.source_unreadable      {0} cannot be read as a disc image: {1}
+install.no_script              {0} is not an Earthsiege 2 disc: it has no {1}.
+install.unknown_version        {0} holds a version of Earthsiege 2 this installer does not know ({1}).
+install.found                  Earthsiege 2 {0}
+install.size                   Size
+install.size_minimum           Minimum ({0:N0} MB)
+install.size_medium            Medium ({0:N0} MB)
+install.size_maximum           Maximum ({0:N0} MB)
+install.size_note              A smaller install leaves more of the game on the disc, so the disc must stay where it is.
+install.language               Language
+install.language_english       English
+install.language_french        French
+install.language_german        German
+install.destination            Install folder
+install.destination_hint       A new or empty folder
+install.picker_destination_title  Choose the folder to install into
+install.no_destination         Type or paste the folder to install into.
+install.destination_file       {0} is a file.
+install.destination_not_empty  {0} is not empty.
+install.destination_inside_disc  {0} is inside the disc folder.
+install.no_space               The install needs {0:N0} MB, but only {1:N0} MB are free there.
+install.retail_note            The original game's programs are copied too, but they will not run from this install: HERCULAN leaves out the video codecs, DirectX and the rest of the system setup the original installer did, and the original game cannot read a disc image. Play this install with HERCULAN.
+install.install                Install
+install.cancel                 Cancel
+install.close                  Close
+install.copying                Copying {0} ({1} of {2})
+install.cancelled              The install was cancelled, and what it had copied was removed.
+install.failed                 The install failed, and what it had copied was removed: {0}
+install.done                   Earthsiege 2 is installed in {0}.
+install.use                    Use This Install

@@ -12,7 +12,7 @@ Herculan.Engine.Host [<install>] [<mission>] [flags]
 
 | Position | Meaning |
 |---|---|
-| 1 | The Earthsiege 2 install: the folder holding the archive directory. Without it the host reads the `ES2_GAME_PATH` environment variable, then tries the install it last used, then looks for an `ES2` folder beside the executable or any folder above it, and when all of those fail opens a window asking for the folder, with the system's folder picker where there is one. A named install that is not one stops the host with a message, as does a failed search under `--screenshot`. Whichever install runs is remembered in `install-path.txt` beside `tweak-settings.json`. |
+| 1 | The Earthsiege 2 install: the folder holding the archive directory. Without it the host reads the `ES2_GAME_PATH` environment variable, then tries the install it last used, then looks for an `ES2` folder beside the executable or any folder above it, and when all of those fail opens a window asking for the folder, with the system's folder picker where there is one. A named install that is not one stops the host with a message, as does a failed search under `--screenshot`. Whichever install runs is remembered in `install-path.txt` beside `tweak-settings.json`, except under `--ask-install`. |
 | 2 | The mission to fly: a `script.dat` ([`formats/script-dat.md`](../formats/script-dat.md)), any `SAV\script*.dat` save-slot snapshot, or a mission named by its `.MSN` — `C1_03`, `C1_03.MSN` or `MSN\C1_03.MSN` — from those `gam\career.dat` lists. Defaults to `DATA\script.dat` in the install. `--play` and `--demo` replace it with the mission their tape carries. |
 
 A named mission is loaded as the shell loads that career position ([`shell/campaign-loop.md`](../shell/campaign-loop.md#loading-the-careers-mission)) and flown from a handoff written to a scratch folder, leaving the install's `DATA` alone except for the settings the simulator reads and writes there. A practice or demo mission takes the training load, with the practice options `DATA\prefs.cfg` holds, as `Begin Mission` or `INSTANT ACTION` on its row would. A campaign mission is loaded for a career with no history: every campaign flag 0 until the load seeds its own, and the player's lance and skill from `DATA\player.mec`, which it needs.
@@ -54,18 +54,27 @@ See [`shell/screen-layout.md`](../shell/screen-layout.md).
 | `--cd-drive <drive>` | The drive holding the music CD. |
 | `--music-dir <dir>` | A folder of `Track02.wav` … `Track07.wav` to play in place of the disc. |
 
-See [`formats/audio.md`](../formats/audio.md#cd-audio).
+Without `--music-dir`, an install whose disc is an image with audio tracks plays them in place of a CD drive's (`ImageMusicSource`). See [`formats/audio.md`](../formats/audio.md#cd-audio).
 
 ## Settings and input devices
 
 | Flag | Effect |
 |---|---|
+| `--ask-install` | Opens the window asking for the install at once, skipping `ES2_GAME_PATH`, the install last used and the `ES2` folder search, and leaves `install-path.txt` as it was: neither the folder picked there nor one the Settings menu changes to is remembered. An install named as the first argument is used without asking, and still not remembered. Cannot be combined with `--screenshot` unless the install is named. |
 | `--no-write-prefs` | Leaves `data\prefs.cfg` unwritten: when the preferences and controls panels close, and in the shell at startup, on a change of campaign or training mode, and on `Begin Mission` and `INSTANT ACTION`. See [`simulation/preferences.md`](../simulation/preferences.md) and [`shell/screen-layout.md`](../shell/screen-layout.md#sound). |
 | `--joystick [0-8]` | Pretends a stick with throttle, rudder and hat is attached, so the CONTROLS panel's joystick rows are live without hardware. The number sets how many of the eight button rows are live; without it, all eight. A real stick, when one is attached, takes precedence. |
 | `--joystick-probe` | Prints each axis and button of the attached stick as it moves. |
 | `--write-joystick-map` | Writes the joystick map in force to `data\herculan-joystick.cfg`. |
 
 See [`joystick-config.md`](joystick-config.md).
+
+## Installing
+
+| Flag | Effect |
+|---|---|
+| `--install <disc> <folder>` | Installs Earthsiege 2 from a retail disc folder or disc image (`.iso`, `.bin`, `.cue`) into a new or empty folder, as the Settings menu's install window does, then exits: 0 when the install is complete, 1 when it was refused or failed, having removed what it copied. Never looks for an install or opens a window. See `RetailInstaller` and [`retail-builds.md`](../retail-builds.md#the-installer). |
+| `--install-size minimum\|medium\|maximum` | The size, as the retail installer offers it. Default `maximum`. |
+| `--install-language english\|french\|german` | The language written to `data\language.cfg`, and for v1.10 the voice archive, error and mission strings and readme copied. Default `english`. |
 
 ## Developer
 

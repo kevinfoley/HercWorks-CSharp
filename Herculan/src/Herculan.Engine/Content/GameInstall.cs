@@ -1,5 +1,6 @@
 using HercWorks.Core.Data.File.Cfg;
 using HercWorks.Core.Io.Transform.Common;
+using HercWorks.Disc;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Content;
@@ -94,7 +95,7 @@ public static class GameInstall {
 	/// here an install without one simply has no disc.
 	/// </summary>
 	public static string? DiscDirectory(string installRoot) {
-		string path = Path.Combine(installRoot, MissionLoader.DataFolderName, Drive.FileName);
+		string path = DriveCfgPath(installRoot);
 		try {
 			if (!File.Exists(path) || new DriveTransformer().Parse(File.ReadAllBytes(path))?.Directory is not { } directory) {
 				return null;
@@ -130,7 +131,7 @@ public static class GameInstall {
 			throw new ArgumentException($"{directory} cannot go into drive.cfg: {problem}.", nameof(directory));
 		}
 
-		string path = Path.Combine(installRoot, MissionLoader.DataFolderName, Drive.FileName);
+		string path = DriveCfgPath(installRoot);
 		var transformer = new DriveTransformer();
 		var drive = File.Exists(path) ? transformer.Parse(File.ReadAllBytes(path)) ?? new Drive() : new Drive();
 		drive.Directory = Path.GetFullPath(directory);
@@ -140,24 +141,133 @@ public static class GameInstall {
 	}
 
 	/// <summary>
-	/// A file both programs read from the disc — a movie, the on-line manual, a training instructor
-	/// clip: <paramref name="relativePath"/> under <see cref="DiscDirectory"/> when it is there, and
-	/// otherwise under the install root.
+	/// The disc image the install's <c>data\drive.cfg</c> names on HERCULAN's own line
+	/// (<see cref="Drive.DiscImage"/>), resolved against the install root; null when it names none or the file
+	/// cannot be read.
+	/// </summary>
+	public static string? DiscImagePath(string installRoot) {
+		string path = DriveCfgPath(installRoot);
+		try {
+			if (!File.Exists(path) || new DriveTransformer().Parse(File.ReadAllBytes(path))?.DiscImage is not { } image) {
+				return null;
+			}
+
+			return Path.GetFullPath(Path.Combine(installRoot, image));
+		} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+				or NotSupportedException) {
+			Console.Error.WriteLine($"Could not read {path} ({ex.Message}); the install has no disc image.");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Opens the install's disc: the image <see cref="DiscImagePath"/> names when there is one and it opens, and
+	/// otherwise the directory <see cref="DiscDirectory"/> names when it exists; null when neither does. An image
+	/// that fails to open is reported and passed over for the directory. Reading an image is this engine's own;
+	/// retail reads only the directory (docs/formats/vol-archive.md, "Which archives are mounted").
+	/// </summary>
+	public static GameDisc? OpenDisc(string installRoot) {
+		if (DiscImagePath(installRoot) is { } imagePath) {
+			try {
+				return GameDisc.OpenImage(imagePath);
+			} catch (Exception ex) when (ex is DiscFormatException or IOException or UnauthorizedAccessException) {
+				Console.Error.WriteLine($"The disc image {imagePath} cannot be read ({ex.Message}); using the disc folder instead.");
+			}
+		}
+
+		return DiscDirectory(installRoot) is { } directory && Directory.Exists(directory)
+			? GameDisc.OpenFolder(directory)
+			: null;
+	}
+
+	/// <summary>
+	/// Why <paramref name="path"/> cannot be the install's disc image, or null when it can: it must open as a CD
+	/// image with an ISO 9660 file system holding archives (<c>VOL\*.vol</c>) and the movie the shell's startup
+	/// looks for, <paramref name="discCheckFile"/>. <paramref name="detail"/> carries the reader's own account of
+	/// a failure to open.
+	/// </summary>
+	public static DiscImageProblem? CheckDiscImage(string path, string discCheckFile, out string? detail) {
+		detail = null;
+		if (!File.Exists(path)) {
+			return DiscImageProblem.Missing;
+		}
+
+		try {
+			using var disc = GameDisc.OpenImage(path);
+			return disc.ArchiveNames().Count > 0 && disc.FileExists(discCheckFile) ? null : DiscImageProblem.NotEarthsiege2;
+		} catch (Exception ex) when (ex is DiscFormatException or IOException or UnauthorizedAccessException) {
+			detail = ex.Message;
+			return DiscImageProblem.Unreadable;
+		}
+	}
+
+	/// <summary>
+	/// Writes <paramref name="imagePath"/> into the install's <c>data\drive.cfg</c> as its disc image, or takes the
+	/// image out with null, keeping the file's two retail lines. A file without them gets <c>.</c>, the install
+	/// itself, as its disc, and <paramref name="installRoot"/> as its install, so that retail's two reads find two
+	/// tokens before the image's line.
+	/// </summary>
+	public static void WriteDiscImage(string installRoot, string? imagePath) {
+		string path = DriveCfgPath(installRoot);
+		var transformer = new DriveTransformer();
+		var drive = File.Exists(path) ? transformer.Parse(File.ReadAllBytes(path)) ?? new Drive() : new Drive();
+		drive.DiscImage = imagePath == null ? null : Path.GetFullPath(imagePath);
+		if (drive.DiscImage != null) {
+			drive.Directory ??= ".";
+			drive.InstallDirectory ??= Path.GetFullPath(installRoot);
+		}
+
+		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+		File.WriteAllBytes(path, transformer.Write(drive)!);
+	}
+
+	/// <summary>
+	/// Opens a file both programs read from the disc — a movie, the on-line manual, a training instructor
+	/// clip: <paramref name="relativePath"/> on <paramref name="disc"/> when it is there, and otherwise under the
+	/// install root; null when neither has it.
 	///
 	/// <para>Retail looks on the disc only (<c>DriveCfg_PrefixPath</c>, <c>0045ee44</c>;
 	/// <c>Path_UnderDriveCfg</c>, VSHELL <c>0040d429</c>). Falling back to the install is this engine's,
 	/// so an install copied whole, whose <c>drive.cfg</c> still names a CD drive that is gone, keeps its
 	/// movies, manual and instructor; see KNOWN_ISSUES.md.</para>
 	/// </summary>
-	public static string DiscFile(string installRoot, string relativePath) {
-		if (DiscDirectory(installRoot) is { } disc) {
-			string onDisc = Path.Combine(disc, relativePath);
-			if (File.Exists(onDisc)) {
-				return onDisc;
-			}
+	public static Stream? OpenDiscFile(string installRoot, GameDisc? disc, string relativePath) {
+		if (disc?.OpenRead(relativePath) is { } onDisc) {
+			return onDisc;
 		}
 
-		return Path.Combine(installRoot, relativePath);
+		string inInstall = Path.Combine(installRoot, relativePath);
+		return File.Exists(inInstall) ? File.OpenRead(inInstall) : null;
+	}
+
+	/// <summary>Whether <see cref="OpenDiscFile"/> would find <paramref name="relativePath"/>.</summary>
+	public static bool DiscFileExists(string installRoot, GameDisc? disc, string relativePath) =>
+		disc?.FileExists(relativePath) == true || File.Exists(Path.Combine(installRoot, relativePath));
+
+	/// <summary>
+	/// <see cref="OpenDiscFile"/>'s file read whole, or null when neither place has it or it is longer than
+	/// <paramref name="maxBytes"/>, which is checked before anything is allocated.
+	/// </summary>
+	public static byte[]? ReadDiscFile(string installRoot, GameDisc? disc, string relativePath, long maxBytes) {
+		using var stream = OpenDiscFile(installRoot, disc, relativePath);
+		if (stream == null || stream.Length > maxBytes) {
+			return null;
+		}
+
+		var bytes = new byte[stream.Length];
+		stream.ReadExactly(bytes);
+		return bytes;
+	}
+
+	/// <summary>The install's <c>data\drive.cfg</c>.</summary>
+	public static string DriveCfgPath(string installRoot) =>
+		Path.Combine(installRoot, MissionLoader.DataFolderName, Drive.FileName);
+
+	/// <summary>Why a file cannot be the install's disc image (<see cref="CheckDiscImage"/>).</summary>
+	public enum DiscImageProblem {
+		Missing,
+		Unreadable,
+		NotEarthsiege2,
 	}
 
 	/// <summary>Why a directory cannot go into <c>drive.cfg</c> (<see cref="CheckDiscDirectory"/>).</summary>

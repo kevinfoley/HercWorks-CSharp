@@ -23,6 +23,7 @@ public sealed class SquadVoice {
 	private readonly GameContent _content;
 	private readonly IAudioBackend _backend;
 	private readonly Dictionary<string, int> _samples = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, int> _looseSamples = new(StringComparer.OrdinalIgnoreCase);
 
 	private int _speaking = -1;
 
@@ -77,17 +78,18 @@ public sealed class SquadVoice {
 	}
 
 	/// <summary>
-	/// Plays a loose <c>.WAV</c> off disk on the same channel — the training instructor's clips,
-	/// which ship outside any archive (<see cref="InstructorVoice"/>). A missing file plays nothing.
+	/// Plays a loose <c>.WAV</c> on the same channel — the training instructor's clips, which ship outside
+	/// any archive (<see cref="InstructorVoice"/>). <paramref name="read"/> supplies the file the first time
+	/// <paramref name="name"/> is asked for; a clip it has no bytes for plays nothing.
 	/// </summary>
-	public void SpeakFile(string path) {
-		if (!_samples.TryGetValue(path, out int sample)) {
+	public void SpeakClip(string name, Func<byte[]?> read) {
+		if (!_looseSamples.TryGetValue(name, out int sample)) {
 			sample = -1;
-			if (File.Exists(path) && WaveSample.Decode(File.ReadAllBytes(path)) is { } decoded) {
+			if (read() is { } bytes && WaveSample.Decode(bytes) is { } decoded) {
 				sample = _backend.CreateSample(decoded);
 			}
 
-			_samples[path] = sample;
+			_looseSamples[name] = sample;
 		}
 
 		if (sample < 0) {
@@ -96,7 +98,7 @@ public sealed class SquadVoice {
 
 		Stop();
 		_speaking = _backend.Start(sample, _volume, 0f, 1f, looping: false);
-		Speaking = _speaking >= 0 ? Path.GetFileName(path) : null;
+		Speaking = _speaking >= 0 ? name : null;
 	}
 
 	/// <summary>Notices when the running clip has finished. Call once a frame.</summary>

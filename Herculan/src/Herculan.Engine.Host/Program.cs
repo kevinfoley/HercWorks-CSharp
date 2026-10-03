@@ -418,6 +418,7 @@ if (installRoot == null) {
 	return 1;
 }
 GameInstall.Remember(installRoot);
+var session = new HostSession(installRoot, localization, imguiFontPath);
 
 // The disc GameInstall.DiscFile falls back from, said once: a folder without the movie the shell's startup
 // probes for (ShellHost.DiscCheckMovie) is not the CD.
@@ -444,14 +445,21 @@ if (!runShell) {
 // the debrief and 6 after a demo; and 0, QUIT's, ends the run. The original spawns an executable per turn; here
 // each is a window in this one process. Each handoff sits in a scratch folder, so the simulator's settings are
 // still the install's. The --shell staging flags stage the first turn only; each later turn starts in the mode
-// the last one ended in. Every simulator launch is handed the count of those before it, as -R<n>.
+// the last one ended in. Every simulator launch is handed the count of those before it, as -R<n>. The Settings
+// menu's restart is this engine's own turn: the shell again, on whatever install the session now names.
 int state = ShellHost.StartupCode;
 int launches = 0;
 while (true) {
 	bool firstTurn = state == ShellHost.StartupCode;
-	(int shellExit, ShellLaunch? launched, shellMode) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode,
+	(int shellExit, ShellLaunch? launched, shellMode) = ShellHost.Run(session, shellPalette, screenshotPath, shellMode,
 		firstTurn ? shellTab : ShellScreen.MainMenuTab, shellBay, firstTurn && shellPractice, silentAudio, writePreferences,
 		shellWindowed, shellMovies, state);
+	installRoot = session.InstallRoot;
+	if (shellExit == ShellHost.SettingsRestartCode) {
+		state = shellExit;
+		continue;
+	}
+
 	if (launched != null) {
 		state = RunMission(launched, false, musicTrackSelect + launches++);
 	} else if (shellExit == ShellHost.DemoExitCode) {
@@ -669,11 +677,6 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	bool pilotingRazor = scene.PlayerObject is { Placement.TypeName: { } playerTypeName }
 		&& HercLUT.GetByAbbrev(playerTypeName)?.Id == ControlsPanel.RazorTypeIndex;
 	var controlsPanel = ControlsPanel.Build(content, simulatorPreferences, pilotingRazor, stagedJoystick);
-
-	// Retail-deviation toggles — see TweakSettingDefinitions. Not mission state, but built here
-	// rather than up with localization/tweakSettings themselves because this is the first place
-	// with an ImGui menu bar to raise it from; --shell and --movie return before reaching this point.
-	var tweaksMenu = new TweaksMenu(TweakSettings.Current, localization);
 
 	// The stick, once the window has an input context to enumerate it with. The bindings themselves are
 	// the twelve bytes of prefs.cfg either way — nothing about them changes when the hardware does, which
@@ -1117,8 +1120,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	var debugPanel = new DebugPanel();
 
 	// Hidden until [Esc] first raises it — see ReadMenuBarEscapeKey below — since it is the only way to
-	// reach either debugPanel or tweaksMenu and every key from F1 to F12 is already taken.
-	bool menuBarVisible = false;
+	// reach its panels and every key from F1 to F12 is already taken. A mission has no shell turn to restart,
+	// so Settings shows the folders greyed.
+	var menuBar = new HostMenuBar(localization, new TweaksMenu(TweakSettings.Current, localization),
+		new SettingsWindow(session, restartShell: null), debugPanel);
 	bool menuBarEscapeDown = false;
 
 	// The -SPRUNKNOWN keys, and the Alt+S freeze a replay honours without them.
@@ -3162,35 +3167,16 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			}
 		}
 
-		// The menu bar itself: hidden until [Esc] raises it (see ReadMenuBarEscapeKey) and hidden outright
-		// during --screenshot capture so it never lands in a reference image. A bare item per panel, no
-		// checkmark, since each panel closes itself; mirrors Herculan.Engine.Host.Editor's BuildMenuBar.
-		if (screenshotPath == null && menuBarVisible && ImGui.BeginMainMenuBar()) {
-			if (ImGui.MenuItem("Debug")) {
-				debugPanel.IsOpen = true;
-			}
-
-			if (ImGui.MenuItem("Tweaks")) {
-				tweaksMenu.IsOpen = true;
-			}
-
-			// A click outside the bar hides it, but only while neither panel is up — with one open, that
-			// same click either lands on it (nothing to do here) or is DebugPanel's own outside-click
-			// close, or TweaksMenu's Save/Cancel is the only way out.
-			if (!debugPanel.IsOpen && !tweaksMenu.IsOpen && !ImGui.IsWindowHovered()
-					&& ImGui.IsMouseClicked(ImGuiMouseButton.Left)) {
-				menuBarVisible = false;
-			}
-
-			ImGui.EndMainMenuBar();
+		// The menu bar and its panels: hidden until [Esc] raises the bar (see ReadMenuBarEscapeKey), and never
+		// in a --screenshot capture, which sees no input to raise it.
+		if (screenshotPath == null) {
+			menuBar.Draw(window.View.Native?.Win32?.Hwnd ?? 0);
 		}
 
 		debugPanel.Draw(
 			new DebugPanelContext(piloting, ExternalViewActive(), pilotMech, scene.Targeting, scene.World,
 				scene.PlayerObject?.Model?.Segments.Length ?? 0, terrain),
 			size.Y);
-
-		tweaksMenu.Draw();
 
 		imgui?.Render();
 
@@ -3451,7 +3437,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 	}
 
-	// [Esc] backs out one layer at a time: closes whichever of debugPanel/tweaksMenu is open, else
+	// [Esc] backs out one layer at a time: closes whichever of the menu bar's panels is open, else
 	// hides an empty menu bar, else returns to the cockpit from the external view, a side window or the
 	// Heads-Down Display, else raises the menu bar. The menu bar is the only way to reach either panel,
 	// since every key from F1 to F12 is already taken by the game.
@@ -3485,15 +3471,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		menuBarEscapeDown = down;
 
 		if (pressed && !consumedByOtherPanel) {
-			if (debugPanel.IsOpen || tweaksMenu.IsOpen) {
-				// TweaksMenu goes through Cancel, not a bare close, so an edit made but not yet saved is
-				// discarded rather than left applied-but-unpersisted; DebugPanel has no such state to lose.
-				debugPanel.IsOpen = false;
-				if (tweaksMenu.IsOpen) {
-					tweaksMenu.Cancel();
-				}
-			} else if (menuBarVisible) {
-				menuBarVisible = false;
+			if (menuBar.BackOut()) {
+				// A panel or the bar itself came down.
 			} else if (!tapePlaying && ExternalViewActive()) {
 				// With the cockpit's widgets off, scancode 1 falls through them to the dispatcher's own
 				// case, which is the way back from the external view — see ExternalViewChain.Escape.
@@ -3506,7 +3485,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				cockpitGlance.Return();
 				RequestHeadsDown(headsDown: false);
 			} else {
-				menuBarVisible = true;
+				menuBar.Show();
 			}
 		}
 	}

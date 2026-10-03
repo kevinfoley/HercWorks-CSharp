@@ -71,7 +71,7 @@ internal static class OnlineManual {
 	// G German, S Spanish, anything else, or no file, English. VSHELL's 004317ea knows only E, F and G
 	// and asserts on any other byte or a missing file (004087b9); this follows DBSIM, since an install
 	// without the file is otherwise playable.
-	private static (string Folder, string Code) Language(string installRoot) {
+	internal static (string Folder, string Code) Language(string installRoot) {
 		string path = Path.Combine(installRoot, "DATA", "LANGUAGE.CFG");
 		int letter = -1;
 		try {

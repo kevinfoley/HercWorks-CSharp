@@ -109,6 +109,37 @@ public static class GameInstall {
 	}
 
 	/// <summary>
+	/// Why <paramref name="directory"/> cannot go into <c>drive.cfg</c>, or null when it can: it must exist,
+	/// and survive the retail readers' <c>fscanf("%s")</c> and the file's single-byte text, so no whitespace
+	/// and nothing outside Latin-1.
+	/// </summary>
+	public static DiscDirectoryProblem? CheckDiscDirectory(string directory) =>
+		!Directory.Exists(directory) ? DiscDirectoryProblem.Missing
+		: DriveTransformer.HasWhitespace(directory) ? DiscDirectoryProblem.Whitespace
+		: directory.Any(c => c > '\xff') ? DiscDirectoryProblem.NotLatin1
+		: null;
+
+	/// <summary>
+	/// Writes <paramref name="directory"/> into the install's <c>data\drive.cfg</c> as the disc, keeping the
+	/// file's second line, the install's own directory, or writing <paramref name="installRoot"/> there when it
+	/// has none, as the installer's <c>BATCH.EXE</c> does (docs/retail-builds.md, "The installer"). Takes only a
+	/// directory <see cref="CheckDiscDirectory"/> passes.
+	/// </summary>
+	public static void WriteDiscDirectory(string installRoot, string directory) {
+		if (CheckDiscDirectory(directory) is { } problem) {
+			throw new ArgumentException($"{directory} cannot go into drive.cfg: {problem}.", nameof(directory));
+		}
+
+		string path = Path.Combine(installRoot, MissionLoader.DataFolderName, Drive.FileName);
+		var transformer = new DriveTransformer();
+		var drive = File.Exists(path) ? transformer.Parse(File.ReadAllBytes(path)) ?? new Drive() : new Drive();
+		drive.Directory = Path.GetFullPath(directory);
+		drive.InstallDirectory ??= Path.GetFullPath(installRoot);
+		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+		File.WriteAllBytes(path, transformer.Write(drive)!);
+	}
+
+	/// <summary>
 	/// A file both programs read from the disc — a movie, the on-line manual, a training instructor
 	/// clip: <paramref name="relativePath"/> under <see cref="DiscDirectory"/> when it is there, and
 	/// otherwise under the install root.
@@ -127,6 +158,13 @@ public static class GameInstall {
 		}
 
 		return Path.Combine(installRoot, relativePath);
+	}
+
+	/// <summary>Why a directory cannot go into <c>drive.cfg</c> (<see cref="CheckDiscDirectory"/>).</summary>
+	public enum DiscDirectoryProblem {
+		Missing,
+		Whitespace,
+		NotLatin1,
 	}
 
 	private static string? LoadRemembered() {

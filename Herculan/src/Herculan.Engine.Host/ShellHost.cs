@@ -1,11 +1,15 @@
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
+using Herculan.Engine.Host.Settings;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
+using Silk.NET.OpenGL.Extensions.ImGui;
 using HercWorks.Core.Data.File.Cfg;
+using ImGuiNET;
 
 namespace Herculan.Engine.Host;
 
@@ -73,7 +77,8 @@ static class ShellHost {
 	/// <para><paramref name="returnCode"/> is <c>-X</c>, the state the launcher starts the shell in
 	/// (<c>0048227e</c>): <see cref="StartupCode"/> on a first start, or the code the simulator returned —
 	/// <see cref="MissionResults.DebriefExitCode"/> into the debrief, <see cref="MissionResults.DemoExitCode"/>
-	/// after a demo (<c>Shell_BuildScreensAndStart</c>, <c>004012b0</c>). <paramref name="forcedMode"/> overrides
+	/// after a demo (<c>Shell_BuildScreensAndStart</c>, <c>004012b0</c>) — or this engine's own
+	/// <see cref="SettingsRestartCode"/>, the Settings menu's restart. <paramref name="forcedMode"/> overrides
 	/// the campaign/training mode the startup seeds from <c>prefs.cfg</c> option 42 (<c>Shell_InitGameState</c> (<c>0040e17e</c>)); the mode
 	/// the shell ends in is returned for the next turn, which is how it survives a return from the simulator when
 	/// <c>--no-write-prefs</c> keeps option 42 off the disk.</para>
@@ -81,11 +86,12 @@ static class ShellHost {
 	/// <para>Retail ignores <c>WM_CLOSE</c> while the startup sequence runs (<c>Shell_CloseAllowed</c> (<c>0046c098</c>) clear); this
 	/// window closes.</para>
 	/// </summary>
-	public static (int ExitCode, ShellLaunch? Launch, ShellCampaignMode? Mode) Run(string installRoot, string? paletteName, string? screenshotPath = null,
+	public static (int ExitCode, ShellLaunch? Launch, ShellCampaignMode? Mode) Run(HostSession session, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode? forcedMode = null, int startTab = ShellScreen.MainMenuTab,
 			int startBay = 0, bool startPractice = false, bool silentAudio = false, bool writePreferences = true,
 			bool startWindowed = false, bool moviesEnabled = true, int returnCode = StartupCode) {
 		bool fromMission = returnCode is MissionResults.DebriefExitCode or DebriefDestroyedCode;
+		string installRoot = session.InstallRoot;
 		var content = GameContent.MountShell(installRoot);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
@@ -300,6 +306,11 @@ static class ShellHost {
 
 		using var window = new EngineWindow("HERCULAN Engine — shell");
 
+		// HERCULAN's own menu bar, which [Esc] raises wherever retail has no use for the key (EscapeIsRetails).
+		ImGuiController? imgui = null;
+		var menuBar = new HostMenuBar(session.Localization, new TweaksMenu(TweakSettings.Current, session.Localization),
+			new SettingsWindow(session, RestartShell));
+
 		ShellRenderer? renderer = null;
 		GL? gl = null;
 		IMouse? mouse = null;
@@ -316,6 +327,9 @@ static class ShellHost {
 		// Set by QUIT, whose blank is the last thing the window shows.
 		bool blanked = false;
 
+		// Set by the Settings menu's restart, which closes the window once the frame's ImGui is drawn.
+		bool restartPending = false;
+
 		// Which button the event being delivered is, for the handlers that tell them apart: an armory
 		// row's thunk calls one function on the left release and another on the right.
 		var eventButton = ShellMouseButton.Left;
@@ -323,6 +337,7 @@ static class ShellHost {
 
 		window.Load += (loadedGl, input) => {
 			gl = loadedGl;
+			imgui = new ImGuiController(loadedGl, window.View, input, new ImGuiFontConfig(session.ImGuiFontPath, 16));
 			renderer = new ShellRenderer(loadedGl, art);
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
 			keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
@@ -337,12 +352,22 @@ static class ShellHost {
 
 			if (keyboard != null) {
 				keyboard.KeyDown += (_, key, _) => {
+					if (key == Key.Escape && !EscapeIsRetails()) {
+						if (!menuBar.BackOut()) {
+							menuBar.Show();
+						}
+
+						return;
+					}
+
 					DisplayHotkey(key, released: false);
 					WidgetKey(key, released: false);
 				};
 				keyboard.KeyUp += (_, key, _) => {
 					DisplayHotkey(key, released: true);
-					WidgetKey(key, released: true);
+					if (key != Key.Escape || EscapeIsRetails()) {
+						WidgetKey(key, released: true);
+					}
 				};
 			}
 
@@ -351,11 +376,11 @@ static class ShellHost {
 			}
 
 			// The startup's two intro movies (Shell_BuildScreensAndStart, 004012b0), played before the startup
-			// sequence — except after a demo, whose -X6 goes straight to the sequence, and after a mission,
-			// whose -X3 goes to the debrief.
+			// sequence — except after a demo, whose -X6 goes straight to the sequence, after a mission, whose -X3
+			// goes to the debrief, and after the Settings menu's restart, which goes to the sequence as a demo's does.
 			if (fromMission) {
 				ReturnFromMission();
-			} else if (startup != null && returnCode != MissionResults.DemoExitCode) {
+			} else if (startup != null && returnCode is not (MissionResults.DemoExitCode or SettingsRestartCode)) {
 				movieQueue.Enqueue(ShellMovieQueue.IntroPart1, ShellMovieQueue.FullRect);
 				movieQueue.Enqueue(ShellMovieQueue.IntroPart2, ShellMovieQueue.FullRect);
 				movies.Start();
@@ -450,11 +475,18 @@ static class ShellHost {
 				return;
 			}
 
-			pointer.Move(HitAt(canvasX, canvasY));
-			ButtonEdge(mouse.IsButtonPressed(MouseButton.Left), ref leftHeld, ShellMouseButton.Left);
-			ButtonEdge(mouse.IsButtonPressed(MouseButton.Right), ref rightHeld, ShellMouseButton.Right);
-			if (pointer.Lit != litBefore && screen.SelectedTab == ShellScreen.MissionTab) {
-				RepaintContent();
+			// While the pointer is over the menu bar or one of its windows, the shell under them takes nothing:
+			// the buttons' state is taken without delivering it, as during a fade.
+			if (imgui != null && ImGui.GetIO().WantCaptureMouse) {
+				leftHeld = mouse.IsButtonPressed(MouseButton.Left);
+				rightHeld = mouse.IsButtonPressed(MouseButton.Right);
+			} else {
+				pointer.Move(HitAt(canvasX, canvasY));
+				ButtonEdge(mouse.IsButtonPressed(MouseButton.Left), ref leftHeld, ShellMouseButton.Left);
+				ButtonEdge(mouse.IsButtonPressed(MouseButton.Right), ref rightHeld, ShellMouseButton.Right);
+				if (pointer.Lit != litBefore && screen.SelectedTab == ShellScreen.MissionTab) {
+					RepaintContent();
+				}
 			}
 
 			BlinkCaret();
@@ -464,7 +496,9 @@ static class ShellHost {
 			movies?.Start();
 		};
 
-		window.Render += (_, frameGl) => {
+		window.Render += (delta, frameGl) => {
+			imgui?.Update((float)delta);
+
 			// Black behind the canvas: the shell is a fixed 640x480 layout scaled to the window, so a
 			// window that is not 4:3 has margin left over and the original has nothing to put in it.
 			frameGl.ClearColor(0f, 0f, 0f, 1f);
@@ -480,6 +514,7 @@ static class ShellHost {
 				frameGl.ClearColor(blank.R / 255f, blank.G / 255f, blank.B / 255f, 1f);
 				frameGl.Clear(ClearBufferMask.ColorBufferBit);
 				DrawMovie(layout);
+				DrawMenuBar();
 				return;
 			}
 
@@ -489,6 +524,7 @@ static class ShellHost {
 			}
 
 			DrawMovie(layout);
+			DrawMenuBar();
 
 			framesRendered++;
 			if (screenshotPath != null && framesRendered == ScreenshotFrame) {
@@ -499,6 +535,8 @@ static class ShellHost {
 
 		window.Closing += () => {
 			// The movie and the location picture hold GL textures, released while the context is current.
+			imgui?.Dispose();
+			imgui = null;
 			movies?.Dispose();
 			locationTexture?.Dispose();
 			locationTexture = null;
@@ -515,6 +553,40 @@ static class ShellHost {
 		// The main loop's exit, whichever way it was left: QUIT, a launch or the window closing.
 		AutoSave();
 		return (exitCode, launch, mode);
+
+		// The menu bar and its windows over whatever the frame drew, never in a --screenshot capture.
+		void DrawMenuBar() {
+			if (imgui == null) {
+				return;
+			}
+
+			if (screenshotPath == null) {
+				menuBar.Draw(window.View.Native?.Win32?.Hwnd ?? 0);
+			}
+
+			imgui.Render();
+
+			if (restartPending) {
+				window.Close();
+			}
+		}
+
+		// The Settings menu's restart: the shell closes with SettingsRestartCode, which the caller answers by
+		// running it again on the session's folders. Settings asks from inside its ImGui window, and the close
+		// disposes the ImGui context, so it waits for DrawMenuBar to finish the frame.
+		void RestartShell() {
+			exitCode = SettingsRestartCode;
+			restartPending = true;
+		}
+
+		// Whether [Esc] is retail's (docs/shell/screen-layout.md#typing-into-a-row): a movie and the briefing map's
+		// intro skip on it, a field being typed into takes it, and with Alt or Ctrl it leaves full screen.
+		// Retail also hands it to an edit field that is merely under the pointer, which runs the field's
+		// handler and so selects a save row; here the menu bar takes it instead (KNOWN_ISSUES.md).
+		bool EscapeIsRetails() =>
+			movies?.Active == true || MapIntroUp() != null || pointer.Focused != null
+			|| keyboard != null && (keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight)
+				|| keyboard.IsKeyPressed(Key.ControlLeft) || keyboard.IsKeyPressed(Key.ControlRight));
 
 		// One update of the startup sequence: shown on the first, then its alarm's ticks, the last of which
 		// hides it and puts the menu up.
@@ -1517,9 +1589,10 @@ static class ShellHost {
 		// command, Enter releases the pointer, and whatever the key, the row's handler then runs, which
 		// selects it. The registration screen's name field takes keys the same way, its handler regating
 		// ACCEPT. Nothing else ported here takes a key. A fade or the movie queue drops keys as it drops
-		// clicks.
+		// clicks, and a field of the menu bar's windows being typed into takes the key instead.
 		void WidgetKey(Key key, bool released) {
 			if (keyboard == null || sound?.Fading == true || movies?.Active == true
+					|| imgui != null && ImGui.GetIO().WantCaptureKeyboard
 					|| pointer.Target?.Widget is not { } row
 					|| !(row.Kind == ShellWidgetKind.SaveRow && screen.SelectedTab == ShellScreen.SaveTab
 						|| row.Kind == ShellWidgetKind.RegistrationField && registrationUp)
@@ -2145,6 +2218,12 @@ static class ShellHost {
 
 	/// <summary>The state <c>ES.EXE</c>'s loop starts in, which runs the shell as a first start (docs/command-line.md#the-loop).</summary>
 	public const int StartupCode = 1;
+
+	/// <summary>
+	/// The Settings menu's exit code, this engine's and outside retail's 0-6: the shell closes so that the
+	/// caller can run it again on the install and disc folders the menu changed.
+	/// </summary>
+	public const int SettingsRestartCode = -1;
 
 	/// <summary>
 	/// The simulator's code for a destroyed player in <c>MissionModeFlag</c>, which the shell takes into the

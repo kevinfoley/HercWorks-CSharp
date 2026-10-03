@@ -589,6 +589,8 @@ The click on `ACCEPT` or `CANCEL` reaches it through the locked row: the press l
 
 Neither carries a target, so each goes where the last move left the pointer, or where a lock holds it.
 
+**Only an edit field takes a command**, so Esc does nothing elsewhere. Every write to a widget's event mask `+0x39` (`es2_fieldscan.py --binary VSHELL 39`) sets bits from `0x1f`, `0x60` and `0x200`, except `ESDialog_Ctor`'s `0x360`, which alone carries the command bit `0x100`; `Event_Deliver` (`00469f34`) discards an event no widget up the pointer's chain accepts. The key ring has two other readers, each of which takes Esc (scancode 1) or Space as a skip: `Avi_Play` ([above](#the-shells-movies)) and `ShellMap_RunIntro` (`0040146a`), the [briefing map's](mission-map.md#the-intro) intro. With Alt or Ctrl held, Esc leaves [full screen](#full-screen-asks-first) instead.
+
 **`ESDialog_HandleEvent` edits the string, then runs the handler, on every key.**
 
 | Event | While | What it does |

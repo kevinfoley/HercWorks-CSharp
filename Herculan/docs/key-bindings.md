@@ -140,7 +140,7 @@ The engine takes the keys above and adds its own:
 | Key | What it does |
 |---|---|
 | `C` | Switch between piloting and a free camera: `W`, `A`, `S`, `D` move, `R`, `F` rise and fall, the arrows look, `Shift` goes faster. |
-| `Esc` | In the forward view, raise the menu bar with the debug and tweak panels; press again to back out. |
+| `Esc` | In a mission's forward view, raise the menu bar with the Debug, Tweaks and Settings panels; in the front end, raise it with Tweaks and Settings, except while a movie or the briefing map's opening plays or a field is being typed into. Press again to back out. |
 | Left mouse drag | With the Mouse-controlled outside view tweak, swing the outside view round the HERC. |
 
 The tweak replaces the outside view's controls: the mouse swings the camera, the HERC stays under your control throughout, and the cockpit's keys keep working. `Esc` still returns to the cockpit.

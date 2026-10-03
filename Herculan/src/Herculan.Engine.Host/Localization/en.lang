@@ -37,3 +37,29 @@ install_prompt.use_folder      Use This Folder
 install_prompt.quit            Quit
 install_prompt.no_path         Type or paste the path to the Earthsiege 2 folder.
 install_prompt.not_an_install  {0} is not an Earthsiege 2 folder: it has no {1} folder in it.
+menu.debug                     Debug
+menu.tweaks                    Tweaks
+menu.settings                  Settings
+settings.title                 Settings
+settings.folders               Earthsiege 2 folders
+settings.install_folder        Install folder
+settings.install_message       Choose the Earthsiege 2 folder: the one that holds the {0} folder. The front end restarts on the new install.
+settings.disc_folder           Disc folder (data\drive.cfg)
+settings.no_disc               None: data\drive.cfg is missing or empty
+settings.change                Change...
+settings.in_mission            Return to the front end to change this.
+settings.languages             Languages
+settings.game_language         Game language
+settings.interface_language    Interface language
+settings.language_unavailable  Not available yet.
+settings.close                 Close
+settings.cancel                Cancel
+settings.write_failed          Could not write {0}: {1}
+disc_prompt.message            Choose the Earthsiege 2 disc folder, such as the CD drive or a copy of the disc. It is written to the install's data\{0}, which the original game reads too, and the front end restarts.
+disc_prompt.path_hint          Disc folder
+disc_prompt.picker_title       Choose the Earthsiege 2 disc folder
+disc_prompt.use_folder         Use This Folder
+disc_prompt.no_path            Type or paste the path to the disc folder.
+disc_prompt.missing            {0} does not exist.
+disc_prompt.whitespace         {0} has a space in it, and the original game reads {1} only up to the first space.
+disc_prompt.not_latin1         {0} has characters the original game cannot read from {1}.

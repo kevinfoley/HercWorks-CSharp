@@ -303,7 +303,7 @@ The base roster, `script.dat` block 9. The largest roster (1,949 instances); cle
 | `0x10–0x36` | 10 (counter ref, operation) pairs | 698 of 1,949 records fill the first pair and 58 of those a second; slots 2–9 are always `-1`, and every filled operation is 2 (increment). The structure's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 9's `0x06`/`0x1a` |
 | `0x38` | engaged action, ref→row #10 | 0.4% real; block 9's `0x2e` |
 | `0x3A` | defeated action, ref→row #10 | 0.1% real; block 9's `0x30` |
-| `0x3C` | starting condition, per cent | 100%: `100` (71%) or `0` (29%); `100` goes with a real `0x08` in 1,931 of 1,949 records (9 have `100` and no type, 9 a type and `0`); block 9's `0x32`, read by `Base_Construct` ([`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md)) |
+| `0x3C` | starting condition, per cent | 100%: `100` (71%) or `0` (29%); `100` goes with a real `0x08` in 1,931 of 1,949 records (9 have `100` and no type, 9 a type and `0`); block 9's `0x32`, read by `Base_Construct` ([`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md#starting-condition)) |
 
 
 ## Row #16 field decode — the group record (`DAT_0047065a`, 164 bytes/record)

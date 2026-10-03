@@ -74,11 +74,15 @@ public sealed partial class BaseObject : SimObject {
 	/// The type's animation data, or null for a type whose shape carries none. Shared per shape, as a
 	/// mech type's is.
 	/// </param>
+	/// <param name="startingCondition">
+	/// The block-9 record's starting condition, per cent — see <see cref="ApplyStartingCondition"/>.
+	/// </param>
 	public BaseObject(BaseType type, ShapeVolume? volume, ColliderNode[]? collision, int shapeRadius,
-			int animCellCount = 1, ShapeAnimation? animation = null) {
+			int animCellCount = 1, ShapeAnimation? animation = null, short startingCondition = 100) {
 		Type = type;
 		_animCellCount = animCellCount < 1 ? 1 : animCellCount;
 		_animCellTimer = type.AnimCellInterval;
+		_scannerActive = ScannerTypes.Contains(type.Index);
 
 		// Base_Construct's tail, which runs for every class: one thread per sequence the type asks
 		// for, from sequence 0 up, each started at its own rate out of BaseType.AnimThreadRates. A
@@ -112,15 +116,60 @@ public sealed partial class BaseObject : SimObject {
 		_deathTimer = new short[type.Components.Length];
 		_alive = new bool[type.Components.Length];
 		Array.Fill(_alive, true);
+
+		ApplyStartingCondition(startingCondition);
 	}
+
+	/// <summary>
+	/// The last step of <c>Base_Construct</c> (<c>00405314</c>): the block-9 record's starting
+	/// condition, a percentage applied to every component
+	/// (docs/simulation/structure-behaviour.md, "Starting condition"). Negative leaves the
+	/// components undamaged; anything but 0 starts each at <c>(100 - percent) * maxDamage / 100</c>,
+	/// kept to the original's 16-bit store.
+	///
+	/// <para><b>0 places the structure already fallen</b>: every component at its maximum with its
+	/// sequence on <see cref="CollapsedCell"/>, <see cref="Destroyed"/> and <see cref="ShowingHulk"/>
+	/// set and the scanner off, and nothing else — no mission action, no out-of-action report, no
+	/// death sequence. The alive flags stay set, as the original leaves them, which is what lets a
+	/// blast kill such a structure's parts a second time; see <see cref="ApplyDamage"/>.</para>
+	/// </summary>
+	private void ApplyStartingCondition(short percent) {
+		if (percent < 0) {
+			return;
+		}
+
+		for (int i = 0; i < Type.Components.Length; i++) {
+			var component = Type.Components[i];
+			if (percent != WreckedCondition) {
+				_damage[i] = (short)((100 - percent) * component.MaxDamage / 100);
+				continue;
+			}
+
+			_damage[i] = component.MaxDamage;
+			if (component.DestroyedSubShape >= 0) {
+				CellFrames[component.DestroyedSubShape] = CollapsedCell;
+			}
+		}
+
+		if (percent == WreckedCondition) {
+			_destroyed = true;
+			_scannerActive = false;
+			ShowingHulk = Type.HulkTypeIndex >= 0;
+		}
+	}
+
+	/// <summary>The starting condition that places a structure already fallen — the original's literal 0.</summary>
+	private const short WreckedCondition = 0;
 
 	/// <summary>The <c>BASES.DAT</c> entry this structure is an instance of.</summary>
 	public BaseType Type { get; }
 
 	/// <summary>
 	/// <c>obj+0x99</c> — whether every component has been destroyed and the structure has fallen. It
-	/// is set by <see cref="ApplyDamage"/> the moment <see cref="DamageFraction"/> reaches full, and
-	/// once set the structure takes no further damage.
+	/// is set by <see cref="ApplyDamage"/> the moment <see cref="DamageFraction"/> reaches full, or at
+	/// spawn by a starting condition of 0 (<see cref="ApplyStartingCondition"/>). Once set, direct
+	/// fire stops damaging the structure; a blast is gated by <see cref="ExplosiveDamage"/>'s own
+	/// tests instead.
 	/// </summary>
 	public override bool Destroyed => _destroyed;
 
@@ -299,7 +348,13 @@ public sealed partial class BaseObject : SimObject {
 	}
 
 	/// <inheritdoc />
-	public override bool ScannerActive => ScannerTypes.Contains(Type.Index);
+	/// <remarks>
+	/// <c>obj+0x96</c>: latched at spawn for the <see cref="ScannerTypes"/> and cleared by both writers
+	/// of <see cref="Destroyed"/>, so a fallen radar mast stops transmitting.
+	/// </remarks>
+	public override bool ScannerActive => _scannerActive;
+
+	private bool _scannerActive;
 
 	/// <inheritdoc />
 	public override bool Neutralised => Destroyed;
@@ -476,12 +531,12 @@ public sealed partial class BaseObject : SimObject {
 	/// section is likely to bring it down before its stated hit points run out, and the same hit
 	/// twice does not do the same thing.</para>
 	///
-	/// <para>Two things a kill does in the original that are not here: it plays the component's
-	/// destruction effect (a table that is not ported, see
-	/// <see cref="BaseComponentType.DestroyedEffect"/>), and it credits the kill to the shooter
-	/// through the shooter's own vtable <c>+0x60</c>. It does fire the structure's mission action,
-	/// which is the part that matters to a mission, and that is recorded on
-	/// <see cref="Removed"/>'s behalf as <see cref="Destroyed"/> until mission actions exist.</para>
+	/// <para>The one thing a kill does in the original that is not here is credit the shooter through
+	/// the shooter's own vtable <c>+0x60</c>.</para>
+	///
+	/// <para><b>Nothing here tests <see cref="Destroyed"/></b>, so the fallen-structure branch runs
+	/// whenever the fraction comes out full. A part that is alive at full damage is the only way to
+	/// reach it twice, and only <see cref="ApplyStartingCondition"/> leaves one.</para>
 	/// </summary>
 	/// <param name="random">The simulation's shared generator, for the early-destruction roll.</param>
 	/// <param name="componentIndex">
@@ -532,8 +587,9 @@ public sealed partial class BaseObject : SimObject {
 		_alive[index] = false;
 		LastAttacker = attacker;
 
-		if (DamageFraction == FullyDestroyed && !_destroyed) {
+		if (DamageFraction == FullyDestroyed) {
 			_destroyed = true;
+			_scannerActive = false;
 
 			// And the structure's own mission action, where Base_ApplyDamage fires it, together with
 			// the announcement that what the player was shooting at has come down. See

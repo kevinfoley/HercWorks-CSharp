@@ -705,6 +705,7 @@ public static class MissionLoader {
 				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
 				DefeatActionRef: ActionRef(script, record.DefeatActionRef),
+				StartingCondition: record.StartingCondition,
 				OutOfActionReport: new OutOfActionReport(record.CounterRefs, record.CounterOps)));
 		}
 	}

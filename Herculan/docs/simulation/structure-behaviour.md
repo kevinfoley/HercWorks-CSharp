@@ -288,12 +288,32 @@ if (component[+4] != -1) { state[+5] = stageCount[component[+4]]; state[+3] = 30
 
 The message is [`component-damage.md`](component-damage.md#what-the-endpoint-announces)'s `0x2e`, and the counters are [the out-of-action report](mission-deployment.md#the-out-of-action-report).
 
-Spawn-time health comes from the block-9 record's starting condition (`+0x32`, [`script-dat.md`](../formats/script-dat.md)), a per-cent value that `Base_Construct` applies to every component. Negative or 100 leaves them undamaged. 0 spawns every component at full damage with its cell sequence stepped to the collapsed cell, flags the structure destroyed (`+0x99`) and installs its wreck shape (`BASES.DAT +0x04`). Anything else starts each component at `(100 - pct) * maxDamage / 100`.
+### Starting condition
+
+Spawn-time health comes from the block-9 record's starting condition (`+0x32`, [`script-dat.md`](../formats/script-dat.md)), a per-cent value. It is the last thing `Base_Construct` does, after the class switch and the animation threads and before it stores the flipbook interval (`+0x1f7`) and the type record pointer (`+0x1f2`). Having set every alive flag at `+0x201`, it walks the components:
+
+```
+for each component i:
+    state[i]+5 = 0                                                       // stages left
+    if (pct < 0)       damage[i] = 0
+    else if (pct == 0) {
+        damage[i] = component.maxDamage
+        if (component[+2] >= 0) shapeInstance[+8][component[+2]] = 1     // the collapsed cell
+    }
+    else               damage[i] = (short)((100 - pct) * component.maxDamage / 100)
+if (pct == 0) {
+    obj[+0x99] = 1; obj[+0x96] = 0
+    if (typeRec[+0x04] >= 0) shapeInstance[+4] = hulkShapes[typeRec[+0x04]]   // the hulk swap
+}
+```
+
+So 100, like any negative value, leaves the components undamaged, and 0 places the structure already fallen: destroyed, scanner off, parts on their rubble cells and the wreck installed. That is all it does. No mission action fires, no out-of-action report is made, and no death sequence, fire or debris starts.
+
+**The alive flags stay set.** `Base_DirectFireHitTest` tests `+0x99` before it writes damage, so direct fire leaves such a structure alone, but `Base_ApplyExplosiveDamage` tests only for a wreck. A starting-condition-0 structure whose type has no wreck and a `BASECOL.DAT` model therefore still takes blasts. Every part a blast reaches is already at its maximum, so it dies at once: it starts its death sequence, and `Base_ApplyDamage`'s fallen branch runs a second time: the computer message if the player had it targeted, the kill credit, the out-of-action report and the mission action. Retail states one such record, the type 0 at row #14 record 26 of `C4_06.MSN`. The other eight retail records that state 0 for a real type are wreck-leaving types 8 and `0x22`, which the wreck test protects.
 
 ## Open
 
 - **Unported:** the kill credit a destroyed structure hands its attacker (vtable `+0x60`).
-- **Unported:** spawn-time component health from the mission record.
 - **Open:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when no tick any of them reaches reads it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
 - **Open:** a tower's ranges against retail play. At `Hud_WorldUnitsToMetres` (`00434228`)'s confirmed scale of `(units / 1000) * 6`, the armed tick's 40000-unit fire gate is 240 m and its 60000-unit target drop 360 m, but retail towers are seen aiming from about 320 m and firing from about 200 m, short of both by a margin the scale does not account for.
 - **Open:** the ground vehicle follower arm: no `script.dat` handoff examined places a second mobile vehicle for it to hold station on. The campaign's `.MSN` files are where to look for one.

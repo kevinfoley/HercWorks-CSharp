@@ -75,7 +75,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | 9 (bases) | 52B | `0x00` | base type → index into `dat\BASES.DAT`'s 65-entry table |
 | | | `0x2e` / `0x30` | refs → block 5, the structure's own engaged/defeated actions |
 | | | `0x06` / `0x1a` | mission-counter refs and operations, as block 7's `0x42` / `0x56` — `SimObject_SetOutOfActionCounters` (`00411b90`), run by `Base_ApplyDamage` when the structure goes out of the fight |
-| | | `0x32` | **starting condition, per cent** — read by `Base_Construct` (`00405314`); [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md) |
+| | | `0x32` | **starting condition, per cent** — read by `Base_Construct` (`00405314`); [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md#starting-condition) |
 | | | `0x02` | ref → block 1 (position) |
 | | | `0x04` | ref → block 2 (heading) |
 | 11 (groups) | 156B | `0x28` | discriminator: 0/1/2 → block 7/8/9 |

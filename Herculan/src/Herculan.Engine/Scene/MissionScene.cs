@@ -463,11 +463,12 @@ public sealed class MissionScene {
 			placed.Object.DefeatAction = ActionAt(actions, placed.Placement.DefeatActionRef);
 			placed.Object.OutOfActionReport = placed.Placement.OutOfActionReport ?? OutOfActionReport.None;
 
-			// And the condition the mission says it starts in, which for anything under 80% means it
-			// spawns already damaged -- or, under 20%, already a wreck. DBSim_SpawnMissionObjects
+			// And the condition the mission says a machine starts in, which for anything under 80% means
+			// it spawns already damaged -- or, under 20%, already a wreck. DBSim_SpawnMissionObjects
 			// makes this call in the same place, immediately after resolving the two actions, and the
 			// order matters for the wreck grade: writing a leg off can fire the death gate, and the
-			// defeat action has to be attached before it can go off.
+			// defeat action has to be attached before it can go off. A structure's was applied by its
+			// constructor, as Base_Construct applies it.
 			if (placed.Object is MechObject spawned) {
 				spawned.ApplyStartingCondition(world, placed.Placement.StartingCondition);
 			}
@@ -1004,7 +1005,8 @@ public sealed class MissionScene {
 				var (boundingRadius, volume) = models.GridShapeCollision(type);
 				return (
 					new BaseObject(type, volume, baseCollision[type.Index], boundingRadius,
-						models.BaseAnimCellCount(type), models.BaseAnimation(type)) {
+						models.BaseAnimCellCount(type), models.BaseAnimation(type),
+						placement.StartingCondition) {
 						// The two PROJ.DAT rows the armed structure's tick names by literal, the same
 						// way the flyer AI does — see BaseObject.ArmedThinkTick.
 						GunProjectile = weapons?.ProjectileAt(BaseObject.GunProjectileIndex),

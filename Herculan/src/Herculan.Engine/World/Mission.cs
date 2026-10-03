@@ -99,8 +99,12 @@ public enum MissionSide {
 /// outside block 5 read as <c>-1</c>. See <see cref="Herculan.Engine.Sim.SimObject.DefeatAction"/>.
 /// </param>
 /// <param name="StartingCondition">
-/// <inheritdoc cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.StartingCondition"/>
-/// <see cref="PristineCondition"/> for anything but a mission-roster mech.
+/// The roster record's starting condition, per cent —
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptMechRecord.StartingCondition"/> or
+/// <see cref="HercWorks.Core.Data.File.Msn.Script.ScriptBaseRecord.StartingCondition"/>, which the
+/// two classes read differently: see <see cref="Sim.MechObject.ApplyStartingCondition"/> and
+/// <see cref="Sim.BaseObject.ApplyStartingCondition"/>. <see cref="PristineCondition"/> for anything
+/// else.
 /// </param>
 /// <param name="FormationOffset">
 /// This member's unrotated spread offset out of <c>MFORMS.DAT</c>, or null for the group's slot 0

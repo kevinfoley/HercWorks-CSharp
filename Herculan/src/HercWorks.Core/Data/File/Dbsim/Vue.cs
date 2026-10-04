@@ -23,7 +23,12 @@ public class Vue {
 		public int ViewportX1 { get; set; }
 		public int ViewportY1 { get; set; }
 
-		/// <summary>Projection centre, the same value for every view of a herc.</summary>
+		/// <summary>
+		/// Projection centre, stored negated and before the canvas origin is added — the same pair in
+		/// every view of a herc. The centre in a view's own window is the rect's top-left less (this +
+		/// canvas origin); see docs/formats/cockpit-views.md, "The projection centre is not the middle of
+		/// the view".
+		/// </summary>
 		public int CenterX { get; set; }
 		public int CenterY { get; set; }
 

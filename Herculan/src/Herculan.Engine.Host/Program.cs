@@ -3099,6 +3099,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				// while the player has dropped one.
 				RouteWaypoint = WaypointMark.ForRoute(pilotMech),
 				NavMarker = WaypointMark.ForNavMarker(pilotMech, navMarker),
+
+				// The RAZOR's altitude scale, read off the world the paint reads it off.
+				Altitude = scene.World is { } altitudeWorld ? AltitudeReading.For(pilotMech, altitudeWorld.Terrain) : null,
 			};
 
 			// MfdDisplay_Update's share of the missile camera, run only while the display updates at all —
@@ -3779,12 +3782,13 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 		var world = layout.World;
 		var cockpitCamera = CloneCockpitCamera(camera);
-		cockpitCamera.PrincipalPoint = CockpitPrincipalPoint(layout.Center, world);
+		cockpitCamera.PrincipalPoint = CockpitPrincipalPoint(layout.Center, world, CockpitViewGeometry.ForwardViewIndex);
 
 		// First, so the six-row overlap where the two views' art meets on the canvas resolves the way the
 		// original's VRAM does. Sim_InitMissionSession (004614fc) blits view 1 and then view 0, so HB0's
 		// bottom rows win over HB1's top rows and no sliver of the HDD shows under the dashboard at rest.
 		if (cockpitHeadsDownTexture != null && layout.HeadsDown is { } headsDown) {
+			DrawHeadsDownWorld(gl, headsDown);
 			overlay!.DrawHeadsDown(headsDown.Viewport.X, headsDown.Viewport.Y,
 				headsDown.Viewport.Width, headsDown.Viewport.Height,
 				cockpitHeadsDownTexture, headsDown.ArtWidth, headsDown.ArtHeight,
@@ -3829,6 +3833,41 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				spriteTexture: hudSpriteTexture, hudState: hudState, mapTexture: hddMapTexture,
 				missileView: hud == null ? null : (x, y, width, height, view) => DrawMissileView(gl, x, y, width, height, view));
 		}
+	}
+
+	// The world behind the heads-down view's art, for the one herc whose view 1 declares a 3D rect: the
+	// RAZOR, through its .HD1 windows (docs/formats/cockpit-views.md, "The RAZOR's heads-down view"). Sim_RenderFrame
+	// (0045fb9c) draws the world into whatever view is current under CockpitView_ShowsWorld (0042db18),
+	// with that view's own projection centre, which for view 1 sits above its window where the forward
+	// view's reticle is — the forward image plane continued downward, the way the glances continue it
+	// sideways. The camera is the forward view's; only the viewport and the centre within it differ.
+	//
+	// Retail draws only the current view, and draws nothing during the slide. This draws while any of
+	// the heads-down art is on screen, which is what the engine's animated pan needs: the forward
+	// panels keep their world through the pan in the same way.
+	void DrawHeadsDownWorld(GL gl, CockpitScreenLayout.PlacedSurface surface) {
+		var viewport = surface.Viewport;
+		if (viewGeometry?.HasWorldViewport(CockpitViewGeometry.HeadsDownViewIndex) != true
+			|| viewport.Y + viewport.Height <= 0) {
+			return;
+		}
+
+		var headsDownCamera = CloneCockpitCamera(camera);
+		headsDownCamera.PrincipalPoint = CockpitPrincipalPoint(surface, viewport, CockpitViewGeometry.HeadsDownViewIndex);
+
+		ApplyWorldViewportScissor(gl, surface, CockpitViewGeometry.HeadsDownViewIndex, mirrorHorizontally: false,
+			reachWindowEdges: true);
+
+		renderer!.Render(headsDownCamera, VisibleItems(), groundLayer, viewport.X, viewport.Y, viewport.Width, viewport.Height);
+		DrawBeams(headsDownCamera, viewport.Width, viewport.Height);
+		DrawSprites(headsDownCamera, viewport.Width, viewport.Height);
+		DrawSkeleton(headsDownCamera, viewport.Width, viewport.Height);
+
+		// The forward panels' rects reach the rows where the two views' art overlaps, and they draw the
+		// same image there; without this their terrain would fail the depth test against this pass's and
+		// leave their sky showing.
+		gl.Clear(ClearBufferMask.DepthBufferBit);
+		gl.Disable(EnableCap.ScissorTest);
 	}
 
 	// The MFD's MISSILE CAM, from inside the overlay's pass over the forward panel: the world as
@@ -3887,10 +3926,15 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	//
 	// The panel fallback covers a herc that ships no .VUE, and a view that declares a zero-size rect. The
 	// zero case is not a degenerate rect to clamp away -- it is how every herc but RAZOR says its
-	// heads-down view shows no world at all -- but no panel this draws is that view, so it cannot arise
-	// here and "the whole panel" is the safe reading for a hand-edited file.
+	// heads-down view shows no world at all -- but DrawHeadsDownWorld does not call this for such a view,
+	// so "the whole panel" is the safe reading for a hand-edited file.
+	//
+	// reachWindowEdges carries a rect that touches the art's left or right edge on out to the window's,
+	// for the heads-down art, whose margins on a window wider than 4:3 are its edge columns stretched
+	// outward (Overlay2DRenderer.DrawHeadsDown). Where such a column is a window, the stretch is one too,
+	// and the world continues into it rather than leaving the cleared framebuffer showing.
 	void ApplyWorldViewportScissor(GL gl, CockpitScreenLayout.PlacedSurface surface, int viewIndex,
-			bool mirrorHorizontally) {
+			bool mirrorHorizontally, bool reachWindowEdges = false) {
 		gl.Enable(EnableCap.ScissorTest);
 
 		if (viewGeometry?.WorldViewport(viewIndex) is not { } rect) {
@@ -3912,6 +3956,17 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// GL's scissor box is bottom-left origin in framebuffer pixels, where the window coordinates
 		// above are top-left origin -- the same flip PlacedSurface.ViewportTopInWindow undoes. The
 		// left edge is clamped to the window because a side panel's art overhangs it on a narrow one.
+		if (reachWindowEdges) {
+			var bounds = surface.Viewport;
+			if (left <= 0f) {
+				windowX0 = bounds.X;
+			}
+
+			if (right >= surface.ArtWidth) {
+				windowX1 = bounds.X + bounds.Width;
+			}
+		}
+
 		int x = Math.Max((int)MathF.Floor(windowX0), 0);
 		int y = (int)MathF.Floor(surface.WindowHeight - windowY1);
 		int width = Math.Max((int)MathF.Ceiling(windowX1) - x, 0);
@@ -3920,17 +3975,20 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		gl.Scissor(x, y, (uint)width, (uint)height);
 	}
 
-	// Where the view axis lands in the cockpit's shared world viewport, as a fraction of it — the herc's
-	// own .VUE projection centre on the forward panel, carried through the same art-to-window transform
-	// the canopy is drawn with so it stays on the reticle through the heads-down pan.
+	// Where the view axis lands in a world viewport, as a fraction of it — the herc's own .VUE projection
+	// centre for one view, carried through the same art-to-window transform that view's art is drawn with
+	// so it stays on the reticle through the heads-down pan. The viewport must share the surface's top
+	// edge and height.
 	//
-	// Only the forward view's centre is used, and that is retail's arithmetic rather than a
-	// simplification: a glance's centre is its own .VUE pair offset by its canvas origin, which puts it
-	// at the forward view's reticle, off the glance's inner edge — see docs/formats/cockpit-views.md, "The
-	// side glances are one image plane". Without a .VUE the fallback is APOCA's, which is a guess — but a
-	// far better one than the middle of the window, which is wrong for every herc in the game.
-	Vector2 CockpitPrincipalPoint(CockpitScreenLayout.PlacedSurface surface, CockpitScreenLayout.Viewport world) {
-		var (centerX, centerY) = viewGeometry?.ProjectionCenter(CockpitViewGeometry.ForwardViewIndex)
+	// The three forward panels share one viewport and the forward view's centre, and that is retail's
+	// arithmetic rather than a simplification: a glance's centre is its own .VUE pair offset by its canvas
+	// origin, which puts it at the forward view's reticle, off the glance's inner edge — see
+	// docs/formats/cockpit-views.md, "The side glances are one image plane". Without a .VUE the fallback
+	// is APOCA's, which is a guess — but a far better one than the middle of the window, which is wrong
+	// for every herc in the game.
+	Vector2 CockpitPrincipalPoint(CockpitScreenLayout.PlacedSurface surface, CockpitScreenLayout.Viewport world,
+			int viewIndex) {
+		var (centerX, centerY) = viewGeometry?.ProjectionCenter(viewIndex)
 			?? (CockpitViewGeometry.DefaultProjectionCenterX, CockpitViewGeometry.DefaultProjectionCenterY);
 
 		// The step kick and the damage shake both move the centre itself, in the art's own pixels, so

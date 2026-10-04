@@ -301,12 +301,12 @@ public sealed class CockpitArt {
 	/// The Heads-Down Display's background — <c>(herc).HB1</c>, DBSIM's view 1. Null when the file is
 	/// missing, in which case the pan has nothing to pan to and the caller should stay forward.
 	///
-	/// <para>No 3D-viewport hole is punched into it, unlike <see cref="Front"/> and
-	/// <see cref="Side"/>. That is what the data says rather than a simplification: every herc's
-	/// <c>.HD1</c> region file is 16 bytes of zeroes and its <c>.VUE</c> view-1 rect is zero-size, so
-	/// the heads-down view shows no live world. RAZOR is the sole exception — a 2368-byte <c>.HD1</c>
-	/// and a real <c>0,0-320,181</c> viewport rect — and rendering that is left for the pass that
-	/// gives the HDD live content, since a hole cut now would only expose cleared background.</para>
+	/// <para>Its 3D-viewport hole is punched from the herc's <c>.HD1</c> like the other views', and
+	/// for every herc but RAZOR that file lists no spans, so the art stays whole. RAZOR's opens two
+	/// lower side windows and the two top corners, which the host fills with the world. A missing
+	/// <c>.HD1</c> leaves the art whole rather than falling back to <see cref="CutViewportHoleByColor"/>,
+	/// which would guess windows into eight hercs' heads-down art that has none. See docs/formats/cockpit-views.md,
+	/// "<c>.HD0</c>-<c>.HD3</c> / <c>.ED0</c>-<c>.ED3</c> — 3D-viewport clip regions".</para>
 	/// </summary>
 	public CockpitFrame? HeadsDown { get; }
 
@@ -453,6 +453,10 @@ public sealed class CockpitArt {
 
 		bool clipped = CutViewportHole(content, hercName, ForwardViewIndex, front)
 			& CutViewportHole(content, hercName, SideViewIndex, side);
+		if (headsDown != null
+			&& CockpitClipRegions.Load(content, hercName, CockpitViewGeometry.HeadsDownViewIndex) is { } headsDownRegions) {
+			PunchSpans(headsDownRegions, headsDown);
+		}
 
 		// The hole is punched into the alpha channel after the expansion, and both cutout paths write
 		// only the ordinary buffer — one of them by reading the art's colour, which is the ordinary
@@ -757,7 +761,7 @@ public sealed class CockpitArt {
 	/// <see cref="CutViewportHoleByColor"/> had to infer one instead.
 	///
 	/// <para>A file that parses to zero spans is honoured as zero spans, not treated as a failure: that
-	/// is a legitimate "this view shows no 3D" (the heads-down view's file is 16 bytes of zeroes). The
+	/// is a legitimate "this view shows no 3D" (every heads-down file but RAZOR's is 16 bytes of zeroes). The
 	/// forward and side views this class loads both have real spans, so a zero-span result here would
 	/// mean something else is wrong — but silently substituting a guessed mask would hide it.</para>
 	/// </summary>
@@ -767,6 +771,12 @@ public sealed class CockpitArt {
 			return false;
 		}
 
+		PunchSpans(regions, frame);
+		return true;
+	}
+
+	/// <summary>Sets every pixel <paramref name="regions"/> lists to alpha 0 — the viewport hole.</summary>
+	private static void PunchSpans(CockpitClipRegions regions, CockpitFrame frame) {
 		byte[] pixels = frame.Pixels;
 		int rows = Math.Min(regions.RowCount, frame.Height);
 		for (int y = 0; y < rows; y++) {
@@ -778,8 +788,6 @@ public sealed class CockpitArt {
 				}
 			}
 		}
-
-		return true;
 	}
 
 	/// <summary>

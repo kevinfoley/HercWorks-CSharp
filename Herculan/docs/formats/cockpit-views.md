@@ -51,14 +51,14 @@ Four views, indexed 0-3, plus 4 = external/no-cockpit.
 | View | Canopy bitmap | Blit flags | 3D viewport | Canvas origin | Clip file |
 |---|---|---|---|---|---|
 | 0 forward | `DB0`/`HB0` | 0 | full | `(0,0)` | `ed0`/`hd0` |
-| 1 heads-down | `DB1`/`HB1` | 0 | **empty** | `(0,237)` | `ed1`/`hd1` (stub) |
+| 1 heads-down | `DB1`/`HB1` | 0 | **empty**, except RAZOR | `(0,237)` | `ed1`/`hd1` (stub, except RAZOR) |
 | 2 glance | `DB2`/`HB2` | 0 | narrower | `(+320,0)` | `ed2`/`hd2` |
 | 3 glance, opposite | `DB2`/`HB2` | **2 = mirror X** | full | `(-320,0)` | `ed3`/`hd3` |
 | 4 external | none | — | full | — | default block at `DAT_004cfb1c` |
 
 Views 2 and 3 share one bitmap handle: `CockpitCanopy_LoadViewBitmap` maps view to file index as `view > 2 ? view - 1 : view`, and after loading file 2 stores the same handle in slot 3. View 3 is drawn horizontally mirrored. There is no separate mirrored asset.
 
-**A glance does not turn the camera.** It keeps the forward view's orientation and focal length, and shows the image plane continued sideways — see [The side glances are one image plane](#the-side-glances-are-one-image-plane).
+**A glance does not turn the camera.** It keeps the forward view's orientation and focal length, and shows the image plane continued sideways — see [The side glances are one image plane](#the-side-glances-are-one-image-plane). The RAZOR's heads-down view continues the same plane downward; see [The RAZOR's heads-down view](#the-razors-heads-down-view).
 
 ### View switching
 
@@ -135,7 +135,16 @@ Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs
 | 2 | `0,0 – 287,231` | `-160,-95` | `320,0` |
 | 3 | `0,0 – 320,231` | `-160,-95` | `-320,0` |
 
-View 1's zero-size rect is why the heads-down view shows no 3D. **RAZOR is the sole exception** — `0,0 – 320,181`, matching its 2368-byte `.HD1` against every other herc's 16-byte stub.
+View 1's zero-size rect is why the heads-down view shows no 3D. **RAZOR is the sole exception** — `0,0 – 320,181`, matching its 2368-byte `.HD1` against every other herc's 16-byte stub; see [The RAZOR's heads-down view](#the-razors-heads-down-view).
+
+`RAZOR.VUE` (`viewCount = 4`):
+
+| View | Rect | Centre | Canvas origin |
+|---|---|---|---|
+| 0 | `0,0 – 320,239` | `-160,-146` | `0,0` |
+| 1 | `0,0 – 320,181` | `-160,-146` | `0,237` |
+| 2 | `0,0 – 320,239` | `-160,-146` | `320,0` |
+| 3 | `0,0 – 320,239` | `-160,-146` | `-320,0` |
 
 ### The projection centre is not the middle of the view
 
@@ -146,11 +155,19 @@ The value reaches the projection in two steps:
 1. `CockpitView_ApplyViewState` (`00429e60`) copies the record's first six ints into the render context at `+0x210..+0x224`, then adds the view's canvas origin into the last pair.
 2. `Raster_InstallViewProjection` (`0048c1d8`) computes `centre = rectTopLeft - thatPair`, where the rect is the one at `+0x210` — the `.VUE` rect, in the view's own window coordinates.
 
-Every retail rect starts at `(0,0)`, so the centre in a view's own window is `-(c + canvasOrigin)`. For the forward and heads-down views the origin's x is 0 and this is `(-cx, -cy)` authored — `(160, 95)` for APOCA. Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view, and all four views of a herc carry the same pair.
+Every retail rect starts at `(0,0)`, so the centre in a view's own window is `-(c + canvasOrigin)`. For the forward view the origin is `(0,0)` and this is `(-cx, -cy)` authored — `(160, 95)` for APOCA. Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view, and all four views of a herc carry the same pair. In every other view the origin stays in the sum, and it moves the centre off the view's own window to the point on the canvas where the forward view's centre is.
 
 ### The side glances are one image plane
 
 For the glances the canvas origin does not cancel. View 2, origin `+320`, gets its centre at x = `160 - 320 = -160` authored — 160 columns left of its own window, which is exactly where the forward view's centre sits when the forward window is placed immediately left of it on the canvas. View 3, origin `-320`, gets `160 + 320 = 480`, the same point seen from the other side. With the same focal length and no change of orientation (the yaw turn in `CockpitView_ProcessViewCommand` does not run; see [Rejected readings](#rejected-readings)), the forward view and both glances are three windows onto **one** perspective image 960 columns wide authored: the glances are the forward view's image plane continued sideways, not cameras turned to face sideways. That is why the retail side views stretch towards their outer edges the way a very wide lens does.
+
+### The RAZOR's heads-down view
+
+`Sim_RenderFrame` (`0045fb9c`) draws the world into the current view whenever `CockpitView_ShowsWorld` (`0042db18`) returns 1: when the view's `.VUE` rect bottom is at least 1, or a view transition is running. Only RAZOR's view 1 passes the first test, so the RAZOR is the one herc whose heads-down display has the world behind it. It shows through the `.HD1` spans, in the `hd` file's device pixels: the two top corners (rows 0-27 on the left, 0-29 on the right) and a window low on either side (rows 100-362, within columns 0-79 and 558-639).
+
+Its centre is `0 - (-146 + 237) = -91` authored rows, 91 rows above the view's window and at canvas row 146, where the forward view's centre is. Commands 0 and 1 leave the view object's angles alone, so the camera keeps the forward orientation and focal length, and the heads-down view is the forward view's image plane continued downward: the rect's top row is `atan(91/256)` = 19.6° below the view axis and its bottom row `atan(272/256)` = 46.7°.
+
+### The view's focal length
 
 `Raster_InstallViewProjection` (`0048c1d8`) also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the back buffer's width (`DAT_004d30c4`, a copy of `VideoMode_BackBufferWidth`; see [Video modes](#video-modes)) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical.
 
@@ -288,11 +305,10 @@ Taken together, value 1 keeps the cockpit canvas in its own off-screen surface w
 | `VideoMode_PanelMode` is a flag for the hi-res art set. | It holds three distinct values. 3 selects the art set, and 17 sites test for a 1 that belongs to a scrapped display mode. |
 | Nothing can write a byte of the video-mode block through a pointer, because no address inside `004d2580`-`004d2602` appears as an immediate. | The block starts at `004d2540`, and that base does appear: `Main_StaticInit` loads it into `EBX` and writes `+0x7b` and `+0x7c` through it, and eighteen functions in all hold it. |
 | `-b` selects a software scroll: the same game, with the view slides unanimated. | The flag's other value is the scroll-window path, which suggests two ways of scrolling. `-b` is a page-flipping scheme written against paged VGA targets, and in this image its pages, page flips and page copies all land on driver 3's empty stubs, nothing presents a mission frame, and its glance gate waits for a page that never comes up; see [The `-b` paged path](#the--b-paged-path). |
-| The glances' canvas origins cancel out of the projection centre, so each view is centred in its own window. | The subtraction in `Raster_InstallViewProjection` is against the `.VUE` rect's top-left, which is view-local and `(0,0)` for every view, not against the view's canvas origin. The origin stays in, and it moves the glance's centre off its own window to the forward view's reticle. |
+| The canvas origins of the glances and the heads-down view cancel out of the projection centre, so each view is centred in its own window. | The subtraction in `Raster_InstallViewProjection` is against the `.VUE` rect's top-left, which is view-local and `(0,0)` for every view, not against the view's canvas origin. The origin stays in, and it moves each of those views' centre off its own window to the forward view's reticle. |
 
 ## Open
 
-- **Unported:** RAZOR's view-1 3D viewport, the one non-stub `.HD1` (see [`.HD0`-`.HD3`](#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)).
 - **Open:** what display [panel mode 1](#panel-mode-1) was for, and which viewport and canvas it ran at. `VideoMode_Configure` has no branch that sets it, so nothing records those. Values 0, 1 and 3 also fit a two-bit field where the high bit requires the low one, but no site tests a single bit.
 - **Open:** whether the pair `{0, count}` that `CmdLineSwitch_S` selects is the render target's `+0x88`/`+0x8c` page pair, installed by a call the build dropped. The counts match the paged glance gate's page numbers and the pair's first value matches the page it starts on, and `004619f7` tests `Display_UseScrollWindow` with no branch on the result; nothing in the image stores the pair. On that reading `-S` would select a single page.
 - **Open:** `-b` against retail. On Windows NT-family systems, including the Windows 11 setup, the expected result is a privileged-instruction fault (`0xC0000096`) at `0045c620`, `Vga_WaitVerticalRetrace`'s `IN AL,DX`, on the first mission frame, after the loading screen has been shown. On Windows 9x, which lets a Win32 program read port `0x3DA`, the expected result is the loading screen staying up for the whole mission while sound and simulation run; palette changes recolouring that frozen image; the F12 preferences panel drawing and updating (its per-pass `PreferencesPanel_Present` (`00457180`) presents) and staying on screen after it closes; the P, Q and F11 panels pausing the game invisibly; and a glance to view 3, or back from view 2, jamming every view key for the rest of the mission.

@@ -22,8 +22,8 @@ public readonly record struct ClipSpan(int Start, int Length);
 /// region per row, as the original's flattening step does.</para>
 ///
 /// <para><b>An empty file is meaningful, not a failure.</b> <c>APOCA.HD1</c> is 16 bytes — both counts
-/// zero — because view 1 is the heads-down display, which shows no 3D at all, and its <c>.VUE</c>
-/// record agrees with a zero-size viewport rect. So a region list that produces no spans is a valid
+/// zero — because APOCA's heads-down display, view 1, shows no 3D at all, and its <c>.VUE</c>
+/// record agrees with a zero-size viewport rect. Only RAZOR's has spans. So a region list that produces no spans is a valid
 /// parse and must not be reported as one that failed.</para>
 ///
 /// <para><b>One deliberate divergence.</b> A rect's fourth field is an inclusive <c>x1</c> here.

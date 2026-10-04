@@ -1080,6 +1080,26 @@ public sealed class Overlay2DRenderer : IDisposable {
 				r.U1 - (r.U1 - r.U0) * ((deviceLeft + width - x1) / width), r.V1);
 		}
 
+		// The same trimmed to a span of device rows, for the altitude scale's tick strip, which its paint
+		// draws through a clip rect the height of the scale.
+		void BlitDeviceClippedY(string bank, int frame, float deviceLeft, float deviceTop,
+				float clipTop, float clipBottom) {
+			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
+				return;
+			}
+
+			float height = sprite.Height * sprite.Scale;
+			float y0 = Math.Max(deviceTop, clipTop), y1 = Math.Min(deviceTop + height, clipBottom);
+			if (y1 <= y0) {
+				return;
+			}
+
+			var r = sprite.Rect;
+			AddTexturedQuad(Dx(deviceLeft), Dy(y0), Dx(deviceLeft + sprite.Width * sprite.Scale), Dy(y1),
+				r.U0, r.V0 + (r.V1 - r.V0) * ((y0 - deviceTop) / height),
+				r.U1, r.V1 - (r.V1 - r.V0) * ((deviceTop + height - y1) / height));
+		}
+
 		// A sprite rotated about its own top-left corner rather than blitted axis-aligned — the MFD
 		// scanner's turret wedge is the one thing on the cockpit drawn this way. The pivot is the
 		// corner and not the centre because Bitmap_BlitRotatedScaled (00488a8c) builds its destination
@@ -1282,6 +1302,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// calls it once the child loop is done.
 		if (gunsight) {
 			AddHudScanner(hud, state, BlitDevice,
+				(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
+		}
+
+		// Then the RAZOR's altitude scale, which both gunsight paints call straight after the repeater.
+		if (gunsight && state.Altitude is { } altitude && AltitudeScale.From(hud) is { } altitudeScale) {
+			AddAltitudeScale(hud, altitudeScale, altitude, BlitDevice, BlitDeviceClippedY,
 				(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		}
 
@@ -1524,6 +1550,39 @@ public sealed class Overlay2DRenderer : IDisposable {
 				centerX + target.X / worldPerPixel - HudScanner.TargetBracketOffset * S,
 				centerY + target.Y / worldPerPixel - HudScanner.TargetBracketOffset * S);
 		}
+	}
+
+	/// <summary>
+	/// The RAZOR's altitude scale (<c>Gunsight_PaintAltitudeScale</c>, <c>0043dd70</c>), in the paint's
+	/// own order — see <see cref="AltitudeScale"/>. The column's sides are vertical lines and its solid
+	/// part a fill, both inclusive of their end rows and columns as <c>Raster_DrawLine</c> and
+	/// <c>Raster_FillRect</c> are; the fill goes over the row the sides end on.
+	/// </summary>
+	private static void AddAltitudeScale(CockpitArt hud, AltitudeScale scale, AltitudeReading reading,
+			Action<string, int, float, float> blitDevice,
+			Action<string, int, float, float, float, float> blitDeviceClippedY,
+			Action<float, float, float, float, Vector3> fillRect) {
+		blitDevice(AltitudeScale.SpriteBank, AltitudeScale.HeadFrame, scale.X, scale.Y);
+		blitDevice(AltitudeScale.SpriteBank, AltitudeScale.FootFrame, scale.X, scale.Foot);
+
+		int ground = scale.RowFor(reading.Ground, reading);
+		if (hud.PaletteEntry(AltitudeScale.SideColorIndex) is { } side) {
+			fillRect(scale.ColumnLeft, scale.Top, scale.ColumnLeft + 1, ground + 1, side);
+			fillRect(scale.ColumnRight, scale.Top, scale.ColumnRight + 1, ground + 1, side);
+		}
+
+		if (hud.PaletteEntry(AltitudeScale.FillColorIndex) is { } fill) {
+			fillRect(scale.ColumnLeft, ground, scale.ColumnRight + 1, scale.Foot + 1, fill);
+		}
+
+		var (markerX, markerY) = scale.MarkerAt(reading);
+		blitDevice(AltitudeScale.SpriteBank, AltitudeScale.MarkerFrame, markerX, markerY);
+
+		int tape = scale.TapeRow(reading);
+		blitDeviceClippedY(AltitudeScale.SpriteBank, AltitudeScale.TapeFrame, scale.TapeLeft, tape,
+			scale.Top, scale.Foot + 1);
+		blitDeviceClippedY(AltitudeScale.SpriteBank, AltitudeScale.TapeFrame, scale.TapeLeft, tape - scale.TapeHeight,
+			scale.Top, scale.Foot + 1);
 	}
 
 	/// <summary>

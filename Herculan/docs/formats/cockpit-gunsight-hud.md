@@ -25,7 +25,7 @@ Its own ints:
 
 The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend** — see [below](#the-att-legend).
 
-`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws what sits outside it: the [`ATT` legend](#the-att-legend), the [speed and time readouts](#speed-and-time-readouts), the **floating scanner repeater** (`Gunsight_PaintHudScanner` (`0043e0ec`) into `HudScanner_Paint` (`0043f2b0`)) and the [RAZOR's altitude scale](#the-razors-altitude-scale), which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46, -0x12)` device.
+`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws what sits outside it: the [`ATT` legend](#the-att-legend), the [speed and time readouts](#speed-and-time-readouts), the **floating scanner repeater** (`Gunsight_PaintHudScanner` (`0043e0ec`) into `HudScanner_Paint` (`0043f2b0`)) and the [RAZOR's altitude scale](#the-razors-altitude-scale), which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46 << XCoordShift, -0x12 << YCoordShift)`.
 
 All nine children derive from `GunsightChild_CtorBase` (`0043b344`), a bare rect holder. Children 4, 5 and 6 additionally receive the 38-byte state block described in [`hud-target-indicator.md`](hud-target-indicator.md), at `+0x14`.
 
@@ -153,16 +153,17 @@ Both `Gunsight_Paint` and `Gunsight_UpdateAndPaint` test the console button pane
 
 ### The RAZOR's altitude scale
 
-`Gunsight_PaintAltitudeScale` (`0043dd70`), which `Gunsight_Paint` and `Gunsight_UpdateAndPaint` call after the children, draws only when the piloted machine is a flyer (type record `+0x50`). It is a vertical scale `0x24 << YCoordShift` tall hanging from the point at `+0x113`, out of the `HUD` bank's frames 15-18:
+`Gunsight_PaintAltitudeScale` (`0043dd70`), which `Gunsight_Paint` and `Gunsight_UpdateAndPaint` call last, after the scanner repeater, draws only when the piloted machine is a flyer (type record `+0x50`). It is a vertical scale `0x24 << YCoordShift` tall hanging from the point at `+0x113`, out of the `HUD` bank's frames 15-18, drawn in this order:
 
-- Frame 15 is blitted at the point and frame 16 at the scale's foot; the scale runs between them.
-- At frame 15's right edge, a column from `1 << XCoordShift` left of that edge to the edge is filled in palette index `0x4b` from the foot up to the terrain height under the machine, and its two sides are drawn in `0x49` from there to the top.
-- Frame 17 is centred on that column at the machine's own height (`mech+0x2e`).
-- Frame 18 is drawn twice, scrolled by height / 50 modulo the scale's length — a moving tape — and clipped to a strip of its own width starting `2 << XCoordShift` right of the point.
+1. Frame 15, a bracket, is blitted at the point, and frame 16, a second bracket, with its bottom edge at the scale's foot. The scale proper runs from frame 15's bottom row (the *top*) to frame 16's top row (the *foot*).
+2. A column over columns `x + w - (1 << XCoordShift)` to `x + w` inclusive, with `x` the point's and `w` frame 15's width: three device pixels in the 640-wide modes, its right side one column past frame 15. Its two sides are `Raster_DrawLine`s in palette index `0x49` from the top down to the terrain height under the machine (`Terrain_HeightQuery` at its x, y); then a `Raster_FillRect` in `0x4b` fills it from that row to the foot, both ends inclusive.
+3. Frame 17, a marker, is centred on the column at the machine's own height (`mech+0x2e`).
+4. Frame 18, a strip of ticks, is drawn twice through a clip rect of its own width starting `2 << XCoordShift` right of the point and running from the top to the foot inclusive: once with its top at `height / 50 % (0x24 << YCoordShift)` below the top, a moving tape, and once a frame height above that.
 
-Both heights map linearly from the zone's height range, `grid+0x110` at the foot to `grid+0x114` + 5000 at the top, and are clamped to the scale.
+Both heights map linearly from the zone's height range, `grid+0x110` at the foot to `grid+0x114` + 5000 at the top, as `foot - (h - floor) * (foot - top) / (ceiling - floor)` with a 64-bit product and a truncating divide, and are clamped to the scale. The pen and brush are plain palette indices the paint states as immediates, not `COLORS.DAT` ids.
+
+The tape's wrap does not match its art. In `hba\HUD.HBA` frame 18 is 6x60 with a long tick every 30 rows and a short one every 6, and the offset wraps at 72 rows: each wrap moves the long ticks by 12 rows, and while the offset is past 60 the two copies leave the scale's top rows bare.
 
 ## Open
 
-- **Unported:** the RAZOR's altitude scale ([above](#the-razors-altitude-scale)).
 - **Open:** no writer of `DAT_004d2af0`, which would point [waypoint indicator](#waypoint-indicators) child 8 at `mech+0x1a4` instead of the route, found by `es2_xref.py` (one reference in the image, the `CMP` in `Hud_UpdateWaypointIndicator` at `0043c448`) or by a scan of `all_asm.txt` for block bases below it: its neighbours `DAT_004d2aec` and `DAT_004d2af4` are written by name, the nearest pushed base `0x4d2adc` is a `Timer_CountDown` block that touches only `+1`..`+4`, and `0x4d29dc` is a 256-byte string buffer.

@@ -144,6 +144,10 @@
 /// Whether the display switched itself to the missile camera and still holds it
 /// (<see cref="MfdMissileCamSwitch.Holding"/>), which keeps a transmission off the screen.
 /// </param>
+/// <param name="Altitude">
+/// What the RAZOR's altitude scale reads this frame, or null when the piloted machine is not a flyer
+/// and the scale does not draw — see <see cref="AltitudeScale"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	int ShieldFront,
@@ -179,7 +183,8 @@ public readonly record struct CockpitHudState(
 	CockpitDropoutState Dropout = default,
 	bool ChargeBarsDraggable = false,
 	MfdMissileCamState MissileCam = default,
-	bool MissileCamHolding = false) {
+	bool MissileCamHolding = false,
+	AltitudeReading? Altitude = null) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>

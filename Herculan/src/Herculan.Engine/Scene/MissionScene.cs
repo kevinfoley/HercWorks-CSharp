@@ -568,7 +568,7 @@ public sealed class MissionScene {
 			var radii = new int[count];
 			for (int i = 0; i < count; i++) {
 				shapes[i] = models.Debris(library, i, bankName);
-				radii[i] = shapes[i]?.RadiusWorldUnits ?? 0;
+				radii[i] = shapes[i]?.ShapeRadius ?? 0;
 			}
 
 			debrisModels[library] = shapes;
@@ -599,7 +599,7 @@ public sealed class MissionScene {
 			for (int i = 0; i < count; i++) {
 				shapes[i] = models.Debris(WeaponMount.DebrisShapeLibraryName, i,
 					SceneModelLibrary.MechWeaponBankName);
-				radii[i] = shapes[i]?.RadiusWorldUnits ?? 0;
+				radii[i] = shapes[i]?.ShapeRadius ?? 0;
 			}
 
 			debrisModels[WeaponMount.DebrisShapeLibraryName] = shapes;
@@ -960,7 +960,7 @@ public sealed class MissionScene {
 				var roots = models.MechDetailRoots(placement.TypeName);
 				var model = roots.Count > 0 ? roots[0] : null;
 				return (
-					new MechObject(placement.TypeName, simData, model?.RadiusWorldUnits ?? 0,
+					new MechObject(placement.TypeName, simData, model?.ShapeRadius ?? 0,
 						new MechLoadout(
 							placement.WeaponRefs.Select(id => (int)id).ToArray(),
 							placement.WeaponSecondary),
@@ -986,7 +986,7 @@ public sealed class MissionScene {
 				var model = models.Flyer(placement.TypeName);
 				return (
 					new FlyerObject(placement.TypeName, models.FlyerData(placement.TypeName),
-						model?.RadiusWorldUnits ?? 0,
+						model?.ShapeRadius ?? 0,
 						models.Collision(placement.TypeName),
 						ComponentDamageFor(models, placement.TypeName,
 							ComponentDamage.FlyerComponentCount, ComponentDamage.FlyerDependentCount, random),

@@ -40,7 +40,7 @@ public sealed partial class MechObject : SimObject {
 	/// </summary>
 	private const short CollisionBackoffSide = 5000;
 
-	private readonly int _hitRadius;
+	private readonly int _shapeRadius;
 	private readonly GunLayout? _hardpoints;
 	private readonly WeaponCatalog? _weapons;
 	private readonly ColliderNode[] _collision;
@@ -74,7 +74,7 @@ public sealed partial class MechObject : SimObject {
 	/// <see cref="MechTypeRecord.IsFlyer"/>. Non-null is what puts the machine on the flight path —
 	/// see <see cref="Flight"/>.
 	/// </param>
-	public MechObject(string name, HercSimDat simData, int hitRadius, MechLoadout loadout,
+	public MechObject(string name, HercSimDat simData, int shapeRadius, MechLoadout loadout,
 			ShapeAnimation? animation = null, GunLayout? hardpoints = null,
 			WeaponCatalog? weapons = null, ColliderNode[]? collision = null,
 			ComponentDamage? damage = null, Func<int, int>? weaponModelCellCount = null,
@@ -82,7 +82,7 @@ public sealed partial class MechObject : SimObject {
 		Name = name;
 		SimData = simData;
 		Type = new MechTypeRecord(simData);
-		_hitRadius = hitRadius;
+		_shapeRadius = shapeRadius;
 		Loadout = loadout;
 		_hardpoints = hardpoints;
 		_weapons = weapons;
@@ -477,11 +477,9 @@ public sealed partial class MechObject : SimObject {
 	/// <remarks>The same figure — the original hands both radii out of the same field.</remarks>
 	public override int CollisionRadius => Type.BodyRadius;
 
-	/// <summary>
-	/// The drawn model's own bound. Nothing in the simulation reads it; the HUD target box sizes
-	/// itself from it.
-	/// </summary>
-	public override int ShapeRadius => _hitRadius;
+	/// <inheritdoc />
+	/// <remarks>Root 0's whichever LOD root is drawn, as <see cref="Scene.SceneModelLibrary.MechShapeRadius"/> explains. The HUD target box and the effect-light selection read it.</remarks>
+	public override int ShapeRadius => _shapeRadius;
 
 	/// <summary>
 	/// This machine's per-component health, or null for a type whose <c>.DMG</c> the install is
@@ -985,6 +983,14 @@ public sealed partial class MechObject : SimObject {
 	}
 
 	/// <summary>
+	/// <c>mech+0x2b0</c> — the structure whose body radius this machine's position was inside at its
+	/// last collision test, the last such of the sweep, or null. Its one reader is the frame's object
+	/// filing, which files the machine under that structure's terrain cell for drawing. See
+	/// docs/simulation/mech-locomotion.md, "The structure a machine stands in".
+	/// </summary>
+	public SimObject? StandingIn { get; private set; }
+
+	/// <summary>
 	/// <c>Mech_CollisionTest</c> (<c>00418f74</c>) — whether the machine's new position is refused,
 	/// either by another object or by the ground being too steep to stand on.
 	///
@@ -998,11 +1004,8 @@ public sealed partial class MechObject : SimObject {
 	/// structure is walked through.</para>
 	///
 	/// <para>Running into another machine hurts both of them — see
-	/// <see cref="CollisionDamage"/>. One part of the original's sweep is still missing: it also
-	/// records at <c>mech+0x2b0</c> the structure the machine is standing inside, whose one reader
-	/// files the machine under that structure's terrain cell for drawing. This engine draws machines
-	/// with the depth test and files none of them by cell, so the record would have nothing to act
-	/// on. See docs/simulation/mech-locomotion.md, "The structure a machine stands in".</para>
+	/// <see cref="CollisionDamage"/>. The sweep also records <see cref="StandingIn"/>, ahead of the gap
+	/// test.</para>
 	///
 	/// <para>The sweep's first test <i>is</i> here: an object whose mission group carries an action
 	/// is skipped outright, before any distance is measured. See
@@ -1010,18 +1013,26 @@ public sealed partial class MechObject : SimObject {
 	/// </summary>
 	private bool CollisionTest(SimWorld world) {
 		var position = Position;
+		StandingIn = null;
 
 		var objects = world.Objects;
 		for (int i = 0; i < objects.Count; i++) {
 			var other = objects[i];
-			if (ReferenceEquals(other, this) || other.Removed || other.CollisionRadius == 0
-					|| other.AwaitingDeployment) {
+			if (ReferenceEquals(other, this) || other.Removed || other.AwaitingDeployment) {
 				continue;
 			}
 
 			var theirs = other.Position;
 			int distance = SimMath.FastMagnitude3D(
 				position.X - theirs.X, position.Y - theirs.Y, position.Z - theirs.Z);
+
+			if (other.TargetClass == TargetClass.Structure && distance < (short)other.HitRadius) {
+				StandingIn = other;
+			}
+
+			if (other.CollisionRadius == 0) {
+				continue;
+			}
 
 			if (distance >= HitRadius + other.CollisionRadius) {
 				continue;

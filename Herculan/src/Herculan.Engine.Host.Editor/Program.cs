@@ -49,11 +49,9 @@ Console.WriteLine("RMB + mouse to look, WASD/arrows to move, Q/E down/up, Shift 
 // Pickable set: everything drawn, i.e. everything with a model — matches what the renderer
 // actually puts on screen. Objects don't move in the editor, so this is computed once.
 //
-// Deliberately NOT SceneModel.RadiusWorldUnits: that's the sim's coarse collision radius, a
-// horizontal footprint (max(extent.X, extent.Z) * 0.5, see SceneModelLibrary.BuildFromRoot) meant
-// for ground-plane proximity checks. Centered near the model's base, it's far smaller than a tall
-// mech's silhouette, so clicking the torso, head, or raised arms would miss it. Instead this
-// computes each model's own bounding-sphere radius from its mesh once (cached per model key,
+// Deliberately NOT SceneModel.ShapeRadius: that is the shape file's own radius about the model's
+// origin, which sits near a mech's base, so a sphere of it there need not cover the torso, head or
+// raised arms. Instead this computes each model's own bounding-sphere radius from its mesh once (cached per model key,
 // several objects share a model) and transforms the sphere's center by the object's full
 // rotation+translation — a sphere is rotation-invariant, so the local-space radius stays correct
 // after that.

@@ -41,6 +41,14 @@ public sealed class SceneItem {
 	/// </summary>
 	public bool DetailSelected { get; set; } = true;
 
+	/// <summary>
+	/// How the object this item draws is filed by terrain cell, which is a third reason for it not to
+	/// be drawn: <see cref="DrawEntry.Drawn"/>, settled per pass by the <see cref="ObjectDrawTable"/> of
+	/// the <see cref="GroundShapeLayer"/> it is drawn with. Every item of one object shares one entry.
+	/// Null for the terrain, which is not filed.
+	/// </summary>
+	public DrawEntry? Filing { get; set; }
+
 	/// <summary>Optional texture for this item. If null, flat-shaded rendering is used.</summary>
 	public uint? TextureHandle { get; set; }
 
@@ -378,15 +386,23 @@ public sealed class SceneRenderer : IDisposable {
 	/// own shadow. The original also paints a shape over an object filed under a cell painted earlier
 	/// where the two overlap on screen; that is not reproduced here — every object is drawn over every
 	/// shape — and is listed as Unported in docs/simulation/ground-shapes.md.</para>
+	///
+	/// <para>Before any of it, the pass rebuilds the zone's visible region for its own view, as
+	/// <c>Terrain_SetupVisibleRegion</c> does before the submit, and files <paramref name="ground"/>'s
+	/// <see cref="GroundShapeLayer.Objects"/> by it; an item whose <see cref="SceneItem.Filing"/> that
+	/// leaves undrawn, and a ground shape filed under a cell the draw does not reach, are skipped. The
+	/// billboards and beams drawn after this call for the same pass read the same answers.</para>
 	/// </summary>
 	public void Render(Camera camera, IEnumerable<SceneItem> items, GroundShapeLayer? ground,
 			int viewportX, int viewportY, int viewportWidth, int viewportHeight) {
 		float aspect = (float)viewportWidth / System.Math.Max(viewportHeight, 1);
 		var projection = camera.ProjectionMatrix(aspect);
 
+		var order = ground != null ? FileObjects(camera, aspect, ground) : default;
+
 		// Before anything is drawn into the frame, because it draws into a target of its own.
 		var groundShapes = ground is { Shapes.Count: > 0 }
-			? RankGroundShapes(camera, aspect, projection, ground,
+			? RankGroundShapes(camera, projection, ground, order,
 				viewportX, viewportY, viewportWidth, viewportHeight)
 			: null;
 
@@ -499,7 +515,7 @@ public sealed class SceneRenderer : IDisposable {
 		}
 
 		void Draw(SceneItem item) {
-			if (!item.Visible || !item.DetailSelected) {
+			if (!item.Visible || !item.DetailSelected || item.Filing is { Drawn: false }) {
 				return;
 			}
 
@@ -550,23 +566,39 @@ public sealed class SceneRenderer : IDisposable {
 	private const int PaintRankUnit = 3;
 
 	/// <summary>
-	/// This pass's side of the original's submit and walk, for the ground shapes: rebuilds the
-	/// zone's visible region for the pass's view, as <c>Terrain_SetupVisibleRegion</c> does before
-	/// the submit; files each shape under the cell <see cref="HeightGrid.PickDrawCell"/> picks and
-	/// takes that cell's rank in this view's walk; and draws the terrain's ranks for the shapes'
-	/// fragments to test against. Returns the shapes in the order to draw them.
+	/// This pass's side of the original's submit: rebuilds the zone's visible region for the pass's
+	/// view, as <c>Terrain_SetupVisibleRegion</c> does before the submit, and files the layer's objects
+	/// by it. Returns the walk's order, which the ground shapes are ranked by.
 	/// </summary>
-	private List<(SceneItem Item, uint Rank)> RankGroundShapes(Camera camera, float aspect,
-			Matrix4x4 projection, GroundShapeLayer ground,
-			int viewportX, int viewportY, int viewportWidth, int viewportHeight) {
+	private static TerrainPaintOrder FileObjects(Camera camera, float aspect, GroundShapeLayer ground) {
 		var grid = ground.Grid;
 		var viewer = camera.Position;
 		ground.Region.Update(grid, viewer, camera.ViewRotation, camera.EdgeSlopes(aspect));
 		var order = TerrainPaintOrder.For(grid, viewer, camera.SimHeading);
+		ground.Objects.File(grid, ground.Region, viewer, order);
+		return order;
+	}
+
+	/// <summary>
+	/// The ground shapes' side of it: files each shape under the cell
+	/// <see cref="HeightGrid.PickDrawCell"/> picks, drops it when this pass's draw does not reach that
+	/// cell (<see cref="ObjectDrawTable.CellDrawn"/>), takes the cell's rank in this view's walk, and
+	/// draws the terrain's ranks for the shapes' fragments to test against. Returns the shapes in the
+	/// order to draw them.
+	/// </summary>
+	private List<(SceneItem Item, uint Rank)> RankGroundShapes(Camera camera, Matrix4x4 projection,
+			GroundShapeLayer ground, TerrainPaintOrder order,
+			int viewportX, int viewportY, int viewportWidth, int viewportHeight) {
+		var grid = ground.Grid;
+		var viewer = camera.Position;
 
 		var ranked = new List<(SceneItem Item, uint Rank)>(ground.Shapes.Count);
 		foreach (var shape in ground.Shapes) {
 			var cell = grid.PickDrawCell(shape.Position, shape.Radius, viewer, ground.Region);
+			if (cell is { } filed && !ground.Objects.CellDrawn(filed)) {
+				continue;
+			}
+
 			ranked.Add((shape.Item, cell is { } picked
 				? order.Rank(picked.X, picked.Y)
 				: TerrainPaintOrder.AfterTerrain));

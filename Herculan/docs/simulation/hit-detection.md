@@ -100,12 +100,12 @@ A ray between two world points tested against the structures' collision volumes 
 
 ## The three radius slots
 
-An object has three unrelated radii, on three vtable slots, and no two of them are read by the same consumer. Confusing them is easy: `+0x5c` and `+0x7c` are the *same function body* on a mech, and `+0x10` matches neither on anything.
+An object has three unrelated radii, on three vtable slots. Confusing them is easy: `+0x5c` and `+0x7c` are the *same function body* on a mech, and `+0x10` matches neither on anything.
 
 | Slot | What reads it | Mech | Structure | Flyer |
 |---|---|---|---|---|
-| `+0x10` shape radius (`SimObject_GetShapeRadius`, `0046b80c`) | every hit test's coarse reject; the LOD selector (`Shape_DrawAtDetailLevel`, `004033e4`); the HUD target box | `shape+8` — the shape's bounding radius, [`../formats/dgs-hd0-notes.md`](../formats/dgs-hd0-notes.md#the-bounding-radius--shape8) | `shape+8` | `shape+8` |
-| `+0x5c` body radius | the blast sweep's surface-to-centre range; the *mover's* half of the collision gap | `typeRec+0x70`, **750 for every HERC** (`Mech_GetBodyRadius`, `00415518`) | `BASES.DAT +0x2a` (`Base_GetBodyRadius`, `004035a4`) | `SimObject_GetBodyRadiusZero` (`00411aa4`), **0** |
+| `+0x10` shape radius (`SimObject_GetShapeRadius`, `0046b80c`) | every hit test's coarse reject; the LOD selector (`Shape_DrawAtDetailLevel`, `004033e4`); the HUD target box; the draw's cell pick for the pooled objects and its structure draw distance ([`../formats/terrain-drawing.md`](../formats/terrain-drawing.md#what-is-filed-where)) | `shape+8` — the shape's bounding radius, [`../formats/dgs-hd0-notes.md`](../formats/dgs-hd0-notes.md#the-bounding-radius--shape8) | `shape+8` | `shape+8` |
+| `+0x5c` body radius | the blast sweep's surface-to-centre range; the *mover's* half of the collision gap; a structure's containing a machine for drawing ([`mech-locomotion.md`](mech-locomotion.md#the-structure-a-machine-stands-in)); the draw's cell pick for a structure, a machine or a flyer | `typeRec+0x70`, **750 for every HERC** (`Mech_GetBodyRadius`, `00415518`) | `BASES.DAT +0x2a` (`Base_GetBodyRadius`, `004035a4`) | `SimObject_GetBodyRadiusZero` (`00411aa4`), **0** |
 | `+0x7c` collision radius | the *other* object's half of the collision gap, and nothing else | the same `typeRec+0x70` (`Mech_GetCollisionRadius`, `0041552c`) | `BASES.DAT +0x2a`, but **only for an animated type** (`Base_GetCollisionRadius`, `004035b8`) | `SimObject_GetCollisionRadiusZero` (`00411aac`), **0** |
 
 **Zero on `+0x7c` means walk through me**, and `Mech_CollisionTest` skips the object outright. A flyer never blocks anything. A structure's zero is narrower than it looks: the slot tests `BASES.DAT +0x06`, the animation-thread count ([`bases-dat.md`](../formats/bases-dat.md#the-type-record)), which is non-zero on exactly the eight animated types, so only one of those still standing blocks by radius — every static type and every animated wreck is stopped by its **collision volume** in a second sweep instead. The two sets are exact complements. See [`mech-locomotion.md`](mech-locomotion.md#collision).

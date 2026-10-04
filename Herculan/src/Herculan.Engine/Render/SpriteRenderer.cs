@@ -22,8 +22,13 @@ namespace Herculan.Engine.Render;
 /// <c>TSCellAnimPart_Render</c> takes it modulo the cell part's own child count, so a caller may
 /// simply count up.
 /// </param>
+/// <param name="Filing">
+/// How the object the billboards belong to is filed by terrain cell — see <see cref="SceneItem.Filing"/>.
+/// A batch whose entry the pass leaves undrawn is skipped.
+/// </param>
 public readonly record struct SpriteBatch(
-	SpriteQuad[][] Sprites, TextureAtlas Atlas, uint TextureHandle, Matrix4x4 Transform, int Frame);
+	SpriteQuad[][] Sprites, TextureAtlas Atlas, uint TextureHandle, Matrix4x4 Transform, int Frame,
+	DrawEntry? Filing = null);
 
 /// <summary>
 /// Draws <see cref="SpriteQuad"/> billboards — the GPU counterpart of <c>TSBitmapPart_Render</c>
@@ -115,7 +120,7 @@ public sealed class SpriteRenderer : IDisposable {
 	}
 
 	private void Draw(in SpriteBatch batch, in Matrix4x4 view, float nearPlane) {
-		if (batch.Sprites.Length == 0) {
+		if (batch.Sprites.Length == 0 || batch.Filing is { Drawn: false }) {
 			return;
 		}
 

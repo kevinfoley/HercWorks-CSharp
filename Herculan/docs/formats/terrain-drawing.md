@@ -82,17 +82,36 @@ Only cells inside the region polygon are visited, and the viewer's own cell is l
 
 ## Objects in the walk
 
-`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under the cell `HeightGrid_PickDrawCell` picks for it (below), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order with the ramp's row count `DAT_004a5b1c` zeroed around each draw ([`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), turns every other object into a render entry, and draws those at the end of the cell farthest first: `ObjList_DrawSorted` (`00429620`) files them in a binary tree keyed on the entry's distance and walks it in order. An object the camera rides is skipped, and one farther away than its class's draw distance gets no entry:
+`Scene_SubmitFrameObjects` files each object in `ObjList::drawTable` under a cell ([below](#what-is-filed-where)), and `Terrain_DrawCellQuad` ends with `Terrain_DrawCellObjects` for its own cell. That calls `ObjList_DrawCellObjects` (`00428c60`), which draws the cell's tag-9 objects, the ground shapes ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-draw-pass)), on the spot in filing order with the ramp's row count `DAT_004a5b1c` zeroed around each draw ([`dts-texture-binding.md`](dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), turns every other object into a render entry, and draws those at the end of the cell farthest first: `ObjList_DrawSorted` (`00429620`) files them in a binary tree keyed on the entry's distance and walks it in order. An object the camera rides is skipped, and one farther away than its class's draw distance gets no entry:
 
 | Type tag at `+4` | Draw distance, × the terrain draw radius |
 |---|---|
-| 0 | 900/1024 |
+| 0, a drop pod: `Meteor_Construct` never writes the tag, so it keeps the zero `Pool_Init` left | 900/1024 |
 | 8, an explosion whose type record's `+0x26` is set (2 otherwise) | 1000/1024 |
 | 5, a structure, shape radius under 7000 | 800/1024 |
 | 5, shape radius 7000 or more | 1200/1024 |
-| anything else — 7 a HERC, 3 a projectile, 2 the other explosions, 1 debris, 4 a smoke ball or fire | 800/1024 |
+| anything else — 7 a HERC, 6 a flyer, 3 a bullet, launcher round or beam tracer, 2 the other explosions, 1 debris, 4 a smoke ball or fire | 800/1024 |
 
-`ObjList_SetDrawDistances` (`00428bc0`) scales the radius `grid+0x10c << cellShift` ([`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field)) by the five Q10 factors at `0049abb0` into `DAT_004cfa0c` from `Terrain_SetupVisibleRegion`, once a frame, and `ObjList_IsBeyondDrawDistance` (`00428c08`) picks the entry by the tag and compares the object's distance from the view against it. The shape radius is `SimObject_GetShapeRadius`, vtable `+0x10`. So a large structure stays drawn past the terrain's edge, and everything else that is not a tag-9 ground shape vanishes short of it. So what is filed under a cell is painted over that cell's ground and under every cell painted after it. A tag-9 object has no fade of its own: its solid faces fog with the one its cell's quad installed ([`distance-fog-and-sky.md`](distance-fog-and-sky.md#what-gets-faded)).
+`ObjList_SetDrawDistances` (`00428bc0`) scales the radius `grid+0x10c << cellShift` ([`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field)) by the five Q10 factors at `0049abb0` into `DAT_004cfa0c` from `Terrain_SetupVisibleRegion`, once a frame, and `ObjList_IsBeyondDrawDistance` (`00428c08`) picks the entry by the tag and compares the render entry's distance from the view (`Math_DistanceBetweenPoints`) against it. The entry's position is the object's (vtable `+0x04`), raised for tags 5 and 7 by the Z translation (`+0x1c`) of the node vtable `+0x24` returns — a structure's aim-point height, a HERC's camera node — or by 500 when it returns none. The shape radius is `SimObject_GetShapeRadius`, vtable `+0x10`. So a large structure is drawn as far as the walk reaches, and everything else that is not a tag-9 ground shape vanishes short of the terrain's edge. What is filed under a cell is painted over that cell's ground and under every cell painted after it. A tag-9 object has no fade of its own: its solid faces fog with the one its cell's quad installed ([`distance-fog-and-sky.md`](distance-fog-and-sky.md#what-gets-faded)).
+
+### What is filed where
+
+`Scene_SubmitFrameObjects` (`0042841c`) clears the per-cell object counts (`HeightGrid_ClearCellScratch`, `0046e840`) and walks the pools from the tail, oldest first, in this order:
+
+| Pool | Submitted | Filed under |
+|---|---|---|
+| `g_FlatObjPool`, ground shapes | within 30000 of the view | `Scene_SubmitObject` (`004282d8`): the cell `HeightGrid_PickDrawCell` picks from the position and the shape radius |
+| `DAT_004a9624`, structures | all | `Scene_SubmitObjectWithRadius` (`0042837c`): the pick by the body radius (vtable `+0x5c`) |
+| `GlobalMechList`, machines | all | the cached cell of the structure at `mech+0x2b0`, through `Scene_SubmitObjectAtCell` (`004283b4`), when one is recorded ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#the-structure-a-machine-stands-in)); the pick by the body radius otherwise |
+| `DAT_004a9e3d`, flyers | all | the pick by the body radius, which is 0 |
+| `DAT_004a9746`, bullets, launcher rounds and beam tracers | all | `Scene_SubmitObject`; a tracer has no shape, so radius 0, and a straight beam is one tracer per 5000-unit span ([`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#chain)) |
+| `g_ExplosionPool`, impact effects | unless `Explosion_IsHiddenFromOwnerCockpit` | the owner's cached cell (`Explosion_GetOwnerDrawCell`, `00408228`) when it has an owner, `Scene_SubmitObject` otherwise ([`../simulation/impact-effects.md`](../simulation/impact-effects.md#drawing)) |
+| `g_DebrisPool`, debris | all | `Scene_SubmitObject` |
+| `DAT_004a96f2`, smoke balls | all | `Scene_SubmitObject` |
+| `g_FirePool`, fires | all | the cached cell of the object at `fire+0x4a` (`Fire_GetOwnerDrawCell`, `0046b74c`), which a fire always has |
+| `g_MeteorPool`, drop pods | all | `Scene_SubmitObject` |
+
+The structure, machine and flyer walks skip an object whose mission group still carries an action (`*(obj+0x45)+0x14`, [`../simulation/hit-detection.md`](../simulation/hit-detection.md)), and store the cell they filed it under at `obj+0x1e8`/`+0x1ea`, or `0xffff` for the no-cell bucket; that is the cached cell the later walks read. The structures come first, so a machine standing in one reads the cell picked this frame. `HeightGrid_ClaimDrawCell` turns a cached `0xffff` pair into the no-cell bucket.
 
 ### `HeightGrid_PickDrawCell` (`0046e528`)
 
@@ -109,7 +128,7 @@ So an object within its radius of the edge its cell shares with the next cell to
 
 ## After the walk — `ObjList_DrawAfterTerrain` (`0042883c`)
 
-It calls slot 0 of every object in the no-cell bucket (`DAT_004cf910`, count `DAT_004cf9b0`) with no fade installed of its own. Then, when the local player's record at `+0x1f2` has a nonzero `+0x50` and the camera is not riding the player (`Cam_IsAttachedTo`), it runs `Terrain_DrawCellObjects` for the player's cached cell (`+0x1e8`/`+0x1ea`), which draws nothing once the walk has emptied that cell. Everything it draws lands over all the ground.
+It calls slot 0 of every object in the no-cell bucket (`DAT_004cf910`, count `DAT_004cf9b0`) with no fade installed of its own. Then, when the local player's machine is a flyer — its type record (`+0x1f2`) has the flyer flag `+0x50` set, which only the RAZOR does ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#mech-type-record)) — and the camera is not riding it (`Cam_IsAttachedTo`), it runs `Terrain_DrawCellObjects` for the player's cached cell (`+0x1e8`/`+0x1ea`), which draws nothing once the walk has emptied that cell. So a RAZOR seen from outside is drawn, with whatever shares its cell, even when the walk does not reach that cell. Everything it draws lands over all the ground.
 
 ### The pixel pick and the occlusion probe
 
@@ -126,8 +145,4 @@ Two screen tests ride on the object draw, each armed by a function `es2_xref.py`
 
 ## Open
 
-- **Unported:** leaving undrawn an object filed under a cell the walk does not visit.
-- **Unported:** the per-class object draw distances ([Objects in the walk](#objects-in-the-walk)).
-- **Open:** which class carries type tag 0. No constructor stores it as an immediate.
 - **Open:** what arms [the pick and the probe](#the-pixel-pick-and-the-occlusion-probe). `es2_xref.py` finds no reference to `ObjPick_Arm` or `ObjProbe_Arm`, and they hold the only stores of 1 to `DAT_004cf9b4` and `DAT_0049abbc`. Unless something else arms the pick, `ObjPick_GetObject` always returns 0 and a gunsight click selects nothing.
-- **Open:** what the player record's `+0x1f2`→`+0x50` test in `ObjList_DrawAfterTerrain` is.

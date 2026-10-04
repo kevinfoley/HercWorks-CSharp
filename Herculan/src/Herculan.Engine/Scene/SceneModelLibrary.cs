@@ -27,7 +27,6 @@ namespace Herculan.Engine.Scene;
 /// The model's packed texture bank, or null when no bank could be resolved — in which case the
 /// mesh's UVs mean nothing and it must be drawn untextured.
 /// </param>
-/// <param name="RadiusWorldUnits">Coarse collision radius derived from the model's own bounds.</param>
 /// <param name="HeightWorldUnits">Height of the model's bounding box, in world units.</param>
 /// <param name="Segments">
 /// The same geometry split by the node that places each part, for an object whose shape animates —
@@ -50,10 +49,15 @@ namespace Herculan.Engine.Scene;
 /// for a leveled shape that has no detail part.
 /// </param>
 /// <param name="PointVertexCount">How many vertices at the end of <paramref name="Mesh"/> are points.</param>
+/// <param name="ShapeRadius">
+/// The root's own <c>TSBasePart.Radius</c>, the <c>shape+8</c> that <c>SimObject_GetShapeRadius</c>
+/// (<c>0046b80c</c>) reports for an object drawing this shape. Zero for a root that is not a
+/// <c>TSBasePart</c>.
+/// </param>
 public sealed record SceneModel(
 	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas,
-	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites,
-	MeshCell[] Cells, int PointVertexCount = 0);
+	int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites,
+	MeshCell[] Cells, int PointVertexCount = 0, int ShapeRadius = 0);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -353,11 +357,9 @@ public sealed class SceneModelLibrary {
 	/// <c>shape+8</c> that <c>Shape_DrawAtDetailLevel</c> measures its projected size from. Zero
 	/// when the shape is missing.
 	///
-	/// <para>Not <see cref="SceneModel.RadiusWorldUnits"/>, which this engine derives from the built
-	/// mesh's bounds for collision. The two differ, and the detail selection wants the one the
-	/// original reads. The radius is taken from root 0 whichever root is being drawn, because the
-	/// original restores root 0 into the shape instance after every draw and so measures root 0's
-	/// every time.</para>
+	/// <para>The radius is taken from root 0 whichever root is being drawn, because the original
+	/// restores root 0 into the shape instance after every draw and so measures root 0's every
+	/// time.</para>
 	/// </summary>
 	public int MechShapeRadius(string mechName) =>
 		Root(mechName + ".DTS", 0) is TSBasePart root ? root.Radius : 0;
@@ -792,22 +794,20 @@ public sealed class SceneModelLibrary {
 		var (min, max) = DtsMeshBuilder.Bounds(build.Vertices);
 
 		Vector3 extent = max - min;
-		float radiusInRenderUnits = MathF.Max(extent.X, extent.Z) * 0.5f;
 
-		// Bounds and radius both come off the flat mesh whichever way the model ends up being drawn:
-		// they describe the machine at rest and undamaged, and neither a walk cycle nor a part coming
-		// off should change how wide it is for collision purposes. Each split costs a second pass over
-		// the shape, so only the rosters that need one ask: segments for what animates, cells for what
-		// damage takes apart without animating, levels for the transient shapes built a cell at a time.
+		// The height comes off the flat mesh whichever way the model ends up being drawn: it describes
+		// the shape at rest and undamaged. Each split costs a second pass over the shape, so only the
+		// rosters that need one ask: segments for what animates, cells for what damage takes apart
+		// without animating, levels for the transient shapes built a cell at a time.
 		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas,
-			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
 			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds) : Array.Empty<MeshSegment>(),
 			DtsSpriteBuilder.Build(root),
 			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds)
 				: leveled ? DtsMeshBuilder.BuildDetailLevels(root, atlas, _shading, cellFrame)
 				: Array.Empty<MeshCell>(),
-			build.PointVertexCount);
+			build.PointVertexCount,
+			root is TSBasePart basePart ? basePart.Radius : 0);
 	}
 
 	/// <summary>

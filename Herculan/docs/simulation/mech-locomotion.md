@@ -356,5 +356,4 @@ It then calls `Cockpit_StartHitShake` (`00434010`), the same view shake and pale
 
 ## Open
 
-- **Unported:** the structure record at `mech+0x2b0`, [above](#the-structure-a-machine-stands-in).
 - **Open:** the gait state machine, about 60% of `Mech_LocomotionTick`'s body, is named here but its transitions — which sequence each speed change, stop and turn input selects, and the playback rate each one sets — are not written up.

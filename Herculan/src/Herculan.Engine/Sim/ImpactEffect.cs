@@ -22,10 +22,9 @@ namespace Herculan.Engine.Sim;
 /// <see cref="SimWorld.Effects"/>.</para>
 ///
 /// <para>An effect may have an <see cref="Owner"/>, the object it was spawned on, which decides whether
-/// it is drawn — <see cref="HiddenFromOwnerCockpit"/>. Retail also files an owned effect for drawing
-/// under its owner's terrain cell rather than its own; this renderer orders objects by depth rather
-/// than by the original's per-cell draw table, so that half of the rule is not ported
-/// (docs/simulation/impact-effects.md#open).</para>
+/// it is drawn — <see cref="HiddenFromOwnerCockpit"/> — and under which terrain cell it is filed for
+/// drawing: the owner's rather than its own (<see cref="Render.ObjectDrawTable"/>,
+/// docs/simulation/impact-effects.md#drawing).</para>
 ///
 /// <para>A row with a nonzero <see cref="ExplosionTypeEntry.LightMode"/> also claims a dynamic
 /// light for as long as the flipbook runs, and one frame more (<see cref="Destruct"/>) —
@@ -110,9 +109,14 @@ public sealed class ImpactEffect {
 	/// <summary>
 	/// <c>effect+0x57</c> — the object the effect was spawned on, or null. Which sites pass one is
 	/// docs/simulation/impact-effects.md#construction--explosion_construct-00407f1c's; nothing reads it
-	/// but the draw rule, <see cref="HiddenFromOwnerCockpit"/>.
+	/// but the draw: <see cref="HiddenFromOwnerCockpit"/>, and the owner's terrain cell the effect is
+	/// filed under (<c>Explosion_GetOwnerDrawCell</c>, <c>00408228</c>).
 	/// </summary>
 	public SimObject? Owner { get; }
+
+	/// <inheritdoc cref="ExplosionTypeEntry.ObjectClass"/>
+	/// <remarks>The tag decides how far away the effect is still drawn — see <see cref="Render.ObjectTypeTag"/>.</remarks>
+	public short ObjectClass => _record.ObjectClass;
 
 	/// <summary>
 	/// Whether the effect has played out on this tick. It keeps its pool slot until

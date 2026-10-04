@@ -14,11 +14,11 @@ namespace Herculan.Engine.Sim;
 /// which the frame submit walks separately. Nothing raycasts against them and they carry no damage;
 /// the shot they came from was resolved and finished before the first one was allocated.</para>
 ///
-/// <para><b>One tracer per shot, not one per 5000 units.</b> The original splits the run into
-/// 5000-unit spans and allocates a tracer for each, because its rasterizer interpolates a poly's
-/// screen-space width linearly between the two ends and a single quad spanning a kilometre would
-/// taper visibly wrong. The engine builds the quad in world space and lets the projection do the
-/// perspective, which is exact over any length, so the split has nothing left to buy.</para>
+/// <para><b>One tracer per shot, holding its spans.</b> The original splits a straight run into
+/// 5000-unit spans and allocates a tracer for each, and each is filed by terrain cell for drawing on
+/// its own, so a span can be culled while its neighbours are drawn. This engine keeps the one object
+/// and the span boundaries on it (<see cref="SpanCount"/>, <see cref="Span"/>); the renderer files and
+/// draws each span as its own quad.</para>
 /// </summary>
 public sealed class BeamTracer {
 	/// <summary>
@@ -70,12 +70,49 @@ public sealed class BeamTracer {
 	/// applied at draw time as it is for a straight beam.
 	/// </param>
 	/// <param name="random">The simulation generator, which the node jitter draws from.</param>
-	internal BeamTracer(Vec3i start, Vec3i end, short subtypeId, int halfWidth, SimRandom random) {
+	/// <param name="spanStep">The shot frame's <c>(0, <see cref="SpanLength"/>, 0)</c> through its rotation alone.</param>
+	/// <param name="travelled">How far the beam reaches, which decides how many spans it is cut into.</param>
+	internal BeamTracer(Vec3i start, Vec3i end, short subtypeId, int halfWidth, SimRandom random,
+			Vec3i spanStep = default, int travelled = 0) {
 		Start = start;
 		End = end;
 		SubtypeId = subtypeId;
 		Life = InitialLife;
 		_points = IsJagged ? BuildChain(start, end, halfWidth, random) : Array.Empty<Vec3i>();
+		SpanStep = spanStep;
+
+		// Bullet_FireBurst's loop allocates a span and takes 5000 off the distance while more than 5000
+		// is left, then one span for the rest; the chain is one object whatever its length.
+		SpanCount = IsJagged ? 1 : System.Math.Max(travelled - 1, 0) / SpanLength + 1;
+	}
+
+	/// <summary>
+	/// The length <c>Bullet_FireBurst</c> (<c>0040bf74</c>) cuts a straight beam into, one tracer object
+	/// per span.
+	/// </summary>
+	public const int SpanLength = 5000;
+
+	/// <summary>
+	/// One span's length along the shot: the shot frame's <c>(0, <see cref="SpanLength"/>, 0)</c> through
+	/// <c>Transform_RotatePoint</c> (<c>004801f8</c>), which the loop adds to its start point per span.
+	/// </summary>
+	public Vec3i SpanStep { get; }
+
+	/// <summary>How many tracer objects the original allocates for this shot. One for a chain.</summary>
+	public int SpanCount { get; }
+
+	/// <summary>
+	/// Span <paramref name="index"/>'s two ends: from <see cref="Start"/> plus that many
+	/// <see cref="SpanStep"/>s to one more, and the last to <see cref="End"/>. The start is the
+	/// position the span's tracer is filed by.
+	/// </summary>
+	public (Vec3i From, Vec3i To) Span(int index) {
+		var from = new Vec3i(Start.X + index * SpanStep.X, Start.Y + index * SpanStep.Y,
+			Start.Z + index * SpanStep.Z);
+		var to = index + 1 < SpanCount
+			? new Vec3i(from.X + SpanStep.X, from.Y + SpanStep.Y, from.Z + SpanStep.Z)
+			: End;
+		return (from, to);
 	}
 
 	/// <summary>The muzzle point — <c>BeamTracer_Ctor</c>'s <c>param_3</c>, the first of the two points it stores.</summary>

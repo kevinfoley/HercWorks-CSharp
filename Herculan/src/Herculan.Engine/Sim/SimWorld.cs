@@ -963,7 +963,8 @@ public sealed class SimWorld {
 	/// <summary>
 	/// Tells the world how large each root of one debris shape file is, which is what a thrown piece
 	/// clears the ground by: <c>Debris_TickUpdate</c> settles a piece at the terrain height plus its
-	/// shape's own bounding radius scaled by <see cref="DebrisObject.GroundClearanceScale"/>.
+	/// shape's own bounding radius (vtable <c>+0x10</c>, the root's <c>shape+8</c>, which is
+	/// <see cref="Scene.SceneModel.ShapeRadius"/>) scaled by <see cref="DebrisObject.GroundClearanceScale"/>.
 	///
 	/// <para>Supplied rather than read here for the reason
 	/// <see cref="ExplosionCatalog.BindFrameCounts"/> is: the radius is a property of the shape file,
@@ -1448,7 +1449,9 @@ public sealed class SimWorld {
 			shot.Muzzle.TransformPoint(0, travelled, 0),
 			shot.SubtypeId,
 			BeamTable?.HalfWidth(shot.SubtypeId) ?? 0,
-			Random));
+			Random,
+			shot.Muzzle.RotateVector(0, BeamTracer.SpanLength, 0),
+			travelled));
 
 		_beams.Add(shot);
 	}

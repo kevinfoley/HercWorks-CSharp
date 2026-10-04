@@ -1415,6 +1415,13 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// churn from tick to tick, so the list is rebuilt each frame rather than kept — see SpriteRenderer.
 	var spriteBatches = new List<SpriteBatch>();
 
+	// How each drawn object is filed by terrain cell, which each pass's walk turns into whether it is
+	// drawn -- see ObjectDrawTable and SubmitFrameObjects. A machine, a structure and a flyer keep one
+	// entry for the mission, shared by every item it draws as; everything rebuilt each frame gets a new
+	// one each frame, shared by its items and its billboards.
+	var objectEntries = new Dictionary<SimObject, DrawEntry>();
+	var frameEntries = new Dictionary<object, DrawEntry>(ReferenceEqualityComparer.Instance);
+
 	// An object whose shape animates is drawn a node at a time, so each entry here is one geometry
 	// segment riding one transform of one object — see MissionScene.PosedTransformOf. A machine and an
 	// animated structure are both drawn this way: a radar mast's dish and an armed tower's turret are
@@ -1808,6 +1815,14 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 
 		items = built.ToArray();
+
+		// Every item that draws a simulation object is filed with it. The terrain has no subject and is
+		// not filed.
+		foreach (var item in built) {
+			if (item.LightSubject is { } subject) {
+				item.Filing = ObjectEntry(subject);
+			}
+		}
 
 		// Piloting means sitting inside the machine, and its own geometry is all around the eye — the
 		// cockpit node the camera rides is well inside the torso, so drawing it fills the canopy and
@@ -2833,12 +2848,14 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		}
 
 		RefreshWreckItems();
+		frameEntries.Clear();
 		RefreshProjectileItems();
 		RefreshDebrisItems();
 		RefreshDropPodItems();
 		RefreshGroundShapeItems();
 		RefreshWeaponItems();
 		RefreshSpriteBatches();
+		SubmitFrameObjects();
 
 		// Dropping out of the cockpit for the fly camera puts the palette back rather than leaving a
 		// flash up with nothing ticking it. The piloted case is applied below, after the shake's own tick.
@@ -3836,6 +3853,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			terrainItem.TextureHandle = null;
 		}
 
+		// The view object rides nothing, so the draw table's skip for the ridden object skips nothing.
+		var riding = groundLayer?.Objects.CameraAttachedTo;
+		if (groundLayer is not null) {
+			groundLayer.Objects.CameraAttachedTo = null;
+		}
+
 		renderer.Render(view, (items ?? Array.Empty<SceneItem>())
 				.Concat(projectileItems)
 				.Concat(weaponItems)
@@ -3844,6 +3867,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			groundLayer, x, y, width, height);
 		DrawBeams(view, width, height);
 		DrawSprites(view, width, height);
+
+		if (groundLayer is not null) {
+			groundLayer.Objects.CameraAttachedTo = riding;
+		}
 
 		if (terrainItem is not null) {
 			terrainItem.TextureHandle = terrainTexture;
@@ -3924,7 +3951,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// tracers outlive the tick that made them by exactly one tick, so a shot is on screen for every
 	// frame drawn in that window and for none after — see BeamTracer.
 	void DrawBeams(Camera view, int viewportWidth, int viewportHeight) {
-		beams?.Render(view, scene.World.Tracers, viewportWidth, viewportHeight);
+		beams?.Render(view, scene.World.Tracers, viewportWidth, viewportHeight, groundLayer?.Objects);
 	}
 
 	// The billboards, over the world already drawn into the current viewport: the EMP rounds crossing
@@ -4252,7 +4279,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 	// What this frame's cameras draw. The player's own machine is left out while looking out of its
 	// cockpit: the cockpit node the eye rides sits well inside the torso, so its geometry would wrap the
-	// camera and fill the canopy. The observer camera and the external view both put it back, which is
+	// camera and fill the canopy. The draw table's skip for the object the camera rides leaves it out of
+	// the same passes, as the original's does (ObjectDrawTable). The observer camera and the external view both put it back, which is
 	// the only way to see the machine you are flying.
 	// Shots in flight ride on the end of both lists: they are never the player's own machine, so nothing
 	// hides them, and they are rebuilt every frame rather than kept because a projectile pool churns.
@@ -4431,6 +4459,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// it falls, and the cell of its opening flipbook its own counter has reached once it is down. That
 	// swap is Meteor_Render's own -- the original keeps the two as separate shape instances on the
 	// object and draws one or the other.
+	//
+	// Filed by the falling root's radius whichever it shows: that is the instance the pod's vtable +0x10
+	// reads.
 	void RefreshDropPodItems() {
 		dropPodItems.Clear();
 
@@ -4446,7 +4477,88 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			}
 
 			uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
-			dropPodItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(pod.WorldTransform), texture));
+			dropPodItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(pod.WorldTransform), texture) {
+				Filing = FrameEntry(pod, ObjectTypeTag.DropPod, pod.Position, scene.DropPodModel?.ShapeRadius ?? 0),
+			});
+		}
+	}
+
+	// The entry of a machine, a structure or a flyer, made the first time it is asked for and kept: the
+	// object is in the world for the whole mission, and its cell is what anything filed with it reads.
+	DrawEntry ObjectEntry(SimObject subject) {
+		if (!objectEntries.TryGetValue(subject, out var entry)) {
+			entry = new DrawEntry(subject) {
+				Tag = subject switch {
+					MechObject => ObjectTypeTag.Herc,
+					FlyerObject => ObjectTypeTag.Flyer,
+					_ => ObjectTypeTag.Structure,
+				},
+			};
+			objectEntries[subject] = entry;
+		}
+
+		return entry;
+	}
+
+	// The entry of something rebuilt every frame, made the first time this frame it is asked for, so a
+	// round's mesh and its billboards share one. Scene_SubmitObject (004282d8) files it by its own position
+	// and shape radius unless it is filed with another object.
+	DrawEntry FrameEntry(object subject, ObjectTypeTag tag, Vec3i position, int shapeRadius,
+			SimObject? fileWith = null) {
+		if (!frameEntries.TryGetValue(subject, out var entry)) {
+			entry = new DrawEntry(subject) {
+				Tag = tag,
+				Position = position,
+				FilingRadius = shapeRadius,
+				ShapeRadius = shapeRadius,
+				FileWith = fileWith,
+			};
+			frameEntries[subject] = entry;
+		}
+
+		return entry;
+	}
+
+	// Scene_SubmitFrameObjects (0042841c), once a frame: the table every pass of this frame files and culls
+	// by. The machine, structure and flyer walks come first, in the original's order -- structures,
+	// machines, flyers -- because a machine standing in a structure is filed under the cell the structure
+	// walk has just picked, and an owned effect and a fire under their owner's. An object still waiting on
+	// its mission action is not submitted. The rest follow; nothing is filed with any of them, so their
+	// order changes nothing.
+	//
+	// The camera this frame's passes ride is set here; the missile camera's pass, which rides nothing,
+	// clears it around its own draw.
+	void SubmitFrameObjects() {
+		if (groundLayer is null) {
+			return;
+		}
+
+		var table = groundLayer.Objects;
+		table.Entries.Clear();
+		table.LocalPlayer = scene.PlayerMech;
+		table.CameraAttachedTo = piloting ? viewChain?.Camera.AttachedTo : null;
+
+		Submit<BaseObject>();
+		Submit<MechObject>();
+		Submit<FlyerObject>();
+		table.Entries.AddRange(frameEntries.Values);
+
+		// Every object of the class, drawn or not: a structure with no model of its own still files the
+		// machines standing in it.
+		void Submit<T>() where T : SimObject {
+			foreach (var sceneObject in scene.Objects) {
+				if (sceneObject.Object is not T subject || subject.AwaitingDeployment) {
+					continue;
+				}
+
+				var entry = ObjectEntry(subject);
+				entry.Position = subject.Position;
+				entry.FilingRadius = subject.HitRadius;
+				entry.ShapeRadius = subject.ShapeRadius;
+				entry.EntryHeight = subject is MechObject or BaseObject ? subject.SightHeight : 0;
+				entry.FileWith = (subject as MechObject)?.StandingIn;
+				table.Entries.Add(entry);
+			}
 		}
 	}
 
@@ -4509,8 +4621,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 			uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
 			var transform = WorldScale.ToRenderMatrix(piece.WorldTransform);
+			var filing = FrameEntry(piece, ObjectTypeTag.Debris, piece.Position, model.ShapeRadius);
 			AddAtDetail(debrisItems, model, transform, piece.HercDetailBias ? hercBias : 0,
-				mesh => new SceneItem(mesh, transform, texture));
+				mesh => new SceneItem(mesh, transform, texture) { Filing = filing });
 		}
 	}
 
@@ -4522,11 +4635,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// spin-up walks the same book before the first shot, which is why that weapon takes seven ticks to
 	// answer its trigger.
 	//
-	// The player's own guns are drawn too, unlike its hull. The hull is left out of the cockpit view
-	// because the eye node sits inside the torso and its geometry would wrap the camera; a gun hangs off
-	// an arm or a shoulder, out where a pilot can see it, and its flash is the whole point.
-	// Scene_SubmitFrameObjects (0042841c) submits every mech in GlobalMechList with no
-	// local-player test of any kind, so nothing in the original hides either.
+	// A gun is drawn with the machine it hangs off, and culled with it: Mech_Draw (004174c8) splices each
+	// fitted weapon's shape into the machine's own before drawing it, so the guns are parts of the one
+	// object the draw table files (docs/formats/mech-shape-drawing.md). That includes the skip for the
+	// object the camera rides, so from inside the cockpit the player's own guns are not drawn either.
 	//
 	// The mount's draw slot (WeaponMount_RenderWithDetailBias (0040ded8)) pushes HERC DETAIL's TSDetailPart bias around the render.
 	void RefreshWeaponItems() {
@@ -4551,7 +4663,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				// Lit as part of the machine it hangs off, which is how the original draws it: a mount's
 				// shape is composed into the mech's own render entry, so it takes that entry's selection.
 				AddAtDetail(weaponItems, model, transform, bias,
-					mesh => new SceneItem(mesh, transform, texture) { LightSubject = mech });
+					mesh => new SceneItem(mesh, transform, texture) {
+						LightSubject = mech,
+						Filing = ObjectEntry(mech),
+					});
 			}
 		}
 	}
@@ -4565,7 +4680,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		projectileItems.Clear();
 
 		foreach (var projectile in scene.World.Projectiles) {
-			Add(scene.BulletModels, projectile.SubtypeId, projectile.Frame);
+			if (scene.BulletModels.TryGetValue(projectile.SubtypeId, out var model)) {
+				AddModel(model, projectile.Frame, ProjectileEntry(projectile));
+			}
 		}
 
 		// A rocket's shape is a flipbook of geometry, not one mesh: its exhaust flame is a two-cell
@@ -4573,17 +4690,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// engine's equivalent of TSCellAnimPart_Render choosing one child.
 		foreach (var rocket in scene.World.RocketsInFlight) {
 			if (scene.RocketModels.TryGetValue(rocket.ShapeSubtypeId, out var cells) && cells.Count > 0) {
-				AddModel(cells[rocket.AnimationFrame % cells.Count], rocket.Frame);
+				var filing = FrameEntry(rocket, ObjectTypeTag.Projectile, rocket.Position, cells[0].ShapeRadius);
+				AddModel(cells[rocket.AnimationFrame % cells.Count], rocket.Frame, filing);
 			}
 		}
 
-		void Add(IReadOnlyDictionary<int, SceneModel> models, int subtype, Transform3 frame) {
-			if (models.TryGetValue(subtype, out var model)) {
-				AddModel(model, frame);
-			}
-		}
-
-		void AddModel(SceneModel model, Transform3 frame) {
+		void AddModel(SceneModel model, Transform3 frame, DrawEntry? filing) {
 			uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
 			var transform = WorldScale.ToRenderMatrix(frame);
 
@@ -4595,9 +4707,15 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			// Bias 0, because Bullet_Draw pushes none: a launcher round's detail parts are chosen by
 			// projected size alone, whatever either detail setting says.
 			AddAtDetail(projectileItems, model, transform, 0,
-				mesh => new SceneItem(mesh, transform, texture, fullbright: true));
+				mesh => new SceneItem(mesh, transform, texture, fullbright: true) { Filing = filing });
 		}
 	}
+
+	// A bullet's entry, which its mesh and its billboards share. Null when its subtype has no shape.
+	DrawEntry? ProjectileEntry(Projectile projectile) =>
+		scene.BulletModels.TryGetValue(projectile.SubtypeId, out var model)
+			? FrameEntry(projectile, ObjectTypeTag.Projectile, projectile.Position, model.ShapeRadius)
+			: null;
 
 	// The frame's billboards, from the two things that have any.
 	//
@@ -4610,7 +4728,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 		foreach (var projectile in scene.World.Projectiles) {
 			if (scene.BulletModels.TryGetValue(projectile.SubtypeId, out var model)) {
-				Add(model, WorldScale.ToRenderMatrix(projectile.Frame), projectile.AnimationFrame);
+				Add(model, WorldScale.ToRenderMatrix(projectile.Frame), projectile.AnimationFrame,
+					ProjectileEntry(projectile));
 			}
 		}
 
@@ -4618,35 +4737,41 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// SceneModelLibrary.Rocket. Their flipbook is drawn in RefreshProjectileItems.
 		//
 		// An effect on the hull of the machine the view camera rides is left out — see
-		// ImpactEffect.HiddenFromOwnerCockpit. Only a piloted view has a chain camera; the observer's
-		// free camera rides nothing.
-		var cameraAttachedTo = piloting ? viewChain?.Camera.AttachedTo : null;
+		// ImpactEffect.HiddenFromOwnerCockpit. Which camera that is differs by pass (the missile camera
+		// rides nothing), so the draw table answers it per pass: asked of the owner itself, the test says
+		// whether a camera riding the owner would hide the effect.
 		foreach (var effect in scene.World.Effects) {
-			if (effect.HiddenFromOwnerCockpit(cameraAttachedTo)) {
-				continue;
-			}
-
+			// Filed under its owner's cell when it has one (Explosion_GetOwnerDrawCell, 00408228), and by
+			// its own position and radius otherwise.
 			if (scene.ExplosionModels.TryGetValue(effect.ShapeIndex, out var model)) {
-				Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(effect.Position)), effect.Frame);
+				var filing = FrameEntry(effect,
+					effect.ObjectClass != 0 ? ObjectTypeTag.EffectFar : ObjectTypeTag.Effect,
+					effect.Position, model.ShapeRadius, effect.Owner);
+				filing.HiddenWhenRidden = effect.HiddenFromOwnerCockpit(effect.Owner) ? effect.Owner : null;
+				Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(effect.Position)), effect.Frame,
+					filing);
 			}
 		}
 
 		// A fire is the third: the same kind of billboard flipbook an impact effect is, upright at
-		// wherever its owner has carried it to, and looping rather than playing once.
+		// wherever its owner has carried it to, and looping rather than playing once. It is always filed
+		// under its owner's cell (Fire_GetOwnerDrawCell, 0046b74c).
 		foreach (var fire in scene.World.Fires) {
 			if (fire.ShapeIndex >= 0 && fire.ShapeIndex < scene.FireModels.Count
 				&& scene.FireModels[fire.ShapeIndex] is { } model) {
-				Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(fire.Position)), fire.Frame);
+				var filing = FrameEntry(fire, ObjectTypeTag.Fire, fire.Position, model.ShapeRadius, fire.Owner);
+				Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(fire.Position)), fire.Frame, filing);
 			}
 		}
 
-		void Add(SceneModel model, Matrix4x4 transform, int frame) {
+		void Add(SceneModel model, Matrix4x4 transform, int frame, DrawEntry? filing) {
 			if (model.Sprites.Length == 0 || model.Atlas == null
 				|| !spriteTextures.TryGetValue(model.Key, out var texture)) {
 				return;
 			}
 
-			spriteBatches.Add(new SpriteBatch(model.Sprites, model.Atlas, texture.Handle, transform, frame));
+			spriteBatches.Add(new SpriteBatch(model.Sprites, model.Atlas, texture.Handle, transform, frame,
+				filing));
 		}
 	}
 

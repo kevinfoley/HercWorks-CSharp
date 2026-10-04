@@ -15723,7 +15723,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_RayWalk",
-      "description": "Ray-versus-terrain traversal, the largest function in the terrain module (5129 bytes). Halves the segment delta until every component fits +/-32000, derives four Q16 slopes via 0047df5c, classifies the ground-plane delta into an octant 0-7, then walks the height grid cell by cell with a two-phase step (a minor-axis crossing stashes the major-axis exit and replays it next iteration). param_6 selects the per-step surface test, and the two ask different questions. Mode 0, the thin ray (weapon fire, via Sim_RaycastTerrain), reports the ground wherever the segment is at or below it: each step yields an exit point and an edge code 0=W/1=E/2=N/3=S, tested by Terrain_EdgeCrossingTest and refined by Terrain_CellSurfaceIntersect. Mode 1 (movement collision) instead normalises the delta to a 0x800-length direction and asks Terrain_FaceBlocksAt / Terrain_EdgeFaceBlocks whether the face being crossed is too steep to walk, refining a hit with 0046fcac -- so a segment sliding along rolling ground reports nothing and only a wall stops it. Six multiplies in the octant-2/3 arms are 32-bit truncating imul/sar rather than Math_Q16Multiply.",
+      "description": "Ray-versus-terrain traversal, the largest function in the terrain module (5129 bytes). Halves the segment delta until every component fits +/-32000, derives four Q16 slopes via Math_Q16Divide, classifies the ground-plane delta into an octant 0-7, then walks the height grid cell by cell with a two-phase step (a minor-axis crossing stashes the major-axis exit and replays it next iteration). param_6 selects the per-step surface test, and the two ask different questions. Mode 0, the thin ray (Sim_RaycastTerrain for weapon fire, Terrain_RayHitDistance), reports the ground wherever the segment is at or below it: each step yields an exit point and an edge code 0=W/1=E/2=N/3=S, tested by Terrain_EdgeCrossingTest and refined by Terrain_CellSurfaceIntersect. Mode 1, the slope walk (Mech_AiObstacleAvoidance's two probes, Ai_LineOfSightBlocked), packs the delta into three shorts normalised to 0x800 by Math_NormalizeVec3ShortToLength and asks Terrain_FaceBlocksAt (start on the first step, endpoint on the last) / Terrain_EdgeFaceBlocks (every other step) whether the face being crossed is too steep to walk; a hit on this cell's face or the endpoint's reports Terrain_FindDiagonalCrossing, one on the neighbour's reports the exit point. The segment has no width in either mode. Six multiplies in the octant-2/3 arms are 32-bit truncating imul/sar rather than Math_Q16Multiply.",
       "source": "docs/formats/terrain-heightmap.md (terrain clipping RE session)"
     },
     {
@@ -15732,7 +15732,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_FindDiagonalCrossing",
-      "description": "(grid, a, b, cellX, cellY, out): where the segment a-b crosses the diagonal of cell (cellX, cellY). Works in cell-local x and y (less the cell origin, (cellX, cellY) << grid+0x108), mirroring x across the cell when the cell's split bits (cell+0xf & 3) are 0. When a and b lie on the same side of the diagonal (y < x) out = a; otherwise it bisects between them at most eight times until the midpoint's y equals its x, and out = that midpoint back in grid coordinates with z = 0. The cell is grid+0xec + (cellY << grid+0x100 | cellX) * 0x10; an index outside 1 << (grid+0x100 + grid+0x104) makes the cell pointer 0, and the split bits are then read from address 0xf. Terrain_RayWalk calls it for the exit point.",
+      "description": "(grid, a, b, cellX, cellY, out): where the step a-b inside cell (cellX, cellY) entered the triangle b lies in. Works in cell-local x and y (less the cell origin, (cellX, cellY) << grid+0x108), mirroring x across the cell when the cell's split bits (cell+0xf & 3) are 0, so y < x tells the side for both diagonals. When a and b lie on the same side out = a (z included); otherwise it bisects between them at most eight times, stopping when the midpoint's y equals its x, and out = the last midpoint back in grid coordinates with z = 0. The cell is grid+0xec + (cellY << grid+0x100 | cellX) * 0x10; an index outside 1 << (grid+0x100 + grid+0x104) makes the cell pointer 0, and the split bits are then read from address 0xf. Terrain_RayWalk's mode 1 calls it for a blocking face on the last step's endpoint and for Terrain_EdgeFaceBlocks' answer 2.",
       "source": "DBSIM decompile at 0046fcac"
     },
     {
@@ -15750,7 +15750,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_FaceBlocksAt",
-      "description": "Terrain_FaceBlocksMovement applied at a world point: locate the cell, pick which of its two triangles the point falls in by the cell's own diagonal flag (+0x0f & 3, the same split the height query uses), and test that face. A point off the grid blocks.",
+      "description": "(grid, dir, point): Terrain_FaceBlocksMovement applied at a world point: locate the cell, pick which of its two triangles the point falls in by the cell's own diagonal flag (+0x0f & 3, the same split the height query uses), and test that face. The cell is found by flat index ((y >> cellShift) << widthShift) + (x >> cellShift), and only an index outside the whole array blocks outright, so a point just past the grid's west or east edge reads the adjacent row's far cell. Callers: Terrain_RayWalk's mode 1, and Deployment_PickPointNearPlayer with a zero direction.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {
@@ -15759,7 +15759,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_EdgeFaceBlocks",
-      "description": "The mode-1 test for a step leaving a cell across a named edge (0=W/1=E/2=N/3=S): asks the triangle on this side of the edge first and the neighbouring cell's second. Returns 0 clear, 2 when this cell's own face stops the segment (the hit is the step's near end), 1 when the neighbour's does or either cell is off the grid (the hit is the far end). Which triangle borders which edge depends on the diagonal, so the north and south arms consult it and the east and west arms do not.",
+      "description": "(grid, cellX, cellY, dir, edge): the mode-1 test for a step leaving a cell across a named edge (0=W/1=E/2=N/3=S): asks this cell's triangle bordering the edge first and the neighbouring cell's second. A cell's near triangle (+1) borders its west edge and its far one (+7) its east edge under either diagonal; north and south depend on the split bits. Returns 0 clear, 2 when this cell's own face stops the segment (Terrain_RayWalk reports Terrain_FindDiagonalCrossing), 1 when the neighbour's does or either cell's flat index is outside the array (Terrain_RayWalk reports the exit point). The neighbour is found by flat index, so across the grid's west or east edge it is the adjacent row's far cell.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {

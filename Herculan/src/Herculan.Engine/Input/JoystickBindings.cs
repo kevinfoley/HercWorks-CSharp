@@ -412,7 +412,7 @@ public sealed class JoystickBindings {
 	/// button on the walker's FIRE row, whatever the RAZOR binds it to, and a RAZOR FIRE row on another
 	/// button reaches the dispatch — docs/retail/formats/joystick-input.md#the-buttons.
 	/// </summary>
-	private static int TriggerScanRow(SimulatorPreferences preferences) {
+	public static int TriggerScanRow(SimulatorPreferences preferences) {
 		for (int i = 0; i < ButtonCount; i++) {
 			if ((JoystickAction)preferences[Prefs.HercControlsBase + Prefs.ControlsAxisCount + i]
 					== JoystickAction.Fire) {

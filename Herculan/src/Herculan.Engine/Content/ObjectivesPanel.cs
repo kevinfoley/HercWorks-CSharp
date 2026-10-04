@@ -51,10 +51,23 @@ public sealed class ObjectivesPanel {
 	public bool IsOpen { get; private set; }
 
 	/// <summary>
-	/// Whether the button is currently held down — it paints its second plate and captions itself in
-	/// <c>PUSHED</c> rather than <c>ACTIVE</c> while it is (<c>PanelButton_Paint</c>, <c>00454ff8</c>).
+	/// Whether the button shows pressed — it paints its second plate and captions itself in <c>PUSHED</c>
+	/// rather than <c>ACTIVE</c> while it does (<c>PanelButton_Paint</c>, <c>00454ff8</c>): while the pointer
+	/// holds it, and while a key's press flash does.
 	/// </summary>
-	public bool ButtonPressed { get; private set; }
+	public bool ButtonPressed => (_armed && !_pressPopped) || _presses.IsLit(0);
+
+	// The pointer's press on the button, which a release over it completes; and whether a flash ending has
+	// let the button up under it, which the press survives.
+	private bool _armed;
+	private bool _pressPopped;
+	private readonly AlertPanelPresses _presses = new();
+
+	// One widget, RETURN, so the walk lands back on it — and puts the pointer back on it.
+	private readonly AlertPanelFocus _focus = new(_ => ObjectivesPanelLayout.Button, 1);
+
+	/// <inheritdoc cref="AlertPanelFocus.TakePointer"/>
+	public bool TakeFocusPointer(out int panelX, out int panelY) => _focus.TakePointer(out panelX, out panelY);
 
 	/// <summary>
 	/// Reads the panel's own captions out of the mounted archives and resolves a mission's block-13
@@ -102,30 +115,66 @@ public sealed class ObjectivesPanel {
 	/// </summary>
 	public void Open() {
 		IsOpen = true;
-		ButtonPressed = false;
+		_armed = false;
+		_pressPopped = false;
+		_presses.Reset();
+
+		// ObjectivesPanel_RunModal (00457ae4) focuses RETURN before its first pass, which puts the pointer on it.
+		_focus.Set(0);
 	}
 
 	/// <summary>Takes the panel down, however it was dismissed.</summary>
 	public void Close() {
 		IsOpen = false;
-		ButtonPressed = false;
+		_armed = false;
+		_pressPopped = false;
+		_presses.Reset();
+		_focus.Clear();
 	}
 
 	/// <summary>
 	/// A key the panel's own handler (<c>AlertPanel_HandleEvent</c>, <c>00454e10</c>) answers. [Return] presses the focused
 	/// widget and [Esc] presses the panel's cancel widget; the panel sets both to its one button, so
-	/// either closes it. [Tab] and [Shift+Tab] walk the focus, which with one widget is a no-op, and
-	/// are not modelled.
+	/// either closes it, and the press flashes it — so the panel stays up one more frame, see
+	/// <see cref="Present"/>. The focus walk, with one widget, lands back on it.
 	/// </summary>
+	/// <param name="nowTicks"><c>Time_GetCoarseTicks</c>, on a clock that runs while the panel is up.</param>
 	/// <returns>True when the key was the panel's to answer.</returns>
-	public bool HandleKey(bool enter, bool escape) {
-		if (!IsOpen || (!enter && !escape)) {
-			return false;
+	public bool HandleKey(AlertPanelKey key, long nowTicks) =>
+		IsOpen && _focus.AnswerKey(key, 0, _ => PressButton(nowTicks));
+
+	/// <summary>The same handler's stick half — see <see cref="AlertPanelFocus.AnswerStick"/>.</summary>
+	/// <returns>True when either button was the panel's to answer.</returns>
+	public bool HandleStick(bool trigger, bool button2, long nowTicks) =>
+		IsOpen && _focus.AnswerStick(trigger, button2, _ => PressButton(nowTicks));
+
+	// AlertPanel_PressWidget: the button's click, then its flash.
+	private void PressButton(long nowTicks) {
+		Click();
+		_presses.Flash(0, nowTicks);
+	}
+
+	/// <summary>
+	/// The tail of one pass of the panel's loop — <c>AlertPanel_Present</c> (<c>00454ab0</c>), as far as
+	/// the button goes: services the press flash, then closes the panel if its close flag survives the hold
+	/// a still-queued flash puts on it (<see cref="AlertPanelPresses.HoldClose"/>).
+	/// </summary>
+	public void Present(long nowTicks) {
+		if (!IsOpen) {
+			return;
 		}
 
-		Close();
-		return true;
+		if (_presses.Service(nowTicks).Contains(0)) {
+			_pressPopped = _armed;
+		}
+
+		if (_presses.HoldClose()) {
+			Close();
+		}
 	}
+
+	// ObjectivesPanel_OnChildClick (00457c30): child 0, the one button, sets the close flag.
+	private void Click() => _presses.RequestClose();
 
 	/// <summary>
 	/// A mouse press inside the panel, in the panel's own device pixels. Arms the button when the
@@ -133,13 +182,14 @@ public sealed class ObjectivesPanel {
 	/// </summary>
 	public void PointerDown(float panelX, float panelY) {
 		if (IsOpen) {
-			ButtonPressed = ObjectivesPanelLayout.Button.Contains(panelX, panelY);
+			_armed = ObjectivesPanelLayout.Button.Contains(panelX, panelY);
+			_pressPopped = false;
 		}
 	}
 
 	/// <summary>
-	/// A mouse release, in the same space. Closes the panel when press and release both landed on the
-	/// button — <c>Widget_OnMouseUp</c> re-hit-tests before it calls the click, so a press dragged off
+	/// A mouse release, in the same space. Takes the panel down at the frame's <see cref="Present"/> when
+	/// press and release both landed on the button — <c>Widget_OnMouseUp</c> re-hit-tests before it calls the click, so a press dragged off
 	/// its widget never fires.
 	/// </summary>
 	public void PointerUp(float panelX, float panelY) {
@@ -147,10 +197,11 @@ public sealed class ObjectivesPanel {
 			return;
 		}
 
-		bool onButton = ButtonPressed && ObjectivesPanelLayout.Button.Contains(panelX, panelY);
-		ButtonPressed = false;
+		bool onButton = _armed && ObjectivesPanelLayout.Button.Contains(panelX, panelY);
+		_armed = false;
+		_pressPopped = false;
 		if (onButton) {
-			Close();
+			Click();
 		}
 	}
 }

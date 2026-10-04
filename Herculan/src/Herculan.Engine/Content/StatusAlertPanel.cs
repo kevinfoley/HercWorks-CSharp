@@ -94,6 +94,7 @@ public sealed class StatusAlertPanel {
 
 	private StatusAlertPanel(StringFile strings) {
 		_strings = strings;
+		_focus = new AlertPanelFocus(index => ButtonRect(Variant, index, _buttons.Length), 0);
 	}
 
 	/// <summary>Whether the panel is up. The simulation does not tick while it is.</summary>
@@ -114,11 +115,26 @@ public sealed class StatusAlertPanel {
 	/// <summary>The open panel's body lines, already trimmed at the first empty one.</summary>
 	public IReadOnlyList<string> Body => _body;
 
-	/// <summary>
-	/// The button currently held down, or -1. It paints its second plate and captions itself in
-	/// <c>PUSHED</c> while it is.
-	/// </summary>
+	/// <summary>The button the pointer has pressed and a release over it would answer, or -1.</summary>
 	public int PressedButton { get; private set; } = -1;
+
+	/// <summary>
+	/// Whether button <paramref name="index"/> shows pressed — its second plate, captioned in <c>PUSHED</c>:
+	/// while the pointer holds it, and while a key's press flash does.
+	/// </summary>
+	public bool ShowsPressed(int index) =>
+		(index == PressedButton && !_pressPopped) || _presses.IsLit(index);
+
+	// Whether a flash ending has let the pointer's button up under it; the press survives it.
+	private bool _pressPopped;
+	private readonly AlertPanelPresses _presses = new();
+	private readonly AlertPanelFocus _focus;
+
+	/// <summary>The button [Return] and the trigger press, or -1 — see <see cref="AlertPanelFocus"/>.</summary>
+	public int Focus => _focus.Index;
+
+	/// <inheritdoc cref="AlertPanelFocus.TakePointer"/>
+	public bool TakeFocusPointer(out int panelX, out int panelY) => _focus.TakePointer(out panelX, out panelY);
 
 	/// <summary>The button that closed the panel, or -1 while it is still up.</summary>
 	public int ChosenButton { get; private set; } = -1;
@@ -216,8 +232,14 @@ public sealed class StatusAlertPanel {
 		_body = body.ToArray();
 		IsOpen = true;
 		PressedButton = -1;
+		_pressPopped = false;
+		_presses.Reset();
 		ChosenButton = -1;
 		EndsMission = false;
+
+		// StatusAlertPanel_RunModal (00455fe4) focuses button 0 before its first pass, which puts the pointer on it.
+		_focus.Count = buttonCount;
+		_focus.Set(0);
 		return true;
 	}
 
@@ -241,11 +263,15 @@ public sealed class StatusAlertPanel {
 	public void Close() {
 		IsOpen = false;
 		PressedButton = -1;
+		_pressPopped = false;
+		_presses.Reset();
+		_focus.Clear();
 	}
 
 	/// <summary>
-	/// Closes the panel as though <paramref name="button"/> had been pressed, recording whether that
-	/// answer ends the mission.
+	/// Answers as though <paramref name="button"/> had been pressed, recording whether that answer ends the
+	/// mission, and sets the close flag — <c>StatusAlertPanel_OnChildClick</c> (<c>00456160</c>). The panel
+	/// comes down at the frame's <see cref="Present"/>.
 	/// </summary>
 	public void Choose(int button) {
 		if (!IsOpen || button < 0 || button >= _buttons.Length) {
@@ -255,28 +281,55 @@ public sealed class StatusAlertPanel {
 		ChosenButton = button;
 		EndsMission = Status >= 0 && Status < EndsMissionButton.Length
 			&& button == EndsMissionButton[Status];
-		Close();
+		_presses.RequestClose();
 	}
 
 	/// <summary>
-	/// A key the panel's handler (<c>AlertPanel_HandleEvent</c>) answers. [Return] presses the
-	/// focused button — the loop focuses button 0 before its first pass and only the pointer moves
-	/// the focus — and [Esc] presses the cancel widget, which the constructor also sets to button 0.
-	/// So both keys answer button 0, which for every two-button status is the one that carries on.
+	/// A key the panel's handler (<c>AlertPanel_HandleEvent</c>, <c>00454e10</c>) answers. [Return] presses
+	/// the <see cref="Focus"/> button, which is button 0 until the focus walk moves it, and [Esc] presses the
+	/// cancel widget, which the constructor also sets to button 0 — for every two-button status the one that
+	/// carries on. The press flashes the button, so the panel stays up one more frame; see <see cref="Present"/>.
 	/// </summary>
+	/// <param name="nowTicks"><c>Time_GetCoarseTicks</c>, on a clock that runs while the panel is up.</param>
 	/// <returns>True when the key was the panel's to answer.</returns>
-	public bool HandleKey(bool enter, bool escape) {
-		if (!IsOpen || (!enter && !escape)) {
-			return false;
+	public bool HandleKey(AlertPanelKey key, long nowTicks) =>
+		IsOpen && _focus.AnswerKey(key, 0, button => PressWidget(button, nowTicks));
+
+	/// <summary>The same handler's stick half — see <see cref="AlertPanelFocus.AnswerStick"/>.</summary>
+	/// <returns>True when either button was the panel's to answer.</returns>
+	public bool HandleStick(bool trigger, bool button2, long nowTicks) =>
+		IsOpen && _focus.AnswerStick(trigger, button2, button => PressWidget(button, nowTicks));
+
+	// AlertPanel_PressWidget: the button's click, then its flash.
+	private void PressWidget(int button, long nowTicks) {
+		Choose(button);
+		_presses.Flash(button, nowTicks);
+	}
+
+	/// <summary>
+	/// The tail of one pass of the panel's loop — <c>AlertPanel_Present</c> (<c>00454ab0</c>), as far as the
+	/// buttons go: services the press flashes, then closes the panel if its close flag survives the hold a
+	/// still-queued flash puts on it (<see cref="AlertPanelPresses.HoldClose"/>).
+	/// </summary>
+	public void Present(long nowTicks) {
+		if (!IsOpen) {
+			return;
 		}
 
-		Choose(0);
-		return true;
+		var ended = _presses.Service(nowTicks);
+		if (PressedButton >= 0 && ended.Contains(PressedButton)) {
+			_pressPopped = true;
+		}
+
+		if (_presses.HoldClose()) {
+			Close();
+		}
 	}
 
 	/// <summary>A mouse press, in panel-local device pixels. Arms whichever button it lands on.</summary>
 	public void PointerDown(float panelX, float panelY) {
 		PressedButton = IsOpen ? ButtonAt(panelX, panelY) : -1;
+		_pressPopped = false;
 	}
 
 	/// <summary>
@@ -291,6 +344,7 @@ public sealed class StatusAlertPanel {
 		int released = ButtonAt(panelX, panelY);
 		int pressed = PressedButton;
 		PressedButton = -1;
+		_pressPopped = false;
 		if (pressed >= 0 && pressed == released) {
 			Choose(pressed);
 		}

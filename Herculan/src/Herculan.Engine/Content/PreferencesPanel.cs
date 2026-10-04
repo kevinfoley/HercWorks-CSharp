@@ -148,10 +148,11 @@ public sealed class PreferencesPanel {
 	/// <summary>
 	/// The widget state button <paramref name="index"/> paints in. The nine option rows are built in
 	/// state 3, the bottom pair in state 0, a row with no sound device behind it is greyed to 2, and
-	/// the highlighted row drops to 0.
+	/// the highlighted row drops to 0. A button shows pressed while the pointer holds it and while a press
+	/// flash does, and a flash's end leaves it in 0 (<see cref="AlertPanelPresses.RestedByFlash"/>).
 	/// </summary>
 	public int RowState(int index) {
-		if (index == PressedButton) {
+		if ((index == PressedButton && !_pressPopped) || _presses.IsLit(index)) {
 			return AlertPanelLayout.WidgetState.Pressed;
 		}
 
@@ -159,21 +160,43 @@ public sealed class PreferencesPanel {
 			return AlertPanelLayout.WidgetState.Rest;
 		}
 
-		if (!SoundAvailable && index < PreferencesPanelLayout.SoundRowCount) {
+		if (IsGreyed(index)) {
 			return AlertPanelLayout.WidgetState.Disabled;
 		}
 
-		return index == HighlightedRow
+		return index == HighlightedRow || _presses.RestedByFlash(index)
 			? AlertPanelLayout.WidgetState.Rest
 			: AlertPanelLayout.WidgetState.Option;
 	}
+
+	// The rows PreferencesPanel_Run puts in state 2 before its loop starts: the first four, with no sound device.
+	private bool IsGreyed(int index) => !SoundAvailable && index < PreferencesPanelLayout.SoundRowCount;
+
+	/// <summary>
+	/// The widget [Return] and the trigger press — <c>panel+0x2f7</c>, see <see cref="AlertPanelFocus"/>. The loop
+	/// focuses widget 0, MUSIC, before its first pass, and coming back from the controls panel focuses DONE, the
+	/// cancel widget; both put the pointer on it. A click moves the focus to the widget clicked
+	/// (<c>PreferencesPanel_OnClick</c>, <c>004573a8</c>) without going through <c>AlertPanel_SetFocus</c>, so the
+	/// pointer stays where it clicked.
+	/// </summary>
+	public int Focus => _focus.Index;
+
+	private readonly AlertPanelFocus _focus = new(PreferencesPanelLayout.Button, PreferencesPanelLayout.ButtonCount);
+
+	/// <inheritdoc cref="AlertPanelFocus.TakePointer"/>
+	public bool TakeFocusPointer(out int panelX, out int panelY) => _focus.TakePointer(out panelX, out panelY);
+
+	// Whether a flash ending has let the pointer's button up under it; the press survives it.
+	private bool _pressPopped;
+	private readonly AlertPanelPresses _presses = new();
 
 	/// <summary>Whether the panel is up. The simulation does not tick while it is.</summary>
 	public bool IsOpen { get; private set; }
 
 	/// <summary>
-	/// The button currently held down, or -1. It paints the pressed frame of its own bank while it is
-	/// (<c>PanelButton_Paint</c>, <c>00454ff8</c>).
+	/// The button the pointer has pressed and a release over it would click, or -1. It paints the pressed
+	/// frame of its own bank while it is held (<c>PanelButton_Paint</c>, <c>00454ff8</c>); see
+	/// <see cref="RowState"/>.
 	/// </summary>
 	public int PressedButton { get; private set; } = -1;
 
@@ -253,8 +276,11 @@ public sealed class PreferencesPanel {
 	public void Open() {
 		IsOpen = true;
 		PressedButton = -1;
+		_pressPopped = false;
 		HighlightedRow = -1;
 		ControlsRequested = false;
+		_presses.Reset();
+		_focus.Set(0);
 	}
 
 	/// <summary>
@@ -269,22 +295,68 @@ public sealed class PreferencesPanel {
 	public void Close() {
 		IsOpen = false;
 		PressedButton = -1;
+		_pressPopped = false;
+		_presses.Reset();
+		_focus.Clear();
 		_preferences.Save(SimulatorPreferences.PreferencesPanelOptions);
 	}
 
 	/// <summary>
-	/// A key the panel's own handler answers. [Esc] presses the cancel widget, which this panel sets
-	/// to the last one it built — DONE — and [Return] presses the focused widget, which is the same
-	/// one. Either closes the panel.
+	/// A key the panel's own handler (<c>AlertPanel_HandleEvent</c>, <c>00454e10</c>) answers. [Return]
+	/// presses the <see cref="Focus"/> widget, and [Esc] presses the cancel widget, which this panel sets to
+	/// the last one it built — DONE. Either press is a left click on the widget and flashes it; DONE takes the
+	/// panel down in the same pass, before the flash has drawn. The focus walk lands on a greyed row as on any
+	/// other, and pressing one does nothing.
 	/// </summary>
+	/// <param name="nowTicks"><c>Time_GetCoarseTicks</c>, on a clock that runs while the panel is up.</param>
 	/// <returns>True when the key was the panel's to answer.</returns>
-	public bool HandleKey(bool enter, bool escape) {
-		if (!IsOpen || (!enter && !escape)) {
-			return false;
+	public bool HandleKey(AlertPanelKey key, long nowTicks) =>
+		IsOpen && _focus.AnswerKey(key, PreferencesPanelLayout.DoneButton, index => PressWidget(index, nowTicks));
+
+	/// <summary>The same handler's stick half — see <see cref="AlertPanelFocus.AnswerStick"/>.</summary>
+	/// <returns>True when either button was the panel's to answer.</returns>
+	public bool HandleStick(bool trigger, bool button2, long nowTicks) =>
+		IsOpen && _focus.AnswerStick(trigger, button2, index => PressWidget(index, nowTicks));
+
+	/// <summary>
+	/// <c>AlertPanel_PressWidget</c> (<c>00454dcc</c>): unless the widget is greyed, its click with the left
+	/// button, then its press flash.
+	/// </summary>
+	private void PressWidget(int index, long nowTicks) {
+		if (IsGreyed(index)) {
+			return;
 		}
 
-		Close();
-		return true;
+		Click(index, rightButton: false);
+		if (IsOpen) {
+			_presses.Flash(index, nowTicks);
+		}
+	}
+
+	/// <summary>
+	/// The tail of one pass of the panel's loop — <c>PreferencesPanel_Present</c> (<c>00457180</c>), as far
+	/// as the buttons go: services the press flashes. It has no hold on the close flag; DONE closes the
+	/// panel in <see cref="Click"/>.
+	/// </summary>
+	public void Present(long nowTicks) {
+		if (!IsOpen) {
+			return;
+		}
+
+		var ended = _presses.Service(nowTicks);
+		if (PressedButton >= 0 && ended.Contains(PressedButton)) {
+			_pressPopped = true;
+		}
+	}
+
+	/// <summary>
+	/// The controls panel this one raised has come down: <c>PreferencesPanel_Run</c> repaints and focuses
+	/// the cancel widget, DONE, which puts the pointer on it.
+	/// </summary>
+	public void ReturnFromControls() {
+		if (IsOpen) {
+			_focus.Set(PreferencesPanelLayout.DoneButton);
+		}
 	}
 
 	/// <summary>
@@ -297,8 +369,9 @@ public sealed class PreferencesPanel {
 		}
 
 		PressedButton = -1;
+		_pressPopped = false;
 		for (int i = 0; i < PreferencesPanelLayout.ButtonCount; i++) {
-			if (RowState(i) != AlertPanelLayout.WidgetState.Disabled && PreferencesPanelLayout.Button(i).Contains(panelX, panelY)) {
+			if (!IsGreyed(i) && PreferencesPanelLayout.Button(i).Contains(panelX, panelY)) {
 				PressedButton = i;
 				return;
 			}
@@ -316,10 +389,9 @@ public sealed class PreferencesPanel {
 	public void ClearControlsRequest() => ControlsRequested = false;
 
 	/// <summary>
-	/// A mouse release, in the same space. DONE closes the panel, CONTROLS raises the controls panel,
-	/// and one of the nine option rows takes the highlight and steps its setting.
-	/// <c>Widget_OnMouseUp</c> re-hit-tests before it calls the click, so a press dragged off its
-	/// button never fires.
+	/// A mouse release, in the same space: the <see cref="Click"/> of the button, when press and release
+	/// both landed on it. <c>Widget_OnMouseUp</c> re-hit-tests before it calls the click, so a press dragged
+	/// off its button never fires.
 	/// </summary>
 	/// <param name="rightButton">
 	/// Whether the release was of the right button — <c>panel+0x2ff</c>, which the click handler takes
@@ -332,16 +404,37 @@ public sealed class PreferencesPanel {
 
 		int pressed = PressedButton;
 		PressedButton = -1;
+		_pressPopped = false;
 		if (pressed < 0 || !PreferencesPanelLayout.Button(pressed).Contains(panelX, panelY)) {
 			return;
 		}
 
-		if (pressed < PreferencesPanelLayout.OptionCount) {
-			HighlightedRow = pressed;
-			Cycle(pressed, rightButton);
-		} else if (pressed == PreferencesPanelLayout.DoneButton) {
+		Click(pressed, rightButton);
+	}
+
+	/// <summary>
+	/// One button's click, however it came — <c>PreferencesPanel_OnClick</c> (<c>004573a8</c>), then the
+	/// action <c>PreferencesPanel_Run</c> takes on it. An option row takes the highlight, putting the row
+	/// that had it back to state 3; every button takes the focus. Then DONE closes the panel, CONTROLS raises
+	/// the controls panel, and an option row steps its setting.
+	/// </summary>
+	private void Click(int index, bool rightButton) {
+		if (index < PreferencesPanelLayout.OptionCount) {
+			if (HighlightedRow >= 0) {
+				_presses.Restate(HighlightedRow);
+			}
+
+			_presses.Restate(index);
+			HighlightedRow = index;
+		}
+
+		_focus.Move(index);
+
+		if (index < PreferencesPanelLayout.OptionCount) {
+			Cycle(index, rightButton);
+		} else if (index == PreferencesPanelLayout.DoneButton) {
 			Close();
-		} else if (pressed == PreferencesPanelLayout.ControlsButton) {
+		} else if (index == PreferencesPanelLayout.ControlsButton) {
 			ControlsRequested = true;
 		}
 	}

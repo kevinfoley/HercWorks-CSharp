@@ -19,13 +19,26 @@ Every panel derives from one base, `AlertPanel_CtorBase`, and runs its own near-
 
 **Text.** Each member's `.STR` path comes from `Language_StringFilePath` (`0045ef00`): `str\` in English, `stf\` and `stg\` in French and German ([`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)). v1.0's `stf\` and `stg\` tables translate an earlier design of the panels: their preferences panel offers MUSIC, SOUNDS, RADIO, HORIZON, SKY, GROUND and SHADOWS, with no detail levels; their controls panel picks a joystick model (THRUSTMASTER FCS, FLIGHTSTICK PRO, …) and calibrates it, with no axis or button assignments; and their pause panel's title asks to return to DOS where the English asks to exit Earthsiege. Their mission alerts and objectives panel translate the shipped ones. v1.0's launcher never selects them ([`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)). v1.10's translate the panels as shipped.
 
-**Keys.** `AlertPanel_HandleEvent` (`00454e10`) is the slot-`+0x10` handler of every member but the controls panel, whose sticks must not press widgets ([`preferences.md`](preferences.md#what-a-joystick-button-does--controlspanel_handleevent-00458f9c)):
+### Keys and the press flash
+
+`AlertPanel_HandleEvent` (`00454e10`) is the slot-`+0x10` handler of every member but the controls panel, whose sticks must not press widgets ([`preferences.md`](preferences.md#what-a-joystick-button-does--controlspanel_handleevent-00458f9c)):
 
 | | |
 |---|---|
-| [Return], or joystick button 1 | presses the focused widget, which the loop sets to widget 0 before its first pass |
-| [Esc] | presses the panel's cancel widget, `+0x2fb`, which the constructor also sets to widget 0 |
-| [Tab] / [Shift+Tab], or joystick button 2 | walk the focus. With one widget they land back on it |
+| [Return], or joystick button 1 | presses the focused widget, `+0x2f7`, which every member's loop sets to widget 0 before its first pass |
+| [Esc] | presses the panel's cancel widget, `+0x2fb`, which the status alert's, the pause panel's and the objectives panel's constructors also set to widget 0 |
+| [Tab], scancode `0x52`, or joystick button 2 | focus the next widget (`AlertPanel_FocusNext`, `00454d7c`), wrapping past the last. With one widget it lands back on it |
+| [Shift+Tab] | the same as [Tab]: see below |
+
+The stick buttons are fields of the block `Input_BuildPlayerDevice` (`0045a7f4`) hands the handler: button 1 is the trigger at `+0x0d`, the button on the walker's first FIRE row ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)), and button 2 is the second button's byte at `+0x17`. The handler answers the trigger first, then button 2, and only then the key, and latches the button it answered — `Input_LatchButton(1, 1)` for the trigger, which latches button 0, the trigger's own button on every binding the CONTROLS panel can set.
+
+**[Shift+Tab] walks forward.** The handler has a case for `0x80f`, [Shift+Tab], which calls `AlertPanel_FocusPrevious` (`00454da0`). But every member's loop takes its input from `Input_BuildPlayerDevice`, which ANDs the block's command word with `SimCommandMask`, `0x47ff`, clearing the `0x800` [Shift] bit ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)), so [Shift+Tab] reaches the handler as `0x0f` ([Open](#open)).
+
+**Focus is the pointer**: `AlertPanel_SetFocus` (`00454c7c`) warps the cursor to the centre of the widget it focuses ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#9-cursor-rendering)), so the loop's first focus puts the pointer on widget 0. It does so for a greyed widget too, which the walk lands on like any other; pressing one does nothing. `AlertPanel_Leave` (`004548ac`) puts the pointer back where `AlertPanel_Enter` found it, the input block's position it saved at `+0x302`. On the preferences panel a click moves the focus too, writing `+0x2f7` directly, so the pointer stays where it clicked ([`preferences.md`](preferences.md#what-a-click-does--preferencespanel_run-00456d4c)).
+
+**A key press is a click and a flash.** `AlertPanel_PressWidget` (`00454dcc`) leaves a widget in state 2 alone; otherwise it calls the widget's click slot with the left-button flags, then `WidgetRoot_FlashPress` on the panel's own widget root at `+0x285` ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#the-press-flash)). Every pass of a member's loop services that root, so the widget is held in state 1 for 10 coarse ticks, 160 ms, and then put to 0. `PanelButton_Paint` indexes its plate frame and caption font by that state, so the button shows pressed. The 0 is written whatever the state was: an option row that rests in state 3 and lost the highlight during its flash is left looking highlighted beside the row that has it.
+
+**A key that closes a panel holds it up one more pass.** `AlertPanel_Present` (`00454ab0`), the tail of the status alert's, the objectives panel's and the controls panel's loops, services the flashes and then, while the close flag `+0x2d1` is set and `WidgetRoot_PressFlashCount` (`00453160`) is not zero, moves the flag to `+0x331` and clears it; the next pass moves it back. The loop runs that pass, whose widget paint draws the pressed button, and then the panel comes down. `PreferencesPanel_Present` (`00457180`) has no hold, and the preferences panel's DONE sets the flag in the pass its key was read, so its flash is never drawn.
 
 ## The status alert's text and layout
 
@@ -144,3 +157,9 @@ What closes it:
 |---|---|
 | The status alert's body text is a `GNL_ALRT.STR` row chosen by the status | For every status but 5, yes. Status 5 — the one [Q] usually answers — has its body replaced with the outstanding objective's own `mission.str` lines, so the row in the table is not what a player ever reads there |
 | Widget state 2 means a panel button is not drawn | `PanelButton_Paint` has no state test at all: it indexes the frame and font tables with the state, so a state-2 button draws its third frame in `INACTIVE`. The "refused by Paint" rule is the cockpit widget classes', not this family's |
+| [Return] dismisses the preferences and controls panels as [Esc] does | [Esc] presses the cancel widget, DONE on both; [Return] presses the focused widget, which both loops set to widget 0 — MUSIC and the JOYSTICK row ([`preferences.md`](preferences.md)) |
+| [Shift+Tab] walks the focus backwards | `AlertPanel_HandleEvent` and `ControlsPanel_HandleEvent` both have a `0x80f` case calling `AlertPanel_FocusPrevious`, but the command word they are handed has had its [Shift] bit masked off, so [Shift+Tab] arrives as [Tab] — [above](#keys-and-the-press-flash) |
+
+## Open
+
+- **Open:** [Shift+Tab] walking forward rests on `SimCommandMask` keeping its initial `0x47ff`: `es2_xref.py` finds three loads of it and no store, and the disassembly shows no base pointer into its neighbourhood. A retail check settles it: on the preferences panel, [Shift+Tab] from MUSIC lands on SOUNDS, not DONE.

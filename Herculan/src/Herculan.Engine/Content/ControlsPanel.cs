@@ -104,9 +104,8 @@ public sealed class ControlsPanel {
 	/// <para>That function also carries an arm that zeroes the block instead, taken when the first
 	/// word of the capability block is 0. Nothing here reproduces it: the word is written
 	/// unconditionally as 1 or 2 by <c>Input_QueryCapabilities</c> (<c>004777f8</c>), the only thing that fills that block, so the
-	/// arm cannot be reached through its own input. With no stick the panel greys its twelve rows but
-	/// leaves RECOMMEND live, so pressing it still writes this set — the readouts just stay blank,
-	/// the refresh being gated on the same missing capabilities.</para>
+	/// arm cannot be reached through its own input. With no stick it is not reached at all: RECOMMEND stays
+	/// live, but the action switch that would run it needs a capability block (see <see cref="Click"/>).</para>
 	/// </summary>
 	private static readonly byte[] HercRecommended =
 		{ 1, 0, 2, 2, 0x01, 0x02, 0x04, 0x06, 0x12, 0x13, 0x09, 0x0a };
@@ -193,8 +192,24 @@ public sealed class ControlsPanel {
 	/// <summary>Whether the panel is up. The simulation does not tick while it is.</summary>
 	public bool IsOpen { get; private set; }
 
-	/// <summary>The button currently held down, or -1.</summary>
+	/// <summary>The button the pointer has pressed and a release over it would click, or -1.</summary>
 	public int PressedButton { get; private set; } = -1;
+
+	/// <summary>
+	/// The widget [Return] presses — <c>panel+0x2f7</c>, see <see cref="AlertPanelFocus"/>, which the loop sets
+	/// to widget 0, the JOYSTICK row, before its first pass, putting the pointer on it. A click does not move it
+	/// here, unlike on the preferences panel; only the focus walk does.
+	/// </summary>
+	public int Focus => _focus.Index;
+
+	private readonly AlertPanelFocus _focus = new(ControlsPanelLayout.Button, ControlsPanelLayout.ButtonCount);
+
+	/// <inheritdoc cref="AlertPanelFocus.TakePointer"/>
+	public bool TakeFocusPointer(out int panelX, out int panelY) => _focus.TakePointer(out panelX, out panelY);
+
+	// Whether a flash ending has let the pointer's button up under it; the press survives it.
+	private bool _pressPopped;
+	private readonly AlertPanelPresses _presses = new();
 
 	/// <summary>
 	/// Which slot of each button row's own action list that row is sitting on — <c>panel+0x462</c>,
@@ -220,10 +235,12 @@ public sealed class ControlsPanel {
 	/// <summary>
 	/// Widget state <paramref name="index"/>'s button paints in, which picks both its plate frame and
 	/// its caption font. The twelve rows are built in state 3 and the bottom pair in state 0; a row
-	/// the capabilities have greyed is put into state 2, and the highlighted row into state 0.
+	/// the capabilities have greyed is put into state 2, and the highlighted row into state 0. A button shows
+	/// pressed while the pointer holds it and while a press flash does, and a flash's end leaves it in 0
+	/// (<see cref="AlertPanelPresses.RestedByFlash"/>).
 	/// </summary>
 	public int RowState(int index) {
-		if (index == PressedButton) {
+		if ((index == PressedButton && !_pressPopped) || _presses.IsLit(index)) {
 			return AlertPanelLayout.WidgetState.Pressed;
 		}
 
@@ -231,13 +248,27 @@ public sealed class ControlsPanel {
 			return AlertPanelLayout.WidgetState.Rest;
 		}
 
-		if (!Capabilities.RowEnabled(index)) {
+		if (IsGreyed(index)) {
 			return AlertPanelLayout.WidgetState.Disabled;
 		}
 
-		return index == HighlightedRow
+		return index == HighlightedRow || _presses.RestedByFlash(index)
 			? AlertPanelLayout.WidgetState.Rest
 			: AlertPanelLayout.WidgetState.Option;
+	}
+
+	// The rows ControlsPanel_Run puts in state 2 before its loop starts.
+	private bool IsGreyed(int index) => index < ControlsPanelLayout.RowCount && !Capabilities.RowEnabled(index);
+
+	// ControlsPanel_OnClick's and ControlsPanel_HandleEvent's highlight move: the row that had it back to state
+	// 3, the new one to 0.
+	private void MoveHighlight(int index) {
+		if (HighlightedRow >= 0) {
+			_presses.Restate(HighlightedRow);
+		}
+
+		_presses.Restate(index);
+		HighlightedRow = index;
 	}
 
 	/// <summary>
@@ -316,11 +347,14 @@ public sealed class ControlsPanel {
 	/// <summary>
 	/// Steps an axis row's mode — <c>ControlsPanel_Run</c> (<c>00458650</c>)'s cases 1 to 4, which are the plain
 	/// <see cref="SimulatorPreferences.Step"/> over the row's three words, forward on a left click and
-	/// back on a right one. Unlike a button row, an axis row also drops the OPTIONS list back to
-	/// showing nothing.
+	/// back on a right one, when the row's capability is there. Either way an axis row drops the OPTIONS
+	/// list back to showing nothing, which a button row does not.
 	/// </summary>
 	private void CycleAxis(int row, bool rightButton) {
-		_preferences.Step(_optionBase + row, AxisWordCount, forward: !rightButton);
+		if (Capabilities.RowEnabled(row)) {
+			_preferences.Step(_optionBase + row, AxisWordCount, forward: !rightButton);
+		}
+
 		SelectedButtonRow = -1;
 		RefreshValues();
 	}
@@ -392,8 +426,11 @@ public sealed class ControlsPanel {
 	public void Open() {
 		IsOpen = true;
 		PressedButton = -1;
+		_pressPopped = false;
 		HighlightedRow = -1;
 		SelectedButtonRow = -1;
+		_presses.Reset();
+		_focus.Set(0);
 
 		for (int buttonRow = 0; buttonRow < _slots.Length; buttonRow++) {
 			int slot = Array.IndexOf(ActionsFor(buttonRow),
@@ -405,34 +442,55 @@ public sealed class ControlsPanel {
 	}
 
 	/// <summary>
-	/// Takes the panel down, however it was dismissed, and writes its thirteen options back —
-	/// <c>ControlsPanel_Run</c> calls <c>ControlsPanel_Save</c> (<c>00459140</c>) at <c>00458c07</c>
-	/// on its way out, then <c>Prefs_CommitOptions</c> (<c>00459878</c>) one instruction later. Only
-	/// this panel's own options are written; see <see cref="SimulatorPreferences.Save"/> and
-	/// <see cref="SimulatorPreferences.Commit"/>.
+	/// Takes the panel down, however it was dismissed. Writing the options back is DONE's own action, not
+	/// this — see <see cref="Click"/>.
 	/// </summary>
 	public void Close() {
 		IsOpen = false;
 		PressedButton = -1;
-		_preferences.Save(SimulatorPreferences.ControlsPanelOptions(IsRazor));
-		_preferences.Commit();
+		_pressPopped = false;
+		_presses.Reset();
+		_focus.Clear();
 	}
 
 	/// <summary>
-	/// A key the panel's own handler answers. [Esc] presses the cancel widget, which the constructor
-	/// set to the last one it built — DONE — and [Return] presses the focused widget, the same one.
-	/// <c>ControlsPanel_HandleEvent</c> (<c>00458f9c</c>) does exactly this; what it also does, and
-	/// this does not, is let a joystick button select and step its own row — see
-	/// docs/retail/simulation/preferences.md.
+	/// A key the panel's own handler (<c>ControlsPanel_HandleEvent</c>, <c>00458f9c</c>) answers. [Return]
+	/// presses the <see cref="Focus"/> widget, and [Esc] presses the cancel widget, which the constructor set to
+	/// the last one it built — DONE. Either press is a left click on the widget, unless it is greyed, and flashes
+	/// it; DONE's flash holds the panel up one more frame, see <see cref="Present"/>. The focus walk lands on a
+	/// greyed row as on any other. The handler's stick half is <see cref="PressButtonRow"/>.
 	/// </summary>
+	/// <param name="nowTicks"><c>Time_GetCoarseTicks</c>, on a clock that runs while the panel is up.</param>
 	/// <returns>True when the key was the panel's to answer.</returns>
-	public bool HandleKey(bool enter, bool escape) {
-		if (!IsOpen || (!enter && !escape)) {
-			return false;
+	public bool HandleKey(AlertPanelKey key, long nowTicks) =>
+		IsOpen && _focus.AnswerKey(key, ControlsPanelLayout.DoneButton, index => PressWidget(index, nowTicks));
+
+	// AlertPanel_PressWidget: unless the widget is greyed, its click, then its flash.
+	private void PressWidget(int index, long nowTicks) {
+		if (!IsGreyed(index)) {
+			Click(index, rightButton: false);
+			_presses.Flash(index, nowTicks);
+		}
+	}
+
+	/// <summary>
+	/// The tail of one pass of the panel's loop — <c>AlertPanel_Present</c> (<c>00454ab0</c>), as far as the
+	/// buttons go: services the press flashes, then closes the panel if its close flag survives the hold a
+	/// still-queued flash puts on it (<see cref="AlertPanelPresses.HoldClose"/>).
+	/// </summary>
+	public void Present(long nowTicks) {
+		if (!IsOpen) {
+			return;
 		}
 
-		Close();
-		return true;
+		var ended = _presses.Service(nowTicks);
+		if (PressedButton >= 0 && ended.Contains(PressedButton)) {
+			_pressPopped = true;
+		}
+
+		if (_presses.HoldClose()) {
+			Close();
+		}
 	}
 
 	/// <summary>
@@ -446,8 +504,9 @@ public sealed class ControlsPanel {
 		}
 
 		PressedButton = -1;
+		_pressPopped = false;
 		for (int i = 0; i < ControlsPanelLayout.ButtonCount; i++) {
-			if (RowState(i) != AlertPanelLayout.WidgetState.Disabled && ControlsPanelLayout.Button(i).Contains(panelX, panelY)) {
+			if (!IsGreyed(i) && ControlsPanelLayout.Button(i).Contains(panelX, panelY)) {
 				PressedButton = i;
 				return;
 			}
@@ -459,19 +518,8 @@ public sealed class ControlsPanel {
 		Capabilities.Present ? Math.Min(Capabilities.ButtonCount, JoystickCapabilities.MaxButtons) : 0;
 
 	/// <summary>
-	/// A mouse release, in the same space — <c>ControlsPanel_OnClick</c> (<c>00458ebc</c>), which decides between selecting and
-	/// acting, and <c>ControlsPanel_Run</c> (<c>00458650</c>)'s switch, which does the acting.
-	///
-	/// <para><b>A button row takes two clicks to change.</b> The click handler selects the row only
-	/// when it is not already the selected one; when it is, it queues the row's action instead, which
-	/// steps it. So the first click on a button row points the OPTIONS list at it and the second and
-	/// subsequent clicks walk it down that list. An axis row is never "selected", so every click on
-	/// one steps it — and clears the list selection, which is why clicking an axis row after a button
-	/// row empties the OPTIONS box.</para>
-	///
-	/// <para>DONE closes the panel and RECOMMEND writes the recommended set. Every write goes through
-	/// <see cref="SimulatorPreferences.Set"/>, which runs the option's handler as the original's
-	/// <c>Prefs_SetOption</c> does.</para>
+	/// A mouse release, in the same space: the <see cref="Click"/> of the button, when press and release both
+	/// landed on it.
 	/// </summary>
 	/// <param name="rightButton">
 	/// Whether the release was of the right button — <c>panel+0x2ff</c>. Every row on this panel steps
@@ -484,39 +532,71 @@ public sealed class ControlsPanel {
 
 		int pressed = PressedButton;
 		PressedButton = -1;
+		_pressPopped = false;
 		if (pressed < 0 || !ControlsPanelLayout.Button(pressed).Contains(panelX, panelY)) {
 			return;
 		}
 
-		if (pressed == ControlsPanelLayout.DoneButton) {
-			Close();
+		Click(pressed, rightButton);
+	}
+
+	/// <summary>
+	/// One button's click, however it came — <c>ControlsPanel_OnClick</c> (<c>00458ebc</c>), which decides
+	/// between selecting and acting, and <c>ControlsPanel_Run</c> (<c>00458650</c>)'s switch, which does the
+	/// acting.
+	///
+	/// <para><b>A button row takes two clicks to change.</b> The click handler selects the row only
+	/// when it is not already the selected one; when it is, it queues the row's action instead, which
+	/// steps it. So the first click on a button row points the OPTIONS list at it and the second and
+	/// subsequent clicks walk it down that list. An axis row is never "selected", so every click on
+	/// one steps it — and clears the list selection, which is why clicking an axis row after a button
+	/// row empties the OPTIONS box.</para>
+	///
+	/// <para><b>The switch runs only with a capability block</b> — a stick <c>Input_GetDevice(3)</c> answered
+	/// for. Without one every row is greyed and cannot be clicked, RECOMMEND does nothing, and DONE takes the
+	/// panel down without writing the options back. With one, DONE calls <c>ControlsPanel_Save</c>
+	/// (<c>00459140</c>) and then <c>Prefs_CommitOptions</c> (<c>00459878</c>), which write this panel's own
+	/// options and nothing else (<see cref="SimulatorPreferences.Save"/>,
+	/// <see cref="SimulatorPreferences.Commit"/>), and RECOMMEND writes the recommended set. Every write goes
+	/// through <see cref="SimulatorPreferences.Set"/>, which runs the option's handler as the original's
+	/// <c>Prefs_SetOption</c> does.</para>
+	///
+	/// <para>DONE also sets the close flag, so the panel comes down at the frame's <see cref="Present"/>.</para>
+	/// </summary>
+	private void Click(int index, bool rightButton) {
+		if (index < ControlsPanelLayout.RowCount) {
+			MoveHighlight(index);
+		}
+
+		bool buttonRow = index >= ControlsPanelLayout.AxisRowCount && index < ControlsPanelLayout.RowCount;
+		int row = index - ControlsPanelLayout.AxisRowCount;
+		bool acts = true;
+		if (buttonRow && row != SelectedButtonRow) {
+			SelectedButtonRow = row;
+			acts = false;
+		}
+
+		if (index == ControlsPanelLayout.DoneButton) {
+			_presses.RequestClose();
+		}
+
+		if (!acts || !Capabilities.Present) {
 			return;
 		}
 
-		if (pressed == ControlsPanelLayout.RecommendButton) {
+		if (index < ControlsPanelLayout.AxisRowCount) {
+			CycleAxis(index, rightButton);
+		} else if (buttonRow) {
+			if (row < LiveButtonRows) {
+				CycleButton(row, rightButton);
+			}
+		} else if (index == ControlsPanelLayout.RecommendButton) {
 			ApplyRecommended();
 			SelectedButtonRow = -1;
-			return;
+		} else if (index == ControlsPanelLayout.DoneButton) {
+			_preferences.Save(SimulatorPreferences.ControlsPanelOptions(IsRazor));
+			_preferences.Commit();
 		}
-
-		HighlightedRow = pressed;
-
-		if (pressed < ControlsPanelLayout.AxisRowCount) {
-			CycleAxis(pressed, rightButton);
-			return;
-		}
-
-		int buttonRow = pressed - ControlsPanelLayout.AxisRowCount;
-		if (buttonRow >= LiveButtonRows) {
-			return;
-		}
-
-		if (SelectedButtonRow != buttonRow) {
-			SelectedButtonRow = buttonRow;
-			return;
-		}
-
-		CycleButton(buttonRow, rightButton);
 	}
 
 	/// <summary>
@@ -525,25 +605,28 @@ public sealed class ControlsPanel {
 	/// <c>ControlsPanel_HandleEvent</c> (<c>00458f9c</c>), and why this panel has a handler of its own
 	/// (docs/retail/simulation/preferences.md, "What a joystick button does").
 	///
-	/// <para>The rule is the mouse's: a press on a row that is not the selected one selects it, and a
-	/// press on the row that is steps it. <see cref="HighlightedRow"/> follows the pressed row.</para>
+	/// <para>The rule is the mouse's: a press on the selected row steps it, and a press on a row the stick has
+	/// that is not the selected one selects it and takes <see cref="HighlightedRow"/>. Either way the row's
+	/// widget flashes, though no click reaches it.</para>
 	///
 	/// <para>The caller passes the device's own eight buttons, the trigger among them — this is not
 	/// the post-binding set, in which the trigger's slot is zeroed — and owns the press-once latch.
 	/// See the host's <c>ReadControlsPanelJoystick</c>.</para>
 	/// </summary>
-	public void PressButtonRow(int row) {
-		if (!IsOpen || row < 0 || row >= LiveButtonRows) {
+	/// <param name="nowTicks"><c>Time_GetCoarseTicks</c>, on a clock that runs while the panel is up.</param>
+	public void PressButtonRow(int row, long nowTicks) {
+		if (!IsOpen || row < 0 || row >= JoystickCapabilities.MaxButtons) {
 			return;
 		}
 
-		HighlightedRow = row + ControlsPanelLayout.AxisRowCount;
-
-		if (SelectedButtonRow != row) {
+		int widget = row + ControlsPanelLayout.AxisRowCount;
+		if (row == SelectedButtonRow) {
+			CycleButton(row, rightButton: false);
+			_presses.Flash(widget, nowTicks);
+		} else if (row < LiveButtonRows) {
 			SelectedButtonRow = row;
-			return;
+			_presses.Flash(widget, nowTicks);
+			MoveHighlight(widget);
 		}
-
-		CycleButton(row, rightButton: false);
 	}
 }

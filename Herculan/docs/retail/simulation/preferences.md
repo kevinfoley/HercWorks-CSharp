@@ -146,7 +146,7 @@ The three `{0, 2, 4, 0, 0}` maps are why a three-setting row reads `LOW` / `MED 
 
 ### What a click does — `PreferencesPanel_Run` (`00456d4c`)
 
-The click handler (`004573a8`) records the widget index and, for the nine option rows, moves the highlight: the row that had it goes back to widget state 3 and the clicked one to state 0. The loop then acts on the index, and **three different rules are in play**:
+The click handler (`PreferencesPanel_OnClick`, `004573a8`) records the widget index, moves the focus to the clicked widget and, for the nine option rows, moves the highlight: the row that had it goes back to widget state 3 and the clicked one to state 0. The loop then acts on the index, and **three different rules are in play**:
 
 | Rows | Rule |
 |---|---|
@@ -159,7 +159,9 @@ The click handler (`004573a8`) records the widget index and, for the nine option
 
 **With no sound device the first four rows are greyed** — the loop puts widgets 0-3 into state 2 before it starts, on `SfxManager` being null. `Widget_HitTestChildren` skips a state-2 widget, so they are not merely inert but invisible to the hit test.
 
-CONTROLS builds the controls panel and runs it inline; DONE calls `PreferencesPanel_Save` (`004574cc`) and closes.
+CONTROLS builds the controls panel and runs it inline, then repaints this panel and focuses DONE; DONE calls `PreferencesPanel_Save` (`004574cc`) and closes.
+
+**[Return] presses the focused widget** ([`alert-panels.md`](alert-panels.md#keys-and-the-press-flash)), as a left click: MUSIC on a freshly raised panel, whose loop focuses widget 0, then whatever was clicked last, and DONE once the controls panel has been up. With no sound device MUSIC is greyed, and [Return] presses nothing until a click moves the focus. [Esc] presses DONE.
 
 ## The controls panel — `ctl_alrt` (`00457d1c`)
 
@@ -207,7 +209,9 @@ Which actions a button row may be **bound to** is a separate table, read by `Con
 
 ### What a click does — `ControlsPanel_Run` (`00458650`)
 
-The click handler (`00458ebc`) moves the highlight the same way the preferences panel's does, then decides between selecting and acting: a button row is *selected* only when it is not already the selected one, and otherwise its action is queued. **So a button row takes two clicks to change** — the first points the OPTIONS list at it, the second and later ones step it. An axis row is never selected, so every click on one steps it and clears the list selection.
+The click handler (`ControlsPanel_OnClick`, `00458ebc`) moves the highlight the same way the preferences panel's does, but not the focus, then decides between selecting and acting: a button row is *selected* only when it is not already the selected one, and otherwise its action is queued. **So a button row takes two clicks to change** — the first points the OPTIONS list at it, the second and later ones step it. An axis row is never selected, so every click on one steps it and clears the list selection. DONE's click sets the close flag itself.
+
+**The loop acts only with a capability block** ([below](#the-capability-block)): its switch is skipped when there is none. Every row is greyed then, so of the fourteen widgets only RECOMMEND and DONE take a click, and neither does anything but DONE's close: RECOMMEND writes nothing, and DONE takes the panel down without `ControlsPanel_Save` and `Prefs_CommitOptions`.
 
 | Widget | Action |
 |---|---|
@@ -222,9 +226,9 @@ The panel installs a handler of its own in vtable slot `+0x10` where the rest of
 
 **The trigger is put back.** Byte `+0x0d` is copied over button state 0 before anything reads them, undoing the extraction `Input_BuildPlayerDevice` performs ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)). Without it BUTTON 1's row would be the one row a stick could not reach.
 
-**Then the eight states, first pressed one wins.** A press on the row that is already selected steps that row's action, exactly as a second click does; a press on any other row selects it and moves the highlight to widget `row + 4`. `Input_LatchButton` then holds the button, so one press is one step.
+**Then the eight states, first pressed one wins.** A press on the row that is already selected steps that row's action, exactly as a second click does; a press on another row, one under the capability block's button count, selects it and moves the highlight to widget `row + 4`. Either way the row's widget gets the [press flash](alert-panels.md#keys-and-the-press-flash) on the panel's root, though no click reaches it. Then `Input_LatchButton` latches the button, whichever branch ran ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)), so one press is one step.
 
-**Then the keys**, which are the [family's](alert-panels.md#what-the-family-shares) convention and not a departure from it: [Return] presses the widget at `+0x2f7`, or focuses widget 0 when that is unset; [Esc] presses the cancel widget at `+0x2fb`; [Tab] and scancode `0x52` focus the next widget and [Shift+Tab] the previous.
+**Then the keys**, which are the [family's](alert-panels.md#keys-and-the-press-flash) convention and not a departure from it: [Return] presses the widget at `+0x2f7`, or focuses widget 0 when that is unset; [Esc] presses the cancel widget at `+0x2fb`, DONE; [Tab], scancode `0x52` and [Shift+Tab] focus the next widget ([`alert-panels.md`](alert-panels.md#keys-and-the-press-flash) says why [Shift+Tab] does not go back). Only that focus walk moves `+0x2f7` on this panel, so [Return] presses the JOYSTICK row, widget 0, which the loop focuses before its first pass, and steps it.
 
 A button row steps by **slot index within its own list** (`panel+0x462`, wrapping at that row's length in `panel+0x46a`), not by action code: `ControlsPanel_StepButton` (`00459320`) forward and `ControlsPanel_StepButtonBack` (`0045938c`) back both advance the slot and then write out whatever code that slot holds. The slot is seeded at construction by searching the row's list for the stored code, and left at 0 when it is not there — so a row showing a code its own list does not offer starts stepping from the top rather than from what it shows.
 
@@ -241,7 +245,7 @@ A button row steps by **slot index within its own list** (`panel+0x462`, wrappin
 
 The eight button bytes take a detour: the code searches the row's list for the recommended code, stores the slot it found — **0 when it is not there** — and writes back whatever code *that slot* holds. See [Rejected readings](#rejected-readings) for what that costs.
 
-That function also carries an arm that zeroes the block, taken when the capability block's `+0` is 0. `Input_QueryCapabilities` writes 1 or 2 into that field unconditionally and is the only thing that fills the block, so the arm cannot be reached through its own input. With no stick the panel greys its twelve rows but leaves RECOMMEND live, so pressing it still writes this set; the readouts stay blank because the refresh is gated on the same missing capabilities.
+That function also carries an arm that zeroes the block, taken when the capability block's `+0` is 0. `Input_QueryCapabilities` writes 1 or 2 into that field every time it rebuilds the block, so the arm is not reached through a block it returns. With no stick case 13 is not reached either: RECOMMEND stays clickable, but the loop's switch needs the block ([above](#what-a-click-does--controlspanel_run-00458650)).
 
 ## Rejected readings
 

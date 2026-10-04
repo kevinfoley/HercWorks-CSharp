@@ -107,7 +107,7 @@ MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mf
 
 **They stay at the screen's top-right corner in every view.** On each view change `CockpitWidgets_TranslateForView` (`0043271c`) moves the root's rect by the delta (§10), the widget layer's render context (`004d042c`) origin at `+0x220`/`+0x224` and the pair's rects by its negation, so the canvas-space rects and the screen-to-canvas mapping move together and each button answers the same screen pixels in the heads-down view and the glances as in the forward view.
 
-**The pair shows only while the pointer is level with it.** `SystemButtons_PaintForPointer` (`00434520`), the last call of `Sim_RenderFrame`, puts each button in state 0, which `SystemGadget_Paint` draws, while the pointer's y (`004d234c`, plus that context's `+0x224`) lies within the button's own y span, whatever its x, and in state 3, which restores the art beneath, otherwise. Both states are hit-tested, so a press takes a button whether it shows or not, and the pointer is level with a button whenever it is over it. Registered first, the pair takes any pixel it shares with a later widget, such as the forward view's right edge strip, whose band (§10) covers the right-hand button's last six columns.
+**The pair shows only while the pointer is level with it.** `SystemButtons_PaintForPointer` (`00434520`), the last call of `Sim_RenderFrame`, puts each button in state 0, which `SystemGadget_Paint` draws, while the pointer's y (`004d2350`, plus that context's `+0x224`) lies within the button's own y span, whatever its x, and in state 3, which restores the art beneath, otherwise. Both states are hit-tested, so a press takes a button whether it shows or not, and the pointer is level with a button whenever it is over it. Registered first, the pair takes any pixel it shares with a later widget, such as the forward view's right edge strip, whose band (§10) covers the right-hand button's last six columns.
 
 `CockpitView_ProcessViewCommand` hides both with `SystemButtons_HideAll` (`00434604`), which saves each button's state at `+0x5c`, forces 3 and paints, and `CockpitView_StepViewTransition` puts the saved states back with `SystemButtons_RestoreAll` (`00434634`). `SystemButtons_PaintForPointer` sets both states again at the end of every frame, so what the pointer says wins by that frame's end; what the hide leaves behind is in the saved pixels: forcing 3 puts back the art saved under a showing button, and its next state 0 saves the art afresh.
 
@@ -305,7 +305,7 @@ The `0x400` bank is fixed by the manual: `0x410` raises the `EXIT EARTHSIEGE?` p
 | `Input_KeyjoyAxisKey` (`0045a308`) | 30 bytes at `0049eb33`: `47 48 49 4b 4d 4f 50 51 32 24 25 17 4a 4e 39`, then the same fifteen with `0x80` set | The keypad, `M`, `J`, `K`, `I` and `Space` held as axes, into the three 15-byte key-state blocks at `004d2418` |
 | `SimCommandQueue_Push` (`0045a47c`) | 7 bytes at `0049eb5d`: `1c 0c 0d 1a 1b 4e 4a` | `Enter`, `-`, `=`, `[`, `]`, keypad `+` and `-` — appended to the command queue at `004d2148` |
 
-`Input_BuildPlayerDevice` (`0045a7f4`) drains that queue once per frame, masking each code with `0049eae0` = **`0x47ff`** before handing it to `Sim_DispatchCommand` and then resetting the count. That mask is why there is no `[Shift]` bank: bit `0x800` is discarded, folding a shifted key onto the plain one. Everything not on those two lists reaches `Sim_DispatchCommand` as the single command word at the head of the player input block, which `Sim_PollPlayerInput` (`00460764`) dispatches first thing each frame.
+`Input_BuildPlayerDevice` (`0045a7f4`) drains that queue once per frame, masking each code with `0049eae0` = **`0x47ff`** before handing it to `Sim_DispatchCommand` and then resetting the count. Everything not on those two lists reaches `Sim_DispatchCommand` as the single command word at the head of the player input block, which `Sim_PollPlayerInput` (`00460764`) dispatches first thing each frame, and which the build masks the same way as it reads it. That mask is why there is no `[Shift]` bank: bit `0x800` is discarded, folding a shifted key onto the plain one, for the cockpit and for the alert panels, whose loops read the same word ([`../simulation/alert-panels.md`](../simulation/alert-panels.md#keys-and-the-press-flash)).
 
 That same function records and replays both queues to a `.TAP` input tape — the mouse queue of §3 and this command queue are the two halves of a frame's record. See [`tap-input-tape.md`](tap-input-tape.md).
 
@@ -331,7 +331,7 @@ The cockpit's presses:
 
 `MfdDisplay_SetMode` hides a button 6-12 that the new screen does not show only while its state is 0, so one that is held or flashing when the screen changes keeps its state, and the release or the flash's end then writes 0 — visible and hit-testable — see [Open](#open).
 
-The alert panels have roots of their own: `AlertPanel_PressWidget` (`00454dcc`) and `ControlsPanel_HandleEvent` flash a panel's widget on the panel's root at `+0x285`, which `AlertPanel_Present` and `PreferencesPanel_Present` service.
+The alert panels have roots of their own, at panel `+0x285`, which each panel's own loop services; how a key presses and flashes a panel's widget, and why a key that closes a panel holds it up one more pass, is [`../simulation/alert-panels.md`](../simulation/alert-panels.md#keys-and-the-press-flash)'s.
 
 ## 8. Worked example: the shield-balance rocker
 
@@ -506,7 +506,6 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 
 ## Open
 
-- **Unported:** the [press flash](#the-press-flash) in the alert panels. A widget a key presses there shows pressed only while the pointer holds it.
 - **Open:** whether a button that `MfdDisplay_SetMode` leaves unhidden ([The press flash](#the-press-flash)) shows on the new screen in retail, or something else hides it before the next screen change.
 - **Open:** whether the system buttons show and take clicks in the external view. `SystemButtons_PaintForPointer` runs at the end of every `Sim_RenderFrame` and `CockpitMouse_ProcessQueue` from every `Input_BuildPlayerDevice`, neither gated on view 4, but where view 4's canvas context puts a blit has not been traced.
 - **Open:** whether anything draws the `.DCI` cursor slots (§9). A search for the displacements `+0x226`, `+0x236` and `+0x23a` finds only the cursor-slot functions and `ColorSchemePanels_LoadAll`, and the image-change hooks they call are empty in driver 3.

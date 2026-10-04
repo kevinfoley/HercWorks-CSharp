@@ -1,3 +1,4 @@
+using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Input;
@@ -24,6 +25,7 @@ sealed class ModalPanels {
 	private readonly MissionOutcome _outcome;
 	private readonly Mission _mission;
 	private readonly SimWorld _world;
+	private readonly SimulatorPreferences _preferences;
 	private readonly bool _hasCockpit;
 
 	private int _objectivesKeysDown;
@@ -32,9 +34,24 @@ sealed class ModalPanels {
 	private bool _pointerDown;
 	private bool _rightButtonDown;
 
-	// Which of the eight the CONTROLS panel has already acted on and is waiting to see released —
-	// Input_LatchButton's mask, kept here because the panel's presses never go through JoystickBindings.
-	private byte _controlsPanelLatched;
+	// Which of the stick's eight the panels have already acted on and are waiting to see released —
+	// Input_LatchButton's mask, kept here because the panels' presses never go through JoystickBindings.
+	private byte _panelStickLatched;
+
+	// Where the pointer was as each panel went up — panel+0x302, which AlertPanel_Enter copies out of the input
+	// block — or null while that panel is down.
+	private (float X, float Y)? _statusAlertReturn;
+	private (float X, float Y)? _objectivesReturn;
+	private (float X, float Y)? _preferencesReturn;
+	private (float X, float Y)? _controlsReturn;
+
+	private delegate bool FocusPointer(out int panelX, out int panelY);
+
+	// Time_GetCoarseTicks for the panels' press flashes, in its 16 ms units. Retail's is wall time and keeps
+	// running under a panel; GameAudio.CoarseTicks, the session's other copy, stops while one is up
+	// (MessagesPaused), so a flash timed on it would never end.
+	private double _panelTicks;
+	private long PanelTicks => (long)_panelTicks;
 
 	public ModalPanels(SimulatorStart start, SimulatorInput input, CockpitView view, MissionOutcome outcome,
 			bool hasCockpit, JoystickCapabilities stagedJoystick) {
@@ -43,6 +60,7 @@ sealed class ModalPanels {
 		_outcome = outcome;
 		_mission = start.Mission;
 		_world = start.World;
+		_preferences = start.Preferences;
 		_hasCockpit = hasCockpit;
 
 		// The [F11] objectives panel. Built once with the mission's own block-13 text rather than on every
@@ -79,6 +97,31 @@ sealed class ModalPanels {
 	public bool AnyOpen =>
 		StatusAlert is { IsOpen: true } || Objectives is { IsOpen: true }
 		|| Preferences is { IsOpen: true } || Controls is { IsOpen: true };
+
+	/// <summary>Advances the panels' own coarse clock by the frame's wall time. Called once a frame, before the panels read input.</summary>
+	public void AdvanceClock(double deltaSeconds) => _panelTicks += deltaSeconds / GameAudio.CoarseTickSeconds;
+
+	/// <summary>
+	/// The tail of the open panel's loop pass: its press flashes serviced, and — for every panel but the
+	/// preferences strip — the close a key asked for, held one frame while a flash is still queued so the button
+	/// it pressed is drawn pressed before the panel goes (<c>AlertPanel_Present</c>, <c>00454ab0</c>). Only the
+	/// panel on top runs: the controls panel's loop runs inside the preferences panel's, which does not reach
+	/// its own present until the controls panel is down, and then focuses its DONE.
+	/// </summary>
+	public void Present() {
+		if (StatusAlert is { IsOpen: true } presentAlert) {
+			presentAlert.Present(PanelTicks);
+		} else if (Objectives is { IsOpen: true } presentObjectives) {
+			presentObjectives.Present(PanelTicks);
+		} else if (Controls is { IsOpen: true } presentControls) {
+			presentControls.Present(PanelTicks);
+			if (!presentControls.IsOpen) {
+				Preferences?.ReturnFromControls();
+			}
+		} else if (Preferences is { IsOpen: true } presentPreferences) {
+			presentPreferences.Present(PanelTicks);
+		}
+	}
 
 	/// <summary>Raises the panels the staging flags ask for, and says which panels are missing their text.</summary>
 	public void OpenStaged(StagingOptions staging) {
@@ -127,11 +170,13 @@ sealed class ModalPanels {
 			ReadPanelPointer(
 				liveAlert.Place(framebufferWidth, framebufferHeight),
 				liveAlert.PointerDown, (x, y, _) => liveAlert.PointerUp(x, y));
+			ReadPanelJoystick(joystick, liveAlert.HandleStick);
 		} else if (Objectives is { IsOpen: true } liveObjectives) {
 			ReadPanelPointer(
 				ObjectivesPanelLayout.Place(framebufferWidth, framebufferHeight),
 				(x, y) => liveObjectives.PointerDown(x, y),
 				(x, y, _) => liveObjectives.PointerUp(x, y));
+			ReadPanelJoystick(joystick, liveObjectives.HandleStick);
 		} else if (Controls is { IsOpen: true } liveControls) {
 			// The controls panel is the one modal this engine draws that opens over another: it takes the
 			// pointer while it is up and the preferences strip below it stays visible but inert.
@@ -150,6 +195,7 @@ sealed class ModalPanels {
 				PreferencesPanelLayout.Place(framebufferWidth, framebufferHeight),
 				(x, y) => livePreferences.PointerDown(x, y),
 				(x, y, right) => livePreferences.PointerUp(x, y, right));
+			ReadPanelJoystick(joystick, livePreferences.HandleStick);
 
 			// CONTROLS raises the controls panel over this one, which is how the original reaches it
 			// and the only way in.
@@ -164,21 +210,70 @@ sealed class ModalPanels {
 					Controls.Capabilities = liveStick.Capabilities;
 				}
 
+				// AlertPanel_Enter latches buttons 0-3 again as it raises it, so one still held from the press that
+				// got here does not also act on the new panel.
+				_panelStickLatched |= 0x0f;
 				Controls?.Open();
 			}
 		}
 	}
 
 	/// <summary>
-	/// Everything held while the CONTROLS panel is down counts as already acted on, so a button being used for
-	/// something else when the panel comes up does not also step a row. The mask then decays to the buttons
-	/// actually held as the panel's stick read intersects it — which on the panel's first frame is exactly the
-	/// set to swallow. It is the same priming JoystickBindings.Suspend does for the simulation's own latch, and
-	/// for the same reason.
+	/// Everything held while no panel is up counts as already acted on — <c>AlertPanel_Enter</c> latches buttons
+	/// 0-3 as a panel goes up, and the simulation's own latch holds any other it has acted on — so a button being
+	/// used for something else when a panel comes up does not also act on the panel. The mask then decays to the
+	/// buttons actually held as a panel's stick read intersects it, which on the panel's first frame is exactly
+	/// the set to swallow. It is the same priming JoystickBindings.Suspend does for the simulation's own latch,
+	/// and for the same reason.
 	/// </summary>
-	public void PrimeControlsPanelLatch() {
-		if (Controls is not { IsOpen: true }) {
-			_controlsPanelLatched = 0xff;
+	public void PrimePanelStickLatch() {
+		if (!AnyOpen) {
+			_panelStickLatched = 0xff;
+		}
+	}
+
+	/// <summary>
+	/// The pointer the panels move. Every focus change puts it on the centre of the widget focused
+	/// (<c>AlertPanel_SetFocus</c>, <c>00454c7c</c>), which every panel's loop does before its first pass; and a
+	/// panel coming down puts it back where it was when the panel went up (<c>AlertPanel_Leave</c>,
+	/// <c>004548ac</c>). The controls panel is taken first, so that coming down it puts the pointer back before
+	/// the preferences panel under it focuses DONE. Call it once a frame, after <see cref="Present"/>.
+	/// </summary>
+	public void SyncPointer(int framebufferWidth, int framebufferHeight) {
+		if (Controls != null) {
+			SyncPanelPointer(Controls.IsOpen, ref _controlsReturn,
+				ControlsPanelLayout.Place(framebufferWidth, framebufferHeight), Controls.TakeFocusPointer);
+		}
+
+		if (Preferences != null) {
+			SyncPanelPointer(Preferences.IsOpen, ref _preferencesReturn,
+				PreferencesPanelLayout.Place(framebufferWidth, framebufferHeight), Preferences.TakeFocusPointer);
+		}
+
+		if (Objectives != null) {
+			SyncPanelPointer(Objectives.IsOpen, ref _objectivesReturn,
+				ObjectivesPanelLayout.Place(framebufferWidth, framebufferHeight), Objectives.TakeFocusPointer);
+		}
+
+		if (StatusAlert != null) {
+			SyncPanelPointer(StatusAlert.IsOpen, ref _statusAlertReturn,
+				StatusAlert.Place(framebufferWidth, framebufferHeight), StatusAlert.TakeFocusPointer);
+		}
+	}
+
+	private void SyncPanelPointer(bool open, ref (float X, float Y)? saved, AlertPanelLayout.Placement place,
+			FocusPointer takeFocusPointer) {
+		if (open && saved is null) {
+			var (x, y, _) = _input.Pointer();
+			saved = (x, y);
+		} else if (!open && saved is { } back) {
+			saved = null;
+			_input.WarpPointer(back.X, back.Y);
+		}
+
+		if (open && takeFocusPointer(out int panelX, out int panelY)) {
+			var (windowX, windowY) = place.ToWindow(panelX, panelY);
+			_input.WarpPointer(windowX, windowY);
 		}
 	}
 
@@ -283,13 +378,12 @@ sealed class ModalPanels {
 		}
 	}
 
-	// The three keys that raise a panel of the status-alert family, and the two that answer one.
+	// The three keys that raise a panel of the status-alert family, and the ones that answer one.
 	//
 	// [Q] asks how the mission stands, [Ctrl+Q] asks to leave the game, and [P] pauses — the manual's
 	// own "Quit Mission", "Quit EarthSiege 2" and "Pause Mission", and Sim_DispatchCommand's commands
-	// 0x10, 0x410 and 0x19. [Return] and [Esc] both answer with button 0, which is CONTINUE on every
-	// one of them. While a panel is up nothing else may act: AlertPanel_HandleEvent answers those two
-	// keys and the panel's own loop owns the rest.
+	// 0x10, 0x410 and 0x19. While a panel is up nothing else may act: AlertPanel_HandleEvent answers
+	// its keys (PanelKey) and the panel's own loop owns the rest.
 	//
 	// Returns whether the panel claimed the keystroke.
 	private bool ReadStatusAlertKeys() {
@@ -302,15 +396,11 @@ sealed class ModalPanels {
 
 		bool ctrl = keyboard.IsKeyPressed(Key.ControlLeft) || keyboard.IsKeyPressed(Key.ControlRight);
 		bool q = Edge(Key.Q, 0);
-		// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
-		// its held state, and the next press of it is swallowed.
-		// With [Alt] or [Ctrl] down these are other codes, which AlertPanel_HandleEvent does not answer.
-		bool enter = (Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2)) && Unmodified(keyboard);
-		bool escape = Edge(Key.Escape, 3) && Unmodified(keyboard);
+		var key = PanelKey(keyboard, ref _statusAlertKeysDown);
 		bool pause = Edge(Key.P, 4);
 
 		if (StatusAlert.IsOpen) {
-			return StatusAlert.HandleKey(enter, escape) || q || pause;
+			return StatusAlert.HandleKey(key, PanelTicks) || q || pause;
 		}
 
 		// Not while another panel is up, which is already holding the input. The external view keeps both:
@@ -338,11 +428,10 @@ sealed class ModalPanels {
 		bool Edge(Key key, int bit) => KeyBit(keyboard, key, bit, ref _statusAlertKeysDown);
 	}
 
-	// [F11] puts the objectives panel up, and [Return] or [Esc] takes it down — the three keys the
-	// original answers, scancode 0x57 through CockpitWidgets_HandleCommand (00432bc8) on the way in and
-	// 0x1c/0x01 through the panel's own handler (AlertPanel_HandleEvent, 00454e10) on the way out. Nothing in that handler
-	// answers 0x57, so [F11] does not close the panel it opened; that is retail behaviour, not an
-	// oversight here.
+	// [F11] puts the objectives panel up, and [Return] or [Esc] takes it down — scancode 0x57 through
+	// CockpitWidgets_HandleCommand (00432bc8) on the way in and 0x1c/0x01 through the panel's own handler
+	// (AlertPanel_HandleEvent, 00454e10) on the way out. Nothing in that handler answers 0x57, so [F11] does not
+	// close the panel it opened; that is retail behaviour, not an oversight here.
 	//
 	// Returns whether the panel claimed the keystroke, so [Esc] does not also reach the debug panel.
 	private bool ReadObjectivesKeys() {
@@ -354,14 +443,10 @@ sealed class ModalPanels {
 		}
 
 		bool open = Edge(Key.F11, 0);
-		// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
-		// its held state, and the next press of it is swallowed.
-		// With [Alt] or [Ctrl] down these are other codes, which AlertPanel_HandleEvent does not answer.
-		bool enter = (Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2)) && Unmodified(keyboard);
-		bool escape = Edge(Key.Escape, 3) && Unmodified(keyboard);
+		var key = PanelKey(keyboard, ref _objectivesKeysDown);
 
 		if (Objectives.IsOpen) {
-			return Objectives.HandleKey(enter, escape) || open;
+			return Objectives.HandleKey(key, PanelTicks) || open;
 		}
 
 		// Only from inside the machine, and not while another panel is up: the command reaches the
@@ -378,10 +463,10 @@ sealed class ModalPanels {
 		bool Edge(Key key, int bit) => KeyBit(keyboard, key, bit, ref _objectivesKeysDown);
 	}
 
-	// [F12] puts the preferences panel up, and [Return] or [Esc] takes it down — scancode 0x58 through
-	// CockpitWidgets_HandleCommand on the way in (PreferencesPanel_Raise, 0045cfd4), and the panel's own
-	// handler on the way out, where [Esc] presses the cancel widget the constructor set to DONE. As with
-	// [F11], nothing in the panel's loop answers 0x58, so a second press does not close it.
+	// [F12] puts the preferences panel up — scancode 0x58 through CockpitWidgets_HandleCommand
+	// (PreferencesPanel_Raise, 0045cfd4) — and [Esc] takes it down: the panel's own handler presses the cancel
+	// widget the constructor set to DONE. [Return] presses the focused widget (PreferencesPanel.Focus). As with [F11], nothing in the panel's loop answers 0x58, so a second
+	// press does not close it.
 	//
 	// The original also reaches this panel on [Alt+P], command 0x219. Not bound here: [P] alone is the
 	// pause panel, and this host has no Alt-modified command bank yet.
@@ -396,20 +481,17 @@ sealed class ModalPanels {
 		}
 
 		bool open = Edge(Key.F12, 0);
-		// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
-		// its held state, and the next press of it is swallowed.
-		// With [Alt] or [Ctrl] down these are other codes, which AlertPanel_HandleEvent does not answer.
-		bool enter = (Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2)) && Unmodified(keyboard);
-		bool escape = Edge(Key.Escape, 3) && Unmodified(keyboard);
+		var key = PanelKey(keyboard, ref _preferencesKeysDown);
 
-		// The controls panel is modal over this one: while it is up it answers [Return] and [Esc], and
-		// this panel answers nothing.
+		// The controls panel is modal over this one: while it is up it answers the keys, and this panel
+		// answers nothing. They are the same keys, on that panel's own focus and cancel widgets
+		// (ControlsPanel.HandleKey).
 		if (Controls is { IsOpen: true } liveControls) {
-			return liveControls.HandleKey(enter, escape) || open;
+			return liveControls.HandleKey(key, PanelTicks) || open;
 		}
 
 		if (Preferences.IsOpen) {
-			return Preferences.HandleKey(enter, escape) || open;
+			return Preferences.HandleKey(key, PanelTicks) || open;
 		}
 
 		// Not while another modal is up. Unlike the objectives panel it opens from the external view as
@@ -423,6 +505,28 @@ sealed class ModalPanels {
 		return false;
 
 		bool Edge(Key key, int bit) => KeyBit(keyboard, key, bit, ref _preferencesKeysDown);
+	}
+
+	// The one code the panel's handler matches this frame, off bits 1-3 and 8-10 of the panel's held-key mask.
+	// [Shift] is not tested: SimCommandMask strips it from the input block's command word the handler reads,
+	// so [Shift+Return] is [Return] and [Shift+Tab] is [Tab]. With [Alt] or [Ctrl] down these are other codes,
+	// which the handler does not answer.
+	private static AlertPanelKey PanelKey(IKeyState keyboard, ref int keysDown) {
+		// `|`, not `||`: every edge must be read every frame or the one that is skipped never updates its held
+		// state, and the next press of it is swallowed.
+		bool enter = KeyBit(keyboard, Key.Enter, 1, ref keysDown) | KeyBit(keyboard, Key.KeypadEnter, 2, ref keysDown);
+		bool escape = KeyBit(keyboard, Key.Escape, 3, ref keysDown);
+		bool next = KeyBit(keyboard, Key.Tab, 8, ref keysDown)
+			| KeyBit(keyboard, Key.Keypad0, 9, ref keysDown) | KeyBit(keyboard, Key.Insert, 10, ref keysDown);
+
+		if (!Unmodified(keyboard)) {
+			return AlertPanelKey.None;
+		}
+
+		return enter ? AlertPanelKey.Return
+			: escape ? AlertPanelKey.Escape
+			: next ? AlertPanelKey.FocusNext
+			: AlertPanelKey.None;
 	}
 
 	// One key's down edge, against its bit in a panel's held-key mask.
@@ -460,6 +564,25 @@ sealed class ModalPanels {
 		_pointerDown = down;
 	}
 
+	// The stick as AlertPanel_HandleEvent reads it, for every panel but the CONTROLS panel. The trigger is the
+	// input build's +0x0d, the button on the walker's first FIRE row (JoystickBindings.TriggerScanRow) after the
+	// latch; button 2 is +0x17, the second button's own byte, which that build zeroes when it is the trigger's.
+	// Answering one latches it: Input_LatchButton(2, 1) for button 2, and (1, 1) for the trigger, which latches
+	// button 0 wherever the trigger is bound — the same button on every binding the CONTROLS panel can set.
+	private void ReadPanelJoystick(JoystickSource? joystick, Func<bool, bool, long, bool> handleStick) {
+		if (joystick is not { Capabilities.Present: true }) {
+			return;
+		}
+
+		byte live = LiveStickButtons(joystick);
+		int triggerRow = JoystickBindings.TriggerScanRow(_preferences);
+		bool trigger = triggerRow >= 0 && (live & (1 << triggerRow)) != 0;
+		bool button2 = triggerRow != 1 && (live & 0b10) != 0;
+		if (handleStick(trigger, button2, PanelTicks)) {
+			_panelStickLatched |= trigger ? (byte)0b01 : (byte)0b10;
+		}
+	}
+
 	// The stick as the CONTROLS panel reads it, which is not how the rest of the session reads it: here a
 	// button press picks the row it belongs to rather than firing whatever that row is bound to. The panel
 	// owns what a press means (ControlsPanel.PressButtonRow); this owns only which press is new.
@@ -468,27 +591,31 @@ sealed class ModalPanels {
 	// them, so BUTTON 1's row is reachable with the trigger — the thing ControlsPanel_HandleEvent restores
 	// by hand before it reads the device block.
 	//
-	// Retail latches the button it acts on and the next input build masks it to zero, so a held button is
-	// one step and no more, and the panel sees a latched button as not pressed at all. Masking first is
-	// the same arrangement, and it is why this can simply take the lowest pressed row — the original
-	// breaks at the first set byte it finds, which is the same row.
+	// The original breaks at the first set byte it finds, which is the lowest live row.
 	private void ReadControlsPanelJoystick(ControlsPanel panel, JoystickSource? joystick) {
 		if (joystick is not { Capabilities.Present: true }) {
 			return;
 		}
 
-		byte pressed = joystick.Read().Buttons;
-		_controlsPanelLatched &= pressed;
-
+		byte live = LiveStickButtons(joystick);
 		for (int row = 0; row < JoystickCapabilities.MaxButtons; row++) {
 			int bit = 1 << row;
-			if ((pressed & ~_controlsPanelLatched & bit) == 0) {
+			if ((live & bit) == 0) {
 				continue;
 			}
 
-			_controlsPanelLatched |= (byte)bit;
-			panel.PressButtonRow(row);
+			_panelStickLatched |= (byte)bit;
+			panel.PressButtonRow(row, PanelTicks);
 			return;
 		}
+	}
+
+	// The device's eight with the latch applied. Retail latches the button it acts on and the next input build
+	// masks it to zero until it is let go, so a held button acts once and no more, and a panel sees a latched
+	// button as not pressed at all.
+	private byte LiveStickButtons(JoystickSource joystick) {
+		byte pressed = joystick.Read().Buttons;
+		_panelStickLatched &= pressed;
+		return (byte)(pressed & ~_panelStickLatched);
 	}
 }

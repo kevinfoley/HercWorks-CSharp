@@ -292,7 +292,7 @@ public sealed class CockpitInput {
 	/// <summary>
 	/// Lets <paramref name="id"/> back up if the pointer is holding it down: a press flash on that button
 	/// ending, which writes the state byte the held press set back to 0 (see
-	/// <see cref="CockpitPressFlashes.Service"/>). The press stays armed, and the next pointer event over the
+	/// <see cref="PressFlashes{TId}.Service"/>). The press stays armed, and the next pointer event over the
 	/// button depresses it again, as <c>Widget_TrackPressedWidget</c> does.
 	/// </summary>
 	public void PopUp(CockpitWidgetId id) {

@@ -274,6 +274,7 @@ sealed class SimulatorHost : IDisposable {
 		// also this host's menu-bar key. The menu bar is asked unconditionally regardless — like the panels, it
 		// tracks its own key edge every frame — so a press held across the frame a retail panel consumes it
 		// doesn't read as a fresh, unconsumed press the moment that panel closes.
+		_panels.AdvanceClock(deltaSeconds);
 		bool panelHandledKey = _panels.ReadKeys();
 		_windowKeys.ReadMenuBarEscapeKey(panelHandledKey, _view, hasCockpit: _art != null);
 		_windowKeys.ReadManualKey(_displays.FlashCommHasKeyboard, _panels.AnyOpen);
@@ -381,11 +382,12 @@ sealed class SimulatorHost : IDisposable {
 	// out the external view rather than hit-testing a console the player cannot see, and likewise while the
 	// pointer is over the debug panel, so a click on a checkbox is not also a click on the console behind it.
 	private void ReadPointer(double deltaSeconds) {
-		_panels.PrimeControlsPanelLatch();
+		_panels.PrimePanelStickLatch();
 
 		var framebuffer = _window.FramebufferSize;
 		if (_panels.AnyOpen) {
 			_panels.ReadPointer(framebuffer.X, framebuffer.Y, _pilot.Joystick);
+			_panels.Present();
 			_input.Cockpit.Drain(deltaSeconds, (_, _) => null);
 
 			// And nothing behind it stays depressed: entering a panel calls Widget_ClearPressed (00452b94), which swaps the
@@ -395,6 +397,8 @@ sealed class SimulatorHost : IDisposable {
 		} else if (_art != null && !_view.ExternalViewActive && (_tape.Playing || !_input.ImGuiWantsMouse)) {
 			_commands.DrainClicks(_input.Cockpit, deltaSeconds, framebuffer.X, framebuffer.Y);
 		}
+
+		_panels.SyncPointer(framebuffer.X, framebuffer.Y);
 
 		// WidgetRoot_ServicePressFlashes runs at the end of the cockpit's own per-frame widget pass, which
 		// neither a modal panel's loop nor the external view reaches. A flash ending lets the button up even

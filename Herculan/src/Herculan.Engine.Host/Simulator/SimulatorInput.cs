@@ -116,6 +116,25 @@ sealed class SimulatorInput {
 			ButtonsHeld(Mouse));
 	}
 
+	/// <summary>
+	/// Puts the pointer on a framebuffer pixel — <c>Mouse_WarpCursorToPoint</c>'s (<c>004807d0</c>) conversion back to
+	/// client coordinates and its <c>SetCursorPos</c>, which the original gates on a live mouse device. During a replay
+	/// the tape owns the pointer and the window's own mouse is left alone, which is this engine's choice: the
+	/// original's replay warps too, then sets the position from each mouse event the tape carries, and this
+	/// engine's tapes carry a position with every press.
+	/// </summary>
+	public void WarpPointer(float x, float y) {
+		if (_tape.Playing || Mouse == null || float.IsNaN(x) || float.IsNaN(y)) {
+			return;
+		}
+
+		var client = _window.ClientSize;
+		var framebuffer = _window.FramebufferSize;
+		Mouse.Position = new System.Numerics.Vector2(
+			x * client.X / Math.Max(framebuffer.X, 1),
+			y * client.Y / Math.Max(framebuffer.Y, 1));
+	}
+
 	/// <summary>Every mouse button currently held, as the cockpit's own flag pair.</summary>
 	private static CockpitMouseButtons ButtonsHeld(IMouse mouse) =>
 		(mouse.IsButtonPressed(MouseButton.Left) ? CockpitMouseButtons.Left : CockpitMouseButtons.None)

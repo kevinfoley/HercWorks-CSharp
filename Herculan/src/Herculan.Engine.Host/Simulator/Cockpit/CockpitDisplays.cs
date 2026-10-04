@@ -196,11 +196,17 @@ sealed class CockpitDisplays {
 	public CockpitDropouts Dropouts { get; } = new();
 
 	/// <summary>The buttons a press made for the player holds down for a moment — see <see cref="FlashPress"/>.</summary>
-	public CockpitPressFlashes PressFlashes { get; } = new();
+	public PressFlashes<CockpitWidgetId> PressFlashes { get; } = new();
 
 	/// <summary>
-	/// Shows <paramref name="id"/> pressed for the next <see cref="CockpitPressFlashes.FlashTicks"/> coarse ticks,
-	/// as Widget_PressChild (00438d9c) does for every button it presses.
+	/// Shows <paramref name="id"/> pressed for the next <see cref="PressFlashes{TId}.FlashTicks"/> coarse ticks,
+	/// as Widget_PressChild (00438d9c) does for every button it presses — a key, a joystick button, or a click on
+	/// a list that presses the display's XMIT.
+	///
+	/// <para>A flash only shows on a button whose paint reads the press byte — see
+	/// <see cref="CockpitHudState.ShowsPressed"/>. The original flashes every button it presses for the player;
+	/// the callers here leave out the ones that draw nothing from it — the latching MFD and Heads-Down Display
+	/// buttons, the weapon rows and the shield facings.</para>
 	/// </summary>
 	public void FlashPress(CockpitWidgetId id) => PressFlashes.Flash(id, _audio.CoarseTicks);
 

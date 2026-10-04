@@ -151,7 +151,7 @@
 /// </param>
 /// <param name="FlashingWidgets">
 /// The buttons a key or another press made for the player is holding down for a moment —
-/// <see cref="Input.CockpitPressFlashes.Lit"/>. Null for none. Read it through <see cref="ShowsPressed"/>.
+/// <see cref="Input.PressFlashes{TId}.Lit"/>. Null for none. Read it through <see cref="ShowsPressed"/>.
 /// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,

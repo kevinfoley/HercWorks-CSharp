@@ -96,7 +96,7 @@ public sealed class AlertPanelPainter {
 		for (int i = 0; i < buttons.Length; i++) {
 			buttons[i] = SharedButton(panel.Buttons[i],
 				StatusAlertPanel.ButtonRect(panel.Variant, i, buttons.Length),
-				panel.PressedButton == i);
+				panel.ShowsPressed(i));
 		}
 
 		int titleWidth = Measure(sprites, AlertPanelLayout.TitleFont, panel.Title);

@@ -1,39 +1,40 @@
-using Herculan.Engine.Content;
-
 namespace Herculan.Engine.Input;
 
 /// <summary>
-/// The cockpit's press flash: a button pressed for the player rather than by the pointer — a key, a joystick
-/// button, or a click on a list that presses the display's XMIT — shows pressed for <see cref="FlashTicks"/>
-/// coarse ticks. <c>WidgetRoot_FlashPress</c> (<c>00453078</c>) and <c>WidgetRoot_ServicePressFlashes</c>
-/// (<c>004530b8</c>); see docs/retail/formats/cockpit-input.md#the-press-flash.
+/// One widget root's press flash: a button pressed for the player rather than by the pointer shows pressed for
+/// <see cref="FlashTicks"/> coarse ticks. <c>WidgetRoot_FlashPress</c> (<c>00453078</c>),
+/// <c>WidgetRoot_ServicePressFlashes</c> (<c>004530b8</c>) and <c>WidgetRoot_PressFlashCount</c>
+/// (<c>00453160</c>); see docs/retail/formats/cockpit-input.md#the-press-flash.
 ///
-/// <para>A flash only shows on a button whose paint reads the press byte — see
-/// <see cref="CockpitHudState.ShowsPressed"/>. The original flashes every button it presses for the player;
-/// the callers here leave out the ones that draw nothing from it — the latching MFD and Heads-Down Display
-/// buttons, the weapon rows and the shield facings.</para>
+/// <para>The cockpit keeps one, keyed on <see cref="Content.CockpitWidgetId"/> (see the host's
+/// <c>CockpitDisplays.FlashPress</c>), and each alert panel keeps its own, keyed on the panel's widget index
+/// (<see cref="Content.AlertPanelPresses"/>), as each panel in the original has a root of its own.</para>
 ///
 /// <para>The original's list holds eight entries with no bound check; this one is unbounded.</para>
 /// </summary>
-public sealed class CockpitPressFlashes {
+/// <typeparam name="TId">How the owner names a widget.</typeparam>
+public sealed class PressFlashes<TId> where TId : notnull {
 	/// <summary>How long a flash holds a button down: the deadline is <c>Time_GetCoarseTicks() + 10</c>.</summary>
 	public const int FlashTicks = 10;
 
-	private readonly List<(CockpitWidgetId Id, long Deadline)> _entries = new();
-	private readonly List<CockpitWidgetId> _popped = new();
+	private readonly List<(TId Id, long Deadline)> _entries = new();
+	private readonly List<TId> _popped = new();
 	private bool _queued;
 
 	/// <summary>
 	/// The buttons showing pressed as of the last <see cref="Service"/>. Replaced rather than changed in place,
-	/// so a <see cref="CockpitHudState"/> holding it keeps the set it was built with.
+	/// so a holder of it keeps the set it was built with.
 	/// </summary>
-	public IReadOnlyList<CockpitWidgetId> Lit { get; private set; } = Array.Empty<CockpitWidgetId>();
+	public IReadOnlyList<TId> Lit { get; private set; } = Array.Empty<TId>();
+
+	/// <summary><c>WidgetRoot_PressFlashCount</c>: how many entries the list holds, expired ones included until <see cref="Service"/> drops them.</summary>
+	public int Count => _entries.Count;
 
 	/// <summary>
 	/// <c>WidgetRoot_FlashPress</c>: queues <paramref name="id"/> to show pressed until <see cref="FlashTicks"/>
 	/// after <paramref name="nowTicks"/>. A button already flashing gets a second entry, as in the original.
 	/// </summary>
-	public void Flash(CockpitWidgetId id, long nowTicks) {
+	public void Flash(TId id, long nowTicks) {
 		_entries.Add((id, nowTicks + FlashTicks));
 		_queued = true;
 	}
@@ -48,7 +49,7 @@ public sealed class CockpitPressFlashes {
 	/// later entry keeps lit.</para>
 	/// </summary>
 	/// <param name="nowTicks"><c>Time_GetCoarseTicks</c>, on the clock <see cref="Flash"/> was given.</param>
-	public IReadOnlyList<CockpitWidgetId> Service(long nowTicks) {
+	public IReadOnlyList<TId> Service(long nowTicks) {
 		_popped.Clear();
 		for (int i = _entries.Count - 1; i >= 0; i--) {
 			if (nowTicks >= _entries[i].Deadline) {
@@ -59,12 +60,20 @@ public sealed class CockpitPressFlashes {
 
 		if (_queued || _popped.Count > 0) {
 			Lit = _entries.Count == 0
-				? Array.Empty<CockpitWidgetId>()
+				? Array.Empty<TId>()
 				: _entries.Select(entry => entry.Id).Distinct().ToArray();
 			_queued = false;
 		}
 
 		_popped.RemoveAll(Lit.Contains);
 		return _popped;
+	}
+
+	/// <summary>Forgets every entry, for an alert panel coming down.</summary>
+	public void Clear() {
+		_entries.Clear();
+		_popped.Clear();
+		_queued = false;
+		Lit = Array.Empty<TId>();
 	}
 }

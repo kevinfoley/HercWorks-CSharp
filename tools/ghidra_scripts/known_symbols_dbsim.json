@@ -7701,7 +7701,13 @@
       "confidence": "high",
       "name": "SystemButtons_PaintForPointer",
       "description": "(cockpit, point): inside a Cockpit_PushCanvasContext pair, gives each system button (list cockpit+0x246, count +0x25a) state 0 when point.y plus the cockpit viewport's (004d042c) +0x224 lies within the button's y span (+4..+0xc) and state 3 otherwise, and paints it through its vtable slot 0. Sim_RenderFrame's last call, with the pointer position at 004d234c.",
-      "source": "DBSIM decompile at 00434520"
+      "source": "DBSIM decompile at 00434520",
+      "verified": {
+        "bytes": "00434520+125",
+        "sha1": "6013143ed16b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004345a0",
@@ -12432,8 +12438,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WidgetRoot_PressFlashCount",
-      "description": "Returns the number of entries in a widget root's press-flash list (+0x396). AlertPanel_Present holds the close flag back while it is nonzero.",
-      "source": "DBSIM decompile and disassembly at 00453160"
+      "description": "Returns the number of entries in a widget root's press-flash list, the short at +0x396. AlertPanel_Present reads it to hold the close flag back while a flash is queued (read).",
+      "source": "DBSIM decompile and disassembly at 00453160",
+      "verified": {
+        "bytes": "00453160+15",
+        "sha1": "e35703ae438e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004535ec",
@@ -12569,9 +12581,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_Enter",
-      "description": "Puts a modal alert panel up: pauses both message ports, saves the current input state block, consumes buttons 1-4 so one held at open does not act, clears Widget_PressedIndex and swaps in the panel's own clickable list, installs the panel's render context, loads the alert cursor, copies the screen under the panel into the backing store and calls the panel's own paint.",
+      "description": "Puts a modal alert panel up: cancels and pauses the squad message port and pauses the cockpit view's port at +0x20b; when no panel is up yet (0049dd8c is 0) zeroes 0049eacc and 0049dbec; saves the current input state block, the pointer position included, at +0x300..+0x32f; latches joystick buttons 1-4 with Input_LatchButton so one held at open does not act; focuses with AlertPanel_SetFocus(-1), adopting the widget under the pointer; clears Widget_PressedIndex and swaps in the panel's own clickable list; installs the panel's render context and draw page; saves and sets the cursor-visibility flag 0049dbdf and calls the 0049dd94 hook when set; loads the alert cursor once; copies the screen under the panel into the backing store and calls the panel's own paint; then counts the panel in 0049dd8c and resets the present timer.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "void __cdecl AlertPanel_Enter(void *panel)"
+      "signature": "void __cdecl AlertPanel_Enter(void *panel)",
+      "verified": {
+        "bytes": "00454630+633",
+        "sha1": "7c163b2bf88e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004548ac",
@@ -12579,9 +12597,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_Leave",
-      "description": "The inverse of AlertPanel_Enter: restores the saved screen, the previous render context and clickable list, puts the input state block back and resumes both message ports.",
+      "description": "The inverse of AlertPanel_Enter. Restores the saved screen (Region_Restore) when the panel saved one and presents it on the scroll-window path; restores the cursor image and the visibility flag 0049dbdf, calling the 0049dd98 hook when set; reinstates the previous render context and draw page; deletes the panel's widget root and reinstates the clickable list at +0x289 with Widget_ClearPressed; puts the input state block back, the pointer position at +0x302 included, and warps the cursor there with Mouse_WarpCursorToPoint when there is a mouse device, storing it with Cursor_SyncPosition (Driver3_SyncCursorPosition on the scroll-window path). Then decrements the open-panel count 0049dd8c, setting 0049eacc and 0049dbec back to 1 when it reaches 0, and resumes both message ports.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "void __cdecl AlertPanel_Leave(int panel)"
+      "signature": "void __cdecl AlertPanel_Leave(int panel)",
+      "verified": {
+        "bytes": "004548ac+503",
+        "sha1": "f421a7cc7da1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00454aa4",
@@ -12598,9 +12622,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_Present",
-      "description": "One pass of the modal loop's tail: services sound, repaints dirty widgets, holds the close flag back while a widget is still animating its release, and flips the frame on the repaint interval.",
+      "description": "The tail of one pass of a modal loop. Sets the close flag +0x2d1 when the quit flag 004d2582 is set, runs Sfx_Service while SfxManager is up, and services the press flashes on the panel's widget root (+0x285). Then, while the close flag is set and WidgetRoot_PressFlashCount is nonzero, it moves the flag to +0x331 and clears it; on a pass that finds +0x331 set otherwise, it moves it back. So a press that closes the panel and flashes a widget keeps the loop running one more pass. Last, on the scroll-window path (Display_UseScrollWindow), it calls Display_Present once the repaint interval (004d1ee4) has passed since the last one. StatusAlertPanel_RunModal, ObjectivesPanel_RunModal and ControlsPanel_Run call it at the end of every pass (callers found by es2_xref, each read).",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "void __cdecl AlertPanel_Present(int panel)"
+      "signature": "void __cdecl AlertPanel_Present(int panel)",
+      "verified": {
+        "bytes": "00454ab0+168",
+        "sha1": "34b7f3d5cba7",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00454b58",
@@ -12636,9 +12666,31 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_SetFocus",
-      "description": "Moves the panel's focus to widget index, storing it at +0x2f7. Focus is the pointer: it warps the cursor to the widget's centre. Index -1 instead adopts whichever widget the cursor is already over.",
+      "description": "Moves the panel's focus to widget index, storing it at +0x2f7. Focus is the pointer: it warps the cursor to the widget's centre (Mouse_WarpCursorToPoint when there is a mouse device) and stores that position with Cursor_SyncPosition. Index -1 instead adopts the first widget whose rect contains the pointer position the input build reports, and stays -1 when none does or there is no mouse device.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "void __cdecl AlertPanel_SetFocus(int panel, int index)"
+      "signature": "void __cdecl AlertPanel_SetFocus(int panel, int index)",
+      "verified": {
+        "bytes": "00454c7c+201",
+        "sha1": "ffdd06193d15",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00454d48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_FocusChild",
+      "description": "(panel, widget): finds the widget pointer in the panel's +0x291 list (count +0x2cd) and focuses its index with AlertPanel_SetFocus; does nothing when the widget is not in the list.",
+      "source": "DBSIM decompile at 00454d48",
+      "signature": "void __cdecl AlertPanel_FocusChild(int panel, int widget)",
+      "verified": {
+        "bytes": "00454d48+52",
+        "sha1": "1038b37b0d66",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00454d7c",
@@ -12646,9 +12698,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_FocusNext",
-      "description": "Focus to the next widget, wrapping at the count in +0x2cd.",
+      "description": "Focuses the next widget with AlertPanel_SetFocus, wrapping to 0 at the count in +0x2cd; from no focus (-1) that is widget 0.",
       "source": "docs/retail/simulation/mission-objectives.md",
-      "signature": "void __cdecl AlertPanel_FocusNext(int panel)"
+      "signature": "void __cdecl AlertPanel_FocusNext(int panel)",
+      "verified": {
+        "bytes": "00454d7c+35",
+        "sha1": "234f1a61e6e4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00454da0",
@@ -12656,9 +12714,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_FocusPrevious",
-      "description": "Focus to the previous widget, wrapping at zero.",
+      "description": "Focuses the previous widget with AlertPanel_SetFocus, wrapping from widget 0, or from no focus (-1), to the last one (count +0x2cd minus 1).",
       "source": "docs/retail/simulation/mission-objectives.md",
-      "signature": "void __cdecl AlertPanel_FocusPrevious(int panel)"
+      "signature": "void __cdecl AlertPanel_FocusPrevious(int panel)",
+      "verified": {
+        "bytes": "00454da0+41",
+        "sha1": "ea69bddead5a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00454dcc",
@@ -12666,9 +12730,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_PressWidget",
-      "description": "Presses one of the panel's widgets from the keyboard: calls its click slot unless it is hidden (state 2), then arms the auto-release that pops it back up.",
+      "description": "Presses one of the panel's widgets for the player: unless the widget at index in the +0x291 list is in state 2, calls its click slot (+8 of the vtable at +0x17) with flags, then WidgetRoot_FlashPress on the panel's own widget root at +0x285, so the widget shows pressed for 10 coarse ticks.",
       "source": "docs/retail/simulation/mission-objectives.md",
-      "signature": "void __cdecl AlertPanel_PressWidget(int panel, int index, undefined4 flags)"
+      "signature": "void __cdecl AlertPanel_PressWidget(int panel, int index, undefined4 flags)",
+      "verified": {
+        "bytes": "00454dcc+68",
+        "sha1": "c23e55238dc3",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00454e10",
@@ -12676,9 +12746,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_HandleEvent",
-      "description": "The alert panels' shared vtable slot +0x10. Joystick button 1 (+0xd) and [Return] (0x1c) press the focused widget; [Esc] (0x01) presses the cancel widget at +0x2fb; joystick button 2 (+0x17), [Tab] (0x0f) and keypad Insert (0x52) walk the focus forward and Shift+Tab (0x80f) back. Anything else returns 0.",
+      "description": "The alert panels' shared vtable slot +0x10. Joystick button 1 (+0x0d) presses the focused widget (+0x2f7) through AlertPanel_PressWidget, or focuses widget 0 when the focus is -1, and latches the button. Otherwise joystick button 2 (+0x17) focuses the next widget and latches it. Otherwise the key code: [Return] (0x1c) does what button 1 does; [Esc] (0x01) presses the cancel widget at +0x2fb when it is set; [Tab] (0x0f) and scancode 0x52 focus the next widget and 0x80f, Shift+Tab, the previous -- a code the loops' input build has already masked to 0x0f with SimCommandMask. Returns 1 when it acted and 0 for any other code.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "undefined4 __cdecl AlertPanel_HandleEvent(int panel, ushort *input)"
+      "signature": "undefined4 __cdecl AlertPanel_HandleEvent(int panel, ushort *input)",
+      "verified": {
+        "bytes": "00454e10+229",
+        "sha1": "7e3c9f856aca",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00454ef8",
@@ -12716,9 +12792,15 @@
       "type": "function",
       "confidence": "high",
       "name": "PanelButton_Paint",
-      "description": "Blits the plate frame for the button's current state from +0x30, asks its owner (slot +0x14) for its caption, overwrites the caption label's font with the state's entry from +0x40 and sets the text. The font overwrite is why a button caption is never drawn in the font its label was constructed with.",
+      "description": "Blits the plate frame for the button's current state (+0x1b) from the table at +0x30, asks its owner (slot +0x14) for its caption, overwrites the caption label's font with the state's entry from +0x40 and sets the text, all with the cursor hidden when the scroll window is off. It has no state test of its own: a state-2 button draws its third frame. The font overwrite is why a button caption is never drawn in the font its label was constructed with.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "void __cdecl PanelButton_Paint(int button)"
+      "signature": "void __cdecl PanelButton_Paint(int button)",
+      "verified": {
+        "bytes": "00454ff8+106",
+        "sha1": "0280634000f0",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00455064",
@@ -12946,9 +13028,15 @@
       "type": "function",
       "confidence": "high",
       "name": "StatusAlertPanel_RunModal",
-      "description": "gnl_alrt's modal loop, vtable slot +8. Same shape as the objectives panel's but it also watches DAT_004d25b6, the input poll's abort flag, which closes the panel from under it. Returns the close flag & 1, so button 0 reads 0 and button 1 reads 1.",
+      "description": "gnl_alrt's modal loop, vtable slot +8. Enters, focuses widget 0, then until the close flag +0x2d1 is set: builds the input block and, unless DemoAbort is set, hands it to the slot +0x10 handler, runs each widget's deferred paint (slot +0xc) and AlertPanel_Present; with DemoAbort set it sets the close flag instead. Then AlertPanel_Leave, and returns the close flag & 1, so button 0 reads 0 and button 1 reads 1.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "byte __cdecl StatusAlertPanel_RunModal(int *panel)"
+      "signature": "byte __cdecl StatusAlertPanel_RunModal(int *panel)",
+      "verified": {
+        "bytes": "00455fe4+132",
+        "sha1": "f6216b0e7c0f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00456068",
@@ -13014,8 +13102,14 @@
       "type": "function",
       "confidence": "high",
       "name": "PreferencesPanel_Run",
-      "description": "The preferences panel's modal loop and its nine-case action switch. Greys widgets 0-3 to state 2 when SfxManager is null before it starts. Cases 0, 1 and 5 toggle their option; 4 and 6 step forward on a left click and back on a right; 10 and 11 call the FORWARD step down both arms of their right-button test, so STRUCTURE DETAIL and EFFECTS DETAIL cannot be stepped backwards; 2 and 3 step forward only and only while VoiceArchivePresent is set. Case 9 constructs ctl_alrt and runs it inline, case 10 closes.",
-      "source": "docs/retail/simulation/preferences.md"
+      "description": "The preferences panel's modal loop and its action switch. Greys widgets 0-3 to state 2 when SfxManager is null, clears the queued action (+0x356), enters, focuses widget 0, and copies the panel's region between display pages. Each pass hands the input build to the slot +0x10 handler, acts on a queued widget index, then calls PreferencesPanel_CallDrawHook and PreferencesPanel_Present. Cases 0, 1 and 5 toggle options 0, 1 and 8; cases 4 and 6 step options 7 and 9 forward on a left click and back on a right; cases 7 and 8 (options 10 and 11) call the FORWARD step down both arms of their right-button test, so STRUCTURE DETAIL and EFFECTS DETAIL cannot be stepped backwards; cases 2 and 3 step options 2 and 3 forward only, and only while VoiceArchivePresent is set. A case that steps an option sets that row's refresh count to 2. Case 9 constructs ctl_alrt and runs it inline, then repaints this panel and focuses its cancel widget (+0x2fb). Case 10 calls PreferencesPanel_Save and sets the close flag to 3. Returns the close flag & 1.",
+      "source": "docs/retail/simulation/preferences.md",
+      "verified": {
+        "bytes": "00456d4c+869",
+        "sha1": "7671bdf7689d",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004570e0",
@@ -13032,8 +13126,14 @@
       "type": "function",
       "confidence": "high",
       "name": "PreferencesPanel_Present",
-      "description": "(panel): sets the close flag +0x2d1 when the quit flag 004d2582 is set; calls vtable slot 3 (+0xc, the deferred paint) of each widget in the +0x291 list (count +0x2cd); for the first of the nine rows whose refresh count (+0x3be + row) is non-zero, PreferencesPanel_RefreshRow and decrements it; then WidgetRoot_ServicePressFlashes(+0x285) and Display_Present. PreferencesPanel_Run calls it every pass.",
-      "source": "DBSIM decompile at 00457180"
+      "description": "(panel): the preferences panel's copy of the modal loop's tail. Sets the close flag +0x2d1 when the quit flag 004d2582 is set; calls vtable slot 3 (+0xc, the deferred paint) of each widget in the +0x291 list (count +0x2cd); for the first of the nine rows whose refresh count (+0x3be + row) is non-zero, PreferencesPanel_RefreshRow and decrements it; then WidgetRoot_ServicePressFlashes(+0x285) and Display_Present. Unlike AlertPanel_Present it puts no hold on the close flag. PreferencesPanel_Run calls it every pass (read).",
+      "source": "DBSIM decompile at 00457180",
+      "verified": {
+        "bytes": "00457180+115",
+        "sha1": "bb9ef99e38bd",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004571f4",
@@ -13050,8 +13150,14 @@
       "type": "function",
       "confidence": "high",
       "name": "PreferencesPanel_OnClick",
-      "description": "The preferences panel's click slot (vtable +0xc). Records the right-button flag at panel+0x2ff from bit 1 of the click value, walks the widget list for the clicked child, moves the highlight for widgets 0-8 (the row that had it back to state 3, this one to 0) and queues the widget index at panel+0x356 for the loop to act on.",
-      "source": "docs/retail/simulation/preferences.md"
+      "description": "The preferences panel's click slot (vtable +0xc). Records the right-button flag at panel+0x2ff from bit 1 of the click value, walks the widget list for the clicked child, queues its index at panel+0x356 for the loop to act on, moves the highlight for widgets 0-8 (the row that had it, +0x3b6, back to state 3, this one to 0), and moves the focus (+0x2f7) to it, so [Return] next presses the widget last clicked. Ends with AlertPanel_ResetPresentTimer.",
+      "source": "docs/retail/simulation/preferences.md",
+      "verified": {
+        "bytes": "004573a8+147",
+        "sha1": "f6f5215f5a68",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045743c",
@@ -13127,7 +13233,13 @@
       "name": "ObjectivesPanel_RunModal",
       "description": "obj_alrt's modal loop, vtable slot +8. Enters via AlertPanel_Enter, focuses widget 0, then polls input, hands the event to the panel's slot +0x10 handler, ticks each clickable child and presents, until the close flag at +0x2d1 is set. It never calls the sim tick, which is why the simulation is stopped while a panel is up. gnl_alrt has its own near-identical copy at StatusAlertPanel_RunModal.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "byte __cdecl ObjectivesPanel_RunModal(int *panel)"
+      "signature": "byte __cdecl ObjectivesPanel_RunModal(int *panel)",
+      "verified": {
+        "bytes": "00457ae4+113",
+        "sha1": "c8e390ef7686",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00457b58",
@@ -13193,8 +13305,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ControlsPanel_Run",
-      "description": "The controls panel's modal loop and its 14-case action switch. First asks FUN_0045c508(3) for a joystick and, when that answers null or with bit 0 clear, greys all twelve rows to state 2; otherwise reads Input_QueryCapabilities and greys the THROTTLE, RUDDER and HAT rows and every button row past the reported count. Cases 1-4 step an axis option over three values and clear the list selection; 5-12 step that button row; 13 writes Input_RecommendedBindings' twelve bytes; 14 closes.",
-      "source": "docs/retail/simulation/preferences.md"
+      "description": "The controls panel's modal loop and its 14-case action switch. First asks Input_GetDevice(3) for a joystick and, when that answers null or with bit 0 clear, stores no capability block (+0x47a) and greys all twelve rows to state 2; otherwise stores Input_QueryCapabilities' block and greys the THROTTLE, RUDDER and HAT rows and every button row past the reported count. Seeds the four axis bytes and each button row's slot (+0x462) from the option array, enters, focuses widget 0, and loops until the close flag +0x2d1 is set: input to the slot +0x10 handler, then the queued action (+0x45a), then each widget's deferred paint (slot +0xc) and AlertPanel_Present. The switch runs only with a capability block whose first word is non-zero, and only then clears +0x45a. Cases 1-4 step an axis option over three values, forward on a left click and back on a right, when that axis is present (for JOYSTICK, when the block is), and clear the list selection; 5-12 select that button row and step it, forward on a left click and back on a right, when it is under the button count; 13 writes Input_RecommendedBindings' twelve bytes; 14 calls ControlsPanel_Save and Prefs_CommitOptions. The close itself is ControlsPanel_OnClick's.",
+      "source": "docs/retail/simulation/preferences.md",
+      "verified": {
+        "bytes": "00458650+1500",
+        "sha1": "1ab932c259dc",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00458c68",
@@ -13220,8 +13338,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ControlsPanel_OnClick",
-      "description": "The controls panel's click slot (vtable +0xc). Records the right-button flag at panel+0x2ff, moves the highlight for widgets 0-11, and then decides between selecting and acting: a button row (widgets 4-11) is SELECTED only when it is not already the selected one, and otherwise its action is queued -- so a button row takes two clicks to change. An axis row is never selected, so every click on one is an action.",
-      "source": "docs/retail/simulation/preferences.md"
+      "description": "The controls panel's click slot (vtable +0xc). Records the right-button flag at panel+0x2ff, walks the widget list for the clicked child, moves the highlight (+0x472) for widgets 0-11 (the old one to state 3, this one to 0), and then decides between selecting and acting: a button row (widgets 4-11) that is not the selected one (+0x476) is selected with ControlsPanel_ShowOptionList, and anything else queues its action at +0x45a as the widget index plus 1 -- so a button row takes two clicks to change, and every click on an axis row is an action. Widget 13, DONE, also sets the close flag +0x2d1 to 3. It leaves the focus alone. Ends with AlertPanel_ResetPresentTimer.",
+      "source": "docs/retail/simulation/preferences.md",
+      "verified": {
+        "bytes": "00458ebc+223",
+        "sha1": "b312ce794689",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00458f9c",
@@ -13229,8 +13353,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ControlsPanel_HandleEvent",
-      "description": "The controls panel's own event handler, vtable slot +0x10, in place of the family's AlertPanel_HandleEvent. Copies the device block's trigger byte (+0x0d) back over button state 0 so BUTTON 1 is live on the panel although the input build zeroes it, then walks the eight button states: a press on the selected row steps that row's action, a press on any other row selects it, and either way Input_LatchButton holds the button. Then the keys: [Return] presses +0x2f7 or focuses widget 0, [Esc] presses the cancel widget +0x2fb, [Tab] and scancode 0x52 focus next, [Shift+Tab] focuses previous.",
-      "source": "docs/retail/simulation/preferences.md"
+      "description": "The controls panel's own event handler, vtable slot +0x10, in place of the family's AlertPanel_HandleEvent. Copies the device block's trigger byte (+0x0d) back over button state 0 so BUTTON 1 is live on the panel although the input build zeroes it, then takes the first of the eight button states that is set: a press on the selected row (+0x476) runs ControlsPanel_StepButton and flashes the row's widget (row + 4) on the panel's root (+0x285); a press on another row, when there is a capability block (+0x47a) and the row is under its button count (+2), runs ControlsPanel_ShowOptionList for it, flashes its widget, and moves the highlight (+0x472) to it, the old one to state 3 and this one to 0; in every case Input_LatchButton(row + 1) holds the button. Then the keys: [Return] (0x1c) presses the focus +0x2f7 through AlertPanel_PressWidget, or focuses widget 0 when it is -1; [Esc] (0x01) presses the cancel widget +0x2fb when it is set; [Tab] (0x0f) and scancode 0x52 focus the next widget and 0x80f, Shift+Tab, the previous -- a code the loop's input build has already masked to 0x0f with SimCommandMask. Any other code returns 0.",
+      "source": "docs/retail/simulation/preferences.md",
+      "verified": {
+        "bytes": "00458f9c+399",
+        "sha1": "71eab4acbb58",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045912c",
@@ -13259,7 +13389,13 @@
       "confidence": "high",
       "name": "ControlsPanel_ShowOptionList",
       "description": "(panel, list): refills the option list with ControlsPanel_FillOptionList when list differs from the one shown (+0x476), then stores it there.",
-      "source": "DBSIM decompile and disassembly at 004592f8"
+      "source": "DBSIM decompile and disassembly at 004592f8",
+      "verified": {
+        "bytes": "004592f8+39",
+        "sha1": "bda782ada916",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00459320",
@@ -13570,8 +13706,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_LatchButton",
-      "description": "Marks one of the eight joystick buttons as acted on: sets DAT_004d237a[i] and stores the state to suppress at DAT_004d2382[i]. FUN_0045a7f4 then forces that button's byte to zero on every following tick until the player releases it, which is the whole of the press-once rule. Sim_PollPlayerInput calls it for every button whose action it dispatches.",
-      "source": "docs/retail/formats/joystick-input.md"
+      "description": "(button 1-8, state): marks a joystick button as acted on, setting the byte at 004d2379 + button to 1 and storing state at 004d2381 + button. Input_BuildPlayerDevice then masks that button to zero until the player releases it, which is the whole of the press-once rule (docs/retail/formats/joystick-input.md, The buttons). Read callers: AlertPanel_HandleEvent latches buttons 1 and 2 as it answers them, and ControlsPanel_HandleEvent the pressed row's button.",
+      "source": "docs/retail/formats/joystick-input.md",
+      "verified": {
+        "bytes": "0045b718+28",
+        "sha1": "0557c6a68b8d",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0045b734",
@@ -17517,8 +17659,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_QueryCapabilities",
-      "description": "Rebuilds the eight-byte joystick capability block at 006bb72c on every call and returns it: +0 is 2 when stick 1 enumerated (DAT_006bb728 zero), otherwise 1, never 0, +2 the button count (DAT_006bb438 + DAT_006bb5cc clamped to 8), and +4/+5/+6 whether a throttle, rudder and hat are present, from the device flag word's bits 0, 1 and 4. The controls panel greys its rows against it, and Input_SetThrottleLeverMode reads +4.",
-      "source": "docs/retail/simulation/preferences.md"
+      "description": "Rebuilds the eight-byte joystick capability block at 006bb72c on every call, zeroing it first, and returns it. +0 is 2 when DAT_006bb728 is zero and 1 otherwise, so never 0; +2 is the button count, DAT_006bb438 + DAT_006bb5cc clamped to 8; +4 is 1 unless the device flag word 006bb45c has bit 0 clear and DAT_006bb728 is non-zero, and +5 likewise with bit 1; +6 is the flag word's bit 4 as it stands, 0 or 0x10. ControlsPanel_Run greys its rows against it (read).",
+      "source": "docs/retail/simulation/preferences.md",
+      "verified": {
+        "bytes": "004777f8+151",
+        "sha1": "59d51508dea7",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0047789c",
@@ -26294,7 +26442,7 @@
       "type": "data",
       "confidence": "high",
       "name": "SimCommandMask",
-      "description": "0x47ff. Input_BuildPlayerDevice ANDs every queued command code with this before dispatching it, which discards the 0x800 Shift bit Key_WndProcHook sets -- so a shifted key folds onto the plain one and there is no Shift command bank.",
+      "description": "0x47ff. Input_BuildPlayerDevice ANDs the input block's head command word and every queued command code with this, which discards the 0x800 Shift bit Key_WndProcHook sets -- so a shifted key folds onto the plain one, in the cockpit and in the alert panels' loops, which read the same word.",
       "source": "docs/retail/formats/cockpit-input.md"
     },
     {

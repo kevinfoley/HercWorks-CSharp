@@ -12,20 +12,18 @@ The mechanism is understood; what is left is engine work.
 - **A key press flashing the cockpit button it presses.** Retail shows a button pressed for 10 coarse ticks when a key presses it; the engine shows a button pressed only while the mouse holds it. → [`docs/retail/formats/cockpit-input.md`](docs/retail/formats/cockpit-input.md#open)
 - **A throttle lever bound to the turret pair pitching the turret while the camera has the controls.** → [`docs/retail/formats/joystick-input.md`](docs/retail/formats/joystick-input.md#open)
 - **The `.hmp` MIDI path and reading `SOUND.CFG`.** → [`docs/retail/formats/audio.md`](docs/retail/formats/audio.md#open)
-- **French and German.** The engine is English only: on a v1.10 install it does not read the installed language, and does not reach that language's text, mission text or cockpit-computer speech. → [`docs/retail/retail-builds.md`](docs/retail/retail-builds.md#how-a-language-is-chosen)
 
 ## Reverse-engineering still open
 
 The engine cannot be faithful here until the original is understood.
 
 - **How many times DBSIM has advanced its generator before any given roll.** The algorithm, the 56-entry seed table and both cursor starts are ported, so the two generators produce identical streams from the same starting point — but a roll's result depends on its position in that stream, and this engine does not yet make the same draws in the same order. Replay parity needs the call history matched, which is really a question about tick order, not about the generator. → [`docs/retail/simulation/random-generator.md`](docs/retail/simulation/random-generator.md)
+- **v1.10's language folder for `campaign.str`.** A French or German install shows the campaign map's stage text in English, because v1.10's `VSHELL.EXE` is not in the Ghidra project. → [`docs/retail/retail-builds.md`](docs/retail/retail-builds.md#open)
 
 ## The shell front end
 `--shell` draws the frame every tab screen shares — the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, gated by campaign mode and switching palette per tab — plus the startup sequence and the main menu it brings up, whose `INSTANT ACTION` flies the next demo mission, `START NEW GAME` starts a campaign from its registration screen, `CONTINUE GAME` loads the current game and `VIEW DEMO` plays a demo tape, its practice screen, whose `Begin Mission` flies the lit training mission, and the save, weapons, repair, build, armory and crew screens behind tabs 0 to 6, weapon fitting included, with the squad panel down the left of four of them, and the mission tab's campaign map and its briefing with its map, whose `Rock & Roll >` launches the mission, and the way back from it — the debrief's accounting and its report, then the next mission's load or the offer to replay the one that ended the campaign — all with the shell's music and click sounds, and its movies: the intro, the campaign map's with its location picture, the briefing's and `CREDITS`. The widget paints are ported onto an indexed software canvas, so a further screen is layout, text and hit-testing rather than new drawing code. What is missing:
 - **The startup's `Performance Note` box.** Retail shows it once; the shell does not. → [`docs/retail/shell/screen-layout.md`](docs/retail/shell/screen-layout.md#the-main-menu)
-- **Indeo 3's 8-bit pixels and half-pel motion vectors.** No shipped frame uses them. → [`docs/retail/formats/indeo3.md`](docs/retail/formats/indeo3.md#open)
 - **Three shell controls:** a content button's caption nudging down while pressed, the mission screen arrows' auto-repeat, and the developer's mission-name dialog. → [`docs/retail/shell/screen-layout.md`](docs/retail/shell/screen-layout.md#open)
-- **A movie that will not open.** The shell skips it, where retail asks for the CD. → [`docs/retail/shell/screen-layout.md`](docs/retail/shell/screen-layout.md#the-shells-movies)
 
 ## Debugging features
 - **A launch option that disables the AI.** Every unit but the player's stays stationary, though it can still be damaged and destroyed. → [`docs/herculan/herculan-command-line.md`](docs/herculan/herculan-command-line.md#developer)

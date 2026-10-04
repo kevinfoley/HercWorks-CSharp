@@ -326,12 +326,10 @@ public sealed partial class FlyerObject : IFlightBody {
 	/// height error is turned into a pitch demand against a fixed <see cref="PitchAltitudeRun"/>
 	/// horizontal run, so the demanded angle is a function of the error alone.
 	///
-	/// <para>The original opens with a branch on <c>flyer+0xae</c> that substitutes a pitch derived
-	/// from <c>flyer+0x23c</c> instead. Both fields belong to the walking machine's obstacle
-	/// avoidance and leg placement (see docs/retail/simulation/ai-navigation.md and
-	/// docs/retail/simulation/mech-locomotion.md); the flyer pool is zero-filled and no flyer path that
-	/// writes <c>flyer+0xae</c> is known (docs/retail/simulation/ai-flyers.md, Open), so the substitution
-	/// is not reproduced.</para>
+	/// <para>Not reproduced: the original opens with a branch on the base object's <c>+0xae</c> that
+	/// asks for the current pitch plus a figure from <c>flyer+0x23c</c> instead. The flyer pool is
+	/// zero-filled and no flyer path that writes <c>+0xae</c> has been found, so the branch never runs
+	/// (docs/retail/simulation/ai-flyers.md, "The control law" and Open).</para>
 	/// </summary>
 	private int PitchToAltitude(int altitude) =>
 		PitchCommand((short)SimTrig.Atan2Guarded(altitude - Position.Z, PitchAltitudeRun));

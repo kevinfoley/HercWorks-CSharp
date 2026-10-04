@@ -5637,8 +5637,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_Constructor",
-      "description": "Flyer class constructor. Installs vtable 0049a5e0, allocates the component-damage header at flyer+0x200 with literal counts of 1 and 1 (one main component, one dependent -- exactly what SKIMMER.DMG ships), and links the type record at flyer+0x1fa plus its .DMG and .COL pointers via Component_LinkMaxRefData.",
-      "source": "docs/retail/simulation/hit-detection.md"
+      "description": "Flyer class constructor (flyer, FLYERS.NAM index). SimObjectBase_ConstructStatic with the type record's +0x36, then the block every ACTOR constructor writes: SimObjectBaseVtable, +0x1a8 = 0xffff, +0x98 = 1, +0xa7 = 1, ObjectList_Add, +0x1b2 and +0x1b6 = 0, +0x1ba, +0x1bc and +0x1be = 0xffff. Installs FlyerVtable (0049a5e0) and allocates the component-damage header at flyer+0x200 with literal counts of 1 and 1 (one main component, one dependent -- exactly what SKIMMER.DMG ships). Stores the type record at flyer+0x1fa, sets +0x1a8 = 2, zeroes +0x231 and +0x235, copies the record's +0x04 into +0x233, and links the record's .DMG and .COL pointers (+0x2e, +0x32) via Component_LinkMaxRefData. Installs the deciding state, Behaviour_SetState(flyer+0x4d, 00499cf8). Seeds the flight block at +0x243: zeroes its 0x4e bytes, points +0x263 at the euler angles (+0x0c), builds the object's rotation matrix if +0x32 is clear, copies it to +0x267 and transposes it, rotates the negated position through it into +0x27b, and sets +0x247 = 1000 (airspeed) and +0x261 = 0x200 (throttle). Steps the RTL constructor counter at [006cbf74] twice. The stores it makes are the ones listed; its own body writes none of +0x1f4, +0x1f8, +0x21c or +0x23c.",
+      "source": "docs/retail/simulation/hit-detection.md",
+      "verified": {
+        "bytes": "004215f4+518",
+        "sha1": "1942e3d5354d",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004217fc",
@@ -5760,8 +5766,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_PitchToAltitude",
-      "description": "Elevator command that flies the aircraft to a world Z: Math_Atan2Guarded(targetZ - flyer.z, 10000) into Flyer_PitchCommand. The 10000 is a fixed horizontal run, so the demanded angle depends on the height error alone. Its other arm, gated on flyer+0xae and reading flyer+0x23c, belongs to the walking machine's obstacle avoidance and leg placement and is not known to fire on a flyer: the flyer pool is zero-filled and no flyer path that writes either field has been found.",
-      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+      "description": "Elevator command that flies the aircraft to a world Z: Math_Atan2Guarded(10000, targetZ - flyer.z) into Flyer_PitchCommand. The 10000 is a fixed horizontal run, so the demanded angle depends on the height error alone. When the base object's +0xae is set it asks instead for the current pitch (+0x0c) plus Math_Q8Multiply(flyer+0x23c, 4000), ignoring the target Z. +0xae is a walking machine's unstick-reverse flag; es2_fieldscan finds it written only by Mech_LocomotionTick and Mech_MovementTick. flyer+0x23c is a Flyer field (a mech's +0x23c is a different field of another class); es2_fieldscan and a raw disp32 sweep of the code section find this read and no write of it in flyer code.",
+      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice",
+      "verified": {
+        "bytes": "00422108+81",
+        "sha1": "c9f84b030a49",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0042215c",
@@ -5787,7 +5799,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_FormationThrottle",
-      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, folds it into the previous value of flyer+0x21c and clamps the sum to [0x8c,0x100]. No other reader of the field is known. The control law leaves FlightModel_Step's throttle element zero on every call, so nothing a Cybrid flyer decides changes its airspeed (the player's RAZOR THROTTLE binding can: FlightModel_Step's position branch then writes the setting to 0).",
+      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, folds it into the previous value of flyer+0x21c and clamps the sum to [0x8c,0x100]. es2_fieldscan and a raw disp32 sweep of the code section find no reader of flyer+0x21c in flyer code but this one, and its one caller found by es2_xref, Flyer_FormationStep, discards the return value. The control law leaves FlightModel_Step's throttle element zero on every call, so nothing a Cybrid flyer decides changes its airspeed (the player's RAZOR THROTTLE binding can: FlightModel_Step's position branch then writes the setting to 0).",
       "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -5796,7 +5808,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_SteerAndFly",
-      "description": "The flyer's steering channel and the function every movement step (route step, station keeping, attack run) ends in. Builds a 16-bit bank command from Q16(-turn,2500) + Q16(bankTurnRate at flyer+0x287, 32000) + Q16(rollRate,-5000); holds the aircraft at +/-(typeRecord+0x0e, the maximum bank angle) with a 1500 hysteresis band when the bank would take it further over; answers a steering command under 2000 with rudder (Q16(-turn,4000)) and level wings instead of a bank, and only if the roll is already under 800. Fills the command array's fifth element with the terrain height under the aircraft, which is FlightModel_Step's ceiling reference. Its leader term reads leader+0x1f8, a field for which no writer is known (es2_fieldscan.py, decompile grep); the flyer pool is zero-filled.",
+      "description": "The flyer's steering channel and the function every movement step (route step, station keeping, attack run) ends in. Builds a 16-bit bank command from Q16(-turn,2500) + Q16(bankTurnRate at flyer+0x287, 32000) + Q16(rollRate,-5000); holds the aircraft at +/-(typeRecord+0x0e, the maximum bank angle) with a 1500 hysteresis band when the bank would take it further over; answers a steering command under 2000 with rudder (Q16(-turn,4000)) and level wings instead of a bank, and only if the roll is already under 800. Fills the command array's fifth element with the terrain height under the aircraft, which is FlightModel_Step's ceiling reference. When it is handed a leader it adds a term of Math_Q14Multiply(leader+0x1f8, cos(own heading - leader heading)); no writer of +0x1f8 was found by es2_fieldscan, a decompile grep or a raw disp32 sweep of the code section, and the flyer pool is zero-filled.",
       "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -5825,6 +5837,21 @@
       "name": "Flyer_AttackRun",
       "description": "The attack run, and the only place a Cybrid flyer shoots. A two-phase circuit on flyer+0x1fe: phase 0 extends AWAY from the target holding targetZ+10000 until the range passes 90000, phase 1 runs in and inside 65000 aims at the target itself, breaking off again when the bearing leaves +/-0x2000, the height over the target drops under 3000, or the range closes inside 10000. The aim is led along the target's heading by (range>>3)*(targetSpeed*8)/shotSpeed, where shotSpeed becomes PROJ.DAT row 2's speed once the run is close enough to shoot. Firing needs bearing and pitch both within +/-1000 and the flyer+0x21e countdown expired: the first shot of a pass inside 30000 is Rocket_Fire(0) off the (500,200,-100) muzzle and every later one is a pair of Bullet_Fire(2) off that point and its mirror, reloading the countdown with 1500.",
       "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422a3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_ClearFormationThrottle",
+      "description": "Takes one argument, the flyer, zeroes its +0x21c (the accumulator Flyer_FormationThrottle folds into) and returns 0: the shape of a behaviour think that reports not finished. es2_xref finds no rel32 branch, stored pointer or vtable slot holding its address; the same sweep finds the sibling think Flyer_BehaviourScoutThink through its slot block at 00499f50. Its PUSH EBP follows Flyer_AttackRun's RET and two NOP fill bytes, so its entry is not late.",
+      "source": "docs/retail/simulation/ai-flyers.md#open",
+      "verified": {
+        "bytes": "00422a3c+19",
+        "sha1": "d15143e5e20d",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00422a50",
@@ -5971,8 +5998,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Route_AdvanceCursor",
-      "description": "Steps a group's route cursor -- the {short index; waypoint-group ptr} pair at group+0x04 -- by one, and wraps the index back to zero when the route closes on itself (more than one waypoint, the new index is the last, and the last waypoint's point pointer is the same object as the first's). A closed route is a patrol that never ends.",
-      "source": "docs/retail/simulation/ai-goals.md"
+      "description": "(cursor): steps a route cursor -- a {short index; waypoint-group ptr} pair such as a group's at group+0x04 -- by one, and wraps the index back to zero when the route closes on itself (more than one waypoint, the new index is the last, and the last waypoint's point pointer is the same object as the first's). It writes the index only; the waypoint-group pointer at cursor+0x02 is read. A closed route is a patrol that never ends.",
+      "source": "docs/retail/simulation/ai-goals.md",
+      "verified": {
+        "bytes": "0042313c+51",
+        "sha1": "642223201644",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00423170",
@@ -6098,7 +6131,13 @@
       "confidence": "high",
       "name": "Group_OrderSubjectPtr",
       "description": "(group): the current order's +0x0e subject pointer -- the row-15 link at group+0x44 indexed by group+0x6c -- read without testing the slot for null. es2_xref finds no rel32 branch or stored pointer to it.",
-      "source": "DBSIM decompile at 00423960; docs/retail/simulation/ai-goals.md"
+      "source": "DBSIM decompile at 00423960; docs/retail/simulation/ai-goals.md",
+      "verified": {
+        "bytes": "00423960+18",
+        "sha1": "a6fc14d04005",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00423974",

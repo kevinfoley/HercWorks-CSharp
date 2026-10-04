@@ -485,9 +485,10 @@ public sealed partial class FlyerObject {
 	/// <see cref="MissileRange"/>, and every shot after it on that pass is a pair of gun rounds from
 	/// the mirrored muzzle points.</para>
 	///
-	/// <para>One gate is not reproduced: the original also requires <c>|flyer+0x1f4| &lt; 10</c>, a
-	/// field the zero-filled flyer pool leaves at 0 and no known code writes
-	/// (docs/retail/simulation/ai-flyers.md, Open), so the gate passes.</para>
+	/// <para>Two tests are not reproduced, each on a field the zero-filled flyer pool leaves at 0 and
+	/// for which no writer has been found (docs/retail/simulation/ai-flyers.md, Open): the fire gate
+	/// <c>|flyer+0x1f4| &lt; 10</c>, which therefore passes, and the run-in's test of the base
+	/// object's <c>+0xae</c>, which therefore always aims at the target.</para>
 	/// </summary>
 	private void AttackRun(SimWorld world, SimObject target) {
 		var aim = target.Position;

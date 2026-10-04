@@ -119,8 +119,9 @@ src/
     Program.cs
     MainForm.cs
   HercWorks.Query/        console tool — searches the retail .MSN missions through HercWorks.Core:
-                          which missions place a structure, mech or flyer type, and what tests or
-                          writes a campaign flag (`--help` lists the commands)
+                          which missions place a structure, mech or flyer type, what tests or
+                          writes a campaign flag, and what orders each group carries (`--help` lists
+                          the commands)
 tests/
   HercWorks.Vol.Tests/    xUnit round-trip test against a hand-built synthetic .vol
   HercWorks.Query.Tests/  the queries against the retail missions, when ES2/ is present

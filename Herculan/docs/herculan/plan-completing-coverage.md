@@ -45,7 +45,7 @@ These hold for every function, field and global named under this plan, and equal
 
 ## Stage 0 — tooling and fresh dumps
 
-The dumps under `tools/analysis_out/` lag the database whenever another task has applied names or created functions; regenerate them with `tools/scripts/ghidra_full_decomp.py` at the start of each stage and after any batch that creates functions (this takes several minutes; it writes all five dumps, the disassembly included). The tools each stage leans on:
+The dumps under `tools/analysis_out/` lag the database whenever another task has applied names or created functions; regenerate them with `tools/scripts/ghidra_full_decomp.py` at the start of each stage and after any batch that creates functions (it writes all five dumps, the disassembly included, and skips any dump taken from the current database version; a full run takes several minutes). The tools each stage leans on:
 
 - **`es2_naming.py stats BIN`** prints the coverage table above; `--list` adds every prologue outside a function and every code-section gap that is not all fill bytes.
 - **`es2_naming.py classes BIN`** lists every class record with its size, bases and subobject offsets, primary vtable, `+0x28` destructor and `+0x14` operator delete, beside their `known_symbols` names; `--unnamed` keeps the records whose destructor is unnamed. Stage 2 generates skeletons from it.

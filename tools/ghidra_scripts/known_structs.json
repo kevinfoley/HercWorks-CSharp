@@ -1591,7 +1591,7 @@
           "type": "short",
           "name": "fireGate",
           "confidence": "high",
-          "description": "+0x1f4 -- Flyer_AttackRun fires only while |value| < 10. Read once; no writer known (es2_fieldscan.py, decompile grep) and the pool is zero-filled, so the gate passes."
+          "description": "+0x1f4 -- Flyer_AttackRun fires only while |value| < 10. Read once. es2_fieldscan.py, a decompile grep and a raw disp32 sweep of the code section find no writer, Flyer_Constructor's own stores omit it, and the pool is zero-filled, so the gate passes."
         },
         {
           "offset": 504,
@@ -1599,7 +1599,7 @@
           "type": "short",
           "name": "leaderBankGain",
           "confidence": "high",
-          "description": "+0x1f8 -- scales the leader term in Flyer_SteerAndFly's bank command. Read once; no writer known (es2_fieldscan.py, decompile grep) and the pool is zero-filled, so the term contributes nothing."
+          "description": "+0x1f8 -- scales the leader term in Flyer_SteerAndFly's bank command. Read once, the leader's copy, multiplied by the cosine of the two aircraft's heading difference. es2_fieldscan.py, a decompile grep and a raw disp32 sweep of the code section find no writer, Flyer_Constructor's own stores omit it, and the pool is zero-filled, so the term contributes nothing."
         },
         {
           "offset": 506,
@@ -1631,7 +1631,7 @@
           "type": "short",
           "name": "formationThrottle",
           "confidence": "high",
-          "description": "+0x21c -- what Flyer_FormationThrottle computes from the station error and the leader's speed. Read only by Flyer_FormationThrottle itself, as the previous value it accumulates onto; no other reader known."
+          "description": "+0x21c -- what Flyer_FormationThrottle computes from the station error and the leader's speed. Flyer_FormationThrottle reads it as the previous value it accumulates onto. es2_fieldscan.py and a raw disp32 sweep of the code section find no other reader in flyer code; the other hits at this offset belong to other classes."
         },
         {
           "offset": 542,

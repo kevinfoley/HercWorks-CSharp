@@ -1162,7 +1162,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Explosion_GetOwnerDrawCell",
-      "description": "Returns owner+0x1e8 (the owner's cached draw-table cell pair) for an impact effect that has an owner (effect+0x57), else 0. maybe_Scene_SubmitFrameObjects files the effect under that cell instead of the one its own position falls in.",
+      "description": "Returns owner+0x1e8 (the owner's cached draw-table cell pair) for an impact effect that has an owner (effect+0x57), else 0. Scene_SubmitFrameObjects files the effect under that cell instead of the one its own position falls in.",
       "source": "docs/simulation/impact-effects.md"
     },
     {
@@ -4434,7 +4434,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_CollisionTest",
-      "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records at mech+0x2b0 the last structure (target class 1, obj+0x1a8) whose body radius contains the machine, clearing the field on entry; that is a render-side hand-off, not an aim aid -- maybe_Scene_SubmitFrameObjects reads it every frame and buckets the machine with that structure instead of by its own radius.",
+      "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records at mech+0x2b0 the last structure (target class 1, obj+0x1a8) whose body radius (+0x5c) contains the machine, among the objects test 1 reaches before it returns on a block, clearing the field on entry; that is a render-side hand-off, not an aim aid -- Scene_SubmitFrameObjects reads it every frame and files the machine under that structure's cached draw cell (+0x1e8) with Scene_SubmitObjectAtCell instead of under the cell its own position and radius pick.",
       "source": "docs/simulation/mech-locomotion.md",
       "signature": "char __cdecl Mech_CollisionTest(MechObject *this)"
     },
@@ -15732,7 +15732,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HeightGrid_ClearCellScratch",
-      "description": "Single-statement function: memsets the HeightGrid's +0xf0 per-cell scratch byte array to 0, sized (1 << grid[+0x100]) * (1 << grid[+0x104]) -- exactly one byte per cell. Called first thing in maybe_Scene_SubmitFrameObjects (0042841c), so it runs once per frame. That reset is what lets one array serve two unrelated uses: the structure-footprint pass's marked/counted/written bits at mission spawn, and from the first frame onward a per-cell pending-object count, incremented by 00470cac and consumed and re-cleared per cell by Terrain_DrawCellObjects (0046e4a0). Without it the first frame would read a flattened base's footprint marks as object counts.",
+      "description": "Single-statement function: memsets the HeightGrid's +0xf0 per-cell scratch byte array to 0, sized (1 << grid[+0x100]) * (1 << grid[+0x104]) -- exactly one byte per cell. Called first thing in Scene_SubmitFrameObjects (0042841c), so it runs once per frame. That reset is what lets one array serve two unrelated uses: the structure-footprint pass's marked/counted/written bits at mission spawn, and from the first frame onward a per-cell pending-object count, incremented by 00470cac and consumed and re-cleared per cell by Terrain_DrawCellObjects (0046e4a0). Without it the first frame would read a flattened base's footprint marks as object counts.",
       "source": "docs/formats/terrain-heightmap.md (structure footprints)"
     },
     {
@@ -26713,7 +26713,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_MeteorPool",
-      "description": "Object pool for METEOR (drop pod) instances, allocated by Meteor_LoadResources. Sim_MainTick walks it calling Meteor_Tick and releases anything that returns nonzero into the free list at 004a9732; maybe_Scene_SubmitFrameObjects and Group_DeploymentCheck are its other readers.",
+      "description": "Object pool for METEOR (drop pod) instances, allocated by Meteor_LoadResources. Sim_MainTick walks it calling Meteor_Tick and releases anything that returns nonzero into the free list at 004a9732; Scene_SubmitFrameObjects and Group_DeploymentCheck are its other readers.",
       "source": "docs/simulation/mission-deployment.md"
     },
     {

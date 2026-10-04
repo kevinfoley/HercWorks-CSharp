@@ -1348,9 +1348,9 @@
           "offset": 688,
           "width": 4,
           "type": "SimObject *",
-          "name": "collisionLockCandidate",
+          "name": "standingInStructure",
           "confidence": "high",
-          "description": "+0x2b0 -- a structure recorded as a lock-on candidate by Mech_CollisionTest, separately from its block test. Only the behaviour layer reads it."
+          "description": "+0x2b0 -- the structure the machine stands inside: Mech_CollisionTest clears it, then stores each structure (target class 1) whose body radius contains the machine, separately from its block test. Its reader is Scene_SubmitFrameObjects, which files the machine for drawing under that structure's cached draw cell (+0x1e8). See docs/simulation/mech-locomotion.md, 'The structure a machine stands in'."
         },
         {
           "offset": 692,

@@ -8,7 +8,7 @@ namespace Herculan.Engine.Shell;
 /// What playing the queue out does to the rest of the shell, which the host owns.
 /// </summary>
 public sealed class ShellMovieHooks {
-	/// <summary>The bytes of an <c>AVI</c> file by its name in <see cref="ShellMovieQueue.FileNames"/>, or null.</summary>
+	/// <summary>The bytes of an <c>AVI</c> file by its path under the disc, <see cref="ShellMovieQueue.MoviePath"/>, or null.</summary>
 	public required Func<string, byte[]?> ReadMovie { get; init; }
 
 	/// <summary><c>Shell_InstallPalette</c> (<c>004075b2</c>) and its commit, by index.</summary>
@@ -49,7 +49,7 @@ public sealed class ShellMovieHooks {
 	/// </summary>
 	public required Action HideLocationPicture { get; init; }
 
-	/// <summary>A movie that could not be opened, or stopped on a frame it could not decode: its file name and why.</summary>
+	/// <summary>A movie that could not be opened, or stopped on a frame it could not decode: its path and why.</summary>
 	public Action<string, string>? Report { get; init; }
 
 	/// <summary>
@@ -177,7 +177,7 @@ public sealed class ShellMovieRun : IDisposable {
 				_player.Update(gl, delta);
 				if (_player.HasFailed) {
 					int id = _entry!.Id;
-					string name = ShellMovieQueue.FileName(id) ?? $"movie 0x{id:x}";
+					string name = _queue.MoviePath(id) ?? $"movie 0x{id:x}";
 					_hooks.Report?.Invoke(name, _player.DecodeException is { } ex
 						? $"stopped on a decoder fault ({ex.GetType().Name}: {ex.Message})"
 						: "stopped on a frame it could not decode");
@@ -269,7 +269,7 @@ public sealed class ShellMovieRun : IDisposable {
 	// with "Please insert ESII CD and restart" for the intro, and for any other movie puts the insert-CD
 	// panel (DAT_0048d108) up and tries again once its button is pressed; neither is ported.
 	private bool Begin(ShellMovieEntry entry) {
-		string? name = ShellMovieQueue.FileName(entry.Id);
+		string? name = _queue.MoviePath(entry.Id);
 		byte[]? bytes = name == null ? null : _hooks.ReadMovie(name);
 		if (name == null || bytes == null || MoviePlayer.Open(bytes) is not { } player) {
 			_hooks.Report?.Invoke(name ?? $"movie 0x{entry.Id:x}", "could not be opened, and is skipped");

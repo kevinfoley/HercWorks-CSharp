@@ -220,15 +220,14 @@ public sealed class ShellTextBox {
 
 /// <summary>
 /// The career's text for the campaign map view: <c>Campaign_LoadStageText</c> (<c>0040f775</c>) reads
-/// <c>eng\campaign.str</c> and keeps string <c>stage - 1</c> of its first group. See
+/// <c>campaign.str</c> and keeps string <c>stage - 1</c> of its first group. See
 /// docs/retail/shell/screen-layout.md, "The summary text box".
+///
+/// <para>v1.0 reads it from <c>LANG0.VOL</c>'s <c>ENG</c> folder, its literal at <c>0046f5be</c>; v1.10 from the
+/// shell language's folder. v1.10 appends the folder to a buffer it never clears, which can leave the file unfound
+/// (docs/retail/retail-builds.md#v110s-shell-reads-the-language-twice-more); this names the folder alone.</para>
 /// </summary>
 public static class ShellCampaignText {
-	/// <summary>
-	/// The path's two halves as v1.0's literal at <c>0046f5be</c> names them, <c>LANG0.VOL</c>'s <c>ENG</c>
-	/// folder. v1.10 picks the folder by the shell's language (docs/retail/retail-builds.md); this reads English.
-	/// </summary>
-	private const string Folder = "ENG";
 	private const string ResourceName = "CAMPAIGN.STR";
 
 	/// <summary>
@@ -237,8 +236,12 @@ public static class ShellCampaignText {
 	/// <c>TextBox_SetText</c>; what that does with it is not read, and here the box stays empty.
 	/// </summary>
 	public static string? Load(GameContent content, int stage) =>
-		content.Read(Folder, ResourceName) is { } bytes && SimStrings.Parse(bytes) is { } table
+		content.Read(Folder(content), ResourceName) is { } bytes && SimStrings.Parse(bytes) is { } table
 			? table.Text(0, stage - 1) : null;
+
+	/// <summary>The <c>LANG0.VOL</c> folder <c>campaign.str</c> is read from.</summary>
+	internal static string Folder(GameContent content) =>
+		content.IsV110 ? ShellText.LanguageFolder(content.Language) : ShellText.EnglishFolder;
 }
 
 /// <summary>The mission tab's banks: the arrow faces, the <c>TERRA DEFENSE</c> plate and the campaign map's two pictures.</summary>

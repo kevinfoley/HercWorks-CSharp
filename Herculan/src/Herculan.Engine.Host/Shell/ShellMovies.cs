@@ -41,7 +41,7 @@ sealed class ShellMovies : IDisposable {
 		_window = window;
 		_buttons = buttons;
 		_repaint = repaint;
-		Queue = new ShellMovieQueue(moviesEnabled);
+		Queue = new ShellMovieQueue(moviesEnabled, content.IsV110 ? content.Language : GameLanguage.English);
 	}
 
 	public ShellMovieQueue Queue { get; }
@@ -118,8 +118,8 @@ sealed class ShellMovies : IDisposable {
 
 	// What playing the queue does to the rest of the shell.
 	private ShellMovieHooks Hooks() => new() {
-		ReadMovie = name => {
-			using var stream = GameInstall.OpenDiscFile(_installRoot, _disc, Path.Combine(MovieHost.MovieFolderName, name));
+		ReadMovie = path => {
+			using var stream = GameInstall.OpenDiscFile(_installRoot, _disc, path);
 			return stream != null ? MovieHost.ReadMovie(stream) : null;
 		},
 		InstallPalette = index => {
@@ -159,7 +159,7 @@ sealed class ShellMovies : IDisposable {
 			_canvas.InstallPalette(ShellPalette.ServiceBay);
 			_repaint();
 		},
-		Report = (name, what) => Console.WriteLine($"Movie avi\\{name} {what}."),
+		Report = (path, what) => Console.WriteLine($"Movie {path} {what}."),
 		HasFocus = () => _window.HasFocus,
 	};
 }

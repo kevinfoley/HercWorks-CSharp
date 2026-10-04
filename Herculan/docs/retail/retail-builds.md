@@ -13,7 +13,7 @@ Two retail builds of Earthsiege 2 are in hand. They share the data formats every
 | `DBSIM.EXE` | 724,512 bytes | 724,512 (`VER95\`, different bytes), 727,584 (`VER31\`) |
 | Languages | English | English, French, German |
 
-All four of v1.10's `VSHELL.EXE` and `DBSIM.EXE` carry v1.0's language strings — the `-f`/`-g` usage lines, the `eng\`/`fre\`/`ger\` folders, the `.eng`/`.fre`/`.ger` extensions, `simvoice`, `data\language.cfg` and the manual folders — and `VER95\VSHELL.EXE` adds a language-dependent folder for `campaign.str`. Both `DBSIM.EXE`s choose and play the CD music as v1.0's does ([`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one)). How else their code differs from v1.0's is [Open](#open).
+All four of v1.10's `VSHELL.EXE` and `DBSIM.EXE` carry v1.0's language strings — the `-f`/`-g` usage lines, the `eng\`/`fre\`/`ger\` folders, the `.eng`/`.fre`/`.ger` extensions, `simvoice`, `data\language.cfg` and the manual folders — and both `VSHELL.EXE`s add two readers of the language, for `campaign.str` and the intro movies ([v1.10's shell](#v110s-shell-reads-the-language-twice-more)). Both `DBSIM.EXE`s choose and play the CD music as v1.0's does ([`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one)). How else their code differs from v1.0's is [Open](#open).
 
 The HiRez Studios image, `Earthsiege2_Freeware_HiRezStudios_1r0.iso`, is a v1.0 disc: volume `ES2`, mastered 1997-12-29, a single data track of 2,048-byte sectors with no audio and no Joliet tree. Its executables, archives, `SIERRA.INF`, `BATCH.EXE`, movies and instructor clips are byte for byte the install's, as are the 1997 `ES2TS.TXT` and the 1998 `README.WRI`, so the install came from the same pressing. It adds a `DEMOS\` folder of other products' demos. Its `FRENCH\` and `GERMAN\` folders hold English copies of the readme and `ES2TS.TXT` and translate only `ES2GUIDE.HLP` and `LANGUAGE.INF`.
 
@@ -45,7 +45,7 @@ The shell and the simulator each keep a language value, set only from their comm
 
 | Program | Switches | Selects |
 |---|---|---|
-| VSHELL | `-f`, `-g`, either case | the `LANG0.VOL` folder of every `.BIN` table, the extension of a mission's text (`.eng`, `.fre`, `.ger`), and in v1.10 the folder of `campaign.str` |
+| VSHELL | `-f`, `-g`, either case | the `LANG0.VOL` folder of every `.BIN` table, the extension of a mission's text (`.eng`, `.fre`, `.ger`), and in v1.10 the folders of `campaign.str` and the intro movies |
 | DBSIM | `-F`, `-G` (`-E` for Spanish) | the voice archive and its folder label, `SIMVOICE`/`SIMVOICF`/`SIMVOICG` ([`formats/audio.md`](formats/audio.md#speech-and-the-comm-portraits)), and the `st<letter>\` folder of its `.STR` tables |
 
 The on-line manual is the exception: both programs open `<LANGUAGE>\es2guide.hlp` by `data\language.cfg` directly ([`formats/winhelp.md`](formats/winhelp.md)).
@@ -53,6 +53,14 @@ The on-line manual is the exception: both programs open `<LANGUAGE>\es2guide.hlp
 **v1.0's launcher passes neither switch**, so a v1.0 game always runs in English, whatever `language.cfg` says, and that file chooses only the manual and its readme.
 
 **v1.10's launcher passes the installed language.** `VER95\ES.EXE` turns `language.cfg`'s letter into a switch on both command lines, so a French or German install runs both programs in its language ([`command-line.md`](command-line.md#v110s-language-switch)).
+
+### v1.10's shell reads the language twice more
+
+Both v1.10 `VSHELL.EXE`s read the shell's language, `0048235e` in each, at two places v1.0's does not. The addresses are `VER95\VSHELL.EXE`'s; `VER31\VSHELL.EXE` has the same code at `0040fd6d` and `0041ea1c`.
+
+**The campaign map's stage text** (`0040fd2d`, v1.0's `Campaign_LoadStageText`) appends `eng\`, `fre\` or `ger\` for language 0, 1 or 2, and nothing for any other value, then `campaign.str`, and opens the result. v1.0 opens the literal `eng\campaign.str`. Each append is a `_strcat` onto a stack buffer the function never writes first, so the path is whatever string the buffer already holds followed by the folder and the name. When that string is not empty the open fails, and the severity-4 assert that follows exits the shell, in v1.10 as in v1.0 (`Assert_Report`, v1.0 `0044ded0`).
+
+**The intro** (`0041e98c`, v1.0's `Movie_PlayQueue`): the first time the queue is played with movies on, the third letter of the intro's two paths, `avi\intr_pt1.avi` and `avi\intr_pt2.avi`, is overwritten with `f` for language 1 or `g` for 2, so a French or German shell plays its intro from `avf\` or `avg\` on the disc. A flag at `00471128` keeps it to once. Every other movie stays in `avi\`.
 
 ## What each build carries per language
 
@@ -66,7 +74,7 @@ The on-line manual is the exception: both programs open `<LANGUAGE>\es2guide.hlp
 | Mission text | `.ENG` only | `.FRE` and `.GER` beside every `.ENG` but `DEMO2`'s ([`formats/msn-mission-file.md`](formats/msn-mission-file.md#the-eng-string-table)) |
 | Fonts | | six replaced, with more accented letters ([`formats/dfn-hfn-dci.md`](formats/dfn-hfn-dci.md#dfn--hfn--bitmap-font)) |
 | On-line manual | the same three `ES2GUIDE.HLP` in both builds ([`formats/winhelp.md`](formats/winhelp.md)) | |
-| Intro movie | `AVI\INTR_PT1.AVI`, `INTR_PT2.AVI` | also `AVF\` and `AVG\`, each with its own two files, different from `AVI\`'s ([Open](#open)) |
+| Intro movie | `AVI\INTR_PT1.AVI`, `INTR_PT2.AVI` | also `AVF\` and `AVG\`, each with its own two files, different from `AVI\`'s, which a French or German shell plays ([v1.10's shell](#v110s-shell-reads-the-language-twice-more)) |
 
 ## Other content changes in v1.10
 
@@ -99,11 +107,9 @@ The second piece is v1.0's track 2: a rip of that track from a v1.0 disc is the 
 
 ## Open
 
-- **Unported:** v1.10's language folder for `campaign.str`. Its `VER95\VSHELL.EXE` code is not in the Ghidra project, so the campaign map's stage text reads `eng\campaign.str` as v1.0's does.
 - **Open:** how v1.10's `VSHELL.EXE` and `DBSIM.EXE` differ from v1.0's beyond the language readers and the music. `DBSIM.EXE`'s code section is `0x200` bytes longer, so a byte comparison says nothing, and neither v1.10 executable is in the Ghidra project; the music path was compared as instruction sequences with absolute addresses masked.
 - **Open:** whether the v1.10 disc's audio tracks are in the image's order, with v1.0's track 2 second, or the image was assembled out of order; and which of the image's first and third pieces is v1.0's track 3. Ripping v1.0's tracks 3 and 4 would settle the second.
 - **Open:** why the v1.0 `SIERRA.INF` lists `VSHELL.EXE` at 563,232 bytes. The disc it ships on carries a 564,768-byte one, the analysed `ES2\VSHELL.EXE`.
 - **Open:** what `VER31\ES.EXE` does with `data\language.cfg`, and how it numbers `-R`. It names the file; its code has not been read.
 - **Open:** what Sierra's `SETUP.EXE` tests `LANGUAGE_EQ` against.
 - **Open:** whether v1.0's three `TOGGLEON(README.WRI)` mark all three of its `README.WRI` entries. `BATCH.EXE` copies the chosen language's, which suggests each is installed.
-- **Open:** how v1.10 reaches the `AVF\` and `AVG\` intro movies. `VER95\VSHELL.EXE` names only `avi\intr_pt1.avi` and `avi\intr_pt2.avi`, as v1.0's does.

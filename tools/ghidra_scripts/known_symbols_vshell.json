@@ -2617,7 +2617,13 @@
       "confidence": "high",
       "name": "Campaign_LoadStageText",
       "description": "game.cpp. Reads eng\\campaign.str in the .STR layout and returns a new copy of string N (its argument, stage - 1) of the first group, freeing the previous one (DAT_0046f3e8); null when there is no such string. Mission_Show's map view fills text box 0 with it.",
-      "source": "docs/retail/shell/screen-layout.md#the-summary-text-box"
+      "source": "docs/retail/shell/screen-layout.md#the-summary-text-box",
+      "verified": {
+        "bytes": "0040f775+441",
+        "sha1": "2c92c8db88c9",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0040f95c",
@@ -9328,7 +9334,13 @@
       "confidence": "high",
       "name": "Assert_Report",
       "description": "The entry behind every src\\*.cpp assert: (logger g_AssertLogger, severity, condition, __FILE__, __LINE__, message). Severities 4-6 run the hooks (Assert_RunHooks), emit, and _exit(1); lower severities only emit.",
-      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block"
+      "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block",
+      "verified": {
+        "bytes": "0044ded0+111",
+        "sha1": "4dd3362cd7ef",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044df44",

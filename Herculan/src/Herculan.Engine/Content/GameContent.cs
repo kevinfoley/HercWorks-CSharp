@@ -32,9 +32,10 @@ public sealed class GameContent {
 	private readonly Dictionary<string, VolEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
 	private readonly List<Voln> _mounted;
 
-	private GameContent(List<Voln> searchOrder, GameLanguage language) {
+	private GameContent(List<Voln> searchOrder, GameLanguage language, bool isV110) {
 		_mounted = searchOrder;
 		Language = language;
+		IsV110 = isV110;
 		foreach (var vol in searchOrder) {
 			foreach (var entry in vol.FilesSet) {
 				// Folder labels come out of the VOL header already stripped of their '\' separator
@@ -51,6 +52,13 @@ public sealed class GameContent {
 	/// <see cref="LauncherLanguage.Shell"/> for VSHELL's.
 	/// </summary>
 	public GameLanguage Language { get; }
+
+	/// <summary>
+	/// Whether the install is v1.10's (<see cref="LauncherLanguage.IsV110"/>). v1.10's shell takes the folder of
+	/// <c>campaign.str</c> and of the intro movies from <see cref="Language"/>, where v1.0's names English ones whatever
+	/// its language (docs/retail/retail-builds.md#v110s-shell-reads-the-language-twice-more).
+	/// </summary>
+	public bool IsV110 { get; }
 
 	/// <summary>Names of the archives mounted, in the order they are searched.</summary>
 	public IReadOnlyList<string> MountedArchives =>
@@ -152,7 +160,8 @@ public sealed class GameContent {
 		var language = (program & Voln.DbsimProgram) != 0
 			? LauncherLanguage.Simulator(installRoot)
 			: LauncherLanguage.Shell(installRoot);
-		return new GameContent(loaded.OrderByDescending(vol => vol.VolOrderNum).ToList(), language);
+		return new GameContent(loaded.OrderByDescending(vol => vol.VolOrderNum).ToList(), language,
+			LauncherLanguage.IsV110(installRoot));
 	}
 
 	/// <summary>

@@ -32,7 +32,7 @@ static class MovieHost {
 	/// The folder cutscenes sit in, on the disc beside the archive directory rather than inside it;
 	/// paths under it go through <see cref="GameInstall.OpenDiscFile"/>.
 	/// </summary>
-	public const string MovieFolderName = "AVI";
+	public const string MovieFolderName = Herculan.Engine.Shell.ShellMovieQueue.MovieFolder;
 
 	public static int Run(string installRoot, GameDisc? disc, string movieName, string? screenshotPath = null,
 			bool silentAudio = false) {

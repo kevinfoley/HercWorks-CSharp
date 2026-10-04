@@ -18,6 +18,9 @@ internal static class Program {
 		  flag <n>                         every record testing or writing campaign flag n
 		  types structures|mechs|flyers    list a roster's type table
 		  missions                         every mission's record count per roster row
+		  actions [<mission>...]           every row #10 action of every mission, or of those named:
+		                                   its trigger subject, areas, verb, the records firing it and
+		                                   the groups waiting on it
 
 		Options:
 		  --install <dir>   the install to read (default: the nearest ES2\ folder above the working
@@ -104,6 +107,22 @@ internal static class Program {
 				WriteJson(output, rows);
 			} else {
 				TextReport.Missions(output, data, rows);
+			}
+
+			return 0;
+		}
+
+		if (command == "actions") {
+			var names = positional.Skip(1).ToList();
+			if (names.FirstOrDefault(n => !data.Missions.Any(m => string.Equals(m.Name, n, StringComparison.OrdinalIgnoreCase))) is { } unknown) {
+				return Fail($"No mission is named {unknown}; `missions` lists them.");
+			}
+
+			var actions = ActionQuery.Run(data, names);
+			if (json) {
+				WriteJson(output, actions);
+			} else {
+				TextReport.Actions(output, actions);
 			}
 
 			return 0;

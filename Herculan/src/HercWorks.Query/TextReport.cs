@@ -123,6 +123,55 @@ internal static class TextReport {
 			$"{rows.Sum(r => r.Bases),6}  {rows.Sum(r => r.Groups),6}  {rows.Sum(r => r.TextRecords ?? 0)}");
 	}
 
+	public static void Actions(TextWriter o, IReadOnlyList<ActionQueryMission> missions) {
+		foreach (var m in missions) {
+			o.WriteLine($"{m.Mission}: {m.Actions.Count} actions");
+			foreach (var a in m.Actions) {
+				var line = new List<string> {
+					a.Guid == -1 ? $"#{a.Index} (no GUID)" : $"action {a.Guid} (#{a.Index})",
+					$"type {a.Type} ({ActionQuery.Subject(a.Type)}{(a.TargetRef is { } target ? " " + target : "")})",
+					$"verb {a.Verb} ({ActionQuery.Arrival(a.Verb)})",
+				};
+				if (a.ConditionRef != -1) {
+					line.Add(Cond(a.ConditionRef, a.Condition, true));
+				}
+
+				if (a.MessageId != 0) {
+					line.Add($"message {a.MessageId - 1}");
+				}
+
+				o.WriteLine("  " + string.Join(", ", line));
+				foreach (var area in a.Areas) {
+					o.WriteLine("    " + Area(area));
+				}
+
+				if (a.FiredBy.Count > 0) {
+					o.WriteLine("    fired by " + string.Join(", ", a.FiredBy.Select(s => s.Row == "timer" ? $"timer {s.Guid}" : $"{s.Row} {s.Guid} {s.What}")));
+				}
+
+				if (a.DeploysGroups.Count > 0) {
+					o.WriteLine("    deploys group " + string.Join(", ", a.DeploysGroups.Select(g => g.X is { } x ? $"{g.Guid} at point {g.PointRef} ({x}, {g.Y})" : $"{g.Guid}")));
+				}
+			}
+
+			o.WriteLine();
+		}
+	}
+
+	private static string Area(ActionArea a) {
+		if (!a.Found) {
+			return $"area {a.Guid}: no such row #9 record";
+		}
+
+		string first = a.X is { } x ? $"({x}, {a.Y})" : "missing";
+		if (a.Radius is { } radius) {
+			return $"area {a.Guid}: circle r {radius} about point {a.PointRef} {first}";
+		}
+
+		string second = a.X2 is { } x2 ? $"({x2}, {a.Y2})" : "missing";
+		return $"area {a.Guid}: box point {a.PointRef} {first} to point {a.SecondPointRef} {second}";
+	}
+
 	private static string Label(int type, string? name) => name == null ? $"0x{type:x2}" : $"0x{type:x2} {name}";
 
 	private static string Cond(short guid, string? text, bool decode) =>

@@ -89,4 +89,3 @@ Deletion goes through `g_FlatObjDeleteQueue`. `Sim_FlushDeleteQueue` (`00409904`
 
 - **Open:** `bnd\FLAT.BND`, which ships beside the `FLAT2` pair, has not been examined.
 - **Open:** whether a RAZOR's shadows are ever placed. It carries the biped list, but its flight states' move is `Razor_MovementTick` ([`razor-flight.md`](razor-flight.md)), which does not call `Mech_PlaceLegsOnGround`; while it flies its shadows stay at their build depth.
-- **Unported:** a ground shape painting over an object filed under a cell the walk painted earlier, where the two overlap on screen.

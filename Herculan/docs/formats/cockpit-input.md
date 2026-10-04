@@ -475,6 +475,7 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 
 ## Open
 
+- **Unported:** the press flash. `WidgetRoot_FlashPress` (`00453078`) queues the widget a key or click pressed with a deadline 10 coarse ticks ahead, and `WidgetRoot_ServicePressFlashes` shows it pressed until then; `Widget_PressChild`, `AlertPanel_PressWidget` and `ControlsPanel_HandleEvent` queue it. A button pressed from the keyboard does not flash.
 - **Open:** whether the system buttons show and take clicks in the external view. `SystemButtons_PaintForPointer` runs at the end of every `Sim_RenderFrame` and `CockpitMouse_ProcessQueue` from every `Input_BuildPlayerDevice`, neither gated on view 4, but where view 4's canvas context puts a blit has not been traced.
 - **Open:** whether anything draws the `.DCI` cursor slots (§9). A search for the displacements `+0x226`, `+0x236` and `+0x23a` finds only the cursor-slot functions and `ColorSchemePanels_LoadAll`, and the image-change hooks they call are empty in driver 3.
 - **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).

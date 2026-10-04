@@ -1467,6 +1467,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// nothing else changes which shape it is drawn as — see Render.ShapeDetail.
 	var detailChains = new List<MechDetailChain>();
 
+	// Each machine's TSBSPPart groups, per LOD root, and the chain that says which root is drawn. A
+	// fitted weapon is painted in the turn of the hardpoint slot it is spliced into, which is a child
+	// of the drawn root's part -- see RefreshWeaponItems and Render.BspDrawGroup.
+	var machineBspGroups = new Dictionary<SimObject, List<BspDrawGroup>[]>();
+	var machineDetailChains = new Dictionary<SimObject, MechDetailChain>();
+
 	// Every drawn piece that is one level of a TSDetailPart, and so is on screen only while that part's
 	// projected size selects its level -- TSDetailPart_Render's choice, made per object per frame by
 	// SelectDetailLevels. Only what is built by cell or by node is here: a structure, its wreck and a
@@ -1479,6 +1485,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 	// And AddAtDetail's, for the one transient shape it is making items for.
 	var transientLevelChoice = new Dictionary<PartDetail, int>();
+
+	// And the BSP groups it makes for that shape's parts.
+	var transientBspGroups = new Dictionary<BspTree, BspDrawGroup>();
 
 	// And the same for a shape split by cell rather than by node -- a flyer, or a structure of one of the
 	// 57 types that carry no animation, which loses parts to damage but has no posed nodes. One upload
@@ -1671,6 +1680,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			if (segmentMeshes.ContainsKey(model.Key)) {
 				var subject = sceneObject.Object;
 				var rootItems = new SceneItem[detailRoots.Count][];
+				var rootBspGroups = new List<BspDrawGroup>[detailRoots.Count];
 
 				for (int root = 0; root < detailRoots.Count; root++) {
 					var rootModel = detailRoots[root];
@@ -1684,6 +1694,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 						: null;
 					var segmentItems = new SceneItem[segments.Length];
 
+					// A posed segment's node planes are in the nodes' posed frames.
+					var rootGroups = new Dictionary<BspTree, BspDrawGroup>();
+
 					for (int i = 0; i < segments.Length; i++) {
 						var segment = rootModel.Segments[i];
 						var part = new SceneItem(segments[i],
@@ -1691,6 +1704,16 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 							LightSubject = subject,
 							DetailSelected = root == 0
 						};
+
+						if (segment.Leaf is { } leaf) {
+							if (!rootGroups.TryGetValue(leaf.Tree, out var group)) {
+								rootGroups[leaf.Tree] = group = new BspDrawGroup(leaf.Tree,
+									frame => MissionScene.PosedTransformOf(subject, frame));
+							}
+
+							part.BspGroup = group;
+							part.BspLeaf = leaf.Index;
+						}
 
 						segmentItems[i] = part;
 						built.Add(part);
@@ -1709,10 +1732,17 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 					}
 
 					rootItems[root] = segmentItems;
+					rootBspGroups[root] = rootGroups.Values.ToList();
+				}
+
+				if (subject is MechObject) {
+					machineBspGroups[subject] = rootBspGroups;
 				}
 
 				if (sceneObject.Detail is { } chain && rootItems.Length > 1) {
-					detailChains.Add(new MechDetailChain(subject, chain.ShapeRadius, rootItems));
+					var detailChain = new MechDetailChain(subject, chain.ShapeRadius, rootItems);
+					detailChains.Add(detailChain);
+					machineDetailChains[subject] = detailChain;
 				}
 
 				// Nothing here goes in `movers`: the posed refresh carries the object's own frame in
@@ -1733,11 +1763,13 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			// are already placed, so only the gate differs between them.
 			if (cellMeshes.TryGetValue(model.Key, out var cells)) {
 				var cellItems = new SceneItem[cells.Length];
+				var cellGroups = new Dictionary<BspTree, BspDrawGroup>();
 				for (int i = 0; i < cells.Length; i++) {
 					var cell = model.Cells[i];
 					var part = new SceneItem(cells[i], MissionScene.TransformOf(sceneObject), texture) {
 						LightSubject = sceneObject.Object
 					};
+					JoinBspGroup(part, cell.Leaf, cellGroups, sceneObject);
 
 					cellItems[i] = part;
 					built.Add(part);
@@ -1809,12 +1841,14 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 					&& cellMeshes.TryGetValue(hulk.Key, out var hulkCells)) {
 				uint? hulkTexture = modelTextures.TryGetValue(hulk.Key, out var hulkBound) ? hulkBound.Handle : null;
 				hulkItems = new (SceneItem, CellGate)[hulkCells.Length];
+				var hulkGroups = new Dictionary<BspTree, BspDrawGroup>();
 				for (int i = 0; i < hulkCells.Length; i++) {
 					var gate = hulk.Cells[i].Gate;
 					var hulkItem = new SceneItem(hulkCells[i], MissionScene.TransformOf(sceneObject), hulkTexture) {
 						LightSubject = structure,
 						Visible = false
 					};
+					JoinBspGroup(hulkItem, hulk.Cells[i].Leaf, hulkGroups, sceneObject);
 
 					hulkItems[i] = (hulkItem, gate);
 					built.Add(hulkItem);
@@ -1825,6 +1859,23 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			}
 
 			wreckable.Add((sceneObject, structure, structureItems, hulkItems, posed));
+		}
+
+		// A piece baked at the rest pose joins its object's group for the part it is a child of,
+		// whose planes sit at the rest pose in front of the object's own frame.
+		void JoinBspGroup(SceneItem item, BspLeaf? leaf, Dictionary<BspTree, BspDrawGroup> groups,
+				SceneObject owner) {
+			if (leaf is not { } child) {
+				return;
+			}
+
+			if (!groups.TryGetValue(child.Tree, out var group)) {
+				groups[child.Tree] = group = BspDrawGroup.AtRest(child.Tree,
+					() => MissionScene.TransformOf(owner));
+			}
+
+			item.BspGroup = group;
+			item.BspLeaf = child.Index;
 		}
 
 		// A unit whose group is still waiting on its arrival action is not in the mission, and
@@ -4670,15 +4721,21 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// mesh; one with them is its ungated pieces plus the level of each detail part TSDetailPart_Render
 	// (004768bc) selects under `bias`, chosen here as the item is made because that is when the
 	// original chooses it.
+	//
+	// A piece built under a TSBSPPart joins a group for that part, made for this one draw, whose planes
+	// sit at the rest pose in front of `transform`. With `slot` the whole shape is painted in the turn
+	// of that child of another group -- a weapon in its machine's hardpoint slot.
 	void AddAtDetail(List<SceneItem> into, SceneModel model, Matrix4x4 transform, int bias,
-			Func<GpuMesh, SceneItem> make) {
+			Func<GpuMesh, SceneItem> make, (BspDrawGroup Group, int Leaf)? slot = null) {
 		if (!cellMeshes.TryGetValue(model.Key, out var pieces)) {
 			if (modelMeshes.TryGetValue(model.Key, out var mesh)) {
-				into.Add(make(mesh));
+				into.Add(InSlot(make(mesh)));
 			}
 
 			return;
 		}
+
+		transientBspGroups.Clear();
 
 		int focalPixels = DetailFocalPixels();
 		var eye = WorldScale.ToRender(camera.Position);
@@ -4697,7 +4754,29 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				}
 			}
 
-			into.Add(make(pieces[i]));
+			var item = make(pieces[i]);
+			if (model.Cells[i].Leaf is { } leaf) {
+				if (!transientBspGroups.TryGetValue(leaf.Tree, out var group)) {
+					transientBspGroups[leaf.Tree] = group = BspDrawGroup.AtRest(leaf.Tree, () => transform,
+						slot?.Group, slot?.Leaf ?? -1);
+				}
+
+				item.BspGroup = group;
+				item.BspLeaf = leaf.Index;
+			} else {
+				InSlot(item);
+			}
+
+			into.Add(item);
+		}
+
+		SceneItem InSlot(SceneItem item) {
+			if (slot is { } parent) {
+				item.BspGroup = parent.Group;
+				item.BspLeaf = parent.Leaf;
+			}
+
+			return item;
 		}
 	}
 
@@ -4954,9 +5033,32 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 					mesh => new SceneItem(mesh, transform, texture) {
 						LightSubject = mech,
 						Filing = ObjectEntry(mech),
-					});
+					}, HardpointSlot(mech, mount));
 			}
 		}
+	}
+
+	// The child of the machine's drawn root that a mount's shape is spliced into, so the walk paints the
+	// gun in that child's turn: Mech_SpliceHardpointShapes (004030d0) writes it over the slot part, and
+	// TSBSPPart_RenderNode (00476a1c) reaches it there. A slot the walk never reaches leaves its gun
+	// undrawn, as the original does. Null for a root whose part has no such child.
+	(BspDrawGroup Group, int Leaf)? HardpointSlot(MechObject mech, WeaponMount mount) {
+		if (!machineBspGroups.TryGetValue(mech, out var roots)) {
+			return null;
+		}
+
+		int root = machineDetailChains.TryGetValue(mech, out var chain) ? chain.Active : 0;
+		if (root < 0 || root >= roots.Length || roots[root] is not { } groups) {
+			return null;
+		}
+
+		foreach (var group in groups) {
+			if (group.Tree.TryGetLeafOfPart(mount.HardpointBoneId, out int leaf)) {
+				return (group, leaf);
+			}
+		}
+
+		return null;
 	}
 
 	// One item per live projectile, from the shape its PROJ.DAT subtype names — see

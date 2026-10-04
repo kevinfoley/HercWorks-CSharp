@@ -102,6 +102,16 @@ public sealed class SceneItem {
 	/// different rows of the theater ramp, and only the terrain's is fogged through it.
 	/// </summary>
 	public bool GroundFill { get; set; }
+
+	/// <summary>
+	/// The <c>TSBSPPart</c> this item draws a child of, or null for geometry under none — see
+	/// <see cref="BspDrawGroup"/>. The renderer paints a group's items together, in the tree's order
+	/// for the eye, rather than where the item list puts them.
+	/// </summary>
+	public BspDrawGroup? BspGroup { get; set; }
+
+	/// <summary>Which child of <see cref="BspGroup"/> — the <see cref="BspLeaf.Index"/> its geometry was built under.</summary>
+	public int BspLeaf { get; set; }
 }
 
 /// <summary>
@@ -185,7 +195,33 @@ public sealed class SceneRenderer : IDisposable {
 
 		_gl.Enable(EnableCap.DepthTest);
 		_gl.DepthFunc(DepthFunction.Less);
+
+		// The default framebuffer's stencil, which BSP children are painted through — see
+		// DrawBspGroup. EngineWindow asks for eight bits.
+		_gl.GetFramebufferAttachmentParameter(GLEnum.Framebuffer, GLEnum.Stencil,
+			GLEnum.FramebufferAttachmentStencilSize, out int stencilBits);
+		_stencilBits = stencilBits;
+		if (stencilBits == 0) {
+			Console.Error.WriteLine(
+				"WARNING: the framebuffer has no stencil buffer; a BSP part's children are drawn " +
+				"on the depth test alone, so a later child does not reliably cover an earlier one.");
+		}
 	}
+
+	/// <summary>How many stencil bits the framebuffer has; zero leaves BSP children painted without one.</summary>
+	private readonly int _stencilBits;
+
+	/// <summary>Numbers <see cref="Render"/>'s passes, so a <see cref="BspDrawGroup"/> knows when to forget the last one.</summary>
+	private int _pass;
+
+	/// <summary>The top-level BSP groups a pass has touched, in the order it first touched them.</summary>
+	private readonly List<BspDrawGroup> _bspRoots = new();
+
+	/// <summary>The stencil value the pass has handed out last — see DrawBspGroup.</summary>
+	private int _stencilUsed;
+
+	/// <summary>Whether this pass has cleared the stencil yet. It does so before its first group.</summary>
+	private bool _stencilCleared;
 
 	/// <summary>
 	/// Direction the sun's light travels, in render space — <see cref="MissionSun.Direction"/>.
@@ -508,14 +544,135 @@ public sealed class SceneRenderer : IDisposable {
 			_gl.Enable(EnableCap.DepthTest);
 		}
 
+		// A child of a BSP part is held back and painted with the rest of its part, in the walk's order
+		// — see DrawBspGroup.
+		int pass = ++_pass;
+		var eyeWorld = WorldScale.ToRender(camera.Position);
+		_bspRoots.Clear();
+		_stencilCleared = false;
+
 		foreach (var item in items) {
-			if (ground == null || !ReferenceEquals(item, ground.Terrain)) {
+			if (ground != null && ReferenceEquals(item, ground.Terrain)) {
+				continue;
+			}
+
+			if (item.BspGroup is { } group) {
+				if (Drawn(item) && item.BspLeaf >= 0 && item.BspLeaf < group.Tree.LeafCount) {
+					Touch(group).Items[item.BspLeaf].Add(item);
+				}
+			} else {
 				Draw(item);
 			}
 		}
 
+		foreach (var root in _bspRoots) {
+			DrawBspGroup(root);
+		}
+
+		// Readies a group for this pass the first time the pass reaches it, and files it under the
+		// child of its parent it is drawn inside, or as a top-level group.
+		BspDrawGroup Touch(BspDrawGroup group) {
+			if (group.Pass != pass) {
+				group.BeginPass(pass, eyeWorld);
+				if (group.Parent is { } parent && group.ParentLeaf >= 0
+						&& group.ParentLeaf < parent.Tree.LeafCount) {
+					Touch(parent).Children[group.ParentLeaf].Add(group);
+				} else {
+					_bspRoots.Add(group);
+				}
+			}
+
+			return group;
+		}
+
+		// The original paints a TSBSPPart's children one after another in its tree's order, back to
+		// front from the eye, with no depth buffer: wherever two children overlap on screen, the one
+		// the walk reaches later is what shows, whichever is nearer. That is docs/formats/
+		// dts-texture-binding.md's "TSBSPPart child selection". The rest of this scene is depth-
+		// buffered, between objects and between the polys of one child, so the part's own order is
+		// laid over the depth test with the stencil buffer:
+		//
+		// - The children are drawn in REVERSE paint order, each with its own stencil value, the
+		//   later-painted child the higher value, and a fragment passes only where the stencil holds
+		//   no more than its child's value (GEQUAL), writing that value where it lands. A child the
+		//   original paints later has therefore already claimed every pixel it covers, and nothing
+		//   painted before it can land there, nearer or not.
+		// - Within one child the depth test alone decides, and against the rest of the scene too.
+		//
+		// A coplanar marking or insignia in a later child wins its pixels outright, with no depth
+		// precision involved. Polygon offset by walk rank or a depth-equal test would only settle
+		// exact ties; retail's later child also covers an earlier one that is genuinely nearer
+		// wherever a part's planes do not separate its children, and only the painted order
+		// reproduces that.
+		//
+		// A group drawn inside a child (a weapon in its hardpoint slot) takes stencil values under
+		// that child's own and is painted in its turn, so it stands to the machine's other children
+		// exactly as that child does. Values are handed out in increasing blocks over the pass, so
+		// a later group always passes over an earlier one's marks; the stencil is cleared before the
+		// first group of a pass and whenever the eight bits run out. With no stencil buffer the
+		// children are drawn in paint order on the depth test alone.
+		void DrawBspGroup(BspDrawGroup root) {
+			int span = root.StencilSpan();
+			int maxValue = _stencilBits >= 8 ? 255 : (1 << _stencilBits) - 1;
+			if (span > maxValue) {
+				DrawPainted(root);
+				return;
+			}
+
+			if (!_stencilCleared || _stencilUsed + span > maxValue) {
+				_gl.ClearStencil(0);
+				_gl.Clear(ClearBufferMask.StencilBufferBit);
+				_stencilCleared = true;
+				_stencilUsed = 0;
+			}
+
+			_gl.Enable(EnableCap.StencilTest);
+			_gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+			DrawStenciled(root, _stencilUsed + span);
+			_gl.Disable(EnableCap.StencilTest);
+			_stencilUsed += span;
+		}
+
+		// Paints a group's children from the last-painted to the first, the child at `top` and the
+		// ones before it below, each child's nested groups under its own value.
+		void DrawStenciled(BspDrawGroup group, int top) {
+			int count = group.Tree.PaintOrder(group.EyeInFrame, group.Order);
+			for (int k = count - 1; k >= 0; k--) {
+				int leaf = group.Order[k];
+				_gl.StencilFunc(StencilFunction.Gequal, top, 0xff);
+				foreach (var item in group.Items[leaf]) {
+					Draw(item);
+				}
+
+				int below = top - 1;
+				foreach (var child in group.Children[leaf]) {
+					DrawStenciled(child, below);
+					below -= child.StencilSpan();
+				}
+
+				top -= group.ChildSpan(leaf);
+			}
+		}
+
+		void DrawPainted(BspDrawGroup group) {
+			int count = group.Tree.PaintOrder(group.EyeInFrame, group.Order);
+			for (int k = 0; k < count; k++) {
+				int leaf = group.Order[k];
+				foreach (var child in group.Children[leaf]) {
+					DrawPainted(child);
+				}
+
+				foreach (var item in group.Items[leaf]) {
+					Draw(item);
+				}
+			}
+		}
+
+		bool Drawn(SceneItem item) =>
+			item.Visible && item.DetailSelected && item.Filing is not { Drawn: false };
+
 		void Draw(SceneItem item) {
-			if (!item.Visible || !item.DetailSelected || item.Filing is { Drawn: false }) {
+			if (!Drawn(item)) {
 				return;
 			}
 

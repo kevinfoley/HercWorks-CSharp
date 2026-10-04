@@ -106,6 +106,12 @@ public sealed class WeaponMount {
 	private readonly GunLayout.HardpointEntry _hardpoint;
 	private short _refireTimer;
 
+	/// <summary>
+	/// The part id of the hardpoint attachment slot this mount's shape is spliced into — see
+	/// <see cref="Render.DtsMeshBuilder.AttachmentPartIds"/>.
+	/// </summary>
+	public short HardpointBoneId => _hardpoint.BoneId;
+
 	/// <summary><c>mount+0x24</c> and <c>+0x28</c> — see <see cref="ConvergeOnRange"/>.</summary>
 	private short _convergePitch;
 

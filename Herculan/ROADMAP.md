@@ -9,7 +9,6 @@ Each entry names the doc that owns the subject. **That doc is authoritative** fo
 The mechanism is understood; what is left is engine work.
 
 - **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that compact their node numbering — the crudest one to three of each chassis — are excluded, because drawing them puts APOCA's upper body on a knee. The original composes every root through root 0's pose array too, so by the binary it should do the same; retail does not visibly do so, and what reconciles that is not yet found. **Settle that before changing anything here**: it decides whether the truncation is a divergence to lift or retail behaviour to match. → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md#the-pose-array-is-root-0s)
-- **The `TSBSPPart` walk's back-to-front draw order.** → [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md#open)
 - **A ground shape does not paint over an object drawn earlier where they overlap.** Retail paints a cell's ground shapes after every object filed under a cell its walk painted before. → [`docs/simulation/ground-shapes.md`](docs/simulation/ground-shapes.md#open)
 - **A throttle lever bound to the turret pair pitching the turret while the camera has the controls.** → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md#open)
 - **The `.hmp` MIDI path and reading `SOUND.CFG`.** → [`docs/formats/audio.md`](docs/formats/audio.md#open)

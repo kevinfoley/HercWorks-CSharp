@@ -114,6 +114,8 @@ replacement[+6] = (*slot)[+6];                             // inherit the part i
 
 The invisible mounting has to be excluded on its own merits, not merely for tidiness: SAMSON's bone 5 carries a real torso part, and splicing it would delete the machine's middle.
 
+**Every retail slot is a direct child of its root's `TSBSPPart`**, so the walk paints the spliced shape in that child's turn, ordered against the machine's other children as the slot was ([`dts-texture-binding.md`](dts-texture-binding.md#tsbsppart-child-selection)). `HYPERION.DTS` root 5's slot for part 66 is the child its tree never reaches, so that root draws no gun there.
+
 On most chassis the placeholders are recognisable in isolation — flat, two-sided, untextured, every slot of their surface record `0/1024` — but **the PITBULL's is an ordinary-looking `TSGroup`**, so that signature is a description of the usual case and not the rule.
 
 ## A destroyed component hides its own geometry
@@ -144,4 +146,5 @@ The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every dr
 
 ## Open
 
+- **Open:** what `MechType_BindHardpointSlots` stores for a hardpoint whose part id a root does not carry, and so whether that root draws the gun. `SAMSON.DTS` roots 3-6, `COLOSSUS.DTS` roots 5 and 6, `OGRE.DTS` roots 4-6 and `OUTLAW.DTS` root 6 each lack one or more of their chassis' slot ids.
 - **Open:** what reconciles the compacted-root pose displacement (see [The pose array is root 0's](#the-pose-array-is-root-0s)) with observed retail behaviour, which shows no displaced upper body at the lowest HERC DETAIL setting.

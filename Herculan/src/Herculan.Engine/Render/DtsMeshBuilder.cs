@@ -67,8 +67,9 @@ public readonly record struct CellGate(short Sequence, short Frame, PartDetail? 
 /// upload — see <see cref="MeshBuild"/>.</param>
 /// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
 /// <param name="PointVertexCount">How many trailing vertices are points — see <see cref="MeshBuild"/>.</param>
+/// <param name="Leaf">The <see cref="TSBSPPart"/> child this segment is, or null — see <see cref="BspLeaf"/>.</param>
 public readonly record struct MeshSegment(int TransformId, CellGate Gate, MeshVertex[] Vertices,
-	int TriangleVertexCount, int PointVertexCount = 0);
+	int TriangleVertexCount, int PointVertexCount = 0, BspLeaf? Leaf = null);
 
 /// <summary>
 /// One cell's share of a shape's geometry, at the rest pose <see cref="DtsMeshBuilder.BuildRoot"/>
@@ -80,8 +81,9 @@ public readonly record struct MeshSegment(int TransformId, CellGate Gate, MeshVe
 /// <param name="Vertices">Triangles, outline edges then points, placed, ready to upload.</param>
 /// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
 /// <param name="PointVertexCount">How many trailing vertices are points — see <see cref="MeshBuild"/>.</param>
+/// <param name="Leaf">The <see cref="TSBSPPart"/> child this piece is, or null — see <see cref="BspLeaf"/>.</param>
 public readonly record struct MeshCell(CellGate Gate, MeshVertex[] Vertices, int TriangleVertexCount,
-	int PointVertexCount = 0);
+	int PointVertexCount = 0, BspLeaf? Leaf = null);
 
 /// <summary>
 /// A built mesh: filled triangles first, then the outline edges that are drawn over them as lines,
@@ -123,9 +125,9 @@ public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVerte
 /// a software rasterizer inside a Windows-only WinForms tool, while this produces GPU vertices and
 /// must stay clear of System.Drawing so the engine keeps building for Linux/macOS (see
 /// docs/engine/planning.md's target-platform decision). The tree-walking rules are the same but for
-/// one, the <see cref="TSBSPPart"/> walk (<see cref="ReachableParts"/>), which only this side
-/// follows; each rule below is annotated with what the UI builder established — worth keeping the
-/// two in sync if either side changes.</para>
+/// one, the <see cref="TSBSPPart"/> walk (<see cref="ReachableLeaves"/>, <see cref="BspTree"/>),
+/// which only this side follows; each rule below is annotated with what the UI builder established —
+/// worth keeping the two in sync if either side changes.</para>
 ///
 /// <para>Every poly resolves a surface pair <b>per side</b>, and the side the eye is on picks one per
 /// frame in the shader — see <see cref="ResolveSide"/> and <see cref="MeshVertex.Side"/>. Below,
@@ -200,6 +202,9 @@ public static class DtsMeshBuilder {
 
 		/// <summary>The cell-animation cell this triangle stands on — see <see cref="CellGate"/>.</summary>
 		public CellGate Gate { get; }
+
+		/// <summary>The <see cref="TSBSPPart"/> child this triangle was built under, or null.</summary>
+		public BspLeaf? Leaf { get; init; }
 
 		public Vector3 Color { get; }
 		public Vector2 UvA { get; }
@@ -364,6 +369,9 @@ public static class DtsMeshBuilder {
 		/// <inheritdoc cref="Triangle.Gate" />
 		public CellGate Gate { get; }
 
+		/// <inheritdoc cref="Triangle.Leaf" />
+		public BspLeaf? Leaf { get; init; }
+
 		/// <summary>The poly this edge belongs to — see <see cref="Triangle.PolyId"/>.</summary>
 		public int PolyId { get; }
 	}
@@ -402,6 +410,12 @@ public static class DtsMeshBuilder {
 		/// cell-animation child and each detail level. <see cref="CellGate.Ungated"/> everywhere else.
 		/// </summary>
 		public CellGate Gate { get; set; } = CellGate.Ungated;
+
+		/// <summary>
+		/// The <see cref="TSBSPPart"/> child the walk is currently inside, pushed and restored around
+		/// each one, or null outside every part.
+		/// </summary>
+		public BspLeaf? Leaf { get; set; }
 
 		private int _nextPolyId;
 
@@ -633,7 +647,7 @@ public static class DtsMeshBuilder {
 	}
 
 	private static MeshBuild Emit(Collector sink) {
-		var kept = DropCoincidentTwins(sink.Triangles);
+		var kept = DropCoincidentTwins(sink.Triangles, leavesApart: false);
 		var edges = SurvivingOutlines(kept, sink.Outlines);
 		var points = sink.Points;
 
@@ -724,31 +738,34 @@ public static class DtsMeshBuilder {
 			outlineFillRamp: edge.OutlineFillRamp);
 
 	/// <summary>
-	/// The surviving triangles grouped by the node that places them and the cell they stand on, each
-	/// in that node's own space. Pieces come back in ascending transform id, then sequence, then
-	/// frame, which is only for stable output — nothing reads the order.
+	/// The surviving triangles grouped by the node that places them, the cell they stand on and the
+	/// <see cref="TSBSPPart"/> child they belong to, each in that node's own space. Pieces come back
+	/// in ascending transform id, then sequence, then frame, then child, which is only for stable
+	/// output — nothing reads the order.
 	/// </summary>
 	private static MeshSegment[] EmitSegments(Collector sink) =>
 		Partition(sink, local: true, (key, vertices, triangleVertices, pointVertices) =>
-			new MeshSegment(key.TransformId, key.Gate, vertices, triangleVertices, pointVertices));
+			new MeshSegment(key.TransformId, key.Gate, vertices, triangleVertices, pointVertices, key.Leaf));
 
 	/// <summary>
-	/// The same split by cell alone, at the baked rest pose <see cref="Emit"/> writes — for a shape
-	/// whose cells the simulation drives but whose nodes nothing poses. See <see cref="MeshCell"/>.
+	/// The same split by cell and <see cref="TSBSPPart"/> child alone, at the baked rest pose
+	/// <see cref="Emit"/> writes — for a shape whose cells the simulation drives but whose nodes
+	/// nothing poses. See <see cref="MeshCell"/>.
 	/// </summary>
 	private static MeshCell[] EmitCells(Collector sink) =>
 		Partition(sink, local: false, (key, vertices, triangleVertices, pointVertices) =>
-				new MeshCell(key.Gate, vertices, triangleVertices, pointVertices))
-			.GroupBy(cell => cell.Gate)
+				new MeshCell(key.Gate, vertices, triangleVertices, pointVertices, key.Leaf))
+			.GroupBy(cell => (cell.Gate, cell.Leaf))
 			.Select(MergeCells)
 			.ToArray();
 
 	/// <summary>
 	/// One cell's geometry from however many nodes carried it. <see cref="Partition"/> keys on the
 	/// node as well because a segment needs it; a cell placed at the rest pose does not, so the
-	/// node's share of one cell is folded back together into a single piece.
+	/// node's share of one cell is folded back together into a single piece. A BSP part's children
+	/// stay apart, because the renderer orders them.
 	/// </summary>
-	private static MeshCell MergeCells(IGrouping<CellGate, MeshCell> pieces) {
+	private static MeshCell MergeCells(IGrouping<(CellGate Gate, BspLeaf? Leaf), MeshCell> pieces) {
 		var parts = pieces.ToArray();
 		if (parts.Length == 1) {
 			return parts[0];
@@ -776,22 +793,22 @@ public static class DtsMeshBuilder {
 			atPoint += part.PointVertexCount;
 		}
 
-		return new MeshCell(pieces.Key, vertices, triangleVertices, pointVertices);
+		return new MeshCell(pieces.Key.Gate, vertices, triangleVertices, pointVertices, pieces.Key.Leaf);
 	}
 
 	/// <summary>
 	/// The shared split behind <see cref="EmitSegments"/> and <see cref="EmitCells"/>: survivors
-	/// bucketed by node and cell, each bucket emitted as triangles, then the outline edges and then
-	/// the points belonging to the same bucket.
+	/// bucketed by node, cell and <see cref="TSBSPPart"/> child, each bucket emitted as triangles,
+	/// then the outline edges and then the points belonging to the same bucket.
 	/// </summary>
 	private static T[] Partition<T>(Collector sink, bool local,
-			Func<(int TransformId, CellGate Gate), MeshVertex[], int, int, T> make) {
-		var kept = DropCoincidentTwins(sink.Triangles);
+			Func<PieceKey, MeshVertex[], int, int, T> make) {
+		var kept = DropCoincidentTwins(sink.Triangles, leavesApart: true);
 		var edges = SurvivingOutlines(kept, sink.Outlines);
 
-		var byNode = new Dictionary<(int, CellGate), List<Triangle>>();
+		var byNode = new Dictionary<PieceKey, List<Triangle>>();
 		foreach (var triangle in kept) {
-			var key = (triangle.TransformId, triangle.Gate);
+			var key = new PieceKey(triangle.TransformId, triangle.Gate, triangle.Leaf);
 			if (!byNode.TryGetValue(key, out var list)) {
 				byNode[key] = list = new List<Triangle>();
 			}
@@ -806,7 +823,8 @@ public static class DtsMeshBuilder {
 		var pointsByNode = ByNode(sink.Points);
 
 		var keys = byNode.Keys.Concat(edgesByNode.Keys).Concat(pointsByNode.Keys).Distinct()
-			.OrderBy(key => key.Item1).ThenBy(key => key.Item2.Sequence).ThenBy(key => key.Item2.Frame)
+			.OrderBy(key => key.TransformId).ThenBy(key => key.Gate.Sequence).ThenBy(key => key.Gate.Frame)
+			.ThenBy(key => key.Leaf?.Index ?? -1)
 			.ToArray();
 		var pieces = new T[keys.Length];
 		int next = 0;
@@ -836,10 +854,13 @@ public static class DtsMeshBuilder {
 		return pieces;
 	}
 
-	private static Dictionary<(int, CellGate), List<OutlineEdge>> ByNode(List<OutlineEdge> edges) {
-		var byNode = new Dictionary<(int, CellGate), List<OutlineEdge>>();
+	/// <summary>What <see cref="Partition"/> buckets by.</summary>
+	private readonly record struct PieceKey(int TransformId, CellGate Gate, BspLeaf? Leaf);
+
+	private static Dictionary<PieceKey, List<OutlineEdge>> ByNode(List<OutlineEdge> edges) {
+		var byNode = new Dictionary<PieceKey, List<OutlineEdge>>();
 		foreach (var edge in edges) {
-			var key = (edge.TransformId, edge.Gate);
+			var key = new PieceKey(edge.TransformId, edge.Gate, edge.Leaf);
 			if (!byNode.TryGetValue(key, out var list)) {
 				byNode[key] = list = new List<OutlineEdge>();
 			}
@@ -932,6 +953,12 @@ public static class DtsMeshBuilder {
 	/// discarding either would lose a state the part can be in. Two levels of one detail part are
 	/// alternatives in the same way, so the detail level is in the key too.</para>
 	///
+	/// <para><b>So is the <see cref="TSBSPPart"/> child</b>, with <paramref name="leavesApart"/>:
+	/// twins in two children of one part are ordered by the part's walk, which the renderer
+	/// reproduces for pieces split by child, so neither is dropped there. The single flat mesh
+	/// <see cref="Emit"/> builds keeps no children apart and nothing orders them, so it still keeps
+	/// one twin.</para>
+	///
 	/// <para><b>So is the side each twin is seen from.</b> A copy that draws one side only
 	/// (<see cref="Triangle.Side"/>) never meets a twin drawn only from the other, and most coincident
 	/// pairs in the retail files are exactly that — two one-sided faces back to back, one per side of a
@@ -939,8 +966,8 @@ public static class DtsMeshBuilder {
 	/// and keeps the sides it wins: a two-sided copy that wins one side and loses the other goes on
 	/// drawing that one side alone.</para>
 	/// </summary>
-	private static List<Triangle> DropCoincidentTwins(List<Triangle> triangles) {
-		var winners = new Dictionary<((int, int, int, int, int, int), CellGate, int), int>();
+	private static List<Triangle> DropCoincidentTwins(List<Triangle> triangles, bool leavesApart) {
+		var winners = new Dictionary<((int, int, int, int, int, int), CellGate, BspLeaf?, int), int>();
 		var keys = new ((int, int, int, int, int, int) Surface, int FrontFacing)[triangles.Count];
 
 		for (int i = 0; i < triangles.Count; i++) {
@@ -967,7 +994,7 @@ public static class DtsMeshBuilder {
 				Vector3.Dot(triangle.FaceNormal ?? -normal, axis) >= 0f ? 1 : -1);
 
 			foreach (int side in SidesOf(triangle.Side)) {
-				var key = (keys[i].Surface, triangle.Gate, keys[i].FrontFacing * side);
+				var key = (keys[i].Surface, triangle.Gate, leavesApart ? triangle.Leaf : null, keys[i].FrontFacing * side);
 
 				// A strictly better-ranked twin replaces the one already kept; ties go to the first seen.
 				if (!winners.TryGetValue(key, out int existing) || triangle.Rank > triangles[existing].Rank) {
@@ -981,7 +1008,7 @@ public static class DtsMeshBuilder {
 			var triangle = triangles[i];
 			int won = 0;
 			foreach (int side in SidesOf(triangle.Side)) {
-				if (winners[(keys[i].Surface, triangle.Gate, keys[i].FrontFacing * side)] == i) {
+				if (winners[(keys[i].Surface, triangle.Gate, leavesApart ? triangle.Leaf : null, keys[i].FrontFacing * side)] == i) {
 					won |= SideMask(side);
 				}
 			}
@@ -1061,7 +1088,7 @@ public static class DtsMeshBuilder {
 				break;
 
 			case TSBSPPart bspPart:
-				CollectParts(ReachableParts(bspPart), animList, sink, atlas, shading, cellFrame, hiddenPartIds);
+				CollectBspPart(bspPart, animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 				break;
 
 			case TSBSPGroup bspGroup:
@@ -1079,24 +1106,57 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// The children of a <see cref="TSBSPPart"/> its tree reaches, in file order — which is the whole
-	/// of what <c>TSBSPPart_Render</c> (<c>00476b0c</c>) draws: it walks the tree from node 0 through
+	/// A <see cref="TSBSPPart"/>'s children, each tagged with the part's <see cref="BspTree"/> and its
+	/// own index, so the renderer can paint them in the walk's order for the eye — see
+	/// <see cref="BspDrawGroup"/>. Only the children the tree reaches are built
+	/// (<see cref="ReachableLeaves"/>).
+	///
+	/// <para>A part inside a child of another would tag its geometry with the inner part's child
+	/// alone. No retail shape nests one part in another.</para>
+	/// </summary>
+	private static void CollectBspPart(TSBSPPart part, ANAnimList? animList, Collector sink,
+			TextureAtlas? atlas, SurfaceShading? shading, int cellFrame,
+			IReadOnlySet<short>? hiddenPartIds) {
+		if (part.Parts is not { } parts) {
+			return;
+		}
+
+		var tree = BspTree.From(part, frame => {
+			var offset = ResolveTransformOffset(frame, animList);
+			return WorldScale.DtsToRender(offset.X, offset.Y, offset.Z);
+		});
+
+		var outer = sink.Leaf;
+		foreach (int leaf in ReachableLeaves(part)) {
+			sink.Leaf = new BspLeaf(tree, leaf);
+			Collect(parts[leaf], animList, sink, atlas, shading, cellFrame, hiddenPartIds);
+		}
+
+		sink.Leaf = outer;
+	}
+
+	/// <summary>
+	/// The children of a <see cref="TSBSPPart"/> its tree reaches, in file order — the set
+	/// <c>TSBSPPart_Render</c> (<c>00476b0c</c>) draws: it walks the tree from node 0 through
 	/// <c>TSBSPPart_RenderNode</c> (<c>00476a1c</c>), and a child no node names is never drawn.
 	/// docs/formats/dts-texture-binding.md, "<c>TSBSPPart</c> child selection", lists the retail
 	/// shapes that carry one.
-	///
-	/// <para>The walk visits both sides of every node whichever side the eye is on, so the set is
-	/// fixed and the mesh can be built around it. The <i>order</i> the walk draws in, back to front
-	/// from the eye, is not reproduced: the depth buffer decides visibility here, as it does between
-	/// the polys of one group.</para>
+	/// </summary>
+	internal static TSObject[] ReachableParts(TSBSPPart part) =>
+		ReachableLeaves(part).Select(leaf => part.Parts![leaf]).ToArray();
+
+	/// <summary>
+	/// The indices of <see cref="ReachableParts"/>, ascending. The walk visits both sides of every
+	/// node whichever side the eye is on, so the set is fixed and the mesh can be built around it;
+	/// the order it paints them in is <see cref="BspTree.PaintOrder"/>'s, per frame.
 	///
 	/// <para>A tree with no nodes, or one whose links leave the node array or loop, is this engine's
 	/// own handling — no retail shape has either: an empty tree reaches nothing, and a link past the
 	/// array or back to a node already walked is not followed.</para>
 	/// </summary>
-	internal static TSObject[] ReachableParts(TSBSPPart part) {
+	internal static int[] ReachableLeaves(TSBSPPart part) {
 		if (part.Parts is not { Length: > 0 } parts || part.Nodes is not { Length: > 0 } nodes) {
-			return Array.Empty<TSObject>();
+			return Array.Empty<int>();
 		}
 
 		var reached = new bool[parts.Length];
@@ -1124,7 +1184,7 @@ public static class DtsMeshBuilder {
 			}
 		}
 
-		return parts.Where((_, i) => reached[i]).ToArray();
+		return Enumerable.Range(0, parts.Length).Where(i => reached[i]).ToArray();
 	}
 
 	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, Collector sink,
@@ -1440,7 +1500,7 @@ public static class DtsMeshBuilder {
 					UvAt(frame, i + 1) * weights.Item2,
 					UvAt(frame, i + 2) * weights.Item3,
 					faceNormal: face.Normal,
-					uvWeights: quadWeights == null ? default : weights));
+					uvWeights: quadWeights == null ? default : weights) { Leaf = sink.Leaf });
 			} else {
 				// The fan's corners are vertex-list slots 0, i+1 and i+2, and the normal list is
 				// parallel to it, so the same three slots index it.
@@ -1453,7 +1513,7 @@ public static class DtsMeshBuilder {
 					face, side, look.LitAsBack,
 					unlit: solid.HasValue, shadeRamp: look.ShadeRamp, vertexNormals: corners,
 					faceNormal: face.Normal,
-					solidPaletteIndex: solid?.FillIndex ?? -1));
+					solidPaletteIndex: solid?.FillIndex ?? -1) { Leaf = sink.Leaf });
 			}
 		}
 
@@ -1485,7 +1545,7 @@ public static class DtsMeshBuilder {
 		if (poly.VertexCount == 1) {
 			sink.Points.Add(new OutlineEdge(first, first, localFirst, localFirst, lineColor,
 				group.Transform, sink.Gate, polyId, face, side, standalone: true,
-				solidPaletteIndex: edgeIndex));
+				solidPaletteIndex: edgeIndex) { Leaf = sink.Leaf });
 			return;
 		}
 
@@ -1507,7 +1567,7 @@ public static class DtsMeshBuilder {
 				face, side, standalone: standalone,
 				solidPaletteIndex: edgeIndex,
 				shadeRamp: shadedOutline ? look.LineRamp : -1,
-				outlineFillRamp: shadedOutline ? look.ShadeRamp : -1));
+				outlineFillRamp: shadedOutline ? look.ShadeRamp : -1) { Leaf = sink.Leaf });
 		}
 	}
 
@@ -1521,7 +1581,14 @@ public static class DtsMeshBuilder {
 	/// against the built meshes' own bounds. Rotation is what an animated node acquires, and that
 	/// path applies it.</para>
 	/// </summary>
-	private static Vector3 ResolveGroupOffset(TSBasePart group, ANAnimList? animList) {
+	private static Vector3 ResolveGroupOffset(TSBasePart group, ANAnimList? animList) =>
+		ResolveTransformOffset(group.Transform, animList);
+
+	/// <summary>
+	/// <see cref="ResolveGroupOffset"/> for a transform id rather than a part's — where a
+	/// <see cref="TSBSPPart"/> node's plane sits at the rest pose (<see cref="BspTree.RestOffset"/>).
+	/// </summary>
+	private static Vector3 ResolveTransformOffset(int transformId, ANAnimList? animList) {
 		if (animList?.Relations == null || animList.Transforms == null || animList.DefaultTransforms == null) {
 			return Vector3.Zero;
 		}
@@ -1532,7 +1599,6 @@ public static class DtsMeshBuilder {
 		}
 
 		Vector3 offset = Vector3.Zero;
-		int transformId = group.Transform;
 
 		for (int step = 0; transformId != -1 && step < MaxTransformChainSteps; step++) {
 			if (transformId < 0 || transformId >= animList.DefaultTransforms.Length) {

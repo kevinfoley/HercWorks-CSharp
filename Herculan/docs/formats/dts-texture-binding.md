@@ -332,11 +332,14 @@ The centre is the stored one, not a corner, and it need not lie on the poly's pl
 
 ### `TSBSPPart` child selection
 
-**A `TSBSPPart`'s `Parts` array is a pool its BSP tree indexes into, not a list that is drawn in order.** `TSBSPPart_RenderNode` (`00476a1c`) walks the tree at `part+0x18` (14-byte nodes: an `int16` normal triple, an `int32` coefficient, then a front and a back `int16`), starting at node 0:
+**A `TSBSPPart`'s `Parts` array is a pool its BSP tree indexes into, not a list that is drawn in order.** `TSBSPPart_Render` (`00476b0c`) binds the part's own node (`TSGroup_BindNodeTransform`), copies `g_EyeInModelSpace` — the eye in that node's space — to `006bb36c`, and calls `TSBSPPart_RenderNode` (`00476a1c`) on node 0. That walks the tree at `part+0x18` (14-byte nodes: an `int16` normal triple, an `int32` coefficient, then a front and a back `int16`):
 
 ```
-d = dot(node.normal, viewOrigin) - node.coeff          // node+0x1c names a transform id;
-                                                       // -1 means the plane is untransformed
+t = transforms[node]                                   // part+0x1c, one int16 per node
+eye = t == -1 ? eyeInPartSpace                          // every retail part's own transform is -1: the object
+              : eyeInPartSpace brought into node t's space   // Transform_LocalPointDotNormal (004910b4) with
+                                                             // g_ShapeNodeWorldTransforms[t]
+d = dot(node.normal, eye) - node.coeff
 first, second = (d < 0) == maybe_g_DepthBufferEnabled ? (back, front) : (front, back)
 for each of first, second:
     if (value < 0)            draw nothing
@@ -344,7 +347,12 @@ for each of first, second:
     else                      recurse into node `value`
 ```
 
-So a child no node reaches is never drawn, and the tree is what orders back-to-front. Both sides of every node are walked whichever side the eye is on, so which children are drawn is fixed by the tree and only their order follows the eye.
+So a child no node reaches is never drawn. Both sides of every node are walked whichever side the eye is on, so which children are drawn is fixed by the tree and only their order follows the eye. With the depth-buffer flag at its image value of 0, the side of each plane the eye is on is painted last, an eye exactly on the plane counting as in front.
+
+**The order is the whole of the visibility between children.** With the depth buffer off, nothing tests depth, so wherever two children overlap on screen the one the walk reaches later is what shows, whichever is nearer. Retail data makes that visible two ways:
+
+- **Coplanar faces in two children.** 51 overlapping pairs of polys in different children lie in the plane that separates them, among them eight markings on a face of the `MECHWPNS.DTS` and `MECHWPN2.DTS` roots 5 and 6 at their finest level, panels on `STINGRAY.DTS` roots 0-2, `MIRIMAC.DTS` root 4, `TOMAHAWK.DTS` root 5 and `COLOSSUS.DTS` root 3, and the floor plates of `BASES_AN.DTS` roots 2 and 6. The child on the eye's side of that plane covers the other.
+- **Planes that do not separate their children.** At the rest pose, 422 of the 586 parts have a poly more than 1.5 units on the wrong side of a plane above it in the tree, so the later child is painted over a nearer earlier one where they overlap. Seen from 48 directions three bounding radii out, that covers up to 15% of the drawn pixels of `BASES_AN.DTS` root 5's level 3 from one direction, and over 1% in some direction for 57 parts.
 
 Retail data has unreached children. Of the 586 `TSBSPPart`s across the retail `.DTS` and `.DGS` files, every node is reached from node 0 and no child is named twice, but 15 leave children out:
 
@@ -449,7 +457,6 @@ Tracked in `KNOWN_ISSUES.md`.
 ## Open
 
 - **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `0047689c` has no reference `es2_xref.py` finds, which does not settle it. The image holds 1024.
-- **Unported:** the order the `TSBSPPart` walk draws a tree's children in, back to front from the eye ([`TSBSPPart` child selection](#tsbsppart-child-selection)).
 - **Open:** how DBSIM draws a `TSBSPGroup`. Its `TSGroup_RenderPolys` (`004758c8`) walks a plain group's polys in order.
 - **Open:** why retail grades the type-15 octagon's back facet; see [Type-15 band widths](#type-15-band-widths).
 - **Open:** what DBSIM draws for a back-facing three-vertex texture poly, where the back-face corner swap touches the unused slot 3.

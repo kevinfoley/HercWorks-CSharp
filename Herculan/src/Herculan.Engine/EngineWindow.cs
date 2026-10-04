@@ -43,6 +43,8 @@ public sealed class EngineWindow : IDisposable {
 			// depth buffer fails silently: depth testing simply does nothing and the scene renders
 			// as whatever was drawn last, which is a confusing symptom to chase.
 			PreferredDepthBufferBits = 24,
+			// What SceneRenderer paints a TSBSPPart's children in the original's order through.
+			PreferredStencilBufferBits = 8,
 		};
 
 		_window = Window.Create(options);

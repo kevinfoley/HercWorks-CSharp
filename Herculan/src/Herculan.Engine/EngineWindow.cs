@@ -122,6 +122,27 @@ public sealed class EngineWindow : IDisposable {
 
 	private nint _fullScreenMonitor;
 
+	/// <summary>
+	/// <see cref="ToggleFullScreen()"/> with the pointer confined to the window and centred in it on the way
+	/// into full screen, as both retail toggles do it, and released on the way out. VSHELL's
+	/// <c>Display_ToggleFullScreen</c> (<c>00407085</c>) and DBSIM's <c>Video_ToggleFullscreen</c>
+	/// (<c>004666c4</c>) each <c>ClipCursor</c> the pointer to the new display mode's screen and
+	/// <c>SetCursorPos</c> it to the middle (docs/shell/screen-layout.md, "Full screen asks first";
+	/// docs/formats/cockpit-input.md, "The two system buttons").
+	/// </summary>
+	/// <param name="pointer">The window's mouse, or null when it has none.</param>
+	public void ToggleFullScreen(IMouse? pointer) {
+		ToggleFullScreen();
+		if (pointer?.Cursor is { } cursor) {
+			cursor.IsConfined = FullScreen;
+		}
+
+		if (FullScreen && pointer != null) {
+			var client = ClientSize;
+			pointer.Position = new System.Numerics.Vector2(client.X / 2, client.Y / 2);
+		}
+	}
+
 	/// <summary>The monitor whose area holds the window's centre, or the primary one when none does.</summary>
 	private static unsafe Silk.NET.GLFW.Monitor* MonitorUnderWindow(Glfw glfw, WindowHandle* handle) {
 		glfw.GetWindowPos(handle, out int x, out int y);

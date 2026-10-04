@@ -3370,6 +3370,53 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
+	/// The two system buttons, each blitted at its rect's origin on the 640x480 screen while
+	/// <see cref="SystemButtons.Showing"/> — <c>SystemGadget_Paint</c> (<c>00434748</c>)'s state-0 arm. Its
+	/// state-3 arm puts back the pixels the blit covered, which here is drawing nothing. The caller
+	/// draws this over the cockpit and under any modal panel, as <c>Sim_RenderFrame</c>'s last call.
+	/// </summary>
+	/// <param name="showing">Which buttons are showing, indexed by <see cref="SystemButton"/>.</param>
+	public void DrawSystemButtons(int windowWidth, int windowHeight, GpuTexture spriteTexture,
+			HudSpriteSheet sprites, ReadOnlySpan<bool> showing) {
+		ArgumentNullException.ThrowIfNull(spriteTexture);
+		ArgumentNullException.ThrowIfNull(sprites);
+
+		var place = SystemButtons.Place(windowWidth, windowHeight);
+		_vertices.Clear();
+
+		for (int i = 0; i < SystemButtons.Count && i < showing.Length; i++) {
+			var button = (SystemButton)i;
+			if (!showing[i] || sprites.Sprite(SystemButtons.Bank, SystemButtons.Frame(button)) is not
+					{ Width: > 0, Height: > 0 } sprite) {
+				continue;
+			}
+
+			var rect = SystemButtons.Rect(button);
+			var (x0, y0) = place.ToWindow(rect.X0, rect.Y0);
+			var (x1, y1) = place.ToWindow(rect.X0 + sprite.Width * sprite.Scale, rect.Y0 + sprite.Height * sprite.Scale);
+			var r = sprite.Rect;
+			AddTexturedQuad(x0, y0, x1, y1, r.U0, r.V0, r.U1, r.V1);
+		}
+
+		if (_vertices.Count == 0) {
+			return;
+		}
+
+		_gl.Viewport(0, 0, (uint)Math.Max(windowWidth, 1), (uint)Math.Max(windowHeight, 1));
+		_gl.Disable(EnableCap.DepthTest);
+		_gl.Enable(EnableCap.Blend);
+		_gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+		_shader.Use();
+		_shader.SetVector2("uViewportSize", new Vector2(windowWidth, windowHeight));
+		_shader.SetSamplerTexture("uTexture", spriteTexture.Handle, 0);
+		_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+
+		_gl.Disable(EnableCap.Blend);
+		_gl.Enable(EnableCap.DepthTest);
+	}
+
+	/// <summary>
 	/// The caption font for a panel button in widget state 0-3 — <c>PanelButton_Ctor</c>'s own
 	/// four-entry table at <c>+0x40</c>: ACTIVE at rest, PUSHED held, INACTIVE disabled, and ACTIVE
 	/// again for the fourth state. The controls panel is the only one this engine draws that reaches

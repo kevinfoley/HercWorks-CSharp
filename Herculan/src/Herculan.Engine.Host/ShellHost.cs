@@ -1330,17 +1330,7 @@ static class ShellHost {
 		// its current mode (EngineWindow.ToggleFullScreen), with the canvas scaled into it as it is in a
 		// window — a divergence the user chose, so that no display mode changes. The pointer is confined and
 		// centred as retail's is.
-		void ToggleFullScreen() {
-			window.ToggleFullScreen();
-			if (mouse?.Cursor is { } cursor) {
-				cursor.IsConfined = window.FullScreen;
-			}
-
-			if (window.FullScreen && mouse != null) {
-				var client = window.ClientSize;
-				mouse.Position = new System.Numerics.Vector2(client.X / 2, client.Y / 2);
-			}
-		}
+		void ToggleFullScreen() => window.ToggleFullScreen(mouse);
 
 		// MainWndProc (00404a2c)'s display keys, each gated on no movie playing and the startup sequence
 		// being over. Alt+Enter toggles full screen on the Enter key's release;

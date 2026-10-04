@@ -256,3 +256,4 @@ That function also carries an arm that zeroes the block, taken when the capabili
 ## Open
 
 - **Open:** no DBSIM reference to options 37-41 (`004d1fe1`-`004d1fe5`) or `004d1fe6`-`004d1fe9` found by `es2_xref.py` (control: `004d1fc2` has one), so no simulator reader of them is known beyond 4 and 6.
+- **Unported:** the simulator starting in full screen from byte 6 (or `-Z1`) and writing option 6 back at shutdown when the state changed ([above](#the-video-mode-and-full-screen-bytes)).

@@ -797,6 +797,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	int statusAlertKeysDown = 0;
 	bool manualKeyDown = false;
 	string manualRoot = installRoot;
+	bool fullScreenKeyDown = false;
+	bool fullScreenLiveKeyDown = false;
+	bool leaveFullScreenKeyDown = false;
+	var systemButtonsShowing = new bool[SystemButtons.Count];
 	bool panelMouseDown = false;
 	bool panelRightButtonDown = false;
 	bool missionOver = false;
@@ -1923,6 +1927,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// unconsumed press the moment that panel closes.
 		ReadMenuBarEscapeKey(objectivesHandledKey);
 		ReadManualKey();
+		ReadFullScreenKeys();
 
 		// Everything below reads `controls` rather than the device itself: while the panel has keyboard
 		// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both
@@ -1959,7 +1964,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			// [Enter] and [Tab] swap the controls between the camera and the machine, and [N] moves the
 			// outside view on to the next squadmate. All three are cockpit keys the widgets claim first,
 			// so they reach these cases only while the widgets are off.
-			bool viewControlKey = controls.IsKeyPressed(Key.Enter) || controls.IsKeyPressed(Key.Tab);
+			bool viewControlKey = Unmodified(controls)
+				&& (controls.IsKeyPressed(Key.Enter) || controls.IsKeyPressed(Key.Tab));
 			if (viewControlKey && !viewControlKeyDown && CockpitWidgetsOff()) {
 				viewChain.ToggleCameraControl();
 			}
@@ -2018,10 +2024,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			shieldFrontKeyDown = controls.IsKeyPressed(Key.RightBracket);
 			radarKeyDown = controls.IsKeyPressed(Key.R);
 			autoTrackKeyDown = !HddCommandHasKeyboard() && controls.IsKeyPressed(Key.T);
-			cycleTargetKeyDown = controls.IsKeyPressed(Key.Enter);
+			cycleTargetKeyDown = Unmodified(controls) && controls.IsKeyPressed(Key.Enter);
 			nearestTargetKeyDown = controls.IsKeyPressed(Key.Apostrophe);
 			clearTargetKeyDown = controls.IsKeyPressed(Key.Semicolon);
-			cycleComponentKeyDown = controls.IsKeyPressed(Key.Tab);
+			cycleComponentKeyDown = Unmodified(controls) && controls.IsKeyPressed(Key.Tab);
 			ApplyWeaponKeys(controls, null);
 		} else if (pilotInput && pilotMech != null && controls != null) {
 			// The stick, read once and used twice: its axes go into MechControls at the bottom of this
@@ -2118,7 +2124,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			// dispatcher's and keeps working.
 			if (scene.Targeting is { } targeting) {
 				bool widgetsOff = CockpitWidgetsOff();
-				bool cycleTargetKey = controls.IsKeyPressed(Key.Enter);
+				bool cycleTargetKey = Unmodified(controls) && controls.IsKeyPressed(Key.Enter);
 				bool nearestTargetKey = controls.IsKeyPressed(Key.Apostrophe);
 				bool clearTargetKey = controls.IsKeyPressed(Key.Semicolon);
 
@@ -2140,7 +2146,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			// [Tab] steps the Targeting Pod's component lock. CockpitWidgets_HandleCommand hands scancode
 			// 0x0f to the pod only when the view is not the heads-down one; while the display is down the
 			// same case goes to its own command slot, which is the manual's Zoom Map In/Out.
-			bool cycleComponentKey = !cockpitPan.AtHeadsDown && controls.IsKeyPressed(Key.Tab);
+			bool cycleComponentKey = !cockpitPan.AtHeadsDown && Unmodified(controls) && controls.IsKeyPressed(Key.Tab);
 			if (cycleComponentKey && !cycleComponentKeyDown && !CockpitWidgetsOff()) {
 				pilotMech.CycleTargetComponent();
 			}
@@ -2670,6 +2676,18 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 			// Held buttons draw depressed, and pop back up if the pointer slides off them still held.
 			hudState = hudState with { PressedWidget = cockpitInput.Depressed };
+		}
+
+		// The system buttons show by the pointer's row, decided where Sim_RenderFrame ends, which no frame
+		// reaches while a modal panel's own loop holds the screen: the pair stays as it was when the panel
+		// went up. Nothing shows them in the external view; see docs/formats/cockpit-input.md#open.
+		if (!AnyModalPanelOpen()) {
+			var buttonsFramebuffer = window.FramebufferSize;
+			float pointerRow = PanelPointer().Y;
+			for (int i = 0; i < SystemButtons.Count; i++) {
+				systemButtonsShowing[i] = cockpitArt != null && !ExternalViewActive()
+					&& SystemButtons.Showing((SystemButton)i, buttonsFramebuffer.X, buttonsFramebuffer.Y, pointerRow);
+			}
 		}
 
 		// Player_PerFrameCockpitUpdate's own copy: whatever the cockpit has selected becomes the
@@ -3248,6 +3266,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		if (cockpitArt != null && cockpitFrontTexture != null && cockpitSideTexture != null
 				&& !ExternalViewActive()) {
 			DrawThreePanelCockpitView(gl, size.X, size.Y);
+
+			// Sim_RenderFrame's last call, SystemButtons_PaintForPointer (00434520): over everything the
+			// cockpit drew, and under a modal panel, which is drawn by the panel's own loop.
+			if (cockpitArt.Sprites is { } systemSprites && hudSpriteTexture != null) {
+				overlay.DrawSystemButtons(size.X, size.Y, hudSpriteTexture, systemSprites, systemButtonsShowing);
+			}
 		} else if (ExternalViewActive() && !MouseOutsideView()) {
 			DrawExternalView(gl, size.X, size.Y);
 		} else {
@@ -3395,8 +3419,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		bool q = Edge(Key.Q, 0);
 		// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
 		// its held state, and the next press of it is swallowed.
-		bool enter = Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2);
-		bool escape = Edge(Key.Escape, 3);
+		// With [Alt] or [Ctrl] down these are other codes, which AlertPanel_HandleEvent does not answer.
+		bool enter = (Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2)) && Unmodified(keyboard);
+		bool escape = Edge(Key.Escape, 3) && Unmodified(keyboard);
 		bool pause = Edge(Key.P, 4);
 
 		if (statusAlertPanel.IsOpen) {
@@ -3437,8 +3462,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 	// [/] is Sim_DispatchCommand's 0x35, the on-line manual; [?] is the same key, since SimCommandMask
 	// strips the Shift bit (docs/formats/cockpit-input.md#keyboard-commands-are-scancodes). The dispatcher
-	// never sees a key while a modal panel's own loop holds the input, so neither does this. Retail drops
-	// the display out of full screen first; this window has no full screen to leave.
+	// never sees a key while a modal panel's own loop holds the input, so neither does this.
 	void ReadManualKey() {
 		if (keyboard == null || KeyboardCapturedByImGui() || FlashCommHasKeyboard()) {
 			manualKeyDown = false;
@@ -3448,9 +3472,78 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		bool down = keyboard.IsKeyPressed(Key.Slash);
 		bool edge = down && !manualKeyDown;
 		manualKeyDown = down;
-		if (edge && statusAlertPanel is not { IsOpen: true } && objectivesPanel is not { IsOpen: true }
-			&& preferencesPanel is not { IsOpen: true } && controlsPanel is not { IsOpen: true }) {
-			OnlineManual.Open(manualRoot, disc);
+		if (edge && !AnyModalPanelOpen()) {
+			OpenManual();
+		}
+	}
+
+	// OnlineManual_Raise (0045f054) then Help_Show (004668c0), which leaves full screen before its WinHelpA
+	// call — here before OnlineManual hands the page to the browser. The [/] key and the right-hand system
+	// button both come here.
+	void OpenManual() {
+		if (window.FullScreen) {
+			ToggleFullScreen();
+		}
+
+		OnlineManual.Open(manualRoot, disc);
+	}
+
+	// Video_ToggleFullscreen (004666c4). Retail takes DirectDraw exclusive at the 3D view's size, an 8-bit
+	// display mode, with the window topmost over it, confines the pointer to the screen and centres it;
+	// going back releases DirectDraw and restores the window rect it saved on the way in
+	// (docs/formats/cockpit-input.md, "The two system buttons"). Here it is the same move the front end
+	// makes for VSHELL's toggle (ShellHost): the window covers its monitor at the monitor's own mode, the
+	// cockpit scaled into it as it is in a window, which is the divergence the user chose there so that
+	// no display mode changes.
+	void ToggleFullScreen() => window.ToggleFullScreen(mouse);
+
+	// The simulator's two full-screen key paths. [Alt+Enter] is command 0x21c, which Sim_DispatchCommand
+	// offers Sim_HandleWindowKey (0045fd60) after the widget tree, so it comes through the dispatcher's
+	// own input — a replaying tape's keys during a replay — and nothing while a modal panel holds the
+	// input. During a replay Input_BuildPlayerDevice also offers Sim_HandleWindowKey the live keyboard's
+	// command, so the player's own [Alt+Enter] works too. Retail's -B stops a replay toggling; this host
+	// has no -B. The other path is Key_WndProcHook (00477ae0), which hands 0x20f [Alt+Tab], 0x201
+	// [Alt+Esc] and 0x401 [Ctrl+Esc] to Video_LeaveFullscreen (004668b0) before anything else sees a key,
+	// so those three read the live keyboard always. The hook matches them before SimCommandMask strips
+	// [Shift], so with [Shift] held they are other codes; [Alt+Enter] goes through the mask, so [Shift]
+	// does not matter to it. Both act on the key going down, as the hook passes a key-down message on and
+	// marks a key-up one.
+	void ReadFullScreenKeys() {
+		bool replaying = TapePlaying();
+		bool toggle = AltEnterPressed(keyboard, !KeyboardCapturedByImGui(), ref fullScreenKeyDown)
+			| AltEnterPressed(replaying ? liveKeys : null, !ImGuiHasKeyboard(), ref fullScreenLiveKeyDown);
+
+		bool leave = false;
+		if (liveKeys != null && !ImGuiHasKeyboard()) {
+			bool shift = liveKeys.IsKeyPressed(Key.ShiftLeft) || liveKeys.IsKeyPressed(Key.ShiftRight);
+			bool alt = AltHeld(liveKeys);
+			bool ctrl = CtrlHeld(liveKeys);
+			bool down = !shift && ((alt && !ctrl && (liveKeys.IsKeyPressed(Key.Tab) || liveKeys.IsKeyPressed(Key.Escape)))
+				|| (ctrl && !alt && liveKeys.IsKeyPressed(Key.Escape)));
+			leave = down && !leaveFullScreenKeyDown;
+			leaveFullScreenKeyDown = down;
+		} else {
+			leaveFullScreenKeyDown = false;
+		}
+
+		if (leave && window.FullScreen) {
+			ToggleFullScreen();
+		} else if (toggle) {
+			ToggleFullScreen();
+		}
+
+		// [Alt+Enter] going down on one key source, which a modal panel's loop keeps from the dispatcher.
+		bool AltEnterPressed(IKeyState? keys, bool open, ref bool wasDown) {
+			if (keys == null || !open || AnyModalPanelOpen()) {
+				wasDown = false;
+				return false;
+			}
+
+			bool down = AltHeld(keys) && !CtrlHeld(keys)
+				&& (keys.IsKeyPressed(Key.Enter) || keys.IsKeyPressed(Key.KeypadEnter));
+			bool pressed = down && !wasDown;
+			wasDown = down;
+			return pressed;
 		}
 	}
 
@@ -3471,8 +3564,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		bool open = Edge(Key.F11, 0);
 		// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
 		// its held state, and the next press of it is swallowed.
-		bool enter = Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2);
-		bool escape = Edge(Key.Escape, 3);
+		// With [Alt] or [Ctrl] down these are other codes, which AlertPanel_HandleEvent does not answer.
+		bool enter = (Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2)) && Unmodified(keyboard);
+		bool escape = Edge(Key.Escape, 3) && Unmodified(keyboard);
 
 		if (objectivesPanel.IsOpen) {
 			return objectivesPanel.HandleKey(enter, escape) || open;
@@ -3518,8 +3612,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		bool open = Edge(Key.F12, 0);
 		// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
 		// its held state, and the next press of it is swallowed.
-		bool enter = Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2);
-		bool escape = Edge(Key.Escape, 3);
+		// With [Alt] or [Ctrl] down these are other codes, which AlertPanel_HandleEvent does not answer.
+		bool enter = (Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2)) && Unmodified(keyboard);
+		bool escape = Edge(Key.Escape, 3) && Unmodified(keyboard);
 
 		// The controls panel is modal over this one: while it is up it answers [Return] and [Esc], and
 		// this panel answers nothing.
@@ -4068,11 +4163,27 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// lives in the PanelGadget mixin every gadget carries as a second base, and ScrollTrigger is one
 		// of the four classes that take no mixin at all. It is silent for want of the base, not for want
 		// of an action. See docs/formats/cockpit-input.md, "The second vtable".
-		if (click.Id.Kind != CockpitWidgetKind.ViewEdge) {
+		//
+		// The system buttons are silent the other way round: SystemGadget carries the mixin, but its own
+		// OnClick (SystemGadget_OnClick, 00434910) goes straight to SystemButtons_OnChildClick and never
+		// calls the mixin's sound slot, which a button reaches only through its class's OnClick.
+		if (click.Id.Kind is not (CockpitWidgetKind.ViewEdge or CockpitWidgetKind.SystemButton)) {
 			audio.Director?.Play(SoundId.ButtonClick);
 		}
 
 		switch (click.Id.Kind) {
+			// SystemButtons_OnChildClick (004345a0), which does nothing while a tape plays back: child 0 is
+			// the on-line manual, by the same two calls the [/] key makes, and child 1 the full-screen
+			// toggle. Either mouse button clicks them, the click's value going unread.
+			case CockpitWidgetKind.SystemButton when !TapePlaying():
+				if (click.Id.AsSystemButton == SystemButton.Manual) {
+					OpenManual();
+				} else {
+					ToggleFullScreen();
+				}
+
+				break;
+
 			case CockpitWidgetKind.MfdButton when click.Id.Index < MfdLayout.ModeCount:
 				// Button i of the F-key column dispatches SetMode(i), and picking a screen pans back up —
 				// the manual's own rule for leaving the Heads-Down Display.
@@ -5574,6 +5685,12 @@ static bool CtrlHeld(IKeyState keyboard) =>
 
 static bool AltHeld(IKeyState keyboard) =>
 	keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
+
+// Neither [Alt] nor [Ctrl] held: the key arrives as its bare scancode, the code the cockpit's [Enter] and
+// [Tab] cases and an alert panel's [Enter] and [Esc] match exactly. With [Alt] or [Ctrl] it is another
+// code (0x21c is [Alt+Enter]), or Key_WndProcHook keeps it for itself (0x20f, 0x201, 0x401). [Shift] is
+// not tested: SimCommandMask strips it from the cockpit's commands.
+static bool Unmodified(IKeyState keyboard) => !AltHeld(keyboard) && !CtrlHeld(keyboard);
 
 // One signed axis from a pair of keys, plus optional aliases for each direction — the arrow cluster
 // and the numeric keypad are the same key on the hardware the manual is describing, and a host window

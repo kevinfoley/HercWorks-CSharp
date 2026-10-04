@@ -6,6 +6,9 @@ How HERCULAN shows the game's on-line manual. The help file itself is [`formats/
 
 - The main menu's `ONLINE MANUAL` (`ShellHost.OpenOnlineManual`) does what retail's `004317ea` does before its `WinHelpA` call — leaves full screen, writes option 6 to match, commits and saves the options, stops the shell's sound — and then opens the manual.
 - `/` in a mission (`ReadManualKey` in the simulator host), which is `?` without Shift, as the dispatcher sees it. Not while a modal panel holds the input.
+- The right-hand of the cockpit's two system buttons, the question mark at the screen's top-right corner ([`formats/cockpit-input.md`](../formats/cockpit-input.md#the-two-system-buttons)), except while a tape plays back.
+
+Both mission paths leave full screen first, as retail's `Help_Show` does before its `WinHelpA` call (`OpenManual` in the simulator host).
 
 ## Conversion
 
@@ -46,5 +49,4 @@ A copy of the game from an abandonware site may carry a tampered help file or re
 ## Open
 
 - **Open:** whether WinHelp brought the main window in front of `overview` when a link in `overview` jumped into it. Both are top-level windows, and `overview` covers the right of the main window, so without that the topic opened mostly hidden. No retail capture of the manual in use has been found.
-- **Unported:** the cockpit's right-hand system button, retail's third way in ([`formats/cockpit-input.md`](../formats/cockpit-input.md#the-two-system-buttons)).
 - **Open:** what v1.0 shows for the `Readme` action. `SH` starts `esreadme.txt`, a Write document under a `.txt` name ([`formats/winhelp.md`](../formats/winhelp.md#macros)), and no retail capture of it has been found.

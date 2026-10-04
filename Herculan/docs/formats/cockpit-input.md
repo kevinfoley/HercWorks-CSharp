@@ -101,18 +101,27 @@ MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mf
 
 ### The two system buttons
 
-`SystemButtons_Ctor` (`00434368`) builds a pair of `SystemGadget`s from hardcoded coordinates rather than from the `.GAU` — 12x11 GAU units each, at x 305-317 and x 291-303, y 2-13, so they sit in the forward view's top-right corner. Their art is the `sysbuttn` bank, and the constructor leaves them in state **3**, which `Widget_HitTestChildren` treats as clickable and `SystemGadget_Paint` (`00434748`) draws as the plain frame.
+`SystemButtons_Ctor` (`00434368`) builds a pair of `SystemGadget`s from hardcoded coordinates rather than from the `.GAU`: x 305-317 and 291-303, y 2-13, inclusive, in the `.GAU`'s 320-wide units and shifted by `VideoMode_X/YCoordShift` as its rects are. Their art is the `sysbuttn` bank, two 24x22 frames in `hba\`: frame 0, a question mark, on the right-hand button and frame 1, a window, on the left-hand one, each blitted at its rect's origin. The constructor leaves them in state **3**, which `Widget_HitTestChildren` treats as clickable and `SystemGadget_Paint` (`00434748`) draws as the art beneath.
 
-**The pair shows only while the pointer is level with it.** `SystemButtons_PaintForPointer` (`00434520`), the last call of `Sim_RenderFrame`, puts each button in state 0, which `SystemGadget_Paint` draws, while the pointer's y (`004d234c`, offset by the cockpit viewport's `+0x224`) lies within the button's own y span, and in state 3, which restores the art beneath, otherwise. `CockpitView_ProcessViewCommand` hides both with `SystemButtons_HideAll` (`00434604`), which saves each button's state at `+0x5c` and forces 3, and `CockpitView_StepViewTransition` puts the saved states back with `SystemButtons_RestoreAll` (`00434634`).
+**They stay at the screen's top-right corner in every view.** On each view change `CockpitWidgets_TranslateForView` (`0043271c`) moves the root's rect by the delta (§10), the widget layer's render context (`004d042c`) origin at `+0x220`/`+0x224` and the pair's rects by its negation, so the canvas-space rects and the screen-to-canvas mapping move together and each button answers the same screen pixels in the heads-down view and the glances as in the forward view.
 
-`SystemButtons_OnChildClick` (`004345a0`) matches the clicked child against the pair at `CockpitViewInstance+0x246`/`+0x24a` and, unless a `.TAP` is replaying:
+**The pair shows only while the pointer is level with it.** `SystemButtons_PaintForPointer` (`00434520`), the last call of `Sim_RenderFrame`, puts each button in state 0, which `SystemGadget_Paint` draws, while the pointer's y (`004d234c`, plus that context's `+0x224`) lies within the button's own y span, whatever its x, and in state 3, which restores the art beneath, otherwise. Both states are hit-tested, so a press takes a button whether it shows or not, and the pointer is level with a button whenever it is over it. Registered first, the pair takes any pixel it shares with a later widget, such as the forward view's right edge strip, whose band (§10) covers the right-hand button's last six columns.
+
+`CockpitView_ProcessViewCommand` hides both with `SystemButtons_HideAll` (`00434604`), which saves each button's state at `+0x5c`, forces 3 and paints, and `CockpitView_StepViewTransition` puts the saved states back with `SystemButtons_RestoreAll` (`00434634`). `SystemButtons_PaintForPointer` sets both states again at the end of every frame, so what the pointer says wins by that frame's end; what the hide leaves behind is in the saved pixels: forcing 3 puts back the art saved under a showing button, and its next state 0 saves the art afresh.
+
+`SystemGadget_OnClick` (`00434910`), the class's `+8`, is a call to `SystemButtons_OnChildClick` (`004345a0`) and nothing else, so either mouse button clicks a system button, the click's value goes unread, and no console click sounds: the class carries `PanelGadget`'s sound slot ([below](#the-second-vtable)), which only a class's own `OnClick` calls. `SystemButtons_OnChildClick` matches the clicked child against the pair at `CockpitViewInstance+0x246`/`+0x24a` and, unless a `.TAP` is replaying:
 
 | Child | Effect |
 |---|---|
 | 0, the right-hand button | `OnlineManual_Raise` then `Help_Show` — the same two calls `Sim_DispatchCommand` makes for the `?` key, so the button and the key are one path |
 | 1, the left-hand button | `Video_ToggleFullscreen` (`004666c4`), then repaints the shield gauge |
 
-`Video_ToggleFullscreen` is a real mode switch, not a window maximize: from windowed it sets `004d25e2`, takes the window topmost at the game resolution, `ClipCursor`s the pointer into it and centres it; from fullscreen it restores the window rect saved on the way in. `Help_Show` calls it first when that flag is set, so raising the manual drops the game out of fullscreen.
+`Video_ToggleFullscreen` is a display mode switch, not a window maximize. From windowed it sets `004d25e2`, takes DirectDraw exclusive with an 8-bit display mode the size of the 3D view (`004d25c2`/`004d25c6`, 640x480 in the 640-wide modes), puts the window topmost over it, `ClipCursor`s the pointer to the screen and centres it; failing DirectDraw or the mode, it kills the main timer and posts `WM_QUIT`. From fullscreen it releases DirectDraw, which gives the desktop its mode back, and restores the window rect saved on the way in. Either way it repaints the shield gauge. Its other callers:
+
+- `Help_Show`, first, when the flag is set, so raising the manual drops the game out of fullscreen.
+- `Sim_HandleWindowKey` (`0045fd60`) on `Alt+Enter`, command `0x21c`, which `Sim_DispatchCommand` offers it after the widget tree; during a replay `Input_BuildPlayerDevice` also offers it the live keyboard's command, and `-B` stops either toggling ([`../command-line.md`](../command-line.md#dbsim)).
+- `Video_LeaveFullscreen` (`004668b0`), which runs it only when the flag is set: from the key hook (§7), the assert reporter, and `Sim_Run`'s refusal without `-eggplant`.
+- `WinMain` (`00465288`) at startup, when option 6 or `-Z1` set the flag ([`../simulation/preferences.md`](../simulation/preferences.md#the-video-mode-and-full-screen-bytes)).
 
 Widget state byte (`+0x1b`):
 
@@ -196,7 +205,7 @@ A concrete widget carries a **second** vtable pointer, because it has a second b
 
 The button family puts that subobject at `+0x20` — the `-0x20` its thunks subtract, and the `+0x20` §8 reaches the click sound through. **The slider family differs twice**: its subobject is at `+0x3e`, so its thunks subtract `0x3e`, and its sound slot holds `00439014`, an empty stub. That is `PanelSliderGadget`'s one and only change to what it inherits: the console click is declared once, in `PanelGadget`'s own table (`0049dec8`), and unsaid once, in `PanelSliderGadget`'s (`0049df4c`).
 
-So a control's sound is decided by which mixin it carries, and **a class that carries neither is silent for want of the base rather than for want of an override**: `ScrollTrigger`, `HDDisplayGadget`, `HDDMapGadget` and `HUDRovingGunsightGadget` have no second table at all, their blocks ending at the primary table's last slot. Fifteen tables hold `Widget_ClickSound` — `PanelGadget`'s and the fourteen button classes that inherit it — and `known_vtables.json` names the class each one belongs to ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
+The slot is called by a class's own `OnClick` — the base `Widget_ForwardClickToOwner`, and overrides such as `PanelButton_OnClick` that keep the click — so a class whose `OnClick` does not call it is silent with the slot in place, as `SystemGadget` is (§5). Beyond that, a control's sound is decided by which mixin it carries, and **a class that carries neither is silent for want of the base rather than for want of an override**: `ScrollTrigger`, `HDDisplayGadget`, `HDDMapGadget` and `HUDRovingGunsightGadget` have no second table at all, their blocks ending at the primary table's last slot. Fifteen tables hold `Widget_ClickSound` — `PanelGadget`'s and the fourteen button classes that inherit it — and `known_vtables.json` names the class each one belongs to ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 
 Because every class record names its class and links to its vtable ([`borland-rtti.md`](borland-rtti.md)), the family is enumerable rather than discovered a control at a time, and `tools/ghidra_scripts/known_vtables.json` carries the result: `CockpitWidgetVtable`, `CockpitSliderWidgetVtable` and `PanelGadgetMixinVtable`, with all 51 tables named and typed by `ES2ApplyVtables.java`.
 
@@ -222,7 +231,7 @@ The four classes hanging straight off `CTLButtonControl` are the ones that take 
 
 | Class | Size | Base | Constructor | What it is |
 |---|---|---|---|---|
-| `SystemGadget` | `0x60` | `PanelSelectGadget` | `SystemGadget_Ctor` (`00434664`) | The online-manual and fullscreen-toggle buttons in the forward view's top-right corner (§5) |
+| `SystemGadget` | `0x60` | `PanelSelectGadget` | `SystemGadget_Ctor` (`00434664`) | The online-manual and fullscreen-toggle buttons at the screen's top-right corner (§5). Silent: its `OnClick` does not reach its sound slot |
 | `ScrollTrigger` | `0x24` | `CTLButtonControl` | `CockpitView_BuildScrollTriggers` (`00433770`) | One of the three screen-edge view strips (§10). Silent — no `PanelGadget` |
 | `WeaponSelectGadget` | `0x46` | `PanelSelectGadget` | `WeaponSelectGadget_Ctor` (`004421dc`) | A pod row — the class without chain membership, which only `PodGauge_Ctor` builds ([`../simulation/equipment-pods.md`](../simulation/equipment-pods.md)) |
 | `ChainedWeaponSelectGadget` | `0x67` | `WeaponSelectGadget` | `ChainedWeaponSelectGadget_Ctor` (`00442488`) | A weapon row, from `EnergyWeaponGauge_Ctor` and `AmmoWeaponGauge_Ctor` ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#arming-chaining-and-linking)) |
@@ -402,7 +411,9 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 | `Widget_HitTestChildren` | `00452a00` | Scans the flat clickable list; first hit wins, so registration order is precedence (§5) |
 | `Gau_BuildCockpitWidgets` | `00431bf8` | Builds the seven top-level gauges in the order that becomes the clickable list's own |
 | `SystemButtons_Ctor` / `_OnChildClick` | `00434368` / `004345a0` | The online-manual and fullscreen buttons, and what each one does |
-| `Video_ToggleFullscreen` | `004666c4` | Fullscreen/windowed switch behind the left system button, and the one `Help_Show` runs first |
+| `SystemButtons_PaintForPointer` | `00434520` | `Sim_RenderFrame`'s last call: shows each system button while the pointer is on its rows |
+| `SystemGadget_OnClick` | `00434910` | The system buttons' `+8`: hands the click to `SystemButtons_OnChildClick` |
+| `Video_ToggleFullscreen` | `004666c4` | Fullscreen/windowed switch behind the left system button, `Alt+Enter` and `Video_LeaveFullscreen`, and the one `Help_Show` runs first |
 | `ConsoleButtons_Ctor` | `00441dd0` | The four `WeaponRangeSelectGadget`s under the weapon panel |
 | `WeaponMounts_BuildGauges` | `00410644` | Dispatches each mount's gauge-factory slot; the closing call of `Gau_BuildCockpitWidgets` |
 | `Widget_OnMouseDown` / `_OnMouseUp` | `004527a0` / `00452870` | Press and click state transitions |
@@ -464,7 +475,7 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 
 ## Open
 
-- **Unported:** the two system buttons (§5) and the fullscreen toggle.
+- **Open:** whether the system buttons show and take clicks in the external view. `SystemButtons_PaintForPointer` runs at the end of every `Sim_RenderFrame` and `CockpitMouse_ProcessQueue` from every `Input_BuildPlayerDevice`, neither gated on view 4, but where view 4's canvas context puts a blit has not been traced.
 - **Open:** whether anything draws the `.DCI` cursor slots (§9). A search for the displacements `+0x226`, `+0x236` and `+0x23a` finds only the cursor-slot functions and `ColorSchemePanels_LoadAll`, and the image-change hooks they call are empty in driver 3.
 - **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).
 

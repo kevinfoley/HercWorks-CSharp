@@ -342,11 +342,15 @@ public sealed class CockpitInput {
 		}
 	}
 
-	// The side strips go after every art widget for the same reason the bottom one goes last in
-	// CockpitWidgets.Visible: the original registers all three strips after the gauges.
+	// The system buttons go first because SystemButtons_Ctor (00434368) registers them before every
+	// gauge, and the side strips after every art widget for the same reason the bottom one goes last in
+	// CockpitWidgets.Visible: the original registers all three strips after the gauges. In a 4:3 window
+	// the right-hand system button and the right strip contest a few columns at the top of the screen,
+	// as they do in retail, and the button takes them.
 	private static CockpitWidget? HitTest(CockpitScreenLayout layout, CockpitArt art,
 			CockpitHudState state, float windowX, float windowY) =>
-		(layout.WindowToArt(windowX, windowY) is { } surfaceHit
+		SystemButtons.At(layout.WindowWidth, layout.WindowHeight, windowX, windowY)
+		?? (layout.WindowToArt(windowX, windowY) is { } surfaceHit
 			? CockpitWidgets.HitTest(art, state, surfaceHit.Surface, surfaceHit.ArtX, surfaceHit.ArtY)
 			: null)
 		?? layout.SideViewEdgeAt(windowX, windowY);

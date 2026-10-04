@@ -106,11 +106,13 @@ public sealed class CockpitArt {
 	/// They come from SIMALERT.VOL rather than the main archive, and
 	/// the original loads each when its panel is constructed rather than up front; packing them with
 	/// the rest costs one atlas entry each and keeps a panel to a single texture bind.</para>
+	/// <para><c>SYSBUTTN</c> is the two system buttons' art (<see cref="SystemButtons"/>).</para>
 	public static readonly string[] HudBankNames = {
 		"HUD", "HUDHTICK", "MFD", SensorDropout.MfdBank, "RADAR", "THROTTLE", SensorDropout.RowBank, "PWEAPONS",
 		"HDD", "BASES", "VEHICLES", PaperDollDamage.WeaponIconBank,
 		"ICONS", ObjectivesPanel.BackgroundBank, StatusAlertPanelLayout.PlateBank,
 		AlertPanelLayout.ButtonBank, PreferencesPanelLayout.PlateBank, ControlsPanelLayout.PlateBank,
+		SystemButtons.Bank,
 	};
 
 	/// <summary>

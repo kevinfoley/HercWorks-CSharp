@@ -330,8 +330,9 @@ public enum CockpitSurface {
 	HeadsDown = 1,
 
 	/// <summary>
-	/// No cockpit frame: the window's own pixels. Only the side screen-edge strips live here
-	/// (<see cref="CockpitScreenLayout.SideViewEdgeAt"/>); <see cref="CockpitScreenLayout.Surface"/>
+	/// No cockpit frame: the window's own pixels. The side screen-edge strips
+	/// (<see cref="CockpitScreenLayout.SideViewEdgeAt"/>) and the two system buttons
+	/// (<see cref="SystemButtons"/>) live here; <see cref="CockpitScreenLayout.Surface"/>
 	/// has no placement for it, so coordinates pass through unconverted.
 	/// </summary>
 	Window = 2,

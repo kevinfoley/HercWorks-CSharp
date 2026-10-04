@@ -62,6 +62,12 @@ public enum CockpitWidgetKind {
 	/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>; see <see cref="ChargeBarSlider"/>.
 	/// </summary>
 	WeaponChargeBar = 10,
+
+	/// <summary>
+	/// One of the two system buttons at the screen's top-right corner — index is a
+	/// <see cref="Content.SystemButton"/>. A window-space widget; see <see cref="SystemButtons"/>.
+	/// </summary>
+	SystemButton = 11,
 }
 
 /// <summary>
@@ -192,6 +198,14 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 	/// <summary>This id as a screen-edge view strip, or null when it is not one.</summary>
 	public ViewEdgeStrip? AsViewEdge =>
 		Kind == CockpitWidgetKind.ViewEdge ? (ViewEdgeStrip)Index : null;
+
+	/// <summary>One of the two system buttons.</summary>
+	public static CockpitWidgetId System(SystemButton button) =>
+		new(CockpitWidgetKind.SystemButton, (int)button);
+
+	/// <summary>This id as a system button, or null when it is not one.</summary>
+	public SystemButton? AsSystemButton =>
+		Kind == CockpitWidgetKind.SystemButton ? (SystemButton)Index : null;
 }
 
 /// <summary>
@@ -284,11 +298,12 @@ public static class CockpitWidgets {
 	/// <c>WeaponMounts_BuildGauges</c> builds one per mount, and finally the screen-edge strips on
 	/// the first cockpit frame.</para>
 	///
-	/// <para>Two of the original's entries have no counterpart here. The pair of <c>SystemGadget</c>s
-	/// <c>SystemButtons_Ctor</c> registers ahead of everything sits in the forward view's top-right
-	/// corner, and the roving gunsight's click surface covers the 3D window; neither is
-	/// implemented, and neither overlaps a widget that is, so leaving them out costs nothing but their
-	/// own behaviour.</para>
+	/// <para>Two of the original's entries are not in this list. The pair of <c>SystemGadget</c>s
+	/// <c>SystemButtons_Ctor</c> registers ahead of everything stays on the same screen pixels in every
+	/// view rather than on any art, so <see cref="SystemButtons"/> places them and
+	/// <see cref="Input.CockpitInput"/> tests them before this list. The roving gunsight's click surface
+	/// covers the 3D window and is not implemented; it overlaps no widget that is, so leaving it out
+	/// costs nothing but its own behaviour.</para>
 	/// </summary>
 	public static IEnumerable<CockpitWidget> Visible(CockpitArt art, CockpitHudState state) {
 		ArgumentNullException.ThrowIfNull(art);

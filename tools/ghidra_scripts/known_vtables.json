@@ -297,7 +297,7 @@
         {
           "address": "0049b774",
           "label": "SystemGadgetVtable",
-          "description": "A console button, 0x60 bytes, built in pairs by maybe_SysButtonPair_Ctor; see SystemGadget_Ctor (00434664)."
+          "description": "A system button, 0x60 bytes; SystemButtons_Ctor (00434368) builds the pair through SystemGadget_Ctor (00434664). Its OnClick (SystemGadget_OnClick, 00434910) is a call to SystemButtons_OnChildClick and nothing else, so a click does not reach the mixin's click-sound slot."
         },
         {
           "address": "0049b7b4",

@@ -7629,7 +7629,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SystemButtons_Ctor",
-      "description": "Registers the first two entries of the cockpit's clickable list, ahead of every gauge. Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by VideoMode_PanelMode == 3), then builds two SystemGadgets from hardcoded coordinates rather than from the .GAU: 12x11 GAU units each at x 305-317 and x 291-303, y 2-13, so they sit in the forward view's top-right corner. Stored at cockpit+0x246 and +0x24a with the count 2 at +0x25a. Child 0 raises the on-line manual, child 1 toggles fullscreen -- see SystemButtons_OnChildClick.",
+      "description": "Registers the first two entries of the cockpit's clickable list, ahead of every gauge. Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by VideoMode_PanelMode == 3), then builds two SystemGadgets from hardcoded coordinates rather than from the .GAU: x 305-317 and x 291-303, y 2-13 inclusive, in 320-wide units shifted by VideoMode_X/YCoordShift -- the screen's top-right corner, where CockpitWidgets_TranslateForView keeps them in every view. Frame 0 (a question mark) on the right-hand one, frame 1 (a window) on the left. Stored at cockpit+0x246 and +0x24a with the count 2 at +0x25a. Child 0 raises the on-line manual, child 1 toggles fullscreen -- see SystemButtons_OnChildClick.",
       "source": "docs/formats/cockpit-input.md",
       "signature": "void __cdecl SystemButtons_Ctor(int *cockpit)"
     },
@@ -7676,7 +7676,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SystemGadget_Ctor",
-      "description": "Constructor for SystemGadget (object size 0x60), the on-line manual and fullscreen-toggle buttons in the forward view's top-right corner; SystemButtons_Ctor builds both. Leaves the state byte at +0x1b holding 3 rather than 0, which Widget_HitTestChildren treats as clickable and SystemGadget_Paint draws as the plain frame. Class name from the descriptor record at 00434ced.",
+      "description": "Constructor for SystemGadget (object size 0x60), the on-line manual and fullscreen-toggle buttons at the screen's top-right corner; SystemButtons_Ctor builds both. Leaves the state byte at +0x1b holding 3 rather than 0, which Widget_HitTestChildren treats as clickable and SystemGadget_Paint draws as the art beneath. Class name from the descriptor record at 00434ced.",
       "source": "docs/formats/cockpit-input.md",
       "signature": "int __cdecl SystemGadget_Ctor(int gadget, int *rect)"
     },
@@ -14712,6 +14712,15 @@
       "source": "DBSIM decompile at 00465054"
     },
     {
+      "address": "00465288",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinMain",
+      "description": "(hInstance, hPrevInstance, cmdLine, nCmdShow), reached through the startup's stored pointer at 00497044: VideoMode_Configure(0), the window-switch pre-parse FUN_0045e6b0, MainWindow_Create (a message box and 0 on failure); then, with the full-screen flag 004d25e2 set by prefs option 6 or -Z1, clears it, calls Video_ToggleFullscreen and Screen_ClearToBlack; sets the pump cursor, runs Sim_Run, posts WM_QUIT, pumps to it, releases DirectDraw and returns the exit code 004d283c.",
+      "source": "DBSIM decompile at 00465288"
+    },
+    {
       "address": "00465388",
       "binary": "DBSIM",
       "type": "function",
@@ -14834,7 +14843,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Video_ToggleFullscreen",
-      "description": "Fullscreen/windowed switch on the flag at 004d25e2. Going fullscreen: saves the window rect to 004d3750, takes the window topmost at the game resolution via AdjustWindowRectEx + SetWindowPos, ClipCursors the pointer into it, centres it and hides the software cursor; failure posts WM_QUIT. Coming back: restores the saved rect. Reached from the left system button and from Help_Show, which runs it first so raising the on-line manual leaves fullscreen.",
+      "description": "Fullscreen/windowed switch on the flag at 004d25e2. Going fullscreen: saves the window rect to 004d3750, takes the window topmost at the game resolution via AdjustWindowRectEx + SetWindowPos, ClipCursors the pointer into it, centres it and hides the software cursor; failure posts WM_QUIT. Coming back: releases DirectDraw and restores the saved rect. Repaints the shield gauge either way. Reached from the left system button, from Help_Show (which runs it first, so raising the on-line manual leaves fullscreen), from Sim_HandleWindowKey on [Alt+Enter], from Video_LeaveFullscreen, and from WinMain at startup.",
       "source": "docs/formats/cockpit-input.md",
       "signature": "void __cdecl Video_ToggleFullscreen(void)"
     },

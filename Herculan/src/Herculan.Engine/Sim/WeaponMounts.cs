@@ -88,7 +88,7 @@ public sealed class WeaponMounts {
 	///
 	/// <para>Read by <c>Mech_MissileLockState</c> (mech vtable <c>+0x6c</c>). <c>Rocket_Fire</c> uses
 	/// it to decide whether the round it is launching gets a target attached, and
-	/// <c>WeaponMounts_MountIsReady</c> uses it to light a missile row's ready box.</para>
+	/// <see cref="CanFireNow"/> uses it to light a missile row's ready box.</para>
 	///
 	/// <para>Written by <see cref="MechObject.MissileLockTick"/>, which clears all five at the top of
 	/// every tick for every machine and sets the ones whose lock timer has run out. Nothing else
@@ -540,8 +540,8 @@ public sealed class WeaponMounts {
 
 	/// <summary>
 	/// <c>WeaponMounts_MountIsReady</c> (<c>00410970</c>): the mount's own readiness, gated on the
-	/// selected target's range, and for a linked pair, both halves'. One predicate serves two
-	/// purposes — it is the flag a row's state box is lit green or red by
+	/// selected target's range and on missile lock, and for a linked pair, both halves'. One predicate
+	/// serves two purposes — it is the flag a row's state box is lit green or red by
 	/// (<see cref="Herculan.Engine.Content.WeaponRowState.Ready"/>) and the test
 	/// <see cref="PerFrameUpdate"/> steps the chain past.
 	///
@@ -550,9 +550,10 @@ public sealed class WeaponMounts {
 	/// original does with no target selected, and what stops every row going red when nothing is
 	/// locked.</para>
 	///
-	/// <para><b>Not ported:</b> the original's third gate, which requires a launcher's subtype to hold
-	/// missile lock (<see cref="MissileLock"/>) before its row counts as ready. See
-	/// docs/simulation/weapon-mounts.md.</para>
+	/// <para>The lock gate wants the mount's <see cref="WeaponMount.AmmoType"/> to hold
+	/// <see cref="MissileLock"/>, except for <see cref="WeaponMount.NotAMissile"/> and
+	/// <see cref="Rocket.PlayerFlownSubtype"/>, which never latches a flag. See
+	/// docs/simulation/weapon-mounts.md#readiness--weaponmounts_mountisready-00410970.</para>
 	/// </summary>
 	/// <param name="followLink">
 	/// The original's fourth argument. Clear on the outer call and set on the recursion into the link
@@ -564,6 +565,12 @@ public sealed class WeaponMounts {
 		}
 
 		if (TargetRange != 0 && !mount.RangeAllows(TargetRange)) {
+			return false;
+		}
+
+		short missileType = mount.AmmoType;
+		if (missileType != WeaponMount.NotAMissile && missileType != Rocket.PlayerFlownSubtype
+			&& !Locked(missileType)) {
 			return false;
 		}
 
@@ -667,6 +674,36 @@ public sealed class WeaponMounts {
 	/// <returns>Whether a mount took it.</returns>
 	public bool SetPowerFromChargeBar(int gaugeSlot, int position) =>
 		BySlot(gaugeSlot)?.SetPowerFromChargeBar(position) ?? false;
+
+	/// <summary>
+	/// <c>WeaponMounts_BuildGauges</c> (<c>00410644</c>): every mount's gauge factory, vtable
+	/// <c>+0x64</c>. Of what a gauge holds, only the energy rows' charge bars feed anything back into
+	/// the simulation — see <see cref="WeaponMount.BuildGauge"/>. Only the locally piloted machine has
+	/// a cockpit, so only its mounts are given gauges.
+	/// </summary>
+	internal void BuildGauges() {
+		foreach (var mount in Mounts) {
+			mount.BuildGauge();
+		}
+	}
+
+	/// <summary>
+	/// The charge-bar half of <c>WeaponMounts_PerFrameUpdate</c>'s gauge loop, which calls every mount's
+	/// vtable <c>+0x50</c> — see <see cref="WeaponMount.PushGaugeState"/>.
+	///
+	/// <para>The original runs it once a frame from <c>Sim_RenderFrame</c>, and a frame is one
+	/// <c>Sim_MainTick</c>, so a push always falls between two pool turns. The charge bar's hand-off
+	/// depends on that: two pool turns with no push between them would read a stale slider back over a
+	/// power level the keys had just set. This engine's host runs any number of ticks a frame, so
+	/// <see cref="SimWorld"/> runs this at the end of each tick instead of the host running it with
+	/// <see cref="PerFrameUpdate"/>. The rest of the loop — the rows' armed, group and ready flags —
+	/// only feeds the display and stays per frame.</para>
+	/// </summary>
+	internal void PushGaugeStates() {
+		foreach (var mount in Mounts) {
+			mount.PushGaugeState();
+		}
+	}
 
 	/// <summary>
 	/// The mounts' claim on the Master Energy Pool — vtable slot 0 of the manager,

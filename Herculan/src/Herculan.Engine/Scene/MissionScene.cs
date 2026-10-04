@@ -476,6 +476,11 @@ public sealed class MissionScene {
 
 		world.PlayerMech = playerObject?.Object as MechObject;
 
+		// Sim_InitMissionSession builds the player's cockpit, whose weapon rows each seed a charge bar from
+		// their mount, and runs one Player_PerFrameCockpitUpdate before the first tick.
+		world.PlayerMech?.Weapons.BuildGauges();
+		world.PlayerMech?.Weapons.PushGaugeStates();
+
 		// Each base group that carries a formation layout repaints the ground it stands on with that
 		// formation's own material, which is what puts a base on a marked concrete pad instead of on
 		// open terrain, and marks the pad's own cells for the levelling below. The original does

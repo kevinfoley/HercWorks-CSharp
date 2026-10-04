@@ -73,7 +73,7 @@ The retail magazine sizes are listed with the field in [`../formats/weapons-dat-
 
 `WeaponMount_CtorEnergy` (`0040e074`) writes `Q10Multiply(820, 1200) = 960` into **both** `+0x7b` and `+0x7d` and `20` into `+0x7f` — literals, identical for every energy weapon. A HERC powers up with its capacitors full.
 
-`+0x7b` is a *request*, not a capacity: the mount's **power level**, a control the manual never mentions. `WeaponMount_WakeCapacitor` (`0040f4d8`) drops it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
+`+0x7b` is a *request*, not a capacity: the mount's **power level**, a control the manual never mentions. `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with, and on the player's own mounts it then passes through the charge bar once a frame — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
 
 Readiness (`WeaponMount_EnergyCanFire`) is `!destroyed && refireTimer == 0 && charge >= threshold`, where the threshold comes from the template's `+0x36`/`+0x38` pair: `max(+0x36, +0x7b)` when `+0x36 < +0x38`, otherwise `+0x38` outright. Real templates carry both shapes — `EMP` reads (350, 10000), `LAS100` (80, 80). The ammunition equivalent (`WeaponMount_AmmoCanFire`) is `!destroyed && refireTimer == 0 && rounds != 0`.
 
@@ -288,5 +288,4 @@ One LINK press runs the toggle **three** times: the button's own click handler (
 
 ## Open
 
-- **Unported:** the missile-lock gate on readiness: a launcher whose subtype holds no lock reads red and is skipped.
 - **Open:** template fields other than those named here — see [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).

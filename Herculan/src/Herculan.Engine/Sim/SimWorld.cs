@@ -1466,6 +1466,9 @@ public sealed class SimWorld {
 		if (PlayerMech is { Removed: false, Destroyed: false } pilot) {
 			PollMission(pilot);
 		}
+
+		// Sim_RenderFrame still runs under the freeze, and with it the charge-bar exchange.
+		PlayerMech?.Weapons.PushGaugeStates();
 	}
 
 	/// <summary>
@@ -1660,6 +1663,10 @@ public sealed class SimWorld {
 		// The light handles ended effects queued come back at the top of the next Sim_RenderFrame,
 		// which the original runs straight after each Sim_MainTick.
 		EffectLights.FlushReleases();
+
+		// And that frame's Player_PerFrameCockpitUpdate exchanges the power levels with the charge bars, one
+		// push to each tick; see WeaponMounts.PushGaugeStates.
+		PlayerMech?.Weapons.PushGaugeStates();
 
 		TickCount++;
 		ElapsedMilliseconds += elapsedMilliseconds;

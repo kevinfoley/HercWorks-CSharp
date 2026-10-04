@@ -159,7 +159,7 @@ if (mount+0x5f == 0 || mount+0x5b == 0) {
 
 ## Power level — `WeaponMount_AdjustPowerLevel` (`0040f48c`)
 
-Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50` (80), clamped to 0..1200, and sets `+0x34` and `+0x3c` ([below](#the-charge-bar)). `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) is the bulk counterpart, putting every capacitor back to the idle 820.
+Energy mount vtable `+0x38`, reached by `WeaponMounts_HandleCommand` codes `0x0c`/`0x0d`/`0x4a`/`0x4e` (`[-]`, `[=]`, keypad `[-]`, keypad `[+]`). Moves the charge target `+0x7b` by ±`0x50` (80), clamped to 0..1200, and sets `+0x34` and `+0x3c` ([below](#the-charge-bar)). `WeaponMounts_IdleAllCapacitors` (`00410d04`, code `0x2c`) calls `WeaponMount_WakeCapacitor` on every mount, writing the idle 820, but sets neither flag, so [the charge bar](#the-charge-bar) puts each target back on the next frame.
 
 `WeaponMount_DemandFullCharge` (`0040f4f0`) would raise the target to 1200 in one step, but its only caller `WeaponMounts_DemandFullChargeOnArmed_Dead` (`00410d50`) has no reference of any kind anywhere in the image — neither a `CALL rel32` nor a stored address — so neither is ever reached.
 
@@ -176,17 +176,14 @@ The slider still takes part in a once-a-frame exchange with the mount, `WeaponMo
 | set | the charge target goes out to the slider as `(target << 10) / 1200` |
 | clear | the slider's position comes back as the charge target, `position * 1200 >> 10` |
 
-`WeaponMount_AdjustPowerLevel`, `WeaponMount_ZeroChargeTarget` (`004116ad`), `WeaponMount_DrainCapacitor` (`004116cf`) and `WeaponMount_CtorEnergy` set `+0x34` together with `+0x3c`, the same byte of the `+0x3b` block. On each pool turn `WeaponMount_RefireTick` ANDs `+0x33` with `+0x3b` and clears `+0x3b`, so `+0x34` holds for one turn after any of them and is clear the rest of the time. With nothing else moving the slider, the read-back returns the value last pushed, and what remains is the round trip's loss: a target of 960 goes out as 819 and comes back as 959. A mount therefore runs one or two units below the target its constructor or the keys set.
+`WeaponMount_AdjustPowerLevel`, `WeaponMount_ZeroChargeTarget` (`004116ad`), `WeaponMount_DrainCapacitor` (`004116cf`) and `WeaponMount_CtorEnergy` set `+0x34` together with `+0x3c`, the same byte of the `+0x3b` block. On each pool turn `WeaponMount_RefireTick` ANDs `+0x33` with `+0x3b` and clears `+0x3b`, so `+0x34` holds for one turn after any of them and is clear the rest of the time. `WeaponMount_WakeCapacitor` is not among them: on the player's mounts the next push reads the slider back over the 820 it writes.
 
-The gauge factory, `WeaponMount_CreateEnergyGauge` (`0040e0e0`), seeds the slider with the raw target, 960 rather than 819; the pair the constructor set has the first push replace that seed, so a fresh mount's target settles at 959 ([Open](#open)).
+The hand-off depends on a push falling between any two pool turns, and one always does. `Sim_Run` alternates `Sim_MainTick`, the pool turns' only caller, with `Sim_RenderFrame`, whose `Player_PerFrameCockpitUpdate` runs the push; and `Sim_InitMissionSession` (`004614fc`) builds the cockpit and runs one `Player_PerFrameCockpitUpdate` of its own before the first `Sim_MainTick`. The redraws a modal panel runs push again with no pool turn between, which changes nothing: a set `+0x34` pushes the same value, and a clear one reads back the same slider. Only the local player's mounts have gauges, so only they take part.
+
+With nothing else moving the slider, the read-back returns the value last pushed, and what remains is the round trip's loss, `((target << 10) / 1200) * 1200 >> 10`: at most two units, and none at 0 or 1200. The gauge factory, `WeaponMount_CreateEnergyGauge` (`0040e0e0`), seeds the slider with the raw target, 960 rather than 819, and the session's own push replaces the seed before any pool turn. A fresh mount therefore charges toward 960 for two pool turns and toward 959 from then on; a press of `[-]` from there takes it to 879 and then 878.
 
 ## Resolving the hit
 
 `Bullet_FireBurst` calls `Sim_RaycastObjectList` (`00426528`) **before** it spawns any tracer, so the hit is already resolved when the visual is built — see [`beam-visuals.md`](beam-visuals.md) for the sound and tracer it then builds. The sweep itself is documented in [`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528) and the per-mech hit test in [`damage-system.md`](damage-system.md#direct-fire-damage-armor-then-part-deterministic-shield-gated); it clips at terrain first, shortens the ray per hit rather than stopping at the first, and applies damage inside the hit test.
 
 The ray record's `+0x08` is passed along as a walk radius, but the thin-ray terrain mode never reads it.
-
-## Open
-
-- **Unported:** [the charge bar](#the-charge-bar)'s round trip, which leaves an energy mount's charge target one or two units below what its constructor or the keys set.
-- **Open:** whether a gauge push (`Player_PerFrameCockpitUpdate`) always falls between a mount's first two pool turns (`WeaponMounts_ArbitrateEnergy`). The power-up hand-off relies on it: two pool turns first would clear `+0x34` with the 960 seed still in the slider, and the read-back would make the target 960 × 1200 >> 10 = 1125.

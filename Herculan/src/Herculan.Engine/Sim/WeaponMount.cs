@@ -117,6 +117,22 @@ public sealed class WeaponMount {
 	private bool _spinUpLatched;
 	private short _spinUpCellTimer;
 
+	/// <summary>
+	/// <c>+0x34</c> and <c>+0x3c</c>, byte 1 of the <c>+0x33</c> and <c>+0x3b</c> flag blocks — which
+	/// way <see cref="PushGaugeState"/> moves the power level. The pool turn shuffles them as it does
+	/// <see cref="FiringSustained"/>'s byte 0, so a write that sets both holds for one turn.
+	/// </summary>
+	private bool _powerToGauge;
+
+	private bool _powerToGaugeThisTick;
+
+	/// <summary>
+	/// The charge bar's slider position, gauge <c>+0xc6</c>, 0..<see cref="Content.ChargeBarSlider.Range"/>,
+	/// or null for a mount with no energy gauge. It lives on the gauge in the original; it is kept here
+	/// for the reason <see cref="PodButton"/> is.
+	/// </summary>
+	private int? _chargeBarPosition;
+
 	internal WeaponMount(int mountIndex, GunLayout.HardpointEntry hardpoint, int weaponId,
 			short secondaryKey, WeaponCatalog catalog, Func<int, int>? modelCellCount = null) {
 		_hardpoint = hardpoint;
@@ -151,6 +167,8 @@ public sealed class WeaponMount {
 				ChargeTarget = EnergyCapacitorFull;
 				Charge = EnergyCapacitorFull;
 				ChargeRate = EnergyChargeRate;
+				_powerToGauge = true;
+				_powerToGaugeThisTick = true;
 				break;
 
 			// TurboPod_Ctor (0040e2bc) is the one pod constructor that arms anything: a full tank at
@@ -735,6 +753,9 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// Vtable slot <c>0x3c</c>, <c>WeaponMount_WakeCapacitor</c> (<c>0040f4d8</c>): put an energy mount's charge target back to its
 	/// idle level. Only the energy class implements it — the other two have a no-op in that slot.
+	///
+	/// <para>It does not set the charge bar's hand-off, so on a mount with a gauge the next
+	/// <see cref="PushGaugeState"/> reads the slider back over the idle level.</para>
 	/// </summary>
 	internal void WakeCapacitor() {
 		if (IsEnergyClass && !Disabled) {
@@ -898,10 +919,12 @@ public sealed class WeaponMount {
 		if (IsEnergyClass || Kind == WeaponMountKind.Ammunition) {
 			SimMath.CountdownTimerTick(ref _refireTimer);
 
-			// WeaponMount_AndFlagBlocks (0040f881): +0x33 &= +0x3b, then +0x3b is cleared. See FiringSustained — the ELF
-			// readiness test is the one thing that reads the result.
+			// WeaponMount_AndFlagBlocks (0040f881): +0x33 &= +0x3b, then +0x3b is cleared. Byte 0 is FiringSustained, which
+			// the ELF readiness test reads; byte 1 is the charge bar's hand-off, which PushGaugeState reads.
 			_firedSinceShuffle &= _firedThisTick;
 			_firedThisTick = false;
+			_powerToGauge &= _powerToGaugeThisTick;
+			_powerToGaugeThisTick = false;
 
 			MuzzleFlashTick();
 		}
@@ -1165,9 +1188,8 @@ public sealed class WeaponMount {
 	/// cost are both fixed. A charge-up weapon's target <i>is</i> its shot strength, and turning it
 	/// down is what makes one fire sooner and hit softer.</para>
 	///
-	/// <para>Retail also passes the target through the charge bar's slider once a frame, which leaves it
-	/// one or two units below what the keys set (960 comes back as 959). This engine keeps the exact
-	/// target: docs/simulation/weapon-firing.md#the-charge-bar.</para>
+	/// <para>The new target goes out to the charge bar on the next <see cref="PushGaugeState"/> and
+	/// comes back from it a pool turn later, up to two units low.</para>
 	/// </summary>
 	/// <param name="raise">True for the two "up" keys.</param>
 	internal void AdjustPower(bool raise) {
@@ -1177,24 +1199,63 @@ public sealed class WeaponMount {
 
 		ChargeTarget += raise ? EnergyPowerStep : (short)-EnergyPowerStep;
 		ChargeTarget = Math.Clamp(ChargeTarget, (short)0, EnergyChargeScale);
+		_powerToGauge = true;
+		_powerToGaugeThisTick = true;
 	}
 
 	/// <summary>
-	/// The charge bar's slider committed at <paramref name="position"/> (0..<see cref="Content.ChargeBarSlider.Range"/>),
-	/// under <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>. Retail's path, which no
-	/// press reaches there: <c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>) clamps the position
-	/// into the gauge's state block, and the next <c>WeaponMount_PushEnergyGaugeState</c>
-	/// (<c>0040f288</c>) with <c>+0x34</c> clear reads it back as <c>position * 1200 &gt;&gt; 10</c>. This
-	/// engine sets the target on the commit itself, skipping the frame's wait and the <c>+0x34</c>
-	/// hand-off that would let a key press in that frame win; docs/simulation/weapon-firing.md#the-charge-bar.
+	/// <c>WeaponMount_CreateEnergyGauge</c> (<c>0040e0e0</c>), energy and ELF vtable <c>+0x64</c>: the
+	/// charge bar's slider is seeded with the raw charge target, through
+	/// <c>SliderWidget_SetValueH</c>'s clamp. Every other class's gauge has no slider.
+	/// </summary>
+	internal void BuildGauge() {
+		if (IsEnergyClass) {
+			_chargeBarPosition = Math.Clamp((int)ChargeTarget, 0, Content.ChargeBarSlider.Range);
+		}
+	}
+
+	/// <summary>
+	/// The power-level half of <c>WeaponMount_PushEnergyGaugeState</c> (<c>0040f288</c>), energy and
+	/// ELF vtable <c>+0x50</c>, on a mount with a gauge. With the hand-off set — for one pool turn
+	/// after the constructor or <see cref="AdjustPower"/> — the charge target goes out to the slider
+	/// as <c>(target &lt;&lt; 10) / 1200</c>; otherwise the slider comes back as the charge target,
+	/// <see cref="ChargeTargetForBarPosition"/>. The round trip loses up to two units, so a power level
+	/// settles just under what set it: 960 goes out as 819 and comes back as 959. See
+	/// docs/simulation/weapon-firing.md#the-charge-bar.
+	///
+	/// <para>The rest of the push — the bar's fill and the row's flags — is display state the cockpit
+	/// rows read straight off the mount (<see cref="ChargeMeterValue"/>).</para>
+	/// </summary>
+	internal void PushGaugeState() {
+		if (_chargeBarPosition is not { } position) {
+			return;
+		}
+
+		if (_powerToGauge) {
+			// EnergyWeaponGauge_SetState hands a changed position to SliderWidget_SetValueH, which clamps it
+			// and commits it back through EnergyWeaponGauge_OnChildClick into the same field.
+			_chargeBarPosition = Math.Clamp(((int)ChargeTarget << 10) / EnergyChargeScale,
+				0, Content.ChargeBarSlider.Range);
+		} else {
+			ChargeTarget = ChargeTargetForBarPosition(position);
+		}
+	}
+
+	/// <summary>
+	/// The charge bar's slider committed at <paramref name="position"/>, under
+	/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>. Retail's path, which no press
+	/// reaches there: <c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>) clamps the position to
+	/// 0..<see cref="Content.ChargeBarSlider.Range"/> into the gauge's state block, and the next
+	/// <see cref="PushGaugeState"/> with the hand-off clear reads it back as the charge target. A key
+	/// press whose hand-off is still pending wins over it; docs/simulation/weapon-firing.md#the-charge-bar.
 	/// </summary>
 	/// <returns>Whether this mount has a charge bar to take it — an energy or ELF mount still working.</returns>
 	internal bool SetPowerFromChargeBar(int position) {
-		if (!IsEnergyClass || Disabled) {
+		if (!IsEnergyClass || Disabled || _chargeBarPosition == null) {
 			return false;
 		}
 
-		ChargeTarget = ChargeTargetForBarPosition(position);
+		_chargeBarPosition = Math.Clamp(position, 0, Content.ChargeBarSlider.Range);
 		return true;
 	}
 

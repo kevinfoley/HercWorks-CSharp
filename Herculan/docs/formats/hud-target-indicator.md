@@ -92,11 +92,11 @@ It is a flat-filled polygon, the only piece of the indicator that is not a sprit
 
 **The box is the one HUD element the canopy covers**, and that is a property of the render context it is drawn through rather than of draw order.
 
-A render context (`0x239` bytes) carries a clip block at `ctx+4`, which `Raster_InstallRenderContext` (`00480c38`) installs as `PTR_DAT_004a362c`. Its mode sits at `ctx+0x208`: 0 none, 1 a single rect at `ctx+0x210`, 2 the region list the block itself holds. Two contexts matter:
+A render context (`0x239` bytes) carries a clip block at `ctx+4`, which `Raster_InstallRenderContext` (`00480c38`) installs as `PTR_DAT_004a362c`. Its mode sits at `ctx+0x208`: 0 none, 1 a single rect at `ctx+0x210`, 2 the region list the block itself holds. While `ctx+0x20c` is 1, `Bitmap_BlitClipDispatch` (`004886cc`) first moves every blit by the rect's top-left less the origin at `ctx+0x220`/`+0x224`. Two contexts matter:
 
 | Context | Built by | Clip |
 |---|---|---|
-| `CockpitViewInstance+4` | `Gau_BuildCockpitWidgets` (`00431bf8`) | Mode 1, rect = the whole cockpit canvas |
+| `CockpitViewInstance+4` | `Gau_BuildCockpitWidgets` (`00431bf8`), through `Cockpit_CreateCanvasContext` (`00430ea0`) | Mode 1, rect = the whole cockpit canvas, translation on |
 | The one under it | `CockpitView_ApplyViewState` (`00429e60`) loads the current view's `0x204`-byte block into it | Mode 2, regions = the herc's `.HD`/`.ED` canopy cutout (see [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)) |
 
 `Cockpit_PushCanvasContext` (`004311e0`) pushes the current context and installs the canvas one; `Cockpit_PopRenderContext` (`00431210`) pops. Every widget paint runs inside such a pair, which is why the console instruments — outside the canopy cutout — can draw at all.

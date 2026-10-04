@@ -69,6 +69,13 @@ public static class TweakSettingDefinitions {
 	/// showing. See <see cref="Render.CockpitHitShake.FlashSurvivesRestart"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FlashThroughSecondHit = new("tweak.flash_through_second_hit", TweakCategory.Cosmetic, false);
+
+	/// <summary>
+	/// Draw the tick tape that scrolls with height beside the RAZOR's altitude scale. Retail blits it
+	/// through a clip rect that the cockpit canvas's translation pushes it out of, so it never shows.
+	/// See <see cref="Content.AltitudeScale.TapeFrame"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> ShowAltitudeTape = new("tweak.show_altitude_tape", TweakCategory.Cosmetic, false);
 	#endregion
 
 	#region FUNCTIONAL
@@ -121,6 +128,6 @@ public static class TweakSettingDefinitions {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
-		ChargeBarPowerLevel, FlashThroughSecondHit,
+		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape,
 	};
 }

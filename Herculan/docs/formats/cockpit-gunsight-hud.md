@@ -158,11 +158,17 @@ Both `Gunsight_Paint` and `Gunsight_UpdateAndPaint` test the console button pane
 1. Frame 15, a bracket, is blitted at the point, and frame 16, a second bracket, with its bottom edge at the scale's foot. The scale proper runs from frame 15's bottom row (the *top*) to frame 16's top row (the *foot*).
 2. A column over columns `x + w - (1 << XCoordShift)` to `x + w` inclusive, with `x` the point's and `w` frame 15's width: three device pixels in the 640-wide modes, its right side one column past frame 15. Its two sides are `Raster_DrawLine`s in palette index `0x49` from the top down to the terrain height under the machine (`Terrain_HeightQuery` at its x, y); then a `Raster_FillRect` in `0x4b` fills it from that row to the foot, both ends inclusive.
 3. Frame 17, a marker, is centred on the column at the machine's own height (`mech+0x2e`).
-4. Frame 18, a strip of ticks, is drawn twice through a clip rect of its own width starting `2 << XCoordShift` right of the point and running from the top to the foot inclusive: once with its top at `height / 50 % (0x24 << YCoordShift)` below the top, a moving tape, and once a frame height above that.
+4. Frame 18, a strip of ticks, is blitted twice at `x + (2 << XCoordShift)`: once with its top at `height / 50 % (0x24 << YCoordShift)` below the top, and once a frame height above that. **Neither blit reaches the screen** — see [The tick tape is never drawn](#the-tick-tape-is-never-drawn).
 
 Both heights map linearly from the zone's height range, `grid+0x110` at the foot to `grid+0x114` + 5000 at the top, as `foot - (h - floor) * (foot - top) / (ceiling - floor)` with a 64-bit product and a truncating divide, and are clamped to the scale. The pen and brush are plain palette indices the paint states as immediates, not `COLORS.DAT` ids.
 
-The tape's wrap does not match its art. In `hba\HUD.HBA` frame 18 is 6x60 with a long tick every 30 rows and a short one every 6, and the offset wraps at 72 rows: each wrap moves the long ticks by 12 rows, and while the offset is past 60 the two copies leave the scale's top rows bare.
+#### The tick tape is never drawn
+
+Retail shows the brackets, the column and the marker, and no tape. The paint runs inside `Cockpit_PushCanvasContext`, so the context it narrows for the tape is the cockpit canvas's, which is built with its [blit translation](hud-target-indicator.md#why-the-box-goes-behind-the-cockpit-frame) on. Around the two tape blits (`0043dfac`-`0043e0dc`) it saves the context's rect, origin and clip mode, sets the rect to the strip — `x + (2 << XCoordShift)` to that plus frame 18's width, top to foot inclusive — sets the mode to 1 and the origin `+0x220`/`+0x224` to zero, and restores all of them after. It leaves the translation flag `+0x20c` at 1, so `Bitmap_BlitClipDispatch` (`004886cc`) moves each tape blit by the strip's own top-left less a zero origin: the tape lands at twice the strip's left edge, and since that edge is at least `0x48 << XCoordShift` (the reticle's x plus `0x46`, plus 2) and the strip is one frame wide, that is right of the strip's right edge on every herc in every video mode, and the clip rejects the blit whole. `HudHeadingTape_Paint` (`0043b6dc`), which narrows the same context the same way, narrows only x and sets the origin's x to the rect's new left edge, which cancels the translation in x, so its strip shows.
+
+The brackets, column and marker are drawn before the rect changes, through the canvas's own rect and origin, and are unaffected.
+
+What frame 18 would show is real art: in `hba\HUD.HBA` it is 6x60 in palette index `0x4a` on a colour-0 ground, a full-width tick every 30 rows and a short one at the right edge every 6. The offset wraps at 72 rows, not at the art's 30, so a drawn tape would jump its long ticks by 12 rows at each wrap and leave the scale's top rows bare while the offset is past 60.
 
 ## Open
 

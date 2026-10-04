@@ -7056,8 +7056,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Cockpit_CreateCanvasContext",
-      "description": "Allocates the cockpit widget layer's own 0x239-byte render context, sets clip mode 1 (single rect) at +0x208 and the caller's rect at +0x210..+0x21c, and stores it in DAT_004d042c. Gau_BuildCockpitWidgets passes the whole cockpit canvas and keeps the result at CockpitViewInstance+4.",
-      "source": "docs/formats/hud-target-indicator.md"
+      "description": "Allocates the cockpit widget layer's own 0x239-byte render context, sets clip mode 1 (single rect) at +0x208, turns on the blit translation at +0x20c (so Bitmap_BlitClipDispatch moves every blit by the rect's top-left less the origin at +0x220/+0x224), puts the caller's rect at +0x210..+0x21c, and stores it in DAT_004d042c. Gau_BuildCockpitWidgets passes the whole cockpit canvas and keeps the result at CockpitViewInstance+4.",
+      "source": "docs/formats/hud-target-indicator.md; DBSIM decompile at 00430ea0 (piVar1[0x83] = 1)"
     },
     {
       "address": "00430f58",
@@ -9072,8 +9072,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Gunsight_PaintAltitudeScale",
-      "description": "(gunsight): only for a flyer (type record +0x50): from the point at +0x113 draws a scale 0x24 << YCoordShift tall out of Hud_BitmapBank frames 15-18 -- frame 15 at the point and 16 at the foot, a narrow column at frame 15's right edge filled in palette 0x4b up to the terrain height under the machine and edged in 0x49 above it, frame 17 at the machine's height (mech+0x2e), and frame 18 twice as a tape scrolled by height / 50, clipped to its own strip. Heights map from grid+0x110 at the foot to grid+0x114 + 5000 at the top, clamped. Gunsight_Paint and Gunsight_UpdateAndPaint call it.",
-      "source": "DBSIM decompile at 0043dd70"
+      "description": "(gunsight): only for a flyer (type record +0x50): from the point at +0x113 draws a scale 0x24 << YCoordShift tall out of Hud_BitmapBank frames 15-18 -- frame 15 at the point and 16 at the foot, a narrow column at frame 15's right edge filled in palette 0x4b up to the terrain height under the machine and edged in 0x49 above it, frame 17 at the machine's height (mech+0x2e), and frame 18 twice as a tape scrolled by height / 50. Heights map from grid+0x110 at the foot to grid+0x114 + 5000 at the top, clamped. For the tape it narrows the installed canvas context to the strip (rect +0x210..+0x21c, mode +0x208 = 1) and zeroes its origin +0x220/+0x224 but leaves the context's translation flag +0x20c at 1, so both tape blits are moved by the strip's own top-left and land right of the strip: the tape is never drawn. Gunsight_Paint and Gunsight_UpdateAndPaint call it inside Cockpit_PushCanvasContext.",
+      "source": "DBSIM decompile and disassembly at 0043dd70 (0043dfac-0043e0dc); docs/formats/cockpit-gunsight-hud.md"
     },
     {
       "address": "0043e0ec",

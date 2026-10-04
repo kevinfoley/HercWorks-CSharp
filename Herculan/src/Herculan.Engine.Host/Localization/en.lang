@@ -17,6 +17,8 @@ tweak.fix_computer_message_pref.display_name   Fix COMPUTER MESSAGE Preference
 tweak.fix_computer_message_pref.description    Cockpit computer voiceover is controlled by the COMPUTER MESSAGE preference instead of the PILOT MESSAGE preference.
 tweak.flash_through_second_hit.display_name   Keep damage flash on a second hit
 tweak.flash_through_second_hit.description    A second hit on your cockpit while the screen is still shaking from the first keeps the red damage flash going until the shake ends. In retail, a second hit that lands while the screen is red stops the flash for the rest of the shake.
+tweak.show_altitude_tape.display_name        Show Razor altitude tape
+tweak.show_altitude_tape.description         Draw the tick tape that scrolls with your height beside the Razor's altitude scale. Retail draws the scale's brackets, column and marker, but places the tape outside its own clipping area, so it never appears.
 tweak.smoother_turret_movement.display_name    Smoother turret movement
 tweak.smoother_turret_movement.description     Smooth turret rotation when aiming with a joystick or other analog input. Retail rounds the rotation value, causing stutter at slow aiming speeds. Has no effect when aiming with the keyboard.
 tweak.mouse_external_view.display_name        Mouse-controlled outside view

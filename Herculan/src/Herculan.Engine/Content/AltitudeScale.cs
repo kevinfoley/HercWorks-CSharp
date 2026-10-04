@@ -55,7 +55,11 @@ public readonly struct AltitudeScale {
 	/// <summary>Frame 17, the marker at the machine's own height.</summary>
 	public const int MarkerFrame = 17;
 
-	/// <summary>Frame 18, the tick strip that scrolls with height.</summary>
+	/// <summary>
+	/// Frame 18, the tick strip that scrolls with height. Retail blits it and never shows it
+	/// (docs/formats/cockpit-gunsight-hud.md, "The tick tape is never drawn"), so it is drawn only
+	/// under the <see cref="Settings.TweakSettingDefinitions.ShowAltitudeTape"/> tweak.
+	/// </summary>
 	public const int TapeFrame = 18;
 
 	/// <summary>Palette index of the column's two sides above the ground mark — a constructor immediate, so a raw index.</summary>

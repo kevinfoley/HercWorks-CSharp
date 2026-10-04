@@ -1578,6 +1578,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 		var (markerX, markerY) = scale.MarkerAt(reading);
 		blitDevice(AltitudeScale.SpriteBank, AltitudeScale.MarkerFrame, markerX, markerY);
 
+		// Retail's tape blits never reach the screen — see AltitudeScale.TapeFrame. Read every frame, so
+		// toggling the tweak shows or hides it at once.
+		if (!TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowAltitudeTape)) {
+			return;
+		}
+
 		int tape = scale.TapeRow(reading);
 		blitDeviceClippedY(AltitudeScale.SpriteBank, AltitudeScale.TapeFrame, scale.TapeLeft, tape,
 			scale.Top, scale.Foot + 1);

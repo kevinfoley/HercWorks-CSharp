@@ -79,6 +79,11 @@ public enum MfdSilhouetteKind {
 /// than by <see cref="For"/>, because the pod belongs to the machine doing the looking and not to the
 /// subject. See <see cref="MfdLayout.ComponentHighlightColorId"/>.
 /// </param>
+/// <param name="Scrambled">
+/// The screen's scramble flag (<c>+0x34</c>) as it stood when this was painted: a present subject's name,
+/// condition and integrity or range print as <see cref="MfdLayout.ScrambledName"/> and its fellows, and a
+/// HERC's paper doll and pod highlight are not drawn. Set by <see cref="MfdStatusRefresh"/>.
+/// </param>
 public readonly record struct MfdStatusSubject(
 	bool Present,
 	bool Identified,
@@ -94,7 +99,8 @@ public readonly record struct MfdStatusSubject(
 	string? PaperDollName,
 	IReadOnlyList<short>? Readings = null,
 	bool FlyerVariant = false,
-	int HighlightComponent = -1) {
+	int HighlightComponent = -1,
+	bool Scrambled = false) {
 
 	/// <summary>Nothing selected — the state F5 sits in until the player picks something.</summary>
 	public static MfdStatusSubject None { get; } = new(

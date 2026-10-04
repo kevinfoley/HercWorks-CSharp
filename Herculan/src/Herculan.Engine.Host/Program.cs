@@ -70,6 +70,7 @@ int shellTab = ShellScreen.MainMenuTab;
 int shellBay = 0;
 bool shellPractice = false;
 bool shellWindowed = false;
+bool missionWindowed = false;
 bool shellMovies = true;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
@@ -281,6 +282,11 @@ for (int i = 0; i < args.Length; i++) {
 		// retail's -d reads as the same switch, and its store is overwritten before anything reads it.
 		shellWindowed = true;
 		runShell = true;
+	} else if (args[i] == "--windowed") {
+		// Keep every mission's window windowed at startup whatever prefs.cfg option 6 says -- --shell-windowed's
+		// counterpart for the simulator. This engine's own flag, not retail's -Z0: see the startup toggle in
+		// RunMission for what it does to the option's write-back.
+		missionWindowed = true;
 	} else if (args[i] == "--shell-no-movies") {
 		// Turn the shell's movies off — retail's -a, which clears Shell_MoviesEnabled (00482275) so the movie queue takes
 		// nothing and plays nothing. See ShellMovieQueue.
@@ -709,6 +715,16 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// is the way out; a Defaults() instance has nowhere to write to and so is inert either way. A replay's
 	// preferences are the tape's, in a scratch folder, so nothing there is worth writing.
 	simulatorPreferences.SaveEnabled = writePreferences && tapePlayer == null;
+
+	// Display Mode, prefs option 6 (docs/simulation/preferences.md#the-video-mode-and-full-screen-bytes): WinMain
+	// (00465288) takes the window to full screen through Video_ToggleFullscreen once it is created when the byte is
+	// set, and Sim_Run writes the byte back at shutdown when the state differs from it. This engine's own two
+	// exceptions keep the window: --windowed, and a --screenshot run, whose capture is the window's framebuffer
+	// whatever the monitor. Retail has no switch that does this without also writing the option back, as -Z0 does,
+	// so a run kept windowed by either that is still windowed when it ends writes nothing back; a full-screen
+	// toggle made during it is written as retail writes it.
+	bool keptWindowed = missionWindowed || screenshotPath != null;
+	bool startFullScreen = simulatorPreferences[Prefs.DisplayModeOption] != 0 && !keptWindowed;
 
 	// -r writes its bundle before the mission starts, so the tape starts from the files as they are now,
 	// before any panel writes its options back.
@@ -1156,6 +1172,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// What F1's SELECT walks: the machine being flown, then the squadmates in comm-box order, taken
 	// once as the mission starts.
 	var mfdStatusRoster = new MfdStatusRoster(pilotMech, squadSeats.Take(squadPlacements.Count));
+
+	// What F1 and F5 show between their repaints, which the original makes only every 30 coarse ticks.
+	var mfdStatusRefresh = new MfdStatusRefresh();
 	bool allStopKeyDown = false;
 	bool shieldRearKeyDown = false;
 	bool shieldFrontKeyDown = false;
@@ -1904,6 +1923,11 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			mouse.MouseUp += (m, button) => Queue(m, ButtonsHeld(m) & ~ButtonFlag(button));
 		}
 
+		// WinMain's toggle, after the pointer is known so it is confined and centred as Video_ToggleFullscreen's is.
+		if (startFullScreen) {
+			ToggleFullScreen();
+		}
+
 		// No fixed-function face culling. DTS geometry is not reliably wound — the WinForms model viewer
 		// reached the same conclusion and never culls by winding either — so culling by it would punch
 		// holes in the mech rather than save fill rate. The format's own front/back choice, which does
@@ -2352,12 +2376,19 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			tapeRecorder?.SetHeld(recordedAxes, mech.Controls.Fire, stickReading.Buttons);
 		}
 
+		// The cockpit's keys, from here to the damage detail's arrows, are Sim_DispatchCommand's and
+		// CockpitWidgets_HandleCommand's cases, which no key reaches while a modal panel is up: the panel's own
+		// loop hands each key to the panel alone (docs/simulation/preferences.md#preferences-and-controls-dbsimexe).
+		// So each block below acts only while AnyModalPanelOpen() is false, and an edged key still refreshes its
+		// latch under a panel, so a key held as the panel closes does not fire.
+		//
 		// F1-F6 pick the MFD screen, the same keys and the same order as the original's own mode buttons
 		// — button i of the display's F-key column dispatches SetMode(i), and this sets the same value.
 		// Selecting one also pans back up to the cockpit, which is the manual's own rule for leaving the
 		// Heads-Down Display ("select an MFD screen [F1]-[F6], press [Esc], or click the top of the
 		// screen") and matches view command 1, the "up" half of the pair at 0042a3f4.
-		if (controls != null && !CockpitWidgetsOff() && ReadMfdMode(controls) is { } requestedMfdMode) {
+		bool modalPanelUp = AnyModalPanelOpen();
+		if (controls != null && !modalPanelUp && !CockpitWidgetsOff() && ReadMfdMode(controls) is { } requestedMfdMode) {
 			SetMfdMode(requestedMfdMode);
 			RequestHeadsDown(headsDown: false);
 		}
@@ -2391,7 +2422,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 			for (int i = 0; i < FlashCommKeys.Length; i++) {
 				var (key, row, requiredVerb) = FlashCommKeys[i];
-				if (!Edge(key, ref flashCommKeysDown[i]) || ctrl) {
+				if (!Edge(key, ref flashCommKeysDown[i]) || ctrl || modalPanelUp) {
 					continue;
 				}
 
@@ -2414,22 +2445,23 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 			if (flashCommUp) {
 				// [X] presses XMIT, which is aux button 10 — the same press a click on the button makes.
-				if (Edge(Key.X, ref flashCommTransmitKeyDown)) {
+				if (Edge(Key.X, ref flashCommTransmitKeyDown) && !modalPanelUp) {
 					Transmit();
 				}
 
 				// [.] and [,] walk the list past any row the squad cannot take.
-				if (Edge(Key.Period, ref flashCommNextRowKeyDown) && !ctrl) {
+				if (Edge(Key.Period, ref flashCommNextRowKeyDown) && !ctrl && !modalPanelUp) {
 					flashComm.StepRow(1);
 				}
-				if (Edge(Key.Comma, ref flashCommPreviousRowKeyDown) && !ctrl) {
+				if (Edge(Key.Comma, ref flashCommPreviousRowKeyDown) && !ctrl && !modalPanelUp) {
 					flashComm.StepRow(-1);
 				}
 			}
 
 			// [Alt+D] is command 0x220, which the cockpit view claims in its own handler before the panel
 			// below it ever sees it: it drops a nav marker rather than transmitting DISENGAGE.
-			if (alt && Edge(Key.D, ref navMarkerKeyDown) && !ctrl && flashCommWorld.PlayerMech is { } marking) {
+			if (alt && Edge(Key.D, ref navMarkerKeyDown) && !ctrl && !modalPanelUp
+					&& flashCommWorld.PlayerMech is { } marking) {
 				navMarker.Drop(marking.Position);
 			}
 
@@ -2480,7 +2512,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
 		// either one opens the display — so each both pans down and selects its own screen, which is
 		// what the display's own two page buttons dispatch (HddDisplay_SetPage (0044a5e4) with the button's index).
-		if (cockpitHeadsDownTexture != null && controls != null && !CockpitWidgetsOff()) {
+		if (cockpitHeadsDownTexture != null && controls != null && !modalPanelUp && !CockpitWidgetsOff()) {
 			if (controls.IsKeyPressed(Key.F7)) {
 				hudState = hudState with { Hdd = HddPage.CommandDisplay };
 				RequestHeadsDown(headsDown: true);
@@ -2496,9 +2528,9 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		if (cockpitArt != null && controls != null) {
 			bool glanceLeftKey = controls.IsKeyPressed(Key.F9);
 			bool glanceRightKey = controls.IsKeyPressed(Key.F10);
-			if (glanceLeftKey && !glanceLeftKeyDown) {
+			if (glanceLeftKey && !glanceLeftKeyDown && !modalPanelUp) {
 				CommandGlance(GlanceSide.Left);
-			} else if (glanceRightKey && !glanceRightKeyDown) {
+			} else if (glanceRightKey && !glanceRightKeyDown && !modalPanelUp) {
 				CommandGlance(GlanceSide.Right);
 			}
 
@@ -2519,7 +2551,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			&& cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay) {
 			// The screen's dispatch matches bare scancodes, so a key under [Ctrl] or [Alt] — a developer
 			// key, most of the letters here — is not one of its own.
-			bool modified = CtrlHeld(controls) || AltHeld(controls);
+			bool modified = CtrlHeld(controls) || AltHeld(controls) || modalPanelUp;
 			for (int i = 0; i < HddCommandKeys.Length; i++) {
 				if (Edge(HddCommandKeys[i], ref hddOrderKeysDown[i]) && !modified) {
 					command.SelectOrder((HddOrder)i);
@@ -2546,10 +2578,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			}
 
 			// [+] and [-], the two magnifiers.
-			if (Edge(Key.Equal, ref hddZoomInKeyDown) || Edge(Key.KeypadAdd, ref hddZoomInPadKeyDown)) {
+			// `|`, not `||`, so both of a pair's latches are refreshed every frame.
+			if ((Edge(Key.Equal, ref hddZoomInKeyDown) | Edge(Key.KeypadAdd, ref hddZoomInPadKeyDown)) && !modalPanelUp) {
 				ApplyHddClick(HddLayout.Widget.ZoomIn);
 			}
-			if (Edge(Key.Minus, ref hddZoomOutKeyDown) || Edge(Key.KeypadSubtract, ref hddZoomOutPadKeyDown)) {
+			if ((Edge(Key.Minus, ref hddZoomOutKeyDown) | Edge(Key.KeypadSubtract, ref hddZoomOutPadKeyDown))
+					&& !modalPanelUp) {
 				ApplyHddClick(HddLayout.Widget.ZoomOut);
 			}
 
@@ -2568,16 +2602,16 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 					(controls.IsKeyPressed(Key.Right) ? 1 : 0) - (controls.IsKeyPressed(Key.Left) ? 1 : 0),
 					(controls.IsKeyPressed(Key.Up) ? 1 : 0) - (controls.IsKeyPressed(Key.Down) ? 1 : 0));
 			}
-			if (Edge(Key.Keypad5, ref hddRecentreKeyDown)) {
+			if (Edge(Key.Keypad5, ref hddRecentreKeyDown) && !modalPanelUp) {
 				command.View.Recentre();
 			}
 
 			// [X] transmits and [Backspace] cancels. The transmit's two blips are the radar-mode tone
 			// pair, which HddCommandScreen_KeyDispatch reuses as accepted and rejected — see docs/formats/audio.md.
-			if (Edge(Key.X, ref hddTransmitKeyDown)) {
+			if (Edge(Key.X, ref hddTransmitKeyDown) && !modalPanelUp) {
 				audio.Director?.Play(command.Transmit() ? SoundId.ScannerActive : SoundId.ScannerPassive);
 			}
-			if (Edge(Key.Backspace, ref hddCancelKeyDown)) {
+			if (Edge(Key.Backspace, ref hddCancelKeyDown) && !modalPanelUp) {
 				command.Cancel();
 			}
 
@@ -2601,7 +2635,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// same three the display's up/down arrow buttons step through. Only while that screen is actually
 		// down: [S] and [W] are also two thirds of this host's camera movement, and the original has no
 		// such clash because its own [S]/[I]/[W] only mean anything on this screen either.
-		if (controls != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
+		if (controls != null && !modalPanelUp && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
 			&& !CtrlHeld(controls) && !AltHeld(controls) && ReadHddDamageView(controls) is { } damageView) {
 			hudState = hudState with { HddDamage = damageView };
 		}
@@ -2610,7 +2644,7 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// does on either page: here, up and down step the category and left and right the herc. Once per
 		// press, since each is one step.
 		if (controls != null && HddHasArrows() && hudState.Hdd == HddPage.DamageDetail) {
-			bool modified = CtrlHeld(controls) || AltHeld(controls);
+			bool modified = CtrlHeld(controls) || AltHeld(controls) || modalPanelUp;
 			for (int i = 0; i < HddArrowKeys.Length; i++) {
 				bool down = controls.IsKeyPressed(HddArrowKeys[i]);
 				if (down && !hddDamageArrowKeysDown[i] && !modified) {
@@ -3103,14 +3137,6 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				ChainGroup = pilotMech.Weapons.Group,
 				AutoTrack = pilotMech.Weapons.AutoTrack,
 				Target = ResolveTargetIndicator(pilotMech, targetAim),
-				StatusSubject = MfdStatusSubject.For(mfdStatusRoster.Subject, pilotMech, cockpitArt.Strings,
-					squadComm),
-				// F5's subject is the selection, and it carries the Targeting Pod's component on top of what
-				// the subject itself says — the pod belongs to the machine looking, not to what it is
-				// looking at. Only the id the pod's own present flag vouches for reaches it.
-				TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings,
-						squadComm)
-					with { HighlightComponent = targetAim.ComponentTargeted ? targetAim.Component : -1 },
 
 				// The damage detail's subject, re-read every frame: on the target slot it follows the
 				// selection, as HddDisplay_Update (00449bd0) re-points it whenever the selection changes.
@@ -3198,6 +3224,18 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 			missileCamUpdatedLastFrame = missileCamUpdating;
 			hudState = hudState with { MissileCam = missileCam, MissileCamHolding = missileCamSwitch.Holding };
+
+			// The status screens, under the same gate as the missile camera's update plus the display's arming,
+			// which returns first on any screen but the scanner. A paint carries the Targeting Pod's component
+			// on top of what the subject itself says — the pod belongs to the machine looking, not to what it is
+			// looking at, and only the id the pod's own present flag vouches for reaches it.
+			bool statusUpdating = mfdUpdating && cockpitPowerUp.MfdReachesDropout(hudState.Mfd == MfdMode.Scanner)
+				&& (missileCamSwitch.Holding || squadComm.Transmission is null);
+			mfdStatusRefresh.Update(hudState.Mfd, statusUpdating, cockpitPan.IsPanning || cockpitGlance.Sliding,
+				audio.CoarseTicks, mfdStatusRoster.Subject, scene.Targeting?.Selected,
+				subject => MfdStatusSubject.For(subject, pilotMech, cockpitArt.Strings, squadComm)
+					with { HighlightComponent = targetAim.ComponentTargeted ? targetAim.Component : -1 });
+			hudState = hudState with { StatusSubject = mfdStatusRefresh.Status, TargetSubject = mfdStatusRefresh.Target };
 		}
 	};
 
@@ -3425,6 +3463,14 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	};
 
 	window.Run();
+
+	// Sim_Run's write-back (0045f3ee): option 6 against the live state, set through Prefs_SetOption and saved alone
+	// through Prefs_SaveOption -- a read-modify-write of that one byte. See startFullScreen for the one exception.
+	byte fullScreenNow = (byte)(window.FullScreen ? 1 : 0);
+	if (simulatorPreferences[Prefs.DisplayModeOption] != fullScreenNow && !(keptWindowed && !window.FullScreen)) {
+		simulatorPreferences.Set(Prefs.DisplayModeOption, fullScreenNow);
+		simulatorPreferences.Save(new[] { Prefs.DisplayModeOption });
+	}
 
 	// Sim_Shutdown (00461eec) runs however the mission ends: Mission_WriteResults (0042412c) writes results.dat and
 	// the counters back over mission.var beside the mission, and the exit code says where ES.EXE goes next. The
@@ -4339,12 +4385,15 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				CycleScannerRange();
 				break;
 
+			// Both arms then scramble the current status screen for its next refresh — see MfdStatusRefresh.
 			case MfdLayout.SelectButton or MfdLayout.TargetButton when hudState.Mfd == MfdMode.Status:
 				mfdStatusRoster.Step();
+				mfdStatusRefresh.Scramble(hudState.Mfd);
 				break;
 
 			case MfdLayout.SelectButton or MfdLayout.TargetButton:
 				scene.Targeting?.Cycle();
+				mfdStatusRefresh.Scramble(hudState.Mfd);
 				break;
 
 			case 11:

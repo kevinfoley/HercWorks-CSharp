@@ -350,7 +350,7 @@ static class ShellHost {
 
 			// The startup (Shell_WinMain, 00406507) goes full screen when option 6 is set, before the shell's screens
 			// are built. --shell-windowed keeps the window, which retail's -d does not.
-			if (shellOptions[DisplayModeOption] != 0 && !startWindowed) {
+			if (shellOptions[Prefs.DisplayModeOption] != 0 && !startWindowed) {
 				ToggleFullScreen();
 			}
 
@@ -1037,7 +1037,7 @@ static class ShellHost {
 				ToggleFullScreen();
 			}
 
-			shellOptions.Set(DisplayModeOption, 0);
+			shellOptions.Set(Prefs.DisplayModeOption, 0);
 			shellOptions.Commit();
 			shellOptions.Save(Enumerable.Range(0, Prefs.Length).ToArray());
 			sound?.Stop();
@@ -1361,7 +1361,7 @@ static class ShellHost {
 				return;
 			}
 
-			shellOptions.Set(DisplayModeOption, (byte)(window.FullScreen ? 1 : 0));
+			shellOptions.Set(Prefs.DisplayModeOption, (byte)(window.FullScreen ? 1 : 0));
 			if (preferencesUp) {
 				RepaintContent();
 			} else {
@@ -2196,9 +2196,6 @@ static class ShellHost {
 
 	/// <summary><c>prefs.cfg</c> option 44, VSHELL's <c>Repair Options:</c> (docs/simulation/preferences.md).</summary>
 	private const int RepairOption = 44;
-
-	/// <summary><c>prefs.cfg</c> option 6, <c>Display Mode</c>: 0 a window, 1 full screen.</summary>
-	private const int DisplayModeOption = 6;
 
 	/// <summary><c>prefs.cfg</c> option 42, the campaign-or-training flag <c>Shell_SetCampaignMode</c> (<c>0040e69e</c>) writes.</summary>
 	private const int CampaignModeOption = 42;

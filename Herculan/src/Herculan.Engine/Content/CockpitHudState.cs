@@ -74,11 +74,11 @@
 /// <see cref="TargetIndicator"/> and <see cref="TargetBox"/>.
 /// </param>
 /// <param name="StatusSubject">
-/// What F1's status screen is looking at - the squad roster's current entry, which SELECT steps
-/// (<see cref="MfdStatusRoster"/>).
+/// What F1's status screen showed at its last paint - the squad roster's entry, which SELECT steps
+/// (<see cref="MfdStatusRoster"/>), as <see cref="MfdStatusRefresh"/> last parked it.
 /// </param>
 /// <param name="TargetSubject">
-/// And what F5's is: the current selection. Same screen class, same record, different subject -
+/// And what F5's did: the selection. Same screen class, same record, different subject -
 /// see <see cref="MfdStatusSubject"/>.
 /// </param>
 /// <param name="Command">

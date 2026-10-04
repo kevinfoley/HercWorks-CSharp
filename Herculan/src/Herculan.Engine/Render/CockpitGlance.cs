@@ -65,6 +65,9 @@ public sealed class CockpitGlance {
 	/// </summary>
 	public bool AtForward => Requested == GlanceSide.Forward && OffsetPanels == 0f;
 
+	/// <summary>Whether the strip is still on its way to the window <see cref="Requested"/> names.</summary>
+	public bool Sliding => OffsetPanels != (int)Requested * _reachPanels;
+
 	/// <summary>
 	/// The original's glance command toward <paramref name="side"/>, with its queue gate: from the
 	/// forward view it starts that glance; from the opposite glance it returns to the forward view;

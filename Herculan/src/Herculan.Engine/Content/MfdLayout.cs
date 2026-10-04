@@ -417,7 +417,26 @@ public static class MfdLayout {
 	/// The caption's own trailing spaces are what separate the two.
 	/// </summary>
 	public static string DistanceReadout(StringFile? strings, int distance) =>
-		(strings?.Text(IdentLabelGroup, IdentDistanceEntry) ?? "DIST:  ") + distance;
+		DistanceReadout(strings, distance.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+	/// <summary>The same caption with any text appended — the scrambled screen's <see cref="ScrambledRange"/>.</summary>
+	public static string DistanceReadout(StringFile? strings, string reading) =>
+		(strings?.Text(IdentLabelGroup, IdentDistanceEntry) ?? "DIST:  ") + reading;
+
+	/// <summary>
+	/// What a scrambled status screen (<see cref="MfdStatusRefresh"/>) prints in place of the subject's name —
+	/// <c>MfdStatusScreen_Paint</c>'s literal at <c>0049bdb0</c>, on every subject class but the empty one.
+	/// </summary>
+	public const string ScrambledName = "XXXXXXXXX";
+
+	/// <summary>And in place of its condition — <c>MfdStatusScreen_SetCondition</c>'s literal at <c>0049bdba</c>.</summary>
+	public const string ScrambledCondition = "XXXXXX";
+
+	/// <summary>And of a friendly's integrity readout — the literal at <c>0049bdc1</c>.</summary>
+	public const string ScrambledIntegrity = "XXX";
+
+	/// <summary>And of a hostile's range, after the <c>DIST:</c> caption as the range is — the literal at <c>0049be26</c>.</summary>
+	public const string ScrambledRange = "XXXXX";
 
 	/// <summary>
 	/// The status screen's structural-integrity readout — its fifth label.

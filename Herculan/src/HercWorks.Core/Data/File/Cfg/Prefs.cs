@@ -35,6 +35,12 @@ public class Prefs {
 	/// </summary>
 	public const int VideoModeOption = 4;
 
+	/// <summary>
+	/// <c>Display Mode</c>: 0 windowed, 1 full screen. Both programs go full screen from it at startup, and
+	/// both write it back when the player has changed the state.
+	/// </summary>
+	public const int DisplayModeOption = 6;
+
 	/// <summary>TERRAIN DISTANCE, <c>DAT_004d1fc3</c> — the terrain draw radius.</summary>
 	public const int TerrainDistanceOption = 7;
 

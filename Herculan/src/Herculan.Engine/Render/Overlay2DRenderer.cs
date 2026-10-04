@@ -2478,15 +2478,26 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		// A class the screen's switch does not recognise stops here too, name and all — the paint
 		// leaves the status labels holding whatever they last said rather than clearing them.
+		//
+		// A scramble (MfdStatusSubject.Scrambled) swaps the name, the condition and the integrity or range for
+		// runs of X, on every class but the empty one.
+		bool scrambled = subject.Scrambled;
 		if (!subject.Identified) {
-			Label(1, strings?.Text(MfdLayout.UnknownNameGroup, 0), MfdLayout.UnknownNameFont);
+			Label(1, scrambled ? MfdLayout.ScrambledName : strings?.Text(MfdLayout.UnknownNameGroup, 0),
+				MfdLayout.UnknownNameFont);
 			return;
 		}
 
-		Label(1, subject.Name, subject.Hostile ? MfdLayout.HostileNameFont : MfdLayout.FriendlyNameFont);
+		Label(1, scrambled ? MfdLayout.ScrambledName : subject.Name,
+			subject.Hostile ? MfdLayout.HostileNameFont : MfdLayout.FriendlyNameFont);
 		Label(2, strings?.Text(MfdLayout.StatusLabelGroup, 0), MfdLayout.StatusLabelFonts[2]);
-		Label(3, strings?.Text(MfdLayout.ConditionGroup, subject.Condition), MfdLayout.StatusLabelFonts[3]);
-		if (subject.Hostile) { // F5 TARGET screen, show distance.
+		Label(3, scrambled ? MfdLayout.ScrambledCondition : strings?.Text(MfdLayout.ConditionGroup, subject.Condition),
+			MfdLayout.StatusLabelFonts[3]);
+		if (subject.Hostile && scrambled) {
+			Label(4, MfdLayout.DistanceReadout(strings, MfdLayout.ScrambledRange), MfdLayout.StatusLabelFonts[4]);
+		} else if (!subject.Hostile && scrambled) {
+			Label(4, MfdLayout.ScrambledIntegrity, MfdLayout.StatusLabelFonts[4]);
+		} else if (subject.Hostile) { // F5 TARGET screen, show distance.
 			if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowTargetDistanceInMeters)) {
 				Label(4, MfdLayout.DistanceReadout(strings, MfdScanner.WorldUnitsToMetres(subject.Distance)),
 					MfdLayout.StatusLabelFonts[4]);
@@ -2501,6 +2512,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 			// The paper doll blits at the viewport's top-left plus the .PDG view's own origin plus a
 			// fixed (0x11, 2) device nudge — the paint's own arithmetic, not a centring rule. The view's
 			// origin is authored in the 320-wide space like every other .PDG coordinate.
+			//
+			// A scramble skips the doll's blit and the pod highlight. The paint's tint pass still runs, but in
+			// mode 0 it recolours only raster pixels holding a region's own colour, and with no doll blitted
+			// the viewport holds the paint's 0x11 flood. Every retail view-2 region is mode 0 in COLORS.DAT id
+			// 12 or 15 (palette 14 or 13), which the flood is neither as an index nor as an id (palette 24),
+			// so it draws nothing either.
+			case MfdSilhouetteKind.PaperDoll when subject.Scrambled:
+				break;
 			case MfdSilhouetteKind.PaperDoll
 				when hud.PaperDollFor(subject.PaperDollName)?.Entries is { } views
 					&& MfdLayout.WireframeViewIndex < views.Length

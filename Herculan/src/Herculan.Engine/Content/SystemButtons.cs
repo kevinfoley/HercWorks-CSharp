@@ -21,10 +21,15 @@ public enum SystemButton {
 ///
 /// <para><b>Screen space, not art space.</b> The original moves the pair's rects against the root's on
 /// every view change, so they stay on the same screen pixels in every view and over whatever the view
-/// shows there. This engine's screen is the 640x480 one the modal panels are placed on
-/// (<see cref="AlertPanelLayout.Placement"/>), which at rest coincides with the forward panel's art and
-/// does not move with the pan or a glance. Their rects are hit-tested ahead of every other cockpit
-/// widget, which is where <c>SystemButtons_Ctor</c> registers them (<see cref="Input.CockpitInput"/>).</para>
+/// shows there. This engine's screen is a 640x480 one scaled to the window's height, as the modal panels'
+/// is (<see cref="AlertPanelLayout.Placement"/>), but with its right edge on the window's right edge rather
+/// than centred (<see cref="Place"/>): retail's 4:3 screen's top-right corner is the window's, so in a wider
+/// window the pair goes to the window's own corner, as the side screen-edge strips go to its edges
+/// (<see cref="Render.CockpitScreenLayout.SideViewEdgeAt"/>). In a 4:3 window that is the centred screen,
+/// which at rest coincides with the forward panel's art. Neither moves with the pan or a glance. Their
+/// rects are hit-tested ahead of every other cockpit widget, which is where <c>SystemButtons_Ctor</c>
+/// registers them (<see cref="Input.CockpitInput"/>), and through the same placement they are drawn
+/// with.</para>
 /// </summary>
 public static class SystemButtons {
 	/// <summary>The bank both frames come from, <c>sysbuttn</c> in <c>hba\</c>.</summary>
@@ -54,9 +59,15 @@ public static class SystemButtons {
 	/// <summary>The <see cref="Bank"/> frame a button draws: frame 0 for child 0, frame 1 for child 1.</summary>
 	public static int Frame(SystemButton button) => (int)button;
 
-	/// <summary>Where the 640x480 screen the pair sits on lands in the window.</summary>
-	public static AlertPanelLayout.Placement Place(int windowWidth, int windowHeight) =>
-		AlertPanelLayout.Placement.CreateAt(windowWidth, windowHeight, 0, 0);
+	/// <summary>
+	/// Where the 640x480 screen the pair sits on lands in the window: scaled to the window's height, its top
+	/// edge on the window's and its right edge on the window's right edge. The placement both the paint
+	/// and <see cref="At"/> go through.
+	/// </summary>
+	public static AlertPanelLayout.Placement Place(int windowWidth, int windowHeight) {
+		float scale = Math.Max(windowHeight, 1) / (float)AlertPanelLayout.ScreenHeight;
+		return new AlertPanelLayout.Placement(scale, windowWidth - AlertPanelLayout.ScreenWidth * scale, 0f);
+	}
 
 	/// <summary>
 	/// Whether a button draws this frame — <c>SystemButtons_PaintForPointer</c> (<c>00434520</c>), which

@@ -4,7 +4,7 @@ The two panels [F12] reaches, and the file they edit. Both are members of the mo
 
 `PreferencesPanel_Raise` (`0045cfd4`) is what commands `0x58` ([F12]) and `0x219` ([Alt+P]) reach ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes)). It raises `DAT_004d2576` to stop the simulation for as long as the panel is up, snapshots the view object's whole settings block beforehand and writes it back on the way out. The CONTROLS button then builds the second panel over the first, which stays on screen behind it.
 
-**A panel's loop is not the simulator's.** `AlertPanel_Enter`, then poll the device, run the panel's handler, paint, present — and never `Sim_MainTick`, which is the only caller of `Sim_PollPlayerInput`. So while any of these panels is up no key or joystick button reaches the player's machine at all, which is what lets the CONTROLS panel read the stick as a configuration device. The pause flag is the belt to that pair of braces: it gates the world updates *inside* `Sim_MainTick` for the frames the simulator does run.
+**A panel's loop is not the simulator's.** `AlertPanel_Enter`, then poll the device, run the panel's handler, paint, present — and never `Sim_MainTick`, which is the only caller of `Sim_PollPlayerInput`. So while any of these panels is up no key or joystick button reaches the player's machine at all, which is what lets the CONTROLS panel read the stick as a configuration device. Nor does a keyboard command reach the cockpit: each pass calls `Input_BuildPlayerDevice` and hands its event to the panel's own vtable `+0x10` handler and nothing else, so neither `Sim_DispatchCommand` nor `CockpitWidgets_HandleCommand` sees a key, and `AlertPanel_Enter` closes the command queue that `SimCommandQueue_Push` fills (`0049eacc` cleared at `0045467b`, set again by `AlertPanel_Leave`). Under a panel the only keys that act are the three `Key_WndProcHook` keeps for itself, [Alt+Tab], [Alt+Esc] and [Ctrl+Esc], which leave full screen ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)). The pause flag is the belt to that pair of braces: it gates the world updates *inside* `Sim_MainTick` for the frames the simulator does run.
 
 ## `data\prefs.cfg` — the option array
 
@@ -47,7 +47,7 @@ Four callers, and between them they are every write the simulator makes:
 | `PreferencesPanel_Save` (`004574cc`) | 9: options 0-3 and 7-11 (`DAT_0049e304`) | `PreferencesPanel_Run` closing the panel |
 | `ControlsPanel_Save` (`00459140`) | 13: `ControlsOptionBase - 1` through `+11` | `ControlsPanel_Run` closing the panel, at `00458c07` |
 | `Joystick_InitAndSeedBindings` (`00459dd4`) | 25: options 12-36 (`DAT_0049e9d0`) — both blocks | First run only, gated on `DAT_004d1fc8` |
-| `Prefs_SaveOption` (`00459b64`) | 1 | MAIN at `0045f413`, on option 6, at shutdown and only when the live full-screen state differs from the byte that was loaded |
+| `Prefs_SaveOption` (`00459b64`) | 1 | `Sim_Run` (`0045f144`) at `0045f413`, on option 6, at shutdown and only when the live full-screen state differs from the option's byte |
 
 **There is no cancel.** `PreferencesPanel_Revert` (`004574e0`) tests the same nine options with `Prefs_OptionChanged` (`00459c38`) and rolls the changed ones back out of the load-time shadow at `004d1ff2` through `Prefs_RevertSelectedOptions` (`00459b04`) — and it is unreferenced, as `Prefs_SaveAllOptions` is. Leaving the preferences panel saves, whichever button does it.
 
@@ -94,7 +94,7 @@ No instruction in either image addresses options 48-53 by name, and they are zer
 
 Byte 4 is reduced to two cases — **1 gives the 320x240 block and anything else the 640x480 block with hi-res banks**, which is the mode a retail file's 0 selects. What the modes are, why the file never reaches the middle one and how `-v` overrides it are [`../formats/cockpit-views.md`](../formats/cockpit-views.md#video-modes)'s.
 
-Byte 6 non-zero makes `MainWindow_Create` (`00465054`) size the window to the desktop and place it topmost, and `WinMain` then clears the flag and calls the toggle at `004666c4`, which takes DirectDraw exclusive and sets an 8-bit display mode. `-Z1` and `-Z0` override it. Because the player can toggle full-screen during the session, the byte is written back at shutdown when it no longer matches what was loaded.
+Byte 6 non-zero makes `MainWindow_Create` (`00465054`) size the window to the desktop and place it topmost, and `WinMain` then clears the flag and calls the toggle at `004666c4`, which takes DirectDraw exclusive and sets an 8-bit display mode. `-Z1` and `-Z0` override the flag and not the option array. At shutdown `Sim_Run` compares option 6's byte with the live flag, which `Video_ToggleFullscreen` keeps at 0 or 1, and when they differ sets the option to the flag through `Prefs_SetOption` and saves it alone. So the player's own toggles during a session persist, and so does a `-Z` switch whose state the session ends in.
 
 ## The preferences panel — `prf_alrt` (`004566c4`)
 
@@ -256,4 +256,3 @@ That function also carries an arm that zeroes the block, taken when the capabili
 ## Open
 
 - **Open:** no DBSIM reference to options 37-41 (`004d1fe1`-`004d1fe5`) or `004d1fe6`-`004d1fe9` found by `es2_xref.py` (control: `004d1fc2` has one), so no simulator reader of them is known beyond 4 and 6.
-- **Unported:** the simulator starting in full screen from byte 6 (or `-Z1`) and writing option 6 back at shutdown when the state changed ([above](#the-video-mode-and-full-screen-bytes)).

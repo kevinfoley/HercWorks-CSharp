@@ -665,6 +665,11 @@ public sealed class SimWorld {
 	/// of its own that <c>Sim_MainTick</c> walks in the same effect-pool pass as the one
 	/// <see cref="Tracers"/> and <see cref="Projectiles"/> come from. An
 	/// entry lives for exactly one pass of its shape's flipbook; see <see cref="ImpactEffect"/>.
+	///
+	/// <para>An effect that plays out during a tick stays in this list, holding its slot against every
+	/// later spawn in the same tick, until the render-time flush at the end of the tick removes it —
+	/// <c>ExplosionPool_FlushDeletes</c> (<c>00407b3c</c>), a phase-5 hook of the <c>Sim_RenderFrame</c> the original
+	/// runs after each <c>Sim_MainTick</c>. So between ticks every entry here is live.</para>
 	/// </summary>
 	public IReadOnlyList<ImpactEffect> Effects => _effects;
 
@@ -682,24 +687,32 @@ public sealed class SimWorld {
 	/// find something nearer), and from the tail of <see cref="Raycast"/> itself for a shot that ends
 	/// on the ground.
 	///
+	/// <para>Every site allocates from the pool before it builds, and with <see cref="ImpactEffect.PoolSize"/>
+	/// slots taken the spawn does nothing at all: no effect, no light, no sound.</para>
+	///
 	/// <para>Silently does nothing when the table did not load or the id is outside it. A retail
 	/// <c>ImpactFX</c> array can hold an id no type row exists for, and the original bounds nothing
 	/// here — reading past the table is not a behaviour worth reproducing.</para>
 	/// </summary>
 	/// <param name="typeId">The <c>EXPLOS.DAT</c> type, out of a <c>PROJ.DAT</c> <c>ImpactFX</c> array.</param>
 	/// <param name="position">Where the shot landed, in world units.</param>
+	/// <param name="owner">
+	/// <c>Explosion_Construct</c>'s owner argument, the object the effect belongs to for drawing — see
+	/// <see cref="ImpactEffect.Owner"/>.
+	/// </param>
 	/// <param name="playSound">
 	/// The constructor's own last argument, which gates the row's <c>SoundId</c> and nothing else.
 	/// Every object-hit spawn passes true; the ground hit at the tail of <see cref="Raycast"/> is the
 	/// one site that passes false.
 	/// </param>
-	internal void SpawnImpactEffect(short typeId, Vec3i position, bool playSound = true) {
-		if (Explosions?.Type(typeId) is not { } record) {
+	internal void SpawnImpactEffect(short typeId, Vec3i position, SimObject? owner, bool playSound = true) {
+		if (ImpactEffectPoolFull || Explosions?.Type(typeId) is not { } record) {
 			return;
 		}
 
 		_effects.Add(new ImpactEffect(
-			typeId, Explosions, record, Explosions.FrameCount(record.ShapeIndex), position, EffectLights, this));
+			typeId, Explosions, record, Explosions.FrameCount(record.ShapeIndex), position, owner, EffectLights,
+			this));
 
 		if (playSound && record.SoundId >= 0) {
 			// Math_RandomBelow(0x32) on the presentation generator, whose result the constructor throws
@@ -716,6 +729,23 @@ public sealed class SimWorld {
 	/// </summary>
 	internal short PickImpactEffect(short[]? effects) =>
 		effects is { Length: > 0 } ? effects[Random.NextMasked(3) % effects.Length] : (short)0;
+
+	/// <summary>
+	/// <see cref="SpawnImpactEffect"/> with the id drawn from <paramref name="effects"/> by
+	/// <see cref="PickImpactEffect"/> only once a pool slot is known to be free. This is the order of the
+	/// ground hit and of the mech and structure hit tests, whose <c>Math_RandomNext</c> sits inside the
+	/// allocation's null test, so a full pool leaves the generator where it was. The flyer's hit test
+	/// draws before it allocates and goes through <see cref="PickImpactEffect"/> itself.
+	/// </summary>
+	internal void SpawnPickedImpactEffect(short[]? effects, Vec3i position, SimObject? owner,
+			bool playSound = true) {
+		if (!ImpactEffectPoolFull) {
+			SpawnImpactEffect(PickImpactEffect(effects), position, owner, playSound);
+		}
+	}
+
+	/// <summary><c>Pool_Alloc</c> (<c>00471a24</c>) on <c>g_ExplosionPool</c> would return nothing.</summary>
+	private bool ImpactEffectPoolFull => _effects.Count >= ImpactEffect.PoolSize;
 
 	/// <summary>
 	/// The debris databases — <c>DEF_DEB</c> and whatever else has been asked for. Null when the
@@ -1170,9 +1200,10 @@ public sealed class SimWorld {
 		// with no owner and with the sound suppressed (the constructor's last argument is 0 here and 1
 		// at every other site).
 		if (hit && shot.HitObject == null) {
-			SpawnImpactEffect(
-				PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Ground)),
+			SpawnPickedImpactEffect(
+				shot.ImpactFx(WeaponShot.ImpactFxGroup.Ground),
 				shot.Muzzle.TransformPoint(0, shot.Distance, 0),
+				owner: null,
 				playSound: false);
 		}
 
@@ -1528,8 +1559,30 @@ public sealed class SimWorld {
 			PollMission(pilot);
 		}
 
-		// Sim_RenderFrame still runs under the freeze, and with it the charge-bar exchange.
+		// Sim_RenderFrame still runs under the freeze, and with it the phase-5 flushes and the charge-bar
+		// exchange.
+		FlushRenderFrameDeletes();
 		PlayerMech?.Weapons.PushGaugeStates();
+	}
+
+	/// <summary>
+	/// The pool flushes among the phase-5 subsystem hooks the top of <c>Sim_RenderFrame</c> runs
+	/// (<c>Subsystem_RunPhase</c>, <c>00401d94</c>), in their registration order: the effect lights'
+	/// (<c>EffectLightPool_FlushDeletes</c>, <c>004077e8</c>) before the impact effects'
+	/// (<c>ExplosionPool_FlushDeletes</c>, <c>00407b3c</c>). The second is what queues an ended effect's light
+	/// handle, so the first does not return it until the next frame — see
+	/// docs/formats/effect-lights.md#claiming-a-slot.
+	/// </summary>
+	private void FlushRenderFrameDeletes() {
+		EffectLights.FlushReleases();
+
+		for (int i = 0; i < _effects.Count; i++) {
+			if (_effects[i].Finished) {
+				_effects[i].Destruct();
+			}
+		}
+
+		_effects.RemoveAll(effect => effect.Finished);
 	}
 
 	/// <summary>
@@ -1576,10 +1629,9 @@ public sealed class SimWorld {
 		// next one.
 		// Impact effects share that deal, and want it more: one is spawned from inside a hit test, so
 		// it is created part-way through this same tick and must not be counted down until the next.
+		// One that plays out keeps its slot until FlushRenderFrameDeletes, at the end of the tick.
 		for (int i = _effects.Count - 1; i >= 0; i--) {
-			if (_effects[i].Tick()) {
-				_effects.RemoveAt(i);
-			}
+			_effects[i].Tick();
 		}
 
 		// Sim_MainTick drops the missile-flown flag immediately before it walks the pool these three
@@ -1721,9 +1773,7 @@ public sealed class SimWorld {
 			PollMission(pilot);
 		}
 
-		// The light handles ended effects queued come back at the top of the next Sim_RenderFrame,
-		// which the original runs straight after each Sim_MainTick.
-		EffectLights.FlushReleases();
+		FlushRenderFrameDeletes();
 
 		// And that frame's Player_PerFrameCockpitUpdate exchanges the power levels with the charge bars, one
 		// push to each tick; see WeaponMounts.PushGaugeStates.

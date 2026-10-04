@@ -1058,6 +1058,15 @@
       "source": "DBSIM decompile at 00407878"
     },
     {
+      "address": "004078c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_RegisterSubsystem",
+      "description": "Static-init registrar for the effect light manager (Borland _INIT_ entry 004a7a74, priority 0x20): registers LightManager_InitSubsystem at phase 2 and EffectLightPool_FlushDeletes at phase 5, and nulls EffectLightPool. Its entry precedes Explosion_RegisterSubsystem's, so the light flush runs first in phase 5.",
+      "source": "docs/formats/effect-lights.md#claiming-a-slot"
+    },
+    {
       "address": "0040798c",
       "binary": "DBSIM",
       "type": "function",
@@ -1099,8 +1108,8 @@
       "type": "function",
       "confidence": "high",
       "name": "ExplosionPool_FlushDeletes",
-      "description": "ObjectPool_FlushDeleteQueue(004a96a6, g_ExplosionPool).",
-      "source": "DBSIM decompile at 00407b3c"
+      "description": "ObjectPool_FlushDeleteQueue(g_ExplosionDeleteQueue, g_ExplosionPool). A phase-5 subsystem hook registered by Explosion_RegisterSubsystem, after EffectLightPool_FlushDeletes.",
+      "source": "docs/simulation/impact-effects.md#tick--explosion_tickupdate-0040813c"
     },
     {
       "address": "00407b54",
@@ -1164,6 +1173,15 @@
       "name": "Explosion_IsHiddenFromOwnerCockpit",
       "description": "Returns 1 (skip drawing) when the effect has an owner (effect+0x57) the cockpit camera is attached to (Cam_IsAttachedTo(ViewObjectPtr, owner)) and its type id (effect+0x41) is not 2 or 11-14; else 0.",
       "source": "docs/simulation/impact-effects.md"
+    },
+    {
+      "address": "00408284",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_RegisterSubsystem",
+      "description": "Static-init registrar for EXPLO.CPP (Borland _INIT_ entry 004a7a7a, priority 0x20): registers Explosion_LoadResources at phase 2 and ExplosionPool_FlushDeletes at phase 5, and nulls g_ExplosionPool.",
+      "source": "docs/simulation/impact-effects.md#tick--explosion_tickupdate-0040813c"
     },
     {
       "address": "004083e0",
@@ -26571,6 +26589,15 @@
       "name": "g_ExplosionPool",
       "description": "The impact-effect object pool (40 entries of 0x5b bytes), allocated from by every effect spawn site. A pool of its own, separate from the tracer and round pool DAT_004a9746; Sim_MainTick walks it first in the effect-pool pass, ahead of the smoke, fire, debris, meteor and DAT_004a9746 pools.",
       "source": "docs/simulation/impact-effects.md"
+    },
+    {
+      "address": "004a96a6",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ExplosionDeleteQueue",
+      "description": "Impact-effect delete queue: an 8-byte list header (capacity 0x1e at +6, count at +4) over a 120-byte pointer array, built by Explosion_LoadResources, filled by Sim_MainTick through ObjectPool_QueueForDelete (which does not check the capacity) and drained into g_ExplosionPool by ExplosionPool_FlushDeletes.",
+      "source": "docs/simulation/impact-effects.md#tick--explosion_tickupdate-0040813c"
     },
     {
       "address": "004a96ac",

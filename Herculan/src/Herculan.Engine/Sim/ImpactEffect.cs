@@ -17,11 +17,19 @@ namespace Herculan.Engine.Sim;
 /// <para>Like a <see cref="BeamTracer"/> and a <see cref="Projectile"/> it is <b>not</b> a
 /// <see cref="SimObject"/> in the original either — it comes from a pool of its own that
 /// <c>Sim_MainTick</c> walks ahead of the machine list, so nothing can shoot it and nothing collides
-/// with it. The original's pool holds 40 and this list is unbounded, and the original's owner-based
-/// draw rule is not ported (both under Open in the doc).</para>
+/// with it. The pool holds <see cref="PoolSize"/>, and an effect that has played out keeps its slot until
+/// the next render-time flush — see <see cref="SimWorld.SpawnImpactEffect"/> and
+/// <see cref="SimWorld.Effects"/>.</para>
+///
+/// <para>An effect may have an <see cref="Owner"/>, the object it was spawned on, which decides whether
+/// it is drawn — <see cref="HiddenFromOwnerCockpit"/>. Retail also files an owned effect for drawing
+/// under its owner's terrain cell rather than its own; this renderer orders objects by depth rather
+/// than by the original's per-cell draw table, so that half of the rule is not ported
+/// (docs/simulation/impact-effects.md#open).</para>
 ///
 /// <para>A row with a nonzero <see cref="ExplosionTypeEntry.LightMode"/> also claims a dynamic
-/// light for as long as the flipbook runs — <see cref="EffectLightField"/>, whose slot this drives
+/// light for as long as the flipbook runs, and one frame more (<see cref="Destruct"/>) —
+/// <see cref="EffectLightField"/>, whose slot this drives
 /// from the row's per-frame intensity ramp. <c>LightMode</c> 1 and 2 reach the same code; the
 /// original tests the field only against zero. A flipbook longer than the row's twelve ramp entries
 /// reads on into the row's later fields, as the original does — <see cref="ExplosionCatalog.RampWord"/>.</para>
@@ -32,6 +40,12 @@ namespace Herculan.Engine.Sim;
 /// unread — nothing queries it.</para>
 /// </summary>
 public sealed class ImpactEffect {
+	/// <summary>
+	/// How many effects can exist at once — <c>g_ExplosionPool</c>'s count, <c>Pool_Init(pool, 0x28, 0x5b)</c>
+	/// in <c>Explosion_LoadResources</c> (<c>00407b54</c>). See docs/simulation/impact-effects.md.
+	/// </summary>
+	public const int PoolSize = 40;
+
 	private readonly ExplosionTypeEntry _record;
 	private readonly ExplosionCatalog _catalog;
 	private readonly int _frameCount;
@@ -43,6 +57,7 @@ public sealed class ImpactEffect {
 	/// <param name="record">That row.</param>
 	/// <param name="frameCount">How many frames the row's shape has — see <see cref="ExplosionCatalog.FrameCount"/>.</param>
 	/// <param name="position">Where the shot landed, in world units.</param>
+	/// <param name="owner">The object the effect was spawned on, or null — see <see cref="Owner"/>.</param>
 	/// <param name="lights">
 	/// The field a light-bearing row claims a slot in, or null to run the effect without one.
 	/// </param>
@@ -51,12 +66,13 @@ public sealed class ImpactEffect {
 	/// </param>
 	internal ImpactEffect(
 			short typeId, ExplosionCatalog catalog, ExplosionTypeEntry record, int frameCount, Vec3i position,
-			EffectLightField? lights = null, SimWorld? world = null) {
+			SimObject? owner = null, EffectLightField? lights = null, SimWorld? world = null) {
 		TypeId = typeId;
 		_catalog = catalog;
 		_record = record;
 		_frameCount = frameCount;
 		Position = position;
+		Owner = owner;
 
 		// The constructor resets the shape instance's own frame counter for this sequence, so an
 		// effect always opens on frame 0 however the shape was left by the last one to use it.
@@ -92,6 +108,36 @@ public sealed class ImpactEffect {
 	public short TypeId { get; }
 
 	/// <summary>
+	/// <c>effect+0x57</c> — the object the effect was spawned on, or null. Which sites pass one is
+	/// docs/simulation/impact-effects.md#construction--explosion_construct-00407f1c's; nothing reads it
+	/// but the draw rule, <see cref="HiddenFromOwnerCockpit"/>.
+	/// </summary>
+	public SimObject? Owner { get; }
+
+	/// <summary>
+	/// Whether the effect has played out on this tick. It keeps its pool slot until
+	/// <see cref="SimWorld.Effects"/>' render-time flush takes it out of the list.
+	/// </summary>
+	internal bool Finished { get; private set; }
+
+	/// <summary>
+	/// <c>Explosion_IsHiddenFromOwnerCockpit</c> (<c>00408240</c>) — whether the view leaves this effect out:
+	/// it has an owner, the camera is attached to that owner (<paramref name="cameraAttachedTo"/>, the
+	/// object <c>Cam_IsAttachedTo</c> (<c>00401078</c>) would answer true for), and it is not one of the types
+	/// always drawn. So from inside a cockpit the effects on that machine's own hull are not drawn. See
+	/// docs/simulation/impact-effects.md#drawing.
+	/// </summary>
+	public bool HiddenFromOwnerCockpit(SimObject? cameraAttachedTo) {
+		// The type id is the byte at +0x41, tested as 2 or as an unsigned (id - 11) < 4.
+		byte type = (byte)TypeId;
+		if (type == 2 || (byte)(type - 11) < 4) {
+			return false;
+		}
+
+		return Owner != null && ReferenceEquals(Owner, cameraAttachedTo);
+	}
+
+	/// <summary>
 	/// Which <see cref="EffectLightField"/> slot this effect's light occupies, or -1 when the row
 	/// asks for no light or every slot was busy. The handle the original keeps at
 	/// <c>handle+0x0c</c>.
@@ -111,27 +157,28 @@ public sealed class ImpactEffect {
 	public int Frame { get; private set; }
 
 	/// <summary>
-	/// <c>Explosion_TickUpdate</c> (<c>0040813c</c>), called directly by <c>Sim_MainTick</c>. Returns whether the effect is finished and should be
-	/// freed — which happens the moment the flipbook wraps, so the animation plays exactly once.
+	/// <c>Explosion_TickUpdate</c> (<c>0040813c</c>), called directly by <c>Sim_MainTick</c>. Sets <see cref="Finished"/> the
+	/// moment the flipbook wraps, so the animation plays exactly once; the effect is not freed here but
+	/// queued for the render-time flush, which runs <see cref="Destruct"/>.
 	///
 	/// <para>A shape with no frames at all ends on its first timer expiry, matching the original's
 	/// own branch for a negative animation sequence: there is no frame to step, so there is nothing
 	/// left to draw.</para>
 	/// </summary>
-	internal bool Tick() {
-		if (SimMath.CountdownTimerTick(ref _timer) != 0) {
-			return false;
+	internal void Tick() {
+		if (Finished || SimMath.CountdownTimerTick(ref _timer) != 0) {
+			return;
 		}
 
 		if (_frameCount <= 0) {
-			Release();
-			return true;
+			Finished = true;
+			return;
 		}
 
 		Frame = (Frame + 1) % _frameCount;
 		if (Frame == 0) {
-			Release();
-			return true;
+			Finished = true;
+			return;
 		}
 
 		// EffectLight_SetIntensity (004076a0), driven from the ramp at the frame just stepped to. Reached only for a
@@ -145,7 +192,6 @@ public sealed class ImpactEffect {
 		}
 
 		_timer = _record.FrameInterval;
-		return false;
 	}
 
 	/// <summary>
@@ -155,10 +201,11 @@ public sealed class ImpactEffect {
 	private int FrameIntensity(int frame) => _catalog.RampWord(TypeId, frame) & 0xff;
 
 	/// <summary>
-	/// What the effect's end hands back: the light slot (<c>EffectLight_Destruct</c>,
-	/// <c>0040765c</c>) and the ground shape (<c>Explosion_Destruct</c>, <c>00407e48</c>).
+	/// <c>Explosion_Destruct</c> (<c>00407e48</c>), run by the flush that frees the pool slot: queues the
+	/// light handle for the light pool's own flush (<see cref="EffectLightField.Release"/>) and hands the
+	/// ground shape back.
 	/// </summary>
-	private void Release() {
+	internal void Destruct() {
 		_lights?.Release(LightHandle);
 		LightHandle = -1;
 

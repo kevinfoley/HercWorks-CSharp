@@ -493,11 +493,9 @@ public sealed partial class BaseObject : SimObject {
 		}
 
 		// Always the armour array. Unlike a mech, a structure has no shields to flash and no
-		// component health band to fall through, so this is the one branch that exists — and it is
-		// the only place in the engine that reaches ImpactFxGroup.Armor at all.
+		// component health band to fall through, so this is the one branch that exists.
 		var point = shot.Muzzle.TransformPoint(0, struckAt, 0);
-		world.SpawnImpactEffect(
-			world.PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Armor)), point);
+		world.SpawnPickedImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Armor), point, this);
 
 		if (world.Random.NextMasked(0xfff) < HitDebrisOdds) {
 			world.SpawnDebris(HitDebrisGroup, point, StructureDebris(world));
@@ -1118,7 +1116,7 @@ public sealed partial class BaseObject : SimObject {
 
 		world.SpawnImpactEffect(sequence.Explosion, sequence.ExplodeAtOrigin
 			? Position
-			: WorldTransform.TransformPoint(point.X, point.Y, point.Z));
+			: WorldTransform.TransformPoint(point.X, point.Y, point.Z), this);
 
 		timer = sequence.CollapseHold;
 	}
@@ -1160,10 +1158,6 @@ public sealed partial class BaseObject : SimObject {
 	}
 
 	/// <summary>
-	/// A smoke stage: one secondary explosion at a random point inside the part's own spread box
-	/// around its position.
-	/// </summary>
-	/// <summary>
 	/// Whether a smoke stage scatters its explosion — <c>Base_DeathSequenceTick</c>'s test of
 	/// <c>Sound_DetailSetting</c> (<c>004d1fc7</c>), the EFFECTS DETAIL byte it reads once on entry:
 	/// every stage at 2, the odd-numbered ones at 1, none at 0. Any other value scatters none, as the
@@ -1172,6 +1166,10 @@ public sealed partial class BaseObject : SimObject {
 	public static bool SmokesAtStage(int effectsDetail, int stage) =>
 		effectsDetail == 2 || (effectsDetail == 1 && (stage & 1) != 0);
 
+	/// <summary>
+	/// A smoke stage: one secondary explosion at a random point inside the part's own spread box
+	/// around its position.
+	/// </summary>
 	private void ScatterSmoke(SimWorld world, BaseComponentType component,
 			StructureDeathSequence sequence) {
 		var spread = component.SmokeSpread;
@@ -1181,7 +1179,7 @@ public sealed partial class BaseObject : SimObject {
 			component.Position.Z + world.Random.NextBelow((short)(spread.Z * 2)) - spread.Z);
 
 		world.SpawnImpactEffect(sequence.SmokeExplosion,
-			WorldTransform.TransformPoint(local.X, local.Y, local.Z));
+			WorldTransform.TransformPoint(local.X, local.Y, local.Z), this);
 	}
 
 	/// <summary>

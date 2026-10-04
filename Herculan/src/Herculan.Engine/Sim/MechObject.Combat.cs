@@ -601,9 +601,8 @@ public sealed partial class MechObject {
 		}
 
 		if (shieldDamage == 0) {
-			world.SpawnImpactEffect(
-				world.PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Shield)),
-				shot.Muzzle.TransformPoint(0, struckAt, 0));
+			world.SpawnPickedImpactEffect(
+				shot.ImpactFx(WeaponShot.ImpactFxGroup.Shield), shot.Muzzle.TransformPoint(0, struckAt, 0), this);
 			return struckAt;
 		}
 
@@ -752,7 +751,7 @@ public sealed partial class MechObject {
 			RollWeaponMountDestruction(world, componentIndex, after);
 		}
 
-		world.SpawnImpactEffect(world.PickImpactEffect(shot.ImpactFx(group)), hitPoint);
+		world.SpawnPickedImpactEffect(shot.ImpactFx(group), hitPoint, this);
 
 		// And a spray of wreckage off the impact point, but only for a hit that moved the component
 		// into a new band and did not finish it: a shot that merely scuffs the armour throws nothing,

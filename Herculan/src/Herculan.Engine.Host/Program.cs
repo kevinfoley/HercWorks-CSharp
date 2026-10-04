@@ -4615,7 +4615,16 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 
 		// Nothing for rockets here: ROCKETS.DTS holds no billboards at all, only geometry — see
 		// SceneModelLibrary.Rocket. Their flipbook is drawn in RefreshProjectileItems.
+		//
+		// An effect on the hull of the machine the view camera rides is left out — see
+		// ImpactEffect.HiddenFromOwnerCockpit. Only a piloted view has a chain camera; the observer's
+		// free camera rides nothing.
+		var cameraAttachedTo = piloting ? viewChain?.Camera.AttachedTo : null;
 		foreach (var effect in scene.World.Effects) {
+			if (effect.HiddenFromOwnerCockpit(cameraAttachedTo)) {
+				continue;
+			}
+
 			if (scene.ExplosionModels.TryGetValue(effect.ShapeIndex, out var model)) {
 				Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(effect.Position)), effect.Frame);
 			}

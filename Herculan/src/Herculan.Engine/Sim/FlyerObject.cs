@@ -208,7 +208,9 @@ public sealed partial class FlyerObject : SimObject {
 		ApplyDamage(struck.ComponentIndex, shot.DamageArmor, shot.Owner, world);
 
 		var point = shot.Muzzle.TransformPoint(0, struckAt, 0);
-		world.SpawnImpactEffect(Destroyed ? WreckHitEffect : effect, point);
+		// With no owner, unlike the mech and structure hit tests: an effect on a flyer is drawn whatever
+		// the camera is attached to.
+		world.SpawnImpactEffect(Destroyed ? WreckHitEffect : effect, point, owner: null);
 
 		// And wreckage off the same point, with the same substitution: an ordinary hit sheds
 		// HitDebrisGroup, and the hit that brings the aircraft down sheds WreckDebrisGroup instead.

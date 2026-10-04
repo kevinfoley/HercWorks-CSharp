@@ -81,6 +81,12 @@ public sealed class ViewCamera {
 	/// <summary><c>+0x36</c>.</summary>
 	public ViewCameraMode Mode { get; private set; }
 
+	/// <summary>
+	/// The object this camera rides, or null in any mode but <see cref="ViewCameraMode.Attached"/> — the
+	/// one object <c>Cam_IsAttachedTo</c> (<c>00401078</c>) answers true for.
+	/// </summary>
+	public SimObject? AttachedTo => Mode == ViewCameraMode.Attached ? Target : null;
+
 	/// <summary><c>+0x38</c>: the orbit centre in the target's frame.</summary>
 	public Vec3i OrbitCentre { get; private set; }
 

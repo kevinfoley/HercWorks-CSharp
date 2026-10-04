@@ -529,7 +529,7 @@ public sealed class ComponentDamage {
 				type = MajorExplosion;
 			}
 
-			world.SpawnImpactEffect(type, point);
+			world.SpawnImpactEffect(type, point, owner);
 		}
 
 		short group = DebrisGroupOf(piece.DebrisFlags);

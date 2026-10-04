@@ -52,6 +52,7 @@ One address, one entry: when a later finding revises an existing one, edit that 
 | `name` | the symbol name. Omitted for `low` entries, which get a plate comment only, never a rename or label, so a guess can never look like a confirmed name in the database. `medium` names carry a `maybe_` prefix, written out here rather than added by the apply script. |
 | `description` | evidence and meaning, also used as the plate comment body |
 | `source` | the repo doc section the entry was taken from |
+| `verified` | optional, functions only: a [verification stamp](#verification-stamps), written by `tools/scripts/es2_stamp.py` |
 | `signature` | optional, functions only: a full C prototype. Record it only when the argument list was derived from the disassembly by hand, never copied from what Ghidra displays: every prototype in the database is unverified `ANALYSIS`-tier inference, and it labels these functions `__stdcall` where the call sites clean their own stack (`ADD ESP,n` / `POP ECX`), i.e. `__cdecl`. A remaining `param_N` name means the derivation is unfinished; omit the field rather than record a partial one. |
 
 | Confidence | Meaning |
@@ -61,6 +62,39 @@ One address, one entry: when a later finding revises an existing one, edit that 
 | `low` | open or unconfirmed; comment only, no rename |
 
 **Who owns a parameter's type.** A function that carries a `signature` owns its whole parameter list, struct types included: write `SimObject *this`, not `int *this`, and do not also list that parameter in `known_structs.json`'s `applications`. A function without one gets its parameter types from `known_structs.json`. The two must not describe the same parameter, because applying a signature replaces the parameter list, so a disagreement would undo the struct typing on every run. `ES2ApplySymbolNames` guards against it — a parameter already typed with a pointer into category `/ES2` is captured before the signature apply and restored after, with a `WARN` naming the two files — but the guard is a safety net, not a licence to record the same fact twice.
+
+### Verification stamps
+
+`confidence` says how sure the name and role are. A stamp says something narrower and stronger: the function's whole body was read, and its `description` checked against it and corrected where it was wrong. A stamped description is trusted without re-reading the body; an unstamped one is a lead.
+
+```json
+"verified": {
+  "bytes": "0041b468+130",
+  "sha1": "dc6133fcf008",
+  "scope": "body",
+  "via": "disasm",
+  "negatives": [
+    { "claim": "The player's HERC starts each mission PASSIVE", "evidence": "retail",
+      "how": "the user's play of the retail game" }
+  ]
+}
+```
+
+| Field | Holds |
+| --- | --- |
+| `bytes` | the function's start and byte size in the Ghidra function list (`analysis_out/<BIN>_functions.txt`) when it was stamped |
+| `sha1` | the first 12 hex digits of the SHA-1 of those bytes in the retail image under `ES2/` |
+| `scope` | `body`: what the description says this function's own code does. `callees`: also every callee the description relies on, read the same way |
+| `via` | how the body was read: `decompile`, `disasm` or `both`. The decompile is enough for control flow and field offsets; a claim that rests on an argument's value, a register-passed parameter, or where one function ends and the next begins wants the disassembly. Absent on stamps made before the field existed |
+| `negatives` | optional: a negative claim the description makes ("only", "never", "no other") that is settled, with `evidence` `data` (an exhaustive read of the data settles it, e.g. a field that is -1 in every retail file) or `retail` (observed in the retail game), and `how` |
+
+What a stamp covers is the function's own behaviour, plus its listed negatives. Anything else the description says about other code — who calls it, what another function does — is covered only by that function's own stamp or the doc it cites.
+
+**Who calls a function is a search result or a read, and the description says which.** "Callers found by `es2_xref`: A, B and C" is a search; "`A` passes 3", with `A` read this session, is a read. A bare "called by A, B and C" reads as complete when it is neither, and is how a search result slips into a stamp.
+
+**A search that found nothing is never a stamped fact.** `es2_xref.py`, `es2_fieldscan.py` and every other sweep can only report "not found by this search", whatever its positive control showed: a wider store over the field, a bulk copy, the allocator's zeroing, an alias the scan cannot resolve or a dispatch table filled at run time all escape them. Before stamping, a description that states such a result as fact is reworded to say what was searched and found nothing ("no caller found by `es2_xref`"), and the doc carries it as an `**Open:**` item. It is not listed under `negatives`.
+
+`es2_stamp.py stamp NAME --via decompile|disasm|both [--scope callees] [--negative "claim :: data|retail :: how"]` writes one, after checking the description sentence by sentence: it refuses a sentence that names callers without saying which search found them, and one saying nothing, never or only something calls, reads, writes, references or reaches something (or that code is unused, unreachable or dead) unless it is a listed negative or names its search. `--read-callers` and `--own-negatives` accept such sentences when they are reads or describe the function's own code ("it makes no other call"); the sentences are printed either way, so the choice is made looking at them. `es2_stamp.py lint` runs the same checks over every stamp already written. The doc-lint hook names any unstamped function in the lines an edit writes to a doc. `es2_stamp.py check` re-reads every stamp and voids it, exit 1, when the function's extent in the function list has changed (a late-entry fix, a re-analysis) or its bytes no longer hash the same (another build under `ES2/`), because the read it records was of other code. `es2_naming.py edit` drops the stamp of an entry whose description it changes. `Check-Symbol.ps1` shows a stamp and prints a stamped description whole.
 
 Struct-instance offsets (`mech+0x222`) belong in `known_structs.json`, which owns field layout; they are not fixed addresses, so they have no entry here. Vtable slot meanings belong in `known_vtables.json`.
 

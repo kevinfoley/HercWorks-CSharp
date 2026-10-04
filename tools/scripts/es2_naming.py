@@ -687,8 +687,11 @@ def edit_text(text, edits):
         old = e.get("name")
         fields = ed.get("fields") or {ed["field"]: ed["value"]}
         for k, v in fields.items():
-            assert k in FIELDS and k not in ("address", "binary"), k
+            assert k in FIELDS and k not in ("address", "binary", "verified"), k
             assert not re.search(r"[\x00-\x1f]", v)
+            # A stamp vouches for the description it was checked against; new text needs a new stamp.
+            if k == "description" and v != e.get(k) and e.pop("verified", None):
+                print("stamp dropped", ed["address"], "- re-stamp with es2_stamp.py once the new text is checked")
             e[k] = v
         if e.get("name"):
             assert e["name"].startswith("maybe_") == (e["confidence"] == "medium"), (e["name"], e["confidence"])

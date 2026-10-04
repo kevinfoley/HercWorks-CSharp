@@ -22,7 +22,7 @@ public enum FlyerThinkSlot {
 
 /// <summary>
 /// One of the <b>seven</b> behaviour state descriptors the <c>Flyer</c> class has of its own — the
-/// <c>0x3c</c>-byte records at <c>00499cf8</c> that <c>Flyer_BuildStateTable</c> (<c>00414c65</c>) fills at startup, which is
+/// <c>0x3c</c>-byte records at <c>00499cf8</c> that <c>Flyer_BuildStateTable</c> (<c>00414c68</c>) fills at startup, which is
 /// the flyer's counterpart of <c>Behaviour_BuildStateTable</c>'s 22-entry mech table
 /// (<see cref="BehaviourState"/>). The two tables share nothing but their shape: a flyer's states
 /// have their own names, their own dwell times and their own thinks, and the stride is two bytes
@@ -66,7 +66,7 @@ public sealed class FlyerBehaviourState {
 	/// </summary>
 	public int Dwell { get; }
 
-	/// <summary>Descriptor <c>+0x08</c> as the 16-bit mask <c>Flyer_BuildStateTable</c> (<c>00414c65</c>) writes.</summary>
+	/// <summary>Descriptor <c>+0x08</c> as the 16-bit mask <c>Flyer_BuildStateTable</c> (<c>00414c68</c>) writes.</summary>
 	public int Flags { get; }
 
 	/// <inheritdoc cref="FlyerThinkSlot"/>
@@ -100,7 +100,7 @@ public sealed class FlyerBehaviourState {
 	/// <inheritdoc />
 	public override string ToString() => Name;
 
-	// The table, in index order. Names, dwell times and flag masks are the immediates Flyer_BuildStateTable (00414c65)
+	// The table, in index order. Names, dwell times and flag masks are the immediates Flyer_BuildStateTable (00414c68)
 	// writes; the think and move columns are which functions each state's source block at 00499e9c
 	// names.
 	public static readonly FlyerBehaviourState Deciding =

@@ -10,22 +10,23 @@ Coverage is not the goal for its own sake. A named function whose logic is neith
 
 ## Where coverage stands
 
-**These numbers are a snapshot and go stale as soon as any task names anything.** Regenerate them before relying on them (see [Stage 0](#stage-0--tooling-and-fresh-dumps)); do not edit them in place as work proceeds.
+**These numbers are a snapshot and go stale as soon as any task names anything.** `es2_naming.py stats BIN` prints each column from the current dumps (see [Stage 0](#stage-0--tooling-and-fresh-dumps)); regenerate them before relying on them rather than editing them in place.
 
 | | DBSIM | VSHELL |
 |---|---|---|
-| Ghidra functions with a real name | 2892 / 3258 (88.8%) | 2102 / 2386 (88.1%) |
-| Code bytes inside unnamed functions | 5.6% (31 KB) | 9.9% (40 KB) |
-| Unnamed functions under 100 bytes | 287 of 366 | 169 of 284 |
-| `55 8B EC` prologues outside any Ghidra function | 58 | 29 |
-| Vtables / slots / unnamed slots | 197 / 1620 / 0 | 92 / 542 / 1 |
-| Vtables with a typed slot shape in Ghidra | 93 of the dump's 183 | all 92 |
+| Ghidra functions with a real name | 3035 / 3458 (87.8%) | 2142 / 2466 (86.9%) |
+| Code bytes inside unnamed functions | 6.2% (34 KB) | 10.8% (43 KB) |
+| Unnamed functions under 100 bytes | 334 of 423 | 199 of 324 |
+| `55 8B EC` prologues outside any Ghidra function | 0 | 0 |
+| Code-section gaps outside any function, not all fill bytes (class records included) | 340 (45846 bytes) | 156 (25921 bytes) |
+| Vtables (with RTTI) / slots / unnamed slot targets | 218 (196) / 1659 / 27 | 94 (92) / 581 / 27 |
+| Vtables with a typed slot shape in Ghidra | 93 of the dump's 185 | 92 of the dump's 94 |
 | RTTI class records (with a vtable) | 255 (196) | 126 (92) |
 | Class records with a `known_structs.json` layout | 10 | 0 |
-| Function parameters typed with a struct | 123 | 0 |
-| Distinct `DAT_` globals left in the decompile (named data entries) | ~1860 (300) | ~1300 (238) |
+| Function parameters typed with a struct | 110 | 13 |
+| Distinct `DAT_` globals left in the decompile (named data entries) | 1850 (310) | 1301 (236) |
 
-What the numbers say: functions and vtable slots are nearly done; class layouts and globals are barely started. Struct work is what makes every remaining decompile cheaper to read, because one layout applied to `this` across a class's methods turns its `*(short *)(param_1 + 0x1a4)` reads into named fields and its `(**(code **)(*param_1 + 0x14))()` calls into named slot calls.
+What the numbers say: every class record's destructor is named and no prologue lies outside a function. The unnamed functions are now mostly the ones Stage 1 created and could not name from a twin: static initialisers and exit routines whose globals are unnamed, and the raster driver's assembly routines, which are most of the unnamed slot targets. Class layouts and globals are barely started. Struct work is what makes every remaining decompile cheaper to read, because one layout applied to `this` across a class's methods turns its `*(short *)(param_1 + 0x1a4)` reads into named fields and its `(**(code **)(*param_1 + 0x14))()` calls into named slot calls.
 
 ## Every name closes its loop
 
@@ -44,22 +45,24 @@ These hold for every function, field and global named under this plan, and equal
 
 ## Stage 0 — tooling and fresh dumps
 
-The dumps under `tools/analysis_out/` lag the database whenever another task has applied names; regenerate them with `tools/scripts/ghidra_full_decomp.py` at the start of each stage (this takes several minutes). Then close the tool gaps the earlier vtable pass worked around with scratch scripts:
+The dumps under `tools/analysis_out/` lag the database whenever another task has applied names or created functions; regenerate them with `tools/scripts/ghidra_full_decomp.py` at the start of each stage and after any batch that creates functions (this takes several minutes; it writes all five dumps, the disassembly included). The tools each stage leans on:
 
-- **`es2_naming.py stats BIN`** prints the coverage table above, so the snapshot is reproducible instead of counted by hand.
-- **`es2_naming.py classes BIN`** lists every class record with its size, bases and subobject offsets, primary vtable, `+0x28` destructor and `+0x14` operator delete, beside their `known_symbols` names. Stage 1 uses it to find unnamed destructors; Stage 2 generates skeletons from it.
-- **`es2_naming.py apply --define`** runs `ES2DefineFunctionAt` for a batch's targets that have no Ghidra function before `ES2ApplySymbolNames`, in one headless session. Today a batch with `?` slot targets needs a hand-run session.
-- **`es2_naming.py body -d` on undefined bytes** disassembles with capstone when Ghidra has no function at the address.
-- **`es2_naming.py vtables` "installed by"** credits a vtable store in undefined code to the preceding Ghidra function (DRAWABLE's destructor shows as `004785c6`). Report the store's own address when it falls outside the function's body.
+- **`es2_naming.py stats BIN`** prints the coverage table above; `--list` adds every prologue outside a function and every code-section gap that is not all fill bytes.
+- **`es2_naming.py classes BIN`** lists every class record with its size, bases and subobject offsets, primary vtable, `+0x28` destructor and `+0x14` operator delete, beside their `known_symbols` names; `--unnamed` keeps the records whose destructor is unnamed. Stage 2 generates skeletons from it.
+- **`es2_naming.py apply BIN --define a+b+...`** runs `ES2DefineFunctionAt` on the listed addresses before `ES2ApplySymbolNames`, in one headless session. With no list it defines every named `known_symbols` function that has no Ghidra function, and reports any that falls inside another function's extent.
+- **`es2_naming.py body -d`** disassembles with capstone where Ghidra has no function, up to the next function entry.
+- **`es2_naming.py vtables`** credits each vtable store to the Ghidra function whose extent holds it, or reports the store's own address when none does; a raw scan for the store's bytes finds stores in undisassembled code too.
+- **`es2_late_entries.py`** reports early starts (a function begun on the fill bytes before its code) beside late ones, and `fixentry` repairs both.
 
 ## Stage 1 — mechanical passes
 
 Cheap, tool-driven work that shrinks the backlog before any decompile is read by hand.
 
-- **Cross-binary matching.** Run `es2_naming.py match` in both directions, exact first, then `--fuzzy`, and confirm each candidate with `diff`. Most of the unnamed code sits in the Dynamix library layer both EXEs link (streams, SOS audio, 3Space shapes, LZH, pools); DBSIM's `0047xxxx` range holds about a third of its unnamed functions. VSHELL's AN and timer libraries are non-inlined builds and do not match; read them against the DBSIM family instead.
-- **Functions Ghidra never made.** Disassemble each `55 8B EC` prologue outside a function, and each non-padding gap, and create the real ones with `ES2DefineFunctionAt`. Switch tables and constant data in the code section account for some of the gap bytes.
-- **Late starts.** `es2_late_entries.py` for each binary, repaired with `fixentry`, dry run first.
-- **Class-record destructors.** Every class record's `+0x28` destructor without a name, from `classes`. These are mostly the pool, array and stack templates and the classes without a vtable, which the slot pass did not reach; most have no Ghidra function yet, so they need `--define`.
+- **Cross-binary matching.** Run `es2_naming.py match` in both directions, exact first, then `--fuzzy 0.85`, and confirm each candidate with `diff`. Most of the unnamed code sits in the Dynamix library layer both EXEs link (streams, SOS audio, 3Space shapes, LZH, pools). An exact match between two unnamed functions names nothing by itself; read one side and name both. A short body (a setter, a thunk, a `return arg`) matches many unrelated functions, so a match under about ten instructions is a lead, not a name. VSHELL's AN and timer libraries are non-inlined builds and do not match; read them against the DBSIM family instead. Run the match again after creating functions, since the new ones have twins too.
+- **Functions Ghidra never made.** Every `55 8B EC` prologue outside a function is one. Most gap bytes are Borland class records, which the linker places in the code section; the code among them is reached only through tables, so look for the addresses the tables store: the `_INIT_`/`_EXIT_` entries (frameless static constructors and exit routines), the `this`-adjusting thunks in DBSIM's secondary vtables, and the raster driver's routine tables (assembly that opens with `ENTER`, or with no frame at all). Check each start decodes cleanly, define the batch with `apply --define`, then regenerate the dumps. The tools README's "Repairing the database" section has the table addresses and shapes.
+- **Late and early starts.** `es2_late_entries.py` for each binary, repaired with `fixentry`, dry run first. Re-address the `known_symbols` entry and every doc and C# mention before the repair.
+- **Class-record destructors.** Every class record's `+0x28` destructor without a name, from `classes --unnamed`: the pool, array and stack templates and the classes without a vtable. A template's destructor is named `<Template>_<Argument>_Dtor` (`ObjPool_MECH_Dtor`).
+- **Adjusting thunks.** Each is named for the class whose vtable block holds it and the method it jumps to (`SystemGadget_OnClickThunk`); the description names the base subobject and the adjustment.
 
 ## Stage 2 — class skeletons
 

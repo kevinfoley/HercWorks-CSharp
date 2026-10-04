@@ -5,7 +5,9 @@ Runs `ES2ListFunctions` headless against the ES2Recon project, once per binary, 
 `tools/analysis_out/<BINARY>_functions.txt` (address, name, body size), then `ES2DumpFullDecomp`
 the same way, writing `tools/analysis_out/<BINARY>_decomp_full.c`, then `ES2DumpAllVtables`,
 writing `tools/analysis_out/<BINARY>_vtables_full.txt` (read by `es2_xref.py`), then
-`ES2DumpStructs`, writing `tools/analysis_out/<BINARY>_structs_full.txt`. The runs are sequential
+`ES2DumpStructs`, writing `tools/analysis_out/<BINARY>_structs_full.txt`, then `ES2DumpFullAsm`, writing
+`tools/analysis_out/<BINARY>_disasm_full.txt` (read by `es2_naming.py`, `es2_xref.py`,
+`es2_fieldscan.py` and `es2_late_entries.py`). The runs are sequential
 because headless Ghidra locks the project. Each dump is written to a temporary file and moved into
 place only when the script reports `SCRIPT-OK`, so a failed or cancelled run leaves the previous
 dump intact.
@@ -19,7 +21,7 @@ share excluding the library/import names. Code bytes Ghidra has not placed in an
 outside both denominators.
 
 Usage:
-    python tools/scripts/ghidra_full_decomp.py              # dump both binaries (all four dumps), then report
+    python tools/scripts/ghidra_full_decomp.py              # dump both binaries (all five dumps), then report
     python tools/scripts/ghidra_full_decomp.py --no-dump    # report from the existing function lists
     python tools/scripts/ghidra_full_decomp.py --binary DBSIM
     python tools/scripts/ghidra_full_decomp.py --binary DBSIM --dump functions --dump vtables
@@ -41,7 +43,7 @@ SCRIPTS = os.path.join(REPO_ROOT, "tools", "ghidra_scripts")
 OUT_DIR = os.path.join(REPO_ROOT, "tools", "analysis_out")
 
 BINARIES = ["DBSIM", "VSHELL"]
-DUMPS = ["functions", "decomp", "vtables", "structs"]
+DUMPS = ["functions", "decomp", "vtables", "structs", "disasm"]
 TIMEOUT_SECONDS = 60  # per function, passed through to ES2DumpFullDecomp
 
 
@@ -59,6 +61,10 @@ def vtables_path(binary: str) -> str:
 
 def structs_path(binary: str) -> str:
     return os.path.join(OUT_DIR, f"{binary}_structs_full.txt")
+
+
+def disasm_path(binary: str) -> str:
+    return os.path.join(OUT_DIR, f"{binary}_disasm_full.txt")
 
 
 def run_dump(binary: str, script: str, final: str, script_args: list[str], what: str) -> bool:
@@ -149,7 +155,7 @@ def main() -> int:
     parser.add_argument("--binary", choices=BINARIES, action="append",
                         help="dump only this binary (repeatable; default both)")
     parser.add_argument("--dump", choices=DUMPS, action="append",
-                        help="regenerate only this dump (repeatable; default all four)")
+                        help="regenerate only this dump (repeatable; default all five)")
     args = parser.parse_args()
 
     ok = True
@@ -168,6 +174,9 @@ def main() -> int:
             if "structs" in dumps:
                 ok = run_dump(binary, "ES2DumpStructs", structs_path(binary), [],
                               "dumping structs") and ok
+            if "disasm" in dumps:
+                ok = run_dump(binary, "ES2DumpFullAsm", disasm_path(binary), [],
+                              "disassembling") and ok
     report_names("DBSIM")
     report_names("VSHELL")
     return 0 if ok else 1

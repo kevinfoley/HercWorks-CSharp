@@ -111,7 +111,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Vcr_FlushCheckpoints",
-      "description": "Phase-6 subsystem, run every frame: while recording with the -d handle set, appends the checkpoint buffer's total bytes to <stem>.dmp (mode ab, Assert vcr.cpp:47) and resets cursor and total. Registered by Vcr_StaticInit. Ghidra has no function here.",
+      "description": "Phase-6 subsystem, run every frame: while recording with the -d handle set, appends the checkpoint buffer's total bytes to <stem>.dmp (mode ab, Assert vcr.cpp:47) and resets cursor and total. Registered by Vcr_StaticInit.",
       "source": "docs/retail/formats/tap-input-tape.md"
     },
     {
@@ -120,7 +120,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Vcr_StaticInit",
-      "description": "Static initialiser (Borland init table 004a7a64): RegisterSubsystemLoader(6, Vcr_FlushCheckpoints). Ghidra has no function here.",
+      "description": "Static initialiser (Borland init table 004a7a64): RegisterSubsystemLoader(6, Vcr_FlushCheckpoints).",
       "source": "docs/retail/formats/tap-input-tape.md"
     },
     {
@@ -295,6 +295,21 @@
       "source": "DBSIM decompile at 00402cfa"
     },
     {
+      "address": "00402d9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TS_REG_OBJ_DtorThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x1c of TS_REG_OBJ's vtable block, in the table for its TSContext subobject at +0xc: subtracts 0xc from this and jumps to TSRegObj_Dtor.",
+      "source": "DBSIM disassembly at 00402d9c; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00402d9c+10",
+        "sha1": "32068802ac4f",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "00402e02",
       "binary": "DBSIM",
       "type": "function",
@@ -302,6 +317,21 @@
       "name": "RegObj_Dtor",
       "description": "REG_OBJ vtable +0x08 (004972d5): the deleting destructor, (this, flags). TSContext_Dtor(this+0xc, 0) on the second base, then Mem_Delete(this) on flags bit 0.",
       "source": "DBSIM disassembly at 00402e02"
+    },
+    {
+      "address": "00402e3a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "REG_OBJ_DtorThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x1c of REG_OBJ's vtable block, in the table for its TSContext subobject at +0xc: subtracts 0xc from this and jumps to RegObj_Dtor.",
+      "source": "DBSIM disassembly at 00402e3a; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00402e3a+10",
+        "sha1": "ecff4467b924",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00402e98",
@@ -797,6 +827,21 @@
       "source": "docs/retail/simulation/structure-behaviour.md#the-transport--004045c8"
     },
     {
+      "address": "00406aec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoosePool_BASE_Dtor",
+      "description": "LoosePool<BASE>'s destructor, the dtor its class record (0x8 bytes, at 00406aa0) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its buffer at +0, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00406aec; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00406aec+43",
+        "sha1": "c33a74587e07",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00406caf",
       "binary": "DBSIM",
       "type": "function",
@@ -1100,6 +1145,21 @@
       "source": "DBSIM disassembly at 0040798c; class record at 00407934"
     },
     {
+      "address": "00407a3e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_LightSource_Dtor",
+      "description": "ObjPool<LightSource>'s destructor, the dtor its class record (0x8 bytes, at 004079ea) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00407a3e; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00407a3e+47",
+        "sha1": "0a3da96918a8",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00407ac1",
       "binary": "DBSIM",
       "type": "function",
@@ -1116,6 +1176,21 @@
       "name": "EffectLight_GetPositionNull",
       "description": "LightSource vtable +0x04 (00497b8a): returns 0 -- a null position pointer.",
       "source": "DBSIM decompile and disassembly at 00407ac6"
+    },
+    {
+      "address": "00407acd",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_Dtor",
+      "description": "LightManager's destructor, the dtor its class record (0x404 bytes, at 00407a6d) names: (manager, flags): when manager is not null, decrements *Rtl_DtorCountPtr three times, TSContext_Dtor(manager+0x346, 2) and TSContext_Dtor(manager+0x328, 0), the embedded objects, then Mem_Delete when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00407acd; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00407acd+82",
+        "sha1": "7ab58395793b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00407b20",
@@ -1206,6 +1281,21 @@
       "name": "Explosion_RegisterSubsystem",
       "description": "Static-init registrar for EXPLO.CPP (Borland _INIT_ entry 004a7a7a, priority 0x20): registers Explosion_LoadResources at phase 2 and ExplosionPool_FlushDeletes at phase 5, and nulls g_ExplosionPool.",
       "source": "docs/retail/simulation/impact-effects.md#tick--explosion_tickupdate-0040813c"
+    },
+    {
+      "address": "004083ae",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_EXPLOSION_Dtor",
+      "description": "ObjPool<EXPLOSION>'s destructor, the dtor its class record (0x8 bytes, at 0040835e) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 004083ae; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004083ae+47",
+        "sha1": "7ccb1cedf971",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004083e0",
@@ -1351,6 +1441,21 @@
       "source": "docs/retail/simulation/destruction-effects.md"
     },
     {
+      "address": "00408f54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_DEBRIS_Dtor",
+      "description": "ObjPool<DEBRIS>'s destructor, the dtor its class record (0x8 bytes, at 00408f08) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00408f54; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00408f54+47",
+        "sha1": "757f61a36633",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00409178",
       "binary": "DBSIM",
       "type": "function",
@@ -1385,6 +1490,36 @@
       "name": "Smoke_Tick",
       "description": "Called from Sim_MainTick. Every 200 ticks while the count +0x24 lasts, places a SMOKE_BALL at the owner component's point (or a fixed offset) and steps +0x26 to the next of the type's four variants.",
       "source": "docs/retail/simulation/random-generator.md"
+    },
+    {
+      "address": "004095d5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_SMOKE_Dtor",
+      "description": "ObjPool<SMOKE>'s destructor, the dtor its class record (0x8 bytes, at 00409589) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 004095d5; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004095d5+47",
+        "sha1": "2325e539cac5",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00409604",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_SMOKE_BALL_Dtor",
+      "description": "ObjPool<SMOKE_BALL>'s destructor, the dtor its class record (0x8 bytes, at 00409539) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00409604; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00409604+47",
+        "sha1": "5f39f1f0a18b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004096d7",
@@ -1459,6 +1594,21 @@
       "source": "docs/retail/simulation/mission-deployment.md#the-drop-pod--meteor"
     },
     {
+      "address": "004099ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_FlatObj_Dtor",
+      "description": "ObjPool<FlatObj>'s destructor, the dtor its class record (0x8 bytes, at 0040999c) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 004099ec; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004099ec+47",
+        "sha1": "c249008b1b79",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00409a34",
       "binary": "DBSIM",
       "type": "function",
@@ -1507,6 +1657,21 @@
       "source": "docs/retail/simulation/mission-deployment.md"
     },
     {
+      "address": "0040a030",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_METEOR_Dtor",
+      "description": "ObjPool<METEOR>'s destructor, the dtor its class record (0x8 bytes, at 00409fe4) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0040a030; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0040a030+47",
+        "sha1": "328c7e04b68d",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0040a120",
       "binary": "DBSIM",
       "type": "function",
@@ -1514,6 +1679,21 @@
       "name": "Bullet_Draw",
       "description": "The Bullet class's vtable slot 0. Sets DAT_004a5b1c = 0 for the duration of the call, which is what makes a projectile's textured polys draw unlit (see TSTexture4Poly_Render), installs the object's frame as the model transform, renders the shape instance at obj+0x34, and restores DAT_004a5b1c from DAT_004a5b20.",
       "source": "docs/retail/simulation/projectiles.md"
+    },
+    {
+      "address": "0040a209",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoosePool_PROJECTILE_Dtor",
+      "description": "LoosePool<PROJECTILE>'s destructor, the dtor its class record (0x8 bytes, at 0040a1b5) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its buffer at +0, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0040a209; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0040a209+43",
+        "sha1": "26127f806ea7",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040a234",
@@ -2122,6 +2302,21 @@
       "description": "Everything a component has to lose: its own armour plus the maximum of every internal mapped onto it, walking the piece's mapped-internals list. The denominator Component_ReadDamagePercent divides by, and the scale Mech_SpreadImpactDamage multiplies by. Args derived from disassembly: [EBP+8] pointer, [EBP+0xc] word.",
       "source": "docs/retail/simulation/component-damage.md",
       "signature": "int __cdecl Component_TotalArmor(ComponentDamageArrays *arrays, short componentIndex)"
+    },
+    {
+      "address": "0040dd1e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "STACK_short_Dtor",
+      "description": "STACK<short>'s destructor, the dtor its class record (0x6 bytes, at 0040dcd2) names: (stack, flags): decrements *Rtl_DtorCountPtr; when the stack is not null, Mem_DeleteArray of its buffer at +0, then Mem_Delete of the stack when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0040dd1e; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0040dd1e+43",
+        "sha1": "47da2652298e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040dd4c",
@@ -4055,12 +4250,12 @@
       "source": "docs/retail/simulation/ai-dispatch.md"
     },
     {
-      "address": "00414c65",
+      "address": "00414c68",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "Flyer_BuildStateTable",
-      "description": "Static initialiser for the Flyer class' own behaviour state table: seven 0x3c-byte descriptors at FlyerBehaviourStateTable (00499cf8), each taking its name from FlyerBehaviourStateNames (00499f98), a dwell immediate, a 16-bit flag mask through Behaviour_ExpandFlagBits, and its three {func,thisDelta,vtableIndex} triples copied from FlyerBehaviourSlotBlocks (00499e9c). Sits immediately after Behaviour_BuildStateTable's RET and is reached only as a C++ static init, so nothing calls it.",
+      "description": "Static initialiser for the Flyer class' own behaviour state table: seven 0x3c-byte descriptors at FlyerBehaviourStateTable (00499cf8), each taking its name from FlyerBehaviourStateNames (00499f98), a dwell immediate, a 16-bit flag mask through Behaviour_ExpandFlagBits, and its three {func,thisDelta,vtableIndex} triples copied from FlyerBehaviourSlotBlocks (00499e9c). Sits immediately after Behaviour_BuildStateTable's RET; its address is the priority-0x20 entry at 004a7ac8 in Borland's _INIT_ table, and es2_xref finds no call to it.",
       "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -4738,6 +4933,51 @@
       "source": "DBSIM disassembly at 0041bf19; class record at 0041bde1"
     },
     {
+      "address": "0041bf94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ARRAY_short_Dtor",
+      "description": "ARRAY<short>'s destructor, the dtor its class record (0x6 bytes, at 0041bfc3) names: (array, flags): decrements *Rtl_DtorCountPtr; when the array is not null, Mem_DeleteArray of its buffer at +0 when that is set, then Mem_Delete of the array when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0041bf94; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0041bf94+47",
+        "sha1": "68afa4f03069",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0041c00f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ARRAY_GUN_STATE_Ptr_Dtor",
+      "description": "ARRAY<GUN_STATE *>'s destructor, the dtor its class record (0x6 bytes, at 0041bec9) names: (array, flags): decrements *Rtl_DtorCountPtr; when the array is not null, Mem_DeleteArray of its buffer at +0 when that is set, then Mem_Delete of the array when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0041c00f; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0041c00f+47",
+        "sha1": "6ae3a6c9a87b",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0041c0c5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_MECH_Dtor",
+      "description": "ObjPool<MECH>'s destructor, the dtor its class record (0x8 bytes, at 0041c079) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0041c0c5; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0041c0c5+47",
+        "sha1": "afe920e7e3e6",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0041c0f4",
       "binary": "DBSIM",
       "type": "function",
@@ -5290,6 +5530,51 @@
       "source": "DBSIM decompile at 00420730; class record at 004206c9"
     },
     {
+      "address": "00420867",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MECH_TYPE_DATA_Dtor",
+      "description": "MECH_TYPE_DATA's destructor, the dtor its class record (0x21e bytes, at 00420937) names: (data, flags): when data is not null, decrements *Rtl_DtorCountPtr, Rtl_VectorDelete of the ten 0x18-byte config parts at +0xec with ConfigPart_Dtor, then Mem_Delete when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00420867; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00420867+60",
+        "sha1": "6b542e6fbdfd",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004209ab",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CONNECT_INFO_Dtor",
+      "description": "CONNECT_INFO's destructor, the dtor its class record (0x6 bytes, at 004208e3) names: (info, flags): when info is not null, decrements *Rtl_DtorCountPtr twice, Mem_DeleteArray of the buffer at +0 when that is set, then Mem_Delete when flags bit 0 is set.",
+      "source": "DBSIM decompile at 004209ab; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004209ab+56",
+        "sha1": "5c4e70fde5f1",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00420a37",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ARRAY_TSPartBase_PtrPtr_Dtor",
+      "description": "ARRAY<TSPartBase * *>'s destructor, the dtor its class record (0x6 bytes, at 004209e3) names: (array, flags): decrements *Rtl_DtorCountPtr; when the array is not null, Mem_DeleteArray of its buffer at +0 when that is set, then Mem_Delete of the array when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00420a37; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00420a37+47",
+        "sha1": "f5a727b1982f",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00420a68",
       "binary": "DBSIM",
       "type": "function",
@@ -5446,6 +5731,21 @@
       "source": "docs/retail/simulation/ai-combat-states.md"
     },
     {
+      "address": "00422069",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_FLYER_Dtor",
+      "description": "ObjPool<FLYER>'s destructor, the dtor its class record (0x8 bytes, at 0042201d) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00422069; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00422069+47",
+        "sha1": "68a2323fc0e6",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00422098",
       "binary": "DBSIM",
       "type": "function",
@@ -5591,7 +5891,7 @@
       "signature": "short __cdecl Flyer_AiSelectBehaviour(void *flyer)"
     },
     {
-      "address": "00422d8f",
+      "address": "00422d90",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
@@ -5906,7 +6206,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MissionGroup_ElementCtor",
-      "description": "Rtl_VectorNew's per-element constructor for MissionGroups_Allocate's 0x7a-byte group records (its only reference is that PUSH at 00423d4b): zeroes the route cursor's index word at group+0x04 and nothing else. Ghidra has no function here; it is filed under Group_ReportIfAllOutOfAction's tail.",
+      "description": "Rtl_VectorNew's per-element constructor for MissionGroups_Allocate's 0x7a-byte group records (its only reference is that PUSH at 00423d4b): zeroes the route cursor's index word at group+0x04 and nothing else.",
       "source": "DBSIM disassembly at 004240e4, 00423d4b"
     },
     {
@@ -6170,7 +6470,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GridShape_Dtor",
-      "description": "GridShape vtable 0049aaa0 slot +0x18 (shape, flags): when shape is set, decrements the live-object counter at *006cbf74, calls 00490958 (TSShape vtable 004a6331 slot +0x18) with flags 0, then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "GridShape vtable 0049aaa0 slot +0x18 (shape, flags): when shape is set, decrements the live-object counter at *006cbf74, calls 00490958 (TSShape vtable 004a6331 slot +0x18) with flags 0, then Mem_Delete when flags bit 0 is set.",
       "source": "docs/retail/formats/dgs-hd0-notes.md"
     },
     {
@@ -7830,6 +8130,51 @@
       "name": "SystemGadget_FlushDeferredPaintNoOp",
       "description": "SystemGadget vtable +0x0c (0049b774): push ebp / mov ebp,esp / pop ebp / ret.",
       "source": "DBSIM disassembly at 00434dcd"
+    },
+    {
+      "address": "00434dd2",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of SystemGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to SystemGadget_OnClick.",
+      "source": "DBSIM disassembly at 00434dd2; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00434dd2+10",
+        "sha1": "52d082def673",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00434ddc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_FlushDeferredPaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of SystemGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to SystemGadget_FlushDeferredPaintNoOp.",
+      "source": "DBSIM disassembly at 00434ddc; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00434ddc+10",
+        "sha1": "952883cd94a1",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00434de6",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of SystemGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to SystemGadget_Paint.",
+      "source": "DBSIM disassembly at 00434de6; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00434de6+10",
+        "sha1": "12d0bc8dc97f",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00434df0",
@@ -10045,6 +10390,186 @@
       "source": "DBSIM decompile at 00442f18"
     },
     {
+      "address": "0044339f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponRangeSelectGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of WeaponRangeSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to WeaponRangeSelectGadget_OnClick.",
+      "source": "DBSIM disassembly at 0044339f; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0044339f+10",
+        "sha1": "c5301d5d29c0",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433a9",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponRangeSelectGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of WeaponRangeSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to WeaponRangeSelectGadget_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 004433a9; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433a9+10",
+        "sha1": "d24dd84a12af",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433b3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponRangeSelectGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of WeaponRangeSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to ConsoleButton_Paint.",
+      "source": "DBSIM disassembly at 004433b3; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433b3+10",
+        "sha1": "1a15d21474d9",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433bd",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSliderGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x34 of WeaponSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to HSliderGadget_OnClick.",
+      "source": "DBSIM disassembly at 004433bd; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433bd+10",
+        "sha1": "6a24546d54ec",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433c7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSliderGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x2c of WeaponSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to WeaponSliderGadget_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 004433c7; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433c7+10",
+        "sha1": "e5320abf3c60",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433d1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSliderGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of WeaponSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to WeaponSliderGadget_Paint.",
+      "source": "DBSIM disassembly at 004433d1; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433d1+10",
+        "sha1": "7bc9b7b62fa6",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433db",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ChainedWeaponSelectGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of ChainedWeaponSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to ChainedWeaponSelectGadget_OnClick.",
+      "source": "DBSIM disassembly at 004433db; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433db+10",
+        "sha1": "3de23a55fc65",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433e5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ChainedWeaponSelectGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of ChainedWeaponSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to ChainedWeaponSelectGadget_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 004433e5; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433e5+10",
+        "sha1": "36ed8da02eb7",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433ef",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ChainedWeaponSelectGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of ChainedWeaponSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to WeaponSelectGadget_Paint.",
+      "source": "DBSIM disassembly at 004433ef; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433ef+10",
+        "sha1": "456dd5e5ea8e",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004433f9",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of WeaponSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to WeaponSelectGadget_OnClick.",
+      "source": "DBSIM disassembly at 004433f9; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004433f9+10",
+        "sha1": "96f584fc7995",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00443403",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of WeaponSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to WeaponSelectGadget_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 00443403; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00443403+10",
+        "sha1": "d4b077aed5ae",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0044340d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_PaintUnderlayThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of WeaponSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to WeaponSelectGadget_PaintUnderlay.",
+      "source": "DBSIM disassembly at 0044340d; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0044340d+10",
+        "sha1": "8770ed9d18ab",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "00443417",
       "binary": "DBSIM",
       "type": "function",
@@ -10226,6 +10751,51 @@
       "name": "ShieldsGauge_ApplyCoordShift",
       "description": "(rects): VideoMode_ShiftRect on the first rect, then shifts the four 16-byte rects after it left by VideoMode_XCoordShift (x) and VideoMode_YCoordShift (y). Gau_ShieldDisplayWidget runs it on the .GAU block at +0x268 before ShieldsGauge_Ctor.",
       "source": "DBSIM decompile at 00444b9c"
+    },
+    {
+      "address": "00444d0e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsSelectGadget_ForwardClickToOwnerThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of ShieldsSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to Widget_ForwardClickToOwner.",
+      "source": "DBSIM disassembly at 00444d0e; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00444d0e+10",
+        "sha1": "31b1fc04f80b",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00444d18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsSelectGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of ShieldsSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to ShieldFacing_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 00444d18; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00444d18+10",
+        "sha1": "70a86f0395bb",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00444d22",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsSelectGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of ShieldsSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to ShieldFacing_Paint.",
+      "source": "DBSIM disassembly at 00444d22; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00444d22+10",
+        "sha1": "728407ea3318",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00444d2c",
@@ -10654,6 +11224,141 @@
       "source": "DBSIM disassembly at 004478f1"
     },
     {
+      "address": "00447ac7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDListGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of MFDListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to MFDListGadget_OnClick.",
+      "source": "DBSIM disassembly at 00447ac7; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447ac7+10",
+        "sha1": "1695db75d54d",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447ad1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDListGadget_FlushDeferredPaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of MFDListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelListGadget_FlushDeferredPaintNoOp.",
+      "source": "DBSIM disassembly at 00447ad1; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447ad1+10",
+        "sha1": "ed01bcce13e6",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447adb",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDListGadget_PaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of MFDListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelListGadget_PaintNoOp.",
+      "source": "DBSIM disassembly at 00447adb; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447adb+10",
+        "sha1": "486dbdd0f25e",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447ae5",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDStateGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of MFDStateGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to MFDStateGadget_OnClick.",
+      "source": "DBSIM disassembly at 00447ae5; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447ae5+10",
+        "sha1": "9650ac2dbbdd",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447aef",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDStateGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of MFDStateGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to MFDStateGadget_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 00447aef; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447aef+10",
+        "sha1": "5add194539d6",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447af9",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDStateGadget_RepaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of MFDStateGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to MfdButton_Repaint.",
+      "source": "DBSIM disassembly at 00447af9; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447af9+10",
+        "sha1": "d24dd84a12af",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447b03",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDSelectGadget_ForwardClickToOwnerThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of MFDSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to Widget_ForwardClickToOwner.",
+      "source": "DBSIM disassembly at 00447b03; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447b03+10",
+        "sha1": "8aaf86d59a0c",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447b0d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDSelectGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of MFDSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to MFDSelectGadget_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 00447b0d; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447b0d+10",
+        "sha1": "422d7ce4a317",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00447b17",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDSelectGadget_SetCaptionThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of MFDSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to MfdButton_SetCaption.",
+      "source": "DBSIM disassembly at 00447b17; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00447b17+10",
+        "sha1": "e53bba459747",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "00447b21",
       "binary": "DBSIM",
       "type": "function",
@@ -10798,6 +11503,51 @@
       "source": "DBSIM decompile at 004488cc"
     },
     {
+      "address": "00448b12",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleHSliderGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x34 of ThrottleHSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to HSliderGadget_OnClick.",
+      "source": "DBSIM disassembly at 00448b12; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00448b12+10",
+        "sha1": "6f76ef7e76a5",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00448b1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleHSliderGadget_FlushPaintHThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x2c of ThrottleHSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to ThrottleSlider_FlushPaintH.",
+      "source": "DBSIM disassembly at 00448b1c; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00448b1c+10",
+        "sha1": "30ed8e0072dc",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00448b26",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleHSliderGadget_PaintHThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of ThrottleHSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to ThrottleSlider_PaintH.",
+      "source": "DBSIM disassembly at 00448b26; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00448b26+10",
+        "sha1": "56b4ea91a927",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "00448b30",
       "binary": "DBSIM",
       "type": "function",
@@ -10805,6 +11555,66 @@
       "name": "VSliderGadget_InvalidateDeferred",
       "description": "PanelVSliderGadget vtable +0x04 (0049d19c), kept by ThrottleVSliderGadget: this->[0x1f] = 2, the vertical slider's copy of Widget_InvalidateDeferred. HSliderGadget_InvalidateDeferred is the horizontal one.",
       "source": "DBSIM decompile at 00448b30"
+    },
+    {
+      "address": "00448b3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleVSliderGadget_OnValueThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x34 of ThrottleVSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to ThrottleSlider_OnValue.",
+      "source": "DBSIM disassembly at 00448b3c; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00448b3c+10",
+        "sha1": "6e728bd58e8f",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00448b46",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleVSliderGadget_PaintVThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x2c of ThrottleVSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to ThrottleSlider_PaintV.",
+      "source": "DBSIM disassembly at 00448b46; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00448b46+10",
+        "sha1": "6f3cd6904f19",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00448b50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleVSliderGadget_DrawKnobVThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of ThrottleVSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to ThrottleSlider_DrawKnobV.",
+      "source": "DBSIM disassembly at 00448b50; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00448b50+10",
+        "sha1": "d6d2cbefc8ac",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00448c02",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelVSliderGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x34 of PanelVSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to VSliderGadget_OnClick.",
+      "source": "DBSIM disassembly at 00448c02; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00448c02+10",
+        "sha1": "49863735b185",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00448c0c",
@@ -11195,6 +12005,21 @@
       "source": "docs/retail/formats/heads-down-display.md"
     },
     {
+      "address": "0044c0b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelStateGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of PanelStateGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelStateGadget_OnClick.",
+      "source": "DBSIM disassembly at 0044c0b0; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0044c0b0+10",
+        "sha1": "0d482275d5f6",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "0044c0ba",
       "binary": "DBSIM",
       "type": "function",
@@ -11202,6 +12027,51 @@
       "name": "PanelStateGadget_Dtor",
       "description": "PanelStateGadget's destructor (class record 0044c054): (gadget, flags). One RTL destructor-count decrement, PanelSelectGadget_Dtor(gadget, 0), then Mem_Delete on flags bit 0.",
       "source": "DBSIM disassembly at 0044c0ba; class record at 0044c054"
+    },
+    {
+      "address": "0044c1cd",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDSelectGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of HDDSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to HddButton_OnClick.",
+      "source": "DBSIM disassembly at 0044c1cd; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0044c1cd+10",
+        "sha1": "14aa50137906",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0044c1d7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDSelectGadget_FlushDeferredPaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of HDDSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to HddButton_FlushDeferredPaint.",
+      "source": "DBSIM disassembly at 0044c1d7; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0044c1d7+10",
+        "sha1": "8dbfc704bcf6",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0044c1e1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDSelectGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of HDDSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to HddButton_Paint.",
+      "source": "DBSIM disassembly at 0044c1e1; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0044c1e1+10",
+        "sha1": "ebf1dd829d6d",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0044c1eb",
@@ -11920,6 +12790,36 @@
       "source": "DBSIM disassembly at 00450506; DBSIM_vtables_full.txt"
     },
     {
+      "address": "0045055b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelListGadget_FlushDeferredPaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of PanelListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelListGadget_FlushDeferredPaintNoOp.",
+      "source": "DBSIM disassembly at 0045055b; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045055b+10",
+        "sha1": "f13e4127f99f",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00450565",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelListGadget_PaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of PanelListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelListGadget_PaintNoOp.",
+      "source": "DBSIM disassembly at 00450565; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00450565+10",
+        "sha1": "536b35470d2b",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "0045068d",
       "binary": "DBSIM",
       "type": "function",
@@ -11927,6 +12827,51 @@
       "name": "GLRect_Dtor",
       "description": "GLRect vtable +0x18 (0049d984, RTTI 'GLRect', 0x14 bytes; bases GLPrimitive and Box32_2d at +4), the destructor its class record names: (rect, flags). Three RTL destructor-count decrements, then Mem_Delete on flags bit 0.",
       "source": "DBSIM disassembly at 0045068d; class record at 00450631"
+    },
+    {
+      "address": "0045077b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDListGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of HDDListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to HDDListGadget_OnClick.",
+      "source": "DBSIM disassembly at 0045077b; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045077b+10",
+        "sha1": "3701998f37ab",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00450785",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDListGadget_FlushDeferredPaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of HDDListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelListGadget_FlushDeferredPaintNoOp.",
+      "source": "DBSIM disassembly at 00450785; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00450785+10",
+        "sha1": "623419d9c45b",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0045078f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDListGadget_PaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of HDDListGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelListGadget_PaintNoOp.",
+      "source": "DBSIM disassembly at 0045078f; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045078f+10",
+        "sha1": "e385cb824637",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0045079c",
@@ -12904,6 +13849,21 @@
       "source": "DBSIM disassembly at 0045554a; DBSIM_vtables_full.txt"
     },
     {
+      "address": "0045554f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelSelectGadget_ForwardClickToOwnerThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of PanelSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to Widget_ForwardClickToOwner.",
+      "source": "DBSIM disassembly at 0045554f; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045554f+10",
+        "sha1": "d0345356cdbd",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "00455559",
       "binary": "DBSIM",
       "type": "function",
@@ -12958,6 +13918,21 @@
       "source": "DBSIM decompile at 00455721"
     },
     {
+      "address": "0045578e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelHSliderGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x34 of PanelHSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to HSliderGadget_OnClick.",
+      "source": "DBSIM disassembly at 0045578e; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045578e+10",
+        "sha1": "0b33e89acd90",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
       "address": "00455798",
       "binary": "DBSIM",
       "type": "function",
@@ -12974,6 +13949,96 @@
       "name": "AlertSliderGadget_OnClick",
       "description": "AlertSliderGadget vtable +0x08 (0049dfd8), (slider, value): calls the owning panel's (+0x42) slot +0x0c, its OnChildClick, with (panel, slider, value), then invalidates the slider (its slot +0x04).",
       "source": "DBSIM disassembly at 0045586c"
+    },
+    {
+      "address": "0045588f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x34 of AlertSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to AlertSliderGadget_OnClick.",
+      "source": "DBSIM disassembly at 0045588f; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045588f+10",
+        "sha1": "8afa899a343c",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00455899",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_FlushDeferredPaintNoOpThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x2c of AlertSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to AlertSliderGadget_FlushDeferredPaintNoOp.",
+      "source": "DBSIM disassembly at 00455899; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00455899+10",
+        "sha1": "bb918ff1b8e9",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004558a3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of AlertSliderGadget's vtable block, in the table for its PanelSliderGadget subobject at +0x3e: subtracts 0x3e from this and jumps to AlertSliderGadget_Paint.",
+      "source": "DBSIM disassembly at 004558a3; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004558a3+10",
+        "sha1": "37dc334942e9",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004558ad",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSelectGadget_OnClickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x30 of AlertSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelButton_OnClick.",
+      "source": "DBSIM disassembly at 004558ad; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004558ad+10",
+        "sha1": "209603f6502c",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004558b7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSelectGadget_TickThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x28 of AlertSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelButton_Tick.",
+      "source": "DBSIM disassembly at 004558b7; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004558b7+10",
+        "sha1": "5fb9df868ea5",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "004558c1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSelectGadget_PaintThunk",
+      "description": "The this-adjusting thunk at primary vtable +0x24 of AlertSelectGadget's vtable block, in the table for its PanelGadget subobject at +0x20: subtracts 0x20 from this and jumps to PanelButton_Paint.",
+      "source": "DBSIM disassembly at 004558c1; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004558c1+10",
+        "sha1": "ef5ea4c93939",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "004558cb",
@@ -13748,7 +14813,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_InitKeyboardAxisTable",
-      "description": "Static initialiser (Borland _INIT_ entry 004a7b64, priority 0x20) that writes the 28-byte (dx,dy) table KeyboardAxisDeltas (0049eb6d) read by Input_BuildKeyboardAxes. Ghidra has no function here (gap 0045b888-0045ba8c).",
+      "description": "Static initialiser (Borland _INIT_ entry 004a7b64, priority 0x20) that writes the 28-byte (dx,dy) table KeyboardAxisDeltas (0049eb6d) read by Input_BuildKeyboardAxes.",
       "source": "docs/retail/formats/joystick-input.md#the-keyboard"
     },
     {
@@ -13905,6 +14970,21 @@
       "source": "DBSIM decompile and disassembly at 0045c000"
     },
     {
+      "address": "0045c03c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "IMKeyboard_Dtor",
+      "description": "IMKeyboard's destructor, the dtor its class record (0xe bytes, at 0045b988) names: (keyboard, flags): decrements *Rtl_DtorCountPtr; when keyboard is not null, clears the byte at 004d2511, clears the dword at 004d2520 when it equals the keyboard's dword at +5, DVKeyboard_Dtor(keyboard, 0) for its DVKeyboard base, then Mem_Delete when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0045c03c; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045c03c+71",
+        "sha1": "ffbc0b1871b3",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0045c084",
       "binary": "DBSIM",
       "type": "function",
@@ -14048,6 +15128,36 @@
       "name": "Main_StaticInit",
       "description": "MAIN.CPP's C++ static initialiser: the priority-0x20 entry at 004a7b70 in Borland's _INIT_ table (00 20 d8 ca 45 00), with no direct caller. Loads the video-mode/sim-globals block base 004d2540 into EBX, constructs the member object at 004d2603 (FUN_00481460), memsets the 0xc3-byte block to zero and fills its defaults through EBX: among them VideoMode_PanelMode (+0x7b) and maybe_CockpitLayoutMode (+0x7c) = 0, the 320-wide mode-0 geometry, Display_UseScrollWindow (+0xaa, 004d25ea) = 1, PilotingRazor = 0 and ControlsOptionBase = 0xd. Ends by seeding the two Math_RandomNext state blocks at 004d261d and 004d268f. The only write of +0x7c anywhere, and the only writer of +0x7b besides VideoMode_Configure.",
       "source": "docs/retail/formats/cockpit-views.md"
+    },
+    {
+      "address": "0045cbf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Main_StaticDtor",
+      "description": "MAIN.CPP's _EXIT_ routine (the function pointer at 004a7c50), Main_StaticInit's counterpart: decrements *Rtl_DtorCountPtr and runs GLBitmap_Dtor(004d2603, 2) on the GLBitmap member at +0xc3 of the MGlobs block at 004d2540.",
+      "source": "docs/retail/formats/cockpit-views.md",
+      "verified": {
+        "bytes": "0045cbf0+23",
+        "sha1": "007052359ae8",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0045cc53",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MGlobs_Dtor",
+      "description": "MGlobs's destructor, the dtor its class record (0xdd bytes, at 0045cc07) names: (globs, flags): when globs is not null, decrements *Rtl_DtorCountPtr, GLBitmap_Dtor(globs+0xc3, 2), then Mem_Delete when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0045cc53; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0045cc53+51",
+        "sha1": "3902b10ae77e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045cc88",
@@ -14900,6 +16010,21 @@
       "source": "DBSIM disassembly at 00463858"
     },
     {
+      "address": "00463870",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Sfx_FillDefaultsThunk",
+      "description": "(sfx, out): maybe_Sfx_FillDefaults(out); the first argument is not read. es2_xref finds no reference to it. The DBSIM copy of VSHELL's maybe_Sfx_FillDefaultsThunk (0042c102).",
+      "source": "es2_naming.py match against VSHELL 0042c102",
+      "verified": {
+        "bytes": "00463870+40",
+        "sha1": "1a94c955e457",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "004638e4",
       "binary": "DBSIM",
       "type": "function",
@@ -15209,6 +16334,21 @@
       "source": "DBSIM decompile and disassembly at 00464fcc"
     },
     {
+      "address": "00464fe4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinMain_RegisterWindowClass",
+      "description": "(hInstance): loads BWCC32.DLL and registers the window class 'ES2': MainWndProc, icon 'es2icon', the arrow cursor, no background brush. Callers found by es2_naming.py callers: WinMain, when there is no previous instance. VSHELL's Shell_RegisterWindowClass (004062cb) is the same code with BWCC.DLL and the class 'shell'.",
+      "source": "es2_naming.py match against VSHELL 004062cb",
+      "verified": {
+        "bytes": "00464fe4+110",
+        "sha1": "d0e60c9c1665",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00465054",
       "binary": "DBSIM",
       "type": "function",
@@ -15372,6 +16512,21 @@
       "source": "docs/retail/formats/cockpit-input.md"
     },
     {
+      "address": "00466955",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimDisplay_Dtor",
+      "description": "AnimDisplay's destructor, the dtor its class record (0xa0 bytes, at 00466901) names: (display, flags): when display is not null, decrements *Rtl_DtorCountPtr, GLDisplay_Dtor(display, 0) for its DVDisplay base, then Mem_Delete when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00466955; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00466955+45",
+        "sha1": "10f87b35b738",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00466984",
       "binary": "DBSIM",
       "type": "function",
@@ -15426,7 +16581,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Time_AdvanceCoarseTick",
-      "description": "Subtracts 0x10 from Time_GetCoarseTicks' start tick (004d3bfc), moving the 16 ms clock on by one tick. Ghidra had no function here. The DBSIM copy of VSHELL's Time_AdvanceCoarseTick (00465a2c).",
+      "description": "Subtracts 0x10 from Time_GetCoarseTicks' start tick (004d3bfc), moving the 16 ms clock on by one tick. The DBSIM copy of VSHELL's Time_AdvanceCoarseTick (00465a2c).",
       "source": "DBSIM bytes at 00467734 (capstone)"
     },
     {
@@ -15587,6 +16742,21 @@
       "name": "VolumeGroup_Ctor",
       "description": "(group, a, b, c, d): clears the 0x1e volume pointers and the count byte +0x78, sets VolumeGroup_BufferSize to 0x400, then VolumeGroup_SetGroup(group, a, b, c, d) -- what VolRStream_SetGroup runs on an existing group. VolRStream_SetGroup builds g_VolumeGroup with it.",
       "source": "DBSIM decompile at 00467a98"
+    },
+    {
+      "address": "00467ae4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VolumeGroup_Dtor",
+      "description": "VolumeGroup's destructor, the dtor its class record (0x79 bytes, at 004735b4) names: (group, flags): decrements *Rtl_DtorCountPtr; when group is not null, Volume_Dtor(volume, 3) on each of the volume pointers at +0 (count: the byte at +0x78), then Mem_Delete when flags bit 0 is set.",
+      "source": "DBSIM decompile at 00467ae4; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00467ae4+73",
+        "sha1": "1a7e8bd0ed66",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00467b30",
@@ -16024,6 +17194,21 @@
       "source": "DBSIM disassembly at 0046b97d"
     },
     {
+      "address": "0046bb11",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjPool_FIRE_Dtor",
+      "description": "ObjPool<FIRE>'s destructor, the dtor its class record (0x8 bytes, at 0046bac5) names: (pool, flags): decrements *Rtl_DtorCountPtr; when the pool is not null, Mem_Delete of its entry buffer at +0 when that is set, then Mem_Delete of the pool when flags bit 0 is set.",
+      "source": "DBSIM decompile at 0046bb11; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0046bb11+47",
+        "sha1": "58e28fb34f69",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0046bb40",
       "binary": "DBSIM",
       "type": "function",
@@ -16323,6 +17508,36 @@
       "source": "DBSIM decompile at 00470910; docs/retail/formats/terrain-texturing.md#grid0x10c--the-lod--draw-radius-field; docs/retail/formats/distance-fog-and-sky.md#below-the-line"
     },
     {
+      "address": "00470a20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HGrid_SpanAddCell",
+      "description": "(grid, cx, cy): for a cell with 0 <= cx < (1 << grid+0x100) - 1 and 0 <= cy < (1 << grid+0x104) - 1, widens row cy's span in HGrid_RowSpans to include cx and the range HGrid_SpanFirstRow..HGrid_SpanLastRow to include cy. HGrid_SpanAddOctants calls it. The DBSIM copy of VSHELL's HGrid_SpanAddCell (0042b8d3), with the grid's shift fields 4 bytes further on.",
+      "source": "es2_naming.py match against VSHELL 0042b8d3",
+      "verified": {
+        "bytes": "00470a20+137",
+        "sha1": "209f53f98528",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00470aac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HGrid_SpanAddOctants",
+      "description": "(grid, centre, a, b): HGrid_SpanAddCell on the eight points centre +/- (a, b) and centre +/- (b, a), each shifted down to a cell by grid+0x108. es2_xref finds no reference to it. The DBSIM copy of VSHELL's HGrid_SpanAddOctants (0042b965).",
+      "source": "es2_naming.py diff against VSHELL 0042b965",
+      "verified": {
+        "bytes": "00470aac+256",
+        "sha1": "f1987e0d5eb6",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00470c68",
       "binary": "DBSIM",
       "type": "function",
@@ -16446,6 +17661,21 @@
       "name": "DummyDrawable_GetPositionNull",
       "description": "DummyDrawable vtable +0x04 (004a0cb8): returns 0 -- a null position pointer.",
       "source": "DBSIM decompile at 00471512"
+    },
+    {
+      "address": "0047175c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Avi_MoveWindow",
+      "description": "(window, rect): GetClientRect(window); with rect, moves to its {left, top, width, height}, else to (0, 0) at the client size. The window moved is the MCI movie window 004717ec stores at 006b5504, not the argument. VSHELL's Avi_MoveWindow (0041dfd6) moves its argument and is otherwise the same code.",
+      "source": "es2_naming.py match against VSHELL 0041dfd6",
+      "verified": {
+        "bytes": "0047175c+74",
+        "sha1": "9050c384a7f9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00471944",
@@ -17519,6 +18749,21 @@
       "source": "es2_naming.py diff DBSIM 00476b0c VSHELL 0042286d: differs only in callee labels and decompiler typing; RTTI TSBSPPart vtable slot"
     },
     {
+      "address": "00476c1a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTransformState_Dtor",
+      "description": "TSTransformState's destructor, the dtor its class record (0x110 bytes, at 00476c53) names: (state, flags): when state is not null, decrements *Rtl_DtorCountPtr, Rtl_VectorDelete of the ten 0x16-byte TSContexts at +0x34 with TSContext_Dtor, then Mem_Delete when flags bit 0 is set. The DBSIM copy of VSHELL's TSTransformState_Dtor (00422978).",
+      "source": "DBSIM decompile at 00476c1a; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00476c1a+57",
+        "sha1": "5144bbfbb808",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00476ce8",
       "binary": "DBSIM",
       "type": "function",
@@ -17535,6 +18780,36 @@
       "name": "Memory_IsAllocatedBlock",
       "description": "Returns 1 when ptr (header at ptr-8) lies inside the pool's [base, base+size) and its header holds 'KLBA' (0x41424c4b). The DBSIM copy of VSHELL's Memory_IsAllocatedBlock.",
       "source": "DBSIM decompile and disassembly at 00476d20"
+    },
+    {
+      "address": "00476d50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_IsBlockHeader",
+      "description": "Returns 1 when a header address lies in [base, base+size-0x10] and is tagged either as a free block ('KLBF' at +8) or an allocated one ('KLBA' at +0). Memory_CheckOverrun calls it. Identical to VSHELL's Memory_IsBlockHeader (00407831) after normalisation.",
+      "source": "es2_naming.py diff against VSHELL 00407831",
+      "verified": {
+        "bytes": "00476d50+60",
+        "sha1": "30abb2f6c14f",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00476d8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Memory_CheckOverrun",
+      "description": "The 'Block overrun' check: fails when Memory_IsAllocatedBlock fails; passes when the block ends exactly at base + [pool+4]*8; otherwise returns Memory_IsBlockHeader of the block's own header (ptr-8). The DBSIM copy of VSHELL's Memory_CheckOverrun (00407870), whose description covers what the test does and does not inspect.",
+      "source": "es2_naming.py match against VSHELL 00407870",
+      "verified": {
+        "bytes": "00476d8c+67",
+        "sha1": "3090ac151e86",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00476dd0",
@@ -17618,6 +18893,21 @@
       "source": "DBSIM decompile at 004774d0"
     },
     {
+      "address": "00477524",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_Dtor",
+      "description": "DVJoystick's destructor, the dtor its class record (RTTI 'DVJoystick', 0x1f bytes, at 0045c597) names: (this, flags) decrements *Rtl_DtorCountPtr; when GL global slot +0x18 (006c5f38 + index*4, the GL_ClaimGlobal table) is set, DVJoystick_Shutdown(this) and clears the slot; then Mem_Delete when flags bit 0 is set. VSHELL's DVJoystick_Dtor (004057b8) reads its index at +0x68 and asserts on a clear slot.",
+      "source": "DBSIM decompile at 00477524",
+      "verified": {
+        "bytes": "00477524+66",
+        "sha1": "9ac022dd9b2d",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00477568",
       "binary": "DBSIM",
       "type": "function",
@@ -17625,6 +18915,21 @@
       "name": "Joystick_Enumerate",
       "description": "joyGetDevCapsA over joystick ids 0 and 1 only, into JOYCAPS blocks at DAT_006bb3fc (stride 0x194), stamping each MMRESULT at DAT_006bb724; then one joyGetPosEx per device. Sets each JOYINFOEX's dwSize to 0x34 and dwFlags to 0xccf -- X, Y, Z, R, POV, BUTTONS, CENTERED, USEDEADZONE. U and V are never requested.",
       "source": "docs/retail/formats/joystick-input.md"
+    },
+    {
+      "address": "00477608",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVJoystick_Shutdown",
+      "description": "(this): clears bit 0 of the joystick's first dword. DVJoystick_Dtor calls it. Byte-identical to VSHELL's DVJoystick_Shutdown (0040591c).",
+      "source": "es2_naming.py match against VSHELL 0040591c",
+      "verified": {
+        "bytes": "00477608+11",
+        "sha1": "6c8d5f86ef0a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00477614",
@@ -17678,6 +18983,21 @@
       "source": "DBSIM decompile at 0047789c"
     },
     {
+      "address": "00477904",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVKeyboard_Dtor",
+      "description": "DVKeyboard's destructor, the dtor its class record (RTTI 'DVKeyboard', 4 bytes, at 0045b9e8) names: (this, flags) decrements *Rtl_DtorCountPtr; when the claimed keyboard (GL global 1, 006c5f3c) is set, DVKeyboard_Shutdown and clears it; then Mem_Delete when flags bit 0 is set. IMKeyboard's destructor 0045c03c calls it with flags 0.",
+      "source": "DBSIM decompile at 00477904",
+      "verified": {
+        "bytes": "00477904+58",
+        "sha1": "d2979d5ddcff",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00477940",
       "binary": "DBSIM",
       "type": "function",
@@ -17685,6 +19005,21 @@
       "name": "KeyboardDriver_Init",
       "description": "(this): WndProcHook_Register(00477ae0), then returns bit 0 of this+0. KeyboardDriver_Ctor runs it for the claimed keyboard instance and goes on only when it returns non-zero.",
       "source": "DBSIM decompile at 00477940"
+    },
+    {
+      "address": "0047795c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DVKeyboard_Shutdown",
+      "description": "WndProcHook_Unregister(Key_WndProcHook), returns 0. DVKeyboard_Dtor calls it. VSHELL's DVKeyboard_Shutdown (00404670) only returns 0.",
+      "source": "es2_naming.py diff against VSHELL 00404670",
+      "verified": {
+        "bytes": "0047795c+18",
+        "sha1": "366b73458cbd",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004779b0",
@@ -18160,6 +19495,21 @@
       "source": "DBSIM decompile at 00479aec"
     },
     {
+      "address": "00479b14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Assert_Dtor",
+      "description": "The assert logger's destructor, the dtor its class record (RTTI 'Assert', 1 byte, at 00479c80) names: (logger, flags) decrements *Rtl_DtorCountPtr, Assert_Emit(1, 1, 0, 0, null), then Mem_Delete when flags bit 0 is set. The DBSIM copy of VSHELL's Assert_Dtor (0044de78), whose description covers the Assert_Emit call.",
+      "source": "es2_naming.py match against VSHELL 0044de78",
+      "verified": {
+        "bytes": "00479b14+52",
+        "sha1": "5e208c830fe6",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00479b48",
       "binary": "DBSIM",
       "type": "function",
@@ -18331,6 +19681,21 @@
       "source": "DBSIM decompile and disassembly at 0047a434"
     },
     {
+      "address": "0047a450",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_ItemTotalSize",
+      "description": "(item): the bytes the item occupies in a stream with its 8-byte type tag: builds {tag = vtable slot 0, size = vtable slot +4} and returns ClassItem_TagTotalSize of it, or 0 when the item's stream size is 0. Callers found by es2_naming.py callers: the GetStreamSize methods of GLBitmapArray, GLCursor, TSGroup, TSPartList, ANAnimList and ANShape. Identical to VSHELL's ClassItem_ItemTotalSize (004040e9) after normalisation.",
+      "source": "es2_naming.py diff against VSHELL 004040e9",
+      "verified": {
+        "bytes": "0047a450+56",
+        "sha1": "e736599de546",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0047a488",
       "binary": "DBSIM",
       "type": "function",
@@ -18437,6 +19802,21 @@
       "name": "StreamIO_Read",
       "description": "The DBSIM copy of VSHELL's StreamIO_Read (0044e2c4).",
       "source": "es2_naming.py diff DBSIM 0047a808 VSHELL 0044e2c4: identical after normalisation; RTTI StreamIO vtable slot"
+    },
+    {
+      "address": "0047a810",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRWStream_Ctor",
+      "description": "FileRWStream() constructor: Stream_BaseCtor, the FileRWStream vtable (004a1728), handle -1 at +8, status 5 (no file) at +4, +0xa cleared; does not open. es2_xref finds no reference to it. Byte-identical to VSHELL's FileRWStream_Ctor (0044e2cc) up to the vtable address.",
+      "source": "DBSIM decompile at 0047a810",
+      "verified": {
+        "bytes": "0047a810+49",
+        "sha1": "d00af1e902b1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047a844",
@@ -18563,6 +19943,21 @@
       "name": "FileRWStream_Read",
       "description": "FileRWStream vtable slot +0x18: (stream, count, buffer). Returns 0 when the status is nonzero; _reads count bytes when count is nonzero, a failure going to FileRWStream_SetIoError and a short read setting status 2 and returning 0; returns 1. The DBSIM copy of VSHELL's FileRWStream_Read.",
       "source": "DBSIM decompile and disassembly at 0047ab10"
+    },
+    {
+      "address": "0047abb8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileRStream_CtorDefault",
+      "description": "FileRStream() constructor: Stream_BaseCtor, the FileRStream vtable (004a1750), handle -1 at +8, status 5 (no file) at +4, +0xa cleared. es2_xref finds no reference to it. Byte-identical to VSHELL's FileRStream_CtorDefault (0044e678) up to the vtable address.",
+      "source": "DBSIM decompile at 0047abb8",
+      "verified": {
+        "bytes": "0047abb8+49",
+        "sha1": "8ff6b9060398",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047abec",
@@ -19258,6 +20653,36 @@
       "source": "es2_naming.py diff DBSIM 0047c208 VSHELL 0044fd08: differs only in callee labels and decompiler typing; RTTI BuffWStream vtable slot"
     },
     {
+      "address": "0047c254",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffWStream_SetTarget",
+      "description": "(stream, target): BuffWStream_Close, stores target at +8, zeroes +0x16 and the buffered count +0x1a, then BuffWStream_SyncStatus. The DBSIM copy of VSHELL's BuffWStream_SetTarget (0044fd54).",
+      "source": "DBSIM decompile at 0047c254",
+      "verified": {
+        "bytes": "0047c254+38",
+        "sha1": "1f939c886182",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0047c27c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffWStream_Close",
+      "description": "(stream): when a target is attached (+8), flushes through the stream's own vtable +0x10, clears the target and sets status 6. Callers found by es2_naming.py callers: BuffWStream_Dtor and BuffWStream_SetTarget. The DBSIM copy of VSHELL's BuffWStream_Close (0044fd7c).",
+      "source": "DBSIM decompile at 0047c27c",
+      "verified": {
+        "bytes": "0047c27c+35",
+        "sha1": "4082a5f84c15",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0047c2a0",
       "binary": "DBSIM",
       "type": "function",
@@ -19328,6 +20753,21 @@
       "name": "BuffWStream_SyncStatus",
       "description": "(stream): status 6 (no target) when +8 is null, else the target's Stream_GetStatus. Returns 0. The DBSIM copy of VSHELL's BuffWStream_SyncStatus (0044ff6c).",
       "source": "DBSIM decompile at 0047c464"
+    },
+    {
+      "address": "0047c4fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffRStream_CtorNoSource",
+      "description": "BuffRStream constructor without a source: (this, size, buffer) Stream_BaseCtor, the BuffRStream vtable (004a1af0), BuffRStream_InitBuffer(this, size, buffer), then status 6 (no source attached). es2_xref finds no reference to it. Identical to VSHELL's 00450004 after normalisation.",
+      "source": "DBSIM decompile at 0047c4fc",
+      "verified": {
+        "bytes": "0047c4fc+57",
+        "sha1": "7556739871b0",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047c538",
@@ -19573,6 +21013,21 @@
       "source": "docs/retail/formats/hud-target-indicator.md"
     },
     {
+      "address": "0047d554",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec2_ExactDistanceBetween",
+      "description": "(a, b): copies the 2D point a, subtracts b (Vec2_Subtract) and returns Vec2_ExactMagnitude of the difference: Vec2_DistanceBetween with the exact square root. es2_xref finds no reference to it.",
+      "source": "DBSIM decompile at 0047d554",
+      "verified": {
+        "bytes": "0047d554+50",
+        "sha1": "79fcfb135757",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0047d588",
       "binary": "DBSIM",
       "type": "function",
@@ -19589,6 +21044,21 @@
       "name": "Point3I_DistanceBetween",
       "description": "(a, b): copies a, subtracts b (Vec3_Subtract) and returns Point3I_Magnitude of the difference. LightManager_SelectLightsForObject and LightManager_SelectLightsUnconditional measure light distances with it.",
       "source": "DBSIM decompile and disassembly at 0047d628"
+    },
+    {
+      "address": "0047d8b7",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec2_ExactMagnitude",
+      "description": "(p): Math_ISqrt of x*x + y*y, summed in 32 bits; the two-component form of Point3I_ExactMagnitude. Vec2_ExactDistanceBetween calls it.",
+      "source": "es2_naming.py diff against VSHELL 00451434",
+      "verified": {
+        "bytes": "0047d8b7+37",
+        "sha1": "48f9a23ddd2b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047d940",
@@ -20046,6 +21516,36 @@
       "source": "DBSIM decompile at 00480658"
     },
     {
+      "address": "0048069c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseDriver_GetBoundsRect",
+      "description": "(driver, out): copies the bounds rect at driver+0xe..+0x1a into out: the same code as MouseDriver_GetBounds, placed between MouseDriver_SetBounds and MouseDriver_SetBoundsRect. es2_xref finds no reference to it. VSHELL has the same copy in the same place (004054b2).",
+      "source": "DBSIM decompile at 0048069c",
+      "verified": {
+        "bytes": "0048069c+42",
+        "sha1": "a725ff40376c",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004806c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseDriver_SetBoundsRect",
+      "description": "(driver, rect): copies the four ints of rect into the pointer's bounds at driver+0xe..+0x1a. es2_xref finds no reference to it. Byte-identical to VSHELL's MouseDriver_SetBoundsRect (004054dc).",
+      "source": "es2_naming.py match against VSHELL 004054dc",
+      "verified": {
+        "bytes": "004806c8+46",
+        "sha1": "71ab6625b517",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00480700",
       "binary": "DBSIM",
       "type": "function",
@@ -20188,6 +21688,21 @@
       "name": "InputDriverKind0_DtorNoOp",
       "description": "Empty body. InputDriverKind0_Dtor calls it before GL_ClearGlobal.",
       "source": "DBSIM disassembly at 00480abc"
+    },
+    {
+      "address": "00480ac4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_New",
+      "description": "(kindName, bitmapHeader): GL_RegisterClassItems, then Mem_New's a 0x48-byte display and runs GLDisplay_CtorAndOpen(display, kindName, bitmapHeader) on it; returns the display. es2_xref finds no reference to it.",
+      "source": "DBSIM decompile at 00480ac4",
+      "verified": {
+        "bytes": "00480ac4+98",
+        "sha1": "28ae06697372",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00480b28",
@@ -20425,6 +21940,36 @@
       "source": "DBSIM decompile at 004814ac; RTTI at 004a3084-0xc"
     },
     {
+      "address": "00481508",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_LoadPalette",
+      "description": "(bitmap): GLDisplay_LoadPalette(GL_GetGlobal7's display, 0, the bitmap's colour count int16 +0x14, its colours +0x16). es2_xref finds no reference to it. The DBSIM copy of VSHELL's GLBitmap_LoadPalette (004530b0).",
+      "source": "es2_naming.py diff against VSHELL 004530b0",
+      "verified": {
+        "bytes": "00481508+35",
+        "sha1": "65c0d618dd1c",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0048152c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_RemapPalette",
+      "description": "(bitmap, palette, out): for each of the bitmap's colours (count int16 +0x14, 32-bit colours at +0x16) writes GLPalette_FindNearestColour(palette, colour) as one byte of out. es2_xref finds no reference to it. The DBSIM copy of VSHELL's GLBitmap_RemapPalette (004530d4).",
+      "source": "es2_naming.py diff against VSHELL 004530d4",
+      "verified": {
+        "bytes": "0048152c+63",
+        "sha1": "ea3724300012",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0048159c",
       "binary": "DBSIM",
       "type": "function",
@@ -20518,6 +22063,21 @@
       "source": "DBSIM decompile and disassembly at 00481bae"
     },
     {
+      "address": "00481bc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmap_Construct",
+      "description": "The load function the GL class-item table registers for a GLBitmap: 0x1a bytes from the arena (006c58b4), GLBitmap_Ctor, then the object's vtable +0xc read with its two arguments. The DBSIM copy of VSHELL's GLBitmap_Construct (00453784).",
+      "source": "DBSIM decompile at 00481bc8",
+      "verified": {
+        "bytes": "00481bc8+114",
+        "sha1": "5ffa443b1001",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00481c44",
       "binary": "DBSIM",
       "type": "function",
@@ -20572,6 +22132,21 @@
       "source": "DBSIM decompile at 00481e31"
     },
     {
+      "address": "00481e48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteByte",
+      "description": "(stream, value): writes the low byte of its value argument through the stream's write slot (vtable +0x14), beside Stream_ReadByte. Callers found by es2_naming.py callers: GLBitmap_WriteToStream and LZHuffman_EncodeEnd. Byte-identical to VSHELL's Stream_WriteByte (00453a00).",
+      "source": "es2_naming.py match against VSHELL 00453a00",
+      "verified": {
+        "bytes": "00481e48+23",
+        "sha1": "2a30634b81a2",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00481e60",
       "binary": "DBSIM",
       "type": "function",
@@ -20588,6 +22163,21 @@
       "name": "Palette_UploadWhole",
       "description": "(palette): passes the palette's int16s +0xe and +0xc, its pointer +0x10 and its int16 +6 with GL_GetGlobal7's display to 00481fab (which forwards the first three to 00486d04), then Screen_SetPalette(palette). Palette_FlushDirtyRange calls it when the active palette object changed since the last flush; Sim_InitMissionSession calls it on the cockpit dpl palette it loads.",
       "source": "DBSIM decompile at 00481ed4"
+    },
+    {
+      "address": "00481f08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPalette_FindNearestColour",
+      "description": "(palette, rgb): the index of the palette colour (count int16 +4, the 32-bit colours the pointer at +8 addresses) nearest to rgb by Point3I_Magnitude of the difference of the low six bits of each byte. GLBitmap_RemapPalette and GLFont_RemapPalette call it. The DBSIM copy of VSHELL's GLPalette_FindNearestColour (00453ac0).",
+      "source": "es2_naming.py diff against VSHELL 00453ac0",
+      "verified": {
+        "bytes": "00481f08+163",
+        "sha1": "a6ef68f91f2d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048203c",
@@ -20680,6 +22270,21 @@
       "source": "docs/retail/formats/dfn-hfn-dci.md"
     },
     {
+      "address": "0048241c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudFont_CellHeight2",
+      "description": "Returns the int16 at font+0xa, the glyph cell height: a second copy of HudFont_CellHeight, which sits just before it. 004387d0 centres a label on it. Byte-identical to VSHELL's Font_CellHeight (00453fa8).",
+      "source": "es2_naming.py match against VSHELL 00453fa8",
+      "verified": {
+        "bytes": "0048241c+12",
+        "sha1": "0f68e3184df3",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00482428",
       "binary": "DBSIM",
       "type": "function",
@@ -20696,6 +22301,66 @@
       "name": "HudFont_DrawString",
       "description": "Draws a NUL-terminated run with a .DFN/.HFN font at a caller-supplied top-left, advancing the pen by each glyph's own width. A display-wide alignment override at renderContext+0x231 (1 = right, 2 = centre against the field width at +0x235) shifts the whole run first; it is 0 in the cockpit.",
       "source": "docs/retail/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "004825d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLFont_LoadPalette",
+      "description": "(font): GLDisplay_LoadPalette(GL_GetGlobal7's display, 0, the font's colour count int16 +0x18, its colours +0x1e). es2_xref finds no reference to it. The DBSIM copy of VSHELL's GLFont_LoadPalette (00454148).",
+      "source": "es2_naming.py diff against VSHELL 00454148",
+      "verified": {
+        "bytes": "004825d8+35",
+        "sha1": "8a4365000fc6",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004825fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLFont_RemapPalette",
+      "description": "(font, palette, out): for each of the font's colours (count int16 +0x18, 32-bit colours at +0x1e) writes GLPalette_FindNearestColour(palette, colour) as one byte of out. es2_xref finds no reference to it. The DBSIM copy of VSHELL's GLFont_RemapPalette (0045416c).",
+      "source": "es2_naming.py diff against VSHELL 0045416c",
+      "verified": {
+        "bytes": "004825fc+63",
+        "sha1": "aff38714892b",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0048263c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLFont_RemapPixels",
+      "description": "(font, table): for each of the font's glyphs (count int16 +4) rewrites every pixel byte of its data (offsets array +0x26 into the pixel block +0x22; a glyph runs to the next offset, the last to the data size +0x1a, or 16 bytes when +0x14 is 1) through the 256-byte table. es2_xref finds no reference to it. Byte-identical to VSHELL's 004541ac.",
+      "source": "DBSIM decompile at 0048263c",
+      "verified": {
+        "bytes": "0048263c+89",
+        "sha1": "cdf3fa5b4cc1",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00482695",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_LoadPalette",
+      "description": "(display, first, count, entries): calls raster routine slot 13 with (first, count, entries); display is not read. GLBitmap_LoadPalette and GLFont_LoadPalette call it. The DBSIM copy of VSHELL's GLDisplay_LoadPalette (00454205).",
+      "source": "es2_naming.py diff against VSHELL 00454205",
+      "verified": {
+        "bytes": "00482695+26",
+        "sha1": "4b57879698fd",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004826af",
@@ -20779,6 +22444,36 @@
       "source": "ES2DecompileContainingBatch DBSIM 00482b9c / VSHELL 00454704: identical after normalisation; RTTI GLPrimitive vtable 004a3058 slot +0x1c"
     },
     {
+      "address": "00482ba4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrim_PlotPixel",
+      "description": "(primitive): GLDisplay_PlotPixel(GL_GetGlobal7(), primitive+4), plotting the {x, y} a GL primitive holds after its vtable pointer; GLRect_Fill's shape for a point. es2_xref finds no reference to it. Byte-identical to VSHELL's 0045470c.",
+      "source": "DBSIM decompile at 00482ba4",
+      "verified": {
+        "bytes": "00482ba4+28",
+        "sha1": "619ae3a548ed",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00482bc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrim_DrawLine",
+      "description": "(primitive): GL_DrawLine(GL_GetGlobal7(), primitive+4, primitive+0xc), a line between the two {x, y} points a GL primitive holds after its vtable pointer; GLRect_Fill's shape for a line. es2_xref finds no reference to it. Byte-identical to VSHELL's 00454728.",
+      "source": "DBSIM decompile at 00482bc0",
+      "verified": {
+        "bytes": "00482bc0+32",
+        "sha1": "27c1b79255bf",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00482be0",
       "binary": "DBSIM",
       "type": "function",
@@ -20786,6 +22481,21 @@
       "name": "GLRect_Fill",
       "description": "(rect): GLDisplay_FillRect(GL_GetGlobal7(), rect+4) -- fills a GLRect's (vtable 0049d984, RTTI name 'GLRect', 0x14 bytes) four ints with the current fill pair. HddMarker_Paint fills a box twice through it, changing context+0x22c in between.",
       "source": "DBSIM decompile at 00482be0; RTTI at vtable-0xc"
+    },
+    {
+      "address": "00482c1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrim_DrawEllipse",
+      "description": "(primitive): GLDisplay_DrawEllipse(GL_GetGlobal7(), primitive+4), the ellipse in the box a GL primitive holds after its vtable pointer; GLRect_Fill's shape for an ellipse. es2_xref finds no reference to it. Byte-identical to VSHELL's 00454784.",
+      "source": "DBSIM decompile at 00482c1c",
+      "verified": {
+        "bytes": "00482c1c+28",
+        "sha1": "e33abc1a2392",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00482c38",
@@ -20797,6 +22507,21 @@
       "source": "DBSIM decompile at 00482c38"
     },
     {
+      "address": "00482c4d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_PlotPixel",
+      "description": "(display, point): Gfx_PlotPixel(point); display is not read. GLPrim_PlotPixel calls it. Byte-identical to VSHELL's 004547b5.",
+      "source": "DBSIM decompile at 00482c4d",
+      "verified": {
+        "bytes": "00482c4d+15",
+        "sha1": "5c22ab47b5e4",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00482c5c",
       "binary": "DBSIM",
       "type": "function",
@@ -20804,6 +22529,36 @@
       "name": "GLDisplay_FillRect",
       "description": "(display, rect): Raster_FillRect(rect); display is not read.",
       "source": "DBSIM decompile at 00482c5c"
+    },
+    {
+      "address": "00482c6b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_DrawEllipse",
+      "description": "(display, rect): Raster_DrawEllipse(rect); display is not read. GLPrim_DrawEllipse calls it. Byte-identical to VSHELL's 004547d3.",
+      "source": "DBSIM decompile at 00482c6b",
+      "verified": {
+        "bytes": "00482c6b+15",
+        "sha1": "b0ac066a43ba",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00482c7c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLBitmapArray_Construct",
+      "description": "The load function the GL class-item table registers for a GLBitmapArray: 0xc bytes from the arena (006c58b4), GLBitmapArray_Ctor, then the object's vtable +0xc read with its two arguments. The DBSIM copy of VSHELL's GLBitmapArray_Construct (004547e4).",
+      "source": "DBSIM decompile at 00482c7c",
+      "verified": {
+        "bytes": "00482c7c+113",
+        "sha1": "2845804f70aa",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00482cf0",
@@ -20849,6 +22604,36 @@
       "name": "GLBitmapArray_WriteToStream",
       "description": "The DBSIM copy of VSHELL's GLBitmapArray_WriteToStream (00454930).",
       "source": "es2_naming.py diff DBSIM 00482dc4 VSHELL 00454930: differs only in callee labels and decompiler typing; RTTI GLBitmapArray vtable slot"
+    },
+    {
+      "address": "00482dfe",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteDword",
+      "description": "(stream, value): writes its 4-byte value argument through the stream's write slot (vtable +0x14). Callers found by es2_naming.py callers: GLBitmap_WriteToStream, GLFont_WriteToStream, GLBitmapArray_WriteToStream and 0047a68c. Byte-identical to VSHELL's Stream_WriteDword (0045496a).",
+      "source": "es2_naming.py match against VSHELL 0045496a",
+      "verified": {
+        "bytes": "00482dfe+23",
+        "sha1": "aaf212203362",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00482e15",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadDword3",
+      "description": "(stream, dst): reads 4 bytes through the stream's read slot (vtable +0x18); a third copy of Stream_ReadDword. Callers found by es2_naming.py callers: GLBitmap_ReadFromStream, GLFont_ReadFromStream and GLBitmapArray_ReadFromStream. Byte-identical to VSHELL's Stream_ReadDword (00454981).",
+      "source": "es2_naming.py match against VSHELL 00454981",
+      "verified": {
+        "bytes": "00482e15+23",
+        "sha1": "5b261890a289",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00482e2c",
@@ -20966,6 +22751,21 @@
       "name": "GLRectangleRegion_Ctor",
       "description": "The DBSIM copy of VSHELL's GLRectangleRegion_Ctor (00454c5d), the GLRectangleRegion constructor: identical decompiles once the vtable labels are set aside.",
       "source": "es2_naming.py diff DBSIM 004831fa VSHELL 00454c5d"
+    },
+    {
+      "address": "00483268",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLCursor_Construct",
+      "description": "The load function the GL class-item table registers for a GLCursor: 0x10 bytes from the arena (006c58b4), GLCursor_Ctor, then the object's vtable +0xc read with its two arguments. The DBSIM copy of VSHELL's GLCursor_Construct (00454dc8).",
+      "source": "DBSIM decompile at 00483268",
+      "verified": {
+        "bytes": "00483268+114",
+        "sha1": "808a21388b4b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004832dc",
@@ -22125,6 +23925,21 @@
       "source": "docs/retail/formats/dts-texture-binding.md"
     },
     {
+      "address": "0048d5fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PolyFill_FillThenOutline_Thunk",
+      "description": "(backFacing): PolyFill_FillThenOutline(backFacing). Callers found by es2_xref: TSAliasSolidPoly_Render, TSAliasShadedPoly_Render and TSAliasGouraudPoly_Render (twice). Byte-identical to VSHELL's PolyFill_FillThenOutline_Thunk (0045f448).",
+      "source": "DBSIM decompile at 0048d5fc",
+      "verified": {
+        "bytes": "0048d5fc+15",
+        "sha1": "effd96c5301d",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0048d60c",
       "binary": "DBSIM",
       "type": "function",
@@ -22872,6 +24687,21 @@
       "source": "es2_naming.py diff DBSIM 0048e798 VSHELL 00460558: identical after normalisation; RTTI TSAliasGouraudPoly vtable slot"
     },
     {
+      "address": "0048e7a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_Construct",
+      "description": "The ClassItem registry's load function for a TSGroup (tag 0x00140014): Arena_Alloc's 0x28 bytes, TSGroup_Ctor, then calls the object's vtable +0xc (TSGroup_ReadFromStream) with its two arguments. The DBSIM copy of VSHELL's TSGroup_Construct (00460564).",
+      "source": "DBSIM decompile at 0048e7a4",
+      "verified": {
+        "bytes": "0048e7a4+114",
+        "sha1": "3df9b359a5e2",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0048e818",
       "binary": "DBSIM",
       "type": "function",
@@ -23077,6 +24907,21 @@
       "name": "TSNullObj_Dtor",
       "description": "The DBSIM copy of VSHELL's TSNullObj_Dtor (0046152f).",
       "source": "es2_naming.py diff DBSIM 0048f7a0 VSHELL 0046152f: identical after normalisation; RTTI TSNullObj vtable slot"
+    },
+    {
+      "address": "0048f7d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSPartBase_Construct",
+      "description": "The load function g_TSObjectTypeRegistry registers for a TSPartBase: 0x10 bytes from the arena (006c58b4), the ClassItem, TSBase and TSPartBase vtables in turn with maybe_Point3S_Ctor on +0xa, then the object's vtable +0xc read with its two arguments. Identical to VSHELL's TSPartBase_Construct (0046155c) after normalisation.",
+      "source": "es2_naming.py diff against VSHELL 0046155c",
+      "verified": {
+        "bytes": "0048f7d0+158",
+        "sha1": "bf85f103ee1f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048f870",
@@ -23421,6 +25266,51 @@
       "source": "es2_naming.py diff DBSIM 0049047c VSHELL 00462200: differs only in callee labels and decompiler typing; RTTI TSBSPPart vtable slot"
     },
     {
+      "address": "00490751",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_WriteByte2",
+      "description": "(stream, value): writes the low byte of its value argument through the stream's write slot (vtable +0x14); a second copy of Stream_WriteByte. Callers found by es2_naming.py callers: LZHuffman_PutCode, LZHuffman_EncodeEnd, GLBitmap_WriteToStream, TSBitmapPart_WriteToStream and 0047a68c. Byte-identical to VSHELL's Stream_WriteByteCopy (004624d5).",
+      "source": "es2_naming.py match against VSHELL 004624d5",
+      "verified": {
+        "bytes": "00490751+23",
+        "sha1": "2a30634b81a2",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00490768",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_ReadByte3",
+      "description": "(stream, dst): reads 1 byte through the stream's read slot (vtable +0x18); a third copy of Stream_ReadByte. Identical to VSHELL's Stream_ReadByteCopy (004624ec) after normalisation.",
+      "source": "es2_naming.py diff against VSHELL 004624ec",
+      "verified": {
+        "bytes": "00490768+23",
+        "sha1": "b4f24ddd028f",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00490803",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBSPPart_NodeCtor",
+      "description": "(node): maybe_Point3S_Ctor on the node's leading normal; the element constructor for TSBSPPart's 14-byte nodes. Identical to VSHELL's TSBSPPart_NodeCtor (00462587) after normalisation.",
+      "source": "es2_naming.py diff against VSHELL 00462587",
+      "verified": {
+        "bytes": "00490803+19",
+        "sha1": "b893e9095188",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "004908c6",
       "binary": "DBSIM",
       "type": "function",
@@ -23536,6 +25426,21 @@
       "name": "TSBase_SetActiveBitmapArray",
       "description": "g_CurrentShapeDbaContext (006c60e8) = the argument. TSShapeInstance_Render (00490b10) calls it to install the shape's bound DBA around TSPartList_Render and again to restore the saved one. DBSIM's counterpart of VSHELL's TSBase_SetActiveBitmapArray (00462978).",
       "source": "DBSIM disassembly at 00490c4c: MOV [0x006c60e8],EAX; RET"
+    },
+    {
+      "address": "00490c5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShape_Construct",
+      "description": "The load function g_TSObjectTypeRegistry registers for a TSShape: 0x2a bytes from the arena (006c58b4), TSShape_Ctor, then the object's vtable +0xc read with its two arguments. The DBSIM copy of VSHELL's TSShape_Construct (00462988).",
+      "source": "DBSIM decompile at 00490c5c",
+      "verified": {
+        "bytes": "00490c5c+114",
+        "sha1": "4ec74461caae",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00490cd0",
@@ -25673,6 +27578,81 @@
       "source": "DBSIM decompile and disassembly at 00496248"
     },
     {
+      "address": "00496288",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_DefaultTerminate",
+      "description": "The RTL's default terminate handler, which Rtl_ExceptInit stores at +8 of the exception block: calls _abort (004967c8) and returns.",
+      "source": "DBSIM disassembly at 00496288",
+      "verified": {
+        "bytes": "00496288+5",
+        "sha1": "94fd9e79a139",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0049628e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_SetTerminate",
+      "description": "Borland RTL set_terminate: (handler): returns the terminate handler at +8 of the thread's exception block (FS:[4] - 8) and stores handler there when it is not null. es2_xref finds no reference to it. Byte-identical to VSHELL's 0046b27a.",
+      "source": "DBSIM decompile at 0049628e",
+      "verified": {
+        "bytes": "0049628e+37",
+        "sha1": "5efd2dd36592",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004962b3",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_Terminate",
+      "description": "Borland RTL terminate: _flushall, calls the exception block's terminate handler (+8), then _abort. Byte-identical to VSHELL's 0046b29f.",
+      "source": "DBSIM decompile at 004962b3",
+      "verified": {
+        "bytes": "004962b3+58",
+        "sha1": "14a80c148a18",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00496303",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_DefaultUnexpected",
+      "description": "The RTL's default unexpected handler, which Rtl_ExceptInit stores at +0xc of the exception block: calls Rtl_Terminate.",
+      "source": "DBSIM disassembly at 00496303",
+      "verified": {
+        "bytes": "00496303+6",
+        "sha1": "05177e020bae",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "00496309",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_SetUnexpected",
+      "description": "Borland RTL set_unexpected: (handler): returns the unexpected handler at +0xc of the thread's exception block (FS:[4] - 8) and stores handler there when it is not null. es2_xref finds no reference to it. Byte-identical to VSHELL's 0046b2f5.",
+      "source": "DBSIM decompile at 00496309",
+      "verified": {
+        "bytes": "00496309+37",
+        "sha1": "37386084cb76",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00496342",
       "binary": "DBSIM",
       "type": "function",
@@ -25680,6 +27660,36 @@
       "name": "Rtl_GetPolymorphicDtorCount",
       "description": "Borland RTL helper, the DBSIM copy of VSHELL's Rtl_GetPolymorphicDtorCount: (object, vptrOffset) returns the destructor count in the dynamic type's typeinfo (+0x20), found through vptr[-4] and the typeinfo pointer at vptr-0xc; 0 for a null object. Every polymorphic delete adds it to [006cbf74] before calling the virtual destructor with flag 3.",
       "source": "DBSIM decompile and disassembly at 00496342"
+    },
+    {
+      "address": "00496361",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_ExceptInit",
+      "description": "Borland RTL exception setup: (block): with block null, takes the exception-DLL info from the module's own __GetExceptDLLinfo export when 00497058 is set and the magic lies in 0x82727349-0x82727359, else from Rtl_GetExceptDllInfoInternal; with a block, points its +8 and +0xc at the RTL's default handlers 00496288 and 00496303. Stores the block at FS:[4] - 8, clears FS:[4] - 4 and the block's +4, and for a null block sets Rtl_DtorCountPtr to FS:[4] - 4. Byte-identical to VSHELL's Rtl_ExceptInit (0046b34d).",
+      "source": "es2_naming.py match against VSHELL 0046b34d",
+      "verified": {
+        "bytes": "00496361+189",
+        "sha1": "1a44071b046a",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0049641e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_GetExceptDllInfoInternal",
+      "description": "Borland RTL: (info): stores (the thread's exception block at FS:[4] - 8) + 0x24 at 004a7924 and fills info with the magic 0x82727349 and the address 004a7908. Rtl_ExceptInit calls it. Byte-identical to VSHELL's Rtl_GetExceptDllInfoInternal (0046b40a).",
+      "source": "es2_naming.py match against VSHELL 0046b40a",
+      "verified": {
+        "bytes": "0049641e+40",
+        "sha1": "88bfb2eb4e4c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004964a8",
@@ -25849,7 +27859,7 @@
       "type": "data",
       "confidence": "high",
       "name": "FlyerBehaviourStateTable",
-      "description": "The Flyer class' seven behaviour descriptors, stride 0x3c. Zero-filled in the image and built by Flyer_BuildStateTable (00414c65). Two bytes shorter than the mech table's 0x3e because a flyer descriptor carries no OBJECTIVE: string index. Order: deciding, attacking, patrolling, search and destroy, sleeping, scouting, dead.",
+      "description": "The Flyer class' seven behaviour descriptors, stride 0x3c. Zero-filled in the image and built by Flyer_BuildStateTable (00414c68). Two bytes shorter than the mech table's 0x3e because a flyer descriptor carries no OBJECTIVE: string index. Order: deciding, attacking, patrolling, search and destroy, sleeping, scouting, dead.",
       "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
     },
     {
@@ -28334,6 +30344,33 @@
       "name": "g_TerrainViewerCellPending",
       "description": "Byte: the viewer's cell's pending-object count at the start of the walk. The run callbacks clear it when a run covers that cell; if still set after the walk, Terrain_DrawVisibleCells draws that cell's objects then.",
       "source": "docs/retail/formats/terrain-drawing.md"
+    },
+    {
+      "address": "006b50ec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HGrid_SpanFirstRow",
+      "description": "First row HGrid_RowSpans holds a span for; HGrid_SpanAddCell lowers it. The DBSIM copy of VSHELL's HGrid_SpanFirstRow (0048a438).",
+      "source": "es2_naming.py match against VSHELL 0042b8d3"
+    },
+    {
+      "address": "006b50f0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HGrid_SpanLastRow",
+      "description": "Last row HGrid_RowSpans holds a span for; HGrid_SpanAddCell raises it. The DBSIM copy of VSHELL's HGrid_SpanLastRow (0048a43c).",
+      "source": "es2_naming.py match against VSHELL 0042b8d3"
+    },
+    {
+      "address": "006b50f4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HGrid_RowSpans",
+      "description": "Per-row cell spans, int16 {minX, maxX} each, that HGrid_SpanAddCell widens. The DBSIM copy of VSHELL's HGrid_RowSpans (0048a440).",
+      "source": "es2_naming.py match against VSHELL 0042b8d3"
     },
     {
       "address": "006b560c",

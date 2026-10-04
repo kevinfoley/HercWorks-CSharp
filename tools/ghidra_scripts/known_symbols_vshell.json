@@ -81,6 +81,36 @@
       "source": "VSHELL decompile at 00401dd0"
     },
     {
+      "address": "00401f94",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EventHandler_Dtor",
+      "description": "EventHandler's destructor, the dtor its class record (0x2c bytes, at 00401f38) names: (handler, flags): when handler is not null, decrements *Rtl_DtorCountPtr, PtrArray_Dtor(handler+0xe, 0) and PtrArray_Dtor(handler, 0) for its two pointer arrays, then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 00401f94; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00401f94+76",
+        "sha1": "c7c7cbfeaa77",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004020dd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PointerArray_EventBase_Dtor",
+      "description": "PointerArray<EventBase>'s destructor, the dtor its class record (0xe bytes, at 00401fe0) names: (array, flags): when array is not null, decrements *Rtl_DtorCountPtr, PtrArray_Dtor(array, 0) for its PtrArray base, then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 004020dd",
+      "verified": {
+        "bytes": "004020dd+45",
+        "sha1": "02af9d7ee551",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0040210c",
       "binary": "VSHELL",
       "type": "function",
@@ -405,6 +435,21 @@
       "source": "VSHELL decompile and disassembly at 00403dc4"
     },
     {
+      "address": "00403ea3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_Skip",
+      "description": "(stream): reads an 8-byte type tag through the stream's read slot (vtable +0x18), then seeks (vtable +8) to the current position (vtable +4) plus the tag's size rounded up to even; returns whether the status at +4 is 0. es2_xref finds no reference to it. DBSIM's ClassItem_Skip (0047a2a8) is the same code reading the status through Stream_GetStatus_Thunk.",
+      "source": "es2_naming.py diff against DBSIM 0047a2a8",
+      "verified": {
+        "bytes": "00403ea3+67",
+        "sha1": "5b1c5710f03c",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00404028",
       "binary": "VSHELL",
       "type": "function",
@@ -628,6 +673,21 @@
       "name": "MouseDriver_SetBounds",
       "description": "(driver, record): sets the bounds rect at driver+0xe..+0x1a from the record's first four ints and the shorts at driver+0x1e/+0x20/+0x22 from its +0x10/+0x12/+0x14. DVMouse_Init passes the driver's own +0xe record, DVMouse_Shutdown the one at +0x24. The VSHELL copy of DBSIM's MouseDriver_SetBounds (00480658).",
       "source": "VSHELL decompile at 00405470; es2_naming.py diff against DBSIM 00480658"
+    },
+    {
+      "address": "004054b2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseDriver_GetBoundsRect",
+      "description": "(driver, out): copies the bounds rect at driver+0xe..+0x1a into out: the same code as MouseDriver_GetBounds, placed between MouseDriver_SetBounds and MouseDriver_SetBoundsRect. es2_xref finds no reference to it. DBSIM has the same copy in the same place (0048069c).",
+      "source": "VSHELL decompile at 004054b2",
+      "verified": {
+        "bytes": "004054b2+42",
+        "sha1": "c69de9197596",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004054dc",
@@ -1140,7 +1200,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellRandom_StaticInitMain",
-      "description": "Static initialiser (stored pointer at 00480fc4): ShellRandom_Reset(0x482325), the main shell generator. Ghidra has no function here. ShellRandom_Seed resets the state again before any campaign draw.",
+      "description": "Static initialiser (stored pointer at 00480fc4): ShellRandom_Reset(0x482325), the main shell generator. ShellRandom_Seed resets the state again before any campaign draw.",
       "source": "docs/retail/shell/campaign-loop.md"
     },
     {
@@ -1529,6 +1589,21 @@
       "name": "WinConsumer_HandleEvent",
       "description": "WinConsumer vtable 0046e7d0 slot 0 (consumer, event): traces the event to the mono debug monitor (Mono_Printf: cursor position, event type, then Mouse/Key/Command type) and turns command events (0x100) into pointer actions by the code at +0x24: 4/5/6/7 move the pointer 8 pixels left, up, right and down (Display_GetCursorPos, then Pointer_MoveTo); 10 posts a left-down mouse event (sub-code 2) and 0x1d a left-up (1) at the pointer state's position (g_EventQueue +1) through Event_Post; 0x11 runs Pointer_Unlock and Alert_Show(QuitAlert). Then posts the event on with Event_Post.",
       "source": "VSHELL decompile of 004093e6; vtable 0046e7d0 (RTTI WinConsumer)"
+    },
+    {
+      "address": "00409758",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinConsumer_Dtor",
+      "description": "WinConsumer's destructor, the dtor its class record (0x10 bytes, at 00409704) names: (consumer, flags): when consumer is not null, decrements *Rtl_DtorCountPtr, EventConsumer_Dtor(consumer, 0) for its EventConsumer base, then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 00409758; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00409758+45",
+        "sha1": "f2d35067ea3c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00409788",
@@ -2004,7 +2079,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ESAnim_Ctor",
-      "description": "ESAnim constructor (esanim.cpp; vtable 0046ee4c at +1, RTTI 'ESAnim', 0x51 bytes): (this, a, b, frames, count, c) ESWindow_Ctor(this, a, b, c), the vtable, the frame set at +0x45 (its +8 is the bitmap array), the current frame +0x49 = 0, the frame count at +0x4d, 0x200 (timer) ORed into the event mask +0x39, then Window_ShowRecursive. ESAnim2_Ctor (esanim2.cpp) is the class the shell builds; tools/scripts/es2_xref.py finds no rel32 branch to 0040c6d0 and no stored pointer of it. Ghidra had no function here: the bytes sat undisassembled after ESArm_Paint.",
+      "description": "ESAnim constructor (esanim.cpp; vtable 0046ee4c at +1, RTTI 'ESAnim', 0x51 bytes): (this, a, b, frames, count, c) ESWindow_Ctor(this, a, b, c), the vtable, the frame set at +0x45 (its +8 is the bitmap array), the current frame +0x49 = 0, the frame count at +0x4d, 0x200 (timer) ORed into the event mask +0x39, then Window_ShowRecursive. ESAnim2_Ctor (esanim2.cpp) is the class the shell builds; tools/scripts/es2_xref.py finds no rel32 branch to 0040c6d0 and no stored pointer of it.",
       "source": "capstone disassembly of 0040c6d0-0040c726; es2_xref.py 0040c6d0"
     },
     {
@@ -4354,6 +4429,21 @@
       "source": "docs/retail/formats/msn-mission-file.md#row-5--the-debrief"
     },
     {
+      "address": "0041d38d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_Dtor",
+      "description": "Herc's destructor, the dtor its class record (0x7a bytes, at 0041d349) names: (herc, flags): decrements *Rtl_DtorCountPtr; when herc is not null, HercRecord_ClearMounts(herc), then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 0041d38d; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0041d38d+41",
+        "sha1": "6f5094ce88d8",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0041d3b8",
       "binary": "VSHELL",
       "type": "function",
@@ -5748,12 +5838,27 @@
       "source": "docs/retail/shell/mission-map.md"
     },
     {
+      "address": "00427bf9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimDisplay_Dtor",
+      "description": "AnimDisplay's destructor, the dtor its class record (0xa0 bytes, at 00427ba5) names: (display, flags): when display is not null, decrements *Rtl_DtorCountPtr, GLDisplay_Dtor(display, 0) for its DVDisplay base, then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 00427bf9; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00427bf9+45",
+        "sha1": "007c6ca964f3",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00427e02",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "TSLight_Dtor",
-      "description": "TSLight vtable 00472188 slot 0, the destructor (light, flags): decrements *Rtl_DtorCountPtr, destroys the member at +0x1e with TSContext_Dtor(+0x1e, 2) and the light itself with TSContext_Dtor(light, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSLight vtable 00472188 slot 0, the destructor (light, flags): decrements *Rtl_DtorCountPtr, destroys the member at +0x1e with TSContext_Dtor(+0x1e, 2) and the light itself with TSContext_Dtor(light, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00427e02; vtable 00472188 (RTTI TSLight)"
     },
     {
@@ -5836,6 +5941,36 @@
       "name": "StringTable_LoadGroup",
       "description": "(table, texts, capacity, attributes): reads the next group's count, asserts in src\\strings.cpp when capacity is positive but smaller than it, and fills texts[i] (and attributes[i] when that array is given) with StringTable_ReadNext, asserting on a short group. Resets the group counter and returns the count. The VSHELL counterpart of DBSIM's StringTable_LoadGroup.",
       "source": "VSHELL decompile and disassembly at 0042808e"
+    },
+    {
+      "address": "0042817e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StrTable_NextString",
+      "description": "(table, string): the string after the given one in a loaded .STR buffer -- steps over the text by its length prefix, the attribute count byte and its attributes, and the next entry's length -- or null past the buffer's end (*table + size table[2]). es2_xref finds no reference to it. Identical to DBSIM's StrTable_NextString (004539cc) after normalisation.",
+      "source": "es2_naming.py diff against DBSIM 004539cc",
+      "verified": {
+        "bytes": "0042817e+61",
+        "sha1": "851bea27c61d",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004281bb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "StrTable_GetAttributes",
+      "description": "(table, string): the entry's attribute bytes -- string + its int16 length prefix (string-2) is the attribute count byte, and the result is the byte after it -- or 0 when the count is 0 or string lies past the buffer. es2_xref finds no reference to it. Identical to DBSIM's StrTable_GetAttributes (00453a08) after normalisation.",
+      "source": "es2_naming.py diff against DBSIM 00453a08",
+      "verified": {
+        "bytes": "004281bb+57",
+        "sha1": "9239a02c114d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004281f4",
@@ -9748,6 +9883,21 @@
       "source": "VSHELL decompile and disassembly at 0044e94c"
     },
     {
+      "address": "0044e9f4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_CtorDefault",
+      "description": "FileWStream() constructor: Stream_BaseCtor, FileWStreamVtable, handle -1 at +8, status 5 (no file) at +4, +0xa cleared. es2_xref finds no reference to it.",
+      "source": "VSHELL decompile at 0044e9f4",
+      "verified": {
+        "bytes": "0044e9f4+49",
+        "sha1": "0ad0d71f9da7",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0044ea28",
       "binary": "VSHELL",
       "type": "function",
@@ -10432,6 +10582,21 @@
       "source": "VSHELL decompile at 0044ffe8"
     },
     {
+      "address": "00450004",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuffRStream_CtorNoSource",
+      "description": "BuffRStream constructor without a source: (this, size, buffer) Stream_BaseCtor, BuffRStreamVtable, BuffRStream_InitBuffer(this, size, buffer), then status 6 (no source attached). es2_xref finds no reference to it. Identical to DBSIM's BuffRStream_CtorNoSource (0047c4fc) after normalisation.",
+      "source": "VSHELL decompile at 00450004",
+      "verified": {
+        "bytes": "00450004+56",
+        "sha1": "d7e55025c111",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0045003c",
       "binary": "VSHELL",
       "type": "function",
@@ -10995,7 +11160,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLViewport_Dtor",
-      "description": "GLViewport vtable 0047bc28 slot +0x18, the destructor (viewport, flags): decrements the live-object counter at *Rtl_DtorCountPtr, GLBase_Dtor(viewport, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the camera's context through this slot. Ghidra had no function here.",
+      "description": "GLViewport vtable 0047bc28 slot +0x18, the destructor (viewport, flags): decrements the live-object counter at *Rtl_DtorCountPtr, GLBase_Dtor(viewport, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the camera's context through this slot.",
       "source": "VSHELL disassembly at 00452943; vtable 0047bc28 (RTTI GLViewport)"
     },
     {
@@ -11283,7 +11448,7 @@
       "type": "function",
       "confidence": "high",
       "name": "RLERStream_Dtor",
-      "description": "RLERStream vtable 0047a70c slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here, which is why the dump's table at 0047a710 starts one slot late.",
+      "description": "RLERStream vtable 0047a70c slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00453620; vtable 0047a70c (RTTI RLERStream)"
     },
     {
@@ -11292,7 +11457,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MemRWStream_Dtor",
-      "description": "MemRWStream vtable 0047a6e4 slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here, which is why the dump's table at 0047a6e8 starts one slot late.",
+      "description": "MemRWStream vtable 0047a6e4 slot 0 (stream, flags): decrements *Rtl_DtorCountPtr, Stream_BaseDtor(stream, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 004536a1; vtable 0047a6e4 (RTTI MemRWStream)"
     },
     {
@@ -11346,7 +11511,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLBitmap_Construct",
-      "description": "The load function the GL class-item table registers for tag 0x28000e 'GLBitmap': 0x1a bytes from the arena DAT_00481244, GLBitmap_Ctor, then the object's vtable +0xc read with (stream, mode). Ghidra had no function here.",
+      "description": "The load function the GL class-item table registers for tag 0x28000e 'GLBitmap': 0x1a bytes from the arena DAT_00481244, GLBitmap_Ctor, then the object's vtable +0xc read with (stream, mode).",
       "source": "capstone disassembly of 00453784; table entry 0047bcdc"
     },
     {
@@ -11427,7 +11592,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLPalette_Dtor",
-      "description": "GLPalette vtable 0047bf10 slot +0x18 (palette, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the array +8 when the int16 +4 is non-zero, and when +0xc is non-zero frees the first dword of each of its 8-byte entries at +0x10 and then the array; GLBase_Dtor(palette, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "GLPalette vtable 0047bf10 slot +0x18 (palette, flags): decrements *Rtl_DtorCountPtr, restores the vtable, frees the array +8 when the int16 +4 is non-zero, and when +0xc is non-zero frees the first dword of each of its 8-byte entries at +0x10 and then the array; GLBase_Dtor(palette, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00453a18; vtable 0047bf10 (RTTI GLPalette)"
     },
     {
@@ -11593,6 +11758,21 @@
       "source": "VSHELL decompile and disassembly"
     },
     {
+      "address": "004541ac",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLFont_RemapPixels",
+      "description": "(font, table): rewrites every pixel byte of each of the font's glyphs through the 256-byte table; the field layout is in DBSIM's GLFont_RemapPixels (0048263c), which is byte-identical. es2_xref finds no reference to it.",
+      "source": "es2_naming.py match against DBSIM 0048263c",
+      "verified": {
+        "bytes": "004541ac+89",
+        "sha1": "cdf3fa5b4cc1",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00454205",
       "binary": "VSHELL",
       "type": "function",
@@ -11719,6 +11899,66 @@
       "source": "VSHELL decompile of 00454704"
     },
     {
+      "address": "0045470c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrim_PlotPixel",
+      "description": "(primitive): GLDisplay_PlotPixel(GL_GetGlobal7(), primitive+4). es2_xref finds no reference to it. Byte-identical to DBSIM's GLPrim_PlotPixel (00482ba4).",
+      "source": "es2_naming.py match against DBSIM 00482ba4",
+      "verified": {
+        "bytes": "0045470c+28",
+        "sha1": "7e82411d7716",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00454728",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrim_DrawLine",
+      "description": "(primitive): GL_DrawLine(GL_GetGlobal7(), primitive+4, primitive+0xc). es2_xref finds no reference to it. Byte-identical to DBSIM's GLPrim_DrawLine (00482bc0).",
+      "source": "es2_naming.py match against DBSIM 00482bc0",
+      "verified": {
+        "bytes": "00454728+32",
+        "sha1": "ef5d867d9dcf",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00454748",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrim_FillRect",
+      "description": "(primitive): GLDisplay_FillRect(GL_GetGlobal7(), primitive+4), the GLRect_Fill shape. es2_xref finds no reference to it. Byte-identical to DBSIM's GLRect_Fill (00482be0).",
+      "source": "es2_naming.py match against DBSIM 00482be0",
+      "verified": {
+        "bytes": "00454748+28",
+        "sha1": "cb8b4b239e64",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00454784",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLPrim_DrawEllipse",
+      "description": "(primitive): GLDisplay_DrawEllipse(GL_GetGlobal7(), primitive+4). es2_xref finds no reference to it. Byte-identical to DBSIM's GLPrim_DrawEllipse (00482c1c).",
+      "source": "es2_naming.py match against DBSIM 00482c1c",
+      "verified": {
+        "bytes": "00454784+28",
+        "sha1": "facf3b02e586",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "004547a0",
       "binary": "VSHELL",
       "type": "function",
@@ -11728,12 +11968,57 @@
       "source": "VSHELL decompile at 004547a0"
     },
     {
+      "address": "004547b5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_PlotPixel",
+      "description": "(display, point): Gfx_PlotPixel(point); display is not read. GLPrim_PlotPixel calls it. Byte-identical to DBSIM's GLDisplay_PlotPixel (00482c4d).",
+      "source": "es2_naming.py match against DBSIM 00482c4d",
+      "verified": {
+        "bytes": "004547b5+15",
+        "sha1": "c68a4774d969",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004547c4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_FillRect",
+      "description": "(display, rect): Gfx_FillRect(rect); display is not read. GLPrim_FillRect calls it. Byte-identical to DBSIM's GLDisplay_FillRect (00482c5c).",
+      "source": "es2_naming.py match against DBSIM 00482c5c",
+      "verified": {
+        "bytes": "004547c4+15",
+        "sha1": "9f8ff9370952",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004547d3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GLDisplay_DrawEllipse",
+      "description": "(display, rect): Gfx_FillEllipse(rect); display is not read. GLPrim_DrawEllipse calls it. Byte-identical to DBSIM's GLDisplay_DrawEllipse (00482c6b).",
+      "source": "es2_naming.py match against DBSIM 00482c6b",
+      "verified": {
+        "bytes": "004547d3+15",
+        "sha1": "5922f80725b5",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "004547e4",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
       "name": "GLBitmapArray_Construct",
-      "description": "The load function the GL class-item table registers for tag 0x280001 'GLBitmapArray': 0xc bytes from the arena, GLBitmapArray_Ctor, then the object's vtable +0xc read. Ghidra had no function here.",
+      "description": "The load function the GL class-item table registers for tag 0x280001 'GLBitmapArray': 0xc bytes from the arena, GLBitmapArray_Ctor, then the object's vtable +0xc read.",
       "source": "capstone disassembly of 004547e4; table entry 0047bce8"
     },
     {
@@ -11931,7 +12216,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLRectangleRegion_Dtor",
-      "description": "GLRectangleRegion vtable 0047c020 slot +0x18 (region, flags): decrements *Rtl_DtorCountPtr twice (its own level and GLRegion's), GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "GLRectangleRegion vtable 0047c020 slot +0x18 (region, flags): decrements *Rtl_DtorCountPtr twice (its own level and GLRegion's), GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00454d4d; vtable 0047c020 (RTTI GLRectangleRegion)"
     },
     {
@@ -11940,7 +12225,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLCursor_Construct",
-      "description": "The load function the GL class-item table registers for tag 0x28000b 'GLCursor': 0x10 bytes from the arena, GLCursor_Ctor, then the object's vtable +0xc read. Ghidra had no function here.",
+      "description": "The load function the GL class-item table registers for tag 0x28000b 'GLCursor': 0x10 bytes from the arena, GLCursor_Ctor, then the object's vtable +0xc read.",
       "source": "capstone disassembly of 00454dc8; table entry 0047bd30"
     },
     {
@@ -12003,7 +12288,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLCursor_Ctor",
-      "description": "GLCursor constructor (vtable 0047c0fc, RTTI 'GLCursor', 0x10 bytes, over GLBase): stamps ClassItem, GLBase and its own vtable, constructs the hotspot at +8 (Rtl_ReturnArg) and clears the bitmap +4. GLCursor_Construct runs it. Ghidra had no function here.",
+      "description": "GLCursor constructor (vtable 0047c0fc, RTTI 'GLCursor', 0x10 bytes, over GLBase): stamps ClassItem, GLBase and its own vtable, constructs the hotspot at +8 (Rtl_ReturnArg) and clears the bitmap +4. GLCursor_Construct runs it.",
       "source": "capstone disassembly of 00454fe0"
     },
     {
@@ -12039,7 +12324,7 @@
       "type": "function",
       "confidence": "high",
       "name": "GLRegion_Dtor",
-      "description": "GLRegion vtable 0047c124 slot +0x18 (region, flags): decrements *Rtl_DtorCountPtr, GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "GLRegion vtable 0047c124 slot +0x18 (region, flags): decrements *Rtl_DtorCountPtr, GLBase_Dtor(region, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 0045526c; vtable 0047c124 (RTTI GLRegion)"
     },
     {
@@ -12466,6 +12751,36 @@
       "source": "docs/retail/shell/screen-layout.md#how-a-widget-paints"
     },
     {
+      "address": "00459c84",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_Slot30NoOp",
+      "description": "Slot 30 of raster driver 3's routine table (0047e678): pushes and pops EBX, EDX, ESI, EDI and ES and returns. Byte-identical to DBSIM's Driver3_Slot30NoOp (004897c8).",
+      "source": "es2_naming.py match against DBSIM 004897c8",
+      "verified": {
+        "bytes": "00459c84+11",
+        "sha1": "f1cd3bb91d5b",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00459c8f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Driver3_Slot31NoOp",
+      "description": "Slot 31 of raster driver 3's routine table (0047e67c): pushes and pops EBX, EDX, ESI, EDI and ES and returns. Byte-identical to DBSIM's Driver3_Slot31NoOp (004897d3).",
+      "source": "es2_naming.py match against DBSIM 004897d3",
+      "verified": {
+        "bytes": "00459c8f+11",
+        "sha1": "f1cd3bb91d5b",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00459d5c",
       "binary": "VSHELL",
       "type": "function",
@@ -12473,6 +12788,36 @@
       "name": "Driver3_BlitClipped",
       "description": "Slot 26 of raster driver 3's routine table, the blit Bitmap_BlitClipDispatch calls: (bitmap, point, clipRect, flags) clips the bitmap at point to clipRect {x0, y0, x1, y1} inclusive, or to the surface (0047c40a width, 0047c40e height) when clipRect is null, then copies it in one of four orientations by flags bits 0-1 (bit 0 flips vertically, bit 1 horizontally): opaque when the bitmap's byte +5 has bit 0x10, otherwise skipping colour 0. The VSHELL copy of DBSIM's Driver3_BlitClipped (004898a0).",
       "source": "VSHELL decompile at 00459d5c; es2_naming.py diff against DBSIM 004898a0"
+    },
+    {
+      "address": "0045a538",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_GetPixel",
+      "description": "Slot 4 of raster driver 3's routine table (0047e610): (point) returns the byte at the draw surface's rowTable[point.y] + point.x. Byte-identical to DBSIM's Raster_GetPixel (0048a234).",
+      "source": "es2_naming.py match against DBSIM 0048a234",
+      "verified": {
+        "bytes": "0045a538+33",
+        "sha1": "3ad5318cddc1",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0045a559",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_PutPixel",
+      "description": "Slot 5 of raster driver 3's routine table (0047e614): (point, value) stores the byte at the address Raster_GetPixel reads. Byte-identical to DBSIM's Raster_PutPixel (0048a255).",
+      "source": "es2_naming.py match against DBSIM 0048a255",
+      "verified": {
+        "bytes": "0045a559+35",
+        "sha1": "3ed1e55d1e44",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045a686",
@@ -12745,6 +13090,21 @@
       "source": "VSHELL decompile; es2_naming.py match/diff against the DBSIM function named in the description"
     },
     {
+      "address": "0045d3a6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RectI_Ctor2",
+      "description": "Constructs the two 8-byte corner points at +0 and +8 (Rtl_ReturnArg, a no-op) and returns the object: a second copy of RectI_Ctor. Identical to DBSIM's RectI_Ctor (0048dd23) after normalisation.",
+      "source": "es2_naming.py diff against DBSIM 0048dd23",
+      "verified": {
+        "bytes": "0045d3a6+29",
+        "sha1": "66dc9f9a0897",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0045d43c",
       "binary": "VSHELL",
       "type": "function",
@@ -12887,6 +13247,21 @@
       "name": "Light_Register",
       "description": "(light): appends it to the 10-slot active light list at Light_ActiveList (count Light_ActiveCount) and returns 1, or returns 0 when the list is full or already holds it. ShellMap_Constructor registers its light. The VSHELL copy of DBSIM's Light_Register.",
       "source": "VSHELL decompile at 0045dbac"
+    },
+    {
+      "address": "0045dbf0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_Unregister",
+      "description": "(light): swap-removes it from Light_ActiveList and decrements Light_ActiveCount; returns 1, or 0 when the list does not hold it. Callers found by es2_xref: ShellMap_Dtor. The VSHELL copy of DBSIM's Light_Unregister (0048bd8c), the inverse of Light_Register.",
+      "source": "es2_naming.py diff against DBSIM 0048bd8c",
+      "verified": {
+        "bytes": "0045dbf0+62",
+        "sha1": "b7eec31b59d3",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045dd40",
@@ -13074,7 +13449,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSCamera_Dtor",
-      "description": "TSCamera vtable 0047e9d1 slot 0, its only slot (camera, flags): decrements *Rtl_DtorCountPtr, TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the map's camera through it. Ghidra had no function here.",
+      "description": "TSCamera vtable 0047e9d1 slot 0, its only slot (camera, flags): decrements *Rtl_DtorCountPtr, TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set. Map_Dtor deletes the map's camera through it.",
       "source": "capstone disassembly of 0045f63e; vtable 0047e9d1 (RTTI TSCamera)"
     },
     {
@@ -13362,7 +13737,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSOrthoCamera_Dtor",
-      "description": "TSOrthoCamera vtable 0047e9c1 slot 0 (camera, flags): decrements *Rtl_DtorCountPtr twice (its own level and TSCamera's), TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSOrthoCamera vtable 0047e9c1 slot 0 (camera, flags): decrements *Rtl_DtorCountPtr twice (its own level and TSCamera's), TSContext_Dtor(camera, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 0045f9a6; vtable 0047e9c1 (RTTI TSOrthoCamera)"
     },
     {
@@ -13371,7 +13746,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBase_GetClassTag",
-      "description": "TSBase vtable 0047f858 slot 0, the class-item tag getter's default: returns -1. Inherited by TSGroupItem, TSShapeInstance, ANShapeInstance, VectorTable and HeightGrid. Ghidra had no function here.",
+      "description": "TSBase vtable 0047f858 slot 0, the class-item tag getter's default: returns -1. Inherited by TSGroupItem, TSShapeInstance, ANShapeInstance, VectorTable and HeightGrid.",
       "source": "VSHELL disassembly at 0045f9dc (83 C8 FF: or eax,-1); vtables 0047f858, 0047ee64, 0047f195, 0047f420, 0047f884, 00472470"
     },
     {
@@ -13902,7 +14277,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroupItem_Dtor",
-      "description": "TSGroupItem vtable 0047ee64 slot +0x18 (item, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(item, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSGroupItem vtable 0047ee64 slot +0x18 (item, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(item, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00460e83; vtable 0047ee64 (RTTI TSGroupItem)"
     },
     {
@@ -13929,7 +14304,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSAliasGouraudPoly_Dtor",
-      "description": "TSAliasGouraudPoly vtable 0047ed30 slot +0x18 (poly, flags): decrements *Rtl_DtorCountPtr five times, once per level from TSAliasGouraudPoly down to TSGroupItem, TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSAliasGouraudPoly vtable 0047ed30 slot +0x18 (poly, flags): decrements *Rtl_DtorCountPtr five times, once per level from TSAliasGouraudPoly down to TSGroupItem, TSBase_Dtor(poly, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00461326; vtable 0047ed30 (RTTI TSAliasGouraudPoly)"
     },
     {
@@ -14415,7 +14790,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSCellAnimPart_Dtor",
-      "description": "TSCellAnimPart vtable 0047f12c slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSCellAnimPart vtable 0047f12c slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, TSPartList_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 0046264a; vtable 0047f12c (RTTI TSCellAnimPart)"
     },
     {
@@ -14532,7 +14907,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSShape_Construct",
-      "description": "The load function g_TSObjectTypeRegistry registers for tag 0x140008 'TSShape': 0x2a bytes from the arena, TSShape_Ctor, then the object's vtable +0xc read. Ghidra had no function here.",
+      "description": "The load function g_TSObjectTypeRegistry registers for tag 0x140008 'TSShape': 0x2a bytes from the arena, TSShape_Ctor, then the object's vtable +0xc read.",
       "source": "capstone disassembly of 00462988; registry entry 0047f2a0"
     },
     {
@@ -14649,7 +15024,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ANSequence_NextFrame",
-      "description": "ANSequence vtable 0047f720 slot +0x20 (sequence, frame): frame + 1 while frame is below the frame count +0xa less 1, else frame unchanged: the last frame holds. ANCyclicSequence overrides the slot with ANCyclicSequence_NextFrame. The VSHELL copy of DBSIM's ANSequence_NextFrame (00478654). Ghidra had no function here.",
+      "description": "ANSequence vtable 0047f720 slot +0x20 (sequence, frame): frame + 1 while frame is below the frame count +0xa less 1, else frame unchanged: the last frame holds. ANCyclicSequence overrides the slot with ANCyclicSequence_NextFrame. The VSHELL copy of DBSIM's ANSequence_NextFrame (00478654).",
       "source": "capstone disassembly of 00462ff4; vtable 0047f720 (RTTI ANSequence)"
     },
     {
@@ -15126,7 +15501,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartBase_Dtor",
-      "description": "TSPartBase vtable 0047f0f8 slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(part, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "TSPartBase vtable 0047f0f8 slot +0x18 (part, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(part, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00464683; vtable 0047f0f8 (RTTI TSPartBase)"
     },
     {
@@ -15171,7 +15546,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ANShape_Dtor",
-      "description": "ANShape vtable 0047f684 slot +0x18 (shape, flags): decrements *Rtl_DtorCountPtr, TSShape_Dtor(shape, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "ANShape vtable 0047f684 slot +0x18 (shape, flags): decrements *Rtl_DtorCountPtr, TSShape_Dtor(shape, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 0046493c; vtable 0047f684 (RTTI ANShape)"
     },
     {
@@ -15522,7 +15897,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Time_AdvanceCoarseTick",
-      "description": "Subtracts 0x10 from Shell_TimerTicks' base (005ddbcc), moving the 16 ms clock on by one tick. Ghidra had no function here. The VSHELL copy of DBSIM's Time_AdvanceCoarseTick (00467734).",
+      "description": "Subtracts 0x10 from Shell_TimerTicks' base (005ddbcc), moving the 16 ms clock on by one tick. The VSHELL copy of DBSIM's Time_AdvanceCoarseTick (00467734).",
       "source": "VSHELL bytes at 00465a2c (capstone)"
     },
     {
@@ -15531,7 +15906,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Time_InitSimClock",
-      "description": "005ddbb8 = 005ddbba = 0x100, 005ddbc4 = 1000, 005ddbc6 = 005ddbbc = 005ddbbe = 1000 / 10 = 100 and 005ddbc0 = 100, then 005ddbc8 and Shell_TimerTicks' base 005ddbcc = GetTickCount(). DBSIM's copy, Time_InitSimClock (0046773c), divides by 8, so its unit is 125 ms where this one's is 100 ms. Ghidra had no function here.",
+      "description": "005ddbb8 = 005ddbba = 0x100, 005ddbc4 = 1000, 005ddbc6 = 005ddbbc = 005ddbbe = 1000 / 10 = 100 and 005ddbc0 = 100, then 005ddbc8 and Shell_TimerTicks' base 005ddbcc = GetTickCount(). DBSIM's copy, Time_InitSimClock (0046773c), divides by 8, so its unit is 125 ms where this one's is 100 ms.",
       "source": "VSHELL bytes at 00465a34 (capstone)"
     },
     {
@@ -15549,7 +15924,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Time_BeginSimTick",
-      "description": "Spins until 2 ms have passed since 005ddbc8, stores the elapsed ms at 005ddbc0, sets 005ddbb8 = Time_ElapsedToQ8Clamped(005ddbbc, elapsed) and 005ddbba = Time_ElapsedToQ8Clamped(005ddbbe, elapsed), and advances 005ddbc8 by the elapsed time. DBSIM's copy, Time_BeginSimTick (004677bc), waits 40 ms. Ghidra had no function here.",
+      "description": "Spins until 2 ms have passed since 005ddbc8, stores the elapsed ms at 005ddbc0, sets 005ddbb8 = Time_ElapsedToQ8Clamped(005ddbbc, elapsed) and 005ddbba = Time_ElapsedToQ8Clamped(005ddbbe, elapsed), and advances 005ddbc8 by the elapsed time. DBSIM's copy, Time_BeginSimTick (004677bc), waits 40 ms.",
       "source": "VSHELL bytes at 00465ab8 (capstone)"
     },
     {
@@ -15927,7 +16302,7 @@
       "type": "function",
       "confidence": "high",
       "name": "VectorTable_Dtor",
-      "description": "VectorTable vtable 0047f884 slot +0x18 (table, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(table, 0), then Mem_Delete when flags bit 0 is set. Ghidra had no function here.",
+      "description": "VectorTable vtable 0047f884 slot +0x18 (table, flags): decrements *Rtl_DtorCountPtr, TSBase_Dtor(table, 0), then Mem_Delete when flags bit 0 is set.",
       "source": "capstone disassembly of 00468103; vtable 0047f884 (RTTI VectorTable)"
     },
     {
@@ -16030,6 +16405,51 @@
       "source": "VSHELL decompile at 00468710"
     },
     {
+      "address": "0046890e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinEventHandler_Dtor",
+      "description": "WinEventHandler's destructor, the dtor its class record (0x20 bytes, at 004688ae) names: (handler, flags): when handler is not null, decrements *Rtl_DtorCountPtr three times, PtrArray_Dtor(handler+0x11, 0), then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 0046890e; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "0046890e+65",
+        "sha1": "2db918fd3a8f",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "004689a7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinEventArray_Dtor",
+      "description": "WinEventArray's destructor, the dtor its class record (0xe bytes, at 0046894f) names: (array, flags): when array is not null, decrements *Rtl_DtorCountPtr twice (its own level and PointerArray<WinEvent>'s), PtrArray_Dtor(array, 0), then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 004689a7; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "004689a7+53",
+        "sha1": "154da60bde7a",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "00468a3c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PointerArray_WinEvent_Dtor",
+      "description": "PointerArray<WinEvent>'s destructor, the dtor its class record (0xe bytes, at 004689dc) names: (array, flags): when array is not null, decrements *Rtl_DtorCountPtr, PtrArray_Dtor(array, 0) for its PtrArray base, then Mem_Delete when flags bit 0 is set.",
+      "source": "VSHELL decompile at 00468a3c; docs/retail/formats/borland-rtti.md",
+      "verified": {
+        "bytes": "00468a3c+45",
+        "sha1": "b5d96e098d0f",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00468a70",
       "binary": "VSHELL",
       "type": "function",
@@ -16055,6 +16475,21 @@
       "name": "WinEvent_Clone",
       "description": "WinEvent slot +0x1c (event): Mem_New's 0x24 bytes, WinEvent_Ctor, and copies +4, +6, +8, the type +0xc, the position +0x10/+0x14, +0x18, +0x1c and the target +0x20 into it; returns it.",
       "source": "VSHELL decompile; vtable 0047fe20 (RTTI WinEvent)"
+    },
+    {
+      "address": "00468b78",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinEvent_Construct",
+      "description": "The ClassItem registry's load function for a WinEvent: Arena_Alloc's 0x24 bytes, WinEvent_Ctor, then calls the object's vtable +0xc (WinEvent_ReadFromStream) with its two arguments.",
+      "source": "VSHELL decompile at 00468b78",
+      "verified": {
+        "bytes": "00468b78+114",
+        "sha1": "b7e0ef2b92fe",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00468bec",
@@ -16138,6 +16573,21 @@
       "source": "VSHELL decompile; vtable 0047fdf4 (RTTI WinMouseEvent)"
     },
     {
+      "address": "00468e0c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinMouseEvent_Construct",
+      "description": "The ClassItem registry's load function for a mouse event: Arena_Alloc's 0x29 bytes, MouseEvent_Ctor, then calls the object's vtable +0xc (WinMouseEvent_ReadFromStream) with its two arguments.",
+      "source": "VSHELL decompile at 00468e0c",
+      "verified": {
+        "bytes": "00468e0c+114",
+        "sha1": "7f640a81749a",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00468e80",
       "binary": "VSHELL",
       "type": "function",
@@ -16217,6 +16667,21 @@
       "name": "WinScrollEvent_Clone",
       "description": "WinScrollEvent slot +0x1c (event): Mem_New's 0x29 bytes, WinScrollEvent_Ctor, and copies WinEvent's fields and the byte +0x24 and the dword +0x25 into it; returns it.",
       "source": "VSHELL decompile; vtable 0047fdc8 (RTTI WinScrollEvent)"
+    },
+    {
+      "address": "00469098",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinScrollEvent_Construct",
+      "description": "The ClassItem registry's load function for a WinScrollEvent: Arena_Alloc's 0x29 bytes, WinScrollEvent_Ctor, then calls the object's vtable +0xc (WinScrollEvent_ReadFromStream) with its two arguments.",
+      "source": "VSHELL decompile at 00469098",
+      "verified": {
+        "bytes": "00469098+114",
+        "sha1": "509e074ca764",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046910c",
@@ -16300,6 +16765,21 @@
       "source": "VSHELL decompile; vtable 0047fd9c (RTTI WinKeyEvent)"
     },
     {
+      "address": "0046931c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinKeyEvent_Construct",
+      "description": "The ClassItem registry's load function for a WinKeyEvent: Arena_Alloc's 0x26 bytes, WinKeyEvent_Ctor, then calls the object's vtable +0xc (WinKeyEvent_ReadFromStream) with its two arguments.",
+      "source": "VSHELL decompile at 0046931c",
+      "verified": {
+        "bytes": "0046931c+114",
+        "sha1": "37fe45f0881c",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "00469390",
       "binary": "VSHELL",
       "type": "function",
@@ -16381,6 +16861,21 @@
       "source": "VSHELL decompile; vtable 0047fd70 (RTTI WinCommandEvent)"
     },
     {
+      "address": "0046957c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinCommandEvent_Construct",
+      "description": "The ClassItem registry's load function for a WinCommandEvent: Arena_Alloc's 0x25 bytes, WinCommandEvent_Ctor, then calls the object's vtable +0xc (WinCommandEvent_ReadFromStream) with its two arguments.",
+      "source": "VSHELL decompile at 0046957c",
+      "verified": {
+        "bytes": "0046957c+114",
+        "sha1": "32256ca5354f",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "004695f0",
       "binary": "VSHELL",
       "type": "function",
@@ -16460,6 +16955,21 @@
       "name": "WinTimerEvent_Clone",
       "description": "WinTimerEvent slot +0x1c (event): Mem_New's 0x28 bytes, WinTimerEvent_Ctor, and copies WinEvent's fields and the dword +0x24 into it; returns it.",
       "source": "VSHELL decompile; vtable 0047fd44 (RTTI WinTimerEvent)"
+    },
+    {
+      "address": "004697d8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WinTimerEvent_Construct",
+      "description": "The ClassItem registry's load function for a WinTimerEvent: Arena_Alloc's 0x28 bytes, WinTimerEvent_Ctor, then calls the object's vtable +0xc (WinTimerEvent_ReadFromStream) with its two arguments.",
+      "source": "VSHELL decompile at 004697d8",
+      "verified": {
+        "bytes": "004697d8+114",
+        "sha1": "c40f10dfd1e5",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046984c",
@@ -17785,6 +18295,81 @@
       "source": "docs/retail/shell/screen-layout.md#which-widget-a-click-reaches"
     },
     {
+      "address": "0046b274",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_DefaultTerminate",
+      "description": "The RTL's default terminate handler, which Rtl_ExceptInit stores at +8 of the exception block: calls _abort (0046b672) and returns. Byte-identical to DBSIM's Rtl_DefaultTerminate (00496288) up to the call target.",
+      "source": "VSHELL disassembly at 0046b274",
+      "verified": {
+        "bytes": "0046b274+5",
+        "sha1": "6878a03ab291",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0046b27a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_SetTerminate",
+      "description": "Borland RTL set_terminate: (handler): returns the terminate handler at +8 of the thread's exception block (FS:[4] - 8) and stores handler there when it is not null. es2_xref finds no reference to it. Byte-identical to DBSIM's Rtl_SetTerminate (0049628e).",
+      "source": "es2_naming.py match against DBSIM 0049628e",
+      "verified": {
+        "bytes": "0046b27a+37",
+        "sha1": "5efd2dd36592",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0046b29f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_Terminate",
+      "description": "Borland RTL terminate: _flushall, calls the exception block's terminate handler (+8), then _abort. Byte-identical to DBSIM's Rtl_Terminate (004962b3).",
+      "source": "es2_naming.py match against DBSIM 004962b3",
+      "verified": {
+        "bytes": "0046b29f+58",
+        "sha1": "ab1cb532061f",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
+      "address": "0046b2ef",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_DefaultUnexpected",
+      "description": "The RTL's default unexpected handler, which Rtl_ExceptInit stores at +0xc of the exception block: calls Rtl_Terminate.",
+      "source": "VSHELL disassembly at 0046b2ef",
+      "verified": {
+        "bytes": "0046b2ef+6",
+        "sha1": "05177e020bae",
+        "scope": "body",
+        "via": "disasm"
+      }
+    },
+    {
+      "address": "0046b2f5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rtl_SetUnexpected",
+      "description": "Borland RTL set_unexpected: (handler): returns the unexpected handler at +0xc of the thread's exception block (FS:[4] - 8) and stores handler there when it is not null. es2_xref finds no reference to it. Byte-identical to DBSIM's Rtl_SetUnexpected (00496309).",
+      "source": "es2_naming.py match against DBSIM 00496309",
+      "verified": {
+        "bytes": "0046b2f5+37",
+        "sha1": "37386084cb76",
+        "scope": "body",
+        "via": "decompile"
+      }
+    },
+    {
       "address": "0046b32e",
       "binary": "VSHELL",
       "type": "function",
@@ -17835,7 +18420,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rtl_PureError",
-      "description": "The Borland RTL's pure-virtual-call handler: __ErrorExit(\"Pure virtual function called\") (00480f90). Every pure slot of an abstract class's vtable points here: ClassItem's five, EventProducer's two, EventConsumer's, WinButton's +4, WinCursor's, WinDisplay's eight and Map's slot 0. DBSIM's copy is at 00496684. Ghidra had no function here.",
+      "description": "The Borland RTL's pure-virtual-call handler: __ErrorExit(\"Pure virtual function called\") (00480f90). Every pure slot of an abstract class's vtable points here: ClassItem's five, EventProducer's two, EventConsumer's, WinButton's +4, WinCursor's, WinDisplay's eight and Map's slot 0. DBSIM's copy is at 00496684.",
       "source": "VSHELL disassembly at 0046b624; es2_naming.py vtables VSHELL"
     },
     {

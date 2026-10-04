@@ -6,7 +6,7 @@ using Herculan.Engine.World;
 namespace Herculan.Engine.Sim;
 
 // A Cybrid flyer's AI — docs/retail/simulation/ai-flyers.md. The Flyer class has a behaviour table of its
-// own, seven states at 00499cf8 built by Flyer_BuildStateTable (00414c65), reached through its own
+// own, seven states at 00499cf8 built by Flyer_BuildStateTable (00414c68), reached through its own
 // three descriptor dispatchers and so driven by the same Mech_AiTick (00411cec) a walking machine
 // is; docs/retail/simulation/ai-dispatch.md owns that shared dispatch model.
 public sealed partial class FlyerObject {

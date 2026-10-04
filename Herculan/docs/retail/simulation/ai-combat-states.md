@@ -1,4 +1,4 @@
-﻿# AI combat states
+# AI combat states
 
 The eleven behaviour thinks that are not navigation: the six a machine fights in, the two it runs or detours in (`fleeing` and `skirting`), the two it stands still in (`sleeping`, and the shared think of the out-of-action states), and the one it kills itself in. What state a machine is in and how the think is reached is [`ai-dispatch.md`](ai-dispatch.md); which object it fights is [`ai-targeting.md`](ai-targeting.md); how it shoots once it is pointed is [`ai-weapons.md`](ai-weapons.md); the walking states are [`ai-navigation.md`](ai-navigation.md).
 

@@ -121,7 +121,7 @@ Confirmed on the Scramble training base: group 1 uses formation 9, and roster sl
 
 ## The flyer formation table
 
-`Flyer_LoadResources` (`00422d8f`, `flyersys.cpp`) opens `dat\fforms` (string at `0049a68c`), reads a 2-byte record count and then that many `0x12`-byte records. `dat\FFORMS.DAT` is 92 content bytes, a count of 5 and five records, with nothing left over. `FlyerFormation_GetSlotOffset` (`00423044`) resolves an offset as `base + formationId * 0x12 + slot * 6 - 6`, so a record is **three** slots of three `int16` (x, y, z), and the slot index is **one-based**: the group's first member, the flight leader, takes no offset at all.
+`Flyer_LoadResources` (`00422d90`, `flyersys.cpp`) opens `dat\fforms` (string at `0049a68c`), reads a 2-byte record count and then that many `0x12`-byte records. `dat\FFORMS.DAT` is 92 content bytes, a count of 5 and five records, with nothing left over. `FlyerFormation_GetSlotOffset` (`00423044`) resolves an offset as `base + formationId * 0x12 + slot * 6 - 6`, so a record is **three** slots of three `int16` (x, y, z), and the slot index is **one-based**: the group's first member, the flight leader, takes no offset at all.
 
 The offset carries a Z, where `MFORMS.DAT`'s and `BFORMS.DAT`'s entries do not. `Flyer_ApplyFormationOffset` hands all three components to the shared `Formation_RotateAndAddOffset` (`00411d64`), which rotates the (x, y) by the **group leader's** heading and adds the Z unrotated. Every slot is 400 units higher than the one before (400, 800, 1200). Formations 0, 1, 2 and 4 are a trailing column, 2500, 5000 and 7500 units aft (−y). Formation 3, the one `TRAIN8.MSN`'s two-flyer group uses, is a box: slot 1 at (−2500, 0), slot 2 at (0, −2500) and slot 3 at (−2500, −2500).
 

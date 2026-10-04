@@ -1,4 +1,4 @@
-﻿# Flyer AI — the `Flyer` class' own behaviour layer
+# Flyer AI — the `Flyer` class' own behaviour layer
 
 The Cybrid aircraft. `Flyer` is a class of its own, not a HERC: it has its own behaviour state table, its own thinks, its own control law, and its own move. What it shares with a machine is the *dispatch* — see [`ai-dispatch.md`](ai-dispatch.md), whose model applies unchanged — and the flight model, which is the player RAZOR's ([`razor-flight.md`](razor-flight.md)).
 
@@ -6,7 +6,7 @@ Retail ships one flyer chassis with data: `SKIMMER` ("Landskimmer"). `nam\FLYERS
 
 ## The seven states
 
-`FlyerBehaviourStateTable` (`00499cf8`) holds seven `0x3c`-byte descriptors, built at startup by `Flyer_BuildStateTable` (`00414c65`) from `FlyerBehaviourSlotBlocks` (`00499e9c`) and `FlyerBehaviourStateNames` (`00499f98`). The descriptor layout is the mech one minus its trailing `+0x3c` string index — an aircraft never appears on the [F7] comm page — which is what makes the stride `0x3c` where the mech table's is `0x3e`.
+`FlyerBehaviourStateTable` (`00499cf8`) holds seven `0x3c`-byte descriptors, built at startup by `Flyer_BuildStateTable` (`00414c68`) from `FlyerBehaviourSlotBlocks` (`00499e9c`) and `FlyerBehaviourStateNames` (`00499f98`). The descriptor layout is the mech one minus its trailing `+0x3c` string index — an aircraft never appears on the [F7] comm page — which is what makes the stride `0x3c` where the mech table's is `0x3e`.
 
 | # | Name | Think | Move | Reassess | Dwell | Flags |
 |---|---|---|---|---|---|---|

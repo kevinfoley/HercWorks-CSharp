@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <!-- The debug panel only. Nothing the game itself draws goes through ImGui — the cockpit and its
-       HUD are the original's own art and its own font (see Overlay2DRenderer, HudFont). -->
+       HUD are the original's own art and its own font (see Herculan.Engine's Render/Cockpit, HudFont). -->
   <ItemGroup>
     <PackageReference Include="Silk.NET.OpenGL.Extensions.ImGui" Version="2.23.0" />
   </ItemGroup>

@@ -312,7 +312,7 @@ public sealed class CockpitArt {
 	/// </summary>
 	public CockpitFrame? HeadsDown { get; }
 
-	/// <summary>The HUD widget layout to overlay on <see cref="Front"/> — center panel only (see Overlay2DRenderer).</summary>
+	/// <summary>The HUD widget layout to overlay on <see cref="Front"/> — center panel only (see Render.Cockpit.CanopyPanelPainter).</summary>
 	public GAUFile Gau { get; }
 
 	/// <summary>

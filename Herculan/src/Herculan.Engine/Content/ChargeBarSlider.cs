@@ -1,4 +1,5 @@
 using Herculan.Engine.Render;
+using Herculan.Engine.Render.Cockpit;
 
 namespace Herculan.Engine.Content;
 
@@ -76,9 +77,9 @@ public readonly struct ChargeBarSlider {
 
 		var rect = rows[gaugeSlot];
 		var slider = new ChargeBarSlider(
-			(rect.Origin.X + Overlay2DRenderer.ValueFieldLeft) * Scale,
+			(rect.Origin.X + ConsoleGaugePainter.ValueFieldLeft) * Scale,
 			rect.Origin.Y * Scale,
-			(rect.Origin.X + Overlay2DRenderer.ValueFieldRight) * Scale,
+			(rect.Origin.X + ConsoleGaugePainter.ValueFieldRight) * Scale,
 			(rect.Origin.Y + ValueFieldBottom) * Scale,
 			Scale);
 		return slider.Travel > 0 ? slider : null;

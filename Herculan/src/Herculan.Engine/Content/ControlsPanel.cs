@@ -9,7 +9,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para>This type is the panel's text and its state; its geometry is
 /// <see cref="ControlsPanelLayout"/> and its pixels are drawn by
-/// <see cref="Render.Overlay2DRenderer.DrawControlsPanel"/>.</para>
+/// <see cref="Render.Cockpit.AlertPanelPainter.DrawControlsPanel"/>.</para>
 ///
 /// <para><b>It is two panels in one file.</b> <c>str\CTL_ALRT.STR</c> carries thirteen groups, and
 /// the constructor reads eight of them — title, the fourteen captions, the twenty-one action names,

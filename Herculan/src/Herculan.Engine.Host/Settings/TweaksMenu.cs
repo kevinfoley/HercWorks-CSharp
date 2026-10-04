@@ -14,7 +14,7 @@ namespace Herculan.Engine.Host.Settings;
 /// at runtime, so the in-memory values never diverge from disk except through edits made here. Save
 /// writes the current values to disk and closes, Cancel reloads from disk (discarding anything not
 /// yet saved) and closes, and so does closing the window by its title-bar button or [Esc]; see
-/// Program.cs for the latter.</para>
+/// <see cref="HostMenuBar.BackOut"/> for the latter.</para>
 /// </summary>
 public sealed class TweaksMenu {
 	private const float PanelWidth = 300f;
@@ -22,7 +22,7 @@ public sealed class TweaksMenu {
 	private readonly TweakSettings _settings;
 	private readonly LocalizationTable _localization;
 
-	/// <summary>Whether the panel is currently open. Set by the menu bar; see Program.cs.</summary>
+	/// <summary>Whether the panel is currently open. Set by the menu bar; see <see cref="HostMenuBar"/>.</summary>
 	public bool IsOpen { get; set; }
 
 	public TweaksMenu(TweakSettings settings, LocalizationTable localization) {
@@ -85,7 +85,7 @@ public sealed class TweaksMenu {
 
 	/// <summary>Discards any edit not yet saved by reloading <see cref="TweakSettings"/> from disk,
 	/// and closes the panel. Also reachable from outside — [Esc] backs out of an open Tweaks the same
-	/// way the title-bar close and the in-panel Cancel button do; see Program.cs.</summary>
+	/// way the title-bar close and the in-panel Cancel button do; see <see cref="HostMenuBar.BackOut"/>.</summary>
 	public void Cancel() {
 		_settings.LoadFromDisk();
 		IsOpen = false;

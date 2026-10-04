@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para>This type is the panel's text and its state; its geometry is
 /// <see cref="PreferencesPanelLayout"/> and its pixels are drawn by
-/// <see cref="Render.Overlay2DRenderer.DrawPreferencesPanel"/>.</para>
+/// <see cref="Render.Cockpit.AlertPanelPainter.DrawPreferencesPanel"/>.</para>
 ///
 /// <para><b>The captions are all in one file.</b> <c>str\PRF_ALRT.STR</c> carries five groups, and
 /// the constructor loads them into five fields with the counts 1, 11, 2, 3 and 5 — the title, the

@@ -2,6 +2,7 @@ using System.Numerics;
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Install;
+using Herculan.Engine.Host.Shell;
 using ImGuiNET;
 
 namespace Herculan.Engine.Host.Settings;

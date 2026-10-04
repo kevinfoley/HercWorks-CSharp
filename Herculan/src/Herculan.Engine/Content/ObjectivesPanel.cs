@@ -7,7 +7,7 @@
 ///
 /// <para>This type is the panel's data and its state. Its geometry is in
 /// <see cref="ObjectivesPanelLayout"/> and its pixels are drawn by
-/// <see cref="Render.Overlay2DRenderer.DrawObjectivesPanel"/>, out of the same sprite atlas and
+/// <see cref="Render.Cockpit.AlertPanelPainter.DrawObjectivesPanel"/>, out of the same sprite atlas and
 /// <c>.HFN</c> fonts the rest of the cockpit draws from.</para>
 ///
 /// <para><b>It is modal, and the simulation does not tick behind it.</b> The original runs its own

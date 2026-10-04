@@ -1,6 +1,6 @@
 # Command line: Herculan.Engine.Host
 
-Every argument `Herculan.Engine.Host` accepts. The parser is the loop at the top of `src/Herculan.Engine.Host/Program.cs`; this page lists what each flag does and links the doc that explains the feature behind it. The retail executables' switches are in [`launch-options.md`](../launch-options.md) and [`command-line.md`](../command-line.md).
+Every argument `Herculan.Engine.Host` accepts. The parser is `HostOptions.Parse` in `src/Herculan.Engine.Host/HostOptions.cs`; this page lists what each flag does and links the doc that explains the feature behind it. The retail executables' switches are in [`launch-options.md`](../launch-options.md) and [`command-line.md`](../command-line.md).
 
 Flags are this engine's own. Where one stands in for a retail switch, the table says which. Flags are case-sensitive, take `--` only, and can come in any order. `--help` (or `-h`, `-?`) prints a summary and exits. An unknown flag, a missing or out-of-range value, or a third positional argument stops the host with a message naming each problem, before it looks for the install.
 

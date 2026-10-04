@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// The command display's own state and the actions its buttons and keys perform —
 /// <c>HddCommandScreen</c> (<c>HddCommandScreen_Ctor</c>, <c>0044c264</c>) minus the drawing, which is
-/// <see cref="Overlay2DRenderer"/>'s.
+/// <see cref="Render.Cockpit.HeadsDownPainter"/>'s and <see cref="Render.Cockpit.HddMapPainter"/>'s.
 /// </summary>
 /// <remarks>
 /// <para>The screen is a small state machine and the manual describes it as one: pick a pilot, pick

@@ -17,7 +17,7 @@ namespace Herculan.Engine.Render;
 ///
 /// <para><b>Two nested placements.</b> Each panel gets a GL viewport (outer), and inside it the art
 /// quad is fit by height and horizontally centred (inner) — the fit
-/// <see cref="Overlay2DRenderer.Draw"/> and <see cref="Overlay2DRenderer.DrawHeadsDown"/> each compute
+/// <see cref="Cockpit.CanopyPanelPainter.Draw"/> and <see cref="Cockpit.HeadsDownPainter.Draw"/> each compute
 /// for themselves. <see cref="PlacedSurface"/> carries both halves so a caller can cross the whole
 /// chain in one step.</para>
 ///
@@ -207,7 +207,7 @@ public sealed class CockpitScreenLayout {
 
 	private static PlacedSurface Place(Viewport viewport, CockpitFrame frame, int windowHeight) {
 		// Fit by height, preserving the art's aspect ratio, quad centred in the viewport — mirroring
-		// Overlay2DRenderer's own two copies of this fit. When the panel is narrower than the art the
+		// CanopyPanelPainter's and HeadsDownPainter's own copies of this fit. When the panel is narrower than the art the
 		// quad overhangs and GL clips it; when it is wider the quad sits centred with a margin.
 		float scale = viewport.Height / (float)Math.Max(frame.Height, 1);
 		float quadX0 = (viewport.Width - frame.Width * scale) / 2f;
@@ -219,7 +219,7 @@ public sealed class CockpitScreenLayout {
 	/// point is over neither.
 	///
 	/// <para>The forward view is tested first, and wins where the two overlap. That is the same
-	/// precedence the draw order gives: <see cref="Overlay2DRenderer.DrawHeadsDown"/> runs before the
+	/// precedence the draw order gives: <see cref="Cockpit.HeadsDownPainter.Draw"/> runs before the
 	/// panels so the forward canopy's art covers the heads-down art's top rows, matching how
 	/// <c>Sim_InitMissionSession</c> (<c>004614fc</c>) blits view 1 and then view 0 into the shared
 	/// canvas. Without it, a click in the overlap band mid-pan could land on a widget the player cannot

@@ -78,7 +78,7 @@ Struct-instance offsets (`mech+0x222`) belong in `known_structs.json`, which own
 | `ES2DecompileContainingBatch` | `spec` | Same for many addresses, deduped by function. |
 | `ES2DecompileRange` | `lo` `hi` `out` | Decompiles every function whose entry point falls in a range. |
 | `ES2DecompileNamed` | `spec` | Decompiles functions by name. |
-| `ES2DumpFullDecomp` | `out` `[timeout]` | Whole-program decompilation. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/` and reports how many DBSIM functions carry `known_symbols_dbsim.json` names. |
+| `ES2DumpFullDecomp` | `out` `[timeout]` | Whole-program decompilation. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/`. |
 | `ES2DumpCallSites` | `addrs(+)` `ctx` `maxSites` `out` | Call sites with surrounding instructions — settles argument setup and `__cdecl` vs `__stdcall`, which the ANALYSIS-tier prototypes get wrong throughout this database. |
 
 ### Searching
@@ -137,7 +137,7 @@ These three mutate the program. Ghidra routinely places a function entry past th
 
 | Script | Args | Does |
 | --- | --- | --- |
-| `ES2ListFunctions` | `out` | Every function as `address<TAB>name<TAB>size`. |
+| `ES2ListFunctions` | `out` | Every function as `address<TAB>name<TAB>size`, the size being the body's byte count. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/<BINARY>_functions.txt` and reports from it. |
 | `ES2DumpSignatures` | `known_symbols_<binary>.json` `out` | Read-only companion to `ES2ApplySymbolNames`: pulls committed prototypes back out for every tracked address, tagged `verified` / `analysis` / `default`, so mass-committed guesses can be told from human decisions. |
 | `ES2SignatureSourceCensus` | — | Positive control for the above: histograms `SourceType` program-wide. Zero human-sourced signatures anywhere means the detection itself is suspect; DLL thunks should report `IMPORTED`. |
 | `ES2CommitAllParams` | `[passes]` | Commits decompiler-inferred prototypes program-wide as `ANALYSIS`. Improves cross-function decompilation; also fills the database with plausible signatures nobody checked. |

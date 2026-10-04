@@ -9,7 +9,7 @@ namespace Herculan.Engine.Host;
 
 /// <summary>
 /// Plays one <c>.AVI</c> cutscene in a window instead of running a mission or the front end —
-/// <c>--movie</c>. The same thin-host arrangement as <see cref="ShellHost"/>: everything here is
+/// <c>--movie</c>. The same thin-host arrangement as <see cref="Shell.ShellHost"/>: everything here is
 /// wiring, and every rule about how a movie decodes lives in <c>HercWorks.Video</c>.
 ///
 /// <para>It exists so a decoder can be looked at. A codec that is subtly wrong still returns frames
@@ -23,7 +23,7 @@ namespace Herculan.Engine.Host;
 /// </summary>
 static class MovieHost {
 	/// <summary>
-	/// Frames to let pass before <c>--screenshot</c> fires, matching <see cref="ShellHost"/>: the
+	/// Frames to let pass before <c>--screenshot</c> fires, matching <see cref="FrontEndWindow"/>: the
 	/// window manager can hand back a stale or part-sized framebuffer for the first frame or two.
 	/// </summary>
 	private const int ScreenshotFrame = 5;

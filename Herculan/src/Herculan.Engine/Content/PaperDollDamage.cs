@@ -12,7 +12,7 @@ namespace Herculan.Engine.Content;
 /// body part in, and the colour it should now be to <c>PaperDoll_RecolorRect</c>, which walks the rect a pixel
 /// at a time and rewrites only the pixels that still hold the first. That is why a doll recolours
 /// limb by limb without disturbing the outlines drawn over it — see
-/// <c>Render.Overlay2DRenderer.AddPaperDollTint</c> for the engine's copy of that walk, and
+/// <c>Render.Cockpit.PaperDollPainter.AddPaperDollTint</c> for the engine's copy of that walk, and
 /// docs/formats/mfd.md for the region record itself.</para>
 ///
 /// <para>Both the key and the tint arrive as <see cref="HudColorTable"/> ids. The key is authored in

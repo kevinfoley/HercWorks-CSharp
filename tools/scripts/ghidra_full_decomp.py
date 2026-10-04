@@ -1,30 +1,34 @@
 #!/usr/bin/env python3
-"""Regenerate the whole-program decompilation, vtable and struct dumps and report how much of DBSIM is named.
+"""Regenerate the whole-program function list, decompilation, vtable and struct dumps and report how much of each binary is named.
 
-Runs `ES2DumpFullDecomp` headless against the ES2Recon project, once per binary, writing
-`tools/analysis_out/<BINARY>_decomp_full.c`, then `ES2DumpAllVtables` the same way, writing
-`tools/analysis_out/<BINARY>_vtables_full.txt` (read by `es2_xref.py`), then `ES2DumpStructs`,
-writing `tools/analysis_out/<BINARY>_structs_full.txt`. The runs are sequential
+Runs `ES2ListFunctions` headless against the ES2Recon project, once per binary, writing
+`tools/analysis_out/<BINARY>_functions.txt` (address, name, body size), then `ES2DumpFullDecomp`
+the same way, writing `tools/analysis_out/<BINARY>_decomp_full.c`, then `ES2DumpAllVtables`,
+writing `tools/analysis_out/<BINARY>_vtables_full.txt` (read by `es2_xref.py`), then
+`ES2DumpStructs`, writing `tools/analysis_out/<BINARY>_structs_full.txt`. The runs are sequential
 because headless Ghidra locks the project. Each dump is written to a temporary file and moved into
 place only when the script reports `SCRIPT-OK`, so a failed or cancelled run leaves the previous
 dump intact.
 
-It then counts the DBSIM functions whose name in the dump is the one `known_symbols_dbsim.json` records
-for that address -- the names this project assigned, as opposed to `FUN_` placeholders and the
-names Ghidra supplies itself (Borland runtime functions, Win32 import thunks, `entry`).
+It then reports, from the function list, the functions whose name is the one
+`known_symbols_<binary>.json` records for that address -- the names this project assigned, as
+opposed to `FUN_` placeholders and the names Ghidra supplies itself (Borland runtime functions,
+Win32 import thunks, `entry`) -- both as a count and weighted by body size in bytes, since a few
+large functions hold much of the code. Each figure is given as a share of every function and as a
+share excluding the library/import names. Code bytes Ghidra has not placed in any function are
+outside both denominators.
 
 Usage:
-    python tools/scripts/ghidra_full_decomp.py              # dump both binaries (decomp, vtables, structs), then count
-    python tools/scripts/ghidra_full_decomp.py --no-dump    # count from the existing DBSIM dump
+    python tools/scripts/ghidra_full_decomp.py              # dump both binaries (all four dumps), then report
+    python tools/scripts/ghidra_full_decomp.py --no-dump    # report from the existing function lists
     python tools/scripts/ghidra_full_decomp.py --binary DBSIM
-    python tools/scripts/ghidra_full_decomp.py --binary DBSIM --dump decomp --dump vtables
+    python tools/scripts/ghidra_full_decomp.py --binary DBSIM --dump functions --dump vtables
 """
 
 from __future__ import annotations
 
 import argparse
 import os
-import re
 import subprocess
 import sys
 
@@ -37,11 +41,12 @@ SCRIPTS = os.path.join(REPO_ROOT, "tools", "ghidra_scripts")
 OUT_DIR = os.path.join(REPO_ROOT, "tools", "analysis_out")
 
 BINARIES = ["DBSIM", "VSHELL"]
-DUMPS = ["decomp", "vtables", "structs"]
+DUMPS = ["functions", "decomp", "vtables", "structs"]
 TIMEOUT_SECONDS = 60  # per function, passed through to ES2DumpFullDecomp
 
-# The banner ES2DumpFullDecomp writes above each function: "   NAME @ ADDR  [thunk]".
-HEADER = re.compile(r"^   (\S+) @ ([0-9a-fA-F]{8})(.*)$")
+
+def functions_path(binary: str) -> str:
+    return os.path.join(OUT_DIR, f"{binary}_functions.txt")
 
 
 def dump_path(binary: str) -> str:
@@ -79,40 +84,56 @@ def run_dump(binary: str, script: str, final: str, script_args: list[str], what:
     return False
 
 
-def read_functions(path: str) -> dict[str, tuple[str, bool]]:
-    """Address -> (name, is_external) for every function banner in a dump."""
+def read_functions(path: str) -> dict[str, tuple[str, int]]:
+    """Address -> (name, body size in bytes) for every line of an `ES2ListFunctions` list."""
     functions = {}
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
-            m = HEADER.match(line)
-            if m:
-                functions[m.group(2).lower()] = (m.group(1), "[external]" in m.group(3))
+            address, name, size = line.rstrip("\r\n").split("\t")
+            functions[address.lower()] = (name, int(size))
     return functions
 
 
 def report_names(binary: str) -> None:
-    path = dump_path(binary)
+    path = functions_path(binary)
     if not os.path.exists(path):
         sys.exit(f"{os.path.relpath(path, REPO_ROOT)} does not exist; run without --no-dump first")
 
     known = {e["address"].lower(): e["name"] for e in es2_symbols.entries(binary)
              if e.get("type") == "function" and "name" in e}
 
-    functions = {a: n for a, (n, ext) in read_functions(path).items() if not ext}
-    manual = [a for a, n in functions.items() if known.get(a) == n]
-    placeholder = [a for a, n in functions.items() if n.startswith("FUN_")]
-    other = len(functions) - len(manual) - len(placeholder)
-    renamed_since = [a for a, n in functions.items() if a in known and known[a] != n]
+    functions = read_functions(path)
+    manual = [a for a, (n, _) in functions.items() if known.get(a) == n]
+    placeholder = [a for a, (n, _) in functions.items() if n.startswith("FUN_")]
+    classified = set(manual) | set(placeholder)
+    other = [a for a in functions if a not in classified]
+    renamed_since = [a for a, (n, _) in functions.items() if a in known and known[a] != n]
     no_function = sorted(a for a in known if a not in functions)
 
-    total = len(functions)
-    game = total - other  # excludes Ghidra's own library and import-thunk names
+    def size(addresses: list[str]) -> int:
+        return sum(functions[a][1] for a in addresses)
+
+    total, total_bytes = len(functions), size(list(functions))
+    # Excludes Ghidra's own library and import-thunk names.
+    game, game_bytes = total - len(other), total_bytes - size(other)
+
+    def row(label: str, addresses: list[str], shares: bool = False) -> str:
+        n, b = len(addresses), size(addresses)
+        line = f"   {label:<28}{n:6}"
+        if shares:
+            line += f"  {100 * n / total:5.1f}%  {100 * n / game:5.1f}%"
+        line += f"  {b:9}"
+        if shares:
+            line += f"  {100 * b / total_bytes:5.1f}%  {100 * b / game_bytes:5.1f}%"
+        return line
+
     print(f"\n=== {binary} function names ({os.path.relpath(path, REPO_ROOT)})")
-    print(f"   functions in the database   {total:5}")
-    print(f"   manually named              {len(manual):5}  {100 * len(manual) / total:5.1f}% of all,"
-          f" {100 * len(manual) / game:5.1f}% excluding library/import names")
-    print(f"   FUN_ placeholders           {len(placeholder):5}")
-    print(f"   library/import/entry names  {other:5}")
+    print(f"   {'':<28}{'count':>6}  {'all':>6}  {'game':>6}  {'bytes':>9}  {'all':>6}  {'game':>6}")
+    print(row("functions in the database", list(functions)))
+    print(row("manually named", manual, shares=True))
+    print(row("FUN_ placeholders", placeholder, shares=True))
+    print(row("library/import/entry names", other))
+    print("   'game' excludes the library/import/entry names from the denominator")
     if renamed_since:
         print(f"   {len(renamed_since)} known_symbols names differ from the database"
               " (run ES2ApplySymbolNames): " + " ".join(sorted(renamed_since)))
@@ -123,17 +144,21 @@ def report_names(binary: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--no-dump", action="store_true", help="skip Ghidra; count from the existing dump")
+    parser.add_argument("--no-dump", action="store_true",
+                        help="skip Ghidra; report from the existing function lists")
     parser.add_argument("--binary", choices=BINARIES, action="append",
                         help="dump only this binary (repeatable; default both)")
     parser.add_argument("--dump", choices=DUMPS, action="append",
-                        help="regenerate only this dump (repeatable; default all three)")
+                        help="regenerate only this dump (repeatable; default all four)")
     args = parser.parse_args()
 
     ok = True
     if not args.no_dump:
         dumps = args.dump or DUMPS
         for binary in args.binary or BINARIES:
+            if "functions" in dumps:
+                ok = run_dump(binary, "ES2ListFunctions", functions_path(binary), [],
+                              "listing functions") and ok
             if "decomp" in dumps:
                 ok = run_dump(binary, "ES2DumpFullDecomp", dump_path(binary), [str(TIMEOUT_SECONDS)],
                               "decompiling (several minutes)") and ok

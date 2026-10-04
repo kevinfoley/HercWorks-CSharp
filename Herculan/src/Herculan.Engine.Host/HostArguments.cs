@@ -1,7 +1,7 @@
 namespace Herculan.Engine.Host;
 
 /// <summary>
-/// The command line's value readers and its <c>--help</c> text. Program.cs owns the flags themselves;
+/// The command line's value readers and its <c>--help</c> text. <see cref="HostOptions"/> owns the flags themselves;
 /// docs/engine/herculan-command-line.md describes each one.
 ///
 /// <para>A malformed command line is an error rather than a guess. Anything the parser does not claim

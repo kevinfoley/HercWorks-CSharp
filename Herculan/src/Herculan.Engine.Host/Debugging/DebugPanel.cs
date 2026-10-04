@@ -10,8 +10,8 @@ namespace Herculan.Engine.Host.Debugging;
 
 /// <summary>
 /// The debug settings panel, opened from the menu bar's "Debug" item. Closes on [Esc] or a click
-/// outside the window; see Program.cs for the shared [Esc]/menu-bar state machine that also covers
-/// TweaksMenu. It is drawn over whatever view is up, cockpit or external.
+/// outside the window; see <see cref="Simulator.WindowKeys.ReadMenuBarEscapeKey"/> for the shared [Esc]/menu-bar
+/// state machine that also covers TweaksMenu. It is drawn over whatever view is up, cockpit or external.
 ///
 /// <para>Built with ImGui, the toolkit the editor host already uses, rather than the game's own HUD
 /// font: that font and its sprite banks are the original's art placed from the original's own layout
@@ -24,7 +24,7 @@ namespace Herculan.Engine.Host.Debugging;
 /// mechanics.</para>
 /// </summary>
 sealed class DebugPanel {
-	/// <summary>Whether the panel is up. Set by the host's [Esc]/menu-bar logic in Program.cs, and
+	/// <summary>Whether the panel is up. Set by the host's [Esc]/menu-bar logic (<see cref="Simulator.WindowKeys"/>), and
 	/// cleared here on a click outside the window.</summary>
 	public bool IsOpen { get; set; }
 

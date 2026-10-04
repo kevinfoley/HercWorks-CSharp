@@ -135,7 +135,7 @@ Its last two writes set the mount's `+0x33` and `+0x3b` flag blocks, which is wh
 
 ### Gun convergence — `Mech_ConvergeGunsOnRange` (`0041a74c`)
 
-Every hardpoint is toed in so that its shots cross the sight line at the range the turret is currently aiming at. It runs at the tail of `Mech_TorsoPitchTick`, for the player and the AI alike, and its argument is that tick's third parameter — the 3D distance to the aim point, which `Cockpit_TargetAnglesFromCameraBone` supplies ([`torso-aim.md`](torso-aim.md#aiming-at-a-point)).
+Every hardpoint is toed in so that its shots cross the sight line at the range the turret is currently aiming at. It runs at the tail of `Mech_TorsoPitchTick`, for the player and the AI alike, and its argument is that tick's third parameter — the 3D distance to the aim point, which `Cockpit_TargetAnglesFromCameraBone` supplies ([`torso-aim.md`](torso-aim.md#aiming-at-a-point)). Its only other caller is `Razor_MovementTick`, since a flyer runs no turret tick: [`razor-flight.md`](razor-flight.md#gun-convergence).
 
 ```
 for each mount:

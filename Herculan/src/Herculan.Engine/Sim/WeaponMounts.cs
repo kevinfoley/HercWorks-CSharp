@@ -137,15 +137,10 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// Whether cockpit weapon row <paramref name="mountIndex"/> draws as armed. The armed mount does,
-	/// and so does the other half of a linked pair when its partner is the armed one — which is what
-	/// makes linking visible: both rows light together. <c>WeaponMounts_PerFrameUpdate</c> computes exactly this and
-	/// pushes it to each row's gauge.
-	/// </summary>
-	/// <summary>
 	/// <c>Mech_ConvergeGunsOnRange</c>'s loop — every mount toed in on the range the turret is aiming
-	/// at. Run from <see cref="MechObject.TorsoPitchTick"/>, so it happens for the player and the AI
-	/// alike; see docs/simulation/weapon-firing.md ("Gun convergence").
+	/// at. A walker runs it from <see cref="MechObject.TorsoPitchTick"/>, so it happens for the player
+	/// and the AI alike; a RAZOR, which has no turret tick, runs it from its movement tick. See
+	/// docs/simulation/weapon-firing.md ("Gun convergence").
 	/// </summary>
 	internal void ConvergeOnRange(MechObject owner, int range) {
 		foreach (var mount in Mounts) {
@@ -153,6 +148,12 @@ public sealed class WeaponMounts {
 		}
 	}
 
+	/// <summary>
+	/// Whether cockpit weapon row <paramref name="mountIndex"/> draws as armed. The armed mount does,
+	/// and so does the other half of a linked pair when its partner is the armed one — which is what
+	/// makes linking visible: both rows light together. <c>WeaponMounts_PerFrameUpdate</c> computes exactly this and
+	/// pushes it to each row's gauge.
+	/// </summary>
 	public bool IsArmedRow(int mountIndex) {
 		if (mountIndex == Selected) {
 			return true;

@@ -766,7 +766,9 @@ public sealed partial class MechObject : SimObject {
 	/// <summary>
 	/// What <c>Sim_PollPlayerInput</c> hands the pitch tick to converge the guns on: the 3D distance to
 	/// the selected target, or zero with nothing selected. So the player's guns toe in on whatever the
-	/// targeting system is holding, and square up when it is let go.
+	/// targeting system is holding, and square up when it is let go. <c>Razor_MovementTick</c> computes
+	/// the same figure for a flyer (<c>Math_DistanceBetweenPoints</c>, <c>00492780</c>) — see
+	/// <see cref="FlyerMovementTick"/>.
 	/// </summary>
 	private int GunConvergenceRange =>
 		Target is { } target ? Position.ApproxDistanceTo(target.Position) : 0;

@@ -180,8 +180,16 @@ public sealed partial class MechObject : IFlightBody {
 	/// contact point, and only on the contact that destroys the component. The four probes that
 	/// cannot end the flight throw nothing however hard they hit.</para>
 	///
-	/// <para>Not ported: the gun-convergence pass that closes the function, which is weapon aiming and
-	/// has no counterpart here.</para>
+	/// <para><b>Not retail:</b> every probe here is computed from the airframe's post-move transform,
+	/// each ground test at its own point. The original works through one copy of the transform taken
+	/// before the move, whose translation each ray probe overwrites and never restores, so its left
+	/// wing, cockpit and look-ahead ground tests are displaced — see docs/simulation/razor-flight.md
+	/// ("The probes share one transform") and KNOWN_ISSUES.md.</para>
+	///
+	/// <para><b>It closes with the gun convergence</b>, every tick and whatever state the airframe is
+	/// in: the guns toe in on the range to the selected target (<see cref="GunConvergenceRange"/>) or
+	/// square up with none. A walker reaches the convergence from its turret pitch tick, which a flyer
+	/// does not run. See docs/simulation/razor-flight.md ("Gun convergence").</para>
 	/// </summary>
 	private void FlyerMovementTick(SimWorld world, FlightModelRecord flight) {
 		var frame = Rotation();
@@ -213,6 +221,8 @@ public sealed partial class MechObject : IFlightBody {
 		FuselageContact(world, airSpeed);
 
 		UpdateEngineNote(world);
+
+		Weapons.ConvergeOnRange(this, GunConvergenceRange);
 	}
 
 	// The six probe points, in the airframe's own frame and in world units. Model forward is +Y and

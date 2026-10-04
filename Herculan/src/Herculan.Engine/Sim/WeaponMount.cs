@@ -1511,9 +1511,8 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// <c>Mech_ConvergeGunsOnRange</c> (<c>0041a74c</c>) — the toe-in that makes this hardpoint's
-	/// shots cross the sight line at <paramref name="range"/>. Run from
-	/// <see cref="MechObject.TorsoPitchTick"/> for every machine, so the player's guns and the AI's
-	/// converge the same way; a range of zero squares them up again.
+	/// shots cross the sight line at <paramref name="range"/>, for every mount through
+	/// <see cref="WeaponMounts.ConvergeOnRange"/>; a range of zero squares them up again.
 	/// </summary>
 	internal void ConvergeOnRange(MechObject owner, int range) {
 		if (range == 0) {

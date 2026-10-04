@@ -68,7 +68,7 @@ The device layer hands the same four axes to both control paths. A flyer reads t
 | `+0x12` | Turret twist | **Rudder** |
 | `+0x14` | Turret pitch | **Throttle** |
 
-Neither turret tick is on this path, so **a RAZOR's turret never moves** and its guns point where its nose points. The throttle has to move off stick Y because on an aircraft the primary stick axes are pitch and roll, and it lands on the axis a walker has no other use for.
+Neither turret tick is on this path, so **a RAZOR's turret never moves** and its guns point where its nose points, toed in on the range to its target ([Gun convergence](#gun-convergence)). The throttle has to move off stick Y because on an aircraft the primary stick axes are pitch and roll, and it lands on the axis a walker has no other use for.
 
 The keyboard reaches these axes through the same source table as the stick — see [The keyboard](../formats/joystick-input.md#the-keyboard).
 
@@ -151,7 +151,7 @@ Nothing clamps to it. Past the ceiling the model builds a push proportional to t
 
 ## Contact probes
 
-`Razor_MovementTick` has **no swept body test and no terrain clamp on the airframe as a whole**. Six points are checked instead, each against the ground beneath it and — bar the fuselage — swept forward as a ray one tick's travel long through `Sim_RaycastObjectList`, so a wing catches a building as readily as a hillside.
+`Razor_MovementTick` has **no swept body test and no terrain clamp on the airframe as a whole**. Six points are checked instead: four against the ground, and all but the fuselage swept forward as a ray one tick's travel long through `Sim_RaycastObjectList`, so a wing catches a building as readily as a hillside. Two of the ground tests sample somewhere other than their own point: [The probes share one transform](#the-probes-share-one-transform).
 
 The components are the game's own, from `STRINGS0` group 14, the flyer damage-readout list the Heads-Down Display takes in place of the walker's group 13 (see [`heads-down-display.md`](../formats/heads-down-display.md)):
 
@@ -168,13 +168,28 @@ Component 4 being the *left* nacelle settles the frame's handedness: its probe s
 
 **Both nacelle contacts are reported at the left nacelle's point.** The right nacelle's branch tests its own probe point but hands `Mech_ApplyDirectFireDamage` the address of the left one, so a right-nacelle strike draws its impact effect on the wrong side. See [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
+### The probes share one transform
+
+`Razor_MovementTick` copies the airframe's transform into a local **before** it integrates this tick's move, and every probe works through that copy: the five probe points are computed from it up front, it is never refreshed after a contact kicks the attitude, and the ray each probe sweeps is that copy with its translation overwritten by the probe's point. So every probe but the fuselage tests the airframe where it stood before this tick's move.
+
+The translation is never put back. The wings and the cockpit each compute their ground-test point afresh through the copy *before* writing their own ray origin into it, so each is displaced by the previous ray probe's point:
+
+| Ground test | Translation it is computed with | Point tested, every component intact |
+| --- | --- | --- |
+| Right wing | the airframe's position | `(1000, -700, -100)`, as listed |
+| Left wing | the right wing's point while that wing is intact | `(0, -1400, -200)` — on the centreline, 8.4 m aft and 1.2 m below |
+| Cockpit | the last intact ray probe's point: right nacelle, else left nacelle, else left wing, else right wing | `(450, 500, 0)` — 2.7 m right of the nose |
+| Look-ahead | the cockpit's point, which it always has, since it runs only with the cockpit intact | `(0, 16000, -1500)` |
+
+The displaced point is also the one a contact reports, ground or object, so a left-wing or cockpit strike draws its impact effect, and a fatal cockpit strike throws its wreckage, there. Only the rays themselves start at their own listed points.
+
 Damage scales with speed on a ground contact (`Q10(airspeed, 500)` for a wing, 1000 for the cockpit, 5000 for the fuselage) and is a flat figure on an object contact. The shield figure is always 8000. A contact kicks the rate *and* applies it to the attitude in the same tick, leaving the rate standing for the flight model to damp out afterwards.
 
 Destroying the cockpit or the fuselage latches `mech+0xa4` — the same byte a walker loses its legs to — and with it set the aircraft stops integrating position altogether. It is down where it fell.
 
 ### The look-ahead
 
-A seventh point at `(0, 15000, -1500)` — far ahead and well below — pulls the nose up when the ground rises into it, at a hundredth of the cockpit probe's gain. **It only runs on an intact airframe**: both nacelles and the cockpit have to be alive, so a RAZOR that has lost any of the three flies straight into the hill.
+A seventh point at `(0, 15000, -1500)` from the cockpit's point ([above](#the-probes-share-one-transform)) — far ahead and well below — pulls the nose up when the ground rises into it, at a hundredth of the cockpit probe's gain. **It only runs on an intact airframe**: both nacelles and the cockpit have to be alive, so a RAZOR that has lost any of the three flies straight into the hill.
 
 ### The shot record
 
@@ -195,6 +210,10 @@ A fatal contact sheds wreckage — group 3 at the contact point, and only from t
 
 `Razor_MovementTick` closes by pitching the looping engine hum (catalog id `0x2d`, `herceng1.wav`) at `FastMagnitude3D(bodyVelocity) * 16 + 28000` in 16.16, clamped to 16 bits, and re-placing it at the machine. It runs for the player's machine alone and is silenced on death. The hum is started by `Cockpit_PowerUpSound` and is the flyer's, not the walker's, despite the sample's name — see [`../formats/audio.md`](../formats/audio.md).
 
+## Gun convergence
+
+`Razor_MovementTick`'s last act is `Mech_ConvergeGunsOnRange` (`0041a74c`), unconditionally — an immobilised or destroyed RAZOR still runs it. The range is the distance from the machine to its selected target (`mech+0x1a4`) through `Math_DistanceBetweenPoints` (`00492780`), or 0 with none, the same figure `Sim_PollPlayerInput` computes for a walker. A walker reaches the convergence from `Mech_TorsoPitchTick`, which no flight path runs, so this is the flyer's only route to it; what the convergence does is in [`weapon-firing.md`](weapon-firing.md#gun-convergence--mech_convergegunsonrange-0041a74c).
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -207,4 +226,3 @@ A fatal contact sheds wreckage — group 3 at the contact point, and only from t
 ## Open
 
 - **Open:** whether any retail mission places an AI-controlled RAZOR, which the constructor would give the walker move. None has been found.
-- **Unported:** `Razor_MovementTick`'s closing call to `Mech_ConvergeGunsOnRange` (`0041a74c`), passing the distance from the machine to its selected target (`mech+0x1a4`), or 0 with none. A flyer has no pitch tick to reach the convergence from, as a walker does ([`weapon-firing.md`](weapon-firing.md#gun-convergence--mech_convergegunsonrange-0041a74c)), so the movement tick drives it.

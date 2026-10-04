@@ -9,7 +9,6 @@ Each entry names the doc that owns the subject. **That doc is authoritative** fo
 The mechanism is understood; what is left is engine work.
 
 - **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that compact their node numbering — the crudest one to three of each chassis — are excluded, because drawing them puts APOCA's upper body on a knee. The original composes every root through root 0's pose array too, so by the binary it should do the same; retail does not visibly do so, and what reconciles that is not yet found. **Settle that before changing anything here**: it decides whether the truncation is a divergence to lift or retail behaviour to match. → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md#the-pose-array-is-root-0s)
-- **The RAZOR's gun convergence.** Its guns are never converged on the range to its target. → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md#open)
 - **Two hit-detection paths:** testing a structure's node-placed clusters in the node's frame, and `Sim_RaycastShapeList`, the bulk line-of-sight query over the structure list. → [`docs/simulation/hit-detection.md`](docs/simulation/hit-detection.md#open)
 - **The impact-effect owner rule and the 40-effect pool limit.** → [`docs/simulation/impact-effects.md`](docs/simulation/impact-effects.md#open)
 - **The "enemy detected" callout.** → [`docs/simulation/target-selection.md`](docs/simulation/target-selection.md#open)

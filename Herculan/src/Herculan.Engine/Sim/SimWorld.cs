@@ -1207,6 +1207,68 @@ public sealed class SimWorld {
 	}
 
 	/// <summary>
+	/// <c>Sim_RaycastShapes</c> (<c>00404ca0</c>) and the <c>Sim_RaycastShapeList</c>
+	/// (<c>00404bc0</c>) it ends in — a ray between two world points against the structures' collision
+	/// volumes, and nothing else: no terrain, no machines, no damage, no effects. It is the AI's shape
+	/// probe, called by <see cref="MechObject"/>'s obstacle avoidance and its line-of-sight test (see
+	/// docs/simulation/hit-detection.md, "The shape probe").
+	///
+	/// <para>The ray is built as a shot's is — pointed from <paramref name="from"/> at
+	/// <paramref name="to"/> by <see cref="SimTrig.EulerToward"/>, starting at
+	/// <paramref name="from"/>, as long as the sqrt-free distance between them — and each candidate
+	/// is tested by <see cref="BaseObject.VolumeRaycast"/>. Candidates are every structure
+	/// <see cref="BaseObject.InShapeList"/> admits, oldest first as <c>Pool_Prev</c> walks the
+	/// structure pool. The original gathers them with no deployment test, so a structure whose group
+	/// has not arrived is one.</para>
+	///
+	/// <para>The sweep shortens the ray to each hit and stops at one inside
+	/// <see cref="WeaponShot.MinimumScanDistance"/>, as <see cref="Raycast"/> does, so what it reports
+	/// is the last structure struck: the nearest, unless an earlier one was inside that distance.</para>
+	///
+	/// <para>The original takes a clearance and a side filter as well. All three of its callers pass a
+	/// clearance of 0 and a side of −1, "any", so neither is a parameter here.</para>
+	/// </summary>
+	/// <param name="from">Where the ray starts, in world units.</param>
+	/// <param name="to">Where it ends.</param>
+	/// <param name="distance">How far along the ray the struck structure's volume was entered.</param>
+	/// <param name="struck">The structure struck, or null for a miss.</param>
+	/// <returns>Whether any structure was struck.</returns>
+	internal bool RaycastShapes(Vec3i from, Vec3i to, out int distance, out BaseObject? struck) {
+		var (pitch, roll, yaw) = SimTrig.EulerToward(to, from);
+		var muzzle = Transform3.FromEuler(pitch, roll, yaw);
+		muzzle.X = from.X;
+		muzzle.Y = from.Y;
+		muzzle.Z = from.Z;
+
+		var muzzleInverse = muzzle.Inverted();
+		int length = to.ApproxDistanceTo(from);
+
+		distance = 0;
+		struck = null;
+
+		for (int i = 0; i < _objects.Count; i++) {
+			if (_objects[i] is not BaseObject { Removed: false, InShapeList: true } candidate
+					|| !candidate.VolumeRaycast(muzzle, muzzleInverse, length, ShapeProbeClearance,
+						out int struckAt)) {
+				continue;
+			}
+
+			length = struckAt;
+			distance = struckAt;
+			struck = candidate;
+
+			if (struckAt < WeaponShot.MinimumScanDistance) {
+				break;
+			}
+		}
+
+		return struck != null;
+	}
+
+	/// <summary>The clearance every caller of <see cref="RaycastShapes"/> passes.</summary>
+	private const int ShapeProbeClearance = 0;
+
+	/// <summary>
 	/// <c>Damage_ExplosiveBlastSweep</c> (<c>00426a20</c>) — the area-of-effect counterpart of
 	/// <see cref="Raycast"/>: instead of following a ray it walks the whole live-object list once and
 	/// offers the blast to everything standing inside it.

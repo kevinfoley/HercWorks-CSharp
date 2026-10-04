@@ -641,6 +641,23 @@ public abstract class SimObject {
 		Shape?.NodeTransform(transformId) ?? Transform3.Identity;
 
 	/// <summary>
+	/// Where one of the shape's nodes stands right now, relative to this object's own frame — the
+	/// resolver <see cref="CollisionModel.Test"/> places node-mounted sphere clusters with, and the
+	/// reason a HERC's hit volume walks with it and an animated structure's turret or dish carries its
+	/// own. Null when the shape has no such part, or the object no animated shape.
+	///
+	/// <para>The collision model names a shape <i>part</i> id, which the original resolves through
+	/// the shape at <c>obj+0x34</c> to that part's transform slot
+	/// (<c>Mech_ComponentGeometryTest_Candidate</c>, <c>0040c8fc</c>, which falls back on an identity
+	/// transform for a part the shape does not have) — <see cref="ShapeAnimation.TransformIdOfPart"/>
+	/// is that lookup. See docs/simulation/hit-detection.md, "The test".</para>
+	/// </summary>
+	private protected Transform3? NodeFrame(short partId) {
+		int transformId = Animation?.TransformIdOfPart(partId) ?? -1;
+		return transformId < 0 || Shape == null ? null : Shape.NodeTransform(transformId);
+	}
+
+	/// <summary>
 	/// The object's shape instance's per-sequence cell-frame array, or null for one whose shape has
 	/// no cells the simulation drives. It is what makes a destroyed part stop being drawn — see
 	/// <see cref="ShapeCellFrames"/>. The three classes damage can take apart override it; nothing

@@ -609,8 +609,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RaycastShapeList",
-      "description": "Collects the objects Sim_RaycastShapes will test, then calls Sim_RaycastShapeVolume over them. The filter is the point, and it is Base_GetCollisionRadius's test read the other way round: typeRec+0x06 zero -- a STATIC structure -- always counts, and anything animated (an animated structure, or a machine) counts ONLY once it is a wreck. So this probe sees exactly the set whose collision radius is zero, and the proximity sweep sees the rest.",
-      "source": "docs/simulation/ai-navigation.md"
+      "description": "(out, ray, side): gathers Sim_RaycastShapes' candidates from the structure pool (DAT_004a9624), oldest first through Pool_Prev, into a stack array, then calls Sim_RaycastShapeVolume over them and returns its hit flag. Machines are not in the pool. A non-negative side skips a structure whose group team byte differs. The filter is Base_GetCollisionRadius's test read the other way round: typeRec+0x06 zero -- a STATIC structure -- always counts, and an animated structure counts ONLY once it passes the wreck test (typeRec+4 != -1, component 0 stages left <= 1, obj+0x99). No group-action test. So among structures this probe sees exactly the set whose collision radius is zero, and the machine sweep sees the rest.",
+      "source": "docs/simulation/hit-detection.md"
     },
     {
       "address": "00404ca0",
@@ -618,8 +618,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RaycastShapes",
-      "description": "Swept probe between two world points against object shapes: builds the ray's frame with Math_EulerToward and BuildEulerRotationMatrixQ14, then Sim_RaycastShapeList. Writes the hit distance to param_1[0] and returns the hit flag in AX. param_5 is a side filter, -1 for any.",
-      "source": "docs/simulation/ai-navigation.md"
+      "description": "(out, from, to, clearance, side): ray from one world point to another against the structures' collision volumes. Builds a ray record on the stack -- frame from Math_EulerToward(to, from) and BuildEulerRotationMatrixQ14 with from as translation, length Math_DistanceBetweenPoints, clearance at +8, world-to-ray inverse at +0x0a -- then Sim_RaycastShapeList. On a hit out[0] is the distance and out[1] the struck structure's obj+0xc; the hit flag returns in AX (the decompile drops it). Three callers, all clearance 0 and side -1: Mech_AiObstacleAvoidance twice and Ai_LineOfSightBlocked.",
+      "source": "docs/simulation/hit-detection.md"
     },
     {
       "address": "00404d70",
@@ -6158,7 +6158,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RaycastShapeVolume",
-      "description": "Ray versus a list of objects' collision height fields. Per object: coarse reject on shape+8 plus clearance plus ray length, then the object centre in muzzle space tested against a box on X and Y only (Z is not tested), then the ray transformed into shape space and marched by GridShape_Raycast. Writes the hit distance back into the ray record's +0x04 and returns early for a hit under 500. Two callers: Base_DirectFireHitTest (one object) and FUN_00404bc0 (a bulk line-of-sight query over the structure list).",
+      "description": "Ray versus a list of objects' collision height fields. Per object: coarse reject on shape+8 plus clearance plus ray length, then the object centre in muzzle space tested against a box on X and Y only (Z is not tested), then the ray transformed into shape space and marched by GridShape_Raycast. Writes the hit distance back into the ray record's +0x04 and returns early for a hit under 500. Two callers: Base_DirectFireHitTest (one object) and Sim_RaycastShapeList (the shape probe's gathered structures).",
       "source": "docs/simulation/hit-detection.md"
     },
     {

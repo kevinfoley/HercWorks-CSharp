@@ -630,21 +630,6 @@ public sealed partial class MechObject {
 	private bool ComponentAlive(int index) => _damage?.IsActive(index) ?? false;
 
 	/// <summary>
-	/// Where one of the shape's nodes stands right now, relative to this machine's own frame — the
-	/// resolver <see cref="CollisionModel.Test"/> places node-mounted sphere clusters with, and the
-	/// reason a HERC's hit volume walks with it.
-	///
-	/// <para>The <c>.COL</c> names a shape <i>part</i> id, which the original resolves through the
-	/// shape to that part's transform slot (<c>Mech_ComponentGeometryTest_Candidate</c>, which falls
-	/// back on an identity transform for a part the shape does not have) —
-	/// <see cref="Anim.ShapeAnimation.TransformIdOfPart"/> is that lookup.</para>
-	/// </summary>
-	private Transform3? NodeFrame(short partId) {
-		int transformId = Animation?.TransformIdOfPart(partId) ?? -1;
-		return transformId < 0 || Shape == null ? null : Shape.NodeTransform(transformId);
-	}
-
-	/// <summary>
 	/// <c>Mech_ShieldAbsorb_DirectFire</c> (<c>00413cc4</c>) — the geometry and the facing choice, with
 	/// <see cref="ShieldCharge.AbsorbDirectFire"/> doing the absorption itself.
 	///

@@ -7,12 +7,16 @@ namespace HercWorks.Query;
 /// <param name="Slot">Which of its 20 member slots names the record — its formation slot.</param>
 /// <param name="Side">0 human, 1 Cybrid, <c>-1</c> unset.</param>
 /// <param name="DeploymentActionRef">The row-10 action the group waits for, <c>-1</c> when it starts in the mission.</param>
+/// <param name="DeploymentVerb">
+/// That action's verb, which picks how the group arrives (docs/simulation/mission-deployment.md,
+/// "Arrival"); null when there is no such action.
+/// </param>
 /// <param name="FirstRecord">
 /// Row #16's first record, the player's squad, whose member slots the simulator does not read
 /// (<see cref="MissionGroup164.MemberRefs"/>).
 /// </param>
 internal sealed record GroupPlacement(
-	int Index, short Guid, int Slot, short Side, short DeploymentActionRef, short ConditionRef,
+	int Index, short Guid, int Slot, short Side, short DeploymentActionRef, short? DeploymentVerb, short ConditionRef,
 	string? Condition, bool FirstRecord) {
 	public bool DeploymentGated => DeploymentActionRef != -1;
 }
@@ -37,6 +41,9 @@ internal sealed record TypeHit(
 	/// <summary>Placed only by groups that wait on a deployment action.</summary>
 	public bool DeploymentGated => Placed && PlacedBy.All(g => g.DeploymentGated);
 
+	/// <summary>Placed by at least one group that waits on a deployment action.</summary>
+	public bool AnyDeploymentGated => PlacedBy.Any(g => g.DeploymentGated);
+
 	public bool ConditionGated => ConditionRef != -1 || SameGuid.Any(s => s.ConditionRef != -1);
 }
 
@@ -44,6 +51,7 @@ internal sealed record TypeQueryMission(string Mission, IReadOnlyList<TypeHit> H
 	public int Records => Hits.Count;
 	public int Placed => Hits.Count(h => h.Placed);
 	public int DeploymentGated => Hits.Count(h => h.DeploymentGated);
+	public int AnyDeploymentGated => Hits.Count(h => h.AnyDeploymentGated);
 	public int ConditionGated => Hits.Count(h => h.ConditionGated);
 
 	/// <summary>The distinct sides of the groups placing the hits.</summary>
@@ -55,6 +63,8 @@ internal sealed record TypeQueryResult(
 	int MissionsSearched, IReadOnlyList<TypeQueryMission> Missions) {
 	public int Records => Missions.Sum(m => m.Records);
 	public int Placed => Missions.Sum(m => m.Placed);
+	public int DeploymentGated => Missions.Sum(m => m.DeploymentGated);
+	public int AnyDeploymentGated => Missions.Sum(m => m.AnyDeploymentGated);
 }
 
 /// <summary>
@@ -131,6 +141,7 @@ internal static class TypeQuery {
 			for (int slot = 0; slot < group.MemberRefs.Length; slot++) {
 				if (group.MemberRefs[slot] == guid) {
 					yield return new GroupPlacement(g, group.GUID, slot, group.Side, group.DeploymentActionRef,
+						group.DeploymentActionRef == -1 ? null : file.GetAction(group.DeploymentActionRef)?.Verb,
 						group.ConditionRef, Conditions.Describe(file, group.ConditionRef), g == 0);
 				}
 			}
@@ -138,10 +149,16 @@ internal static class TypeQuery {
 	}
 
 	/// <summary>
-	/// The types <paramref name="spec"/> names: a decimal or <c>0x</c> hex index, or a type name, matched
-	/// whole and then as a prefix, ignoring case. Null when nothing matches.
+	/// The types <paramref name="spec"/> names: <c>all</c> for every type in the roster's table, a
+	/// decimal or <c>0x</c> hex index, or a type name, matched whole and then as a prefix, ignoring case.
+	/// Null when nothing matches.
 	/// </summary>
 	public static IReadOnlyList<int>? ResolveTypes(RetailData data, RosterKind kind, string spec) {
+		if (string.Equals(spec, AllTypes, StringComparison.OrdinalIgnoreCase)) {
+			int count = data.TypeCount(kind);
+			return count > 0 ? Enumerable.Range(0, count).ToList() : null;
+		}
+
 		if (spec.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
 				&& int.TryParse(spec[2..], System.Globalization.NumberStyles.HexNumber, null, out int hex)) {
 			return [hex];
@@ -163,4 +180,7 @@ internal static class TypeQuery {
 		var prefix = named.Where(t => t.Name!.StartsWith(spec, StringComparison.OrdinalIgnoreCase)).Select(t => t.Type).ToList();
 		return prefix.Count > 0 ? prefix : null;
 	}
+
+	/// <summary>The <c>--type</c> word for every type of the roster. No retail type name starts with it.</summary>
+	public const string AllTypes = "all";
 }

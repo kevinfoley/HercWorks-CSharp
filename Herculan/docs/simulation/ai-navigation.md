@@ -103,9 +103,9 @@ right:  ( 1500, 0, 0)  ->  ( 10000, 20000, 0)
 
 Each is transformed to world space, flattened onto the machine's own terrain height, and tested twice: against shapes by `Sim_RaycastShapes` (`00404ca0`) and against the ground by `Terrain_RayWalk`. Whichever hit is nearer becomes that side's number.
 
-`Sim_RaycastShapes` collects candidates before it casts (`Sim_RaycastShapeList`, `00404bc0`), and the filter is the interesting half. It is the **same test `Base_GetCollisionRadius` (`004035b8`) uses**, read the other way round: `typeRec+0x06` zero means a static structure, which always counts, and anything animated — a structure with an animation, or a machine — counts **only once it is a wreck**.
+`Sim_RaycastShapes` tests the structure pool alone, gathering its candidates first (`Sim_RaycastShapeList`, `00404bc0`; the query itself is [`hit-detection.md`](hit-detection.md#the-shape-probe--sim_raycastshapes-00404ca0)). Its filter is the **same test `Base_GetCollisionRadius` (`004035b8`) uses**, read the other way round: `typeRec+0x06` zero means a static structure, which always counts, and an animated structure counts **only once it is a wreck**.
 
-So the two sources are exact complements rather than overlapping. What has a collision radius is what the proximity sweep below sees, and it is precisely what this probe skips: a standing animated structure, and every live machine.
+So the two sources are exact complements rather than overlapping. What has a collision radius is what the machine sweep below sees, and it is precisely what this probe skips: a standing animated structure, and every HERC, which is not in the structure pool at all.
 
 **The ground half is `Terrain_RayWalk`'s mode 1, and it has to be.** The probes lie flat on the surface, so mode 0 — the thin ray, which reports the ground wherever the segment is at or below it — would graze on every tick of rolling terrain and pin the steer hard over. Mode 1 asks a different question at each cell the segment crosses: is the face it is crossing one movement can pass? `Terrain_FaceBlocksMovement` (`0046fe40`) answers it from the face normal's upward component alone — under `0x60e` at `0x800` scale, about 41° of slope, is a wall and stops the segment; anything shallower does not. So the probes see cliffs and nothing else. The threshold sits just *shallower* than `Mech_CollisionTest`'s own `0x5aa`, which is what gives a machine a band of slope it will steer away from before the move is refused outright.
 
@@ -219,7 +219,7 @@ Its target handling is the exception among the five: it runs `Ai_SelectDefenceTa
 | The whole group follows the route | Only the group leader does, through `Ai_NavigationStep`. The exception is `travelling`, which bypasses that chooser entirely and has every member reading the route at once |
 | A `following` order ends when the group reaches what it is following | Its completion test is the route test the other two movement verbs use, and nothing in `following` advances the route cursor |
 | Every navigation range is the ground one | Every range a *steer* is computed from is, which is the bulk of them and the reason a hilltop waypoint is as near as its foot. Two ranges that only gate a decision are 3D: the avoidance's machine sweep and `following`'s standoff |
-| `Sim_RaycastShapes`' filter turns on whether the candidate moves | `typeRec+0x06` is a machine's top speed and a structure's animated flag, and the probe wants the second reading. A standing *animated* structure is skipped here and picked up by the collision-radius sweep instead |
+| `Sim_RaycastShapes`' filter turns on whether the candidate moves | `typeRec+0x06` is a machine's top speed and a structure's animated flag, and the probe walks only the structure pool, so it reads the second. A standing *animated* structure is skipped here and picked up by the collision-radius sweep instead |
 
 ## Open
 

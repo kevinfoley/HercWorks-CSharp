@@ -26,8 +26,8 @@ internal static class Program {
 		  --variants        decode the condition on each conditioned record ("flag 625 > 0")
 		  --json            print the raw result as JSON
 
-		A type is a decimal or 0x-hex index, or a name matched whole and then as a prefix
-		(--type TRANSPORT, --type 0x22, --type 34).
+		A type is a decimal or 0x-hex index, a name matched whole and then as a prefix, or all
+		(--type TRANSPORT, --type 0x22, --type 34, --type all).
 		""";
 
 	public static int Main(string[] args) {

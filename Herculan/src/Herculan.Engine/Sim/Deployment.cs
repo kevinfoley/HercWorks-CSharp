@@ -131,15 +131,23 @@ public static class Deployment {
 	/// and hands the lot to <see cref="BaseObject.BlocksWalker"/>.
 	///
 	/// <para>Shared, because three sweeps in the original make this same call: the deployment probe
-	/// here, <c>Mech_CollisionTest</c> (<c>00418f74</c>) and the ground vehicle's own
-	/// <c>0046a510</c>.</para>
+	/// here, <c>Mech_CollisionTest</c> (<c>00418f74</c>) and <c>GroundVehicle_CollisionTest</c>
+	/// (<c>0046a510</c>).</para>
+	///
+	/// <para>The skip of a structure whose group has not arrived is this engine's, not the original's:
+	/// its gather makes no group-action test. See KNOWN_ISSUES.md.</para>
 	/// </summary>
-	internal static bool StructureInTheWay(SimWorld world, Vec3i point) {
+	/// <param name="excluded">
+	/// The gather's third argument, one structure it passes over: a ground vehicle names itself, so it
+	/// is not stopped by its own volume. The other two callers pass none.
+	/// </param>
+	internal static bool StructureInTheWay(SimWorld world, Vec3i point, SimObject? excluded = null) {
 		var objects = world.Objects;
 
 		for (int i = 0; i < objects.Count; i++) {
-			if (objects[i] is BaseObject structure && !structure.Removed
-					&& !structure.AwaitingDeployment && structure.BlocksWalker(point)) {
+			if (objects[i] is BaseObject structure && !ReferenceEquals(structure, excluded)
+					&& !structure.Removed && !structure.AwaitingDeployment
+					&& structure.BlocksWalker(point)) {
 				return true;
 			}
 		}

@@ -6,15 +6,16 @@ internal static class TextReport {
 		string noun = Roster.Noun(result.Roster);
 		string types = string.Join(", ", result.Types.Select((t, i) => Label(t, result.TypeNames[i])));
 		o.WriteLine($"Row #{result.Row} ({noun}) type {types}: {result.Missions.Count} of {result.MissionsSearched} missions, " +
-			$"{result.Records} records, {result.Placed} placed by a group.");
+			$"{result.Records} records, {result.Placed} placed by a group, {result.AnyDeploymentGated} by a group that waits on a deployment action " +
+			$"({result.DeploymentGated} by such groups alone).");
 		if (result.Missions.Count == 0) {
 			return;
 		}
 
 		o.WriteLine();
-		o.WriteLine("Mission   Records  Placed  Deploy-gated  Cond-gated  Sides");
+		o.WriteLine("Mission   Records  Placed  Deploy-gated  Any-deploy  Cond-gated  Sides");
 		foreach (var m in result.Missions) {
-			o.WriteLine($"{m.Mission,-9} {m.Records,7}  {m.Placed,6}  {m.DeploymentGated,12}  {m.ConditionGated,10}  {string.Join(", ", m.Sides.Select(FlagQuery.Side))}");
+			o.WriteLine($"{m.Mission,-9} {m.Records,7}  {m.Placed,6}  {m.DeploymentGated,12}  {m.AnyDeploymentGated,10}  {m.ConditionGated,10}  {string.Join(", ", m.Sides.Select(FlagQuery.Side))}");
 		}
 
 		foreach (var m in result.Missions) {
@@ -51,7 +52,9 @@ internal static class TextReport {
 				foreach (var g in hit.PlacedBy) {
 					var parts = new List<string> { $"placed by group {g.Guid} slot {g.Slot}", FlagQuery.Side(g.Side) };
 					if (g.DeploymentGated) {
-						parts.Add($"deploys on action {g.DeploymentActionRef}");
+						parts.Add(g.DeploymentVerb is { } verb
+							? $"deploys on action {g.DeploymentActionRef} (verb {verb})"
+							: $"deploys on action {g.DeploymentActionRef}");
 					}
 
 					if (g.ConditionRef != -1) {

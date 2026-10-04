@@ -469,15 +469,14 @@ public sealed partial class BaseObject : SimObject {
 			if (struckAt != 0 && shot.DamageArmor == 0 && shot.DamageShield == 0) {
 				damage = shot.StashedDamageArmor;
 			}
-		} else if (!WithinReach(shot)) {
+		} else if (!WithinReach(shot.Muzzle, shot.Distance, shot.Clearance)) {
 			return 0;
 		} else {
-			// No node-transform resolver: the engine has no posed node transforms for structures, so a
-			// node-placed cluster is tested in the object's own frame. Only the eight animated types
-			// carry any, and each keeps its body cluster in the object frame regardless.
+			// A node-placed cluster is read in its node's posed frame, so the turret and dish clusters
+			// of the six animated types that carry them follow the animation.
 			var hit = CollisionModel.Test(
 				_collision, Transform3.Concat(WorldTransform, shot.MuzzleInverse),
-				shot.Distance, shot.Clearance, ComponentAlive);
+				shot.Distance, shot.Clearance, ComponentAlive, NodeFrame);
 
 			struckAt = hit is { } found ? found.Distance + 1 : 0;
 			component = hit?.ComponentIndex ?? -1;
@@ -522,47 +521,87 @@ public sealed partial class BaseObject : SimObject {
 		world.Debris?.Database(DebrisDatabase.StructureName);
 
 	/// <summary>
-	/// The volume half of <c>Sim_RaycastShapeVolume</c> (<c>00427da8</c>), narrowed to the single object this is called on.
+	/// <c>Base_DirectFireHitTest</c>'s volume path: <see cref="VolumeRaycast"/> against the shot's ray,
+	/// with the hit test's own <c>+ 1</c> on the distance.
+	/// </summary>
+	/// <returns>How far along the ray the volume was entered, plus one, or zero for a miss.</returns>
+	private int VolumeStruck(WeaponShot shot) =>
+		VolumeRaycast(shot.Muzzle, shot.MuzzleInverse, shot.Distance, shot.Clearance, out int struckAt)
+			? struckAt + 1
+			: 0;
+
+	/// <summary>
+	/// The per-object body of <c>Sim_RaycastShapeVolume</c> (<c>00427da8</c>): one ray against this
+	/// structure's collision volume. <c>Base_DirectFireHitTest</c> runs it on the one structure it is
+	/// called on (<see cref="VolumeStruck"/>), and <see cref="SimWorld.RaycastShapes"/> over the
+	/// structure list.
 	///
 	/// <para>Two rejects before any grid work: <see cref="WithinReach"/>, then the structure's centre
-	/// brought into the shot's frame and tested against a box — <b>X and Y only</b>, with Z left out
+	/// brought into the ray's frame and tested against a box — <b>X and Y only</b>, with Z left out
 	/// entirely, which is the original's own test and not an omission here. Only then is the ray
-	/// brought into shape space and marched.</para>
+	/// brought into shape space and marched (docs/simulation/hit-detection.md, "The collision
+	/// volume").</para>
+	///
+	/// <para>The original also lowers a global minimum distance here (<c>004aab54</c>). Its only other
+	/// writer zeroes it and every distance is non-negative, so it never holds anything but zero, and
+	/// it is not carried.</para>
 	/// </summary>
-	/// <returns>How far along the ray the volume was entered, or zero for a miss.</returns>
-	private int VolumeStruck(WeaponShot shot) {
-		if (CurrentVolume is not { IsSolid: true } volume || !WithinReach(shot)) {
-			return 0;
+	/// <param name="muzzle">The ray's frame: its start in the translation, running down its Y axis.</param>
+	/// <param name="muzzleInverse">World to ray space — <paramref name="muzzle"/> inverted.</param>
+	/// <param name="distance">The ray's length.</param>
+	/// <param name="clearance">The ray record's <c>+0x08</c> — see <see cref="WeaponShot.Clearance"/>.</param>
+	/// <param name="struckAt">
+	/// How far from the start the volume was entered, measured in shape space; zero on a miss, and
+	/// zero on a hit whose start is already inside the volume.
+	/// </param>
+	internal bool VolumeRaycast(in Transform3 muzzle, in Transform3 muzzleInverse, int distance,
+			int clearance, out int struckAt) {
+		struckAt = 0;
+
+		if (CurrentVolume is not { IsSolid: true } volume
+				|| !WithinReach(muzzle, distance, clearance)) {
+			return false;
 		}
 
-		int reach = ShapeRadius + shot.Clearance;
-		int limit = shot.Distance + reach;
+		int reach = ShapeRadius + clearance;
+		int limit = distance + reach;
 
-		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
-		var center = shot.MuzzleInverse.TransformPoint(Position.X, Position.Y, Position.Z);
+		var center = muzzleInverse.TransformPoint(Position.X, Position.Y, Position.Z);
 		if (center.X >= reach || center.X <= -reach || center.Y <= -reach || center.Y >= limit) {
-			return 0;
+			return false;
 		}
 
 		var toShapeSpace = WorldTransform.Inverted();
 		var start = toShapeSpace.TransformPoint(muzzle.X, muzzle.Y, muzzle.Z);
-		var far = shot.Muzzle.TransformPoint(0, shot.Distance, 0);
+		var far = muzzle.TransformPoint(0, distance, 0);
 		var end = toShapeSpace.TransformPoint(far.X, far.Y, far.Z);
 
-		return volume.Raycast(start, end, shot.Clearance, out var hit)
-			? hit.ApproxDistanceTo(start) + 1
-			: 0;
+		if (!volume.Raycast(start, end, clearance, out var hit)) {
+			return false;
+		}
+
+		struckAt = hit.ApproxDistanceTo(start);
+		return true;
 	}
 
 	/// <summary>
 	/// The coarse reject both hit paths open with, and the same one every hit test in the simulation
-	/// starts from: muzzle to structure, against the ray's remaining length plus the shape's radius
-	/// plus the shot's clearance. It keeps the transform work off everything nowhere near the shot.
+	/// starts from: ray start to structure, against the ray's remaining length plus the shape's
+	/// radius plus the ray's clearance. It keeps the transform work off everything nowhere near the
+	/// ray.
 	/// </summary>
-	private bool WithinReach(WeaponShot shot) {
-		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
-		return Position.ApproxDistanceTo(muzzle) <= ShapeRadius + shot.Clearance + shot.Distance;
-	}
+	private bool WithinReach(in Transform3 muzzle, int distance, int clearance) =>
+		Position.ApproxDistanceTo(new Vec3i(muzzle.X, muzzle.Y, muzzle.Z))
+			<= ShapeRadius + clearance + distance;
+
+	/// <summary>
+	/// Whether <c>Sim_RaycastShapeList</c> (<c>00404bc0</c>) gathers this structure for
+	/// <see cref="SimWorld.RaycastShapes"/>: <b>a static type always, an animated type only once it is
+	/// <see cref="Wrecked"/></b>. It is <see cref="CollisionRadius"/>'s test read the other way round,
+	/// so a structure is seen either by the AI's shape probes or by the machine sweep that reads a
+	/// collision radius, never both (docs/simulation/ai-navigation.md, "The two probes").
+	/// </summary>
+	internal bool InShapeList => Type.Source != BaseShapeSource.AnimatedLibrary || Wrecked;
 
 	/// <summary>
 	/// <c>Base_ApplyDamage</c> (<c>00404d70</c>), the vtable <c>+0x74</c> — writes one

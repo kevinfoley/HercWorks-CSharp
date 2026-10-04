@@ -271,7 +271,9 @@ public sealed partial class BaseObject {
 			return true;
 		}
 
-		return Deployment.StructureInTheWay(world, position);
+		// The vehicle is itself a structure with a collision volume, and passes itself as the
+		// gather's exclusion so it is not stopped by its own footprint.
+		return Deployment.StructureInTheWay(world, position, this);
 	}
 
 	/// <summary>

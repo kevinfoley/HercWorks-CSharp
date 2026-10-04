@@ -768,6 +768,49 @@ public sealed partial class BaseObject : SimObject {
 		return WorldTransform.TransformPoint(local.X, local.Y, local.Z);
 	}
 
+	/// <summary><c>Base_ComponentPosition</c> (<c>00406808</c>), vtable <c>+0x58</c> — <see cref="ComponentPosition"/>.</summary>
+	public override Vec3i ComponentWorldPosition(short componentIndex) => ComponentPosition(componentIndex);
+
+	/// <summary>
+	/// <c>Base_FirstLiveComponent</c> (<c>00406868</c>), vtable <c>+0x54</c>, with a null second
+	/// argument: the first component still standing, or −1 when none is. The AI's fire path shoots a
+	/// structure there (docs/simulation/ai-weapons.md).
+	/// </summary>
+	public int FirstLiveComponent() {
+		for (int i = 0; i < Type.Components.Length; i++) {
+			if (_alive[i]) {
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	/// <summary>
+	/// <c>Base_FirstLiveComponent</c> (<c>00406868</c>) handed a pose — the same walk over the
+	/// type's components as <see cref="FirstLiveComponent"/>, but taking the live one with the least
+	/// <see cref="SimObject.AimOffset"/>, the first of equals, rather than the first live one. See
+	/// docs/simulation/rockets.md, "Spawning".
+	/// </summary>
+	public override short ComponentNearestAim(Vec3i from, (short X, short Y, short Z) attitude) {
+		int best = NoAimOffset;
+		short chosen = -1;
+
+		for (short i = 0; i < Type.Components.Length; i++) {
+			if (!_alive[i]) {
+				continue;
+			}
+
+			int offset = AimOffset(ComponentPosition(i), from, attitude);
+			if (offset < best) {
+				best = offset;
+				chosen = i;
+			}
+		}
+
+		return chosen;
+	}
+
 	/// <summary>
 	/// Sits the structure on the ground and runs whatever is still falling off it. Same ground
 	/// treatment mechs get, and for the same reason: the mission states X and Y, and the terrain

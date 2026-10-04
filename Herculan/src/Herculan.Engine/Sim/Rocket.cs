@@ -33,8 +33,8 @@ namespace Herculan.Engine.Sim;
 /// aim angles go in exactly as the mount handed them over and the record's damage applies at face
 /// value.</item>
 /// <item><b>It is the class guidance was written for.</b> The plasma round borrows a cut-down
-/// version; this one leads its target, has a per-subtype gate on whether it may lock at all, and a
-/// player-flown branch. See <see cref="HomingTick"/> for which parts are ported.</item>
+/// version; this one steers at a component of its target, has a per-subtype gate on whether it may
+/// lock at all, and a player-flown branch. See <see cref="HomingTick"/>.</item>
 /// </list>
 ///
 /// <para>Only <c>PROJ.DAT</c> <see cref="ProjectileType.Rocket"/> records reach here.
@@ -394,57 +394,56 @@ public sealed class Rocket {
 
 	/// <summary>
 	/// <c>Rocket_HomingSteer</c> (<c>0040a254</c>) — the seeker, which is a steer of the round's euler
-	/// angles rather than of a velocity, exactly as the plasma round's is, but with a real lead and
-	/// three gates on top.
+	/// angles rather than of a velocity, exactly as the plasma round's is, but at a component of the
+	/// target and behind gates the plasma round has none of. See docs/simulation/rockets.md,
+	/// "Guidance".
 	///
 	/// <para>A round steers only when <c>Rocket_Fire</c> attached a target, which it does when this
 	/// class of launcher had lock — see <see cref="SimWorld.FireRocket"/>. Fired without lock it
 	/// flies where it was pointed, exactly as the original does.</para>
-	///
-	/// <para>The emission gate and the electro-optical round's selection suppression are written as
-	/// branches below. Two more the original applies are not, because the inputs they test do not
-	/// exist here yet:</para>
-	///
-	/// <list type="bullet">
-	/// <item><b>The lead point.</b> A round whose lock is on a specific node of the target
-	/// (<c>+0x5a</c>, filled at launch from the target's own vtable <c>+0x54</c>) steers at that
-	/// node's world position rather than at the object's origin; a round without one steers at the
-	/// target's extrapolated position.</item>
-	/// <item><b>The spoofing wobble.</b> When the launching machine's own <c>+0x9c</c> flag is set —
-	/// which <c>Mech_PerTickSystemsUpdate</c> (<c>0041aa5c</c>) rolls for each tick the machine's
-	/// selected target is jamming — every subtype but the anti-radiation one has its aim error pushed
-	/// <i>away</i> by <c>0xc00</c> whenever it falls inside <c>±0xc00</c>, so the round weaves around
-	/// the target instead of converging on it. That is the mechanical form of the manual's ECM.</item>
-	/// </list>
 	/// </summary>
 	private void HomingTick() {
 		if (Target == null) {
 			return;
 		}
 
+		// The selection gate. A round the player launched steers only while its target is still the
+		// player's selected target; an AI's rounds are not asked.
+		if (Owner is { LocallyPiloted: true } && !ReferenceEquals(Owner.Target, Target)) {
+			return;
+		}
+
 		// The emission gate. An anti-radiation round steers only while its target is emitting — its
-		// scanner or its jammer — and coasts on its current heading the moment either goes quiet.
-		// Reachable now that a target can be selected; nothing turns either emitter on yet, so in
-		// practice this subtype flies straight, which is also what it does against a silent target in
-		// the original.
+		// scanner or its jammer — and coasts on its current heading the moment both go quiet.
 		if (SubtypeId == AntiRadiationSubtype
 				&& !Target.ScannerActive && !Target.JammerActive) {
 			return;
 		}
 
-		// An electro-optical round in flight suppresses its launcher's next AI weapon selection, once
-		// per tick it steers — the machine's equivalent of a pilot flying it, and the only writer of
-		// mech+0xb5. See docs/simulation/ai-weapons.md.
-		if (SubtypeId == PlayerFlownSubtype && Owner is MechObject launcher) {
-			launcher.WeaponSelectionSuppressed = true;
-		}
+		var lead = LockComponent >= 0 ? Target.ComponentWorldPosition(LockComponent) : Target.AimPoint;
+		var (bearingX, _, bearingZ) = SimTrig.EulerToward(lead, Position);
+		short pitchError = (short)(bearingX - _eulerX);
+		short yawError = (short)(bearingZ - _eulerZ);
 
-		var (bearingX, _, bearingZ) = SimTrig.EulerToward(Target.AimPoint, Position);
+		if (SubtypeId == PlayerFlownSubtype) {
+			// An electro-optical round in flight suppresses its launcher's next AI weapon selection,
+			// once per tick it steers — the machine's equivalent of a pilot flying it, and the only
+			// writer of mech+0xb5. See docs/simulation/ai-weapons.md.
+			if (Owner is MechObject launcher) {
+				launcher.WeaponSelectionSuppressed = true;
+			}
+		} else if (SubtypeId != AntiRadiationSubtype && Owner is MechObject { EcmSpoofed: true }) {
+			// The spoofing wobble, on the launcher's own ECM spoof flag (mech+0x9c). The only writer
+			// of that flag found is Mech_PerTickSystemsUpdate (0041aa5c), a HERC's, so a flyer's or a
+			// structure's rounds never wobble here.
+			yawError = SpoofedAimError(yawError);
+			pitchError = SpoofedAimError(pitchError);
+		}
 
 		short pitchRate = 0;
 		short yawRate = 0;
-		SimMath.RateLimitedMoveToward(ref pitchRate, (short)(bearingX - _eulerX), HomingTurnRate);
-		SimMath.RateLimitedMoveToward(ref yawRate, (short)(bearingZ - _eulerZ), HomingTurnRate);
+		SimMath.RateLimitedMoveToward(ref pitchRate, pitchError, HomingTurnRate);
+		SimMath.RateLimitedMoveToward(ref yawRate, yawError, HomingTurnRate);
 
 		_eulerX = (short)(_eulerX + SimMath.IntegrateRateOverTick(pitchRate));
 		_eulerZ = (short)(_eulerZ + SimMath.IntegrateRateOverTick(yawRate));
@@ -458,12 +457,50 @@ public sealed class Rocket {
 	public const short HomingTurnRate = 0x500;
 
 	/// <summary>
+	/// How far either side of dead ahead the spoofing wobble reaches, and how far it pushes —
+	/// <c>Rocket_HomingSteer</c>'s <c>0xc00</c>, about 17°.
+	/// </summary>
+	public const short SpoofWobble = 0xc00;
+
+	/// <summary>
+	/// The spoofing wobble on one aim error: an error in <c>[-0xc00, 0xbff]</c> is moved
+	/// <see cref="SpoofWobble"/> toward the opposite sign, so a round nearly on its target steers away
+	/// from it. The range test is the original's unsigned <c>(ushort)(error + 0xc00) &lt; 0x1800</c>.
+	/// </summary>
+	private static short SpoofedAimError(short error) {
+		if ((ushort)(error + SpoofWobble) >= 2 * SpoofWobble) {
+			return error;
+		}
+
+		return (short)(error >= 0 ? error - SpoofWobble : error + SpoofWobble);
+	}
+
+	/// <summary>
 	/// <c>+0x56</c>, what a seeking round is chasing. <c>Rocket_Fire</c> fills it from the launching
 	/// machine's selected target, but only when the machine's vtable <c>+0x6c</c> says this subtype
 	/// has lock — that reads the per-subtype lock flags at <c>manager+0x0a</c>, written each tick by
 	/// <see cref="MechObject.MissileLockTick"/>. See <see cref="SimWorld.FireRocket"/>.
 	/// </summary>
-	public SimObject? Target { get; internal set; }
+	public SimObject? Target { get; private set; }
+
+	/// <summary>
+	/// <c>+0x5a</c>, the component of <see cref="Target"/> the round steers at, or −1 to steer at
+	/// the target's <see cref="SimObject.AimPoint"/>. Chosen once, at launch, by the target's
+	/// <see cref="SimObject.ComponentNearestAim"/>, and never re-chosen: a round whose component is
+	/// shot off goes on steering at where that component stands.
+	/// </summary>
+	public short LockComponent { get; private set; } = -1;
+
+	/// <summary>
+	/// <c>Rocket_Fire</c>'s lock: attaches <paramref name="target"/> and, when there is one, asks it
+	/// (vtable <c>+0x54</c>) for the component nearest the round's launch attitude from the muzzle.
+	/// </summary>
+	internal void Lock(SimObject? target) {
+		Target = target;
+		if (target != null) {
+			LockComponent = target.ComponentNearestAim(Position, Euler);
+		}
+	}
 
 	/// <summary>
 	/// <c>Rocket_TickUpdate</c>'s opening step, and the same countdown-and-reload

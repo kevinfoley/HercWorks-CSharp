@@ -148,9 +148,9 @@ public abstract class SimObject {
 	public virtual bool ScannerActive => false;
 
 	/// <summary>
-	/// <c>obj+0xa1</c> — whether this object's jammer is running. Nothing in the engine turns one on
-	/// yet; it is declared because the two systems that read it (the anti-radiation missile's
-	/// emission gate and the ECM spoofing roll) are both reachable now that a target can be selected.
+	/// <c>obj+0xa1</c> — whether this object's jammer is running. <see cref="MechObject"/> derives
+	/// it each tick; the base answers false. The anti-radiation missile's emission gate and the ECM
+	/// spoofing roll read it.
 	/// </summary>
 	public virtual bool JammerActive => false;
 
@@ -534,11 +534,43 @@ public abstract class SimObject {
 	public virtual bool ComponentPresent(int componentId) => true;
 
 	/// <summary>
-	/// Vtable <c>+0x58</c> — where one of this object's components stands in the world. The base
-	/// answers the object's own origin, which is what a flyer and (here) a structure give; only
-	/// <see cref="MechObject"/> places components apart from the machine.
+	/// Vtable <c>+0x58</c> — where one of this object's components stands in the world.
+	/// <see cref="MechObject"/> and <see cref="BaseObject"/> override it. The base answers the
+	/// object's own origin; a flyer's slot in the original (<c>SimObject_ComponentPositionNoOp</c>,
+	/// <c>00411a3c</c>) writes nothing, and every caller is fenced off it — see
+	/// docs/simulation/damage-system.md, "Where a component stands".
 	/// </summary>
 	public virtual Vec3i ComponentWorldPosition(short componentIndex) => Position;
+
+	/// <summary>
+	/// Vtable <c>+0x54</c> asked with a pose — which of this object's live components a missile
+	/// launched from <paramref name="from"/> pointing along <paramref name="attitude"/> locks on to,
+	/// or −1 for none. <c>Rocket_Fire</c> is the only caller that hands it a pose; see
+	/// <see cref="Rocket.LockComponent"/>. The base is the flyer's
+	/// <c>SimObject_ComponentNearestAim_None</c> (<c>00411a44</c>), a bare <c>return -1</c>, so a
+	/// round fired at an aircraft always steers at its aim point.
+	/// </summary>
+	public virtual short ComponentNearestAim(Vec3i from, (short X, short Y, short Z) attitude) => -1;
+
+	/// <summary>
+	/// The measure <c>Mech_ComponentNearestAim</c> (<c>0041b534</c>) and
+	/// <c>Base_FirstLiveComponent</c> (<c>00406868</c>) each inline: the bearing from
+	/// <paramref name="from"/> to <paramref name="component"/> less <paramref name="attitude"/>, as
+	/// <c>|Δpitch| + |Δheading|</c>, each difference wrapped to 16 bits and a difference of
+	/// <c>-0x8000</c> counted as <c>0x7fff</c>. The roll element is computed and ignored.
+	/// </summary>
+	private protected static int AimOffset(Vec3i component, Vec3i from, (short X, short Y, short Z) attitude) {
+		var (bearingX, _, bearingZ) = SimTrig.EulerToward(component, from);
+		return AbsAngle((short)(bearingX - attitude.X)) + AbsAngle((short)(bearingZ - attitude.Z));
+
+		static int AbsAngle(short angle) => angle == short.MinValue ? short.MaxValue : Math.Abs(angle);
+	}
+
+	/// <summary>
+	/// The starting best <see cref="AimOffset"/> of both walks — <c>0x1000000</c>, above anything
+	/// the measure can return, so the first live component always takes the lock.
+	/// </summary>
+	private protected const int NoAimOffset = 0x1000000;
 
 	/// <summary>
 	/// <c>obj+0x1a4</c> — this object's selected target. It is on this class because it is on the

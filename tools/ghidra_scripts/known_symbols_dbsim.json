@@ -766,7 +766,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_FirstLiveComponent",
-      "description": "Base vtable +0x54. With a null second argument returns the first component index whose damage word is non-zero, which is what Ai_AimAndFire asks for. With a mech it instead returns the component whose world position is nearest that machine's aim in |dyaw| + |dpitch|.",
+      "description": "Base vtable +0x54. With a null second argument returns the first component index whose alive flag (+0x201 array) is non-zero, which is what Ai_AimAndFire asks for. With a pose (Rocket_Fire passes the round's +0xc block: euler triple, position at +0x1a) it walks the same live components and returns the one whose bearing from that position is nearest the pose's pitch and heading in |dpitch| + |dheading|, as Mech_ComponentNearestAim does; -1 when none is live.",
       "source": "docs/simulation/ai-weapons.md"
     },
     {
@@ -1488,7 +1488,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_HomingSteer",
-      "description": "Missile seeker. Steers the euler triple toward Math_EulerToward(leadPoint, self) at 0x500 per 125 ms. Lead point is the locked node (target vtable +0x58 via obj+0x5a) or the extrapolated origin. Subtype 2 (ARM) steers only while the target emits (target +0x96 scanner or +0xa1 jammer); every other subtype has its aim error pushed AWAY by 0xc00 whenever inside +/-0xc00 while the FIRING mech+0x9c spoof flag is set (ECM). Subtype 3 sets owner+0xb5 to suppress AI weapon selection for a tick.",
+      "description": "Missile seeker. Steers only with a target (+0x56) and, when the owner is locally piloted (owner+0xa3), only while that target is still the owner's selected target (owner+0x1a4). Subtype 2 (ARM) steers only while the target emits (target +0x96 scanner or +0xa1 jammer). The lead is the target's component +0x5a through target vtable +0x58 when non-negative, else the aim point (vtable +0x24) or the origin; Math_EulerToward(lead, self) less the round's euler gives the pitch and heading errors. Subtype 3 sets owner+0xb5 to suppress AI weapon selection for a tick; subtypes 0, 1 and 4, while the FIRING owner's +0x9c spoof flag is set (ECM), move each error in [-0xc00, 0xbff] by 0xc00 toward the opposite sign. Each error then goes through Math_RateLimitedMoveToward at 0x500 and Math_IntegrateRateOverTick onto pitch (+0xc) and heading (+0x10).",
       "source": "docs/simulation/rockets.md"
     },
     {
@@ -4574,7 +4574,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ComponentNearestAim",
-      "description": "Mech vtable +0x54. Walks the machine's 29 component slots, places each occupied one through vtable +0x58, and returns the index of the one whose bearing from the given rocket (position at rocket+0x26) is nearest the rocket's heading triple (rocket+0xc), measured as the sum of the absolute differences of Euler elements 0 and 2; -1 when no slot is occupied. Rocket_Fire calls it through the locked target at launch and stores the result in the rocket's node handle (+0x5a), which Rocket_HomingSteer steers at. Base_FirstLiveComponent is the structure class's counterpart.",
+      "description": "Mech vtable +0x54. Walks the machine's 29 component slots, places each occupied one through vtable +0x58, and returns the index of the one whose bearing from the given pose's position (+0x1a) is nearest the pose's euler triple (+0x0), measured as the sum of the absolute differences of Euler elements 0 and 2 (-0x8000 counts as 0x7fff, first of equals wins); -1 when no slot is occupied. Rocket_Fire calls it through the locked target at launch with the round's +0xc block and stores the result in the round's lock component (+0x5a), which Rocket_HomingSteer steers at. Base_FirstLiveComponent is the structure class's counterpart.",
       "source": "docs/simulation/rockets.md"
     },
     {

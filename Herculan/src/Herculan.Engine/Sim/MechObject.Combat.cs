@@ -940,6 +940,31 @@ public sealed partial class MechObject {
 	public override Vec3i ComponentWorldPosition(short componentIndex) => ComponentPosition(componentIndex);
 
 	/// <summary>
+	/// <c>Mech_ComponentNearestAim</c> (<c>0041b534</c>), vtable <c>+0x54</c> — over all
+	/// <see cref="ComponentDamage.MechComponentCount"/> slots, the live one whose
+	/// <see cref="ComponentWorldPosition"/> has the least <see cref="SimObject.AimOffset"/>, the
+	/// first of equals; −1 when none is live. See docs/simulation/rockets.md, "Spawning".
+	/// </summary>
+	public override short ComponentNearestAim(Vec3i from, (short X, short Y, short Z) attitude) {
+		int best = NoAimOffset;
+		short chosen = -1;
+
+		for (short i = 0; i < ComponentDamage.MechComponentCount; i++) {
+			if (_damage?.IsActive(i) != true) {
+				continue;
+			}
+
+			int offset = AimOffset(ComponentPosition(i), from, attitude);
+			if (offset < best) {
+				best = offset;
+				chosen = i;
+			}
+		}
+
+		return chosen;
+	}
+
+	/// <summary>
 	/// <c>Mech_NextTargetableComponent</c> (<c>00415558</c>), vtable <c>+0x80</c> — the Targeting
 	/// Pod's rotation over <see cref="TargetingPodLock.ComponentRotation"/>, skipping any slot the
 	/// machine has lost and wrapping at seven.

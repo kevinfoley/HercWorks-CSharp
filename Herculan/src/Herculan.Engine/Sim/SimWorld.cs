@@ -1389,9 +1389,8 @@ public sealed class SimWorld {
 	/// subtype is the missile the player flies by hand and so never builds a lock — which is how an
 	/// AI opponent's electro-optical missile still tracks.</para>
 	///
-	/// <para>The <i>node</i> half of the lock is not attached — <c>+0x5a</c>, which the original fills
-	/// from the target's own vtable <c>+0x54</c> so the round steers at a specific part rather than at
-	/// the object's origin.</para>
+	/// <para>A target, once attached, is asked which of its components the round locks on to
+	/// (<see cref="Rocket.LockComponent"/>).</para>
 	///
 	/// <para>Every round the locally piloted machine launches becomes <see cref="PlayerMissile"/>, the
 	/// one the MFD's missile camera rides.</para>
@@ -1420,12 +1419,12 @@ public sealed class SimWorld {
 		if (owner is MechObject launching
 				&& (launching.MissileLocked(projectile.SubtypeId)
 					|| (!launching.LocallyPiloted && projectile.SubtypeId == Rocket.PlayerFlownSubtype))) {
-			round.Target = launching.Target;
+			round.Lock(launching.Target);
 		} else if (owner is not null and not MechObject) {
 			// The lock gate is the launcher's own vtable +0x6c, and every class but the mech installs a
 			// `return 1` stub (SimObject_MissileLockState_Always (00411b04)) -- so a Cybrid flyer's or a
 			// missile tower's round is always given the launcher's selected target.
-			round.Target = owner.Target;
+			round.Lock(owner.Target);
 		}
 
 		_rockets.Add(round);

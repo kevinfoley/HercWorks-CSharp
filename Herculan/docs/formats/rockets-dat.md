@@ -30,7 +30,7 @@ Retail (5 records, one per `Rocket` subtype id):
 
 ## `dts\ROCKETS.DTS`
 
-Both roots are a `TSDetailPart` over four LODs (`details = [4, 12, 45, 255]`). At the highest, the shape is a static body plus a **two-cell `TSCellAnimPart` holding geometry** — the cells are flat-poly cones at the tail, and their surface colours are the palette's flame range against the body's grey:
+Both roots are a `TSDetailPart` over four LODs (`details = [4, 12, 45, 255]`). At the highest, the shape is a static body plus a **two-cell `TSCellAnimPart` holding geometry** — the cells are flat-poly cones at the tail, and their surface colours are the palette's flame range against the body's grey. In root 1 that level is a `TSBSPPart` whose tree reaches the body alone, so root 1's flame is never drawn at its finest level ([`dts-texture-binding.md`](dts-texture-binding.md#tsbsppart-child-selection)):
 
 | | model-space centre Y | surface colours |
 |---|---|---|

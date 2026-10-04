@@ -20,7 +20,7 @@ namespace Herculan.Engine.Scene;
 /// three ACHILLES and five of one structure holds two entries here, not eight.
 /// </summary>
 /// <param name="Key">Stable identity, e.g. <c>dts\ACHILLES.DTS#0</c>.</param>
-/// <param name="Mesh">Triangles then outline edges in model space, ready to upload — see
+/// <param name="Mesh">Triangles, outline edges then points in model space, ready to upload — see
 /// <see cref="MeshBuild"/>.</param>
 /// <param name="TriangleVertexCount">Where <paramref name="Mesh"/>'s outline range starts.</param>
 /// <param name="Atlas">
@@ -49,10 +49,11 @@ namespace Herculan.Engine.Scene;
 /// <paramref name="Mesh"/> or these, never both. Empty for every roster that does not ask for it, and
 /// for a leveled shape that has no detail part.
 /// </param>
+/// <param name="PointVertexCount">How many vertices at the end of <paramref name="Mesh"/> are points.</param>
 public sealed record SceneModel(
 	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas,
 	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites,
-	MeshCell[] Cells);
+	MeshCell[] Cells, int PointVertexCount = 0);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -805,7 +806,8 @@ public sealed class SceneModelLibrary {
 			DtsSpriteBuilder.Build(root),
 			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds)
 				: leveled ? DtsMeshBuilder.BuildDetailLevels(root, atlas, _shading, cellFrame)
-				: Array.Empty<MeshCell>());
+				: Array.Empty<MeshCell>(),
+			build.PointVertexCount);
 	}
 
 	/// <summary>

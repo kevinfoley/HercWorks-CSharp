@@ -54,7 +54,7 @@ The name says quad, but 40 `TSTexture4Poly`s across the retail fleet carry **thr
 
 There is no vertex-count branch in the UV setup of either binary's render method: both fill all four corners unconditionally and pass the poly's own vertex count on to the rasterizer, which walks the corner array one entry per vertex. Traced in DBSIM — `Raster_SetupTexturedSpan` (`00468078`) steps `param_2 += 2` inside a `param_3`-bounded loop, `param_3` being what `TSTexture4Poly_Render` (`00474e9c`) reads from `poly+8`. A triangle therefore takes `V0`, `V1`, `V2` — the frame's top-left, top-right and bottom-right — and the fourth corner is written but never read.
 
-DBSIM's back-face case swaps positions 1 and 3 and corners 1 and 3 to reverse the winding, which on a triangle touches slot 3 and so cannot apply as written ([Open](#open)).
+DBSIM's back-face case swaps positions 1 and 3 and corners 1 and 3 to reverse the winding, which on a triangle touches slot 3 and so cannot apply as written ([Open](#open)). Two retail three-vertex texture polys draw a back, both in `CERBERUS.DTS`.
 
 Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this type takes. Six each on `APOCA`, `APOC_DEB` and `TOMA_DEB`; three each on `HYPERION` and `HYPE_DEB`; two each on `CERBERUS`, `COLOSSUS`, `COLO_DEB`, `OUTLAW`, `OUTL_DEB`, `SAMSON`, `SAMS_DEB` and `TOMAHAWK`. Every one resolves to an in-range frame of its mech's bank. A count outside `[3, 4]` would run past the exe's own four-corner array, and no retail shape has one.
 
@@ -129,7 +129,18 @@ DBSIM's DTS type registry (`g_TSObjectTypeRegistry`, `004a63c8` — 12-byte `{ta
 
 The four are different mechanisms. Only `TSTexture4Poly` samples a bitmap.
 
-The group's surface array is read raw (`TSGroup_ReadFromStream`, `0048e8e4`), so a renderer's surface value is the file's own `{int16 colour, int16 flag}` pair packed into one int32, flag in the high half. A pair with `0x14` in the top byte means "do not draw this face"; retail uses it on back pairs only (flag 5120, against 1024 on the front). **This is the format's back-face culling**, and most of the fleet relies on it: back pairs flagged 5120 are 790 of 998 polys in `SAMSON.DTS`, 2122 of 2202 in `BASES_AN.DTS`, and 5090 of 6988 in `MECHWPNS.DTS`. The rest are genuinely two-sided.
+The group's surface array is read raw (`TSGroup_ReadFromStream`, `0048e8e4`), so a renderer's surface value is the file's own `{int16 colour, int16 flag}` pair packed into one int32, flag in the high half. Every renderer runs [`TSPoly_FrontBackVisibilityTest`](#tspoly_frontbackvisibilitytest) first and takes the front entries (`surface[0]` fill, `[1]` line) or the back ones (`[2]`, `[3]`) by its answer, so each side of a poly has its own pair.
+
+**Either side can be "do not draw", and that is the format's back-face culling.** The three flat renderers (`TSSolidPoly_Render`, `TSShadedPoly_Render`, `TSGouraudPoly_Render`) draw nothing when the chosen fill and line both carry `0x14` in their int32's top byte; retail uses it on back pairs only (flag 5120, against 1024 or 0 on the front). `TSTexture4Poly_Render` tests for `-1` instead (value and flag both `0xffff`): a back value of `-1` draws nothing, and a front value of `-1` draws the back frame from the front too, lit with the normal negated as a back is. Over the 55 retail `.DTS` and both `.DGS`, counting every LOD and cell:
+
+| Type | Polys | Back not drawn |
+|---|---|---|
+| `TSShadedPoly` | 39645 | 35668 (flag 5120) |
+| `TSTexture4Poly` | 4508 | 4414 (back `-1`) |
+| `TSSolidPoly` | 1775 | 750 (flag 5120) |
+| `TSGouraudPoly` | 1493 | 1413 (flag 5120) |
+
+Per file, back pairs flagged 5120 are 790 of 998 polys in `SAMSON.DTS`, 2122 of 2202 in `BASES_AN.DTS` and 5090 of 6988 in `MECHWPNS.DTS`. No front pair is ever flagged or `-1`, and every poly that does draw its back draws it with the same values as its front, so on retail data the back pair decides only whether the back is drawn.
 
 Retail usage counts: `TSSolidPoly` is rare — 12 polys in `BULLETS.DTS`, 57 in `ROCKETS.DTS`, 73 across the whole mech and building fleet. `TSShadedPoly` is nearly everything else: 1227 of APOCA's 1368 polys, 2049 of `BASES_AN`'s.
 
@@ -147,7 +158,7 @@ PolyFill_FillThenOutline (0048d518) -> fill the polygon, then when line != fill 
 
 The second pass is the rasterizer's **mode 4**, which `Raster_DrawPolygonDispatch` (`00483dac`)'s `iVar11 == 4` branch walks as a line loop over the poly's own vertex list, closing back to the first vertex — an outline, not a second fill. The `line != fill` test is on the **ramped** bytes, so two surface values that resolve to the same ramp output draw no outline.
 
-**A two-vertex `TSSolidPoly` is a line, not a degenerate face.** `MECHWPNS.DTS` carries 92 of them and `SAMSON.DTS` none; a Particle Beam Weapon's four struts between housing and barrel are the visible case (`Reference/PBW_Comparison.png`). The fill pass has no area, so the outline is the whole of what they draw, in the surface's line colour — palette 198, `#5C5C5C`, on every one of them. Ten more carry a single vertex, which the original paints as one pixel.
+**A two-vertex `TSSolidPoly` is a line, and a one-vertex one a pixel, not a degenerate face.** `Raster_DrawPolygonDispatch` (`00483dac`) draws any ring of fewer than three points the same way whatever the pass: one point through `Gfx_PlotPixel` (`004894e0`), two through `Raster_DrawLine` (`004838f8`), in the colour the pass carries. So the fill pass draws the line or pixel in the fill colour, and the outline pass, when the line colour ramps apart from the fill, draws it again in the line colour: what ends on screen is the line colour when it differs and the fill colour when it does not. The retail files carry 261 line polys and 80 point polys, all two-sided with flag 0 on every entry. `MECHWPNS.DTS` carries 92 of the lines and `SAMSON.DTS` none; a Particle Beam Weapon's four struts between housing and barrel are the visible case (`Reference/PBW_Comparison.png`), in their line colour, palette 198, `#5C5C5C`. The points sit on twelve roots: 34 on `SKIMMER.DTS` root 0, 16 on `PITBULL.DTS` root 0, 10 each in `MECHWPNS.DTS` and `MECHWPN2.DTS`, and the rest on `BASES.DGS` shape 29, `COLOSSUS.DTS`, `MAVERICK.DTS` and `OUTLAW.DTS`.
 
 `DAT_006c60d8`/`DAT_006c60dc` are one **brush** — `{mode, colour}` — and the default one: the fill dispatches on whatever `clipBlock+0x228` points at, which is normally this pair. A caller that installs a brush of its own there instead leaves these writes inert; the beam draw is the one that does, see [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#beamdats-colour-index-is-the-fill-brush-and-only-the-jagged-path-uses-it). `DAT_006c60d4`, the line colour, sits just below it and is not part of the brush.
 
@@ -166,6 +177,8 @@ byte         = Raster_ShadeRampRow(0x80)[paletteIndex]       // 00468054, the FI
 ```
 
 All of a shaded face's lighting is in the first lookup; the `.RMP` row is the same literal `0x80` the unlit solid renderer passes and never varies with light.
+
+**The line entry outlines the face** exactly as a solid poly's does: the line value goes through both lookups at the face's own shade, and `PolyFill_FillThenOutline` redraws the edge loop in that byte whenever it differs from the fill's. Whether a face is outlined therefore depends on its light and on the depth slice. 304 retail polys name a line ramp apart from their fill ramp, 260 of them a ramp-12 fill with a ramp-2 or ramp-8 line: 156 on the flyer `SKIMMER.DTS`, 45 on `COLOSSUS.DTS`, 20 on `SAMSON.DTS`, and the rest on `OUTLAW`, `ACHILLES`, `TOMAHAWK`, `MONGOOSE`, the weapon models and the structure libraries. In `WORLD0` unfogged the ramp-12 pairs resolve apart at every shade, while the weapon models' ramp-194 fill with a ramp-102 line and `BASES_AN.DTS`'s ramp-102 fill with a ramp-135 line resolve alike at every shade, so those draw no outline.
 
 `Palette_ShadeRampLookup` (`00430e34`):
 
@@ -196,7 +209,7 @@ Distinguishing evidence: the `.RMP` row shifts every ramp entry down one step an
 
 ### `TSTexture4Poly` — frame index, ramp row by light, fullbright on demand
 
-`TSTexture4Poly_Render` (`00474e9c`) resolves the surface pair the same way the flat types do and spends it as a **`.DBA` frame index**: the frame descriptor is `g_CurrentShapeDbaContext[1] + frontValue * 0x14`, and its 5th int32 is the atlas page handle it passes to `Raster_SetupTexturedSpan` (`00468078`), which projects and near-plane-clips the vertices and hands the ring to `Raster_DrawPolygon` (`00468310`), whose span routine samples it. Light enters per pixel through the row selection, not as a multiplier — the span writes `Raster_ShadeRampRow(shade)[texelPaletteIndex]`, so the face's shade picks a row of the theater `.RMP` and the texel picks the column.
+`TSTexture4Poly_Render` (`00474e9c`) picks the side's value by the same visibility test as the flat types, with its own `-1` rule for an undrawn side ([above](#poly-types-and-their-colour-mechanisms-dbsimexe)), and spends it as a **`.DBA` frame index**: the frame descriptor is `g_CurrentShapeDbaContext[1] + value * 0x14`, and its 5th int32 is the atlas page handle it passes to `Raster_SetupTexturedSpan` (`00468078`), which projects and near-plane-clips the vertices and hands the ring to `Raster_DrawPolygon` (`00468310`), whose span routine samples it. Light enters per pixel through the row selection, not as a multiplier — the span writes `Raster_ShadeRampRow(shade)[texelPaletteIndex]`, so the face's shade picks a row of the theater `.RMP` and the texel picks the column.
 
 **The row count is a switch.** `DAT_004a5b1c` is the `.RMP`'s row count, installed as 32 by `World_LoadTheater` (`0042e010`), and this renderer is its only reader. When it is **zero** the poly is drawn in `Raster_DrawPolygon`'s mode 0 instead: a plain texture copy, with neither a light term nor a ramp lookup, so the texel's palette index reaches the framebuffer unchanged.
 
@@ -311,7 +324,11 @@ so a normal derived from the corner order is the negation of the one the file ca
 
 ### `TSPoly_FrontBackVisibilityTest`
 
-Per **poly**, not per pixel. Takes the poly's own stored normal and centre points and answers "front" for a positive result: with a perspective focal shift it returns `dot(normal, eyeInModelSpace − centre)`, and with a shift of 0 it returns 1 when the normal, rotated into view space, has negative depth. DBSIM's copy is `0048c620`, VSHELL's `0045e480`. When it answers "back", the renderer negates *all* of that poly's normals before lighting them and takes the back surface pair instead of the front.
+Per **poly**, not per pixel. Takes the poly's own stored normal and centre points and answers "front" for a positive result: with a perspective focal shift it returns `dot(normal, eyeInModelSpace − centre)`, and with a shift of 0 it returns 1 when the normal, rotated into view space, has negative depth. DBSIM's copy is `0048c620`, VSHELL's `0045e480`. When it answers "back", the renderer negates *all* of that poly's normals before lighting them and takes the back surface pair instead of the front ([above](#poly-types-and-their-colour-mechanisms-dbsimexe)).
+
+A result of zero is "back", which is every answer a poly with a zero stored normal gets: 175 of the 261 retail line polys and 9 of the 80 point polys carry `(0, 0, 0)`, all of them drawing alike from both sides.
+
+The centre is the stored one, not a corner, and it need not lie on the poly's plane: 7644 of the 47080 retail polys of three or more corners have a centre more than one unit off their own plane, as far as 695 units off on a `CERBERUS.DTS` root 4 poly whose corners lie within 714 units of it. For such a poly the answer differs from one measured at a corner whenever the eye is between the poly's plane and the parallel plane through its centre.
 
 ### `TSBSPPart` child selection
 
@@ -327,7 +344,19 @@ for each of first, second:
     else                      recurse into node `value`
 ```
 
-So a child no node reaches is never drawn, and the tree is what orders back-to-front. Every child of every retail weapon and machine shape checked is reachable, so walking `Parts` in file order happens to agree on retail data — but it is not the rule, and it would diverge on a shape that carried an unreferenced part.
+So a child no node reaches is never drawn, and the tree is what orders back-to-front. Both sides of every node are walked whichever side the eye is on, so which children are drawn is fixed by the tree and only their order follows the eye.
+
+Retail data has unreached children. Of the 586 `TSBSPPart`s across the retail `.DTS` and `.DGS` files, every node is reached from node 0 and no child is named twice, but 15 leave children out:
+
+| Shape | Unreached children |
+|---|---|
+| `HYPERION.DTS` root 5 | one single-poly group |
+| `PITBULL.DTS` root 5 | five cell-animation parts |
+| `ROCKETS.DTS` root 1, finest level | the exhaust flame's cell-animation part ([`rockets-dat.md`](rockets-dat.md#dtsrocketsdts)) |
+| `BASES.DGS` shape 3, middle level | one cell-animation part |
+| `BASES.DGS` shape 13, two levels | an empty group in one, a 7-poly group in the other |
+| `BASES.DGS` shapes 41 and 43, all three levels | one group each |
+| `BASES.DGS` shape 44, three of its five levels | two cell-animation parts each |
 
 `part+0x1c` is a parallel `int16` per **node**, not per child: the transform whose world matrix the splitting plane is brought into. `Shape_StampTransformId` (`00417530`) stamps a single transform id across all of them when a weapon model is attached to a machine.
 
@@ -419,13 +448,9 @@ Tracked in `KNOWN_ISSUES.md`.
 
 ## Open
 
-- **Unported:** the back surface pair (back fill and back line).
-- **Unported:** the 5120 "do not draw this face" skip.
 - **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `0047689c` has no reference `es2_xref.py` finds, which does not settle it. The image holds 1024.
-- **Unported:** the `TSBSPPart` tree walk, with its ordering and reachability rule.
+- **Unported:** the order the `TSBSPPart` walk draws a tree's children in, back to front from the eye ([`TSBSPPart` child selection](#tsbsppart-child-selection)).
 - **Open:** how DBSIM draws a `TSBSPGroup`. Its `TSGroup_RenderPolys` (`004758c8`) walks a plain group's polys in order.
-- **Unported:** one-vertex polys, which the original paints as one pixel.
-- **Open:** what the original draws for a two-vertex line poly whose surface names no distinct line colour.
 - **Open:** why retail grades the type-15 octagon's back facet; see [Type-15 band widths](#type-15-band-widths).
 - **Open:** what DBSIM draws for a back-facing three-vertex texture poly, where the back-face corner swap touches the unused slot 3.
 - **Open:** the function that populates VSHELL's `g_ActiveBitmapArray[1]` descriptor table, which decides whether `F0/F1` (frame UV top-left) can be nonzero there. DBSIM's builder is [`BitmapArray_PackToAtlas`](#the-frame-descriptor-table-and-the-span-routines-dbsim), which places frames as atlas sub-rectangles.

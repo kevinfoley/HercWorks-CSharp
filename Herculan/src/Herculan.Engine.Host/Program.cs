@@ -1578,17 +1578,17 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 		// them is ever drawn.
 		foreach (var model in scene.Models) {
 			if (animatedKeys.Contains(model.Key)) {
-				segmentMeshes[model.Key] = model.Segments.Select(segment => new GpuMesh(gl, segment.Vertices, segment.TriangleVertexCount)).ToArray();
+				segmentMeshes[model.Key] = model.Segments.Select(segment => new GpuMesh(gl, segment.Vertices, segment.TriangleVertexCount, segment.PointVertexCount)).ToArray();
 				disposables.AddRange(segmentMeshes[model.Key]);
 			} else if (model.Cells.Length > 0) {
 				// A shape whose cells damage drives uploads every one of them and draws the ones its
 				// object's cell frames name, rather than being rebuilt each time a part comes off.
-				cellMeshes[model.Key] = model.Cells.Select(cell => new GpuMesh(gl, cell.Vertices, cell.TriangleVertexCount)).ToArray();
+				cellMeshes[model.Key] = model.Cells.Select(cell => new GpuMesh(gl, cell.Vertices, cell.TriangleVertexCount, cell.PointVertexCount)).ToArray();
 				disposables.AddRange(cellMeshes[model.Key]);
 			} else if (model.Mesh.Length > 0) {
 				// A pure billboard shape — every EMP round, every impact effect — has no triangles at all
 				// and gets no mesh; its atlas below is the whole of it.
-				modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount);
+				modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount, model.PointVertexCount);
 			}
 
 			if (model.Atlas != null) {
@@ -1875,9 +1875,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			mouse.MouseUp += (m, button) => Queue(m, ButtonsHeld(m) & ~ButtonFlag(button));
 		}
 
-		// No backface culling. DTS geometry is not reliably wound — the WinForms model viewer reached
-		// the same conclusion and never culls either — so culling would punch holes in the mech rather
-		// than save fill rate. The shader shades two-sided to match.
+		// No fixed-function face culling. DTS geometry is not reliably wound — the WinForms model viewer
+		// reached the same conclusion and never culls by winding either — so culling by it would punch
+		// holes in the mech rather than save fill rate. The format's own front/back choice, which does
+		// leave faces undrawn, is made per poly in the scene shader instead: see MeshVertex.Side.
 		gl.Disable(EnableCap.CullFace);
 	};
 

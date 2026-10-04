@@ -152,7 +152,7 @@ window.Load += (gl, input) => {
 	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas, indexed: true) : null;
 
 	foreach (var model in scene.Models) {
-		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount);
+		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount, model.PointVertexCount);
 		if (model.Atlas != null) {
 			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas, indexed: true);
 		}

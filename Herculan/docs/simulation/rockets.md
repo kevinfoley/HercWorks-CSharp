@@ -62,4 +62,4 @@ The pilot sees the flight on the MFD. `DAT_0049c394` is the round its MISSILE CA
 
 ## The exhaust flame
 
-The shape is a static body plus a two-cell animation of flame cones at the tail ([`../formats/rockets-dat.md`](../formats/rockets-dat.md#dtsrocketsdts)). The animation step is the first step of `Rocket_TickUpdate`. The record's interval of 256 drives the cells at one cell every four ticks, because the record names sequence 0 and every cell-animation part in both roots carries sequence 0. `BMSL`'s record carries an interval of zero, so its flame is frozen on cell 0.
+The shape is a static body plus a two-cell animation of flame cones at the tail ([`../formats/rockets-dat.md`](../formats/rockets-dat.md#dtsrocketsdts)). The animation step is the first step of `Rocket_TickUpdate`. The record's interval of 256 drives the cells at one cell every four ticks, because the record names sequence 0 and every cell-animation part in both roots carries sequence 0. `BMSL`'s record carries an interval of zero, so its flame is frozen on cell 0, and at its shape's finest level it has none: that level's BSP tree never reaches the flame.

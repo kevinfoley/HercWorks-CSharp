@@ -119,8 +119,9 @@ public sealed record ShapeRenderContext(
 /// the corner winding.</para>
 ///
 /// <para>Not reproduced: <c>TSBitmapPart</c> billboards (<c>docs/formats/dts-billboards.md</c>), the
-/// <c>TSBSPPart</c> tree walk (children are drawn in file order, which agrees on retail data), and
-/// distance fog. <c>TSCellAnimPart</c> shows its first cell.</para>
+/// <c>TSBSPPart</c> tree walk (every child is shown, including the few retail children no node
+/// reaches and DBSIM never draws — docs/formats/dts-texture-binding.md's "<c>TSBSPPart</c> child
+/// selection"), and distance fog. <c>TSCellAnimPart</c> shows its first cell.</para>
 ///
 /// <para>Multi-part placement is the translation-only transform chain: no retail shape's rest pose
 /// carries a rotation (docs/formats/dts-node-posing.md). Each root is an independent top-level
@@ -523,8 +524,8 @@ public static class DtsGeometryBuilder {
 				? state.Shading.Solid(p.Line)
 				: null;
 			// A line poly has no fill for a matching outline to vanish into, so it draws its fill
-			// colour when it names no distinct line — the engine's reading, docs/formats/
-			// dts-texture-binding.md's Open.
+			// colour when it names no distinct line, as the original's fill pass does — docs/formats/
+			// dts-texture-binding.md's "TSSolidPoly — palette index, unlit, fill plus outline".
 			if (poly.VertexCount == 2) {
 				line ??= fill;
 			}

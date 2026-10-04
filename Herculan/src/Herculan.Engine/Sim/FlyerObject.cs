@@ -143,8 +143,8 @@ public sealed partial class FlyerObject : SimObject {
 	private bool _destroyed;
 
 	/// <summary>
-	/// Who landed the shot that finished it, for the kill credit the original passes back through the
-	/// shooter's own vtable <c>+0x60</c>.
+	/// Who landed the shot that finished it — the shooter <see cref="ApplyComponentDamage"/> credits
+	/// with the kill.
 	/// </summary>
 	public SimObject? LastAttacker { get; private set; }
 
@@ -264,11 +264,10 @@ public sealed partial class FlyerObject : SimObject {
 	///
 	/// <para>The wreckage the cascade sheds inherits the aircraft's world velocity, through the
 	/// global <see cref="SimWorld.DebrisCarrierVelocity"/> the original points at
-	/// <c>flyer+0x24f</c> for the length of this call. Two things here belong to systems that are not
-	/// in the engine: the kill credit through the shooter's <c>+0x60</c> slot (recorded on
-	/// <see cref="LastAttacker"/> instead). The alert it plays when the player's own selected target
-	/// is what just went down is here, on the guard all three damage endpoints share, and so is the
-	/// mission action it fires — see <see cref="SimObject.DefeatAction"/>.</para>
+	/// <c>flyer+0x24f</c> for the length of this call. The loss also plays the alert for the player's
+	/// own selected target going down, on the guard all three damage endpoints share, credits the
+	/// shooter through its <c>+0x60</c> slot (<see cref="MechObject.CreditNeutralised"/>), and fires
+	/// the flyer's mission action — see <see cref="SimObject.DefeatAction"/>.</para>
 	/// </summary>
 	public override void ApplyComponentDamage(SimWorld world, int componentIndex, short damage,
 			SimObject? attacker) =>
@@ -296,17 +295,26 @@ public sealed partial class FlyerObject : SimObject {
 		}
 
 		bool wasDestroyed = _destroyed;
+
+		// Flyer_ComponentDamageWrite's own order: the announcement and the shooter's kill credit go
+		// out before the destroyed flag is set, the mission action after the drop, and the dead state
+		// and the flyby stop last.
+		if (!wasDestroyed && world != null) {
+			AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
+			(attacker as MechObject)?.CreditNeutralised(world, this, wasImmobilised: false);
+		}
+
 		_destroyed = true;
 		LastAttacker = attacker;
-		SetBehaviourState(Ai.FlyerBehaviourState.Dead);
 		Position = new Vec3i(Position.X, Position.Y, WreckDropHeight);
-		StopFlybySound(world);
 
 		if (!wasDestroyed && world != null) {
 			ReportOutOfAction(world);
 			ActivateDefeatAction(world);
-			AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
 		}
+
+		SetBehaviourState(Ai.FlyerBehaviourState.Dead);
+		StopFlybySound(world);
 	}
 
 	/// <summary>

@@ -349,7 +349,8 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// <c>Mech_CreditNeutralisedTarget</c> (<c>00415710</c>), the mech's vtable <c>+0x60</c> — told to the machine that just put
 	/// <paramref name="victim"/> out of the fight, from both of
-	/// <see cref="ComponentDamageWrite"/>'s branches. The base class' slot
+	/// <see cref="ComponentDamageWrite"/>'s branches, from <see cref="BaseObject.ApplyDamage"/> and from
+	/// <see cref="FlyerObject.ApplyComponentDamage"/>. The base class' slot
 	/// (<c>SimObject_CreditNeutralisedTargetNoOp</c> (<c>00411b2c</c>)) is an empty stub, so only a HERC credits anything.
 	///
 	/// <para><paramref name="wasImmobilised"/> is the victim's reading from <i>before</i> this
@@ -365,8 +366,12 @@ public sealed partial class MechObject {
 	///
 	/// <para>A squadmate the player itself stopped also adds one to mission counter 10
 	/// (<c>DAT_004a9f08</c>), again whether or not this was the blow that counted.</para>
+	///
+	/// <para>A victim of the player's group is always a HERC: <c>DBSim_BuildGroupRecord</c>
+	/// (<c>00423b34</c>) builds every member of a group from the one class its discriminator names, so
+	/// the squadmate half never meets a structure or a flyer.</para>
 	/// </summary>
-	internal void CreditNeutralised(SimWorld world, MechObject victim, bool wasImmobilised) {
+	internal void CreditNeutralised(SimWorld world, SimObject victim, bool wasImmobilised) {
 		MechObject? player = world.PlayerMech;
 
 		if (!wasImmobilised && Group != null && victim.Group != null
@@ -383,11 +388,11 @@ public sealed partial class MechObject {
 			ScoredAKill = true;
 		}
 
-		if (player != null && !ReferenceEquals(player, victim)
-				&& ReferenceEquals(player.Group, victim.Group)) {
-			victim.PostSquadMessage(
+		if (player != null && victim is MechObject squadmate && !ReferenceEquals(player, squadmate)
+				&& ReferenceEquals(player.Group, squadmate.Group)) {
+			squadmate.PostSquadMessage(
 				world,
-				victim.Destroyed ? SquadMessageDestroyed : SquadMessageWentDown,
+				squadmate.Destroyed ? SquadMessageDestroyed : SquadMessageWentDown,
 				force: true);
 
 			if (ReferenceEquals(player, this)) {

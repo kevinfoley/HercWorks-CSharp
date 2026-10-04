@@ -574,9 +574,6 @@ public sealed partial class BaseObject : SimObject {
 	/// section is likely to bring it down before its stated hit points run out, and the same hit
 	/// twice does not do the same thing.</para>
 	///
-	/// <para>The one thing a kill does in the original that is not here is credit the shooter through
-	/// the shooter's own vtable <c>+0x60</c>.</para>
-	///
 	/// <para><b>Nothing here tests <see cref="Destroyed"/></b>, so the fallen-structure branch runs
 	/// whenever the fraction comes out full. A part that is alive at full damage is the only way to
 	/// reach it twice, and only <see cref="ApplyStartingCondition"/> leaves one.</para>
@@ -587,7 +584,7 @@ public sealed partial class BaseObject : SimObject {
 	/// original resolves to component 0 rather than dropping the damage.
 	/// </param>
 	/// <param name="damage">The shot's armour damage.</param>
-	/// <param name="attacker">Who fired, recorded on the component that falls.</param>
+	/// <param name="attacker">Who fired, recorded on the component that falls and credited with the kill if the structure falls.</param>
 	/// <param name="world">
 	/// The running world, when the caller has one — needed only so the structure can fire its own
 	/// mission action the moment it is destroyed. See <see cref="SimObject.DefeatAction"/>.
@@ -631,16 +628,21 @@ public sealed partial class BaseObject : SimObject {
 		_attackers[index] = attacker;
 
 		if (DamageFraction == FullyDestroyed) {
+			// Base_ApplyDamage's own order: the announcement that what the player was shooting at has
+			// come down and the shooter's kill credit go out before the destroyed flag is set, and the
+			// structure's mission action last. See SimObject.AnnounceNeutralised,
+			// MechObject.CreditNeutralised and SimObject.DefeatAction.
+			if (world != null) {
+				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
+				(attacker as MechObject)?.CreditNeutralised(world, this, wasImmobilised: false);
+			}
+
 			_destroyed = true;
 			_scannerActive = false;
 
-			// And the structure's own mission action, where Base_ApplyDamage fires it, together with
-			// the announcement that what the player was shooting at has come down. See
-			// SimObject.DefeatAction and SimObject.AnnounceNeutralised.
 			if (world != null) {
 				ReportOutOfAction(world);
 				ActivateDefeatAction(world);
-				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
 			}
 		}
 

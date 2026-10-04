@@ -66,6 +66,8 @@ Runs once per tick from `Sim_MainTick`, **after** every object update and the in
 
 Looking: bearing plus aim twist against the ±`0x3800` sensor arc (`SimObject_BearingInSensorArc` (`00411acc`), vtable `+0x44`), then LOS. The sweep dispatches the arc through each object's own table, and all five structure classes install `Base_BearingInSensorArc_Always` (`00405308`) there, so a structure has no arc and sees all round. An AI machine's contact goes to `Detection_ShareContact` (`00412704`), which shares it to everything on its side within 100000 and engages within 50000 ([`mission-deployment.md`](mission-deployment.md#an-objects-own-two-actions--0x1b2-and-0x1b6)); the player's machine keeps it to itself. The reciprocal bearing is tested from the other object's arc in the same pass.
 
+Just before it paints the Cybrid, and just before it makes a contact of its own, the sweep calls the sweeping object's vtable `+0x48`, the "enemy detected" callout, which tests the state those two writes are about to change — [`ai-targeting.md`](ai-targeting.md#radio-callouts). The reciprocal test makes no call.
+
 Decay (`Detection_DecayContacts`, `0041251c`) drops a contact past **100001** measured **on the ground plane only** (`Math_FastMagnitude2D`, where every other range here is the 3D approximation) or with no LOS, mutually.
 
 ### Line of sight — `Detection_LineOfSight` (`00412608`)
@@ -189,7 +191,3 @@ The Targeting Pod is the only pod that caches its damage, and a pristine pod's c
 | `mech+0x96` is a weapons-free flag, and `Ai_UpdateWeaponsFree` is the AI's trigger gate | It is the radar mode. `Rocket_HomingSteer` homes an ARM on it, `Mech_DirectFireHitTest` clears it on an ARM hit, and the detection sweep reads it as the scanner. Nothing in the fire path consults it; the mission-file field feeding it is the mission's radar setting, not a rule of engagement. The Ghidra symbol keeps the misleading name — see [How an AI machine's radar is set](#how-an-ai-machines-radar-is-set) |
 | The player's selection is never dropped: the death path `Mech_AiSelectBehaviour` (`0041eb34`) and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) both run only for AI machines, and a text search for writes to `+ 0x210)` finds only the three selection commands | `CockpitView_PerFrameUpdate` clears it, written by the decompiler as `param_1[0x84] = 0` — `0x84 * 4 = 0x210` — so an offset search misses it. See [Losing the selection](#losing-the-selection--cockpitview_perframeupdate) |
 | Structures sight from the literal 500 because they install the `return 0` stub at vtable `+0x24` | That stub (`00411a9c`) is the flyer's and the base class's; all five structure vtables install `Base_GetAimNodeTransform` (`00403548`). See [Aim point](#aim-point--vtable-0x24) |
-
-## Open
-
-- **Unported:** the "enemy detected" callout (vtable `+0x48`, `Mech_AiEnemySighted` — see [`ai-targeting.md`](ai-targeting.md#radio-callouts)).

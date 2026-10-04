@@ -21,7 +21,7 @@ public enum TargetClass : short {
 	/// <summary>An ordinary structure.</summary>
 	Structure = 1,
 
-	/// <summary>A flyer or ground vehicle.</summary>
+	/// <summary>A flyer.</summary>
 	Flyer = 2,
 
 	/// <summary>
@@ -232,6 +232,15 @@ public abstract class SimObject {
 	/// <param name="damage">The shot's damage, which only a HERC's reaction reads.</param>
 	public virtual void OnTakingFire(SimWorld world, SimObject attacker, short damage) =>
 		Detection.ShareContact(world, this, attacker);
+
+	/// <summary>
+	/// Vtable <c>+0x48</c> — this object's sweep is about to paint <paramref name="enemy"/> on radar or
+	/// make it a contact (<see cref="Detection"/>). Every class but the HERC installs
+	/// <c>SimObject_AiEnemySightedNoOp</c> (<c>004127f8</c>), an empty body; the HERC's is the
+	/// "enemy detected" callout, <see cref="MechObject.EnemySighted"/>.
+	/// </summary>
+	internal virtual void EnemySighted(SimWorld world, SimObject enemy) {
+	}
 
 	/// <summary>
 	/// Vtable <c>+0x34</c> — the shield facing <paramref name="heading"/> points at, front within

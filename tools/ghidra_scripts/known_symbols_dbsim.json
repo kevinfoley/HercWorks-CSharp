@@ -3653,7 +3653,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiEnemySighted",
-      "description": "Mech vtable +0x48, the enemy-detected callout. For a machine in the player's group, posts squad message 1 through Ai_PostSquadMessage for an object that is not class 1, not yet radar-visible (+0x95), and held as a contact by neither this machine nor the player, latched per object in DAT_004a9b84[obj+0x4b] (set even when the rate limit swallows the callout). DAT_004a9be9 is re-armed to 10000 on each callout and stepped by this function's own Math_CountdownTimerTick(004a9be8) on every non-player call, so it runs down per call-in, not per tick. The local player's own machine sets the latch without calling out.",
+      "description": "Mech vtable +0x48, the enemy-detected callout. For a machine in the player's group, posts squad message 1 through Ai_PostSquadMessage for an object that is not class 1, not yet radar-visible (+0x95), and held as a contact by neither this machine nor the player, latched per object in EnemySighted_CalledInLatch[obj+0x4b] (set even when the rate limit swallows the callout). DAT_004a9be9 is re-armed to 10000 on each callout and stepped by this function's own Math_CountdownTimerTick(004a9be8) on every non-player call, so it runs down per call-in, not per tick. The local player's own machine sets the latch without calling out.",
       "source": "docs/simulation/ai-targeting.md"
     },
     {
@@ -26823,6 +26823,24 @@
       "name": "maybe_GlobalLiveObjectList",
       "description": "Global live-object list walked by Sim_RaycastObjectList and Damage_ExplosiveBlastSweep. Shared with confirmed objlist.cpp functions, not proven by a direct assert-string tie to Sim_RaycastObjectList itself.",
       "source": "docs/simulation/hit-detection.md"
+    },
+    {
+      "address": "004a9b84",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "EnemySighted_CalledInLatch",
+      "description": "Byte array indexed by an object's live-list slot (obj+0x4b): the player's group has had its chance to call that enemy in. Set by Mech_AiEnemySighted -- always by the player's own machine, by a squadmate only for an enemy that passes the callout's tests -- and never cleared; es2_xref finds its three references, all in that function.",
+      "source": "docs/simulation/ai-targeting.md; disassembly of 00412800"
+    },
+    {
+      "address": "004a9be8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "EnemySighted_CalloutRateLimit",
+      "description": "CountdownTimer record (counter the short at 004a9be9) rate-limiting the enemy-detected squad callout. Mech_AiEnemySighted steps it once per call from any machine but the player's and re-arms it to 10000 on each callout.",
+      "source": "docs/simulation/ai-targeting.md; disassembly of 00412800"
     },
     {
       "address": "004a9bfe",

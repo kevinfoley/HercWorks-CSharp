@@ -1095,7 +1095,36 @@ public sealed class SimWorld {
 		for (int i = 0; i < _objects.Count; i++) {
 			_objects[i].EnsureTableSize(_objects.Count);
 		}
+
+		if (_sightingCalledIn.Length < _objects.Count) {
+			Array.Resize(ref _sightingCalledIn, _objects.Count);
+		}
 	}
+
+	/// <summary>
+	/// <c>DAT_004a9b84[obj+0x4b]</c> — whether the player's group has already had its chance to call
+	/// <paramref name="enemy"/> in, a per-object latch indexed by <see cref="SimObject.ListIndex"/>
+	/// and never cleared during a mission. Written only by <see cref="MechObject.EnemySighted"/>.
+	/// </summary>
+	internal bool SightingCalledIn(SimObject enemy) =>
+		enemy.ListIndex >= 0 && enemy.ListIndex < _sightingCalledIn.Length && _sightingCalledIn[enemy.ListIndex];
+
+	/// <summary>Raises <see cref="SightingCalledIn"/> for <paramref name="enemy"/>.</summary>
+	internal void LatchSighting(SimObject enemy) {
+		if (enemy.ListIndex >= 0 && enemy.ListIndex < _sightingCalledIn.Length) {
+			_sightingCalledIn[enemy.ListIndex] = true;
+		}
+	}
+
+	private bool[] _sightingCalledIn = Array.Empty<bool>();
+
+	/// <summary>
+	/// The counter of the countdown record at <c>004a9be8</c> — the rate limit on the "enemy detected"
+	/// callout. Stepped and re-armed by <see cref="MechObject.EnemySighted"/>, once per call from any
+	/// machine but the player's, and by nothing else — whether retail steps it anywhere else is an
+	/// Open item of docs/simulation/ai-targeting.md.
+	/// </summary>
+	internal short SightingCalloutTimer;
 
 	/// <summary>
 	/// <c>Sim_RaycastObjectList</c> (<c>00426528</c>) — the shared ray-versus-live-object query, which

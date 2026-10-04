@@ -155,7 +155,7 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 
 | id | line | raised by |
 |---|---|---|
-| `0x01` | `I SPOTTED SOME BAD GUYS, SIR` | sighting a hostile |
+| `0x01` | `I SPOTTED SOME BAD GUYS, SIR` | sighting a hostile — [`../simulation/ai-targeting.md`](../simulation/ai-targeting.md#radio-callouts) |
 | `0x02` | `CHALK UP ANOTHER KILL FOR THE GOOD GUYS!!` / `ALL RIGHT!` | this machine put something out of the fight |
 | `0x03` | `I'M GETTING MY BUTT KICKED OUT HERE! HOW 'BOUT A LITTLE HELP?!` | taking fire |
 | `0x04` | `THEY NAILED ME! I THINK I'M DONE FOR...` | a squadmate immobilised |

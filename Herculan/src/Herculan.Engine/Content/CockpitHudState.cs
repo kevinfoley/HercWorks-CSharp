@@ -74,7 +74,8 @@
 /// <see cref="TargetIndicator"/> and <see cref="TargetBox"/>.
 /// </param>
 /// <param name="StatusSubject">
-/// What F1's status screen is looking at - the player's own machine.
+/// What F1's status screen is looking at - the squad roster's current entry, which SELECT steps
+/// (<see cref="MfdStatusRoster"/>).
 /// </param>
 /// <param name="TargetSubject">
 /// And what F5's is: the current selection. Same screen class, same record, different subject -

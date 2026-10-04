@@ -2110,8 +2110,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <c>+0x40</c> lit flag is set and <c>[10]</c> when it is clear.</para>
 	///
 	/// <para><b>Each screen draws its own content.</b> STATUS and TARGET STATUS share one
-	/// method off one <see cref="MfdStatusSubject"/> — the machine being flown for F1, the current
-	/// selection for F5 — SCANNER plots live contacts, and FLASH COMM lists the string table's order
+	/// method off one <see cref="MfdStatusSubject"/> — the squad roster's current entry for F1, the
+	/// current selection for F5 — SCANNER plots live contacts, and FLASH COMM lists the string table's order
 	/// rows. NAV MAP draws the terrain raster turned to the machine's heading, through
 	/// <paramref name="drawNavMapTerrain"/>, and its centre cross; MISSILE CAM draws whatever its
 	/// screen last painted, the world from the round going through <paramref name="drawMissileView"/>.</para>

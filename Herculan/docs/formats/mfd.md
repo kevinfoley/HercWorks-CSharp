@@ -33,6 +33,10 @@ Object fields, base `MfdDisplay_Ctor`'s `param_1`:
 | `+0xcd` | 6 screen objects, `+0xcd + mode*4` |
 | `+0xeb` | Inset screen rect `x0, y0, x1, y1` |
 | `+0xfb` | Base panel widget, covering the inset rect |
+| `+0x100` | Coarse tick past which modes 0 and 4 next refresh |
+| `+0x308` | The status screen's squad roster, four machine pointers — [The subject](#the-subject) |
+| `+0x318` | Roster cursor |
+| `+0x31c` | Roster count |
 | `+0x329` | Message label |
 | `+0x331`-`+0x341` | The power-up's sprite sequencer, its sequence set, sequence and frame table, and the `radar` bank — see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#scanner-dish-grows) |
 | `+0x345` | Coarse tick past which the power-up is done on a screen other than the scanner |
@@ -132,7 +136,7 @@ The lower frame of each pair is unlit, the upper lit. Every rect size matches a 
 | 4 TargetStatus | 7 `SELECT` |
 | 5 MissileCam | none |
 
-`MfdButton_OnClick` gives **7 `SELECT` and 9 `TARGET` one shared case**, which branches on the current mode: mode 0 steps the status screen's own subject cursor (`+0x318`, a squad roster), every other mode calls `TargetSelect_Cycle`. So F5's SELECT and F4's TARGET are the same action, and both do what [Enter] does.
+`MfdButton_OnClick` gives **7 `SELECT` and 9 `TARGET` one shared case**, which branches on the current mode: mode 0 steps the status screen's squad roster (`MfdDisplay_StepStatusSubject`, `00446f9c` — [The subject](#the-subject)), every other mode calls `TargetSelect_Cycle`. So F5's SELECT and F4's TARGET are the same action, and both do what [Enter] does. On a status screen the press also scrambles the readouts for a refresh.
 
 10 `XMIT` opens a transmission on FLASH COMM.
 
@@ -195,13 +199,17 @@ There is no vertical alignment flag: every label is vertically centred in its re
 | 3 | Condition | `DAT_004d1698[state]` = group 28 |
 | 4 | Integrity or range | composed, below |
 
-`MfdStatusScreen_SetCondition` (`0043b260`) writes labels 3 and 4. Label 4 is the literal `"[ "`, then `itoa((0x100 - damage) * 100 >> 8)`, then `"% ]"` — `[ 100% ]` undamaged. When the subject is unreadable it writes `XXXXXX` and `XXX` instead.
+`MfdStatusScreen_SetCondition` (`0043b260`) writes labels 3 and 4. Label 4 is the literal `"[ "`, then `itoa((0x100 - damage) * 100 >> 8)`, then `"% ]"` — `[ 100% ]` undamaged. While a press is scrambling the screen ([below](#the-subject)) it writes `XXXXXX` and `XXX` instead.
 
 **Group 10 is not the condition table.** It holds a near-identical five-string set (`OK`, `INT DMG`, `SHLD DWN`, `CRITICAL`, `WASTED`); the condition label reads group 28's array, and no reader of group 10's has been found ([Open](#open)).
 
 #### The subject
 
 `MfdDisplay_Update` (`00446328`) and `MfdDisplay_SetMode` both park the screen's subject in the display's shared state block at `+0xb9`, refreshed every 30 coarse ticks: for mode 0 the entry `+0x308[+0x318]` the SELECT button cycles, for mode 4 `CockpitView+0x210`, the current selection. Both screens read the same field, so **the two modes differ only in their subject**. The screen latches it at `+0x3e` and holds a dead one for 300 ticks before dropping to the empty state.
+
+The roster is filled once, at mission start: `Cockpit_LoadSquadmatePilots` (`00431530`) seats up to three squadmates in the heads-down display's comm boxes ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)) and hands their count to `MfdDisplay_SetStatusRoster` (`00447294`), which puts the cockpit's own machine (`CockpitView+0x203`) in entry 0, those squadmates after it in box order, and the total in `+0x31c`. SELECT on mode 0 moves the cursor `+0x318` one entry on, back to 0 past the last. Nothing else writes the cursor and the display is allocated zeroed, so F1 opens on the player's own machine; nothing rebuilds the roster, so a destroyed squadmate keeps its entry.
+
+**A SELECT press scrambles the status screen for one refresh.** Besides its action, the shared case sets the current mode's dirty flag and writes 100 to the current screen's `+0xc` — the only store of 100 to that field in the image. `MfdStatusScreen_Update` (`0043b210`) turns it into the flag `+0x34` with a deadline 30 coarse ticks ahead at `+0x35`, and clears the flag at its first run past the deadline. While the flag is set the paint skips a HERC's paper-doll blit and the pod highlight, label 1 reads `XXXXXXXXX`, label 3 `XXXXXX`, and label 4 `XXX` for a friendly or `DIST:  XXXXX` for a hostile. The update runs only on the 30-tick refresh, so the scramble goes up at the first refresh after the press — the same one that parks a stepped roster entry — and comes down at the first refresh past its deadline.
 
 Everything the paint (`MfdStatusScreen_Paint`, `0043a5a0`) chooses is a property of that subject, not of the mode:
 
@@ -376,4 +384,5 @@ The display's update redraws the title over whichever arm painted.
 - **Open:** a caller of `FUN_0043fa14` or `FUN_0043f9f4`, the FLASH COMM row-state helpers. `es2_xref.py` reports both UNREFERENCED with no late function start nearby, and the only writes to the row state bytes found over `0043f000`-`00447fff` (`es2_fieldscan.py 2c` plus a disassembly grep for indexed byte writes) are the constructor's clear, `MfdFlashComm_ToggleRowVariant`'s `XOR` and these two. Without a caller no row draws in `CPOFF`.
 - **Open:** what label 2 of the MISSILE CAM screen (`+0x3b`) shows. `es2_fieldscan.py 3b` over `0043facc`-`00440500` finds only the constructor's re-font, against two paint reads of label 1 (`+0x37`) as control.
 - **Open:** a writer of `mech+0xb0` other than `Mech_DirectFireHitTest` (`00418dc7`, set) and `Mech_PerTickSystemsUpdate` (`0041ab25`, clear). `es2_fieldscan.py b0 --writes-only` over `00400000`-`004a0000` finds no other on a mech (the rest are widget dirty flags and the `004d2540` video block), and no `memset`, `memcpy` or `REP MOVS` onto a mech was found. A writer that reaches a machine the player is not piloting would let a HERC on F5 read `SHIELDS DN`.
-- **Unported:** mode 0's arm of the shared SELECT/TARGET case, which steps a squad roster.
+- **Open:** what the 100 a TARGET press writes to the SCANNER screen's `+0xc` does. `es2_fieldscan.py c` over `0043a2e0`-`00440a00` finds the status screen's read of its own `+0xc` in `MfdStatusScreen_Update` and no read of the SCANNER screen's: both `+0xc` reads in its update and paint are of the shared state block, through `+0x8`.
+- **Unported:** the status screens' 30-tick refresh, and the scramble a SELECT press puts on them ([The subject](#the-subject)).

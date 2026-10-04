@@ -107,6 +107,17 @@ public static class MfdLayout {
 	/// </summary>
 	public const int TransmitButton = 10;
 
+	/// <summary>
+	/// The aux button STATUS and TARGET STATUS show: SELECT, index 7, the one the [D] key presses.
+	/// </summary>
+	public const int SelectButton = 7;
+
+	/// <summary>SCANNER's RANGE button, index 8, the one [Alt+R] presses.</summary>
+	public const int RangeButton = 8;
+
+	/// <summary>SCANNER's TARGET button, index 9, the one [Alt+T] presses.</summary>
+	public const int TargetButton = 9;
+
 	/// <summary>Every button the constructor builds, mode selectors included.</summary>
 	public const int ButtonCount = 13;
 

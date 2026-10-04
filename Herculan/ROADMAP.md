@@ -12,7 +12,7 @@ The mechanism is understood; what is left is engine work.
 - **The `TSBSPPart` walk's back-to-front draw order.** → [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md#open)
 - **A ground shape does not paint over an object drawn earlier where they overlap.** Retail paints a cell's ground shapes after every object filed under a cell its walk painted before. → [`docs/simulation/ground-shapes.md`](docs/simulation/ground-shapes.md#open)
 - **The simulator starting in full screen from `prefs.cfg` option 6, and saving the option at shutdown.** → [`docs/simulation/preferences.md`](docs/simulation/preferences.md#open)
-- **The MFD's squad-roster step**, mode 0's arm of SELECT/TARGET. → [`docs/formats/mfd.md`](docs/formats/mfd.md#open)
+- **The MFD status screens' 30-tick refresh, and the scramble a SELECT press puts on them.** → [`docs/formats/mfd.md`](docs/formats/mfd.md#open)
 - **A throttle lever bound to the turret pair pitching the turret while the camera has the controls.** → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md#open)
 - **The `.hmp` MIDI path and reading `SOUND.CFG`.** → [`docs/formats/audio.md`](docs/formats/audio.md#open)
 - **French and German.** The engine is English only: on a v1.10 install it does not read the installed language, and does not reach that language's text, mission text or cockpit-computer speech. → [`docs/retail-builds.md`](docs/retail-builds.md#how-a-language-is-chosen)

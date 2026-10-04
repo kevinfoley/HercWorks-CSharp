@@ -7155,7 +7155,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Cockpit_LoadSquadmatePilots",
-      "description": "(cockpit): finds the player's machine (+0xa3) walking GlobalMechList with Pool_Prev, keeps its mission group (+0x45) at 0049b0f8, and takes up to three of the group's members (group +0xc, count +0x10, stopping at a null) other than the cockpit's own machine (+0x203) into 004d044c. Loads each one's pilot (+0x29c) into slot i of the HDD gauge (+0x1f9) with HddGauge_LoadPilotFrames, then calls 00447294(+0x1ed, count). Sim_InitMissionSession calls it.",
+      "description": "(cockpit): finds the player's machine (+0xa3) walking GlobalMechList with Pool_Prev, keeps its mission group (+0x45) at 0049b0f8, and takes up to three of the group's members (group +0xc, count +0x10, stopping at a null) other than the cockpit's own machine (+0x203) into 004d044c. Loads each one's pilot (+0x29c) into slot i of the HDD gauge (+0x1f9) with HddGauge_LoadPilotFrames, then calls MfdDisplay_SetStatusRoster(+0x1ed, count). Sim_InitMissionSession calls it.",
       "source": "DBSIM decompile at 00431530; mech +0xa3 and +0x45 from known_structs.json"
     },
     {
@@ -10368,6 +10368,15 @@
       "description": "The FLASH COMM page's XMIT widget: resolves the selected row to a verb through MfdFlashComm_SelectedVerb, writes it into the shared order record at DAT_004d0458 and broadcasts it through Squad_BroadcastOrderFromCockpit. Args derived from disassembly: [EBP+8] only.",
       "source": "docs/simulation/ai-squadmates.md",
       "signature": "void __cdecl MfdFlashComm_Transmit(int mfdScreen)"
+    },
+    {
+      "address": "00447294",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_SetStatusRoster",
+      "description": "(mfd): fills the status screen's squad roster, MfdDisplay_StepStatusSubject's array: entry 0 (+0x308) is the cockpit's own machine (CockpitViewInstance+0x203), entries 1..count (+0x30c) the first count machines of g_SquadmateMachines, and +0x31c becomes count + 1. Cockpit_LoadSquadmatePilots calls it with the squadmates it seated.",
+      "source": "DBSIM decompile and disassembly at 00447294"
     },
     {
       "address": "004472e4",

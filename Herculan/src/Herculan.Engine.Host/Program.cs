@@ -1058,6 +1058,12 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	bool flashCommNextRowKeyDown = false;
 	bool flashCommPreviousRowKeyDown = false;
 
+	// [D], [Alt+R] and [Alt+T], which press the MFD's SELECT, RANGE and TARGET buttons — see the block
+	// that reads them.
+	bool mfdSelectKeyDown = false;
+	bool mfdRangeKeyDown = false;
+	bool mfdTargetKeyDown = false;
+
 	// Edge state for the command display's keyboard — see the block that reads them.
 	//
 	// The order hotkeys are the manual's own, and they are not a table in the code: each STRINGS0 group
@@ -1146,6 +1152,10 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// arrow cluster; both are accepted here since a host window has no NUM LOCK to read.
 	var pilotMech = scene.PlayerMech;
 	bool piloting = pilotMech != null;
+
+	// What F1's SELECT walks: the machine being flown, then the squadmates in comm-box order, taken
+	// once as the mission starts.
+	var mfdStatusRoster = new MfdStatusRoster(pilotMech, squadSeats.Take(squadPlacements.Count));
 	bool allStopKeyDown = false;
 	bool shieldRearKeyDown = false;
 	bool shieldFrontKeyDown = false;
@@ -2098,17 +2108,19 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 			// [R] switches the radar between PASSIVE and ACTIVE. Worth knowing before wondering why
 			// nothing can be targeted: passive, this machine only ever knows about what it can see inside
 			// visual range, and in the original what makes a distant enemy targetable is usually that
-			// *enemy's* radar being on — which is AI behaviour the engine does not have yet.
+			// *enemy's* radar being on — which is AI behaviour the engine does not have yet. [Alt+R] is
+			// another code, 0x213, the MFD's range key, and no handler gives it the radar.
 			bool radarKey = controls.IsKeyPressed(Key.R);
-			if (radarKey && !radarKeyDown && !CockpitWidgetsOff()) {
+			if (radarKey && !radarKeyDown && !CockpitWidgetsOff() && !AltHeld(controls)) {
 				pilotMech.ToggleScanner(scene.World);
 			}
 			radarKeyDown = radarKey;
 
 			// [T] toggles ATT. The command display owns [T] as an order hotkey while it is down, so the
-			// two are split the same way the arrows and [Backspace] are, and for the same reason.
+			// two are split the same way the arrows and [Backspace] are, and for the same reason. [Alt+T]
+			// is 0x214, the MFD's TARGET key.
 			bool autoTrackKey = !HddCommandHasKeyboard() && controls.IsKeyPressed(Key.T);
-			if (autoTrackKey && !autoTrackKeyDown && !CtrlHeld(controls)) {
+			if (autoTrackKey && !autoTrackKeyDown && Unmodified(controls)) {
 				// Sim_DispatchCommand's 0x14 case toggles the TRACK widget and, if that turned it off,
 				// latches the centring mode — so [T] off brings the turret home rather than leaving it
 				// wherever the tracker had it. Backspace's own case is the mirror image.
@@ -2427,6 +2439,42 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				held = down;
 				return edge;
 			}
+		}
+
+		// The MFD's three button keys, from MfdDisplay_KeyDispatch (004469c0). Each presses its button only
+		// on a screen that shows it, the same press a click makes. The dispatch returns before its switch
+		// unless the MFD is on screen: with the Heads-Down Display down [D] is that display's order hotkey
+		// instead, and neither the external view nor this engine's free camera, where [D] strafes, shows
+		// the cockpit.
+		if (controls != null && pilotInput) {
+			bool selectKey = controls.IsKeyPressed(Key.D);
+			bool rangeKey = controls.IsKeyPressed(Key.R);
+			bool targetKey = controls.IsKeyPressed(Key.T);
+			bool mfdKeys = !AnyModalPanelOpen() && !cockpitPan.AtHeadsDown && !ExternalViewActive()
+				&& !CtrlHeld(controls);
+			bool alt = AltHeld(controls);
+
+			// [D] (0x20) is SELECT: the manual's "status of the other HERCs" on F1, a target step on F5.
+			if (mfdKeys && !alt && selectKey && !mfdSelectKeyDown) {
+				PressMfdButtonByKey(MfdLayout.SelectButton);
+			}
+
+			// [Alt+R] (0x213) is RANGE on the scanner. Anywhere else it steps the range all the same,
+			// through MfdDisplay_CycleScannerRange rather than the button, so without a click.
+			if (mfdKeys && alt && rangeKey && !mfdRangeKeyDown) {
+				if (!PressMfdButtonByKey(MfdLayout.RangeButton)) {
+					CycleScannerRange();
+				}
+			}
+
+			// [Alt+T] (0x214) is TARGET, which only the scanner shows.
+			if (mfdKeys && alt && targetKey && !mfdTargetKeyDown) {
+				PressMfdButtonByKey(MfdLayout.TargetButton);
+			}
+
+			mfdSelectKeyDown = selectKey;
+			mfdRangeKeyDown = rangeKey;
+			mfdTargetKeyDown = targetKey;
 		}
 
 		// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
@@ -3055,11 +3103,13 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				ChainGroup = pilotMech.Weapons.Group,
 				AutoTrack = pilotMech.Weapons.AutoTrack,
 				Target = ResolveTargetIndicator(pilotMech, targetAim),
-				StatusSubject = MfdStatusSubject.For(pilotMech, pilotMech, cockpitArt.Strings),
+				StatusSubject = MfdStatusSubject.For(mfdStatusRoster.Subject, pilotMech, cockpitArt.Strings,
+					squadComm),
 				// F5's subject is the selection, and it carries the Targeting Pod's component on top of what
 				// the subject itself says — the pod belongs to the machine looking, not to what it is
 				// looking at. Only the id the pod's own present flag vouches for reaches it.
-				TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings)
+				TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings,
+						squadComm)
 					with { HighlightComponent = targetAim.ComponentTargeted ? targetAim.Component : -1 },
 
 				// The damage detail's subject, re-read every frame: on the target slot it follows the
@@ -4275,9 +4325,8 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 	// The MFD's aux buttons, from MfdButton_OnClick's own switch (0044681c).
 	//
 	// SELECT (7) and TARGET (9) are one case there, not two: it branches on the current mode, stepping
-	// the status screen's own subject cursor on F1 and calling TargetSelect_Cycle everywhere else. So
-	// F5's SELECT and F4's TARGET are the same action, and both do what [Enter] does. F1's arm walks a
-	// squad roster the engine has no equivalent of, so it is left alone.
+	// F1's squad roster and calling TargetSelect_Cycle everywhere else. So F5's SELECT and F4's TARGET
+	// are the same action, and both do what [Enter] does.
 	//
 	// XMIT (10) transmits the FLASH COMM page's selected row to the whole of the player's group.
 	void ApplyMfdAuxClick(int index) {
@@ -4286,16 +4335,15 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				flashComm.Transmit(xmitWorld, xmitWorld.PlayerMech?.Group);
 				break;
 
-			case 8 when hudState.Mfd == MfdMode.Scanner:
-				hudState = hudState with {
-					Scanner = hudState.Scanner with {
-						RangeIndex = MfdScanner.NextRangeIndex(hudState.Scanner.RangeIndex),
-					},
-				};
-
+			case MfdLayout.RangeButton when hudState.Mfd == MfdMode.Scanner:
+				CycleScannerRange();
 				break;
 
-			case 7 or 9 when hudState.Mfd != MfdMode.Status:
+			case MfdLayout.SelectButton or MfdLayout.TargetButton when hudState.Mfd == MfdMode.Status:
+				mfdStatusRoster.Step();
+				break;
+
+			case MfdLayout.SelectButton or MfdLayout.TargetButton:
 				scene.Targeting?.Cycle();
 				break;
 
@@ -4307,6 +4355,28 @@ int RunMission(ShellLaunch? shellLaunch, bool demoTape, int trackSelect) {
 				pilotMech?.SetScanner(true);
 				break;
 		}
+	}
+
+	// A key that presses an aux button — Widget_PressChild on the display, which runs the button's own
+	// press slot and so clicks as the mouse does. Only a button the current screen shows; false for any
+	// other, which the caller may answer some other way.
+	bool PressMfdButtonByKey(int index) {
+		if (!MfdLayout.ButtonVisible(hudState.Mfd, index)) {
+			return false;
+		}
+
+		ApplyMfdAuxClick(index);
+		audio.Director?.Play(SoundId.ButtonClick);
+		return true;
+	}
+
+	// MfdDisplay_CycleScannerRange (00446fc8): the next of the three scanner ranges, wrapping.
+	void CycleScannerRange() {
+		hudState = hudState with {
+			Scanner = hudState.Scanner with {
+				RangeIndex = MfdScanner.NextRangeIndex(hudState.Scanner.RangeIndex),
+			},
+		};
 	}
 
 	// Whether the command display is down and holding the letter keys. Both the split that leaves the

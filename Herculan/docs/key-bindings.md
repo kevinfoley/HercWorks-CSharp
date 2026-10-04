@@ -39,6 +39,7 @@ The simulator's keyboard, by what each key does. Keys the manual does not list a
 | `Tab` | Step through the target's components, with a Targeting Pod. |
 | `R` | Radar active or passive. |
 | `Alt+R` | Radar range, in active mode. |
+| `Alt+T` | **(not in the manual)** On the SCANNER screen, select the next target, as `Enter` does. |
 | `T` | Automatic Turret Tracking on or off. Turning it off also centres the turret. |
 | `[`, `]` | Move shield power toward the rear or the front. |
 
@@ -51,7 +52,7 @@ The simulator's keyboard, by what each key does. Keys the manual does not list a
 | `F9`, `F10` | Look out of the left and right windows. |
 | `Esc` | Back to the forward view from a side window or the Heads-Down Display, and to the cockpit from the outside view. |
 | `V` | The outside view, and back to the cockpit. |
-| `D` | Status of the other HERCs. |
+| `D` | Status of the other HERCs: on the STATUS screen, each squadmate's HERC in turn and then your own. **(not in the manual)** On TARGET STATUS it selects the next target. |
 | `Alt+D` | Drop a nav marker where you stand. |
 
 On FLASH COMM:

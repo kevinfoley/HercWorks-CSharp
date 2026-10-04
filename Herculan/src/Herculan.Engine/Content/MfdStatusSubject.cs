@@ -23,17 +23,17 @@ public enum MfdSilhouetteKind {
 /// What the MFD's status screen is looking at. One record serves both F1 and F5 because in the
 /// original one screen class serves both: <c>MfdDisplay_Ctor</c> builds two
 /// <c>MfdStatusScreen_Ctor</c> instances and the only difference between them is what
-/// <c>MfdDisplay_Update</c> (<c>00446328</c>) parks in the shared subject field — the player's own
-/// machine for mode 0, <c>CockpitView+0x210</c> (the selection) for mode 4.
+/// <c>MfdDisplay_Update</c> (<c>00446328</c>) parks in the shared subject field — the squad roster's
+/// current entry for mode 0 (<see cref="MfdStatusRoster"/>), <c>CockpitView+0x210</c> (the selection)
+/// for mode 4.
 ///
 /// <para>Everything here is read by the screen's paint (<c>MfdStatusScreen_Paint</c>, <c>0043a5a0</c>). The choices that look
 /// like mode differences are really subject differences: <c>ID:</c> versus <c>TARGET:</c> is "is this
 /// the machine I am flying (or one of my squad)", and the integrity readout versus the range readout
 /// is "is this one of ours", both decided from the subject alone.</para>
 ///
-/// <para>This engine has no pilot roster, so only the machine being flown reads <c>ID:</c>/<c>YOU</c>;
-/// a squadmate reads <c>TARGET:</c> and its type name. A flyer's name comes from <c>FLYERS.DAT</c>
-/// <c>NameBytes</c>, the same <c>+0x12</c> the paint reads, and a HERC's from its type name.</para>
+/// <para>A flyer's name comes from <c>FLYERS.DAT</c> <c>NameBytes</c>, the same <c>+0x12</c> the paint
+/// reads, and a HERC's from its type name.</para>
 /// </summary>
 /// <param name="Present">Whether there is a subject at all. False draws the no-target screen.</param>
 /// <param name="Identified">
@@ -111,13 +111,17 @@ public readonly record struct MfdStatusSubject(
 	/// <see cref="Identified"/> false.
 	/// </summary>
 	/// <param name="subject">
-	/// What the screen is looking at: the player's own machine for F1, the current selection for F5.
-	/// Null gives <see cref="None"/>.
+	/// What the screen is looking at: the squad roster's current entry for F1, the current selection
+	/// for F5. Null gives <see cref="None"/>.
 	/// </param>
 	/// <param name="viewer">The machine the range is measured from — the original's <c>CockpitView+0x203</c>.</param>
 	/// <param name="strings">For the structure and vehicle type-name groups.</param>
+	/// <param name="squad">
+	/// The comm boxes, which say whether a HERC is a squadmate (<c>Squad_IndexOf</c>, <c>00433134</c>)
+	/// and give its pilot's name (<c>HddGauge_Name</c>). Null treats no machine as a squadmate.
+	/// </param>
 	public static MfdStatusSubject For(Sim.SimObject? subject, Sim.SimObject? viewer,
-			StringFile? strings) {
+			StringFile? strings, SquadCommChannel? squad = null) {
 		if (subject == null) {
 			return None;
 		}
@@ -168,11 +172,17 @@ public readonly record struct MfdStatusSubject(
 				}
 
 				// The name is the type record's own, which for every retail machine is the herc name -
-				// the same name its .HBA paper-doll bank and .PDG diagram are filed under.
+				// the same name its .HBA paper-doll bank and .PDG diagram are filed under. Only this
+				// branch asks whether the subject is one of ours: the machine being flown prints YOU, a
+				// squadmate its pilot's name, and both head the screen ID:.
 				string name = mech.Name.ToUpperInvariant();
+				int squadSlot = squad?.SlotOf(mech) ?? -1;
+				string printed = own ? strings?.Text(MfdLayout.SelfNameGroup, 0) ?? name
+					: squadSlot >= 0 ? squad!.Name(squadSlot)
+					: name;
 				return new MfdStatusSubject(
-					Present: true, Identified: true, Own: own, Hostile: hostile,
-					Name: own ? strings?.Text(MfdLayout.SelfNameGroup, 0) ?? name : name,
+					Present: true, Identified: true, Own: own || squadSlot >= 0, Hostile: hostile,
+					Name: printed,
 					Condition: condition, Damage: damage, Distance: distance,
 					SilhouetteKind: MfdSilhouetteKind.PaperDoll,
 					SilhouetteBank: name, SilhouetteFrame: MfdLayout.WireframeViewIndex,

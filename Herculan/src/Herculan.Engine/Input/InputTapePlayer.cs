@@ -10,7 +10,7 @@ namespace Herculan.Engine.Input;
 /// <summary>
 /// One <c>.TAP</c> input tape being played back — DBSIM's <c>-p</c>, and <c>-D</c> when
 /// <see cref="DemoMode"/> is set. The tape is read a frame at a time; what each frame means and how
-/// DBSIM consumes it are docs/formats/tap-input-tape.md's, and this class only decodes it into the
+/// DBSIM consumes it are docs/retail/formats/tap-input-tape.md's, and this class only decodes it into the
 /// engine's own input types. The host owns the loop that feeds it, because only the host knows when a
 /// modal panel is up.
 ///
@@ -115,7 +115,7 @@ public sealed class InputTapePlayer {
 	/// The tape's recorded length, for the log: <see cref="SecondsOf"/> summed over the frames that
 	/// ticked the simulation, which leaves out every frame of an <see cref="InferredPanelSpans"/> run
 	/// after its first, the frame whose tick raised the panel. It rests on the same heuristic as the
-	/// spans. See docs/formats/tap-input-tape.md, "Timing".
+	/// spans. See docs/retail/formats/tap-input-tape.md, "Timing".
 	/// </summary>
 	public double RecordedSeconds {
 		get {

@@ -9,7 +9,7 @@ namespace Herculan.Engine.Gl;
 /// <para>Sampling is <b>nearest-neighbour with no mipmaps</b>, which is a deliberate fidelity call
 /// rather than a shortcut: the original is a 1996 software rasterizer that point-samples its
 /// texels, so bilinear filtering would render something visibly softer than the game ever looked.
-/// Per docs/engine/planning.md's "vanilla by default" principle, filtering and mipmapping belong in
+/// Per docs/herculan/planning.md's "vanilla by default" principle, filtering and mipmapping belong in
 /// the opt-in enhancement bucket alongside the other precision upgrades, not in the default path.
 /// It also means the one-pixel gutter <see cref="TextureAtlas"/> leaves between frames is belt and
 /// braces — nearest sampling inside an exact frame rect cannot reach a neighbour regardless.</para>

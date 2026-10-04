@@ -77,7 +77,7 @@ public sealed partial class MechObject {
 	/// How many times this machine's cockpit has been jolted — a hit on one of its two cockpit
 	/// components, or a slide landing. The host watches it for the edge rather than a flag, the same
 	/// way it watches <see cref="Footfalls"/>, so a jolt taken between two frames is not missed. See
-	/// <c>CockpitHitShake</c>, and docs/formats/cockpit-canopy-palette.md, "The damage shake".
+	/// <c>CockpitHitShake</c>, and docs/retail/formats/cockpit-canopy-palette.md, "The damage shake".
 	/// </summary>
 	public int CockpitHits { get; private set; }
 
@@ -107,7 +107,7 @@ public sealed partial class MechObject {
 	/// up to 40 points along the turret bearing at <see cref="FiringLineSpacing"/> spacing, cut to the
 	/// range of the selected target. Nothing draws them — their only reader is
 	/// <see cref="ObstacleAvoidance"/>, which steers the player's own squadmates out of the way. See
-	/// docs/simulation/ai-navigation.md.</para>
+	/// docs/retail/simulation/ai-navigation.md.</para>
 	/// </summary>
 	private void FireTick(SimWorld world) {
 		// A round the player is flying clears the device's trigger byte before this reads it.
@@ -192,7 +192,7 @@ public sealed partial class MechObject {
 	/// <para>The command only reaches the pod while the heads-down display is <i>not</i> down: in view
 	/// mode 1 the same scancode goes to the display's own command slot instead, which is the manual's
 	/// <c>Zoom Map In/Out</c>. That split is the host's to make — see
-	/// docs/formats/cockpit-input.md.</para>
+	/// docs/retail/formats/cockpit-input.md.</para>
 	/// </summary>
 	public void CycleTargetComponent() => Pods.TargetingMount?.ComponentLock?.CycleComponent(Target);
 
@@ -205,7 +205,7 @@ public sealed partial class MechObject {
 	/// <para>Both halves reach the cockpit through <c>CockpitView_SetTargetBlock</c>: the flag lands
 	/// at <c>+0x27c</c> and drops the target box to its bare pip, and the component id lands at
 	/// <c>+0x27e</c> and highlights that region of the MFD's paper doll. See
-	/// docs/formats/hud-target-indicator.md and docs/formats/mfd.md.</para>
+	/// docs/retail/formats/hud-target-indicator.md and docs/retail/formats/mfd.md.</para>
 	/// </summary>
 	/// <returns>Where to aim, whether a component was singled out, and which.</returns>
 	public (Vec3i Point, bool ComponentTargeted, short Component) ResolveTargetAimPoint() {
@@ -257,7 +257,7 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// <c>mech+0x288</c> — the damage shields and armour have absorbed inside the current
 	/// <see cref="DamageWindowTimer"/> window, about two seconds; <see cref="AiTimersTick"/> zeroes it
-	/// at each expiry. See docs/simulation/ai-combat-states.md ("The circling step").
+	/// at each expiry. See docs/retail/simulation/ai-combat-states.md ("The circling step").
 	/// </summary>
 	public int DamageTaken { get; private set; }
 
@@ -430,7 +430,7 @@ public sealed partial class MechObject {
 	/// under half damaged goes onto the salvage list with its condition; and the chassis is worth
 	/// <see cref="MechTypeRecord.SalvageScale"/> of its <see cref="ComponentDamage.WeightedArmorRemaining"/>, the
 	/// scale halved when component 0 is at full damage. See
-	/// docs/simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60.
+	/// docs/retail/simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60.
 	/// </summary>
 	internal int SalvageValue(SimWorld world) {
 		if (WorthNoSalvage || _damage == null) {
@@ -463,7 +463,7 @@ public sealed partial class MechObject {
 	/// <c>Group_ApplyOutnumberedDamage</c> (<c>00423f08</c>): <see cref="ApplyOutnumberedDamage"/> on
 	/// every member of <paramref name="group"/>. <see cref="SimWorld"/> runs it on the player's group when
 	/// the mission poll answers <see cref="MissionStatus.PlayerImmobilised"/>. See
-	/// docs/simulation/mission-objectives.md#the-poll--mission_pollstatus-004131ac.
+	/// docs/retail/simulation/mission-objectives.md#the-poll--mission_pollstatus-004131ac.
 	/// </summary>
 	internal static void ApplyGroupOutnumberedDamage(SimWorld world, MissionGroup group) {
 		for (int i = 0; i < group.Members.Count; i++) {
@@ -696,7 +696,7 @@ public sealed partial class MechObject {
 	/// <para><b><c>0x12</c> <c>DAMAGE LEVEL CRITICAL</c> is never said.</b> Its call site sits
 	/// between the two readings and needs the later one to have <i>fallen</i> below the earlier; no
 	/// retail <c>PROJ.DAT</c> record can make the write negative, so the line is unreachable — see
-	/// docs/formats/cockpit-messages.md, "Posters". The cockpit jolt that shares its gate is a
+	/// docs/retail/formats/cockpit-messages.md, "Posters". The cockpit jolt that shares its gate is a
 	/// separate effect and is raised, through <see cref="CockpitHits"/>. What the test reads as
 	/// having been meant is implemented beside that jolt under the
 	/// <see cref="TweakSettingDefinitions.CriticalDamageMessage"/> tweak.</para>
@@ -879,7 +879,7 @@ public sealed partial class MechObject {
 	/// Where a component learns where it is: the machine's <c>.COL</c> is walked cluster by cluster
 	/// and each cluster's node and centre are filed under the component index it names. The original
 	/// does this once at loadout, writing into two runtime-only fields of the <c>.DMG</c> record —
-	/// see docs/simulation/damage-system.md, "Where a component stands".
+	/// see docs/retail/simulation/damage-system.md, "Where a component stands".
 	///
 	/// <para><b>The write is unguarded, so the last cluster naming a component wins.</b> It makes no
 	/// difference on retail data — every mech <c>.COL</c> names each component exactly once — but it
@@ -927,7 +927,7 @@ public sealed partial class MechObject {
 	/// <c>Mech_ComponentNearestAim</c> (<c>0041b534</c>), vtable <c>+0x54</c> — over all
 	/// <see cref="ComponentDamage.MechComponentCount"/> slots, the live one whose
 	/// <see cref="ComponentWorldPosition"/> has the least <see cref="SimObject.AimOffset"/>, the
-	/// first of equals; −1 when none is live. See docs/simulation/rockets.md, "Spawning".
+	/// first of equals; −1 when none is live. See docs/retail/simulation/rockets.md, "Spawning".
 	/// </summary>
 	public override short ComponentNearestAim(Vec3i from, (short X, short Y, short Z) attitude) {
 		int best = NoAimOffset;
@@ -1147,7 +1147,7 @@ public sealed partial class MechObject {
 	/// <para>The computer's warnings this posts along the way — the shield generator's two, the
 	/// weapon-mount one, the leg grade's pair, the reactor's and the kill announcement — are all
 	/// gated on <see cref="SimObject.LocallyPiloted"/>, so only the machine the player is flying
-	/// says anything. See docs/simulation/component-damage.md.</para>
+	/// says anything. See docs/retail/simulation/component-damage.md.</para>
 	/// </summary>
 	public override void ApplyComponentDamage(SimWorld world, int componentIndex, short damage,
 			SimObject? attacker) =>

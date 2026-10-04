@@ -2,7 +2,7 @@ namespace Herculan.Engine.Host;
 
 /// <summary>
 /// The command line's value readers and its <c>--help</c> text. <see cref="HostOptions"/> owns the flags themselves;
-/// docs/engine/herculan-command-line.md describes each one.
+/// docs/herculan/herculan-command-line.md describes each one.
 ///
 /// <para>A malformed command line is an error rather than a guess. Anything the parser does not claim
 /// would otherwise land in the positional arguments, so <c>--mfd abc</c> would take <c>abc</c> as the
@@ -111,6 +111,6 @@ static class HostArguments {
 
 		  --help, -h, -?              this text
 
-		Every option is described in Herculan/docs/engine/herculan-command-line.md.
+		Every option is described in Herculan/docs/herculan/herculan-command-line.md.
 		""";
 }

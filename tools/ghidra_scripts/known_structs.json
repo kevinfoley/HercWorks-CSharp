@@ -223,7 +223,7 @@
           "type": "ushort *",
           "name": "sequenceFrameCounts",
           "confidence": "high",
-          "description": "+0x20 -- sequenceCount ushorts read from the stream: how many cells each cell-animation sequence has. A ticking effect takes its cellFrames entry modulo this, as Explosion_TickUpdate (0040813c) and the rocket's exhaust flame do. See docs/formats/dts-billboards.md."
+          "description": "+0x20 -- sequenceCount ushorts read from the stream: how many cells each cell-animation sequence has. A ticking effect takes its cellFrames entry modulo this, as Explosion_TickUpdate (0040813c) and the rocket's exhaust flame do. See docs/retail/formats/dts-billboards.md."
         },
         {
           "offset": 36,
@@ -239,7 +239,7 @@
           "type": "void *",
           "name": "boundBitmapArray",
           "confidence": "high",
-          "description": "+0x26 -- the DBA the shape's texture and bitmap parts draw from, set at run time rather than stored in the .DTS. 'MOV EAX,dword ptr [EAX + 0x26]' in TSShape_GetBoundBitmapArray (00490c41) settles the width; TSShapeInstance_Render installs it in g_CurrentShapeDbaContext for the draw. See docs/formats/dts-texture-binding.md."
+          "description": "+0x26 -- the DBA the shape's texture and bitmap parts draw from, set at run time rather than stored in the .DTS. 'MOV EAX,dword ptr [EAX + 0x26]' in TSShape_GetBoundBitmapArray (00490c41) settles the width; TSShapeInstance_Render installs it in g_CurrentShapeDbaContext for the draw. See docs/retail/formats/dts-texture-binding.md."
         }
       ]
     },
@@ -271,7 +271,7 @@
           "type": "ushort *",
           "name": "cellFrames",
           "confidence": "high",
-          "description": "+0x8 -- this instance's current cell for each sequence, shape->sequenceCount ushorts copied from shape->initialCellFrames (null when the shape has no sequences). TSShapeInstance_Render publishes it as g_CellAnimFrames (ShapeRender_BindCellFrames, 00490c2e) for TSCellAnimPart_Render to index. Effects step an entry and wrap it at shape->sequenceFrameCounts; the mech writes 2 into a component's sequence to blank its parts. See docs/formats/dts-billboards.md and docs/formats/mech-shape-drawing.md."
+          "description": "+0x8 -- this instance's current cell for each sequence, shape->sequenceCount ushorts copied from shape->initialCellFrames (null when the shape has no sequences). TSShapeInstance_Render publishes it as g_CellAnimFrames (ShapeRender_BindCellFrames, 00490c2e) for TSCellAnimPart_Render to index. Effects step an entry and wrap it at shape->sequenceFrameCounts; the mech writes 2 into a component's sequence to blank its parts. See docs/retail/formats/dts-billboards.md and docs/retail/formats/mech-shape-drawing.md."
         }
       ]
     },
@@ -328,7 +328,7 @@
           "type": "short",
           "name": "typeTag",
           "confidence": "high",
-          "description": "+0x4 -- the type tag ObjList_DrawCellObjects (00428c60) branches on ('CMP word ptr [EBX + 0x4],0x9'): 9 draws on the spot, anything else gets a deferred, depth-sorted render entry. Written after the vtable by the constructing code: Bullet_Construct 3, a ground shape 9, an impact effect 2 or 8 by its type row's +0x26. See docs/formats/distance-fog-and-sky.md."
+          "description": "+0x4 -- the type tag ObjList_DrawCellObjects (00428c60) branches on ('CMP word ptr [EBX + 0x4],0x9'): 9 draws on the spot, anything else gets a deferred, depth-sorted render entry. Written after the vtable by the constructing code: Bullet_Construct 3, a ground shape 9, an impact effect 2 or 8 by its type row's +0x26. See docs/retail/formats/distance-fog-and-sky.md."
         }
       ]
     },
@@ -387,7 +387,7 @@
           "type": "byte",
           "name": "rootMotionEnabled",
           "confidence": "high",
-          "description": "+0x39 -- set to 1 by SimObjectBase_ConstructShaped alone, so it marks a shape instance that can carry animation threads. SimObject_ApplyRootMotionIfEnabled (00402604) does nothing while it is clear. See docs/simulation/structure-behaviour.md."
+          "description": "+0x39 -- set to 1 by SimObjectBase_ConstructShaped alone, so it marks a shape instance that can carry animation threads. SimObject_ApplyRootMotionIfEnabled (00402604) does nothing while it is clear. See docs/retail/simulation/structure-behaviour.md."
         }
       ]
     },
@@ -645,7 +645,7 @@
           "type": "byte",
           "name": "collapsed",
           "confidence": "medium",
-          "description": "+0xb4 -- the machine has finished going down and is lying on the ground. Two writers, both now known: Mech_LocomotionTick latches it on the frame the death animation plays out, and Mech_ApplyStartingCondition sets it at spawn for a machine the mission places as a wreck. A THIRD condition alongside destroyed (+0x99) and immobilised (+0xa4), not a synonym: it is what rejects a candidate in Ai_IsTargetable and in the mission group's condition tier, so a machine that is down but still falling is still a target. See docs/simulation/mech-locomotion.md."
+          "description": "+0xb4 -- the machine has finished going down and is lying on the ground. Two writers, both now known: Mech_LocomotionTick latches it on the frame the death animation plays out, and Mech_ApplyStartingCondition sets it at spawn for a machine the mission places as a wreck. A THIRD condition alongside destroyed (+0x99) and immobilised (+0xa4), not a synonym: it is what rejects a candidate in Ai_IsTargetable and in the mission group's condition tier, so a machine that is down but still falling is still a target. See docs/retail/simulation/mech-locomotion.md."
         },
         {
           "offset": 181,
@@ -826,7 +826,7 @@
       "name": "ShieldBlock",
       "binary": "DBSIM",
       "size": 10,
-      "description": "A machine's shield array: five shorts at mech+0x222, initialised by Shield_Init (00413a90) from the type record's +0xc0. There is one pool, not two -- max caps the SUM of the two facings and balance decides the split, which is why the manual can only say power is redistributed. docs/simulation/damage-system.md owns the recharge, absorb and balance-slew behaviour.",
+      "description": "A machine's shield array: five shorts at mech+0x222, initialised by Shield_Init (00413a90) from the type record's +0xc0. There is one pool, not two -- max caps the SUM of the two facings and balance decides the split, which is why the manual can only say power is redistributed. docs/retail/simulation/damage-system.md owns the recharge, absorb and balance-slew behaviour.",
       "fields": [
         {
           "offset": 0,
@@ -874,7 +874,7 @@
       "name": "FlightBlock",
       "binary": "DBSIM",
       "size": 78,
-      "description": "The flight model's per-object state, handed to FlightModel_Step (00466a54) by pointer. Two classes carry one: a mech at +0x2b9 (a RAZOR -- Razor_ApplyFlightInput passes mech+0x2b9) and a flyer at +0x243 (Flyer_ApplyFlightCommand passes flyer+0x243 in the same argument). One function reads both, so the layout is one layout. docs/simulation/razor-flight.md owns the meanings.",
+      "description": "The flight model's per-object state, handed to FlightModel_Step (00466a54) by pointer. Two classes carry one: a mech at +0x2b9 (a RAZOR -- Razor_ApplyFlightInput passes mech+0x2b9) and a flyer at +0x243 (Flyer_ApplyFlightCommand passes flyer+0x243 in the same argument). One function reads both, so the layout is one layout. docs/retail/simulation/razor-flight.md owns the meanings.",
       "fields": [
         {
           "offset": 0,
@@ -956,7 +956,7 @@
       "size": 874,
       "description": "A HERC -- the class every walking machine and the RAZOR are instances of. Embeds SimObject at offset 0 (so the vtable, transform, behaviour block and flag block are the base's fields) and starts its own at +0x1f2, running to 0x36a. Constructed by Mech_Constructor (00415bb0), allocated from the pool set up at 00425185 whose element size is this struct's length.",
       "notes": [
-        "THE FLIGHT BLOCK AT +0x2b9 IS A RAZOR'S: a RAZOR is a mech with the type record's flyer flag set, which docs/simulation/razor-flight.md establishes and owns. The flyer class has its own copy of the same block at flyer+0x243 -- see FlightBlock.",
+        "THE FLIGHT BLOCK AT +0x2b9 IS A RAZOR'S: a RAZOR is a mech with the type record's flyer flag set, which docs/retail/simulation/razor-flight.md establishes and owns. The flyer class has its own copy of the same block at flyer+0x243 -- see FlightBlock.",
         "THE TWO TIMER FLAVOURS ARE NOT DISTINGUISHABLE FROM THE FIELD, only from which function ticks it. +0x258 through +0x26c are seven 3-byte CountdownTimers stepped by Math_CountdownTimerTick; +0x26d through +0x280 are four 5-byte LongCountdownTimers stepped by Timer_CountDown. Both keep their counter at +1, which is why every doc cites these fields one byte above the record: mech+0x26b IS the counter of the timer based at +0x26a, not a field of its own. Searching for the cited offset finds the accesses; searching for it as a record base finds nothing.",
         "+0x261 IS A LOCK TIMER SLOT THAT NOTHING TICKS. The run from +0x258 has a regular stride of 3 and +0x264 is the fifth element of it, so the fourth exists in the layout; no call to Math_CountdownTimerTick names it, matching the engine port's note that missile subtype 3 is never used.",
         "THE GAPS AT +0x1fe, +0x2a4 AND +0x301 ARE UNREAD, NOT ESTABLISHED AS PADDING. No access to them was located; they are left out rather than filled so a later finding does not have to displace an invented field.",
@@ -1049,7 +1049,7 @@
           "type": "void *",
           "name": "groundShapes",
           "confidence": "high",
-          "description": "+0x238 -- a malloc'd array of FlatObj pointers, the machine's ground shapes, one per entry in the type record's list at +0x72 (each entry's shape index). Mech_PlaceLegsOnGround moves each under its node; the leg branch of Mech_ComponentDamageWrite queues a lost leg's for deletion and nulls the slot. See docs/simulation/ground-shapes.md."
+          "description": "+0x238 -- a malloc'd array of FlatObj pointers, the machine's ground shapes, one per entry in the type record's list at +0x72 (each entry's shape index). Mech_PlaceLegsOnGround moves each under its node; the leg branch of Mech_ComponentDamageWrite queues a lost leg's for deletion and nulls the slot. See docs/retail/simulation/ground-shapes.md."
         },
         {
           "offset": 572,
@@ -1350,7 +1350,7 @@
           "type": "SimObject *",
           "name": "standingInStructure",
           "confidence": "high",
-          "description": "+0x2b0 -- the structure the machine stands inside: Mech_CollisionTest clears it, then stores each structure (target class 1) whose body radius contains the machine, separately from its block test. Its reader is Scene_SubmitFrameObjects, which files the machine for drawing under that structure's cached draw cell (+0x1e8). See docs/simulation/mech-locomotion.md, 'The structure a machine stands in'."
+          "description": "+0x2b0 -- the structure the machine stands inside: Mech_CollisionTest clears it, then stores each structure (target class 1) whose body radius contains the machine, separately from its block test. Its reader is Scene_SubmitFrameObjects, which files the machine for drawing under that structure's cached draw cell (+0x1e8). See docs/retail/simulation/mech-locomotion.md, 'The structure a machine stands in'."
         },
         {
           "offset": 692,
@@ -1405,7 +1405,7 @@
       "name": "StructureComponentState",
       "binary": "DBSIM",
       "size": 11,
-      "description": "One structure component's running state, packed with no alignment. Base_Construct allocates an array of them at StructureObject+0x205, one per BASES.DAT component (record +0x12), with Rtl_VectorNew at element size 0xb (00405a76) and StructureComponentState_ElementCtor (004069e5), which initialises nothing, so a record starts zeroed. Every reader indexes it by component * 11 (LEA ESI,[EAX+EAX*4]; LEA ESI,[EAX+ESI*2] in Base_ApplyDamage at 00404daf). docs/simulation/structure-behaviour.md owns the behaviour.",
+      "description": "One structure component's running state, packed with no alignment. Base_Construct allocates an array of them at StructureObject+0x205, one per BASES.DAT component (record +0x12), with Rtl_VectorNew at element size 0xb (00405a76) and StructureComponentState_ElementCtor (004069e5), which initialises nothing, so a record starts zeroed. Every reader indexes it by component * 11 (LEA ESI,[EAX+EAX*4]; LEA ESI,[EAX+ESI*2] in Base_ApplyDamage at 00404daf). docs/retail/simulation/structure-behaviour.md owns the behaviour.",
       "fields": [
         {
           "offset": 0,
@@ -1470,7 +1470,7 @@
           "type": "CountdownTimer",
           "name": "cellAnimTimer",
           "confidence": "high",
-          "description": "+0x1f6 -- the idle cell-animation interval. Base_ThinkTick (00403ca8) ticks it with Math_CountdownTimerTick and reloads the counter (+0x1f7) from BASES.DAT +0x26; Base_Construct seeds the counter at 00405b7b (MOV word ptr [EDI+0x1f7],AX). docs/simulation/structure-behaviour.md owns the behaviour."
+          "description": "+0x1f6 -- the idle cell-animation interval. Base_ThinkTick (00403ca8) ticks it with Math_CountdownTimerTick and reloads the counter (+0x1f7) from BASES.DAT +0x26; Base_Construct seeds the counter at 00405b7b (MOV word ptr [EDI+0x1f7],AX). docs/retail/simulation/structure-behaviour.md owns the behaviour."
         },
         {
           "offset": 505,
@@ -1663,7 +1663,7 @@
       "name": "FlatObj",
       "binary": "DBSIM",
       "size": 65,
-      "description": "RTTI 'FlatObj', 0x41 bytes, derived from TS_OBJ and adding no fields: a ground shape -- a HERC's shadow, a drop pod's landing square, an impact effect's ring. Built inline after Pool_Alloc from g_FlatObjPool with SimObjectBase_Constructor, then FlatObj_Vtable (0049a262) and typeTag 9; drawn by FlatObj_Draw (0040991c). See docs/simulation/ground-shapes.md.",
+      "description": "RTTI 'FlatObj', 0x41 bytes, derived from TS_OBJ and adding no fields: a ground shape -- a HERC's shadow, a drop pod's landing square, an impact effect's ring. Built inline after Pool_Alloc from g_FlatObjPool with SimObjectBase_Constructor, then FlatObj_Vtable (0049a262) and typeTag 9; drawn by FlatObj_Draw (0040991c). See docs/retail/simulation/ground-shapes.md.",
       "fields": [
         {
           "offset": 0,
@@ -1679,7 +1679,7 @@
       "name": "LightSource",
       "binary": "DBSIM",
       "size": 14,
-      "description": "RTTI 'LightSource', 0xe bytes, derived from DRAWABLE: an impact effect's handle on a light-manager slot. EffectLight_Construct (00407604) claims the slot and seeds its intensity; it draws nothing. See docs/formats/effect-lights.md.",
+      "description": "RTTI 'LightSource', 0xe bytes, derived from DRAWABLE: an impact effect's handle on a light-manager slot. EffectLight_Construct (00407604) claims the slot and seeds its intensity; it draws nothing. See docs/retail/formats/effect-lights.md.",
       "fields": [
         {
           "offset": 0,
@@ -1703,7 +1703,7 @@
       "name": "EXPLOSION",
       "binary": "DBSIM",
       "size": 91,
-      "description": "RTTI 'EXPLOSION', 0x5b bytes, derived from TS_OBJ: an impact effect, a flipbook standing at the point a shot landed. Allocated from g_ExplosionPool (40 entries of 0x5b), built by Explosion_Construct (00407f1c), stepped by Explosion_TickUpdate (0040813c), released by Explosion_Destruct (00407e48). See docs/simulation/impact-effects.md.",
+      "description": "RTTI 'EXPLOSION', 0x5b bytes, derived from TS_OBJ: an impact effect, a flipbook standing at the point a shot landed. Allocated from g_ExplosionPool (40 entries of 0x5b), built by Explosion_Construct (00407f1c), stepped by Explosion_TickUpdate (0040813c), released by Explosion_Destruct (00407e48). See docs/retail/simulation/impact-effects.md.",
       "fields": [
         {
           "offset": 0,
@@ -1842,7 +1842,7 @@
       "name": "PilotRecord",
       "binary": "VSHELL",
       "size": 59,
-      "description": "One pilot -- a squadmate or the player; both use the same shape, the player's roster id included. Serialized by Pilot_Write (0040fd5f), read by Pilot_Read (0040fefc), initialised by Pilot_Init (0040fcd8) and Pilot_SetDefaults (0040fd17). Packed and unaligned. The save screen's 67-byte (0x43) staging record embeds one at its start, and the player's copy sits at 00482a7c. See docs/formats/save-games.md, 'Pilot record'.",
+      "description": "One pilot -- a squadmate or the player; both use the same shape, the player's roster id included. Serialized by Pilot_Write (0040fd5f), read by Pilot_Read (0040fefc), initialised by Pilot_Init (0040fcd8) and Pilot_SetDefaults (0040fd17). Packed and unaligned. The save screen's 67-byte (0x43) staging record embeds one at its start, and the player's copy sits at 00482a7c. See docs/retail/formats/save-games.md, 'Pilot record'.",
       "notes": [
         "Offsets, widths and the 0x3b size are taken from that doc's table, which closes exactly at +0x3b with no gap; the field semantics at +0x24 onward are bound to specific readers there (Stats_StageCurrentGame, Pilot_AccumulateMissionStats, Pilot_Progress). Widths are pinned by Pilot_Write's typed loads and Pilot_Init's and Pilot_SetDefaults' typed stores; the three fields whose meaning rests on the doc alone (+0x00, +0x02, +0x22) carry medium confidence and a maybe_ name. The squad block stores 36 of these, three squads of twelve, and the player block one."
       ],
@@ -1981,7 +1981,7 @@
       "name": "hzline",
       "binary": "DBSIM",
       "size": 122,
-      "description": "The theater's sky backdrop (RTTI 'hzline', vtable 0049afb0, over TSGroup's 0x28 bytes): a horizon line projected from the view each frame, palette bands above it and one fill below. Built by Hzline_Ctor in World_LoadTheater from the .WLD's first eight shorts and held at g_TheaterHzline; drawn by Hzline_Draw from Scene_DrawTerrainPass. docs/formats/distance-fog-and-sky.md#the-sky--hzline.",
+      "description": "The theater's sky backdrop (RTTI 'hzline', vtable 0049afb0, over TSGroup's 0x28 bytes): a horizon line projected from the view each frame, palette bands above it and one fill below. Built by Hzline_Ctor in World_LoadTheater from the .WLD's first eight shorts and held at g_TheaterHzline; drawn by Hzline_Draw from Scene_DrawTerrainPass. docs/retail/formats/distance-fog-and-sky.md#the-sky--hzline.",
       "notes": [
         "+0x00..+0x27 is the TSGroup base; TSGroup_Ctor zeroes +0x10..+0x1c."
       ],

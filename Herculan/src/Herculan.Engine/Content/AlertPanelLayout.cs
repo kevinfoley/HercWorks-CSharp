@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 /// <see cref="PausePanelLayout"/>'s size), <see cref="PreferencesPanelLayout"/> ([F12]) and
 /// <see cref="ControlsPanelLayout"/>. They share the fonts and the geometry below; the first two
 /// also share the button bank, where the last two carry their own. See
-/// docs/simulation/alert-panels.md and docs/simulation/preferences.md.</para>
+/// docs/retail/simulation/alert-panels.md and docs/retail/simulation/preferences.md.</para>
 /// </summary>
 public static class AlertPanelLayout {
 	/// <summary>The screen a panel centres itself on — <c>AlertPanel_CenterRect</c>'s two globals.</summary>
@@ -46,7 +46,7 @@ public static class AlertPanelLayout {
 
 	/// <summary>
 	/// And while it is disabled, <c>DAT_004d1eac</c> — the third of the four entries
-	/// <c>PanelButton_Ctor</c> writes. Only the two panels of docs/simulation/preferences.md reach it,
+	/// <c>PanelButton_Ctor</c> writes. Only the two panels of docs/retail/simulation/preferences.md reach it,
 	/// being the only two that grey widgets of their own: a <see cref="ControlsPanel"/> row with no
 	/// joystick axis behind it, and <see cref="PreferencesPanel"/>'s first four with no sound device.
 	/// </summary>
@@ -56,7 +56,7 @@ public static class AlertPanelLayout {
 	/// A widget's state byte, <c>widget+0x1b</c> — what a <c>PanelButton</c> indexes both its
 	/// four-frame plate table (<c>+0x30</c>) and its four-entry caption-font table (<c>+0x40</c>)
 	/// with. <c>Widget_HitTestChildren</c> skips a widget in <see cref="Disabled"/> whatever its class
-	/// draws. See docs/formats/cockpit-input.md for the cockpit widgets' own reading of the same byte.
+	/// draws. See docs/retail/formats/cockpit-input.md for the cockpit widgets' own reading of the same byte.
 	/// </summary>
 	public static class WidgetState {
 		/// <summary>At rest. The objectives, status and pause panels' buttons never leave it.</summary>
@@ -66,7 +66,7 @@ public static class AlertPanelLayout {
 		public const int Pressed = 1;
 
 		/// <summary>
-		/// Greyed, and skipped by the hit test. Only the two panels of docs/simulation/preferences.md
+		/// Greyed, and skipped by the hit test. Only the two panels of docs/retail/simulation/preferences.md
 		/// put a widget of their own here — a controls row with no joystick axis behind it, and the
 		/// preferences panel's first four with no sound device.
 		/// </summary>

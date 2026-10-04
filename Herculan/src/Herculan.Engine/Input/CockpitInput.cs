@@ -45,7 +45,7 @@ public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Sur
 
 /// <summary>
 /// The cockpit's mouse pipeline: raw window events in, completed widget clicks out.
-/// Reverse-engineered from DBSIM — see docs/formats/cockpit-input.md, whose section numbers this
+/// Reverse-engineered from DBSIM — see docs/retail/formats/cockpit-input.md, whose section numbers this
 /// file's comments refer to.
 ///
 /// <para><b>What is reproduced.</b> Events are queued as they arrive and processed once per frame

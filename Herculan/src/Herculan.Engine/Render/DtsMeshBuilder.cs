@@ -100,7 +100,7 @@ public readonly record struct MeshCell(CellGate Gate, MeshVertex[] Vertices, int
 /// see <see cref="MeshVertex.OutlineFillRamp"/>.</para>
 ///
 /// <para>The points are one-vertex polys, which the same fill draws as a single pixel
-/// (docs/formats/dts-texture-binding.md, "<c>TSSolidPoly</c> — palette index, unlit, fill plus
+/// (docs/retail/formats/dts-texture-binding.md, "<c>TSSolidPoly</c> — palette index, unlit, fill plus
 /// outline").</para>
 /// </summary>
 /// <param name="Vertices">Triangle corners in <c>[0, TriangleVertexCount)</c>, line-segment
@@ -124,7 +124,7 @@ public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVerte
 /// separate type on purpose rather than shared code: that one produces GDI+ <c>Color</c> values for
 /// a software rasterizer inside a Windows-only WinForms tool, while this produces GPU vertices and
 /// must stay clear of System.Drawing so the engine keeps building for Linux/macOS (see
-/// docs/engine/planning.md's target-platform decision). The tree-walking rules are the same but for
+/// docs/herculan/planning.md's target-platform decision). The tree-walking rules are the same but for
 /// one, the <see cref="TSBSPPart"/> walk (<see cref="ReachableLeaves"/>, <see cref="BspTree"/>),
 /// which only this side follows; each rule below is annotated with what the UI builder established —
 /// worth keeping the two in sync if either side changes.</para>
@@ -134,7 +134,7 @@ public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVerte
 /// "the value" is the drawn side's fill entry in <c>Surfaces[ColorIndexId / 4]</c>.</para>
 ///
 /// <para><see cref="TSTexture4Poly"/> polys resolve to real texture through the chain established in
-/// docs/formats/dts-texture-binding.md: the value is a frame index into the mesh's bound
+/// docs/retail/formats/dts-texture-binding.md: the value is a frame index into the mesh's bound
 /// <c>.DBA</c> bank, and the four UV corners are the frame's own rect.</para>
 ///
 /// <para><b>The untextured poly types are three separate mechanisms</b>, distinguished by what their
@@ -170,7 +170,7 @@ public static class DtsMeshBuilder {
 	/// Vertex-order UV corners for a textured poly, as fractions of the frame's own rect.
 	/// RE-confirmed order (top-left, top-right, bottom-right, bottom-left) — the exe builds
 	/// <c>[(F0,F1), (F2,F1), (F2,F3), (F0,F3)]</c> from a per-frame descriptor, see
-	/// docs/formats/dts-texture-binding.md's "Render path and UV generation".
+	/// docs/retail/formats/dts-texture-binding.md's "Render path and UV generation".
 	///
 	/// <para>The exe fills all four unconditionally and then hands the rasterizer the poly's own
 	/// vertex count, which walks this array one entry per vertex — so a three-vertex
@@ -725,7 +725,7 @@ public static class DtsMeshBuilder {
 	/// <summary>
 	/// One end of an edge or a point. A poly whose stored normal does not resolve goes up with a
 	/// zero face normal, which the shader's front/back test answers "back" — the original's answer
-	/// for a zero normal (docs/formats/dts-texture-binding.md, "<c>TSPoly_FrontBackVisibilityTest</c>").
+	/// for a zero normal (docs/retail/formats/dts-texture-binding.md, "<c>TSPoly_FrontBackVisibilityTest</c>").
 	///
 	/// <para>A shaded poly's outline is lit as its fill is, by the face normal, and goes up with both
 	/// ramps — see <see cref="MeshVertex.OutlineFillRamp"/>.</para>
@@ -1139,7 +1139,7 @@ public static class DtsMeshBuilder {
 	/// The children of a <see cref="TSBSPPart"/> its tree reaches, in file order — the set
 	/// <c>TSBSPPart_Render</c> (<c>00476b0c</c>) draws: it walks the tree from node 0 through
 	/// <c>TSBSPPart_RenderNode</c> (<c>00476a1c</c>), and a child no node names is never drawn.
-	/// docs/formats/dts-texture-binding.md, "<c>TSBSPPart</c> child selection", lists the retail
+	/// docs/retail/formats/dts-texture-binding.md, "<c>TSBSPPart</c> child selection", lists the retail
 	/// shapes that carry one.
 	/// </summary>
 	internal static TSObject[] ReachableParts(TSBSPPart part) =>
@@ -1362,7 +1362,7 @@ public static class DtsMeshBuilder {
 	/// What one side of a poly draws, or null when that side draws nothing — the original's per-poly
 	/// choice of surface pair after <c>TSPoly_FrontBackVisibilityTest</c> (<c>0048c620</c>), one
 	/// side at a time so that the shader can make the choice per frame (see <see cref="MeshVertex.Side"/>).
-	/// docs/formats/dts-texture-binding.md, "Poly types and their colour mechanisms", has the rules:
+	/// docs/retail/formats/dts-texture-binding.md, "Poly types and their colour mechanisms", has the rules:
 	/// <list type="bullet">
 	/// <item>The flat types (<c>TSSolidPoly_Render</c> <c>00474db4</c>, <c>TSShadedPoly_Render</c>
 	/// <c>0047542c</c>, <c>TSGouraudPoly_Render</c> <c>004755c8</c>) take the side's fill and line
@@ -1441,7 +1441,7 @@ public static class DtsMeshBuilder {
 
 		// The name says quad, but the type also ships as a triangle — 40 of them across the
 		// fleet, six on APOCA alone — and the original textures those too: see
-		// docs/formats/dts-texture-binding.md's "Three-vertex texture polys". A count outside
+		// docs/retail/formats/dts-texture-binding.md's "Three-vertex texture polys". A count outside
 		// [3, 4] would run off the end of the exe's own 4-corner UV array, so it still falls
 		// back rather than guessing; no retail shape has one.
 		AtlasRect? rect = poly is TSTexture4Poly && poly.VertexCount is 3 or 4
@@ -1492,7 +1492,7 @@ public static class DtsMeshBuilder {
 				// The original's back-face case swaps a quad's corners 1 and 3 in position and in
 				// frame corner together, which reverses the winding and leaves each corner's UV where
 				// it was, so the back draws through the same corner map as the front. What it does to
-				// a three-vertex poly is Open in docs/formats/dts-texture-binding.md.
+				// a three-vertex poly is Open in docs/retail/formats/dts-texture-binding.md.
 				sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
 					localFirst, localPoints[i1], localPoints[i2], group.Transform, sink.Gate,
 					face, side, look.LitAsBack,
@@ -1631,7 +1631,7 @@ public static class DtsMeshBuilder {
 	/// along <c>p1→p3</c>, the corners take <c>1/(1-s), 1/(1-t), 1/s, 1/t</c>.</para>
 	///
 	/// <para>Why: the original hands its rasterizer the whole quad with the frame rect's corners on
-	/// the poly's corners (docs/formats/dts-texture-binding.md, "Render path and UV generation"), so
+	/// the poly's corners (docs/retail/formats/dts-texture-binding.md, "Render path and UV generation"), so
 	/// one map covers the face. A GPU splits the quad, and two triangles with plain UVs each get
 	/// their own affine map; the two agree only on a parallelogram, and everywhere else the texture
 	/// kinks along the shared diagonal — plainly on base type 37's trapezoidal pyramid faces. The map
@@ -1641,7 +1641,7 @@ public static class DtsMeshBuilder {
 	/// that was already right is untouched; a degenerate or non-convex quad stays affine rather than
 	/// being guessed at. Retail's own fill is neither this map nor the GPU's perspective-correct
 	/// one: it steps u and v linearly in screen space down the quad's edges and across each row
-	/// (docs/formats/dts-texture-binding.md, "Screen-linear and perspective-correct fills"). That
+	/// (docs/retail/formats/dts-texture-binding.md, "Screen-linear and perspective-correct fills"). That
 	/// is free of the kink too, but differs from this map wherever the quad's depth varies across
 	/// it; KNOWN_ISSUES.md lists the divergence.</para>
 	///
@@ -1829,7 +1829,7 @@ public static class DtsMeshBuilder {
 	/// </code>
 	/// <para>and the outline is drawn only when the two <b>ramped</b> bytes differ, so two palette
 	/// indices that resolve to the same output draw no outline. <c>TSSolidPoly_Render</c>
-	/// (<c>00474db4</c>) is traced in docs/formats/dts-texture-binding.md's "<c>TSSolidPoly</c> —
+	/// (<c>00474db4</c>) is traced in docs/retail/formats/dts-texture-binding.md's "<c>TSSolidPoly</c> —
 	/// palette index, unlit, fill plus outline"; <see cref="Content.ShadeRamp"/> is the table.</para>
 	///
 	/// <para>This is the plain type only. Its lit siblings <c>TSShadedPoly</c> and

@@ -75,7 +75,7 @@ public sealed record ShellMissionTexts(string Briefing, string Objectives, strin
 /// into one <c>Text</c> child of its parent per line and shows one page of them at a time. Built by
 /// <c>TextBox_Ctor</c> (<c>0040cc0c</c>), filled by <c>TextBox_SetText</c> (<c>0040cc81</c>), and paged by
 /// <c>TextBox_PageUp</c> (<c>0040d237</c>) and <c>TextBox_PageDown</c> (<c>0040d258</c>). See
-/// docs/shell/screen-layout.md, "The summary text box".
+/// docs/retail/shell/screen-layout.md, "The summary text box".
 /// </summary>
 public sealed class ShellTextBox {
 	private List<string> _lines = new();
@@ -221,12 +221,12 @@ public sealed class ShellTextBox {
 /// <summary>
 /// The career's text for the campaign map view: <c>Campaign_LoadStageText</c> (<c>0040f775</c>) reads
 /// <c>eng\campaign.str</c> and keeps string <c>stage - 1</c> of its first group. See
-/// docs/shell/screen-layout.md, "The summary text box".
+/// docs/retail/shell/screen-layout.md, "The summary text box".
 /// </summary>
 public static class ShellCampaignText {
 	/// <summary>
 	/// The path's two halves as v1.0's literal at <c>0046f5be</c> names them, <c>LANG0.VOL</c>'s <c>ENG</c>
-	/// folder. v1.10 picks the folder by the shell's language (docs/retail-builds.md); this reads English.
+	/// folder. v1.10 picks the folder by the shell's language (docs/retail/retail-builds.md); this reads English.
 	/// </summary>
 	private const string Folder = "ENG";
 	private const string ResourceName = "CAMPAIGN.STR";
@@ -279,7 +279,7 @@ public sealed class ShellMissionArt {
 /// a taller summary; the debrief shows the page buttons alone, the flown mission's debrief text, and the
 /// mission report's twenty texts in the map panel. Built once by <c>Mission_BuildScreen</c>
 /// (<c>00442534</c>), put up in a view by <c>Mission_Show</c> (<c>004441e3</c>) and taken down by
-/// <c>Mission_Leave</c> (<c>00444a05</c>). See docs/shell/screen-layout.md, "The mission screen".
+/// <c>Mission_Leave</c> (<c>00444a05</c>). See docs/retail/shell/screen-layout.md, "The mission screen".
 ///
 /// <para><b>Every rect here is a literal in the executable</b>, kept parent-relative as the builder
 /// writes them: the four panels in the canvas, everything else in the panel holding it.</para>
@@ -433,7 +433,7 @@ public sealed class ShellMissionScreen {
 	/// <c>0x146 + outcome</c>, <c>Failure</c> or <c>Success</c>; the salvage <c>"%d %s"</c> of the award in tons
 	/// and <c>0x149</c> <c>Tons</c>; the rest <c>"%d"</c>. The first three are left-aligned beside their labels
 	/// and the rest right-aligned under the column heads, all in <c>0x29</c>
-	/// (docs/shell/screen-layout.md#the-mission-report).
+	/// (docs/retail/shell/screen-layout.md#the-mission-report).
 	/// </summary>
 	public void WriteReport(ShellDebriefReport report, ShellText? text) {
 		void Set(int index, string? value, ShellTextAlign align) {

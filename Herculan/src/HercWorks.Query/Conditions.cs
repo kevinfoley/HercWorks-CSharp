@@ -4,7 +4,7 @@ namespace HercWorks.Query;
 
 /// <summary>
 /// Reads a mission's row-1 conditions as text — <c>flag 625 &gt; 0</c> — following the survival rules
-/// of docs/formats/msn-mission-file.md#the-conditions--row-1. This is a reading of the file, not the
+/// of docs/retail/formats/msn-mission-file.md#the-conditions--row-1. This is a reading of the file, not the
 /// load: nothing is evaluated against a flag array or drawn.
 /// </summary>
 internal static class Conditions {
@@ -71,7 +71,7 @@ internal static class Conditions {
 	/// <summary>
 	/// The variant key a record conditioned on <paramref name="guid"/> answers to: the key of the type-3
 	/// parent of the type-2 record <paramref name="guid"/> names, or null when it is not such a record
-	/// (docs/formats/msn-mission-file.md#variants).
+	/// (docs/retail/formats/msn-mission-file.md#variants).
 	/// </summary>
 	public static short? VariantKeyOf(MissionFile file, short guid) {
 		var child = (file.Conditions ?? []).FirstOrDefault(c => c.GUID == guid && c.Type == 2);
@@ -82,16 +82,16 @@ internal static class Conditions {
 
 /// <summary>Who writes a mission counter, which decides what an operation code means.</summary>
 internal enum CounterLayer {
-	/// <summary>A machine, flyer, structure or group going out of the fight (docs/simulation/mission-deployment.md#the-out-of-action-report).</summary>
+	/// <summary>A machine, flyer, structure or group going out of the fight (docs/retail/simulation/mission-deployment.md#the-out-of-action-report).</summary>
 	OutOfAction,
 
-	/// <summary><c>Action_Activate</c> (docs/simulation/mission-deployment.md#the-four-ways-an-action-activates).</summary>
+	/// <summary><c>Action_Activate</c> (docs/retail/simulation/mission-deployment.md#the-four-ways-an-action-activates).</summary>
 	Action,
 
-	/// <summary>An objective (docs/simulation/mission-objectives.md#the-record).</summary>
+	/// <summary>An objective (docs/retail/simulation/mission-objectives.md#the-record).</summary>
 	Objective,
 
-	/// <summary>Row #2's clear list, zeroed as the mission loads (docs/formats/msn-mission-file.md#the-header-patch--row-2).</summary>
+	/// <summary>Row #2's clear list, zeroed as the mission loads (docs/retail/formats/msn-mission-file.md#the-header-patch--row-2).</summary>
 	LoadClear,
 }
 

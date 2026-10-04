@@ -345,7 +345,7 @@ internal sealed class GunsightPainter {
 	/// (<c>0043d5c8</c>) and <c>Gunsight_UpdateAndPaint</c> (<c>0043d6dc</c>) blit <c>HUD</c> frame
 	/// <see cref="AutoTrackLegendPlateFrame"/> at the legend rect's top-left and centre the text in
 	/// that rect in <c>DARK</c>. Nothing is drawn while it is off. See
-	/// docs/formats/cockpit-gunsight-hud.md#the-att-legend.
+	/// docs/retail/formats/cockpit-gunsight-hud.md#the-att-legend.
 	/// </summary>
 	internal static void AddAutoTrackLegend(GAUFile gau, StringFile? strings, CockpitHudState state,
 			Action<string, int, float, float> blit,

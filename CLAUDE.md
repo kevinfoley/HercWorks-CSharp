@@ -3,10 +3,10 @@
 Reimplementation of Earthsiege 2 (1996) in C#, reverse-engineered from the retail `DBSIM.EXE` and
 `VSHELL.EXE`. `HercWorks.*` is the data-file toolkit; `Herculan.Engine` is the game engine.
 
-- `Herculan/docs/formats/` — file formats
-- `Herculan/docs/simulation/` — simulation behaviour (DBSIM)
-- `Herculan/docs/shell/` — shell behaviour (VSHELL): campaign, career, armory, front end
-- `Herculan/docs/engine/planning.md` — architecture decisions and their rationale
+- `Herculan/docs/retail/formats/` — file formats
+- `Herculan/docs/retail/simulation/` — simulation behaviour (DBSIM)
+- `Herculan/docs/retail/shell/` — shell behaviour (VSHELL): campaign, career, armory, front end
+- `Herculan/docs/herculan/planning.md` — architecture decisions and their rationale
 - `Herculan/KNOWN_ISSUES.md` — retail bugs, and where this engine diverges from retail
 
 Build: `dotnet build Herculan/HerculanEngine.sln` (engine) and `Herculan/HercWorksMDK.sln` (toolkit).
@@ -54,13 +54,12 @@ The docs state what is true now. How the project got there belongs in `git log`.
    ("plausibly", "unconfirmed") — a hypothesis is an Open item. `KNOWN_ISSUES.md`, `ROADMAP.md` and
    `README.md` keep their own structure.
 
-9. **Retail docs describe retail.** `formats/`, `simulation/`, `shell/` and the top-level docs say
-   what the original does, not what HERCULAN does. The engine's types, file layout, tweaks and
+9. **Retail docs describe retail.** `docs/retail/` says what the original does, not what HERCULAN
+   does. The engine's types, file layout, tweaks and
    departures from retail go in doc comments on the C# that implements them, citing the doc
    section, so an engine change never has to hunt for prose to update (rule 5 decides which is
    which). A retail doc may link to an engine doc, but it does not name C# types. The engine docs are
-   `docs/engine/`, `herculan-command-line.md`, `key-bindings.md`, `cut-content.md`, `KNOWN_ISSUES.md`,
-   `ROADMAP.md` and `README.md`.
+   `docs/herculan/`, `KNOWN_ISSUES.md`, `ROADMAP.md` and `README.md`.
 
 `tools/scripts/doc_lint.py` enforces 1, 4, 6 and 8, and runs automatically after any edit under
 `Herculan/docs/` or to a `known_*.json`. `/doc-lint` runs it over the whole set. It cannot catch 2,
@@ -78,7 +77,7 @@ the lines an edit wrote. "The engine" also matches a HERC's own engine component
 links in files the rename never touched; that is why it has no `--staged` mode and always checks the
 whole set. `--code` adds the doc paths named in C# doc comments.
 
-Handoff docs (`docs/engine/handoff-*.md`) are exempt: ephemeral scratchpads, never authoritative for
+Handoff docs (`docs/herculan/handoff-*.md`) are exempt: ephemeral scratchpads, never authoritative for
 status. Drain them into topic docs and delete what you moved.
 
 ## Reverse-engineering conventions

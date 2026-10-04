@@ -5,7 +5,7 @@ using Herculan.Engine.Host.Shell;
 using Herculan.Engine.Host.Localization;
 using Herculan.Engine.Settings;
 
-// The thin front-end host from docs/engine/planning.md's "Engine internal architecture" section:
+// The thin front-end host from docs/herculan/planning.md's "Engine internal architecture" section:
 // it locates an install, asks the engine to build a scene from a real mission, and runs a real-time
 // loop over it. Everything it does is wiring — no simulation rules, no rendering rules, no file
 // formats — so a second host (the mission editor that decision exists to keep possible) can differ
@@ -36,7 +36,7 @@ if (options.InstallSource != null && options.InstallDestination != null) {
 
 // Host-lifetime, not mission-lifetime: neither reads the install, and both need to survive into
 // --shell and --movie once those have a menu bar of their own to raise TweaksMenu from — see
-// docs/engine/planning.md. Built before that branch so nothing below has to change when they do.
+// docs/herculan/planning.md. Built before that branch so nothing below has to change when they do.
 var localization = new LocalizationTable();
 TweakSettings.Current.LoadFromDisk();
 

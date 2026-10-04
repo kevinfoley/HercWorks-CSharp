@@ -4,7 +4,7 @@
 Each record names its class, so this recovers the authentic class names, with
 the object size, every base and its subobject offset, and the vtable pointer's
 offset in the object. The record layout and the vtable block that points back
-at it are documented in Herculan/docs/formats/borland-rtti.md.
+at it are documented in Herculan/docs/retail/formats/borland-rtti.md.
 
 `--vtables` resolves each record to its primary vtable through the record
 pointer stored at vtable-0xc.

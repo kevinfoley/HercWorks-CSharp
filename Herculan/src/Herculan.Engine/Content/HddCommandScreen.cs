@@ -239,7 +239,7 @@ public sealed class HddCommandScreen {
 	/// which unit a later bare-ground DEFEND POSITION inherits. With
 	/// <see cref="TweakSettingDefinitions.FixDefendPositionOrder"/> on, each order is built fresh
 	/// instead, and a unit pick also fills the point with the unit's position. See
-	/// docs/simulation/ai-squadmates.md, "The order record — 22 bytes".</para>
+	/// docs/retail/simulation/ai-squadmates.md, "The order record — 22 bytes".</para>
 	/// </summary>
 	public bool Transmit() {
 		if (SelectedPilot < 0 || SelectedOrder is not { } order

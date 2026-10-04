@@ -125,7 +125,7 @@ sealed class SimulatorHost : IDisposable {
 		// The -SPRUNKNOWN keys, and the Alt+S freeze a replay honours without them.
 		_developerKeys = new DeveloperKeys(options.DeveloperMode);
 		if (options.DeveloperMode) {
-			Console.WriteLine("Developer keys on (docs/key-bindings.md).");
+			Console.WriteLine("Developer keys on (docs/retail/key-bindings.md).");
 		}
 
 		staging.StageMachine(_view.PilotMech, _scene.World);
@@ -160,8 +160,8 @@ sealed class SimulatorHost : IDisposable {
 	public void Dispose() => _window.Dispose();
 
 	// The player's own cockpit canopy art + HUD, drawn as three simultaneous panels (front/left/right) rather
-	// than the original's single keyboard-panned view — see docs/engine/planning.md's Milestone 8 section and
-	// docs/formats/cockpit-views.md for why. Falls back to a single full-window 3D view when there's no
+	// than the original's single keyboard-panned view — see docs/herculan/planning.md's Milestone 8 section and
+	// docs/retail/formats/cockpit-views.md for why. Falls back to a single full-window 3D view when there's no
 	// player.mec or its cockpit assets are missing (e.g. a raw script.dat with no accompanying player.mec).
 	// The theater's palette is the live palette — all 256 slots — with only this herc's own 24-entry
 	// cockpit colour scheme installed over slots 42-65. See CockpitPalette.
@@ -395,7 +395,7 @@ sealed class SimulatorHost : IDisposable {
 
 		// The system buttons show by the pointer's row, decided where Sim_RenderFrame ends, which no frame
 		// reaches while a modal panel's own loop holds the screen: the pair stays as it was when the panel
-		// went up. Nothing shows them in the external view; see docs/formats/cockpit-input.md#open.
+		// went up. Nothing shows them in the external view; see docs/retail/formats/cockpit-input.md#open.
 		if (!_panels.AnyOpen) {
 			float pointerRow = _input.Pointer().Y;
 			for (int i = 0; i < SystemButtons.Count; i++) {

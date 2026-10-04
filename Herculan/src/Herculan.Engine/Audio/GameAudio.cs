@@ -179,7 +179,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 
 		// CommBox_OnMessageBegin tests whether the hiss is already running before starting it, so a
 		// second box opening under the first does not layer a second copy — see the note on
-		// Sound_Play in docs/formats/audio.md.
+		// Sound_Play in docs/retail/formats/audio.md.
 		squad.Hiss += id => {
 			if (_director is { } director && !director.IsPlaying(id)) {
 				director.Play(id);
@@ -351,11 +351,11 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <para><b>The hum is the flyer's, not the walker's</b>, despite the sample being called
 	/// <c>herceng1</c>. The original gates it on the type record's <c>+0x50</c> — file offset 78,
 	/// <c>FlyerFlag</c>, set on the RAZOR alone — so a HERC powers up without one and its
-	/// running noise is its footsteps. See docs/simulation/mech-locomotion.md's type-record table.</para>
+	/// running noise is its footsteps. See docs/retail/simulation/mech-locomotion.md's type-record table.</para>
 	///
 	/// <para><b>A flyer gets the hum and nothing else.</b> <c>start3</c> and the announcement both
 	/// sit behind <c>cockpit+0x245</c>, which <c>Gau_BuildCockpitWidgets</c> sets for a flyer before
-	/// this runs; see docs/formats/audio.md, "The cockpit power-up".</para>
+	/// this runs; see docs/retail/formats/audio.md, "The cockpit power-up".</para>
 	/// </summary>
 	public void PowerUp(MechObject pilot) {
 		_pilot = pilot;
@@ -467,7 +467,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <summary>
 	/// Whether the power-up announces <see cref="SystemMessages.PowerUpDamaged"/>: true when any of
 	/// the first <see cref="PowerUpCheckedInternals"/> internals reads any damage at all, which is
-	/// <c>Cockpit_PowerUpTick</c>'s test as docs/formats/cockpit-messages.md, "Posters", derives it.
+	/// <c>Cockpit_PowerUpTick</c>'s test as docs/retail/formats/cockpit-messages.md, "Posters", derives it.
 	///
 	/// <para>The original's reading (<c>Mech_ReadEntryDamage</c>, <c>0041b514</c>) takes a zero
 	/// maximum as fully damaged where <see cref="ComponentDamage.DependentPercent"/> reads it as 0;

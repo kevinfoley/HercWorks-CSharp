@@ -16,7 +16,7 @@ public readonly record struct ClipSpan(int Start, int Length);
 ///
 /// <para>On-disk layout, the parse verification against the retail files, and why this is the
 /// viewport cutout mechanism (DBSIM never colour-keys the canopy art) are in
-/// docs/formats/cockpit-views.md, "<c>.HD0</c>-<c>.HD3</c> / <c>.ED0</c>-<c>.ED3</c> — 3D-viewport clip
+/// docs/retail/formats/cockpit-views.md, "<c>.HD0</c>-<c>.HD3</c> / <c>.ED0</c>-<c>.ED3</c> — 3D-viewport clip
 /// regions". The 9-byte VOL entry prefix that layout is written against has already been stripped by
 /// <see cref="GameContent"/>. Blocks may overlap and repeat; this parser accumulates every source
 /// region per row, as the original's flattening step does.</para>
@@ -39,7 +39,7 @@ public readonly record struct ClipSpan(int Start, int Length);
 /// reflected about the view width as its art is. All three render one camera into one viewport
 /// (<see cref="Render.CockpitScreenLayout.World"/>) and the rects are the scissors that divide it.
 /// Pairing the mirrored panel with view 2's rect would clip a band off its outer edge that retail
-/// does not (docs/formats/cockpit-views.md, ".VUE — per-view geometry").</para>
+/// does not (docs/retail/formats/cockpit-views.md, ".VUE — per-view geometry").</para>
 /// </summary>
 public sealed class CockpitClipRegions {
 	/// <summary>Resource folder stem for the 640-wide clip files, per <see cref="HudSpriteSheet.ResourceFolder"/>'s reasoning.</summary>

@@ -7,11 +7,11 @@ namespace Herculan.Engine.Host;
 
 /// <summary>
 /// The on-line manual: retail's <c>WinHelpA(hwnd, path, HELP_CONTENTS, 0)</c> on
-/// <c>&lt;language&gt;\ES2GUIDE.HLP</c> on the disc (docs/formats/winhelp.md; here through
+/// <c>&lt;language&gt;\ES2GUIDE.HLP</c> on the disc (docs/retail/formats/winhelp.md; here through
 /// <see cref="GameInstall.ReadDiscFile"/>), which current Windows cannot
 /// open. The first open in a run converts the help file to one HTML page under the user's local
 /// application data and hands that page to the default browser, which shows the contents topic as
-/// <c>HELP_CONTENTS</c> does. The conversion and its security rules are docs/engine/online-manual.md.
+/// <c>HELP_CONTENTS</c> does. The conversion and its security rules are docs/herculan/online-manual.md.
 ///
 /// <para>The page is rewritten on the first open of every run rather than reused from an earlier
 /// one, so a page left in that folder by anything else is never what opens. A run converts again when the
@@ -23,7 +23,7 @@ internal static class OnlineManual {
 
 	/// <summary>
 	/// The readme inside each language folder, which the help file's <c>Readme</c> action opens
-	/// (docs/formats/winhelp.md#macros, docs/engine/online-manual.md#the-page).
+	/// (docs/retail/formats/winhelp.md#macros, docs/herculan/online-manual.md#the-page).
 	/// </summary>
 	public const string ReadmeName = "README.WRI";
 

@@ -20,7 +20,7 @@ public class Voln : DataFile {
 
 	/// <summary>
 	/// The header's program mask: a program loads the archive only when this shares a bit with its own
-	/// (<see cref="DbsimProgram"/>, <see cref="VshellProgram"/>). See docs/formats/vol-archive.md,
+	/// (<see cref="DbsimProgram"/>, <see cref="VshellProgram"/>). See docs/retail/formats/vol-archive.md,
 	/// "Which archives are mounted".
 	/// </summary>
 	public uint ProgramMask { get; set; }
@@ -33,7 +33,7 @@ public class Voln : DataFile {
 
 	/// <summary>
 	/// The search precedence: 0x0A (SHELL1.vol, SIMPATCH.vol) is searched before 0x05, so its entries
-	/// hide same-named ones. See docs/formats/vol-archive.md, "Which archives are mounted".
+	/// hide same-named ones. See docs/retail/formats/vol-archive.md, "Which archives are mounted".
 	/// </summary>
 	public byte VolOrderNum { get; set; }
 
@@ -110,7 +110,7 @@ public class Voln : DataFile {
 	/// simvol0   56 4F 4C 4E 01 00 00 00 05 27 C1 00  len: 1D63B29
 	/// zones     56 4F 4C 4E 01 01 00 00 05 03 0F 00  len: 208969
 	///
-	/// The fields are laid out in docs/formats/vol-archive.md, "File layout".
+	/// The fields are laid out in docs/retail/formats/vol-archive.md, "File layout".
 	/// </summary>
 	public static class ByteHeader {
 		public static readonly byte[] Voln = { 0x56, 0x4F, 0x4C, 0x4E };

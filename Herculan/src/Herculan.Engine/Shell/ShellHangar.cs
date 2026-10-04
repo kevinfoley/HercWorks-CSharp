@@ -9,7 +9,7 @@ namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// One weapon unit — the ten-byte record a mount holds and the armory's stock lists are made of
-/// (docs/formats/herc-catalogs.md#the-weapon-unit-record). Fitting and stripping move the unit itself
+/// (docs/retail/formats/herc-catalogs.md#the-weapon-unit-record). Fitting and stripping move the unit itself
 /// between a mount and the stock, so what it carries goes with it.
 /// </summary>
 public sealed class ShellWeaponUnit {
@@ -68,7 +68,7 @@ public sealed class ShellWeaponUnit {
 
 /// <summary>
 /// One machine in a hangar bay, as the shell's screens read it — <c>DAT_00482ac3</c>'s eight pointers,
-/// each to the 122-byte HERC record in the loaded save (docs/formats/save-games.md).
+/// each to the 122-byte HERC record in the loaded save (docs/retail/formats/save-games.md).
 ///
 /// <para><b>The 66-byte status block is three arrays and one accessor.</b> <c>HercStatus_Get</c>
 /// (<c>HercStatus_Get</c>, <c>00411d06</c>) takes a mode and an index and every screen in the shell reads a machine's
@@ -498,7 +498,7 @@ public sealed class ShellBayMachine {
 public sealed record ShellMachineStatus(short[] External, short[] Internal, short[] Hardpoint);
 
 /// <summary>
-/// One pilot record as the shell's screens print it (docs/formats/save-games.md, "The pilot record").
+/// One pilot record as the shell's screens print it (docs/retail/formats/save-games.md, "The pilot record").
 /// The crew screen's assignments change the bay, the squad position and the on-strength byte, always
 /// through <see cref="ShellHangar"/>.
 /// </summary>
@@ -590,7 +590,7 @@ public sealed class ShellHangar {
 
 	/// <summary>
 	/// A weapon's unlock flag, <c>weapons.dat</c> record <c>+0x16</c> at <c>(&amp;DAT_00483bfa)[id * 0x1d]</c> — save
-	/// block 1's leading byte for that id (docs/formats/weapons-dat.md).
+	/// block 1's leading byte for that id (docs/retail/formats/weapons-dat.md).
 	/// </summary>
 	public bool IsWeaponUnlocked(int weaponId) => _stock.TryGetValue(weaponId, out var entry) && entry.Unlocked;
 
@@ -619,7 +619,7 @@ public sealed class ShellHangar {
 	/// the head of that weapon's list — its <see cref="ShellWeaponUnit.FitCondition"/> becomes the
 	/// hardpoint's condition and its guidance is reset, to ARH for the three missile racks and to none for
 	/// everything else, the Razor's launcher included. With that list empty the slot is left empty and
-	/// its condition untouched. See docs/shell/screen-layout.md#fitting-a-weapon.
+	/// its condition untouched. See docs/retail/shell/screen-layout.md#fitting-a-weapon.
 	/// </summary>
 	public void FitMount(ShellBayMachine machine, int slot, int weaponId) {
 		if (machine.Mount(slot) is { } old) {
@@ -648,7 +648,7 @@ public sealed class ShellHangar {
 	/// <summary>The armory build queue's five slots, <c>0046f8d6</c>: one weapon id each, 0 for an empty slot.</summary>
 	private readonly int[] _queue = new int[QueueSlots];
 
-	/// <summary>How many slots the armory build queue has (docs/shell/armory.md).</summary>
+	/// <summary>How many slots the armory build queue has (docs/retail/shell/armory.md).</summary>
 	public const int QueueSlots = 5;
 
 	/// <summary>The queue's free-slot count, <c>0046f8d4</c> — the armory's <c>Workspace Available:</c>.</summary>
@@ -748,7 +748,7 @@ public sealed class ShellHangar {
 
 	/// <summary>
 	/// <c>Armory_GrantCampaignWeapons</c> (<c>004126be</c>), the campaign debrief's weapon grants over the flag
-	/// array the mission left (docs/formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be):
+	/// array the mission left (docs/retail/formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be):
 	/// each still-locked weapon with a flag slot is unlocked when the slot holds its value, and the slot is
 	/// zeroed either way; then each flag from <c>0x15</c> to <c>0x31</c> adds that many units of its weapon to
 	/// stock at condition 100, leaving the flag set. Returns how many units were added.
@@ -802,7 +802,7 @@ public sealed class ShellHangar {
 	/// <c>Armory_DeliverQueue</c> (<c>00412428</c>) — one new unit at condition 100 per occupied queue slot,
 	/// guidance 1 for the four missile racks and none for anything else, and the queue's total price,
 	/// which the caller takes off the pool. The queue itself is left as it was, so a hand-built one
-	/// delivers again at the next debrief (docs/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7).
+	/// delivers again at the next debrief (docs/retail/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7).
 	/// </summary>
 	public int DeliverQueue(Func<int, int> priceKilograms) {
 		int total = 0;
@@ -931,7 +931,7 @@ public sealed class ShellHangar {
 
 	/// <summary>
 	/// <c>Herc_GrantUnlocks</c> (<c>004118c5</c>), the campaign debrief's chassis grant, run just before
-	/// <see cref="GrantCampaignWeapons"/> (docs/formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5):
+	/// <see cref="GrantCampaignWeapons"/> (docs/retail/formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5):
 	/// each still-unavailable Raptor II, Ogre, Maverick or Razor becomes available when its flag slot holds
 	/// the expected value, and the slot is zeroed either way. The expected value is the original's
 	/// loop-carried local — 2, set to 1 in the Razor's branch — so the Razor, last in type order, is the
@@ -992,7 +992,7 @@ public sealed class ShellHangar {
 	}
 
 	/// <summary>
-	/// The scrap dialog's ACCEPT, <c>Hangar_ScrapSelected</c> (<c>0040e757</c>, docs/shell/armory.md#scrapping): the machine in
+	/// The scrap dialog's ACCEPT, <c>Hangar_ScrapSelected</c> (<c>0040e757</c>, docs/retail/shell/armory.md#scrapping): the machine in
 	/// <paramref name="bay"/> is valued, its mounts stripped into stock and the bay emptied
 	/// (<c>HercList_ScrapSelected</c>, <c>00410922</c>), the value goes into the pool, and the pilot the bay had loses it — and whoever
 	/// holds that pilot's squad position is taken off strength. Returns the salvage credited.
@@ -1289,7 +1289,7 @@ public sealed class ShellHangar {
 	///
 	/// <para>A weapon's stock is written from the head of its list, as <c>Armory_Write</c>
 	/// (<c>004121cf</c>) walks it, and read back by pushing each unit onto the head, so each save and load
-	/// reverses the order (docs/formats/save-games.md#armory-stock-record).</para>
+	/// reverses the order (docs/retail/formats/save-games.md#armory-stock-record).</para>
 	/// </summary>
 	public void Store(PlayerSave save) {
 		var items = new Inventory.InventoryItem[ShellMissionLaunch.WeaponCatalogCount];

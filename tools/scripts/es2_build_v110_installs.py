@@ -8,7 +8,7 @@
 Follows the v1.10 SIERRA.INF script: the FlagFiles and MaximumInstall toggles, group 95 (the VER95
 executables), group 96/97/98 (that language's voice archive and README.WRI), the ERROR/MISSION renames,
 then BATCH.EXE's drive.cfg, language.cfg and README copy. The Indeo DLLs (system directory) and the
-VideoSpeed prefs.cfg tweak are not reproduced. See Herculan/docs/retail-builds.md, "The installer".
+VideoSpeed prefs.cfg tweak are not reproduced. See Herculan/docs/retail/retail-builds.md, "The installer".
 Herculan.Engine.Tests' GameContentMountTests reads the result when it is present.
 
 Usage: es2_build_v110_installs.py [ISO] [OUT]

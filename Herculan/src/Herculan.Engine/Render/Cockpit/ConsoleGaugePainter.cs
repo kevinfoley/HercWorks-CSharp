@@ -263,7 +263,7 @@ internal static class ConsoleGaugePainter {
 	/// (<c>00442c88</c>) reads them out of <c>ConsoleButtonCaptions</c> (<c>004d13d0</c>), the <c>.bss</c> array
 	/// <c>SimStrings_LoadAll</c> fills from <c>STRINGS0.STR</c> group <see cref="CaptionGroup"/>,
 	/// indexed by the widget's own kind field (1 = LINK, 2 = TRACK) — see
-	/// docs/formats/str-strings.md.</para>
+	/// docs/retail/formats/str-strings.md.</para>
 	/// </summary>
 	internal static void AddConsoleButtons(GAUFile gau, StringFile? strings, CockpitHudState state,
 			Action<string, int, float, float> blit,

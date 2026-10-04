@@ -5,7 +5,7 @@ namespace Herculan.Engine.Content;
 /// draws its screen in. <c>ObjectivesPanel_Ctor</c> writes the whole block out once into <c>.bss</c>
 /// (<c>DAT_004d1f84</c>..<c>DAT_004d1fa4</c>) as <c>value &lt;&lt; VideoMode_?CoordShift</c>, so
 /// every number here is an authored 320-wide coordinate doubled — the same relationship
-/// <see cref="CockpitArt.GauToPixelScale"/> is. See docs/simulation/alert-panels.md.
+/// <see cref="CockpitArt.GauToPixelScale"/> is. See docs/retail/simulation/alert-panels.md.
 ///
 /// <para>Rects are panel-local: the panel's own top-left is (0, 0), which is where the background
 /// plate is blitted and the space every label's rect is in. The screen, the rect type and the

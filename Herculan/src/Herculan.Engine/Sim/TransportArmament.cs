@@ -10,7 +10,7 @@ namespace Herculan.Engine.Sim;
 /// per mission and shared by every transport in it: the three weapon slots of <c>dat\LC_WPNS.DAT</c>,
 /// which <c>Base_LoadResources</c> (<c>00405fac</c>) reads into <c>g_LcWeaponSlots</c>, and the records
 /// <c>Base_TransportThinkTick</c> (<c>004045c8</c>) names by literal for them
-/// (docs/simulation/structure-behaviour.md, "The transport").
+/// (docs/retail/simulation/structure-behaviour.md, "The transport").
 /// </summary>
 /// <param name="Slots">The <c>LC_WPNS.DAT</c> records; slot 0 is the launcher, slots 1 and 2 the beams.</param>
 /// <param name="Missile">The <c>PROJ.DAT</c> rocket record slot 0 launches — see <see cref="MissileSubtype"/>.</param>

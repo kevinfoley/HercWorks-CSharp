@@ -28,7 +28,7 @@ public enum ShellLaunchRefusal {
 /// <c>Rock &amp; Roll &gt;</c>, <c>Mission_OnRockAndRoll</c> (<c>00445509</c>): four tests in order, the
 /// first to fail refusing the launch, and otherwise <c>Game_ExportMissionHandoff</c> (<c>0040f0d4</c>)
 /// and the exit code that tells the launcher to run the simulator. See
-/// docs/shell/screen-layout.md#the-mission-screen and docs/shell/campaign-loop.md for the handoff.
+/// docs/retail/shell/screen-layout.md#the-mission-screen and docs/retail/shell/campaign-loop.md for the handoff.
 /// </summary>
 public static class ShellMissionLaunch {
 	/// <summary>
@@ -230,7 +230,7 @@ public sealed class ShellLaunchRefusalDialog {
 	/// <summary><c>OKAY</c>'s rect, in the canvas.</summary>
 	public static ShellRect OkayButtonRect => Inside(PanelRect, OkayRect);
 
-	/// <summary><c>OKAY</c> under a canvas point, or null — a click anywhere else is swallowed, as the scrap dialog's is (docs/shell/screen-layout.md, "The scrap dialog").</summary>
+	/// <summary><c>OKAY</c> under a canvas point, or null — a click anywhere else is swallowed, as the scrap dialog's is (docs/retail/shell/screen-layout.md, "The scrap dialog").</summary>
 	public ShellHit? HitAt(float canvasX, float canvasY) =>
 		OkayButtonRect.Contains(canvasX, canvasY)
 			? ShellHit.Button(new ShellWidget(ShellWidgetKind.LaunchRefusalOkay, 0), OkayButtonRect, canvasX, canvasY)

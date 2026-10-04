@@ -7,8 +7,8 @@ namespace Herculan.Engine.Sim;
 // drives, and the per-tick move. Ported from Flyer_MovementTick (004218c4, the flyer's descriptor
 // +0x24 slot), Flyer_ApplyFlightCommand / Flyer_CommandRoll / Flyer_SteerAndFly (the control law)
 // and Flyer_PitchCommand / Flyer_PitchToAltitude (the pitch channel). See
-// docs/simulation/ai-flyers.md; the flight model itself is shared with the player's RAZOR, in
-// FlightPhysics — docs/simulation/razor-flight.md.
+// docs/retail/simulation/ai-flyers.md; the flight model itself is shared with the player's RAZOR, in
+// FlightPhysics — docs/retail/simulation/razor-flight.md.
 public sealed partial class FlyerObject : IFlightBody {
 	/// <summary>
 	/// The airspeed a flyer powers up at — <c>Flyer_Constructor</c>'s literal into
@@ -328,9 +328,9 @@ public sealed partial class FlyerObject : IFlightBody {
 	///
 	/// <para>The original opens with a branch on <c>flyer+0xae</c> that substitutes a pitch derived
 	/// from <c>flyer+0x23c</c> instead. Both fields belong to the walking machine's obstacle
-	/// avoidance and leg placement (see docs/simulation/ai-navigation.md and
-	/// docs/simulation/mech-locomotion.md); the flyer pool is zero-filled and no flyer path that
-	/// writes <c>flyer+0xae</c> is known (docs/simulation/ai-flyers.md, Open), so the substitution
+	/// avoidance and leg placement (see docs/retail/simulation/ai-navigation.md and
+	/// docs/retail/simulation/mech-locomotion.md); the flyer pool is zero-filled and no flyer path that
+	/// writes <c>flyer+0xae</c> is known (docs/retail/simulation/ai-flyers.md, Open), so the substitution
 	/// is not reproduced.</para>
 	/// </summary>
 	private int PitchToAltitude(int altitude) =>
@@ -369,7 +369,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	/// original shares one input-preferences global with the player's own path, so a configured
 	/// throttle device would read the AI's zero axis as a <i>position</i> and set every Cybrid
 	/// flyer's throttle to 0, the middle of its range (750 for a SKIMMER, where the rate branch
-	/// leaves it at 875 — docs/simulation/ai-flyers.md, "A flyer cannot change speed"); the rate
+	/// leaves it at 875 — docs/retail/simulation/ai-flyers.md, "A flyer cannot change speed"); the rate
 	/// branch is the behaviour the AI was written against.</para>
 	/// </summary>
 	private void ApplyFlightCommand(ref FlightCommand command) {
@@ -415,7 +415,7 @@ public sealed partial class FlyerObject : IFlightBody {
 	///
 	/// <para>The original also has a leader term in the bank command, scaled by the leader's
 	/// <c>+0x1f8</c>. The flyer pool is zero-filled and no writer of that field is known
-	/// (docs/simulation/ai-flyers.md, Open), so the term contributes nothing and the branch is not
+	/// (docs/retail/simulation/ai-flyers.md, Open), so the term contributes nothing and the branch is not
 	/// reproduced.</para>
 	/// </summary>
 	private void SteerAndFly(SimWorld world, short turn, int elevator) {

@@ -2,7 +2,7 @@ namespace HercWorks.Core.Data.File.Cfg;
 
 /// <summary>
 /// <c>data\prefs.cfg</c> — the simulator's option array, read by
-/// <see cref="Io.Transform.Common.PrefsTransformer"/>. See docs/simulation/preferences.md.
+/// <see cref="Io.Transform.Common.PrefsTransformer"/>. See docs/retail/simulation/preferences.md.
 ///
 /// <para><b>The file is the array.</b> <c>Prefs_LoadOptions</c> (<c>00459754</c>) memsets
 /// <c>SimOptions</c> (<c>004d1fbc</c>) to zero for <c>0x36</c> bytes and reads the file straight over it, with no
@@ -46,7 +46,7 @@ public class Prefs {
 
 	/// <summary>
 	/// TERRAIN TEXTURE, <c>DAT_004d1fc4</c>, which the original tests per triangle to pick textured or
-	/// flat span writers (docs/formats/terrain-texturing.md, "The terrain-texture switch").
+	/// flat span writers (docs/retail/formats/terrain-texturing.md, "The terrain-texture switch").
 	/// </summary>
 	public const int TerrainTextureOption = 8;
 

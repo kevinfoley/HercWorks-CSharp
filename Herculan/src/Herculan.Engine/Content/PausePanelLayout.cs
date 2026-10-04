@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 /// entries are identical. What differs is that it is 178x68 rather than 444x218, it blits
 /// <c>GNL_ALRT.HBA</c> frame 1 rather than frame 0, its two buttons are <b>stacked</b> rather than
 /// side by side, and it builds no body labels at all. See
-/// docs/simulation/alert-panels.md.</para>
+/// docs/retail/simulation/alert-panels.md.</para>
 /// </summary>
 public static class PausePanelLayout {
 	/// <summary>The panel's declared width, <c>0x59</c> doubled.</summary>

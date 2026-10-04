@@ -5,12 +5,12 @@ namespace HercWorks.Core.Data.Struct.Herc;
 ///
 /// <para>DBSIM's <c>.DMG</c> files carry 22 internal slots: 0-8 the nine components, 9 the pilot,
 /// 10 and 11 the rear leg servos of a four-legged chassis, and 12-21 unused
-/// (<c>docs/formats/dmg-damage-file.md#the-two-index-spaces</c>).</para>
+/// (<c>docs/retail/formats/dmg-damage-file.md#the-two-index-spaces</c>).</para>
 ///
 /// <para>The shell's HERC status block carries only ids 0-9: 0-8 the same nine components, and 9 the
 /// machine's overall condition — the mean the debrief copies into the pilot's own condition — under
 /// the <see cref="Pilot"/> entry. Shell readers and editors therefore stop at
-/// <see cref="ServosLegLeftRear"/> (<c>docs/formats/save-games.md#the-66-byte-status-block</c>).</para>
+/// <see cref="ServosLegLeftRear"/> (<c>docs/retail/formats/save-games.md#the-66-byte-status-block</c>).</para>
 /// </summary>
 public sealed class HercInternals {
 	public static readonly HercInternals ServosLegLeft = new(0, "Left Leg Servos");

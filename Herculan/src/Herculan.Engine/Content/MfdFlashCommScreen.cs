@@ -5,8 +5,8 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// The MFD's FLASH COMM page (<c>MfdFlashCommScreen_Ctor</c>, <c>0043f5d8</c>) — six order rows, one
-/// of them selected, and XMIT. Derivation: docs/formats/mfd.md and
-/// docs/simulation/ai-squadmates.md.
+/// of them selected, and XMIT. Derivation: docs/retail/formats/mfd.md and
+/// docs/retail/simulation/ai-squadmates.md.
 ///
 /// <para><b>Six positions, not six orders.</b> Each row names one of two verbs from
 /// <c>STRINGS0.STR</c> group 0: its own index, or that index <b>+ 3</b> when the row's state byte

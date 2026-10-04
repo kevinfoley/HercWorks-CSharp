@@ -13,7 +13,7 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// The cockpit displays' keys: the MFD's screens and buttons, FLASH COMM, the Heads-Down Display's two pages
 /// and their own keyboards, and the side glances. These are Sim_DispatchCommand's and
 /// CockpitWidgets_HandleCommand's cases, which no key reaches while a modal panel is up: the panel's own loop
-/// hands each key to the panel alone (docs/simulation/preferences.md#preferences-and-controls-dbsimexe). So
+/// hands each key to the panel alone (docs/retail/simulation/preferences.md#preferences-and-controls-dbsimexe). So
 /// each block acts only while no modal is up, and an edged key still refreshes its latch under a panel, so a
 /// key held as the panel closes does not fire.
 /// </summary>
@@ -334,7 +334,7 @@ sealed class CockpitKeyboard(CockpitDisplays displays, CockpitView view, Cockpit
 		}
 
 		// [X] transmits and [Backspace] cancels. The transmit's two blips are the radar-mode tone
-		// pair, which HddCommandScreen_KeyDispatch reuses as accepted and rejected — see docs/formats/audio.md.
+		// pair, which HddCommandScreen_KeyDispatch reuses as accepted and rejected — see docs/retail/formats/audio.md.
 		if (_hddTransmit.Press(controls, Key.X) && !modalPanelUp) {
 			audio.Director?.Play(command.Transmit() ? SoundId.ScannerActive : SoundId.ScannerPassive);
 		}

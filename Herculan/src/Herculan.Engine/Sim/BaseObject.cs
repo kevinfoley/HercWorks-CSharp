@@ -138,7 +138,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <summary>
 	/// The last step of <c>Base_Construct</c> (<c>00405314</c>): the block-9 record's starting
 	/// condition, a percentage applied to every component
-	/// (docs/simulation/structure-behaviour.md, "Starting condition"). Negative leaves the
+	/// (docs/retail/simulation/structure-behaviour.md, "Starting condition"). Negative leaves the
 	/// components undamaged; anything but 0 starts each at <c>(100 - percent) * maxDamage / 100</c>,
 	/// kept to the original's 16-bit store.
 	///
@@ -197,7 +197,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <summary>
 	/// The wreck test that <see cref="DirectFireHitTest"/>, <see cref="ExplosiveDamage"/>,
 	/// <see cref="CollisionRadius"/> and <see cref="BlocksWalker"/> all open with, which the original
-	/// inlines in each (docs/simulation/hit-detection.md, "Base_DirectFireHitTest"): the structure has
+	/// inlines in each (docs/retail/simulation/hit-detection.md, "Base_DirectFireHitTest"): the structure has
 	/// fallen, its type leaves a wreck, and component 0 is down to its collapse stage or past it. Until
 	/// then a fallen structure keeps its standing geometry.
 	/// </summary>
@@ -256,7 +256,7 @@ public sealed partial class BaseObject : SimObject {
 	/// object's model instance, and every structure geometry read goes through that pointer —
 	/// <c>Sim_RaycastShapeVolume</c> (<c>00427da8</c>), <c>Structure_WalkCollisionTest</c>
 	/// (<c>00427c68</c>) and <c>SimObject_GetShapeRadius</c> (<c>0046b80c</c>) — so the volume and
-	/// <see cref="ShapeRadius"/> change together (docs/simulation/hit-detection.md, "The collision
+	/// <see cref="ShapeRadius"/> change together (docs/retail/simulation/hit-detection.md, "The collision
 	/// volume"). An install with no hulk record keeps the building's geometry; a retail install
 	/// always has one.
 	/// </summary>
@@ -360,7 +360,7 @@ public sealed partial class BaseObject : SimObject {
 	/// rather than at the ground point its model origin sits on. Homing, the HUD indicator and line
 	/// of sight read the <c>+0x24</c> slot instead; this one is read by the tower ticks, the camera
 	/// attach and <c>Ai_AimAndFire</c>'s fallback
-	/// (docs/simulation/structure-behaviour.md, "What a structure is aimed at").
+	/// (docs/retail/simulation/structure-behaviour.md, "What a structure is aimed at").
 	/// </remarks>
 	public override Vec3i AimPoint =>
 		new(Position.X, Position.Y, Position.Z + Type.AimPointHeight);
@@ -412,7 +412,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <c>obj+0xa5</c> — this structure has nothing to fight with. <c>Base_Construct</c> sets it at
 	/// spawn for the <see cref="StructureClass.Plain"/> and <see cref="StructureClass.Radar"/> classes
 	/// and no other, so an unarmed building is out of the AI's fight from birth
-	/// (docs/simulation/structure-behaviour.md, "Five classes, one switch"). The transport latches
+	/// (docs/retail/simulation/structure-behaviour.md, "Five classes, one switch"). The transport latches
 	/// it from its own tick once it has nothing left to fire with.
 	/// </summary>
 	public bool Disarmed => Class is StructureClass.Plain or StructureClass.Radar || _transportDisarmed;
@@ -537,7 +537,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <para>Two rejects before any grid work: <see cref="WithinReach"/>, then the structure's centre
 	/// brought into the ray's frame and tested against a box — <b>X and Y only</b>, with Z left out
 	/// entirely, which is the original's own test and not an omission here. Only then is the ray
-	/// brought into shape space and marched (docs/simulation/hit-detection.md, "The collision
+	/// brought into shape space and marched (docs/retail/simulation/hit-detection.md, "The collision
 	/// volume").</para>
 	///
 	/// <para>The original also lowers a global minimum distance here (<c>004aab54</c>). Its only other
@@ -597,7 +597,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <see cref="SimWorld.RaycastShapes"/>: <b>a static type always, an animated type only once it is
 	/// <see cref="Wrecked"/></b>. It is <see cref="CollisionRadius"/>'s test read the other way round,
 	/// so a structure is seen either by the AI's shape probes or by the machine sweep that reads a
-	/// collision radius, never both (docs/simulation/ai-navigation.md, "The two probes").
+	/// collision radius, never both (docs/retail/simulation/ai-navigation.md, "The two probes").
 	/// </summary>
 	internal bool InShapeList => Type.Source != BaseShapeSource.AnimatedLibrary || Wrecked;
 
@@ -719,7 +719,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <para>The point is tested against the same footprint a shot meets: <see cref="ShapeVolume.HeightAt"/>
 	/// applies the grid origin as the ray march does. <c>Structure_GatherWalkCandidates</c>
 	/// (<c>00404ae4</c>) and <c>Structure_WalkCollisionTest</c> (<c>00427c68</c>); see
-	/// docs/simulation/hit-detection.md, "The collision volume".</para>
+	/// docs/retail/simulation/hit-detection.md, "The collision volume".</para>
 	/// </summary>
 	/// <param name="point">Where the machine is trying to stand, in world units.</param>
 	public bool BlocksWalker(Vec3i point) {
@@ -811,7 +811,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <summary>
 	/// <c>Base_FirstLiveComponent</c> (<c>00406868</c>), vtable <c>+0x54</c>, with a null second
 	/// argument: the first component still standing, or −1 when none is. The AI's fire path shoots a
-	/// structure there (docs/simulation/ai-weapons.md).
+	/// structure there (docs/retail/simulation/ai-weapons.md).
 	/// </summary>
 	public int FirstLiveComponent() {
 		for (int i = 0; i < Type.Components.Length; i++) {
@@ -827,7 +827,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <c>Base_FirstLiveComponent</c> (<c>00406868</c>) handed a pose — the same walk over the
 	/// type's components as <see cref="FirstLiveComponent"/>, but taking the live one with the least
 	/// <see cref="SimObject.AimOffset"/>, the first of equals, rather than the first live one. See
-	/// docs/simulation/rockets.md, "Spawning".
+	/// docs/retail/simulation/rockets.md, "Spawning".
 	/// </summary>
 	public override short ComponentNearestAim(Vec3i from, (short X, short Y, short Z) attitude) {
 		int best = NoAimOffset;
@@ -942,7 +942,7 @@ public sealed partial class BaseObject : SimObject {
 	/// <para>The <i>stepping</i> is the point for a structure: it is what plays a radar dish's sweep,
 	/// and it is what re-poses the turret nodes a seek has moved. <b>The root motion is inert on
 	/// retail data</b> — no sequence in <c>BASES_AN.DTS</c> sets the ground-movement flag, so the
-	/// delta read back is always identity (docs/simulation/structure-behaviour.md, "The root motion
+	/// delta read back is always identity (docs/retail/simulation/structure-behaviour.md, "The root motion
 	/// is inert on retail data"). It is applied anyway because the original applies it, and because
 	/// a hand-authored shape could carry one.</para>
 	///
@@ -1075,7 +1075,7 @@ public sealed partial class BaseObject : SimObject {
 	/// part both state a fire, and the part's own otherwise; the sequence decides whether it goes off
 	/// at the emission point or at the structure's origin. Then the debris, and then the shape change:
 	/// the hulk once every part is gone, whatever the fires, for a type that leaves a wreck. See
-	/// docs/simulation/destruction-effects.md ("A structure coming down").
+	/// docs/retail/simulation/destruction-effects.md ("A structure coming down").
 	/// </summary>
 	private void Collapse(SimWorld world, int index, BaseComponentType component,
 			StructureDeathSequence sequence) {

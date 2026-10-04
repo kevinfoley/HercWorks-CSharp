@@ -37,7 +37,7 @@ internal sealed record ActionQueryMission(string Mission, IReadOnlyList<ActionRe
 /// <summary>
 /// <c>actions</c>: every row #10 action (<see cref="MissionAction82"/>) with its trigger subject, its
 /// trigger areas, its verb, and the records that fire it or wait on it. The trigger rules are
-/// docs/simulation/mission-deployment.md, "Trigger areas".
+/// docs/retail/simulation/mission-deployment.md, "Trigger areas".
 /// </summary>
 internal static class ActionQuery {
 	public static IReadOnlyList<ActionQueryMission> Run(RetailData data, IReadOnlyCollection<string> missions) =>
@@ -124,7 +124,7 @@ internal static class ActionQuery {
 		return sources;
 	}
 
-	/// <summary>Whose position an action's areas test, by its type (docs/simulation/mission-deployment.md, "Trigger areas").</summary>
+	/// <summary>Whose position an action's areas test, by its type (docs/retail/simulation/mission-deployment.md, "Trigger areas").</summary>
 	public static string Subject(short type) => type switch {
 		0 => "player",
 		1 => "player's group",
@@ -140,7 +140,7 @@ internal static class ActionQuery {
 		_ => "?",
 	};
 
-	/// <summary>How a group waiting on the action arrives, by its verb (docs/simulation/mission-deployment.md, "Arrival").</summary>
+	/// <summary>How a group waiting on the action arrives, by its verb (docs/retail/simulation/mission-deployment.md, "Arrival").</summary>
 	public static string Arrival(short verb) => verb switch {
 		2 or 3 => "drop pod",
 		4 or 5 => "on foot",

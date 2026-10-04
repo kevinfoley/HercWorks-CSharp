@@ -66,7 +66,7 @@ public enum JoystickAction : byte {
 	/// <summary>MFD DISPLAYS — steps the MFD's own mode, through <c>MfdDisplay_CycleMode</c> (<c>00446e14</c>).</summary>
 	MfdDisplays = 0x0e,
 
-	/// <summary>CHASE VIEW — the chain of views again, behind a frame-count gate at <c>Sim_FrameCount</c> (<c>004d25ff</c>); docs/simulation/external-views.md.</summary>
+	/// <summary>CHASE VIEW — the chain of views again, behind a frame-count gate at <c>Sim_FrameCount</c> (<c>004d25ff</c>); docs/retail/simulation/external-views.md.</summary>
 	ChaseView = 0x0f,
 
 	/// <summary>WEAPON TOGGLE — weapon-manager command <c>0x202</c>, the [Alt]+[2] group step.</summary>

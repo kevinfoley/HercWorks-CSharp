@@ -98,7 +98,7 @@ public static class Detection {
 	/// The 50000 inside which <see cref="Sweep"/> and <see cref="ShareContact"/> mark an object
 	/// <see cref="SimObject.Engaged"/> and activate engagement actions — well inside
 	/// <see cref="VisualRange"/>. Which objects each one marks is in
-	/// docs/simulation/mission-deployment.md, "An object's own two actions".
+	/// docs/retail/simulation/mission-deployment.md, "An object's own two actions".
 	/// </summary>
 	public const int EngagementRange = 50000;
 
@@ -267,7 +267,7 @@ public static class Detection {
 	/// <see cref="ContactShareRange"/>, the spotter included. Nothing is shared to the other side, and
 	/// a spotter and a contact on the same side is not a contact at all. Within
 	/// <see cref="EngagementRange"/> the <i>contact</i> is marked engaged and the <i>ally</i>
-	/// activates its own engagement action — docs/simulation/mission-deployment.md, "An object's own
+	/// activates its own engagement action — docs/retail/simulation/mission-deployment.md, "An object's own
 	/// two actions".
 	/// </summary>
 	internal static void ShareContact(SimWorld world, SimObject spotter, SimObject contact) {

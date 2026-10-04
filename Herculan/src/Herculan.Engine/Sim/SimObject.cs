@@ -8,7 +8,7 @@ namespace Herculan.Engine.Sim;
 /// What an object counts as when something is deciding whether to shoot it — the shared
 /// <c>obj+0x1a8</c> that every constructor writes and every target filter reads. Every constructor
 /// writes <see cref="None"/> first and overwrites it, so an object that never finishes construction
-/// stays unclassified. Which type gets which class is in docs/simulation/target-selection.md,
+/// stays unclassified. Which type gets which class is in docs/retail/simulation/target-selection.md,
 /// "Object classification".
 /// </summary>
 public enum TargetClass : short {
@@ -34,7 +34,7 @@ public enum TargetClass : short {
 /// <summary>
 /// Base class for everything the simulation ticks — mechs, projectiles, flyers. Traditional OOP
 /// and virtual dispatch rather than ECS, mirroring the vtable shape of DBSIM's own simulation
-/// objects: see docs/engine/planning.md, "Simulation object architecture", for the evidence.
+/// objects: see docs/herculan/planning.md, "Simulation object architecture", for the evidence.
 ///
 /// <para>Only the slots the engine currently needs are declared. The rest are identified in the
 /// disassembly and get added alongside the systems that call them, so that each arrives as a
@@ -162,7 +162,7 @@ public abstract class SimObject {
 	///
 	/// <para>The base returns the origin, which is what a flyer keeps. <see cref="MechObject"/> and
 	/// <see cref="BaseObject"/> override it — see the mech's for which node it names and why aiming at
-	/// a HERC's position puts a missile between its feet, and docs/simulation/target-selection.md,
+	/// a HERC's position puts a missile between its feet, and docs/retail/simulation/target-selection.md,
 	/// "Aim point", for the fallback every caller shares.</para>
 	/// </summary>
 	public virtual Vec3i AimPoint => Position;
@@ -172,7 +172,7 @@ public abstract class SimObject {
 	/// <c>Eye</c>, where a camera attached to it sits, and <c>OrbitCentre</c>, the point the outside
 	/// view circles. The shared base (<c>SimObject_GetAimPointZero</c>, <c>00411a74</c>) zeroes both,
 	/// which is what a flyer keeps; <see cref="MechObject"/> and <see cref="BaseObject"/> override it.
-	/// See docs/simulation/external-views.md.
+	/// See docs/retail/simulation/external-views.md.
 	/// </summary>
 	public virtual (Vec3i Eye, Vec3i OrbitCentre) ViewMounts => (Vec3i.Zero, Vec3i.Zero);
 
@@ -216,7 +216,7 @@ public abstract class SimObject {
 	///
 	/// <para>Deliberately not folded into <see cref="Neutralised"/>: the detection sweep, the player's
 	/// target selection and a group's condition tier all read that one, and none of them consults
-	/// <c>+0xa5</c> in the original. The AI's target tests do (docs/simulation/ai-targeting.md), and
+	/// <c>+0xa5</c> in the original. The AI's target tests do (docs/retail/simulation/ai-targeting.md), and
 	/// so does a guard order's rival test — see <c>MissionGroup.IsWipedOut</c>, which is why that
 	/// reads this and not <see cref="Neutralised"/>.</para>
 	/// </summary>
@@ -227,7 +227,7 @@ public abstract class SimObject {
 	/// <see cref="SimWorld.Raycast"/>. Every class but the HERC installs <c>Mech_ShareContact</c>
 	/// (<c>00411aec</c>), which does nothing but share the attacker with this object's side
 	/// (<see cref="Detection.ShareContact"/>); the HERC overrides it with its reaction
-	/// (docs/simulation/ai-targeting.md, "Passing a contact on").
+	/// (docs/retail/simulation/ai-targeting.md, "Passing a contact on").
 	/// </summary>
 	/// <param name="damage">The shot's damage, which only a HERC's reaction reads.</param>
 	public virtual void OnTakingFire(SimWorld world, SimObject attacker, short damage) =>
@@ -274,7 +274,7 @@ public abstract class SimObject {
 	///
 	/// <para>Two sweeps raise it, and both are ported: a machine's own move
 	/// (<see cref="MechObject.CollisionTest"/>) and the ground vehicle tick's
-	/// (<c>GroundVehicleCollisionTest</c>). See docs/simulation/ai-combat-states.md,
+	/// (<c>GroundVehicleCollisionTest</c>). See docs/retail/simulation/ai-combat-states.md,
 	/// "The charge".</para>
 	/// </summary>
 	public bool RunInto { get; internal set; }
@@ -357,7 +357,7 @@ public abstract class SimObject {
 	/// about a group half-way through one. An object with no group is in the mission.</para>
 	///
 	/// <para>Its three test sites, why an undeployed group's placed position is meaningless, and how
-	/// such a group arrives are in docs/simulation/mission-deployment.md.</para>
+	/// such a group arrives are in docs/retail/simulation/mission-deployment.md.</para>
 	/// </summary>
 	public bool AwaitingDeployment => Group is { AwaitingDeployment: true };
 
@@ -372,7 +372,7 @@ public abstract class SimObject {
 	/// <summary>
 	/// <c>obj+0x1b2</c> — the mission action this object fires when it is <b>engaged</b>: a hostile is
 	/// within <see cref="Detection.EngagementRange"/> of it and one side has spotted or shot the
-	/// other. The three sites are in docs/simulation/mission-deployment.md, "An object's own two
+	/// other. The three sites are in docs/retail/simulation/mission-deployment.md, "An object's own two
 	/// actions". Set from its roster record's own ref; see <c>ScriptMechRecord.EngagementActionRef</c>.
 	/// </summary>
 	public MissionActionState? EngagementAction { get; set; }
@@ -384,7 +384,7 @@ public abstract class SimObject {
 	/// working weapons. <b>It is not a death action</b>, which is why it is not named for one.
 	///
 	/// <para><b>This is how a retail mission chains its waves</b>: defeating the machine in front of
-	/// the player is what brings the next group in. See docs/simulation/mission-deployment.md.</para>
+	/// the player is what brings the next group in. See docs/retail/simulation/mission-deployment.md.</para>
 	/// </summary>
 	public MissionActionState? DefeatAction { get; set; }
 
@@ -394,7 +394,7 @@ public abstract class SimObject {
 	/// <see cref="Detection.EngagementRange"/>, <see cref="Detection.ShareContact"/> on the contact
 	/// being shared, and <see cref="SimWorld.Raycast"/> on the shooter alone. Read by
 	/// <see cref="MissionObjective.ConditionEngaged"/> and its negation. Why they mark different
-	/// parties is in docs/simulation/mission-deployment.md, "An object's own two actions".
+	/// parties is in docs/retail/simulation/mission-deployment.md, "An object's own two actions".
 	/// </summary>
 	public bool Engaged { get; internal set; }
 
@@ -427,7 +427,7 @@ public abstract class SimObject {
 	/// <summary>
 	/// <c>obj+0xa2</c> — the ECM gate on <see cref="EngagementAction"/>. Raised on a machine's
 	/// selected target by <see cref="MechObject.RaiseTargetEngagementGate"/> and cleared on everything
-	/// at the end of <see cref="Detection.Tick"/>; see docs/simulation/mission-deployment.md, "An
+	/// at the end of <see cref="Detection.Tick"/>; see docs/retail/simulation/mission-deployment.md, "An
 	/// object's own two actions".
 	/// </summary>
 	internal bool EngagementActionHeld;
@@ -454,7 +454,7 @@ public abstract class SimObject {
 	/// <c>obj+0x1ba</c>/<c>+0x1ce</c> — the mission-counter writes this object makes when it goes out
 	/// of the fight, from its own roster record. A machine of the player's squad has no roster record
 	/// and carries <see cref="OutOfActionReport.None"/>, which is what its zeroed slots amount to in the
-	/// original — see docs/simulation/mission-deployment.md#the-out-of-action-report.
+	/// original — see docs/retail/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	public OutOfActionReport OutOfActionReport { get; set; } = OutOfActionReport.None;
 
@@ -463,7 +463,7 @@ public abstract class SimObject {
 	/// last of it still in the fight, then runs the object's own writes. Called immediately before
 	/// <see cref="ActivateDefeatAction"/> from the four damage endpoints the original calls it from;
 	/// the weapons-out defeat does not call it here, since no call from there has been found. See
-	/// docs/simulation/mission-deployment.md#the-out-of-action-report.
+	/// docs/retail/simulation/mission-deployment.md#the-out-of-action-report.
 	/// </summary>
 	internal void ReportOutOfAction(SimWorld world) {
 		Group?.ReportIfAllOthersOutOfAction(world, this);
@@ -491,7 +491,7 @@ public abstract class SimObject {
 	///
 	/// <para>It is not the drawn model's size (<see cref="ShapeRadius"/>) and not what a shot is
 	/// rejected against. <b>A flyer's is zero</b>, so an aircraft is measured centre to centre by a
-	/// blast. See docs/simulation/hit-detection.md, "The three radius slots", for all three.</para>
+	/// blast. See docs/retail/simulation/hit-detection.md, "The three radius slots", for all three.</para>
 	/// </summary>
 	public abstract int HitRadius { get; }
 
@@ -529,7 +529,7 @@ public abstract class SimObject {
 	/// <see cref="TargetClass"/> fence means only <see cref="MechObject"/>'s override is ever reached.
 	/// A structure's (<c>Base_NextTargetableComponent</c>, <c>00403624</c>, over its type's whole
 	/// component list) is installed in the original and unreachable, and is left unported for that
-	/// reason. See docs/simulation/target-selection.md.</para>
+	/// reason. See docs/retail/simulation/target-selection.md.</para>
 	/// </summary>
 	public virtual int NextTargetableComponent(int cursor, out int componentId) {
 		componentId = TargetingPodLock.NoComponent;
@@ -549,7 +549,7 @@ public abstract class SimObject {
 	/// <see cref="MechObject"/> and <see cref="BaseObject"/> override it. The base answers the
 	/// object's own origin; a flyer's slot in the original (<c>SimObject_ComponentPositionNoOp</c>,
 	/// <c>00411a3c</c>) writes nothing, and every caller is fenced off it — see
-	/// docs/simulation/damage-system.md, "Where a component stands".
+	/// docs/retail/simulation/damage-system.md, "Where a component stands".
 	/// </summary>
 	public virtual Vec3i ComponentWorldPosition(short componentIndex) => Position;
 
@@ -661,7 +661,7 @@ public abstract class SimObject {
 	/// the shape at <c>obj+0x34</c> to that part's transform slot
 	/// (<c>Mech_ComponentGeometryTest_Candidate</c>, <c>0040c8fc</c>, which falls back on an identity
 	/// transform for a part the shape does not have) — <see cref="ShapeAnimation.TransformIdOfPart"/>
-	/// is that lookup. See docs/simulation/hit-detection.md, "The test".</para>
+	/// is that lookup. See docs/retail/simulation/hit-detection.md, "The test".</para>
 	/// </summary>
 	private protected Transform3? NodeFrame(short partId) {
 		int transformId = Animation?.TransformIdOfPart(partId) ?? -1;
@@ -685,7 +685,7 @@ public abstract class SimObject {
 	///
 	/// <para>The base returns "missed"; <see cref="MechObject"/> (<c>Mech_DirectFireHitTest</c>,
 	/// <c>00418ba8</c>), <see cref="BaseObject"/> and <see cref="FlyerObject"/> each override it with
-	/// the original's own — see docs/simulation/hit-detection.md.</para>
+	/// the original's own — see docs/retail/simulation/hit-detection.md.</para>
 	///
 	/// <para>The world is passed because a hit is more than a number: an implementation spawns the
 	/// shot's impact effect from in here, which is where the original spawns it too — see
@@ -705,7 +705,7 @@ public abstract class SimObject {
 	/// <para>All three shootable classes implement it and no two of them alike — a machine rolls and
 	/// places every component behind a shield, a structure walks its parts with no shield step at
 	/// all, and an aircraft is one point. The base does nothing, so a projectile standing in someone
-	/// else's blast ignores it. See docs/simulation/damage-system.md, "Explosive damage".</para>
+	/// else's blast ignores it. See docs/retail/simulation/damage-system.md, "Explosive damage".</para>
 	/// </summary>
 	/// <param name="world">The simulation, for the generator the per-component roll draws from.</param>
 	/// <param name="damage">The blast's own damage figure, before shields scale it.</param>
@@ -738,7 +738,7 @@ public abstract class SimObject {
 	/// <c>Math_GroundDistanceBetweenPoints</c> (<c>004927c4</c>) — the range every navigation
 	/// <i>steer</i> is computed from. Z is dropped before the magnitude is taken, so a waypoint on a
 	/// hilltop is as near as one at its foot. A couple of ranges that only gate a decision use
-	/// <see cref="Vec3i.ApproxDistanceTo"/> instead; docs/simulation/ai-navigation.md names them.
+	/// <see cref="Vec3i.ApproxDistanceTo"/> instead; docs/retail/simulation/ai-navigation.md names them.
 	/// </summary>
 	protected int GroundDistanceTo(Vec3i point) =>
 		SimMath.FastMagnitude2D(Position.X - point.X, Position.Y - point.Y);

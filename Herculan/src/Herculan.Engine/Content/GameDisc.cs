@@ -6,7 +6,7 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// The Earthsiege 2 disc, as both programs reach it through <c>data\drive.cfg</c>: the <c>VOL</c> archives an
 /// install did not copy, the movies, the on-line manual and the training instructor's clips
-/// (docs/retail-builds.md, "The installer"). Retail's disc is always a directory; here it is either a directory
+/// (docs/retail/retail-builds.md, "The installer"). Retail's disc is always a directory; here it is either a directory
 /// (<see cref="OpenFolder"/>) or a CD image read in place (<see cref="OpenImage"/>), which is this engine's own
 /// (<see cref="GameInstall.OpenDisc"/> says which an install names).
 ///

@@ -5,7 +5,7 @@ namespace Herculan.Engine.Audio;
 /// <summary>
 /// DBSIM's own <c>Sound_*</c> layer: the rules that sit between a catalog id and the mixer —
 /// variation rolls, the category split, the distance cutoff and the stereo pan. See
-/// docs/formats/audio.md for where each of them comes from.
+/// docs/retail/formats/audio.md for where each of them comes from.
 ///
 /// <para><b>One record per catalog id; copies of it overlap.</b> The original allocates exactly one
 /// <c>SFX</c> voice per row of <c>SOUNDS.STR</c> and keeps it for the mission, but that record is
@@ -13,7 +13,7 @@ namespace Herculan.Engine.Audio;
 /// <c>0x100</c> playing flag and issues a fresh <c>sosDIGIStartSample</c> every call, so two
 /// machines firing the same weapon in the same tick are heard twice. The record holds this id's
 /// current volume, pan and pitch and the handle of the <b>newest</b> playback only — see
-/// docs/formats/audio.md, "A repeated play layers; it does not restart".</para>
+/// docs/retail/formats/audio.md, "A repeated play layers; it does not restart".</para>
 ///
 /// <para>One consequence is worth knowing before it looks like a bug: because the settings are the
 /// id's and not the copy's, placing a new copy retunes the previous one. <see cref="Place"/> writes
@@ -134,7 +134,7 @@ public sealed class SoundDirector : IDisposable {
 	/// <c>select % 5 + 2</c>, so tracks 2 to 6. <paramref name="select"/> is the value of DBSIM's own
 	/// <c>-R</c> command-line switch (<c>Music_TrackSelect</c> (<c>004d25f7</c>), parsed by <c>atol</c> at <c>0045e824</c>),
 	/// which is the only thing in DBSIM that chooses between the five. Retail's launcher passes a count of
-	/// the missions flown so far, so the track rotates; see <c>docs/command-line.md</c>.
+	/// the missions flown so far, so the track rotates; see <c>docs/retail/command-line.md</c>.
 	///
 	/// <para>The original's remainder is a signed <c>IDIV</c>, so a negative <c>-R</c> would give it
 	/// a track below 2 and <c>MCI_PLAY</c> an invalid one; the magnitude is taken here instead.</para>
@@ -151,7 +151,7 @@ public sealed class SoundDirector : IDisposable {
 	///
 	/// <para>The original's unconditional <c>Sound_SetMusicEnabled(1)</c> at the end of the session
 	/// setup, which turns music back on behind a MUSIC-off preference, is not reproduced: the row's
-	/// setting stands (docs/formats/audio.md, "The mission session overrides the MUSIC preference").</para>
+	/// setting stands (docs/retail/formats/audio.md, "The mission session overrides the MUSIC preference").</para>
 	/// </summary>
 	/// <param name="select">The <c>-R</c> value; see <see cref="MissionTrack"/>.</param>
 	public void StartMissionMusic(int select = 0) {
@@ -512,7 +512,7 @@ public sealed class SoundDirector : IDisposable {
 	/// <c>Sound_SuspendAll</c> (<c>00463078</c>) — stops everything, marking for the matching
 	/// <see cref="ResumeAll"/> only the ids that loop forever and are playing. A one-shot or a
 	/// finite repeat cut off by the suspend is not restarted, and its outstanding repeats are
-	/// dropped. The original does this when the window loses focus. See docs/formats/audio.md,
+	/// dropped. The original does this when the window loses focus. See docs/retail/formats/audio.md,
 	/// "Mute, suspend and resume".
 	/// </summary>
 	public void SuspendAll() {
@@ -629,7 +629,7 @@ public sealed class SoundDirector : IDisposable {
 	/// <para>Nothing checks whether the id is already sounding, which is the whole of the original's
 	/// behaviour here: <c>Sfx_Play</c> (<c>00463f34</c>) never tests its voice's <c>0x100</c> playing
 	/// flag and issues a fresh <c>sosDIGIStartSample</c> every call, so the copies overlap. See
-	/// docs/formats/audio.md, "A repeated play layers; it does not restart".</para>
+	/// docs/retail/formats/audio.md, "A repeated play layers; it does not restart".</para>
 	/// </summary>
 	private void Start(int id, SoundCatalog.Entry entry) {
 		if (_samples[id] < 0) {

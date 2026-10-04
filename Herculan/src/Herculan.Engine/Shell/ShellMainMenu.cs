@@ -41,7 +41,7 @@ public enum ShellMainMenuButton {
 /// <summary>
 /// Tab 0, <c>MAIN MENU</c> — one titled panel of ten buttons in two columns over the shell's backdrop.
 /// Built once by <c>0043094c</c> (<c>wmain.cpp</c>), put up by <c>MainMenu_Show</c> (<c>004310a0</c>)
-/// and hidden by <c>MainMenu_Hide</c> (<c>0043114b</c>). See docs/shell/screen-layout.md#the-main-menu.
+/// and hidden by <c>MainMenu_Hide</c> (<c>0043114b</c>). See docs/retail/shell/screen-layout.md#the-main-menu.
 ///
 /// <para>Every rect is a literal in the executable, kept parent-relative as the builder writes it: the
 /// panel in the canvas, the buttons in the panel.</para>
@@ -174,7 +174,7 @@ public sealed class ShellMainMenu {
 /// startup by <c>EndOfGame_Build</c> (<c>0044cc2c</c>), filled and put up by <c>EndOfGame_Show(state)</c> (<c>0044cecf</c>) and taken down by
 /// <c>OKAY</c>'s handler, <c>EndOfGame_OnOkay</c> (<c>0044cf7b</c>). The launch refusal's sibling, in a window the size of the
 /// display, so its rect is a canvas rect; while it is up this engine hit-tests nothing but <c>OKAY</c>,
-/// as it does for that dialog. See docs/shell/screen-layout.md#the-main-menu.
+/// as it does for that dialog. See docs/retail/shell/screen-layout.md#the-main-menu.
 /// </summary>
 public sealed class ShellEndOfGameDialog {
 	/// <summary>The alert, an <c>ESAlert</c>, in the canvas.</summary>

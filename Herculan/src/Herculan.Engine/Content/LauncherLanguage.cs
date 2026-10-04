@@ -4,7 +4,7 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// The language each program of an install runs in, worked out as the install's launcher, <c>ES.EXE</c>, would set it
-/// (docs/command-line.md, "v1.10's language switch"; docs/retail-builds.md, "How a language is chosen").
+/// (docs/retail/command-line.md, "v1.10's language switch"; docs/retail/retail-builds.md, "How a language is chosen").
 ///
 /// <para>v1.0's launcher passes no language switch, so its shell and simulator run in English whatever
 /// <c>data\language.cfg</c> says. v1.10's appends <c>-</c> and the file's first byte to both command lines unless the
@@ -21,7 +21,7 @@ public static class LauncherLanguage {
 
 	/// <summary>
 	/// <c>prefs.cfg</c> option 43, <c>ShellOption_Language</c> (VSHELL <c>004824e3</c>): the shell's language when its
-	/// command line names none, 0 English, 1 French, 2 German (docs/simulation/preferences.md).
+	/// command line names none, 0 English, 1 French, 2 German (docs/retail/simulation/preferences.md).
 	/// </summary>
 	public const int ShellLanguageOption = 43;
 
@@ -44,7 +44,7 @@ public static class LauncherLanguage {
 	/// <summary>
 	/// VSHELL's language, <c>Shell_Language</c> (<c>0048227a</c>): <c>-f</c> or <c>-g</c> in either case from the
 	/// launcher, and otherwise <see cref="ShellLanguageOption"/> from the install's <c>data\prefs.cfg</c>, which
-	/// <c>EsGlobal_Init</c> (<c>004073bc</c>) copies in before the switches are parsed (docs/command-line.md, "VSHELL").
+	/// <c>EsGlobal_Init</c> (<c>004073bc</c>) copies in before the switches are parsed (docs/retail/command-line.md, "VSHELL").
 	///
 	/// <para>A value past German — option 43 above 2, or slot 3, which <c>-e</c> stores — gives no folder to
 	/// <c>WeaponsBin_Open</c> (<c>00408605</c>) and no extension to <c>Msn_LoadEngText</c> (<c>0041768c</c>), so retail
@@ -71,7 +71,7 @@ public static class LauncherLanguage {
 
 	/// <summary>
 	/// DBSIM's language, the letter at <c>004d25ba</c>: <c>-F</c> or <c>-G</c> from the launcher, matched in that case
-	/// only, and English otherwise (docs/command-line.md, "DBSIM").
+	/// only, and English otherwise (docs/retail/command-line.md, "DBSIM").
 	/// </summary>
 	public static GameLanguage Simulator(string installRoot) => Switch(installRoot) switch {
 		(byte)'F' => GameLanguage.French,

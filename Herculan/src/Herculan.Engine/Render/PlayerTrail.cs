@@ -8,7 +8,7 @@ namespace Herculan.Engine.Render;
 /// position, euler triple and the frame's length into a 50-entry ring every frame
 /// (<c>ChaseTrail_Positions</c> (<c>004a7c80</c>), <c>ChaseTrail_Rotations</c> (<c>004a7ed8</c>), <c>ChaseTrail_Lengths</c> (<c>004a8004</c>), cursor <c>ChaseTrail_Cursor</c> (<c>004a80cc</c>)), and the
 /// chase camera sits wherever that ring puts the player <see cref="Delay"/> ago. The walk back and its
-/// interpolation are docs/simulation/external-views.md's "Mode 3: the chase".
+/// interpolation are docs/retail/simulation/external-views.md's "Mode 3: the chase".
 /// </summary>
 public sealed class PlayerTrail {
 	/// <summary>How many frames the ring holds.</summary>

@@ -2,7 +2,7 @@ namespace Herculan.Engine.Audio;
 
 /// <summary>
 /// Which <see cref="ICdAudio"/> the machine this is running on gets. <b>The one place the engine
-/// decides that</b>, per docs/engine/planning.md's "Target platform", which asks for OS-specific
+/// decides that</b>, per docs/herculan/planning.md's "Target platform", which asks for OS-specific
 /// paths to sit behind a seam from the start even while Windows is the only tested target.
 ///
 /// <para>The first of these that works, in order:</para>
@@ -16,7 +16,7 @@ namespace Herculan.Engine.Audio;
 /// <item>The rip cache of the one disc this machine has ripped before, with the disc absent.</item>
 /// </list>
 /// <para>and <see cref="NullCdAudio"/> otherwise, which runs the whole music layer above it — the
-/// track choice, the enable flag, the saved position — silently. See docs/formats/audio.md's
+/// track choice, the enable flag, the saved position — silently. See docs/retail/formats/audio.md's
 /// "CD audio" for why the digital path is preferred to retail's.</para>
 /// </summary>
 public static class CdAudio {

@@ -22,7 +22,7 @@ public sealed record ShellTrainingHandoff(string ScriptPath, string MissionPath,
 /// (<c>Game_NewCareer</c>, <c>0040e2ed</c>) on stage 0 at the lit row, that mission loaded
 /// (<c>MsnGen_LoadMission</c>, <c>0041c73d</c>) with the squad built from its own group 0, and the
 /// handoff exported (<c>Game_ExportMissionHandoff</c>, <c>0040f0d4</c>). The sequence is
-/// docs/shell/screen-layout.md#starting-a-practice-mission's; the mission load is
+/// docs/retail/shell/screen-layout.md#starting-a-practice-mission's; the mission load is
 /// <see cref="MissionGenerator"/>.
 ///
 /// <para>Every random draw goes through the one generator VSHELL keeps for its whole run, in the
@@ -61,7 +61,7 @@ public static class ShellTrainingLaunch {
 
 	/// <summary>
 	/// The nine stock fits a chosen chassis is built from — the table at <c>004706fc</c>, in type order.
-	/// See docs/formats/herc-catalogs.md.
+	/// See docs/retail/formats/herc-catalogs.md.
 	/// </summary>
 	private static readonly string[] StockFits = {
 		"INI_OUTL.DAT", "INI_RAPT.DAT", "INI_TOMA.DAT", "INI_SAMS.DAT", "INI_COLO.DAT",
@@ -159,7 +159,7 @@ public static class ShellTrainingLaunch {
 
 	/// <summary>
 	/// Flag 3's source, <c>00482606</c>, which the startup memset from <c>MissionScreenView</c> clears.
-	/// Whether anything writes it is open — see docs/shell/campaign-loop.md#open.
+	/// Whether anything writes it is open — see docs/retail/shell/campaign-loop.md#open.
 	/// </summary>
 	private const short UnknownFlag3 = 0;
 
@@ -223,7 +223,7 @@ public static class ShellTrainingLaunch {
 	/// record with its rank seeded from the skill and <c>Pilot_SetDefaults</c> (<c>0040fd17</c>)'s bay
 	/// <c>-1</c>, off strength, position <c>-1</c> and condition 100. The records come back in the save's
 	/// order, squad by squad and row by row. See
-	/// docs/shell/campaign-loop.md#the-pilot-roster-is-generated-not-authored--squad_generateroster-0040fa31.
+	/// docs/retail/shell/campaign-loop.md#the-pilot-roster-is-generated-not-authored--squad_generateroster-0040fa31.
 	/// </summary>
 	internal static PilotEntry[] GenerateRoster(ShellText? names, Func<short, int> roll) {
 		var records = new PilotEntry[SquadCount * PilotsPerSquad];

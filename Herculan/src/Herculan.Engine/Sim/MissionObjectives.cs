@@ -16,7 +16,7 @@ namespace Herculan.Engine.Sim;
 /// throttle — the status is only worked out every <see cref="PollInterval"/>, and an alert-worthy
 /// one has to hold for <see cref="AlertDelay"/> before it is handed up.</para>
 ///
-/// <para>See docs/simulation/mission-objectives.md.</para>
+/// <para>See docs/retail/simulation/mission-objectives.md.</para>
 /// </summary>
 public sealed class MissionObjectives {
 	private readonly MissionObjectiveState[] _objectives;
@@ -114,7 +114,7 @@ public sealed class MissionObjectives {
 	/// <summary>
 	/// <c>Ai_ChooseWeapon</c>'s write to <c>MissionPollTimer_Count</c> (<c>004a9ee7</c>): put the next
 	/// poll at least <paramref name="minimum"/> away, leaving one already further off alone. See
-	/// docs/simulation/ai-weapons.md, "Running dry".
+	/// docs/retail/simulation/ai-weapons.md, "Running dry".
 	/// </summary>
 	internal void DeferPoll(short minimum) {
 		if (_pollInterval < minimum) {
@@ -271,7 +271,7 @@ public sealed class MissionObjectives {
 	/// case (5, or outside 0-10), which leaves the running answer alone. The original writes the cases
 	/// out twice, once for a group subject and once for an object one; they are the same ten questions
 	/// and only the subject differs, so they are folded here. See
-	/// docs/simulation/mission-objectives.md, "What each condition asks".
+	/// docs/retail/simulation/mission-objectives.md, "What each condition asks".
 	/// </summary>
 	private static bool? Test(SimWorld world, MechObject player, MissionObjectiveState objective) {
 		var record = objective.Record;

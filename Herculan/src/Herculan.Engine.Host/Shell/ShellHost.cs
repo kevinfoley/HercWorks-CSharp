@@ -10,7 +10,7 @@ namespace Herculan.Engine.Host.Shell;
 
 /// <summary>
 /// Runs the front end instead of a mission — <c>--shell</c>. The same thin-host arrangement the
-/// mission loop uses (docs/engine/planning.md, "Engine internal architecture"): everything here is
+/// mission loop uses (docs/herculan/planning.md, "Engine internal architecture"): everything here is
 /// wiring, and every rule about what the shell looks like and where its widgets are lives in
 /// <c>Herculan.Engine.Shell</c>. This class is the composition and the frame's order — what runs before what
 /// each update and each render — and each step is the named component's. The window, its menu bar and the
@@ -20,7 +20,7 @@ namespace Herculan.Engine.Host.Shell;
 /// <para>It is a separate entry point rather than a mode of the mission loop because the two share
 /// nothing: the shell mounts different archives, loads no zone, runs no simulation and needs no fixed
 /// timestep. In the retail game they are two executables for the same reason
-/// (docs/shell/campaign-loop.md).</para>
+/// (docs/retail/shell/campaign-loop.md).</para>
 ///
 /// <para>The pointer is polled once per update, and each change in its position or in either button
 /// becomes one of the events VSHELL's queue carries, which <see cref="ShellPointer"/> delivers as
@@ -36,7 +36,7 @@ sealed class ShellHost : IDisposable {
 	/// </summary>
 	public const int DemoExitCode = 5;
 
-	/// <summary>The state <c>ES.EXE</c>'s loop starts in, which runs the shell as a first start (docs/command-line.md#the-loop).</summary>
+	/// <summary>The state <c>ES.EXE</c>'s loop starts in, which runs the shell as a first start (docs/retail/command-line.md#the-loop).</summary>
 	public const int StartupCode = 1;
 
 	/// <summary>
@@ -270,7 +270,7 @@ sealed class ShellHost : IDisposable {
 	}
 
 	// Shell_HasFocus (0046c094) is the window's HasFocus, which WM_SETFOCUS and WM_KILLFOCUS write; it holds the
-	// main loop and the movie queue (docs/shell/startup.md#the-main-loop), and starts set, as the image's 1 does,
+	// main loop and the movie queue (docs/retail/shell/startup.md#the-main-loop), and starts set, as the image's 1 does,
 	// until the first WM_KILLFOCUS.
 	private void OnFocusChanged(bool focused) => _audio.FocusChanged(focused, _movies.Playing);
 
@@ -310,7 +310,7 @@ sealed class ShellHost : IDisposable {
 		}
 
 		// A fade holds the shell until it is done: it pumps window messages but not the widget layer
-		// (docs/shell/screen-layout.md#sound). Retail queues the clicks made meanwhile and delivers them
+		// (docs/retail/shell/screen-layout.md#sound). Retail queues the clicks made meanwhile and delivers them
 		// after; this host polls, so the buttons' state is taken without delivering it, and an edge
 		// made during the fade is spent.
 		if (_audio.Fading) {

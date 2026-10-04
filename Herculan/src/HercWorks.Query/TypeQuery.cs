@@ -8,7 +8,7 @@ namespace HercWorks.Query;
 /// <param name="Side">0 human, 1 Cybrid, <c>-1</c> unset.</param>
 /// <param name="DeploymentActionRef">The row-10 action the group waits for, <c>-1</c> when it starts in the mission.</param>
 /// <param name="DeploymentVerb">
-/// That action's verb, which picks how the group arrives (docs/simulation/mission-deployment.md,
+/// That action's verb, which picks how the group arrives (docs/retail/simulation/mission-deployment.md,
 /// "Arrival"); null when there is no such action.
 /// </param>
 /// <param name="FirstRecord">
@@ -89,7 +89,7 @@ internal static class TypeQuery {
 	/// <summary>
 	/// One hit per GUID that any record of the asked types carries, reported from the GUID's first
 	/// record, which is the one the load keeps: a later record with the GUID overlays it rather than
-	/// adding a structure (docs/formats/msn-mission-file.md#repeated-guids), and is listed in
+	/// adding a structure (docs/retail/formats/msn-mission-file.md#repeated-guids), and is listed in
 	/// <see cref="TypeHit.SameGuid"/>. A GUID <c>-1</c> record is never exported, so each is its own hit.
 	/// </summary>
 	private static List<TypeHit> Search(RetailData data, MissionFile file, RosterKind kind, IReadOnlyList<int> types) {

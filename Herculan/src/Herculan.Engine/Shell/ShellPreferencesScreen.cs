@@ -57,7 +57,7 @@ public enum ShellPreferencesWidget {
 /// <c>prefs.cfg</c> options, and <c>Cancel</c> and <c>Accept</c>. Built once at startup by
 /// <c>PreferencesScreen_Build</c> (<c>00434f08</c>), put up by <c>PreferencesScreen_Enter</c>
 /// (<c>004366b5</c>) and taken down by <c>PreferencesScreen_Hide</c> (<c>00436717</c>). See
-/// docs/shell/screen-layout.md#the-preferences-screen.
+/// docs/retail/shell/screen-layout.md#the-preferences-screen.
 ///
 /// <para>Every rect is a literal in the executable, kept parent-relative as the builder writes it: the
 /// content panel in the canvas, the five boxes and the two buttons in the panel, and the rest in whichever

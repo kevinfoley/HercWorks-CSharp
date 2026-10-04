@@ -6,7 +6,7 @@ namespace Herculan.Engine.Content;
 /// mission raises for itself. Same arrangement as <see cref="ObjectivesPanelLayout"/>: the
 /// constructor writes the block into <c>.bss</c> (<c>DAT_004d1f20</c>..<c>DAT_004d1f42</c>) once as
 /// <c>value &lt;&lt; VideoMode_?CoordShift</c>, so every number here is an authored 320-wide
-/// coordinate doubled. See docs/simulation/alert-panels.md.
+/// coordinate doubled. See docs/retail/simulation/alert-panels.md.
 /// </summary>
 public static class StatusAlertPanelLayout {
 	/// <summary>The panel's declared width, <c>0xde</c> doubled. Also the plate's own width.</summary>

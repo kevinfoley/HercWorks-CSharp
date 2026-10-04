@@ -21,7 +21,7 @@ internal sealed record FlagQueryResult(short Flag, int MissionsSearched, IReadOn
 /// record — and every record that writes it: the out-of-action reports of rows #12, #13, #14 and #16,
 /// row #10's action counters, row #17's objective counters, and row #2's clear list. The mission
 /// counters are the campaign flag array for the length of a mission
-/// (docs/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4).
+/// (docs/retail/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4).
 /// </summary>
 internal static class FlagQuery {
 	/// <summary>Row #2's words: the condition, ten header words, then thirty flag indices to clear.</summary>

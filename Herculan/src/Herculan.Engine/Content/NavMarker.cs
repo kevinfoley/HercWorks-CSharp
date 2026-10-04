@@ -18,7 +18,7 @@ namespace Herculan.Engine.Content;
 /// cockpit-view state, not the machine's.</para>
 ///
 /// <para>It is dropped by <c>[Alt+D]</c>. Derivation, and what it is for, in
-/// docs/simulation/player-waypoints.md.</para>
+/// docs/retail/simulation/player-waypoints.md.</para>
 /// </summary>
 public sealed class NavMarker {
 	/// <summary>

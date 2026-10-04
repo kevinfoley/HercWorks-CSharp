@@ -19,7 +19,7 @@ namespace Herculan.Engine.Shell;
 /// <para>Built here from a parsed <see cref="PlayerSave"/> rather than by reproducing the original's
 /// skip-walk: the walk exists because VSHELL wants eleven summaries without eleven full loads, and
 /// this engine already has a whole-file reader. The walk is still worth knowing — its skip counts are
-/// an independent statement of every block length in <c>docs/formats/save-games.md</c>.</para>
+/// an independent statement of every block length in <c>docs/retail/formats/save-games.md</c>.</para>
 /// </summary>
 public sealed record ShellSaveSummary(
 	string PilotName,
@@ -155,7 +155,7 @@ public static class ShellSaveSlots {
 	/// written. Slot 10 is slot 11 in training. A player slot (0-9) takes <paramref name="label"/> as its
 	/// label; every slot is marked in use, and the whole directory is written back
 	/// (<c>Game_SetSlotInUse</c> (<c>0040e115</c>)). The save follows, and <c>Career_SaveSlot</c> (<c>00412a71</c>) copies the
-	/// three working files beside it. See docs/formats/save-games.md.
+	/// three working files beside it. See docs/retail/formats/save-games.md.
 	///
 	/// <para>The working files are <c>data\</c>'s, which this engine does not keep: see
 	/// <see cref="ShellWorkingFiles"/>. A missing one is skipped, where the original's copy asserts.</para>
@@ -228,7 +228,7 @@ public static class ShellSaveSlots {
 	/// <summary>
 	/// Writes over whatever is at <paramref name="path"/> without truncating it, as
 	/// <c>FileRWStream_Open</c> (<c>0044e46c</c>) opens every save: a shorter payload leaves the old tail
-	/// in place (docs/formats/save-games.md#streams-never-truncate).
+	/// in place (docs/retail/formats/save-games.md#streams-never-truncate).
 	/// </summary>
 	private static void WriteInPlace(string path, byte[] bytes) {
 		using var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write);

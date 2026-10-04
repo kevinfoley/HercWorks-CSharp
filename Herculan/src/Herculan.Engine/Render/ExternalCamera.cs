@@ -11,7 +11,7 @@ namespace Herculan.Engine.Render;
 ///
 /// <para><b>This engine's own camera, not retail's.</b> Every number below was picked to frame a
 /// HERC nicely. Retail's outside view is <see cref="ViewCamera"/>'s orbit, steered by the controls
-/// (docs/simulation/external-views.md); this one exists because a mouse drag is easier to use, and
+/// (docs/retail/simulation/external-views.md); this one exists because a mouse drag is easier to use, and
 /// only the tweak reaches it.</para>
 ///
 /// <para><see cref="Place"/> is stateless — it takes the orbit angles rather than owning them — so

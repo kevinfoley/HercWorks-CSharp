@@ -10,7 +10,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// record readers <c>.DMG</c>/<c>.COL</c> use (<c>HercPiece_ReadRecord</c>,
 /// <c>Collision_ReadCluster</c>/<c>Collision_ReadSphereArray</c>) — see
 /// <see cref="WeaponMountTemplate"/>. Fields whose meaning is open are kept raw so the file
-/// round-trips byte-exact. Layout: docs/formats/weapons-dat-sim.md.</para>
+/// round-trips byte-exact. Layout: docs/retail/formats/weapons-dat-sim.md.</para>
 /// </summary>
 public class Weapons {
 	public short Total { get; set; }
@@ -25,7 +25,7 @@ public class Weapons {
 	public WeaponMountTemplate NewWeaponMountTemplate() => new();
 
 	/// <summary>
-	/// One weapon's mount-template record. See docs/formats/weapons-dat-sim.md for the field-by-field
+	/// One weapon's mount-template record. See docs/retail/formats/weapons-dat-sim.md for the field-by-field
 	/// evidence; the fields before <see cref="Tail"/> are modeled raw, and their meaning is open.
 	/// </summary>
 	public class WeaponMountTemplate {
@@ -72,7 +72,7 @@ public class Weapons {
 		/// magazine size <c>0x18</c>, barrel count <c>0x1a</c>, <see cref="ProjDatIndex"/> <c>0x1c</c>,
 		/// muzzle offset <c>0x1e</c>-<c>0x22</c>, side offsets <c>0x24</c>/<c>0x28</c>, refire delay
 		/// <c>0x2a</c>, <see cref="DamageIconIndex"/> <c>0x2e</c>. See
-		/// docs/formats/weapons-dat-sim.md#decoded-tail-fields.
+		/// docs/retail/formats/weapons-dat-sim.md#decoded-tail-fields.
 		/// </summary>
 		public byte[] Tail { get; set; } = new byte[0x30];
 
@@ -82,19 +82,19 @@ public class Weapons {
 		/// for a <c>Rocket</c> record chosen by the hardpoint's ammunition type
 		/// (<c>MSL6</c>/<c>MSL8</c>/<c>MSL10</c>/<c>FLYMSL</c>), otherwise a direct PROJ.DAT index. The
 		/// non-firing entries carry 0, which their mount constructors never consume. See
-		/// docs/formats/weapons-dat-sim.md#the-projdat-index--tail-relative-offset-0x1c-absolute-offset-0x3e.
+		/// docs/retail/formats/weapons-dat-sim.md#the-projdat-index--tail-relative-offset-0x1c-absolute-offset-0x3e.
 		/// </summary>
 		public short ProjDatIndex => BitConverter.ToInt16(Tail, 0x1c);
 
 		/// <summary>
 		/// Tail-relative <c>0x0e</c> (in-memory <c>0x30</c>) — the weapon's range in world units, the
-		/// length <c>Bullet_FireBurst</c> gives the ray. See docs/formats/weapons-dat-sim.md.
+		/// length <c>Bullet_FireBurst</c> gives the ray. See docs/retail/formats/weapons-dat-sim.md.
 		/// </summary>
 		public int Range => BitConverter.ToInt32(Tail, 0x0e);
 
 		/// <summary>
 		/// Tail-relative <c>0x16</c> (in-memory <c>0x38</c>) — the upper energy threshold, which the
-		/// beam fire paths pass as the shot's power. See docs/formats/weapons-dat-sim.md.
+		/// beam fire paths pass as the shot's power. See docs/retail/formats/weapons-dat-sim.md.
 		/// </summary>
 		public short ShotCost => BitConverter.ToInt16(Tail, 0x16);
 
@@ -102,7 +102,7 @@ public class Weapons {
 		/// Tail-relative <c>0x2e</c> (in-memory <c>0x50</c>): which icon of the <c>WEAPONS</c> bank the
 		/// Heads-Down Display's damage detail draws for this weapon, before the <c>.PDG</c>
 		/// hardpoint's own frame offset is added. -1 draws none. See
-		/// docs/formats/weapons-dat-sim.md.
+		/// docs/retail/formats/weapons-dat-sim.md.
 		/// </summary>
 		public short DamageIconIndex => BitConverter.ToInt16(Tail, 0x2e);
 

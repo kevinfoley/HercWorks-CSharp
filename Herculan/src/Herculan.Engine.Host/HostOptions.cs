@@ -7,7 +7,7 @@ namespace Herculan.Engine.Host;
 
 /// <summary>
 /// The command line, parsed. <see cref="HostArguments"/> reads each flag's value and holds the <c>--help</c>
-/// text; docs/engine/herculan-command-line.md describes every flag. Each comment below says why the flag
+/// text; docs/herculan/herculan-command-line.md describes every flag. Each comment below says why the flag
 /// exists, which is what that page links back to.
 /// </summary>
 sealed class HostOptions {
@@ -194,7 +194,7 @@ sealed class HostOptions {
 			} else if (args[i] == "--movie") {
 				// Play one cutscene instead of a mission — see MovieHost. Takes a path, or a name to look up
 				// in the install's AVI folder. It exists so a video decoder can be looked at rather than only
-				// asserted about; see docs/formats/avi-video.md.
+				// asserted about; see docs/retail/formats/avi-video.md.
 				if (HostArguments.TryReadString(args, ref i, errors, out string movie)) {
 					options.MoviePath = movie;
 				}
@@ -340,7 +340,7 @@ sealed class HostOptions {
 					options.RecordTape = Path.ChangeExtension(tape, InputTapePlayer.Extension);
 				}
 			} else if (args[i] == "--developer") {
-				// DBSIM's own -SPRUNKNOWN: the developer keys. See DeveloperKeys and docs/key-bindings.md.
+				// DBSIM's own -SPRUNKNOWN: the developer keys. See DeveloperKeys and docs/retail/key-bindings.md.
 				options.DeveloperMode = true;
 			} else if (args[i] == "--demo") {
 				// DBSIM's own -D: a tape picked from TAPES\demolist.str, as VIEW DEMO plays one, which ends the

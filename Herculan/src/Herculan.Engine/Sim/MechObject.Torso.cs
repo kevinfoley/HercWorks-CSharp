@@ -11,7 +11,7 @@ namespace Herculan.Engine.Sim;
 /// single full sweep of one node, and the angle is used as a <i>position</i> within that sequence
 /// (<see cref="AnimationThread.SeekToPosition"/>) rather than as an angle anything rotates by. Twist
 /// and pitch are therefore the same kind of thing as the walk cycle, and reach the screen the same
-/// way — see docs/formats/dts-node-posing.md.</para>
+/// way — see docs/retail/formats/dts-node-posing.md.</para>
 /// </summary>
 public sealed partial class MechObject {
 	/// <summary>
@@ -119,7 +119,7 @@ public sealed partial class MechObject {
 	/// <c>Cockpit_TargetAnglesFromCameraBone</c> (<c>0041ef14</c>) — bring <paramref name="point"/>
 	/// into the pilot's own frame, drive both turret axes at it, and hand back what is left of the
 	/// error. It is the whole of "point the turret at that", and the AI's fire path reaches it exactly
-	/// as the player's automatic tracking does. The derivation is in docs/simulation/torso-aim.md,
+	/// as the player's automatic tracking does. The derivation is in docs/retail/simulation/torso-aim.md,
 		/// "Aiming at a point".
 	///
 	/// <list type="bullet">

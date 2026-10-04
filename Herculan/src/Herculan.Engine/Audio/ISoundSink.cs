@@ -10,7 +10,7 @@ namespace Herculan.Engine.Audio;
 /// "this happened, here", exactly as DBSIM's own call sites do, and every rule about whether that is
 /// audible, how loud, and where in the stereo field belongs to the director. That keeps
 /// <see cref="Sim.SimWorld"/> tickable by a headless test or a mission editor with no device
-/// present, which is the same split docs/engine/planning.md draws for rendering.</para>
+/// present, which is the same split docs/herculan/planning.md draws for rendering.</para>
 /// </summary>
 public interface ISoundSink {
 	/// <summary>

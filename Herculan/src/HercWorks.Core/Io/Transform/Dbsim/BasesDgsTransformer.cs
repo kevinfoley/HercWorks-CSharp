@@ -8,7 +8,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// structure shape library <c>dat\BASES.DAT</c>'s <c>ShapeIndex</c> field selects into for the 57
 /// of 65 structure types that aren't in <c>dts\BASES_AN.DTS</c>.
 ///
-/// <para><b>RE summary</b> (DBSIM.EXE, see docs/formats/dgs-hd0-notes.md for the full derivation).
+/// <para><b>RE summary</b> (DBSIM.EXE, see docs/retail/formats/dgs-hd0-notes.md for the full derivation).
 /// <c>BaseType_LoadShape</c> (<c>00405ebc</c>) resolves a shape by index through
 /// <c>BaseType_ResolveShape</c> (<c>00474cd8</c>), which reopens <c>dgs\bases</c> and calls the generic polymorphic resource
 /// loader <c>ClassItem_LoadResource</c> (<c>0047a038</c>) once per record until it reaches the

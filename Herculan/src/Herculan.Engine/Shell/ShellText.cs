@@ -10,13 +10,13 @@ namespace Herculan.Engine.Shell;
 /// nothing here hardcodes a tab's name: the original does not either, and reading them is what makes
 /// the strip say what the game says.
 ///
-/// <para>The container is the <c>.BIN</c> string table described in docs/formats/weapons-dat.md, and
+/// <para>The container is the <c>.BIN</c> string table described in docs/retail/formats/weapons-dat.md, and
 /// <see cref="BinStringFileTransformer"/> already parses it. VSHELL reaches it through
 /// <c>WeaponsBin_LookupName</c> (<c>00408240</c>) against the handle at <c>0046dcc0</c>, opened by
 /// literal filename in the shell's global init (<c>EsGlobal_Init</c> (<c>004073bc</c>), <c>esglobal.cpp</c>).</para>
 ///
 /// <para>It lives in <c>LANG0.VOL</c>, not <c>SHELL0.VOL</c>, under one folder per language, which
-/// <c>WeaponsBin_Open</c> (<c>00408605</c>) picks by the shell's language (docs/formats/weapons-dat.md, "The
+/// <c>WeaponsBin_Open</c> (<c>00408605</c>) picks by the shell's language (docs/retail/formats/weapons-dat.md, "The
 /// <c>.BIN</c> string tables").</para>
 /// </summary>
 public sealed class ShellText {

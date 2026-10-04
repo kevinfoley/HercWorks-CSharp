@@ -386,7 +386,7 @@ public sealed class ShapeAnimation {
 	///
 	/// <para>This is the test a caller needs before drawing one root with another's pose: it is
 	/// satisfied when a root merely drops nodes (a dropped id is never reused), and fails when it
-	/// compacts the numbering to close the gap. See docs/formats/mech-shape-drawing.md, "Each root
+	/// compacts the numbering to close the gap. See docs/retail/formats/mech-shape-drawing.md, "Each root
 	/// numbers its own nodes".</para>
 	/// </summary>
 	public static bool SharesNodeNumbering(TSObject? root, TSObject? reference) {

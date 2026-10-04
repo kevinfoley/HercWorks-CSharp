@@ -14,10 +14,10 @@ sealed class GameInProgress {
 	/// </summary>
 	public const int CurrentGameSlot = 10;
 
-	/// <summary><c>prefs.cfg</c> option 44, VSHELL's <c>Repair Options:</c> (docs/simulation/preferences.md).</summary>
+	/// <summary><c>prefs.cfg</c> option 44, VSHELL's <c>Repair Options:</c> (docs/retail/simulation/preferences.md).</summary>
 	public const int RepairOption = 44;
 
-	/// <summary><c>prefs.cfg</c> option 45, VSHELL's <c>Weapons Building:</c> — 1 builds weapons by hand (docs/simulation/preferences.md).</summary>
+	/// <summary><c>prefs.cfg</c> option 45, VSHELL's <c>Weapons Building:</c> — 1 builds weapons by hand (docs/retail/simulation/preferences.md).</summary>
 	private const int WeaponsBuildingOption = 45;
 
 	/// <summary><c>prefs.cfg</c> option 42, the campaign-or-training flag <c>Shell_SetCampaignMode</c> (<c>0040e69e</c>) writes.</summary>

@@ -6,7 +6,7 @@ namespace Herculan.Engine.Audio;
 /// <summary>
 /// Music from the audio tracks of a disc image (<see cref="DiscImage"/>), for a player whose disc is an image
 /// rather than a CD in a drive. <b>This engine's own</b>; retail plays only a disc, through MCI
-/// (docs/formats/audio.md, "CD audio").
+/// (docs/retail/formats/audio.md, "CD audio").
 ///
 /// <para>An image opened through a cue sheet has the disc's real tracks. A raw image without one keeps no
 /// table of contents, and <see cref="DiscImage"/> hands back all its audio as one track whose boundaries are
@@ -15,7 +15,7 @@ namespace Herculan.Engine.Audio;
 /// <see cref="MinimumGapSectors"/> sectors of exact digital silence, each piece becomes a track that starts at
 /// its first sector holding sound and runs to the next piece's start, and the pieces are numbered in image
 /// order from the first track's number. How those pieces compare with a disc's real tracks, and what is
-/// open about their order, is docs/retail-builds.md, "The v1.10 disc image". The status line says when the
+/// open about their order, is docs/retail/retail-builds.md, "The v1.10 disc image". The status line says when the
 /// boundaries are estimated.</para>
 ///
 /// <para>Finding the pieces reads the whole audio stretch once, about 171 MB for the v1.10 image, so

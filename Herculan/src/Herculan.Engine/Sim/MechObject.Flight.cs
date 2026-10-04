@@ -7,7 +7,7 @@ namespace Herculan.Engine.Sim;
 // The RAZOR's flight path: everything a chassis whose type record sets MechTypeRecord.IsFlyer does
 // instead of walking. Ported from Razor_ApplyFlightInput (0041bb9c, the input hand-off),
 // FlightModel_Step (00466a54, the flight model proper) and Razor_MovementTick (004198f4, the
-// per-tick move). See docs/simulation/razor-flight.md.
+// per-tick move). See docs/retail/simulation/razor-flight.md.
 public sealed partial class MechObject : IFlightBody {
 	/// <summary>
 	/// The airspeed a flyer powers up at — <c>Mech_Constructor</c>'s literal into <c>mech+0x2bd</c>.
@@ -185,13 +185,13 @@ public sealed partial class MechObject : IFlightBody {
 	/// points are computed from it up front, and each ray probe writes its point into the copy's
 	/// translation and leaves it there. So every probe but the fuselage tests the pre-move position,
 	/// and the left wing, cockpit and look-ahead ground tests sample displaced points, which a contact
-	/// then reports. A retail bug, reproduced — see docs/simulation/razor-flight.md ("The probes share
+	/// then reports. A retail bug, reproduced — see docs/retail/simulation/razor-flight.md ("The probes share
 	/// one transform") and KNOWN_ISSUES.md.</para>
 	///
 	/// <para><b>It closes with the gun convergence</b>, every tick and whatever state the airframe is
 	/// in: the guns toe in on the range to the selected target (<see cref="GunConvergenceRange"/>) or
 	/// square up with none. A walker reaches the convergence from its turret pitch tick, which a flyer
-	/// does not run. See docs/simulation/razor-flight.md ("Gun convergence").</para>
+	/// does not run. See docs/retail/simulation/razor-flight.md ("Gun convergence").</para>
 	/// </summary>
 	private void FlyerMovementTick(SimWorld world, FlightModelRecord flight) {
 		// The original's local copy of the airframe transform (00419a03-00419a97), taken before the

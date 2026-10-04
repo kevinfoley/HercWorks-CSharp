@@ -7,7 +7,7 @@ namespace Herculan.Engine.Sim;
 /// pull the trigger. Everything below the turret — the turret ticks, the mount's own fire dispatch —
 /// is the same machinery the player's trigger reaches, which is the original's own arrangement.
 ///
-/// <para>Derived in docs/simulation/ai-weapons.md.</para>
+/// <para>Derived in docs/retail/simulation/ai-weapons.md.</para>
 /// </summary>
 public sealed partial class MechObject {
 	/// <summary>
@@ -152,7 +152,7 @@ public sealed partial class MechObject {
 	/// average 289, so the pick is mostly noise with a bias.</item>
 	/// </list>
 	///
-	/// <para>The retail figures behind both are in docs/simulation/ai-weapons.md
+	/// <para>The retail figures behind both are in docs/retail/simulation/ai-weapons.md
 	/// ("Choosing a weapon").</para>
 	/// </summary>
 	private WeaponMount? ChooseWeapon(SimWorld world, short aspect, int range, SimObject target) {
@@ -243,7 +243,7 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// <c>mech+0xb5</c> — skip the next weapon selection. Set by the seeker of an electro-optical
 	/// round in flight, once per tick it steers, so a machine that has one in the air fires nothing
-	/// else while it flies. See docs/simulation/rockets.md.
+	/// else while it flies. See docs/retail/simulation/rockets.md.
 	/// </summary>
 	public bool WeaponSelectionSuppressed { get; set; }
 

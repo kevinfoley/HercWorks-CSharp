@@ -12,7 +12,7 @@ public static class VolFileReader {
 	private const int OffsetProgramMask = 4;
 
 	// The search precedence: SHELL1.vol and SIMPATCH.vol carry 0x0A, every other archive 0x05, and
-	// retail searches 0x0A archives first. See docs/formats/vol-archive.md, "Which archives are mounted".
+	// retail searches 0x0A archives first. See docs/retail/formats/vol-archive.md, "Which archives are mounted".
 	private const int OffsetVolOrderNum = 8;
 
 	private const int OffsetDirCount = 9;

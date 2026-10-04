@@ -9,7 +9,7 @@ public enum BaseShapeSource {
 	/// <summary>
 	/// <c>dgs\BASES.DGS</c> — the static-structure library, covering 57 of the 65 structure types.
 	/// Read by <see cref="HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer"/> — see
-	/// docs/formats/dgs-hd0-notes.md for the format.
+	/// docs/retail/formats/dgs-hd0-notes.md for the format.
 	/// </summary>
 	StaticLibrary,
 
@@ -162,7 +162,7 @@ public readonly record struct BaseComponentType(
 /// slots carry it: <c>+0x24</c> (<c>Base_GetAimNodeTransform</c>, <c>00403548</c>) as the translation of
 /// a node transform, and <c>+0x30</c> (<c>Base_GetAimPoint</c>, <c>0040351c</c>) as the Z of an offset
 /// triple that the tower ticks add to the target's position unrotated while the camera attach
-/// rotates it (docs/simulation/structure-behaviour.md, "What a structure is aimed at"). All 65 retail
+/// rotates it (docs/retail/simulation/structure-behaviour.md, "What a structure is aimed at"). All 65 retail
 /// types state one, 1000 to 2000, so a building is never shot at its own ground origin.
 /// </param>
 /// <param name="Armament">
@@ -189,7 +189,7 @@ public readonly record struct BaseComponentType(
 /// <c>+0x2e != 0</c> — the AI treats this type as dangerous. Nonzero on the two armed structures
 /// (gun tower, missile tower), the mobile missile vehicle, the generator and the transport, and it
 /// changes two decisions: a crippled machine flees from one instead of pressing the attack, and an
-/// attacking machine circles one instead of standing off. See docs/simulation/ai-combat-states.md.
+/// attacking machine circles one instead of standing off. See docs/retail/simulation/ai-combat-states.md.
 /// </param>
 /// <param name="AnimCellSequence">
 /// <c>+0x24</c> — which cell sequence <c>Base_ThinkTick</c> (<c>00403ca8</c>) steps to animate the

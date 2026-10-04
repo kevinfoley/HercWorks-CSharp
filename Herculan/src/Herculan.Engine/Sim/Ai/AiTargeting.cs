@@ -5,7 +5,7 @@ namespace Herculan.Engine.Sim.Ai;
 /// <summary>
 /// Which of <see cref="AiTargeting.SelectTarget"/>'s behaviours a caller wants — the mask its
 /// second argument carries. Bit meanings and the caller that passes each are in
-/// docs/simulation/ai-targeting.md.
+/// docs/retail/simulation/ai-targeting.md.
 /// </summary>
 [Flags]
 public enum TargetFilter {
@@ -33,7 +33,7 @@ public enum TargetFilter {
 
 /// <summary>
 /// The AI's target handling: what may be shot at, what is worth shooting at, and when to stop.
-/// Ported from docs/simulation/ai-targeting.md, which owns the derivation; the constants and the
+/// Ported from docs/retail/simulation/ai-targeting.md, which owns the derivation; the constants and the
 /// order of the tests are its.
 ///
 /// <para>These are the sim's shared routines rather than a mech's own —

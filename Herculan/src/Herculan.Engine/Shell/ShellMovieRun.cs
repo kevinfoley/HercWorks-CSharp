@@ -29,7 +29,7 @@ public sealed class ShellMovieHooks {
 	/// <summary>
 	/// <c>Mission_Leave</c> (<c>00444a05</c>), the MISSION tab unlit and no tab current (<c>0xffff</c>), with
 	/// nothing repainted: the screen keeps the mission screen until the location picture goes up
-	/// (docs/shell/screen-layout.md#the-shells-movies).
+	/// (docs/retail/shell/screen-layout.md#the-shells-movies).
 	/// </summary>
 	public required Action LeaveMissionTab { get; init; }
 
@@ -54,14 +54,14 @@ public sealed class ShellMovieHooks {
 
 	/// <summary>
 	/// <c>Shell_HasFocus</c> (<c>0046c094</c>): whether the shell's window has the focus. After each movie the run waits
-	/// until it does — docs/shell/startup.md#the-main-loop. Null counts as having it.
+	/// until it does — docs/retail/shell/startup.md#the-main-loop. Null counts as having it.
 	/// </summary>
 	public Func<bool>? HasFocus { get; init; }
 }
 
 /// <summary>
 /// <c>Movie_PlayQueue</c> (<c>0041e368</c>), playing <see cref="ShellMovieQueue"/> out one movie at a
-/// time through <c>Avi_Play</c> (<c>0041e01c</c>). See docs/shell/screen-layout.md#the-shells-movies.
+/// time through <c>Avi_Play</c> (<c>0041e01c</c>). See docs/retail/shell/screen-layout.md#the-shells-movies.
 ///
 /// <para>The original is one blocking loop, with each fade and the location picture's two seconds
 /// blocking inside it. This steps once per <see cref="Update"/> under the same order, so the window

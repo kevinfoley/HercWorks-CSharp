@@ -14,8 +14,8 @@ namespace Herculan.Engine.Render.Cockpit;
 /// <summary>
 /// Draws one panel's cockpit-art quad — at its own native aspect ratio, never stretched — plus, for
 /// the center panel only, the herc's HUD widgets over it, positioned from its own <c>.GAU</c> and
-/// drawn in the game's own sprite art and fonts. See docs/formats/cockpit-hud-widgets.md and
-/// docs/engine/planning.md's Milestone 8.
+/// drawn in the game's own sprite art and fonts. See docs/retail/formats/cockpit-hud-widgets.md and
+/// docs/herculan/planning.md's Milestone 8.
 ///
 /// <para>Widgets draw the game's own <c>.HBA</c> sprite art (see <see cref="HudSpriteSheet"/>),
 /// positioned by their <c>.GAU</c> rects scaled by <see cref="CockpitArt.GauToPixelScale"/>. That

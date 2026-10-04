@@ -6,7 +6,7 @@ namespace Herculan.Engine.Sim;
 /// <summary>
 /// What happens where a shot lands — DBSIM's explosion class, built by <c>Explosion_Construct</c> (<c>00407f1c</c>) and
 /// advanced by <c>Explosion_TickUpdate</c> (<c>0040813c</c>), allocated from the pool at <c>g_ExplosionPool</c> (<c>004a96a2</c>)
-/// (docs/simulation/impact-effects.md).
+/// (docs/retail/simulation/impact-effects.md).
 ///
 /// <para>An effect is a <c>dts\EXPLOS.DTS</c> root standing still at the point of impact, playing
 /// its flipbook of billboards through exactly once. <c>Explosion_TickUpdate</c> is the whole of its life:
@@ -24,7 +24,7 @@ namespace Herculan.Engine.Sim;
 /// <para>An effect may have an <see cref="Owner"/>, the object it was spawned on, which decides whether
 /// it is drawn — <see cref="HiddenFromOwnerCockpit"/> — and under which terrain cell it is filed for
 /// drawing: the owner's rather than its own (<see cref="Render.ObjectDrawTable"/>,
-/// docs/simulation/impact-effects.md#drawing).</para>
+/// docs/retail/simulation/impact-effects.md#drawing).</para>
 ///
 /// <para>A row with a nonzero <see cref="ExplosionTypeEntry.LightMode"/> also claims a dynamic
 /// light for as long as the flipbook runs, and one frame more (<see cref="Destruct"/>) —
@@ -41,7 +41,7 @@ namespace Herculan.Engine.Sim;
 public sealed class ImpactEffect {
 	/// <summary>
 	/// How many effects can exist at once — <c>g_ExplosionPool</c>'s count, <c>Pool_Init(pool, 0x28, 0x5b)</c>
-	/// in <c>Explosion_LoadResources</c> (<c>00407b54</c>). See docs/simulation/impact-effects.md.
+	/// in <c>Explosion_LoadResources</c> (<c>00407b54</c>). See docs/retail/simulation/impact-effects.md.
 	/// </summary>
 	public const int PoolSize = 40;
 
@@ -108,7 +108,7 @@ public sealed class ImpactEffect {
 
 	/// <summary>
 	/// <c>effect+0x57</c> — the object the effect was spawned on, or null. Which sites pass one is
-	/// docs/simulation/impact-effects.md#construction--explosion_construct-00407f1c's; nothing reads it
+	/// docs/retail/simulation/impact-effects.md#construction--explosion_construct-00407f1c's; nothing reads it
 	/// but the draw: <see cref="HiddenFromOwnerCockpit"/>, and the owner's terrain cell the effect is
 	/// filed under (<c>Explosion_GetOwnerDrawCell</c>, <c>00408228</c>).
 	/// </summary>
@@ -129,7 +129,7 @@ public sealed class ImpactEffect {
 	/// it has an owner, the camera is attached to that owner (<paramref name="cameraAttachedTo"/>, the
 	/// object <c>Cam_IsAttachedTo</c> (<c>00401078</c>) would answer true for), and it is not one of the types
 	/// always drawn. So from inside a cockpit the effects on that machine's own hull are not drawn. See
-	/// docs/simulation/impact-effects.md#drawing.
+	/// docs/retail/simulation/impact-effects.md#drawing.
 	/// </summary>
 	public bool HiddenFromOwnerCockpit(SimObject? cameraAttachedTo) {
 		// The type id is the byte at +0x41, tested as 2 or as an unsigned (id - 11) < 4.

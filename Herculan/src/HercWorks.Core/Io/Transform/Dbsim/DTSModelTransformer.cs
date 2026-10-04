@@ -50,7 +50,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	/// <see cref="BasesDgsTransformer"/> to parse the DTS subtree a <c>dgs\BASES.DGS</c>/
 	/// <c>BHULKS.DGS</c> structure record wraps — confirmed to be an ordinary TSObjectHeader-family
 	/// chunk, byte-identical in format to a plain <c>.DTS</c> file's own chunks (see
-	/// docs/formats/dgs-hd0-notes.md), so it reuses this same reader rather than a new one.
+	/// docs/retail/formats/dgs-hd0-notes.md), so it reuses this same reader rather than a new one.
 	/// </summary>
 	public TSObject? ReadOneObject(byte[] bytes, ref int index) {
 		Bytes = bytes;
@@ -66,7 +66,7 @@ public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	/// counts and the node transforms — starting at <paramref name="index"/>, and advances
 	/// <paramref name="index"/> past it. Used by <see cref="BasesDgsTransformer"/>, whose
 	/// <c>GridShape</c> records are <c>TSShape</c>s that keep their part list and this tail in the
-	/// record itself (see docs/formats/dgs-hd0-notes.md).
+	/// record itself (see docs/retail/formats/dgs-hd0-notes.md).
 	/// </summary>
 	public (short[] Sequences, TSShapeNodeTransform[] Transforms) ReadShapeTail(byte[] bytes, ref int index) {
 		Bytes = bytes;

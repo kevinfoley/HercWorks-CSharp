@@ -25,7 +25,7 @@ internal sealed record MissionSummary(string Mission, int Conditions, int Mechs,
 ///
 /// <para>Each archive is opened by name, from the install's <c>VOL</c> folder and then from the
 /// <c>VOL</c> folder of the directory its <c>DATA\drive.cfg</c> names, which is where a v1.10 Minimum
-/// install leaves them. This is not the programs' own mount (docs/formats/vol-archive.md, "Which
+/// install leaves them. This is not the programs' own mount (docs/retail/formats/vol-archive.md, "Which
 /// archives are mounted"): no other archive is consulted, so a v1.10 install's <c>SIMLANG.VOL</c>
 /// copy of <c>STRINGS0.STR</c> is not the one read.</para>
 /// </summary>
@@ -117,7 +117,7 @@ internal sealed class RetailData {
 
 	/// <summary>
 	/// The name a structure type's MFD readout gives it: <c>STRINGS0.STR</c> group 23 or 24, picked
-	/// by its texture selector, at its silhouette index (docs/formats/mfd.md#viewport-and-condition-per-class).
+	/// by its texture selector, at its silhouette index (docs/retail/formats/mfd.md#viewport-and-condition-per-class).
 	/// </summary>
 	public string? StructureName(int typeIndex) {
 		if (Bases is not { } bases || SimStrings is not { } strings || typeIndex < 0 || typeIndex >= bases.Types.Length) {

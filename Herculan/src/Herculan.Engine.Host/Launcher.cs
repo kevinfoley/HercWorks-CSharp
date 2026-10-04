@@ -6,7 +6,7 @@ namespace Herculan.Engine.Host;
 
 /// <summary>
 /// ES.EXE's part: which of the front end and the simulator runs, in what order, and what each one's exit code
-/// starts the next with (docs/command-line.md#the-loop).
+/// starts the next with (docs/retail/command-line.md#the-loop).
 /// </summary>
 static class Launcher {
 	/// <summary>

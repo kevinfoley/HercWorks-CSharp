@@ -180,7 +180,7 @@ static class SimulatorStartup {
 		// preferences are the tape's, in a scratch folder, so nothing there is worth writing.
 		simulatorPreferences.SaveEnabled = options.WritePreferences && tapePlayer == null;
 
-		// Display Mode, prefs option 6 (docs/simulation/preferences.md#the-video-mode-and-full-screen-bytes): WinMain
+		// Display Mode, prefs option 6 (docs/retail/simulation/preferences.md#the-video-mode-and-full-screen-bytes): WinMain
 		// (00465288) takes the window to full screen through Video_ToggleFullscreen once it is created when the byte is
 		// set, and Sim_Run writes the byte back at shutdown when the state differs from it. This engine's own two
 		// exceptions keep the window: --windowed, and a --screenshot run, whose capture is the window's framebuffer

@@ -6,7 +6,7 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// Where DBSIM's <c>.STR</c> text lives, and the reader for it. The simulator keeps every piece
 /// of UI text out of its code; the layout and the <c>STRINGS0.STR</c> group index are in
-/// docs/formats/str-strings.md, and <see cref="StringFile"/> models it.
+/// docs/retail/formats/str-strings.md, and <see cref="StringFile"/> models it.
 /// </summary>
 public static class SimStrings {
 	/// <summary>
@@ -21,7 +21,7 @@ public static class SimStrings {
 	/// <summary>
 	/// The folder of <paramref name="language"/>'s tables: <c>Language_StringFilePath</c> (<c>0045ef00</c>) patches the
 	/// language letter over the last letter of <c>str</c>, giving <c>stf</c> and <c>stg</c>
-	/// (docs/simulation/alert-panels.md, "What the family shares").
+	/// (docs/retail/simulation/alert-panels.md, "What the family shares").
 	/// </summary>
 	public static string LanguageFolder(GameLanguage language) => language switch {
 		GameLanguage.French => "stf",

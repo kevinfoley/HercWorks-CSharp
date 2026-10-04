@@ -12,7 +12,7 @@ namespace Herculan.Engine.Terrain;
 /// ray, reports the ground wherever the segment is at or below the surface. Mode 1
 /// (<see cref="RayWalkVolume"/>) instead asks whether the face the segment is crossing is one
 /// movement can pass — a <b>slope test</b>, so a segment sliding along rolling ground reports
-/// nothing and only a wall stops it. See docs/formats/terrain-heightmap.md ("Mode 1 — the slope
+/// nothing and only a wall stops it. See docs/retail/formats/terrain-heightmap.md ("Mode 1 — the slope
 /// walk").</para>
 ///
 /// <para>The setup — the delta clamp, the four slopes, the octant code and the cell stepping — is

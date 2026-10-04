@@ -12,7 +12,7 @@ namespace Herculan.Engine.Sim;
 /// global timestep from a timer and then walks each global object list calling every live object's
 /// per-tick update.
 ///
-/// <para>Deliberately holds no rendering state. Per docs/engine/planning.md's "library core + thin
+/// <para>Deliberately holds no rendering state. Per docs/herculan/planning.md's "library core + thin
 /// front-end host" decision, a world can be ticked by a game loop, a future mission editor, or a
 /// headless test with no assumption that a window exists.</para>
 /// </summary>
@@ -113,7 +113,7 @@ public sealed class SimWorld {
 	/// discarded draw on it, and the host hands it to the sound director, the squad comm channel
 	/// (message variants, the scream's roll, the portrait paint's discarded draw), the cockpit hit
 	/// shake and the sensor dropout. Seeded beside it to the same vanilla state — see
-	/// docs/simulation/random-generator.md#the-presentation-generator.
+	/// docs/retail/simulation/random-generator.md#the-presentation-generator.
 	/// </summary>
 	public SimRandom PresentationRandom { get; } = new();
 
@@ -126,7 +126,7 @@ public sealed class SimWorld {
 	/// <para>Three things index it: <see cref="DamageScaleFor"/>, which every direct-fire shot and
 	/// the plasma round's blast pass through, and <see cref="MechObject.AiAimScatter"/>. The fourth
 	/// consumer in the original is <c>Mech_CollisionTest</c>'s slide-landing damage, which is not
-	/// implemented at all. See docs/simulation/difficulty.md.</para>
+	/// implemented at all. See docs/retail/simulation/difficulty.md.</para>
 	/// </summary>
 	public int Difficulty { get; set; }
 
@@ -135,7 +135,7 @@ public sealed class SimWorld {
 	/// <see cref="World.ScriptDatHeader.UnlimitedAmmunition"/>. It reaches two places, both of them
 	/// the locally piloted machine's mounts: <see cref="WeaponMounts.FireTick"/> passes it to the
 	/// shot as its free-shot flag, and <see cref="WeaponMounts.ChargeTick"/> refunds the whole tick's
-	/// draw to the Master Energy Pool. See docs/simulation/difficulty.md.
+	/// draw to the Master Energy Pool. See docs/retail/simulation/difficulty.md.
 	/// </summary>
 	public bool UnlimitedAmmunition { get; set; }
 
@@ -205,7 +205,7 @@ public sealed class SimWorld {
 	/// straight out of its copy of the header (<c>ScriptDatHeader</c>). The simulation asks it one
 	/// question, whether this is <see cref="MoonTheater"/>, and asks it twice: in a debris piece's
 	/// gravity (<see cref="DebrisObject"/>) and in which fires light and for how long
-	/// (<see cref="SpawnFire"/>). See docs/simulation/destruction-effects.md.
+	/// (<see cref="SpawnFire"/>). See docs/retail/simulation/destruction-effects.md.
 	/// </summary>
 	public int Theater { get; set; }
 
@@ -338,7 +338,7 @@ public sealed class SimWorld {
 	/// <c>DAT_004a9ef4</c> — the mission counters, which are the campaign's flag array for the length
 	/// of a mission: they start from <c>mission.var</c> (<see cref="LoadMissionCounters"/>) and
 	/// <c>Mission_WriteResults</c> (<c>0042412c</c>) writes them back to it as the mission ends (<see cref="MissionResults"/>). See
-	/// docs/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
+	/// docs/retail/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
 	///
 	/// <para>Written by an action firing (<see cref="MissionActionState.Activate"/>), an objective
 	/// (<see cref="MissionObjectiveState"/>), the player downing a squadmate
@@ -423,7 +423,7 @@ public sealed class SimWorld {
 	/// each surviving mount of an enemy wreck at the mission's end (<see cref="MechObject.SalvageValue"/>).
 	///
 	/// <para>The original's list is a fixed block the append never checks, and a long enough list
-	/// writes past it (docs/simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60).
+	/// writes past it (docs/retail/simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60).
 	/// This list grows instead.</para>
 	/// </summary>
 	internal void QueueSalvage(short weaponId, short condition) => _salvage.Add((weaponId, condition));
@@ -597,7 +597,7 @@ public sealed class SimWorld {
 	/// just before it walks the rounds, and a player-flown round raises it again every tick it is
 	/// steered (<see cref="Rocket"/>); <see cref="WeaponMounts.FireTick"/> raises it on the tick that
 	/// launches one. While it is up the controls go to the round rather than to the machine, and the
-	/// weapon chain holds still. See docs/simulation/rockets.md#the-missile-camera.
+	/// weapon chain holds still. See docs/retail/simulation/rockets.md#the-missile-camera.
 	/// </summary>
 	public bool MissileFlown { get; internal set; }
 
@@ -639,7 +639,7 @@ public sealed class SimWorld {
 
 	/// <summary>
 	/// Whether a flown round asked for the first button row to be latched since the last call — see
-	/// docs/simulation/rockets.md#flight--rocket_tickupdate-0040a538.
+	/// docs/retail/simulation/rockets.md#flight--rocket_tickupdate-0040a538.
 	/// </summary>
 	public bool TakeFireRowLatch() {
 		bool requested = _fireRowLatchRequested;
@@ -676,7 +676,7 @@ public sealed class SimWorld {
 	/// <summary>
 	/// The dynamic lights impact effects are currently casting — the effect light manager
 	/// <c>DAT_004a968c</c>. The renderer reads it to decide what each drawn object is lit by; see
-	/// <see cref="EffectLightField"/> and docs/formats/effect-lights.md.
+	/// <see cref="EffectLightField"/> and docs/retail/formats/effect-lights.md.
 	/// </summary>
 	public EffectLightField EffectLights { get; } = new();
 
@@ -1123,7 +1123,7 @@ public sealed class SimWorld {
 	/// The counter of the countdown record at <c>004a9be8</c> — the rate limit on the "enemy detected"
 	/// callout. Stepped and re-armed by <see cref="MechObject.EnemySighted"/>, once per call from any
 	/// machine but the player's, and by nothing else — whether retail steps it anywhere else is an
-	/// Open item of docs/simulation/ai-targeting.md.
+	/// Open item of docs/retail/simulation/ai-targeting.md.
 	/// </summary>
 	internal short SightingCalloutTimer;
 
@@ -1184,7 +1184,7 @@ public sealed class SimWorld {
 			}
 
 			// The engagement pair, and the two halves land on opposite objects: the shooter is marked
-			// engaged, the struck object's action fires. See docs/simulation/mission-deployment.md, "An
+			// engaged, the struck object's action fires. See docs/retail/simulation/mission-deployment.md, "An
 			// object's own two actions".
 			if (shot.Owner is { } firer
 					&& ReferenceEquals(candidate, SimObject.SelectedTargetOf(firer))) {
@@ -1195,12 +1195,12 @@ public sealed class SimWorld {
 			// "Something just shot at me", on the candidate's own +0x50 slot. The original puts it
 			// exactly here — past the hit test, so only what the ray actually reached hears about it —
 			// and skips it for a destroyed candidate, or an enemy one that is out of action. It applies
-			// no damage. See docs/simulation/hit-detection.md.
+			// no damage. See docs/retail/simulation/hit-detection.md.
 			if (shot.Owner is { } owner && !candidate.Destroyed
 					&& (candidate.Side == owner.Side || !candidate.OutOfAction)) {
 				// The player hitting anything on his own side outside his own group, structures
 				// included: the player's own nearest squadmate complains, if it is close enough to
-				// him to have seen it (docs/simulation/ai-targeting.md, "Radio callouts").
+				// him to have seen it (docs/retail/simulation/ai-targeting.md, "Radio callouts").
 				if (owner.LocallyPiloted && candidate.Side == owner.Side
 						&& !ReferenceEquals(candidate.Group, owner.Group)
 						&& owner.Group?.NearestLiveMember(owner) is MechObject witness
@@ -1272,7 +1272,7 @@ public sealed class SimWorld {
 	/// (<c>00404bc0</c>) it ends in — a ray between two world points against the structures' collision
 	/// volumes, and nothing else: no terrain, no machines, no damage, no effects. It is the AI's shape
 	/// probe, called by <see cref="MechObject"/>'s obstacle avoidance and its line-of-sight test (see
-	/// docs/simulation/hit-detection.md, "The shape probe").
+	/// docs/retail/simulation/hit-detection.md, "The shape probe").
 	///
 	/// <para>The ray is built as a shot's is — pointed from <paramref name="from"/> at
 	/// <paramref name="to"/> by <see cref="SimTrig.EulerToward"/>, starting at
@@ -1603,7 +1603,7 @@ public sealed class SimWorld {
 	/// (<c>EffectLightPool_FlushDeletes</c>, <c>004077e8</c>) before the impact effects'
 	/// (<c>ExplosionPool_FlushDeletes</c>, <c>00407b3c</c>). The second is what queues an ended effect's light
 	/// handle, so the first does not return it until the next frame — see
-	/// docs/formats/effect-lights.md#claiming-a-slot.
+	/// docs/retail/formats/effect-lights.md#claiming-a-slot.
 	/// </summary>
 	private void FlushRenderFrameDeletes() {
 		EffectLights.FlushReleases();
@@ -1621,7 +1621,7 @@ public sealed class SimWorld {
 	/// <c>Sim_MainTick</c>'s mission poll: <see cref="MissionObjectives.Poll"/>, and on
 	/// <see cref="MissionStatus.PlayerImmobilised"/> the outnumbered damage on the player's group first,
 	/// which turns the answer into <see cref="MissionStatus.ImmobilisedThenDestroyed"/> when it kills the
-	/// player. See docs/simulation/mission-objectives.md#the-poll--mission_pollstatus-004131ac.
+	/// player. See docs/retail/simulation/mission-objectives.md#the-poll--mission_pollstatus-004131ac.
 	/// </summary>
 	private void PollMission(MechObject pilot) {
 		var alert = Objectives.Poll(this, pilot);
@@ -1825,13 +1825,13 @@ public sealed class SimWorld {
 	/// <summary>
 	/// Half-arc, either side of the bearing to the target, inside which a shot that stopped short
 	/// counts as the shooter's own line of fire being blocked. 45°; see
-	/// docs/simulation/ai-combat-states.md.
+	/// docs/retail/simulation/ai-combat-states.md.
 	/// </summary>
 	private const int BlockedLineOfFireArc = 0x2000;
 
 	/// <summary>
 	/// How near the player the squadmate <see cref="Raycast"/> picks must be for it to complain about
-	/// the player's shot at a friendly outside the group. See docs/simulation/ai-targeting.md,
+	/// the player's shot at a friendly outside the group. See docs/retail/simulation/ai-targeting.md,
 	/// "Radio callouts".
 	/// </summary>
 	private const int FriendlyFireWitnessRange = 30000;

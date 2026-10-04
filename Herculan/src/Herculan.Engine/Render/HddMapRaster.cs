@@ -11,10 +11,10 @@ namespace Herculan.Engine.Render;
 /// <remarks>
 /// <c>HddMap_BuildTerrainRaster</c> (<c>0044f6cc</c>): an integer-upscaled bitmap of the grown
 /// mission box, two triangles per cell, each filled in contour bands of palette index — see
-/// docs/formats/heads-down-display.md, "Terrain raster". The band rule is evaluated at each pixel
+/// docs/retail/formats/heads-down-display.md, "Terrain raster". The band rule is evaluated at each pixel
 /// centre here rather than through a polygon rasterizer. Index 0, which the original leaves off the
 /// grid and in the undrawn last row and column, decodes transparent, since the original's blit skips
-/// it — docs/formats/dts-billboards.md, "Brush mode 5 skips palette index 0".
+/// it — docs/retail/formats/dts-billboards.md, "Brush mode 5 skips palette index 0".
 /// </remarks>
 public sealed class HddMapRaster {
 	/// <summary>The bitmap's largest extent, which the upscale is fitted inside.</summary>

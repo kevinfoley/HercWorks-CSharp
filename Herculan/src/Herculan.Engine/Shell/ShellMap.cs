@@ -10,7 +10,7 @@ namespace Herculan.Engine.Shell;
 /// <summary>One base the map draws.</summary>
 /// <param name="TypeIndex"><inheritdoc cref="ScriptBaseRecord.TypeIndex"/></param>
 /// <param name="Point">The <c>script.dat</c> block-1 point it stands on.</param>
-/// <param name="Shown">Block 9's <c>+0x1a</c> as the map's copy holds it: the record's first out-of-action operation, replaced by its type-2 group's <see cref="ScriptGroup.MapShown"/> (docs/shell/mission-map.md#what-it-reads).</param>
+/// <param name="Shown">Block 9's <c>+0x1a</c> as the map's copy holds it: the record's first out-of-action operation, replaced by its type-2 group's <see cref="ScriptGroup.MapShown"/> (docs/retail/shell/mission-map.md#what-it-reads).</param>
 public readonly record struct ShellMapBase(int TypeIndex, int Point, int Shown);
 
 /// <summary>
@@ -18,7 +18,7 @@ public readonly record struct ShellMapBase(int TypeIndex, int Point, int Shown);
 /// <c>Mission Map</c> panel. Built by <c>ShellMap_Constructor</c> (<c>00423f43</c>) each time a mission is
 /// loaded, drawn by its vtable slot 0, <c>ShellMap_Paint</c>, moved by the six map buttons through slots
 /// <c>+4</c> to <c>+0x18</c>, and introduced by the animation <c>ShellMap_IntroStep</c> runs the first time the
-/// briefing comes up. See docs/shell/mission-map.md.
+/// briefing comes up. See docs/retail/shell/mission-map.md.
 ///
 /// <para>Everything is in world units until it is projected, and the projection is a plan view:
 /// <c>((world - camera) &lt;&lt; 7) / altitude</c> about the viewport's centre, north up.</para>

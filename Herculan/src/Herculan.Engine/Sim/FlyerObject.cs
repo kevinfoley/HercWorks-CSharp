@@ -128,7 +128,7 @@ public sealed partial class FlyerObject : SimObject {
 	/// <summary>
 	/// <c>flyer+0xa5</c> — this aircraft is not contesting anything. Latched by the reassess on the
 	/// two orders that send a flight somewhere rather than send it to fight; no write in the original
-	/// that clears it is known (docs/simulation/ai-flyers.md, Open), and nothing here clears it. Read
+	/// that clears it is known (docs/retail/simulation/ai-flyers.md, Open), and nothing here clears it. Read
 	/// by <c>Group_IsWipedOut</c> through <see cref="OutOfAction"/>.
 	/// </summary>
 	public bool Disarmed { get; set; }
@@ -184,7 +184,7 @@ public sealed partial class FlyerObject : SimObject {
 	/// carries.</para>
 	///
 	/// <para>Wreckage follows every hit, and the hit that brings the aircraft down throws a different
-	/// group — see docs/simulation/hit-detection.md, "<c>Flyer_DirectFireHitTest</c>".</para>
+	/// group — see docs/retail/simulation/hit-detection.md, "<c>Flyer_DirectFireHitTest</c>".</para>
 	/// </summary>
 	public override int DirectFireHitTest(SimWorld world, WeaponShot shot) {
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
@@ -233,7 +233,7 @@ public sealed partial class FlyerObject : SimObject {
 	/// value at point-blank range.</para>
 	///
 	/// <para>There is no range test. The sweep has already made it, so the numerator cannot come out
-	/// negative. See docs/simulation/damage-system.md, "A flyer".</para>
+	/// negative. See docs/retail/simulation/damage-system.md, "A flyer".</para>
 	/// </summary>
 	public override void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
 			SimObject? attacker) {

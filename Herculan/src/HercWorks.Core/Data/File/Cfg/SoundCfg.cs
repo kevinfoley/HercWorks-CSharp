@@ -3,7 +3,7 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Data.File.Cfg;
 
 /// <summary>
-/// <c>DATA\SOUND.CFG</c> — the sound driver settings, an INI. See docs/formats/audio.md,
+/// <c>DATA\SOUND.CFG</c> — the sound driver settings, an INI. See docs/retail/formats/audio.md,
 /// "DATA\SOUND.CFG".
 /// </summary>
 public class SoundCfg : DataFile {

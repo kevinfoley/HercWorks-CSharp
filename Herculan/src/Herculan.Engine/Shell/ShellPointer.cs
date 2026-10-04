@@ -12,7 +12,7 @@ public enum ShellMouseButton {
 /// <summary>
 /// Which event handler a widget's class runs. They disagree about which button acts, and on which
 /// edge, so a widget's class decides how a click on it behaves
-/// (docs/shell/screen-layout.md#which-widget-a-click-reaches).
+/// (docs/retail/shell/screen-layout.md#which-widget-a-click-reaches).
 /// </summary>
 public enum ShellHandler {
 	/// <summary>

@@ -139,7 +139,7 @@ public class GameContentMountTests : IDisposable {
 
 	/// <summary>
 	/// A one-folder (<c>DAT</c>) archive in <paramref name="root"/>\VOL, laid out as
-	/// docs/formats/vol-archive.md describes: header, folder list, entry list, then each entry's
+	/// docs/retail/formats/vol-archive.md describes: header, folder list, entry list, then each entry's
 	/// nine-byte prefix, content and trailer byte.
 	/// </summary>
 	private static void WriteVol(string root, string fileName, uint mask, byte precedence,

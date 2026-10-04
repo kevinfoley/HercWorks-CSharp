@@ -9,7 +9,7 @@ namespace Herculan.Engine.Host;
 /// <summary>
 /// DBSIM's <c>-SPRUNKNOWN</c> developer keys, which <c>--developer</c> turns on here, and the
 /// <c>Alt+S</c> freeze that retail also allows while a tape plays. What each key does is
-/// docs/key-bindings.md's "Developer keys"; the retail cases behind them are docs/command-line.md's
+/// docs/retail/key-bindings.md's "Developer keys"; the retail cases behind them are docs/retail/command-line.md's
 /// "<c>-SPRUNKNOWN</c>: the developer keys". This holds their state; the host applies it. The four
 /// camera keys act on the <see cref="ExternalViewChain"/>, which holds what they change.
 ///
@@ -155,7 +155,7 @@ sealed class DeveloperKeys(bool enabled) {
 
 		// The move keys are the machine's own command handler's, and retail hands that handler's commands
 		// to the viewed object, so they move a viewed machine and nothing else — see
-		// docs/command-line.md's developer keys.
+		// docs/retail/command-line.md's developer keys.
 		if (views.Watched is MechObject subject) {
 			if (altOnly && upKey) {
 				subject.Displace(0, _moveStep);

@@ -446,7 +446,7 @@ public sealed class ComponentDamage {
 	/// <see cref="DefaultDebrisGroup"/> when it names none.</para>
 	///
 	/// <para>The blank cell is stepped to in <see cref="CellFrames"/>, which the renderer reads to
-	/// pick which cell of each sequence is on screen. See docs/formats/mech-shape-drawing.md.</para>
+	/// pick which cell of each sequence is on screen. See docs/retail/formats/mech-shape-drawing.md.</para>
 	/// </summary>
 	private void DestroyAndCascade(int index, SimWorld? world, SimObject? owner,
 			DebrisDatabase? debris) {
@@ -548,7 +548,7 @@ public sealed class ComponentDamage {
 	/// And the record's <c>+0x03</c> byte — which <c>TSCellAnimPart</c> sequence of the machine's
 	/// shape this component drives, <c>-1</c> for a component with no geometry of its own. It is the
 	/// gate on the fire as well as the map to the blank cell; see
-	/// docs/formats/mech-shape-drawing.md.
+	/// docs/retail/formats/mech-shape-drawing.md.
 	/// </summary>
 	public static short SubShapeSequenceOf(short debrisFlags) => (sbyte)((debrisFlags >> 8) & 0xff);
 
@@ -689,7 +689,7 @@ public sealed class ComponentDamage {
 	/// <c>Mech_ApplySquadCondition</c> (<c>00415068</c>) — writes a squad machine's carried-over
 	/// condition straight into the main and dependent arrays, each entry becoming
 	/// <c>(100 - condition) * maximum / 100</c>. Which entry comes from which span, and what is
-	/// zeroed, is docs/simulation/component-damage.md#a-squad-machines-condition--mech_applysquadcondition-00415068.
+	/// zeroed, is docs/retail/simulation/component-damage.md#a-squad-machines-condition--mech_applysquadcondition-00415068.
 	///
 	/// <para>Like <see cref="SetDependentDamage"/> it states the condition rather than damaging the
 	/// machine into it: no cascade, no death gate, no announcement, and the active flags are left

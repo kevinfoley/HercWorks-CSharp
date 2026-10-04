@@ -59,7 +59,7 @@ namespace Herculan.Engine.World;
 /// they arrive somewhere else entirely.</para>
 ///
 /// <para><b>Arrival</b> is <c>Group_DeploymentCheck</c> (<c>004236c4</c>), whose per-verb rules —
-/// drop pod, on foot, or in place — are in docs/simulation/mission-deployment.md and implemented in
+/// drop pod, on foot, or in place — are in docs/retail/simulation/mission-deployment.md and implemented in
 /// <see cref="Sim.MissionGroup.DeploymentCheck"/>. What this loader owes it is <b>which</b> action a
 /// group waits on, not merely that it waits on one: the same record carries the verb the group
 /// arrives on.</para>
@@ -210,7 +210,7 @@ public static class MissionLoader {
 	/// The mission counters' starting values — <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) reads
 	/// 2,000 bytes of <c>data\mission.var</c> straight into <c>DAT_004a9ef4</c>, then zeroes slot 20,
 	/// slot 10 and slots 21 to 42, before it opens <c>player.mec</c>. See
-	/// docs/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
+	/// docs/retail/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
 	///
 	/// <para>Looked for beside the script, as <c>player.mec</c> is. A missing file loads as all zeros,
 	/// which is this engine's choice: the original asserts, so a mission launched without the shell
@@ -489,7 +489,7 @@ public static class MissionLoader {
 	/// The record's ten row-15 links resolved into order records, nulls kept in the slots it left
 	/// unset — <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) copies the array position for position
 	/// into <c>group+0x44</c>, and <c>Group_OrderTick</c> reads it by index. See
-	/// docs/simulation/ai-goals.md.
+	/// docs/retail/simulation/ai-goals.md.
 	/// </param>
 	private readonly record struct Group(int Index, MissionUnitKind Kind, Vec3i Position, int Heading,
 		int FormationId, int DeploymentAction, MissionSide Side, bool PaintsGround,
@@ -902,7 +902,7 @@ public static class MissionLoader {
 	/// <para><b>Slot 0's route, and only slot 0's.</b> <c>DBSim_BuildGroupRecord</c>
 	/// (<c>00423b34</c>) loads the group's route cursor from the first order and nothing re-points
 	/// it, so a group that advances to a later order keeps walking this one — see
-	/// docs/simulation/ai-goals.md.</para>
+	/// docs/retail/simulation/ai-goals.md.</para>
 	/// </summary>
 	private static IReadOnlyList<Vec3i> Route(MissionOrder?[] orders) =>
 		orders[0]?.Route ?? Array.Empty<Vec3i>();

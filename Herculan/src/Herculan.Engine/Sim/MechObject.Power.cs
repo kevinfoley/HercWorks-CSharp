@@ -36,7 +36,7 @@ public sealed partial class MechObject {
 	/// How badly the reactor itself is hurt. <c>Mech_ComponentDamageWrite</c> (<c>00417de4</c>) sets
 	/// one of two latching flags off the damage on sub-piece 5 of the 22-entry dependent array. The
 	/// pair cuts movement speed; the reactor rate reads it too, but only before either can be set —
-	/// see <see cref="ReactorOutputRate"/> and docs/simulation/reactor-energy-pool.md#reactor-damage-flags.
+	/// see <see cref="ReactorOutputRate"/> and docs/retail/simulation/reactor-energy-pool.md#reactor-damage-flags.
 	/// </summary>
 	public enum ReactorCondition {
 		/// <summary>Sub-piece 5 at 50% damage or less. No penalty.</summary>
@@ -78,7 +78,7 @@ public sealed partial class MechObject {
 	/// <see cref="PowerTick"/> releases it above <see cref="ShieldsDownAlertClearCharge"/>. Only the
 	/// player's own machine touches it, which is why a HERC on the MFD TARGET screen (F5) never reads
 	/// SHIELDS DN; a flyer or structure there can, through its damage band. The two thresholds and what the gap between them buys are in
-	/// docs/simulation/component-damage.md, "What the endpoint announces".
+	/// docs/retail/simulation/component-damage.md, "What the endpoint announces".
 	/// </summary>
 	public bool ShieldsDownAlert { get; internal set; }
 

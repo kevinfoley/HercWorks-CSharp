@@ -230,7 +230,7 @@ sealed class DebugPanel {
 		// The turret's own state. "Drawn" is where the animation actually put the eye, which is not
 		// the same as the angle the sim holds — the twist sequence's keyframes are not evenly spaced,
 		// so the two drift apart by up to about 7% across the travel. See
-		// docs/simulation/mech-locomotion.md.
+		// docs/retail/simulation/mech-locomotion.md.
 		ImGui.Separator();
 		var turret = pilotMech.EyeTransform.ToEuler();
 		ImGui.Text($"Turret twist: {Degrees(pilotMech.TorsoTwistAngle):F1} deg"

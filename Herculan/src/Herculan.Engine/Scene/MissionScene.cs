@@ -39,7 +39,7 @@ public sealed record SceneObject(SimObject Object, SceneModel? Model, MissionPla
 /// <summary>
 /// Assembles a playable scene from a real mission: the zone and theater the mission names, its
 /// terrain, and one simulation object per unit the mission places — see
-/// docs/engine/planning.md, "Milestone 4".
+/// docs/herculan/planning.md, "Milestone 4".
 ///
 /// <para>Nothing here is configured by hand. The zone, the theater and its variant come out of
 /// <c>script.dat</c>'s header; the units, their types, positions and headings come out of its
@@ -709,7 +709,7 @@ public sealed class MissionScene {
 	///
 	/// <para><b>No bounding-box lift</b>, deliberately: a shape's origin is already its ground contact
 	/// point, so raising an object by its mesh's lowest point sinks the one shape authored off the
-	/// ground. See docs/formats/dgs-hd0-notes.md, "Shape origin".</para>
+	/// ground. See docs/retail/formats/dgs-hd0-notes.md, "Shape origin".</para>
 	/// </summary>
 	/// <summary>
 	/// A group's order slots, or ten empty ones for a block-11 record the mission carries no orders

@@ -140,7 +140,7 @@ public sealed class WeaponMounts {
 	/// <c>Mech_ConvergeGunsOnRange</c>'s loop — every mount toed in on the range the turret is aiming
 	/// at. A walker runs it from <see cref="MechObject.TorsoPitchTick"/>, so it happens for the player
 	/// and the AI alike; a RAZOR, which has no turret tick, runs it from its movement tick. See
-	/// docs/simulation/weapon-firing.md ("Gun convergence").
+	/// docs/retail/simulation/weapon-firing.md ("Gun convergence").
 	/// </summary>
 	internal void ConvergeOnRange(MechObject owner, int range) {
 		foreach (var mount in Mounts) {
@@ -362,7 +362,7 @@ public sealed class WeaponMounts {
 	/// <c>DAT_004d25ac</c> — the armed mount launched an electro-optical round and the selection has
 	/// not moved since. Set by <see cref="FireTick"/> beside <see cref="SimWorld.MissileFlown"/> and
 	/// cleared by any change of selection; while it is set and no round is being flown,
-	/// <see cref="PerFrameUpdate"/> steps the selection on. See docs/simulation/weapon-firing.md.
+	/// <see cref="PerFrameUpdate"/> steps the selection on. See docs/retail/simulation/weapon-firing.md.
 	/// </summary>
 	public bool ElectroOpticalFired { get; private set; }
 
@@ -554,7 +554,7 @@ public sealed class WeaponMounts {
 	/// <para>The lock gate wants the mount's <see cref="WeaponMount.AmmoType"/> to hold
 	/// <see cref="MissileLock"/>, except for <see cref="WeaponMount.NotAMissile"/> and
 	/// <see cref="Rocket.PlayerFlownSubtype"/>, which never latches a flag. See
-	/// docs/simulation/weapon-mounts.md#readiness--weaponmounts_mountisready-00410970.</para>
+	/// docs/retail/simulation/weapon-mounts.md#readiness--weaponmounts_mountisready-00410970.</para>
 	/// </summary>
 	/// <param name="followLink">
 	/// The original's fourth argument. Clear on the outer call and set on the recursion into the link

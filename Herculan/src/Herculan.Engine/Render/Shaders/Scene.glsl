@@ -66,7 +66,7 @@ uniform vec3 uLightDirection;
 
 // The impact effects' dynamic lights, as they apply to the object being drawn — FUN_00407098 picks
 // them per render entry and the renderer uploads its answer here. See EffectLightSelection, and
-// docs/formats/effect-lights.md for the two shade terms below.
+// docs/retail/formats/effect-lights.md for the two shade terms below.
 //
 // Nine of them, because the original registers these into the same ten-slot active list the mission
 // sun already occupies and drops the surplus. uEffectLights[i].xyz is the direction the light

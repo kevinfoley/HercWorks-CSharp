@@ -213,7 +213,7 @@ public readonly struct WaypointIndicator {
 
 	/// <summary>
 	/// <c>STRINGS0.STR</c> group 37 — the two-entry group whose second string is <c>"WAYPOINT "</c>,
-	/// trailing space included. Its first is the <c>ATT</c> legend's; see docs/formats/str-strings.md.
+	/// trailing space included. Its first is the <c>ATT</c> legend's; see docs/retail/formats/str-strings.md.
 	/// </summary>
 	public const int CaptionGroup = 37;
 

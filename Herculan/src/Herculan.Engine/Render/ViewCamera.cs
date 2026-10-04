@@ -25,7 +25,7 @@ public enum ViewCameraMode : short {
 /// DBSIM's view camera, class <c>CAM</c> (<c>0x4e</c> bytes, vtable <c>0049f900</c>, a
 /// <c>TSCamera</c>): the object <c>ViewObjectPtr</c> points at, placed once a frame by
 /// <c>Cam_Update</c> (<c>004011a0</c>) in whichever of four <see cref="ViewCameraMode"/>s it is in. Field names
-/// follow their offsets in the original; the rules are docs/simulation/external-views.md's
+/// follow their offsets in the original; the rules are docs/retail/simulation/external-views.md's
 /// "The camera object".
 ///
 /// <para>Every angle and rate is a 16-bit binary angle and wraps as one, and nothing here is scaled

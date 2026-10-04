@@ -5,7 +5,7 @@ namespace Herculan.Engine.Sim;
 /// <summary>
 /// A structure's turret — the same mechanism a HERC's torso uses, and not a rotation: each axis'
 /// angle is a <i>position</i> within a one-sweep animation sequence, seeked rather than played (see
-/// <see cref="MechObject.TorsoTwistTick"/> and docs/simulation/torso-aim.md). The two sequences are
+/// <see cref="MechObject.TorsoTwistTick"/> and docs/retail/simulation/torso-aim.md). The two sequences are
 /// the two <c>BaseType.AnimThreadCount</c> asks for, and the two threads the constructor builds for
 /// them are what the seek drives.
 /// </summary>

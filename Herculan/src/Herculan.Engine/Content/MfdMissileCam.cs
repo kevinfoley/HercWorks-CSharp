@@ -48,7 +48,7 @@ public readonly record struct MfdMissileCamState(MfdMissileCamPicture Picture, i
 /// <summary>
 /// The MFD's MISSILE CAM screen, mode 5 — <c>MfdMissileViewScreen_Ctor</c> (<c>0043facc</c>), its
 /// update slot <c>MfdMissileViewScreen_Update</c> (<c>004402ec</c>) and its paint
-/// <c>MfdMissileViewScreen_Paint</c> (<c>0043fe1c</c>). See docs/formats/mfd.md,
+/// <c>MfdMissileViewScreen_Paint</c> (<c>0043fe1c</c>). See docs/retail/formats/mfd.md,
 /// "<c>MFDMissileView</c> — mode 5".
 /// </summary>
 public static class MfdMissileCam {
@@ -191,7 +191,7 @@ public static class MfdMissileCam {
 /// <summary>
 /// <c>MfdDisplay_SyncMissileCamMode</c> (<c>00447164</c>) and the half of <c>MfdDisplay_SetMode</c>
 /// (<c>00446e38</c>) that answers it: the display switching itself to the missile camera while an
-/// electro-optical launcher is armed, and back afterwards. See docs/formats/mfd.md, "Modes".
+/// electro-optical launcher is armed, and back afterwards. See docs/retail/formats/mfd.md, "Modes".
 ///
 /// <para>Every mode change has to come through <see cref="SetMode"/>, which is what lets a screen
 /// chosen by hand during the switch stand until the switch ends.</para>

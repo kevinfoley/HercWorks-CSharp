@@ -312,7 +312,7 @@ public sealed class WeaponMount {
 	/// the first match, which for <c>ATC75</c>, <c>ATC100</c>, <c>LAS400</c> and <c>LAS500</c> is an
 	/// earlier weapon's record. With <see cref="TweakSettingDefinitions.FixWeaponDamageRecords"/> on,
 	/// the shot is <see cref="Projectile"/> under its corrected subtype id
-	/// (<see cref="WeaponCatalog.CorrectedProjectile"/>). See docs/formats/proj-dat.md#lookup.
+	/// (<see cref="WeaponCatalog.CorrectedProjectile"/>). See docs/retail/formats/proj-dat.md#lookup.
 	/// </summary>
 	public ProjectileData.Projectile? ShotProjectile =>
 		TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.FixWeaponDamageRecords)
@@ -407,7 +407,7 @@ public sealed class WeaponMount {
 	/// Whether this row's press has anything to toggle: <c>CockpitView_CreatePodGauge</c>
 	/// (<c>004321d4</c>) builds a <c>TogglePodGauge</c> for the ECM pod and a <c>TurboPodGauge</c>
 	/// derived from it for the Turbo pod, and the plain <c>PodGauge</c> — whose click sets the repaint
-	/// byte and returns — for the other three. See docs/simulation/equipment-pods.md.
+	/// byte and returns — for the other three. See docs/retail/simulation/equipment-pods.md.
 	/// </summary>
 	public bool HasPodButton => Kind == WeaponMountKind.Pod
 		&& WeaponId is MechPods.EcmWeaponId or MechPods.TurboPodWeaponId;
@@ -816,7 +816,7 @@ public sealed class WeaponMount {
 	/// the energy classes (<c>WeaponMount_EnergyIsSpent</c>, <c>0040ed34</c>), destroyed or out of
 	/// rounds for an ammunition mount (<c>WeaponMount_AmmoIsSpent</c>, <c>0040ed48</c>), and always
 	/// for a pod (<c>WeaponMount_IsSpent_Always</c>, <c>0040f8a4</c>). So a machine left with only
-	/// pods and empty magazines has run dry. See docs/simulation/weapon-mounts.md.
+	/// pods and empty magazines has run dry. See docs/retail/simulation/weapon-mounts.md.
 	/// </summary>
 	public bool IsSpent => Kind switch {
 		WeaponMountKind.Energy or WeaponMountKind.Elf => Disabled,
@@ -1227,7 +1227,7 @@ public sealed class WeaponMount {
 	/// as <c>(target &lt;&lt; 10) / 1200</c>; otherwise the slider comes back as the charge target,
 	/// <see cref="ChargeTargetForBarPosition"/>. The round trip loses up to two units, so a power level
 	/// settles just under what set it: 960 goes out as 819 and comes back as 959. See
-	/// docs/simulation/weapon-firing.md#the-charge-bar.
+	/// docs/retail/simulation/weapon-firing.md#the-charge-bar.
 	///
 	/// <para>The rest of the push — the bar's fill and the row's flags — is display state the cockpit
 	/// rows read straight off the mount (<see cref="ChargeMeterValue"/>).</para>
@@ -1253,7 +1253,7 @@ public sealed class WeaponMount {
 	/// reaches there: <c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>) clamps the position to
 	/// 0..<see cref="Content.ChargeBarSlider.Range"/> into the gauge's state block, and the next
 	/// <see cref="PushGaugeState"/> with the hand-off clear reads it back as the charge target. A key
-	/// press whose hand-off is still pending wins over it; docs/simulation/weapon-firing.md#the-charge-bar.
+	/// press whose hand-off is still pending wins over it; docs/retail/simulation/weapon-firing.md#the-charge-bar.
 	/// </summary>
 	/// <returns>Whether this mount has a charge bar to take it — an energy or ELF mount still working.</returns>
 	internal bool SetPowerFromChargeBar(int position) {
@@ -1285,7 +1285,7 @@ public sealed class WeaponMount {
 	/// record becomes a <see cref="Rocket"/>. <see cref="ProjectileType.Grenade"/> is the fourth value
 	/// and no dispatch tests for it — no weapon template names those records, and their class is
 	/// built by <c>Grenade_Construct</c> (<c>0040ac3c</c>), to which no reference is found
-	/// (docs/formats/proj-dat.md#open).</para>
+	/// (docs/retail/formats/proj-dat.md#open).</para>
 	///
 	/// <para>Both dispatches also set a flag at <c>mount+0x44</c> whenever the hardpoint's mounting
 	/// code says it is visible (<c>.GL +6 &lt; 4</c>). It is the muzzle flash, and nothing here draws
@@ -1493,7 +1493,7 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// The template's <c>+0x2c</c> — the minimum range this weapon will engage at, the lower half of
 	/// <see cref="RangeAllows"/>'s window. <b>Zero in all 33 retail templates</b>, so it exists in the
-	/// format and never bites; see docs/formats/weapons-dat-sim.md.
+	/// format and never bites; see docs/retail/formats/weapons-dat-sim.md.
 	/// </summary>
 	public int MinimumRange =>
 		_template?.Tail is { Length: >= 0x0e } tail ? BitConverter.ToInt32(tail, 0x0a) : 0;
@@ -1501,7 +1501,7 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// The template's <c>+0x34</c> — what firing this weapon costs the AI in
 	/// <see cref="MechObject.ChooseWeapon"/>'s score, weighed at ten times the damage credit's gain.
-	/// The retail values and what they do to the choice are in docs/simulation/ai-weapons.md
+	/// The retail values and what they do to the choice are in docs/retail/simulation/ai-weapons.md
 	/// ("Choosing a weapon").
 	/// </summary>
 	public short AiShotCost =>
@@ -1511,7 +1511,7 @@ public sealed class WeaponMount {
 	/// <c>WeaponMount_RangeAllows</c> (<c>0040e5f8</c>) — whether a target at <paramref name="range"/> is inside this weapon's
 	/// engagement window, <see cref="MinimumRange"/> exclusive to <see cref="Range"/> exclusive. Both
 	/// the AI's weapon choice and its ELF latch ask it, as does the cockpit's readiness predicate;
-	/// see docs/simulation/weapon-mounts.md ("Readiness").
+	/// see docs/retail/simulation/weapon-mounts.md ("Readiness").
 	/// </summary>
 	public bool RangeAllows(int range) => MinimumRange < range && range < Range;
 
@@ -1561,7 +1561,7 @@ public sealed class WeaponMount {
 	/// The template's <c>+0x4e</c> — what this weapon is worth to the AI's combat rating, scaled by
 	/// the mount's condition. Read by <c>Mech_ComputeCombatRating</c> (<c>0041edd8</c>) through the
 	/// mount's own <c>+0x1c</c>, which is this template; see
-	/// <see cref="MechObject.CombatRating"/> and docs/simulation/ai-targeting.md.
+	/// <see cref="MechObject.CombatRating"/> and docs/retail/simulation/ai-targeting.md.
 	/// </summary>
 	public short AiRatingValue =>
 		_template?.Tail is { Length: >= 0x2e } tail ? BitConverter.ToInt16(tail, 0x2c) : (short)0;

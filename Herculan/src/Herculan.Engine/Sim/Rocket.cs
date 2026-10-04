@@ -40,10 +40,10 @@ namespace Herculan.Engine.Sim;
 /// <para>Only <c>PROJ.DAT</c> <see cref="ProjectileType.Rocket"/> records reach here.
 /// <see cref="ProjectileType.Grenade"/> (type 3) records exist in retail data and no weapon template
 /// names them: <c>Grenade_Construct</c> (<c>0040ac3c</c>) builds their class and no reference to it is
-/// found (docs/formats/proj-dat.md#open), and its
+/// found (docs/retail/formats/proj-dat.md#open), and its
 /// vtable's per-tick slot is <c>Grenade_TickNoOp</c> (<c>0040acb4</c>), a bare <c>return 0</c>, so an instance would never
 /// move and never die. The ammunition dispatch tests for type 0 and nothing else. What settles the
-/// class name and the unreachability is in docs/simulation/weapon-damage-types.md, "Type — a
+/// class name and the unreachability is in docs/retail/simulation/weapon-damage-types.md, "Type — a
 /// firing-mechanism selector".</para>
 /// </summary>
 public sealed class Rocket {
@@ -294,7 +294,7 @@ public sealed class Rocket {
 	/// of the camera with the latch clear, and sets the latch; outside that range the latch clears, so
 	/// a round that leaves and comes back warns again. The player's own rounds never warn. The
 	/// warning is a cockpit tone, played through <c>Sound_Play</c>, not a positional sound. See
-	/// docs/simulation/rockets.md ("Flight").
+	/// docs/retail/simulation/rockets.md ("Flight").
 	/// </summary>
 	private void InboundWarningTick(SimWorld world) {
 		if (Owner is { LocallyPiloted: true }) {
@@ -344,7 +344,7 @@ public sealed class Rocket {
 	/// falling heading) and the throttle axis the pitch. Once the trigger is released the round drops
 	/// its target and becomes <see cref="ReleasedSubtype"/>, reading that subtype's
 	/// <c>ROCKETS.DAT</c> record from then on and seeking with nothing to seek, so it flies straight
-	/// on. Either way it raises <see cref="SimWorld.MissileFlown"/>. See docs/simulation/rockets.md
+	/// on. Either way it raises <see cref="SimWorld.MissileFlown"/>. See docs/retail/simulation/rockets.md
 	/// ("<c>Rocket_PlayerSteer</c>").</para>
 	/// </summary>
 	private void GuidanceTick(SimWorld world) {
@@ -395,7 +395,7 @@ public sealed class Rocket {
 	/// <summary>
 	/// <c>Rocket_HomingSteer</c> (<c>0040a254</c>) — the seeker, which is a steer of the round's euler
 	/// angles rather than of a velocity, exactly as the plasma round's is, but at a component of the
-	/// target and behind gates the plasma round has none of. See docs/simulation/rockets.md,
+	/// target and behind gates the plasma round has none of. See docs/retail/simulation/rockets.md,
 	/// "Guidance".
 	///
 	/// <para>A round steers only when <c>Rocket_Fire</c> attached a target, which it does when this
@@ -428,7 +428,7 @@ public sealed class Rocket {
 		if (SubtypeId == PlayerFlownSubtype) {
 			// An electro-optical round in flight suppresses its launcher's next AI weapon selection,
 			// once per tick it steers — the machine's equivalent of a pilot flying it, and the only
-			// writer of mech+0xb5. See docs/simulation/ai-weapons.md.
+			// writer of mech+0xb5. See docs/retail/simulation/ai-weapons.md.
 			if (Owner is MechObject launcher) {
 				launcher.WeaponSelectionSuppressed = true;
 			}
@@ -552,7 +552,7 @@ public sealed class Rocket {
 /// What <c>Rocket_PlayerSteer</c> reads out of the player input block (<c>0x4d234a</c>): the two values
 /// its camera-axis pointers at <c>+0x22</c> and <c>+0x26</c> address, and the trigger byte at
 /// <c>+0x0d</c>. While the round has the controls the pointers address the steering and throttle
-/// axes; otherwise they follow the JOYSTICK row — see docs/formats/joystick-input.md.
+/// axes; otherwise they follow the JOYSTICK row — see docs/retail/formats/joystick-input.md.
 /// </summary>
 /// <param name="Steer">The <c>+0x22</c> axis, which turns the heading.</param>
 /// <param name="Pitch">The <c>+0x26</c> axis, which pitches the nose.</param>

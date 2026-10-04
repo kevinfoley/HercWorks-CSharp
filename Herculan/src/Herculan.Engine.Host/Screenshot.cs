@@ -6,7 +6,7 @@ namespace Herculan.Engine.Host;
 /// Writes the framebuffer to a file, so a run can be checked without somebody watching it.
 ///
 /// <para>Dependency-free 24bpp BMP — no System.Drawing, no ImageSharp, per Herculan.Engine's
-/// no-imaging-dependency precedent (docs/engine/planning.md). It reads straight out of the
+/// no-imaging-dependency precedent (docs/herculan/planning.md). It reads straight out of the
 /// framebuffer with <c>glReadPixels</c>, and BMP's bottom-up row order happens to match GL's
 /// bottom-left origin, so no row flip is needed.</para>
 ///

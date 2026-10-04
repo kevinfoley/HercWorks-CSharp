@@ -9,7 +9,7 @@ namespace Herculan.Engine;
 /// <summary>
 /// A Silk.NET window with an OpenGL context and an input context — the engine's platform surface,
 /// meant to be driven by a thin front-end host rather than assuming it is the only thing running a
-/// loop (see docs/engine/planning.md, "Engine internal architecture").
+/// loop (see docs/herculan/planning.md, "Engine internal architecture").
 ///
 /// <para>It owns no scene state and does no drawing of its own: it raises <see cref="Load"/> once
 /// the GL and input contexts exist, <see cref="Update"/> for simulation, and <see cref="Render"/>
@@ -129,8 +129,8 @@ public sealed class EngineWindow : IDisposable {
 	/// into full screen, as both retail toggles do it, and released on the way out. VSHELL's
 	/// <c>Display_ToggleFullScreen</c> (<c>00407085</c>) and DBSIM's <c>Video_ToggleFullscreen</c>
 	/// (<c>004666c4</c>) each <c>ClipCursor</c> the pointer to the new display mode's screen and
-	/// <c>SetCursorPos</c> it to the middle (docs/shell/screen-layout.md, "Full screen asks first";
-	/// docs/formats/cockpit-input.md, "The two system buttons").
+	/// <c>SetCursorPos</c> it to the middle (docs/retail/shell/screen-layout.md, "Full screen asks first";
+	/// docs/retail/formats/cockpit-input.md, "The two system buttons").
 	/// </summary>
 	/// <param name="pointer">The window's mouse, or null when it has none.</param>
 	public void ToggleFullScreen(IMouse? pointer) {

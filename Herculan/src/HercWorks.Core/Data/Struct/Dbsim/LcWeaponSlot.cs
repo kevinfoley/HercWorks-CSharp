@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.Struct.Dbsim;
 /// <summary>
 /// One 22-byte record of LC_WPNS.DAT — one weapon slot of the <c>LC_BASE</c> structure class, the
 /// transport (<c>BASES.DAT</c> type <c>0x22</c>). The record is shared by its three weapon stations,
-/// each of which reads it in its own frame. See docs/formats/lc-wpns-dat.md.
+/// each of which reads it in its own frame. See docs/retail/formats/lc-wpns-dat.md.
 /// </summary>
 public class LcWeaponSlot {
 	/// <summary><c>+0x00</c> — half-width of the pitch window the aim error must be inside to fire, binary angle.</summary>

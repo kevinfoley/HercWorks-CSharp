@@ -12,7 +12,7 @@ namespace Herculan.Engine.Tests;
 /// The disc image support against the retail data beside the repo, each test returning at once when its files are
 /// absent: <see cref="RetailInstaller"/> against the v1.10 installs <c>tools/scripts/es2_build_v110_installs.py</c>
 /// builds, archives mounted from the v1.10 image against the same disc's files, and
-/// <see cref="ImageMusicSource"/>'s silence split against the lengths docs/retail-builds.md measured.
+/// <see cref="ImageMusicSource"/>'s silence split against the lengths docs/retail/retail-builds.md measured.
 /// </summary>
 public class DiscImageInstallTests : IDisposable {
 	private const string V110Image = "EarthSiege2_Freeware_GoldGames_1r11_withAudio.iso";
@@ -101,7 +101,7 @@ public class DiscImageInstallTests : IDisposable {
 	}
 
 	/// <summary>
-	/// The v1.10 image's audio, which keeps no track boundaries, splits into the six pieces docs/retail-builds.md
+	/// The v1.10 image's audio, which keeps no track boundaries, splits into the six pieces docs/retail/retail-builds.md
 	/// ("The v1.10 disc image") measures, each from the start of its music to the next's.
 	/// </summary>
 	[Fact]

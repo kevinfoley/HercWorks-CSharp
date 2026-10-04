@@ -31,7 +31,7 @@ public struct CameraInput {
 /// <summary>
 /// A free-flying observer camera, implemented as a <see cref="SimObject"/> so it moves through the
 /// ported fixed-point math rather than around it — the explicit goal of the first milestone (see
-/// docs/engine/planning.md, "First milestone": <i>get a camera moving through it using the actual
+/// docs/herculan/planning.md, "First milestone": <i>get a camera moving through it using the actual
 /// ported physics/math</i>).
 ///
 /// <para>Concretely, every part of its motion goes through the toolkit: speeds ramp toward their

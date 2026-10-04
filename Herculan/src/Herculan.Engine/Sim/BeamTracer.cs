@@ -48,13 +48,13 @@ public sealed class BeamTracer {
 	/// <summary>
 	/// <c>Math_RandomNext() &amp; 0x7f</c>, added to every axis of every node but the first — 0 to
 	/// 127, never negative. What that one-sidedness does to the chain's shape is in
-	/// docs/simulation/beam-visuals.md, "ELF and ELF2".
+	/// docs/retail/simulation/beam-visuals.md, "ELF and ELF2".
 	/// </summary>
 	public const int JitterMask = 0x7f;
 
 	/// <summary>
 	/// How many quads the original's vertex-index list can address; a longer chain would read past
-	/// it. No retail weapon reaches it — see docs/simulation/beam-visuals.md, "The paint uses the
+	/// it. No retail weapon reaches it — see docs/retail/simulation/beam-visuals.md, "The paint uses the
 	/// polygon renderers' project, clip and fill chain", for the table this comes from.
 	/// </summary>
 	public const int MaxQuads = 30;
@@ -157,7 +157,7 @@ public sealed class BeamTracer {
 	/// <summary>
 	/// The four points of quad <paramref name="index"/>, in the order the original's vertex-index
 	/// table puts them — low, high, high, low, so the quad is wound as a ribbon rather than crossed.
-	/// The table and how it is built are in docs/simulation/beam-visuals.md, "The paint uses the
+	/// The table and how it is built are in docs/retail/simulation/beam-visuals.md, "The paint uses the
 	/// polygon renderers' project, clip and fill chain".
 	/// </summary>
 	public (Vec3i A, Vec3i B, Vec3i C, Vec3i D) Quad(int index) {

@@ -64,7 +64,7 @@ sealed class SimulatorInput {
 		// Mouse events are queued here and nowhere else: everything that decides what a click means runs
 		// once per frame in Update, out of CockpitInput.Drain. That is the original's own split — its
 		// listener callback pushes a record and returns, and CockpitMouse_ProcessQueue does the work a
-		// frame later (docs/formats/cockpit-input.md §3-4).
+		// frame later (docs/retail/formats/cockpit-input.md §3-4).
 		if (input.Mice.Count > 0) {
 			Mouse = input.Mice[0];
 

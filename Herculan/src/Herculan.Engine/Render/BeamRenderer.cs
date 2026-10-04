@@ -39,7 +39,7 @@ namespace Herculan.Engine.Render;
 /// painted one quad at a time through the shape renderer's point-list path instead, and that fill is
 /// <b>flat-coloured with no texture</b>: the record's colour index is the rasterizer's fill brush.
 /// The quads are not turned to face the viewer either — the width is a z offset baked into the
-/// geometry, so an ELF seen from directly above is edge-on. See docs/simulation/beam-visuals.md,
+/// geometry, so an ELF seen from directly above is edge-on. See docs/retail/simulation/beam-visuals.md,
 /// "ELF and ELF2 — the jagged branch".</para>
 ///
 /// <para><b>The muzzle stub is retail's, not a bug here.</b> The jagged branch falls through into the

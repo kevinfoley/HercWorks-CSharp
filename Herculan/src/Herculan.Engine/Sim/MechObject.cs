@@ -18,7 +18,7 @@ namespace Herculan.Engine.Sim;
 /// control law only picks a speed scalar, a turn rate and an animation playback rate, and the
 /// animation does the moving (<see cref="AnimationThread"/>). That is why <see cref="Speed"/> below
 /// is a scalar with no direction attached, and why a HERC with no <see cref="ShapeAnimation"/>
-/// simply stands still. See docs/simulation/mech-locomotion.md.</para>
+/// simply stands still. See docs/retail/simulation/mech-locomotion.md.</para>
 ///
 /// <para>The per-type data is real: <see cref="HercSimDat"/> comes from the game's own
 /// <c>dat\&lt;name&gt;.dat</c> and <see cref="Type"/> applies the load-time rescale on top, so the
@@ -225,7 +225,7 @@ public sealed partial class MechObject : SimObject {
 	/// <summary>
 	/// <c>Mech_ToggleRadarMode</c> (<c>0041b468</c>) — the manual's [R]. The F4 scanner screen's
 	/// PASS/ACTIVE button pair is a different path, <see cref="SetScanner"/>; see
-	/// docs/simulation/target-selection.md, "Radar mode". <b>Only the machine the player is flying toggles</b>: the
+	/// docs/retail/simulation/target-selection.md, "Radar mode". <b>Only the machine the player is flying toggles</b>: the
 	/// original gates the flip on <c>mech+0xa3</c> and then repaints the console lights for whatever
 	/// the mode now is, so calling it on an AI machine only refreshes the display.
 	///
@@ -422,7 +422,7 @@ public sealed partial class MechObject : SimObject {
 	/// draw it, and the view takes its whole euler triple — roll included — from it. It is also why
 	/// torso twist and pitch turn the view without anything having to add them to it: the camera node
 	/// hangs off the two nodes those sequences drive (see
-	/// docs/simulation/mech-locomotion.md's chain table).</para>
+	/// docs/retail/simulation/mech-locomotion.md's chain table).</para>
 	/// </summary>
 	public Transform3 EyeTransform {
 		get {
@@ -567,7 +567,7 @@ public sealed partial class MechObject : SimObject {
 	/// <c>Sim_MainTick</c> (<c>0045f464</c>) still runs <c>Sim_PollPlayerInput</c> under the freeze, so
 	/// the trigger, the throttle law and the turret go on, while the move, the power tick and a flyer's
 	/// flight input sit behind it. So a frozen machine turns if it has speed, slews its turret and fires,
-	/// and walks nowhere. See docs/command-line.md's developer keys.
+	/// and walks nowhere. See docs/retail/command-line.md's developer keys.
 	/// </summary>
 	internal void FrozenTick(SimWorld world) {
 		FireTick(world);
@@ -686,7 +686,7 @@ public sealed partial class MechObject : SimObject {
 	/// <c>Mech_GetShieldByHeading</c> (<c>004154d0</c>), the mech vtable's <c>+0x34</c>: the facing
 	/// within ±90° of <paramref name="heading"/>. The damage path asks it with a real bearing; the
 	/// AI's weapon choice asks it with a boolean, which is a bug in the original — see
-	/// docs/simulation/ai-weapons.md.
+	/// docs/retail/simulation/ai-weapons.md.
 	/// </summary>
 	public override short ShieldByHeading(short heading) =>
 		(ushort)(heading + BinaryAngle.QuarterTurn) < BinaryAngle.HalfTurn
@@ -932,7 +932,7 @@ public sealed partial class MechObject : SimObject {
 	/// <para>This seeds and reads the locomotion thread throughout. The original seeds the shape's
 	/// first thread (<c>ShapeInst_SeedRootTransform</c>, <c>00478a70</c>) and reads the first one
 	/// after <c>AnimThread_StepAll</c>'s priority re-sort, which is the twist thread while
-	/// locomotion plays a stop/step-off sequence — see docs/formats/dts-node-posing.md, "Several
+	/// locomotion plays a stop/step-off sequence — see docs/retail/formats/dts-node-posing.md, "Several
 	/// threads on one shape".</para>
 	/// </summary>
 	private void IntegrateMotion() {
@@ -965,7 +965,7 @@ public sealed partial class MechObject : SimObject {
 	/// The developer keys' move — <c>Mech_HandleCommand</c> (<c>004157c8</c>), codes <c>0x248</c>,
 	/// <c>0x250</c>, <c>0x24b</c> and <c>0x24d</c>: the machine's own frame applied to the offset, and
 	/// the result written straight over its position. Nothing is tested on the way, so it goes through
-	/// terrain, structures and other machines alike. See docs/key-bindings.md.
+	/// terrain, structures and other machines alike. See docs/retail/key-bindings.md.
 	/// </summary>
 	/// <param name="across">Along the machine's own X axis, to its right.</param>
 	/// <param name="along">Along its own Y axis, forward.</param>
@@ -986,7 +986,7 @@ public sealed partial class MechObject : SimObject {
 	/// <c>mech+0x2b0</c> — the structure whose body radius this machine's position was inside at its
 	/// last collision test, the last such of the sweep, or null. Its one reader is the frame's object
 	/// filing, which files the machine under that structure's terrain cell for drawing. See
-	/// docs/simulation/mech-locomotion.md, "The structure a machine stands in".
+	/// docs/retail/simulation/mech-locomotion.md, "The structure a machine stands in".
 	/// </summary>
 	public SimObject? StandingIn { get; private set; }
 
@@ -1155,7 +1155,7 @@ public sealed partial class MechObject : SimObject {
 	/// <para>The landing also jolts the cockpit, through <see cref="CockpitHits"/> — the second of
 	/// the shake's two triggers, and the ungated one: the direct-fire site tests who is flying and
 	/// how far gone the cockpit is, and this one calls it on any landing that got past the distance
-	/// threshold. See docs/formats/cockpit-canopy-palette.md, "The damage shake".</para>
+	/// threshold. See docs/retail/formats/cockpit-canopy-palette.md, "The damage shake".</para>
 	/// </summary>
 	private void SlideLandingDamage(SimWorld world, int slideDistance) {
 		if (slideDistance <= SlideDamageMinimumDistance) {

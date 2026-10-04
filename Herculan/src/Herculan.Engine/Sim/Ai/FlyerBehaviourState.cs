@@ -33,13 +33,13 @@ public enum FlyerThinkSlot {
 /// <c>+0x14</c>/<c>+0x18</c>/<c>+0x1c</c> (<c>Flyer_DispatchMove</c> (<c>004217fc</c>), <c>Flyer_DispatchThink</c> (<c>0042184c</c>),
 /// <c>Flyer_DispatchReassess</c> (<c>00421888</c>)) are the same three descriptor dispatchers a machine has, so
 /// <c>Mech_AiTick</c> (<c>00411cec</c>) drives an aircraft exactly as it drives a HERC. See
-/// docs/simulation/ai-dispatch.md for the model and docs/simulation/ai-flyers.md for this
+/// docs/retail/simulation/ai-dispatch.md for the model and docs/retail/simulation/ai-flyers.md for this
 /// table.</para>
 ///
 /// <para><b>Five of the seven reassess, all through one function</b> — <c>Flyer_AiSelectBehaviour</c>
 /// (<c>00422d00</c>), which maps the group's current order verb onto a state. <c>sleeping</c> and
 /// <c>dead</c> carry a null reassess triple. There is no combat reassess: an aircraft picks its
-/// target inside its think and leaves the state alone. See docs/simulation/ai-flyers.md, "The
+/// target inside its think and leaves the state alone. See docs/retail/simulation/ai-flyers.md, "The
 /// seven states".</para>
 /// </summary>
 public sealed class FlyerBehaviourState {

@@ -64,7 +64,7 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 		// The screen-edge strips are the exception, and for the same structural reason: that virtual
 		// lives in the PanelGadget mixin every gadget carries as a second base, and ScrollTrigger is one
 		// of the four classes that take no mixin at all. It is silent for want of the base, not for want
-		// of an action. See docs/formats/cockpit-input.md, "The second vtable".
+		// of an action. See docs/retail/formats/cockpit-input.md, "The second vtable".
 		//
 		// The system buttons are silent the other way round: SystemGadget carries the mixin, but its own
 		// OnClick (SystemGadget_OnClick, 00434910) goes straight to SystemButtons_OnChildClick and never

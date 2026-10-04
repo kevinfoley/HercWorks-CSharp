@@ -26,7 +26,7 @@ public enum ExternalViewMode : short {
 /// (<c>ViewChain_PendingView</c> (<c>004d259e</c>)), the cameras behind them (<c>ViewObjectPtr</c> and the per-squad cameras at
 /// <c>ViewChain_SquadCameras</c> (<c>004d270c</c>)), whether the controls drive the camera or the machine, and the cockpit view
 /// manager's step to and from its view 4. The rules, and what each command does from each view, are
-/// docs/simulation/external-views.md.
+/// docs/retail/simulation/external-views.md.
 ///
 /// <para>The host calls the command methods as the dispatcher's cases would run, and
 /// <see cref="Advance"/> once per simulation tick in the original's order: the camera's steer from
@@ -313,7 +313,7 @@ public sealed class ExternalViewChain {
 	/// <c>ViewChain_PlayerDeathCamera</c> (<c>0045f978</c>). The first call takes the view out to the
 	/// outside view on the player and poses the orbit; every call steers it with the chassis class's
 	/// constant controls inside an unlock and a lock, so nothing else — the player's own stick
-	/// included — can move it. See docs/simulation/external-views.md#the-player-death-camera.
+	/// included — can move it. See docs/retail/simulation/external-views.md#the-player-death-camera.
 	/// </summary>
 	/// <returns>Whether the countdown the first call armed has run out.</returns>
 	private bool DeathCameraTick() {

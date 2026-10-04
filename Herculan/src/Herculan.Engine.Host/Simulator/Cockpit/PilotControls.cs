@@ -41,7 +41,7 @@ sealed class PilotControls {
 	// also holds the axes still. Two things latch it: a flown round ending, and AlertPanel_Enter (00454630)
 	// opening any modal panel. The joystick's own latches are JoystickBindings'; this one also masks
 	// [Space], the row's key. DAT_0049ebe5 is the keyboard hold that goes with it — see
-	// docs/formats/joystick-input.md. Live input only: what a replay does with a latch is that doc's Open.
+	// docs/retail/formats/joystick-input.md. Live input only: what a replay does with a latch is that doc's Open.
 	private bool _fireRowLatched;
 	private int _missileKeyboardHold;
 
@@ -248,7 +248,7 @@ sealed class PilotControls {
 		// cases and still reach the machine. In the original, Sim_PollPlayerInput's camera branch tests
 		// InputDrivesCamera alone: under it the machine gets no steering, throttle or twist, skips
 		// Mech_PlayerFireTick and Mech_ApplyThrottleInput ignores a lever, but its pitch still reads a
-		// lever (docs/formats/joystick-input.md, "While the camera has the controls"), which this does
+		// lever (docs/retail/formats/joystick-input.md, "While the camera has the controls"), which this does
 		// not port. A round flown with InputDrivesCamera clear takes the original's ordinary branch, which
 		// this neutralises as well.
 		if (pilotInput && pilotMech != null && _view.ControlsOnCamera) {
@@ -448,7 +448,7 @@ sealed class PilotControls {
 	// the tick's slot.
 	//
 	// FIRE and OFF have no case, there or here; JoystickBindings keeps both out of Pressed while still
-	// letting them claim the slot (docs/formats/joystick-input.md#the-buttons).
+	// letting them claim the slot (docs/retail/formats/joystick-input.md#the-buttons).
 	//
 	// Every case reaches the same code a key or a click does, which is also true in the original — the
 	// switch is almost entirely made of calls into the widget tree and the mech's own command handler
@@ -473,7 +473,7 @@ sealed class PilotControls {
 
 			// The lever's sense, and only when there is a lever bound to the throttle, so on a stick without
 			// one this button does nothing at all. The original tests the capability block's +4 and the
-			// walker's THROTTLE row through a literal, even in a RAZOR (docs/formats/joystick-input.md,
+			// walker's THROTTLE row through a literal, even in a RAZOR (docs/retail/formats/joystick-input.md,
 			// "The buttons"); this tests the current machine's row, which differs from it in a RAZOR whose
 			// THROTTLE row is not the walker's.
 			case JoystickAction.ChangeDirection
@@ -507,7 +507,7 @@ sealed class PilotControls {
 			case JoystickAction.HddView when !_view.CockpitWidgetsOff:
 				// A toggle, which is what the action's two branches were plainly meant to be. The original
 				// tests the view manager's pointer rather than the view, so it can only ever leave the HDD
-				// (docs/formats/joystick-input.md, "HDD VIEW can only leave").
+				// (docs/retail/formats/joystick-input.md, "HDD VIEW can only leave").
 				_view.RequestHeadsDown(headsDown: !_view.Pan.HeadsDownRequested);
 				break;
 

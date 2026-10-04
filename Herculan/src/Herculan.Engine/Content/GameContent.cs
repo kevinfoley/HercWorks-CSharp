@@ -12,14 +12,14 @@ namespace Herculan.Engine.Content;
 /// <para><see cref="MountInstall"/> mounts what the program would: every <c>vol\*.vol</c> in the
 /// install and then in the <c>drive.cfg</c> directory whose program mask shares a bit with the
 /// program's, in descending order of search precedence (<see cref="Voln.VolOrderNum"/>), the first
-/// archive holding a <c>folder\name</c> answering for it (docs/formats/vol-archive.md, "Which
+/// archive holding a <c>folder\name</c> answering for it (docs/retail/formats/vol-archive.md, "Which
 /// archives are mounted").</para>
 ///
 /// <para>It also carries the program's <see cref="Language"/>, which the readers of translated resources take
 /// their folder or extension from.</para>
 ///
 /// Parsing is delegated wholesale to <see cref="VolFileReader"/> in HercWorks.Vol; this type adds
-/// only the index and the load-order rule. Per docs/engine/planning.md's repo-structure decision
+/// only the index and the load-order rule. Per docs/herculan/planning.md's repo-structure decision
 /// the engine talks to HercWorks.Core/HercWorks.Vol directly.
 /// </summary>
 public sealed class GameContent {

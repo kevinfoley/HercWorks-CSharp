@@ -14,7 +14,7 @@ using Silk.NET.OpenGL.Extensions.ImGui;
 // The mission editor: a second thin host next to Herculan.Engine.Host, sharing every loading and
 // rendering utility but running a different loop — no sim ticking, so placed objects stand still,
 // plus a free editor camera, click-to-select, and an ImGui Properties panel. This is the "possible
-// future mission editor" docs/engine/planning.md's host/library split was kept open for.
+// future mission editor" docs/herculan/planning.md's host/library split was kept open for.
 
 string? installRoot = GameInstall.Locate(args.Length > 0 ? args[0] : null);
 if (installRoot == null) {

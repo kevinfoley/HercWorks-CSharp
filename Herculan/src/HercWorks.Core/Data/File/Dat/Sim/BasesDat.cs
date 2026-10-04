@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// <summary>
 /// FILE - /SIMVOL0/DAT/BASES.DAT — the structure type table: an <c>int16</c> count, then one
 /// <see cref="BaseTypeRecord"/> per type with its components inline. A mission's row-14 type field
-/// indexes it. 65 types in retail. See docs/formats/bases-dat.md.
+/// indexes it. 65 types in retail. See docs/retail/formats/bases-dat.md.
 /// </summary>
 public class BasesDat {
 	public BaseTypeRecord[] Types { get; set; } = [];
@@ -12,7 +12,7 @@ public class BasesDat {
 /// <summary>
 /// One structure type. The offsets are the runtime record's, which <c>Base_LoadResources</c>
 /// (<c>00405fac</c>) fills in file order; on disk the component array sits inline where the runtime
-/// record holds a pointer at <c>+0x14</c> (docs/formats/bases-dat.md#the-type-record).
+/// record holds a pointer at <c>+0x14</c> (docs/retail/formats/bases-dat.md#the-type-record).
 /// </summary>
 public class BaseTypeRecord {
 	/// <summary>+0x00 — not read by anything traced.</summary>
@@ -57,7 +57,7 @@ public class BaseTypeRecord {
 	/// <summary>
 	/// +0x28 — the MFD silhouette frame and type-name index: <c>STRINGS0.STR</c> group 23 when
 	/// <see cref="TextureSelector"/> is 0, group 24 when it is not
-	/// (docs/formats/mfd.md#viewport-and-condition-per-class).
+	/// (docs/retail/formats/mfd.md#viewport-and-condition-per-class).
 	/// </summary>
 	public short SilhouetteIndex { get; set; }
 
@@ -77,7 +77,7 @@ public class BaseTypeRecord {
 	public short TextureSelector { get; set; }
 }
 
-/// <summary>One destructible part of a structure type, 30 bytes (docs/formats/bases-dat.md#the-component-record-30-bytes).</summary>
+/// <summary>One destructible part of a structure type, 30 bytes (docs/retail/formats/bases-dat.md#the-component-record-30-bytes).</summary>
 public class BaseComponentRecord {
 	/// <summary>+0 — the damage the part absorbs before it is destroyed.</summary>
 	public short MaxDamage { get; set; }

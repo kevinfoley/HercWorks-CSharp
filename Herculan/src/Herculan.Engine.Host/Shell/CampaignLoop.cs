@@ -9,7 +9,7 @@ using Herculan.Engine.World;
 namespace Herculan.Engine.Host.Shell;
 
 /// <summary>
-/// The shell's side of the campaign loop (docs/shell/campaign-loop.md): where the game in progress comes from — a
+/// The shell's side of the campaign loop (docs/retail/shell/campaign-loop.md): where the game in progress comes from — a
 /// slot, a new career, a training launch, the simulator's return — and the missions it hands the simulator.
 /// </summary>
 sealed class CampaignLoop {
@@ -108,7 +108,7 @@ sealed class CampaignLoop {
 	/// <summary>
 	/// Shell_BuildScreensAndStart's -X3 and -X4 arm (004012b0): Game_LoadSlot(10) and then
 	/// Game_ProcessMissionResults (0040eae7) over the results.dat and mission.var the simulator left beside the
-	/// handoff, then wherever the debrief goes next (docs/shell/campaign-loop.md#where-the-debrief-goes-next).
+	/// handoff, then wherever the debrief goes next (docs/retail/shell/campaign-loop.md#where-the-debrief-goes-next).
 	/// A slot 10 not in use, or no results, cannot come from a mission this shell launched; it is reported,
 	/// and the menu comes up.
 	/// </summary>

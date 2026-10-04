@@ -12,7 +12,7 @@ namespace Herculan.Engine.Sim.Anim;
 /// thread holds the current frame's whole ground displacement and hands out the ramped fraction of
 /// it that has elapsed. Seeding <see cref="ReadRoot"/>'s source to identity, stepping, then reading
 /// back yields exactly the displacement covered by that step — which is how a HERC moves, since
-/// HERCs have no velocity vector (see docs/simulation/mech-locomotion.md). The second is the
+/// HERCs have no velocity vector (see docs/retail/simulation/mech-locomotion.md). The second is the
 /// <b>transition search</b>: asking for a target sequence does not cut to it, it looks for a
 /// transition frame that leads there and plays through it.</para>
 /// </summary>
@@ -325,7 +325,7 @@ public sealed class AnimationThread {
 	/// <para>Not retail, behind <see cref="TweakSettingDefinitions.SmootherTurretMovement"/>: the
 	/// sub-tick remainder the original's Q14 scale-down truncates away is kept, and
 	/// <see cref="FrameFraction"/> spends it, so a seeked pose is no longer quantised to a whole
-	/// animation tick (docs/simulation/torso-aim.md, "Angle to pose"). On OUTLAW that is
+	/// animation tick (docs/retail/simulation/torso-aim.md, "Angle to pose"). On OUTLAW that is
 	/// 1747 drawn twist poses from centre to limit where retail has 170, and the drawn view moves
 	/// every tick from half stick up rather than from three quarters. Clearing the tweak restores the
 	/// original's arithmetic exactly. Playback is untouched: only a seek produces a remainder, and the

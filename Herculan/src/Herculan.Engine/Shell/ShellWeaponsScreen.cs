@@ -72,7 +72,7 @@ public sealed class ShellWeaponsArt {
 /// <c>Hard Points</c> steppers. Built once by <c>Arming_BuildScreen</c> (<c>0043e52c</c>,
 /// <c>warmingi.cpp</c>), entered by <c>Arming_Enter</c> (<c>0043f548</c>), its row moved by
 /// <c>Arming_SelectRow</c> (<c>0043f71c</c>) and its guidance kind by <c>Arming_ShowGuidance</c>
-/// (<c>0043fd69</c>). See docs/shell/screen-layout.md, "The weapons screen".
+/// (<c>0043fd69</c>). See docs/retail/shell/screen-layout.md, "The weapons screen".
 ///
 /// <para><b>Every rect here is a literal in the executable</b>, kept parent-relative as the builder
 /// writes them: the content panel in the canvas; the picture box, the list and the steppers in the

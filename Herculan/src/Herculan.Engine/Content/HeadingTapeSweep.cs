@@ -11,7 +11,7 @@ namespace Herculan.Engine.Content;
 ///
 /// <para>It does not run every mission: a flyer's cockpit is marked finished before it starts, and a
 /// heading past <see cref="HalfTurn"/> finishes on its first frame. Both of those, and the ramp's
-/// derivation, are docs/formats/cockpit-gunsight-hud.md's power-up wind-up section. The second is reproduced
+/// derivation, are docs/retail/formats/cockpit-gunsight-hud.md's power-up wind-up section. The second is reproduced
 /// here rather than coded around — <see cref="Angle"/> arms and evaluates in one call, as the
 /// original's tick and paint do in one pass, so it falls out of the arithmetic. The original reads
 /// the clock once to arm and again after the world draw to evaluate; this reads it once, so the

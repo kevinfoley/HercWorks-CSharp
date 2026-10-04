@@ -7,7 +7,7 @@ namespace Herculan.Engine.Sim;
 /// <summary>
 /// The AI navigation slice: the four movement primitives every walking state is built out of, the
 /// obstacle avoidance the control law folds into them, and the five behaviour thinks that are
-/// navigation rather than combat. The derivation is docs/simulation/ai-navigation.md.
+/// navigation rather than combat. The derivation is docs/retail/simulation/ai-navigation.md.
 ///
 /// <para><b>Movement is the think slot's job.</b> The move slot 18 of the 22 states share is
 /// <c>Mech_MovementTick</c>, which integrates and collides and decides nothing; every steering
@@ -351,7 +351,7 @@ public partial class MechObject {
 	/// <summary>
 	/// <c>Ai_LineOfSightBlocked</c> (<c>0041dc24</c>) — whether this machine can see its target, and
 	/// the trigger for <c>skirting</c>. Both endpoints are lifted to their objects' aim-node heights
-	/// before the cast. See docs/simulation/ai-navigation.md.
+	/// before the cast. See docs/retail/simulation/ai-navigation.md.
 	///
 	/// <para><b>The two nonzero answers are not "shape" and "terrain".</b>
 	/// <see cref="LineOfSight.BlockedByShape"/> is anything the machine cannot get past — a shape, or
@@ -388,7 +388,7 @@ public partial class MechObject {
 	/// mission-file field that feeds it. A machine in the player's squad takes its mode from
 	/// <see cref="RadarForcedActive"/>, which is what SCAN FOR HOSTILES and EMCON write; everything
 	/// else from <see cref="RadarOrder"/>, the mission file's own standing setting. See
-	/// docs/simulation/target-selection.md ("How an AI machine's radar is set").
+	/// docs/retail/simulation/target-selection.md ("How an AI machine's radar is set").
 	/// </summary>
 	private void UpdateRadarMode() =>
 		Scanner = Group is { LedByPlayer: true } ? RadarForcedActive : RadarOrder;
@@ -535,7 +535,7 @@ public partial class MechObject {
 	///
 	/// <para><b>It is not a target.</b> The original never writes it to <c>mech+0x1a4</c> — but it
 	/// does shoot at it: the state closes with <see cref="AimAndFire"/>, the same tail the combat
-	/// states use. See docs/simulation/ai-weapons.md.</para>
+	/// states use. See docs/retail/simulation/ai-weapons.md.</para>
 	/// </summary>
 	private void LookAtTick(SimWorld world) {
 		if (SimMath.TimerCountDown(ref _navDecisionTimer) == 0) {
@@ -684,7 +684,7 @@ public partial class MechObject {
 
 	/// <summary>
 	/// Range at which <c>following</c> stops short of what it is following. Three-dimensional, unlike
-	/// every range a steer is computed from — see docs/simulation/ai-navigation.md.
+	/// every range a steer is computed from — see docs/retail/simulation/ai-navigation.md.
 	/// </summary>
 	private const int FollowStandoffRange = 25000;
 

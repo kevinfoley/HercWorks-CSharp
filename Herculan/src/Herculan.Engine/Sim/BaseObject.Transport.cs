@@ -6,7 +6,7 @@ namespace Herculan.Engine.Sim;
 /// <summary>
 /// The transport's tick — <c>StructureTransportVtable</c>'s <c>+0x18</c> slot,
 /// <c>Base_TransportThinkTick</c> (<c>004045c8</c>), which type <c>0x22</c> alone installs
-/// (docs/simulation/structure-behaviour.md, "The transport").
+/// (docs/retail/simulation/structure-behaviour.md, "The transport").
 /// </summary>
 public sealed partial class BaseObject {
 	/// <summary>What a transport fires. Null leaves one unarmed; no other class reads it.</summary>

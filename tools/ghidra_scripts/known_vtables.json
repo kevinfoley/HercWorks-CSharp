@@ -94,12 +94,12 @@
         { "offset": 4,   "name": "GetPosition",           "description": "SimObject_GetPosition (0046b801), returning obj+0x26, in every table seen -- base, mech, flyer and all four projectile classes. Scene_SubmitObjectWithRadius (0042837c) and ObjList_DrawCellObjects (00428c60) call it for the object's position." },
         { "offset": 8,   "name": "Destructor",            "description": "The deleting destructor, (this, flags): SimObject_Dtor (00427081), Mech_Dtor (00427127), Flyer_Dtor (004271bf), Base_Dtor (00406dab), Base_RadarDtor (00406df3), Base_ArmedDtor (00406d5c), GroundVehicle_Dtor (00406d05), Base_TransportDtor (00406caf). Each counts the RTL destructor counter down once per class level it inlines, runs AnimObj_Dtor (00402400) with flags 0, and on flags bit 0 takes the object off maybe_GlobalLiveObjectList with ObjList_SwapRemove (00411e1c) instead of freeing it." },
         { "offset": 12,  "name": "slot_0x0c",             "description": "Stub_ReturnZero (004785bf) in every table seen. Role not established." },
-        { "offset": 16,  "name": "GetShapeRadius",        "description": "SimObject_GetShapeRadius (0046b80c) in every table -- reads the radius off the instanced shape rather than any type record. See docs/simulation/hit-detection.md." },
+        { "offset": 16,  "name": "GetShapeRadius",        "description": "SimObject_GetShapeRadius (0046b80c) in every table -- reads the radius off the instanced shape rather than any type record. See docs/retail/simulation/hit-detection.md." },
         { "offset": 20,  "name": "Tick",                  "description": "The object's per-tick update. The mech installs Behaviour_DispatchMove (00415afc), which forwards to the current behaviour class rather than moving anything itself; the projectile classes install their own TickUpdate in the same slot. The ACTOR base and the five structure tables install SimObject_TickNoOp (00411ab4), which returns 1." },
-        { "offset": 24,  "name": "ThinkTick",             "description": "Mech: Behaviour_DispatchThink (00415b38). Second of the three behaviour-class dispatchers; see docs/simulation/ai-dispatch.md." },
+        { "offset": 24,  "name": "ThinkTick",             "description": "Mech: Behaviour_DispatchThink (00415b38). Second of the three behaviour-class dispatchers; see docs/retail/simulation/ai-dispatch.md." },
         { "offset": 28,  "name": "ReassessTick",          "description": "Mech: Behaviour_DispatchReassess (00415b74). Third behaviour-class dispatcher. The five structure tables install Base_ReassessTickNoOp (00406cfe), which returns 0." },
-        { "offset": 32,  "name": "DirectFireHitTest",     "description": "Hit test AND damage application in one call, offered to each candidate by Sim_RaycastObjectList (00426528). Mech_DirectFireHitTest (00418ba8), Flyer_DirectFireHitTest (00421c8c), Base_DirectFireHitTest (00405038); the ACTOR base's slot is pure virtual (Rtl_PureVirtualCalled, 00496684). See docs/simulation/damage-system.md and hit-detection.md." },
-        { "offset": 36,  "name": "GetAimNodeTransform",   "description": "The node transform a shot aims at: its +0x14 is the aim point and its +0x1c the sight height. Mech_GetAimNodeTransform (00417b98); base and flyer both install SimObject_GetAimNodeTransform_None (00411a9c), which returns 0 so every caller falls back to the raw origin. See docs/simulation/target-selection.md, 'Aim point'." },
+        { "offset": 32,  "name": "DirectFireHitTest",     "description": "Hit test AND damage application in one call, offered to each candidate by Sim_RaycastObjectList (00426528). Mech_DirectFireHitTest (00418ba8), Flyer_DirectFireHitTest (00421c8c), Base_DirectFireHitTest (00405038); the ACTOR base's slot is pure virtual (Rtl_PureVirtualCalled, 00496684). See docs/retail/simulation/damage-system.md and hit-detection.md." },
+        { "offset": 36,  "name": "GetAimNodeTransform",   "description": "The node transform a shot aims at: its +0x14 is the aim point and its +0x1c the sight height. Mech_GetAimNodeTransform (00417b98); base and flyer both install SimObject_GetAimNodeTransform_None (00411a9c), which returns 0 so every caller falls back to the raw origin. See docs/retail/simulation/target-selection.md, 'Aim point'." },
         { "offset": 40,  "name": "ReceiveSquadOrder",     "description": "One machine receiving one transmitted squad order; 1 when the order was taken. Mech_ReceiveSquadOrder (00420ad4); the ACTOR base, the flyer and the five structure tables install SimObject_ReceiveSquadOrder_Refuse (00411a64), which returns 0." },
         { "offset": 44,  "name": "HandleCommand",         "description": "Mech_HandleCommand (004157c8). The ACTOR base and the structures install SimObject_HandleCommandNoOp (00411a6c), the flyer its own Flyer_HandleCommandNoOp (004215c0); both return 0." },
         { "offset": 48,  "name": "GetAimPoint",           "description": "Two out triples: the eye point and the outside view's orbit centre. Mech_GetAimPoint (004155c4); the ACTOR base and the flyer install SimObject_GetAimPointZero (00411a74), the structures Base_GetAimPoint (0040351c)." },
@@ -110,20 +110,20 @@
         { "offset": 68,  "name": "BearingInSensorArc",    "description": "SimObject_BearingInSensorArc (00411acc) in the ACTOR base, the mech and the flyer. All five structure tables override it with Base_BearingInSensorArc_Always (00405308), which answers 1 for any bearing." },
         { "offset": 72,  "name": "AiEnemySighted",        "description": "Mech_AiEnemySighted (00412800); every other table installs SimObject_AiEnemySightedNoOp (004127f8). Called out of the detection sweep." },
         { "offset": 76,  "name": "CompareCombatRating",   "description": "Mech_CompareCombatRating (0041cabc). Every other table answers SimObject_CompareCombatRatingStub (00411ac0)." },
-        { "offset": 80,  "name": "AiOnTakingFire",        "description": "Called with (attacker, damage) when something hits this object; applies no damage of its own. Mech_AiOnTakingFire (0041f7b8). Base and flyer install Mech_ShareContact (00411aec), which does the contact-sharing half only. See docs/simulation/ai-targeting.md." },
-        { "offset": 84,  "name": "ComponentNearestAim",   "description": "Which component a shot or a seeker should aim at. Mech_ComponentNearestAim (0041b534); the rocket seeker calls it through the target to fill its steer point (docs/simulation/rockets.md), and a structure's implementation returns its first surviving component (docs/simulation/ai-weapons.md). The ACTOR base and the flyer answer -1 (SimObject_ComponentNearestAim_None, 00411a44)." },
+        { "offset": 80,  "name": "AiOnTakingFire",        "description": "Called with (attacker, damage) when something hits this object; applies no damage of its own. Mech_AiOnTakingFire (0041f7b8). Base and flyer install Mech_ShareContact (00411aec), which does the contact-sharing half only. See docs/retail/simulation/ai-targeting.md." },
+        { "offset": 84,  "name": "ComponentNearestAim",   "description": "Which component a shot or a seeker should aim at. Mech_ComponentNearestAim (0041b534); the rocket seeker calls it through the target to fill its steer point (docs/retail/simulation/rockets.md), and a structure's implementation returns its first surviving component (docs/retail/simulation/ai-weapons.md). The ACTOR base and the flyer answer -1 (SimObject_ComponentNearestAim_None, 00411a44)." },
         { "offset": 88,  "name": "ComponentPosition",     "description": "Places the component ComponentNearestAim chose, in world space. Mech_ComponentPosition (0041b60c), Base_ComponentPosition (00406808). Also the per-component position the explosive falloff measures from. The ACTOR base and the flyer install SimObject_ComponentPositionNoOp (00411a3c), which leaves the out-parameter unwritten." },
-        { "offset": 92,  "name": "GetBodyRadius",         "description": "Mech_GetBodyRadius (00415518) -- the flat 750 body radius every retail HERC's .DAT states at offset 110. Base_GetBodyRadius (004035a4); SimObject_GetBodyRadiusZero (00411aa4) for the ACTOR base and the flyer. Distinct from GetShapeRadius. See docs/simulation/hit-detection.md, 'The three radius slots'." },
-        { "offset": 96,  "name": "OnTargetNeutralised",    "description": "Mech_CreditNeutralisedTarget (00415710); every other table installs SimObject_CreditNeutralisedTargetNoOp (00411b2c), an empty body. Called on the ATTACKER by Mech_ComponentDamageWrite when its victim goes out of the fight, carrying the victim and the victim's immobilised reading from before the change -- kill credit and the two squad callouts. See docs/simulation/component-damage.md." },
-        { "offset": 100, "name": "AiOnLineOfFireBlocked", "description": "Mech_AiOnLineOfFireBlocked (0041dd2c): copies the machine's current target position to mech+0x31e and sets mech+0xad. Called from the tail of Sim_RaycastObjectList. Every other table installs SimObject_AiOnLineOfFireBlockedNoOp (00411b34), an empty body. See docs/simulation/ai-combat-states.md." },
+        { "offset": 92,  "name": "GetBodyRadius",         "description": "Mech_GetBodyRadius (00415518) -- the flat 750 body radius every retail HERC's .DAT states at offset 110. Base_GetBodyRadius (004035a4); SimObject_GetBodyRadiusZero (00411aa4) for the ACTOR base and the flyer. Distinct from GetShapeRadius. See docs/retail/simulation/hit-detection.md, 'The three radius slots'." },
+        { "offset": 96,  "name": "OnTargetNeutralised",    "description": "Mech_CreditNeutralisedTarget (00415710); every other table installs SimObject_CreditNeutralisedTargetNoOp (00411b2c), an empty body. Called on the ATTACKER by Mech_ComponentDamageWrite when its victim goes out of the fight, carrying the victim and the victim's immobilised reading from before the change -- kill credit and the two squad callouts. See docs/retail/simulation/component-damage.md." },
+        { "offset": 100, "name": "AiOnLineOfFireBlocked", "description": "Mech_AiOnLineOfFireBlocked (0041dd2c): copies the machine's current target position to mech+0x31e and sets mech+0xad. Called from the tail of Sim_RaycastObjectList. Every other table installs SimObject_AiOnLineOfFireBlockedNoOp (00411b34), an empty body. See docs/retail/simulation/ai-combat-states.md." },
         { "offset": 104, "name": "SetRunInto",            "description": "SimObject_SetRunInto (0042200c) in all eight instances, with no override: obj+0xb1 = 1, \"something ran into me\". Two callers, both collision sweeps naming whatever blocked a move -- Mech_CollisionTest and GroundVehicle_CollisionTest (0046a510), the sweep in StructureGroundVehicleVtable's tick slot. Mech_BehaviourRamTick is the only reader and nothing clears the byte." },
         { "offset": 108, "name": "MissileLockState",      "description": "Mech_MissileLockState (004155ac): returns the per-missile-subtype LOCK flag, NOT an ammunition count. Asked of the launcher: Rocket_Fire will not attach a target without it. Every other table installs SimObject_MissileLockState_Always (00411b04), which returns 1, so a flyer's or a structure's missile always gets the launcher's selected target. See known_symbols_dbsim.json's entry for 004155ac." },
-        { "offset": 112, "name": "ApplyExplosiveDamage",  "description": "What an explosion does to this object, called on every object the blast sweep finds in range. Mech_ApplyExplosiveDamage (004187d0); base and flyer share SimObject_ApplyExplosiveDamage (00411b3c). See docs/simulation/damage-system.md, 'Explosive damage'." },
+        { "offset": 112, "name": "ApplyExplosiveDamage",  "description": "What an explosion does to this object, called on every object the blast sweep finds in range. Mech_ApplyExplosiveDamage (004187d0); base and flyer share SimObject_ApplyExplosiveDamage (00411b3c). See docs/retail/simulation/damage-system.md, 'Explosive damage'." },
         { "offset": 116, "name": "ComponentDamageWrite",  "description": "The shared component-health write every damage path funnels into. Mech_ComponentDamageWrite (00417de4), Flyer_ComponentDamageWrite (00421bb4); both of the mech's death branches fire the object's defeat action from here. The structures install Base_ApplyDamage (00404d70); the ACTOR base's slot is pure virtual (Rtl_PureVirtualCalled, 00496684)." },
-        { "offset": 120, "name": "ApplyFormationOffset",  "description": "Places a group member at its formation offset from the leader. Mech_ApplyFormationOffset (00417898); run over every non-leader member by Group_DeploymentCheck for the walk-on arrival verbs. See docs/simulation/mission-deployment.md." },
-        { "offset": 124, "name": "GetCollisionRadius",    "description": "This object's half of the collision gap a walking machine measures against it; the mover contributes its own GetBodyRadius. Mech_GetCollisionRadius (0041552c), Base_GetCollisionRadius (004035b8); SimObject_GetCollisionRadiusZero (00411aac) for the ACTOR base and the flyer. See docs/simulation/hit-detection.md, 'The three radius slots'." },
-        { "offset": 128, "name": "NextTargetableComponent", "description": "(this, cursor, int *componentId) -- step a targeting-pod component lock to the next component this object still has, answering the new cursor and writing the component id out. Mech_NextTargetableComponent (00415558) walks a fixed seven-slot rotation, Base_NextTargetableComponent (00403624) walks the structure type's whole component list, and the base class answers -1. The targeting pod is the only caller; see docs/simulation/target-selection.md." },
-        { "offset": 132, "name": "ComponentPresent",        "description": "(this, componentId) -- whether this object still has that component, from its occupancy array. Mech_ComponentPresent (00415540), Base_ComponentPresent (0040360c); the base class answers 1 for anything. Asked only by the targeting pod, to notice that the component it had locked has been shot off. See docs/simulation/target-selection.md." }
+        { "offset": 120, "name": "ApplyFormationOffset",  "description": "Places a group member at its formation offset from the leader. Mech_ApplyFormationOffset (00417898); run over every non-leader member by Group_DeploymentCheck for the walk-on arrival verbs. See docs/retail/simulation/mission-deployment.md." },
+        { "offset": 124, "name": "GetCollisionRadius",    "description": "This object's half of the collision gap a walking machine measures against it; the mover contributes its own GetBodyRadius. Mech_GetCollisionRadius (0041552c), Base_GetCollisionRadius (004035b8); SimObject_GetCollisionRadiusZero (00411aac) for the ACTOR base and the flyer. See docs/retail/simulation/hit-detection.md, 'The three radius slots'." },
+        { "offset": 128, "name": "NextTargetableComponent", "description": "(this, cursor, int *componentId) -- step a targeting-pod component lock to the next component this object still has, answering the new cursor and writing the component id out. Mech_NextTargetableComponent (00415558) walks a fixed seven-slot rotation, Base_NextTargetableComponent (00403624) walks the structure type's whole component list, and the base class answers -1. The targeting pod is the only caller; see docs/retail/simulation/target-selection.md." },
+        { "offset": 132, "name": "ComponentPresent",        "description": "(this, componentId) -- whether this object still has that component, from its occupancy array. Mech_ComponentPresent (00415540), Base_ComponentPresent (0040360c); the base class answers 1 for anything. Asked only by the targeting pod, to notice that the component it had locked has been shot off. See docs/retail/simulation/target-selection.md." }
       ],
       "instances": [
         {
@@ -173,12 +173,12 @@
       "binary": "DBSIM",
       "description": "The six-slot table the projectile classes carry, and the interface SimObjectVtable's first six slots extend -- which is what lets the draw pass and the raycast walk a projectile and a machine the same way. SIX IS ESTABLISHED, not a floor, on four independent grounds. (1) No code in the class family's own region (0040a100-0040c500: all five constructors, destructors, tick and draw functions) calls any slot above +0x14 on itself. (2) The six CALL dword ptr [reg + 0x18] sites in that region are all the same deleting-destructor call on the MEMBER object at this+0x34, under a null check and with the flag argument 3 -- Bullet_Construct's destructor at 0040b6af and the base's at 0040c38d are byte-for-byte the same sequence -- so +0x18 belongs to that member's class, not this one. (3) The word after +0x14 is not a code pointer in two of the five tables: 00000001 in the bullet's, 00000000 in the beam tracer's. (4) Where it does look like one it is descriptor data -- the base's 0040c3d8 sits inside a class-descriptor record next to the string 'BEAM *', and the rocket's 0046b7c8 at the head of one whose name string is 'TSShapeInstance'; neither address has a function prologue and neither is reached by any call. TS_OBJ (004a0b98), which the projectile base derives from, has five slots -- DrawableVtable's shape -- so +0x14 is PROJECTILE's own addition.",
       "slots": [
-        { "offset": 0,  "name": "Draw",           "description": "Bullet_Draw (0040a120) for the launcher round and the gun round alike; BeamTracer_Draw (0040bc14) for the beam class. See docs/simulation/beam-visuals.md." },
+        { "offset": 0,  "name": "Draw",           "description": "Bullet_Draw (0040a120) for the launcher round and the gun round alike; BeamTracer_Draw (0040bc14) for the beam class. See docs/retail/simulation/beam-visuals.md." },
         { "offset": 4,  "name": "GetPosition",    "description": "SimObject_GetPosition (0046b801), as in SimObjectVtable." },
         { "offset": 8,  "name": "Destructor",     "description": "The deleting destructor: Rocket_Dtor (0040ab8d), Bullet_Dtor (0040b64d), BeamTracer_Dtor (0040ba94), Grenade_Dtor (0040ad2c), ProjectileBase_Dtor (0040c324). Takes a flags argument whose low bit asks it to free the object, which it does through 0047743c." },
         { "offset": 12, "name": "slot_0x0c",      "description": "Stub_ReturnZero (004785bf), as in SimObjectVtable. Role not established." },
         { "offset": 16, "name": "GetShapeRadius", "description": "SimObject_GetShapeRadius (0046b80c), shared with the full simulation objects." },
-        { "offset": 20, "name": "Tick",           "description": "Rocket_TickUpdate (0040a538), Bullet_TickUpdate (0040b124), BeamTracer_LifeTick (0040c2a0), Grenade_TickNoOp (0040acb4). PROJECTILE's own slot is pure virtual (Rtl_PureVirtualCalled, 00496684). See docs/simulation/rockets.md and projectiles.md." }
+        { "offset": 20, "name": "Tick",           "description": "Rocket_TickUpdate (0040a538), Bullet_TickUpdate (0040b124), BeamTracer_LifeTick (0040c2a0), Grenade_TickNoOp (0040acb4). PROJECTILE's own slot is pure virtual (Rtl_PureVirtualCalled, 00496684). See docs/retail/simulation/rockets.md and projectiles.md." }
       ],
       "instances": [
         {
@@ -189,17 +189,17 @@
         {
           "address": "00498448",
           "label": "RocketVtable",
-          "description": "The launcher round -- PROJ.DAT Type 0, 14-byte type table out of ROCKETS.DAT. Installed by Rocket_Construct (0040a948) at 0040a99c. See docs/simulation/rockets.md."
+          "description": "The launcher round -- PROJ.DAT Type 0, 14-byte type table out of ROCKETS.DAT. Installed by Rocket_Construct (0040a948) at 0040a99c. See docs/retail/simulation/rockets.md."
         },
         {
           "address": "00498628",
           "label": "BulletVtable",
-          "description": "The travelling gun round -- PROJ.DAT Type 2, own 14-byte type table out of BULLETS.DAT. Installed by Bullet_Construct (0040af6c) at 0040afbe. See docs/simulation/projectiles.md."
+          "description": "The travelling gun round -- PROJ.DAT Type 2, own 14-byte type table out of BULLETS.DAT. Installed by Bullet_Construct (0040af6c) at 0040afbe. See docs/retail/simulation/projectiles.md."
         },
         {
           "address": "004987c4",
           "label": "BeamTracerVtable",
-          "description": "The beam tracer -- PROJ.DAT Type 3, both the straight beam and the jagged ELF/ELF2 chain. See docs/simulation/beam-visuals.md."
+          "description": "The beam tracer -- PROJ.DAT Type 3, both the straight beam and the jagged ELF/ELF2 chain. See docs/retail/simulation/beam-visuals.md."
         },
         {
           "address": "004984fc",
@@ -211,7 +211,7 @@
     {
       "name": "WeaponMountVtable",
       "binary": "DBSIM",
-      "description": "The 27-slot table of a weapon mount: GUN_STATE (RTTI, 0x77 bytes, derived from CONFIG_PART, which is a TSPartBase with a SHAPE_INST at +0x10 holding the weapon model) and the ten classes below it. Slots +0x00-+0x24 are the TSPartBase part interface; +0x28 on are the mount's own. Built by WeaponMount_CtorBase and the class constructors; MechLoadout_ConstructWeaponMounts picks the class, overwriting the energy class's table with ELF_WPN's for the ELFs. 27 IS ESTABLISHED: in ten of the eleven instances the word at +0x6c is the next block's class-record pointer. See docs/simulation/weapon-mounts.md and equipment-pods.md.",
+      "description": "The 27-slot table of a weapon mount: GUN_STATE (RTTI, 0x77 bytes, derived from CONFIG_PART, which is a TSPartBase with a SHAPE_INST at +0x10 holding the weapon model) and the ten classes below it. Slots +0x00-+0x24 are the TSPartBase part interface; +0x28 on are the mount's own. Built by WeaponMount_CtorBase and the class constructors; MechLoadout_ConstructWeaponMounts picks the class, overwriting the energy class's table with ELF_WPN's for the ELFs. 27 IS ESTABLISHED: in ten of the eleven instances the word at +0x6c is the next block's class-record pointer. See docs/retail/simulation/weapon-mounts.md and equipment-pods.md.",
       "slots": [
         { "offset": 0,   "name": "GetClassTag",          "description": "ConfigPart_GetClassTagZero (00420729), returning 0, in every instance." },
         { "offset": 4,   "name": "GetStreamSize",        "description": "TSPartBase_GetStreamSize (0048f87c) in every instance." },
@@ -226,7 +226,7 @@
         { "offset": 40,  "name": "Fire",                 "description": "The fire dispatch. GUN_STATE WeaponMount_PrepareShot (0040e788); WeaponMount_FireDispatch_GunBeam (0040ea58), WeaponMount_FireDispatch_Missile (0040e964), ElfMount_FireDispatch (0040ec64), GrenadeMount_FireDispatch (0040ea04); the pods Pod_FireNoOp (0040e95c)." },
         { "offset": 44,  "name": "CanFire",              "description": "Readiness, which WeaponMounts_FireTrigger tests before the trigger slot. WeaponMount_EnergyCanFire (0040ecdc), WeaponMount_AmmoCanFire (0040ed6c), ElfMount_CanFire (0040eda0); the pods Pod_CanFireNever (0040ecd4); GUN_STATE's is pure virtual (Rtl_PureVirtualCalled, 00496684)." },
         { "offset": 48,  "name": "TriggerHeld",          "description": "Whether the trigger asks for a shot this tick. WeaponMount_TriggerHeld (0040f8ad); ElfMount_TriggerHeld (0040e680), a spin-up; GrenadeMount_TriggerHeld (0040e71c), a hold-to-throw charge; the pods Pod_TriggerHeldNever (0040e678)." },
-        { "offset": 52,  "name": "PoolTurn",             "description": "The mount's turn at the energy pool, (mount, budget), returning what it leaves. WeaponMount_RefireTick (0040ef94) for GUN_STATE, the ammunition classes and four pods; WeaponMount_ChargeCapacitor (0040f00c); ElfMount_SpinUpAndChargeTick (0040f3d8); TurboPod_ChargeTick (0040f0d0). See docs/simulation/reactor-energy-pool.md." },
+        { "offset": 52,  "name": "PoolTurn",             "description": "The mount's turn at the energy pool, (mount, budget), returning what it leaves. WeaponMount_RefireTick (0040ef94) for GUN_STATE, the ammunition classes and four pods; WeaponMount_ChargeCapacitor (0040f00c); ElfMount_SpinUpAndChargeTick (0040f3d8); TurboPod_ChargeTick (0040f0d0). See docs/retail/simulation/reactor-energy-pool.md." },
         { "offset": 56,  "name": "AdjustPowerLevel",     "description": "WeaponMount_AdjustPowerLevel (0040f48c) for the energy classes; WeaponMount_AdjustPowerLevelNoOp (004111ce) for the rest." },
         { "offset": 60,  "name": "WakeCapacitor",        "description": "WeaponMount_WakeCapacitor (0040f4d8) for the energy classes; WeaponMount_WakeCapacitorNoOp (004111d3) for the rest." },
         { "offset": 64,  "name": "DemandFullCharge",     "description": "WeaponMount_DemandFullCharge (0040f4f0) for the energy classes; WeaponMount_DemandFullChargeNoOp (004111d8) for the rest." },
@@ -258,7 +258,7 @@
     {
       "name": "CockpitWidgetVtable",
       "binary": "DBSIM",
-      "description": "The seven-slot table every clickable cockpit widget on the CTLButtonControl branch carries, at object +0x17 -- the offset the class's own Borland descriptor record states, so a widget's primary vtable is always reached the same way. SEVEN IS ESTABLISHED, and on a concrete class the block states it outright: the second of the two constants after the table is the byte offset of the mixin's vtable from the start of the primary one, so slot count = (constant - 8) / 4, and every button class carries 0x24. The three input functions that call through the table fix the slot numbers independently (Widget_OnMouseUp (00452870) reads +0x10 then calls +0x08, Widget_OnMouseDown (004527a0) calls +0x18, Widget_Repaint (00452a90) calls +0x04), and the word at +0x1c is not an eighth slot -- in every table on this branch it is either the next class's descriptor pointer (the [descriptor][0][0][vtable] block header this linker emits), the first of the two constants, or padding. Four of those next-class pointers disassemble as code and would read as a confirmed slot. The slider branch is a separate shape with a genuine +0x1c; see CockpitSliderWidgetVtable. Each class's table is found from its name, and each address here from its table, by tools/scripts/es2_classes.py --vtables, which reads the descriptor record stored 12 bytes before every table. See docs/formats/cockpit-input.md.",
+      "description": "The seven-slot table every clickable cockpit widget on the CTLButtonControl branch carries, at object +0x17 -- the offset the class's own Borland descriptor record states, so a widget's primary vtable is always reached the same way. SEVEN IS ESTABLISHED, and on a concrete class the block states it outright: the second of the two constants after the table is the byte offset of the mixin's vtable from the start of the primary one, so slot count = (constant - 8) / 4, and every button class carries 0x24. The three input functions that call through the table fix the slot numbers independently (Widget_OnMouseUp (00452870) reads +0x10 then calls +0x08, Widget_OnMouseDown (004527a0) calls +0x18, Widget_Repaint (00452a90) calls +0x04), and the word at +0x1c is not an eighth slot -- in every table on this branch it is either the next class's descriptor pointer (the [descriptor][0][0][vtable] block header this linker emits), the first of the two constants, or padding. Four of those next-class pointers disassemble as code and would read as a confirmed slot. The slider branch is a separate shape with a genuine +0x1c; see CockpitSliderWidgetVtable. Each class's table is found from its name, and each address here from its table, by tools/scripts/es2_classes.py --vtables, which reads the descriptor record stored 12 bytes before every table. See docs/retail/formats/cockpit-input.md.",
       "slots": [
         { "offset": 0,   "name": "Paint",              "description": "Redraw the widget's own content -- re-resolve its caption, pick its frame and colour. Called by slot +0x0c's stage 2, never directly by the input layer. CTLControl's table holds the empty 00452ab2; CTLButtonControl installs 00455545." },
         { "offset": 4,   "name": "Invalidate",         "description": "Widget_Repaint (00452a90) calls this and nothing else, so no widget paints inside its own click. The PanelSelectGadget branch installs Widget_InvalidateDeferred (00455524), whose whole body is this->[0x1f] = 2; CTLControl's default (00452ab7) is empty." },
@@ -307,7 +307,7 @@
         {
           "address": "0049c188",
           "label": "HUDRovingGunsightGadgetVtable",
-          "description": "The click surface over the 3D view, built by Gunsight_ClickSurface_Ctor (0043c120); see docs/formats/hud-target-indicator.md. No PanelGadget subobject, so it is silent."
+          "description": "The click surface over the 3D view, built by Gunsight_ClickSurface_Ctor (0043c120); see docs/retail/formats/hud-target-indicator.md. No PanelGadget subobject, so it is silent."
         },
         {
           "address": "0049c758",
@@ -317,12 +317,12 @@
         {
           "address": "0049c7dc",
           "label": "ChainedWeaponSelectGadgetVtable",
-          "description": "A weapon row, from EnergyWeaponGauge_Ctor and AmmoWeaponGauge_Ctor; see docs/simulation/weapon-mounts.md."
+          "description": "A weapon row, from EnergyWeaponGauge_Ctor and AmmoWeaponGauge_Ctor; see docs/retail/simulation/weapon-mounts.md."
         },
         {
           "address": "0049c81c",
           "label": "WeaponSelectGadgetVtable",
-          "description": "A pod row -- the weapon-row class without chain membership, built only by PodGauge_Ctor; see docs/simulation/equipment-pods.md."
+          "description": "A pod row -- the weapon-row class without chain membership, built only by PodGauge_Ctor; see docs/retail/simulation/equipment-pods.md."
         },
         {
           "address": "0049c9dd",
@@ -337,7 +337,7 @@
         {
           "address": "0049cf20",
           "label": "MFDStateGadgetVtable",
-          "description": "An MFD latching button; MFDStateGadget_Ctor (0044741c). See docs/formats/mfd.md."
+          "description": "An MFD latching button; MFDStateGadget_Ctor (0044741c). See docs/retail/formats/mfd.md."
         },
         {
           "address": "0049cf60",
@@ -352,7 +352,7 @@
         {
           "address": "0049d60c",
           "label": "HDDSelectGadgetVtable",
-          "description": "A Heads-Down Display button; HddButton_Ctor (0044baac). See docs/formats/heads-down-display.md."
+          "description": "A Heads-Down Display button; HddButton_Ctor (0044baac). See docs/retail/formats/heads-down-display.md."
         },
         {
           "address": "0049d944",
@@ -367,14 +367,14 @@
         {
           "address": "0049e01c",
           "label": "AlertSelectGadgetVtable",
-          "description": "An alert-panel option row; PanelButton_Ctor (00454f64). See docs/simulation/preferences.md."
+          "description": "An alert-panel option row; PanelButton_Ctor (00454f64). See docs/retail/simulation/preferences.md."
         }
       ]
     },
     {
       "name": "CockpitSliderWidgetVtable",
       "binary": "DBSIM",
-      "description": "The eight-slot table the CTLSliderControl branch carries at object +0x17: CockpitWidgetVtable's seven slots with the same roles and the same call sites, plus +0x1c. The extra slot is present from CTLSliderControl down and absent from every button class, which is the one place the family's shape is not uniform. EIGHT IS ESTABLISHED the same way as seven: a concrete slider's second constant is 0x28, i.e. (0x28 - 8) / 4 = 8 slots, and the word at +0x20 is the subobject-offset constant 0x3e on a concrete slider and the next class's descriptor pointer on an abstract one, never a code address. See docs/formats/cockpit-input.md.",
+      "description": "The eight-slot table the CTLSliderControl branch carries at object +0x17: CockpitWidgetVtable's seven slots with the same roles and the same call sites, plus +0x1c. The extra slot is present from CTLSliderControl down and absent from every button class, which is the one place the family's shape is not uniform. EIGHT IS ESTABLISHED the same way as seven: a concrete slider's second constant is 0x28, i.e. (0x28 - 8) / 4 = 8 slots, and the word at +0x20 is the subobject-offset constant 0x3e on a concrete slider and the next class's descriptor pointer on an abstract one, never a code address. See docs/retail/formats/cockpit-input.md.",
       "slots": [
         { "offset": 0,   "name": "Paint",              "description": "Redraw the widget's own content -- re-resolve its caption, pick its frame and colour. Called by slot +0x0c's stage 2, never directly by the input layer. CTLControl's table holds the empty 00452ab2; CTLButtonControl installs 00455545." },
         { "offset": 4,   "name": "Invalidate",         "description": "Widget_Repaint (00452a90) calls this and nothing else, so no widget paints inside its own click. The PanelSelectGadget branch installs Widget_InvalidateDeferred (00455524), whose whole body is this->[0x1f] = 2; CTLControl's default (00452ab7) is empty." },
@@ -414,7 +414,7 @@
         {
           "address": "0049d12c",
           "label": "ThrottleVSliderGadgetVtable",
-          "description": "The throttle slider every one of the nine retail .GAU files uses; ThrottleSlider_CtorV (00447e24). Overrides +0x00 through +0x0c. See docs/formats/cockpit-input.md."
+          "description": "The throttle slider every one of the nine retail .GAU files uses; ThrottleSlider_CtorV (00447e24). Overrides +0x00 through +0x0c. See docs/retail/formats/cockpit-input.md."
         },
         {
           "address": "0049d0e8",
@@ -436,11 +436,11 @@
     {
       "name": "PanelGadgetMixinVtable",
       "binary": "DBSIM",
-      "description": "The four-slot table of the PanelGadget mixin -- the second base every concrete cockpit widget carries alongside CTLButtonControl or CTLHSlider/CTLVSlider, and the reason a widget has two vtable pointers. The descriptor records name it: PanelGadget is 8 bytes with its vptr at +0x00, PanelSliderGadget derives from it, and the subobject constant that precedes each table (0x20 for a button, 0x3e for a slider) is where that base sits inside the object -- exactly the amount the table's adjustor thunks subtract. THE MIXIN ADDS NO BEHAVIOUR of its own: three of the four slots thunk straight back into the primary table, and the fourth is the console click. It is not a second interface to implement but the single switch that decides whether a control makes a sound. A class with no mixin table -- CTLControl, CTLButtonControl, CTLSliderControl, CTLHSlider, CTLVSlider, ScrollTrigger, HDDisplayGadget, HDDMapGadget and HUDRovingGunsightGadget -- is silent for want of the base, not for want of an override. The block layout is [descriptor ptr][0][0][primary vtable][subobject offset][mixin vtable offset][this table], and the second constant is that last offset: the distance in bytes from the start of the primary vtable to this one, 0x24 for a button (7 slots * 4 + 8) against 0x28 for a slider (8 * 4 + 8). It holds in all 22 blocks in DBSIM that carry the pair, the two outside the widget family included -- REG_OBJ and TS_REG_OBJ declare a mixin at +0x0c with the constant 0x1c, which is the same arithmetic over a five-slot primary table. The pair is declared by whichever class first mixes the second base in and inherited unchanged by everything below it, so it varies with the branch and not with the leaf. VSHELL's own CTL family carries no such pair anywhere: its widgets are singly inherited and have no mixin. See docs/formats/cockpit-input.md.",
+      "description": "The four-slot table of the PanelGadget mixin -- the second base every concrete cockpit widget carries alongside CTLButtonControl or CTLHSlider/CTLVSlider, and the reason a widget has two vtable pointers. The descriptor records name it: PanelGadget is 8 bytes with its vptr at +0x00, PanelSliderGadget derives from it, and the subobject constant that precedes each table (0x20 for a button, 0x3e for a slider) is where that base sits inside the object -- exactly the amount the table's adjustor thunks subtract. THE MIXIN ADDS NO BEHAVIOUR of its own: three of the four slots thunk straight back into the primary table, and the fourth is the console click. It is not a second interface to implement but the single switch that decides whether a control makes a sound. A class with no mixin table -- CTLControl, CTLButtonControl, CTLSliderControl, CTLHSlider, CTLVSlider, ScrollTrigger, HDDisplayGadget, HDDMapGadget and HUDRovingGunsightGadget -- is silent for want of the base, not for want of an override. The block layout is [descriptor ptr][0][0][primary vtable][subobject offset][mixin vtable offset][this table], and the second constant is that last offset: the distance in bytes from the start of the primary vtable to this one, 0x24 for a button (7 slots * 4 + 8) against 0x28 for a slider (8 * 4 + 8). It holds in all 22 blocks in DBSIM that carry the pair, the two outside the widget family included -- REG_OBJ and TS_REG_OBJ declare a mixin at +0x0c with the constant 0x1c, which is the same arithmetic over a five-slot primary table. The pair is declared by whichever class first mixes the second base in and inherited unchanged by everything below it, so it varies with the branch and not with the leaf. VSHELL's own CTL family carries no such pair anywhere: its widgets are singly inherited and have no mixin. See docs/retail/formats/cockpit-input.md.",
       "slots": [
         { "offset": 0,   "name": "Paint",              "description": "Adjustor thunk onto the primary table's +0x00: ADD dword ptr [ESP+4], -<subobject offset>; JMP <primary implementation>. The two abstract mixin tables hold the 00496684 stub instead." },
         { "offset": 4,   "name": "FlushDeferredPaint", "description": "Adjustor thunk onto the primary table's +0x0c." },
-        { "offset": 8,   "name": "ClickSound",         "description": "Widget_ClickSound (00438e2c) in PanelGadget's table and in every class that derives from it -- push 0x11; call Sound_Play, ignoring the pointer it is handed. PanelSliderGadget replaces it with 00439014, an empty stub, and every slider inherits that. A widget therefore clicks or stays silent according to which of the two mixins it carries, and a class with no mixin at all makes no sound. See docs/formats/audio.md." },
+        { "offset": 8,   "name": "ClickSound",         "description": "Widget_ClickSound (00438e2c) in PanelGadget's table and in every class that derives from it -- push 0x11; call Sound_Play, ignoring the pointer it is handed. PanelSliderGadget replaces it with 00439014, an empty stub, and every slider inherits that. A widget therefore clicks or stays silent according to which of the two mixins it carries, and a class with no mixin at all makes no sound. See docs/retail/formats/audio.md." },
         { "offset": 12,  "name": "OnClick",            "description": "Adjustor thunk onto the primary table's +0x08." }
       ],
       "instances": [
@@ -663,7 +663,7 @@
         {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."},
         {"offset": 28, "name": "Render", "description": "As VshellTSBaseVtable's: TSPartList_Render draws the children in order, TSGroup_RenderPolys and TSBSPGroup_Render the polys, TSDetailPart_Render one level of detail, TSCellAnimPart_Render one cell, TSShape_Render the whole shape."},
         {"offset": 32, "name": "FindPart", "description": "(this, id): the part whose id (+6) is id, searching children (TSPartList_FindPart) or not (TSPartBase_FindPart)."},
-        {"offset": 36, "name": "FindPartSlot", "description": "(this, id): the address of the child-array entry holding the part whose id is id (TSPartList_FindPartSlot); a leaf answers 0. See docs/formats/mech-shape-drawing.md."}
+        {"offset": 36, "name": "FindPartSlot", "description": "(this, id): the address of the child-array entry holding the part whose id is id (TSPartList_FindPartSlot); a leaf answers 0. See docs/retail/formats/mech-shape-drawing.md."}
       ],
       "instances": [
         {"address": "0047f0f8", "label": "TSPartBaseVtable", "description": "RTTI TSPartBase: TSPartBase_GetClassTag, TSPartBase_GetStreamSize, TSPartBase_GetMemorySize, TSPartBase_ReadFromStream, TSPartBase_WriteToStream, TSPartBase_DebugPrint, TSPartBase_Dtor, TSBase_Render, TSPartBase_FindPart, TSPartBase_FindPartSlot."},
@@ -756,7 +756,7 @@
       "binary": "VSHELL",
       "description": "The shell widget classes that stop at the event handler, at object +1 (the class records state vptr +1): Window and the ESWindow subclasses that do not derive from WinButton. The word after the slot is a pointer type's descriptor (e.g. 'ESMessage *').",
       "slots": [
-        {"offset": 0, "name": "HandleEvent", "description": "(widget, event): Event_Deliver calls it for the first widget up the parent chain whose event mask takes the event; it consumes and deletes the event. Window's is Window_DispatchCallback. See docs/shell/screen-layout.md, The widget that takes a click decides what it does."}
+        {"offset": 0, "name": "HandleEvent", "description": "(widget, event): Event_Deliver calls it for the first widget up the parent chain whose event mask takes the event; it consumes and deletes the event. Window's is Window_DispatchCallback. See docs/retail/shell/screen-layout.md, The widget that takes a click decides what it does."}
       ],
       "instances": [
         {"address": "004717dc", "label": "WindowVtable", "description": "RTTI Window: Window_DispatchCallback."},
@@ -774,7 +774,7 @@
       "description": "VshellWindowVtable plus a paint slot: WinButton and the shell's button, panel and grid classes derived from it.",
       "slots": [
         {"offset": 0, "name": "HandleEvent", "description": "As VshellWindowVtable's: WinButton_HandleEvent for the panels, ESButtonFont_HandleEvent, ESButtonBitmap_HandleEvent, ESRadioButton_HandleEvent, ESBitmap_HandleEvent, ESArm_HandleEvent, ESAlert_HandleEvent."},
-        {"offset": 4, "name": "Paint", "description": "(widget): repaint the widget; the handlers call it through the vtable after changing the lit flag. WinButton's own is Rtl_PureError. See docs/shell/screen-layout.md, How a widget paints."}
+        {"offset": 4, "name": "Paint", "description": "(widget): repaint the widget; the handlers call it through the vtable after changing the lit flag. WinButton's own is Rtl_PureError. See docs/retail/shell/screen-layout.md, How a widget paints."}
       ],
       "instances": [
         {"address": "0046e810", "label": "WinButtonVtable", "description": "RTTI WinButton: WinButton_HandleEvent, Rtl_PureError."},
@@ -794,7 +794,7 @@
     {
       "name": "VshellMapVtable",
       "binary": "VSHELL",
-      "description": "The briefing map's camera interface: Map (Map_Ctor) and ShellMap. See docs/shell/mission-map.md.",
+      "description": "The briefing map's camera interface: Map (Map_Ctor) and ShellMap. See docs/retail/shell/mission-map.md.",
       "slots": [
         {"offset": 0, "name": "Paint", "description": "ShellMap_Paint; Map's own is Rtl_PureError."},
         {"offset": 4, "name": "ZoomIn", "description": "Map_ZoomIn."},

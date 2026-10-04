@@ -5,7 +5,7 @@ namespace Herculan.Engine.Sim;
 // The HERC control law: input to throttle, throttle to a desired speed, and the gait state machine
 // that keeps the animation thread playing the right sequence at the right rate. Ported from
 // Mech_ApplyThrottleInput (004160dc), Mech_LocomotionTick (00416a04) and
-// Mech_ApplyTerrainSlopeToSpeed (0041693c). See docs/simulation/mech-locomotion.md.
+// Mech_ApplyTerrainSlopeToSpeed (0041693c). See docs/retail/simulation/mech-locomotion.md.
 public sealed partial class MechObject {
 	/// <summary>Throttle movement per tick at full stick deflection, Q8 against the axis.</summary>
 	private const int ThrottleRate = 0x91;

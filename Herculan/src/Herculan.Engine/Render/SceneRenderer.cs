@@ -89,7 +89,7 @@ public sealed class SceneItem {
 	/// Whether this item takes its fog distance a cell at a time the way <c>Terrain_DrawCellQuad</c>
 	/// does rather than a pixel at a time — see <see cref="SceneRenderer.FogCellSize"/>. Set on the
 	/// terrain, and on the ground shapes, which the original draws under the fade their cell's quad
-	/// installed (docs/simulation/ground-shapes.md, "The draw pass"). Every other drawn thing is
+	/// installed (docs/retail/simulation/ground-shapes.md, "The draw pass"). Every other drawn thing is
 	/// fogged from one distance of its own (<c>ObjList_DrawEntryRender</c> passes the render entry's
 	/// <c>+0x12</c>), which is already what a small object per-pixel amounts to.
 	/// </summary>
@@ -333,7 +333,7 @@ public sealed class SceneRenderer : IDisposable {
 	///
 	/// <para>Deliberately <b>not</b> <see cref="FogColor"/> — the sky and the
 	/// colour distant terrain fades into are separate things in the original, which match in seven
-	/// theaters of ten (docs/formats/distance-fog-and-sky.md, "Where the two meet").</para>
+	/// theaters of ten (docs/retail/formats/distance-fog-and-sky.md, "Where the two meet").</para>
 	/// </summary>
 	public Vector3 SkyColor { get; set; } = new(0.55f, 0.60f, 0.68f);
 
@@ -348,7 +348,7 @@ public sealed class SceneRenderer : IDisposable {
 
 	/// <summary>
 	/// The zone's cell size in render units, which is the grain the terrain's fog is measured at.
-	/// Retail fogs a whole cell from its nearest corner (docs/formats/distance-fog-and-sky.md); the
+	/// Retail fogs a whole cell from its nearest corner (docs/retail/formats/distance-fog-and-sky.md); the
 	/// renderer spends that rule as its mean instead. Over a cell's four corners the minimum of
 	/// <c>i*a + j*b</c> is <c>min(0,a) + min(0,b)</c> and the centre is <c>(a+b)/2</c>, so centre to
 	/// nearest corner is exactly <c>(|a| + |b|)/2</c>, with <c>a</c> and <c>b</c> the depth one cell
@@ -409,7 +409,7 @@ public sealed class SceneRenderer : IDisposable {
 	///
 	/// <para>The original paints each ground shape straight after its own cell's ground, so the
 	/// ground of every cell its walk paints later covers it and it covers everything painted
-	/// before (docs/simulation/ground-shapes.md, "The draw pass"). Here each shape is filed under the
+	/// before (docs/retail/simulation/ground-shapes.md, "The draw pass"). Here each shape is filed under the
 	/// cell <see cref="HeightGrid.PickDrawCell"/> picks, as the original's submit files it, takes that
 	/// cell's <see cref="TerrainPaintOrder.Rank"/>, and is drawn with depth testing off, keeping only
 	/// the pixels where the ground showing ranks no later — <see cref="TerrainPaintRankBuffer"/>. Where
@@ -421,7 +421,7 @@ public sealed class SceneRenderer : IDisposable {
 	/// <para>Everything else is drawn afterwards with the depth test, so a machine stands over its
 	/// own shadow. The original also paints a shape over an object filed under a cell painted earlier
 	/// where the two overlap on screen; that is not reproduced here — every object is drawn over every
-	/// shape — and is listed as Unported in docs/simulation/ground-shapes.md.</para>
+	/// shape — and is listed as Unported in docs/retail/simulation/ground-shapes.md.</para>
 	///
 	/// <para>Before any of it, the pass rebuilds the zone's visible region for its own view, as
 	/// <c>Terrain_SetupVisibleRegion</c> does before the submit, and files <paramref name="ground"/>'s
@@ -587,7 +587,7 @@ public sealed class SceneRenderer : IDisposable {
 
 		// The original paints a TSBSPPart's children one after another in its tree's order, back to
 		// front from the eye, with no depth buffer: wherever two children overlap on screen, the one
-		// the walk reaches later is what shows, whichever is nearer. That is docs/formats/
+		// the walk reaches later is what shows, whichever is nearer. That is docs/retail/formats/
 		// dts-texture-binding.md's "TSBSPPart child selection". The rest of this scene is depth-
 		// buffered, between objects and between the polys of one child, so the part's own order is
 		// laid over the depth test with the stencil buffer:

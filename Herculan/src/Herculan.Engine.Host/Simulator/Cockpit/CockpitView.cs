@@ -64,7 +64,7 @@ sealed class CockpitView {
 	/// <summary>
 	/// The player's machine. A HERC has no velocity vector — the walk and run animations' root motion is what
 	/// moves it — so piloting is the arrow keys on the throttle and the stick, and the machine covers whatever
-	/// ground its own gait covers. See docs/simulation/mech-locomotion.md.
+	/// ground its own gait covers. See docs/retail/simulation/mech-locomotion.md.
 	/// </summary>
 	public MechObject? PilotMech { get; }
 

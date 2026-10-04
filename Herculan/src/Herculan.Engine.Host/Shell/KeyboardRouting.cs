@@ -51,7 +51,7 @@ sealed class KeyboardRouting {
 		}
 	}
 
-	// Whether [Esc] is retail's (docs/shell/screen-layout.md#typing-into-a-row): a movie and the briefing map's
+	// Whether [Esc] is retail's (docs/retail/shell/screen-layout.md#typing-into-a-row): a movie and the briefing map's
 	// intro skip on it, a field being typed into takes it, and with Alt or Ctrl it leaves full screen.
 	// Retail also hands it to an edit field that is merely under the pointer, which runs the field's
 	// handler and so selects a save row; here the menu bar takes it instead (KNOWN_ISSUES.md).

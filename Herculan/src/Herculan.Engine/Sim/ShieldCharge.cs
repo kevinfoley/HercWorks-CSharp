@@ -18,7 +18,7 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para>The <c>+0x222</c> field layout, the fleet-wide 3500 capacity and where it is read from, the
 /// loadout-time capacity formula and the cockpit readouts' "always sums to 200" trap are all in
-/// docs/simulation/damage-system.md, "The shield system". The members below name the constants that
+/// docs/retail/simulation/damage-system.md, "The shield system". The members below name the constants that
 /// document derives.</para>
 /// </summary>
 public sealed class ShieldCharge {
@@ -229,7 +229,7 @@ public sealed class ShieldCharge {
 	/// <para><b>The two scales are exact inverses.</b> The blast is scaled into charge units by
 	/// <c>1000/1024</c> on the way in and the leftover is scaled back by <c>1024/1000</c> on the way
 	/// out, so a blast's overflow is its own face value to within a rounding step — the same exchange
-	/// rate direct fire has. See docs/simulation/damage-system.md, "Explosive damage".</para>
+	/// rate direct fire has. See docs/retail/simulation/damage-system.md, "Explosive damage".</para>
 	///
 	/// <para>Unlike <see cref="AbsorbDirectFire"/> nothing here is returned by reference: the caller
 	/// wants only what got through, and what the facing absorbed is implied.</para>

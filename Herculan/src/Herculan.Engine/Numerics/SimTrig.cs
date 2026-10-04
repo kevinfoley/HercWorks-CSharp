@@ -156,7 +156,7 @@ public static class SimTrig {
 	/// a quarter turn, because the sim's forward axis is model Y and not model X; the pitch is taken
 	/// against the ground-plane distance with the simulation's own sqrt-free magnitude, so it carries
 	/// the same few-percent bias every other range in the simulation does. Retail reading:
-	/// docs/simulation/dbsim-physics-notes.md, "Fixed-point math toolkit".
+	/// docs/retail/simulation/dbsim-physics-notes.md, "Fixed-point math toolkit".
 	///
 	/// <para>Both guidance paths read it — the plasma round's (<c>Bullet_HomingSteer</c>) and a
 	/// launcher's (<c>Rocket_HomingSteer</c>) — and both pass the target first and the shot second,

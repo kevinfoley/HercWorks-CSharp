@@ -30,7 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
-    <!-- Audio, per docs/engine/planning.md. The Soft.Native package carries the OpenAL runtime, so
+    <!-- Audio, per docs/herculan/planning.md. The Soft.Native package carries the OpenAL runtime, so
          a machine without one installed still gets sound; OpenAlBackend falls back to silence if
          even that fails to load. -->
     <PackageReference Include="Silk.NET.OpenAL" Version="2.23.0" />

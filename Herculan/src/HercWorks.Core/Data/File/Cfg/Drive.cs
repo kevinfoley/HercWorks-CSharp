@@ -4,8 +4,8 @@ namespace HercWorks.Core.Data.File.Cfg;
 /// <c>data\drive.cfg</c> — the disc's directory, the file's first whitespace-separated token, which both
 /// executables search for archives and put in front of the movie, manual and voice-clip paths; then the
 /// install's, which they read and discard. Read and written by
-/// <see cref="Io.Transform.Common.DriveTransformer"/>. See docs/formats/vol-archive.md, "Which archives are
-/// mounted", and docs/retail-builds.md, "The installer".
+/// <see cref="Io.Transform.Common.DriveTransformer"/>. See docs/retail/formats/vol-archive.md, "Which archives are
+/// mounted", and docs/retail/retail-builds.md, "The installer".
 /// </summary>
 public class Drive {
 	/// <summary>Where the game keeps the file, relative to its <c>data</c> folder.</summary>
@@ -21,7 +21,7 @@ public class Drive {
 	/// A disc image (<c>.iso</c>, <c>.bin</c>, <c>.cue</c>) to read in place of <see cref="Directory"/>, or null.
 	/// Not retail's: HERCULAN keeps it on a line of its own after the install's, prefixed
 	/// <see cref="Io.Transform.Common.DriveTransformer.ImagePrefix"/>. Both retail programs stop reading the file
-	/// after its second token (docs/formats/vol-archive.md, "Which archives are mounted"), so the original game
+	/// after its second token (docs/retail/formats/vol-archive.md, "Which archives are mounted"), so the original game
 	/// never sees it and still reads <see cref="Directory"/> as its disc.
 	/// </summary>
 	public string? DiscImage { get; set; }

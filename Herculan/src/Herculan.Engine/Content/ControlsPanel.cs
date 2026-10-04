@@ -423,7 +423,7 @@ public sealed class ControlsPanel {
 	/// set to the last one it built — DONE — and [Return] presses the focused widget, the same one.
 	/// <c>ControlsPanel_HandleEvent</c> (<c>00458f9c</c>) does exactly this; what it also does, and
 	/// this does not, is let a joystick button select and step its own row — see
-	/// docs/simulation/preferences.md.
+	/// docs/retail/simulation/preferences.md.
 	/// </summary>
 	/// <returns>True when the key was the panel's to answer.</returns>
 	public bool HandleKey(bool enter, bool escape) {
@@ -523,7 +523,7 @@ public sealed class ControlsPanel {
 	/// A press of physical joystick button <paramref name="row"/> (0-7) while the panel is up, which
 	/// picks that button's row rather than pressing a widget — the first half of
 	/// <c>ControlsPanel_HandleEvent</c> (<c>00458f9c</c>), and why this panel has a handler of its own
-	/// (docs/simulation/preferences.md, "What a joystick button does").
+	/// (docs/retail/simulation/preferences.md, "What a joystick button does").
 	///
 	/// <para>The rule is the mouse's: a press on a row that is not the selected one selects it, and a
 	/// press on the row that is steps it. <see cref="HighlightedRow"/> follows the pressed row.</para>

@@ -185,7 +185,7 @@ public sealed class MeteorObject {
 
 		// A pod that carried a group leaves its mark on the ground whether or not it delivered it —
 		// the flat set's root 3 at the landing point, for the rest of the mission. It keeps no pointer
-		// to it. See docs/simulation/ground-shapes.md.
+		// to it. See docs/retail/simulation/ground-shapes.md.
 		if (Group != null) {
 			world.SpawnGroundShape(GroundShape.DropPodShapeIndex, Position);
 		}

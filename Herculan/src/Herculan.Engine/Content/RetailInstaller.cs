@@ -11,7 +11,7 @@ public readonly record struct InstallProgress(int FileIndex, int FileCount, stri
 /// <summary>
 /// Installs Earthsiege 2 from a retail disc — a directory or an image (<see cref="GameDisc"/>) — into a directory,
 /// copying what the disc's <c>SIERRA.INF</c> script copies for a size and language and then writing what its
-/// <c>BATCH.EXE</c> writes (docs/retail-builds.md, "The installer"). Nothing on the disc is ever run.
+/// <c>BATCH.EXE</c> writes (docs/retail/retail-builds.md, "The installer"). Nothing on the disc is ever run.
 ///
 /// <para><b>The file lists are this engine's encoding of the two retail scripts</b>, chosen by
 /// <c>SIERRA.INF</c>'s <c>[Ident] Version</c>; a disc of any other version is refused rather than interpreted. Of
@@ -39,7 +39,7 @@ public sealed class RetailInstaller {
 		Build = build;
 	}
 
-	/// <summary>Retail's three install sizes (docs/retail-builds.md, "The installer").</summary>
+	/// <summary>Retail's three install sizes (docs/retail/retail-builds.md, "The installer").</summary>
 	public enum Size {
 		Minimum,
 		Medium,
@@ -53,7 +53,7 @@ public sealed class RetailInstaller {
 		German = 'G',
 	}
 
-	/// <summary>The two retail builds (docs/retail-builds.md).</summary>
+	/// <summary>The two retail builds (docs/retail/retail-builds.md).</summary>
 	public enum RetailBuild {
 		V100,
 		V110,
@@ -209,7 +209,7 @@ public sealed class RetailInstaller {
 	/// <c>.</c> and the image goes on HERCULAN's own line (<see cref="Drive.DiscImage"/>).</item>
 	/// <item><c>data\language.cfg</c>: the language's letter.</item>
 	/// <item>A copy of the language folder's <c>README.WRI</c>: <c>esreadme.txt</c> from v1.0, <c>readme.txt</c>
-	/// from v1.10 (docs/formats/winhelp.md, "Macros").</item>
+	/// from v1.10 (docs/retail/formats/winhelp.md, "Macros").</item>
 	/// </list>
 	/// A failure or a cancellation removes what this wrote and rethrows.
 	/// </summary>

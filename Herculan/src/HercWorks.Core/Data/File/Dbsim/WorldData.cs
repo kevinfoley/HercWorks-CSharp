@@ -28,7 +28,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// <c>world24</c>, <c>clouds2</c>, <c>impact&lt;n&gt;</c> (one per world file), the terrain texture
 /// bank (<c>urban</c>, <c>bsnow</c>, <c>volcan</c>, <c>ice</c>, <c>moon</c>), then literally
 /// <c>tex</c> — five separately terminated strings, not one dotted name. The fourth is the one
-/// <c>Terrain_BindTextureBank</c> receives. Layout: docs/formats/terrain-texturing.md.</para>
+/// <c>Terrain_BindTextureBank</c> receives. Layout: docs/retail/formats/terrain-texturing.md.</para>
 /// </summary>
 public class WorldData {
 	/// <summary>Shorts in <see cref="Header"/>.</summary>
@@ -44,7 +44,7 @@ public class WorldData {
 	/// <summary>
 	/// Header short 0, the <c>hzline</c>'s <c>+0x6c</c>: half of it is how many rows above the horizon
 	/// line the first band past the horizon colour starts. 2 in retail data. See
-	/// docs/formats/distance-fog-and-sky.md, "The object".
+	/// docs/retail/formats/distance-fog-and-sky.md, "The object".
 	/// </summary>
 	public short HorizonGap => HeaderShort(0);
 
@@ -92,7 +92,7 @@ public class WorldData {
 	/// <see cref="Header"/> short 9, byte 18 — which ground-shape set the theater loads.
 	/// <c>World_LoadTheater</c> reads it into <c>World_FlatSetSelector</c> (<c>0049aeea</c>) and
 	/// hands it to <c>FlatObj_LoadResources</c> (<c>004097a8</c>): 0 loads <c>flat</c>, anything else
-	/// <c>flat2</c>. 1 in all ten retail files. See docs/simulation/ground-shapes.md.
+	/// <c>flat2</c>. 1 in all ten retail files. See docs/retail/simulation/ground-shapes.md.
 	/// </summary>
 	public short FlatSetSelector => HeaderShort(9);
 

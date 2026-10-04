@@ -118,7 +118,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 	/// follow the on-strength byte. Every count here matters: taking the esnames index for the length
 	/// desynchronizes the whole squad segment, reading a twelfth trailing short eats into the block
 	/// that follows, and dropping the roster id for the player alone lands its name two bytes early.
-	/// See <c>docs/formats/save-games.md</c>.</para>
+	/// See <c>docs/retail/formats/save-games.md</c>.</para>
 	/// </summary>
 	private PilotEntry IndexPilot() {
 		var entry = new PilotEntry();

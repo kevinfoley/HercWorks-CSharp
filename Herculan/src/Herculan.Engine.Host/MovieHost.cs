@@ -15,7 +15,7 @@ namespace Herculan.Engine.Host;
 /// <para>It exists so a decoder can be looked at. A codec that is subtly wrong still returns frames
 /// and still passes a unit test that only checks it did not throw; the failure mode is a picture
 /// that is skewed, mirrored or mis-coloured, and the only reliable way to catch that is to put it on
-/// the screen. See docs/formats/avi-video.md.</para>
+/// the screen. See docs/retail/formats/avi-video.md.</para>
 ///
 /// <para>The frame is letterboxed at its own aspect ratio rather than stretched, and sampled
 /// nearest-neighbour, for the reason <see cref="GpuTexture"/> gives: these are 240x180-ish pictures
@@ -68,7 +68,7 @@ static class MovieHost {
 		if (MoviePlayer.Open(bytes) is not { } player) {
 			Console.Error.WriteLine(
 				$"No decoder for compression {fourCc}, or a frame size it cannot code.\n"
-				+ "See docs/formats/avi-video.md for what the corpus uses.");
+				+ "See docs/retail/formats/avi-video.md for what the corpus uses.");
 			return 1;
 		}
 

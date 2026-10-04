@@ -7,7 +7,7 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// Finds an Earthsiege 2 installation to load data from. The engine never runs the original
-/// executables (see docs/engine/planning.md) — it only reads their data files — so "an install"
+/// executables (see docs/herculan/planning.md) — it only reads their data files — so "an install"
 /// here means a directory containing a <c>VOL</c> folder with the game's archives in it.
 /// </summary>
 public static class GameInstall {
@@ -89,7 +89,7 @@ public static class GameInstall {
 
 	/// <summary>
 	/// The directory the first token of the install's <c>data\drive.cfg</c> names, which on a retail
-	/// install is the disc (docs/formats/vol-archive.md, "Which archives are mounted"), resolved against
+	/// install is the disc (docs/retail/formats/vol-archive.md, "Which archives are mounted"), resolved against
 	/// the install root; null when the file is missing, unreadable or holds no token. Retail cannot start
 	/// without the file (<c>Sim_Run</c>, <c>0045f144</c>; <c>DriveCfg_Read</c>, VSHELL <c>0040d327</c>);
 	/// here an install without one simply has no disc.
@@ -123,7 +123,7 @@ public static class GameInstall {
 	/// <summary>
 	/// Writes <paramref name="directory"/> into the install's <c>data\drive.cfg</c> as the disc, keeping the
 	/// file's second line, the install's own directory, or writing <paramref name="installRoot"/> there when it
-	/// has none, as the installer's <c>BATCH.EXE</c> does (docs/retail-builds.md, "The installer"). Takes only a
+	/// has none, as the installer's <c>BATCH.EXE</c> does (docs/retail/retail-builds.md, "The installer"). Takes only a
 	/// directory <see cref="CheckDiscDirectory"/> passes.
 	/// </summary>
 	public static void WriteDiscDirectory(string installRoot, string directory) {
@@ -164,7 +164,7 @@ public static class GameInstall {
 	/// Opens the install's disc: the image <see cref="DiscImagePath"/> names when there is one and it opens, and
 	/// otherwise the directory <see cref="DiscDirectory"/> names when it exists; null when neither does. An image
 	/// that fails to open is reported and passed over for the directory. Reading an image is this engine's own;
-	/// retail reads only the directory (docs/formats/vol-archive.md, "Which archives are mounted").
+	/// retail reads only the directory (docs/retail/formats/vol-archive.md, "Which archives are mounted").
 	/// </summary>
 	public static GameDisc? OpenDisc(string installRoot) {
 		if (DiscImagePath(installRoot) is { } imagePath) {

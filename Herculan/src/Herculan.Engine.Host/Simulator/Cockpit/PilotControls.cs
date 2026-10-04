@@ -20,6 +20,7 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 sealed class PilotControls {
 	private readonly CockpitView _view;
 	private readonly CockpitDisplays _displays;
+	private readonly CockpitCommands _commands;
 	private readonly MissionScene _scene;
 	private readonly GameAudio _audio;
 	private readonly SimulatorPreferences _preferences;
@@ -45,8 +46,8 @@ sealed class PilotControls {
 	private bool _fireRowLatched;
 	private int _missileKeyboardHold;
 
-	public PilotControls(SimulatorStart start, CockpitView view, CockpitDisplays displays, TapePlayback tape,
-			TapeRecording recording, DeveloperKeys developerKeys, StagingOptions staging) {
+	public PilotControls(SimulatorStart start, CockpitView view, CockpitDisplays displays, CockpitCommands commands,
+			TapePlayback tape, TapeRecording recording, DeveloperKeys developerKeys, StagingOptions staging) {
 		_view = view;
 		_displays = displays;
 		_scene = start.Scene;
@@ -56,7 +57,8 @@ sealed class PilotControls {
 		_recording = recording;
 		_developerKeys = developerKeys;
 		_staging = staging;
-		_keys = new PilotKeys(view, displays, start.Scene, start.Audio);
+		_commands = commands;
+		_keys = new PilotKeys(view, displays, commands, start.Scene, start.Audio);
 
 		// The bindings themselves are the twelve bytes of prefs.cfg — nothing about them changes when the
 		// hardware does, which is the whole point of the split; JoystickDeviceMap is what absorbs a modern
@@ -515,8 +517,10 @@ sealed class PilotControls {
 				_view.RequestHeadsDown(headsDown: false);
 				break;
 
+			// LINK WEAPON and NEXT CHAIN hand scancodes 0x26 and 0x29 to the console panel's own key slot, past the
+			// widget tree's gates, so they press its LINK and CHAIN buttons from any view.
 			case JoystickAction.LinkWeapon:
-				mech.Weapons.ToggleLink();
+				_commands.PressConsoleButtonByKey(ConsoleButton.Link);
 				break;
 
 			// MfdDisplay_CycleMode (00446e14): step the MFD's mode, wrapping at six. Selecting a screen also pans back up,
@@ -533,9 +537,8 @@ sealed class PilotControls {
 				mech.Weapons.ToggleChain(0);
 				break;
 
-			// The console chain button, scancode 0x29.
 			case JoystickAction.NextChain:
-				mech.Weapons.SetGroup((mech.Weapons.Group + 1) % WeaponMounts.GroupCount);
+				_commands.PressConsoleButtonByKey(ConsoleButton.Chain);
 				break;
 
 			case JoystickAction.NextWeapon:

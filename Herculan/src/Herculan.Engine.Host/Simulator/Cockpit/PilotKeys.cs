@@ -1,4 +1,5 @@
 using Herculan.Engine.Audio;
+using Herculan.Engine.Content;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Silk.NET.Input;
@@ -11,7 +12,8 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// Automatic Turret Tracking, and target selection. Each fires on its own key-down edge — the original
 /// dispatches a command per keypress, so holding one does nothing.
 /// </summary>
-sealed class PilotKeys(CockpitView view, CockpitDisplays displays, MissionScene scene, GameAudio audio) {
+sealed class PilotKeys(CockpitView view, CockpitDisplays displays, CockpitCommands commands, MissionScene scene,
+		GameAudio audio) {
 	private readonly KeyLatch _allStop = new();
 	private readonly KeyLatch _shieldRear = new();
 	private readonly KeyLatch _shieldFront = new();
@@ -45,6 +47,7 @@ sealed class PilotKeys(CockpitView view, CockpitDisplays displays, MissionScene 
 	private readonly KeyLatch[] _weaponRow = WeaponRowKeys.Select(_ => new KeyLatch()).ToArray();
 	private readonly KeyLatch _cycleWeapon = new();
 	private readonly KeyLatch _link = new();
+	private readonly KeyLatch _chain = new();
 	private readonly KeyLatch _powerUp = new();
 	private readonly KeyLatch _powerDown = new();
 
@@ -126,7 +129,10 @@ sealed class PilotKeys(CockpitView view, CockpitDisplays displays, MissionScene 
 			bool nearestTarget = _nearestTarget.Press(controls.IsKeyPressed(Key.Apostrophe));
 			bool clearTarget = _clearTarget.Press(controls.IsKeyPressed(Key.Semicolon));
 
-			if (cycleTarget && !widgetsOff) {
+			// On the scanner and TARGET STATUS, [Enter] presses the MFD's own TARGET or SELECT button, which
+			// steps the selection. In the heads-down view it is the display's key instead — see
+			// CockpitKeyboard.
+			if (cycleTarget && !widgetsOff && !view.Pan.AtHeadsDown && !commands.PressMfdTargetButtonByEnter()) {
 				targeting.Cycle();
 			}
 			if (nearestTarget) {
@@ -139,7 +145,8 @@ sealed class PilotKeys(CockpitView view, CockpitDisplays displays, MissionScene 
 
 		// [Tab] steps the Targeting Pod's component lock. CockpitWidgets_HandleCommand hands scancode
 		// 0x0f to the pod only when the view is not the heads-down one; while the display is down the
-		// same case goes to its own command slot, which is the manual's Zoom Map In/Out.
+		// same case goes to its own key dispatch, where the command display's [Tab] steps its unit pick —
+		// see CockpitKeyboard.
 		bool cycleComponentKey = !view.Pan.AtHeadsDown && Unmodified(controls) && controls.IsKeyPressed(Key.Tab);
 		if (_cycleComponent.Press(cycleComponentKey) && !view.CockpitWidgetsOff) {
 			pilotMech.CycleTargetComponent();
@@ -153,7 +160,7 @@ sealed class PilotKeys(CockpitView view, CockpitDisplays displays, MissionScene 
 	//   [1]..[0]        arm that row                       -> WeaponMounts_ToggleChainMember (004110ac)'s sibling, WeaponMounts_SelectByGauge (004106ac)
 	//   [Alt]+[1]..[0]  add/remove that row from the chain -> WeaponMounts_ToggleChainMember
 	//   [W] / [Alt]+[W] step the armed weapon forward/back -> WeaponMounts_StepSelection (0041074c)
-	//   [L]             toggle link fire on the armed pair -> WeaponMounts_ToggleLink (00410f14)
+	//   [L] / [`]       press the console's LINK / CHAIN   -> ConsoleButtons_HandleCommand (004421a0)
 	//   [-] / [=]       lower/raise the armed weapon's power -> the armed mount's vtable +0x38
 	//
 	// All fire on their own key-down edge: they are toggles and steps, not held states. [Space] is the
@@ -185,8 +192,15 @@ sealed class PilotKeys(CockpitView view, CockpitDisplays displays, MissionScene 
 			mounts?.CycleSelection(alt ? -1 : 1);
 		}
 
-		if (_link.Press(keyboard, Key.L)) {
-			mounts?.ToggleLink();
+		// [L] and [`] reach the console only through CockpitWidgets_HandleCommand, which offers keys to the
+		// forward panels outside the heads-down view and to nothing with the widgets off; the weapon
+		// manager answers neither code.
+		bool consoleKeys = mounts != null && !view.CockpitWidgetsOff && !view.Pan.AtHeadsDown;
+		if (_link.Press(keyboard, Key.L) && consoleKeys) {
+			commands.PressConsoleButtonByKey(ConsoleButton.Link);
+		}
+		if (_chain.Press(keyboard, Key.GraveAccent) && consoleKeys) {
+			commands.PressConsoleButtonByKey(ConsoleButton.Chain);
 		}
 
 		// [-] and [=], with the keypad's own pair alongside them, move the armed energy weapon's power

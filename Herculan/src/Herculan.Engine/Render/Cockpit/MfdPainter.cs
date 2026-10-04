@@ -565,7 +565,7 @@ internal sealed class MfdPainter {
 				LabelAlign.Left, MfdLayout.FlashCommTextMarginX);
 		}
 
-		int plate = state.PressedWidget == CockpitWidgetId.Mfd(MfdLayout.TransmitButton)
+		int plate = state.ShowsPressed(CockpitWidgetId.Mfd(MfdLayout.TransmitButton))
 			? MfdLayout.FlashCommRowPlatePressedFrame
 			: MfdLayout.FlashCommRowPlateFrame;
 

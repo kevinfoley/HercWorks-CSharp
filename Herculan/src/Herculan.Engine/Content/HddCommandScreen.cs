@@ -7,6 +7,21 @@ using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Content;
 
+/// <summary>What a click in the command display's map did.</summary>
+public enum HddMapClick {
+	/// <summary>Nothing.</summary>
+	None,
+
+	/// <summary>
+	/// Picked the armed order's unit or gridpoint — <c>HddCommandScreen_PickTarget</c> (<c>0044d6b8</c>), which
+	/// plays <c>bptslct</c> for it.
+	/// </summary>
+	Picked,
+
+	/// <summary>Selected the squadmate whose marker it landed on — <c>HddCommandScreen_PickPilot</c> (<c>0044d804</c>).</summary>
+	PilotSelected,
+}
+
 /// <summary>
 /// The command display's own state and the actions its buttons and keys perform —
 /// <c>HddCommandScreen</c> (<c>HddCommandScreen_Ctor</c>, <c>0044c264</c>) minus the drawing, which is
@@ -111,17 +126,23 @@ public sealed class HddCommandScreen {
 	/// <summary>The gridpoint an armed order has been pointed at, or null.</summary>
 	public Vec3i? ChosenPoint { get; private set; }
 
+	/// <summary>
+	/// The unit the last unit pick landed on — screen <c>+0x15c</c>, where [Enter] drops the map cursor and
+	/// [Tab] steps from. Unlike <see cref="ChosenUnit"/> it outlives arming another order; only a transmission,
+	/// a cancel, or changing pilot with an order armed clears it.
+	/// </summary>
+	public SimObject? PickedUnit { get; private set; }
+
 	/// <summary>Whether the blink is in its lit half — <c>DAT_0049d6ad</c>.</summary>
 	public bool Blink { get; private set; } = true;
 
 	/// <summary>
 	/// Whether the armed order still wants something picked on the map before XMIT will take it — the
-	/// state the message row's DESIGNATE prompts announce.
+	/// state the message row's DESIGNATE prompts announce. Any pick will do, which is the original's one
+	/// ready flag at <c>+0x104</c>: DEFEND POSITION is ready on a gridpoint as well as on a unit.
 	/// </summary>
 	public bool AwaitingPick =>
-		SelectedOrder is { } order
-			&& ((HddCommandState.NeedsUnit(order) && ChosenUnit == null)
-				|| (HddCommandState.NeedsPoint(order) && ChosenPoint == null));
+		SelectedOrder is { } order && WantsPick(order) && ChosenUnit == null && ChosenPoint == null;
 
 	/// <summary>
 	/// What <paramref name="slot"/>'s pilot is currently doing, as a group-40 index —
@@ -142,9 +163,14 @@ public sealed class HddCommandScreen {
 	}
 
 	/// <summary>
-	/// Selects a comm box, or -1 for none — <c>HddCommandScreen_SelectPilot</c> (<c>0044da70</c>). Selecting a different pilot drops
-	/// whatever order was armed for the previous one, which is what that function's first branch does
-	/// before it moves the selection.
+	/// Selects a comm box, or -1 for none — <c>HddDisplay_SelectPilot</c> (<c>0044a720</c>) and the
+	/// <c>HddCommandScreen_SelectPilot</c> (<c>0044da70</c>) it ends in. Selecting a different pilot drops
+	/// whatever order was armed for the previous one, which is what the second's first branch does before it
+	/// moves the selection.
+	///
+	/// <para>Selecting a pilot, the one already selected included, has them say
+	/// <see cref="SquadOrders.StandingByMessage"/> — the first function's post, which
+	/// <see cref="SquadOrders.SendToSlot"/> withdraws. See docs/retail/formats/cockpit-messages.md#what-each-id-says.</para>
 	/// </summary>
 	public void SelectPilot(int slot) {
 		if (slot >= 0 && (slot >= Squad.Count || Squad[slot].Neutralised)) {
@@ -152,10 +178,17 @@ public sealed class HddCommandScreen {
 		}
 
 		if (slot != SelectedPilot) {
+			if (SelectedOrder != null) {
+				PickedUnit = null;
+			}
+
 			ClearOrder();
 		}
 
 		SelectedPilot = slot;
+		if (slot >= 0) {
+			World?.Sounds?.SquadSay(SquadOrders.StandingByMessage, Squad[slot]);
+		}
 	}
 
 	/// <summary>
@@ -193,43 +226,106 @@ public sealed class HddCommandScreen {
 	/// is one of the three ways the manual gives for choosing who to talk to (<c>HddCommandScreen_PickPilot</c>, <c>0044d804</c>).
 	/// </summary>
 	/// <param name="objects">Everything live, for the unit hit test.</param>
-	/// <returns>Whether the click resolved to anything.</returns>
-	public bool ClickMap(float artX, float artY, IEnumerable<SimObject> objects) {
+	public HddMapClick ClickMap(float artX, float artY, IEnumerable<SimObject> objects) {
 		ArgumentNullException.ThrowIfNull(objects);
 		int worldX = View.ToWorldX(artX);
 		int worldY = View.ToWorldY(artY);
 		var hit = HitTest(worldX, worldY, objects);
 
-		if (SelectedOrder is { } order && SelectedPilot >= 0) {
-			// ATTACK ENEMY takes a hostile, DEFEND POSITION a friendly; either one falling on nothing
-			// eligible drops through to the gridpoint, which is what the original does with it too.
+		if (SelectedOrder is { } order && WantsPick(order) && SelectedPilot >= 0) {
+			// ATTACK ENEMY takes a hostile, DEFEND POSITION a friendly. DEFEND falling on nothing eligible
+			// drops through to the gridpoint; ATTACK picks nothing.
 			if (HddCommandState.NeedsUnit(order) && hit != null
 				&& (hit.Side == Engine.World.MissionSide.Cybrid) == (order == HddOrder.AttackEnemy)) {
 				ChosenUnit = hit;
 				ChosenPoint = null;
-				return true;
+				PickedUnit = hit;
+				return HddMapClick.Picked;
 			}
 
-			if (HddCommandState.NeedsUnit(order) || HddCommandState.NeedsPoint(order)) {
-				ChosenUnit = null;
-				ChosenPoint = new Vec3i(worldX, worldY, 0);
-				return true;
+			if (order == HddOrder.AttackEnemy) {
+				return HddMapClick.None;
 			}
+
+			ChosenUnit = null;
+			ChosenPoint = new Vec3i(worldX, worldY, 0);
+			return HddMapClick.Picked;
 		}
 
 		if (hit != null && HddMap.SquadSlotOf(Squad, hit) is var slot && slot >= 0) {
 			SelectPilot(slot);
-			return true;
+			return HddMapClick.PilotSelected;
 		}
 
-		return false;
+		return HddMapClick.None;
+	}
+
+	/// <summary>
+	/// [Enter] — <c>HddCommandScreen_KeyDispatch</c> (<c>0044cc40</c>)'s <c>0x1c</c> case, which feeds the map a click
+	/// through <c>HddCommandScreen_SynthesizeListClick</c> (<c>0044d598</c>). Only with an order armed that wants a
+	/// pick. ATTACK ENEMY and DEFEND POSITION click on <see cref="PickedUnit"/> when there is one; otherwise
+	/// DEFEND POSITION, PATROL GRIDPOINT and GOTO GRIDPOINT click under the pointer, and ATTACK ENEMY does nothing.
+	/// </summary>
+	/// <param name="pointerArtX">The pointer, in device pixels inside the map viewport — not clamped to it.</param>
+	/// <param name="pointerArtY">The same on y.</param>
+	/// <param name="objects">Everything live, for the unit hit test.</param>
+	public HddMapClick PickByEnter(float pointerArtX, float pointerArtY, IEnumerable<SimObject> objects) {
+		if (SelectedOrder is not { } order || !WantsPick(order)) {
+			return HddMapClick.None;
+		}
+
+		// The unit's own position, projected onto the map the way its marker is.
+		if (HddCommandState.NeedsUnit(order) && PickedUnit is { } unit) {
+			return ClickMap(View.ToScreenX(unit.Position.X), View.ToScreenY(unit.Position.Y), objects);
+		}
+
+		return order == HddOrder.AttackEnemy || float.IsNaN(pointerArtX) || float.IsNaN(pointerArtY)
+			? HddMapClick.None
+			: ClickMap(pointerArtX, pointerArtY, objects);
+	}
+
+	/// <summary>
+	/// [Tab] — <c>HddCommandScreen_KeyDispatch</c> (<c>0044cc40</c>)'s <c>0x0f</c> case: with ATTACK ENEMY or DEFEND
+	/// POSITION armed, steps <see cref="PickedUnit"/> to the next unit
+	/// <c>HddCommandScreen_CycleUnit</c> (<c>0044ef08</c>) finds and makes it the pick.
+	///
+	/// <para>Two departures, both in KNOWN_ISSUES.md. With PATROL GRIDPOINT or GOTO GRIDPOINT armed the original
+	/// still makes whatever unit <see cref="PickedUnit"/> holds the pick; this picks nothing there and answers
+	/// as the original does with no unit held. And the original's step never ends when the held unit has been
+	/// deleted from the live list; this starts from the list's head instead.</para>
+	/// </summary>
+	/// <param name="objects">The live objects, in list order — <see cref="Sim.SimWorld.Objects"/>.</param>
+	/// <returns>
+	/// Null with no order armed that wants a pick, where the key does nothing; otherwise whether it picked a
+	/// unit, which picks the original's found and not-found sounds.
+	/// </returns>
+	public bool? CycleUnit(IReadOnlyList<SimObject> objects) {
+		ArgumentNullException.ThrowIfNull(objects);
+		if (SelectedOrder is not { } order || !WantsPick(order)) {
+			return null;
+		}
+
+		if (!HddCommandState.NeedsUnit(order)) {
+			return false;
+		}
+
+		var side = order == HddOrder.AttackEnemy ? Engine.World.MissionSide.Cybrid : Engine.World.MissionSide.Human;
+		if (NextEligibleUnit(objects, side) is not { } unit) {
+			PickedUnit = null;
+			return false;
+		}
+
+		PickedUnit = unit;
+		ChosenUnit = unit;
+		ChosenPoint = null;
+		return true;
 	}
 
 	/// <summary>
 	/// Sends the armed order — the XMIT button and [X]. Refuses, as the original does, when there is
-	/// no pilot, no order, or the order still wants something picked; the caller plays the accepted or
-	/// rejected blip on the result, which is whether the order found a recipient at all rather than
-	/// whether that recipient agreed to it.
+	/// no pilot, no order, or the order still wants something picked. Returns whether the order found a
+	/// recipient at all, not whether that recipient agreed to it. The original's XMIT path calls no sound
+	/// function; the button's own click is the one known sound (docs/retail/formats/audio.md).
 	///
 	/// <para><b>The point and subject are the mission's one order record</b> (<c>DAT_004d0458</c>),
 	/// which nothing clears: <c>HddCommandScreen_FillOrderRecord</c> (<c>0044db24</c>) writes only the
@@ -242,9 +338,7 @@ public sealed class HddCommandScreen {
 	/// docs/retail/simulation/ai-squadmates.md, "The order record — 22 bytes".</para>
 	/// </summary>
 	public bool Transmit() {
-		if (SelectedPilot < 0 || SelectedOrder is not { } order
-			|| (HddCommandState.NeedsUnit(order) && ChosenUnit == null)
-			|| (HddCommandState.NeedsPoint(order) && ChosenPoint == null)) {
+		if (SelectedPilot < 0 || SelectedOrder is not { } order || AwaitingPick) {
 			return false;
 		}
 
@@ -267,6 +361,7 @@ public sealed class HddCommandScreen {
 
 		ClearOrder();
 		SelectPilot(-1);
+		PickedUnit = null;
 		return reached;
 	}
 
@@ -277,6 +372,7 @@ public sealed class HddCommandScreen {
 	public void Cancel() {
 		ClearOrder();
 		SelectedPilot = -1;
+		PickedUnit = null;
 	}
 
 	/// <summary>This frame's snapshot for the renderer.</summary>
@@ -342,6 +438,44 @@ public sealed class HddCommandScreen {
 					: SelectCommandPrompt;
 		}
 	}
+
+	// HddCommandScreen_CycleUnit's walk: from the unit after PickedUnit when that unit is of the side wanted,
+	// from the head otherwise, wrapping, with PickedUnit itself tested last.
+	private SimObject? NextEligibleUnit(IReadOnlyList<SimObject> objects, Engine.World.MissionSide side) {
+		int start = 0;
+		if (PickedUnit is { } held && held.Side == side) {
+			for (int i = 0; i < objects.Count; i++) {
+				if (ReferenceEquals(objects[i], held)) {
+					start = i + 1;
+					break;
+				}
+			}
+		}
+
+		for (int n = 0; n < objects.Count; n++) {
+			var candidate = objects[(start + n) % objects.Count];
+			if (IsEligibleUnit(candidate, side)) {
+				return candidate;
+			}
+		}
+
+		return null;
+	}
+
+	// HddCommandScreen_IsEligibleUnit (0044f014): of the side wanted, not destroyed, on the map, and a hostile
+	// known to the player's machine. Its +0x98 test passes for every object: each write of it found stores 1.
+	// An object deleted from the original's list, or not yet deployed, is not in it.
+	private bool IsEligibleUnit(SimObject candidate, Engine.World.MissionSide side) =>
+		!candidate.Removed && !candidate.AwaitingDeployment
+			&& candidate.Side == side && !candidate.Destroyed
+			&& View.OnViewport(candidate.Position)
+			&& (side == Engine.World.MissionSide.Human
+				|| (World?.PlayerMech is { } player && AiTargeting.Knows(player, candidate)));
+
+	// The four orders that put the screen into its designate state: screen +0x103, which
+	// HddCommandScreen_SelectOrder sets for orders 11-14.
+	private static bool WantsPick(HddOrder order) =>
+		HddCommandState.NeedsUnit(order) || HddCommandState.NeedsPoint(order);
 
 	private void ClearOrder() {
 		SelectedOrder = null;

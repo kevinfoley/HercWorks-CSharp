@@ -187,7 +187,7 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 | `0x1f` | `NEGATIVE.` / `SORRY SIR.` / `UNABLE TO COMPLY.` | the generic no; no poster found |
 | `0x20` | `ALREADY GOTCHA COVERED.` | the order names a post this machine already holds; `FIRE AT WILL` to a machine already in a fight |
 | `0x21` | `PLEASE STAND BY...` | — |
-| `0x22` | `STANDING BY...` | — |
+| `0x22` | `STANDING BY...` | the pilot selected on the command display, by comm box or map marker — `HddDisplay_SelectPilot` (`0044a720`), which posts it directly through the port's slot 0, not through `Ai_PostSquadMessage`; withdrawn when an order is sent to that slot ([`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)) |
 | `0x23` | `DAMN!` | — |
 | `0x25` | `AAAAAAARRGHH!` | a squadmate destroyed — `Mech_CreditNeutralisedTarget`, [`../simulation/component-damage.md`](../simulation/component-damage.md#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710) |
 | `0x26` | `ROGER. RADAR ACTIVATED.` | `SCAN FOR HOSTILES` taken |
@@ -231,5 +231,5 @@ The speaker's own portrait, alongside this box, is driven separately — see [`h
 - **Unported:** the display's two further gates — the computer's line suppressed, tone and all, while the cockpit view manager's `+0x14` reads 4 (the external view), and both ports' paints skipped while its view-change flag `+0x1c` is set.
 - **Open:** no poster of the computer's port outside the six in [Posters](#posters) found by `es2_fieldscan.py 20b` (seventeen loads of `view+0x20b`); a copy of the port pointer held elsewhere would escape that scan, and the 34 lines with no poster rest on it.
 - **Open:** no reader of the queued record's `+0x2d`-`+0x30` (attribute bytes 8-11) found by `es2_fieldscan.py 2d 2e 2f 30` over the port's code (`00434e50`-`00437300`); the comm box also reads the current record.
-- **Open:** whether anything posts the pilot ids the table marks with an em dash, or `0x1f`. No poster found among `Ai_PostSquadMessage`'s six callers (`Mech_ReceiveSquadOrder` included), `Action_Activate`, or the other callers of `CockpitView_GetSquadMessagePort`, which does not settle it.
+- **Open:** whether anything posts the pilot ids the table marks with an em dash, or `0x1f`. No poster found among `Ai_PostSquadMessage`'s six callers (`Mech_ReceiveSquadOrder` included), `Action_Activate`, or the other callers of `CockpitView_GetSquadMessagePort`, of which only `HddDisplay_SelectPilot` posts, and only `0x22`; which does not settle it.
 - **Open:** no retail capture of TRAIN1-TRAIN4 has been checked against the raised training box (top 45 to 55 units for a walker); the lift is read from code and `.GAU` data only.

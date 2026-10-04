@@ -16,7 +16,7 @@ How a click on one of the widgets below reaches its own click handler: [`cockpit
 | `HddDisplay_SetPage` | `0044a5e4` | Switches page; relights the page button; applies the visibility table. |
 | `HddDisplay_Repaint` | `00449a50` | Full repaint (order below). |
 | `HddDisplay_SetTitle` | `0044a6dc` | Fills the title label from the string table. |
-| `HddDisplay_SelectPilot` | `0044a720` | Selects one of the three comm boxes. |
+| `HddDisplay_SelectPilot` | `0044a720` | Selects one of the three comm boxes, and has a pilot it selects say `0x22` `STANDING BY...` ([`cockpit-messages.md`](cockpit-messages.md#what-each-id-says)). |
 | `HddButton_Ctor` / `_Paint` | `0044baac` / `0044bb38` | One sub-widget. `_Paint` switches on the widget index: 0-1 (the page buttons) take their frame and caption font from the selection flag `+0x40` and have **no pressed state**; 2-7 (arrows, magnifiers) and 13-14 (XMIT, CANCEL) take theirs from the press byte `+0x1b` and light only while held. |
 | `HddGauge_LoadPilotFrames` | `0044a7c0` | Per-squadmate `pilot<n>` bank, `.OFS` offsets, and the comm box's six labels. |
 
@@ -303,15 +303,15 @@ The page's only clickables are two `HDDListGadget`s, registered in this order an
 | `+0x35` | the order column, the constructor's `+0xe1` rect verbatim | one region over all nine rows, not one per row |
 | `+0x39` | the map viewport | the whole inset |
 
-Neither acts on the click itself. `HDDListGadget_OnClick` (`0044f6ac`) is left-button only and calls `HddCommandScreen_QueueListClick` (`0044d3a4`), which records which gadget and where and sets a pending flag at `+0x14d`; `HddCommandScreen_HandleListClick` (`0044d428`) drains it and branches on the gadget pointer. For the order column it walks the eight row rects itself — **exclusively** on all four edges, unlike `Widget_HitTest`'s inclusive test, so a row's own boundary lines are dead — and arms that order, or presses XMIT when the click repeats the row already selected. For the map viewport it stores the point as the map cursor.
+Neither acts on the click itself. `HDDListGadget_OnClick` (`0044f6ac`) is left-button only and calls `HddCommandScreen_QueueListClick` (`0044d3a4`), which records which gadget and where, copies the [double-click flag](cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic) to `+0x15b`, and sets a pending flag at `+0x14d`; `HddCommandScreen_HandleListClick` (`0044d428`) drains it and branches on the gadget pointer. For the order column it walks the eight row rects itself — **exclusively** on all four edges, unlike `Widget_HitTest`'s inclusive test, so a row's own boundary lines are dead. A hit on any order but the one armed arms it. A hit on the armed order never re-arms it: with `+0x15b` set and the order ready (`+0x104`, [below](#the-order-list-and-its-state-machine)) it presses XMIT through `Widget_PressChild`, and otherwise it does nothing, so a single click there keeps the order and its pick. For the map viewport it stores the point as the map cursor.
 
-`HddCommandScreen_SynthesizeListClick` (`0044d598`) is the keyboard's way into the same queue: an order hotkey feeds it the row's own rect corner and Enter feeds it a projected map point, so key and click converge before anything is decided.
+`HddCommandScreen_SynthesizeListClick` (`0044d598`) is the keyboard's way into the same queue: an order hotkey feeds it the row's own rect corner and Enter feeds it the pointer's position or a unit's projected one, so key and click converge before anything is decided. The hotkey of the armed order is therefore a click on it, and `+0x15b` takes whatever the double-click flag holds when the key arrives.
 
 **The map region is not hidden with its page.** `HddCommandScreen_Hide` (`0044cf28`) sets state 2 on the order column, `XMIT` and `CANCEL`, and `HddCommandScreen_Show` (`0044cee8`) clears the same three; the map gadget is not among them. Its pointer is kept at screen `+0x39`, whose readers — the constructor, `HddCommandScreen_KeyDispatch`, `HddCommandScreen_HandleListClick` and `HddCommandScreen_SynthesizeListClick` — compare or pass it and never write its state, and in the cockpit's shared clickable list, whose press handling writes only 1 and 0 ([`cockpit-input.md`](cockpit-input.md#7-press-release-click-vs-drag)). It is registered at state 0 and stays hit-testable on the damage detail page, where nothing draws it ([Open](#open)). A click there is queued like any other, but `HddCommandScreen_HandleListClick` runs only from `HddCommandScreen_Update`, which `HddDisplay_PaintCurrentScreen` calls on the current page alone, so the point becomes the map cursor when F7 is next the page shown — see [`../../../KNOWN_ISSUES.md`](../../../KNOWN_ISSUES.md).
 
 ### The order list and its state machine
 
-**Order rows**: the column's height divided by 9. Row 0 is the incoming-message label (`ColorSchemePanels[2]`, background id 14); rows 1-8 are the orders, each 14 device pixels tall, left aligned with a bare `5`-pixel margin (unshifted, unlike the MFD's FLASH COMM rows). A 2px-wide vertical bar at the column's left edge marks the selected row in id 15, three device pixels down from the row's top, and `HddCommandScreen_DrawOrderHighlight` (`0044dd4c`) blits the 116x18 plate — frame 2 available, frame 4 not — at the row label's own text position.
+**Order rows**: the column's height divided by 9. Row 0 is the incoming-message label (`ColorSchemePanels[2]`, background id 14); rows 1-8 are the orders, each 14 device pixels tall, left aligned with a bare `5`-pixel margin (unshifted, unlike the MFD's FLASH COMM rows). A 2px-wide vertical bar at the column's left edge marks the selected row in id 15, three device pixels down from the row's top, and `HddCommandScreen_DrawOrderHighlight` (`0044dd4c`) blits the 116x18 plate — frame 2 available, frame 4 not — at the row label's own text position. XMIT's paint (`HddButton_Paint`, `0044bb38`) redraws it through `HddCommandScreen_RedrawOrderHighlight` (`0044ddc8`) with its own press byte added, so the armed order's plate is frame 3 while XMIT shows pressed; the list's own refresh adds 0.
 
 **Order text** is `STRINGS0.STR` group 0 entries 10-17, and each entry's single attribute byte is the index of its hotkey character within its own text:
 
@@ -332,18 +332,22 @@ All eight match the manual's key bindings. `HddCommandScreen_RefreshOrders` (`00
 
 **The message row** is `STRINGS0.STR` group 32 — `SELECT PILOT`, `SELECT COMMAND`, `DESIGNATE LOCATION`, `DESIGNATE TARGET` — chosen by `HddCommandScreen_SetMessageRow` (`0044dc44`) from the same two facts: whether a pilot is selected, and which of the two picks the armed order wants.
 
+**The pick.** `HddCommandScreen_Update` (`0044c960`) hands a map click to `HddCommandScreen_PickTarget` (`0044d6b8`) when a pilot is selected and the armed order wants a pick — `+0x103`, which `HddCommandScreen_SelectOrder` (`0044d9cc`) sets for orders 11-14 — and to `HddCommandScreen_PickPilot` (`0044d804`) otherwise. ATTACK ENEMY takes the marker under the click when its group's side byte is 1, and DEFEND POSITION when it is 0. DEFEND POSITION on anything else takes the gridpoint, as PATROL GRIDPOINT and GOTO GRIDPOINT always do; ATTACK ENEMY on anything else takes nothing. A pick sets the ready flag `+0x104` that XMIT tests, and a unit pick also stores the unit at `+0x15c`. Arming any order clears `+0x104` for the four that want a pick and sets it for the other four, and leaves `+0x15c` alone: only `HddCommandScreen_SelectPilot` (`0044da70`), changing pilot with an order armed, and `HddCommandScreen_CancelTransmission` (`0044dbe8`) clear it.
+
 **The rest of the keyboard**, from the same scancode dispatch:
 
 | Key | Scancode | Effect |
 |---|---|---|
 | `,` `.` | `0x33` `0x34` | Previous / next order, wrapping; both return at once with no order armed |
-| Tab | `0x0f` | Cycles the eligible unit for ATTACK ENEMY or DEFEND POSITION |
-| Enter | `0x1c` | Drops the map cursor on the armed order's pick |
+| Tab | `0x0f` | With an order armed that wants a pick: steps `+0x15c` to the next eligible unit, hostile for ATTACK ENEMY and friendly for DEFEND POSITION, and makes it the pick. With PATROL GRIDPOINT or GOTO GRIDPOINT armed it does not step, and still makes whatever `+0x15c` holds the pick |
+| Enter | `0x1c` | With an order armed that wants a pick: a map click on the `+0x15c` unit's projected position for ATTACK ENEMY and DEFEND POSITION, and otherwise under the pointer — for DEFEND POSITION, PATROL GRIDPOINT and GOTO GRIDPOINT; ATTACK ENEMY with no unit does nothing |
 | X | `0x2d` | Presses XMIT |
 | Backspace | `0x0e` | Presses CANCEL |
 | Keypad 5 | `0x4c` | Zeroes both pan offsets |
 
-The magnifiers and the four arrows are widget presses rather than keys: `HddDisplay_HandleWidgetPress` (`0044a178`)'s cases 2-7 route them to the four pan functions and the two zoom functions on page 0 and to the damage screen's own subject and category steps on page 1. XMIT plays `Sound_Play(0x1a)` when the transmission resolves to a recipient and `0x1b` when it does not.
+Tab's step is `HddCommandScreen_CycleUnit` (`0044ef08`): from the unit after `+0x15c` in the live object list when that unit is of the side wanted, from the list's head otherwise, wrapping, to the first that `HddCommandScreen_IsEligibleUnit` (`0044f014`) passes — of that side, not destroyed (`+0x99`), with `+0x98` set (every constructor sets it to 1), on the map's viewport (`HddCommandScreen_IsOnMap`, `0044f09c`), and, for a hostile, known to the player's machine (`Ai_KnowsObject`). An object leaves the list when it is deleted: the deleting destructors of VEHICLE, BASE, GUN_BASE and RADAR_BASE (`GroundVehicle_Dtor`, `Base_Dtor`, `Base_ArmedDtor`, `Base_RadarDtor`, `00406d05`-`00406df3`) end, on flags bit 0, with `ObjList_SwapRemove` (`00411e1c`), which moves the list's last entry into the object's slot.
+
+The magnifiers and the four arrows are widget presses rather than keys: `HddDisplay_HandleWidgetPress` (`0044a178`)'s cases 2-7 route them to the four pan functions and the two zoom functions on page 0 and to the damage screen's own subject and category steps on page 1. What the page sounds — [Tab]'s found/not-found pair, the map pick's blip, and XMIT's plain click — is [`audio.md`](audio.md#sounds-a-cockpit-control-makes)'s.
 
 ## Damage detail — page 1
 
@@ -404,6 +408,12 @@ Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. 
 ### Who is in it
 
 The machine's own pilot index — the leading field of its `player.mec` record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by `DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for the box's name, takes `index / 3` (`Pilot_PortraitOf`, `00434240`) as the portrait bank `dba\PILOT<n>.DBA` + `ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`Pilot_VoiceBankOf`, `00434260`) as the voice bank ([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are indexed by the same number.
+
+### Selecting a pilot
+
+A comm box is an `HDDSelectGadget`. Its `OnClick` (`HddButton_OnClick`, `0044be50`) flips the widget's selection flag `+0x40` before it forwards the click, then repaints the widget and sounds the click. `HddDisplay_HandleWidgetPress` (`0044a178`)'s cases 10-12, which the `1`-`3` keys reach by pressing the same widgets ([`cockpit-input.md`](cockpit-input.md#the-press-flash)), switch to page 0 from the damage detail and call `HddDisplay_SelectPilot` only when the slot is not the one already selected, holds a machine, and that machine's `+0x99` is clear. A click on a squadmate's map marker selects through `HddCommandScreen_PickPilot` (`0044d804`), which has no same-slot test. `HddDisplay_SelectPilot` clears the previous box's flag and sets the new one's, records the previous slot at `+0x52b` and the new one at `+0x517`, has the new pilot say `0x22` `STANDING BY...` ([`cockpit-messages.md`](cockpit-messages.md#what-each-id-says)), and hands the slot to `HddCommandScreen_SelectPilot` (`0044da70`). XMIT and CANCEL select -1.
+
+**A click on the selected box keeps the selection.** The same-slot test turns it away after the flip has happened, so the box's flag reads unselected while its pilot stays selected, until the next click on it flips it back or the next selection writes it. The box paints from that flag: `HddButton_Paint` (`0044bb38`), in highlight mode 1, fills the marker of the current slot (`+0x517`) in the selected colour while the flag is set, and the marker of the previous slot (`+0x52b`) in the deselected colour while it is clear ([Colours](#colours)). So the out-of-step box repaints the previous pilot's marker, already deselected, and not its own pilot's ([Open](#open)).
 
 ### The gauge
 
@@ -507,11 +517,13 @@ Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip
 
 ## Open
 
+- **Open:** whether Tab can hang. `HddCommandScreen_CycleUnit` has no exit when `+0x15c` is of the side wanted and no longer on the live object list, which a deleted unit is not; whether anything deletes a unit while `+0x15c` holds it has not been checked.
 - **Open:** what reaches `HddDamageScreen_PageDown` (`00450c18`) and `HddDamageScreen_PageUp` (`00450c38`). They page the damage row offset forward and back by 13, the first only while a row remains past the current window and the second never below 0, but `es2_xref.py` finds no branch, stored pointer or vtable slot holding either, while the two category steps beside them, `HddDamageScreen_NextView` and `_PrevView`, are reached from `HddDisplay_HandleWidgetPress`. Until something does, the offset stays 0.
 - **Open:** how retail's 640-wide mode finds `static`. `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes; `pilot<n>` names its folder outright, but `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
 - **Open:** what the `DAT_0049d1f6` lookup table is for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, and `es2_fieldscan.py` over the display's code (`00448c00`-`0044c264`) finds no other writer, so no path found takes the table branch.
 - **Open:** `.GAU` block indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
 - **Open:** what the comm box's [sixth label](#the-unfilled-sixth-label) was for. `es2_fieldscan.py` finds `+0x141` only in `HddGauge_LoadPilotFrames`, which builds it; its corner position, red font and yellow background would suit the slot number the manual's `[1]`-`[3]` keys select, but nothing in the image says so.
+- **Open:** what a comm box whose flag is [out of step with the selection](#selecting-a-pilot) shows. Its repaint leaves its own pilot's marker as last drawn; whether a later paint erases that marker, leaving no box lit while a pilot is selected, has not been traced or checked in retail.
 - **Open:** the comm-box highlight mode's 0 branch, which fills the box rect rather than the marker. Retail data never selects it.
 - **Open:** what consumes `ICONS.HBA` frames 0-1 and the ninth frame of every rotation group. The display addresses none of them — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.
 - **Open:** whether anything writes state 2 into the command display's map gadget. `es2_fieldscan.py 39` over the HDD code finds its pointer read only by the four functions named in [The two click regions](#the-two-click-regions), none of which writes its state. Outside `HddDisplay_SetPage` and `HddCommandScreen_Hide`, every immediate store of 2 to a widget's `+0x1b` in the image is in another panel's code: `00440d4c`-`00441f4e` (the weapon gauges and console buttons), `MfdDisplay_SetMode`, `Widget_Hide`, `PreferencesPanel_Run` and `ControlsPanel_Run`.

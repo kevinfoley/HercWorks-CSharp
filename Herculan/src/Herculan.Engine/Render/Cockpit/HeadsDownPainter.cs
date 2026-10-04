@@ -423,10 +423,14 @@ public sealed class HeadsDownPainter {
 			bool selected = command.SelectedOrder == (HddOrder)i && !dark;
 
 			// The selected row gets the plate behind its text and a two-pixel bar at the column's own
-			// left edge, three device pixels down from the row's top.
+			// left edge, three device pixels down from the row's top. XMIT's paint redraws the plate a
+			// frame on while XMIT shows pressed.
 			if (selected) {
+				int plate = state.ShowsPressed(CockpitWidgetId.Hdd(HddLayout.Widget.Transmit))
+					? HddLayout.OrderHighlightFrame + 1
+					: HddLayout.OrderHighlightFrame;
 				blit(HddLayout.Bank,
-					available ? HddLayout.OrderHighlightFrame : HddLayout.OrderHighlightUnavailableFrame,
+					available ? plate : HddLayout.OrderHighlightUnavailableFrame,
 					row.X0, row.Y0);
 
 				if (hud.LogicalColor(HddLayout.SelectedOrderBarColorId) is { } barColor) {

@@ -132,7 +132,7 @@ sealed class SimulatorHost : IDisposable {
 
 		_windowKeys = new WindowKeys(_window, _input, _tape, _menuBar, start.InstallRoot, start.Disc);
 		_commands = new CockpitCommands(_displays, _view, _scene, _audio, _windowKeys, _tape);
-		_pilot = new PilotControls(start, _view, _displays, _tape, _recording, _developerKeys, staging.Options);
+		_pilot = new PilotControls(start, _view, _displays, _commands, _tape, _recording, _developerKeys, staging.Options);
 		_keyboard = new CockpitKeyboard(_displays, _view, _commands, _scene, _audio);
 		_readouts = new CockpitReadouts(_displays, _view, _commands, _scene, _audio);
 		_stepper = new SimulationStepper(_scene.World, _tape, _recording, _panels, _outcome, _developerKeys, _view,
@@ -299,7 +299,10 @@ sealed class SimulatorHost : IDisposable {
 
 		_view.ReadOrbitDrag(_input.Mouse, _input.ImGuiWantsMouse);
 		_pilot.Update(controls, _panels.AnyOpen, liveFreeKeys);
-		_keyboard.Read(controls, _panels.AnyOpen, pilotInput: _view.Piloting || _tape.Playing);
+		var keyPointer = _input.Pointer();
+		var keyFramebuffer = _window.FramebufferSize;
+		_keyboard.Read(controls, _panels.AnyOpen, pilotInput: _view.Piloting || _tape.Playing,
+			(keyPointer.X, keyPointer.Y), keyFramebuffer.X, keyFramebuffer.Y);
 
 		ReadPointer(deltaSeconds);
 
@@ -391,6 +394,20 @@ sealed class SimulatorHost : IDisposable {
 			_displays.Hud = _displays.Hud with { PressedWidget = null };
 		} else if (_art != null && !_view.ExternalViewActive && (_tape.Playing || !_input.ImGuiWantsMouse)) {
 			_commands.DrainClicks(_input.Cockpit, deltaSeconds, framebuffer.X, framebuffer.Y);
+		}
+
+		// WidgetRoot_ServicePressFlashes runs at the end of the cockpit's own per-frame widget pass, which
+		// neither a modal panel's loop nor the external view reaches. A flash ending lets the button up even
+		// under a held pointer.
+		if (!_panels.AnyOpen && _art != null && !_view.ExternalViewActive) {
+			foreach (var popped in _displays.PressFlashes.Service(_audio.CoarseTicks)) {
+				_input.Cockpit.PopUp(popped);
+			}
+
+			_displays.Hud = _displays.Hud with {
+				PressedWidget = _input.Cockpit.Depressed,
+				FlashingWidgets = _displays.PressFlashes.Lit,
+			};
 		}
 
 		// The system buttons show by the pointer's row, decided where Sim_RenderFrame ends, which no frame

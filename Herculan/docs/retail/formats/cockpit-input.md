@@ -48,7 +48,7 @@ This `{enabled, eventMask, callback}` triple-array shape is not unique to mouse 
 
 - Registers `CockpitMouse_OnEvent` (`00452cb4`) via `MouseListener_Register` with mask **`0x1e`** — bits 1-4 (button down/up on both buttons). Bit 0, plain movement, is deliberately excluded.
 - Allocates a double-buffered event queue: two 100-capacity vectors, swapped each frame by `CockpitMouse_ProcessQueue`.
-- Sets `DAT_004d1e70 = 0x1e` — a **click-vs-drag timing gate**, in coarse UI ticks (~16ms each, so ~480ms). This is the same numeric literal as the event mask above but a wholly unrelated field; don't conflate them when reading the disassembly.
+- Sets `CockpitMouse_DoubleClickTicks` (`004d1e70`) to `0x1e` — the **double-click window**, in coarse UI ticks (16ms each, so 480ms; §4). This is the same numeric literal as the event mask above but a wholly unrelated field; don't conflate them when reading the disassembly.
 
 `CockpitMouse_OnEvent` doesn't process the click, and drops it entirely unless `CockpitMouseLive` (`004d1e5a`) is set — the gate that hands the queue over to a replaying tape ([`tap-input-tape.md`](tap-input-tape.md#where-it-runs)). Otherwise it pushes a 14-byte record `{int32 x, int32 y, uint16 buttonMask, int32 timestamp}` onto the back-buffer queue via `CockpitMouseQueue_Push` (`00453034`, capped at 99 entries), debounced to at most once per coarse tick. It also calls `Cursor_SyncPosition` (`00486d70`) immediately, independent of the queue, so the drawn pointer tracks the raw event position without waiting for the frame drain (§7).
 
@@ -58,7 +58,9 @@ This `{enabled, eventMask, callback}` triple-array shape is not unique to mouse 
 
 - **Position changed:** hit-tests via `Widget_HitTestChildren`. If a widget is mouse-captured (dragging), forwards the new position straight to its drag-move vtable slot instead of re-hit-testing. Otherwise calls `Widget_TrackPressedWidget`, which keeps the *held* widget's depressed look in sync with the pointer — see §7. It is not a hover mechanism: **DBSIM has no hover state**.
 - **Button-down edge** (bit set now, wasn't last record): calls `Widget_OnMouseDown`.
-- **Button-up edge** (bit clear now, was set): only if the release lands within `DAT_004d1e70` ticks of the press — the click-vs-drag gate — calls `Widget_OnMouseUp`. If a drag was in progress instead, ends the capture and fires the captured widget's `GetValue`/`OnClick` pair directly rather than going through `Widget_OnMouseUp`.
+- **Button-up edge** (bit clear now, was set): sets the double-click flag (below), then calls `Widget_OnMouseUp`, however long the button was held. If a drag was in progress instead, ends the capture and fires the captured widget's `GetValue`/`OnClick` pair directly rather than going through `Widget_OnMouseUp`.
+
+**The double-click flag.** `CockpitMouse_DoubleClick` (`0049dbe0`) is cleared at the top of every record and set on a release edge whose timestamp is less than `CockpitMouse_DoubleClickTicks` after that button's previous release — `0049dbe4` for the left button, `0049dbe8` for the right — which the release then replaces. The previous release can have landed anywhere, on another widget or none. It stands from that record until the next one drains, so it is still set for any press dispatched in between, a key's included. Three functions read it: `MfdFlashComm_HandleListClick` and `HddCommandScreen_QueueListClick` (`0044d3a4`), whose list shortcut to XMIT takes a double-click ([`mfd.md`](mfd.md#keyboard), [`heads-down-display.md`](heads-down-display.md#the-two-click-regions)), and `MfdButton_OnClick`, whose XMIT case returns without transmitting while it is set ([`mfd.md`](mfd.md#keyboard)).
 
 ## 5. One flat hit-test registry for the whole cockpit
 
@@ -307,6 +309,30 @@ The `0x400` bank is fixed by the manual: `0x410` raises the `EXIT EARTHSIEGE?` p
 
 That same function records and replays both queues to a `.TAP` input tape — the mouse queue of §3 and this command queue are the two halves of a frame's record. See [`tap-input-tape.md`](tap-input-tape.md).
 
+### The press flash
+
+`Widget_PressChild` (`00438d9c`) is how a key reaches a button. Unless the child is in state 2 it calls the child's `+8` with the flags it was given, then `WidgetRoot_FlashPress` (`00453078`) on the cockpit's root, which appends `{widget, Time_GetCoarseTicks() + 10}` to the root's list at `+0x356`: eight 8-byte entries, the count at `+0x396`, and no bound check. `WidgetRoot_ServicePressFlashes` (`004530b8`) walks the list near the end of `CockpitView_PerFrameUpdate`'s widget pass, which runs only with the widgets on and which no modal loop reaches. Before an entry's deadline it puts the widget in state 1, if it is not already, and invalidates it; at or after the deadline it puts state 0, invalidates it and drops the entry.
+
+So a button pressed for the player shows pressed for 10 coarse ticks, 160 ms, in the classes that paint from the state byte: the MFD's momentary buttons 7-10 and the FLASH COMM row plate under XMIT ([`mfd.md`](mfd.md#two-button-classes)), CHAIN and LINK ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#arming-chaining-and-linking)), and the Heads-Down Display's arrows, magnifiers, XMIT and CANCEL, with the armed order's plate under XMIT ([`heads-down-display.md`](heads-down-display.md#the-order-list-and-its-state-machine)). The rest are flashed too and draw nothing from it: the latching MFD buttons (`MfdButton_Repaint`) and the HDD's page buttons and comm boxes (`HddButton_Paint`) paint from their `+0x40` flag, a weapon row (`WeaponSelectGadget_Paint`) from its gauge, and a shield facing's paint (`ShieldFacing_Paint`) only tests its visibility. A mouse click does not flash: `Widget_OnMouseUp` calls `+8` itself. Expiry writes 0 whatever wrote the 1, so a button the pointer is holding pops up when a flash on it ends, until `Widget_TrackPressedWidget` next finds the pointer on it.
+
+The cockpit's presses:
+
+| Caller | Presses |
+|---|---|
+| `CockpitWidgets_HandleCommand` (`00432bc8`) | `1`-`0`: that row's select gadget, outside the heads-down view. `F1`-`F6`: MFD buttons 0-5. `F7`, `F8`: HDD buttons 0-1. `Enter`: TARGET (9) on the scanner, SELECT (7) on TARGET STATUS, outside the heads-down view |
+| `ConsoleButtons_HandleCommand` (`004421a0`) | `L` (`0x26`): LINK. `` ` `` (`0x29`): CHAIN. The keys reach it through the widget tree, so not in the heads-down view; the joystick's `LINK WEAPON` and `NEXT CHAIN` call it directly ([`joystick-input.md`](joystick-input.md#the-buttons)) |
+| `Mech_HandleCommand` (`004157c8`) | `[`, `]`: a shield facing (§8) |
+| `MfdDisplay_KeyDispatch` (`004469c0`) | `D`: SELECT. `X`: XMIT. `Alt+R`: RANGE. `Alt+T`: TARGET. Each only on a screen that shows it |
+| `HddDisplay_KeyDispatch` (`00449fcc`) | The arrows: buttons 2-5. `-` and keypad `-`: 6. `=` and keypad `+`: 7. `1`-`3`: the comm boxes 10-12 |
+| `HddCommandScreen_KeyDispatch` (`0044cc40`) | `Backspace`: CANCEL (14). `X`: XMIT (13) |
+| `MfdFlashComm_HandleListClick`, `HddCommandScreen_HandleListClick` | XMIT, for a double-click (§4) on the row or order already selected |
+| `MfdDisplay_SetMode` (`00446e38`) | PASS or ACTIVE, whichever matches the radar mode, on changing to the scanner |
+| `MfdRadarScreen_Update` | The same pair, when the radar mode changes behind the display |
+
+`MfdDisplay_SetMode` hides a button 6-12 that the new screen does not show only while its state is 0, so one that is held or flashing when the screen changes keeps its state, and the release or the flash's end then writes 0 — visible and hit-testable — see [Open](#open).
+
+The alert panels have roots of their own: `AlertPanel_PressWidget` (`00454dcc`) and `ControlsPanel_HandleEvent` flash a panel's widget on the panel's root at `+0x285`, which `AlertPanel_Present` and `PreferencesPanel_Present` service.
+
 ## 8. Worked example: the shield-balance rocker
 
 Traced end to end, as a concrete check of the whole pipeline above:
@@ -317,7 +343,7 @@ Traced end to end, as a concrete check of the whole pipeline above:
 4. `Shield_BalanceInputRead` (`00413bc8`, called once per frame from `Player_PerFrameCockpitUpdate` — gameplay, not paint) reads those same two bytes (part of a 15-byte block starting at `+0xb5`, accessed via `ShieldsGauge_GetStateBlock`), calls `Shield_BalanceAdjust` (±102 of 1024, clamped) accordingly, clears the flags, recomputes front/rear percentages, and writes the block back via `ShieldsGauge_SetStateBlock` (`00443858`) — which also sets a dirty flag (`+0xb0=2`) if the values changed.
 5. `ShieldsGauge_Update` (`00443748`, the per-frame HUD-paint-pass slot, separate from the click pipeline) checks that dirty flag and, if set, refreshes the ring palette and readouts.
 
-**The `[` and `]` keys join at step 2, not at step 4.** `Mech_HandleCommand` (`004157c8`) answers scancodes `0x1a`/`0x1b` with a single `Widget_PressChild(CockpitViewInstance+0x1e9, key != 0x1b, 1)` — the shield gauge, child 1 for `[` and child 0 for `]`, with the left-button bit as the flags. That dispatches the facing's own press slot, which is `Widget_ForwardClickToOwner` again. So the key and the click are one code path from step 2 onward: same flag byte, same click sound, and the same ~10-coarse-tick auto-release (`WidgetRoot_FlashPress`, `00453078`) that pops the widget back up afterwards. Nothing in the image calls `Shield_BalanceAdjust` except `Shield_BalanceInputRead`, and nothing writes `+0xc2`/`+0xc3` except `ShieldsGauge_OnClick`.
+**The `[` and `]` keys join at step 2, not at step 4.** `Mech_HandleCommand` (`004157c8`) answers scancodes `0x1a`/`0x1b` with a single `Widget_PressChild(CockpitViewInstance+0x1e9, key != 0x1b, 1)` — the shield gauge, child 1 for `[` and child 0 for `]`, with the left-button bit as the flags. That dispatches the facing's own press slot, which is `Widget_ForwardClickToOwner` again. So the key and the click are one code path from step 2 onward: same flag byte and same click sound. The key also [flashes](#the-press-flash) the facing, which draws nothing from it. Nothing in the image calls `Shield_BalanceAdjust` except `Shield_BalanceInputRead`, and nothing writes `+0xc2`/`+0xc3` except `ShieldsGauge_OnClick`.
 
 RAZOR is the exception on the key side only: `Mech_HandleCommand` is a mech vtable slot and the flyer class installs a stub there (`Flyer_HandleCommandNoOp`, `004215c0`), so the brackets do nothing in a RAZOR — but its facings are still built and still take clicks, over what is an altimeter rather than a shield meter in that cockpit (see [`herc-catalogs.md`](herc-catalogs.md)).
 
@@ -398,10 +424,13 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 | `Mouse_DispatchEvent` | `0048083c` | Rescales + fans out to mouse listeners |
 | `Mouse_RecomputeScale` | `0048078c` | Client-to-game coordinate factor, recomputed on resize |
 | `MouseListener_Register` / `_Unregister` | `0048073c` / `00480774` | 10-slot mouse-event subscriber table |
-| `CockpitMouse_Init` | `00452abc` | Registers the cockpit's one listener, sets up the event queue and timing gate |
+| `CockpitMouse_Init` | `00452abc` | Registers the cockpit's one listener, sets up the event queue and the double-click window |
 | `CockpitMouse_OnEvent` | `00452cb4` | The listener callback; queues, syncs cursor position |
 | `CockpitMouseQueue_Push` | `00453034` | Appends one event record to the back buffer |
-| `CockpitMouse_ProcessQueue` | `00452d18` | Once-per-frame drain: press/release/drag logic |
+| `CockpitMouse_ProcessQueue` | `00452d18` | Once-per-frame drain: press/release/drag logic and the double-click flag |
+| `CockpitMouse_DoubleClick` | `0049dbe0` | Byte, set by a release inside the window after that button's previous release, cleared by the next record |
+| `CockpitMouse_LastLeftRelease` / `_LastRightRelease` | `0049dbe4` / `0049dbe8` | Each button's previous release timestamp |
+| `CockpitMouse_DoubleClickTicks` | `004d1e70` | The double-click window, `0x1e` coarse ticks |
 | `Widget_HitTest` | `00452388` | Rect or circular/diamond point test |
 | `SliderWidget_CtorBase` | `004524a8` | Shared slider base; the only ctor that sets the `+0x1d` drag-capture flag |
 | `SliderWidget_DragToPointV` | `004525d8` | Vertical drag: clamps the pointer into the track, puts the knob bottom there |
@@ -444,7 +473,9 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 | `Mech_HandleCommand` | `004157c8` | Mech vtable +0x2c; offers the code to the weapon manager before handling it itself |
 | `CockpitWidgets_HandleCommand` | `00432bc8` | The widget tree's command handler; codes 0x02-0x0b press the ten weapon gauges |
 | `ConsoleButtons_HandleCommand` | `004421a0` | Console panel's command slot: 0x26 (L) presses LINK, 0x29 (`) presses the chain button |
-| `Widget_PressChild` | `00438d9c` | Dispatches a child's press slot as if clicked — how a key reaches a button |
+| `Widget_PressChild` | `00438d9c` | Dispatches a child's press slot as if clicked, then flashes it — how a key reaches a button |
+| `WidgetRoot_FlashPress` | `00453078` | Queues a widget on the root's press-flash list, 10 coarse ticks ahead |
+| `WidgetRoot_ServicePressFlashes` | `004530b8` | Holds each queued widget in state 1 until its deadline, then puts it to 0 |
 | `CockpitView_BuildScrollTriggers` | `00433770` | Builds the three screen-edge view strips, once, on the first cockpit frame |
 | `ScrollTrigger_OnClick` | `00434df0` | The strip's whole behaviour: hands itself and its owner to the handler below |
 | `CockpitView_HandleEdgeTrigger` | `00433a88` | Which view command a strip queues, by which strip and the current view |
@@ -475,7 +506,8 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 
 ## Open
 
-- **Unported:** the press flash. `WidgetRoot_FlashPress` (`00453078`) queues the widget a key or click pressed with a deadline 10 coarse ticks ahead, and `WidgetRoot_ServicePressFlashes` shows it pressed until then; `Widget_PressChild`, `AlertPanel_PressWidget` and `ControlsPanel_HandleEvent` queue it. A button pressed from the keyboard does not flash.
+- **Unported:** the [press flash](#the-press-flash) in the alert panels. A widget a key presses there shows pressed only while the pointer holds it.
+- **Open:** whether a button that `MfdDisplay_SetMode` leaves unhidden ([The press flash](#the-press-flash)) shows on the new screen in retail, or something else hides it before the next screen change.
 - **Open:** whether the system buttons show and take clicks in the external view. `SystemButtons_PaintForPointer` runs at the end of every `Sim_RenderFrame` and `CockpitMouse_ProcessQueue` from every `Input_BuildPlayerDevice`, neither gated on view 4, but where view 4's canvas context puts a blit has not been traced.
 - **Open:** whether anything draws the `.DCI` cursor slots (§9). A search for the displacements `+0x226`, `+0x236` and `+0x23a` finds only the cursor-slot functions and `ColorSchemePanels_LoadAll`, and the image-change hooks they call are empty in driver 3.
 - **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).

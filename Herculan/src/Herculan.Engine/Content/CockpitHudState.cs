@@ -66,7 +66,7 @@
 /// §7). Transient input state rather than simulation state, and it lives here for the same reason the
 /// rest does: <see cref="CockpitWidgets"/> folds it into each widget's lit flag, so the one place that
 /// decides what a widget looks like stays the one place, and no renderer needs a second parameter
-/// threaded through it.
+/// threaded through it. Read it through <see cref="ShowsPressed"/>.
 /// </param>
 /// <param name="Target">
 /// The front-window target indicator's resolved state, or null when nothing is selected (or the
@@ -149,6 +149,10 @@
 /// What the RAZOR's altitude scale reads this frame, or null when the piloted machine is not a flyer
 /// and the scale does not draw — see <see cref="AltitudeScale"/>.
 /// </param>
+/// <param name="FlashingWidgets">
+/// The buttons a key or another press made for the player is holding down for a moment —
+/// <see cref="Input.CockpitPressFlashes.Lit"/>. Null for none. Read it through <see cref="ShowsPressed"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	int ShieldFront,
@@ -185,7 +189,16 @@ public readonly record struct CockpitHudState(
 	bool ChargeBarsDraggable = false,
 	MfdMissileCamState MissileCam = default,
 	bool MissileCamHolding = false,
-	AltitudeReading? Altitude = null) {
+	AltitudeReading? Altitude = null,
+	IReadOnlyList<CockpitWidgetId>? FlashingWidgets = null) {
+
+	/// <summary>
+	/// Whether <paramref name="id"/> is in its pressed state, the original's state byte <c>+0x1b</c> at 1: held
+	/// under the pointer, or flashing from a press made for the player. Only the buttons whose paint reads that
+	/// byte draw it (docs/retail/formats/cockpit-input.md#the-press-flash).
+	/// </summary>
+	public bool ShowsPressed(CockpitWidgetId id) =>
+		PressedWidget == id || (FlashingWidgets?.Contains(id) ?? false);
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>

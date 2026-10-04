@@ -115,7 +115,7 @@ public static class SquadOrders {
 	/// <para>Whether or not the order is delivered, the slot's machine then has any
 	/// <see cref="StandingByMessage"/> about it withdrawn from the pilot-and-squad port.</para>
 	/// </summary>
-	/// <returns>Whether the order reached a recipient at all — what the XMIT blip is chosen on.</returns>
+	/// <returns>Whether the order reached a recipient at all.</returns>
 	public static bool SendToSlot(SimWorld world, IReadOnlyList<SimObject> squad, int slot,
 			SquadOrderMessage message) {
 		ArgumentNullException.ThrowIfNull(world);

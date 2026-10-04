@@ -135,6 +135,8 @@ public sealed class HddMapView {
 
 	private readonly int _halfWidth;
 	private readonly int _halfHeight;
+	private readonly int _width;
+	private readonly int _height;
 
 	/// <param name="bounds">The mission box — see <see cref="HddMapBounds"/>.</param>
 	/// <param name="viewportWidth">The map viewport's width in device pixels.</param>
@@ -146,6 +148,8 @@ public sealed class HddMapView {
 		// those two back as the viewport's half-extent — the constructor's own arithmetic.
 		_halfWidth = Math.Max(viewportWidth >> 1, 1);
 		_halfHeight = Math.Max(viewportHeight >> 1, 1);
+		_width = viewportWidth;
+		_height = viewportHeight;
 
 		// Fit the whole box: the smaller of the two axes' units-per-pixel, so neither overflows.
 		int byWidth = (bounds.Width >> 1) / _halfWidth << ScaleShift;
@@ -270,6 +274,16 @@ public sealed class HddMapView {
 	/// <summary>Device-pixel y of a world y. World +y is up the screen, hence the negation.</summary>
 	public float ToScreenY(int worldY) =>
 		_halfHeight - (worldY - (long)CentreY) * (1 << ScaleShift) / (float)Scale;
+
+	/// <summary>
+	/// Whether a world point lands inside the viewport, edges included — <c>HddCommandScreen_IsOnMap</c>
+	/// (<c>0044f09c</c>), which projects it the way a marker is placed and tests it against the viewport's rect.
+	/// </summary>
+	public bool OnViewport(Vec3i point) {
+		float x = ToScreenX(point.X);
+		float y = ToScreenY(point.Y);
+		return x >= 0 && x <= _width - 1 && y >= 0 && y <= _height - 1;
+	}
 
 	/// <summary>World x of a device-pixel offset from the viewport's left edge — the inverse, which
 	/// is what turns a click into a gridpoint (<c>HddCommandScreen_HitTestMarker</c> (<c>0044d860</c>)'s first three lines).</summary>

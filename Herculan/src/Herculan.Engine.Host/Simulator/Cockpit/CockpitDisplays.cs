@@ -1,5 +1,6 @@
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
+using Herculan.Engine.Input;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
@@ -14,9 +15,11 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// </summary>
 sealed class CockpitDisplays {
 	private readonly CockpitView _view;
+	private readonly GameAudio _audio;
 
 	public CockpitDisplays(SimulatorStart start, CockpitArt? art, CockpitView view, SimulatorStaging staging) {
 		_view = view;
+		_audio = start.Audio;
 		Art = art;
 		var scene = start.Scene;
 		var squadPlacements = start.SquadPlacements;
@@ -191,6 +194,15 @@ sealed class CockpitDisplays {
 
 	/// <summary>The displays' sensor dropouts, one per display, for the whole mission.</summary>
 	public CockpitDropouts Dropouts { get; } = new();
+
+	/// <summary>The buttons a press made for the player holds down for a moment — see <see cref="FlashPress"/>.</summary>
+	public CockpitPressFlashes PressFlashes { get; } = new();
+
+	/// <summary>
+	/// Shows <paramref name="id"/> pressed for the next <see cref="CockpitPressFlashes.FlashTicks"/> coarse ticks,
+	/// as Widget_PressChild (00438d9c) does for every button it presses.
+	/// </summary>
+	public void FlashPress(CockpitWidgetId id) => PressFlashes.Flash(id, _audio.CoarseTicks);
 
 	/// <summary>
 	/// The cockpit powers up the moment the player has a machine — the start-up sequence and, for a flyer, the

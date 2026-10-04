@@ -28,7 +28,7 @@ public static class SoundId {
 	/// <summary><c>start3.wav</c> — the cockpit power-up sequence.</summary>
 	public const int PowerUp = 0x13;
 
-	/// <summary><c>bptslct.wav</c> — target acquired, and the heads-down display's accept blip.</summary>
+	/// <summary><c>bptslct.wav</c> — target acquired, and a unit or gridpoint picked on the command display's map.</summary>
 	public const int TargetSelect = 0x14;
 
 	/// <summary><c>trgloc.wav</c> — the missile lock tone, repeated on its blink cadence while locked.</summary>
@@ -48,11 +48,11 @@ public static class SoundId {
 
 	/// <summary>
 	/// <c>gnract.wav</c> — scanner switched to ACTIVE, from <c>Mech_ToggleRadarMode</c>
-	/// (<c>0041b468</c>). The heads-down display reuses it as its transmit-accepted blip.
+	/// (<c>0041b468</c>). The command display's [Tab] plays it as it makes a held unit the pick.
 	/// </summary>
 	public const int ScannerActive = 0x1a;
 
-	/// <summary><c>gnrdact.wav</c> — scanner switched to PASSIVE, and the display's rejected blip.</summary>
+	/// <summary><c>gnrdact.wav</c> — scanner switched to PASSIVE, and the command display's [Tab] with no unit held.</summary>
 	public const int ScannerPassive = 0x1b;
 
 	/// <summary><c>whitenz.wav</c> — comm static, looped while a comm box has no signal.</summary>

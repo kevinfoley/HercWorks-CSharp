@@ -71,6 +71,8 @@ On the Heads-Down Display's command display:
 | `1`, `2`, `3` | Pick a squadmate, left to right. |
 | `D`, `A`, `F`, `T`, `G`, `O`, `C`, `E` | Pick an order. |
 | `,`, `.` | Step through the orders. |
+| `Tab` | For ATTACK ENEMY or DEFEND POSITION, pick the next unit on the map it can take: a hostile you know of, or a friendly. |
+| `Enter` | **(not in the manual)** Make the order's pick as a click would: on the unit last picked for ATTACK ENEMY or DEFEND POSITION, otherwise under the pointer. |
 | `+`, `-` | Zoom the map. |
 | Arrows | Scroll the map. |
 | Keypad `5` | Put the map back on your HERC. |

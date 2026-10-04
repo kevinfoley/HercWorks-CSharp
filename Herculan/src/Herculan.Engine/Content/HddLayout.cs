@@ -235,8 +235,10 @@ public sealed class HddLayout {
 
 	/// <summary>
 	/// <c>hba\HDD.HBA</c> frame of the 116x18 plate drawn behind the order the pointer has armed.
-	/// <c>HddCommandScreen_DrawOrderHighlight</c> blits this plus the highlight state, or frame 4 for
-	/// an order that cannot be taken.
+	/// <c>HddCommandScreen_DrawOrderHighlight</c> (<c>0044dd4c</c>) blits this plus the state it is handed, or
+	/// frame 4 for an order that cannot be taken. <c>HddButton_Paint</c> (<c>0044bb38</c>) hands it XMIT's press
+	/// byte through <c>HddCommandScreen_RedrawOrderHighlight</c> (<c>0044ddc8</c>), so the plate is frame 3
+	/// while XMIT shows pressed; the order list's own refresh hands it 0.
 	/// </summary>
 	public const int OrderHighlightFrame = 2;
 

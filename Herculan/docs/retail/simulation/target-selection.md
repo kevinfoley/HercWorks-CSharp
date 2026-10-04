@@ -78,10 +78,10 @@ A terrain ray between the two objects' aim nodes (`+0x1c` of the vtable `+0x24` 
 
 `mech+0x96` is PASSIVE/ACTIVE. The player has two switches, and they are not the same code:
 
-- **[R]** is `Mech_ToggleRadarMode` (`0041b468`), whose one caller is `CockpitWidgets_HandleCommand`. It flips the field only when `obj+0xa3` is set, then posts the radar-mode message and plays the mode tone ([`cockpit-messages.md`](../formats/cockpit-messages.md), [`audio.md`](../formats/audio.md)).
+- **[R]** is `Mech_ToggleRadarMode` (`0041b468`), called from `CockpitWidgets_HandleCommand` ([Open](#open)). It flips the field only when `obj+0xa3` is set, then posts the radar-mode message and plays the mode tone ([`cockpit-messages.md`](../formats/cockpit-messages.md), [`audio.md`](../formats/audio.md)).
 - **The F4 scanner's PASS and ACTIVE buttons** are `MfdButton_OnClick` (`0044681c`), which *sets* the field to 0 or 1 on the viewed machine (`view+0x203`) directly — no `obj+0xa3` test, no message, no tone. See [`mfd-scanner.md`](../formats/mfd-scanner.md#buttons).
 
-**A HERC powers up passive**: no constructor writes the field. `Base_Construct` latches it on for structure types 5, 6, `0x1d`, `0x1e` — the radar masts. An AI machine's radar is set by the writers [below](#how-an-ai-machines-radar-is-set); an anti-radiation hit and destruction clear it.
+**The player's HERC starts each mission passive** in retail ([Open](#open)). `Base_Construct` latches it on for structure types 5, 6, `0x1d`, `0x1e` — the radar masts. An AI machine's radar is set by the writers [below](#how-an-ai-machines-radar-is-set); an anti-radiation hit and destruction clear it.
 
 This matters for what the player can target. Passive, targeting depends on visual contacts and reaches the 60000-unit contact range, about 360 m; active, it reaches the 200000-unit radar range (1200 m) as far as terrain gives line of sight — a stock-mission hostile at 831 m is targetable that way. A distant enemy is usually targetable because *its own* radar is on: `Mech_AiCombatReassess` switches an AI machine to ACTIVE the moment it enters a fight and a squadmate of the player's back to PASSIVE.
 
@@ -191,3 +191,8 @@ The Targeting Pod is the only pod that caches its damage, and a pristine pod's c
 | `mech+0x96` is a weapons-free flag, and `Ai_UpdateWeaponsFree` is the AI's trigger gate | It is the radar mode. `Rocket_HomingSteer` homes an ARM on it, `Mech_DirectFireHitTest` clears it on an ARM hit, and the detection sweep reads it as the scanner. Nothing in the fire path consults it; the mission-file field feeding it is the mission's radar setting, not a rule of engagement. The Ghidra symbol keeps the misleading name — see [How an AI machine's radar is set](#how-an-ai-machines-radar-is-set) |
 | The player's selection is never dropped: the death path `Mech_AiSelectBehaviour` (`0041eb34`) and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) both run only for AI machines, and a text search for writes to `+ 0x210)` finds only the three selection commands | `CockpitView_PerFrameUpdate` clears it, written by the decompiler as `param_1[0x84] = 0` — `0x84 * 4 = 0x210` — so an offset search misses it. See [Losing the selection](#losing-the-selection--cockpitview_perframeupdate) |
 | Structures sight from the literal 500 because they install the `return 0` stub at vtable `+0x24` | That stub (`00411a9c`) is the flyer's and the base class's; all five structure vtables install `Base_GetAimNodeTransform` (`00403548`). See [Aim point](#aim-point--vtable-0x24) |
+
+## Open
+
+- **Open:** other callers of `Mech_ToggleRadarMode` (`0041b468`). `es2_xref.py` finds one rel32 call, from `CockpitWidgets_HandleCommand`, and no stored pointer or vtable slot.
+- **Open:** (Deferred) a writer of `mech+0x96` at construction. `es2_fieldscan.py 96 --writes-only` finds none in a machine constructor; a wider store over `+0x93`-`+0x95`, a bulk copy or an alias the scan cannot resolve would escape it. The player's machine starting passive is the retail behaviour either way.

@@ -484,7 +484,7 @@ public static class CockpitWidgets {
 				Y0: rect.Origin.Y * scale,
 				X1: (rect.Origin.X + rect.Size.Width) * scale + scale - 1,
 				Y1: (rect.Origin.Y + rect.Size.Height) * scale + scale - 1,
-				Lit: which == ConsoleButton.Track ? latched : state.PressedWidget == id,
+				Lit: which == ConsoleButton.Track ? latched : state.ShowsPressed(id),
 				Selected: latched);
 		}
 
@@ -585,7 +585,7 @@ public static class CockpitWidgets {
 				Y0: (inset.Y + button.Y0) * scale,
 				X1: (inset.X + button.X1) * scale + scale - 1,
 				Y1: (inset.Y + button.Y1) * scale + scale - 1,
-				Lit: MfdLayout.IsLatching(i) ? selected : state.PressedWidget == id,
+				Lit: MfdLayout.IsLatching(i) ? selected : state.ShowsPressed(id),
 				Selected: selected);
 		}
 	}
@@ -677,7 +677,7 @@ public static class CockpitWidgets {
 			bool selected = commBox ? slot == state.Command.SelectedPilot : widget == litWidget;
 			yield return new CockpitWidget(id, CockpitSurface.HeadsDown,
 				rect.X0, rect.Y0, rect.X1, rect.Y1,
-				Lit: HddLayout.IsLatching(widget) ? selected : state.PressedWidget == id,
+				Lit: HddLayout.IsLatching(widget) ? selected : state.ShowsPressed(id),
 				Selected: selected);
 		}
 	}

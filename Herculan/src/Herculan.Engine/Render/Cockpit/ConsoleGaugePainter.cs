@@ -284,7 +284,7 @@ internal static class ConsoleGaugePainter {
 
 		// Firing chain and LINK light only while held; TRACK latches. ConsoleButton_Paint
 		// (00442c88) takes the first two from the shared press byte and the third from its own flag.
-		bool Held(ConsoleButton which) => state.PressedWidget == CockpitWidgetId.Console(which);
+		bool Held(ConsoleButton which) => state.ShowsPressed(CockpitWidgetId.Console(which));
 
 		Button(new string('I', Math.Clamp(state.ChainGroup + 1, 1, 3)), gau.ChainButton,
 			Held(ConsoleButton.Chain));

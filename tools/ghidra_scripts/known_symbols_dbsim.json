@@ -821,7 +821,13 @@
       "confidence": "high",
       "name": "GroundVehicle_Dtor",
       "description": "VEHICLE vtable +0x08 (00497818): the deleting destructor, (this, flags). Five RTL destructor-count decrements (VEHICLE, GUN_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
-      "source": "DBSIM decompile and disassembly at 00406d05"
+      "source": "DBSIM decompile and disassembly at 00406d05",
+      "verified": {
+        "bytes": "00406d05+87",
+        "sha1": "0bf9ef888de4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00406d5c",
@@ -830,7 +836,13 @@
       "confidence": "high",
       "name": "Base_ArmedDtor",
       "description": "GUN_BASE vtable +0x08 (004978ac): the deleting destructor, (this, flags). Four RTL destructor-count decrements (GUN_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
-      "source": "DBSIM decompile and disassembly at 00406d5c"
+      "source": "DBSIM decompile and disassembly at 00406d5c",
+      "verified": {
+        "bytes": "00406d5c+79",
+        "sha1": "ee132e1f72ff",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00406dab",
@@ -839,7 +851,13 @@
       "confidence": "high",
       "name": "Base_Dtor",
       "description": "BASE vtable +0x08 (00497940): the deleting destructor, (this, flags). Three RTL destructor-count decrements (BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
-      "source": "DBSIM decompile and disassembly at 00406dab"
+      "source": "DBSIM decompile and disassembly at 00406dab",
+      "verified": {
+        "bytes": "00406dab+72",
+        "sha1": "17a43bbb7b99",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00406df3",
@@ -848,7 +866,13 @@
       "confidence": "high",
       "name": "Base_RadarDtor",
       "description": "RADAR_BASE vtable +0x08 (004979d4): the deleting destructor, (this, flags). Four RTL destructor-count decrements (RADAR_BASE, BASE, ACTOR, DET_ANIM_OBJ), AnimObj_Dtor(this, 0), then on flags bit 0 ObjList_SwapRemove(&maybe_GlobalLiveObjectList, this).",
-      "source": "DBSIM decompile and disassembly at 00406df3"
+      "source": "DBSIM decompile and disassembly at 00406df3",
+      "verified": {
+        "bytes": "00406df3+79",
+        "sha1": "248299cd64db",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00406e44",
@@ -3082,8 +3106,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_HandleCommand",
-      "description": "The weapon-mount manager's command handler, called from Mech_HandleCommand. 0x202-0x20b (Alt+1..0) toggle a row's fire-chain membership via WeaponMounts_ToggleChainMember; 0x11 and 0x211 (W, Alt+W) step the armed weapon via WeaponMounts_StepSelection and clear the single-fire flag at manager+0x18; 0x30 advances the fire chain; 0x2c calls WeaponMounts_IdleAllCapacitors; 0xc/0xd/0x4a/0x4e ([-], [=], keypad [-], keypad [+]) reach the armed mount's vtable +0x38, WeaponMount_AdjustPowerLevel. There is no firing case: the trigger is polled, not dispatched -- see WeaponMount_TriggerHeld.",
-      "source": "docs/retail/simulation/weapon-mounts.md"
+      "description": "The weapon-mount manager's command handler (manager, code). Callers found by es2_xref: Mech_HandleCommand, and Sim_PollPlayerInput three times for the joystick's WEAPON TOGGLE, NEXT WEAPON and PREV WEAPON. 0x202-0x20b (Alt+1..0) toggle a row's fire-chain membership via WeaponMounts_ToggleChainMember; 0x11 and 0x211 (W, Alt+W) step the armed weapon +1 or -1 via WeaponMounts_StepSelection and clear the single-fire flag at manager+0x18; 0x30 advances the fire chain at +0x1c, wrapping after 2, through WeaponMounts_SetChain and sets +0x16 to 1; 0x2c calls WeaponMounts_IdleAllCapacitors; 0x0c/0x0d and 0x4a/0x4e ([-], [=], keypad [-], keypad [+]) call the armed mount's (+0x1d, when not negative) vtable +0x38, WeaponMount_AdjustPowerLevel, with whether the code was 0x0d or 0x4e. Returns 1 for those codes and 0 for any other. Its switch has no firing case: the trigger is polled, not dispatched -- see WeaponMount_TriggerHeld.",
+      "source": "docs/retail/simulation/weapon-mounts.md",
+      "verified": {
+        "bytes": "00410f78+308",
+        "sha1": "259d2bb18928",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004110ac",
@@ -3563,8 +3593,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ObjList_SwapRemove",
-      "description": "(list, obj): list->items[obj+0x4b] = list->items[count - 1], then count (the short at list+6) -= 1, where items is the pointer at list+0. It does not rewrite the moved item's own +0x4b. The deleting destructors of ACTOR and everything derived from it call it on maybe_GlobalLiveObjectList in place of Mem_Delete.",
-      "source": "DBSIM decompile and disassembly at 00411e1c"
+      "description": "(list, obj): list->items[obj+0x4b] = list->items[count - 1], then count (the short at list+6) -= 1, where items is the pointer at list+0. It does not rewrite the moved item's own +0x4b. Callers found by es2_xref (nine call sites): the deleting destructors of VEHICLE, GUN_BASE, BASE and RADAR_BASE, which call it on maybe_GlobalLiveObjectList on flags bit 0 in place of freeing the object, SimObject_OperatorDelete, and two sites inside functions the dump bounds at 00426eac and 00406a98.",
+      "source": "DBSIM decompile and disassembly at 00411e1c",
+      "verified": {
+        "bytes": "00411e1c+34",
+        "sha1": "5ffbc8fb4fcd",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00411e40",
@@ -4565,8 +4601,21 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ToggleRadarMode",
-      "description": "The manual's [R]; its one caller is CockpitWidgets_HandleCommand. Flips mech+0x96 between PASSIVE and ACTIVE, gated on +0xa3 so only the locally-piloted machine toggles, then withdraws and posts the radar-mode message (0x2c/0x2d) and plays the mode tone. The F4 scanner's PASS/ACTIVE buttons are not callers: MfdButton_OnClick writes +0x96 directly. A HERC powers up PASSIVE -- no constructor writes +0x96. Base_Construct latches it on for structure types 5, 6, 0x1d and 0x1e, the radar masts.",
-      "source": "docs/retail/simulation/target-selection.md"
+      "description": "The manual's [R]. es2_xref finds one caller, CockpitWidgets_HandleCommand. Flips mech+0x96 between PASSIVE and ACTIVE, gated on +0xa3 so only the locally-piloted machine toggles, then withdraws and posts the radar-mode message (0x2c/0x2d) and plays the mode tone. The F4 scanner's PASS/ACTIVE buttons go through MfdButton_OnClick, which writes +0x96 directly. The player's HERC starts each mission PASSIVE in retail; es2_fieldscan finds no write of +0x96 in a machine constructor. Base_Construct latches it on for structure types 5, 6, 0x1d and 0x1e, the radar masts.",
+      "source": "docs/retail/simulation/target-selection.md",
+      "verified": {
+        "bytes": "0041b468+130",
+        "sha1": "dc6133fcf008",
+        "scope": "body",
+        "via": "decompile",
+        "negatives": [
+          {
+            "claim": "The player's HERC starts each mission PASSIVE",
+            "evidence": "retail",
+            "how": "the user's recollection of retail play: as far as they know, the radar always starts passive"
+          }
+        ]
+      }
     },
     {
       "address": "0041b4ec",
@@ -7166,7 +7215,13 @@
       "name": "Squad_SendOrderToSlot",
       "description": "The [F7] command display's XMIT: addresses one squadmate by comm-box slot out of g_SquadmateMachines, stamps the record's issuer field at +0x02 with the player's machine (view+0x203), and calls that machine's vtable +0x28. Skips an empty slot, the player's own machine and a destroyed pilot; withdraws message 0x22 from the pilot-and-squad port (view+0x207) either way. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10].",
       "source": "docs/retail/simulation/ai-squadmates.md",
-      "signature": "void __cdecl Squad_SendOrderToSlot(int cockpitView, SquadOrderRecord *order, short slot)"
+      "signature": "void __cdecl Squad_SendOrderToSlot(int cockpitView, SquadOrderRecord *order, short slot)",
+      "verified": {
+        "bytes": "00431610+89",
+        "sha1": "b55d57978df9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0043166c",
@@ -7367,8 +7422,14 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitWidgets_HandleCommand",
-      "description": "The cockpit widget tree's command handler. Codes 0x02-0x0b (the number row) index the ten weapon gauges at CockpitViewInstance+0x70 and press each one's select gadget, which is how a number key and a mouse click on a weapon row reach the same handler; F1-F8, the view commands and the shield keys are handled here too, and anything left over is offered to each top-level widget's own command slot.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "(view, code): the cockpit widget tree's command handler. Returns 0 at once while the widgets are off (+0x20f). The view is CockpitViewManager_Published()+0x14. 0x27 (;) clears the selection (TargetSelect_SetObject(view, 0)). 0x0f (Tab) goes to the HDD's (+0x1f9) key slot (+0xc) in view 1, and otherwise steps the cockpit machine's (+0x203) Targeting Pod (+0x30b) with TargetingPod_CycleComponent. 0x01 (Esc) queues view command 0, 1 or 6 from views 0, 1 and 2-3. 0x02-0x0b, outside view 1, take the weapon gauge at +0x70 + (code-2)*4 and, when there is one, CockpitView_ArmWeaponByGauge then Widget_PressChild(gauge, 0, 1). 0x13 (R) runs Mech_ToggleRadarMode. 0x1c (Enter) returns 0 in view 4 and, outside view 1, presses MFD (+0x1ed) child 9 on mode 3, child 7 on mode 4, and runs TargetSelect_Cycle on any other mode. 0x3b-0x40 (F1-F6) press MFD child code-0x3b, then queue view command 1 from view 1 or 6 from views 2-3. 0x41-0x42 (F7, F8) press HDD child code-0x41 and, unless maybe_CockpitLayoutMode is 1, queue view command 0. 0x43 (F9) queues 5 from view 0 or 6 from view 2; 0x44 (F10) 4 from view 0 or 6 from view 3. 0x57 (F11) builds and runs an ObjectivesPanel. 0x220 (Alt+D) runs NavMarker_DropAtPlayer. Any other code goes to MfdFlashComm_HandleAltKey, then in view 1 to the HDD's key slot, and otherwise to the key slots of +0x1d8 (when set), +0x1e1, +0x1e5, +0x1e9, +0x1f1, +0x1f5 and +0x1ed, and of +0x1f9 when maybe_CockpitLayoutMode is 1, stopping at the first that returns nonzero. Returns 1 for a code it handled, 0 otherwise.",
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00432bc8+1385",
+        "sha1": "cd83b9174a8e",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00433134",
@@ -8108,7 +8169,13 @@
       "confidence": "high",
       "name": "MessagePort_Show",
       "description": "Puts the current message up. Swallows a repeat of the same id inside 300 coarse ticks (about 4.8 s), and a swallowed repeat refreshes that window rather than leaving it. Otherwise latches the line, restores the box rect, publishes the scroll origin, repaints, plays an alert tone picked by a switch on the id (0x00/0x13 -> 0x19 strcfail; 0x0c/0x0f/0x10/0x14/0x15 -> 0x18 wrnwoop2; everything else 0x1a gnract -- the switch names fourteen further ids (0x17, 0x19, 0x1d-0x1f, 0x2a-0x2f, 0x34, 0x37, 0x38) that all reach the default arm's tone, and 0x36, whose arm also sets the blink latch +0x4d3), then speaks the line. Message 0x36 TRANSFERRING DATA is armed to blink here.",
-      "source": "docs/retail/formats/audio.md"
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "00436abc+478",
+        "sha1": "642124f48024",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00436cec",
@@ -8390,8 +8457,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_PressChild",
-      "description": "Dispatches one child widget's press slot (+0x17 vtable, +8) as if it had been clicked, then repaints it. This is how a bound key reaches a button: the command handlers call it with the child index rather than duplicating the button's own action.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "(gauge, index, flags): unless the child at gauge+0x18[index] is in state 2, calls its press slot (+0x17 vtable, +8) with flags as if it had been clicked, then queues it on the cockpit root's press flash (WidgetRoot_FlashPress) so it shows pressed for 10 coarse ticks. This is how a bound key reaches a button: CockpitWidgets_HandleCommand, ConsoleButtons_HandleCommand, MfdDisplay_KeyDispatch and HddDisplay_KeyDispatch press their buttons through it rather than duplicating each button's own action, and es2_naming.py callers finds more.",
+      "source": "DBSIM decompile at 00438d9c; docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00438d9c+64",
+        "sha1": "9f8fe68fb918",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00438ddc",
@@ -8419,7 +8492,13 @@
       "confidence": "high",
       "name": "Widget_ClickSound",
       "description": "push 0x11; call Sound_Play. Slot +8 of the secondary (CTLControl subobject) vtable in every button-family gadget class. It is called with the subobject pointer and ignores it, which is why one function serves them all; the slider family replaces it with the empty stub 00439014 and is therefore silent.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00438e2c+13",
+        "sha1": "0d62a69a9548",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00438e3c",
@@ -8428,7 +8507,13 @@
       "confidence": "high",
       "name": "Widget_ForwardClickToOwner",
       "description": "The base OnClick at leaf-widget vtable slot +8, installed by the intermediate class at vtable 0049dee4 and inherited unchanged by the shield facings, the MFD's momentary button class and the HDD buttons. Gated on the left-button bit; calls owner->vtable[0](owner, self, buttonFlags) through the owner pointer the constructor stored at +0x24, then repaints itself and sounds Widget_ClickSound through slot +8 of its second vtable at +0x20.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00438e3c+49",
+        "sha1": "f3d9e9632a99",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00438e70",
@@ -9298,8 +9383,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdFlashCommScreen_DrawRowPlate",
-      "description": "(screen, row, erase): blits the selected-row plate at the top-left of row label row (rows past 6 map to row - 3) from the MFD bitmap bank at 0049cbcc, through VideoMode_BlitBitmap: frame 13 when erase is set, otherwise 11 plus the press byte (+0x1b) of the widget at the MFD's +0x40. 0043f7a4, 0043f878 and MfdButton_SetCaption call it.",
-      "source": "DBSIM decompile at 0043fa34"
+      "description": "(screen, row, erase): blits the selected-row plate at the top-left of row label row (rows past 6 map to row - 3) from the MFD bitmap bank at 0049cbcc, through VideoMode_BlitBitmap: frame 13 when erase is set, otherwise 11 plus the press byte (+0x1b) of the widget at the MFD's +0x40, XMIT. Callers found by es2_xref: MfdFlashCommScreen_Paint, MfdFlashCommScreen_Update (twice) and MfdButton_SetCaption.",
+      "source": "DBSIM decompile at 0043fa34",
+      "verified": {
+        "bytes": "0043fa34+151",
+        "sha1": "a34025d494d1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0043facc",
@@ -9753,7 +9844,13 @@
       "confidence": "high",
       "name": "ConsoleButtons_HandleCommand",
       "description": "The console button panel's command slot: scancode 0x26 (L) presses child 1, the LINK button; 0x29 (backquote) presses child 0, the chain button. The pair of literals is what identifies the whole command-code space as PC set-1 scancodes.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "004421a0+60",
+        "sha1": "ef6b4b4f0c50",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004421dc",
@@ -9888,7 +9985,13 @@
       "confidence": "high",
       "name": "WeaponRangeSelectGadget_OnClick",
       "description": "WeaponRangeSelectGadgetVtable +0x08 (gadget, flags): when flags bit 0 is set, slot 2 of the sub-object at +0x20, then the owner's (+0x24) slot 0 with (owner, gadget, flags). No +0x17 repaint call and no state toggle.",
-      "source": "DBSIM decompile at 00442dc8; es2_xref.py"
+      "source": "DBSIM decompile at 00442dc8; es2_xref.py",
+      "verified": {
+        "bytes": "00442dc8+47",
+        "sha1": "1d7f2288c7d2",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00442df8",
@@ -10085,8 +10188,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ShieldFacing_Paint",
-      "description": "A shield-facing child's Paint slot. Draws no geometry -- only a visibility test (FUN_00431410) -- because the concentric rings retail shows are palette-animated into the herc's own canopy art, not drawn by this widget (see ShieldsGauge_UpdateRingPalette in docs/retail/formats/cockpit-hud-widgets.md).",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "A shield-facing child's Paint slot. Its whole body is a CockpitView_RectCornerVisible call whose result it discards: it draws nothing, because the concentric rings retail shows are palette-animated into the herc's own canopy art, not drawn by this widget (see ShieldsGauge_UpdateRingPalette in docs/retail/formats/cockpit-hud-widgets.md).",
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00444b5c+17",
+        "sha1": "a1bf2a3ad088",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00444b70",
@@ -10095,7 +10204,13 @@
       "confidence": "high",
       "name": "ShieldFacing_FlushDeferredPaint",
       "description": "The shield facing's vtable slot +0xc, the per-frame deferred-paint flush every cockpit widget class implements. Counter at +0x1f: 2 decrements without repainting (a facing has no content to rebuild, its rings being palette-animated), 1 calls Widget_DrawToCockpit and decrements. The counter is set to 2 by Widget_InvalidateDeferred, which Widget_Repaint calls on every press and release.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00444b70+43",
+        "sha1": "471ed3b027f9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00444b9c",
@@ -10220,8 +10335,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdButton_OnClick",
-      "description": "MFD button dispatch: finds the clicked button's index in the +0x18 array, then switches on it. Indices 0-5 call MfdDisplay_SetMode(i) -- this is what makes mode index = F-key - 1. Index 11 (PASS) and 12 (ACTIVE) set the radar-mode flag at CockpitViewInstance+0x203's +0x96 to 0/1 and swap which of the two lights. See docs/retail/formats/mfd.md.",
-      "source": "docs/retail/formats/mfd.md"
+      "description": "MFD button dispatch, the display's slot 0, (display, button): finds the clicked button's index in the +0x18 array (count +0x68) and returns if it is not there, then switches on it. Indices 0-5 call MfdDisplay_SetMode(i) -- this is what makes mode index = F-key - 1. 7 (SELECT) and 9 (TARGET) are one case: MfdDisplay_StepStatusSubject on mode 0, Cockpit_CycleTarget on any other, then the mode's repaint byte (+0xe5 + mode) and 100 into the current screen's +0xc. 8 (RANGE) calls MfdDisplay_CycleScannerRange and sets the repaint byte. 10 (XMIT) returns while CockpitMouse_DoubleClick is set, and otherwise calls MfdFlashComm_Transmit and sets the repaint byte. 11 (PASS) and 12 (ACTIVE) store 0/1 to CockpitViewInstance+0x203's +0x96, light their own button's +0x40 and clear the other's, invalidating both. 6 has no case. See docs/retail/formats/mfd.md.",
+      "source": "docs/retail/formats/mfd.md",
+      "verified": {
+        "bytes": "0044681c+368",
+        "sha1": "db23e7e1033d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004469c0",
@@ -10229,8 +10350,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdDisplay_KeyDispatch",
-      "description": "MFDGauge vtable +0x0c (0049cfa0), (display, key): returns 0 while the display's rect (+0xeb) is off screen. Keys 0x20, 0x2d, 0x213 and 0x214 press children 7, 10, 8 and 9 when the current page's row of the table at 0049cbdf (13 bytes a page) enables them -- 0x213 cycles the scanner range with MfdDisplay_CycleScannerRange where it does not; on page 1, 0x34 and 0x33 run 00447014 and 00447048 and 0x1e/0x22/0x23/0x18/0x12 or 0x2e/0x21 pick rows 0-5 with MfdFlashComm_SelectRow. Returns 1 for a key it handled, 0 otherwise. HddDisplay_KeyDispatch is the Heads-Down Display's.",
-      "source": "DBSIM decompile at 004469c0"
+      "description": "MFDGauge vtable +0x0c (0049cfa0), (display, key): returns 0 while CockpitView_RectCornerVisible says the display's rect (+0xeb) is off screen. 0x20 (D), 0x2d (X) and 0x214 (Alt+T) press children 7, 10 and 9 when the current mode's (+0xc1) row of the button-visibility table shows them (0049cbdf, 0049cbe2, 0049cbe1, 13 bytes a mode); 0x213 (Alt+R) presses child 8 where the row shows it and runs MfdDisplay_CycleScannerRange where it does not. 0x34 and 0x33 (. and ,) run MfdFlashComm_NextAvailableRow or _PrevAvailableRow and set the byte at +0xe5 + mode, on mode 1 only. Those six codes return 1 on any mode. On mode 1, 0x1e, 0x22, 0x23, 0x18, 0x12 or 0x2e, and 0x21 run MfdFlashComm_SelectRow(display, +0xfb, row) for rows 0-5 and return 1. Anything else returns 0.",
+      "source": "DBSIM decompile at 004469c0",
+      "verified": {
+        "bytes": "004469c0+534",
+        "sha1": "d5a7a5f1d273",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00446c10",
@@ -10265,8 +10392,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdDisplay_SetMode",
-      "description": "Switches the MFD to a screen (0-5, = F-key - 1). Lights button `mode` and unlights the previous via their +0x40 flag, stores the mode at +0xc1, then walks the 6x13 visibility table at 0049cbd8 for buttons 6-12 showing/hiding each. Gau_MfdPanelWidget calls it with 3 (SCANNER) at build time, which is what a cockpit powers up on. See docs/retail/formats/mfd.md.",
-      "source": "docs/retail/formats/mfd.md"
+      "description": "(display, mode): switches the MFD to a screen (0-5, = F-key - 1). Returns at once if mode is already the one at +0xc1. Sets the new mode button's +0x40 flag if clear and invalidates it; clears the previous one's (unless the previous mode is -1) and invalidates it; stores the mode; if g_MfdMissileCamMode is not -1, clears g_MfdMissileCamArmed and sets it to -1. For buttons 6-12 it reads the mode's row of the visibility table (0049cbde + mode*13): a button the row hides goes to state 2 only while its state is 0, and one the row shows goes to state 0 only while its state is 2, each invalidated when changed. Then sets the dirty byte +0xb0 to 2; on mode 0 copies the roster entry +0x308[+0x318] to +0xb9, on mode 4 copies the cockpit's selection (CockpitViewInstance+0x210) to +0xb9, and on mode 3 presses PASS (11) or ACTIVE (12) with Widget_PressChild by the cockpit machine's radar byte +0x96. Among the callers found by es2_xref, Gau_MfdPanelWidget passes 3 (SCANNER) at build time, which is what a cockpit powers up on. See docs/retail/formats/mfd.md.",
+      "source": "docs/retail/formats/mfd.md",
+      "verified": {
+        "bytes": "00446e38+333",
+        "sha1": "a8cb511a8480",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00446f88",
@@ -10337,9 +10470,15 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdFlashComm_HandleListClick",
-      "description": "Resolves a click on the MFD's screen area to a FLASH COMM row. Returns at once unless the display is on mode 1, then walks the six row label rects in index order -- inclusive on all four edges -- and stops at the first hit. Rows are built top..top+14 and stepped by 14, so adjacent rows share a line and the first-match walk gives it to the upper one. A hit on the row already selected presses XMIT and transmits; any other row is selected.",
+      "description": "(display, gadget, point): resolves a click on the MFD's screen area to a FLASH COMM row. Returns at once unless the display is on mode 1 (+0xc1), then walks the six row label rects in index order -- inclusive on all four edges -- and stops at the first hit. Rows are built top..top+14 and stepped by 14, so adjacent rows share a line and the first-match walk gives it to the upper one. When CockpitMouse_DoubleClick is set and the hit row is the display's shared row (+0xb1), it presses child 10, XMIT, through Widget_PressChild(display, 10, 1), calls MfdFlashComm_Transmit and sets the mode's repaint byte (+0xe5 + mode); any other hit stores the row through MfdDisplay_SetSharedRow and sets +0xe6. A point on no row does nothing.",
       "source": "docs/retail/formats/cockpit-input.md",
-      "signature": "void __cdecl MfdFlashComm_HandleListClick(int display, void *gadget, int *point)"
+      "signature": "void __cdecl MfdFlashComm_HandleListClick(int display, void *gadget, int *point)",
+      "verified": {
+        "bytes": "00447098+152",
+        "sha1": "9ef443cbafb7",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00447130",
@@ -10348,7 +10487,13 @@
       "confidence": "high",
       "name": "MfdFlashComm_SelectRow",
       "description": "(display, widget, row): only when widget is the display's base panel widget (+0xfb) and the current mode (+0xc1) is 1, FLASH COMM, stores row as the display's shared selected row through MfdDisplay_SetSharedRow and sets the byte at +0xe6, FLASH COMM's entry in the per-screen byte array at +0xe5 + mode. Both keyboard handlers pass the display's own +0xfb, so the mode test is the one that can refuse: 004469c0 for the plain hotkeys and 00446c10 for the [Alt] ones after it has transmitted. See docs/retail/formats/mfd.md#keyboard.",
-      "source": "DBSIM decompile and disassembly at 00447130; docs/retail/formats/mfd.md#keyboard"
+      "source": "DBSIM decompile and disassembly at 00447130; docs/retail/formats/mfd.md#keyboard",
+      "verified": {
+        "bytes": "00447130+50",
+        "sha1": "d99ea3e013bf",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00447164",
@@ -10365,9 +10510,15 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdFlashComm_Transmit",
-      "description": "The FLASH COMM page's XMIT widget: resolves the selected row to a verb through MfdFlashComm_SelectedVerb, writes it into the shared order record at DAT_004d0458 and broadcasts it through Squad_BroadcastOrderFromCockpit. Args derived from disassembly: [EBP+8] only.",
+      "description": "(mfdDisplay): the FLASH COMM transmit, which XMIT and the list's double-click reach. Resolves the screen's (+0xd1) selected row to a verb through MfdFlashComm_SelectedVerb, writes it into the shared order record at DAT_004d0458 and broadcasts it through Squad_BroadcastOrderFromCockpit with the display's +0x14; when that returns nonzero, calls MfdFlashComm_ToggleRowVariant on the screen.",
       "source": "docs/retail/simulation/ai-squadmates.md",
-      "signature": "void __cdecl MfdFlashComm_Transmit(int mfdScreen)"
+      "signature": "void __cdecl MfdFlashComm_Transmit(int mfdScreen)",
+      "verified": {
+        "bytes": "00447220+59",
+        "sha1": "310c87c5c94d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00447294",
@@ -10393,8 +10544,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdButton_SetCaption",
-      "description": "Sets one MFD button's caption from its index at +0x28: for index < 6 it composes \"F1\"-\"F6\" on the stack from the two-byte literal at 0049cea3 (\"Fx\") with '1'+index written over the second byte -- the six mode captions are not stored as strings. For index >= 6 it takes DAT_004d13e0[index] from STRINGS0.STR group 5. See docs/retail/formats/mfd.md.",
-      "source": "docs/retail/formats/mfd.md"
+      "description": "The momentary MFD buttons' repaint (buttons 7-10). Blits the frame indexed by the press byte +0x1b, then sets the caption from the index at +0x28: for index < 6 it composes \"F1\"-\"F6\" on the stack from the two-byte literal at 0049cea3 (\"Fx\") with '1'+index written over the second byte -- the six mode captions are not stored as strings; for index >= 6 it takes MfdCaptionTable[index], STRINGS0.STR group 5. For index 10 (XMIT) it then redraws the FLASH COMM selected-row plate with MfdFlashCommScreen_DrawRowPlate(screen, MfdFlashComm_SelectedVerb(screen), 0), the screen being the owner's +0xd1. See docs/retail/formats/mfd.md.",
+      "source": "docs/retail/formats/mfd.md",
+      "verified": {
+        "bytes": "00447358+144",
+        "sha1": "adbeca95e452",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004473e8",
@@ -10429,8 +10586,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdButton_Repaint",
-      "description": "Repaints one MFD button and re-fonts its caption: buttons 0-5 and 11-12 take ColorSchemePanels[12] DARK when the +0x40 lit flag is set and [10] WHITE when clear, which is why the selected F-key reads dark-on-green. Caption text is resolved the same way as MfdButton_SetCaption. See docs/retail/formats/mfd.md.",
-      "source": "docs/retail/formats/mfd.md"
+      "description": "The latching MFD button classes' repaint (buttons 0-5 and 11-12). Inside a pushed canvas context it blits the frame indexed by the +0x40 lit flag, never by the press byte +0x1b; buttons 0-5 and 11-12 then take ColorSchemePanels[12] DARK when +0x40 is set and [10] WHITE when clear, which is why the selected F-key reads dark-on-green. Caption text is resolved the same way as MfdButton_SetCaption. See docs/retail/formats/mfd.md.",
+      "source": "docs/retail/formats/mfd.md",
+      "verified": {
+        "bytes": "004474e4+187",
+        "sha1": "6d095fe5cc94",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004475a0",
@@ -10456,9 +10619,15 @@
       "type": "function",
       "confidence": "high",
       "name": "MFDListGadget_OnClick",
-      "description": "The MFD screen-area gadget's vtable +8. Left button only; calls MfdFlashComm_HandleListClick(owner, self, &DAT_004d1e67), the owner taken from the gadget's own +0x24. The mirror of HDDListGadget_OnClick.",
+      "description": "The MFD screen-area gadget's (MFDListGadget) vtable +8, (gadget, buttonFlags). Left button only; calls MfdFlashComm_HandleListClick(owner, self, &DAT_004d1e67), the owner taken from the gadget's own +0x24. It makes no other call, its PanelGadget mixin's click slot included, so the click makes no sound of its own; a double-click on the selected row sounds XMIT's, through the press MfdFlashComm_HandleListClick makes. The mirror of HDDListGadget_OnClick.",
       "source": "docs/retail/formats/cockpit-input.md",
-      "signature": "void __cdecl MFDListGadget_OnClick(int gadget, unsigned char buttonFlags)"
+      "signature": "void __cdecl MFDListGadget_OnClick(int gadget, unsigned char buttonFlags)",
+      "verified": {
+        "bytes": "00447630+32",
+        "sha1": "98c18fdec513",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00447650",
@@ -10682,8 +10851,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddDisplay_Repaint",
-      "description": "Whole-display paint: every visible widget, then the current page object's paint, then the title indicator rect (+0xf1, colour id 13 or -- while +0x51f is set, which the constructor does -- id 15), then HddDisplay_SetTitle, then the three comm gauges. A gauge slot with no squadmate in it is flooded with colour id 19 inset one device pixel instead.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "Whole-display paint, only when the display's rect corner is visible (CockpitView_RectCornerVisible on +0xc1): calls paint slot 0 on every child widget (+0x18, count +0x68), each of which applies its own state gate; then the current page object's slot +0xc and HddDisplay_RepaintPage; then the title indicator rect +0xf1, filled with 004d3c1a's colour, or 004d3c1e's while +0x51f is set; then HddDisplay_SetTitle; then, for each of the three comm boxes, copies widget 10+i's rect into its gauge and either fills the rect inset one pixel with 004d3c26's colour, when the gauge's +0x137 is 0, or calls HddGauge_PaintIdle.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "00449a50+383",
+        "sha1": "d80f464dd0e6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00449bd0",
@@ -10718,8 +10893,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddDisplay_KeyDispatch",
-      "description": "Heads-Down Display key handler. The arrows, [-]/[=] and keypad -/+, and [1]-[3] press widgets 2-7 and 10-12 through Widget_PressChild, so they share the buttons' dark-state hold; [S]/[I]/[W] set the damage page directly; anything else goes to the current page's own dispatch (vtable +0x10).",
-      "source": "docs/retail/formats/cockpit-hud-widgets.md"
+      "description": "Heads-Down Display key handler (display, code). Through Widget_PressChild(display, child, 1): 0x48 (up) presses child 2, 0x50 (down) 3, 0x4b (left) 4, 0x4d (right) 5, 0x0c and 0x4a ([-], keypad -) 6, 0x0d and 0x4e ([=], keypad +) 7, and 0x02-0x04 ([1]-[3]) 10-12. 0x1f, 0x17 and 0x11 ([S], [I], [W]) run HddDisplay_SetPage(display, 1) and set the damage screen's (+0x105) view to 0, 1 and 2. Any other code goes to the current page's (+0x101 + page*4, page at +0x109) own dispatch, vtable +0x10, whose result it returns; it returns 1 for the codes above.",
+      "source": "docs/retail/formats/cockpit-hud-widgets.md",
+      "verified": {
+        "bytes": "00449fcc+355",
+        "sha1": "7df921b72a6e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044a14c",
@@ -10736,9 +10917,15 @@
       "type": "function",
       "confidence": "high",
       "name": "HddDisplay_HandleWidgetPress",
-      "description": "The heads-down display's widget-press dispatch, switched on the pressed-widget index at display+0x528 and clearing it to 0xff on the way out. Cases 0-1 pick the page, 2-7 the four map pans and the two zooms on page 0 and the damage screen's subject and category steps on page 1, 10-12 select a comm box, 13 is XMIT -- HddCommandScreen_CommitPick, HddCommandScreen_FillOrderRecord, Squad_SendOrderToSlot -- and 14 is CANCEL. Args derived from disassembly: [EBP+8] only.",
+      "description": "The heads-down display's widget-press dispatch, switched on the pressed-widget index at display+0x528 and clearing it to 0xff on the way out. With no press pending (0xff) it returns at once, and while +0x76 is set (the sensor dropout's dark flag) it returns without clearing the index for any widget above 1, so such a press waits for the display to come back. Cases 0-1 pick the page, 2-7 the four map pans and the two zooms on page 0 and the damage screen's subject and category steps on page 1, 9 steps the damage category on page 1, 10-12 select a comm box (switching to page 0 first), 13 is XMIT and 14 is CANCEL. XMIT acts on page 0 only: with the command screen's pick flag +0x104 clear it re-shows the message row through HddCommandScreen_SetMessageRow; otherwise it runs HddCommandScreen_CommitPick and, with a pilot selected, HddCommandScreen_FillOrderRecord, Squad_SendOrderToSlot, HddCommandScreen_CancelTransmission and HddDisplay_SelectPilot(-1). No case calls Sound_Play, Sound_PlayAt or Sfx_Play, and es2_xref finds none of their callers among the functions named here; the press's click is the button's own (HddButton_OnClick). Args derived from disassembly: [EBP+8] only.",
       "source": "docs/retail/formats/heads-down-display.md",
-      "signature": "void __cdecl HddDisplay_HandleWidgetPress(int hddDisplay)"
+      "signature": "void __cdecl HddDisplay_HandleWidgetPress(int hddDisplay)",
+      "verified": {
+        "bytes": "0044a178+1045",
+        "sha1": "7fd9cc12494d",
+        "scope": "callees",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044a5e4",
@@ -10764,8 +10951,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddDisplay_SelectPilot",
-      "description": "Selects one of the three squad comm boxes (widgets 10-12): unlights the previous, records it at +0x52b, stores the new index at +0x517, lights its widget, sends the pilot a select message, and tells the command screen.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "(display, slot): selects one of the three squad comm boxes (widgets 10-12), or none for -1. With a box selected (+0x517 != -1) it clears that widget's selection flag +0x40 if set and invalidates it; records the old slot at +0x52b and stores the new at +0x517; for a slot other than -1 it sets that widget's +0x40 if clear and invalidates it, then posts {0x22 STANDING BY..., g_SquadmateMachines[slot]} through slot 0 of CockpitView_GetSquadMessagePort's port. Last, HddCommandScreen_SelectPilot(command screen +0x101, +0x517). es2_xref finds four call sites: three in HddDisplay_HandleWidgetPress (comm boxes 10-12, which call it only for a slot not already selected, and -1 after XMIT and CANCEL) and one in HddCommandScreen_PickPilot.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044a720+157",
+        "sha1": "d5d74a140ee1",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0044a7c0",
@@ -10791,8 +10984,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddGauge_PaintIdle",
-      "description": "Paints one squad comm box while its pilot is not broadcasting: floods the video area with colour id 19 and fills five labels -- the pilot's name, 'STATUS:', the condition from STRINGS0 group 28, 'OBJECTIVE:', and the pilot's current order from group 40. Matches the manual's 'their video box remains darkened, displaying only their name, their status, and their current orders'. Defers to HddGauge_PaintStatic when the pilot's comms are out.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "(display, slot): paints one squad comm box while its pilot is not broadcasting, only when the display's rect corner is visible. While the slot's machine (g_SquadmateMachines[slot]) is not destroyed it floods the video area with 004d3c26's colour and fills five labels -- the pilot's name, 'STATUS:', the condition from STRINGS0 group 28 through HddGauge_ConditionIndex, 'OBJECTIVE:', and the order line Mech_SquadOrderLineIndex picks from group 40. With the machine destroyed it calls HddGauge_PaintStatic instead. Matches the manual's 'their video box remains darkened, displaying only their name, their status, and their current orders'.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044ae78+336",
+        "sha1": "b062028beaf0",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044afc8",
@@ -10938,8 +11137,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddButton_Paint",
-      "description": "Paints one HDDisplay sub-widget, gated on state +0x1b < 2. The frame index differs by case, which is what makes some of these buttons latching and others momentary: indices 0/1 (the F7/F8 page buttons) take the frame from the object's own selection flag +0x40 and caption themselves 'F7'/'F8' from the shared 'Fx' literal at 0049d4f5 in ColorSchemePanels[12] selected / [10] not -- they have no pressed state; 2-7 (four arrows, two map magnifiers) take the frame from the shared press byte +0x1b and so light only while held; 10-12 fill the selected comm box's marker rect; 13/14 blit the plate and caption XMIT/CANCEL from STRINGS0 group 9, both frame and font indexed by that same press byte (ColorSchemePanels[4 + pressed]).",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "Paints one HDDSelectGadget, gated on state +0x1b < 2, switched on its index +0x28. 0/1 (the F7/F8 page buttons) take the frame from the selection flag +0x40 and caption themselves 'F7'/'F8' from the shared 'Fx' literal at 0049d4f5 in ColorSchemePanels[12] lit / [10] not -- they have no pressed state; 2-7 (four arrows, two magnifiers) take the frame from the press byte +0x1b and so light only while held. 10-12 (the comm boxes) branch on the owner's highlight mode +0x529: mode 0 fills the widget's own rect, in 004d3c18's colour with +0x40 set and 004d3c26's without; mode 1 fills a gauge's marker rect, the current slot's (+0x517) in 004d3c1e's colour with +0x40 set and the previous slot's (+0x52b) in 004d3c1a's without, nothing when that slot is -1. 13/14 blit the plate and caption XMIT/CANCEL from STRINGS0 group 9, frame and font both indexed by the press byte (font from 0049b0bc); 13 also calls HddCommandScreen_RedrawOrderHighlight with the press byte on page 0. 8 and 9 have no case.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044bb38+657",
+        "sha1": "bd48f8813df6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044bdf0",
@@ -10957,7 +11162,13 @@
       "confidence": "high",
       "name": "HddButton_OnClick",
       "description": "HDDSelectGadget vtable +0x08 (0049d60c), (button, value): unless the button is lit (+0x40) and is button 0 or 1 (+0x28), toggles the lit byte, calls the owning display's (+0x24) slot +0x00 with (display, button, value), invalidates itself (slot +0x04) and runs its PanelGadget mixin's (+0x20) slot +0x08, the click sound. So buttons 0 and 1 latch on.",
-      "source": "DBSIM decompile at 0044be50; HddButton_Ctor"
+      "source": "DBSIM decompile at 0044be50; HddButton_Ctor",
+      "verified": {
+        "bytes": "0044be50+65",
+        "sha1": "20e01d234908",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044be94",
@@ -11047,8 +11258,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_KeyDispatch",
-      "description": "Vtable slot 4 of the [F7] command display: switches on a DOS scancode, not a widget index. D/A/F/T/G/O/C/E arm the eight orders, ,< and .> step through them, Tab cycles the eligible unit for ATTACK ENEMY or DEFEND POSITION, Enter drops the map cursor, keypad 5 recentres the map, and X and Backspace press the XMIT and CANCEL widgets. The transmit branch reuses the radar-mode tone pair as an accepted/rejected blip: Sound_Play(0x1a) when the transmit resolves to a recipient and Sound_Play(0x1b) when it does not.",
-      "source": "docs/retail/formats/heads-down-display.md; docs/retail/formats/audio.md"
+      "description": "Vtable slot 4 of the [F7] command display: switches on a DOS scancode, not a widget index. D/A/F/T/G/O/C/E feed their row to the order column's click (HddCommandScreen_SynthesizeListClick), so each acts as a click on that row, ,< and .> step through them, Tab cycles the eligible unit for ATTACK ENEMY or DEFEND POSITION, Enter feeds the map's click -- arm 1 with a held unit for ATTACK ENEMY or DEFEND POSITION, arm 0 for DEFEND POSITION without one and for PATROL GRIDPOINT and GOTO GRIDPOINT, nothing for ATTACK ENEMY without one -- keypad 5 recentres the map, and X and Backspace press the XMIT and CANCEL widgets. Tab is the case with sounds of its own: Sound_Play(0x1a) when the unit slot +0x15c holds a unit after the cycle and it becomes the pick, 0x1b when the slot is empty. X only presses XMIT, through Widget_PressChild.",
+      "source": "docs/retail/formats/heads-down-display.md; docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "0044cc40+553",
+        "sha1": "1a09a2e5eca4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044cee8",
@@ -11175,9 +11392,15 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_QueueListClick",
-      "description": "Records a pending list click on the command display: sets the flag at screen+0x14d, stores which gadget at +0x14e and the point at +0x152 (biased by the view-offset globals 004d25da/de), latches the mouse button word at +0x15b, and marks the display dirty. HddCommandScreen_HandleListClick drains it.",
+      "description": "Records a pending list click on the command display: sets the flag at screen+0x14d, stores which gadget at +0x14e and the point at +0x152 (biased by the view-offset globals 004d25da/de), copies CockpitMouse_DoubleClick to +0x15b, and marks the display dirty. HddCommandScreen_HandleListClick drains it.",
       "source": "docs/retail/formats/cockpit-input.md",
-      "signature": "void __cdecl HddCommandScreen_QueueListClick(int screen, void *gadget, int *point)"
+      "signature": "void __cdecl HddCommandScreen_QueueListClick(int screen, void *gadget, int *point)",
+      "verified": {
+        "bytes": "0044d3a4+129",
+        "sha1": "ba719f5f65a8",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d428",
@@ -11185,9 +11408,15 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_HandleListClick",
-      "description": "Drains the pending list click and branches on which gadget it was. Order column (screen+0x35): walks the eight row rects and stops at the first hit, using STRICT inequalities on all four edges -- unlike Widget_HitTest's inclusive test -- so a row's own boundary lines are dead. With no pilot selected it prints the SELECT PILOT message instead; a hit on the row already armed presses XMIT; any other row calls HddCommandScreen_SelectOrder. Map viewport (screen+0x39): stores the point as the map cursor at +0x11d and sets the armed flag at +0x11c.",
+      "description": "Drains the pending list click and branches on which gadget it was. Order column (screen+0x35): walks the eight row rects and stops at the first hit, using STRICT inequalities on all four edges -- unlike Widget_HitTest's inclusive test -- so a row's own boundary lines are dead. With no pilot selected it prints the SELECT PILOT message instead; a hit on the row already armed presses XMIT through Widget_PressChild when both the pick flag +0x104 and +0x15b are set, and otherwise does nothing; any other row calls HddCommandScreen_SelectOrder. After either, with +0x15a set, it moves the cursor to the row's centre (Cursor_SyncPosition), then clears +0x15a. Map viewport (screen+0x39): stores the point as the map cursor at +0x11d sets the armed flag at +0x11c and flags the display for a full repaint.",
       "source": "docs/retail/formats/cockpit-input.md",
-      "signature": "void __cdecl HddCommandScreen_HandleListClick(int screen)"
+      "signature": "void __cdecl HddCommandScreen_HandleListClick(int screen)",
+      "verified": {
+        "bytes": "0044d428+365",
+        "sha1": "3add83426dff",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d598",
@@ -11195,9 +11424,15 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_SynthesizeListClick",
-      "description": "The keyboard's entry into the queued-click path, so key and mouse converge before anything is decided. For the order column it feeds the named row's own rect corner; for the map viewport, pick 0 feeds the live cursor position rebased through the view offsets and pick 1 projects the currently chosen unit's world position into the viewport. Both end in HddCommandScreen_QueueListClick.",
+      "description": "(screen, gadget, pick): the keyboard's entry into the queued-click path, so key and mouse converge before anything is decided. Sets +0x15a to 1. For the order column (+0x35) it feeds the corner of row rect pick-10 (the rect at +0x3d + (pick-10)*4, its +4/+8 fields plus 1). For the map viewport (+0x39), pick 0 feeds Cursor_GetPosition rebased through the canvas context's +0x210/+0x214 and +0x220/+0x224, and pick 1 projects the unit at +0x15c (its +0x26 position) through the map's view (+0x14, eye +0x18/+0x1c/+0x20) with HddMap_ToViewport. Each feeds HddCommandScreen_QueueListClick.",
       "source": "docs/retail/formats/cockpit-input.md",
-      "signature": "void __cdecl HddCommandScreen_SynthesizeListClick(int screen, void *gadget, int pick)"
+      "signature": "void __cdecl HddCommandScreen_SynthesizeListClick(int screen, void *gadget, int pick)",
+      "verified": {
+        "bytes": "0044d598+288",
+        "sha1": "27e1e79340f4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d6b8",
@@ -11205,8 +11440,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_PickTarget",
-      "description": "Resolves a map click for an armed order into either an eligible unit or a gridpoint, and marks the transmission ready.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "Resolves a map click for an armed order. For ATTACK ENEMY and DEFEND POSITION it hit-tests the point (HddCommandScreen_HitTestMarker) and takes a unit whose group side byte (type+0x12) is 1 for ATTACK ENEMY or 0 for DEFEND POSITION as the pick, into +0x15c and the selected pilot's pick slot. Otherwise DEFEND POSITION, PATROL GRIDPOINT and GOTO GRIDPOINT take the map cursor (+0x374) as a gridpoint pick; ATTACK ENEMY without an eligible unit takes nothing. A pick sets the pick flag +0x104, plays Sound_Play(0x14) bptslct and clears the message row. Always clears the cursor's armed flag +0x11c and sets DAT_0049d6ae.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044d6b8+329",
+        "sha1": "ffb88c48795f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d804",
@@ -11214,8 +11455,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_PickPilot",
-      "description": "Resolves a map click with no order armed into a squad slot, which is the manual's \"select the pilot's marker on the map\".",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "(screen): hit-tests the map cursor (+0x11d) against the markers with HddCommandScreen_HitTestMarker; when that finds an object whose +0x99 is clear and Squad_IndexOf places it in a squad slot, calls HddDisplay_SelectPilot on the heads-down display for that slot, with no test of the slot already selected. Then clears the armed flag +0x11c and sets DAT_0049d6ae. The manual's 'select the pilot's marker on the map'.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044d804+91",
+        "sha1": "752a05a42a86",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d860",
@@ -11232,8 +11479,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_SelectOrder",
-      "description": "Arms one of the eight orders, or clears the selection with -1. The four that want a target picked on the map also raise the designate flag and write the matching group 32 prompt into the message row.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "(screen, order): arms one of the eight orders (10-17), or clears with -1. Orders 0xb-0xe (ATTACK ENEMY to GOTO GRIDPOINT) call Cockpit_SetOffForwardCursor(2), put prompt 3 (0xb) or 2 (the rest) from the DAT_004d16bc table in the message row, and set +0x103 (wants a pick) to 1, +0x380 to 1 and the ready flag +0x104 to 0; any other order, -1 included, calls Cockpit_SetOffForwardCursor(0), sets +0x103 to 0, +0x104 to 1 and +0x380 to 0, and clears the message row. When the order changes it keeps the old one at +0x81, stores the new at +0x5d, and marks the display (DAT_0049d6b0+8) for repaint (+0x10f = 1, +0xb0 = 2).",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044d9cc+164",
+        "sha1": "ce2e44c01a54",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044da70",
@@ -11241,8 +11494,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_SelectPilot",
-      "description": "Moves the comm-box selection, dropping whatever order was armed for the previous pilot and setting or clearing all eight order-availability bytes.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "(screen, slot): moves the comm-box selection to slot, or none with -1. When a pilot is selected (+0x105) it toggles that pilot's button and, when an order is armed (+0x5d not -1), runs HddCommandScreen_SelectOrder(screen, -1) and clears that pilot's record flag (+0xa6 in its 0x2a-byte record), +0x104, +0x381, +0x15c and +0x103 and sets +0x144 -- whether or not the new slot is the same pilot. Stores the slot; -1 runs HddCommandScreen_DisableOrders, any other toggles the new pilot's button, runs HddCommandScreen_EnableOrders and sets +0x381. Marks the display for repaint.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044da70+178",
+        "sha1": "c507e370cfbc",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044db24",
@@ -11250,9 +11509,15 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_FillOrderRecord",
-      "description": "Copies the armed order's committed pick into the transmit record: a gridpoint pick into the record's x/y/z at +0x06/+0x0a/+0x0e, a unit pick into its subject pointer at +0x12. Which of the two is decided by the pick kind latched in the selected pilot's pick slot (three 0x2a-byte slots at +0x85, indexed by +0x105). CommitPick latches a kind only for an order that wants a pick, so an order with no pick writes that pilot's last pick again. This is what settles the record's layout. Args derived from disassembly: [EBP+8], [EBP+0xc].",
+      "description": "Copies the armed order's committed pick into the transmit record: a gridpoint pick into the record's x/y/z at +0x06/+0x0a/+0x0e, a unit pick into its subject pointer at +0x12. Which of the two is decided by the pick kind latched in the selected pilot's pick slot (three 0x2a-byte slots at +0x85, indexed by +0x105). With no pilot selected (+0x105 = -1) it writes nothing. HddCommandScreen_CommitPick latches a kind when the armed order wants a pick (+0x103) and leaves the slot's kind as it was otherwise, so a pickless order writes that pilot's last pick again. This is what settles the record's layout. Args derived from disassembly: [EBP+8], [EBP+0xc].",
       "source": "docs/retail/formats/heads-down-display.md",
-      "signature": "void __cdecl HddCommandScreen_FillOrderRecord(int commandScreen, SquadOrderRecord *order)"
+      "signature": "void __cdecl HddCommandScreen_FillOrderRecord(int commandScreen, SquadOrderRecord *order)",
+      "verified": {
+        "bytes": "0044db24+79",
+        "sha1": "982eeb823bcf",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044db74",
@@ -11262,7 +11527,13 @@
       "name": "HddCommandScreen_CommitPick",
       "description": "Promotes the selected pilot's pending map pick (slot +0x85 + pilot*0x2a) to its committed one -- the point triple or the subject pointer, per the order's pick kind -- and latches that kind alongside it, so the following HddCommandScreen_FillOrderRecord knows which to copy. XMIT calls the pair in that order. Args derived from disassembly: [EBP+8] only.",
       "source": "docs/retail/formats/heads-down-display.md",
-      "signature": "void __cdecl HddCommandScreen_CommitPick(int commandScreen)"
+      "signature": "void __cdecl HddCommandScreen_CommitPick(int commandScreen)",
+      "verified": {
+        "bytes": "0044db74+115",
+        "sha1": "4cee00df19b4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044dbe8",
@@ -11271,7 +11542,13 @@
       "confidence": "high",
       "name": "HddCommandScreen_CancelTransmission",
       "description": "CANCEL: drops the armed order, the map pick and the pilot selection together.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044dbe8+92",
+        "sha1": "263a9aea381e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044dc44",
@@ -11279,8 +11556,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_SetMessageRow",
-      "description": "Writes one of STRINGS0 group 32 four prompts - SELECT PILOT, SELECT COMMAND, DESIGNATE LOCATION, DESIGNATE TARGET - into the row above the order list.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "(screen, text, flag): fills the message row above the order list. Given no text it picks from STRINGS0 group 32 (DAT_004d16bc): with no order armed that wants a pick (+0x103), SELECT PILOT with no pilot selected (+0x105 = -1) and SELECT COMMAND with one; DESIGNATE TARGET for ATTACK ENEMY; DESIGNATE LOCATION for DEFEND POSITION, PATROL GRIDPOINT and GOTO GRIDPOINT. Given text it shows that. A flag of 1 also sets +0x13e to 6.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044dc44+165",
+        "sha1": "2ba5c6861ace",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044dcec",
@@ -11298,7 +11581,13 @@
       "confidence": "high",
       "name": "HddCommandScreen_DrawOrderHighlight",
       "description": "Blits HDD bank frame 2 + state (or 4) -- the 116x18 selected-order bar -- at an order label's own text position.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044dd4c+121",
+        "sha1": "80dd4f613304",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044ddc8",
@@ -11306,8 +11595,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_RedrawOrderHighlight",
-      "description": "(screen, pressed): when the selection +0x5d is not -1, HddCommandScreen_DrawOrderHighlight(screen, +0x5d - 10, pressed, 0). HddButton_Paint calls it with its press byte (+0x1b).",
-      "source": "DBSIM decompile at 0044ddc8"
+      "description": "(screen, pressed): when the selection +0x5d is not -1, HddCommandScreen_DrawOrderHighlight(screen, +0x5d - 10, pressed, 0). HddButton_Paint, read alongside it, passes its own press byte (+0x1b).",
+      "source": "DBSIM decompile at 0044ddc8",
+      "verified": {
+        "bytes": "0044ddc8+35",
+        "sha1": "dfe295b7acfb",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044ddec",
@@ -11415,7 +11710,13 @@
       "confidence": "high",
       "name": "HddCommandScreen_CycleHostileUnit",
       "description": "(screen): HddCommandScreen_CycleUnit(screen, 1). HddCommandScreen_KeyDispatch's Tab stores the result at +0x15c while ATTACK ENEMY (0xb) is armed.",
-      "source": "DBSIM decompile at 0044eee0"
+      "source": "DBSIM decompile at 0044eee0",
+      "verified": {
+        "bytes": "0044eee0+19",
+        "sha1": "ff7bdfeaf24a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044eef4",
@@ -11424,7 +11725,13 @@
       "confidence": "high",
       "name": "HddCommandScreen_CycleFriendlyUnit",
       "description": "(screen): HddCommandScreen_CycleUnit(screen, 0). HddCommandScreen_KeyDispatch's Tab stores the result at +0x15c while DEFEND POSITION (0xc) is armed.",
-      "source": "DBSIM decompile at 0044eef4"
+      "source": "DBSIM decompile at 0044eef4",
+      "verified": {
+        "bytes": "0044eef4+19",
+        "sha1": "690accbfcc86",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044ef08",
@@ -11432,8 +11739,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_CycleUnit",
-      "description": "(screen, side): the next object after the current pick +0x15c in maybe_GlobalLiveObjectList (count 004a9b82), wrapping, that passes HddCommandScreen_IsEligibleUnit(screen, obj, side); the list's first eligible one when the pick is null or on another side; 0 when none is.",
-      "source": "DBSIM decompile at 0044ef08"
+      "description": "(screen, side): the next unit for Tab. When the pick at +0x15c is null or of another group side (+0x45 -> +0x12), returns maybe_GlobalLiveObjectList's first object if HddCommandScreen_IsEligibleUnit(screen, obj, side) passes it, else walks on from the second. When the pick is of that side, walks the list to it first -- a loop with no exit when the pick is not on the list -- and goes on from the object after it. The walk wraps to the list's head and ends where it began, the pick or the first object tested last; it returns the first eligible object, or 0 when none is.",
+      "source": "DBSIM decompile at 0044ef08",
+      "verified": {
+        "bytes": "0044ef08+264",
+        "sha1": "780db9c96313",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044f014",
@@ -11442,7 +11755,13 @@
       "confidence": "high",
       "name": "HddCommandScreen_IsEligibleUnit",
       "description": "(screen, obj, side): 1 when obj's group side (+0x45 -> +0x12) is side, obj is not destroyed (+0x99), HddCommandScreen_IsOnMap(screen, obj+0x26), obj+0x98 is set, and side is 0 or Ai_KnowsObject(the cockpit's machine, obj).",
-      "source": "DBSIM decompile at 0044f014"
+      "source": "DBSIM decompile at 0044f014",
+      "verified": {
+        "bytes": "0044f014+134",
+        "sha1": "99fa4417ec5f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044f09c",
@@ -11451,7 +11770,13 @@
       "confidence": "high",
       "name": "HddCommandScreen_IsOnMap",
       "description": "(screen, pos): copies the screen's eye +0x18/+0x1c/+0x20 into its map view (+0x14), installs that projection, projects pos (y negated after the divide) and maps it with HddMap_ToViewport; returns whether it lands inside the map rect +0x71..+0x7d.",
-      "source": "DBSIM decompile at 0044f09c"
+      "source": "DBSIM decompile at 0044f09c",
+      "verified": {
+        "bytes": "0044f09c+148",
+        "sha1": "08b9e827f78c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044f130",
@@ -11531,9 +11856,15 @@
       "type": "function",
       "confidence": "high",
       "name": "HDDListGadget_OnClick",
-      "description": "Vtable +8 for both of the command display's list gadgets. Left button only; queues the click through HddCommandScreen_QueueListClick with the owner at the gadget's +0x28 and the cockpit click point at DAT_004d1e67. Nothing is decided here.",
+      "description": "Vtable +8 for both of the command display's list gadgets. Left button only; queues the click through HddCommandScreen_QueueListClick with the owner at the gadget's +0x28 and the cockpit click point at DAT_004d1e67. Nothing is decided here. It makes no other call, its PanelGadget mixin's click slot included, so the click makes no sound of its own.",
       "source": "docs/retail/formats/cockpit-input.md",
-      "signature": "void __cdecl HDDListGadget_OnClick(int gadget, unsigned char buttonFlags)"
+      "signature": "void __cdecl HDDListGadget_OnClick(int gadget, unsigned char buttonFlags)",
+      "verified": {
+        "bytes": "0044f6ac+32",
+        "sha1": "5bd986191f77",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044f6cc",
@@ -11894,8 +12225,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_OnMouseUp",
-      "description": "Hit-tests the release position; if it lands on the same widget that was pressed (or the right button is still held), calls the widget's own GetValue then OnClick vtable slots with that value, then clears its pressed state (+0x1b=0) and repaints it via Widget_Repaint. This is where a click actually fires -- CockpitMouse_ProcessQueue only calls this after its own press/release timing gate passes.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "(root, point): rebases the release point by the root's origin (plus 004d25da/de while 0049dbec is set), hit-tests it with Widget_HitTestChildren and stores the result in Widget_PressedIndex. On a hit, when it is the widget the press stored there or the button word 0049db6c has the right-button bit, it calls that widget's GetValue (+0x10) then OnClick (+8) with the value; on any hit it then sets the hit widget's state +0x1b to 0, repaints it and sets Widget_PressedIndex to -1. The state cleared is the hit widget's, which is not the pressed one when the release lands elsewhere. Its own code has no timing test: a release fires however long the button was held.",
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00452870+228",
+        "sha1": "9a0e15a7415a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00452954",
@@ -12041,8 +12378,14 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitMouse_ProcessQueue",
-      "description": "Swaps the double-buffered event queue and drains it once per frame -- the real click/hover/drag logic. Per record: on a position change, hit-tests via Widget_HitTestChildren and either forwards to the captured widget's drag slot (if mouse-captured) or fires Widget_OnMouseHover; on a button-down edge, calls Widget_OnMouseDown; on a button-up edge, gates on the release landing within DAT_004d1e70 ticks of the press before calling Widget_OnMouseUp (or, if a drag was in progress, ends the capture and fires the captured widget's OnClick/GetValue pair directly).",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "Swaps the double-buffered event queue and drains it once per frame: the cockpit's click, press and drag logic. Per 14-byte record it first sets the button word 0049db6c to the record's buttons. On a position change it stores the position, calls Cursor_SyncPosition only while TapePlayback is set and the cursor flag 0049dbdf is, and sets the click point DAT_004d1e67/6b relative to the root; outside a capture it hit-tests the root with Widget_HitTest and, on a hit, calls Widget_TrackPressedWidget; under a capture it calls the captured widget's drag slot (+0x18) and repaints it. It then clears CockpitMouse_DoubleClick. A left-button down edge calls Widget_OnMouseDown; a right one only latches. On a release edge of either button it sets CockpitMouse_DoubleClick when the record's time is less than CockpitMouse_DoubleClickTicks after that button's previous release, stores the time as the new previous release, and ORs that button's bit into 0049db6c; then, outside a capture, Widget_OnMouseUp, and under one it clears the captured widget's state, repaints it, ends the capture, calls its GetValue (+0x10) then OnClick (+8) with that value, and sets Widget_PressedIndex to -1. 0049db6c returns to 0 at the end of each record.",
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00452d18+794",
+        "sha1": "c70d41531236",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00453034",
@@ -12059,8 +12402,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WidgetRoot_FlashPress",
-      "description": "(root, widget): appends {widget, Time_GetCoarseTicks() + 10} to the root's press-flash list at +0x356 (8-byte entries, count at +0x396). WidgetRoot_ServicePressFlashes shows the widget pressed until that time. Widget_PressChild, AlertPanel_PressWidget and ControlsPanel_HandleEvent queue the widget a key or click pressed.",
-      "source": "DBSIM decompile and disassembly at 00453078"
+      "description": "(root, widget): appends {widget, Time_GetCoarseTicks() + 10} to the root's press-flash list, eight 8-byte entries from +0x356, incrementing the count at +0x396 first and with no bound check, so a ninth entry lands on the count. WidgetRoot_ServicePressFlashes shows the widget pressed until that time. Callers found by es2_naming.py callers: Widget_PressChild, AlertPanel_PressWidget and ControlsPanel_HandleEvent.",
+      "source": "DBSIM decompile and disassembly at 00453078",
+      "verified": {
+        "bytes": "00453078+62",
+        "sha1": "68828b2e4efd",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004530b8",
@@ -12068,8 +12417,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WidgetRoot_ServicePressFlashes",
-      "description": "(root): for each entry of the press-flash list at +0x356 (count +0x396): before its deadline, sets the widget's state +0x1b to 1 (pressed) and repaints it (its vtable at +0x17, slot +4) if it was not already; at or past it, sets the state to 0, repaints, and removes the entry. AlertPanel_Present runs it every pass.",
-      "source": "DBSIM decompile and disassembly at 004530b8"
+      "description": "(root): walks the press-flash list at +0x356 (count +0x396). An entry whose deadline is still ahead of Time_GetCoarseTicks puts its widget's state +0x1b to 1, if it is not 1 already, and invalidates it (vtable at +0x17, slot +4); one whose deadline has come puts the state to 0, invalidates it, and is removed by shifting the later entries down. Callers found by es2_naming.py callers: CockpitView_PerFrameUpdate, AlertPanel_Present and PreferencesPanel_Present.",
+      "source": "DBSIM decompile and disassembly at 004530b8",
+      "verified": {
+        "bytes": "004530b8+167",
+        "sha1": "9254e31db94a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00453160",
@@ -25889,6 +26244,33 @@
       "source": "docs/retail/formats/cockpit-input.md"
     },
     {
+      "address": "0049dbe0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitMouse_DoubleClick",
+      "description": "Byte. The double-click flag: CockpitMouse_ProcessQueue clears it at the top of every record and sets it on a release edge whose timestamp is less than CockpitMouse_DoubleClickTicks after the same button's previous release (CockpitMouse_LastLeftRelease / _LastRightRelease), wherever that release landed. It stands until the next record, so a key-driven press in between still sees it. Read by MfdButton_OnClick (XMIT returns without transmitting), MfdFlashComm_HandleListClick (a double-click on the selected row presses XMIT and transmits) and HddCommandScreen_QueueListClick (copied to the screen's +0x15b, which gates the order list's XMIT shortcut).",
+      "source": "docs/retail/formats/cockpit-input.md"
+    },
+    {
+      "address": "0049dbe4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitMouse_LastLeftRelease",
+      "description": "Timestamp of the left button's previous release, written by CockpitMouse_ProcessQueue on each left release edge after the double-click test reads it.",
+      "source": "docs/retail/formats/cockpit-input.md"
+    },
+    {
+      "address": "0049dbe8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitMouse_LastRightRelease",
+      "description": "Timestamp of the right button's previous release; the right-button twin of CockpitMouse_LastLeftRelease.",
+      "source": "docs/retail/formats/cockpit-input.md"
+    },
+    {
       "address": "0049e844",
       "binary": "DBSIM",
       "type": "data",
@@ -27138,6 +27520,15 @@
       "name": "CockpitMouseLive",
       "description": "Gates CockpitMouse_OnEvent: with this byte clear the listener queues nothing, which is how a replaying .TAP tape owns the cockpit mouse queue. Set again when the tape ends.",
       "source": "docs/retail/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d1e70",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitMouse_DoubleClickTicks",
+      "description": "The double-click window, 0x1e coarse ticks (480 ms), set by CockpitMouse_Init: a release less than this after the same button's previous one sets CockpitMouse_DoubleClick. It gates nothing else: Widget_OnMouseUp runs on every release, however long the button was held. Shares its literal with the listener's event mask, an unrelated field.",
+      "source": "docs/retail/formats/cockpit-input.md"
     },
     {
       "address": "004d1ee8",

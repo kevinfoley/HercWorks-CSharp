@@ -69,7 +69,15 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 		// The system buttons are silent the other way round: SystemGadget carries the mixin, but its own
 		// OnClick (SystemGadget_OnClick, 00434910) goes straight to SystemButtons_OnChildClick and never
 		// calls the mixin's sound slot, which a button reaches only through its class's OnClick.
-		if (click.Id.Kind is not (CockpitWidgetKind.ViewEdge or CockpitWidgetKind.SystemButton)) {
+		//
+		// The list regions are silent for the same reason: the command display's order column and map
+		// viewport are HDDListGadgets, whose OnClick (HDDListGadget_OnClick, 0044f6ac) only queues the
+		// click for HddCommandScreen_HandleListClick, and the FLASH COMM rows sit under the MFD's
+		// MFDListGadget, whose OnClick (MFDListGadget_OnClick, 00447630) only calls
+		// MfdFlashComm_HandleListClick. See docs/retail/formats/audio.md, "Sounds a cockpit control makes".
+		if (click.Id.Kind is not (CockpitWidgetKind.ViewEdge or CockpitWidgetKind.SystemButton
+				or CockpitWidgetKind.HddOrderRow or CockpitWidgetKind.HddMapArea
+				or CockpitWidgetKind.MfdFlashCommRow)) {
 			audio.Director?.Play(SoundId.ButtonClick);
 		}
 
@@ -95,17 +103,23 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 				view.RequestHeadsDown(headsDown: false);
 				break;
 
+			// MfdButton_OnClick's XMIT case returns at once on a double-click, so double-clicking XMIT
+			// transmits once. It still clicks: the sound is the button class's, not the case's.
+			case CockpitWidgetKind.MfdButton when click.Id.Index == MfdLayout.TransmitButton && click.DoubleClick:
+				break;
+
 			case CockpitWidgetKind.MfdButton:
 				ApplyMfdAuxClick(click.Id.Index);
 				break;
 
-			// A click on a FLASH COMM row: on the row already selected it presses XMIT and transmits, on
-			// any other it moves the cursor — MfdFlashComm_HandleListClick's own two arms, and the same shortcut the
-			// command display's order list has.
-			case CockpitWidgetKind.MfdFlashCommRow when scene.World is { } clickedWorld:
+			// A click on a FLASH COMM row — MfdFlashComm_HandleListClick (00447098). A double-click on the
+			// row already selected presses XMIT through Widget_PressChild, which clicks and flashes it but
+			// transmits nothing, its case returning on the double-click; the handler then transmits itself.
+			// That is one transmission, as the key press makes. Any other click selects the row.
+			case CockpitWidgetKind.MfdFlashCommRow when scene.World != null:
 				int pickedRow = click.Id.Index;
-				if (pickedRow == displays.FlashComm.SelectedRow) {
-					displays.FlashComm.Transmit(clickedWorld, clickedWorld.PlayerMech?.Group);
+				if (click.DoubleClick && pickedRow == displays.FlashComm.SelectedRow) {
+					PressMfdButtonByKey(MfdLayout.TransmitButton);
 				} else {
 					displays.FlashComm.Select(pickedRow, flashCommIsUp: true);
 				}
@@ -117,15 +131,16 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 				break;
 
 			// Clicking an order arms it, which is the same thing its hotkey does — HddCommandScreen_HandleListClick walks the
-			// eight label rects and calls the same HddCommandScreen_SelectOrder (0044d9cc) the key dispatch does. Clicking the one
-			// already armed presses XMIT for you, which is that function's own shortcut.
+			// eight label rects and calls the same HddCommandScreen_SelectOrder (0044d9cc) the key dispatch does. A
+			// click on the one already armed does nothing unless it is a double-click on an order ready to go,
+			// which presses XMIT for you: Widget_PressChild on the button, so the click sound is XMIT's and the
+			// row itself makes none.
 			case CockpitWidgetKind.HddOrderRow when hddCommand != null:
 				var picked = click.Id.AsHddOrder!.Value;
-				if (hddCommand.SelectedOrder == picked && !hddCommand.AwaitingPick) {
-					audio.Director?.Play(hddCommand.Transmit()
-						? SoundId.ScannerActive : SoundId.ScannerPassive);
-				} else {
+				if (hddCommand.SelectedOrder != picked) {
 					hddCommand.SelectOrder(picked);
+				} else if (click.DoubleClick && !hddCommand.AwaitingPick) {
+					PressHddButtonByKey(HddLayout.Widget.Transmit);
 				}
 
 				break;
@@ -133,8 +148,8 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 			// And a click in the map: a pick for an armed order, or the pilot selection the manual's
 			// "select the pilot's marker on the map" describes.
 			case CockpitWidgetKind.HddMapArea when hddCommand != null && displays.Art?.HeadsDownLayout is { } mapArea:
-				hddCommand.ClickMap(click.ArtX - mapArea.MapViewport.X0, click.ArtY - mapArea.MapViewport.Y0,
-					scene.World?.Objects ?? Array.Empty<SimObject>());
+				PlayMapPick(hddCommand.ClickMap(click.ArtX - mapArea.MapViewport.X0, click.ArtY - mapArea.MapViewport.Y0,
+					scene.World?.Objects ?? Array.Empty<SimObject>()));
 				break;
 
 			// A weapon row, dispatched by the class of gauge the row is — arm or chain on a weapon row,
@@ -177,9 +192,9 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 	}
 
 	/// <summary>
-	/// A key that presses an aux button — Widget_PressChild on the display, which runs the button's own press
-	/// slot and so clicks as the mouse does. Only a button the current screen shows; false for any other, which
-	/// the caller may answer some other way.
+	/// A key that presses an aux button — Widget_PressChild (00438d9c) on the display, which runs the button's
+	/// own press slot, and so clicks as the mouse does, then flashes it. Only a button the current screen shows;
+	/// false for any other, which the caller may answer some other way.
 	/// </summary>
 	public bool PressMfdButtonByKey(int index) {
 		if (!MfdLayout.ButtonVisible(displays.Hud.Mfd, index)) {
@@ -188,7 +203,74 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 
 		ApplyMfdAuxClick(index);
 		audio.Director?.Play(SoundId.ButtonClick);
+		displays.FlashPress(CockpitWidgetId.Mfd(index));
 		return true;
+	}
+
+	/// <summary>
+	/// [Enter], CockpitWidgets_HandleCommand's 0x1c case: on the scanner it presses TARGET and on TARGET STATUS
+	/// SELECT, each of which steps the selection. False on any other screen, where the case steps the selection
+	/// itself, with no button.
+	/// </summary>
+	public bool PressMfdTargetButtonByEnter() => displays.Hud.Mfd switch {
+		MfdMode.Scanner => PressMfdButtonByKey(MfdLayout.TargetButton),
+		MfdMode.TargetStatus => PressMfdButtonByKey(MfdLayout.SelectButton),
+		_ => false,
+	};
+
+	/// <summary>
+	/// A key or joystick button that presses CHAIN or LINK — ConsoleButtons_HandleCommand (004421a0), which
+	/// presses the child through Widget_PressChild. Its press slot (WeaponRangeSelectGadget_OnClick, 00442dc8)
+	/// clicks before it acts, as the mouse's does.
+	/// </summary>
+	public void PressConsoleButtonByKey(ConsoleButton button) {
+		audio.Director?.Play(SoundId.ButtonClick);
+		ApplyConsoleClick(button);
+		displays.FlashPress(CockpitWidgetId.Console(button));
+	}
+
+	/// <summary>
+	/// A key that presses a Heads-Down Display button — the display's key dispatches, which press it through
+	/// Widget_PressChild, as the order column's repeat click does for XMIT. Its press slot (HddButton_OnClick,
+	/// 0044be50) clicks as the mouse's does.
+	/// </summary>
+	public void PressHddButtonByKey(HddLayout.Widget widget) {
+		ApplyHddClick(widget);
+		audio.Director?.Play(SoundId.ButtonClick);
+		displays.FlashPress(CockpitWidgetId.Hdd(widget));
+	}
+
+	/// <summary>
+	/// [Enter] on the command display: a map click on the last picked unit or under the pointer — see
+	/// <see cref="HddCommandScreen.PickByEnter"/>. The pointer is read on this frame's layout, the one the frame
+	/// is drawn with.
+	/// </summary>
+	public void PickOnHddMapByEnter(float pointerX, float pointerY, int framebufferWidth, int framebufferHeight) {
+		if (displays.HddCommand is not { } command || displays.Art is not { HeadsDownLayout: { } mapArea } cockpitArt) {
+			return;
+		}
+
+		var layout = CockpitScreenLayout.Create(framebufferWidth, framebufferHeight, cockpitArt,
+			view.Pan.OffsetRows, view.Pan.TravelRows, view.Glance.OffsetPanels);
+		var (artX, artY) = layout.Surface(CockpitSurface.HeadsDown) is { } placed && !float.IsNaN(pointerX)
+			? placed.WindowToArt(pointerX, pointerY)
+			: (float.NaN, float.NaN);
+		PlayMapPick(command.PickByEnter(artX - mapArea.MapViewport.X0, artY - mapArea.MapViewport.Y0,
+			scene.World?.Objects ?? Array.Empty<SimObject>()));
+	}
+
+	/// <summary>[Tab] on the command display: steps the pick to the next eligible unit — see <see cref="HddCommandScreen.CycleUnit"/>.</summary>
+	public void CycleHddUnitByTab() {
+		if (displays.HddCommand?.CycleUnit(scene.World?.Objects ?? Array.Empty<SimObject>()) is { } found) {
+			audio.Director?.Play(found ? SoundId.ScannerActive : SoundId.ScannerPassive);
+		}
+	}
+
+	// HddCommandScreen_PickTarget's blip, for a unit or a gridpoint picked by a click or by [Enter].
+	private void PlayMapPick(HddMapClick result) {
+		if (result == HddMapClick.Picked) {
+			audio.Director?.Play(SoundId.TargetSelect);
+		}
 	}
 
 	/// <summary>A Heads-Down Display widget pressed, by a click or by the key the display's own dispatch maps to it.</summary>
@@ -263,9 +345,11 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 				hddCommand.View.ZoomOut();
 				break;
 
-			// A comm box selects its pilot, and selecting the one already selected drops it. Selecting a
-			// pilot from the damage screen also switches back to the command display, which is what the
-			// original's case 10-12 does before it selects.
+			// A comm box selects its pilot, and selecting the one already selected drops it, where the
+			// original's case 10-12 turns that click away and keeps the selection — a divergence recorded in
+			// KNOWN_ISSUES.md; see docs/retail/formats/heads-down-display.md#selecting-a-pilot. Selecting a
+			// pilot from the damage screen also switches back to the command display, which is what that
+			// case does before it selects.
 			case HddLayout.Widget.PilotBox0 or HddLayout.Widget.PilotBox1 or HddLayout.Widget.PilotBox2
 				when hddCommand != null:
 				int slot = widget - HddLayout.Widget.PilotBox0;
@@ -273,8 +357,9 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 				hddCommand.SelectPilot(slot == hddCommand.SelectedPilot ? -1 : slot);
 				break;
 
+			// HddDisplay_HandleWidgetPress's case 13 calls no sound function; the press's click is the button's own.
 			case HddLayout.Widget.Transmit when hddCommand != null:
-				audio.Director?.Play(hddCommand.Transmit() ? SoundId.ScannerActive : SoundId.ScannerPassive);
+				hddCommand.Transmit();
 				break;
 
 			case HddLayout.Widget.Cancel when hddCommand != null:

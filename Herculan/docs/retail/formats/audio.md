@@ -361,17 +361,20 @@ The engine hum is not started at its recorded rate: it is dropped to roughly two
 
 ### Sounds a cockpit control makes
 
-Two toggles play a confirmation directly rather than through any data table:
+These play directly rather than through any data table:
 
 | Trigger | Sound |
 |---|---|
 | `Mech_ToggleRadarMode` (`0041b468`) | `0x1a` `gnract` going ACTIVE, `0x1b` `gnrdact` going PASSIVE. Not positional — the cockpit makes it, not the world. |
-| Heads-down display transmit (`0044cc40`) | The same pair, reused as its accepted/rejected blip. |
+| [Tab] on the command display, `HddCommandScreen_KeyDispatch` (`0044cc40`) | The same pair, on what the screen's unit slot `+0x15c` holds after the cycle (`HddCommandScreen_CycleHostileUnit` for ATTACK ENEMY, `_CycleFriendlyUnit` for DEFEND POSITION, none for another order): `0x1a` as a held unit becomes the pick, `0x1b` when it is empty. |
+| `HddCommandScreen_PickTarget` (`0044d6b8`) | `0x14` `bptslct` when a click or [Enter] on the command display's map picks a unit or a gridpoint for the armed order. |
 | `Widget_ClickSound` (`00438e2c`) | `0x11` `gm_69`, the console click. |
+
+**No tone of XMIT's own is found.** `HddDisplay_HandleWidgetPress` (`0044a178`)'s case 13 calls no play function, and neither does any function it calls that was read for it: `HddCommandScreen_CommitPick`, `_FillOrderRecord`, `_SetMessageRow`, `_CancelTransmission`, `Squad_SendOrderToSlot` and `HddDisplay_SelectPilot`. `es2_xref.py` finds 31 callers of `Sound_Play`, 9 of `Sound_PlayAt` and 4 of `Sfx_Play`, and none of them is one of those functions ([Open](#open)). Every `Sound_Play` call pushes an immediate id, and the `0x1a`/`0x1b` pushes are the radar toggle's, [Tab]'s and `MessagePort_Show`'s alert tones ([`cockpit-messages.md`](cockpit-messages.md#the-port)). What a transmit is known to sound is XMIT's click, which its class plays whatever the press goes on to do (below), and then the squadmate's reply through its comm box ([`heads-down-display.md`](heads-down-display.md#the-state-machine--hdddisplay_servicecommboxes-0044b5f8)).
 
 The mode-change tone is the [R] path only. The scanner screen's PASS/ACTIVE buttons write `mech+0x96` directly and play no mode tone; the only sound they make is the console click below, which their class `MFDStateGadget` carries. The radar toggle also announces the new mode in the computer's voice — see [`cockpit-messages.md`](cockpit-messages.md#posters).
 
-`Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget vtables**, `PanelGadget`'s own and the fourteen button classes that inherit it, and a class's own `OnClick` calls it through that table, so whether a widget clicks is decided by its class and not by anything its handler goes on to do. That is why a button wired to nothing still clicks, and why the two system buttons, whose `OnClick` does not call it, are silent ([`cockpit-input.md`](cockpit-input.md#the-two-system-buttons)).
+`Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget vtables**, `PanelGadget`'s own and the fourteen button classes that inherit it, and a class's own `OnClick` calls it through that table, so whether a widget clicks is decided by its class and not by anything its handler goes on to do. That is why a button wired to nothing still clicks, and why the two system buttons, whose `OnClick` does not call it, are silent ([`cockpit-input.md`](cockpit-input.md#the-two-system-buttons)). The two list classes are silent the same way. The command display's order column and map viewport are `HDDListGadget`s, whose `OnClick` (`HDDListGadget_OnClick`, `0044f6ac`) only queues the click ([`heads-down-display.md`](heads-down-display.md#the-two-click-regions)); the MFD's screen area, which holds the FLASH COMM rows, is an `MFDListGadget`, whose `OnClick` (`MFDListGadget_OnClick`, `00447630`) only calls `MfdFlashComm_HandleListClick` ([`mfd.md`](mfd.md#mfdflashcomm--mode-1)). A double-click on the order already armed or the row already selected presses XMIT through `Widget_PressChild`, so that click is XMIT's. Both XMITs sound it whether or not their press transmits: `HDDSelectGadget`'s `OnClick` (`HddButton_OnClick`, `0044be50`) and `MFDSelectGadget`'s (`Widget_ForwardClickToOwner`) call the sound slot after the owner's handler, whatever it did.
 
 Which kind matters: the slot belongs to `PanelGadget`, the mixin base a cockpit widget carries alongside its button or slider class, and `PanelSliderGadget` overrides it with an empty stub (`00439014`). **Dragging the throttle makes no sound at all**, and neither does an alert panel's slider row. A control that takes neither mixin has no such slot to begin with and is silent for that reason: the click surface over the 3D view, the F7 map's surface, `HDDisplayGadget` and `ScrollTrigger` — see [`cockpit-input.md`](cockpit-input.md#the-second-vtable).
 
@@ -426,6 +429,7 @@ The language picks a folder, not a file. `Voice_ArchiveName` (`0045ef68`) patche
 
 ## Open
 
+- **Open:** a sound reached from XMIT's press beyond the functions it calls directly. `Squad_SendOrderToSlot` calls the squadmate's vtable `+0x28`, `Mech_ReceiveSquadOrder`, and neither that function's callees nor any call made through a table were checked against the play functions' callers.
 - **Unported:** the `.hmp` MIDI path. No `.hmp` ships, so nothing is lost in play.
 - **Unported:** reading `SOUND.CFG`.
 - **Open:** which word of the `sosDIGIInitDriver` argument block at `006b5614` is retail's channel count.

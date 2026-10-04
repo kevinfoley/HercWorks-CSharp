@@ -347,7 +347,9 @@ public abstract class SimObject {
 	/// <summary>
 	/// Whether the object is built but has not entered the mission yet — <b>it exists, but it is not
 	/// in the world</b>. It is not drawn, not simulated, and not collided with, exactly as if it had
-	/// not spawned; the position it holds is a placeholder its arrival overwrites.
+	/// not spawned; the position it holds is a placeholder its arrival overwrites. The one exception
+	/// is a structure's collision volume, which still stops walkers where it stands
+	/// (<see cref="Deployment.StructureInTheWay"/>).
 	///
 	/// <para>The original spells this as one pointer, the group record's <c>+0x14</c>, and so does
 	/// this engine: the flag lives on <see cref="MissionGroup.AwaitingDeployment"/> and <b>this is a

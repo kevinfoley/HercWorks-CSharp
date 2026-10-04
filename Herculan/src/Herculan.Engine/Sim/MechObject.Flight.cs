@@ -180,11 +180,13 @@ public sealed partial class MechObject : IFlightBody {
 	/// contact point, and only on the contact that destroys the component. The four probes that
 	/// cannot end the flight throw nothing however hard they hit.</para>
 	///
-	/// <para><b>Not retail:</b> every probe here is computed from the airframe's post-move transform,
-	/// each ground test at its own point. The original works through one copy of the transform taken
-	/// before the move, whose translation each ray probe overwrites and never restores, so its left
-	/// wing, cockpit and look-ahead ground tests are displaced — see docs/simulation/razor-flight.md
-	/// ("The probes share one transform") and KNOWN_ISSUES.md.</para>
+	/// <para><b>The probes share one stale transform, as in the original.</b> One copy of the
+	/// transform is taken before the move and never refreshed after a contact kick; the five probe
+	/// points are computed from it up front, and each ray probe writes its point into the copy's
+	/// translation and leaves it there. So every probe but the fuselage tests the pre-move position,
+	/// and the left wing, cockpit and look-ahead ground tests sample displaced points, which a contact
+	/// then reports. A retail bug, reproduced — see docs/simulation/razor-flight.md ("The probes share
+	/// one transform") and KNOWN_ISSUES.md.</para>
 	///
 	/// <para><b>It closes with the gun convergence</b>, every tick and whatever state the airframe is
 	/// in: the guns toe in on the range to the selected target (<see cref="GunConvergenceRange"/>) or
@@ -192,7 +194,15 @@ public sealed partial class MechObject : IFlightBody {
 	/// does not run. See docs/simulation/razor-flight.md ("Gun convergence").</para>
 	/// </summary>
 	private void FlyerMovementTick(SimWorld world, FlightModelRecord flight) {
-		var frame = Rotation();
+		// The original's local copy of the airframe transform (00419a03-00419a97), taken before the
+		// move. Every probe works through it, and the five probe points are computed from it here,
+		// before anything has moved or been kicked.
+		var shared = Rotation();
+		var rightWing = shared.TransformPoint(ProbeRightWing.X, ProbeRightWing.Y, ProbeRightWing.Z);
+		var leftWing = shared.TransformPoint(ProbeLeftWing.X, ProbeLeftWing.Y, ProbeLeftWing.Z);
+		var rightNacelle = shared.TransformPoint(ProbeRightNacelle.X, ProbeRightNacelle.Y, ProbeRightNacelle.Z);
+		var leftNacelle = shared.TransformPoint(ProbeLeftNacelle.X, ProbeLeftNacelle.Y, ProbeLeftNacelle.Z);
+		var cockpit = shared.TransformPoint(ProbeCockpit.X, ProbeCockpit.Y, ProbeCockpit.Z);
 
 		if (!Immobilised) {
 			var velocity = FlightWorldVelocity;
@@ -200,24 +210,27 @@ public sealed partial class MechObject : IFlightBody {
 				Position.X + SimMath.IntegrateRateOverTick((short)velocity.X),
 				Position.Y + SimMath.IntegrateRateOverTick((short)velocity.Y),
 				Position.Z + SimMath.IntegrateRateOverTick((short)velocity.Z));
-			frame = Rotation();
 		}
 
 		int airSpeed = FlightVelocity.Y;
 
 		// The wing pair. Contact rolls the airframe away from what it touched, hard enough that a
 		// wing dragged along a hillside flips the aircraft off it.
-		WingProbe(world, ProbeRightWing, FlightPhysics.ComponentRightWing, frame, airSpeed, rollAway: -1);
-		WingProbe(world, ProbeLeftWing, FlightPhysics.ComponentLeftWing, frame, airSpeed, rollAway: 1);
+		WingProbe(world, ProbeRightWing, rightWing, FlightPhysics.ComponentRightWing, ref shared,
+			airSpeed, rollAway: -1);
+		WingProbe(world, ProbeLeftWing, leftWing, FlightPhysics.ComponentLeftWing, ref shared,
+			airSpeed, rollAway: 1);
 
 		// The nacelles, which have no terrain check at all — only the object ray, at half the wings'
 		// clearance. They sit inboard and low, where the ground is already the wings' and the
 		// fuselage's business.
-		NacelleProbe(world, ProbeLeftNacelle, FlightPhysics.ComponentLeftNacelle, frame, airSpeed, rollAway: 1);
-		NacelleProbe(world, ProbeRightNacelle, FlightPhysics.ComponentRightNacelle, frame, airSpeed, rollAway: -1);
+		NacelleProbe(world, leftNacelle, FlightPhysics.ComponentLeftNacelle, ref shared, airSpeed,
+			rollAway: 1, reported: leftNacelle);
+		NacelleProbe(world, rightNacelle, FlightPhysics.ComponentRightNacelle, ref shared, airSpeed,
+			rollAway: -1, reported: leftNacelle);
 
-		CockpitProbe(world, frame, airSpeed);
-		GroundAvoidance(world, Rotation());
+		CockpitProbe(world, cockpit, ref shared, airSpeed);
+		GroundAvoidance(world, shared);
 		FuselageContact(world, airSpeed);
 
 		UpdateEngineNote(world);
@@ -284,21 +297,27 @@ public sealed partial class MechObject : IFlightBody {
 	private const int LookAheadPitchGain = 0x14;
 
 	/// <summary>
-	/// One wing. The probe point is tested against the ground under it <i>and</i> swept forward as a
-	/// ray, so a wing catches a building as readily as a hillside.
+	/// One wing. A point is tested against the ground under it <i>and</i> the wing's own point is
+	/// swept forward as a ray, so a wing catches a building as readily as a hillside.
+	///
+	/// <para>The ground point is <paramref name="offset"/> through <paramref name="shared"/> as it
+	/// stands, whose translation an earlier ray probe may have left behind, and it is where a contact
+	/// of either kind is reported. The wing's own <paramref name="rayOrigin"/> is then written into
+	/// that translation for the ray, and left there.</para>
 	/// </summary>
 	/// <param name="rollAway">Which way a contact rolls the airframe: -1 for a surface out to starboard.</param>
-	private void WingProbe(SimWorld world, Vec3i offset, int component, in Transform3 frame,
-			int airSpeed, int rollAway) {
+	private void WingProbe(SimWorld world, Vec3i offset, Vec3i rayOrigin, int component,
+			ref Transform3 shared, int airSpeed, int rollAway) {
 		if (!AirframeIntact(component)) {
 			return;
 		}
 
-		var point = frame.TransformPoint(offset.X, offset.Y, offset.Z);
+		var point = shared.TransformPoint(offset.X, offset.Y, offset.Z);
 		int ground = world.Terrain.HeightAtWorld(point.X, point.Y);
 		bool inGround = point.Z < ground;
 
-		if (!inGround && !ProbeStruckObject(world, frame, point, airSpeed, WingClearance)) {
+		AimProbeRay(ref shared, rayOrigin);
+		if (!inGround && !ProbeStruckObject(world, shared, airSpeed, WingClearance)) {
 			return;
 		}
 
@@ -323,16 +342,22 @@ public sealed partial class MechObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// One nacelle. No ground test — only the object ray — and a flat roll kick twice the wings'.
+	/// One nacelle. No ground test — only the object ray, from <paramref name="rayOrigin"/> written
+	/// into <paramref name="shared"/>'s translation and left there — and a flat roll kick twice the
+	/// wings'.
 	/// </summary>
-	private void NacelleProbe(SimWorld world, Vec3i offset, int component, in Transform3 frame,
-			int airSpeed, int rollAway) {
+	/// <param name="reported">
+	/// Where a contact is reported: the left nacelle's point for both, as in the original, whose
+	/// right-hand branch passes the left point's address (KNOWN_ISSUES.md).
+	/// </param>
+	private void NacelleProbe(SimWorld world, Vec3i rayOrigin, int component, ref Transform3 shared,
+			int airSpeed, int rollAway, Vec3i reported) {
 		if (!AirframeIntact(component)) {
 			return;
 		}
 
-		var point = frame.TransformPoint(offset.X, offset.Y, offset.Z);
-		if (!ProbeStruckObject(world, frame, point, airSpeed, NacelleClearance)) {
+		AimProbeRay(ref shared, rayOrigin);
+		if (!ProbeStruckObject(world, shared, airSpeed, NacelleClearance)) {
 			return;
 		}
 
@@ -340,28 +365,25 @@ public sealed partial class MechObject : IFlightBody {
 		Roll = (short)(Roll + RollRate);
 		_rotationValid = false;
 
-		// The original reports both nacelle contacts at the *left* probe's point, whichever nacelle
-		// was struck — its right-hand branch passes the left point's address. Reproduced: it decides
-		// only where the impact effect is drawn, and correcting it would move an effect the retail
-		// game draws in a fixed place.
-		var reported = frame.TransformPoint(ProbeLeftNacelle.X, ProbeLeftNacelle.Y, ProbeLeftNacelle.Z);
 		ApplyContactDamage(world, (short)component, HeavyObjectDamage, reported);
 	}
 
 	/// <summary>
 	/// The cockpit. It pitches the aircraft <i>up</i> out of whatever it hit, and losing the cockpit
-	/// section outright ends the flight.
+	/// section outright ends the flight. Its ground point and its ray work as a wing's do
+	/// (<see cref="WingProbe"/>), so the ground point carries the last ray probe's translation.
 	/// </summary>
-	private void CockpitProbe(SimWorld world, in Transform3 frame, int airSpeed) {
+	private void CockpitProbe(SimWorld world, Vec3i rayOrigin, ref Transform3 shared, int airSpeed) {
 		if (!AirframeIntact(FlightPhysics.ComponentCockpit)) {
 			return;
 		}
 
-		var point = frame.TransformPoint(ProbeCockpit.X, ProbeCockpit.Y, ProbeCockpit.Z);
+		var point = shared.TransformPoint(ProbeCockpit.X, ProbeCockpit.Y, ProbeCockpit.Z);
 		int ground = world.Terrain.HeightAtWorld(point.X, point.Y);
 		bool inGround = point.Z < ground;
 
-		if (!inGround && !ProbeStruckObject(world, frame, point, airSpeed, CockpitClearance)) {
+		AimProbeRay(ref shared, rayOrigin);
+		if (!inGround && !ProbeStruckObject(world, shared, airSpeed, CockpitClearance)) {
 			return;
 		}
 
@@ -394,9 +416,11 @@ public sealed partial class MechObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// The terrain look-ahead — a single point 15000 units ahead and 1500 below, which pulls the nose
-	/// up when the ground rises into it. It is the closest thing the RAZOR has to a stall recovery,
-	/// and it is why the aircraft skims a hillside rather than burying itself in it.
+	/// The terrain look-ahead — a single point 15000 units ahead and 1500 below, through the shared
+	/// probe transform, whose translation the cockpit's ray always leaves at the cockpit's point
+	/// (<see cref="FlyerMovementTick"/>). It pulls the nose up when the ground rises into it. It is
+	/// the closest thing the RAZOR has to a stall recovery, and it is why the aircraft skims a
+	/// hillside rather than burying itself in it.
 	///
 	/// <para><b>It only runs on an intact airframe</b>: both nacelles and the cockpit have to be
 	/// alive. A RAZOR that has lost any of the three flies straight into the hill.</para>
@@ -447,17 +471,21 @@ public sealed partial class MechObject : IFlightBody {
 	}
 
 	/// <summary>
-	/// Whether the ray from one probe point struck anything. The ray is one tick's travel long,
-	/// starts at the probe point and carries the airframe's own attitude — the original swaps each
-	/// point in turn into the translation of a single shared copy of the aircraft's transform.
+	/// Writes a probe's ray origin into the shared probe transform's translation, where the original
+	/// leaves it for every probe after (see <see cref="FlyerMovementTick"/>).
 	/// </summary>
-	private bool ProbeStruckObject(SimWorld world, in Transform3 frame, Vec3i point, int airSpeed,
-			int clearance) {
-		var ray = frame;
-		ray.X = point.X;
-		ray.Y = point.Y;
-		ray.Z = point.Z;
+	private static void AimProbeRay(ref Transform3 shared, Vec3i origin) {
+		shared.X = origin.X;
+		shared.Y = origin.Y;
+		shared.Z = origin.Z;
+	}
 
+	/// <summary>
+	/// Whether the ray <paramref name="ray"/> describes struck anything: one tick's travel long, from
+	/// its translation along its attitude — the shared probe transform as the last
+	/// <see cref="AimProbeRay"/> left it.
+	/// </summary>
+	private bool ProbeStruckObject(SimWorld world, in Transform3 ray, int airSpeed, int clearance) {
 		var probe = new WeaponShot(ray, airSpeed, ContactDamageShield, ContactDamageShield,
 			AirframeContact, owner: null, excluded: this, clearance: clearance);
 

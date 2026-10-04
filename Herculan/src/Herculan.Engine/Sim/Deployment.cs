@@ -134,8 +134,9 @@ public static class Deployment {
 	/// here, <c>Mech_CollisionTest</c> (<c>00418f74</c>) and <c>GroundVehicle_CollisionTest</c>
 	/// (<c>0046a510</c>).</para>
 	///
-	/// <para>The skip of a structure whose group has not arrived is this engine's, not the original's:
-	/// its gather makes no group-action test. See KNOWN_ISSUES.md.</para>
+	/// <para>A structure whose group has not arrived is gathered like any other, as in the original,
+	/// whose gather makes no group-action test: it blocks while it is not drawn. See
+	/// docs/simulation/mission-deployment.md ("The deployment gate") and KNOWN_ISSUES.md.</para>
 	/// </summary>
 	/// <param name="excluded">
 	/// The gather's third argument, one structure it passes over: a ground vehicle names itself, so it
@@ -146,8 +147,7 @@ public static class Deployment {
 
 		for (int i = 0; i < objects.Count; i++) {
 			if (objects[i] is BaseObject structure && !ReferenceEquals(structure, excluded)
-					&& !structure.Removed && !structure.AwaitingDeployment
-					&& structure.BlocksWalker(point)) {
+					&& !structure.Removed && structure.BlocksWalker(point)) {
 				return true;
 			}
 		}

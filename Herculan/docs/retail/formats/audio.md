@@ -330,7 +330,20 @@ The rolloff divides by `maxRange`, not by `maxRange - minRange`, so a sound at e
 
 Pan comes from the horizontal bearing, `a = Math_Atan2Bam(viewX, viewY)`, as `(-2a) & 0xffff` for `a < 0x8000` and `2a & 0xffff` otherwise — a full sweep of the pan range over half a turn, mirrored front to back. At `a = 0` — a source dead abeam on the right, since `Math_Atan2Bam`'s 0 is view `+x` — the front-half formula gives 0, the hard-left end, while bearings on either side give values near `0xffff`, the hard-right end. Dead abeam on the left (`a = 0x8000`) is continuous.
 
-At 166.667 world units per metre ([`../../herculan/planning.md`](../../herculan/planning.md)), a `max` of 40 is about 245 m, and the largest — `herceng1`'s 50 — about 307 m.
+`Math_Atan2Bam` (`0047d220`) also answers 0 when both of its arguments are 0, so **a source with no horizontal offset from the view is panned hard left**: one directly above or below the camera, or at it.
+
+#### A sound played at the camera
+
+The drop pod plays both its sounds at the camera's own position, `ViewObjectPtr + 4` ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-drop-pod--meteor)), and in ordinary play that point comes out of `Raster_ModelToView` as exactly `(0, 0, 0)`:
+
+- `Sim_Run` (`0045f144`) calls `Sim_MainTick`, then `Cam_Update(ViewObjectPtr)`, then `Sim_RenderFrame`, so the camera is placed after the tick and before the view is built from it.
+- `Sim_RenderFrame` (`0045fb9c`) installs the main view's projection from `ViewObjectPtr` through `Raster_InstallViewProjection` (`0048c1d8`), whose `View_BuildTransform` takes the camera's `+0x04` as the transform's translation `t` and which then inverts it.
+- `Transform_InvertRigid` makes that `R^T` with translation `round(R^T · -t)`, each component a Q14 sum rounded by `+0x2000 >> 14`, and `Transform_ApplyToPoint` then gives `round(R^T · t) + round(R^T · -t)` for the camera's own position. That is 0 in each component unless the sum lands exactly on a half, one value in 16384, where it is 1.
+- `Sound_Place` resets the model transform to identity first, so nothing else enters.
+
+So the pod's whistle and landing are both heard **hard left**, whatever the pod's position. The MFD's map and missile view and the Heads-Down Display's command map install projections of their own ([Open](#open)).
+
+At 166.667 world units per metre ([`../../herculan/planning.md`](../../herculan/planning.md)), a `max` of 40 is about 245 m, the largest authored one — `herceng1`'s 50 — about 307 m, and the default 100 that every `-` row takes about 614 m.
 
 ### The play-request gate
 
@@ -440,6 +453,7 @@ The language picks a folder, not a file. `Voice_ArchiveName` (`0045ef68`) patche
 
 ## Open
 
+- **Open:** whether a sound played at the camera ([A sound played at the camera](#a-sound-played-at-the-camera)) is ever measured against another view's projection. `MfdMapScreen_Paint`, `MfdMissileViewScreen_Paint`, `HddCommandScreen_DrawMap`, `HddCommandScreen_IsOnMap`, `HddCommandScreen_SynthesizeListClick` and `LiftStart_Rise` also call `Raster_InstallViewProjection` (`es2_xref.py`); when they run in the frame relative to the main view's install, and whether anything in `Sim_MainTick` writes the camera's `+0x04` before the pod's tick, were not read.
 - **Open:** a sound reached from XMIT's press beyond the functions it calls directly. `Squad_SendOrderToSlot` calls the squadmate's vtable `+0x28`, `Mech_ReceiveSquadOrder`, and neither that function's callees nor any call made through a table were checked against the play functions' callers.
 - **Open:** which word of the `sosDIGIInitDriver` argument block at `006b5614` is retail's channel count.
 - **Open:** what format bit 1 selects — `SOUND.CFG` block `+0x26`, fixed at 1 and part of the `0x15` fallback.

@@ -1661,9 +1661,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Meteor_Tick",
-      "description": "The drop pod's per-tick update, walked by Sim_MainTick over g_MeteorPool (its only caller). Falling phase (+0x4b clear): integrates position by the velocity at +0x45, pitches the shape to atan2(2000, vz), plays sound 0x2f once below altitude 50000, and on ground contact (Terrain_HeightQuery) sets the landed flag, snaps to ground, plays sound 0x30 and calls Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null), setting +0x4c if that hit anything. Landed phase: advances +0x4d at rate 0x5dc and drives the shape frame from +0x4d>>10 (the pod opening); when the flipbook ends it copies its landed position onto the carried group's leader and clears that group's +0x14 action pointer -- the moment the group enters the mission -- unless +0x4c is set, then spawns a leftover effect from pool 004a9711, frees its shape and returns 1 so Sim_MainTick releases it. It is not a rocket or missile handler and has nothing to do with the rocket path.",
+      "description": "The drop pod's per-tick update, called from Sim_MainTick (0045f5fb is the one call es2_xref finds). Falling phase (+0x4b clear): integrates position by the velocity at +0x45, pitches the shape to Math_Atan2Bam(2000, vz) and zeroes +0x32, plays sound 0x2f (podin2) once (latch +0x51) below absolute height 50000, and on ground contact (Terrain_HeightQuery) sets the landed flag, zeroes the pitch, snaps to ground, plays sound 0x30 (podland) and calls Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null), setting +0x4c if that answers non-zero. Both sounds go through Sound_PlayAt at ViewObjectPtr + 4, the camera's own position, not the pod's. Landed phase: while +0x4d >> 10 is below the opening shape's (+0x41) frame count, writes it as the shape's frame and advances +0x4d by Math_IntegrateRateOverTick(0x5dc). Once it reaches the count, when the pod carries a group (+0x55): unless +0x4c is set, copies its position onto the group's leader and clears the group's +0x14 (the moment the group enters the mission); then, either way, allocates a FlatObj from g_FlatObjPool (004a9711) on g_FlatShapes root 3 at its position, without checking the allocation before writing the position. Then destroys the shape instance at +0x41 and returns 1; otherwise returns 0.",
       "source": "docs/retail/simulation/mission-deployment.md",
-      "signature": "short __cdecl Meteor_Tick(int *pod)"
+      "signature": "short __cdecl Meteor_Tick(int *pod)",
+      "verified": {
+        "bytes": "00409d2c+587",
+        "sha1": "b45265868bdf",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00409f78",
@@ -15614,8 +15620,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_Run",
-      "description": "WinMain's body: reads data\\drive.cfg, parses the command line, refuses without -eggplant, then runs subsystem phases 0, 1, Sim_InitMissionSession and phase 3, and loops phase 4, Sim_MainTick, the camera, Sim_RenderFrame, Sim_EndFrame and phase 6 until DemoAbort, the quit flag 004d2582, a non-zero Sim_MainTick or WM_QUIT; then stops the music and sound, saves option 6 if the full-screen state changed, and calls Sim_Shutdown.",
-      "source": "docs/retail/command-line.md#exit-codes"
+      "description": "WinMain's body: reads data\\drive.cfg into DriveCfg_Directory, parses the command line, and shows a message box and returns when 004d25a8 is clear. Otherwise runs subsystem phases 0 and 1, asserts at under 8 MB physical memory and sets CockpitArt_LoadOnDemand under 12 MB, runs Sim_InitMissionSession and phase 3, then loops: phase 4, Time_BeginSimTick unless TapePlayback, then while 004d25f6 is set Sleep(100) and Win_PumpMessages (WM_QUIT ends it), else Sim_MainTick, Cam_Update(ViewObjectPtr), Sim_RenderFrame, Sim_EndFrame, phase 6 and Sim_FrameCount++, until DemoAbort, the quit flag 004d2582 or a non-zero Sim_MainTick. Then stops the music and sound, saves option 6 if the full-screen state changed, reopens tapes\\prefs.cfg and tapes\\keyjoy.cfg after a tape playback, and calls Sim_Shutdown.",
+      "source": "docs/retail/command-line.md#exit-codes",
+      "verified": {
+        "bytes": "0045f144+798",
+        "sha1": "7cf116a613f8",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045f464",
@@ -15652,8 +15664,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RenderFrame",
-      "description": "The whole frame draw; 13 callers -- Sim_Run once a frame, and the redraws in PreferencesPanel_Raise, LiftStart_Rise, Sim_DeathFlash, DemoTape_PickRandom and Sim_InitMissionSession. Order: Subsystem_RunPhase(5); ShapeDetail_ApplyHercDetailSetting when option byte 004d1fc5 has changed and StructureDetail_ApplySetting when 004d1fc6 has; adds CockpitView_GetShakeOffset's pair into the ints at Sim_RenderContext +0x220/+0x224 for the frame; Raster_InstallViewProjection, Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), CockpitView_PerFrameUpdate, Scene_SubmitFrameObjects; then, when CockpitView_ShowsWorld, Raster_InstallViewProjection, LightManager_SetCameraPosition, Terrain_SetupVisibleRegion again, Raster_SetModelTransform(0), Scene_DrawTerrainPass and ObjList_DrawAfterTerrain; then Player_PerFrameCockpitUpdate, slot +8 of CockpitViewInstance+0x1f5, slot +0x10 of CockpitView_GetSquadMessagePort's port and of CockpitViewInstance+0x20b; takes the shake offset back out; and ends with SystemButtons_PaintForPointer(CockpitViewInstance, &DAT_004d234c).",
-      "source": "DBSIM decompile at 0045fb9c; docs/retail/formats/terrain-drawing.md#the-frame"
+      "description": "The whole frame draw; Sim_Run calls it once a frame, between Cam_Update and Sim_EndFrame. Order: Subsystem_RunPhase(5); ShapeDetail_ApplyHercDetailSetting when option byte 004d1fc5 has changed and StructureDetail_ApplySetting when 004d1fc6 has; adds CockpitView_GetShakeOffset's pair into the ints at Sim_RenderContext +0x220/+0x224 for the frame; Raster_InstallViewProjection(ViewObjectPtr), Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), CockpitView_PerFrameUpdate, Scene_SubmitFrameObjects; then, when CockpitView_ShowsWorld, Raster_InstallViewProjection(ViewObjectPtr) again, LightManager_SetCameraPosition(ViewObjectPtr + 4), Terrain_SetupVisibleRegion again, Raster_SetModelTransform(0), Scene_DrawTerrainPass and ObjList_DrawAfterTerrain; then Player_PerFrameCockpitUpdate, slot +8 of CockpitViewInstance+0x1f5, slot +0x10 of CockpitView_GetSquadMessagePort's port and of CockpitViewInstance+0x20b; takes the shake offset back out; and ends with SystemButtons_PaintForPointer(CockpitViewInstance, &DAT_004d234c).",
+      "source": "DBSIM decompile at 0045fb9c; docs/retail/formats/terrain-drawing.md#the-frame",
+      "verified": {
+        "bytes": "0045fb9c+397",
+        "sha1": "06f8dd5f0860",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045fd2c",
@@ -15883,8 +15901,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sound_PlayAt",
-      "description": "(catalogId, worldPoint). Positional. Rolls the variation count, then Sound_Place computes volume and pan; plays only if the result is audible. One entry point covers every data-driven sound in the sim (PROJ.DAT, ROCKETS.DAT, EXPLOS.DAT, the alerts).",
-      "source": "docs/retail/formats/audio.md"
+      "description": "(catalogId, worldPoint). Positional. Does nothing while SfxManager is null. Rolls the variation count (attribute byte 6, Math_RandomBelow on the state at 004d268f) onto the id, then Sound_Place computes volume and pan from the point unchanged, and Sfx_Play starts the id's voice only if that reports it audible.",
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "004627dc+96",
+        "sha1": "76c4d99cb7df",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046283c",
@@ -15910,8 +15934,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sound_Place",
-      "description": "(catalogId, worldPoint) -> audible. Resets the model transform and pushes the point through the current camera transform, so the listener is the camera. With d = Math_FastMagnitude3D(view): beyond attribute byte 5 * 1024 the volume is 0 and nothing plays; at or past byte 4 * 1024 it is (max - d) * vol / max -- the divisor is max, not max - min, so a sound at exactly min is already attenuated. Final volume is scaled by attribute byte 8 / 100. Pan is (-2a) & 0xffff for a = Math_Atan2Bam(viewX, viewY) below 0x8000, and 2a & 0xffff above.",
-      "source": "docs/retail/formats/audio.md"
+      "description": "(catalogId, worldPoint) -> audible; false while SfxManager is null. Resets the model transform and pushes the point through the current camera transform (Raster_ModelToView), so the listener is the camera. With d = Math_FastMagnitude3D(view): volume is 0 when the id's category is disabled or d is beyond attribute byte 5 * 1024; otherwise Math_Q16Multiply(byte 1, 65000), and at or past byte 4 * 1024 it is (max - d) * vol / max -- the divisor is max, not max - min, so a sound at exactly min is already attenuated. Sfx_SetVolume gets volume * attribute byte 8 / 100. Only when audible: pan is (-2a) & 0xffff for a = Math_Atan2Bam(viewX, viewY) below 0x8000, and 2a & 0xffff otherwise, so a = 0 (dead abeam right, and a point with no horizontal offset, for which Math_Atan2Bam answers 0) pans to 0, hard left.",
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "00462898+296",
+        "sha1": "77ad45f63e30",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004629c0",
@@ -21294,8 +21324,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Atan2Bam",
-      "description": "atan2 in binary angles, arguments (x, y): 0 is +x and +y is a quarter turn, so in screen space 0 is right and a quarter turn is down. The result is masked to 14 bits and shifted left 2.",
-      "source": "docs/retail/formats/hud-target-indicator.md"
+      "description": "atan2 in binary angles, arguments (x, y): 0 is +x and +y is a quarter turn, so in screen space 0 is right and a quarter turn is down. Octant-folded through the correction table at 004a1c4c. Answers 0 for (0, 0), and for any y of 0 with x positive. The result is masked to 14 bits and shifted left 2.",
+      "source": "docs/retail/formats/hud-target-indicator.md",
+      "verified": {
+        "bytes": "0047d220+148",
+        "sha1": "84423f9cbba2",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047d554",
@@ -21723,7 +21759,13 @@
       "confidence": "high",
       "name": "Transform_RotatePoint",
       "description": "(point, transform, out): Transform_ApplyToPoint without the translation -- the rotation alone on an int32 point, Q14 with +0x2000 rounding and 64-bit intermediates, with the rank-byte fast paths. The rigid-inverse idiom rotates the negated translation through a transposed copy with it.",
-      "source": "DBSIM decompile and disassembly at 004801f8"
+      "source": "DBSIM decompile and disassembly at 004801f8",
+      "verified": {
+        "bytes": "004801f8+312",
+        "sha1": "5b693f34f71c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00480330",
@@ -21731,8 +21773,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Transform_ApplyToPoint",
-      "description": "Transforms an int32 point by a 32-byte transform, Q14 with round-to-nearest and 64-bit intermediates. The int-width counterpart of Transform_ApplyToShortPoint.",
-      "source": "docs/retail/simulation/hit-detection.md"
+      "description": "(point, transform, out): transforms an int32 point by a 32-byte transform, rotation then translation, Q14 with +0x2000 rounding and 64-bit intermediates. Rank byte (+0x12) below 1: translation only; 1: rotates x and y only and passes z through; otherwise the full 3x3. The int-width counterpart of Transform_ApplyToShortPoint.",
+      "source": "docs/retail/simulation/hit-detection.md",
+      "verified": {
+        "bytes": "00480330+339",
+        "sha1": "f3b551de3175",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00480484",
@@ -24064,8 +24112,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_InstallViewProjection",
-      "description": "Installs a view's projection state into the rasterizer globals: perspective shift from view+0x1a (DAT_006c60ac), near plane from +0x1e (DAT_006c60b0), orthographic divisor from +0x22 (DAT_006c60b4), and from the render target at view+0x16 the clip rect +0x210..+0x21c. The projection centre DAT_006c60b8/bc starts as that rect's top-left and then has the target's +0x220 pair subtracted -- that pair being the .VUE projection centre plus the view's canvas origin, installed by CockpitView_ApplyViewState.",
-      "source": "docs/retail/formats/cockpit-views.md"
+      "description": "Installs a view's projection state into the rasterizer globals: perspective shift from view+0x1a (DAT_006c60ac), near plane from +0x1e (DAT_006c60b0), orthographic divisor from +0x22 (DAT_006c60b4) when the shift is 0, and from the render target at view+0x16 the clip rect +0x210..+0x21c. The projection centre DAT_006c60b8/bc starts as that rect's top-left and then has the target's +0x220 pair subtracted -- that pair being the .VUE projection centre plus the view's canvas origin, installed by CockpitView_ApplyViewState. Then builds the view's transform into 006c6018 (View_BuildTransform: euler +0x10, translation +0x04), inverts it (Transform_InvertRigid) into world-to-view, and installs that with Raster_SetViewTransform.",
+      "source": "docs/retail/formats/cockpit-views.md",
+      "verified": {
+        "bytes": "0048c1d8+202",
+        "sha1": "de0e487a00da",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048c2a4",
@@ -24083,7 +24137,13 @@
       "confidence": "high",
       "name": "Raster_SetModelTransform",
       "description": "Installs a transform as the renderer's current model transform (null means the identity at 006c6080); the pointer goes to g_ModelTransformPtr. Builds g_ModelToView = Transform_Concat(model, [006c6078]), its inverse g_ViewToModel (Transform_InvertRigid), and g_EyeInModelSpace (the origin through that inverse). When 006cbc88 is set it moves every registered light (list 006c6130, count 006c612c) into the model's space with Light_TransformToModelSpace, using the inverse of the model transform. Same code as VSHELL's Raster_SetModelTransform (0045e198).",
-      "source": "DBSIM decompile at 0048c338; docs/retail/formats/dts-node-posing.md"
+      "source": "DBSIM decompile at 0048c338; docs/retail/formats/dts-node-posing.md",
+      "verified": {
+        "bytes": "0048c338+312",
+        "sha1": "80a12c0058fb",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048c470",
@@ -24092,7 +24152,13 @@
       "confidence": "high",
       "name": "Raster_ModelToView",
       "description": "(point, out): Transform_ApplyToPoint_Thunk by the current model-to-view transform g_ModelToView. The DBSIM copy of VSHELL's Raster_ModelToView.",
-      "source": "DBSIM decompile and disassembly at 0048c470"
+      "source": "DBSIM decompile and disassembly at 0048c470",
+      "verified": {
+        "bytes": "0048c470+26",
+        "sha1": "3e1e53a4b3cb",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048c4c0",
@@ -24318,7 +24384,13 @@
       "confidence": "high",
       "name": "Transform_ApplyToPoint_Thunk",
       "description": "One-line forwarder to Transform_ApplyToPoint with the same arguments.",
-      "source": "DBSIM decompile and disassembly at 0048d8d8"
+      "source": "DBSIM decompile and disassembly at 0048d8d8",
+      "verified": {
+        "bytes": "0048d8d8+25",
+        "sha1": "b81bf23d4b86",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048d8f1",
@@ -24462,7 +24534,13 @@
       "confidence": "high",
       "name": "Transform_InvertRigid",
       "description": "Inverts a rigid transform in place: transposes the rotation (0048db37), negates the translation (004950ca) and rotates it through the transposed rotation (Transform_RotatePoint). Same code as VSHELL's Transform_InvertRigid.",
-      "source": "DBSIM decompile and disassembly at 0048da06"
+      "source": "DBSIM decompile and disassembly at 0048da06",
+      "verified": {
+        "bytes": "0048da06+69",
+        "sha1": "ffe85c8d2dec",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048da4b",
@@ -26621,7 +26699,13 @@
       "confidence": "high",
       "name": "View_BuildTransform",
       "description": "(view, out): Transform_SetEulerAndTranslation(out, view + 0x10, view + 4).",
-      "source": "docs/retail/formats/terrain-drawing.md"
+      "source": "docs/retail/formats/terrain-drawing.md",
+      "verified": {
+        "bytes": "0049506c+28",
+        "sha1": "94b94a77bf96",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00495088",

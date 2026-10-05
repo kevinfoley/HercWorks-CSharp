@@ -76,6 +76,13 @@ public static class TweakSettingDefinitions {
 	/// See <see cref="Content.AltitudeScale.TapeFrame"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> ShowAltitudeTape = new("tweak.show_altitude_tape", TweakCategory.Cosmetic, false);
+
+	/// <summary>
+	/// A drop pod's whistle and landing are heard from the pod, the whistle following it down, louder
+	/// and much further off than the sounds' own catalog rows allow. Retail plays both at the camera
+	/// itself, so they are the same wherever the pod is. See <see cref="Sim.MeteorObject.TweakSoundReach"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> DropPodSoundFromPod = new("tweak.drop_pod_sound_from_pod", TweakCategory.Cosmetic, false);
 	#endregion
 
 	#region FUNCTIONAL
@@ -128,6 +135,6 @@ public static class TweakSettingDefinitions {
 		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
-		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape,
+		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod,
 	};
 }

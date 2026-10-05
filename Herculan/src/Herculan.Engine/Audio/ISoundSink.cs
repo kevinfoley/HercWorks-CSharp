@@ -22,7 +22,11 @@ public interface ISoundSink {
 	/// <summary>
 	/// Plays a catalog id at a world point. <c>Sound_PlayAt</c> (<c>004627dc</c>).
 	/// </summary>
-	void PlayAt(int id, Vec3i position);
+	/// <param name="id">The catalog id.</param>
+	/// <param name="position">Where it is, in world units.</param>
+	/// <param name="reach"><inheritdoc cref="SoundDirector.PlayAt" path="/param[@name='reach']"/></param>
+	/// <param name="source"><inheritdoc cref="SoundDirector.PlayAt" path="/param[@name='source']"/></param>
+	void PlayAt(int id, Vec3i position, SoundReach? reach = null, object? source = null);
 
 	/// <summary>Stops a catalog id. <c>Sound_Stop</c> (<c>004629c0</c>).</summary>
 	void Stop(int id);
@@ -31,7 +35,11 @@ public interface ISoundSink {
 	/// Moves a sound that is already running. <c>Sound_UpdatePosition</c> (<c>00462878</c>) — what
 	/// the looping engine hum and the flamer use to follow their machine.
 	/// </summary>
-	void MoveTo(int id, Vec3i position);
+	/// <param name="id">The catalog id.</param>
+	/// <param name="position">Where it now is, in world units.</param>
+	/// <param name="reach"><inheritdoc cref="SoundDirector.UpdatePosition" path="/param[@name='reach']"/></param>
+	/// <param name="source"><inheritdoc cref="SoundDirector.UpdatePosition" path="/param[@name='source']"/></param>
+	void MoveTo(int id, Vec3i position, SoundReach? reach = null, object? source = null);
 
 	/// <summary>
 	/// Sets a running sound's playback rate, 16.16 with <c>0x10000</c> as its recorded pitch —

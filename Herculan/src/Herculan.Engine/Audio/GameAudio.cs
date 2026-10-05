@@ -111,13 +111,15 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	void ISoundSink.Play(int id) => _director?.Play(id);
 
 	/// <inheritdoc />
-	void ISoundSink.PlayAt(int id, Vec3i position) => _director?.PlayAt(id, position);
+	void ISoundSink.PlayAt(int id, Vec3i position, SoundReach? reach, object? source) =>
+		_director?.PlayAt(id, position, reach, source);
 
 	/// <inheritdoc />
 	void ISoundSink.Stop(int id) => _director?.Stop(id);
 
 	/// <inheritdoc />
-	void ISoundSink.MoveTo(int id, Vec3i position) => _director?.UpdatePosition(id, position);
+	void ISoundSink.MoveTo(int id, Vec3i position, SoundReach? reach, object? source) =>
+		_director?.UpdatePosition(id, position, reach, source);
 
 	/// <inheritdoc />
 	void ISoundSink.SetPitch(int id, int rate) => _director?.SetPitch(id, rate);

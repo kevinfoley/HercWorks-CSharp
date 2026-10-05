@@ -19,7 +19,9 @@ tweak.flash_through_second_hit.display_name    Keep damage flash on a second hit
 tweak.flash_through_second_hit.description     A second hit on your cockpit while the screen is still shaking from the first keeps the red damage flash going until the shake ends. In retail, a second hit that lands while the screen is red stops the flash for the rest of the shake.
 tweak.show_altitude_tape.display_name          Show Razor altitude tape
 tweak.show_altitude_tape.description           Draw the tick tape that scrolls with your height beside the Razor's altitude scale. Retail draws the scale's brackets, column and marker, but places the tape outside its own clipping area, so it never appears.
-tweak.smoother_turret_movement.display_name    Smoother turret movement
+tweak.drop_pod_sound_from_pod.display_name    Drop pod sounds from the pod
+tweak.drop_pod_sound_from_pod.description     Hear a falling drop pod's whistle from the pod itself, following it down, and its landing from where it lands. The sounds are louder and carry for kilometres. Retail plays both sounds at your own position, so they never tell you where the pod is.
+tweak.smoother_turret_movement.display_name   Smoother turret movement
 tweak.smoother_turret_movement.description     Smooth turret rotation when aiming with a joystick or other analog input. Retail rounds the rotation value, causing stutter at slow aiming speeds. Has no effect when aiming with the keyboard.
 tweak.mouse_external_view.display_name         Mouse-controlled outside view
 tweak.mouse_external_view.description          Swing the outside view [V] round your HERC by dragging with the left mouse button, while you keep control of the HERC and the cockpit keys keep working. Retail steers the camera with the joystick or arrow keys instead, and [Enter] switches them between the camera and the HERC.

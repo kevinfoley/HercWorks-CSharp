@@ -753,8 +753,6 @@ public sealed class ShellHangar {
 	/// zeroed either way; then each flag from <c>0x15</c> to <c>0x31</c> adds that many units of its weapon to
 	/// stock at condition 100, leaving the flag set. Returns how many units were added.
 	///
-	/// <para>The debrief that calls this is not ported (ROADMAP), so nothing calls it yet.</para>
-	///
 	/// <para>An id past the catalog in the table's overrun appends, in retail, to a list outside the
 	/// weapon record array. This engine cannot reproduce that write, so it counts the unit and stocks
 	/// nothing; no retail save holds a nonzero flag there.</para>

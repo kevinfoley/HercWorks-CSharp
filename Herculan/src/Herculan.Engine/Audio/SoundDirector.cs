@@ -44,6 +44,9 @@ public sealed class SoundDirector : IDisposable {
 	private readonly float[] _pan;
 	private readonly float[] _pitch;
 	private readonly int[] _repeatsLeft;
+
+	// Who started each id's newest copy, when they said; see PlayAt's source. Not the original's.
+	private readonly object?[] _source;
 	private bool _suspended;
 	private bool _disposed;
 
@@ -69,6 +72,7 @@ public sealed class SoundDirector : IDisposable {
 		_pan = new float[count];
 		_pitch = new float[count];
 		_repeatsLeft = new int[count];
+		_source = new object?[count];
 
 		for (int id = 0; id < count; id++) {
 			_samples[id] = bank.Sample(id) is { } sample ? backend.CreateSample(sample) : -1;
@@ -327,24 +331,34 @@ public sealed class SoundDirector : IDisposable {
 
 		SetVolume(id, CategoryEnabled(id) ? AttributeVolume(entry) : 0);
 		Start(id, entry);
+		_source[id] = null;
 	}
 
 	/// <summary>
 	/// <c>Sound_PlayAt</c> (<c>004627dc</c>) — the positional play. Rolls the variation count, places
 	/// the sound, and starts it only if <see cref="Place"/> found it audible.
 	/// </summary>
+	/// <param name="id">The catalog id.</param>
+	/// <param name="position">Where the sound is, in world units.</param>
+	/// <param name="reach">A volume and range to use instead of the row's; null is the original's play.</param>
+	/// <param name="source">
+	/// Who is playing it, so that only they can move this copy later through
+	/// <see cref="UpdatePosition"/>. Not the original's; null leaves the copy movable by anyone, as
+	/// the original's record is.
+	/// </param>
 	/// <returns>Whether the sound was close enough to be played at all.</returns>
-	public bool PlayAt(int id, Vec3i position) {
+	public bool PlayAt(int id, Vec3i position, SoundReach? reach = null, object? source = null) {
 		id = RollVariation(id);
 		if (Entry(id) is not { } entry) {
 			return false;
 		}
 
-		if (!Place(id, position)) {
+		if (!Place(id, position, reach)) {
 			return false;
 		}
 
 		Start(id, entry);
+		_source[id] = source;
 		return true;
 	}
 
@@ -357,8 +371,11 @@ public sealed class SoundDirector : IDisposable {
 	/// exactly at <see cref="SoundCatalog.Entry.MinRange"/> is already attenuated rather than at full
 	/// volume.</para>
 	/// </summary>
+	/// <param name="id">The catalog id.</param>
+	/// <param name="position">Where the sound is, in world units.</param>
+	/// <param name="reach">A volume and range to use instead of the row's; null is the original's.</param>
 	/// <returns>False when the source is past the row's cutoff, in which case nothing is played.</returns>
-	public bool Place(int id, Vec3i position) {
+	public bool Place(int id, Vec3i position, SoundReach? reach = null) {
 		if (Entry(id) is not { } entry) {
 			return false;
 		}
@@ -366,8 +383,8 @@ public sealed class SoundDirector : IDisposable {
 		var offset = position - ListenerPosition;
 		int distance = SimMath.FastMagnitude3D(offset.X, offset.Y, offset.Z);
 
-		int minRange = entry.MinRange * SoundCatalog.RangeUnit;
-		int maxRange = entry.MaxRange * SoundCatalog.RangeUnit;
+		int minRange = reach?.MinRange ?? entry.MinRange * SoundCatalog.RangeUnit;
+		int maxRange = reach?.MaxRange ?? entry.MaxRange * SoundCatalog.RangeUnit;
 
 		int volume;
 		if (!CategoryEnabled(id)) {
@@ -375,7 +392,7 @@ public sealed class SoundDirector : IDisposable {
 		} else if (distance > maxRange) {
 			volume = 0;
 		} else {
-			volume = SimMath.Q16Multiply(entry.Volume, SoundCatalog.VolumeTrim);
+			volume = SimMath.Q16Multiply(reach?.Volume ?? entry.Volume, SoundCatalog.VolumeTrim);
 			if (distance >= minRange && maxRange > 0) {
 				volume = (maxRange - distance) * volume / maxRange;
 			}
@@ -397,23 +414,33 @@ public sealed class SoundDirector : IDisposable {
 		int right = SimMath.Q14Multiply(offset.X, BinaryAngle.Cos(-ListenerHeading))
 			- SimMath.Q14Multiply(offset.Y, BinaryAngle.Sin(-ListenerHeading));
 
-		int bearing = SimTrig.Atan2(forward, right);
-
 		// Doubling the bearing sweeps the whole pan range over half a turn, which is what makes the
 		// image mirror front to back — a stereo field cannot tell the two apart anyway.
 		//
-		// One deliberate deviation, at exactly one input. The original computes the front half as
-		// `(ushort)(bearing * -2)`, which for a bearing of zero — a source precisely abeam on the right — is zero,
-		// the hard-left end, while every neighbouring bearing on both sides lands at the hard-right
-		// end. The continuous value there is 0x10000, and it is only the truncation to sixteen bits
-		// that turns it into its opposite. Reproducing that would put an audible snap to the far
-		// channel on any sound passing dead abeam, and this engine's placement reaches the exact zero
-		// far more often than the original's does: DBSIM's forward component comes out of a full
-		// camera matrix carrying pitch and roll, where an exact zero is a coincidence, and this one
-		// comes out of a plain horizontal rotation, where it is simply what abeam means.
-		int pan = bearing < 0x8000
-			? Math.Min(0x10000 - 2 * bearing, 0xffff)
-			: (2 * bearing) & 0xffff;
+		// Two deliberate deviations, both where the original's bearing is zero, which its 16-bit
+		// front-half formula `(ushort)(bearing * -2)` turns into 0, the hard-left end.
+		//
+		// A source precisely abeam on the right: every neighbouring bearing on both sides lands at
+		// the hard-right end, and the continuous value there is 0x10000, so it is only the truncation
+		// that turns it into its opposite. Reproducing it would put an audible snap to the far channel
+		// on any sound passing dead abeam, and this engine's placement reaches the exact zero far more
+		// often than the original's does: DBSIM's forward component comes out of a full camera matrix
+		// carrying pitch and roll, where an exact zero is a coincidence, and this one comes out of a
+		// plain horizontal rotation, where it is simply what abeam means. It is given hard right.
+		//
+		// A source with no horizontal offset at all, which has no bearing: Math_Atan2Bam answers 0
+		// for (0, 0), so the original pans it hard left. The drop pod's two sounds, played at the
+		// camera itself, reach it every time; see docs/retail/formats/audio.md, "A sound played at
+		// the camera". It is centred instead.
+		int pan;
+		if (forward == 0 && right == 0) {
+			pan = PanCentre;
+		} else {
+			int bearing = SimTrig.Atan2(forward, right);
+			pan = bearing < 0x8000
+				? Math.Min(0x10000 - 2 * bearing, 0xffff)
+				: (2 * bearing) & 0xffff;
+		}
 
 		SetPan(id, pan);
 		return true;
@@ -423,7 +450,20 @@ public sealed class SoundDirector : IDisposable {
 	/// <c>Sound_UpdatePosition</c> (<c>00462878</c>) — re-places a sound that is already running,
 	/// without starting it. The looping engine hum and the flamer are what the original uses it for.
 	/// </summary>
-	public void UpdatePosition(int id, Vec3i position) => Place(id, position);
+	/// <param name="id">The catalog id.</param>
+	/// <param name="position">Where the sound now is, in world units.</param>
+	/// <param name="reach">The volume and range it was started with, if not the row's.</param>
+	/// <param name="source">
+	/// Who is moving it. When given, the move happens only if the same caller started the id's newest
+	/// copy — see <see cref="PlayAt"/> — so an older copy's owner cannot drag a newer one away.
+	/// </param>
+	public void UpdatePosition(int id, Vec3i position, SoundReach? reach = null, object? source = null) {
+		if (source != null && (id < 0 || id >= _source.Length || !ReferenceEquals(_source[id], source))) {
+			return;
+		}
+
+		Place(id, position, reach);
+	}
 
 	/// <summary><c>Sound_Stop</c> (<c>004629c0</c>).</summary>
 	/// <remarks>

@@ -283,11 +283,11 @@ public class ComputerWarningTests {
 
 		public void Play(int id) { }
 
-		public void PlayAt(int id, Vec3i position) { }
+		public void PlayAt(int id, Vec3i position, SoundReach? reach, object? source) { }
 
 		public void Stop(int id) { }
 
-		public void MoveTo(int id, Vec3i position) { }
+		public void MoveTo(int id, Vec3i position, SoundReach? reach, object? source) { }
 
 		public void SetPitch(int id, int rate) { }
 

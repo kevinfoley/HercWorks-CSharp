@@ -12,6 +12,13 @@ because headless Ghidra locks the project. Each dump is written to a temporary f
 place only when the script reports `SCRIPT-OK`, so a failed or cancelled run leaves the previous
 dump intact.
 
+A dump is skipped when it is already current. Ghidra keeps each program as `db.<N>.gbf` in the
+project's `idata` folder and raises N on every save, so `<BINARY>_dumps.json` beside the dumps
+records, per dump, the N it was taken from and a hash of the dumping script and its arguments; a dump
+whose N and hash both still match is not run again. The dumps open the program `-readOnly`, since a
+headless run without it saves the program on exit and raises N even when nothing changed. `--force`
+dumps regardless.
+
 It then reports, from the function list, the functions whose name is the one
 `known_symbols_<binary>.json` records for that address -- the names this project assigned, as
 opposed to `FUN_` placeholders and the names Ghidra supplies itself (Borland runtime functions,
@@ -21,7 +28,8 @@ share excluding the library/import names. Code bytes Ghidra has not placed in an
 outside both denominators.
 
 Usage:
-    python tools/scripts/ghidra_full_decomp.py              # dump both binaries (all five dumps), then report
+    python tools/scripts/ghidra_full_decomp.py              # dump both binaries (all five dumps, skipping current ones), then report
+    python tools/scripts/ghidra_full_decomp.py --force      # dump everything, current or not
     python tools/scripts/ghidra_full_decomp.py --no-dump    # report from the existing function lists
     python tools/scripts/ghidra_full_decomp.py --binary DBSIM
     python tools/scripts/ghidra_full_decomp.py --binary DBSIM --dump functions --dump vtables
@@ -30,7 +38,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import glob
+import hashlib
+import json
 import os
+import re
 import subprocess
 import sys
 
@@ -67,9 +79,54 @@ def disasm_path(binary: str) -> str:
     return os.path.join(OUT_DIR, f"{binary}_disasm_full.txt")
 
 
-def run_dump(binary: str, script: str, final: str, script_args: list[str], what: str) -> bool:
+def program_version(binary: str) -> int | None:
+    """The program's saved-database version: the highest N of the db.<N>.gbf files Ghidra keeps
+    for it under ES2Recon.rep/idata, located through that folder's ~index.dat. None when it cannot
+    be read, which makes every dump of the binary run."""
+    idata = os.path.join(PROJECT, "ES2Recon.rep", "idata")
+    try:
+        with open(os.path.join(idata, "~index.dat"), encoding="utf-8", errors="replace") as f:
+            ids = re.findall(r"^\s*([0-9a-f]{8}):" + re.escape(binary) + r"\.EXE:", f.read(), re.M | re.I)
+    except OSError:
+        return None
+    if len(ids) != 1:
+        return None
+    files = glob.glob(os.path.join(idata, "*", f"~{ids[0]}.db", "db.*.gbf"))
+    nums = [int(m.group(1)) for p in files if (m := re.search(r"db\.(\d+)\.gbf$", p))]
+    return max(nums) if nums else None
+
+
+def stamps_path(binary: str) -> str:
+    return os.path.join(OUT_DIR, f"{binary}_dumps.json")
+
+
+def read_stamps(binary: str) -> dict:
+    try:
+        with open(stamps_path(binary), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def script_hash(script: str, script_args: list[str]) -> str:
+    """The dumping script's source and arguments, so a change to either re-dumps."""
+    with open(os.path.join(SCRIPTS, f"{script}.java"), "rb") as f:
+        h = hashlib.sha1(f.read())
+    h.update(json.dumps(script_args).encode())
+    return h.hexdigest()[:12]
+
+
+def run_dump(binary: str, script: str, final: str, script_args: list[str], what: str,
+             force: bool = False) -> bool:
+    version = program_version(binary)
+    stamp = {"db": version, "script": script_hash(script, script_args)}
+    stamps = read_stamps(binary)
+    name = os.path.basename(final)
+    if not force and version is not None and os.path.exists(final) and stamps.get(name) == stamp:
+        print(f"=== {binary}: {what}: current (database version {version}), skipped", flush=True)
+        return True
     tmp = final + ".tmp"
-    cmd = [GHIDRA, PROJECT, "ES2Recon", "-process", f"{binary}.EXE", "-noanalysis",
+    cmd = [GHIDRA, PROJECT, "ES2Recon", "-process", f"{binary}.EXE", "-noanalysis", "-readOnly",
            "-scriptPath", SCRIPTS, "-postScript", script, tmp, *script_args]
     print(f"=== {binary}: {what}", flush=True)
     ok = False
@@ -83,6 +140,15 @@ def run_dump(binary: str, script: str, final: str, script_args: list[str], what:
     if ok and proc.returncode == 0 and os.path.exists(tmp):
         os.replace(tmp, final)
         print(f"   wrote {os.path.relpath(final, REPO_ROOT)}")
+        # Re-read: another dump of this binary may have written its own entry meanwhile.
+        stamps = read_stamps(binary)
+        if version is not None and program_version(binary) == version:
+            stamps[name] = stamp
+        else:
+            # The database was saved while this dump ran, so it may already be behind.
+            stamps.pop(name, None)
+        with open(stamps_path(binary), "w", encoding="utf-8") as f:
+            json.dump(stamps, f, indent=1, sort_keys=True)
         return True
     if os.path.exists(tmp):
         os.remove(tmp)
@@ -156,6 +222,8 @@ def main() -> int:
                         help="dump only this binary (repeatable; default both)")
     parser.add_argument("--dump", choices=DUMPS, action="append",
                         help="regenerate only this dump (repeatable; default all five)")
+    parser.add_argument("--force", action="store_true",
+                        help="dump even when the database is unchanged since the last dump")
     args = parser.parse_args()
 
     ok = True
@@ -164,19 +232,19 @@ def main() -> int:
         for binary in args.binary or BINARIES:
             if "functions" in dumps:
                 ok = run_dump(binary, "ES2ListFunctions", functions_path(binary), [],
-                              "listing functions") and ok
+                              "listing functions", args.force) and ok
             if "decomp" in dumps:
                 ok = run_dump(binary, "ES2DumpFullDecomp", dump_path(binary), [str(TIMEOUT_SECONDS)],
-                              "decompiling (several minutes)") and ok
+                              "decompiling (several minutes)", args.force) and ok
             if "vtables" in dumps:
                 ok = run_dump(binary, "ES2DumpAllVtables", vtables_path(binary), [],
-                              "dumping vtables") and ok
+                              "dumping vtables", args.force) and ok
             if "structs" in dumps:
                 ok = run_dump(binary, "ES2DumpStructs", structs_path(binary), [],
-                              "dumping structs") and ok
+                              "dumping structs", args.force) and ok
             if "disasm" in dumps:
                 ok = run_dump(binary, "ES2DumpFullAsm", disasm_path(binary), [],
-                              "disassembling") and ok
+                              "disassembling", args.force) and ok
     report_names("DBSIM")
     report_names("VSHELL")
     return 0 if ok else 1

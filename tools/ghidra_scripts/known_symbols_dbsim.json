@@ -5724,8 +5724,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_AttachToGroup",
-      "description": "Attaches a flyer to its mission group: stores the group at flyer+0x45 and the member index at +0x49; with flyer+0x0c holding the -0x8000 sentinel takes the group's heading and zeroes pitch and roll; with the Z position holding the sentinel takes the group's own point (group+0x18, else route waypoint 0), applies the formation offset through vtable +0x78, and finally substitutes 5000 for a Z that came out zero.",
-      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+      "description": "Attaches a flyer to its mission group: stores the group at flyer+0x45 and the member index at +0x49; with flyer+0x0c holding the -0x8000 sentinel takes the group's heading and zeroes pitch and roll; with the Z position holding the sentinel takes the group's own point (the one group+0x18 points at, else Route_WaypointAt on the group's route at its cursor, group+4), applies the formation offset through vtable +0x78, and finally substitutes 5000 for a Z that came out zero.",
+      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice",
+      "verified": {
+        "bytes": "00421ee8+200",
+        "sha1": "012650727e15",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0042200c",
@@ -5791,7 +5797,13 @@
       "confidence": "high",
       "name": "Flyer_ApplyFlightCommand",
       "description": "Hand-off into FlightModel_Step (00466a54). Squares the aileron and elevator elements with their sign kept ((v*v)>>8) and clamps them to +/-0x100, then calls the model with the flyer's flight block at +0x243, the .FM record at typeRecord+0x3a, and a stack array of four zeros as the wing-damage argument, which is why a Flyer never takes the model's lost-wing or lost-nacelle arms.",
-      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice",
+      "verified": {
+        "bytes": "004221a8+183",
+        "sha1": "2fa150b2cea9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00422260",
@@ -5835,8 +5847,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_AttackRun",
-      "description": "The attack run, and the only place a Cybrid flyer shoots. A two-phase circuit on flyer+0x1fe: phase 0 extends AWAY from the target holding targetZ+10000 until the range passes 90000, phase 1 runs in and inside 65000 aims at the target itself, breaking off again when the bearing leaves +/-0x2000, the height over the target drops under 3000, or the range closes inside 10000. The aim is led along the target's heading by (range>>3)*(targetSpeed*8)/shotSpeed, where shotSpeed becomes PROJ.DAT row 2's speed once the run is close enough to shoot. Firing needs bearing and pitch both within +/-1000 and the flyer+0x21e countdown expired: the first shot of a pass inside 30000 is Rocket_Fire(0) off the (500,200,-100) muzzle and every later one is a pair of Bullet_Fire(2) off that point and its mirror, reloading the countdown with 1500.",
-      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+      "description": "The attack run, and the only place a Cybrid flyer shoots. A two-phase circuit on flyer+0x1fe: phase 0 extends AWAY from the target holding targetZ+10000 until the range passes 90000, phase 1 runs in and inside 65000 aims at the target itself, breaking off again when the bearing leaves +/-0x2000, the height over the target drops under 3000, or the range closes inside 10000. The aim is led along the target's heading by (range>>3)*(targetSpeed*8)/shotSpeed, where shotSpeed becomes PROJ.DAT row 2's speed once the run is close enough to shoot. While running in, a set base-object +0xae swaps the pitch onto the target for Flyer_PitchToAltitude(0). Firing needs phase 1 inside 65000, bearing error and pitch error (elevation to the aim point less flyer+0x0c) both in [-1000, 999], the short at flyer+0x1f4 in [-10, 9] -- the same (ushort)(x + k) < 2k test as the two angle errors -- and the flyer+0x21e countdown expired: while the flyer+0x5a flag is clear and the range is inside 30000 the shot is Rocket_Fire(0) off the (500,200,-100) muzzle and sets the flag, otherwise it is a pair of Bullet_Fire(2) off that point and its mirror; either reloads the countdown with 1500. Every call ends by reloading flyer+0x21c with 0xb4 and handing the bearing error to Flyer_SteerAndFly.",
+      "source": "docs/retail/simulation/ai-flyers.md",
+      "verified": {
+        "bytes": "004226a0+922",
+        "sha1": "7e8269f9afd2",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00422a3c",
@@ -5905,7 +5923,13 @@
       "confidence": "high",
       "name": "Flyer_BehaviourAttackThink",
       "description": "attacking's think. Returns finished as soon as the target is immobilised (+0xa4) or destroyed (+0x99), which zeroes the dwell and sends the aircraft back through the reassess; otherwise Flyer_AttackRun for the flight leader and Flyer_FormationStep for everyone else.",
-      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice",
+      "verified": {
+        "bytes": "00422ca8+88",
+        "sha1": "e187c7553eab",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00422d00",
@@ -6055,7 +6079,13 @@
       "name": "Action_Activate",
       "description": "Activates one block-5 mission action, once: sets the action runtime activation flag at +0x0a (zeroed at load), then walks ten (counter ref, operation) pairs at +0x0c/+0x20, skipping a pair whose ref is negative and otherwise bumping (op 6) or clearing (op 5) the mission counter array DAT_004a9ef4. The queue of the mission message at +0x34 is INSIDE that loop, so an action naming five counters posts its line five times and one naming none posts it not at all.",
       "source": "docs/retail/simulation/mission-deployment.md",
-      "signature": "void __cdecl Action_Activate(int *action)"
+      "signature": "void __cdecl Action_Activate(int *action)",
+      "verified": {
+        "bytes": "00423430+133",
+        "sha1": "5ace5e030445",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004234b8",
@@ -14726,8 +14756,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Joystick_InitAndSeedBindings",
-      "description": "Creates the joystick device and, when it enumerated, seeds both controls blocks of prefs.cfg from Input_RecommendedBindings -- options 0x0d-0x18 walking and 0x19-0x24 flying. When it did not, and DAT_004d1fc8 says a stick was expected, zeroes the walking block instead. Gated on DAT_004d1fc8, so it neither re-seeds nor clears on an install that has already been configured.",
-      "source": "docs/retail/formats/joystick-input.md"
+      "description": "Builds the joystick device with JoystickDevice_Ctor(obj, 3, 0x201, 0xf, 1) and branches on option 12, the joystick-configured flag (DAT_004d1fc8). At 0: when the device's bit 0 says it enumerated, sets option 12, seeds options 0x0d-0x18 and 0x19-0x24 from Input_RecommendedBindings(0) and (1), saves options 12-36 through Prefs_SaveSelectedOptions (DAT_0049e9d0) and enables the device; otherwise destroys it. At 1: when it enumerated, enables it; otherwise destroys it and sets options 0x0d-0x18, the walking block, to 0 with apply, without saving. Any other value of option 12 builds nothing.",
+      "source": "docs/retail/formats/joystick-input.md",
+      "verified": {
+        "bytes": "00459dd4+968",
+        "sha1": "0eb28f832b75",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045a19c",
@@ -14746,7 +14782,13 @@
       "name": "Input_RecommendedBindings",
       "description": "Fills and returns the twelve-byte recommended binding block at 004d2139: four axis modes then eight action codes. Walking {1,0,2,2, 01,02,04,06,12,13,09,0a}, flying {1,0,2,2, 01,02,0d,0e,12,13,09,0a}. It also carries an arm that memsets the block to zero when the first word of Input_QueryCapabilities' block is 0, and that word is written unconditionally as 1 or 2, so the arm cannot be reached through its own input. Args derived from raw disassembly: one stack slot at EBP+8, tested as 0 / 1 / anything else; returns EBX, the literal 0x4d2139; RET with no operand.",
       "source": "docs/retail/simulation/preferences.md",
-      "signature": "uchar * __cdecl Input_RecommendedBindings(int razor)"
+      "signature": "uchar * __cdecl Input_RecommendedBindings(int razor)",
+      "verified": {
+        "bytes": "0045a258+148",
+        "sha1": "b59f3834408c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045a308",
@@ -14861,8 +14903,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_PollDeviceBlock",
-      "description": "Zeroes the 0x29-byte device block at 004d247a and refills it from each registered device: the keyboard (kind 1) through Input_ReadKeyboardCommand into the head word, bits 12 and 13 then cleared; the joystick (kind 3) through 0045c528 and 0045bbf4 into +0x0d..+0x28; the mouse (kind 2) through Input_ReadMouseState into the two ints at +2 and +6 and the bytes +0xa/+0xb/+0xc from button bits 0/1/2. Returns the block. Input_BuildSourceTable stores the pointer at 004d2414.",
-      "source": "DBSIM decompile at 0045ba8c"
+      "description": "Zeroes the 0x29-byte device block at 004d247a and refills it from each device whose kind is recorded: the keyboard (004d2520) through Input_ReadKeyboardCommand into the head word, bits 12 and 13 then cleared; the joystick (004d2528) through JoystickDevice_Poll on Input_GetDevice(3) and Input_ReadJoystickState into +0x0d..+0x28; the mouse (004d2524) through Input_ReadMouseState into the two ints at +2 and +6 and the bytes +0xa/+0xb/+0xc from button bits 0/1/2. Returns the block. Input_BuildSourceTable stores the pointer at 004d2414.",
+      "source": "DBSIM decompile at 0045ba8c",
+      "verified": {
+        "bytes": "0045ba8c+284",
+        "sha1": "debe5decfa32",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045bba8",
@@ -14934,7 +14982,13 @@
       "confidence": "high",
       "name": "InputDevice_Register",
       "description": "(device, kind, slot): the input-device base: stores kind at device+1, slot in Input_DeviceTable[kind] (004d24ec) and clears the kind's enabled byte (004d2510 + kind). Kind 0 and 1 store the kind at 004d251c and 004d2520. Kind 2 (mouse) and 3 (joystick) first disable whichever device of that kind is already registered, then store the kind at 004d2524 or 004d2528 -- the nonzero 'one is registered' tests Input_GetMouseDevice and the device poll make. Returns device.",
-      "source": "DBSIM decompile and disassembly at 0045bd88"
+      "source": "DBSIM decompile and disassembly at 0045bd88",
+      "verified": {
+        "bytes": "0045bd88+170",
+        "sha1": "be2d398bb7da",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045be34",
@@ -14970,7 +15024,13 @@
       "confidence": "high",
       "name": "Input_DeviceSlot",
       "description": "(index): returns the input device pointer at Input_DeviceTable + index * 4. Input_GetDevice reads the table through it.",
-      "source": "DBSIM decompile and disassembly at 0045bee8"
+      "source": "DBSIM decompile and disassembly at 0045bee8",
+      "verified": {
+        "bytes": "0045bee8+15",
+        "sha1": "5aedc4a8689e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045bf24",
@@ -15083,8 +15143,14 @@
       "type": "function",
       "confidence": "high",
       "name": "JoystickDevice_Dtor",
-      "description": "IMJoystick vtable +0x00 (0049ec9c, the table at +0x24 of the joystick device JoystickDevice_Ctor builds), the destructor its class record names: (device, flags). Reinstalls that table, clears its slot in the device table DAT_004d2510 (index +0x20) and DAT_004d2528 when that holds the same index, runs DVJoystick's destructor (00477524) with flags 0, and Mem_Deletes on flags bit 0.",
-      "source": "DBSIM decompile at 0045c2c4; class record at 0045c537"
+      "description": "IMJoystick vtable +0x00 (0049ec9c, the table at +0x24 of the joystick device JoystickDevice_Ctor builds), the destructor its class record names: (device, flags). Reinstalls that table, clears the kind's enabled byte (004d2510 + the kind at +0x20) and DAT_004d2528 when that holds the same kind, runs DVJoystick_Dtor (00477524) with flags 0, and Mem_Deletes on flags bit 0. It leaves the kind's Input_DeviceTable slot holding the device, so Input_GetDevice(3) goes on returning it after it is destroyed.",
+      "source": "DBSIM decompile at 0045c2c4; class record at 0045c537",
+      "verified": {
+        "bytes": "0045c2c4+78",
+        "sha1": "8e6cf170667c",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0045c314",
@@ -15101,8 +15167,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_GetDevice",
-      "description": "Returns the registered input device of the given kind from the table at Input_DeviceTable, offset back to the object base, or 0 for none. Kind 3 is the joystick, and FUN_0045c508(3) is the presence test the CONTROLS panel gates on -- Input_QueryCapabilities' +0 is 1 or 2 and never 0, so it cannot answer that question.",
-      "source": "docs/retail/formats/joystick-input.md"
+      "description": "(kind): Input_DeviceSlot(kind) less 0x1f, the joystick device's offset to its object base, or 0 when the slot is null. Kind 3 is the joystick. It reads the slot alone, and JoystickDevice_Dtor leaves the slot set, so after a stick fails to enumerate Input_GetDevice(3) returns the destroyed device rather than 0 (docs/retail/formats/joystick-input.md, A stick that does not enumerate).",
+      "source": "docs/retail/formats/joystick-input.md",
+      "verified": {
+        "bytes": "0045c508+30",
+        "sha1": "25ecb363bece",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045c528",
@@ -18874,8 +18946,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Memory_Free",
-      "description": "Returns a block to a src\\mymem.cpp pool, tagging it 'KLBF' and coalescing it with its free neighbours: VSHELL's Memory_Free without the asserts. Mem_Delete calls it.",
-      "source": "DBSIM decompile and disassembly at 00476f00"
+      "description": "Returns a block to a src\\mymem.cpp pool: adds its size to the pool's free bytes, writes 'KLBF' at the caller's data start (block +8), and links the block into the free list in address order. When it merges into the free block below it, it writes 0 over that tag; when the free block above merges in, it clears that block's tag. VSHELL's Memory_Free without the asserts. Mem_Delete calls it.",
+      "source": "DBSIM decompile and disassembly at 00476f00",
+      "verified": {
+        "bytes": "00476f00+156",
+        "sha1": "605287d4d96f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00477370",
@@ -18911,7 +18989,13 @@
       "confidence": "high",
       "name": "Mem_Delete",
       "description": "The global operator delete, the DBSIM copy of VSHELL's Mem_Delete: a pointer for which Memory_IsAllocatedBlock holds on the pool at 006bb37c goes back to it through Memory_Free; anything else is _free'd and its size at p[-1] subtracted from the heap byte count at 006bb390. Pairs with Mem_New.",
-      "source": "DBSIM decompile and disassembly at 0047743c"
+      "source": "DBSIM decompile and disassembly at 0047743c",
+      "verified": {
+        "bytes": "0047743c+65",
+        "sha1": "200ba812c9a1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00477480",
@@ -18953,7 +19037,13 @@
       "confidence": "high",
       "name": "Joystick_Enumerate",
       "description": "joyGetDevCapsA over joystick ids 0 and 1 only, into JOYCAPS blocks at DAT_006bb3fc (stride 0x194), stamping each MMRESULT at DAT_006bb724; then one joyGetPosEx per device. Sets each JOYINFOEX's dwSize to 0x34 and dwFlags to 0xccf -- X, Y, Z, R, POV, BUTTONS, CENTERED, USEDEADZONE. U and V are never requested.",
-      "source": "docs/retail/formats/joystick-input.md"
+      "source": "docs/retail/formats/joystick-input.md",
+      "verified": {
+        "bytes": "00477568+160",
+        "sha1": "2fffb76e0f0c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00477608",
@@ -19009,7 +19099,7 @@
         "bytes": "004777f8+151",
         "sha1": "59d51508dea7",
         "scope": "body",
-        "via": "both"
+        "via": "decompile"
       }
     },
     {

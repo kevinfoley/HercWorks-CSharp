@@ -158,6 +158,76 @@ internal static class TextReport {
 		}
 	}
 
+	public static void Orders(TextWriter o, OrderQueryResult result) {
+		int points = result.PointsByVerb.Values.Sum();
+		o.WriteLine($"{result.OrderRecords} row #15 records across {result.MissionsSearched} missions. " +
+			$"{points} name a row #6 point: " +
+			string.Join(", ", result.PointsByVerb.Select(p => $"{p.Value} {OrderQuery.Verb(p.Key)}")) + ".");
+		o.WriteLine($"{result.RouteSwitchGroups} groups, by GUID, have a later order naming a route other than slot 0's" +
+			(result.RouteSwitchMissions.Count == 0 ? "." : $", in {string.Join(", ", result.RouteSwitchMissions)}."));
+
+		foreach (var m in result.Missions) {
+			o.WriteLine();
+			o.WriteLine($"{m.Mission}: {m.Groups.Count} groups listed, {m.OrderRecords} row #15 records");
+			foreach (var g in m.Groups) {
+				var line = new List<string> {
+					g.Guid == -1 ? $"group #{g.Index} (no GUID)" : $"group {g.Guid} (#{g.Index})",
+					g.PlayerSquad ? "the player's squad" : $"{g.Members} {OrderQuery.MemberKind(g.MemberKind)}{(g.Members == 1 ? "" : "s")}",
+					FlagQuery.Side(g.Side),
+					$"formation {g.FormationId}",
+				};
+				if (g.DeploymentActionRef != -1) {
+					line.Add($"deploys on action {g.DeploymentActionRef}");
+				}
+
+				if (g.ConditionRef != -1) {
+					line.Add(Cond(g.ConditionRef, g.Condition, true));
+				}
+
+				o.WriteLine("  " + string.Join(", ", line));
+				if (g.Slots.Count == 0) {
+					o.WriteLine("    no orders");
+				}
+
+				foreach (var s in g.Slots) {
+					if (s.Records.Count == 0) {
+						o.WriteLine($"    slot {s.Slot}: order {s.Ref}, no such row #15 record");
+					}
+
+					foreach (var r in s.Records) {
+						o.WriteLine($"    slot {s.Slot}: {Order(r, s.Ref)}");
+					}
+				}
+			}
+		}
+	}
+
+	private static string Order(OrderRecord r, short guid) {
+		var parts = new List<string> { $"order {guid} (#{r.Index})", OrderQuery.Verb(r.Verb), $"formation {r.FormationId}" };
+		if (r.PointRef != -1) {
+			parts.Add(r.PointFound ? $"point {r.PointRef} ({r.X}, {r.Y})" : $"point {r.PointRef} (no such row #6 record)");
+		}
+
+		if (r.RouteRef != -1) {
+			string route = r.RouteWaypoints is { } n ? $"route {r.RouteRef} ({n} waypoints)" : $"route {r.RouteRef} (no such row #8 record)";
+			parts.Add(r.RouteDiffers ? route + ", not slot 0's" : route);
+		}
+
+		if (r.SubjectKind != -1) {
+			parts.Add($"subject {OrderQuery.SubjectKind(r.SubjectKind)} {r.SubjectRef}");
+		}
+
+		if (r.ActionRef != -1) {
+			parts.Add($"ends on action {r.ActionRef}");
+		}
+
+		if (r.ConditionRef != -1) {
+			parts.Add(Cond(r.ConditionRef, r.Condition, true));
+		}
+
+		return string.Join(", ", parts);
+	}
+
 	private static string Area(ActionArea a) {
 		if (!a.Found) {
 			return $"area {a.Guid}: no such row #9 record";

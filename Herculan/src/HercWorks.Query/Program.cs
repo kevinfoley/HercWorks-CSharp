@@ -21,12 +21,18 @@ internal static class Program {
 		  actions [<mission>...]           every row #10 action of every mission, or of those named:
 		                                   its trigger subject, areas, verb, the records firing it and
 		                                   the groups waiting on it
+		  orders [<mission>...]            every row #16 group's row #15 orders, of every mission or of
+		                                   those named: verb, formation, point, route, subject and the
+		                                   action that ends each
 
 		Options:
 		  --install <dir>   the install to read (default: the nearest ES2\ folder above the working
 		                    directory). ZONES.VOL and SIMVOL0.VOL are read from <dir>\VOL, or from the
 		                    VOL folder of the directory <dir>\DATA\drive.cfg names.
 		  --variants        decode the condition on each conditioned record ("flag 625 > 0")
+		  --route-switch    orders: list only groups with a later order naming a route other than
+		                    slot 0's
+		  --with-point      orders: list only groups with an order that names a row #6 point
 		  --json            print the raw result as JSON
 
 		A type is a decimal or 0x-hex index, a name matched whole and then as a prefix, or all
@@ -44,7 +50,7 @@ internal static class Program {
 
 	internal static int Run(string[] args, TextWriter output) {
 		string? install = null, type = null;
-		bool json = false, variants = false;
+		bool json = false, variants = false, routeSwitch = false, withPoint = false;
 		var positional = new List<string>();
 		for (int i = 0; i < args.Length; i++) {
 			switch (args[i].ToLowerInvariant()) {
@@ -59,6 +65,12 @@ internal static class Program {
 					break;
 				case "--variants":
 					variants = true;
+					break;
+				case "--route-switch":
+					routeSwitch = true;
+					break;
+				case "--with-point":
+					withPoint = true;
 					break;
 				case "-h" or "--help" or "/?":
 					output.WriteLine(Usage);
@@ -112,13 +124,24 @@ internal static class Program {
 			return 0;
 		}
 
-		if (command == "actions") {
-			var names = positional.Skip(1).ToList();
-			if (names.FirstOrDefault(n => !data.Missions.Any(m => string.Equals(m.Name, n, StringComparison.OrdinalIgnoreCase))) is { } unknown) {
-				return Fail($"No mission is named {unknown}; `missions` lists them.");
+		if (command is "actions" or "orders"
+				&& positional.Skip(1).FirstOrDefault(n => !data.Missions.Any(m => string.Equals(m.Name, n, StringComparison.OrdinalIgnoreCase))) is { } unknown) {
+			return Fail($"No mission is named {unknown}; `missions` lists them.");
+		}
+
+		if (command == "orders") {
+			var orders = OrderQuery.Run(data, positional.Skip(1).ToList(), routeSwitch, withPoint);
+			if (json) {
+				WriteJson(output, orders);
+			} else {
+				TextReport.Orders(output, orders);
 			}
 
-			var actions = ActionQuery.Run(data, names);
+			return 0;
+		}
+
+		if (command == "actions") {
+			var actions = ActionQuery.Run(data, positional.Skip(1).ToList());
 			if (json) {
 				WriteJson(output, actions);
 			} else {

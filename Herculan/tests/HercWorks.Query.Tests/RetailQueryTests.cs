@@ -79,6 +79,29 @@ public class RetailQueryTests {
 	}
 
 	[Fact]
+	public void Orders() {
+		if (Retail.Value is not { } data) {
+			return;
+		}
+
+		var result = OrderQuery.Run(data, [], routeSwitch: true, withPoint: false);
+
+		Assert.Equal(637, result.OrderRecords);
+		Assert.Equal(new Dictionary<short, int> { [2] = 25, [3] = 1, [4] = 10, [5] = 2, [6] = 9 }, result.PointsByVerb);
+		Assert.Equal(14, result.RouteSwitchGroups);
+		Assert.Equal(["C1_06", "C2_05", "C2_08", "C4_01", "C4_06", "C5_10"], result.RouteSwitchMissions);
+
+		// C4_06's group 125 starts on a route with no waypoints and is then sent to travel along route 34.
+		var group = result.Missions.Single(m => m.Mission == "C4_06").Groups.Single(g => g.Guid == 125);
+		Assert.Equal([0, 1, 2], group.Slots.Select(s => s.Slot));
+		Assert.Equal(0, group.Slots[0].Records.Single().RouteWaypoints);
+		var travel = group.Slots[1].Records.Single();
+		Assert.Equal((short)5, travel.Verb);
+		Assert.Equal((short)34, travel.RouteRef);
+		Assert.True(travel.RouteDiffers);
+	}
+
+	[Fact]
 	public void BasesDatRoundTrips() {
 		if (RetailData.FindDefaultInstall() is not { } install) {
 			return;

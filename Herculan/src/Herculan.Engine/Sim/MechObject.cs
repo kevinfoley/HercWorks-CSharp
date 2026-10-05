@@ -497,7 +497,8 @@ public sealed partial class MechObject : SimObject {
 	private bool _backoffReverse;
 	private short _backoffSide;
 
-	// The player's slide down steep ground. DBSIM keeps these as three globals because only one
+	// The player's slide down steep ground: the X/Y displacement added to the position every tick
+	// the slide runs, so a velocity, and its flag. DBSIM keeps these as three globals because only one
 	// mech is ever the player's; they are per-object here for the same reason SimWorld has no
 	// globals.
 	private int _slideX;
@@ -1060,7 +1061,7 @@ public sealed partial class MechObject : SimObject {
 		var normal = world.Terrain.SurfaceNormalAt(position.X, position.Y);
 
 		// Ground steeper than about 45 degrees is not walkable. Off the grid entirely counts as
-		// blocked, which is what keeps a machine inside the zone.
+		// steep, which keeps a computer-piloted machine inside the zone.
 		bool tooSteep = normal is not { } face || System.Math.Abs(face.Z) < SteepNormalZ;
 
 		if (!IsPlayer) {
@@ -1074,16 +1075,18 @@ public sealed partial class MechObject : SimObject {
 			}
 
 			_sliding = true;
+			// The original reads the normal unguarded here, through a null pointer off the grid
+			// (docs/retail/simulation/mech-locomotion.md, "Open"); skipping it is this engine's.
 			if (normal is { } slope) {
 				_slideX += SimMath.Q10Multiply(10, slope.X);
 				_slideY += SimMath.Q10Multiply(10, slope.Y);
 			}
 		} else if (_sliding) {
 			_sliding = false;
-			_lastSlideDistance = SimMath.FastMagnitude2D(_slideX, _slideY);
+			_lastSlideSpeed = SimMath.FastMagnitude2D(_slideX, _slideY);
 			_slideX = 0;
 			_slideY = 0;
-			SlideLandingDamage(world, _lastSlideDistance);
+			SlideLandingDamage(world, _lastSlideSpeed);
 		}
 
 		return false;
@@ -1142,7 +1145,7 @@ public sealed partial class MechObject : SimObject {
 	/// machine slides.
 	///
 	/// <para>Six leg components are each written a figure drawn independently: a base of
-	/// <c>slideDistance</c> scaled by the difficulty, plus a roll over three times that base. So the
+	/// <c>slideSpeed</c> scaled by the difficulty, plus a roll over three times that base. So the
 	/// spread is wide and no two legs take the same damage, and a harder setting hurts more — this
 	/// is the one difficulty table that runs against the player in both directions at once, since it
 	/// is their own machine it is applied to.</para>
@@ -1154,17 +1157,17 @@ public sealed partial class MechObject : SimObject {
 	///
 	/// <para>The landing also jolts the cockpit, through <see cref="CockpitHits"/> — the second of
 	/// the shake's two triggers, and the ungated one: the direct-fire site tests who is flying and
-	/// how far gone the cockpit is, and this one calls it on any landing that got past the distance
+	/// how far gone the cockpit is, and this one calls it on any landing that got past the speed
 	/// threshold. See docs/retail/formats/cockpit-canopy-palette.md, "The damage shake".</para>
 	/// </summary>
-	private void SlideLandingDamage(SimWorld world, int slideDistance) {
-		if (slideDistance <= SlideDamageMinimumDistance) {
+	private void SlideLandingDamage(SimWorld world, int slideSpeed) {
+		if (slideSpeed <= SlideDamageMinimumSpeed) {
 			return;
 		}
 
 		// Short, and deliberately so: the original's own casts, and a long enough slide wraps them.
 		short baseDamage = unchecked((short)SimMath.Q10Multiply(
-			SlideDamageScale[world.Difficulty], slideDistance));
+			SlideDamageScale[world.Difficulty], slideSpeed));
 		short spread = unchecked((short)(baseDamage * 3));
 
 		for (int component = FirstLegComponent; component <= LastLegComponent; component++) {
@@ -1177,14 +1180,14 @@ public sealed partial class MechObject : SimObject {
 	}
 
 	/// <summary>
-	/// <c>SlideDamageScaleByDifficulty</c> (<c>0049a058</c>) — the Q10 factor the slide's length becomes damage through, by
+	/// <c>SlideDamageScaleByDifficulty</c> (<c>0049a058</c>) — the Q10 factor the slide's speed becomes damage through, by
 	/// <see cref="SimWorld.Difficulty"/>. Unlike the other three difficulty tables this one is only
 	/// ever applied to the player's own machine.
 	/// </summary>
 	public static readonly short[] SlideDamageScale = { 400, 800, 1200, 1600 };
 
-	/// <summary>A slide shorter than this lands for nothing — the original's literal <c>0xfa</c>.</summary>
-	private const int SlideDamageMinimumDistance = 0xfa;
+	/// <summary>A slide no faster than this, in world units a tick, lands for nothing — the original's literal <c>0xfa</c>.</summary>
+	private const int SlideDamageMinimumSpeed = 0xfa;
 
 	/// <summary>
 	/// The six leg components the landing writes, which the original names by literal index rather
@@ -1226,13 +1229,13 @@ public sealed partial class MechObject : SimObject {
 	private const int SteepNormalZ = 0x5aa;
 
 	private Vec3i _slideOrigin;
-	private int _lastSlideDistance;
+	private int _lastSlideSpeed;
 
 	/// <summary>
-	/// How far the last slide down a steep face carried the machine. Above 250 world units the
-	/// original applies leg damage on landing.
+	/// How fast the last slide down a steep face was moving when it ended, in world units a tick.
+	/// Above 250 the original applies leg damage on landing.
 	/// </summary>
-	public int LastSlideDistance => _lastSlideDistance;
+	public int LastSlideSpeed => _lastSlideSpeed;
 
 	/// <summary>
 	/// The object's world transform, rebuilt from the euler angles when they have moved.

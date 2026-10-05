@@ -329,9 +329,9 @@ On flat ground, standing eye height 3.2 m (STINGRAY) to 11.2 m (SAMSON), running
 
 `Mech_CollisionTest` (`00418f74`) answers "is the position I just integrated into refused", and is run after every move. Three things refuse it, in order:
 
-1. **An object in the way.** The gap is asymmetric: **this** machine contributes its own vtable `+0x5c` and the **other** object its `+0x7c`, and an object whose `+0x7c` is zero is skipped before any distance is taken — see [`hit-detection.md`](hit-detection.md#the-three-radius-slots) for which classes those are. An object still waiting on its mission action is skipped as well.
+1. **An object in the way.** The gap is asymmetric: **this** machine contributes its own vtable `+0x5c` and the **other** object its `+0x7c`, and an object whose `+0x7c` is zero never blocks — see [`hit-detection.md`](hit-detection.md#the-three-radius-slots) for which classes those are. Its distance is still taken, for [the structure record](#the-structure-a-machine-stands-in), before the zero sends the loop on. An object still waiting on its mission action is passed over before anything is read from it.
 2. **A structure's collision volume.** `Structure_GatherWalkCandidates` (`00404ae4`) walks the structure list at `DAT_004a9624` and hands `Structure_WalkCollisionTest` (`00427c68`) everything step 1 does not already cover: every static type, plus every animated type that has fallen to a wreck (the test in [`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038)). It skips a structure that is *gone* — destroyed, no hulk, one component. `Structure_WalkCollisionTest` then tests the point against each one's `.DGS` height field (see [`hit-detection.md`](hit-detection.md#the-collision-volume--the-dgs-records-height-field)). Step 1 and step 2 are exact complements, so no structure is walked through and none is tested twice.
-3. **Ground too steep**, `|normal.z| < 0x5aa` against normals scaled to the height grid's own one — about 45°. Off the grid counts as steep, which is what keeps a machine inside the zone. For the player only, a *downhill* refusal turns into a slide instead: the slope's X/Y accumulate at Q10 10 per tick, and the landing is [below](#the-landing).
+3. **Ground too steep**, `|normal.z| < 0x5aa` against normals scaled to the height grid's own one — about 45°. Off the grid (`Terrain_FaceNormalAt` returns null) counts as steep, which keeps a computer-piloted machine inside the zone. The player is refused only when climbing onto it: `Mech_MovementTick` saves the player's pre-move position at `004a9d5c`/`60`/`64`, and steep ground refuses while no slide is running and the new Z is above that saved one. Any other steep step starts or continues a **slide** instead and is accepted: the flag at `004a9d68` latches and Q10 10 of the normal's X and Y is added to a displacement at `004a9d54`/`58`, which `Mech_MovementTick` adds to the player's position every tick the flag is up. So the displacement is a slide velocity that grows each steep tick, and the landing is [below](#the-landing). The slide branch reads the normal through its pointer, which off the grid is null — see [Open](#open).
 
 A block against another **machine** also hurts both of them, through the explosive-damage slot — see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f74). It additionally latches "something ran into me" on the struck object (vtable `+0x68`, `obj+0xb1`), which only the ram behaviour reads.
 
@@ -341,12 +341,12 @@ Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entr
 
 ### The landing
 
-A slide that carried the machine more than `0xfa` (250) world units, measured as `Math_FastMagnitude2D` over the two accumulated axes, hurts on arrival:
+The first walkable step clears the slide flag. A slide still moving faster than `0xfa` (250) world units a tick, measured as `Math_FastMagnitude2D` over the displacement, hurts on arrival; either way the displacement is zeroed:
 
 ```
-base   = Q10Multiply(slideDamageScale[difficulty], distance)     // 0049a058, entries in difficulty.md
+base   = Q10Multiply(slideDamageScale[difficulty], slideSpeed)   // 0049a058, entries in difficulty.md
 spread = base * 3
-for component in 7..12:                                          // the six leg components
+for component in 7..12:                                          // upper legs, lower legs, feet
     vtable+0x74(component, RandomBelow(spread) + base, no attacker)
 ```
 
@@ -356,4 +356,5 @@ It then calls `Cockpit_StartHitShake` (`00434010`), the same view shake and pale
 
 ## Open
 
+- **Open:** whether the player can reach the slide branch off the grid. There `Terrain_FaceNormalAt` returns null, and unless the step climbs (which refuses it first), `Mech_CollisionTest` reads the normal's X at `00419451` through that null pointer.
 - **Open:** the gait state machine, about 60% of `Mech_LocomotionTick`'s body, is named here but its transitions — which sequence each speed change, stop and turn input selects, and the playback rate each one sets — are not written up.

@@ -30,17 +30,19 @@ DRAWABLE (004a14bc)
 
 The structure branch is the odd one: `Base_Construct` switches on the BASES.DAT type index. **Every branch installs `StructureVtable` first and then overwrites it**, which is what establishes the four others as derived from it — and the ground vehicle branch installs three in a row, so that class is two levels down. All five are the same 34-slot shape. Which three slots differ across them, and what separates the armed classes from the unarmed ones, is [`structure-behaviour.md`](structure-behaviour.md#five-classes-one-switch)'s.
 
-## Sizes come from the pool, not from the highest known offset
+## Sizes come from the class records
 
-None of these classes is allocated with a literal `operator new` size. Each is drawn from a free-list pool: `Pool_Init` (`004719cc`) takes `(pool, count, elementSize)` and allocates `count * (elementSize + 8)`; the allocator `Pool_Alloc` (`00471a24`) pops a node and returns `node + 8`. **The pool's element size is the object's true length.**
+Each class's Borland record states its length ([`../formats/borland-rtti.md`](../formats/borland-rtti.md)). None of these classes is allocated with a literal `operator new` size. Each is drawn from a free-list pool: `Pool_Init` (`004719cc`) takes `(pool, count, elementSize)` and allocates `count * (elementSize + 8)`; the allocator `Pool_Alloc` (`00471a24`) pops a node and returns `node + 8`. The mech and flyer pools each hold one class, and their element size is that class's length. **The structure pool holds all five structure classes**, so its element is longer than four of them:
 
-| Class | Length | Pool created at | Pool global |
-|---|---|---|---|
-| Mech | `0x36a` (874) | `00425185`, in `DBSim_LoadScriptDat` | `004a9bfe` |
-| Flyer | `0x291` (657) | `00425220`, same function | `004a9e3d` |
-| Structure | `0x26d` (621) | `00405e1e`, in `Structure_InitPool` (`00405df4`) | `004a9624` |
+| Class | Record length | Pool element | Pool created at | Pool global |
+|---|---|---|---|---|
+| `MECH` | `0x36a` (874) | `0x36a` | `00425185`, in `DBSim_LoadScriptDat` | `004a9bfe` |
+| `FLYER` | `0x291` (657) | `0x291` | `00425220`, same function | `004a9e3d` |
+| `BASE`, `RADAR_BASE` / `GUN_BASE` / `VEHICLE` / `LC_BASE` | `0x209` / `0x220` / `0x229` / `0x266` | `0x26d` (621) | `00405e1e`, in `Structure_InitPool` (`00405df4`) | `004a9624` |
 
 The pool globals are zero in the image and filled in at load, so the size is not visible at the allocation site — `MOV EAX,[0x004a9bfe]` there loads the *pool pointer*. Follow the write to the global to find the size.
+
+From `+0x209` the structure classes part ways: `GUN_BASE` keeps its turret angles and its refire and firing-window countdowns there, `VEHICLE` adds its drive speed and back-off from `+0x220`, and `LC_BASE` holds three `0x1f`-byte weapon stations, `0x209` to `0x266` ([`structure-behaviour.md`](structure-behaviour.md#five-classes-one-switch)).
 
 **A flyer is not a shortened mech.** Two pools, two lengths, two constructors, and the flyer starts its own fields at `+0x1fa` where the mech starts at `+0x1f2`. They are siblings.
 
@@ -52,13 +54,13 @@ The short-lived classes are recycled every frame — explosions, debris, fires, 
 
 ## Where the base ends — `0x1f2`
 
-`SimObject` is never allocated on its own, so it has no pool of its own to read a size from. Its extent is bounded above by where the derived classes start writing fields nothing else has:
+`ACTOR`'s record gives `0x1f2`. `SimObject` is never allocated on its own, and the derived classes' constructors agree with the record: each starts writing fields nothing else has at or past that line.
 
 - `Mech_Constructor` stores the HERCS.DAT record at `+0x1f2` and allocates the component-damage header at `+0x206`.
 - `Base_Construct` stores the BASES.DAT record at `+0x1f2`, the alive-flag array at `+0x201` and the state array at `+0x205`.
 - `Flyer_Constructor` stores its type record at `+0x1fa` and its damage header at `+0x200`.
 
-Below that line all three constructors write an *identical* block — `+0x1a8 = 0xffff`, `+0x98 = 1`, `+0xa7 = 1`, `ObjectList_Add`, then `+0x1b6`, `+0x1b2`, `+0x1be`, `+0x1bc`, `+0x1ba` — which is what identifies the layout as shared rather than three classes coincidentally agreeing. `SimObject` is therefore `0x1f2` bytes.
+Below that line all three constructors write an *identical* block — `+0x1a8 = 0xffff`, `+0x98 = 1`, `+0xa7 = 1`, `ObjectList_Add`, then `+0x1b6`, `+0x1b2`, `+0x1be`, `+0x1bc`, `+0x1ba` — which is what identifies the layout as shared rather than three classes coincidentally agreeing.
 
 ## The object's frame is a transform, and its position is that transform's translation
 
@@ -104,10 +106,12 @@ Nothing in the field itself says which flavour it is — only which of the two f
 | The offset a doc cites is the start of the field | For a countdown it is the counter, one byte into the record — see above. Laying a `CountdownTimer` at the cited offset puts every subsequent field three bytes out. |
 | A code address after a vtable's last slot is a 35th slot | `ES2DumpVtable` resolves and disassembles any valid address. The word past the end is usually the next vtable block's class-record pointer ([`../formats/borland-rtti.md`](../formats/borland-rtti.md#vtable-block)): `0046b7c8` and `0040c3d8` both look like code and are neither functions nor slots. Check for a prologue *and* for a real call site. |
 | The allocation site's argument is the object's size | It is the pool pointer. See "Sizes" above. |
+| The structure pool's element size is a structure's length | One pool serves all five structure classes, whose records give `0x209` to `0x266`. The turret fields a `GUN_BASE` keeps at `+0x209` are, on an `LC_BASE`, the start of its first weapon station. |
 | A mech's length can be inferred from the highest documented offset | The highest offset anyone has written down is a lower bound that moves every time someone reads another function. `0x36a` is a fact about the binary. |
 
 ## Open
 
+- **Open:** why the structure pool's element is `0x26d`, seven bytes past `LC_BASE`'s `0x266`, the longest structure class.
 - **Open:** what `obj+0x92` is in the source. Whether it is a sub-object the compiler is addressing or just a base register it chose is not settled, so `known_structs.json` places those bytes at their absolute offsets rather than inside an invented struct.
 - **Open:** what vtable `+0x0c` is for. Every `DrawableVtable`, `ProjectileVtable` and `SimObjectVtable` table holds `Stub_ReturnZero` (`004785bf`) there.
 - **Open:** whether `mech+0x261`, the fourth lock-timer slot, is used at all. `Mech_PerTickSystemsUpdate` ticks the other four by name and no tick names this one, and `es2_fieldscan.py` over `00402000`-`00430000` finds no mech access to it (the one write it reports is `Flyer_Constructor`'s, a different class's field). A field that carries a value is never proven unread by a scan.

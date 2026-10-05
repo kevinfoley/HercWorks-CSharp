@@ -1146,13 +1146,13 @@ def cmd_classes(args):
         print(line)
         shown += 1
     print(f"\n{shown} of {len(recs)} class records ('*' unnamed function, 'L' a low entry without a name, "
-          "'?' no function starts there; [layout] has a known_structs.json struct of the class's name)")
+          "'?' no function starts there; [layout] has a known_structs.json struct of the class)")
 
 
 def struct_layouts(binary):
     with open(os.path.join(REPO, "tools", "ghidra_scripts", "known_structs.json"), encoding="utf-8-sig") as f:
         ks = json.load(f)
-    return {s["name"] for s in ks["structs"] if s["binary"] == binary}, ks
+    return {s.get("class", s["name"]) for s in ks["structs"] if s["binary"] == binary}, ks
 
 
 def cmd_stats(args):
@@ -1195,8 +1195,7 @@ def cmd_stats(args):
     _, recs, vts = class_records(binary)
     layout_names, ks = struct_layouts(binary)
     rec_names = {r["name"] for r in recs.values()}
-    by_struct = {s["name"]: s["binary"] for s in ks["structs"]}
-    apps = sum(1 for a in ks["applications"] if by_struct.get(a["struct"]) == binary)
+    apps = sum(1 for a in ks["applications"] if a["binary"] == binary)
     with open(os.path.join(ANALYSIS, f"{binary}_decomp_full.c"), encoding="utf-8", errors="replace") as f:
         dats = set(re.findall(r"\bDAT_([0-9a-f]{8})\b", f.read()))
     named_data = sum(1 for e in entries(binary) if e["type"] == "data" and e.get("name"))

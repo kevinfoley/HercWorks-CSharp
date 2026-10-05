@@ -777,8 +777,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Structure_InitPool",
-      "description": "(count): DAT_004a9624 = a new 0x12-byte pool of count 0x26d-byte structure objects (Pool_Init), and DAT_004a9628 = a new 8-byte list {Mem_NewArray(100), int16 count 0, int16 capacity 0x19}. DBSim_LoadScriptDat calls it.",
-      "source": "DBSIM decompile at 00405df4"
+      "description": "(count): DAT_004a9624 = a new 0x12-byte pool of count 0x26d-byte elements (Pool_Init), the pool Base_Construct draws every structure class from, and DAT_004a9628 = a new 8-byte list {Mem_NewArray(100), int16 count 0 at +4, int16 capacity 0x19 at +6}. Caller found by es2_xref: DBSim_LoadScriptDat.",
+      "source": "DBSIM decompile at 00405df4",
+      "verified": {
+        "bytes": "00405df4+173",
+        "sha1": "2fdc7ce3a381",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00405ebc",
@@ -17942,7 +17948,13 @@
       "confidence": "high",
       "name": "Pool_Init",
       "description": "(pool, count, elementSize): allocates count * (elementSize + 8) bytes with Mem_NewArray, zeroes them and links them into the pool's free list (Pool_LinkFreeList). Returns the pool.",
-      "source": "docs/retail/simulation/sim-object-layout.md; DBSIM decompile at 004719cc"
+      "source": "docs/retail/simulation/sim-object-layout.md; DBSIM decompile at 004719cc",
+      "verified": {
+        "bytes": "004719cc+88",
+        "sha1": "893875863cd3",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00471a24",
@@ -17950,8 +17962,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Pool_Alloc",
-      "description": "Pops a node off a free-list pool and returns node + 8, or 0 when the pool is empty; the node is not zeroed. Pool header: int16 free count +0, int16 in-use count +2, int16 element size +4, free-list head +0xa, in-use list head +0xe; a node links next at +0 and prev at +4. The node moves to the head of the in-use list. Pool_Free is its inverse and Pool_Init builds the pool.",
-      "source": "docs/retail/simulation/sim-object-layout.md; DBSIM decompile at 00471a24"
+      "description": "Pops a node off a free-list pool and returns node + 8, or 0 when the pool is empty; the node's two link words are rewritten and the rest is not zeroed. Pool header as it reads it: int16 free count +0, int16 in-use count +2, free-list head +0xa, in-use list head +0xe; a node links next at +0 and prev at +4. The node moves to the head of the in-use list. Pool_Free is its inverse and Pool_Init builds the pool.",
+      "source": "docs/retail/simulation/sim-object-layout.md; DBSIM decompile at 00471a24",
+      "verified": {
+        "bytes": "00471a24+91",
+        "sha1": "df96ba106353",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00471a90",

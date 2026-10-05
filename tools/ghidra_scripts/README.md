@@ -34,7 +34,9 @@ A single malformed `.java` in this directory breaks **every** script in it, with
 `tools/scripts/ghidra_apply_all.sh` runs all three in the only order that works on a database that has never had them applied: vtables → structs → symbols, for DBSIM then VSHELL. All three are idempotent; once the `/ES2` types exist, any one can be run alone in any order.
 
 - **ES2ApplyVtables** — builds one `FunctionDefinitionDataType` per slot under `/ES2/<Name>`, assembles them into a struct of 4-byte function pointers, then applies and labels it at each instance address.
-- **ES2ApplyStructures** — builds each object struct at its declared size and places fields with `replaceAtOffset`; checks every declared field width against the resolved type's own length, and refuses overlaps and past-the-end fields. Then types the listed function parameters with a pointer to it.
+- **ES2ApplyStructures** — builds each object struct at its declared size and places fields with `replaceAtOffset`; checks every declared field width against the resolved type's own length, and refuses overlaps and past-the-end fields. An `inline` base is copied in component by component around the explicit fields, so a derived class can retype its base's vtable pointer. Then types the listed function parameters with a pointer to it, first committing the decompiler's parameters at `ANALYSIS` for a function whose stored prototype is too short.
+
+`tools/scripts/es2_skeletons.py BIN [--write]` keeps the last two files covering every Borland class record: a skeleton struct (bases and vtable pointer) for each class without a layout, a vtable shape for each primary vtable without one, and `this` typing for every vtable slot function and record destructor. It never changes an existing entry.
 - **ES2ApplySymbolNames** — renames, writes plate comments, applies signatures. An entry with no `name` gets only a comment, so a guess cannot masquerade as a confirmed symbol. Preserves `/ES2` pointer parameter types across a signature apply, which is what stops it undoing `ES2ApplyStructures`.
 
 ### Known symbols

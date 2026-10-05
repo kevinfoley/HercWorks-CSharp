@@ -14,19 +14,19 @@ Coverage is not the goal for its own sake. A named function whose logic is neith
 
 | | DBSIM | VSHELL |
 |---|---|---|
-| Ghidra functions with a real name | 3035 / 3458 (87.8%) | 2142 / 2466 (86.9%) |
+| Ghidra functions with a real name | 3036 / 3458 (87.8%) | 2142 / 2466 (86.9%) |
 | Code bytes inside unnamed functions | 6.2% (34 KB) | 10.8% (43 KB) |
-| Unnamed functions under 100 bytes | 334 of 423 | 199 of 324 |
+| Unnamed functions under 100 bytes | 333 of 422 | 199 of 324 |
 | `55 8B EC` prologues outside any Ghidra function | 0 | 0 |
 | Code-section gaps outside any function, not all fill bytes (class records included) | 340 (45846 bytes) | 156 (25921 bytes) |
 | Vtables (with RTTI) / slots / unnamed slot targets | 218 (196) / 1659 / 27 | 94 (92) / 581 / 27 |
-| Vtables with a typed slot shape in Ghidra | 93 of the dump's 185 | 92 of the dump's 94 |
+| Vtables with a typed slot shape in Ghidra | 216 of the dump's 218 | 92 of the dump's 94 |
 | RTTI class records (with a vtable) | 255 (196) | 126 (92) |
-| Class records with a `known_structs.json` layout | 10 | 0 |
-| Function parameters typed with a struct | 110 | 13 |
-| Distinct `DAT_` globals left in the decompile (named data entries) | 1850 (310) | 1301 (236) |
+| Class records with a `known_structs.json` layout | 255 | 126 |
+| Function parameters typed with a struct | 674 | 346 |
+| Distinct `DAT_` globals left in the decompile (named data entries) | 1849 (310) | 1301 (236) |
 
-What the numbers say: every class record's destructor is named and no prologue lies outside a function. The unnamed functions are now mostly the ones Stage 1 created and could not name from a twin: static initialisers and exit routines whose globals are unnamed, and the raster driver's assembly routines, which are most of the unnamed slot targets. Class layouts and globals are barely started. Struct work is what makes every remaining decompile cheaper to read, because one layout applied to `this` across a class's methods turns its `*(short *)(param_1 + 0x1a4)` reads into named fields and its `(**(code **)(*param_1 + 0x14))()` calls into named slot calls.
+What the numbers say: every class record's destructor is named and no prologue lies outside a function. The unnamed functions are now mostly the ones Stage 1 created and could not name from a twin: static initialisers and exit routines whose globals are unnamed, and the raster driver's assembly routines, which are most of the unnamed slot targets. Every class record has a skeleton layout and every class vtable a typed shape, so a virtual method's `(**(code **)(*param_1 + 0x14))()` calls render as named slot calls; the fields inside the skeletons, and the globals, are barely started. Field work is what makes every remaining decompile cheaper to read, because one field named across a class's methods turns each of their `*(short *)(param_1 + 0x1a4)` reads into a name.
 
 ## Every name closes its loop
 
@@ -66,9 +66,9 @@ Cheap, tool-driven work that shrinks the backlog before any decompile is read by
 
 ## Stage 2 — class skeletons
 
-Generate a `known_structs.json` layout for every RTTI class record that lacks one, from the record alone: the class name, its size, each base embedded at its subobject offset, and a vtable pointer typed to the class's vtable shape. Every other byte stays an unnamed run. Type `this` on every function whose name carries the class prefix, through the `applications` list. This is mechanical and covers all 381 records in one pass.
+`tools/scripts/es2_skeletons.py BIN [--write]` gives every class record a `known_structs.json` layout and every primary vtable a `known_vtables.json` shape, from the records alone. A skeleton is the class's size, each base embedded at its subobject offset, and the vtable pointer typed with the class's shape. A class whose shape differs from its primary base's inlines that base, so its vtable pointer can be retyped. Every other byte stays an unnamed run. A shape is the base's when the table is as long; in DBSIM, the VSHELL namesake's when every slot's function has the same name in both binaries; otherwise a new shape, whose slots take the role their implementations' names agree on, or `slot_0xNN`. Rerun it after a class gains a layout by hand or a vtable gains a shape; it never changes an existing entry.
 
-Vtable shapes come with it. DBSIM has shapes for seven families; the rest of its tables have named slot functions but no typed shape, so the decompile shows offsets at indirect calls. The families without one are the 3Space part family (`TSPartBase`, `TSPartList`, `TSGroup`, `TSBSPGroup`, `TSBSPPart`, `TSDetailPart`, `TSCellAnimPart`, `TSBitmapPart`, `TSShape`, `ANShape`, `GridShape`, `hzline`, `CONFIG_PART`), the `TSBase` and poly family, the AN sequences, the GL and stream classes, the owning cockpit displays (`PanelGauge` and below, `HUDGauge` and below, `MFDisplay`, `HDDisplay`), the message ports, the bar graphs and the alert panels. VSHELL already has shapes for the GL, stream and 3Space classes; reuse each for DBSIM after `vtables` confirms the slot functions pair up.
+`this` is typed from vtable slots and the records' destructor fields: each such function's first parameter takes the common base of the classes holding it. A name prefix is not evidence. Read as a sample, half the functions carrying a class's prefix take something else first: `Cam_AttachTo` the object followed, `ClassItem_ReadTypeTag` a stream, `Mech_ComponentGeometryTest_Candidate` a component record. A non-virtual method is typed when Stage 3 or 4 reads it.
 
 A skeleton names nothing it has not read, so it needs no doc. A class whose layout matters to a port gets its fields in Stage 4.
 
@@ -87,7 +87,7 @@ Context the vtable pass gathered for functions in this backlog:
 
 ## Stage 4 — fields, class by class
 
-Fill skeleton fields with `es2_fieldscan.py` sweeps, starting with the classes whose methods are called most and the ones the engine ports. A field gets a name once a reader or writer establishes its meaning; the rest stay unnamed with what is known in the description. This stage has no natural end: a field is never proven unread, so "complete" means every field with an established reader is named. Compare each decoded field against the C# that models the same datum, and apply [rule 2](#every-name-closes-its-loop) to every disagreement.
+Fill skeleton fields with `es2_fieldscan.py` sweeps, starting with the classes whose methods are called most and the ones the engine ports. Name the generated shapes' `slot_0xNN` slots the same way, from what the slot's callers pass and use. A field gets a name once a reader or writer establishes its meaning; the rest stay unnamed with what is known in the description. This stage has no natural end: a field is never proven unread, so "complete" means every field with an established reader is named. Compare each decoded field against the C# that models the same datum, and apply [rule 2](#every-name-closes-its-loop) to every disagreement.
 
 ## Play checks
 

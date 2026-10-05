@@ -15781,8 +15781,14 @@
       "type": "function",
       "confidence": "high",
       "name": "SoundCatalog_Load",
-      "description": "Loads str\\\\SOUNDS.STR -- one .STR group of 57 entries, each a filename plus a 7-byte attribute blob -- into three parallel arrays: names (004d2b0c), attribute pointers (004d2bfc) and voice handles (004d2cfc), count in 004d2dec. Per entry: resolve the path through Sound_ResolveSamplePath, Sfx_Open as a sample, priority 5, Sfx_SetLooping to attribute byte 0, Sfx_SetVolume to Math_Q16Multiply(byte 1, 65000), Sfx_Cache if byte 2 is set, then default byte 4 to 5 and byte 5 to 100 where they are 0xff and set byte 8 to 100. The code reads a TEN-byte blob: bytes 7-9 are runtime scratch (resume flag, category volume, throttle counter) that the file does not supply.",
-      "source": "docs/retail/formats/audio.md"
+      "description": "Loads str\\SOUNDS.STR -- one .STR group of 57 entries, each a filename plus a 7-byte attribute blob -- into three parallel arrays: names (004d2b0c), attribute pointers (004d2bfc) and voice handles (004d2cfc), count in 004d2dec. Per entry: _strlwr the name, pick the Sfx_Open type from two strstr tests (.hmp gives 0, else .wav gives 1, else EDI is left as it was), resolve the path through Sound_ResolveSamplePath and Sfx_Open it; on success priority 5, Sfx_SetLooping to attribute byte 0, Sfx_SetVolume to Math_Q16Multiply(byte 1, 65000), Sfx_Cache if byte 2 is set, then default byte 4 to 5 and byte 5 to 100 where they are 0xff and set byte 8 to 100. Both strstr calls search the 20-byte stack buffer the function reserves at entry and never writes, not the name, so the type is the same for every row and, when the stale bytes hold neither extension, is EDI's value on entry. A row == 0 gives type 2 arm at 004624eb follows an unconditional jump past it. Finally it sets each speech slot's +0x3c to the row count and +0x3e to -1. The code reads a TEN-byte blob: bytes 7-9 are runtime scratch (resume flag, category volume, request counter) that the file does not supply.",
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "00462448+432",
+        "sha1": "b8e9c11f13d4",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00462604",
@@ -16132,8 +16138,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sfx_ReadConfig",
-      "description": "Reads DATA\\\\SOUND.CFG with GetPrivateProfileString into the manager's config block at +0x24: Driver (MME=1 / DirectSound=2) at +0x2a, Buffers (1-64, else 5) at +0x30, Rate (11 gives 0x10, else 0x20) at +0x24, Width (Mono gives 4, else 8) at +0x28. +0x26 is fixed at 1 and +0x32 at 0x200.",
-      "source": "docs/retail/formats/audio.md"
+      "description": "(sfx): initialises the SFX manager and reads [Sound] from data\\sound.cfg with GetPrivateProfileString into its config block at +0x24. Clears the resource and voice tables (+0x34, +0x38), the playing counts (+0x3c, +0x40), the bytes cached (+0x1c), +0x44, +0x2c and +0x2e; sets the handle generation +0x20 to 1, +0x26 to 1 and +0x32 to 0x200. Driver: 'DirectSound', compared case-insensitively, gives +0x2a = 2, anything else 1. Buffers: atol, 1-64 into +0x30, else 5. Rate: atol of 11 gives +0x24 = 0x10, anything else 0x20. Width: 'Mono', compared case-insensitively, gives +0x28 = 4, anything else 8. Increments the count at *006cbf74 and returns sfx.",
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "00463698+339",
+        "sha1": "f5d367519977",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004637ec",
@@ -18217,8 +18229,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_InitBackend",
-      "description": "SFX backend bring-up: binds the SOS library, copies the SOUND.CFG-derived config block (rate, width, driver, buffers) into 004a0e5c..004a0e64, then opens the driver through 00473da0 -- once with the configured driver id, once with id 1.",
-      "source": "docs/retail/formats/audio.md"
+      "description": "(window, config): SFX backend bring-up. Keeps window at Music_NotifyWindow and binds the SOS library; then copies config words 0, 1 and 2 (rate, the fixed 1, width) to 004a0e5c, 004a0e5e and 004a0e60, word 6 (buffers) to 004a0e64 and word 7 (0x200) to 004a0e62, and calls Sos_OpenDrivers(config word 3, the Driver id, 0xffff, window, window) -- MIDI id 0xffff, so no MIDI driver -- and on failure Sos_OpenDrivers(1, 0xffff, window, window), unbinding the library when that fails too. Returns true on success.",
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "004735fc+153",
+        "sha1": "4b9fb34c6190",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00473698",
@@ -18263,7 +18281,13 @@
       "confidence": "high",
       "name": "Sos_LoadOrFreeSample",
       "description": "(resourceName, slotIndex, load, isMidiSong). Loads or frees one resource's backend object at record+0x214. isMidiSong picks the .hmp song path (00474550 / 004745fc) over the digital sample path (00474254 / 004743fc).",
-      "source": "docs/retail/formats/audio.md"
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "0047371c+109",
+        "sha1": "14542c76ba12",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047378c",
@@ -18272,7 +18296,13 @@
       "confidence": "high",
       "name": "Sos_StartVoice",
       "description": "(resourceRecord+4, voiceRecord+4). Starts one voice on the backend. Branches three ways on the voice flags: bit 0 = MIDI song, bit 12 = the streamed-by-name path (Sos_StartStream), otherwise a SOS digital sample -- packing volume into both 16-bit halves, translating loop count 0 to -1 (infinite) and n to n-1, and copying pan and callback into the sample object. The sample path zeroes voiceRecord+0x20 and passes it to sosDIGIStartSample as the out-handle, so each call yields a fresh SOS handle and the previous one is dropped without being stopped.",
-      "source": "docs/retail/formats/audio.md"
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "0047378c+275",
+        "sha1": "48a13fb54d4d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004738a0",
@@ -18281,7 +18311,13 @@
       "confidence": "high",
       "name": "Sos_StopVoice",
       "description": "Stops one voice on whichever of the three backend paths its flags select.",
-      "source": "docs/retail/formats/audio.md"
+      "source": "docs/retail/formats/audio.md",
+      "verified": {
+        "bytes": "004738a0+90",
+        "sha1": "7caef546a4f4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00473950",
@@ -18397,8 +18433,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_OpenDrivers",
-      "description": "(digitalId, midiId, window, arg4): opens whichever SOS drivers are asked for and not yet open. MIDI (midiId != 0xffff, 004a0e6e clear) is detected first (Sos_MidiDetectInit/FindFirst/UnInit). Digital (digitalId != -1, 004a0e6c clear): detect, Sos_InitSystem, Sos_TimerInitSystem, then check the configured format bits (004a0e5c | 004a0e5e | 004a0e60) against the detected capabilities 006b5660 -- falling back to 0x15 when they are not all supported but one of 0x15's is, otherwise returning the capabilities | 0x1c0000 -- fill the driver block 006b5614 (window, arg4, buffers 004a0e62 and 004a0e64) and Sos_InitDriver into Sos_DriverHandle, Sos_SetActiveWindow, and set 004a0e6c. MIDI then: Sos_MidiInitSystem and Sos_MidiInitDriver into 006b56f4; for driver type 0xa002 or 0xa009 with capability bit 2 it loads MELODIC.BNK and DRUM.BNK (00474430) and installs them with Sos_MidiSetInsData; sets 004a0e6e. Returns 0, or 1 after an SOS error, which it keeps in Sos_LastError. Sos_InitBackend calls it.",
-      "source": "DBSIM decompile at 00473da0; strings at 004a0ebc, 004a0ec8"
+      "description": "(digitalId, midiId, window, arg4): opens whichever SOS drivers are asked for and not yet open. MIDI (midiId != 0xffff, 004a0e6e clear) is detected first (Sos_MidiDetectInit/FindFirst/UnInit). Digital (digitalId != -1, 004a0e6c clear): detect, Sos_InitSystem, Sos_TimerInitSystem, then the format word 006b5662: the configured bits (004a0e5c | 004a0e5e | 004a0e60) when the detected capabilities 006b5660 hold all of them, else 0x15 when they hold one of 0x15's bits, else it returns the capabilities | 0x1c0000. Fills the rest of the driver block 006b5614 (digitalId at +0, window, arg4, 0x78, 0x40, buffers from 004a0e64 at 006b5680 and 004a0e62 at 006b5682), Sos_InitDriver into Sos_DriverHandle, Sos_SetActiveWindow, and sets 004a0e6c. MIDI then: Sos_MidiInitSystem and Sos_MidiInitDriver into 006b56f4; for driver type 0xa002 or 0xa009 with capability bit 2 it loads MELODIC.BNK and DRUM.BNK and installs them with Sos_MidiSetInsData; sets 004a0e6e. Returns 0, or 1 after an SOS error, which it keeps in Sos_LastError. Callers found by es2_xref: Sos_InitBackend, twice.",
+      "source": "DBSIM decompile at 00473da0; strings at 004a0ebc, 004a0ec8",
+      "verified": {
+        "bytes": "00473da0+843",
+        "sha1": "c087e8b0683d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004740f0",
@@ -18443,7 +18485,13 @@
       "confidence": "high",
       "name": "Sos_LoadWaveSample",
       "description": "(path, out): reads the whole file through a VolRStream into GlobalAlloc'd memory behind a 0x100-byte SOS sample header and Sos_Prepare32Memory's it, storing the header in *out; returns 0, or 1 when the file will not open or the allocation fails. A file starting 'RIFF' is read as a canonical WAV: data at file +0x2c, length the dword at +0x28 less 0x2c, rate +0x18, channels +0x16, bits +0x22 (8-bit samples flagged 0x8000). Anything else is taken as raw 8-bit unsigned mono at 11025 Hz. Sos_LoadOrFreeSample's digital path.",
-      "source": "DBSIM decompile at 00474254; string at 004a0ed1"
+      "source": "DBSIM decompile at 00474254; string at 004a0ed1",
+      "verified": {
+        "bytes": "00474254+423",
+        "sha1": "0684e9c53ac8",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004743fc",

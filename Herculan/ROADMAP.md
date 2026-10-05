@@ -9,7 +9,6 @@ Each entry names the doc that owns the subject. **That doc is authoritative** fo
 The mechanism is understood; what is left is engine work.
 
 - (Deferred) **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that compact their node numbering — the crudest one to three of each chassis — are excluded, because drawing them puts APOCA's upper body on a knee. The original composes every root through root 0's pose array too, so by the binary it should do the same; retail does not visibly do so, and what reconciles that is not yet found. **Settle that before changing anything here**: it decides whether the truncation is a divergence to lift or retail behaviour to match. → [`docs/retail/formats/mech-shape-drawing.md`](docs/retail/formats/mech-shape-drawing.md#the-pose-array-is-root-0s)
-- **The `.hmp` MIDI path and reading `SOUND.CFG`.** → [`docs/retail/formats/audio.md`](docs/retail/formats/audio.md#open)
 
 ## Reverse-engineering still open
 

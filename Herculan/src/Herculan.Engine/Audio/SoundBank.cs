@@ -78,7 +78,7 @@ public sealed class SoundBank {
 			// Rows sharing a filename share the decode: the ten music rows all name the same file,
 			// and the original likewise opens one resource and refcounts it across the voices.
 			if (!decoded.TryGetValue(entry.FileName, out var sample)) {
-				sample = content.Read(folder, entry.FileName) is { } bytes ? WaveSample.Decode(bytes) : null;
+				sample = content.Read(folder, entry.FileName) is { } bytes ? WaveSample.DecodeForSimulator(bytes) : null;
 				decoded[entry.FileName] = sample;
 
 				if (sample == null) {

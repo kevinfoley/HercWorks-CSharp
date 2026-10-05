@@ -267,6 +267,10 @@ public static class GameInstall {
 	public static string DriveCfgPath(string installRoot) =>
 		Path.Combine(installRoot, MissionLoader.DataFolderName, Drive.FileName);
 
+	/// <summary>The install's <c>data\sound.cfg</c>, which both executables read (<see cref="SoundCfg"/>).</summary>
+	public static string SoundCfgPath(string installRoot) =>
+		Path.Combine(installRoot, MissionLoader.DataFolderName, SoundCfg.FileName);
+
 	/// <summary><c>language.cfg</c>'s name (<see cref="HercWorks.Core.Data.File.Cfg.Language"/>).</summary>
 	public const string LanguageCfgName = "LANGUAGE.CFG";
 

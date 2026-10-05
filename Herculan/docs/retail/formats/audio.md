@@ -18,7 +18,7 @@ The message channels themselves — the computer's ticker and the pilot/squad co
 
 The v1.0 install ships `sos9503.dll` and not `sos32s03.dll`. v1.10 ([`../retail-builds.md`](../retail-builds.md)) carries both, `sos32s03.dll` in its Windows 3.1 build as `VER31\SOS32S03.DLL`.
 
-Digital output covers samples and `.hmp` MIDI songs; the `.hmp` path is present but no `.hmp` file ships in either build. VSHELL carries a hardcoded `.\sos\song.hmp`, and the `SOS` directory `SHELL0.VOL` lists is empty.
+**SOS's MIDI half is never brought up.** The `sosMIDI*` entry points are bound and the `SFX` layer carries a `.hmp` song path beside its sample path, but both executables' `Sos_InitBackend` (`004735fc`; VSHELL `0042d7f0`) pass MIDI driver id `0xffff` to both of their `Sos_OpenDrivers` calls, and `Sos_OpenDrivers` (`00473da0`; VSHELL `0042df68`) runs its MIDI arm — `sosMIDIInitDriver`, then `MELODIC.BNK` and `DRUM.BNK` — only for an id other than `0xffff`. `es2_xref` finds one caller of `Sos_MidiInitDriver` in each binary, inside that arm. A song voice therefore has no MIDI driver to play on. No `.hmp` ships in either build; VSHELL carries a hardcoded `.\sos\song.hmp`, and the `SOS` directory `SHELL0.VOL` lists is empty.
 
 ### CD audio
 
@@ -88,16 +88,18 @@ Registered through `WndProcHook_Register` — this is one of the four `MainWndPr
 
 ### `DATA\SOUND.CFG`
 
-Plain INI, read with `GetPrivateProfileString` by `Sfx_ReadConfig` (`00463698`) into the manager's config block at `+0x24`:
+Plain INI, section `[Sound]`, read with `GetPrivateProfileString` by `Sfx_ReadConfig` (`00463698`) into the manager's config block at `+0x24`. VSHELL's `Sfx_Construct` (`0042bf3d`) reads it the same way, except that it reads `Driver` and then stores 1 whatever the file says.
 
 | Key | Values | Stored |
 |---|---|---|
-| `Driver` | `MME` (default) or `DirectSound` | `+0x2a` = 1 or 2 |
-| `Buffers` | 1-64, else 5 | `+0x30` |
-| `Rate` | `11` gives `0x10`, anything else `0x20` | `+0x24` |
-| `Width` | `Mono` gives 4, else 8 | `+0x28` |
+| `Driver` | `DirectSound`, compared case-insensitively, gives 2; anything else, the shipped `MME` included, 1 | `+0x2a` |
+| `Buffers` | `atol`; 1-64, else 5 | `+0x30` |
+| `Rate` | `atol` of 11 gives `0x10`, anything else `0x20` | `+0x24` |
+| `Width` | `Mono`, compared case-insensitively, gives 4; anything else 8 | `+0x28` |
 
-`+0x26` is fixed at 1 and `+0x32` at `0x200`. `Buffers` only applies to the MME driver, per the file's own comments.
+`+0x26` is fixed at 1 and `+0x32` at `0x200`. A key the file lacks reads as the empty string, which gives the second value in each row, and so does a missing file. `atol` stops at the first non-digit, so `Rate = 11 kHz` is 11 and `Rate = 11025` is not.
+
+`Sos_InitBackend` opens the digital driver through `Sos_OpenDrivers` with `Driver` as its id, and tries again with id 1 if that fails. The format word of the `sosDIGIInitDriver` block (`006b5662`) is `Rate | 1 | Width` when the detected driver's capability word (`006b5660`) has all three bits. Otherwise it is `0x15`, or the open fails if the capabilities have none of `0x15`'s bits. The file's own comments name `Rate`'s values 11 and 22 and `Width`'s Mono and Stereo, so the format sets the rate SOS mixes at, 11,025 or 22,050 Hz, and whether its output is mono or stereo; `0x15` is 11 kHz mono plus bit 1 ([Open](#open)). `Buffers` goes to `006b5680` and the fixed `0x200` to `006b5682`; `Buffers` only applies to the MME driver, per the file's comments. VSHELL's copies of both functions do the same.
 
 ## The `SFX` manager
 
@@ -179,7 +181,7 @@ Because the settings belong to the record and not to the copy, **placing a new c
 
 Each slot has a one-line thunk in `00495xxx`-`00496xxx` (77 and 23 of them) that does nothing but call through it, so a thunk's meaning is recovered by reading its slot address out of the disassembly and finding that address in the table. The pointers live in BSS and this loop writes them through the destination field, which is why no instruction names a slot as a store target.
 
-`Sfx_Open` (`00463910`) chooses the path from its third argument: 0 = `.hmp` song, 1 = sample, 2 = the streamed type. `SoundCatalog_Load` decides by searching the filename for `.hmp` / `.wav`.
+`Sfx_Open` (`00463910`) chooses the path from its third argument: 0 = `.hmp` song, 2 = the streamed type, and any other value a sample. What `SoundCatalog_Load` passes is in [Opening a catalog row](#opening-a-catalog-row).
 
 ### Memory budget and eviction
 
@@ -193,6 +195,10 @@ score = (resource cached ? 100 : 0)
 ```
 
 so an idle, uncached, low-priority voice goes first and a looping playing one goes last.
+
+### Loading a sample
+
+`Sfx_Cache` loads a resource through `Sos_LoadOrFreeSample` (`0047371c`), which takes the song loader when the voice's flag `0x0001` is set and `Sos_LoadWaveSample` (`00474254`) otherwise; an empty file, or one that will not open, fails the cache. `Sos_LoadWaveSample` reads the whole file. One starting `RIFF` is taken as a canonical WAV at fixed offsets — rate at `+0x18`, channels `+0x16`, bits `+0x22`, data from `+0x2c` — with the dword at `+0x28` less `0x2c` as its length, so a canonical file's last `0x2c` bytes of sound are not played. **Anything else plays as raw 8-bit unsigned mono at 11,025 Hz.**
 
 `Sound_Init` (`0046230c`) sets the cap to **2,000,000 bytes**, or **1,000,000** in the low-memory mode (`CockpitArt_LoadOnDemand` — `-l`, or under 12 MB physical).
 
@@ -224,6 +230,10 @@ The code treats the blob as **ten** bytes. The file supplies seven; the last thr
 Because `.STR` attribute blobs point directly into the loaded file buffer, bytes 7-9 of one entry overlap the next entry's length field and first name byte. That is inert — every pointer is collected before the first write — and the four empty entries the file carries after the last real sound give the last one its slack.
 
 `0xff` in bytes 4 and 5 means "use the default", not "not positional".
+
+### Opening a catalog row
+
+**The name does not decide a row's open type.** `SoundCatalog_Load` searches for `.hmp` (type 0, a song) and then `.wav` (type 1, a sample), but both `strstr` calls run over a 20-byte stack buffer the function reserves and never writes (`LEA ECX,[ESP+4]` with the needle just pushed), not over the row's name. Nothing in the loop writes that buffer, so every row gets the same type: 0 if the bytes an earlier call left there hold `.hmp`, 1 if they hold `.wav`, and otherwise whatever `EDI` already held — on the first row, the speech slot array `Sound_Init` (`0046230c`) has just allocated, a heap pointer, which `Sfx_Open` takes as a sample. Retail's effects play, which song voices could not ([HMI SOS](#hmi-sos)), so every row is opened as a sample. A `.hmp` named in `SOUNDS.STR` would therefore [load](#loading-a-sample) as raw 8-bit data and play as noise.
 
 ### Ids 0-9 are music
 
@@ -422,6 +432,7 @@ The language picks a folder, not a file. `Voice_ArchiveName` (`0045ef68`) patche
 | Attribute byte 0 selects a mixer channel or category | Its three retail values (0, 1, 5) look like a small enum, but it is passed straight to `Sfx_SetLooping` as a repeat count — 0 means forever, which is why the music entries and `herceng1`/`fire1a` carry it. |
 | Attribute byte 2 is "looping" | It is the preload flag; `Sfx_Cache` is a load call, not a play call. Looping is byte 0. |
 | The `battle1.wav` entries are the real music | v1.0 ships no such file, and v1.10's is near-silence. The ten slots are a stub; music is Red Book CD audio through MCI. |
+| `SoundCatalog_Load` opens a `.hmp` row as a song and a `.wav` row as a sample | The decompile shows the two `strstr` tests for those extensions, but their haystack is an unwritten stack buffer, not the name — see [Opening a catalog row](#opening-a-catalog-row). Every row opens as a sample. |
 | A `.wav` name resolves under one directory | It resolves under `HMI\` or `HMX\` depending on the low-memory flag, and the two banks are not identical — v1.0's `HMX\` has no `EXPLO5.WAV`. |
 | `herceng1` is the HERC engine hum | The name says so and the sample is one, but the only thing that starts it gates on type record `+0x50` — the flyer flag, the RAZOR. A walking HERC never plays it. |
 | A speech voice's priority `0xff` protects it from eviction | Priority is one term of the [victim score](#memory-budget-and-eviction). A cached idle speech voice scores 355 and goes before any playing catalog voice (at least 1005); `0xff` wins only against catalog voices in the same cached and playing state. |
@@ -430,10 +441,9 @@ The language picks a folder, not a file. `Voice_ArchiveName` (`0045ef68`) patche
 ## Open
 
 - **Open:** a sound reached from XMIT's press beyond the functions it calls directly. `Squad_SendOrderToSlot` calls the squadmate's vtable `+0x28`, `Mech_ReceiveSquadOrder`, and neither that function's callees nor any call made through a table were checked against the play functions' callers.
-- **Unported:** the `.hmp` MIDI path. No `.hmp` ships, so nothing is lost in play.
-- **Unported:** reading `SOUND.CFG`.
 - **Open:** which word of the `sosDIGIInitDriver` argument block at `006b5614` is retail's channel count.
-- **Open:** no `Sfx_Open` call passing open type 2, the streamed voice behind flag `0x1000`, is known. `es2_xref.py` finds three callers — `SoundCatalog_Load` (1 for `.wav`, 0 for `.hmp`), `Voice_Acquire` (1) and `Sound_ShiftMusicSet` (0) — and no stored pointer.
+- **Open:** what format bit 1 selects — `SOUND.CFG` block `+0x26`, fixed at 1 and part of the `0x15` fallback.
+- **Open:** no `Sfx_Open` call passing open type 2, the streamed voice behind flag `0x1000`, is known. `es2_xref.py` finds three callers — `SoundCatalog_Load` ([0, 1 or a heap pointer](#opening-a-catalog-row)), `Voice_Acquire` (1) and `Sound_ShiftMusicSet` (0) — and no stored pointer. `SoundCatalog_Load` holds a `row == 0 → type 2` arm at `004624eb`, after its `.wav` test, but the instruction before it is an unconditional jump past it, and `es2_xref.py` finds no branch to it.
 - **Open:** whether VSHELL plays CD music, and which tracks. It has its own MCI play routine (`0042dcef`), reached only through the thunk `0042d5d1`, and `es2_xref.py --binary VSHELL` finds no reference to that thunk.
 - **Open:** no writer of `Music_TrackSelect` but the `-R` parse and the static clear, and no store to `Music_CdTrack` but `00461caa`, found by `es2_fieldscan.py` over the `004d2540` block (`+0xb7`) and `es2_xref.py`.
 - **Open:** no reader of the playing-sample count `SfxManager+0x3c` found by `es2_fieldscan.py`, and no reference to `Sos_SamplesPlaying` (`00495d4f`), the `sosDIGISamplesPlaying` thunk, found by `es2_xref.py`.

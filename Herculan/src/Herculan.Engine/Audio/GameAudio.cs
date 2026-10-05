@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
@@ -228,9 +229,13 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// The install's disc, when it is an image, whose audio tracks are preferred to a CD drive's; see
 	/// <see cref="ImageMusicSource"/>.
 	/// </param>
+	/// <param name="soundCfg">
+	/// The install's <c>data\sound.cfg</c>, applied through <see cref="SoundCfgBackend"/>; null takes the shipped
+	/// settings.
+	/// </param>
 	public static GameAudio Create(GameContent content, SimRandom? random = null, bool lowMemory = false,
 			bool silent = false, string? cdDrive = null, string? musicDirectory = null,
-			HercWorks.Disc.DiscImage? discImage = null) {
+			HercWorks.Disc.DiscImage? discImage = null, SoundCfg? soundCfg = null) {
 		// Read first and unconditionally: the message port's display half needs nothing but the text,
 		// so the ticker still runs on a machine with no sound device and in an install with no
 		// SIMSOUND.VOL.
@@ -249,8 +254,9 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		}
 
 		string? deviceFailure = null;
-		var backend = (silent ? null : (IAudioBackend?)OpenAlBackend.TryCreate(out deviceFailure))
-			?? new NullAudioBackend();
+		var backend = new SoundCfgBackend(
+			(silent ? null : (IAudioBackend?)OpenAlBackend.TryCreate(out deviceFailure)) ?? new NullAudioBackend(),
+			soundCfg ?? new SoundCfg());
 		// Music is Red Book CD audio and never went through SOS, so it gets a stream of its own on the
 		// device rather than a pool channel: failing to find a disc leaves the effects half exactly as
 		// it was.

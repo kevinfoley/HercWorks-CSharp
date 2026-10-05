@@ -6152,8 +6152,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sfx_Construct",
-      "description": "(sfx): clears the file and sample tables (+0x34, +0x38), the voice counts (+0x3c, +0x40) and the bytes cached (+0x1c), sets defaults, and reads [Sound] from data\\sound.cfg: Driver (read, then +0x2a set to 1 regardless), Buffers into +0x30 (1-64, else 5), Rate 11 giving +0x24 = 0x10 and anything else 0x20, and Width 'Mono' giving +0x28 = 4 and anything else 8. Increments the count at *Rtl_DtorCountPtr. ShellSound_Init constructs the shell's SFX with it before Sfx_Init.",
-      "source": "VSHELL decompile at 0042bf3d; strings at 0047250b-00472550"
+      "description": "(sfx): clears the file and sample tables (+0x34, +0x38), the voice counts (+0x3c, +0x40) and the bytes cached (+0x1c), sets defaults, and reads [Sound] from data\\sound.cfg: Driver (read, then +0x2a set to 1 regardless), Buffers into +0x30 (atol, 1-64, else 5), Rate (atol of 11 giving +0x24 = 0x10 and anything else 0x20), and Width ('Mono', compared case-insensitively, giving +0x28 = 4 and anything else 8). +0x26 is fixed at 1 and +0x32 at 0x200. Increments the count at *Rtl_DtorCountPtr. Caller found by es2_xref: ShellSound_Init.",
+      "source": "VSHELL decompile at 0042bf3d; strings at 0047250b-00472550",
+      "verified": {
+        "bytes": "0042bf3d+321",
+        "sha1": "73f528c15f4b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042c07e",
@@ -6332,8 +6338,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_InitBackend",
-      "description": "(window, format): the VSHELL counterpart of DBSIM's Sos_InitBackend: keeps window at Music_NotifyWindow, Sos_BindLibrary, copies the format words (from the SFX's +0x24) into 00473174-0047317c, and opens the drivers through Sos_OpenDrivers with the configured driver id, then with id 1, unbinding the library when both fail. Returns true on success. Sfx_Init calls it.",
-      "source": "VSHELL decompile at 0042d7f0"
+      "description": "(window, format): the VSHELL counterpart of DBSIM's Sos_InitBackend: keeps window at Music_NotifyWindow, Sos_BindLibrary, copies format words 0, 1, 2, 6 and 7 (from the SFX's +0x24) into 00473174-0047317c, and opens the drivers through Sos_OpenDrivers with the configured driver id (word 3) and MIDI id 0xffff, then with id 1 and 0xffff, unbinding the library when both fail. Returns true on success. Caller found by es2_xref: Sfx_Init.",
+      "source": "VSHELL decompile at 0042d7f0",
+      "verified": {
+        "bytes": "0042d7f0+153",
+        "sha1": "392be556a882",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042d889",

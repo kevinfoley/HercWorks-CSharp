@@ -14,13 +14,20 @@ sealed class ShellAudio : IDisposable {
 	private readonly GameContent _content;
 	private readonly SimulatorPreferences _options;
 	private readonly bool _silent;
+	private readonly SoundCfg _soundCfg;
 
-	public ShellAudio(GameContent content, SimulatorPreferences options, bool silent) {
+	public ShellAudio(GameContent content, SimulatorPreferences options, bool silent, SoundCfg soundCfg) {
 		_content = content;
 		_options = options;
 		_silent = silent;
+		_soundCfg = soundCfg;
 	}
 
+	/// <summary>
+	/// The device as it is, which the movies play through. The sound manager's samples go through a
+	/// <see cref="SoundCfgBackend"/> on it instead, which VSHELL's <c>sound.cfg</c> reading, <c>Sfx_Construct</c>
+	/// (<c>0042bf3d</c>), configures.
+	/// </summary>
 	public IAudioBackend? Backend { get; private set; }
 
 	public ShellSound? Sound { get; private set; }
@@ -45,7 +52,8 @@ sealed class ShellAudio : IDisposable {
 			Console.Error.WriteLine($"Audio unavailable ({failure}) — the shell runs silent.");
 		}
 
-		Sound = ShellSound.Load(_content, Backend, _options);
+		// The wrapper is not disposed: it owns Backend, which Dispose disposes directly.
+		Sound = ShellSound.Load(_content, new SoundCfgBackend(Backend, _soundCfg), _options);
 		if (!Sound.HasMusic) {
 			Console.Error.WriteLine($"No hmi\\{Sound.MusicName} in {ShellSound.ArchiveName} — the shell has no music.");
 		}

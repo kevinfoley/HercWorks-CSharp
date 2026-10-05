@@ -148,7 +148,8 @@ static class SimulatorStartup {
 		// the variation roll draws on it exactly as weapon scatter does. It never throws: a machine with no
 		// device gets a working GameAudio that happens to be silent.
 		var audio = GameAudio.Create(content, scene.World.PresentationRandom, silent: options.SilentAudio, cdDrive: options.CdDrive,
-			musicDirectory: options.MusicDirectory, discImage: disc?.Image);
+			musicDirectory: options.MusicDirectory, discImage: disc?.Image,
+			soundCfg: SoundCfg.Load(GameInstall.SoundCfgPath(installRoot)));
 		audio.Attach(scene.World);
 		Console.WriteLine($"Audio: {audio.Status}");
 

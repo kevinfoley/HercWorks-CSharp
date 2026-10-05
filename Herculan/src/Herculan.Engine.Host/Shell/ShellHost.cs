@@ -174,7 +174,7 @@ sealed class ShellHost : IDisposable {
 			MissionTabScreens.ViewFor(debriefUp: false, mapShown: false, _game.MissionInStage), _game.CampaignStage));
 
 		_screen = ShellScreen.CreateFrame(_canvas.Art.Text, startTab, _game.Mode);
-		_audio = new ShellAudio(content, options, silentAudio);
+		_audio = new ShellAudio(content, options, silentAudio, SoundCfg.Load(GameInstall.SoundCfgPath(installRoot)));
 		_pointer = new ShellPointer(_screen, () => _audio.Sound?.PlayPress());
 		_widgets = new WidgetEvents(_pointer);
 		var dialogs = new ShellDialogs();

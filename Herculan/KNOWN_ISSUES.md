@@ -100,6 +100,9 @@ _Note to Claude: Detailed technical descriptions belong in their respective docs
 - When the game cannot find a joystick it still applies the joystick bindings left in `prefs.cfg`, and a RAZOR whose JOYSTICK row says PITCH / ROLL then cannot be pitched or rolled from the keyboard: the arrow keys work its rudder and throttle instead. HERC bindings are cleared at startup and escape it. Checked in retail. **Not reproduced** in HERCULAN Engine. See [`docs/retail/formats/joystick-input.md`](docs/retail/formats/joystick-input.md#a-stick-that-does-not-enumerate).
 - A joystick button bound to HDD VIEW can only leave the heads-down display, never enter it. The button is meant to toggle, but it tests whether the cockpit's view manager exists rather than which view is up. The F7 key itself is unaffected. **Not reproduced** in HERCULAN Engine — the action toggles. See [`docs/retail/formats/joystick-input.md`](docs/retail/formats/joystick-input.md#hdd-view-can-only-leave).
 
+### Mission content
+- In mission C2_08, the player's objective is to find and protect a prototype Ogre which carries a prototype Turbo Pod. To complete the mission, the player must simply move to the Ogre and defeat several waves of Cybrids. A group of two allied ground vehicles spawns in the opposite direction from the Cybrids; this group has orders to move to the Ogre's location, but the two vehicles never move, possibly because they are overlapping. They are not part of the mission objectives and do not affect the mission outcome.
+
 ## HERCULAN Engine
 
 _Note to Claude: This section is for listing features which have been implemented but behave differently than retail or otherwise incorrectly. Features that haven't been tackled yet go in [`ROADMAP.md`](ROADMAP.md). Bugs in retail belong in the previous section. Detailed technical descriptions belong in documentation, not here. Give a short plain-English summary._

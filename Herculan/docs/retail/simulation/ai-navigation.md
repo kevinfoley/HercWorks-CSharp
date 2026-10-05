@@ -64,7 +64,7 @@ The whole route mechanism for a walking AI machine. It always drives at the wayp
 | `Ai_FollowRoute` (`0041fb60`) | `0041fb99` | 10000 | this layer |
 | `Mech_BehaviourPlayerThink` (`0041c194`) | `0041c208` | 10000 | announces it: [`player-waypoints.md`](player-waypoints.md) |
 | `Flyer_LeadRouteStep` (`004224c4`) | `00422539` | 15000 | [`ai-flyers.md`](ai-flyers.md) |
-| `GroundVehicle_LeaderSteer` (`0046a8e4`) | `0046a93d` | `GroundVehicle_DriveToPoint`'s own | [`structure-behaviour.md`](structure-behaviour.md) |
+| `GroundVehicle_LeaderSteer` (`0046a8e4`) | `0046a93d` | `GroundVehicle_DriveToPoint`'s own | [`ground-vehicles.md`](ground-vehicles.md#the-control-law--0046a798-and-0046a854) |
 
 A route that runs out leaves the machine standing on the spot with its throttle at zero — and, through `Group_IsOrderComplete`, ends the order. The cursor wraps to zero on a closed route, so a patrol never runs out and a patrol order never completes; see [`ai-goals.md`](ai-goals.md#the-route-cursor-is-loaded-once).
 

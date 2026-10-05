@@ -1591,7 +1591,7 @@
           "type": "short",
           "name": "fireGate",
           "confidence": "high",
-          "description": "+0x1f4 -- Flyer_AttackRun fires only while |value| < 10. Read once. es2_fieldscan.py, a decompile grep and a raw disp32 sweep of the code section find no writer, Flyer_Constructor's own stores omit it, and the pool is zero-filled, so the gate passes."
+          "description": "+0x1f4 -- Flyer_AttackRun fires only while the value is in [-10, 9]. Read once; no writer found, and the pool is zero-filled, so the gate passes. The searches made and what the field may be: docs/retail/simulation/ai-flyers.md#open."
         },
         {
           "offset": 504,

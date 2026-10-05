@@ -9,7 +9,8 @@ namespace Herculan.Engine.Sim;
 /// that moves. Its fighting half
 /// is borrowed whole from the armed tower; everything in this file is the moving half: a route
 /// follow, a formation keep, one steering primitive, and a terrain conform that is the only thing
-/// in the simulation that writes a structure's pitch and roll.
+/// in the simulation that writes a structure's pitch and roll
+/// (docs/retail/simulation/ground-vehicles.md).
 ///
 /// <para><b>Nothing here is scaled by the tick length.</b> The original's steer, speed slew and
 /// forward step are all per-call constants, the same way <see cref="SeekTurret"/>'s are — the

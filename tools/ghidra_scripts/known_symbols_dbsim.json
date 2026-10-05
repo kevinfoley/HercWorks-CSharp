@@ -103,7 +103,13 @@
       "confidence": "high",
       "name": "Vcr_Checkpoint",
       "description": "(ptr, size, label): recording appends size bytes of ptr to the buffer 004a8580 (cursor 00497078, total 0049707c); playback freads size bytes from the -d .dmp (004d2562), memcmps against ptr and sets 00497080 on a mismatch. Module vcr.cpp. No caller found by es2_xref.",
-      "source": "docs/retail/formats/tap-input-tape.md"
+      "source": "docs/retail/formats/tap-input-tape.md",
+      "verified": {
+        "bytes": "00401dc0+153",
+        "sha1": "b79240368dce",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00401e5c",
@@ -238,7 +244,13 @@
       "confidence": "high",
       "name": "SimObject_PushTransform",
       "description": "Saves the object transform, position and the whole animated node hierarchy into globals at 004a8d54. Paired with SimObject_PopTransform.",
-      "source": "docs/retail/simulation/mech-locomotion.md"
+      "source": "docs/retail/simulation/mech-locomotion.md",
+      "verified": {
+        "bytes": "00402628+467",
+        "sha1": "73d71247a9bb",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004027fc",
@@ -247,7 +259,13 @@
       "confidence": "high",
       "name": "SimObject_PopTransform",
       "description": "Restores what SimObject_PushTransform saved. Used by Mech_MovementTick to undo a blocked move.",
-      "source": "docs/retail/simulation/mech-locomotion.md"
+      "source": "docs/retail/simulation/mech-locomotion.md",
+      "verified": {
+        "bytes": "004027fc+474",
+        "sha1": "3c71346821ba",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004029d8",
@@ -256,7 +274,7 @@
       "confidence": "high",
       "name": "SimObject_ConformToTerrain",
       "description": "Sits an object on sloped ground. Samples Terrain_HeightQuery at +/-r forward and +/-r right (r from vtable +0x10, the shape's own radius), takes pitch from Math_Atan2Bam(2r, front - back) and roll from the left/right pair -- Math_Atan2Bam's argument order is (x, y), so the span is the x -- and writes Z as the mean of the four samples (sum >> 2). Clears the rotation-valid flag so the matrix rebuilds. Two callers: GroundVehicle_ThinkTick, which makes it the only thing in the simulation that writes a structure's pitch and roll, and FlatObj_Draw, which conforms every ground shape it draws.",
-      "source": "docs/retail/simulation/structure-behaviour.md"
+      "source": "docs/retail/simulation/ground-vehicles.md"
     },
     {
       "address": "00402c75",
@@ -4573,8 +4591,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AttachToGroup",
-      "description": "Attaches a mech to its mission group: stores the group pointer at mech+0x45 and the member slot index at mech+0x49, then fills in heading and position ONLY IF still at the -0x8000 'unset' sentinel -- which is why a roster record's own position ref wins where set and the group's point is the fallback. Position comes from the group's coordinate pointer (group+0x18), or from FUN_00423b0c against the group's route when that is null. Z is Terrain_HeightQuery plus the mech type's foot offset (typeRecord+0x16), plus 5000 when typeRecord+0x50 is set. Calls mech vtable +0x78 (Mech_ApplyFormationOffset) with the position first. FUN_00421ee8 and FUN_00405c3c are the flyer and base equivalents; the flyer one deliberately does no terrain query and substitutes z=5000 when the coordinate's z is zero.",
-      "source": "docs/retail/formats/script-dat.md (mission placement)"
+      "description": "Attaches a mech to its mission group: stores the group pointer at mech+0x45 and the member slot index at mech+0x49, then fills in heading and position ONLY IF still at the -0x8000 'unset' sentinel -- which is why a roster record's own position ref wins where set and the group's point is the fallback. The heading is the group's (+0x0a), with pitch and roll zeroed. Position comes from the group's coordinate pointer (group+0x18), or from Route_WaypointAt against the group's route cursor when that is null. Z is Terrain_HeightQuery at that point -- the group's, before any formation offset -- plus the mech type's foot offset (typeRecord+0x16), plus 5000 when typeRecord+0x50 is set. Then calls mech vtable +0x78 (Mech_ApplyFormationOffset) on the (x, y, z) triple and stores the result as the position.",
+      "source": "docs/retail/formats/script-dat.md (mission placement)",
+      "verified": {
+        "bytes": "00417aa8+237",
+        "sha1": "607edb2a1163",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00417b98",
@@ -16675,7 +16699,13 @@
       "name": "FlightModel_Step",
       "description": "The flight model. Settles, in order: the throttle setting at state+0x1e, the airspeed it demands (throttle interpolated across the type's minimum..maximum airspeed, biased by pitch attitude at Q10 250 nose-down against 62 nose-up), sideslip drag, the three angular rates, the new attitude, and the velocity vector in that attitude. It moves nothing -- it produces the world velocity Razor_MovementTick integrates. Turning is bank-driven: the heading rate is -roll >> fm[30] and is applied on top of the integrated attitude. Attitude is integrated as a rotation MATRIX from the mean of this tick's rates and last tick's, with the eulers read back out, so a vertical climb does not gimbal. The fifth argument, a literal 1 at both call sites (Razor_ApplyFlightInput, Flyer_ApplyFlightCommand), is never read.",
       "source": "docs/retail/simulation/razor-flight.md",
-      "signature": "void __cdecl FlightModel_Step(int *input, int *state, short *flightModel, int *wingDestroyed, int unused)"
+      "signature": "void __cdecl FlightModel_Step(int *input, int *state, short *flightModel, int *wingDestroyed, int unused)",
+      "verified": {
+        "bytes": "00466a54+3274",
+        "sha1": "8d61cbc01c3d",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00467724",
@@ -17083,7 +17113,7 @@
       "confidence": "high",
       "name": "Group_FirstAbleMember",
       "description": "Returns the first of up to four of a group's members that is neither immobilised (+0xa4) nor destroyed (+0x99), or null. The ground-vehicle layer's notion of the group leader.",
-      "source": "docs/retail/simulation/structure-behaviour.md"
+      "source": "docs/retail/simulation/ground-vehicles.md"
     },
     {
       "address": "0046a510",
@@ -17101,7 +17131,7 @@
       "confidence": "high",
       "name": "GroundVehicle_ThinkTick",
       "description": "StructureGroundVehicleVtable's +0x18 tick slot (slot address 00497830), the only one of the five structure classes that moves. Gated on the group's first member answering targetClass 3, so a ground-vehicle type in a group led by anything else is an ordinary building. Fights with Base_ArmedThinkTick -- plus, with nothing on +0x1a4, a Base_TurretSeek with its own two turret angles fed back negated, which walks the turret to centre -- or for typeRec+0x2e == 0 just Base_ThinkTick. Then saves position/pitch/heading, runs GroundVehicle_Advance and SimObject_ConformToTerrain, and on a block from GroundVehicle_CollisionTest restores the save, zeroes speed and arms the back-off pair at +0x223/+0x227 the way Mech_MovementTick does. Its steering helpers are GroundVehicle_LocomotionTick (0046a798) and GroundVehicle_DriveToPoint (0046a854).",
-      "source": "docs/retail/simulation/structure-behaviour.md"
+      "source": "docs/retail/simulation/ground-vehicles.md"
     },
     {
       "address": "0046a70c",
@@ -17110,7 +17140,7 @@
       "confidence": "high",
       "name": "GroundVehicle_Advance",
       "description": "Steers a ground vehicle and steps it forward. Picks the group leader through 0046a4b8; if that is this object it drives the route (0046a8e4), otherwise it keeps formation on the leader (0046a95c). Then transforms (0, speed, 0) -- speed from +0x220, forward being model Y -- through the object's own frame at +0x12, rebuilding that frame first if +0x32 says it is stale, and writes the result as the new position. The frame includes the pitch and roll SimObject_ConformToTerrain gave it last tick, so the ground distance covered is foreshortened on a slope.",
-      "source": "docs/retail/simulation/structure-behaviour.md"
+      "source": "docs/retail/simulation/ground-vehicles.md"
     },
     {
       "address": "0046a798",
@@ -17119,7 +17149,7 @@
       "confidence": "high",
       "name": "GroundVehicle_LocomotionTick",
       "description": "The ground vehicle's whole control law and the counterpart of Mech_LocomotionTick: (this, steer, speed). While the back-off countdown at +0x222 is still running it REPLACES the speed with +/-200 by the reverse flag at +0x227 and leaves the steer alone, so a blocked vehicle keeps navigating while it crawls clear. Then the steer is clamped to +/-0x100, the speed slews into +0x220 through Math_RateLimitedMoveToward at 0x1e a tick, and heading (+0x10) takes Math_Q8Multiply(200, steer) added straight on -- there is no turn rate and no inertia in the heading, only in the speed. Finally clears the rotation-valid flag at +0x32. Nothing here is scaled by the tick length. Called by both steering halves and by 0046a854.",
-      "source": "docs/retail/simulation/structure-behaviour.md",
+      "source": "docs/retail/simulation/ground-vehicles.md",
       "signature": "void __cdecl GroundVehicle_LocomotionTick(void *vehicle, short steer, short speed)"
     },
     {
@@ -17128,9 +17158,15 @@
       "type": "function",
       "confidence": "high",
       "name": "GroundVehicle_DriveToPoint",
-      "description": "(this, point, legBearing, speed) -> arrived. The ground vehicle's Ai_DriveToPoint, with the same 10000-unit ground-range arrival test and two differences. It does NOT steer at the point it is given: it offsets a copy of it along legBearing by (9000 - range) with Math_OffsetPointByBearing and steers at that, so beyond 9000 the aim point sits short of the destination back down the incoming line and inside 9000 it swings past -- which pulls a convoy onto the leg between two waypoints instead of letting each vehicle cut its own corner. And its gain is four times a HERC's: (Math_HeadingToward(aim, this) - heading) >> 4, not >> 6. The shift is encoded SAR EDX, 0x64, which x86 masks to 4. A speed argument of zero means none stated and takes 0xaa, the same default Ai_DriveToPoint uses.",
-      "source": "docs/retail/simulation/structure-behaviour.md",
-      "signature": "int __cdecl GroundVehicle_DriveToPoint(void *vehicle, int *point, short legBearing, int speed)"
+      "description": "(this, point, legBearing, speed) -> arrived. The ground vehicle's Ai_DriveToPoint, with the same 10000-unit ground-range arrival test (Math_GroundDistanceBetweenPoints) and two differences. It does NOT steer at the point it is given: it offsets a copy of it along legBearing by (9000 - range) with Math_OffsetPointByBearing and steers at that. The subtraction is 32-bit but the offset is taken in 16 bits, so the aim point is always within 32768 of the destination along the leg: from 9000 out to 41767 it sits short of the destination back down the incoming line, inside 9000 it swings past, and further out it cycles every 65536 units of range. And its gain is four times a HERC's: (Math_HeadingToward(aim, this) - heading) >> 4, not >> 6. The shift is encoded SAR EDX, 0x64, which x86 masks to 4. A speed argument of zero means none stated and takes 0xaa, the same default Ai_DriveToPoint uses. Pushes a fourth argument, 0, to the three-argument GroundVehicle_LocomotionTick.",
+      "source": "docs/retail/simulation/ground-vehicles.md",
+      "signature": "int __cdecl GroundVehicle_DriveToPoint(void *vehicle, int *point, short legBearing, int speed)",
+      "verified": {
+        "bytes": "0046a854+142",
+        "sha1": "bd3383888a3c",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0046a8e4",
@@ -17139,7 +17175,7 @@
       "confidence": "high",
       "name": "GroundVehicle_LeaderSteer",
       "description": "The group leader's route follow for a ground vehicle. No waypoint after the cursor means GroundVehicle_LocomotionTick(this, 0, 0) -- steer and speed both zero; otherwise it drives at that waypoint with GroundVehicle_DriveToPoint on the bearing between it and the cursor's own, passing speed 0 so the drive takes its own 0xaa default, and advances the route cursor when the drive reports arrival.",
-      "source": "docs/retail/simulation/structure-behaviour.md"
+      "source": "docs/retail/simulation/ground-vehicles.md"
     },
     {
       "address": "0046a95c",
@@ -17148,7 +17184,7 @@
       "confidence": "high",
       "name": "GroundVehicle_FollowerSteer",
       "description": "A non-leader ground vehicle's formation keeping. Takes Group_FirstAbleMember's position, asks its own vtable +0x78 for the formation slot -- note that Formation_RotateAndAddOffset rotates the offset by the group's member array SLOT 0, not by the able leader it is anchored on -- and branches on heading agreement. Inside 0x4000 it matches speed (the leader's own +0x220 minus the along-track error in the leader's frame >> 5, clamped +0x100 / -0x96) and drives at a point 20000 ahead of the post along the leader's heading, with no lateral steering term at all. Outside 0x4000 it abandons the leader's heading and turns straight at the post at (distance >> 5) capped the same way.",
-      "source": "docs/retail/simulation/structure-behaviour.md"
+      "source": "docs/retail/simulation/ground-vehicles.md"
     },
     {
       "address": "0046ab10",
@@ -21260,7 +21296,13 @@
       "name": "Math_FastMagnitude2D",
       "description": "Sqrt-free 2D magnitude approximation: max(|dx|,|dy|) + min(|dx|,|dy|)/2 -- the octagonal estimate, exact on axis and up to ~11.8% high on a diagonal. The 2D counterpart of Math_FastMagnitude3D. This is the distance both HUD distance readouts display, so the original's own on-screen ranges carry that error.",
       "source": "docs/herculan/planning.md (world scale recovery)",
-      "signature": "int __cdecl Math_FastMagnitude2D(int dx, int dy)"
+      "signature": "int __cdecl Math_FastMagnitude2D(int dx, int dy)",
+      "verified": {
+        "bytes": "0047dd40+38",
+        "sha1": "dbb2156ee2bc",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047dd66",
@@ -26056,8 +26098,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_OffsetPointByBearing",
-      "description": "Offsets an int Vec3's x and y by a distance along a BAM bearing, the bearing quarter-turned back because the sim's forward axis is model Y. The skirting state's circling step.",
-      "source": "docs/retail/simulation/ai-navigation.md"
+      "description": "(point, bearing, distance): offsets an int Vec3's x and y by distance along a BAM bearing, the bearing quarter-turned back because the sim's forward axis is model Y, adding Math_ScaleByCos(distance, bearing + 0x4000) to x and Math_ScaleBySin(distance, bearing + 0x4000) to y and returning the point; z is left alone. The offset is 16-bit: both helpers take the distance's low word and return a sign-extended int16, so a distance past +/-32767 wraps. GroundVehicle_DriveToPoint depends on the wrap.",
+      "source": "docs/retail/simulation/ai-navigation.md",
+      "verified": {
+        "bytes": "004928f0+52",
+        "sha1": "beda01710424",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00492924",
@@ -26137,8 +26185,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Q14Multiply_Thunk",
-      "description": "(a, b): Math_Q14Multiply(a, b) on int16 arguments, returned in AX.",
-      "source": "DBSIM decompile at 004929e1"
+      "description": "(a, b): Math_Q14Multiply on int16 arguments -- a sign-extended from its low word (MOVSX EDX,word ptr), b passed as AX -- returning Math_Q14Multiply's EAX.",
+      "source": "DBSIM decompile at 004929e1",
+      "verified": {
+        "bytes": "004929e1+23",
+        "sha1": "9893210eca03",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "004929f8",
@@ -26155,8 +26209,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_ScaleByCos",
-      "description": "(length, angle): Math_Q14Multiply_Thunk(length, Math_CosBam_Thunk(angle)) as a sign-extended int16. Math_OffsetPointByBearing calls it.",
-      "source": "DBSIM decompile at 00492a04"
+      "description": "(length, angle): Math_Q14Multiply_Thunk(length, Math_CosBam_Thunk(angle)) as a sign-extended int16 (MOVSX EAX,AX). The length is passed on as the low word of EDX, so only its low 16 bits count. Math_OffsetPointByBearing calls it.",
+      "source": "DBSIM decompile at 00492a04",
+      "verified": {
+        "bytes": "00492a04+33",
+        "sha1": "6d5891ce8b5f",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00492a25",
@@ -26164,8 +26224,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_ScaleBySin",
-      "description": "(length, angle): Math_Q14Multiply_Thunk(length, Math_SinBam(angle)) as a sign-extended int16. Math_OffsetPointByBearing calls it.",
-      "source": "DBSIM decompile at 00492a25"
+      "description": "(length, angle): Math_Q14Multiply_Thunk(length, Math_SinBam(angle)) as a sign-extended int16 (MOVSX EAX,AX). The length is passed on as the low word of EDX, so only its low 16 bits count. Math_OffsetPointByBearing calls it.",
+      "source": "DBSIM decompile at 00492a25",
+      "verified": {
+        "bytes": "00492a25+33",
+        "sha1": "beaf86a38a0c",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00492a46",

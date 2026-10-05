@@ -1,6 +1,6 @@
 # `dat\BASES.DAT` — the structure type table
 
-One record per structure type, 65 in retail. Reverse-engineered from `DBSIM.EXE` (Ghidra project `ES2Recon`); addresses are DBSIM virtual addresses. What a structure does with these fields is [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md), how a shot strikes one is [`../simulation/hit-detection.md`](../simulation/hit-detection.md#base_directfirehittest--00405038), and how a part comes down is [`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#a-structure-coming-down).
+One record per structure type, 65 in retail. Reverse-engineered from `DBSIM.EXE` (Ghidra project `ES2Recon`); addresses are DBSIM virtual addresses. What a structure does with these fields is [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md), how the ground vehicle types move is [`../simulation/ground-vehicles.md`](../simulation/ground-vehicles.md), how a shot strikes one is [`../simulation/hit-detection.md`](../simulation/hit-detection.md#base_directfirehittest--00405038), and how a part comes down is [`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#a-structure-coming-down).
 
 ## The type record
 

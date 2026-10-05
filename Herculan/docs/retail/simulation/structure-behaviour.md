@@ -1,6 +1,6 @@
 # Structure behaviour
 
-What a `BASES.DAT` ([`bases-dat.md`](../formats/bases-dat.md)) structure does per tick, and how it takes damage. Hit detection is [`hit-detection.md`](hit-detection.md) and the collapse a lost part runs is [`destruction-effects.md`](destruction-effects.md#a-structure-coming-down). This doc owns the `+0x18` tick slot and the five classes that fill it.
+What a `BASES.DAT` ([`bases-dat.md`](../formats/bases-dat.md)) structure does per tick, and how it takes damage. Hit detection is [`hit-detection.md`](hit-detection.md) and the collapse a lost part runs is [`destruction-effects.md`](destruction-effects.md#a-structure-coming-down). This doc owns the `+0x18` tick slot and the five classes that fill it, except the GroundVehicle class's tick and movement, which are [`ground-vehicles.md`](ground-vehicles.md).
 
 ## Timing constants
 
@@ -11,7 +11,6 @@ Every countdown in this doc is in the simulation's timer unit, which is not a mi
 | Retarget `+0x21d` | 10000 | 4.9 s |
 | Firing window `004973e0` | 10000 | 4.9 s each way |
 | Refire `+0x211` | 1500 | 0.73 s |
-| Ground vehicle back-off `+0x223` | 3000 | 1.5 s |
 | Transport firing window `004973f4` + `004973f8` | 5000 + rand(5000) | 2.4–4.9 s each way |
 
 ## Five classes, one switch
@@ -24,7 +23,7 @@ Every countdown in this doc is in the simulation's timer unit, which is not a mi
 | Radar mast | `004979d4` | the same | 5, 6, `0x1d`, `0x1e` |
 | Armed | `004978ac` | `00404100` | 8, `0x0b`, `0x20`, `0x23` |
 | Transport | `00497784` | `004045c8` | `0x22` |
-| GroundVehicle | `00497818` | `0046a5d0` | `0x2d`-`0x34`, `0x37`-`0x3d` |
+| GroundVehicle | `00497818` | `0046a5d0`, [`ground-vehicles.md`](ground-vehicles.md) | `0x2d`-`0x34`, `0x37`-`0x3d` |
 
 Six indices — `0x0a`, `0x35`, `0x36`, `0x3e`-`0x40` — match no case, so nothing is constructed. Only three slots differ across the five tables: the destructor, this one, and `GetTorsoTwistAngle` (`+0x3c`).
 
@@ -110,7 +109,7 @@ A structure that has already fallen hands the whole tick to `Base_ThinkTick`, so
 | `0x0a`, `0x22` | TRANSPORT | 1 |
 | the other 57 | | 0 |
 
-The stated armament and the tick part company on three of the eight. The generator is Plain and type `0x0a` is never constructed, so neither reaches a tick that would fire what it states, and the transport has a tick of its own that does not read the field at all. Type `0x2f` does fire what it states, through the ground vehicle tick's branch into this one ([below](#the-ground-vehicle-tick--0046a5d0)). See [Open](#open).
+The stated armament and the tick part company on three of the eight. The generator is Plain and type `0x0a` is never constructed, so neither reaches a tick that would fire what it states, and the transport has a tick of its own that does not read the field at all. Type `0x2f` does fire what it states, through the ground vehicle tick's branch into this one ([`ground-vehicles.md`](ground-vehicles.md#the-ground-vehicle-tick--0046a5d0)). See [Open](#open).
 
 **The countdown at `+0x218` is a firing window, not a barrel selector.** Each expiry flips the flag at `+0x21b` and reloads the counter at `+0x219` from the pair at `004973e0`, both of whose entries are 10000 — **about five seconds** ([Timing constants](#timing-constants)) — so a tower fires for five seconds, holds for five, and repeats. Fire is gated on the flag being set.
 
@@ -147,7 +146,7 @@ turretAngle[axis] = clamp(turretAngle[axis] + turretRate[axis], min[axis], max[a
 AnimThread_SeekToPosition(thread[axis], axis, (unsigned)turretAngle[axis] >> 2)
 ```
 
-and finishes with `SimObject_ApplyRootMotionIfEnabled(this, 100)`, which is what re-poses the nodes it just moved.
+and finishes with `SimObject_ApplyRootMotionIfEnabled(this, 100)`, which is what re-poses the nodes it just moved. Its other caller is the ground vehicle tick, which uses it to walk an idle turret back to centre ([`ground-vehicles.md`](ground-vehicles.md#the-ground-vehicle-tick--0046a5d0)).
 
 | Axis | Error term | Sequence | Gain `004973e4` | Rate limit `004973e8` | Stops `004973ec`/`004973f0` |
 |---|---|---|---|---|---|
@@ -200,60 +199,6 @@ The slot records' arcs, ranges, offsets and refire delays are [`LC_WPNS.DAT`](..
 - A beam calls `Bullet_FireBurst(3, frame, range, this, power)` with a frame pointed from the muzzle at the aim point by `Math_EulerToward`, so a beam is aimed. Its range and power are `LAS100`'s, weapon template 8's `+0x30` and `+0x38` ([`weapons-dat-sim.md`](../formats/weapons-dat-sim.md#decoded-tail-fields)), through `WeaponMountTemplate_GetByWeaponId(8)`.
 
 Type `0x22` states no animation threads and its tick never steps a cell sequence, so nothing on the model moves when it aims or fires.
-
-## The ground vehicle tick — `0046a5d0`
-
-The mobile ground units, and the only structure class that moves. Gated on the group's first member answering `targetClass == 3`, so a ground-vehicle type dropped into a group led by anything else is an ordinary building.
-
-```
-if (typeRec+0x2e == 0) Base_ThinkTick(this)
-else { 00404100(this); if (no target) TurretSeek(this, -turretAz, turretEl) }
-if (!destroyed) {
-    save position, pitch, heading
-    GroundVehicle_Advance(this)              // 0046a70c
-    SimObject_ConformToTerrain(this)       // 004029d8
-    if (GroundVehicle_CollisionTest(this)) { // 0046a510
-        restore the save; speed = 0
-        back-off timer +0x223 = 3000, reverse flag +0x227 = (speed > 0)
-    }
-}
-```
-
-So a ground vehicle fights with the armed tick and moves with its own, and its block handling is `Mech_MovementTick`'s: restore the step and arm a back-off rather than detonate. **The turret seek's second caller is here** — with nothing acquired the two turret angles are fed straight back in negated, which walks the turret to centre.
-
-- **`GroundVehicle_CollisionTest` (`0046a510`)** is `Mech_CollisionTest`'s two object sweeps standing alone — the same group `+0x14` action gate, the same asymmetric vtable `+0x5c` against `+0x7c` radius pair, and the same `Structure_GatherWalkCandidates` volume sweep behind them, whose result is the return value. The vehicle is itself in the structure pool, so it passes itself as the gather's one excluded structure (`0046a5ad`); `Mech_CollisionTest` and `Deployment_PickPointNearPlayer` pass none. It drops the machine's other two arms: there is no terrain test, so a ground vehicle drives up anything, and a block does no damage to what was hit. It does still call the blocker's vtable `+0x68`, which makes it the **second writer** of the `obj+0xb1` latch a ramming machine detonates on — see [`ai-combat-states.md`](ai-combat-states.md#the-charge--mech_behaviourramtick-0041e488).
-- **`GroundVehicle_Advance` (`0046a70c`)** picks the group leader (`0046a4b8`: the first of up to four group members that is neither immobilised nor destroyed — so unlike a HERC group, a convoy promotes when the vehicle in front goes down), steers as leader or follower, then steps the position forward by `+0x220` along model Y, through the vehicle's whole frame rather than its heading alone.
-- **Leader (`0046a8e4`)** drives the group's route: no waypoint after the cursor means steer 0 and speed 0; otherwise drive at it on the bearing between the two waypoints, and advance the cursor on arrival.
-- **Follower (`0046a95c`)** keeps formation on the leader through its own vtable `+0x78` slot. Inside 90° of the leader's heading it matches speed — `leaderSpeed - alongTrackError >> 5`, clamped to `+0x100`/`-0x96` — and drives at a point 20000 ahead of its own post along the leader's heading, with no lateral steering term at all; outside it, it abandons the leader's heading and turns at the post itself at `distance >> 5`. The leader's speed it matches is that object's own `+0x220`, not its vtable `+0x38`, which answers zero for every structure.
-- **The post is anchored on one object and rotated by another.** `Base_ApplyFormationOffset` (`00405c04`) is handed the *able* leader's position, but `Formation_RotateAndAddOffset` (`00411d64`) reaches past its caller for the group's member array slot 0 and rotates the `BFORMS.DAT` offset by that object's heading. The array is never compacted, so once the vehicle in the lead slot is destroyed a convoy is anchored on its new leader while still dressed on the wreck's last heading.
-- **`SimObject_ConformToTerrain` (`004029d8`)** sits the vehicle on the ground — [below](#terrain-conform--simobject_conformtoterrain-004029d8).
-
-### Terrain conform — `SimObject_ConformToTerrain` (`004029d8`)
-
-It samples the ground at ±r forward and ±r right (`r` from vtable `+0x10`, the shape's own radius), takes pitch from `Math_Atan2Bam(2r, forward - back)` and roll from the left/right pair, and sets Z to the mean of the four samples. This is how a vehicle sits on a slope, and it is the only thing in the simulation that writes a structure's pitch and roll. It is not the vehicle's alone: `FlatObj_Draw` calls it for every ground shape ([`ground-shapes.md`](ground-shapes.md#the-draw-pass)).
-
-### The control law — `0046a798` and `0046a854`
-
-Everything above decides a steer and a speed and hands the pair to `0046a798`, the ground vehicle's `Mech_LocomotionTick`:
-
-```
-if (Math_CountdownTimerTick(&this+0x222) != 0)          // a back-off is running,
-    speed = this+0x227 ? -200 : 200                     // and overrides the speed, not the steer
-steer = clamp(steer, +/-0x100)
-Math_RateLimitedMoveToward(&this+0x220, speed, 0x1e)    // the speed slews
-heading += Q8(200, steer)                               // the steer *is* the heading change
-```
-
-**There is no turn rate and no inertia in the heading**: the clamped steer becomes heading within the same tick, at a little over 200 binary-angle units at full lock. Only the speed is rate-limited. Nothing here is scaled by the tick length — the steer gain, the speed slew and the forward step are all per-call constants, as the turret seek's are.
-
-`0046a854` is the drive-to-point both steering halves call, and the counterpart of `Ai_DriveToPoint`. Same 10000-unit arrival range, and two differences:
-
-- **It does not steer at the point it is given.** It steers at a point offset from that one along the caller's stated bearing by `9000 - range`, so while the vehicle is further out than 9000 the aim point sits *short* of the destination, back down the incoming line, and inside 9000 it swings past. Against the leader's route bearing that pulls a convoy onto the leg between two waypoints instead of letting each vehicle cut its own corner.
-- **Its steering gain is four times a HERC's** — the bearing error over 16, not over 64.
-
-A speed of zero means "none stated" and takes `0xaa`, the same default `Ai_DriveToPoint` uses.
-
-**The retail mission handoff exercises none of the move half.** Its one ground vehicle (type `0x38`) rides in a group whose first member is a plain building, so the class gate keeps it parked — and it stands overlapping an armed tower, which would block every step it tried to take even if the gate let it move.
 
 ## Taking damage — `Base_ApplyDamage` (`00404d70`)
 
@@ -315,4 +260,3 @@ So 100, like any negative value, leaves the components undamaged, and 0 places t
 
 - **Open:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when no tick any of them reaches reads it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
 - **Open:** a tower's ranges against retail play. At `Hud_WorldUnitsToMetres` (`00434228`)'s confirmed scale of `(units / 1000) * 6`, the armed tick's 40000-unit fire gate is 240 m and its 60000-unit target drop 360 m, but retail towers are seen aiming from about 320 m and firing from about 200 m, short of both by a margin the scale does not account for.
-- **Open:** the ground vehicle follower arm: no `script.dat` handoff examined places a second mobile vehicle for it to hold station on. The campaign's `.MSN` files are where to look for one.

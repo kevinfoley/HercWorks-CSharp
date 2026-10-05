@@ -12245,8 +12245,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_Repaint",
-      "description": "Floods the screen rect with colour id 19, refreshes the order rows, draws the selected order's 2px marker bar in id 15, repaints the two magnifier buttons, rebuilds the map markers and rasterizes the map.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "Floods the screen rect with colour id 19, refreshes the order rows, draws the selected order's 2px marker bar in id 15, repaints the two magnifier buttons, builds the map markers while the screen's +0x109 latch is 0 (HddCommandScreen_BuildMapMarkers sets it), rasterizes the map, and sets the +0x13a label's text from +0x140 while +0x13e is nonzero and +0x144 is 0.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044c894+203",
+        "sha1": "c961926b5874",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044c960",
@@ -12624,8 +12630,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_BuildMapMarkers",
-      "description": "Rebuilds the map's marker gadgets: up to 9 waypoint markers from the player's own route (icons 0x4e+), then one per object in the three global object lists, then a gadget for the player's dropped nav marker (icon 0x57), built every time; HddCommandScreen_DrawMap positions and paints it only while NavMarker_Position returns one. Gadgets past the last used one, out of the 140 allocated, are released.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "Fills the map's marker gadgets, appending from the screen's +0x10a count, and sets the +0x109 latch HddCommandScreen_Repaint tests before calling it: up to 9 waypoint markers from the player's own route (icons 0x4e+), then one per object in the three global object lists, then a gadget for the player's dropped nav marker (icon 0x57), built unconditionally; HddCommandScreen_DrawMap positions and paints it only while NavMarker_Position returns one. Gadgets past the last used one, out of the 140 allocated, are released.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044ded8+423",
+        "sha1": "1ad242254085",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044e080",

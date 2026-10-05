@@ -252,9 +252,14 @@ sealed class CockpitRenderer : IDisposable {
 			}
 		}
 
-		int x = Math.Max((int)MathF.Floor(windowX0), 0);
+		// Rounded outward, then cut to the panel. A panel's width is its art's scaled width rounded to whole pixels,
+		// so the art can overhang the panel by a fraction of a pixel, and rounded outward that fraction becomes a
+		// column of the neighbouring panel -- whose canopy is already drawn, and which this pass would paint the
+		// world over as a one-pixel seam.
+		var panel = surface.Viewport;
+		int x = Math.Max((int)MathF.Floor(windowX0), Math.Max(panel.X, 0));
 		int y = (int)MathF.Floor(surface.WindowHeight - windowY1);
-		int width = Math.Max((int)MathF.Ceiling(windowX1) - x, 0);
+		int width = Math.Max(Math.Min((int)MathF.Ceiling(windowX1), panel.X + panel.Width) - x, 0);
 		int height = Math.Max((int)MathF.Ceiling(surface.WindowHeight - windowY0) - y, 0);
 
 		gl.Scissor(x, y, (uint)width, (uint)height);

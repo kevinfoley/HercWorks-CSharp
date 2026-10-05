@@ -46,7 +46,7 @@ v1.10's `VER95\ES.EXE` is v1.0's with two additions after the switch parse. It r
 | Code | Set by | Meaning to `ES.EXE` |
 |---|---|---|
 | 0 | the shell quitting ([`QUIT`](shell/screen-layout.md#quit) or closing its window); DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does — the panel closing the simulator's window raises too | quit |
-| 2 | VSHELL `Shell_SetExitCode(2)` (`0040876a`) — the mission launch paths, including `Msn_BuildPath` (`0044d5bd`, VSHELL) and the debrief's `REPLAY MISSION?` | fly a mission |
+| 2 | VSHELL `Shell_SetExitCode(2)` (`0040876a`) — the mission launch paths, including `MissionNameDialog_OnLoad` (`0044d5bd`, VSHELL) and the debrief's `REPLAY MISSION?` | fly a mission |
 | 3 | DBSIM when a mission ends other than by a quit or a demo | shell, into the debrief |
 | 4 | DBSIM in place of 3 when the player's machine is destroyed (`+0x99`) and `MissionModeFlag` (`004a9ed6`) is up — which the load zeroes, so never | shell, into the debrief |
 | 5 | VSHELL `FUN_0043156f` — the main menu's `VIEW DEMO` button | fly a demo tape |
@@ -64,24 +64,24 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdow
 | `-e…` other than `-eggplant` | `Shell_Language` (`0048227a`) = 3 | Language slot 3; see [Open](#open) |
 | `-f`, `-g` | `Shell_Language` = 1, 2 | French, German, over the value `EsGlobal_Init` copies from [`prefs.cfg` byte 43](simulation/preferences.md#what-each-byte-is); what it selects is [`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)'s |
 | `-s` | `Shell_SoundEnabled` (`00482272`) = 0 | No sound |
-| `-m` | `ShellSwitch_M` (`00482270`) = 1 | Read only by the unreferenced function at `0042f2e8`; no effect ([Rejected readings](#rejected-readings)) |
+| `-m` | `ShellSwitch_M` (`00482270`) = 1 | Read only by `Shell_BuildSimArgv` (`0042f2e8`), to which `es2_xref.py` finds no reference; no effect ([Rejected readings](#rejected-readings)) |
 | `-k` | `Shell_KeyboardEnabled` (`00482271`) = 0 | No keyboard: the startup builds no keyboard producer |
 | `-X<n>` | `Shell_SetExitCode(n)` → `0046e210` | Copied into `Shell_StartupCode` (`0048227e`) right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
 | `-r` | `Shell_StartupCode` = 3 | Overwritten by the `-X` copy; no effect ([`shell/campaign-loop.md`](shell/campaign-loop.md#rejected-readings)) |
 | `-@` | `Shell_MissionPickerEnabled` (`00482284`) = 1 | The mission picker below |
 | `-a` | `Shell_MoviesEnabled` (`00482275`) = 0 | Turns the shell's movies off: [the movie queue](shell/screen-layout.md#the-shells-movies) takes nothing and plays nothing |
-| `-l` | `ShellSwitch_L` (`00482280`) = 0 | Read only by the unreferenced function at `0042f2e8`; no effect |
+| `-l` | `ShellSwitch_L` (`00482280`) = 0 | Read only by `Shell_BuildSimArgv` (`0042f2e8`), to which `es2_xref.py` finds no reference; no effect |
 | `-v`, `-?` | `Shell_SoundEnabled` = 0 | `printf` the version or the usage text, turn sound off, and call `Shell_ShutdownDevicesAndSound` (`004092dc`). The parse runs before `Shell_Main` (`00401525`) builds `devices.cpp`'s viewport (`Devices_Init`, `0040db38`) and the sound manager, so that call releases nothing, and the parse goes on to the next argument |
 
 `-d`, tested separately in VSHELL's `Shell_WinMain` (`00406507`), clears `0046d740`, which the same function overwrites from `ShellOption_DisplayMode` before anything reads it.
 
 ### `-@`: the mission picker
 
-`FUN_00412ce1` (VSHELL), called at campaign start (`FUN_00412a2f`) and after each debrief (`Game_ProcessMissionResults`), shows a panel titled `DEBUG` naming the campaign's next mission (`FUN_0044db25`), built by `FUN_0044d6a8` with two buttons: `Use Default` (`FUN_0044d55a`), and one that hides the panel and loads `msn\<name>.msn` through `Msn_BuildPath`, `<name>` being the text at `DAT_0048dc18+0x45`. Without `-@` the function posts two type-`0x20` events, values 2 and 1, to `Use Default` through `FUN_00468440`, which dismiss the panel before it is ever seen; with it the panel is left waiting. Retail confirms both halves: `ES.EXE -s -SPRUNKNOWN` puts the panel up on starting a new game, and a normal launch never shows it.
+`FUN_00412ce1` (VSHELL), called at campaign start (`FUN_00412a2f`) and after each debrief (`Game_ProcessMissionResults`), shows a panel titled `DEBUG` naming the campaign's next mission (`FUN_0044db25`), built by `MissionNameDialog_Build` (`0044d6a8`) with two buttons: `Use Default` (`FUN_0044d55a`), and one that hides the panel and loads `msn\<name>.msn` through `MissionNameDialog_OnLoad`, `<name>` being the text at `MissionNameDialog_NameField+0x45`. Without `-@` the function posts two type-`0x20` events, values 2 and 1, to `Use Default` through `FUN_00468440`, which dismiss the panel before it is ever seen; with it the panel is left waiting. Retail confirms both halves: `ES.EXE -s -SPRUNKNOWN` puts the panel up on starting a new game, and a normal launch never shows it.
 
 ## DBSIM
 
-Two parsers. `FUN_0045e6b0` (DBSIM) runs first from `WinMain`, after `VideoMode_Configure(0)`, for the switches the window needs: `-v`, `-Z`, `-X`, `-c`. `Sim_ParseCommandLine` (`0045e73c`) runs later for the rest. Both are case-sensitive and test the character after `-`; neither accepts `/`.
+Two parsers. `WinMain_ParseSwitches` (`0045e6b0`) (DBSIM) runs first from `WinMain`, after `VideoMode_Configure(0)`, for the switches the window needs: `-v`, `-Z`, `-X`, `-c`. `Sim_ParseCommandLine` (`0045e73c`) runs later for the rest. Both are case-sensitive and test the character after `-`; neither accepts `/`.
 
 | Switch | Store | Effect |
 |---|---|---|
@@ -137,16 +137,16 @@ In `Mech_HandleCommand` (`004157c8`), on the player's machine:
 | `0x248`, `0x250` | `Alt+Up`, `Alt+Down` | Moves the machine `±step` along its own y axis |
 | `0x24d`, `0x24b` | `Alt+Right`, `Alt+Left` | `±step` along its own x axis |
 | `0x44b`, `0x44d` | `Ctrl+Left`, `Ctrl+Right` | Adds or subtracts the angle step to its yaw |
-| `0x602`-`0x60a` | `Ctrl+Alt+1`-`9` | Sets the step (`004a9d50`) and angle step (`004a9d52`) from two tables at `0049a020` and `0049a032`, both 500, 1000, 1500, 2000, 3000, 4500, 6000, 7500, 9000 |
+| `0x602`-`0x60a` | `Ctrl+Alt+1`-`9` | Sets the step `DevKeys_MoveStep` (`004a9d50`) and angle step `DevKeys_TurnStep` (`004a9d52`) from two tables, `DevKeys_MoveStepTable` (`0049a020`) and `DevKeys_TurnStepTable` (`0049a032`), both 500, 1000, 1500, 2000, 3000, 4500, 6000, 7500, 9000 |
 
-Both steps start at 2000, entry 3 of both tables: the mech module's static initialiser (`0041bc5c`) registers `00415464` as subsystem phase 2, which `Sim_InitMissionSession` runs at every mission start, and that stub loads the two entries. The handler is reached through `Sim_DispatchCommand`'s default case, which passes a command it does not claim to the `+0x2c` slot of the viewed object `ViewChain_Viewed` — `LocalPlayerMech` only when `DAT_0049ef5c` is set, and that dword is 0 in the image with only compares among the seven references `es2_xref.py` finds. `Mech_HandleCommand` works its weapon and all-stop cases on the global `PlayerMech`, so with a machine viewed it is the six move and turn cases above that act on that machine. What a viewed object of another class does with the commands is [Open](#open). The arrow keys share their scancodes with keypad 8, 2, 6 and 4, and `Input_KeyjoyAxisKey` (`0045a308`) takes those as held axes. With the flag up it also passes a keypad code on when `Ctrl` or `Alt` is held, which is what lets the six reach the dispatcher — but only after it has recorded the key as held, so each of the six still steers or moves the throttle as its bare arrow does. The `Alt` bit it stores at `004d245a` does not change that: its one reader, in `Input_BuildKeyboardAxes`, is a compare whose branch lands on the same instruction as its fall-through.
+Both steps start at 2000, entry 3 of both tables: the mech module's static initialiser `Mech_RegisterSubsystem` (`0041bc5c`) registers `Mech_ResetMissionGlobals` (`00415464`) as subsystem phase 2, which `Sim_InitMissionSession` runs at every mission start, and that function loads the two entries. The handler is reached through `Sim_DispatchCommand`'s default case, which passes a command it does not claim to the `+0x2c` slot of the viewed object `ViewChain_Viewed` — `LocalPlayerMech` only when `DAT_0049ef5c` is set, and that dword is 0 in the image with only compares among the seven references `es2_xref.py` finds. `Mech_HandleCommand` works its weapon and all-stop cases on the global `PlayerMech`, so with a machine viewed it is the six move and turn cases above that act on that machine. What a viewed object of another class does with the commands is [Open](#open). The arrow keys share their scancodes with keypad 8, 2, 6 and 4, and `Input_KeyjoyAxisKey` (`0045a308`) takes those as held axes. With the flag up it also passes a keypad code on when `Ctrl` or `Alt` is held, which is what lets the six reach the dispatcher — but only after it has recorded the key as held, so each of the six still steers or moves the throttle as its bare arrow does. The `Alt` bit it stores at `004d245a` does not change that: its one reader, in `Input_BuildKeyboardAxes`, is a compare whose branch lands on the same instruction as its fall-through.
 
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
-| VSHELL launches DBSIM, from its own argument list `dummy -eggplant -Z -s -v3 -h -F -G -m -D`. | That list is in VSHELL's data, and a function at `0042f2e8` (VSHELL) builds an `argv` from it, appending `-D` when `ShellSwitch_D` (`00482282`) is non-zero, and `-m` when `ShellSwitch_M` is. Ghidra never disassembled that function, and `es2_xref.py` finds no branch or stored pointer reaching it. It returns without spawning anything. `ES.EXE` launches DBSIM, with its own list. |
-| VSHELL's `-m` turns the mouse off. | The usage text says so (`-m -M /m /M Disables mouse`), and the parser's `-m` case does store 1 in `ShellSwitch_M`. `Shell_Main` (`00401525`) builds the mouse producer without testing it, and its one reader `es2_xref.py` finds is the unreferenced function at `0042f2e8`, which would pass `-m` on to DBSIM. |
+| VSHELL launches DBSIM, from its own argument list `dummy -eggplant -Z -s -v3 -h -F -G -m -D`. | That list is in VSHELL's data, and `Shell_BuildSimArgv` (`0042f2e8`, VSHELL) builds an `argv` from it, appending `-D` when `ShellSwitch_D` (`00482282`) is non-zero, and `-m` when `ShellSwitch_M` is. Ghidra never disassembled that function, and `es2_xref.py` finds no branch or stored pointer reaching it. It returns without spawning anything. `ES.EXE` launches DBSIM, with its own list. |
+| VSHELL's `-m` turns the mouse off. | The usage text says so (`-m -M /m /M Disables mouse`), and the parser's `-m` case does store 1 in `ShellSwitch_M`. `Shell_Main` (`00401525`) builds the mouse producer without testing it, and its one reader `es2_xref.py` finds is `Shell_BuildSimArgv` (`0042f2e8`), to which `es2_xref.py` finds no reference, which would pass `-m` on to DBSIM. |
 | The demo attract mode cannot be started, because the `-D` in VSHELL's list sits behind a flag nothing sets. | That list is the unreferenced one above. The main menu's `VIEW DEMO` button exits the shell with code 5, and `ES.EXE` answers 5 with `dbsim … -D`. |
 | `ES.EXE` passes `-SPRUNKNOWN` to DBSIM on every launch. | The string is in its simulator list, but the slot is conditional on `ES.EXE` having been given `-SPRUNKNOWN` itself. |
 

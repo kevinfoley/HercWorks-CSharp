@@ -101,8 +101,17 @@ A render context (`0x239` bytes) carries a clip block at `ctx+4`, which `Raster_
 
 `Cockpit_PushCanvasContext` (`004311e0`) pushes the current context and installs the canvas one; `Cockpit_PopRenderContext` (`00431210`) pops. Every widget paint runs inside such a pair, which is why the console instruments — outside the canopy cutout — can draw at all.
 
-The mode reaches the pixels through the transparent-sprite blitter. `Bitmap_BlitTransparent` (`00488cec`) rejects against the context's rect, then sets a per-call flag from `clipMode == 2` and sends every pixel run it emits to the region-clipped span writer (`DAT_004a5820` / `DAT_004a5828`) rather than the plain one (`DAT_004a581c` / `DAT_004a5824`). So a sprite drawn in mode 2 is cut to the regions scanline by scanline — following an A-pillar's slope, not a rectangle. An opaque bitmap is only ever rect-clipped: `Bitmap_BlitClipDispatch` (`004886cc`) hands modes 1 and 2 the same rect.
+The mode reaches the pixels through both of `Bitmap_BlitClipDispatch`'s (`004886cc`) blitters:
+
+- A type-1 bitmap (transparent RLE, `bitmap+5 & 0xf`) goes to `Bitmap_BlitTransparent` (`00488cec`), which rejects against the context's rect, then sets a per-call flag from `clipMode == 2` and sends every pixel run it emits to the region-clipped span writer (`g_RasterRoutines_SpanCopyRegion` (`004a5820`) / `g_RasterRoutines_SpanFillRegion` (`004a5828`)) rather than the plain one (`g_RasterRoutines_SpanCopy` (`004a581c`) / `g_RasterRoutines_SpanFill` (`004a5824`)).
+- Any other bitmap goes, in modes 1 and 2, to `g_RasterRoutines` slot 28 (`004a5834`) with the context's rect. Driver 3's slot 28, `Driver3_BlitClippedRegion` (`00489dd2`), reads the mode itself: in mode 1 it blits clipped to that rect, and in mode 2 it ignores the rect and blits once per region — clipped to a rect region's rect, and for a span region once per row, clipped to that row's span.
+
+So a bitmap drawn in mode 2 is cut to the regions scanline by scanline — following an A-pillar's slope, not a rectangle — whichever blitter draws it.
 
 `ActiveScanlineClipSpans` is a different mechanism for the same regions, flattened per scanline; its only readers are the polygon rasterizers.
 
 **Child 5's paint is the only widget that opts in.** It calls `Cockpit_PopRenderContext` before the box's blits and `Cockpit_PushCanvasContext` after, so the box alone is drawn in the canopy-clipped context. The reticle, the heading tape, the rotation indicator, the readouts and the arrow all stay in the canvas context and are never cut. Confirmed against `Reference/Targeting 2.png`, where the box's right half is cut along the right A-pillar while the arrow beside it is whole.
+
+## Open
+
+- **Open:** whether DBSIM ever draws a type-1 bitmap. Driver 3's span writers, `Driver3_SpanCopy` (`0048a382`) and `Driver3_SpanFill` (`0048a4a7`), index the row table with `EAX` after `MOV AX,DS` has replaced the low word of the row they loaded, so `Bitmap_BlitTransparent`'s runs would land on the row numbered `(y & 0xffff0000) | DS` rather than on row y.

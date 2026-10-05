@@ -66,7 +66,7 @@ The name string itself is copied out of `esnames.bin` at that index. That file h
 
 Every draw the campaign makes goes through one generator at `0x482325`: `ShellRandom_Below` (`004659ec`) is `(ShellRandom_Next() & 0x7fff) % n`, and `ShellRandom_Next` (`004659a8`) is DBSIM's own additive lagged Fibonacci step ([`../simulation/random-generator.md`](../simulation/random-generator.md)). It is seeded once, at startup (`004075a1`): `ShellRandom_Seed` (`0046597c`) copies the same 112-byte table DBSIM starts from, byte for byte, out of `0047f7b4`, sets the same two cursors, and steps it `GetTickCount() & 0x7f` times. So a session starts at one of 128 states, and everything after follows from the order of the draws.
 
-The briefing map keeps a second state at `0x48106e`. `HeightGrid_FromBitmap` (`00428d5b`) and `HeightGrid_Load` (`00429010`) call `ShellRandom_Next` on it directly for their `& 0xfff` material rolls ([`mission-map.md`](mission-map.md)), and a static initialiser (`00401e4c`, listed at `00480fb2`) resets it to the seed table through `ShellRandom_Reset` (`00465950`) without the tick-count stepping ([Open](#open)).
+The briefing map keeps a second state at `0x48106e`. `HeightGrid_FromBitmap` (`00428d5b`) and `HeightGrid_Load` (`00429010`) call `ShellRandom_Next` on it directly for their `& 0xfff` material rolls ([`mission-map.md`](mission-map.md)), and a static initialiser (`Shell_StaticInit`, `00401e4c`, listed at `00480fb2`) resets it to the seed table through `ShellRandom_Reset` (`00465950`) without the tick-count stepping ([Open](#open)).
 
 ## The campaign table — `gam\career.dat`
 

@@ -179,10 +179,9 @@ internal sealed class GunsightPainter {
 	/// whatever was there before. The context underneath is the one
 	/// <c>CockpitView_ApplyViewState</c> (<c>00429e60</c>) loaded the current view's own
 	/// <c>0x204</c>-byte clip block into — the herc's <c>.HD</c>/<c>.ED</c> canopy cutout — putting it
-	/// in clip <b>mode 2</b>, the region-list mode. The transparent-sprite blitter
-	/// (<c>Bitmap_BlitTransparent</c>, <c>00488cec</c>) tests for exactly that mode and sends every pixel run it emits through
-	/// the clipped span writer instead of the plain one, so a sprite drawn in that context is cut to
-	/// the canopy opening scanline by scanline — following the A-pillars, not a rectangle.</para>
+	/// in clip <b>mode 2</b>, the region-list mode, in which a bitmap is cut to the canopy opening
+	/// scanline by scanline — following the A-pillars, not a rectangle (see
+	/// docs/retail/formats/hud-target-indicator.md, "Why the box goes behind the cockpit frame").</para>
 	///
 	/// <para><b>Child 5 is the only widget that opts into it</b>: its paint calls
 	/// <c>Cockpit_PopRenderContext</c> before the box and <c>Cockpit_PushCanvasContext</c> after, dropping out of the canvas

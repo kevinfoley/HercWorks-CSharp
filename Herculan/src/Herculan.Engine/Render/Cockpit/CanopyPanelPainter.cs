@@ -183,9 +183,8 @@ public sealed class CanopyPanelPainter {
 	///
 	/// <para>Geometry is the <c>.GAU</c> energy-meter rect at offset 564, which
 	/// <c>EnergyPoolGauge_Ctor</c> (<c>00444d5c</c>) copies verbatim into the bar object before
-	/// handing it to <c>LedBarGraph_Ctor</c> with range <c>0x400</c>. The bar fills along x in both
-	/// class variants: <c>LedBarGraph_CtorBase</c> takes its start/end from the rect's x0/x1
-	/// (<c>param_2[0]</c>/<c>param_2[2]</c>) and the pinstripe walk strides columns.</para>
+	/// handing it to <c>LedBarGraph_Ctor</c> with range <c>0x400</c>, so the bar is the horizontal
+	/// variant and fills along x — see docs/retail/formats/cockpit-hud-widgets.md, "LED gauges".</para>
 	///
 	/// <para>Nothing is drawn at <c>ShieldDisplay</c>: that widget is <c>ShieldsGauge</c>, a
 	/// different class with its own nested-box geometry, not an LED bar.</para>

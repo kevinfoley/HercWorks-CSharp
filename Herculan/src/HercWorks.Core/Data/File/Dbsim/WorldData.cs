@@ -97,15 +97,22 @@ public class WorldData {
 	public short FlatSetSelector => HeaderShort(9);
 
 	/// <summary>
-	/// First distance-band table — 16 entries in every retail file, ascending from 60000 in steps of
-	/// 4400. What reads it is not established.
+	/// The distance-band thresholds for an object with a type tag (<c>WorldShades_BandsTagged</c>,
+	/// <c>004cfd84</c>). See docs/retail/formats/distance-fog-and-sky.md, "Distance colour bands".
 	/// </summary>
 	public int[] DistanceBandsA { get; set; } = Array.Empty<int>();
 
-	/// <summary>Second distance-band table, identical to <see cref="DistanceBandsA"/> in retail data.</summary>
+	/// <summary>
+	/// The distance-band thresholds for type tag 0 (<c>WorldShades_BandsTag0</c>, <c>004cfd88</c>).
+	/// See docs/retail/formats/distance-fog-and-sky.md, "Distance colour bands".
+	/// </summary>
 	public int[] DistanceBandsB { get; set; } = Array.Empty<int>();
 
-	/// <summary>Ramp dimensions; only <see cref="RampColumns"/> sizes anything.</summary>
+	/// <summary>
+	/// Ramp dimensions: the band count and the column count the two ramp tables expand into
+	/// <c>WorldShades_LevelRanges</c>. See docs/retail/formats/terrain-texturing.md, "The world&lt;N&gt;
+	/// descriptor — layout".
+	/// </summary>
 	public short RampRows { get; set; }
 
 	/// <inheritdoc cref="RampRows"/>
@@ -122,23 +129,29 @@ public class WorldData {
 
 	/// <summary>
 	/// Two further 4-byte entries the original expands through the same helper as the ramp tables
-	/// (<c>Palette_InterpolateIndexRanges</c>, <c>00430d08</c>). Kept raw: what the expansion means is not established.
+	/// (<c>Palette_InterpolateIndexRanges</c>, <c>00430d08</c>) into <c>WorldShades_BlendRanges</c>
+	/// (<c>004cfd80</c>). Kept raw. See docs/retail/formats/distance-fog-and-sky.md, "Distance colour
+	/// bands".
 	/// </summary>
 	public byte[] RampExtraA { get; set; } = new byte[4];
 
 	/// <inheritdoc cref="RampExtraA"/>
 	public byte[] RampExtraB { get; set; } = new byte[4];
 
-	/// <summary>The four loose fields between the ramp section and the strings.</summary>
+	/// <summary>The two loose shorts between the ramp section and the distance offsets.</summary>
 	public short Trailer0 { get; set; }
 
 	/// <inheritdoc cref="Trailer0"/>
 	public short Trailer1 { get; set; }
 
-	/// <inheritdoc cref="Trailer0"/>
+	/// <summary>
+	/// <c>WorldShades_DistanceOffsets</c> (<c>004cfd6c</c>): the offset a tag-5 object's distance
+	/// takes before its band is counted, for a radius under 5000. See
+	/// docs/retail/formats/distance-fog-and-sky.md, "Distance colour bands".
+	/// </summary>
 	public int Trailer2 { get; set; }
 
-	/// <inheritdoc cref="Trailer0"/>
+	/// <summary>The same offset for a tag-5 object whose radius is 5000 or more.</summary>
 	public int Trailer3 { get; set; }
 
 	/// <summary>World type tag, <c>world24</c> in every retail file.</summary>

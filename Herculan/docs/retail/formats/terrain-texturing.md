@@ -32,12 +32,12 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 |---|---|
 | 8 x `int16` | the sky backdrop's `hzline` — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md#the-object) |
 | 6 x `int16` | ditto; two land in `DAT_004cfd76`/`DAT_004cfd78`. The second of the six, the file's tenth `int16` (byte 18), is `World_FlatSetSelector` (`0049aeea`), which picks the theater's ground-shape set ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-shape-set--flatobj_loadresources-004097a8)); 1 in all ten retail files |
-| `int32` count + count x `int32` | 16 entries in every retail file, ascending in even steps |
-| `int32` count + count x `int32` | 16 again, identical to the first array |
-| `int16` rows, `int16` cols | sizes the pair of ramp tables that follow |
-| cols x `int32`, `int16`, cols x `int32` | expanded by `Palette_InterpolateIndexRanges` (`00430d08`) into `_DAT_004cfd7c` |
-| 4 bytes, 4 bytes | a second, 1-wide ramp through the same expander |
-| `int16`, `int16`, `int32`, `int32` | |
+| `int32` count + count x `int32` | `WorldShades_BandsTagged` (`004cfd84`), the distance thresholds of the [colour bands](distance-fog-and-sky.md#distance-colour-bands--worldshades_applyforobject-0042e8e8) for an object with a type tag: 16 entries, 4400 apart from 60000 — from 30000 in `WORLD4` |
+| `int32` count + count x `int32` | `WorldShades_BandsTag0` (`004cfd88`), the same for tag 0: 16 entries, 4400 apart from 60000, in every retail file |
+| `int16` rows, `int16` cols | sizes the pair of ramp tables that follow; 16 and 11 in every retail file |
+| cols x `int32`, `int16`, cols x `int32` | expanded by `Palette_InterpolateIndexRanges` (`00430d08`) into `WorldShades_LevelRanges` (`004cfd7c`), one index range per column and band |
+| 4 bytes, 4 bytes | a second, 1-wide ramp through the same expander, into `WorldShades_BlendRanges` (`004cfd80`) |
+| `int16`, `int16`, `int32`, `int32` | the two `int32`s are `WorldShades_DistanceOffsets` (`004cfd6c`), the offsets a tag-5 object's distance takes |
 | 5 NUL-terminated strings | `world24`, `clouds2`, `impact<N>`, **terrain bank**, `tex` |
 
 | descriptor | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |

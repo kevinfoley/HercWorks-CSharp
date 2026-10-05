@@ -25,13 +25,13 @@ namespace Herculan.Engine.Host;
 sealed class DeveloperKeys(bool enabled) {
 	/// <summary>
 	/// <c>Mech_HandleCommand</c>'s two step tables for <c>Ctrl+Alt+1</c>-<c>9</c>, the move at
-	/// <c>0049a020</c> and the turn at <c>0049a032</c>. The two hold the same nine values.
+	/// <c>DevKeys_MoveStepTable</c> (<c>0049a020</c>) and the turn at <c>DevKeys_TurnStepTable</c> (<c>0049a032</c>). The two hold the same nine values.
 	/// </summary>
 	private static readonly short[] StepSizes = { 500, 1000, 1500, 2000, 3000, 4500, 6000, 7500, 9000 };
 
 	/// <summary>
 	/// The entry both steps start on, <c>Ctrl+Alt+4</c>'s — loaded at every mission start by the mech
-	/// module's phase-2 subsystem loader (<c>00415464</c>).
+	/// module's phase-2 subsystem loader, <c>Mech_ResetMissionGlobals</c> (<c>00415464</c>).
 	/// </summary>
 	private const int InitialStep = 3;
 

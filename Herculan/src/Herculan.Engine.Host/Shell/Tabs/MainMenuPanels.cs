@@ -288,7 +288,7 @@ sealed class MainMenuPanels {
 		_repaint();
 	}
 
-	// A widget's handler. Cancel (00436b90) and Accept (00436c51) end in PreferencesScreen_Hide (00436717) and
+	// A widget's handler. Cancel (PreferencesScreen_OnCancel, 00436b90) and Accept (PreferencesScreen_OnAccept, 00436c51) end in PreferencesScreen_Hide (00436717) and
 	// MainMenu_Show, which take the screen down and put the menu back.
 	private void ClickPreferences(ShellPreferencesWidget widget) {
 		if (_preferencesScreen == null) {

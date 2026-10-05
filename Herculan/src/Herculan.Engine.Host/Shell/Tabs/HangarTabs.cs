@@ -336,7 +336,7 @@ sealed class HangarTabs {
 		}
 	}
 
-	// An inventory row's handler, one of the thunks from 00440300: Arming_SelectRow (0043f71c) with the
+	// An inventory row's handler, one of the thunks from Arming_OnRow00 (00440300): Arming_SelectRow (0043f71c) with the
 	// fit armed, so with a hardpoint selected the row's weapon goes into it.
 	private void SelectWeaponsRow(int row) {
 		if (_weaponsScreen?.SelectRow(row, fit: true) == true) {
@@ -352,7 +352,7 @@ sealed class HangarTabs {
 	}
 
 	// The four guidance buttons show their kind and write it to the mount, the rack's own button
-	// selects its row again without fitting it (0044012a), and the steppers move the hardpoint.
+	// selects its row again without fitting it (Arming_OnRackButton, 0044012a), and the steppers move the hardpoint.
 	private void ClickWeaponsButton(ShellWeaponsButton button) {
 		if (_weaponsScreen == null) {
 			return;

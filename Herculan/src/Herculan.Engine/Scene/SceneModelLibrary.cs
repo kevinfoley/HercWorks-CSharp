@@ -318,15 +318,15 @@ public sealed class SceneModelLibrary {
 	/// <c>Shape_DrawAtDetailLevel</c> picks between each frame (see <see cref="ShapeDetail"/>).
 	/// Empty when the <c>.DTS</c> is missing.
 	///
-	/// <para><b>The chain stops at the first root that renumbers its animation nodes.</b> Each root
-	/// declares its own node tree and a node id means nothing outside it
+	/// <para><b>The chain stops at the first root that renumbers its animation nodes.</b> In the file
+	/// each root declares its own node tree and a node id means nothing outside it
 	/// (<see cref="ShapeAnimation.SharesNodeNumbering"/>); this engine evaluates one animation per
 	/// machine, root 0's, so a root that compacts its numbering would have its parts posed onto
 	/// whichever joints happen to share their numbers — on APOCA's root 4 that puts the whole upper
-	/// body on a knee. Retail has no such limit: it poses each root through that root's own tree.
-	/// Truncating here is this engine's own divergence, and it costs the crudest one to three roots
-	/// of each chassis — see docs/retail/formats/mech-shape-drawing.md, "Each root numbers its own
-	/// nodes".</para>
+	/// body on a knee. Retail renumbers those roots onto root 0's nodes at load
+	/// (<c>MechType_RemapDetailRootTransforms</c>, <c>00420090</c>), which this engine does not yet
+	/// do; truncating here instead costs the crudest one to three roots of each chassis — see
+	/// docs/retail/formats/mech-shape-drawing.md, "The crude roots are renumbered at load".</para>
 	///
 	/// <para>A prefix rather than a filtered set, because <see cref="ShapeDetail.SelectRoot"/> walks
 	/// the chain by index and a hole in it would move every root past the hole. Retail data makes
@@ -380,7 +380,7 @@ public sealed class SceneModelLibrary {
 	///
 	/// <para>Where a HERC picks its bank per chassis (<c>MechType_InitOne</c> writes
 	/// <c>&amp;g_MechTextureGroupSlots + TextureGroup*8</c> into the shape's <c>+0x26</c>), the flyer
-	/// type loader (<c>maybe_FlyerType_LoadResources</c>, <c>00422ed0</c>) writes a <i>literal</i>
+	/// type loader (<c>FlyerType_LoadResources</c>, <c>00422ed0</c>) writes a <i>literal</i>
 	/// slot address, <c>0x004a9e0e</c>. That is <c>g_MechTextureGroupSlots</c> (<c>004a9df6</c>) plus
 	/// <c>3 * 8</c>, so every flyer type shares one bank and it is the enemy one — which makes sense
 	/// of a roster that is entirely Cybrid. See docs/retail/formats/dts-texture-binding.md.</para>

@@ -28,7 +28,7 @@ The three per-chassis file families are each reached through a nine-entry pointe
 
 ## `gam\hercs.dat` — the starting hangar
 
-`LoadHercsDat` (`004104ed`, `herclist.cpp`) fills the hangar object at `00482ac3` at new-career time. The hangar is eight pointer slots at `+0x00`, an occupied count at `+0x20`, the selected bay at `+0x22` — the bay the squad panel shows, and the one the build screen buys into and the scrap dialog scraps ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-scrap-dialog)) — and [the debrief's scrap count](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7) at `+0x24`; `00482ae3`, `00482ae5` and `00482ae7` reach the last three directly. `HercsDat_Clear` (`0041048b`) empties all of it before every load.
+`LoadHercsDat` (`004104ed`, `herclist.cpp`) fills the hangar object at `Hangar_BayRecords` (`00482ac3`) at new-career time. The hangar is eight pointer slots at `+0x00`, an occupied count at `+0x20`, the selected bay at `+0x22` — the bay the squad panel shows, and the one the build screen buys into and the scrap dialog scraps ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-scrap-dialog)) — and [the debrief's scrap count](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7) at `+0x24`; `00482ae3`, `00482ae5` and `00482ae7` reach the last three directly. `HercsDat_Clear` (`0041048b`) empties all of it before every load.
 
 ```
 int16   count
@@ -295,5 +295,6 @@ The four `int32` are an inclusive rect and not a position and a size: the 16 byt
 
 ## Open
 
+- **Open:** whether any reader indexes the `HercExternalGroupValues` (`004840cc`) columns `LoadDamageDat_Shell` leaves alone (6-12 and 22-32). `RepairCost_StaticInit` (`00413cb2`) builds the nine rows with `HercStatus_InitAll`, so those columns hold 100.
 - **Open:** whether anything loads `trn_herc.dat`. No reader is named in either executable's string data, but a runtime-assembled path cannot be ruled out from that alone.
 - **Open:** what `herc_inf.dat`'s `+0x0a` field holds. No reader found by `es2_xref.py --binary VSHELL 00483b5e` or by a scan of VSHELL's code for any dword addressing the table (`00483b40`–`00483bf0`): every other field is addressed directly, and the base `00483b54` only by `LoadHercInfDat`'s bulk read and `Herc_GrantUnlocks`'s `+0x00` test. DBSIM does not name `herc_inf.dat`.

@@ -10,24 +10,25 @@ Every geometry group in a DTS shape is drawn through the transform of the node i
 | --- | --- |
 | `004758c8` | `TSGroup_RenderPolys` — DBSIM's counterpart to the VSHELL symbol of that name |
 | `00476014` | Reads the group's own transform id and forwards it |
-| `00476030` | Composes the node's world transform with the object-to-view one, and installs it |
+| `00476030` | `ShapeNode_InstallTransform` — composes the node's world transform with the object's model transform, and installs it |
 
 `TSGroup_RenderPolys` binds the group's index/point/surface arrays to the poly-render globals, then walks `group+0x1c` calling each poly's vtable slot `+0x1c`. Before any of that it calls `00476014`, which is a one-line forwarder:
 
 ```c
-FUN_00476030(group, out, (int)*(short *)(group + 4));   // group+4 == TSBasePart.Transform
+ShapeNode_InstallTransform(group, out, (int)*(short *)(group + 4));   // group+4 == TSBasePart.Transform
 ```
 
-`00476030` then, for a non-negative transform id:
+`ShapeNode_InstallTransform` then, for a non-negative transform id whose node is not the one already installed, the first time that node is reached since the bind:
 
 ```c
-Transform_Concat((short *)(id * 0x20 + _DAT_006b7bec), DAT_006b7c14, out);  // Concat(nodeWorld[id], objectToView)
-Raster_SetModelTransform((undefined2 *)out);                               // install as current transform
+Transform_Concat((short *)(id * 0x20 + g_ShapeNodeWorldTransforms), g_ShapeObjectModelTransformPtr, out);
+Raster_SetModelTransform((undefined2 *)out);              // install as the current model transform
+Raster_SaveState(&g_TSTransformStates[id + 1]);           // 0x110-byte slots
 ```
 
-`_DAT_006b7bec` is the shape instance's `+0x16` per-node world array (stride `0x20`, indexed by transform id); `DAT_006b7c14` is the current object-to-view transform. `&DAT_006bb335` is a per-node "already composed this frame" flag array, so a shape with several groups on one node composes once.
+`g_ShapeNodeWorldTransforms` (`006b7bec`) is the shape instance's `+0x16` per-node world array (stride `0x20`, indexed by transform id). `g_ShapeObjectModelTransformPtr` (`006b7c14`) is `+0x20` of slot 0 of `g_TSTransformStates` (`006b7bf4`): the model-transform pointer `Raster_SaveState` recorded when `ShapeInst_BindNodeTransformArray` (`00475fd8`) saved the renderer's state into slot 0 as it bound the instance, so the transform the object itself is drawn with. `&DAT_006bb335` is a per-node flag array the bind clears: a node already composed has its state in slot `id + 1`, and a later group on it restores that slot (`Raster_RestoreState`) instead of composing again.
 
-A negative transform id skips the composition and leaves the object-to-view transform standing.
+A negative transform id composes nothing. When a node's state is installed it restores slot 0, the object's own state; otherwise it leaves the current state standing.
 
 `TSBasePart.Transform` at offset `+4` is the same field `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) and the cockpit eye resolve the mech type record's camera node (`typeRec+0x0c`) through — one field, one meaning, geometry and named nodes alike.
 

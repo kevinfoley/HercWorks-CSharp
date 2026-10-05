@@ -17,7 +17,7 @@ Canopy art itself and the cockpit palette: [`cockpit-canopy-palette.md`](cockpit
 | `CockpitViewInstance` | `0049b088` | The GAU widget tree, owned by the manager. |
 | `Gau_BuildCockpitWidgets` | `00431bf8` | Builds that tree from `gau\<HERC>.GAU` — see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#gau-widget-tree). |
 
-Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANEL.CPP` (widget tree, `00431008`–`00434400`), palette module (`0043034c`–`00430e40`).
+Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANEL.CPP` (widget tree, `00431008`–`00434400`), palette module (`Palette_LoadResources` (`0043034c`)–`00430e40`).
 
 `CockpitViewManagerInstance` fields:
 
@@ -243,7 +243,7 @@ DBSIM draws everything into a system-memory back buffer and copies a viewport-si
 
 | Symbol | Address | Role |
 |---|---|---|
-| `Display_SetOrigin` | `004648d4` | Slot 15 of `g_RasterRoutines` (`004a5800`), through driver 3's stub `00489802`. Moves the window to `(x, y)`: rebases the render target's pixel pointer and row table on it and stores it in `Display_OriginX`/`Y`. Its page argument is ignored |
+| `Display_SetOrigin` | `004648d4` | Slot 15 of `g_RasterRoutines` (`004a5800`), through driver 3's stub `Driver3_SetOrigin` (`00489802`). Moves the window to `(x, y)`: rebases the render target's pixel pointer and row table on it and stores it in `Display_OriginX`/`Y`. Its page argument is ignored |
 | `Display_OriginX` / `Display_OriginY` | `004d309c` / `004d30a0` | The window's top-left in the back buffer. Zeroed by driver 3's surface setup `Driver3_OpenDisplay` (`0048a0c8`); every other store is `Display_SetOrigin`'s |
 | `Display_ScreenRect` | `004d307c` | `{0, 0, w-1, h-1}`, the viewport on screen, set by `Driver3_OpenDisplay` (`0048a0c8`) |
 | `Display_Present` | `00464910` | `Screen_PresentFrame(&Display_OriginX, &Display_ScreenRect)` |
@@ -265,7 +265,7 @@ DBSIM draws everything into a system-memory back buffer and copies a viewport-si
 | `CockpitView_ProcessViewCommand` (`0042a4c4`) | Gates glances on the draw page `+0x88` instead of the window: command 4 and a return from view 3 wait for page 0, command 5 and a return from view 2 for page 2 (1 under [panel mode 1](#panel-mode-1)). A gated command returns with `+0x18` still latched. Every pass that gets past the gate and the cooldown calls `Vga_WaitVerticalRetrace` (`0045c61c`), which spins on VGA port `0x3DA` until bit 3, vertical retrace, is set |
 | `CockpitView_ApplyViewState` (`00429e60`) | Sets the origin to the draw page's origin plus the destination's canvas origin, and leaves it alone for views 2 and 3 |
 | `CockpitView_StepViewTransition` (`0042a9c0`) | For commands 0, 1 and 3 first copies the outgoing image across the pages by the difference between the views' canvas origins; presents no step; ends a glance by swapping the page pair and putting the origin back on the page origin |
-| `Widget_DrawToCockpit` (`0043122c`) | Acts only here. Copies a widget's rect from one page to the other — `+0x8c` to `+0x88` for a first argument of 1, the reverse for 0 — and does nothing for argument 1 while bring-up's `DAT_004d25ae` is set, for a rect `CockpitView_RectCornerVisible` (`00431410`) rejects, or while a view transition is armed. The offset is `DAT_0049b07e`, `{0, 0}` in the image, whenever the third argument is null, and all 34 calls pass null |
+| `Widget_DrawToCockpit` (`0043122c`) | Acts only here. Copies a widget's rect from one page to the other — `+0x8c` to `+0x88` for a first argument of 1, the reverse for 0 — and does nothing for argument 1 while bring-up's `DAT_004d25ae` is set, for a rect `CockpitView_RectCornerVisible` (`00431410`) rejects, or while a view transition is armed. The offset is `Cockpit_ZeroOffset` (`0049b07e`), `{0, 0}` in the image, whenever the third argument is null, and all 34 calls pass null |
 | `CockpitView_SetShakeBand` (`0042d2f8`) | Rests the band on the view's canvas origin (`DAT_004cfa24`/`28`) and, in views 2 and 3, zeroes the resting x and the saved resting y (`004cfae4`, `004cfae0`) |
 | `AlertPanel_Present` (`00454ab0`), `AlertPanel_Leave` (`004548ac`) | Do not present |
 | `PanelButton_Paint`, `ControlsPanel_RefreshRow`, `PreferencesPanel_Run` | Wrap their painting in `g_RasterRoutines` slots 31 and 30 (`004a5840`/`004a583c`), the pair `Cursor_SyncPosition` calls around a pointer move |
@@ -273,7 +273,7 @@ DBSIM draws everything into a system-memory back buffer and copies a viewport-si
 
 The block-base scan finds the rest of the readers: over the eighteen holders, `es2_fieldscan.py` reports three reads of `+0xaa`, all in `Sim_InitMissionSession`, and `Main_StaticInit`'s store.
 
-**Driver 3 implements none of the paging.** In its routine table slots 16, 17 and 18 are the empty stubs `004897f0`, `004897f6` and `004897fc`, and slots 30 and 31 are `Driver3_Slot30NoOp` (`004897c8`) and `Driver3_Slot31NoOp` (`004897d3`), which save and restore registers and return. `maybe_Cursor_SetImage` and `maybe_Driver3_SetCursorImage` are empty; `Driver3_SyncCursorPosition` (`0048982e`) is `Cursor_SyncPosition` again, calling `Driver3_Slot30NoOp` directly instead of through slot 30. Slot 20, the rect copy `Region_CopyBetweenPages` (`00487d54`) ends in (`0048a69b`), moves pixels within the one DIB by the offset it is given and returns at once when the offset is zero, so every `Widget_DrawToCockpit` copy moves nothing. The page indices reach only those stubs and the page-origin lookups, and the origins are zero.
+**Driver 3 implements none of the paging.** In its routine table slots 16, 17 and 18 are the empty stubs `Driver3_Slot16NoOp` (`004897f0`), `Driver3_Slot17NoOp` (`004897f6`) and `Driver3_Slot18NoOp` (`004897fc`), and slots 30 and 31 are `Driver3_Slot30NoOp` (`004897c8`) and `Driver3_Slot31NoOp` (`004897d3`), which save and restore registers and return. `maybe_Cursor_SetImage` and `maybe_Driver3_SetCursorImage` are empty; `Driver3_SyncCursorPosition` (`0048982e`) is `Cursor_SyncPosition` again, calling `Driver3_Slot30NoOp` directly instead of through slot 30. Slot 20, the rect copy `Region_CopyBetweenPages` (`00487d54`) ends in, `Driver3_CopyRect` (`0048a69b`), moves pixels within the one DIB by the offset it is given and returns at once when the offset is zero, so every `Widget_DrawToCockpit` copy moves nothing. The page indices reach only those stubs and the page-origin lookups, and the origins are zero.
 
 What that leaves:
 

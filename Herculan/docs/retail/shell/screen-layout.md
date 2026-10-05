@@ -198,7 +198,7 @@ The rects are left, top, width and height, which `Avi_MoveWindow` (`0041dfd6`) h
 
 1. An intro part (`0x44`, `0x45`) sets `MovieQueue_PlayingIntro` (`00470fe4`). The entry's palette is installed unless it is `0xffff`, the entry is an intro part or it is the credits.
 2. Unless the entry is the lunar drop, while the frame's panel (`ShellPanelWidget`) is up every tab is unlit but MISSION, which is lit, and the mission screen's panels are shown again.
-3. The hourglass goes up and the movie plays. An intro part is skipped once a mouse button, Esc or Space has gone down during an intro movie, which sets `MovieQueue_IntroSkipped` (`00470fe0`) ([Open](#open)). When the open fails, an intro part puts up `Please insert ESII CD and restart` and ends the shell, and any other movie puts up the insert-CD panel (`DAT_0048d108`), clears `MovieQueue_Running` until its button is pressed, and tries again.
+3. The hourglass goes up and the movie plays. An intro part is skipped once a mouse button, Esc or Space has gone down during an intro movie, which sets `MovieQueue_IntroSkipped` (`00470fe0`) ([Open](#open)). When the open fails, an intro part puts up `Please insert ESII CD and restart` and ends the shell, and any other movie puts up the insert-CD panel (`InsertCdPanel`, `0048d108`, built by `InsertCdPanel_Build`, `00431c18`) and clears `MovieQueue_Running` while it waits: `Continue` (`InsertCdPanel_OnContinue`, `00431e6a`) hides the panel and sets `InsertCdPanel_Continue`, and the movie is tried again; `Quit` (`InsertCdPanel_OnQuit`, `00431ed9`) sets `Shell_QuitFlag`, which ends the wait.
 4. Full screen, the screen is blanked after an intro part or the credits.
 5. Movie or none, the queue pumps messages until the shell has the focus (`Shell_HasFocus`, [`startup.md`](startup.md#the-main-loop)).
 6. After the lunar drop, with the frame's panel up, palette 1 goes in through the scope and the top-level window (`Shell_TopWindow`) is repainted. After the credits palette 1 is installed.
@@ -215,11 +215,11 @@ Two flags gate input around the movies, each set and cleared by one of the two p
 | Flag | Set | Cleared |
 |---|---|---|
 | `Avi_Playing` (`00470d70`) | by `Avi_Play` as playback starts, with the main window capturing the mouse | as playback ends |
-| `MovieQueue_Running` (`00470e70`) | by `Movie_PlayQueue` when it finds the ring holding a movie | when a later call finds the ring empty, and while the insert-CD panel waits for its button |
+| `MovieQueue_Running` (`00470e70`) | by `Movie_PlayQueue` when it finds the ring holding a movie | when a later call finds the ring empty, and while the insert-CD panel waits for one of its buttons |
 
 While `Avi_Playing` is set, the window procedure (`MainWndProc`, 00404a2c) drops both button-ups and the options hotkeys, and a button-down sets `Avi_StopRequested` (`00470d60`), which ends playback, and is dropped too: **a click skips the movie and does nothing else**, as Esc and Space do. Moves are still posted. `WinButton_HandleEvent` and `ESButtonBitmap_HandleEvent` also ignore every mouse event while either flag is set, which covers the whole run of the queue and not only the movies in it. `ESArm_HandleEvent`, `ESBitmap_HandleEvent`, `ESDialog_HandleEvent` and the checkbox's left button test neither; the checkbox's right button goes through `WinButton_HandleEvent` and so tests both.
 
-`FUN_00444e28`, the click handler of [the mission screen's Telecomm picture](#the-mission-screen), reads `Avi_Playing` and would enqueue the briefing or debrief movie by the mission tab's view, but its first instruction after the prologue jumps to its epilogue.
+`Mission_OnTelecommPicture` (`00444e28`), the click handler of [the mission screen's Telecomm picture](#the-mission-screen), jumps from its prologue to its epilogue (`00444e2f`), so a click does nothing. The 174 bytes it jumps over would read `Avi_Playing` and enqueue the briefing or debrief movie by the mission tab's view. It does not delete the event it is handed.
 
 ### The pointer
 
@@ -253,7 +253,7 @@ The paints in the table below are the visual vocabulary of the screens ported so
 | `HatchedDivider` (`ESArm`) | `0040c513` | a body of horizontal lines and an optional inner border ([below](#the-crew-screen)) |
 | `Grid` (`ESGrid`) | `0040b97c` | grid lines and thirty recolourable bitmap parts ([below](#the-damage-diagram)) |
 
-`ESTitle_Paint` fills its header strip to `+0x55` for `+0x61` rows, then — when `+0x65` is set, which the constructor does and seven panels' builders undo straight after it (the repair screen's `0048d13c` and `0048d180`, the squad roster's `0048d4f8`, the weapons screen's `0048d598`, the mission screen's `0048d7d4` and `0048d7dc`, and the armory screen's `0048d97c`) — lays a **diagonal hatch** over it in colour 13: bands of fourteen 45-degree lines on a 28-pixel pitch, 26 bands from five pixels left of the widget. That is over 700 pixels of hatch for a panel a third as wide, and only the clip stops the surplus; the paint relies on clipping rather than measuring. It then punches the hatch back out to `+0x55` between `+0x6d` and `+0x71`, which is the **title plate** the caption reads against, draws the header's own side edges, and closes with a divider on row `+0x61`.
+`ESTitle_Paint` fills its header strip to `+0x55` for `+0x61` rows, then — when `+0x65` is set, which the constructor does and seven panels' builders undo straight after it (the repair screen's `RepairExternalList` (`0048d13c`) and `0048d180`, the squad roster's `Squad_InventoryPanel` (`0048d4f8`), the weapons screen's `0048d598`, the mission screen's `0048d7d4` and `0048d7dc`, and the armory screen's `0048d97c`) — lays a **diagonal hatch** over it in colour 13: bands of fourteen 45-degree lines on a 28-pixel pitch, 26 bands from five pixels left of the widget. That is over 700 pixels of hatch for a panel a third as wide, and only the clip stops the surplus; the paint relies on clipping rather than measuring. It then punches the hatch back out to `+0x55` between `+0x6d` and `+0x71`, which is the **title plate** the caption reads against, draws the header's own side edges, and closes with a divider on row `+0x61`.
 
 **`+0x59` chooses between a filled body and a dithered one.** Set, the body is cleared to `0x10`; clear, it takes a 50% checkerboard in `+0x5d` from the header height down — and over an unpainted surface that means the shell's single backdrop bitmap shows through at half strength. The save screen takes the second path, which is why the bay is visible through its panel.
 
@@ -407,11 +407,11 @@ Each label steps one `prefs.cfg` option, with its own modulus, and rewrites its 
 
 | Label | Handler | Option | Modulus | Readout | Becomes |
 |---|---|---|---|---|---|
-| `Damage` | `0044bf29` | `0x26` | 2 | `0x128` `Vulnerable` / `Invulnerable` | `script.dat` header `+0x0c`, the player takes no damage |
-| `Ammo` | `0044bfe6` | `0x25` | 2 | `0x12a` `Limited` / `Unlimited` | header `+0x0a`, unlimited ammunition and energy |
-| `Mission Difficulty` | `0044c0a3` | `0x27` | 4 | `0x35` `ROOKIE` to `ELITE` | header `+0x0e`, the [difficulty](../simulation/difficulty.md) |
-| `Time of Day` | `0044c160` | `0x29` | 2 | `0x12c` `Day` / `Night` | header `+0x12`, the theater variant |
-| `Herc Type` | `0044c21d` | `0x28` | 9 | `0x6e` `Outlaw` to `Razor` | the chassis the player flies — not a header field |
+| `Damage` | `PracticeScreen_OnDamage` (`0044bf29`) | `0x26` | 2 | `0x128` `Vulnerable` / `Invulnerable` | `script.dat` header `+0x0c`, the player takes no damage |
+| `Ammo` | `PracticeScreen_OnAmmo` (`0044bfe6`) | `0x25` | 2 | `0x12a` `Limited` / `Unlimited` | header `+0x0a`, unlimited ammunition and energy |
+| `Mission Difficulty` | `PracticeScreen_OnDifficulty` (`0044c0a3`) | `0x27` | 4 | `0x35` `ROOKIE` to `ELITE` | header `+0x0e`, the [difficulty](../simulation/difficulty.md) |
+| `Time of Day` | `PracticeScreen_OnTimeOfDay` (`0044c160`) | `0x29` | 2 | `0x12c` `Day` / `Night` | header `+0x12`, the theater variant |
+| `Herc Type` | `PracticeScreen_OnHercType` (`0044c21d`) | `0x28` | 9 | `0x6e` `Outlaw` to `Razor` | the chassis the player flies — not a header field |
 
 The header fields are written from these options by `MsnGen_LoadMission` ([`../formats/script-dat.md`](../formats/script-dat.md#the-training-fields)), and the simulator takes them from the header ([Open](#open)).
 
@@ -477,17 +477,17 @@ What `PREFERENCES` opens: six `prefs.cfg` options ([`../simulation/preferences.m
 
 | Box | Rect | Heading | Label | Label rect | Checkbox rect | Handler | Sets |
 |---|---|---|---|---|---|---|---|
-| audio | `{0xc, 0x1a, 0xd0, 0x60}` | `0x106` `Audio/Speech Options:` at `{0x15, 6, 0xad, 0x12}` | `0x116` `Music` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `00436cc1` | option 0 |
-| | | | `0x117` `Sound Effects` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00436d22` | option 1 |
-| repair | `{0xda, 0x1a, 0x19e, 0x76}` | `0x107` `Repair Options:` at `{0x36, 6, 0xa0, 0x12}` | `0x113` `AutoRepair All Hercs` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `00436d83` | option 44 to 0 |
-| | | | `0x114` `Manually Repair My Herc` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00436de4` | option 44 to 1 |
-| | | | `0x115` `Manually Repair All Hercs` | `{5, 0x48, 0xaa, 0x56}` | `{0xaf, 0x48, 0xc1, 0x58}` | `00436e45` | option 44 to 2 |
-| weapons | `{0xda, 0x7e, 0x19e, 0xc4}` | `0x108` `Weapons Building:` at `{0x2c, 6, 0xaa, 0x12}` | `0x111` `AutoBuild Weapons` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `00436ea6` | option 45 to 0 |
-| | | | `0x112` `Manually Build Weapons` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00437006` | option 45 to 1 |
-| resolution | `{0xc, 0x68, 0xd1, 0xae}` | `0x120` `Game Resolution` at `{0x2c, 6, 0xaa, 0x12}` | `0x121` `High Res (640x480)` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `004370c8` | option 4 to 0 |
-| | | | `0x122` `Low Res (320x240)` | `{5, 0x32, 0xaa, 0x3e}` | `{0xaf, 0x32, 0xc1, 0x42}` | `00437067` | option 4 to 1 |
-| display | `{0xc, 0xb6, 0xd1, 0xe4}` | `0x123` `Display Mode` at `{0x35, 6, 0xad, 0x12}` | `0x124` `Window` | `{10, 0x1c, 0x37, 0x2a}` | `{0x39, 0x1a, 0x4b, 0x2a}` | `00436f07` | option 6 to 0 |
-| | | | `0x125` `Full Screen` | `{0x5a, 0x1c, 0xa5, 0x2a}` | `{0xa9, 0x1a, 0xbb, 0x2a}` | `00436f78` | the alert, [below](#full-screen-asks-first) |
+| audio | `{0xc, 0x1a, 0xd0, 0x60}` | `0x106` `Audio/Speech Options:` at `{0x15, 6, 0xad, 0x12}` | `0x116` `Music` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `PreferencesScreen_OnMusic` (`00436cc1`) | option 0 |
+| | | | `0x117` `Sound Effects` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `PreferencesScreen_OnSoundEffects` (`00436d22`) | option 1 |
+| repair | `{0xda, 0x1a, 0x19e, 0x76}` | `0x107` `Repair Options:` at `{0x36, 6, 0xa0, 0x12}` | `0x113` `AutoRepair All Hercs` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `PreferencesScreen_OnAutoRepairAll` (`00436d83`) | option 44 to 0 |
+| | | | `0x114` `Manually Repair My Herc` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `PreferencesScreen_OnManualRepairMine` (`00436de4`) | option 44 to 1 |
+| | | | `0x115` `Manually Repair All Hercs` | `{5, 0x48, 0xaa, 0x56}` | `{0xaf, 0x48, 0xc1, 0x58}` | `PreferencesScreen_OnManualRepairAll` (`00436e45`) | option 44 to 2 |
+| weapons | `{0xda, 0x7e, 0x19e, 0xc4}` | `0x108` `Weapons Building:` at `{0x2c, 6, 0xaa, 0x12}` | `0x111` `AutoBuild Weapons` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `PreferencesScreen_OnAutoBuildWeapons` (`00436ea6`) | option 45 to 0 |
+| | | | `0x112` `Manually Build Weapons` | `{5, 0x33, 0xaa, 0x41}` | `{0xaf, 0x32, 0xc1, 0x42}` | `PreferencesScreen_OnManualBuild` (`00437006`) | option 45 to 1 |
+| resolution | `{0xc, 0x68, 0xd1, 0xae}` | `0x120` `Game Resolution` at `{0x2c, 6, 0xaa, 0x12}` | `0x121` `High Res (640x480)` | `{5, 0x1c, 0xaa, 0x2a}` | `{0xaf, 0x1c, 0xc1, 0x2c}` | `PreferencesScreen_OnHighRes` (`004370c8`) | option 4 to 0 |
+| | | | `0x122` `Low Res (320x240)` | `{5, 0x32, 0xaa, 0x3e}` | `{0xaf, 0x32, 0xc1, 0x42}` | `PreferencesScreen_OnLowRes` (`00437067`) | option 4 to 1 |
+| display | `{0xc, 0xb6, 0xd1, 0xe4}` | `0x123` `Display Mode` at `{0x35, 6, 0xad, 0x12}` | `0x124` `Window` | `{10, 0x1c, 0x37, 0x2a}` | `{0x39, 0x1a, 0x4b, 0x2a}` | `PreferencesScreen_OnWindow` (`00436f07`) | option 6 to 0 |
+| | | | `0x125` `Full Screen` | `{0x5a, 0x1c, 0xa5, 0x2a}` | `{0xa9, 0x1a, 0xbb, 0x2a}` | `PreferencesScreen_OnFullScreen` (`00436f78`) | the alert, [below](#full-screen-asks-first) |
 
 The display box lays its two out side by side, each label left of its checkbox; the other four boxes stack theirs, labels at the left and checkboxes in one column at `0xaf`. No widget overlaps another, and the panel and the boxes have no handler, so a click anywhere but a checkbox or a button is swallowed.
 
@@ -505,7 +505,7 @@ The two sound checkboxes run `PreferencesScreen_ToggleAudioOption` (`00436841`) 
 
 ### Full screen asks first
 
-`Window` (`00436f07`) toggles the shell's window out of full screen through `Display_ToggleFullScreen` (`00407085`) when `Display_FullScreen`, the full-screen flag, is set, and then sets option 6 to 0. `Full Screen` (`00436f78`) sets nothing: while the shell is windowed it shows a window the size of the display holding an alert, and otherwise does nothing. The alert's `ACCEPT` (`FUN_00436fe8`) hides the window, toggles the shell into full screen and sets option 6 to 1. So `Full Screen` is ticked only after that `ACCEPT`.
+`Window` (`PreferencesScreen_OnWindow`, `00436f07`) toggles the shell's window out of full screen through `Display_ToggleFullScreen` (`00407085`) when `Display_FullScreen`, the full-screen flag, is set, and then sets option 6 to 0. `Full Screen` (`PreferencesScreen_OnFullScreen`, `00436f78`) sets nothing: while the shell is windowed it shows a window the size of the display holding an alert, and otherwise does nothing. The alert's `ACCEPT` (`FullScreenAlert_OnAccept`, `00436fe8`) hides the window, toggles the shell into full screen and sets option 6 to 1. So `Full Screen` is ticked only after that `ACCEPT`.
 
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
@@ -528,8 +528,8 @@ Both buttons end in `PreferencesScreen_Hide` (`00436717`) and `MainMenu_Show`, a
 
 | Button | Does first |
 |---|---|
-| `Cancel`, `00436b90` | `FUN_0040d7fe(0)`: every option that differs from the shadow is put back, running no handler. Then `Display_ToggleFullScreen` when option 6 and the full-screen flag disagree, and the fade [Sound](#sound) describes |
-| `Accept`, `00436c51` | `ShellOptions_Commit(0)`, which rebaselines the shadow and runs no handler, then `ShellOptions_SaveAll` |
+| `Cancel`, `PreferencesScreen_OnCancel` (`00436b90`) | `ShellOptions_RevertAll(0)`: every option that differs from the shadow is put back, running no handler. Then `Display_ToggleFullScreen` when option 6 and the full-screen flag disagree, and the fade [Sound](#sound) describes |
+| `Accept`, `PreferencesScreen_OnAccept` (`00436c51`) | `ShellOptions_Commit(0)`, which rebaselines the shadow and runs no handler, then `ShellOptions_SaveAll` |
 
 The shadow is the array as of the last commit, so `Cancel` puts back every option changed since, the practice screen's parameters among them, which that screen steps without committing ([The parameters](#the-parameters)).
 
@@ -633,7 +633,7 @@ The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` 
 
 ### The second registration panel
 
-`SaveRegistration_BuildPanel` (`0043b260`), which the startup runs just before `Registration_BuildScreen`, fills `DAT_0048d418` with a copy of [the registration screen](#the-registration-screen)'s content in the detail panel's place: a `FramedPanel` at `{7, 6, 0xe1, 0x4b}` (`DAT_0048d470`) holding the prompt, a name box and its field, a skill readout (a `Text`, not a `Button`) and a `SKILL LEVEL` row (`SaveRegistration_StepSkill`, `0043bd15`), with `CANCEL` (`0043bd90`) and `ACCEPT` (`SaveRegistration_OnAccept`, `0043bf1b`) on `DAT_0048d418` itself. `ACCEPT` runs `Game_NewCareer` with the typed name and the shared `RegistrationSkillChoice`, then `Stats_StageCurrentGame(10)`, then `SaveRegistration_ShowDetailPanel` (`0043b679`) — which hides both panels and shows the detail panel again — and lights `SAVE`. The builder leaves its `ACCEPT` enabled ([Open](#open)), and `ACCEPT` does not reload `gam\herc_inf.dat`. `SaveScreen_Enter` and the teardown both hide `DAT_0048d418`; what shows it is [Open](#open).
+`SaveRegistration_BuildPanel` (`0043b260`), which the startup runs just before `Registration_BuildScreen`, fills `DAT_0048d418` with a copy of [the registration screen](#the-registration-screen)'s content in the detail panel's place: a `FramedPanel` at `{7, 6, 0xe1, 0x4b}` (`DAT_0048d470`) holding the prompt, a name box and its field, a skill readout (a `Text`, not a `Button`) and a `SKILL LEVEL` row (`SaveRegistration_StepSkill`, `0043bd15`), with `CANCEL` (`SaveRegistration_OnCancel`, `0043bd90`) and `ACCEPT` (`SaveRegistration_OnAccept`, `0043bf1b`) on `DAT_0048d418` itself. `ACCEPT` runs `Game_NewCareer` with the typed name and the shared `RegistrationSkillChoice`, then `Stats_StageCurrentGame(10)`, then `SaveRegistration_ShowDetailPanel` (`0043b679`) — which hides both panels and shows the detail panel again — and lights `SAVE`. The builder leaves its `ACCEPT` enabled ([Open](#open)), and `ACCEPT` does not reload `gam\herc_inf.dat`. `SaveScreen_Enter` and the teardown both hide `DAT_0048d418`; what shows it is [Open](#open).
 
 ## The weapons screen
 
@@ -670,7 +670,7 @@ The rows list the 27 weapon ids of the table at `004769b0` — `arm_weap.dat`'s 
 
 ### Selecting a row
 
-`Arming_SelectRow(row)` (`0043f71c`) is each row's handler, through 27 thunks from `00440300`, each of which sets `DAT_00476d58` for the length of the call. It does nothing for the row already lit (`DAT_00476d5a`) unless a guidance picture has been put up since (`DAT_00476d5c` not `-1`) or a hardpoint is selected. Otherwise it:
+`Arming_SelectRow(row)` (`0043f71c`) is each row's handler, through 27 thunks from `Arming_OnRow00` (`00440300`), each of which sets `DAT_00476d58` for the length of the call. It does nothing for the row already lit (`DAT_00476d5a`) unless a guidance picture has been put up since (`DAT_00476d5c` not `-1`) or a hardpoint is selected. Otherwise it:
 
 1. With a hardpoint selected, refuses a weapon [it will not fit](#fitting-a-weapon), and `Arming_FitSelected` (`0043dc44`) fits the one it accepts.
 2. Runs `Arming_RefreshRows`, then puts the old row back to `0x27` or `0x25` by `Arming_RowLive` with its border `0x10`, and hides its picture and any guidance picture that is up.
@@ -684,7 +684,7 @@ A missile rack's row therefore leaves `DAT_00476d5c` where it was, with its pict
 
 The four buttons call `Arming_ShowGuidance(kind, 1)` (`0043fd69`) with `ARM` 2, `ARH` 1, `SARH` 0 and `EO` 3 — the ids a fitted mount's record carries at `+0x08`, where the arming code reads 5 for an empty mount. It relights the borders, `0x22` on the kind in `DAT_00476d60` and `0x20` on the new one; with its second argument set it hides the lit row's picture, shows the kind's, fills the description lines from `wpn_desc.bin` `99 + kind * 3`, and stores the kind in `DAT_00476d5c`. It always stores the kind in `DAT_00476d60`, and `Arming_SetMountGuidance` (`0043dcb6`) writes it into the selected hardpoint's mount at `+0x08` when there is a hardpoint and a mount there.
 
-The rack button's handler (`0044012a`) runs `Arming_SelectRow` on the lit row, which a guidance picture being up lets through: it puts the rack's own picture and description back.
+The rack button's handler (`Arming_OnRackButton`, `0044012a`) runs `Arming_SelectRow` on the lit row, which a guidance picture being up lets through: it puts the rack's own picture and description back.
 
 `wpn_desc.bin` is three lines per weapon id: the 33 ids fill entries 0 to 98, and the four kinds 99 to 110 in id order.
 
@@ -698,7 +698,7 @@ The tab handler stores 2 in `DAT_0047581c` only after the entry ([above](#what-a
 
 ### Fitting a weapon
 
-A hardpoint is selected by `Arming_SelectHardpoint` ([below](#the-arming-and-repair-hotspots)), which the ten arming hotspots and the two steppers reach: `<` (`00440244`) calls `Arming_PreviousHardpoint` (`0043dd49`), which wraps from 0, or from none, to the last mount, and `>` (`004402a2`) calls `Arming_NextHardpoint` (`0043dd09`), which steps modulo the mount capacity `+0x4c`, so from none to the first. It selects the row of the mount's fitted weapon, `None`'s for an empty mount, and runs `Arming_MarkHardpoint`. With no bay selected the steppers, like everything else here, read the machine through `00482abf`, the dword before the bay array, and `>` divides by the capacity it finds there ([Open](#open)).
+A hardpoint is selected by `Arming_SelectHardpoint` ([below](#the-arming-and-repair-hotspots)), which the ten arming hotspots and the two steppers reach: `<` (`Arming_OnPreviousHardpoint`, `00440244`) calls `Arming_PreviousHardpoint` (`0043dd49`), which wraps from 0, or from none, to the last mount, and `>` (`Arming_OnNextHardpoint`, `004402a2`) calls `Arming_NextHardpoint` (`0043dd09`), which steps modulo the mount capacity `+0x4c`, so from none to the first. It selects the row of the mount's fitted weapon, `None`'s for an empty mount, and runs `Arming_MarkHardpoint`. With no bay selected the steppers, like everything else here, read the machine through `00482abf`, the dword before the bay array, and `>` divides by the capacity it finds there ([Open](#open)).
 
 **`Arming_MarkHardpoint` outlines the socket.** It looks up the socket's `slot + 2` record in the group of the weapon the mount carries, `None`'s group for an empty one — every retail `arm_*.dat` has a `None` record for every socket — and puts the record's frame of the chassis's `dba\<stem>_out.dba` (the table at `0046ffc0`) in part slot 12, at the record's second position, with `0xba` remapped to `99`. It also redraws the socket's weapon part, which is what the bay picture already holds. A socket with no record, or one whose frame is `-1`, leaves slot 12 as it was, outline included. A bay change clears slot 12 ([above](#entering-the-weapons-screen)) and the tab's teardown clears all thirty parts of every bay picture (`Squad_HidePanel` through `Squad_FreeTabPictures`, `0043c95a`, and `Squad_FreeChassisPictures`, `004153f1`), so an outline lasts until the bay changes or the tab is left.
 
@@ -800,7 +800,7 @@ Ids past 15 are the Razor's: its twelve body records are two parts per group, 0-
 
 **`REPAIR ALL` (`Repair_OnRepairAll`, `00434c59`) rebuilds the machine.** It takes `Repair_HercCost(herc, 100)` off the pool and runs `Repair_Apply(herc, 100)` (`004113af`), which writes 100 into all thirteen facets, all nine internals and every mount slot below the capacity. A fitted mount at 0 is among them, so a destroyed weapon comes back at 100 for nothing: `Repair_HercCost` bills no mount at 0 ([`armory.md`](armory.md#repair-levels)). It then refills every row and the panels (`Repair_FillAllRows`, `00433caf`).
 
-**`CANCEL` (`Repair_OnCancel`, `00434d73`) undoes, and does not leave the screen.** `Repair_Snapshot` (`004338f6`) copies `CareerSalvage` into `DAT_0048d25c` and the selected machine's 66-byte status block into `DAT_0048d260`, taken from the machine by `HercList_CopySelectedStatus` (`00434eb7`). It runs at the end of `Repair_Enter` and of the repair arm of `Squad_SelectBay`, so the snapshot is the pool and the machine as they stood when the tab was entered or the bay last changed. `CANCEL` writes the pool back outright and copies the status block over the selected machine, then refills every row and the panels. Each `REPAIR` and `REPAIR ALL` on the bay since then is undone. With no bay selected the snapshot copies the pool alone, and `CANCEL` still copies the old block — over the machine read through `00482abf` ([Open](#open)).
+**`CANCEL` (`Repair_OnCancel`, `00434d73`) undoes, and does not leave the screen.** `Repair_Snapshot` (`004338f6`) copies `CareerSalvage` into `RepairSnapshotSalvage` (`0048d25c`) and the selected machine's 66-byte status block into `RepairSnapshotStatus` (`0048d260`), taken from the machine by `HercList_CopySelectedStatus` (`00434eb7`). It runs at the end of `Repair_Enter` and of the repair arm of `Squad_SelectBay`, so the snapshot is the pool and the machine as they stood when the tab was entered or the bay last changed. `CANCEL` writes the pool back outright and copies the status block over the selected machine, then refills every row and the panels. Each `REPAIR` and `REPAIR ALL` on the bay since then is undone. With no bay selected the snapshot copies the pool alone, and `CANCEL` still copies the old block — over the machine read through `00482abf` ([Open](#open)).
 
 **The mode readout is the preferences' repair option**, `ShellOption_RepairMode` (`004824e4`, `prefs.cfg` option 44, [`../simulation/preferences.md`](../simulation/preferences.md)). `Repair_Enter` writes `0x42` `Auto Repair` for 0 and `0x41` `Manual Repair` for 1, and nothing for 2, so mode 2 keeps what the builder wrote, `Manual Repair`, or what an earlier entry did. None of the three buttons reads it; the debrief's repair pass, `Game_AutoRepairSquad` (`0040e804`), branches on it ([`armory.md`](armory.md#what-one-repair-level-costs)).
 
@@ -833,7 +833,7 @@ The rows are 14 tall on a 14-pixel pitch, so unlike the repair lists they do not
 
 A bay's pilot is `Squad_PilotForBay(00482a78, bay)` (`00410220`), which looks at exactly four records: the player's own, embedded at `+0x04`, and the three squad members the player structure points at from `+0x3f`. `Player_Read` (`004101b8`) sets those pointers on load to record `DAT_00483b48[k]` of squad `k`, so a pilot elsewhere in the squad block is never shown against a bay.
 
-**A roster click is `Squad_SelectBay(bay)` (`0043d64d`)**, through eight thunks from `0043dde7`, each of which sets `DAT_004765be` for the length of the call. It returns at once for the bay already selected, and each tab takes the click its own way, picked by `DAT_0047581c`. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels. The weapons tab's arm is [above](#entering-the-weapons-screen), the build tab's [below](#scrapping-and-building-are-gated-on-the-bay), and the crew tab's [after it](#entering-the-crew-screen).
+**A roster click is `Squad_SelectBay(bay)` (`0043d64d`)**, through eight thunks from `Squad_OnRosterRow0` (`0043dde7`), each of which sets `DAT_004765be` for the length of the call. It returns at once for the bay already selected, and each tab takes the click its own way, picked by `DAT_0047581c`. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels. The weapons tab's arm is [above](#entering-the-weapons-screen), the build tab's [below](#scrapping-and-building-are-gated-on-the-bay), and the crew tab's [after it](#entering-the-crew-screen).
 
 ### The bay picture
 
@@ -901,7 +901,7 @@ Row 0 is the player; rows 1-3 are the three squad positions. `Crew_MatchRowPilot
 
 It writes the values' own colour too, `0x16` and `0x17`, but `Crew_FillRows` runs after it and its `ESMessage_SetString` calls overwrite it with `0x29`, so every value is drawn in `0x29`.
 
-**`Crew_SelectRow(row)` (`00441b85`) selects a row**, and a row's panel and its portrait both carry it as their click handler, through four thunks from `004423b0`. The row's six texts are built with no handler and take no mouse events, so a click on one reaches the row ([Which widget a click reaches](#which-widget-a-click-reaches)). It relights the border of the row and its portrait — `0x21` on the row being left, `0x29` on the new one — calls `Squad_SelectBay` (`0043d64d`) with the row's pilot's bay, the player's for row 0 and `-1` for a row with no pilot, and only then stores the row in `DAT_004776dc`. It has no early return, so clicking the selected row runs it again.
+**`Crew_SelectRow(row)` (`00441b85`) selects a row**, and a row's panel and its portrait both carry it as their click handler, through four thunks from `Crew_OnRow0` (`004423b0`). The row's six texts are built with no handler and take no mouse events, so a click on one reaches the row ([Which widget a click reaches](#which-widget-a-click-reaches)). It relights the border of the row and its portrait — `0x21` on the row being left, `0x29` on the new one — calls `Squad_SelectBay` (`0043d64d`) with the row's pilot's bay, the player's for row 0 and `-1` for a row with no pilot, and only then stores the row in `DAT_004776dc`. It has no early return, so clicking the selected row runs it again.
 
 ### Entering the crew screen
 
@@ -915,13 +915,13 @@ The tab handler has already stored 6 in `DAT_0047581c` ([above](#what-a-tab-clic
 
 Three clicks change the crew, all against the selected row.
 
-**A squad portrait** — handlers `00442151`, `004421fc` and `004422a7` — lights its own border `0x29` and the other two `0x21`, then calls `Crew_AssignSquadMember(k)` (`00441eb8`). On the player's row that returns at once, so the portrait lights and nothing moves. On a squad row, whoever holds the row's position gives it up (`Squad_SetMemberPosition(k, -1)`, `004102be`), squad member `k` takes it, and the row pointers at `004776e0` follow; the member is then given the selected bay by `Crew_AssignSelectedBay`, exactly as a roster click gives it. The lit portrait is a widget colour that no entry resets, so it stays lit across visits.
+**A squad portrait** — handlers `Crew_OnSquadPortrait0` (`00442151`), `Crew_OnSquadPortrait1` (`004421fc`) and `Crew_OnSquadPortrait2` (`004422a7`) — lights its own border `0x29` and the other two `0x21`, then calls `Crew_AssignSquadMember(k)` (`00441eb8`). On the player's row that returns at once, so the portrait lights and nothing moves. On a squad row, whoever holds the row's position gives it up (`Squad_SetMemberPosition(k, -1)`, `004102be`), squad member `k` takes it, and the row pointers at `004776e0` follow; the member is then given the selected bay by `Crew_AssignSelectedBay`, exactly as a roster click gives it. The lit portrait is a widget colour that no entry resets, so it stays lit across visits.
 
 **A roster click** reaches `Crew_AssignSelectedBay` (`00442055`) from inside `Squad_SelectBay`'s crew arm ([above](#entering-the-crew-screen)), so the bay already selected, and a bay the arm refuses, assign nothing. It runs only when the selected row is the player's or has a pilot. Whoever holds the bay loses it first: the player through `Player_SetBay(-1)` (`0040e6c8`, which writes `00482a9e`), and each squad member through `Squad_SetMemberBay(k, -1)` (`0040e6d7`), which also takes them off strength. The row's pilot then takes the bay, and for a squad member `Squad_UpdateOnStrength` (`00410366`) recomputes the on-strength byte for the row's position.
 
 **Taking a bay leaves its old pilot with none.** Nothing hands the new pilot's previous bay on, so giving the player's bay to a squad member leaves the player's `Herc:` reading `None` until a bay is clicked on row 0. With no bay selected — where selecting an empty row leaves it — the bay handed out is `-1`, and every squad member with no bay counts as its holder.
 
-**`CLEAR`** (handler `00442352`) calls `Crew_ClearRow` (`00441f94`), which on a squad row holding a pilot calls `Squad_SetMemberBay(k, -1)`, frees the position, nulls the row pointer, and then calls `Squad_SelectBay` with the member's bay — `-1` by then — with `DAT_004765be` set. The row is empty by that point, so the assignment inside finds no pilot, and what remains is the picture going to the empty bay. On the player's row, or an empty one, it does nothing.
+**`CLEAR`** (handler `Crew_OnClear` (`00442352`)) calls `Crew_ClearRow` (`00441f94`), which on a squad row holding a pilot calls `Squad_SetMemberBay(k, -1)`, frees the position, nulls the row pointer, and then calls `Squad_SelectBay` with the member's bay — `-1` by then — with `DAT_004765be` set. The row is empty by that point, so the assignment inside finds no pilot, and what remains is the picture going to the empty bay. On the player's row, or an empty one, it does nothing.
 
 Both the unassign and the recompute write the on-strength byte through `Squad_SetOnStrength` (`00410327`), which moves `00482a7a`, the count of machines on strength ([`../formats/save-games.md`](../formats/save-games.md#savgame_sav--block-order)), by one whenever the byte changes.
 
@@ -955,7 +955,7 @@ The four figures are `herc_inf.dat`'s first four stats for the selected chassis,
 
 ### Choosing a chassis
 
-`Build_SelectChassis(chassis)` (`00446c3b`) is each row's handler, through nine thunks from `00446fbf`. It returns at once for the chassis already selected, `DAT_004786e4`; otherwise it sets the old row's name to `0x27` and its border to `0x10` and hides its blueprint, sets the new row's name and border to `0x29` and shows its blueprint, stores the chassis, and runs `Build_GateButtons` and `Herc_BuildScreenRefresh`. `DAT_004786e4` is `-1` in the image, and `es2_xref.py` finds no other store to it ([Open](#open)).
+`Build_SelectChassis(chassis)` (`00446c3b`) is each row's handler, through nine thunks from `Build_OnChassisRow0` (`00446fbf`). It returns at once for the chassis already selected, `DAT_004786e4`; otherwise it sets the old row's name to `0x27` and its border to `0x10` and hides its blueprint, sets the new row's name and border to `0x29` and shows its blueprint, stores the chassis, and runs `Build_GateButtons` and `Herc_BuildScreenRefresh`. `DAT_004786e4` is `-1` in the image, and `es2_xref.py` finds no other store to it ([Open](#open)).
 
 `Build_GateRows` (`00446835`) gates the rows on the chassis availability flag, `(&DAT_00483b62)[type * 8]` ([What the buttons are gated on](#what-the-buttons-are-gated-on)): a chassis without it has its row disabled and all four columns set to `0x10`, the background, so the list shows a gap where it is and a click on the gap does nothing. Every other row is enabled with all four columns at `0x27` — the selected row's name included.
 
@@ -970,7 +970,7 @@ The four figures are `herc_inf.dat`'s first four stats for the selected chassis,
 | empty | dead | live when the net pool is **more** than the selected chassis's price times 1000, compared unsigned |
 | occupied | the repair screen's `SCRAP` test: the bays not holding exactly one deployable machine, and its chassis available | dead |
 
-A machine is built into an empty bay, and only an occupied one can be scrapped. A pool exactly equal to the price leaves `BUILD` dead. With no bay selected the function reads the dword before the eight-pointer array at `00482ac3` as the bay's machine: `00482abf`, which is `+0x47` of the player structure at `00482a78` — the third of [the squad-member pointers](#the-squad-panel) at `+0x3f` ([Open](#open)).
+A machine is built into an empty bay, and only an occupied one can be scrapped. A pool exactly equal to the price leaves `BUILD` dead. With no bay selected the function reads the dword before the eight-pointer array at `Hangar_BayRecords` (`00482ac3`) as the bay's machine: `00482abf`, which is `+0x47` of the player structure at `00482a78` — the third of [the squad-member pointers](#the-squad-panel) at `+0x3f` ([Open](#open)).
 
 **This tab's arm of `Squad_SelectBay` takes any bay.** Unlike the repair and crew arms it refuses nothing, an empty bay and an unfinished machine included: it swaps the bay pictures, relights the two roster rows, stores `DAT_00482ae5`, refreshes the readout, and runs `Build_GateButtons` for any bay but `-1`.
 
@@ -1073,7 +1073,7 @@ The view is `DAT_0048106c`: 0 the campaign map, 1 the briefing, 4 the debrief. `
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
 | Telecomm | `TitledPanel` | `{7, 0x2b, 0x113, 0x12b}` | `0xb0` `Telecomm`, header 19 tall, `+0x65 = 0` |
-| Telecomm picture | image panel | `{10, 0x14, 0xf9, 0x100}` in Telecomm | `dba\terradef.dba` frame 0, no border; handler `FUN_00444e28` |
+| Telecomm picture | image panel | `{10, 0x14, 0xf9, 0x100}` in Telecomm | `dba\terradef.dba` frame 0, no border; handler `Mission_OnTelecommPicture` (`00444e28`) |
 | location picture | image panel | the top-level window's own rect | `+0x51 = 0`; the theater bitmap `maybe_Mission_UpdateLocationTab` (`0044409f`) loads |
 | map panel | `TitledPanel` | `{0x117, 0x2b, 0x278, 0x12b}`, top `0x2a` when full-screen | titled by the view, header 19 tall, face `0x25`, plate `0x26`-`0x13b` |
 | 6 map buttons | `ButtonIcon` | `{0x137, y, 0x155, y + 0x1e}` in the map panel, `y` = `0x18`, `0x3e`, `0x64`, `0x8a`, `0xb5`, `0xdb` | `dba\miss_arw.dba`, unlit/lit frames `1`/`0`, `3`/`2`, `10`/`8`, `11`/`9`, `7`/`6`, `5`/`4`; `+0x5d = 0`, `+0x61 = 1` |
@@ -1194,7 +1194,7 @@ The four career texts are the lines of `data\mission.str` that the career block'
 
 Both screens lay clickable rects over a picture of the selected machine. The geometry comes from `gam\arm_hots.dat` and `gam\rpr_hots.dat` ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamarm_hotsdat-and-gamrpr_hotsdat--the-clickable-regions)), which carry position and nothing else: **an area's index within its chassis group is its identity**, because the builder passes `handlerTable[areaIndex]` as the panel's click handler. Each handler is a one-line thunk that calls a common function with its own index baked in.
 
-`DAT_00482ae5` is the selected bay slot, 0-7 and `-1` for none, and both screens read the machine out of the eight-pointer array at `00482ac3`.
+`DAT_00482ae5` is the selected bay slot, 0-7 and `-1` for none, and both screens read the machine out of the eight-pointer array at `Hangar_BayRecords` (`00482ac3`).
 
 **Arming** — `Arming_SelectHardpoint(hardpoint)` (0043dbb2), ten thunks, `Arming_OnHardpoint0`-`Arming_OnHardpoint9` (`0043e15f`-`0043e4c8`). `Hotspots_BuildOverlay(2)` lays one chromeless `Panel` per mount below the capacity over each bay's picture, the chassis's `arm_hots.dat` area of that index, so a higher mount answers over a lower one. The handler returns immediately when the click is on the hardpoint already selected, then reads the mount pointer at `herc + 0x50 + hardpoint*4` — null for an empty slot, otherwise its first `int16` is the fitted weapon id — and repaints. What it goes on to do is [above](#fitting-a-weapon).
 
@@ -1274,7 +1274,7 @@ The shell has a sound manager of its own: a copy of the simulator's [`SFX` manag
 
 A fade takes a step whenever more than 10 ms of `GetTickCount` have passed since the last, which at that clock's 15.6 ms granularity is about a second and a half from silence to full. It is a loop that pumps window messages and returns only when it is done, so the shell does nothing else meanwhile. The volume reaches the driver as `volume * master * 0x7fff / 10000`, with the master `Sos_MasterVolume` (`00473160`) on the 100 it holds in the image — linear in the volume.
 
-**MUSIC gates the fades, not the music.** The two fades are the writers of the music volume that `es2_xref.py` finds ([Open](#open)), and both return at once with MUSIC off; `ShellSound_Start` does not test it. So with MUSIC off from startup the music runs at volume 0 all the while. [The preferences screen](#what-a-checkbox-sets)'s `Music` checkbox fades in after turning MUSIC on and fades out before turning it off. Its `Cancel` (`00436b90`) runs the fade the reverted setting calls for, turning MUSIC on for the length of a fade out so the fade's own gate lets it run; its `Accept` runs none. A fade out stops at 1, so music turned off plays on at 1 of 100.
+**MUSIC gates the fades, not the music.** The two fades are the writers of the music volume that `es2_xref.py` finds ([Open](#open)), and both return at once with MUSIC off; `ShellSound_Start` does not test it. So with MUSIC off from startup the music runs at volume 0 all the while. [The preferences screen](#what-a-checkbox-sets)'s `Music` checkbox fades in after turning MUSIC on and fades out before turning it off. Its `Cancel` (`PreferencesScreen_OnCancel`, `00436b90`) runs the fade the reverted setting calls for, turning MUSIC on for the length of a fade out so the fade's own gate lets it run; its `Accept` runs none. A fade out stops at 1, so music turned off plays on at 1 of 100.
 
 ### What plays each sound
 
@@ -1356,10 +1356,11 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 ## Open
 
-- **Unported:** what [the movie queue](#the-shells-movies) does for a movie that will not open: the intro's `Please insert ESII CD and restart` and the insert-CD panel.
+- **Unported:** what [the movie queue](#the-shells-movies) does for a movie that will not open: the intro's `Please insert ESII CD and restart`, and the insert-CD panel, whose `Continue` retries the movie and whose `Quit` ends the shell.
+- **Open:** whether anything calls `Squad_ColorSelectedBayPicture` (`0043d1c0`), which given tab 3 colours the selected bay's picture by condition band — external groups 0-5 into parts 0-5 and each hardpoint into part 6 + slot, part i to group i with no chassis part table, unlike `Repair_ColorDiagram` (`0041469a`) — and repaints it. `es2_xref.py` finds no caller or stored pointer.
 - **Open:** whether the `avivideo` device scales a movie to fill the window `Avi_Play` moves it to. The rects say it does: the full rect is 576x360, twice the 288x180 intro, and the map panel's is exactly the thumbnails' 295x226.
 - **Open:** what the palette handle `Avi_Play` sets does to a movie's colours.
-- **Open:** what else writes `Avi_PaletteHandle` (`00485664`). Besides `Avi_BuildPalette`'s store, an undisassembled routine at `0041dea8` builds a 236-entry palette (entry `i` red `10 + i`, flags `PC_NOCOLLAPSE`) and stores it there; `es2_xref.py` finds no reference to that routine, and no store clearing the handle.
+- **Open:** what else writes `Avi_PaletteHandle` (`00485664`). Besides `Avi_BuildPalette`'s store, `maybe_Avi_BuildIndexPalette` (`0041dea8`) builds a 236-entry palette (entry `i` red `10 + i`, flags `PC_NOCOLLAPSE`) and stores it there; `es2_xref.py` finds no reference to that routine, and no store clearing the handle.
 - **Open:** no store clearing `MovieQueue_IntroSkipped` (`00470fe0`) found: `es2_xref.py` finds three stores, `00404b5e`, `00404bc3` and `0041e1be`, each of 1.
 - **Open:** no writer of `Avi_Playing` (`00470d70`) or `MovieQueue_Running` (`00470e70`) found outside the two players: `es2_xref.py` finds `Avi_Play`'s two stores and `Movie_PlayQueue`'s four.
 - **Open:** what the briefing's map panel shows while the briefing movie plays, before `ShellMap_RunIntro` has run.
@@ -1374,7 +1375,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** whether a command key with Shift, Ctrl or Alt down posts a command. `Keyboard_PostEvents` (`00408f95`) indexes the table at `0046e471` with the whole key code, so it reads a byte of the data section past the table's 256. None of those bytes in the image is 1, 4 or `0x0a`, so none edits a row ([Typing into a row](#typing-into-a-row)), but any that is not `0xff` posts a command, and with it runs the row's handler.
 - **Unported:** the auto-repeat of the mission screen's arrows.
 - **Open:** what reads the words the preferences screen's four group setters store, `00474cc4`, `00474cc6`, `00474cc8` and `00474cca` ([What a checkbox sets](#what-a-checkbox-sets)).
-- **Open:** what reaches cases 2 and 3 of `PreferencesScreen_ToggleAudioOption` (`00436841`), which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `00436cc1` and `00436d22`, which pass 0 and 1, and the builder makes no widget for the others.
+- **Open:** what reaches cases 2 and 3 of `PreferencesScreen_ToggleAudioOption` (`00436841`), which cycle PILOT MESSAGE (option 2) — case 2 from 0 to 2 and from 1 or 2 to 0, case 3 from 0 to 1, 1 to 2 and 2 to 1. `es2_xref.py` finds two callers, `PreferencesScreen_OnMusic` (`00436cc1`) and `PreferencesScreen_OnSoundEffects` (`00436d22`), which pass 0 and 1, and the builder makes no widget for the others.
 - **Open:** whether a retail click on the repair tab's `Internal` panel outside its nine rows reaches `Repair_OnInternalPanel` and swaps the pictures while an external row is selected ([The repair screen](#the-repair-screen)). The builder registers it as the panel's handler; no retail observation confirms the swap.
 - **Open:** what shows [the second registration panel](#the-second-registration-panel). A search of the disassembly for `DAT_0048d418` and `DAT_0048d470` as absolute operands finds their builders and three hides — `SaveScreen_Enter`, the teardown and `SaveRegistration_ShowDetailPanel` (`0043b679`) — and no show; the dead rect `{9, 0xcf, 0x6b, 0xde}` that `SaveScreen_BuildScreen` writes just before `SAVE`'s may be where a button that showed it stood.
 - **Unported:** the startup's `Performance Note` box ([The main menu](#the-main-menu)).
@@ -1384,5 +1385,5 @@ That last function also installs the theater palette directly, as `Shell_Install
 - **Open:** no reference to `InstantAction_Active` (`0047363c`) found besides `INSTANT ACTION`'s store of 1 (`004312b6`) and `MsnGen_BuildPlayerHerc`'s read (`0041c625`), by `es2_xref.py` ([Selecting a mission](#selecting-a-mission)).
 - **Open:** no store clearing a save row's `+0xbf` after a rename found: `es2_fieldscan.py bf` finds `ESDialog_Ctor`'s 1, `SaveScreen_BuildScreen`'s 0 (`00438936`) and `SaveScreen_BeginRename`'s 1 ([Typing into a row](#typing-into-a-row)).
 - **Open:** no write greying [the second registration panel](#the-second-registration-panel)'s `ACCEPT` found: `es2_xref.py` finds no reference to its pointer `0048d490` but the builder's store.
-- **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `Msn_BuildPath` button, which loads a typed name.
+- **Unported:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `MissionNameDialog_OnLoad` button, which loads a typed name.
 - **Open:** the class of [the pointer state](#which-widget-a-click-reaches) at `g_EventQueue`. Its constructor, `EventQueue_Ctor` (`00469b00`), writes no vtable, so RTTI does not name it; its inline methods assert in `include\WHANDLER.H`. `Widget_HitTestTree` (`00469d1c`) and the `Pointer_*` functions around it (`Pointer_SetTarget`, `Pointer_Unlock`, `Pointer_Leave`, `Pointer_Enter`, `Pointer_MoveTo`) carry invented prefixes for the same reason.

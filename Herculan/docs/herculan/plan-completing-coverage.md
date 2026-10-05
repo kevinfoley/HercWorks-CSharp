@@ -78,13 +78,6 @@ Work each binary's unnamed functions in address order. Borland links each source
 
 Prefer address order to `triage --sort refs` here: the backlog is finite and mostly short functions, so completeness matters more than ranking. Apply the [stop rule](#every-name-closes-its-loop) as before: name the callees actually read, no further.
 
-Context the vtable pass gathered for functions in this backlog:
-
-- `0042db40` and `0044041c` are static initialisers that build global `GLRectangleRegion`s; `0043034c` is the palette module's initialiser, reached through a stored pointer at `00430e93`.
-- `00453d10` writes a palette file (`PAL:` and `VGA:` chunks) through a `FileRWStream`.
-- `00439a0c` is the vertical LED bar's lit-run fill and `00439c48` the bitmap LED bar's span draw.
-- `00452144` is the whole body of `PanelAmbience_Paint`.
-
 ## Stage 4 — fields, class by class
 
 Fill skeleton fields with `es2_fieldscan.py` sweeps, starting with the classes whose methods are called most and the ones the engine ports. Name the generated shapes' `slot_0xNN` slots the same way, from what the slot's callers pass and use. A field gets a name once a reader or writer establishes its meaning; the rest stay unnamed with what is known in the description. This stage has no natural end: a field is never proven unread, so "complete" means every field with an established reader is named. Compare each decoded field against the C# that models the same datum, and apply [rule 2](#every-name-closes-its-loop) to every disagreement.
@@ -113,3 +106,7 @@ Behaviour changes made by naming passes, waiting on a look in the running engine
 - **Open:** what `SimObject_TickNoOp`'s return value of 1 means to the callers of the `+0x14` tick slot.
 - **Open:** the roles of `TexPoly_Slot28NoOp` (`TexPoly` `+0x28`) and `CTLWindow_Slot00NoOp` (`CTLWindow` `+0x00`), each named for its empty body only.
 - **Open:** what the flag `HddDamageScreen_Repaint` (0) and `HddDamageScreen_Tick` (1) pass to `HddDamageScreen_Update` selects.
+- **Open:** [`command-line.md`](../retail/command-line.md)'s account of VSHELL's `Shell_BuildSimArgv` (`0042f2e8`) leaves out most of its conditions: the gate on `ShellSwitch_L` and the exit code, the `Display_ReleaseDirectDraw` (`00407011`) call, and the conditions on `-Z`, `-s` and `-F`/`-G`.
+- **Open:** VSHELL's `Poly_ClipToHalfPlane` (`004300c7`) switches through a jump table Ghidra has not recovered (byte index at `004301da`, dword targets at `004301ed`); its case bodies, `00430209`-`00430346`, are undisassembled, so its decompile shows none of the clipping cases. Repair the table before relying on the decompile.
+- **Open:** VSHELL functions whose Ghidra extent ends before their code does: `Driver3_BlitClipped` (`00459d5c`) and `Driver3_GrabClipped` (`0045a01e`) each leave a 16-byte tail outside; `GLDisplay_SetAttribute` (`00452e98`) stops before its slot-32 case at `00452f67`; `Poly_ScanConvertToSpanRegion` (`00456000`) stops at `004566c8`, before 3228 bytes of its unrolled store code; `Poly_ScanConvert` (`00465e0a`) leaves its unrolled stepper, `00466494`-`004675d3`, outside. Extend each over its tail.
+- **Unported:** VSHELL's command-key ring. `Keyboard_OnCommandKey` (`00408f3e`), the key-listener callback, queues each command key through `Keyboard_QueueCommand` (`00408ee1`) into a 10-entry ring that drops its oldest entry when full; `ShellKeyboard` handles each key as it arrives, which differs only when ten or more command keys arrive within one frame.

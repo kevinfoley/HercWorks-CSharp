@@ -267,7 +267,8 @@ public sealed class ShellMovieRun : IDisposable {
 
 	// Avi_Play's open. PLACEHOLDER: a movie that will not open is skipped. The original stops the shell
 	// with "Please insert ESII CD and restart" for the intro, and for any other movie puts the insert-CD
-	// panel (DAT_0048d108) up and tries again once its button is pressed; neither is ported.
+	// panel (InsertCdPanel (0048d108)) up and tries again on its Continue or ends the shell on its Quit;
+	// neither is ported.
 	private bool Begin(ShellMovieEntry entry) {
 		string? name = _queue.MoviePath(entry.Id);
 		byte[]? bytes = name == null ? null : _hooks.ReadMovie(name);

@@ -47,5 +47,5 @@ Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding
 
 - **Open:** the order in which DBSIM's draws fall within a tick. A roll's result depends on its position in the stream, so the draw order across the tick's subsystems decides every roll after the first.
 - **Open:** what constructs `SMOKE`. `Sim_MainTick` ticks a list of them through `Smoke_Tick` (`004092dc`), each releasing a `SMOKE_BALL` every 200 ticks while its count lasts, but `es2_xref.py` finds no branch or pointer reaching `Smoke_Construct` or landing anywhere from `00409200` to `00409240`.
-- **Open:** whether `TexPoly` is ever built. Its constructor (`0042f700`, in bytes Ghidra left undisassembled) has no reference `es2_xref.py` finds, the class name appears only in its own RTTI record — not in the persistence name table beside `TSTexture4Poly` — and no retail `.DTS` names it.
+- **Open:** whether `TexPoly` is ever built. Its constructor, `TexPoly_Ctor` (`0042f700`), has no reference `es2_xref.py` finds, the class name appears only in its own RTTI record — not in the persistence name table beside `TSTexture4Poly` — and no retail `.DTS` names it.
 - **Open:** whether DBSIM draws from the generator before a zone populates. The terrain scatter is the visible case, because any draw before it moves where the scatter lands.

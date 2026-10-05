@@ -178,7 +178,7 @@ public sealed class ShellCrewScreen {
 	public bool ClickRoster(int bay) => SelectBay(bay, rosterClick: true);
 
 	/// <summary>
-	/// A squad portrait's handler (<c>FUN_00442151</c>, <c>FUN_004421fc</c>, <c>FUN_004422a7</c>): lights
+	/// A squad portrait's handler (<c>Crew_OnSquadPortrait0</c> (<c>00442151</c>), <c>Crew_OnSquadPortrait1</c> (<c>004421fc</c>), <c>Crew_OnSquadPortrait2</c> (<c>004422a7</c>)): lights
 	/// portrait <paramref name="member"/> and unlights the other two, then
 	/// <c>Crew_AssignSquadMember(member)</c> (<c>00441eb8</c>). On the player's row the portrait
 	/// lights and nothing else happens. On a squad row, whoever holds the row's position gives it up,

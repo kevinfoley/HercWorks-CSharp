@@ -16,7 +16,7 @@ namespace Herculan.Engine.Content;
 /// </param>
 /// <param name="Raster">
 /// The mission's terrain raster, or null when there is none to draw. One bitmap for both maps: the
-/// paint blits the same <c>DAT_004d1d7a</c> the Heads-Down Display's command display does — see
+/// paint blits the same <c>HddMapTerrainRaster</c> (<c>004d1d7a</c>) the Heads-Down Display's command display does — see
 /// <see cref="HddMapRaster"/>.
 /// </param>
 public readonly record struct MfdNavMapState(int CentreX, int CentreY, short Heading, HddMapRaster? Raster);

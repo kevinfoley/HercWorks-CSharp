@@ -133,6 +133,25 @@ The backdrop paints `C` on and below the horizon, so terrain at the edge of the 
 
 Where they match, fully fogged terrain meets the backdrop without a seam.
 
+## Distance colour bands — `WorldShades_ApplyForObject` (`0042e8e8`)
+
+Apart from the fade, an object's shade ramps are re-pointed by its distance. `ObjList_DrawEntryRender` calls `WorldShades_ApplyForObject` (call at `004287b3`) before each deferred object's draw, and `Terrain_FillCellUntextured` (call at `0046bc6a`) before an untextured cell's.
+
+`World_LoadShades` (`0042e760`) loads `dat\shades` into `WorldShades_TypeTable` (`004cfd64`): per object type tag (`obj+4`), a list of `{ramp, column}` byte pairs. A tag with no list is left alone. Retail `SHADES.DAT`:
+
+| Tag | Ramps re-pointed | From columns |
+|---|---|---|
+| 1, 5, 7 | 0, 2, 4, 6, 8, 12 | 0, 1, 2, 3, 4, 6 |
+| 3, a projectile ([above](#a-projectile-is-faded-like-anything-else)) | 0, 12 | 0, 6 |
+| 6 | 8, 12 | 4, 6 |
+
+1. `WorldShades_DistanceBand` (`0042e878`) counts the thresholds the distance has reached, at most one fewer than there are: `WorldShades_BandsTagged` (`004cfd84`) for a non-zero tag, `WorldShades_BandsTag0` (`004cfd88`) for tag 0. A tag-5 object first has one of the two `WorldShades_DistanceOffsets` (`004cfd6c`) added — the second when its radius (vtable `+0x10`) is 5000 or more — clamped at 0.
+2. For each pair, `Palette_SetRampsToRange` re-points the ramp at the `(column, band)` entry of `WorldShades_LevelRanges` (`004cfd7c`), the index ranges `World_LoadTheater` expands from the `.WLD`'s two ramp tables ([`terrain-texturing.md`](terrain-texturing.md#the-worldn-descriptor--layout)).
+
+Every retail theater has 16 thresholds, 4400 apart from 60000, except `WORLD4`'s tagged set, which starts at 30000.
+
+With its third argument non-zero — `ObjList_DrawEntryRender` passes the byte at `004cfa08` — step 2 instead builds a two-segment range list for `Palette_SetRampsToRangeList` from the band's range and the band's entry of `WorldShades_BlendRanges` (`004cfd80`) ([Open](#open)). While `0049aef2` is set (0 in the image) the whole step is replaced by `WorldShades_ResetRamps` (`0042ea0c`), which points ramps 0, 2, 4, 6, 8, 10, 12 and 24 at the range `{16, 16}`.
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -145,6 +164,9 @@ Where they match, fully fogged terrain meets the backdrop without a seam.
 
 ## Open
 
+- **Unported:** [the distance colour bands](#distance-colour-bands--worldshades_applyforobject-0042e8e8).
+- **Open:** which classes carry type tags 1, 5 and 6.
+- **Open:** whether `004cfa08` (copied from `004d2549`) is ever non-zero. With it set, `WorldShades_ApplyForObject` hands `Palette_SetRampsToRangeList` a descriptor whose segment pointers are one per segment (`0042e9ca`/`0042e9cd`) while the callee reads a ramp's segments contiguously from the first pointer, so its second segment would be that pointer's own bytes.
 - **Open:** what `DAT_0049aee4` holds. `Scene_DrawTerrainPass` calls its slot `+0x34` with the view, after the backdrop, when it is non-null; it is zero in the image and `es2_xref.py` finds no reference besides that read.
 - **Open:** what reads `0049aee8`, which `World_LoadTheater` sets to `short4 + short6 - 1`; `es2_xref.py` finds only that store.
 - **Open:** whether anything draws a horizon strip. `Hzline_BlitHorizonStrip` (`0042f398`) blits a bitmap set's frames end to end along the horizon line, scrolled by the view's heading and rotated with its roll, and `Hzline_LoadBitmapBank` (`0042f65c`) loads a bank from the `dba` folder into `+0x50`. `es2_xref.py` finds no reference to either, and `World_LoadTheater` reads the `.WLD`'s second string, `clouds2`, into a buffer the next string overwrites.

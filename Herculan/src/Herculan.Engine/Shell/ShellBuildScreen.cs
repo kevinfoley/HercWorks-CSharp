@@ -164,7 +164,7 @@ public sealed class ShellBuildScreen {
 
 	/// <summary>
 	/// <c>Build_SelectChassis</c> (<c>00446c3b</c>), a row's handler through nine thunks from
-	/// <c>00446fbf</c>: unlights the old row and hides its blueprint, lights the new one and shows its
+	/// <c>Build_OnChassisRow0</c> (<c>00446fbf</c>): unlights the old row and hides its blueprint, lights the new one and shows its
 	/// blueprint, then regates the buttons and refreshes the figures. Returns whether the selection moved;
 	/// the chassis already selected is a no-op.
 	/// </summary>

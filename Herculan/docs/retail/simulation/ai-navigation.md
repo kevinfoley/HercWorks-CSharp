@@ -117,7 +117,7 @@ A linear sweep of the live-object list. A candidate is weighed when it is not th
 
 ### The player's line of fire
 
-The third source runs only for a machine whose group is **led by the player**, and what it reads is `DAT_004a9c0c`: a trail of up to 40 points that `Mech_PlayerFireTick` (`00415608`) stamps along the player's turret bearing every time the trigger produces a shot, spaced `0x1000` apart and cut to the range of the player's selected target. The array has exactly three references in the image: `maybe_MechModule_StaticInit` (`0041bcac`) builds it — 40 elements of 8 bytes, which is where the cap comes from — `Mech_PlayerFireTick` writes it, and this function reads it. Nothing draws it.
+The third source runs only for a machine whose group is **led by the player**, and what it reads is `DAT_004a9c0c`: a trail of up to 40 points that `Mech_PlayerFireTick` (`00415608`) stamps along the player's turret bearing every time the trigger produces a shot, spaced `0x1000` apart and cut to the range of the player's selected target. The array has exactly three references in the image: `Mech_RegisterSubsystem` (`0041bcac`) builds it — 40 elements of 8 bytes, which is where the cap comes from — `Mech_PlayerFireTick` writes it, and this function reads it. Nothing draws it.
 
 **So the squad gets out of the player's line of fire.** These points are scaled by `Q10(1000, d)` — near enough the true range — and claim a side inside a wider 67.5° arc than a machine does. Not firing zeroes the count, so the line exists only while the player is actually shooting.
 

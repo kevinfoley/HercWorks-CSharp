@@ -7,19 +7,19 @@ namespace Herculan.Engine.Shell;
 /// the builder constructs them, then the two under the boxes.
 /// </summary>
 public enum ShellPracticeButton {
-	/// <summary><c>Damage</c>, <c>0044bf29</c>: steps option <c>0x26</c>, <c>Vulnerable</c>/<c>Invulnerable</c>.</summary>
+	/// <summary><c>Damage</c>, <c>PracticeScreen_OnDamage</c> (<c>0044bf29</c>): steps option <c>0x26</c>, <c>Vulnerable</c>/<c>Invulnerable</c>.</summary>
 	Damage = 0,
 
-	/// <summary><c>Ammo</c>, <c>0044bfe6</c>: steps option <c>0x25</c>, <c>Limited</c>/<c>Unlimited</c>.</summary>
+	/// <summary><c>Ammo</c>, <c>PracticeScreen_OnAmmo</c> (<c>0044bfe6</c>): steps option <c>0x25</c>, <c>Limited</c>/<c>Unlimited</c>.</summary>
 	Ammo = 1,
 
-	/// <summary><c>Mission Difficulty</c>, <c>0044c0a3</c>: steps option <c>0x27</c>, <c>ROOKIE</c> to <c>ELITE</c>.</summary>
+	/// <summary><c>Mission Difficulty</c>, <c>PracticeScreen_OnDifficulty</c> (<c>0044c0a3</c>): steps option <c>0x27</c>, <c>ROOKIE</c> to <c>ELITE</c>.</summary>
 	Difficulty = 2,
 
-	/// <summary><c>Time of Day</c>, <c>0044c160</c>: steps option <c>0x29</c>, <c>Day</c>/<c>Night</c>.</summary>
+	/// <summary><c>Time of Day</c>, <c>PracticeScreen_OnTimeOfDay</c> (<c>0044c160</c>): steps option <c>0x29</c>, <c>Day</c>/<c>Night</c>.</summary>
 	TimeOfDay = 3,
 
-	/// <summary><c>Herc Type</c>, <c>0044c21d</c>: steps option <c>0x28</c> through the nine chassis. Live from row 4 down.</summary>
+	/// <summary><c>Herc Type</c>, <c>PracticeScreen_OnHercType</c> (<c>0044c21d</c>): steps option <c>0x28</c> through the nine chassis. Live from row 4 down.</summary>
 	HercType = 4,
 
 	/// <summary><c>Main Menu</c>, <c>0044c2da</c>: hides the screen and puts the main menu back up.</summary>

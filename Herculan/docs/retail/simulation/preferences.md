@@ -4,6 +4,8 @@ The two panels [F12] reaches, and the file they edit. Both are members of the mo
 
 `PreferencesPanel_Raise` (`0045cfd4`) is what commands `0x58` ([F12]) and `0x219` ([Alt+P]) reach ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes)). It raises `DAT_004d2576` to stop the simulation for as long as the panel is up, snapshots the view object's whole settings block beforehand and writes it back on the way out. The CONTROLS button then builds the second panel over the first, which stays on screen behind it.
 
+**Behind the panel the camera circles the player's machine.** Before running the panel, `PreferencesPanel_Raise` switches to an outside view of `LocalPlayerMech`. When the cockpit view manager's current view (`+0x14`) is 4 it attaches the camera to the machine at once (`Cam_AttachTo`, setting the view object's `+0x36` to 1 when its `+0x4a` is 0) and draws a frame. From any other view it first draws frames until any view transition in progress has finished, queues view command 2 (`CockpitView_QueueViewCommand`), and keeps drawing frames until that transition has started and ended, attaching the camera the same way when it starts. It then installs `PreferencesPanel_OrbitViewHook` (`0045cfac`) as the panel's draw hook (`PreferencesPanel_SetDrawHook`), which `PreferencesPanel_Run` calls once per pass of its loop: `Cam_Steer(ViewObjectPtr, -0x40, 0, 0)`, `Cam_Update`, `Sim_RenderFrame`. So the view turns steadily about the machine for as long as the panel is up.
+
 **A panel's loop is not the simulator's.** `AlertPanel_Enter`, then poll the device, run the panel's handler, paint, present — and never `Sim_MainTick`, which is the only caller of `Sim_PollPlayerInput`. So while any of these panels is up no key or joystick button reaches the player's machine at all, which is what lets the CONTROLS panel read the stick as a configuration device. Nor does a keyboard command reach the cockpit: each pass calls `Input_BuildPlayerDevice` and hands its event to the panel's own vtable `+0x10` handler and nothing else, so neither `Sim_DispatchCommand` nor `CockpitWidgets_HandleCommand` sees a key, and `AlertPanel_Enter` closes the command queue that `SimCommandQueue_Push` fills (`0049eacc` cleared at `0045467b`, set again by `AlertPanel_Leave`). Under a panel the only keys that act are the three `Key_WndProcHook` keeps for itself, [Alt+Tab], [Alt+Esc] and [Ctrl+Esc], which leave full screen ([`../formats/cockpit-input.md`](../formats/cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)). The pause flag is the belt to that pair of braces: it gates the world updates *inside* `Sim_MainTick` for the frames the simulator does run.
 
 ## `data\prefs.cfg` — the option array
@@ -98,7 +100,7 @@ Byte 6 non-zero makes `MainWindow_Create` (`00465054`) size the window to the de
 
 ## The preferences panel — `prf_alrt` (`004566c4`)
 
-Nine settings and two plain buttons, as a strip along the bottom of the screen with the frozen cockpit above it. It is the one member of the family that **does not centre**: its constructor calls `AlertPanel_SetRect` with an origin outright where the other three go through `AlertPanel_CenterRect`.
+Nine settings and two plain buttons, as a strip along the bottom of the screen with the [circling outside view](#preferences-and-controls-dbsimexe) above it. It is the one member of the family that **does not centre**: its constructor calls `AlertPanel_SetRect` with an origin outright where the other three go through `AlertPanel_CenterRect`.
 
 ### Its text
 
@@ -259,4 +261,5 @@ That function also carries an arm that zeroes the block, taken when the capabili
 
 ## Open
 
+- **Unported:** the outside view of the player's machine that `PreferencesPanel_Raise` switches to and `PreferencesPanel_OrbitViewHook` (`0045cfac`) turns on every pass of the panel's loop ([above](#preferences-and-controls-dbsimexe)).
 - **Open:** no DBSIM reference to options 37-41 (`004d1fe1`-`004d1fe5`) or `004d1fe6`-`004d1fe9` found by `es2_xref.py` (control: `004d1fc2` has one), so no simulator reader of them is known beyond 4 and 6.

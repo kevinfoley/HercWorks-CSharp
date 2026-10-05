@@ -67,7 +67,7 @@ public sealed class ShellWeaponUnit {
 }
 
 /// <summary>
-/// One machine in a hangar bay, as the shell's screens read it — <c>DAT_00482ac3</c>'s eight pointers,
+/// One machine in a hangar bay, as the shell's screens read it — <c>Hangar_BayRecords</c> (<c>00482ac3</c>)'s eight pointers,
 /// each to the 122-byte HERC record in the loaded save (docs/retail/formats/save-games.md).
 ///
 /// <para><b>The 66-byte status block is three arrays and one accessor.</b> <c>HercStatus_Get</c>
@@ -539,7 +539,7 @@ public sealed class ShellBayPilot {
 /// The eight hangar bays and the salvage pool — what every tab from WEAPONS to CREW works over, and
 /// what the repair screen in particular reads a machine out of.
 ///
-/// <para>VSHELL keeps the bays as eight pointers at <c>00482ac3</c>, null for an empty bay, with the
+/// <para>VSHELL keeps the bays as eight pointers at <c>Hangar_BayRecords</c> (<c>00482ac3</c>), null for an empty bay, with the
 /// selected slot in <c>SelectedBaySlot</c> (<c>00482ae5</c>) (<c>-1</c> for none). Sparse is normal: a save really can have
 /// a machine in bay 3 and nothing in bay 2, so the bays are addressed by index rather than packed.</para>
 /// </summary>

@@ -1604,7 +1604,8 @@ public sealed class WeaponMount {
 	/// </returns>
 	private (Transform3 Bone, Vec3i Muzzle) PrepareShot(MechObject owner) {
 		// The convergence goes on innermost, under the bone's own pose: the original composes it with
-		// the node transform and only then with the machine's, and composition is associative.
+		// the node transform (Transform_ConcatRotation, 0047f3e8: the rotations, with the node's
+		// translation) and only then with the machine's, and composition is associative.
 		var bone = Transform3.Concat(ConvergenceRotation, owner.PartTransform(_hardpoint.BoneId));
 		var offset = MuzzleOffset;
 

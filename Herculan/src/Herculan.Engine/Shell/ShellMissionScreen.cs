@@ -493,7 +493,7 @@ public sealed class ShellMissionScreen {
 	/// <summary>
 	/// What the pointer hits: a button or an arrow. The four panels are built disabled —
 	/// <c>ESTitle_Ctor</c> clears <c>+0x49</c> and the builder clears the button bar's — and the
-	/// Telecomm picture's handler (<c>FUN_00444e28</c>) returns at once, so a click anywhere else is
+	/// Telecomm picture's handler (<c>Mission_OnTelecommPicture</c> (<c>00444e28</c>)) returns at once, so a click anywhere else is
 	/// swallowed, which here is the same as hitting nothing.
 	/// </summary>
 	public ShellHit? HitAt(float canvasX, float canvasY) {

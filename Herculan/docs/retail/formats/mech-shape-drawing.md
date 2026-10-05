@@ -39,7 +39,7 @@ The loop advances while the projected size is *below* the threshold, so a distan
 
 ### Each root numbers its own nodes
 
-**Every root carries its own `ANAnimList`, and a node id means nothing outside the root that declares it.** The pose array, however, is built from root 0 alone — see "The pose array is root 0's" below, which is what makes that a problem rather than a detail.
+**Every root carries its own `ANAnimList`, and in the file a node id means nothing outside the root that declares it.** The pose array is built from root 0 alone — see "The pose array is root 0's" below — and the load-time renumbering after it is what lets the other roots be drawn through it.
 
 APOCA's seven roots, as parent>child pairs:
 
@@ -64,15 +64,27 @@ One per-node world transform array exists per object, and **every root is drawn 
 - `ShapeInst_BindNodeTransformArray` (`00475fd8`) binds that one array to the render global; its two callers are the generic shape-render entry and exit. Nothing rebinds per root.
 - `AnimThread_EvalNodeLocals` (`004799a4`) indexes the locals by the part ids of the sequence the **thread's own** anim list names — `thread+0` — not the drawn root's.
 
-So a root whose numbering is compacted has its geometry composed against whatever joint shares the number in root 0's tree. For APOCA at rest, root 0 places the nodes the crude roots hang their torso on at:
+`Shape_LoadAllRoots` (`00474bcc`) loads every root, into a 100-slot buffer.
 
-| Root | Torso node | Where root 0 puts it | Correct torso position |
-|---|---|---|---|
-| 0-3 | 11 | `(0.00, 0.00, 10.14)` m | — |
-| 4 | 9 (a knee in root 0) | `(-2.76, -1.68, 4.08)` m | 6 m low, 2.8 m off-axis |
-| 5, 6 | 4 (the torso mount) | `(0.00, 0.00, 0.00)` m | on the ground |
+### The crude roots are renumbered at load
 
-**Observed retail behaviour does not show a displaced upper body at the lowest HERC DETAIL setting.** Everything above is read from the binary and the shipped shapes ([Open](#open)). Ruled out so far: the shape loader truncating the root list (`Shape_LoadAllRoots` (`00474bcc`) loads all of them, into a 100-slot buffer); the bias coming from anywhere but the HERC DETAIL byte (`0045fbaf` and `00461dc9` both push `DAT_004d1fc5` straight into `ShapeDetail_ApplyHercDetailSetting`); and `Mech_Draw` bypassing the selection (`004174c8` calls `Shape_DrawAtDetailLevel` after its splice loop).
+Right after loading the roots, `MechType_InitOne` calls `MechType_RemapDetailRootTransforms` (`00420090`, call at `004202b6`) with the detail struct and the chassis `.DAT`'s list of part ids at `typeRec+0x30` (record offset 46: signed bytes, ended by a negative one, at most 50). It rewrites every root after root 0 onto root 0's node numbering:
+
+1. A 50-byte map per root, filled with `0xff`.
+2. For each listed part id, the part's transform id (`part+4`) in root 0, found through the shape's vtable `+0x20` (`TSPartList_FindPart`), is stored in each other root's map at that root's own transform id for the same part.
+3. `Shape_RemapTransformIds` (`0041ff88`) walks each other root through its map: a `TSGroup`'s and a `TSCellAnimPart`'s `+4`, and each entry of a `TSBSPPart`'s per-node transform array that is above 0, below the count at root 0's anim list `+0x10`, and maps to a non-negative entry. It recurses through part lists, shapes, detail parts and the `ANShape`.
+4. `Shape_RemapTransformId` (`0041ff68`) leaves a negative id alone and replaces any other with its signed map entry, so a `TSGroup` or `TSCellAnimPart` whose node no listed part reaches gets -1.
+
+So once loaded, a compacted root's parts name root 0's joints, and drawing it through root 0's pose array puts each part on the joint it belongs to. Retail lists:
+
+| Chassis | Part ids |
+|---|---|
+| ACHILLES, APOCA, CERBERUS, COLOSSUS, DIABLO, HYPERION, MAVERICK, MIRIMAC, OGRE, OUTLAW, RAMSES, RAPTOR2, SAMSON, SCARAB, STINGRAY, TOMAHAWK | 1-5, 12-17 |
+| HEADHUNT | 1-5, 12-17, 44 |
+| MONGOOSE | 1-5, 10, 12-17, 88, 99 |
+| PITBULL | 1-5, 12-25 |
+| SPIDER | 1-4, 12, 14, 15, 18-23 |
+| RAZOR | 12 |
 
 ### The three tunables
 
@@ -139,7 +151,8 @@ The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every dr
 
 | Reading | Why it is wrong |
 |---|---|
-| The roots share one node space, because each crude root's transform ids are a **subset** of root 0's | A subset of ids is not the same joints. The ids are drawn from one range because the numbering is compacted, not because a node kept its number: APOCA's upper body is node 11 on root 0 and node 9 on root 4, where node 9 is a knee. The relation list is the only thing that says what a node is, and each root declares its own |
+| The roots share one node space in the file, because each crude root's transform ids are a **subset** of root 0's | A subset of ids is not the same joints. The ids are drawn from one range because the numbering is compacted, not because a node kept its number: in the file APOCA's upper body is node 11 on root 0 and node 9 on root 4, where node 9 is a knee. They share root 0's numbering only after [the load-time renumbering](#the-crude-roots-are-renumbered-at-load) |
+| A compacted root drawn through root 0's pose array puts its parts on whatever joint shares the number (APOCA root 4's upper body on a knee) | `MechType_RemapDetailRootTransforms` rewrites each crude root's transform ids to root 0's before any draw ([The crude roots are renumbered at load](#the-crude-roots-are-renumbered-at-load)) |
 | A mech `.DTS` carries one `ANAnimList`, on its root shape | One **per root**, and they differ in every dimension — APOCA's root 0 declares 8 sequences over 372 keyframes and 12 nodes, its root 4 declares 1 over 17 and 9 |
 | The `.DMG` record's `+0x03` byte is a HUD slot | It is the index of the `TSCellAnimPart` sequence the component drives, which the destruction path steps to its blank cell. The `= 2` write is a cell frame, not a damage state ([A destroyed component hides its own geometry](#a-destroyed-component-hides-its-own-geometry)) |
 | A nonzero detail bias is harmless because the walk can still reach root 0 | The walk only ever advances, and it starts at the bias. `g_ShapeDetailBias` is the floor on how fine a machine is ever drawn, which is what makes the lowest HERC DETAIL setting a visible change at point-blank range and not only at distance |
@@ -147,4 +160,5 @@ The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every dr
 ## Open
 
 - **Open:** what `MechType_BindHardpointSlots` stores for a hardpoint whose part id a root does not carry, and so whether that root draws the gun. `SAMSON.DTS` roots 3-6, `COLOSSUS.DTS` roots 5 and 6, `OGRE.DTS` roots 4-6 and `OUTLAW.DTS` root 6 each lack one or more of their chassis' slot ids.
-- **Open:** what reconciles the compacted-root pose displacement (see [The pose array is root 0's](#the-pose-array-is-root-0s)) with observed retail behaviour, which shows no displaced upper body at the lowest HERC DETAIL setting.
+- **Unported:** [the load-time renumbering of the crude roots](#the-crude-roots-are-renumbered-at-load) (`MechType_RemapDetailRootTransforms`, `00420090`).
+- **Open:** whether any part of a crude root is left at transform id -1 by the renumbering (a node no listed part id reaches), and so drawn in the object's own frame.

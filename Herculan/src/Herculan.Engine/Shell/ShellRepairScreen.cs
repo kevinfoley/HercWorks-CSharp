@@ -153,8 +153,8 @@ public sealed class ShellRepairScreen {
 	private int _modeText = ManualRepairText;
 
 	/// <summary>
-	/// <c>Repair_Snapshot</c> (<c>004338f6</c>)'s copies, <c>DAT_0048d25c</c> and the 66 bytes at
-	/// <c>DAT_0048d260</c>: the pool and the selected machine's status block as they stood when the screen
+	/// <c>Repair_Snapshot</c> (<c>004338f6</c>)'s copies, <c>RepairSnapshotSalvage</c> (<c>0048d25c</c>) and the 66 bytes at
+	/// <c>RepairSnapshotStatus</c> (<c>0048d260</c>): the pool and the selected machine's status block as they stood when the screen
 	/// was entered or the bay last changed. CANCEL puts both back.
 	/// </summary>
 	private int _snapshotSalvage;

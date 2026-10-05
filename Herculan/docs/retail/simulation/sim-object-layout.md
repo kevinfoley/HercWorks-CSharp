@@ -48,7 +48,7 @@ From `+0x209` the structure classes part ways: `GUN_BASE` keeps its turret angle
 
 ## Only the short-lived classes are recycled
 
-`Pool_Init` (`004719cc`) `memset`s a pool once at startup and `Pool_Alloc` (`00471a24`) hands back a node without zeroing it, so a recycled slot carries its predecessor's bytes. The only route back into a pool is `Pool_Free` (`00471abc`), whose sole caller is `ObjectPool_FlushDeleteQueue`. The mech pair's flush — registered as subsystem phase 5 and so run once a frame — drains the queue at `DAT_004a9c02`, which **has one writer, the one-time setup in `DBSim_LoadScriptDat`, and one reader, the flush itself**. Nothing ever queues a machine onto it, so a machine's slot is never reissued and no field of one is inherited.
+`Pool_Init` (`004719cc`) `memset`s a pool once at startup and `Pool_Alloc` (`00471a24`) hands back a node without zeroing it, so a recycled slot carries its predecessor's bytes. The only route back into a pool is `Pool_Free` (`00471abc`), whose sole caller is `ObjectPool_FlushDeleteQueue`. The mech pair's flush — registered as subsystem phase 5 and so run once a frame — drains the queue at `g_MechDeleteQueue` (`004a9c02`), of which an absolute-address search of the disassembly finds one write, the one-time setup in `DBSim_LoadScriptDat`, and one read, the flush itself. A queue append goes through `ObjectPool_QueueForDelete`, which takes the queue as an argument, so a caller holding a copy of the pointer would not show in that search. Whether anything queues a machine, and so whether a machine's slot is ever reissued with its predecessor's bytes, is [Open](#open).
 
 The short-lived classes are recycled every frame — explosions, debris, fires, drop pods and ground shapes — and those do inherit a predecessor's stale fields.
 
@@ -111,6 +111,7 @@ Nothing in the field itself says which flavour it is — only which of the two f
 
 ## Open
 
+- **Open:** whether anything queues a machine onto `g_MechDeleteQueue` (`004a9c02`). An absolute-address search of the disassembly finds only the setup write in `DBSim_LoadScriptDat` and the read in `Mech_FlushDeletes` (`0041544c`); a caller passing a copy of the pointer to `ObjectPool_QueueForDelete` is outside that search.
 - **Open:** why the structure pool's element is `0x26d`, seven bytes past `LC_BASE`'s `0x266`, the longest structure class.
 - **Open:** what `obj+0x92` is in the source. Whether it is a sub-object the compiler is addressing or just a base register it chose is not settled, so `known_structs.json` places those bytes at their absolute offsets rather than inside an invented struct.
 - **Open:** what vtable `+0x0c` is for. Every `DrawableVtable`, `ProjectileVtable` and `SimObjectVtable` table holds `Stub_ReturnZero` (`004785bf`) there.

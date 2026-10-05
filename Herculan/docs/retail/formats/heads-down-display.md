@@ -227,7 +227,7 @@ and `scale` is world units per pixel in 8.8 fixed point. `HddMap_ToViewport` (`0
 
 ### Terrain raster
 
-`HddMap_BuildTerrainRaster` (`0044f6cc`) builds one 8-bit bitmap per mission, at `DAT_004d1d7a`; `HddMap_DrawTerrain` (`004502e4`) blits it on every repaint, which is why panning and zooming cost nothing. The MFD's NAV MAP blits the same bitmap — [`mfd.md`](mfd.md#mfdmap--mode-2).
+`HddMap_BuildTerrainRaster` (`0044f6cc`) builds one 8-bit bitmap per mission, at `HddMapTerrainRaster` (`004d1d7a`); `HddMap_DrawTerrain` (`004502e4`) blits it on every repaint, which is why panning and zooming cost nothing. The MFD's NAV MAP blits the same bitmap — [`mfd.md`](mfd.md#mfdmap--mode-2).
 
 Each grid cell first gets a palette index:
 

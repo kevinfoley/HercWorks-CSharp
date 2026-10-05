@@ -30,13 +30,13 @@ Frame-to-state mapping: `PWEAPONS` 0/1 are the selected/unselected row plate, 2/
 
 ## `.GAU` widget tree
 
-`Gau_Load` (`00431778`, `PANEL.CPP:0x1d6`) reads a `0x6a4`-byte struct and constructs six sub-widget vectors. The file's first two `int32`s are an origin offset added to every widget rect. `Gau_BuildCockpitWidgets` (`00431bf8`) then builds seven top-level widgets from fixed offsets and shifts every rect by `VideoMode_X/YCoordShift`. The order it builds them in is also the cockpit's click precedence — [`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence) has the full sequence.
+`Gau_Load` (`00431778`, `PANEL.CPP:0x1d6`) reads a `0x6a4`-byte struct and vector-constructs six arrays of 16-byte rects inside it, of 10, 3, 4, 13, 15 and 3. The file's first two `int32`s are an origin offset added to every widget rect. `Gau_BuildCockpitWidgets` (`00431bf8`) then builds seven top-level widgets from fixed offsets and shifts every rect by `VideoMode_X/YCoordShift`. The order it builds them in is also the cockpit's click precedence — [`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence) has the full sequence.
 
 GAU coordinates are authored in the 320-wide space, half the 640-wide art's. See [`cockpit-views.md`](cockpit-views.md#cockpit-canvas) for the y-range question.
 
 ## `dat\COLORS.DAT` — logical colour ids
 
-54-byte payload, 27 `int16` palette indices. HUD data files carry a small logical id, resolved once at load time through this table in place (`arr[i] = table[arr[i]]`). The table lives at `HudColorTable` (`004d3c00`) in `.bss`, read at 16 distinct offsets by ~60 functions; no code materialises that address to write it, so it is filled from the file.
+54-byte payload, 27 `int16` palette indices. HUD data files carry a small logical id, resolved once at load time through this table in place (`arr[i] = table[arr[i]]`). The table lives at `HudColorTable` (`004d3c00`) in `.bss`, read at 16 distinct offsets by ~60 functions. `HudColor_LoadResources` (`00467a60`), a phase-2 subsystem loader, fills it: `Ovl_ReadFile(&HudColorTable, 0x36, 1, "dat\colors")`.
 
 Verified: the heads-down display resolves ids 19, 9, 15, 12 → palette 16, 10, 13, 14 — black, red, yellow, green, matching the retail HDD readouts.
 
@@ -57,9 +57,9 @@ current = span < 1 ? end : start              // sign of span selects fill direc
 
 The filled span is not solid. `LedBarGraph_FillPinstripe` (`00439758`) walks the x range twice — once over even columns, once over odd — drawing a full-height line each step: field `0x2c` paints even columns, `0x30` odd. Two near-identical shades interleaved at one pixel read as a single shaded fill.
 
-Both class variants fill along **x**: `LedBarGraph_CtorBase` takes start/end from the rect's `x0`/`x1` (`param_2[0]`/`param_2[2]`), and the pinstripe walk strides columns.
+`LEDBarGraphH` fills along **x**: `LedBarGraph_CtorBase` takes start/end from the rect's `x0`/`x1` (`param_2[0]`/`param_2[2]`), and the pinstripe walk strides columns. `LEDBarGraphV`'s constructor (`00439834`) goes through `LedBarGraph_CtorV` instead, and its fill, `LedBarGraphV_FillPinstripe` (`00439a0c`), draws full-width lines on alternate rows, `0x2c` on even rows and `0x30` on odd.
 
-`EnergyPoolGauge_Ctor` (`00444d5c`) constructs one over the `.GAU` widget rect at 564 with range `0x400`, writing colour ids 6 and 5 into `0x2c`/`0x30` and id 19 into `0x24`. Those resolve to palette indices 98/97/16 = `(0,116,204)`, `(0,40,160)`, `(0,0,0)` — the blue pinstripe bar retail draws directly under the TRACK button, i.e. the **Master Energy Pool meter**. `Player_PerFrameCockpitUpdate` feeds it the pool scaled to that range — see [../simulation/reactor-energy-pool.md](../simulation/reactor-energy-pool.md#cockpit-readouts). Its only caller is `Gau_EnergyMeterWidget`, and the binary's own class-name table pairs `EnergyPoolGauge` with `LEDBarGraphV` (file offset 280429) and `ShieldsGauge` with `ShieldsSelectGadget` (279148) — the LED bar is the energy meter, and `ShieldsGauge` is a different class entirely.
+`EnergyPoolGauge_Ctor` (`00444d5c`) constructs an `LEDBarGraphH` over the `.GAU` widget rect at 564 with range `0x400`. It builds the bar in a switch on its own `+0x20`, which it sets to 0 just before (`00444e41`-`00444e49`), so it always takes the `LedBarGraph_Ctor` case and skips the `LEDBarGraphV` one (`00444edc`). It writes writing colour ids 6 and 5 into `0x2c`/`0x30` and id 19 into `0x24`. Those resolve to palette indices 98/97/16 = `(0,116,204)`, `(0,40,160)`, `(0,0,0)` — the blue pinstripe bar retail draws directly under the TRACK button, i.e. the **Master Energy Pool meter**. `Player_PerFrameCockpitUpdate` feeds it the pool scaled to that range — see [../simulation/reactor-energy-pool.md](../simulation/reactor-energy-pool.md#cockpit-readouts). Its only caller is `Gau_EnergyMeterWidget`, and the binary's own class-name table pairs `EnergyPoolGauge` with `LEDBarGraphV` (file offset 280429) and `ShieldsGauge` with `ShieldsSelectGadget` (279148) — the LED bar is the energy meter, and `ShieldsGauge` is a different class entirely.
 
 A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`WeaponSliderGadget_Ctor` (`00442950`), range `0x400`) — but with raw palette indices `0x20`/`0x22` and remainder `0x2e`, not `COLORS.DAT` ids. See [Weapon hardpoint rows](#weapon-hardpoint-rows).
 
@@ -410,4 +410,5 @@ Each display runs the toggle from its own update, so a display whose update does
 ## Open
 
 - **Open:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
+- **Open:** whether any cockpit shows the `PanelAmbience` clock: two two-digit labels and a colon label that `PanelAmbience_TickClock` (`00452144`) blinks, advancing the clock on every second call, the second field wrapping at 59 and the whole at 99:59. Its one construction is in `Gau_PanelAmbienceWidget` (`004326a8`), from the `.GAU` block at 1604, for which `es2_xref.py` finds no caller; that block is zero in all nine retail `.GAU` files.
 - **Open:** which mech-object field picks each widget's frame or fill level per frame, for the widgets this doc does not already trace. The `.GAU` holds only geometry.

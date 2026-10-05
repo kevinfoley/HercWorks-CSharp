@@ -169,7 +169,7 @@ public sealed class SimulatorPreferences {
 	}
 
 	/// <summary>
-	/// VSHELL's <c>FUN_0040d7fe</c>, the reverse of <see cref="Commit"/>: every option that differs from
+	/// VSHELL's <c>ShellOptions_RevertAll</c> (<c>0040d7fe</c>), the reverse of <see cref="Commit"/>: every option that differs from
 	/// the shadow takes the shadow's value back, and with <paramref name="apply"/> set its handler runs.
 	/// The preferences screen's <c>Cancel</c> passes it clear.
 	/// </summary>

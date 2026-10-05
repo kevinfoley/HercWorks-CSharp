@@ -376,13 +376,12 @@ public sealed class ShapeAnimation {
 	/// does — true when every <c>(parent, child)</c> pair in its own relation list appears, with the
 	/// same parent, in the reference's.
 	///
-	/// <para><b>Each root of a multi-root shape carries its own <c>ANAnimList</c>, and a node id is
-	/// only meaningful inside the root that declares it.</b> <c>ShapeInst_BuildWorldTransforms</c>
-	/// (<c>00478b58</c>) reads its relation list from <c>shapeInst-&gt;shape-&gt;animList</c>
-	/// (<c>shape+0x2a</c>) — the <i>currently selected</i> root, which
-	/// <c>Shape_DrawAtDetailLevel</c> swaps — so the original poses each root through that root's own
-	/// node tree. Posing one root's geometry with another's transforms lands a part on whatever joint
-	/// happens to share its number.</para>
+	/// <para><b>Each root of a multi-root shape carries its own <c>ANAnimList</c>, and in the file a
+	/// node id is only meaningful inside the root that declares it.</b> The original poses every root
+	/// through root 0's pose array, after renumbering the crude roots onto root 0's nodes at load
+	/// (docs/retail/formats/mech-shape-drawing.md, "The pose array is root 0's" and "The crude roots
+	/// are renumbered at load"). Posing one root's geometry, as loaded, with another's transforms
+	/// lands a part on whatever joint happens to share its number.</para>
 	///
 	/// <para>This is the test a caller needs before drawing one root with another's pose: it is
 	/// satisfied when a root merely drops nodes (a dropped id is never reused), and fails when it

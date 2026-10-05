@@ -8,7 +8,8 @@ Each entry names the doc that owns the subject. **That doc is authoritative** fo
 
 The mechanism is understood; what is left is engine work.
 
-- (Deferred) **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that compact their node numbering — the crudest one to three of each chassis — are excluded, because drawing them puts APOCA's upper body on a knee. The original composes every root through root 0's pose array too, so by the binary it should do the same; retail does not visibly do so, and what reconciles that is not yet found. **Settle that before changing anything here**: it decides whether the truncation is a divergence to lift or retail behaviour to match. → [`docs/retail/formats/mech-shape-drawing.md`](docs/retail/formats/mech-shape-drawing.md#the-pose-array-is-root-0s)
+- **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that compact their node numbering — the crudest one to three of each chassis — are excluded, because drawn as loaded they put APOCA's upper body on a knee. The original renumbers those roots onto root 0's nodes at load, from a part-id list in the chassis `.DAT`; porting that lets every root be drawn. → [`docs/retail/formats/mech-shape-drawing.md`](docs/retail/formats/mech-shape-drawing.md#the-crude-roots-are-renumbered-at-load)
+- **The view behind the preferences panel.** Retail switches to an outside view of the player's machine and turns it steadily while the [F12] panel is up; the engine keeps the cockpit view. → [`docs/retail/simulation/preferences.md`](docs/retail/simulation/preferences.md#preferences-and-controls-dbsimexe)
 
 ## Reverse-engineering still open
 

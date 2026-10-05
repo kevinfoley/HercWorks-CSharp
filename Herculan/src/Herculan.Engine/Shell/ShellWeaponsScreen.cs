@@ -274,7 +274,7 @@ public sealed class ShellWeaponsScreen {
 
 	/// <summary>
 	/// <c>Arming_SelectRow</c> (<c>0043f71c</c>). A row's own handler, through the 27 thunks from
-	/// <c>00440300</c>, is the only caller that passes <paramref name="fit"/> — the thunk's
+	/// <c>Arming_OnRow00</c> (<c>00440300</c>), is the only caller that passes <paramref name="fit"/> — the thunk's
 	/// <c>Arming_FitArmed</c> — so a selection made by the entry, a bay change, a hardpoint or the rack
 	/// button fits nothing.
 	///
@@ -350,14 +350,14 @@ public sealed class ShellWeaponsScreen {
 	}
 
 	/// <summary>
-	/// <c>&gt;</c>'s handler (<c>004402a2</c>), <c>Arming_NextHardpoint</c> (<c>0043dd09</c>): the next mount
+	/// <c>&gt;</c>'s handler (<c>Arming_OnNextHardpoint</c>, <c>004402a2</c>), <c>Arming_NextHardpoint</c> (<c>0043dd09</c>): the next mount
 	/// modulo the capacity, so the first with none selected.
 	/// </summary>
 	public bool NextHardpoint() =>
 		Machine is { MountCapacity: > 0 } machine && SelectHardpoint((SelectedHardpoint + 1) % machine.MountCapacity);
 
 	/// <summary>
-	/// <c>&lt;</c>'s handler (<c>00440244</c>), <c>Arming_PreviousHardpoint</c> (<c>0043dd49</c>): the mount
+	/// <c>&lt;</c>'s handler (<c>Arming_OnPreviousHardpoint</c>, <c>00440244</c>), <c>Arming_PreviousHardpoint</c> (<c>0043dd49</c>): the mount
 	/// before, wrapping from the first — or from none — to the last.
 	/// </summary>
 	public bool PreviousHardpoint() =>

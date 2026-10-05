@@ -91,7 +91,11 @@ public class HercSimDat {
 	/// <summary>Record offset of <see cref="ModelLoDBoneIds"/>.</summary>
 	public static int ModelLodArrOFs { get; set; } = 46;
 
-	/// <summary>Offsets 46-65, twenty bytes. Meaning not established.</summary>
+	/// <summary>
+	/// Offsets 46-65 — signed part ids, ended by a negative one: the parts whose nodes DBSIM uses to
+	/// renumber each crude LOD root onto root 0's nodes at load. See
+	/// docs/retail/formats/mech-shape-drawing.md, "The crude roots are renumbered at load".
+	/// </summary>
 	public byte[] ModelLoDBoneIds { get; set; } = new byte[20];
 
 	/// <summary>

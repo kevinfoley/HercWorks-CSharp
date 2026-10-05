@@ -26,7 +26,7 @@ Two independent sources agree:
 - Raw disassembly of `TSTexture4Poly_Render` (`00422af5`): `MOVZX ESI,word ptr [EBX+0xc]` → `SHL ESI,0x2` → added to `g_ActiveSurfaceRecords` (`DAT_005d88a2`) as a byte offset; front = `*(int32*)(base+offset)`, back = `+8`.
 - The file format itself: a group's on-disk colour count is four times its surface count, one per slot of each surface's four `{int16 value, int16 flag}` slots — front fill, front line, back fill, back line.
 
-Related symbols: `TSGroup_RenderPolys` (`00423497`), `TSBSPGroup_Render` (`00423709`, [below](#tsbspgroup-poly-order-vshell)), `g_ActiveSurfaceRecords` (`005d88a2`).
+Related symbols: `TSGroup_RenderPolys` (`00423497`), `TSBSPGroup_Render` (`00423709`, [below](#tsbspgroup-poly-order)), `g_ActiveSurfaceRecords` (`005d88a2`).
 
 ### Render path and UV generation
 
@@ -160,7 +160,7 @@ The second pass is the rasterizer's **mode 4**, which `Raster_DrawPolygonDispatc
 
 **A two-vertex `TSSolidPoly` is a line, and a one-vertex one a pixel, not a degenerate face.** `Raster_DrawPolygonDispatch` (`00483dac`) draws any ring of fewer than three points the same way whatever the pass: one point through `Gfx_PlotPixel` (`004894e0`), two through `Raster_DrawLine` (`004838f8`), in the colour the pass carries. So the fill pass draws the line or pixel in the fill colour, and the outline pass, when the line colour ramps apart from the fill, draws it again in the line colour: what ends on screen is the line colour when it differs and the fill colour when it does not. The retail files carry 261 line polys and 80 point polys, all two-sided with flag 0 on every entry. `MECHWPNS.DTS` carries 92 of the lines and `SAMSON.DTS` none; a Particle Beam Weapon's four struts between housing and barrel are the visible case (`Reference/PBW_Comparison.png`), in their line colour, palette 198, `#5C5C5C`. The points sit on twelve roots: 34 on `SKIMMER.DTS` root 0, 16 on `PITBULL.DTS` root 0, 10 each in `MECHWPNS.DTS` and `MECHWPN2.DTS`, and the rest on `BASES.DGS` shape 29, `COLOSSUS.DTS`, `MAVERICK.DTS` and `OUTLAW.DTS`.
 
-`DAT_006c60d8`/`DAT_006c60dc` are one **brush** — `{mode, colour}` — and the default one: the fill dispatches on whatever `clipBlock+0x228` points at, which is normally this pair. A caller that installs a brush of its own there instead leaves these writes inert; the beam draw is the one that does, see [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#beamdats-colour-index-is-the-fill-brush-and-only-the-jagged-path-uses-it). `DAT_006c60d4`, the line colour, sits just below it and is not part of the brush.
+`PolyFill_FillBrush` (`006c60d8`)/`DAT_006c60dc` are one **brush** — `{mode, colour}` — and the default one: the fill dispatches on whatever `clipBlock+0x228` points at, which is normally this pair. A caller that installs a brush of its own there instead leaves these writes inert; the beam draw is the one that does, see [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#beamdats-colour-index-is-the-fill-brush-and-only-the-jagged-path-uses-it). `DAT_006c60d4`, the line colour, sits just below it and is not part of the brush.
 
 Across all 55 retail `.DTS`, 11 roots carry a surface whose line colour differs from its fill: `BULLETS.DTS` root 4 (ATC35), five weapon-model roots in `MECHWPNS`/`MECHWPN2`, and 3-edge slivers on two `HYPERION` LODs and one `MIRIMAC` root. ATC35's three quads are gold `#D0CC3C` with no outline, `#ECCCAC` outlined `#E4E4E4`, and `#DCCCA0` outlined `#D8D4D4`.
 
@@ -198,7 +198,7 @@ The surface value names a *material*; the light level picks a step along that ma
 ```
 for each vertex i:
     shades[i] = Light_ComputeShadeForFace(points[normalList[i]], points[vertexList[i]])
-DAT_006c60e4 = shades;  DAT_006c60d8 = 1;      // fill mode 1: interpolate the shade
+DAT_006c60e4 = shades;  PolyFill_FillBrush = 1; // fill mode 1: interpolate the shade
 PolyFill_FillThenOutline(...)
 ```
 
@@ -250,15 +250,17 @@ Before the spans, `Raster_ClipPolygonX` (`004698c4`) and `Raster_ClipPolygonY` (
 
 `Raster_DrawTexturedPolyNear` (`0046865c`) is the **perspective-correct** fill: the nearer terrain cells, and `TSTexture4Poly_Render` when `g_TexturedPolyPerspective` is set. It stores `u/z`, `v/z` and `1/z` per vertex and draws each row in runs of `2^k` pixels, dividing back to u and v at each run's end and stepping linearly inside the run. `k` is 10 when the row's two ends have equal `1/z`, otherwise 4, 5, 6 or 7 as `|Δ(1/z)| >> 12` exceeds 3000, 1000, 300 or none of them. When `g_PerspectiveUseQuadraticFit` (`0049f278`) is set — `Terrain_DrawCellQuad` sets it for a cell whose nearest corner is beyond view depth 25000 — the row's start and its last partial run's end are taken from a quadratic fit that `Raster_BuildEdgeTables` makes through each edge's ends and middle, instead of a divide. Every mode draws with `Raster_SpanTexturedShaded`: mode 1's single ramp row applies, and mode 2's per-vertex row is interpolated down the edges but no span reads it.
 
-VSHELL has the same pair: `TSTexture4Poly_RasterizeA` (`004202dd`) is the screen-linear fill (DBSIM's `Raster_SetupTexturedSpan` and `Raster_DrawPolygon` as one function) and `TSTexture4Poly_RasterizeB` (`00420900`) the perspective-correct one, chosen by `g_TexturedPolyPerspective` (`00471898`). RasterizeB's run thresholds are the globals `DAT_00471980`, `DAT_00471984` and `DAT_00471988`; its `g_PerspectiveUseQuadraticFit` (`0047188c`) is set per cell by `hgrid.cpp`'s cell callback (`00429dac`).
+VSHELL has the same pair: `TSTexture4Poly_RasterizeA` (`004202dd`) is the screen-linear fill (DBSIM's `Raster_SetupTexturedSpan` and `Raster_DrawPolygon` as one function) and `TSTexture4Poly_RasterizeB` (`00420900`) the perspective-correct one, chosen by `g_TexturedPolyPerspective` (`00471898`). RasterizeB's run thresholds are the globals `DAT_00471980`, `DAT_00471984` and `DAT_00471988`; its `g_PerspectiveUseQuadraticFit` (`0047188c`) is set per cell by `hgrid.cpp`'s cell callback (`Terrain_DrawCellRowRun`, `00429dac`).
 
 ### The depth buffer
 
-When `maybe_g_DepthBufferEnabled` (`0049f270`) is non-zero, `Raster_SetupTexturedSpan` stores each vertex's view depth, and for each row `Raster_DrawPolygon` (and `Raster_DrawTexturedPolyNear`) runs `Raster_DepthTestSpan` (`0048b748`) before drawing. It walks the row's dwords in the buffer at `DAT_006c6014`, comparing each against the interpolated depth with `(row + DAT_004a5b04)` in its top byte; where the stored dword is greater it writes the new value, and the pixels that pass form the row's visible runs. Those runs are drawn through the clipped span routines when `ActiveScanlineClipSpans` is set; otherwise the whole span is drawn. The same flag makes the `TSBSPPart` walk draw the viewer's side of each plane first ([below](#tsbsppart-child-selection)) and the terrain cell walk run near to far ([`../polygon-fill.md`](../polygon-fill.md#walking-a-polygons-cells)). It is 0 in the image; what writes it is [Open](../polygon-fill.md#open).
+When `maybe_g_DepthBufferEnabled` (`0049f270`) is non-zero, `Raster_SetupTexturedSpan` stores each vertex's view depth, and for each row `Raster_DrawPolygon` (and `Raster_DrawTexturedPolyNear`) runs `Raster_DepthTestSpan` (`0048b748`) before drawing. It walks the row's dwords in the buffer at `g_DepthBuffer` (`006c6014`), comparing each against the interpolated depth with `(row + g_DepthBufferFrameTag)` (`004a5b04`) in its top byte; where the stored dword is greater it writes the new value, and the pixels that pass form the row's visible runs. Those runs are drawn through the clipped span routines when `ActiveScanlineClipSpans` is set; otherwise the whole span is drawn. The same flag makes the `TSBSPPart` walk draw the viewer's side of each plane first ([below](#tsbsppart-child-selection)) and the terrain cell walk run near to far ([`../polygon-fill.md`](../polygon-fill.md#walking-a-polygons-cells)). It is 0 in the image; what writes it is [Open](../polygon-fill.md#open).
+
+`DepthBuffer_Alloc` (`0048b960`) allocates the buffer as width × height zeroed dwords and records the two sizes. `DepthBuffer_ClearWrappedRows` (`0048b7f0`) sets to `0xffffffff` every row whose `(row + g_DepthBufferFrameTag) & 0xff` is 0 and then decrements the tag, so with one clear per frame each row's tag byte falls by one a frame and a row is reset once every 256 frames rather than every frame. Whether anything calls them is [Open](#open).
 
 ### The projection, clip and fill chain (DBSIM)
 
-A flat poly is drawn in three steps: project the face's vertices to screen points, clip the ring against the near plane if a vertex fell behind it, and fill the result. The face arrives in globals: `DAT_006c6968` the vertex count, `DAT_006c696a` the offset into the vertex-index list `DAT_006c6976`, and the per-point state byte `DAT_006c697e` (0 untouched, 1 behind the near plane, 2 projected) that memoises a vertex shared between faces. The screen points come out in `DAT_006cbb86`, count `DAT_006cbc86`.
+A flat poly is drawn in three steps: project the face's vertices to screen points, clip the ring against the near plane if a vertex fell behind it, and fill the result. The face arrives in globals: `DAT_006c6968` the vertex count, `DAT_006c696a` the offset into the vertex-index list `DAT_006c6976`, and the per-point state byte `DAT_006c697e` (0 untouched, 1 behind the near plane, 2 projected) that memoises a vertex shared between faces. The screen points come out in `Poly_ScreenPoints` (`006cbb86`), count `DAT_006cbc86`.
 
 | Function | Does |
 |---|---|
@@ -368,9 +370,9 @@ Retail data has unreached children. Of the 586 `TSBSPPart`s across the retail `.
 
 `part+0x1c` is a parallel `int16` per **node**, not per child: the transform whose world matrix the splitting plane is brought into. `Shape_StampTransformId` (`00417530`) stamps a single transform id across all of them when a weapon model is attached to a machine.
 
-### `TSBSPGroup` poly order (VSHELL)
+### `TSBSPGroup` poly order
 
-A `TSBSPGroup` is a `TSGroup` with a BSP tree over its own polys. VSHELL's `TSBSPGroup_Render` (`00423709`) sets up as a plain group's render does, then draws through `TSBSPGroup_RenderNode` (`0042362c`) from node 0 instead of walking the polys in order. In the file a node is four `int16`s — plane constant, poly, front, back — and VSHELL walks them as 10-byte records at `group+0x2a` whose constant is an `int32`. The splitting plane is the node poly's own stored normal:
+A `TSBSPGroup` is a `TSGroup` with a BSP tree over its own polys. VSHELL's `TSBSPGroup_Render` (`00423709`) sets up as a plain group's render does, then draws through `TSBSPGroup_RenderNode` (`0042362c`) from node 0 instead of walking the polys in order. DBSIM's `TSBSPGroup_Render` (`00475af8`) does the same through its own copy of the walk, `TSBSPGroup_RenderNode` (`00475a20`). In the file a node is four `int16`s — plane constant, poly, front, back — and VSHELL walks them as 10-byte records at `group+0x2a` whose constant is an `int32`. The splitting plane is the node poly's own stored normal:
 
 ```
 d = dot(polys[node.poly].normal, eyeInModelSpace) - node.constant
@@ -381,7 +383,7 @@ draw first; draw polys[node.poly]; draw second
     otherwise           recurse into node `child`
 ```
 
-So each node's poly is drawn between the two half-spaces it splits, far side first. How DBSIM draws the type is [Open](#open).
+So each node's poly is drawn between the two half-spaces it splits, far side first, and a poly no node reaches is not drawn. None of the 57 retail `.DTS` and `.DGS` files contains a `TSBSPGroup`.
 
 ## `TSDetailPart` level selection and STRUCTURE DETAIL
 
@@ -456,9 +458,11 @@ Tracked in `KNOWN_ISSUES.md`.
 
 ## Open
 
-- **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `0047689c` has no reference `es2_xref.py` finds, which does not settle it. The image holds 1024.
-- **Open:** how DBSIM draws a `TSBSPGroup`. Its `TSGroup_RenderPolys` (`004758c8`) walks a plain group's polys in order.
+- **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `TSDetailPart_SetSizeScale` (`0047689c`) has no reference `es2_xref.py` finds, which does not settle it, nor does it find one to VSHELL's copy (`TSDetailPart_SetSizeScale`, VSHELL `004221cd`). The image holds 1024.
+- **Unported:** [the `TSBSPGroup` poly order](#tsbspgroup-poly-order), which no retail shape exercises.
+- **Open:** whether anything allocates or clears the depth buffer: `es2_xref.py` finds no caller of `DepthBuffer_Alloc` (`0048b960`), `DepthBuffer_ClearWrappedRows` (`0048b7f0`) or `DepthBuffer_ClearWrappedRowSpans` (`0048b83b`), nor of VSHELL's copies (`DepthBuffer_Alloc`, VSHELL `0045d3f4`; the clears and fills at `0045bab0`-`0045bb9d`).
 - **Open:** why retail grades the type-15 octagon's back facet; see [Type-15 band widths](#type-15-band-widths).
 - **Open:** what DBSIM draws for a back-facing three-vertex texture poly, where the back-face corner swap touches the unused slot 3.
-- **Open:** the function that populates VSHELL's `g_ActiveBitmapArray[1]` descriptor table, which decides whether `F0/F1` (frame UV top-left) can be nonzero there. DBSIM's builder is [`BitmapArray_PackToAtlas`](#the-frame-descriptor-table-and-the-span-routines-dbsim), which places frames as atlas sub-rectangles.
+- **Open:** the function that populates VSHELL's `g_ActiveBitmapArray[1]` descriptor table, which decides whether `F0/F1` (frame UV top-left) can be nonzero there. DBSIM's builder is [`BitmapArray_PackToAtlas`](#the-frame-descriptor-table-and-the-span-routines-dbsim), which places frames as atlas sub-rectangles. VSHELL's copy of it (`0045d270`) builds the table `hgrid.cpp` reads at `0048a310`, not that one.
+- **Open:** what sets up VSHELL's shade ramps for its textured spans. `es2_xref.py --binary VSHELL` finds the ramp-table base `0047e890` written only in `ShadeRamp_Allocate` (`0045d5c8`), and the ramp dimensions and reciprocal table (`00485780`, `00485784`, `00485788`) only in `Raster_SetShadeRampDimensions` (`00420234`), and it finds no caller of either, while the shaded and Gouraud spans and `Raster_BuildEdgeTables` read them.
 - **Open:** what writes `g_TexturedPolyPerspective` (`0049f274`), and so whether a retail shape is ever textured perspective-correct. `es2_xref.py` finds only the one read in `TSTexture4Poly_Render`.

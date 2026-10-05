@@ -295,7 +295,7 @@ public sealed class SimWorld {
 	private readonly List<MissionActionState> _actions = new();
 
 	/// <summary>
-	/// <c>DAT_004a9ebc</c>, count <c>DAT_004a9eb8</c> — the mission's block-6 timers. See
+	/// <c>ActionTimer_Array</c> (<c>004a9ebc</c>), count <c>ActionTimer_Count</c> (<c>004a9eb8</c>) — the mission's block-6 timers. See
 	/// <see cref="MissionActionTimerState"/>.
 	/// </summary>
 	public IReadOnlyList<MissionActionTimerState> ActionTimers => _actionTimers;

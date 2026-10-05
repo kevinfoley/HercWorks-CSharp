@@ -6,7 +6,7 @@ The picture inside the mission tab's `Mission Map` panel in the briefing view ([
 
 `ShellMap_Build` (`0040e1a7`) destroys the map there is and constructs a new one of `0x3c5` bytes over the canvas rect `{0x123, 0x43, 0x249, 0x124}`, then builds its relief. It runs from `Game_LoadSlot` and from the two paths that load a mission, `Career_LoadCurrentMission` (`0044d4cc`) and `Msn_BuildPath` (`0044d5bd`), so a map belongs to one loaded mission and lasts until the next.
 
-`ShellMap_Constructor` (`00423f43`) is built on its base class `Map` (vtable `0047195e`, by its RTTI name), whose constructor `Map_Ctor` (`0041fdc8`) keeps the rect's width and height at `+0x46`/`+0x4a` (right minus left, bottom minus top: 294 and 225), its own drawing context at `+4` whose centre is the rect's left less `-width >> 1` and top less `-height >> 1`, half the size rounded up — canvas (438, 180) — and a 3Space camera at `+0xc` with focal shift 7 and no rotation. The camera's position is `+0x12`/`+0x16`, its altitude `+0x1a`.
+`ShellMap_Constructor` (`00423f43`) is built on its base class `Map` (vtable `0047195e`, by its RTTI name), whose constructor `Map_Ctor` (`0041fdc8`) keeps the rect's width and height at `+0x46`/`+0x4a` (right minus left, bottom minus top: 294 and 225), its own drawing context at `+4` whose centre is the rect's left less `-width >> 1` and top less `-height >> 1`, half the size rounded up — canvas (438, 180) — and a 3Space camera at `+0xc` with focal shift 7, oriented by the triple `Map_CameraOrientation` (`0047189c`), which `Map_StaticInit` (`004201e5`) sets to `{0xc000, 0, 0}`. The camera's position is `+0x12`/`+0x16`, its altitude `+0x1a`.
 
 The vtable at `004721b0`:
 
@@ -57,7 +57,7 @@ x = centreX + ((worldX - cameraX) << 7) / altitude
 y = centreY - ((worldY - cameraY) << 7) / altitude
 ```
 
-in integer arithmetic truncating toward zero — the 3Space camera's `(view << 7) / depth` with no rotation over points whose height is 0. It is verified pixel for pixel against [`Reference/Managment_Mission_Briefing.png`](../../../../Reference/Managment_Mission_Briefing.png): every base and squad icon pixel, every grid line and the bounds outline land where retail's do.
+in integer arithmetic truncating toward zero — the 3Space camera's `(view << 7) / depth` over points whose height is 0. It is verified pixel for pixel against [`Reference/Managment_Mission_Briefing.png`](../../../../Reference/Managment_Mission_Briefing.png): every base and squad icon pixel, every grid line and the bounds outline land where retail's do.
 
 Three camera positions are derived at construction:
 
@@ -113,7 +113,7 @@ A height becomes a colour as `min(height, 0x7f) / 5 + 0xd1` — the divisor is `
 | Pass | Function | Draws |
 |---|---|---|
 | 1 | `ShellMap_Clear` (`0042551f`) | the viewport in `0x10` |
-| 2 | `ShellMap_PaintRelief` (`004255b7`) | the relief, stretched so its corners land on the bounds widened by 100000 — the texture-mapped quad of `GLBitmap_DrawStretched` (`0045330c`) |
+| 2 | `ShellMap_PaintRelief` (`004255b7`) | the relief, stretched so its corners land on the bounds widened by 100000 — the texture-mapped quad of `GLBitmap_DrawStretched` (`0045330c`). With no relief bitmap (`+0x3c1` 0) it draws the zone's height grid in 3D instead, through `Terrain_SetupVisibleRegion` and `HGrid_RenderAround` with `g_ShadeMode` 2; `ShellMap_Build` builds the relief straight after constructing the map, so a paint finds it set |
 | 3 | `ShellMap_PaintGrid` (`004258f6`) | the grid in `0x0f`, then — outside the intro's first paint — the bounds outlined in colour 10 |
 | 4 | `ShellMap_PaintPath` (`0042670d`) | the nav path in `0x0e` |
 | 5 | `ShellMap_PaintBases` (`0042698d`) | the bases |

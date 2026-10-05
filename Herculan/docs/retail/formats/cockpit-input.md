@@ -134,7 +134,7 @@ Widget state byte (`+0x1b`):
 | 2 | Excluded from hit-testing by `Widget_HitTestChildren`, whatever the class does about drawing |
 | 3 | A fourth state, still hit-testable. The alert family's `PanelButton` rests a preferences or controls option row in it, and `SystemGadget_Ctor` leaves both system buttons in it |
 
-`Widget_NotifySelfAndChildren` (`00452a48`) walks that same list — vtable slot 0 on the owner, then on each registered child — but nothing reaches it: its one caller (`00452bac`) has no rel32 branch, no stored pointer and no vtable slot anywhere in the image. The cascades the cockpit actually runs are per class (§7).
+`Widget_NotifySelfAndChildren` (`00452a48`) walks that same list — vtable slot 0 on the owner, then on each registered child. Its one caller, `Widget_NotifySelfAndChildren_Thunk` (`00452bac`), has no rel32 branch, stored pointer or vtable slot `es2_xref.py` finds ([Open](#open)). The cascades the cockpit actually runs are per class (§7).
 
 **What state 2 does to drawing is per class.** The cockpit widget classes traced here refuse to paint in it, which is how an off-screen panel's buttons stay invisible. `PanelButton_Paint` (`00454ff8`) has no state test at all — it indexes a four-entry plate-frame table at `+0x30` and a four-entry caption-font table at `+0x40` with the state — so a state-2 panel button draws its third frame in `INACTIVE`, which is what a greyed controls row looks like ([`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block)).
 
@@ -149,7 +149,7 @@ Widget state byte (`+0x1b`):
 
 **The point it is given is in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` subtract the root widget's own rect origin from the event position first, and that origin is moved by the view-change delta on every view change, so the same widget rect answers a different part of the screen in each view — see §10, where it is the whole of how one edge strip serves two opposite edges. The two also add `DAT_004d25da`/`de` under a flag, but that path is dead: [`cockpit-views.md`](cockpit-views.md#video-modes) shows the mode byte that would write those globals can never be set, so the term is always zero.
 
-**Nothing in DBSIM ever selects the second form.** `Widget_CtorRect` (`00452478`) writes `+0x10 = 0`, and all sixteen leaf-widget constructors run it; the only other widget-rect setter in the image (`CTLWindow_Ctor`, `004526c4`, which `Gau_BuildCockpitWidgets` and `AlertPanel_CtorBase` use) writes 0 too. Nothing writes that byte again, so the circular branch is library code the game does not reach.
+**The cockpit's widgets all take the first form.** `Widget_CtorRect` (`00452478`) writes `+0x10 = 0`, and all sixteen leaf-widget constructors run it; `CTLWindow_Ctor` (`004526c4`, which `Gau_BuildCockpitWidgets` and `AlertPanel_CtorBase` use) writes 0 too. The setter of the second form is `Widget_SetHitShape` (`0045234c`): given 1, it writes the byte, a radius of half the rect's width and a centre of the rect's top-left plus that radius on both axes. `es2_xref.py` finds no caller of it ([Open](#open)).
 
 ## 7. Press, release, click vs. drag
 
@@ -452,7 +452,7 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 | `Widget_Repaint` | `00452a90` | Calls a widget's own Paint slot |
 | `Widget_RegisterClickable` | `00452c44` | Appends to the flat clickable list |
 | `Widget_Show` / `Widget_Hide` | `00452c64` / `00452c8c` | Set a child's state to 0 / 2 — library helpers with no call site, no vtable slot and no stored pointer; every hide in the image is a direct store to `+0x1b` |
-| `Widget_NotifySelfAndChildren` | `00452a48` | Calls vtable slot 0 on self then every clickable child; unreachable — its only caller (`00452bac`) has none of its own |
+| `Widget_NotifySelfAndChildren` | `00452a48` | Calls vtable slot 0 on self then every clickable child; its one caller, `Widget_NotifySelfAndChildren_Thunk` (`00452bac`), has none `es2_xref.py` finds |
 | `Widget_CtorRect` | `00452478` | Base widget constructor: copies the rect and clears the hit-shape byte |
 | `Widget_DrawToCockpit` | `0043122c` | Stage 1 of the deferred paint: copies a widget's rect to the other display page, on the `-b` paged path only |
 | `Cursor_SyncPosition` | `00486d70` | Stores the pointer position |
@@ -509,5 +509,6 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 - **Open:** whether a button that `MfdDisplay_SetMode` leaves unhidden ([The press flash](#the-press-flash)) shows on the new screen in retail, or something else hides it before the next screen change.
 - **Open:** whether the system buttons show and take clicks in the external view. `SystemButtons_PaintForPointer` runs at the end of every `Sim_RenderFrame` and `CockpitMouse_ProcessQueue` from every `Input_BuildPlayerDevice`, neither gated on view 4, but where view 4's canvas context puts a blit has not been traced.
 - **Open:** whether anything draws the `.DCI` cursor slots (§9). A search for the displacements `+0x226`, `+0x236` and `+0x23a` finds only the cursor-slot functions and `ColorSchemePanels_LoadAll`, and the image-change hooks they call are empty in driver 3.
+- **Open:** whether anything reaches `Widget_SetHitShape` (`0045234c`), the circular hit form's setter (§6), or `Widget_NotifySelfAndChildren_Thunk` (`00452bac`); `es2_xref.py` finds no caller of either.
 - **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).
 

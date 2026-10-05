@@ -42,6 +42,7 @@ Groups referenced by decoded code:
 | 3 | 1 | `" POD"` — appended to a pod row's name, giving `" SHIELD POD"` |
 | 4 | 4 | Console button captions: `I`, `LINK`, `TRACK`, `` (entry 0 unused — the chain button's numerals come from a separate `.rdata` table, `ChainCountCaptions` at `0049c71c`) |
 | 5 | 13 | MFD captions: `STATUS`, `FLASH COMM`, `NAV MAP`, `SCANNER`, `TARGET`, `MISSILE CAM`, `MODE`, `SELECT`, `RANGE`, `TARGET`, `XMIT`, `PASS`, `ACTIVE`. Entries 0-5 are the screen titles, 6-12 the aux button captions. |
+| 7 | 3 | `RED 1`-`RED 3` — `SquadCallsignStrings` (`004d1424`), which `Squad_CallsignOf` (`00431690`) returns for the squadmate whose machine it is given, by slot in `g_SquadmateMachines`; `es2_xref.py` finds no caller of it |
 | 8 | 1 | `HQ` — the name the pilot and squad channel signs a speakerless line with ([`cockpit-messages.md`](cockpit-messages.md#its-speakerless-set)) |
 | 9 | 3 | `XMIT`, `CANCEL`, `EXIT` — the Heads-Down Display's transmit buttons |
 | 10 | 5 | `OK`, `INT DMG`, `SHLD DWN`, `CRITICAL`, `WASTED` — not the condition table, which is group 28; no reader of `DAT_004d1440` other than `SimStrings_LoadAll` has been found ([`mfd.md`](mfd.md#open)). |

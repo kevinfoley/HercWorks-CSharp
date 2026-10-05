@@ -115,7 +115,7 @@ Unlike the computer's, **the variant roll is live here**: ids `0x02`, `0x1e` and
 
 ### Its speakerless set
 
-A post whose `+0x02` subject is null is not a squadmate's. The port's post (`PilotMessagePort_Post`, `00435c48`, vtable slot 0) resolves such an id in a table of its own at `004d0971` instead of a slot's, rolling variants against `004d04c8` the same way. `Gau_BuildCockpitWidgets` fills that table right after building the port, from `str\COMMAND<n>.STR` — `SystemMessages_Index` mode 1, the literal `commandX` with the [training mission number](script-dat.md#the-training-mission-number) as the digit. The one poster is `Action_Activate` (`00423430`), a mission action's line ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-four-ways-an-action-activates)).
+A post whose `+0x02` subject is null is not a squadmate's. The port's post (`PilotMessagePort_Post`, `00435c48`, vtable slot 0) resolves such an id in a table of its own at `004d0971` instead of a slot's, rolling variants against `CommandStringTable` (`004d04c8`) the same way. `Gau_BuildCockpitWidgets` fills that table right after building the port, from `str\COMMAND<n>.STR` — `SystemMessages_Index` mode 1, the literal `commandX` with the [training mission number](script-dat.md#the-training-mission-number) as the digit. The one poster is `Action_Activate` (`00423430`), a mission action's line ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-four-ways-an-action-activates)).
 
 An ordinary mission speaks from `COMMAND0.STR`: three lines, one group, a pilot bank's shape with an eighth attribute byte.
 

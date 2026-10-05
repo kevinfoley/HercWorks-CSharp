@@ -106,6 +106,9 @@ public sealed class WeaponMount {
 	private readonly GunLayout.HardpointEntry _hardpoint;
 	private short _refireTimer;
 
+	/// <summary>The weapon's <c>WEAPONS.DAT</c> template, mount <c>+0x1c</c>; null with no catalog.</summary>
+	internal Weapons.WeaponMountTemplate? Template => _template;
+
 	/// <summary>
 	/// The part id of the hardpoint attachment slot this mount's shape is spliced into — see
 	/// <see cref="Render.DtsMeshBuilder.AttachmentPartIds"/>.
@@ -1658,7 +1661,7 @@ public sealed class WeaponMount {
 	/// <see cref="MuzzleOffset"/>: putting the model at the muzzle stands it a barrel's length
 	/// clear of the chassis.</para>
 	/// </summary>
-	private Vec3i MountPointOffset {
+	internal Vec3i MountPointOffset {
 		get {
 			int lateral = 0;
 			int vertical = 0;

@@ -161,7 +161,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		}
 
 		// Ids 0-9 only: 0-8 are the nine named components and 9 is the machine's overall condition.
-		// Ids 10-12 are not in the file at all, so stopping short of them is the format, not a gap.
+		// Ids 10-21 are not in the file at all, so stopping short of them is the format, not a gap.
 		// See HercInternals.
 		herc.InternalConditions = new Dictionary<HercInternals, ShellHercPart>();
 		foreach (var internalPart in HercInternals.Values()) {

@@ -13,7 +13,7 @@ namespace Herculan.Engine.Sim;
 /// branch, and the one weapon class that fired nothing at all until now.
 ///
 /// <para>Mechanically it is a <see cref="Projectile"/> with a different engine in it. Both are
-/// allocated out of the same effect pool (<c>DAT_004a9746</c>) that <c>Sim_MainTick</c> walks ahead
+/// allocated out of the same effect pool (<c>g_ProjectilePool</c> (<c>004a9746</c>)) that <c>Sim_MainTick</c> walks ahead
 /// of the machine list, both carry a euler triple plus a transform whose translation is the
 /// position, and both sweep the segment they are about to cross rather than testing a point. What is
 /// different is everything about how they move:</para>

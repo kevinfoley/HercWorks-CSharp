@@ -571,14 +571,14 @@ public sealed class SimWorld {
 	public IReadOnlyList<WeaponShot> Beams => _beams;
 
 	/// <summary>
-	/// The live beam tracers — the original's <c>DAT_004a9746</c> pool. Unlike <see cref="Beams"/>
+	/// The live beam tracers — the original's <c>g_ProjectilePool</c> (<c>004a9746</c>) pool. Unlike <see cref="Beams"/>
 	/// these outlive the tick that made them (by exactly one tick, see
 	/// <see cref="BeamTracer.InitialLife"/>) and are what a renderer draws.
 	/// </summary>
 	public IReadOnlyList<BeamTracer> Tracers => _tracers;
 
 	/// <summary>
-	/// The travelling shots in flight — the same <c>DAT_004a9746</c> pool <see cref="Tracers"/> comes
+	/// The travelling shots in flight — the same <c>g_ProjectilePool</c> (<c>004a9746</c>) pool <see cref="Tracers"/> comes
 	/// from. Unlike a tracer these live for as long as their <c>BULLETS.DAT</c> lifetime or until
 	/// they hit something, and they move and do damage while they do.
 	/// </summary>

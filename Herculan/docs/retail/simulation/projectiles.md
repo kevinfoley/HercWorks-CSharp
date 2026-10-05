@@ -4,7 +4,7 @@ Addresses are DBSIM virtual addresses.
 
 The other half of the fire dispatch. A `Beam` record carries `Speed == 0` and is over inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a real object that crosses the ground over several ticks. Every autocannon, every EMP cannon and the plasma cannon fire one. Launcher rounds are a third family with their own table and their own tick — see [`rockets.md`](rockets.md).
 
-Like a tracer, a bullet lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` walks **before** the machine list, not in the object list the raycast sweeps. It cannot be shot at, and a round that leaves the barrel this tick does not move until the next.
+Like a tracer, a bullet lives in the effect pool (`g_ProjectilePool`, `004a9746`) that `Sim_MainTick` walks **before** the machine list, not in the object list the raycast sweeps. It cannot be shot at, and a round that leaves the barrel this tick does not move until the next.
 
 ## `dat\BULLETS.DAT`
 

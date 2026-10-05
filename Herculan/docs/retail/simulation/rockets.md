@@ -4,7 +4,7 @@ Addresses are DBSIM virtual addresses.
 
 The third and last fire branch. A `Beam` record resolves inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a travelling shot ([`projectiles.md`](projectiles.md)); a `Rocket` record becomes one of these. Every missile launcher — `MSL6`, `MSL8`, `MSL10`, `FLYMSL`, `BMSL` — fires one.
 
-Like a bullet it lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` walks **before** the machine list, cannot be shot at, and does not move on the tick that spawned it ([`projectiles.md`](projectiles.md)).
+Like a bullet it lives in the effect pool (`g_ProjectilePool`, `004a9746`) that `Sim_MainTick` walks **before** the machine list, cannot be shot at, and does not move on the tick that spawned it ([`projectiles.md`](projectiles.md)).
 
 The round's type table, indexed by the firing `PROJ.DAT` record's subtype id, and its shapes are in [`../formats/rockets-dat.md`](../formats/rockets-dat.md). The `record[+0x..]` offsets below are that table's.
 

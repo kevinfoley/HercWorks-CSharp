@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -107,8 +108,10 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// <c>Mech_ConfigureLoadout</c> (<c>004175dc</c>), in its own order: build the weapon mounts from
-	/// the chassis' hardpoint list, file the pods out of the finished mount list, size the shield
-	/// array and fill it, then work out the reactor rate.
+	/// the chassis' hardpoint list, give each fitted weapon its own hit spheres and damage record
+	/// (<see cref="FitWeaponsToModels"/>), clear the occupancy of every component left with no
+	/// internal, file the pods out of the finished mount list, size the shield array and fill it, then
+	/// work out the reactor rate.
 	///
 	/// <para><b>Every damage term is sampled from the machine's own condition, here and now.</b> The
 	/// original takes no arguments for them either — it reads the shield generator's dependent and
@@ -123,6 +126,8 @@ public sealed partial class MechObject {
 	/// </summary>
 	public void ConfigureLoadout() {
 		Weapons = WeaponMounts.Build(_hardpoints, Loadout, _weapons, _weaponModelCellCount);
+		FitWeaponsToModels();
+		_damage?.ClearUnoccupied();
 		Pods = MechPods.FromLoadout(Weapons);
 
 		short generator = (short)(_damage?.DependentPercent(ShieldGeneratorDependent) ?? 0);
@@ -135,6 +140,32 @@ public sealed partial class MechObject {
 		ReactorOutputRate = ReactorRate(Pods.EnergyPod,
 			MechPods.DamageOf(Pods.EnergyPodMount, _damage), Reactor);
 		EnergyPool = EnergyPoolMax;
+	}
+
+	/// <summary>
+	/// <c>Mech_ConfigureLoadout</c>'s per-mount step. Every retail <c>.COL</c> names the mount
+	/// components with no spheres and every <c>.DMG</c> gives them a placeholder piece, so a weapon is
+	/// only shootable, and only has armour, because it brings both: its template's sphere set goes
+	/// into the mount's cluster about the weapon's mount point (<see cref="CollisionModel.ReplaceCluster"/>,
+	/// moved by <c>WeaponMount_MuzzleOffset</c>, which is <see cref="WeaponMount.MountPointOffset"/>),
+	/// and its template's piece and internal maximum into the damage record
+	/// (<see cref="ComponentDamage.FitWeapon"/>). The component anchors are taken afterwards, as
+	/// <c>Collision_CollectComponentAnchors</c> is, so a mount's stands at its weapon's spheres.
+	/// See docs/retail/formats/collision-spheres.md#a-fitted-weapon-brings-its-own-spheres.
+	/// </summary>
+	private void FitWeaponsToModels() {
+		foreach (var mount in Weapons.Mounts) {
+			if (mount.Template is not { } template) {
+				continue;
+			}
+
+			short component = (short)(WeaponMounts.FirstMountComponent + mount.LoadoutSlot);
+			_collision = CollisionModel.ReplaceCluster(_collision, component,
+				template.Cluster.Spheres ?? Array.Empty<ColliderSphere>(), mount.MountPointOffset);
+			_damage?.FitWeapon(component, template.Piece, mount.LoadoutSlot, template.InternalMaximum);
+		}
+
+		_componentAnchors = null;
 	}
 
 	/// <summary>

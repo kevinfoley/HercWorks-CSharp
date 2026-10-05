@@ -8,7 +8,7 @@ What a fired beam looks like. The firing side — trigger, dispatch, shot record
 
 1. `Sound_PlayAt(0x0b, muzzlePoint)` — catalog id `0x0b` is `laser1.wav`, placed by distance and bearing. See [`../formats/audio.md`](../formats/audio.md).
 2. The far end is rebuilt from the shot's own frame as `transform(0, travelled, 0)`, where `travelled` is the raycast's distance or the weapon's full range when it struck nothing.
-3. One tracer object per **5000-unit** span, allocated from the pool at `DAT_004a9746`, plus a final one for the remainder. The loop advances the shot transform's translation by a 5000-unit step each iteration and writes it back, so each tracer spans start→start+step.
+3. One tracer object per **5000-unit** span, allocated from the pool at `g_ProjectilePool` (`004a9746`), plus a final one for the remainder. The loop advances the shot transform's translation by a 5000-unit step each iteration and writes it back, so each tracer spans start→start+step.
 4. Subtype ids **1 and 7** (ELF, ELF2) skip the span loop entirely and spawn one object of a different shape — see [ELF](#elf-and-elf2--the-jagged-branch).
 
 The `local_20` values written before each allocation (`0x14`, `0x2c`, `0x20`, `0x44`) are Watcom exception-frame state, not data.

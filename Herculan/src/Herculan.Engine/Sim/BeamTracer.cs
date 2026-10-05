@@ -9,7 +9,7 @@ namespace Herculan.Engine.Sim;
 /// (<c>0040bc14</c>).
 ///
 /// <para>It is not a <see cref="SimObject"/> in the original either: tracers live in their own pool
-/// (<c>DAT_004a9746</c>), which <c>Sim_MainTick</c> walks <b>before</b> the machine list — ticking
+/// (<c>g_ProjectilePool</c> (<c>004a9746</c>)), which <c>Sim_MainTick</c> walks <b>before</b> the machine list — ticking
 /// each one through vtable <c>+0x14</c> and freeing it the moment its countdown reaches zero — and
 /// which the frame submit walks separately. Nothing raycasts against them and they carry no damage;
 /// the shot they came from was resolved and finished before the first one was allocated.</para>

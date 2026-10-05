@@ -101,13 +101,13 @@ Only cells inside the region polygon are visited, and the viewer's own cell is l
 | Pool | Submitted | Filed under |
 |---|---|---|
 | `g_FlatObjPool`, ground shapes | within 30000 of the view | `Scene_SubmitObject` (`004282d8`): the cell `HeightGrid_PickDrawCell` picks from the position and the shape radius |
-| `DAT_004a9624`, structures | all | `Scene_SubmitObjectWithRadius` (`0042837c`): the pick by the body radius (vtable `+0x5c`) |
+| `g_StructurePool` (`004a9624`), structures | all | `Scene_SubmitObjectWithRadius` (`0042837c`): the pick by the body radius (vtable `+0x5c`) |
 | `GlobalMechList`, machines | all | the cached cell of the structure at `mech+0x2b0`, through `Scene_SubmitObjectAtCell` (`004283b4`), when one is recorded ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#the-structure-a-machine-stands-in)); the pick by the body radius otherwise |
 | `DAT_004a9e3d`, flyers | all | the pick by the body radius, which is 0 |
-| `DAT_004a9746`, bullets, launcher rounds and beam tracers | all | `Scene_SubmitObject`; a tracer has no shape, so radius 0, and a straight beam is one tracer per 5000-unit span ([`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#chain)) |
+| `g_ProjectilePool` (`004a9746`), bullets, launcher rounds and beam tracers | all | `Scene_SubmitObject`; a tracer has no shape, so radius 0, and a straight beam is one tracer per 5000-unit span ([`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#chain)) |
 | `g_ExplosionPool`, impact effects | unless `Explosion_IsHiddenFromOwnerCockpit` | the owner's cached cell (`Explosion_GetOwnerDrawCell`, `00408228`) when it has an owner, `Scene_SubmitObject` otherwise ([`../simulation/impact-effects.md`](../simulation/impact-effects.md#drawing)) |
 | `g_DebrisPool`, debris | all | `Scene_SubmitObject` |
-| `DAT_004a96f2`, smoke balls | all | `Scene_SubmitObject` |
+| `g_SmokeBallPool` (`004a96f2`), smoke balls | all | `Scene_SubmitObject` |
 | `g_FirePool`, fires | all | the cached cell of the object at `fire+0x4a` (`Fire_GetOwnerDrawCell`, `0046b74c`), which a fire always has |
 | `g_MeteorPool`, drop pods | all | `Scene_SubmitObject` |
 

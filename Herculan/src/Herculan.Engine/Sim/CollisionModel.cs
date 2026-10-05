@@ -105,6 +105,43 @@ public static class CollisionModel {
 	}
 
 	/// <summary>
+	/// <c>Collision_ReplaceClusters</c> (<c>0040cec0</c>) with the count of one
+	/// <c>Mech_ConfigureLoadout</c> passes it: the first cluster, node by node, whose component is
+	/// <paramref name="componentIndex"/> takes copies of <paramref name="spheres"/>, each centre moved by
+	/// <paramref name="offset"/> in 16 bits and its radius kept (<c>Collision_CopyClusterSpheres</c>,
+	/// <c>0040c834</c>), and its bound is derived again. A model with no such cluster comes back as it
+	/// went in. See docs/retail/formats/collision-spheres.md#a-fitted-weapon-brings-its-own-spheres.
+	///
+	/// <para>The model passed in is the type's, shared by every object of it, so the node and cluster
+	/// arrays the replacement touches are copied rather than written.</para>
+	/// </summary>
+	public static ColliderNode[] ReplaceCluster(ColliderNode[] model, short componentIndex,
+			ColliderSphere[] spheres, Vec3i offset) {
+		for (int n = 0; n < model.Length; n++) {
+			var clusters = model[n].Clusters;
+			for (int c = 0; c < clusters.Length; c++) {
+				if (clusters[c].ComponentIndex != componentIndex) {
+					continue;
+				}
+
+				var moved = spheres
+					.Select(s => new ColliderSphere(
+						(short)(s.X + offset.X), (short)(s.Y + offset.Y), (short)(s.Z + offset.Z), s.Radius))
+					.ToArray();
+
+				var replaced = (ColliderCluster[])clusters.Clone();
+				replaced[c] = new ColliderCluster(componentIndex, moved, CollisionModelReader.BoundOf(moved));
+
+				var copy = (ColliderNode[])model.Clone();
+				copy[n] = model[n] with { Clusters = replaced };
+				return copy;
+			}
+		}
+
+		return model;
+	}
+
+	/// <summary>
 	/// <c>Collision_ClusterBoundTest</c> (<c>0040c4c4</c>) — the cluster bound's coarse test, which is the same
 	/// ray-versus-vertical-cylinder shape every hit test in the simulation uses: the centre has to
 	/// be in front of the muzzle and inside the ray's length, and its distance off the ray axis

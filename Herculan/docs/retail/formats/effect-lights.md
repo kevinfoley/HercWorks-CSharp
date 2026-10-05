@@ -148,6 +148,7 @@ The intensities are real and large, and the effect is still hard to see. Five st
 ## Open
 
 - **Open:** no writer of slot `+0x1b` other than `LightManager_SetSlotIntensity` (`00407048`) found by reading the slot-address computations in `00406e44`–`00407388`. `es2_fieldscan.py` does not settle it: it misses the known store at `0040706c`, made through an `ADD EAX,0x6c` rebase.
+- **Open:** no caller of `LightManager_SetSlotFalloff` (`00406f00`) found by `es2_xref`. It gives one slot its own `A` and `B`, shifted right by 5 as the manager's pair is, and recomputes that slot's cull radius; while it has no caller, every slot carries the manager's `0` and `62`.
 - **Open:** what registers the embedded type-0 light at manager `+0x328`, if anything: none of `Light_Register`'s four call sites passes it, yet `LightManager_SelectLightsForObject` unregisters it before every object.
 - **Open:** no store of 0 to `DAT_006cbc88` found. The one absolute store is `Light_EnableModelSpaceTransform`'s store of 1, and `Light_ResetSystem`'s memset of `006c6158`–`006cbc87` stops one byte short of it; the block it ends next to has not been checked for a write through a base register.
 - **Open:** whether the save and restore reading only the first light changes what a player sees: which objects compose a node twice, and whether the lights after the first are then shaded in the wrong node's frame.

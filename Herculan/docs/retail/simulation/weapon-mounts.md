@@ -162,7 +162,7 @@ A visibly-mounted hardpoint then throws its own gun as a debris object ([`destru
 
 ### The chance path — the destruction roll
 
-Components **19-28** are the machine's weapon mounts. The component a mount occupies is its `.GL` record's `+0x17` plus 19, which is also how `Mech_ConfigureLoadout` registers each mount's collision and damage records; `WeaponMounts_MountForHardpointSlot` (`00410670`) is the lookup back, matching on `.GL +0x17` rather than on a position in the mount array.
+Components **19-28** are the machine's weapon mounts. The component a mount occupies is its `.GL` record's `+0x17` plus 19, which is also how `Mech_ConfigureLoadout` registers each mount's collision and damage records — the weapon's own hit spheres and armour, from its template ([`../formats/collision-spheres.md`](../formats/collision-spheres.md#a-fitted-weapon-brings-its-own-spheres), [`../formats/dmg-damage-file.md`](../formats/dmg-damage-file.md#a-fitted-weapon-replaces-its-mounts-piece)); `WeaponMounts_MountForHardpointSlot` (`00410670`) is the lookup back, matching on `.GL +0x17` rather than on a position in the mount array.
 
 `Mech_ApplyDirectFireDamage` (`004188c8`) rolls once for a hit that moved a mount component into a new damage band:
 

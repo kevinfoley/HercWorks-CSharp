@@ -64,7 +64,7 @@ The third does **not** reset anything drawn through `TSSolidPoly_Render`. It is 
 
 `ObjList_DrawEntryRender` (`0042876c`) is the render entry's vtable slot 0 (`ObjList_DrawEntryConstruct` (`00428e10`) stamps `PTR_FUN_0049ac38`), and it sets the fade on the line before it calls the object's own slot 0. A bullet reaches it:
 
-1. `Scene_SubmitFrameObjects` (`0042841c`) walks the bullet pool `DAT_004a9746` → `Scene_SubmitObject` (`004282d8`) → `ObjList_AddToDrawTable` (`004282f8`), which buckets the round into `ObjList::drawTable` by terrain cell.
+1. `Scene_SubmitFrameObjects` (`0042841c`) walks the bullet pool `g_ProjectilePool` (`004a9746`) → `Scene_SubmitObject` (`004282d8`) → `ObjList_AddToDrawTable` (`004282f8`), which buckets the round into `ObjList::drawTable` by terrain cell.
 2. The per-cell hook `ObjList_DrawCellObjects` (`00428c60`) branches on the object's type tag at `+4`. `Bullet_Construct` writes **3**, so it takes the deferred branch and gets a 0x36-byte render entry carrying its distance at `+0x12`. (Tag 9 is the immediate branch, drawn on the spot under the fade its cell's quad installed.)
 3. `ObjList_DrawSorted` (`00429620`) → `ObjList_SortTreeDraw` (`004295f0`) walks those entries in sorted order and calls each entry's slot 0.
 

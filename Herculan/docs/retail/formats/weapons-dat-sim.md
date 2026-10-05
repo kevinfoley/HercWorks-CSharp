@@ -12,36 +12,25 @@ Distinct from `SHELL0/GAM/WEAPONS.DAT` (the UI-facing weapon catalog, see `docs/
 
 ### `WeaponMountTemplate` record (variable length)
 
-Built entirely from **reused low-level record readers**: `HercPiece_ReadRecord` (see [`dmg-damage-file.md`](dmg-damage-file.md#the-piece-record)), `Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/retail/formats/collision-spheres.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
+A record opens with two records of other formats, read by those formats' own readers: a `.DMG` piece by `HercPiece_ReadRecord` ([`dmg-damage-file.md`](dmg-damage-file.md#the-piece-record)), in memory `0x00`–`0x11`, and a `.COL` cluster by `Collision_ReadCluster` ([`collision-spheres.md`](collision-spheres.md#layout)), in memory `0x12`–`0x21`. A fixed 48-byte tail follows, `0x22`–`0x51`, then two runtime-only fields the loader fills, a pointer at `0x52` and a self-index at `0x56`: 88 bytes (`0x58`) in memory, variable on disk.
 
-Read order (all fields little-endian):
+The piece and the cluster are what the weapon puts into the machine it is fitted to: `Mech_ConfigureLoadout` replaces the mount component's `.DMG` piece with the template's ([`dmg-damage-file.md`](dmg-damage-file.md#a-fitted-weapon-replaces-its-mounts-piece)) and its `.COL` spheres with the template's, about the weapon's mount point ([`collision-spheres.md`](collision-spheres.md#a-fitted-weapon-brings-its-own-spheres)). In the retail file:
 
 ```
-+0   short               -- 0 for id0/NONE; one of {1500, 2000, 2500, 15000} for every real weapon
-                             seen -- too few distinct values to be a per-weapon-unique stat ([Open](#open)).
-+2   short               -- 0 for NONE; exactly -1 (0xFFFF) for every real weapon seen.
-+4   short               -- 0 for NONE; exactly 0x01FF (511) for every real weapon seen.
-+6   short dependentCount -- 0 for NONE, 1 for every real weapon seen.
-     dependentCount*4 bytes -- that many raw 16-bit pairs, present only if the count != 0. Always
-                             exactly (20, 12) in every real weapon record seen. This is
-                             HercPiece_ReadRecord's "dependent sub-component list" mechanism
-                             reused generically; for weapons it never varies ([Open](#open)).
-     short clusterComponent   -- read via Collision_ReadCluster; constant 0x13 (19) in EVERY
-                                  real record seen, including id0/NONE. In a real collision model
-                                  this field is the component index; here it never varies ([Open](#open)).
-     short sphereCount        -- read via Collision_ReadSphereArray; real count is this value
-                                  masked with 0x1FFF (top 3 bits are reserved for flags in the
-                                  original collision-record format; never observed set here). 0 for
-                                  NONE.
-     (sphereCount & 0x1FFF) * 8 bytes  -- present only if the masked count != 0. Each 8-byte
-                                  entry is 4 int16s. Pattern suggests (offsetish, offsetish,
-                                  0-or-small, rate-ish) tuples ([Open](#open)).
-+0x22 (relative) 48 raw bytes (0x30)  -- decoded fields below ([Open](#open)). Two
-                             bytes at relative offset 0x26 are zeroed in memory at runtime (not
-                             real file data).
+piece    Armor               1500, 2000 or 2500 on the guns, 15000 on ids 19-21, 1500 on the
+                             pods; 0 on ids 0, 26 and 27
+         debris, sequence    -1, -1 (0 on ids 0, 26, 27)
+         parent, flags       -1, 1 (0, 0 on ids 0, 26, 27). The parent is overwritten at load
+                             with the chassis piece's own
+         dependents          one entry (20, 12): spill weight 20, internal 12, which load
+                             overwrites with 12 plus the fit slot; none on ids 0, 26, 27
+cluster  componentIndex      19 in every record; overwritten at load with the mount's own
+         spheres             {x, y, z, radius}: 4 to 21 spheres about the mount point, most
+                             strung along the barrel's Y axis, radius 70-450; none on ids 0,
+                             26, 27
+tail     48 bytes            decoded fields below. Two bytes at tail-relative 0x26 are zeroed in
+                             memory at runtime (not file data)
 ```
-
-In-memory boundary confirmed: front block 0x00-0x11, sub-sphere/sub-mesh block 0x12-0x21, tail 0x22-0x51, runtime-only pointer at 0x52, self-index at 0x56. Total 0x58 (88) bytes.
 
 ## Decoded tail fields
 
@@ -49,6 +38,7 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 
 | Absolute | Field | Read by |
 |---|---|---|
+| `0x2a` | **the mount's internal maximum**, what load writes as internal 12 plus the fit slot's maximum: 500 on the guns, 15000 on ids 19–21, 0 on the pods and on ids 0, 26 and 27 | `Mech_ConfigureLoadout` → `HercPiece_SetInternalMaxima` — [`dmg-damage-file.md`](dmg-damage-file.md#a-fitted-weapon-replaces-its-mounts-piece) |
 | `0x2c` | **minimum engagement range**, int32. **Zero in all 33 retail records** | `WeaponMount_RangeAllows` |
 | `0x30` | **range**, int32, in world units | `WeaponMount_FireDispatch_GunBeam`, `WeaponMount_RangeAllows`, `Base_TransportThinkTick` (`LAS100`'s, for its beams) |
 | `0x34` | the AI's **shot-value penalty**, subtracted from the damage credit when it picks a hardpoint. 500 the MSL launchers, 600 BMSL; 150 the EMP cannons, the particle beams, PLAS and MAGN; 10, 20 or 30 the autocannons and lasers by size; 5 the ELFs; 1 the big EMP (id 19); 0 a pod | `Ai_ChooseWeapon` — [`../simulation/ai-weapons.md`](../simulation/ai-weapons.md) |
@@ -95,8 +85,5 @@ The records each index reaches: [`proj-dat.md`](proj-dat.md#the-retail-records),
 
 ## Open
 
-- **Open:** what the first word (`+0`) means — it looks like a tier, and it is **not** the range, which is `0x30`.
-- **Open:** whether the dependent pair and the cluster component word, both reused constant fields from `.DMG`/`.COL`, carry any real per-weapon value.
-- **Open:** the firing-sequence tuple fields' exact meaning.
 - **Open:** `0x4e` (200 for LAS100 rising to 800 for the big launchers).
 - **Open:** the rest of the tail outside the fields decoded above.

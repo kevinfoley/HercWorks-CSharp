@@ -14,7 +14,7 @@ int16 pieceCount, pieceCount * piece
 piece = 8 bytes, then dependentCount * 4 bytes of dependent list
 ```
 
-`HercPiece_ReadRecord` (`0040cff8`) reads the 8 bytes into the front of an 18-byte in-memory record, reads the list into a buffer of its own and stores the pointer at `+0x08`, and fills `+0x0c` and `+0x0e` itself, so a piece is 8 + 4n bytes on disk and 18 in memory. Only internal slots 0–11 carry a nonzero maximum in retail, and no piece lists an index above 11.
+`HercPiece_ReadRecord` (`0040cff8`) reads the 8 bytes into the front of an 18-byte in-memory record, reads the list into a buffer of its own and stores the pointer at `+0x08`, and fills `+0x0c` and `+0x0e` itself, so a piece is 8 + 4n bytes on disk and 18 in memory. Only internal slots 0–11 carry a nonzero maximum in retail, and no piece lists an index above 11. The ten mount pieces, 19–28, are placeholders in every mech file — armour 1 and no internals — because a fitted weapon replaces its piece at load ([below](#a-fitted-weapon-replaces-its-mounts-piece)).
 
 ## The piece record
 
@@ -77,7 +77,7 @@ The leg chain runs upper → lower → foot through the parent index: ACHILLES' 
 | 8 | life support |
 | 9 | pilot |
 | 10, 11 | left and right rear leg servos, on a four-legged chassis |
-| 12–21 | unused, maximum 0 |
+| 12–21 | the weapon mounts' internals, fit slot *n* at 12 + *n*: maximum 0 in every file, set by a fitted weapon ([below](#a-fitted-weapon-replaces-its-mounts-piece)) |
 
 ACHILLES' maxima are 2500 for each servo pair, 800 for the sensor array and targeting computer, 500 for the next five and 50 for the pilot.
 
@@ -105,3 +105,11 @@ The other chassis depart from it:
 - **SPIDER** — the same four leg chains as PITBULL, and a front cockpit holding the standard list without the pilot; nothing else. Every internal it has is 100 points.
 - **RAZOR** — the front cockpit holds the sensor array (50), targeting computer (10), life support (30) and pilot (5); the brackets hold the stabilisers (40); the torso holds the shield generator and reactor (40 each); only components 7 and 8 hold the leg servos (50). Its two servo maxima are 0.
 - **SKIMMER** — one component, holding its one internal.
+
+## A fitted weapon replaces its mount's piece
+
+Every sim `WEAPONS.DAT` template opens with a piece record of this format, read by the same `HercPiece_ReadRecord` ([`weapons-dat-sim.md`](weapons-dat-sim.md#weaponmounttemplate-record-variable-length)), and `Mech_ConfigureLoadout` (`004175dc`) puts it in place of the mount's own. For each fitted mount it first writes two fields of the template: the chassis piece's parent byte (`+0x04`) over the template's, and 12 plus the fit slot (`.GL +0x17`) over the internal index of the template's first dependent entry. `HercPiece_ReplacePieces` (`0040d240`) then overwrites the mount component's piece with a copy, which `HercPiece_CopyRecord` (`0040d050`) gives a dependent list of its own, and `HercPiece_SetInternalMaxima` (`0040d128`) writes the template's `+0x2a` as that internal's maximum. The table is the machine's own, loaded by `Mech_Constructor` (`00415bb0`), so the replacement is per machine.
+
+A fitted mount therefore has the template's armour (`+0`: 1500, 2000 or 2500 on the guns, 15000 on ids 19–21, 1500 on the pods), neither a debris group nor a cell sequence (both `-1`, so its loss throws group 2 and hides no part), the chassis piece's parent, destruction flag bit 0 alone, and one internal at spill weight 20 whose maximum is 500 on a gun, 15000 on ids 19–21 and 0 on a pod. Templates 0, 26 and 27 carry an empty piece with no internal. The collision side of the same loop is [`collision-spheres.md`](collision-spheres.md#a-fitted-weapon-brings-its-own-spheres).
+
+The tail of the same function clears the occupancy flag of each of the first 29 components whose piece lists no internal ([`../simulation/component-damage.md`](../simulation/component-damage.md#the-component-damage-system)). On retail data that is every empty hardpoint and every mount fitted from templates 0, 26 or 27; the shoulders, 2 and 3, on every chassis; 13–18 on every chassis but PITBULL and SPIDER; the brackets, 4 and 5, on HEADHUNT, MAVERICK, RAMSES, STINGRAY and TOMAHAWK; 1–6 on PITBULL and SPIDER; and 1 and 9–12 on RAZOR. Of those, only SAMSON's shoulders have spheres in their `.COL`.

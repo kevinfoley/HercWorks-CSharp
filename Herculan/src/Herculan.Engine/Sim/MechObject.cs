@@ -43,7 +43,7 @@ public sealed partial class MechObject : SimObject {
 	private readonly int _shapeRadius;
 	private readonly GunLayout? _hardpoints;
 	private readonly WeaponCatalog? _weapons;
-	private readonly ColliderNode[] _collision;
+	private ColliderNode[] _collision;
 	private readonly ComponentDamage? _damage;
 	private readonly Func<int, int>? _weaponModelCellCount;
 

@@ -50,7 +50,7 @@ One 0-32 id addresses the same weapon in this catalog, in `simvol0/dat/WEAPONS.D
 
 Full names are quoted verbatim: ids 27-32 really do carry a trailing full stop in `WEAPONS.BIN`, and the lasers really are `GW` there where the codes say plain `L100`.
 
-The three **Bull** weapons are the Cybrid four-legged HERC's own armament and can never be equipped to a player HERC in retail. They are oversized versions of the player equivalents — `BEMP` is the only weapon in the game with a barrel count of 3, and `BMSL` carries 36 rounds — so reading a `BEMP` figure as an EMP-family stat overstates the family by 4x on shields. Their sim-side templates are also the only ones carrying `Field0 = 15000` where every other weapon carries 1500-2500.
+The three **Bull** weapons are the Cybrid four-legged HERC's own armament and can never be equipped to a player HERC in retail. They are oversized versions of the player equivalents — `BEMP` is the only weapon in the game with a barrel count of 3, and `BMSL` carries 36 rounds — so reading a `BEMP` figure as an EMP-family stat overstates the family by 4x on shields. Their sim-side templates are also the only ones giving the mount 15000 armour and a 15000 internal, where every other weapon gives 1500-2500 and 500 ([`weapons-dat-sim.md`](weapons-dat-sim.md#weaponmounttemplate-record-variable-length)).
 
 ### The rank byte, and what retail actually fits
 

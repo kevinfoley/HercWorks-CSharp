@@ -125,6 +125,12 @@ public enum MissionSide {
 /// as well — see <see cref="FlyerFormationTable"/>. A flyer wingman re-reads it every tick it holds
 /// station, through <see cref="Sim.FlyerObject.FormationOffset"/>.
 /// </param>
+/// <param name="GroundPoint">
+/// Where a mech's spawn height is read off the terrain: its group's point, before the formation
+/// spread — <c>Mech_AttachToGroup</c> (<c>00417aa8</c>) queries the ground there and keeps that Z for
+/// every member. Null for anything else, and for a mech whose roster record names its own point,
+/// which the scene settles on the ground under that point.
+/// </param>
 public sealed record MissionPlacement(
 	MissionUnitKind Kind,
 	int TypeIndex,
@@ -146,7 +152,8 @@ public sealed record MissionPlacement(
 	int DefeatActionRef = -1,
 	short StartingCondition = 100,
 	OutOfActionReport? OutOfActionReport = null,
-	SquadCondition? SquadCondition = null) {
+	SquadCondition? SquadCondition = null,
+	Vec3i? GroundPoint = null) {
 
 	/// <summary>
 	/// The condition a machine the mission says nothing about starts in — full health, and the

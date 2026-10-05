@@ -52,6 +52,9 @@ public sealed class HercLUT {
 	public short HardpointMax { get; set; }
 	public string AbbrevDat { get; set; }
 
+	/// <summary>Ids 0-8, the nine chassis the shell builds — the ones whose <see cref="HardpointMax"/> is traced.</summary>
+	public bool IsPlayerChassis => Id <= Razor.Id;
+
 	private HercLUT(short id, string name, short hardpointMax, string abbrevDat) {
 		Name = name;
 		Id = id;

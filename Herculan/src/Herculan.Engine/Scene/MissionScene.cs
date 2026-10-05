@@ -383,8 +383,8 @@ public sealed class MissionScene {
 			spawned.Object.Position = new Vec3i(spawned.Object.Position.X, spawned.Object.Position.Y,
 				spawned.Object switch {
 					FlyerObject => spawned.Object.Position.Z,
-					MechObject mech => terrain.HeightAtWorld(
-						spawned.Object.Position.X, spawned.Object.Position.Y) + mech.Type.RideHeight,
+					MechObject mech => MechSpawnHeight(terrain, mech,
+						placement.GroundPoint ?? spawned.Object.Position),
 					_ => terrain.HeightAtWorld(spawned.Object.Position.X, spawned.Object.Position.Y)
 				});
 
@@ -875,6 +875,21 @@ public sealed class MissionScene {
 		// draws a Cybrid flyer flat through every turn it makes, and a ground vehicle level over
 		// every hill it drives up.
 		WorldScale.ToRenderMatrix(sceneObject.Object.WorldFrame);
+
+	/// <summary>
+	/// A mech's spawn height — <c>Mech_AttachToGroup</c> (<c>00417aa8</c>): the ground under
+	/// <paramref name="groundPoint"/> plus the chassis' ride height, and <see cref="FlyerSpawnLift"/>
+	/// more for a flyer. See docs/retail/formats/script-dat.md#placement--the-actual-rule, rule 5.
+	/// </summary>
+	private static int MechSpawnHeight(HeightGrid terrain, MechObject mech, Vec3i groundPoint) =>
+		terrain.HeightAtWorld(groundPoint.X, groundPoint.Y) + mech.Type.RideHeight
+			+ (mech.Type.IsFlyer ? FlyerSpawnLift : 0);
+
+	/// <summary>
+	/// How much higher than a walker a flyer chassis (the RAZOR) starts: <c>Mech_AttachToGroup</c>'s
+	/// literal, added when <c>typeRec+0x50</c> is set.
+	/// </summary>
+	private const int FlyerSpawnLift = 5000;
 
 	/// <summary>
 	/// Builds and positions the simulation object for one placement. Returns null when the placement

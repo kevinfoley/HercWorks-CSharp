@@ -628,8 +628,8 @@ public static class MissionLoader {
 			var group = claim.Group;
 			var record = script.Mechs[slot];
 			var offset = mechFormations.OffsetFor(group.FormationId, claim.MemberIndex);
-			var position = Coordinate(script, record.PositionRef)
-				?? OffsetFromGroup(group, mechFormations, claim.MemberIndex);
+			var ownPoint = Coordinate(script, record.PositionRef);
+			var position = ownPoint ?? OffsetFromGroup(group, mechFormations, claim.MemberIndex);
 
 			placements.Add(new MissionPlacement(
 				MissionUnitKind.Mech,
@@ -648,7 +648,8 @@ public static class MissionLoader {
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
 				DefeatActionRef: ActionRef(script, record.DefeatActionRef),
 				StartingCondition: record.StartingCondition,
-				OutOfActionReport: new OutOfActionReport(record.CounterRefs, record.CounterOps)));
+				OutOfActionReport: new OutOfActionReport(record.CounterRefs, record.CounterOps),
+				GroundPoint: ownPoint == null ? group.Position : null));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
@@ -818,7 +819,8 @@ public static class MissionLoader {
 				IsPlayerLance: true,
 				PilotIndex: entry.PilotNameIndex,
 				Side: spawn.Side,
-				SquadCondition: SquadCondition.Of(entry));
+				SquadCondition: SquadCondition.Of(entry),
+				GroundPoint: spawn.Position);
 
 			placements.Add(placement);
 			if (i == lance.PlayerEntryIndex) {

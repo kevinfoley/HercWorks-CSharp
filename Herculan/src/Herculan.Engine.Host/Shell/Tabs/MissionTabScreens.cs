@@ -232,17 +232,18 @@ sealed class MissionTabScreens {
 			return;
 		}
 
+		string dataDirectory = ShellWorkingFiles.DataDirectory(_installRoot);
 		string? scriptPath = _game.LoadedGame == null ? null
-			: ShellMissionLaunch.WriteHandoff(CampaignLoop.HandoffDirectory, _game.WorkingFiles, _game.LoadedGame, _game.Hangar);
+			: ShellMissionLaunch.WriteHandoff(dataDirectory, _game.WorkingFiles, _game.LoadedGame, _game.Hangar);
 		if (scriptPath == null) {
 			Console.WriteLine($"Rock & Roll: no working script.dat ({_game.WorkingFiles.Script}) to launch.");
 			return;
 		}
 
-		// The export rewrote the working player.mec, which the loop exit's autosave copies out.
-		_game.WorkingFiles = _game.WorkingFiles with { Player = Path.Combine(CampaignLoop.HandoffDirectory, MissionLoader.PlayerFileName) };
-		_outcome.Launch = new ShellLaunch(scriptPath, Path.Combine(_installRoot, MissionLoader.DataFolderName));
-		Console.WriteLine($"Rock & Roll — handoff written to {CampaignLoop.HandoffDirectory}; launching the mission.");
+		// The export rewrote data\player.mec, which the loop exit's autosave copies out with the other two.
+		_game.WorkingFiles = ShellWorkingFiles.In(dataDirectory);
+		_outcome.Launch = new ShellLaunch(scriptPath, dataDirectory);
+		Console.WriteLine($"Rock & Roll — handoff written to {dataDirectory}; launching the mission.");
 		_window.Close();
 	}
 }

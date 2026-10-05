@@ -32,8 +32,8 @@ public enum ShellMissionArrow {
 /// The career's three mission texts as <c>Career_BuildBriefingText</c> (<c>00412f97</c>) assembles them:
 /// each the concatenation of the <c>mission.str</c> lines one of the career block's arrays names, in
 /// array order, skipping <c>-1</c>. The shell reads <c>data\mission.str</c>, which
-/// <c>Career_LoadSlot</c> copies from the slot's <c>sav\missn%d.str</c> and a mission load writes; this
-/// engine reads the working file where it lies (<see cref="ShellWorkingFiles"/>), which is the same bytes.
+/// <c>Career_LoadSlot</c> copies from the slot's <c>sav\missn%d.str</c> and a mission load writes
+/// (<see cref="ShellWorkingFiles"/>).
 /// </summary>
 public sealed record ShellMissionTexts(string Briefing, string Objectives, string Intelligence) {
 	public static readonly ShellMissionTexts Empty = new(string.Empty, string.Empty, string.Empty);

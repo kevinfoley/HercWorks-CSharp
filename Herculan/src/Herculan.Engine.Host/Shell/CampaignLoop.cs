@@ -60,27 +60,16 @@ sealed class CampaignLoop {
 		widgets.Handle(ShellWidgetKind.ReplayButton, widget => ClickReplay((ShellReplayButton)widget.Index));
 	}
 
-	/// <summary>
-	/// The folder the launch handoff is written to. The original writes it over the install's own
-	/// <c>data</c> folder; this engine leaves the install's copies as they are and writes a scratch folder
-	/// instead, which is this engine's choice.
-	/// </summary>
-	public static string HandoffDirectory => Path.Combine(Path.GetTempPath(), "herculan-launch");
-
-	/// <summary>
-	/// Where a new career's mission load writes the three working files the original writes into the
-	/// install's <c>data</c> folder (<see cref="ShellWorkingFiles"/>). A scratch folder for the same reason
-	/// as <see cref="HandoffDirectory"/>, which is this engine's choice.
-	/// </summary>
-	private static string CareerDirectory => Path.Combine(Path.GetTempPath(), "herculan-career");
+	// The install's data\, where the working files and the mission handoff are written and the results come back.
+	private string DataDirectory => ShellWorkingFiles.DataDirectory(_installRoot);
 
 	/// <summary>Sets InstantAction_Active (0047363c), which the training launches read and nothing clears.</summary>
 	public void SetInstantAction() => _instantActionSet = true;
 
 	/// <summary>
 	/// Game_LoadSlot (0040e4f2): a slot in use read in whole — the hangar, the career and its mission, and
-	/// the game in progress that saving needs. Slot 10 is slot 11 in training, as it is to Game_SaveSlot. The
-	/// mission map is rebuilt, here on the briefing's next visit, and the briefing's and debrief's movies play
+	/// the game in progress that saving needs — and Career_LoadSlot's three working files copied into data\.
+	/// Slot 10 is slot 11 in training, as it is to Game_SaveSlot. The mission map is rebuilt, here on the briefing's next visit, and the briefing's and debrief's movies play
 	/// again (DAT_004778ab and DAT_004778ac cleared). Returns false for a slot not in use, which the original
 	/// refuses, or one that cannot be read.
 	/// </summary>
@@ -94,7 +83,7 @@ sealed class CampaignLoop {
 			return false;
 		}
 
-		Adopt(restored, ShellHangar.From(restored), ShellWorkingFiles.ForSlot(_installRoot, slot));
+		Adopt(restored, ShellHangar.From(restored), ShellSaveSlots.CopyWorkingFilesIn(_installRoot, slot));
 		Console.WriteLine($"Loaded {entry.FileName}: "
 			+ (ShellSaveSummary.From(restored) is { } summary
 				? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}."
@@ -107,14 +96,14 @@ sealed class CampaignLoop {
 
 	/// <summary>
 	/// Shell_BuildScreensAndStart's -X3 and -X4 arm (004012b0): Game_LoadSlot(10) and then
-	/// Game_ProcessMissionResults (0040eae7) over the results.dat and mission.var the simulator left beside the
-	/// handoff, then wherever the debrief goes next (docs/retail/shell/campaign-loop.md#where-the-debrief-goes-next).
+	/// Game_ProcessMissionResults (0040eae7) over the results.dat and mission.var the simulator left in data\,
+	/// which the load's copies do not touch, then wherever the debrief goes next (docs/retail/shell/campaign-loop.md#where-the-debrief-goes-next).
 	/// A slot 10 not in use, or no results, cannot come from a mission this shell launched; it is reported,
 	/// and the menu comes up.
 	/// </summary>
 	public void ReturnFromMission() {
-		string resultsPath = Path.Combine(HandoffDirectory, MissionResults.FileName);
-		string countersPath = Path.Combine(HandoffDirectory, MissionLoader.CountersFileName);
+		string resultsPath = Path.Combine(DataDirectory, MissionResults.FileName);
+		string countersPath = Path.Combine(DataDirectory, MissionLoader.CountersFileName);
 		if (!LoadSlot(GameInProgress.CurrentGameSlot) || _game.LoadedGame == null || !File.Exists(resultsPath) || !File.Exists(countersPath)) {
 			Console.WriteLine($"Back from the mission, but slot 10 or {resultsPath} could not be read — main menu.");
 			_startup.Begin();
@@ -188,16 +177,16 @@ sealed class CampaignLoop {
 		}
 
 		var careerHangar = ShellHangar.From(game);
-		if (ShellCampaignLaunch.LoadCareerMission(CareerDirectory, _content, game, careerHangar, _clearList, Roll, out failure)
+		if (ShellCampaignLaunch.LoadCareerMission(DataDirectory, _content, game, careerHangar, _clearList, Roll, out failure)
 				is not { } mission) {
 			Console.WriteLine($"Accept: {failure} No career started; main menu.");
 			_repaint();
 			return;
 		}
 
-		Adopt(game, careerHangar, ShellWorkingFiles.In(CareerDirectory));
+		Adopt(game, careerHangar, ShellWorkingFiles.In(DataDirectory));
 		Console.WriteLine($"New campaign for {name}, skill {skill}: {mission.MissionPath}, "
-			+ $"{mission.SquadPositions} squad position(s), {game.SalvageTotal} kg salvage; working files in {CareerDirectory}.");
+			+ $"{mission.SquadPositions} squad position(s), {game.SalvageTotal} kg salvage; working files in {DataDirectory}.");
 		_screen.ReturnToFrame(_game.Mode);
 		_navigation.ShowMissionView();
 	}
@@ -211,14 +200,14 @@ sealed class CampaignLoop {
 	/// whether it launched.
 	/// </summary>
 	public bool LaunchTraining(int row, string label) {
-		var handoff = ShellTrainingLaunch.Write(HandoffDirectory, _content, _game.Options, row, _instantActionSet,
+		var handoff = ShellTrainingLaunch.Write(DataDirectory, _content, _game.Options, row, _instantActionSet,
 			_random, _clearList, _game.HeldGame(), out string? failure);
 		if (handoff == null) {
 			Console.WriteLine($"{label}: {failure}");
 			return false;
 		}
 
-		Adopt(handoff.Game, handoff.Hangar, ShellWorkingFiles.In(HandoffDirectory));
+		Adopt(handoff.Game, handoff.Hangar, ShellWorkingFiles.In(DataDirectory));
 
 		var squad = Enumerable.Range(0, ShellHangar.BayCount)
 			.Select(bay => handoff.Hangar.Bay(bay) is { } machine
@@ -227,8 +216,8 @@ sealed class CampaignLoop {
 			.OfType<string>();
 		Console.WriteLine($"{label} — {handoff.MissionPath}, {handoff.SquadPositions} squad position(s): "
 			+ $"{string.Join(", ", squad)}; {handoff.Hangar.MachinesOnStrength} machine(s) going. "
-			+ $"Handoff written to {HandoffDirectory}; launching the mission.");
-		_outcome.Launch = new ShellLaunch(handoff.ScriptPath, Path.Combine(_installRoot, MissionLoader.DataFolderName));
+			+ $"Handoff written to {DataDirectory}; launching the mission.");
+		_outcome.Launch = new ShellLaunch(handoff.ScriptPath, DataDirectory);
 		_window.Close();
 		return true;
 	}
@@ -241,7 +230,7 @@ sealed class CampaignLoop {
 
 		var game = _game.LoadedGame;
 		var hangar = _game.Hangar;
-		if (ShellCampaignLaunch.LoadCareerMission(CareerDirectory, _content, game, hangar, _clearList,
+		if (ShellCampaignLaunch.LoadCareerMission(DataDirectory, _content, game, hangar, _clearList,
 				bound => _random.NextBelow(bound), out string? failure) is not { } mission) {
 			Console.WriteLine($"Next mission: {failure} Main menu.");
 			_mission.DropDebrief();
@@ -249,9 +238,9 @@ sealed class CampaignLoop {
 			return;
 		}
 
-		Adopt(game, hangar, ShellWorkingFiles.In(CareerDirectory));
+		Adopt(game, hangar, ShellWorkingFiles.In(DataDirectory));
 		Console.WriteLine($"Next mission: {mission.MissionPath}, {mission.SquadPositions} squad position(s); "
-			+ $"working files in {CareerDirectory}.");
+			+ $"working files in {DataDirectory}.");
 		_screen.ReturnToFrame(_game.Mode);
 		_navigation.ShowMissionView();
 	}
@@ -275,19 +264,8 @@ sealed class CampaignLoop {
 			return;
 		}
 
-		Directory.CreateDirectory(HandoffDirectory);
-		var workingFiles = _game.WorkingFiles;
-		var handoff = ShellWorkingFiles.In(HandoffDirectory);
-		foreach (var (from, to) in new[] {
-				(workingFiles.Script, handoff.Script), (workingFiles.Text, handoff.Text), (workingFiles.Player, handoff.Player) }) {
-			if (from != null && to != null && File.Exists(from)) {
-				File.Copy(from, to, overwrite: true);
-			}
-		}
-
-		_game.WorkingFiles = handoff;
-		_outcome.Launch = new ShellLaunch(handoff.Script!, Path.Combine(_installRoot, MissionLoader.DataFolderName));
-		Console.WriteLine($"Replay: yes — slot 10's mission copied to {HandoffDirectory}; launching it.");
+		_outcome.Launch = new ShellLaunch(_game.WorkingFiles.Script!, DataDirectory);
+		Console.WriteLine($"Replay: yes — slot 10's mission copied to {DataDirectory}; launching it.");
 		_window.Close();
 	}
 

@@ -114,8 +114,8 @@ public static class ShellTrainingLaunch {
 
 		Directory.CreateDirectory(directory);
 		string scriptPath = Path.Combine(directory, MissionLoader.ScriptFileName);
-		File.WriteAllBytes(scriptPath, mission.WriteScriptDat());
-		File.WriteAllBytes(Path.Combine(directory, MissionLoader.TextFileName), mission.WriteMissionText());
+		ShellWorkingFiles.WriteMissionFile(scriptPath, mission.WriteScriptDat());
+		ShellWorkingFiles.WriteMissionFile(Path.Combine(directory, MissionLoader.TextFileName), mission.WriteMissionText());
 
 		int positions = mission.SquadPositions;
 		hangar.SetPositionsInPlay(positions);

@@ -3706,7 +3706,13 @@
       "confidence": "high",
       "name": "Career_LoadSlot",
       "description": "career.cpp. Reads the 152-byte career block back and copies sav\\script%d.dat, sav\\missn%d.str and sav\\player%d.mec in to data\\. Its third parameter, when set, also rebuilds the assembled briefing text from the restored data\\mission.str (FUN_00412f97). The load direction; Career_SaveSlot is the reverse.",
-      "source": "docs/retail/formats/save-games.md"
+      "source": "docs/retail/formats/save-games.md",
+      "verified": {
+        "bytes": "00412bbf+290",
+        "sha1": "a596e0210363",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00412ce1",
@@ -4354,7 +4360,13 @@
       "confidence": "high",
       "name": "MissionStr_Write",
       "description": "Writes data\\mission.str from the loaded .ENG records: size, count, then length/text/NUL/attribute-count 0 per line. Opened without O_TRUNC.",
-      "source": "docs/retail/formats/msn-mission-file.md"
+      "source": "docs/retail/formats/msn-mission-file.md",
+      "verified": {
+        "bytes": "004179f0+375",
+        "sha1": "76bd759e03e2",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00417b67",

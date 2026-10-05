@@ -24,7 +24,7 @@ static class Launcher {
 	/// the shell on 2 and hands back a mission; VIEW DEMO closes it on 5, which the launcher answers with -D, a
 	/// demo tape; the mission's own code then brings the shell back up, 3 into the debrief and 6 after a demo;
 	/// and 0, QUIT's, ends the run. The original spawns an executable per turn; here each is a window in this one
-	/// process. Each handoff sits in a scratch folder, so the simulator's settings are still the install's. The
+	/// process; the files between them cross through the install's <c>data\</c>, as the original's do. The
 	/// <c>--shell-*</c> staging flags stage the first turn only; each later turn starts in the mode the last one
 	/// ended in. Every simulator launch is handed the count of those before it, as -R&lt;n&gt;. The Settings menu's
 	/// restart is this engine's own turn: the shell again, on whatever install the session now names.

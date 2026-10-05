@@ -71,8 +71,8 @@ public static class ShellCampaignLaunch {
 
 		Directory.CreateDirectory(directory);
 		string scriptPath = Path.Combine(directory, MissionLoader.ScriptFileName);
-		File.WriteAllBytes(scriptPath, loaded.WriteScriptDat());
-		File.WriteAllBytes(Path.Combine(directory, MissionLoader.TextFileName), loaded.WriteMissionText());
+		ShellWorkingFiles.WriteMissionFile(scriptPath, loaded.WriteScriptDat());
+		ShellWorkingFiles.WriteMissionFile(Path.Combine(directory, MissionLoader.TextFileName), loaded.WriteMissionText());
 
 		// The original asserts row 4 is there before it copies slot 0 into the career block.
 		var briefing = loaded.TextPackage is { } package ? ShellCareerBriefing.From(package) : null;

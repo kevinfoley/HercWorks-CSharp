@@ -46,7 +46,7 @@ Four callers, and between them they are every write the simulator makes:
 |---|---|---|
 | `PreferencesPanel_Save` (`004574cc`) | 9: options 0-3 and 7-11 (`DAT_0049e304`) | `PreferencesPanel_Run` closing the panel |
 | `ControlsPanel_Save` (`00459140`) | 13: `ControlsOptionBase - 1` through `+11` | `ControlsPanel_Run` closing the panel, at `00458c07` |
-| `Joystick_InitAndSeedBindings` (`00459dd4`) | 25: options 12-36 (`DAT_0049e9d0`) — both blocks | First run only, gated on `DAT_004d1fc8` |
+| `Joystick_InitAndSeedBindings` (`00459dd4`) | 25: options 12-36 (`DAT_0049e9d0`) — both blocks | A start that enumerates a stick while option 12 (`DAT_004d1fc8`) is 0 ([`../formats/joystick-input.md`](../formats/joystick-input.md#a-stick-that-does-not-enumerate)) |
 | `Prefs_SaveOption` (`00459b64`) | 1 | `Sim_Run` (`0045f144`) at `0045f413`, on option 6, at shutdown and only when the live full-screen state differs from the option's byte |
 
 **There is no cancel.** `PreferencesPanel_Revert` (`004574e0`) tests the same nine options with `Prefs_OptionChanged` (`00459c38`) and rolls the changed ones back out of the load-time shadow at `004d1ff2` through `Prefs_RevertSelectedOptions` (`00459b04`) — and it is unreferenced, as `Prefs_SaveAllOptions` is. Leaving the preferences panel saves, whichever button does it.
@@ -71,7 +71,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 9 | HERC DETAIL | 0-4, the LOD-root bias ([`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md#the-three-tunables)) |
 | 10 | STRUCTURE DETAIL | 0-2, the `TSDetailPart` bias structures and flyers are drawn under ([`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tsdetailpart-level-selection-and-structure-detail)) |
 | 11 | EFFECTS DETAIL | 0-2, `Sound_DetailSetting`: which smoke stages a collapsing structure plays and whether a debris piece bursts ([`destruction-effects.md`](destruction-effects.md#effects-detail)), and the sound throttle's divisor ([`../formats/audio.md`](../formats/audio.md#the-play-request-gate)) |
-| 12 | the joystick-configured flag | gates `Joystick_InitAndSeedBindings`' one-time seeding |
+| 12 | the joystick-configured flag | 0 lets `Joystick_InitAndSeedBindings` seed both blocks; 1 has it zero the walking block in memory when no stick enumerates |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
 | 37-41 | **VSHELL's**, not the simulator's: the practice missions screen's five parameters, difficulty among them | [`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters) |
@@ -197,7 +197,7 @@ The OPTIONS list sits at x 226-354: its caption at y 138 height 10, then twelve 
 
 What the panel greys its rows against is `Input_QueryCapabilities`' eight bytes, whose fields the input layer owns — [`../formats/joystick-input.md`](../formats/joystick-input.md#the-capability-block--input_querycapabilities-004777f8).
 
-The panel reaches it in two steps. `Input_GetDevice(3)` (`0045c508`) is asked first, and when it answers null or with its low bit clear the panel takes **no block at all** and greys all twelve rows at once — which is what a stick the retail code cannot enumerate produces. Only past that gate does it read the fields and grey rows one at a time: `+2` bounds the button rows, `+4`, `+5` and `+6` gate THROTTLE, RUDDER and HAT. The JOYSTICK row has no field of its own: once a stick is present it is always live.
+The panel reaches it in two steps. `Input_GetDevice(3)` (`0045c508`) is asked first, and when it answers null or with its low bit clear the panel takes **no block at all** and greys all twelve rows at once. A stick that fails to enumerate leaves that lookup pointing at a destroyed device, so what the panel reads then is freed memory ([`../formats/joystick-input.md`](../formats/joystick-input.md#a-stick-that-does-not-enumerate)). Only past that gate does it read the fields and grey rows one at a time: `+2` bounds the button rows, `+4`, `+5` and `+6` gate THROTTLE, RUDDER and HAT. The JOYSTICK row has no field of its own: once a stick is present it is always live.
 
 `ControlsPanel_RefreshRow` (`00458d20`) gates every one of its twelve cases on the same capability and **sets no text at all** when it fails, so a greyed row reads blank rather than showing a stale binding.
 
@@ -245,7 +245,7 @@ A button row steps by **slot index within its own list** (`panel+0x462`, wrappin
 
 The eight button bytes take a detour: the code searches the row's list for the recommended code, stores the slot it found — **0 when it is not there** — and writes back whatever code *that slot* holds. See [Rejected readings](#rejected-readings) for what that costs.
 
-That function also carries an arm that zeroes the block, taken when the capability block's `+0` is 0. `Input_QueryCapabilities` writes 1 or 2 into that field every time it rebuilds the block, so the arm is not reached through a block it returns. With no stick case 13 is not reached either: RECOMMEND stays clickable, but the loop's switch needs the block ([above](#what-a-click-does--controlspanel_run-00458650)).
+That function also carries an arm that zeroes the block, taken when the capability block's `+0` is 0. `Input_QueryCapabilities` writes 1 or 2 into that field every time it rebuilds the block, so the arm is not reached through a block it returns. Without a block case 13 is not reached either: RECOMMEND stays clickable, but the loop's switch needs the block ([above](#what-a-click-does--controlspanel_run-00458650)).
 
 ## Rejected readings
 

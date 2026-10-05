@@ -139,6 +139,12 @@ public sealed class JoystickBindings {
 	/// <paramref name="capabilities"/> what it can do; a row whose control the device does not have is
 	/// skipped exactly as the original skips it, so a stick with no rudder cannot be steered by a
 	/// RUDDER binding left over from one that had.
+	///
+	/// <para>With no stick present this returns <see cref="JoystickPilotInput.None"/> and the keyboard
+	/// keeps the movement pair. The original goes on applying the bindings after a stick fails to
+	/// enumerate, so a JOYSTICK row of 1 moves the keyboard off steering and throttle, which in a RAZOR
+	/// is pitch and roll — docs/retail/formats/joystick-input.md#a-stick-that-does-not-enumerate. Not
+	/// reproduced.</para>
 	/// </summary>
 	public JoystickPilotInput Resolve(JoystickReading reading, JoystickCapabilities capabilities,
 			SimulatorPreferences preferences) {

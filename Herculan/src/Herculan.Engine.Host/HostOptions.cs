@@ -41,6 +41,9 @@ sealed class HostOptions {
 	public string? RecordTape { get; private set; }
 	public bool DeveloperMode { get; private set; }
 
+	/// <summary>Whether one mission flies in place of the front end, which is the default.</summary>
+	public bool RunMission { get; private set; }
+
 	public string? InstallSource { get; private set; }
 	public string? InstallDestination { get; private set; }
 	public RetailInstaller.Size InstallSize { get; private set; } = RetailInstaller.Size.Maximum;
@@ -198,10 +201,11 @@ sealed class HostOptions {
 				if (HostArguments.TryReadString(args, ref i, errors, out string movie)) {
 					options.MoviePath = movie;
 				}
-			} else if (args[i] == "--shell") {
-				// Run the front end instead of a mission — see ShellHost. It shares the install lookup and
-				// nothing else, so it takes over before any mission loading happens.
-				shell.Run = true;
+			} else if (args[i] == "--mission") {
+				// Fly one mission instead of the front end, which is what runs by default — the DBSIM.EXE turn alone,
+				// for looking at the simulator without clicking through the shell to reach it. A named mission,
+				// --play and --demo imply it.
+				options.RunMission = true;
 			} else if (args[i] == "--shell-palette") {
 				// Which dpl\<name>.DPL the shell decodes its art through, pinned for the whole run. Without it
 				// the palette follows the tab, as the original's does — see ShellPalette for the table and for
@@ -209,7 +213,7 @@ sealed class HostOptions {
 				if (HostArguments.TryReadString(args, ref i, errors, out string palette)) {
 					shell.Palette = palette;
 				}
-				shell.Run = true;
+				shell.Staged = true;
 			} else if (args[i] == "--shell-tab") {
 				// Which tab the shell comes up on, 0-7. The original always enters on the main menu; this is here
 				// so --screenshot can land on a tab that has content, and so the save screen is one argument away
@@ -217,31 +221,31 @@ sealed class HostOptions {
 				if (HostArguments.TryReadInt(args, ref i, 0, ShellLayout.TabCount - 1, errors, out int requestedTab)) {
 					shell.Tab = requestedTab;
 				}
-				shell.Run = true;
+				shell.Staged = true;
 			} else if (args[i] == "--shell-bay") {
 				// Which hangar bay the repair tab opens on, 0-7 — DAT_00482ae5, which the squad roster moves once
 				// the screen is up.
 				if (HostArguments.TryReadInt(args, ref i, 0, ShellHangar.BayCount - 1, errors, out int requestedBay)) {
 					shell.Bay = requestedBay;
 				}
-				shell.Run = true;
+				shell.Staged = true;
 			} else if (args[i] == "--shell-training") {
 				// Run the front end in training mode rather than the mode prefs.cfg option 42 holds — DAT_0048260c,
 				// the flag that gates REPAIR, BUILD and ARMORY off. PRACTICE MISSIONS sets it too, but only from the
 				// main menu, where the strip hides nothing; this is how the gated strip is reachable on the other tabs.
 				shell.Mode = ShellCampaignMode.Training;
-				shell.Run = true;
+				shell.Staged = true;
 			} else if (args[i] == "--shell-practice") {
 				// Come up on the practice screen, as the main menu's PRACTICE MISSIONS puts it up, so --screenshot
 				// can land on it.
 				shell.Practice = true;
 				shell.Tab = ShellScreen.MainMenuTab;
-				shell.Run = true;
+				shell.Staged = true;
 			} else if (args[i] == "--shell-windowed") {
 				// Keep the front end windowed at startup whatever prefs.cfg option 6 says. This engine's own flag:
 				// retail's -d reads as the same switch, and its store is overwritten before anything reads it.
 				shell.Windowed = true;
-				shell.Run = true;
+				shell.Staged = true;
 			} else if (args[i] == "--windowed") {
 				// Keep every mission's window windowed at startup whatever prefs.cfg option 6 says -- --shell-windowed's
 				// counterpart for the simulator. This engine's own flag, not retail's -Z0: see the startup toggle in
@@ -251,7 +255,7 @@ sealed class HostOptions {
 				// Turn the shell's movies off — retail's -a, which clears Shell_MoviesEnabled (00482275) so the movie queue takes
 				// nothing and plays nothing. See ShellMovieQueue.
 				shell.Movies = false;
-				shell.Run = true;
+				shell.Staged = true;
 			} else if (args[i] == "--cd-drive") {
 				// Which drive the music CD is in. Retail asks MCI for the device type alone and takes whichever
 				// CD drive it answers with -- nothing in either executable reads a drive letter from anywhere --
@@ -377,6 +381,12 @@ sealed class HostOptions {
 			}
 		}
 
+		if (options.MissionPath != null || options.PlayTape != null || options.DemoTape) {
+			options.RunMission = true;
+		}
+		if (options.RunMission && shell.Staged) {
+			errors.Add("The --shell-* options stage the front end, which does not run alongside --mission, a named mission, --play or --demo.");
+		}
 		if (options.RecordTape != null && (options.PlayTape != null || options.DemoTape)) {
 			errors.Add("--record cannot be combined with --play or --demo.");
 		}
@@ -391,9 +401,10 @@ sealed class HostOptions {
 	}
 }
 
-/// <summary>The front end's flags. Each <c>--shell-*</c> flag implies <see cref="Run"/>.</summary>
+/// <summary>The front end's flags. Each <c>--shell-*</c> flag sets <see cref="Staged"/>.</summary>
 sealed class ShellOptions {
-	public bool Run { get; set; }
+	/// <summary>Whether any <c>--shell-*</c> flag was given, which a lone mission cannot honour.</summary>
+	public bool Staged { get; set; }
 	public string? Palette { get; set; }
 	public ShellCampaignMode? Mode { get; set; }
 	public int Tab { get; set; } = ShellScreen.MainMenuTab;

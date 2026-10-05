@@ -12,8 +12,8 @@ using Herculan.Engine.Settings;
 // here and reuse everything below it unchanged.
 //
 // This file is the entry point alone: parse the command line, find the install, and hand over to the
-// turn that was asked for — an install (DiscInstall), a movie (MovieHost), one mission or ES.EXE's loop
-// of front end and simulator (Launcher).
+// turn that was asked for — an install (DiscInstall), a movie (MovieHost), one mission, or by default
+// ES.EXE's loop of front end and simulator (Launcher).
 
 var argumentErrors = new List<string>();
 var options = HostOptions.Parse(args, argumentErrors);
@@ -35,7 +35,7 @@ if (options.InstallSource != null && options.InstallDestination != null) {
 }
 
 // Host-lifetime, not mission-lifetime: neither reads the install, and both need to survive into
-// --shell and --movie once those have a menu bar of their own to raise TweaksMenu from — see
+// the shell and --movie once those have a menu bar of their own to raise TweaksMenu from — see
 // docs/herculan/planning.md. Built before that branch so nothing below has to change when they do.
 var localization = new LocalizationTable();
 TweakSettings.Current.LoadFromDisk();
@@ -82,6 +82,6 @@ if (options.MoviePath != null) {
 	return MovieHost.Run(installRoot, session.Disc, options.MoviePath, options.ScreenshotPath, options.SilentAudio);
 }
 
-return options.Shell.Run
-	? Launcher.RunShellLoop(session, options)
-	: Launcher.RunMission(session, options);
+return options.RunMission
+	? Launcher.RunMission(session, options)
+	: Launcher.RunShellLoop(session, options);

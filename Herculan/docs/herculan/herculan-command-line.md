@@ -13,25 +13,25 @@ Herculan.Engine.Host [<install>] [<mission>] [flags]
 | Position | Meaning |
 |---|---|
 | 1 | The Earthsiege 2 install: the folder holding the archive directory. Without it the host reads the `ES2_GAME_PATH` environment variable, then tries the install it last used, then looks for an `ES2` folder beside the executable or any folder above it, and when all of those fail opens a window asking for the folder, with the system's folder picker where there is one. A named install that is not one stops the host with a message, as does a failed search under `--screenshot`. Whichever install runs is remembered in `install-path.txt` beside `tweak-settings.json`, except under `--ask-install`. |
-| 2 | The mission to fly: a `script.dat` ([`../retail/formats/script-dat.md`](../retail/formats/script-dat.md)), any `SAV\script*.dat` save-slot snapshot, or a mission named by its `.MSN` — `C1_03`, `C1_03.MSN` or `MSN\C1_03.MSN` — from those `gam\career.dat` lists. Defaults to `DATA\script.dat` in the install. `--play` and `--demo` replace it with the mission their tape carries. |
+| 2 | The mission to fly: a `script.dat` ([`../retail/formats/script-dat.md`](../retail/formats/script-dat.md)), any `SAV\script*.dat` save-slot snapshot, or a mission named by its `.MSN` — `C1_03`, `C1_03.MSN` or `MSN\C1_03.MSN` — from those `gam\career.dat` lists. Naming one implies `--mission`. Under `--mission` without one, `DATA\script.dat` in the install. `--play` and `--demo` replace it with the mission their tape carries. |
 
 A named mission is loaded as the shell loads that career position ([`../retail/shell/campaign-loop.md`](../retail/shell/campaign-loop.md#loading-the-careers-mission)) and flown from a handoff written to a scratch folder, leaving the install's `DATA` alone except for the settings the simulator reads and writes there. A practice or demo mission takes the training load, with the practice options `DATA\prefs.cfg` holds, as `Begin Mission` or `INSTANT ACTION` on its row would. A campaign mission is loaded for a career with no history: every campaign flag 0 until the load seeds its own, and the player's lance and skill from `DATA\player.mec`, which it needs.
 
 ## What runs
 
-Without one of these, the host flies the mission.
+Without one of these, the host runs the front end and the missions it launches, coming back to it after each as `ES.EXE` does ([`command-line.md`](../retail/command-line.md#the-loop)). See [`../retail/shell/screen-layout.md`](../retail/shell/screen-layout.md).
 
 | Flag | Effect |
 |---|---|
-| `--shell` | Runs the front end instead of a mission, and the missions it launches, coming back to it after each as `ES.EXE` does ([`command-line.md`](../retail/command-line.md#the-loop)). The other `--shell-*` flags imply it, and stage its first turn only. See [`../retail/shell/screen-layout.md`](../retail/shell/screen-layout.md). |
+| `--mission` | Flies one mission without the front end, and exits when it ends. A named mission, `--play` and `--demo` imply it. |
 | `--movie <name>` | Plays one cutscene: a path, or a name looked up in the install's `AVI` folder, with or without the extension. See [`video-playback.md`](video-playback.md#looking-at-one). |
-| `--play <tape>` | Replays an input tape: a path, or a stem looked up in the install's `TAPES` folder. Hands the controls to the player when the tape runs out. Retail's `-p<name>`. See [`input-tapes.md`](input-tapes.md). |
+| `--play <tape>` | Replays an input tape: a path, or a stem looked up in the install's `TAPES` folder. Hands the controls to the player when the tape runs out. Implies `--mission`. Retail's `-p<name>`. See [`input-tapes.md`](input-tapes.md). |
 | `--record <tape>` | Records the mission's input to `<tape>.tap`, which `--play` replays. Cannot be combined with `--play` or `--demo`. Retail's `-r<name>`. See [`input-tapes.md`](input-tapes.md#recording). |
-| `--demo` | Plays a tape picked from `TAPES\demolist.str`, as VIEW DEMO does, and ends the mission when the tape runs out or a key is pressed. With `--play`, plays that tape in demo mode instead. Retail's `-D`. |
+| `--demo` | Plays a tape picked from `TAPES\demolist.str`, as VIEW DEMO does, and ends the mission when the tape runs out or a key is pressed. With `--play`, plays that tape in demo mode instead. Implies `--mission`. Retail's `-D`. |
 
 ## Front end
 
-All of these imply `--shell`.
+These stage the front end's first turn only, and none of them combines with `--mission`.
 
 | Flag | Effect |
 |---|---|
@@ -50,7 +50,7 @@ See [`../retail/shell/screen-layout.md`](../retail/shell/screen-layout.md).
 | Flag | Effect |
 |---|---|
 | `--no-sound`, `--silent` | Opens no audio device. Everything that drives sound still runs; nothing is heard. Retail's `-s`. In the shell, as with `-s`, there is no sound manager at all, so the music track is not flipped. |
-| `--music <n>` | The CD track select: the mission plays track *n* % 5 + 2. Retail's `-R<n>`. Under `--shell` each mission launched counts on from it, as the launcher counts from 0; a lone mission without it plays track 2. |
+| `--music <n>` | The CD track select: the mission plays track *n* % 5 + 2. Retail's `-R<n>`. From the front end each mission launched counts on from it, as the launcher counts from 0; a `--mission` run without it plays track 2. |
 | `--cd-drive <drive>` | The drive holding the music CD. |
 | `--music-dir <dir>` | A folder of `Track02.wav` … `Track07.wav` to play in place of the disc. |
 
@@ -85,7 +85,7 @@ See [`joystick-config.md`](joystick-config.md).
 
 ## Screenshots and staged state
 
-`--screenshot <file>` renders 30 frames, captures the window to `<file>` and exits. It works for a mission, `--shell` and `--movie`, and hides the menu bar. A `--shell` capture opens on the main menu without its startup sequence. A screenshot run sees no keyboard or mouse input, so the flags below put the cockpit into the state to be photographed at power-up; they work in an interactive run too.
+`--screenshot <file>` renders 30 frames, captures the window to `<file>` and exits. It works for the front end, `--mission` and `--movie`, and hides the menu bar. A front-end capture opens on the main menu without its startup sequence. A screenshot run sees no keyboard or mouse input, so the flags below put the cockpit into the state to be photographed at power-up; they work in an interactive run too. A cockpit capture needs `--mission`: without it the front end is what is photographed.
 
 Several of them hold the capture past the 30 frames until what they stage is on screen:
 

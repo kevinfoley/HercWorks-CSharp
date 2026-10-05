@@ -9,7 +9,7 @@ using Silk.NET.OpenGL;
 namespace Herculan.Engine.Host.Shell;
 
 /// <summary>
-/// Runs the front end instead of a mission — <c>--shell</c>. The same thin-host arrangement the
+/// Runs the front end, which the host does unless <c>--mission</c> asks for one mission alone. The same thin-host arrangement the
 /// mission loop uses (docs/herculan/planning.md, "Engine internal architecture"): everything here is
 /// wiring, and every rule about what the shell looks like and where its widgets are lives in
 /// <c>Herculan.Engine.Shell</c>. This class is the composition and the frame's order — what runs before what

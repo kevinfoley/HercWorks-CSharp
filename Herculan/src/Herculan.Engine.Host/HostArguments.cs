@@ -71,14 +71,14 @@ static class HostArguments {
 		              above the executable, then a window asking for it
 		  <mission>   a script.dat, a SAV\script*.dat, or a mission's .MSN name (C1_03); default DATA\script.dat in the install
 
-		What runs (default: fly the mission)
-		  --shell                     the front end
+		What runs (default: the front end)
+		  --mission                   one mission, without the front end; a named <mission> implies it
 		  --movie <name>              one cutscene, by path or AVI folder name
-		  --play <tape>               replay an input tape, by path or TAPES folder stem
-		  --demo                      a demo tape from TAPES\demolist.str, as VIEW DEMO plays it
-		  --record <tape>             record this mission's input to <tape>.tap
+		  --play <tape>               replay an input tape, by path or TAPES folder stem; implies --mission
+		  --demo                      a demo tape from TAPES\demolist.str, as VIEW DEMO plays it; implies --mission
+		  --record <tape>             record the mission's input to <tape>.tap
 
-		Front end (each implies --shell)
+		Front end (none combines with --mission)
 		  --shell-tab <0-7>  --shell-bay <0-7>  --shell-training  --shell-practice
 		  --shell-windowed  --shell-no-movies
 		  --shell-palette <name>

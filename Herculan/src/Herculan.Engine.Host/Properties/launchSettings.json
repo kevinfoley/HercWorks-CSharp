@@ -1,19 +1,19 @@
 {
   "profiles": {
-    "Default": {
+    "Default (front end)": {
       "commandName": "Project"
     },
-    "Shell (front end)": {
+    "Front end (ask for install)": {
       "commandName": "Project",
-      "commandLineArgs": "--shell"
+      "commandLineArgs": "--ask-install"
     },
-	"Shell (ask for install)": {
+    "Mission": {
       "commandName": "Project",
-      "commandLineArgs": "--shell --ask-install"
+      "commandLineArgs": "--mission"
     },
     "Mission, developer": {
       "commandName": "Project",
-      "commandLineArgs": "--developer"
+      "commandLineArgs": "--mission --developer"
     },
     "Demo tape": {
       "commandName": "Project",
@@ -21,7 +21,7 @@
     },
     "Joystick probe": {
       "commandName": "Project",
-      "commandLineArgs": "--joystick-probe"
+      "commandLineArgs": "--mission --joystick-probe"
     }
   }
 }

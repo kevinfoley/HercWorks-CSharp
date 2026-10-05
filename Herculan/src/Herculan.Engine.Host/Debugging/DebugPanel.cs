@@ -23,13 +23,14 @@ namespace Herculan.Engine.Host.Debugging;
 /// what it is reporting. The two [Drain] buttons are the exception, and are test seams rather than
 /// mechanics.</para>
 /// </summary>
-sealed class DebugPanel {
+sealed class DebugPanel(bool drawSkeleton) {
 	/// <summary>Whether the panel is up. Set by the host's [Esc]/menu-bar logic (<see cref="Simulator.WindowKeys"/>), and
 	/// cleared here on a click outside the window.</summary>
 	public bool IsOpen { get; set; }
 
-	/// <summary>Whether the host should draw the animating skeleton over the world.</summary>
-	public bool DrawSkeleton { get; private set; } = true;
+	/// <summary>Whether the host should draw the animating skeleton over the world. Starts as the constructor's
+	/// <c>drawSkeleton</c>: on under <c>--developer</c>, off otherwise, since only then can the panel turn it off.</summary>
+	public bool DrawSkeleton { get; private set; } = drawSkeleton;
 
 	/// <summary>
 	/// Joints in the last skeleton the host built, for the readout. Set by whatever draws the

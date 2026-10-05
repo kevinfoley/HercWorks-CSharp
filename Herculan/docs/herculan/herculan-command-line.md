@@ -81,7 +81,7 @@ See [`joystick-config.md`](joystick-config.md).
 
 | Flag | Effect |
 |---|---|
-| `--developer` | The developer keys. Retail's `-SPRUNKNOWN`. See [`herculan-key-bindings.md`](herculan-key-bindings.md#developer-keys). |
+| `--developer` | The developer keys. Retail's `-SPRUNKNOWN`. See [`herculan-key-bindings.md`](herculan-key-bindings.md#developer-keys). Also puts Debug on a mission's [Esc] menu bar. |
 
 ## Screenshots and staged state
 

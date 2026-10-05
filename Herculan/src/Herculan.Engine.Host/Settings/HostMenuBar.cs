@@ -6,7 +6,7 @@ namespace Herculan.Engine.Host.Settings;
 
 /// <summary>
 /// The menu bar [Esc] raises over the shell and over a mission, HERCULAN's own and not retail's, and the
-/// panels it opens: Debug (a mission's only), Tweaks and Settings. Hidden until <see cref="Show"/>, and never
+/// panels it opens: Debug (a mission's only, and only under <c>--developer</c>), Tweaks and Settings. Hidden until <see cref="Show"/>, and never
 /// drawn into a <c>--screenshot</c> capture. Which [Esc] press reaches it is each host's to decide, since
 /// retail takes [Esc] first wherever it has a use for it.
 /// </summary>

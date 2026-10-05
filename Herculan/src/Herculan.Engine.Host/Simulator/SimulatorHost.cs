@@ -113,14 +113,15 @@ sealed class SimulatorHost : IDisposable {
 		_view.BuildChain(staging.Options.External);
 
 		// The debug panel. It owns its own view options and readouts; see DebugPanel for what it shows and
-		// why it is ImGui rather than the game's own HUD font.
-		_debugPanel = new DebugPanel();
+		// why it is ImGui rather than the game's own HUD font. Reachable only under --developer; without it the
+		// panel still exists, closed and with its overlays off, since the renderer and stepper read it.
+		_debugPanel = new DebugPanel(options.DeveloperMode);
 
 		// Hidden until [Esc] first raises it — see WindowKeys.ReadMenuBarEscapeKey — since it is the only way
 		// to reach its panels and every key from F1 to F12 is already taken. A mission has no shell turn to
 		// restart, so Settings shows the folders greyed.
 		_menuBar = new HostMenuBar(session.Localization, new TweaksMenu(TweakSettings.Current, session.Localization),
-			new SettingsWindow(session, restartShell: null), _debugPanel);
+			new SettingsWindow(session, restartShell: null), options.DeveloperMode ? _debugPanel : null);
 
 		// The -SPRUNKNOWN keys, and the Alt+S freeze a replay honours without them.
 		_developerKeys = new DeveloperKeys(options.DeveloperMode);

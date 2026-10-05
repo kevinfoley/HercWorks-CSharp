@@ -47,7 +47,11 @@ public enum MissionSide {
 /// The resolved resource base name (<c>HYPERION</c>, <c>SKIMMER</c>) for mechs and flyers, or null
 /// for bases, which are named by table index rather than by string.
 /// </param>
-/// <param name="SlotIndex">Its record index within its <c>script.dat</c> block, for diagnostics.</param>
+/// <param name="SlotIndex">
+/// The roster slot the mission's refs name it by: its record index within its <c>script.dat</c>
+/// block, or for a machine of the player's squad the block-7 slot block 11 record 0 names in its
+/// position, -1 when none. Order subjects, action targets and objective subjects resolve through it.
+/// </param>
 /// <param name="GroupIndex">The block-11 record that activated and placed it.</param>
 /// <param name="Position">Spawn position in world units. Z is left at zero — the ground under a
 /// spawn point is a terrain query the scene does once the zone is loaded, exactly as DBSIM does.</param>

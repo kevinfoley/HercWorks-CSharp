@@ -164,7 +164,7 @@ public static class MissionLoader {
 			placements);
 
 		var counters = LoadCounters(Path.Combine(Path.GetDirectoryName(scriptPath) ?? ".", CountersFileName));
-		var player = LoadPlayerLance(scriptPath, groups, mechFormations, mechNames, placements);
+		var player = LoadPlayerLance(scriptPath, script, groups, mechFormations, mechNames, placements);
 		var basePads = ResolveBasePads(groups, claims[MissionUnitKind.Base], baseFormations, placements);
 
 		var coordinates = new List<Vec3i>(script.Coordinates.Length);
@@ -790,10 +790,16 @@ public static class MissionLoader {
 	/// their own wingmen — <c>Mech_CollisionTest</c> refuses a position that overlaps another
 	/// machine, so nothing could take its first step.</para>
 	///
+	/// <para>Entry <i>i</i> takes as its <see cref="MissionPlacement.SlotIndex"/> the block-7 slot that
+	/// record 0's member ref <i>i</i> names, or -1 when that ref is unset, so the mission's own mech
+	/// refs to that slot resolve to it. The squad is added after the roster, so where a live group
+	/// names the same slot the squad member wins. See
+	/// docs/retail/formats/script-dat.md#placement--the-actual-rule, rule 6.</para>
+	///
 	/// <para>A missing <c>player.mec</c> throws <see cref="MissingHandoffFileException"/>, as the
 	/// original asserts on it — see docs/retail/formats/script-dat.md#call-chain--confirmed.</para>
 	/// </summary>
-	private static MissionPlacement? LoadPlayerLance(string scriptPath, Group[] groups,
+	private static MissionPlacement? LoadPlayerLance(string scriptPath, ScriptDat script, Group[] groups,
 			MechFormationTable mechFormations, UnitTypeNames mechNames,
 			List<MissionPlacement> placements) {
 		string playerPath = PlayerPathFor(scriptPath);
@@ -811,15 +817,20 @@ public static class MissionLoader {
 		}
 
 		var spawn = groups[PlayerGroupIndex];
+		var squadRefs = script.Groups[PlayerGroupIndex].MemberRefs;
 		MissionPlacement? player = null;
 
 		for (int i = 0; i < lance.Entries.Length; i++) {
 			var entry = lance.Entries[i];
+			int slot = i < GroupMemberSlots && i < squadRefs.Length && squadRefs[i] >= 0
+				? squadRefs[i]
+				: -1;
+
 			var placement = new MissionPlacement(
 				MissionUnitKind.Mech,
 				entry.MechType,
 				mechNames[entry.MechType],
-				i,
+				slot,
 				PlayerGroupIndex,
 				OffsetFromGroup(spawn, mechFormations, i),
 				spawn.Heading,

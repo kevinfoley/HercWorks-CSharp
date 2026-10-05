@@ -153,34 +153,13 @@ public sealed class JoystickBindings {
 			return JoystickPilotInput.None;
 		}
 
-		var axes = ResolveSources(reading, capabilities, preferences, out var stickRow, out var throttleRow);
+		var axes = ApplyHat(ResolveSources(reading, capabilities, preferences, out var stickRow, out var throttleRow),
+			reading, preferences);
 
-		// The hat, which is not an axis source but writes straight over the turret pair. Only one
-		// direction can apply: the original tests north, south, east then west and stops at the first,
-		// so a hat reporting two at once resolves to the earliest of them.
-		var views = JoystickHat.None;
-
-		switch (Assignment(preferences, 3)) {
-			case JoystickAxisAssignment.Turret:
-				if (reading.Hat.HasFlag(JoystickHat.North)) {
-					axes = axes with { TorsoPitch = HatAxis };
-				} else if (reading.Hat.HasFlag(JoystickHat.South)) {
-					axes = axes with { TorsoPitch = -HatAxis };
-				} else if (reading.Hat.HasFlag(JoystickHat.East)) {
-					axes = axes with { TorsoTwist = HatAxis };
-				} else if (reading.Hat.HasFlag(JoystickHat.West)) {
-					axes = axes with { TorsoTwist = -HatAxis };
-				}
-
-				break;
-
-			// Under VIEWS the four bytes pass through untouched to CockpitView_PollViewDevice
-			// (00432b14), which queues view commands 1, 0, 5 and 4 off them. Under either other
-			// setting the original zeroes them first, so the view path sees nothing.
-			case JoystickAxisAssignment.Movement:
-				views = reading.Hat;
-				break;
-		}
+		// Under VIEWS the four hat bytes pass through untouched to CockpitView_PollViewDevice (00432b14), which
+		// queues view commands 1, 0, 5 and 4 off them. Under either other setting the original zeroes them
+		// first, so the view path sees nothing.
+		var views = Assignment(preferences, 3) == JoystickAxisAssignment.Movement ? reading.Hat : JoystickHat.None;
 
 		var pressed = ResolveButtons(reading, capabilities, preferences, out int claimed);
 		return new JoystickPilotInput(axes, ResolveFire(reading, preferences), pressed, views,
@@ -191,15 +170,19 @@ public sealed class JoystickBindings {
 	}
 
 	/// <summary>
-	/// The steering and throttle pair while the controls drive a camera rather than the machine —
+	/// The four axes while the controls drive a camera rather than the machine —
 	/// <c>Input_BuildPlayerDevice</c>'s <c>InputDrivesCamera</c> arm, short of Backturn. The stick stops
 	/// feeding its bound axes: wherever it has moved, its X and Y replace the keyboard's first pair,
-	/// which stays on the steering and throttle axes rather than moving to the turret. A lever and a
-	/// rudder go on feeding their bindings, but only on a stick that has a lever; on one without, both
-	/// are zeroed. The camera reads the result's first two axes.
+	/// which stays on the steering and throttle axes rather than moving to the turret, and the keyboard's
+	/// second pair is zeroed. A lever and a rudder go on feeding their bindings, but only on a stick that
+	/// has a lever; on one without, both are zeroed. The hat under HAT = 2 writes over the turret pair as
+	/// it does outside this arm. The camera reads the first two axes; the turret pitch is what
+	/// <c>Sim_PollPlayerInput</c> still hands the machine — docs/retail/formats/joystick-input.md#while-the-camera-has-the-controls.
 	/// </summary>
 	public PilotAxes CombineForCamera(JoystickReading reading, JoystickCapabilities capabilities,
 			SimulatorPreferences preferences, PilotAxes keyboard) {
+		keyboard = keyboard with { TorsoTwist = 0, TorsoPitch = 0 };
+
 		if (!capabilities.Present) {
 			return keyboard;
 		}
@@ -212,7 +195,30 @@ public sealed class JoystickBindings {
 		var axes = capabilities.HasThrottle
 			? ResolveSources(reading with { StickX = 0, StickY = 0 }, capabilities, preferences, out _, out _)
 			: PilotAxes.Centred;
-		return axes.Or(keyboard);
+		return ApplyHat(axes.Or(keyboard), reading, preferences);
+	}
+
+	// The hat under HAT = 2, which is not an axis source but writes straight over the turret pair at HatAxis.
+	// Only one direction can apply: the original tests north, south, east then west and stops at the first,
+	// so a hat reporting two at once resolves to the earliest of them.
+	private PilotAxes ApplyHat(PilotAxes axes, JoystickReading reading, SimulatorPreferences preferences) {
+		if (Assignment(preferences, 3) != JoystickAxisAssignment.Turret) {
+			return axes;
+		}
+
+		if (reading.Hat.HasFlag(JoystickHat.North)) {
+			return axes with { TorsoPitch = HatAxis };
+		}
+
+		if (reading.Hat.HasFlag(JoystickHat.South)) {
+			return axes with { TorsoPitch = -HatAxis };
+		}
+
+		if (reading.Hat.HasFlag(JoystickHat.East)) {
+			return axes with { TorsoTwist = HatAxis };
+		}
+
+		return reading.Hat.HasFlag(JoystickHat.West) ? axes with { TorsoTwist = -HatAxis } : axes;
 	}
 
 	// The four axis sources, in destination order, and a second rank behind them. A control whose

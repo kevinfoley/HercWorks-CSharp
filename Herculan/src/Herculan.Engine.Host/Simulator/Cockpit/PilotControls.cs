@@ -249,12 +249,17 @@ sealed class PilotControls {
 		// went to the view's camera axes and the round instead; the two centring commands are dispatcher
 		// cases and still reach the machine. In the original, Sim_PollPlayerInput's camera branch tests
 		// InputDrivesCamera alone: under it the machine gets no steering, throttle or twist, skips
-		// Mech_PlayerFireTick and Mech_ApplyThrottleInput ignores a lever, but its pitch still reads a
-		// lever (docs/retail/formats/joystick-input.md, "While the camera has the controls"), which this does
-		// not port. A round flown with InputDrivesCamera clear takes the original's ordinary branch, which
-		// this neutralises as well.
+		// Mech_PlayerFireTick and Mech_ApplyThrottleInput ignores a lever, but it keeps the pitch axis
+		// while a stick with a throttle answers, which a lever on the turret pair or the hat under HAT = 2
+		// can be moving (docs/retail/formats/joystick-input.md, "While the camera has the controls"). That
+		// gate is the live stick's even during a replay, the capability block being rebuilt from the device
+		// on every call. A round flown with InputDrivesCamera clear takes the original's ordinary branch,
+		// which this neutralises as well.
 		if (pilotInput && pilotMech != null && _view.ControlsOnCamera) {
+			var liveStick = Joystick?.Capabilities ?? JoystickCapabilities.None;
+			bool keepsPitch = _view.ControlsDriveCamera && liveStick.Present && liveStick.HasThrottle;
 			pilotMech.Controls = MechControls.Neutral with {
+				TorsoPitch = keepsPitch ? pilotMech.Controls.TorsoPitch : (short)0,
 				CenterTorso = pilotMech.Controls.CenterTorso,
 				CenterBody = pilotMech.Controls.CenterBody,
 			};

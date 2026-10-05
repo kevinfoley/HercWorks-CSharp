@@ -15575,8 +15575,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_Suspend",
-      "description": "Sets DAT_004d25f6, which holds Sim_Run's loop in its sleep-and-pump branch, suspends every sound and pauses the cockpit's two message ports. The pair to Sim_Resume, on the window losing and regaining focus.",
-      "source": "docs/retail/formats/cockpit-messages.md#the-port"
+      "description": "Sets DAT_004d25f6, which holds Sim_Run's loop in its sleep-and-pump branch, suspends every sound (Sound_SuspendAll) and, when CockpitViewInstance is set, pauses the cockpit's two message ports. MainWndProc calls it on WM_KILLFOCUS and on WM_POWERBROADCAST with PBT_APMSUSPEND (4). The pair to Sim_Resume.",
+      "source": "docs/retail/formats/cockpit-messages.md#the-port",
+      "verified": {
+        "bytes": "0045f0b8+52",
+        "sha1": "dabad9d6bf36",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045f0ec",
@@ -15584,8 +15590,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_Resume",
-      "description": "Clears DAT_004d25f6, resumes every sound and resumes the cockpit's two message ports. The main window's WM_SETFOCUS calls it.",
-      "source": "docs/retail/formats/cockpit-messages.md#the-port"
+      "description": "Clears DAT_004d25f6, resumes every sound (Sound_ResumeAll) and, when CockpitViewInstance is set, resumes the cockpit's two message ports. MainWndProc calls it on WM_SETFOCUS and on WM_POWERBROADCAST with PBT_APMRESUMESUSPEND (7). The pair to Sim_Suspend.",
+      "source": "docs/retail/formats/cockpit-messages.md#the-port",
+      "verified": {
+        "bytes": "0045f0ec+52",
+        "sha1": "e203123729c6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045f120",

@@ -50,6 +50,7 @@ sealed class SimulatorHost : IDisposable {
 	private readonly HostMenuBar _menuBar;
 	private readonly DeveloperKeys _developerKeys;
 	private readonly bool[] _systemButtonsShowing = new bool[SystemButtons.Count];
+	private bool _suspended;
 
 	// Built once the window has a GL context.
 	private ImGuiController? _imgui;
@@ -157,9 +158,27 @@ sealed class SimulatorHost : IDisposable {
 		_window.Update += OnUpdate;
 		_window.Render += (_, gl) => OnRender(gl);
 		_window.Closing += OnClosing;
+		_window.View.FocusChanged += OnFocusChanged;
 	}
 
 	public void Dispose() => _window.Dispose();
+
+	// MainWndProc's WM_KILLFOCUS calls Sim_Suspend (0045f0b8) and its WM_SETFOCUS Sim_Resume (0045f0ec): every sound
+	// and both message ports stop and start again, and the flag between them holds Sim_Run's loop (see OnUpdate). Only
+	// a change goes through, since a resume without its suspend would start the mission's track again from the top. A
+	// --screenshot run is not held, so a capture never waits on the window having the focus.
+	private void OnFocusChanged(bool focused) {
+		if (focused != _suspended || _options.ScreenshotPath != null) {
+			return;
+		}
+
+		_suspended = !focused;
+		if (_suspended) {
+			_audio.Suspend();
+		} else {
+			_audio.Resume();
+		}
+	}
 
 	// The player's own cockpit canopy art + HUD, drawn as three simultaneous panels (front/left/right) rather
 	// than the original's single keyboard-panned view — see docs/herculan/planning.md's Milestone 8 section and
@@ -269,6 +288,13 @@ sealed class SimulatorHost : IDisposable {
 
 	private void OnUpdate(double deltaSeconds) {
 		_imgui?.Update((float)deltaSeconds);
+
+		// A suspended Sim_Run loop sleeps and pumps messages instead of ticking, rendering or reading input, so the
+		// mission stands still until the focus comes back; nothing accumulates meanwhile, so it carries on rather than
+		// catching up. A modal panel's own loop never tests the flag, and runs on over a sim it already holds.
+		if (_suspended && !_panels.AnyOpen) {
+			return;
+		}
 
 		_pilot.AnnounceJoystick(_panels.Controls, _options.ProbeJoystick, _options.WriteJoystickMap, _start.DataDirectory);
 		_stepper.BeginFrame(deltaSeconds);

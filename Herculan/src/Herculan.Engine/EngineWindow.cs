@@ -112,8 +112,9 @@ public sealed class EngineWindow : IDisposable {
 	/// Takes the window to full screen or back. Full screen is <c>glfwSetWindowMonitor</c> on the monitor
 	/// under the window's centre at that monitor's current video mode — GLFW's own windowed full screen,
 	/// which changes no display mode: the window covers the monitor at its own resolution and Windows
-	/// treats it as full screen, taskbar included. GLFW minimises a full-screen window that loses the
-	/// focus. Back is the size the window had before, centred on the same monitor. Called directly rather
+	/// treats it as full screen, taskbar included. GLFW's auto-iconify is turned off, so losing the focus — to
+	/// the Snipping Tool's PrtScn overlay, say — leaves the window full screen behind whatever took it rather
+	/// than minimising it. Back is the size the window had before, centred on the same monitor. Called directly rather
 	/// than through Silk's <see cref="WindowState.Fullscreen"/>, which makes the same call but always on
 	/// the primary monitor. Does nothing on a backend other than GLFW.
 	/// </summary>
@@ -137,6 +138,7 @@ public sealed class EngineWindow : IDisposable {
 			_fullScreenMonitor = (nint)monitor;
 			// Set first, so the resize and move to the monitor are not taken for the restored size and place.
 			FullScreen = true;
+			glfw.SetWindowAttrib(handle, WindowAttributeSetter.AutoIconify, false);
 			glfw.SetWindowMonitor(handle, monitor, 0, 0, mode->Width, mode->Height, mode->RefreshRate);
 			return;
 		}

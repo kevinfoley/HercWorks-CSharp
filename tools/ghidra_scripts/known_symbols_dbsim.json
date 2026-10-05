@@ -19702,7 +19702,13 @@
       "confidence": "high",
       "name": "Assert_Report",
       "description": "The DBSIM copy of VSHELL's Assert_Report: (logger, severity, condition, file, line, message). Severities 4-6 run the hooks (Assert_RunHooks), emit (Assert_Emit), call Assert_Emit again with severity 1 (which has no case and prints nothing), call 00464fc8 and MainWindow_KillTimer, PostQuitMessage(0) and _exit(1); lower severities only emit.",
-      "source": "DBSIM decompile and disassembly at 00479b6c"
+      "source": "DBSIM decompile and disassembly at 00479b6c",
+      "verified": {
+        "bytes": "00479b6c+128",
+        "sha1": "14cab57d5478",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00479bf0",
@@ -19756,7 +19762,13 @@
       "confidence": "high",
       "name": "Assert_Emit",
       "description": "Formats and outputs one assert by severity (the DBSIM copy of VSHELL's Assert_Emit): 2 prints the message, 3 counts (006c58b0) and shows the formatted line in a MessageBoxA titled 'Error', 4 prints it and shows the box, 5 prefixes 'Internal Error: Please call Sierra...' and shows the box, 6 prints the break notice. 3-5 call 004668b0 first.",
-      "source": "DBSIM decompile and disassembly at 00479e18"
+      "source": "DBSIM decompile and disassembly at 00479e18",
+      "verified": {
+        "bytes": "00479e18+368",
+        "sha1": "728249eacd02",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00479fac",

@@ -69,7 +69,7 @@ static class HostArguments {
 
 		  <install>   the Earthsiege 2 folder; default ES2_GAME_PATH, then the last one used, then an ES2 folder
 		              above the executable, then a window asking for it
-		  <mission>   a script.dat, a SAV\script*.dat, or a mission's .MSN name (C1_03); default DATA\script.dat in the install
+		  <mission>   a script.dat with its mission.var and player.mec, or a mission's .MSN name (C1_03); default DATA\script.dat in the install
 
 		What runs (default: the front end)
 		  --mission                   one mission, without the front end; a named <mission> implies it

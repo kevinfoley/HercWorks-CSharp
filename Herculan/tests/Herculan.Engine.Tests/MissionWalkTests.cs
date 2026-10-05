@@ -106,7 +106,9 @@ public class MissionWalkTests {
 		}
 
 		string script = MissionLoader.DefaultScriptPath(root);
-		if (!File.Exists(script)) {
+		string data = Path.GetDirectoryName(script)!;
+		if (!File.Exists(script) || !File.Exists(Path.Combine(data, MissionLoader.CountersFileName))
+			|| !File.Exists(MissionLoader.PlayerPathFor(script))) {
 			return null;
 		}
 

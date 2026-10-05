@@ -31,14 +31,22 @@ if (!File.Exists(scriptPath)) {
 	Console.Error.WriteLine(
 		$"No mission at {scriptPath}.\n" +
 		$"Pass one as the second argument — {MissionLoader.ScriptFileName} from the install's " +
-		$"{MissionLoader.DataFolderName} folder, or any of the SAV\\script*.dat snapshots.");
+		$"{MissionLoader.DataFolderName} folder, with the {MissionLoader.CountersFileName} and " +
+		$"{MissionLoader.PlayerFileName} beside it.");
 	return 1;
 }
 
 Console.WriteLine($"HERCULAN Mission Editor — loading {scriptPath} from {installRoot}");
 
 var content = GameContent.MountSimulator(installRoot);
-var scene = MissionScene.Load(content, scriptPath);
+MissionScene scene;
+try {
+	scene = MissionScene.Load(content, scriptPath);
+} catch (MissingHandoffFileException missing) {
+	Console.Error.WriteLine($"Cannot load {scriptPath}: {missing.Message}");
+	return 1;
+}
+
 var mission = scene.Mission;
 
 Console.WriteLine(

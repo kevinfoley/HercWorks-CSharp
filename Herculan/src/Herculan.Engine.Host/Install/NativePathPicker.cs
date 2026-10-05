@@ -214,13 +214,14 @@ static class NativePathPicker {
 
 	private static string Patterns(FileFilter filter) => string.Join(" ", filter.Extensions.Select(extension => "*." + extension));
 
-	private static string AppleScriptEscape(string text) => text.Replace("\\", "\\\\").Replace("\"", "\\\"");
+	/// <summary>Quotes <paramref name="text"/> for the inside of an AppleScript string literal.</summary>
+	public static string AppleScriptEscape(string text) => text.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
 	private static string? linuxTool;
 	private static bool linuxToolProbed;
 
 	/// <summary>The first of <c>zenity</c> and <c>kdialog</c> on the <c>PATH</c>, on Linux; null elsewhere.</summary>
-	private static string? LinuxTool() {
+	public static string? LinuxTool() {
 		if (!linuxToolProbed) {
 			linuxToolProbed = true;
 			if (OperatingSystem.IsLinux()) {

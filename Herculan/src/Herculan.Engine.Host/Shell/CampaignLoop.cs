@@ -69,9 +69,10 @@ sealed class CampaignLoop {
 	/// <summary>
 	/// Game_LoadSlot (0040e4f2): a slot in use read in whole — the hangar, the career and its mission, and
 	/// the game in progress that saving needs — and Career_LoadSlot's three working files copied into data\.
-	/// Slot 10 is slot 11 in training, as it is to Game_SaveSlot. The mission map is rebuilt, here on the briefing's next visit, and the briefing's and debrief's movies play
-	/// again (DAT_004778ab and DAT_004778ac cleared). Returns false for a slot not in use, which the original
-	/// refuses, or one that cannot be read.
+	/// Slot 10 is slot 11 in training, as it is to Game_SaveSlot. The mission map is rebuilt, here on the
+	/// briefing's next visit, and the briefing's and debrief's movies play again (DAT_004778ab and
+	/// DAT_004778ac cleared). Returns false for a slot not in use, which the original refuses, or one that
+	/// cannot be read.
 	/// </summary>
 	public bool LoadSlot(int slot) {
 		if (slot == GameInProgress.CurrentGameSlot && _game.Mode == ShellCampaignMode.Training) {

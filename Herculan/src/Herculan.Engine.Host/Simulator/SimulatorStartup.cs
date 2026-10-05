@@ -115,7 +115,7 @@ static class SimulatorStartup {
 		}
 
 		// The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing
-		// else here needs configuring. Any of the save-slot snapshots in SAV\ works as an alternative.
+		// else here needs configuring.
 		string scriptPath = tapeScriptPath
 			?? shellLaunch?.ScriptPath
 			?? options.MissionPath
@@ -124,7 +124,7 @@ static class SimulatorStartup {
 			Console.Error.WriteLine(
 				$"No mission at {scriptPath}.\n" +
 				$"Pass one as the second argument — {MissionLoader.ScriptFileName} from the install's " +
-				$"{MissionLoader.DataFolderName} folder, any of the SAV\\script*.dat snapshots, or a mission's .MSN name.");
+				$"{MissionLoader.DataFolderName} folder, or a mission's .MSN name.");
 			return null;
 		}
 
@@ -134,7 +134,14 @@ static class SimulatorStartup {
 		var content = GameContent.MountSimulator(installRoot, disc);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
-		var scene = MissionScene.Load(content, scriptPath, shellLaunch?.DataDirectory);
+		MissionScene scene;
+		try {
+			scene = MissionScene.Load(content, scriptPath, shellLaunch?.DataDirectory);
+		} catch (MissingHandoffFileException missing) {
+			ReportMissingFile(session, options, missing.FileName ?? missing.Message);
+			return null;
+		}
+
 		var mission = scene.Mission;
 
 		// Audio comes up against the same mounted archives and shares the simulation's generator, because
@@ -152,7 +159,8 @@ static class SimulatorStartup {
 		}
 
 		if (mission.Player == null) {
-			Console.Error.WriteLine("No player.mec beside the mission — camera starts at the first placed object.");
+			Console.Error.WriteLine($"{MissionLoader.PlayerPathFor(scriptPath)} placed no player machine — camera starts at the "
+				+ "first placed object.");
 		}
 
 		if (scene.TerrainBank == null) {
@@ -259,5 +267,23 @@ static class SimulatorStartup {
 			PilotingRazor = scene.PlayerObject is { Placement.TypeName: { } playerTypeName }
 				&& HercLUT.GetByAbbrev(playerTypeName)?.Id == ControlsPanel.RazorTypeIndex,
 		};
+	}
+
+	/// <summary>
+	/// A handoff file the load cannot do without is missing, which in the original is an assert's error box and an
+	/// exit with code 1 (docs/retail/formats/script-dat.md#call-chain--confirmed). This shows <c>mission_load</c>'s message in the platform's own box
+	/// (<see cref="NativeAlert"/>), and the turn then ends with 1, which no launcher state brings the shell back
+	/// from. The wording is this engine's own. A <c>--screenshot</c> run has nobody to close a box, so it only
+	/// prints.
+	/// </summary>
+	private static void ReportMissingFile(HostSession session, HostOptions options, string path) {
+		var localization = session.Localization;
+		string message = string.Format(localization.GetString("mission_load.missing_file") ?? "mission_load.missing_file", path);
+		if (options.ScreenshotPath != null) {
+			Console.Error.WriteLine(message);
+			return;
+		}
+
+		NativeAlert.ShowError(localization.GetString("mission_load.window_title") ?? "mission_load.window_title", message);
 	}
 }

@@ -7,8 +7,8 @@ using Herculan.Engine.Numerics;
 namespace Herculan.Engine.World;
 
 /// <summary>
-/// Turns the game's own mission handoff — <c>DATA\script.dat</c>, plus <c>DATA\player.mec</c> when
-/// it is there — into a <see cref="Mission"/>.
+/// Turns the game's own mission handoff — <c>DATA\script.dat</c>, with the <c>mission.var</c> and
+/// <c>player.mec</c> beside it — into a <see cref="Mission"/>.
 ///
 /// <para><b>The two-pass structure below is DBSIM's, not an invention.</b> It is easy to read
 /// <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) and conclude the format throws its placement data
@@ -140,8 +140,9 @@ public static class MissionLoader {
 	/// Loads the mission at <paramref name="scriptPath"/>. <paramref name="content"/> supplies the
 	/// type-name lists, which live in the archives rather than beside the mission.
 	///
-	/// <para><c>player.mec</c> is looked for next to the script and is optional: without it the
-	/// mission still loads, just with no <see cref="Mission.Player"/>.</para>
+	/// <para><c>mission.var</c> and <c>player.mec</c> are looked for next to the script, and the load
+	/// throws <see cref="MissingHandoffFileException"/> when either is not there, as the original
+	/// asserts on each.</para>
 	/// </summary>
 	public static Mission Load(GameContent content, string scriptPath) {
 		byte[] scriptBytes = File.ReadAllBytes(scriptPath);
@@ -212,17 +213,18 @@ public static class MissionLoader {
 	/// slot 10 and slots 21 to 42, before it opens <c>player.mec</c>. See
 	/// docs/retail/simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4.
 	///
-	/// <para>Looked for beside the script, as <c>player.mec</c> is. A missing file loads as all zeros,
-	/// which is this engine's choice: the original asserts, so a mission launched without the shell
-	/// still loads here.</para>
+	/// <para>Looked for beside the script, as <c>player.mec</c> is. A missing one throws
+	/// <see cref="MissingHandoffFileException"/>, as the original asserts on it — see
+	/// docs/retail/formats/script-dat.md#call-chain--confirmed.</para>
 	/// </summary>
 	private static short[] LoadCounters(string countersPath) {
-		var counters = new short[Sim.SimWorld.MissionCounterSlots];
-
-		if (File.Exists(countersPath)) {
-			byte[] bytes = File.ReadAllBytes(countersPath);
-			Buffer.BlockCopy(bytes, 0, counters, 0, Math.Min(bytes.Length, counters.Length * 2));
+		if (!File.Exists(countersPath)) {
+			throw new MissingHandoffFileException(countersPath);
 		}
+
+		var counters = new short[Sim.SimWorld.MissionCounterSlots];
+		byte[] bytes = File.ReadAllBytes(countersPath);
+		Buffer.BlockCopy(bytes, 0, counters, 0, Math.Min(bytes.Length, counters.Length * 2));
 
 		counters[SalvageBonusCounter] = 0;
 		counters[SquadmatesDownedCounter] = 0;
@@ -787,13 +789,20 @@ public static class MissionLoader {
 	/// the first. Before this the whole squad stood on one point, which pinned the player against
 	/// their own wingmen — <c>Mech_CollisionTest</c> refuses a position that overlaps another
 	/// machine, so nothing could take its first step.</para>
+	///
+	/// <para>A missing <c>player.mec</c> throws <see cref="MissingHandoffFileException"/>, as the
+	/// original asserts on it — see docs/retail/formats/script-dat.md#call-chain--confirmed.</para>
 	/// </summary>
 	private static MissionPlacement? LoadPlayerLance(string scriptPath, Group[] groups,
 			MechFormationTable mechFormations, UnitTypeNames mechNames,
 			List<MissionPlacement> placements) {
 		string playerPath = PlayerPathFor(scriptPath);
 
-		if (groups.Length == 0 || !File.Exists(playerPath)) {
+		if (!File.Exists(playerPath)) {
+			throw new MissingHandoffFileException(playerPath);
+		}
+
+		if (groups.Length == 0) {
 			return null;
 		}
 

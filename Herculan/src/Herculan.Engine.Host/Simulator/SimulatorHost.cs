@@ -90,7 +90,8 @@ sealed class SimulatorHost : IDisposable {
 		_art = LoadCockpitArt(start);
 		_view = new CockpitView(_scene, _art, staging.Options);
 
-		_window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}");
+		_window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}",
+			placement: session.WindowPlacement);
 		_outcome.BindWindow(_window);
 
 		var cockpitInput = new CockpitInput();
@@ -204,6 +205,7 @@ sealed class SimulatorHost : IDisposable {
 
 	private int RunWindow() {
 		_window.Run();
+		_session.WindowPlacement = _window.Placement;
 
 		// Sim_Run's write-back (0045f3ee): option 6 against the live state, set through Prefs_SetOption and saved
 		// alone through Prefs_SaveOption -- a read-modify-write of that one byte. See SimulatorStartup for the one

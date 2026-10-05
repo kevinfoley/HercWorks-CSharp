@@ -35,10 +35,22 @@ public sealed class EngineWindow : IDisposable {
 	/// <summary>Raised when the window is closing, while the GL context is still active.</summary>
 	public event Action? Closing;
 
-	public EngineWindow(string title = "HERCULAN Engine", int width = 1280, int height = 960) {
+	/// <param name="placement">
+	/// Where an earlier window was when it closed, so the next one opens there at the same size and maximized if
+	/// it was; null for the default size at the default place.
+	/// </param>
+	public EngineWindow(string title = "HERCULAN Engine", int width = 1280, int height = 960,
+			WindowPlacement? placement = null) {
+		_restoredPosition = placement?.Position;
+		_restoredSize = placement?.Size ?? new Vector2D<int>(width, height);
 		var options = WindowOptions.Default with {
-			Size = new Vector2D<int>(width, height),
+			Size = _restoredSize,
+			Position = placement?.Position ?? WindowOptions.Default.Position,
+			WindowState = placement is { Maximized: true } ? WindowState.Maximized : WindowState.Normal,
 			Title = title,
+			// Swaps wait for the display's vertical blank, so a frame never tears and the loop runs at the refresh
+			// rate rather than as fast as it can.
+			VSync = true,
 			// Asked for explicitly rather than relying on the default, since a context without a
 			// depth buffer fails silently: depth testing simply does nothing and the scene renders
 			// as whatever was drawn last, which is a confusing symptom to chase.
@@ -52,8 +64,22 @@ public sealed class EngineWindow : IDisposable {
 		_window.Update += OnUpdate;
 		_window.Render += OnRender;
 		_window.Closing += OnClosing;
+		_window.Resize += OnResize;
+		_window.Move += OnMove;
 	}
 
+	// The window's size and place while it is neither maximized, minimized nor full screen: what it goes back to,
+	// and what the next window opens at.
+	private Vector2D<int> _restoredSize;
+	private Vector2D<int>? _restoredPosition;
+	private bool _maximizedBeforeFullScreen;
+	private bool _maximizedAtClose;
+
+	/// <summary>
+	/// Where the window was when it closed, for the next window to open at: its restored size and place, and whether
+	/// it was maximized. Full screen counts as the windowed state it was entered from.
+	/// </summary>
+	public WindowPlacement Placement => new(_restoredPosition, _restoredSize, _maximizedAtClose);
 	/// <summary>Current framebuffer size in pixels — the viewport a renderer should draw into.</summary>
 	public Vector2D<int> FramebufferSize => _window.FramebufferSize;
 
@@ -107,19 +133,25 @@ public sealed class EngineWindow : IDisposable {
 
 			var mode = glfw.GetVideoMode(monitor);
 			_windowedSize = _window.Size;
+			_maximizedBeforeFullScreen = glfw.GetWindowAttrib(handle, WindowAttributeGetter.Maximized);
 			_fullScreenMonitor = (nint)monitor;
-			glfw.SetWindowMonitor(handle, monitor, 0, 0, mode->Width, mode->Height, mode->RefreshRate);
+			// Set first, so the resize and move to the monitor are not taken for the restored size and place.
 			FullScreen = true;
+			glfw.SetWindowMonitor(handle, monitor, 0, 0, mode->Width, mode->Height, mode->RefreshRate);
 			return;
 		}
 
 		var from = (Silk.NET.GLFW.Monitor*)_fullScreenMonitor;
 		glfw.GetMonitorPos(from, out int monitorX, out int monitorY);
 		var desktop = glfw.GetVideoMode(from);
-		glfw.SetWindowMonitor(handle, null,
-			monitorX + (desktop->Width - _windowedSize.X) / 2, monitorY + (desktop->Height - _windowedSize.Y) / 2,
-			_windowedSize.X, _windowedSize.Y, Glfw.DontCare);
+		var back = new Vector2D<int>(monitorX + (desktop->Width - _windowedSize.X) / 2,
+			monitorY + (desktop->Height - _windowedSize.Y) / 2);
+		glfw.SetWindowMonitor(handle, null, back.X, back.Y, _windowedSize.X, _windowedSize.Y, Glfw.DontCare);
 		FullScreen = false;
+		if (!_maximizedBeforeFullScreen) {
+			_restoredPosition = back;
+			_restoredSize = _windowedSize;
+		}
 	}
 
 	private nint _fullScreenMonitor;
@@ -183,7 +215,33 @@ public sealed class EngineWindow : IDisposable {
 		}
 	}
 
+	// Whether the window is maximized or minimized, asked of GLFW rather than Silk's WindowState, which is updated
+	// by a callback of its own and can still be the old state while a resize to or from maximized is reported.
+	private unsafe (bool Maximized, bool Minimized) Shape() {
+		if (_window.Native?.Glfw is not { } native) {
+			return (_window.WindowState == WindowState.Maximized, _window.WindowState == WindowState.Minimized);
+		}
+
+		var glfw = Glfw.GetApi();
+		var handle = (WindowHandle*)native;
+		return (glfw.GetWindowAttrib(handle, WindowAttributeGetter.Maximized),
+			glfw.GetWindowAttrib(handle, WindowAttributeGetter.Iconified));
+	}
+
+	private void OnResize(Vector2D<int> size) {
+		if (!FullScreen && Shape() is (false, false) && size.X > 0 && size.Y > 0) {
+			_restoredSize = size;
+		}
+	}
+
+	private void OnMove(Vector2D<int> position) {
+		if (!FullScreen && Shape() is (false, false)) {
+			_restoredPosition = position;
+		}
+	}
+
 	private void OnClosing() {
+		_maximizedAtClose = FullScreen ? _maximizedBeforeFullScreen : Shape().Maximized;
 		Closing?.Invoke();
 		_input?.Dispose();
 		_input = null;
@@ -195,3 +253,9 @@ public sealed class EngineWindow : IDisposable {
 		_window.Dispose();
 	}
 }
+
+/// <summary>Where a window sat, for the next one to open at (<see cref="EngineWindow.Placement"/>).</summary>
+/// <param name="Position">The client area's top-left in screen coordinates, or null when it never moved from where it opened.</param>
+/// <param name="Size">The client area's size when neither maximized nor full screen.</param>
+/// <param name="Maximized">Whether it was maximized.</param>
+public readonly record struct WindowPlacement(Vector2D<int>? Position, Vector2D<int> Size, bool Maximized);

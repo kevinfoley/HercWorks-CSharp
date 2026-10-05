@@ -54,6 +54,12 @@ sealed class HostSession(string installRoot, LocalizationTable localization, str
 	public string ImGuiFontPath { get; } = imguiFontPath;
 
 	/// <summary>
+	/// Where the last shell or mission window was when it closed, so the next one opens at the same size and place,
+	/// maximized if it was; null until one has closed.
+	/// </summary>
+	public WindowPlacement? WindowPlacement { get; set; }
+
+	/// <summary>
 	/// Makes the next use of <see cref="Disc"/> close the disc and open whatever <c>drive.cfg</c> now names. The
 	/// disc stays open until then, so a shell turn still drawing after the change keeps reading it.
 	/// </summary>

@@ -23,6 +23,7 @@ sealed class FrontEndWindow : IDisposable {
 	/// </summary>
 	private const int ScreenshotFrame = 5;
 
+	private readonly HostSession _session;
 	private readonly EngineWindow _window;
 	private readonly HostMenuBar _menuBar;
 	private readonly string _imguiFontPath;
@@ -39,7 +40,8 @@ sealed class FrontEndWindow : IDisposable {
 	public FrontEndWindow(HostSession session, string title, string? screenshotPath, Action restartRequested) {
 		_imguiFontPath = session.ImGuiFontPath;
 		_screenshotPath = screenshotPath;
-		_window = new EngineWindow(title);
+		_session = session;
+		_window = new EngineWindow(title, placement: session.WindowPlacement);
 		_menuBar = new HostMenuBar(session.Localization, new TweaksMenu(TweakSettings.Current, session.Localization),
 			new SettingsWindow(session, () => RequestRestart(restartRequested)));
 		_window.View.FocusChanged += focused => {
@@ -158,9 +160,10 @@ sealed class FrontEndWindow : IDisposable {
 		_imgui = null;
 	}
 
-	/// <summary>Runs the window until it closes.</summary>
+	/// <summary>Runs the window until it closes, and leaves where it was for the next window to open at.</summary>
 	public void Run() {
 		_window.Run();
+		_session.WindowPlacement = _window.Placement;
 		_menuBar.Settings.Dispose();
 	}
 

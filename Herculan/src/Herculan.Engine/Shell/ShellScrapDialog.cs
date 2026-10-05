@@ -20,8 +20,7 @@ public enum ShellScrapDialogButton {
 /// <para>The rects are the builder's literals. The panel is placed in a window the size of the whole
 /// display, so its rect is a canvas rect; everything else is in the panel.</para>
 ///
-/// <para>While it is up this engine hit-tests nothing but its two buttons, so it is modal. That is this
-/// engine's choice.</para>
+/// <para>HERCULAN treats this dialog as modal, a divergence from retail.</para>
 /// </summary>
 public sealed class ShellScrapDialog {
 	/// <summary>The machine scrap dialog, captioned <c>0xcc</c> <c>This herc will yield</c>.</summary>

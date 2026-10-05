@@ -234,8 +234,8 @@ public sealed class MissionObjectives {
 			// condition 5, which has no case in either of its two switches -- so such a record
 			// silently reuses the previous record's answer. Carried rather than corrected: nothing
 			// here should quietly disagree with the original about a mission that reaches it. For the
-			// first record the original carries whatever its caller left in the register; starting
-			// from false is this engine's choice.
+			// first record the original carries whatever its caller left in the register; HERCULAN starts
+			// from false, which is a divergence from retail.
 			if ((uint)objective.Record.SubjectKind <= (uint)MissionObjectiveSubject.Base
 					&& Test(world, player, objective) is bool answer) {
 				satisfied = answer;

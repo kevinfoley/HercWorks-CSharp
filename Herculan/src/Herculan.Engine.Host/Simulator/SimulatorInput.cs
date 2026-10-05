@@ -119,7 +119,7 @@ sealed class SimulatorInput {
 	/// <summary>
 	/// Puts the pointer on a framebuffer pixel — <c>Mouse_WarpCursorToPoint</c>'s (<c>004807d0</c>) conversion back to
 	/// client coordinates and its <c>SetCursorPos</c>, which the original gates on a live mouse device. During a replay
-	/// the tape owns the pointer and the window's own mouse is left alone, which is this engine's choice: the
+	/// the tape owns the pointer and the window's own mouse is left alone, which is a divergence from retail: the
 	/// original's replay warps too, then sets the position from each mouse event the tape carries, and this
 	/// engine's tapes carry a position with every press.
 	/// </summary>

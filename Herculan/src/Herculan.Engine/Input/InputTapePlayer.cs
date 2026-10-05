@@ -17,8 +17,7 @@ namespace Herculan.Engine.Input;
 /// <para><b>Paced, where retail is not.</b> DBSIM skips its 40 ms frame wait for the whole of a
 /// playback and runs as fast as it can draw, so a retail demo is over in a fraction of its recorded
 /// length. This plays each simulation frame for the time its own <c>SimTickDelta</c> says it took
-/// (<see cref="SecondsOf"/>), which is the recording's own real time — this engine's choice, not the
-/// original's.</para>
+/// (<see cref="SecondsOf"/>), which is the recording's own real time — a divergence from retail.</para>
 /// </summary>
 public sealed class InputTapePlayer {
 	/// <summary>The folder inside an install root that the shipped tapes and their list sit in.</summary>

@@ -202,9 +202,9 @@ public static class ShellMissionLaunch {
 /// <summary>
 /// The dialog <c>Rock &amp; Roll &gt;</c> refuses through: a <c>WARNING!</c> alert with two centred lines
 /// and <c>OKAY</c>, built once at startup by the function ending at <c>0044d27c</c>, filled and put up by
-/// <c>LaunchRefusal_Show(code)</c> (<c>0044d27c</c>) and taken down by <c>OKAY</c>'s handler, <c>LaunchRefusal_OnOkay</c> (<c>0044d404</c>). Like the scrap
-/// dialog it is placed in a window the size of the display, so its rect is a canvas rect, and while it
-/// is up this engine hit-tests nothing but <c>OKAY</c>, which is this engine's choice.
+/// <c>LaunchRefusal_Show(code)</c> (<c>0044d27c</c>) and taken down by <c>OKAY</c>'s handler, 
+/// <c>LaunchRefusal_OnOkay</c> (<c>0044d404</c>). Like the scrap dialog it is placed in a window the size
+/// of the display, so its rect is a canvas rect, and it is treated as modal, a divergence from retail.
 /// </summary>
 public sealed class ShellLaunchRefusalDialog {
 	/// <summary>The alert, an <c>ESAlert</c>, in the canvas.</summary>

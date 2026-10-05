@@ -118,7 +118,7 @@ public sealed class DrawEntry {
 /// <para>A filed object's cell is kept between passes, as the original keeps it at <c>+0x1e8</c>, so
 /// an entry filed with an object that this pass did not file (one still waiting to deploy) takes the
 /// cell it was last filed under. One that was never filed at all goes to the no-cell bucket; this is
-/// this engine's choice for a case no retail path reaches, since a waiting object is neither struck
+/// a divergence from retail for a case no retail path reaches, since a waiting object is neither struck
 /// nor stood in.</para>
 /// </summary>
 public sealed class ObjectDrawTable {

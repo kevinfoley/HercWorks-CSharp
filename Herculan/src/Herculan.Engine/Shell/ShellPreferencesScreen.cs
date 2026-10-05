@@ -64,8 +64,7 @@ public enum ShellPreferencesWidget {
 /// box holds them. The alert's panel is in a window the size of the display, so its rect is a canvas
 /// rect.</para>
 ///
-/// <para>While the alert is up this engine hit-tests nothing but its <c>ACCEPT</c>, as it does for the
-/// scrap dialog. That is this engine's choice.</para>
+/// <para>HERCULAN treats the alert as modal, a divergence from retail.</para>
 /// </summary>
 public sealed class ShellPreferencesScreen {
 	/// <summary>The bank the checkboxes draw: frame 0 ticked, frame 1 empty.</summary>

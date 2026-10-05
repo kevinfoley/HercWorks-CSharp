@@ -217,7 +217,7 @@ sealed class SimulatorHost : IDisposable {
 		// Sim_Shutdown (00461eec) runs however the mission ends: Mission_WriteResults (0042412c) writes results.dat and
 		// the counters back over mission.var beside the mission, and the exit code says where ES.EXE goes next. The
 		// original writes into the install's data\; a mission run straight from the install's own files writes
-		// nothing there, and a --screenshot run ends the host, both this engine's choice.
+		// nothing there (a divergence from retail), and a --screenshot run ends the host (a unique HERCULAN feature).
 		//
 		// A window closed by the player is the original's WM_CLOSE, which dispatches [Ctrl+Q] (0x410) outside a
 		// demo and raises DemoAbort in one. This window cannot refuse the close, so the EXIT EARTHSIEGE? panel is

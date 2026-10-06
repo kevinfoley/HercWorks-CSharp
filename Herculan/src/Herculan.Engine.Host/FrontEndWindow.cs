@@ -4,7 +4,6 @@ using ImGuiNET;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
-using Silk.NET.OpenGL.Extensions.ImGui;
 
 namespace Herculan.Engine.Host;
 
@@ -28,7 +27,7 @@ sealed class FrontEndWindow : IDisposable {
 	private readonly HostMenuBar _menuBar;
 	private readonly string _imguiFontPath;
 	private readonly string? _screenshotPath;
-	private ImGuiController? _imgui;
+	private ScaledImGui? _imgui;
 	private int _framesRendered;
 
 	// Set by the Settings menu's restart, which closes the window once the frame's ImGui is drawn.
@@ -95,7 +94,7 @@ sealed class FrontEndWindow : IDisposable {
 
 	/// <summary>Takes the window's devices once its input context exists, and builds ImGui on its GL context.</summary>
 	public void Attach(GL gl, IInputContext input) {
-		_imgui = new ImGuiController(gl, _window.View, input, new ImGuiFontConfig(_imguiFontPath, 16));
+		_imgui = new ScaledImGui(gl, _window, input, _imguiFontPath);
 		Mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
 		Keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 	}

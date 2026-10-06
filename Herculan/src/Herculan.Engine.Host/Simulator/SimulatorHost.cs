@@ -14,7 +14,6 @@ using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
-using Silk.NET.OpenGL.Extensions.ImGui;
 
 namespace Herculan.Engine.Host.Simulator;
 
@@ -53,7 +52,7 @@ sealed class SimulatorHost : IDisposable {
 	private bool _suspended;
 
 	// Built once the window has a GL context.
-	private ImGuiController? _imgui;
+	private ScaledImGui? _imgui;
 	private SceneUploads? _uploads;
 	private DrawFiling? _filing;
 	private WorldDrawItems? _world;
@@ -269,7 +268,7 @@ sealed class SimulatorHost : IDisposable {
 		_world = new WorldDrawItems(_scene, _uploads, _filing, TerrainTextureHandle());
 		_transient = new TransientDrawItems(_scene, _uploads, _filing, _world);
 		_passes = new WorldPassRenderer(gl, _scene, _view.Camera, _debugPanel, _world, _transient);
-		_imgui = new ImGuiController(gl, _window.View, input, new ImGuiFontConfig(_session.ImGuiFontPath, 16));
+		_imgui = new ScaledImGui(gl, _window, input, _session.ImGuiFontPath);
 		_input.ImGui = _imgui;
 		_textures = new CockpitTextures(gl, _art, _displays.HddCommand, _displays.HddMapFlashRaster);
 		_flash = new DamageFlash(_scene, _art, _passes.Scene, _textures);

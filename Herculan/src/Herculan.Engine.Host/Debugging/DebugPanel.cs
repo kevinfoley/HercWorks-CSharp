@@ -185,8 +185,10 @@ sealed class DebugPanel(bool drawSkeleton) {
 		bool justOpened = !_wasOpenLastDraw;
 		_wasOpenLastDraw = true;
 
-		ImGui.SetNextWindowPos(new Vector2(16f, 16f), ImGuiCond.FirstUseEver);
-		ImGui.SetNextWindowSize(new Vector2(340f, MathF.Min(windowHeight - 32f, 560f)), ImGuiCond.FirstUseEver);
+		float inset = ScaledImGui.Scaled(16f);
+		ImGui.SetNextWindowPos(new Vector2(inset, inset), ImGuiCond.FirstUseEver);
+		ImGui.SetNextWindowSize(new Vector2(ScaledImGui.Scaled(340f), MathF.Min(windowHeight - 2f * inset, ScaledImGui.Scaled(560f))),
+			ImGuiCond.FirstUseEver);
 		ImGui.Begin("Debug");
 
 		bool skeleton = DrawSkeleton;

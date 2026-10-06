@@ -9,7 +9,6 @@ using Herculan.Engine.Scene;
 using Herculan.Engine.World;
 using ImGuiNET;
 using Silk.NET.Input;
-using Silk.NET.OpenGL.Extensions.ImGui;
 
 // The mission editor: a second thin host next to Herculan.Engine.Host, sharing every loading and
 // rendering utility but running a different loop — no sim ticking, so placed objects stand still,
@@ -97,7 +96,7 @@ using var window = new EngineWindow($"HERCULAN Mission Editor — zone {mission.
 
 SceneRenderer? renderer = null;
 WireframeRenderer? wireframe = null;
-ImGuiController? imgui = null;
+ScaledImGui? imgui = null;
 GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
 var modelMeshes = new Dictionary<string, GpuMesh>();
@@ -110,7 +109,8 @@ IMouse? mouse = null;
 var settings = EditorSettings.Load();
 var settingsPanel = new EditorSettingsPanel(settings);
 
-// Where the orientation gizmo sits: inset from the window's top-left corner, below the menu bar.
+// Where the orientation gizmo sits: inset from the window's top-left corner, below the menu bar, in pixels on a 100%
+// display (ScaledImGui.Scaled).
 const float CompassSize = 108f;
 const float CompassMargin = 12f;
 
@@ -189,7 +189,7 @@ window.Load += (gl, input) => {
 	// is backface-culled.
 	gl.Disable(Silk.NET.OpenGL.EnableCap.CullFace);
 
-	imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(fontPath, 16));
+	imgui = new ScaledImGui(gl, window, input, fontPath);
 
 	if (mouse != null) {
 		mouse.MouseDown += (m, button) => {
@@ -281,7 +281,8 @@ window.Render += (_, gl) => {
 	}
 
 	float menuBarHeight = BuildMenuBar();
-	CompassGizmo.Draw(camera, new Vector2(CompassMargin, menuBarHeight + CompassMargin), CompassSize);
+	float compassMargin = ScaledImGui.Scaled(CompassMargin);
+	CompassGizmo.Draw(camera, new Vector2(compassMargin, menuBarHeight + compassMargin), ScaledImGui.Scaled(CompassSize));
 	BuildPropertiesPanel(size.X, size.Y, menuBarHeight, selected);
 	settingsPanel.Draw();
 	imgui?.Render();
@@ -356,10 +357,10 @@ float BuildMenuBar() {
 }
 
 void BuildPropertiesPanel(int width, int height, float menuBarHeight, SceneObject? sel) {
-	const float PanelWidth = 320f;
+	float panelWidth = ScaledImGui.Scaled(320f);
 
-	ImGui.SetNextWindowPos(new Vector2(width - PanelWidth, menuBarHeight));
-	ImGui.SetNextWindowSize(new Vector2(PanelWidth, height - menuBarHeight));
+	ImGui.SetNextWindowPos(new Vector2(width - panelWidth, menuBarHeight));
+	ImGui.SetNextWindowSize(new Vector2(panelWidth, height - menuBarHeight));
 	ImGui.Begin("Properties", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse);
 
 	if (sel != null) {

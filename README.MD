@@ -12,7 +12,7 @@ Great thanks to Subject9x (developer of the original herc-works-mdk repository) 
 
 ## The engine
 
-The HERCULAN Engine is a modern reimplementation of _Earthsiege 2_. Unlike many classic games which have been ported to modern operating systems, such as _Doom_, the source code for _Earthsiege 2_ has never been released. This means the HERCULAN Engine is not simply a matter of taking the original code and updating it for modern systems; instead, the game logic in its entirety has to be reconstructed through reverse-engineering.
+The HERCULAN Engine is a modern reimplementation of _Earthsiege 2_. Because the source code for Earthsiege 2 has never been released, HERCULAN Engine was constructed entirely through reverse engineering.
 
 The engine is currently in beta. Not all features have been thoroughly tested, and there may be bugs. **Back up your retail save data before switching to HERCULAN**.
 
@@ -38,6 +38,13 @@ To use the HERCULAN Engine, you will need a copy of the original game files. _Ea
 Download `HERCULAN-<version>-win-x64.zip` from the [Releases](https://github.com/kevinfoley/Herculan/releases) page, unzip it anywhere, and run `Herculan.exe`. You don't need to install .NET; the runtime is built into the executable. The same page has `HercWorksCSharp-<version>-win-x64.zip` for the HercWorks CSharp tools.
 
 When you run the engine, it will ask you where _Earthsiege 2_ is installed; you'll also have the option of using HERCULAN to install the _Earthsiege 2_ files from a CD or ISO.
+
+#### Settings and tweaks
+
+HERCULAN Engine has a custom menu bar which is normally hidden. Press the Esc key to toggle visibility of the menu bar. It has two buttons, each which opens a new menu:
+
+- Settings: Here you can adjust the install location or change the selected language.
+- Tweaks: Here you can toggle tweaks which fix vanilla bugs or otherwise alter vanilla behavior.
 
 The engine's own menu text lives in the `.lang` files in the `Localization` folder, which can be edited, or added to for a new language, after install. Each file names itself on its `language.name` line, and any line a translation lacks is read from `en.lang`.
 

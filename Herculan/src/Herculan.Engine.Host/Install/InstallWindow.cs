@@ -1,7 +1,6 @@
 using Herculan.Engine.Host.Localization;
 using ImGuiNET;
 using Silk.NET.OpenGL;
-using Silk.NET.OpenGL.Extensions.ImGui;
 
 namespace Herculan.Engine.Host.Install;
 
@@ -23,9 +22,9 @@ static class InstallWindow {
 		using var window = new EngineWindow(localization.GetString("install.window_title") ?? "install.window_title",
 			WindowWidth, WindowHeight);
 
-		ImGuiController? imgui = null;
+		ScaledImGui? imgui = null;
 		window.Load += (gl, input) => {
-			imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(fontPath, 16));
+			imgui = new ScaledImGui(gl, window, input, fontPath);
 		};
 
 		window.Render += (deltaSeconds, gl) => {

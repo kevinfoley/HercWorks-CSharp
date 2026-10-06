@@ -35,6 +35,8 @@ public sealed class EngineWindow : IDisposable {
 	/// <summary>Raised when the window is closing, while the GL context is still active.</summary>
 	public event Action? Closing;
 
+	/// <param name="width">The client width on a 100% display, scaled to the display the window opens on.</param>
+	/// <param name="height">The client height on a 100% display, scaled likewise.</param>
 	/// <param name="placement">
 	/// Where an earlier window was when it closed, so the next one opens there at the same size and maximized if
 	/// it was; null for the default size at the default place.
@@ -43,6 +45,7 @@ public sealed class EngineWindow : IDisposable {
 			WindowPlacement? placement = null) {
 		_restoredPosition = placement?.Position;
 		_restoredSize = placement?.Size ?? new Vector2D<int>(width, height);
+		_scaleOnShow = placement == null;
 		_maximizeOnShow = placement is { Maximized: true };
 		var options = WindowOptions.Default with {
 			Size = _restoredSize,
@@ -77,6 +80,7 @@ public sealed class EngineWindow : IDisposable {
 	private Vector2D<int> _restoredSize;
 	private Vector2D<int>? _restoredPosition;
 	private readonly bool _maximizeOnShow;
+	private readonly bool _scaleOnShow;
 	private bool _maximizedBeforeFullScreen;
 	private bool _maximizedAtClose;
 
@@ -94,6 +98,42 @@ public sealed class EngineWindow : IDisposable {
 	/// between the two.
 	/// </summary>
 	public Vector2D<int> ClientSize => _window.Size;
+
+	/// <summary>
+	/// The display's scale setting as a factor — 2.5 at Windows' 250% — in framebuffer pixels per pixel of a 100%
+	/// display: what text and UI given in pixels are multiplied by to read the same on any display. The scale of the
+	/// monitor under the window's centre, read from GLFW's monitor rather than its window (Silk binds no
+	/// <c>glfwGetWindowContentScale</c>). 1 on a backend other than GLFW.
+	/// </summary>
+	public unsafe float ContentScale {
+		get {
+			if (_window.Native?.Glfw is not { } native) {
+				return 1f;
+			}
+
+			var glfw = Glfw.GetApi();
+			var monitor = MonitorUnderWindow(glfw, (WindowHandle*)native);
+			if (monitor == null) {
+				return 1f;
+			}
+
+			glfw.GetMonitorContentScale(monitor, out float scale, out _);
+			return scale > 0f ? scale : 1f;
+		}
+	}
+
+	/// <summary>
+	/// <see cref="ContentScale"/> in window coordinates rather than framebuffer pixels: the two are equal on Windows,
+	/// where window coordinates are pixels, while on a platform whose window coordinates are already scaled (macOS)
+	/// this is 1. Null while the window has no area to measure, as when minimized.
+	/// </summary>
+	public float? ClientScale {
+		get {
+			var framebuffer = _window.FramebufferSize;
+			var client = _window.Size;
+			return framebuffer.X > 0 && client.X > 0 ? ContentScale * client.X / framebuffer.X : null;
+		}
+	}
 
 	/// <summary>
 	/// The underlying view, for integrations that need it directly — e.g. ImGui's
@@ -238,6 +278,41 @@ public sealed class EngineWindow : IDisposable {
 		return glfw.GetPrimaryMonitor();
 	}
 
+	/// <summary>
+	/// Takes the default size, which is a 100% display's, to the display the hidden window was made on, shrunk where
+	/// it would not fit that monitor's work area with its frame, keeping its shape; a window whose size changes is
+	/// centred in the work area. Does nothing on a backend other than GLFW.
+	/// </summary>
+	private unsafe void ScaleToDisplay() {
+		if (_window.Native?.Glfw is not { } native || ClientScale is not { } scale) {
+			return;
+		}
+
+		var glfw = Glfw.GetApi();
+		var handle = (WindowHandle*)native;
+		var monitor = MonitorUnderWindow(glfw, handle);
+		if (monitor == null) {
+			return;
+		}
+
+		glfw.GetMonitorWorkarea(monitor, out int areaX, out int areaY, out int areaWidth, out int areaHeight);
+		glfw.GetWindowFrameSize(handle, out int left, out int top, out int right, out int bottom);
+		var size = _window.Size;
+		float fit = MathF.Min(scale, MathF.Min((areaWidth - left - right) / (float)size.X,
+			(areaHeight - top - bottom) / (float)size.Y));
+		var scaled = new Vector2D<int>((int)MathF.Round(size.X * fit), (int)MathF.Round(size.Y * fit));
+		if (scaled == size || scaled.X <= 0 || scaled.Y <= 0) {
+			return;
+		}
+
+		var position = new Vector2D<int>(areaX + left + (areaWidth - left - right - scaled.X) / 2,
+			areaY + top + (areaHeight - top - bottom - scaled.Y) / 2);
+		_window.Size = scaled;
+		_window.Position = position;
+		_restoredSize = scaled;
+		_restoredPosition = position;
+	}
+
 	public void Run() => _window.Run();
 
 	public void Close() => _window.Close();
@@ -256,6 +331,10 @@ public sealed class EngineWindow : IDisposable {
 			} catch (GlfwException e) {
 				Console.Error.WriteLine($"Window icon not set: {e.Message}");
 			}
+		}
+
+		if (_scaleOnShow) {
+			ScaleToDisplay();
 		}
 
 		_window.IsVisible = true;

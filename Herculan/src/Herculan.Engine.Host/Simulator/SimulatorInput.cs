@@ -1,7 +1,6 @@
 using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
 using Silk.NET.Input;
-using Silk.NET.OpenGL.Extensions.ImGui;
 
 namespace Herculan.Engine.Host.Simulator;
 
@@ -35,7 +34,7 @@ sealed class SimulatorInput {
 	public CockpitInput Cockpit { get; }
 
 	/// <summary>The debug UI, once the window has a GL context to build it on.</summary>
-	public ImGuiController? ImGui { get; set; }
+	public ScaledImGui? ImGui { get; set; }
 
 	/// <summary>
 	/// A live mouse event, in framebuffer pixels, as it went into <see cref="Cockpit"/>, with the framebuffer's

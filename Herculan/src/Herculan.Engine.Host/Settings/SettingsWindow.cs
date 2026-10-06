@@ -29,6 +29,7 @@ namespace Herculan.Engine.Host.Settings;
 /// once, in a mission too.</para>
 /// </summary>
 sealed class SettingsWindow : IDisposable {
+	// In pixels on a 100% display (ScaledImGui.Scaled).
 	private const float PanelWidth = 520f;
 	private static readonly Vector2 PromptSize = new(640f, 240f);
 	private static readonly Vector2 InstallSize = new(720f, 600f);
@@ -92,7 +93,7 @@ sealed class SettingsWindow : IDisposable {
 	}
 
 	private void DrawSettings(nint owner) {
-		ImGui.SetNextWindowSize(new Vector2(PanelWidth, 0f));
+		ImGui.SetNextWindowSize(new Vector2(ScaledImGui.Scaled(PanelWidth), 0f));
 		ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
 
 		bool stayOpen = true;
@@ -157,7 +158,7 @@ sealed class SettingsWindow : IDisposable {
 
 	// The install window, floating beside Settings. Using what it installed is the install's own Change.
 	private void DrawInstall(nint owner) {
-		ImGui.SetNextWindowSize(InstallSize, ImGuiCond.Appearing);
+		ImGui.SetNextWindowSize(ScaledImGui.Scaled(InstallSize), ImGuiCond.Appearing);
 		ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
 		var outcome = InstallPanel.Outcome.Open;
 		if (ImGui.Begin(Text("install.title") + "###install", ImGuiWindowFlags.NoCollapse)) {
@@ -298,7 +299,7 @@ sealed class SettingsWindow : IDisposable {
 			return;
 		}
 
-		ImGui.SetNextWindowSize(PromptSize);
+		ImGui.SetNextWindowSize(ScaledImGui.Scaled(PromptSize));
 		ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
 		if (!ImGui.BeginPopupModal(PromptId, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove)) {
 			return;

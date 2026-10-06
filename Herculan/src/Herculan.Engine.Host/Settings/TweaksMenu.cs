@@ -17,6 +17,7 @@ namespace Herculan.Engine.Host.Settings;
 /// <see cref="HostMenuBar.BackOut"/> for the latter.</para>
 /// </summary>
 public sealed class TweaksMenu {
+	// In pixels on a 100% display (ScaledImGui.Scaled).
 	private const float PanelWidth = 300f;
 
 	private readonly TweakSettings _settings;
@@ -38,7 +39,7 @@ public sealed class TweaksMenu {
 
 		// A zero component means "fit the content", so the panel keeps a fixed width and grows to
 		// whatever height its settings need.
-		ImGui.SetNextWindowSize(new Vector2(PanelWidth, 0f));
+		ImGui.SetNextWindowSize(new Vector2(ScaledImGui.Scaled(PanelWidth), 0f));
 		ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
 
 		bool stayOpen = true;

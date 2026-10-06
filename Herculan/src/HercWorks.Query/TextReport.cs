@@ -158,6 +158,42 @@ internal static class TextReport {
 		}
 	}
 
+	public static void Objectives(TextWriter o, IReadOnlyList<ObjectiveQueryMission> missions) {
+		foreach (var m in missions) {
+			o.WriteLine($"{m.Mission}: {m.Objectives.Count} objectives");
+			foreach (var r in m.Objectives) {
+				var line = new List<string> {
+					$"#{r.Index}",
+					r.Required == 1 ? "mandatory" : $"failure condition ({r.Required})",
+					$"code {r.ConditionCode} ({ObjectiveQuery.Code(r.ConditionCode)})",
+					$"{OrderQuery.SubjectKind(r.SubjectKind)} {r.SubjectRef}" + (r.Subject is { } subject ? $" [{subject}]" : " [no such record]"),
+				};
+				if (r.RouteRef != -1) {
+					line.Add($"route {r.RouteRef}" + (r.RouteOrders.Count == 0 ? " (no order of the subject runs it)" : $" (order slot {string.Join(", ", r.RouteOrders)})"));
+				}
+
+				if (r.PointRef != -1) {
+					line.Add($"point {r.PointRef}");
+				}
+
+				if (r.ConditionRef != -1) {
+					line.Add(Cond(r.ConditionRef, r.Condition, true));
+				}
+
+				o.WriteLine("  " + string.Join(", ", line));
+				foreach (var text in r.Text) {
+					o.WriteLine($"    text {text}");
+				}
+
+				if (r.Pairs.Count > 0) {
+					o.WriteLine("    writes " + string.Join(", ", r.Pairs.Select(p => $"counter {p.CounterRef} {ObjectiveQuery.Op(p.Op)}")));
+				}
+			}
+
+			o.WriteLine();
+		}
+	}
+
 	public static void Orders(TextWriter o, OrderQueryResult result) {
 		int points = result.PointsByVerb.Values.Sum();
 		o.WriteLine($"{result.OrderRecords} row #15 records across {result.MissionsSearched} missions. " +

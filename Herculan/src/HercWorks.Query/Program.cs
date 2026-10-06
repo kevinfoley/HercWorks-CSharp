@@ -24,6 +24,9 @@ internal static class Program {
 		  orders [<mission>...]            every row #16 group's row #15 orders, of every mission or of
 		                                   those named: verb, formation, point, route, subject and the
 		                                   action that ends each
+		  objectives [<mission>...]        every row #17 objective, of every mission or of those named:
+		                                   mandatory or failure, condition, subject, route, failure
+		                                   text and counter writes
 
 		Options:
 		  --install <dir>   the install to read (default: the nearest ES2\ folder above the working
@@ -124,7 +127,7 @@ internal static class Program {
 			return 0;
 		}
 
-		if (command is "actions" or "orders"
+		if (command is "actions" or "orders" or "objectives"
 				&& positional.Skip(1).FirstOrDefault(n => !data.Missions.Any(m => string.Equals(m.Name, n, StringComparison.OrdinalIgnoreCase))) is { } unknown) {
 			return Fail($"No mission is named {unknown}; `missions` lists them.");
 		}
@@ -135,6 +138,17 @@ internal static class Program {
 				WriteJson(output, orders);
 			} else {
 				TextReport.Orders(output, orders);
+			}
+
+			return 0;
+		}
+
+		if (command == "objectives") {
+			var objectives = ObjectiveQuery.Run(data, positional.Skip(1).ToList());
+			if (json) {
+				WriteJson(output, objectives);
+			} else {
+				TextReport.Objectives(output, objectives);
 			}
 
 			return 0;

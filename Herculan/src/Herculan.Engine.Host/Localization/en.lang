@@ -106,7 +106,7 @@ install.size_note              A smaller install leaves more of the game on the 
 install.language               Language
 install.language_english       English
 install.language_french        Français (French)
-install.language_german        Deutsche (German)
+install.language_german        Deutsch (German)
 install.destination            Install folder
 install.destination_hint       A new or empty folder
 install.picker_destination_title  Choose the folder to install into

@@ -11,11 +11,12 @@ namespace Herculan.Engine.Host.Install;
 /// the Earthsiege 2 folder, by the platform's own folder picker or by a typed path, and accepts only a folder
 /// <see cref="GameInstall.IsInstallRoot"/> takes, or offers to install from a disc first
 /// (<see cref="InstallWindow"/>). Retail has no equivalent; its installer wrote the path for it. The Settings
-/// menu asks the same way (<see cref="Create"/>).
+/// menu asks the same way (<see cref="Create"/>). Above the prompt sits the Settings window's interface-language
+/// combo, since a first start has no Settings menu to reach it from.
 /// </summary>
 static class InstallPrompt {
 	private const int WindowWidth = 640;
-	private const int WindowHeight = 220;
+	private const int WindowHeight = 260;
 
 	/// <summary>
 	/// The prompt's body: <c>install_prompt</c>'s strings, refusing any folder that is not an install.
@@ -50,9 +51,10 @@ static class InstallPrompt {
 	// The prompt's window: the folder chosen, or whether the player asked to install from a disc instead.
 	private static (string? Chosen, bool Install) RunPrompt(LocalizationTable localization, string fontPath) {
 		var prompt = Create(localization, "install_prompt.quit", alternativeKey: "install_prompt.install");
+		var language = new InterfaceLanguageCombo(localization);
 		bool install = false;
-		using var window = new EngineWindow(localization.GetString("install_prompt.window_title") ?? "install_prompt.window_title",
-			WindowWidth, WindowHeight);
+		string Title() => localization.GetString("install_prompt.window_title") ?? "install_prompt.window_title";
+		using var window = new EngineWindow(Title(), WindowWidth, WindowHeight);
 
 		ScaledImGui? imgui = null;
 		window.Load += (gl, input) => {
@@ -73,6 +75,10 @@ static class InstallPrompt {
 			ImGui.SetNextWindowSize(viewport.WorkSize);
 			ImGui.Begin("##install", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
 				| ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoBringToFrontOnFocus);
+			if (language.Draw()) {
+				window.Title = Title();
+			}
+			ImGui.Separator();
 			var outcome = prompt.Draw(window.View.Native?.Win32?.Hwnd ?? 0, GameInstall.ArchiveFolderName);
 			ImGui.End();
 			install = outcome == PathPrompt.Outcome.Alternative;

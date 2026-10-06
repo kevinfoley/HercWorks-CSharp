@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Herculan.Engine.Host.Localization;
 
 /// <summary>
@@ -43,18 +45,28 @@ public class LocalizationTable {
 	}
 
 	/// <summary>
-	/// Loads the locale last chosen; when it no longer loads, the one in use before it; and failing both, or
-	/// with neither remembered, <see cref="DefaultLocale"/>. Neither fallback is written back, so a chosen file
-	/// that is mended or put back is used again on the next start. A default that fails to load throws: there
+	/// Loads the locale last chosen; when it no longer loads, the one in use before it; and failing both,
+	/// <see cref="DefaultLocale"/>. With none remembered, as on a first start, it loads the language Windows
+	/// shows its own interface in when there is a <c>.lang</c> file for it, else the default. No fallback, nor
+	/// the Windows language, is written back, so a chosen file that is mended or put back is used again on the
+	/// next start, and a player who never chooses follows Windows. A default that fails to load throws: there
 	/// would be nothing to show the player in any language.
 	/// </summary>
 	public LocalizationTable() {
-		foreach (string saved in LoadSelectedLocales()) {
+		string[] remembered = LoadSelectedLocales();
+		foreach (string saved in remembered) {
 			if (saved == DefaultLocale) {
 				break;
 			}
 
 			if (Apply(saved, persist: false)) {
+				return;
+			}
+		}
+
+		if (remembered.Length == 0) {
+			string system = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+			if (system != DefaultLocale && GetLocales().Contains(system) && Apply(system, persist: false)) {
 				return;
 			}
 		}

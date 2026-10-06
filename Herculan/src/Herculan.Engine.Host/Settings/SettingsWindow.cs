@@ -2,6 +2,7 @@ using System.Numerics;
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Install;
+using Herculan.Engine.Host.Localization;
 using Herculan.Engine.Host.Shell;
 using ImGuiNET;
 
@@ -49,15 +50,16 @@ sealed class SettingsWindow : IDisposable {
 	private bool _open;
 	private string? _error;
 
-	// The languages the two rows offer, found as the window opens; finding them reads the disc and every .lang file.
+	// The game languages the row offers, found as the window opens; finding them reads the disc.
 	private IReadOnlyList<RetailInstaller.Language>? _gameLanguages;
-	private IReadOnlyList<(string Locale, string Name)>? _interfaceLanguages;
+	private readonly InterfaceLanguageCombo _interfaceLanguage;
 
 	/// <param name="restartShell">Brings the shell back up on the new folders; null in a mission. It is called
 	/// between this window's <c>Begin</c> and <c>End</c>, so it must not tear down the ImGui context there.</param>
 	public SettingsWindow(HostSession session, Action? restartShell) {
 		_session = session;
 		_restartShell = restartShell;
+		_interfaceLanguage = new InterfaceLanguageCombo(session.Localization);
 	}
 
 	/// <summary>Whether the window, or the install window it opened, is up. Set by the menu bar.</summary>
@@ -130,7 +132,7 @@ sealed class SettingsWindow : IDisposable {
 
 			ImGui.SeparatorText(Text("settings.languages"));
 			GameLanguageRow(installRoot);
-			InterfaceLanguageRow();
+			_interfaceLanguage.Draw();
 
 			if (_error != null) {
 				ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.45f, 0.4f, 1f));
@@ -240,26 +242,6 @@ sealed class SettingsWindow : IDisposable {
 		}
 	}
 
-	// Every .lang file by the name it gives itself; a choice takes effect at once.
-	private void InterfaceLanguageRow() {
-		var localization = _session.Localization;
-		_interfaceLanguages ??= localization.GetLanguages();
-		string current = localization.SelectedLocale;
-		string preview = _interfaceLanguages.FirstOrDefault(language => language.Locale == current).Name ?? current;
-
-		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * 0.5f);
-		if (ImGui.BeginCombo(Text("settings.interface_language") + "###interface_language", preview)) {
-			foreach (var (locale, name) in _interfaceLanguages) {
-				ImGui.PushID(locale);
-				if (ImGui.Selectable(name, locale == current) && locale != current) {
-					localization.SelectedLocale = locale;
-				}
-				ImGui.PopID();
-			}
-			ImGui.EndCombo();
-		}
-	}
-
 	// Writes the game language into language.cfg, switches the interface to the .lang file of the same language
 	// when there is one, and brings the shell back up on it.
 	private void ApplyGameLanguage(RetailInstaller.Language language) {
@@ -283,7 +265,7 @@ sealed class SettingsWindow : IDisposable {
 
 	private void ForgetLanguages() {
 		_gameLanguages = null;
-		_interfaceLanguages = null;
+		_interfaceLanguage.Forget();
 	}
 
 	private void OpenPrompt(PathPrompt prompt, PromptKind kind) {

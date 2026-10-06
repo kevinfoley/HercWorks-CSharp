@@ -311,8 +311,12 @@ public class HercSimDat {
 	/// </summary>
 	public short ShieldMaxTotal { get; set; }
 
-	/// <summary>Offset 192. Meaning not established.</summary>
-	public short Unk192_val { get; set; }
+	/// <summary>
+	/// Offset 192 (<c>typeRec+0xc2</c>) — a flyer's HUD speed at its top airspeed, in km/h: 265 on the
+	/// RAZOR. A walker's value is overwritten at load. See
+	/// docs/retail/simulation/razor-flight.md#hud-speed.
+	/// </summary>
+	public short HudTopSpeed { get; set; }
 
 	/// <summary>
 	/// Offsets 194 and 196 — the stride-calibration pair <c>MechType_InitOne</c> turns into the Q16

@@ -204,7 +204,7 @@ A fatal contact sheds wreckage — group 3 at the contact point, and only from t
 
 ## HUD speed
 
-`Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, fm[42]]` onto `[0, typeRec+0xc2]` (the loader computes that field for walkers only, so a RAZOR carries its type file's own value) through `Math_MapRange` (`0047de3c`), where the walker branch divides by the type's top speed. Both land on the same readout scale, so the gauge reads the same way for either chassis. A RAZOR at full throttle reads 83 km/h.
+`Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, fm[42]]` onto `[0, typeRec+0xc2]` (the loader computes that field for walkers only, so a RAZOR carries its type file's own value) through `Math_MapRange` (`0047de3c`), where the walker branch divides by the type's top speed. `RAZOR.DAT` states 265 there (record offset 192), so level flight at full throttle, airspeed 1500, reads 265 km/h, and the 250 idle airspeed reads 45.
 
 ## The engine hum
 

@@ -43,9 +43,14 @@ public sealed class MechTypeRecord {
 		int gaitThreshold = data.GaitThreshold;
 		int reverseGaitThreshold = data.GaitThresholdReverse;
 
+		// A walker's HUD scale is computed before the rescale, which is why its readout always tops
+		// out at 315 * rawMax / 1024 no matter what the scale does to the simulated speed. A flyer
+		// keeps the file's own figure.
+		HudSpeedScale = IsFlyer
+			? data.HudTopSpeed
+			: (short)SimMath.Q10Multiply(HudSpeedConstant, RawMaxForward);
+
 		if (!IsFlyer && data.StrideScaleDivisor != 0) {
-			// The HUD scale is computed before the rescale, which is why the readout always tops out
-			// at 315 * rawMax / 1024 no matter what the scale does to the simulated speed.
 			int scale = SimMath.Q16Divide(data.StrideScaleNumerator * 400, data.StrideScaleDivisor);
 			maxReverse = (short)SimMath.Q16Multiply(maxReverse, scale);
 			maxForward = (short)SimMath.Q16Multiply(maxForward, scale);
@@ -60,7 +65,6 @@ public sealed class MechTypeRecord {
 		MaxForward = (short)maxForward;
 		GaitThreshold = (short)gaitThreshold;
 		ReverseGaitThreshold = (short)reverseGaitThreshold;
-		HudSpeedScale = (short)SimMath.Q10Multiply(HudSpeedConstant, RawMaxForward);
 	}
 
 	/// <summary>The parsed file this record was derived from.</summary>
@@ -408,9 +412,11 @@ public sealed class MechTypeRecord {
 	public short TurnInPlaceSequence => Data.AnimId_TurnInPlace;
 
 	/// <summary>
-	/// The HUD's speed divisor, set at load to <c>Q10(315 x rawMaxForward)</c>. The readout is
-	/// <c>speed * HudSpeedScale / MaxForward</c>, so the simulated maximum always displays the same
-	/// number whatever <see cref="StrideScale"/> did to it.
+	/// <c>typeRec+0xc2</c>, the km/h the HUD shows at this chassis' top speed. A walker's is set at
+	/// load to <c>Q10(315 x rawMaxForward)</c> and its readout is <c>speed * HudSpeedScale /
+	/// MaxForward</c>, so the simulated maximum always displays the same number whatever
+	/// <see cref="StrideScale"/> did to it. A flyer's is <see cref="HercSimDat.HudTopSpeed"/>, which
+	/// the loader leaves alone.
 	/// </summary>
 	public short HudSpeedScale { get; }
 

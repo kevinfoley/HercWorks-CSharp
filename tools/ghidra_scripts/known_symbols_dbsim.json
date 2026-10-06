@@ -5792,8 +5792,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_GetDisplaySpeedKph",
-      "description": "Converts a mech's current speed to the KPH figure the HUD prints: currentSpeed * typeRec[+0xc2] / typeRec[+6], where MechType_InitOne sets typeRec[+0xc2] = Math_Q10Multiply(315, maxForwardSpeed) -- so the whole thing reduces to speed * 315/1024 (0.3076). Verified against the manual's HERC specs: OUTLAW's 325 max reads exactly 100 KPH, SAMSON's 190 reads 58 against a quoted 60, COLOSSUS 180 -> 55, MAVERICK 285 -> 88 against 90. Flyers (typeRec[+0x50] != 0, i.e. the Razor) take a different branch through the map-range helper 0047de3c. The 315 looks designer-fitted to make the fastest HERC read a round 100, so this constant should NOT be used to derive the simulation's tick length.",
-      "source": "docs/herculan/planning.md (world scale recovery)"
+      "description": "The km/h figure the HUD prints for a mech. A walker: mech+0x28e * typeRec+0xc2 / typeRec+0x06, where MechType_InitOne sets typeRec+0xc2 = Math_Q10Multiply(315, raw forward speed) before rescaling +0x06, so top speed reads 315/1024 of the file's forward speed (docs/retail/simulation/mech-locomotion.md). A flyer (typeRec+0x50 != 0, the RAZOR): Math_MapRange(mech+0x2bd airspeed, 0, typeRec+0x206 (the .FM's top airspeed), 0, typeRec+0xc2), where +0xc2 is the chassis file's own value because the loader writes it for walkers alone -- 265 on the RAZOR (docs/retail/simulation/razor-flight.md#hud-speed).",
+      "source": "docs/herculan/planning.md (world scale recovery)",
+      "verified": {
+        "bytes": "0041bb3c+90",
+        "sha1": "d708b4ee0e12",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041bb9c",
@@ -27165,8 +27171,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_MapRange",
-      "description": "Five-argument linear remap of a value from one range onto another, with a rounding bias of one less than the input span, signed to match the output's direction. Its one caller is the flyer branch of Mech_GetDisplaySpeedKph, which maps airspeed from 0..AirSpeedMax onto 0..typeRec+0xc2 -- a flyer's record does not describe the walker top speed the other branch divides by.",
-      "source": "docs/retail/simulation/razor-flight.md"
+      "description": "Five-argument linear remap of a value from one range onto another, with a rounding bias of one less than the input span, signed to match the output's direction. Callers found by es2_xref: the flyer branch of Mech_GetDisplaySpeedKph (airspeed onto the HUD's km/h) and Ai_ChooseWeapon (fear onto a score floor).",
+      "source": "docs/retail/simulation/razor-flight.md",
+      "verified": {
+        "bytes": "0047de3c+59",
+        "sha1": "a524e67910e0",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047de78",

@@ -93,10 +93,10 @@ Loaded by `MechType_InitOne` (`004201a8`) as a 216-byte little-endian record int
 | 110 | `+0x70` | Body radius, **750 on every HERC** — both radius vtable slots return it, see [`hit-detection.md`](hit-detection.md#the-three-radius-slots) |
 | 122 | `+0x7c` | Turn-in-place sequence id |
 | 190 | `+0xc0` | Shield array capacity before any Shield Pod: 3500 on every HERC, 0 on SPIDER — [`damage-system.md`](damage-system.md#the-shield-system) |
+| 192 | `+0xc2` | HUD scale: the km/h the readout shows at top speed. A walker's is overwritten at load with `Q10(315 × rawSpeedForward)`; the RAZOR's 265 is used as stated — [`razor-flight.md`](razor-flight.md#hud-speed) |
 | 194 | `+0xc4` | Stride calibration divisor |
 | 196 | `+0xc6` | Stride calibration numerator |
 | 204 | `+0xce` | Base name of the chassis' own debris file, 12 bytes NUL-padded — [`debris-dat.md`](../formats/debris-dat.md) |
-| — | `+0xc2` | HUD scale, set at load to `Q10(315 × rawSpeedForward)` |
 
 ### Load-time speed rescale
 

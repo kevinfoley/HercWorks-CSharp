@@ -101,6 +101,7 @@ static class HostArguments {
 		  --developer                 the developer keys
 
 		Screenshots and staged state
+		  --save-prtscn               also save each full-screen [PrtScn] capture to <install>\Screenshots
 		  --screenshot <file>         capture after 30 frames (or what the options below wait for), then exit
 		  --mfd <0-5>  --hdd [0|1]  --hdd-damage <0-2>  --external
 		  --objectives  --quit [0-19]  --preferences  --controls  --hit-shake

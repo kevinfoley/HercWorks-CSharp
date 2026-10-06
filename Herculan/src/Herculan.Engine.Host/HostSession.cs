@@ -49,6 +49,9 @@ sealed class HostSession(string installRoot, LocalizationTable localization, str
 	/// </summary>
 	public bool RememberInstall { get; init; } = true;
 
+	/// <summary>Whether every window's [PrtScn] captures are also saved (<see cref="PrintScreenFiles"/>); <c>--save-prtscn</c>.</summary>
+	public bool SavePrintScreens { get; init; }
+
 	public LocalizationTable Localization { get; } = localization;
 
 	public string ImGuiFontPath { get; } = imguiFontPath;

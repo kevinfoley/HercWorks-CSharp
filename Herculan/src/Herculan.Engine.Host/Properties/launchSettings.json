@@ -11,6 +11,10 @@
       "commandName": "Project",
       "commandLineArgs": "--mission"
     },
+	"Mission (Save PrtScn mode)": {
+      "commandName": "Project",
+      "commandLineArgs": "--mission --save-prtscn"
+    },
     "Mission, developer": {
       "commandName": "Project",
       "commandLineArgs": "--mission --developer"

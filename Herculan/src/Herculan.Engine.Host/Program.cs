@@ -65,7 +65,10 @@ if (installRoot == null) {
 if (!options.AskForInstall) {
 	GameInstall.Remember(installRoot);
 }
-using var session = new HostSession(installRoot, localization, imguiFontPath) { RememberInstall = !options.AskForInstall };
+using var session = new HostSession(installRoot, localization, imguiFontPath) {
+	RememberInstall = !options.AskForInstall,
+	SavePrintScreens = options.SavePrintScreens,
+};
 
 // The disc GameInstall.OpenDiscFile falls back from, said once: a disc without the movie the shell's startup
 // probes for (ShellHost.DiscCheckMovie) is not the CD.

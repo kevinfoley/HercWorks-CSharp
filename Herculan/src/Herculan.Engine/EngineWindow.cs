@@ -109,14 +109,14 @@ public sealed class EngineWindow : IDisposable {
 	private Vector2D<int> _windowedSize;
 
 	/// <summary>
-	/// Takes the window to full screen or back. Full screen is <c>glfwSetWindowMonitor</c> on the monitor
-	/// under the window's centre at that monitor's current video mode — GLFW's own windowed full screen,
-	/// which changes no display mode: the window covers the monitor at its own resolution and Windows
-	/// treats it as full screen, taskbar included. GLFW's auto-iconify is turned off, so losing the focus — to
-	/// the Snipping Tool's PrtScn overlay, say — leaves the window full screen behind whatever took it rather
-	/// than minimising it. Back is the size the window had before, centred on the same monitor. Called directly rather
-	/// than through Silk's <see cref="WindowState.Fullscreen"/>, which makes the same call but always on
-	/// the primary monitor. Does nothing on a backend other than GLFW.
+	/// Takes the window to full screen or back. Full screen is a borderless window covering the monitor under the
+	/// window's centre at that monitor's current resolution, which changes no display mode and which Windows treats
+	/// as full screen, taskbar included. It is not <c>glfwSetWindowMonitor</c> with a monitor (nor Silk's
+	/// <see cref="WindowState.Fullscreen"/>, which makes that call on the primary monitor): GLFW keeps a window it
+	/// gives a monitor topmost, so [Alt+Tab] would switch to another window without showing it. A borderless window
+	/// sits in the ordinary order, so losing the focus leaves it full screen behind whatever took it. Back is the size
+	/// the window had before, centred on the same monitor, maximized again if it was. While full screen, [PrtScn] is
+	/// the window's own (<see cref="PrintScreenCapture"/>). Does nothing on a backend other than GLFW.
 	/// </summary>
 	public unsafe void ToggleFullScreen() {
 		if (_window.Native?.Glfw is not { } native) {
@@ -133,22 +133,41 @@ public sealed class EngineWindow : IDisposable {
 			}
 
 			var mode = glfw.GetVideoMode(monitor);
-			_windowedSize = _window.Size;
+			glfw.GetMonitorPos(monitor, out int x, out int y);
 			_maximizedBeforeFullScreen = glfw.GetWindowAttrib(handle, WindowAttributeGetter.Maximized);
 			_fullScreenMonitor = (nint)monitor;
 			// Set first, so the resize and move to the monitor are not taken for the restored size and place.
 			FullScreen = true;
-			glfw.SetWindowAttrib(handle, WindowAttributeSetter.AutoIconify, false);
-			glfw.SetWindowMonitor(handle, monitor, 0, 0, mode->Width, mode->Height, mode->RefreshRate);
+			// A maximized window keeps its maximized place over any size it is given, so it is restored first.
+			if (_maximizedBeforeFullScreen) {
+				glfw.RestoreWindow(handle);
+			}
+
+			_windowedSize = _window.Size;
+			glfw.SetWindowAttrib(handle, WindowAttributeSetter.Decorated, false);
+			glfw.SetWindowMonitor(handle, null, x, y, mode->Width, mode->Height, Glfw.DontCare);
+			if (OperatingSystem.IsWindows() && _window.Native?.Win32?.Hwnd is { } hwnd) {
+				_printScreen = new PrintScreenCapture(hwnd,
+					PrintScreenCaptured != null ? (w, h, rgb) => PrintScreenCaptured?.Invoke(w, h, rgb) : null);
+			}
+
 			return;
 		}
+
+		_printScreen?.Dispose();
+		_printScreen = null;
 
 		var from = (Silk.NET.GLFW.Monitor*)_fullScreenMonitor;
 		glfw.GetMonitorPos(from, out int monitorX, out int monitorY);
 		var desktop = glfw.GetVideoMode(from);
 		var back = new Vector2D<int>(monitorX + (desktop->Width - _windowedSize.X) / 2,
 			monitorY + (desktop->Height - _windowedSize.Y) / 2);
+		glfw.SetWindowAttrib(handle, WindowAttributeSetter.Decorated, true);
 		glfw.SetWindowMonitor(handle, null, back.X, back.Y, _windowedSize.X, _windowedSize.Y, Glfw.DontCare);
+		if (_maximizedBeforeFullScreen) {
+			glfw.MaximizeWindow(handle);
+		}
+
 		FullScreen = false;
 		if (!_maximizedBeforeFullScreen) {
 			_restoredPosition = back;
@@ -157,6 +176,13 @@ public sealed class EngineWindow : IDisposable {
 	}
 
 	private nint _fullScreenMonitor;
+	private PrintScreenCapture? _printScreen;
+
+	/// <summary>
+	/// Raised with each frame [PrtScn] captures while full screen, as it goes on the clipboard: its width, height and
+	/// pixels as <see cref="PrintScreenCapture"/>'s constructor describes them. Subscribed before going full screen.
+	/// </summary>
+	public event Action<int, int, byte[]>? PrintScreenCaptured;
 
 	/// <summary>
 	/// <see cref="ToggleFullScreen()"/> with the pointer confined to the window and centred in it on the way
@@ -214,6 +240,7 @@ public sealed class EngineWindow : IDisposable {
 	private void OnRender(double deltaSeconds) {
 		if (_gl != null) {
 			Render?.Invoke(deltaSeconds, _gl);
+			_printScreen?.CaptureIfRequested(_gl, FramebufferSize.X, FramebufferSize.Y);
 		}
 	}
 
@@ -245,11 +272,14 @@ public sealed class EngineWindow : IDisposable {
 	private void OnClosing() {
 		_maximizedAtClose = FullScreen ? _maximizedBeforeFullScreen : Shape().Maximized;
 		Closing?.Invoke();
+		_printScreen?.Dispose();
+		_printScreen = null;
 		_input?.Dispose();
 		_input = null;
 	}
 
 	public void Dispose() {
+		_printScreen?.Dispose();
 		_input?.Dispose();
 		_gl?.Dispose();
 		_window.Dispose();

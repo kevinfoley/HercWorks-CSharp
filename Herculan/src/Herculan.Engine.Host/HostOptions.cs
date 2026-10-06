@@ -23,6 +23,7 @@ sealed class HostOptions {
 	public string? MissionPath => _positional.Count > 1 ? _positional[1] : null;
 
 	public string? ScreenshotPath { get; private set; }
+	public bool SavePrintScreens { get; private set; }
 	public string? MoviePath { get; private set; }
 
 	public bool SilentAudio { get; private set; }
@@ -69,6 +70,10 @@ sealed class HostOptions {
 				if (HostArguments.TryReadString(args, ref i, errors, out string path)) {
 					options.ScreenshotPath = path;
 				}
+			} else if (args[i] == "--save-prtscn") {
+				// Also writes each frame [PrtScn] copies to the clipboard while full screen into the install's Screenshots
+				// folder, so a run's captures are kept without pasting each one somewhere. See PrintScreenFiles.
+				options.SavePrintScreens = true;
 			} else if (args[i] == "--mfd") {
 				// Which MFD screen to power up on. F1-F6 switch it live; this exists so a --screenshot run,
 				// which never sees a keystroke, can be pointed at a specific screen.

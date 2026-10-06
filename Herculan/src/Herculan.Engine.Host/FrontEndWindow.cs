@@ -42,6 +42,9 @@ sealed class FrontEndWindow : IDisposable {
 		_screenshotPath = screenshotPath;
 		_session = session;
 		_window = new EngineWindow(title, placement: session.WindowPlacement);
+		if (session.SavePrintScreens) {
+			PrintScreenFiles.Attach(_window, session);
+		}
 		_menuBar = new HostMenuBar(session.Localization, new TweaksMenu(TweakSettings.Current, session.Localization),
 			new SettingsWindow(session, () => RequestRestart(restartRequested)));
 		_window.View.FocusChanged += focused => {

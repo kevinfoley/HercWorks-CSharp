@@ -83,17 +83,21 @@ sealed class WindowKeys {
 	/// <summary>
 	/// The simulator's two full-screen key paths. [Alt+Enter] is command 0x21c, which Sim_DispatchCommand
 	/// offers Sim_HandleWindowKey (0045fd60) after the widget tree, so it comes through the dispatcher's
-	/// own input — a replaying tape's keys during a replay — and nothing while a modal panel holds the
-	/// input. During a replay Input_BuildPlayerDevice also offers Sim_HandleWindowKey the live keyboard's
-	/// command, so the player's own [Alt+Enter] works too. Retail's -B stops a replay toggling; this host
-	/// has no -B. The other path is Key_WndProcHook (00477ae0), which hands 0x20f [Alt+Tab], 0x201
-	/// [Alt+Esc] and 0x401 [Ctrl+Esc] to Video_LeaveFullscreen (004668b0) before anything else sees a key,
-	/// so those three read the live keyboard always. The hook matches them before SimCommandMask strips
-	/// [Shift], so with [Shift] held they are other codes; [Alt+Enter] goes through the mask, so [Shift]
-	/// does not matter to it. Both act on the key going down, as the hook passes a key-down message on and
-	/// marks a key-up one.
+	/// own input — a replaying tape's keys during a replay. During a replay Input_BuildPlayerDevice also
+	/// offers Sim_HandleWindowKey the live keyboard's command, so the player's own [Alt+Enter] works too.
+	/// Retail's -B stops a replay toggling; this host has no -B. [Alt+Enter] also toggles here while a modal
+	/// panel (the pause panel among them) holds the input, which is this engine's choice, made without
+	/// settling whether retail's panel loops reach the dispatcher for it; the panels ignore an [Enter] with
+	/// [Alt] held (ModalPanels.PanelKey), so the toggle never also presses a panel button. The other path
+	/// is Key_WndProcHook (00477ae0), which hands 0x20f [Alt+Tab], 0x201 [Alt+Esc] and 0x401 [Ctrl+Esc] to
+	/// Video_LeaveFullscreen (004668b0) before anything else sees a key, so those read the live keyboard
+	/// always. [Alt+Tab] is left out here at the user's request, so switching away keeps the window full
+	/// screen behind the one switched to, as a modern game's does (EngineWindow.ToggleFullScreen). The hook
+	/// matches them before SimCommandMask strips [Shift], so with [Shift] held they are other codes;
+	/// [Alt+Enter] goes through the mask, so [Shift] does not matter to it. Both act on the key going down,
+	/// as the hook passes a key-down message on and marks a key-up one.
 	/// </summary>
-	public void ReadFullScreenKeys(bool modalPanelOpen) {
+	public void ReadFullScreenKeys() {
 		bool replaying = _tape.Playing;
 		var liveKeys = _input.LiveKeys;
 		bool toggle = AltEnterPressed(_input.Keyboard, !_input.KeyboardCapturedByImGui, ref _fullScreenKeyDown)
@@ -104,7 +108,7 @@ sealed class WindowKeys {
 			bool shift = liveKeys.IsKeyPressed(Key.ShiftLeft) || liveKeys.IsKeyPressed(Key.ShiftRight);
 			bool alt = AltHeld(liveKeys);
 			bool ctrl = CtrlHeld(liveKeys);
-			bool down = !shift && ((alt && !ctrl && (liveKeys.IsKeyPressed(Key.Tab) || liveKeys.IsKeyPressed(Key.Escape)))
+			bool down = !shift && ((alt && !ctrl && liveKeys.IsKeyPressed(Key.Escape))
 				|| (ctrl && !alt && liveKeys.IsKeyPressed(Key.Escape)));
 			leave = down && !_leaveFullScreenKeyDown;
 			_leaveFullScreenKeyDown = down;
@@ -118,9 +122,9 @@ sealed class WindowKeys {
 			ToggleFullScreen();
 		}
 
-		// [Alt+Enter] going down on one key source, which a modal panel's loop keeps from the dispatcher.
+		// [Alt+Enter] going down on one key source.
 		bool AltEnterPressed(IKeyState? keys, bool open, ref bool wasDown) {
-			if (keys == null || !open || modalPanelOpen) {
+			if (keys == null || !open) {
 				wasDown = false;
 				return false;
 			}

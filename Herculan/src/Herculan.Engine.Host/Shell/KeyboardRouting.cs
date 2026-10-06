@@ -64,7 +64,8 @@ sealed class KeyboardRouting {
 
 	// MainWndProc (00404a2c)'s display keys, each gated on no movie playing and the startup sequence
 	// being over. Alt+Enter toggles full screen on the Enter key's release;
-	// Alt+Tab, Alt+Esc and Ctrl+Esc leave it on either edge (Display_LeaveFullScreen, 0040722e). Each then writes option 6
+	// Alt+Tab, Alt+Esc and Ctrl+Esc leave it on either edge (Display_LeaveFullScreen, 0040722e), Alt+Tab left out
+	// here at the user's request so switching away keeps full screen (EngineWindow.ToggleFullScreen). Each then writes option 6
 	// from the window and, with the preferences screen up, relights its display group; otherwise it
 	// commits the options without their handlers and writes all 54.
 	private void DisplayHotkey(Key key, bool released) {
@@ -84,7 +85,7 @@ sealed class KeyboardRouting {
 			}
 
 			_window.ToggleFullScreen();
-		} else if ((altOnly && key is Key.Tab or Key.Escape) || (ctrl && !alt && !shift && key == Key.Escape)) {
+		} else if ((altOnly && key == Key.Escape) || (ctrl && !alt && !shift && key == Key.Escape)) {
 			if (_window.FullScreen) {
 				_window.ToggleFullScreen();
 			}

@@ -85,6 +85,8 @@ See [`joystick-config.md`](joystick-config.md).
 
 ## Screenshots and staged state
 
+`--save-prtscn` also writes each frame [PrtScn] copies to the clipboard while a window is full screen into the install's `Screenshots` folder, as a PNG named for the moment it was taken. It works in the front end and in a mission, and has nothing to do with `--screenshot`. This engine's own flag. See [`herculan-key-bindings.md`](herculan-key-bindings.md).
+
 `--screenshot <file>` renders 30 frames, captures the window to `<file>` and exits. It works for the front end, `--mission` and `--movie`, and hides the menu bar. A front-end capture opens on the main menu without its startup sequence. A screenshot run sees no keyboard or mouse input, so the flags below put the cockpit into the state to be photographed at power-up; they work in an interactive run too. A cockpit capture needs `--mission`: without it the front end is what is photographed.
 
 Several of them hold the capture past the 30 frames until what they stage is on screen:

@@ -93,6 +93,10 @@ sealed class SimulatorHost : IDisposable {
 
 		_window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}",
 			placement: session.WindowPlacement);
+		if (session.SavePrintScreens) {
+			PrintScreenFiles.Attach(_window, session);
+		}
+
 		_outcome.BindWindow(_window);
 
 		var cockpitInput = new CockpitInput();
@@ -307,7 +311,7 @@ sealed class SimulatorHost : IDisposable {
 		bool panelHandledKey = _panels.ReadKeys();
 		_windowKeys.ReadMenuBarEscapeKey(panelHandledKey, _view, hasCockpit: _art != null);
 		_windowKeys.ReadManualKey(_displays.FlashCommHasKeyboard, _panels.AnyOpen);
-		_windowKeys.ReadFullScreenKeys(_panels.AnyOpen);
+		_windowKeys.ReadFullScreenKeys();
 
 		// Everything below reads `controls` rather than the device itself: while the debug panel has keyboard
 		// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both

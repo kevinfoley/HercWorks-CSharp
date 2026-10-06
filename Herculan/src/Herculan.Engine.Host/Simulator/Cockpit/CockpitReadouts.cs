@@ -80,6 +80,9 @@ sealed class CockpitReadouts(CockpitDisplays displays, CockpitView view, Cockpit
 				rowTicking: row => mounts.BySlot(row) != null && cockpitPowerUp.RowPowered(row));
 		}
 
+		var (shieldFront, shieldRear) = pilotMech.Shields.Readout(
+			rounded: TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowEvenShieldBalance));
+
 		var squadComm = displays.SquadComm;
 		var hddCommand = displays.HddCommand;
 		hudState = displays.Hud;
@@ -94,8 +97,8 @@ sealed class CockpitReadouts(CockpitDisplays displays, CockpitView view, Cockpit
 			// sweep latches itself as it goes, so this is the once-a-frame call it expects.
 			Heading = displays.HeadingSweep?.Angle((short)pilotMech.Heading, audio.CoarseTicks)
 				?? (short)pilotMech.Heading,
-			ShieldFront = pilotMech.Shields.FrontReadout,
-			ShieldRear = pilotMech.Shields.RearReadout,
+			ShieldFront = shieldFront,
+			ShieldRear = shieldRear,
 			EnergyFraction = pilotMech.EnergyPoolFraction,
 			Weapons = WeaponRowState.Build(pilotMech.Weapons,
 				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings, cockpitPowerUp, audio.CoarseTicks,

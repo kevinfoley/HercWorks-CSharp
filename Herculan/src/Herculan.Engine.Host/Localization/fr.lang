@@ -5,6 +5,8 @@ tweak.show_correct_stats.display_name          Afficher les statistiques correct
 tweak.show_correct_stats.description           Corrige les statistiques des HERC et des armes que le jeu original affichait de façon incorrecte dans VSHELL, comme la vitesse maximale de l'Outlaw et le nombre de points d'emport du Raptor II.
 tweak.show_accurate_speed.display_name         Afficher la vitesse exacte
 tweak.show_accurate_speed.description          Affiche la vraie vitesse de déplacement du HERC sur le HUD. Le jeu original affiche une valeur inexacte pendant la marche.
+tweak.show_even_shield_balance.display_name    Arrondir la répartition des boucliers
+tweak.show_even_shield_balance.description     Chaque pression sur une touche de répartition des boucliers change les nombres affichés d'exactement 20 : une pression vers l'avant depuis le centre affiche 120/80. Le jeu original arrondit le nombre avant vers le bas, et une pression le déplace d'un peu moins de 20, si bien que la même pression affiche 119/81.
 tweak.fix_nacelle_impact_position.display_name Corriger la position de l'effet d'impact sur les nacelles
 tweak.fix_nacelle_impact_position.description  Affiche l'effet d'impact d'un tir sur la nacelle droite du Razor du bon côté, au lieu de toujours sur la nacelle gauche.
 tweak.preserve_sound_position.display_name     Préserver la position des sons

@@ -27,6 +27,13 @@ public static class TweakSettingDefinitions {
 	public static readonly TweakSettingDefinition<bool> ShowAccurateSpeed = new("tweak.show_accurate_speed", TweakCategory.Cosmetic, false);
 
 	/// <summary>
+	/// Round the shield balance readout to the nearest multiple of 20, so each press of <c>[</c> or
+	/// <c>]</c> moves it by exactly 20. Retail truncates, and a press is slightly less than 20 points, so a
+	/// forward press from centre reads 119/81. See <see cref="Sim.ShieldCharge.Readout"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> ShowEvenShieldBalance = new("tweak.show_even_shield_balance", TweakCategory.Cosmetic, false);
+
+	/// <summary>
 	/// On the MFD, show target distance in meters on the MFD F5 TARGET screen. Retail
 	/// shows distance in engine units on this screen only.
 	/// </summary>
@@ -132,7 +139,7 @@ public static class TweakSettingDefinitions {
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
 	public static readonly IReadOnlyList<TweakSettingDefinition<bool>> All = new[] {
-		ShowCorrectStats, ShowAccurateSpeed, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
+		ShowCorrectStats, ShowAccurateSpeed, ShowEvenShieldBalance, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
 		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod,

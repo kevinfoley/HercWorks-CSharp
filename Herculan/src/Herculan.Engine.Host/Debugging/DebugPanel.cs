@@ -282,8 +282,10 @@ sealed class DebugPanel(bool drawSkeleton) {
 		ImGui.Text($"  rings: {CockpitPalette.ShieldFacingCharge(shields.Front, shields.BaseMax)}"
 			+ $" / {CockpitPalette.ShieldFacingCharge(shields.Rear, shields.BaseMax)} of 0x400");
 		// The printed numbers are the balance and nothing else — they sum to 200 even on an empty array.
+		var (retailFront, retailRear) = shields.Readout(rounded: false);
+		var (roundedFront, roundedRear) = shields.Readout(rounded: true);
 		ImGui.Text($"Balance: {shields.Balance} / {ShieldCharge.BalanceMax}"
-			+ $"  — prints {shields.FrontReadout} / {shields.RearReadout}   [ and ] move it");
+			+ $"  — prints {retailFront} / {retailRear} (tweak {roundedFront} / {roundedRear})   [ and ] move it");
 
 		// Both are test seams, not mechanics — see their own summaries. They are the only way to
 		// watch either system refill until weapons and incoming fire exist to empty them for real.

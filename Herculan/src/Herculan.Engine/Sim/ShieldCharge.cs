@@ -99,7 +99,7 @@ public sealed class ShieldCharge {
 	public short Total => (short)(_front + Rear);
 
 	/// <summary>
-	/// The front number the cockpit prints — <b>the balance, not the charge</b>.
+	/// The two numbers the cockpit prints — <b>the balance, not the charge</b>.
 	///
 	/// <para><c>ShieldsGauge_UpdateReadouts</c> (<c>00444a68</c>) reads the gauge's balance field and
 	/// prints <c>balance * 200 &gt;&gt; 10</c> for the front and the literal <i>complement</i>
@@ -108,11 +108,27 @@ public sealed class ShieldCharge {
 	/// charge is shown by the meter's rings instead (see
 	/// <c>CockpitPalette.ShieldFacingCharge</c>), which is why the two halves of the widget can
 	/// disagree so completely — dark rings over a confident "100".</para>
+	///
+	/// <para><paramref name="rounded"/> is <b>not retail</b> — it is the
+	/// <see cref="Settings.TweakSettingDefinitions.ShowEvenShieldBalance"/> tweak, which snaps the
+	/// front number to the nearest multiple of <see cref="ReadoutStep"/>, so it reads 120/80, 140/60 …
+	/// where retail reads 119/81, 139/61 … <see cref="AdjustBalance"/> is the only thing that moves
+	/// <see cref="Balance"/>, and its steps fall 0.08 of a point short of 20 each. Rounding to the
+	/// nearest point would not be enough: a run of ten steps back from either clamped end drifts 0.78
+	/// of a point, so 310 would read 61. Snapping has ten points of margin.</para>
 	/// </summary>
-	public int FrontReadout => SimMath.Q10Multiply(Balance, 200);
+	public (int Front, int Rear) Readout(bool rounded) {
+		int front = rounded
+			? ((Balance * (ReadoutTotal / ReadoutStep) + (BalanceMax >> 1)) >> 10) * ReadoutStep
+			: SimMath.Q10Multiply(Balance, ReadoutTotal);
+		return (front, ReadoutTotal - front);
+	}
 
-	/// <summary>The rear number, which is exactly <c>200 -</c> <see cref="FrontReadout"/>.</summary>
-	public int RearReadout => 200 - FrontReadout;
+	/// <summary>What the two printed numbers always add up to.</summary>
+	private const int ReadoutTotal = 200;
+
+	/// <summary>What one press is meant to move the readout by; <see cref="BalanceStep"/> falls just short of it.</summary>
+	private const int ReadoutStep = 20;
 
 	/// <summary>
 	/// Sets the array's total capacity — <c>Shield_SetMax</c> (<c>00413ab8</c>), the setter

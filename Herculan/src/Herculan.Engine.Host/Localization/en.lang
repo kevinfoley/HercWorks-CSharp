@@ -5,6 +5,8 @@ tweak.show_correct_stats.display_name          Show correct stats
 tweak.show_correct_stats.description           Fix HERC and weapon stats that vanilla displayed incorrectly in VSHELL, such as the Outlaw's top speed and the Raptor II's hardpoint count.
 tweak.show_accurate_speed.display_name         Show accurate speed
 tweak.show_accurate_speed.description          Show the HERC's true movement speed on the HUD. Retail shows an inaccurate reading while walking.
+tweak.show_even_shield_balance.display_name    Round shield balance readout
+tweak.show_even_shield_balance.description     Each press of [ or ] moves the shield balance numbers by exactly 20, so one press forward from the centre reads 120/80. Retail rounds the front number down, and a press moves it slightly less than 20, so the same press reads 119/81.
 tweak.fix_nacelle_impact_position.display_name Fix nacelle impact effect position
 tweak.fix_nacelle_impact_position.description  Draw the impact effect for a hit on the Razor's right nacelle at the correct side, instead of always at the left nacelle.
 tweak.preserve_sound_position.display_name     Preserve sound position

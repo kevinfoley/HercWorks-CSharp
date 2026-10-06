@@ -5044,8 +5044,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Shield_BalanceAdjust",
-      "description": "Nudges the shield balance field (mech+0x226) by +/-0x66 (102), clamped to [0, 0x400] (0-1024). Default center 0x200 (512).",
-      "source": "docs/retail/simulation/damage-system.md"
+      "description": "Nudges the shield balance (shield block +0x4, mech+0x226) by +0x66 (102) for a nonzero direction and -0x66 for zero, clamped to [0, 0x400]. 102 is just short of a tenth of the range, so five presses from the 0x200 centre reach 1022 or 2 and the sixth hits the clamp.",
+      "source": "docs/retail/simulation/damage-system.md",
+      "verified": {
+        "bytes": "00413af8+61",
+        "sha1": "810611a5200a",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00413b38",
@@ -5063,8 +5069,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Shield_BalanceInputRead",
-      "description": "Reads the shield-balance HUD gauge widget's click state; if a flag is set, calls Shield_BalanceAdjust. Also pushes front/rear display percentages back to the widget.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "Per frame for the player: copies the shield gauge's 15-byte state block (UI slot +0x1e9, ShieldsGauge_GetStateBlock); if the block's byte 13 is set calls Shield_BalanceAdjust(1) and clears it, else if byte 14 is set calls Shield_BalanceAdjust(0) and clears it. Then writes (front << 10) / baseMax, (rear << 10) / baseMax (shield block +0x0, +0x2 over +0x8) and the raw balance (+0x4) into the block and hands it back through ShieldsGauge_SetStateBlock.",
+      "source": "docs/retail/formats/cockpit-input.md",
+      "verified": {
+        "bytes": "00413bc8+157",
+        "sha1": "06be93ba1133",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00413c68",
@@ -13032,8 +13044,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ShieldsGauge_UpdateReadouts",
-      "description": "Fills ShieldsGauge's two numeric labels (object +0xc4 and +0xc8) from the fore/aft balance at +0xbd: itoa(balance * 200 >> 10) and its complement out of 200. An even split reads 100 and 100, which is what retail shows.",
-      "source": "cockpit rendering RE session"
+      "description": "Fills ShieldsGauge's two numeric labels (object +0xc4 and +0xc8) from the fore/aft balance at +0xbd: itoa(balance * 200 >> 10), truncating, and itoa(200 - that). An even split reads 100 and 100; one forward press (614) reads 119/81 and one rear press (410) 80/120.",
+      "source": "cockpit rendering RE session",
+      "verified": {
+        "bytes": "00444a68+130",
+        "sha1": "43fd418f8361",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00444aec",

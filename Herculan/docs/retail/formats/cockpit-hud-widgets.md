@@ -142,7 +142,25 @@ A facing runs 0..`0x800` with `0x400` the whole pool on one side, so an even 100
 
 ### Readouts — `ShieldsGauge_UpdateReadouts` (`00444a68`)
 
-`itoa(balance * 200 >> 10)` into the first label and its complement into the second, from the fore/aft balance at `+0xbd`. An even split reads 100 and 100 out of a 200-point pool, which is what retail shows. **The pair always sums to 200 whatever the charge**, and an empty array still reads 100/100, so it is not a charge percentage — the natural way to misread it. Font is `ColorSchemePanels[10]` (`WHITE`); background is `COLORS.DAT` id 19 (palette 16, black).
+`itoa(balance * 200 >> 10)` into the first label and `200 -` that into the second, from the fore/aft balance at `+0xbd`. An even split reads 100 and 100 out of a 200-point pool, which is what retail shows. **The pair always sums to 200 whatever the charge**, and an empty array still reads 100/100, so it is not a charge percentage — the natural way to misread it. Font is `ColorSchemePanels[10]` (`WHITE`); background is `COLORS.DAT` id 19 (palette 16, black).
+
+**A forward press from centre reads 119/81, not 120/80.** A press moves the balance by `0x66` (102, [`damage-system.md`](../simulation/damage-system.md#balance-adjustment-input--players-own-mech-only)), which is 19.92 readout points rather than 20, and the `>> 10` truncates. Stepping from the power-up centre of 512, every forward stop falls just short of its multiple of 20 and every rear stop just past it, so only the front label rounds down:
+
+| Presses | Balance | Readout |
+|---|---|---|
+| 5 rear | 2 | 0 / 200 |
+| 4 rear | 104 | 20 / 180 |
+| 3 rear | 206 | 40 / 160 |
+| 2 rear | 308 | 60 / 140 |
+| 1 rear | 410 | 80 / 120 |
+| — | 512 | 100 / 100 |
+| 1 forward | 614 | 119 / 81 |
+| 2 forward | 716 | 139 / 61 |
+| 3 forward | 818 | 159 / 41 |
+| 4 forward | 920 | 179 / 21 |
+| 5 forward | 1022 | 199 / 1 |
+
+The readings depend on the path, because the clamp at either end moves the balance off this ladder. After a sixth forward press (1024, 200/0) the steps back are 922, 820, 718, 616 and 514, which read 180/20, 160/40, 140/60, 120/80 and 100/100; after a sixth rear press (0) the steps forward are 102, 204, 306, 408 and 510, which read 19/181, 39/161, 59/141, 79/121 and 99/101.
 
 ### `.GAU` block at 616
 

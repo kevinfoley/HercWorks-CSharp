@@ -88,7 +88,7 @@ The debrief charges repairs through `Game_AutoRepairSquad` (`0040e804`), which r
 
 `Herc_ScrapValue` (`00413b50`) values a machine by summing `condition * unitValue / 100` over the six external groups and the nine internals, plus the value of each mount too damaged to return to stock. Condition is the multiplier, so a healthy machine is worth more than a wrecked one — this is a yield, not a repair bill (`estext.bin` `0x43` `Salvage Available:`, `0xcc` `This herc will yield`).
 
-`Herc_StripMounts` (`00411795`) decides what survives: a mount at **80 condition or better goes back into armory stock** through `Armory_AddUnit` (`00411efd`), and anything below is destroyed. `Herc_ScrapValue`'s mount loop counts exactly the complement — the ones under 80 — so a returned weapon is credited as inventory rather than as salvage.
+`Herc_StripMounts` (`00411795`) decides what survives: a mount at **80 condition or better goes back into armory stock** through `Armory_AddUnit` (`00411efd`), at the condition it was fitted at rather than the hardpoint's ([`screen-layout.md`](screen-layout.md#fitting-a-weapon)), and anything below is destroyed. `Herc_ScrapValue`'s mount loop counts exactly the complement — the ones under 80 — so a returned weapon is credited as inventory rather than as salvage.
 
 At debrief `Herc_SettleAfterMission` (`00410c7c`) applies the same judgement to the machine itself: below 30 average condition it is scrapped out of the hangar for its value and the hangar count drops; at 30 or above only the overall-condition slot is reset to 100.
 

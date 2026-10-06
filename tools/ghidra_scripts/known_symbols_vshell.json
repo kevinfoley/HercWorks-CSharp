@@ -3412,7 +3412,13 @@
       "confidence": "high",
       "name": "Squad_SetMemberBay",
       "description": "(member, bay): writes squad member's +0x22. Bay -1 clears its on-strength byte through Squad_SetOnStrength; any other bay calls Squad_UpdateOnStrength with the member index in the position argument.",
-      "source": "docs/retail/shell/screen-layout.md#the-rows"
+      "source": "docs/retail/shell/screen-layout.md#the-rows",
+      "verified": {
+        "bytes": "0040e6d7+128",
+        "sha1": "f20cd6457a2c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040e757",
@@ -3778,7 +3784,13 @@
       "confidence": "high",
       "name": "Squad_SetMemberPosition",
       "description": "(player, member, position): writes the squad member's position, pilot record +0x27, through the player structure's pointer at +0x3f.",
-      "source": "docs/retail/shell/screen-layout.md#the-rows"
+      "source": "docs/retail/shell/screen-layout.md#the-rows",
+      "verified": {
+        "bytes": "004102be+24",
+        "sha1": "d67d885dd444",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004102d6",
@@ -3787,7 +3799,13 @@
       "confidence": "high",
       "name": "Squad_MemberAtPosition",
       "description": "(player, position) -> index 0-2 of the first of the three squad pointers at player+0x3f whose pilot record +0x27 equals position, or -1.",
-      "source": "docs/retail/shell/screen-layout.md#the-rows"
+      "source": "docs/retail/shell/screen-layout.md#the-rows",
+      "verified": {
+        "bytes": "004102d6+41",
+        "sha1": "37568e64d639",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004102ff",
@@ -3796,7 +3814,13 @@
       "confidence": "high",
       "name": "Squad_SetPositionsInPlay",
       "description": "(player, n): the positions in play, then Squad_UpdateOnStrength for positions 1-3.",
-      "source": "docs/retail/shell/screen-layout.md#starting-a-practice-mission"
+      "source": "docs/retail/shell/screen-layout.md#starting-a-practice-mission",
+      "verified": {
+        "bytes": "004102ff+40",
+        "sha1": "cc4fdc5181b9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00410327",
@@ -3805,7 +3829,13 @@
       "confidence": "high",
       "name": "Squad_SetOnStrength",
       "description": "(player, member, flag): writes the squad member's on-strength byte (+0x24), incrementing or decrementing the player structure's +2 (00482a7a, machines on strength) when the byte changes.",
-      "source": "docs/retail/formats/save-games.md#savgame_sav--block-order"
+      "source": "docs/retail/formats/save-games.md#savgame_sav--block-order",
+      "verified": {
+        "bytes": "00410327+63",
+        "sha1": "7adf62d43ede",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00410366",
@@ -3814,7 +3844,13 @@
       "confidence": "high",
       "name": "Squad_UpdateOnStrength",
       "description": "(player, position): sets the on-strength byte of the squad member at that position when the position is below the player structure's leading short (00482a78) and the member has a bay, clears it otherwise (via Squad_SetOnStrength, 00410327). Matches every retail save's on-strength bytes.",
-      "source": "docs/retail/formats/save-games.md#savgame_sav--block-order"
+      "source": "docs/retail/formats/save-games.md#savgame_sav--block-order",
+      "verified": {
+        "bytes": "00410366+84",
+        "sha1": "02350398fec1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004103ba",
@@ -4123,7 +4159,13 @@
       "confidence": "high",
       "name": "Repair_Apply",
       "description": "Writes a target condition across all three status-block arrays, leaving an empty hardpoint at 100.",
-      "source": "docs/retail/shell/armory.md"
+      "source": "docs/retail/shell/armory.md",
+      "verified": {
+        "bytes": "004113af+96",
+        "sha1": "d1402bad095c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041140f",
@@ -4158,8 +4200,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Herc_FitMount",
-      "description": "(herc, slot, weapon): Armory_AddUnit of the slot's unit and +0x4e minus one; weapon 0 empties the slot at condition 100 through HercStatus_Set; otherwise Armory_PopUnit of the weapon becomes the mount, its +0x04 the hardpoint condition, +0x4e plus one, and its +0x08 guidance 1 for ids 0xd-0xf and 5 for any other (0x10 included). An empty stock list leaves the slot empty and its condition unwritten. es2_xref.py finds one caller, Arming_FitSelected (0043dc8a).",
-      "source": "docs/retail/shell/screen-layout.md#fitting-a-weapon"
+      "description": "(herc, slot, weapon): Armory_AddUnit of the slot's unit, when there is one, and +0x4e minus one; the outgoing unit's +0x04 is left as it was, so the hardpoint's condition is not carried back to stock. Weapon 0 empties the slot at condition 100 through HercStatus_Set; otherwise Armory_PopUnit of the weapon becomes the mount, its +0x04 the hardpoint condition, +0x4e plus one, and its +0x08 guidance 1 for ids 0xd-0xf and 5 for any other (0x10 included). An empty stock list leaves the slot empty and its condition unwritten. es2_xref.py finds one caller, Arming_FitSelected (0043dc8a).",
+      "source": "docs/retail/shell/screen-layout.md#fitting-a-weapon",
+      "verified": {
+        "bytes": "004114ec+218",
+        "sha1": "8da429d4d9b4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004115c6",
@@ -4194,8 +4242,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Herc_ReadStatusBlock",
-      "description": "Reads a machine's 66-byte status block from results.dat straight over the record's +0x08 span, then destroys any mount whose per-hardpoint condition arrived at 0, decrementing the occupied count at +0x4e.",
-      "source": "docs/retail/shell/campaign-loop.md"
+      "description": "Reads a machine's 66-byte status block from results.dat straight over the record's +0x08 span, then, over the ten hardpoints, frees any mount whose hardpoint condition arrived at 0, sets that hardpoint back to 100 and decrements the occupied count at +0x4e.",
+      "source": "docs/retail/shell/campaign-loop.md",
+      "verified": {
+        "bytes": "00411720+117",
+        "sha1": "420e23b40c06",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00411795",
@@ -4203,8 +4257,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Herc_StripMounts",
-      "description": "Empties a chassis's hardpoints when it is scrapped: a mount at 80 condition or better is returned to armory stock via Armory_AddUnit, anything below is destroyed.",
-      "source": "docs/retail/shell/armory.md"
+      "description": "Empties every occupied hardpoint up to the capacity at +0x4c: a mount whose hardpoint condition is 80 or better goes back to armory stock through Armory_AddUnit with its +0x04 as it was, anything below is freed, and the hardpoint condition is set back to 100. It does not change the occupied count at +0x4e.",
+      "source": "docs/retail/shell/armory.md",
+      "verified": {
+        "bytes": "00411795+132",
+        "sha1": "8fa568f5d6d6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041181c",
@@ -4266,8 +4326,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponUnit_Init",
-      "description": "Fills a weapon unit from an id and three values, deriving the class index at +0x02 via Weapon_ClassIndexForId.",
-      "source": "docs/retail/formats/herc-catalogs.md"
+      "description": "(unit, id, a, b, c): writes id to +0x00, the class index from Weapon_ClassIndexForId to +0x02, and a, b, c to +0x04 (the fitted condition), +0x06 and +0x08 (the guidance kind); returns the unit.",
+      "source": "docs/retail/formats/herc-catalogs.md",
+      "verified": {
+        "bytes": "004119fd+57",
+        "sha1": "eccbba0c8282",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00411a36",
@@ -4408,7 +4474,13 @@
       "confidence": "high",
       "name": "Armory_PopUnit",
       "description": "Unlinks the head of a weapons.dat record's +0x19 unit list, frees the list node, decrements +0x17 and returns the unit; 0 when 00411f87 reports the list empty.",
-      "source": "docs/retail/shell/armory.md#scrapping"
+      "source": "docs/retail/shell/armory.md#scrapping",
+      "verified": {
+        "bytes": "00411ec7+54",
+        "sha1": "d067eb185392",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00411efd",
@@ -4417,7 +4489,13 @@
       "confidence": "high",
       "name": "Armory_AddUnit",
       "description": "armory.cpp: pushes a weapon unit onto its catalog record's +0x19 owned-unit list and increments the +0x17 owned count.",
-      "source": "docs/retail/shell/armory.md"
+      "source": "docs/retail/shell/armory.md",
+      "verified": {
+        "bytes": "00411efd+138",
+        "sha1": "92bab3ce58fe",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00411f87",
@@ -4488,8 +4566,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_AddNewUnit",
-      "description": "(id, fitCondition) Allocates a ten-byte weapon unit, WeaponUnit_Init(unit, id, fitCondition, 100, 5), and appends it to the id's catalog record through Armory_AddUnit. The debrief's results.dat salvage pairs (campaign only) and Armory_GrantCampaignWeapons' unit grants (fitCondition 100) both come through it.",
-      "source": "docs/retail/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7"
+      "description": "(id, fitCondition) Allocates a ten-byte weapon unit, WeaponUnit_Init(unit, id, fitCondition, 100, 5), and pushes it onto the id's catalog record through Armory_AddUnit. Calls found by text search of the decompile: the debrief's results.dat salvage-pair loop, passing the pair's id then its condition (campaign only), and Armory_GrantCampaignWeapons' unit grants, passing 100.",
+      "source": "docs/retail/shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7",
+      "verified": {
+        "bytes": "0041229d+111",
+        "sha1": "f27ef01e135b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041230c",
@@ -4947,8 +5031,14 @@
       "type": "function",
       "confidence": "high",
       "name": "RepairLayout_FindWeaponPart",
-      "description": "Looks one weapon's part up in a chassis's rpr_*.dat weapon groups: the record in group weaponId whose part id is the third argument (slot + 6 at both callers), or null.",
-      "source": "docs/retail/shell/screen-layout.md#the-damage-diagram"
+      "description": "(layout, weaponId, partId): in a chassis's per-weapon layout groups (33 counts, then 33 record pointers at +0x42), returns the first 26-byte record in group weaponId whose part id +0x00 equals partId, or null. Callers found by es2_xref.py: Repair_BuildDiagrams (read: passes the rpr_*.dat layout and slot + 6), Repair_WeaponPartRect, Arming_RowLive, Squad_BuildBayPictures and Arming_MarkHardpoint.",
+      "source": "docs/retail/shell/screen-layout.md#the-damage-diagram",
+      "verified": {
+        "bytes": "00413ccc+80",
+        "sha1": "1201ed548a53",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00413d1c",
@@ -4966,7 +5056,13 @@
       "confidence": "high",
       "name": "Repair_BuildDiagrams",
       "description": "Fills both per-bay damage pictures for all eight bays. Externals: one grid part per gam\\rpr_*.dat component record at its (+0x02, +0x06) from frame +0x12 of dba\\rpr_<chassis>.dba, plus one per occupied hardpoint found by RepairLayout_FindWeaponPart on the per-weapon groups. Internals: the single trailing record at 00484534, from dba\\<chassis>_int.dba, with a second part for the Razor. Bank path tables at 0046fedc and 0046ff04, handles cached in 0046fdc4 and 0046fdec.",
-      "source": "docs/retail/shell/screen-layout.md#the-damage-diagram"
+      "source": "docs/retail/shell/screen-layout.md#the-damage-diagram",
+      "verified": {
+        "bytes": "004140a9+879",
+        "sha1": "22cbba77d00b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00414418",
@@ -10847,7 +10943,13 @@
       "confidence": "high",
       "name": "Arming_FitSelected",
       "description": "With a hardpoint selected: calls Herc_FitMount (004114ec)(herc, hardpoint, weapon) while Arming_FitArmed is set, then Arming_MarkHardpoint and repaints the bay picture.",
-      "source": "docs/retail/shell/screen-layout.md#the-weapons-screen"
+      "source": "docs/retail/shell/screen-layout.md#the-weapons-screen",
+      "verified": {
+        "bytes": "0043dc44+114",
+        "sha1": "6f7dfa1bb519",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0043dcb6",
@@ -11172,7 +11274,13 @@
       "confidence": "high",
       "name": "Arming_SelectRow",
       "description": "An inventory row's handler (27 thunks from 00440300, each setting Arming_FitArmed). No-op for the lit row unless a guidance picture is up or a hardpoint is selected. With a hardpoint, refuses a weapon with none in stock unless fitted (testing the mount's +0x08 guidance kind first) and fits through Arming_FitSelected. Refreshes the rows, relights old and new rows, swaps the picture, fills three wpn_desc.bin lines from id*3, and puts the guidance buttons up for ids 0xd-0x10 or takes them down.",
-      "source": "docs/retail/shell/screen-layout.md#the-weapons-screen"
+      "source": "docs/retail/shell/screen-layout.md#the-weapons-screen",
+      "verified": {
+        "bytes": "0043f71c+1194",
+        "sha1": "5277b654f1c1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0043fbc6",
@@ -12195,7 +12303,13 @@
       "confidence": "high",
       "name": "Mission_OnRockAndRoll",
       "description": "Rock & Roll >'s handler: refuses through the dialog LaunchRefusal_Show with codes 2, 0, 1, 3, otherwise Game_ExportMissionHandoff, Shell_SetExitCode(2) and Shell_QuitFlag = 1.",
-      "source": "docs/retail/shell/screen-layout.md#the-mission-screen"
+      "source": "docs/retail/shell/screen-layout.md#the-mission-screen",
+      "verified": {
+        "bytes": "00445509+224",
+        "sha1": "829a570841d6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004455e9",

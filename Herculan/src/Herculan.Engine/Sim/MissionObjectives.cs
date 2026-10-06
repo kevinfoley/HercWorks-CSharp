@@ -214,8 +214,10 @@ public sealed class MissionObjectives {
 	/// flag. Either way an answer of yes applies that record's counters, once.</para>
 	///
 	/// <para>The three outcomes are then each split by whether the player is
-	/// <see cref="IsClearOfThreats">clear</see>, and the not-clear side of all three is the same
-	/// value: the mission does not conclude while the player is still in a fight.</para>
+	/// <see cref="IsClearOfThreats">clear</see>. A failure and a success share their not-clear value,
+	/// <see cref="MissionStatus.DecidedButEngaged"/>, so the mission does not conclude while the player
+	/// is still in a fight; an undecided mission answers <see cref="MissionStatus.InProgressEngaged"/>
+	/// there.</para>
 	///
 	/// <para>Besides <see cref="Evaluate"/>, <see cref="MissionResults.Write"/> calls it directly as the
 	/// mission ends, and <see cref="MissionStatus.Complete"/> is the only answer that wins.</para>
@@ -257,13 +259,11 @@ public sealed class MissionObjectives {
 			}
 		}
 
-		if (!IsClearOfThreats(world, player)) {
-			return MissionStatus.DecidedButEngaged;
-		}
+		bool clear = IsClearOfThreats(world, player);
 
-		return lost ? MissionStatus.Failed
-			: allMet ? MissionStatus.Complete
-			: MissionStatus.InProgress;
+		return lost || allMet
+			? clear ? lost ? MissionStatus.Failed : MissionStatus.Complete : MissionStatus.DecidedButEngaged
+			: clear ? MissionStatus.InProgress : MissionStatus.InProgressEngaged;
 	}
 
 	/// <summary>

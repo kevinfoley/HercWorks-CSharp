@@ -74,7 +74,7 @@ The box is block 1's own extent, `Mission_Box` (`004aa6c4`), which `DBSim_LoadSc
 | every required record holds | **9** mission successful | 10 |
 | neither | 5 | 4 |
 
-**The mission does not conclude while the player is still in a fight.** All three outcomes collapse to 10 there, and 4, 5 and 10 announce nothing. As the mission ends, `Mission_WriteResults` asks `EvaluateObjectives` once more and records 9 alone as a success ([below](#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
+**The mission does not conclude while the player is still in a fight.** A failure and a success both collapse to 10 there (`004135af`–`004135cf`), and 4, 5 and 10 announce nothing. As the mission ends, `Mission_WriteResults` asks `EvaluateObjectives` once more and records 9 alone as a success ([below](#what-the-mission-leaves-the-shell--mission_writeresults-0042412c)).
 
 The first required record that is *not* satisfied is published at `DAT_004d1f1c` as the failure text the alert panel prints — four `char*`, three from the file and an empty fourth.
 

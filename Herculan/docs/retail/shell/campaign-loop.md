@@ -160,7 +160,7 @@ The whole layout is verified byte-exact against every retail `player.mec` — th
 The longest function in `game.cpp` and the whole of the post-mission accounting.
 
 1. Read `data\mission.var` back into the flag array.
-2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, an `int32` added to the salvage pool, then `int16 count` and that many `{ int16, int16 }` salvage pairs, each applied by `Armory_AddNewUnit` (`0041229d`) in campaign mode only.
+2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, an `int32` added to the salvage pool, then `int16 count` and that many `{ int16 weapon id, int16 condition }` salvage pairs, each applied by `Armory_AddNewUnit` (`0041229d`) in campaign mode only, which stocks a new unit of that weapon with the condition as its `+0x04`, the condition it will be fitted at ([`screen-layout.md`](screen-layout.md#fitting-a-weapon)).
 3. Copy the outcome into flag slot 0.
 4. For the player, then for each on-strength squad member at positions 1 up to the machines-on-strength count `00482a7a` — not the positions in play the export walks: when the pilot's bay holds a machine, read its 66-byte status block over its `+0x08` span (`Herc_ReadStatusBlock` (`00411720`), which also destroys any mount whose condition arrived at 0 and sets that hardpoint back to 100); set the pilot's condition from the machine's overall slot (`HercStatus_Get(block, 1, 9)` (`00411d06`)), or to 100 with no machine; read the pilot's three mission counters and accumulate them (`Pilot_AccumulateMissionStats`, `0041000e`); and settle the machine (`Herc_SettleAfterMission`, `00410c7c`). A machine whose mean condition (`HercStatus_OverallCondition`) is below 30 is scrapped as the shell's scrap is — valued, its mounts at 80 or better returned to stock, the bay emptied — with the value going into the pool and one added to the hangar's `+0x24`, `00482ae7`; the pilot keeps the bay. A hangar load zeroes that word ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamhercsdat--the-starting-hangar)), and the debrief began by loading slot 10, so it counts the machines this debrief scrapped. Any other machine has its overall slot reset to 100. A pilot with no machine reads no status block, so the file's 66 bytes for that machine are read as its counters.
 5. Run the squad's progression ([below](#pilot-progression)) and copy the count of pilots it lost into flag 9 (`00482b0a`). If the player's HERC condition reached 0 the campaign is over and the debrief stops here, in either mode. Otherwise flag 8 (`00482b08`) takes the scrap count, and the rest runs in a campaign only; a training debrief ends by putting the startup sequence up, which brings the main menu.
@@ -174,7 +174,7 @@ Written out, the file is:
 int16   outcome
 int32   salvage awarded to the pool
 int16   salvageCount
-        salvageCount x { int16, int16 }
+        salvageCount x { int16 weapon id, int16 condition }
 per machine, the player's first then each on-strength squad member in order:
   66 B    the HERC status block, read straight over the record's +0x08 span
   int16   counter A   -> pilot +0x2d

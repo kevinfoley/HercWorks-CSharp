@@ -280,8 +280,8 @@ public sealed class EngineWindow : IDisposable {
 
 	/// <summary>
 	/// Takes the default size, which is a 100% display's, to the display the hidden window was made on, shrunk where
-	/// it would not fit that monitor's work area with its frame, keeping its shape; a window whose size changes is
-	/// centred in the work area. Does nothing on a backend other than GLFW.
+	/// it would not fit that monitor's work area with its frame, keeping its shape, and centres the window in the work
+	/// area. Does nothing on a backend other than GLFW.
 	/// </summary>
 	private unsafe void ScaleToDisplay() {
 		if (_window.Native?.Glfw is not { } native || ClientScale is not { } scale) {
@@ -301,13 +301,15 @@ public sealed class EngineWindow : IDisposable {
 		float fit = MathF.Min(scale, MathF.Min((areaWidth - left - right) / (float)size.X,
 			(areaHeight - top - bottom) / (float)size.Y));
 		var scaled = new Vector2D<int>((int)MathF.Round(size.X * fit), (int)MathF.Round(size.Y * fit));
-		if (scaled == size || scaled.X <= 0 || scaled.Y <= 0) {
-			return;
+		if (scaled.X <= 0 || scaled.Y <= 0) {
+			scaled = size;
 		}
 
 		var position = new Vector2D<int>(areaX + left + (areaWidth - left - right - scaled.X) / 2,
 			areaY + top + (areaHeight - top - bottom - scaled.Y) / 2);
-		_window.Size = scaled;
+		if (scaled != size) {
+			_window.Size = scaled;
+		}
 		_window.Position = position;
 		_restoredSize = scaled;
 		_restoredPosition = position;

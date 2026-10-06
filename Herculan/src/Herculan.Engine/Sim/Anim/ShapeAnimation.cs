@@ -193,6 +193,47 @@ public sealed class ShapeAnimation {
 		DefaultTransforms = defaultTransforms;
 		ParentTransform = parentTransform;
 		PartTransformIds = partTransformIds;
+
+		_meanForwardTravel = new double[sequences.Length];
+		for (int i = 0; i < sequences.Length; i++) {
+			_meanForwardTravel[i] = MeanForwardTravel(sequences[i], transforms);
+		}
+	}
+
+	private readonly double[] _meanForwardTravel;
+
+	/// <summary>
+	/// How far a sequence's root motion carries the object along its own forward axis (+Y) per
+	/// animation tick, averaged over the whole sequence: every frame's ground translation over every
+	/// frame's duration. Zero for a sequence with no ground movement, and for turn-in-place, which
+	/// carries rotation only.
+	///
+	/// <para><b>Not something the original computes.</b> It is the stride the
+	/// <see cref="Settings.TweakSettingDefinitions.ShowAccurateSpeed"/> readout reads
+	/// (<see cref="MechObject.GroundSpeedKph"/>). The real motion pulses from frame to frame within a
+	/// stride; this is the stride's mean. See docs/retail/simulation/mech-locomotion.md, "Resulting
+	/// speed".</para>
+	/// </summary>
+	public double MeanForwardTravelPerTick(int sequenceId) =>
+		sequenceId >= 0 && sequenceId < _meanForwardTravel.Length ? _meanForwardTravel[sequenceId] : 0;
+
+	private static double MeanForwardTravel(AnimSequence sequence, AnimTransform[] transforms) {
+		if (!sequence.GroundMovement || sequence.PartCount == 0) {
+			return 0;
+		}
+
+		long travel = 0;
+		long duration = 0;
+		for (int frame = 0; frame < sequence.FrameCount; frame++) {
+			int index = sequence.TransformIndices[frame * sequence.PartCount];
+			if (index >= 0 && index < transforms.Length) {
+				travel += transforms[index].Y;
+			}
+
+			duration += sequence.FrameDurations[frame];
+		}
+
+		return duration > 0 ? travel / (double)duration : 0;
 	}
 
 	/// <summary>The shape's sequences, indexed by the sequence ids the mech type record names.</summary>

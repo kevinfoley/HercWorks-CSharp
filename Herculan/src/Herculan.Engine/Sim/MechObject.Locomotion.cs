@@ -57,6 +57,51 @@ public sealed partial class MechObject {
 	private const int SlopeSpeedDivisor = 0x960;
 
 	/// <summary>
+	/// Animation time per unit of sim time, Q8 against the tick delta — the 100 in
+	/// <c>Mech_IntegrateMotion</c>'s <c>Q8(SimTickDelta, 100)</c>.
+	/// </summary>
+	private const short AnimationTimeRate = 100;
+
+	/// <summary>
+	/// <b>Not retail.</b> The speed readout the HUD shows in place of <see cref="DisplaySpeedKph"/>
+	/// under the <see cref="Settings.TweakSettingDefinitions.ShowAccurateSpeed"/> tweak. Retail's
+	/// readout is the speed scalar through a ratio calibrated for the run gait, and a walk stride
+	/// covers about half the ground at the same scalar, so a walking HERC reads about twice its real
+	/// speed — docs/retail/simulation/mech-locomotion.md, "Walk/run gait discontinuity".
+	///
+	/// <para>Running, this is retail's figure unchanged. Otherwise retail's figure is scaled by the
+	/// walk stride over the run stride, each the mean forward travel per animation tick of its
+	/// sequence (<see cref="Anim.ShapeAnimation.MeanForwardTravelPerTick"/>), so the walk gait is
+	/// calibrated the way retail calibrates the run, error of up to about 10% included. Walking it also
+	/// reads high by the part of an animation tick each sim tick drops (<see cref="Anim.AnimationThread.Advance"/>
+	/// truncates the step), which at walking rates is up to about an eighth. It is scaled
+	/// from the speed scalar rather than measured from the playback rate on purpose: below 60 the
+	/// playback rate is held up at a crawl, so the HERC really does slow as the speed rises through
+	/// 45 (same doc, "Control law"), and a readout of the motion itself dips there.</para>
+	///
+	/// <para>Like <see cref="DisplaySpeedKph"/> it is worked out from the machine's current state each
+	/// time it is read, so the tweak takes effect the frame it is toggled. A flyer has a real airspeed
+	/// and keeps <see cref="DisplaySpeedKph"/>.</para>
+	/// </summary>
+	public int GroundSpeedKph {
+		get {
+			var type = Type;
+			if (Flight != null || Thread is not { } thread || Animation is not { } animation
+				|| thread.Sequence == type.RunSequence || type.MaxForward == 0) {
+				return DisplaySpeedKph;
+			}
+
+			double run = animation.MeanForwardTravelPerTick(type.RunSequence);
+			if (run <= 0) {
+				return DisplaySpeedKph;
+			}
+
+			double strideRatio = animation.MeanForwardTravelPerTick(type.WalkSequence) / run;
+			return (int)System.Math.Round(Speed * (double)type.HudSpeedScale / type.MaxForward * strideRatio);
+		}
+	}
+
+	/// <summary>
 	/// <c>Mech_ApplyThrottleInput</c> (<c>004160dc</c>) — turns this tick's stick position into a
 	/// throttle setting and a desired speed, then runs the control law.
 	///

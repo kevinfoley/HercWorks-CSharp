@@ -252,7 +252,8 @@ sealed class DebugPanel(bool drawSkeleton) {
 
 		ImGui.Separator();
 		ImGui.Text($"Throttle: {pilotMech.Throttle} / {ThrottleTrack.Full}");
-		ImGui.Text($"Speed: {pilotMech.Speed} raw, {pilotMech.DisplaySpeedKph} km/h");
+		ImGui.Text($"Speed: {pilotMech.Speed} raw, {pilotMech.DisplaySpeedKph} km/h"
+			+ $" (ground {pilotMech.GroundSpeedKph} km/h)");
 		ImGui.Text($"Gait: {(Math.Abs(pilotMech.Speed) >= pilotMech.Type.GaitThreshold ? "run" : "walk")}");
 		ImGui.Text($"Step this frame: {_lastStepMeters:F3} m");
 

@@ -149,7 +149,19 @@ Half turn rate at crawl, peak at half top speed, half again at top speed. `Q16Di
 
 **Turning in place is not produced here** — at zero speed `turnBase` is 0. The turn-in-place branch only sets the animation rate to `Q10(350, stickAxis)`; the rotation comes from the turn-in-place sequence's root rotation.
 
-The remainder of `Mech_LocomotionTick` (~60% of its body) is the gait state machine, switching between the walk / run / stop-forward / stop-reverse / turn-in-place / death sequences and maintaining `mech+0x2a0`. In steady state `animRate = speed`.
+The remainder of `Mech_LocomotionTick` (~60% of its body) is the gait state machine, switching between the walk / run / stop-forward / stop-reverse / turn-in-place / death sequences and maintaining `mech+0x2a0`. In steady state the playback rate is copied from the speed scalar, `animRate = speed`, so the two can be compared directly even though they are different quantities: the speed scalar (`+0x28e`) is on the chassis' own scale up to its top speed (`typeRec+0x06`, 276 on OUTLAW), and the playback rate (`+0x2a0`) is Q8, 256 playing the animation at full speed.
+
+**The crawl.** The exception is a crawl: after the gait machine, a nonzero `|speed|` under `0x2d` (45) lifts a nonzero `|animRate|` under `0x3c` (60) to 60, keeping its sign. Every speed from 1 to 44 therefore walks at the same pace, and at 45 the rate drops back to the speed itself, slower than the 60 before it. The pace also rises in steps: at the 25 Hz cap a tick advances `31 × animRate >> 8` whole animation ticks ([Resulting speed](#resulting-speed)), so runs of neighbouring rates cover the same ground. On OUTLAW, whose walk covers 2.092 units per animation tick:
+
+| Speed scalar | Playback rate | HUD readout, km/h | Actual pace, km/h |
+|---|---|---|---|
+| 1-44 | 60 | 0-15 | 7.9 |
+| 45 | 45 | 16 | 5.6 |
+| 50 | 50 | 17 | 6.8 |
+| 58 | 58 | 20 | 7.9 |
+| 67 | 67 | 24 | 9.0 |
+
+The HUD readout follows the speed scalar and rises steadily through all of it.
 
 ## Center Body
 

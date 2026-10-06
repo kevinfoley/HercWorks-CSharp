@@ -4,7 +4,7 @@ tweak.target_distance_meters.description       Zeigt auf dem MFD im Bildschirm F
 tweak.show_correct_stats.display_name          Korrekte Werte anzeigen
 tweak.show_correct_stats.description           Korrigiert HERC- und Waffenwerte, die das Originalspiel in VSHELL falsch anzeigte, etwa die Höchstgeschwindigkeit des Outlaw und die Anzahl der Waffenaufhängungen des Raptor II.
 tweak.show_accurate_speed.display_name         Genaue Geschwindigkeit anzeigen
-tweak.show_accurate_speed.description          Zeigt die tatsächliche Bewegungsgeschwindigkeit des HERC im HUD an. Das Originalspiel zeigt beim Gehen einen ungenauen Wert an.
+tweak.show_accurate_speed.description          Zeigt die tatsächliche Bewegungsgeschwindigkeit des HERC im HUD an. Das Originalspiel zeigt beim Gehen etwa das Doppelte der tatsächlichen Geschwindigkeit an. Der Wert beim Laufen bleibt unverändert.
 tweak.show_even_shield_balance.display_name    Schildverteilung runden
 tweak.show_even_shield_balance.description     Jeder Druck auf eine Taste der Schildverteilung ändert die angezeigten Zahlen um genau 20, sodass ein Druck nach vorn aus der Mitte 120/80 anzeigt. Das Originalspiel rundet die vordere Zahl ab, und ein Druck verschiebt sie um etwas weniger als 20, sodass derselbe Druck 119/81 anzeigt.
 tweak.fix_nacelle_impact_position.display_name Position des Treffereffekts an den Gondeln korrigieren

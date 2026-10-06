@@ -945,7 +945,7 @@ public sealed partial class MechObject : SimObject {
 
 		// dt is the timestep in animation ticks: Q8(SimTickDelta, 100), where the 100 is the
 		// original's own animation-time-per-sim-time constant.
-		short delta = (short)SimMath.IntegrateRateOverTick(100);
+		short delta = (short)SimMath.IntegrateRateOverTick(AnimationTimeRate);
 
 		Thread.WriteRoot(Transform3.Identity);
 		Thread.Advance(delta);

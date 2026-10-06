@@ -22,7 +22,7 @@ public static class TweakSettingDefinitions {
 
 	/// <summary>
 	/// Show accurate movement speed on HUD. Retail shows an inaccurate reading when the
-	/// player's HERC is in walking stride.
+	/// player's HERC is in walking stride. See <see cref="Sim.MechObject.GroundSpeedKph"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> ShowAccurateSpeed = new("tweak.show_accurate_speed", TweakCategory.Cosmetic, false);
 

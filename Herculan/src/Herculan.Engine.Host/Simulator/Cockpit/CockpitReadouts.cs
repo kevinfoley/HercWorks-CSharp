@@ -88,7 +88,9 @@ sealed class CockpitReadouts(CockpitDisplays displays, CockpitView view, Cockpit
 		hudState = displays.Hud;
 		hudState = hudState with {
 			MissionTime = displays.Clock.Text,
-			SpeedKph = pilotMech.DisplaySpeedKph,
+			SpeedKph = TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowAccurateSpeed)
+				? pilotMech.GroundSpeedKph
+				: pilotMech.DisplaySpeedKph,
 			Throttle = displays.ThrottleGauge,
 			TorsoTwist = pilotMech.TorsoTwistAngle,
 

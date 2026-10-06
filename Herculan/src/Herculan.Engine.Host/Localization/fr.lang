@@ -45,6 +45,8 @@ install_prompt.no_path         Tapez ou collez le chemin du dossier d'Earthsiege
 install_prompt.not_an_install  {0} n'est pas un dossier d'Earthsiege 2 : il ne contient aucun dossier {1}.
 mission_load.window_title      HERCULAN Engine — Erreur
 mission_load.missing_file      La mission ne peut pas démarrer : {0} est manquant. Lancez la mission depuis les menus, qui écrivent ce fichier.
+crash.window_title            HERCULAN Engine — Erreur
+crash.message                 HERCULAN s'est arrêté à cause d'une erreur : {0} Les détails se trouvent dans {1}.
 menu.debug                     Débogage
 menu.tweaks                    Ajustements
 menu.settings                  Paramètres

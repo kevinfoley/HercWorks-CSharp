@@ -22,6 +22,10 @@ namespace Herculan.Engine;
 ///
 /// <para>Alt+Tab keeps the icon it read when it first saw the window, so <see cref="EngineWindow"/> creates its windows
 /// hidden and shows them after this has run.</para>
+///
+/// <para>The window class's icons are set to the executable's as well, at the system's sizes: GLFW registers its class
+/// with the system's default application icon, which a window that starts full screen showed on its taskbar button
+/// with only the window's own icons set.</para>
 /// </summary>
 internal sealed class ExecutableIcon : IDisposable {
 	// The resource id the .NET SDK gives the icon group <ApplicationIcon> embeds.
@@ -33,6 +37,8 @@ internal sealed class ExecutableIcon : IDisposable {
 	private const nint SmallIcon = 0, LargeIcon = 1;
 	private const int LargeIconWidth = 11, SmallIconWidth = 49;
 	private const int WindowProcIndex = -4;
+	private const int ClassIconIndex = -14, ClassSmallIconIndex = -34;
+	private const uint DefaultSize = 0x40, Shared = 0x8000;
 
 	private readonly nint _hwnd;
 	private readonly nint _module;
@@ -44,6 +50,7 @@ internal sealed class ExecutableIcon : IDisposable {
 	private ExecutableIcon(nint hwnd, nint module) {
 		_hwnd = hwnd;
 		_module = module;
+		SetClassIcons(hwnd, module);
 		Load(GetDpiForWindow(hwnd));
 		_subclass = OnMessage;
 		_previousProc = SetWindowLongPtrW(hwnd, WindowProcIndex, Marshal.GetFunctionPointerForDelegate(_subclass));
@@ -82,6 +89,27 @@ internal sealed class ExecutableIcon : IDisposable {
 		(_large, _small) = (largeIcon, smallIcon);
 	}
 
+	// Shared icons, which live as long as the module, since the class outlives any one window and its own icons.
+	private static void SetClassIcons(nint hwnd, nint module) {
+		nint large = LoadImageW(module, ApplicationIconId, ImageIcon, 0, 0, DefaultSize | Shared);
+		nint small = LoadImageW(module, ApplicationIconId, ImageIcon,
+			GetSystemMetrics(SmallIconWidth), GetSystemMetrics(SmallIconWidth), Shared);
+		if (large != 0) {
+			SetClassIcon(hwnd, ClassIconIndex, large);
+		}
+		if (small != 0) {
+			SetClassIcon(hwnd, ClassSmallIconIndex, small);
+		}
+	}
+
+	private static void SetClassIcon(nint hwnd, int index, nint icon) {
+		if (Environment.Is64BitProcess) {
+			SetClassLongPtrW(hwnd, index, icon);
+		} else {
+			SetClassLongW(hwnd, index, (int)icon);
+		}
+	}
+
 	private static void Destroy(nint icon) {
 		if (icon != 0) {
 			DestroyIcon(icon);
@@ -118,6 +146,15 @@ internal sealed class ExecutableIcon : IDisposable {
 
 	[DllImport("user32.dll", ExactSpelling = true)]
 	private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
+	[DllImport("user32.dll", ExactSpelling = true)]
+	private static extern int GetSystemMetrics(int index);
+
+	[DllImport("user32.dll", ExactSpelling = true)]
+	private static extern nint SetClassLongPtrW(nint hwnd, int index, nint value);
+
+	[DllImport("user32.dll", ExactSpelling = true)]
+	private static extern int SetClassLongW(nint hwnd, int index, int value);
 
 	[DllImport("user32.dll", ExactSpelling = true)]
 	private static extern nint SendMessageW(nint hwnd, uint message, nint wParam, nint lParam);

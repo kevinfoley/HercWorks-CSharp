@@ -45,6 +45,8 @@ install_prompt.no_path         Geben Sie den Pfad zum Earthsiege-2-Ordner ein od
 install_prompt.not_an_install  {0} ist kein Earthsiege-2-Ordner: Er enthält keinen Ordner {1}.
 mission_load.window_title      HERCULAN Engine — Fehler
 mission_load.missing_file      Die Mission kann nicht starten: {0} fehlt. Starten Sie die Mission über die Menüs, die diese Datei schreiben.
+crash.window_title            HERCULAN Engine — Fehler
+crash.message                 HERCULAN wurde wegen eines Fehlers beendet: {0} Die Details stehen in {1}.
 menu.debug                     Debug
 menu.tweaks                    Optimierungen
 menu.settings                  Einstellungen

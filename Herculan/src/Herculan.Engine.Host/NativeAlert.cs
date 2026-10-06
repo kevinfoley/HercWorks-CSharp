@@ -8,13 +8,19 @@ namespace Herculan.Engine.Host;
 /// The operating system's own error box, shown with no window of the host's behind it — the stand-in for the
 /// <c>MessageBoxA</c> titled <c>Error</c> that DBSIM's assert raises before it quits. Each platform is reached
 /// as <see cref="NativePathPicker"/> reaches it: <c>MessageBoxW</c> on Windows, <c>osascript</c>'s
-/// <c>display alert</c> on macOS, and <c>zenity</c> or <c>kdialog</c> on Linux. The message always goes to
-/// standard error as well, so a Linux desktop with neither tool still says it somewhere.
+/// <c>display alert</c> on macOS, and <c>zenity</c> or <c>kdialog</c> on Linux. The message goes to standard
+/// error as well, unless the caller put it there already, so a Linux desktop with neither tool still says it
+/// somewhere.
 /// </summary>
 static class NativeAlert {
-	/// <summary>Shows <paramref name="message"/> under <paramref name="title"/> and returns once it is closed.</summary>
-	public static void ShowError(string title, string message) {
-		Console.Error.WriteLine(message);
+	/// <summary>
+	/// Shows <paramref name="message"/> under <paramref name="title"/> and returns once it is closed;
+	/// <paramref name="writeToError"/> false leaves it off standard error, for a caller that wrote it there already.
+	/// </summary>
+	public static void ShowError(string title, string message, bool writeToError = true) {
+		if (writeToError) {
+			Console.Error.WriteLine(message);
+		}
 
 		try {
 			if (OperatingSystem.IsWindows()) {

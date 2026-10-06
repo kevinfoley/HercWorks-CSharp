@@ -45,6 +45,8 @@ install_prompt.no_path         Type or paste the path to the Earthsiege 2 folder
 install_prompt.not_an_install  {0} is not an Earthsiege 2 folder: it has no {1} folder in it.
 mission_load.window_title      HERCULAN Engine — Error
 mission_load.missing_file      The mission cannot start: {0} is missing. Start the mission from the menus, which write this file.
+crash.window_title            HERCULAN Engine — Error
+crash.message                 HERCULAN stopped because of an error: {0} The details are in {1}.
 menu.debug                     Debug
 menu.tweaks                    Tweaks
 menu.settings                  Settings

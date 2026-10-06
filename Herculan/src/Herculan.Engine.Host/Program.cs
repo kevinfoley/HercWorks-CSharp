@@ -15,6 +15,8 @@ using Herculan.Engine.Settings;
 // turn that was asked for — an install (DiscInstall), a movie (MovieHost), one mission, or by default
 // ES.EXE's loop of front end and simulator (Launcher).
 
+HostLog.Start();
+
 var argumentErrors = new List<string>();
 var options = HostOptions.Parse(args, argumentErrors);
 if (options.ShowHelp) {
@@ -23,10 +25,7 @@ if (options.ShowHelp) {
 }
 
 if (argumentErrors.Count > 0) {
-	foreach (string error in argumentErrors) {
-		Console.Error.WriteLine(error);
-	}
-	Console.Error.WriteLine("Run with --help for the list of options.");
+	HostLog.Fail(string.Join(Environment.NewLine, [.. argumentErrors, "Run with --help for the list of options."]));
 	return 1;
 }
 
@@ -38,6 +37,7 @@ if (options.InstallSource != null && options.InstallDestination != null) {
 // the shell and --movie once those have a menu bar of their own to raise TweaksMenu from — see
 // docs/herculan/planning.md. Built before that branch so nothing below has to change when they do.
 var localization = new LocalizationTable();
+HostLog.Localization = localization;
 TweakSettings.Current.LoadFromDisk();
 Herculan.Engine.EngineWindow.Icons = WindowIcon.Load();
 
@@ -57,7 +57,7 @@ if (installRoot == null && options.InstallPath == null && options.ScreenshotPath
 	}
 }
 if (installRoot == null) {
-	Console.Error.WriteLine(
+	HostLog.Fail(
 		"Could not find an Earthsiege 2 installation.\n" +
 		$"Pass its path as the first argument, or set {GameInstall.PathVariable}.\n" +
 		$"The path should be the folder containing the '{GameInstall.ArchiveFolderName}' directory.");

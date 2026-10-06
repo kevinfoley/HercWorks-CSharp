@@ -786,9 +786,9 @@ public static class MissionLoader {
 	/// the unset-position sentinel and writes the entries into record 0's member array in file
 	/// order, so <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) attaches entry <i>i</i> as member
 	/// slot <i>i</i> and <c>Mech_ApplyFormationOffset</c> (<c>00417898</c>) spreads every slot past
-	/// the first. Before this the whole squad stood on one point, which pinned the player against
-	/// their own wingmen — <c>Mech_CollisionTest</c> refuses a position that overlaps another
-	/// machine, so nothing could take its first step.</para>
+	/// the first. The same offset is the squadmate's post every tick it keeps formation on the
+	/// player (<see cref="Sim.MechObject.FormationOffset"/>); without it the post is the player's own
+	/// position, and <c>Mech_CollisionTest</c> refuses a position that overlaps another machine.</para>
 	///
 	/// <para>Entry <i>i</i> takes as its <see cref="MissionPlacement.SlotIndex"/> the block-7 slot that
 	/// record 0's member ref <i>i</i> names, or -1 when that ref is unset, so the mission's own mech
@@ -825,6 +825,7 @@ public static class MissionLoader {
 			int slot = i < GroupMemberSlots && i < squadRefs.Length && squadRefs[i] >= 0
 				? squadRefs[i]
 				: -1;
+			var offset = mechFormations.OffsetFor(spawn.FormationId, i);
 
 			var placement = new MissionPlacement(
 				MissionUnitKind.Mech,
@@ -839,6 +840,7 @@ public static class MissionLoader {
 				IsPlayerLance: true,
 				PilotIndex: entry.PilotNameIndex,
 				Side: spawn.Side,
+				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
 				SquadCondition: SquadCondition.Of(entry),
 				GroundPoint: spawn.Position);
 

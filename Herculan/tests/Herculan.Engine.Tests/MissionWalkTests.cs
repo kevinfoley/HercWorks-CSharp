@@ -99,6 +99,37 @@ public class MissionWalkTests {
 		}
 	}
 
+	/// <summary>
+	/// A squadmate's formation post is the slot offset that spread it at spawn, applied to the
+	/// leader — so before anything has moved, every follower in the player's group stands on its own
+	/// post. A follower with no offset would take the player's own position as its post and walk into
+	/// them.
+	/// </summary>
+	[Fact]
+	public void SquadmatesStartOnTheirFormationPosts() {
+		if (Load() is not { } scene) {
+			return;
+		}
+
+		var squad = scene.Objects
+			.Select(o => o.Object)
+			.OfType<MechObject>()
+			.Where(mech => mech.Group is { LedByPlayer: true })
+			.ToList();
+
+		foreach (var mech in squad) {
+			if (mech.Group!.Leader is not MechObject leader || ReferenceEquals(leader, mech)) {
+				continue;
+			}
+
+			Assert.NotNull(mech.FormationOffset);
+
+			var post = mech.FormationPostAround(leader.Position, leader.Heading);
+			Assert.Equal(post.X, mech.Position.X);
+			Assert.Equal(post.Y, mech.Position.Y);
+		}
+	}
+
 	private static MissionScene? Load() {
 		string? root = GameInstall.Locate(null);
 		if (root == null) {

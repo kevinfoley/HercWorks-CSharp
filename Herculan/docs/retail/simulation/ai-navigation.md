@@ -75,7 +75,7 @@ Steers off the group leader rather than off the route. The post is the leader's 
 | Condition | Turn | Speed |
 |---|---|---|
 | `dist < 2000` | `-(mech.heading - leader.heading) >> 6` | 0 |
-| `dist ≤ 25000`, leader moving, heading error under `0x2000` | bearing error, plus the lateral offset in the leader's frame `>> 5` | `leader.speed + (-longitudinal >> 5)` |
+| `dist ≤ 25000`, leader moving, heading error under `0x2000` | `-(((mech.heading - leader.heading) >> 6) + (-lateral >> 5))`, the lateral offset taken in the leader's frame | `leader.speed + (-longitudinal >> 5)` |
 | `dist ≤ 25000`, leader moving, heading error `0x2000` or more | `±0x100` | `-0x100` |
 | otherwise | bearing error `>> 6` | `dist >> 7`, or `0x100` past 25000 |
 

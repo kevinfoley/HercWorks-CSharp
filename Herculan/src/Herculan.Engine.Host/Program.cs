@@ -39,6 +39,7 @@ if (options.InstallSource != null && options.InstallDestination != null) {
 // docs/herculan/planning.md. Built before that branch so nothing below has to change when they do.
 var localization = new LocalizationTable();
 TweakSettings.Current.LoadFromDisk();
+Herculan.Engine.EngineWindow.Icons = WindowIcon.Load();
 
 // The one font every ImGui window the host opens is drawn in.
 string imguiFontPath = Path.Combine(AppContext.BaseDirectory,

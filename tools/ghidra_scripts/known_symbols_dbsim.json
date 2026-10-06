@@ -4619,8 +4619,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Formation_RotateAndAddOffset",
-      "description": "Rotates a formation offset into world space and adds it to a position. Takes the group leader (first entry of the group's member array at group+0xc), lazily builds its rotation matrix from its heading (leader+0xc -> leader+0x12, guarded by the stale flag at leader+0x32 that Mech_AttachToGroup clears), rotates the offset by it, and accumulates into the caller's x/y/z. Also the base-formation attach path's rotator (called from Base_ApplyFormationOffset); for a heading-only object (no pitch/roll, true of every base) the matrix build (BuildEulerRotationMatrixQ14) plus apply (Math_Rotate2DPoint) reduces algebraically to a plain 2D rotation: worldDX = dx*cos(heading) - dy*sin(heading), worldDY = dx*sin(heading) + dy*cos(heading).",
-      "source": "docs/retail/formats/script-dat.md (mission placement)"
+      "description": "Rotates a formation offset into world space and adds it to a position. Takes the group leader (first entry of the group's member array at group+0xc), builds its rotation matrix from its euler triple (BuildEulerRotationMatrixQ14, leader+0xc -> leader+0x12) when the flag at leader+0x32 is clear and sets the flag, then rotates the offset's x/y by the matrix's first four shorts (Math_Rotate2DPoint) -- the matrix stores its XY block first, so this is the leader's XY rotation, a plain heading rotation for a level leader: worldDX = dx*cos - dy*sin, worldDY = dx*sin + dy*cos. Adds the rotated x/y and the offset's unrotated z into the point it is handed. es2_xref finds three calls, from Mech_ApplyFormationOffset, Base_ApplyFormationOffset and Flyer_ApplyFormationOffset.",
+      "source": "docs/retail/formats/script-dat.md (mission placement)",
+      "verified": {
+        "bytes": "00411d64+110",
+        "sha1": "d79473e51063",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00411dd4",
@@ -5423,8 +5429,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ApplyFormationOffset",
-      "description": "Mech vtable +0x78. Spreads a group's members around its spawn point. No-ops for slot 0 (the leader stands on the point exactly); otherwise looks up Formation_GetSlotOffset(group's formation id at group+2, mech+0x49) and hands the offset to Formation_RotateAndAddOffset, which rotates it by the group leader's heading before adding it to the position.",
-      "source": "docs/retail/formats/script-dat.md (mission placement)"
+      "description": "Mech vtable +0x78: adds this machine's formation slot offset to the point it is handed. No-op for slot 0 (mech+0x49 zero); otherwise Formation_GetSlotOffset(group's formation id at group+2, mech+0x49) gives three shorts, widened to ints and handed to Formation_RotateAndAddOffset. Spreads a group at spawn and gives Ai_KeepFormation each follower's post on the leader's live position.",
+      "source": "docs/retail/formats/script-dat.md (mission placement)",
+      "verified": {
+        "bytes": "00417898+78",
+        "sha1": "169a2234f5d7",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004178e8",
@@ -6369,8 +6381,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_KeepFormation",
-      "description": "Holds this machine's formation slot on the group leader: the post is the leader's position through Mech_ApplyFormationOffset, so the formation rotates with the leader. Four arms by range and by whether the leader is moving -- match the leader's heading when parked inside 2000, fly formation on a lateral/longitudinal error taken in the leader's frame (Math_TransposeRotation2D on the leader's Q14 matrix), back out at full reverse when facing more than 45 degrees off, or close the gap.",
-      "source": "docs/retail/simulation/ai-navigation.md"
+      "description": "Holds this machine's formation slot on the group leader (group+0x0c slot 0): the post is the leader's position through this machine's vtable +0x78 (Mech_ApplyFormationOffset), so the formation rotates with the leader, and dist is Math_GroundDistanceBetweenPoints to it. Under 2000: turn -((heading - leader heading) >> 6), speed 0. Otherwise, at or under 25000 with the leader's +0x28e outside [-25, 24] (unsigned +0x19 > 0x31): when |heading - leader heading| is under 0x2000 it takes the delta from the post into the leader's frame (the leader's Q14 matrix at +0x12, built from +0x0c when +0x32 is clear, first four shorts through Math_TransposeRotation2D and Math_Rotate2DPoint) and drives turn -((headingError >> 6) + (-lateral >> 5)), speed leader +0x28e + (-longitudinal >> 5); at 0x2000 or more it turns +-0x100 (0x100 when the error is under 1) at speed -0x100. Every other case steers (bearing to the post - heading) >> 6 at dist >> 7, or 0x100 from 25000.",
+      "source": "docs/retail/simulation/ai-navigation.md",
+      "verified": {
+        "bytes": "0041fbb8+497",
+        "sha1": "82929f7d9a33",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041fdac",
@@ -27124,7 +27142,13 @@
       "confidence": "high",
       "name": "Math_TransposeRotation2D",
       "description": "Swaps the two off-diagonal shorts of a Q14 2D rotation matrix, which for a rotation is its inverse. Ai_KeepFormation uses it to take the delta from a formation post into the group leader's own frame.",
-      "source": "docs/retail/simulation/ai-navigation.md"
+      "source": "docs/retail/simulation/ai-navigation.md",
+      "verified": {
+        "bytes": "0047ddf8+21",
+        "sha1": "f12b197608b3",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047de0d",
@@ -27461,7 +27485,13 @@
       "confidence": "high",
       "name": "Math_Rotate2DPoint",
       "description": "Rotates an {int x, int y} point by a Math_BuildRotation2D matrix, rounding at Q14.",
-      "source": "docs/retail/formats/hud-target-indicator.md"
+      "source": "docs/retail/formats/hud-target-indicator.md",
+      "verified": {
+        "bytes": "0047fedc+103",
+        "sha1": "87e863cd2a4d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047ff44",

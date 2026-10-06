@@ -43,10 +43,14 @@ public sealed class EngineWindow : IDisposable {
 			WindowPlacement? placement = null) {
 		_restoredPosition = placement?.Position;
 		_restoredSize = placement?.Size ?? new Vector2D<int>(width, height);
+		_maximizeOnShow = placement is { Maximized: true };
 		var options = WindowOptions.Default with {
 			Size = _restoredSize,
 			Position = placement?.Position ?? WindowOptions.Default.Position,
-			WindowState = placement is { Maximized: true } ? WindowState.Maximized : WindowState.Normal,
+			// Created hidden and shown by OnLoad once its icon is set: Alt+Tab keeps the icon it read when it first saw
+			// the window. Maximized after showing rather than here, since a hidden window's maximize is reported as
+			// a plain resize and would be taken for the restored size.
+			IsVisible = false,
 			Title = title,
 			// Swaps wait for the display's vertical blank, so a frame never tears and the loop runs at the refresh
 			// rate rather than as fast as it can.
@@ -72,6 +76,7 @@ public sealed class EngineWindow : IDisposable {
 	// and what the next window opens at.
 	private Vector2D<int> _restoredSize;
 	private Vector2D<int>? _restoredPosition;
+	private readonly bool _maximizeOnShow;
 	private bool _maximizedBeforeFullScreen;
 	private bool _maximizedAtClose;
 
@@ -102,6 +107,13 @@ public sealed class EngineWindow : IDisposable {
 		get => _window.Title;
 		set => _window.Title = value;
 	}
+
+	/// <summary>
+	/// The title bar and taskbar icon for every window this process opens, at as many sizes as there are for the system
+	/// to pick from: set once by the host before its first window loads. Empty leaves the platform's default. Unused on
+	/// Windows when the executable has an icon of its own (<see cref="ExecutableIcon"/>).
+	/// </summary>
+	public static Silk.NET.Core.RawImage[] Icons { get; set; } = [];
 
 	/// <summary>Whether <see cref="ToggleFullScreen"/> has the window covering its monitor.</summary>
 	public bool FullScreen { get; private set; }
@@ -177,6 +189,7 @@ public sealed class EngineWindow : IDisposable {
 
 	private nint _fullScreenMonitor;
 	private PrintScreenCapture? _printScreen;
+	private ExecutableIcon? _executableIcon;
 
 	/// <summary>
 	/// Raised with each frame [PrtScn] captures while full screen, as it goes on the clipboard: its width, height and
@@ -230,6 +243,26 @@ public sealed class EngineWindow : IDisposable {
 	public void Close() => _window.Close();
 
 	private void OnLoad() {
+		// Set here rather than in the constructor because the native window does not exist until the window loads.
+		// On Windows the executable's own icon comes first (ExecutableIcon says why). An icon is cosmetic, so a platform
+		// that refuses one (GLFW reports Wayland and macOS as unable) is not an error.
+		if (OperatingSystem.IsWindows() && _window.Native?.Win32?.Hwnd is { } hwnd) {
+			_executableIcon = ExecutableIcon.TrySet(hwnd);
+		}
+
+		if (_executableIcon == null && Icons.Length > 0) {
+			try {
+				_window.SetWindowIcon(Icons);
+			} catch (GlfwException e) {
+				Console.Error.WriteLine($"Window icon not set: {e.Message}");
+			}
+		}
+
+		_window.IsVisible = true;
+		if (_maximizeOnShow) {
+			_window.WindowState = WindowState.Maximized;
+		}
+
 		_gl = _window.CreateOpenGL();
 		_input = _window.CreateInput();
 		Load?.Invoke(_gl, _input);
@@ -283,6 +316,8 @@ public sealed class EngineWindow : IDisposable {
 		_input?.Dispose();
 		_gl?.Dispose();
 		_window.Dispose();
+		// After the window, which uses the icons until it is destroyed.
+		_executableIcon?.Dispose();
 	}
 }
 

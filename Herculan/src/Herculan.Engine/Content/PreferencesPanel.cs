@@ -20,8 +20,8 @@ namespace Herculan.Engine.Content;
 ///
 /// <para><b>Modal, and the simulation does not tick behind it</b> — <c>PreferencesPanel_Raise</c>
 /// raises <c>DAT_004d2576</c> for as long as the panel is up and restores whatever it was on the way
-/// out. It also snapshots the view object's whole settings block before the panel opens and writes
-/// it back afterwards.</para>
+/// out. Behind it the camera circles the player's machine; that is the host's, through
+/// <see cref="Render.ExternalViewChain.BeginPanelOrbit"/>.</para>
 /// </summary>
 public sealed class PreferencesPanel {
 	/// <summary>The panel's own string table: its title, its captions and its value words.</summary>

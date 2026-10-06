@@ -75,8 +75,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Cam_Steer",
-      "description": "Cam_Steer(cam, steer, throttle, trigger), once a tick from Sim_PollPlayerInput with zeros unless InputDrivesCamera. Modes 0 and 1 only: heading rate +0x30 toward Q8(0x800, +/-steer) at step 0xc0; with the trigger the throttle axis drives +0x24 (zoom, or free-camera speed) toward Q8(0x400, axis) at 0x50, else pitch rate +0x2c toward Q8(0x800, throttle) at 0xc0.",
-      "source": "docs/retail/simulation/external-views.md#steering-the-camera--cam_steer"
+      "description": "Cam_Steer(cam, steer, throttle, trigger): nothing while the lock CAM+0x4a is set, and nothing outside modes 0 and 1 (CAM+0x36). Through Cam_ApproachRate and Cam_ApproachZoom, the heading rate +0x30 moves toward Q8(0x800, steer) in mode 1 and Q8(0x800, -steer) in mode 0 at step 0xc0; with the trigger set, +0x24 (zoom in mode 1, speed in mode 0) moves toward Q8(0x400, throttle) (-throttle in mode 0) at 0x50 and the pitch rate +0x2c toward 0 at 0xc0, and without it +0x24 moves toward 0 and the pitch rate toward Q8(0x800, throttle). Callers found by es2_xref: Sim_PollPlayerInput, ViewChain_PlayerDeathCamera and PreferencesPanel_OrbitViewHook, the last with (-0x40, 0, 0).",
+      "source": "docs/retail/simulation/external-views.md#steering-the-camera--cam_steer",
+      "verified": {
+        "bytes": "00401c74+188",
+        "sha1": "df160c3b87bb",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00401d30",
@@ -8457,8 +8463,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ExternalView_SetRect",
-      "description": "(rect, offset): stores rect in ExternalView_Rect and at 004cfd28, and offset at 004cfad4/004cfad8; when CockpitViewManager_Published is in view 4, also writes them into the render context's (006c5ff4) +0x210..+0x224. PreferencesPanel_Raise calls it.",
-      "source": "DBSIM decompile at 0042d89c"
+      "description": "(rect, offset): stores the four-int rect (left, top, right, bottom) in ExternalView_Rect and at 004cfd28, and the two-int offset -- the projection centre negated, as ExternalView_DefaultRect's (-0xa0, -0x5a) shifted is -- at 004cfad4/004cfad8; when CockpitViewManager_Published is in view 4, also writes them into the render context's (006c5ff4) +0x210..+0x224. PreferencesPanel_Raise calls it (read).",
+      "source": "DBSIM decompile at 0042d89c",
+      "verified": {
+        "bytes": "0042d89c+168",
+        "sha1": "29592340d12d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042d944",
@@ -16584,9 +16596,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AlertPanel_SetRect",
-      "description": "Writes a panel rect to the shared four-int scratch at DAT_004d1f0c and returns it, which is what a panel constructor hands its base.",
+      "description": "Writes a panel rect to the shared four-int scratch at DAT_004d1f0c as (x, y, x + width, y + height) and returns it, which is what a panel constructor hands its base.",
       "source": "docs/retail/simulation/alert-panels.md",
-      "signature": "void * __cdecl AlertPanel_SetRect(int x, int y, int width, int height)"
+      "signature": "void * __cdecl AlertPanel_SetRect(int x, int y, int width, int height)",
+      "verified": {
+        "bytes": "00454ef8+59",
+        "sha1": "c7d37c55b9c2",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00454f34",
@@ -17132,7 +17150,13 @@
       "confidence": "high",
       "name": "PreferencesPanel_SetDrawHook",
       "description": "(panel, hook): stores hook at panel+0x3ba. PreferencesPanel_Raise installs 0045cfac.",
-      "source": "DBSIM decompile at 00457450"
+      "source": "DBSIM decompile at 00457450",
+      "verified": {
+        "bytes": "00457450+17",
+        "sha1": "b5f4400794b6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00457464",
@@ -17140,8 +17164,14 @@
       "type": "function",
       "confidence": "high",
       "name": "PreferencesPanel_CallDrawHook",
-      "description": "(panel): when the hook +0x3ba is set, points the display's (006c5f54) draw page +0x3c at its +0x8c (through maybe_g_RasterRoutines_SetDrawPage, mirroring it to 004a36a2), installs the panel's +0x281 render context, calls the hook, and reinstalls the panel's own context at +0x48. PreferencesPanel_Run calls it.",
-      "source": "DBSIM decompile at 00457464"
+      "description": "(panel): when the hook +0x3ba is set, points the display's (006c5f54) draw page +0x3c at its +0x8c (through maybe_g_RasterRoutines_SetDrawPage, mirroring it to 004a36a2), installs the panel's +0x281 render context, calls the hook, and reinstalls the panel's own context at +0x48. Its one caller found by es2_xref is PreferencesPanel_Run (read), once a pass of its loop.",
+      "source": "DBSIM decompile at 00457464",
+      "verified": {
+        "bytes": "00457464+104",
+        "sha1": "63155c10aa8b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004574cc",
@@ -18533,9 +18563,15 @@
       "type": "function",
       "confidence": "high",
       "name": "PreferencesPanel_Raise",
-      "description": "What commands 0x58 ([F12]) and 0x219 ([Alt+P]) reach: builds prf_alrt (PreferencesPanel_Ctor, 004566c4 -- NOT ctl_alrt, which is 00457d1c), raises DAT_004d2576 to stop the simulation while it is up and restores whatever it was on the way out, and snapshots the view object's whole settings block before the panel opens to write back afterwards. The modal loop itself is PreferencesPanel_Run (00456d4c).",
+      "description": "What commands 0x58 ([F12]) and 0x219 ([Alt+P]) reach. Builds prf_alrt (PreferencesPanel_Ctor, 004566c4 -- NOT ctl_alrt, which is 00457d1c), saves DAT_004d2576 and sets it to stop the simulation, and copies the view camera's (ViewObjectPtr) +0x04..+0x4d into a local CAM. Sets the external view's 3D rect through ExternalView_SetRect: columns 0..DAT_004d25c2-1, rows 0..panel+0x08-1 (the panel's screen top), projection centre ((DAT_004d25c2-1) >> 1, 0x32 << VideoMode_YCoordShift), passed negated. With the cockpit view manager (CockpitViewManagerInstance) in view 4 it then Cam_AttachTo(LocalPlayerMech), sets CAM+0x36 = 1 when CAM+0x4a is 0, and runs Cam_Update and Sim_RenderFrame once. From any other view it runs Sim_EndFrame/Cam_Update/Sim_RenderFrame frames while the published manager's step flag +0x1c is set or its queued command +0x18 is not -1, saves the manager's view, queues view command 2 (CockpitView_QueueViewCommand), and runs frames until the step flag has been seen set and then clear, attaching the camera the same way on the frame it is first seen set. Then installs PreferencesPanel_OrbitViewHook (0045cfac) with PreferencesPanel_SetDrawHook, runs the panel through its vtable +0x08 (PreferencesPanel_Run, 00456d4c) and destroys it. On the way out writes the camera block back and calls ExternalView_ResetRect; then from view 4 repaints the band and caption (CockpitViewManager_Published, View_FillOutside3dRect, ViewChain_DrawCaption) around one Cam_Update/Sim_RenderFrame/Sim_EndFrame frame, and from any other view calls CockpitView_SetView with the saved view on both sides of one such frame, with DAT_0049b104 raised between them. Restores DAT_004d2576 last.",
       "source": "docs/retail/simulation/preferences.md",
-      "signature": "void __cdecl PreferencesPanel_Run(void)"
+      "signature": "void __cdecl PreferencesPanel_Raise(void)",
+      "verified": {
+        "bytes": "0045cfd4+1183",
+        "sha1": "87df5e50edf3",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045d474",

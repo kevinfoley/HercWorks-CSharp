@@ -33,6 +33,9 @@ sealed class CockpitView {
 	private PilotAxes _cameraAxes = PilotAxes.Centred;
 	private bool _cameraTrigger = false;
 
+	// Time owed to the orbit behind the preferences panel, spent in whole steps — see AdvancePanelOrbit.
+	private double _panelOrbitSeconds;
+
 	private readonly KeyLatch _cameraKey = new();
 	private readonly KeyLatch _externalViewKey = new();
 	private readonly KeyLatch _viewControlKey = new();
@@ -113,10 +116,14 @@ sealed class CockpitView {
 	public bool ExternalViewActive => Chain is { ExternalViewUp: true } && Piloting && PilotMech != null;
 
 	// Whether the outside view is the tweak's mouse orbit rather than retail's — see ExternalCamera. Never
-	// once the player-death camera has the view: the tweak replaces the outside view the player steers,
-	// not the one that sequence locks and steers itself.
-	public bool MouseOutsideView => Chain is { Mode: ExternalViewMode.Outside, DeathCameraRunning: false }
+	// once the player-death camera has the view, nor behind the preferences panel: the tweak replaces the
+	// outside view the player steers, not the ones the game steers itself.
+	public bool MouseOutsideView =>
+		Chain is { Mode: ExternalViewMode.Outside, DeathCameraRunning: false, PanelOrbitRunning: false }
 		&& TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.MouseExternalView);
+
+	/// <summary>Whether the camera is circling the player behind the [F12] preferences panel — see <see cref="AdvancePanelOrbit"/>.</summary>
+	public bool PanelOrbitUp => Chain is { PanelOrbitRunning: true };
 
 	// Whether the cockpit's widgets are off, as CockpitView_ApplyViewState turns them off for view 4: the
 	// keys CockpitWidgets_HandleCommand would have taken fall through to the dispatcher, or do nothing.
@@ -264,6 +271,52 @@ sealed class CockpitView {
 			_scene.World.PendingMissionAlert = MissionStatus.PlayerDestroyed;
 		}
 	}
+
+	/// <summary>
+	/// The view behind the [F12] preferences panel, once a frame: the camera taken out to circle the player's machine
+	/// as the panel goes up and given back as it comes down (<see cref="ExternalViewChain.BeginPanelOrbit"/>), and
+	/// turned while <paramref name="preferencesLoopRunning"/> — not while the CONTROLS panel is up, whose own loop
+	/// runs inside the preferences panel's and never reaches its draw hook. The observer camera [C] flies is this
+	/// engine's own, and the orbit leaves it alone.
+	///
+	/// <para>Retail turns the orbit once per pass of the panel's loop, which never goes through the simulator's 40 ms
+	/// frame wait, so it turns as fast as the machine draws. Here it turns at the simulation's 25 steps a second, the rate retail's own frame loop
+	/// is capped at (<see cref="SimWorld.TicksPerSecond"/>), however fast the host draws.</para>
+	/// </summary>
+	public void AdvancePanelOrbit(bool preferencesUp, bool preferencesLoopRunning, double deltaSeconds) {
+		if (Chain is not { } chain) {
+			return;
+		}
+
+		bool wanted = preferencesUp && InMachine;
+		if (wanted && !chain.PanelOrbitRunning) {
+			chain.BeginPanelOrbit(_scene.World.Terrain);
+			_panelOrbitSeconds = 0;
+			return;
+		}
+
+		if (!wanted) {
+			if (chain.PanelOrbitRunning) {
+				chain.EndPanelOrbit();
+			}
+
+			return;
+		}
+
+		if (!preferencesLoopRunning) {
+			return;
+		}
+
+		// The same catch-up cap as the simulation's own accumulator, so a stall does not spin it in a burst.
+		_panelOrbitSeconds = Math.Min(_panelOrbitSeconds + deltaSeconds, PanelOrbitMaxOwedSeconds);
+		while (_panelOrbitSeconds >= PanelOrbitStepSeconds) {
+			_panelOrbitSeconds -= PanelOrbitStepSeconds;
+			chain.StepPanelOrbit(_scene.World.Terrain);
+		}
+	}
+
+	private const double PanelOrbitStepSeconds = 1.0 / SimWorld.TicksPerSecond;
+	private const double PanelOrbitMaxOwedSeconds = 0.25;
 
 	/// <summary>
 	/// The kick and the shake are the pilot's own, so they run only from inside the cockpit. The original's

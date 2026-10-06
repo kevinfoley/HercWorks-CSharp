@@ -77,6 +77,9 @@ public sealed class ExternalViewChain {
 	/// <summary>The counter of <c>DeathCamera_Countdown</c> (<c>004d2adc</c>), a <c>LongCountdownTimer</c>: the death camera's time left.</summary>
 	private int _deathCountdown;
 
+	/// <summary>The local <c>CAM</c> <c>PreferencesPanel_Raise</c> (<c>0045cfd4</c>) copies the view camera into, to write back on the way out.</summary>
+	private readonly ViewCamera _beforePanel = new();
+
 	/// <summary>
 	/// Sets up as <c>Sim_InitMissionSession</c> does: one camera per member of the player's group,
 	/// and the main camera attached to the player's eye.
@@ -131,6 +134,52 @@ public sealed class ExternalViewChain {
 
 	/// <summary>Whether the player-death camera has taken the view — see <see cref="DeathCameraTick"/>.</summary>
 	public bool DeathCameraRunning => _deathCameraStarted;
+
+	/// <summary>
+	/// Whether the camera is circling the player behind the [F12] preferences panel, between
+	/// <see cref="BeginPanelOrbit"/> and <see cref="EndPanelOrbit"/>.
+	/// </summary>
+	public bool PanelOrbitRunning { get; private set; }
+
+	/// <summary>
+	/// <c>Cam_Steer</c>'s steering axis in <c>PreferencesPanel_OrbitViewHook</c> (<c>0045cfac</c>), with the throttle
+	/// and trigger at zero: the orbit's heading rate builds towards <c>Q8(0x800, -0x40)</c> a step.
+	/// </summary>
+	public const short PanelOrbitSteer = -0x40;
+
+	/// <summary>
+	/// <c>PreferencesPanel_Raise</c> (<c>0045cfd4</c>)'s way in: the view camera's settings kept to write back, and the
+	/// camera attached to the player's machine — which leaves it in the orbit, directly behind at the least distance
+	/// and not turning — and placed. A locked camera, the death camera's, is left as it is.
+	/// See docs/retail/simulation/preferences.md#preferences-and-controls-dbsimexe.
+	///
+	/// <para>Retail first lets a heads-down pan or a glance in progress finish, and from outside view 4 takes the
+	/// view manager there with a queued command, drawing frames until it arrives. Here the orbit starts at once,
+	/// as no view change in this chain waits behind a pan or a glance (see the class remarks).</para>
+	/// </summary>
+	public void BeginPanelOrbit(HeightGrid? terrain) {
+		_beforePanel.CopyFrom(Camera);
+		Camera.AttachTo(_player);
+		Camera.SetMode(ViewCameraMode.Orbit);
+		PanelOrbitRunning = true;
+		PlaceCamera(terrain);
+	}
+
+	/// <summary>
+	/// <c>PreferencesPanel_OrbitViewHook</c> (<c>0045cfac</c>), which the panel's loop runs once a pass: the camera
+	/// steered by <see cref="PanelOrbitSteer"/> and placed, the player recorded into <see cref="Trail"/> on the way
+	/// as every <c>Cam_Update</c> does.
+	/// </summary>
+	public void StepPanelOrbit(HeightGrid? terrain) {
+		Camera.Steer(PanelOrbitSteer, 0, false);
+		PlaceCamera(terrain);
+	}
+
+	/// <summary>The way out of <see cref="BeginPanelOrbit"/>: every setting of the camera written back as it was.</summary>
+	public void EndPanelOrbit() {
+		Camera.CopyFrom(_beforePanel);
+		PanelOrbitRunning = false;
+	}
 
 	/// <summary>
 	/// [V] (scancode <c>0x2f</c>) and the joystick's OUTSIDE VIEW: out to the outside view from the
@@ -301,8 +350,7 @@ public sealed class ExternalViewChain {
 
 		bool deathCameraOver = deathCamera && DeathCameraTick();
 
-		Trail.Record(_player);
-		Camera.Update(terrain, Trail);
+		PlaceCamera(terrain);
 
 		StepViewManager();
 		FrameCount++;
@@ -357,6 +405,12 @@ public sealed class ExternalViewChain {
 
 	private readonly record struct DeathCameraConstants(int Countdown, short Steer, short Throttle,
 		short Trigger, short Pitch, short Heading, short Distance);
+
+	// Cam_Update (004011a0): the player recorded into the chase trail, then the camera placed.
+	private void PlaceCamera(HeightGrid? terrain) {
+		Trail.Record(_player);
+		Camera.Update(terrain, Trail);
+	}
 
 	// ViewChain_Apply (0045de14): while the view manager is mid-step, move to the pending view; otherwise keep
 	// the controls where the preference puts them, while the outside view is on the player.

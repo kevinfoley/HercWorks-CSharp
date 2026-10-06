@@ -5,7 +5,7 @@ namespace Herculan.Engine.Content;
 /// <c>PreferencesPanel_Ctor</c> (<c>004566c4</c>), the fourth member of the alert-panel family and
 /// the only one that does not centre itself. Its constructor calls <c>AlertPanel_SetRect</c>
 /// (<c>00454ef8</c>) with an explicit origin, so the panel is a strip pinned along the bottom of the
-/// 640x480 screen with the frozen cockpit view showing above it.
+/// 640x480 screen with the camera circling the player's machine above it.
 ///
 /// <para>Every number here is an authored 320-wide coordinate doubled, the same relationship
 /// <see cref="ObjectivesPanelLayout"/>'s are: the constructor writes each as
@@ -38,6 +38,14 @@ public static class PreferencesPanelLayout {
 	/// puts its bottom edge two rows short of the last.
 	/// </summary>
 	public const int ScreenTop = 300;
+
+	/// <summary>
+	/// The projection centre's row in the 3D rect <c>PreferencesPanel_Raise</c> (<c>0045cfd4</c>) sets for as long as
+	/// the panel is up, <c>0x32</c> doubled. The rect spans the screen's width and runs down to
+	/// <see cref="ScreenTop"/>, and the centre's column is the middle. See
+	/// docs/retail/simulation/preferences.md#preferences-and-controls-dbsimexe.
+	/// </summary>
+	public const int OrbitViewCentreRow = 0x32 << 1;
 
 	/// <summary>The plate, <c>hba\PRF_ALRT.HBA</c> frame 0. 630x170.</summary>
 	public const string PlateBank = "PRF_ALRT";

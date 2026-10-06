@@ -375,6 +375,12 @@ sealed class SimulatorHost : IDisposable {
 		_audio.MessagesPaused = _panels.AnyOpen;
 		_stepper.Advance(deltaSeconds);
 
+		// The preferences panel's own loop turns the camera behind it, and the controls panel's, run from inside
+		// it, does not.
+		bool preferencesUp = _panels.Preferences is { IsOpen: true };
+		_view.AdvancePanelOrbit(preferencesUp, preferencesUp && _panels.Controls is not { IsOpen: true },
+			deltaSeconds);
+
 		RefreshDrawItems();
 
 		// Dropping out of the cockpit for the fly camera puts the palette back rather than leaving a
@@ -525,9 +531,12 @@ sealed class SimulatorHost : IDisposable {
 
 		// The external view has no canopy over it — there is no cockpit to see from outside the machine.
 		// Retail's is a band short of the screen, with its caption underneath; the tweak's mouse view uses
-		// the whole window, as does the observer camera.
-		_passes.LeavePlayerOut = _view.Piloting && !_view.ExternalViewActive;
-		if (_cockpit.HasCockpit && !_view.ExternalViewActive) {
+		// the whole window, as does the observer camera. The view behind the preferences panel is the
+		// external view's too, in a rect of its own.
+		_passes.LeavePlayerOut = _view.Piloting && !_view.ExternalViewActive && !_view.PanelOrbitUp;
+		if (_view.PanelOrbitUp) {
+			_cockpit.DrawPanelOrbitView(gl, size.X, size.Y);
+		} else if (_cockpit.HasCockpit && !_view.ExternalViewActive) {
 			_cockpit.DrawThreePanelCockpitView(gl, size.X, size.Y);
 			_cockpit.DrawSystemButtons(size.X, size.Y, _systemButtonsShowing);
 		} else if (_view.ExternalViewActive && !_view.MouseOutsideView) {

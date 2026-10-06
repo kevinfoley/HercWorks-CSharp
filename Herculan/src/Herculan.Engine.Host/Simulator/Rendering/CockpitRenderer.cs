@@ -10,7 +10,8 @@ namespace Herculan.Engine.Host.Simulator.Rendering;
 
 /// <summary>
 /// The views from inside the machine: the three-panel cockpit with its world behind the canopy, the Heads-Down
-/// Display below it on the same canvas, the RAZOR's heads-down window, and the external view with its caption.
+/// Display below it on the same canvas, the RAZOR's heads-down window, the external view with its caption, and the
+/// view behind the preferences panel.
 /// Owns the 2D overlay every cockpit widget and modal panel is drawn through.
 /// </summary>
 sealed class CockpitRenderer : IDisposable {
@@ -134,29 +135,9 @@ sealed class CockpitRenderer : IDisposable {
 	}
 
 	// The cockpit view manager's view 4: the world in the rows ExternalViewLayout gives it, across the
-	// window's width, and below it the band View_FillOutside3dRect (0042da08) floods black and the caption on it. The focal
-	// length stays the cockpit's; the view is only shorter, so its field of view is the angle that length
-	// subtends over its own rows.
+	// window's width, and below it the band View_FillOutside3dRect (0042da08) floods black and the caption on it.
 	public void DrawExternalView(GL gl, int width, int height) {
-		int viewHeight = Math.Max(1, (int)MathF.Round(
-			ExternalViewLayout.ViewRows * height / (float)ExternalViewLayout.ScreenRows));
-		int viewY = height - viewHeight;
-
-		var externalCamera = CloneCamera(_view.Camera);
-		externalCamera.FieldOfView = 2f * MathF.Atan(ExternalViewLayout.ViewRows / 2f / Camera.FocalLengthPixels);
-		externalCamera.PrincipalPoint = new Vector2(0.5f, ExternalViewLayout.CentreRow / (float)ExternalViewLayout.ViewRows);
-
-		gl.Enable(EnableCap.ScissorTest);
-		gl.Scissor(0, viewY, (uint)Math.Max(width, 1), (uint)viewHeight);
-		_passes.Draw(externalCamera, 0, viewY, width, viewHeight);
-
-		if (viewY > 0) {
-			gl.Scissor(0, 0, (uint)Math.Max(width, 1), (uint)viewY);
-			gl.ClearColor(0f, 0f, 0f, 1f);
-			gl.Clear(ClearBufferMask.ColorBufferBit);
-		}
-
-		gl.Disable(EnableCap.ScissorTest);
+		DrawWorldAbove(gl, width, height, ExternalViewLayout.ViewRows, ExternalViewLayout.CentreRow);
 
 		if (_view.Chain?.Caption is { } caption && _art?.Sprites is { } captionSprites
 				&& _textures.HudSprites != null && _art.Strings is { } strings) {
@@ -170,6 +151,36 @@ sealed class CockpitRenderer : IDisposable {
 				(strings.Text(ExternalViewLayout.CaptionGroup, 1) ?? string.Empty)
 					+ (strings.Text(ExternalViewLayout.CaptionGroup, caption.CameraControl ? 2 : 3) ?? string.Empty));
 		}
+	}
+
+	// The view behind the [F12] preferences panel: view 4 in the 3D rect PreferencesPanel_Raise (0045cfd4) installs for as
+	// long as the panel is up, which runs down to the panel's top edge, with no caption. Entering view 4 floods
+	// everything outside that rect, so the band the panel stands in is cleared as the external view's is.
+	public void DrawPanelOrbitView(GL gl, int width, int height) =>
+		DrawWorldAbove(gl, width, height, PreferencesPanelLayout.ScreenTop, PreferencesPanelLayout.OrbitViewCentreRow);
+
+	// The world across the window's width in the top viewRows of the 480-row screen, with the projection centre in the
+	// middle across and centreRow down, and the band below it cleared black. The focal length stays the cockpit's; the
+	// view is only shorter, so its field of view is the angle that length subtends over its own rows.
+	private void DrawWorldAbove(GL gl, int width, int height, int viewRows, int centreRow) {
+		int viewHeight = Math.Max(1, (int)MathF.Round(viewRows * height / (float)ExternalViewLayout.ScreenRows));
+		int viewY = height - viewHeight;
+
+		var externalCamera = CloneCamera(_view.Camera);
+		externalCamera.FieldOfView = 2f * MathF.Atan(viewRows / 2f / Camera.FocalLengthPixels);
+		externalCamera.PrincipalPoint = new Vector2(0.5f, centreRow / (float)viewRows);
+
+		gl.Enable(EnableCap.ScissorTest);
+		gl.Scissor(0, viewY, (uint)Math.Max(width, 1), (uint)viewHeight);
+		_passes.Draw(externalCamera, 0, viewY, width, viewHeight);
+
+		if (viewY > 0) {
+			gl.Scissor(0, 0, (uint)Math.Max(width, 1), (uint)viewY);
+			gl.ClearColor(0f, 0f, 0f, 1f);
+			gl.Clear(ClearBufferMask.ColorBufferBit);
+		}
+
+		gl.Disable(EnableCap.ScissorTest);
 	}
 
 	// The world behind the heads-down view's art, for the one herc whose view 1 declares a 3D rect: the

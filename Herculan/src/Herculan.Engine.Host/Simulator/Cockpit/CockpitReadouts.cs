@@ -81,7 +81,7 @@ sealed class CockpitReadouts(CockpitDisplays displays, CockpitView view, Cockpit
 		}
 
 		var (shieldFront, shieldRear) = pilotMech.Shields.Readout(
-			rounded: TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowEvenShieldBalance));
+			rounded: TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.RoundShieldBalance));
 
 		var squadComm = displays.SquadComm;
 		var hddCommand = displays.HddCommand;

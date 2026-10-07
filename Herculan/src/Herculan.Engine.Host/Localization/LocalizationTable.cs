@@ -135,6 +135,10 @@ public class LocalizationTable {
 	/// <summary>The string for <paramref name="key"/> in the selected locale, else in the default's; null when neither has it.</summary>
 	public string? GetString(string key) => _keyValuePairs.GetValueOrDefault(key) ?? _fallback?.GetValueOrDefault(key);
 
+	/// <summary>The string for <paramref name="key"/>, or the key itself when no table has it, so a
+	/// missing translation shows on screen.</summary>
+	public string GetStringOrKey(string key) => GetString(key) ?? key;
+
 	/// <summary>
 	/// Every locale <see cref="GetLocales"/> finds, each with the name its own file gives under
 	/// <see cref="LanguageNameKey"/>, or the locale itself when the file gives none. Reads every file, so a caller

@@ -87,6 +87,7 @@ public sealed class ScaledImGui : IDisposable {
 			new ImGuiFontConfig(_fontPath, (int)MathF.Round(FontSize * _builtContentScale)));
 		ImGui.GetIO().FontGlobalScale = _builtClientScale / _builtContentScale;
 		ImGui.GetStyle().ScaleAllSizes(_builtClientScale);
+		ImGui.GetStyle().Colors[(int)ImGuiCol.WindowBg].W = .975f;
 		return controller;
 	}
 }

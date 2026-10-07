@@ -18,7 +18,7 @@ namespace Herculan.Engine.Host.Settings;
 /// </summary>
 public sealed class TweaksMenu {
 	// In pixels on a 100% display (ScaledImGui.Scaled).
-	private const float PanelWidth = 300f;
+	private const float PanelWidth = 400f;
 
 	private readonly TweakSettings _settings;
 	private readonly LocalizationTable _localization;
@@ -43,9 +43,11 @@ public sealed class TweaksMenu {
 		ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
 
 		bool stayOpen = true;
-		if (ImGui.Begin("Tweaks", ref stayOpen, ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize)) {
+		// The title doubles as the window's ID, so a language change opens it afresh, re-centred; a
+		// "###tweaks" suffix would keep the ID fixed at the cost of a string built every frame.
+		if (ImGui.Begin(_localization.GetStringOrKey("tweaks.title"), ref stayOpen, ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize)) {
 			foreach (var group in TweakSettingDefinitions.All.Where(d => !d.Hidden).GroupBy(d => d.Category)) {
-				ImGui.SeparatorText(group.Key.ToString());
+				ImGui.SeparatorText(_localization.GetStringOrKey(CategoryKey(group.Key)));
 				foreach (var definition in group) {
 					bool value = _settings.GetSettingValue(definition);
 					string displayName = _localization.GetString(definition.DisplayNameKey) ?? definition.ID;
@@ -59,22 +61,12 @@ public sealed class TweaksMenu {
 				}
 			}
 
+			ImGui.Dummy(new Vector2(0, ScaledImGui.Scaled(10)));
+			LocalizedImGuiHelpers.DrawButtonRow(_localization, ("tweaks.none", DisableAll), ("tweaks.defaults", ApplyDefaults), ("tweaks.recommended", ApplyRecommended), ("tweaks.all", EnableAll));
+
 			ImGui.Separator();
 
-			float spacing = ImGui.GetStyle().ItemSpacing.X;
-			float buttonWidth = (ImGui.GetContentRegionAvail().X - spacing) * 0.5f;
-			var buttonSize = new Vector2(buttonWidth, 0f);
-
-			if (ImGui.Button("Save", buttonSize)) {
-				_settings.SaveToDisk();
-				IsOpen = false;
-			}
-
-			ImGui.SameLine();
-
-			if (ImGui.Button("Cancel", buttonSize)) {
-				Cancel();
-			}
+			LocalizedImGuiHelpers.DrawButtonRow(_localization, ("general.save", Save), ("general.cancel", Cancel));
 		}
 
 		ImGui.End();
@@ -82,6 +74,45 @@ public sealed class TweaksMenu {
 		if (!stayOpen && IsOpen) {
 			Cancel();
 		}
+	}
+
+	private static string CategoryKey(TweakCategory category) => category switch {
+		TweakCategory.Cosmetic => "tweaks.category.cosmetic",
+		TweakCategory.AI => "tweaks.category.ai",
+		TweakCategory.Functional => "tweaks.category.functional",
+		TweakCategory.Input => "tweaks.category.input",
+		_ => throw new ArgumentOutOfRangeException(nameof(category), category, null),
+	};
+
+	private void DisableAll() {
+		ApplyToAll(false);
+	}
+
+	private void EnableAll() {
+		ApplyToAll(true);
+	}
+
+	private void ApplyToAll(bool value) {
+		foreach (var definition in TweakSettingDefinitions.All.Where(d => !d.Hidden)) {
+			_settings.SetSettingValue(definition, value);
+		}
+	}
+
+	private void ApplyDefaults() {
+		foreach (var setting in TweakSettingDefinitions.All) {
+			_settings.SetSettingValue(setting, setting.DefaultValue);
+		}
+	}
+
+	private void ApplyRecommended() {
+		foreach (var setting in TweakSettingDefinitions.All) {
+			_settings.SetSettingValue(setting, setting.RecommendedValue);
+		}
+	}
+
+	private void Save() {
+		_settings.SaveToDisk();
+		IsOpen = false;
 	}
 
 	/// <summary>Discards any edit not yet saved by reloading <see cref="TweakSettings"/> from disk,

@@ -460,7 +460,7 @@ public sealed partial class MechObject {
 			// each test from the other reading turns it into the upward crossing it reads as
 			// intended to be. This is a non-vanilla tweak. See SystemMessages.DamageLevelCritical
 			// and KNOWN_ISSUES.md.
-			if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.CriticalDamageMessage) && LocallyPiloted
+			if (world.Tweaks.GetSettingValue(TweakSettingDefinitions.CriticalDamageMessage) && LocallyPiloted
 					&& before < CockpitShakeDamageLimit && CockpitShakeDamageLimit < after
 					&& (componentIndex == CockpitFrontComponent
 						|| componentIndex == CockpitRearComponent)) {

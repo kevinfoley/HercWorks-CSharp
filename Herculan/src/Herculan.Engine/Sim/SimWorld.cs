@@ -1,6 +1,7 @@
 ﻿using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Terrain;
 using Herculan.Engine.World;
 
@@ -178,6 +179,12 @@ public sealed class SimWorld {
 	/// placement lives in the sink. See <see cref="ISoundSink"/>.</para>
 	/// </summary>
 	public ISoundSink? Sounds { get; set; }
+
+	/// <summary>
+	/// The tweak settings the simulation's non-retail switches read. A world given none reads every
+	/// setting at its default.
+	/// </summary>
+	public TweakSettings Tweaks { get; set; } = new();
 
 	/// <summary>
 	/// Where the camera is, in world units — the original's own view object (<c>ViewObjectPtr</c> (<c>004d256e</c>)),

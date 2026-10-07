@@ -464,7 +464,7 @@ public sealed partial class MechObject : SimObject {
 			CenterBodyTick(world);
 		} else {
 			ApplyThrottleInput(world, Controls.Turn);
-			TorsoTick();
+			TorsoTick(world);
 		}
 	}
 

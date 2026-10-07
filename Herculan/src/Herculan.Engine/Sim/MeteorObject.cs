@@ -152,7 +152,7 @@ public sealed class MeteorObject {
 
 			// The original plays both sounds at the camera itself, not at the pod; the tweak moves them
 			// onto it. See TweakSoundReach.
-			bool fromPod = TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.DropPodSoundFromPod);
+			bool fromPod = world.Tweaks.GetSettingValue(TweakSettingDefinitions.DropPodSoundFromPod);
 
 			if (!WhistlePlayed && next.Z < WhistleAltitude) {
 				if (fromPod) {

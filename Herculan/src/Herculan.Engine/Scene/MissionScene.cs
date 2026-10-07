@@ -4,6 +4,7 @@ using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
 using Herculan.Engine.World;
@@ -320,7 +321,8 @@ public sealed class MissionScene {
 			Difficulty = mission.Header.Difficulty,
 			UnlimitedAmmunition = mission.Header.UnlimitedAmmunition,
 			PlayerInvulnerable = mission.Header.PlayerInvulnerable,
-			Theater = mission.Header.TheaterIndex
+			Theater = mission.Header.TheaterIndex,
+			Tweaks = TweakSettings.Current
 		};
 		world.LoadMissionCounters(mission.Counters);
 		var models = new SceneModelLibrary(content, theater);
@@ -358,7 +360,7 @@ public sealed class MissionScene {
 		SceneObject? playerObject = null;
 		foreach (var placement in mission.Placements) {
 			var spawned = Spawn(placement, models, baseTypes, baseCollision, weapons, transportArmament,
-				world.Random);
+				world.Random, world.Tweaks);
 			if (spawned == null) {
 				continue;
 			}
@@ -899,9 +901,9 @@ public sealed class MissionScene {
 	/// </summary>
 	private static SceneObject? Spawn(MissionPlacement placement, SceneModelLibrary models,
 			BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons,
-			TransportArmament? transportArmament, SimRandom random) {
+			TransportArmament? transportArmament, SimRandom random, TweakSettings tweaks) {
 		var (simObject, model, detail) = Create(placement, models, baseTypes, baseCollision, weapons,
-			transportArmament, random);
+			transportArmament, random, tweaks);
 		if (simObject == null) {
 			return null;
 		}
@@ -963,7 +965,8 @@ public sealed class MissionScene {
 	private static (SimObject? Object, SceneModel? Model, ShapeDetailChain? Detail) Create(
 			MissionPlacement placement,
 			SceneModelLibrary models, BaseTypeTable baseTypes, BaseCollisionTable baseCollision,
-			WeaponCatalog? weapons, TransportArmament? transportArmament, SimRandom random) {
+			WeaponCatalog? weapons, TransportArmament? transportArmament, SimRandom random,
+			TweakSettings tweaks) {
 		switch (placement.Kind) {
 			case MissionUnitKind.Mech: {
 				if (placement.TypeName == null || models.MechData(placement.TypeName) is not { } simData) {
@@ -1026,7 +1029,8 @@ public sealed class MissionScene {
 				return (
 					new BaseObject(type, volume, baseCollision[type.Index], boundingRadius,
 						models.BaseAnimCellCount(type), models.BaseAnimation(type),
-						placement.StartingCondition, models.HulkCollision(type)) {
+						placement.StartingCondition, models.HulkCollision(type),
+						tweaks.GetSettingValue(TweakSettingDefinitions.SmootherTurretMovement)) {
 						// The two PROJ.DAT rows the armed structure's tick names by literal, the same
 						// way the flyer AI does — see BaseObject.ArmedThinkTick.
 						GunProjectile = weapons?.ProjectileAt(BaseObject.GunProjectileIndex),

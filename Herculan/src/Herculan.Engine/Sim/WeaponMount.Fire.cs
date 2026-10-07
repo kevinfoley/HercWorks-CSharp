@@ -303,7 +303,7 @@ public sealed partial class WeaponMount {
 		var (bone, muzzle) = PrepareShot(owner);
 
 		// Both records share a type, so the dispatch's type tests read the same either way.
-		if (ShotProjectile is not { } projectile) {
+		if (ShotProjectile(world) is not { } projectile) {
 			return;
 		}
 

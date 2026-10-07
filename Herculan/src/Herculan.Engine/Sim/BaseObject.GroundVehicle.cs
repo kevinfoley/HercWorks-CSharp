@@ -52,7 +52,7 @@ public sealed partial class BaseObject {
 			if (Target == null) {
 				// Both axes end up driven negative: the elevation is handed in negated and the
 				// traverse is negated inside the seek, so an idle turret walks back to centre.
-				SeekTurret((short)-_turretAngle[0], _turretAngle[1]);
+				SeekTurret(world, (short)-_turretAngle[0], _turretAngle[1]);
 			}
 		}
 

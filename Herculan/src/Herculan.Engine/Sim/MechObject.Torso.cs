@@ -1,4 +1,5 @@
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Sim.Anim;
 
 namespace Herculan.Engine.Sim;
@@ -47,7 +48,7 @@ public sealed partial class MechObject {
 	/// dead on the tick it crosses the target angle, and is how
 	/// <see cref="CenterTorsoTick"/> lands exactly on centre instead of oscillating about it.</para>
 	/// </summary>
-	public void TorsoTwistTick(short axis, short snapTarget = -1, bool snapEnable = false) {
+	public void TorsoTwistTick(SimWorld world, short axis, short snapTarget = -1, bool snapEnable = false) {
 		short previousAngle = TorsoTwistAngle;
 		short rate = TorsoTwistRate;
 		short angle = TorsoTwistAngle;
@@ -63,7 +64,8 @@ public sealed partial class MechObject {
 			TorsoTwistRate = 0;
 		}
 
-		TorsoTwistThread?.SeekToPosition(Type.TorsoTwistSequence, SequencePosition(TorsoTwistAngle));
+		TorsoTwistThread?.SeekToPosition(Type.TorsoTwistSequence, SequencePosition(TorsoTwistAngle),
+			world.Tweaks.GetSettingValue(TweakSettingDefinitions.SmootherTurretMovement));
 	}
 
 	/// <summary>
@@ -76,7 +78,7 @@ public sealed partial class MechObject {
 	/// convergence pass is this tick's tail. See
 	/// <see cref="WeaponMounts.ConvergeOnRange"/>.</para>
 	/// </summary>
-	public void TorsoPitchTick(short axis, int convergeRange = 0, short snapTarget = -1,
+	public void TorsoPitchTick(SimWorld world, short axis, int convergeRange = 0, short snapTarget = -1,
 			bool snapEnable = false) {
 		short previousAngle = TorsoPitchAngle;
 		short rate = TorsoPitchRate;
@@ -93,7 +95,8 @@ public sealed partial class MechObject {
 			TorsoPitchRate = 0;
 		}
 
-		TorsoPitchThread?.SeekToPosition(Type.TorsoPitchSequence, SequencePosition(TorsoPitchAngle));
+		TorsoPitchThread?.SeekToPosition(Type.TorsoPitchSequence, SequencePosition(TorsoPitchAngle),
+			world.Tweaks.GetSettingValue(TweakSettingDefinitions.SmootherTurretMovement));
 
 		Weapons.ConvergeOnRange(this, convergeRange);
 	}
@@ -108,10 +111,10 @@ public sealed partial class MechObject {
 	/// home. The player's input path is the only caller that has a range to give; every AI caller
 	/// passes zero.</para>
 	/// </summary>
-	public void CenterTorsoTick(int convergeRange = 0) {
-		TorsoTwistTick((short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoTwistAngle)),
+	public void CenterTorsoTick(SimWorld world, int convergeRange = 0) {
+		TorsoTwistTick(world, (short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoTwistAngle)),
 			snapTarget: 0, snapEnable: true);
-		TorsoPitchTick((short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoPitchAngle)),
+		TorsoPitchTick(world, (short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoPitchAngle)),
 			convergeRange: convergeRange, snapTarget: 0, snapEnable: true);
 	}
 
@@ -133,7 +136,7 @@ public sealed partial class MechObject {
 	/// </list>
 	/// </summary>
 	/// <returns>The residual aim error: yaw and pitch, in binary angle.</returns>
-	public (short Yaw, short Pitch) TrackWorldPoint(Vec3i point) {
+	public (short Yaw, short Pitch) TrackWorldPoint(SimWorld world, Vec3i point) {
 		var local = CameraNodeTransform.Inverted().TransformPoint(point.X, point.Y, point.Z);
 		local = new Vec3i(local.X, local.Y, local.Z - Type.EyeOffsetZ);
 
@@ -150,9 +153,9 @@ public sealed partial class MechObject {
 		short yawAxis = (short)-ClampAxis(yawDemand);
 		short pitchAxis = (short)ClampAxis(pitchDemand);
 
-		TorsoTwistTick((short)SimMath.Q8Multiply(SaturatingAbs(yawAxis), yawAxis),
+		TorsoTwistTick(world, (short)SimMath.Q8Multiply(SaturatingAbs(yawAxis), yawAxis),
 			snapTarget: (short)(TorsoTwistAngle - yawError), snapEnable: true);
-		TorsoPitchTick((short)SimMath.Q8Multiply(SaturatingAbs(pitchAxis), pitchAxis),
+		TorsoPitchTick(world, (short)SimMath.Q8Multiply(SaturatingAbs(pitchAxis), pitchAxis),
 			convergeRange: SimMath.FastMagnitude3D(local.X, local.Y, local.Z),
 			snapTarget: (short)(TorsoPitchAngle + pitchError), snapEnable: true);
 
@@ -332,8 +335,8 @@ public sealed partial class MechObject {
 		}
 
 		ApplyThrottleInput(world, (short)steer);
-		TorsoTwistTick((short)twist);
-		TorsoPitchTick(Controls.TorsoPitch, GunConvergenceRange);
+		TorsoTwistTick(world, (short)twist);
+		TorsoPitchTick(world, Controls.TorsoPitch, GunConvergenceRange);
 	}
 
 	/// <summary>Q10 gain on the heading error before it is squared into a steering command.</summary>
@@ -366,7 +369,7 @@ public sealed partial class MechObject {
 	/// the centring latch on the way past. <see cref="TrackWorldPoint"/> runs both axis ticks itself,
 	/// convergence included, so the manual pair below is skipped for the tick.</para>
 	/// </summary>
-	private void TorsoTick() {
+	private void TorsoTick(SimWorld world) {
 		var controls = Controls;
 		bool tracked = false;
 
@@ -378,7 +381,7 @@ public sealed partial class MechObject {
 			_centeringTorso = false;
 		} else if (Weapons.AutoTrack) {
 			if (Target is { Destroyed: false } target) {
-				TrackWorldPoint(target.AimPoint);
+				TrackWorldPoint(world, target.AimPoint);
 				_centeringTorso = false;
 				tracked = true;
 			} else if (Target == null && SimMath.CountdownTimerTick(ref _autoTrackIdle) == 0) {
@@ -389,7 +392,7 @@ public sealed partial class MechObject {
 		}
 
 		if (_centeringTorso) {
-			CenterTorsoTick(GunConvergenceRange);
+			CenterTorsoTick(world, GunConvergenceRange);
 			return;
 		}
 
@@ -397,8 +400,8 @@ public sealed partial class MechObject {
 			return;
 		}
 
-		TorsoTwistTick(controls.TorsoTwist);
-		TorsoPitchTick(controls.TorsoPitch, GunConvergenceRange);
+		TorsoTwistTick(world, controls.TorsoTwist);
+		TorsoPitchTick(world, controls.TorsoPitch, GunConvergenceRange);
 	}
 
 	/// <summary>

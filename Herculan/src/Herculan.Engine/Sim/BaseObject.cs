@@ -88,9 +88,13 @@ public sealed partial class BaseObject : SimObject {
 	/// is set — see <see cref="CurrentVolume"/>. Null for a type that leaves no wreck, and when the
 	/// install has no such record.
 	/// </param>
+	/// <param name="keepSeekFraction">
+	/// Whether the constructor's seed of <see cref="SeededThread"/> keeps its sub-tick remainder — see
+	/// <see cref="AnimationThread.SeekToPosition"/>.
+	/// </param>
 	public BaseObject(BaseType type, ShapeVolume? volume, ColliderNode[]? collision, int shapeRadius,
 			int animCellCount = 1, ShapeAnimation? animation = null, short startingCondition = 100,
-			(int BoundingRadius, ShapeVolume? Volume)? hulk = null) {
+			(int BoundingRadius, ShapeVolume? Volume)? hulk = null, bool keepSeekFraction = false) {
 		Type = type;
 		_animCellCount = animCellCount < 1 ? 1 : animCellCount;
 		_animCellTimer = type.AnimCellInterval;
@@ -115,7 +119,7 @@ public sealed partial class BaseObject : SimObject {
 				// The constructor's own seed for the second thread: parked a little over a third of
 				// the way through its sequence rather than at its start.
 				if (i == SeededThread) {
-					_threads[i]!.SeekToPosition(i, SeededThreadPosition);
+					_threads[i]!.SeekToPosition(i, SeededThreadPosition, keepSeekFraction);
 				}
 			}
 		}

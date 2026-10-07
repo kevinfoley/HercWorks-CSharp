@@ -2,6 +2,7 @@ using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Input;
+using Herculan.Engine.Platform;
 using Silk.NET.Input;
 using InputTape = HercWorks.Core.Data.File.Dbsim.InputTape;
 

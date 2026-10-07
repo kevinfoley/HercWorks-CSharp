@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Herculan.Engine;
+namespace Herculan.Engine.Platform;
 
 /// <summary>
 /// On Windows, gives a window the running executable's own icon (the host's <c>&lt;ApplicationIcon&gt;</c>) at the sizes

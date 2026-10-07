@@ -1,3 +1,4 @@
+using Herculan.Engine.Platform;
 using System.Numerics;
 using Herculan.Engine.Host.Localization;
 using Herculan.Engine.Settings;

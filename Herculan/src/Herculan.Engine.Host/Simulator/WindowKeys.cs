@@ -2,6 +2,7 @@ using Herculan.Engine.Content;
 using Herculan.Engine.Host.Settings;
 using Herculan.Engine.Host.Simulator.Cockpit;
 using Herculan.Engine.Host.Simulator.Replay;
+using Herculan.Engine.Platform;
 using Silk.NET.Input;
 using static Herculan.Engine.Host.KeyChords;
 

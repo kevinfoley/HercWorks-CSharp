@@ -8,6 +8,7 @@ using Herculan.Engine.Host.Simulator.Cockpit;
 using Herculan.Engine.Host.Simulator.Rendering;
 using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
+using Herculan.Engine.Platform;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;

@@ -1,5 +1,6 @@
 using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
+using Herculan.Engine.Platform;
 using Silk.NET.Input;
 
 namespace Herculan.Engine.Host.Simulator;

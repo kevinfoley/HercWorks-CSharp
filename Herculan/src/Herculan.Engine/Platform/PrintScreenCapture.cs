@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
 
-namespace Herculan.Engine;
+namespace Herculan.Engine.Platform;
 
 /// <summary>
 /// [PrtScn] while a window is full screen (<see cref="EngineWindow.ToggleFullScreen()"/>): the key is kept from Windows

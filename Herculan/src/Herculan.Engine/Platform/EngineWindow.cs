@@ -4,7 +4,7 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 
-namespace Herculan.Engine;
+namespace Herculan.Engine.Platform;
 
 /// <summary>
 /// A Silk.NET window with an OpenGL context and an input context — the engine's platform surface,

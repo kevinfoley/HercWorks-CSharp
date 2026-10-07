@@ -1,3 +1,4 @@
+using Herculan.Engine.Platform;
 using System.Buffers.Binary;
 using System.IO.Compression;
 using Silk.NET.Core;

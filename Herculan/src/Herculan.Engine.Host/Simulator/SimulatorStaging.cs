@@ -1,5 +1,6 @@
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Host.Simulator.Cockpit;
+using Herculan.Engine.Platform;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;

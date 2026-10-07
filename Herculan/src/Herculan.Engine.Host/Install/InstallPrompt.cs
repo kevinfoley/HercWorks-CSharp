@@ -1,5 +1,6 @@
 using Herculan.Engine.Host.Localization;
 using Herculan.Engine.Install;
+using Herculan.Engine.Platform;
 using ImGuiNET;
 using Silk.NET.OpenGL;
 

@@ -4,7 +4,7 @@ using Silk.NET.Input;
 using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 
-namespace Herculan.Engine;
+namespace Herculan.Engine.Platform;
 
 /// <summary>
 /// Silk's <see cref="ImGuiController"/> sized for the display its window is on: the font rasterised at the display's

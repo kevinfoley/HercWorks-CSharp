@@ -1,3 +1,5 @@
+using Herculan.Engine.Platform;
+
 namespace Herculan.Engine.Host.Simulator;
 
 /// <summary>

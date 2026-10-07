@@ -3,6 +3,7 @@ using Herculan.Engine.Host.Install;
 using Herculan.Engine.Host.Shell;
 using Herculan.Engine.Host.Localization;
 using Herculan.Engine.Install;
+using Herculan.Engine.Platform;
 using Herculan.Engine.Settings;
 
 // The thin front-end host from docs/herculan/planning.md's "Engine internal architecture" section:
@@ -39,7 +40,7 @@ if (options.InstallSource != null && options.InstallDestination != null) {
 var localization = new LocalizationTable();
 HostLog.Localization = localization;
 TweakSettings.Current.LoadFromDisk();
-Herculan.Engine.EngineWindow.Icons = WindowIcon.Load();
+EngineWindow.Icons = WindowIcon.Load();
 
 // The one font every ImGui window the host opens is drawn in.
 string imguiFontPath = Path.Combine(AppContext.BaseDirectory,

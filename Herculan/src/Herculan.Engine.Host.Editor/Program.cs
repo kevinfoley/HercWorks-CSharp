@@ -1,6 +1,6 @@
 using Herculan.Engine.Install;
+using Herculan.Engine.Platform;
 using System.Numerics;
-using Herculan.Engine;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Host.Editor;

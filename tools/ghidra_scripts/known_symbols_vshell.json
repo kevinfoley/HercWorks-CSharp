@@ -3481,7 +3481,13 @@
       "confidence": "high",
       "name": "MsnGen_SeedCampaignFlags",
       "description": "Before a mission load: training clears the flag array, campaign writes flags 1-2 as the career position; both write flag 3 from 00482606 and flags 4-6 a draw below 12 each.",
-      "source": "docs/retail/shell/campaign-loop.md"
+      "source": "docs/retail/shell/campaign-loop.md",
+      "verified": {
+        "bytes": "0040e94e+125",
+        "sha1": "e3bab55ab788",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040e9cb",
@@ -4282,7 +4288,13 @@
       "confidence": "high",
       "name": "Herc_GrantUnlocks",
       "description": "Grants chassis availability from campaign progress. For each locked herc_inf.dat record, tests one campaign-flag slot against an expected value and sets +0x0e on a match, clearing the slot either way: Raptor II 0x3c/2, Maverick 0x3d/2, Ogre 0x3e/2, Razor 0x3f/1.",
-      "source": "docs/retail/formats/herc-catalogs.md"
+      "source": "docs/retail/formats/herc-catalogs.md",
+      "verified": {
+        "bytes": "004118c5+143",
+        "sha1": "57c53b8e42a0",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00411954",
@@ -4782,8 +4794,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Career_Advance",
-      "description": "career.cpp. Loads the mission named by the current (stage, mission) position, then advances the position -- unconditionally, whatever the outcome. Returns 1 past the last stage (campaign complete), 0 on a failed mission at a stage boundary, else 2. Fires the hard-coded squad events at stage 1 mission 3 and stage 1 mission 6.",
-      "source": "docs/retail/shell/campaign-loop.md"
+      "description": "career.cpp. Reloads the debrief (Msn_LoadDebrief) of the mission at the current (stage, mission) position, then advances the position -- unconditionally, whatever the outcome (param_1, nonzero for a won mission); rolling past the stage's mission count resets the mission to 0 and increments the stage. Returns 1 on a win that takes the stage to the stage count (campaign complete); 0 on a loss when the new mission index is 0 (a stage boundary) or the new stage is past 4 (any loss in the final chapter); else 2, after the hard-coded squad events (Player_SetBay(4) at new position stage 1 mission 3, Hangar_WithdrawChassis(8) at stage 1 mission 6) and Career_BuildDebriefText.",
+      "source": "docs/retail/shell/campaign-loop.md",
+      "verified": {
+        "bytes": "00412dc7+263",
+        "sha1": "b1729c5566ad",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00412ece",
@@ -5319,8 +5337,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Msn_PickVariant",
-      "description": "(key) -> the row-1 index of a variant: the type-3 record whose +0x06 is key draws below its +0x0a into +0x0c, and the type-2 child whose range holds the draw is returned. Draws again on every call.",
-      "source": "docs/retail/formats/msn-mission-file.md"
+      "description": "(key) -> the row-1 index of a variant: the first surviving type-3 record whose +0x06 is key draws below its +0x0a into +0x0c, and the first type-2 child naming it whose range holds the draw is returned. When no child holds the draw it moves on to the next type-3 record with that key, which draws again; with none left it returns -1. Draws again on every call.",
+      "source": "docs/retail/formats/msn-mission-file.md",
+      "verified": {
+        "bytes": "00415fc3+349",
+        "sha1": "09120283cdf0",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00416120",
@@ -5464,7 +5488,13 @@
       "confidence": "high",
       "name": "Msn_MergeRow16",
       "description": "(source, target) -> a repeated row-16 GUID: copies each field of the new record that is not its unset value onto the earlier one.",
-      "source": "docs/retail/formats/msn-mission-file.md"
+      "source": "docs/retail/formats/msn-mission-file.md",
+      "verified": {
+        "bytes": "00417286+906",
+        "sha1": "1db257dbe724",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00417610",

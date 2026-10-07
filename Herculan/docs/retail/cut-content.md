@@ -31,6 +31,11 @@ Additionally, the game data includes an unused particle-beam weapon for the Cybr
 - **An earlier preferences panel.** v1.0's French and German alert-panel text labels options the shipped panel does not have — RADIO, HORIZON, SKY, GROUND and SHADOWS — and the game cannot show it in either language without starting the simulator by hand. See [`simulation/alert-panels.md`](simulation/alert-panels.md#what-the-family-shares).
 - An unused feature in the code would animate the player's Herc from underground to surface level as if riding an elevator to the surface. This is left over from _Metaltech: Earthsiege_. See [`simulation/mission-deployment.md`](simulation/mission-deployment.md#the-lift-start).
 
+## Campaign
+
+- **Intelligence results nothing records.** `C1_04` and `C2_06` record their intelligence-gathering results with a counter operation, `0x17`, that the simulator has no case for, so the content written for those results never appears: two friendly Raptor IIs reinforcing `C2_07`, and `C1_05`'s briefing line describing the enemy force. See [`shell/campaign-consequences.md`](shell/campaign-consequences.md#unreachable-branches).
+- **Placeholder debrief text.** `C5_10`'s debrief is joke placeholder lines, which no branch of the campaign ever shows. See [`shell/campaign-consequences.md`](shell/campaign-consequences.md#unreachable-branches).
+
 ## Files
 
 - **`DEMO2.MSN`.** The one mission file of 62 that does not land on EOF cleanly — it undershoots by 42 bytes in the middle of a row's tail. A stale developer test file with a genuinely truncated tail, not a gap in the format. See [`formats/msn-mission-file.md`](formats/msn-mission-file.md).

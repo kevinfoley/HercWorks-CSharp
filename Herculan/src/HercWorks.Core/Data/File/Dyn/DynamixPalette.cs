@@ -38,7 +38,7 @@ public class DynamixPalette {
 	/// docs/retail/formats/dts-texture-binding.md, "The .DPL shade-ramp table" and "TSShadedPoly — shade-ramp
 	/// number, per-face light, fixed .RMP row".
 	///
-	/// <para>Empty when the file carries no tail — the shell palettes are colours only.</para>
+	/// <para>Empty when the file carries no tail or a ramp count of zero.</para>
 	/// </summary>
 	public IReadOnlyList<short[]> ShadeRamps { get; set; } = Array.Empty<short[]>();
 

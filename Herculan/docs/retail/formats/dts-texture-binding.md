@@ -273,10 +273,10 @@ Both fills' outline pass is gated on the default brush (`DAT_006c60d4 != DAT_006
 
 ### The `.DPL` shade-ramp table
 
-Immediately after the `colourCount * 4` colour entries. Read byte-complete on all four `WORLD<n>.DPL`:
+Immediately after the `colourCount * 4` colour entries. Read byte-complete on all 65 retail `.DPL` in `SHELL0.VOL` and `SIMVOL0.VOL`:
 
 ```
-int32  rampCount              // 256 in every retail file
+int32  rampCount              // 256 in 37 files; the other 28 store 0 and end there
 rampCount x {
   int16  length               // retail: 1, 4, 7, 8, 13 or 16
   int16  paletteIndex[length] // darkest to brightest

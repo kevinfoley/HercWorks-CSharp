@@ -18,7 +18,7 @@ repeat until contentLength consumed:
     int16 count                      -- strings in this group
     count x {
         int16 length                 -- includes the NUL terminator
-        byte[length] text            -- NUL-terminated ASCII
+        byte[length] text            -- NUL-terminated, one byte per character
         uint8 attributeCount         -- 0, 1, 7 or 8 in retail data
         byte[attributeCount] attributes
     }
@@ -27,6 +27,8 @@ repeat until contentLength consumed:
 `attributeCount` is self-describing, which makes the file walkable without the group table. It matches `SimStrings_LoadAll` passing a second destination array only for groups whose entries carry attributes and NULL for the rest.
 
 **Verified byte-exact**: this shape consumes `STRINGS0.STR`, `SYSTEM.STR`, `COMMAND1.STR`, `PILOTS.STR` and `SOUNDS.STR` to their declared content lengths with zero slack, and each file's group counts reproduce the registration sequence in order.
+
+Text is one byte per character, not 7-bit: `SIMALERT.VOL`'s `STG\GNL_ALRT.STR` and `STG\OBJ_ALRT.STR` spell the German text's `Ä`, `Ö` and `Ü` as `0x8E`, `0x99` and `0x9A` (`ZUR\x9ACK`, `ZERST\x99RT`, `BESCH\x8EDIGT`), the IBM PC code page's values.
 
 Attribute use: `STRINGS0.STR` group 0 carries one byte per order; `SYSTEM.STR`'s computer messages carry eight — the message id, a queue priority, four display timings and the `CVM` voice clip that reads the line, decoded in [`cockpit-messages.md`](cockpit-messages.md#the-computers-messages); `SOUNDS.STR` carries seven — loop count, volume, preload, throttle divisor and the two rolloff distances, then a variation count. The sound module reads a tenth byte past them and treats bytes 7-9 as runtime scratch; see [`audio.md`](audio.md#the-sound-catalog--strsoundsstr).
 

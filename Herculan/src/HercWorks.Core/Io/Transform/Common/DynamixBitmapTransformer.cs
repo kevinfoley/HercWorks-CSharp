@@ -60,6 +60,11 @@ public class DynamixBitmapTransformer : ByteTransformer<DynamixBitmap> {
 
 		objectBytes.Write(dbm.ImageData, 0, dbm.ImageData.Length);
 
+		// The record pads to an even length with a zero byte, standalone and inside a .DBA alike.
+		if (objectBytes.Length % 2 != 0) {
+			objectBytes.WriteByte(0x00);
+		}
+
 		return objectBytes.ToArray();
 	}
 }

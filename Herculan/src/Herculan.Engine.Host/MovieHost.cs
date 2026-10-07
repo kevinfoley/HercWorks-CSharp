@@ -1,9 +1,9 @@
-using Herculan.Engine.Install;
-using Herculan.Engine.Platform;
 using System.Numerics;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
+using Herculan.Engine.Install;
+using Herculan.Engine.Platform;
 using Herculan.Engine.Video;
 using Silk.NET.OpenGL;
 

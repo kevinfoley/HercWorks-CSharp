@@ -1,6 +1,6 @@
-using Herculan.Engine.View;
 using System.Runtime.InteropServices;
 using Herculan.Engine.Sim;
+using Herculan.Engine.View;
 using Herculan.Engine.World;
 using Silk.NET.Input;
 

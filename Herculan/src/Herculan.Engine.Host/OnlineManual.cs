@@ -1,8 +1,8 @@
-using Herculan.Engine.Install;
 using System.Diagnostics;
 using HercWorks.Help;
 using HercWorks.Help.Html;
 using Herculan.Engine.Content;
+using Herculan.Engine.Install;
 
 namespace Herculan.Engine.Host;
 

@@ -1,5 +1,5 @@
-using Herculan.Engine.Content;
 using System.Text;
+using Herculan.Engine.Content;
 
 namespace Herculan.Engine.Cockpit;
 

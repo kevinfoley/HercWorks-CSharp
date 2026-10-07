@@ -1,7 +1,7 @@
-﻿using Herculan.Engine.Cockpit;
-using System.Buffers.Binary;
-using HercWorks.Core.Data.File.Dyn;
+﻿using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.Struct;
+using Herculan.Engine.Cockpit;
+using System.Buffers.Binary;
 
 namespace Herculan.Engine.Content;
 

@@ -1,7 +1,6 @@
-﻿using Herculan.Engine.Cockpit;
-using System.Numerics;
-using HercWorks.Core.Data.File.Dat.Sim;
+﻿using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.Struct;
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
@@ -9,6 +8,7 @@ using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
 using Herculan.Engine.World;
+using System.Numerics;
 
 namespace Herculan.Engine.Scene;
 

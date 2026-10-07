@@ -1,5 +1,7 @@
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.Struct;
+using Herculan.Engine.Gl;
+using Silk.NET.OpenGL;
 
 namespace Herculan.Engine.Render;
 
@@ -26,8 +28,8 @@ public readonly record struct AtlasRect(float U0, float V0, float U1, float V1);
 /// (0,0)). Frames are padded apart by one pixel, and sampling is nearest-neighbour at the GL end,
 /// so neighbours cannot bleed into each other.</para>
 ///
-/// <para>CPU-side on purpose, touching no GL, so <see cref="Scene.MissionScene"/> stays buildable
-/// headlessly — <see cref="Gl.GpuTexture"/> does the upload.</para>
+/// <para>CPU-side on purpose: nothing but <see cref="Upload"/> touches GL, so
+/// <see cref="Scene.MissionScene"/> stays buildable headlessly.</para>
 /// </summary>
 public sealed class TextureAtlas {
 	/// <summary>Blank pixels between packed frames, so no filtering or rounding can sample a neighbour.</summary>
@@ -98,6 +100,17 @@ public sealed class TextureAtlas {
 	public int Width { get; }
 
 	public int Height { get; }
+
+	/// <summary>Uploads the packed image as a <see cref="GpuTexture"/>.</summary>
+	/// <param name="gl">The context to upload into.</param>
+	/// <param name="indexed">
+	/// Upload <see cref="IndexPixels"/> — palette index in red — rather than the expanded colour. That
+	/// is what a <b>lit</b> surface has to sample, because the original resolves a lit texel as
+	/// <c>rampRow(shade)[index]</c>; see <see cref="PaletteRampTable"/>. Callers that blit a frame
+	/// unlit (the HUD sprite sheets, the billboard renderer) want the colour.
+	/// </param>
+	public GpuTexture Upload(GL gl, bool indexed = false) =>
+		new(gl, indexed ? IndexPixels : Pixels, Width, Height);
 
 	/// <summary>How many frame slots the source DBA had — including any that failed to pack.</summary>
 	public int FrameCount => _frames.Length;

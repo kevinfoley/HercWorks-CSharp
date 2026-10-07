@@ -13,7 +13,7 @@ sealed class SceneUploads : IDisposable {
 
 	public SceneUploads(GL gl, MissionScene scene) {
 		TerrainMesh = new GpuMesh(gl, scene.TerrainMesh);
-		TerrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas, indexed: true) : null;
+		TerrainTexture = scene.TerrainBank != null ? scene.TerrainBank.Atlas.Upload(gl, indexed: true) : null;
 
 		// Which models are actually going to be drawn a node at a time: one whose segments exist *and*
 		// whose object has an animation thread to pose them with. A shape that carries no ANAnimList has
@@ -53,9 +53,9 @@ sealed class SceneUploads : IDisposable {
 			}
 
 			if (model.Atlas != null) {
-				Textures[model.Key] = new GpuTexture(gl, model.Atlas, indexed: true);
+				Textures[model.Key] = model.Atlas.Upload(gl, indexed: true);
 				if (model.Sprites.Length > 0) {
-					SpriteTextures[model.Key] = new GpuTexture(gl, model.Atlas);
+					SpriteTextures[model.Key] = model.Atlas.Upload(gl);
 				}
 			}
 		}

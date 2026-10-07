@@ -8,7 +8,7 @@ Stage 1 is built and Stage 2 is in progress; the rest is planned. Each item is r
 
 - **`Content` was a grab-bag.** Of its 73 files, 19 loaded data files; 50 were the cockpit's runtime state and logic, and the rest were install and input code.
 - **Retail game rules live in the host, which no test project references.** By their own doc comments, `PlayerCockpitUpdate`, `PilotControls`, `ModalPanels`, `CampaignLoop` and `GameInProgress` port the player's per-frame cockpit update, the input poll's button switch, the alert panels' key handling and the save-slot load and save. [`planning.md`](planning.md#engine-internal-architecture) asks for a thin host.
-- **Dependencies point both ways.** `GpuTexture` (Gl) takes a `TextureAtlas` (Render); Sim reads `TweakSettings.Current` at four sites; Render uses Sim in 18 files.
+- **Dependencies point both ways.** Sim reads `TweakSettings.Current` at four sites; Render uses Sim in 18 files.
 - **Large classes bundle unrelated jobs.** `SimWorld` (pools and tick, mission state, effects, raycasts, shot spawning, latches), `MissionScene.Load` (session bootstrap, mesh preload, write-back of shape data), `GameAudio` (audio stack plus the message-port clock and the power-up rule), `DebugPanel` (view, probes and view options, read by the frame stepper and renderer).
 - **Earthsiege 1 support is under consideration.** Its executables are a different build (not Borland, an X-32 DOS extender) with a different shell (`GO.EXE`) and audio (`.SFX`, HMP through HMI SOS), but share the 3Space asset layer: VOL, the `TS*`/`GL*`/`AN*` classes, `.DTS`/`.DBA`/`.DPL`/`.DFN` headers, and 548 of 556 `.SNC` files byte-identical. A refactor that separates the asset layer from game-specific code serves that split.
 
@@ -41,10 +41,10 @@ Built:
 - `ISoundSink`, `SoundId` and `SoundReach` are in Sim, and Sim does not import Audio. A null `SoundReach.MinRange` keeps the catalog row's rolloff start, so the drop-pod tweak does not read `SoundCatalog`.
 - Sim does not import Cockpit: the charge-bar range is `WeaponMount.ChargeBarRange`, which `ChargeBarSlider` reads; `script.dat` block 1's box is `World.MissionBox` (retail `Mission_Box`), held as `SimWorld.MissionBox`, and the command display's 60000-unit pan margin is `HddMap.Margin`. Sim's remaining references to Cockpit types are qualified `cref`s.
 - Sim does not import Render: `FlyCameraObject.ApplyTo(Camera)` is an extension in `View` (`FlyCameraView`), beside `ViewCamera.ApplyTo`, since a `Camera` member taking a Sim object would add a Render→Sim use.
+- Gl does not import Render: `GpuTexture` takes pixels and a size, and `TextureAtlas.Upload` makes one.
 
 To do:
 
-- `GpuTexture` takes pixels and a size; `TextureAtlas` uploads itself.
 - Sim receives the tweak settings through `SimWorld` instead of reading `TweakSettings.Current`.
 - No new dependency from asset-layer code (Content, Render, Gl, Platform, Audio back end) onto ES2 game code. The existing Render→Sim uses are left until the ES1 survey decides the split.
 

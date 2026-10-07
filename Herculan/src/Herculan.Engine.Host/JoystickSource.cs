@@ -1,5 +1,4 @@
 using Herculan.Engine.Cockpit;
-using Herculan.Engine.Content;
 using Herculan.Engine.Input;
 
 using Silk.NET.Input;

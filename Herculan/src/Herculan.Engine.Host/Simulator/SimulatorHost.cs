@@ -44,6 +44,8 @@ sealed class SimulatorHost : IDisposable {
 	private readonly TapePlayback _tape;
 	private readonly TapeRecording _recording;
 	private readonly SimulationStepper _stepper;
+	private readonly DebugOptions _debugOptions;
+	private readonly DebugProbes _debugProbes;
 	private readonly DebugPanel _debugPanel;
 	private readonly HostMenuBar _menuBar;
 	private readonly DeveloperKeys _developerKeys;
@@ -117,10 +119,12 @@ sealed class SimulatorHost : IDisposable {
 		_displays = new CockpitDisplays(start, _art, _view, staging);
 		_view.BuildChain(staging.Start.External);
 
-		// The debug panel. It owns its own view options and readouts; see DebugPanel for what it shows and
+		// The debug panel, over its view options and its measurements; see DebugPanel for what it shows and
 		// why it is ImGui rather than the game's own HUD font. Reachable only under --developer; without it the
-		// panel still exists, closed and with its overlays off, since the renderer and stepper read it.
-		_debugPanel = new DebugPanel(options.DeveloperMode, _view.SteadyEye);
+		// options and measurements still exist, with the overlays off, since the renderer and stepper read them.
+		_debugOptions = new DebugOptions(options.DeveloperMode, _view.SteadyEye);
+		_debugProbes = new DebugProbes();
+		_debugPanel = new DebugPanel(_debugOptions, _debugProbes);
 
 		// Hidden until [Esc] first raises it — see WindowKeys.ReadMenuBarEscapeKey — since it is the only way
 		// to reach its panels and every key from F1 to F12 is already taken. A mission has no shell turn to
@@ -142,7 +146,7 @@ sealed class SimulatorHost : IDisposable {
 		_keyboard = new CockpitKeyboard(_displays, _view, _commands, _scene, _audio);
 		_cockpitUpdate = new PlayerCockpitUpdate(_displays, _view, _commands, _scene, _audio);
 		_stepper = new SimulationStepper(_scene.World, _tape, _recording, _panels, _outcome, _developerKeys, _view,
-			_debugPanel, _pilot, _input);
+			_debugProbes, _pilot, _input);
 		_input.MouseQueued += (x, y, buttons, width, height) =>
 			_recording.AddMouse(x, y, buttons, width, height, _panels.AnyOpen, _view.Piloting, _input.ImGuiWantsMouse);
 
@@ -267,7 +271,7 @@ sealed class SimulatorHost : IDisposable {
 		_filing = new DrawFiling(_scene);
 		_world = new WorldDrawItems(_scene, _uploads, _filing, TerrainTextureHandle());
 		_transient = new TransientDrawItems(_scene, _uploads, _filing, _world);
-		_passes = new WorldPassRenderer(gl, _scene, _view.Camera, _debugPanel, _world, _transient);
+		_passes = new WorldPassRenderer(gl, _scene, _view.Camera, _debugOptions, _world, _transient);
 		_imgui = new ScaledImGui(gl, _window, input, _session.ImGuiFontPath);
 		_input.ImGui = _imgui;
 		_textures = new CockpitTextures(gl, _art, _displays.HddCommand, _displays.HddMapFlashRaster);
@@ -411,9 +415,9 @@ sealed class SimulatorHost : IDisposable {
 
 		_displays.UpdateSquadVideos();
 
-		// What the debug panel reports about the walk — see DebugPanel.Sample for why it is measured
+		// What the debug panel reports about the walk — see DebugProbes.Sample for why it is measured
 		// every frame rather than only while the panel is up.
-		_debugPanel.Sample(pilotMech);
+		_debugProbes.Sample(pilotMech);
 
 		_staging.AcquireTarget(pilotMech, _scene.Targeting);
 		_cockpitUpdate.Update(deltaSeconds);

@@ -13,7 +13,6 @@ using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Sim.Ai;
-using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 

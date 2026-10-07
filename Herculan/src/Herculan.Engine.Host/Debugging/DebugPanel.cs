@@ -6,7 +6,6 @@ using Herculan.Engine.Platform;
 using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
-using Herculan.Engine.View;
 using ImGuiNET;
 
 namespace Herculan.Engine.Host.Debugging;
@@ -24,105 +23,18 @@ namespace Herculan.Engine.Host.Debugging;
 /// <para>Everything it shows is read from live simulation state and everything it sets is a
 /// host-side view option — nothing here feeds back into the sim, so leaving it open cannot change
 /// what it is reporting. The two [Drain] buttons are the exception, and are test seams rather than
-/// mechanics.</para>
+/// mechanics. What it sets is <see cref="DebugOptions"/> and what it measures is <see cref="DebugProbes"/>, both of
+/// which the renderer and the frame stepper read whether or not the panel is reachable.</para>
 /// </summary>
-sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
+sealed class DebugPanel(DebugOptions options, DebugProbes probes) {
 	/// <summary>Whether the panel is up. Set by the host's [Esc]/menu-bar logic (<see cref="Simulator.WindowKeys"/>), and
 	/// cleared here on a click outside the window.</summary>
 	public bool IsOpen { get; set; }
-
-	/// <summary>Whether the host should draw the animating skeleton over the world. Starts as the constructor's
-	/// <c>drawSkeleton</c>: on under <c>--developer</c>, off otherwise, since only then can the panel turn it off.</summary>
-	public bool DrawSkeleton { get; private set; } = drawSkeleton;
-
-	/// <summary>
-	/// Joints in the last skeleton the host built, for the readout. Set by whatever draws the
-	/// skeleton, since that is the only thing that knows.
-	/// </summary>
-	public int SkeletonJointCount { get; set; }
 
 	/// <summary>Whether the panel was already open on the previous <see cref="Draw"/> call. Suppresses
 	/// the click-outside-closes check for the one frame it opens on — that frame's own click (the menu
 	/// bar's "Debug" item) is itself outside this window and would otherwise close it on arrival.</summary>
 	private bool _wasOpenLastDraw;
-
-	// What the panel reports about the walk. The eye's rise above the machine's own origin is the
-	// whole of the cockpit bob (see MechObject.EyePosition), so tracking its swing turns "it feels
-	// wrong" into a number that can be checked against the 0.24-0.42 m a retail stride is supposed
-	// to cover.
-	private float _eyeRiseMeters;
-	private float _eyeRiseMin = float.MaxValue;
-	private float _eyeRiseMax = float.MinValue;
-	private float _lastStepMeters;
-	private Vec3i _lastMechPosition;
-	private bool _haveLastPosition;
-
-	/// <summary>
-	/// Takes this frame's walk measurements. Called every frame whether or not the panel is open, so
-	/// opening it mid-stride shows the stride rather than starting from nothing — and so the min/max
-	/// swing is a record of the walk, not of how long the panel has been up.
-	/// </summary>
-	public void Sample(MechObject? mech) {
-		if (mech == null) {
-			return;
-		}
-
-		_eyeRiseMeters = (mech.EyePosition.Z - mech.Position.Z) / WorldScale.WorldUnitsPerMeter;
-		_eyeRiseMin = Math.Min(_eyeRiseMin, _eyeRiseMeters);
-		_eyeRiseMax = Math.Max(_eyeRiseMax, _eyeRiseMeters);
-
-		if (_haveLastPosition) {
-			var step = mech.Position;
-			_lastStepMeters = new Vector2(
-				(step.X - _lastMechPosition.X) / WorldScale.WorldUnitsPerMeter,
-				(step.Y - _lastMechPosition.Y) / WorldScale.WorldUnitsPerMeter).Length();
-		}
-
-		_lastMechPosition = mech.Position;
-		_haveLastPosition = true;
-	}
-
-	/// <summary>
-	/// Records the beams the tick just finished resolved. Called once per <see cref="SimWorld.Tick"/>
-	/// rather than once per frame, because that list is cleared at the top of each tick and a frame
-	/// can cover several.
-	///
-	/// <para>This is the only thing that can currently see a shot happen: beams have no visual yet, so
-	/// the tally below is what tells you whether the trigger reached the mounts, whether the ray found
-	/// anything, and how far it got.</para>
-	/// </summary>
-	public void SampleBeams(SimWorld world) {
-		foreach (var beam in world.Beams) {
-			_beamsFired++;
-			_lastBeamRange = beam.Range;
-			_lastBeamDistance = beam.Distance;
-			_lastBeamTarget = beam.HitObject switch {
-				MechObject mech => mech.Name,
-				null => beam.GroundHit != null ? "ground" : null,
-				var other => other.GetType().Name,
-			};
-
-			if (beam.HitObject != null) {
-				_beamsHit++;
-			}
-
-			if (beam.GroundHit != null) {
-				_beamsGrounded++;
-			}
-		}
-
-		_projectilesLive = world.Projectiles.Count;
-		_effectsLive = world.Effects.Count;
-
-		foreach (var impact in world.Impacts) {
-			_projectileImpacts++;
-			_lastImpactTarget = impact.HitObject switch {
-				MechObject mech => mech.Name,
-				null => impact.GroundHit != null ? "ground" : null,
-				var other => other.GetType().Name,
-			};
-		}
-	}
 
 	/// <summary>
 	/// One line naming a simulation object, for the readouts. A HERC and a flyer have a type name; a
@@ -135,18 +47,6 @@ sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
 		BaseObject structure => $"base type {structure.Type.Index}",
 		var other => other.GetType().Name,
 	};
-
-	private int _projectilesLive;
-	private int _effectsLive;
-	private int _projectileImpacts;
-	private string? _lastImpactTarget;
-
-	private int _beamsFired;
-	private int _beamsHit;
-	private int _beamsGrounded;
-	private int _lastBeamRange;
-	private int _lastBeamDistance;
-	private string? _lastBeamTarget;
 
 	/// <summary>
 	/// Builds this frame's ImGui draw list for the panel. Does nothing while <see cref="IsOpen"/> is
@@ -167,14 +67,14 @@ sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
 			ImGuiCond.FirstUseEver);
 		ImGui.Begin("Debug");
 
-		bool skeleton = DrawSkeleton;
+		bool skeleton = options.DrawSkeleton;
 		if (ImGui.Checkbox("Draw skeleton", ref skeleton)) {
-			DrawSkeleton = skeleton;
+			options.DrawSkeleton = skeleton;
 		}
 
-		bool steady = steadyEye.Enabled;
+		bool steady = options.SteadyEye.Enabled;
 		if (ImGui.Checkbox("Steady eye (pin cockpit height)", ref steady)) {
-			steadyEye.Enabled = steady;
+			options.SteadyEye.Enabled = steady;
 		}
 
 		ImGui.Separator();
@@ -189,7 +89,7 @@ sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
 		}
 
 		ImGui.Text($"Machine: {pilotMech.Name}");
-		ImGui.Text($"Skeleton joints: {SkeletonJointCount}");
+		ImGui.Text($"Skeleton joints: {options.SkeletonJointCount}");
 		ImGui.Text($"Posed geometry nodes: {context.PosedNodeCount}"
 			+ " (visible in the external view, [V])");
 
@@ -231,7 +131,7 @@ sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
 		ImGui.Text($"Speed: {pilotMech.Speed} raw, {pilotMech.DisplaySpeedKph} km/h"
 			+ $" (ground {pilotMech.GroundSpeedKph} km/h)");
 		ImGui.Text($"Gait: {(Math.Abs(pilotMech.Speed) >= pilotMech.Type.GaitThreshold ? "run" : "walk")}");
-		ImGui.Text($"Step this frame: {_lastStepMeters:F3} m");
+		ImGui.Text($"Step this frame: {probes.LastStepMeters:F3} m");
 
 		ImGui.Separator();
 		var position = pilotMech.Position;
@@ -361,16 +261,16 @@ sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
 			ImGui.Text("Armed: nothing");
 		}
 
-		ImGui.Text($"Beams fired: {_beamsFired}   hit: {_beamsHit}   clipped at ground: {_beamsGrounded}");
-		if (_beamsFired > 0) {
-			ImGui.Text($"  last: reached {_lastBeamDistance} of {_lastBeamRange}"
-				+ $"  — {_lastBeamTarget ?? "no hit"}");
+		ImGui.Text($"Beams fired: {probes.BeamsFired}   hit: {probes.BeamsHit}   clipped at ground: {probes.BeamsGrounded}");
+		if (probes.BeamsFired > 0) {
+			ImGui.Text($"  last: reached {probes.LastBeamDistance} of {probes.LastBeamRange}"
+				+ $"  — {probes.LastBeamTarget ?? "no hit"}");
 		}
 
-		ImGui.Text($"Shots in flight: {_projectilesLive}   impacts: {_projectileImpacts}");
-		ImGui.Text($"Impact effects playing: {_effectsLive}");
-		if (_projectileImpacts > 0) {
-			ImGui.Text($"  last struck: {_lastImpactTarget ?? "nothing"}");
+		ImGui.Text($"Shots in flight: {probes.ProjectilesLive}   impacts: {probes.ProjectileImpacts}");
+		ImGui.Text($"Impact effects playing: {probes.EffectsLive}");
+		if (probes.ProjectileImpacts > 0) {
+			ImGui.Text($"  last struck: {probes.LastImpactTarget ?? "nothing"}");
 		}
 
 		ImGui.Text($"Damage taken: {pilotMech.DamageTaken}"
@@ -403,15 +303,14 @@ sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
 		// MechObject.EyePosition), so a swing far outside that band is the measurement that turns the
 		// complaint into a lead.
 		ImGui.Separator();
-		ImGui.Text($"Eye rise: {_eyeRiseMeters:F3} m");
-		if (_eyeRiseMin <= _eyeRiseMax) {
-			ImGui.Text($"  seen {_eyeRiseMin:F3} .. {_eyeRiseMax:F3} m");
-			ImGui.Text($"  swing {_eyeRiseMax - _eyeRiseMin:F3} m (retail stride: 0.24-0.42)");
+		ImGui.Text($"Eye rise: {probes.EyeRiseMeters:F3} m");
+		if (probes.EyeRiseMin <= probes.EyeRiseMax) {
+			ImGui.Text($"  seen {probes.EyeRiseMin:F3} .. {probes.EyeRiseMax:F3} m");
+			ImGui.Text($"  swing {probes.EyeRiseMax - probes.EyeRiseMin:F3} m (retail stride: 0.24-0.42)");
 		}
 
 		if (ImGui.Button("Reset swing")) {
-			_eyeRiseMin = float.MaxValue;
-			_eyeRiseMax = float.MinValue;
+			probes.ResetSwing();
 		}
 
 		CloseIfClickedOutside(justOpened);

@@ -1,6 +1,7 @@
 language.name Français
 general.save    Enregistrer
 general.cancel  Annuler
+general.close   Fermer
 tweak.target_distance_meters.display_name      Afficher la distance de la cible en mètres
 tweak.target_distance_meters.description       Sur le MFD, affiche la distance de la cible en mètres sur l'écran F5 TARGET. Le jeu original affiche la distance en unités du moteur sur cet écran uniquement.
 tweak.show_correct_stats.display_name          Afficher les statistiques correctes
@@ -79,8 +80,6 @@ settings.in_mission            Revenez à l'interface de jeu pour modifier ceci.
 settings.languages             Langues
 settings.game_language         Langue du jeu
 settings.interface_language    Langue de l'interface HERCULAN
-settings.close                 Fermer
-settings.cancel                Annuler
 settings.write_failed          Impossible d'écrire {0} : {1}
 disc_prompt.message            Choisissez le dossier du disque d'Earthsiege 2, comme le lecteur de CD ou une copie du disque. Il est enregistré dans le fichier data\{0} de l'installation, que le jeu original lit aussi, et l'interface de jeu redémarre.
 disc_prompt.path_hint          Dossier du disque
@@ -132,8 +131,6 @@ install.destination_inside_disc  {0} se trouve dans le dossier du disque.
 install.no_space               L'installation nécessite {0:N0} Mo, mais seuls {1:N0} Mo sont libres à cet emplacement.
 install.retail_note            Les programmes du jeu original sont aussi copiés, mais ils ne fonctionneront pas depuis cette installation : HERCULAN omet les codecs vidéo, DirectX et le reste de la configuration système qu'effectuait l'installateur d'origine, et le jeu original ne peut pas lire une image disque. Jouez à cette installation avec HERCULAN.
 install.install                Installer
-install.cancel                 Annuler
-install.close                  Fermer
 install.copying                Copie de {0} ({1} sur {2})
 install.cancelled              L'installation a été annulée, et ce qu'elle avait copié a été supprimé.
 install.failed                 L'installation a échoué, et ce qu'elle avait copié a été supprimé : {0}

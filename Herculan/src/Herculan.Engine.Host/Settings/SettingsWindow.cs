@@ -103,7 +103,7 @@ sealed class SettingsWindow : IDisposable {
 			ImGui.SeparatorText(Text("settings.folders"));
 			string installRoot = _session.InstallRoot;
 			if (FolderRow(Text("settings.install_folder"), installRoot, "##change_install")) {
-				OpenPrompt(InstallPrompt.Create(_session.Localization, "settings.cancel", installRoot,
+				OpenPrompt(InstallPrompt.Create(_session.Localization, "general.cancel", installRoot,
 					"settings.install_message"), PromptKind.Install);
 			}
 
@@ -116,7 +116,7 @@ sealed class SettingsWindow : IDisposable {
 			string? image = GameInstall.DiscImagePath(installRoot);
 			string? disc = GameInstall.DiscDirectory(installRoot);
 			if (FolderRow(Text("settings.disc_folder"), disc ?? Text("settings.no_disc"), "##change_disc")) {
-				OpenPrompt(new PathPrompt(_session.Localization, "disc_prompt", "settings.cancel", DiscRefusal, disc ?? ""),
+				OpenPrompt(new PathPrompt(_session.Localization, "disc_prompt", "general.cancel", DiscRefusal, disc ?? ""),
 					PromptKind.DiscFolder);
 			}
 			if (image != null) {
@@ -125,7 +125,7 @@ sealed class SettingsWindow : IDisposable {
 
 			if (FolderRow(Text("settings.disc_image"), image ?? Text("settings.no_disc_image"), "##change_image",
 					removable: image != null)) {
-				OpenPrompt(new PathPrompt(_session.Localization, "image_prompt", "settings.cancel", ImageRefusal, image ?? "",
+				OpenPrompt(new PathPrompt(_session.Localization, "image_prompt", "general.cancel", ImageRefusal, image ?? "",
 					fileFilter: new NativePathPicker.FileFilter(Text("install.image_filter"), ["iso", "bin", "cue"])),
 					PromptKind.DiscImage);
 			}
@@ -141,7 +141,7 @@ sealed class SettingsWindow : IDisposable {
 			}
 
 			ImGui.Separator();
-			if (ImGui.Button(Text("settings.close"), new Vector2(ImGui.GetContentRegionAvail().X, 0f))) {
+			if (ImGui.Button(Text("general.close"), new Vector2(ImGui.GetContentRegionAvail().X, 0f))) {
 				stayOpen = false;
 			}
 

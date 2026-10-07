@@ -184,7 +184,7 @@ sealed class InstallPanel : IDisposable {
 		}
 
 		ImGui.SameLine();
-		if (ImGui.Button(Text(Busy ? "install.cancel" : "install.close"), buttonSize)) {
+		if (ImGui.Button(Text(Busy ? "general.cancel" : "general.close"), buttonSize)) {
 			if (Busy) {
 				_cancellation?.Cancel();
 			} else {

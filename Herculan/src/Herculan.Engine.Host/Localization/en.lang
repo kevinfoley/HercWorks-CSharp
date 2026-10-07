@@ -1,6 +1,7 @@
 language.name English
 general.save    Save
 general.cancel  Cancel
+general.close   Close
 tweak.target_distance_meters.display_name      Show target distance in meters
 tweak.target_distance_meters.description       On the MFD, show target distance in meters on the MFD F5 TARGET screen. Retail shows distance in engine units on this screen only.
 tweak.show_correct_stats.display_name          Show correct stats
@@ -79,8 +80,6 @@ settings.in_mission            Return to the front end to change this.
 settings.languages             Languages
 settings.game_language         Game language
 settings.interface_language    HERCULAN UI language
-settings.close                 Close
-settings.cancel                Cancel
 settings.write_failed          Could not write {0}: {1}
 disc_prompt.message            Choose the Earthsiege 2 disc folder, such as the CD drive or a copy of the disc. It is written to the install's data\{0}, which the original game reads too, and the front end restarts.
 disc_prompt.path_hint          Disc folder
@@ -132,8 +131,6 @@ install.destination_inside_disc  {0} is inside the disc folder.
 install.no_space               The install needs {0:N0} MB, but only {1:N0} MB are free there.
 install.retail_note            The original game's programs are copied too, but they will not run from this install: HERCULAN leaves out the video codecs, DirectX and the rest of the system setup the original installer did, and the original game cannot read a disc image. Play this install with HERCULAN.
 install.install                Install
-install.cancel                 Cancel
-install.close                  Close
 install.copying                Copying {0} ({1} of {2})
 install.cancelled              The install was cancelled, and what it had copied was removed.
 install.failed                 The install failed, and what it had copied was removed: {0}

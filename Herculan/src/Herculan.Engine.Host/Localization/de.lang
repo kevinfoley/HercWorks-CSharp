@@ -1,6 +1,7 @@
 language.name Deutsch
 general.save    Speichern
 general.cancel  Abbrechen
+general.close   Schließen
 tweak.target_distance_meters.display_name      Zielentfernung in Metern anzeigen
 tweak.target_distance_meters.description       Zeigt auf dem MFD im Bildschirm F5 TARGET die Zielentfernung in Metern an. Das Originalspiel zeigt die Entfernung nur auf diesem Bildschirm in internen Spieleinheiten an.
 tweak.show_correct_stats.display_name          Korrekte Werte anzeigen
@@ -79,8 +80,6 @@ settings.in_mission            Kehren Sie zum Spielmenü zurück, um dies zu än
 settings.languages             Sprachen
 settings.game_language         Spielsprache
 settings.interface_language    Sprache der HERCULAN-Oberfläche
-settings.close                 Schließen
-settings.cancel                Abbrechen
 settings.write_failed          {0} konnte nicht geschrieben werden: {1}
 disc_prompt.message            Wählen Sie den Ordner des Earthsiege-2-Datenträgers, etwa das CD-Laufwerk oder eine Kopie der CD. Er wird in data\{0} der Installation gespeichert, die auch das Originalspiel liest, und das Spielmenü startet neu.
 disc_prompt.path_hint          Datenträgerordner
@@ -132,8 +131,6 @@ install.destination_inside_disc  {0} liegt im Datenträgerordner.
 install.no_space               Die Installation benötigt {0:N0} MB, dort sind aber nur {1:N0} MB frei.
 install.retail_note            Die Programme des Originalspiels werden ebenfalls kopiert, laufen aber aus dieser Installation nicht: HERCULAN lässt die Videocodecs, DirectX und die übrige Systemeinrichtung des Original-Installationsprogramms weg, und das Originalspiel kann kein Datenträgerabbild lesen. Spielen Sie diese Installation mit HERCULAN.
 install.install                Installieren
-install.cancel                 Abbrechen
-install.close                  Schließen
 install.copying                Kopiere {0} ({1} von {2})
 install.cancelled              Die Installation wurde abgebrochen, und das bereits Kopierte wurde entfernt.
 install.failed                 Die Installation ist fehlgeschlagen, und das bereits Kopierte wurde entfernt: {0}

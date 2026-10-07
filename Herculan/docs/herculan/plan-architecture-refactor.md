@@ -2,12 +2,12 @@
 
 Make each namespace hold one kind of code, keep game rules out of the host, and point dependencies one way, without changing any algorithm, data layout or behaviour ported from the retail game.
 
-Stages 1 and 2 are built; the rest is planned. Each item is re-read against the code before it is done: the review behind this plan was partly delegated, and an item's claim is a lead until then.
+Stages 1 to 3 are built; the rest is planned. Each item is re-read against the code before it is done: the review behind this plan was partly delegated, and an item's claim is a lead until then.
 
 ## Why
 
 - **`Content` was a grab-bag.** Of its 73 files, 19 loaded data files; 50 were the cockpit's runtime state and logic, and the rest were install and input code.
-- **Retail game rules live in the host, which no test project references.** By their own doc comments, `PlayerCockpitUpdate`, `PilotControls`, `ModalPanels`, `CampaignLoop` and `GameInProgress` port the player's per-frame cockpit update, the input poll's button switch, the alert panels' key handling and the save-slot load and save. [`planning.md`](planning.md#engine-internal-architecture) asks for a thin host.
+- **Retail game rules lived in the host, which no test project references.** By their own doc comments, `PlayerCockpitUpdate`, `PilotControls`, `ModalPanels`, `CampaignLoop` and `GameInProgress` port the player's per-frame cockpit update, the input poll's button switch, the alert panels' key handling and the save-slot load and save. [`planning.md`](planning.md#engine-internal-architecture) asks for a thin host.
 - **Dependencies pointed both ways.** Sim imported Audio, Cockpit and Render, Gl imported Render, and Sim read the global `TweakSettings.Current`. Render still uses Sim in seven files.
 - **Large classes bundle unrelated jobs.** `SimWorld` (pools and tick, mission state, effects, raycasts, shot spawning, latches), `MissionScene.Load` (session bootstrap, mesh preload, write-back of shape data), `GameAudio` (audio stack plus the message-port clock and the power-up rule), `DebugPanel` (view, probes and view options, read by the frame stepper and renderer).
 - **Earthsiege 1 support is under consideration.** Its executables are a different build (not Borland, an X-32 DOS extender) with a different shell (`GO.EXE`) and audio (`.SFX`, HMP through HMI SOS), but share the 3Space asset layer: VOL, the `TS*`/`GL*`/`AN*` classes, `.DTS`/`.DBA`/`.DPL`/`.DFN` headers, and 548 of 556 `.SNC` files byte-identical. A refactor that separates the asset layer from game-specific code serves that split.
@@ -50,9 +50,14 @@ Standing rule:
 
 ## Stage 3 — thin host
 
-- The retail cockpit and campaign logic in `Host/Simulator/Cockpit` and `Host/Shell` (`PlayerCockpitUpdate`, `PilotControls`, `ModalPanels`, `CockpitCommands`, `CockpitKeyboard`, `PilotKeys`, `DeveloperKeys`, `CampaignLoop`'s decisions, `GameInProgress`) moves to `Engine.Cockpit` and `Engine.Shell`, returning outcomes instead of closing windows. Three seams are cut first: the pointer warp (`ModalPanels`→`SimulatorInput`), the manual and full-screen keys (`CockpitCommands`→`WindowKeys`), and `DebugPanel`. Tests are added as each piece moves; the moved code's call order is retail behaviour.
-- `WorldDrawItems`, `TransientDrawItems`, `SceneUploads` and `DrawFiling` (the detail-level and part selection the draw pass ports) move to `Engine/Render`, where the editor can use them.
-- `DebugPanel` splits into options, probes and view; `StagingOptions` into `StagedStart` (the `--staging` preset) and `StagedScreenshot` (the capture conditions).
+Built:
+
+- The seams the moves needed. `ModalPanels` moves the pointer through `IPointerDevice`, which `SimulatorInput` implements, takes the keyboard and whether the mission is over as arguments, and reports an answer that ends the mission through `TakeMissionEnding`, for the host's `MissionOutcome` to act on. `CockpitCommands` reaches the manual and the full-screen toggle through `ISystemButtonActions`, which `WindowKeys` implements. The debug panel's eye pin is `View.SteadyEye`, which `CockpitView` owns. The stick is an `IJoystickSource`; the host's `JoystickSource` opens it and announces it.
+- `PlayerCockpitUpdate`, `PilotControls`, `ModalPanels`, `CockpitCommands`, `CockpitKeyboard`, `PilotKeys`, `CockpitView`, `CockpitDisplays`, `DeveloperKeys` and `SimulatorStaging` are in `Engine.Cockpit`, and `Host.Simulator.Cockpit` is gone. What they read came with them: `SimulatorStart` is in `Scene`, `ShellLaunch` in `World`, and `TapePlayback`, `TapeRecording` and the key state (`IKeyState`, `KeyChords`, `KeyLatch`) in `Input`.
+- `StagingOptions` is `StagedStart` (the state a mission powers up in) and `StagedScreenshot` (what the capture waits for). `SimulatorStaging.AfterFrame` says when to capture; the host captures and closes the window.
+- `GameInProgress` is in `Engine.Shell`. `CampaignLoop`'s decisions are `ShellCampaignLoop`, which returns the launch or the debrief rather than acting on a window; the host's `CampaignScreens` does what follows on screen.
+- `WorldDrawItems`, `TransientDrawItems`, `SceneUploads` and `DrawFiling` (the detail-level and part selection the draw pass ports), with `MechDetailChain` and `DetailMetrics`, are in `Engine.Scene`, where the editor can use them. They are in Scene rather than Render because they read `MissionScene` and Sim objects, which Render may not take on (Stage 2's standing rule); Scene already depends on Render, Gl and Sim.
+- `DebugPanel` is three types in `Host.Debugging`: `DebugOptions` (what the renderer and the cockpit eye read), `DebugProbes` (the walk and shot measurements the host and the frame stepper take) and the panel itself.
 
 ## ES1 survey — gates Stage 4
 
@@ -97,11 +102,11 @@ Every step:
 - `doc_lint.py` and `doc_links.py --code` report nothing new.
 - Renames go through `tools/scripts/rename_symbol` where it builds.
 
-Stages 3 and 4 move code whose order is behaviour. Their check is a replay diff: record input tapes over a few missions, dump simulation state, and compare before and after. Replays are not deterministic, so until they are, each moved piece gets unit tests first.
+Stages 3 and 4 move code whose order is behaviour. Their check would be a replay diff — record input tapes over a few missions, dump simulation state, and compare before and after — but replays are not deterministic, so the check is made in process instead. `SimulatorRig`, in the engine tests, builds the cockpit stack over a demo tape's mission without a window and runs the update half of `SimulatorHost.OnUpdate` in its order; `CockpitSessionTests` drives a scripted session through it and digests a snapshot of the state taken every frame. Run it before and after a move with `HERCULAN_RIG_LOG` set to a file path, and compare the two per-frame logs: they must be identical. `SimulatorRig` mirrors the host's update order, so it changes when that order does.
 
 ## Open
 
-- **Open:** replay determinism, which Stages 3 and 4 need for their verification.
+- **Open:** replay determinism, which a replay diff of these stages needs (see [Verification](#verification)).
 - **Open:** `tools/scripts/rename_symbol` fails to build on the .NET 8.0.1xx SDK (CS9057: its analyzers need compiler 4.12); renames in such an environment are done by hand and checked by the build.
-- **Open:** `Host.Simulator.Cockpit` captures `Cockpit.X` inside the host; `CockpitDisplays` names `Engine.Cockpit.ThrottleTrack` for that reason. Stage 3 removes the clash.
+- **Open:** retail behaviour still in the host: `SimulationStepper` (the fixed-timestep accumulator and a replay's ticks), the [Esc] back-out from the external view, a glance and the Heads-Down Display in `WindowKeys.ReadMenuBarEscapeKey`, and `SimulatorHost.OnUpdate`'s order, which `SimulatorRig` mirrors for the tests.
 - **Open:** the ES1 survey's three questions.

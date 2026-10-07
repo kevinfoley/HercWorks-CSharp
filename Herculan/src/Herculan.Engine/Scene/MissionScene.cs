@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using Herculan.Engine.Cockpit;
+using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
@@ -452,7 +453,7 @@ public sealed class MissionScene {
 		// bounding box the two boundary statuses test is block 1's own extent, which the loader has
 		// already read.
 		world.SetObjectives(BuildObjectives(mission, groups, objects));
-		world.MissionBounds = Content.HddMapBounds.Of(mission.Coordinates);
+		world.MissionBounds = HddMapBounds.Of(mission.Coordinates);
 
 		// Each object's own two actions -- the one it fires when an enemy closes on it and the one it
 		// fires when it dies. DBSim_SpawnMissionObjects resolves both as it builds the object; here

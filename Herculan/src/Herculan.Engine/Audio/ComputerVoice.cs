@@ -1,3 +1,4 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 
 namespace Herculan.Engine.Audio;
@@ -17,7 +18,7 @@ namespace Herculan.Engine.Audio;
 /// message id and plays that message's clip, exactly as the original's own dispatch does. Which
 /// message is next, how long it holds the screen, whether a repeat is swallowed and whether the voice
 /// half of the channel is enabled at all are all
-/// <see cref="Content.MessagePort"/>'s — one queue, feeding both halves.</para>
+/// <see cref="MessagePort"/>'s — one queue, feeding both halves.</para>
 /// </summary>
 public sealed class ComputerVoice {
 	/// <summary>

@@ -1,5 +1,6 @@
 using HercWorks.Core.Data.File.Cfg;
 using HercWorks.Core.Io.Transform.Common;
+using Herculan.Engine.Cockpit;
 
 namespace Herculan.Engine.Content;
 

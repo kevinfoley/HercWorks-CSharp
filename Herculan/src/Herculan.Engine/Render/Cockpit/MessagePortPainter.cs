@@ -1,9 +1,9 @@
-﻿using System.Numerics;
+﻿using Herculan.Engine.Cockpit;
+using System.Numerics;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
-using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Settings;
@@ -126,7 +126,7 @@ internal sealed class MessagePortPainter {
 
 	/// <summary>
 	/// The cockpit computer's message ticker — a black box with a red frame, and one line of red text
-	/// scrolling right to left inside it. <see cref="Content.MessagePort"/> decides what is in it and
+	/// scrolling right to left inside it. <see cref="MessagePort"/> decides what is in it and
 	/// for how long; <see cref="MessageTickerLayout"/> says where it is and where the line sits.
 	///
 	/// <para>The text is clipped horizontally, per glyph, against the box's inset edges — the

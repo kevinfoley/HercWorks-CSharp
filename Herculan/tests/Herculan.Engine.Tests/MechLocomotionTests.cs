@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Io.Transform.Dbsim;
 using Herculan.Engine.Content;
+using Herculan.Engine.Install;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Sim;

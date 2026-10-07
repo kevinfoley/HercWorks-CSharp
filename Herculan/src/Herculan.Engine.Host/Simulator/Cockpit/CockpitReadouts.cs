@@ -1,3 +1,4 @@
+using Herculan.Engine.Cockpit;
 using System.Numerics;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;

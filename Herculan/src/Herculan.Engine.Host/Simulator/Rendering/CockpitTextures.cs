@@ -1,3 +1,4 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Render;

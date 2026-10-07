@@ -1,3 +1,4 @@
+using Herculan.Engine.Install;
 using System.Numerics;
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Content;

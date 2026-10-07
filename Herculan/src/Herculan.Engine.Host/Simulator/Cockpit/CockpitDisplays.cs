@@ -1,8 +1,8 @@
 using Herculan.Engine.Audio;
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Input;
 using Herculan.Engine.Render;
-using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Host.Simulator.Cockpit;
@@ -113,7 +113,7 @@ sealed class CockpitDisplays {
 		// The console's throttle slider and the machine's throttle setting are two-way bound, so the gauge's
 		// own value is state in its own right: it is what the machine reads on any frame the machine did not
 		// itself move the throttle. See MechObject.ExchangeCockpitThrottle.
-		ThrottleTrack = art != null ? Content.ThrottleTrack.From(art) : null;
+		ThrottleTrack = art != null ? Engine.Cockpit.ThrottleTrack.From(art) : null;
 		ThrottleGauge = stagingOptions.Throttle;
 	}
 

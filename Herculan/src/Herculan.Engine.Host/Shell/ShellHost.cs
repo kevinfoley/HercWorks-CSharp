@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Shell.Tabs;
+using Herculan.Engine.Install;
 using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
 using Silk.NET.Input;

@@ -1,10 +1,9 @@
 using Herculan.Engine.Audio;
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Input;
-using Herculan.Engine.Render;
 using Herculan.Engine.Render.Cockpit;
-using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 using Silk.NET.Input;

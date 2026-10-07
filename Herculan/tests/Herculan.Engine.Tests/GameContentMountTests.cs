@@ -1,3 +1,4 @@
+using Herculan.Engine.Install;
 using System.Text;
 using HercWorks.Vol;
 using Herculan.Engine.Content;

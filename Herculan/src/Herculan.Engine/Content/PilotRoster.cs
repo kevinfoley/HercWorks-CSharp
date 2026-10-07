@@ -1,5 +1,6 @@
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Io.Transform.Dbsim;
+using Herculan.Engine.Cockpit;
 
 namespace Herculan.Engine.Content;
 

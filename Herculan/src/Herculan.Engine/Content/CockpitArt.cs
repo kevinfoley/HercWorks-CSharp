@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using Herculan.Engine.Cockpit;
+using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dyn;

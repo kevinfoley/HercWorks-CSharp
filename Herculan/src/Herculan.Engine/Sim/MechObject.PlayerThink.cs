@@ -1,3 +1,4 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
@@ -191,7 +192,7 @@ public partial class MechObject {
 	/// <para><b>That is not what the player sees.</b> The two lines are queued a tick apart but shown
 	/// ten seconds apart, because <c>TRANSFERRING DATA</c> is the one entry in <c>SYSTEM.STR</c> whose
 	/// display timings are 10 s and 20 s rather than 3 s and 6 s, and the port will not let a message
-	/// yield before its minimum — see <see cref="Content.MessagePort"/>. So the transfer reads on
+	/// yield before its minimum — see <see cref="MessagePort"/>. So the transfer reads on
 	/// screen as a long operation while the simulation has already finished it.</para>
 	///
 	/// <para>The stored <c>0x9c40</c> is 40000, which is what the entry would hold if the sign half

@@ -1,3 +1,4 @@
+using Herculan.Engine.Install;
 using System.Numerics;
 using HercWorks.Disc;
 using Herculan.Engine.Content;

@@ -1,3 +1,4 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Audio;
@@ -60,14 +61,14 @@ public interface ISoundSink {
 	/// Posts what one squadmate has to say, on the cockpit's <i>other</i> message port
 	/// (<c>view+0x207</c>) — <c>Ai_PostSquadMessage</c> (<c>00420a98</c>). The id names a line in that
 	/// pilot's own <c>PILOT&lt;bank&gt;.STR</c>, and the machine saying it is what picks the comm box,
-	/// the portrait and the recorded voice. See <see cref="Content.SquadCommChannel"/>.
+	/// the portrait and the recorded voice. See <see cref="SquadCommChannel"/>.
 	/// </summary>
 	void SquadSay(int messageId, object speaker);
 
 	/// <summary>
 	/// Posts a line on the same port with no speaker — a mission action's message, which
 	/// <c>Action_Activate</c> (<c>00423430</c>) queues. The id names a <c>COMMAND0.STR</c> line, signed
-	/// <c>HQ</c>. See <see cref="Content.SquadCommChannel.PostUnattributed"/>.
+	/// <c>HQ</c>. See <see cref="SquadCommChannel.PostUnattributed"/>.
 	/// </summary>
 	void CommandSay(int messageId);
 
@@ -81,7 +82,7 @@ public interface ISoundSink {
 	/// Withdraws a line from the pilot-and-squad port by id and by the machine it is about — the same
 	/// <c>MessagePort_Withdraw</c> on <c>view+0x207</c>, which <c>Squad_SendOrderToSlot</c>
 	/// (<c>00431610</c>) uses on the squadmate it has just addressed. See
-	/// <see cref="Content.SquadMessagePort.Withdraw"/>.
+	/// <see cref="SquadMessagePort.Withdraw"/>.
 	/// </summary>
 	void SquadUnsay(int messageId, object? speaker);
 }

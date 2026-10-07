@@ -1,8 +1,8 @@
-using Herculan.Engine.Content;
 using Herculan.Engine.Host;
 using Herculan.Engine.Host.Install;
 using Herculan.Engine.Host.Shell;
 using Herculan.Engine.Host.Localization;
+using Herculan.Engine.Install;
 using Herculan.Engine.Settings;
 
 // The thin front-end host from docs/herculan/planning.md's "Engine internal architecture" section:

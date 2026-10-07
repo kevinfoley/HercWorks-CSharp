@@ -1,5 +1,6 @@
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Audio;
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Debugging;
 using Herculan.Engine.Host.Settings;
@@ -7,7 +8,6 @@ using Herculan.Engine.Host.Simulator.Cockpit;
 using Herculan.Engine.Host.Simulator.Rendering;
 using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
-using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;

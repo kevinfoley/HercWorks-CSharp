@@ -1,3 +1,5 @@
+using Herculan.Engine.Cockpit;
+using Herculan.Engine.Install;
 using Herculan.Engine.Numerics;
 using HercWorks.Core.Data.File.Cfg;
 using HercWorks.Core.Data.Struct.Herc;
@@ -5,7 +7,6 @@ using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Input;
 using Herculan.Engine.Scene;
-using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 

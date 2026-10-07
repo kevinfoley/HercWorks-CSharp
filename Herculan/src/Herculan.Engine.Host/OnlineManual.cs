@@ -1,3 +1,4 @@
+using Herculan.Engine.Install;
 using System.Diagnostics;
 using HercWorks.Help;
 using HercWorks.Help.Html;

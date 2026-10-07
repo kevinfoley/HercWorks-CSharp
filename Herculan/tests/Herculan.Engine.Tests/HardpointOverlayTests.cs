@@ -1,4 +1,5 @@
 using Herculan.Engine.Content;
+using Herculan.Engine.Install;
 using Herculan.Engine.Shell;
 using HercWorks.Core.Data.File.Dat.Shell;
 using HercWorks.Core.Io.Transform.Shell;

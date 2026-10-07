@@ -1,6 +1,7 @@
 ﻿using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.Struct;
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Settings;
 
@@ -136,7 +137,7 @@ public sealed class WeaponMount {
 	private bool _powerToGaugeThisTick;
 
 	/// <summary>
-	/// The charge bar's slider position, gauge <c>+0xc6</c>, 0..<see cref="Content.ChargeBarSlider.Range"/>,
+	/// The charge bar's slider position, gauge <c>+0xc6</c>, 0..<see cref="ChargeBarSlider.Range"/>,
 	/// or null for a mount with no energy gauge. It lives on the gauge in the original; it is kept here
 	/// for the reason <see cref="PodButton"/> is.
 	/// </summary>
@@ -250,7 +251,7 @@ public sealed class WeaponMount {
 	/// This mount's index in the machine's mount array — its position in the <c>.GL</c> file. It is
 	/// what the selected-weapon index, the fire-group arrays and <see cref="LinkPartnerOffset"/> are
 	/// all relative to. The Heads-Down Display's weapon list prints in <see cref="LoadoutSlot"/> order
-	/// instead — see <see cref="Content.DamageHardpoint"/>.
+	/// instead — see <see cref="DamageHardpoint"/>.
 	/// </summary>
 	public int MountIndex { get; }
 
@@ -282,7 +283,7 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// The template's damage-detail icon — <c>+0x1c</c>'s <c>+0x50</c>, read by
 	/// <c>PaperDoll_BuildWeaponIcons</c> (<c>00437c8c</c>). -1 for none. See
-	/// <see cref="Content.PaperDollDamage.PlaceWeaponIcon"/>.
+	/// <see cref="PaperDollDamage.PlaceWeaponIcon"/>.
 	/// </summary>
 	public int DamageIcon => _template?.DamageIconIndex ?? -1;
 
@@ -1219,7 +1220,7 @@ public sealed class WeaponMount {
 	/// </summary>
 	internal void BuildGauge() {
 		if (IsEnergyClass) {
-			_chargeBarPosition = Math.Clamp((int)ChargeTarget, 0, Content.ChargeBarSlider.Range);
+			_chargeBarPosition = Math.Clamp((int)ChargeTarget, 0, ChargeBarSlider.Range);
 		}
 	}
 
@@ -1244,7 +1245,7 @@ public sealed class WeaponMount {
 			// EnergyWeaponGauge_SetState hands a changed position to SliderWidget_SetValueH, which clamps it
 			// and commits it back through EnergyWeaponGauge_OnChildClick into the same field.
 			_chargeBarPosition = Math.Clamp(((int)ChargeTarget << 10) / EnergyChargeScale,
-				0, Content.ChargeBarSlider.Range);
+				0, ChargeBarSlider.Range);
 		} else {
 			ChargeTarget = ChargeTargetForBarPosition(position);
 		}
@@ -1254,7 +1255,7 @@ public sealed class WeaponMount {
 	/// The charge bar's slider committed at <paramref name="position"/>, under
 	/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>. Retail's path, which no press
 	/// reaches there: <c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>) clamps the position to
-	/// 0..<see cref="Content.ChargeBarSlider.Range"/> into the gauge's state block, and the next
+	/// 0..<see cref="ChargeBarSlider.Range"/> into the gauge's state block, and the next
 	/// <see cref="PushGaugeState"/> with the hand-off clear reads it back as the charge target. A key
 	/// press whose hand-off is still pending wins over it; docs/retail/simulation/weapon-firing.md#the-charge-bar.
 	/// </summary>
@@ -1264,7 +1265,7 @@ public sealed class WeaponMount {
 			return false;
 		}
 
-		_chargeBarPosition = Math.Clamp(position, 0, Content.ChargeBarSlider.Range);
+		_chargeBarPosition = Math.Clamp(position, 0, ChargeBarSlider.Range);
 		return true;
 	}
 
@@ -1273,7 +1274,7 @@ public sealed class WeaponMount {
 	/// <c>EnergyWeaponGauge_OnChildClick</c> clamps it, then <c>position * 1200 &gt;&gt; 10</c>.
 	/// </summary>
 	internal static short ChargeTargetForBarPosition(int position) =>
-		(short)(Math.Clamp(position, 0, Content.ChargeBarSlider.Range) * EnergyChargeScale >> 10);
+		(short)(Math.Clamp(position, 0, ChargeBarSlider.Range) * EnergyChargeScale >> 10);
 
 	/// <summary>
 	/// Vtable slot <c>0x28</c>, the fire dispatch — <c>WeaponMount_FireDispatch_GunBeam</c>

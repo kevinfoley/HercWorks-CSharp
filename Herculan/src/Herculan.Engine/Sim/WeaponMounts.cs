@@ -543,7 +543,7 @@ public sealed class WeaponMounts {
 	/// <c>WeaponMounts_MountIsReady</c> (<c>00410970</c>): the mount's own readiness, gated on the
 	/// selected target's range and on missile lock, and for a linked pair, both halves'. One predicate
 	/// serves two purposes — it is the flag a row's state box is lit green or red by
-	/// (<see cref="Herculan.Engine.Content.WeaponRowState.Ready"/>) and the test
+	/// (<see cref="Herculan.Engine.Cockpit.WeaponRowState.Ready"/>) and the test
 	/// <see cref="PerFrameUpdate"/> steps the chain past.
 	///
 	/// <para>The range gate is <see cref="WeaponMount.RangeAllows"/> against

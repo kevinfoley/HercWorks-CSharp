@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Cfg;
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
@@ -29,7 +30,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <summary>
 	/// <c>Time_GetCoarseTicks</c> as this session has counted it — the same clock the message port
 	/// runs on, and the one the cockpit's power-up animations are timed against. Exposed because the
-	/// compass's wind-up is stamped and ramped in it; see <see cref="Content.HeadingTapeSweep"/>.
+	/// compass's wind-up is stamped and ramped in it; see <see cref="HeadingTapeSweep"/>.
 	/// </summary>
 	public long CoarseTicks => (long)_messageTicks;
 
@@ -87,7 +88,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// speech — but it lives here because this is where a posted message arrives: the simulation
 	/// reaches it through <see cref="ISoundSink.Say"/>, which knows nothing about either half. A
 	/// renderer reads <see cref="MessagePort.Ticker"/> from it; see
-	/// <see cref="Content.MessageTickerLayout"/>.
+	/// <see cref="MessageTickerLayout"/>.
 	/// </summary>
 	public MessagePort Messages { get; }
 

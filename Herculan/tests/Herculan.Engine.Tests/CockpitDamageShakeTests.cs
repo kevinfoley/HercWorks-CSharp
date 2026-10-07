@@ -2,6 +2,7 @@ using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Dbsim;
 using Herculan.Engine.Content;
+using Herculan.Engine.Install;
 using Herculan.Engine.Render;
 using Herculan.Engine.World;
 using System.Numerics;

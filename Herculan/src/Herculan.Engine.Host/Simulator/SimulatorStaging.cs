@@ -1,6 +1,5 @@
-using Herculan.Engine.Content;
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Host.Simulator.Cockpit;
-using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;

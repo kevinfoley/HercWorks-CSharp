@@ -1,4 +1,5 @@
 using Herculan.Engine.Content;
+using Herculan.Engine.Install;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;

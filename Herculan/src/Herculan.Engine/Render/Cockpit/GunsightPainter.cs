@@ -1,11 +1,10 @@
-﻿using System.Numerics;
+﻿using Herculan.Engine.Cockpit;
+using System.Numerics;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
-using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
-using Herculan.Engine.Sim;
 using Herculan.Engine.Settings;
 using HercWorks.Core.Data.File;
 
@@ -25,7 +24,7 @@ internal sealed class GunsightPainter {
 
 	/// <summary>
 	/// The front window's floating scanner repeater (<c>HudScanner_Paint</c>, <c>0043f2b0</c>) — see
-	/// <see cref="Content.HudScanner"/> for what it is and why it is here rather than with the MFD.
+	/// <see cref="HudScanner"/> for what it is and why it is here rather than with the MFD.
 	/// It draws only while the MFD is showing something other than its own screen.
 	/// </summary>
 	internal static void AddHudScanner(CockpitArt hud, CockpitHudState state,

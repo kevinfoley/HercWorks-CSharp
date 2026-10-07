@@ -1,6 +1,4 @@
-using HercWorks.Core.Data.File.Sav;
 using HercWorks.Core.Data.Struct;
-using HercWorks.Core.Data.Struct.Vshell.Hercs;
 using HercWorks.Core.Data.Struct.Vshell.Sav;
 
 namespace Herculan.Engine.Shell;

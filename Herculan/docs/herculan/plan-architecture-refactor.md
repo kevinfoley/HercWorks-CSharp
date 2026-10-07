@@ -32,7 +32,7 @@ Built:
 - `EngineWindow`, `ExecutableIcon`, `PrintScreenCapture` and `ScaledImGui` are `Platform`, in the engine assembly because both hosts use them.
 - `CockpitReadouts` is `PlayerCockpitUpdate`, after the retail function it ports.
 - `ShellWeaponUnit`, `ShellBayMachine` (with `ShellMachineStatus`), `ShellBayPilot`, `ShellLaunchRefusalDialog` and `ShellEndOfGameDialog` have their own files.
-- Partial-file splits along retail prefixes: `WeaponMount` (`.Charge`, `.Gauge`, `.Fire`, `.Condition`); `MechObject` (the throttle state to `.Locomotion`, `Mech_MovementTick` and the collision test to `.Movement`, the turret commands to `.Torso`, and `.Combat` split into `.Damage` and `.Scoring`); `BaseObject` (`.Damage`, `.DeathSequence`); `ShellHangar` (`.Armory`, `.Squad`, `.Grants`, `.Save`); `ShellMap` (`.Paint`, `.Intro`, with `ZoneRelief` and `ShellMapArt` in their own files); `DtsMeshBuilder` (`.Parts`, `.Polys`, `.Emit`).
+- Partial-file splits along retail prefixes: `WeaponMount` (`.Charge`, `.Gauge`, `.Fire`, `.Condition`); `MechObject` (the throttle state and `Mech_MovementTick` to `.Locomotion`, the collision test and what a refusal sets off to `.Collision`, the turret commands to `.Torso`, and `.Combat` split into `.Damage` and `.Scoring`); `BaseObject` (`.Damage`, `.DeathSequence`); `ShellHangar` (`.Armory`, `.Squad`, `.Grants`, `.Save`); `ShellMap` (`.Paint`, `.Intro`, with `ZoneRelief` and `ShellMapArt` in their own files); `DtsMeshBuilder` (`.Parts`, `.Polys`, `.Emit`).
 
 ## Stage 2 — dependencies one way
 

@@ -1,11 +1,13 @@
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Sim.Anim;
 
 namespace Herculan.Engine.Sim;
 
-// The HERC control law: input to throttle, throttle to a desired speed, and the gait state machine
-// that keeps the animation thread playing the right sequence at the right rate. Ported from
-// Mech_ApplyThrottleInput (004160dc), Mech_LocomotionTick (00416a04) and
-// Mech_ApplyTerrainSlopeToSpeed (0041693c). The move those numbers drive is MechObject.Movement.cs.
+// The HERC control law and the move it drives: input to throttle, throttle to a desired speed, the
+// gait state machine that keeps the animation thread playing the right sequence at the right rate,
+// and the root motion that sequence carries. Ported from Mech_ApplyThrottleInput (004160dc),
+// Mech_LocomotionTick (00416a04), Mech_ApplyTerrainSlopeToSpeed (0041693c) and Mech_MovementTick
+// (0041a360). The collision test that can refuse the move is MechObject.Collision.cs.
 // See docs/retail/simulation/mech-locomotion.md.
 public sealed partial class MechObject {
 	/// <summary>Throttle movement per tick at full stick deflection, Q8 against the axis.</summary>
@@ -499,6 +501,169 @@ public sealed partial class MechObject {
 		short adjusted = (short)(adjustment + desired);
 		bool flipped = (adjusted < 1 || desired < 1) && (adjusted >= 0 || desired >= 0);
 		return flipped ? (short)0 : adjusted;
+	}
+
+	/// <summary>
+	/// <c>Mech_MovementTick</c> (<c>0041a360</c>) — advances the animation, takes whatever ground
+	/// movement that produced, drops the machine onto the terrain, and undoes the step if it turned
+	/// out to be blocked.
+	///
+	/// <para>The undo is the interesting part. A blocked step restores the position <i>and</i> the
+	/// animation thread, reverses the speed scalar and the playback rate, and tries again — so a
+	/// HERC that walks into something takes a step backwards rather than sticking. If that step is
+	/// blocked too, it gives up and stops. Note the restore puts back the rotation <i>matrix</i> but
+	/// not the euler angles, so the heading change a blocked step made survives while its
+	/// translation does not; that is the original's behaviour, not an oversight here.</para>
+	/// </summary>
+	private void MovementTick(SimWorld world) {
+		ResolveMovement(world);
+
+		// Last thing in the tick, as it is in the original — it reads the pose the move settled on.
+		PlaceLegsOnGround(world);
+	}
+
+	/// <summary>Everything Mech_MovementTick does before its closing Mech_PlaceLegsOnGround call.</summary>
+	private void ResolveMovement(SimWorld world) {
+		if (Thread == null) {
+			Position = new Vec3i(Position.X, Position.Y,
+				world.GroundHeightAt(Position) + Type.RideHeight);
+			return;
+		}
+
+		var startPosition = Position;
+		if (IsPlayer) {
+			_slideOrigin = startPosition;
+		}
+
+		var saved = Capture();
+		IntegrateMotion();
+
+		var moved = Position;
+		int x = moved.X;
+		int y = moved.Y;
+		if (IsPlayer && _sliding) {
+			x += _slideX;
+			y += _slideY;
+		}
+
+		Position = new Vec3i(x, y, world.Terrain.HeightAtWorld(x, y) + Type.RideHeight);
+
+		if (!CollisionTest(world)) {
+			return;
+		}
+
+		Restore(saved);
+
+		if (!IsPlayer) {
+			_backoffTimer = CollisionBackoffTime;
+			_backoffSide = (world.Random.NextMasked(1) == 0) ? CollisionBackoffSide : (short)-CollisionBackoffSide;
+			_backoffReverse = Speed > 0;
+		}
+
+		AllStop();
+
+		if (Thread.InTransition) {
+			// Mid-transition there is no sensible step to reverse, so the machine is cut straight
+			// into its stop animation instead.
+			Thread.SetSequence(Type.StopForwardSequence, 0, 0);
+			return;
+		}
+
+		int reversed = -Speed;
+		if (reversed >= Type.MaxForward) {
+			reversed = Type.MaxForward;
+		} else if (reversed <= Type.ReverseGaitThreshold) {
+			reversed = Type.ReverseGaitThreshold;
+		}
+
+		Speed = (short)reversed;
+		AnimRate = (short)-AnimRate;
+
+		IntegrateMotion();
+
+		// The retry is not terrain-clamped before being tested, and the original has only one save
+		// slot — so a second refusal restores the same tick-start state again.
+		if (CollisionTest(world)) {
+			Restore(saved);
+			Speed = 0;
+		}
+	}
+
+	/// <summary>
+	/// <c>Mech_IntegrateMotion</c> (<c>00418f40</c>) + <c>SimObject_ApplyRootMotion</c>
+	/// (<c>0040250c</c>) — the whole of a HERC's translation and turn-in-place rotation.
+	///
+	/// <para>Seed the thread's root transform to identity, step the animation by this tick's worth
+	/// of animation time, then read the root back: what comes out is exactly the ground movement
+	/// that step covered, ramped within the current frame and committed whole at each frame
+	/// boundary. Rotate it into world space, add it on, and reset.</para>
+	///
+	/// <para>This seeds and reads the locomotion thread throughout. The original seeds the shape's
+	/// first thread (<c>ShapeInst_SeedRootTransform</c>, <c>00478a70</c>) and reads the first one
+	/// after <c>AnimThread_StepAll</c>'s priority re-sort, which is the twist thread while
+	/// locomotion plays a stop/step-off sequence — see docs/retail/formats/dts-node-posing.md, "Several
+	/// threads on one shape".</para>
+	/// </summary>
+	private void IntegrateMotion() {
+		if (Thread == null) {
+			return;
+		}
+
+		Thread.Rate = AnimRate;
+
+		// dt is the timestep in animation ticks: Q8(SimTickDelta, 100), where the 100 is the
+		// original's own animation-time-per-sim-time constant.
+		short delta = (short)SimMath.IntegrateRateOverTick(AnimationTimeRate);
+
+		Thread.WriteRoot(Transform3.Identity);
+		Thread.Advance(delta);
+		var motion = Thread.ReadRoot();
+
+		var rotation = Rotation();
+		var moved = rotation.TransformPoint(motion.X, motion.Y, motion.Z);
+		Position = moved;
+
+		var euler = motion.ToEuler();
+		Pitch = (short)(Pitch + euler.X);
+		Roll = (short)(Roll + euler.Y);
+		Heading = (Heading + euler.Z) & 0xffff;
+		_rotationValid = false;
+	}
+
+	/// <summary>
+	/// The developer keys' move — <c>Mech_HandleCommand</c> (<c>004157c8</c>), codes <c>0x248</c>,
+	/// <c>0x250</c>, <c>0x24b</c> and <c>0x24d</c>: the machine's own frame applied to the offset, and
+	/// the result written straight over its position. Nothing is tested on the way, so it goes through
+	/// terrain, structures and other machines alike. See docs/retail/key-bindings.md.
+	/// </summary>
+	/// <param name="across">Along the machine's own X axis, to its right.</param>
+	/// <param name="along">Along its own Y axis, forward.</param>
+	public void Displace(short across, short along) {
+		Position = Rotation().TransformPoint(across, along, 0);
+	}
+
+	/// <summary>
+	/// The developer keys' turn on the spot — codes <c>0x44b</c> and <c>0x44d</c> of the same handler,
+	/// which add to the euler triple's Z and mark the cached frame stale.
+	/// </summary>
+	public void TurnBy(int angle) {
+		Heading = (Heading + angle) & 0xffff;
+		_rotationValid = false;
+	}
+
+
+	private readonly record struct Snapshot(
+		Vec3i Position, Transform3 Rotation, bool RotationValid, AnimationThread.State Thread);
+
+	/// <summary><c>SimObject_PushTransform</c> (<c>00402628</c>), narrowed to what a HERC needs.</summary>
+	private Snapshot Capture() => new(Position, Rotation(), true, Thread!.Capture());
+
+	/// <summary><c>SimObject_PopTransform</c> (<c>004027fc</c>).</summary>
+	private void Restore(in Snapshot snapshot) {
+		Position = snapshot.Position;
+		_rotation = snapshot.Rotation;
+		_rotationValid = snapshot.RotationValid;
+		Thread!.Restore(snapshot.Thread);
 	}
 
 	/// <summary>The animation rate the fall is entered at — the original's own literal.</summary>

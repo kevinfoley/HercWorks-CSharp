@@ -1,28 +1,28 @@
-# Campaign consequences
+# Campaign continuity
 
 What one campaign mission's result changes in the missions after it, read from v1.0's 50 campaign `.MSN` files. The order of play never changes: there is no alternate route, and a lost mission is followed by the same next mission as a won one. What a result changes is the content of later missions, the squad's size, the chassis and weapons the armory can build, and whether the war goes on at all.
 
 ## How a result is carried
 
-The campaign has one store for all of this, the 1,000-word flag array ([`campaign-loop.md`](campaign-loop.md#the-campaign-flag-array-is-the-msn-condition-store)). A mission's conditions read it twice: when the mission loads, which decides what is in it, and again at its own debrief, which picks its debrief text ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#row-5--the-debrief)). Four things carry a result into that array:
+The campaign has one store for all of this, the 1,000-word flag array ([`shell/campaign-loop.md`](shell/campaign-loop.md#the-campaign-flag-array-is-the-msn-condition-store)). A mission's conditions read it twice: when the mission loads, which decides what is in it, and again at its own debrief, which picks its debrief text ([`formats/msn-mission-file.md`](formats/msn-mission-file.md#row-5--the-debrief)). Four things carry a result into that array:
 
-- **The outcome, flag 0.** The debrief stores 1 for a won mission and 0 for a lost one. The next mission's load tests it and its header patch then clears it ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#the-header-patch--row-2)), so only the mission immediately after sees it.
-- **Mission counters.** An object, or a whole group, adds to a flag when it goes out of the fight ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-out-of-action-report)), and an objective adds or subtracts the first time its condition holds ([`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-record)). Apart from the slots the debrief grants from and the few the simulator resets at each load ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4)), they keep their value for the rest of the campaign, so any later mission can test them.
+- **The outcome, flag 0.** The debrief stores 1 for a won mission and 0 for a lost one. The next mission's load tests it and its header patch then clears it ([`formats/msn-mission-file.md`](formats/msn-mission-file.md#the-header-patch--row-2)), so only the mission immediately after sees it.
+- **Mission counters.** An object, or a whole group, adds to a flag when it goes out of the fight ([`simulation/mission-deployment.md`](simulation/mission-deployment.md#the-out-of-action-report)), and an objective adds or subtracts the first time its condition holds ([`simulation/mission-objectives.md`](simulation/mission-objectives.md#the-record)). Apart from the slots the debrief grants from and the few the simulator resets at each load ([`simulation/mission-deployment.md`](simulation/mission-deployment.md#the-mission-counters--dat_004a9ef4)), they keep their value for the rest of the campaign, so any later mission can test them.
 - **Debrief grants.** The debrief reads fixed flags to unlock chassis and weapons and to stock weapon units ([below](#unlocks-and-weapon-units)), whether the mission was won or lost. It skips them when the player's machine was destroyed, since the campaign then ends.
-- **Hard-coded events.** The advance to `C1_04` moves the player into bay 4, and the advance to `C1_07` withdraws the Razor ([`campaign-loop.md`](campaign-loop.md#where-the-debrief-goes-next)). Both happen whatever the outcome.
+- **Hard-coded events.** The advance to `C1_04` moves the player into bay 4, and the advance to `C1_07` withdraws the Razor ([`shell/campaign-loop.md`](shell/campaign-loop.md#where-the-debrief-goes-next)). Both happen whatever the outcome.
 
-The hangar, the pilots, the salvage pool and the armory stock also carry over from mission to mission, by the debrief's accounting ([`campaign-loop.md`](campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)). This doc covers what the missions themselves do with the flags.
+The hangar, the pilots, the salvage pool and the armory stock also carry over from mission to mission, by the debrief's accounting ([`shell/campaign-loop.md`](shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)). This doc covers what the missions themselves do with the flags.
 
-A test changes a mission through what its condition gates: a roster record, a group, an order, an objective, the header patch, or a line of text. A record that repeats an earlier record's GUID overlays it, copying every field it sets ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#repeated-guids)). This is how most consequences are written: a conditioned group record with the GUID of an existing group adds members to it, and a conditioned structure record sets a structure's starting condition to 0.
+A test changes a mission through what its condition gates: a roster record, a group, an order, an objective, the header patch, or a line of text. A record that repeats an earlier record's GUID overlays it, copying every field it sets ([`formats/msn-mission-file.md`](formats/msn-mission-file.md#repeated-guids)). This is how most consequences are written: a conditioned group record with the GUID of an existing group adds members to it, and a conditioned structure record sets a structure's starting condition to 0.
 
 ## Losing a mission
 
-`Career_Advance` (`00412dc7`) moves the career on one mission after every debrief, won or lost. A loss ends the war in several places ([`campaign-loop.md`](campaign-loop.md#where-the-debrief-goes-next)):
+`Career_Advance` (`00412dc7`) moves the career on one mission after every debrief, won or lost. A loss ends the war in several places ([`shell/campaign-loop.md`](shell/campaign-loop.md#where-the-debrief-goes-next)):
 
 - the last mission of chapters 1 to 4, `C1_10`, `C2_10`, `C3_10` and `C4_10`, since losing it moves the position onto the next chapter's first mission;
 - any mission of chapter 5.
 
-A destroyed player's machine ends the campaign in any mission. Both endings offer [`REPLAY MISSION?`](campaign-loop.md#replay-mission).
+A destroyed player's machine ends the campaign in any mission. Both endings offer [`REPLAY MISSION?`](shell/campaign-loop.md#replay-mission).
 
 Every other loss continues to the next mission, which may then differ in the ways below.
 
@@ -37,7 +37,7 @@ Every other loss continues to the next mission, which may then differ in the way
 | `C1_05` | Protect the ATC 75 prototype | The ATC75 unlock. |
 | `C1_06` | Escort the Maverick | The Maverick unlock. |
 | `C1_07` | Destroy the Cybrid lander | Flag 310 is set when the lander (structure 72) is destroyed. If it is not, `C1_10` adds a group of two Ramses and a Stingray (group 187) attacking the base, and a briefing line saying so. |
-| `C1_08` | Raid the listening post | Flag 321 is set when the data link completes, flag 320 when the listening post is destroyed. A win makes `C1_09` the virus upload: a header patch sets the mission objective type to 7 ([`../formats/script-dat.md`](../formats/script-dat.md#header-format)), and its objectives are to complete a data link at the listening post without destroying it. A loss makes `C1_09` a base defence: its one objective is the base clear of threats, the squad's first order becomes guarding the base, and Cybrid groups 204 and 205 attack the base instead of the squad. In `C1_10`, flag 321 adds four Ramses on the human side (groups 192-195, deploying on action 155) guarding the base, the Cybrids whose IFF the virus scrambled. They depend on `C1_08`'s download, not on `C1_09`'s upload. |
+| `C1_08` | Raid the listening post | Flag 321 is set when the data link completes, flag 320 when the listening post is destroyed. A win makes `C1_09` the virus upload: a header patch sets the mission objective type to 7 ([`formats/script-dat.md`](formats/script-dat.md#header-format)), and its objectives are to complete a data link at the listening post without destroying it. A loss makes `C1_09` a base defence: its one objective is the base clear of threats, the squad's first order becomes guarding the base, and Cybrid groups 204 and 205 attack the base instead of the squad. In `C1_10`, flag 321 adds four Ramses on the human side (groups 192-195, deploying on action 155) guarding the base, the Cybrids whose IFF the virus scrambled. They depend on `C1_08`'s download, not on `C1_09`'s upload. |
 | `C1_09` | Defend the base, or upload the virus | Its outcome picks `C1_10`'s briefing (text lines 202, 201 and 200, in that order) and intelligence (203 and 204), with `C1_07` and `C1_08` refining each. After a loss, the briefing calls the attack all-out and, if the `C1_07` lander survived, says its Hercs support it; the intelligence reports medium and light Hercs on several vectors. After a win, the briefing adds a line about the lander's Hercs if it survived; if `C1_08`'s listening post still stands, the intelligence says a third squad, from the south, appears infected with the virus; and if `C1_08` also downloaded the data, the briefing says the Hercs deployed before the attack are compromised and that IFF-scrambled Cybrids show as friendly. Two cases contradict the mission. A base defence won after a `C1_08` that left the post standing without downloading gets the infected-squad line, though no virus was uploaded and no friendly Cybrids appear. And the four friendly Ramses, which follow `C1_08`'s download alone, go unmentioned whenever `C1_09` was lost or the post was destroyed after the download. |
 | `C1_10` | Defend the command base | Must be won. |
 
@@ -79,7 +79,7 @@ The Omicron sector base appears in `C3_01`, `C3_02`, `C3_03`, `C3_05`, `C3_06`, 
 
 ## Chapter 4 — Bravo sector
 
-Two missions here set how many squad positions the next one has. The positions in play are 1 plus the unbroken run of members group 0 names from its second slot ([`screen-layout.md`](screen-layout.md#starting-a-practice-mission)), and a won mission's overlay on group 0 adds a slot.
+Two missions here set how many squad positions the next one has. The positions in play are 1 plus the unbroken run of members group 0 names from its second slot ([`shell/screen-layout.md`](shell/screen-layout.md#starting-a-practice-mission)), and a won mission's overlay on group 0 adds a slot.
 
 | Mission | Briefing | What it carries forward |
 |---|---|---|
@@ -102,7 +102,7 @@ Every mission must be won. One result is carried: the lunar outpost captured in 
 
 ## Persistent bases
 
-A base that several missions place carries its damage between them, one flag per structure. Each structure's out-of-action report adds 1 to its flag, and every mission placing the base repeats the structure's record conditioned on that flag being above 0, with a starting condition of 0, which places it collapsed ([`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md#starting-condition)). Damage short of destruction does not carry: a structure comes back either whole or collapsed.
+A base that several missions place carries its damage between them, one flag per structure. Each structure's out-of-action report adds 1 to its flag, and every mission placing the base repeats the structure's record conditioned on that flag being above 0, with a starting condition of 0, which places it collapsed ([`simulation/structure-behaviour.md`](simulation/structure-behaviour.md#starting-condition)). Damage short of destruction does not carry: a structure comes back either whole or collapsed.
 
 | Base | Placed in | Flags | Structures with a collapsed record |
 |---|---|---|---|
@@ -119,7 +119,7 @@ A comparison of every condition and what it gates between v1.0 and v1.10 finds t
 
 ## Unlocks and weapon units
 
-The debrief unlocks a chassis or a weapon when its flag holds an exact value, and clears the flag either way ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5), [`../formats/weapons-dat.md`](../formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)). Each flag is written by one campaign mission's objectives, each adding or subtracting 1 the first time its condition holds. The mission's outcome plays no part: what counts is which objectives were met at some point and which failure conditions came true.
+The debrief unlocks a chassis or a weapon when its flag holds an exact value, and clears the flag either way ([`formats/herc-catalogs.md`](formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5), [`formats/weapons-dat.md`](formats/weapons-dat.md#campaign-grants--armory_grantcampaignweapons-004126be)). Each flag is written by one campaign mission's objectives, each adding or subtracting 1 the first time its condition holds. The mission's outcome plays no part: what counts is which objectives were met at some point and which failure conditions came true.
 
 | Unlock | Mission | Flag | Needs | How the flag moves |
 |---|---|---|---|---|
@@ -137,7 +137,7 @@ The debrief unlocks a chassis or a weapon when its flag holds an exact value, an
 
 `C3_03`'s briefing says the listening post may be destroyed once the data is downloaded. Destroying it is a failure condition, and its −1 cancels the SHLD unlock.
 
-**Weapon units** come from kills. Specific Cybrid machines in chapters 1 to 3 store 1 in a unit-grant flag when put out of the fight, and the debrief stocks one unit of that weapon for each flag set ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-out-of-action-report)). A store means one unit per weapon per mission however many such machines fall. Nearly every mission of chapters 1 to 3 stocks some of `ATC50`, `MSL10`, `EMPC`, `ELFW`, `L300`, `EMP2` and `ELF2` this way. The scarcer grants:
+**Weapon units** come from kills. Specific Cybrid machines in chapters 1 to 3 store 1 in a unit-grant flag when put out of the fight, and the debrief stocks one unit of that weapon for each flag set ([`simulation/mission-deployment.md`](simulation/mission-deployment.md#the-out-of-action-report)). A store means one unit per weapon per mission however many such machines fall. Nearly every mission of chapters 1 to 3 stocks some of `ATC50`, `MSL10`, `EMPC`, `ELFW`, `L300`, `EMP2` and `ELF2` this way. The scarcer grants:
 
 | Weapon | Where |
 |---|---|
@@ -151,7 +151,7 @@ A granted unit does not unlock its weapon; the armory row stays disabled until t
 
 ## Replaying a mission
 
-`REPLAY MISSION?` replays from the autosave the shell made at launch, but the simulator then reads the flags the failed attempt left in `data\mission.var` ([`campaign-loop.md`](campaign-loop.md#replay-mission)). Every counter above carries over from the failed attempt into the replay:
+`REPLAY MISSION?` replays from the autosave the shell made at launch, but the simulator then reads the flags the failed attempt left in `data\mission.var` ([`shell/campaign-loop.md`](shell/campaign-loop.md#replay-mission)). Every counter above carries over from the failed attempt into the replay:
 
 - kill counts (flags 250, 350, 480 and the landers' 621 and 631) add both attempts together;
 - a structure destroyed in the failed attempt counts as destroyed for the missions after, even if the replay saves it, though it stands in the replay itself, whose mission file is not rebuilt;
@@ -159,20 +159,24 @@ A granted unit does not unlock its weapon; the armory row stays disabled until t
 
 ## Unreachable branches
 
-`C3_08` and `C4_06` are written as though a later record replaced an earlier one, which no row of the format does, and `C3_05` uses another layer's operation code. `C1_05` and `C2_07` depend on operation `0x17`, which no layer of the game implements: the out-of-action report acts on 1, 2 and `0x0d`-`0x10` ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-out-of-action-report)), objectives on 4-7 and actions on 5 and 6. What `0x17` was written for is [Open](#open).
+`C3_08` and `C4_06` are written as though a later record replaced an earlier one, which no row of the format does, and `C3_05` uses another layer's operation code. `C1_05` and `C2_07` depend on operation `0x17`, which no layer of the game implements: the out-of-action report acts on 1, 2 and `0x0d`-`0x10` ([`simulation/mission-deployment.md`](simulation/mission-deployment.md#the-out-of-action-report)), objectives on 4-7 and actions on 5 and 6.
 
 | Mission | Branch | Why it is never taken |
 |---|---|---|
 | `C1_05` | The intelligence line for a successful `C1_04` scouting run | It tests flag 282, which only `C1_04`'s three Pitbulls write, with operation `0x17`, beside a working write of the salvage bonus. The line is always the variant reporting no intelligence on the Cybrid force. |
 | `C2_07` | Two Raptor IIs on the human side (group 123), and the two briefing variants crediting the intelligence `C2_06` gathered | Flag 402 is written by `C2_06`'s group 104 with operation `0x17`, beside the working write of flag 401 that keeps that group out of `C2_07`. |
-| `C3_08` | Diablos in the Cybrid groups 119-121 after a `C3_07` loss | The Diablos are a second variant table under key 105, conditioned on the loss. `Msn_PickVariant` (`00415fc3`) reaches a second table only with draws the first leaves uncovered ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#variants)), and the first draws below 150 and covers 0-149. `C1_04` and `C1_05` have the same shape under keys 46 and 172 for the squad's own slot, which the hangar fills anyway. |
+| `C3_08` | Diablos in the Cybrid groups 119-121 after a `C3_07` loss | The Diablos are a second variant table under key 105, conditioned on the loss. `Msn_PickVariant` (`00415fc3`) reaches a second table only with draws the first leaves uncovered ([`formats/msn-mission-file.md`](formats/msn-mission-file.md#variants)), and the first draws below 150 and covers 0-149. `C1_04` and `C1_05` have the same shape under keys 46 and 172 for the squad's own slot, which the hangar fills anyway. |
 | `C3_05` | An `ENRG` unit for each of the two Cybrid machines 103 and 104 put out of the fight | Their reports write flag 42 with operation 6, the objective layer's increment, which the out-of-action report has no case for. The objective's own `ENRG` unit is still granted. |
 | `C4_06` | Two squad positions after a `C4_05` loss | The loss's overlay on group 0 sets members 0 and 1. An overlay copies only member refs it sets (`Msn_MergeRow16`, `00417286`), so the base record's third member stays and the squad keeps three positions. |
-| `C5_10` | Its debrief text, placeholder lines | A win ends the campaign before the debrief text is built, and a loss ends the war ([`campaign-loop.md`](campaign-loop.md#where-the-debrief-goes-next)). |
+| `C5_10` | Its debrief text, placeholder lines | A win ends the campaign before the debrief text is built, and a loss ends the war ([`shell/campaign-loop.md`](shell/campaign-loop.md#where-the-debrief-goes-next)). |
 
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
-| Losing a mission can send the campaign down another route — another sector, or other missions. | `gam\career.dat` is a flat list per chapter ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) and `Career_Advance` steps through it whatever the outcome. A loss changes what the next missions contain, or ends the war. |
+| Losing a mission can send the campaign down another route — another sector, or other missions. | `gam\career.dat` is a flat list per chapter ([`shell/campaign-loop.md`](shell/campaign-loop.md#the-campaign-table--gamcareerdat)) and `Career_Advance` steps through it whatever the outcome. A loss changes what the next missions contain, or ends the war. |
 | A structure's health carries from one mission to the next. | Only whether it was destroyed carries: one flag per structure, tested for being above 0, choosing a starting condition of 0. |
+
+## Remarks
+
+While operation `0x17` is not implemented and its meaning is unknown, the context in which it is referenced suggests that it may have been intended to activate when the player scanned a particular target.

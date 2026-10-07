@@ -35,7 +35,7 @@ Before a mission is loaded, `MsnGen_SeedCampaignFlags` (`0040e94e`) writes flags
 
 The debrief writes three slots from its own accounting: 0 the mission's outcome code (`_maybe_CampaignFlagArray = DAT_00482ae9`), 9 the pilots lost and 8 the machines scrapped ([below](#the-debrief--game_processmissionresults-0040eae7)). On the simulator side the same array is `DAT_004a9ef4`, which DBSIM reads from `mission.var` at mission load, less a few slots it resets, and writes back at mission end — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
 
-It is also what the campaign's rewards are keyed on: the debrief tests the flags the mission left to unlock chassis and weapons and to stock weapon units ([below](#the-debrief--game_processmissionresults-0040eae7)). Which mission writes each flag and what the later missions do with it is [`campaign-consequences.md`](campaign-consequences.md).
+It is also what the campaign's rewards are keyed on: the debrief tests the flags the mission left to unlock chassis and weapons and to stock weapon units ([below](#the-debrief--game_processmissionresults-0040eae7)). Which mission writes each flag and what the later missions do with it is [`../campaign-continuity.md`](../campaign-continuity.md).
 
 ## Starting a campaign — `Game_NewCareer` (`0040e2ed`)
 

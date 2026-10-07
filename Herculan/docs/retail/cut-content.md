@@ -33,8 +33,8 @@ Additionally, the game data includes an unused particle-beam weapon for the Cybr
 
 ## Campaign
 
-- **Intelligence results nothing records.** `C1_04` and `C2_06` record their intelligence-gathering results with a counter operation, `0x17`, that the simulator has no case for, so the content written for those results never appears: two friendly Raptor IIs reinforcing `C2_07`, and `C1_05`'s briefing line describing the enemy force. See [`shell/campaign-consequences.md`](shell/campaign-consequences.md#unreachable-branches).
-- **Placeholder debrief text.** `C5_10`'s debrief is joke placeholder lines, which no branch of the campaign ever shows. See [`shell/campaign-consequences.md`](shell/campaign-consequences.md#unreachable-branches).
+- **Intelligence results nothing records.** `C1_04` and `C2_06` record their intelligence-gathering results with a counter operation, `0x17`, that the simulator has no case for, so the content written for those results never appears: two friendly Raptor IIs reinforcing `C2_07`, and `C1_05`'s briefing line describing the enemy force. See [`campaign-continuity.md`](campaign-continuity.md#unreachable-branches).
+- **Placeholder debrief text.** `C5_10`'s debrief is joke placeholder lines, which no branch of the campaign ever shows. See [`campaign-continuity.md`](campaign-continuity.md#unreachable-branches).
 
 ## Files
 

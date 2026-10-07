@@ -1,4 +1,5 @@
 using Herculan.Engine.Content;
+using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Cockpit;
 
@@ -60,7 +61,7 @@ public readonly record struct MessageTicker(string? Text, long ScrollTicks, bool
 /// (<see cref="MessageTickerLayout"/> and the overlay renderer). Speech and the alert tone leave by
 /// <see cref="Speak"/> and <see cref="AlertTone"/> rather than by calling into
 /// <see cref="Audio.ComputerVoice"/>, so the port stays testable with no device attached — the same
-/// split <see cref="Herculan.Engine.Sim.SimWorld"/> and <see cref="Audio.ISoundSink"/> draw.</para>
+/// split <see cref="Herculan.Engine.Sim.SimWorld"/> and <see cref="ISoundSink"/> draw.</para>
 ///
 /// <para>The original keeps a second instance of the same class for the pilot and squad channel, at
 /// <c>view+0x207</c>, which is <see cref="SquadMessagePort"/> here.</para>
@@ -159,7 +160,7 @@ public sealed class MessagePort {
 
 	/// <summary>
 	/// Posts a message — the vtable call the simulation makes on the port,
-	/// <see cref="Audio.ISoundSink.Say"/>'s destination. Queued by priority (attribute byte 2, zero
+	/// <see cref="ISoundSink.Say"/>'s destination. Queued by priority (attribute byte 2, zero
 	/// throughout the retail file), and a post into a full queue drops the lowest-priority entry to
 	/// make room.
 	/// </summary>
@@ -322,9 +323,9 @@ public sealed class MessagePort {
 	/// the switch is wider than its behaviour.</para>
 	/// </summary>
 	public static int AlertToneFor(int messageId) => messageId switch {
-		0 or 0x13 => Audio.SoundId.StructuralFailure,
-		0x0c or 0x0f or 0x10 or 0x14 or 0x15 => Audio.SoundId.WarningWhoop,
-		_ => Audio.SoundId.ScannerActive,
+		0 or 0x13 => SoundId.StructuralFailure,
+		0x0c or 0x0f or 0x10 or 0x14 or 0x15 => SoundId.WarningWhoop,
+		_ => SoundId.ScannerActive,
 	};
 
 	/// <summary>

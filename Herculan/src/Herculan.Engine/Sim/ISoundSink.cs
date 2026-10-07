@@ -1,16 +1,15 @@
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Numerics;
 
-namespace Herculan.Engine.Audio;
+namespace Herculan.Engine.Sim;
 
 /// <summary>
-/// What the simulation talks to when something makes a noise. <see cref="SoundDirector"/> is the
+/// What the simulation talks to when something makes a noise. <see cref="Audio.SoundDirector"/> is the
 /// real implementation; a world with none attached simply runs silent.
 ///
 /// <para>The simulation holds no audio state of its own and never asks a question back — it says
 /// "this happened, here", exactly as DBSIM's own call sites do, and every rule about whether that is
 /// audible, how loud, and where in the stereo field belongs to the director. That keeps
-/// <see cref="Sim.SimWorld"/> tickable by a headless test or a mission editor with no device
+/// <see cref="SimWorld"/> tickable by a headless test or a mission editor with no device
 /// present, which is the same split docs/herculan/planning.md draws for rendering.</para>
 /// </summary>
 public interface ISoundSink {
@@ -25,8 +24,8 @@ public interface ISoundSink {
 	/// </summary>
 	/// <param name="id">The catalog id.</param>
 	/// <param name="position">Where it is, in world units.</param>
-	/// <param name="reach"><inheritdoc cref="SoundDirector.PlayAt" path="/param[@name='reach']"/></param>
-	/// <param name="source"><inheritdoc cref="SoundDirector.PlayAt" path="/param[@name='source']"/></param>
+	/// <param name="reach"><inheritdoc cref="Audio.SoundDirector.PlayAt" path="/param[@name='reach']"/></param>
+	/// <param name="source"><inheritdoc cref="Audio.SoundDirector.PlayAt" path="/param[@name='source']"/></param>
 	void PlayAt(int id, Vec3i position, SoundReach? reach = null, object? source = null);
 
 	/// <summary>Stops a catalog id. <c>Sound_Stop</c> (<c>004629c0</c>).</summary>
@@ -38,8 +37,8 @@ public interface ISoundSink {
 	/// </summary>
 	/// <param name="id">The catalog id.</param>
 	/// <param name="position">Where it now is, in world units.</param>
-	/// <param name="reach"><inheritdoc cref="SoundDirector.UpdatePosition" path="/param[@name='reach']"/></param>
-	/// <param name="source"><inheritdoc cref="SoundDirector.UpdatePosition" path="/param[@name='source']"/></param>
+	/// <param name="reach"><inheritdoc cref="Audio.SoundDirector.UpdatePosition" path="/param[@name='reach']"/></param>
+	/// <param name="source"><inheritdoc cref="Audio.SoundDirector.UpdatePosition" path="/param[@name='source']"/></param>
 	void MoveTo(int id, Vec3i position, SoundReach? reach = null, object? source = null);
 
 	/// <summary>
@@ -52,7 +51,7 @@ public interface ISoundSink {
 	/// <summary>
 	/// Posts one of the cockpit computer's messages by its flat <c>SYSTEM.STR</c> id — the vtable
 	/// call the original makes on the cockpit's message port, <c>view+0x20b</c>. See
-	/// <see cref="Content.SystemMessages"/> for the ids and <see cref="ComputerVoice"/> for what
+	/// <see cref="Content.SystemMessages"/> for the ids and <see cref="Audio.ComputerVoice"/> for what
 	/// becomes of one.
 	/// </summary>
 	void Say(int messageId);
@@ -61,14 +60,14 @@ public interface ISoundSink {
 	/// Posts what one squadmate has to say, on the cockpit's <i>other</i> message port
 	/// (<c>view+0x207</c>) — <c>Ai_PostSquadMessage</c> (<c>00420a98</c>). The id names a line in that
 	/// pilot's own <c>PILOT&lt;bank&gt;.STR</c>, and the machine saying it is what picks the comm box,
-	/// the portrait and the recorded voice. See <see cref="SquadCommChannel"/>.
+	/// the portrait and the recorded voice. See <see cref="Cockpit.SquadCommChannel"/>.
 	/// </summary>
 	void SquadSay(int messageId, object speaker);
 
 	/// <summary>
 	/// Posts a line on the same port with no speaker — a mission action's message, which
 	/// <c>Action_Activate</c> (<c>00423430</c>) queues. The id names a <c>COMMAND0.STR</c> line, signed
-	/// <c>HQ</c>. See <see cref="SquadCommChannel.PostUnattributed"/>.
+	/// <c>HQ</c>. See <see cref="Cockpit.SquadCommChannel.PostUnattributed"/>.
 	/// </summary>
 	void CommandSay(int messageId);
 
@@ -82,7 +81,7 @@ public interface ISoundSink {
 	/// Withdraws a line from the pilot-and-squad port by id and by the machine it is about — the same
 	/// <c>MessagePort_Withdraw</c> on <c>view+0x207</c>, which <c>Squad_SendOrderToSlot</c>
 	/// (<c>00431610</c>) uses on the squadmate it has just addressed. See
-	/// <see cref="SquadMessagePort.Withdraw"/>.
+	/// <see cref="Cockpit.SquadMessagePort.Withdraw"/>.
 	/// </summary>
 	void SquadUnsay(int messageId, object? speaker);
 }

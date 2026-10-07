@@ -1,4 +1,5 @@
 using Herculan.Engine.Content;
+using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Cockpit;
 
@@ -179,7 +180,7 @@ public sealed class SquadCommChannel {
 	public event Action<int, int, int>? Speak;
 
 	/// <summary>
-	/// Raised when static starts, with <see cref="Audio.SoundId.CommStatic"/>. The original tests
+	/// Raised when static starts, with <see cref="SoundId.CommStatic"/>. The original tests
 	/// whether the hiss is already playing before starting it again, which the sink does not need to
 	/// know about — a listener that plays it should make the same test.
 	/// </summary>
@@ -343,7 +344,7 @@ public sealed class SquadCommChannel {
 		box.Script = script;
 		box.Deadline = _now + StaticTicks;
 		box.State = CommBoxState.OpeningStatic;
-		Hiss?.Invoke(Audio.SoundId.CommStatic);
+		Hiss?.Invoke(SoundId.CommStatic);
 
 		// First speaker wins the block, and holds it until their own box goes quiet.
 		if (_speakingSlot < 0) {
@@ -440,7 +441,7 @@ public sealed class SquadCommChannel {
 					} else {
 						box.State = CommBoxState.ClosingStatic;
 						box.Deadline = _now + StaticTicks;
-						Hiss?.Invoke(Audio.SoundId.CommStatic);
+						Hiss?.Invoke(SoundId.CommStatic);
 
 						// A message that ends with its speaker's machine destroyed latches too.
 						if (box.Destroyed) {

@@ -1,11 +1,6 @@
 ﻿using Herculan.Engine.Cockpit;
 using System.Numerics;
-using HercWorks.Core.Data.File.Gau;
-using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
-using Herculan.Engine.Sim;
-using Herculan.Engine.Settings;
-using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Render.Cockpit;
 

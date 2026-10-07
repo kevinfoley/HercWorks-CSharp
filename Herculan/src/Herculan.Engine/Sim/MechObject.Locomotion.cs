@@ -718,7 +718,7 @@ public sealed partial class MechObject {
 			if (!Collapsed && thread.Frame == thread.NextFrame) {
 				Collapsed = true;
 				SpreadImpactDamage(world, CollapseImpactDamage, CollapseImpactOdds);
-				world.Sounds?.PlayAt(Audio.SoundId.Collision, Position);
+				world.Sounds?.PlayAt(SoundId.Collision, Position);
 			}
 
 			return;
@@ -732,7 +732,7 @@ public sealed partial class MechObject {
 			thread.SetTarget(type.DeathSequence, -1, 0);
 
 			if (!Collapsed) {
-				world.Sounds?.PlayAt(Audio.SoundId.LocomotionCallA, Position);
+				world.Sounds?.PlayAt(SoundId.LocomotionCallA, Position);
 			}
 		}
 

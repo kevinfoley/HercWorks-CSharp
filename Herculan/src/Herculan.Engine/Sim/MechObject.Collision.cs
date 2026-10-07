@@ -231,7 +231,7 @@ public sealed partial class MechObject {
 		}
 
 		CockpitHits++;
-		world.Sounds?.Play(Audio.SoundId.Collision);
+		world.Sounds?.Play(SoundId.Collision);
 	}
 
 	/// <summary>

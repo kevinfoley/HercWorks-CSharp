@@ -228,7 +228,7 @@ public sealed partial class MechObject : SimObject {
 			return;
 		}
 
-		sounds.Play(Scanner ? Audio.SoundId.ScannerActive : Audio.SoundId.ScannerPassive);
+		sounds.Play(Scanner ? SoundId.ScannerActive : SoundId.ScannerPassive);
 
 		sounds.Unsay(Content.SystemMessages.ActiveRadarMode);
 		sounds.Unsay(Content.SystemMessages.PassiveRadarMode);

@@ -2,7 +2,7 @@
 
 Make each namespace hold one kind of code, keep game rules out of the host, and point dependencies one way, without changing any algorithm, data layout or behaviour ported from the retail game.
 
-Stage 1 is built; the rest is planned. Each item is re-read against the code before it is done: the review behind this plan was partly delegated, and an item's claim is a lead until then.
+Stage 1 is built and Stage 2 is in progress; the rest is planned. Each item is re-read against the code before it is done: the review behind this plan was partly delegated, and an item's claim is a lead until then.
 
 ## Why
 
@@ -36,7 +36,12 @@ Built:
 
 ## Stage 2 — dependencies one way
 
-- `ISoundSink`, `SoundId` and `SoundReach` move to Sim, so Sim stops importing Audio.
+Built:
+
+- `ISoundSink`, `SoundId` and `SoundReach` are in Sim, and Sim does not import Audio. A null `SoundReach.MinRange` keeps the catalog row's rolloff start, so the drop-pod tweak does not read `SoundCatalog`.
+
+To do:
+
 - The charge-bar range (`0x400`) is declared in Sim and `ChargeBarSlider` refers to it; `HddMapBounds` (script.dat block 1's box) moves out of `Cockpit`.
 - `FlyCameraObject.ApplyTo(Camera)` moves to Render.
 - `GpuTexture` takes pixels and a size; `TextureAtlas` uploads itself.

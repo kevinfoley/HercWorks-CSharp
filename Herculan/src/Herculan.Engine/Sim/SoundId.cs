@@ -1,4 +1,4 @@
-namespace Herculan.Engine.Audio;
+namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// The catalog ids DBSIM addresses its sounds by — an index into <c>str\SOUNDS.STR</c>.
@@ -96,9 +96,9 @@ public static class SoundId {
 
 	/// <summary>
 	/// <c>fire1a.wav</c> — something burning. <c>fire.cpp</c> starts it on the first live
-	/// <see cref="Sim.FireEffect"/> and stops it on the last, so it is one loop for every fire in the
+	/// <see cref="FireEffect"/> and stops it on the last, so it is one loop for every fire in the
 	/// mission at once, kept positioned on whichever fire is nearest the camera — see
-	/// <see cref="Sim.SimWorld.Tick"/>.
+	/// <see cref="SimWorld.Tick"/>.
 	/// </summary>
 	public const int BurningObject = 0x33;
 

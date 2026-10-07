@@ -1,5 +1,4 @@
 ﻿using HercWorks.Core.Data.File.Dat.Sim;
-using Herculan.Engine.Audio;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;

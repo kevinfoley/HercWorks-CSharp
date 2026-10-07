@@ -241,4 +241,236 @@ public sealed partial class MechObject {
 		value >= MechControls.AxisFull ? MechControls.AxisFull
 		: value < -MechControls.AxisFull + 1 ? (short)-MechControls.AxisFull
 		: (short)value;
+
+	private AnimationThread? AddTorsoThread(ShapeAnimation animation, short sequence) =>
+		sequence >= 0 && animation.HasSequence(sequence) ? Shape!.AddThread(sequence) : null;
+
+	/// <summary>
+	/// The thread the torso's twist angle is seeked on (<c>mech+0x230</c>), or null when the type
+	/// names no twist sequence.
+	/// </summary>
+	public AnimationThread? TorsoTwistThread { get; }
+
+	/// <summary>The pitch counterpart (<c>mech+0x234</c>).</summary>
+	public AnimationThread? TorsoPitchThread { get; }
+
+	/// <summary>
+	/// The <c>[\]</c> "Center Body" command's own latch, from <c>Sim_DispatchCommand</c>'s scancode
+	/// <c>0x2b</c> case (<c>0045fdac</c>) and the identical one in <c>Sim_PollPlayerInput</c>: it
+	/// takes the world direction the turret is pointing in, <c>heading - twist</c>, and everything
+	/// the mode does afterwards is measured against that one number.
+	///
+	/// <para>The two centring commands are exclusive. Each one's dispatch clears the other's global,
+	/// so pressing [Backspace] mid-manoeuvre abandons this and brings the turret home instead. Both
+	/// also clear ATT (<c>manager+0x14</c>): a pilot who has asked for the turret back does not get
+	/// it taken again by the tracker.</para>
+	/// </summary>
+	private void LatchCenterBody() {
+		var controls = Controls;
+
+		if (controls.CenterBody && !_centerBodyHeld) {
+			_centeringBody = true;
+			_centeringTorso = false;
+			Weapons.AutoTrack = false;
+			_centerBodyReference = (short)((short)Heading - TorsoTwistAngle);
+		}
+
+		_centerBodyHeld = controls.CenterBody;
+
+		if (_centeringBody && controls.CenterTorso) {
+			_centeringBody = false;
+			_centeringTorso = true;
+		}
+	}
+
+	/// <summary>
+	/// <c>Sim_PollPlayerInput</c>'s Center Body branch (<c>00460764</c>) — the machine walks its legs
+	/// round until they point where the turret was when the command was given, unwinding the turret
+	/// by exactly as much as the body gains so the pilot keeps looking at the same place throughout.
+	///
+	/// <para>Two errors drive it, both measured against the captured direction: how far the
+	/// <i>heading</i> still is from it, which steers, and how far the <i>turret</i> has drifted off
+	/// it, which twists. Both go to zero together, and only then, since heading meeting the reference
+	/// forces the twist to be zero.</para>
+	///
+	/// <para>Each error is gained, then <b>squared</b> and rescaled — the original's own
+	/// <c>e² >> 8</c> with the sign put back afterwards. That makes it soft near the target and hard
+	/// away from it, which is what stops the legs hunting about the reference. The mode ends when
+	/// both squared terms fall under their own thresholds, on the same tick it issues its last
+	/// commands.</para>
+	///
+	/// <para>The pilot keeps the throttle and the pitch axis; only steering and twist are taken.</para>
+	/// </summary>
+	private void CenterBodyTick(SimWorld world) {
+		short heading = (short)Heading;
+		short bodyError = (short)(heading - _centerBodyReference);
+		short turretError = (short)((short)(heading - TorsoTwistAngle) - _centerBodyReference);
+
+		short steerGain = (short)SimMath.Q10Multiply(CenterBodySteerGain, bodyError);
+		short twistGain = (short)SimMath.Q10Multiply(CenterBodyTwistGain, turretError);
+
+		int steer = steerGain * steerGain >> 8;
+		int twist = twistGain * twistGain >> 8;
+
+		if (steer < CenterBodySteerDeadband && twist < CenterBodyTwistDeadband) {
+			_centeringBody = false;
+		}
+
+		if (steerGain < 0) {
+			steer = -steer;
+		}
+
+		if (twistGain < 0) {
+			twist = -twist;
+		}
+
+		// Steering inverts when the machine is travelling backwards, read off the object's own speed
+		// accessor (mech vtable +0x38, 00415498) rather than off the throttle — the control law does
+		// its own inversion from the stick, and this one is on top of it.
+		if (TravelSpeed < 0) {
+			steer = -steer;
+		}
+
+		ApplyThrottleInput(world, (short)steer);
+		TorsoTwistTick((short)twist);
+		TorsoPitchTick(Controls.TorsoPitch, GunConvergenceRange);
+	}
+
+	/// <summary>Q10 gain on the heading error before it is squared into a steering command.</summary>
+	private const int CenterBodySteerGain = 100;
+
+	/// <summary>Q10 gain on the turret error, lower than the steering one so the turret trails.</summary>
+	private const int CenterBodyTwistGain = 0x46;
+
+	/// <summary>Squared-steering term the mode disengages under, with the turret one below.</summary>
+	private const int CenterBodySteerDeadband = 0x1e;
+
+	private const int CenterBodyTwistDeadband = 10;
+
+	/// <summary>
+	/// <c>Sim_PollPlayerInput</c>'s turret block (<c>00460764</c>), which runs between the throttle
+	/// and the move. Three cases, in the original's own order of tests: the pilot is holding the
+	/// turret axes, Automatic Turret Tracking is flying the turret for him, or the centring command
+	/// is latched and drives them instead.
+	///
+	/// <para><b>The axes come first</b>, because touching either one drops both of the other two:
+	/// tracking is skipped for the tick and the centring latch is cleared outright. That is the
+	/// manual's "take manual control of the turret" — the pilot always wins the axis he is
+	/// holding.</para>
+	///
+	/// <para><b>Automatic Turret Tracking (ATT, [T])</b> is the middle case. It needs the TRACK latch
+	/// (<see cref="WeaponMounts.AutoTrack"/>), a selected target, and that target not destroyed
+	/// (<c>+0x99</c> alone — a crippled target is still tracked, unlike everywhere the AI tests
+	/// liveness). It aims at the target's <see cref="SimObject.AimPoint"/>, which for a HERC is its
+	/// cockpit node and is what the manual means by "ATT aims at the target's center", and it clears
+	/// the centring latch on the way past. <see cref="TrackWorldPoint"/> runs both axis ticks itself,
+	/// convergence included, so the manual pair below is skipped for the tick.</para>
+	/// </summary>
+	private void TorsoTick() {
+		var controls = Controls;
+		bool tracked = false;
+
+		if (controls.CenterTorso) {
+			LatchCenterTorso();
+		}
+
+		if (controls.TorsoTwist != 0 || controls.TorsoPitch != 0) {
+			_centeringTorso = false;
+		} else if (Weapons.AutoTrack) {
+			if (Target is { Destroyed: false } target) {
+				TrackWorldPoint(target.AimPoint);
+				_centeringTorso = false;
+				tracked = true;
+			} else if (Target == null && SimMath.CountdownTimerTick(ref _autoTrackIdle) == 0) {
+				// ATT left holding nothing brings the turret home once its timer runs out, and does
+				// not clear the latch: selecting again puts the turret straight back on a target.
+				_centeringTorso = true;
+			}
+		}
+
+		if (_centeringTorso) {
+			CenterTorsoTick(GunConvergenceRange);
+			return;
+		}
+
+		if (tracked) {
+			return;
+		}
+
+		TorsoTwistTick(controls.TorsoTwist);
+		TorsoPitchTick(controls.TorsoPitch, GunConvergenceRange);
+	}
+
+	/// <summary>
+	/// What <c>Sim_PollPlayerInput</c> hands the pitch tick to converge the guns on: the 3D distance to
+	/// the selected target, or zero with nothing selected. So the player's guns toe in on whatever the
+	/// targeting system is holding, and square up when it is let go. <c>Razor_MovementTick</c> computes
+	/// the same figure for a flyer (<c>Math_DistanceBetweenPoints</c>, <c>00492780</c>) — see
+	/// <see cref="FlyerMovementTick"/>.
+	/// </summary>
+	private int GunConvergenceRange =>
+		Target is { } target ? Position.ApproxDistanceTo(target.Position) : 0;
+
+	/// <summary>
+	/// <c>ConsoleButtons_ToggleAutoTrack</c> (<c>00441f7c</c>) — flips ATT and announces the new
+	/// state, which is the whole of what the console's TRACK button does. Both messages are withdrawn
+	/// before the new one is posted, so flipping twice quickly says where it ended up rather than
+	/// reading out the sequence; the radar toggle is written the same way.
+	///
+	/// <para>The [T] command is this plus a tail: turning ATT <i>off</i> that way also centres the
+	/// turret. See <see cref="LatchCenterTorso"/>.</para>
+	/// </summary>
+	/// <returns>Whether ATT is now on.</returns>
+	public bool ToggleAutoTrack(SimWorld? world = null) {
+		Weapons.AutoTrack = !Weapons.AutoTrack;
+
+		if (world?.Sounds is { } sounds) {
+			sounds.Unsay(Content.SystemMessages.AutoTrackingEngaged);
+			sounds.Unsay(Content.SystemMessages.AutoTrackingDisabled);
+			sounds.Say(Weapons.AutoTrack
+				? Content.SystemMessages.AutoTrackingEngaged
+				: Content.SystemMessages.AutoTrackingDisabled);
+		}
+
+		return Weapons.AutoTrack;
+	}
+
+	/// <summary>
+	/// The three writes <c>Sim_DispatchCommand</c> makes wherever the "Center Turret" command is
+	/// issued — its scancode <c>0x0e</c> case ([Backspace]) and the tail of its <c>0x14</c> case
+	/// ([T], when the toggle it just ran turned ATT <i>off</i>): the centring mode goes on, Center
+	/// Body goes off, and ATT's own latch (<c>manager+0x14</c>) is cleared.
+	///
+	/// <para>ATT is cleared here rather than left alone because a pilot who has asked for the turret
+	/// back would otherwise have it taken again by the tracker on the very next tick. It is also what
+	/// the manual says the command does.</para>
+	/// </summary>
+	public void LatchCenterTorso() {
+		_centeringTorso = true;
+		_centeringBody = false;
+		Weapons.AutoTrack = false;
+	}
+
+	/// <summary>Whether [Backspace] centring is latched, for the debug readout.</summary>
+	public bool CenteringTorso => _centeringTorso;
+
+	/// <summary>
+	/// Whether [\] Center Body is latched, and the turret world direction it is steering the legs
+	/// onto — both for the debug readout.
+	/// </summary>
+	public bool CenteringBody => _centeringBody;
+
+	/// <inheritdoc cref="CenteringBody"/>
+	public short CenterBodyReference => _centerBodyReference;
+
+	// g_CenterTurretMode (004d2588) — the latched centring mode. A global in the original, since only the player has
+	// one; per-object here for the same reason SimWorld has no globals.
+	private bool _centeringTorso;
+
+	// g_CenterBodyMode (004d2af4) and g_CenterBodyTargetHeading (004d2af8) — the Center Body mode and the turret world direction it was
+	// latched on, globals in the original for the same reason. _centerBodyHeld is the edge detector
+	// the original gets for free from being dispatched on a keystroke rather than on a held key.
+	private bool _centeringBody;
+	private bool _centerBodyHeld;
+	private short _centerBodyReference;
 }

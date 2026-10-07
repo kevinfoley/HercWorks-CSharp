@@ -5,7 +5,8 @@ namespace Herculan.Engine.Sim;
 // The HERC control law: input to throttle, throttle to a desired speed, and the gait state machine
 // that keeps the animation thread playing the right sequence at the right rate. Ported from
 // Mech_ApplyThrottleInput (004160dc), Mech_LocomotionTick (00416a04) and
-// Mech_ApplyTerrainSlopeToSpeed (0041693c). See docs/retail/simulation/mech-locomotion.md.
+// Mech_ApplyTerrainSlopeToSpeed (0041693c). The move those numbers drive is MechObject.Movement.cs.
+// See docs/retail/simulation/mech-locomotion.md.
 public sealed partial class MechObject {
 	/// <summary>Throttle movement per tick at full stick deflection, Q8 against the axis.</summary>
 	private const int ThrottleRate = 0x91;
@@ -675,4 +676,98 @@ public sealed partial class MechObject {
 
 		SpreadImpactDamage(world, spread, (short)(spread + 0x19));
 	}
+
+	/// <summary>
+	/// Current speed scalar (<c>mech+0x28e</c>) — <b>not</b> a velocity. It scales the animation
+	/// rate, and the animation's root motion is what actually moves the machine.
+	/// </summary>
+	public short Speed { get; set; }
+
+	/// <summary>Current turn rate (<c>mech+0x28c</c>), in BAM per tick, added straight to the heading.</summary>
+	public short TurnRate { get; set; }
+
+	/// <summary>
+	/// Throttle setting (<c>mech+0x290</c>), Q10 over ±0x400. Its sign is the direction of travel —
+	/// there is no separate gear — and only a physical throttle lever closes the range to one side.
+	/// </summary>
+	public short Throttle { get; set; }
+
+	/// <summary>
+	/// Set when input moved <see cref="Throttle"/> this frame (<c>mech+0x93</c>). The original uses
+	/// it to arbitrate between the stick and the cockpit's own throttle gauge, which are two-way
+	/// bound — dragging the gauge works because whichever moved last wins.
+	/// </summary>
+	public bool ThrottleDirty { get; set; }
+
+	/// <summary>
+	/// The cockpit's throttle-gauge exchange, once per frame — the part of
+	/// <c>Player_PerFrameCockpitUpdate</c> (<c>0041b130</c>) that reads the gauge's own value out of
+	/// <c>gauge+0xb5</c> and settles which of the two moved last.
+	///
+	/// <para>Whichever side moved wins, and the loser is brought to it: with the dirty flag clear the
+	/// gauge drives <see cref="Throttle"/>, and with it set the machine's throttle is handed back for
+	/// the gauge to follow. Either way both hold the same number when this returns, which is what
+	/// makes the slider track the keyboard and the keyboard pick up where a drag left off.</para>
+	///
+	/// <para><b>A flyer takes the gauge's value twice.</b> The original's own line here is gated on
+	/// the type record's flyer flag and writes <c>mech+0x2d7</c> as well as <c>mech+0x290</c> —
+	/// <see cref="FlightThrottle"/> as well as <see cref="Throttle"/> — because the flight model
+	/// reads its own copy and nothing else would ever reach it. So the cockpit slider is a working
+	/// throttle on a RAZOR, and on a chassis with no keyboard throttle binding it is the <i>only</i>
+	/// one.</para>
+	///
+	/// <para>The gauge's <b>speed</b> half is a different matter: the original feeds it
+	/// <c>mech+0x28e</c>, the walker speed scalar, which no flight path ever writes. A RAZOR's
+	/// throttle bar therefore moves and its speed bar does not — a retail quirk, not an omission
+	/// here. <see cref="DisplaySpeedKph"/> takes the flyer branch and does read airspeed.</para>
+	/// </summary>
+	/// <param name="gaugeThrottle">The gauge's current value, Q10 in the same ±0x400 range.</param>
+	/// <returns>The value both should now read.</returns>
+	public short ExchangeCockpitThrottle(short gaugeThrottle) {
+		if (ThrottleDirty) {
+			ThrottleDirty = false;
+			return Throttle;
+		}
+
+		if (Flight != null) {
+			FlightThrottle = gaugeThrottle;
+		}
+
+		Throttle = gaugeThrottle;
+		return gaugeThrottle;
+	}
+
+	/// <summary>
+	/// All stop — the keypad <c>[5]</c> command, case 7 of <c>Sim_PollPlayerInput</c>'s key switch
+	/// (<c>00460764</c>): zero the throttle and mark it dirty, so the gauge follows the machine
+	/// rather than putting the old setting straight back.
+	/// </summary>
+	public void AllStop() {
+		Throttle = 0;
+		ThrottleDirty = true;
+	}
+
+	/// <summary>Animation playback rate (<c>mech+0x2a0</c>). In steady state it equals <see cref="Speed"/>.</summary>
+	public short AnimRate { get; set; }
+
+	/// <summary>
+	/// The speed the HUD would read for this machine, in km/h. <c>Mech_GetDisplaySpeedKph</c>
+	/// (<c>0041bb3c</c>) branches on the flyer flag: a walker's speed scalar goes through a fixed
+	/// ratio, while a flyer's <see cref="AirSpeed"/> is remapped from its own speed range onto the
+	/// same readout scale, so both chassis kinds fill the same gauge.
+	/// </summary>
+	public int DisplaySpeedKph => Flight is { } flight
+		? Type.DisplayAirSpeedKph(AirSpeed, flight.Data.AirSpeedMax)
+		: Type.DisplaySpeedKph(Speed);
+
+	/// <summary>
+	/// The mech vtable's <c>+0x38</c> speed accessor (<c>00415498</c>): the speed scalar in the units
+	/// the rest of the simulation quotes distances in. The control law above reads only its sign; a
+	/// travelling shot adds the whole of it to its own speed, so a round fired from a machine running
+	/// forward flies faster than one fired standing still (see <see cref="Projectile.Speed"/>).
+	/// </summary>
+	public override short TravelSpeed => (short)SimMath.Q10Multiply(TravelSpeedScale, Speed);
+
+	/// <summary>The accessor's own Q10 factor.</summary>
+	private const int TravelSpeedScale = 2000;
 }

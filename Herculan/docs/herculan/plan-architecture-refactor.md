@@ -36,7 +36,7 @@ Built:
 Remaining:
 
 - Partial-file splits along retail prefixes, after reading each class whole: `WeaponMount` (charge, gauge, fire, condition), `MechObject` (movement and torso methods still in `MechObject.cs` move to the existing `.Locomotion` and `.Torso` partials; `.Combat` splits into damage and scoring), `BaseObject` (damage, death sequence), `ShellHangar` (armory, squad, grants, save), `ShellMap` (paint, intro; `ZoneRelief` to its own file), `DtsMeshBuilder`.
-- `World` and `Settings` — see [Open](#open).
+- `World` — see [Open](#open).
 
 ## Stage 2 — dependencies one way
 
@@ -99,7 +99,6 @@ Stages 3 and 4 move code whose order is behaviour. Their check is a replay diff:
 ## Open
 
 - **Open:** what `World` becomes — split into mission handoff and static tables (the tables' namespace name undecided), or left as it is.
-- **Open:** whether `Engine.Settings` is renamed at all.
 - **Open:** replay determinism, which Stages 3 and 4 need for their verification.
 - **Open:** `tools/scripts/rename_symbol` fails to build on the .NET 8.0.1xx SDK (CS9057: its analyzers need compiler 4.12); renames in such an environment are done by hand and checked by the build.
 - **Open:** `Host.Simulator.Cockpit` captures `Cockpit.X` inside the host; `CockpitDisplays` names `Engine.Cockpit.ThrottleTrack` for that reason. Stage 3 removes the clash.

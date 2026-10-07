@@ -4,6 +4,7 @@ using Herculan.Engine.Host.Shell.Tabs;
 using Herculan.Engine.Install;
 using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
+using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 

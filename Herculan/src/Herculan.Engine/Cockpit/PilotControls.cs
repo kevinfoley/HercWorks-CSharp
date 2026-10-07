@@ -1,24 +1,22 @@
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Audio;
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
-using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;
 using Silk.NET.Input;
-using static Herculan.Engine.Host.KeyChords;
+using static Herculan.Engine.Input.KeyChords;
 using InputTape = HercWorks.Core.Data.File.Dbsim.InputTape;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// The pilot's input to the machine: the keyboard's axis pairs and the stick combined into MechControls each
 /// frame, the stick's buttons dispatched, and what a replaying tape holds in their place. Sim_PollPlayerInput
 /// and Input_BuildPlayerDevice's share of the frame.
 /// </summary>
-sealed class PilotControls {
+public sealed class PilotControls {
 	private readonly CockpitView _view;
 	private readonly CockpitDisplays _displays;
 	private readonly CockpitCommands _commands;
@@ -28,10 +26,9 @@ sealed class PilotControls {
 	private readonly TapePlayback _tape;
 	private readonly TapeRecording _recording;
 	private readonly DeveloperKeys _developerKeys;
-	private readonly StagingOptions _staging;
+	private readonly StagedStart _staging;
 	private readonly PilotKeys _keys;
 
-	private bool _joystickAnnounced;
 	private JoystickPilotInput _joystickInput = JoystickPilotInput.None;
 
 	// CENTER LEGS has no latch of its own on the machine — MechObject reads it off the controls
@@ -48,7 +45,7 @@ sealed class PilotControls {
 	private int _missileKeyboardHold;
 
 	public PilotControls(SimulatorStart start, CockpitView view, CockpitDisplays displays, CockpitCommands commands,
-			TapePlayback tape, TapeRecording recording, DeveloperKeys developerKeys, StagingOptions staging) {
+			TapePlayback tape, TapeRecording recording, DeveloperKeys developerKeys, StagedStart staging) {
 		_view = view;
 		_displays = displays;
 		_scene = start.Scene;
@@ -72,8 +69,12 @@ sealed class PilotControls {
 		};
 	}
 
-	/// <summary>The stick, once the window has an input context to enumerate it with.</summary>
-	public JoystickSource? Joystick { get; private set; }
+	/// <summary>
+	/// The stick, once the window has an input context to enumerate it with. Its capabilities are what the
+	/// CONTROLS panel greys its rows against, and the original re-reads them every time that panel goes up
+	/// rather than at startup, so nothing read off it at load has to be the last word.
+	/// </summary>
+	public IJoystickSource? Joystick { get; set; }
 
 	public JoystickBindings Bindings { get; }
 
@@ -85,60 +86,6 @@ sealed class PilotControls {
 	// and the first button row's hold, take the turret pair rather than the movement pair.
 	private bool StickTurretPair => StickCapabilities.Present
 		&& Bindings.Assignment(_preferences, 0) == JoystickAxisAssignment.Turret;
-
-	/// <summary>
-	/// Opens the stick. Its capabilities are what the CONTROLS panel greys its rows against, and the original
-	/// re-reads them every time that panel goes up rather than at startup, so nothing here has to be the last
-	/// word. Nothing is read off the device here: Silk.NET's GLFW backend reports a connected stick with zero
-	/// axes, buttons and hats until the first Update, so anything derived from its shape at load time maps
-	/// nothing at all — see JoystickSource. What it can do is announced on the first frame that knows, in
-	/// <see cref="AnnounceJoystick"/>.
-	/// </summary>
-	public void OpenJoystick(IInputContext input, string? dataDirectory, bool probe) =>
-		Joystick = JoystickSource.Open(input, dataDirectory, probe);
-
-	/// <summary>
-	/// Says what the stick can do, once — and not before it will answer. Silk.NET's GLFW backend publishes a
-	/// connected device a frame before it publishes that device's axis, button and hat counts, so this waits
-	/// for a map to exist rather than running at load. Anything keyed off the device's shape has to wait with
-	/// it: the derived map itself, the CONTROLS panel's capabilities, and --write-joystick-map.
-	/// </summary>
-	public void AnnounceJoystick(ControlsPanel? controlsPanel, bool probe, bool writeMap, string? dataDirectory) {
-		if (_joystickAnnounced || Joystick is not { Map: { } map } joystick) {
-			return;
-		}
-
-		_joystickAnnounced = true;
-
-		foreach (string line in joystick.Describe()) {
-			Console.WriteLine(line);
-		}
-
-		// The lever's mode lives in the map but is read through the bindings, the control law having no
-		// route to the map. Derived maps never set it, so this only ever carries a file's own choice.
-		Bindings.BipolarThrottle = map.BipolarThrottle;
-
-		// Only when a stick really answered: with none attached the panel keeps whatever --joystick staged,
-		// which is the whole point of that flag.
-		if (controlsPanel is not null && joystick.Capabilities.Present) {
-			controlsPanel.Capabilities = joystick.Capabilities;
-		}
-
-		if (probe) {
-			Console.WriteLine("Move one control at a time; put what it prints into "
-				+ $"data\\{JoystickDeviceMap.FileName}.");
-		}
-
-		if (writeMap && dataDirectory is not null) {
-			string mapPath = Path.Combine(dataDirectory, JoystickDeviceMap.FileName);
-			try {
-				map.Save(mapPath);
-				Console.WriteLine($"Wrote {mapPath}.");
-			} catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
-				Console.WriteLine($"Could not write {mapPath}: {error.Message}");
-			}
-		}
-	}
 
 	/// <summary>
 	/// The frame's pilot input: the machine's controls, the camera's axes, the round's steering, and the observer

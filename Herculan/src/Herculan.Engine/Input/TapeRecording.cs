@@ -2,17 +2,16 @@ using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
-using Herculan.Engine.Input;
-using static Herculan.Engine.Host.KeyChords;
+using static Herculan.Engine.Input.KeyChords;
 using InputTape = HercWorks.Core.Data.File.Dbsim.InputTape;
 
-namespace Herculan.Engine.Host.Simulator.Replay;
+namespace Herculan.Engine.Input;
 
 /// <summary>
 /// <c>--record</c>: this mission's input going onto a tape, which <see cref="TapePlayback"/> replays. With no
 /// recorder every member is inert.
 /// </summary>
-sealed class TapeRecording {
+public sealed class TapeRecording {
 	private readonly SimulatorPreferences _preferences;
 	private readonly GameAudio _audio;
 	private readonly HashSet<int> _keysDown = new();

@@ -1,10 +1,10 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Settings;
-using Herculan.Engine.Host.Simulator.Cockpit;
-using Herculan.Engine.Host.Simulator.Replay;
+using Herculan.Engine.Input;
 using Herculan.Engine.Platform;
 using Silk.NET.Input;
-using static Herculan.Engine.Host.KeyChords;
+using static Herculan.Engine.Input.KeyChords;
 
 namespace Herculan.Engine.Host.Simulator;
 
@@ -12,7 +12,7 @@ namespace Herculan.Engine.Host.Simulator;
 /// The keys that act on the window rather than the game: [Esc] backing out to the menu bar, [/] for the
 /// on-line manual, and the full-screen toggle and its ways out.
 /// </summary>
-sealed class WindowKeys {
+sealed class WindowKeys : ISystemButtonActions {
 	private readonly EngineWindow _window;
 	private readonly SimulatorInput _input;
 	private readonly TapePlayback _tape;

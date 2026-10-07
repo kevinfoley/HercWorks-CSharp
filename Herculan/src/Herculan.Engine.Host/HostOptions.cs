@@ -52,7 +52,8 @@ sealed class HostOptions {
 	public RetailInstaller.Language InstallLanguage { get; private set; } = RetailInstaller.Language.English;
 
 	public ShellOptions Shell { get; } = new();
-	public StagingOptions Staging { get; } = new();
+	public StagedStart StagedStart { get; } = new();
+	public StagedScreenshot StagedScreenshot { get; } = new();
 
 	/// <summary>
 	/// Parses <paramref name="args"/>, recording every problem in <paramref name="errors"/> rather than stopping
@@ -60,7 +61,8 @@ sealed class HostOptions {
 	/// </summary>
 	public static HostOptions Parse(string[] args, List<string> errors) {
 		var options = new HostOptions();
-		var staging = options.Staging;
+		var staging = options.StagedStart;
+		var capture = options.StagedScreenshot;
 		var shell = options.Shell;
 
 		for (int i = 0; i < args.Length; i++) {
@@ -188,7 +190,7 @@ sealed class HostOptions {
 				// --fire: rounds land on their own once the trigger is held, but a light lasts about two
 				// thirds of a second and a fixed frame count is as likely to photograph the gap between two
 				// as one of them. Only useful alongside --fire and --screenshot.
-				staging.WaitForEffectLight = true;
+				capture.WaitForEffectLight = true;
 			} else if (args[i] == "--target") {
 				// Acquire a target at power-up, for the same reason as --weapon and --mfd: a --screenshot run
 				// never sees a keystroke, and the HUD's target box, the reticle's on-target frame and the F5
@@ -330,7 +332,7 @@ sealed class HostOptions {
 			} else if (args[i] == "--wait-transmission") {
 				// Holds the capture until a squadmate's portrait is actually up rather than the static either
 				// side of it, which is the one frame worth photographing. Only useful with --flash-comm-xmit.
-				staging.WaitForTransmission = true;
+				capture.WaitForTransmission = true;
 			} else if (args[i] == "--hdd-xmit") {
 				// Presses XMIT on the armed order once the screen is up, and reports what the squad did with
 				// it. A --screenshot run sees no keystroke and no map click, so this is the only way to reach
@@ -418,40 +420,4 @@ sealed class ShellOptions {
 	public bool Practice { get; set; }
 	public bool Windowed { get; set; }
 	public bool Movies { get; set; } = true;
-}
-
-/// <summary>
-/// The state a mission powers up in, for a <c>--screenshot</c> run, which never sees a keystroke. Each
-/// property is the flag of the same name in <see cref="HostOptions.Parse"/>, which says why it exists.
-/// </summary>
-sealed class StagingOptions {
-	public MfdMode? Mfd { get; set; }
-	public bool HeadsDown { get; set; }
-	public HddPage HddPage { get; set; } = CockpitHudState.Default.Hdd;
-	public HddDamageView HddDamageView { get; set; } = CockpitHudState.Default.HddDamage;
-	public short Throttle { get; set; }
-	public int? Heading { get; set; }
-	public bool External { get; set; }
-	public short HeldTwist { get; set; }
-	public short HeldPitch { get; set; }
-	public int? WeaponRow { get; set; }
-	public bool Link { get; set; }
-	public bool HeldFire { get; set; }
-	public bool HitShake { get; set; }
-	public bool AcquireTarget { get; set; }
-	public bool AutoTrack { get; set; }
-	public bool WaitForEffectLight { get; set; }
-	public int HddPilot { get; set; } = -1;
-	public int HddSubject { get; set; } = HddDamageSubject.PlayerSlot;
-	public HddOrder? HddOrder { get; set; }
-	public bool HddTransmit { get; set; }
-	public int FlashCommRow { get; set; } = -1;
-	public bool FlashCommTransmit { get; set; }
-	public bool WaitForTransmission { get; set; }
-	public bool Objectives { get; set; }
-	public bool Preferences { get; set; }
-	public bool Controls { get; set; }
-	public JoystickCapabilities Joystick { get; set; } = JoystickCapabilities.None;
-	public bool StatusAlert { get; set; }
-	public int StatusAlertStatus { get; set; } = -1;
 }

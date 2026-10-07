@@ -1,10 +1,11 @@
 using System.Runtime.InteropServices;
+using Herculan.Engine.Input;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;
 using Herculan.Engine.World;
 using Silk.NET.Input;
 
-namespace Herculan.Engine.Host;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// DBSIM's <c>-SPRUNKNOWN</c> developer keys, which <c>--developer</c> turns on here, and the
@@ -22,7 +23,7 @@ namespace Herculan.Engine.Host;
 /// commands do: the keyboard queues one per <c>WM_KEYDOWN</c>. So a held move key keeps moving, at
 /// the repeat delay and rate Windows is set to.</para>
 /// </summary>
-sealed class DeveloperKeys(bool enabled) {
+public sealed class DeveloperKeys(bool enabled) {
 	/// <summary>
 	/// <c>Mech_HandleCommand</c>'s two step tables for <c>Ctrl+Alt+1</c>-<c>9</c>, the move at
 	/// <c>DevKeys_MoveStepTable</c> (<c>0049a020</c>) and the turn at <c>DevKeys_TurnStepTable</c> (<c>0049a032</c>). The two hold the same nine values.

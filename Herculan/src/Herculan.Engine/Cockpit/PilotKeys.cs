@@ -1,18 +1,18 @@
 using Herculan.Engine.Audio;
-using Herculan.Engine.Cockpit;
+using Herculan.Engine.Input;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Silk.NET.Input;
-using static Herculan.Engine.Host.KeyChords;
+using static Herculan.Engine.Input.KeyChords;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// The keyboard's commands to the machine itself: all stop, the shield balance, the weapon panel, the radar,
 /// Automatic Turret Tracking, and target selection. Each fires on its own key-down edge — the original
 /// dispatches a command per keypress, so holding one does nothing.
 /// </summary>
-sealed class PilotKeys(CockpitView view, CockpitDisplays displays, CockpitCommands commands, MissionScene scene,
+public sealed class PilotKeys(CockpitView view, CockpitDisplays displays, CockpitCommands commands, MissionScene scene,
 		GameAudio audio) {
 	private readonly KeyLatch _allStop = new();
 	private readonly KeyLatch _shieldRear = new();

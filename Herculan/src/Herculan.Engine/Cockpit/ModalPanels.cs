@@ -1,15 +1,15 @@
 using Herculan.Engine.Audio;
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Input;
 using Herculan.Engine.Render.Cockpit;
+using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 using Silk.NET.Input;
-using static Herculan.Engine.Host.KeyChords;
+using static Herculan.Engine.Input.KeyChords;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// The simulator's four modal panels: the status-alert family ([Q], [Ctrl+Q], [P] and the mission's own
@@ -18,10 +18,9 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// Sim_MainTick — so while any is up the simulation is frozen and nothing else takes the keyboard, the
 /// pointer or the stick.
 /// </summary>
-sealed class ModalPanels {
-	private readonly SimulatorInput _input;
+public sealed class ModalPanels {
+	private readonly IPointerDevice _pointer;
 	private readonly CockpitView _view;
-	private readonly MissionOutcome _outcome;
 	private readonly Mission _mission;
 	private readonly SimWorld _world;
 	private readonly SimulatorPreferences _preferences;
@@ -52,11 +51,10 @@ sealed class ModalPanels {
 	private double _panelTicks;
 	private long PanelTicks => (long)_panelTicks;
 
-	public ModalPanels(SimulatorStart start, SimulatorInput input, CockpitView view, MissionOutcome outcome,
-			bool hasCockpit, JoystickCapabilities stagedJoystick) {
-		_input = input;
+	public ModalPanels(SimulatorStart start, IPointerDevice pointer, CockpitView view, bool hasCockpit,
+			JoystickCapabilities stagedJoystick) {
+		_pointer = pointer;
 		_view = view;
-		_outcome = outcome;
 		_mission = start.Mission;
 		_world = start.World;
 		_preferences = start.Preferences;
@@ -79,7 +77,7 @@ sealed class ModalPanels {
 		// twelve bytes of prefs.cfg it reads, both hang off whether the player's machine is the RAZOR. It is
 		// built with whatever --joystick staged, which is nothing by default: GLFW does not publish a device's
 		// shape until a frame after enumeration, so the real capabilities arrive later through
-		// PilotControls.AnnounceJoystick. Until they do every row greys itself, which is what retail also shows
+		// JoystickSource.Announce. Until they do every row greys itself, which is what retail also shows
 		// for a stick it cannot enumerate.
 		Controls = ControlsPanel.Build(start.Content, start.Preferences, start.PilotingRazor, stagedJoystick);
 	}
@@ -123,7 +121,7 @@ sealed class ModalPanels {
 	}
 
 	/// <summary>Raises the panels the staging flags ask for, and says which panels are missing their text.</summary>
-	public void OpenStaged(StagingOptions staging) {
+	public void OpenStaged(StagedStart staging) {
 		if (staging.Objectives) {
 			Objectives?.Open();
 		}
@@ -156,13 +154,16 @@ sealed class ModalPanels {
 	/// every frame — single <c>|</c>, not <c>||</c> — so each keeps its own key-edge state whether or not another
 	/// claimed the keystroke. Returns whether any of them claimed it.
 	/// </summary>
-	public bool ReadKeys() => ReadStatusAlertKeys() | ReadObjectivesKeys() | ReadPreferencesKeys();
+	/// <param name="keyboard">The keyboard, or null while the debug UI has it.</param>
+	/// <param name="missionOver">Whether the mission is over, which stops [Q], [Ctrl+Q] and [P] raising a panel.</param>
+	public bool ReadKeys(IKeyState? keyboard, bool missionOver) =>
+		ReadStatusAlertKeys(keyboard, missionOver) | ReadObjectivesKeys(keyboard) | ReadPreferencesKeys(keyboard);
 
 	/// <summary>
 	/// The modal owns the pointer: the cockpit behind it takes no clicks. Reads the open panel's buttons, and for
 	/// the CONTROLS panel the stick too.
 	/// </summary>
-	public void ReadPointer(int framebufferWidth, int framebufferHeight, JoystickSource? joystick) {
+	public void ReadPointer(int framebufferWidth, int framebufferHeight, IJoystickSource? joystick) {
 		if (StatusAlert is { IsOpen: true } liveAlert) {
 			// The panel's own placement, not a fixed one: the status alert and the pause panel are
 			// different sizes and so centre to different origins.
@@ -263,16 +264,16 @@ sealed class ModalPanels {
 	private void SyncPanelPointer(bool open, ref (float X, float Y)? saved, AlertPanelLayout.Placement place,
 			FocusPointer takeFocusPointer) {
 		if (open && saved is null) {
-			var (x, y, _) = _input.Pointer();
+			var (x, y, _) = _pointer.Pointer();
 			saved = (x, y);
 		} else if (!open && saved is { } back) {
 			saved = null;
-			_input.WarpPointer(back.X, back.Y);
+			_pointer.WarpPointer(back.X, back.Y);
 		}
 
 		if (open && takeFocusPointer(out int panelX, out int panelY)) {
 			var (windowX, windowY) = place.ToWindow(panelX, panelY);
-			_input.WarpPointer(windowX, windowY);
+			_pointer.WarpPointer(windowX, windowY);
 		}
 	}
 
@@ -281,10 +282,10 @@ sealed class ModalPanels {
 	/// the player is down the death camera does. Latched on SimWorld.PendingMissionAlert by the tick that
 	/// produced it.
 	/// </summary>
-	public void RaisePendingMissionAlert() {
+	public void RaisePendingMissionAlert(bool missionOver) {
 		if (_world is { PendingMissionAlert: not MissionStatus.None } alerted
 			&& StatusAlert is { IsOpen: false } && Objectives is not { IsOpen: true }
-			&& !_outcome.Over) {
+			&& !missionOver) {
 			var raised = alerted.PendingMissionAlert;
 			alerted.PendingMissionAlert = MissionStatus.None;
 			OpenStatusAlert(raised, alerted.Objectives);
@@ -327,21 +328,23 @@ sealed class ModalPanels {
 			return false;
 		}
 
-		_pointerDown = _input.Pointer().Buttons.HasFlag(CockpitMouseButtons.Left);
+		_pointerDown = _pointer.Pointer().Buttons.HasFlag(CockpitMouseButtons.Left);
 		return true;
 	}
 
 	/// <summary>
 	/// What the player answered. Only the button the status's own table names ends the mission; every other
-	/// answer just puts the panel away and carries on.
+	/// answer just puts the panel away and carries on. Returns whether the answer ends the mission, and in
+	/// <paramref name="quitGame"/> whether it leaves the game as well.
 	/// </summary>
-	public void ApplyStatusAlertAnswer() {
+	public bool TakeMissionEnding(out bool quitGame) {
+		quitGame = false;
 		if (StatusAlert == null || !StatusAlert.TryTakeAnswer(out int button, out bool ends)) {
-			return;
+			return false;
 		}
 
 		if (!ends) {
-			return;
+			return false;
 		}
 
 		// Both endings leave the simulator. EXIT EARTHSIEGE? is not a mission outcome at all -- its QUIT
@@ -349,12 +352,12 @@ sealed class ModalPanels {
 		// panel still up -- while a mission-ending answer goes up through Sim_PollPlayerInput and
 		// Sim_MainTick as the tick's own return, which ends the main loop. Either way Sim_Shutdown then
 		// writes the results and picks the exit code, after the window has gone (SimulatorHost's end).
-		bool quitGame = StatusAlert.Status == StatusAlertPanel.ExitGameStatus;
+		quitGame = StatusAlert.Status == StatusAlertPanel.ExitGameStatus;
 		Console.WriteLine(quitGame
 			? "Quitting EarthSiege 2."
 			: $"Mission over — status {StatusAlert.Status} "
 				+ $"({(MissionStatus)StatusAlert.Status}), answered '{StatusAlert.Buttons[button]}'.");
-		_outcome.End(quitGame);
+		return true;
 	}
 
 	/// <summary>
@@ -385,10 +388,8 @@ sealed class ModalPanels {
 	// its keys (PanelKey) and the panel's own loop owns the rest.
 	//
 	// Returns whether the panel claimed the keystroke.
-	private bool ReadStatusAlertKeys() {
-		var keyboard = _input.Keyboard;
-		if (StatusAlert == null || keyboard == null
-			|| _input.KeyboardCapturedByImGui) {
+	private bool ReadStatusAlertKeys(IKeyState? keyboard, bool missionOver) {
+		if (StatusAlert == null || keyboard == null) {
 			_statusAlertKeysDown = 0;
 			return false;
 		}
@@ -404,7 +405,7 @@ sealed class ModalPanels {
 
 		// Not while another panel is up, which is already holding the input. The external view keeps both:
 		// they are the dispatcher's own cases, not the widgets'.
-		if (_outcome.Over || !_hasCockpit
+		if (missionOver || !_hasCockpit
 			|| Objectives is { IsOpen: true } || Preferences is { IsOpen: true }) {
 			return false;
 		}
@@ -433,10 +434,8 @@ sealed class ModalPanels {
 	// close the panel it opened; that is retail behaviour, not an oversight here.
 	//
 	// Returns whether the panel claimed the keystroke, so [Esc] does not also reach the debug panel.
-	private bool ReadObjectivesKeys() {
-		var keyboard = _input.Keyboard;
-		if (Objectives == null || keyboard == null
-			|| _input.KeyboardCapturedByImGui) {
+	private bool ReadObjectivesKeys(IKeyState? keyboard) {
+		if (Objectives == null || keyboard == null) {
 			_objectivesKeysDown = 0;
 			return false;
 		}
@@ -471,10 +470,8 @@ sealed class ModalPanels {
 	// pause panel, and this host has no Alt-modified command bank yet.
 	//
 	// Returns whether the panel claimed the keystroke, so [Esc] does not also reach the debug panel.
-	private bool ReadPreferencesKeys() {
-		var keyboard = _input.Keyboard;
-		if (Preferences == null || keyboard == null
-			|| _input.KeyboardCapturedByImGui) {
+	private bool ReadPreferencesKeys(IKeyState? keyboard) {
+		if (Preferences == null || keyboard == null) {
 			_preferencesKeysDown = 0;
 			return false;
 		}
@@ -544,7 +541,7 @@ sealed class ModalPanels {
 	// Widget_OnMouseUp's own re-hit-test.
 	private void ReadPanelPointer(AlertPanelLayout.Placement place, Action<float, float> onDown,
 			Action<float, float, bool> onUp) {
-		var (pointerX, pointerY, buttons) = _input.Pointer();
+		var (pointerX, pointerY, buttons) = _pointer.Pointer();
 		var (panelX, panelY) = place.ToPanel(pointerX, pointerY);
 
 		// Both buttons press a widget; which one was released is what the click carries, since
@@ -568,7 +565,7 @@ sealed class ModalPanels {
 	// latch; button 2 is +0x17, the second button's own byte, which that build zeroes when it is the trigger's.
 	// Answering one latches it: Input_LatchButton(2, 1) for button 2, and (1, 1) for the trigger, which latches
 	// button 0 wherever the trigger is bound — the same button on every binding the CONTROLS panel can set.
-	private void ReadPanelJoystick(JoystickSource? joystick, Func<bool, bool, long, bool> handleStick) {
+	private void ReadPanelJoystick(IJoystickSource? joystick, Func<bool, bool, long, bool> handleStick) {
 		if (joystick is not { Capabilities.Present: true }) {
 			return;
 		}
@@ -591,7 +588,7 @@ sealed class ModalPanels {
 	// by hand before it reads the device block.
 	//
 	// The original breaks at the first set byte it finds, which is the lowest live row.
-	private void ReadControlsPanelJoystick(ControlsPanel panel, JoystickSource? joystick) {
+	private void ReadControlsPanelJoystick(ControlsPanel panel, IJoystickSource? joystick) {
 		if (joystick is not { Capabilities.Present: true }) {
 			return;
 		}
@@ -612,7 +609,7 @@ sealed class ModalPanels {
 	// The device's eight with the latch applied. Retail latches the button it acts on and the next input build
 	// masks it to zero until it is let go, so a held button acts once and no more, and a panel sees a latched
 	// button as not pressed at all.
-	private byte LiveStickButtons(JoystickSource joystick) {
+	private byte LiveStickButtons(IJoystickSource joystick) {
 		byte pressed = joystick.Read().Buttons;
 		_panelStickLatched &= pressed;
 		return (byte)(pressed & ~_panelStickLatched);

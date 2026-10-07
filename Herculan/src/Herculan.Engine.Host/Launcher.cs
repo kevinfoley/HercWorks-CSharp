@@ -1,6 +1,8 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Host.Shell;
 using Herculan.Engine.Host.Simulator;
 using Herculan.Engine.Shell;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Host;
 
@@ -14,7 +16,7 @@ static class Launcher {
 	/// with no launcher to read them, so a mission that ends normally leaves the host with 0.
 	/// </summary>
 	public static int RunMission(HostSession session, HostOptions options) {
-		var staging = new SimulatorStaging(options.Staging, options.ScreenshotPath);
+		var staging = new SimulatorStaging(options.StagedStart, options.StagedScreenshot, screenshotRun: options.ScreenshotPath != null);
 		int missionExit = SimulatorHost.Run(session, options, staging, null, options.DemoTape, options.MusicTrackSelect);
 		return ShellHost.ReturnsToShell(missionExit) ? 0 : missionExit;
 	}
@@ -31,7 +33,7 @@ static class Launcher {
 	/// </summary>
 	public static int RunShellLoop(HostSession session, HostOptions options) {
 		var shell = options.Shell;
-		var staging = new SimulatorStaging(options.Staging, options.ScreenshotPath);
+		var staging = new SimulatorStaging(options.StagedStart, options.StagedScreenshot, screenshotRun: options.ScreenshotPath != null);
 		var shellMode = shell.Mode;
 		int state = ShellHost.StartupCode;
 		int launches = 0;

@@ -2,7 +2,6 @@ using System.Numerics;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
-using Herculan.Engine.Host.Simulator.Cockpit;
 using Herculan.Engine.Render;
 using Herculan.Engine.Render.Cockpit;
 using Herculan.Engine.View;

@@ -1,22 +1,21 @@
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
-using Herculan.Engine.Input;
-using Herculan.Engine.Platform;
 using Silk.NET.Input;
+using Silk.NET.Maths;
 using InputTape = HercWorks.Core.Data.File.Dbsim.InputTape;
 
-namespace Herculan.Engine.Host.Simulator.Replay;
+namespace Herculan.Engine.Input;
 
 /// <summary>
 /// An input tape driving the mission (<c>--play</c>, <c>--demo</c>): which of its frames is taken this host
 /// frame, the keystrokes and pointer it leaves for the handlers to read, and the live keys that still stop
 /// it. With no tape every member is inert, so callers ask <see cref="Playing"/> rather than whether there is
-/// one. The ticks a replay runs are <see cref="SimulationStepper"/>'s.
+/// one. The ticks a replay runs are the host's frame stepper's.
 /// </summary>
-sealed class TapePlayback {
+public sealed class TapePlayback {
 	private readonly SimulatorPreferences _preferences;
-	private readonly EngineWindow _window;
+	private readonly Func<Vector2D<int>> _framebufferSize;
 	private readonly CockpitInput _cockpitInput;
 
 	// The replay's own state. Frame is the frame taken this host frame, if one was due; the keys it
@@ -26,12 +25,16 @@ sealed class TapePlayback {
 	private bool _panelShown;
 	private bool _liveStopRequested;
 
-	public TapePlayback(InputTapePlayer? player, SimulatorPreferences preferences, EngineWindow window,
+	/// <param name="player">The tape, or null when nothing is replaying.</param>
+	/// <param name="preferences">The install's simulator preferences, whose video mode scales the tape's mouse.</param>
+	/// <param name="framebufferSize">The window's framebuffer size, which the tape's mouse is placed on.</param>
+	/// <param name="cockpitInput">The cockpit's click queue, which the tape's clicks go into.</param>
+	public TapePlayback(InputTapePlayer? player, SimulatorPreferences preferences, Func<Vector2D<int>> framebufferSize,
 			CockpitInput cockpitInput) {
 		Player = player;
 		Keys = player != null ? new TapeKeys() : null;
 		_preferences = preferences;
-		_window = window;
+		_framebufferSize = framebufferSize;
 		_cockpitInput = cockpitInput;
 	}
 
@@ -93,7 +96,7 @@ sealed class TapePlayback {
 	/// Takes the replay's next frame once it is due, before any handler reads input this host frame, and
 	/// puts its keystrokes and mouse events where those handlers look. At most one frame a host frame goes
 	/// in this way: every frame behind it that carries only held state follows in
-	/// <see cref="SimulationStepper"/>.
+	/// the frame stepper.
 	///
 	/// <para>A frame that presses anything waits for a host frame with nothing down, so every key-down edge
 	/// the tape records is one the handlers see — which also delays it by a host frame when two such frames
@@ -196,7 +199,7 @@ sealed class TapePlayback {
 	// panel centres itself on and the forward view fills, or 320x240 in the low-resolution mode — so it
 	// lands wherever this engine puts that screen.
 	private void ApplyMouse(InputTape.MouseEvent mouseEvent, bool underPanel) {
-		var framebuffer = _window.FramebufferSize;
+		var framebuffer = _framebufferSize();
 		int scale = _preferences[Prefs.VideoModeOption] == 1 ? 2 : 1;
 
 		var (x, y) = AlertPanelLayout.Placement.CreateAt(framebuffer.X, framebuffer.Y, 0, 0)

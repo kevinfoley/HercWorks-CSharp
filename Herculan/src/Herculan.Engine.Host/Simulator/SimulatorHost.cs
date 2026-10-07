@@ -4,9 +4,7 @@ using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Debugging;
 using Herculan.Engine.Host.Settings;
-using Herculan.Engine.Host.Simulator.Cockpit;
 using Herculan.Engine.Host.Simulator.Rendering;
-using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
 using Herculan.Engine.Platform;
 using Herculan.Engine.Scene;
@@ -54,6 +52,7 @@ sealed class SimulatorHost : IDisposable {
 
 	// Built once the window has a GL context.
 	private ScaledImGui? _imgui;
+	private JoystickSource? _joystick;
 	private SceneUploads? _uploads;
 	private DrawFiling? _filing;
 	private WorldDrawItems? _world;
@@ -89,7 +88,7 @@ sealed class SimulatorHost : IDisposable {
 		var mission = start.Mission;
 
 		_art = LoadCockpitArt(start);
-		_view = new CockpitView(_scene, _art, staging.Options);
+		_view = new CockpitView(_scene, _art, staging.Start);
 
 		_window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}",
 			placement: session.WindowPlacement);
@@ -100,12 +99,12 @@ sealed class SimulatorHost : IDisposable {
 		_outcome.BindWindow(_window);
 
 		var cockpitInput = new CockpitInput();
-		_tape = new TapePlayback(start.TapePlayer, _preferences, _window, cockpitInput);
+		_tape = new TapePlayback(start.TapePlayer, _preferences, () => _window.FramebufferSize, cockpitInput);
 		_recording = new TapeRecording(start.TapeRecorder, _preferences, _audio);
 		_input = new SimulatorInput(_window, _tape, cockpitInput);
 
-		_panels = new ModalPanels(start, _input, _view, _outcome, hasCockpit: _art != null, staging.Options.Joystick);
-		_panels.OpenStaged(staging.Options);
+		_panels = new ModalPanels(start, _input, _view, hasCockpit: _art != null, staging.Start.Joystick);
+		_panels.OpenStaged(staging.Start);
 
 		if (_art?.HeadsDown != null) {
 			if (_art.HeadsDownLayout == null) {
@@ -116,12 +115,12 @@ sealed class SimulatorHost : IDisposable {
 		}
 
 		_displays = new CockpitDisplays(start, _art, _view, staging);
-		_view.BuildChain(staging.Options.External);
+		_view.BuildChain(staging.Start.External);
 
 		// The debug panel. It owns its own view options and readouts; see DebugPanel for what it shows and
 		// why it is ImGui rather than the game's own HUD font. Reachable only under --developer; without it the
 		// panel still exists, closed and with its overlays off, since the renderer and stepper read it.
-		_debugPanel = new DebugPanel(options.DeveloperMode);
+		_debugPanel = new DebugPanel(options.DeveloperMode, _view.SteadyEye);
 
 		// Hidden until [Esc] first raises it — see WindowKeys.ReadMenuBarEscapeKey — since it is the only way
 		// to reach its panels and every key from F1 to F12 is already taken. A mission has no shell turn to
@@ -139,7 +138,7 @@ sealed class SimulatorHost : IDisposable {
 
 		_windowKeys = new WindowKeys(_window, _input, _tape, _menuBar, start.InstallRoot, start.Disc);
 		_commands = new CockpitCommands(_displays, _view, _scene, _audio, _windowKeys, _tape);
-		_pilot = new PilotControls(start, _view, _displays, _commands, _tape, _recording, _developerKeys, staging.Options);
+		_pilot = new PilotControls(start, _view, _displays, _commands, _tape, _recording, _developerKeys, staging.Start);
 		_keyboard = new CockpitKeyboard(_displays, _view, _commands, _scene, _audio);
 		_cockpitUpdate = new PlayerCockpitUpdate(_displays, _view, _commands, _scene, _audio);
 		_stepper = new SimulationStepper(_scene.World, _tape, _recording, _panels, _outcome, _developerKeys, _view,
@@ -276,7 +275,10 @@ sealed class SimulatorHost : IDisposable {
 		_cockpit = new CockpitRenderer(gl, _art, _view, _displays, _textures, _passes);
 
 		_input.Attach(input);
-		_pilot.OpenJoystick(input, _start.DataDirectory, _options.ProbeJoystick);
+		// Nothing is read off the device yet: GLFW publishes a stick's shape a frame late (see JoystickSource), so
+		// what it can do is announced on the first frame that knows.
+		_joystick = JoystickSource.Open(input, _start.DataDirectory, _options.ProbeJoystick);
+		_pilot.Joystick = _joystick;
 
 		// WinMain's toggle, after the pointer is known so it is confined and centred as Video_ToggleFullscreen's is.
 		if (_start.StartFullScreen) {
@@ -300,7 +302,7 @@ sealed class SimulatorHost : IDisposable {
 			return;
 		}
 
-		_pilot.AnnounceJoystick(_panels.Controls, _options.ProbeJoystick, _options.WriteJoystickMap, _start.DataDirectory);
+		_joystick?.Announce(_pilot.Bindings, _panels.Controls, _options.WriteJoystickMap, _start.DataDirectory);
 		_stepper.BeginFrame(deltaSeconds);
 
 		// The modal panels take the keyboard before anything else does; [Esc], which dismisses any of them, is
@@ -308,7 +310,7 @@ sealed class SimulatorHost : IDisposable {
 		// tracks its own key edge every frame — so a press held across the frame a retail panel consumes it
 		// doesn't read as a fresh, unconsumed press the moment that panel closes.
 		_panels.AdvanceClock(deltaSeconds);
-		bool panelHandledKey = _panels.ReadKeys();
+		bool panelHandledKey = _panels.ReadKeys(_input.KeyboardCapturedByImGui ? null : _input.Keyboard, _outcome.Over);
 		_windowKeys.ReadMenuBarEscapeKey(panelHandledKey, _view, hasCockpit: _art != null);
 		_windowKeys.ReadManualKey(_displays.FlashCommHasKeyboard, _panels.AnyOpen);
 		_windowKeys.ReadFullScreenKeys();
@@ -364,9 +366,11 @@ sealed class SimulatorHost : IDisposable {
 		// input, repaints its own widgets and presents, and never reaches the sim tick. The poll raises the
 		// status alert by itself once the mission is decided — Sim_MainTick's own arm, latched on
 		// SimWorld.PendingMissionAlert by the tick that produced it.
-		_panels.RaisePendingMissionAlert();
+		_panels.RaisePendingMissionAlert(_outcome.Over);
 		_staging.RaiseStatusAlert(_panels, _scene.World);
-		_panels.ApplyStatusAlertAnswer();
+		if (_panels.TakeMissionEnding(out bool quitGame)) {
+			_outcome.End(quitGame);
+		}
 
 		ApplyLivePreferences();
 
@@ -395,7 +399,7 @@ sealed class SimulatorHost : IDisposable {
 			_flash?.Apply(_view.Shake.FlashActive);
 		}
 
-		_view.PlaceCamera(_debugPanel);
+		_view.PlaceCamera();
 
 		// The listener is the camera, as it is in the original — so the external view hears the machine
 		// from behind it rather than from inside it. Camera yaw runs opposite to a simulation heading
@@ -568,8 +572,10 @@ sealed class SimulatorHost : IDisposable {
 
 		_imgui?.Render();
 
-		_staging.AfterFrame(gl, size.X, size.Y, _window, _scene.World, _passes.DrawsBeams, _displays.SquadComm,
-			_view.Shake);
+		if (_staging.AfterFrame(_scene.World, _passes.DrawsBeams, _displays.SquadComm, _view.Shake)) {
+			Screenshot.Capture(gl, size.X, size.Y, _options.ScreenshotPath!);
+			_window.Close();
+		}
 	}
 
 	private void OnClosing() {

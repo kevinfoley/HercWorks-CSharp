@@ -1,13 +1,9 @@
-using Herculan.Engine.Cockpit;
-using Herculan.Engine.Host.Simulator.Cockpit;
-using Herculan.Engine.Platform;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;
 using Herculan.Engine.World;
-using Silk.NET.OpenGL;
 
-namespace Herculan.Engine.Host.Simulator;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// The staging flags at work: the state a <c>--screenshot</c> run powers up in, the presses it makes for a
@@ -16,7 +12,10 @@ namespace Herculan.Engine.Host.Simulator;
 /// mission only, and <c>--target</c> stays armed until a pick is made, in whichever mission that is. The rest
 /// is applied to every mission.
 /// </summary>
-sealed class SimulatorStaging(StagingOptions options, string? screenshotPath) {
+/// <param name="options">The state to power up in.</param>
+/// <param name="capture">What the capture waits for.</param>
+/// <param name="screenshotRun">Whether this run ends in a capture at all.</param>
+public sealed class SimulatorStaging(StagedStart options, StagedScreenshot capture, bool screenshotRun) {
 	// How long a --screenshot run lets the scene settle before it captures. Long enough for the power-up
 	// sequence and the first sensor sweep, which is what most staged flags wait on.
 	private const int ScreenshotWarmupFrames = 30;
@@ -36,7 +35,7 @@ sealed class SimulatorStaging(StagingOptions options, string? screenshotPath) {
 	private bool _hitShakeStaged;
 	private bool _screenshotTaken;
 
-	public StagingOptions Options => options;
+	public StagedStart Start => options;
 
 	/// <summary>Starts a mission's own count of frames and its one capture.</summary>
 	public void BeginMission() {
@@ -204,11 +203,10 @@ sealed class SimulatorStaging(StagingOptions options, string? screenshotPath) {
 	}
 
 	/// <summary>
-	/// The end of a rendered frame: a <c>--screenshot</c> run captures it, and closes the window, once the scene
-	/// has settled and whatever its staged flags wait on is on screen.
+	/// The end of a rendered frame: whether a <c>--screenshot</c> run captures it, and closes the window, which it
+	/// does once, once the scene has settled and whatever its staged flags wait on is on screen.
 	/// </summary>
-	public void AfterFrame(GL gl, int width, int height, EngineWindow window, SimWorld world, bool drawsBeams,
-			SquadCommChannel squadComm, CockpitHitShake shake) {
+	public bool AfterFrame(SimWorld world, bool drawsBeams, SquadCommChannel squadComm, CockpitHitShake shake) {
 		_framesRendered++;
 
 		// A tracer is on screen for one tick out of every refire period and a travelling shot for as long
@@ -219,25 +217,26 @@ sealed class SimulatorStaging(StagingOptions options, string? screenshotPath) {
 		// targetable, so the capture holds until a selection exists rather than photographing a blank HUD.
 		// --impact waits for a slot of the effect light field to be lit, which is the one moment the
 		// dynamic lights are on screen at all. See EffectLightSelection.
-		bool lightWanted = options.WaitForEffectLight
+		bool lightWanted = capture.WaitForEffectLight
 			&& !world.EffectLights.Slots.Any(slot => slot.IsLive);
 
-		bool transmissionWanted = options.WaitForTransmission && squadComm.Transmission is not { ShowName: true };
+		bool transmissionWanted = capture.WaitForTransmission && squadComm.Transmission is not { ShowName: true };
 
 		// --hit-shake waits for the palette half to be up. It alternates on its own 0-9 tick timer, so
 		// without this the capture would land on whichever side of the flash the frame count happened to
 		// fall on.
 		bool flashWanted = options.HitShake && !shake.FlashActive;
 
-		if (screenshotPath != null && !_screenshotTaken && _framesRendered >= ScreenshotWarmupFrames
+		if (screenshotRun && !_screenshotTaken && _framesRendered >= ScreenshotWarmupFrames
 				&& !flashWanted && !_acquireTarget
 				&& !lightWanted && !transmissionWanted
 				&& (!shotWanted || world.Tracers.Count > 0 || world.Projectiles.Count > 0
 					|| world.RocketsInFlight.Count > 0)) {
 			_screenshotTaken = true;
 			_reportSquadOrders?.Invoke($"after {_framesRendered} frames,");
-			Screenshot.Capture(gl, width, height, screenshotPath);
-			window.Close();
+			return true;
 		}
+
+		return false;
 	}
 }

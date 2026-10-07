@@ -1,19 +1,18 @@
-using Herculan.Engine.Input;
 using Silk.NET.Input;
 
-namespace Herculan.Engine.Host;
+namespace Herculan.Engine.Input;
 
 /// <summary>
-/// Which keys are down — all the host's key handling ever asks of a keyboard. Two things answer it:
+/// Which keys are down — all the simulator's key handling ever asks of a keyboard. Two things answer it:
 /// the real device (<see cref="LiveKeys"/>) and a replaying input tape (<see cref="TapeKeys"/>), so
 /// every handler reads a tape's keystrokes through exactly the code a live one takes.
 /// </summary>
-interface IKeyState {
+public interface IKeyState {
 	bool IsKeyPressed(Key key);
 }
 
 /// <summary>The window's own keyboard.</summary>
-sealed class LiveKeys(IKeyboard device) : IKeyState {
+public sealed class LiveKeys(IKeyboard device) : IKeyState {
 	public IKeyboard Device { get; } = device;
 
 	public bool IsKeyPressed(Key key) => Device.IsKeyPressed(key);
@@ -22,13 +21,13 @@ sealed class LiveKeys(IKeyboard device) : IKeyState {
 /// <summary>
 /// A tape's keystrokes, as keys held for exactly one host frame.
 ///
-/// <para>Every handler in the host fires on a key's down edge, and retail acts once per key-down
+/// <para>Every key handler fires on a key's down edge, and retail acts once per key-down
 /// <b>event</b> — including each auto-repeat, which is how a held <c>[=]</c> steps the weapon's power
-/// several times. So each recorded press is a one-frame pulse, and the host leaves a frame with
+/// several times. So each recorded press is a one-frame pulse, and playback leaves a frame with
 /// nothing down between two of them for the next edge to register. The tape's own release codes
 /// are therefore not needed for anything.</para>
 /// </summary>
-sealed class TapeKeys : IKeyState {
+public sealed class TapeKeys : IKeyState {
 	private readonly HashSet<Key> _down = new();
 
 	public bool IsKeyPressed(Key key) => _down.Contains(key);

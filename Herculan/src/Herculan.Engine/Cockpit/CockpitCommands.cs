@@ -1,21 +1,19 @@
 using Herculan.Engine.Audio;
-using Herculan.Engine.Cockpit;
-using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// What a completed click on the cockpit does, and the widget presses keys share with it. The original's
 /// buttons and its keyboard bindings dispatch the same calls, so the two agree here by construction rather
 /// than by two parallel implementations.
 /// </summary>
-sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, MissionScene scene, GameAudio audio,
-		WindowKeys windowKeys, TapePlayback tape) {
+public sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, MissionScene scene, GameAudio audio,
+		ISystemButtonActions systemButtons, TapePlayback tape) {
 	/// <summary>
 	/// The frame's queued clicks and drags, acted on. They are drained before the pan advances and before the
 	/// sim ticks, so a click and the tick that reacts to it keep a fixed order every frame — the point of
@@ -90,9 +88,9 @@ sealed class CockpitCommands(CockpitDisplays displays, CockpitView view, Mission
 			// toggle. Either mouse button clicks them, the click's value going unread.
 			case CockpitWidgetKind.SystemButton when !tape.Playing:
 				if (click.Id.AsSystemButton == SystemButton.Manual) {
-					windowKeys.OpenManual();
+					systemButtons.OpenManual();
 				} else {
-					windowKeys.ToggleFullScreen();
+					systemButtons.ToggleFullScreen();
 				}
 
 				break;

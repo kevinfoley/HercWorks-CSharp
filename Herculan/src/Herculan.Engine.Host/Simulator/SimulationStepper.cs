@@ -1,7 +1,7 @@
+using Herculan.Engine.Cockpit;
+using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Host.Debugging;
-using Herculan.Engine.Host.Simulator.Cockpit;
-using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Host.Simulator;
@@ -148,7 +148,7 @@ sealed class SimulationStepper {
 			_recording.EmitTick(SimWorld.TickDelta, _pilot.StickCapabilities);
 		}
 
-		_panels.RaisePendingMissionAlert();
+		_panels.RaisePendingMissionAlert(_outcome.Over);
 		return _outcome.Over || _panels.AnyOpen;
 	}
 
@@ -211,7 +211,7 @@ sealed class SimulationStepper {
 		_view.AdvanceChain(_developerKeys);
 
 		_debugPanel.SampleBeams(_world);
-		_panels.RaisePendingMissionAlert();
+		_panels.RaisePendingMissionAlert(_outcome.Over);
 		_tape.NotePanel(_panels.AnyOpen);
 	}
 

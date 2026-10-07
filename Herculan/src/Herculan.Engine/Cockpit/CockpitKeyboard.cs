@@ -1,13 +1,13 @@
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.Audio;
+using Herculan.Engine.Input;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;
 using Silk.NET.Input;
-using static Herculan.Engine.Host.KeyChords;
+using static Herculan.Engine.Input.KeyChords;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// The cockpit displays' keys: the MFD's screens and buttons, FLASH COMM, the Heads-Down Display's two pages
@@ -17,7 +17,7 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// each block acts only while no modal is up, and an edged key still refreshes its latch under a panel, so a
 /// key held as the panel closes does not fire.
 /// </summary>
-sealed class CockpitKeyboard(CockpitDisplays displays, CockpitView view, CockpitCommands commands,
+public sealed class CockpitKeyboard(CockpitDisplays displays, CockpitView view, CockpitCommands commands,
 		MissionScene scene, GameAudio audio) {
 	// FLASH COMM's seven order keys, in the order MfdFlashComm_HandleAltKey (00446c10) and MfdDisplay_KeyDispatch (004469c0) both switch on their
 	// scancodes: which row each selects, and — for the two rows that carry two orders — which verb has to

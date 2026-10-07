@@ -112,3 +112,17 @@ public static class SystemButtons {
 		return null;
 	}
 }
+
+/// <summary>
+/// What the two system buttons reach, both of which act on the window rather than the game:
+/// <c>SystemButtons_OnChildClick</c> (<c>004345a0</c>) sends child 0 to <c>OnlineManual_Raise</c> (<c>0045f054</c>)
+/// and child 1 to <c>Video_ToggleFullscreen</c> (<c>004666c4</c>). The keys that make the same two calls reach
+/// them the same way.
+/// </summary>
+public interface ISystemButtonActions {
+	/// <summary>The on-line manual, out of full screen first.</summary>
+	void OpenManual();
+
+	/// <summary>Full screen on or off.</summary>
+	void ToggleFullScreen();
+}

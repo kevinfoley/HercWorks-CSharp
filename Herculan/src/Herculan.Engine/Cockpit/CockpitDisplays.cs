@@ -1,12 +1,12 @@
 using Herculan.Engine.Audio;
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Input;
 using Herculan.Engine.Render;
+using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// The cockpit's displays and what they show: the HUD state every widget draws from, the MFD's screens, the
@@ -14,7 +14,7 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// All of it is per-mission and built once here; <see cref="PlayerCockpitUpdate"/> refreshes it each frame and
 /// <see cref="CockpitCommands"/> is what the player's keys, clicks and buttons change it through.
 /// </summary>
-sealed class CockpitDisplays {
+public sealed class CockpitDisplays {
 	private readonly CockpitView _view;
 	private readonly GameAudio _audio;
 
@@ -82,7 +82,7 @@ sealed class CockpitDisplays {
 		// Whose herc the damage detail is inspecting — the display's subject selector, which starts on the
 		// player and which the left and right arrows step. See HddDamageSubject. A --hdd-subject naming an
 		// empty squad slot, which no step can land on, starts on the player instead.
-		var stagingOptions = staging.Options;
+		var stagingOptions = staging.Start;
 		HddSubjectSlot = stagingOptions.HddSubject is > HddDamageSubject.PlayerSlot and < HddDamageSubject.TargetSlot
 			&& SquadSeats[stagingOptions.HddSubject - 1] == null
 			? HddDamageSubject.PlayerSlot

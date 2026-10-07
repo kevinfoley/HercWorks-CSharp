@@ -1,6 +1,5 @@
 using System.Numerics;
 using Herculan.Engine.Audio;
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
@@ -8,13 +7,13 @@ using Herculan.Engine.Scene;
 using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// Player_PerFrameCockpitUpdate's share of each frame: the weapon manager's pass, the instruments' clocks, the
 /// sensor dropout, and the HUD state rebuilt from the machine for the widgets to draw.
 /// </summary>
-sealed class PlayerCockpitUpdate(CockpitDisplays displays, CockpitView view, CockpitCommands commands,
+public sealed class PlayerCockpitUpdate(CockpitDisplays displays, CockpitView view, CockpitCommands commands,
 		MissionScene scene, GameAudio audio) {
 	/// <summary>Runs the frame's cockpit update, when there is a cockpit and a machine to read it off.</summary>
 	public void Update(double deltaSeconds) {

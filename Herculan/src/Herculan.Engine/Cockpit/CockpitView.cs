@@ -1,5 +1,4 @@
 using Herculan.Engine.Content;
-using Herculan.Engine.Host.Debugging;
 using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
@@ -8,9 +7,9 @@ using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;
 using Silk.NET.Input;
-using static Herculan.Engine.Host.KeyChords;
+using static Herculan.Engine.Input.KeyChords;
 
-namespace Herculan.Engine.Host.Simulator.Cockpit;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// Where the player is looking from: inside the machine or the observer camera, and inside, which of the
@@ -18,7 +17,7 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// external views — with the step kick and the damage shake riding the projection centre. Owns the camera
 /// every pass draws from.
 /// </summary>
-sealed class CockpitView {
+public sealed class CockpitView {
 	private readonly MissionScene _scene;
 
 	// The mouse outside view's orbit, for the tweak that swaps retail's for it (see ExternalCamera). Held
@@ -42,7 +41,7 @@ sealed class CockpitView {
 	private readonly KeyLatch _viewControlKey = new();
 	private readonly KeyLatch _viewNextKey = new();
 
-	public CockpitView(MissionScene scene, CockpitArt? art, StagingOptions staging) {
+	public CockpitView(MissionScene scene, CockpitArt? art, StagedStart staging) {
 		_scene = scene;
 		PilotMech = scene.PlayerMech;
 		Piloting = PilotMech != null;
@@ -337,8 +336,11 @@ sealed class CockpitView {
 		}
 	}
 
+	/// <summary>The debug panel's eye-height pin, which the cockpit eye goes through.</summary>
+	public SteadyEye SteadyEye { get; } = new();
+
 	/// <summary>Puts this frame's camera where the view is: the cockpit eye, the chain's camera, the mouse orbit or the observer camera.</summary>
-	public void PlaceCamera(DebugPanel debugPanel) {
+	public void PlaceCamera() {
 		if (!InMachine) {
 			_scene.Camera.ApplyTo(Camera);
 			return;
@@ -358,14 +360,9 @@ sealed class CockpitView {
 		} else {
 			// The eye rides the model node the type record names, so the walk cycle's bob comes with it —
 			// see MechObject.EyePosition. Camera yaw runs opposite to a simulation heading; see
-			// MissionScene.TransformOf.
-			//
-			// The debug panel's "steady eye" pins the eye's *height* to whatever it was the moment the
-			// toggle went on and leaves everything else — the machine's own travel, its lean, the eye's
-			// fore/aft swing — alone. That isolates the vertical bob from the ride without touching the
-			// animation that produces either, which is the A/B for "is it the eye or the machine?".
+			// MissionScene.TransformOf. The debug panel's steady eye can pin its height — see SteadyEye.
 			var eyeFrame = pilotMech.EyeTransform;
-			var eye = debugPanel.PinEyeHeight(
+			var eye = SteadyEye.PinEyeHeight(
 				new Vec3i(eyeFrame.X, eyeFrame.Y, eyeFrame.Z), pilotMech.Position);
 
 			// Orientation comes off the eye node too, not off the machine's heading: the camera node

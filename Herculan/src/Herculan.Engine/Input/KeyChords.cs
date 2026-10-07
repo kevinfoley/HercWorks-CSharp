@@ -1,10 +1,10 @@
 using Herculan.Engine.Sim;
 using Silk.NET.Input;
 
-namespace Herculan.Engine.Host;
+namespace Herculan.Engine.Input;
 
 /// <summary>The modifier and axis readings every key handler shares, over whichever <see cref="IKeyState"/> it reads.</summary>
-static class KeyChords {
+public static class KeyChords {
 	public static bool CtrlHeld(IKeyState keyboard) =>
 		keyboard.IsKeyPressed(Key.ControlLeft) || keyboard.IsKeyPressed(Key.ControlRight);
 
@@ -49,7 +49,7 @@ static class KeyChords {
 /// held — the original dispatches a command per key-down event. Each binding keeps its own latch even
 /// where two share a key, because each is refreshed under its own conditions.
 /// </summary>
-sealed class KeyLatch {
+public sealed class KeyLatch {
 	private bool _held;
 
 	/// <summary>Records <paramref name="down"/> and says whether it is a fresh press.</summary>

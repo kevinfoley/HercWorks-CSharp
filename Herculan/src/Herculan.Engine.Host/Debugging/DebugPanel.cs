@@ -6,6 +6,7 @@ using Herculan.Engine.Platform;
 using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
+using Herculan.Engine.View;
 using ImGuiNET;
 
 namespace Herculan.Engine.Host.Debugging;
@@ -25,7 +26,7 @@ namespace Herculan.Engine.Host.Debugging;
 /// what it is reporting. The two [Drain] buttons are the exception, and are test seams rather than
 /// mechanics.</para>
 /// </summary>
-sealed class DebugPanel(bool drawSkeleton) {
+sealed class DebugPanel(bool drawSkeleton, SteadyEye steadyEye) {
 	/// <summary>Whether the panel is up. Set by the host's [Esc]/menu-bar logic (<see cref="Simulator.WindowKeys"/>), and
 	/// cleared here on a click outside the window.</summary>
 	public bool IsOpen { get; set; }
@@ -45,14 +46,6 @@ sealed class DebugPanel(bool drawSkeleton) {
 	/// bar's "Debug" item) is itself outside this window and would otherwise close it on arrival.</summary>
 	private bool _wasOpenLastDraw;
 
-	// "Steady eye" pins the eye's *height* to whatever it was the moment the toggle went on and
-	// leaves everything else — the machine's own travel, its lean, the eye's fore/aft swing — alone.
-	// That isolates the vertical bob from the ride without touching the animation that produces
-	// either, which is the A/B for "is it the eye or the machine?".
-	private bool _steadyEye;
-	private bool _steadyEyeCaptured;
-	private int _steadyEyeRiseUnits;
-
 	// What the panel reports about the walk. The eye's rise above the machine's own origin is the
 	// whole of the cockpit bob (see MechObject.EyePosition), so tracking its swing turns "it feels
 	// wrong" into a number that can be checked against the 0.24-0.42 m a retail stride is supposed
@@ -63,25 +56,6 @@ sealed class DebugPanel(bool drawSkeleton) {
 	private float _lastStepMeters;
 	private Vec3i _lastMechPosition;
 	private bool _haveLastPosition;
-
-	/// <summary>
-	/// Applies "steady eye" to a cockpit eye position: with the option off this returns
-	/// <paramref name="eye"/> untouched, with it on the eye's height is held at the rise it had the
-	/// moment the option was switched on.
-	/// </summary>
-	public Vec3i PinEyeHeight(Vec3i eye, Vec3i mechPosition) {
-		if (!_steadyEye) {
-			_steadyEyeCaptured = false;
-			return eye;
-		}
-
-		if (!_steadyEyeCaptured) {
-			_steadyEyeRiseUnits = eye.Z - mechPosition.Z;
-			_steadyEyeCaptured = true;
-		}
-
-		return new Vec3i(eye.X, eye.Y, mechPosition.Z + _steadyEyeRiseUnits);
-	}
 
 	/// <summary>
 	/// Takes this frame's walk measurements. Called every frame whether or not the panel is open, so
@@ -198,9 +172,9 @@ sealed class DebugPanel(bool drawSkeleton) {
 			DrawSkeleton = skeleton;
 		}
 
-		bool steady = _steadyEye;
+		bool steady = steadyEye.Enabled;
 		if (ImGui.Checkbox("Steady eye (pin cockpit height)", ref steady)) {
-			_steadyEye = steady;
+			steadyEye.Enabled = steady;
 		}
 
 		ImGui.Separator();

@@ -1,4 +1,3 @@
-using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Input;
 using Herculan.Engine.Platform;
 using Silk.NET.Input;
@@ -10,7 +9,7 @@ namespace Herculan.Engine.Host.Simulator;
 /// whether the debug UI has taken either. Every handler reads <see cref="Keyboard"/> and
 /// <see cref="Pointer"/> rather than a device, so a replay drives exactly the code a player does.
 /// </summary>
-sealed class SimulatorInput {
+sealed class SimulatorInput : IPointerDevice {
 	private readonly EngineWindow _window;
 	private readonly TapePlayback _tape;
 

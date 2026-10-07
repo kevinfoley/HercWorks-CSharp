@@ -2,7 +2,7 @@
 
 Make each namespace hold one kind of code, keep game rules out of the host, and point dependencies one way, without changing any algorithm, data layout or behaviour ported from the retail game.
 
-Stage 1 is partly built; the rest is planned. Each item is re-read against the code before it is done: the review behind this plan was partly delegated, and an item's claim is a lead until then.
+Stage 1 is built; the rest is planned. Each item is re-read against the code before it is done: the review behind this plan was partly delegated, and an item's claim is a lead until then.
 
 ## Why
 
@@ -32,10 +32,7 @@ Built:
 - `EngineWindow`, `ExecutableIcon`, `PrintScreenCapture` and `ScaledImGui` are `Platform`, in the engine assembly because both hosts use them.
 - `CockpitReadouts` is `PlayerCockpitUpdate`, after the retail function it ports.
 - `ShellWeaponUnit`, `ShellBayMachine` (with `ShellMachineStatus`), `ShellBayPilot`, `ShellLaunchRefusalDialog` and `ShellEndOfGameDialog` have their own files.
-
-Remaining:
-
-- Partial-file splits along retail prefixes, after reading each class whole: `WeaponMount` (charge, gauge, fire, condition), `MechObject` (movement and torso methods still in `MechObject.cs` move to the existing `.Locomotion` and `.Torso` partials; `.Combat` splits into damage and scoring), `BaseObject` (damage, death sequence), `ShellHangar` (armory, squad, grants, save), `ShellMap` (paint, intro; `ZoneRelief` to its own file), `DtsMeshBuilder`.
+- Partial-file splits along retail prefixes: `WeaponMount` (`.Charge`, `.Gauge`, `.Fire`, `.Condition`); `MechObject` (the throttle state to `.Locomotion`, `Mech_MovementTick` and the collision test to `.Movement`, the turret commands to `.Torso`, and `.Combat` split into `.Damage` and `.Scoring`); `BaseObject` (`.Damage`, `.DeathSequence`); `ShellHangar` (`.Armory`, `.Squad`, `.Grants`, `.Save`); `ShellMap` (`.Paint`, `.Intro`, with `ZoneRelief` and `ShellMapArt` in their own files); `DtsMeshBuilder` (`.Parts`, `.Polys`, `.Emit`).
 
 ## Stage 2 — dependencies one way
 

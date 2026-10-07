@@ -1,4 +1,4 @@
-namespace Herculan.Engine.Render;
+namespace Herculan.Engine.View;
 
 /// <summary>
 /// The cockpit's step kick — the view bob a pilot sees when the machine walks:

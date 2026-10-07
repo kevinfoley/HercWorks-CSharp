@@ -1,4 +1,5 @@
 using Herculan.Engine.Cockpit;
+using Herculan.Engine.View;
 
 namespace Herculan.Engine.Settings;
 
@@ -75,7 +76,7 @@ public static class TweakSettingDefinitions {
 	/// <summary>
 	/// A second hit on the cockpit inside the damage shake keeps the palette flash going for the rest
 	/// of the shake. Retail stops the flash when the second hit lands while the impact palette is
-	/// showing. See <see cref="Render.CockpitHitShake.FlashSurvivesRestart"/>.
+	/// showing. See <see cref="CockpitHitShake.FlashSurvivesRestart"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FlashThroughSecondHit = new("tweak.flash_through_second_hit", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: false);
 
@@ -108,7 +109,7 @@ public static class TweakSettingDefinitions {
 	/// Drive the outside view with the mouse instead of the controls: drag with the left button to
 	/// swing the camera round the HERC, which stays under the player's control throughout, and the
 	/// cockpit's keys keep working. Retail hands the stick and arrow keys to the camera and makes
-	/// [Enter] swap them back. See <see cref="Render.ExternalCamera"/>.
+	/// [Enter] swap them back. See <see cref="ExternalCamera"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> MouseExternalView = new("tweak.mouse_external_view", TweakCategory.Functional, defaultValue: false, recommendedValue: false);
 

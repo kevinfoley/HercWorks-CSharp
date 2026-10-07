@@ -1,7 +1,7 @@
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
 
-namespace Herculan.Engine.Render;
+namespace Herculan.Engine.View;
 
 /// <summary>
 /// The chase view's memory of where the player has been: <c>Cam_Update</c> (<c>004011a0</c>) records the player's

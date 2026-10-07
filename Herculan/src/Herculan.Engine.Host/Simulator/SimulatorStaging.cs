@@ -1,8 +1,8 @@
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Host.Simulator.Cockpit;
-using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
+using Herculan.Engine.View;
 using Herculan.Engine.World;
 using Silk.NET.OpenGL;
 

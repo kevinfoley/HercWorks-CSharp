@@ -1,4 +1,6 @@
-namespace Herculan.Engine.Render;
+using Herculan.Engine.Render;
+
+namespace Herculan.Engine.View;
 
 /// <summary>Which way the cockpit is glancing.</summary>
 public enum GlanceSide {

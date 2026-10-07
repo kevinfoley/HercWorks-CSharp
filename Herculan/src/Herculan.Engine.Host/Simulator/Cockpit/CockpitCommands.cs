@@ -5,6 +5,7 @@ using Herculan.Engine.Input;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
+using Herculan.Engine.View;
 
 namespace Herculan.Engine.Host.Simulator.Cockpit;
 

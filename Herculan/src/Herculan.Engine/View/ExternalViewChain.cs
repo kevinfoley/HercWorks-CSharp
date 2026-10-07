@@ -2,7 +2,7 @@ using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
 
-namespace Herculan.Engine.Render;
+namespace Herculan.Engine.View;
 
 /// <summary>
 /// Which view the chain is in — <c>ViewChain_View</c> (<c>004d2572</c>).

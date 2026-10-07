@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.File;
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Content;
+using Herculan.Engine.View;
 namespace Herculan.Engine.Cockpit;
 
 /// <summary>
@@ -22,7 +23,7 @@ namespace Herculan.Engine.Cockpit;
 /// <para><b>Modal, and the simulation does not tick behind it</b> — <c>PreferencesPanel_Raise</c>
 /// raises <c>DAT_004d2576</c> for as long as the panel is up and restores whatever it was on the way
 /// out. Behind it the camera circles the player's machine; that is the host's, through
-/// <see cref="Render.ExternalViewChain.BeginPanelOrbit"/>.</para>
+/// <see cref="ExternalViewChain.BeginPanelOrbit"/>.</para>
 /// </summary>
 public sealed class PreferencesPanel {
 	/// <summary>The panel's own string table: its title, its captions and its value words.</summary>

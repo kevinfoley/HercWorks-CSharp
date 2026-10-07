@@ -1,8 +1,9 @@
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
 
-namespace Herculan.Engine.Render;
+namespace Herculan.Engine.View;
 
 /// <summary>
 /// How a <see cref="ViewCamera"/> places itself — the <c>CAM</c> object's <c>+0x36</c>.

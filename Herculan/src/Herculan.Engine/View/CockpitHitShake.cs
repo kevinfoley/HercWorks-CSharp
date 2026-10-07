@@ -1,6 +1,7 @@
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Render;
 
-namespace Herculan.Engine.Render;
+namespace Herculan.Engine.View;
 
 /// <summary>
 /// The cockpit's damage shake — what a hit on the player's own cockpit, or the landing at the bottom

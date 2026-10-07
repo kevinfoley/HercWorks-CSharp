@@ -1,8 +1,9 @@
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
 
-namespace Herculan.Engine.Render;
+namespace Herculan.Engine.View;
 
 /// <summary>
 /// The outside view under <see cref="Settings.TweakSettingDefinitions.MouseExternalView"/> — an orbit

@@ -4,17 +4,16 @@ using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
-using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 
-namespace Herculan.Engine.Host.Simulator.Rendering;
+namespace Herculan.Engine.Scene;
 
 /// <summary>
 /// The draw items rebuilt every frame, because what they draw churns from tick to tick: rounds in flight, the
 /// guns on every machine at their muzzle-flash cell, wreckage in the air, drop pods, the ground shapes near
 /// the camera, and the billboards of shots, impacts and fires.
 /// </summary>
-sealed class TransientDrawItems(MissionScene scene, SceneUploads uploads, DrawFiling filing, WorldDrawItems world) {
+public sealed class TransientDrawItems(MissionScene scene, SceneUploads uploads, DrawFiling filing, WorldDrawItems world) {
 	// AddAtDetail's scratch, for the one transient shape it is making items for.
 	private readonly Dictionary<PartDetail, int> _levelChoice = new();
 

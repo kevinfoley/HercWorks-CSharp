@@ -1,14 +1,13 @@
 using Herculan.Engine.Gl;
-using Herculan.Engine.Scene;
 using Silk.NET.OpenGL;
 
-namespace Herculan.Engine.Host.Simulator.Rendering;
+namespace Herculan.Engine.Scene;
 
 /// <summary>
 /// The mission's models and terrain on the GPU: one upload per distinct model, however many objects share it —
 /// a mission routinely fields several of the same machine and a row of identical structures.
 /// </summary>
-sealed class SceneUploads : IDisposable {
+public sealed class SceneUploads : IDisposable {
 	private readonly List<IDisposable> _disposables = new();
 
 	public SceneUploads(GL gl, MissionScene scene) {

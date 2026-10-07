@@ -2,17 +2,16 @@ using HercWorks.Core.Data.File.Cfg;
 using System.Numerics;
 using Herculan.Engine.Content;
 using Herculan.Engine.Render;
-using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 
-namespace Herculan.Engine.Host.Simulator.Rendering;
+namespace Herculan.Engine.Scene;
 
 /// <summary>
 /// The draw items that last the whole mission: the terrain, and every placed machine, structure and flyer,
 /// built once from <see cref="SceneUploads"/> and kept. Each frame moves them, poses them, and picks which of
 /// their pieces show — a level of detail, a damage cell, a wreck, a unit still waiting to deploy.
 /// </summary>
-sealed class WorldDrawItems {
+public sealed class WorldDrawItems {
 	private readonly MissionScene _scene;
 	private readonly SceneUploads _uploads;
 

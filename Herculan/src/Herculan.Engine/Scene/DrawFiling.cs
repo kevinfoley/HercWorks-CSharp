@@ -1,9 +1,8 @@
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
-using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
 
-namespace Herculan.Engine.Host.Simulator.Rendering;
+namespace Herculan.Engine.Scene;
 
 /// <summary>
 /// How each drawn object is filed by terrain cell, which each pass's walk turns into whether it is drawn --
@@ -11,7 +10,7 @@ namespace Herculan.Engine.Host.Simulator.Rendering;
 /// item it draws as; everything rebuilt each frame gets a new one each frame, shared by its items and its
 /// billboards.
 /// </summary>
-sealed class DrawFiling(MissionScene scene) {
+public sealed class DrawFiling(MissionScene scene) {
 	private readonly Dictionary<SimObject, DrawEntry> _objectEntries = new();
 	private readonly Dictionary<object, DrawEntry> _frameEntries = new(ReferenceEqualityComparer.Instance);
 

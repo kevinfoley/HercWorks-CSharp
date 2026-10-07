@@ -1,23 +1,23 @@
 using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 
-namespace Herculan.Engine.Host.Simulator.Rendering;
+namespace Herculan.Engine.Scene;
 
 /// <summary>
-/// One machine's LOD chain as the host holds it: every root's items, uploaded together, and which of
+/// One machine's LOD chain as the draw items hold it: every root's items, uploaded together, and which of
 /// them is currently drawn. See <see cref="Herculan.Engine.Render.ShapeDetail"/> for the selection
 /// and docs/retail/formats/mech-shape-drawing.md for the mechanism it ports.
 /// </summary>
 /// <param name="Subject">The machine, whose position the distance to the eye is measured to.</param>
 /// <param name="ShapeRadius">Root 0's own bounding radius in world units.</param>
 /// <param name="Roots">The items of each root, finest first. A root that failed to upload is empty.</param>
-sealed record MechDetailChain(SimObject Subject, int ShapeRadius, SceneItem[][] Roots) {
+public sealed record MechDetailChain(SimObject Subject, int ShapeRadius, SceneItem[][] Roots) {
 	/// <summary>The root currently selected, which starts at 0 as the build leaves it.</summary>
 	public int Active { get; set; }
 }
 
 /// <summary>The distances and focal length both the kept and the rebuilt items choose their detail by.</summary>
-static class DetailMetrics {
+public static class DetailMetrics {
 	// The focal length of the view being drawn, in its own pixels. Retail's is the video mode's fixed
 	// 2^9 = 512 over 480 rows (docs/retail/formats/cockpit-views.md); taking it off the window instead keeps the
 	// detail thresholds a count of pixels on the screen actually being drawn, which is what makes them a

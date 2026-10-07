@@ -36,7 +36,6 @@ Built:
 Remaining:
 
 - Partial-file splits along retail prefixes, after reading each class whole: `WeaponMount` (charge, gauge, fire, condition), `MechObject` (movement and torso methods still in `MechObject.cs` move to the existing `.Locomotion` and `.Torso` partials; `.Combat` splits into damage and scoring), `BaseObject` (damage, death sequence), `ShellHangar` (armory, squad, grants, save), `ShellMap` (paint, intro; `ZoneRelief` to its own file), `DtsMeshBuilder`.
-- `World` — see [Open](#open).
 
 ## Stage 2 — dependencies one way
 
@@ -61,6 +60,8 @@ Before Stage 4, enough ES1 reverse engineering to decide, per subsystem (formats
 - Whether the modules both simulators name (`bullet`, `collide`, `damage`, `debris`, `flyersys`, `mechsys`) match function by function on a sample.
 - Whether the fixed-point math routines are identical.
 
+Where the static `.DAT` tables live — `World`'s (`BaseTypeTable`, the formation tables, `BaseCollisionTable`) and Sim's (`BulletCatalog`, `WeaponCatalog`, `MechTypeRecord` and the rest) — and whether they are named Table or Catalog, is decided with that split: the tables are where the two games' data formats are most likely to differ.
+
 The answer, and how the two games share code (a shared core with one assembly per game, or version branches), goes in [`planning.md`](planning.md).
 
 ## Stage 4 — responsibility splits
@@ -75,7 +76,7 @@ Code moves verbatim and keeps its call order.
 
 | Name | Why not |
 |---|---|
-| `Missions` for all of `World` | `World` also holds static game tables (`BaseTypeTable`, the formation tables, `TheaterDescriptor`), which are not missions. |
+| `Missions` for all of `World` | `World` also holds static game tables (`BaseTypeTable`, the formation tables, `TheaterDescriptor`), which are not missions. `World` — a mission's world as described before the simulation runs — fits both halves. |
 | `Menus` for `Host.Settings` | It holds only settings; "menus" reads as navigation. |
 | `Tweaks` for `Engine.Settings` | It also holds the generic `SettingDefinition<T>` base. |
 | `ShellViewport` for `ShellScreenLayout` | It is deliberately the shell's counterpart of `CockpitScreenLayout`; renaming one breaks the pair. |
@@ -98,7 +99,6 @@ Stages 3 and 4 move code whose order is behaviour. Their check is a replay diff:
 
 ## Open
 
-- **Open:** what `World` becomes — split into mission handoff and static tables (the tables' namespace name undecided), or left as it is.
 - **Open:** replay determinism, which Stages 3 and 4 need for their verification.
 - **Open:** `tools/scripts/rename_symbol` fails to build on the .NET 8.0.1xx SDK (CS9057: its analyzers need compiler 4.12); renames in such an environment are done by hand and checked by the build.
 - **Open:** `Host.Simulator.Cockpit` captures `Cockpit.X` inside the host; `CockpitDisplays` names `Engine.Cockpit.ThrottleTrack` for that reason. Stage 3 removes the clash.

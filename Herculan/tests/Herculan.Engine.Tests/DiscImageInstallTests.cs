@@ -4,6 +4,7 @@ using HercWorks.Disc;
 using HercWorks.Vol;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
+using Herculan.Engine.Install;
 using Xunit;
 
 namespace Herculan.Engine.Tests;

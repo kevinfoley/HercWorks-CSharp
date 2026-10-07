@@ -1,5 +1,6 @@
 using System.Numerics;
 using Herculan.Engine.Host.Localization;
+using Herculan.Engine.Platform;
 using Herculan.Engine.Settings;
 using ImGuiNET;
 

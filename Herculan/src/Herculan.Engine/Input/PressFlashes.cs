@@ -1,3 +1,5 @@
+using Herculan.Engine.Cockpit;
+
 namespace Herculan.Engine.Input;
 
 /// <summary>
@@ -6,9 +8,9 @@ namespace Herculan.Engine.Input;
 /// <c>WidgetRoot_ServicePressFlashes</c> (<c>004530b8</c>) and <c>WidgetRoot_PressFlashCount</c>
 /// (<c>00453160</c>); see docs/retail/formats/cockpit-input.md#the-press-flash.
 ///
-/// <para>The cockpit keeps one, keyed on <see cref="Content.CockpitWidgetId"/> (see the host's
+/// <para>The cockpit keeps one, keyed on <see cref="CockpitWidgetId"/> (see the host's
 /// <c>CockpitDisplays.FlashPress</c>), and each alert panel keeps its own, keyed on the panel's widget index
-/// (<see cref="Content.AlertPanelPresses"/>), as each panel in the original has a root of its own.</para>
+/// (<see cref="AlertPanelPresses"/>), as each panel in the original has a root of its own.</para>
 ///
 /// <para>The original's list holds eight entries with no bound check; this one is unbounded.</para>
 /// </summary>

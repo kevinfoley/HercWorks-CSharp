@@ -1,8 +1,10 @@
 using HercWorks.Core.Data.File.Cfg;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Shell.Tabs;
+using Herculan.Engine.Install;
 using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
+using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 
@@ -69,7 +71,7 @@ sealed class ShellHost : IDisposable {
 	private readonly ShellMovies _movies;
 	private readonly MissionTabScreens _mission;
 	private readonly TabNavigation _navigation;
-	private readonly CampaignLoop _loop;
+	private readonly CampaignScreens _loop;
 	private readonly MainMenuPanels _menu;
 	private readonly EditFields _fields;
 	private readonly KeyboardRouting _keys;
@@ -196,7 +198,7 @@ sealed class ShellHost : IDisposable {
 			_window, _widgets, repaint);
 		var hangar = new HangarTabs(content, _game, dialogs, _screen, _widgets, startBay, repaint);
 		_navigation = new TabNavigation(_screen, _canvas, _game, saveScreen, hangar, _mission, _audio, _widgets, repaint);
-		_loop = new CampaignLoop(installRoot, content, _game, saveScreen, hangar, _mission, _navigation, _startup, _movies, _canvas,
+		_loop = new CampaignScreens(installRoot, content, _game, saveScreen, hangar, _mission, _navigation, _startup, _movies, _canvas,
 			dialogs, _screen, _outcome, _window, _widgets, repaint);
 		var save = new SaveRestoreTab(saveScreen, _game, _loop, _mission, _navigation, _screen, _widgets, repaint);
 		_menu = new MainMenuPanels(installRoot, disc, content, _window, _screen, _widgets, _game, saveScreen, mainMenu, dialogs,

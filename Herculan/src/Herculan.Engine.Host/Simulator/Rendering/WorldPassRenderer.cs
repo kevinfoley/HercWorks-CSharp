@@ -15,7 +15,7 @@ namespace Herculan.Engine.Host.Simulator.Rendering;
 /// </summary>
 sealed class WorldPassRenderer : IDisposable {
 	private readonly MissionScene _scene;
-	private readonly DebugPanel _debugPanel;
+	private readonly DebugOptions _debugOptions;
 	private readonly MechObject? _pilotMech;
 	private readonly WireframeRenderer _wireframe;
 	private readonly BeamRenderer? _beams;
@@ -23,10 +23,10 @@ sealed class WorldPassRenderer : IDisposable {
 	private readonly WorldDrawItems _world;
 	private readonly TransientDrawItems _transient;
 
-	public WorldPassRenderer(GL gl, MissionScene scene, Camera camera, DebugPanel debugPanel,
+	public WorldPassRenderer(GL gl, MissionScene scene, Camera camera, DebugOptions debugOptions,
 			WorldDrawItems world, TransientDrawItems transient) {
 		_scene = scene;
-		_debugPanel = debugPanel;
+		_debugOptions = debugOptions;
 		_pilotMech = scene.PlayerMech;
 		_world = world;
 		_transient = transient;
@@ -153,12 +153,12 @@ sealed class WorldPassRenderer : IDisposable {
 	// was where the player's eye ended up. Bones are drawn through solid geometry on purpose — the
 	// skeleton is inside the model it belongs to.
 	private void DrawSkeleton(Camera view, int viewportWidth, int viewportHeight) {
-		if (!_debugPanel.DrawSkeleton || _pilotMech == null) {
+		if (!_debugOptions.DrawSkeleton || _pilotMech == null) {
 			return;
 		}
 
 		var joints = SkeletonPose.Build(_pilotMech);
-		_debugPanel.SkeletonJointCount = joints.Length;
+		_debugOptions.SkeletonJointCount = joints.Length;
 		if (joints.Length == 0) {
 			return;
 		}

@@ -385,7 +385,7 @@ public sealed partial class MechObject {
 
 		short bearing = Detection.HeadingToward(point, Position);
 		LocomotionTick(world, SteerToward(bearing), MechControls.AxisFull);
-		CenterTorsoTick();
+		CenterTorsoTick(world);
 		return false;
 	}
 

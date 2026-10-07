@@ -1,3 +1,4 @@
+using Herculan.Engine.Install;
 using System.Security.Cryptography;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;

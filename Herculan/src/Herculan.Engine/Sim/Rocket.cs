@@ -1,7 +1,6 @@
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.Struct;
 using HercWorks.Core.Data.Struct.Dbsim;
-using Herculan.Engine.Audio;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;

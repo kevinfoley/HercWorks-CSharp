@@ -1,5 +1,6 @@
 using HercWorks.Disc;
 using HercWorks.Disc.Iso9660;
+using Herculan.Engine.Install;
 
 namespace Herculan.Engine.Content;
 

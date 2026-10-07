@@ -1,13 +1,7 @@
-﻿using System.Numerics;
+﻿using Herculan.Engine.Cockpit;
+using System.Numerics;
 using HercWorks.Core.Data.File.Dbsim;
-using HercWorks.Core.Data.File.Gau;
-using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
-using Herculan.Engine.Gl;
-using Herculan.Engine.Numerics;
-using Herculan.Engine.Sim;
-using Herculan.Engine.Settings;
-using HercWorks.Core.Data.File;
 
 namespace Herculan.Engine.Render.Cockpit;
 

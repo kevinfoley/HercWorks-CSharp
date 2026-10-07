@@ -1,3 +1,6 @@
+using Herculan.Engine.Cockpit;
+using Herculan.Engine.View;
+
 namespace Herculan.Engine.Settings;
 
 /// <summary>
@@ -73,14 +76,14 @@ public static class TweakSettingDefinitions {
 	/// <summary>
 	/// A second hit on the cockpit inside the damage shake keeps the palette flash going for the rest
 	/// of the shake. Retail stops the flash when the second hit lands while the impact palette is
-	/// showing. See <see cref="Render.CockpitHitShake.FlashSurvivesRestart"/>.
+	/// showing. See <see cref="CockpitHitShake.FlashSurvivesRestart"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FlashThroughSecondHit = new("tweak.flash_through_second_hit", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: false);
 
 	/// <summary>
 	/// Draw the tick tape that scrolls with height beside the RAZOR's altitude scale. Retail blits it
 	/// through a clip rect that the cockpit canvas's translation pushes it out of, so it never shows.
-	/// See <see cref="Content.AltitudeScale.TapeFrame"/>.
+	/// See <see cref="AltitudeScale.TapeFrame"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> ShowAltitudeTape = new("tweak.show_altitude_tape", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: false);
 
@@ -106,14 +109,14 @@ public static class TweakSettingDefinitions {
 	/// Drive the outside view with the mouse instead of the controls: drag with the left button to
 	/// swing the camera round the HERC, which stays under the player's control throughout, and the
 	/// cockpit's keys keep working. Retail hands the stick and arrow keys to the camera and makes
-	/// [Enter] swap them back. See <see cref="Render.ExternalCamera"/>.
+	/// [Enter] swap them back. See <see cref="ExternalCamera"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> MouseExternalView = new("tweak.mouse_external_view", TweakCategory.Functional, defaultValue: false, recommendedValue: false);
 
 	/// <summary>
 	/// Build each order the Heads-Down Display transmits from scratch. Retail reuses one order record
 	/// and overwrites only the half the new order picks, so DEFEND POSITION on bare ground can guard a
-	/// unit an earlier order named instead. See <see cref="Content.HddCommandScreen.Transmit"/>.
+	/// unit an earlier order named instead. See <see cref="HddCommandScreen.Transmit"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FixDefendPositionOrder = new("tweak.fix_defend_position_order", TweakCategory.Functional, defaultValue: false, recommendedValue: true);
 
@@ -131,7 +134,7 @@ public static class TweakSettingDefinitions {
 	/// Click or drag an energy weapon row's charge bar to set that weapon's power level, as the
 	/// <c>[-]</c>/<c>[=]</c> keys do. Retail builds the bar as a slider whose position the mount reads back as its charge
 	/// target, but the row's select gadget is registered first over the whole row and takes every
-	/// press, so the bar can never be reached. See <see cref="Content.ChargeBarSlider"/>.
+	/// press, so the bar can never be reached. See <see cref="ChargeBarSlider"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> ChargeBarPowerLevel = new("tweak.charge_bar_power_level", TweakCategory.Functional, defaultValue: false, recommendedValue: false);
 

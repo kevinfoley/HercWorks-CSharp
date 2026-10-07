@@ -1,4 +1,3 @@
-using Herculan.Engine.Audio;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Settings;
 
@@ -153,7 +152,7 @@ public sealed class MeteorObject {
 
 			// The original plays both sounds at the camera itself, not at the pod; the tweak moves them
 			// onto it. See TweakSoundReach.
-			bool fromPod = TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.DropPodSoundFromPod);
+			bool fromPod = world.Tweaks.GetSettingValue(TweakSettingDefinitions.DropPodSoundFromPod);
 
 			if (!WhistlePlayed && next.Z < WhistleAltitude) {
 				if (fromPod) {
@@ -240,7 +239,7 @@ public sealed class MeteorObject {
 	/// <see cref="RunInSpread"/> further out in a random direction, so the whistle can begin about
 	/// 1.5 km away. The rows' 614 m cutoff would leave most pods unheard, so the cutoff here is 4 km,
 	/// at 1000 units per 6 m (<see cref="Render.WorldScale.WorldUnitsPerMeter"/>), and the volume is
-	/// the catalog's full 100. The director's rolloff is linear to the cutoff, so a pod is heard at
+	/// the catalog's full 100. Rolloff starts where the rows' does. The director's rolloff is linear to the cutoff, so a pod is heard at
 	/// about 74 at 1 km and 77 at a typical landing, against the 69 retail plays both sounds at
 	/// wherever the pod is.</para>
 	///
@@ -250,7 +249,7 @@ public sealed class MeteorObject {
 	/// </summary>
 	public static readonly SoundReach TweakSoundReach = new(
 		Volume: 100,
-		MinRange: SoundCatalog.DefaultMinRange * SoundCatalog.RangeUnit,
+		MinRange: null,
 		MaxRange: 4000 * 1000 / 6);
 
 	/// <summary>How far the landing blast reaches.</summary>

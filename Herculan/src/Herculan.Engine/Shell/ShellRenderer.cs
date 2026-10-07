@@ -41,7 +41,7 @@ public sealed class ShellRenderer : IDisposable {
 		_shader = ShaderProgram.Load(gl, "Overlay2D.glsl");
 		_mesh = new GpuOverlayMesh(gl);
 		_backdrop = new GpuTexture(gl, art.Backdrop.Pixels, art.Backdrop.Width, art.Backdrop.Height);
-		_sprites = art.Sprites is { } sheet ? new GpuTexture(gl, sheet.Atlas) : null;
+		_sprites = art.Sprites is { } sheet ? sheet.Atlas.Upload(gl) : null;
 	}
 
 	/// <summary>

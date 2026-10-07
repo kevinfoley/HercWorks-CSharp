@@ -44,7 +44,7 @@ public partial class MechObject {
 		}
 
 		UpdateRadarMode();
-		CenterTorsoTick();
+		CenterTorsoTick(world);
 	}
 
 	/// <summary>
@@ -577,11 +577,11 @@ public partial class MechObject {
 			if (!holdsPost) {
 				KeepFormation(world);
 				UpdateRadarMode();
-				CenterTorsoTick();
+				CenterTorsoTick(world);
 				return false;
 			}
 
-			CenterTorsoTick();
+			CenterTorsoTick(world);
 			UpdateRadarMode();
 
 			int range = GroundDistanceTo(post);

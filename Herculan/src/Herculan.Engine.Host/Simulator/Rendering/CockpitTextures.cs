@@ -1,3 +1,4 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Render;
@@ -33,7 +34,7 @@ sealed class CockpitTextures : IDisposable {
 		}
 
 		if (art.Sprites is { } hudSprites) {
-			HudSprites = new GpuTexture(gl, hudSprites.Atlas);
+			HudSprites = hudSprites.Atlas.Upload(gl);
 		}
 
 		// Nearest, like everything else: the original blits it through its palettized texture mapper.

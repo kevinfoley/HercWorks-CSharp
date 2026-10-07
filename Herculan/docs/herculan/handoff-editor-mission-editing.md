@@ -35,7 +35,7 @@ Recommended: reuse an identical existing point, otherwise append; refcount befor
 
 ### 3. Three consequences of appending
 
-- Block 1's extent frames the heads-down map (see [`../retail/formats/heads-down-display.md`](../retail/formats/heads-down-display.md), and `HddMapBounds`). A point outside the current bounding box silently rescales the player's in-game map. Warn on it.
+- Block 1's extent frames the heads-down map (see [`../retail/formats/heads-down-display.md`](../retail/formats/heads-down-display.md), and `MissionBox`). A point outside the current bounding box silently rescales the player's in-game map. Warn on it.
 - **Open question: file length.** Retail files are exactly 13,520 bytes; the transformer writes unpadded by design. Growing block 1 grows the content. Whether `DBSim_LoadScriptDat` (`00424308`) reads into a fixed 13,520-byte buffer is not established. If it does, growth past that overflows in the retail exe. Check this in Ghidra before shipping any write that adds records — it gates the append design.
 - **The override path has never been observed live.** It is RE-derived and engine-implemented, but no retail file exercises it. Confirming it means writing one and running retail DBSIM.
 

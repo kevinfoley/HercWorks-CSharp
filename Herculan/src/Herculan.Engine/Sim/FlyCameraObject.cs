@@ -1,5 +1,4 @@
 using Herculan.Engine.Numerics;
-using Herculan.Engine.Render;
 
 namespace Herculan.Engine.Sim;
 
@@ -136,14 +135,6 @@ public sealed class FlyCameraObject : SimObject {
 		}
 
 		Position = moved;
-	}
-
-	/// <summary>Copies this tick's pose onto a camera for rendering.</summary>
-	public void ApplyTo(Camera camera) {
-		camera.Position = Position;
-		camera.Yaw = Heading;
-		camera.Pitch = Pitch;
-		camera.Roll = 0;
 	}
 
 	private static int Clamp(int axis) => axis < 0 ? -1 : axis > 0 ? 1 : 0;

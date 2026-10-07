@@ -1,3 +1,5 @@
+using Herculan.Engine.Install;
+
 namespace Herculan.Engine.Content;
 
 /// <summary>

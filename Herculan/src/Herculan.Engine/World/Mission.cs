@@ -244,7 +244,7 @@ public sealed class Mission {
 	/// spawn points, waypoints and route legs all reference. Kept whole because the block's
 	/// <i>extent</i> is a fact in its own right: <c>DBSim_LoadScriptDat</c> accumulates the bounding
 	/// box as it reads and the Heads-Down Display's map is framed by it end to end. See
-	/// <see cref="Herculan.Engine.Content.HddMapBounds"/>.
+	/// <see cref="MissionBox"/>.
 	/// </summary>
 	public IReadOnlyList<Vec3i> Coordinates { get; }
 

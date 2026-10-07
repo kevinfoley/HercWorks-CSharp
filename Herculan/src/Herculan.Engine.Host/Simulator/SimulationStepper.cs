@@ -1,7 +1,7 @@
+using Herculan.Engine.Cockpit;
+using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Host.Debugging;
-using Herculan.Engine.Host.Simulator.Cockpit;
-using Herculan.Engine.Host.Simulator.Replay;
 using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Host.Simulator;
@@ -26,14 +26,14 @@ sealed class SimulationStepper {
 	private readonly MissionOutcome _outcome;
 	private readonly DeveloperKeys _developerKeys;
 	private readonly CockpitView _view;
-	private readonly DebugPanel _debugPanel;
+	private readonly DebugProbes _debugProbes;
 	private readonly PilotControls _pilot;
 	private readonly SimulatorInput _input;
 
 	private double _tickAccumulator;
 
 	public SimulationStepper(SimWorld world, TapePlayback tape, TapeRecording recording, ModalPanels panels,
-			MissionOutcome outcome, DeveloperKeys developerKeys, CockpitView view, DebugPanel debugPanel,
+			MissionOutcome outcome, DeveloperKeys developerKeys, CockpitView view, DebugProbes debugProbes,
 			PilotControls pilot, SimulatorInput input) {
 		_world = world;
 		_tape = tape;
@@ -42,7 +42,7 @@ sealed class SimulationStepper {
 		_outcome = outcome;
 		_developerKeys = developerKeys;
 		_view = view;
-		_debugPanel = debugPanel;
+		_debugProbes = debugProbes;
 		_pilot = pilot;
 		_input = input;
 	}
@@ -93,7 +93,7 @@ sealed class SimulationStepper {
 			// Alt+keypad +: this tick and no more. Sim_MainTick re-freezes at the top of the next one.
 			_world.Tick();
 			_view.AdvanceChain(_developerKeys);
-			_debugPanel.SampleBeams(_world);
+			_debugProbes.SampleBeams(_world);
 			RecordTick();
 			_developerKeys.FinishStep();
 			_tickAccumulator = 0;
@@ -132,7 +132,7 @@ sealed class SimulationStepper {
 
 		// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to look
 		// between ticks — see SimWorld.Beams.
-		_debugPanel.SampleBeams(_world);
+		_debugProbes.SampleBeams(_world);
 		return RecordTick(emit);
 	}
 
@@ -148,7 +148,7 @@ sealed class SimulationStepper {
 			_recording.EmitTick(SimWorld.TickDelta, _pilot.StickCapabilities);
 		}
 
-		_panels.RaisePendingMissionAlert();
+		_panels.RaisePendingMissionAlert(_outcome.Over);
 		return _outcome.Over || _panels.AnyOpen;
 	}
 
@@ -210,8 +210,8 @@ sealed class SimulationStepper {
 
 		_view.AdvanceChain(_developerKeys);
 
-		_debugPanel.SampleBeams(_world);
-		_panels.RaisePendingMissionAlert();
+		_debugProbes.SampleBeams(_world);
+		_panels.RaisePendingMissionAlert(_outcome.Over);
 		_tape.NotePanel(_panels.AnyOpen);
 	}
 

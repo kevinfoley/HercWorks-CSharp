@@ -63,6 +63,7 @@ Primary development/testing target is **Windows**, but OS-specific code paths sh
 
 - **Library core + thin front-end host.** Engine subsystems (rendering, scene, etc.) should be built as libraries with no baked-in assumption that there's exactly one game loop consuming them. A separate, minimal host project wires those libraries into an actual real-time game loop.
 - Motivation: a possible future mission editor that renders the mission environment in-engine.
+- The namespace layout, the move of game rules out of the host, and the staged refactor toward both are in [`plan-architecture-refactor.md`](plan-architecture-refactor.md).
 
 ## World scale
 

@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
+using Herculan.Engine.Platform;
 using Silk.NET.Core;
 
 namespace Herculan.Engine.Host;

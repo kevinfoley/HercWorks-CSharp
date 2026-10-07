@@ -1,4 +1,5 @@
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
 
 namespace Herculan.Engine.Sim;
 
@@ -43,7 +44,7 @@ public sealed partial class BaseObject {
 	/// the result is the aim error, and <see cref="SeekTurret"/> is what acts on it.</para>
 	/// </summary>
 	/// <returns>Elevation and traverse error, in binary angle — the original's static pair.</returns>
-	public (short Elevation, short Traverse) AimTurret(Vec3i point) {
+	public (short Elevation, short Traverse) AimTurret(SimWorld world, Vec3i point) {
 		int node = Animation?.TransformIdOfPart(TurretPartId) ?? -1;
 		var turret = node >= 0 ? NodeTransform(node) : Transform3.Identity;
 
@@ -53,7 +54,7 @@ public sealed partial class BaseObject {
 		var local = inTurret.TransformPoint(onObject.X, onObject.Y, onObject.Z);
 		var (elevation, _, traverse) = SimTrig.EulerToward(local, default);
 
-		SeekTurret(elevation, traverse);
+		SeekTurret(world, elevation, traverse);
 		return (elevation, traverse);
 	}
 
@@ -72,7 +73,7 @@ public sealed partial class BaseObject {
 	/// binary angle: a base turret traverses freely and only the elevation is stopped, at
 	/// <see cref="TurretClampUpper"/>'s ±4000 — a little over 20°.</para>
 	/// </summary>
-	private void SeekTurret(short elevation, short traverse) {
+	private void SeekTurret(SimWorld world, short elevation, short traverse) {
 		// The traverse is the negated one, not the elevation: axis 0 takes EulerToward's pitch
 		// straight and axis 1 takes its yaw negated.
 		var demand = new[] { ClampAxis(elevation >> 3), (short)-ClampAxis(traverse >> 3) };
@@ -91,7 +92,8 @@ public sealed partial class BaseObject {
 				: moved <= TurretClampLower[axis] ? TurretClampLower[axis]
 				: (short)moved;
 
-			_threads[axis]?.SeekToPosition(axis, (short)((ushort)_turretAngle[axis] >> 2));
+			_threads[axis]?.SeekToPosition(axis, (short)((ushort)_turretAngle[axis] >> 2),
+				world.Tweaks.GetSettingValue(TweakSettingDefinitions.SmootherTurretMovement));
 		}
 	}
 

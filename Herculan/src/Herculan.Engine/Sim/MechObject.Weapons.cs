@@ -62,7 +62,7 @@ public sealed partial class MechObject {
 		short bearingError = (short)(Detection.HeadingToward(target.Position, Position) - (short)Heading);
 
 		if (Abs(bearingError) >= Type.TorsoTwistLimit) {
-			CenterTorsoTick();
+			CenterTorsoTick(world);
 			return;
 		}
 
@@ -100,7 +100,7 @@ public sealed partial class MechObject {
 		}
 
 		if (weapon == null) {
-			TrackWorldPoint(point);
+			TrackWorldPoint(world, point);
 			return;
 		}
 
@@ -122,7 +122,7 @@ public sealed partial class MechObject {
 				point.Z + world.Random.NextBelow(spread));
 		}
 
-		var (yaw, pitch) = TrackWorldPoint(point);
+		var (yaw, pitch) = TrackWorldPoint(world, point);
 
 		// A launcher fires the moment it is chosen — the round steers itself. Only a gun waits for the
 		// turret to arrive.

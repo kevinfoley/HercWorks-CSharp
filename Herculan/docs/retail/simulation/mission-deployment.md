@@ -154,13 +154,13 @@ No retail `.MSN` authors verb 4 or 5: the verb runs 0-3 across the corpus ([`msn
 
 ### Picking the point — `Deployment_PickPointNearPlayer` (`0042354c`)
 
-Offsets from the player's position by the caller's distance at (player heading + the caller's bearing), then steps outward in 2,000-unit increments until the point clears three tests, in order:
+Offsets from the player's position by the caller's distance at (player heading + the caller's bearing), then steps outward in 2,000-unit increments along the same ray until the point clears three tests, in order. The point keeps the player's own Z, not the ground's.
 
 1. **Deployed objects** — within their own `+0x7c` collision radius plus 5,000. **Applied only for the two walk-on verbs**: the caller's fourth argument is 1 there and 0 for a drop pod, so a pod is allowed to come down on top of a machine. That is what its landing-blast latch exists for.
 2. **Structures** — `Structure_GatherWalkCandidates` (`00404ae4`) at radius 5,000, the same volume sweep a walking machine is stopped by ([`hit-detection.md`](hit-detection.md)).
-3. **The ground** — `Terrain_FaceBlocksAt` (`0046fe84`) with a zero direction, which reduces it to the steepness of the face under the point; off the grid blocks ([`ai-navigation.md`](ai-navigation.md)).
+3. **The ground** — `Terrain_FaceBlocksAt` (`0046fe84`) with a zero direction, which reduces it to the steepness of the face under the point. It finds the cell by flat index ([`terrain-heightmap.md`](../formats/terrain-heightmap.md#mode-1--the-slope-walk)), so a point past the north or south end of the grid blocks, while one past the west or east edge reads a cell of the neighbouring row and clears whenever that face is walkable.
 
-The loop is unbounded in the original and cannot fail in practice, since the first point is usually clear.
+**Nothing keeps the point on the heightmap, and the loop is unbounded.** The player stands on the grid, so every retry lies further out along the ray: a search that runs off the north or south end never returns, and one that runs off the west or east edge ends at the first walkable wrapped cell, off the heightmap. The heightmap is all the terrain there is, since the drawn region is clamped to the grid ([`terrain-drawing.md`](../formats/terrain-drawing.md#the-visible-region--terrain_setupvisibleregion-0046ca98)). The point is on it whenever the player is further than the caller's distance from every edge; [A pod aimed off the heightmap](#a-pod-aimed-off-the-heightmap) is what follows when the player is not.
 
 ## The drop pod — `METEOR`
 
@@ -186,6 +186,12 @@ vz     = -height / n
 `Meteor_Render` (`00409cd0`) draws the plain shape (root 0) while falling and the opening animation's own shape instance at `+0x41` (root 1) once landed.
 
 Only the leader is repositioned; the rest of the group follows under its orders. Every retail drop-pod group has exactly one member.
+
+### A pod aimed off the heightmap
+
+A pod aimed past the west or east edge of the grid ([Picking the point](#picking-the-point--deployment_pickpointnearplayer-0042354c)) does not stop at the edge. `Terrain_HeightQuery` (`0046e07c`) answers 0 off the grid, and the target's Z is the player's, so the pod flies on past its target, still descending, until it drops below zero, and lands further out along its own heading. The machine it delivers stands at height 0 where no terrain is drawn, far below the ground at the edge, and where `Terrain_FaceNormalAt` (`0046e394`) finds no cell, and `Mech_CollisionTest` counts that as too steep for a computer-piloted machine ([`mech-locomotion.md`](mech-locomotion.md#collision)). Every step it takes is refused and undone, and so is the reversed retry, so it never moves or turns; it still aims and fires.
+
+The campaign sets this up. In 25 retail missions action 0 is a drop-pod action (verb 3) that the player trips (type 0) on three or four boxes. In `C2_01` the four boxes are strips along the borders of the map, a penalty for wandering out of the mission area, and the action drops three DIABLOs, one per group (47, 48 and 49). On that side the mission's edges come in this order: the mission box ([`mission-objectives.md`](mission-objectives.md#the-status--mission_status-004135e8)) at x = 114,788, where the computer warns `APPROACHING MISSION ZONE BOUNDARY`; the end of the Heads-Down Display map's terrain, the box grown by 60,000 ([`heads-down-display.md`](../formats/heads-down-display.md#the-maps-frame-of-reference)), at x = 54,788; the mission abort, the box grown by 110,000, at x = 4,788; and the heightmap's own edge at x = 0. The west strip runs from x = 118,064 to 213,068, inside the box. A player who walks into it from the east, heading west, aims the pods at least 63,000 units inside the grid, and the DIABLOs walk in along route 0, the squad's own. One who trips it within about 150,000 units of the heightmap's edge and facing it aims them past that edge, beyond the abort line, and they never move ([Open](#open)).
 
 ## The lift start
 
@@ -284,6 +290,7 @@ The Cybrid HERCs' chassis are not fixed. Each of the eight roster records names 
 
 ## Open
 
+- **Open:** a retail play check of [a pod aimed off the heightmap](#a-pod-aimed-off-the-heightmap): in `C2_01`, tripping the west strip within about 150,000 units of the heightmap's west edge while facing west should leave three DIABLOs standing past that edge, firing but never moving. In retail play they have been seen walking in, on a run that tripped the strip further from the edge.
 - **Open:** a retail play check of [held-back structures](#held-back-structures-stand-from-the-start): walking into one of `C5_04`'s bases from the north before its circle is reached should be stopped by buildings that are not drawn.
 - **Open:** why `C2_08`'s two supply transports never move. Once action 139 deploys them they should drive route 61 towards the guard point ([`ground-vehicles.md`](ground-vehicles.md#the-ground-vehicle-tick--0046a5d0)), but in retail they stay where they appeared, the front half of one inside the rear half of the other. They are placed 2,069 units apart (points 44 and 46); whether a collision between the two is what holds them is not established.
 - **Open:** what sets block `+0x54`, the lift start's gate, which both tests read as a word. No absolute operand in the image addresses `004d2592`-`004d2595`, and `Main_StaticInit` (`0045cad8`) clears it with the rest of the block. Of the 62 code references to the block's base, 45 push it to the blit helpers, which only read it, two read its first dword, and fifteen load it into a register. The nine writes at `+0x51`-`+0x54` that `es2_fieldscan.py` finds inside those fifteen functions go through their own first argument, none of their eight call sites passes the block, and none of the writes at `+0x55` is in them. No constant below the block plus a displacement reaches the word either; the one unbounded array beneath it, `SimCommandQueue_Push`'s queue at `004d2148`, would need 550 commands in one frame to get there.

@@ -2028,9 +2028,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Meteor_Construct",
-      "description": "Builds a drop pod aimed at a picked ground point. It is NOT dropped straight down: it draws a random heading and a HORIZONTAL RUN-IN of 70000 plus up to 25000 units, starts that far short of the target along that heading, and flies in at a flat 2000 units per tick. The launch height is derived from the run-in -- n = runIn/2000 ticks, height = (n*n>>1)*50, so 30600 to 55200 units up -- and both axes are then flown at constant velocity, so the descent is a straight line. Reading the 70000-95000 figure as an altitude puts the pod at twice the height it belongs at. Velocity at +0x45, landed flag +0x4b and open-animation counter +0x4d cleared, delivered group at +0x55. It never writes the type tag at +4, so a pod keeps the zero Pool_Init left: tag 0, which ObjList_IsBeyondDrawDistance gives its own draw distance.",
+      "description": "Builds a drop pod aimed at a picked point. It is NOT dropped straight down: it draws a random heading (kept at +0x10) and a HORIZONTAL RUN-IN of 70000 plus Math_RandomBelow(25000) units, starts that far short of the target along that heading, and flies in at a flat 2000 units per tick. The launch height is derived from the run-in -- n = runIn/2000 ticks, height = (n*n>>1)*50, so 30600 to 55200 units -- and added to the target point's own Z, with vz = -height/n, so the pod is back at the target's Z when it is over the target. Both axes are flown at constant velocity, so the descent is a straight line. Reading the 70000-95000 figure as an altitude puts the pod at twice the height it belongs at. Velocity at +0x45 (vz at +0x49); +0x32, the landed flag +0x4b, the blast latch +0x4c, the open-animation counter +0x4d and the whistle latch +0x51 cleared; delivered group at +0x55; the opening shape's TSShapeInstance at +0x41. It writes no type tag at +4, so a pod keeps the zero Pool_Init left: tag 0, which ObjList_IsBeyondDrawDistance gives its own draw distance.",
       "source": "docs/retail/simulation/mission-deployment.md",
-      "signature": "int * __cdecl Meteor_Construct(int *pod, int *targetPoint, int *group)"
+      "signature": "int * __cdecl Meteor_Construct(int *pod, int *targetPoint, int *group)",
+      "verified": {
+        "bytes": "00409b44+393",
+        "sha1": "c32ab997f76e",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00409cd0",
@@ -7267,9 +7273,15 @@
       "type": "function",
       "confidence": "high",
       "name": "TriggerArea_ContainsPoint",
-      "description": "Tests a position against one resolved block-4 trigger area. Type flag 0: axis-aligned XY box strictly between the two block-1 coordinates the record points at, Z ignored. Non-zero type flag: distance from the single coordinate less than the stored radius (the file literal times 10).",
+      "description": "Tests a position against one resolved block-4 trigger area; returns 1 inside, 0 outside. Type flag 0: axis-aligned XY box strictly between the two block-1 coordinates the record points at (+0x02 and +0x06), taking the smaller and the larger of the two on each axis, so either corner order works; Z ignored. Non-zero type flag: Math_GroundDistanceBetweenPoints from the coordinate at +0x02 less than the int at +0x06, the radius (TriggerArea_Resolve stores the file literal times 10 there).",
       "source": "docs/retail/simulation/mission-deployment.md",
-      "signature": "short __cdecl TriggerArea_ContainsPoint(short *area, int *position)"
+      "signature": "short __cdecl TriggerArea_ContainsPoint(short *area, int *position)",
+      "verified": {
+        "bytes": "004233a4+139",
+        "sha1": "698d6b98b306",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00423430",
@@ -7313,9 +7325,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Deployment_PickPointNearPlayer",
-      "description": "Picks a clear arrival point for a deploying group or drop pod: offsets from the player position by distance at (player heading + bearing), then steps outward in 2000-unit increments until the point clears three tests in order. (1) Already-deployed objects, within their own vtable +0x7c collision radius plus 5000 -- APPLIED ONLY WHEN avoidDeployedObjects IS NONZERO, which Group_DeploymentCheck passes for the two walk-on verbs and clears for a drop pod, so a pod may come down on top of a machine. (2) Structure_GatherWalkCandidates collision volumes at radius 5000. (3) Terrain_FaceBlocksAt with a zero direction, which reduces to the steepness of the face under the point. The loop is unbounded.",
+      "description": "Picks a clear arrival point for a deploying group or drop pod. Starts from LocalPlayerMech's position, Z included, so the point carries the player's height rather than the ground's, and adds (0, distance) rotated by (player heading +0x10 + bearing); each failed try adds 2000 to the distance and tries again along the same ray. A point must clear three tests in order. (1) Already-deployed objects on the live-object list, within their own vtable +0x7c collision radius plus 5000 by Math_DistanceBetweenPoints, skipping an object whose group +0x14 is set or whose radius is 0 -- APPLIED ONLY WHEN avoidDeployedObjects IS NONZERO; Group_DeploymentCheck, read this session, passes 1 for the two walk-on verbs and 0 for a drop pod, so a pod may come down on top of a machine. (2) Structure_GatherWalkCandidates at the point, radius 5000. (3) Terrain_FaceBlocksAt with a zero direction, which reduces to the steepness of the face under the point. The loop is unbounded. Terrain_FaceBlocksAt finds the cell by flat index, so a point past the grid's west or east edge reads a cell of the neighbouring row and can clear, which puts the arrival off the heightmap, past the end of the drawn terrain, while a point past the north or south end falls outside the array and blocks; since the player stands on the grid, every later try lies further out on the same ray, and a search that has run off the north or south end does not return.",
       "source": "docs/retail/simulation/mission-deployment.md",
-      "signature": "void __cdecl Deployment_PickPointNearPlayer(int *outPoint, int distance, short bearing, int avoidDeployedObjects)"
+      "signature": "void __cdecl Deployment_PickPointNearPlayer(int *outPoint, int distance, short bearing, int avoidDeployedObjects)",
+      "verified": {
+        "bytes": "0042354c+374",
+        "sha1": "9ec37955ddf7",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "004236c4",
@@ -21595,8 +21613,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_FaceBlocksAt",
-      "description": "(grid, dir, point): Terrain_FaceBlocksMovement applied at a world point: locate the cell, pick which of its two triangles the point falls in by the cell's own diagonal flag (+0x0f & 3, the same split the height query uses), and test that face. The cell is found by flat index ((y >> cellShift) << widthShift) + (x >> cellShift), and only an index outside the whole array blocks outright, so a point just past the grid's west or east edge reads the adjacent row's far cell. Callers: Terrain_RayWalk's mode 1, and Deployment_PickPointNearPlayer with a zero direction.",
-      "source": "docs/retail/simulation/ai-navigation.md"
+      "description": "(grid, dir, point): Terrain_FaceBlocksMovement applied at a world point. Finds the cell by flat index ((y >> cellShift) << widthShift) + (x >> cellShift); an index outside the whole array returns 1 (blocks) at once, so a point just past the grid's west or east edge reads the cell at the far end of the neighbouring row. Otherwise it picks one of the cell's two face normals by the diagonal selector (+0x0f & 3), the split the height query uses: selector 0 the far normal (+0x07) when cellSize < fx + fy, selector 1 the near (+0x01), selector 2 the far when fy <= fx, else the near; selector 3 matches no arm and passes an uninitialised local as the normal pointer. It returns Terrain_FaceBlocksMovement(grid, dir, normal). Callers found by es2_xref: two calls in Terrain_RayWalk and one in Deployment_PickPointNearPlayer, which passes a zero direction.",
+      "source": "docs/retail/simulation/ai-navigation.md",
+      "verified": {
+        "bytes": "0046fe84+239",
+        "sha1": "7be55c306249",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0046ff74",

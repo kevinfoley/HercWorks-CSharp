@@ -40,7 +40,7 @@ sealed class SimulatorHost : IDisposable {
 	private readonly PilotControls _pilot;
 	private readonly CockpitKeyboard _keyboard;
 	private readonly CockpitCommands _commands;
-	private readonly CockpitReadouts _readouts;
+	private readonly PlayerCockpitUpdate _cockpitUpdate;
 	private readonly WindowKeys _windowKeys;
 	private readonly SimulatorInput _input;
 	private readonly TapePlayback _tape;
@@ -141,7 +141,7 @@ sealed class SimulatorHost : IDisposable {
 		_commands = new CockpitCommands(_displays, _view, _scene, _audio, _windowKeys, _tape);
 		_pilot = new PilotControls(start, _view, _displays, _commands, _tape, _recording, _developerKeys, staging.Options);
 		_keyboard = new CockpitKeyboard(_displays, _view, _commands, _scene, _audio);
-		_readouts = new CockpitReadouts(_displays, _view, _commands, _scene, _audio);
+		_cockpitUpdate = new PlayerCockpitUpdate(_displays, _view, _commands, _scene, _audio);
 		_stepper = new SimulationStepper(_scene.World, _tape, _recording, _panels, _outcome, _developerKeys, _view,
 			_debugPanel, _pilot, _input);
 		_input.MouseQueued += (x, y, buttons, width, height) =>
@@ -412,7 +412,7 @@ sealed class SimulatorHost : IDisposable {
 		_debugPanel.Sample(pilotMech);
 
 		_staging.AcquireTarget(pilotMech, _scene.Targeting);
-		_readouts.Update(deltaSeconds);
+		_cockpitUpdate.Update(deltaSeconds);
 	}
 
 	// The pointer's frame. A modal owns it: the cockpit behind it takes no clicks, and the queue is drained to

@@ -10,7 +10,7 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// <summary>
 /// The cockpit's displays and what they show: the HUD state every widget draws from, the MFD's screens, the
 /// Heads-Down Display's command and damage screens, the squad's comm boxes, and the instruments' own clocks.
-/// All of it is per-mission and built once here; <see cref="CockpitReadouts"/> refreshes it each frame and
+/// All of it is per-mission and built once here; <see cref="PlayerCockpitUpdate"/> refreshes it each frame and
 /// <see cref="CockpitCommands"/> is what the player's keys, clicks and buttons change it through.
 /// </summary>
 sealed class CockpitDisplays {

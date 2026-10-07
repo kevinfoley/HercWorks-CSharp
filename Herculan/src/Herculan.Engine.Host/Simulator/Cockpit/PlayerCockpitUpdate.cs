@@ -14,7 +14,7 @@ namespace Herculan.Engine.Host.Simulator.Cockpit;
 /// Player_PerFrameCockpitUpdate's share of each frame: the weapon manager's pass, the instruments' clocks, the
 /// sensor dropout, and the HUD state rebuilt from the machine for the widgets to draw.
 /// </summary>
-sealed class CockpitReadouts(CockpitDisplays displays, CockpitView view, CockpitCommands commands,
+sealed class PlayerCockpitUpdate(CockpitDisplays displays, CockpitView view, CockpitCommands commands,
 		MissionScene scene, GameAudio audio) {
 	/// <summary>Runs the frame's cockpit update, when there is a cockpit and a machine to read it off.</summary>
 	public void Update(double deltaSeconds) {

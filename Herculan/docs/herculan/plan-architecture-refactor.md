@@ -91,8 +91,8 @@ Code moves verbatim and keeps its call order.
 Every step:
 
 - `dotnet build Herculan/HerculanEngine.sln` at 0 warnings and `dotnet test` green.
-- Broken `cref`s, which the normal build does not report: build with `-p:GenerateDocumentationFile=true "-p:NoWarn=CS1591%3BCS1573"` and compare the CS1574/CS0419/CS1580/CS1584 messages against `main` (46 on `main`).
-- Usings a move left unnecessary: build with `EnforceCodeStyleInBuild=true` and `dotnet_diagnostic.IDE0005.severity = warning`, and remove those in touched files.
+- Broken `cref`s, which the normal build does not report: build with `--no-incremental -p:GenerateDocumentationFile=true "-p:NoWarn=CS1591%3BCS1573"`, keep the CS1574/CS0419/CS1580/CS1584 lines, and compare them against the same build of `main` (a worktree of `origin/main`) as a set — file name and message, without line numbers, since a move shifts lines and MSBuild prints each warning more than once. The count depends on how the lines are de-duplicated, so the set is the check, not a number.
+- Usings a move left unnecessary: with `dotnet_diagnostic.IDE0005.severity = warning` added to `.editorconfig` for the run, build with `-p:EnforceCodeStyleInBuild=true -p:GenerateDocumentationFile=true` (IDE0005 needs the documentation file to see `cref` uses) and fix the hits in touched files with `dotnet format style Herculan/HerculanEngine.sln --diagnostics IDE0005 --severity warn --include <files>`. IDE0005 reports one diagnostic per run of consecutive unneeded usings, at its first line, so deleting the reported lines by hand leaves the rest of each run. Restore `.editorconfig` afterwards.
 - Extracted declarations are diffed line for line against the original file.
 - `doc_lint.py` and `doc_links.py --code` report nothing new.
 - Renames go through `tools/scripts/rename_symbol` where it builds.

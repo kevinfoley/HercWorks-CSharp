@@ -105,12 +105,12 @@ Not a pointer field: `0x45` bytes embedded in the mech, running `mech+0x4d` to `
 |---|---|---|
 | `+0x00` | ptr | The new descriptor |
 | `+0x04` | byte | Not written here; `Timer_CountDown` is handed `&block+0x04` and steps the int that follows it |
-| `+0x05` | int | The dwell countdown: `descriptor+0x04` + `(DAT_004a9bf4 & 0xf)`, after `DAT_004a9bf4 += 0xd` |
+| `+0x05` | int | The dwell countdown: `descriptor+0x04` + `(Behaviour_DwellJitter & 0xf)`, after `Behaviour_DwellJitter += 0xd` |
 | `+0x09` | int | 0. `Behaviour_CountTick` (`00413eb0`), the last call of every `Mech_AiTick`, increments it on every call except the first after the state is installed |
 | `+0x0d` | 0x28 B | Zeroed |
 | `+0x35` | 0x10 B | Zeroed, then `+0x36 = 1`. `Behaviour_CountTick` clears `+0x36` on its first call and sets `+0x35` on every later one |
 
-`DAT_004a9bf4` is a global stepped by 13 per state change and masked to 4 bits, so the jitter is 0–15 counts — a few milliseconds — and deterministic in call order rather than random.
+`Behaviour_DwellJitter` (`004a9bf4`) is a 16-bit global stepped by 13 per state change and masked to 4 bits, so the jitter is 0–15 counts — a few milliseconds — and deterministic in call order rather than random. Mech and flyer state changes step the same counter. It lies in the `DATA` section past the bytes the file supplies, so it is zero when DBSIM starts, and `es2_xref.py` finds two references to it, the add and the load in `Behaviour_SetState`. DBSIM flies one mission per process — `WinMain` calls `Sim_Run` once and then posts `WM_QUIT`, and `Sim_Run` sets the mission up once before its frame loop — so every mission's first state change steps the counter from 0 and installs a jitter of 13.
 
 ### What the dwell time buys
 
@@ -271,4 +271,4 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 ## Open
 
 - **Open:** bits 6–15 of descriptor `+0x08` — no state sets one, so nothing can read one.
-- (Deferred) **Open:** what raises `mech+0xaf`. The field scan finds no writer but `Mech_AiTick`'s own clear, and a null result is not proof; a write through a base register neither alias pass follows would go unseen.
+- **Open:** what raises `mech+0xaf`. The field scan finds no writer but `Mech_AiTick`'s own clear, and a null result is not proof; a write through a base register neither alias pass follows would go unseen.

@@ -5103,9 +5103,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Behaviour_SetState",
-      "description": "The only writer of a mech's behaviour block at mech+0x4d, and so the AI state machine's single transition primitive -- its 30 call sites are the edge list. Stores the descriptor pointer at +0x00, seeds the timer at +0x05 to descriptor+0x04 plus (DAT_004a9bf4 & 0xf) after stepping that global by 13, zeroes +0x09, memsets +0x0d for 0x28 and +0x35 for 0x10, then sets +0x36 to 1. Callers are responsible for releasing the selected target; Mech_AiSelectBehaviour does so on every path.",
+      "description": "__cdecl(block, descriptor): installs a behaviour state in the 0x45-byte block a mech or flyer carries at +0x4d, the AI state machine's transition primitive -- its call sites are the edge list (ai-dispatch.md, Transitions). Stores the descriptor pointer at +0x00 and zeroes the int at +0x09; adds 0xd to the 16-bit global DAT_004a9bf4 and seeds the countdown at +0x05 to descriptor+0x04 plus (that word & 0xf); memsets +0x35 for 0x10, sets +0x36 to 1, and memsets +0x0d for 0x28. It does not touch the machine's selected target.",
       "source": "docs/retail/simulation/ai-dispatch.md",
-      "signature": "void __cdecl Behaviour_SetState(int *behaviourBlock, int descriptor)"
+      "signature": "void __cdecl Behaviour_SetState(int *behaviourBlock, int descriptor)",
+      "verified": {
+        "bytes": "00413e50+94",
+        "sha1": "58e8da5e817c",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00413eb0",
@@ -20151,8 +20157,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WinMain",
-      "description": "(hInstance, hPrevInstance, cmdLine, nCmdShow), reached through the startup's stored pointer at 00497044: VideoMode_Configure(0), the window-switch pre-parse WinMain_ParseSwitches, MainWindow_Create (a message box and 0 on failure); then, with the full-screen flag 004d25e2 set by prefs option 6 or -Z1, clears it, calls Video_ToggleFullscreen and Screen_ClearToBlack; sets the pump cursor, runs Sim_Run, posts WM_QUIT, pumps to it, releases DirectDraw and returns the exit code 004d283c.",
-      "source": "DBSIM decompile at 00465288"
+      "description": "(hInstance, hPrevInstance, cmdLine, nCmdShow); es2_xref.py finds its one reference as the stored pointer at 00497044. Splits cmdLine into an argv on its frame (WinMain_SplitCommandLine), stores hInstance at 004d3748, and with no hPrevInstance registers the window class (returning 0 if that fails); then VideoMode_Configure(0), the window-switch pre-parse WinMain_ParseSwitches, MainWindow_Create (a message box from string resources 0x3e8/0x3e9 and 0 on failure); then, with the full-screen flag 004d25e2 set by prefs option 6 or -Z1, clears it, calls Video_ToggleFullscreen and Screen_ClearToBlack; sets the pump cursor to IDC_WAIT when LoadCursorA returns one, runs Sim_Run once with argc/argv, posts WM_QUIT, pumps to it, releases DirectDraw and returns the exit code 004d283c.",
+      "source": "DBSIM decompile at 00465288",
+      "verified": {
+        "bytes": "00465288+256",
+        "sha1": "e399f895141c",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00465388",
@@ -37462,6 +37474,15 @@
       "name": "EnemySighted_CalloutRateLimit",
       "description": "CountdownTimer record (counter the short at 004a9be9) rate-limiting the enemy-detected squad callout. Mech_AiEnemySighted steps it once per call from any machine but the player's and re-arms it to 10000 on each callout.",
       "source": "docs/retail/simulation/ai-targeting.md; disassembly of 00412800"
+    },
+    {
+      "address": "004a9bf4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Behaviour_DwellJitter",
+      "description": "int16 counter behind the 0-15 count jitter on every behaviour dwell: Behaviour_SetState adds 0xd to it and adds its low four bits to the countdown it seeds. In DATA past the section's raw data, so zero at process start; es2_xref.py finds two references, both in Behaviour_SetState.",
+      "source": "docs/retail/simulation/ai-dispatch.md#the-mechs-behaviour-block--mech0x4d; disassembly of 00413e50"
     },
     {
       "address": "004a9bfe",

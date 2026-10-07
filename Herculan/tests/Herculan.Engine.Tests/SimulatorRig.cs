@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 using System.Text;
 using HercWorks.Core.Data.File.Cfg;
 using HercWorks.Core.Data.Struct.Herc;
@@ -12,7 +11,6 @@ using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
-using Herculan.Engine.Sim.Ai;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 
@@ -111,11 +109,6 @@ sealed class SimulatorRig {
 		if (root == null || !File.Exists(tapePath) || InputTapePlayer.Load(tapePath, demoMode: false) is not { } tape) {
 			return null;
 		}
-
-		// DAT_004a9bf4, the AI's dwell jitter, is a process-wide global that DBSIM starts each mission from, one
-		// mission per process. This engine keeps it static and flies several missions in one process, so a rig
-		// built after another starts from wherever the last one left it; each starts from zero here.
-		typeof(BehaviourBlock).GetField("_jitter", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, 0);
 
 		string folder = Path.Combine(Path.GetTempPath(), "herculan-tests", "rig-" + Guid.NewGuid().ToString("N"));
 		string scriptPath = tape.ExtractBundle(folder, installDataDirectory: null);

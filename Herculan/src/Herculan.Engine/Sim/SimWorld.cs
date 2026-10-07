@@ -2,6 +2,7 @@
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Settings;
+using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.Terrain;
 using Herculan.Engine.World;
 
@@ -68,6 +69,7 @@ public sealed class SimWorld {
 		BeamTable = beams;
 		Debris = debris;
 		Random = random ?? new SimRandom();
+		BehaviourBlock.ResetJitter();
 	}
 
 	private int[] _fireShapeFrames = Array.Empty<int>();

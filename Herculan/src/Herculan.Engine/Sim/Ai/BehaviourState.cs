@@ -261,17 +261,22 @@ public struct BehaviourBlock {
 	}
 
 	/// <summary>
-	/// <c>DAT_004a9bf4</c>, the original's own process-wide global: stepped by 13 per state change
-	/// and masked to four bits, so the jitter is deterministic in call order rather than random.
-	/// Shared with <see cref="FlyerBehaviourBlock"/>, which changes state through the same
-	/// <c>Behaviour_SetState</c>.
-	/// Static here for the same reason <see cref="Numerics.SimMath.TickDelta"/> is — DBSIM runs one
-	/// simulation per process and the field is a plain global in it.
+	/// <c>Behaviour_DwellJitter</c> (<c>004a9bf4</c>): stepped by 13 per state change and masked to
+	/// four bits, shared with <see cref="FlyerBehaviourBlock"/>. See
+	/// docs/retail/simulation/ai-dispatch.md#the-mechs-behaviour-block--mech0x4d.
 	/// </summary>
 	internal static int NextJitter() {
 		_jitter += 0xd;
 		return _jitter & 0xf;
 	}
+
+	/// <summary>
+	/// Puts the jitter counter back to the zero DBSIM starts each mission from. Retail gets that by
+	/// flying one mission per process; this host flies several in one, so every
+	/// <see cref="SimWorld"/> calls this as it is built. The counter stays a static rather than a
+	/// field of the world because the state changes that step it carry no world reference.
+	/// </summary>
+	internal static void ResetJitter() => _jitter = 0;
 
 	private static int _jitter;
 }

@@ -8,7 +8,7 @@ The HERCULAN Engine is a full reimplementation of _[Earthsiege 2](https://en.wik
 
 A fundamental feature of the HERCULAN Engine is HercWorks CSharp, a toolset for viewing (and sometimes editing) data files from _Earthsiege 2_. HercWorks CSharp is a C#/.NET rewrite and extension of [herc-works-mdk](https://github.com/Subject9x/herc-works-mdk), originally by Subject9x. HercWorks CSharp builds upon the original Java library, fixing bugs and expanding the scope of the reverse-engineering work. Unlike the original Java library, HercWorks CSharp currently does not support exporting data to JSON. New to HercWorks CSharp is a graphical user interface, built with Windows Forms (and therefore only available on Windows devices for now).
 
-Great thanks to Subject9x (developer of the original herc-works-mdk repository) and any contributors for the initial reverse-engineering work that helped make this possible.
+Great thanks to Subject9x (developer of the original herc-works-mdk repository), Crow, and any other contributors for the initial reverse-engineering work that helped make this possible.
 
 ## The engine
 

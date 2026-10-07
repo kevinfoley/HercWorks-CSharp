@@ -20,8 +20,16 @@ public sealed class TweaksMenu {
 	// In pixels on a 100% display (ScaledImGui.Scaled).
 	private const float PanelWidth = 400f;
 
+	// The visible settings in the order they are drawn, grouped once rather than every frame.
+	private static readonly (TweakCategory Category, TweakSettingDefinition<bool>[] Settings)[] VisibleByCategory =
+		TweakSettingDefinitions.All.Where(d => !d.Hidden).GroupBy(d => d.Category).Select(g => (g.Key, g.ToArray())).ToArray();
+
 	private readonly TweakSettings _settings;
 	private readonly LocalizationTable _localization;
+
+	// Built once: passing the method groups in Draw would allocate the array and a delegate for each, every frame.
+	private readonly (string key, Action callback)[] _presetButtons;
+	private readonly (string key, Action callback)[] _closeButtons;
 
 	/// <summary>Whether the panel is currently open. Set by the menu bar; see <see cref="HostMenuBar"/>.</summary>
 	public bool IsOpen { get; set; }
@@ -29,6 +37,8 @@ public sealed class TweaksMenu {
 	public TweaksMenu(TweakSettings settings, LocalizationTable localization) {
 		_settings = settings ?? throw new ArgumentNullException(nameof(settings));
 		_localization = localization ?? throw new ArgumentNullException(nameof(localization));
+		_presetButtons = [("tweaks.none", DisableAll), ("tweaks.defaults", ApplyDefaults), ("tweaks.recommended", ApplyRecommended), ("tweaks.all", EnableAll)];
+		_closeButtons = [("general.save", Save), ("general.cancel", Cancel)];
 	}
 
 	/// <summary>Draws the panel, if it is open. Call once per frame, inside the ImGui frame.</summary>
@@ -46,9 +56,9 @@ public sealed class TweaksMenu {
 		// The title doubles as the window's ID, so a language change opens it afresh, re-centred; a
 		// "###tweaks" suffix would keep the ID fixed at the cost of a string built every frame.
 		if (ImGui.Begin(_localization.GetStringOrKey("tweaks.title"), ref stayOpen, ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize)) {
-			foreach (var group in TweakSettingDefinitions.All.Where(d => !d.Hidden).GroupBy(d => d.Category)) {
-				ImGui.SeparatorText(_localization.GetStringOrKey(CategoryKey(group.Key)));
-				foreach (var definition in group) {
+			foreach (var (category, settings) in VisibleByCategory) {
+				ImGui.SeparatorText(_localization.GetStringOrKey(CategoryKey(category)));
+				foreach (var definition in settings) {
 					bool value = _settings.GetSettingValue(definition);
 					string displayName = _localization.GetString(definition.DisplayNameKey) ?? definition.ID;
 					if (ImGui.Checkbox(displayName, ref value)) {
@@ -62,11 +72,11 @@ public sealed class TweaksMenu {
 			}
 
 			ImGui.Dummy(new Vector2(0, ScaledImGui.Scaled(10)));
-			LocalizedImGuiHelpers.DrawButtonRow(_localization, ("tweaks.none", DisableAll), ("tweaks.defaults", ApplyDefaults), ("tweaks.recommended", ApplyRecommended), ("tweaks.all", EnableAll));
+			LocalizedImGuiHelpers.DrawButtonRow(_localization, _presetButtons);
 
 			ImGui.Separator();
 
-			LocalizedImGuiHelpers.DrawButtonRow(_localization, ("general.save", Save), ("general.cancel", Cancel));
+			LocalizedImGuiHelpers.DrawButtonRow(_localization, _closeButtons);
 		}
 
 		ImGui.End();

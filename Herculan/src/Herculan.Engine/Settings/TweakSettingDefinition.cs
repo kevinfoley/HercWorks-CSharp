@@ -20,6 +20,8 @@ public interface ITweakSettingDefinition<T> : ISettingDefinition<T> {
 public class SettingDefinition<T> : ISettingDefinition<T> {
 	public SettingDefinition(string id, T defaultValue, T recommendedValue, bool hidden = false) {
 		ID = id;
+		DisplayNameKey = $"{id}.display_name";
+		DescriptionKey = $"{id}.description";
 		DefaultValue = defaultValue;
 		RecommendedValue = recommendedValue;
 		Hidden = hidden;
@@ -34,12 +36,12 @@ public class SettingDefinition<T> : ISettingDefinition<T> {
 	/// <summary>
 	/// Key for the display name in localized strings.
 	/// </summary>
-	public string DisplayNameKey => $"{ID}.display_name";
+	public string DisplayNameKey { get; }
 
 	/// <summary>
 	/// Key for the description in localized strings.
 	/// </summary>
-	public string DescriptionKey => $"{ID}.description";
+	public string DescriptionKey { get; }
 
 	public T DefaultValue { get; }
 

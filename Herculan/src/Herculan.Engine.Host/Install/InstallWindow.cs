@@ -19,7 +19,7 @@ static class InstallWindow {
 	public static string? Run(LocalizationTable localization, string fontPath) {
 		using var panel = new InstallPanel(localization);
 		string? installed = null;
-		using var window = new EngineWindow(localization.GetString("install.window_title") ?? "install.window_title",
+		using var window = new EngineWindow(localization.GetStringOrKey("install.window_title"),
 			WindowWidth, WindowHeight);
 
 		ScaledImGui? imgui = null;

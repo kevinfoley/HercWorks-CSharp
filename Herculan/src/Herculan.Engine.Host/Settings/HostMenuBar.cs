@@ -67,15 +67,15 @@ sealed class HostMenuBar {
 	public void Draw(nint owner) {
 		// A bare item per panel, no checkmark, since each panel closes itself.
 		if (Visible && ImGui.BeginMainMenuBar()) {
-			if (_debug != null && ImGui.MenuItem(Text("menu.debug"))) {
+			if (_debug != null && ImGui.MenuItem(_localization.GetStringOrKey("menu.debug"))) {
 				_debug.IsOpen = true;
 			}
 
-			if (ImGui.MenuItem(Text("menu.settings"))) {
+			if (ImGui.MenuItem(_localization.GetStringOrKey("menu.settings"))) {
 				Settings.IsOpen = true;
 			}
 
-			if (ImGui.MenuItem(Text("menu.tweaks"))) {
+			if (ImGui.MenuItem(_localization.GetStringOrKey("menu.tweaks"))) {
 				Tweaks.IsOpen = true;
 			}
 
@@ -92,6 +92,4 @@ sealed class HostMenuBar {
 		Tweaks.Draw();
 		Settings.Draw(owner);
 	}
-
-	private string Text(string key) => _localization.GetString(key) ?? key;
 }

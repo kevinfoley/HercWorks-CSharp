@@ -25,7 +25,7 @@ sealed class InterfaceLanguageCombo {
 		_languages ??= _localization.GetLanguages();
 		string current = _localization.SelectedLocale;
 		string preview = _languages.FirstOrDefault(language => language.Locale == current).Name ?? current;
-		string label = _localization.GetString("settings.interface_language") ?? "settings.interface_language";
+		string label = _localization.GetStringOrKey("settings.interface_language");
 
 		bool changed = false;
 		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * 0.5f);

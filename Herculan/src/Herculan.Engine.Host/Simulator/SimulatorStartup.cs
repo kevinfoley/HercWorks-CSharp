@@ -279,12 +279,12 @@ static class SimulatorStartup {
 	/// </summary>
 	private static void ReportMissingFile(HostSession session, HostOptions options, string path) {
 		var localization = session.Localization;
-		string message = string.Format(localization.GetString("mission_load.missing_file") ?? "mission_load.missing_file", path);
+		string message = string.Format(localization.GetStringOrKey("mission_load.missing_file"), path);
 		if (options.ScreenshotPath != null) {
 			Console.Error.WriteLine(message);
 			return;
 		}
 
-		NativeAlert.ShowError(localization.GetString("mission_load.window_title") ?? "mission_load.window_title", message);
+		NativeAlert.ShowError(localization.GetStringOrKey("mission_load.window_title"), message);
 	}
 }

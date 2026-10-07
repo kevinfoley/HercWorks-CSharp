@@ -74,17 +74,17 @@ sealed class PathPrompt {
 				}
 			} else if (picked.IsFaulted) {
 				Console.Error.WriteLine($"The picker failed: {picked.Exception?.InnerException?.Message}");
-				_error = Text("install_prompt.picker_failed");
+				_error = _localization.GetStringOrKey("install_prompt.picker_failed");
 			}
 		}
 
-		ImGui.TextWrapped(string.Format(Text(_messageKey), messageArguments));
+		ImGui.TextWrapped(string.Format(_localization.GetStringOrKey(_messageKey), messageArguments));
 		ImGui.Spacing();
 
 		bool picking = _picking != null;
 		ImGui.BeginDisabled(picking);
 
-		string browseLabel = Text("install_prompt.browse");
+		string browseLabel = _localization.GetStringOrKey("install_prompt.browse");
 		float spacing = ImGui.GetStyle().ItemSpacing.X;
 		bool canBrowse = NativePathPicker.IsAvailable;
 		float browseWidth = canBrowse
@@ -92,7 +92,7 @@ sealed class PathPrompt {
 			: 0f;
 
 		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - (canBrowse ? browseWidth + spacing : 0f));
-		if (ImGui.InputTextWithHint("##path", Text(_keyPrefix + ".path_hint"), ref _path, 1024,
+		if (ImGui.InputTextWithHint("##path", _localization.GetStringOrKey(_keyPrefix + ".path_hint"), ref _path, 1024,
 				ImGuiInputTextFlags.EnterReturnsTrue) && Accept()) {
 			outcome = Outcome.Accepted;
 		}
@@ -101,7 +101,7 @@ sealed class PathPrompt {
 			ImGui.SameLine();
 			if (ImGui.Button(browseLabel)) {
 				_error = null;
-				_picking = NativePathPicker.PickAsync(Text(_keyPrefix + ".picker_title"), _path, owner, _fileFilter);
+				_picking = NativePathPicker.PickAsync(_localization.GetStringOrKey(_keyPrefix + ".picker_title"), _path, owner, _fileFilter);
 			}
 		}
 
@@ -110,24 +110,24 @@ sealed class PathPrompt {
 			ImGui.TextWrapped(_error);
 			ImGui.PopStyleColor();
 		} else if (picking) {
-			ImGui.TextDisabled(Text("install_prompt.picker_open"));
+			ImGui.TextDisabled(_localization.GetStringOrKey("install_prompt.picker_open"));
 		}
 
 		// The buttons sit at the foot of the window, sharing its width.
 		int buttons = _alternativeKey == null ? 2 : 3;
 		var buttonSize = new Vector2((ImGui.GetContentRegionAvail().X - spacing * (buttons - 1)) / buttons, 0f);
 		ImGui.SetCursorPosY(ImGui.GetWindowHeight() - ImGui.GetFrameHeight() - ImGui.GetStyle().WindowPadding.Y);
-		if (ImGui.Button(Text(_keyPrefix + ".accept"), buttonSize) && Accept()) {
+		if (ImGui.Button(_localization.GetStringOrKey(_keyPrefix + ".accept"), buttonSize) && Accept()) {
 			outcome = Outcome.Accepted;
 		}
 		ImGui.SameLine();
 		if (_alternativeKey != null) {
-			if (ImGui.Button(Text(_alternativeKey), buttonSize)) {
+			if (ImGui.Button(_localization.GetStringOrKey(_alternativeKey), buttonSize)) {
 				outcome = Outcome.Alternative;
 			}
 			ImGui.SameLine();
 		}
-		if (ImGui.Button(Text(_dismissKey), buttonSize)) {
+		if (ImGui.Button(_localization.GetStringOrKey(_dismissKey), buttonSize)) {
 			outcome = Outcome.Dismissed;
 		}
 
@@ -138,7 +138,7 @@ sealed class PathPrompt {
 	/// <summary>Takes the path field's path if <c>refusal</c> has nothing against it; otherwise says why not.</summary>
 	private bool Accept() {
 		string path = _path.Trim().Trim('"');
-		_error = path.Length == 0 ? Text(_keyPrefix + ".no_path") : _refusal(path);
+		_error = path.Length == 0 ? _localization.GetStringOrKey(_keyPrefix + ".no_path") : _refusal(path);
 		if (_error != null) {
 			return false;
 		}
@@ -146,6 +146,4 @@ sealed class PathPrompt {
 		Chosen = Path.GetFullPath(path);
 		return true;
 	}
-
-	private string Text(string key) => _localization.GetString(key) ?? key;
 }

@@ -27,7 +27,7 @@ static class InstallPrompt {
 			string? messageKey = null, string? alternativeKey = null) =>
 		new(localization, "install_prompt", dismissKey, path => GameInstall.IsInstallRoot(path)
 			? null
-			: string.Format(localization.GetString("install_prompt.not_an_install") ?? "install_prompt.not_an_install",
+			: string.Format(localization.GetStringOrKey("install_prompt.not_an_install"),
 				path, GameInstall.ArchiveFolderName), initialPath, messageKey, alternativeKey: alternativeKey);
 
 	/// <summary>
@@ -53,7 +53,7 @@ static class InstallPrompt {
 		var prompt = Create(localization, "install_prompt.quit", alternativeKey: "install_prompt.install");
 		var language = new InterfaceLanguageCombo(localization);
 		bool install = false;
-		string Title() => localization.GetString("install_prompt.window_title") ?? "install_prompt.window_title";
+		string Title() => localization.GetStringOrKey("install_prompt.window_title");
 		using var window = new EngineWindow(Title(), WindowWidth, WindowHeight);
 
 		ScaledImGui? imgui = null;

@@ -49,7 +49,7 @@ sealed class InstallPanel : IDisposable {
 
 	public InstallPanel(LocalizationTable localization) {
 		_localization = localization;
-		_imageFilter = new NativePathPicker.FileFilter(Text("install.image_filter"), ["iso", "bin", "cue"]);
+		_imageFilter = new NativePathPicker.FileFilter(_localization.GetStringOrKey("install.image_filter"), ["iso", "bin", "cue"]);
 	}
 
 	/// <summary>The install made, in full; set once <see cref="Draw"/> has returned <see cref="Outcome.Installed"/>.</summary>
@@ -64,21 +64,21 @@ sealed class InstallPanel : IDisposable {
 		TakePick();
 		TakeInstall();
 
-		ImGui.TextWrapped(Text("install.message"));
+		ImGui.TextWrapped(_localization.GetStringOrKey("install.message"));
 		ImGui.Spacing();
 
 		bool locked = Busy || _picking != null || _done != null;
 		ImGui.BeginDisabled(locked);
 
-		ImGui.SeparatorText(Text("install.source"));
+		ImGui.SeparatorText(_localization.GetStringOrKey("install.source"));
 		float spacing = ImGui.GetStyle().ItemSpacing.X;
-		string folderLabel = Text("install.browse_folder");
-		string imageLabel = Text("install.browse_image");
+		string folderLabel = _localization.GetStringOrKey("install.browse_folder");
+		string imageLabel = _localization.GetStringOrKey("install.browse_image");
 		float buttonsWidth = NativePathPicker.IsAvailable
 			? ButtonWidth(folderLabel) + ButtonWidth(imageLabel) + spacing * 2
 			: 0f;
 		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - buttonsWidth);
-		if (ImGui.InputTextWithHint("##source", Text("install.source_hint"), ref _sourcePath, 1024,
+		if (ImGui.InputTextWithHint("##source", _localization.GetStringOrKey("install.source_hint"), ref _sourcePath, 1024,
 				ImGuiInputTextFlags.EnterReturnsTrue)) {
 			OpenSource();
 		}
@@ -89,11 +89,11 @@ sealed class InstallPanel : IDisposable {
 		if (NativePathPicker.IsAvailable) {
 			ImGui.SameLine();
 			if (ImGui.Button(folderLabel)) {
-				Pick(source: true, Text("install.picker_folder_title"), _sourcePath, owner, null);
+				Pick(source: true, _localization.GetStringOrKey("install.picker_folder_title"), _sourcePath, owner, null);
 			}
 			ImGui.SameLine();
 			if (ImGui.Button(imageLabel)) {
-				Pick(source: true, Text("install.picker_image_title"), _sourcePath, owner, _imageFilter);
+				Pick(source: true, _localization.GetStringOrKey("install.picker_image_title"), _sourcePath, owner, _imageFilter);
 			}
 		}
 
@@ -106,20 +106,20 @@ sealed class InstallPanel : IDisposable {
 		}
 
 		ImGui.BeginDisabled(_installer == null);
-		ImGui.SeparatorText(Text("install.size"));
+		ImGui.SeparatorText(_localization.GetStringOrKey("install.size"));
 		foreach (var size in Sizes) {
 			long megabytes = _sizeBytes is { } bytes ? (bytes[(int)size] + (1 << 20) - 1) >> 20 : 0;
-			if (ImGui.RadioButton(string.Format(Text(SizeKey(size)), megabytes), _size == size)) {
+			if (ImGui.RadioButton(string.Format(_localization.GetStringOrKey(SizeKey(size)), megabytes), _size == size)) {
 				_size = size;
 			}
 		}
-		ImGui.TextDisabled(Text("install.size_note"));
+		ImGui.TextDisabled(_localization.GetStringOrKey("install.size_note"));
 
-		ImGui.SeparatorText(Text("install.language"));
+		ImGui.SeparatorText(_localization.GetStringOrKey("install.language"));
 		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * 0.5f);
-		if (ImGui.BeginCombo("##language", Text(LanguageKey(_language)))) {
+		if (ImGui.BeginCombo("##language", _localization.GetStringOrKey(LanguageKey(_language)))) {
 			foreach (var language in RetailInstaller.Languages) {
-				if (ImGui.Selectable(Text(LanguageKey(language)), language == _language) && language != _language) {
+				if (ImGui.Selectable(_localization.GetStringOrKey(LanguageKey(language)), language == _language) && language != _language) {
 					_language = language;
 					MeasureSizes();
 				}
@@ -128,15 +128,15 @@ sealed class InstallPanel : IDisposable {
 		}
 		ImGui.EndDisabled();
 
-		ImGui.SeparatorText(Text("install.destination"));
-		string browseLabel = Text("install_prompt.browse");
+		ImGui.SeparatorText(_localization.GetStringOrKey("install.destination"));
+		string browseLabel = _localization.GetStringOrKey("install_prompt.browse");
 		ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X
 			- (NativePathPicker.IsAvailable ? ButtonWidth(browseLabel) + spacing : 0f));
-		ImGui.InputTextWithHint("##destination", Text("install.destination_hint"), ref _destination, 1024);
+		ImGui.InputTextWithHint("##destination", _localization.GetStringOrKey("install.destination_hint"), ref _destination, 1024);
 		if (NativePathPicker.IsAvailable) {
 			ImGui.SameLine();
 			if (ImGui.Button(browseLabel + "##destination_browse")) {
-				Pick(source: false, Text("install.picker_destination_title"), _destination, owner, null);
+				Pick(source: false, _localization.GetStringOrKey("install.picker_destination_title"), _destination, owner, null);
 			}
 		}
 
@@ -144,7 +144,7 @@ sealed class InstallPanel : IDisposable {
 
 		ImGui.Spacing();
 		ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.8f, 0.4f, 1f));
-		ImGui.TextWrapped(Text("install.retail_note"));
+		ImGui.TextWrapped(_localization.GetStringOrKey("install.retail_note"));
 		ImGui.PopStyleColor();
 
 		if (_error != null) {
@@ -159,7 +159,7 @@ sealed class InstallPanel : IDisposable {
 
 			float fraction = progress.BytesTotal > 0 ? (float)progress.BytesDone / progress.BytesTotal : 0f;
 			ImGui.ProgressBar(fraction, new Vector2(-1f, 0f), progress.File.Length == 0 ? ""
-				: string.Format(Text("install.copying"), progress.File, progress.FileIndex + 1, progress.FileCount));
+				: string.Format(_localization.GetStringOrKey("install.copying"), progress.File, progress.FileIndex + 1, progress.FileCount));
 		} else if (_done != null) {
 			ImGui.TextWrapped(_done);
 		}
@@ -172,19 +172,19 @@ sealed class InstallPanel : IDisposable {
 		}
 
 		if (_done != null) {
-			if (ImGui.Button(Text("install.use"), buttonSize)) {
+			if (ImGui.Button(_localization.GetStringOrKey("install.use"), buttonSize)) {
 				outcome = Outcome.Installed;
 			}
 		} else {
 			ImGui.BeginDisabled(locked || _installer == null);
-			if (ImGui.Button(Text("install.install"), buttonSize)) {
+			if (ImGui.Button(_localization.GetStringOrKey("install.install"), buttonSize)) {
 				StartInstall();
 			}
 			ImGui.EndDisabled();
 		}
 
 		ImGui.SameLine();
-		if (ImGui.Button(Text(Busy ? "general.cancel" : "general.close"), buttonSize)) {
+		if (ImGui.Button(_localization.GetStringOrKey(Busy ? "general.cancel" : "general.close"), buttonSize)) {
 			if (Busy) {
 				_cancellation?.Cancel();
 			} else {
@@ -216,7 +216,7 @@ sealed class InstallPanel : IDisposable {
 			}
 		} else if (picked.IsFaulted) {
 			Console.Error.WriteLine($"The picker failed: {picked.Exception?.InnerException?.Message}");
-			_error = Text("install_prompt.picker_failed");
+			_error = _localization.GetStringOrKey("install_prompt.picker_failed");
 		}
 	}
 
@@ -232,7 +232,7 @@ sealed class InstallPanel : IDisposable {
 		try {
 			full = Path.GetFullPath(path);
 		} catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) {
-			_sourceMessage = string.Format(Text("install.source_missing"), path);
+			_sourceMessage = string.Format(_localization.GetStringOrKey("install.source_missing"), path);
 			return;
 		}
 
@@ -241,36 +241,36 @@ sealed class InstallPanel : IDisposable {
 				: Directory.Exists(full) ? GameDisc.OpenFolder(full)
 				: null;
 		} catch (Exception ex) when (ex is DiscFormatException or IOException or UnauthorizedAccessException) {
-			_sourceMessage = string.Format(Text("install.source_unreadable"), full, ex.Message);
+			_sourceMessage = string.Format(_localization.GetStringOrKey("install.source_unreadable"), full, ex.Message);
 			return;
 		}
 
 		if (_source == null) {
-			_sourceMessage = string.Format(Text("install.source_missing"), full);
+			_sourceMessage = string.Format(_localization.GetStringOrKey("install.source_missing"), full);
 			return;
 		}
 
 		_installer = RetailInstaller.Identify(_source, out var problem, out string? version);
 		if (_installer == null) {
 			_sourceMessage = problem == RetailInstaller.Problem.NoScript
-				? string.Format(Text("install.no_script"), full, RetailInstaller.ScriptFileName)
-				: string.Format(Text("install.unknown_version"), full, version ?? "?");
+				? string.Format(_localization.GetStringOrKey("install.no_script"), full, RetailInstaller.ScriptFileName)
+				: string.Format(_localization.GetStringOrKey("install.unknown_version"), full, version ?? "?");
 			CloseSource();
 			return;
 		}
 
 		if (_installer.CheckSource() is { } discProblem) {
 			_sourceMessage = discProblem switch {
-				GameInstall.DiscDirectoryProblem.Whitespace => string.Format(Text("disc_prompt.whitespace"), full, HercWorks.Core.Data.File.Cfg.Drive.FileName),
-				GameInstall.DiscDirectoryProblem.NotLatin1 => string.Format(Text("disc_prompt.not_latin1"), full, HercWorks.Core.Data.File.Cfg.Drive.FileName),
-				_ => string.Format(Text("install.source_missing"), full),
+				GameInstall.DiscDirectoryProblem.Whitespace => string.Format(_localization.GetStringOrKey("disc_prompt.whitespace"), full, HercWorks.Core.Data.File.Cfg.Drive.FileName),
+				GameInstall.DiscDirectoryProblem.NotLatin1 => string.Format(_localization.GetStringOrKey("disc_prompt.not_latin1"), full, HercWorks.Core.Data.File.Cfg.Drive.FileName),
+				_ => string.Format(_localization.GetStringOrKey("install.source_missing"), full),
 			};
 			CloseSource();
 			return;
 		}
 
 		_sourceOk = true;
-		_sourceMessage = string.Format(Text("install.found"), _installer.BuildName);
+		_sourceMessage = string.Format(_localization.GetStringOrKey("install.found"), _installer.BuildName);
 		MeasureSizes();
 	}
 
@@ -297,7 +297,7 @@ sealed class InstallPanel : IDisposable {
 		}
 
 		if (path.Length == 0) {
-			_error = Text("install.no_destination");
+			_error = _localization.GetStringOrKey("install.no_destination");
 			return;
 		}
 
@@ -305,12 +305,12 @@ sealed class InstallPanel : IDisposable {
 		try {
 			destination = Path.GetFullPath(path);
 		} catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) {
-			_error = string.Format(Text("install.destination_file"), path);
+			_error = string.Format(_localization.GetStringOrKey("install.destination_file"), path);
 			return;
 		}
 
 		if (installer.CheckDestination(destination) is { } problem) {
-			_error = string.Format(Text(problem switch {
+			_error = string.Format(_localization.GetStringOrKey(problem switch {
 				RetailInstaller.DestinationProblem.IsAFile => "install.destination_file",
 				RetailInstaller.DestinationProblem.NotEmpty => "install.destination_not_empty",
 				_ => "install.destination_inside_disc",
@@ -320,7 +320,7 @@ sealed class InstallPanel : IDisposable {
 
 		long needed = _sizeBytes?[(int)_size] ?? 0;
 		if (RetailInstaller.FreeSpace(destination) is { } free && free < needed) {
-			_error = string.Format(Text("install.no_space"), (needed + (1 << 20) - 1) >> 20, free >> 20);
+			_error = string.Format(_localization.GetStringOrKey("install.no_space"), (needed + (1 << 20) - 1) >> 20, free >> 20);
 			return;
 		}
 
@@ -348,14 +348,14 @@ sealed class InstallPanel : IDisposable {
 		_cancellation = null;
 		if (finished.IsCompletedSuccessfully) {
 			Installed = _destination;
-			_done = string.Format(Text("install.done"), _destination);
+			_done = string.Format(_localization.GetStringOrKey("install.done"), _destination);
 			Console.WriteLine($"Installed Earthsiege 2 into {_destination}.");
 		} else if (finished.Exception?.InnerException is OperationCanceledException || finished.IsCanceled) {
-			_error = Text("install.cancelled");
+			_error = _localization.GetStringOrKey("install.cancelled");
 		} else {
 			string reason = finished.Exception?.InnerException?.Message ?? "";
 			Console.Error.WriteLine($"The install failed: {reason}");
-			_error = string.Format(Text("install.failed"), reason);
+			_error = string.Format(_localization.GetStringOrKey("install.failed"), reason);
 		}
 	}
 
@@ -379,8 +379,6 @@ sealed class InstallPanel : IDisposable {
 		ImGui.TextWrapped(text);
 		ImGui.PopStyleColor();
 	}
-
-	private string Text(string key) => _localization.GetString(key) ?? key;
 
 	/// <summary>Cancels a running copy and waits for it to clean up, then closes the source.</summary>
 	public void Dispose() {

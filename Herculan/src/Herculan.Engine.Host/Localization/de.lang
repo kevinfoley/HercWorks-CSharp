@@ -1,4 +1,6 @@
 language.name Deutsch
+general.save    Speichern
+general.cancel  Abbrechen
 tweak.target_distance_meters.display_name      Zielentfernung in Metern anzeigen
 tweak.target_distance_meters.description       Zeigt auf dem MFD im Bildschirm F5 TARGET die Zielentfernung in Metern an. Das Originalspiel zeigt die Entfernung nur auf diesem Bildschirm in internen Spieleinheiten an.
 tweak.show_correct_stats.display_name          Korrekte Werte anzeigen
@@ -33,6 +35,15 @@ tweak.fix_weapon_damage_records.display_name  Waffenschaden korrigieren
 tweak.fix_weapon_damage_records.description   ATC75, ATC100, LAS400 und LAS500 verursachen den für sie angegebenen Schaden und feuern ihre eigenen Geschosse und Strahlen. Im Originalspiel verursacht jede den Schaden einer kleineren Waffe: ATC75 und ATC100 treffen genau wie ATC35 und ATC50, LAS500 genau wie LAS300, und LAS400 nur geringfügig stärker als LAS200. Jede feuert außerdem das Geschoss oder den Strahl dieser Waffe, sodass Geschosse von ATC75 und ATC100 so weit fliegen wie die von ATC35 und ATC50, und die Strahlen von LAS400 und LAS500 so schmal sind wie die von LAS200 und LAS300.
 tweak.charge_bar_power_level.display_name  Interaktive Ladeanzeige
 tweak.charge_bar_power_level.description   Stellen Sie die Energiestufe einer Energiewaffe ein, indem Sie auf ihre Ladeanzeige im Waffenfeld klicken oder sie ziehen: Die Anzeige füllt sich dann bis zu der Stelle, an der Sie loslassen. Die Tasten [-] und [=] funktionieren weiterhin. Das Originalspiel legt die Anzeige dafür an, aber die eigene Schaltfläche der Waffenzeile verdeckt sie, sodass sie nie einen Klick erhält.
+tweaks.title                   Optimierungen
+tweaks.category.cosmetic       Kosmetisch
+tweaks.category.ai             KI
+tweaks.category.functional     Funktional
+tweaks.category.input          Eingabe
+tweaks.none                    Keine
+tweaks.defaults                Standard
+tweaks.recommended             Empfohlen
+tweaks.all                     Alle
 install_prompt.window_title    HERCULAN Engine — Earthsiege 2 suchen
 install_prompt.message         HERCULAN konnte Earthsiege 2 nicht finden. Wählen Sie den Earthsiege-2-Ordner: den Ordner, der den Ordner {0} enthält.
 install_prompt.path_hint       Earthsiege-2-Ordner

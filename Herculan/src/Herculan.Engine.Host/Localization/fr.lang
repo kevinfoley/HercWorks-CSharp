@@ -1,4 +1,6 @@
 language.name Français
+general.save    Enregistrer
+general.cancel  Annuler
 tweak.target_distance_meters.display_name      Afficher la distance de la cible en mètres
 tweak.target_distance_meters.description       Sur le MFD, affiche la distance de la cible en mètres sur l'écran F5 TARGET. Le jeu original affiche la distance en unités du moteur sur cet écran uniquement.
 tweak.show_correct_stats.display_name          Afficher les statistiques correctes
@@ -33,6 +35,15 @@ tweak.fix_weapon_damage_records.display_name  Corriger les dégâts des armes
 tweak.fix_weapon_damage_records.description   Les ATC75, ATC100, LAS400 et LAS500 infligent les dégâts indiqués pour elles et tirent leurs propres obus et rayons. Dans le jeu original, chacune inflige les dégâts d'une arme plus petite : les ATC75 et ATC100 frappent exactement comme les ATC35 et ATC50, le LAS500 exactement comme le LAS300, et le LAS400 à peine plus fort que le LAS200. Chacune tire aussi l'obus ou le rayon de cette arme, si bien que les obus des ATC75 et ATC100 portent aussi loin que ceux des ATC35 et ATC50, et que les rayons des LAS400 et LAS500 sont aussi étroits que ceux des LAS200 et LAS300.
 tweak.charge_bar_power_level.display_name  Barre de charge interactive
 tweak.charge_bar_power_level.description   Réglez le niveau de puissance d'une arme à énergie en cliquant sur sa barre de charge dans le panneau des armes ou en la faisant glisser : la barre se remplit alors jusqu'à l'endroit où vous relâchez. Les touches [-] et [=] fonctionnent toujours. Le jeu original prévoit la barre pour cela, mais le bouton de la ligne de l'arme la recouvre, si bien qu'elle ne reçoit jamais de clic.
+tweaks.title                   Ajustements
+tweaks.category.cosmetic       Cosmétique
+tweaks.category.ai             IA
+tweaks.category.functional     Fonctionnel
+tweaks.category.input          Commandes
+tweaks.none                    Aucun
+tweaks.defaults                Par défaut
+tweaks.recommended             Recommandés
+tweaks.all                     Tous
 install_prompt.window_title    HERCULAN Engine — Trouver Earthsiege 2
 install_prompt.message         HERCULAN n'a pas trouvé Earthsiege 2. Choisissez le dossier d'Earthsiege 2 : celui qui contient le dossier {0}.
 install_prompt.path_hint       Dossier d'Earthsiege 2

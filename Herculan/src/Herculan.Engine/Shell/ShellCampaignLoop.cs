@@ -1,33 +1,21 @@
 using HercWorks.Core.Data.File.Sav;
 using Herculan.Engine.Content;
-using Herculan.Engine.Host.Shell.Tabs;
 using Herculan.Engine.Numerics;
-using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
 using Herculan.Engine.World;
 
-namespace Herculan.Engine.Host.Shell;
+namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// The shell's side of the campaign loop (docs/retail/shell/campaign-loop.md): where the game in progress comes from — a
-/// slot, a new career, a training launch, the simulator's return — and the missions it hands the simulator.
+/// slot, a new career, a training launch, the simulator's return — and the missions it hands the simulator. What the
+/// screens do at each step is the host's; this returns the outcome of each instead of acting on a window.
 /// </summary>
-sealed class CampaignLoop {
+public sealed class ShellCampaignLoop {
 	private readonly string _installRoot;
 	private readonly GameContent _content;
 	private readonly GameInProgress _game;
 	private readonly ShellSaveScreen _saveScreen;
-	private readonly HangarTabs _hangar;
-	private readonly MissionTabScreens _mission;
-	private readonly TabNavigation _navigation;
-	private readonly StartupScreen _startup;
-	private readonly ShellMovies _movies;
-	private readonly ShellCanvas _canvas;
-	private readonly ShellDialogs _dialogs;
-	private readonly ShellScreen _screen;
-	private readonly ShellOutcome _outcome;
-	private readonly FrontEndWindow _window;
-	private readonly Action _repaint;
 
 	// VSHELL's one generator, seeded once at startup, and the row-2 flag clear list, which the
 	// original keeps from one mission load to the next.
@@ -37,28 +25,21 @@ sealed class CampaignLoop {
 	// INSTANT ACTION's InstantAction_Active (0047363c), which nothing clears.
 	private bool _instantActionSet;
 
-	public CampaignLoop(string installRoot, GameContent content, GameInProgress game, ShellSaveScreen saveScreen, HangarTabs hangar,
-			MissionTabScreens mission, TabNavigation navigation, StartupScreen startup, ShellMovies movies, ShellCanvas canvas,
-			ShellDialogs dialogs, ShellScreen screen, ShellOutcome outcome, FrontEndWindow window, WidgetEvents widgets,
-			Action repaint) {
+	public ShellCampaignLoop(string installRoot, GameContent content, GameInProgress game, ShellSaveScreen saveScreen) {
 		_installRoot = installRoot;
 		_content = content;
 		_game = game;
 		_saveScreen = saveScreen;
-		_hangar = hangar;
-		_mission = mission;
-		_navigation = navigation;
-		_startup = startup;
-		_movies = movies;
-		_canvas = canvas;
-		_dialogs = dialogs;
-		_screen = screen;
-		_outcome = outcome;
-		_window = window;
-		_repaint = repaint;
-
-		widgets.Handle(ShellWidgetKind.ReplayButton, widget => ClickReplay((ShellReplayButton)widget.Index));
 	}
+
+	/// <summary>
+	/// A game adopted as the game in progress, from a load or a new career: the screens that show it rebuild from it
+	/// here, before anything else reads it.
+	/// </summary>
+	public event Action<PlayerSave, ShellWorkingFiles>? Adopted;
+
+	/// <summary>A slot <see cref="LoadSlot"/> read, raised once its game is adopted.</summary>
+	public event Action<ShellSaveSlot>? SlotLoaded;
 
 	// The install's data\, where the working files and the mission handoff are written and the results come back.
 	private string DataDirectory => ShellWorkingFiles.DataDirectory(_installRoot);
@@ -85,30 +66,24 @@ sealed class CampaignLoop {
 		}
 
 		Adopt(restored, ShellHangar.From(restored), ShellSaveSlots.CopyWorkingFilesIn(_installRoot, slot));
-		Console.WriteLine($"Loaded {entry.FileName}: "
-			+ (ShellSaveSummary.From(restored) is { } summary
-				? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}."
-				: "no pilot record.")
-			+ (_hangar.RepairBay >= 0
-				? $" Repair opens on bay {_hangar.RepairBay}."
-				: " No built machine in any hangar bay."));
+		SlotLoaded?.Invoke(entry);
 		return true;
 	}
 
 	/// <summary>
 	/// Shell_BuildScreensAndStart's -X3 and -X4 arm (004012b0): Game_LoadSlot(10) and then
 	/// Game_ProcessMissionResults (0040eae7) over the results.dat and mission.var the simulator left in data\,
-	/// which the load's copies do not touch, then wherever the debrief goes next (docs/retail/shell/campaign-loop.md#where-the-debrief-goes-next).
-	/// A slot 10 not in use, or no results, cannot come from a mission this shell launched; it is reported,
-	/// and the menu comes up.
+	/// which the load's copies do not touch. Returns the debrief, whose state says where the debrief goes next
+	/// (docs/retail/shell/campaign-loop.md#where-the-debrief-goes-next). A slot 10 not in use, or no results, cannot
+	/// come from a mission this shell launched; that, and a debrief that fails, is reported and returns null, and
+	/// the menu comes up.
 	/// </summary>
-	public void ReturnFromMission() {
+	public ShellDebriefResult? ReturnFromMission() {
 		string resultsPath = Path.Combine(DataDirectory, MissionResults.FileName);
 		string countersPath = Path.Combine(DataDirectory, MissionLoader.CountersFileName);
 		if (!LoadSlot(GameInProgress.CurrentGameSlot) || _game.LoadedGame == null || !File.Exists(resultsPath) || !File.Exists(countersPath)) {
 			Console.WriteLine($"Back from the mission, but slot 10 or {resultsPath} could not be read — main menu.");
-			_startup.Begin();
-			return;
+			return null;
 		}
 
 		var result = ShellDebrief.Process(_game.LoadedGame, _game.Hangar, _content, File.ReadAllBytes(countersPath),
@@ -116,96 +91,60 @@ sealed class CampaignLoop {
 			_game.ManualWeaponBuild(), bound => _random.NextBelow(bound), out string? failure);
 		if (result == null) {
 			Console.WriteLine($"Debrief: {failure} Main menu.");
-			_startup.Begin();
-			return;
+			return null;
 		}
 
 		Console.WriteLine($"Debrief: {(result.Outcome != 0 ? "success" : "failure")}, {result.SalvageAwarded} kg salvage "
 			+ $"and {result.SalvageItems} weapon(s) recovered, {result.MachinesScrapped} machine(s) scrapped, "
 			+ $"{result.PilotsLost} pilot(s) lost; game state {result.State?.ToString() ?? "unchanged"}.");
-		if (result.Report is { } report) {
-			_mission.WriteReport(report, _canvas.Art.Text);
-		}
-
-		switch (result.State) {
-			case ShellDebrief.CampaignOverState or ShellDebrief.ShellState:
-				// ReplayDialog_Show(state) (0044ca57).
-				_dialogs.Replay.Open(result.State.Value);
-				break;
-			case ShellDebrief.CampaignWonState:
-				// Game_SaveSlot(10), the two ending movies, palette 1 and the startup sequence.
-				_game.AutoSave();
-				_movies.Queue.Enqueue(ShellMovieQueue.Victory, ShellMovieQueue.FullRect);
-				_movies.Queue.Enqueue(ShellMovieQueue.Credits, ShellMovieQueue.FullRect);
-				_movies.Start();
-				_canvas.InstallPalette(ShellPalette.ServiceBay);
-				_startup.Begin();
-				break;
-			case ShellDebrief.NextMissionState:
-				// MissionScreenView = 4, then Career_StartMissionLoad's Use Default: the next mission's load,
-				// whose campaign end puts the frame up and the mission tab in that view.
-				_mission.ShowDebrief(result.Debrief is { } text ? ShellMissionTexts.AssembleDebrief(text) : null,
-					result.Debrief?.Movie);
-				LoadNextCareerMission();
-				break;
-			default:
-				// A training debrief leaves the state alone and shows the startup sequence.
-				_startup.Begin();
-				break;
-		}
+		return result;
 	}
 
 	/// <summary>
-	/// ACCEPT, Registration_OnAccept (0043c0fb): gam\herc_inf.dat reloaded, the screen hidden, the campaign
-	/// map's first-show flag (DAT_004778aa) cleared, Game_NewCareer(name, skill) in
-	/// campaign mode, and MissionScreenView from the position — the map, on stage 1 mission 0. The career's
-	/// position step posts the developer's mission-name dialog's Use Default click, which the original
-	/// delivers once the handler has returned and which runs Career_LoadCurrentMission; this goes straight
-	/// there, as LaunchTraining does. Its campaign end rebuilds the map and the texts (here on the adopt),
-	/// stages slot 10's summary, which no save row shows, puts the frame up with the strip regated, and
-	/// calls Mission_ShowView(MissionScreenView, 1). Nothing is saved: slot 10 is first written by the next
-	/// autosave.
+	/// ACCEPT, Registration_OnAccept (0043c0fb), after the campaign map's first-show flag (DAT_004778aa) is cleared:
+	/// gam\herc_inf.dat reloaded, Game_NewCareer(name, skill) in campaign mode, and MissionScreenView from the
+	/// position — the map, on stage 1 mission 0. The career's position step posts the developer's mission-name
+	/// dialog's Use Default click, which the original delivers once the handler has returned and which runs
+	/// Career_LoadCurrentMission; this goes straight there, as LaunchTraining does. Its campaign end rebuilds the
+	/// map and the texts (here on the adopt) and stages slot 10's summary, which no save row shows; the screen
+	/// then puts the frame up with the strip regated and calls Mission_ShowView(MissionScreenView, 1). Nothing is
+	/// saved: slot 10 is first written by the next autosave. Returns whether the career started.
 	/// </summary>
-	public void StartCampaign(string name, int skill) {
-		_mission.ClearMapShown();
-
+	public bool StartCampaign(string name, int skill) {
 		int Roll(short bound) => _random.NextBelow(bound);
 		if (ShellCampaignLaunch.NewCareer(_content, name, skill, ShellCampaignMode.Campaign, Roll,
 				_game.HeldGame(), out string? failure) is not { } game) {
 			Console.WriteLine($"Accept: {failure} No career started; main menu.");
-			_repaint();
-			return;
+			return false;
 		}
 
 		var careerHangar = ShellHangar.From(game);
 		if (ShellCampaignLaunch.LoadCareerMission(DataDirectory, _content, game, careerHangar, _clearList, Roll, out failure)
 				is not { } mission) {
 			Console.WriteLine($"Accept: {failure} No career started; main menu.");
-			_repaint();
-			return;
+			return false;
 		}
 
 		Adopt(game, careerHangar, ShellWorkingFiles.In(DataDirectory));
 		Console.WriteLine($"New campaign for {name}, skill {skill}: {mission.MissionPath}, "
 			+ $"{mission.SquadPositions} squad position(s), {game.SalvageTotal} kg salvage; working files in {DataDirectory}.");
-		_screen.ReturnToFrame(_game.Mode);
-		_navigation.ShowMissionView();
+		return true;
 	}
 
 	/// <summary>
 	/// Game_NewCareer("TRAINEE", option 0x27) in training mode on stage 0's mission at row: the career
-	/// started, its mission loaded and the handoff written, and the shell closed on exit code 2. The
+	/// started, its mission loaded and the handoff written, for the shell to close on exit code 2. The
 	/// original gets from the career to the load through the developer's mission-name dialog, which
 	/// clicks its own Use Default at once; this goes straight there. The career is the game in progress,
 	/// which the loop exit's autosave writes as slot 11 with the handoff's three working files. Returns
-	/// whether it launched.
+	/// the launch, or null when it could not be written.
 	/// </summary>
-	public bool LaunchTraining(int row, string label) {
+	public ShellLaunch? LaunchTraining(int row, string label) {
 		var handoff = ShellTrainingLaunch.Write(DataDirectory, _content, _game.Options, row, _instantActionSet,
 			_random, _clearList, _game.HeldGame(), out string? failure);
 		if (handoff == null) {
 			Console.WriteLine($"{label}: {failure}");
-			return false;
+			return null;
 		}
 
 		Adopt(handoff.Game, handoff.Hangar, ShellWorkingFiles.In(DataDirectory));
@@ -218,15 +157,16 @@ sealed class CampaignLoop {
 		Console.WriteLine($"{label} — {handoff.MissionPath}, {handoff.SquadPositions} squad position(s): "
 			+ $"{string.Join(", ", squad)}; {handoff.Hangar.MachinesOnStrength} machine(s) going. "
 			+ $"Handoff written to {DataDirectory}; launching the mission.");
-		_outcome.Launch = new ShellLaunch(handoff.ScriptPath, DataDirectory);
-		_window.Close();
-		return true;
+		return new ShellLaunch(handoff.ScriptPath, DataDirectory);
 	}
 
-	// Career_LoadCurrentMission's campaign load after a debrief, as StartCampaign runs it for a new career.
-	private void LoadNextCareerMission() {
+	/// <summary>
+	/// Career_LoadCurrentMission's campaign load after a debrief, as StartCampaign runs it for a new career. Returns
+	/// whether it loaded.
+	/// </summary>
+	public bool LoadNextCareerMission() {
 		if (_game.LoadedGame == null) {
-			return;
+			return false;
 		}
 
 		var game = _game.LoadedGame;
@@ -234,40 +174,29 @@ sealed class CampaignLoop {
 		if (ShellCampaignLaunch.LoadCareerMission(DataDirectory, _content, game, hangar, _clearList,
 				bound => _random.NextBelow(bound), out string? failure) is not { } mission) {
 			Console.WriteLine($"Next mission: {failure} Main menu.");
-			_mission.DropDebrief();
-			_startup.Begin();
-			return;
+			return false;
 		}
 
 		Adopt(game, hangar, ShellWorkingFiles.In(DataDirectory));
 		Console.WriteLine($"Next mission: {mission.MissionPath}, {mission.SquadPositions} squad position(s); "
 			+ $"working files in {DataDirectory}.");
-		_screen.ReturnToFrame(_game.Mode);
-		_navigation.ShowMissionView();
+		return true;
 	}
 
-	// A REPLAY MISSION? button. No (ReplayDialog_OnNo, 0044cbbd) saves slot 10, takes the dialog down and
-	// shows the main menu. Yes (ReplayDialog_OnYes, 0044cb44) takes it down, loads slot 10 again, and ends
-	// the shell on exit code 2 — so the simulator flies what the load's Career_LoadSlot copied in: the
-	// slot's script.dat, mission.str and player.mec, beside the mission.var the simulator itself last wrote,
-	// which no one rewrites.
-	private void ClickReplay(ShellReplayButton button) {
-		_dialogs.Replay.Close();
-		if (button == ShellReplayButton.No) {
-			_game.AutoSave();
-			_repaint();
-			return;
-		}
-
+	/// <summary>
+	/// REPLAY MISSION?'s Yes (ReplayDialog_OnYes, 0044cb44), after the dialog is down: slot 10 loaded again, for the
+	/// shell to end on exit code 2 — so the simulator flies what the load's Career_LoadSlot copied in: the slot's
+	/// script.dat, mission.str and player.mec, beside the mission.var the simulator itself last wrote, which no one
+	/// rewrites. Returns the launch, or null when the slot cannot be read.
+	/// </summary>
+	public ShellLaunch? Replay() {
 		if (!LoadSlot(GameInProgress.CurrentGameSlot)) {
 			Console.WriteLine("Replay: slot 10 could not be read — main menu.");
-			_repaint();
-			return;
+			return null;
 		}
 
-		_outcome.Launch = new ShellLaunch(_game.WorkingFiles.Script!, DataDirectory);
 		Console.WriteLine($"Replay: yes — slot 10's mission copied to {DataDirectory}; launching it.");
-		_window.Close();
+		return new ShellLaunch(_game.WorkingFiles.Script!, DataDirectory);
 	}
 
 	// The game in progress from here on, from a load or a new career — maybe_HasGameInProgress (0048260a) set, the briefing's and
@@ -275,7 +204,6 @@ sealed class CampaignLoop {
 	// the briefing's next visit.
 	private void Adopt(PlayerSave game, ShellHangar hangar, ShellWorkingFiles files) {
 		_game.Adopt(game, hangar, files);
-		_mission.OnAdopted(files, game);
-		_hangar.OnAdopted();
+		Adopted?.Invoke(game, files);
 	}
 }

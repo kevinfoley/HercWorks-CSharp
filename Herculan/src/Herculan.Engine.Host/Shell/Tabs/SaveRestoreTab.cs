@@ -7,14 +7,14 @@ namespace Herculan.Engine.Host.Shell.Tabs;
 sealed class SaveRestoreTab {
 	private readonly ShellSaveScreen _saveScreen;
 	private readonly GameInProgress _game;
-	private readonly CampaignLoop _loop;
+	private readonly CampaignScreens _loop;
 	private readonly MissionTabScreens _mission;
 	private readonly TabNavigation _navigation;
 	private readonly ShellScreen _screen;
 	private readonly WidgetEvents _widgets;
 	private readonly Action _repaint;
 
-	public SaveRestoreTab(ShellSaveScreen saveScreen, GameInProgress game, CampaignLoop loop, MissionTabScreens mission,
+	public SaveRestoreTab(ShellSaveScreen saveScreen, GameInProgress game, CampaignScreens loop, MissionTabScreens mission,
 			TabNavigation navigation, ShellScreen screen, WidgetEvents widgets, Action repaint) {
 		_saveScreen = saveScreen;
 		_game = game;

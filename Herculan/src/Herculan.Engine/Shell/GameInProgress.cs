@@ -1,14 +1,13 @@
 using HercWorks.Core.Data.File.Sav;
 using Herculan.Engine.Content;
-using Herculan.Engine.Shell;
 
-namespace Herculan.Engine.Host.Shell;
+namespace Herculan.Engine.Shell;
 
 /// <summary>
 /// The game the shell's memory holds — the career, its hangar and its working files — with the campaign mode and
 /// the preferences array, and the saves that write the game out.
 /// </summary>
-sealed class GameInProgress {
+public sealed class GameInProgress {
 	/// <summary>
 	/// Slot 10, the current-game autosave, whose in-use byte (<c>00482a19</c>) gates CONTINUE GAME.
 	/// </summary>

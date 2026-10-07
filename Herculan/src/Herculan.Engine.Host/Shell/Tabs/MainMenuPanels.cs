@@ -35,7 +35,7 @@ sealed class MainMenuPanels {
 	private readonly ShellMovies _movies;
 	private readonly ShellAudio _audio;
 	private readonly ShellOutcome _outcome;
-	private readonly CampaignLoop _loop;
+	private readonly CampaignScreens _loop;
 	private readonly TabNavigation _navigation;
 	private readonly Action _repaint;
 
@@ -55,7 +55,7 @@ sealed class MainMenuPanels {
 
 	public MainMenuPanels(string installRoot, GameDisc? disc, GameContent content, FrontEndWindow window, ShellScreen screen,
 			WidgetEvents widgets, GameInProgress game, ShellSaveScreen saveScreen, ShellMainMenu mainMenu, ShellDialogs dialogs,
-			ShellMovies movies, ShellAudio audio, ShellOutcome outcome, CampaignLoop loop, TabNavigation navigation,
+			ShellMovies movies, ShellAudio audio, ShellOutcome outcome, CampaignScreens loop, TabNavigation navigation,
 			Action repaint) {
 		_installRoot = installRoot;
 		_disc = disc;
@@ -234,7 +234,7 @@ sealed class MainMenuPanels {
 	}
 
 	// SKILL LEVEL (0043c01d) steps the skill; CANCEL (0043c098) is Registration_Hide then MainMenu_Show;
-	// ACCEPT (0043c0fb) hides the screen and starts the career (CampaignLoop.StartCampaign).
+	// ACCEPT (0043c0fb) hides the screen and starts the career (CampaignScreens.StartCampaign).
 	private void ClickRegistration(ShellRegistrationButton button) {
 		switch (button) {
 			case ShellRegistrationButton.SkillLevel:

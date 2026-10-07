@@ -1,8 +1,8 @@
 ﻿using HercWorks.Core.Data.File.Dat.Sim;
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Terrain;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
 
@@ -319,12 +319,11 @@ public sealed class SimWorld {
 	public void SetObjectives(MissionObjectives objectives) => Objectives = objectives;
 
 	/// <summary>
-	/// <c>Mission_Box</c> (<c>004aa6c4</c>-<c>d0</c>) — the mission's bounding box, which
-	/// <c>DBSim_LoadScriptDat</c> accumulates over block 1 as it reads the coordinates. Two things
-	/// read it: the Heads-Down Display's map frames itself on it, and the objective layer's two
-	/// boundary statuses are the player leaving it. An empty box turns both off.
+	/// The mission's <see cref="World.MissionBox"/>. Two things read it: the Heads-Down Display's map
+	/// frames itself on it, and the objective layer's two boundary statuses are the player leaving it.
+	/// An empty box turns both off.
 	/// </summary>
-	public HddMapBounds MissionBounds { get; set; } =
+	public MissionBox MissionBox { get; set; } =
 		new(int.MaxValue, int.MaxValue, int.MinValue, int.MinValue);
 
 	/// <summary>

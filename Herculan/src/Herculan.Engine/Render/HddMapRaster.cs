@@ -2,6 +2,7 @@ using System.Numerics;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
 using Herculan.Engine.Terrain;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Render;
 
@@ -60,14 +61,14 @@ public sealed class HddMapRaster {
 	/// palette index through <paramref name="palette"/> — <see cref="CockpitArt.PaletteEntry"/>, so the
 	/// map takes the same live palette the terrain does. Returns null for an empty box.
 	/// </summary>
-	public static HddMapRaster? Build(HeightGrid grid, HddMapBounds bounds, Func<int, Vector3?> palette) {
+	public static HddMapRaster? Build(HeightGrid grid, MissionBox bounds, Func<int, Vector3?> palette) {
 		ArgumentNullException.ThrowIfNull(grid);
 		ArgumentNullException.ThrowIfNull(palette);
 		if (bounds.IsEmpty) {
 			return null;
 		}
 
-		var grown = bounds.Grown;
+		var grown = bounds.Grown(HddMap.Margin);
 		int shift = grid.CellShift;
 		int x0 = grown.MinX >> shift;
 		int y0 = grown.MinY >> shift;

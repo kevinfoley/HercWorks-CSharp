@@ -4,6 +4,7 @@ using Herculan.Engine.Content;
 using Herculan.Engine.Input;
 using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Host.Simulator.Cockpit;
 
@@ -27,7 +28,7 @@ sealed class CockpitDisplays {
 		// The Heads-Down Display's command display: the map camera, the mission's terrain raster, and the
 		// three squad comm boxes. All three are per-mission, so they are built once here.
 		if (art?.HeadsDownLayout is { } commandLayout && scene.World is { } commandWorld) {
-			var mapBounds = HddMapBounds.Of(scene.Mission.Coordinates);
+			var mapBounds = MissionBox.Of(scene.Mission.Coordinates);
 			var mapViewport = commandLayout.MapViewport;
 			var squad = squadPlacements.Select(o => o.Object).ToList();
 

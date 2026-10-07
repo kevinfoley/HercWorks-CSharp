@@ -5,55 +5,6 @@ using Herculan.Engine.World;
 namespace Herculan.Engine.Cockpit;
 
 /// <summary>
-/// The rectangle the command display's map covers — the bounding box of <c>script.dat</c> block 1's
-/// coordinate list, which <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) accumulates into
-/// <c>Mission_Box</c> (<c>004aa6c4</c>..<c>d0</c>) as it reads the block.
-///
-/// <para>Those four globals are the map's whole frame of reference: the command screen copies them
-/// into its own <c>+0x160</c> rect and draws them as the manual's red mission border, its zoom fit
-/// is the box's half-extent over the viewport's half-extent, and its pan clamp is the box grown by
-/// <see cref="Margin"/> on every side.</para>
-/// </summary>
-public readonly record struct HddMapBounds(int MinX, int MinY, int MaxX, int MaxY) {
-	/// <summary>
-	/// World units the pan clamp and the raster are allowed past the border — the literal 60000 the
-	/// command screen adds to every edge (<c>HddMap_ClampAndInstallView</c> and the raster builder both).
-	/// </summary>
-	public const int Margin = 60000;
-
-	/// <summary>Whether the box holds anything: a mission with no coordinates leaves it inverted.</summary>
-	public bool IsEmpty => MaxX < MinX || MaxY < MinY;
-
-	/// <summary>Span on x, in world units.</summary>
-	public int Width => MaxX - MinX;
-
-	/// <summary>Span on y.</summary>
-	public int Height => MaxY - MinY;
-
-	/// <summary>This box grown by <see cref="Margin"/> on every edge — what the pan is clamped to.</summary>
-	public HddMapBounds Grown =>
-		new(MinX - Margin, MinY - Margin, MaxX + Margin, MaxY + Margin);
-
-	/// <summary>The bounding box of <paramref name="points"/>, or an empty box when there are none.</summary>
-	public static HddMapBounds Of(IReadOnlyList<Vec3i> points) {
-		ArgumentNullException.ThrowIfNull(points);
-		if (points.Count == 0) {
-			return new HddMapBounds(int.MaxValue, int.MaxValue, int.MinValue, int.MinValue);
-		}
-
-		int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
-		foreach (var point in points) {
-			minX = Math.Min(minX, point.X);
-			minY = Math.Min(minY, point.Y);
-			maxX = Math.Max(maxX, point.X);
-			maxY = Math.Max(maxY, point.Y);
-		}
-
-		return new HddMapBounds(minX, minY, maxX, maxY);
-	}
-}
-
-/// <summary>
 /// One icon on the map, as <c>HddCommandScreen_AddObjectMarker</c> (<c>0044e080</c>) leaves it in a marker gadget for
 /// <c>HddMarker_Paint</c> (<c>0044f194</c>) to paint.
 /// </summary>
@@ -96,6 +47,11 @@ public readonly record struct HddMapMarker(int WorldX, int WorldY, int Frame,
 /// that is what it is: state the buttons and keys move and the paint reads.
 /// </summary>
 /// <remarks>
+/// <para>The <see cref="MissionBox"/> is the map's whole frame of reference: the command screen copies
+/// it into its own <c>+0x160</c> rect and draws it as the manual's red mission border, its zoom fit
+/// is the box's half-extent over the viewport's half-extent, and its pan clamp is the box grown by
+/// <see cref="HddMap.Margin"/> on every side.</para>
+///
 /// <para><b>The projection is a divide, not a matrix.</b> The screen installs a view projection
 /// carrying only the centre and the scale (<c>HddMap_ClampAndInstallView</c> writes exactly those three fields)
 /// and every point goes through <c>Raster_PerspectiveDivide</c> with a focal length of
@@ -137,10 +93,10 @@ public sealed class HddMapView {
 	private readonly int _width;
 	private readonly int _height;
 
-	/// <param name="bounds">The mission box — see <see cref="HddMapBounds"/>.</param>
+	/// <param name="bounds">The mission box.</param>
 	/// <param name="viewportWidth">The map viewport's width in device pixels.</param>
 	/// <param name="viewportHeight">Its height.</param>
-	public HddMapView(HddMapBounds bounds, int viewportWidth, int viewportHeight) {
+	public HddMapView(MissionBox bounds, int viewportWidth, int viewportHeight) {
 		Bounds = bounds;
 
 		// The render target is centred at -(width >> 1), -(height >> 1), and every clamp below reads
@@ -161,7 +117,7 @@ public sealed class HddMapView {
 	}
 
 	/// <summary>The mission box this view is clamped to.</summary>
-	public HddMapBounds Bounds { get; }
+	public MissionBox Bounds { get; }
 
 	/// <summary>World units per pixel at full zoom-out, 8.8 fixed — the whole box in the viewport.</summary>
 	public int FullScale { get; }
@@ -214,7 +170,7 @@ public sealed class HddMapView {
 		CentreX = subject.X + PanX;
 		CentreY = subject.Y + PanY;
 
-		var grown = Bounds.Grown;
+		var grown = Bounds.Grown(HddMap.Margin);
 		CentreX = Math.Clamp(CentreX, grown.MinX + HalfWorldWidth, grown.MaxX - HalfWorldWidth);
 		CentreY = Math.Clamp(CentreY, grown.MinY + HalfWorldHeight, grown.MaxY - HalfWorldHeight);
 	}
@@ -241,7 +197,7 @@ public sealed class HddMapView {
 	/// <param name="dx">-1 for left, +1 for right, 0 for neither.</param>
 	/// <param name="dy">+1 for up (world +y), -1 for down.</param>
 	public void Pan(int dx, int dy) {
-		var grown = Bounds.Grown;
+		var grown = Bounds.Grown(HddMap.Margin);
 		if (dx != 0) {
 			int room = dx > 0
 				? grown.MaxX - CentreX - HalfWorldWidth
@@ -299,6 +255,13 @@ public sealed class HddMapView {
 /// grid the whole thing is drawn over. See docs/retail/formats/heads-down-display.md.
 /// </summary>
 public static class HddMap {
+	/// <summary>
+	/// World units the pan clamp and the raster are allowed past the <see cref="MissionBox"/> — the
+	/// literal 60000 the command screen adds to every edge (<c>HddMap_ClampAndInstallView</c> and the
+	/// raster builder both).
+	/// </summary>
+	public const int Margin = 60000;
+
 	/// <summary>Sprite bank the markers come from — <c>HddMarker_Ctor</c>'s lazily loaded <c>icons</c>.</summary>
 	public const string IconBank = "ICONS";
 

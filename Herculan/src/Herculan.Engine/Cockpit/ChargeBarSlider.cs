@@ -1,6 +1,7 @@
 using Herculan.Engine.Content;
 using Herculan.Engine.Render;
 using Herculan.Engine.Render.Cockpit;
+using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Cockpit;
 
@@ -13,7 +14,7 @@ namespace Herculan.Engine.Cockpit;
 /// <c>WeaponSliderGadget_Ctor</c> (<c>00442950</c>) the row's value field, <c>x0+0x24..x0+0x35</c>,
 /// <c>y0..y0+5</c> GAU, as its rect. That constructor runs <c>SliderWidget_CtorBase</c>
 /// (<c>004524a8</c>), which sets the drag flag, then makes the knob one GAU unit wide and the range
-/// 0..<see cref="Range"/>. Its drag handler (<c>SliderWidget_DragToPointH</c>, <c>004524f8</c>)
+/// 0..<see cref="WeaponMount.ChargeBarRange"/>. Its drag handler (<c>SliderWidget_DragToPointH</c>, <c>004524f8</c>)
 /// clamps the pointer into <c>[left, right - knobWidth]</c> and its getter
 /// (<c>SliderWidget_GetValueH</c>, <c>00452544</c>) reads <c>(x - left) * 0x10000 / scale</c> with the
 /// scale from <c>SliderWidget_RecomputeScaleH</c> (<c>004525a8</c>), so the 32 device pixels of travel
@@ -28,9 +29,6 @@ namespace Herculan.Engine.Cockpit;
 /// docs/retail/simulation/weapon-firing.md#the-charge-bar.</para>
 /// </summary>
 public readonly struct ChargeBarSlider {
-	/// <summary>The slider's range, <c>0..0x400</c> — the same 0-1024 the LED bar it carries reads in.</summary>
-	public const int Range = 0x400;
-
 	private const int Scale = (int)CockpitArt.GauToPixelScale;
 
 	/// <summary>
@@ -106,7 +104,7 @@ public readonly struct ChargeBarSlider {
 			return 0;
 		}
 
-		int scale = Travel * 65536 / Range;
+		int scale = Travel * 65536 / WeaponMount.ChargeBarRange;
 		int knobLeft = (int)Math.Clamp(MathF.Round(deviceX), Left, TrackRight - KnobWidth);
 		return (int)(((long)(knobLeft - Left) << 16) / scale);
 	}

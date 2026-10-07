@@ -1,4 +1,3 @@
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -18,8 +17,11 @@ public sealed partial class WeaponMount {
 
 	private bool _powerToGaugeThisTick;
 
+	/// <summary>The charge bar's slider range, <c>0..0x400</c> — the same 0-1024 the LED bar it carries reads in.</summary>
+	public const int ChargeBarRange = 0x400;
+
 	/// <summary>
-	/// The charge bar's slider position, gauge <c>+0xc6</c>, 0..<see cref="ChargeBarSlider.Range"/>,
+	/// The charge bar's slider position, gauge <c>+0xc6</c>, 0..<see cref="ChargeBarRange"/>,
 	/// or null for a mount with no energy gauge. It lives on the gauge in the original; it is kept here
 	/// for the reason <see cref="PodButton"/> is.
 	/// </summary>
@@ -101,7 +103,7 @@ public sealed partial class WeaponMount {
 	/// </summary>
 	internal void BuildGauge() {
 		if (IsEnergyClass) {
-			_chargeBarPosition = Math.Clamp((int)ChargeTarget, 0, ChargeBarSlider.Range);
+			_chargeBarPosition = Math.Clamp((int)ChargeTarget, 0, ChargeBarRange);
 		}
 	}
 
@@ -126,7 +128,7 @@ public sealed partial class WeaponMount {
 			// EnergyWeaponGauge_SetState hands a changed position to SliderWidget_SetValueH, which clamps it
 			// and commits it back through EnergyWeaponGauge_OnChildClick into the same field.
 			_chargeBarPosition = Math.Clamp(((int)ChargeTarget << 10) / EnergyChargeScale,
-				0, ChargeBarSlider.Range);
+				0, ChargeBarRange);
 		} else {
 			ChargeTarget = ChargeTargetForBarPosition(position);
 		}
@@ -136,7 +138,7 @@ public sealed partial class WeaponMount {
 	/// The charge bar's slider committed at <paramref name="position"/>, under
 	/// <see cref="Settings.TweakSettingDefinitions.ChargeBarPowerLevel"/>. Retail's path, which no press
 	/// reaches there: <c>EnergyWeaponGauge_OnChildClick</c> (<c>00440ef0</c>) clamps the position to
-	/// 0..<see cref="ChargeBarSlider.Range"/> into the gauge's state block, and the next
+	/// 0..<see cref="ChargeBarRange"/> into the gauge's state block, and the next
 	/// <see cref="PushGaugeState"/> with the hand-off clear reads it back as the charge target. A key
 	/// press whose hand-off is still pending wins over it; docs/retail/simulation/weapon-firing.md#the-charge-bar.
 	/// </summary>
@@ -146,7 +148,7 @@ public sealed partial class WeaponMount {
 			return false;
 		}
 
-		_chargeBarPosition = Math.Clamp(position, 0, ChargeBarSlider.Range);
+		_chargeBarPosition = Math.Clamp(position, 0, ChargeBarRange);
 		return true;
 	}
 
@@ -155,5 +157,5 @@ public sealed partial class WeaponMount {
 	/// <c>EnergyWeaponGauge_OnChildClick</c> clamps it, then <c>position * 1200 &gt;&gt; 10</c>.
 	/// </summary>
 	internal static short ChargeTargetForBarPosition(int position) =>
-		(short)(Math.Clamp(position, 0, ChargeBarSlider.Range) * EnergyChargeScale >> 10);
+		(short)(Math.Clamp(position, 0, ChargeBarRange) * EnergyChargeScale >> 10);
 }

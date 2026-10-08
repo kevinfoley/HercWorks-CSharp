@@ -61,16 +61,7 @@ Built:
 
 ## ES1 survey — gates Stage 4
 
-Before Stage 4, enough ES1 reverse engineering to decide, per subsystem (formats, sim objects, mission start-up, shell, audio), whether ES1 matches ES2, differs in data only, or differs in structure. Three questions decide the most:
-
-- Which compiler built ES1 — it decides whether any layout-mirroring code can be shared.
-- Whether the modules both simulators name (`bullet`, `collide`, `damage`, `debris`, `flyersys`, `mechsys`) match function by function on a sample.
-- Whether the fixed-point math routines are identical.
-
-Where the static `.DAT` tables live — `World`'s (`BaseTypeTable`, the formation tables, `BaseCollisionTable`) and Sim's (`BulletCatalog`, `WeaponCatalog`, `MechTypeRecord` and the rest) — and whether they are named Table or Catalog, is decided with that split: the tables are where the two games' data formats are most likely to differ.
-
-The answer, and how the two games share code (a shared core with one assembly per game, or version branches), goes in [`planning.md`](planning.md).
-
+Its three questions are answered on `features/es1` (`planning.md`, "Earthsiege 1"): ES2's object layouts do not carry over; the modules both simulators name share a skeleton but differ in record sizes, instance layouts, features ES2 added and one change of meaning; and ES1's fixed-point primitives round where ES2's truncate. Whether ES1 support continues is undecided.
 ## Stage 4 — responsibility splits
 
 Code moves verbatim and keeps its call order.
@@ -109,4 +100,3 @@ Stages 3 and 4 move code whose order is behaviour. Their check would be a replay
 - **Open:** replay determinism, which a replay diff of these stages needs (see [Verification](#verification)).
 - **Open:** `tools/scripts/rename_symbol` fails to build on the .NET 8.0.1xx SDK (CS9057: its analyzers need compiler 4.12); renames in such an environment are done by hand and checked by the build.
 - **Open:** retail behaviour still in the host: `SimulationStepper` (the fixed-timestep accumulator and a replay's ticks), the [Esc] back-out from the external view, a glance and the Heads-Down Display in `WindowKeys.ReadMenuBarEscapeKey`, and `SimulatorHost.OnUpdate`'s order, which `SimulatorRig` mirrors for the tests.
-- **Open:** the ES1 survey's three questions.

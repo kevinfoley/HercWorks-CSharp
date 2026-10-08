@@ -202,7 +202,7 @@ public partial class MechObject {
 		} else {
 			Target = SquadOrderTarget;
 
-			if (Target == null || Target is MechObject { Destroyed: true }) {
+			if (Target == null || Target.Destroyed) {
 				Target = AiTargeting.SelectTarget(world, this, TargetFilter.None);
 
 				if (Target == null) {

@@ -171,9 +171,12 @@ public sealed class HddCommandScreen {
 	/// <para>Selecting a pilot, the one already selected included, has them say
 	/// <see cref="SquadOrders.StandingByMessage"/> — the first function's post, which
 	/// <see cref="SquadOrders.SendToSlot"/> withdraws. See docs/retail/formats/cockpit-messages.md#what-each-id-says.</para>
+	///
+	/// <para>The refusal of a destroyed pilot is the two pickers' test, <c>+0x99</c> alone, so an
+	/// immobilised squadmate can still be selected and ordered (docs/retail/formats/heads-down-display.md#selecting-a-pilot).</para>
 	/// </summary>
 	public void SelectPilot(int slot) {
-		if (slot >= 0 && (slot >= Squad.Count || Squad[slot].Neutralised)) {
+		if (slot >= 0 && (slot >= Squad.Count || Squad[slot].Destroyed)) {
 			return;
 		}
 
@@ -521,13 +524,11 @@ public sealed class HddCommandScreen {
 
 	/// <summary>
 	/// <c>HddGauge_ConditionIndex</c>: the mean of the machine's structural readings, bucketed into
-	/// group 28's five conditions by the same bands the MFD status screen uses.
+	/// group 28's five conditions by the same bands the MFD status screen uses. It tests neither
+	/// destroyed nor immobilised: a destroyed squadmate's box is painted as static instead, and an
+	/// immobilised one reads its damage like any other.
 	/// </summary>
 	private static int ConditionOf(SimObject mate) {
-		if (mate.Neutralised) {
-			return 4;
-		}
-
 		if (mate is not MechObject { Damage: { } damage }) {
 			return 0;
 		}

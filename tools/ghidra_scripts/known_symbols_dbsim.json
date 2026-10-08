@@ -14284,8 +14284,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddGauge_ConditionIndex",
-      "description": "Averages a mech's 19 structural damage bytes into a 0-100 integrity percentage and buckets it into the five STRINGS0 group 28 conditions at 90 / 74 / 51 / 1 -- OK, SHIELDS DN, INT DAMAGE, CRITICAL, DESTROYED.",
-      "source": "docs/retail/formats/heads-down-display.md"
+      "description": "(display, mech): fills Mech_ReadDamageReadouts' buffer for the machine, averages entries 1-19 (the structural readings; entry 0 is skipped), turns the mean into a 0-100 integrity percentage ((0x100 - mean) * 100 >> 8) and buckets it into the five STRINGS0 group 28 conditions at 90 / 74 / 51 / 1 -- OK, SHIELDS DN, INT DAMAGE, CRITICAL, DESTROYED. It tests none of the machine's destroyed, immobilised or disarmed bytes.",
+      "source": "docs/retail/formats/heads-down-display.md",
+      "verified": {
+        "bytes": "0044adf4+132",
+        "sha1": "d951a6980482",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0044ae78",

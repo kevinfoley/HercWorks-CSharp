@@ -54,44 +54,13 @@ Console.WriteLine(
 	$"Placed {scene.Objects.Count} objects, {scene.UnmodelledCount} without a model.");
 Console.WriteLine("RMB + mouse to look, WASD/arrows to move, Q/E down/up, Shift boosts, click to select, Esc quits.");
 
-// Pickable set: everything drawn, i.e. everything with a model — matches what the renderer
-// actually puts on screen. Objects don't move in the editor, so this is computed once.
-//
-// Deliberately NOT SceneModel.ShapeRadius: that is the shape file's own radius about the model's
-// origin, which sits near a mech's base, so a sphere of it there need not cover the torso, head or
-// raised arms. Instead this computes each model's own bounding-sphere radius from its mesh once (cached per model key,
-// several objects share a model) and transforms the sphere's center by the object's full
-// rotation+translation — a sphere is rotation-invariant, so the local-space radius stays correct
-// after that.
-var modelBounds = new Dictionary<string, (Vector3 LocalCenter, float Radius)>();
-var pickables = scene.Objects
-	.Where(o => o.Model != null)
-	.Select(o => {
-		var model = o.Model!;
-		if (!modelBounds.TryGetValue(model.Key, out var bounds)) {
-			bounds = ComputeBounds(model.Mesh);
-			modelBounds[model.Key] = bounds;
-		}
-
-		Vector3 worldCenter = Vector3.Transform(bounds.LocalCenter, MissionScene.TransformOf(o));
-		return new Pickable(o, worldCenter, MathF.Max(bounds.Radius, 1f));
-	})
-	.ToArray();
-
-static (Vector3 Center, float Radius) ComputeBounds(MeshVertex[] mesh) {
-	if (mesh.Length == 0) {
-		return (Vector3.Zero, 1f);
-	}
-
-	Vector3 min = mesh[0].Position;
-	Vector3 max = mesh[0].Position;
-	foreach (var vertex in mesh) {
-		min = Vector3.Min(min, vertex.Position);
-		max = Vector3.Max(max, vertex.Position);
-	}
-
-	return ((min + max) * 0.5f, Vector3.Distance(min, max) * 0.5f);
-}
+// The mission's own features, cross-referenced once: nothing moves while the editor shows it.
+var selection = new SelectionState();
+var index = new MissionIndex(scene, SquadMessages.LoadCommand(content, mission.Header.TrainingMissionNumber));
+var overlay = new MissionOverlay(index, new DrapedLines(scene.World.Terrain));
+var picker = new ScenePicker(scene, overlay);
+var outliner = new MissionOutliner(index, selection);
+var properties = new PropertiesPanel(index, selection);
 
 using var window = new EngineWindow($"HERCULAN Mission Editor — zone {mission.Header.ZoneIndex}");
 
@@ -119,7 +88,6 @@ var camera = new Camera();
 var editorCamera = new EditorCamera();
 editorCamera.ResetTo(scene.Camera.Position, scene.Camera.Heading);
 
-SceneObject? selected = null;
 bool looking = false;
 Vector2 lastMousePos = Vector2.Zero;
 
@@ -216,10 +184,9 @@ window.Load += (gl, input) => {
 				}
 			} else if (button == MouseButton.Left && leftDownOverViewport
 					&& Vector2.Distance(m.Position, leftDownPos) < 4f) {
-				selected = Pick(m.Position);
-				Console.WriteLine(selected != null
-					? $"[pick] selected {selected.Placement.TypeName ?? selected.Placement.Kind.ToString()} at {m.Position}"
-					: $"[pick] no hit at {m.Position} ({pickables.Length} pickable objects)");
+				var size = window.FramebufferSize;
+				selection.Current = picker.Pick(camera, m.Position, new Vector2(size.X, size.Y), settings);
+				Console.WriteLine($"[pick] {selection.Current?.ToString() ?? "nothing"} at {m.Position}");
 			}
 		};
 	}
@@ -274,17 +241,18 @@ window.Render += (_, gl) => {
 	// panels, which is what SceneRenderer.Render's x/y origin exists for.
 	renderer.Render(camera, items, 0, 0, size.X, size.Y);
 
-	if (selected is { } sel) {
-		var picked = Array.Find(pickables, p => p.SceneObject == sel);
-		if (picked != null) {
-			wireframe.DrawBox(camera, picked.CenterRender, picked.RadiusRender, new Vector3(1f, 0.85f, 0.1f), aspect);
-		}
-	}
+	overlay.Draw(wireframe, camera, aspect, settings, selection);
+	DrawSelectedObjects(wireframe, aspect);
 
+	var display = ImGui.GetIO().DisplaySize;
 	float menuBarHeight = BuildMenuBar();
 	float compassMargin = ScaledImGui.Scaled(CompassMargin);
-	CompassGizmo.Draw(camera, new Vector2(compassMargin, menuBarHeight + compassMargin), ScaledImGui.Scaled(CompassSize));
-	BuildPropertiesPanel(size.X, size.Y, menuBarHeight, selected);
+	CompassGizmo.Draw(camera,
+		new Vector2(ScaledImGui.Scaled(MissionOutliner.PanelWidth) + compassMargin, menuBarHeight + compassMargin),
+		ScaledImGui.Scaled(CompassSize));
+	overlay.DrawLabels(camera, settings, selection);
+	outliner.Draw(display, menuBarHeight);
+	properties.Draw(display, menuBarHeight);
 	settingsPanel.Draw();
 	imgui?.Render();
 };
@@ -304,39 +272,19 @@ window.Run();
 
 return 0;
 
-SceneObject? Pick(Vector2 screenPos) {
-	var size = window.FramebufferSize;
-	float ndcX = screenPos.X / size.X * 2f - 1f;
-	float ndcY = 1f - screenPos.Y / size.Y * 2f;
-	float aspect = (float)size.X / MathF.Max(size.Y, 1);
-	var (origin, direction) = camera.ViewportPointToRay(new Vector2(ndcX, ndcY), aspect);
+// The selection box around the selected object, or around every member of the selected group.
+void DrawSelectedObjects(WireframeRenderer wireframe, float aspect) {
+	foreach (var pickable in picker.Pickables) {
+		bool highlighted = selection.Current switch {
+			ObjectSelection selected => selected.Object == pickable.SceneObject,
+			GroupSelection group => pickable.SceneObject.Placement.GroupIndex == group.Group,
+			_ => false
+		};
 
-	SceneObject? best = null;
-	float bestDistance = float.MaxValue;
-	foreach (var pickable in pickables) {
-		if (RaySphere(origin, direction, pickable.CenterRender, pickable.RadiusRender, out float t) && t < bestDistance) {
-			bestDistance = t;
-			best = pickable.SceneObject;
+		if (highlighted) {
+			wireframe.DrawBox(camera, pickable.CenterRender, pickable.RadiusRender, MissionOverlay.SelectedColor, aspect);
 		}
 	}
-
-	return best;
-}
-
-static bool RaySphere(Vector3 origin, Vector3 direction, Vector3 center, float radius, out float t) {
-	Vector3 toCenter = origin - center;
-	float b = Vector3.Dot(toCenter, direction);
-	float c = Vector3.Dot(toCenter, toCenter) - radius * radius;
-	float discriminant = b * b - c;
-	if (discriminant < 0f) {
-		t = 0f;
-		return false;
-	}
-
-	float sqrtDiscriminant = MathF.Sqrt(discriminant);
-	float near = -b - sqrtDiscriminant;
-	t = near >= 0f ? near : -b + sqrtDiscriminant;
-	return t >= 0f;
 }
 
 // Draws the main menu bar and returns its height, which is what the rest of the frame's overlays
@@ -344,6 +292,35 @@ static bool RaySphere(Vector3 origin, Vector3 direction, Vector3 center, float r
 float BuildMenuBar() {
 	if (!ImGui.BeginMainMenuBar()) {
 		return 0f;
+	}
+
+	// The overlay toggles take effect, and are saved, as they are clicked: they are view state, with
+	// nothing to confirm.
+	if (ImGui.BeginMenu("View")) {
+		bool changed = false;
+		bool areas = settings.ShowTriggerAreas;
+		if (ImGui.MenuItem("Trigger Areas", null, ref areas)) {
+			settings.ShowTriggerAreas = areas;
+			changed = true;
+		}
+
+		bool routes = settings.ShowRoutes;
+		if (ImGui.MenuItem("Routes", null, ref routes)) {
+			settings.ShowRoutes = routes;
+			changed = true;
+		}
+
+		bool box = settings.ShowMissionBox;
+		if (ImGui.MenuItem("Mission Box", null, ref box)) {
+			settings.ShowMissionBox = box;
+			changed = true;
+		}
+
+		if (changed) {
+			settings.Save();
+		}
+
+		ImGui.EndMenu();
 	}
 
 	// A bare item rather than a menu: there is one entry, and burying it under a "File"-style
@@ -356,41 +333,3 @@ float BuildMenuBar() {
 	ImGui.EndMainMenuBar();
 	return height;
 }
-
-void BuildPropertiesPanel(int width, int height, float menuBarHeight, SceneObject? sel) {
-	float panelWidth = ScaledImGui.Scaled(320f);
-
-	ImGui.SetNextWindowPos(new Vector2(width - panelWidth, menuBarHeight));
-	ImGui.SetNextWindowSize(new Vector2(panelWidth, height - menuBarHeight));
-	ImGui.Begin("Properties", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse);
-
-	if (sel != null) {
-		ImGui.TextWrapped(sel.Placement.TypeName ?? $"{sel.Placement.Kind} #{sel.Placement.TypeIndex}");
-		ImGui.Separator();
-		ImGui.Text($"Kind: {sel.Placement.Kind}");
-		ImGui.Text($"Type index: {sel.Placement.TypeIndex}");
-
-		if (sel.Model is { } model) {
-			ImGui.Text($"Model: {model.Key}");
-			ImGui.Text($"Triangles: {model.TriangleVertexCount / 3}");
-			ImGui.Text(model.Atlas is { } atlas
-				? $"Texture: {atlas.FrameCount} frames ({atlas.Width}x{atlas.Height})"
-				: "Texture: none");
-		}
-
-		ImGui.Separator();
-		var pos = sel.Object.Position;
-		ImGui.Text($"Position: {pos.X}, {pos.Y}, {pos.Z} units");
-		ImGui.Text($"          {pos.X / WorldScale.WorldUnitsPerMeter:F1}, {pos.Y / WorldScale.WorldUnitsPerMeter:F1}, " +
-			$"{pos.Z / WorldScale.WorldUnitsPerMeter:F1} m");
-		ImGui.Text($"Heading: {BinaryAngle.ToRadians(sel.Object.Heading) * (180f / MathF.PI):F1} deg");
-		ImGui.Text($"Hit radius: {sel.Object.HitRadius} units");
-	} else {
-		ImGui.TextWrapped("No object selected. Click a mech, flyer, or building in the scene.");
-	}
-
-	ImGui.End();
-}
-
-/// <summary>A placed, drawable object plus its cached render-space pick sphere.</summary>
-internal sealed record Pickable(SceneObject SceneObject, Vector3 CenterRender, float RadiusRender);

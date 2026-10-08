@@ -27,6 +27,15 @@ public sealed class EditorSettings {
 	/// </summary>
 	public bool ShowGrid { get; set; } = true;
 
+	/// <summary>Whether the mission's trigger areas are drawn — see <see cref="MissionOverlay"/>.</summary>
+	public bool ShowTriggerAreas { get; set; } = true;
+
+	/// <summary>Whether the routes the mission's orders name are drawn.</summary>
+	public bool ShowRoutes { get; set; } = true;
+
+	/// <summary>Whether the mission box and its two margins are drawn.</summary>
+	public bool ShowMissionBox { get; set; } = true;
+
 	/// <summary>
 	/// Where the settings live: <c>%APPDATA%\Herculan\editor-settings.json</c> on Windows, and the
 	/// platform's equivalent user-config directory elsewhere.
@@ -78,5 +87,8 @@ public sealed class EditorSettings {
 	public void CopyFrom(EditorSettings other) {
 		RenderFog = other.RenderFog;
 		ShowGrid = other.ShowGrid;
+		ShowTriggerAreas = other.ShowTriggerAreas;
+		ShowRoutes = other.ShowRoutes;
+		ShowMissionBox = other.ShowMissionBox;
 	}
 }

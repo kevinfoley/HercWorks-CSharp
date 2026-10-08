@@ -413,11 +413,11 @@ public static class MissionLoader {
 
 		if (record.Shape != 0) {
 			return new MissionTriggerArea(MissionTriggerShape.Circle, anchor, anchor,
-				record.SecondPointOrRadius * TriggerRadiusScale);
+				record.SecondPointOrRadius * TriggerRadiusScale, reference);
 		}
 
 		return Coordinate(script, record.SecondPointOrRadius) is { } opposite
-			? new MissionTriggerArea(MissionTriggerShape.Box, anchor, opposite, 0)
+			? new MissionTriggerArea(MissionTriggerShape.Box, anchor, opposite, 0, reference)
 			: null;
 	}
 

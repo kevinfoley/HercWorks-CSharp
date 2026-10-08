@@ -6978,8 +6978,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_FormationThrottle",
-      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, folds it into the previous value of flyer+0x21c and clamps the sum to [0x8c,0x100]. es2_fieldscan and a raw disp32 sweep of the code section find no reader of flyer+0x21c in flyer code but this one, and its one caller found by es2_xref, Flyer_FormationStep, discards the return value. The control law leaves FlightModel_Step's throttle element zero on every call, so nothing a Cybrid flyer decides changes its airspeed (the player's RAZOR THROTTLE binding can: FlightModel_Step's position branch then writes the setting to 0).",
-      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+      "description": "A wingman's speed correction: (flyer, leader, stationDistance, steeringCommand, slack). Adds (Q14(stationDistance, cos(steeringCommand + own heading - leader heading)) - slack) >> 1 and (leader+0x233 - flyer+0x233) * 8 to flyer+0x21c, clamps the sum to [0x8c,0x100] and stores it back. Flyer_FormationStep passes the bearing to the station less own heading as the steering command and 0x2000 as the slack, so unless it mirrored the command the Q14 product is how far the station lies ahead of the wingman along the leader's heading. +0x233 is the type record's forward speed, copied in by Flyer_Constructor. Leaves the unclamped sum in AX. es2_fieldscan and a raw disp32 sweep of the code section find no reader of flyer+0x21c in flyer code but this one.",
+      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice",
+      "verified": {
+        "bytes": "00422260+155",
+        "sha1": "4645bdfca483",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004222fc",
@@ -7005,8 +7011,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_FormationStep",
-      "description": "A wingman's station-keeping. The station is the leader's position offset 0x2000 along the leader's heading plus this aircraft's FFORMS.DAT slot; a wingman that is ahead of its station while still aligned with the leader and inside 10000 units has its steering command mirrored (-0x8000 - err) rather than reversed. Ends in Flyer_SteerAndFly and then Flyer_FormationThrottle.",
-      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice"
+      "description": "A wingman's station-keeping. The leader is the group's first member; the station is the leader's position offset 0x2000 along the leader's heading, plus the formation offset the flyer's vtable +0x78 adds. The steering command is the bearing to the station less own heading, mirrored (-0x8000 - err) rather than reversed when the wingman is ahead of its station (command outside +/-0x4000) while its heading is within 0x4000 of the leader's and the station is inside 10000. Holds altitude 30000 through Flyer_PitchToAltitude, then Flyer_SteerAndFly with the leader as its fourth argument. With the station inside 15000 it calls Flyer_FormationThrottle(flyer, leader, distance, steering command, 0x2000) and ignores its return; farther out it writes 0x100 to flyer+0x21c.",
+      "source": "docs/retail/simulation/ai-dispatch.md; flyer AI slice",
+      "verified": {
+        "bytes": "00422598+264",
+        "sha1": "fc67a3801a0c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004226a0",
@@ -7014,13 +7026,13 @@
       "type": "function",
       "confidence": "high",
       "name": "Flyer_AttackRun",
-      "description": "The attack run, and the only place a Cybrid flyer shoots. A two-phase circuit on flyer+0x1fe: phase 0 extends AWAY from the target holding targetZ+10000 until the range passes 90000, phase 1 runs in and inside 65000 aims at the target itself, breaking off again when the bearing leaves +/-0x2000, the height over the target drops under 3000, or the range closes inside 10000. The aim is led along the target's heading by (range>>3)*(targetSpeed*8)/shotSpeed, where shotSpeed becomes PROJ.DAT row 2's speed once the run is close enough to shoot. While running in, a set base-object +0xae swaps the pitch onto the target for Flyer_PitchToAltitude(0). Firing needs phase 1 inside 65000, bearing error and pitch error (elevation to the aim point less flyer+0x0c) both in [-1000, 999], the short at flyer+0x1f4 in [-10, 9] -- the same (ushort)(x + k) < 2k test as the two angle errors -- and the flyer+0x21e countdown expired: while the flyer+0x5a flag is clear and the range is inside 30000 the shot is Rocket_Fire(0) off the (500,200,-100) muzzle and sets the flag, otherwise it is a pair of Bullet_Fire(2) off that point and its mirror; either reloads the countdown with 1500. Every call ends by reloading flyer+0x21c with 0xb4 and handing the bearing error to Flyer_SteerAndFly.",
+      "description": "The attack run, and the only place a Cybrid flyer shoots. A two-phase circuit on flyer+0x1fe: phase 0 extends AWAY from the target holding targetZ+10000 until the range passes 90000, phase 1 runs in and inside 65000 aims at the target itself, breaking off again when the bearing leaves +/-0x2000, the height over the target drops under 3000, or the range closes inside 10000. The aim is led along the target's heading by (range>>3)*(targetSpeed*8)/shotSpeed, where shotSpeed becomes PROJ.DAT row 2's speed once the run is close enough to shoot. While running in, a set base-object +0xae swaps the pitch onto the target for Flyer_PitchToAltitude(0). Firing needs phase 1 inside 65000, bearing error and pitch error (elevation to the aim point less flyer+0x0c) both in [-1000, 999], the short at flyer+0x1f4 in [-10, 9] -- the same (ushort)(x + k) < 2k test as the two angle errors -- and Math_CountdownTimerTick on the CountdownTimer record at flyer+0x21e returning 0. The record's counter is the short at flyer+0x21f; the tick is the last test of the && chain, so the countdown steps only on ticks that pass the other gates. While the flyer+0x5a flag is clear and the range is inside 30000 the shot is Rocket_Fire(0) off the (500,200,-100) muzzle and sets the flag, otherwise it is a pair of Bullet_Fire(2) off that point and its mirror; either stores 1500 into the counter at flyer+0x21f. While flyer+0x1fe is under 2, which both values this function stores are, the call ends by reloading flyer+0x21c with 0xb4 and handing the bearing error and the pitch command to Flyer_SteerAndFly.",
       "source": "docs/retail/simulation/ai-flyers.md",
       "verified": {
         "bytes": "004226a0+922",
         "sha1": "7e8269f9afd2",
         "scope": "body",
-        "via": "both"
+        "via": "disasm"
       }
     },
     {
@@ -20569,9 +20581,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_CountdownTimerTick",
-      "description": "Countdown-timer tick over a 3-byte packed record. THE COUNTER IS THE SHORT AT +1 FROM THE PASSED POINTER, NOT AT +0: rec[+1] -= SimTickDelta, clamped at 0, returns the new value in AX. Verified across all 40 call sites -- each passes a base whose sibling code reads or writes the short one byte higher (mech+0x258 with the word at +0x259, mount+0x30 with the refire counter at +0x31, rocket+0x5c with the counter at +0x5d). Records sit in stride-3 runs: mech+0x258/0x25b/0x25e and +0x264/0x267/0x26a, globals 0x4a9ee6/0x4a9ee9. The leading byte is untouched by this function, and for all four global instances (0x4a9be8, 0x4a9bec, 0x4a9ee6, 0x4a9ee9) is never read or written anywhere in DBSIM -- only ever address-taken -- so its meaning is still OPEN, not settled as padding. Rocket_TickUpdate's use reloads the counter from ROCKETS.DAT +0x08, which is the exhaust-flame cell-anim and NOT a seeker target-reacquire.",
+      "description": "Countdown-timer tick over a 3-byte packed record. THE COUNTER IS THE SHORT AT +1 FROM THE PASSED POINTER, NOT AT +0: rec[+1] -= SimTickDelta (004d3be8), clamped at 0, returns the new value in AX; this function does not touch the byte at +0. Call sites pass a base whose sibling code reads or writes the short one byte higher (mech+0x258 with the word at +0x259, mount+0x30 with the refire counter at +0x31, rocket+0x5c with the counter at +0x5d, flyer+0x21e with Flyer_AttackRun's reload at +0x21f). Records sit in stride-3 runs: mech+0x258/0x25b/0x25e and +0x264/0x267/0x26a, globals 0x4a9ee6/0x4a9ee9. For the four global instances (0x4a9be8, 0x4a9bec, 0x4a9ee6, 0x4a9ee9) a search of DBSIM found address-takes and no read or write of the leading byte, so its meaning is Open, not settled as padding. Rocket_TickUpdate's use reloads the counter from ROCKETS.DAT +0x08, which is the exhaust-flame cell-anim and NOT a seeker target-reacquire.",
       "source": "docs/retail/simulation/dbsim-physics-notes.md; disassembly of 00467944 + all 40 call sites",
-      "signature": "short __cdecl Math_CountdownTimerTick(void *timerRecord)"
+      "signature": "short __cdecl Math_CountdownTimerTick(void *timerRecord)",
+      "verified": {
+        "bytes": "00467944+38",
+        "sha1": "e9f7e27163d9",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0046796c",

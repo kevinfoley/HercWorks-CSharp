@@ -8,7 +8,7 @@ Feasibility and scope for three features in `Herculan.Engine.Host.Editor`:
 
 ## Headline
 
-None of this is a from-scratch build. `MissionLoader` resolves almost every mission feature the editor could show into `Mission`, and the editor already shows and selects trigger areas, routes, the mission box, groups and the action wiring ([In place](#in-place)); what is left of the first feature is the same kind of drawing and UI work. The `script.dat` writer exists and is complete: `ScriptDatTransformer.Write` covers all 13 blocks, and `HercWorks.UI.MissionScriptForm` already drives it through an open/edit/Save As UI. What the write path lacks is that the 3D editor discards the parsed document.
+None of this is a from-scratch build. `MissionLoader` resolves almost every mission feature the editor could show into `Mission`, and the editor already shows and selects trigger areas, routes, the mission box, groups, objectives, timers and the action wiring ([In place](#in-place)); what is left of the first feature is the same kind of drawing and UI work. The `script.dat` writer exists and is complete: `ScriptDatTransformer.Write` covers all 13 blocks, and `HercWorks.UI.MissionScriptForm` already drives it through an open/edit/Save As UI. What the write path lacks is that the 3D editor discards the parsed document.
 
 For the move, the design work concentrates in how a per-object position is represented; the question of whether DBSIM can read a grown file is settled (it can — [gap 3](#3-three-consequences-of-appending)).
 
@@ -32,50 +32,34 @@ Counts below are over the 62 retail `.MSN` files with campaign conditions not ap
 
 ### In place
 
-- **Selection and panels.** `EditorSelection` is an object, group, trigger area, action or route (with an optional waypoint), held in one `SelectionState` that the viewport click, the `MissionOutliner` (left: groups with members, areas, actions, routes) and the `PropertiesPanel` (right, one view per kind, every mentioned record a link) all set.
-- **Picking.** `ScenePicker` tries a waypoint in screen space, then an object's bounding sphere, then `GroundPick` (a ray march against `HeightAtWorld`) and the smallest trigger area containing that ground point.
-- **Overlays.** `MissionOverlay` draws, through `DrapedLines`, every trigger area (coloured by who trips it), every route (the player's, the walked ones and the never-walked ones in three colours, loops closed, waypoints numbered when selected) and the mission box with its HDD-map and abort margins, each toggled from the View menu. A line hidden behind terrain shows dimmed.
-- **Wiring.** `MissionIndex` cross-references, once, which actions test each area, which groups walk or merely name each route, and for each action the timers, engaged and defeated objects that fire it and the waiting groups, ended orders, started timers, counters and message (from `COMMAND<n>.STR`) that follow. The action view shows all of it, and an area's view shows it for every action testing that area. Selecting a group boxes all its members; its view lists members, deployment action and its ten orders with subject, route and ending action.
+- **Selection and panels.** `EditorSelection` is an object, group, trigger area, action, timer, route (with an optional waypoint) or objective, held in one `SelectionState` that the viewport click, the `MissionOutliner` (left: groups with members, areas, actions, timers, routes, objectives under the block-13 briefing list) and the `PropertiesPanel` (right, one view per kind, every mentioned record a link) all set.
+- **Picking.** `ScenePicker` tries a waypoint in screen space, then an object's bounding sphere (skipping waiting groups when they are hidden), then `GroundPick` (a ray march against `HeightAtWorld`) and the smallest trigger area containing that ground point.
+- **Overlays.** `MissionOverlay` draws, through `DrapedLines`, every trigger area (coloured by who trips it), every route (the player's, the walked ones and the never-walked ones in three colours, loops closed, waypoints numbered when selected), every base pad's painted tile (`MissionBasePad.TileOrigin`, with the selected group's authored point and its snap drawn too) and the mission box with its HDD-map and abort margins, each toggled from the View menu. A line hidden behind terrain shows dimmed.
+- **Wiring.** `MissionIndex` cross-references, once, which actions test each area, which groups walk or merely name each route, and for each action the timers, engaged and defeated objects that fire it and the waiting groups, ended orders, started timers, counters and message (from `COMMAND<n>.STR`) that follow. The action view shows all of it, and an area's view shows it for every action testing that area.
+- **Groups.** `Mission.GroupSetups` carries each block-11 record's point (with its pre-snap authored point and where it came from), heading (and whether it is the route bearing), formation id and paints-ground flag. Selecting a group boxes its members, highlights the route it walks, and `GroupOverlay` draws a post at its point, a heading arrow, and a line to each order's subject labelled with the slot and verb. Its view adds the setup, the out-of-action counter writes and the objectives asked of it to the members, deployment action and ten orders; an object's view adds its own counter writes and objectives.
+- **Waiting groups.** View > Waiting Groups draws, outlines (meshes hidden, members boxed, still selectable) or hides the members of a group gated on an action. Unless hidden, each is labelled at its point with the action and the arrival (drop pod, on foot, in place), labels sharing a point stacked.
+- **Mission check.** `ScriptDatLint` (Core) holds `MissionScriptForm`'s ref-range checks plus an action area ref behind its first `-1`, an objective condition or subject kind with no case, a group with neither a heading nor a slot-0 order, a herc group with no slot-0 order, and rosters past DBSIM's slot caps. Both apps run it; the editor re-reads the file for it and lists the findings under Problems, each selecting its record, and `HercWorks.Query lint` runs it over every retail mission's generated `script.dat`, finding nothing.
+- **Objectives and timers.** An objective's view gives mandatory or failure, the subject (boxed in the scene), the condition, for condition 0 the route (highlighted) and the subject group's first order slot on it, the `mission.str` failure text and the counter writes. A timer's view gives the delay, the action that starts it and the actions it fires, and the action view links to it.
 
 Counts for the retail missions: 58 of 62 use trigger areas, 257 distinct areas named 143 times as boxes and 132 as circles, 16 shared by more than one action. Subjects are the player in 142 of 338 actions and the player's group in 170. `C2_01`'s boundary strips and `TRAIN8.MSN`'s three defeat-chained reinforcement waves ([`../retail/simulation/mission-deployment.md`](../retail/simulation/mission-deployment.md#train8msn-end-to-end)) are good test cases.
 
-### Groups and orders in the scene (blocks 10, 11)
+### Groups in the scene (blocks 10, 11)
 
-What the group view does not yet show: the group's own point and heading (the loader's `Group` record is private, so it needs exposing on `Mission`), ghosts of the formation slots it leaves empty, its formation, paints-ground flag and out-of-action counter writes, and a line from the group to each order's subject — what a guard, follow or search-and-destroy order is aimed at.
+Two things the group display still lacks. Ghosts of the formation slots a group leaves empty need the formation tables, which only `MissionLoader` holds. An order's own point (`+0x04`, set in 47 orders) is read only by the briefing map, and only off the squad's first order ([`../retail/simulation/ai-goals.md`](../retail/simulation/ai-goals.md#the-order-record)); mark it as a distinct briefing-only marker or leave it out.
 
-An order's own point (`+0x04`, set in 47 orders) is read only by the briefing map, and only off the squad's first order ([`../retail/simulation/ai-goals.md`](../retail/simulation/ai-goals.md#the-order-record)); mark it as a distinct briefing-only marker or leave it out.
+Size: small each.
 
-Size: small–medium.
+### Waiting groups as true ghosts
 
-### Groups waiting to deploy
-
-The editor currently draws every placed object, so groups held back on an action stand at their placeholder points — routinely stacked on the player's spawn. Their position is meaningless except for the in-place verb ([`../retail/simulation/mission-deployment.md`](../retail/simulation/mission-deployment.md#arrival--group_deploymentcheck-004236c4)). Add a toggle to hide or ghost them, and label each with its gating action and arrival (drop pod, on foot, in place). Held-back structures (54 records in five missions) are the exception worth showing in place: they stand solid but undrawn from the start.
-
-Size: small to hide (`SceneItem.Visible`); small–medium to ghost, which needs a tint or alpha path in `SceneRenderer`.
-
-### Objectives (block 12)
-
-An outliner list: mandatory or failure condition, the condition asked, the subject (selecting the objective highlights it), condition 0's route, the failure text from `mission.str`, and the counter writes. 127 records across the corpus; the subject is a group 92 times, a mech 22, a structure 13.
+Outlining stands in for ghosting. Drawing the meshes translucent instead needs a tint or alpha path in `SceneRenderer`.
 
 Size: small–medium.
 
 ### Action graph
 
-The action view walks the wiring one link at a time; a node graph of the mission's actions, timers and the objects and groups between them would show it at once. Timers have no outliner entry or view of their own yet, only their mention in the actions they touch.
+The action view walks the wiring one link at a time; a node graph of the mission's actions, timers and the objects and groups between them would show it at once.
 
-Size: small for timers; medium–large for the graph.
-
-### Base pads
-
-A paints-ground base group's point picks a terrain tile only; the formation fixes where in the tile the group stands ([`../retail/formats/script-dat.md`](../retail/formats/script-dat.md#the-anchor)). Outlining the tile explains why a base does not sit on its mission point, and is what a move of a base group has to show.
-
-Size: small.
-
-### Mission lint
-
-One check pass whose findings link to the selection: dangling refs (`MissionScriptForm`'s validator, moved into Core so both apps share it); an action area ref behind its first `-1`, which is never tested; an objective with condition 5 or a subject kind above 3; a group with neither a heading nor a slot-0 order, which faults DBSIM at load; a mech group with no order; rosters over DBSIM's slot caps ([gap 3](#3-three-consequences-of-appending)). No retail mission trips the four DBSIM-side checks, so they matter only once editing exists.
-
-Size: small–medium.
+Size: medium–large.
 
 ### Left out
 
@@ -101,15 +85,15 @@ Recommended: reuse an identical existing point, otherwise append; refcount befor
 ### 3. Three consequences of appending
 
 - **Block 1's extent frames the heads-down map** (see [`../retail/formats/heads-down-display.md`](../retail/formats/heads-down-display.md#the-maps-frame-of-reference), and `MissionBox`), and the mission box. A point outside the current box silently rescales the player's in-game map and moves the boundary warning and abort lines. Warn on it; the mission box overlay already shows the lines it moves.
-- **File length is not a constraint.** `DBSim_LoadScriptDat` (`00424308`) reads through a `FileRStream` block by block and allocates each of blocks 1-6 and the group array from its own count, so a file longer than the retail 13,520 bytes reads correctly. Its fixed arrays are per-roster slot flags and type lists: block 7's count plus the squad size is capped at 100, block 8 at 50 and block 9 at 140, with no bounds check — past them it writes over neighbouring globals. Appending block-1 points is unaffected; adding roster records is not. VSHELL's own reader, `ShellMap_LoadScriptDat` (`004243d7`), has not been checked for caps, and it reads a save slot's file for the briefing map.
+- **File length is not a constraint.** `DBSim_LoadScriptDat` (`00424308`) reads through a `FileRStream` block by block and allocates each of blocks 1-6 and the group array from its own count, so a file longer than the retail 13,520 bytes reads correctly. Its fixed arrays are the per-roster slot flags and slot maps ([`../retail/formats/script-dat.md`](../retail/formats/script-dat.md#the-two-pass-read--and-what-it-means-for-dbsim-keeps)); past them it writes over neighbouring globals. Appending block-1 points is unaffected; adding roster records is not, and the mission check reports it. VSHELL's own reader, `ShellMap_LoadScriptDat` (`004243d7`), has not been checked for caps, and it reads a save slot's file for the briefing map.
 - **The override path has never been observed live.** It is RE-derived and engine-implemented, but no retail file exercises it. Confirming it means writing one and running retail DBSIM.
 
 ### 4. Moved is not the same as stays there
 
 - `MissionPlacement` carries `FormationOffset` even when the record supplies its own position, and AI followers hold formation on their leader every tick. For a non-leader group member the edit sets a spawn position the AI may walk out of. Correct behaviour, but it reads as wrong if the UI does not say so.
 - A group with no point of its own stands on its route's first waypoint. Moving the group means either giving it a point or moving that waypoint, which moves the start of the route too.
-- A paints-ground base group snaps to a fixed spot in its tile, so a small move does nothing and a larger one jumps a whole tile ([Base pads](#base-pads)).
-- A group waiting to deploy is placed at a placeholder; moving it changes nothing unless it arrives in place ([Groups waiting to deploy](#groups-waiting-to-deploy)).
+- A paints-ground base group snaps to a fixed spot in its tile, so a small move does nothing and a larger one jumps a whole tile ([`../retail/formats/script-dat.md`](../retail/formats/script-dat.md#the-anchor)); the base pad overlay shows the tile.
+- A group waiting to deploy is placed at a placeholder; moving it changes nothing unless it arrives in place ([`../retail/simulation/mission-deployment.md`](../retail/simulation/mission-deployment.md#arrival--group_deploymentcheck-004236c4)). A held-back structure is the exception: it stands, solid and undrawn, where it is placed from the first frame ([`../retail/simulation/mission-deployment.md`](../retail/simulation/mission-deployment.md#held-back-structures-stand-from-the-start)).
 
 ### 5. Live scene refresh
 
@@ -123,15 +107,13 @@ Recommended: reuse an identical existing point, otherwise append; refcount befor
 
 | Slice | Size |
 |---|---|
-| Groups and orders in the scene | small–medium |
-| Base pads | small |
-| Waiting groups: hide / ghost | small / small–medium |
-| Objectives | small–medium |
-| Timers / action graph | small / medium–large |
-| Mission lint | small–medium |
+| Empty formation slots, briefing-only order point | small each |
+| Waiting groups as translucent ghosts | small–medium |
+| Action graph | medium–large |
 | `script.dat` round-trip test over the 10 real files | small |
 | Carry `ScriptDat` through to the editor | small |
-| Save button, backup/temp-file write | small |
+| Save (in place, with a `.bak`) and Save As, the mission check run first | small |
+| Write the edited mission as an `.MSN` — wanted; feasibility not yet looked at ([What a saved `script.dat` reaches](#what-a-saved-scriptdat-reaches)) | not sized |
 | Position write-back: reuse/append, refcount, box warning | medium — the bulk of the edit path |
 | Numeric X/Y/Z entry in the Properties panel | small |
 | Drag gizmo (ground pick, handles) | medium |
@@ -139,6 +121,11 @@ Recommended: reuse an identical existing point, otherwise append; refcount befor
 
 ## Suggested sequencing
 
-1. Waiting groups, groups and orders in the scene, objectives, timers.
-2. The round-trip test, carrying the document through, then numeric entry plus save — which proves the write chain end to end with almost no UI.
-3. The drag gizmo on top, reusing the ground pick; then waypoint and area-corner moves through the same point-ref machinery; then lint.
+1. The round-trip test, carrying the document through, then numeric entry plus save — which proves the write chain end to end with almost no UI.
+2. The drag gizmo on top, reusing the ground pick; then waypoint and area-corner moves through the same point-ref machinery.
+
+## To-do list
+
+- Objective list, underneath briefing list in left-hand sidebar, does not fit in sidebar's width. The text should wrap.
+- Support for loading arbitrary missions rather than just `script.dat`.
+- By default, start as a maximized window rather than 1280x960; remember last size and position.

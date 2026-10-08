@@ -1,3 +1,4 @@
+using Herculan.Engine.Numerics;
 using Herculan.Engine.Scene;
 using Herculan.Engine.World;
 
@@ -60,6 +61,13 @@ internal static class MissionText {
 		_ => "in place"
 	};
 
+	/// <summary><see cref="Arrival"/> in a word or two, for a label.</summary>
+	public static string ArrivalKind(short verb) => verb switch {
+		MissionAction.VerbPodWide or MissionAction.VerbPodNarrow => "drop pod",
+		MissionAction.VerbWalkBehind or MissionAction.VerbWalkAhead => "on foot",
+		_ => "in place"
+	};
+
 	/// <summary>The state an order verb installs — docs/retail/simulation/ai-goals.md#when-an-order-is-finished--group_isordercomplete-004239fc.</summary>
 	public static string OrderVerb(short verb) => verb switch {
 		MissionOrder.VerbSearchDestroy => "search/destroy",
@@ -78,6 +86,88 @@ internal static class MissionText {
 		MissionAction.CounterClear => "cleared",
 		_ => $"op {op}, no effect"
 	};
+
+	/// <summary>
+	/// What one of an objective's counter operations does — a different code set from the action's,
+	/// see docs/retail/simulation/mission-objectives.md#the-record.
+	/// </summary>
+	public static string ObjectiveCounterOp(short op) => op switch {
+		MissionObjective.CounterSet => "set to 1",
+		MissionObjective.CounterClear => "cleared",
+		MissionObjective.CounterIncrement => "+1",
+		MissionObjective.CounterDecrement => "-1",
+		_ => $"op {op}, no effect"
+	};
+
+	/// <summary>
+	/// What one of an out-of-action report's operations does — docs/retail/simulation/mission-deployment.md#the-out-of-action-report.
+	/// </summary>
+	public static string OutOfActionOp(short op) => op switch {
+		OutOfActionReport.OpClear => "cleared",
+		OutOfActionReport.OpIncrement => "+1",
+		>= OutOfActionReport.OpSetFirst and <= OutOfActionReport.OpSetLast => $"set to {op - OutOfActionReport.SetBias}",
+		_ => $"op {op}, no effect"
+	};
+
+	/// <summary>
+	/// The question an objective asks of its subject — the condition table in
+	/// docs/retail/simulation/mission-objectives.md#what-each-condition-asks.
+	/// </summary>
+	public static string ObjectiveCondition(short code, bool groupSubject) => code switch {
+		MissionObjective.ConditionOrderComplete => groupSubject
+			? "has finished its order on the route below"
+			: "its group has finished its order on the route below",
+		MissionObjective.ConditionLost => groupSubject ? "is written off" : "is destroyed or immobilised",
+		MissionObjective.ConditionClear => groupSubject
+			? "is not written off, and every living member is clear of threats"
+			: "is clear of threats",
+		MissionObjective.ConditionDataLink or MissionObjective.ConditionDataLinkAlso =>
+			"the player has completed a data link (the subject is not read)",
+		MissionObjective.ConditionEngaged => groupSubject ? "has a member that has been engaged" : "has been engaged",
+		MissionObjective.ConditionDisarmed => groupSubject ? "has every member disarmed" : "is disarmed",
+		MissionObjective.ConditionUnengaged => groupSubject ? "has no member engaged" : "has not been engaged",
+		MissionObjective.ConditionNoDataLink or MissionObjective.ConditionNoDataLinkAlso =>
+			"the player has not completed a data link (the subject is not read)",
+		_ => $"code {code} has no case: it answers whatever the record before it answered"
+	};
+
+	/// <summary>An objective in one line: its index, whether it is mandatory or a failure condition, and its question.</summary>
+	public static string DescribeObjective(MissionObjective objective, int index) {
+		string question = objective.ConditionCode switch {
+			MissionObjective.ConditionOrderComplete => $"order on route {objective.RouteRef} done",
+			MissionObjective.ConditionLost => "lost",
+			MissionObjective.ConditionClear => "clear of threats",
+			MissionObjective.ConditionDataLink or MissionObjective.ConditionDataLinkAlso => "data link",
+			MissionObjective.ConditionEngaged => "engaged",
+			MissionObjective.ConditionDisarmed => "disarmed",
+			MissionObjective.ConditionUnengaged => "not engaged",
+			MissionObjective.ConditionNoDataLink or MissionObjective.ConditionNoDataLinkAlso => "no data link",
+			_ => $"code {objective.ConditionCode}"
+		};
+
+		string subject = objective.SubjectKind switch {
+			MissionObjectiveSubject.Group => $"group {objective.SubjectRef}",
+			MissionObjectiveSubject.Mech => $"mech slot {objective.SubjectRef}",
+			MissionObjectiveSubject.Flyer => $"flyer slot {objective.SubjectRef}",
+			MissionObjectiveSubject.Base => $"base slot {objective.SubjectRef}",
+			_ => $"subject kind {(int)objective.SubjectKind}"
+		};
+
+		string role = objective.Required == MissionObjective.Mandatory ? "mandatory" : "failure";
+		return $"Objective {index}, {role}: {subject} {question}";
+	}
+
+	/// <summary>A binary angle as compass degrees.</summary>
+	public static string Heading(int binaryAngle) =>
+		$"{BinaryAngle.ToRadians(binaryAngle) * (180f / MathF.PI):F1} deg";
+
+	/// <summary>A timer's delay and what starts it.</summary>
+	public static string TimerSummary(MissionActionTimer timer) {
+		int seconds = timer.Delay >> MissionActionTimer.DelayShift;
+		return timer.PrimaryActionRef >= 0
+			? $"{seconds} s after action {timer.PrimaryActionRef} fires"
+			: $"{seconds} s into the mission";
+	}
 
 	/// <summary>A distance in world units, with metres beside it.</summary>
 	public static string Distance(int worldUnits) =>

@@ -27,6 +27,12 @@ internal sealed record ActionSelection(int Action) : EditorSelection;
 /// </summary>
 internal sealed record RouteSelection(int Route, int Waypoint = -1) : EditorSelection;
 
+/// <summary>One mission objective, by block-12 record index.</summary>
+internal sealed record ObjectiveSelection(int Objective) : EditorSelection;
+
+/// <summary>One action timer, by block-6 record index.</summary>
+internal sealed record TimerSelection(int Timer) : EditorSelection;
+
 /// <summary>
 /// The editor's one current selection, shared by everything that can change it: a click in the
 /// viewport, the outliner and the links in the Properties panel.

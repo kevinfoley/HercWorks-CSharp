@@ -396,22 +396,6 @@ public sealed class MissionScene {
 	}
 
 	/// <summary>
-	/// Model-to-world transform for one placed object, in render space: heading rotation, then its
-	/// world position. Nothing else — the shape's own origin is where the original stands it — except
-	/// for a <see cref="FlyerObject"/>, whose whole attitude comes through.
-	///
-	/// <para>The rotation sign is the simulation's, not the camera's. A HERC's forward vector is
-	/// <c>(-sin h, cos h)</c> in world XY — that falls out of <c>BuildEulerRotationMatrixQ14</c>'s
-	/// Z-only matrix and the row-vector transform, and it is the same sense
-	/// <see cref="MissionLoader"/>'s formation spread rotates in. <see cref="Camera"/>'s yaw runs
-	/// the other way, so anything attaching a camera to an object's heading negates it; this
-	/// transform must not.</para>
-	///
-	/// <para><b>No bounding-box lift</b>, deliberately: a shape's origin is already its ground contact
-	/// point, so raising an object by its mesh's lowest point sinks the one shape authored off the
-	/// ground. See docs/retail/formats/dgs-hd0-notes.md, "Shape origin".</para>
-	/// </summary>
-	/// <summary>
 	/// A group's order slots, or ten empty ones for a block-11 record the mission carries no orders
 	/// for. See <see cref="MissionOrder"/>.
 	/// </summary>
@@ -568,6 +552,22 @@ public sealed class MissionScene {
 			? mission.GroupKinds[groupIndex]
 			: MissionUnitKind.Mech;
 
+	/// <summary>
+	/// Model-to-world transform for one placed object, in render space: heading rotation, then its
+	/// world position. Nothing else — the shape's own origin is where the original stands it — except
+	/// for a <see cref="FlyerObject"/>, whose whole attitude comes through.
+	///
+	/// <para>The rotation sign is the simulation's, not the camera's. A HERC's forward vector is
+	/// <c>(-sin h, cos h)</c> in world XY — that falls out of <c>BuildEulerRotationMatrixQ14</c>'s
+	/// Z-only matrix and the row-vector transform, and it is the same sense
+	/// <see cref="MissionLoader"/>'s formation spread rotates in. <see cref="Camera"/>'s yaw runs
+	/// the other way, so anything attaching a camera to an object's heading negates it; this
+	/// transform must not.</para>
+	///
+	/// <para><b>No bounding-box lift</b>, deliberately: a shape's origin is already its ground contact
+	/// point, so raising an object by its mesh's lowest point sinks the one shape authored off the
+	/// ground. See docs/retail/formats/dgs-hd0-notes.md, "Shape origin".</para>
+	/// </summary>
 	public static Matrix4x4 TransformOf(SceneObject sceneObject) =>
 		// The object's whole attitude, not its heading alone: SimObject_InstallModelTransform
 		// (00401fe4) builds the model transform every draw installs out of the object's euler

@@ -52,6 +52,8 @@ DBSIM reads `script.dat` **twice**, and the two passes want different things:
 
 **Pass 1 alone looks like `script.dat` carries no placement data** (blocks 7-9 reduced to one field each, block 10 discarded, block 11 just flipping activation flags) — that describes pass 1 only, not the format. Pass 2 reads the rest.
 
+**Pass 1's slot arrays have a fixed size and no bound.** Each roster's live-slot flags and slot-to-pool map are byte arrays the function clears with a `memset` of 100 for mechs (`DAT_004aa7ae`, `DAT_004aa812`), 50 for flyers (`DAT_004aa8da`, `DAT_004aa90c`) and 140 for structures (`DAT_004aa93e`, `DAT_004aa9ca`, `DAT_004aaa56`). A block-11 member ref indexes the flags with only a `-1 <` test, the map loops run up to the block's own count, and the squad's `player.mec` entries are marked at the mech slots from the block-7 count up. So block 7's count plus the squad, block 8's count and block 9's count must stay within 100, 50 and 140, or the writes run over the globals that follow. No retail mission's rosters, loaded with every campaign flag zero and the squad not counted, exceed them (`HercWorks.Query lint`).
+
 Per record type, what pass 2 reads (offsets into the exported record, not the `.msn` source row):
 
 | block | record | offset | field |

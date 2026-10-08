@@ -20,14 +20,19 @@ internal sealed class ScenePicker {
 	private readonly Pickable[] _pickables;
 	private readonly MissionOverlay _overlay;
 	private readonly HeightGrid _terrain;
+	private readonly MissionIndex _index;
 
-	public ScenePicker(MissionScene scene, MissionOverlay overlay) {
+	public ScenePicker(MissionScene scene, MissionIndex index, MissionOverlay overlay) {
+		_index = index;
 		_overlay = overlay;
 		_terrain = scene.World.Terrain;
 		_pickables = BuildPickables(scene);
 	}
 
-	/// <summary>Everything drawn, i.e. everything with a model.</summary>
+	/// <summary>
+	/// Everything with a model, which is everything that can be drawn — a waiting group's members
+	/// included, whether or not the settings draw them.
+	/// </summary>
 	public IReadOnlyList<Pickable> Pickables => _pickables;
 
 	/// <summary>
@@ -46,7 +51,12 @@ internal sealed class ScenePicker {
 
 		Pickable? best = null;
 		float bestDistance = float.MaxValue;
+		bool skipWaiting = settings.WaitingGroups == WaitingGroupDisplay.Hidden;
 		foreach (var pickable in _pickables) {
+			if (skipWaiting && _index.IsWaiting(pickable.SceneObject)) {
+				continue;
+			}
+
 			if (RaySphere(origin, direction, pickable.CenterRender, pickable.RadiusRender, out float t) && t < bestDistance) {
 				bestDistance = t;
 				best = pickable;

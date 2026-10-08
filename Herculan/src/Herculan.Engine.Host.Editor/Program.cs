@@ -57,9 +57,11 @@ Console.WriteLine("RMB + mouse to look, WASD/arrows to move, Q/E down/up, Shift 
 // The mission's own features, cross-referenced once: nothing moves while the editor shows it.
 var selection = new SelectionState();
 var index = new MissionIndex(scene, SquadMessages.LoadCommand(content, mission.Header.TrainingMissionNumber));
-var overlay = new MissionOverlay(index, new DrapedLines(scene.World.Terrain));
-var picker = new ScenePicker(scene, overlay);
-var outliner = new MissionOutliner(index, selection);
+var drape = new DrapedLines(scene.World.Terrain);
+var overlay = new MissionOverlay(index, drape);
+var picker = new ScenePicker(scene, index, overlay);
+var groupOverlay = new GroupOverlay(index, drape, picker);
+var outliner = new MissionOutliner(index, new MissionLint(index), selection);
 var properties = new PropertiesPanel(index, selection);
 
 using var window = new EngineWindow($"HERCULAN Mission Editor — zone {mission.Header.ZoneIndex}");
@@ -73,6 +75,9 @@ var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
 var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
+
+// The items of the objects whose group waits on an action, which the settings may stop drawing.
+var waitingItems = new List<SceneItem>();
 IKeyboard? keyboard = null;
 IMouse? mouse = null;
 
@@ -146,8 +151,12 @@ window.Load += (gl, input) => {
 			continue;
 		}
 
-		built.Add(new SceneItem(mesh, MissionScene.TransformOf(sceneObject),
-			modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null));
+		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject),
+			modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null);
+		built.Add(item);
+		if (index.IsWaiting(sceneObject)) {
+			waitingItems.Add(item);
+		}
 	}
 
 	items = built.ToArray();
@@ -230,6 +239,9 @@ window.Render += (_, gl) => {
 	// this off, and the assignment is a field write.
 	renderer.FogEnabled = settings.RenderFog;
 	items[0].ShowGrid = settings.ShowGrid;
+	foreach (var item in waitingItems) {
+		item.Visible = settings.WaitingGroups == WaitingGroupDisplay.Drawn;
+	}
 
 	// SceneRenderer.Render deliberately does not clear — the simulator host draws three cockpit
 	// panels into one frame, so clearing is the caller's job, once per frame. The editor draws a
@@ -242,7 +254,8 @@ window.Render += (_, gl) => {
 	renderer.Render(camera, items, 0, 0, size.X, size.Y);
 
 	overlay.Draw(wireframe, camera, aspect, settings, selection);
-	DrawSelectedObjects(wireframe, aspect);
+	groupOverlay.DrawObjects(wireframe, camera, aspect, settings, selection);
+	groupOverlay.DrawSelectedGroup(wireframe, camera, aspect, selection);
 
 	var display = ImGui.GetIO().DisplaySize;
 	float menuBarHeight = BuildMenuBar();
@@ -251,6 +264,7 @@ window.Render += (_, gl) => {
 		new Vector2(ScaledImGui.Scaled(MissionOutliner.PanelWidth) + compassMargin, menuBarHeight + compassMargin),
 		ScaledImGui.Scaled(CompassSize));
 	overlay.DrawLabels(camera, settings, selection);
+	groupOverlay.DrawLabels(camera, settings, selection);
 	outliner.Draw(display, menuBarHeight);
 	properties.Draw(display, menuBarHeight);
 	settingsPanel.Draw();
@@ -271,21 +285,6 @@ window.Closing += () => {
 window.Run();
 
 return 0;
-
-// The selection box around the selected object, or around every member of the selected group.
-void DrawSelectedObjects(WireframeRenderer wireframe, float aspect) {
-	foreach (var pickable in picker.Pickables) {
-		bool highlighted = selection.Current switch {
-			ObjectSelection selected => selected.Object == pickable.SceneObject,
-			GroupSelection group => pickable.SceneObject.Placement.GroupIndex == group.Group,
-			_ => false
-		};
-
-		if (highlighted) {
-			wireframe.DrawBox(camera, pickable.CenterRender, pickable.RadiusRender, MissionOverlay.SelectedColor, aspect);
-		}
-	}
-}
 
 // Draws the main menu bar and returns its height, which is what the rest of the frame's overlays
 // hang below.
@@ -314,6 +313,23 @@ float BuildMenuBar() {
 		if (ImGui.MenuItem("Mission Box", null, ref box)) {
 			settings.ShowMissionBox = box;
 			changed = true;
+		}
+
+		bool pads = settings.ShowBasePads;
+		if (ImGui.MenuItem("Base Pads", null, ref pads)) {
+			settings.ShowBasePads = pads;
+			changed = true;
+		}
+
+		if (ImGui.BeginMenu("Waiting Groups")) {
+			foreach (var display in Enum.GetValues<WaitingGroupDisplay>()) {
+				if (ImGui.MenuItem(display.ToString(), null, settings.WaitingGroups == display)) {
+					settings.WaitingGroups = display;
+					changed = true;
+				}
+			}
+
+			ImGui.EndMenu();
 		}
 
 		if (changed) {

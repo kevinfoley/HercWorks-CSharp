@@ -10,8 +10,8 @@ using ImGuiNET;
 namespace Herculan.Engine.Host.Editor;
 
 /// <summary>
-/// The mission's non-object features drawn over the scene: trigger areas, routes and the mission box
-/// with its two margins, as lines laid on the terrain, plus their ImGui labels and the waypoint pick.
+/// The mission's non-object features drawn over the scene: trigger areas, routes, base pads and the
+/// mission box with its two margins, as lines laid on the terrain, plus their ImGui labels and the waypoint pick.
 ///
 /// <para>Every line is drawn twice: dim with depth testing off, so a feature behind a hill still
 /// shows where it is, then at full colour with depth testing on, so the part in view reads as
@@ -27,6 +27,7 @@ internal sealed class MissionOverlay {
 	private static readonly Vector3 BoxColor = new(0.92f, 0.92f, 0.95f);
 	private static readonly Vector3 MapExtentColor = new(0.55f, 0.6f, 0.75f);
 	private static readonly Vector3 AbortColor = new(0.9f, 0.25f, 0.25f);
+	private static readonly Vector3 PadColor = new(0.85f, 0.8f, 0.55f);
 
 	/// <summary>The selection colour, matching the box drawn around a selected object.</summary>
 	public static readonly Vector3 SelectedColor = new(1f, 0.85f, 0.1f);
@@ -35,7 +36,7 @@ internal sealed class MissionOverlay {
 	private const float HiddenBrightness = 0.35f;
 
 	/// <summary>How tall the posts marking a selected area's corners are, in world units (about 60 m).</summary>
-	private const int PostHeight = 10000;
+	public const int PostHeight = 10000;
 
 	/// <summary>How close, in pixels on a 100% display, a click must land to a waypoint to pick it.</summary>
 	private const float WaypointPickRadius = 8f;
@@ -45,6 +46,7 @@ internal sealed class MissionOverlay {
 	private readonly List<(MissionTriggerArea Area, List<Vector3> Lines, Vector3 Color)> _areas = new();
 	private readonly List<(EditorRoute Route, List<Vector3> Lines, Vector3 Color)> _routes = new();
 	private readonly List<(List<Vector3> Lines, Vector3 Color)> _box = new();
+	private readonly List<(MissionBasePad Pad, List<Vector3> Lines)> _pads = new();
 
 	public MissionOverlay(MissionIndex index, DrapedLines drape) {
 		_index = index;
@@ -67,6 +69,14 @@ internal sealed class MissionOverlay {
 			drape.AddPolyline(lines, route.Points);
 			var color = !route.Walked ? UnwalkedRouteColor : route == playerRoute ? PlayerRouteColor : RouteColor;
 			_routes.Add((route, lines, color));
+		}
+
+		foreach (var pad in index.Mission.BasePads) {
+			var (x, y) = pad.TileOrigin;
+			int size = pad.Layout.TileSize;
+			var lines = new List<Vector3>();
+			drape.AddRectangle(lines, new Vec3i(x, y, 0), new Vec3i(x + size, y + size, 0));
+			_pads.Add((pad, lines));
 		}
 
 		var box = MissionBox.Of(index.Mission.Coordinates);
@@ -110,9 +120,22 @@ internal sealed class MissionOverlay {
 
 		var highlighted = new List<Vector3>();
 
+		if (settings.ShowBasePads) {
+			int selectedGroup = selection.Current is GroupSelection group ? group.Group : -1;
+			foreach (var (pad, lines) in _pads) {
+				if (pad.GroupIndex == selectedGroup) {
+					highlighted.AddRange(lines);
+					AddSnap(highlighted, pad.GroupIndex);
+				} else {
+					DrawLines(wireframe, camera, aspect, lines, PadColor);
+				}
+			}
+		}
+
 		if (settings.ShowRoutes) {
+			var selectedRoutes = SelectedRoutes(selection);
 			foreach (var (route, lines, color) in _routes) {
-				if (selection.Is(new RouteSelection(route.Reference))) {
+				if (selectedRoutes.Contains(route.Reference)) {
 					highlighted.AddRange(lines);
 				} else {
 					DrawLines(wireframe, camera, aspect, lines, color);
@@ -146,6 +169,39 @@ internal sealed class MissionOverlay {
 		_ => new HashSet<int>()
 	};
 
+	/// <summary>
+	/// The routes the selection lights up: the selected route, the route a selected group walks, or
+	/// the route an order-complete objective is about.
+	/// </summary>
+	private HashSet<int> SelectedRoutes(SelectionState selection) => selection.Current switch {
+		RouteSelection route => new HashSet<int> { route.Route },
+		GroupSelection group => _index.Routes.Where(route => route.WalkedBy.Contains(group.Group))
+			.Select(route => route.Reference).ToHashSet(),
+		ObjectiveSelection objective when objective.Objective < _index.Mission.Objectives.Count
+				&& _index.Mission.Objectives[objective.Objective] is
+					{ ConditionCode: MissionObjective.ConditionOrderComplete, RouteRef: >= 0 } record =>
+			new HashSet<int> { record.RouteRef },
+		_ => new HashSet<int>()
+	};
+
+	/// <summary>
+	/// The paints-ground snap of one group: a post at the point the mission authored and a line from
+	/// it to where the formation's fixed spot in the tile puts the group.
+	/// </summary>
+	private void AddSnap(List<Vector3> into, int group) {
+		if (group < 0 || group >= _index.Mission.GroupSetups.Count) {
+			return;
+		}
+
+		var setup = _index.Mission.GroupSetups[group];
+		if (setup.AuthoredPoint == setup.Point) {
+			return;
+		}
+
+		_drape.AddPost(into, setup.AuthoredPoint.X, setup.AuthoredPoint.Y, PostHeight / 2);
+		_drape.AddEdge(into, setup.AuthoredPoint, setup.Point);
+	}
+
 	private void AddPosts(List<Vector3> into, MissionTriggerArea area) {
 		if (area.Shape == MissionTriggerShape.Circle) {
 			_drape.AddPost(into, area.A.X, area.A.Y, PostHeight);
@@ -158,7 +214,7 @@ internal sealed class MissionOverlay {
 		_drape.AddPost(into, area.B.X, area.A.Y, PostHeight);
 	}
 
-	private static void DrawLines(WireframeRenderer wireframe, Camera camera, float aspect, List<Vector3> lines,
+	public static void DrawLines(WireframeRenderer wireframe, Camera camera, float aspect, List<Vector3> lines,
 			Vector3 color) {
 		var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(lines);
 		wireframe.DrawLines(camera, span, color * HiddenBrightness, aspect, throughGeometry: true);
@@ -274,7 +330,7 @@ internal sealed class MissionOverlay {
 		return best is { } hit ? new AreaSelection(hit.Reference) : null;
 	}
 
-	private static void Label(ImDrawListPtr drawList, Vector2 at, string text, Vector3 color) {
+	public static void Label(ImDrawListPtr drawList, Vector2 at, string text, Vector3 color) {
 		var size = ImGui.CalcTextSize(text);
 		var topLeft = at - new Vector2(0f, size.Y * 0.5f);
 		drawList.AddRectFilled(topLeft - new Vector2(2f, 1f), topLeft + size + new Vector2(2f, 1f), 0x99000000);
@@ -282,7 +338,7 @@ internal sealed class MissionOverlay {
 	}
 
 	/// <summary>Packs a colour the way ImGui stores one (little-endian ABGR), opaque.</summary>
-	private static uint Pack(Vector3 color) =>
+	public static uint Pack(Vector3 color) =>
 		0xff000000u
 		| ((uint)(Math.Clamp(color.Z, 0f, 1f) * 255f) << 16)
 		| ((uint)(Math.Clamp(color.Y, 0f, 1f) * 255f) << 8)

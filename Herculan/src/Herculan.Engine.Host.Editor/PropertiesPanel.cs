@@ -51,6 +51,12 @@ internal sealed class PropertiesPanel {
 			case RouteSelection route:
 				DrawRoute(route);
 				break;
+			case ObjectiveSelection objective:
+				DrawObjective(objective.Objective);
+				break;
+			case TimerSelection timer:
+				DrawTimer(timer.Timer);
+				break;
 			default:
 				ImGui.TextWrapped("Nothing selected. Click a mech, flyer, building, trigger area or waypoint "
 					+ "in the scene, or pick from the Mission list.");
@@ -87,11 +93,16 @@ internal sealed class PropertiesPanel {
 		ImGui.Text($"Position: {pos.X}, {pos.Y}, {pos.Z} units");
 		ImGui.Text($"          {pos.X / WorldScale.WorldUnitsPerMeter:F1}, {pos.Y / WorldScale.WorldUnitsPerMeter:F1}, " +
 			$"{pos.Z / WorldScale.WorldUnitsPerMeter:F1} m");
-		ImGui.Text($"Heading: {BinaryAngle.ToRadians(sel.Object.Heading) * (180f / MathF.PI):F1} deg");
+		ImGui.Text($"Heading: {MissionText.Heading(sel.Object.Heading)}");
 		ImGui.Text($"Hit radius: {sel.Object.HitRadius} units");
 
 		if (!placement.IsPlayerLance) {
 			ImGui.Text($"Starting condition: {placement.StartingCondition}%");
+		}
+
+		if (_index.IsWaiting(sel)) {
+			ImGui.TextWrapped("Its group is waiting on an action: nothing of it is drawn or ticked until "
+				+ "that fires, and this position is a placeholder unless the group arrives in place.");
 		}
 
 		if (placement.EngagementActionRef >= 0 || placement.DefeatActionRef >= 0) {
@@ -99,6 +110,12 @@ internal sealed class PropertiesPanel {
 			LabelledActionLink("When engaged, fires", placement.EngagementActionRef);
 			LabelledActionLink("When defeated, fires", placement.DefeatActionRef);
 		}
+
+		if (placement.OutOfActionReport is { } report) {
+			OutOfActionWrites("When out of the fight", report);
+		}
+
+		ObjectiveLinks(_index.ObjectivesOfObject(sel));
 	}
 
 	private void DrawGroup(int group) {
@@ -116,12 +133,23 @@ internal sealed class PropertiesPanel {
 			ImGui.Text("In the mission from the start.");
 		}
 
+		if (_index.SetupOf(group) is { } setup) {
+			ImGui.Separator();
+			DrawSetup(group, setup);
+		}
+
 		ImGui.Separator();
 		var members = group < _index.GroupMembers.Count ? _index.GroupMembers[group] : Array.Empty<SceneObject>();
 		ImGui.Text($"Members: {members.Count}");
 		foreach (var member in members) {
 			ObjectLink(member);
 		}
+
+		if (group < Mission.GroupOutOfActionReports.Count) {
+			OutOfActionWrites("When all of it is out of the fight", Mission.GroupOutOfActionReports[group]);
+		}
+
+		ObjectiveLinks(_index.ObjectivesOfGroup(group));
 
 		if (group >= Mission.GroupOrders.Count) {
 			return;
@@ -240,7 +268,8 @@ internal sealed class PropertiesPanel {
 		}
 
 		foreach (int timer in links.TimersFiringIt) {
-			ImGui.TextWrapped($"timer {timer} runs out ({TimerSummary(timer)})");
+			TimerLink(timer);
+			ImGui.TextWrapped("runs out");
 		}
 
 		foreach (var placed in links.EngagedObjects) {
@@ -282,17 +311,11 @@ internal sealed class PropertiesPanel {
 		}
 
 		foreach (int timer in links.TimersItStarts) {
-			ImGui.TextWrapped($"timer {timer} starts ({TimerSummary(timer)})");
-			foreach (short fired in Mission.ActionTimers[timer].SequenceRefs) {
-				if (fired >= 0) {
-					ImGui.PushID($"timer{timer}.{fired}");
-					ImGui.Indent();
-					ActionLink(fired);
-					ImGui.Unindent();
-					ImGui.PopID();
-				}
-			}
-
+			TimerLink(timer);
+			ImGui.TextWrapped("starts, and when it runs out fires");
+			ImGui.Indent();
+			TimerSequence(timer);
+			ImGui.Unindent();
 			any = true;
 		}
 
@@ -321,12 +344,197 @@ internal sealed class PropertiesPanel {
 		ImGui.Unindent();
 	}
 
-	private string TimerSummary(int timer) {
+	/// <summary>The actions a timer fires, as links, skipping unset and out-of-range slots.</summary>
+	private void TimerSequence(int timer) {
+		bool any = false;
+		foreach (short fired in Mission.ActionTimers[timer].SequenceRefs) {
+			if (fired >= 0 && fired < Mission.Actions.Count) {
+				ImGui.PushID($"timer{timer}.{fired}");
+				ActionLink(fired);
+				ImGui.PopID();
+				any = true;
+			}
+		}
+
+		if (!any) {
+			ImGui.TextDisabled("no action");
+		}
+	}
+
+	private void DrawTimer(int timer) {
+		if (timer < 0 || timer >= Mission.ActionTimers.Count) {
+			return;
+		}
+
 		var record = Mission.ActionTimers[timer];
-		int seconds = record.Delay >> MissionActionTimer.DelayShift;
-		return record.PrimaryActionRef >= 0
-			? $"{seconds} s after action {record.PrimaryActionRef} fires"
-			: $"{seconds} s into the mission";
+		ImGui.Text($"Timer {timer}");
+		ImGui.Separator();
+		ImGui.Text($"Delay: {record.Delay >> MissionActionTimer.DelayShift} s");
+		if (record.PrimaryActionRef >= 0) {
+			ImGui.AlignTextToFramePadding();
+			ImGui.Text("Counts down once");
+			ImGui.SameLine();
+			ActionLink(record.PrimaryActionRef);
+			ImGui.SameLine();
+			ImGui.Text("fires");
+		} else {
+			ImGui.Text("Counts down from the start of the mission");
+		}
+
+		ImGui.Spacing();
+		ImGui.Text("When it runs out, fires:");
+		ImGui.Indent();
+		TimerSequence(timer);
+		ImGui.Unindent();
+	}
+
+	private void DrawObjective(int index) {
+		if (index < 0 || index >= Mission.Objectives.Count) {
+			return;
+		}
+
+		var objective = Mission.Objectives[index];
+		bool groupSubject = objective.SubjectKind == MissionObjectiveSubject.Group;
+
+		ImGui.Text($"Objective {index}");
+		ImGui.Separator();
+		ImGui.TextWrapped(objective.Required == MissionObjective.Mandatory
+			? "Mandatory: the mission needs this to come true."
+			: "Failure condition: the mission is lost the moment this comes true.");
+
+		ImGui.Spacing();
+		ImGui.AlignTextToFramePadding();
+		ImGui.Text("Subject:");
+		ImGui.SameLine();
+		if (MissionIndex.UnitKindOf(objective.SubjectKind) is { } kind) {
+			SlotLink(kind, objective.SubjectRef);
+		} else if (groupSubject) {
+			GroupLink(objective.SubjectRef);
+		} else {
+			ImGui.TextDisabled($"kind {(int)objective.SubjectKind}, which no case reads");
+		}
+
+		ImGui.TextWrapped(MissionText.ObjectiveCondition(objective.ConditionCode, groupSubject));
+
+		if (objective.ConditionCode == MissionObjective.ConditionOrderComplete) {
+			ImGui.Indent();
+			ImGui.AlignTextToFramePadding();
+			ImGui.Text("route:");
+			ImGui.SameLine();
+			if (objective.RouteRef >= 0) {
+				RouteLink(objective.RouteRef);
+			} else {
+				ImGui.TextDisabled("none");
+			}
+
+			int group = _index.OrderGroupOf(objective);
+			if (group >= 0) {
+				int slot = _index.SlotOnRoute(group, objective.RouteRef);
+				ImGui.AlignTextToFramePadding();
+				ImGui.Text("asked of");
+				ImGui.SameLine();
+				GroupLink(group);
+				ImGui.TextWrapped(slot >= 0
+					? $"about its order slot {slot}, the first to run that route"
+					: "none of its orders runs that route, so this never comes true");
+			}
+
+			ImGui.Unindent();
+		}
+
+		var lines = Mission.DescriptionOf(objective).Where(line => line.Length > 0).ToList();
+		if (lines.Count > 0) {
+			ImGui.Separator();
+			ImGui.Text($"Failure text (mission.str line {objective.TextRef}):");
+			foreach (string line in lines) {
+				ImGui.TextWrapped(line);
+			}
+		}
+
+		bool writes = false;
+		for (int i = 0; i < objective.CounterRefs.Count && i < objective.CounterOps.Count; i++) {
+			// A slot is applied only when both its ref and its operation are non-negative.
+			if (objective.CounterRefs[i] < 0 || objective.CounterOps[i] < 0) {
+				continue;
+			}
+
+			if (!writes) {
+				ImGui.Separator();
+				ImGui.Text("The first time it comes true:");
+				writes = true;
+			}
+
+			ImGui.BulletText($"counter {objective.CounterRefs[i]}: {MissionText.ObjectiveCounterOp(objective.CounterOps[i])}");
+		}
+	}
+
+	/// <summary>The group's own point, heading and formation.</summary>
+	private void DrawSetup(int group, MissionGroupSetup setup) {
+		string source = setup.PointSource switch {
+			MissionGroupPointSource.OwnPoint => "its own point",
+			MissionGroupPointSource.RouteStart => "its route's first waypoint",
+			_ => "no point and no route: the origin"
+		};
+
+		ImGui.Text($"Point: {setup.Point.X}, {setup.Point.Y}");
+		ImGui.TextDisabled($"from {source}");
+		if (setup.AuthoredPoint != setup.Point) {
+			ImGui.TextWrapped($"Authored at {setup.AuthoredPoint.X}, {setup.AuthoredPoint.Y}; painting its ground "
+				+ "moves it to a fixed spot in its terrain tile.");
+		}
+
+		ImGui.Text($"Heading: {MissionText.Heading(setup.Heading)}");
+		if (setup.HeadingFromRoute) {
+			ImGui.TextDisabled("names none: the bearing of its route's first leg");
+		}
+
+		string kind = group < Mission.GroupKinds.Count ? Mission.GroupKinds[group].ToString().ToLowerInvariant() : "?";
+		ImGui.Text($"Formation: {setup.FormationId} ({kind} table)");
+		ImGui.Text(setup.PaintsGround ? "Paints ground: yes" : "Paints ground: no");
+
+		foreach (var pad in Mission.BasePads) {
+			if (pad.GroupIndex != group) {
+				continue;
+			}
+
+			var (x, y) = pad.TileOrigin;
+			int size = pad.Layout.TileSize;
+			ImGui.TextWrapped($"Pad: tile {x} to {x + size}, {y} to {y + size} ({MissionText.Distance(size)} square), "
+				+ $"material {pad.Layout.MaterialIndex}. Only which tile the authored point falls in matters; "
+				+ "a move within the tile changes nothing.");
+		}
+	}
+
+	/// <summary>An out-of-action report's counter writes, or nothing when it makes none.</summary>
+	private static void OutOfActionWrites(string heading, OutOfActionReport report) {
+		bool any = false;
+		for (int i = 0; i < report.CounterRefs.Count && i < report.CounterOps.Count; i++) {
+			if (report.CounterRefs[i] < 0) {
+				continue;
+			}
+
+			if (!any) {
+				ImGui.Separator();
+				ImGui.Text($"{heading}:");
+				any = true;
+			}
+
+			ImGui.BulletText($"counter {report.CounterRefs[i]}: {MissionText.OutOfActionOp(report.CounterOps[i])}");
+		}
+	}
+
+	/// <summary>Links to the objectives asked of the selection, or nothing when none is.</summary>
+	private void ObjectiveLinks(IEnumerable<int> objectives) {
+		bool any = false;
+		foreach (int objective in objectives) {
+			if (!any) {
+				ImGui.Separator();
+				ImGui.Text("Objectives asked of it:");
+				any = true;
+			}
+
+			ObjectiveLink(objective);
+		}
 	}
 
 	private void DrawRoute(RouteSelection selected) {
@@ -417,6 +625,12 @@ internal sealed class PropertiesPanel {
 	}
 
 	private void RouteLink(int route) => Link($"Route {route}", new RouteSelection(route));
+
+	private void TimerLink(int timer) =>
+		Link($"Timer {timer} ({MissionText.TimerSummary(Mission.ActionTimers[timer])})", new TimerSelection(timer));
+
+	private void ObjectiveLink(int objective) =>
+		Link(MissionText.DescribeObjective(Mission.Objectives[objective], objective), new ObjectiveSelection(objective));
 
 	/// <summary>
 	/// A clickable label that selects <paramref name="target"/>. The ID is the label itself, which is

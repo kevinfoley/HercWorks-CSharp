@@ -29,6 +29,8 @@ internal static class Program {
 		                                   text and counter writes
 		  conditions [<mission>...]        every row #1 condition, of every mission or of those named:
 		                                   the test, draw or variant table, its chain, and what it gates
+		  lint [<mission>...]              the mission check over the script.dat each mission's load
+		                                   writes, every campaign flag zero and every roll 0
 		  text <mission>... [--ids LO-HI]  the named missions' .ENG text records in file order, each with
 		                                   its decoded condition; a later record of an id replaces the
 		                                   line when its condition holds
@@ -157,7 +159,7 @@ internal static class Program {
 			return 0;
 		}
 
-		if (command is "actions" or "orders" or "objectives" or "conditions" or "text"
+		if (command is "actions" or "orders" or "objectives" or "conditions" or "text" or "lint"
 				&& positional.Skip(1).FirstOrDefault(n => !data.Missions.Any(m => string.Equals(m.Name, n, StringComparison.OrdinalIgnoreCase))) is { } unknown) {
 			return Fail($"No mission is named {unknown}; `missions` lists them.");
 		}
@@ -180,6 +182,17 @@ internal static class Program {
 				WriteJson(output, text);
 			} else {
 				TextQuery.Write(output, text);
+			}
+
+			return 0;
+		}
+
+		if (command == "lint") {
+			var lint = LintQuery.Run(data, positional.Skip(1).ToList());
+			if (json) {
+				WriteJson(output, lint);
+			} else {
+				LintQuery.Write(output, lint);
 			}
 
 			return 0;

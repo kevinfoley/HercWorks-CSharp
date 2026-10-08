@@ -252,7 +252,7 @@ The two routes converge rather than duplicating: `CockpitWidgets_HandleCommand` 
 
 The mouse's own split is not a modifier but the **button**: a row gadget's click handler (`EnergyWeaponGauge_OnChildClick` (`00440ef0`) for an energy row, `AmmoWeaponGauge_OnChildClick` (`004414b4`) for an ammunition one) branches on bit 1 of the value it is handed, and that value is the mouse-button word `0049db6c` — bit 0 left, bit 1 right. **A pod's row is the exception**: its handler takes no value at all, so both buttons toggle the pod and neither chains it ([`equipment-pods.md`](equipment-pods.md#only-two-pods-have-a-button)).
 
-The command codes are [scancodes](../formats/cockpit-input.md#keyboard-commands-are-scancodes): `0x26` is `L` and `0x29` is `` ` ``, which is how `ConsoleButtons_HandleCommand` (`004421a0`) binds them to the console panel's LINK and chain children; `0x11`/`0x211` are `W`/`Alt+W`; `0x02`–`0x0b` and `0x202`–`0x20b` are the two number-key banks. `Sim_DispatchCommand` (`0045fdac`) is the dispatcher every code passes through.
+The command codes are [scancodes](cockpit-input.md#keyboard-commands-are-scancodes): `0x26` is `L` and `0x29` is `` ` ``, which is how `ConsoleButtons_HandleCommand` (`004421a0`) binds them to the console panel's LINK and chain children; `0x11`/`0x211` are `W`/`Alt+W`; `0x02`–`0x0b` and `0x202`–`0x20b` are the two number-key banks. `Sim_DispatchCommand` (`0045fdac`) is the dispatcher every code passes through.
 
 ### Arming — `WeaponMounts_SelectByGauge` (`004106ac`) and `WeaponMounts_SetSelection` (`00410708`)
 

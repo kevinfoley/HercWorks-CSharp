@@ -1,6 +1,6 @@
 # Joystick input (DBSIM.EXE)
 
-How a stick reaches the simulation: the device layer that reads the hardware, the twelve bytes of `data\prefs.cfg` that say what each control does, and the per-frame build that turns one into the other. The two panels that *edit* those twelve bytes are [`../simulation/preferences.md`](../simulation/preferences.md)'s; this document owns everything below them. Mouse routing and keyboard command codes are [`cockpit-input.md`](cockpit-input.md)'s.
+How a stick reaches the simulation: the device layer that reads the hardware, the twelve bytes of `data\prefs.cfg` that say what each control does, and the per-frame build that turns one into the other. The two panels that *edit* those twelve bytes are [`../simulation/preferences.md`](../simulation/preferences.md)'s; this document owns everything below them. Mouse routing and keyboard command codes are [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md)'s.
 
 ```
 joyGetDevCapsA / joyGetPosEx     Joystick_Enumerate (00477568) / Joystick_Poll (00477614)
@@ -96,7 +96,7 @@ The four game axes the control laws read are the device struct's `+0x0e`, `+0x10
 
 ### The keyboard
 
-`Input_BuildKeyboardAxes` (`0045a4b0`) produces **two signed axis pairs, not four independent axes**. It reads fourteen held-key flags from the key-state block at `004d2418`, which `Input_KeyjoyAxisKey` fills by the position of each key in its wanted-codes list ([`cockpit-input.md`](cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)): keys 0-7 (keypad 7, 8, 9, 4, 6, 1, 2, 3) feed the first pair and keys 8-13 (`M`, `J`, `K`, `I`, keypad `-` and `+`) the second. A key contributes its `(dx, dy)` entry from the table at `0049eb6d` shifted left 7, so a key is worth ±0x80, half a stick's travel; `dx` goes to the pair's first axis (steering, or twist) and `dy` to its second (throttle, or pitch). The two groups combine differently:
+`Input_BuildKeyboardAxes` (`0045a4b0`) produces **two signed axis pairs, not four independent axes**. It reads fourteen held-key flags from the key-state block at `004d2418`, which `Input_KeyjoyAxisKey` fills by the position of each key in its wanted-codes list ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)): keys 0-7 (keypad 7, 8, 9, 4, 6, 1, 2, 3) feed the first pair and keys 8-13 (`M`, `J`, `K`, `I`, keypad `-` and `+`) the second. A key contributes its `(dx, dy)` entry from the table at `0049eb6d` shifted left 7, so a key is worth ±0x80, half a stick's travel; `dx` goes to the pair's first axis (steering, or twist) and `dy` to its second (throttle, or pitch). The two groups combine differently:
 
 - **Keys 0-7 add up, except the diagonals.** The byte flags at `0049eb65` (`01 00 01 00 00 01 00 01`) mark keypad 7, 9, 1 and 3. The first of those held, in list order, zeroes the pair, adds its own entry and ends the group, so a diagonal overrides every other key of the group.
 - **Keys 8-13 take the first held key only.** Its entry is added and the loop ends, so [J] and [I] held together twist without pitching.

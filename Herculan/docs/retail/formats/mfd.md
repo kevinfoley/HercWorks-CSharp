@@ -4,7 +4,7 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. Addresses 
 
 The console screen the F1-F6 keys switch between six screens. Surrounding cockpit: [`cockpit-views.md`](cockpit-views.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). Caption text: [`str-strings.md`](str-strings.md).
 
-How a click on one of the buttons below reaches `MfdButton_OnClick`: [`cockpit-input.md`](cockpit-input.md).
+How a click on one of the buttons below reaches `MfdButton_OnClick`: [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md).
 
 ## Object model
 
@@ -50,7 +50,7 @@ Object fields, base `MfdDisplay_Ctor`'s `param_1`:
 | `MFDStateGadget` (latching) | `MFDStateGadget_Ctor` (`0044741c`) | 0-5, 11, 12, and 6 (below) | `MfdButton_Repaint` (`004474e4`) | its own selection flag `+0x40` |
 | `MFDSelectGadget` (momentary) | `MFDSelectGadget_Ctor` (`004472e4`) | 7, 8, 9, 10 | `MfdButton_SetCaption` (`00447358`) | the shared press byte `+0x1b` |
 
-The two names are the classes' own, from their descriptor records — [`cockpit-input.md`](cockpit-input.md#the-cockpits-own-gadget-classes) places them in the cockpit's widget hierarchy.
+The two names are the classes' own, from their descriptor records — [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#the-cockpits-own-gadget-classes) places them in the cockpit's widget hierarchy.
 
 So the F-key column and the two scanner toggles (PASS, ACTIVE) **have no pressed state at all** — blue when unselected, green when selected — while SELECT, RANGE, TARGET and XMIT light *only* while held and have no selected state.
 
@@ -65,7 +65,7 @@ Per-button fields, base a button pointer from `+0x18`:
 | `+0x28` | Button index 0-12 — what both the ctor switch and the caption re-font test key on |
 | `+0x2c` | Caption label |
 | `+0x30` | Two sprite pointers, unlit then lit |
-| `+0x40` | Selection flag, **latching class only**. Set by the button's click handler (`MFDStateGadget_OnClick`, `004474a8`), and set and cleared by the display itself: `MfdDisplay_SetMode` for 0-5, `MfdButton_OnClick` for the PASS/ACTIVE pair 11-12, and the constructor. The press path sets the shared widget state byte `+0x1b` instead (see [`cockpit-input.md`](cockpit-input.md) §7) |
+| `+0x40` | Selection flag, **latching class only**. Set by the button's click handler (`MFDStateGadget_OnClick`, `004474a8`), and set and cleared by the display itself: `MfdDisplay_SetMode` for 0-5, `MfdButton_OnClick` for the PASS/ACTIVE pair 11-12, and the constructor. The press path sets the shared widget state byte `+0x1b` instead (see [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md) §7) |
 
 ## Modes
 
@@ -263,7 +263,7 @@ A region that does not state the component id itself is reached through a merge 
 
 Row block, device pixels relative to the inset origin: rect `2,0xd – 0x60,0x3a` GAU, both corners nudged in by `1 << XCoordShift`, giving x 6-190 and y0 28. Rows step `7 << YCoordShift` = 14 device. Both nudges use `XCoordShift` on the y axis — no effect in any retail video mode.
 
-Each row's rect is `top` to `top + 14` **inclusive**, and the step is the same 14, so **every row shares its bottom line with the row below**. `MfdFlashComm_HandleListClick` walks the six in index order and stops at the first hit, so the shared line belongs to the upper row — the general rule in [`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence).
+Each row's rect is `top` to `top + 14` **inclusive**, and the step is the same 14, so **every row shares its bottom line with the row below**. `MfdFlashComm_HandleListClick` walks the six in index order and stops at the first hit, so the shared line belongs to the upper row — the general rule in [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#registration-order-is-precedence).
 
 Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on the display. Four fonts:
 
@@ -305,9 +305,9 @@ Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers ever
 | `0x20` (D) | `MfdDisplay_KeyDispatch` (`004469c0`) | Press button 7 SELECT if visible |
 | `0x213` `0x214` ([Alt]+R, [Alt]+T) | `MfdDisplay_KeyDispatch` (`004469c0`) | Press button 8 RANGE or 9 TARGET if the current mode shows it. `0x213` on a mode that does not show RANGE cycles the scanner range instead (`MfdDisplay_CycleScannerRange`) |
 
-`MfdFlashComm_SelectRow(display, widget, row)` (`00447130`) writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `MfdFlashComm_HandleListClick` (`00447098`) is the mouse path: it hit-tests the six label rects itself, inclusive on all four edges. A [double-click](cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic) on the selected row presses XMIT through `Widget_PressChild`, which clicks and flashes it, and then transmits with `MfdFlashComm_Transmit` itself; any other click, a single one on the selected row included, selects the row it hits. There is no widget per row — the rows sit under the display's own `MFDListGadget`, which is the widget the shared hit test actually finds, and whose `OnClick` (`MFDListGadget_OnClick`, `00447630`) makes no sound ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
+`MfdFlashComm_SelectRow(display, widget, row)` (`00447130`) writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `MfdFlashComm_HandleListClick` (`00447098`) is the mouse path: it hit-tests the six label rects itself, inclusive on all four edges. A [double-click](../simulation/cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic) on the selected row presses XMIT through `Widget_PressChild`, which clicks and flashes it, and then transmits with `MfdFlashComm_Transmit` itself; any other click, a single one on the selected row included, selects the row it hits. There is no widget per row — the rows sit under the display's own `MFDListGadget`, which is the widget the shared hit test actually finds, and whose `OnClick` (`MFDListGadget_OnClick`, `00447630`) makes no sound ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 
-**XMIT ignores a double-click.** `MfdButton_OnClick` (`0044681c`)'s case 10 returns before transmitting while the double-click flag is set, which is what stops the list's press from transmitting a second time. The same test makes a double-click on XMIT itself transmit once, on its first click, and a key press of XMIT made while the flag is still standing transmit nothing ([`cockpit-input.md`](cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic)).
+**XMIT ignores a double-click.** `MfdButton_OnClick` (`0044681c`)'s case 10 returns before transmitting while the double-click flag is set, which is what stops the list's press from transmitting a second time. The same test makes a double-click on XMIT itself transmit once, on its first click, and a key press of XMIT made while the flag is still standing transmit nothing ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic)).
 
 ### Transmissions
 

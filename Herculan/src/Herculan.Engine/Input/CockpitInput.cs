@@ -51,7 +51,7 @@ public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Sur
 
 /// <summary>
 /// The cockpit's mouse pipeline: raw window events in, completed widget clicks out.
-/// Reverse-engineered from DBSIM — see docs/retail/formats/cockpit-input.md, whose section numbers this
+/// Reverse-engineered from DBSIM — see docs/retail/simulation/cockpit-input.md, whose section numbers this
 /// file's comments refer to.
 ///
 /// <para><b>What is reproduced.</b> Events are queued as they arrive and processed once per frame
@@ -93,7 +93,7 @@ public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Sur
 /// <para><b>The double-click flag lasts one click here.</b> The original's global is cleared only as
 /// the queue drains its next record, so a key that presses the MFD's XMIT before then finds it still
 /// set. Recorded as a divergence in KNOWN_ISSUES.md; the mechanism is
-/// docs/retail/formats/cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic.</para>
+/// docs/retail/simulation/cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic.</para>
 /// </summary>
 public sealed class CockpitInput {
 	/// <summary>

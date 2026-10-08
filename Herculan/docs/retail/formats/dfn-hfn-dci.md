@@ -54,7 +54,7 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 
 **Hotspot field (click-point coordinates), verified against all 7 files by their directional prefix:**
 
-| File | width×height | hotspot (x,y) | Shown ([`cockpit-input.md`](cockpit-input.md#9-cursor-rendering)) |
+| File | width×height | hotspot (x,y) | Shown ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#9-cursor-rendering)) |
 |---|---|---|---|
 | CURSOR.DCI | 7×8 | (3,3) | the default in the forward and off-forward slots |
 | MCURSOR.DCI | 7×8 | (3,3) | while an HDD order waits for a map pick |

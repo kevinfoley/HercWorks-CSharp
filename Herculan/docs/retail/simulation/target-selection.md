@@ -141,7 +141,7 @@ Three functions drive it, each a plain direct call rather than a slot:
 | `TargetingPod_CycleComponent` (`0040e4ac`) | `CockpitWidgets_HandleCommand+0x321`, and the resolver below | `Tab` — step to the next component the target still has |
 | `TargetingPod_ResolveAimPoint` (`0040e4dc`) | `Player_ResolveTargetAimPoint+0x51` | Where to aim, and which component that is |
 
-`Tab` is scancode `0x0f`, dispatched like every other cockpit command — see [`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes). It only reaches the pod while the heads-down display is down: in view mode 1 the same case hands `0x0f` to the HDD's own command slot instead, which is the manual's `Zoom Map In/Out`.
+`Tab` is scancode `0x0f`, dispatched like every other cockpit command — see [`cockpit-input.md`](cockpit-input.md#keyboard-commands-are-scancodes). It only reaches the pod while the heads-down display is down: in view mode 1 the same case hands `0x0f` to the HDD's own command slot instead, which is the manual's `Zoom Map In/Out`.
 
 ### The lock is two fields, and they are not interchangeable
 

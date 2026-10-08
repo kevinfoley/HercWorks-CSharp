@@ -48,7 +48,7 @@ sealed class WindowKeys : ISystemButtonActions {
 	/// Video_ToggleFullscreen (004666c4). Retail takes DirectDraw exclusive at the 3D view's size, an 8-bit
 	/// display mode, with the window topmost over it, confines the pointer to the screen and centres it;
 	/// going back releases DirectDraw and restores the window rect it saved on the way in
-	/// (docs/retail/formats/cockpit-input.md, "The two system buttons"). Here it is the same move the front end
+	/// (docs/retail/simulation/cockpit-input.md, "The two system buttons"). Here it is the same move the front end
 	/// makes for VSHELL's toggle (FrontEndWindow.ToggleFullScreen): the window covers its monitor at the monitor's own mode, the
 	/// cockpit scaled into it as it is in a window, which is the divergence the user chose there so that
 	/// no display mode changes.
@@ -57,7 +57,7 @@ sealed class WindowKeys : ISystemButtonActions {
 
 	/// <summary>
 	/// [/] is Sim_DispatchCommand's 0x35, the on-line manual; [?] is the same key, since SimCommandMask strips
-	/// the Shift bit (docs/retail/formats/cockpit-input.md#keyboard-commands-are-scancodes). The dispatcher never sees
+	/// the Shift bit (docs/retail/simulation/cockpit-input.md#keyboard-commands-are-scancodes). The dispatcher never sees
 	/// a key while a modal panel's own loop holds the input, so neither does this.
 	/// </summary>
 	public void ReadManualKey(bool flashCommHasKeyboard, bool modalPanelOpen) {

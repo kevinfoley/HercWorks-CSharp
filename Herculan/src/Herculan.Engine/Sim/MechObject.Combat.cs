@@ -111,7 +111,7 @@ public sealed partial class MechObject {
 	/// <para>The command only reaches the pod while the heads-down display is <i>not</i> down: in view
 	/// mode 1 the same scancode goes to the display's own command slot instead, which is the manual's
 	/// <c>Zoom Map In/Out</c>. That split is the host's to make — see
-	/// docs/retail/formats/cockpit-input.md.</para>
+	/// docs/retail/simulation/cockpit-input.md.</para>
 	/// </summary>
 	public void CycleTargetComponent() => Pods.TargetingMount?.ComponentLock?.CycleComponent(Target);
 

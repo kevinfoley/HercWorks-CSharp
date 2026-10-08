@@ -66,8 +66,8 @@ Then one 24-byte header per frame, plus its variable tail:
 | `+0x0f` | byte | Zero: the writer builds the four bytes as one `uint32` with nothing above bit 16 |
 | `+0x10` | uint32 | Mouse-event count |
 | `+0x14` | uint32 | Command count |
-| `+0x18` | 14 x n | The mouse events, in `CockpitMouseQueue_Push`'s own record layout ([`cockpit-input.md`](cockpit-input.md#3-the-cockpits-one-listener-queues-it-doesnt-act)) |
-| — | int16 x n | The command codes, in the layout of the queue at `004d2148` ([`cockpit-input.md`](cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)) |
+| `+0x18` | 14 x n | The mouse events, in `CockpitMouseQueue_Push`'s own record layout ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#3-the-cockpits-one-listener-queues-it-doesnt-act)) |
+| — | int16 x n | The command codes, in the layout of the queue at `004d2148` ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)) |
 
 **Buttons 5-8 are not recorded.** Only `004d2360`-`004d2363` reach the header, and playback's `memset` of the input block leaves the other four zero. The four bits are written after the press-once latch has masked the build ([`joystick-input.md`](joystick-input.md#the-buttons)), so each is set on the one frame its action fires, and the trigger's own button is zero because the trigger is extracted from it. The hat bytes are zero under HAT = 2, which writes the hat onto the turret axes and clears them before they are recorded.
 

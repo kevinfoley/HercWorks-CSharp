@@ -111,7 +111,7 @@ Two parsers. `WinMain_ParseSwitches` (`0045e6b0`) (DBSIM) runs first from `WinMa
 
 ### `-SPRUNKNOWN`: the developer keys
 
-`DAT_0049ef60` gates these commands. Codes are set-1 scancodes plus `0x200` for `Alt` and `0x400` for `Ctrl` ([`formats/cockpit-input.md`](formats/cockpit-input.md#keyboard-commands-are-scancodes)), and the key names are read from `VkToScancode`.
+`DAT_0049ef60` gates these commands. Codes are set-1 scancodes plus `0x200` for `Alt` and `0x400` for `Ctrl` ([`simulation/cockpit-input.md`](simulation/cockpit-input.md#keyboard-commands-are-scancodes)), and the key names are read from `VkToScancode`.
 
 In `Sim_DispatchCommand` (`0045fdac`):
 

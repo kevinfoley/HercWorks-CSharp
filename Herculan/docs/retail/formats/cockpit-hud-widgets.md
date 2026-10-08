@@ -4,7 +4,7 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addres
 
 Verified against retail data in `ES2/VOL/simvol0/{hba,gau,dat}/`.
 
-The view manager and canvas these widgets are drawn onto: [`cockpit-views.md`](cockpit-views.md). Canopy art and the palette a flash swaps: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). The front-window gunsight complex (a separate widget tree): [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md). How a mouse click on any of these widgets reaches its own click handler: [`cockpit-input.md`](cockpit-input.md).
+The view manager and canvas these widgets are drawn onto: [`cockpit-views.md`](cockpit-views.md). Canopy art and the palette a flash swaps: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). The front-window gunsight complex (a separate widget tree): [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md). How a mouse click on any of these widgets reaches its own click handler: [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md).
 
 ## HUD sprite art — `.HBA`/`.DBA`
 
@@ -22,7 +22,7 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 | `throttle` | `ThrottleGauge_Ctor` (`00447b84`) | throttle slider knob |
 | `sysbuttn`, `icons`, `corners` | `SystemButtons_Ctor` (`00434368`), `HddMarker_Ctor` (`0044f130`), `CockpitFontsAndCorners_Init` (`004544a4`) | |
 
-The class names in these symbols (`ThrottleGauge`, `WeaponGauge`, …) are the classes' own, read from their Borland class records ([`borland-rtti.md`](borland-rtti.md)). [`cockpit-input.md`](cockpit-input.md#the-cockpits-own-gadget-classes) has the clickable-widget hierarchy.
+The class names in these symbols (`ThrottleGauge`, `WeaponGauge`, …) are the classes' own, read from their Borland class records ([`borland-rtti.md`](borland-rtti.md)). [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#the-cockpits-own-gadget-classes) has the clickable-widget hierarchy.
 
 Frame-to-state mapping: `PWEAPONS` 0/1 are the selected/unselected row plate, 2/3 the unlit/lit console-button plate, 4/5/6 the hardpoint state box (green / red / amber), 7 a 640x80 strip ([Open](#open)); `WPN_DMG`'s frame 0 is the row underlay, a flat 112x14 plate in the row background `0x2e`, and frames 1-9 a weapon row's [sensor-dropout wipe](#the-wipes); `MFD_DMG`'s seven 192x118 frames are the MFD's; `THROTTLE` 0 is a 2x12 tick and 1 the 28x12 knob; `RADAR`'s 10 110x110 frames are the sweep animation; `MFD` 0-2 are 196x122 screen chrome, 3-10 five button plates in unlit/lit pairs (see [`mfd.md`](mfd.md)); `HUD` 0 is the 45x45 reticle, 11 the 182x10 rotation-indicator track and 12/13 its 62x4 yellow and green bars (sizes in the 640-wide `hba\` banks; `dba\` is exactly half).
 
@@ -30,7 +30,7 @@ Frame-to-state mapping: `PWEAPONS` 0/1 are the selected/unselected row plate, 2/
 
 ## `.GAU` widget tree
 
-`Gau_Load` (`00431778`, `PANEL.CPP:0x1d6`) reads a `0x6a4`-byte struct and vector-constructs six arrays of 16-byte rects inside it, of 10, 3, 4, 13, 15 and 3. The file's first two `int32`s are an origin offset added to every widget rect. `Gau_BuildCockpitWidgets` (`00431bf8`) then builds seven top-level widgets from fixed offsets and shifts every rect by `VideoMode_X/YCoordShift`. The order it builds them in is also the cockpit's click precedence — [`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence) has the full sequence.
+`Gau_Load` (`00431778`, `PANEL.CPP:0x1d6`) reads a `0x6a4`-byte struct and vector-constructs six arrays of 16-byte rects inside it, of 10, 3, 4, 13, 15 and 3. The file's first two `int32`s are an origin offset added to every widget rect. `Gau_BuildCockpitWidgets` (`00431bf8`) then builds seven top-level widgets from fixed offsets and shifts every rect by `VideoMode_X/YCoordShift`. The order it builds them in is also the cockpit's click precedence — [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#registration-order-is-precedence) has the full sequence.
 
 GAU coordinates are authored in the 320-wide space, half the 640-wide art's. See [`cockpit-views.md`](cockpit-views.md#cockpit-canvas) for the y-range question.
 
@@ -115,7 +115,7 @@ The gauge captures the tick's blit position **once**, in the constructor, at the
 
 **`+0xb1` drives nothing.** `ThrottleGauge_SetValues` marks the slider child dirty when it changes, and `ThrottleSlider_PaintV` copies it into `+0x7a` and `+0x4a` and does nothing further with it — so its only observable effect is to force a repaint whenever the machine's speed changes. It is the other half of the cut feature the two fill bars are: the knob shows the throttle asked for, the bars would have shown the speed actually reached.
 
-The slider is the **only widget a press can drag in a retail cockpit**: the energy rows' charge bars carry the same drag flag, but each lies under its row's select gadget — see [cockpit-input.md §7](cockpit-input.md#7-press-release-click-vs-drag). `ThrottleSlider_OnValue` (`00448378`) also sets `ThrottleLeverMode` (`0049a06e`) from the committed value's sign, but gated on a joystick throttle control being configured. See mech-locomotion.md for what that global actually is.
+The slider is the **only widget a press can drag in a retail cockpit**: the energy rows' charge bars carry the same drag flag, but each lies under its row's select gadget — see [../simulation/cockpit-input.md §7](../simulation/cockpit-input.md#7-press-release-click-vs-drag). `ThrottleSlider_OnValue` (`00448378`) also sets `ThrottleLeverMode` (`0049a06e`) from the committed value's sign, but gated on a joystick throttle control being configured. See mech-locomotion.md for what that global actually is.
 
 ## `ShieldsGauge`
 

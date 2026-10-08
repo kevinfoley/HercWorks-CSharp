@@ -243,7 +243,7 @@ public sealed class EngineWindow : IDisposable {
 	/// <c>Display_ToggleFullScreen</c> (<c>00407085</c>) and DBSIM's <c>Video_ToggleFullscreen</c>
 	/// (<c>004666c4</c>) each <c>ClipCursor</c> the pointer to the new display mode's screen and
 	/// <c>SetCursorPos</c> it to the middle (docs/retail/shell/main-menu.md, "Full screen asks first";
-	/// docs/retail/formats/cockpit-input.md, "The two system buttons").
+	/// docs/retail/simulation/cockpit-input.md, "The two system buttons").
 	/// </summary>
 	/// <param name="pointer">The window's mouse, or null when it has none.</param>
 	public void ToggleFullScreen(IMouse? pointer) {

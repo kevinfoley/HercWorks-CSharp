@@ -79,7 +79,7 @@ public sealed class SimulatorFrame {
 	/// <summary>
 	/// Which of the two system buttons show, by the pointer's row, decided where Sim_RenderFrame ends, which no
 	/// frame reaches while a modal panel's own loop holds the screen: the pair stays as it was when the panel went
-	/// up. Nothing shows them in the external view; see docs/retail/formats/cockpit-input.md#open.
+	/// up. Nothing shows them in the external view; see docs/retail/simulation/cockpit-input.md#open.
 	/// </summary>
 	public bool[] SystemButtonsShowing => _systemButtonsShowing;
 

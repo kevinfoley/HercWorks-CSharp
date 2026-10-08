@@ -3948,7 +3948,7 @@
       "confidence": "high",
       "name": "WeaponMounts_BuildGauges",
       "description": "Walks the mount array (pointer at +4, count at +8) and calls each mount's own gauge factory slot, vtable +0x64. The closing call of Gau_BuildCockpitWidgets, so every weapon row's clickables are appended to the flat list after all seven gauges and before the edge strips. An energy row registers two -- ChainedWeaponSelectGadget then the charge bar's WeaponSliderGadget -- which is why the select gadget wins where the bar overlaps it.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl WeaponMounts_BuildGauges(int mountManager)"
     },
     {
@@ -5076,7 +5076,7 @@
       "confidence": "high",
       "name": "Shield_BalanceInputRead",
       "description": "Per frame for the player: copies the shield gauge's 15-byte state block (UI slot +0x1e9, ShieldsGauge_GetStateBlock); if the block's byte 13 is set calls Shield_BalanceAdjust(1) and clears it, else if byte 14 is set calls Shield_BalanceAdjust(0) and clears it. Then writes (front << 10) / baseMax, (rear << 10) / baseMax (shield block +0x0, +0x2 over +0x8) and the raw balance (+0x4) into the block and hands it back through ShieldsGauge_SetStateBlock.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00413bc8+157",
         "sha1": "06be93ba1133",
@@ -6757,7 +6757,7 @@
       "confidence": "high",
       "name": "Flyer_HandleCommandNoOp",
       "description": "FLYER vtable +0x2c: loads its second argument into AX, then XOR EAX,EAX and returns 0 without acting on it -- which is why the shield bracket keys do nothing in a RAZOR.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004215cc",
@@ -9269,7 +9269,7 @@
       "confidence": "high",
       "name": "Widget_DrawToCockpit",
       "description": "Stage 1 of the two-stage deferred paint that vtable slot +0xc drives. Acts only on the -b paged path (Display_UseScrollWindow == 0) and returns 0 otherwise: pushes the canvas render context, sets the source page (+0x38) and draw page (+0x3c) to the render target's +0x8c/+0x88 for a first argument of 1 (the reverse for 0) and copies the widget's rect between them with Region_CopyBetweenPages at the offset in the third argument, Cockpit_ZeroOffset ({0,0}) when that is null. Skips argument 1 while DAT_004d25ae is set. All 34 callers pass a null offset, and driver 3's rect copy returns at once on a zero offset, so in this image the copy moves nothing.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00431410",
@@ -9373,7 +9373,7 @@
       "confidence": "high",
       "name": "Gau_BuildCockpitWidgets",
       "description": "Caller of Gau_Load. Builds the cockpit's widget tree, and the order it does so in IS the flat clickable list's order, which first-hit-wins makes into precedence: SystemButtons_Ctor's two system gadgets, then the seven top-level gauges from fixed literal .GAU offsets (468 console buttons, 548 energy meter, 616 shields, 728 MFD, 1000 throttle, 1088 roving gunsight, 1212 heads-down display) stored at cockpit+0x1e1..+0x1f9, then WeaponMounts_BuildGauges for the weapon rows. Also builds the pilot message port at +0x207 from .GAU 1668 and the computer's message port at +0x20b from 1684. Ends with the flyer branch: when the piloted machine's type record has a non-zero +0x50 (InputFlagFlyer, the RAZOR alone) it marks the power-up already finished at cockpit+0x245 and both arms and immediately latches (+0x8d = 1) the ten gauges and the three widgets at +0x1e9/+0x1f5/+0x1ed, so none of them plays its power-up animation and Cockpit_PowerUpSound never stamps a start tick.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl Gau_BuildCockpitWidgets(int *cockpit, char *hercName)"
     },
     {
@@ -9498,7 +9498,7 @@
       "confidence": "high",
       "name": "CockpitWidgets_TranslateForView",
       "description": "(cockpitView, delta) -- re-places the cockpit's widgets for a view change. FIRST calls Widget_TranslateRootForView on the root (*cockpitView), which is what converts screen coordinates to canvas coordinates for every later hit test; then subtracts the delta from the pair at +0x220/+0x224, then walks the list at +0x246 (count at +0x25a) offsetting each widget's rect by -delta through Widget_OffsetRect. The three screen-edge strips are NOT in that list and are handled separately: when the one-shot build flag at +0x23e is set, it hands the same delta to CockpitView_FlipScrollTriggers. Called from CockpitView_ApplyViewState (00429e60), which has two call sites for it -- one when leaving a glance, passing that view's own origin, and a general one passing the outgoing view's origin minus the incoming view's.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004327ac",
@@ -9583,7 +9583,7 @@
       "confidence": "high",
       "name": "CockpitWidgets_HandleCommand",
       "description": "(view, code): the cockpit widget tree's command handler. Returns 0 at once while the widgets are off (+0x20f). The view is CockpitViewManager_Published()+0x14. 0x27 (;) clears the selection (TargetSelect_SetObject(view, 0)). 0x0f (Tab) goes to the HDD's (+0x1f9) key slot (+0xc) in view 1, and otherwise steps the cockpit machine's (+0x203) Targeting Pod (+0x30b) with TargetingPod_CycleComponent. 0x01 (Esc) queues view command 0, 1 or 6 from views 0, 1 and 2-3. 0x02-0x0b, outside view 1, take the weapon gauge at +0x70 + (code-2)*4 and, when there is one, CockpitView_ArmWeaponByGauge then Widget_PressChild(gauge, 0, 1). 0x13 (R) runs Mech_ToggleRadarMode. 0x1c (Enter) returns 0 in view 4 and, outside view 1, presses MFD (+0x1ed) child 9 on mode 3, child 7 on mode 4, and runs TargetSelect_Cycle on any other mode. 0x3b-0x40 (F1-F6) press MFD child code-0x3b, then queue view command 1 from view 1 or 6 from views 2-3. 0x41-0x42 (F7, F8) press HDD child code-0x41 and, unless maybe_CockpitLayoutMode is 1, queue view command 0. 0x43 (F9) queues 5 from view 0 or 6 from view 2; 0x44 (F10) 4 from view 0 or 6 from view 3. 0x57 (F11) builds and runs an ObjectivesPanel. 0x220 (Alt+D) runs NavMarker_DropAtPlayer. Any other code goes to MfdFlashComm_HandleAltKey, then in view 1 to the HDD's key slot, and otherwise to the key slots of +0x1d8 (when set), +0x1e1, +0x1e5, +0x1e9, +0x1f1, +0x1f5 and +0x1ed, and of +0x1f9 when maybe_CockpitLayoutMode is 1, stopping at the first that returns nonzero. Returns 1 for a code it handled, 0 otherwise.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00432bc8+1385",
         "sha1": "cd83b9174a8e",
@@ -9661,7 +9661,7 @@
       "confidence": "high",
       "name": "CockpitView_BuildScrollTriggers",
       "description": "Builds the three ScrollTrigger widgets, allocating 0x24 bytes each and running Widget_CtorRect before overwriting +0x17 with ScrollTriggerVtable, storing the cockpit view at the widget's +0x20 and calling Widget_RegisterClickable. The rects are screen-relative, in the display's own width and height, with the band thicknesses scaled by VideoMode_XCoordShift/YCoordShift: {0, H-1-(3<<Y), W-1, H-1} the bottom strip at +0x21a, {0, 0, 5<<X, H-1} the left at +0x21e, and {W-1-(5<<X), 0, W-1, H-1} the right at +0x222. Called once, lazily, from the cockpit tick (004327ac) on the first frame that finds the one-shot flag at +0x23e clear -- not from any constructor, which is why the three sit apart from the rest of the widget build.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00433968",
@@ -9669,8 +9669,8 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_FlipScrollTriggers",
-      "description": "(cockpitView, delta) -- re-places the three ScrollTrigger strips at +0x21a/+0x21e/+0x222 on a view change, and the only code that touches their rects after CockpitView_BuildScrollTriggers makes them. Per axis, a delta of at least a band's worth (>= 6, or < -5) sets a sign and a compensating shift of one full display width or height, and a smaller delta leaves that axis alone. Where the sign is set the band is reflected across its own edge -- y0 = y1, y1 = y0 + height for a downward delta, mirrored for an upward one -- and the rect is then translated by the delta net of the full-screen shift. Reflecting a band and shifting it by a screen is what carries an edge strip to the far side of the display, which is what retail shows: the bottom edge pans down to the heads-down view and the top edge comes back. Simulating it over all four views reproduces retail exactly, including that a click at the top of the heads-down view pans back up and a click at its bottom does nothing. For the bottom strip on a vertical pan the reflection and the translation cancel, leaving the rect alone and letting the root origin do the work; the reflection earns its keep on the side strips, where it carries the left strip's band to the right edge of the left window so the way back is the opposite edge. See docs/retail/formats/cockpit-input.md.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "(cockpitView, delta) -- re-places the three ScrollTrigger strips at +0x21a/+0x21e/+0x222 on a view change, and the only code that touches their rects after CockpitView_BuildScrollTriggers makes them. Per axis, a delta of at least a band's worth (>= 6, or < -5) sets a sign and a compensating shift of one full display width or height, and a smaller delta leaves that axis alone. Where the sign is set the band is reflected across its own edge -- y0 = y1, y1 = y0 + height for a downward delta, mirrored for an upward one -- and the rect is then translated by the delta net of the full-screen shift. Reflecting a band and shifting it by a screen is what carries an edge strip to the far side of the display, which is what retail shows: the bottom edge pans down to the heads-down view and the top edge comes back. Simulating it over all four views reproduces retail exactly, including that a click at the top of the heads-down view pans back up and a click at its bottom does nothing. For the bottom strip on a vertical pan the reflection and the translation cancel, leaving the rect alone and letting the root origin do the work; the reflection earns its keep on the side strips, where it carries the left strip's band to the right edge of the left window so the way back is the opposite edge. See docs/retail/simulation/cockpit-input.md.",
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00433a88",
@@ -9678,8 +9678,8 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_HandleEdgeTrigger",
-      "description": "(cockpitView, trigger) -- maps a click on one of the three screen-edge ScrollTrigger strips to a view command, by current view. Not a keyboard handler and not reachable from one: its only caller in the image is ScrollTrigger_OnClick (00434df0), which passes the clicked widget. The manual's 'change views with the mouse by clicking on the screen edge leading to the view you want'. Compares the widget pointer against the three built by CockpitView_BuildScrollTriggers: +0x21a (bottom strip) queues command 0 from view 0 and 1 from view 1; +0x21e (left strip) queues 5 from view 0 and 6 from view 3; +0x222 (right strip) queues 4 from view 0 and 6 from view 2. Each strip therefore serves exactly two views and does nothing from any other. In screen terms each pair is the manual's rule in both directions, because widget rects are in canvas space and the root widget's origin moves with the view: the bottom edge pans down to the heads-down view and the TOP edge pans back up, the same widget both times, and from a side window it is the OPPOSITE edge that returns. Simulated over all four views, every strip lands on the edge facing the view it leads to; see docs/retail/formats/cockpit-input.md.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "description": "(cockpitView, trigger) -- maps a click on one of the three screen-edge ScrollTrigger strips to a view command, by current view. Not a keyboard handler and not reachable from one: its only caller in the image is ScrollTrigger_OnClick (00434df0), which passes the clicked widget. The manual's 'change views with the mouse by clicking on the screen edge leading to the view you want'. Compares the widget pointer against the three built by CockpitView_BuildScrollTriggers: +0x21a (bottom strip) queues command 0 from view 0 and 1 from view 1; +0x21e (left strip) queues 5 from view 0 and 6 from view 3; +0x222 (right strip) queues 4 from view 0 and 6 from view 2. Each strip therefore serves exactly two views and does nothing from any other. In screen terms each pair is the manual's rule in both directions, because widget rects are in canvas space and the root widget's origin moves with the view: the bottom edge pans down to the heads-down view and the TOP edge pans back up, the same widget both times, and from a side window it is the OPPOSITE edge that returns. Simulated over all four views, every strip lands on the edge facing the view it leads to; see docs/retail/simulation/cockpit-input.md.",
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00433b20",
@@ -9866,7 +9866,7 @@
       "confidence": "high",
       "name": "SystemButtons_Ctor",
       "description": "Registers the first two entries of the cockpit's clickable list, ahead of every gauge. Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by VideoMode_PanelMode == 3), then builds two SystemGadgets from hardcoded coordinates rather than from the .GAU: x 305-317 and x 291-303, y 2-13 inclusive, in 320-wide units shifted by VideoMode_X/YCoordShift -- the screen's top-right corner, where CockpitWidgets_TranslateForView keeps them in every view. Frame 0 (a question mark) on the right-hand one, frame 1 (a window) on the left. Stored at cockpit+0x246 and +0x24a with the count 2 at +0x25a. Child 0 raises the on-line manual, child 1 toggles fullscreen -- see SystemButtons_OnChildClick.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl SystemButtons_Ctor(int *cockpit)"
     },
     {
@@ -9891,7 +9891,7 @@
       "confidence": "high",
       "name": "SystemButtons_OnChildClick",
       "description": "Owner slot 0 for both SystemGadgets. Matches the clicked widget against the pair at cockpit+0x246 by index and, unless a .TAP is replaying (TapePlayback), runs child 0 as OnlineManual_Raise followed by Help_Show and child 1 as Video_ToggleFullscreen followed by a repaint of the shield gauge at cockpit+0x1e9.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl SystemButtons_OnChildClick(int cockpit, int widget)"
     },
     {
@@ -9919,7 +9919,7 @@
       "confidence": "high",
       "name": "SystemGadget_Ctor",
       "description": "Constructor for SystemGadget (object size 0x60), the on-line manual and fullscreen-toggle buttons at the screen's top-right corner; SystemButtons_Ctor builds both. Leaves the state byte at +0x1b holding 3 rather than 0, which Widget_HitTestChildren treats as clickable and SystemGadget_Paint draws as the art beneath. Class name from the descriptor record at 00434ced.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "int __cdecl SystemGadget_Ctor(int gadget, int *rect)"
     },
     {
@@ -9929,7 +9929,7 @@
       "confidence": "high",
       "name": "SystemGadget_Paint",
       "description": "SystemGadget's vtable +0. Blits the button's frame in state 0 after rebasing the rect through the widget render context, and in state 3 -- the state its constructor leaves it in -- restores the art underneath instead. Draws nothing in state 2.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00434910",
@@ -9938,7 +9938,7 @@
       "confidence": "high",
       "name": "SystemGadget_OnClick",
       "description": "SystemGadget's vtable +8. Forwards itself to SystemButtons_OnChildClick with the cockpit singleton; ignores the button flags the slot is called with.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00434928",
@@ -10088,7 +10088,7 @@
       "confidence": "high",
       "name": "ScrollTrigger_OnClick",
       "description": "ScrollTrigger's vtable +0x08, and the whole of the class's behaviour: calls CockpitView_HandleEdgeTrigger(this->[0x20], this). ScrollTrigger carries no PanelGadget mixin, so +0x20 is a plain owner pointer rather than a second vtable, and the strip makes no console click.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00434e05",
@@ -11029,7 +11029,7 @@
       "confidence": "high",
       "name": "Widget_PressChild",
       "description": "(gauge, index, flags): unless the child at gauge+0x18[index] is in state 2, calls its press slot (+0x17 vtable, +8) with flags as if it had been clicked, then queues it on the cockpit root's press flash (WidgetRoot_FlashPress) so it shows pressed for 10 coarse ticks. This is how a bound key reaches a button: CockpitWidgets_HandleCommand, ConsoleButtons_HandleCommand, MfdDisplay_KeyDispatch and HddDisplay_KeyDispatch press their buttons through it rather than duplicating each button's own action, and es2_naming.py callers finds more.",
-      "source": "DBSIM decompile at 00438d9c; docs/retail/formats/cockpit-input.md",
+      "source": "DBSIM decompile at 00438d9c; docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00438d9c+64",
         "sha1": "9f8fe68fb918",
@@ -11063,7 +11063,7 @@
       "confidence": "high",
       "name": "Widget_ClickSound",
       "description": "push 0x11; call Sound_Play. Slot +8 of the secondary (CTLControl subobject) vtable in every button-family gadget class. It is called with the subobject pointer and ignores it, which is why one function serves them all; the slider family replaces it with the empty stub 00439014 and is therefore silent.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00438e2c+13",
         "sha1": "0d62a69a9548",
@@ -11078,7 +11078,7 @@
       "confidence": "high",
       "name": "Widget_ForwardClickToOwner",
       "description": "The base OnClick at leaf-widget vtable slot +8, installed by the intermediate class at vtable 0049dee4 and inherited unchanged by the shield facings, the MFD's momentary button class and the HDD buttons. Gated on the left-button bit; calls owner->vtable[0](owner, self, buttonFlags) through the owner pointer the constructor stored at +0x24, then repaints itself and sounds Widget_ClickSound through slot +8 of its second vtable at +0x20.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00438e3c+49",
         "sha1": "f3d9e9632a99",
@@ -11120,7 +11120,7 @@
       "confidence": "high",
       "name": "Widget_NoClickSound",
       "description": "An empty function standing in for Widget_ClickSound at slot +8 of the slider family's secondary vtable. Dragging the throttle, or any other PanelHSliderGadget/PanelVSliderGadget leaf, makes no sound.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0043901c",
@@ -12383,7 +12383,7 @@
       "confidence": "high",
       "name": "PodGauge_SetStateBlock",
       "description": "PodGauge vtable +0x14. Writes the caller's 8 bytes over gauge+0xc2 and marks the widget dirty, but only when the destroyed byte at +0xc3 has changed -- the button byte at +0xc2 cannot make this class repaint. TogglePodGauge_SetStateBlock compares both bytes.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl PodGauge_SetStateBlock(int gauge, char *block)"
     },
     {
@@ -12393,7 +12393,7 @@
       "confidence": "high",
       "name": "PodGauge_GetStateBlock",
       "description": "PodGauge vtable +0x18, shared by every pod gauge class: returns gauge+0xc2, an 8-byte block whose byte 0 is the button and byte 1 the mount's destroyed flag.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "int __cdecl PodGauge_GetStateBlock(int gauge)"
     },
     {
@@ -12403,7 +12403,7 @@
       "confidence": "high",
       "name": "PodGauge_OnClick",
       "description": "PodGauge vtable slot 0 (0049c8d0), reached the usual way -- the row's WeaponSelectGadget child forwards its click to the owner's slot 0, after sounding Widget_ClickSound. It sets the repaint byte at +0xb0 and returns. A Shield, Targeting or Energy pod row therefore clicks and sounds but holds no on/off state; TogglePodGauge_OnClick is the ECM/Turbo override that does.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl PodGauge_OnClick(int gauge)"
     },
     {
@@ -12423,7 +12423,7 @@
       "confidence": "high",
       "name": "TogglePodGauge_SetStateBlock",
       "description": "TogglePodGauge vtable +0x14: PodGauge_SetStateBlock's override, repainting when either the button byte at +0xc2 or the destroyed byte at +0xc3 has changed rather than the destroyed byte alone.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl TogglePodGauge_SetStateBlock(int gauge, char *block)"
     },
     {
@@ -12433,7 +12433,7 @@
       "confidence": "high",
       "name": "TogglePodGauge_OnClick",
       "description": "TogglePodGauge vtable slot 0 -- structurally identical to ShieldsGauge_OnClick: searches its own child table at +0x18 (count at +0x68) for the widget that was clicked and, for child 0, XORs the button byte at +0xc2 and marks the row dirty. This is the whole of a pod's on/off toggle, and only the ECM and Turbo rows have it.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl TogglePodGauge_OnClick(int gauge, int child)"
     },
     {
@@ -12498,7 +12498,7 @@
       "confidence": "high",
       "name": "ConsoleButtons_Ctor",
       "description": "The console button panel under the weapon rows, from .GAU offset 468. Builds FOUR WeaponRangeSelectGadget children from the rects at 484/500/516/532 and registers each with Widget_RegisterClickable in index order -- the chain selector, LINK, TRACK, and a fourth whose rect is zero in every retail .GAU and which therefore never takes a click. Installs ConsoleButtons_OnChildClick as slot 0, and hides child 2 (TRACK) outright when the piloted machine is a flyer.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void * __cdecl ConsoleButtons_Ctor(void *panel, int *gauBlock, void *owner)"
     },
     {
@@ -12580,7 +12580,7 @@
       "confidence": "high",
       "name": "ConsoleButtons_HandleCommand",
       "description": "The console button panel's command slot: scancode 0x26 (L) presses child 1, the LINK button; 0x29 (backquote) presses child 0, the chain button. The pair of literals is what identifies the whole command-code space as PC set-1 scancodes.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "004421a0+60",
         "sha1": "ef6b4b4f0c50",
@@ -12595,7 +12595,7 @@
       "confidence": "high",
       "name": "WeaponSelectGadget_Ctor",
       "description": "Constructor for WeaponSelectGadget (object size 0x46), the weapon-row leaf without chain membership. Called directly only by PodGauge_Ctor -- a pod row cannot join a fire chain -- and as the base constructor of ChainedWeaponSelectGadget_Ctor. Class name from the descriptor record at 00443283.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00442394",
@@ -12631,7 +12631,7 @@
       "confidence": "high",
       "name": "ChainedWeaponSelectGadget_Ctor",
       "description": "Constructor for ChainedWeaponSelectGadget (object size 0x67), the clickable weapon row EnergyWeaponGauge_Ctor and AmmoWeaponGauge_Ctor build. Derives from WeaponSelectGadget, whose constructor it calls first; the extra level is what carries fire-chain membership, which is why PodGauge_Ctor builds the plain base class instead. Also builds the row's hardpoint state box and weapon-name label. Class name from the descriptor record at 0044333b.",
-      "source": "docs/retail/formats/cockpit-input.md; docs/retail/simulation/weapon-mounts.md"
+      "source": "docs/retail/simulation/cockpit-input.md; docs/retail/simulation/weapon-mounts.md"
     },
     {
       "address": "004426c0",
@@ -12667,7 +12667,7 @@
       "confidence": "high",
       "name": "WeaponSliderGadget_Ctor",
       "description": "Constructor for WeaponSliderGadget (object size 0x7e; class name from the descriptor record at 004432df), a PanelHSliderGadget leaf: the energy weapon row's charge bar, child 1 of EnergyWeaponGauge_Ctor's gauge. Its last vtable stores are WeaponSliderGadgetVtable at +0x17 and WeaponSliderGadget_PanelSliderGadgetVtable at +0x3e. Built on SliderWidget_CtorBase, so it is a horizontal slider over 0..0x400 carrying the +0x1d drag flag, but no press reaches it: the row's ChainedWeaponSelectGadget is registered first and its hit rect, the whole .GAU hardpoint rect, contains the bar in every retail file. Drops the value field's top edge by one GAU unit, builds an LEDBarGraph over range 0x400 at +0x46, and then, when the byte it is handed is zero (as it is in every retail .GAU, where it lands in confirmed-zero padding), overwrites its three colour fields with raw palette indices 0x20 (even columns), 0x22 (odd) and 0x2e (remainder) -- not COLORS.DAT ids, which is why a capacitor bar is blue where the Master Energy Pool's meter is grey.",
-      "source": "DBSIM decompile at 00442950; docs/retail/formats/cockpit-input.md; docs/retail/simulation/weapon-mounts.md"
+      "source": "DBSIM decompile at 00442950; docs/retail/simulation/cockpit-input.md; docs/retail/simulation/weapon-mounts.md"
     },
     {
       "address": "00442b38",
@@ -12694,7 +12694,7 @@
       "confidence": "high",
       "name": "WeaponRangeSelectGadget_Ctor",
       "description": "Constructor for WeaponRangeSelectGadget (object size 0x41), the weapon-range gauge's button; derives from PanelStateGadget, so it latches. Built by ConsoleButtons_Ctor. Class name from the descriptor record at 00443223.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00442c88",
@@ -13024,7 +13024,7 @@
       "confidence": "high",
       "name": "ShieldsGauge_Paint",
       "description": "ShieldsGauge's vtable+4 slot. Unconditionally calls ShieldsGauge_UpdateRingPalette and ShieldsGauge_UpdateReadouts.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00443748",
@@ -13033,7 +13033,7 @@
       "confidence": "high",
       "name": "ShieldsGauge_Update",
       "description": "ShieldsGauge's per-frame update slot (vtable+8, called from the general HUD paint pass, not the click pipeline). Gated on visibility and a 'shields present' flag; when the dirty flag ShieldsGauge_SetStateBlock set (+0xb0==2) is pending, refreshes the ring palette and readouts and clears it. This is the bridge between Shield_BalanceInputRead's once-per-frame gameplay update and the HUD paint pass -- the click sets a flag, the gameplay tick consumes it into real sim state and a dirty bit, and this slot is what actually repaints from that bit.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004437a4",
@@ -13051,7 +13051,7 @@
       "confidence": "high",
       "name": "ShieldsGauge_OnClick",
       "description": "ShieldsGauge's own vtable slot 0 (per the same *param_1=&PTR_thisFunction ctor-assignment evidence used for MfdButton_OnClick). Searches its own +0x18/+0x68 child-pointer table (populated identically to MfdDisplay's, by ShieldsGauge_Ctor) for the clicked facing widget; index 0 (front) sets state byte +0xc2=1 clearing +0xc3, index 1 (rear) the reverse. Consumed once per frame by Shield_BalanceInputRead, not painted directly.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00443858",
@@ -13060,7 +13060,7 @@
       "confidence": "high",
       "name": "ShieldsGauge_SetStateBlock",
       "description": "Write-back counterpart to ShieldsGauge_GetStateBlock: overwrites the 15-byte state block at param_1+0xb5 from param_2 (called by Shield_BalanceInputRead with the freshly computed front/rear percentages and a cleared click-flag pair), and sets the dirty flag at +0xb0=2 if the values actually changed. Also zeroes the front/rear fields when the gauge's +0x8d 'shields down' flag is set.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004438e0",
@@ -13069,7 +13069,7 @@
       "confidence": "high",
       "name": "ShieldsGauge_GetStateBlock",
       "description": "Trivial accessor: returns param_1+0xb5, the start of ShieldsGauge's 15-byte live state block (front charge, rear charge, balance, then the two click flags ShieldsGauge_OnClick sets). Shield_BalanceInputRead copies out of this pointer directly rather than through a richer accessor.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004438f0",
@@ -13111,7 +13111,7 @@
       "confidence": "high",
       "name": "ShieldFacing_Paint",
       "description": "A shield-facing child's Paint slot. Its whole body is a CockpitView_RectCornerVisible call whose result it discards: it draws nothing, because the concentric rings retail shows are palette-animated into the herc's own canopy art, not drawn by this widget (see ShieldsGauge_UpdateRingPalette in docs/retail/formats/cockpit-hud-widgets.md).",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00444b5c+17",
         "sha1": "a1bf2a3ad088",
@@ -13126,7 +13126,7 @@
       "confidence": "high",
       "name": "ShieldFacing_FlushDeferredPaint",
       "description": "The shield facing's vtable slot +0xc, the per-frame deferred-paint flush every cockpit widget class implements. Counter at +0x1f: 2 decrements without repainting (a facing has no content to rebuild, its rings being palette-animated), 1 calls Widget_DrawToCockpit and decrements. The counter is set to 2 by Widget_InvalidateDeferred, which Widget_Repaint calls on every press and release.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00444b70+43",
         "sha1": "471ed3b027f9",
@@ -13498,7 +13498,7 @@
       "confidence": "high",
       "name": "MfdFlashComm_HandleListClick",
       "description": "(display, gadget, point): resolves a click on the MFD's screen area to a FLASH COMM row. Returns at once unless the display is on mode 1 (+0xc1), then walks the six row label rects in index order -- inclusive on all four edges -- and stops at the first hit. Rows are built top..top+14 and stepped by 14, so adjacent rows share a line and the first-match walk gives it to the upper one. When CockpitMouse_DoubleClick is set and the hit row is the display's shared row (+0xb1), it presses child 10, XMIT, through Widget_PressChild(display, 10, 1), calls MfdFlashComm_Transmit and sets the mode's repaint byte (+0xe5 + mode); any other hit stores the row through MfdDisplay_SetSharedRow and sets +0xe6. A point on no row does nothing.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl MfdFlashComm_HandleListClick(int display, void *gadget, int *point)",
       "verified": {
         "bytes": "00447098+152",
@@ -13578,7 +13578,7 @@
       "confidence": "high",
       "name": "MFDSelectGadget_Ctor",
       "description": "Constructor for MFDSelectGadget, the MFD's momentary leaf button (object size 0x40, indices 7-10). Three levels over Widget_CtorRect ending at vtable 0049cf60, whose slot 0 is MfdButton_SetCaption; leaves slot +8 as the inherited Widget_ForwardClickToOwner, so it has no lit flag and shows only the shared press state. The class name is its own, from the descriptor record at 00447a6f. See docs/retail/formats/mfd.md.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00447358",
@@ -13611,7 +13611,7 @@
       "confidence": "high",
       "name": "MFDStateGadget_Ctor",
       "description": "Constructor for MFDStateGadget, the MFD's latching leaf button (object size 0x41, indices 0-5, 11 and 12, plus 6 by falling through the ctor switch). Four levels over Widget_CtorRect ending at vtable 0049cf20, whose slot 0 is MfdButton_Repaint; overrides slot +8 with 004474a8, which refuses a press while the +0x40 lit flag is already set, sets it, forwards to the owner, repaints and sounds the click. The class name is its own, from the descriptor record at 00447a17. See docs/retail/formats/mfd.md.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004474a8",
@@ -13653,7 +13653,7 @@
       "confidence": "high",
       "name": "MFDListGadget_Ctor",
       "description": "Constructor for MFDListGadget (object size 0x28), the MFD's screen-content click region, registered by MfdDisplay_Ctor after the 13 buttons. Derives from PanelListGadget. Class name from the descriptor record at 004479d3.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00447630",
@@ -13662,7 +13662,7 @@
       "confidence": "high",
       "name": "MFDListGadget_OnClick",
       "description": "The MFD screen-area gadget's (MFDListGadget) vtable +8, (gadget, buttonFlags). Left button only; calls MfdFlashComm_HandleListClick(owner, self, &DAT_004d1e67), the owner taken from the gadget's own +0x24. It makes no other call, its PanelGadget mixin's click slot included, so the click makes no sound of its own; a double-click on the selected row sounds XMIT's, through the press MfdFlashComm_HandleListClick makes. The mirror of HDDListGadget_OnClick.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl MFDListGadget_OnClick(int gadget, unsigned char buttonFlags)",
       "verified": {
         "bytes": "00447630+32",
@@ -14525,7 +14525,7 @@
       "confidence": "high",
       "name": "HDDisplayGadget_Ctor",
       "description": "Constructor for HDDisplayGadget (object size 0x24), the Heads-Down Display's clickable-surface base; HddMarker_Ctor derives HDDMapGadget from it. Class name from the descriptor record at 004505ab.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0044bed0",
@@ -14718,7 +14718,7 @@
       "confidence": "high",
       "name": "HddCommandScreen_Show",
       "description": "Command display vtable +0xc, run by HddDisplay_SetPage on the incoming page. Clears the state byte on three widgets: the order-column list gadget at screen+0x35, and the display's XMIT and CANCEL buttons. It does NOT touch the map viewport gadget at screen+0x39 -- no writer of state 2 into that widget is found (the cockpit's press code writes only 1 and 0 through the shared clickable list), so the map region is registered at state 0 and stays hit-testable on the damage detail page too.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl HddCommandScreen_Show(int screen)"
     },
     {
@@ -14728,7 +14728,7 @@
       "confidence": "high",
       "name": "HddCommandScreen_Hide",
       "description": "Command display vtable +8, run by HddDisplay_SetPage on the outgoing page. Sets state 2 on the order-column list gadget at screen+0x35 and on XMIT and CANCEL. See HddCommandScreen_Show for the map viewport gadget it leaves alone.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl HddCommandScreen_Hide(int screen)"
     },
     {
@@ -14837,7 +14837,7 @@
       "confidence": "high",
       "name": "HddCommandScreen_QueueListClick",
       "description": "Records a pending list click on the command display: sets the flag at screen+0x14d, stores which gadget at +0x14e and the point at +0x152 (biased by the view-offset globals 004d25da/de), copies CockpitMouse_DoubleClick to +0x15b, and marks the display dirty. HddCommandScreen_HandleListClick drains it.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl HddCommandScreen_QueueListClick(int screen, void *gadget, int *point)",
       "verified": {
         "bytes": "0044d3a4+129",
@@ -14853,7 +14853,7 @@
       "confidence": "high",
       "name": "HddCommandScreen_HandleListClick",
       "description": "Drains the pending list click and branches on which gadget it was. Order column (screen+0x35): walks the eight row rects and stops at the first hit, using STRICT inequalities on all four edges -- unlike Widget_HitTest's inclusive test -- so a row's own boundary lines are dead. With no pilot selected it prints the SELECT PILOT message instead; a hit on the row already armed presses XMIT through Widget_PressChild when both the pick flag +0x104 and +0x15b are set, and otherwise does nothing; any other row calls HddCommandScreen_SelectOrder. After either, with +0x15a set, it moves the cursor to the row's centre (Cursor_SyncPosition), then clears +0x15a. Map viewport (screen+0x39): stores the point as the map cursor at +0x11d sets the armed flag at +0x11c and flags the display for a full repaint.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl HddCommandScreen_HandleListClick(int screen)",
       "verified": {
         "bytes": "0044d428+365",
@@ -14869,7 +14869,7 @@
       "confidence": "high",
       "name": "HddCommandScreen_SynthesizeListClick",
       "description": "(screen, gadget, pick): the keyboard's entry into the queued-click path, so key and mouse converge before anything is decided. Sets +0x15a to 1. For the order column (+0x35) it feeds the corner of row rect pick-10 (the rect at +0x3d + (pick-10)*4, its +4/+8 fields plus 1). For the map viewport (+0x39), pick 0 feeds Cursor_GetPosition rebased through the canvas context's +0x210/+0x214 and +0x220/+0x224, and pick 1 projects the unit at +0x15c (its +0x26 position) through the map's view (+0x14, eye +0x18/+0x1c/+0x20) with HddMap_ToViewport. Each feeds HddCommandScreen_QueueListClick.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl HddCommandScreen_SynthesizeListClick(int screen, void *gadget, int pick)",
       "verified": {
         "bytes": "0044d598+288",
@@ -15298,7 +15298,7 @@
       "confidence": "high",
       "name": "HDDListGadget_Ctor",
       "description": "Constructor for HDDListGadget (object size 0x2c), one of the two order lists HddCommandScreen_Ctor builds. Derives from PanelListGadget. Class name from the descriptor record at 00450737.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0044f6ac",
@@ -15307,7 +15307,7 @@
       "confidence": "high",
       "name": "HDDListGadget_OnClick",
       "description": "Vtable +8 for both of the command display's list gadgets. Left button only; queues the click through HddCommandScreen_QueueListClick with the owner at the gadget's +0x28 and the cockpit click point at DAT_004d1e67. Nothing is decided here. It makes no other call, its PanelGadget mixin's click slot included, so the click makes no sound of its own.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl HDDListGadget_OnClick(int gadget, unsigned char buttonFlags)",
       "verified": {
         "bytes": "0044f6ac+32",
@@ -15688,7 +15688,7 @@
       "confidence": "high",
       "name": "PanelGauge_OnChildClickNoOp",
       "description": "PanelGauge vtable +0x00 (0049bc6c), kept by HUD, WeaponGauge, ChainedWeaponGauge and PanelAmbience: push ebp / mov ebp,esp / pop ebp / ret -- an owning display that ignores its children's forwarded clicks.",
-      "source": "DBSIM disassembly at 0045233f; docs/retail/formats/cockpit-input.md"
+      "source": "DBSIM disassembly at 0045233f; docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452344",
@@ -15721,7 +15721,7 @@
       "confidence": "high",
       "name": "Widget_HitTest",
       "description": "Point-in-widget test against a single widget, param_1. A per-widget flag at param_1+0x10 selects the shape: 0 = axis-aligned rect, inclusive bounds at param_1[0..3] (x0,y0,x1,y1); nonzero = circular/diamond region, Manhattan distance from a centre point (param_1+0x11/+0x13, int16 cx,cy) at most a radius (param_1+0x15, int16). Widget_CtorRect clears the flag for every leaf widget and CTLWindow_Ctor clears it too; Widget_SetHitShape (0045234c) sets the second form, and es2_xref finds no caller of it.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045240c",
@@ -15730,7 +15730,7 @@
       "confidence": "high",
       "name": "Widget_OffsetRect",
       "description": "(widget, delta) -- adds delta.x to the widget rect's +0x00 and +0x08 and delta.y to its +0x04 and +0x0c. A pure translate; the only rect mutator the view-change path uses.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045242c",
@@ -15754,7 +15754,7 @@
       "confidence": "high",
       "name": "Widget_CtorRect",
       "description": "Base widget constructor. Installs the base vtable (0049dbb6) at +0x17, copies the four rect ints from param_2, clears the hit-shape byte at +0x10 and the deferred-paint counter at +0x1f. Every leaf widget in the cockpit's clickable list runs through it.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004524a8",
@@ -15763,7 +15763,7 @@
       "confidence": "high",
       "name": "SliderWidget_CtorBase",
       "description": "Shared slider base ctor (obj, trackRect, min, max, initial, knobSize). Sets the widget's +0x1d drag flag to 1 unconditionally -- the only ctor that does, and every slider is built on it: the throttle (ThrottleSlider_CtorV, ThrottleSlider_CtorFixed), the energy rows' charge bars (WeaponSliderGadget_Ctor) and AlertSliderGadget_Ctor's alert-panel slider. Of the cockpit's, only the throttle can be pressed: each charge bar lies under its row's select gadget. Widget_OnMouseDown (004527a0) tests that flag before latching Widget_DragCapture.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004524f8",
@@ -15772,7 +15772,7 @@
       "confidence": "high",
       "name": "SliderWidget_DragToPointH",
       "description": "Horizontal slider drag handler, twin of SliderWidget_DragToPointV (004525d8). Saves the previous knob position to +0x2a, clamps the pointer x into [trackLeft (+0), trackRight (+8) - knobWidth (+0x2c)], and stores it as the knob's LEFT edge at +0x28.",
-      "source": "DBSIM decompile at 004524f8; docs/retail/formats/cockpit-input.md"
+      "source": "DBSIM decompile at 004524f8; docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452544",
@@ -15781,7 +15781,7 @@
       "confidence": "high",
       "name": "SliderWidget_GetValueH",
       "description": "Horizontal slider get-value, twin of SliderWidget_GetValueV (00452628): (knobLeft (+0x2e) - trackLeft (+0)) * 0x10000 / scale (+0x20) + min (+0x24).",
-      "source": "DBSIM decompile at 00452544; docs/retail/formats/cockpit-input.md"
+      "source": "DBSIM decompile at 00452544; docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045255c",
@@ -15790,7 +15790,7 @@
       "confidence": "high",
       "name": "SliderWidget_SetValueH",
       "description": "Horizontal slider set-value, twin of SliderWidget_SetValueV (00452644): clamps the value into [min (+0x24), max (+0x26)], sets knobLeft (+0x28) = trackLeft (+0) + ((value - min) * scale (+0x20) >> 16), then dispatches the commit slot (+8 of the table at +0x17) with the clamped value.",
-      "source": "DBSIM decompile at 0045255c; docs/retail/formats/cockpit-input.md"
+      "source": "DBSIM decompile at 0045255c; docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004525a8",
@@ -15799,7 +15799,7 @@
       "confidence": "high",
       "name": "SliderWidget_RecomputeScaleH",
       "description": "Horizontal slider scale, twin of SliderWidget_RecomputeScaleV (00452694): +0x20 = ((trackRight (+8) - knobWidth (+0x36 - +0x2e)) - trackLeft (+0)) * 0x10000 / (max - min).",
-      "source": "DBSIM decompile at 004525a8; docs/retail/formats/cockpit-input.md"
+      "source": "DBSIM decompile at 004525a8; docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004525d8",
@@ -15808,7 +15808,7 @@
       "confidence": "high",
       "name": "SliderWidget_DragToPointV",
       "description": "Vertical slider drag handler (vtable +0x18). Saves the previous knob position to +0x2a, clamps the pointer y into [trackTop + knobHeight, trackBottom], and stores it as the knob's BOTTOM edge at +0x28 -- so grabbing the knob jumps its lower edge under the cursor. Horizontal twin is 004524f8.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452628",
@@ -15817,7 +15817,7 @@
       "confidence": "high",
       "name": "SliderWidget_GetValueV",
       "description": "Vertical slider get-value (vtable +0x10): (knobTop(+0x32) - trackTop(+4)) * 0x10000 / scale(+0x20) + min(+0x24). Reads the knob's TOP against the track's top while SetValueV places its BOTTOM, so it returns the NEGATION of what SetValueV was given (for the symmetric +/-0x400 range). Not a bug: ThrottleGauge_OnChildValue negates again, and the two cancel. Horizontal twin is 00452544, which is self-consistent.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452644",
@@ -15826,7 +15826,7 @@
       "confidence": "high",
       "name": "SliderWidget_SetValueV",
       "description": "Vertical slider set-value (vtable +0x14): knobBottom(+0x28) = trackBottom(+0xc) - ((value - min) * scale >> 16), then dispatches the commit slot (+8). Max puts the knob at the track top. Horizontal twin is 0045255c.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452694",
@@ -15835,7 +15835,7 @@
       "confidence": "high",
       "name": "SliderWidget_RecomputeScaleV",
       "description": "Vertical slider scale (vtable +0x1c): +0x20 = ((trackBottom - knobHeight) - trackTop) * 0x10000 / (max - min), i.e. Q16 device pixels per value unit over the knob's travel. Horizontal twin is 004525a8.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004526c4",
@@ -15853,7 +15853,7 @@
       "confidence": "high",
       "name": "Widget_TranslateRootForView",
       "description": "(root, delta) -- moves the cockpit widget root for a view change: adds the delta to the origin pairs at +0x233/+0x237 and +0x22b/+0x22f and to the root's own rect through Widget_OffsetRect. THIS IS THE SCREEN-TO-CANVAS MAPPING the whole input path depends on: Widget_OnMouseDown and Widget_OnMouseUp hit-test point - root->rect.x0/y0, so moving the root's rect by the view-origin delta is what makes one canvas-space widget rect answer a different part of the screen in each view. Its two calls to GLDisplay_GetAttribute discard their results. Reached only through the argument-forwarding thunk Widget_TranslateRootForView_Thunk, itself called only by CockpitWidgets_TranslateForView.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004527a0",
@@ -15862,7 +15862,7 @@
       "confidence": "high",
       "name": "Widget_OnMouseDown",
       "description": "Hit-tests the press position via Widget_HitTestChildren; if a widget is hit, marks its state (+0x1b) pressed (1) and, if that widget opts in via its own +0x1d==1 flag, begins mouse capture (Widget_DragCapture=1) and forwards the position to the widget's drag-move vtable slot. Widgets built with +0x1d left 0 (every button/gauge traced so far) never enter capture and are handled entirely by press/release instead.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452870",
@@ -15871,7 +15871,7 @@
       "confidence": "high",
       "name": "Widget_OnMouseUp",
       "description": "(root, point): rebases the release point by the root's origin (plus 004d25da/de while 0049dbec is set), hit-tests it with Widget_HitTestChildren and stores the result in Widget_PressedIndex. On a hit, when it is the widget the press stored there or the button word 0049db6c has the right-button bit, it calls that widget's GetValue (+0x10) then OnClick (+8) with the value; on any hit it then sets the hit widget's state +0x1b to 0, repaints it and sets Widget_PressedIndex to -1. The state cleared is the hit widget's, which is not the pressed one when the release lands elsewhere. Its own code has no timing test: a release fires however long the button was held.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00452870+228",
         "sha1": "9a0e15a7415a",
@@ -15886,7 +15886,7 @@
       "confidence": "high",
       "name": "Widget_TrackPressedWidget",
       "description": "On a position change while a button is held, keeps the pressed widget's appearance in sync with the pointer: hit-tests, and if the hit is still the widget in Widget_PressedIndex sets its state (+0x1b) to 1, otherwise clears it to 0, repainting via Widget_Repaint on each change. This is the button that pops back up when you drag off it and depresses again when you return. Guarded entirely on Widget_PressedIndex != -1, and that global is set only by Widget_OnMouseDown and cleared to -1 by Widget_OnMouseUp, so this cannot run unless a button is down. It is not a hover handler: DBSIM has no hover state, and CockpitMouse_Init's event mask (0x1e) excludes plain movement.",
-      "source": "docs/retail/formats/cockpit-input.md; DBSIM_full_decomp"
+      "source": "docs/retail/simulation/cockpit-input.md; DBSIM_full_decomp"
     },
     {
       "address": "00452a00",
@@ -15895,7 +15895,7 @@
       "confidence": "high",
       "name": "Widget_HitTestChildren",
       "description": "Linear-scans the flat clickable-widget list at param_1+0x256 (count at +0x254) with Widget_HitTest, returning the index of the FIRST widget under the point whose state (+0x1b) is not 2 (hidden), or -1. First-hit-wins is what makes registration order the tie-break wherever two visible rects overlap, and retail has four such overlaps. Not a tree walk: every clickable widget anywhere in the cockpit is registered into one shared list by Widget_RegisterClickable, so an off-screen panel's buttons are excluded purely by their hidden state, not by not being reachable.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "int __cdecl Widget_HitTestChildren(void *clickableList, int *point)"
     },
     {
@@ -15905,7 +15905,7 @@
       "confidence": "high",
       "name": "Widget_NotifySelfAndChildren",
       "description": "Clears a guard flag (+0x227), calls vtable slot 0 on the owner, then calls slot 0 on every widget in its +0x256 clickable-child array. Unreachable in the retail image: its only caller, 00452bac, has no rel32 branch, no stored pointer and no vtable slot anywhere in the PE. The cascades the cockpit actually runs are per class (00442058/0044207c for the console panel).",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452a90",
@@ -15914,7 +15914,7 @@
       "confidence": "high",
       "name": "Widget_Repaint",
       "description": "Calls a widget's own Paint vtable slot after a state change. The slot's numeric offset is not uniform across classes (confirmed +4 for MfdDisplay and HddButton via unambiguous ctor evidence; do not assume the same offset for every class without checking).",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452aad",
@@ -15950,7 +15950,7 @@
       "confidence": "high",
       "name": "CockpitMouse_Init",
       "description": "Called once at cockpit setup. Registers CockpitMouse_OnEvent with MouseListener_Register under event mask 0x1e (button down/up on both buttons -- bits 1-4; bit 0, plain movement, is deliberately excluded), allocates the double-buffered per-frame event queue (two Rtl_VectorNew'd 0xe-byte-record vectors, swapped by CockpitMouse_ProcessQueue), and sets the click-vs-drag timing gate CockpitMouse_DoubleClickTicks = 0x1e (30 coarse ticks, ~480ms at the ~62.5Hz UI timebase -- the same literal 0x1e as the event mask above but an unrelated field, easy to conflate).",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452b94",
@@ -15999,7 +15999,7 @@
       "confidence": "high",
       "name": "Widget_TranslateRootForView_Thunk",
       "description": "(root, dx, dy) -- forwards to Widget_TranslateRootForView(root, &dx), taking the delta as two inline stack ints rather than a pointer. Decompiles as a one-argument call passing &stack0x00000008, which loses the delta; the raw call site at 0043272e-0043273f pushes both ints before the root pointer.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452bdc",
@@ -16017,7 +16017,7 @@
       "confidence": "high",
       "name": "Widget_RegisterClickable",
       "description": "Appends one widget pointer to the caller's flat +0x256 array (count at +0x254) that Widget_HitTestChildren scans. Called once per child during every cockpit widget tree's construction (MfdDisplay_Ctor's 13 MFD buttons, ShieldsGauge_Ctor's 2 facings, etc.) with the *dereferenced* CockpitViewInstance pointer as the shared root -- every clickable widget in the whole cockpit lands in one list, not a per-panel one.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl Widget_RegisterClickable(void *clickableList, void *widget)"
     },
     {
@@ -16027,7 +16027,7 @@
       "confidence": "high",
       "name": "Widget_Show",
       "description": "Sets a child's state byte (+0x1b) to 0. UNREFERENCED: no rel32 branch, no vtable slot and no stored pointer anywhere in the image. Every show and hide the cockpit actually performs is a direct store to that byte at the site that wants it -- HddDisplay_SetPage's visibility-table loop, HddCommandScreen_Show/_Hide, and the gauge constructors' own flyer branches.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452c8c",
@@ -16036,7 +16036,7 @@
       "confidence": "high",
       "name": "Widget_Hide",
       "description": "Sets a child's state byte (+0x1b) to 2. UNREFERENCED: no rel32 branch, no vtable slot and no stored pointer anywhere in the image. Every show and hide the cockpit actually performs is a direct store to that byte at the site that wants it -- HddDisplay_SetPage's visibility-table loop, HddCommandScreen_Show/_Hide, and the gauge constructors' own flyer branches.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452cb4",
@@ -16045,7 +16045,7 @@
       "confidence": "high",
       "name": "CockpitMouse_OnEvent",
       "description": "The cockpit's one mouse-listener callback. Does not act on the event synchronously: pushes a {x,y,buttonMask,timestamp} record into the back-buffer queue via CockpitMouseQueue_Push (debounced to once per coarse tick) and, when a software/hardware cursor sprite is active (DAT_0049dbdf), calls Cursor_SyncPosition to keep the drawn pointer following the raw event position immediately rather than waiting for the once-per-frame queue drain.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00452d18",
@@ -16054,7 +16054,7 @@
       "confidence": "high",
       "name": "CockpitMouse_ProcessQueue",
       "description": "Swaps the double-buffered event queue and drains it once per frame: the cockpit's click, press and drag logic. Per 14-byte record it first sets the button word 0049db6c to the record's buttons. On a position change it stores the position, calls Cursor_SyncPosition only while TapePlayback is set and the cursor flag 0049dbdf is, and sets the click point DAT_004d1e67/6b relative to the root; outside a capture it hit-tests the root with Widget_HitTest and, on a hit, calls Widget_TrackPressedWidget; under a capture it calls the captured widget's drag slot (+0x18) and repaints it. It then clears CockpitMouse_DoubleClick. A left-button down edge calls Widget_OnMouseDown; a right one only latches. On a release edge of either button it sets CockpitMouse_DoubleClick when the record's time is less than CockpitMouse_DoubleClickTicks after that button's previous release, stores the time as the new previous release, and ORs that button's bit into 0049db6c; then, outside a capture, Widget_OnMouseUp, and under one it clears the captured widget's state, repaints it, ends the capture, calls its GetValue (+0x10) then OnClick (+8) with that value, and sets Widget_PressedIndex to -1. 0049db6c returns to 0 at the end of each record.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "verified": {
         "bytes": "00452d18+794",
         "sha1": "c70d41531236",
@@ -16069,7 +16069,7 @@
       "confidence": "high",
       "name": "CockpitMouseQueue_Push",
       "description": "Appends one 0xe=14-byte record {int32 x, int32 y, uint16 buttonMask, int32 timestamp} to the back-buffer vector at DAT_004d1e88, capped at 99 entries (silently drops further events past that).",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00453078",
@@ -16759,7 +16759,7 @@
       "confidence": "high",
       "name": "AlertSliderGadget_Ctor",
       "description": "Constructor for AlertSliderGadget (object size 0x7e), an alert panel's slider row; derives from PanelHSliderGadget, so its click-sound slot is the empty stub 00439014 and it makes no sound. Class name from the descriptor record at 00455810.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00455348",
@@ -16801,7 +16801,7 @@
       "confidence": "high",
       "name": "Widget_InvalidateDeferred",
       "description": "The base Invalidate at leaf-widget vtable slot +4, which Widget_Repaint calls. Its whole body is this->[0x1f] = 2: it schedules a repaint rather than performing one. Slot +0xc, walked once per frame, is what acts on the counter.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00455530",
@@ -16810,7 +16810,7 @@
       "confidence": "high",
       "name": "Widget_GetButtonValue",
       "description": "The default GetValue vtable slot (+0x10) for a widget class that does not override it: returns the global mouse-button word 0049db6c, which CockpitMouse_ProcessQueue sets to buttons|1 on a left release and buttons|2 on a right one. A click's 'value' is therefore which button clicked it, and the weapon rows branch on exactly that -- left arms, right toggles chain membership.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045553b",
@@ -17883,7 +17883,7 @@
       "confidence": "high",
       "name": "Input_KeyjoyAxisKey",
       "description": "The simulator's axis-key subscriber, registered by SimInput_SetEnabled against the 30-byte list at 0049eb33 (keypad, M, J, K, I and Space, then the same fifteen with the key-up bit). Strips the 0x80 up-bit, finds the code's index in that list, folds the two banks of fifteen together and updates the three 15-byte key-state blocks at 004d2418 that Input_BuildKeyboardAxes reads.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045a420",
@@ -17907,7 +17907,7 @@
       "confidence": "high",
       "name": "SimCommandQueue_Push",
       "description": "Appends one command code to the queue at DAT_004d2148 that Input_BuildPlayerDevice drains into Sim_DispatchCommand, or returns 2 when the queue is closed (DAT_0049eacc). Registered as a keyboard subscriber by SimInput_SetEnabled against the 7-byte wanted-code list at 0049eb5d -- 1c 0c 0d 1a 1b 4e 4a, i.e. Enter, -, =, [, ] and the keypad +/- -- which is why it has no call site and why only those seven scancodes take this route.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "undefined4 __cdecl SimCommandQueue_Push(undefined2 command)"
     },
     {
@@ -17959,7 +17959,7 @@
       "confidence": "high",
       "name": "SimInput_SetEnabled",
       "description": "Toggles the simulator's keyboard input on and off. Turning it on registers two subscribers with KeyListener_Register: Input_KeyjoyAxisKey against the 30-byte list at 0049eb33 and SimCommandQueue_Push against the 7-byte list at 0049eb5d. Turning it off clears the three 15-byte key-state blocks at DAT_004d2418.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "undefined4 __cdecl SimInput_SetEnabled(byte enabled)"
     },
     {
@@ -18236,7 +18236,7 @@
       "confidence": "high",
       "name": "Input_ReadDeviceEvent",
       "description": "Pops one code from the unclaimed-key ring at 006bb734 for a keyboard device, draining the rest when the device asks for it. This is the route a code takes when no Key_WndProcHook subscriber claimed it.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045c148",
@@ -18893,7 +18893,7 @@
       "confidence": "high",
       "name": "Language_GetFolderName",
       "description": "Reads the first byte of data\\language.cfg and returns the matching resource folder name: 'F' -> FRENCH, 'G' -> GERMAN, 'S' -> SPANISH, anything else ENGLISH. The retail CD ships the first three.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045f054",
@@ -18902,7 +18902,7 @@
       "confidence": "high",
       "name": "OnlineManual_Raise",
       "description": "Command 0x35's handler: composes <Language_GetFolderName()>\\es2guide.hlp into the buffer at 004d29dc, resolves it to a full path through DriveCfg_PrefixPath and returns that path -- the caller passes it to Help_Show. Two callers, Sim_DispatchCommand's `?` case and SystemButtons_OnChildClick's child 0, so the key and the right-hand system button are one path. This is the manual's 'On-Line Manual' MISC. entry -- a Windows help file, not a game screen.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0045f0b8",
@@ -19042,7 +19042,7 @@
       "confidence": "high",
       "name": "Sim_DispatchCommand",
       "description": "The simulator's command dispatcher: every queued command code passes through here, and Sim_PollPlayerInput also calls it directly (passing 0x14 for one of the MFD cases). Offers the code to the cockpit widget tree (CockpitWidgets_HandleCommand), then to Sim_HandleWindowKey, then its own switch, and finally to the player mech's vtable +0x2c. Codes are PC set-1 scancodes with 0x200 added for Alt -- 0x26 is L, 0x29 is backquote, 0x11/0x211 are W and Alt+W, 0x02-0x0b and 0x202-0x20b the two number-key banks. Case 0x0e/0x14 latch g_CenterTurretMode and clear g_CenterBodyMode; case 0x2b does the reverse and caches g_CenterBodyTargetHeading. Both also clear the auto-turret-tracking flag at mech+0x202 -> +0x14.",
-      "source": "docs/retail/simulation/mech-locomotion.md; docs/retail/simulation/weapon-mounts.md; docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/mech-locomotion.md; docs/retail/simulation/weapon-mounts.md; docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00460764",
@@ -20332,7 +20332,7 @@
       "confidence": "high",
       "name": "WndProcHook_Register",
       "description": "Appends a raw (hwnd,msg,wParam,lParam)-shaped filter function to the first free slot (of 10) in the table at DAT_004d3bb4 that MainWndProc tries, in order, before its own message switch -- any hook returning nonzero short-circuits MainWndProc entirely. Mouse_WndProcHook is one of four registered hooks found; the others are sound/movie-playback related.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00465f0c",
@@ -20341,7 +20341,7 @@
       "confidence": "high",
       "name": "WndProcHook_Unregister",
       "description": "Removes a hook previously added by WndProcHook_Register from the DAT_004d3bb4 table.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00466488",
@@ -20377,7 +20377,7 @@
       "confidence": "high",
       "name": "Video_ToggleFullscreen",
       "description": "Fullscreen/windowed switch on the flag at 004d25e2. Going fullscreen: saves the window rect to 004d3750, takes the window topmost at the game resolution via AdjustWindowRectEx + SetWindowPos, ClipCursors the pointer into it, centres it and hides the software cursor; failure posts WM_QUIT. Coming back: releases DirectDraw and restores the saved rect. Repaints the shield gauge either way. Reached from the left system button, from Help_Show (which runs it first, so raising the on-line manual leaves fullscreen), from Sim_HandleWindowKey on [Alt+Enter], from Video_LeaveFullscreen, and from WinMain at startup.",
-      "source": "docs/retail/formats/cockpit-input.md",
+      "source": "docs/retail/simulation/cockpit-input.md",
       "signature": "void __cdecl Video_ToggleFullscreen(void)"
     },
     {
@@ -20396,7 +20396,7 @@
       "confidence": "high",
       "name": "Help_Show",
       "description": "WinHelpA(mainWindow, path, HELP_CONTENTS, 0), after Video_ToggleFullscreen drops the game back to a window when 004d25e2 says it is fullscreen.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00466955",
@@ -24220,7 +24220,7 @@
       "confidence": "high",
       "name": "KeyListener_Register",
       "description": "Appends to the ten-slot {enabled, wantedCodes, callback} keyboard subscriber table at 006bb93c that Key_WndProcHook walks. wantedCodes is a NUL-terminated list of the low bytes (scancodes) that subscriber wants; the first callback to return 1 consumes the code.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00477a44",
@@ -24268,7 +24268,7 @@
       "confidence": "high",
       "name": "Key_WndProcHook",
       "description": "The keyboard filter in the same ten-slot table ahead of MainWndProc as Mouse_WndProcHook. Catches WM_KEYDOWN/UP (0x100/0x101) and WM_SYSKEYDOWN/UP (0x104/0x105), translates the virtual key through the 223-entry scancode table at 004a1104, ORs in 0x800 for Shift, 0x200 for Alt, 0x400 for Ctrl and 0x80 for a key-up, then offers the code to the ten subscribers at 006bb93c; whatever none of them claims goes into the 256-entry ring at 006bb734.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00477c3c",
@@ -27689,7 +27689,7 @@
       "confidence": "high",
       "name": "Mouse_Init",
       "description": "Registers Mouse_WndProcHook into the WndProc filter chain and, when bit 0 of the driver's first dword is set, runs the empty Mouse_InitNoOp, saves the bounds rect to +0x24 (MouseDriver_GetBounds) and sets it to {0, 0, 0x140, 400} with MouseDriver_SetBounds. Returns that bit.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004805f0",
@@ -27857,7 +27857,7 @@
       "confidence": "high",
       "name": "MouseListener_Register",
       "description": "Appends {enabled=1, eventMask, callback} to the first free slot (of 10) in the mouse-listener table at DAT_006c5f5c that Mouse_DispatchEvent fans events out to. Returns the slot index or -1 if full. Same {enabled,mask,fn}-triple-array idiom as WndProcHook_Register's table and the keyboard-binding table read by Key_WndProcHook -- DBSIM reuses this shape for at least three unrelated subscriber lists.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00480774",
@@ -27866,7 +27866,7 @@
       "confidence": "high",
       "name": "MouseListener_Unregister",
       "description": "Clears slot param_2's enabled flag in the mouse-listener table at DAT_006c5f5c.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0048078c",
@@ -27875,7 +27875,7 @@
       "confidence": "high",
       "name": "Mouse_RecomputeScale",
       "description": "Recomputes DAT_004a2de4/DAT_004a2de8, the 16.15 fixed-point (gameSize<<0xf)/clientSize factors Mouse_DispatchEvent uses to rescale window-client mouse coordinates into game space. Reads the window's current client rect, so it must be re-run on resize.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004807d0",
@@ -27884,7 +27884,7 @@
       "confidence": "high",
       "name": "Mouse_WarpCursorToPoint",
       "description": "Rescales a game-space point to client coordinates (inverse of Mouse_RecomputeScale's factor), ClientToScreens it and calls SetCursorPos. Three callers, all gated on a live mouse device: Gau_RovingGunsightWidget centres the pointer on the gunsight as the cockpit is built, AlertPanel_SetFocus puts it on the focused widget's centre, AlertPanel_Leave restores the position the panel saved at its own +0x302.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0048083c",
@@ -27893,7 +27893,7 @@
       "confidence": "high",
       "name": "Mouse_DispatchEvent",
       "description": "Rescales a raw window-client-space (x,y) from Mouse_WndProcHook into the game's internal coordinate space via a fixed-point factor (Mouse_RecomputeScale), packs the current L/R button-held bitmask into DAT_006c5fdc, and calls every enabled entry of the 10-slot mouse-listener table (DAT_006c5f5c, registered via MouseListener_Register) whose event mask has the event kind's bit set.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004808ec",
@@ -27902,7 +27902,7 @@
       "confidence": "high",
       "name": "Mouse_WndProcHook",
       "description": "Registered into the MainWndProc filter chain (see WndProcHook_Register). Catches WM_MOUSEMOVE(0x200)/WM_LBUTTONDOWN(0x201)/WM_LBUTTONUP(0x202)/WM_RBUTTONDOWN(0x204)/WM_RBUTTONUP(0x205) -- none of which MainWndProc's own switch handles -- and forwards each to Mouse_DispatchEvent with a kind id (0=move,1=ldown,2=lup,3=rdown,4=rup) and a button-held bitmask built from wParam.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004809cc",
@@ -29620,7 +29620,7 @@
       "confidence": "high",
       "name": "Cursor_SyncPosition",
       "description": "Stores the pointer position in param_1: to DAT_004a3638/3c when DAT_004a365e is set, bracketed by g_RasterRoutines slots 31 and 30 (maybe_ hide/show cursor) when DAT_004a3634 is set; otherwise to DAT_004a3662/66. Driver 3 fills both slots with empty stubs. Driver3_SyncCursorPosition is driver 3's copy of the same routine.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "00486dc2",
@@ -36078,7 +36078,7 @@
       "confidence": "high",
       "name": "Widget_PressedIndex",
       "description": "int16. Index into the cockpit-wide clickable list of the widget a mouse button is currently held down on, or -1 for none. One global for the whole cockpit, not per-panel. Set by Widget_OnMouseDown from its own hit test, read and acted on by Widget_TrackPressedWidget, cleared to -1 at the end of Widget_OnMouseUp. Its -1 guard is what makes Widget_TrackPressedWidget a no-op unless a button is held.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049dbde",
@@ -36087,7 +36087,7 @@
       "confidence": "high",
       "name": "Widget_DragCapture",
       "description": "Set by Widget_OnMouseDown when the pressed widget's +0x1d flag is 1. While set, CockpitMouse_ProcessQueue routes every position change to the captured widget's drag slot (+0x18) WITHOUT hit-testing -- a drag follows the pointer off the widget and off the window -- and the release path reads the value (+0x10) and commits it (+8) instead of calling Widget_OnMouseUp, so a drag fires no click.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049dbe0",
@@ -36096,7 +36096,7 @@
       "confidence": "high",
       "name": "CockpitMouse_DoubleClick",
       "description": "Byte. The double-click flag: CockpitMouse_ProcessQueue clears it at the top of every record and sets it on a release edge whose timestamp is less than CockpitMouse_DoubleClickTicks after the same button's previous release (CockpitMouse_LastLeftRelease / _LastRightRelease), wherever that release landed. It stands until the next record, so a key-driven press in between still sees it. Read by MfdButton_OnClick (XMIT returns without transmitting), MfdFlashComm_HandleListClick (a double-click on the selected row presses XMIT and transmits) and HddCommandScreen_QueueListClick (copied to the screen's +0x15b, which gates the order list's XMIT shortcut).",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049dbe4",
@@ -36105,7 +36105,7 @@
       "confidence": "high",
       "name": "CockpitMouse_LastLeftRelease",
       "description": "Timestamp of the left button's previous release, written by CockpitMouse_ProcessQueue on each left release edge after the double-click test reads it.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049dbe8",
@@ -36114,7 +36114,7 @@
       "confidence": "high",
       "name": "CockpitMouse_LastRightRelease",
       "description": "Timestamp of the right button's previous release; the right-button twin of CockpitMouse_LastLeftRelease.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049dc24",
@@ -36159,7 +36159,7 @@
       "confidence": "high",
       "name": "SimCommandMask",
       "description": "0x47ff. Input_BuildPlayerDevice ANDs the input block's head command word and every queued command code with this, which discards the 0x800 Shift bit Key_WndProcHook sets -- so a shifted key folds onto the plain one, in the cockpit and in the alert panels' loops, which read the same word.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049eb33",
@@ -36168,7 +36168,7 @@
       "confidence": "high",
       "name": "KeyjoyWantedCodes",
       "description": "The 30-byte NUL-terminated wanted-code list Input_KeyjoyAxisKey is registered against: 47 48 49 4b 4d 4f 50 51 32 24 25 17 4a 4e 39, then the same fifteen with the key-up bit 0x80 set -- keypad, M, J, K, I and Space.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049eb5d",
@@ -36177,7 +36177,7 @@
       "confidence": "high",
       "name": "SimCommandWantedCodes",
       "description": "The 7-byte NUL-terminated wanted-code list SimCommandQueue_Push is registered against: 1c 0c 0d 1a 1b 4e 4a -- Enter, -, =, [, ] and the keypad +/-. These are the only scancodes that reach the command queue at 004d2148 directly rather than through the player input block.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "0049eb65",
@@ -36609,7 +36609,7 @@
       "confidence": "high",
       "name": "VkToScancode",
       "description": "223 int32 entries, indexed by Win32 virtual key code, giving the PC set-1 scancode that becomes the low byte of a DBSIM command code. VK_F1 -> 0x3b, VK_F11 -> 0x57, VK_P -> 0x19, VK_OEM_4 -> 0x1a, VK_TAB -> 0x0f. Zero means unmapped. Read only by Key_WndProcHook.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004a16ac",
@@ -38076,7 +38076,7 @@
       "confidence": "high",
       "name": "CockpitMouse_DoubleClickTicks",
       "description": "The double-click window, 0x1e coarse ticks (480 ms), set by CockpitMouse_Init: a release less than this after the same button's previous one sets CockpitMouse_DoubleClick. It gates nothing else: Widget_OnMouseUp runs on every release, however long the button was held. Shares its literal with the listener's event mask, an unrelated field.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "004d1e94",
@@ -39003,7 +39003,7 @@
       "confidence": "high",
       "name": "KeyEventRing",
       "description": "256 int16 entries, head at 006bb934 and tail at 006bb938. Key_WndProcHook pushes any command code no KeyListenerTable subscriber consumed; Input_ReadDeviceEvent pops.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "006bb93c",
@@ -39012,7 +39012,7 @@
       "confidence": "high",
       "name": "KeyListenerTable",
       "description": "Ten {enabled, wantedCodes, callback} triples, the keyboard twin of the mouse-listener table at DAT_006c5f5c. Key_WndProcHook walks it; KeyListener_Register appends.",
-      "source": "docs/retail/formats/cockpit-input.md"
+      "source": "docs/retail/simulation/cockpit-input.md"
     },
     {
       "address": "006bbe14",

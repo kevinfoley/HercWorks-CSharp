@@ -1,6 +1,6 @@
 # Key bindings
 
-The simulator's keyboard, by what each key does. Keys the manual does not list are marked **(not in the manual)**. The technical side — how a keystroke becomes a command code, and which handler answers it — is [`formats/cockpit-input.md`](formats/cockpit-input.md#keyboard-commands-are-scancodes); the joystick's bindings are [`formats/joystick-input.md`](formats/joystick-input.md).
+The simulator's keyboard, by what each key does. Keys the manual does not list are marked **(not in the manual)**. The technical side — how a keystroke becomes a command code, and which handler answers it — is [`simulation/cockpit-input.md`](simulation/cockpit-input.md#keyboard-commands-are-scancodes); the joystick's bindings are [`formats/joystick-input.md`](formats/joystick-input.md).
 
 "Keypad" means the numeric keypad with Num Lock off. The arrow keys and the keypad's arrows are the same keys to the game.
 

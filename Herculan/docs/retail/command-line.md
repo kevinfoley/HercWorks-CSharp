@@ -45,7 +45,7 @@ v1.10's `VER95\ES.EXE` is v1.0's with two additions after the switch parse. It r
 
 | Code | Set by | Meaning to `ES.EXE` |
 |---|---|---|
-| 0 | the shell quitting ([`QUIT`](shell/screen-layout.md#quit) or closing its window); DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does — the panel closing the simulator's window raises too | quit |
+| 0 | the shell quitting ([`QUIT`](shell/main-menu.md#quit) or closing its window); DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does — the panel closing the simulator's window raises too | quit |
 | 2 | VSHELL `Shell_SetExitCode(2)` (`0040876a`) — the mission launch paths, including `MissionNameDialog_OnLoad` (`0044d5bd`, VSHELL) and the debrief's `REPLAY MISSION?` | fly a mission |
 | 3 | DBSIM when a mission ends other than by a quit or a demo | shell, into the debrief |
 | 4 | DBSIM in place of 3 when the player's machine is destroyed (`+0x99`) and `MissionModeFlag` (`004a9ed6`) is up — which the load zeroes, so never | shell, into the debrief |
@@ -69,7 +69,7 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdow
 | `-X<n>` | `Shell_SetExitCode(n)` → `0046e210` | Copied into `Shell_StartupCode` (`0048227e`) right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
 | `-r` | `Shell_StartupCode` = 3 | Overwritten by the `-X` copy; no effect ([`shell/campaign-loop.md`](shell/campaign-loop.md#rejected-readings)) |
 | `-@` | `Shell_MissionPickerEnabled` (`00482284`) = 1 | The mission picker below |
-| `-a` | `Shell_MoviesEnabled` (`00482275`) = 0 | Turns the shell's movies off: [the movie queue](shell/screen-layout.md#the-shells-movies) takes nothing and plays nothing |
+| `-a` | `Shell_MoviesEnabled` (`00482275`) = 0 | Turns the shell's movies off: [the movie queue](shell/movies-and-sound.md#the-shells-movies) takes nothing and plays nothing |
 | `-l` | `ShellSwitch_L` (`00482280`) = 0 | Read only by `Shell_BuildSimArgv` (`0042f2e8`), to which `es2_xref.py` finds no reference; no effect |
 | `-v`, `-?` | `Shell_SoundEnabled` = 0 | `printf` the version or the usage text, turn sound off, and call `Shell_ShutdownDevicesAndSound` (`004092dc`). The parse runs before `Shell_Main` (`00401525`) builds `devices.cpp`'s viewport (`Devices_Init`, `0040db38`) and the sound manager, so that call releases nothing, and the parse goes on to the next argument |
 

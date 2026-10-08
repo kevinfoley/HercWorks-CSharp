@@ -312,7 +312,7 @@ sealed class ShellHost : IDisposable {
 		}
 
 		// A fade holds the shell until it is done: it pumps window messages but not the widget layer
-		// (docs/retail/shell/screen-layout.md#sound). Retail queues the clicks made meanwhile and delivers them
+		// (docs/retail/shell/movies-and-sound.md#sound). Retail queues the clicks made meanwhile and delivers them
 		// after; this host polls, so the buttons' state is taken without delivering it, and an edge
 		// made during the fade is spent, a divergence from retail.
 		if (_audio.Fading) {

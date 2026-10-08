@@ -36,7 +36,7 @@ Both builds install through Sierra's `SETUP.EXE`, which runs the script in `SIER
 1. `data\drive.cfg`: the source directory and the install directory, one per line.
 2. `data\language.cfg`: the letter, one byte.
 3. A copy of `<install>\<LANGUAGE>\README.WRI`, under a name the two builds differ on ([`formats/winhelp.md`](formats/winhelp.md#macros)). v1.10's `BATCH.EXE` also carries `\SPANISH` and `\ITALIAN` beside the three shipped folder names; the script passes only `E`, `F` and `G`.
-4. `data\prefs.cfg`, when `Sierra.ini`'s `[Config] VideoSpeed` is at most 1000 (v1.0) or 700 (v1.10): byte 4, the low-resolution option, set to 1, and in v1.10 also byte 47, which stops the shell's own `VideoSpeed` check from showing its `Performance Note` ([`shell/screen-layout.md`](shell/screen-layout.md#the-main-menu)).
+4. `data\prefs.cfg`, when `Sierra.ini`'s `[Config] VideoSpeed` is at most 1000 (v1.0) or 700 (v1.10): byte 4, the low-resolution option, set to 1, and in v1.10 also byte 47, which stops the shell's own `VideoSpeed` check from showing its `Performance Note` ([`shell/main-menu.md`](shell/main-menu.md#the-main-menu)).
 5. With the last argument `1`, the Indeo codecs' registry entries. v1.0's returns before this step when `VideoSpeed` is above 1000; v1.10's does not. Both scripts also write the codecs' `SYSTEM.INI` entries themselves.
 
 ## How a language is chosen

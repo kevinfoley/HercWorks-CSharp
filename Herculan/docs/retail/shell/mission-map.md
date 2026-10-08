@@ -1,6 +1,6 @@
 # The briefing's mission map
 
-The picture inside the mission tab's `Mission Map` panel in the briefing view ([`screen-layout.md`](screen-layout.md#the-mission-screen)): a banded relief of the mission's ground, a grid, the bases, the squad and its nav path, a camera the six buttons beside it move, and an animated introduction the first time it comes up. It is one C++ object from `shellmap.cpp`, held in `DAT_0046f26c`. **Every address in this doc is in `VSHELL.EXE`.**
+The picture inside the mission tab's `Mission Map` panel in the briefing view ([`mission-screen.md`](mission-screen.md#the-mission-screen)): a banded relief of the mission's ground, a grid, the bases, the squad and its nav path, a camera the six buttons beside it move, and an animated introduction the first time it comes up. It is one C++ object from `shellmap.cpp`, held in `DAT_0046f26c`. **Every address in this doc is in `VSHELL.EXE`.**
 
 ## The object
 
@@ -73,7 +73,7 @@ The squad view takes the first `+0x80` slots â€” the count `player.mec` gives â€
 
 ### The six buttons
 
-The six map buttons ([`screen-layout.md`](screen-layout.md#the-mission-screen)) are `Mission_OnMapUp` (`00444ee7`) to `Mission_OnMapZoomOut` (`004452f2`), one each; each calls its method and then the paint, one to four times by its auto-repeat count ([`screen-layout.md`](screen-layout.md#the-three-views)).
+The six map buttons ([`mission-screen.md`](mission-screen.md#the-mission-screen)) are `Mission_OnMapUp` (`00444ee7`) to `Mission_OnMapZoomOut` (`004452f2`), one each; each calls its method and then the paint, one to four times by its auto-repeat count ([`mission-screen.md`](mission-screen.md#the-three-views)).
 
 | Button | Art | Method | Effect |
 |---|---|---|---|

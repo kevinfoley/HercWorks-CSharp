@@ -44,7 +44,7 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 |---|---|---|---|---|---|---|---|---|---|---|
 | bank | urban | urban | bsnow | bsnow | volcan | volcan | ice | ice | moon | moon |
 
-Five theaters, two variants each. The variant is **time of day**: the practice missions screen's `Day` / `Night` row writes it straight into the header field, and the ten retail files all carry `Day`. See [`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters). Which theater, variant and zone a mission runs is the `script.dat` header's — see [`script-dat.md`](script-dat.md#header-format).
+Five theaters, two variants each. The variant is **time of day**: the practice missions screen's `Day` / `Night` row writes it straight into the header field, and the ten retail files all carry `Day`. See [`../shell/main-menu.md`](../shell/main-menu.md#the-parameters). Which theater, variant and zone a mission runs is the `script.dat` header's — see [`script-dat.md`](script-dat.md#header-format).
 
 Alongside the terrain bank, `maybe_World_LoadTheater` loads the theater palette `dpl\world<N>.dpl`, one per theater, which mech and structure shading resolves through too.
 

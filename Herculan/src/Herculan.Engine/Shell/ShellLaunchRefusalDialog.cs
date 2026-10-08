@@ -33,7 +33,7 @@ public sealed class ShellLaunchRefusalDialog {
 	/// <summary><c>OKAY</c>'s rect, in the canvas.</summary>
 	public static ShellRect OkayButtonRect => Inside(PanelRect, OkayRect);
 
-	/// <summary><c>OKAY</c> under a canvas point, or null — a click anywhere else is swallowed, as the scrap dialog's is (docs/retail/shell/screen-layout.md, "The scrap dialog").</summary>
+	/// <summary><c>OKAY</c> under a canvas point, or null — a click anywhere else is swallowed, as the scrap dialog's is (docs/retail/shell/build-and-armory.md, "The scrap dialog").</summary>
 	public ShellHit? HitAt(float canvasX, float canvasY) =>
 		OkayButtonRect.Contains(canvasX, canvasY)
 			? ShellHit.Button(new ShellWidget(ShellWidgetKind.LaunchRefusalOkay, 0), OkayButtonRect, canvasX, canvasY)

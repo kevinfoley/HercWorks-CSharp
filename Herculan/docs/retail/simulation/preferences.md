@@ -70,7 +70,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both; what each gates is [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)'s |
 | 3 | COMPUTER MESSAGE | as option 2 |
 | 4 | **VSHELL's** `Game Resolution` | 0 `High Res (640x480)`, 1 `Low Res (320x240)` — and the byte `VideoMode_Configure` reads, [below](#the-video-mode-and-full-screen-bytes) |
-| 5 | **VSHELL's** shell music track | non-zero `hmi\shell1.wav`, zero `hmi\shell2.wav`; the shell flips it at every startup, so the two alternate ([`../shell/screen-layout.md`](../shell/screen-layout.md#sound)) |
+| 5 | **VSHELL's** shell music track | non-zero `hmi\shell1.wav`, zero `hmi\shell2.wav`; the shell flips it at every startup, so the two alternate ([`../shell/movies-and-sound.md`](../shell/movies-and-sound.md#sound)) |
 | 6 | `Display Mode` | 0 `Window`, 1 `Full Screen`. Both programs read it and the simulator writes it back |
 | 7 | TERRAIN DISTANCE | 0-2, the draw radius ([`../formats/terrain-texturing.md`](../formats/terrain-texturing.md#the-terrain-detail-setting)) |
 | 8 | TERRAIN TEXTURE | off / on |
@@ -80,19 +80,19 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 12 | the joystick-configured flag | 0 lets `Joystick_InitAndSeedBindings` seed both blocks; 1 has it zero the walking block in memory when no stick enumerates |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
-| 37-41 | **VSHELL's**, not the simulator's: the practice missions screen's five parameters, difficulty among them | [`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters) |
+| 37-41 | **VSHELL's**, not the simulator's: the practice missions screen's five parameters, difficulty among them | [`../shell/main-menu.md`](../shell/main-menu.md#the-parameters) |
 | 42 | **VSHELL's** campaign-or-training flag | seeds `CampaignModeFlag`, so the mode survives a restart |
 | 43 | **VSHELL's** language | 0 English, 1 French, 2 German: the startup copies it into the shell's language value before `-f` and `-g` are parsed ([`../command-line.md`](../command-line.md#vshell)). 0 in v1.10's shipped file; what the value selects is [`../retail-builds.md`](../retail-builds.md#how-a-language-is-chosen)'s |
 | 44 | **VSHELL's** `Repair Options:` | 0 `AutoRepair All Hercs`, 1 `Manually Repair My Herc`, 2 `Manually Repair All Hercs` |
 | 45 | **VSHELL's** `Weapons Building:` | 0 `AutoBuild Weapons`, 1 `Manually Build Weapons` |
-| 46 | **VSHELL's** `INSTANT ACTION` demo | which of the three demo missions the next `INSTANT ACTION` plays, stepped modulo 3 after each; its chassis goes into option 40 ([`../shell/screen-layout.md`](../shell/screen-layout.md#which-mission-a-row-is)) |
+| 46 | **VSHELL's** `INSTANT ACTION` demo | which of the three demo missions the next `INSTANT ACTION` plays, stepped modulo 3 after each; its chassis goes into option 40 ([`../shell/main-menu.md`](../shell/main-menu.md#which-mission-a-row-is)) |
 | 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup ([`../shell/startup.md`](../shell/startup.md#sierraini)) |
 
 `ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession` (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and `Main_StaticInit` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a binding made in a walker does not disturb the RAZOR's.
 
 No instruction in either image addresses options 48-53 by name, and they are zero in a retail file; only the loops that walk the whole array touch them.
 
-**The file is shared with VSHELL**, which keeps the same 54-byte array (`DAT_004824b8`), the same load-time shadow (`004824ee`) and the same handler table (`00482524`), and reads and writes the same path: `ShellOptions_Load` (`0040d6a3`) and `ShellOptions_SaveAll` (`0040d752`), with the same step, step-back and commit trio (`ShellOptions_StepOption`, `ShellOptions_StepOptionBack`, `ShellOptions_Commit`). Options 4, 5 and 37-47 are its side of that sharing, and of those the simulator reads 4 and 6 ([Open](#open)), both straight from the file at startup and 6 again from the array at shutdown ([below](#the-video-mode-and-full-screen-bytes)). The shell's own screens that edit them are [`../shell/screen-layout.md`](../shell/screen-layout.md#the-preferences-screen) and [the practice missions screen](../shell/screen-layout.md#the-parameters); options 0 and 1, the two sound bytes, are edited by both programs.
+**The file is shared with VSHELL**, which keeps the same 54-byte array (`DAT_004824b8`), the same load-time shadow (`004824ee`) and the same handler table (`00482524`), and reads and writes the same path: `ShellOptions_Load` (`0040d6a3`) and `ShellOptions_SaveAll` (`0040d752`), with the same step, step-back and commit trio (`ShellOptions_StepOption`, `ShellOptions_StepOptionBack`, `ShellOptions_Commit`). Options 4, 5 and 37-47 are its side of that sharing, and of those the simulator reads 4 and 6 ([Open](#open)), both straight from the file at startup and 6 again from the array at shutdown ([below](#the-video-mode-and-full-screen-bytes)). The shell's own screens that edit them are [`../shell/main-menu.md`](../shell/main-menu.md#the-preferences-screen) and [the practice missions screen](../shell/main-menu.md#the-parameters); options 0 and 1, the two sound bytes, are edited by both programs.
 
 ### The video-mode and full-screen bytes
 

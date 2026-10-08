@@ -35,7 +35,7 @@ public enum ShellPracticeButton {
 /// <c>PracticeScreen_Build</c> (<c>0044ac80</c>), put up by <c>PracticeScreen_Show</c>
 /// (<c>0044bc92</c>) and taken down by <c>PracticeScreen_Hide</c> (<c>0044bcb3</c>); its selection is
 /// moved by <c>PracticeScreen_SelectRow</c> (<c>0044bd7c</c>). See
-/// docs/retail/shell/screen-layout.md#the-practice-missions-screen.
+/// docs/retail/shell/main-menu.md#the-practice-missions-screen.
 ///
 /// <para>Every rect is a literal in the executable, kept parent-relative as the builder writes it: the
 /// content panel in the canvas, the two boxes and the two lower buttons in the panel, and the rest in
@@ -93,7 +93,7 @@ public sealed class ShellPracticeScreen {
 	/// <summary>
 	/// The <c>prefs.cfg</c> option each parameter steps, its modulus, and the first <c>estext.bin</c>
 	/// entry of the run its readout prints — the value is added to it. Indexed by
-	/// <see cref="ShellPracticeButton"/>. See docs/retail/shell/screen-layout.md, "The parameters".
+	/// <see cref="ShellPracticeButton"/>. See docs/retail/shell/main-menu.md, "The parameters".
 	/// </summary>
 	private static readonly (int Option, int Modulus, int FirstText)[] Parameters = {
 		(0x26, 2, 0x128),

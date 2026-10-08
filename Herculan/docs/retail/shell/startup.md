@@ -20,15 +20,15 @@ The process entry splits the command line into an `argv` whose first word is `db
 8. **The archives.** `VolumeGroup_SetBufferSize(0x200)`, then the volume scan, `VolRStream_SetGroup(0x100, ".vol", DriveCfg_Directory, 0)` ([`../formats/vol-archive.md`](../formats/vol-archive.md#which-archives-are-mounted)).
 9. **The disc.** `avi\pt1.avi` opened under the `drive.cfg` directory (`Path_UnderDriveCfg`); failing, the shell [refuses](#the-refusals) with *Please insert ESII CD and restart.* The stream stays open until the shell ends.
 10. **The shared state.** `Devices_Init` (`devices.cpp`'s viewport), `EsGlobal_Init(1)` — palette 1, the fonts, the backdrop, `estext.bin` and the shell generator's seeding ([`screen-layout.md`](screen-layout.md#what-the-whole-front-end-shares), [`campaign-loop.md`](campaign-loop.md#the-shells-generator)) — `Shell_InitGameState`, `LoadWeaponsDat`, `LoadCareerDat`, `ShellMap_EnsureResourcesLoaded`, and `WinEvents_Init` (`00468168`): the six window-event classes registered with the class-item registry, the event queue (`g_EventQueue`, `005ddbd0`) and the twenty-alarm WinTimer (`g_WinTimer`, `005ddbd4`) built.
-11. **The display.** A `WinWin95Display` (`Shell_Display`, `004810f0`) painting on the display's root window; the two cursor objects of [the pointer](screen-layout.md#the-pointer), the first given to the root and installed; and the root's handler set to `RootWindow_DiscardEvent` (`00401d77`), which deletes the event, with `0x60` added to its event mask. An event that [climbs](screen-layout.md#which-widget-a-click-reaches) to the root is dropped there.
+11. **The display.** A `WinWin95Display` (`Shell_Display`, `004810f0`) painting on the display's root window; the two cursor objects of [the pointer](widgets.md#the-pointer), the first given to the root and installed; and the root's handler set to `RootWindow_DiscardEvent` (`00401d77`), which deletes the event, with `0x60` added to its event mask. An event that [climbs](widgets.md#which-widget-a-click-reaches) to the root is dropped there.
 12. **The input.** A `WinConsumer` and a `WinMouseProducer`, and a `WinKeyboardProducer` only while `Shell_KeyboardEnabled` (`00482271`) is set, which `-k` clears. All three belong to `Shell_Dispatcher` (`004810f4`), the static dispatcher the loop drains.
 13. **The top-level window**, `Shell_TopWindow` (`004810e4`): an `ESWindow` over the root's rect, with no handler. The frame's root and the palette scopes are built inside it ([`screen-layout.md`](screen-layout.md#the-widget-tree-of-a-tab-screen)).
-14. **The sound** (`ShellSound_Init`, [`screen-layout.md`](screen-layout.md#sound)). It fails only when the sound manager's allocation does, and the shell then [refuses](#the-refusals) with *Could not create Sound Manager.*
+14. **The sound** (`ShellSound_Init`, [`movies-and-sound.md`](movies-and-sound.md#sound)). It fails only when the sound manager's allocation does, and the shell then [refuses](#the-refusals) with *Could not create Sound Manager.*
 15. **The screens.** `Shell_BuildScreensAndStart` (`004012b0`) builds every screen and starts the intro or the debrief by the startup code ([`campaign-loop.md`](campaign-loop.md)); then the top-level window is shown, `Shell_CloseAllowed` is set and the main loop starts.
 
 ### Sierra.ini
 
-While `prefs.cfg` option 47 (`ShellOption_SkipSierraIni`) is clear, the startup reads `VideoSpeed` from the `[Config]` section of `Sierra.ini`, a name with no path, with an empty default. A value below 1000 — a missing key reads as 0 — sets `Shell_PerformanceNotePending` (`0046c088`), which puts up [the `Performance Note`](screen-layout.md#the-main-menu) as the main menu comes up. Either way the startup then sets option 47, commits and saves all 54 options, so the read happens on one run only. The installers read the same value to choose the resolution, and v1.10's sets option 47 itself when it chooses low resolution ([`../retail-builds.md`](../retail-builds.md#the-installer)); its shipped `DATA\PREFS.CFG` has the option clear ([Open](#open)).
+While `prefs.cfg` option 47 (`ShellOption_SkipSierraIni`) is clear, the startup reads `VideoSpeed` from the `[Config]` section of `Sierra.ini`, a name with no path, with an empty default. A value below 1000 — a missing key reads as 0 — sets `Shell_PerformanceNotePending` (`0046c088`), which puts up [the `Performance Note`](main-menu.md#the-main-menu) as the main menu comes up. Either way the startup then sets option 47, commits and saves all 54 options, so the read happens on one run only. The installers read the same value to choose the resolution, and v1.10's sets option 47 itself when it chooses low resolution ([`../retail-builds.md`](../retail-builds.md#the-installer)); its shipped `DATA\PREFS.CFG` has the option clear ([Open](#open)).
 
 ### The refusals
 
@@ -39,16 +39,16 @@ The three refusals — no `-eggplant`, no disc, no sound manager — leave full 
 Each pass of the loop:
 
 1. pumps messages, and ends the loop on `WM_QUIT` or `Shell_QuitFlag` (`0046c074`);
-2. **without the focus, does nothing else.** `Shell_HasFocus` (`0046c094`, 1 in the image) is cleared by `WM_KILLFOCUS`, which also stops the sound, and set by `WM_SETFOCUS` ([`screen-layout.md`](screen-layout.md#what-plays-each-sound)). The skipped passes are counted on the mono monitor (`hmm: %d`, `Shell_UnfocusedPassCount`);
+2. **without the focus, does nothing else.** `Shell_HasFocus` (`0046c094`, 1 in the image) is cleared by `WM_KILLFOCUS`, which also stops the sound, and set by `WM_SETFOCUS` ([`movies-and-sound.md`](movies-and-sound.md#what-plays-each-sound)). The skipped passes are counted on the mono monitor (`hmm: %d`, `Shell_UnfocusedPassCount`);
 3. drains `Shell_Dispatcher`'s queue, which carries the producers' input (`Dispatcher_RunQueue`, all masks);
-4. pumps the events: the WinTimer's alarms, then the event queue (`Shell_PumpEvents`, [`screen-layout.md`](screen-layout.md#which-widget-a-click-reaches));
+4. pumps the events: the WinTimer's alarms, then the event queue (`Shell_PumpEvents`, [`widgets.md`](widgets.md#which-widget-a-click-reaches));
 5. commits the palette (`Shell_CommitPalette`);
 6. flushes the display's dirty list, which is where the pass's repaints reach the screen (`DirtyList_Flush`);
-7. plays [the movie queue](screen-layout.md#the-shells-movies) (`Movie_PlayQueue(1)`) and sets `Shell_MainLoopStarted` (`0046c08c`);
+7. plays [the movie queue](movies-and-sound.md#the-shells-movies) (`Movie_PlayQueue(1)`) and sets `Shell_MainLoopStarted` (`0046c08c`);
 8. runs [the briefing map's intro](mission-map.md#the-intro) if one is due (`ShellMap_RunIntro`);
 9. reports `maybe_Assert_BreakRequested` (`0048dc2c`) as a severity-6 assert, which exits, when it is non-zero ([Open](#open));
 10. stamps `Input_EventTime` with `GetTickCount`, prints it and the frame rate to the mono monitor;
-11. while [Alt+F4's `QUIT` alert](screen-layout.md#quit) is shown, repaints it every 51st pass (`QuitAlert_RepaintCounter`).
+11. while [Alt+F4's `QUIT` alert](main-menu.md#quit) is shown, repaints it every 51st pass (`QuitAlert_RepaintCounter`).
 
 `Shell_QuitFlag` is tested again after each of steps 3 to 8, so a handler that sets it ends the loop before the rest of the pass.
 
@@ -62,7 +62,7 @@ Each pass of the loop:
 
 ## Leaving the main loop
 
-The exit is the same for every way out — `QUIT`, the launches, Alt+F4's `ACCEPT` and `WM_CLOSE`, which sets `Shell_QuitFlag` once `Shell_CloseAllowed` is set ([`screen-layout.md`](screen-layout.md#quit)):
+The exit is the same for every way out — `QUIT`, the launches, Alt+F4's `ACCEPT` and `WM_CLOSE`, which sets `Shell_QuitFlag` once `Shell_CloseAllowed` is set ([`main-menu.md`](main-menu.md#quit)):
 
 ```
 Game_SaveSlot(10, NULL)          // 0040e37b: the current-game autosave; nothing without a game in progress, slot 11 in training

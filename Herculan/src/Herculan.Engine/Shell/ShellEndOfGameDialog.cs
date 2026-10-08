@@ -8,7 +8,7 @@ namespace Herculan.Engine.Shell;
 /// startup by <c>EndOfGame_Build</c> (<c>0044cc2c</c>), filled and put up by <c>EndOfGame_Show(state)</c> (<c>0044cecf</c>) and taken down by
 /// <c>OKAY</c>'s handler, <c>EndOfGame_OnOkay</c> (<c>0044cf7b</c>). The launch refusal's sibling, in a window the size of the
 /// display, so its rect is a canvas rect; while it is up this engine hit-tests nothing but <c>OKAY</c>,
-/// as it does for that dialog. See docs/retail/shell/screen-layout.md#the-main-menu.
+/// as it does for that dialog. See docs/retail/shell/main-menu.md#the-main-menu.
 /// </summary>
 public sealed class ShellEndOfGameDialog {
 	/// <summary>The alert, an <c>ESAlert</c>, in the canvas.</summary>

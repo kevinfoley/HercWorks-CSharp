@@ -86,7 +86,7 @@ public static class ShellCampaignLaunch {
 	/// VSHELL's memory. In a campaign it is <c>Registration_OnAccept</c> (<c>0043c0fb</c>)'s, after
 	/// <c>LoadHercInfDat</c> (<c>0041181c</c>); in training, <c>Begin Mission</c>'s and
 	/// <c>INSTANT ACTION</c>'s, which read no <c>gam\hercs.dat</c> and leave the career position for the
-	/// caller to set. See docs/retail/shell/screen-layout.md#starting-a-campaign and
+	/// caller to set. See docs/retail/shell/main-menu.md#starting-a-campaign and
 	/// docs/retail/shell/campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed.
 	///
 	/// <para>Each weapon's units are listed in the order <c>gam\weapons.dat</c> gives them, which

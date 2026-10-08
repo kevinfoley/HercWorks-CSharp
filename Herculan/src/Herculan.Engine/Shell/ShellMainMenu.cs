@@ -41,7 +41,7 @@ public enum ShellMainMenuButton {
 /// <summary>
 /// Tab 0, <c>MAIN MENU</c> — one titled panel of ten buttons in two columns over the shell's backdrop.
 /// Built once by <c>0043094c</c> (<c>wmain.cpp</c>), put up by <c>MainMenu_Show</c> (<c>004310a0</c>)
-/// and hidden by <c>MainMenu_Hide</c> (<c>0043114b</c>). See docs/retail/shell/screen-layout.md#the-main-menu.
+/// and hidden by <c>MainMenu_Hide</c> (<c>0043114b</c>). See docs/retail/shell/main-menu.md#the-main-menu.
 ///
 /// <para>Every rect is a literal in the executable, kept parent-relative as the builder writes it: the
 /// panel in the canvas, the buttons in the panel.</para>

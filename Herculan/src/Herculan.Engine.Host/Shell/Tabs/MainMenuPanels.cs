@@ -272,7 +272,7 @@ sealed class MainMenuPanels {
 
 	// QUIT, 00431727: blank the screen (Shell_BlankScreen, 0040723d) and end the main loop, with no prompt
 	// and no exit code of its own, so the shell returns the 0 its startup left and the launcher stops
-	// (docs/retail/shell/screen-layout.md#quit). The loop's common exit autosaves after the window's run returns.
+	// (docs/retail/shell/main-menu.md#quit). The loop's common exit autosaves after the window's run returns.
 	private void Quit() {
 		_outcome.Blanked = true;
 		_window.Close();

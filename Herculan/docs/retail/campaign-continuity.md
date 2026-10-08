@@ -79,7 +79,7 @@ The Omicron sector base appears in `C3_01`, `C3_02`, `C3_03`, `C3_05`, `C3_06`, 
 
 ## Chapter 4 — Bravo sector
 
-Two missions here set how many squad positions the next one has. The positions in play are 1 plus the unbroken run of members group 0 names from its second slot ([`shell/screen-layout.md`](shell/screen-layout.md#starting-a-practice-mission)), and a won mission's overlay on group 0 adds a slot.
+Two missions here set how many squad positions the next one has. The positions in play are 1 plus the unbroken run of members group 0 names from its second slot ([`shell/main-menu.md`](shell/main-menu.md#starting-a-practice-mission)), and a won mission's overlay on group 0 adds a slot.
 
 | Mission | Briefing | What it carries forward |
 |---|---|---|

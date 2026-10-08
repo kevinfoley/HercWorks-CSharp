@@ -300,7 +300,7 @@ Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) r
 | 1, campaign | forced 0 | forced 0 | `PlayerPilotSkill` (`00482aa1`), the player pilot record's skill at `+0x25` |
 | 0, training — the practice missions and `INSTANT ACTION` | `prefs.cfg` option `0x25` | option `0x26` | option `0x27` |
 
-The options are the practice missions screen's rows ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-parameters)); what the three fields do in the simulator is [`../simulation/difficulty.md`](../simulation/difficulty.md).
+The options are the practice missions screen's rows ([`../shell/main-menu.md`](../shell/main-menu.md#the-parameters)); what the three fields do in the simulator is [`../simulation/difficulty.md`](../simulation/difficulty.md).
 
 The same code sets two more fields. A campaign load writes offset 0, the theater, from the stage's campaign index in `gam\career.dat`. A training load writes offset 0 as 1 whatever the mission patched it to — `TRAIN5.MSN` patches in 3 and flies on theater 1 — offset 16 as 0, and offset 18, the variant, from the practice screen's `Time of Day`.
 

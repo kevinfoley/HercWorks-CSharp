@@ -764,7 +764,7 @@
       "binary": "VSHELL",
       "description": "The shell widget classes that stop at the event handler, at object +1 (the class records state vptr +1): Window and the ESWindow subclasses that do not derive from WinButton. The word after the slot is a pointer type's descriptor (e.g. 'ESMessage *').",
       "slots": [
-        {"offset": 0, "name": "HandleEvent", "description": "(widget, event): Event_Deliver calls it for the first widget up the parent chain whose event mask takes the event; it consumes and deletes the event. Window's is Window_DispatchCallback. See docs/retail/shell/screen-layout.md, The widget that takes a click decides what it does."}
+        {"offset": 0, "name": "HandleEvent", "description": "(widget, event): Event_Deliver calls it for the first widget up the parent chain whose event mask takes the event; it consumes and deletes the event. Window's is Window_DispatchCallback. See docs/retail/shell/widgets.md, The widget that takes a click decides what it does."}
       ],
       "instances": [
         {"address": "004717dc", "label": "WindowVtable", "description": "RTTI Window: Window_DispatchCallback."},
@@ -782,7 +782,7 @@
       "description": "VshellWindowVtable plus a paint slot: WinButton and the shell's button, panel and grid classes derived from it.",
       "slots": [
         {"offset": 0, "name": "HandleEvent", "description": "As VshellWindowVtable's: WinButton_HandleEvent for the panels, ESButtonFont_HandleEvent, ESButtonBitmap_HandleEvent, ESRadioButton_HandleEvent, ESBitmap_HandleEvent, ESArm_HandleEvent, ESAlert_HandleEvent."},
-        {"offset": 4, "name": "Paint", "description": "(widget): repaint the widget; the handlers call it through the vtable after changing the lit flag. WinButton's own is Rtl_PureError. See docs/retail/shell/screen-layout.md, How a widget paints."}
+        {"offset": 4, "name": "Paint", "description": "(widget): repaint the widget; the handlers call it through the vtable after changing the lit flag. WinButton's own is Rtl_PureError. See docs/retail/shell/widgets.md, How a widget paints."}
       ],
       "instances": [
         {"address": "0046e810", "label": "WinButtonVtable", "description": "RTTI WinButton: WinButton_HandleEvent, Rtl_PureError."},

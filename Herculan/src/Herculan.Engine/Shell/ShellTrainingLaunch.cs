@@ -22,7 +22,7 @@ public sealed record ShellTrainingHandoff(string ScriptPath, string MissionPath,
 /// (<c>Game_NewCareer</c>, <c>0040e2ed</c>) on stage 0 at the lit row, that mission loaded
 /// (<c>MsnGen_LoadMission</c>, <c>0041c73d</c>) with the squad built from its own group 0, and the
 /// handoff exported (<c>Game_ExportMissionHandoff</c>, <c>0040f0d4</c>). The sequence is
-/// docs/retail/shell/screen-layout.md#starting-a-practice-mission's; the mission load is
+/// docs/retail/shell/main-menu.md#starting-a-practice-mission's; the mission load is
 /// <see cref="MissionGenerator"/>.
 ///
 /// <para>Every random draw goes through the one generator VSHELL keeps for its whole run, in the

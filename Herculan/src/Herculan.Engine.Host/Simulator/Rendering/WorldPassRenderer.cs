@@ -34,26 +34,26 @@ sealed class WorldPassRenderer : IDisposable {
 
 		// How far this zone is visible and what it fades into, both off the zone and its theater rather
 		// than hand-picked — see Scene.Atmosphere. The sky is deliberately left alone.
-		scene.Atmosphere.ApplyTo(Scene);
+		scene.Models.Atmosphere.ApplyTo(Scene);
 
 		// The lights impact effects claim, which the renderer selects out of per drawn object — see
 		// EffectLightSelection. Live slots only ever come from the simulation, so this is the whole of
 		// the wiring.
-		Scene.EffectLights = scene.World.EffectLights;
+		Scene.EffectLights = scene.World.Effects.Lights;
 
 		// And the same distance as the camera's far plane, so the view stops where the original's
 		// terrain draw region does instead of drawing fully-fogged geometry past it.
-		scene.Atmosphere.ApplyTo(camera);
+		scene.Models.Atmosphere.ApplyTo(camera);
 
 		// The theater's shaded-surface colours — what a TSShadedPoly is actually drawn through. See
 		// SurfaceRampTable.
-		Scene.SetShadeRamps(scene.ShadeRamps);
-		Scene.SetPaletteRamp(scene.PaletteRamp);
+		Scene.SetShadeRamps(scene.Models.ShadeRamps);
+		Scene.SetPaletteRamp(scene.Models.PaletteRamp);
 
 		// And the same two through the theater's damage-flash palette, which the cockpit shake swaps the
 		// scene to for a fraction of a second at a time — see Scene.ImpactFlash. After the two above,
 		// which this is measured against.
-		Scene.SetImpactRamps(scene.ImpactFlash?.ShadeRamps, scene.ImpactFlash?.PaletteRamp);
+		Scene.SetImpactRamps(scene.Models.ImpactFlash?.ShadeRamps, scene.Models.ImpactFlash?.PaletteRamp);
 
 		_wireframe = new WireframeRenderer(gl);
 

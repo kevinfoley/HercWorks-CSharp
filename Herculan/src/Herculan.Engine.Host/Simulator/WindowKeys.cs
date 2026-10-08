@@ -1,6 +1,5 @@
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
-using Herculan.Engine.Host.Settings;
 using Herculan.Engine.Input;
 using Herculan.Engine.Platform;
 using Silk.NET.Input;
@@ -9,14 +8,13 @@ using static Herculan.Engine.Input.KeyChords;
 namespace Herculan.Engine.Host.Simulator;
 
 /// <summary>
-/// The keys that act on the window rather than the game: [Esc] backing out to the menu bar, [/] for the
-/// on-line manual, and the full-screen toggle and its ways out.
+/// The keys that act on the window rather than the game: [/] for the on-line manual, and the full-screen toggle
+/// and its ways out.
 /// </summary>
 sealed class WindowKeys : ISystemButtonActions {
 	private readonly EngineWindow _window;
 	private readonly SimulatorInput _input;
 	private readonly TapePlayback _tape;
-	private readonly HostMenuBar _menuBar;
 	private readonly string _manualRoot;
 	private readonly GameDisc? _disc;
 
@@ -24,15 +22,11 @@ sealed class WindowKeys : ISystemButtonActions {
 	private bool _fullScreenKeyDown;
 	private bool _fullScreenLiveKeyDown;
 	private bool _leaveFullScreenKeyDown;
-	private bool _menuBarEscapeDown;
-	private bool _tapeEscapeDown;
 
-	public WindowKeys(EngineWindow window, SimulatorInput input, TapePlayback tape, HostMenuBar menuBar,
-			string manualRoot, GameDisc? disc) {
+	public WindowKeys(EngineWindow window, SimulatorInput input, TapePlayback tape, string manualRoot, GameDisc? disc) {
 		_window = window;
 		_input = input;
 		_tape = tape;
-		_menuBar = menuBar;
 		_manualRoot = manualRoot;
 		_disc = disc;
 	}
@@ -135,60 +129,6 @@ sealed class WindowKeys : ISystemButtonActions {
 			bool pressed = down && !wasDown;
 			wasDown = down;
 			return pressed;
-		}
-	}
-
-	/// <summary>
-	/// [Esc] backs out one layer at a time: closes whichever of the menu bar's panels is open, else hides an
-	/// empty menu bar, else returns to the cockpit from the external view, a side window or the Heads-Down
-	/// Display, else raises the menu bar. The menu bar is the only way to reach either panel, since every key
-	/// from F1 to F12 is already taken by the game.
-	/// </summary>
-	public void ReadMenuBarEscapeKey(bool consumedByOtherPanel, CockpitView view, bool hasCockpit) {
-		// During a replay the two halves of this key come apart: the tape's [Esc] is the game's and only
-		// ever backs out of a view, and the live one keeps the menu bar, which is this engine's.
-		bool tapePlaying = _tape.Playing;
-		var keyboard = _input.Keyboard;
-		if (tapePlaying && keyboard != null) {
-			bool tapeDown = keyboard.IsKeyPressed(Key.Escape);
-			if (tapeDown && !_tapeEscapeDown && !consumedByOtherPanel && view.ExternalViewActive) {
-				view.Chain?.Escape();
-			} else if (tapeDown && !_tapeEscapeDown && !consumedByOtherPanel && hasCockpit
-					&& !view.ExternalViewActive && view.AwayFromForward) {
-				view.ReturnToForward();
-			}
-
-			_tapeEscapeDown = tapeDown;
-			consumedByOtherPanel = false;
-		}
-
-		var liveKeys = _input.LiveKeys;
-		if (liveKeys == null) {
-			return;
-		}
-
-		// Tracked every frame independent of consumedByOtherPanel, exactly like the modal panels track their
-		// own Escape edge regardless of who else claims it — otherwise a press that is still held on the frame
-		// a retail panel lets go of Escape reads as a second, fresh press here.
-		bool down = liveKeys.IsKeyPressed(Key.Escape);
-		bool pressed = down && !_menuBarEscapeDown;
-		_menuBarEscapeDown = down;
-
-		if (pressed && !consumedByOtherPanel) {
-			if (_menuBar.BackOut()) {
-				// A panel or the bar itself came down.
-			} else if (!tapePlaying && view.ExternalViewActive) {
-				// With the cockpit's widgets off, scancode 1 falls through them to the dispatcher's own
-				// case, which is the way back from the external view — see ExternalViewChain.Escape.
-				view.Chain?.Escape();
-			} else if (!tapePlaying && hasCockpit && !view.ExternalViewActive && view.AwayFromForward) {
-				// The manual's [Esc] is "the way back" from the side windows and the Heads-Down Display
-				// alike — view command 6 from a glance, 1 from heads-down. Only once that is done does
-				// [Esc] fall through to raising the menu bar.
-				view.ReturnToForward();
-			} else {
-				_menuBar.Show();
-			}
 		}
 	}
 }

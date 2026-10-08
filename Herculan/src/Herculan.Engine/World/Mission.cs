@@ -316,7 +316,7 @@ public sealed class Mission {
 	/// <summary>
 	/// What the mission counters start at: <c>mission.var</c> as the shell left it, with the slots the
 	/// load resets already zeroed. Empty for a mission built without a loader, which starts them all at
-	/// zero. See <see cref="Herculan.Engine.Sim.SimWorld.MissionCounters"/>.
+	/// zero. See <see cref="Herculan.Engine.Sim.MissionRuntime.Counters"/>.
 	/// </summary>
 	public IReadOnlyList<short> Counters { get; }
 

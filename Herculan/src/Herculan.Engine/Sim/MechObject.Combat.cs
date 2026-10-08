@@ -30,7 +30,7 @@ public sealed partial class MechObject {
 	/// </summary>
 	private void FireTick(SimWorld world) {
 		// A round the player is flying clears the device's trigger byte before this reads it.
-		bool trigger = Controls.Fire && !(LocallyPiloted && world.PlayerTriggerCleared);
+		bool trigger = Controls.Fire && !(LocallyPiloted && world.PlayerMissile.TriggerCleared);
 		bool fired = Weapons.FireTick(this, world, trigger);
 
 		if (!IsPlayer) {

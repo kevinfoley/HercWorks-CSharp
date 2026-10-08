@@ -1,3 +1,4 @@
+using Herculan.Engine.Cockpit;
 using Herculan.Engine.Host.Debugging;
 using Herculan.Engine.Host.Localization;
 using ImGuiNET;
@@ -8,9 +9,9 @@ namespace Herculan.Engine.Host.Settings;
 /// The menu bar [Esc] raises over the shell and over a mission, HERCULAN's own and not retail's, and the
 /// panels it opens: Debug (a mission's only, and only under <c>--developer</c>), Tweaks and Settings. Hidden until <see cref="Show"/>, and never
 /// drawn into a <c>--screenshot</c> capture. Which [Esc] press reaches it is each host's to decide, since
-/// retail takes [Esc] first wherever it has a use for it.
+/// retail takes [Esc] first wherever it has a use for it; over a mission, <see cref="SimulatorFrame"/> decides.
 /// </summary>
-sealed class HostMenuBar {
+sealed class HostMenuBar : IEscapeMenu {
 	private readonly LocalizationTable _localization;
 	private readonly DebugPanel? _debug;
 

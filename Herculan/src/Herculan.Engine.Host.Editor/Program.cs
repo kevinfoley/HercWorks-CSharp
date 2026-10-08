@@ -146,19 +146,19 @@ window.Load += (gl, input) => {
 	// Same as Herculan.Engine.Host: fog distances, fog colour and the banded sky come off the zone
 	// and its theater rather than being hand-picked — see Scene.Atmosphere. Without this the renderer
 	// has no sky gradient, so DrawSky paints nothing and the view has no background at all.
-	scene.Atmosphere.ApplyTo(renderer);
+	scene.Models.Atmosphere.ApplyTo(renderer);
 
 	// The theater's shaded-surface colours � what a TSShadedPoly is actually drawn through. See
 	// SurfaceRampTable.
-	renderer.SetShadeRamps(scene.ShadeRamps);
-	renderer.SetPaletteRamp(scene.PaletteRamp);
+	renderer.SetShadeRamps(scene.Models.ShadeRamps);
+	renderer.SetPaletteRamp(scene.Models.PaletteRamp);
 
 	wireframe = new WireframeRenderer(gl);
 
-	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
-	terrainTexture = scene.TerrainBank != null ? scene.TerrainBank.Atlas.Upload(gl, indexed: true) : null;
+	terrainMesh = new GpuMesh(gl, scene.Models.TerrainMesh);
+	terrainTexture = scene.Models.TerrainBank != null ? scene.Models.TerrainBank.Atlas.Upload(gl, indexed: true) : null;
 
-	foreach (var model in scene.Models) {
+	foreach (var model in scene.Models.All) {
 		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount, model.PointVertexCount);
 		if (model.Atlas != null) {
 			modelTextures[model.Key] = model.Atlas.Upload(gl, indexed: true);

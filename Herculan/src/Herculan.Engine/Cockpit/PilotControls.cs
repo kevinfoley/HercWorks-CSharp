@@ -185,11 +185,11 @@ public sealed class PilotControls {
 		// them below.
 		if (pilotInput && pilotMech != null) {
 			var built = pilotMech.Controls;
-			_scene.World.MissileSteer = !_view.ControlsOnCamera && StickTurretPair
+			_scene.World.PlayerMissile.Steer = !_view.ControlsOnCamera && StickTurretPair
 				? new MissileSteerInput(built.TorsoTwist, built.TorsoPitch, built.Fire)
 				: new MissileSteerInput(built.Turn, built.Throttle, built.Fire);
 		} else {
-			_scene.World.MissileSteer = default;
+			_scene.World.PlayerMissile.Steer = default;
 		}
 
 		// The controls on the camera — the outside view's default, [Enter]'s swap and [Ctrl+T]'s hand-off —
@@ -273,7 +273,7 @@ public sealed class PilotControls {
 		// The first button row's latch: a flown round's end and a modal panel ask for it, and letting go
 		// of the row — [Space] and the stick's first button — drops it. While it holds, the trigger reads
 		// released and the axes are held below.
-		if (_scene.World.TakeFireRowLatch()) {
+		if (_scene.World.PlayerMissile.TakeFireRowLatch()) {
 			_fireRowLatched = true;
 		}
 
@@ -303,7 +303,7 @@ public sealed class PilotControls {
 		// DAT_0049ebe5: the keyboard's first pair goes dead from the moment the first button row is
 		// latched while a round is being flown until that row is let go, so the arrows steering the
 		// round do not walk the machine off once it has gone.
-		if (_scene.World.MissileFlown) {
+		if (_scene.World.PlayerMissile.Flown) {
 			_missileKeyboardHold = 1;
 		}
 
@@ -319,7 +319,7 @@ public sealed class PilotControls {
 
 		// Flying the round, the keyboard's pitch is the other way up unless keyjoy.cfg's Missile says
 		// Reverse. The stick's is left alone.
-		if (_scene.World.MissileFlown && !Bindings.Keyjoy.ReverseMissile) {
+		if (_scene.World.PlayerMissile.Flown && !Bindings.Keyjoy.ReverseMissile) {
 			keyboardAxes = keyboardAxes with { Throttle = (short)-keyboardAxes.Throttle };
 		}
 

@@ -136,7 +136,7 @@ public sealed class CockpitView {
 
 	// The controls go to a camera or to an electro-optical round: InputDrivesCamera or DAT_004d25aa, the
 	// pair Input_BuildPlayerDevice tests together.
-	public bool ControlsOnCamera => ControlsDriveCamera || _scene.World.MissileFlown;
+	public bool ControlsOnCamera => ControlsDriveCamera || _scene.World.PlayerMissile.Flown;
 
 	// The two view changes share CockpitView_QueueViewCommand's gate on the current view: the pan down
 	// starts only from the forward view, and so does a glance. Every request for either goes through
@@ -168,6 +168,26 @@ public sealed class CockpitView {
 	public void ReturnToForward() {
 		Glance.Return();
 		RequestHeadsDown(headsDown: false);
+	}
+
+	/// <summary>
+	/// [Esc] once no modal panel has taken it: out of the external view, where with the cockpit's widgets off
+	/// scancode 1 falls through them to the dispatcher's own case (see <see cref="ExternalViewChain.Escape"/>), else
+	/// <see cref="ReturnToForward"/> from a glance or the Heads-Down Display. Returns whether there was a view to
+	/// come back from.
+	/// </summary>
+	public bool BackOut(bool hasCockpit) {
+		if (ExternalViewActive) {
+			Chain?.Escape();
+			return true;
+		}
+
+		if (hasCockpit && AwayFromForward) {
+			ReturnToForward();
+			return true;
+		}
+
+		return false;
 	}
 
 	/// <summary>
@@ -268,7 +288,7 @@ public sealed class CockpitView {
 			&& !developerKeys.StepPending;
 		if (Chain?.Advance(_cameraAxes.Steer, _cameraAxes.Throttle, _cameraTrigger,
 				ControlsDriveCamera, _scene.World.Terrain, deathCamera) == true) {
-			_scene.World.PendingMissionAlert = MissionStatus.PlayerDestroyed;
+			_scene.World.Mission.PendingAlert = MissionStatus.PlayerDestroyed;
 		}
 	}
 

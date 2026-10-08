@@ -140,7 +140,7 @@ public sealed partial class MechObject {
 			return;
 		}
 
-		world.ExplosiveBlastSweep(Position, RamBlastRadius, RamBlastDamage, null, this);
+		HitTests.ExplosiveBlastSweep(world, Position, RamBlastRadius, RamBlastDamage, null, this);
 
 		// Every component the machine still has, in index order. ComponentDamageWrite makes the
 		// active-flag test the original's loop makes for itself before each call.

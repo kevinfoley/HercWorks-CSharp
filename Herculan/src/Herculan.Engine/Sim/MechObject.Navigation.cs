@@ -204,7 +204,7 @@ public partial class MechObject {
 	/// other two sources, so terrain and machines are steered around at unchanged throttle.</para>
 	///
 	/// <para>The two body-space probes are cast against the structures' collision volumes
-	/// (<see cref="SimWorld.RaycastShapes"/>), which sees every structure but a standing animated one,
+	/// (<see cref="HitTests.RaycastShapes"/>), which sees every structure but a standing animated one,
 	/// and the machine sweep after them reads <see cref="SimObject.CollisionRadius"/>, which is
 	/// non-zero for exactly that one kind of structure and for every HERC — so no structure is
 	/// counted twice and none is missed.</para>
@@ -336,7 +336,7 @@ public partial class MechObject {
 		start = new Vec3i(start.X, start.Y, ground);
 		end = new Vec3i(end.X, end.Y, ground);
 
-		if (world.RaycastShapes(start, end, out int shapeRange, out _) && shapeRange < nearest) {
+		if (HitTests.RaycastShapes(world, start, end, out int shapeRange, out _) && shapeRange < nearest) {
 			nearest = shapeRange;
 		}
 
@@ -372,7 +372,7 @@ public partial class MechObject {
 
 		// A structure the machine is aiming at is no obstruction to itself; the ray stopping on
 		// anything else is.
-		if (world.RaycastShapes(from, to, out _, out var struck) && !ReferenceEquals(struck, target)) {
+		if (HitTests.RaycastShapes(world, from, to, out _, out var struck) && !ReferenceEquals(struck, target)) {
 			return LineOfSight.BlockedByShape;
 		}
 

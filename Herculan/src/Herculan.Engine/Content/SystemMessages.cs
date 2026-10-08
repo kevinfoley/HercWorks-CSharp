@@ -139,14 +139,14 @@ public sealed class SystemMessages {
 	public const int DataTransferAborted = 0x38;
 
 	/// <summary>
-	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> Posted by <see cref="Audio.GameAudio.AnnouncePowerUp"/>
+	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> Posted by <see cref="Cockpit.MessagePorts.AnnouncePowerUp"/>
 	/// when the machine's internals read no damage.
 	/// </summary>
 	public const int PowerUpNominal = 0x21;
 
 	/// <summary>
 	/// <c>POWERUP INITIATED. INTERNAL DAMAGE DETECTED.</c> Posted by
-	/// <see cref="Audio.GameAudio.AnnouncePowerUp"/> in place of <see cref="PowerUpNominal"/> when one
+	/// <see cref="Cockpit.MessagePorts.AnnouncePowerUp"/> in place of <see cref="PowerUpNominal"/> when one
 	/// of the first ten internals reads any damage.
 	/// </summary>
 	public const int PowerUpDamaged = 0x22;

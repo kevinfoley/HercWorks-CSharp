@@ -175,7 +175,7 @@ public sealed class Projectile {
 	/// round (100) is not.</para>
 	///
 	/// <para><b>The plasma round ends differently.</b> <see cref="PlasmaSubtype"/> detonates rather
-	/// than striking: <see cref="SimWorld.ExplosiveBlastSweep"/> at
+	/// than striking: <see cref="HitTests.ExplosiveBlastSweep"/> at
 	/// <see cref="PlasmaBlastRadius"/>, either where it touched something or, through its proximity
 	/// fuze, the moment it has passed its target — see <see cref="PlasmaProximityFuze"/>.</para>
 	///
@@ -221,7 +221,7 @@ public sealed class Projectile {
 			shot.StashDamage();
 		}
 
-		if (world.Raycast(shot) != 0) {
+		if (HitTests.Raycast(world, shot) != 0) {
 			HitObject = shot.HitObject;
 			world.RecordProjectileHit(shot);
 			Detonate(world, shot.Muzzle.TransformPoint(0, shot.Distance, 0));
@@ -263,7 +263,7 @@ public sealed class Projectile {
 			damage = (short)SimMath.Q10Multiply(world.DamageScaleFor(attacker.Side), damage);
 		}
 
-		world.ExplosiveBlastSweep(at, PlasmaBlastRadius, damage, Owner, null);
+		HitTests.ExplosiveBlastSweep(world, at, PlasmaBlastRadius, damage, Owner, null);
 	}
 
 	/// <summary>How far the plasma round's blast reaches — <c>Bullet_TickUpdate</c>'s own 4000.</summary>

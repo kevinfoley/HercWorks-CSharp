@@ -230,7 +230,7 @@ public sealed class SceneRenderer : IDisposable {
 	public Vector3 LightDirection { get; set; } = MissionSun.Direction;
 
 	/// <summary>
-	/// The impact effects' dynamic lights — <see cref="SimWorld.EffectLights"/>. Each drawn item
+	/// The impact effects' dynamic lights — <see cref="EffectPools.Lights"/>. Each drawn item
 	/// whose <see cref="SceneItem.LightSubject"/> is set gets its own selection out of these, which
 	/// is what <c>LightManager_SelectLightsForObject</c> (<c>00407098</c>) does per render entry. Null lights the scene by the sun alone,
 	/// which is what a tool with no simulation running gets.

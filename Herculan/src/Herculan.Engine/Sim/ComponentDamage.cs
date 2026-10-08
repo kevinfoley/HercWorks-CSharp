@@ -577,10 +577,10 @@ public sealed class ComponentDamage {
 		if (sequence >= 0) {
 			if (!_majorEffectFired) {
 				if ((piece.DestructionFlags & DestructionFlagWholeObjectFire) != 0) {
-					world.ReleaseFires(owner);
-					world.SpawnFire(owner, (short)index, default, FireEffect.WholeObjectShape);
+					world.Effects.ReleaseFires(owner);
+					world.Effects.SpawnFire(owner, (short)index, default, FireEffect.WholeObjectShape);
 				} else if ((piece.DestructionFlags & DestructionFlagComponentFire) != 0) {
-					world.SpawnFire(owner, (short)index, default, FireEffect.ComponentShape);
+					world.Effects.SpawnFire(owner, (short)index, default, FireEffect.ComponentShape);
 				}
 			}
 
@@ -594,11 +594,11 @@ public sealed class ComponentDamage {
 				type = MajorExplosion;
 			}
 
-			world.SpawnImpactEffect(type, point, owner);
+			world.Effects.SpawnImpactEffect(type, point, owner);
 		}
 
 		short group = DebrisGroupOf(piece.DebrisFlags);
-		world.SpawnDebris(group < 0 ? DefaultDebrisGroup : group,
+		world.Effects.SpawnDebris(group < 0 ? DefaultDebrisGroup : group,
 			mech?.ComponentThrowFrame((short)index) ?? owner.WorldFrame, debris);
 	}
 

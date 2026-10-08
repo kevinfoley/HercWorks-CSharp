@@ -155,7 +155,7 @@ public sealed class HddCommandScreen {
 
 	/// <summary>Advances the blink. Wall time, not simulation time, exactly as the original's is.</summary>
 	public void Update(TimeSpan elapsed) {
-		_blinkTicks += elapsed.TotalSeconds / Audio.GameAudio.CoarseTickSeconds;
+		_blinkTicks += elapsed.TotalSeconds / MessagePorts.CoarseTickSeconds;
 		while (_blinkTicks >= BlinkTicks) {
 			_blinkTicks -= BlinkTicks;
 			Blink = !Blink;

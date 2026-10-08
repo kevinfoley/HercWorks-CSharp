@@ -389,7 +389,7 @@ public sealed class WorldDrawItems {
 
 		var hulkItems = Array.Empty<(SceneItem Item, CellGate Gate)>();
 		if (structure.Type.HulkTypeIndex >= 0
-				&& _scene.HulkModels.TryGetValue(structure.Type.HulkTypeIndex, out var hulk)
+				&& _scene.Models.Hulks.TryGetValue(structure.Type.HulkTypeIndex, out var hulk)
 				&& _uploads.Cells.TryGetValue(hulk.Key, out var hulkCells)) {
 			uint? hulkTexture = _uploads.TextureOf(hulk.Key);
 			hulkItems = new (SceneItem, CellGate)[hulkCells.Length];

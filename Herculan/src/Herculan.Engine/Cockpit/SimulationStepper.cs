@@ -1,10 +1,8 @@
-using Herculan.Engine.Cockpit;
 using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
-using Herculan.Engine.Host.Debugging;
 using Herculan.Engine.Sim;
 
-namespace Herculan.Engine.Host.Simulator;
+namespace Herculan.Engine.Cockpit;
 
 /// <summary>
 /// When the simulation ticks. Live, it advances in whole ticks of the same length on a fixed-timestep
@@ -12,7 +10,7 @@ namespace Herculan.Engine.Host.Simulator;
 /// a replay ticks on the tape's frames instead, each for the time it recorded; a recording writes each tick
 /// onto its tape. Every modal panel freezes it.
 /// </summary>
-sealed class SimulationStepper {
+public sealed class SimulationStepper {
 	private const double SecondsPerTick = 1.0 / SimWorld.TicksPerSecond;
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into a burst of
@@ -26,15 +24,14 @@ sealed class SimulationStepper {
 	private readonly MissionOutcome _outcome;
 	private readonly DeveloperKeys _developerKeys;
 	private readonly CockpitView _view;
-	private readonly DebugProbes _debugProbes;
 	private readonly PilotControls _pilot;
-	private readonly SimulatorInput _input;
+	private readonly ISimulatorInput _input;
 
 	private double _tickAccumulator;
 
 	public SimulationStepper(SimWorld world, TapePlayback tape, TapeRecording recording, ModalPanels panels,
-			MissionOutcome outcome, DeveloperKeys developerKeys, CockpitView view, DebugProbes debugProbes,
-			PilotControls pilot, SimulatorInput input) {
+			MissionOutcome outcome, DeveloperKeys developerKeys, CockpitView view, PilotControls pilot,
+			ISimulatorInput input) {
 		_world = world;
 		_tape = tape;
 		_recording = recording;
@@ -42,10 +39,16 @@ sealed class SimulationStepper {
 		_outcome = outcome;
 		_developerKeys = developerKeys;
 		_view = view;
-		_debugProbes = debugProbes;
 		_pilot = pilot;
 		_input = input;
 	}
+
+	/// <summary>
+	/// Raised after each tick and the view chain's share of it, before a recording's or a replay's half. Beams are
+	/// resolved and forgotten inside the tick, so anything that wants to see one has to look here — see
+	/// <see cref="SimWorld.Beams"/>.
+	/// </summary>
+	public event Action? Ticked;
 
 	/// <summary>
 	/// The top of a host frame, before any handler reads input: a replay's next frame goes in, when it is due,
@@ -93,7 +96,7 @@ sealed class SimulationStepper {
 			// Alt+keypad +: this tick and no more. Sim_MainTick re-freezes at the top of the next one.
 			_world.Tick();
 			_view.AdvanceChain(_developerKeys);
-			_debugProbes.SampleBeams(_world);
+			Ticked?.Invoke();
 			RecordTick();
 			_developerKeys.FinishStep();
 			_tickAccumulator = 0;
@@ -129,10 +132,7 @@ sealed class SimulationStepper {
 		}
 
 		_view.AdvanceChain(_developerKeys);
-
-		// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to look
-		// between ticks — see SimWorld.Beams.
-		_debugProbes.SampleBeams(_world);
+		Ticked?.Invoke();
 		return RecordTick(emit);
 	}
 
@@ -205,12 +205,11 @@ sealed class SimulationStepper {
 		if (_developerKeys.Frozen) {
 			_world.TickFrozen(tickDelta);
 		} else {
-			_world.Tick(tickDelta, Herculan.Engine.Input.InputTapePlayer.SecondsOf(tickDelta) * 1000);
+			_world.Tick(tickDelta, InputTapePlayer.SecondsOf(tickDelta) * 1000);
 		}
 
 		_view.AdvanceChain(_developerKeys);
-
-		_debugProbes.SampleBeams(_world);
+		Ticked?.Invoke();
 		_panels.RaisePendingMissionAlert(_outcome.Over);
 		_tape.NotePanel(_panels.AnyOpen);
 	}

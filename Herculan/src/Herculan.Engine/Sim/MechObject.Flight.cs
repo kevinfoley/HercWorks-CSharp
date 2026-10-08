@@ -409,7 +409,7 @@ public sealed partial class MechObject : IFlightBody {
 		ApplyContactDamage(world, FlightPhysics.ComponentCockpit, damage, contact);
 
 		if (!AirframeIntact(FlightPhysics.ComponentCockpit)) {
-			world.SpawnDebris(CrashDebrisGroup, contact, DebrisTable(world));
+			world.Effects.SpawnDebris(CrashDebrisGroup, contact, DebrisTable(world));
 			Immobilised = true;
 		}
 	}
@@ -464,7 +464,7 @@ public sealed partial class MechObject : IFlightBody {
 			(short)SimMath.Q10Multiply(airSpeed, FuselageGroundDamageGain), Position);
 
 		if (!AirframeIntact(FlightPhysics.ComponentFuselage)) {
-			world.SpawnDebris(CrashDebrisGroup, Position, DebrisTable(world));
+			world.Effects.SpawnDebris(CrashDebrisGroup, Position, DebrisTable(world));
 			Immobilised = true;
 		}
 	}
@@ -488,7 +488,7 @@ public sealed partial class MechObject : IFlightBody {
 		var probe = new WeaponShot(ray, airSpeed, ContactDamageShield, ContactDamageShield,
 			AirframeContact, owner: null, excluded: this, clearance: clearance);
 
-		return world.Raycast(probe) != 0;
+		return HitTests.Raycast(world, probe) != 0;
 	}
 
 	/// <summary>

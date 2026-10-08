@@ -222,7 +222,7 @@ public static class MissionLoader {
 			throw new MissingHandoffFileException(countersPath);
 		}
 
-		var counters = new short[Sim.SimWorld.MissionCounterSlots];
+		var counters = new short[Sim.MissionRuntime.CounterSlots];
 		byte[] bytes = File.ReadAllBytes(countersPath);
 		Buffer.BlockCopy(bytes, 0, counters, 0, Math.Min(bytes.Length, counters.Length * 2));
 

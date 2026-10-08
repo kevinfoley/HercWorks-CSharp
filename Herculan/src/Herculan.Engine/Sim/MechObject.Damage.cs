@@ -320,7 +320,7 @@ public sealed partial class MechObject {
 		}
 
 		if (shieldDamage == 0) {
-			world.SpawnPickedImpactEffect(
+			world.Effects.SpawnPickedImpactEffect(
 				shot.ImpactFx(WeaponShot.ImpactFxGroup.Shield), shot.Muzzle.TransformPoint(0, struckAt, 0), this);
 			return struckAt;
 		}
@@ -470,7 +470,7 @@ public sealed partial class MechObject {
 			RollWeaponMountDestruction(world, componentIndex, after);
 		}
 
-		world.SpawnPickedImpactEffect(shot.ImpactFx(group), hitPoint, this);
+		world.Effects.SpawnPickedImpactEffect(shot.ImpactFx(group), hitPoint, this);
 
 		// And a spray of wreckage off the impact point, but only for a hit that moved the component
 		// into a new band and did not finish it: a shot that merely scuffs the armour throws nothing,
@@ -478,7 +478,7 @@ public sealed partial class MechObject {
 		// is the literal 2, which is DEF_DEB's, so it is the same three shapes off every machine
 		// however exotic its own wreckage table is.
 		if (group == WeaponShot.ImpactFxGroup.Armor && after != FullyDamaged) {
-			world.SpawnDebris(HitDebrisGroup, hitPoint, DebrisTable(world));
+			world.Effects.SpawnDebris(HitDebrisGroup, hitPoint, DebrisTable(world));
 		}
 	}
 
@@ -521,7 +521,7 @@ public sealed partial class MechObject {
 	/// </list>
 	///
 	/// <para>Reached from two places, as in the original: the world sweep
-	/// (<see cref="SimWorld.ExplosiveBlastSweep"/>) for a shot that goes off in the open, and this
+	/// (<see cref="HitTests.ExplosiveBlastSweep"/>) for a shot that goes off in the open, and this
 	/// machine's own direct-fire path for the splash share of a shot that hit it — see
 	/// <see cref="ApplyDirectFireDamage"/>.</para>
 	///
@@ -712,7 +712,7 @@ public sealed partial class MechObject {
 	/// <see cref="ComponentDamage.Deactivate"/>.</para>
 	///
 	/// <para><b>A Cybrid's lost gun is salvage.</b> On a machine of side 1 the mount goes onto the
-	/// mission's salvage list (<see cref="SimWorld.QueueSalvage"/>) between the flag write and the
+	/// mission's salvage list (<see cref="MissionRuntime.QueueSalvage"/>) between the flag write and the
 	/// finish-off, with its condition taken from <see cref="MountSalvageScale"/> of the reading: a gun
 	/// knocked off a half-wrecked mount comes home in better shape than the mount reads.</para>
 	/// </summary>
@@ -733,7 +733,7 @@ public sealed partial class MechObject {
 		mount?.Destroy(world, this, rolled: true, DebrisTable(world));
 		_damage.Deactivate(componentIndex);
 		if (Side == MissionSide.Cybrid && mount != null) {
-			world.QueueSalvage((short)mount.WeaponId,
+			world.Mission.QueueSalvage((short)mount.WeaponId,
 				SalvageCondition(SimMath.Q10Multiply(MountSalvageScale, damagePercent)));
 		}
 

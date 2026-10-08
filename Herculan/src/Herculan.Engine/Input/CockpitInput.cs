@@ -100,7 +100,7 @@ public sealed class CockpitInput {
 	/// The original's double-click window, <c>CockpitMouse_DoubleClickTicks</c> (<c>004d1e70</c>) —
 	/// <c>0x1e</c> coarse UI ticks of 16ms each, between a button's release and its previous one.
 	/// </summary>
-	public const float DoubleClickSeconds = (float)(30 * Audio.GameAudio.CoarseTickSeconds);
+	public const float DoubleClickSeconds = (float)(30 * Cockpit.MessagePorts.CoarseTickSeconds);
 
 	/// <summary>
 	/// How many unprocessed events are kept before further ones are dropped. The original's queue caps

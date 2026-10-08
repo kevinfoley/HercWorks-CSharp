@@ -143,8 +143,8 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// <c>mech+0xa8</c> — the softer one: neither side is crippled, but one is past
 	/// <see cref="LegsDamagedAlert"/>. In the original it exists mainly to raise the pilot's alert
-	/// once, and to take the milder speed penalty. Latched, like its partner. The original's
-	/// <c>flanking</c> gate reads it too; the port's does not (KNOWN_ISSUES.md).
+	/// once, and to take the milder speed penalty. Latched, like its partner, and like it keeps the
+	/// machine out of <c>flanking</c>.
 	/// </summary>
 	public bool LegsDamaged { get; private set; }
 

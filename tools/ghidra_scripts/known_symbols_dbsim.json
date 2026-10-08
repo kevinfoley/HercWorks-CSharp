@@ -6085,8 +6085,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiCombatReassess",
-      "description": "The reassess slot of behaviour states 3-7 and 18. Puts the machine's radar to ACTIVE unless its group is led by the local player; keeps a just-handed target (+0xac) or re-acquires with Ai_SelectTarget, the squad order verb choosing between the order's own target and a free pick; a committed machine under a movement order instead falls into Mech_AiSelectBehaviour and drops the fight. A group's first member re-enters every other uncommitted member, so one machine's fight commits the group. Then runs Mech_AiFleeCheck and, if that did not decide, installs attacking base / attacking flyer for a structure or flyer and facing off / attacking / flanking for a HERC by Mech_CompareCombatRating.",
-      "source": "docs/retail/simulation/ai-targeting.md"
+      "description": "The reassess slot of behaviour states 3-7 and 18. Puts the machine's radar to ACTIVE unless its group is led by the local player; keeps a just-handed target (+0xac) or re-acquires with Ai_SelectTarget, the squad order verb choosing between the order's own target and a free pick; a committed machine under a movement order instead falls into Mech_AiSelectBehaviour and drops the fight. A group's first member re-enters every other live uncommitted member, so one machine's fight commits the group. Then runs Mech_AiFleeCheck and, if that did not decide, installs attacking base / attacking flyer for a structure or flyer and facing off / attacking / flanking for a HERC by Mech_CompareCombatRating; an outgunned machine flanks only with both leg-damage latches (+0xa8, +0xa9) clear and typeRec+0xc8 over 0xb9, and faces off otherwise.",
+      "source": "docs/retail/simulation/ai-targeting.md",
+      "verified": {
+        "bytes": "0041cf18+935",
+        "sha1": "9a28c29d9340",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0041d2c4",

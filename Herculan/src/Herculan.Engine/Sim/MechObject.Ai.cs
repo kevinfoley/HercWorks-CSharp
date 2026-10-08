@@ -245,7 +245,7 @@ public partial class MechObject {
 
 		SetBehaviourState(CompareCombatRating(world, target) switch {
 			1 => BehaviourState.Attacking,
-			2 when !LegsCrippled && Type.FlankingGate > FlankingGateThreshold => BehaviourState.Flanking,
+			2 when !LegsDamaged && !LegsCrippled && Type.FlankingGate > FlankingGateThreshold => BehaviourState.Flanking,
 			_ => BehaviourState.FacingOff
 		});
 

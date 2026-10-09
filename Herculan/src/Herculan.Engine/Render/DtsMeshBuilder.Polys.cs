@@ -57,6 +57,10 @@ public static partial class DtsMeshBuilder {
 				point.Z + offset.Z);
 		}
 
+		// What the group's texture polys leave in TSTexture4Poly_Render's position array, for a later
+		// triangle drawn as its back to borrow from.
+		var textureSlot = new TextureCornerSlot();
+
 		foreach (var polyObject in group.Polys) {
 			// Two vertices is a line, not a degenerate face: retail shapes carry TSSolidPolys with
 			// VertexCount 2 whose whole contribution is a one-pixel run in the surface's line colour
@@ -96,23 +100,92 @@ public static partial class DtsMeshBuilder {
 			var surface = SurfaceOf(poly, group.Surfaces);
 
 			// Each side resolves its own surface pair, and either can be "do not draw". A poly whose
-			// two sides come out alike — every two-sided poly in the retail files — goes up once and
-			// draws from both; otherwise once per side it draws. See ResolveSide.
+			// two sides come out alike goes up once and draws from both; otherwise once per side it
+			// draws. See ResolveSide. A poly whose back the original draws from its corners in another
+			// order goes up once per side however its pairs compare — see BackReordersCorners.
 			SideLook? front = ResolveSide(polyObject, surface, true, shading);
 			SideLook? back = ResolveSide(polyObject, surface, false, shading);
-			if (front == back) {
+			if (front == back && !BackReordersCorners(polyObject, poly)) {
 				if (front is { } both) {
 					AppendPolySide(polyObject, poly, both, 0, face, group, points, localPoints, sink, atlas);
 				}
 			} else {
 				if (front is { } frontLook) {
-					AppendPolySide(polyObject, poly, frontLook, 1, face, group, points, localPoints, sink, atlas);
+					AppendSideCopies(polyObject, poly, frontLook, 1, face, group, points, localPoints, sink,
+						atlas, textureSlot);
 				}
 
 				if (back is { } backLook) {
-					AppendPolySide(polyObject, poly, backLook, -1, face, group, points, localPoints, sink, atlas);
+					AppendSideCopies(polyObject, poly, backLook, -1, face, group, points, localPoints, sink,
+						atlas, textureSlot);
 				}
 			}
+
+			if (polyObject is TSTexture4Poly) {
+				var corners = new int[poly.VertexCount];
+				for (int i = 0; i < corners.Length; i++) {
+					corners[i] = group.Indexes[listStart + i];
+				}
+
+				textureSlot.Add(PlaneOf(face), corners, frontDraws: front != null,
+					frontSwapped: front is { LitAsBack: true }, backDraws: back != null);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Whether the original draws this poly's back from its corners in an order other than the
+	/// front's, which a copy drawn from both sides cannot carry:
+	/// <list type="bullet">
+	/// <item>A <see cref="TSGouraudPoly"/> facing away is filled through <c>Raster_DrawPolygonReversed</c>
+	/// (<c>00484116</c>), which reverses the ring of screen points but not the brush's list of
+	/// per-vertex shades, so corner <c>n-1-j</c> takes corner <c>j</c>'s shade and the fan runs from the
+	/// last corner. docs/retail/rendering/dts-texture-binding.md, "<c>TSGouraudPoly</c> — same ramp
+	/// number, per-vertex light, no <c>.RMP</c> row".</item>
+	/// <item>A three-vertex <see cref="TSTexture4Poly"/> facing away borrows its second corner from an
+	/// earlier poly — see <see cref="TextureCornerSlot"/>.</item>
+	/// </list>
+	/// </summary>
+	private static bool BackReordersCorners(TSObject polyObject, TSPoly poly) =>
+		polyObject is TSGouraudPoly && poly.VertexCount >= 3
+		|| polyObject is TSTexture4Poly && poly.VertexCount == 3;
+
+	/// <summary>
+	/// A face's plane as a <see cref="FacingGate"/> with no side yet: its stored normal and its stored
+	/// centre's offset along it, in both build spaces.
+	/// </summary>
+	private static FacingGate PlaneOf(PolyFace face) {
+		var normal = face.Normal ?? Vector3.Zero;
+		return new FacingGate(normal, Vector3.Dot(normal, face.Center), Vector3.Dot(normal, face.LocalCenter), 0);
+	}
+
+	/// <summary>
+	/// One side of a poly drawn for that side alone. A three-vertex <see cref="TSTexture4Poly"/> the
+	/// original draws swapped — its back, or its front when that draws the back pair — goes up once per
+	/// point it can borrow, each copy gated on the facing that leaves that point (see
+	/// <see cref="TextureCornerSlot"/>); everything else goes up once.
+	/// </summary>
+	private static void AppendSideCopies(TSObject polyObject, TSPoly poly, SideLook look, int side,
+			PolyFace face, TSGroup group, Vector3[] points, Vector3[] localPoints, Collector sink,
+			TextureAtlas? atlas, TextureCornerSlot textureSlot) {
+		bool swappedTriangle = polyObject is TSTexture4Poly && poly.VertexCount == 3
+			&& (side < 0 || look.LitAsBack);
+		if (!swappedTriangle) {
+			AppendPolySide(polyObject, poly, look, side, face, group, points, localPoints, sink, atlas);
+			return;
+		}
+
+		// PLACEHOLDER: a borrowed corner the group's own polys do not settle comes from whatever the
+		// original drew before the group, which this build cannot know; the triangle keeps its own
+		// corners. No retail shape reaches it.
+		if (textureSlot.Candidates() is not { } candidates) {
+			AppendPolySide(polyObject, poly, look, side, face, group, points, localPoints, sink, atlas);
+			return;
+		}
+
+		foreach (var candidate in candidates) {
+			AppendPolySide(polyObject, poly, look, side, face, group, points, localPoints, sink, atlas,
+				candidate);
 		}
 	}
 
@@ -247,11 +320,41 @@ public static partial class DtsMeshBuilder {
 	/// One side of one poly, as triangles, outline edges or a point under that <paramref name="side"/>
 	/// — see <see cref="MeshVertex.Side"/>.
 	/// </summary>
+	/// <param name="borrowed">
+	/// For a three-vertex <see cref="TSTexture4Poly"/> drawn swapped, the point it borrows as its
+	/// second corner and the facing that leaves that point — see <see cref="AppendSideCopies"/>.
+	/// </param>
 	private static void AppendPolySide(TSObject polyObject, TSPoly poly, SideLook look, int side,
 			PolyFace face, TSGroup group, Vector3[] points, Vector3[] localPoints, Collector sink,
-			TextureAtlas? atlas) {
+			TextureAtlas? atlas, (int Point, FacingGate Gate)? borrowed = null) {
 		int listStart = poly.VertexList;
-		int firstIndex = group.Indexes![listStart];
+
+		// The ring the original hands its fill, as vertex-list corners resolved to points, and the
+		// frame corner each slot is mapped with. A Gouraud poly's back is the ring reversed, its
+		// normals left in list order (BackReordersCorners). The original lights slot j with corner j's
+		// own position as well as its normal; the shader measures an effect light's point term at the
+		// corner the slot draws, which KNOWN_ISSUES.md lists. A textured triangle drawn swapped puts the
+		// borrowed point and frame corner 3 in slot 1, which is what swapping slots 1 and 3 of a
+		// four-slot array holding three corners leaves there.
+		short[] indexes = group.Indexes!;
+		int count = poly.VertexCount;
+		bool reversed = side < 0 && polyObject is TSGouraudPoly;
+		var ring = new int[count];
+		var frameCorner = new int[count];
+		for (int j = 0; j < count; j++) {
+			ring[j] = indexes[listStart + (reversed ? count - 1 - j : j)];
+			frameCorner[j] = j;
+		}
+
+		if (borrowed is { } corner) {
+			ring[1] = corner.Point;
+			frameCorner[1] = 3;
+		}
+
+		int firstIndex = ring[0];
+		if (firstIndex < 0 || firstIndex >= points.Length) {
+			return;
+		}
 
 		// The name says quad, but the type also ships as a triangle — 40 of them across the
 		// fleet, six on APOCA alone — and the original textures those too: see
@@ -279,19 +382,21 @@ public static partial class DtsMeshBuilder {
 		Vector3 first = points[firstIndex];
 		Vector3 localFirst = localPoints[firstIndex];
 		int polyId = sink.NextPolyId();
-		bool ground = sink.SplitGround && LiesInGroundPlane(poly, group.Indexes, points);
+		bool ground = sink.SplitGround && LiesInGroundPlane(poly, indexes, points);
 
 		// A textured quad is mapped as a quad by the original, not as two triangles — see
 		// QuadUvWeights. A textured triangle needs none of that: the affine map taking three
 		// corners to three UVs is already the only one there is.
 		float[]? quadWeights = rect.HasValue && poly.VertexCount == 4
-			? QuadUvWeights(points, group.Indexes, listStart)
+			? QuadUvWeights(points, indexes, listStart)
 			: null;
 
-		// Polys are convex fans, so a triangle fan from the first vertex reproduces them.
+		// A triangle fan from the ring's first slot, which is how Raster_FillContourPolygon
+		// (004879c0) splits a Gouraud poly; every other fill covers a convex poly whichever way it is
+		// split.
 		for (int i = 0; i < poly.VertexCount - 2; i++) {
-			int i1 = group.Indexes[listStart + 1 + i];
-			int i2 = group.Indexes[listStart + 2 + i];
+			int i1 = ring[1 + i];
+			int i2 = ring[2 + i];
 			if (i1 < 0 || i1 >= points.Length || i2 < 0 || i2 >= points.Length) {
 				continue;
 			}
@@ -306,19 +411,25 @@ public static partial class DtsMeshBuilder {
 
 				// The original's back-face case swaps a quad's corners 1 and 3 in position and in
 				// frame corner together, which reverses the winding and leaves each corner's UV where
-				// it was, so the back draws through the same corner map as the front. What it does to
-				// a three-vertex poly is Open in docs/retail/rendering/dts-texture-binding.md.
+				// it was, so the back draws through the same corner map as the front. On a three-vertex
+				// poly the swap instead moves in a corner left by an earlier poly, which the ring
+				// already carries (docs/retail/rendering/dts-texture-binding.md, "Three-vertex texture
+				// polys").
 				sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
 					localFirst, localPoints[i1], localPoints[i2], group.Transform, sink.Gate,
 					face, side, look.LitAsBack,
-					UvAt(frame, 0) * weights.Item1,
-					UvAt(frame, i + 1) * weights.Item2,
-					UvAt(frame, i + 2) * weights.Item3,
+					UvAt(frame, frameCorner[0]) * weights.Item1,
+					UvAt(frame, frameCorner[i + 1]) * weights.Item2,
+					UvAt(frame, frameCorner[i + 2]) * weights.Item3,
 					faceNormal: face.Normal,
-					uvWeights: quadWeights == null ? default : weights) { Leaf = sink.Leaf, Ground = ground });
+					uvWeights: quadWeights == null ? default : weights) {
+					Leaf = sink.Leaf, Ground = ground, Dependency = borrowed?.Gate ?? FacingGate.None
+				});
 			} else {
-				// The fan's corners are vertex-list slots 0, i+1 and i+2, and the normal list is
-				// parallel to it, so the same three slots index it.
+				// The fan's corners are ring slots 0, i+1 and i+2, and the normal list is indexed by
+				// the same slots: it runs parallel to the vertex list, and on a reversed ring it is
+				// not reversed with it, which is how slot j of a Gouraud poly's back takes corner j's
+				// normal.
 				var corners = vertexNormals == null
 					? ((Vector3, Vector3, Vector3)?)null
 					: (vertexNormals[0], vertexNormals[i + 1], vertexNormals[i + 2]);
@@ -328,7 +439,9 @@ public static partial class DtsMeshBuilder {
 					face, side, look.LitAsBack,
 					unlit: solid.HasValue, shadeRamp: look.ShadeRamp, vertexNormals: corners,
 					faceNormal: face.Normal,
-					solidPaletteIndex: solid?.FillIndex ?? -1) { Leaf = sink.Leaf, Ground = ground });
+					solidPaletteIndex: solid?.FillIndex ?? -1) {
+					Leaf = sink.Leaf, Ground = ground, Dependency = borrowed?.Gate ?? FacingGate.None
+				});
 			}
 		}
 
@@ -369,8 +482,8 @@ public static partial class DtsMeshBuilder {
 		int edgeCount = poly.VertexCount == 2 ? 1 : poly.VertexCount;
 
 		for (int i = 0; i < edgeCount; i++) {
-			int from = group.Indexes[listStart + i];
-			int to = group.Indexes[listStart + (i + 1) % poly.VertexCount];
+			int from = indexes[listStart + i];
+			int to = indexes[listStart + (i + 1) % poly.VertexCount];
 			if (from < 0 || from >= points.Length || to < 0 || to >= points.Length) {
 				continue;
 			}
@@ -382,7 +495,8 @@ public static partial class DtsMeshBuilder {
 				face, side, standalone: standalone,
 				solidPaletteIndex: edgeIndex,
 				shadeRamp: shadedOutline ? look.LineRamp : -1,
-				outlineFillRamp: shadedOutline ? look.ShadeRamp : -1) { Leaf = sink.Leaf, Ground = ground });
+				outlineFillRamp: shadedOutline ? look.ShadeRamp
+					: !standalone && solid is { } outlined ? outlined.FillIndex : -1) { Leaf = sink.Leaf, Ground = ground });
 		}
 	}
 
@@ -591,7 +705,11 @@ public static partial class DtsMeshBuilder {
 	/// fill = rampRow(0x80)[value];   line = rampRow(0x80)[line];
 	/// </code>
 	/// <para>and the outline is drawn only when the two <b>ramped</b> bytes differ, so two palette
-	/// indices that resolve to the same output draw no outline. <c>TSSolidPoly_Render</c>
+	/// indices that resolve to the same output draw no outline. The row carries the depth slice the
+	/// object's distance installs, so that test is the shader's, per fragment: the line goes up
+	/// whenever it names a different index, and <see cref="MeshVertex.OutlineFillRamp"/> carries the
+	/// fill's index for the comparison. Its colour here is the unfogged one, the fallback for a theater
+	/// whose palette ramp did not load. <c>TSSolidPoly_Render</c>
 	/// (<c>00474db4</c>) is traced in docs/retail/rendering/dts-texture-binding.md's "<c>TSSolidPoly</c> —
 	/// palette index, unlit, fill plus outline"; <see cref="Content.ShadeRamp"/> is the table.</para>
 	///
@@ -617,11 +735,10 @@ public static partial class DtsMeshBuilder {
 		int lineIndex = -1;
 
 		// The line colour is guarded exactly as the fill is — a nonzero flag means the entry is not a
-		// plain colour. Past that, the original's test is on the ramp's output, so this one is too.
+		// plain colour. Past that, the original's test is on the ramp's output at the slice in force,
+		// which only the shader knows; an index equal to the fill's can never resolve apart from it.
 		Vector3? line = null;
-		if (lineFlag == 0 && lineValue >= 0
-			&& shading.Ramp.Lookup(lineValue, ShadeRamp.UnlitShade)
-				!= shading.Ramp.Lookup(value, ShadeRamp.UnlitShade)) {
+		if (lineFlag == 0 && lineValue >= 0 && lineValue != value) {
 			line = shading.Ramp.Resolve(lineValue, ShadeRamp.UnlitShade, shading.Palette);
 			lineIndex = lineValue;
 		}

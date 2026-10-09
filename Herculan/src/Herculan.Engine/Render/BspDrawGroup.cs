@@ -22,7 +22,7 @@ public sealed class BspDrawGroup {
 
 	/// <param name="tree">The part's tree.</param>
 	/// <param name="frameToWorld">
-	/// A frame's own space to render world space, for each frame the tree's planes are in
+	/// A frame's own space to render world space, for each frame the tree's planes and children are in
 	/// (<see cref="BspTree.Frames"/>; <c>-1</c> is the object). A posed shape answers with the node's
 	/// posed transform, a shape baked at its rest pose with <see cref="BspTree.RestOffset"/> in front of
 	/// the object's.
@@ -37,6 +37,7 @@ public sealed class BspDrawGroup {
 		ParentLeaf = parentLeaf;
 		EyeInFrame = EyeIn;
 		Order = new int[tree.LeafCount];
+		LightRetarget = new Matrix4x4?[tree.LeafCount];
 		Items = new List<SceneItem>[tree.LeafCount];
 		Children = new List<BspDrawGroup>[tree.LeafCount];
 		for (int i = 0; i < tree.LeafCount; i++) {
@@ -73,6 +74,19 @@ public sealed class BspDrawGroup {
 
 	/// <summary>Scratch for <see cref="BspTree.PaintOrder"/>.</summary>
 	internal int[] Order { get; }
+
+	/// <summary>How many leaves of <see cref="Order"/> this pass's walk wrote.</summary>
+	internal int OrderCount { get; set; }
+
+	/// <summary>
+	/// Per child, what carries this pass's effect lights from where they stand into the frame the
+	/// original shades that child's faces against them in, or null where the two agree — see
+	/// <c>SceneRenderer</c>'s <c>PrepareBspGroup</c>.
+	/// </summary>
+	internal Matrix4x4?[] LightRetarget { get; }
+
+	/// <summary>A frame's own space to render world space — the constructor's <c>frameToWorld</c>.</summary>
+	internal Matrix4x4 FrameToWorld(int frame) => _frameToWorld(frame);
 
 	/// <summary><see cref="EyeIn"/>, made a delegate once rather than on every walk.</summary>
 	internal Func<int, Vector3> EyeInFrame { get; }

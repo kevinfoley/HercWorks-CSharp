@@ -151,7 +151,7 @@ public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVerte
 /// theater palette's shade-ramp table, with the face's light level picking a step along it. The two
 /// spend it through different chains; see <see cref="SurfaceShading"/>. Nearly every surface of a
 /// HERC or a building is one of these. Resolved by <see cref="ResolveShadeRamp"/>, and the lookup
-/// happens per fragment (<see cref="MeshVertex.ShadeRamp"/>, <see cref="SurfaceRampTable"/>) because
+/// happens on the GPU (<see cref="MeshVertex.ShadeRamp"/>, <see cref="SurfaceRampTable"/>) because
 /// the shade depends on the face's world normal and one mesh serves every instance of a type.</item>
 /// <item>Plain <see cref="TSSolidPoly"/> — a <b>palette index</b>, through the theater ramp at a
 /// fixed shade, never lit. <see cref="ResolveSolidColors"/>.</item>
@@ -236,6 +236,12 @@ public static partial class DtsMeshBuilder {
 
 		/// <summary>Which side of the poly this copy draws — see <see cref="MeshVertex.Side"/>.</summary>
 		public int Side { get; init; }
+
+		/// <summary>
+		/// Another poly's facing this copy is drawn under, or <see cref="FacingGate.None"/> — see
+		/// <see cref="TextureCornerSlot"/>.
+		/// </summary>
+		public FacingGate Dependency { get; init; }
 
 		/// <summary>
 		/// Whether this copy is lit as the poly's back while the poly faces the eye — see

@@ -27,12 +27,21 @@ public readonly struct DtsTexture {
 }
 
 /// <summary>
-/// What one side of a poly draws. <see cref="Lit"/> says the colours are already the original's
-/// final ones; a side built without a palette carries a placeholder the viewer lights itself.
+/// A <c>TSGouraudPoly</c> triangle's fill: the palette index each corner's light picks from the
+/// material ramp, and the palette the bands between them are drawn in
+/// (<see cref="ShapeShading.BandPalette"/>).
 /// </summary>
-public readonly record struct DtsFace(bool Draw, Color A, Color B, Color C, DtsTexture? Texture, bool Lit) {
-	public static DtsFace Flat(Color color, bool lit) => new(true, color, color, color, null, lit);
-	public static DtsFace Hidden { get; } = new(false, Color.Empty, Color.Empty, Color.Empty, null, true);
+public readonly record struct DtsContour(int IndexA, int IndexB, int IndexC, int[] Palette);
+
+/// <summary>
+/// What one side of a poly draws: a flat colour, a texture, or contour bands. <see cref="Lit"/> says
+/// the colours are already the original's final ones; a side built without a palette carries a
+/// placeholder the viewer lights itself.
+/// </summary>
+public readonly record struct DtsFace(bool Draw, Color Color, DtsTexture? Texture, bool Lit, DtsContour? Contour = null) {
+	public static DtsFace Flat(Color color, bool lit) => new(true, color, null, lit);
+	public static DtsFace Contoured(DtsContour contour) => new(true, Color.Empty, null, true, contour);
+	public static DtsFace Hidden { get; } = new(false, Color.Empty, null, true);
 }
 
 /// <summary>
@@ -47,6 +56,20 @@ public readonly struct DtsTriangle {
 
 	/// <summary>The poly's stored normal in render space (unit), or its winding's opposite when unresolvable.</summary>
 	public Vector3 FaceNormal { get; init; }
+
+	/// <summary>
+	/// The point the front/back test measures the eye from: the poly's first corner, the same for
+	/// every triangle of the poly, so that a poly drawn as separate front and back copies shows
+	/// exactly one of them.
+	/// </summary>
+	public Vector3 FacingPoint { get; init; }
+
+	/// <summary>
+	/// 1 or -1 for a copy that draws only its poly's front or back while the other side goes up as
+	/// a copy of its own (a <c>TSGouraudPoly</c> drawing both sides), else 0. Keeps the two copies of
+	/// a triangle out of each other's <see cref="DtsGeometryBuilder"/> coincident-twin bucket.
+	/// </summary>
+	public int SideCopy { get; init; }
 
 	public DtsFace Front { get; init; }
 	public DtsFace Back { get; init; }
@@ -107,8 +130,9 @@ public sealed record ShapeRenderContext(
 /// two-vertex one is a line and nothing else, a one-vertex one is not drawn;</item>
 /// <item><c>TSShadedPoly</c> — a material ramp at the face's sun shade, then the <c>.RMP</c> at the
 /// fixed row;</item>
-/// <item><c>TSGouraudPoly</c> — the same ramp at each corner's own shade, straight through the
-/// palette, interpolated;</item>
+/// <item><c>TSGouraudPoly</c> — the same ramp at each corner's own shade, giving a palette index per
+/// corner, filled in contour bands between them straight through the palette (see
+/// AppendGouraud);</item>
 /// <item><c>TSTexture4Poly</c> — a <c>.DBA</c> frame, lit per texel through the <c>.RMP</c> row the
 /// face's shade picks, a quad mapped projectively.</item>
 /// </list>
@@ -298,8 +322,8 @@ public static class DtsGeometryBuilder {
 	/// placeholder. docs/retail/rendering/dts-texture-binding.md's "Coincident twins".
 	/// </summary>
 	private static List<DtsTriangle> DropCoincidentTwins(List<DtsTriangle> triangles) {
-		var best = new Dictionary<(int, int, int, int, int, int), int>();
-		var order = new List<(int, int, int, int, int, int)>();
+		var best = new Dictionary<(int, int, int, int, int, int, int), int>();
+		var order = new List<(int, int, int, int, int, int, int)>();
 
 		for (int i = 0; i < triangles.Count; i++) {
 			var t = triangles[i];
@@ -314,7 +338,7 @@ public static class DtsGeometryBuilder {
 			var key = (
 				(int)MathF.Round(centroid.X * 4f), (int)MathF.Round(centroid.Y * 4f), (int)MathF.Round(centroid.Z * 4f),
 				(int)MathF.Round(MathF.Abs(normal.X) * 100f), (int)MathF.Round(MathF.Abs(normal.Y) * 100f),
-				(int)MathF.Round(MathF.Abs(normal.Z) * 100f));
+				(int)MathF.Round(MathF.Abs(normal.Z) * 100f), t.SideCopy);
 
 			if (!best.TryGetValue(key, out int kept)) {
 				best[key] = i;
@@ -476,8 +500,10 @@ public static class DtsGeometryBuilder {
 
 			if (polyObject.GetType() == typeof(TSSolidPoly)) {
 				AppendSolid(poly, surface, points, corners, faceNormal, triangles, lines, state);
+			} else if (poly.VertexCount >= 3 && polyObject is TSGouraudPoly) {
+				AppendGouraud(poly, surface, group, points, corners, faceNormal, triangles, state);
 			} else if (poly.VertexCount >= 3) {
-				AppendLitOrTextured(polyObject, poly, surface, group, points, corners, faceNormal, triangles, state);
+				AppendLitOrTextured(polyObject, poly, surface, points, corners, faceNormal, triangles, state);
 			}
 		}
 	}
@@ -538,7 +564,7 @@ public static class DtsGeometryBuilder {
 		for (int i = 0; i + 2 < corners.Length; i++) {
 			triangles.Add(new DtsTriangle {
 				A = points[corners[0]], B = points[corners[i + 1]], C = points[corners[i + 2]],
-				FaceNormal = faceNormal, Front = front.Fill, Back = back.Fill,
+				FaceNormal = faceNormal, FacingPoint = points[corners[0]], Front = front.Fill, Back = back.Fill,
 				UvWeights = Vector3.One, Rank = front.Fill.Lit ? 1 : 0
 			});
 		}
@@ -556,15 +582,84 @@ public static class DtsGeometryBuilder {
 		}
 	}
 
-	/// <summary><c>TSShadedPoly</c>, <c>TSGouraudPoly</c> and <c>TSTexture4Poly</c>, both sides.</summary>
-	private static void AppendLitOrTextured(TSObject polyObject, TSPoly poly, TSSurfaceEntry? surface, TSGroup group,
+	/// <summary>
+	/// A <c>TSGouraudPoly</c>: each corner's shade picks a palette index from the side's material ramp,
+	/// and each triangle of the fan is filled in contour bands between its corners' indices
+	/// (docs/retail/rendering/dts-texture-binding.md, "<c>TSGouraudPoly</c> — same ramp number,
+	/// per-vertex light, no <c>.RMP</c> row"; the viewer draws the bands). The fan runs from the first
+	/// slot of the ring the side is filled from. The back's ring is the corners reversed with the
+	/// corner normals left in list order, so slot <c>j</c> is corner <c>n-1-j</c> lit with corner
+	/// <c>j</c>'s negated normal and the fan runs from the last corner. A poly that draws both sides
+	/// therefore goes up as two copies, each drawn only from its own side.
+	/// </summary>
+	private static void AppendGouraud(TSPoly poly, TSSurfaceEntry? surface, TSGroup group, Vector3[] points,
+			int[] corners, Vector3 faceNormal, List<DtsTriangle> triangles, BuildState state) {
+		Vector3[]? cornerNormals = ResolveVertexNormals(poly, group);
+		int count = corners.Length;
+
+		// One side's palette index per ring slot, or, when the side does not band, what it draws whole.
+		(int[]? Slots, DtsFace Whole) Side(SurfacePair? pair, float sign) {
+			if (pair is not { } p) {
+				return (null, DtsFace.Flat(FlatFallbackColor, false));
+			}
+			if (p.Hidden) {
+				return (null, DtsFace.Hidden);
+			}
+			if (p.Value < 0 || state.Shading == null) {
+				return (null, DtsFace.Flat(FlatFallbackColor, false));
+			}
+
+			int faceShade = ShapeShading.ShadeForFace(faceNormal * sign);
+			var slots = new int[count];
+			for (int j = 0; j < count; j++) {
+				int shade = cornerNormals != null ? ShapeShading.ShadeForFace(cornerNormals[j] * sign) : faceShade;
+				if (state.Shading.RampedPaletteIndex(p.Value, shade) is not { } index) {
+					return (null, DtsFace.Flat(FlatFallbackColor, false));
+				}
+				slots[j] = index;
+			}
+			return (slots, default);
+		}
+
+		var front = Side(surface is { } sf ? SurfacePair.Front(sf) : null, 1f);
+		var back = Side(surface is { } sb ? SurfacePair.Back(sb) : null, -1f);
+		bool frontDraws = front.Slots != null || front.Whole.Draw;
+		bool backDraws = back.Slots != null || back.Whole.Draw;
+
+		void Emit((int[]? Slots, DtsFace Whole) side, bool isBack, int sideCopy) {
+			int Ring(int slot) => corners[isBack ? count - 1 - slot : slot];
+
+			for (int i = 0; i + 2 < count; i++) {
+				DtsFace face = side.Slots is { } s
+					? DtsFace.Contoured(new DtsContour(s[0], s[i + 1], s[i + 2], state.Shading!.BandPalette))
+					: side.Whole;
+
+				triangles.Add(new DtsTriangle {
+					A = points[Ring(0)], B = points[Ring(i + 1)], C = points[Ring(i + 2)],
+					FaceNormal = faceNormal, FacingPoint = points[corners[0]],
+					Front = isBack ? DtsFace.Hidden : face, Back = isBack ? face : DtsFace.Hidden,
+					SideCopy = sideCopy, UvWeights = Vector3.One, Rank = face.Lit ? 1 : 0
+				});
+			}
+		}
+
+		bool both = frontDraws && backDraws;
+		if (frontDraws) {
+			Emit(front, false, both ? 1 : 0);
+		}
+		if (backDraws) {
+			Emit(back, true, both ? -1 : 0);
+		}
+	}
+
+	/// <summary><c>TSShadedPoly</c> and <c>TSTexture4Poly</c>, both sides.</summary>
+	private static void AppendLitOrTextured(TSObject polyObject, TSPoly poly, TSSurfaceEntry? surface,
 			Vector3[] points, int[] corners, Vector3 faceNormal, List<DtsTriangle> triangles, BuildState state) {
-		Vector3[]? cornerNormals = ResolveVertexNormals(polyObject, group);
 		bool textured = poly is TSTexture4Poly && poly.VertexCount is 3 or 4;
 
-		// The back is lit with every normal negated, as the original does once the visibility test
+		// The back is lit with its normal negated, as the original does once the visibility test
 		// answers "back".
-		DtsFace Face(SurfacePair? pair, float sign, int a, int b, int c) {
+		DtsFace Face(SurfacePair? pair, float sign) {
 			if (pair is not { } p) {
 				return DtsFace.Flat(poly is TSTexture4Poly ? TextureFallbackColor : FlatFallbackColor, false);
 			}
@@ -576,21 +671,13 @@ public static class DtsGeometryBuilder {
 
 			if (textured) {
 				if (p.Value >= 0 && state.Textures?.Resolve(p.Value, faceShade) is { } texture) {
-					return new DtsFace(true, Color.White, Color.White, Color.White, texture, state.Textures.Lit);
+					return new DtsFace(true, Color.White, texture, state.Textures.Lit);
 				}
 				return DtsFace.Flat(TextureFallbackColor, false);
 			}
 
 			if (p.Value < 0 || state.Shading == null) {
 				return DtsFace.Flat(FlatFallbackColor, false);
-			}
-
-			if (polyObject is TSGouraudPoly) {
-				Color? Corner(int slot) => state.Shading.Gouraud(p.Value,
-					cornerNormals != null ? ShapeShading.ShadeForFace(cornerNormals[slot] * sign) : faceShade);
-				return Corner(a) is { } ca && Corner(b) is { } cb && Corner(c) is { } cc
-					? new DtsFace(true, ca, cb, cc, null, true)
-					: DtsFace.Flat(FlatFallbackColor, false);
 			}
 
 			return polyObject is TSShadedPoly && state.Shading.Shaded(p.Value, faceShade) is { } shaded
@@ -601,15 +688,15 @@ public static class DtsGeometryBuilder {
 		float[]? quadWeights = textured && corners.Length == 4 ? QuadUvWeights(points, corners) : null;
 
 		for (int i = 0; i + 2 < corners.Length; i++) {
-			var front = Face(surface is { } sf ? SurfacePair.Front(sf) : null, 1f, 0, i + 1, i + 2);
-			var back = Face(surface is { } sb ? SurfacePair.Back(sb) : null, -1f, 0, i + 1, i + 2);
+			var front = Face(surface is { } sf ? SurfacePair.Front(sf) : null, 1f);
+			var back = Face(surface is { } sb ? SurfacePair.Back(sb) : null, -1f);
 			Vector3 weights = quadWeights == null
 				? Vector3.One
 				: new Vector3(quadWeights[0], quadWeights[i + 1], quadWeights[i + 2]);
 
 			triangles.Add(new DtsTriangle {
 				A = points[corners[0]], B = points[corners[i + 1]], C = points[corners[i + 2]],
-				FaceNormal = faceNormal, Front = front, Back = back,
+				FaceNormal = faceNormal, FacingPoint = points[corners[0]], Front = front, Back = back,
 				// Only a textured poly has UVs, and it has at most four corners; a lit poly can have more.
 				UvA = textured ? QuadUvCorners[0] : default,
 				UvB = textured ? QuadUvCorners[i + 1] : default,

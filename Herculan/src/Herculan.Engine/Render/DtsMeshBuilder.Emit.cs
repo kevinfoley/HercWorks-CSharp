@@ -294,15 +294,24 @@ public static partial class DtsMeshBuilder {
 		bool textured = triangle.Rank == Ranks.Textured;
 		Vector3 center = local ? triangle.Face.LocalCenter : triangle.Face.Center;
 
+		// The plane of the poly this copy's borrowed corner depends on, in the same space as the
+		// corners — see TextureCornerSlot.
+		var dependency = triangle.Dependency;
+		var dependFace = new Vector4(dependency.Normal,
+			local ? dependency.LocalDistance : dependency.Distance);
+
 		vertices[at] = new MeshVertex(a, normalA, triangle.Color, triangle.UvA, textured, triangle.Unlit,
 			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.A,
-			solidPaletteIndex: triangle.SolidPaletteIndex, faceCenter: center, side: triangle.Side);
+			solidPaletteIndex: triangle.SolidPaletteIndex, faceCenter: center, side: triangle.Side,
+			dependFace: dependFace, dependSide: dependency.Side);
 		vertices[at + 1] = new MeshVertex(b, normalB, triangle.Color, triangle.UvB, textured, triangle.Unlit,
 			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.B,
-			solidPaletteIndex: triangle.SolidPaletteIndex, faceCenter: center, side: triangle.Side);
+			solidPaletteIndex: triangle.SolidPaletteIndex, faceCenter: center, side: triangle.Side,
+			dependFace: dependFace, dependSide: dependency.Side);
 		vertices[at + 2] = new MeshVertex(c, normalC, triangle.Color, triangle.UvC, textured, triangle.Unlit,
 			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.C,
-			solidPaletteIndex: triangle.SolidPaletteIndex, faceCenter: center, side: triangle.Side);
+			solidPaletteIndex: triangle.SolidPaletteIndex, faceCenter: center, side: triangle.Side,
+			dependFace: dependFace, dependSide: dependency.Side);
 	}
 
 	/// <summary>
@@ -347,7 +356,10 @@ public static partial class DtsMeshBuilder {
 	/// drawing that one side alone.</para>
 	/// </summary>
 	private static List<Triangle> DropCoincidentTwins(List<Triangle> triangles, bool leavesApart) {
-		var winners = new Dictionary<((int, int, int, int, int, int), CellGate, BspLeaf?, int), int>();
+		// The last element pairs the side a copy competes for with the facing it depends on
+		// (Triangle.Dependency): two copies of one poly gated on opposite facings of another never
+		// draw together, so neither may hide the other.
+		var winners = new Dictionary<((int, int, int, int, int, int), CellGate, BspLeaf?, (int, int)), int>();
 		var keys = new ((int, int, int, int, int, int) Surface, int FrontFacing)[triangles.Count];
 
 		for (int i = 0; i < triangles.Count; i++) {
@@ -374,7 +386,8 @@ public static partial class DtsMeshBuilder {
 				Vector3.Dot(triangle.FaceNormal ?? -normal, axis) >= 0f ? 1 : -1);
 
 			foreach (int side in SidesOf(triangle.Side)) {
-				var key = (keys[i].Surface, triangle.Gate, leavesApart ? triangle.Leaf : null, keys[i].FrontFacing * side);
+				var key = (keys[i].Surface, triangle.Gate, leavesApart ? triangle.Leaf : null,
+					(keys[i].FrontFacing * side, triangle.Dependency.Side));
 
 				// A strictly better-ranked twin replaces the one already kept; ties go to the first seen.
 				if (!winners.TryGetValue(key, out int existing) || triangle.Rank > triangles[existing].Rank) {
@@ -388,7 +401,8 @@ public static partial class DtsMeshBuilder {
 			var triangle = triangles[i];
 			int won = 0;
 			foreach (int side in SidesOf(triangle.Side)) {
-				if (winners[(keys[i].Surface, triangle.Gate, leavesApart ? triangle.Leaf : null, keys[i].FrontFacing * side)] == i) {
+				if (winners[(keys[i].Surface, triangle.Gate, leavesApart ? triangle.Leaf : null,
+						(keys[i].FrontFacing * side, triangle.Dependency.Side))] == i) {
 					won |= SideMask(side);
 				}
 			}

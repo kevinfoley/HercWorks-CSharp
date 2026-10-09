@@ -117,7 +117,7 @@ public static partial class DtsMeshBuilder {
 		var tree = BspTree.From(part, frame => {
 			var offset = ResolveTransformOffset(frame, animList);
 			return WorldScale.DtsToRender(offset.X, offset.Y, offset.Z);
-		});
+		}, hiddenPartIds);
 
 		var outer = sink.Leaf;
 		foreach (int leaf in ReachableLeaves(part)) {

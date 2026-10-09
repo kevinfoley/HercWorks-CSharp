@@ -1,6 +1,7 @@
 using System.Numerics;
 using HercWorks.Core.Data.File.Dts;
 using HercWorks.Core.Data.File.Dts.Bsp;
+using HercWorks.Core.Data.File.Dts.Part;
 
 namespace Herculan.Engine.Render;
 
@@ -36,9 +37,12 @@ public sealed class BspTree {
 	private readonly short[] _back;
 	private readonly Dictionary<int, Vector3> _restOffsets;
 	private readonly Dictionary<short, int> _leafOfPart;
+	private readonly int[] _leafNodes;
+	private readonly bool[] _attachmentSlots;
 
 	private BspTree(Vector4[] planes, int[] frames, short[] front, short[] back, int leafCount,
-			Dictionary<int, Vector3> restOffsets, Dictionary<short, int> leafOfPart) {
+			Dictionary<int, Vector3> restOffsets, Dictionary<short, int> leafOfPart, int[] leafNodes,
+			bool[] attachmentSlots) {
 		_planes = planes;
 		_frames = frames;
 		_front = front;
@@ -46,6 +50,8 @@ public sealed class BspTree {
 		LeafCount = leafCount;
 		_restOffsets = restOffsets;
 		_leafOfPart = leafOfPart;
+		_leafNodes = leafNodes;
+		_attachmentSlots = attachmentSlots;
 	}
 
 	/// <summary>How many children the part has, reached or not — the bound on a leaf index.</summary>
@@ -56,7 +62,12 @@ public sealed class BspTree {
 	/// Where a transform id's frame sits at the rest pose, in render space — what a piece baked at the
 	/// rest pose is placed by, and so what its node planes have to be measured in.
 	/// </param>
-	public static BspTree From(TSBSPPart part, Func<int, Vector3> restOffset) {
+	/// <param name="attachmentPartIds">
+	/// The machine's hardpoint attachment slots (<c>DtsMeshBuilder.AttachmentPartIds</c>), whose children
+	/// are overwritten before every draw — see <see cref="IsAttachmentSlot"/>. Null for a shape with none.
+	/// </param>
+	public static BspTree From(TSBSPPart part, Func<int, Vector3> restOffset,
+			IReadOnlySet<short>? attachmentPartIds = null) {
 		var nodes = part.Nodes ?? Array.Empty<TSBSPPartNode>();
 		var planes = new Vector4[nodes.Length];
 		var frames = new int[nodes.Length];
@@ -86,20 +97,74 @@ public sealed class BspTree {
 		// drawn where the walk reaches that child — see LeafOfPart. Every retail slot is a direct child.
 		var leafOfPart = new Dictionary<short, int>();
 		var parts = part.Parts ?? Array.Empty<TSObject>();
+		var leafNodes = new int[parts.Length];
+		var attachmentSlots = new bool[parts.Length];
+		var leafFrames = new HashSet<int>();
 		for (int i = 0; i < parts.Length; i++) {
 			if (parts[i] is TSBasePart { IdNumber: not 0 } child) {
 				leafOfPart.TryAdd(child.IdNumber, i);
+				attachmentSlots[i] = attachmentPartIds?.Contains(child.IdNumber) ?? false;
+			}
+
+			leafNodes[i] = FirstNode(parts[i]);
+			if (leafNodes[i] >= 0) {
+				leafFrames.Add(leafNodes[i]);
 			}
 		}
 
-		return new BspTree(planes, frames, front, back, parts.Length, restOffsets, leafOfPart);
+		foreach (int frame in leafFrames) {
+			restOffsets.TryAdd(frame, restOffset(frame));
+		}
+
+		return new BspTree(planes, frames, front, back, parts.Length, restOffsets, leafOfPart, leafNodes,
+			attachmentSlots);
 	}
 
-	/// <summary>The distinct frames the node planes are in, each once.</summary>
+	/// <summary>The distinct frames the node planes and the children are in, each once.</summary>
 	public IEnumerable<int> Frames => _restOffsets.Keys;
 
-	/// <summary>Where <paramref name="frame"/> sits at the rest pose, in render space; zero for a frame no node uses.</summary>
+	/// <summary>
+	/// Where <paramref name="frame"/> sits at the rest pose, in render space; zero for a frame neither
+	/// a node plane nor a child is in.
+	/// </summary>
 	public Vector3 RestOffset(int frame) => _restOffsets.GetValueOrDefault(frame);
+
+	/// <summary>
+	/// The node drawing child <paramref name="leaf"/> installs, or -1 for a child placed by no node.
+	/// <c>TSGroup_BindNodeTransform</c> (<c>00476014</c>) is the first thing every part's render does —
+	/// <c>TSGroup_RenderPolys</c> (<c>004758c8</c>), <c>TSCellAnimPart_Render</c> (<c>004767e4</c>) before it
+	/// picks its cell, <c>TSPartList_Render</c> (<c>004766fc</c>) — so this is the first non-negative
+	/// <c>TSBasePart.Transform</c> in the child's render order. Every child of every retail
+	/// <see cref="TSBSPPart"/> installs at most one node, the same one in each of its cells, so the one
+	/// id stands for the whole child; read off every <c>.DTS</c> root the game ships.
+	/// </summary>
+	public int LeafNode(int leaf) => leaf >= 0 && leaf < _leafNodes.Length ? _leafNodes[leaf] : -1;
+
+	/// <summary>
+	/// Whether child <paramref name="leaf"/> is a hardpoint attachment slot, which the original
+	/// overwrites before each draw (<c>Mech_SpliceHardpointShapes</c>, <c>004030d0</c>): with the fitted
+	/// mount, whose render installs the slot's node (<c>ConfigPart_Render</c>, <c>0040316c</c>), or with a
+	/// blank record, whose render installs nothing. Its <see cref="LeafNode"/> is the node the mount
+	/// inherits.
+	/// </summary>
+	public bool IsAttachmentSlot(int leaf) => leaf >= 0 && leaf < _attachmentSlots.Length && _attachmentSlots[leaf];
+
+	private static int FirstNode(TSObject? part) {
+		if (part is TSBasePart { Transform: >= 0 } placed) {
+			return placed.Transform;
+		}
+
+		if (part is TSPartList { Parts: { } children }) {
+			foreach (var child in children) {
+				int node = FirstNode(child);
+				if (node >= 0) {
+					return node;
+				}
+			}
+		}
+
+		return -1;
+	}
 
 	/// <summary>
 	/// Which child is the part whose <c>TSBasePart.IdNumber</c> is <paramref name="partId"/> — how

@@ -165,6 +165,7 @@ public sealed class SceneRenderer : IDisposable {
 	private int _depthSlices;
 	private int _shadeRampRows;
 	private int _shadeRampGouraudRow;
+	private int _shadeRampPaletteRow;
 	private TerrainPaintRankBuffer? _paintRanks;
 	private readonly SelectedEffectLight[] _effectLights =
 		new SelectedEffectLight[EffectLightSelection.MaxPerObject];
@@ -217,6 +218,21 @@ public sealed class SceneRenderer : IDisposable {
 	/// <summary>The top-level BSP groups a pass has touched, in the order it first touched them.</summary>
 	private readonly List<BspDrawGroup> _bspRoots = new();
 
+	/// <summary>The nodes the original has composed so far in the group being prepared — see PrepareBspGroup.</summary>
+	private readonly HashSet<int> _composedNodes = new();
+
+	/// <summary>
+	/// The matrix that takes a light's render-world position (or direction) into the space of frame
+	/// <paramref name="lightFrame"/> and reads it back out as though it were in
+	/// <paramref name="drawnFrame"/>: where the original's shading of a face in
+	/// <paramref name="drawnFrame"/> finds a light whose model-space copy was made for
+	/// <paramref name="lightFrame"/>. Null if the frame cannot be inverted.
+	/// </summary>
+	private static Matrix4x4? LightRetarget(BspDrawGroup frames, int lightFrame, int drawnFrame) =>
+		Matrix4x4.Invert(frames.FrameToWorld(lightFrame), out var worldToLight)
+			? worldToLight * frames.FrameToWorld(drawnFrame)
+			: null;
+
 	/// <summary>The stencil value the pass has handed out last — see DrawBspGroup.</summary>
 	private int _stencilUsed;
 
@@ -238,8 +254,8 @@ public sealed class SceneRenderer : IDisposable {
 	public EffectLightField? EffectLights { get; set; }
 
 	/// <summary>
-	/// Installs the theater's shaded-surface colours, which every <c>TSShadedPoly</c> in the scene is
-	/// drawn through — see <see cref="SurfaceRampTable"/>. Passing null (a theater whose palette
+	/// Installs the theater's shaded-surface colours, which every <c>TSShadedPoly</c> and
+	/// <c>TSGouraudPoly</c> in the scene is drawn through — see <see cref="SurfaceRampTable"/>. Passing null (a theater whose palette
 	/// carries no ramp table) leaves those surfaces on the mesh builder's fallback colour instead.
 	///
 	/// <para>Call once per loaded mission, before the first <see cref="Render"/>. Uploading again
@@ -252,6 +268,7 @@ public sealed class SceneRenderer : IDisposable {
 			: new GpuTexture(_gl, table.Pixels, SurfaceRampTable.Width, table.Height);
 		_shadeRampRows = table?.Height ?? 0;
 		_shadeRampGouraudRow = table?.GouraudBlockRow ?? 0;
+		_shadeRampPaletteRow = table?.PaletteRow ?? 0;
 		_depthSlices = table?.DepthSlices ?? _depthSlices;
 	}
 
@@ -492,6 +509,7 @@ public sealed class SceneRenderer : IDisposable {
 			_shader.SetInt("uShadeRampEnabled", 1);
 			_shader.SetFloat("uShadeRampRows", _shadeRampRows);
 			_shader.SetFloat("uShadeRampGouraudRow", _shadeRampGouraudRow);
+			_shader.SetFloat("uShadeRampPaletteRow", _shadeRampPaletteRow);
 		} else {
 			_shader.SetInt("uShadeRampEnabled", 0);
 		}
@@ -572,7 +590,56 @@ public sealed class SceneRenderer : IDisposable {
 		}
 
 		foreach (var root in _bspRoots) {
+			PrepareBspGroup(root);
 			DrawBspGroup(root);
+		}
+
+		// Walks a top-level group's paint order ahead of the draw, recording it for DrawStenciled and
+		// DrawPainted, and follows the node state the original carries through that order: the first
+		// child on a node composes it and moves every registered light into its space, and a later child
+		// on it, or on no node, takes back a saved state that restores the sun alone, so its effect lights
+		// stay in the space of the node composed last (ShapeNode_InstallTransform (00476030),
+		// Raster_SaveState (0048d60c), Raster_RestoreState (0048d6e0)). Each child whose own node is not
+		// that one gets the matrix that puts a light where the original's shading finds it — the light
+		// brought into the last node's space and read as though in the child's. The original starts the
+		// state afresh per shape draw (ShapeInst_BindNodeTransformArray, 00475fd8), with the lights in the
+		// object's own frame; starting it per group is the same thing because every retail shape whose
+		// parts carry nodes draws through at most one TSBSPPart, outside which nothing installs a node
+		// before it. A group drawn inside a child (a gun in its hardpoint slot) is lit as that
+		// child: every part under the mount carries the slot's node or none (Shape_StampTransformId,
+		// 00417530), so it composes nothing new. See docs/retail/rendering/effect-lights.md, "A part
+		// drawn through a saved state shades the effect lights in another node's frame".
+		void PrepareBspGroup(BspDrawGroup root) {
+			_composedNodes.Clear();
+			int lastComposed = -1;
+			Prepare(root, root, ref lastComposed, null, nested: false);
+		}
+
+		void Prepare(BspDrawGroup group, BspDrawGroup frames, ref int lastComposed, Matrix4x4? inherited,
+				bool nested) {
+			group.OrderCount = group.Tree.PaintOrder(group.EyeInFrame, group.Order);
+			for (int k = 0; k < group.OrderCount; k++) {
+				int leaf = group.Order[k];
+				var retarget = inherited;
+				if (!nested) {
+					// A hardpoint slot installs its node only when a mount is spliced into it; the blank
+					// record that stands in otherwise draws nothing and installs nothing.
+					int node = group.Tree.LeafNode(leaf);
+					if (node >= 0 && (!group.Tree.IsAttachmentSlot(leaf) || group.Children[leaf].Count > 0)
+							&& _composedNodes.Add(node)) {
+						lastComposed = node;
+					}
+
+					retarget = anyEffectLights && lastComposed != node
+						? LightRetarget(frames, lastComposed, node)
+						: null;
+				}
+
+				group.LightRetarget[leaf] = retarget;
+				foreach (var child in group.Children[leaf]) {
+					Prepare(child, frames, ref lastComposed, retarget, nested: true);
+				}
+			}
 		}
 
 		// Readies a group for this pass the first time the pass reaches it, and files it under the
@@ -640,14 +707,14 @@ public sealed class SceneRenderer : IDisposable {
 		}
 
 		// Paints a group's children from the last-painted to the first, the child at `top` and the
-		// ones before it below, each child's nested groups under its own value.
+		// ones before it below, each child's nested groups under its own value. The order is the one
+		// PrepareBspGroup recorded.
 		void DrawStenciled(BspDrawGroup group, int top) {
-			int count = group.Tree.PaintOrder(group.EyeInFrame, group.Order);
-			for (int k = count - 1; k >= 0; k--) {
+			for (int k = group.OrderCount - 1; k >= 0; k--) {
 				int leaf = group.Order[k];
 				_gl.StencilFunc(StencilFunction.Gequal, top, 0xff);
 				foreach (var item in group.Items[leaf]) {
-					Draw(item);
+					Draw(item, group.LightRetarget[leaf]);
 				}
 
 				int below = top - 1;
@@ -661,15 +728,14 @@ public sealed class SceneRenderer : IDisposable {
 		}
 
 		void DrawPainted(BspDrawGroup group) {
-			int count = group.Tree.PaintOrder(group.EyeInFrame, group.Order);
-			for (int k = 0; k < count; k++) {
+			for (int k = 0; k < group.OrderCount; k++) {
 				int leaf = group.Order[k];
 				foreach (var child in group.Children[leaf]) {
 					DrawPainted(child);
 				}
 
 				foreach (var item in group.Items[leaf]) {
-					Draw(item);
+					Draw(item, group.LightRetarget[leaf]);
 				}
 			}
 		}
@@ -677,7 +743,9 @@ public sealed class SceneRenderer : IDisposable {
 		bool Drawn(SceneItem item) =>
 			item.Visible && item.DetailSelected && item.Filing is not { Drawn: false };
 
-		void Draw(SceneItem item) {
+		// `lightRetarget` moves the effect lights into the frame the original shades this item's faces
+		// against them in — see PrepareBspGroup.
+		void Draw(SceneItem item, Matrix4x4? lightRetarget = null) {
 			if (!Drawn(item)) {
 				return;
 			}
@@ -693,10 +761,16 @@ public sealed class SceneRenderer : IDisposable {
 
 				for (int i = 0; i < lightCount; i++) {
 					var light = _effectLights[i];
+					var vector = light.Vector;
+					if (lightRetarget is { } retarget) {
+						vector = light.Directional
+							? Vector3.Normalize(Vector3.TransformNormal(vector, retarget))
+							: Vector3.Transform(vector, retarget);
+					}
 
 					// w is the original's own light type tag: 1 directional, 2 point.
 					_shader.SetVector4(EffectLightNames[i],
-						new Vector4(light.Vector, light.Directional ? 1f : 2f));
+						new Vector4(vector, light.Directional ? 1f : 2f));
 					_shader.SetFloat(EffectLightIntensityNames[i], light.Intensity);
 				}
 			}

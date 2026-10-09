@@ -49,17 +49,17 @@ public sealed class PaletteRampTable {
 
 	/// <summary>
 	/// The row a <b>flat solid face</b> reads — <see cref="ShadeRamp.UnlitShade"/>'s row in slice 0,
-	/// the fixed shade <c>TSSolidPoly_Render</c> passes. Sampling this row at the surface's palette
-	/// index is byte-for-byte what <c>DtsMeshBuilder.ResolveSolidColors</c> computes on the CPU, so
-	/// the two are interchangeable and the shader uses whichever table the damage flash has bound.
+	/// the fixed shade <c>TSSolidPoly_Render</c> passes. The shader adds the object's depth slice to
+	/// it, as <c>Raster_ShadeRampRow</c> adds the fade <c>ObjList_DrawEntryRender</c> installed.
+	/// Sampled unfogged at the surface's palette index it is byte-for-byte what
+	/// <c>DtsMeshBuilder.ResolveSolidColors</c> computes on the CPU, which is the fallback colour.
 	/// </summary>
 	public int UnlitRow { get; private init; }
 
 	/// <summary>
 	/// The row an untextured terrain cell reads — <see cref="TerrainMeshBuilder.UntexturedRowShade"/>'s
-	/// row in slice 0. Unlike
-	/// <see cref="UnlitRow"/> it is fogged: the cell's depth slice is added to it, as
-	/// <c>Raster_ShadeRampRow</c> adds the fade <c>Terrain_DrawCellQuad</c> installed.
+	/// row in slice 0. Like <see cref="UnlitRow"/> it is fogged: the cell's depth slice is added to
+	/// it, as <c>Raster_ShadeRampRow</c> adds the fade <c>Terrain_DrawCellQuad</c> installed.
 	/// </summary>
 	public int GroundRow { get; private init; }
 
@@ -136,7 +136,10 @@ public sealed class PaletteRampTable {
 					pixels[at + 2] = color.B;
 				}
 
-				pixels[at + 3] = 255;
+				// Alpha is the resolved palette byte itself, which the shader compares where the original
+				// compares bytes rather than colours: a TSSolidPoly's outline, drawn only when its line
+				// and fill bytes differ at the row and slice in force. See MeshVertex.OutlineFillRamp.
+				pixels[at + 3] = resolved;
 			}
 		}
 

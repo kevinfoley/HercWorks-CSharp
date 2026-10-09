@@ -118,6 +118,10 @@ _Note to Claude: Detailed technical descriptions belong in their respective docs
 - **(1.0 only)** `C3_03`'s briefing says the listening post can be destroyed once its data is downloaded, but destroying it fails the mission and cancels the shield pod unlock. Read from the mission file, not yet checked in retail. Fixed in v1.10, whose briefing drops that sentence ([`docs/retail/retail-builds.md`](docs/retail/retail-builds.md#other-content-changes-in-v110)). See [`docs/retail/campaign-continuity.md`](docs/retail/campaign-continuity.md#unlocks-and-weapon-units).
 - Replaying a mission after being killed or losing the war keeps the failed attempt's tallies. A chassis or weapon unlock needs its tally to hit an exact number, so one earned before the failure is lost if the replay earns it again, and kill counts and destroyed buildings from the failed attempt carry into later missions. Worked out from the disassembly and the mission files, not yet checked in retail. See [`docs/retail/campaign-continuity.md`](docs/retail/campaign-continuity.md#replaying-a-mission).
 
+### Manual
+- The manual claims "The bigger the HERC’s generator, the stronger the shield." In fact, every HERC (both human and Cybrid) has the same reactor and same shield; only the Energy Pod and Shield Pod have an effect on either.
+- The manual claims that the Energy Pod doubles the capacity of the reactor and gives a modest increase to recharge rate. In reality, the Energy Pod doubles recharge rate and has no effect on capacity.
+
 ## HERCULAN Engine
 
 _Note to Claude: This section is for listing features which have been implemented but behave differently than retail or otherwise incorrectly. Features that haven't been tackled yet go in [`ROADMAP.md`](ROADMAP.md). Bugs in retail belong in the previous section. Detailed technical descriptions belong in documentation, not here. Give a short plain-English summary._

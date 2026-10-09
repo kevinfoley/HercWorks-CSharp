@@ -772,8 +772,9 @@ public sealed partial class MechObject {
 	/// merely hurt. The RAZOR is skipped outright, as a chassis that does not walk.</item>
 	/// <item><b>The death test.</b> Either cockpit section fully gone, or life support or the pilot
 	/// destroyed, and the machine is dead — at which point the original re-enters this function with a
-	/// flat 30000 on component 0 to finish everything else off, which is why a kill leaves a machine
-	/// comprehensively wrecked rather than merely stopped.</item>
+	/// flat 30000 on component 0 to finish off the front cockpit. That blows most chassis apart, but
+	/// the PITBULL's cockpit never runs its destruction, so a dead PITBULL with its legs intact stays
+	/// standing, unmarked. See docs/retail/simulation/component-damage.md#going-out-of-the-fight.</item>
 	/// <item><b>The reactor flags latch</b> off its own dependent. They never clear, and the check is
 	/// gated on both being down, so once the first sets the second is only reachable by a single hit
 	/// crossing both thresholds at once.</item>

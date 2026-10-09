@@ -3115,8 +3115,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Component_ApplyDamageAndCascade",
-      "description": "Subtracts damage from a component's current value (via a helper); if the component crosses into 'destroyed', cascades via Component_DestroyAndCascade.",
-      "source": "docs/retail/simulation/component-damage.md"
+      "description": "Adds damage to main component i through Component_AddDamage; once that entry is destroyed, pours the excess into its dependents through Component_SpillIntoDependents. Only when no live dependent is left AND the .DMG piece's +0x05 flag bit 0 is set does it clear the major-effect latch DAT_004a98b0, call Component_DestroyAndCascade(i), and drain the pending parent-index queue (count byte at +5 of the list at maybe_ComponentDependencyList) through the same call. Returns 1 only when it cascaded. A piece with bit 0 clear reads destroyed but keeps its active flag and runs no destruction.",
+      "source": "docs/retail/simulation/component-damage.md",
+      "verified": {
+        "bytes": "0040da38+241",
+        "sha1": "0972beee08bd",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040db2c",

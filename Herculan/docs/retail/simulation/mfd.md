@@ -205,7 +205,7 @@ Everything the paint (`MfdStatusScreen_Paint`, `0043a5a0`) chooses is a property
 |---|---|
 | Subject is the viewing object (`CockpitView+0x203`) or one of the three squadmates (`Squad_IndexOf`, `00433134`) | Label 0 is `ID:` and label 1 the pilot's name — `YOU` for the machine being flown; otherwise `TARGET:` and the type name |
 | Group record's side byte (`obj+0x45` → `+0x12`) | Label 1's font, for a HERC only: `ColorSchemePanels[1]` `CPGREEN` for a friendly, `[2]` `CPRED` for a Cybrid. The flyer and structure branches set no font, so label 1 keeps the last one written: the constructor's `[14]` `RED` until a HERC, empty or unrecognised subject has been painted on that screen, and that paint's font after |
-| Same byte | A friendly gets the integrity readout in label 4; a hostile gets group 20 entry 2 `DIST:  ` with the range appended (`Math_DistanceBetweenPoints` (`00492780`) between the two origins) |
+| Same byte | A friendly gets the integrity readout in label 4; a hostile gets group 20 entry 2 `DIST:  ` with the range appended (`Math_DistanceBetweenPoints` (`00492780`) between the two origins), in raw world units; v1.10 converts it to metres ([`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)) |
 | Target class `obj+0x1a8` | Which branch below draws the viewport, and how the condition is worked out |
 
 With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorSchemePanels[0]` `CPBLUE`, and blanks labels 2-4. A class the switch does not recognise gets `TARGET:` and group 27 `UNKNOWN` in the same font, with labels 2 and 3 left as they were, and label 4 too unless the subject is hostile: the range is written after the class switch, for every subject.

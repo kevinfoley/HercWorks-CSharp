@@ -76,7 +76,7 @@ The whole arm is skipped when `TrainingMissionNumber` (`004aa7ac`) is nonzero, s
 
 #### The mission session overrides the MUSIC preference
 
-`Sim_InitMissionSession` ends with an unconditional `Sound_SetMusicEnabled(1)`, long after the arm above has already tested the flag. With MUSIC off in `prefs.cfg` no track starts — `Sound_StartMissionMusic` sees the flag down — but the flag is then raised behind it, so the next `Sound_ResumeAll` starts the music the player turned off. Alt-tabbing away and back is enough.
+`Sim_InitMissionSession` ends with an unconditional `Sound_SetMusicEnabled(1)`, long after the arm above has already tested the flag. With MUSIC off in `prefs.cfg` no track starts — `Sound_StartMissionMusic` sees the flag down — but the flag is then raised behind it, so the next `Sound_ResumeAll` starts the music the player turned off. Alt-tabbing away and back is enough. v1.10 drops the call ([`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)).
 
 #### No drive is named
 

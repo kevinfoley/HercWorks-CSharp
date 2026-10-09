@@ -159,7 +159,7 @@ Widget state byte (`+0x1b`):
 
 While capture is held, `CockpitMouse_ProcessQueue` takes a different branch on every position change: it dispatches `+0x18` on the captured widget with the pointer position and repaints it, **without hit-testing** — so a drag follows the pointer off the widget, off the panel and off the window. `Widget_TrackPressedWidget` is not called at all in that branch, so a captured widget stays depressed however far the pointer wanders.
 
-Release under capture also takes its own branch: clear the state byte, repaint, clear `DAT_0049dbde`, then read the widget's value (`+0x10`) and commit it (`+8`), and clear `Widget_PressedIndex`. `Widget_OnMouseUp` is never reached, so **a drag fires no click** — including a press-and-release that never moved.
+Release under capture also takes its own branch: clear the state byte, repaint, clear `DAT_0049dbde`, then read the widget's value (`+0x10`) and commit it (`+8`), and clear `Widget_PressedIndex`. `Widget_OnMouseUp` is never reached, so **a drag fires no click** — including a press-and-release that never moved. Neither capture branch checks that `Widget_PressedIndex` holds a widget; v1.10 skips both while it is -1 ([`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)).
 
 `Widget_TrackPressedWidget` (`00452954`): called on every position change *outside* capture, and a no-op unless `Widget_PressedIndex` is valid. It re-hit-tests and compares against that index: still on the held widget and its state is `0`, set it to `1` and repaint; anywhere else and its state is `1`, clear to `0` and repaint. That is a button popping back up when you drag off it and depressing again when you come back, and it is the *only* thing this function does.
 

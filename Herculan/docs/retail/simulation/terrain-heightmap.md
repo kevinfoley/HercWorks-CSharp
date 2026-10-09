@@ -72,8 +72,8 @@ The terrain module's largest function (5129 bytes). Takes two world points and w
 
 | Caller | Mode | Use |
 |---|---|---|
-| `Sim_RaycastTerrain` (`00428048`) | 0 | Weapon fire, clipping the ray to the ground |
-| `Terrain_RayHitDistance` (`004280f4`) | 0 | Range to the ground hit, for `Detection_LineOfSight` and `Ai_LineOfSightBlocked` |
+| `Sim_RaycastTerrain` (`00428048`) | 0 | `Sim_RaycastObjectList`'s ground clip: the ray is cut to the ground hit when that is nearer than its end |
+| `Terrain_RayHitDistance` (`004280f4`) | 0 | Whether the ground blocks a line of sight, for `Detection_LineOfSight` and `Ai_LineOfSightBlocked`. It also measures the range to the hit, which neither caller reads |
 | `Mech_AiObstacleAvoidance` (`00416274`), twice | 1 | The AI's two ground-hugging obstacle probes — [`ai-navigation.md`](ai-navigation.md#the-two-probes) |
 | `Ai_LineOfSightBlocked` (`0041dc24`) | 1 | Whether the ground in the way is too steep to walk over — [`ai-combat-states.md`](ai-combat-states.md#line-of-sight--ai_lineofsightblocked-0041dc24) |
 
@@ -87,24 +87,38 @@ Setup: halve the segment delta until every component fits ±32000, take four Q16
 
 The walk is a cell DDA with a two-phase step: each iteration takes the segment's exit across the major axis, but if a minor-axis boundary falls before it, that exit is **stashed and replayed on the next iteration** while the minor crossing is handled first. Each iteration therefore yields one sub-segment and one exit edge code — 0 west, 1 east, 2 north, 3 south. The last step — the one ending at the segment's endpoint rather than a cell boundary — has no exit edge, and each mode tests its endpoint instead. Both modes return no-hit for a segment starting outside the grid or walking off its edge.
 
-**Six of the walk's multiplies truncate.** In the octant-2 and octant-3 arms the compiler emitted 32-bit `imul`/`sar 16` (at `0046f077`, `0046f08d`, `0046f162`, `0046f178`, `0046f228`, `0046f23e`) instead of the 64-bit `Math_Q16Multiply` used everywhere else. Diverges only at grazing angles.
+**Six of the walk's multiplies truncate.** In the octant-2 and octant-3 arms the compiler emitted 32-bit `imul`/`sar 16` (at `0046f077`, `0046f08d`, `0046f162`, `0046f178`, `0046f228`, `0046f23e`) instead of the 64-bit `Math_Q16Multiply` used everywhere else. Each multiplies a run inside one cell by one of the four slopes. The three that give a horizontal coordinate cannot leave 32 bits, since the result lies within the cell; the three that give a height wrap when one step climbs or falls 32768 units (about 197 m) or more, which on a 16384-unit cell takes a ray steeper than about 55°.
 
 ### Mode 0 — the thin ray
 
 `Terrain_EdgeCrossingTest` (`0047035c`) is the per-step test, and takes only the exit edge's two corner heights: below both → clear, at or above both → hit, straddling → interpolate the edge height at the exit point. Only once that reports a crossing does `Terrain_CellSurfaceIntersect` (`0047068c`) solve the exact point, intersecting the sub-segment with the cell's triangle planes (built from the `+0x1`/`+0x7` normals, through a corner each triangle contains) via `Math_PlaneSegmentIntersect` (`0047e504`). The near triangle is tried first; a hit outside it falls through to the far one.
 
-Two details of the plane solve that look like porting slips but are the original's:
+Details of the plane solve that look like porting slips but are the original's:
 
-- **Selector 2's far plane keeps the near triangle's plane constant.** The far normal is loaded but `d` is not recomputed against it, so that plane is skewed by the difference in the two normals' Z.
+- **Selector 2's far plane keeps the near triangle's plane constant.** Both of the cell's triangles contain corner `00`, and the near plane passes through it with `d = -h00 · nzNear`. The far normal is loaded but `d` is not recomputed against it, so the far plane is raised by `h00 · (nzNear − nzFar) / nzFar` (lowered when that is negative). That is nothing when the two triangles are equally steep, and metres where they are not on high ground, because `h00` is the corner's absolute height: a cell at raw height 200 in a zone of height scale 149, whose triangles slope 20° and 25°, has its far plane about 1,100 units (6.5 m) off. The point the solve finds moves along the sub-segment by that height over the rate at which the ray closes on the face, and when that carries it past either end of the sub-segment the solve finds nothing ([below](#when-the-solve-finds-no-point)). Selector 3, which no cell carries, takes the same far plane and never accepts the near one.
 - **Selector 0's far triangle shares no corner with its own cell** (its corners are `01`/`10`/`11`), so the code shifts one cell east and takes corner `10` from that record. Deliberate, and why the two selectors are not symmetric.
+- **The far plane's point is accepted without a triangle test**, so it can lie in the near triangle's half of the cell.
 
-The last step falls back to `Terrain_HeightQuery` at each end of it. The **first** iteration also queries the start point, so a ray beginning underground is a hit immediately.
+Only the last step tests a point's height, with `Terrain_HeightQuery`: its endpoint, and its start too when the last step is also the first, the whole segment lying in one cell. These are the function's two `Terrain_HeightQuery` calls. A segment that crosses several cells and begins underground therefore reports a crossing at its first exit edge if that edge is underground too, and nothing if the segment has come out by then.
 
-When the plane solve finds nothing it still returns "hit" with its output buffer left unwritten.
+**The walk radius is dead in both modes.** The ray record's `+0x08` (a literal 200) arrives as `Terrain_RayWalk`'s fourth argument, and mode 0 does read it — at `0046fb35`, `0046fba7` and `0046fc1b`, the three sites that hand it to `Terrain_CellSurfaceIntersect` (`0047068c`). That is where it stops: the callee never reads that parameter, and those three are the only callers `es2_xref` finds, so nothing downstream of the walk is a function of the radius. Every mode-1 caller passes 0. See [`weapon-firing.md`](weapon-firing.md).
 
-`Sim_RaycastTerrain` (`00428048`) is the weapon-fire caller: it builds the ray's far end as the muzzle frame's own `(0, distance, 0)`, walks, and measures the ground hit back to the muzzle with the fast-magnitude approximation.
+#### When the solve finds no point
 
-**The walk radius is dead in both modes.** The ray record's `+0x08` (a literal 200) arrives as `Terrain_RayWalk`'s fourth argument, and mode 0 does read it — at `0046fb35`, `0046fba7` and `0046fc1b`, the three sites that hand it to `Terrain_CellSurfaceIntersect` (`0047068c`). That is where it stops: the callee never reads that parameter, and those three are its only callers, so nothing downstream of the walk is a function of the radius. Every mode-1 caller passes 0. See [`weapon-firing.md`](weapon-firing.md).
+A sub-segment that enters a cell above the ground and leaves it at or below the ground crosses the ground inside the cell, so the solve misses only where its planes are not the ground or there is no crossing to find:
+
+- selector 2's shifted far plane, above, which reaches metres;
+- the normals' rounding: each component is an integer at length 0x800, off by up to one unit, so a plane is exact at its anchor corner and off by up to `cellSize / nz` per component at the far corners (8 units, under 5 cm, on a near-flat 16384-unit cell). A ray that dips under an edge by less than that can miss;
+- a sub-segment with no crossing in it: the underground first step of a segment that begins below the ground.
+
+**v1.0** reports a hit at all three sites — the exit edge (`0046fc28`), the last step's endpoint (`0046fb48`) and the single-cell start (`0046fbba`) — whatever the solve returns, copying the point to the caller only when the solve found one. It skips the solve when the caller passes no output pointer; both mode-0 call sites `es2_xref` finds pass a stack local, so neither reaches that skip.
+
+**v1.10** (`0046e980`, [`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)) runs the solve whether or not there is an output pointer and reports a hit only when it finds a point. When it finds none, the two last-step sites report no hit, the endpoint site without going on to test the start, and the edge site walks on into the next cell as though that edge were clear. The ray is then under the ground, where each exit edge reports a crossing again; a cell the ray passes wholly under has no ground crossing for the solve to find, so the ray goes on to the far side of the hill unless a far plane, which has no triangle test, crosses it first. `Terrain_CellSurfaceIntersect` and `Math_PlaneSegmentIntersect` are the same code in both builds.
+
+What the two mode-0 callers make of a missed solve:
+
+- **`Sim_RaycastTerrain`** builds the ray's far end as the muzzle frame's own `(0, distance, 0)`, walks, and measures the hit point back to the muzzle with the fast-magnitude approximation; `Sim_RaycastObjectList` then cuts the ray to that range when it is nearer than the ray's end ([`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)). In v1.0 a missed solve measures to whatever an earlier call left in that stack slot, so the shot either ends at that range along its line, where the sweep puts its ground impact ([`impact-effects.md`](impact-effects.md#the-terrain-impact-is-the-raycasts-own-job)) and anything beyond is safe, or, when the range is beyond the ray's end, is not cut and goes on through the ground to whatever is behind it. In v1.10 the ground there does not stop the shot.
+- **`Terrain_RayHitDistance`**'s two callers read only whether there was a hit. In v1.0 a missed solve still blocks the line of sight, exactly where the edge or height test found the ground; in v1.10 the line of sight passes through that part of the hill, so `Detection_LineOfSight` sees through it and `Ai_LineOfSightBlocked` finds no ground in the way of its target.
 
 ### Mode 1 — the slope walk
 
@@ -136,7 +150,9 @@ The same segment and the same walk, with a different question at each step: is t
 | Reading | Why it is wrong |
 |---|---|
 | `Terrain_RayWalk`'s mode 1 is a machine's movement collision, sweeping its volume against the ground | The `FaceBlocks` names suggest it, but its callers are the AI's obstacle probes and its line-of-sight test ([table above](#ray-versus-terrain--terrain_raywalk-0046e87c)). A machine's move is refused by `Mech_CollisionTest`'s own slope test ([`mech-locomotion.md`](mech-locomotion.md#collision)), and mode 1 walks the same zero-width segment mode 0 does |
+| Selector 2's skewed far plane moves the point the solve reports but not whether there is one | The shift moves the point along the sub-segment, and a shift that carries it past either end leaves the solve with no point, which v1.0 still reports as a hit and v1.10 does not ([When the solve finds no point](#when-the-solve-finds-no-point)) |
 
 ## Open
 
+- **Open:** how often the plane solve misses on the retail zones, which is how often v1.10's ray passes through ground that v1.0's stops at ([When the solve finds no point](#when-the-solve-finds-no-point)). The skewed far plane's offset depends on each selector-2 cell's height and the difference in its triangles' steepness, and no zone has been measured.
 - **Deferred:** confirm `Razor_MovementTick`'s source file — assumed `flyersys.cpp` by naming convention, but no assert string in the binary names it.

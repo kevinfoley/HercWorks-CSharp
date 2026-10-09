@@ -8,7 +8,7 @@ The process entry splits the command line into an `argv` whose first word is `db
 
 ## The startup — Shell_Main (00401525)
 
-`Shell_Main` (`vshell.cpp`) brings the shell up in this order, pumping messages (`Shell_PumpMessages`) between most steps:
+`Shell_Main` (`vshell.cpp`) brings the shell up in this order, pumping messages (`Shell_PumpMessages`) between most steps. v1.10's mounts the archives before parsing the command line in step 3, takes its messages from `ERROR.STR` and has no step 7 ([`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)).
 
 1. **The memory pool.** `Shell_PoolSize` (`0046c090`) bytes, 4,000,000 in the image, from `Mem_NewArray`, asserting at line `0x12d` when that fails, become the arena of `g_ShellPool` (`Memory_Init`, [`../runtime-library.md`](../runtime-library.md#the-memory-pool)).
 2. **`data\drive.cfg`** (`DriveCfg_Read`, [`../retail-builds.md`](../retail-builds.md)), the mono debug monitor cleared (`maybe_Mono_Clear`), and the byte `004810e0` set ([Open](#open)).
@@ -28,7 +28,7 @@ The process entry splits the command line into an `argv` whose first word is `db
 
 ### Sierra.ini
 
-While `prefs.cfg` option 47 (`ShellOption_SkipSierraIni`) is clear, the startup reads `VideoSpeed` from the `[Config]` section of `Sierra.ini`, a name with no path, with an empty default. A value below 1000 — a missing key reads as 0 — sets `Shell_PerformanceNotePending` (`0046c088`), which puts up [the `Performance Note`](main-menu.md#the-main-menu) as the main menu comes up. Either way the startup then sets option 47, commits and saves all 54 options, so the read happens on one run only. The installers read the same value to choose the resolution, and v1.10's sets option 47 itself when it chooses low resolution ([`../retail-builds.md`](../retail-builds.md#the-installer)); its shipped `DATA\PREFS.CFG` has the option clear ([Open](#open)).
+While `prefs.cfg` option 47 (`ShellOption_SkipSierraIni`) is clear, the startup reads `VideoSpeed` from the `[Config]` section of `Sierra.ini`, a name with no path, with an empty default. A value below 1000 — a missing key reads as 0 — sets `Shell_PerformanceNotePending` (`0046c088`), which puts up [the `Performance Note`](main-menu.md#the-main-menu) as the main menu comes up. Either way the startup then sets option 47, commits and saves all 54 options, so the read happens on one run only. The installers read the same value to choose the resolution ([`../retail-builds.md`](../retail-builds.md#the-installer)). v1.10's sets option 47 to 1 when it chooses low resolution, and v1.10's shell, which does not read `Sierra.ini`, shows the note on that 1 ([`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)); its shipped `DATA\PREFS.CFG` has the option clear ([Open](#open)).
 
 ### The refusals
 

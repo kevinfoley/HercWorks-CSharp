@@ -4850,8 +4850,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Detection_LineOfSight",
-      "description": "Terrain ray between two objects' shape bounding-box centres (vtable +0x24 then +0x1c, or 500 with no shape record), cached per pair in the caller's row table at +0x132. The cache gate tests the OTHER object's countdown at +0x1e3 and reloads the CALLER's -- verified in raw disassembly at 00412617 and 0041263f, so it is the original's own asymmetry and not a decompiler slip. Only human-side objects sweep, so Cybrid timers stay zero and those pairs are re-walked whenever asked.",
-      "source": "docs/retail/simulation/target-selection.md"
+      "description": "Terrain ray (Terrain_RayHitDistance, radius 0, distance unread) between two objects' origins (+0x26), each raised by its vtable +0x24 record's +0x1c, or by 500 with no record; 1 when the ray reports no ground hit. (self, other): cached per pair in self's row table, byte self+0x132 + other[+0x4b], and the cached byte is returned. The cache gate tests OTHER's countdown at +0x1e3 and reloads SELF's -- verified in raw disassembly at 00412617 and 0041263f, so it is the original's own asymmetry and not a decompiler slip. The reload is 5000 + Math_RandomBelow(1000). Only human-side objects sweep, so Cybrid timers stay zero and those pairs are re-walked whenever asked.",
+      "source": "docs/retail/simulation/target-selection.md",
+      "verified": {
+        "bytes": "00412608+250",
+        "sha1": "ac7ae9071ab4",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00412704",
@@ -6346,8 +6352,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_LineOfSightBlocked",
-      "description": "Line of sight from this machine to its selected target, both endpoints lifted to their aim-node origins or by 500 units when there is no node: 0 clear; 1 blocked by something the machine cannot get past (a shape, via Sim_RaycastShapes, or ground too steep to walk); 2 blocked only by ground it could walk over. The trigger for the skirting state.",
-      "source": "docs/retail/simulation/ai-combat-states.md"
+      "description": "Line of sight from this machine (+0x26) to its selected target (+0x1a4, its +0x26), each raised by its vtable +0x24 record's +0x1c or by 500 units when there is none. Runs Terrain_RayWalk mode 1 (the slope walk), then Sim_RaycastShapes, then Terrain_RayHitDistance (the thin ray, distance unread). Returns 1 when the shape probe stops on something other than the target (target+0xc); otherwise 0 when the thin ray reports no ground hit, 1 when it does and the slope walk also blocks, 2 when it does and the slope walk is clear -- so steep ground counts only where the thin ray also meets the ground. The trigger for the skirting state.",
+      "source": "docs/retail/simulation/ai-combat-states.md",
+      "verified": {
+        "bytes": "0041dc24+264",
+        "sha1": "a4286f9d2344",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0041dd2c",
@@ -7612,8 +7624,14 @@
       "type": "function",
       "confidence": "high",
       "name": "DBSim_BuildGroupRecord",
-      "description": "Builds one script.dat block-11 record into a 0x7a-byte in-memory group record: discriminator (record +0x28) at group+0, formation id (+0x2a) at group+2, heading value at group+10, the resolved block-1 coordinate pointer at group+0x18, the resolved row-10 action pointer at group+0x14, and an allocated array of member object pointers at group+0xc. Then attaches every populated member by discriminator -- Mech_AttachToGroup (0/mechs), Flyer_AttachToGroup (1/flyers), Base_AttachToGroup (2/bases) -- passing each its slot index within the group.",
-      "source": "docs/retail/formats/script-dat.md (mission placement)"
+      "description": "Builds one script.dat block-11 record (arg 2, the 156-byte record as read) into a 0x7a-byte in-memory group record (arg 1). From the record: discriminator +0x28 to group+0, formation id +0x2a to group+2, side byte +0x6e to group+0x12, and the ten out-of-action (counter, operation) pairs from +0x72/+0x86 to group+0x1c/+0x30. From the other arguments: heading (arg 5) to group+0xa, resolved row-10 action pointer (arg 3) to group+0x14, resolved block-1 point pointer (arg 6) to group+0x18, and the ten resolved order pointers (arg 4) to group+0x44; when the first is non-null, the route cursor gets index 0 at group+4 and slot 0's route pointer (order+8) at group+6. Zeroes group+0x13, +0x6c and the ten bytes at +0x70. Counts the non-negative entries of the 20 member refs at +0x32 into group+0x10, allocates that many pointers at group+0xc, and fills them in order by discriminator through Pool_Nth -- 0 from GlobalMechList (004a9bfe) with Mech_AttachToGroup, 1 from g_FlyerPool (004a9e3d) with Flyer_AttachToGroup, 2 from g_StructurePool (004a9624) with Base_AttachToGroup, which also gets the record's +0x00 paints-ground flag -- passing each the member's slot index among the 20, not its packed index. No other record field is read, record +0x02 (.MSN row 16 +0x08) among them.",
+      "source": "docs/retail/formats/script-dat.md (mission placement)",
+      "verified": {
+        "bytes": "00423b34+515",
+        "sha1": "dd95639b685b",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00423d38",
@@ -8124,8 +8142,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RaycastTerrain",
-      "description": "The ray-versus-terrain query Sim_RaycastObjectList runs before it tests any object. Calls maybe_Terrain_RayWalk(ActiveHeightGrid, origin, endPoint, rayRecord+8 -- the literal 200, as a radius, &hitPoint, 0); on a ground hit the caller measures the distance back to the origin and clips the ray to it. This is what stops a shot passing through a hillside. Its companion RaycastShapeMinDistance_Clear is only a counter reset (RaycastShapeMinDistance), not part of the query.",
-      "source": "docs/retail/simulation/weapon-firing.md"
+      "description": "(&result{distance, object}, rayRecord) -> bool. The ray-versus-terrain query Sim_RaycastObjectList runs before it tests any object. The origin is the ray transform's translation (transform+0x14) and the far end Transform_ApplyToPoint(transform, (0, rayRecord+4, 0)); calls Terrain_RayWalk(ActiveHeightGrid, origin, end, rayRecord+8 -- the literal 200, as a radius, &hitPoint (a stack local), mode 0). On a hit it stores Math_DistanceBetweenPoints(origin, hitPoint) and &g_TerrainHitPseudoObject in the result, copies hitPoint to 004aab72/76/7a, and returns 1. Its one caller found by es2_xref, Sim_RaycastObjectList (call at 0042665d), cuts the ray to the distance when it is shorter. In v1.0 a hit whose plane solve found no point leaves hitPoint unwritten, so the distance is measured to whatever the stack slot held. This is what stops a shot passing through a hillside. Its companion RaycastShapeMinDistance_Clear is only a counter reset (RaycastShapeMinDistance), not part of the query.",
+      "source": "docs/retail/simulation/weapon-firing.md",
+      "verified": {
+        "bytes": "00428048+172",
+        "sha1": "87be07e6f321",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004280f4",
@@ -8133,8 +8157,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_RayHitDistance",
-      "description": "(&distance, from, to, step): Terrain_RayWalk on ActiveHeightGrid from from to to; when it reports a hit, stores Math_DistanceBetweenPoints(from, hitPoint) in distance. Returns whether it hit. Detection_LineOfSight and Ai_LineOfSightBlocked call it.",
-      "source": "DBSIM decompile and disassembly at 004280f4"
+      "description": "(&distance, from, to, short radius): Terrain_RayWalk mode 0 on ActiveHeightGrid from from to to, the radius passed through as its fourth argument and the hit point into a stack local; when it reports a hit, stores Math_DistanceBetweenPoints(from, hitPoint) in distance and returns 1 in AX, else 0. Callers found by es2_xref: Detection_LineOfSight and Ai_LineOfSightBlocked, both of which pass radius 0 and read only the return value, never the distance.",
+      "source": "DBSIM decompile and disassembly at 004280f4",
+      "verified": {
+        "bytes": "004280f4+75",
+        "sha1": "a73d20ea199b",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00428140",
@@ -22093,8 +22123,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_CellSurfaceIntersect",
-      "description": "Solves exactly where a segment meets the ground inside one cell, once Terrain_EdgeCrossingTest has reported a crossing. Builds a plane from each of the cell's two face normals (cell+0x1 and cell+0x7) through a corner that triangle contains, and intersects via Math_PlaneSegmentIntersect; works in cell-local X/Y with world Z and adds the cell origin back on the way out. Result returned in the statics at DAT_006b50e0. Near triangle first, selected by cell+0xf&3 the same way Terrain_HeightQuery selects. Its fourth parameter -- Terrain_RayWalk's walk radius, the literal 200 the weapon ray record carries -- is never read, in any mode, and this is that value's only destination, so the walk radius has no effect on any result. Two quirks: selector 0's far triangle has no corner in this cell, so it shifts one cell east and uses corner (x+1,y); selector 2's far plane keeps the NEAR triangle's plane constant rather than recomputing it against the far normal.",
-      "source": "docs/retail/simulation/terrain-heightmap.md (terrain clipping RE session)"
+      "description": "Solves exactly where a segment meets the ground inside one cell, once Terrain_EdgeCrossingTest has reported a crossing. Builds a plane from each of the cell's two face normals (cell+0x1 and cell+0x7) through a corner that triangle contains, and intersects via Math_PlaneSegmentIntersect; works in cell-local X/Y with world Z and adds the cell origin back on the way out. Returns a pointer to the point, held in the statics at DAT_006b50e0, or null. Near plane first, through corner (x,y); its point is accepted when it lies in the near triangle by cell+0xf&3 (selector 0: x+y <= cellSize; 1: always; 2: x < y), the same split Terrain_HeightQuery uses. Otherwise null for selector 1, else the far plane, whose point is accepted without a triangle test; null when it misses the segment or the cell (or, for selector 0, the cell east) is off the grid by flat index. Its fourth parameter -- Terrain_RayWalk's walk radius, the literal 200 the weapon ray record carries -- is never read. Two quirks: selector 0's far triangle has no corner in this cell, so it shifts one cell east and uses corner (x+1,y); selector 2's (and 3's) far plane keeps the near plane's constant -h00*nzNear rather than -h00*nzFar, so it sits h00*(nzNear-nzFar)/nzFar above the true far plane, which moves the point along the segment and can carry it off either end, giving null.",
+      "source": "docs/retail/simulation/terrain-heightmap.md (terrain clipping RE session)",
+      "verified": {
+        "bytes": "0047068c+641",
+        "sha1": "43ff6c4c31c4",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00470910",
@@ -27885,7 +27921,13 @@
       "name": "Math_Q16Multiply",
       "description": "Q16 fixed-point multiply: (int64)a*b >> 16. Used by MechType_InitOne to rescale a mech type's speed fields by a Q16 ratio built with Math_Q16Divide.",
       "source": "docs/herculan/planning.md (world scale recovery)",
-      "signature": "int __cdecl Math_Q16Multiply(int a, int b)"
+      "signature": "int __cdecl Math_Q16Multiply(int a, int b)",
+      "verified": {
+        "bytes": "0047df81+16",
+        "sha1": "0a0ea03a9ce9",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0047df94",
@@ -28006,8 +28048,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_PlaneSegmentIntersect",
-      "description": "(plane{nx,ny,nz,d}, segment{start[3],end[3]}, out[3]) -> bool. Denominator = dot(n, end-start), numerator = -(dot(n, start) + d); rejects a parameter outside the segment by comparing the pair with the sign of the denominator rather than dividing first, then applies it per component through a 64-bit multiply (0047de78) and divide (0047dd21).",
-      "source": "docs/retail/simulation/terrain-heightmap.md (terrain clipping RE session)"
+      "description": "(plane{nx,ny,nz,d}, segment{start[3],end[3]}, out[3]) -> bool in AL. Denominator = dot(n, end-start), numerator = -(dot(n, start) + d), both with 32-bit IMUL. Returns 0 with out unwritten for a zero denominator (segment parallel to the plane) or a parameter outside [0, 1], decided by comparing the pair with the sign of the denominator rather than dividing first; otherwise out = start + run * numerator / denominator per component, through Math_Mul32To64_Thunk (0047e995) and Math_DivMod64_Thunk (0047e9b2), and returns 1.",
+      "source": "docs/retail/simulation/terrain-heightmap.md (terrain clipping RE session)",
+      "verified": {
+        "bytes": "0047e504+299",
+        "sha1": "ca5c77e530a0",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0047e630",
@@ -34893,8 +34941,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_UnbindLibrary",
-      "description": "Decrements Sos_BindRefCount when it is non-zero and, when that reaches 0, FreeLibrary on the module handle at 006cbddc. Returns 0. Sos_InitBackend calls it on a failed open, 00473698 at shutdown.",
-      "source": "DBSIM decompile at 00495913"
+      "description": "Decrements Sos_BindRefCount when it is non-zero and, when that reaches 0, FreeLibrary on the module handle at 006cbddc. Returns 0. Callers found by es2_xref: Sos_InitBackend (00473683) and Sos_Shutdown (0047369d).",
+      "source": "DBSIM decompile at 00495913",
+      "verified": {
+        "bytes": "00495913+46",
+        "sha1": "f97d3492b44e",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00495941",

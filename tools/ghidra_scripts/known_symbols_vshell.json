@@ -41,7 +41,13 @@
       "confidence": "high",
       "name": "Shell_Main",
       "description": "(argc, argv), from Shell_WinMain: the shell's startup and main loop. Allocates the shell pool (Shell_PoolSize), reads drive.cfg, EsGlobal_Init(0), Shell_ParseCommandLine, copies -X into Shell_StartupCode, checks for 256 colours, refuses without -eggplant (Shell_EggplantGiven), reads Sierra.ini's VideoSpeed unless option 47 is set, scans the volumes, quits without avi\\\\pt1.avi on the disc, then Devices_Init, EsGlobal_Init(1), the game state, catalogs, career table and map resources, WinEvents_Init, the display (Shell_Display), the two cursors, the root's handler (RootWindow_DiscardEvent), the input consumer and producers, the top-level window (Shell_TopWindow) and the sound. Then Shell_BuildScreensAndStart and the main loop: while Shell_HasFocus is set, Dispatcher_RunQueue, Shell_PumpEvents, Shell_CommitPalette, DirtyList_Flush, Movie_PlayQueue(1), Shell_MainLoopStarted = 1, ShellMap_RunIntro, the break assert, mono output and QuitAlert's repaint, each stage stopping on Shell_QuitFlag; until WM_QUIT or Shell_QuitFlag. On the way out Game_SaveSlot(10, NULL), the producers and window deleted, ShellMap_ReleaseResources, Shell_ShutdownDevicesAndSound, the pool freed and PostQuitMessage.",
-      "source": "docs/retail/shell/startup.md"
+      "source": "docs/retail/shell/startup.md",
+      "verified": {
+        "bytes": "00401525+1999",
+        "sha1": "726b23e2e774",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00401cf4",
@@ -1478,8 +1484,14 @@
       "type": "function",
       "confidence": "high",
       "name": "SfxTimer_Kill",
-      "description": "KillTimer on the shell's sound-service timer: the 15 ms timer (id 1, callback sfxWndProc) that Display_Init creates on window MainWindow_Handle and whose id it keeps at 00481e4c; nothing when that id is 0. Display_ToggleFullScreen calls it.",
-      "source": "VSHELL decompile and disassembly at 004062b0"
+      "description": "KillTimer on the shell's sound-service timer: the 15 ms timer (id 1, callback sfxWndProc) that Display_Init creates on window MainWindow_Handle and whose id it keeps at 00481e4c; nothing when that id is 0. Shell_Main runs it after Shell_EmptyExitStep on its exit and each refusal, and Display_ToggleFullScreen and Shell_CreateMainWindow on their failure paths.",
+      "source": "VSHELL decompile and disassembly at 004062b0",
+      "verified": {
+        "bytes": "004062b0+27",
+        "sha1": "1b5b00957820",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "004062cb",
@@ -2910,8 +2922,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TextBox_Wrap",
-      "description": "Splits the text box's string in place into lines: at newlines, and at the last break when the line measured at a space is wider than the box.",
-      "source": "docs/retail/shell/mission-screen.md#the-mission-screen"
+      "description": "Splits the text box's string in place into lines: at newlines, and at the last break when the line measured at a space is wider than the box. Every other character below a space becomes a space; the test reads the character as a signed byte, so every byte above 127 becomes a space too.",
+      "source": "docs/retail/shell/mission-screen.md#the-mission-screen",
+      "verified": {
+        "bytes": "0040d0d6+353",
+        "sha1": "b2b5439d7ee3",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0040d237",
@@ -16108,7 +16126,13 @@
       "confidence": "high",
       "name": "GLFont_Dtor",
       "description": "GLFont vtable 0047bf68 slot +0x18 (font, flags): decrements the live-object counter at *Rtl_DtorCountPtr, restores GLFont_Vtable, frees each block GLFont_ReadFromStream allocated (+0x1e when +0x18 is non-zero, +0x22 when +0x1a is, +0x26 when +4 is, +0x2a when +0xc is -1, +0x2e when +8 is -1) with Mem_DeleteArray, GLBase_Dtor(font, 0), then Mem_Delete when flags bit 0 is set.",
-      "source": "VSHELL decompile of 00453eb8"
+      "source": "VSHELL decompile of 00453eb8",
+      "verified": {
+        "bytes": "00453eb8+135",
+        "sha1": "66c44bd25014",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00453f40",
@@ -16116,8 +16140,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Font_GlyphWidth",
-      "description": "One glyph's advance: the per-glyph width table at font +0x2a indexed by the character less font +0x08, unless font +0x0c holds a fixed width other than -1.",
-      "source": "docs/retail/formats/dfn-hfn-dci.md"
+      "description": "(font, ch), ch an int16: one glyph's advance, the per-glyph width table at font +0x2a indexed by ch less font +0x08, unless font +0x0c holds a fixed width other than -1. No range check; Font_MeasureString and Font_DrawString pass the character sign-extended, so a byte above 127 indexes before the table.",
+      "source": "docs/retail/formats/dfn-hfn-dci.md",
+      "verified": {
+        "bytes": "00453f40+41",
+        "sha1": "a291a3979256",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00453f6c",
@@ -16125,8 +16155,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Font_MeasureString",
-      "description": "Sums Font_GlyphWidth over a string, with no tracking. What right and centred alignment subtract from the field width.",
-      "source": "docs/retail/formats/dfn-hfn-dci.md"
+      "description": "Sums Font_GlyphWidth over a string, with no tracking, passing each character sign-extended. What right and centred alignment subtract from the field width.",
+      "source": "docs/retail/formats/dfn-hfn-dci.md",
+      "verified": {
+        "bytes": "00453f6c+46",
+        "sha1": "d3d653bec452",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00453f9c",
@@ -16135,7 +16171,13 @@
       "confidence": "high",
       "name": "Font_CellHeightCopy",
       "description": "Returns the int16 at font+0x0a, the glyph cell height: a byte-identical second copy of Font_CellHeight. Font_DrawGlyph calls it.",
-      "source": "VSHELL decompile at 00453f9c"
+      "source": "VSHELL decompile at 00453f9c",
+      "verified": {
+        "bytes": "00453f9c+12",
+        "sha1": "0f68e3184df3",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00453fa8",
@@ -16144,7 +16186,13 @@
       "confidence": "high",
       "name": "Font_CellHeight",
       "description": "Returns font +0x0a, the glyph cell height. Font_CellHeightCopy is a byte-identical second copy at a different address. Both text paints centre with this, not with the ink height -- which is font +0x16 and is what the glyph blitter subtracts.",
-      "source": "docs/retail/shell/widgets.md#text-placement-and-colour"
+      "source": "docs/retail/shell/widgets.md#text-placement-and-colour",
+      "verified": {
+        "bytes": "00453fa8+12",
+        "sha1": "0f68e3184df3",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00453fb4",
@@ -16152,8 +16200,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Font_DrawGlyph",
-      "description": "Blits one glyph, placing its top-left at { x, y - font[+0x16] } -- and font +0x16 is the .DFN header's inkHeight field, so the caller's y is an ink baseline rather than a top or a cell bottom.",
-      "source": "docs/retail/shell/widgets.md#text-placement-and-colour"
+      "description": "(font, point, ch): blits one glyph -- the width from Font_GlyphWidth and the cell height from Font_CellHeightCopy over the pixels at font +0x22 plus the offset table +0x26's entry for ch less font +0x08, with no range check -- placing its top-left at { x, y - font[+0x16] }. font +0x16 is the .DFN header's inkHeight field, so the caller's y is an ink baseline rather than a top or a cell bottom. When the current draw context's +0x230 byte is set it also draws a line along y from x to x plus the glyph's width.",
+      "source": "docs/retail/shell/widgets.md#text-placement-and-colour",
+      "verified": {
+        "bytes": "00453fb4+232",
+        "sha1": "aad13e6360d0",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0045409c",
@@ -16161,8 +16215,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Font_DrawString",
-      "description": "Draws a run of glyphs. Tests the draw context's +0x231 for 1 and then 2, so alignment is 0 left, 1 right, 2 centred against the field width at +0x235; then advances glyph by glyph. The y it is given is an ink baseline.",
-      "source": "docs/retail/shell/widgets.md#text-placement-and-colour"
+      "description": "Draws a run of glyphs. Tests the draw context's +0x231 for 1 and then 2, so alignment is 0 left, 1 right, 2 centred against the field width at +0x235; then advances glyph by glyph, passing each character sign-extended to Font_DrawGlyph and Font_GlyphWidth. The y it is given is an ink baseline.",
+      "source": "docs/retail/shell/widgets.md#text-placement-and-colour",
+      "verified": {
+        "bytes": "0045409c+171",
+        "sha1": "b7cb595cda8b",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00454148",
@@ -16171,7 +16231,13 @@
       "confidence": "high",
       "name": "GLFont_LoadPalette",
       "description": "(font): GLDisplay_LoadPalette(GL_GetGlobal7's display, 0, the font's colour count int16 +0x18, its colours +0x1e).",
-      "source": "VSHELL decompile and disassembly"
+      "source": "VSHELL decompile and disassembly",
+      "verified": {
+        "bytes": "00454148+35",
+        "sha1": "312444a485b3",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0045416c",
@@ -16179,8 +16245,14 @@
       "type": "function",
       "confidence": "high",
       "name": "GLFont_RemapPalette",
-      "description": "(font, palette, out): GLBitmap_RemapPalette over the font's colours (count int16 +0x18, colours at +0x1e).",
-      "source": "VSHELL decompile and disassembly"
+      "description": "(font, palette, out): for each of the font's colours (count int16 +0x18, array at +0x1e) writes GLPalette_FindNearestColour(palette, colour) to the next byte of out.",
+      "source": "VSHELL decompile and disassembly",
+      "verified": {
+        "bytes": "0045416c+63",
+        "sha1": "781dd56d6f33",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "004541ac",

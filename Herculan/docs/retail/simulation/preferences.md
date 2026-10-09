@@ -86,7 +86,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 44 | **VSHELL's** `Repair Options:` | 0 `AutoRepair All Hercs`, 1 `Manually Repair My Herc`, 2 `Manually Repair All Hercs` |
 | 45 | **VSHELL's** `Weapons Building:` | 0 `AutoBuild Weapons`, 1 `Manually Build Weapons` |
 | 46 | **VSHELL's** `INSTANT ACTION` demo | which of the three demo missions the next `INSTANT ACTION` plays, stepped modulo 3 after each; its chassis goes into option 40 ([`../shell/main-menu.md`](../shell/main-menu.md#which-mission-a-row-is)) |
-| 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup ([`../shell/startup.md`](../shell/startup.md#sierraini)) |
+| 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup ([`../shell/startup.md`](../shell/startup.md#sierraini)); in v1.10, 1 shows the `Performance Note` and 2 has shown it ([`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)) |
 
 `ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession` (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and `Main_StaticInit` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a binding made in a walker does not disturb the RAZOR's.
 

@@ -320,7 +320,7 @@ The mission group, `script.dat` block 11; how DBSIM places it is [`script-dat.md
 | `0x02` | condition ref | 2.5% sparse; **compound pair** with `0x04` |
 | `0x04` | condition operand | 1.4% real; always `-99` when populated |
 | `0x06` | paints ground | 100% real; 39/61 split. A base group that sets it stands on and paints its formation's terrain tile ([`script-dat.md`](script-dat.md#base-formation-terrain)) |
-| `0x08` | ? | `0` in 1,246 of the 1,247 groups. `C2_05`'s group 188 holds 25 in v1.0, and v1.10 sets it to 0 ([Open](#open)) |
+| `0x08` | ? | `0` in 1,246 of the 1,247 groups. `C2_05`'s group 188, one Cybrid Stingray hunting the Raptor II prototype, holds 25 in v1.0, and v1.10 sets it to 0. Exported as `script.dat` block 11's `+0x02` ([Open](#open)) |
 | `0x0A–0x2C` | dead zone (18 shorts) | **always `0`** — padding |
 | `0x2E` | discriminator | 89% real; 0/1/2 — selects which row the `0x38` array's entries point at (rows #12/#13/#14) |
 | `0x30` | **formation id** | 85% real; range 0–16 — indexes the formation-offset table that spreads a group's members around its point (see `script-dat.md`'s placement section) |
@@ -441,5 +441,5 @@ All ten share the id, so the debrief carries **one** of them: a squadmate killed
 ## Open
 
 - **Deferred:** no reset of the row-2 clear list (`DAT_0048545a`) found by `es2_xref.py --binary VSHELL`: its three references are `Msn_ApplyHeaderPatch`'s write and `Msn_ClearPatchedFlags`'s two reads, and no other address from `00485440` to `00485495` but the header words is referenced. On retail data the answer changes no condition a load tests ([The header patch](#the-header-patch--row-2)).
-- **Open:** what row #16's `0x08` does.
+- **Open:** what row #16's `0x08` does. No reader of it found. In VSHELL, `es2_xref.py` finds the row's storage (`0047065a`) referenced only by `MsnGen_ParseMsnFile`, `WriteScriptDatFile` and `MsnGen_FreeRows`, and the briefing map's block-11 array (`map+0x6e`, every load `es2_fieldscan.py` finds) is read at `+0x28`, `+0x2c`, `+0x2e`, `+0x30`, `+0x32`-`+0x59`, `+0x5a`, `+0x6e` and `+0x9a`. In DBSIM, `DBSim_LoadScriptDat` reads the record whole and tests `+0x28` and the member refs; `DBSim_SpawnMissionObjects` reads it whole and hands it to `DBSim_BuildGroupRecord`, and neither reads `+0x02`.
 - **Deferred:** a VSHELL reader of row #13's 20-short flag span at `0x08–0x2F` or its constant at `0x64`. The functions found referencing the row's storage (`00470618`) by a disassembly search are the parser and its merge, variant and ref helpers, `MsnGen_FreeRows` and `WriteScriptDatFile`, where the same search over row 12's storage also finds `MsnGen_BuildPlayerHerc`; the briefing's map skips block 8 ([`script-dat.md`](script-dat.md#the-13-block-structure)). DBSIM's side is [What DBSIM takes from a flyer record](#what-dbsim-takes-from-a-flyer-record).

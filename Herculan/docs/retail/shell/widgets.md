@@ -112,7 +112,7 @@ The paints in the table below are the visual vocabulary of the screens ported so
 
 ### Text placement and colour
 
-`Font_DrawString(font, {x, y}, text)` (0045409c) draws a run: it tests the context's `+0x231` for 1 and then for 2, so **0 is left, 1 is right and 2 is centred**, against the field width at `+0x235`; then it advances glyph by glyph. `Text` takes that mode from its own `+0x45`, so a label's alignment is a constructor argument. The save screen's detail panel builds every label right-aligned and each single value left-aligned, which is what makes a label's colon meet its value; its kill counters and column headers are centred.
+`Font_DrawString(font, {x, y}, text)` (0045409c) draws a run: it tests the context's `+0x231` for 1 and then for 2, so **0 is left, 1 is right and 2 is centred**, against the field width at `+0x235`; then it advances glyph by glyph. v1.10's font code is another build, which reads characters unsigned ([`../retail-builds.md`](../retail-builds.md#how-v110s-programs-differ)). `Text` takes that mode from its own `+0x45`, so a label's alignment is a constructor argument. The save screen's detail panel builds every label right-aligned and each single value left-aligned, which is what makes a label's colon meet its value; its kill counters and column headers are centred.
 
 The `y` is an **ink baseline**: `Font_DrawGlyph` (00453fb4) places each glyph's top row at `y - font[+0x16]`, and `+0x16` is the `.DFN` header's `inkHeight`. `Font_CellHeight` and `Font_CellHeightCopy` (`00453f9c`) both return `font[+0x0a]`, the glyph cell height. The two classes centre differently and neither is derived from the other — `Text` uses `H - (H + 1 - cellHeight) / 2 - 2` and the edit field `cellHeight / 2 + (H + 1) / 2`.
 

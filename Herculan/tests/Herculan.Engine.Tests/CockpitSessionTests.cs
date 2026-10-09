@@ -23,7 +23,7 @@ namespace Herculan.Engine.Tests;
 /// </summary>
 [Collection(SimTimestepCollection.Name)]
 public class CockpitSessionTests {
-	private const string Digest = "E101CD5D5DE8093D13DB7F4D38EA3E8117001CBBD005A3205DB16A9725C68E10";
+	private const string Digest = "8C29720933ED97F115E0921BAB0F8342B89628742CFD318E460A6134FEF1C48C";
 
 	[Fact]
 	public void TheScriptedSessionMatchesItsDigest() {
@@ -186,13 +186,6 @@ public class CockpitSessionTests {
 		Tap(Key.Enter);
 		Tap(Key.V);
 		Run(20);
-
-		// The observer camera.
-		Tap(Key.C);
-		Hold(20, Key.W);
-		Hold(10, Key.D);
-		Tap(Key.C);
-		Run(10);
 
 		// The developer keys: the freeze, a single step, a move and a turn, and a hit.
 		Tap(Key.AltLeft, Key.S);

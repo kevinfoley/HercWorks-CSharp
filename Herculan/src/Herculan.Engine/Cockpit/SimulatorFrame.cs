@@ -142,7 +142,6 @@ public sealed class SimulatorFrame {
 		// acting on the same keystroke.
 		var controls = _input.KeyboardCapturedByImGui ? null : _input.Keyboard;
 		var liveFreeKeys = _input.ImGuiHasKeyboard ? null : _input.LiveKeys;
-		_view.ReadCameraKey(_tape.Playing ? liveFreeKeys : controls, _displays.FlashCommHasKeyboard);
 
 		// The developer keys, which reach the dispatcher only while no modal panel holds the input, and the
 		// view chain's own.

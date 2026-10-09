@@ -63,7 +63,7 @@ Groups referenced by decoded code:
 | 24 | 4 | Vehicle type names, same index for a type whose `BASES.DAT +0x32` is set |
 | 25 | 2 | `LANDSKIMMER`, `HOVERTANK` |
 | 26 | 1 | `NONE` — the MFD target screen with nothing selected |
-| 27 | 1 | `UNKNOWN` — a subject whose target class the status screen does not recognise |
+| 27 | 1 | `UNKNOWN` — the status screen's default target-class arm, which no subject reaches ([`mfd.md`](../simulation/mfd.md#the-subject)) |
 | 28 | 5 | Condition, the MFD status screen's fourth label: `OK`, `SHIELDS DN`, `INT DAMAGE`, `CRITICAL`, `DESTROYED` |
 | 29 | 2 | `ACT`, `PASS` — consumer not located; the scanner's own toggles caption from group 5 |
 | 30, 31 | 1,1 | `TRG:` and `RNG:`, the scanner's two corner captions (`DAT_004d16b4`/`b8`) |

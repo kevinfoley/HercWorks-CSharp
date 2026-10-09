@@ -18,7 +18,7 @@ The engine is currently in beta. Not all features have been thoroughly tested, a
 
 ### Features
 
-- Play all of `Earthsiege 2`, at any resolution, with support for widescreen and ultra-widescreen monitors (menus render at 4:3).
+- Play all of _Earthsiege 2_, at any resolution, with support for widescreen and ultra-widescreen monitors (menus render at 4:3).
 - Hardware-accelerated rendering that almost perfectly matches retail's software renderer.
 - Currently supports Windows, with planned support for Linux and potentially macOS in the near future.
 - Full support for retail's file formats, including saved games.

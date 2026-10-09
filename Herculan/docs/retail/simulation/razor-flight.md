@@ -78,7 +78,7 @@ Nothing in it moves the aircraft; it produces the world velocity `Razor_Movement
 
 ### Throttle
 
-An analogue throttle axis is read as a position, `axis << 3` clamped to ±0x400. Everything else is a rate: `IntegrateRateOverTick(Q8(100, axis))` accumulated into `+0x2d7` and clamped the same way. Unlike the walker's throttle lever there is no inverted sense and no clamp to one side of zero.
+With a throttle lever bound, the axis is read as a position, `axis << 3` clamped to ±0x400. The test is two globals, not anything on the airframe: the capability block's `+4` reports a throttle ([`joystick-input.md`](../formats/joystick-input.md#the-capability-block--input_querycapabilities-004777f8)), and option 26 (`004d1fd6`), the RAZOR block's THROTTLE row, holds 2, the word `THROTTLE` ([`preferences.md`](preferences.md#the-bindings-are-twelve-bytes-of-the-same-file)). That is not the walker's lever test, `Input_SetThrottleLeverMode` (`00459d20`), which wants the THROTTLE row byte it is handed to be 1 ([`mech-locomotion.md`](mech-locomotion.md)). Everything else is a rate: `IntegrateRateOverTick(Q8(100, axis))` accumulated into `+0x2d7` and clamped the same way. Unlike the walker's throttle lever there is no inverted sense and no clamp to one side of zero.
 
 `Razor_ApplyFlightInput` then copies `+0x2d7` onto `mech+0x290` and sets the `mech+0x93` dirty flag, but **only on a tick the throttle axis moved**. The reverse direction — gauge to flight model — is in `Player_PerFrameCockpitUpdate`, which with the dirty flag clear writes the gauge's value to `mech+0x2d7` as well as `mech+0x290`, gated on the flyer flag. That single line is the only path by which the cockpit slider reaches the flight model.
 

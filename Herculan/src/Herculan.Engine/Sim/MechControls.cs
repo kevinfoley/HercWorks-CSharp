@@ -79,9 +79,14 @@ namespace Herculan.Engine.Sim;
 /// and the capacitor is back over its threshold. Nothing along the path looks at edges, which is why
 /// there is no scancode case for [Space] anywhere in the command dispatcher.</para>
 /// </param>
+/// <param name="FlightThrottleLever">
+/// Whether a flyer's control law reads <see cref="TorsoPitch"/> as a lever position rather than a
+/// rate — see <see cref="Input.JoystickBindings.FlightThrottleIsLever"/>. A walker ignores it, as
+/// a flyer ignores <see cref="ThrottleLever"/>: the original tests a different binding for each.
+/// </param>
 public readonly record struct MechControls(short Turn, short Throttle, int ThrottleLever = 0,
 		short TorsoTwist = 0, short TorsoPitch = 0, bool CenterTorso = false,
-		bool CenterBody = false, bool Fire = false) {
+		bool CenterBody = false, bool Fire = false, bool FlightThrottleLever = false) {
 	/// <summary>Full stick deflection, in either direction.</summary>
 	public const short AxisFull = 0x100;
 

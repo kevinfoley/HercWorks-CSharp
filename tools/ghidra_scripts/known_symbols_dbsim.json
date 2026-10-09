@@ -17800,8 +17800,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_SetThrottleLeverMode",
-      "description": "Sets ThrottleLeverMode (0049a06e) to 1 only when the input config struct (Input_QueryCapabilities) reports a throttle control at +2 AND the caller's mode == 1 (the preferences page's THROTTLE rather than TURRET assignment); 0 otherwise. This is the function that proves 0049a06e is a joystick-lever mode and not a forward/reverse gear -- with no lever it is 0, which leaves Mech_ApplyThrottleInput's clamp spanning the full +/-0x400 so the keyboard can reach reverse.",
-      "source": "docs/retail/simulation/mech-locomotion.md"
+      "description": "Takes one byte, a THROTTLE row's value, and sets ThrottleLeverMode (0049a06e) to 1 when Input_QueryCapabilities' block reports a throttle at +4 and the byte is 1 (the walker's THROTTLE rather than TURRET ELEVATION), 0 otherwise. Never writes -1. With no lever the mode is 0, which leaves Mech_ApplyThrottleInput's clamp spanning the full +/-0x400 so the keyboard can reach reverse: 0049a06e is a joystick-lever mode, not a forward/reverse gear.",
+      "source": "docs/retail/simulation/mech-locomotion.md",
+      "verified": {
+        "bytes": "00459d20+35",
+        "sha1": "72962f774d3c",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00459d44",

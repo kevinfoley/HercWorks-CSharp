@@ -202,7 +202,8 @@ public sealed class PilotControls {
 		// can be moving (docs/retail/formats/joystick-input.md, "While the camera has the controls"). That
 		// gate is the live stick's even during a replay, the capability block being rebuilt from the device
 		// on every call. A round flown with InputDrivesCamera clear takes the original's ordinary branch,
-		// which this neutralises as well.
+		// which this neutralises as well. A RAZOR's flight model runs under either branch and makes its own
+		// throttle test, so that test is carried through.
 		if (pilotInput && pilotMech != null && _view.ControlsOnCamera) {
 			var liveStick = Joystick?.Capabilities ?? JoystickCapabilities.None;
 			bool keepsPitch = _view.ControlsDriveCamera && liveStick.Present && liveStick.HasThrottle;
@@ -210,6 +211,7 @@ public sealed class PilotControls {
 				TorsoPitch = keepsPitch ? pilotMech.Controls.TorsoPitch : (short)0,
 				CenterTorso = pilotMech.Controls.CenterTorso,
 				CenterBody = pilotMech.Controls.CenterBody,
+				FlightThrottleLever = pilotMech.Controls.FlightThrottleLever,
 			};
 		}
 
@@ -234,7 +236,8 @@ public sealed class PilotControls {
 			TorsoPitch: axes.TorsoPitch,
 			CenterTorso: centerTorso,
 			CenterBody: centerBody,
-			Fire: InputTapePlayer.TriggerOf(frame));
+			Fire: InputTapePlayer.TriggerOf(frame),
+			FlightThrottleLever: JoystickBindings.FlightThrottleIsLever(StickCapabilities, _preferences));
 	}
 
 	// Stick sign convention is the device's, not the game's: forward and left are negative. No
@@ -357,7 +360,9 @@ public sealed class PilotControls {
 			// firing as fast as its refire delay and its capacitor allow. So is the joystick trigger,
 			// for the same reason and through the same byte.
 			Fire: _staging.HeldFire || (_joystickInput.Fire && !(_fireRowLatched && fireRowIsTrigger))
-				|| (keys.IsKeyPressed(Key.Space) && !_fireRowLatched));
+				|| (keys.IsKeyPressed(Key.Space) && !_fireRowLatched),
+			// The flight model's own pair of conditions, which differ from the walker's above.
+			FlightThrottleLever: JoystickBindings.FlightThrottleIsLever(StickCapabilities, _preferences));
 		_view.TakeCameraAxes(mech.Controls);
 
 		// A tape records the axes ahead of Backturn, which playback applies again.

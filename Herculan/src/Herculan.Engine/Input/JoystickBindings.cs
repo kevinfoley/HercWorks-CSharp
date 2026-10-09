@@ -92,6 +92,20 @@ public sealed class JoystickBindings {
 		return ThrottleLeverInverted ? -mode : mode;
 	}
 
+	/// <summary>
+	/// Whether the flight model reads its throttle axis as a lever position rather than a rate —
+	/// <c>FlightModel_Step</c> (<c>00466a54</c>)'s own test: the capability block's <c>+4</c> and the
+	/// RAZOR block's THROTTLE row on <c>THROTTLE</c> (docs/retail/simulation/razor-flight.md#throttle).
+	///
+	/// <para>Not <see cref="ThrottleLeverMode"/>, which asks for the row's 1, the walker's THROTTLE
+	/// word: the RAZOR's THROTTLE word is 2. The row is read from the RAZOR's block whichever machine
+	/// is being flown, as the original reads the option by its address.</para>
+	/// </summary>
+	public static bool FlightThrottleIsLever(JoystickCapabilities capabilities,
+			SimulatorPreferences preferences) =>
+		capabilities.HasThrottle
+		&& preferences[Prefs.RazorControlsBase + 1] == (byte)JoystickAxisAssignment.Turret;
+
 	/// <summary>Drops every latch, so a held button fires once more.</summary>
 	public void ResetLatches() => Array.Clear(_latched);
 

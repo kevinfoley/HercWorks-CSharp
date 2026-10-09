@@ -145,7 +145,7 @@ public sealed partial class MechObject : IFlightBody {
 			rudder: controls.TorsoTwist,
 			throttleAxis: controls.TorsoPitch,
 			groundHeight: world.GroundHeightAt(Position),
-			analogueThrottle: controls.ThrottleLever != 0);
+			analogueThrottle: controls.FlightThrottleLever);
 
 		// Only a tick the pilot actually moved the throttle axis on pushes the setting onto the
 		// machine's throttle field, so a gauge being dragged is not immediately overwritten. It is

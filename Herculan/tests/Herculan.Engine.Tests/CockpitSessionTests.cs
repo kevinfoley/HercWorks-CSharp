@@ -23,7 +23,7 @@ namespace Herculan.Engine.Tests;
 /// </summary>
 [Collection(SimTimestepCollection.Name)]
 public class CockpitSessionTests {
-	private const string Digest = "283BDD6683B874688DBD909CD285973E3070292F73C5FF58024FA0BD8DE24FCF";
+	private const string Digest = "320B57B0EFE7B3A865EECF6A165591AC3BC42B5D17D9BC51AB83EB1460736D69";
 
 	[Fact]
 	public void TheScriptedSessionMatchesItsDigest() {

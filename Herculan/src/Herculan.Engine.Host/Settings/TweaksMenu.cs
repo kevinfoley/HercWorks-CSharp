@@ -67,7 +67,7 @@ public sealed class TweaksMenu {
 					}
 
 					if (ImGui.IsItemHovered() && _localization.GetString(definition.DescriptionKey) is { } description) {
-						ImGui.SetTooltip(description);
+						ScaledImGui.Tooltip(description);
 					}
 				}
 			}

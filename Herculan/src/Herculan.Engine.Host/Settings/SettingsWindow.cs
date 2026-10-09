@@ -196,7 +196,7 @@ sealed class SettingsWindow : IDisposable {
 		}
 		ImGui.EndDisabled();
 		if (_restartShell == null && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) {
-			ImGui.SetTooltip(_session.Localization.GetStringOrKey("settings.in_mission"));
+			ScaledImGui.Tooltip(_session.Localization.GetStringOrKey("settings.in_mission"));
 		}
 
 		if (removed) {
@@ -236,7 +236,7 @@ sealed class SettingsWindow : IDisposable {
 		}
 		ImGui.EndDisabled();
 		if (_restartShell == null && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) {
-			ImGui.SetTooltip(_session.Localization.GetStringOrKey("settings.in_mission"));
+			ScaledImGui.Tooltip(_session.Localization.GetStringOrKey("settings.in_mission"));
 		}
 
 		if (chosen is { } next) {

@@ -211,7 +211,8 @@ public sealed partial class MechObject {
 	/// stopping dead. Its obstacle avoidance is skipped with it.</para>
 	///
 	/// </summary>
-	private void LocomotionTick(SimWorld world, short turn, short desired) {
+	/// <param name="ignoreObstacles">The original's fourth argument, handed on to <see cref="ObstacleAvoidance"/>; only the ramming think sets it.</param>
+	private void LocomotionTick(SimWorld world, short turn, short desired, bool ignoreObstacles = false) {
 		if (Thread is not { } thread) {
 			return;
 		}
@@ -249,7 +250,7 @@ public sealed partial class MechObject {
 			// "driven by a think function" because only the player has a pilot. Here Controls can fly
 			// any machine, and a machine somebody is flying should not have its stick taken off it.
 			if (UnderAiControl) {
-				ObstacleAvoidance(world, ref turn, ref desired);
+				ObstacleAvoidance(world, ref turn, ref desired, ignoreObstacles);
 			}
 		}
 

@@ -16,13 +16,13 @@ namespace Herculan.Engine.Sim;
 /// </summary>
 public partial class MechObject {
 	/// <summary>
-	/// Whether the behaviour state this machine holds drives the control law from its own think, in
-	/// which case <see cref="Tick"/> must leave <see cref="Controls"/> alone. In the original the
-	/// split is by machine — <c>Sim_PollPlayerInput</c> runs the throttle path for
-	/// <c>LocalPlayerMech</c> and nothing else — but the states whose think is not ported drive
-	/// nothing, and a machine in one of those is better left on the pilot path than pinned still.
+	/// Whether this machine is driven by its behaviour state rather than by <see cref="Controls"/>, in
+	/// which case <see cref="Tick"/> runs the state's move slot and leaves the pilot path alone. The
+	/// original's split is the same, by machine: <c>Sim_PollPlayerInput</c> runs the throttle path for
+	/// <c>LocalPlayerMech</c> and nothing else. A state with no think (<c>deciding</c>,
+	/// <c>in limbo</c>) is still the AI's, and drives nothing.
 	/// </summary>
-	private bool UnderAiControl => !IsPlayer && Behaviour.State is { Think: not ThinkSlot.None };
+	private bool UnderAiControl => !IsPlayer && Behaviour.State != null;
 
 	/// <summary>
 	/// <c>Ai_NavigationStep</c> (<c>0041d598</c>) — the movement half that <c>patrolling</c>,
@@ -219,7 +219,13 @@ public partial class MechObject {
 	/// writes zero at the top of the function and never anywhere else. It is not transcribed, and
 	/// neither is the half-speed arm of the speed override, which only that flag can reach.</para>
 	/// </summary>
-	private void ObstacleAvoidance(SimWorld world, ref short turn, ref short desired) {
+	/// <param name="ignoreObstacles">
+	/// Bit 0 of the original's fourth argument: skip the two probes and the machine sweep, leaving
+	/// only the player's line of fire. <c>Mech_BehaviourRamThink</c> is the one caller that sets it,
+	/// which is why a rammer runs straight at its target instead of steering off it as an obstacle.
+	/// </param>
+	private void ObstacleAvoidance(SimWorld world, ref short turn, ref short desired,
+			bool ignoreObstacles) {
 		if ((Speed == 0 && desired == 0) || (desired < 0 && _backoffTimer == 0)) {
 			return;
 		}
@@ -229,36 +235,38 @@ public partial class MechObject {
 		bool leftFiringLine = false;
 		bool rightFiringLine = false;
 
-		var frame = Rotation();
-		int ground = world.Terrain.HeightAtWorld(Position.X, Position.Y);
+		if (!ignoreObstacles) {
+			var frame = Rotation();
+			int ground = world.Terrain.HeightAtWorld(Position.X, Position.Y);
 
-		Probe(world, frame, ground, -ProbeInnerOffset, -ProbeOuterOffset, ref nearLeft);
-		Probe(world, frame, ground, ProbeInnerOffset, ProbeOuterOffset, ref nearRight);
+			Probe(world, frame, ground, -ProbeInnerOffset, -ProbeOuterOffset, ref nearLeft);
+			Probe(world, frame, ground, ProbeInnerOffset, ProbeOuterOffset, ref nearRight);
 
-		var objects = world.Objects;
-		for (int i = 0; i < objects.Count; i++) {
-			var other = objects[i];
-			if (ReferenceEquals(other, this) || other.AwaitingDeployment || other.CollisionRadius == 0) {
-				continue;
-			}
-
-			// The one range in this layer the original takes in three dimensions.
-			int range = SimMath.Q10Multiply(ObjectRangeGain, Position.ApproxDistanceTo(other.Position));
-			if (range >= nearLeft && range >= nearRight) {
-				continue;
-			}
-
-			short error = (short)(Detection.HeadingToward(other.Position, Position) - (short)Heading);
-			if (Abs(error) >= ObjectArc) {
-				continue;
-			}
-
-			if (error < 0) {
-				if (range < nearRight) {
-					nearRight = range;
+			var objects = world.Objects;
+			for (int i = 0; i < objects.Count; i++) {
+				var other = objects[i];
+				if (ReferenceEquals(other, this) || other.AwaitingDeployment || other.CollisionRadius == 0) {
+					continue;
 				}
-			} else if (range < nearLeft) {
-				nearLeft = range;
+
+				// The one range in this layer the original takes in three dimensions.
+				int range = SimMath.Q10Multiply(ObjectRangeGain, Position.ApproxDistanceTo(other.Position));
+				if (range >= nearLeft && range >= nearRight) {
+					continue;
+				}
+
+				short error = (short)(Detection.HeadingToward(other.Position, Position) - (short)Heading);
+				if (Abs(error) >= ObjectArc) {
+					continue;
+				}
+
+				if (error < 0) {
+					if (range < nearRight) {
+						nearRight = range;
+					}
+				} else if (range < nearLeft) {
+					nearLeft = range;
+				}
 			}
 		}
 

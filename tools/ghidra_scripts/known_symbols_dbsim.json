@@ -8670,8 +8670,14 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_ProcessViewCommand",
-      "description": "Executes the pending view command. Command 4 selects glance view 2, command 5 glance view 3, command 6 returns to view 0, command 2 selects view 4 (external). The -/+0x3600 yaw adds on 4/5/6 are gated on VideoMode_PanelMode == 1, which no retail mode stores, so a glance never turns the camera: it is the forward view's image plane continued sideways (docs/retail/simulation/cockpit-views.md). On the scroll-window path it first moves the image into the other half of the back buffer when a glance target would fall outside it (tests on Display_OriginX); on the -b paged path it instead holds glance commands until the draw page (+0x88) is 0 or 2 (1 under panel mode 1), and every pass past that gate and the cooldown calls Vga_WaitVerticalRetrace.",
-      "source": "cockpit rendering RE session"
+      "description": "Stages the pending view command (+0x18) for CockpitView_StepViewTransition, which runs it at the end of the next frame. While the cooldown +0x1d is nonzero it only decrements it and returns. Otherwise, when the view-change flag +0x1c is clear, it installs the destination view's state -- CockpitView_ApplyViewState for commands 0, 1 and 2 (view 4, external), CockpitView_SetView for 3 (the view saved at +0x23), 4 (view 2), 5 (view 3) and 6 (view 0, which also re-enables the widgets), each SetView putting +0x14 back so the current view index is unchanged until the slide -- and sets +0x1c; a set flag hides the system buttons (SystemButtons_HideAll). The -/+0x3600 yaw adds on 4/5/6 are gated on VideoMode_PanelMode == 1, which no retail mode stores, so a glance never turns the camera: it is the forward view's image plane continued sideways (docs/retail/simulation/cockpit-views.md). On the scroll-window path it first moves the image into the other half of the back buffer when a glance target would fall outside it (tests on Display_OriginX); on the -b paged path it instead holds glance commands until the draw page (+0x88) is 0 or 2 (1 under panel mode 1), and every pass past that gate and the cooldown calls Vga_WaitVerticalRetrace.",
+      "source": "cockpit rendering RE session",
+      "verified": {
+        "bytes": "0042a4c4+1275",
+        "sha1": "005265a9bd0a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042a9c0",
@@ -10558,8 +10564,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MessagePort_Tick",
-      "description": "The message port's whole lifecycle, on four latches: +0x4c9 due, +0x4ca ready (set by the paint, which is what puts one frame between due and shown), +0x4cb cancelled, +0x49e a line is up. Drops queued messages past index 0 whose maxWait has passed, takes the queue front as current, then shows / holds / takes down. A line comes down when cancelled, when maxTime has passed, when minTime has passed and the queue holds more than one message, or when LocalPlayerMech+0x99 says the player's machine is dead. That middle clause is the whole of the port's preemption.",
-      "source": "docs/retail/simulation/audio.md"
+      "description": "The message port's whole lifecycle, on four latches: +0x4c9 due, +0x4ca ready (set by the port's own per-frame update, vtable +0x10, which is what puts one frame between due and shown), +0x4cb cancelled, +0x49e a line is up. Does nothing while +0x4cc is nonzero. Drops queued messages past index 0 whose maxWait has passed, takes the queue front as current, then: not ready and not cancelled -- drops it unshown past maxWait, else past minWait marks it due and runs the +0x4b9 begin callbacks; not due, or cancelled -- takes it down through the vtable's Erase when cancelled, when maxTime has passed, when minTime has passed and the queue holds more than one message, or when LocalPlayerMech+0x99 says the player's machine is dead, dequeuing only if Erase returns nonzero; due and ready -- calls the show (vtable +0x04) and, if it returns nonzero, adds the tick into minTime and maxTime and clears due. The minTime clause is the whole of the port's preemption.",
+      "source": "docs/retail/simulation/audio.md",
+      "verified": {
+        "bytes": "00435610+784",
+        "sha1": "0ddb233963fa",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00435920",
@@ -10674,9 +10686,15 @@
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_Speak",
-      "description": "Paints the pilot/squad channel's box: one line, sized to its own measured width plus a 10-unit margin each side and centred on the screen, filled with the speaking squadmate's COLORS.DAT colour and framed in the palette entry one below it, in ColorSchemePanels[2] CPRED. A message with no squadmate behind it takes ids 19 and 9 instead. Named for the BC_00000 voice arm it opens with, gated on record +0x2c (attribute byte 7): 0 for every PILOT<n>.STR line and 1 for every COMMAND0.STR one, so it is HQ's voice, and no BC_ clip ships. See docs/retail/simulation/cockpit-messages.md, Its speakerless set.",
+      "description": "The ordinary pilot/squad port's show (DialogPort vtable +0x04). Returns 0 without doing anything while the player's machine is dead (LocalPlayerMech+0x99) or the cockpit view manager's view-change flag +0x1c is set. Runs the BC_ voice arm below, then returns 1 without painting when PILOT MESSAGE is 1 (VOICE ONLY); otherwise composes the line (vtable +0x08), sets +0x49e, paints, clears +0x4d2 and returns 1. Paints the pilot/squad channel's box: one line, sized to its own measured width plus a 10-unit margin each side and centred on the screen, filled with the speaking squadmate's COLORS.DAT colour and framed in the palette entry one below it, in ColorSchemePanels[2] CPRED. A message with no squadmate behind it takes ids 19 and 9 instead. Named for the BC_00000 voice arm it opens with, gated on record +0x2c (attribute byte 7): 0 for every PILOT<n>.STR line and 1 for every COMMAND0.STR one, so it is HQ's voice, and no BC_ clip ships. See docs/retail/simulation/cockpit-messages.md, Its speakerless set.",
       "source": "docs/retail/simulation/cockpit-messages.md",
-      "signature": "char __cdecl PilotMessagePort_Speak(void *port)"
+      "signature": "char __cdecl PilotMessagePort_Speak(void *port)",
+      "verified": {
+        "bytes": "00435d9c+916",
+        "sha1": "f2ce1af91701",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00436130",
@@ -10775,7 +10793,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MessagePort_Show",
-      "description": "Puts the current message up. Swallows a repeat of the same id inside 300 coarse ticks (about 4.8 s), and a swallowed repeat refreshes that window rather than leaving it. Otherwise latches the line, restores the box rect, publishes the scroll origin, repaints, plays an alert tone picked by a switch on the id (0x00/0x13 -> 0x19 strcfail; 0x0c/0x0f/0x10/0x14/0x15 -> 0x18 wrnwoop2; everything else 0x1a gnract -- the switch names fourteen further ids (0x17, 0x19, 0x1d-0x1f, 0x2a-0x2f, 0x34, 0x37, 0x38) that all reach the default arm's tone, and 0x36, whose arm also sets the blink latch +0x4d3), then speaks the line. Message 0x36 TRANSFERRING DATA is armed to blink here.",
+      "description": "Puts the current message up (EventPort vtable +0x04). Returns 0 at once while the player's machine is dead (LocalPlayerMech+0x99). When COMPUTER MESSAGE is 1 (VOICE ONLY), or the cockpit view manager's current view +0x14 reads 4 (the external view), it sets +0x49e and the suppression flag +0x4d2 and goes straight to the voice: no text, no tone, and the repeat window is neither tested nor refreshed. Otherwise it swallows a repeat of the same id inside 300 coarse ticks (about 4.8 s), returning 0 with the cancel latch set, and a swallowed repeat refreshes that window rather than leaving it. Otherwise latches the line, restores the box rect, publishes the scroll origin, repaints, plays an alert tone picked by a switch on the id (0x00/0x13 -> 0x19 strcfail; 0x0c/0x0f/0x10/0x14/0x15 -> 0x18 wrnwoop2; everything else 0x1a gnract -- the switch names fourteen further ids (0x17, 0x19, 0x1d-0x1f, 0x2a-0x2f, 0x34, 0x37, 0x38) that all reach the default arm's tone, and 0x36, whose arm also sets the blink latch +0x4d3). Both paths then speak the line unless COMPUTER MESSAGE is 0 (TEXT ONLY), and return 1. Message 0x36 TRANSFERRING DATA is armed to blink here.",
       "source": "docs/retail/simulation/audio.md",
       "verified": {
         "bytes": "00436abc+559",
@@ -10790,8 +10808,14 @@
       "type": "function",
       "confidence": "high",
       "name": "MessageTicker_Paint",
-      "description": "Paints the computer's ticker: the box flooded with COLORS.DAT id 19 (black), a one-pixel frame in id 9 (red) through the fill brush's style 4, and the line in ColorSchemePanels[2] CPRED. Narrows the live clip rect by 3 << VideoMode_XCoordShift on each side before the glyphs go down, so the text slides under the frame rather than past it. Anchors the glyph row at ((height - cellHeight) >> 1) + inkHeight + 1, which HudFont_DrawGlyph subtracts inkHeight back off -- the cell centred in the box, not Label_SetRect's ink-centred rule. Message 0x36 is centred instead of scrolled.",
-      "source": "docs/retail/simulation/audio.md"
+      "description": "EventPort vtable +0x18. Returns at once while the cockpit view manager's view-change flag +0x1c is set; otherwise paints only while a line is up (+0x49e) and not suppressed (+0x4d2), and CockpitView_RectCornerVisible accepts the box. Paints the computer's ticker: the box flooded with COLORS.DAT id 19 (black), a one-pixel frame in id 9 (red) through the fill brush's style 4, and the line in ColorSchemePanels[2] CPRED. Narrows the live clip rect by 3 << VideoMode_XCoordShift on each side before the glyphs go down, so the text slides under the frame rather than past it. Anchors the glyph row at ((height - cellHeight) >> 1) + inkHeight + 1, which HudFont_DrawGlyph subtracts inkHeight back off -- the cell centred in the box, not Label_SetRect's ink-centred rule. Message 0x36 is centred instead of scrolled.",
+      "source": "docs/retail/simulation/audio.md",
+      "verified": {
+        "bytes": "00436cec+643",
+        "sha1": "bb906341ac51",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00436f70",
@@ -19357,7 +19381,13 @@
       "confidence": "high",
       "name": "Sim_EndFrame",
       "description": "Per-frame tail. Scroll-window path (Display_UseScrollWindow != 0): CockpitView_StepViewTransition, Palette_CycleAnimatedRanges, Palette_FlushDirtyRange, Display_Present, CockpitView_ProcessViewCommand, with the +0xac render target selected around them under VideoMode_PanelMode 1. Paged path (-b): the same calls without Display_Present, plus a page flip -- the render target's +0x8c becomes the visible page (+0x34, g_RasterRoutines slot 18), +0x88 the draw page (+0x3c, slot 17), and the two swap. Driver 3 fills both slots with empty stubs, so under -b nothing here reaches the screen.",
-      "source": "HDD pan RE session"
+      "source": "HDD pan RE session",
+      "verified": {
+        "bytes": "0045fa98+259",
+        "sha1": "4119564696ab",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045fb9c",

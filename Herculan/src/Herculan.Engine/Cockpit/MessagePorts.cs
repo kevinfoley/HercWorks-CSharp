@@ -7,6 +7,10 @@ namespace Herculan.Engine.Cockpit;
 /// The cockpit's two message ports — the computer's and the squad's comm channel — the coarse clock they run on,
 /// and the power-up announcement the computer's port carries. The audio stack speaks what they post: see
 /// <see cref="Audio.GameAudio"/>, which the simulation's posts reach them through.
+///
+/// <para>Neither port has the original's view-change gate (the view manager's <c>+0x1c</c>): it covers
+/// the one frame before retail's in-frame slide, and the pan and glance here have no such frame. See
+/// docs/retail/simulation/cockpit-messages.md, "The port".</para>
 /// </summary>
 public sealed class MessagePorts {
 	/// <summary>

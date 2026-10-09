@@ -222,6 +222,7 @@ public sealed class SimulatorFrame {
 		// back here.
 		var camera = _view.Camera;
 		_audio.SetListener(camera.Position, -camera.Yaw & 0xffff);
+		_ports.Computer.ExternalView = _view.ExternalViewActive;
 		_ports.Update(TimeSpan.FromSeconds(deltaSeconds));
 		_audio.Update();
 

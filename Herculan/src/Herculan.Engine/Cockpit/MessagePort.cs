@@ -136,6 +136,15 @@ public sealed class MessagePort {
 	/// </summary>
 	public bool PilotDisabled { get; set; }
 
+	/// <summary>
+	/// Whether the external view is up — the cockpit view manager's <c>+0x14</c> reading 4, which
+	/// <c>MessagePort_Show</c> (<c>00436abc</c>) tests. A line that goes up while it is set takes the
+	/// <see cref="MessageChannelMode.VoiceOnly"/> path: no text and no alert tone for as long as that
+	/// line is up, back in the cockpit included, while its timings run and it is still spoken. See
+	/// docs/retail/simulation/cockpit-messages.md, "The port".
+	/// </summary>
+	public bool ExternalView { get; set; }
+
 	/// <summary>What the ticker is showing, republished by every <see cref="Update"/>.</summary>
 	public MessageTicker Ticker { get; private set; }
 
@@ -337,7 +346,7 @@ public sealed class MessagePort {
 			return false;
 		}
 
-		if (Mode != MessageChannelMode.VoiceOnly) {
+		if (Mode != MessageChannelMode.VoiceOnly && !ExternalView) {
 			if (message.Id == _lastShownId && _now < _lastShownTicks + RepeatSuppressionTicks) {
 				_shown = false;
 				_cancel = true;
@@ -356,8 +365,9 @@ public sealed class MessagePort {
 
 			AlertTone?.Invoke(AlertToneFor(message.Id));
 		} else {
-			// The lifecycle still runs with the text off, so the timings and the repeat window behave
-			// the same whichever way the preference is set; only the drawing is skipped.
+			// The lifecycle still runs with the text off, or with the external view up, so the timings
+			// behave the same either way; only the drawing and the tone are skipped, and the repeat
+			// window is neither tested nor refreshed.
 			_shown = true;
 			_suppressed = true;
 		}

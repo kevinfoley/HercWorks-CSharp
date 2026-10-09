@@ -16,6 +16,7 @@ The simulator's keyboard, by what each key does. Keys the manual does not list a
 | `Backspace` | Centre the turret on the body and turn Automatic Turret Tracking off. |
 | `\` | Centre the legs under the turret. |
 | Keypad `+`, `-` | Throttle, in the RAZOR. |
+| Keypad `7`, `9`, `1`, `3` | Steer and work the throttle together, diagonally. One of them overrides the other keys of the keypad and arrows. |
 
 ## Weapons
 
@@ -27,7 +28,7 @@ The simulator's keyboard, by what each key does. Keys the manual does not list a
 | `W`, `Alt+W`                  | Next and previous weapon.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `L`                           | Link the selected weapon to the identical one on the opposite hardpoint.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `` ` `` (the manual's `[~]`)  | Next firing chain.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `=`, `-`, and keypad `+`, `-` | **(not in the manual)** Raise or lower the selected energy weapon's power level, one step a press. A weapon starts at 960 of 1200 and a step is 80, so three presses reach the top. For a weapon that charges up before it fires, such as the particle beam, a higher level is a stronger shot that takes longer to charge; its damage over time stays about the same. For a laser it changes nothing but the charge bar. See [`simulation/weapon-firing.md`](simulation/weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). |
+| `=`, `-`, and keypad `+`, `-` | **(not in the manual)** Raise or lower the selected energy weapon's power level, one step a press. A weapon starts at 960 of 1200 and a step is 80, so three presses reach the top. For a weapon that charges up before it fires, such as the particle beam, a higher level is a stronger shot that takes longer to charge; its damage over time stays about the same. For a laser it changes nothing but the charge bar. In the RAZOR the keypad pair is the throttle instead. See [`simulation/weapon-firing.md`](simulation/weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). |
 
 ## Targeting and shields
 
@@ -86,7 +87,7 @@ On the damage detail:
 | `Up`, `Down` | Step through those three. |
 | `Left`, `Right` | Step through the HERCs: yours, each squadmate's, then your target's. |
 
-While either screen is down the arrows are the display's and do not steer; the keypad still does.
+While either screen is down the arrows, the keypad's among them, are the display's, and no key steers, works the throttle or moves the turret ([`simulation/joystick-input.md`](simulation/joystick-input.md#the-keyboard)).
 
 In the outside view:
 

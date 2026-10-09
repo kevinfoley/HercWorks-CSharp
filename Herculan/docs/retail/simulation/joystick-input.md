@@ -101,7 +101,9 @@ The four game axes the control laws read are the device struct's `+0x0e`, `+0x10
 - **Keys 0-7 add up, except the diagonals.** The byte flags at `0049eb65` (`01 00 01 00 00 01 00 01`) mark keypad 7, 9, 1 and 3. The first of those held, in list order, zeroes the pair, adds its own entry and ends the group, so a diagonal overrides every other key of the group.
 - **Keys 8-13 take the first held key only.** Its entry is added and the loop ends, so [J] and [I] held together twist without pitching.
 
-Keypad `-` and `+` reach the second pair only while flying the RAZOR; `Input_KeyjoyAxisKey` drops them otherwise. The pairs are the *sources* the table above registers, so a binding chooses which pair each game axis reads.
+Keypad `-` and `+` reach the second pair only while flying the RAZOR; `Input_KeyjoyAxisKey` passes them on otherwise. It is registered ahead of `SimCommandQueue_Push` and claims the keys it holds — `Space` apart, and with the developer keys on (`DAT_0049ef60`, [`../command-line.md`](../command-line.md)) a key held with `Alt` or `Ctrl` — so in a RAZOR the keypad pair does not reach the command queue ([`cockpit-input.md`](cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)). The pairs are the *sources* the table above registers, so a binding chooses which pair each game axis reads.
+
+**On the heads-down display the axis keys are off.** `CockpitView_StepViewTransition` (`0042a9c0`) calls `SimInput_SetEnabled(0)` as the pan down ends, which clears the three key-state blocks, and `Input_KeyjoyAxisKey` passes every key on while the flag `0049eacd` is clear; the pan up's end calls `SimInput_SetEnabled(1)`. There the keyboard neither drives nor aims, and the arrows and keypad `-` and `+` reach the display's own keys ([`cockpit-input.md`](cockpit-input.md#the-press-flash)).
 
 The `(dx, dy)` table is zero in the image. A static initialiser at `0045b888`, registered in Borland's `_INIT_` table at `004a7b64` (priority `0x20`) and lying in bytes Ghidra has not made a function, fills it before `main`:
 

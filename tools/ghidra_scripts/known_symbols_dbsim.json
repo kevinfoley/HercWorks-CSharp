@@ -8691,7 +8691,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_StepViewTransition",
-      "description": "Runs a queued view change's animated slide, once per frame from Sim_EndFrame just before CockpitView_ProcessViewCommand, gated on pending != -1 and the armed flag at +0x1c. For commands 0/1 (heads-down pan) it steps the display origin y by 10 canvas rows per loop iteration over vue[dest].canvasOriginY - vue[src].canvasOriginY (237, or 474 after the coord shift), then a remainder step; commands 4/5/6 step x by 0x14. The loop has no timer, retrace poll or frame boundary, so its real-time speed is CPU-bound. On completion: +0x14 += 1 (or -1), +0x18 = -1, +0x1d = 2 (two-frame cooldown). See docs/retail/simulation/cockpit-views.md.",
+      "description": "Runs a queued view change's animated slide, once per frame from Sim_EndFrame just before CockpitView_ProcessViewCommand, gated on pending != -1 and the armed flag at +0x1c. For commands 0/1 (heads-down pan) it steps the display origin y by 10 canvas rows per loop iteration over vue[dest].canvasOriginY - vue[src].canvasOriginY (237, or 474 after the coord shift), then a remainder step; commands 4/5/6 step x by 0x14. The loop has no timer, retrace poll or frame boundary, so its real-time speed is CPU-bound. On completion: +0x14 += 1 (or -1), +0x18 = -1, +0x1d = 2 (two-frame cooldown). The pan down's completion calls SimInput_SetEnabled(0), switching the axis keys off on the heads-down display, and the pan up's SimInput_SetEnabled(1). See docs/retail/simulation/cockpit-views.md.",
       "source": "HDD pan RE session"
     },
     {
@@ -18251,8 +18251,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_KeyjoyAxisKey",
-      "description": "The simulator's axis-key subscriber, registered by SimInput_SetEnabled against the 30-byte list at 0049eb33 (keypad, M, J, K, I and Space, then the same fifteen with the key-up bit). Strips the 0x80 up-bit, finds the code's index in that list, folds the two banks of fifteen together and updates the three 15-byte key-state blocks at 004d2418 that Input_BuildKeyboardAxes reads.",
-      "source": "docs/retail/simulation/cockpit-input.md"
+      "description": "(code): the simulator's axis-key subscriber, registered by SimInput_SetEnabled ahead of SimCommandQueue_Push against the 30-byte list at 0049eb33 (keypad 7, 8, 9, 4, 6, 1, 2, 3, M, J, K, I, keypad - and +, Space, then the same fifteen with the key-up bit 0x80). In demo mode (DemoMode) it sets DemoAbort and returns 2. It returns 2 while the enable flag 0049eacd is clear, and for keypad - and + (0x4a, 0x4e) unless PilotingRazor. Otherwise it finds the code's index, folds the two banks of fifteen together and updates the three 15-byte key-state blocks: a press sets the held byte (004d2418) and clears the release-pending byte (004d2427); a release sets release-pending while the build has not yet seen the key (004d2436 clear) and otherwise clears all three, so a tap is held for the next Input_BuildKeyboardAxes. Stores the code's Alt bit to 004d245a. Returns 2 (pass on) for Space and Enter (0x39, 0x1c) and, while the developer flag DAT_0049ef60 is set, for a code carrying Alt or Ctrl; returns 1 (claim) otherwise.",
+      "source": "docs/retail/simulation/cockpit-input.md",
+      "verified": {
+        "bytes": "0045a308+278",
+        "sha1": "8f4222f850ec",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045a420",
@@ -18275,9 +18281,15 @@
       "type": "function",
       "confidence": "high",
       "name": "SimCommandQueue_Push",
-      "description": "Appends one command code to the queue at DAT_004d2148 that Input_BuildPlayerDevice drains into Sim_DispatchCommand, or returns 2 when the queue is closed (DAT_0049eacc). Registered as a keyboard subscriber by SimInput_SetEnabled against the 7-byte wanted-code list at 0049eb5d -- 1c 0c 0d 1a 1b 4e 4a, i.e. Enter, -, =, [, ] and the keypad +/- -- which is why it has no call site and why only those seven scancodes take this route.",
+      "description": "Appends one command code to the queue at DAT_004d2148 that Input_BuildPlayerDevice drains into Sim_DispatchCommand and returns 1, or returns 2 when the queue is closed (DAT_0049eacc). Registered as a keyboard subscriber by SimInput_SetEnabled, after Input_KeyjoyAxisKey, against the 7-byte wanted-code list at 0049eb5d -- 1c 0c 0d 1a 1b 4e 4a, i.e. Enter, -, =, [, ], keypad + and keypad -.",
       "source": "docs/retail/simulation/cockpit-input.md",
-      "signature": "undefined4 __cdecl SimCommandQueue_Push(undefined2 command)"
+      "signature": "undefined4 __cdecl SimCommandQueue_Push(undefined2 command)",
+      "verified": {
+        "bytes": "0045a47c+49",
+        "sha1": "f34c07f8ea01",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045a4b0",
@@ -18285,8 +18297,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_BuildKeyboardAxes",
-      "description": "Builds the keyboard's contribution to the input axes: TWO signed pairs, not four independent axes. Held keys 0-7 accumulate into the first pair at 004d2445/004d2449, except that the first held diagonal (flags at 0049eb65: keypad 7, 9, 1, 3) zeroes the pair, adds its own entry and ends the group. Of keys 8-13 only the first held key counts, into the second pair at 004d244d/004d2451. Each entry comes from the table at 0049eb6d, shifted left 7 (+/-0x80). That table is filled at startup by the static initialiser at 0045b888. The pairs are sources, not destinations: Input_BuildSourceTable registers them alongside the joystick axes in the source-pointer table at 004d2394, and the binding config chooses which source each game axis reads.",
-      "source": "docs/retail/simulation/joystick-input.md"
+      "description": "(out): builds the keyboard's contribution to the input axes: TWO signed pairs, not four independent axes. Held keys 0-7 accumulate into the first pair (out+0, out+4; 004d2445/004d2449), except that the first held diagonal (flags at 0049eb65: keypad 7, 9, 1, 3) zeroes the pair, adds its own entry and ends the group. Of keys 8-13 only the first held key counts, into the second pair (out+8, out+0xc; 004d244d/004d2451), and it ends the loop. Each entry comes from the (dx, dy) table at 0049eb6d, shifted left 7 (+/-0x80); the static initialiser at 0045b888 fills that table. Each held key the loop reaches gets its seen byte (004d2436) set. Then: out+0x10 = key 14 (Space) held, out+0x11 = 004d2427 (key 0's release-pending byte), out+0x12/+0x13 zeroed, and every key both held and release-pending has its held and seen bytes cleared. The pairs are sources, not destinations: Input_BuildSourceTable registers them alongside the joystick axes in the source-pointer table at 004d2394, and the binding config chooses which source each game axis reads.",
+      "source": "docs/retail/simulation/joystick-input.md",
+      "verified": {
+        "bytes": "0045a4b0+269",
+        "sha1": "593dcee6235f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045a5c0",
@@ -18339,9 +18357,15 @@
       "type": "function",
       "confidence": "high",
       "name": "SimInput_SetEnabled",
-      "description": "Toggles the simulator's keyboard input on and off. Turning it on registers two subscribers with KeyListener_Register: Input_KeyjoyAxisKey against the 30-byte list at 0049eb33 and SimCommandQueue_Push against the 7-byte list at 0049eb5d. Turning it off clears the three 15-byte key-state blocks at DAT_004d2418.",
+      "description": "(enabled): toggles the simulator's keyboard input when enabled differs from the flag 0049eacd. Turning it on, unless DAT_0049eb89 is set, registers two subscribers with KeyListener_Register: Input_KeyjoyAxisKey against the 30-byte list at 0049eb33, then SimCommandQueue_Push against the 7-byte list at 0049eb5d. It then flips the flag; turning it off clears the three 15-byte key-state blocks at DAT_004d2418, 004d2427 and 004d2436. Returns 0 when there is no keyboard device. Read callers: CockpitView_StepViewTransition (off as the pan down to the heads-down display ends, on as the pan up ends) and Input_BuildSourceTable (on).",
       "source": "docs/retail/simulation/cockpit-input.md",
-      "signature": "undefined4 __cdecl SimInput_SetEnabled(byte enabled)"
+      "signature": "undefined4 __cdecl SimInput_SetEnabled(byte enabled)",
+      "verified": {
+        "bytes": "0045b670+167",
+        "sha1": "67c6dc3f3160",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045b718",

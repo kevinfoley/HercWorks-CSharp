@@ -57,7 +57,7 @@ public sealed class PilotControls {
 		_developerKeys = developerKeys;
 		_staging = staging;
 		_commands = commands;
-		_keys = new PilotKeys(view, displays, commands, start.Scene, start.Audio);
+		_keys = new PilotKeys(view, displays, commands, start.Scene, start.Audio, () => RazorThrottleKeys);
 
 		// The bindings themselves are the twelve bytes of prefs.cfg — nothing about them changes when the
 		// hardware does, which is the whole point of the split; JoystickDeviceMap is what absorbs a modern
@@ -161,7 +161,7 @@ public sealed class PilotControls {
 					_view.TakeCameraAxes(pilotMech.Controls);
 				}
 			} else {
-				PilotFromLiveInput(pilotMech, controls, _displays.HddHasArrows, commandHasKeys, stickReading);
+				PilotFromLiveInput(pilotMech, controls, commandHasKeys, stickReading);
 			}
 		} else {
 			if (!_tape.Playing) {
@@ -274,21 +274,20 @@ public sealed class PilotControls {
 	// Retail's own bindings, from the manual's keyboard table and its throttle section: left and right
 	// arrows steer, up and down arrows open and close the throttle, and keypad [5] is all stop. The
 	// manual says the numeric keypad with NUM LOCK off, which on a real keyboard is the same key as the
-	// arrow cluster; both are accepted here since a host window has no NUM LOCK to read.
+	// arrow cluster; both are accepted here since a host window has no NUM LOCK to read. KeyboardAxes
+	// combines them.
 	//
-	// While the Heads-Down Display is down the four arrows are its own instead of steering, which is
-	// what the manual binds them to there: they scroll the command display's map and, on the damage
-	// detail, step the herc and the category being inspected. The keypad keeps steering throughout,
-	// so the machine is never left without a stick; the command display also keeps [Backspace]
-	// cancelling a transmission rather than re-centring the turret. This is the one place the two
-	// keyboards are separated rather than allowed to overlap, because working the display and
-	// turning the machine with the same press is the one overlap that would fight the player.
+	// On the Heads-Down Display no key steers, works the throttle or aims: CockpitView_StepViewTransition
+	// (0042a9c0) switches the axis keys off as the pan down arrives and back on as the pan up arrives
+	// (SimInput_SetEnabled), which is CockpitPan.HeadsDownViewIndex here. The arrows, the keypad's among
+	// them, are the display's there; the command display also keeps [Backspace] cancelling a transmission
+	// rather than re-centring the turret.
 	//
 	// The stick is combined with all of that rather than replacing it: the original registers the
 	// keyboard's two axis pairs in the same source table as the joystick's four axes and takes
 	// whichever has moved, so a pilot can steer with one hand and nudge with the other. What the
 	// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
-	private void PilotFromLiveInput(MechObject mech, IKeyState keys, bool hddHasArrows, bool commandHasKeys,
+	private void PilotFromLiveInput(MechObject mech, IKeyState keys, bool commandHasKeys,
 			JoystickReading stickReading) {
 		// The first button row's latch: a flown round's end and a modal panel ask for it, and letting go
 		// of the row — [Space] and the stick's first button — drops it. While it holds, the trigger reads
@@ -308,17 +307,12 @@ public sealed class PilotControls {
 		// Under the developer flag an arrow held with Ctrl or Alt is a move or turn key, and this engine
 		// takes it off the steering and throttle axes. Retail keeps it on them — see KNOWN_ISSUES.md.
 		bool arrowsAreCommands = _developerKeys.Enabled && (CtrlHeld(keys) || AltHeld(keys));
-		var keyboardAxes = new PilotAxes(
-			(short)((arrowsAreCommands ? 0
-				: hddHasArrows
-				? Axis(keys, Key.Keypad6, Key.Keypad4)
-				: Axis(keys, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4)) * MechControls.KeyboardAxis),
-			(short)((arrowsAreCommands ? 0
-				: hddHasArrows
-				? Axis(keys, Key.Keypad2, Key.Keypad8)
-				: Axis(keys, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8)) * MechControls.KeyboardAxis),
-			TurretAxis(Axis(keys, Key.K, Key.J), _staging.HeldTwist),
-			TurretAxis(Axis(keys, Key.I, Key.M), _staging.HeldPitch));
+		var keyboardAxes = _view.Pan.HeadsDownViewIndex ? PilotAxes.Centred : KeyboardAxes.Build(keys, RazorThrottleKeys);
+		keyboardAxes = new PilotAxes(
+			arrowsAreCommands ? (short)0 : keyboardAxes.Steer,
+			arrowsAreCommands ? (short)0 : keyboardAxes.Throttle,
+			TurretAxis(keyboardAxes.TorsoTwist, _staging.HeldTwist),
+			TurretAxis(keyboardAxes.TorsoPitch, _staging.HeldPitch));
 
 		// DAT_0049ebe5: the keyboard's first pair goes dead from the moment the first button row is
 		// latched while a round is being flown until that row is let go, so the arrows steering the
@@ -387,12 +381,18 @@ public sealed class PilotControls {
 	}
 
 	/// <summary>
-	/// One turret axis: the key pair, or whatever <c>--turret</c> is holding when no key is down. Never
+	/// One turret axis: the keyboard's, or whatever <c>--turret</c> is holding when no key is down. Never
 	/// past full deflection, so holding a key during a <c>--turret</c> run cannot ask for more rate than
 	/// a stick can.
 	/// </summary>
-	private static short TurretAxis(int keys, short held) =>
-		keys != 0 ? (short)(keys * MechControls.KeyboardAxis) : held;
+	private static short TurretAxis(short keys, short held) => keys != 0 ? keys : held;
+
+	/// <summary>
+	/// Whether keypad <c>-</c> and <c>+</c> are axis keys this frame: in a RAZOR, and not on the Heads-Down
+	/// Display, where retail switches the axis keys off and the pair reaches the display's magnifiers instead
+	/// (docs/retail/simulation/joystick-input.md#the-keyboard).
+	/// </summary>
+	public bool RazorThrottleKeys => Bindings.PilotingRazor && !_view.Pan.HeadsDownViewIndex;
 
 	// The frame's stick, in the shape a live one is resolved to. Its buttons are already past the
 	// press-once latch, so a set bit is an action this frame; the first set bit claims the tick's one

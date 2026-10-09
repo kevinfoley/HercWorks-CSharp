@@ -389,7 +389,7 @@ sealed class SimulatorHost : IDisposable {
 		// The menu bar and its panels: hidden until [Esc] raises the bar (see SimulatorFrame),
 		// and never in a --screenshot capture, which sees no input to raise it.
 		if (_options.ScreenshotPath == null) {
-			_menuBar.Draw(_window.View.Native?.Win32?.Hwnd ?? 0);
+			_menuBar.Draw(_window.View.Native?.Win32?.Hwnd ?? 0, _window.FullScreen);
 		}
 
 		_debugPanel.Draw(

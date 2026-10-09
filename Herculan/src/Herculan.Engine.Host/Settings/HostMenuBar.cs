@@ -14,6 +14,7 @@ namespace Herculan.Engine.Host.Settings;
 sealed class HostMenuBar : IEscapeMenu {
 	private readonly LocalizationTable _localization;
 	private readonly DebugPanel? _debug;
+	private readonly PanelCentring _centring = new();
 
 	public HostMenuBar(LocalizationTable localization, TweaksMenu tweaks, SettingsWindow settings, DebugPanel? debug = null) {
 		_localization = localization;
@@ -63,9 +64,12 @@ sealed class HostMenuBar : IEscapeMenu {
 	/// <summary>
 	/// Draws the bar, when it is up, and Tweaks and Settings, when they are; a host with a Debug panel draws
 	/// that itself, since it needs the host's state. <paramref name="owner"/> is the native window a folder
-	/// picker belongs to. Call once per frame inside the ImGui frame.
+	/// picker belongs to, and <paramref name="fullScreen"/> whether that window is full screen, which
+	/// <see cref="PanelCentring"/> watches. Call once per frame inside the ImGui frame.
 	/// </summary>
-	public void Draw(nint owner) {
+	public void Draw(nint owner, bool fullScreen) {
+		_centring.Update(fullScreen);
+
 		// A bare item per panel, no checkmark, since each panel closes itself.
 		if (Visible && ImGui.BeginMainMenuBar()) {
 			if (_debug != null && ImGui.MenuItem(_localization.GetStringOrKey("menu.debug"))) {
@@ -90,7 +94,7 @@ sealed class HostMenuBar : IEscapeMenu {
 			ImGui.EndMainMenuBar();
 		}
 
-		Tweaks.Draw();
-		Settings.Draw(owner);
+		Tweaks.Draw(_centring.Condition);
+		Settings.Draw(owner, _centring.Condition);
 	}
 }

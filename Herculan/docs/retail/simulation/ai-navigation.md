@@ -90,6 +90,8 @@ Not a think function: `Mech_LocomotionTick` calls it on every machine that is no
 
 It is skipped entirely when the machine is stopped *and* being asked to stay stopped, and when the desired speed is negative unless the unstick timer is running.
 
+**Bit 0 of `Mech_LocomotionTick`'s fourth argument, handed through, switches off the first two sources** — the probes and the machine sweep — and leaves only the player's line of fire. Of the 17 call sites in the whole-program decompile, the four in [`ramming`](ai-combat-states.md#ramming-17--mech_behaviourramthink-0041e570)'s think pass 1 and the rest 0. Without it a rammer would count its own target as an obstruction, and the avoidance's steer, many times the ram's own, would turn it away at close range.
+
 The whole function reduces to two numbers, `nearLeft` and `nearRight` — the range to the closest obstruction on each side, both starting at 22000 for "nothing there". Three sources feed them.
 
 ### The two probes

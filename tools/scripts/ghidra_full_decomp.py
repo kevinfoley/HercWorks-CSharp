@@ -2,7 +2,7 @@
 """Regenerate the whole-program function list, decompilation, vtable and struct dumps and report how much of each binary is named.
 
 Runs `ES2ListFunctions` headless against the ES2Recon project, once per binary, writing
-`tools/analysis_out/<BINARY>_functions.txt` (address, name, body size), then `ES2DumpFullDecomp`
+`tools/analysis_out/<BINARY>_functions.txt` (address, name, body size, body address ranges), then `ES2DumpFullDecomp`
 the same way, writing `tools/analysis_out/<BINARY>_decomp_full.c`, then `ES2DumpAllVtables`,
 writing `tools/analysis_out/<BINARY>_vtables_full.txt` (read by `es2_xref.py`), then
 `ES2DumpStructs`, writing `tools/analysis_out/<BINARY>_structs_full.txt`, then `ES2DumpFullAsm`, writing
@@ -161,7 +161,7 @@ def read_functions(path: str) -> dict[str, tuple[str, int]]:
     functions = {}
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
-            address, name, size = line.rstrip("\r\n").split("\t")
+            address, name, size = line.rstrip("\r\n").split("\t")[:3]
             functions[address.lower()] = (name, int(size))
     return functions
 

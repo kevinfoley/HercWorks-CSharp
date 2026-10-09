@@ -182,23 +182,30 @@ def addrs(args):
 
 
 def functions(binary):
-    """{address: (Ghidra name, body bytes)} from analysis_out/BIN_functions.txt."""
+    """{address: (Ghidra name, body bytes, extent end)} from analysis_out/BIN_functions.txt. The extent
+    runs from the entry to the end of the body's last address range, so an inline jump table or other
+    data between the body's ranges lies inside it; body bytes count the ranges alone. A list without
+    the ranges column (an older dump) gives entry + body bytes."""
     out = {}
     with open(os.path.join(ANALYSIS, f"{binary}_functions.txt"), encoding="utf-8", errors="replace") as f:
         for line in f:
-            a, n, s = line.rstrip("\r\n").split("\t")
-            out[a.lower()] = (n, int(s))
+            a, n, s, *rest = line.rstrip("\r\n").split("\t")
+            end = int(rest[0].rsplit("-", 1)[1], 16) if rest else int(a, 16) + int(s)
+            out[a.lower()] = (n, int(s), end)
     return out
 
 
 class Extents:
-    """Ghidra function extents, each taken as entry .. entry + body bytes. A body Ghidra split into
-    several ranges is shorter than its span, so a byte past the first range reads as outside it; the
-    stamps in es2_stamp.py make the same assumption."""
+    """Ghidra function extents, each entry .. the end of the body's last range (see functions). An
+    extent that runs past the next entry (a body chunk placed after another function) is reported,
+    since containing() then credits that function's bytes to it."""
 
     def __init__(self, binary):
         self.fns = functions(binary)
         self.starts = sorted(int(a, 16) for a in self.fns)
+        for e, nxt in zip(self.starts, self.starts[1:]):
+            if self.fns[f"{e:08x}"][2] > nxt:
+                print(f"warning: {binary} function {e:08x}'s extent runs past the entry {nxt:08x}", file=sys.stderr)
 
     def containing(self, va):
         """(entry, offset) of the function whose extent holds va, or None."""
@@ -206,7 +213,7 @@ class Extents:
         if i < 0:
             return None
         e = self.starts[i]
-        return (e, va - e) if va < e + self.fns[f"{e:08x}"][1] else None
+        return (e, va - e) if va < self.fns[f"{e:08x}"][2] else None
 
     def next_start(self, va):
         i = bisect.bisect_right(self.starts, va)
@@ -1163,8 +1170,8 @@ def cmd_stats(args):
     fns = ext.fns
     d, off = pe(binary)
     lo, hi = code_range(binary)
-    unnamed = {a for a, (n, _) in fns.items() if unnamed_label(n)}
-    total_b = sum(s for _, s in fns.values())
+    unnamed = {a for a, (n, _, _) in fns.items() if unnamed_label(n)}
+    total_b = sum(s for _, s, _ in fns.values())
     un_b = sum(fns[a][1] for a in unnamed)
     o0 = off(lo)
     code = d[o0:o0 + (hi - lo)]
@@ -1178,7 +1185,7 @@ def cmd_stats(args):
             if blob.strip(b"\x00\x90\xcc"):
                 gaps.append((cur, e))
         if e < hi:
-            cur = max(cur, e + fns[f"{e:08x}"][1])
+            cur = max(cur, fns[f"{e:08x}"][2])
     known = names(binary)
     tables, _, rtti_vts = build_tables(binary)
     slots = sum(len(s) for s in tables.values())

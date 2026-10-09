@@ -2,8 +2,8 @@ language.name Français
 general.save    Enregistrer
 general.cancel  Annuler
 general.close   Fermer
-tweak.target_distance_meters.display_name      Afficher la distance de la cible en mètres
-tweak.target_distance_meters.description       Sur le MFD, affiche la distance de la cible en mètres sur l'écran F5 TARGET. Le jeu original affiche la distance en unités du moteur sur cet écran uniquement.
+tweak.target_distance_meters.display_name      Corriger l'affichage de la distance de la cible
+tweak.target_distance_meters.description       Sur l'écran F5 TARGET du MFD, affiche la distance de la cible en mètres mesurée au sol, comme la mesure l'écran F4 SCANNER, afin que les deux écrans concordent. Sans cette option, l'écran affiche ce qu'affiche votre version du jeu : la version 1.0 affiche la distance en unités du moteur (1 unité = 6 mm), et la version 1.10 l'affiche en mètres. Les deux versions tiennent compte de la différence d'altitude.
 tweak.show_correct_stats.display_name          Afficher les statistiques correctes
 tweak.show_correct_stats.description           Corrige les statistiques des HERC et des armes que le jeu original affichait de façon incorrecte dans VSHELL, comme la vitesse maximale de l'Outlaw et le nombre de points d'emport du Raptor II.
 tweak.show_accurate_speed.display_name         Afficher la vitesse exacte

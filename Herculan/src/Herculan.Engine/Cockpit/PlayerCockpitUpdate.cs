@@ -207,7 +207,7 @@ public sealed class PlayerCockpitUpdate(CockpitDisplays displays, CockpitView vi
 		var statusRefresh = displays.StatusRefresh;
 		statusRefresh.Update(hudState.Mfd, statusUpdating, view.Pan.IsPanning || view.Glance.Sliding,
 			ports.CoarseTicks, displays.StatusRoster.Subject, scene.Targeting?.Selected,
-			subject => MfdStatusSubject.For(subject, pilotMech, cockpitArt.Strings, squadComm)
+			subject => MfdStatusSubject.For(subject, pilotMech, cockpitArt.Strings, squadComm, displays.IsV110)
 				with { HighlightComponent = targetAim.ComponentTargeted ? targetAim.Component : -1 });
 		displays.Hud = hudState with { StatusSubject = statusRefresh.Status, TargetSubject = statusRefresh.Target };
 	}

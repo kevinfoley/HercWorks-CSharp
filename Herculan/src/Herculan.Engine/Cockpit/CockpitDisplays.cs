@@ -22,6 +22,7 @@ public sealed class CockpitDisplays {
 		_view = view;
 		_ports = start.Ports;
 		Art = art;
+		IsV110 = start.Content.IsV110;
 		var scene = start.Scene;
 		var squadPlacements = start.SquadPlacements;
 
@@ -120,6 +121,9 @@ public sealed class CockpitDisplays {
 	}
 
 	public CockpitArt? Art { get; }
+
+	/// <inheritdoc cref="GameContent.IsV110"/>
+	public bool IsV110 { get; }
 
 	/// <summary>What every cockpit widget draws from this frame.</summary>
 	public CockpitHudState Hud { get; set; }

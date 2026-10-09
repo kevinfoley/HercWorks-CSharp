@@ -2,8 +2,8 @@ language.name English
 general.save    Save
 general.cancel  Cancel
 general.close   Close
-tweak.target_distance_meters.display_name      Show target distance in meters
-tweak.target_distance_meters.description       On the MFD, show target distance in meters on the MFD F5 TARGET screen. Retail shows distance in engine units on this screen only.
+tweak.target_distance_meters.display_name      Fix target distance readout
+tweak.target_distance_meters.description       On the MFD's F5 TARGET screen, show the target's distance in meters measured along the ground, the same way the F4 SCANNER screen measures it, so the two screens agree. Without this tweak the screen shows what your version of the game shows: version 1.0 shows the distance in engine units (1 unit = 6 mm), and version 1.10 shows it in meters. Both versions include the difference in height.
 tweak.show_correct_stats.display_name          Show correct stats
 tweak.show_correct_stats.description           Fix HERC and weapon stats that vanilla displayed incorrectly in VSHELL, such as the Outlaw's top speed and the Raptor II's hardpoint count.
 tweak.show_accurate_speed.display_name         Show accurate speed

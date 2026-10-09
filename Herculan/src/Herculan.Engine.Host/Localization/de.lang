@@ -2,8 +2,8 @@ language.name Deutsch
 general.save    Speichern
 general.cancel  Abbrechen
 general.close   Schließen
-tweak.target_distance_meters.display_name      Zielentfernung in Metern anzeigen
-tweak.target_distance_meters.description       Zeigt auf dem MFD im Bildschirm F5 TARGET die Zielentfernung in Metern an. Das Originalspiel zeigt die Entfernung nur auf diesem Bildschirm in internen Spieleinheiten an.
+tweak.target_distance_meters.display_name      Zielentfernungsanzeige korrigieren
+tweak.target_distance_meters.description       Zeigt auf dem MFD im Bildschirm F5 TARGET die Zielentfernung in Metern über Grund an, so wie der Bildschirm F4 SCANNER sie misst, damit beide Bildschirme übereinstimmen. Ohne diese Option zeigt der Bildschirm, was Ihre Version des Spiels anzeigt: Version 1.0 zeigt die Entfernung in internen Spieleinheiten (1 Einheit = 6 mm), Version 1.10 in Metern. Beide Versionen beziehen den Höhenunterschied mit ein.
 tweak.show_correct_stats.display_name          Korrekte Werte anzeigen
 tweak.show_correct_stats.description           Korrigiert HERC- und Waffenwerte, die das Originalspiel in VSHELL falsch anzeigte, etwa die Höchstgeschwindigkeit des Outlaw und die Anzahl der Waffenaufhängungen des Raptor II.
 tweak.show_accurate_speed.display_name         Genaue Geschwindigkeit anzeigen

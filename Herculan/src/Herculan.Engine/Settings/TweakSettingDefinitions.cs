@@ -37,8 +37,9 @@ public static class TweakSettingDefinitions {
 	public static readonly TweakSettingDefinition<bool> RoundShieldBalance = new("tweak.show_even_shield_balance", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: true);
 
 	/// <summary>
-	/// On the MFD, show target distance in meters on the MFD F5 TARGET screen. Retail
-	/// shows distance in engine units on this screen only.
+	/// On the MFD status screen (F1, F5), show a hostile's range as the F4 scanner measures it: metres along the
+	/// ground. Off, each release reads as its own executable does — v1.0 in raw world units, v1.10 in metres of
+	/// the range including height. See <see cref="Cockpit.MfdStatusSubject.Range"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> ShowTargetDistanceInMeters = new("tweak.target_distance_meters", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: true);
 

@@ -174,4 +174,4 @@ That last function also installs the theater palette directly, as `Shell_Install
 ## Open
 
 - **Deferred:** no store to the backdrop handle `0046dcd4` found but the init's (`0040754f`): `es2_xref.py` finds that, the init's own read and push, and the eight screen builders' pushes.
-- **Open:** whether anything repaints the frame's root while a tab screen is up. A search of the decompile finds one repaint of `ShellRootWidget` by name, `Movie_PlayQueue`'s after the location picture; the same function also repaints, and hides and shows again, the top-level window `Shell_TopWindow`, the root's parent.
+- **Deferred:** whether anything repaints the frame's root while a tab screen is up. A search of the decompile finds one repaint of `ShellRootWidget` by name, `Movie_PlayQueue`'s after the location picture; the same function also repaints, and hides and shows again, the top-level window `Shell_TopWindow`, the root's parent.

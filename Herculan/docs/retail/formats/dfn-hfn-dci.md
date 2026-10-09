@@ -142,8 +142,8 @@ Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_0200
 
 ## Open
 
-- **Open:** the `.DFN`/`.HFN` header shorts at `0x0a` and `0x18`. They are 0 in every retail file and have no consumer found.
-- **Open:** `PCURSOR.DCI`'s 96 bytes past its envelope. The cursor's load reads one class item, which ends at the envelope; what reads these bytes is the open question. They may be a second image layer (an AND-mask or outline) specific to this cursor.
-- **Open:** whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).
+- **Deferred:** the `.DFN`/`.HFN` header shorts at `0x0a` and `0x18`. They are 0 in every retail file and have no consumer found.
+- **Deferred:** `PCURSOR.DCI`'s 96 bytes past its envelope. The cursor's load reads one class item, which ends at the envelope; what reads these bytes is the open question. They may be a second image layer (an AND-mask or outline) specific to this cursor.
+- **Deferred:** whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).
 - **Open:** the bitmap array's second `int16`, after the frame count.
-- **Open:** `dba\CORNERS.DBA`'s 606 bytes past its declared frames — whether anything reads them, or they are left over from an earlier, longer version of the file.
+- **Deferred:** `dba\CORNERS.DBA`'s 606 bytes past its declared frames — whether anything reads them, or they are left over from an earlier, longer version of the file.

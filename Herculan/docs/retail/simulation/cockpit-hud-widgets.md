@@ -370,6 +370,6 @@ Each display runs the toggle from its own update, so a display whose update does
 
 ## Open
 
-- **Open:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
-- **Open:** whether any cockpit shows the `PanelAmbience` clock: two two-digit labels and a colon label that `PanelAmbience_TickClock` (`00452144`) blinks, advancing the clock on every second call, the second field wrapping at 59 and the whole at 99:59. Its one construction is in `Gau_PanelAmbienceWidget` (`004326a8`), from the `.GAU` block at 1604, for which `es2_xref.py` finds no caller; that block is zero in all nine retail `.GAU` files.
+- **Deferred:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
+- **Deferred:** whether any cockpit shows the `PanelAmbience` clock: two two-digit labels and a colon label that `PanelAmbience_TickClock` (`00452144`) blinks, advancing the clock on every second call, the second field wrapping at 59 and the whole at 99:59. Its one construction is in `Gau_PanelAmbienceWidget` (`004326a8`), from the `.GAU` block at 1604, for which `es2_xref.py` finds no caller; that block is zero in all nine retail `.GAU` files.
 - **Open:** which mech-object field picks each widget's frame or fill level per frame, for the widgets this doc does not already trace. The `.GAU` holds only geometry.

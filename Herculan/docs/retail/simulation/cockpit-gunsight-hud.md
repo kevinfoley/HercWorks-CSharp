@@ -159,4 +159,4 @@ What frame 18 would show is real art: in `hba\HUD.HBA` it is 6x60 in palette ind
 
 ## Open
 
-- **Open:** no writer of `DAT_004d2af0`, which would point [waypoint indicator](#waypoint-indicators) child 8 at `mech+0x1a4` instead of the route, found by `es2_xref.py` (one reference in the image, the `CMP` in `Hud_UpdateWaypointIndicator` at `0043c448`) or by a scan of `all_asm.txt` for block bases below it: its neighbours `DAT_004d2aec` and `DAT_004d2af4` are written by name, the nearest pushed base `0x4d2adc` is a `Timer_CountDown` block that touches only `+1`..`+4`, and `0x4d29dc` is a 256-byte string buffer.
+- **Deferred:** no writer of `DAT_004d2af0`, which would point [waypoint indicator](#waypoint-indicators) child 8 at `mech+0x1a4` instead of the route, found by `es2_xref.py` (one reference in the image, the `CMP` in `Hud_UpdateWaypointIndicator` at `0043c448`) or by a scan of `all_asm.txt` for block bases below it: its neighbours `DAT_004d2aec` and `DAT_004d2af4` are written by name, the nearest pushed base `0x4d2adc` is a `Timer_CountDown` block that touches only `+1`..`+4`, and `0x4d29dc` is a 256-byte string buffer.

@@ -258,5 +258,5 @@ So 100, like any negative value, leaves the components undamaged, and 0 places t
 
 ## Open
 
-- **Open:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when no tick any of them reaches reads it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
+- **Deferred:** why the generator (type 3) and the transports (`0x0a`, `0x22`) state an armament of 1 when no tick any of them reaches reads it. The AI's danger flag ([`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)) reads all three as armed.
 - **Open:** a tower's ranges against retail play. At `Hud_WorldUnitsToMetres` (`00434228`)'s confirmed scale of `(units / 1000) * 6`, the armed tick's 40000-unit fire gate is 240 m and its 60000-unit target drop 360 m, but retail towers are seen aiming from about 320 m and firing from about 200 m, short of both by a margin the scale does not account for.

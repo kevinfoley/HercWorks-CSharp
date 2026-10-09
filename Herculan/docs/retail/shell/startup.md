@@ -76,8 +76,8 @@ PostQuitMessage(0)
 
 ## Open
 
-- **Open:** what reads `004810e0`, the byte step 2 sets. `es2_xref.py` finds that store and no other reference to `004810d0`-`004810e3`.
-- **Open:** what reads `00482397`, the byte `EsGlobal_Init(1)` sets after seeding the shell generator, whose state ends at `00482396`. `es2_xref.py` finds that store only.
-- **Open:** what writes `maybe_Assert_BreakRequested`. `es2_xref.py` finds the main loop's two reads and an uncalled getter (`maybe_Assert_GetBreakRequested`, `0044df8c`); the name comes from severity 6's text, `Assert: break (Ctrl-C / Ctrl-Break)`.
+- **Deferred:** what reads `004810e0`, the byte step 2 sets. `es2_xref.py` finds that store and no other reference to `004810d0`-`004810e3`.
+- **Deferred:** what reads `00482397`, the byte `EsGlobal_Init(1)` sets after seeding the shell generator, whose state ends at `00482396`. `es2_xref.py` finds that store only.
+- **Deferred:** what writes `maybe_Assert_BreakRequested`. `es2_xref.py` finds the main loop's two reads and an uncalled getter (`maybe_Assert_GetBreakRequested`, `0044df8c`); the name comes from severity 6's text, `Assert: break (Ctrl-C / Ctrl-Break)`.
 - **Open:** what v1.0 ships in `prefs.cfg` option 47, which decides whether the `Sierra.ini` read runs on a first start. v1.10's file has it 0; `ES2/DATA/PREFS.CFG` (1) has been written by play.
-- **Unported:** the startup's checks and refusals: the colour depth, `-eggplant`, the disc and the sound manager.
+- **Deferred:** the startup's checks and refusals: the colour depth, `-eggplant`, the disc and the sound manager.

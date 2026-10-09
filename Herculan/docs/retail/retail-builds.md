@@ -109,7 +109,7 @@ The second piece is v1.0's track 2: a rip of that track from a v1.0 disc is the 
 
 - **Open:** how v1.10's `VSHELL.EXE` and `DBSIM.EXE` differ from v1.0's beyond the language readers and the music. `DBSIM.EXE`'s code section is `0x200` bytes longer, so a byte comparison says nothing, and neither v1.10 executable is in the Ghidra project; the music path was compared as instruction sequences with absolute addresses masked.
 - **Open:** whether the v1.10 disc's audio tracks are in the image's order, with v1.0's track 2 second, or the image was assembled out of order; and which of the image's first and third pieces is v1.0's track 3. Ripping v1.0's tracks 3 and 4 would settle the second.
-- **Open:** why the v1.0 `SIERRA.INF` lists `VSHELL.EXE` at 563,232 bytes. The disc it ships on carries a 564,768-byte one, the analysed `ES2\VSHELL.EXE`.
-- **Open:** what `VER31\ES.EXE` does with `data\language.cfg`, and how it numbers `-R`. It names the file; its code has not been read.
-- **Open:** what Sierra's `SETUP.EXE` tests `LANGUAGE_EQ` against.
-- **Open:** whether v1.0's three `TOGGLEON(README.WRI)` mark all three of its `README.WRI` entries. `BATCH.EXE` copies the chosen language's, which suggests each is installed.
+- **Deferred:** why the v1.0 `SIERRA.INF` lists `VSHELL.EXE` at 563,232 bytes. The disc it ships on carries a 564,768-byte one, the analysed `ES2\VSHELL.EXE`.
+- **Deferred:** what `VER31\ES.EXE` does with `data\language.cfg`, and how it numbers `-R`. It names the file; its code has not been read.
+- **Deferred:** what Sierra's `SETUP.EXE` tests `LANGUAGE_EQ` against.
+- **Deferred:** whether v1.0's three `TOGGLEON(README.WRI)` mark all three of its `README.WRI` entries. `BATCH.EXE` copies the chosen language's, which suggests each is installed.

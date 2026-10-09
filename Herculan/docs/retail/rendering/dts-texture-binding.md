@@ -438,11 +438,11 @@ Tracked in `KNOWN_ISSUES.md`.
 
 ## Open
 
-- **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `TSDetailPart_SetSizeScale` (`0047689c`) has no reference `es2_xref.py` finds, which does not settle it, nor does it find one to VSHELL's copy (`TSDetailPart_SetSizeScale`, VSHELL `004221cd`). The image holds 1024.
-- **Unported:** [the `TSBSPGroup` poly order](#tsbspgroup-poly-order), which no retail shape exercises.
-- **Open:** whether anything allocates or clears the depth buffer: `es2_xref.py` finds no caller of `DepthBuffer_Alloc` (`0048b960`), `DepthBuffer_ClearWrappedRows` (`0048b7f0`) or `DepthBuffer_ClearWrappedRowSpans` (`0048b83b`), nor of VSHELL's copies (`DepthBuffer_Alloc`, VSHELL `0045d3f4`; the clears and fills at `0045bab0`-`0045bb9d`).
+- **Deferred:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `TSDetailPart_SetSizeScale` (`0047689c`) has no reference `es2_xref.py` finds, which does not settle it, nor does it find one to VSHELL's copy (`TSDetailPart_SetSizeScale`, VSHELL `004221cd`). The image holds 1024.
+- **Deferred:** [the `TSBSPGroup` poly order](#tsbspgroup-poly-order), which no retail shape exercises.
+- **Deferred:** whether anything allocates or clears the depth buffer: `es2_xref.py` finds no caller of `DepthBuffer_Alloc` (`0048b960`), `DepthBuffer_ClearWrappedRows` (`0048b7f0`) or `DepthBuffer_ClearWrappedRowSpans` (`0048b83b`), nor of VSHELL's copies (`DepthBuffer_Alloc`, VSHELL `0045d3f4`; the clears and fills at `0045bab0`-`0045bb9d`).
 - **Open:** why retail grades the type-15 octagon's back facet; see [Type-15 band widths](#type-15-band-widths).
 - **Open:** what DBSIM draws for a back-facing three-vertex texture poly, where the back-face corner swap touches the unused slot 3.
 - **Open:** the function that populates VSHELL's `g_ActiveBitmapArray[1]` descriptor table, which decides whether `F0/F1` (frame UV top-left) can be nonzero there. DBSIM's builder is [`BitmapArray_PackToAtlas`](#the-frame-descriptor-table-and-the-span-routines-dbsim), which places frames as atlas sub-rectangles. VSHELL's copy of it (`0045d270`) builds the table `hgrid.cpp` reads at `0048a310`, not that one.
 - **Open:** what sets up VSHELL's shade ramps for its textured spans. `es2_xref.py --binary VSHELL` finds the ramp-table base `0047e890` written only in `ShadeRamp_Allocate` (`0045d5c8`), and the ramp dimensions and reciprocal table (`00485780`, `00485784`, `00485788`) only in `Raster_SetShadeRampDimensions` (`00420234`), and it finds no caller of either, while the shaded and Gouraud spans and `Raster_BuildEdgeTables` read them.
-- **Open:** what writes `g_TexturedPolyPerspective` (`0049f274`), and so whether a retail shape is ever textured perspective-correct. `es2_xref.py` finds only the one read in `TSTexture4Poly_Render`.
+- **Deferred:** what writes `g_TexturedPolyPerspective` (`0049f274`), and so whether a retail shape is ever textured perspective-correct. `es2_xref.py` finds only the one read in `TSTexture4Poly_Render`.

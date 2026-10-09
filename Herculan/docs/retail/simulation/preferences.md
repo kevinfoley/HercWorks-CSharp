@@ -265,4 +265,4 @@ That function also carries an arm that zeroes the block, taken when the capabili
 
 ## Open
 
-- **Open:** no DBSIM reference to options 37-41 (`004d1fe1`-`004d1fe5`) or `004d1fe6`-`004d1fe9` found by `es2_xref.py` (control: `004d1fc2` has one), so no simulator reader of them is known beyond 4 and 6.
+- **Deferred:** no DBSIM reference to options 37-41 (`004d1fe1`-`004d1fe5`) or `004d1fe6`-`004d1fe9` found by `es2_xref.py` (control: `004d1fc2` has one), so no simulator reader of them is known beyond 4 and 6.

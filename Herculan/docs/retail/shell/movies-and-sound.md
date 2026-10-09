@@ -109,10 +109,10 @@ Elsewhere:
 
 ## Open
 
-- **Unported:** what [the movie queue](#the-shells-movies) does for a movie that will not open: the intro's `Please insert ESII CD and restart`, and the insert-CD panel, whose `Continue` retries the movie and whose `Quit` ends the shell.
+- **Deferred:** what [the movie queue](#the-shells-movies) does for a movie that will not open: the intro's `Please insert ESII CD and restart`, and the insert-CD panel, whose `Continue` retries the movie and whose `Quit` ends the shell.
 - **Open:** whether the `avivideo` device scales a movie to fill the window `Avi_Play` moves it to. The rects say it does: the full rect is 576x360, twice the 288x180 intro, and the map panel's is exactly the thumbnails' 295x226.
 - **Deferred:** what the palette handle `Avi_Play` sets does to a movie's colours.
 - **Deferred:** what else writes `Avi_PaletteHandle` (`00485664`). Besides `Avi_BuildPalette`'s store, `maybe_Avi_BuildIndexPalette` (`0041dea8`) builds a 236-entry palette (entry `i` red `10 + i`, flags `PC_NOCOLLAPSE`) and stores it there; `es2_xref.py` finds no reference to that routine, and no store clearing the handle.
-- **Open:** no store clearing `MovieQueue_IntroSkipped` (`00470fe0`) found: `es2_xref.py` finds three stores, `00404b5e`, `00404bc3` and `0041e1be`, each of 1.
-- **Open:** no writer of `Avi_Playing` (`00470d70`) or `MovieQueue_Running` (`00470e70`) found outside the two players: `es2_xref.py` finds `Avi_Play`'s two stores and `Movie_PlayQueue`'s four.
+- **Deferred:** no store clearing `MovieQueue_IntroSkipped` (`00470fe0`) found: `es2_xref.py` finds three stores, `00404b5e`, `00404bc3` and `0041e1be`, each of 1.
+- **Deferred:** no writer of `Avi_Playing` (`00470d70`) or `MovieQueue_Running` (`00470e70`) found outside the two players: `es2_xref.py` finds `Avi_Play`'s two stores and `Movie_PlayQueue`'s four.
 - **Deferred:** no writer of `ShellSound_MusicVolume` (`004731fc`) found besides `ShellSound_FadeOut`'s `DEC` (`0042f1d7`) and `ShellSound_FadeIn`'s `INC` (`0042f251`): `es2_xref.py` finds those and five reads.

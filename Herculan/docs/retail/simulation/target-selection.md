@@ -194,5 +194,5 @@ The Targeting Pod is the only pod that caches its damage, and a pristine pod's c
 
 ## Open
 
-- **Open:** other callers of `Mech_ToggleRadarMode` (`0041b468`). `es2_xref.py` finds one rel32 call, from `CockpitWidgets_HandleCommand`, and no stored pointer or vtable slot.
-- **Open:** (Deferred) a writer of `mech+0x96` at construction. `es2_fieldscan.py 96 --writes-only` finds none in a machine constructor; a wider store over `+0x93`-`+0x95`, a bulk copy or an alias the scan cannot resolve would escape it. The player's machine starting passive is the retail behaviour either way.
+- **Deferred:** other callers of `Mech_ToggleRadarMode` (`0041b468`). `es2_xref.py` finds one rel32 call, from `CockpitWidgets_HandleCommand`, and no stored pointer or vtable slot.
+- **Deferred:** a writer of `mech+0x96` at construction. `es2_fieldscan.py 96 --writes-only` finds none in a machine constructor; a wider store over `+0x93`-`+0x95`, a bulk copy or an alias the scan cannot resolve would escape it. The player's machine starting passive is the retail behaviour either way.

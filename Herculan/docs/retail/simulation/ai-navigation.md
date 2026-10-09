@@ -223,5 +223,5 @@ Its target handling is the exception among the five: it runs `Ai_SelectDefenceTa
 
 ## Open
 
-- **Open:** descriptor `+0x3c` groups `skirting` and `ramming` with the combat states against the rest of the navigation roster, a stronger distinction than its one reader needs — see [`ai-dispatch.md`](ai-dispatch.md).
-- **Open:** why the firing line is the only source that cuts speed — the distance thresholds for the other two are zero, which reads more like an unfinished tuning pass than a decision.
+- **Deferred:** descriptor `+0x3c` groups `skirting` and `ramming` with the combat states against the rest of the navigation roster, a stronger distinction than its one reader needs — see [`ai-dispatch.md`](ai-dispatch.md).
+- **Deferred:** why the firing line is the only source that cuts speed — the distance thresholds for the other two are zero, which reads more like an unfinished tuning pass than a decision.

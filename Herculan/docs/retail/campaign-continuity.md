@@ -179,4 +179,4 @@ A granted unit does not unlock its weapon; the armory row stays disabled until t
 
 ## Open
 
-- **Open:** what operation `0x17` was meant to do. Both its uses, `C1_04`'s scouting run and `C2_06`'s intelligence gathering ([Unreachable branches](#unreachable-branches)), fit a flag set when the player scans a particular target.
+- **Deferred:** what operation `0x17` was meant to do. Both its uses, `C1_04`'s scouting run and `C2_06`'s intelligence gathering ([Unreachable branches](#unreachable-branches)), fit a flag set when the player scans a particular target.

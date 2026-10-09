@@ -270,5 +270,5 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 
 ## Open
 
-- **Open:** bits 6–15 of descriptor `+0x08` — no state sets one, so nothing can read one.
+- **Deferred:** bits 6–15 of descriptor `+0x08` — no state sets one, so nothing can read one.
 - **Open:** what raises `mech+0xaf`. The field scan finds no writer but `Mech_AiTick`'s own clear, and a null result is not proof; a write through a base register neither alias pass follows would go unseen.

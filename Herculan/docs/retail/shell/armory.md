@@ -145,5 +145,5 @@ Twenty-six of the thirty-three catalog ids have an armory panel, and the seven w
 
 ## Open
 
-- **Open:** no other site that prints a chassis price found. `es2_xref.py --binary VSHELL 00483b5c` lists five absolute references — `Herc_Order`, `LoadDamageDat_Shell`, `Herc_ScrapValue`, `Build_GateButtons` and `Herc_BuildScreenRefresh` — and only the last formats it; a read through a base register would not show there.
+- **Deferred:** no other site that prints a chassis price found. `es2_xref.py --binary VSHELL 00483b5c` lists five absolute references — `Herc_Order`, `LoadDamageDat_Shell`, `Herc_ScrapValue`, `Build_GateButtons` and `Herc_BuildScreenRefresh` — and only the last formats it; a read through a base register would not show there.
 - **Open:** no reader of the weapon unlock flag, `weapons.dat` `+0x16`, found that acts on a unit already fitted to a hangar machine. `es2_xref.py --binary VSHELL 00483bfa` lists ten absolute references, in `Armory_AutoFillQueue`, `Armory_GrantCampaignWeapons`, `PlayerMec_WriteUnlockTable`, `Arming_RowLive`, `Arming_BuildScreen`, `Arming_RefreshRows` and `Armory_RefreshRows`. Whether a disabled fitting-screen row stops the player removing a locked weapon already fitted is not established.

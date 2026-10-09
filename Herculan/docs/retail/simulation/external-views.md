@@ -203,4 +203,4 @@ Through the [orbit](#mode-1-the-orbit) and [`Cam_Steer`](#steering-the-camera--c
 
 ## Open
 
-- **Open:** what sets the spectator flag `DAT_0049ef5c` ([above](#the-spectator-flag--dat_0049ef5c)). The whole-PE sweep finds no store to it, so retail appears to run with it clear and every branch in the table unreachable; the sweep is a null result, not proof.
+- **Deferred:** what sets the spectator flag `DAT_0049ef5c` ([above](#the-spectator-flag--dat_0049ef5c)). The whole-PE sweep finds no store to it, so retail appears to run with it clear and every branch in the table unreachable; the sweep is a null result, not proof.

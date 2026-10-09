@@ -138,5 +138,5 @@ The same segment and the same walk, with a different question at each step: is t
 
 ## Open
 
-- **Open:** confirm `Razor_MovementTick`'s source file — assumed `flyersys.cpp` by naming convention, but no assert string in the binary names it.
+- **Deferred:** confirm `Razor_MovementTick`'s source file — assumed `flyersys.cpp` by naming convention, but no assert string in the binary names it.
 - **Open:** the writer of `+0x114`, which the terrain draw ([`../rendering/terrain-drawing.md`](../rendering/terrain-drawing.md)) and the gunsight's altitude scale ([`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md)) read as the zone's highest height. The struct table above has no row for it.

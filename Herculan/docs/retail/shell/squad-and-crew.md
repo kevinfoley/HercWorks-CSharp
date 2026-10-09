@@ -111,4 +111,4 @@ Both the unassign and the recompute write the on-strength byte through `Squad_Se
 ## Open
 
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked.
-- **Open:** whether anything calls `Squad_ColorSelectedBayPicture` (`0043d1c0`), which given tab 3 colours the selected bay's picture by condition band — external groups 0-5 into parts 0-5 and each hardpoint into part 6 + slot, part i to group i with no chassis part table, unlike `Repair_ColorDiagram` (`0041469a`) — and repaints it. `es2_xref.py` finds no caller or stored pointer.
+- **Deferred:** whether anything calls `Squad_ColorSelectedBayPicture` (`0043d1c0`), which given tab 3 colours the selected bay's picture by condition band — external groups 0-5 into parts 0-5 and each hardpoint into part 6 + slot, part i to group i with no chassis part table, unlike `Repair_ColorDiagram` (`0041469a`) — and repaints it. `es2_xref.py` finds no caller or stored pointer.

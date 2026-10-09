@@ -86,5 +86,5 @@ Every run ends beside the centre's column and the rows close in on the centre's 
 
 ## Open
 
-- **Open:** what writes `maybe_g_DepthBufferEnabled` (`00471888`, DBSIM `0049f270`) and `DAT_00471884` (DBSIM `DAT_0049aad4`), if anything does through a base register, and so whether the near-to-far walk ever runs.
-- **Open:** `es2_xref.py` finds no reference to VSHELL's `CellWalk_PolygonByColumn` or `CellWalk_Rect`.
+- **Deferred:** what writes `maybe_g_DepthBufferEnabled` (`00471888`, DBSIM `0049f270`) and `DAT_00471884` (DBSIM `DAT_0049aad4`), if anything does through a base register, and so whether the near-to-far walk ever runs.
+- **Deferred:** `es2_xref.py` finds no reference to VSHELL's `CellWalk_PolygonByColumn` or `CellWalk_Rect`.

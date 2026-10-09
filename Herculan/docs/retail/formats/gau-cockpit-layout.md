@@ -157,5 +157,5 @@ Positions differ structurally, not just by offset: TOMAHAWK puts its comm boxes 
 
 ## Open
 
-- **Open:** the Heads-Down Display block's indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
+- **Deferred:** the Heads-Down Display block's indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
 - **Open:** where the ten weapon hardpoint rects sit. `Gau_Load` constructs arrays of 10, 3, 4, 13, 15 and 3 rects, and the block map has no row for the hardpoints.

@@ -131,6 +131,6 @@ Each footfall of the player's own machine bobs the view through the projection c
 
 ## Open
 
-- **Open:** what reaches the death flash, `Sim_DeathFlash`. `es2_xref.py` finds no branch, stored pointer or vtable slot holding it, and the `death1` and `death2` palettes it loads are not in the shipped data.
-- **Open:** no writer of `HitShakeEndTick` (`0049b0fc`) or `HitShakeNextToggleTick` (`0049b100`) found outside `Cockpit_StartHitShake` and `Cockpit_HitShakeTick`. `es2_xref.py` finds 7 and 6 absolute references, all in those two functions, and none of the `0049b0xx`-`0049b12x` addresses the image loads as a base reaches either.
+- **Deferred:** what reaches the death flash, `Sim_DeathFlash`. `es2_xref.py` finds no branch, stored pointer or vtable slot holding it, and the `death1` and `death2` palettes it loads are not in the shipped data.
+- **Deferred:** no writer of `HitShakeEndTick` (`0049b0fc`) or `HitShakeNextToggleTick` (`0049b100`) found outside `Cockpit_StartHitShake` and `Cockpit_HitShakeTick`. `es2_xref.py` finds 7 and 6 absolute references, all in those two functions, and none of the `0049b0xx`-`0049b12x` addresses the image loads as a base reaches either.
 - **Open:** what the shield meter's rings show through a retail flash — whether a reading change lands while the impact palette is active often enough to keep them steady, or they drop to the impact palette's slots 66-71.

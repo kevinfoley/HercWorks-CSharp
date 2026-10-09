@@ -230,5 +230,5 @@ The exit code follows, into `004d283c`; the codes are [`../command-line.md`](../
 ## Open
 
 - **Open:** no reader of objective `+0x0a` found by `es2_fieldscan.py a --range 00413280-004135e5` over `Mission_EvaluateObjectives` (controls `+0x06` and `+0x0e` fire).
-- **Open:** whether anything reaches the group report cluster (`Group_StatusLineIndex`, `Group_OrderSubjectEngaged`, `Group_OrderSubjectRouteExhausted`) through a static-initialiser registration. `es2_xref.py` finds no branch, pointer or vtable slot for any of the three, but a registered function can be absent from that sweep, and `RegisterSubsystemLoader` (`00401d64`) has many callers.
-- **Open:** what the working register holds when `Mission_Status` and `Mission_WriteResults` call `Mission_EvaluateObjectives`. It decides how a code-5 or out-of-range-kind record answers when it is first in the array; no retail mission has such a record.
+- **Deferred:** whether anything reaches the group report cluster (`Group_StatusLineIndex`, `Group_OrderSubjectEngaged`, `Group_OrderSubjectRouteExhausted`) through a static-initialiser registration. `es2_xref.py` finds no branch, pointer or vtable slot for any of the three, but a registered function can be absent from that sweep, and `RegisterSubsystemLoader` (`00401d64`) has many callers.
+- **Deferred:** what the working register holds when `Mission_Status` and `Mission_WriteResults` call `Mission_EvaluateObjectives`. It decides how a code-5 or out-of-range-kind record answers when it is first in the array; no retail mission has such a record.

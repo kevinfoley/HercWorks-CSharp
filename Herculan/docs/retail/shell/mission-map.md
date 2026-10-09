@@ -177,7 +177,7 @@ The map object keeps its state, so the next time the briefing is shown the loop 
 
 ## Open
 
-- **Open:** what the two `maplabel.str` groups the constructor reads are for. None of the paint passes read here draws them.
-- **Open:** the texel stepping of the textured quad (`Bitmap_BlitRotatedScaled`, `00458f68`) and the scaled blit (`Bitmap_BlitScaledClipDispatch`, `00458e78`). Against the retail capture the relief's bands differ along their edges by a pixel.
-- **Open:** whether a click that skips the intro also reaches the widget under it afterwards. The window procedure queues the button's events while the loop runs, and nothing in the loop runs the shell's event queue (`Shell_PumpEvents` (`0046814c`)), so they are still queued when it ends; what the main loop's next pump delivers them to is unread.
-- **Open:** whether anything reads the side the loader writes at a base's `+0x1c` in the map's copy. Neither `es2_fieldscan.py` over `00423f43`-`00427b80` nor a grep for `map+0x62` finds one, and the fieldscan also misses the loader's own indexed write, so it does not settle indexed reads.
+- **Deferred:** what the two `maplabel.str` groups the constructor reads are for. None of the paint passes read here draws them.
+- **Deferred:** the texel stepping of the textured quad (`Bitmap_BlitRotatedScaled`, `00458f68`) and the scaled blit (`Bitmap_BlitScaledClipDispatch`, `00458e78`). Against the retail capture the relief's bands differ along their edges by a pixel.
+- **Deferred:** whether a click that skips the intro also reaches the widget under it afterwards. The window procedure queues the button's events while the loop runs, and nothing in the loop runs the shell's event queue (`Shell_PumpEvents` (`0046814c`)), so they are still queued when it ends; what the main loop's next pump delivers them to is unread.
+- **Deferred:** whether anything reads the side the loader writes at a base's `+0x1c` in the map's copy. Neither `es2_fieldscan.py` over `00423f43`-`00427b80` nor a grep for `map+0x62` finds one, and the fieldscan also misses the loader's own indexed write, so it does not settle indexed reads.

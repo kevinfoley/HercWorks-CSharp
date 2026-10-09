@@ -70,8 +70,8 @@ Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) a
 
 ## Open
 
-- **Open:** what `CAM.BND`'s fields mean. the four 16-bit fields at offsets 4, 6, 20 and 22 (2500, 30000, 500, 8000) may be camera near/far or zoom-range values; offset 3, shared with `MECH` and `MECHSYS`, may be a format sub-version byte. Matching them to immediates in DBSIM's camera code would settle both.
-- **Open:** the layouts of the other 82 files, shelved because the game never reads them. `MECH.BND` looks like a per-mech-type array from about offset 8; `MECHSYS.BND`'s decreasing 75…6 run looks like distance or LOD tiers. If resumed:
+- **Deferred:** what `CAM.BND`'s fields mean. the four 16-bit fields at offsets 4, 6, 20 and 22 (2500, 30000, 500, 8000) may be camera near/far or zoom-range values; offset 3, shared with `MECH` and `MECHSYS`, may be a format sub-version byte. Matching them to immediates in DBSIM's camera code would settle both.
+- **Deferred:** the layouts of the other 82 files, shelved because the game never reads them. `MECH.BND` looks like a per-mech-type array from about offset 8; `MECHSYS.BND`'s decreasing 75…6 run looks like distance or LOD tiers. If resumed:
   - `CAM.BND`'s layout above is the template.
   - Group the rest by payload length and diff within a family (`P*.BND` cockpit panels, `*_ALRT.BND` alert configs) — the approach that decoded `.DCI`.
   - Cross-reference fields against the per-subsystem constants in `dbsim-physics-notes.md`, `damage-system.md` and `weapon-damage-types.md`, the technique that established the format is build-time-only.

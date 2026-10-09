@@ -140,4 +140,4 @@ Several types' collision **ceiling** sits well below their roof line — type 3 
 
 ## Open
 
-- **Open:** confirm `Sim_RaycastObjectList` (`00426528`)'s source translation unit with a direct assert string. The `objlist.cpp` attribution rests on the shared object list, not on a string, unlike `rocket.cpp` and `collide.cpp`.
+- **Deferred:** confirm `Sim_RaycastObjectList` (`00426528`)'s source translation unit with a direct assert string. The `objlist.cpp` attribution rests on the shared object list, not on a string, unlike `rocket.cpp` and `collide.cpp`.

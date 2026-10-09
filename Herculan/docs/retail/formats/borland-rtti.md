@@ -88,7 +88,7 @@ Blocks are packed end to end. **The word after a table's last slot is usually th
 
 ## Open
 
-- **Open:** what the two equal counts at `+0x20`/`+0x24` hold, beyond the header's names for them.
-- **Open:** the third list at `+0x2e`, beyond the header's name for it.
-- **Open:** what the base-list entry flag `1` means, against the usual `3`.
-- **Open:** class flags `0x01` and `0x40`.
+- **Deferred:** what the two equal counts at `+0x20`/`+0x24` hold, beyond the header's names for them.
+- **Deferred:** the third list at `+0x2e`, beyond the header's name for it.
+- **Deferred:** what the base-list entry flag `1` means, against the usual `3`.
+- **Deferred:** class flags `0x01` and `0x40`.

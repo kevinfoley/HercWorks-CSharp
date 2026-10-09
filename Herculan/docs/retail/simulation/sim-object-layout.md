@@ -111,8 +111,8 @@ Nothing in the field itself says which flavour it is — only which of the two f
 
 ## Open
 
-- **Open:** whether anything queues a machine onto `g_MechDeleteQueue` (`004a9c02`). An absolute-address search of the disassembly finds only the setup write in `DBSim_LoadScriptDat` and the read in `Mech_FlushDeletes` (`0041544c`); a caller passing a copy of the pointer to `ObjectPool_QueueForDelete` is outside that search.
-- **Open:** why the structure pool's element is `0x26d`, seven bytes past `LC_BASE`'s `0x266`, the longest structure class.
-- **Open:** what `obj+0x92` is in the source. Whether it is a sub-object the compiler is addressing or just a base register it chose is not settled, so `known_structs.json` places those bytes at their absolute offsets rather than inside an invented struct.
-- **Open:** what vtable `+0x0c` is for. Every `DrawableVtable`, `ProjectileVtable` and `SimObjectVtable` table holds `Stub_ReturnZero` (`004785bf`) there.
-- **Open:** whether `mech+0x261`, the fourth lock-timer slot, is used at all. `Mech_PerTickSystemsUpdate` ticks the other four by name and no tick names this one, and `es2_fieldscan.py` over `00402000`-`00430000` finds no mech access to it (the one write it reports is `Flyer_Constructor`'s, a different class's field). A field that carries a value is never proven unread by a scan.
+- **Deferred:** whether anything queues a machine onto `g_MechDeleteQueue` (`004a9c02`). An absolute-address search of the disassembly finds only the setup write in `DBSim_LoadScriptDat` and the read in `Mech_FlushDeletes` (`0041544c`); a caller passing a copy of the pointer to `ObjectPool_QueueForDelete` is outside that search.
+- **Deferred:** why the structure pool's element is `0x26d`, seven bytes past `LC_BASE`'s `0x266`, the longest structure class.
+- **Deferred:** what `obj+0x92` is in the source. Whether it is a sub-object the compiler is addressing or just a base register it chose is not settled, so `known_structs.json` places those bytes at their absolute offsets rather than inside an invented struct.
+- **Deferred:** what vtable `+0x0c` is for. Every `DrawableVtable`, `ProjectileVtable` and `SimObjectVtable` table holds `Stub_ReturnZero` (`004785bf`) there.
+- **Deferred:** whether `mech+0x261`, the fourth lock-timer slot, is used at all. `Mech_PerTickSystemsUpdate` ticks the other four by name and no tick names this one, and `es2_fieldscan.py` over `00402000`-`00430000` finds no mech access to it (the one write it reports is `Flyer_Constructor`'s, a different class's field). A field that carries a value is never proven unread by a scan.

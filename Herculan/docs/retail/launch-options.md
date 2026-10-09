@@ -123,9 +123,9 @@ Turns on a set of keys the programmers used for testing: freezing the simulation
 
 ## Open
 
-- **Open:** whether the simulator's `-T<n>`, `-V<n>`, `-W<n>`, `-a` and `-c` do anything; see [`command-line.md`](command-line.md#open).
-- **Open:** what the front end's non-`eggplant` `-e…` options do.
-- **Open:** what `-C` does with the four names that have no cockpit artwork, and what `-E` does without Spanish speech files.
-- **Open:** where the front end's `-v` and `-?` text appears; it is written to standard output, which a Windows program normally does not have.
-- **Open:** whether anything in the simulator runs the `-d` checkpoints; see [`formats/tap-input-tape.md`](formats/tap-input-tape.md#open).
-- **Open:** `-b` has not been tried against retail; the expected behaviour on each Windows family is in [`simulation/cockpit-views.md`](simulation/cockpit-views.md#open).
+- **Deferred:** whether the simulator's `-T<n>`, `-V<n>`, `-W<n>`, `-a` and `-c` do anything; see [`command-line.md`](command-line.md#open).
+- **Deferred:** what the front end's non-`eggplant` `-e…` options do.
+- **Deferred:** what `-C` does with the four names that have no cockpit artwork, and what `-E` does without Spanish speech files.
+- **Deferred:** where the front end's `-v` and `-?` text appears; it is written to standard output, which a Windows program normally does not have.
+- **Deferred:** whether anything in the simulator runs the `-d` checkpoints; see [`formats/tap-input-tape.md`](formats/tap-input-tape.md#open).
+- **Deferred:** `-b` has not been tried against retail; the expected behaviour on each Windows family is in [`simulation/cockpit-views.md`](simulation/cockpit-views.md#open).

@@ -63,4 +63,4 @@ A mission action timer's delay is the one stated in seconds: it is shifted left 
 
 ## Open
 
-- **Open:** the byte at `+0` of a `CountdownTimer` record. `Math_CountdownTimerTick` never touches it, and for the four global instances (`004a9be8`, `004a9bec`, `004a9ee6`, `004a9ee9`) nothing reads or writes it anywhere in DBSIM, only takes its address. That leaves its meaning open rather than establishing it as padding.
+- **Deferred:** the byte at `+0` of a `CountdownTimer` record. `Math_CountdownTimerTick` never touches it, and for the four global instances (`004a9be8`, `004a9bec`, `004a9ee6`, `004a9ee9`) nothing reads or writes it anywhere in DBSIM, only takes its address. That leaves its meaning open rather than establishing it as padding.

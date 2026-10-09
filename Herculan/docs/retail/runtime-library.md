@@ -24,4 +24,4 @@ When a read, seek or handle check fails, the stream code tests `errno`: `VolRStr
 
 ## Open
 
-- **Open:** whether any caller treats status 1 differently from 3, which would make the `errno` stub read visible beyond the missing assert.
+- **Deferred:** whether any caller treats status 1 differently from 3, which would make the `errno` stub read visible beyond the missing assert.

@@ -5322,8 +5322,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Component_ReadEntryDamage",
-      "description": "(header, kind, index): one damage-array entry as Q8 of its maximum, (damage << 8) / max, with no aggregation -- unlike Component_ReadDamagePercent. header is the component system at obj+0x206. Kind 0: dependent (internal) entry index against the .DMG internals' maximum at (header[3])[+4]; kind 1: main entry index against piece index's armour (18-byte piece records at (header[3])[+0]); kind 2: the main entry 19 places further on (+0x26 bytes) against the same piece's armour. A negative (destroyed) entry or a zero maximum reads 0x100.",
-      "source": "DBSIM disassembly at 004152ec"
+      "description": "(header, kind, index): one damage-array entry as Q8 of its maximum, (damage << 8) / max by signed division, with no aggregation -- unlike Component_ReadDamagePercent. header is the component system at obj+0x206. Kind 0: dependent (internal) entry index at (header[0]) against the .DMG internals' maximum at (header[3])[+4]; kind 1: main entry index at (header[1]) against piece index's armour (18-byte piece records at (header[3])[+0]); kind 2: the main entry 19 places further on (+0x26 bytes) against the same piece's armour. A negative (destroyed) entry or a zero maximum reads 0x100. A kind above 2 reaches the read with neither pointer set.",
+      "source": "DBSIM disassembly at 004152ec",
+      "verified": {
+        "bytes": "004152ec+143",
+        "sha1": "6577fb16a1f4",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0041537c",
@@ -5913,8 +5919,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ReadEntryDamage",
-      "description": "(mech, kind, index): Component_ReadEntryDamage(mech+0x206, kind, index). Cockpit_PowerUpTick reads internals 0-9 with kind 0 for its announcement, and Player_DependentCondition reads one internal with it.",
-      "source": "DBSIM disassembly at 0041b514"
+      "description": "(mech, kind, index): Component_ReadEntryDamage(mech+0x206, kind, index), returning its AX unchanged. Callers found by es2_xref: Cockpit_PowerUpTick, which passes kind 0 and internals 0-9, and Player_DependentCondition.",
+      "source": "DBSIM disassembly at 0041b514",
+      "verified": {
+        "bytes": "0041b514+32",
+        "sha1": "2810b4fa6ac1",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0041b534",
@@ -9791,8 +9803,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Cockpit_PowerUpTick",
-      "description": "The cockpit power-up sequence, gated on the start tick Cockpit_PowerUpSound stamps at cockpit+0x241. Each pass arms any widget not yet armed with Widget_BeginPowerUpAnimation: the ten weapon-row gauges at cockpit+0x70 each after their own delay from PowerUp_RowArmDelays, and cockpit+0x1e9, +0x1f5 (the roving gunsight) and +0x1ed as soon as elapsed is non-zero. Separately, once 200 < coarse ticks have passed, sets cockpit+0x245, reads internals 0-9 with Mech_ReadEntryDamage (kind 0) and posts message 0x22 POWERUP INITIATED. INTERNAL DAMAGE DETECTED. at the first nonzero reading, else 0x21 ... ALL SYSTEMS NOMINAL. A nonzero reading also goes through Damage_ToConditionState and is compared against 0x5a, but that returns a condition index of 0-4, so the comparison always passes. At 16 ms a coarse tick that lands 3.2 s in, inside start3's five seconds rather than after them.",
-      "source": "docs/retail/simulation/audio.md"
+      "description": "The cockpit power-up sequence, gated on the start tick Cockpit_PowerUpSound stamps at cockpit+0x241 (nothing runs while it is 0); elapsed is Time_GetCoarseTicks() minus it, compared unsigned. Each pass arms any widget not yet armed (widget+0x8c clear) with Widget_BeginPowerUpAnimation: the ten weapon-row gauges at cockpit+0x70 each once elapsed exceeds its own delay from PowerUp_RowArmDelays, and cockpit+0x1e9, +0x1f5 (the roving gunsight) and +0x1ed as soon as elapsed is non-zero. Separately, once elapsed exceeds 200, sets cockpit+0x245, reads internals 0-9 of the machine at cockpit+0x203 with Mech_ReadEntryDamage (kind 0) and posts message 0x22 POWERUP INITIATED. INTERNAL DAMAGE DETECTED. at the first nonzero reading, else 0x21 ... ALL SYSTEMS NOMINAL., through the computer's message port at cockpit+0x20b (its vtable slot 0, given a record whose first word is the id). A nonzero reading also goes through Damage_ToConditionState and is tested against 0x5a, but that returns a condition index of 0-4, so the test always passes. At 16 ms a coarse tick that lands 3.2 s in, inside start3's five seconds rather than after them.",
+      "source": "docs/retail/simulation/audio.md",
+      "verified": {
+        "bytes": "00432924+299",
+        "sha1": "712574db2514",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00432a50",
@@ -11093,8 +11111,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Damage_ToConditionState",
-      "description": "Maps a Q8 damage fraction to a STRINGS0.STR group 28 condition index: intact = (0x100-damage)*100>>8, then >=0x5a OK, >=0x4a SHIELDS DN, >=0x33 INT DAMAGE, >=1 CRITICAL, else DESTROYED. Used for subjects with no per-component readings -- flyers and structures.",
-      "source": "docs/retail/simulation/mfd.md"
+      "description": "Maps a Q8 damage fraction to a STRINGS0.STR group 28 condition index: intact = (0x100-damage)*100>>8 (arithmetic shift), then >=0x5a OK (0), >=0x4a SHIELDS DN (1), >=0x33 INT DAMAGE (2), >=1 CRITICAL (3), else DESTROYED (4). Callers found by es2_xref: Cockpit_PowerUpTick, Player_DependentCondition and MfdStatusScreen_SetCondition; mfd.md has the MFD using it for subjects with no per-component readings, flyers and structures.",
+      "source": "docs/retail/simulation/mfd.md",
+      "verified": {
+        "bytes": "00438700+73",
+        "sha1": "053433330ed6",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0043874c",

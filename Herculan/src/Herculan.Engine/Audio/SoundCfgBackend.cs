@@ -63,6 +63,9 @@ public sealed class SoundCfgBackend : IAudioBackend {
 	/// <inheritdoc />
 	public IAudioStream? OpenStream(int sampleRate, int channels) => _inner.OpenStream(sampleRate, channels);
 
+	/// <inheritdoc />
+	public void Update() => _inner.Update();
+
 	private float Pan(float pan) => _config.Mono ? 0f : pan;
 
 	/// <inheritdoc />

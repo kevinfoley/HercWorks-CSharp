@@ -72,6 +72,12 @@ public interface IAudioBackend : IDisposable {
 	/// </summary>
 	/// <returns>The stream, or null when there is no device to play it on.</returns>
 	IAudioStream? OpenStream(int sampleRate, int channels);
+
+	/// <summary>
+	/// Per-frame service of the device itself: noticing that the output endpoint has gone and bringing
+	/// it back. Call once a frame from whatever owns the frame loop.
+	/// </summary>
+	void Update();
 }
 
 /// <summary>

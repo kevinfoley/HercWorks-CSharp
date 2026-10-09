@@ -508,7 +508,8 @@ public sealed class SoundDirector : IDisposable {
 	}
 
 	/// <summary>
-	/// Services the finite repeat counts. Call once a frame.
+	/// Services the backend's device (<see cref="IAudioBackend.Update"/>), the music and the finite
+	/// repeat counts. Call once a frame.
 	///
 	/// <para>Attribute byte 0 can ask for a sound to play a fixed number of times — the three cockpit
 	/// alerts all ask for five — and no backend this targets expresses that, so the repeats are
@@ -521,6 +522,7 @@ public sealed class SoundDirector : IDisposable {
 	/// serviced until the resume.</para>
 	/// </summary>
 	public void Update() {
+		_backend.Update();
 		Music.Update();
 
 		if (_suspended) {

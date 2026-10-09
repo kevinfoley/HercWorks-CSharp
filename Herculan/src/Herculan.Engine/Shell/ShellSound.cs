@@ -181,8 +181,13 @@ public sealed class ShellSound {
 	/// One pass of the fade's loop: a step whenever more than 10 ms of <c>GetTickCount</c> have passed
 	/// since the last — up until the volume is past 99, or down until it is below 2.
 	/// <see cref="Environment.TickCount64"/> is that same clock, at its same granularity.
+	///
+	/// <para>It services the backend's device first (<see cref="IAudioBackend.Update"/>), which is this
+	/// engine's and has no counterpart in the original's loop.</para>
 	/// </summary>
 	public void Update() {
+		_backend.Update();
+
 		if (!Fading) {
 			return;
 		}

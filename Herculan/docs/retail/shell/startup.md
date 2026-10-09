@@ -4,7 +4,7 @@ How `VSHELL.EXE` comes up, the loop it then runs until it ends, and how it leave
 
 ## Shell_WinMain (00406507)
 
-The process entry splits the command line into an `argv` whose first word is `dbsim` (`Shell_SplitCommandLine`), registers the window class for a first instance, clears `0046d740` for `-d` (which [`ShellOption_DisplayMode`](../command-line.md#vshell) then overwrites), creates the main window (`Shell_CreateMainWindow`, `Unable to initialize Instance` on failure), reads the joysticks, goes full screen when `0046d740` is set, blanks the screen and calls `Shell_Main` with the split arguments. When `Shell_Main` returns it pumps messages until `WM_QUIT` arrives, releases DirectDraw (`Display_ReleaseDirectDraw`, `00407011`) and returns the exit code at `0046e210` (`Shell_GetExitCode`).
+The process entry splits the command line into an `argv` whose first word is `dbsim` (`Shell_SplitCommandLine`), registers the window class for a first instance, clears `0046d740` for `-d` (which [`ShellOption_DisplayMode`](../command-line.md#vshell) then overwrites), creates the main window (`Shell_CreateMainWindow`, `Unable to initialize Instance` on failure), reads the joysticks, goes full screen when `Shell_StartedFullScreen` (`0046d740`) is set, blanks the screen and calls `Shell_Main` with the split arguments. When `Shell_Main` returns it pumps messages until `WM_QUIT` arrives, releases DirectDraw (`Display_ReleaseDirectDraw`, `00407011`) and returns the exit code at `0046e210` (`Shell_GetExitCode`).
 
 ## The startup — Shell_Main (00401525)
 

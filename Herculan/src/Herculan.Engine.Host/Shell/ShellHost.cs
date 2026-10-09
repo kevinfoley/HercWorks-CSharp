@@ -343,6 +343,10 @@ sealed class ShellHost : IDisposable {
 			return;
 		}
 
+		// Shell_PumpEvents (0046814c): Timer_Tick, then EventQueue_Pump, which delivers the clicks the window
+		// posted before the alarm's tick.
+		bool arrowsTick = _mission.TickArrowAlarm(Environment.TickCount64);
+
 		// While the pointer is over the menu bar or one of its windows, the shell under them takes nothing:
 		// the buttons' state is taken without delivering it, as during a fade.
 		if (_window.ImGuiWantsMouse) {
@@ -350,6 +354,10 @@ sealed class ShellHost : IDisposable {
 		} else {
 			_pointer.Move(_content.HitAt(canvasX, canvasY));
 			_buttons.Deliver(mouse, _widgets.Deliver);
+			if (arrowsTick) {
+				_mission.RepeatArrows();
+			}
+
 			if (_pointer.Lit != litBefore && _screen.SelectedTab == ShellScreen.MissionTab) {
 				_content.Repaint();
 			}

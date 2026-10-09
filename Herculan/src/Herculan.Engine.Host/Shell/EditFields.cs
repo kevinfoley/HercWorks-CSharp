@@ -17,10 +17,10 @@ sealed class EditFields {
 	private readonly WidgetEvents _widgets;
 	private readonly Action _repaint;
 
-	// The edit field that had the focus last update, and when its blink alarm last fired: the alarm is
-	// installed as a field takes the focus.
+	// The edit field that had the focus last update, and its blink alarm, installed as a field takes the
+	// focus and removed as it loses it.
 	private ShellWidget? _caretField;
-	private long _caretClock;
+	private readonly ShellAlarm _caretAlarm = new(Environment.TickCount64);
 
 	public EditFields(FrontEndWindow window, ShellAudio audio, ShellMovies movies, ShellPointer pointer, ShellScreen screen,
 			ShellSaveScreen saveScreen, MainMenuPanels menu, ShellCanvas canvas, WidgetEvents widgets, Action repaint) {
@@ -79,15 +79,22 @@ sealed class EditFields {
 	}
 
 	/// <summary>
-	/// The focused edit field's blink alarm (WinTimer_InstallAlarm, 500 and 500), installed as the field
-	/// takes the focus. A change of focus repaints too, as the field's paint on the press does.
+	/// The focused edit field's blink alarm (ESDialog_HandleEvent, 0040beaf: WinTimer_InstallAlarm, 500 and
+	/// 500), installed as the field takes the focus; one tick per update at most, a late one dropping the
+	/// time it overshot (<see cref="ShellAlarm"/>). A change of focus repaints too, as the field's paint on
+	/// the press does.
 	/// </summary>
 	public void BlinkCaret() {
 		var focused = _pointer.Focused;
-		long now = Environment.TickCount64;
+		bool tick = _caretAlarm.Tick(Environment.TickCount64);
 		if (focused != _caretField) {
 			_caretField = focused;
-			_caretClock = now;
+			if (focused is { Kind: ShellWidgetKind.SaveRow or ShellWidgetKind.RegistrationField }) {
+				_caretAlarm.Install(ShellSaveScreen.CaretBlinkMilliseconds, ShellSaveScreen.CaretBlinkMilliseconds);
+			} else {
+				_caretAlarm.Remove();
+			}
+
 			if (_screen.SelectedTab == ShellScreen.SaveTab || _menu.RegistrationUp) {
 				_repaint();
 			}
@@ -95,7 +102,7 @@ sealed class EditFields {
 			return;
 		}
 
-		if (now - _caretClock < ShellSaveScreen.CaretBlinkMilliseconds) {
+		if (!tick) {
 			return;
 		}
 
@@ -107,7 +114,6 @@ sealed class EditFields {
 			return;
 		}
 
-		_caretClock += ShellSaveScreen.CaretBlinkMilliseconds;
 		_repaint();
 	}
 }

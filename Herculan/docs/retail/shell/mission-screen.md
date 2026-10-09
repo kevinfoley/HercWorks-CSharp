@@ -57,7 +57,7 @@ The debrief fills box 4 through `Mission_DebriefText` (`00444bbb`) and takes its
 
 The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`.
 
-**The map buttons** each call a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its paint: once while `+0x65`, the count of auto-repeat ticks so far, is below 3, twice below 6, three times below 9 and four times from there. The map, its camera and what each method does are in [`mission-map.md`](mission-map.md).
+**Holding a map button down moves the map faster the longer it is held.** Each button calls a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its paint and `Display_PresentStoredRect`, once while its own `+0x65` is below 3, twice below 6, three times below 9 and four times from there. `+0x65` is the button's count of [auto-repeat](widgets.md#the-widget-that-takes-a-click-decides-what-it-does) ticks: a held button fires on each tick of its 500 ms alarm, one step for the first two ticks, two for the next three, and so on, and the release fires once more at a count of 0. The page buttons repeat the same way, a page a tick. The map, its camera and what each method does are in [`mission-map.md`](mission-map.md).
 
 ### The mission report
 
@@ -138,4 +138,3 @@ The four career texts are the lines of `data\mission.str` that the career block'
 
 - **Open:** what the briefing's map panel shows while the briefing movie plays, before `ShellMap_RunIntro` has run.
 - **Deferred:** no reference to the mission screen's map scope `DAT_0048d818` found but `Mission_BuildScreen`'s store (`es2_xref.py`), so nothing found shows it.
-- **Unported:** the auto-repeat of the mission screen's arrows.

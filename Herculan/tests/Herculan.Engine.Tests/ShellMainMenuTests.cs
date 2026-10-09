@@ -56,17 +56,23 @@ public class ShellMainMenuTests {
 		Assert.Equal(1, switches);
 	}
 
-	/// <summary>An update late by several ticks runs every one of them, as the alarm's queued ticks do.</summary>
+	/// <summary>
+	/// An update late by several ticks runs one, and the next comes a whole period after it, as the alarm
+	/// drops the time it overshot.
+	/// </summary>
 	[Fact]
-	public void StartupCatchesUpOnMissedTicks() {
+	public void StartupDropsMissedTicks() {
 		var startup = new ShellStartupSequence();
 		startup.Show(Start);
 
 		Assert.True(startup.Advance(Start + 3 * Tick + 100, () => { }));
-		Assert.Equal(3, startup.Frame);
+		Assert.Equal(1, startup.Frame);
 
-		startup.Advance(Start + 4 * Tick, () => { });
-		Assert.Equal(4, startup.Frame);
+		Assert.False(startup.Advance(Start + 4 * Tick + 99, () => { }));
+		Assert.Equal(1, startup.Frame);
+
+		Assert.True(startup.Advance(Start + 4 * Tick + 100, () => { }));
+		Assert.Equal(2, startup.Frame);
 	}
 
 	/// <summary>The six frames are bay2a_80 to bay2a_84, the last twice.</summary>

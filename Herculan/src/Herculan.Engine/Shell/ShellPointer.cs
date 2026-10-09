@@ -60,8 +60,8 @@ public enum ShellHandler {
 	ImagePanel,
 
 	/// <summary>
-	/// <c>ESDialog_HandleEvent</c> (<c>0040beaf</c>), the save list's rows and the registration screen's
-	/// name field. Fires on the left press
+	/// <c>ESDialog_HandleEvent</c> (<c>0040beaf</c>), the save list's rows and the name fields of the
+	/// registration screen and the DEBUG dialog. Fires on the left press
 	/// and takes the pointer; the right button does nothing.
 	/// </summary>
 	EditField,
@@ -99,6 +99,8 @@ public enum ShellWidgetKind {
 	ReplayButton,
 	RegistrationField,
 	RegistrationButton,
+	MissionNameField,
+	MissionNameButton,
 }
 
 /// <summary>One widget. <see cref="Sub"/> is a second index where one kind needs two, as the repair lists' <c>(column, row)</c> do.</summary>

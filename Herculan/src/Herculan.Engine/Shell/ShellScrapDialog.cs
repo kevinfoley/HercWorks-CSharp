@@ -93,9 +93,10 @@ public sealed class ShellScrapDialog {
 
 	/// <summary>
 	/// Draws the dialog over whatever <paramref name="surface"/> holds. The panel's body is dithered in
-	/// <c>0x10</c> rather than filled, so the screen shows through it at half strength.
+	/// <c>0x10</c> rather than filled, so the screen shows through it at half strength. <paramref name="lit"/> is
+	/// the widget a press has lit.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, ShellWidget? lit) {
 		if (!IsOpen) {
 			return;
 		}
@@ -115,11 +116,9 @@ public sealed class ShellScrapDialog {
 			ShellTextAlign.Center, ShellChrome.FontInkColor);
 
 		foreach (var button in Enum.GetValues<ShellScrapDialogButton>()) {
-			var rect = ButtonRect(button);
-			ShellChrome.PaintButton(surface, rect, ButtonBorder);
-			ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font,
-				text?.Text(button == ShellScrapDialogButton.Cancel ? CancelText : AcceptText), ShellTextAlign.Center,
-				ShellChrome.FontInkColor);
+			ShellChrome.PaintButton(surface, ButtonRect(button), ButtonBorder, font,
+				text?.Text(button == ShellScrapDialogButton.Cancel ? CancelText : AcceptText), ShellChrome.FontInkColor,
+				pressed: lit == new ShellWidget(ShellWidgetKind.ScrapDialogButton, (int)button));
 		}
 	}
 

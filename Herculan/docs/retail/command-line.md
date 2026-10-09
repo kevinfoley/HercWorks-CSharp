@@ -87,7 +87,7 @@ To DBSIM's parsers below, that `-Z` is windowed, so the simulator would open as 
 
 ### `-@`: the mission picker
 
-`FUN_00412ce1` (VSHELL), called at campaign start (`FUN_00412a2f`) and after each debrief (`Game_ProcessMissionResults`), shows a panel titled `DEBUG` naming the campaign's next mission (`FUN_0044db25`), built by `MissionNameDialog_Build` (`0044d6a8`) with two buttons: `Use Default` (`FUN_0044d55a`), and one that hides the panel and loads `msn\<name>.msn` through `MissionNameDialog_OnLoad`, `<name>` being the text at `MissionNameDialog_NameField+0x45`. Without `-@` the function posts two type-`0x20` events, values 2 and 1, to `Use Default` through `FUN_00468440`, which dismiss the panel before it is ever seen; with it the panel is left waiting. Retail confirms both halves: `ES.EXE -s -SPRUNKNOWN` puts the panel up on starting a new game, and a normal launch never shows it.
+`-@` leaves up [the mission-name dialog](shell/main-menu.md#the-mission-name-dialog), titled `DEBUG`, which every career's mission load goes through and which the shell otherwise clicks past itself before it is drawn: its `Use Default` loads the career position's mission and its `ACCEPT` a typed `msn\<name>.msn`. Retail confirms both halves: `ES.EXE -s -SPRUNKNOWN` puts the dialog up on starting a new game, and a normal launch never shows it.
 
 ## DBSIM
 

@@ -566,8 +566,9 @@ public sealed class ShellMissionScreen {
 
 		ShellChrome.PaintPanel(surface, ButtonBarRect, ButtonBorder, fill: true);
 		foreach (var button in Enum.GetValues<ShellMissionButton>()) {
-			PaintButton(surface, font, ButtonRect(button), text?.Text(FirstButtonText + (int)button + (button > 0 ? 1 : 0)),
-				button == ShownText ? ViewLitColor : ButtonBorder);
+			ShellChrome.PaintButton(surface, ButtonRect(button), button == ShownText ? ViewLitColor : ButtonBorder, font,
+				text?.Text(FirstButtonText + (int)button + (button > 0 ? 1 : 0)), ShellChrome.FontInkColor,
+				pressed: lit == new ShellWidget(ShellWidgetKind.MissionButton, (int)button));
 		}
 	}
 
@@ -595,13 +596,6 @@ public sealed class ShellMissionScreen {
 		ShellChrome.PaintTitledPanel(surface, rect, Border, face, ShellChrome.InteriorColor, TitleHeight, headerChrome,
 			plateFirst, plateLast, fill: true);
 		ShellChrome.PaintText(surface, new ShellRect(rect.X0, rect.Y0, rect.X1, rect.Y0 + TitleHeight), font, title,
-			ShellTextAlign.Center, ShellChrome.FontInkColor);
-	}
-
-	/// <summary>One button: its double-bordered box in <paramref name="border"/> and its caption, centred in <c>0x29</c>.</summary>
-	private static void PaintButton(ShellSurface surface, HudFont? font, ShellRect rect, string? caption, byte border) {
-		ShellChrome.PaintButton(surface, rect, border);
-		ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font, caption,
 			ShellTextAlign.Center, ShellChrome.FontInkColor);
 	}
 

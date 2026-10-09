@@ -418,9 +418,10 @@ public sealed class ShellRepairScreen {
 	/// <summary>
 	/// Draws the whole screen into <paramref name="surface"/>. The caller clears it first; the content
 	/// panel's body is filled rather than dithered here, so unlike the save screen nothing of the
-	/// backdrop shows through it — the builder leaves <c>+0x59</c> at the constructor's 1.
+	/// backdrop shows through it — the builder leaves <c>+0x59</c> at the constructor's 1. <paramref name="lit"/>
+	/// is the widget a press has lit.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, ShellWidget? lit) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
 		_diagrams?.Paint(surface, Machine, _column);
@@ -443,10 +444,10 @@ public sealed class ShellRepairScreen {
 		PaintReadout(surface, font, Inside(PanelRect, SalvageReadoutRect),
 			WithKilograms(AvailableKilograms, text));
 
-		PaintItemPanel(surface, font, text);
-		PaintTotalPanel(surface, font, text);
-		PaintScrapPanel(surface, font, text);
-		PaintButton(surface, font, text?.Text(CancelText), ShellRepairButton.Cancel);
+		PaintItemPanel(surface, font, text, lit);
+		PaintTotalPanel(surface, font, text, lit);
+		PaintScrapPanel(surface, font, text, lit);
+		PaintButton(surface, font, text?.Text(CancelText), ShellRepairButton.Cancel, lit);
 	}
 
 	/// <summary>
@@ -532,7 +533,7 @@ public sealed class ShellRepairScreen {
 			align, color, ShellChrome.InteriorColor);
 
 	/// <summary>The <c>Selected Item</c> panel: this component's repair bill, its condition word, and REPAIR.</summary>
-	private void PaintItemPanel(ShellSurface surface, HudFont? font, ShellText? text) {
+	private void PaintItemPanel(ShellSurface surface, HudFont? font, ShellText? text, ShellWidget? lit) {
 		var panel = Inside(PanelRect, ItemPanelRect);
 		ShellChrome.PaintFramedPanel(surface, panel, FrameBorder, FrameFace, fill: true);
 		PaintLabel(surface, font, text?.Text(SelectedItemText), FullWidth(panel, PanelTitleRect));
@@ -547,25 +548,25 @@ public sealed class ShellRepairScreen {
 		// docs/retail/shell/weapons-and-repair.md, "The repair screen".
 		PaintReadout(surface, font, Inside(panel, ItemConditionReadoutRect),
 			text?.Text(ConditionWordText(SelectionCondition)));
-		PaintButton(surface, font, text?.Text(RepairText), ShellRepairButton.Repair);
+		PaintButton(surface, font, text?.Text(RepairText), ShellRepairButton.Repair, lit);
 	}
 
 	/// <summary>The <c>Total</c> panel: a full rebuild's bill and REPAIR ALL.</summary>
-	private void PaintTotalPanel(ShellSurface surface, HudFont? font, ShellText? text) {
+	private void PaintTotalPanel(ShellSurface surface, HudFont? font, ShellText? text, ShellWidget? lit) {
 		var panel = Inside(PanelRect, TotalPanelRect);
 		ShellChrome.PaintFramedPanel(surface, panel, FrameBorder, FrameFace, fill: true);
 		PaintLabel(surface, font, text?.Text(TotalText), FullWidth(panel, PanelTitleRect));
 		PaintLabel(surface, font, text?.Text(SalvageRequiredText), FullWidth(panel, PanelCostLabelRect));
 		PaintReadout(surface, font, Inside(panel, PanelCostReadoutRect), WithKilograms(MachineCost, text));
-		PaintButton(surface, font, text?.Text(RepairAllText), ShellRepairButton.RepairAll);
+		PaintButton(surface, font, text?.Text(RepairAllText), ShellRepairButton.RepairAll, lit);
 	}
 
 	/// <summary>The <c>Scrap Herc</c> panel: a title and the button, with no readout of its own.</summary>
-	private void PaintScrapPanel(ShellSurface surface, HudFont? font, ShellText? text) {
+	private void PaintScrapPanel(ShellSurface surface, HudFont? font, ShellText? text, ShellWidget? lit) {
 		var panel = Inside(PanelRect, ScrapPanelRect);
 		ShellChrome.PaintFramedPanel(surface, panel, FrameBorder, FrameFace, fill: true);
 		PaintLabel(surface, font, text?.Text(ScrapHercText), FullWidth(panel, PanelTitleRect));
-		PaintButton(surface, font, text?.Text(ScrapText), ShellRepairButton.Scrap);
+		PaintButton(surface, font, text?.Text(ScrapText), ShellRepairButton.Scrap, lit);
 	}
 
 	private static void PaintLabel(ShellSurface surface, HudFont? font, string? value, ShellRect rect) =>
@@ -575,20 +576,17 @@ public sealed class ShellRepairScreen {
 	/// A readout box: a <c>Button</c> the builder immediately disables and gives a quieter border and
 	/// caption colour than a live one. It is a box with a figure in it, not a control.
 	/// </summary>
-	private static void PaintReadout(ShellSurface surface, HudFont? font, ShellRect rect, string? value) {
-		ShellChrome.PaintButton(surface, rect, ReadoutBorder);
-		ShellChrome.PaintText(surface, rect, font, value, ShellTextAlign.Center, ReadoutTextColor,
-			ShellChrome.InteriorColor);
-	}
+	private static void PaintReadout(ShellSurface surface, HudFont? font, ShellRect rect, string? value) =>
+		ShellChrome.PaintButton(surface, rect, ReadoutBorder, font, value, ReadoutTextColor,
+			backingColor: ShellChrome.InteriorColor);
 
 	/// <summary>One live button, greyed together with its caption when its gate is shut.</summary>
 	private void PaintButton(ShellSurface surface, HudFont? font, string? caption,
-			ShellRepairButton button) {
+			ShellRepairButton button, ShellWidget? lit) {
 		bool enabled = IsEnabled(button);
-		var rect = ButtonRect(button);
-		ShellChrome.PaintButton(surface, rect, enabled ? ButtonBorder : DisabledColor);
-		ShellChrome.PaintText(surface, rect, font, caption, ShellTextAlign.Center,
-			enabled ? ShellChrome.FontInkColor : DisabledColor);
+		ShellChrome.PaintButton(surface, ButtonRect(button), enabled ? ButtonBorder : DisabledColor, font, caption,
+			enabled ? ShellChrome.FontInkColor : DisabledColor,
+			pressed: enabled && lit == new ShellWidget(ShellWidgetKind.RepairButton, (int)button));
 	}
 
 	/// <summary>

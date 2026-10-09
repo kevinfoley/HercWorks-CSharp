@@ -109,7 +109,7 @@ Game_NewCareer(name, RegistrationSkillChoice)
 MissionScreenView = (CampaignMissionInStage != 0)
 ```
 
-`Game_NewCareer` in a campaign builds the roster, the player and the starting hangar ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed)), and its position step, `Career_SeedPosition` (`00412a2f`), puts the career on stage 1 mission 0 and posts the mission-name dialog's `Use Default` click as [a practice mission's](#starting-a-practice-mission) does. The last line therefore writes 0, the map view, before the click is delivered. That click runs [the campaign branch](campaign-loop.md#loading-the-careers-mission) of `Career_LoadCurrentMission`, which ends by putting the frame up (`0043b162(8)` and the strip refresh) and calling `Mission_ShowView(0, 1)`: the mission tab comes up in [the map view](mission-screen.md#the-three-views) on stage 1, and the left press the second argument posts at `MISSION` lights it and makes the press sound, its handler finding tab 7 already current.
+`Game_NewCareer` in a campaign builds the roster, the player and the starting hangar ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed)), and its position step, `Career_SeedPosition` (`00412a2f`), puts the career on stage 1 mission 0 and posts [the mission-name dialog](#the-mission-name-dialog)'s `Use Default` click as [a practice mission's](#starting-a-practice-mission) does. The last line therefore writes 0, the map view, before the click is delivered. That click runs [the campaign branch](campaign-loop.md#loading-the-careers-mission) of `Career_LoadCurrentMission`, which ends by putting the frame up (`0043b162(8)` and the strip refresh) and calling `Mission_ShowView(0, 1)`: the mission tab comes up in [the map view](mission-screen.md#the-three-views) on stage 1, and the left press the second argument posts at `MISSION` lights it and makes the press sound, its handler finding tab 7 already current.
 
 **`ACCEPT` writes no save.** The career's first write to slot 10 is the next autosave: the `MAIN MENU` tab's, or [the main loop's exit](startup.md#leaving-the-main-loop), which `Rock & Roll` reaches.
 
@@ -179,7 +179,7 @@ The row is the mission index. `Career_SeedPosition` (`00412a2f`), which puts a n
 
 ### Starting a practice mission
 
-`Begin Mission` commits the options (`ShellOptions_Commit(1)`), writes all 54 to `data\prefs.cfg` (`ShellOptions_SaveAll`) and calls `Game_NewCareer("TRAINEE", option 0x27)`: the roster, the player with the difficulty as their skill, no machines — a training career's `LoadHercsDat` reads nothing — and the career position, stage 0 at the lit row ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed)). The position's last step, `Career_StartMissionLoad` (`00412ce1`), shows a developer's mission-name dialog holding that mission's name and posts a press and a release to its `Use Default` button. The event loop delivers them once the handler has returned, and `MissionNameDialog_OnUseDefault` (`0044d55a`) hides the dialog and calls `Career_LoadCurrentMission` (`0044d4cc`) ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#call-chain--confirmed)).
+`Begin Mission` commits the options (`ShellOptions_Commit(1)`), writes all 54 to `data\prefs.cfg` (`ShellOptions_SaveAll`) and calls `Game_NewCareer("TRAINEE", option 0x27)`: the roster, the player with the difficulty as their skill, no machines — a training career's `LoadHercsDat` reads nothing — and the career position, stage 0 at the lit row ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--game_newcareer-0040e2ed)). The position's last step goes through [the mission-name dialog](#the-mission-name-dialog), whose `Use Default` the shell clicks itself, to `Career_LoadCurrentMission` (`0044d4cc`).
 
 `Career_LoadCurrentMission` loads the mission (`MsnGen_LoadMission`, `0041c73d`) and, outside a campaign ([`campaign-loop.md`](campaign-loop.md#loading-the-careers-mission) has a campaign's), goes straight on to `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)` and the loop exit, the three `INSTANT ACTION` ends with. Between the write of `script.dat` and that export, the training half of `MsnGen_LoadMission` builds the squad from the mission's group 0, the one [`script.dat`](../formats/script-dat.md#placement--the-actual-rule) places the player's squad at:
 
@@ -370,6 +370,30 @@ The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` 
 
 `SaveRegistration_BuildPanel` (`0043b260`), which the startup runs just before `Registration_BuildScreen`, fills `DAT_0048d418` with a copy of [the registration screen](#the-registration-screen)'s content in the detail panel's place: a `FramedPanel` at `{7, 6, 0xe1, 0x4b}` (`DAT_0048d470`) holding the prompt, a name box and its field, a skill readout (a `Text`, not a `Button`) and a `SKILL LEVEL` row (`SaveRegistration_StepSkill`, `0043bd15`), with `CANCEL` (`SaveRegistration_OnCancel`, `0043bd90`) and `ACCEPT` (`SaveRegistration_OnAccept`, `0043bf1b`) on `DAT_0048d418` itself. `ACCEPT` runs `Game_NewCareer` with the typed name and the shared `RegistrationSkillChoice`, then `Stats_StageCurrentGame(10)`, then `SaveRegistration_ShowDetailPanel` (`0043b679`) — which hides both panels and shows the detail panel again — and lights `SAVE`. The builder leaves its `ACCEPT` enabled ([Open](#open)), and `ACCEPT` does not reload `gam\herc_inf.dat`. `SaveScreen_Enter` and the teardown both hide `DAT_0048d418`; what shows it is [Open](#open).
 
+## The mission-name dialog
+
+**A developer's dialog titled `DEBUG` stands between every career's position and its mission load, and a player never sees it.** `Career_StartMissionLoad` (`00412ce1`), the last step of `Career_SeedPosition` (`00412a2f`) for a new career and of [the debrief](campaign-loop.md#where-the-debrief-goes-next) for the next mission, shows it and posts a press and a release at its `Use Default`, which [makes no sound](movies-and-sound.md#what-plays-each-sound). The event loop delivers them once the handler that got there has returned, so the dialog goes down before anything repaints. With `-@` (`Shell_MissionPickerEnabled`, `00482284`, [`../command-line.md`](../command-line.md#--the-mission-picker)) it posts nothing, and the dialog waits for a click.
+
+Built once at startup by `MissionNameDialog_Build` (`0044d6a8`), shown by `MissionNameDialog_Show` (`0044db25`) and hidden by `MissionNameDialog_Hide` (`0044db87`). Rects are parent-relative.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| root | image panel | the top-level window's own rect | the shared backdrop; `+0x51 = 0`, and no handler |
+| panel | `TitledPanel` | `{0xce, 199, 0x1b2, 0x145}` | `DEBUG`, header 19 tall, plate `0x3f`-`0xa6`, border `0x27`, face `0x25`, dithered body in `0x10` |
+| prompt | `Text` | `{0x26, 0x1d, 0xb9, 0x26}` | `Enter Mission File Name`, centred, `0x29` |
+| name box | `Button` | `{10, 0x2b, 0xda, 0x3d}` | a single space, border `0x22`, disabled |
+| name field | edit field | `{1, 1, W - 1, H - 1}` in the name box | the typed name; permitted set `0047a445`, `^` then the digits, both alphabets and the space; no handler |
+| label | `Text` | `{10, 0x46, 0x42, 0x58}` | `Default:`, centred, `0x29` |
+| default | `Text` | `{0x46, 0x46, 0xda, 0x58}` | the position's mission, centred, `0x29` |
+| `Use Default` | `Button` | `{0x76, 0x66, 0xd8, 0x75}` | border `0x22`; `MissionNameDialog_OnUseDefault` (`0044d55a`) |
+| `ACCEPT` | `Button` | `{10, 0x66, 0x6c, 0x75}` | `0x34`, border `0x22`; `MissionNameDialog_OnLoad` (`0044d5bd`) |
+
+Every caption but `ACCEPT`'s is a string of the builder's own. The root covers the whole display, so nothing beneath shows and a click anywhere but the field and the two buttons is swallowed.
+
+`MissionNameDialog_Show` writes the position's mission from `gam\career.dat`, a path such as `MSN\C1_01.MSN`, into the default, or the empty string past the end of the stage, and shows the root and the panel. It does not take the pointer: the field types as [the registration screen's](#the-registration-screen) does once it is clicked, and since nothing clears it a later show comes back to the name typed last.
+
+Both buttons hide the dialog first. `Use Default` then runs `Career_LoadCurrentMission` (`0044d4cc`). `ACCEPT` instead loads `msn\<name>.msn` (`"msn\\%s.msn"` at `0047a2a6`, the name's first `^` turned to `_`, which no key types) through `MsnGen_LoadMission`, and goes on as `Career_LoadCurrentMission` does after its load: in a campaign the map, the briefing text, slot 10's summary, the mission tab's palette, the strip and `Mission_ShowView(MissionScreenView, 1)`; in training the handoff, exit code 2 and the loop's end. The career position stays on its own mission.
+
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -389,4 +413,3 @@ The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` 
 - **Deferred:** no reference to `InstantAction_Active` (`0047363c`) found besides `INSTANT ACTION`'s store of 1 (`004312b6`) and `MsnGen_BuildPlayerHerc`'s read (`0041c625`), by `es2_xref.py` ([Selecting a mission](#selecting-a-mission)).
 - **Open:** no store clearing a save row's `+0xbf` after a rename found: `es2_fieldscan.py bf` finds `ESDialog_Ctor`'s 1, `SaveScreen_BuildScreen`'s 0 (`00438936`) and `SaveScreen_BeginRename`'s 1 ([Typing into a row](#typing-into-a-row)).
 - **Deferred:** no write greying [the second registration panel](#the-second-registration-panel)'s `ACCEPT` found: `es2_xref.py` finds no reference to its pointer `0048d490` but the builder's store.
-- **Deferred:** the developer's mission-name dialog, `Career_StartMissionLoad`'s way to the load, and its `MissionNameDialog_OnLoad` button, which loads a typed name.

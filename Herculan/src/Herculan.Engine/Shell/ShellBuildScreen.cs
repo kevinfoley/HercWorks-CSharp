@@ -284,8 +284,9 @@ public sealed class ShellBuildScreen {
 	/// Draws the whole screen into <paramref name="surface"/>, the squad panel included. The caller
 	/// clears it first. The content panel's body is dithered, where the repair and crew screens fill
 	/// theirs: the builder writes <c>+0x59</c> to 0 and the dither colour <c>+0x5d</c> to <c>0x25</c>.
+	/// <paramref name="lit"/> is the widget a press has lit.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, ShellWidget? lit) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
 		ShellSquadPanel.Paint(surface, font, text, _hangar, SelectedBay, _pictures);
@@ -314,7 +315,7 @@ public sealed class ShellBuildScreen {
 		}
 
 		PaintStats(surface, font, text);
-		PaintLowerPanel(surface, font, text);
+		PaintLowerPanel(surface, font, text, lit);
 	}
 
 	/// <summary>
@@ -383,7 +384,7 @@ public sealed class ShellBuildScreen {
 	/// of the net kilograms divided by 1000 (<c>Build_RefreshSalvage</c>, <c>00446e71</c>) — and the two
 	/// button boxes, whose bodies keep a visible <c>0x25</c> checkerboard.
 	/// </summary>
-	private void PaintLowerPanel(ShellSurface surface, HudFont? font, ShellText? text) {
+	private void PaintLowerPanel(ShellSurface surface, HudFont? font, ShellText? text, ShellWidget? lit) {
 		ShellChrome.PaintFramedPanel(surface, LowerPanelRect, Border, ShellChrome.InteriorColor, fill: true);
 		ShellChrome.PaintText(surface, Inside(LowerPanelRect, SalvageLabelRect), font, text?.Text(SalvageAvailableText),
 			ShellTextAlign.Center, LabelColor);
@@ -394,27 +395,25 @@ public sealed class ShellBuildScreen {
 			$"{(uint)AvailableKilograms / ShellRepairCosts.KilogramsPerTon} {text?.Text(TonsText)}",
 			ShellTextAlign.Center, ValueColor, ShellChrome.InteriorColor);
 
-		PaintButtonBox(surface, font, text, ScrapPanelRect, ScrapHercText, ShellBuildButton.Scrap, ScrapText);
-		PaintButtonBox(surface, font, text, BuildPanelRect, BuildHercText, ShellBuildButton.Build, BuildText);
+		PaintButtonBox(surface, font, text, ScrapPanelRect, ScrapHercText, ShellBuildButton.Scrap, ScrapText, lit);
+		PaintButtonBox(surface, font, text, BuildPanelRect, BuildHercText, ShellBuildButton.Build, BuildText, lit);
 	}
 
 	/// <summary>
 	/// One button box: a checkered framed panel, its title, and the button, greyed with its caption when
-	/// its gate is shut. The caption is the <c>Text</c> child <c>ESButtonFont_Ctor</c> builds at
-	/// <c>{1, 0, w, h}</c>, so it is centred one pixel right of the button's own rect.
+	/// its gate is shut.
 	/// </summary>
 	private void PaintButtonBox(ShellSurface surface, HudFont? font, ShellText? text, ShellRect boxRect,
-			int titleText, ShellBuildButton button, int captionText) {
+			int titleText, ShellBuildButton button, int captionText, ShellWidget? lit) {
 		var box = Inside(LowerPanelRect, boxRect);
 		ShellChrome.PaintFramedPanel(surface, box, Border, ButtonBoxFace, fill: true);
 		ShellChrome.PaintText(surface, Inside(box, BoxTitleRect), font, text?.Text(titleText), ShellTextAlign.Center,
 			LabelColor);
 
 		bool enabled = IsEnabled(button);
-		var rect = ButtonRect(button);
-		ShellChrome.PaintButton(surface, rect, enabled ? ButtonBorder : DisabledColor);
-		ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font,
-			text?.Text(captionText), ShellTextAlign.Center, enabled ? ShellChrome.FontInkColor : DisabledColor);
+		ShellChrome.PaintButton(surface, ButtonRect(button), enabled ? ButtonBorder : DisabledColor, font,
+			text?.Text(captionText), enabled ? ShellChrome.FontInkColor : DisabledColor,
+			pressed: enabled && lit == new ShellWidget(ShellWidgetKind.BuildButton, (int)button));
 	}
 
 	private static ShellRect Inside(ShellRect parent, ShellRect child) =>

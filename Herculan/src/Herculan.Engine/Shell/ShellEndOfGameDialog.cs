@@ -57,8 +57,9 @@ public sealed class ShellEndOfGameDialog {
 	/// <summary>
 	/// Draws the dialog over whatever <paramref name="surface"/> holds: <c>ESTitle_Ctor</c>'s filled body
 	/// under the face and plate the builder writes, and the two lines centred in <c>0x29</c> with no backing.
+	/// <paramref name="lit"/> is the widget a press has lit.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, ShellWidget? lit) {
 		if (!IsOpen) {
 			return;
 		}
@@ -74,10 +75,8 @@ public sealed class ShellEndOfGameDialog {
 		ShellChrome.PaintText(surface, Inside(PanelRect, SecondLineRect), font, text?.Text(SecondLineText),
 			ShellTextAlign.Center, ShellChrome.FontInkColor);
 
-		var okay = OkayButtonRect;
-		ShellChrome.PaintButton(surface, okay, ButtonBorder);
-		ShellChrome.PaintText(surface, new ShellRect(okay.X0 + 1, okay.Y0, okay.X1, okay.Y1), font, text?.Text(OkayText),
-			ShellTextAlign.Center, ShellChrome.FontInkColor);
+		ShellChrome.PaintButton(surface, OkayButtonRect, ButtonBorder, font, text?.Text(OkayText), ShellChrome.FontInkColor,
+			pressed: lit == new ShellWidget(ShellWidgetKind.EndOfGameOkay, 0));
 	}
 
 	private static ShellRect Inside(ShellRect parent, ShellRect child) =>

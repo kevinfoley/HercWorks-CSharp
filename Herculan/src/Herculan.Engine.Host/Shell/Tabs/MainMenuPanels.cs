@@ -107,15 +107,15 @@ sealed class MainMenuPanels {
 		return RegistrationUp ? _registration.HitAt(canvasX, canvasY) : _mainMenu.HitAt(canvasX, canvasY);
 	}
 
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, bool registrationFocused) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, bool registrationFocused, ShellWidget? lit) {
 		if (_practiceUp) {
-			_practiceScreen!.Paint(surface, text, sprites);
+			_practiceScreen!.Paint(surface, text, sprites, lit);
 		} else if (PreferencesUp) {
-			_preferencesScreen!.Paint(surface, text, sprites);
+			_preferencesScreen!.Paint(surface, text, sprites, lit);
 		} else if (RegistrationUp) {
-			_registration.Paint(surface, text, sprites, focused: registrationFocused);
+			_registration.Paint(surface, text, sprites, focused: registrationFocused, lit);
 		} else {
-			_mainMenu.Paint(surface, text, sprites);
+			_mainMenu.Paint(surface, text, sprites, lit);
 		}
 	}
 

@@ -389,9 +389,10 @@ public sealed class ShellSaveScreen {
 	/// Draws the whole screen into <paramref name="surface"/>. The caller clears it first; what this
 	/// leaves untouched is what the shell's backdrop shows through, which the content panel's dithered
 	/// body relies on. <paramref name="focusedRow"/> is the row that has the pointer's focus, whose caret
-	/// shows while its blink phase is on.
+	/// shows while its blink phase is on, and <paramref name="lit"/> the widget a press has lit.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, int? focusedRow = null) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, int? focusedRow = null,
+			ShellWidget? lit = null) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
 		ShellChrome.PaintTitledPanel(surface, PanelRect, PanelBorder, PanelFace, PanelBodyDither,
@@ -410,7 +411,7 @@ public sealed class ShellSaveScreen {
 		}
 
 		foreach (var button in Enum.GetValues<ShellSaveButton>()) {
-			PaintButton(surface, font, text, button);
+			PaintButton(surface, font, text, button, lit);
 		}
 
 		PaintSummary(surface, font, text);
@@ -422,12 +423,11 @@ public sealed class ShellSaveScreen {
 	/// gated button — the border colour, the caption colour and the enable flag itself.
 	/// </summary>
 	private void PaintButton(ShellSurface surface, HudFont? font, ShellText? text,
-			ShellSaveButton button) {
+			ShellSaveButton button, ShellWidget? lit) {
 		bool enabled = IsEnabled(button);
-		var rect = ButtonRect(button);
-		ShellChrome.PaintButton(surface, rect, enabled ? ButtonBorder : DisabledColor);
-		ShellChrome.PaintText(surface, rect, font, text?.Text(CaptionText(button)),
-			ShellTextAlign.Center, enabled ? ShellChrome.FontInkColor : DisabledColor);
+		ShellChrome.PaintButton(surface, ButtonRect(button), enabled ? ButtonBorder : DisabledColor, font,
+			text?.Text(CaptionText(button)), enabled ? ShellChrome.FontInkColor : DisabledColor,
+			pressed: enabled && lit == new ShellWidget(ShellWidgetKind.SaveButton, (int)button));
 	}
 
 	/// <summary>

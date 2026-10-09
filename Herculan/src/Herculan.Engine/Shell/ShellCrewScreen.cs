@@ -342,9 +342,10 @@ public sealed class ShellCrewScreen {
 
 	/// <summary>
 	/// Draws the whole screen into <paramref name="surface"/>, the squad panel included. The caller
-	/// clears it first; the content panel's body is filled, as the repair screen's is.
+	/// clears it first; the content panel's body is filled, as the repair screen's is. <paramref name="lit"/> is
+	/// the widget a press has lit.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
+	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites, ShellWidget? lit) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
 		ShellSquadPanel.Paint(surface, font, text, _hangar, SelectedBay, _pictures);
@@ -362,7 +363,7 @@ public sealed class ShellCrewScreen {
 				i == LitPortrait ? LitBorder : UnlitBorder);
 		}
 
-		PaintClearButton(surface, font, text);
+		PaintClearButton(surface, font, text, lit);
 		ShellChrome.PaintText(surface, Inside(PanelRect, AvailableLabelRect), font,
 			text?.Text(AvailablePilotsText), ShellTextAlign.Right, ShellChrome.FontInkColor);
 
@@ -411,17 +412,10 @@ public sealed class ShellCrewScreen {
 		}
 	}
 
-	/// <summary>
-	/// CLEAR, a live button no code greys. Its caption is the <c>Text</c> child <c>ESButtonFont_Ctor</c>
-	/// builds at <c>{1, 0, w, h}</c> in the button, so it is centred one pixel right of the button's
-	/// own rect.
-	/// </summary>
-	private static void PaintClearButton(ShellSurface surface, HudFont? font, ShellText? text) {
-		var rect = Inside(PanelRect, ClearRect);
-		ShellChrome.PaintButton(surface, rect, ButtonBorder);
-		ShellChrome.PaintText(surface, new ShellRect(rect.X0 + 1, rect.Y0, rect.X1, rect.Y1), font,
-			text?.Text(ClearText), ShellTextAlign.Center, ShellChrome.FontInkColor);
-	}
+	/// <summary>CLEAR, a live button no code greys.</summary>
+	private static void PaintClearButton(ShellSurface surface, HudFont? font, ShellText? text, ShellWidget? lit) =>
+		ShellChrome.PaintButton(surface, Inside(PanelRect, ClearRect), ButtonBorder, font, text?.Text(ClearText),
+			ShellChrome.FontInkColor, pressed: lit == new ShellWidget(ShellWidgetKind.CrewClear, 0));
 
 	private static ShellRect Inside(ShellRect parent, ShellRect child) =>
 		new(parent.X0 + child.X0, parent.Y0 + child.Y0, parent.X0 + child.X1, parent.Y0 + child.Y1);

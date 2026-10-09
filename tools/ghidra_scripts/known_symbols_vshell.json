@@ -2268,8 +2268,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ESButtonFont_Ctor",
-      "description": "Plain button widget class, no icon slot (0x5d=93-byte struct, 18 uses -- smaller than ESButtonBitmap_Ctor's 0x69). Same embedded-ESMessage_Ctor-child pattern as ESButtonBitmap_Ctor for its caption, but via ESRect_Ctor's base rather than passing a callback through WinButton_Ctor's base-init call directly.",
-      "source": "project_es2_exe_recon memory, VSHELL widget-class disambiguation pass"
+      "description": "Button's constructor (RTTI ESButtonFont, 0x5d bytes): ESRect_Ctor with the parent, rect, handler and border arguments, then the vtable ESButtonFontVtable; builds the caption, an ESMessage_Ctor Text (0xc9 bytes) at {1, 0, W, H} in the button with the font and caption arguments, centred (2) in 0x29, kept at +0x55; stores the last argument at +0x59 and copies it to the caption's +0x49.",
+      "source": "docs/retail/shell/widgets.md#text-placement-and-colour",
+      "verified": {
+        "bytes": "00409a54+187",
+        "sha1": "2758ddde9460",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00409b0f",
@@ -2286,8 +2292,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ESButtonFont_Paint",
-      "description": "Button's paint: ESRect_FillAndBorder with the fill, a second border one pixel inside in +0x4d, then the caption, one pixel lower while lit and enabled.",
-      "source": "docs/retail/shell/mission-screen.md#the-mission-screen"
+      "description": "Button's paint: ESRect_FillAndBorder with the fill, a second border one pixel inside in +0x4d, then, when the caption Text at +0x55 has a font, ESMessage_Paint of it with a row of the button's choosing, (cellHeight + H + 1) / 2 - 1, or + 1 while the lit flag +0x45 and the enable flag +0x49 are both set, so the caption sits two rows lower while pressed.",
+      "source": "docs/retail/shell/widgets.md#text-placement-and-colour",
+      "verified": {
+        "bytes": "00409b79+408",
+        "sha1": "a5fe43f0932e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00409d14",
@@ -4794,8 +4806,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Career_SeedPosition",
-      "description": "Seeds a new career's (stage, mission) by mode: campaign (1) -> (1, 0); training (0) -> (0, PracticeScreen_SelectedRow), the practice row. Called by Game_NewCareer with CampaignModeFlag.",
-      "source": "docs/retail/shell/campaign-loop.md#the-campaign-table--gamcareerdat"
+      "description": "Seeds a new career's (stage, mission) by mode: campaign (1) -> (1, 0); training (0) -> (0, PracticeScreen_SelectedRow), the practice row. Ends with Career_StartMissionLoad. Game_NewCareer calls it with CampaignModeFlag.",
+      "source": "docs/retail/shell/campaign-loop.md#the-campaign-table--gamcareerdat",
+      "verified": {
+        "bytes": "00412a2f+66",
+        "sha1": "76ec6c29450c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00412a71",
@@ -4822,7 +4840,13 @@
       "confidence": "high",
       "name": "Career_StartMissionLoad",
       "description": "Shows the mission-name dialog with the career position's name and, unless Shell_MissionPickerEnabled is set, posts a press and a release to its Use Default button.",
-      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission"
+      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission",
+      "verified": {
+        "bytes": "00412ce1+230",
+        "sha1": "68638b7889fe",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00412dc7",
@@ -13582,7 +13606,13 @@
       "confidence": "high",
       "name": "Career_LoadCurrentMission",
       "description": "Loads the career's current mission (MsnGen_LoadMission); in campaign mode rebuilds the map and the briefing text and reshows the mission tab in the view it holds, in training exports the handoff and launches at once.",
-      "source": "docs/retail/shell/campaign-loop.md#loading-the-careers-mission"
+      "source": "docs/retail/shell/campaign-loop.md#loading-the-careers-mission",
+      "verified": {
+        "bytes": "0044d4cc+142",
+        "sha1": "cfee94c36d54",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d55a",
@@ -13591,7 +13621,13 @@
       "confidence": "high",
       "name": "MissionNameDialog_OnUseDefault",
       "description": "Use Default: hides the dialog and calls Career_LoadCurrentMission.",
-      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission"
+      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission",
+      "verified": {
+        "bytes": "0044d55a+99",
+        "sha1": "9846bb9f63a4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d5bd",
@@ -13600,7 +13636,13 @@
       "confidence": "high",
       "name": "MissionNameDialog_OnLoad",
       "description": "(event): the mission-name dialog's estext 0x34 button handler, which MissionNameDialog_Build passes to ESButtonFont_Ctor: MissionNameDialog_Hide, sprintf('msn\\\\%s.msn') of MissionNameDialog_NameField +0x45 with its first '^' replaced by '_' (_strchr), MsnGen_LoadMission; then in campaign mode ShellMap_Build, Career_BuildBriefingText, Stats_StageCurrentGame(10), Shell_SelectTabPalette(8), ServiceBay_RefreshTabStrip and Mission_ShowView(MissionScreenView, 1), otherwise Game_ExportMissionHandoff, Shell_SetExitCode(2) and Shell_QuitFlag = 1; then deletes the event.",
-      "source": "docs/retail/formats/msn-mission-file.md"
+      "source": "docs/retail/formats/msn-mission-file.md",
+      "verified": {
+        "bytes": "0044d5bd+235",
+        "sha1": "04b54ca35921",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044d6a8",
@@ -13624,7 +13666,13 @@
       "confidence": "high",
       "name": "MissionNameDialog_Show",
       "description": "Writes the career position's mission name as the default and shows the dialog.",
-      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission"
+      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission",
+      "verified": {
+        "bytes": "0044db25+98",
+        "sha1": "6626fa4ca3f8",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044db87",
@@ -13633,7 +13681,13 @@
       "confidence": "high",
       "name": "MissionNameDialog_Hide",
       "description": "Hides the mission-name dialog.",
-      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission"
+      "source": "docs/retail/shell/main-menu.md#starting-a-practice-mission",
+      "verified": {
+        "bytes": "0044db87+25",
+        "sha1": "34577a51c231",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044de50",

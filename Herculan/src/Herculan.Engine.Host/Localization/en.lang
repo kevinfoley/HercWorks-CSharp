@@ -26,6 +26,8 @@ tweak.show_altitude_tape.display_name          Show Razor altitude tape
 tweak.show_altitude_tape.description           Draw the tick tape that scrolls with your height beside the Razor's altitude scale. Retail draws the scale's brackets, column and marker, but places the tape outside its own clipping area, so it never appears.
 tweak.drop_pod_sound_from_pod.display_name    Drop pod sounds from the pod
 tweak.drop_pod_sound_from_pod.description     Hear a falling drop pod's whistle from the pod itself, following it down, and its landing from where it lands. The sounds are louder and carry for kilometres. Retail plays both sounds at your own position, so they never tell you where the pod is.
+tweak.fix_repair_diagram_sides.display_name  Fix repair diagram sides
+tweak.fix_repair_diagram_sides.description   On the REPAIR screen's damage diagram, Left Torso and Left Leg are on the same side. In retail the diagram shows Left Torso on your left but Left Leg on your right. On a Razor, the nacelles are switched to match the wings.
 tweak.smoother_turret_movement.display_name   Smoother turret movement
 tweak.smoother_turret_movement.description     Smooth turret rotation when aiming with a joystick or other analog input. Retail rounds the rotation value, causing stutter at slow aiming speeds. Has no effect when aiming with the keyboard.
 tweak.mouse_external_view.display_name         Mouse-controlled outside view

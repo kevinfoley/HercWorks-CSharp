@@ -94,6 +94,13 @@ public static class TweakSettingDefinitions {
 	/// itself, so they are the same wherever the pod is. See <see cref="Sim.MeteorObject.TweakSoundReach"/>.
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> DropPodSoundFromPod = new("tweak.drop_pod_sound_from_pod", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: true);
+
+	/// <summary>
+	/// On the REPAIR screen's damage diagram, the part drawn as each torso shows the other torso's damage and selects
+	/// its row, so the torsos and the legs both read as seen from the front. Retail puts <c>Left Torso</c> on the
+	/// viewer's left and <c>Left Leg</c> on the viewer's right. See <see cref="Shell.ShellRepairDiagrams"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FixRepairDiagramSides = new("tweak.fix_repair_diagram_sides", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: true);
 	#endregion
 
 	#region AI
@@ -166,7 +173,7 @@ public static class TweakSettingDefinitions {
 		ShowCorrectStats, ShowAccurateSpeed, RoundShieldBalance, ShowTargetDistanceInMeters, FixNacelleImpactEffectPosition,
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
-		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod,
+		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod, FixRepairDiagramSides,
 		FixTerrainHitPoint, FlyerIgnoresPlayerThrottle,
 	};
 }

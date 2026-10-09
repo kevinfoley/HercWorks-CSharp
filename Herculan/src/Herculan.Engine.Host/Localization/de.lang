@@ -26,6 +26,8 @@ tweak.show_altitude_tape.display_name          Höhenband des Razor anzeigen
 tweak.show_altitude_tape.description           Zeichnet das Skalenband, das mit Ihrer Höhe mitläuft, neben der Höhenskala des Razor. Das Originalspiel zeichnet die Klammern, die Säule und die Markierung der Skala, platziert das Band aber außerhalb seines eigenen Clipping-Bereichs, sodass es nie erscheint.
 tweak.drop_pod_sound_from_pod.display_name    Abwurfkapsel-Geräusche von der Kapsel
 tweak.drop_pod_sound_from_pod.description     Hören Sie das Pfeifen einer fallenden Abwurfkapsel von der Kapsel selbst, während es ihr nach unten folgt, und ihre Landung von dort, wo sie aufsetzt. Die Geräusche sind lauter und tragen kilometerweit. Das Originalspiel spielt beide Geräusche an Ihrer eigenen Position ab, sodass sie nie verraten, wo die Kapsel ist.
+tweak.fix_repair_diagram_sides.display_name  Seiten des Reparaturschemas korrigieren
+tweak.fix_repair_diagram_sides.description   Im Schadensschema des REPAIR-Bildschirms liegen Left Torso und Left Leg auf derselben Seite. Im Originalspiel zeigt das Schema Left Torso links, Left Leg aber rechts. Beim Razor werden die Triebwerksgondeln passend zu den Flügeln vertauscht.
 tweak.smoother_turret_movement.display_name   Flüssigere Geschützturmbewegung
 tweak.smoother_turret_movement.description     Glättet die Drehung des Geschützturms beim Zielen mit Joystick oder einem anderen analogen Eingabegerät. Das Originalspiel rundet den Drehwert, was bei langsamen Zielbewegungen zu Ruckeln führt. Hat beim Zielen mit der Tastatur keine Wirkung.
 tweak.mouse_external_view.display_name         Außenansicht per Maus

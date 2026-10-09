@@ -20,9 +20,27 @@ Confirmed `typeId` values, each written as the envelope's 4 bytes read **big-end
 | `0x0B002800` | `.DCI` — cursor image, below |
 | `0x05002800` | `.DFN`/`.HFN` — bitmap font, below |
 
-Each resource is one record: the envelope, a `uint32` size of what follows, and that many bytes, rounded up to an even length with one zero byte. A bitmap array's body is an `int16` frame count, an `int16` ([Open](#open)), then that many bitmap records (`0x0E002800`, the sub-header [`.DCI`](#dci--cursor-image) embeds), each rounded up the same way; a `.DBM` is one bitmap record. All 358 bitmap arrays and 10 `.DBM` in v1.0's archives end there except `dba\CORNERS.DBA`, which carries 606 bytes past its 24 frames: a bitmap body without its record header, then three whole bitmap records ([Open](#open)).
+Each resource is one record: the envelope, a `uint32` size of what follows, and that many bytes, rounded up to an even length with one zero byte. A bitmap array's body is an `int16` frame count, an `int16` ([Open](#open)), then that many [bitmap records](#the-bitmap-record), each rounded up the same way; a `.DBM` is one bitmap record. All 358 bitmap arrays and 10 `.DBM` in v1.0's archives end there except `dba\CORNERS.DBA`, which carries 606 bytes past its 24 frames: a bitmap body without its record header, then three whole bitmap records ([Open](#open)).
 
 `.DFN`/`.HFN`/`.DCI` are dispatched by a generic class-registry loader in `DBSIM.EXE` (`ClassItem_ReadTypeTag` (`0047a5a8`) → `ClassItem_FindHandler` (`0047a394`)). Specific loaders: `Panel_LoadWrapper` (`00430f58`, fonts), `Cursor_LoadWrapper` (`00430fb0`, cursors).
+
+### The bitmap record
+
+A bitmap record (`0x0E002800`) holds, after the envelope's size, a 13-byte header, the image data, and then the extra dwords. `GLBitmap_ReadFromStream` (`00481c80`; VSHELL `00453838`) reads the header in this order into the bitmap object, whose fields [`../rendering/dts-billboards.md`](../rendering/dts-billboards.md#tsbitmappart_render-004762e8) lists:
+
+```
++0x00  int16  rows          -- height
++0x02  int16  cols          -- width
++0x04  uint8  bitsPerPixel
++0x05  uint8  flags         -- bits 0-3 the bitmap type, bit 4 opaque; the reader takes bits 0-4
++0x06  uint8  packing       -- 0 raw, 1 RLE, 3 LZH
++0x07  uint32 dataLength
++0x0b  int16  extraCount
++0x0d  [dataLength bytes]     image data
+       [extraCount x uint32]  extra dwords
+```
+
+The reader reads the data when `dataLength` is non-zero and `extraCount * 4` bytes of extra dwords when `extraCount` is.
 
 ## `.DCI` — cursor image
 
@@ -38,33 +56,33 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 0x04  uint32 totalSize    -- content size below this field
 0x08  int32  hotspotX     -- cursor click-point X, CONFIRMED (see below)
 0x0C  int32  hotspotY     -- cursor click-point Y, CONFIRMED (see below)
-0x10  --- embedded bitmap sub-header starts here (typeId 0x0E002800) ---
+0x10  --- embedded bitmap record starts here (typeId 0x0E002800) ---
 0x10  uint16 typeId       = 0x000E
 0x12  uint16              = 0x0028
 0x14  uint32 subSize
-0x18  uint16 width
-0x1A  uint16 height
+0x18  int16  rows
+0x1A  int16  cols
 0x1C  uint8  bitsPerPixel  -- 8 (indexed color) in all 7 files
-0x1D  uint8  flags         -- low nibble the bitmap type; 0 in all 7 files
-0x1E  uint8  compression   -- 0 raw, 1 RLE, 3 LZH; 0 in all 7 files
-0x1F  uint32 pixelDataLen  -- width*height in all 7 files (1 byte/pixel)
-0x23  int16  extraCount    -- 0 in all 7 files; that many uint32s follow the pixels
-0x25  [pixelDataLen bytes] pixel data (0x00 = background, one non-zero indexed color = the cursor's "ink")
+0x1D  uint8  flags         -- 0 in all 7 files
+0x1E  uint8  packing       -- 0 in all 7 files
+0x1F  uint32 dataLength    -- rows*cols in all 7 files (1 byte/pixel)
+0x23  int16  extraCount    -- 0 in all 7 files
+0x25  [dataLength bytes]   pixel data (0x00 = background, one non-zero indexed color = the cursor's "ink")
 ```
 
-**Hotspot field (click-point coordinates), verified against all 7 files by their directional prefix:**
+**Hotspot field (click-point coordinates), verified against all 7 files by their directional prefix.** Each hotspot lands on an inked pixel: the tip of each edge arrow, the centre of the others. Width is `cols` and height `rows`; read the other way round, `ECURSOR`'s hotspot x of 7 would fall outside its image.
 
 | File | width×height | hotspot (x,y) | Shown ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#9-cursor-rendering)) |
 |---|---|---|---|
-| CURSOR.DCI | 7×8 | (3,3) | the default in the forward and off-forward slots |
-| MCURSOR.DCI | 7×8 | (3,3) | while an HDD order waits for a map pick |
-| ECURSOR.DCI | 7×8 | (7,3) | edge-strip arrow, east |
-| WCURSOR.DCI | 7×8 | (0,3) | edge-strip arrow, west |
+| CURSOR.DCI | 8×7 | (3,3) | the default in the forward and off-forward slots |
+| MCURSOR.DCI | 8×7 | (3,3) | while an HDD order waits for a map pick |
+| ECURSOR.DCI | 8×7 | (7,3) | edge-strip arrow, east |
+| WCURSOR.DCI | 8×7 | (0,3) | edge-strip arrow, west |
 | NCURSOR.DCI | 8×8 | (3,0) | edge-strip arrow, north |
 | SCURSOR.DCI | 8×8 | (3,7) | edge-strip arrow, south |
-| PCURSOR.DCI | 9×16 | (4,4) | over the gunsight's click surface |
+| PCURSOR.DCI | 16×9 | (4,4) | over the gunsight's click surface |
 
-The sub-header from `0x18` is the ordinary 13-byte bitmap header, read by the same code as any other bitmap item (VSHELL `GLBitmap_ReadFromStream`). In all 7 files the pixels end exactly at `0x18 + subSize`, the envelope rounds its own length up to even with one zero byte, and one more zero byte follows it. `PCURSOR.DCI` carries 96 further bytes past its envelope, zero but for pairs of `0x3C` ([Open](#open)). Preserve them as raw when parsing.
+The bitmap header from `0x18` is the ordinary one ([The bitmap record](#the-bitmap-record)), read by the same code as any other bitmap item. In all 7 files the pixels end exactly at `0x18 + subSize`, the envelope rounds its own length up to even with one zero byte, and one more zero byte follows it. `PCURSOR.DCI` carries 96 further bytes past its envelope, zero but for pairs of `0x3C` ([Open](#open)). Preserve them as raw when parsing.
 
 ## `.DFN` / `.HFN` — bitmap font
 
@@ -146,4 +164,5 @@ Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_0200
 - **Open:** `PCURSOR.DCI`'s 96 bytes past its envelope. The cursor's load reads one class item, which ends at the envelope; what reads these bytes is the open question. They may be a second image layer (an AND-mask or outline) specific to this cursor.
 - **Open:** whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).
 - **Open:** the bitmap array's second `int16`, after the frame count.
+- **Open:** what a bitmap record's extra dwords hold, and what reads them from the bitmap object's `+0x16`.
 - **Open:** `dba\CORNERS.DBA`'s 606 bytes past its declared frames — whether anything reads them, or they are left over from an earlier, longer version of the file.

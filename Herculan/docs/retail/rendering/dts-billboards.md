@@ -50,11 +50,17 @@ In-memory bitmap object:
 |---|---|
 | `+4` | rows, `int16` |
 | `+6` | cols, `int16` |
+| `+8` | bits per pixel, byte |
+| `+9` | flags, byte: bits 0-3 the bitmap type, bit `0x10` opaque |
 | `+0xa` | data length |
 | `+0xe` | data pointer |
 | `+0x12` | packing type: 0 raw, 1 RLE, 3 LZH |
+| `+0x14` | extra dword count, `int16` |
+| `+0x16` | extra dwords pointer |
 
-`Bitmap_BlitRotatedScaled` (`00488a8c`) takes a pointer to `+4` and builds its source quad from it as `(0,0), (p[1]-1, 0), (p[1]-1, p[0]-1), (0, p[0]-1)`; its flip argument mirrors that quad, bit 2 in x and bit 1 in y. Callers reach it through `Bitmap_BlitRotatedUnpacked` (`00481750`), which first unpacks a packed bitmap into a scratch buffer with `Bitmap_UnpackToScratch` (`00481804`) — one decoder class per packing type — and points `+0xa`/`+0xe` at the copy for the length of the blit.
+`GLBitmap_ReadFromStream` (`00481c80`) fills these from the bitmap record ([`../formats/dfn-hfn-dci.md`](../formats/dfn-hfn-dci.md#the-bitmap-record)) in file order, `+9` taking the file byte's bits 0-4 and keeping its own bits 5-7. A bitmap of type 1 is transparent: `Bitmap_BlitClipDispatch` (`004886cc`) hands it to `Bitmap_BlitTransparent` (`00488cec`). Bit `0x10` makes the unrotated blits `Driver3_BlitClipped` (`004898a0`) and `Driver3_BlitScaled` (`0048aebc`) copy every texel; without it they skip palette index 0. Every one of the 3,515 bitmap records in the v1.0 and v1.10 archives carries 8 bits per pixel, flags 0 and packing 0, so none is packed and none is opaque; the [map raster](../simulation/heads-down-display.md#terrain-raster) is built with 8, type 0 and bit `0x10`.
+
+`Bitmap_BlitRotatedScaled` (`00488a8c`) takes a pointer to `+4` and builds its source quad from it as `(0,0), (p[1]-1, 0), (p[1]-1, p[0]-1), (0, p[0]-1)`; its flip argument mirrors that quad, bit 2 in x and bit 1 in y. Callers reach it through `Bitmap_BlitRotatedUnpacked` (`00481750`), which first unpacks a packed bitmap into a scratch buffer with `Bitmap_UnpackToScratch` (`00481804`) — one decoder class per packing type — and points `+0xa`/`+0xe` at the copy for the length of the blit. The packed data is a `uint32` unpacked size followed by an RLE or LZH stream, whose formats are in [`../runtime-library.md`](../runtime-library.md#the-decompression-filters).
 
 Every retail bitmap part carries `Transform == -1` and a centre of the origin, so the node composition `00476014` performs is the identity throughout retail data.
 
@@ -74,9 +80,3 @@ Neither routine reads the brush's second field.
 All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — shape 6 is `(23, 22)` against a 48x47 frame, shape 9 `(52, 53)` against 112x107 — which is what fixes the mechanism as "anchor lands on this pixel" rather than "quad starts here".
 
 `BULLETS.DTS` roots 2 and 3 are the exception and are authored oddly: all five parts read `(45, 45)` against 40x30 frames, so the EMP puff draws up and to the left of the round rather than centred on it. That is the retail data's own behaviour.
-
-## Open
-
-- **Open:** the byte formats of the two packings. `Bitmap_UnpackToScratch` builds a decoder per type — type 1 an `RLERStream` (`RLERStream_CtorOnSource`, `0047b430`), type 3 an `LZHRStream` (`LZHRStream_CtorOnSource`, `0047b764`), the filter streams behind `.VOL` compression types 7 and 9 ([vol-archive.md](../formats/vol-archive.md#the-per-entry-prefix--fixed-9-bytes)) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode.
-- **Open:** which files carry packed bitmaps.
-- **Open:** bitmap object `+8` (8 in the map raster) and `+9` (a flags byte in which the raster builder sets bit `0x10`).

@@ -190,7 +190,7 @@ public sealed class HudFont {
 			glyphs[i] = new DynamixBitmap {
 				Rows = (short)cellHeight,
 				Cols = (short)width,
-				BitDepth = 8,
+				BitsPerPixel = 8,
 				ImageDataLen = length,
 				ImageData = pixels,
 			};

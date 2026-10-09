@@ -31,7 +31,7 @@ if (EnergyPod)
     rate += Q10(podCurve(podDamage), 20)   // up to +20; nothing past the curve's cutoff
 ```
 
-`podCurve` is the damage curve every pod bonus shares, owned by [`equipment-pods.md`](equipment-pods.md#the-damage-curve-both-bonuses-share). The pod is `mech+0x313`, slot 3 of the array [`equipment-pods.md`](equipment-pods.md) describes.
+`podCurve` is the damage curve every pod bonus shares, owned by [`equipment-pods.md`](equipment-pods.md#the-damage-curve-the-pod-bonuses-share). The pod is `mech+0x313`, slot 3 of the array [`equipment-pods.md`](equipment-pods.md) describes.
 
 **Base rate is uniform across the fleet.** The function never reads the mech type record. At the 25 Hz tick `IntegrateRateOverTick(20)` yields 6 pool units/tick, i.e. 150/s.
 

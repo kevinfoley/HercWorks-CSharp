@@ -148,7 +148,7 @@ if (ShieldPod)
 
 `podDamage` is `Component_ReadDamagePercent(mech+0x206, pod.GL[+0x17] + 19)` — the pod's own hardpoint component, like any other mount's, so it is shooting the hardpoint a pod sits on that degrades it.
 
-The pod's share is a fraction of the *undamaged* base, so a battered machine still gets the full pod bonus. `podCurve` is the damage curve every pod bonus shares, owned by [equipment-pods.md](equipment-pods.md#the-damage-curve-both-bonuses-share).
+The pod's share is a fraction of the *undamaged* base, so a battered machine still gets the full pod bonus. `podCurve` is the damage curve every pod bonus shares, owned by [equipment-pods.md](equipment-pods.md#the-damage-curve-the-pod-bonuses-share).
 
 **Getter:** `Mech_GetShieldByHeading` (`004154d0`, mech vtable `+0x34`) — given a heading angle, returns `+0x222` within ±90° of front, else `+0x224`.
 

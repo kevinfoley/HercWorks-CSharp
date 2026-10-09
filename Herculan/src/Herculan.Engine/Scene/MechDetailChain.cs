@@ -25,6 +25,12 @@ public static class DetailMetrics {
 	public static int FocalPixels(int framebufferHeight) => Math.Max((int)MathF.Round(
 		framebufferHeight * Camera.FocalLengthPixels / Camera.FocalViewHeightPixels), 1);
 
+	// The focal length of `camera` drawn into a viewport `viewportHeight` framebuffer pixels tall, in those
+	// pixels: for a view whose focal length is its own rather than the cockpit's, as the MFD's missile
+	// camera's 2^7 is.
+	public static int FocalPixels(Camera camera, int viewportHeight) => Math.Max((int)MathF.Round(
+		viewportHeight / (2f * MathF.Tan(camera.FieldOfView / 2f))), 1);
+
 	// Eye to a detail part's own node, in world units, for an object drawn at `transform`. To the node
 	// rather than to the object's origin: the original measures after binding the part's transform, so
 	// the distance is to where that node sits.

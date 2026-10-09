@@ -64,6 +64,12 @@ public sealed class WorldDrawItems {
 	// SelectDetailLevels' per-frame scratch: the level each object's detail part chose this frame.
 	private readonly Dictionary<(SimObject, PartDetail), int> _detailLevelChoice = new();
 
+	// What Refresh last picked the detail for, which RestoreFrameDetail picks it for again after a pass from
+	// another camera.
+	private Camera? _frameCamera;
+	private int _frameFocalPixels;
+	private SimulatorPreferences? _preferences;
+
 	public WorldDrawItems(MissionScene scene, SceneUploads uploads, DrawFiling filing, uint? terrainTexture) {
 		_scene = scene;
 		_uploads = uploads;
@@ -152,26 +158,8 @@ public sealed class WorldDrawItems {
 			item.Transform = MissionScene.TransformOf(sceneObject);
 		}
 
-		// Each node of an animating machine is re-read here, alongside the whole-object transforms above.
-		// Reading more often than the simulation ticks costs nothing and gains nothing: the thread's
-		// intra-frame fraction only moves in Advance, so consecutive reads between ticks return the same
-		// pose. That is the original's cadence too — see docs/retail/rendering/dts-node-posing.md's "Evaluation cadence".
-		// Which root of each machine's shape is drawn, and which level of every detail part, settled before
-		// the two loops that follow so that a piece taken up this frame is posed and gated this frame
-		// rather than one frame stale.
-		SelectDetailRoots(camera, focalPixels, preferences);
-		SelectDetailLevels(camera, focalPixels, preferences);
-
-		foreach (var (subject, transformId, item) in _posedParts) {
-			if (!item.DetailSelected) {
-				continue;
-			}
-
-			item.Transform = MissionScene.PosedTransformOf(subject, transformId);
-		}
-
-		// The arrival gate, run before the sequence gate below so that a part which is both waiting and
-		// gated is answered by the gate once its group is in the mission. An entry is dropped the frame
+		// The arrival gate, run before the sequence gate in SelectDetail so that a part which is both waiting
+		// and gated is answered by the gate once its group is in the mission. An entry is dropped the frame
 		// it arrives -- a group deploys once and never goes back.
 		for (int i = _undeployed.Count - 1; i >= 0; i--) {
 			var (owner, parts) = _undeployed[i];
@@ -186,6 +174,43 @@ public sealed class WorldDrawItems {
 			_undeployed.RemoveAt(i);
 		}
 
+		_frameCamera = camera;
+		_frameFocalPixels = focalPixels;
+		_preferences = preferences;
+		SelectDetail(camera, focalPixels);
+	}
+
+	/// <summary>
+	/// Which root of each machine and which level of every detail part <paramref name="camera"/> sees, and the
+	/// pose and the cells of the pieces that selects. <see cref="Refresh"/> runs it for the frame's own camera;
+	/// a pass from a camera with its own eye and focal length — the MFD's missile camera — runs it again for
+	/// that camera, as the original picks every level per view
+	/// (docs/retail/simulation/mfd.md, "<c>MFDMissileView</c> — mode 5"), and
+	/// <see cref="RestoreFrameDetail"/> after it.
+	/// </summary>
+	public void SelectDetail(Camera camera, int focalPixels) {
+		if (_preferences is not { } preferences) {
+			return;
+		}
+
+		// Each node of an animating machine is re-read here, alongside the whole-object transforms in
+		// Refresh. Reading more often than the simulation ticks costs nothing and gains nothing: the thread's
+		// intra-frame fraction only moves in Advance, so consecutive reads between ticks return the same
+		// pose. That is the original's cadence too — see docs/retail/rendering/dts-node-posing.md's "Evaluation cadence".
+		// Which root of each machine's shape is drawn, and which level of every detail part, settled before
+		// the two loops that follow so that a piece taken up here is posed and gated for this draw rather
+		// than left as the last camera to select it saw it.
+		SelectDetailRoots(camera, focalPixels, preferences);
+		SelectDetailLevels(camera, focalPixels, preferences);
+
+		foreach (var (subject, transformId, item) in _posedParts) {
+			if (!item.DetailSelected) {
+				continue;
+			}
+
+			item.Transform = MissionScene.PosedTransformOf(subject, transformId);
+		}
+
 		// Which cell of each animation sequence is on screen, read straight off the object the way
 		// TSCellAnimPart_Render reads shapeInstance+8. Every piece the shape holds is already uploaded,
 		// so a destroyed component or a collapsed structure part costs a flag rather than a rebuild.
@@ -198,6 +223,13 @@ public sealed class WorldDrawItems {
 		}
 
 		RefreshWreckItems();
+	}
+
+	/// <summary>Puts back the frame camera's picks after a <see cref="SelectDetail"/> for another camera.</summary>
+	public void RestoreFrameDetail() {
+		if (_frameCamera is { } camera) {
+			SelectDetail(camera, _frameFocalPixels);
+		}
 	}
 
 	/// <summary>
@@ -446,7 +478,7 @@ public sealed class WorldDrawItems {
 
 	// Which root of each machine's shape is drawn this frame -- Shape_DrawAtDetailLevel (004033e4),
 	// ported in Render.ShapeDetail and run here because this is where the camera and the window size
-	// both are. The original runs it inside the machine's own draw slot, once per machine per frame,
+	// both are. The original runs it inside the machine's own draw slot, once per machine per view,
 	// which is this cadence.
 	//
 	// HERC DETAIL is re-read every frame for the same reason TERRAIN TEXTURE is: the preferences

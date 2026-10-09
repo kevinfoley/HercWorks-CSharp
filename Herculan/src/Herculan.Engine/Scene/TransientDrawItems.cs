@@ -23,6 +23,16 @@ public sealed class TransientDrawItems(MissionScene scene, SceneUploads uploads,
 	private Camera? _camera;
 	private int _focalPixels;
 
+	// What Refresh last built the items for, which RestoreFrameView builds them for again after a pass
+	// from another camera.
+	private Camera? _frameCamera;
+	private int _frameFocalPixels;
+	private SimulatorPreferences? _preferences;
+
+	// The frame camera's ground shapes, kept aside while another camera's are up. Put back rather than
+	// rebuilt, because a rebuild conforms every shape it takes up again.
+	private readonly List<GroundShapeDraw> _frameGroundShapes = new();
+
 	public List<SceneItem> Projectiles { get; } = new();
 
 	/// <summary>
@@ -53,6 +63,9 @@ public sealed class TransientDrawItems(MissionScene scene, SceneUploads uploads,
 
 	/// <summary>This frame's items, for the camera about to draw them.</summary>
 	public void Refresh(Camera camera, int focalPixels, SimulatorPreferences preferences) {
+		_frameCamera = camera;
+		_frameFocalPixels = focalPixels;
+		_preferences = preferences;
 		_camera = camera;
 		_focalPixels = focalPixels;
 		RefreshProjectileItems();
@@ -61,6 +74,47 @@ public sealed class TransientDrawItems(MissionScene scene, SceneUploads uploads,
 		RefreshGroundShapeItems(camera);
 		RefreshWeaponItems(preferences);
 		RefreshSpriteBatches();
+	}
+
+	/// <summary>
+	/// The items that depend on the camera, rebuilt for a pass from a camera with its own eye and focal
+	/// length — the MFD's missile camera, whose paint submits the frame again with itself as the view object
+	/// (docs/retail/simulation/mfd.md, "<c>MFDMissileView</c> — mode 5"). Those are the items that carry a
+	/// level of detail — rounds, wreckage and guns, after <see cref="WorldDrawItems.SelectDetail"/> has picked
+	/// each machine's root for <paramref name="camera"/>, which decides the hardpoint slot each gun is painted
+	/// in — and the ground shapes, which are submitted by their distance from the view object and conformed
+	/// to the terrain as they are drawn. Everything keeps this frame's draw entries.
+	/// <see cref="RestoreFrameView"/> puts the frame camera's back.
+	/// </summary>
+	public void RefreshForView(Camera camera, int focalPixels) {
+		_frameGroundShapes.Clear();
+		_frameGroundShapes.AddRange(world.GroundLayer.Shapes);
+		RefreshDetailItems(camera, focalPixels);
+		RefreshGroundShapeItems(camera);
+	}
+
+	/// <summary>The frame camera's items again, after a <see cref="RefreshForView"/>.</summary>
+	public void RestoreFrameView() {
+		if (_frameCamera is { } camera) {
+			RefreshDetailItems(camera, _frameFocalPixels);
+		}
+
+		var shapes = world.GroundLayer.Shapes;
+		shapes.Clear();
+		shapes.AddRange(_frameGroundShapes);
+	}
+
+	// The items that carry a level of detail, for `camera`. Rebuilding them has no effect beyond the lists.
+	private void RefreshDetailItems(Camera camera, int focalPixels) {
+		if (_preferences is not { } preferences) {
+			return;
+		}
+
+		_camera = camera;
+		_focalPixels = focalPixels;
+		RefreshProjectileItems();
+		RefreshDebrisItems(preferences);
+		RefreshWeaponItems(preferences);
 	}
 
 	// One transient shape's items for this frame -- a gun on its mount, a launcher round or a piece of

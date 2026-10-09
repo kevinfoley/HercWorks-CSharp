@@ -95,13 +95,19 @@ sealed class WorldPassRenderer : IDisposable {
 	/// <summary>
 	/// The MFD's MISSILE CAM, from inside the overlay's pass over the forward panel: the world as
 	/// MfdMissileViewScreen_Paint draws it, from the camera the screen placed, into the screen's own rect. It is
-	/// the cockpit view's draw again with three things changed, all of them the paint's own: no sky — the overlay
+	/// the cockpit view's draw again with four things changed, all of them the paint's own: no sky — the overlay
 	/// has already flooded the rect with the colour the paint floods it with — the terrain untextured whatever
-	/// TERRAIN TEXTURE says, and every object submitted, the machine being flown among them, since the view
-	/// object is the camera and not the cockpit.
+	/// TERRAIN TEXTURE says, every object submitted, the machine being flown among them and the ground shapes
+	/// within range of this camera, since the view object is the camera and not the cockpit, and every level
+	/// of detail picked by size on this screen from this camera. The cockpit's items are put back after it.
 	/// </summary>
 	public void DrawMissileView(GL gl, int x, int y, int width, int height, Camera view, Camera cockpitCamera) {
 		view.FarPlane = cockpitCamera.FarPlane;
+
+		// The world's picks first: a gun's rebuilt item is painted in the slot of its machine's drawn root.
+		int focalPixels = DetailMetrics.FocalPixels(view, height);
+		_world.SelectDetail(view, focalPixels);
+		_transient.RefreshForView(view, focalPixels);
 
 		gl.Enable(EnableCap.ScissorTest);
 		gl.Scissor(x, y, (uint)width, (uint)height);
@@ -126,6 +132,8 @@ sealed class WorldPassRenderer : IDisposable {
 
 		groundLayer.Objects.CameraAttachedTo = riding;
 		terrainItem.TextureHandle = terrainTexture;
+		_world.RestoreFrameDetail();
+		_transient.RestoreFrameView();
 
 		Scene.Sky = sky;
 		gl.Disable(EnableCap.ScissorTest);

@@ -168,6 +168,8 @@ Three mech vtable slots (vtable at `0049a282`), each reading a different descrip
 | `+0x18` | `Behaviour_DispatchThink` (`00415b38`) | `+0x18` | Think |
 | `+0x1c` | `Behaviour_DispatchReassess` (`00415b74`) | `+0x30` | Reassess |
 
+**What a move returns is thrown away.** `Mech_AiTick` overwrites `EAX` straight after the `+0x14` call and never tests it, unlike the think's. So the value `SimObject_TickNoOp` (`00411ab4`) returns means nothing there: the ACTOR base and the five structure classes (LC_BASE, VEHICLE, GUN_BASE, BASE, RADAR_BASE) hold it in that slot, and it does nothing but return 1. The slot means more on the projectile pool, where `Sim_MainTick` frees an object whose `+0x14` returns nonzero; no projectile class's vtable holds `SimObject_TickNoOp`. Among the slot `+0x14` calls the DBSIM decompile shows, those two are the ones made on a simulation object.
+
 Each calls `(*slot.func)(mech + slot.thisDelta)`. Because these are pointer-to-member calls made through the dispatchers rather than vtable entries, Ghidra reports zero xrefs on every think and move function in the table above — which is why the AI reads as unreachable code until the tables are followed by hand.
 
 *Reassess* is this project's name for the `+0x30` slot, taken from what its two implementations do; the game's own name for it is not in the binary.

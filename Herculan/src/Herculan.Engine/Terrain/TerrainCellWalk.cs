@@ -86,8 +86,10 @@ public static class TerrainCellWalk {
 	/// <summary>
 	/// <c>Poly_ClipToHalfPlane</c> (<c>00472ac0</c>): one Sutherland–Hodgman pass keeping the part of
 	/// the polygon with X (<paramref name="alongX"/>) or Y at or above <paramref name="value"/>
-	/// (<paramref name="keepHigh"/>) or at or below it, points on the line kept. The emit rule is the
-	/// function's own 19-entry jump table, indexed by the previous and current points' sides.
+	/// (<paramref name="keepHigh"/>) or at or below it, points on the line kept. What each edge emits is
+	/// the function's 19-byte selector table, indexed by the previous and current points' sides, whose
+	/// byte picks one of five cases through its jump table (docs/retail/rendering/polygon-fill.md,
+	/// "Walking a polygon's cells").
 	/// </summary>
 	private static List<(int X, int Y)> ClipToHalfPlane(bool keepHigh, bool alongX, int value,
 			List<(int X, int Y)> polygon) {

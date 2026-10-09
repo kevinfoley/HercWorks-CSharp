@@ -183,8 +183,14 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObject_InstallModelTransform",
-      "description": "Builds the object's Q14 euler rotation matrix at obj+0x12 when the dirty flag at obj+0x32 is clear, then installs it as the current model transform. Called twice by Shape_DrawAtDetailLevel, around the LOD pick.",
-      "source": "docs/retail/rendering/mech-shape-drawing.md"
+      "description": "MatObjVtable +0x00 (Draw) and the model-transform step of every object draw. While the frame-valid word at obj+0x32 is 0 it builds the Q14 euler rotation matrix at obj+0x12 from the angles at obj+0x0c (BuildEulerRotationMatrixQ14) and sets the word to 1; it then installs obj+0x12 as the current model transform (Raster_SetModelTransform). Called by Shape_DrawAtDetailLevel twice (around the LOD pick), Debris_Draw, FlatObj_Draw, Meteor_Render, Bullet_Draw and TSObj_Draw (es2_xref).",
+      "source": "docs/retail/rendering/mech-shape-drawing.md",
+      "verified": {
+        "bytes": "00401fe4+55",
+        "sha1": "dbe35ad61b9f",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0040201c",
@@ -486,7 +492,13 @@
       "confidence": "high",
       "name": "ConfigPart_Render",
       "description": "CONFIG_PART vtable +0x1c (0049a494): draws the shape bound in the part's SHAPE_INST member. When +0x10 holds a shape: makes shape+0x26 the current DBA context (g_CurrentShapeDbaContext), TSGroup_BindNodeTransform(this, local), makes the part's own cell-frame copy (+0x14) g_CellAnimFrames, TSPartList_Render(shape), restores both globals and calls Render_NoOp. The private frame copy is what lets each mount's weapon model play its own flipbook.",
-      "source": "DBSIM decompile at 0040316c; docs/retail/simulation/weapon-mounts.md"
+      "source": "DBSIM decompile at 0040316c; docs/retail/simulation/weapon-mounts.md",
+      "verified": {
+        "bytes": "0040316c+104",
+        "sha1": "7cc2da652b16",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004031d4",
@@ -921,7 +933,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_ComponentPosition",
-      "description": "Structure vtable +0x58: the world position of one destructible part, which is what the blast falloff measures from. Builds the object's rotation from its euler triple if the +0x32 dirty flag is set, then puts the component's own point at BASES.DAT component record +0x10 through the object transform at obj+0x12. No node resolution -- a structure's parts do not move -- and NOT the BASECOL.DAT sphere geometry a shot is tested against.",
+      "description": "Structure vtable +0x58: the world position of one destructible part, which is what the blast falloff measures from. Builds the object's rotation from its euler triple while the frame-valid word at obj+0x32 is 0 (setting it to 1), then puts the component's own point at BASES.DAT component record +0x10 through the object transform at obj+0x12. No node resolution -- a structure's parts do not move -- and NOT the BASECOL.DAT sphere geometry a shot is tested against.",
       "source": "docs/retail/simulation/hit-detection.md",
       "signature": "void __cdecl Base_ComponentPosition(StructureObject *this, short componentIndex, int *out)"
     },
@@ -1253,7 +1265,13 @@
       "confidence": "high",
       "name": "LightManager_SelectLightsUnconditional",
       "description": "No reference found by es2_xref. A cull-by-fixed-distance variant of LightManager_SelectLightsForObject that always builds a point light, with no directional approximation.",
-      "source": "docs/retail/rendering/effect-lights.md"
+      "source": "docs/retail/rendering/effect-lights.md",
+      "verified": {
+        "bytes": "00407284+215",
+        "sha1": "1d9bc6f3d70e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040735c",
@@ -1289,7 +1307,13 @@
       "confidence": "high",
       "name": "LightManager_RecycleLight",
       "description": "Unregisters a synthesised light and pushes it back onto the manager's directional (+0x35c) or point (+0x3b0) free list by its type field +0x16.",
-      "source": "docs/retail/rendering/effect-lights.md"
+      "source": "docs/retail/rendering/effect-lights.md",
+      "verified": {
+        "bytes": "00407500+72",
+        "sha1": "55f34b01b881",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00407548",
@@ -1393,8 +1417,23 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_ReregisterPersistent",
-      "description": "Light_Register on every entry of Light_PersistentList. ObjList_DrawEntryRender calls it when DAT_004cfa08 is set.",
-      "source": "DBSIM decompile at 00407878"
+      "description": "Light_Register on every entry of Light_PersistentList (count Light_PersistentCount, 00497ae4).",
+      "source": "DBSIM decompile at 00407878",
+      "verified": {
+        "bytes": "00407878+38",
+        "sha1": "1ec480513aed",
+        "scope": "body",
+        "via": "both"
+      }
+    },
+    {
+      "address": "004078a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_UnregisterPersistent",
+      "description": "Light_Unregister on every entry of Light_PersistentList (count Light_PersistentCount, 00497ae4): the mirror of Light_ReregisterPersistent, which it follows. Ghidra has no function here; es2_xref finds no branch to it and no stored pointer.",
+      "source": "capstone disassembly of 004078a0-004078c5"
     },
     {
       "address": "004078c8",
@@ -2448,7 +2487,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_HomingSteer",
-      "description": "The plasma round's guidance, and a steer of the object's EULER ANGLES rather than of a velocity: takes the bearing from the shot to obj+0x5b's position via Math_EulerToward, moves euler[0] and euler[2] toward it through Math_RateLimitedMoveToward capped at 0x280 per 125 ms, integrates over the tick, and clears the matrix-dirty flag at obj+0x32.",
+      "description": "The plasma round's guidance, and a steer of the object's EULER ANGLES rather than of a velocity: takes the bearing from the shot to obj+0x5b's position via Math_EulerToward, moves euler[0] and euler[2] toward it through Math_RateLimitedMoveToward capped at 0x280 per 125 ms, integrates over the tick, and stores 0 to the frame-valid word at obj+0x32, so the next reader rebuilds the rotation.",
       "source": "docs/retail/simulation/projectiles.md"
     },
     {
@@ -3844,8 +3883,8 @@
       "description": "Given a template and the hardpoint's mounting code (.GL +6: 0 on top, 1 underneath, 2 left, 3 right, 4 invisible), returns a 3-vector at 004a9b74 built from the template's lateral figure at +0x46 and vertical figure at +0x4a. Only one axis is ever nonzero: top/bottom take +/-vertical, left/right take -/+lateral, invisible takes neither. Y is always zero. This is what makes a mirrored hardpoint pair fire from mirrored points off one template.",
       "source": "docs/retail/simulation/weapon-firing.md",
       "verified": {
-        "bytes": "0040f904+125",
-        "sha1": "582c97c9e7fb",
+        "bytes": "0040f904+145",
+        "sha1": "e447f953c063",
         "scope": "body",
         "via": "disasm"
       }
@@ -4552,8 +4591,14 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObject_TickNoOp",
-      "description": "Vtable +0x14 of the ACTOR base and all five structure tables: returns 1 in AX and does nothing. The mech and flyer install their behaviour move dispatchers here (Behaviour_DispatchMove, Flyer_DispatchMove).",
-      "source": "DBSIM decompile and disassembly at 00411ab4"
+      "description": "Vtable +0x14 of the ACTOR base and all five structure tables (LC_BASE, VEHICLE, GUN_BASE, BASE, RADAR_BASE): returns 1 in AX and does nothing. The mech and flyer install their behaviour move dispatchers here (Behaviour_DispatchMove, Flyer_DispatchMove). Mech_AiTick, which calls the slot on each group member, discards what it returns. See docs/retail/simulation/ai-dispatch.md#how-the-per-tick-work-reaches-a-state.",
+      "source": "DBSIM decompile and disassembly at 00411ab4",
+      "verified": {
+        "bytes": "00411ab4+9",
+        "sha1": "4486105d0aab",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00411ac0",
@@ -5915,8 +5960,8 @@
       "description": "The km/h figure the HUD prints for a mech. A walker: mech+0x28e * typeRec+0xc2 / typeRec+0x06, where MechType_InitOne sets typeRec+0xc2 = Math_Q10Multiply(315, raw forward speed) before rescaling +0x06, so top speed reads 315/1024 of the file's forward speed (docs/retail/simulation/mech-locomotion.md). A flyer (typeRec+0x50 != 0, the RAZOR): Math_MapRange(mech+0x2bd airspeed, 0, typeRec+0x206 (the .FM's top airspeed), 0, typeRec+0xc2), where +0xc2 is the chassis file's own value because the loader writes it for walkers alone -- 265 on the RAZOR (docs/retail/simulation/razor-flight.md#hud-speed).",
       "source": "docs/herculan/planning.md (world scale recovery)",
       "verified": {
-        "bytes": "0041bb3c+90",
-        "sha1": "d708b4ee0e12",
+        "bytes": "0041bb3c+93",
+        "sha1": "b60539c41045",
         "scope": "body",
         "via": "decompile"
       }
@@ -6190,8 +6235,8 @@
       "description": "The reassess slot of behaviour states 3-7 and 18. Puts the machine's radar to ACTIVE unless its group is led by the local player; keeps a just-handed target (+0xac) or re-acquires with Ai_SelectTarget, the squad order verb choosing between the order's own target and a free pick; a committed machine under a movement order instead falls into Mech_AiSelectBehaviour and drops the fight. A group's first member re-enters every other live uncommitted member, so one machine's fight commits the group. Then runs Mech_AiFleeCheck and, if that did not decide, installs attacking base / attacking flyer for a structure or flyer and facing off / attacking / flanking for a HERC by Mech_CompareCombatRating; an outgunned machine flanks only with both leg-damage latches (+0xa8, +0xa9) clear and typeRec+0xc8 over 0xb9, and faces off otherwise.",
       "source": "docs/retail/simulation/ai-targeting.md",
       "verified": {
-        "bytes": "0041cf18+935",
-        "sha1": "9a28c29d9340",
+        "bytes": "0041cf18+940",
+        "sha1": "956517ad4a7e",
         "scope": "body",
         "via": "disasm"
       }
@@ -7383,8 +7428,8 @@
       "source": "docs/retail/simulation/ai-squadmates.md",
       "signature": "bool __cdecl Squad_BroadcastOrder(int group, SquadOrderRecord *order)",
       "verified": {
-        "bytes": "004231a4+400",
-        "sha1": "118fc0751c47",
+        "bytes": "004231a4+436",
+        "sha1": "fa0cc10e5d3a",
         "scope": "body",
         "via": "disasm"
       }
@@ -7706,8 +7751,8 @@
       "description": "Pass 2 of DBSIM's two reads of the handoff, and the pass that builds the mission's objects. Re-opens data\\script (string 0049aa3e plus extension), sets the announced mission status DAT_004a9ed0 to 0xffff, skips the header and blocks 1-6 and reads blocks 7-12. Block 7, then the player.mec entries, between WeaponModels_LoadShapeChunks and WeaponModels_FreeShapeChunks: for each slot DBSim_LoadScriptDat marked live it allocates from GlobalMechList and runs Mech_Constructor with the type. A roster record supplies the position ref at +0x3e (Terrain_HeightQuery plus typeRec+0x16, plus 5000 when typeRec+0x50 is set; an unset ref leaves the position sentinel), heading +0x40, fit +0x2a and ammunition +0x6a to Mech_ConfigureLoadout, radar +0x00, cruise speed +0x02 when non-negative, engaged and defeated actions +0x80/+0x82, out-of-action counters +0x42/+0x56 and starting condition +0x84 to Mech_ApplyStartingCondition. A player.mec entry gets the sentinel position and heading, its fit (+8, +0x20), Mech_ApplySquadCondition from its three condition spans and its pilot index at mech+0x29c, and the entry at DAT_004aaae8 becomes PlayerMech with locallyPiloted set. Block 8: Flyer_Constructor with type +0x2c, position +0x28 taken without a height query, heading +0x2a, actions +0x56/+0x58, counters +0x2e/+0x42. Block 9: Base_Construct on the record, position +0x02 registered with Terrain_MarkStructureFootprint and then Terrain_HeightQuery, heading +0x04, actions +0x2e/+0x30, counters +0x06/+0x1a. Block 10 into 0x16-byte order records at DAT_004a9eb4, the subject through Mission_ResolveRefByKind. Block 11 into MissionGroups (stride 0x7a) through DBSim_BuildGroupRecord: record 0's members become the player.mec machines (map entries at block-7 count + k), every other record's refs are remapped through its kind's slot-to-pool map; a group with no heading ref takes Math_HeadingToward from its slot-0 route's second waypoint to its first when that route has two or more; a base group whose paints-ground flag is 1 calls Base_ApplyFormationTerrain on its first member. Block 12 into 0x4c-byte objective records at DAT_004a9ec4: the subject through Mission_ResolveRefByKind, three mission.str line pointers from g_MissionStringLines and the empty string 0049a870. Then Terrain_FlattenStructureFootprints, every structure's height re-queried, and each action's target resolved: types 0-6 cleared, 7, 8 and 9 as mech, flyer and base slots, 10 as a group, any other type left as stored.",
       "source": "docs/retail/formats/script-dat.md (mission placement)",
       "verified": {
-        "bytes": "004253d8+4377",
-        "sha1": "a99f8f927976",
+        "bytes": "004253d8+4412",
+        "sha1": "b0670f27cdb7",
         "scope": "body",
         "via": "decompile"
       }
@@ -7997,13 +8042,13 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_SimObject_TransformPointPairToWorld",
-      "description": "(obj, out): returns 0 when the pointer at obj+0x41 is null. Otherwise builds the object's Q14 rotation (BuildEulerRotationMatrixQ14 from obj+0xc into obj+0x12) when the dirty flag obj+0x32 is clear, and Transform_ApplyToPoint's the two Point3I at *(obj+0x41) and *(obj+0x41)+0xc through the object transform at obj+0x12 into out and out+0xc; returns out. What a pair of points at obj+0x41 is has not been read; maybe_SimObject_TransformPointPairToWorldStatic is the caller found by es2_xref.",
+      "description": "(obj, out): returns 0 when the pointer at obj+0x41 is null. Otherwise builds the object's Q14 rotation (BuildEulerRotationMatrixQ14 from obj+0xc into obj+0x12) while the frame-valid word obj+0x32 is 0 (setting it to 1), and Transform_ApplyToPoint's the two Point3I at *(obj+0x41) and *(obj+0x41)+0xc through the object transform at obj+0x12 into out and out+0xc; returns out. What a pair of points at obj+0x41 is has not been read; maybe_SimObject_TransformPointPairToWorldStatic is the caller found by es2_xref.",
       "source": "DBSIM disassembly at 00427ba4",
       "verified": {
         "bytes": "00427ba4+156",
         "sha1": "c911e7c68f72",
         "scope": "body",
-        "via": "disasm"
+        "via": "decompile"
       }
     },
     {
@@ -8232,8 +8277,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ObjList_DrawEntryRender",
-      "description": "Slot 0 of the depth-sorted render entry's vtable (stamped as PTR_FUN_0049ac38 by ObjList_DrawEntryConstruct). Reads the entry's cached position (+4/+8/+0xc) and object pointer (+0x32), calls Raster_SetDepthFadeFromDistance with the entry's own distance (+0x12), then calls the object's vtable slot 0 -- Bullet_Draw for a projectile. This is why every pooled effect is distance-fogged from its own range. After the draw, while the pick flag 004cf9b4 is set, a pick pixel no longer reading 1 records the object at 004cf9c0 and is reset to 1; and while 0049abbc is set and the object is the probed one (004cf9f8), ObjProbe_MarkCorners.",
-      "source": "docs/retail/rendering/distance-fog-and-sky.md"
+      "description": "Slot 0 of the depth-sorted render entry's vtable (stamped as PTR_FUN_0049ac38 by ObjList_DrawEntryConstruct). Reads the entry's cached position (+4/+8/+0xc) and radius (+0x10), runs LightManager_SelectLightsForObject with them, WorldShades_ApplyForObject with the object (+0x32), the entry's distance (+0x12) and the byte 004cfa08, Raster_SetDepthFadeFromDistance with that distance, then the object's vtable slot 0 -- Bullet_Draw for a projectile. After the draw it runs Light_ReregisterPersistent while 004cfa08 is set; while the pick flag 004cf9b4 is set, a pick pixel no longer reading 1 records the object at 004cf9c0 and is reset to 1; and while 0049abbc is set and the object is the probed one (004cf9f8), ObjProbe_MarkCorners.",
+      "source": "docs/retail/rendering/distance-fog-and-sky.md",
+      "verified": {
+        "bytes": "0042876c+208",
+        "sha1": "beb21a4debaa",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0042883c",
@@ -10309,8 +10360,8 @@
       "description": "(queue, index): the queued record at slot index -- queue + slot(+0x1ea + index*4) * 0x31 -- or 0 when index is at least the count (+0x21c). MessagePort_QueueFront is the index-0 case. A 56-byte block inside it (004350e1-00435118) is jumped over: an inlined sprintf to 004d12c3 of a record's +0x18 string. Caller found by es2_xref: MessagePort_StampedQueueTimeAt.",
       "source": "DBSIM decompile at 004350d4",
       "verified": {
-        "bytes": "004350d4+51",
-        "sha1": "0c13ba26cb5d",
+        "bytes": "004350d4+107",
+        "sha1": "218364e13d07",
         "scope": "body",
         "via": "decompile"
       }
@@ -10691,8 +10742,8 @@
       "description": "Puts the current message up. Swallows a repeat of the same id inside 300 coarse ticks (about 4.8 s), and a swallowed repeat refreshes that window rather than leaving it. Otherwise latches the line, restores the box rect, publishes the scroll origin, repaints, plays an alert tone picked by a switch on the id (0x00/0x13 -> 0x19 strcfail; 0x0c/0x0f/0x10/0x14/0x15 -> 0x18 wrnwoop2; everything else 0x1a gnract -- the switch names fourteen further ids (0x17, 0x19, 0x1d-0x1f, 0x2a-0x2f, 0x34, 0x37, 0x38) that all reach the default arm's tone, and 0x36, whose arm also sets the blink latch +0x4d3), then speaks the line. Message 0x36 TRANSFERRING DATA is armed to blink here.",
       "source": "docs/retail/simulation/audio.md",
       "verified": {
-        "bytes": "00436abc+478",
-        "sha1": "642124f48024",
+        "bytes": "00436abc+559",
+        "sha1": "b2ce181de63e",
         "scope": "body",
         "via": "decompile"
       }
@@ -13572,8 +13623,8 @@
       "description": "MFD button dispatch, the display's slot 0, (display, button): finds the clicked button's index in the +0x18 array (count +0x68) and returns if it is not there, then switches on it. Indices 0-5 call MfdDisplay_SetMode(i) -- this is what makes mode index = F-key - 1. 7 (SELECT) and 9 (TARGET) are one case: MfdDisplay_StepStatusSubject on mode 0, Cockpit_CycleTarget on any other, then the mode's repaint byte (+0xe5 + mode) and 100 into the current screen's +0xc. 8 (RANGE) calls MfdDisplay_CycleScannerRange and sets the repaint byte. 10 (XMIT) returns while CockpitMouse_DoubleClick is set, and otherwise calls MfdFlashComm_Transmit and sets the repaint byte. 11 (PASS) and 12 (ACTIVE) store 0/1 to CockpitViewInstance+0x203's +0x96, light their own button's +0x40 and clear the other's, invalidating both. 6 has no case. See docs/retail/simulation/mfd.md.",
       "source": "docs/retail/simulation/mfd.md",
       "verified": {
-        "bytes": "0044681c+368",
-        "sha1": "db23e7e1033d",
+        "bytes": "0044681c+420",
+        "sha1": "fc6ce57e5581",
         "scope": "body",
         "via": "decompile"
       }
@@ -13587,8 +13638,8 @@
       "description": "MFDGauge vtable +0x0c (0049cfa0), (display, key): returns 0 while CockpitView_RectCornerVisible says the display's rect (+0xeb) is off screen. 0x20 (D), 0x2d (X) and 0x214 (Alt+T) press children 7, 10 and 9 when the current mode's (+0xc1) row of the button-visibility table shows them (0049cbdf, 0049cbe2, 0049cbe1, 13 bytes a mode); 0x213 (Alt+R) presses child 8 where the row shows it and runs MfdDisplay_CycleScannerRange where it does not. 0x34 and 0x33 (. and ,) run MfdFlashComm_NextAvailableRow or _PrevAvailableRow and set the byte at +0xe5 + mode, on mode 1 only. Those six codes return 1 on any mode. On mode 1, 0x1e, 0x22, 0x23, 0x18, 0x12 or 0x2e, and 0x21 run MfdFlashComm_SelectRow(display, +0xfb, row) for rows 0-5 and return 1. Anything else returns 0.",
       "source": "DBSIM decompile at 004469c0",
       "verified": {
-        "bytes": "004469c0+534",
-        "sha1": "d5a7a5f1d273",
+        "bytes": "004469c0+591",
+        "sha1": "abbb8ad4fe5a",
         "scope": "body",
         "via": "decompile"
       }
@@ -13602,8 +13653,8 @@
       "description": "(mfd, code): FLASH COMM's [Alt] order keys, offered every code before the MFD's own command slot. For 0x21e, 0x222, 0x223, 0x218, 0x221 ([Alt]+A G H O F) it selects row 0, 1, 2, 3 or 5 through 0043f9b8 on the comm screen (+0xd1), transmits (MfdFlashComm_Transmit) and selects the row again (MfdFlashComm_SelectRow); 0x22e and 0x212 ([Alt]+C, E) select row 4 and transmit only when MfdFlashComm_SelectedVerb is 4 or 7 respectively. Returns 1 for those seven codes, 0 for any other. See docs/retail/simulation/mfd.md.",
       "source": "DBSIM decompile at 00446c10",
       "verified": {
-        "bytes": "00446c10+357",
-        "sha1": "8b093ff0e11f",
+        "bytes": "00446c10+418",
+        "sha1": "bd0c58637a6b",
         "scope": "body",
         "via": "disasm"
       }
@@ -14451,8 +14502,8 @@
       "description": "Heads-Down Display key handler (display, code). Through Widget_PressChild(display, child, 1): 0x48 (up) presses child 2, 0x50 (down) 3, 0x4b (left) 4, 0x4d (right) 5, 0x0c and 0x4a ([-], keypad -) 6, 0x0d and 0x4e ([=], keypad +) 7, and 0x02-0x04 ([1]-[3]) 10-12. 0x1f, 0x17 and 0x11 ([S], [I], [W]) run HddDisplay_SetPage(display, 1) and set the damage screen's (+0x105) view to 0, 1 and 2. Any other code goes to the current page's (+0x101 + page*4, page at +0x109) own dispatch, vtable +0x10, whose result it returns; it returns 1 for the codes above.",
       "source": "docs/retail/simulation/cockpit-hud-widgets.md",
       "verified": {
-        "bytes": "00449fcc+355",
-        "sha1": "7df921b72a6e",
+        "bytes": "00449fcc+383",
+        "sha1": "3d30ed75ef1b",
         "scope": "body",
         "via": "decompile"
       }
@@ -14476,8 +14527,8 @@
       "source": "docs/retail/simulation/heads-down-display.md",
       "signature": "void __cdecl HddDisplay_HandleWidgetPress(int hddDisplay)",
       "verified": {
-        "bytes": "0044a178+1045",
-        "sha1": "7fd9cc12494d",
+        "bytes": "0044a178+1130",
+        "sha1": "94495ffa9a46",
         "scope": "callees",
         "via": "decompile"
       }
@@ -14716,8 +14767,8 @@
       "description": "Paints one HDDSelectGadget, gated on state +0x1b < 2, switched on its index +0x28. 0/1 (the F7/F8 page buttons) take the frame from the selection flag +0x40 and caption themselves 'F7'/'F8' from the shared 'Fx' literal at 0049d4f5 in ColorSchemePanels[12] lit / [10] not -- they have no pressed state; 2-7 (four arrows, two magnifiers) take the frame from the press byte +0x1b and so light only while held. 10-12 (the comm boxes) branch on the owner's highlight mode +0x529: mode 0 fills the widget's own rect, in 004d3c18's colour with +0x40 set and 004d3c26's without; mode 1 fills a gauge's marker rect, the current slot's (+0x517) in 004d3c1e's colour with +0x40 set and the previous slot's (+0x52b) in 004d3c1a's without, nothing when that slot is -1. 13/14 blit the plate and caption XMIT/CANCEL from STRINGS0 group 9, frame and font both indexed by the press byte (font from 0049b0bc); 13 also calls HddCommandScreen_RedrawOrderHighlight with the press byte on page 0. 8 and 9 have no case.",
       "source": "docs/retail/simulation/heads-down-display.md",
       "verified": {
-        "bytes": "0044bb38+657",
-        "sha1": "bd48f8813df6",
+        "bytes": "0044bb38+696",
+        "sha1": "6728e280cdbf",
         "scope": "body",
         "via": "decompile"
       }
@@ -14933,8 +14984,8 @@
       "description": "Vtable slot 4 of the [F7] command display: switches on a DOS scancode, not a widget index. D/A/F/T/G/O/C/E feed their row to the order column's click (HddCommandScreen_SynthesizeListClick), so each acts as a click on that row, ,< and .> step through them, Tab cycles the eligible unit for ATTACK ENEMY or DEFEND POSITION, Enter feeds the map's click -- arm 1 with a held unit for ATTACK ENEMY or DEFEND POSITION, arm 0 for DEFEND POSITION without one and for PATROL GRIDPOINT and GOTO GRIDPOINT, nothing for ATTACK ENEMY without one -- keypad 5 recentres the map, and X and Backspace press the XMIT and CANCEL widgets. Tab is the case with sounds of its own: Sound_Play(0x1a) when the unit slot +0x15c holds a unit after the cycle and it becomes the pick, 0x1b when the slot is empty. X only presses XMIT, through Widget_PressChild.",
       "source": "docs/retail/simulation/heads-down-display.md; docs/retail/simulation/audio.md",
       "verified": {
-        "bytes": "0044cc40+553",
-        "sha1": "1a09a2e5eca4",
+        "bytes": "0044cc40+680",
+        "sha1": "ff722f1b0021",
         "scope": "body",
         "via": "decompile"
       }
@@ -15420,8 +15471,8 @@
       "description": "(screen, side): the next unit for Tab. When the pick at +0x15c is null or of another group side (+0x45 -> +0x12), returns maybe_GlobalLiveObjectList's first object if HddCommandScreen_IsEligibleUnit(screen, obj, side) passes it, else walks on from the second. When the pick is of that side, walks the list to it first -- a loop with no exit when the pick is not on the list -- and goes on from the object after it. The walk wraps to the list's head and ends where it began, the pick or the first object tested last; it returns the first eligible object, or 0 when none is.",
       "source": "DBSIM decompile at 0044ef08",
       "verified": {
-        "bytes": "0044ef08+264",
-        "sha1": "780db9c96313",
+        "bytes": "0044ef08+268",
+        "sha1": "5ce697affd23",
         "scope": "body",
         "via": "decompile"
       }
@@ -15735,8 +15786,14 @@
       "type": "function",
       "confidence": "high",
       "name": "HddDamageScreen_Repaint",
-      "description": "HDDDamage vtable +0x00 (0049dab0): sets +0x80 to -1, then HddDamageScreen_Update(screen, 0).",
-      "source": "DBSIM decompile at 00450b2c"
+      "description": "HDDDamage vtable +0x00 (0049dab0): sets the previous category +0x80 to -1, which no category equals, so HddDamageScreen_Update takes its category-changed path and redraws the whole page; then HddDamageScreen_Update(screen, 0).",
+      "source": "DBSIM decompile at 00450b2c",
+      "verified": {
+        "bytes": "00450b2c+29",
+        "sha1": "b7494eb93081",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00450b4c",
@@ -15745,7 +15802,13 @@
       "confidence": "high",
       "name": "HddDamageScreen_Tick",
       "description": "HDDDamage vtable +0x04 (0049dab0), the per-frame slot: HddDamageScreen_Update(screen, 1).",
-      "source": "DBSIM decompile at 00450b4c"
+      "source": "DBSIM decompile at 00450b4c",
+      "verified": {
+        "bytes": "00450b4c+19",
+        "sha1": "e2fe114add8a",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00450b60",
@@ -15798,7 +15861,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HddDamageScreen_Update",
-      "description": "Per-frame update and repaint. Picks the name table by category and subject type -- STRINGS0 groups 13/14 for structural (walker/flyer), 15/16 for internal, the mech's own weapon names for weapons -- floods the screen with colour id 3, sets the subject caption, blits the .PDG view for the category (0 structural, 1 internal) at the screen rect's top-left plus the view's own origin, tints its regions through PaperDoll_RecolorRectFromArt, and refills the rows. A row is a .PDG region in file order, not a table entry: the region's index selects both the name and the reading (armour entry 1+id for structural, dependent entry 20+id for internal, combined entry 32+slot for a weapon mount). Both of a row's labels are re-fonted from Damage_PickRegionTint's state through ColorSchemePanels 1, 3, 9, 2, 7. Structural regions 0 and 1 share a rect, so row 0 tints on the mean of both cockpit halves and row 1 tints nothing. See docs/retail/simulation/heads-down-display.md.",
+      "description": "Per-frame update and repaint. Picks the name table by category and subject type -- STRINGS0 groups 13/14 for structural (walker/flyer), 15/16 for internal, the mech's own weapon names for weapons -- floods the screen with colour id 3, sets the subject caption, blits the .PDG view for the category (0 structural, 1 internal) at the screen rect's top-left plus the view's own origin, tints its regions through PaperDoll_RecolorRectFromArt, and refills the rows. A row is a .PDG region in file order, not a table entry: the region's index selects both the name and the reading (armour entry 1+id for structural, dependent entry 20+id for internal, combined entry 32+slot for a weapon mount). Both of a row's labels are re-fonted from Damage_PickRegionTint's state through ColorSchemePanels 1, 3, 9, 2, 7. Structural regions 0 and 1 share a rect, so row 0 tints on the mean of both cockpit halves and row 1 tints nothing. Its flag argument gates only the Widget_DrawToCockpit calls, which copy each redrawn rect to the other display page: HddDamageScreen_Tick passes 1, HddDamageScreen_Repaint 0. See docs/retail/simulation/heads-down-display.md.",
       "source": "docs/retail/simulation/heads-down-display.md"
     },
     {
@@ -17398,8 +17461,8 @@
       "description": "The preferences panel's modal loop and its action switch. Greys widgets 0-3 to state 2 when SfxManager is null, clears the queued action (+0x356), enters, focuses widget 0, and copies the panel's region between display pages. Each pass hands the input build to the slot +0x10 handler, acts on a queued widget index, then calls PreferencesPanel_CallDrawHook and PreferencesPanel_Present. Cases 0, 1 and 5 toggle options 0, 1 and 8; cases 4 and 6 step options 7 and 9 forward on a left click and back on a right; cases 7 and 8 (options 10 and 11) call the FORWARD step down both arms of their right-button test, so STRUCTURE DETAIL and EFFECTS DETAIL cannot be stepped backwards; cases 2 and 3 step options 2 and 3 forward only, and only while VoiceArchivePresent is set. A case that steps an option sets that row's refresh count to 2. Case 9 constructs ctl_alrt and runs it inline, then repaints this panel and focuses its cancel widget (+0x2fb). Case 10 calls PreferencesPanel_Save and sets the close flag to 3. Returns the close flag & 1.",
       "source": "docs/retail/simulation/preferences.md",
       "verified": {
-        "bytes": "00456d4c+869",
-        "sha1": "7671bdf7689d",
+        "bytes": "00456d4c+913",
+        "sha1": "b0160027814d",
         "scope": "body",
         "via": "both"
       }
@@ -17613,8 +17676,8 @@
       "description": "The controls panel's modal loop and its 14-case action switch. First asks Input_GetDevice(3) for a joystick and, when that answers null or with bit 0 clear, stores no capability block (+0x47a) and greys all twelve rows to state 2; otherwise stores Input_QueryCapabilities' block and greys the THROTTLE, RUDDER and HAT rows and every button row past the reported count. Seeds the four axis bytes and each button row's slot (+0x462) from the option array, enters, focuses widget 0, and loops until the close flag +0x2d1 is set: input to the slot +0x10 handler, then the queued action (+0x45a), then each widget's deferred paint (slot +0xc) and AlertPanel_Present. The switch runs only with a capability block whose first word is non-zero, and only then clears +0x45a. Cases 1-4 step an axis option over three values, forward on a left click and back on a right, when that axis is present (for JOYSTICK, when the block is), and clear the list selection; 5-12 select that button row and step it, forward on a left click and back on a right, when it is under the button count; 13 writes Input_RecommendedBindings' twelve bytes; 14 calls ControlsPanel_Save and Prefs_CommitOptions. The close itself is ControlsPanel_OnClick's.",
       "source": "docs/retail/simulation/preferences.md",
       "verified": {
-        "bytes": "00458650+1500",
-        "sha1": "1ab932c259dc",
+        "bytes": "00458650+1560",
+        "sha1": "149aed70fdc0",
         "scope": "body",
         "via": "both"
       }
@@ -19359,8 +19422,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_CreateMissionSun",
-      "description": "Called exactly once per mission, unconditionally, from Sim_InitMissionSession (Sim_InitMissionSession) right after the light-system reset (Light_ResetSystem) and before DBSim_LoadScriptDat -- creates the ONE directional 'sun' light every mission gets. Direction is NOT read from any mission/theater file: it's built from two HARDCODED constant vectors, local_38=(0,0x1000,0) and local_40=(-6000,0,21000), combined via BuildEulerRotationMatrixQ14 (looks like a normalize/transform) then RotateVectorByMatrixQ14 (looks like it derives a direction from a target-point + up-vector pair, output stored as the light's direction field). Intensity is set via vtable+4 call with literal 0x100 (256). The created light is registered via Light_Register (Light_Register) AND pushed onto a persistent list (Light_PersistentList) via Light_AddPersistent, so it survives a later Light_ReregisterPersistent (Light_ReregisterPersistent) call. No separate ambient (type=0) light creation was found anywhere in the binary -- Light_ComputeShadeForFace's type-0 branch may be genuinely unused by real missions, meaning faces angled away from the sun likely render fully unlit (shade=0), not floor-lit. BuildEulerRotationMatrixQ14/RotateVectorByMatrixQ14/DotProductVec3Short_Thunk (the actual per-face dot-product math) are not decoded; the lighting is a single fixed sun direction and intensity with no mission-specific lighting data.",
-      "source": "flat-shaded lighting RE, docs/retail/rendering/dts-texture-binding.md"
+      "description": "Creates the mission's sun: a 0x34-byte TSLight (two TSContext_Ctor halves, +0 and +0x1e) retyped TSSunLightVtable with type +0x16 = 1, intensity 0x100 through its vtable +4, and direction +0x10 = (0, 0x1000, 0) rotated by BuildEulerRotationMatrixQ14 of the constant (-6000, 0, 21000); then Light_Register and Light_AddPersistent. No mission or theater data enters it.",
+      "source": "flat-shaded lighting RE, docs/retail/rendering/dts-texture-binding.md",
+      "verified": {
+        "bytes": "00461240+257",
+        "sha1": "d920d88fe231",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00461344",
@@ -19476,8 +19545,8 @@
       "description": "Loads str\\SOUNDS.STR -- one .STR group of 57 entries, each a filename plus a 7-byte attribute blob -- into three parallel arrays: names (004d2b0c), attribute pointers (004d2bfc) and voice handles (004d2cfc), count in 004d2dec. Per entry: _strlwr the name, pick the Sfx_Open type from two strstr tests (.hmp gives 0, else .wav gives 1, else EDI is left as it was), resolve the path through Sound_ResolveSamplePath and Sfx_Open it; on success priority 5, Sfx_SetLooping to attribute byte 0, Sfx_SetVolume to Math_Q16Multiply(byte 1, 65000), Sfx_Cache if byte 2 is set, then default byte 4 to 5 and byte 5 to 100 where they are 0xff and set byte 8 to 100. Both strstr calls search the 20-byte stack buffer the function reserves at entry and never writes, not the name, so the type is the same for every row and, when the stale bytes hold neither extension, is EDI's value on entry. A row == 0 gives type 2 arm at 004624eb follows an unconditional jump past it. Finally it sets each speech slot's +0x3c to the row count and +0x3e to -1. The code reads a TEN-byte blob: bytes 7-9 are runtime scratch (resume flag, category volume, request counter) that the file does not supply.",
       "source": "docs/retail/simulation/audio.md",
       "verified": {
-        "bytes": "00462448+432",
-        "sha1": "b8e9c11f13d4",
+        "bytes": "00462448+444",
+        "sha1": "2007d35c24da",
         "scope": "body",
         "via": "both"
       }
@@ -21080,8 +21149,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SetDepthFadeFromDistance",
-      "description": "Sets DAT_004a08c8, the depth-slice byte offset Raster_ShadeRampRow adds: zero for anything inside half the visibility range (DAT_004a08c4), otherwise Math_Q16Multiply(t, depthSlices - 1) * shadeLevels * 256. That is the original's distance fog, and it is what the world<N>.rmp's 12 height slices are for. Called per drawn object (ObjList_DrawEntryRender, with the object's own distance), per terrain cell (Terrain_DrawCellQuad), and with zero from TexPoly_DrawAtPoints.",
-      "source": "docs/retail/rendering/distance-fog-and-sky.md"
+      "description": "Sets DAT_004a08c8, the depth-slice byte offset Raster_ShadeRampRow adds: zero for anything inside half the visibility range (DAT_004a08c4), otherwise Math_Q16Multiply(t, depthSlices - 1) * shadeLevels * 256 with t = min(Math_Q16Divide((d - range/2) * 2, range), 1) and d clamped to the range. That is the original's distance fog, and it is what the world<N>.rmp's 12 height slices are for. Callers found by es2_xref: ObjList_DrawEntryRender (with the object's own distance), Terrain_DrawCellQuad (per cell) and TexPoly_DrawAtPoints (with zero).",
+      "source": "docs/retail/rendering/distance-fog-and-sky.md",
+      "verified": {
+        "bytes": "00467fec+102",
+        "sha1": "6be2cbc9c6b9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00468054",
@@ -21090,7 +21165,13 @@
       "confidence": "high",
       "name": "Raster_ShadeRampRow",
       "description": "Raster_ShadeRampRow(shade) = ((shade * (DAT_004d3d38 - 1) + DAT_004a08c8) & 0xffffff00) + ShadeRampTable -- the base of one 256-byte row of the theater's world<N>.rmp, indexable directly by palette index. DAT_004d3d38 is the ramp's shade-level count (32 in every retail file) and DAT_004a08c8 a whole number of 8192-byte depth slices set from the drawn object's distance by Raster_SetDepthFadeFromDistance. Both flat poly renderers call it with a literal 0x80, which with 32 levels is row 15.",
-      "source": "docs/retail/rendering/dts-texture-binding.md; docs/retail/rendering/distance-fog-and-sky.md"
+      "source": "docs/retail/rendering/dts-texture-binding.md; docs/retail/rendering/distance-fog-and-sky.md",
+      "verified": {
+        "bytes": "00468054+35",
+        "sha1": "b9798acd9ba4",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00468078",
@@ -21098,8 +21179,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SetupTexturedSpan",
-      "description": "Per-vertex setup for the textured/Gouraud span fills. In its param_6 == 2 (Gouraud) branch it computes each vertex's ramp row as shade * (DAT_004d3d38 - 1) + DAT_004a08c8 << 8 -- the same arithmetic as Raster_ShadeRampRow, depth bias included. Together with Raster_DrawPolygon's mode-1 branch this is why the Gouraud and textured paths fog by the same rule as the flat ones, even though neither renderer calls Raster_ShadeRampRow itself. Its param_1 (positions, stride 3 int32) and param_2 (UV corners, stride 2 int32) are both walked one entry per vertex for param_3 vertices, and param_3 is the poly's own vertex count (poly+8). That is why a 3-vertex TSTexture4Poly is textured from the first three of the four corners its caller always writes -- see docs/retail/rendering/dts-texture-binding.md, 'Three-vertex texture polys'.",
-      "source": "docs/retail/rendering/dts-texture-binding.md, 'Three-vertex texture polys'; docs/retail/rendering/distance-fog-and-sky.md, 'The fade'"
+      "description": "Per-vertex setup for Raster_DrawPolygon's textured span fills, (positions, uvCorners, count, atlasPage, shades, mode, worldSpace, transparency). For each of count vertices it takes param_1's position (stride 3 int32) through Raster_ModelToView unless param_7 is set, projects it when its depth is at least the near plane DAT_006c60b0, stores param_2's UV corner (stride 2 int32) shifted left 8, the view depth when maybe_g_DepthBufferEnabled is set, and in mode 2 a ramp row from that vertex's entry of param_5: shade * (DAT_004d3d38 - 1) + DAT_004a08c8, shifted left 8 -- the same arithmetic as Raster_ShadeRampRow, depth bias included. It then clips the ring against the near plane, interpolating position, UVs and (mode 2) the row at each crossing, and calls Raster_DrawPolygon(clippedCount, ring, mode, atlasPage, shades, transparency). With Raster_DrawPolygon's mode-1 branch this is how the textured span fills apply the depth bias without calling Raster_ShadeRampRow. Both lists are walked one entry per vertex for param_3 vertices, and TSTexture4Poly_Render passes the poly's own vertex count (poly+8), which is why a 3-vertex TSTexture4Poly is textured from the first three of the four corners its caller always writes -- see docs/retail/rendering/dts-texture-binding.md, 'Three-vertex texture polys'.",
+      "source": "docs/retail/rendering/dts-texture-binding.md, 'Three-vertex texture polys'; docs/retail/rendering/distance-fog-and-sky.md, 'The fade'",
+      "verified": {
+        "bytes": "00468078+663",
+        "sha1": "23b305348bf9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00468310",
@@ -21107,8 +21194,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygon",
-      "description": "Polygon submit: (vertexCount, vertices, mode, atlasPage, shadeLevelPtr, transparencyFlag). Clips, builds edges, then walks scanlines calling the span routine the mode selects -- 0 Raster_SpanTextured (u,v only), 1 Raster_SpanTexturedShaded (u,v plus a shade level taken from param_5), 2 Raster_SpanTexturedGouraud (u,v plus a third interpolant, which Raster_DrawPolygon reads from slot +0x14 of its edge records; it sits at +0x18 in the vertex record Raster_SetupTexturedSpan fills). param_4 goes to DAT_004a09b4 as the atlas page; param_6 to DAT_004a09ac, which selects the span routine's transparent half. In mode 1 it turns *param_5 into a ramp row in place -- shade * (DAT_004d3d38 - 1) + DAT_004a08c8, the depth bias included -- so this path fogs by the same rule as Raster_ShadeRampRow without calling it. See Raster_SetupTexturedSpan for the mode-2 equivalent.",
-      "source": "docs/retail/simulation/beam-visuals.md"
+      "description": "Polygon submit: (vertexCount, vertices, mode, atlasPage, shadeLevelPtr, transparencyFlag). Clips the ring with Raster_ClipPolygonX and Raster_ClipPolygonY, builds edges with Raster_BuildEdgeTables, then walks scanlines calling the span routine the mode selects -- 0 Raster_SpanTextured (u,v only), 1 Raster_SpanTexturedShaded (u,v plus one ramp row for the whole poly), 2 Raster_SpanTexturedGouraud (u,v plus a third interpolant, which it reads from slot +0x14 of its edge records; it sits at +0x18 in the vertex record Raster_SetupTexturedSpan fills) -- or the routine's Clipped twin when ActiveScanlineClipSpans is set and either maybe_g_DepthBufferEnabled is set or the render context's clip mode (+0x208) is 2. With the depth buffer on it runs Raster_DepthTestSpan on each row first. param_4 goes to DAT_004a09b4 as the atlas page; param_6 to DAT_004a09ac, which selects the span routine's transparent half. In mode 1 it turns *param_5 into a ramp row in place -- shade * (DAT_004d3d38 - 1) + DAT_004a08c8, the depth bias included, shifted left 8 into DAT_004a09c4 -- so this path fogs by the same rule as Raster_ShadeRampRow without calling it. See Raster_SetupTexturedSpan for the mode-2 equivalent.",
+      "source": "docs/retail/simulation/beam-visuals.md",
+      "verified": {
+        "bytes": "00468310+843",
+        "sha1": "2172f2ee492f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046865c",
@@ -21128,8 +21221,8 @@
       "description": "(verts, uvs, vertexCount, bitmapHandle, shades, shadeMode, viewSpaceFlag, transparency), the parameters of Raster_SetupTexturedSpan and Raster_DrawTexturedPolyNear. Fills the 0x28-byte records at Raster_VertexBuffer as they do (Raster_ModelToView unless viewSpaceFlag; Raster_PerspectiveDivide and Raster_ProjectToScreen for a vertex at or beyond the near plane DAT_006c60b0; mode 2's ramp row from shades) and also stores (1 << (DAT_006c60ac + 16)) / z at +0x14. The near-plane pass copies 7 dwords of each kept vertex to 004d4768 and multiplies its u and v by that +0x14 value; a crossing vertex gets +0x14 = 0x10000 and u, v interpolated and shifted left 16. Then Raster_ClipPolygonX/Y and Raster_BuildEdgeTables with flags 3 (|4 in mode 2, |8 with maybe_g_DepthBufferEnabled), mode 1's ramp row from *shades, and each row filled by the mode's affine span routine (Raster_SpanTextured, Raster_SpanTexturedShaded, Raster_SpanTexturedGouraud, or their Clipped variants while ActiveScanlineClipSpans is in use), its two interpolants stepped linearly across the row. transparency goes to DAT_004a09ac and bitmapHandle to DAT_004a09b4. No reference found by es2_xref.",
       "source": "DBSIM decompile at 00468fec",
       "verified": {
-        "bytes": "00468fec+1712",
-        "sha1": "1c7579ece7c3",
+        "bytes": "00468fec+1918",
+        "sha1": "44bae0af20de",
         "scope": "body",
         "via": "decompile"
       }
@@ -21523,8 +21616,8 @@
       "description": "Frameless span routine; Raster_SpanTexturedGouraudQuadraticClipped calls it (0048b72c). The second-order u/v stepping of maybe_Raster_SpanTexturedShadedQuadratic with the ramp row per pixel (DAT_004a09c4 stepped by DAT_004a09c8), and ESP as the destination pointer (ESP saved at 004a09e4, SS loaded from DS for the loop).",
       "source": "DBSIM disassembly at 0046af9c",
       "verified": {
-        "bytes": "0046af9c+223",
-        "sha1": "9cd626ffcd67",
+        "bytes": "0046af9c+225",
+        "sha1": "5316ac2af951",
         "scope": "body",
         "via": "disasm"
       }
@@ -21810,8 +21903,8 @@
       "description": "(grid, bitmap, bias): the retail zone heightmap loader; TerrainZone_LoadHeightmap calls it for a .dba path. Treats the Dynamix bitmap's 8-bit pixel grid as the heightmap: the width and height shifts (+0x100, +0x104) are the log2 of the bitmap's width (+6) and height (+4), the 16-byte cell array (+0xec) and the per-cell scratch byte array (+0xf0) are allocated, and rows are read bottom-up from the pixel pointer at bitmap+0xe. Each pixel less the bias byte becomes the cell's raw height (+0), the scratch byte is zeroed through HeightGrid_SetCellScratchByte, and +0x114 keeps the largest raw height seen. The +0xf material bits are set with the selector bit 1 kept (& 2): a cell on a block boundary rolls Math_RandomNext() & 0xfff < 0x4ce (about 30%) for material 1 against 0 -- the roll's upper bound is the literal 2 (CMP EBX,0x2 at 0046c5ca), not the mat0 count -- and every other cell copies its block's base cell, the block mask being (1 << (0x15 - mat0[0]+4 - cellShift)) - 1. Afterwards +0x110 (height base) is 0, +0x114 is multiplied by the height scale +0x118 into the zone's highest world height, and HeightOffsetTable_SetScale(grid+0xd0, base, scale) and HeightOffsetTable_Reset run. Every retail ZONE*.DBA is 128x128 (16418 bytes) or 256x256 (65570 bytes), the pixel count plus a 34-byte bitmap header.",
       "source": "memory project_es2_exe_recon (terrain data-structure session)",
       "verified": {
-        "bytes": "0046c3c0+650",
-        "sha1": "ce39cf709be6",
+        "bytes": "0046c3c0+653",
+        "sha1": "52bbd1b994b7",
         "scope": "body",
         "via": "disasm"
       }
@@ -22662,8 +22755,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ClipToHalfPlane",
-      "description": "The DBSIM copy of VSHELL's Poly_ClipToHalfPlane (004300c7): (keepHigh, alongX, value, in, out), the same comparisons and the same jump table dispatch on 10 * !keepHigh + 3 * previous side + current side, in a frame 8 bytes larger (0x50 against 0x48). Its two callers, 00471e38 and 004723f8, follow its calls with Poly_BuildSpanList, the pattern of VSHELL's CellWalk_Polygon and CellWalk_PolygonByColumn.",
-      "source": "DBSIM decompile and disassembly at 00472ac0, compared with VSHELL 004300c7"
+      "description": "The DBSIM copy of VSHELL's Poly_ClipToHalfPlane (004300c7), the same code in a frame 8 bytes larger (0x50 against 0x48). (keepHigh, alongX, value, in, out): one Sutherland-Hodgman pass keeping the part of polygon in ({count, points*}) with x (alongX) or y at >= value (keepHigh) or <= value, writing the points through out's point pointer (out+4, filled in before the call) and the count to out+0, and returning the count's low byte; a polygon of no points gives 0. Each point is classed -1, 0 or +1 by the sign of its coordinate minus value, the first edge running from the last point to the first. The 19-byte table at 00472bdd (the same bytes as VSHELL's at 004301da), indexed by (keepHigh ? 0 : 10) + 3*previous + current + 4, picks a case through the five-dword table at 00472bf0: 0 or 1 emits nothing, 2 the current point, 3 the crossing then the current point, 4 the crossing alone. So a current point on the kept side is emitted, preceded by the crossing when the previous one was on the dropped side; a current point on the line is emitted alone, whatever the previous one; and a current point on the dropped side emits the crossing when the previous one was on the kept side and nothing otherwise. A crossing takes value on the cut axis and prev + (cur - prev) * (value - prevCut) / (curCut - prevCut) on the other, measured from the previous point, the product in 32 bits and the division truncating.",
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells",
+      "verified": {
+        "bytes": "00472ac0+671",
+        "sha1": "288f1c33a97f",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00472d60",
@@ -23271,8 +23370,8 @@
       "description": "(digitalId, midiId, window, arg4): opens whichever SOS drivers are asked for and not yet open. MIDI (midiId != 0xffff, 004a0e6e clear) is detected first (Sos_MidiDetectInit/FindFirst/UnInit). Digital (digitalId != -1, 004a0e6c clear): detect, Sos_InitSystem, Sos_TimerInitSystem, then the format word 006b5662: the configured bits (004a0e5c | 004a0e5e | 004a0e60) when the detected capabilities 006b5660 hold all of them, else 0x15 when they hold one of 0x15's bits, else it returns the capabilities | 0x1c0000. Fills the rest of the driver block 006b5614 (digitalId at +0, window, arg4, 0x78, 0x40, buffers from 004a0e64 at 006b5680 and 004a0e62 at 006b5682), Sos_InitDriver into Sos_DriverHandle, Sos_SetActiveWindow, and sets 004a0e6c. MIDI then: Sos_MidiInitSystem and Sos_MidiInitDriver into 006b56f4; for driver type 0xa002 or 0xa009 with capability bit 2 it loads MELODIC.BNK and DRUM.BNK and installs them with Sos_MidiSetInsData; sets 004a0e6e. Returns 0, or 1 after an SOS error, which it keeps in Sos_LastError. Callers found by es2_xref: Sos_InitBackend, twice.",
       "source": "DBSIM decompile at 00473da0; strings at 004a0ebc, 004a0ec8",
       "verified": {
-        "bytes": "00473da0+843",
-        "sha1": "c087e8b0683d",
+        "bytes": "00473da0+845",
+        "sha1": "1d47dae5b50b",
         "scope": "body",
         "via": "decompile"
       }
@@ -23565,8 +23664,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_Render",
-      "description": "Not TSSolidPoly_Render, which structural resemblance to VSHELL's TSSolidPoly_Render suggests. DBSIM's DTS type registry (g_TSObjectTypeRegistry, 004a63c8) settles it by construction: tag 0x0014000f -> ctor 0048e210 -> final vtable 004a5f24, whose slot +0x1c is this function. The surface's front value is a frame index into g_CurrentShapeDbaContext[1] here, because this is the TEXTURED poly type; the flat/solid type is TSSolidPoly_Render (00474db4) and works completely differently. Also the only reader of DAT_004a5b1c: when that is zero it passes mode 0 to Raster_SetupTexturedSpan (00468078), which projects and clips the poly and hands it to Raster_DrawPolygon (00468310), whose mode-0 fill is a plain texture copy with no light term. Bullet_Draw (0040a120) and ObjList_DrawCellObjects (00428c60, around a ground shape's draw) zero it for the duration of one object's draw, which is what makes a round fullbright. No vertex-count branch anywhere in its UV setup: it writes all four corners of the frame descriptor unconditionally and passes poly+8 (the vertex count) to the rasterizer, which reads only that many. 40 retail TSTexture4Polys have 3 vertices and are textured this way; the back-face case's swap of positions/corners 1 and 3 touches a slot a triangle does not have. See docs/retail/rendering/dts-texture-binding.md, 'Three-vertex texture polys'.",
-      "source": "docs/retail/rendering/dts-texture-binding.md"
+      "description": "Not TSSolidPoly_Render, which structural resemblance to VSHELL's TSSolidPoly_Render suggests. DBSIM's DTS type registry (g_TSObjectTypeRegistry, 004a63c8) settles it by construction: tag 0x0014000f -> ctor 0048e210 -> final vtable 004a5f24, whose slot +0x1c is this function. The surface's front value is a frame index into g_CurrentShapeDbaContext[1] here, because this is the TEXTURED poly type; the flat/solid type is TSSolidPoly_Render (00474db4) and works completely differently. Reads DAT_004a5b1c (the only reader es2_xref finds): when that is zero it passes mode 0 to Raster_SetupTexturedSpan (00468078), which projects and clips the poly and hands it to Raster_DrawPolygon (00468310), whose mode-0 fill is a plain texture copy with no light term. Bullet_Draw (0040a120) and ObjList_DrawCellObjects (00428c60, around a ground shape's draw) zero it for the duration of one object's draw, which is what makes a round fullbright. No vertex-count branch anywhere in its UV setup: with g_TexturedPolyUseBitmapBrush 0 (JZ at 0047515e to 0047527b) it copies the poly+8 vertices into slots 0.. of the static 12-byte-stride position array 006b7a9c, writes all four UV corners of the frame descriptor into 006b7acc unconditionally, and passes poly+8 (the vertex count) to the rasterizer, which reads only that many. When the poly faces away it then swaps position slots 1 and 3 (006b7aa8, 006b7ac0) and UV corners 1 and 3. On a 3-vertex poly the copy filled slots 0-2 only, so slot 1 takes whatever slot 3 held from an earlier call (from the last call that wrote it: corner 3 of a front-facing quad, or corner 1 of a back-facing quad or triangle), the triangle's own corner 1 goes to slot 3 unread, and the triangle drawn is corner 0, that stale point and corner 2 with UVs (F0,F1), (F0,F3), (F2,F3). The 76 bytes Ghidra leaves undefined at 0047522f-0047527a, after the unconditional JMP at 0047522a, hold a second copy loop that writes vertex i to slot count-1-i; es2_xref finds no branch or pointer into 0047522f. See docs/retail/rendering/dts-texture-binding.md, 'Three-vertex texture polys'.",
+      "source": "docs/retail/rendering/dts-texture-binding.md",
+      "verified": {
+        "bytes": "00474e9c+1423",
+        "sha1": "8da37839d0c0",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0047542c",
@@ -23583,8 +23688,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGouraudPoly_Render",
-      "description": "The DBSIM copy of VSHELL's TSGouraudPoly_Render (00423193).",
-      "source": "es2_naming.py diff DBSIM 004755c8 VSHELL 00423193: differs only in callee labels and decompiler typing; RTTI TSGouraudPoly vtable slot"
+      "description": "TSGouraudPoly's render: picks the front (surface[0] fill, [1] line) or back ([2], [3]) pair by TSPoly_FrontBackVisibilityTest into the default brush colour 006c60dc and the line colour 006c60d4, and draws nothing when both carry 0x14 in the top byte. Otherwise lights each vertex with Light_ComputeShadeForFace(point of the normal list poly+0xe entry, point of the vertex list entry), the normal negated when the poly faces away, keeping the low byte; projects (Poly_ProjectShapeVertices), clips with Poly_ClipRingToNearPlaneWithShade when a vertex fell behind the near plane, and fills through PolyFill_FillThenOutline with PolyFill_FillBrush mode 1 (Raster_FillContourPolygon) and the shade list at 006c60e4. The DBSIM copy of VSHELL's TSGouraudPoly_Render (00423193).",
+      "source": "es2_naming.py diff DBSIM 004755c8 VSHELL 00423193: differs only in callee labels and decompiler typing; RTTI TSGouraudPoly vtable slot",
+      "verified": {
+        "bytes": "004755c8+477",
+        "sha1": "ad7349b95c84",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004757a8",
@@ -23611,7 +23722,13 @@
       "confidence": "high",
       "name": "TSGroup_RenderPolys",
       "description": "DBSIM's counterpart to VSHELL's symbol of the same name, and the same field layout: +0x10 Indexes (defaulted when null), +0x14 Points, +0x18 Surfaces, +0x22 colorCount (memset size for the scratch buffer), +0x1c Polys walked as object pointers, +0x26 Polys.Length. Loop body calls each poly's vtable slot +0x1c. Opens by calling TSGroup_BindNodeTransform (00476014), which is what places the group's geometry at its own animated node -- see docs/retail/rendering/dts-node-posing.md.",
-      "source": "docs/retail/rendering/dts-node-posing.md"
+      "source": "docs/retail/rendering/dts-node-posing.md",
+      "verified": {
+        "bytes": "004758c8+234",
+        "sha1": "5378ccf762a4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004759b4",
@@ -23694,8 +23811,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ShapeInst_BindNodeTransformArray",
-      "description": "Binds the shape instance's per-node world transform array (shapeInst+0x16) to the render-side global g_ShapeNodeWorldTransforms, and on a non-null bind clears the 0x32-byte per-node cache-flag block at &g_ShapeNodeTransformCacheFlags and resets the render-context stack index DAT_006bb368. Called before a shape's groups are drawn.",
-      "source": "docs/retail/rendering/dts-node-posing.md"
+      "description": "(shapeInst, nodeTransforms): stores the per-node world transform array in g_ShapeNodeWorldTransforms; when it is non-null, clears the 0x32-byte per-node flag block g_ShapeNodeTransformCacheFlags, saves the renderer's state into slot 0 of g_TSTransformStates (Raster_SaveState), sets the block's first byte, and resets the installed-slot index DAT_006bb368 to 0.",
+      "source": "docs/retail/rendering/dts-node-posing.md",
+      "verified": {
+        "bytes": "00475fd8+59",
+        "sha1": "631dc484a94b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00476014",
@@ -23704,7 +23827,13 @@
       "confidence": "high",
       "name": "TSGroup_BindNodeTransform",
       "description": "One-line forwarder: ShapeNode_InstallTransform(group, out, (short)*(group + 4)). Field +4 is TSBasePart.Transform, the same transform id the camera part id resolves to through a part -- so every geometry group is drawn through its own node. See docs/retail/rendering/dts-node-posing.md.",
-      "source": "docs/retail/rendering/dts-node-posing.md"
+      "source": "docs/retail/rendering/dts-node-posing.md",
+      "verified": {
+        "bytes": "00476014+26",
+        "sha1": "99d1950d8f6a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00476030",
@@ -23808,8 +23937,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartList_Render",
-      "description": "The DBSIM copy of VSHELL's TSPartList_Render (0042203a).",
-      "source": "es2_naming.py diff DBSIM 004766fc VSHELL 0042203a: differs only in callee labels and decompiler typing; RTTI TSPartList vtable slot"
+      "description": "TSPartList vtable +0x1c: installs the part's own transform id (TSGroup_BindNodeTransform), then renders each of its +0x10 children from the pointer array +0x12 in order through their vtable +0x1c. The DBSIM copy of VSHELL's TSPartList_Render (0042203a).",
+      "source": "es2_naming.py diff DBSIM 004766fc VSHELL 0042203a: differs only in callee labels and decompiler typing; RTTI TSPartList vtable slot",
+      "verified": {
+        "bytes": "004766fc+69",
+        "sha1": "c9cad78ff5c4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00476744",
@@ -23848,7 +23983,13 @@
       "confidence": "high",
       "name": "TSCellAnimPart_Render",
       "description": "TSCellAnimPart vtable +0x1c. Draws exactly ONE child per call: children[cellFrames[animSequence +0x16] % childCount], where cellFrames is the drawing shape instance's own per-sequence frame array (global g_CellAnimFrames). The children are animation frames, not sub-parts. Identified via g_TSObjectTypeRegistry tag 0x0014000b -> ctor 0048fee8 -> vtable 004a629c.",
-      "source": "docs/retail/rendering/dts-billboards.md"
+      "source": "docs/retail/rendering/dts-billboards.md",
+      "verified": {
+        "bytes": "004767e4+77",
+        "sha1": "887217490cfb",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00476834",
@@ -23925,8 +24066,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBSPPart_RenderNode",
-      "description": "Walks a TSBSPPart's BSP tree from one node, back-to-front. Nodes are 14 bytes at part+0x18 (int16 normal triple, int32 coeff, front int16, back int16) with a parallel per-node transform id at part+0x1c (-1 = untransformed). A front/back value below zero draws nothing; with bit 0x4000 set it names child (value & 0x3fff) and renders it through vtable +0x1c; otherwise it is another node index. A child no node reaches is never drawn -- the Parts array is a pool the tree indexes, not a draw list.",
-      "source": "docs/retail/rendering/dts-texture-binding.md"
+      "description": "Walks a TSBSPPart's BSP tree from one node, back-to-front. Nodes are 14 bytes at part+0x18 (int16 normal triple, int32 coeff, front int16, back int16) with a parallel per-node transform id at part+0x1c (-1 = untransformed: the plane is tested against the eye copy at 006bb36c directly, otherwise through that node's world transform in g_ShapeNodeWorldTransforms). A front/back value below zero draws nothing; with bit 0x4000 set it names child (value & 0x3fff) and renders it through vtable +0x1c; otherwise it is another node index. Children are drawn where a node's front or back names them: the Parts array is a pool the tree indexes, not a draw list. It installs no transform itself.",
+      "source": "docs/retail/rendering/dts-texture-binding.md",
+      "verified": {
+        "bytes": "00476a1c+238",
+        "sha1": "277f0ea77f3f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00476b0c",
@@ -23934,8 +24081,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBSPPart_Render",
-      "description": "The DBSIM copy of VSHELL's TSBSPPart_Render (0042286d).",
-      "source": "es2_naming.py diff DBSIM 00476b0c VSHELL 0042286d: differs only in callee labels and decompiler typing; RTTI TSBSPPart vtable slot"
+      "description": "TSBSPPart vtable +0x1c: installs the part's own transform id (TSGroup_BindNodeTransform), copies g_EyeInModelSpace into 006bb36c-006bb374 for the plane tests, then walks the BSP tree from node 0 (TSBSPPart_RenderNode). The DBSIM copy of VSHELL's TSBSPPart_Render (0042286d).",
+      "source": "es2_naming.py diff DBSIM 00476b0c VSHELL 0042286d: differs only in callee labels and decompiler typing; RTTI TSBSPPart vtable slot",
+      "verified": {
+        "bytes": "00476b0c+86",
+        "sha1": "cbb4fe280fcc",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00476b64",
@@ -25163,8 +25316,8 @@
       "description": "The DBSIM copy of VSHELL's Assert_Report: (logger, severity, condition, file, line, message). Severities 4-6 run the hooks (Assert_RunHooks), emit (Assert_Emit), call Assert_Emit again with severity 1 (which has no case and prints nothing), call 00464fc8 and MainWindow_KillTimer, PostQuitMessage(0) and _exit(1); lower severities only emit.",
       "source": "DBSIM decompile and disassembly at 00479b6c",
       "verified": {
-        "bytes": "00479b6c+128",
-        "sha1": "14cab57d5478",
+        "bytes": "00479b6c+131",
+        "sha1": "5ae91c229058",
         "scope": "body",
         "via": "decompile"
       }
@@ -25283,8 +25436,8 @@
       "description": "Formats and outputs one assert by severity (the DBSIM copy of VSHELL's Assert_Emit): 2 prints the message, 3 counts (006c58b0) and shows the formatted line in a MessageBoxA titled 'Error', 4 prints it and shows the box, 5 prefixes 'Internal Error: Please call Sierra...' and shows the box, 6 prints the break notice. 3-5 call 004668b0 first.",
       "source": "DBSIM decompile and disassembly at 00479e18",
       "verified": {
-        "bytes": "00479e18+368",
-        "sha1": "728249eacd02",
+        "bytes": "00479e18+401",
+        "sha1": "f1926dfaa657",
         "scope": "body",
         "via": "decompile"
       }
@@ -26180,8 +26333,14 @@
       "type": "function",
       "confidence": "high",
       "name": "RLERStream_Read",
-      "description": "The DBSIM copy of VSHELL's RLERStream_Read (0044f10c).",
-      "source": "es2_naming.py diff DBSIM 0047b5f8 VSHELL 0044f10c: differs only in callee labels and decompiler typing; RTTI RLERStream vtable slot"
+      "description": "RLERStream slot +0x18 (stream, count, dst), with status 0: run-length decodes count bytes from the source +8. A control byte with bit 7 set is a run of (control & 0x7f) copies of the byte after it (the byte +0xc, the remaining run +0xd); one with bit 7 clear is that many literal bytes copied from the source with Stream_ReadCopy3 (remaining +0xe). The position +0x8e advances by every byte out and by one more for each run's value byte. A failed source read copies the source's status and returns 0. The DBSIM copy of VSHELL's RLERStream_Read (0044f10c).",
+      "source": "es2_naming.py diff DBSIM 0047b5f8 VSHELL 0044f10c: differs only in callee labels and decompiler typing; RTTI RLERStream vtable slot",
+      "verified": {
+        "bytes": "0047b5f8+288",
+        "sha1": "ebcef92d1313",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047b718",
@@ -26241,7 +26400,13 @@
       "confidence": "high",
       "name": "LZHRStream_Open",
       "description": "(lzh, source): LZHRStream_Close, attach the source at +8, start the Huffman coder on it (LZHuffman_Start), fill the first 0xfc4 bytes of the window with spaces, set the window position to 0xfc4 and copy the source's status. The DBSIM copy of VSHELL's LZHRStream_Open.",
-      "source": "DBSIM decompile and disassembly at 0047b868"
+      "source": "DBSIM decompile and disassembly at 0047b868",
+      "verified": {
+        "bytes": "0047b868+85",
+        "sha1": "eaf8ca250012",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047b8c0",
@@ -26276,8 +26441,14 @@
       "type": "function",
       "confidence": "high",
       "name": "LZHRStream_Read",
-      "description": "The DBSIM copy of VSHELL's LZHRStream_Read (0044f4b8).",
-      "source": "es2_naming.py diff DBSIM 0047b9ac VSHELL 0044f4b8: differs only in callee labels and decompiler typing; RTTI LZHRStream vtable slot"
+      "description": "LZHRStream slot +0x18 (stream, count, dst), with status 0: LZSS-decodes count bytes through the 4K window +0x10 (write position +0x20, masked to 0xfff). LZHuffman_DecodeChar on the coder +0xc yields a symbol: below 0x100 a literal, output and stored in the window; otherwise a match of symbol - 0xfd bytes (+0x18) starting at the window position less LZHuffman_DecodePosition less 1 (+0x14), copied out byte by byte through the window (progress +0x1c), and a match the count cuts short resumes on the next call. Each byte out advances +0x24. LZHUF's Decode. The DBSIM copy of VSHELL's LZHRStream_Read (0044f4b8).",
+      "source": "es2_naming.py diff DBSIM 0047b9ac VSHELL 0044f4b8: differs only in callee labels and decompiler typing; RTTI LZHRStream vtable slot",
+      "verified": {
+        "bytes": "0047b9ac+235",
+        "sha1": "353f84de241a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047ba98",
@@ -26345,8 +26516,14 @@
       "type": "function",
       "confidence": "high",
       "name": "LZHuffman_Start",
-      "description": "The DBSIM copy of VSHELL's LZHuffman_Start.",
-      "source": "DBSIM decompile and disassembly at 0047bbd0"
+      "description": "(coder, source): attaches the source at +0, clears the bit-input state +0x10..+0x15, and builds LZHUF's initial tree: 314 (0x13a) leaves of frequency 1 (frequencies +4) whose child links (+0xc) are 0x273 + i and parent links (+8, from +0x4e6) their node, then the internal nodes 0x13a..0x272 each summing a pair, the sentinel frequency 0xffff at node 0x273 and parent 0 for the root 0x272. LZHUF's StartHuff. The DBSIM copy of VSHELL's LZHuffman_Start.",
+      "source": "DBSIM decompile and disassembly at 0047bbd0",
+      "verified": {
+        "bytes": "0047bbd0+174",
+        "sha1": "d85239c3f84e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047bc80",
@@ -26373,7 +26550,13 @@
       "confidence": "high",
       "name": "LZHuffman_DecodeChar",
       "description": "(coder): walks the child links (+0xc) from the root (+0x4e4) one LZHuffman_GetBit at a time until a leaf (>= 0x273), LZHuffman_Update's it and returns leaf - 0x273. LZHUF's DecodeChar; LZHRStream_Read calls it. The DBSIM copy of VSHELL's LZHuffman_DecodeChar (0044f824).",
-      "source": "DBSIM decompile at 0047bd18; es2_naming.py diff against VSHELL 0044f824"
+      "source": "DBSIM decompile at 0047bd18; es2_naming.py diff against VSHELL 0044f824",
+      "verified": {
+        "bytes": "0047bd18+78",
+        "sha1": "e81be27cb9b5",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047bd68",
@@ -26381,8 +26564,14 @@
       "type": "function",
       "confidence": "high",
       "name": "LZHuffman_DecodePosition",
-      "description": "(coder): reads a byte with LZHuffman_GetByte, takes the upper six bits and the extra bit count from the decode tables, reads those bits with LZHuffman_GetBit and returns the 12-bit position. LZHUF's DecodePosition; LZHRStream_Read calls it. The DBSIM copy of VSHELL's LZHuffman_DecodePosition (0044f874).",
-      "source": "DBSIM decompile at 0047bd68; es2_naming.py diff against VSHELL 0044f874"
+      "description": "(coder): reads a byte with LZHuffman_GetByte, takes the upper six bits from 004a18bc and the bit count from 004a19bc (LZHUF's d_code and d_len tables, byte for byte), shifts count - 2 more bits from LZHuffman_GetBit into the byte from below and returns its low six bits | upper << 6, a 12-bit position. LZHUF's DecodePosition; LZHRStream_Read calls it. The DBSIM copy of VSHELL's LZHuffman_DecodePosition (0044f874).",
+      "source": "DBSIM decompile at 0047bd68; es2_naming.py diff against VSHELL 0044f874",
+      "verified": {
+        "bytes": "0047bd68+81",
+        "sha1": "aff37c892a3f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047bdbc",
@@ -28342,8 +28531,8 @@
       "description": "(this, word): stores the int16 at this+4 and returns 1: InputDriverKind0_Init's store with a constant result. Sits between InputDriverKind0_Init and GL_ClearGlobal; the InputDriverKind0 owner is placement. No caller found by es2_xref.",
       "source": "DBSIM decompile and disassembly at 00480a84",
       "verified": {
-        "bytes": "00480a84+23",
-        "sha1": "1edad5ae7e89",
+        "bytes": "00480a84+25",
+        "sha1": "bce09c010314",
         "scope": "body",
         "via": "disasm"
       }
@@ -28659,7 +28848,13 @@
       "confidence": "high",
       "name": "GLBitmap_Ctor",
       "description": "GLBitmap constructor (vtable 004a3084, RTTI name 'GLBitmap', 0x1a bytes, over GLPrimitive 004a3058 and GLBase 004a3380): clears +0xa, +0xe, +0x14 and +0x16. The DBSIM copy of VSHELL's GLBitmap_Ctor.",
-      "source": "DBSIM decompile and disassembly at 00481460"
+      "source": "DBSIM decompile and disassembly at 00481460",
+      "verified": {
+        "bytes": "00481460+75",
+        "sha1": "22e9e19f53f9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004814ac",
@@ -28779,9 +28974,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Bitmap_UnpackToScratch",
-      "description": "Unpacks a bitmap object's data (+0xe, length +0xa) into a fresh Bitmap_UnpackScratch buffer sized by the packed data's first dword, through one of two decoder classes chosen by packing type +0x12: 1 (vtable 004a17c8) or 3 (vtable 004a1820). Returns the unpacked size; returns 0 without unpacking for any other type, or when Bitmap_UseCallerScratch is set.",
+      "description": "Unpacks a bitmap object's data (+0xe, length +0xa) into a fresh Bitmap_UnpackScratch buffer sized by the packed data's first dword: a MemRWStream over the data past that dword, a decoder over it chosen by packing type +0x12 (1 RLERStream, vtable 004a17c8; 3 LZHRStream, vtable 004a1820), and Stream_Read of that many bytes. Returns the unpacked size; for any other type it allocates the scratch and returns 0 without decoding, and when Bitmap_UseCallerScratch is set it returns 0 at once.",
       "source": "docs/retail/rendering/dts-billboards.md",
-      "signature": "int __cdecl Bitmap_UnpackToScratch(void *bitmap)"
+      "signature": "int __cdecl Bitmap_UnpackToScratch(void *bitmap)",
+      "verified": {
+        "bytes": "00481804+390",
+        "sha1": "3f3e7a266e1a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004819de",
@@ -28916,8 +29117,14 @@
       "type": "function",
       "confidence": "high",
       "name": "GLBitmap_ReadFromStream",
-      "description": "The DBSIM copy of VSHELL's GLBitmap_ReadFromStream (00453838).",
-      "source": "es2_naming.py diff DBSIM 00481c80 VSHELL 00453838: differs only in callee labels and decompiler typing; RTTI GLBitmap vtable slot"
+      "description": "GLBitmap's stream read: the 13-byte bitmap header into the object, int16 rows +4, int16 cols +6, byte bits per pixel +8, a byte whose bits 0-4 replace +9's (bits 0-3 the bitmap type, bit 4 the opaque flag) while +9's bits 5-7 are kept, a byte zero-extended into the int16 packing type +0x12, the dword data length +0xa and the int16 extra count +0x14; clears the data pointer +0xe and the extra pointer +0x16 first, then allocates (Arena_AllocDup, arena 006c58b4) and reads the data when the length is non-zero and count * 4 bytes of extras when the count is. The DBSIM copy of VSHELL's GLBitmap_ReadFromStream (00453838).",
+      "source": "es2_naming.py diff DBSIM 00481c80 VSHELL 00453838: differs only in callee labels and decompiler typing; RTTI GLBitmap vtable slot",
+      "verified": {
+        "bytes": "00481c80+267",
+        "sha1": "a3b4b1588d8a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00481d8c",
@@ -29874,8 +30081,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygonDispatch",
-      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine g_RasterRoutines and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; mode 6 calls slot 1 of g_RasterRoutines, mode 1 Raster_FillContourPolygon, and modes 5 and 7 Raster_FillBitmapPolygon through slot 33 (004a5848). Raster_DrawPolygonReversed reverses an anticlockwise outline before calling it.",
-      "source": "docs/retail/rendering/dts-texture-binding.md, docs/retail/simulation/beam-visuals.md"
+      "description": "(count, points): generic polygon draw, dispatching on the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair; the points are translated by (+0x20c - +0x21c, +0x210 - +0x220) first when clipBlock+0x208 is set. A ring of fewer than three points, and brush mode 4, draw in the brush colour through a temporary brush at +0x224: one point through Gfx_PlotPixel, two through Raster_DrawLine, and mode 4 as a line loop over the ring closing back to the first point -- the outline pass. For three or more: mode 0 fills through g_RasterRoutines slot 0 with the brush colour, a plain palette index when the colour's top byte is 0, and when it is 4 the entry (shade * length) >> 8 of the g_RasterColourRamps ramp its low word names, shade being its third byte; any other top byte draws nothing. Mode 1 is Raster_FillContourPolygon, modes 5 and 7 g_RasterRoutines_BitmapPolygon, mode 6 g_RasterRoutines_RemapSpans with a pointer to the brush's second field; any other mode draws nothing. The span fills scan-convert with Poly_ScanConvertToSpanRegion and clip per the clip mode at +0x204: 0 none, 1 Poly_ClipToRect against the rect at +0x20c, otherwise each region of the block's list (a rect region clipped by Poly_ClipToRect, a type-2 one intersected with SpanRegion_Intersect). Raster_DrawPolygonReversed calls it with the ring reversed.",
+      "source": "docs/retail/rendering/dts-texture-binding.md, docs/retail/simulation/beam-visuals.md",
+      "verified": {
+        "bytes": "00483dac+874",
+        "sha1": "af8d56cd064a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00484116",
@@ -29883,8 +30096,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygonReversed",
-      "description": "The DBSIM copy of VSHELL's Gfx_FillPolygonReversed (00455b02), identical but for the rel32 call, which goes to Raster_DrawPolygonDispatch.",
-      "source": "docs/retail/rendering/polygon-fill.md#filling-a-polygon"
+      "description": "(count, points): Raster_DrawPolygonDispatch on the ring reversed. For three or more points it copies them last-to-first into a local ring, and when the brush at clipBlock+0x228 is mode 5 it also points the brush's +8 list (a bitmap fill's corner list) at a reversed local copy for the call and restores it after; it reverses no other brush list, so a mode-1 brush's per-vertex shade list at +0xc keeps its order and slot j of the reversed ring takes shade j. One or two points pass through unreversed, zero draws nothing. The DBSIM copy of VSHELL's Gfx_FillPolygonReversed (00455b02), identical but for the rel32 call.",
+      "source": "docs/retail/rendering/polygon-fill.md#filling-a-polygon",
+      "verified": {
+        "bytes": "00484116+153",
+        "sha1": "581966e6f9cf",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004841af",
@@ -30017,7 +30236,13 @@
       "name": "Raster_FillContourTriangle",
       "description": "Fills a triangle of three {x,y} vertices by interpolating its three palette indices in contour bands: it cuts the triangle at every whole index between the highest and lowest corner and flat-fills each band (Raster_DrawPolygonDispatch, writing the band's upper index into the installed brush's colour) with that index, so a point takes the ceiling of its interpolated index. Equal corners fill flat; a degenerate triangle draws nothing.",
       "source": "docs/retail/simulation/heads-down-display.md",
-      "signature": "void __cdecl Raster_FillContourTriangle(int *vertices, unsigned short *indices)"
+      "signature": "void __cdecl Raster_FillContourTriangle(int *vertices, unsigned short *indices)",
+      "verified": {
+        "bytes": "00486ddc+3042",
+        "sha1": "33dfc47c4f9e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004879c0",
@@ -30026,7 +30251,13 @@
       "confidence": "high",
       "name": "Raster_FillContourPolygon",
       "description": "Brush mode 1 of Raster_DrawPolygonDispatch, (count, points): a polygon shaded per vertex. Maps each vertex's ushort shade from the brush's list at +0xc to a palette index through the ramp the brush colour's low word names (8-byte records at 004a4fbd: +0 entry array, +4 int16 length; entry (shade * length) >> 8), fans triangles from vertex 0 and fills each with Raster_FillContourTriangle, with the brush switched to mode 0 meanwhile. Restores the brush's colour and mode 1 after.",
-      "source": "DBSIM decompile at 004879c0"
+      "source": "DBSIM decompile at 004879c0",
+      "verified": {
+        "bytes": "004879c0+269",
+        "sha1": "71633915421d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00487ad0",
@@ -30708,8 +30939,8 @@
       "description": "Slot 27 of raster driver 3's routine table (pointer at 004a58f0), the screen read Bitmap_GrabClipDispatch calls through g_RasterRoutines_Grab (004a5830): (bitmap, point, clipRect, flags) clips the bitmap's rect at point (int16 rows +0, cols +2) to clipRect {x0, y0, x1, y1} inclusive, or to the surface (stride 004a368e by height 004a3692) when clipRect is null, and copies the screen pixels under it into the bitmap's data (+0xa) in one of four orientations by flags & 3: 0 straight, 1 rows reversed, 2 columns reversed, 3 both. The reverse of Driver3_BlitClipped.",
       "source": "DBSIM decompile at 00489b62",
       "verified": {
-        "bytes": "00489b62+608",
-        "sha1": "de3e7d3b4291",
+        "bytes": "00489b62+624",
+        "sha1": "e2fe9678410a",
         "scope": "body",
         "via": "decompile"
       }
@@ -31236,7 +31467,13 @@
       "confidence": "high",
       "name": "Light_TransformToModelSpace",
       "description": "Transforms a light's world position (+0x04) and direction (+0x10) by the given transform into the model-space copies at +0x22 and +0x2e. Those copies, NOT the world fields, are what Light_ComputeShadeForFace and Light_ComputeShadeForNormal read. Driven per composed node by Raster_SetModelTransform, gated on DAT_006cbc88.",
-      "source": "docs/retail/rendering/effect-lights.md"
+      "source": "docs/retail/rendering/effect-lights.md",
+      "verified": {
+        "bytes": "0048bbf0+111",
+        "sha1": "2ce22bea3d22",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0048bc60",
@@ -31300,7 +31537,13 @@
       "confidence": "high",
       "name": "Light_Register",
       "description": "Adds a light object pointer to the active light list (DAT_006c6130, 10-slot max, dedups by pointer identity). Four call sites found by es2_xref: Light_GetOrCreateDirectional/Light_GetOrCreatePoint (pooled directional/point light getters, see their own entries), Light_ReregisterPersistent (re-registers a persistent light list Light_PersistentList into the active manager), and Light_CreateMissionSun (00461240).",
-      "source": "flat-shaded lighting RE"
+      "source": "flat-shaded lighting RE",
+      "verified": {
+        "bytes": "0048bd44+69",
+        "sha1": "fe112cbb7bc5",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048bd8c",
@@ -31309,7 +31552,13 @@
       "confidence": "high",
       "name": "Light_Unregister",
       "description": "Swap-removes a light pointer from the active light list DAT_006c6130 and decrements DAT_006c612c. The inverse of Light_Register.",
-      "source": "docs/retail/rendering/effect-lights.md"
+      "source": "docs/retail/rendering/effect-lights.md",
+      "verified": {
+        "bytes": "0048bd8c+62",
+        "sha1": "f6cad3619abf",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048bdcc",
@@ -31374,7 +31623,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_SetModelTransform",
-      "description": "Installs a transform as the renderer's current model transform (null means the identity at 006c6080); the pointer goes to g_ModelTransformPtr. Builds g_ModelToView = Transform_Concat(model, [006c6078]), its inverse g_ViewToModel (Transform_InvertRigid), and g_EyeInModelSpace (the origin through that inverse). When 006cbc88 is set it moves every registered light (list 006c6130, count 006c612c) into the model's space with Light_TransformToModelSpace, using the inverse of the model transform. Same code as VSHELL's Raster_SetModelTransform (0045e198).",
+      "description": "Installs a transform as the renderer's current model transform (null means the identity at 006c6080); the pointer goes to g_ModelTransformPtr. Builds g_ModelToView = Transform_Concat(model, [006c6078]), its inverse g_ViewToModel (Transform_InvertRigid), and g_EyeInModelSpace (the origin through that inverse). When 006cbc88 is set it moves every registered light (list 006c6130, count 006c612c) into the model's space with Light_TransformToModelSpace, using the inverse of the model transform (Transform_InvertRigid on a copy). VSHELL's counterpart is Raster_SetModelTransform (0045e198).",
       "source": "DBSIM decompile at 0048c338; docs/retail/rendering/dts-node-posing.md",
       "verified": {
         "bytes": "0048c338+312",
@@ -31514,8 +31763,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ProjectViewVertices",
-      "description": "Projects the current ring's vertices from DAT_006c6970, already in view space, marking each 1 (nearer than the near plane) or 2 (projected, screen point cached) and returning 1 when any is behind the near plane. Terrain_FillCellUntextured calls it. The DBSIM copy of VSHELL's Poly_ProjectViewVertices (0045ea08).",
-      "source": "DBSIM decompile; es2_naming.py diff against VSHELL 0045ea08"
+      "description": "Projects the current ring's vertices from DAT_006c6970, already in view space, into Poly_ScreenPoints by the ring's vertex number (count 006c6968), marking each 1 (nearer than the near plane) or 2 (projected, screen point cached in Poly_ScreenCache), and returns 1 when any is behind the near plane, after copying the ring's view points into Poly_ViewCache; with none behind it sets the point count 006cbc86. The DBSIM copy of VSHELL's Poly_ProjectViewVertices (0045ea08).",
+      "source": "DBSIM decompile; es2_naming.py diff against VSHELL 0045ea08",
+      "verified": {
+        "bytes": "0048cbd8+569",
+        "sha1": "974e10ca35ca",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048ce14",
@@ -31561,8 +31816,14 @@
       "type": "function",
       "confidence": "high",
       "name": "PolyFill_FillThenOutline",
-      "description": "The polygon fill both flat poly renderers hand their two resolved colours to. Fills in DAT_006c60dc, then when DAT_006c60d4 (the line colour) differs and the mode is not 5, sets the fill colour to the line colour, sets mode PolyFill_FillBrush = 4 and re-draws the SAME polygon -- an outline pass, not a second fill. Mode 4 is confirmed at Raster_DrawPolygonDispatch's iVar11 == 4 branch, which walks consecutive vertex pairs and closes back to the first vertex. Callers ramp both colours before this runs, so the != test is on ramped bytes, not raw surface values. PolyFill_FillBrush/DAT_006c60dc are one brush {mode, colour} and are the DEFAULT one: the fill dispatches on whatever clipBlock+0x228 points at, normally this pair, so a caller that installs a brush of its own there (BeamTracer_Draw) leaves these writes inert. PolyFill_Fill (0048d4b4) is the sibling without the mode-5 guard.",
-      "source": "docs/retail/rendering/dts-texture-binding.md"
+      "description": "(reversed): fills the screen ring Poly_ScreenPoints (count DAT_006cbc86; nothing when it is zero) with the brush the render context holds, through GL_DrawPolygonReversed when reversed is non-zero and GL_DrawPolygonDispatch otherwise. Then, when DAT_006c60d4 (the line colour) differs from DAT_006c60dc and PolyFill_FillBrush is not 5, it sets the fill colour to the line colour, sets PolyFill_FillBrush = 4 and draws the same ring again the same way -- an outline pass, not a second fill: mode 4 is Raster_DrawPolygonDispatch's line loop. The poly renderers ramp both colours before this runs, so the != test is on ramped bytes, not raw surface values. PolyFill_FillBrush/DAT_006c60dc are one brush {mode, colour} and are the DEFAULT one: the fill dispatches on whatever clipBlock+0x228 points at, normally this pair, so a caller that installs a brush of its own there (BeamTracer_Draw) leaves these writes inert. PolyFill_Fill (0048d4b4) is the sibling without the mode-5 guard.",
+      "source": "docs/retail/rendering/dts-texture-binding.md",
+      "verified": {
+        "bytes": "0048d518+217",
+        "sha1": "cac34140b142",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048d5fc",
@@ -31586,7 +31847,13 @@
       "confidence": "high",
       "name": "Raster_SaveState",
       "description": "Saves the renderer's current model state into a slot: g_ModelToView (0x20 bytes), the model transform pointer 006c607c, the view transform pointer 006c6078, g_EyeInModelSpace, and, when 006cbc88 is set, a 0x16-byte model-space copy per registered light from +0x34. Its light loop steps the save slot but reads the light from the fixed address [006c6130] every pass, so only the first registered light's model-space copy is saved or restored. ShapeNode_InstallTransform saves each freshly composed node with it; ShapeInst_BindNodeTransformArray saves the object's base state.",
-      "source": "DBSIM decompile and disassembly at 0048d60c"
+      "source": "DBSIM decompile and disassembly at 0048d60c",
+      "verified": {
+        "bytes": "0048d60c+210",
+        "sha1": "5f28136d230d",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0048d6e0",
@@ -31595,7 +31862,13 @@
       "confidence": "high",
       "name": "Raster_RestoreState",
       "description": "Reinstates a Raster_SaveState slot: the model and view transform pointers, g_ModelToView, a recomputed g_ViewToModel (Transform_InvertRigid), g_EyeInModelSpace and the lights' model-space copies (Light_RestoreModelSpace). Its light loop steps the save slot but reads the light from the fixed address [006c6130] every pass, so only the first registered light's model-space copy is saved or restored. ShapeNode_InstallTransform uses it for a node already composed and to return to the object's base state.",
-      "source": "DBSIM decompile and disassembly at 0048d6e0"
+      "source": "DBSIM decompile and disassembly at 0048d6e0",
+      "verified": {
+        "bytes": "0048d6e0+197",
+        "sha1": "94bf9f949278",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0048d841",
@@ -31877,7 +32150,13 @@
       "confidence": "high",
       "name": "Light_GetModelSpaceBlock",
       "description": "(light): returns light + 0x1e, so that +4.. of the result is the model-space position (+0x22) and direction (+0x2e) Raster_SetModelTransform rebuilds. Raster_SaveState copies the 0x12 bytes from +4 with it.",
-      "source": "DBSIM decompile at 0048daca and 0048d60c"
+      "source": "DBSIM decompile at 0048daca and 0048d60c",
+      "verified": {
+        "bytes": "0048daca+11",
+        "sha1": "ca19826c0a0e",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0048dad5",
@@ -31885,8 +32164,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_RestoreModelSpace",
-      "description": "(light, saved): writes saved +4..+0x15 back to the light's model-space fields +0x22..+0x33 (position +0x22, direction +0x2e). Raster_RestoreState calls it per saved light.",
-      "source": "DBSIM decompile at 0048dad5"
+      "description": "(light, saved): writes saved +4..+0x15 back to the light's model-space fields +0x22..+0x33 (position +0x22, direction +0x2e).",
+      "source": "DBSIM decompile at 0048dad5",
+      "verified": {
+        "bytes": "0048dad5+52",
+        "sha1": "0f3b9151053e",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0048db09",
@@ -31975,8 +32260,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_ResetSystem",
-      "description": "Per-mission light system reset called from Sim_InitMissionSession: clears the ten active light slots, enables the model-space transform, and reinstalls the identity model transform.",
-      "source": "docs/retail/rendering/effect-lights.md"
+      "description": "Per-mission light system reset: zeroes PolyFill_LineBrush and PolyFill_FillBrush's first dwords, the ten active light slots at 006c6130 (not their count 006c612c), runs Light_EnableModelSpaceTransform, fills the default index list 006c60ec with 0..31, memsets the polygon pipeline's scratch block 006c6158-006cbc87 (0x5b30 bytes: clip rings, face state from 006c6968, Poly_ViewCache, Poly_ScreenCache, Poly_ScreenPoints and its count 006cbc86), registers g_TSObjectTypeRegistry's bucket, and reinstalls the identity transform 006c6080 (Transform_Reset) as both 006c6078 and g_ModelTransformPtr.",
+      "source": "docs/retail/rendering/effect-lights.md",
+      "verified": {
+        "bytes": "0048dbfc+126",
+        "sha1": "0d51ffb73356",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048dc7c",
@@ -31990,7 +32281,7 @@
         "bytes": "0048dc7c+167",
         "sha1": "ecb5c09d419c",
         "scope": "body",
-        "via": "disasm"
+        "via": "decompile"
       }
     },
     {
@@ -32038,8 +32329,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_EnableModelSpaceTransform",
-      "description": "Sets DAT_006cbc88, the gate on the per-node light-to-model-space transform. Called unconditionally by Light_ResetSystem; no store of 0 found (docs/retail/rendering/effect-lights.md#open).",
-      "source": "docs/retail/rendering/effect-lights.md"
+      "description": "Stores 1 to the byte DAT_006cbc88, the gate on Raster_SetModelTransform's per-node light-to-model-space transform and on Raster_SaveState/Raster_RestoreState's light copies.",
+      "source": "docs/retail/rendering/effect-lights.md",
+      "verified": {
+        "bytes": "0048dd64+8",
+        "sha1": "b0fab054c743",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0048dd6c",
@@ -35556,8 +35853,8 @@
       "description": "Borland RTL terminate: _flushall, calls the exception block's terminate handler (+8), then _abort. Byte-identical to VSHELL's 0046b29f.",
       "source": "DBSIM decompile at 004962b3",
       "verified": {
-        "bytes": "004962b3+58",
-        "sha1": "14a80c148a18",
+        "bytes": "004962b3+63",
+        "sha1": "ac06a8ab3de3",
         "scope": "body",
         "via": "decompile"
       }

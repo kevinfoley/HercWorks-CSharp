@@ -1403,8 +1403,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Display_PresentStoredRect",
-      "description": "Display_PresentRect with the stored destination point 0048185c and source rect 0048183c. Mission_OnMapUp/Down/Left/Right call it.",
-      "source": "VSHELL decompile and disassembly at 00405cd8"
+      "description": "Display_PresentRect with the stored destination point 0048185c and source rect 0048183c.",
+      "source": "VSHELL decompile and disassembly at 00405cd8",
+      "verified": {
+        "bytes": "00405cd8+19",
+        "sha1": "16f17dc46d87",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00405ceb",
@@ -2220,8 +2226,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WinButton_HandleEvent",
-      "description": "WinButton's event handler (vtable 0046e810 slot 0), inherited as slot 0 by ESRect, ESRegionFill, ESTitle, ESGrid and ESQuad. Mouse events (type 0x20) are acted on only while the enable flag +0x49 is set and Avi_Playing and MovieQueue_Running are clear. Sub-code 2 or 4 (a press) lights +0x45 and repaints; 1 or 3 (a release) with +0x45 lit calls Window_DispatchCallback, clears +0x45, repaints; the leave event 0x10 clears +0x45. Nothing is passed to the parent, so a widget with no handler, or a disabled one, swallows the click. Type 4 is a repaint, type 2 the hidden event.",
-      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches"
+      "description": "WinButton's event handler (vtable 0046e810 slot 0), inherited as slot 0 by ESRect, ESRegionFill, ESTitle, ESGrid and ESQuad. Mouse events (type 0x20) are acted on only while the enable flag +0x49 is set and Avi_Playing and MovieQueue_Running are clear. Sub-code 2 or 4 (a press) lights +0x45 and repaints; 1 or 3 (a release) with +0x45 lit calls Window_DispatchCallback, then clears +0x45 and repaints. The leave (0x10) with +0x45 lit clears it and repaints. Type 4 repaints; type 2, the hide's event, runs WinButton_Erase. It hands no event to the parent, so a widget with no handler, or a disabled one, swallows the click.",
+      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches",
+      "verified": {
+        "bytes": "004097da+379",
+        "sha1": "ab4efdab6fc9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00409958",
@@ -2283,8 +2295,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ESButtonBitmap_Ctor",
-      "description": "Button-with-icon widget class (0x69=105-byte struct, 17 uses). Passes a click-callback function pointer straight through the widget's base constructor (confirmed at the ServiceBay_BuildScreen call sites: per-weapon-slot handlers TabHandler_MenuButton/TabHandler_MainMenu/TabHandler_Save/etc, one per weapon-buy button, each ~0xfa/250 bytes apart matching the per-row screen layout). Also constructs an embedded ESMessage_Ctor child sized to the widget's full client rect for the button's caption. Sets the +0x39 flags word's 0x200 bit (likely 'clickable'/'enabled').",
-      "source": "project_es2_exe_recon memory, VSHELL widget-class disambiguation pass"
+      "description": "ButtonIcon's constructor (RTTI ESButtonBitmap): WinButton_Ctor with the parent, rect and handler, then the vtable ESButtonBitmapVtable; builds the caption, an ESMessage_Ctor Text (0xc9 bytes) over the widget's whole local rect with the font and caption arguments, kept at +0x4d; stores the three frame arguments at +0x51, +0x55 and +0x59; sets +0x5d to 1, so a leave leaves the button lit; clears the auto-repeat flag +0x61 and the repeat count +0x65; and adds 0x200, the WinTimer alarm tick, to the event mask +0x39.",
+      "source": "project_es2_exe_recon memory, VSHELL widget-class disambiguation pass",
+      "verified": {
+        "bytes": "00409d14+222",
+        "sha1": "6e9e27af868a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00409df2",
@@ -2292,8 +2310,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ESButtonBitmap_HandleEvent",
-      "description": "ButtonIcon's event handler (vtable 0046e924 slot 0), the tab strip's class. A left press (sub-code 2) on an enabled widget with neither Avi_Playing nor MovieQueue_Running set lights +0x45, plays the press sound (0042eecf) when sound is on, repaints, and -- while the auto-repeat flag +0x61 is clear, as the constructor leaves it -- runs Window_DispatchCallback at once. A left release (1) zeroes +0x45 without repainting. Right-button events fall through to WinButton_HandleEvent, so the right button fires on its release. The leave event clears +0x45 only while +0x5d is 0, and ESButtonBitmap_Ctor sets it to 1. Event 0x200 is the auto-repeat alarm tick, which re-runs the callback while +0x61 is set and the button is lit.",
-      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches"
+      "description": "ButtonIcon's event handler (vtable 0046e924 slot 0), the tab strip's class. Type 1, the show's event, installs a WinTimer alarm for the widget with period 500 and delay 500 (WinTimer_InstallAlarm) and type 2, the hide's, removes it (WinTimer_RemoveAlarms), each only while the auto-repeat flag +0x61 is set. Mouse events (0x20) are acted on only while the enable flag +0x49 is set and Avi_Playing and MovieQueue_Running are clear. A left press (sub-code 2) lights +0x45, plays the press sound (ShellSound_PlayPress) when Shell_SoundEnabled is set, repaints, and while +0x61 is clear runs Window_DispatchCallback at once. A left release (1) zeroes +0x45; with +0x61 set it also zeroes the repeat count +0x65, repaints and runs the callback, lit or not; with +0x61 clear it does no more. The leave (0x10), with +0x45 lit and +0x5d clear, zeroes +0x45 and +0x65 and repaints; ESButtonBitmap_Ctor sets +0x5d to 1. The alarm tick (0x200), with +0x61 set, the hidden bit (+0x11 bit 2) clear, +0x45 lit and +0x49 set, adds one to +0x65, repaints and runs the callback. Every event it does not return on goes on to WinButton_HandleEvent: types 1, 2 and 4, a left press with +0x61 set, the right button's press and release, and a tick it does not act on.",
+      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches",
+      "verified": {
+        "bytes": "00409df2+619",
+        "sha1": "78f52c5b7abc",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040a05d",
@@ -2664,8 +2688,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ESDialog_HandleEvent",
-      "description": "The edit field's event handler (vtable 0046edc8 slot 0). Acts on the left press only (sub-code 2), with no +0x49 or Avi_Playing/MovieQueue_Running test. With the focus flag +0xa7 clear it installs a 500/500 WinTimer alarm, sets the pointer lock (g_EventQueue +0x1f), sets +0xa7, repaints and runs Window_DispatchCallback. With +0xa7 set it clears it, removes the alarm, releases the lock (Pointer_Unlock), sends a leave, re-hit-tests with Pointer_Enter(0) and re-posts the press (Event_Post) with its target cleared, so the press lands on whatever is under the pointer. Event 0x40 (a key) and 0x100 (a command: 1 backspace, 4 left, 0x0a enter) edit the string; 0x10 removes the alarm.",
-      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches"
+      "description": "The edit field's event handler (vtable 0046edc8 slot 0). Event 0x20 acts on the left press only (sub-code 2), with no +0x49 or Avi_Playing/MovieQueue_Running test. With the focus flag +0xa7 clear it installs a WinTimer alarm (WinTimer_InstallAlarm, period 500, delay 500), sets the pointer lock (g_EventQueue +0x1f), sets +0xa7, repaints and runs Window_DispatchCallback. With +0xa7 set it clears it, removes the alarm, releases the lock (Pointer_Unlock), sends a leave, re-hit-tests with Pointer_Enter(0) and re-posts the press (Event_Post) with its target cleared, so the press lands on whatever is under the pointer. Event 0x40 (a key) types the character (ESDialog_TypeChar) when the edit flag +0xbf is set, whatever +0xa7 holds, then runs Window_DispatchCallback. Event 0x100 (a command), with +0xbf and +0xa7 both set: 1 backspace and 4 left erase (ESDialog_Erase), 0x0a enter releases the lock, clears +0xa7 and repaints, leaving the alarm installed; Window_DispatchCallback runs either way. Event 0x200 (the alarm's tick), unless the widget is hidden (+0x11 bit 2): flips the caret flag +0xb3 when +0xbf is set, clears it otherwise, and repaints. Event 4 paints (ESDialog_Paint); event 0x10 removes the alarm. The re-posted press and the events that run Window_DispatchCallback are not deleted; the rest are.",
+      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches",
+      "verified": {
+        "bytes": "0040beaf+672",
+        "sha1": "dae2333ccfc2",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0040c14f",
@@ -2745,8 +2775,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ESAnim2_HandleEvent",
-      "description": "esanim2.cpp. Event 1 (show): 500/500 ms alarm, Shell_CloseAllowed = 0. Event 2 (hide): alarm removed, frames freed, Shell_CloseAllowed = 1. Event 4: paints the current frame. Event 0x200 while not hidden: +0x6d advanced modulo the frame count, painted, then Window_DispatchCallback.",
-      "source": "docs/retail/shell/main-menu.md#the-main-menu"
+      "description": "esanim2.cpp. Event 1 (show): installs a WinTimer alarm (WinTimer_InstallAlarm, period 500, delay 500) and sets Shell_CloseAllowed = 0. Event 2 (hide): removes the alarm, frees the frames (deleting each bitmap through its +0x18 slot and clearing +0x45 up to the count +0x71) and sets Shell_CloseAllowed = 1. Event 4: paints the current frame (ESAnim2_Paint). Event 0x200 (the alarm's tick): unless the widget is hidden (+0x11 bit 2), +0x6d advances, wrapping to 0 at the count +0x71, and is painted; Window_DispatchCallback runs either way and the event is passed on undeleted. The other events are deleted.",
+      "source": "docs/retail/shell/main-menu.md#the-main-menu",
+      "verified": {
+        "bytes": "0040c8b3+339",
+        "sha1": "0021335be535",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0040ca06",
@@ -6258,8 +6294,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Window_ShowRecursive",
-      "description": "Shows a widget subtree: clears bits 2 and 4 of the +0x11 flags word, refusing to run while the effective parent is still hidden, posts type=1 (self) and type=4 (parent-directed) events, then walks the +9 chain. Type 4 is what reaches ESMessage_Paint. VSHELL_FULL.txt names this Window_HideRecursive; the two are swapped there. Mirror of Window_HideRecursive (0041f469).",
-      "source": "docs/retail/shell/widgets.md#showing-and-hiding-a-widget"
+      "description": "Shows a widget subtree. Returns at once when the hidden bit (+0x11 bit 2) is clear. While the parent (Window_Parent) is hidden it only sets bits 2 and 4. Otherwise it clears bits 2 and 4; when the widget is on the pointer's display and holds the pointer's last position, sends the pointer a leave (Pointer_Leave); posts a type 1 event (shown) and a type 4 event (paint), both targeting the widget; shows every child carrying bit 4; and with no pointer target runs Pointer_Enter. VSHELL_FULL.txt names this Window_HideRecursive; the two are swapped there. Mirror of Window_HideRecursive (0041f469).",
+      "source": "docs/retail/shell/widgets.md#showing-and-hiding-a-widget",
+      "verified": {
+        "bytes": "0041f2e6+387",
+        "sha1": "b0eae6c6c7d7",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041f469",
@@ -6267,8 +6309,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Window_HideRecursive",
-      "description": "Hides a widget subtree: sets bit 2 of the +0x11 flags word, which is a HIDDEN bit, sets bit 4 when the effective parent is hidden too, recurses into every child that is not already hidden (+0xd child-list head, +5 sibling-next), then posts a type=2 event via Event_Post. VSHELL_FULL.txt names this Window_ShowRecursive; the two are swapped there. ESMessage_Paint (0040b439) draws only when bit 2 is clear, and the repair tab's entry (004332ec) calls the other one on its own panels while its teardown (004333eb) calls this. Mirror of Window_ShowRecursive (0041f2e6).",
-      "source": "docs/retail/shell/widgets.md#showing-and-hiding-a-widget"
+      "description": "Hides a widget subtree. On a widget already hidden it only clears bit 4 of the +0x11 flags word. Otherwise it sets bit 2, which is a HIDDEN bit, and bit 4 too when the parent (Window_Parent) is hidden; when the widget is on the pointer's display and holds the pointer's last position, sends the pointer a leave (Pointer_Leave); hides every child not already hidden (+0xd child-list head, +5 next); posts a type 2 event (hidden) targeting the widget; and with no pointer target runs Pointer_Enter. VSHELL_FULL.txt names this Window_ShowRecursive; the two are swapped there. Mirror of Window_ShowRecursive (0041f2e6).",
+      "source": "docs/retail/shell/widgets.md#showing-and-hiding-a-widget",
+      "verified": {
+        "bytes": "0041f469+284",
+        "sha1": "dbe08fa6afb7",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041f585",
@@ -6677,8 +6725,8 @@
       "description": "(positions, uvCorners, count, atlasPage, shadePtr, mode, preTransformed): a third textured-polygon fill beside TSTexture4Poly_RasterizeA and TSTexture4Poly_RasterizeB. Fills Raster_VertexBuffer as they do (Raster_ModelToView unless preTransformed; Raster_Project and Raster_ToScreen for a vertex at or beyond the near plane DAT_005d7fd8; mode 2's ramp row from shadePtr) and stores (1 << (DAT_005d7fd4 + 16)) / depth at +0x14. The near-plane pass copies seven dwords of each kept vertex to 004861b0 and multiplies its u and v by +0x14; a crossing vertex gets +0x14 = 0x10000 and u, v interpolated and shifted left 16. Then Raster_ClipPolygonX, Raster_ClipPolygonY and Raster_BuildEdgeTables with flags 3 (7 in mode 2, |8 with maybe_g_DepthBufferEnabled), so each row's ends carry the edge tables' quadratic fit of u/w and v/w (+0x18/+0x1c). Mode 1 turns *shadePtr into one ramp row (shade * (Raster_ShadeLevels (00485780) - 1) + g_RasterDepthFadeOffset) << 8. Each row is filled by the mode's affine span routine (Raster_SpanTextured, Raster_SpanTexturedShaded, Raster_SpanTexturedGouraud, or their Clipped variants when the depth buffer is on or the context's +0x208 is 2 and the clip-span table DAT_0047e92c is set), u and v stepped linearly between the row's two ends: perspective-correct at the edges, affine along each row. No caller found by es2_xref. The VSHELL copy of DBSIM's maybe_Raster_DrawTexturedPolyW (WinScrollEvent_Clone (00468fec)), without its eighth (transparency) argument.",
       "source": "VSHELL decompile at 00421292; diff against DBSIM 00468fec",
       "verified": {
-        "bytes": "00421292+1757",
-        "sha1": "200b3d29cafc",
+        "bytes": "00421292+1953",
+        "sha1": "0f20fbe5c3be",
         "scope": "body",
         "via": "decompile"
       }
@@ -7904,8 +7952,8 @@
       "description": "(grid, pos, radius): the cell an object at pos is drawn with. Starts from pos's cell ((x, y) >> grid+0x104); by the quadrant the viewer's cell (g_TerrainViewerPos, same shift) lies in, when pos is within radius of the cell's viewer-side edge on an axis it moves one cell toward the viewer on that axis, and undoes both moves when Terrain_FaceNormalAt gives a face that Terrain_FaceVisibilityTest finds turned away from the viewer. Off the grid it returns 0; otherwise it increments the cell's byte +0x17, writes x, y and that count into the 3-byte record HeightGrid_DrawCellRecord (0048a428) and returns it. No caller found by es2_xref. The hgrid.cpp counterpart of DBSIM's HeightGrid_PickDrawCell (0046e528) with HeightGrid_ClaimDrawCell inlined; DBSIM's also tests the visible region.",
       "source": "VSHELL decompile at 0042b019",
       "verified": {
-        "bytes": "0042b019+694",
-        "sha1": "7956016bd7b0",
+        "bytes": "0042b019+696",
+        "sha1": "82d5bd1e4fbc",
         "scope": "body",
         "via": "decompile"
       }
@@ -9137,7 +9185,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Shell_BuildSimArgv",
-      "description": "Frameless code, after the SFX class record. Returns at once unless ShellSwitch_L and Shell_GetExitCode() are both nonzero; then Display_ReleaseDirectDraw when DAT_0046d740 is set, Mem_NewArray(0x40), and fills it with pointers to 'dummy', '-eggplant', '-Z' (DAT_0046d740 clear), '-s' (Shell_SoundEnabled clear), '-v3', '-h', '-F' (Shell_Language 1), '-G' (Shell_Language 2), '-m' (ShellSwitch_M set), '-D' (ShellSwitch_D nonzero) and a final empty string (0047332d), and returns the count before it with the array pointer dropped. No reference found by es2_xref.",
+      "description": "Frameless code, after the SFX class record. Returns at once unless ShellSwitch_L and Shell_GetExitCode() are both nonzero; then Display_ReleaseDirectDraw when Shell_StartedFullScreen is set, Mem_NewArray(0x40), and fills it with pointers to 'dummy', '-eggplant', '-Z' (Shell_StartedFullScreen clear), '-s' (Shell_SoundEnabled clear), '-v3', '-h', '-F' (Shell_Language 1), '-G' (Shell_Language 2), '-m' (ShellSwitch_M set), '-D' (ShellSwitch_D nonzero) and a final empty string (0047332d), and returns the count before it with the array pointer dropped. No reference found by es2_xref.",
       "source": "VSHELL capstone disassembly 0042f2e8-0042f3ae",
       "verified": {
         "bytes": "0042f2e8+199",
@@ -9215,8 +9263,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ClipToHalfPlane",
-      "description": "(keepHigh, alongX, value, in, out): one Sutherland-Hodgman pass keeping the part of polygon in ({count, points*}) with x (alongX) or y at >= value (keepHigh) or <= value, points on the line kept, into out (whose point pointer the caller sets); crossings computed from the previous point, truncating. Returns the count's low byte. The case bodies sit behind a jump table Ghidra left undisassembled.",
-      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
+      "description": "(keepHigh, alongX, value, in, out): one Sutherland-Hodgman pass keeping the part of polygon in ({count, points*}) with x (alongX) or y at >= value (keepHigh) or <= value, writing the points through out's point pointer (out+4, filled in before the call) and the count to out+0, and returning the count's low byte; a polygon of no points gives 0. Each point is classed -1, 0 or +1 by the sign of its coordinate minus value, the first edge running from the last point to the first. The byte table at 004301da, indexed by (keepHigh ? 0 : 10) + 3*previous + current + 4, picks a case through the dword table at 004301ed: 0 or 1 emits nothing, 2 the current point, 3 the crossing then the current point, 4 the crossing alone. So a current point on the line is emitted alone, whichever side the previous one was on; a current point on the kept side is emitted, preceded by the crossing only when the previous one was strictly on the dropped side; and a current point on the dropped side emits the crossing only when the previous one was strictly on the kept side. The index runs 0-8 when keepHigh and 10-18 otherwise, so index 9, the table's one 0, is never selected. A crossing takes value on the cut axis and prev + (cur - prev) * (value - prevCut) / (curCut - prevCut) on the other, measured from the previous point, the product in 32 bits and the division truncating. The same tables as DBSIM's copy (00472ac0, byte table 00472bdd).",
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells",
+      "verified": {
+        "bytes": "004300c7+687",
+        "sha1": "02a158dc7a7c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00430378",
@@ -9270,7 +9324,13 @@
       "confidence": "high",
       "name": "StartupAnim_OnTick",
       "description": "Handler of the startup sequence widget (StartupAnimWidget), run on every alarm tick: plays ShellSound_PlaySwitch on its first run (DAT_00473608) and, once the widget's +0x6d reaches 5, hides it and calls MainMenu_Show, once only (DAT_00473604); with Shell_PerformanceNotePending set also puts up the Performance Note message box.",
-      "source": "docs/retail/shell/main-menu.md#the-main-menu"
+      "source": "docs/retail/shell/main-menu.md#the-main-menu",
+      "verified": {
+        "bytes": "004311b8+238",
+        "sha1": "939e041b8f73",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004312a6",
@@ -12239,8 +12299,8 @@
       "description": "(event): The Telecomm picture's click handler; Mission_BuildScreen passes it to ESBitmap_Ctor (PUSH at 004426b3) for the picture at {10, 0x14, 0xf9, 0x100} and stores the widget in DAT_0048d7e4. After the prologue it jumps (00444e2f) straight to its epilogue at 00444ee2, so a click does nothing, and it does not delete the event Window_DispatchCallback hands it. The 0xae bytes it jumps over (00444e34-00444ee1, outside Ghidra's 17-byte extent) read Avi_Playing without testing the result and, by MissionScreenView, enqueue Career_BriefingMovie_Thunk() for view 1 or Mission_DebriefMovie() for view 4 through Movie_Enqueue(id, {0x15, 0x56, 0xf0, 0xb4}, CampaignStage + 4 or CampaignStage + 9, 0, 0).",
       "source": "VSHELL decompile at 00444e28",
       "verified": {
-        "bytes": "00444e28+17",
-        "sha1": "d412a71015c8",
+        "bytes": "00444e28+191",
+        "sha1": "9cbf7857239c",
         "scope": "body",
         "via": "decompile"
       }
@@ -12251,8 +12311,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnMapUp",
-      "description": "Map button 1: ShellMap vtable +0xc then its paint, 1-4 times by the auto-repeat count +0x65.",
-      "source": "docs/retail/shell/mission-map.md"
+      "description": "Map button 1, the up arrow (DAT_0048d7e8): while the shell's map DAT_0046f26c is set, its vtable +0xc, its paint (vtable +0) and Display_PresentStoredRect, once while the button's repeat count +0x65 is below 3, twice below 6, three times below 9 and four times from there.",
+      "source": "docs/retail/shell/mission-map.md",
+      "verified": {
+        "bytes": "00444ee7+207",
+        "sha1": "e6feda0370b4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00444fb6",
@@ -12260,8 +12326,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnMapDown",
-      "description": "Map button 2: vtable +0x10.",
-      "source": "docs/retail/shell/mission-map.md"
+      "description": "Map button 2 (DAT_0048d7ec): Mission_OnMapUp's loop with the map's vtable +0x10, by this button's repeat count +0x65.",
+      "source": "docs/retail/shell/mission-map.md",
+      "verified": {
+        "bytes": "00444fb6+207",
+        "sha1": "f02ed4b094f9",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00445085",
@@ -12269,8 +12341,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnMapLeft",
-      "description": "Map button 3: vtable +0x14.",
-      "source": "docs/retail/shell/mission-map.md"
+      "description": "Map button 3 (DAT_0048d7f0): Mission_OnMapUp's loop with the map's vtable +0x14, by this button's repeat count +0x65.",
+      "source": "docs/retail/shell/mission-map.md",
+      "verified": {
+        "bytes": "00445085+207",
+        "sha1": "be41a57bf11e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00445154",
@@ -12278,8 +12356,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnMapRight",
-      "description": "Map button 4: vtable +0x18.",
-      "source": "docs/retail/shell/mission-map.md"
+      "description": "Map button 4 (DAT_0048d7f4): Mission_OnMapUp's loop with the map's vtable +0x18, by this button's repeat count +0x65.",
+      "source": "docs/retail/shell/mission-map.md",
+      "verified": {
+        "bytes": "00445154+207",
+        "sha1": "72861a57c385",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00445223",
@@ -12287,8 +12371,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnMapZoomIn",
-      "description": "Map button 5 (arrows pointing in): vtable +4.",
-      "source": "docs/retail/shell/mission-map.md"
+      "description": "Map button 5, arrows pointing in (DAT_0048d7f8): Mission_OnMapUp's loop with the map's vtable +4, by this button's repeat count +0x65.",
+      "source": "docs/retail/shell/mission-map.md",
+      "verified": {
+        "bytes": "00445223+207",
+        "sha1": "2abceb0e0d73",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004452f2",
@@ -12296,8 +12386,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnMapZoomOut",
-      "description": "Map button 6 (arrows pointing out): vtable +8.",
-      "source": "docs/retail/shell/mission-map.md"
+      "description": "Map button 6, arrows pointing out (DAT_0048d7fc): Mission_OnMapUp's loop with the map's vtable +8, by this button's repeat count +0x65.",
+      "source": "docs/retail/shell/mission-map.md",
+      "verified": {
+        "bytes": "004452f2+207",
+        "sha1": "a6ed1155a8c3",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004453c1",
@@ -12347,8 +12443,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnPageUp",
-      "description": "The summary's up button: TextBox_PageUp on the box in DAT_004780a4.",
-      "source": "docs/retail/shell/mission-screen.md#the-mission-screen"
+      "description": "The summary's up button: Window_RepaintRecursive on the summary panel DAT_0048d7dc, then TextBox_PageUp on the box DAT_004780a4 names: 1 the briefing (DAT_0048d820), 2 the objectives (DAT_0048d828), 3 the intelligence report (DAT_0048d82c), 4 the debrief (DAT_0048d824).",
+      "source": "docs/retail/shell/mission-screen.md#the-mission-screen",
+      "verified": {
+        "bytes": "004455e9+177",
+        "sha1": "74f6c5a9d576",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044569a",
@@ -12356,8 +12458,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_OnPageDown",
-      "description": "The summary's down button: TextBox_PageDown on the box in DAT_004780a4.",
-      "source": "docs/retail/shell/mission-screen.md#the-mission-screen"
+      "description": "The summary's down button: Mission_OnPageUp with TextBox_PageDown.",
+      "source": "docs/retail/shell/mission-screen.md#the-mission-screen",
+      "verified": {
+        "bytes": "0044569a+177",
+        "sha1": "81d234c385ad",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044574b",
@@ -13563,8 +13671,8 @@
       "description": "The entry behind every src\\*.cpp assert: (logger g_AssertLogger, severity, condition, __FILE__, __LINE__, message). Severities 4-6 run the hooks (Assert_RunHooks), emit, and _exit(1); lower severities only emit.",
       "source": "VSHELL decompile; class names from the Borland type-name strings FileRWStream (0044e64e), FileRStream (0044e9ce) and FileWStream (0044ed45) that close each class's code block",
       "verified": {
-        "bytes": "0044ded0+111",
-        "sha1": "4dd3362cd7ef",
+        "bytes": "0044ded0+114",
+        "sha1": "5cc4e3a0b116",
         "scope": "body",
         "via": "decompile"
       }
@@ -15798,8 +15906,14 @@
       "type": "function",
       "confidence": "high",
       "name": "GLBitmap_ReadFromStream",
-      "description": "GLBitmap slot +0xc (bitmap, stream): the 13-byte bitmap header, then its blocks: int16 width +4 and height +6, a byte into +8, a byte whose low nibble and bit 4 replace those of +9 (the bitmap type Bitmap_BlitClipDispatch tests), the compression byte into the word +0x12 (0 raw, 1 RLE, 3 LZH); clears +0xe and +0x16; the uint32 data size +0xa and the int16 count +0x14; then the data into an arena block at +0xe and count * 4 bytes at +0x16. DBSIM's 00481c80 reads the same.",
-      "source": "VSHELL decompile of 00453838; es2_naming.py diff VSHELL 00453838 DBSIM 00481c80; the .DCI files' embedded bitmaps"
+      "description": "GLBitmap slot +0xc (bitmap, stream): the 13-byte bitmap header into the object, int16 rows +4, int16 cols +6, byte bits per pixel +8, a byte whose bits 0-4 replace +9's (bits 0-3 the bitmap type Bitmap_BlitClipDispatch tests, bit 4 the opaque flag) while +9's bits 5-7 are kept, a byte zero-extended into the int16 packing type +0x12 (0 raw, 1 RLE, 3 LZH), the dword data length +0xa and the int16 extra count +0x14; clears the data pointer +0xe and the extra pointer +0x16 first, then allocates (Arena_Alloc2 on ArenaStack_Current) and reads the data when the length is non-zero and count * 4 bytes of extras through the stream's +0x18 slot when the count is. DBSIM's GLBitmap_ReadFromStream (00481c80) reads the same.",
+      "source": "VSHELL decompile of 00453838; es2_naming.py diff VSHELL 00453838 DBSIM 00481c80; the .DCI files' embedded bitmaps",
+      "verified": {
+        "bytes": "00453838+267",
+        "sha1": "25e966f15bf3",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00453944",
@@ -17355,8 +17469,8 @@
       "description": "Slot 27 of g_RasterRoutines_Driver3 (pointer at 0047e66c); es2_xref finds g_RasterRoutines slot 27 (0047e5ac) referenced three times in Bitmap_GrabClipDispatch. (bitmap, point, clipRect, flags) clips the bitmap's rect at point (int16 rows +0, cols +2) to clipRect {x0, y0, x1, y1} inclusive, or to the surface (x below the stride Raster_Stride (0047c40a), y below Raster_Height (0047c40e)) when clipRect is null, returning at once when the clipped rect is empty, and copies the screen pixels under it into the bitmap's data (+0xa) in one of four orientations by flags & 3: 0 straight, 1 rows reversed, 2 columns reversed, 3 both; 0 and 1 copy dwords then bytes, 2 and 3 a byte at a time. Identical after normalisation to DBSIM's Driver3_GrabClipped (00489b62).",
       "source": "VSHELL decompile at 0045a01e; es2_naming diff",
       "verified": {
-        "bytes": "0045a01e+608",
-        "sha1": "a27f2d4c08db",
+        "bytes": "0045a01e+624",
+        "sha1": "722e0757ebc7",
         "scope": "body",
         "via": "decompile"
       }
@@ -17838,8 +17952,8 @@
       "description": "Frameless span routine: Raster_SpanTexturedShadedQuadratic with the ramp row per pixel (0047e8a4 stepped by 0047e8a8) and ESP as the destination pointer (ESP saved at 0047e8c4, SS loaded from DS for the loop). Raster_SpanTexturedGouraudQuadraticClipped calls it, the one call es2_xref finds. The VSHELL copy of DBSIM's maybe_Raster_SpanTexturedGouraudQuadratic (0046af9c).",
       "source": "VSHELL capstone disassembly at 0045c02c",
       "verified": {
-        "bytes": "0045c02c+223",
-        "sha1": "aac17a174c3e",
+        "bytes": "0045c02c+225",
+        "sha1": "0aafc6a3a707",
         "scope": "body",
         "via": "disasm"
       }
@@ -21703,7 +21817,13 @@
       "confidence": "high",
       "name": "Shell_PumpEvents",
       "description": "Timer_Tick on the timer list at [g_WinTimer], then EventQueue_Pump on [g_EventQueue].",
-      "source": "VSHELL decompile and disassembly at 0046814c"
+      "source": "VSHELL decompile and disassembly at 0046814c",
+      "verified": {
+        "bytes": "0046814c+26",
+        "sha1": "18c24fadd788",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00468168",
@@ -22554,8 +22674,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Event_FindReceiver",
-      "description": "Walks from the event's target (+0x20) through Window_Parent to the first widget whose event mask +0x39 has the event type's bit; the result goes to event+0x1c. How a click on a Text reaches its parent.",
-      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches"
+      "description": "(event): walks from the event's target (+0x20) through Window_Parent to the first widget whose event mask +0x39 has a bit of the event type (+0xc), and returns it in EAX, or 0 when the walk runs out. How a click on a Text reaches its parent.",
+      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches",
+      "verified": {
+        "bytes": "00469fb8+43",
+        "sha1": "d5f3c668f45c",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00469fe4",
@@ -22582,7 +22708,13 @@
       "confidence": "high",
       "name": "WinTimer_Ctor",
       "description": "(timer): the WinTimer at g_WinTimer: zeroes its twenty 16-byte alarm records (+1), the alarm count +0x141, and stores GetTickCount at +0x145. WinTimer_InstallAlarm, WinTimer_RemoveAlarms and Timer_Tick work on the object.",
-      "source": "VSHELL decompile at 0046a070"
+      "source": "VSHELL decompile at 0046a070",
+      "verified": {
+        "bytes": "0046a070+64",
+        "sha1": "1257bf445e26",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a0b0",
@@ -22590,8 +22722,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WinTimer_InstallAlarm",
-      "description": "Adds an alarm for a widget to the WinTimer's twenty-entry table at g_WinTimer (asserts 'WinTimer::installAlarm > too many' in code\\wintimer.cpp). The edit field installs one at 500, 500 when it takes focus.",
-      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches"
+      "description": "(timer, widget, period, delay, id): appends an alarm record {widget, delay as the time left, period, id} to the WinTimer's twenty 16-byte records at +1 and counts it at +0x141, asserting 'WinTimer::installAlarm > too many' (code\\wintimer.cpp line 0x23) when twenty are already installed, and writing the record regardless. ESButtonBitmap_HandleEvent installs one at period 500, delay 500 when an auto-repeating button is shown.",
+      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches",
+      "verified": {
+        "bytes": "0046a0b0+134",
+        "sha1": "5450a0201202",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a138",
@@ -22599,8 +22737,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WinTimer_RemoveAlarms",
-      "description": "Removes every WinTimer alarm installed for a widget.",
-      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches"
+      "description": "(timer, widget): walks the WinTimer's alarm table once and removes (Timer_Remove) each record whose target is the widget. Timer_Remove moves the last record into the freed slot and the walk steps past it, so that record is not tested.",
+      "source": "docs/retail/shell/widgets.md#which-widget-a-click-reaches",
+      "verified": {
+        "bytes": "0046a138+52",
+        "sha1": "a1bac4f21db1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a16c",
@@ -22609,7 +22753,13 @@
       "confidence": "high",
       "name": "Timer_Remove",
       "description": "(timers, index): removes a timer by moving the last record into its slot and decrementing the count at +0x141.",
-      "source": "VSHELL decompile and disassembly at 0046a16c"
+      "source": "VSHELL decompile and disassembly at 0046a16c",
+      "verified": {
+        "bytes": "0046a16c+92",
+        "sha1": "731163d0b271",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a1c8",
@@ -22617,8 +22767,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Timer_Tick",
-      "description": "Advances a timer list by the GetTickCount delta since the last tick (stored at +0x145). Timers are 16-byte records from +1 (count at +0x141): target, remaining ms, period ms, id. An expired timer posts a WinTimerEvent (target at +0x20, id at +0x24) with Event_Post and reloads from its period; a timer with period 0 is then removed (Timer_Remove).",
-      "source": "VSHELL decompile and disassembly at 0046a1c8"
+      "description": "(timer): takes GetTickCount minus the last run's, kept at +0x145 and replaced, off the time left of every alarm with a target (16-byte records from +1: target, time left, period, id; count at +0x141). An alarm whose time left is below 1 posts one WinTimerEvent (type 0x200, target at +0x20, id at +0x24) with Event_Post and reloads its time left from the period, so a late pass posts one tick and drops the overshoot. An alarm whose period is 0 is then removed (Timer_Remove) whether or not it fired, and the walk steps past the record moved into its slot.",
+      "source": "VSHELL decompile and disassembly at 0046a1c8",
+      "verified": {
+        "bytes": "0046a1c8+197",
+        "sha1": "fa5dfd7c06ef",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a3e0",
@@ -23850,8 +24006,8 @@
       "description": "Borland RTL terminate: _flushall, calls the exception block's terminate handler (+8), then _abort. Byte-identical to DBSIM's Rtl_Terminate (004962b3).",
       "source": "es2_naming.py match against DBSIM 004962b3",
       "verified": {
-        "bytes": "0046b29f+58",
-        "sha1": "ab1cb532061f",
+        "bytes": "0046b29f+63",
+        "sha1": "921f297b4cc9",
         "scope": "body",
         "via": "decompile"
       }
@@ -24182,6 +24338,15 @@
       "name": "Mouse_ScaleY",
       "description": "Q16 factor (header int16 +0 << 16) / client height, Mouse_ScaleX's twin. DBSIM's 004a2de8 is the 16.15 equivalent.",
       "source": "VSHELL decompile and disassembly"
+    },
+    {
+      "address": "0046d740",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Shell_StartedFullScreen",
+      "description": "Int32, whether the shell started full screen. Shell_WinMain (00406507) clears it for a -d argument (0040656c) and then overwrites it with prefs.cfg option 6 (00406583), and goes full screen while it is set. es2_xref finds ten operands on it: those two stores, and reads in Shell_WinMain, Shell_CreateMainWindow, Movie_PlayQueue and Shell_BuildSimArgv, which releases DirectDraw while it is set and passes -Z while it is clear.",
+      "source": "docs/retail/command-line.md#vshells-unreferenced-simulator-command-line"
     },
     {
       "address": "0046dcc0",

@@ -64,16 +64,26 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `Sim_Shutdow
 | `-e…` other than `-eggplant` | `Shell_Language` (`0048227a`) = 3 | Language slot 3; see [Open](#open) |
 | `-f`, `-g` | `Shell_Language` = 1, 2 | French, German, over the value `EsGlobal_Init` copies from [`prefs.cfg` byte 43](simulation/preferences.md#what-each-byte-is); what it selects is [`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)'s |
 | `-s` | `Shell_SoundEnabled` (`00482272`) = 0 | No sound |
-| `-m` | `ShellSwitch_M` (`00482270`) = 1 | Read only by `Shell_BuildSimArgv` (`0042f2e8`), to which `es2_xref.py` finds no reference; no effect ([Rejected readings](#rejected-readings)) |
+| `-m` | `ShellSwitch_M` (`00482270`) = 1 | The one reader `es2_xref.py` finds builds [the unreferenced simulator command line](#vshells-unreferenced-simulator-command-line); no effect ([Rejected readings](#rejected-readings)) |
 | `-k` | `Shell_KeyboardEnabled` (`00482271`) = 0 | No keyboard: the startup builds no keyboard producer |
 | `-X<n>` | `Shell_SetExitCode(n)` → `0046e210` | Copied into `Shell_StartupCode` (`0048227e`) right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
 | `-r` | `Shell_StartupCode` = 3 | Overwritten by the `-X` copy; no effect ([`shell/campaign-loop.md`](shell/campaign-loop.md#rejected-readings)) |
 | `-@` | `Shell_MissionPickerEnabled` (`00482284`) = 1 | The mission picker below |
 | `-a` | `Shell_MoviesEnabled` (`00482275`) = 0 | Turns the shell's movies off: [the movie queue](shell/movies-and-sound.md#the-shells-movies) takes nothing and plays nothing |
-| `-l` | `ShellSwitch_L` (`00482280`) = 0 | Read only by `Shell_BuildSimArgv` (`0042f2e8`), to which `es2_xref.py` finds no reference; no effect |
+| `-l` | `ShellSwitch_L` (`00482280`) = 0 | The one reader `es2_xref.py` finds builds [the unreferenced simulator command line](#vshells-unreferenced-simulator-command-line); no effect |
 | `-v`, `-?` | `Shell_SoundEnabled` = 0 | `printf` the version or the usage text, turn sound off, and call `Shell_ShutdownDevicesAndSound` (`004092dc`). The parse runs before `Shell_Main` (`00401525`) builds `devices.cpp`'s viewport (`Devices_Init`, `0040db38`) and the sound manager, so that call releases nothing, and the parse goes on to the next argument |
 
-`-d`, tested separately in VSHELL's `Shell_WinMain` (`00406507`), clears `0046d740`, which the same function overwrites from `ShellOption_DisplayMode` before anything reads it.
+`-d`, tested separately in VSHELL's `Shell_WinMain` (`00406507`), clears `Shell_StartedFullScreen` (`0046d740`), which the same function overwrites from `ShellOption_DisplayMode` before anything reads it.
+
+### VSHELL's unreferenced simulator command line
+
+`Shell_BuildSimArgv` (`0042f2e8`) builds a DBSIM command line from the shell's own switches, but `es2_xref.py` finds no branch, stored pointer or vtable slot reaching it, and it spawns nothing: it returns the argument count and drops the array. `ES.EXE` [launches DBSIM](#the-loop) with its own list. What it builds:
+
+- Nothing unless `ShellSwitch_L` (`00482280`), which `-l` clears, and the exit code (`Shell_GetExitCode`, `00408778`) are both non-zero.
+- When `Shell_StartedFullScreen` (`0046d740`) is set, it first releases DirectDraw (`Display_ReleaseDirectDraw`, `00407011`).
+- Then a 16-pointer array (`Mem_NewArray(0x40)`): `dummy` and `-eggplant`; `-Z` when `Shell_StartedFullScreen` is clear; `-s` when `Shell_SoundEnabled` is clear; `-v3` and `-h` always; `-F` when `Shell_Language` is 1 and `-G` when it is 2; `-m` when `ShellSwitch_M` is set; `-D` when `ShellSwitch_D` (`00482282`) is non-zero; then an empty string.
+
+To DBSIM's parsers below, that `-Z` is windowed, so the simulator would open as the shell started; `-v3` is video mode 3; `-m` is the monochrome-monitor driver, not VSHELL's mouse switch; and `-D` plays a tape. Neither parser has an `h` case. The only store to `ShellSwitch_D` `es2_xref.py` finds is `EsGlobal_Init`'s 0.
 
 ### `-@`: the mission picker
 
@@ -107,7 +117,7 @@ Two parsers. `WinMain_ParseSwitches` (`0045e6b0`) (DBSIM) runs first from `WinMa
 | `-c` | block `+0x72` = 1 | |
 | `-X<n>` | `004d283c` | Zeroed by `Sim_Run` (`0045f144`) before `Sim_ParseCommandLine` runs; no effect |
 
-"Block" is the `0xc3`-byte global block at `004d2540` ([`simulation/cockpit-views.md`](simulation/cockpit-views.md#video-modes)). For `-T`, `-V`, `-W`, `-a` and `-c`, three searches find only the stores above ([Open](#open)): `es2_xref.py` on the five addresses, which finds one dword each in the whole PE, the parser's own; every absolute operand from `004d2590` to `004d25bf`, which also rules out a wider load overlapping one of these fields; and the displacements off the base in the fifteen register holders and the three blit helpers it is pushed to, none of which spills, copies or rebases it. The same searches find the reads of the neighbouring `+0x54`, `+0x7b` and `+0x7c`. No `.EXE` of either build passes any of the five: `ES.EXE`'s simulator list above has none of them, and VSHELL's unreferenced list below has none either.
+"Block" is the `0xc3`-byte global block at `004d2540` ([`simulation/cockpit-views.md`](simulation/cockpit-views.md#video-modes)). For `-T`, `-V`, `-W`, `-a` and `-c`, three searches find only the stores above ([Open](#open)): `es2_xref.py` on the five addresses, which finds one dword each in the whole PE, the parser's own; every absolute operand from `004d2590` to `004d25bf`, which also rules out a wider load overlapping one of these fields; and the displacements off the base in the fifteen register holders and the three blit helpers it is pushed to, none of which spills, copies or rebases it. The same searches find the reads of the neighbouring `+0x54`, `+0x7b` and `+0x7c`. No `.EXE` of either build passes any of the five: `ES.EXE`'s simulator list above has none of them, and [VSHELL's unreferenced list](#vshells-unreferenced-simulator-command-line) has none either.
 
 ### `-SPRUNKNOWN`: the developer keys
 
@@ -145,7 +155,7 @@ Both steps start at 2000, entry 3 of both tables: the mech module's static initi
 
 | Reading | Why it is wrong |
 |---|---|
-| VSHELL launches DBSIM, from its own argument list `dummy -eggplant -Z -s -v3 -h -F -G -m -D`. | That list is in VSHELL's data, and `Shell_BuildSimArgv` (`0042f2e8`, VSHELL) builds an `argv` from it, appending `-D` when `ShellSwitch_D` (`00482282`) is non-zero, and `-m` when `ShellSwitch_M` is. Ghidra never disassembled that function, and `es2_xref.py` finds no branch or stored pointer reaching it. It returns without spawning anything. `ES.EXE` launches DBSIM, with its own list. |
+| VSHELL launches DBSIM, from its own argument list `dummy -eggplant -Z -s -v3 -h -F -G -m -D`. | That list is in VSHELL's data, and `Shell_BuildSimArgv` (`0042f2e8`, VSHELL) builds an `argv` from it under the [conditions above](#vshells-unreferenced-simulator-command-line), but `es2_xref.py` finds no branch or stored pointer reaching it, and it returns without spawning anything. `ES.EXE` launches DBSIM, with its own list. |
 | VSHELL's `-m` turns the mouse off. | The usage text says so (`-m -M /m /M Disables mouse`), and the parser's `-m` case does store 1 in `ShellSwitch_M`. `Shell_Main` (`00401525`) builds the mouse producer without testing it, and its one reader `es2_xref.py` finds is `Shell_BuildSimArgv` (`0042f2e8`), to which `es2_xref.py` finds no reference, which would pass `-m` on to DBSIM. |
 | The demo attract mode cannot be started, because the `-D` in VSHELL's list sits behind a flag nothing sets. | That list is the unreferenced one above. The main menu's `VIEW DEMO` button exits the shell with code 5, and `ES.EXE` answers 5 with `dbsim … -D`. |
 | `ES.EXE` passes `-SPRUNKNOWN` to DBSIM on every launch. | The string is in its simulator list, but the slot is conditional on `ES.EXE` having been given `-SPRUNKNOWN` itself. |

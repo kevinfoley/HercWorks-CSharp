@@ -32,7 +32,7 @@ Reverse-engineered from `DBSIM.EXE` (`mechsys.cpp`) in the `ES2Recon` Ghidra pro
 | `+0x0c/0x0e/0x10` | short×3 | Euler angles; `+0x10` is heading (yaw) |
 | `+0x12` | 32 B | World transform record (Q14 matrix, translation at `+0x26`) — [`sim-object-layout.md`](sim-object-layout.md#the-objects-frame-is-a-transform-and-its-position-is-that-transforms-translation) |
 | `+0x26/0x2a/0x2e` | int×3 | World position X/Y/Z |
-| `+0x32` | short | Rotation-matrix-dirty flag |
+| `+0x32` | short | Rotation-matrix-valid flag: 0 makes the next reader rebuild `+0x12` from `+0x0c` and set it to 1 |
 | `+0x34` | ptr | `TSShapeInstance` |
 | `+0x1f2` | ptr | Mech type record (`MECH_TYPE_DATA[i]`) |
 | `+0x22c` | ptr | Animation thread (`mech[0x8b]`) |

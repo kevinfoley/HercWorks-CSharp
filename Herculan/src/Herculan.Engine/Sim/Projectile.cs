@@ -24,8 +24,8 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para><b>A shot's whole geometry is one transform.</b> The object carries a euler triple
 /// (<c>+0x0c</c>) and a transform (<c>+0x12</c>) whose translation <i>is</i> the shot's position
-/// (<c>+0x26</c>); the transform is rebuilt from the triple whenever a dirty flag at <c>+0x32</c>
-/// says the angles moved, which for everything but the homing branch means once, on the first tick.
+/// (<c>+0x26</c>); the transform is rebuilt from the triple whenever the frame-valid word at <c>+0x32</c>
+/// is 0, which the homing steer stores after moving the angles, which for everything but the homing branch means once, on the first tick.
 /// Flight is then <c>position = transform * (0, step, 0)</c> — the same "forward is model Y"
 /// convention the muzzle frame and the beam ray both use.</para>
 /// </summary>
@@ -126,7 +126,7 @@ public sealed class Projectile {
 	/// the original keeps no separate one.
 	///
 	/// <para>Reading it settles the rotation if the angles have moved since the last tick, which is
-	/// what the original's draw does too (<c>SimObject_InstallModelTransform</c> (<c>00401fe4</c>) runs the same dirty-flag rebuild before
+	/// what the original's draw does too (<c>SimObject_InstallModelTransform</c> (<c>00401fe4</c>) runs the same frame-valid rebuild before
 	/// it installs the model transform). Without it a shot would be drawn unrotated for the frames
 	/// between the tick that spawned it and the tick that first moves it.</para>
 	/// </summary>
@@ -345,7 +345,7 @@ public sealed class Projectile {
 	public SimObject? Target { get; internal set; }
 
 	/// <summary>
-	/// The dirty-flag rebuild at <c>+0x32</c>, which the tick performs twice and the draw a third
+	/// The rebuild while the frame-valid word at <c>+0x32</c> is 0, which the tick performs twice and the draw a third
 	/// time. The translation is left alone: <c>BuildEulerRotationMatrixQ14</c> writes the rotation
 	/// and the kind tag and nothing else, and the shot's position lives past them in the same struct.
 	/// </summary>

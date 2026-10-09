@@ -106,4 +106,4 @@ So a bitmap drawn in mode 2 is cut to the regions scanline by scanline — follo
 
 ## Open
 
-- **Open:** whether DBSIM ever draws a type-1 bitmap. Driver 3's span writers, `Driver3_SpanCopy` (`0048a382`) and `Driver3_SpanFill` (`0048a4a7`), index the row table with `EAX` after `MOV AX,DS` has replaced the low word of the row they loaded, so `Bitmap_BlitTransparent`'s runs would land on the row numbered `(y & 0xffff0000) | DS` rather than on row y.
+- **Deferred:** whether DBSIM ever draws a type-1 bitmap. Driver 3's span writers, `Driver3_SpanCopy` (`0048a382`) and `Driver3_SpanFill` (`0048a4a7`), index the row table with `EAX` after `MOV AX,DS` has replaced the low word of the row they loaded, so `Bitmap_BlitTransparent`'s runs would land on the row numbered `(y & 0xffff0000) | DS` rather than on row y.

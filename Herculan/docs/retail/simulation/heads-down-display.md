@@ -313,7 +313,7 @@ The magnifiers and the four arrows are widget presses rather than keys: `HddDisp
 
 ## Damage detail — page 1
 
-`HddDamageScreen_Ctor` (`0045079c`), updated by `HddDamageScreen_Update` (`00450c54`).
+`HddDamageScreen_Ctor` (`0045079c`), updated by `HddDamageScreen_Update` (`00450c54`) through the screen's vtable slots 0 and 1. `HddDisplay_RepaintPage` (`00449ebc`) runs slot 0, `HddDamageScreen_Repaint` (`00450b2c`), which sets the previous category `+0x80` to -1 so the update takes its category-changed path and redraws the whole page, and passes the update a flag of 0. `HddDisplay_PaintCurrentScreen` (`00449f3c`) runs slot 1 every frame, `HddDamageScreen_Tick` (`00450b4c`), which passes 1. The flag gates only the update's calls to `Widget_DrawToCockpit`, which copy each rect it redraws to the other display page; that copy acts only on the `-b` paged path ([`cockpit-input.md`](cockpit-input.md#painting-is-deferred-two-frames)), so on a normal launch the flag changes nothing on screen.
 
 Three categories, set by `HddDamageScreen_SetView` (`00450b60`), which also sets the row count:
 

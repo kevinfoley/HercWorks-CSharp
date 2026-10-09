@@ -56,7 +56,17 @@ A shallow edge's value is the outermost pixel its Bresenham line puts on that ro
 
 `Poly_ScanConvert` (`00465e0a`; DBSIM `00493086`) is the same scan converter writing `int32`: the region is `{top, count}` followed by `int32` `{x0, x1}` pairs, by the rules above. `Poly_ScanConvertEitherWinding` (`00465d39`; DBSIM `00492fb5`) and `Poly_ScanConvertReversed` (`00465db9`; DBSIM `00493035`) are its steps 1 and 2. `Poly_BuildSpanList` (`0043000d`; DBSIM `00472a08`) moves a polygon `{count, points*}` to the origin, scan-converts it, moves the spans back, and fills a header `{top, bottom, rows, first pair*}`.
 
-The walk cuts the polygon into four quadrants around a centre cell `(ox, oy)` with `Poly_ClipToHalfPlane` (`004300c7`; DBSIM `00472ac0`). `Poly_ClipToHalfPlane(keepHigh, alongX, value, in, out)` keeps the part of a polygon with `x` (or `y`) `≥ value` when `keepHigh` is set and `≤ value` otherwise, points on the line kept. It is one Sutherland–Hodgman pass with crossings computed from the previous point, truncating.
+The walk cuts the polygon into four quadrants around a centre cell `(ox, oy)` with `Poly_ClipToHalfPlane` (`004300c7`; DBSIM `00472ac0`). `Poly_ClipToHalfPlane(keepHigh, alongX, value, in, out)` keeps the part of a polygon with `x` (or `y`) `≥ value` when `keepHigh` is set and `≤ value` otherwise, points on the line kept, stores the new count in `out` and returns its low byte. It is one Sutherland–Hodgman pass, the first edge running from the last point to the first. Each point is on the kept side, on the line, or on the dropped side, and a 19-byte table at `004301da` (DBSIM `00472bdd`), indexed by `(keepHigh ? 0 : 10) + 3·previous + current + 4` with the sides as +1, 0 and −1, picks what each edge emits:
+
+| Previous | Current | Emits |
+|---|---|---|
+| any | on the line | the current point |
+| kept or on the line | kept | the current point |
+| dropped | kept | the crossing, then the current point |
+| kept | dropped | the crossing |
+| on the line or dropped | dropped | nothing |
+
+A crossing lies on the line, at `value` on the cut axis; for an `x` cut its `y` is `prev.y + (cur.y − prev.y) · (value − prev.x) / (cur.x − prev.x)` (the transpose for a `y` cut). Unlike the [rectangle clipper's](#clipping-to-a-rectangle), it is measured from the previous point, the product kept to 32 bits and the division truncating toward zero, so an edge can clip to a different point depending on which way it is walked.
 
 | Quadrant | Rows | Columns |
 |---|---|---|

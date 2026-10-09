@@ -112,6 +112,12 @@ public sealed class SceneItem {
 
 	/// <summary>Which child of <see cref="BspGroup"/> — the <see cref="BspLeaf.Index"/> its geometry was built under.</summary>
 	public int BspLeaf { get; set; }
+
+	/// <summary>
+	/// Which paint layer of its child of <see cref="BspGroup"/> this item is — <see cref="MeshCell.Layer"/>.
+	/// A child's layers are painted in ascending order, each over the ones before it.
+	/// </summary>
+	public int PaintLayer { get; set; }
 }
 
 /// <summary>
@@ -670,9 +676,12 @@ public sealed class SceneRenderer : IDisposable {
 		//   no more than its child's value (GEQUAL), writing that value where it lands. A child the
 		//   original paints later has therefore already claimed every pixel it covers, and nothing
 		//   painted before it can land there, nearer or not.
-		// - Within one child the depth test alone decides, and against the rest of the scene too.
+		// - A child painted in more than one layer (PaintLayers: a decal lying over an earlier poly of
+		//   its own child) takes a value per layer, the later layer the higher, in the same way.
+		// - Within one layer of one child the depth test alone decides, and against the rest of the
+		//   scene too.
 		//
-		// A coplanar marking or insignia in a later child wins its pixels outright, with no depth
+		// A coplanar marking or insignia in a later child or layer wins its pixels outright, with no depth
 		// precision involved. Polygon offset by walk rank or a depth-equal test would only settle
 		// exact ties; retail's later child also covers an earlier one that is genuinely nearer
 		// wherever a part's planes do not separate its children, and only the painted order
@@ -707,17 +716,22 @@ public sealed class SceneRenderer : IDisposable {
 		}
 
 		// Paints a group's children from the last-painted to the first, the child at `top` and the
-		// ones before it below, each child's nested groups under its own value. The order is the one
-		// PrepareBspGroup recorded.
+		// ones before it below: each child's layers from its last down, then its nested groups under
+		// its first layer's value. The order is the one PrepareBspGroup recorded.
 		void DrawStenciled(BspDrawGroup group, int top) {
 			for (int k = group.OrderCount - 1; k >= 0; k--) {
 				int leaf = group.Order[k];
-				_gl.StencilFunc(StencilFunction.Gequal, top, 0xff);
-				foreach (var item in group.Items[leaf]) {
-					Draw(item, group.LightRetarget[leaf]);
+				int layers = group.LayerCount(leaf);
+				for (int layer = layers - 1; layer >= 0; layer--) {
+					_gl.StencilFunc(StencilFunction.Gequal, top - (layers - 1 - layer), 0xff);
+					foreach (var item in group.Items[leaf]) {
+						if (item.PaintLayer == layer) {
+							Draw(item, group.LightRetarget[leaf]);
+						}
+					}
 				}
 
-				int below = top - 1;
+				int below = top - layers;
 				foreach (var child in group.Children[leaf]) {
 					DrawStenciled(child, below);
 					below -= child.StencilSpan();
@@ -734,8 +748,13 @@ public sealed class SceneRenderer : IDisposable {
 					DrawPainted(child);
 				}
 
-				foreach (var item in group.Items[leaf]) {
-					Draw(item, group.LightRetarget[leaf]);
+				int layers = group.LayerCount(leaf);
+				for (int layer = 0; layer < layers; layer++) {
+					foreach (var item in group.Items[leaf]) {
+						if (item.PaintLayer == layer) {
+							Draw(item, group.LightRetarget[leaf]);
+						}
+					}
 				}
 			}
 		}

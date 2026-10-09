@@ -40,9 +40,12 @@ public sealed class BspTree {
 	private readonly int[] _leafNodes;
 	private readonly bool[] _attachmentSlots;
 
+	private readonly bool _whole;
+
 	private BspTree(Vector4[] planes, int[] frames, short[] front, short[] back, int leafCount,
 			Dictionary<int, Vector3> restOffsets, Dictionary<short, int> leafOfPart, int[] leafNodes,
-			bool[] attachmentSlots) {
+			bool[] attachmentSlots, bool whole = false) {
+		_whole = whole;
 		_planes = planes;
 		_frames = frames;
 		_front = front;
@@ -120,6 +123,16 @@ public sealed class BspTree {
 			attachmentSlots);
 	}
 
+	/// <summary>
+	/// A tree of one child and no planes, which <see cref="PaintOrder"/> always paints: the geometry of a
+	/// shape that no <see cref="TSBSPPart"/> holds, made into a group only so that its paint layers are
+	/// painted through the stencil as a part's children are (<see cref="PaintLayers"/>). This engine's
+	/// own; it stands for no record in the file.
+	/// </summary>
+	public static BspTree Whole() =>
+		new(Array.Empty<Vector4>(), Array.Empty<int>(), Array.Empty<short>(), Array.Empty<short>(), 1,
+			new Dictionary<int, Vector3>(), new Dictionary<short, int>(), new[] { -1 }, new bool[1], whole: true);
+
 	/// <summary>The distinct frames the node planes and the children are in, each once.</summary>
 	public IEnumerable<int> Frames => _restOffsets.Keys;
 
@@ -189,7 +202,9 @@ public sealed class BspTree {
 	/// <returns>How many leaves were written.</returns>
 	public int PaintOrder(Func<int, Vector3> eyeInFrame, Span<int> order) {
 		int count = 0;
-		if (_planes.Length > 0) {
+		if (_whole && order.Length > 0) {
+			order[count++] = 0;
+		} else if (_planes.Length > 0) {
 			Walk(0, 0, eyeInFrame, order, ref count);
 		}
 

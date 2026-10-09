@@ -109,6 +109,7 @@ public sealed class TransientDrawItems(MissionScene scene, SceneUploads uploads,
 
 				item.BspGroup = group;
 				item.BspLeaf = leaf.Index;
+				item.PaintLayer = model.Cells[i].Layer;
 			} else {
 				InSlot(item);
 			}

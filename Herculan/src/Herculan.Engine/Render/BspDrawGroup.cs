@@ -7,8 +7,9 @@ namespace Herculan.Engine.Render;
 /// the <see cref="SceneItem"/>s that draw its children. <see cref="SceneRenderer"/> paints the children
 /// of a group in the tree's order for the eye, so that where two of them overlap on screen the one
 /// the walk reaches later is what shows, as in the original (docs/retail/rendering/dts-texture-binding.md,
-/// "<c>TSBSPPart</c> child selection"). An item joins a group through <see cref="SceneItem.BspGroup"/>
-/// and <see cref="SceneItem.BspLeaf"/>.
+/// "<c>TSBSPPart</c> child selection"), and each child's paint layers in ascending order
+/// (<see cref="PaintLayers"/>). An item joins a group through <see cref="SceneItem.BspGroup"/>,
+/// <see cref="SceneItem.BspLeaf"/> and <see cref="SceneItem.PaintLayer"/>.
 ///
 /// <para>A group can sit inside a child of another: a weapon's shape, whose own levels carry parts of
 /// their own, is drawn in the turn of the machine's hardpoint slot it is spliced into
@@ -102,8 +103,8 @@ public sealed class BspDrawGroup {
 	}
 
 	/// <summary>
-	/// How many stencil values painting this group takes this pass: one per child that draws
-	/// anything, plus whatever the groups drawn inside that child take.
+	/// How many stencil values painting this group takes this pass: one per paint layer of each child
+	/// that draws anything, plus whatever the groups drawn inside that child take.
 	/// </summary>
 	internal int StencilSpan() {
 		int span = 0;
@@ -120,12 +121,26 @@ public sealed class BspDrawGroup {
 			return 0;
 		}
 
-		int span = 1;
+		int span = LayerCount(leaf);
 		foreach (var child in Children[leaf]) {
 			span += child.StencilSpan();
 		}
 
 		return span;
+	}
+
+	/// <summary>
+	/// How many paint layers child <paramref name="leaf"/>'s items this pass run to
+	/// (<see cref="SceneItem.PaintLayer"/>), at least one. A layer below the top one with nothing drawn
+	/// this pass still takes its value, which costs nothing but the value.
+	/// </summary>
+	internal int LayerCount(int leaf) {
+		int top = 0;
+		foreach (var item in Items[leaf]) {
+			top = Math.Max(top, item.PaintLayer);
+		}
+
+		return top + 1;
 	}
 
 	/// <summary>The eye in a frame's own space, worked out once per frame per pass.</summary>

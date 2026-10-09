@@ -99,10 +99,6 @@ Every `dts\*.DTS` with a matching `dat\*.DAT`, 22 mechs:
 - **TOMAHAWK has 4 anomalous polys**, all identical: colour index 0 into a 1-entry surface array whose front and back values are both 3084 (`0xC0C`) against a 36-frame bank. Reads as a degenerate group in the source art.
 - **Three-vertex texture polys resolve too**, on the same corner order as quads — see [Three-vertex texture polys](#three-vertex-texture-polys).
 
-### Coincident twins
-
-Real DTS meshes stack a textured poly exactly on top of a flat-shaded twin — 186 such pairs in SAMSON's first root.
-
 ### Cutout frames
 
 `BASETEX` frames 11, 36, 38, 39, 52, 53, 60, 61 and 63-65 are 20-73% palette index 0 each: the lattice girders on a structure's support towers, which show sky through the frame. Mech skins carry a handful of stray index-0 texels that are paint, not cutouts (9 of 44376 in `LIGHT`, 7 of 68464 in `MEDIUM`).
@@ -314,6 +310,14 @@ Per **poly**, not per pixel. Takes the poly's own stored normal and centre point
 A result of zero is "back", which is every answer a poly with a zero stored normal gets: 175 of the 261 retail line polys and 9 of the 80 point polys carry `(0, 0, 0)`, all of them drawing alike from both sides.
 
 The centre is the stored one, not a corner, and it need not lie on the poly's plane: 7644 of the 47080 retail polys of three or more corners have a centre more than one unit off their own plane, as far as 695 units off on a `CERBERUS.DTS` root 4 poly whose corners lie within 714 units of it. For such a poly the answer differs from one measured at a corner whenever the eye is between the poly's plane and the parallel plane through its centre.
+
+### Poly order within a group
+
+**A shape's polys are painted one after another, and wherever two overlap on screen the later one shows.** `TSGroup_RenderPolys` (`004758c8`) draws a group's polys in file order, and `TSPartList_Render` (`004766fc`) a part list's children in order. With the [depth buffer](#the-depth-buffer) off, nothing between them tests depth: the [front/back test](#tspoly_frontbackvisibilitytest) decides which polys draw at all, and among those the order decides what is on top. The children of a `TSBSPPart` are ordered by its tree walk instead ([below](#tsbsppart-child-selection)).
+
+**Decals rely on it.** The TDF logo, `BASETEX` frame 25, is a `TSTexture4Poly` of its own, painted after the wall it sits on in the same `TSBSPPart` child: on `BASES.DGS` shapes 1, 2, 4, 12 and 40 (structure types 1, 2, 4, 16 and 17) and `BASES_AN.DTS` root 0 (type 5). Several are not in their wall's plane. Shape 1's tilts from 19.4 units behind its wall to 9.1 in front of it, shape 12's stand up to 44.4 units off theirs and root 0's up to 47.3. Painted after the wall, each shows whole.
+
+**Coincident twins.** Across the retail `.DTS` and `.DGS` files, 84 pairs of polys drawn together in one `TSBSPPart` child, cell and detail level share their corners and their facing. Every pair is of one type but one: 73 `TSShadedPoly`, 8 `TSGouraudPoly`, 2 `TSSolidPoly`, and a `TSShadedPoly` followed by a `TSGouraudPoly` in `BHULKS.DGS` shape 0. Some pairs name different ramps, such as ramp 2 then 12 on `APOCA.DTS` root 6, and the later one is what shows. A textured poly over the same corners as an untextured one is common, 4199 pairs and 46 of them in `SAMSON.DTS` root 0, but 4183 of those pairs are two cells of one sequence or two levels of one detail part, which are never on screen together.
 
 ### `TSBSPPart` child selection
 

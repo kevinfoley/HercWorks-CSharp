@@ -68,8 +68,9 @@ public readonly record struct CellGate(short Sequence, short Frame, PartDetail? 
 /// <param name="PointVertexCount">How many trailing vertices are points — see <see cref="MeshBuild"/>.</param>
 /// <param name="Leaf">The <see cref="TSBSPPart"/> child this segment is, or null — see <see cref="BspLeaf"/>.</param>
 /// <param name="Ground">Whether this segment is the shape's ground plane — see <see cref="MeshCell.Ground"/>.</param>
+/// <param name="Layer">The paint layer of its slot it is — see <see cref="MeshCell.Layer"/>.</param>
 public readonly record struct MeshSegment(int TransformId, CellGate Gate, MeshVertex[] Vertices,
-	int TriangleVertexCount, int PointVertexCount = 0, BspLeaf? Leaf = null, bool Ground = false);
+	int TriangleVertexCount, int PointVertexCount = 0, BspLeaf? Leaf = null, bool Ground = false, int Layer = 0);
 
 /// <summary>
 /// One cell's share of a shape's geometry, at the rest pose <see cref="DtsMeshBuilder.BuildRoot"/>
@@ -89,8 +90,13 @@ public readonly record struct MeshSegment(int TransformId, CellGate Gate, MeshVe
 /// depth-tested against the terrain it lies in — see <see cref="GroundShapeLayer.ObjectGround"/>, and
 /// <c>LiesInGroundPlane</c> for the rule.
 /// </param>
+/// <param name="Layer">
+/// Which paint layer of its slot this piece is, 0 the first painted — see <see cref="PaintLayers"/>. A
+/// piece of a layered slot outside every <c>TSBSPPart</c> carries a <paramref name="Leaf"/> of
+/// <see cref="BspTree.Whole"/>, so that it is painted through the same group machinery.
+/// </param>
 public readonly record struct MeshCell(CellGate Gate, MeshVertex[] Vertices, int TriangleVertexCount,
-	int PointVertexCount = 0, BspLeaf? Leaf = null, bool Ground = false);
+	int PointVertexCount = 0, BspLeaf? Leaf = null, bool Ground = false, int Layer = 0);
 
 /// <summary>
 /// A built mesh: filled triangles first, then the outline edges that are drawn over them as lines,
@@ -201,7 +207,7 @@ public static partial class DtsMeshBuilder {
 		/// </summary>
 		public (float A, float B, float C) UvWeights { get; }
 
-		/// <summary>Which twin of a coincident pair wins — see <see cref="DropCoincidentTwins"/>.</summary>
+		/// <summary>What this triangle's fill resolved to — see <see cref="Ranks"/>.</summary>
 		public int Rank { get; }
 
 		/// <summary>
@@ -431,8 +437,8 @@ public static partial class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// How good a triangle is as the survivor of a coincident group, highest wins. The ordering is
-	/// the whole point of <see cref="DropCoincidentTwins"/> and is documented there.
+	/// What a triangle's fill resolved to: only <see cref="Textured"/> samples the atlas, and an
+	/// <see cref="UnresolvedTexture"/> draws a placeholder colour.
 	/// </summary>
 	private static class Ranks {
 		/// <summary>A texture poly with no atlas frame behind it — a placeholder colour, worst option.</summary>
@@ -592,10 +598,8 @@ public static partial class DtsMeshBuilder {
 	/// <see cref="ResolveGroupOffset"/> works out and hands back one rigid mesh. That is still what a
 	/// structure wants — nothing animates it — but it is why a HERC's legs never moved.</para>
 	///
-	/// <para>Coincident-twin removal (<see cref="DropCoincidentTwins"/>) runs across the whole shape
-	/// first, in the shared rest-pose space, exactly as it does for the flat build: a textured poly
-	/// and its flat-shaded twin always belong to the same group, so splitting afterwards keeps the
-	/// same survivor either way.</para>
+	/// <para>Coincident-twin removal (<see cref="DropCoincidentTwins"/>) and the paint layers
+	/// (<see cref="PaintLayers"/>) run across the whole shape first, in the shared rest-pose space.</para>
 	///
 	/// <para>Every cell of every <see cref="TSCellAnimPart"/> is built, each into its own segment
 	/// under its own <see cref="CellGate"/>, because a machine's cells are damage state rather than

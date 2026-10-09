@@ -115,25 +115,25 @@ public static partial class DtsMeshBuilder {
 			outlineFillRamp: edge.OutlineFillRamp);
 
 	/// <summary>
-	/// The surviving triangles grouped by the node that places them, the cell they stand on and the
-	/// <see cref="TSBSPPart"/> child they belong to, each in that node's own space. Pieces come back
-	/// in ascending transform id, then sequence, then frame, then child, which is only for stable
-	/// output — nothing reads the order.
+	/// The surviving triangles grouped by the node that places them, the cell they stand on, the
+	/// <see cref="TSBSPPart"/> child they belong to and their paint layer, each in that node's own
+	/// space. Pieces come back in ascending transform id, then sequence, then frame, then child, then
+	/// layer, which is only for stable output — nothing reads the order.
 	/// </summary>
 	private static MeshSegment[] EmitSegments(Collector sink) =>
 		Partition(sink, local: true, (key, vertices, triangleVertices, pointVertices) =>
 			new MeshSegment(key.TransformId, key.Gate, vertices, triangleVertices, pointVertices, key.Leaf,
-				key.Ground));
+				key.Ground, key.Layer));
 
 	/// <summary>
-	/// The same split by cell and <see cref="TSBSPPart"/> child alone, at the baked rest pose
-	/// <see cref="Emit"/> writes — for a shape whose cells the simulation drives but whose nodes
+	/// The same split by cell, <see cref="TSBSPPart"/> child and paint layer alone, at the baked rest
+	/// pose <see cref="Emit"/> writes — for a shape whose cells the simulation drives but whose nodes
 	/// nothing poses. See <see cref="MeshCell"/>.
 	/// </summary>
 	private static MeshCell[] EmitCells(Collector sink) =>
 		Partition(sink, local: false, (key, vertices, triangleVertices, pointVertices) =>
-				new MeshCell(key.Gate, vertices, triangleVertices, pointVertices, key.Leaf, key.Ground))
-			.GroupBy(cell => (cell.Gate, cell.Leaf, cell.Ground))
+				new MeshCell(key.Gate, vertices, triangleVertices, pointVertices, key.Leaf, key.Ground, key.Layer))
+			.GroupBy(cell => (cell.Gate, cell.Leaf, cell.Ground, cell.Layer))
 			.Select(MergeCells)
 			.ToArray();
 
@@ -141,10 +141,11 @@ public static partial class DtsMeshBuilder {
 	/// One cell's geometry from however many nodes carried it. <see cref="Partition"/> keys on the
 	/// node as well because a segment needs it; a cell placed at the rest pose does not, so the
 	/// node's share of one cell is folded back together into a single piece. A BSP part's children
-	/// stay apart, because the renderer orders them, and so does the ground plane, which it draws
-	/// with the ground.
+	/// and a slot's paint layers stay apart, because the renderer orders them, and so does the ground
+	/// plane, which it draws with the ground.
 	/// </summary>
-	private static MeshCell MergeCells(IGrouping<(CellGate Gate, BspLeaf? Leaf, bool Ground), MeshCell> pieces) {
+	private static MeshCell MergeCells(
+			IGrouping<(CellGate Gate, BspLeaf? Leaf, bool Ground, int Layer), MeshCell> pieces) {
 		var parts = pieces.ToArray();
 		if (parts.Length == 1) {
 			return parts[0];
@@ -173,38 +174,53 @@ public static partial class DtsMeshBuilder {
 		}
 
 		return new MeshCell(pieces.Key.Gate, vertices, triangleVertices, pointVertices, pieces.Key.Leaf,
-			pieces.Key.Ground);
+			pieces.Key.Ground, pieces.Key.Layer);
 	}
 
 	/// <summary>
 	/// The shared split behind <see cref="EmitSegments"/> and <see cref="EmitCells"/>: survivors
-	/// bucketed by node, cell, <see cref="TSBSPPart"/> child and ground plane, each bucket emitted as triangles,
-	/// then the outline edges and then the points belonging to the same bucket.
+	/// bucketed by node, cell, <see cref="TSBSPPart"/> child, paint layer and ground plane, each bucket
+	/// emitted as triangles, then the outline edges and then the points belonging to the same bucket.
+	///
+	/// <para>The paint layers are worked out over the survivors, the ground plane left out because it is
+	/// painted with the ground. When the geometry outside every part is layered, all of it joins one
+	/// <see cref="BspTree.Whole"/> child, so its layers are painted as a part's are.</para>
 	/// </summary>
 	private static T[] Partition<T>(Collector sink, bool local,
 			Func<PieceKey, MeshVertex[], int, int, T> make) {
 		var kept = DropCoincidentTwins(sink.Triangles, leavesApart: true);
 		var edges = SurvivingOutlines(kept, sink.Outlines);
 
+		var layers = PaintLayers.Assign(kept.Where(triangle => !triangle.Ground).Select(triangle =>
+			new PaintLayers.Face(triangle.PolyId, triangle.Leaf, triangle.TransformId, triangle.Gate,
+				triangle.Side, triangle.Dependency,
+				triangle.FaceNormal ?? Vector3.Cross(triangle.C - triangle.A, triangle.B - triangle.A),
+				triangle.A, triangle.B, triangle.C)));
+		BspLeaf? whole = layers.Layered(null) ? new BspLeaf(BspTree.Whole(), 0) : null;
+
+		PieceKey KeyOf(int transformId, CellGate gate, BspLeaf? leaf, bool ground, int polyId) => ground
+			? new PieceKey(transformId, gate, leaf, Ground: true, Layer: 0)
+			: new PieceKey(transformId, gate, leaf ?? whole, Ground: false, layers.LayerOf(leaf, polyId));
+
 		var byNode = new Dictionary<PieceKey, List<Triangle>>();
 		foreach (var triangle in kept) {
-			var key = new PieceKey(triangle.TransformId, triangle.Gate, triangle.Leaf, triangle.Ground);
+			var key = KeyOf(triangle.TransformId, triangle.Gate, triangle.Leaf, triangle.Ground, triangle.PolyId);
 			if (!byNode.TryGetValue(key, out var list)) {
 				byNode[key] = list = new List<Triangle>();
 			}
 			list.Add(triangle);
 		}
 
-		// An outline rides the same node and the same cell its poly does, so it goes into that
-		// bucket, and so does a point. A bucket whose only geometry is line or point polys carries no
+		// An outline rides the same node, cell and layer its poly does, so it goes into that bucket,
+		// and so does a point. A bucket whose only geometry is line or point polys carries no
 		// triangles, so the list below is the union of all three keyings rather than the triangles'
 		// alone.
-		var edgesByNode = ByNode(edges);
-		var pointsByNode = ByNode(sink.Points);
+		var edgesByNode = ByNode(edges, KeyOf);
+		var pointsByNode = ByNode(sink.Points, KeyOf);
 
 		var keys = byNode.Keys.Concat(edgesByNode.Keys).Concat(pointsByNode.Keys).Distinct()
 			.OrderBy(key => key.TransformId).ThenBy(key => key.Gate.Sequence).ThenBy(key => key.Gate.Frame)
-			.ThenBy(key => key.Leaf?.Index ?? -1).ThenBy(key => key.Ground)
+			.ThenBy(key => key.Leaf?.Index ?? -1).ThenBy(key => key.Layer).ThenBy(key => key.Ground)
 			.ToArray();
 		var pieces = new T[keys.Length];
 		int next = 0;
@@ -235,12 +251,13 @@ public static partial class DtsMeshBuilder {
 	}
 
 	/// <summary>What <see cref="Partition"/> buckets by.</summary>
-	private readonly record struct PieceKey(int TransformId, CellGate Gate, BspLeaf? Leaf, bool Ground);
+	private readonly record struct PieceKey(int TransformId, CellGate Gate, BspLeaf? Leaf, bool Ground, int Layer);
 
-	private static Dictionary<PieceKey, List<OutlineEdge>> ByNode(List<OutlineEdge> edges) {
+	private static Dictionary<PieceKey, List<OutlineEdge>> ByNode(List<OutlineEdge> edges,
+			Func<int, CellGate, BspLeaf?, bool, int, PieceKey> keyOf) {
 		var byNode = new Dictionary<PieceKey, List<OutlineEdge>>();
 		foreach (var edge in edges) {
-			var key = new PieceKey(edge.TransformId, edge.Gate, edge.Leaf, edge.Ground);
+			var key = keyOf(edge.TransformId, edge.Gate, edge.Leaf, edge.Ground, edge.PolyId);
 			if (!byNode.TryGetValue(key, out var list)) {
 				byNode[key] = list = new List<OutlineEdge>();
 			}
@@ -315,22 +332,13 @@ public static partial class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// Real DTS meshes stack a textured poly precisely on top of a flat-shaded twin occupying the
-	/// exact same surface — 186 such pairs in <c>SAMSON.DTS</c>'s first root alone, with identical
-	/// centroid and normal. Both drawn, they land at identical depth, so which one is visible comes
-	/// down to draw order rather than anything meaningful. Exactly one survives per coincident group
-	/// and per side it is seen from, picked by <see cref="Ranks"/>.
-	///
-	/// <para><b>That preference is the inverse of what it was before texturing existed.</b> While
-	/// <see cref="TSTexture4Poly"/> could only render as a placeholder colour, the flat-shaded twin
-	/// was the only one that could look right and deliberately won every tie. Now that a texture poly
-	/// resolves to real atlas pixels it is the one the original actually draws, so it has to win —
-	/// leaving the old preference in place would load and pack every texture and then systematically
-	/// hide it behind the untextured twin.</para>
-	///
-	/// <para>A texture poly that did <i>not</i> resolve (no atlas supplied, or a frame index outside
-	/// the bank) still loses to the flat-shaded twin, which is why this is a three-way rank rather
-	/// than a flipped boolean: the no-bank path keeps behaving exactly as it did before.</para>
+	/// Two triangles over the same surface — same rounded centroid, same axis — both drawn, would tie
+	/// in the depth buffer. The original paints one after the other, so the later one in the shape's
+	/// paint order is what shows (docs/retail/rendering/dts-texture-binding.md, "Poly order within a
+	/// group"), and that is the one kept, per side it is seen from. Dropping the earlier puts the same
+	/// pixels on screen as painting the later over it, without spending a paint layer
+	/// (<see cref="PaintLayers"/>) on it; a twin fanned from a different corner matches no triangle
+	/// here and is left to the layers.
 	///
 	/// <para>Grouping uses a coarsely-rounded centroid plus the absolute normal, so opposite-winding
 	/// duplicates of one surface land together while genuinely distinct nearby triangles do not.</para>
@@ -346,7 +354,7 @@ public static partial class DtsMeshBuilder {
 	/// twins in two children of one part are ordered by the part's walk, which the renderer
 	/// reproduces for pieces split by child, so neither is dropped there. The single flat mesh
 	/// <see cref="Emit"/> builds keeps no children apart and nothing orders them, so it still keeps
-	/// one twin.</para>
+	/// one twin, the later in file order.</para>
 	///
 	/// <para><b>So is the side each twin is seen from.</b> A copy that draws one side only
 	/// (<see cref="Triangle.Side"/>) never meets a twin drawn only from the other, and most coincident
@@ -389,10 +397,8 @@ public static partial class DtsMeshBuilder {
 				var key = (keys[i].Surface, triangle.Gate, leavesApart ? triangle.Leaf : null,
 					(keys[i].FrontFacing * side, triangle.Dependency.Side));
 
-				// A strictly better-ranked twin replaces the one already kept; ties go to the first seen.
-				if (!winners.TryGetValue(key, out int existing) || triangle.Rank > triangles[existing].Rank) {
-					winners[key] = i;
-				}
+				// The triangles are in paint order, so each replaces any twin already seen.
+				winners[key] = i;
 			}
 		}
 

@@ -271,6 +271,7 @@ public sealed class WorldDrawItems {
 
 						part.BspGroup = group;
 						part.BspLeaf = leaf.Index;
+						part.PaintLayer = segment.Layer;
 					}
 
 					segmentItems[i] = part;
@@ -327,7 +328,7 @@ public sealed class WorldDrawItems {
 				var part = new SceneItem(cells[i], MissionScene.TransformOf(sceneObject), texture) {
 					LightSubject = sceneObject.Object
 				};
-				JoinGroundOrBspGroup(part, cell.Ground, cell.Leaf, cellGroups, sceneObject);
+				JoinGroundOrBspGroup(part, cell, cellGroups, sceneObject);
 
 				cellItems[i] = part;
 				built.Add(part);
@@ -406,7 +407,7 @@ public sealed class WorldDrawItems {
 					LightSubject = structure,
 					Visible = false
 				};
-				JoinGroundOrBspGroup(hulkItem, hulk.Cells[i].Ground, hulk.Cells[i].Leaf, hulkGroups, sceneObject);
+				JoinGroundOrBspGroup(hulkItem, hulk.Cells[i], hulkGroups, sceneObject);
 
 				hulkItems[i] = (hulkItem, gate);
 				built.Add(hulkItem);
@@ -422,14 +423,14 @@ public sealed class WorldDrawItems {
 	// A piece baked at the rest pose joins its object's group for the part it is a child of,
 	// whose planes sit at the rest pose in front of the object's own frame -- unless it is the shape's
 	// ground plane, which is painted with the ground instead, ahead of every child (MeshCell.Ground).
-	private void JoinGroundOrBspGroup(SceneItem item, bool ground, BspLeaf? leaf,
-			Dictionary<BspTree, BspDrawGroup> groups, SceneObject owner) {
-		if (ground) {
+	private void JoinGroundOrBspGroup(SceneItem item, MeshCell cell, Dictionary<BspTree, BspDrawGroup> groups,
+			SceneObject owner) {
+		if (cell.Ground) {
 			GroundLayer.ObjectGround.Add(item);
 			return;
 		}
 
-		if (leaf is not { } child) {
+		if (cell.Leaf is not { } child) {
 			return;
 		}
 
@@ -440,6 +441,7 @@ public sealed class WorldDrawItems {
 
 		item.BspGroup = group;
 		item.BspLeaf = child.Index;
+		item.PaintLayer = cell.Layer;
 	}
 
 	// Which root of each machine's shape is drawn this frame -- Shape_DrawAtDetailLevel (004033e4),
